@@ -35,6 +35,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/servicelogs"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/shellypresets"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storagehealth"
@@ -107,6 +108,11 @@ func main() {
 		log.Fatalf("energy-node-dashboard: auth store failed: %v", err)
 	}
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
+	// Nur ein echter Reader im Interface, sonst waere ServiceLogs nie nil.
+	var serviceLogs httpapi.ServiceLogReader
+	if cfg.Dashboard.SystemActionHelper != "" {
+		serviceLogs = servicelogs.NewReader(nil, cfg.Dashboard.SystemActionHelper)
+	}
 
 	candidateDir := filepath.Join(dataDir, "redeploy-candidate")
 	// Fetching the newest bundle needs to know which architecture to ask
@@ -512,6 +518,7 @@ func main() {
 			Auth:                authManager,
 			AdminAuthWarningKey: adminAuthWarningKey,
 			SystemActions:       systemExecutor,
+			ServiceLogs:         serviceLogs,
 			StartedAt:           startedAt,
 			DeviceFilter:        deviceFilterStore,
 			DeviceActions:       client,
