@@ -1125,12 +1125,30 @@ test('der Verwerfen-Knopf steht nur bei Aenderungen und fuehrt durch den Waechte
   assert.equal(btn.hidden, false, 'bei Aenderungen erscheint er');
   let saved = 0;
   dom.window.addEventListener('layout-saved', () => { saved += 1; });
+  let left = 0;
+  dom.window.document.addEventListener('layout-editor:request-leave', () => { left += 1; });
   btn.click();
   await Promise.resolve();
   dom.window.document.querySelector('[data-guard-discard]').click();
   for (let i = 0; i < 5; i++) await Promise.resolve();
   assert.equal(editor.unsaved, false, 'der Waechter hat verworfen');
   assert.equal(saved, 1, 'die Uebersicht holt ihr Fragment neu');
+  assert.equal(left, 1, 'der Bearbeiten-Modus wird beendet');
+});
+
+test('Verwerfen abbrechen laesst den Bearbeiten-Modus offen', async () => {
+  const { dom, editor } = createEditorWithFragment('<div class="layout-toolbar"></div><div class="layout-grid"></div>');
+  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  editor.load = async () => {};
+  editor.markUnsaved();
+  let left = 0;
+  dom.window.document.addEventListener('layout-editor:request-leave', () => { left += 1; });
+  dom.window.document.querySelector('.layout-toolbar [data-mode-discard]').click();
+  await Promise.resolve();
+  dom.window.document.querySelector('[data-guard-cancel]').click();
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  assert.equal(editor.unsaved, true);
+  assert.equal(left, 0);
 });
 
 test('der Wechsel zurueck auf Editorbreite animiert ueber die Pixelbreite statt auf auto zu springen', () => {

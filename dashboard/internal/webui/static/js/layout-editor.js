@@ -1515,15 +1515,17 @@
     // "Änderungen verwerfen" aus der Werkzeugleiste: fragt ueber denselben
     // Waechter wie das Verlassen (confirmLeave oeffnet #layout-guard-modal in
     // den Projektfarben) und laedt bei Bestaetigung den gespeicherten Stand
-    // neu - der Editor bleibt offen. confirmLeave() leert unsaved schon und
-    // stoesst load() an; das layout-saved-Ereignis laesst zusaetzlich die
-    // Uebersicht ihr Fragment neu holen, damit auch lokale Umbauten (neue
-    // Karten, Umsortierungen) aus dem Raster verschwinden.
+    // neu. confirmLeave() leert unsaved schon und stoesst load() an; das
+    // layout-saved-Ereignis laesst zusaetzlich die Uebersicht ihr Fragment
+    // neu holen, damit auch lokale Umbauten (neue Karten, Umsortierungen) aus
+    // dem Raster verschwinden. Danach endet der Bearbeiten-Modus wie nach
+    // "Speichern & schliessen" (layout-editor:request-leave).
     async discardChanges() {
       if (!this.unsaved) return;
       const discarded = await this.confirmLeave('discard');
       if (!discarded) return;
       window.dispatchEvent(new CustomEvent('layout-saved'));
+      document.dispatchEvent(new CustomEvent('layout-editor:request-leave'));
     },
 
     setToolbox(open) {
