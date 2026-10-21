@@ -2823,3 +2823,37 @@ func TestEnergyChannelRules(t *testing.T) {
 		t.Fatalf("channel 17: err = %v, want error.energy_roles_rejected.channel_invalid", err)
 	}
 }
+
+func TestDiffDeviceMap(t *testing.T) {
+	base := DeviceMap{
+		Version: 1,
+		Nodes:   []DeviceMapNode{{DeviceID: "device_a", X: 1, Y: 1}},
+		View:    DeviceMapView{SnapToGrid: true, GridSize: 20, EdgeStyle: "curved"},
+	}
+	cases := []struct {
+		name      string
+		next      func(DeviceMap) DeviceMap
+		structure bool
+		view      bool
+	}{
+		{"same map", func(m DeviceMap) DeviceMap { return m }, false, false},
+		{"only show_grid changed", func(m DeviceMap) DeviceMap {
+			m.View.ShowGrid = true
+			return m
+		}, false, true},
+		{"only a node moved", func(m DeviceMap) DeviceMap {
+			m.Nodes = []DeviceMapNode{{DeviceID: "device_a", X: 5, Y: 1}}
+			return m
+		}, true, false},
+		{"only sub_devices changed", func(m DeviceMap) DeviceMap {
+			m.SubDevices = []DeviceMapSubDevice{{ID: "sub:x", Label: "Washer"}}
+			return m
+		}, false, false},
+	}
+	for _, tc := range cases {
+		structure, view := DiffDeviceMap(base, tc.next(base))
+		if structure != tc.structure || view != tc.view {
+			t.Errorf("%s: DiffDeviceMap() = (%v, %v), want (%v, %v)", tc.name, structure, view, tc.structure, tc.view)
+		}
+	}
+}

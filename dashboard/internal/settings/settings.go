@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -1213,6 +1214,21 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 		value.View.EdgeStyle = "curved"
 	}
 	return value
+}
+
+// DiffDeviceMap says which part of a device map a save changes. Both maps
+// are normalized first and SubDevices are ignored, because the handler keeps
+// the stored sub-devices. view is true when the default view differs. structure
+// is true when anything else differs, for example a node position or a
+// connection.
+func DiffDeviceMap(stored, next DeviceMap) (structure, view bool) {
+	stored = normalizeDeviceMap(stored)
+	next = normalizeDeviceMap(next)
+	view = stored.View != next.View
+	stored.View, next.View = DeviceMapView{}, DeviceMapView{}
+	stored.SubDevices, next.SubDevices = nil, nil
+	structure = !reflect.DeepEqual(stored, next)
+	return structure, view
 }
 
 // maxSubDeviceLabelRunes is the longest sub-device label, counted in runes.
