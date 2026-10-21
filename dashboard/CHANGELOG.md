@@ -1,9 +1,10 @@
 # Changelog
 
-## v0.10.2 (2026-10-21)
+## v0.10.3 (2026-10-21)
 
 ### Features
 
+- **webui:** end edit mode when changes are discarded (30afe53)
 - **settings:** update notice as a row with one update button (60a73fa)
 
 ### Fixes
@@ -12,8 +13,20 @@
 
 ### Refactors
 
+- **common:** clean up the slave status and hooks (#155) (00ddbed)
+- **webui:** remove the unreachable Gridstack path from the layout editor (269a4f1)
+- **webui:** drop unused layout editor helpers (2a66065)
+- **webui:** remove Gridstack (#156)
 - **webui:** drop the unreachable pending runtime status (9c2eb2b)
-- **common:** clean up the slave status and hooks (#155)
+
+### Documentation
+
+- remove the remaining Gridstack references (1f5d014)
+
+### Chores
+
+- **webui:** drop the unused Gridstack library (b6cfe5f)
+- **webui:** bump the layout editor asset version (9e37aa8)
 
 ## v0.10.0 (2026-10-19)
 
