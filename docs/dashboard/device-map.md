@@ -47,7 +47,11 @@ The view belongs to the browser you use. Switching a layer, a connection type
 or a menu option changes only this browser, and a reload keeps it. When this
 view differs from the saved default, the menu says so. Save as default writes
 the current view into the map, so every browser starts with it. Restore default
-brings the saved default back in this browser.
+brings the saved default back in this browser. The save button of the toolbar
+saves the view of this browser together with the positions and connections.
+
+The filter button next to the view menu hides connections by type and the lines
+to the automation node.
 
 ## Connection types
 

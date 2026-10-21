@@ -1742,7 +1742,7 @@
       },
 
       wiringFilterActive() {
-        return window.DeviceMapWiring.TYPES.some(type => !this.view.wiring_types[type]);
+        return window.DeviceMapWiring.TYPES.some(type => !this.view.wiring_types[type]) || Boolean(this.view.hide_automation_links);
       },
 
       energyFlowHidden() {
@@ -2466,7 +2466,7 @@
           // The switch roles live in the energy roles, the map keeps only the
           // edge channels (edge_props).
           // sub_devices go back unchanged, the server keeps its own copy anyway.
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.serverView, sub_devices: this.subDevices()};
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.canEditMapView ? this.view : this.serverView, sub_devices: this.subDevices()};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
@@ -2475,6 +2475,12 @@
           this.deviceMap = value;
           this.savedDeviceMap = JSON.parse(JSON.stringify(value));
           this.unsaved = false;
+          // The save carries the display changes of this browser along, so
+          // they become the default and the browser deviation is gone.
+          if (this.canEditMapView) {
+            this.localView = {};
+            window.DeviceMapViewPrefs.store(viewStorage(), this.localView);
+          }
           this.$store.toasts.push(t('devicemap.positions_saved'));
           this.notifyMapChanged();
         } catch (error) {

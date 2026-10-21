@@ -781,16 +781,16 @@ test('wiring edges become a dotted track when only the energy layer is on', () =
   assert.equal(component.graphStyle().find(rule => rule.selector === 'edge.devicemap-wiring').style.display, 'none');
 });
 
-test('save() sends the server view, not the layers this browser toggled', async () => {
+test('save() writes the layers this browser toggled and drops the browser deviation', async () => {
   let body;
   const fetchImpl = async (url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({}) }; };
   const { component } = createDevicemapPanel({ fetchImpl });
   component.deviceMap = { version: 1, nodes: [], edges: [] };
   component.toggleLayer('wiring');
   await component.save();
+  assert.equal(body.view.layers.wiring, false);
+  assert.equal(component.viewDiffersFromDefault(), false);
   assert.equal(component.view.layers.wiring, false);
-  assert.deepEqual(body.view.layers, { wiring: true, energy: true, balance: false, data: false });
-  assert.equal(body.view.width_by_power, false);
 });
 
 test('tapping a node outside connect mode focuses it and its direct neighbours', async () => {
@@ -3162,17 +3162,26 @@ test('load() shows the stored setting on top of a server view that differs in an
   assert.equal(component.view.show_grid, true);
 });
 
-test('save() sends the server view, so a browser-only grid change is not written to the map', async () => {
+test('save() without the view role sends the server view and keeps the browser deviation', async () => {
   let body;
   const fetchImpl = async (url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({}) }; };
   const { component } = createDevicemapPanel({ fetchImpl });
   component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.canEditMapView = false;
   component.toggleShowGrid();
 
   await component.save();
 
-  assert.equal(component.view.show_grid, true);
   assert.equal(body.view.show_grid, false);
+  assert.equal(component.view.show_grid, true);
+  assert.equal(component.viewDiffersFromDefault(), true);
+});
+
+test('hiding the automation lines counts as an active filter', () => {
+  const { component } = createDevicemapPanel();
+  assert.equal(component.wiringFilterActive(), false);
+  component.toggleAutomationLinks();
+  assert.equal(component.wiringFilterActive(), true);
 });
 
 test('saveDefaultView writes the browser view as the server default and keeps positions and the unsaved flag', async () => {
