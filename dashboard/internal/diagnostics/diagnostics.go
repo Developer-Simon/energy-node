@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"math"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -143,7 +142,7 @@ func (e *Engine) evaluate(now time.Time, snapshot registry.DiagnosticsSnapshot, 
 	for _, device := range snapshot.Devices {
 		ctx := Context{
 			Now:                now,
-			NoStateUpdateAfter: e.thresholdForDevice(device, threshold),
+			NoStateUpdateAfter: threshold,
 			DuplicateUniqueIDs: snapshot.DuplicateUniqueIDs,
 		}
 		for _, rule := range e.Rules {
@@ -193,19 +192,6 @@ func (e *Engine) RuleIDs() []string {
 	return result
 }
 
-func (e *Engine) thresholdForDevice(device registry.DeviceView, fallback time.Duration) time.Duration {
-	for _, entity := range device.Entities {
-		if entity.ObjectID != "poll_interval_s" || !entity.HasValue {
-			continue
-		}
-		seconds, err := strconv.ParseFloat(strings.TrimSpace(entity.Value), 64)
-		if err == nil && seconds > 0 && !math.IsInf(seconds, 0) && !math.IsNaN(seconds) {
-			return time.Duration(3 * seconds * float64(time.Second))
-		}
-	}
-	return fallback
-}
-
 func (e *Engine) Health(now time.Time) []DeviceHealth {
 	if e.Registry == nil {
 		return []DeviceHealth{}
@@ -221,13 +207,10 @@ func (e *Engine) Health(now time.Time) []DeviceHealth {
 	}
 	result := make([]DeviceHealth, 0)
 	for _, device := range snapshot.Devices {
-		threshold := e.thresholdForDevice(device, fallback)
+		threshold := fallback
 		var lastSeen time.Time
 		offline := false
 		for _, entity := range device.Entities {
-			if entity.ObjectID == "poll_interval_s" {
-				continue
-			}
 			if entity.LastSeen.After(lastSeen) {
 				lastSeen = entity.LastSeen
 			}
@@ -331,7 +314,7 @@ func (e *Engine) Device(deviceID string, now time.Time) []Warning {
 	if dev, ok := e.Registry.Get(deviceID); ok {
 		ctx := Context{
 			Now:                now,
-			NoStateUpdateAfter: e.thresholdForDevice(dev, e.settingsThreshold()),
+			NoStateUpdateAfter: e.settingsThreshold(),
 			DuplicateUniqueIDs: e.Registry.DuplicateUniqueIDs(),
 		}
 		for _, rule := range e.Rules {

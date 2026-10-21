@@ -24,7 +24,7 @@ func TestStorePersistsSettingsAndLayout(t *testing.T) {
 	} else if !reflect.DeepEqual(got, Default()) {
 		t.Fatalf("got %#v, want defaults", got)
 	}
-	if err := store.SaveSettings(Settings{HealthScoreThreshold: 4, SweepIntervalSeconds: 120, ShowRuntimeStatus: false}); err != nil {
+	if err := store.SaveSettings(Settings{HealthScoreThreshold: 30, SweepIntervalSeconds: 120, ShowRuntimeStatus: false}); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := store.LoadSettings(); err != nil {
@@ -216,7 +216,7 @@ func TestStoreMigratesLegacyAnalysisViewToControl(t *testing.T) {
 func TestStoreRejectsUnknownDeviceViewMode(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveSettings(Settings{
-		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
+		HealthScoreThreshold: 60, SweepIntervalSeconds: 300,
 		ShowRuntimeStatus: true, DeviceViewMode: "unknown",
 	}); err == nil {
 		t.Fatal("unknown device view mode was accepted")
@@ -448,6 +448,36 @@ func TestDeviceMapRevisionsCanBeReadAndRestored(t *testing.T) {
 	}
 }
 
+func TestHealthScoreThresholdDefaultIsSeconds(t *testing.T) {
+	if got := Default().HealthScoreThreshold; got != 180 {
+		t.Fatalf("default health score threshold = %d, want 180", got)
+	}
+}
+
+func TestLoadRaisesHealthScoreThresholdBelowMinimum(t *testing.T) {
+	cases := map[string]struct{ saved, want int }{
+		"legacy minutes value raised": {saved: 3, want: 180},
+		"minimum kept":                {saved: 10, want: 10},
+		"large value kept":            {saved: 600, want: 600},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			legacy := fmt.Sprintf(`{"health_score_threshold":%d,"sweep_interval_seconds":300,"show_runtime_status":true,"device_view_mode":"control","theme":"mint"}`, tc.saved)
+			if err := os.WriteFile(dir+"/settings.json", []byte(legacy), 0600); err != nil {
+				t.Fatal(err)
+			}
+			value, err := NewStore(dir).LoadSettings()
+			if err != nil {
+				t.Fatalf("LoadSettings: %v", err)
+			}
+			if value.HealthScoreThreshold != tc.want {
+				t.Fatalf("threshold = %d, want %d", value.HealthScoreThreshold, tc.want)
+			}
+		})
+	}
+}
+
 func TestSchemaDeclaresDashboardDefaults(t *testing.T) {
 	var schema struct {
 		Properties map[string]struct {
@@ -457,8 +487,8 @@ func TestSchemaDeclaresDashboardDefaults(t *testing.T) {
 	if err := json.Unmarshal(settingsSchema, &schema); err != nil {
 		t.Fatal(err)
 	}
-	if got := schema.Properties["health_score_threshold"].Default; got != float64(3) {
-		t.Fatalf("health score default = %#v, want 3", got)
+	if got := schema.Properties["health_score_threshold"].Default; got != float64(180) {
+		t.Fatalf("health score default = %#v, want 180", got)
 	}
 	if got := schema.Properties["sweep_interval_seconds"].Default; got != float64(300) {
 		t.Fatalf("sweep interval default = %#v, want 300", got)
@@ -677,7 +707,7 @@ func TestStoreDefaultsThemeToMint(t *testing.T) {
 func TestStoreRejectsUnknownTheme(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveSettings(Settings{
-		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
+		HealthScoreThreshold: 60, SweepIntervalSeconds: 300,
 		ShowRuntimeStatus: true,
 		DeviceViewMode:    DeviceViewModeControl, Theme: "kupferwerk",
 	}); err == nil {
@@ -688,7 +718,7 @@ func TestStoreRejectsUnknownTheme(t *testing.T) {
 func TestStorePersistsTheme(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveSettings(Settings{
-		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
+		HealthScoreThreshold: 60, SweepIntervalSeconds: 300,
 		ShowRuntimeStatus: true,
 		DeviceViewMode:    DeviceViewModeControl, Theme: ThemeTageslicht,
 	}); err != nil {
@@ -1209,9 +1239,9 @@ func TestSettingsAcceptsTelemetryStatusBarItems(t *testing.T) {
 func TestSettingsRevisionsCanBeReadAndRestored(t *testing.T) {
 	store := NewStore(t.TempDir())
 	first := Default()
-	first.HealthScoreThreshold = 3
+	first.HealthScoreThreshold = 30
 	second := Default()
-	second.HealthScoreThreshold = 7
+	second.HealthScoreThreshold = 60
 	if err := store.SaveSettings(first); err != nil {
 		t.Fatal(err)
 	}
@@ -1233,8 +1263,8 @@ func TestSettingsRevisionsCanBeReadAndRestored(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if restored.HealthScoreThreshold != 3 {
-		t.Fatalf("restored threshold %d, want 3", restored.HealthScoreThreshold)
+	if restored.HealthScoreThreshold != 30 {
+		t.Fatalf("restored threshold %d, want 30", restored.HealthScoreThreshold)
 	}
 	// Der Restore ist selbst ein Speichervorgang und legt deshalb eine
 	// weitere Revision an - genau wie bei Layout.
@@ -1243,8 +1273,8 @@ func TestSettingsRevisionsCanBeReadAndRestored(t *testing.T) {
 	}
 	// Der Store muss den wiederhergestellten Wert auch zwischengespeichert
 	// haben, nicht nur auf die Platte geschrieben.
-	if loaded, err := store.LoadSettings(); err != nil || loaded.HealthScoreThreshold != 3 {
-		t.Fatalf("loaded threshold %d, err %v; want 3", loaded.HealthScoreThreshold, err)
+	if loaded, err := store.LoadSettings(); err != nil || loaded.HealthScoreThreshold != 30 {
+		t.Fatalf("loaded threshold %d, err %v; want 30", loaded.HealthScoreThreshold, err)
 	}
 }
 
@@ -1303,7 +1333,7 @@ func TestSettingsRevisionsAreCappedAtLimit(t *testing.T) {
 	// weil der erste Speichervorgang keine Vorgängerdatei zum Sichern hat.
 	for i := 0; i < revisionLimit+3; i++ {
 		value := Default()
-		value.HealthScoreThreshold = i + 1
+		value.HealthScoreThreshold = i + 10
 		if err := store.SaveSettings(value); err != nil {
 			t.Fatalf("save %d: %v", i, err)
 		}
@@ -1325,8 +1355,8 @@ func TestSettingsRevisionsAreCappedAtLimit(t *testing.T) {
 	if err := json.Unmarshal(data, &oldest); err != nil {
 		t.Fatal(err)
 	}
-	if oldest.HealthScoreThreshold != 3 {
-		t.Fatalf("oldest kept revision has threshold %d, want 3", oldest.HealthScoreThreshold)
+	if oldest.HealthScoreThreshold != 12 {
+		t.Fatalf("oldest kept revision has threshold %d, want 12", oldest.HealthScoreThreshold)
 	}
 }
 
@@ -1431,7 +1461,7 @@ func TestHistorySettingsDefaultsAndNormalisation(t *testing.T) {
 
 	// Ein Teil-Save ohne Historie-Felder darf nicht an der Schema-Validierung
 	// scheitern - normalizeSettings muss die Nullwerte auffuellen.
-	if err := store.SaveSettings(Settings{HealthScoreThreshold: 4, SweepIntervalSeconds: 120}); err != nil {
+	if err := store.SaveSettings(Settings{HealthScoreThreshold: 30, SweepIntervalSeconds: 120}); err != nil {
 		t.Fatal(err)
 	}
 	reloaded, err := store.LoadSettings()

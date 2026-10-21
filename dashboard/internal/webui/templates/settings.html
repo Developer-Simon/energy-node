@@ -37,10 +37,16 @@
       <h3 class="setting-card-title">{{t "settings.operation.title"}}</h3>
       <p class="setting-note">{{t "settings.operation.note"}}</p>
       <div class="setting-row">
-        <span class="setting-row-label" id="lbl-health-threshold">{{t "settings.health_threshold.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
+        <span class="setting-row-label-group">
+          <span class="setting-row-label" id="lbl-health-threshold">{{t "settings.health_threshold.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
+          <span class="field-help field-help-align-start">
+            <button class="field-help-trigger" type="button" aria-label="{{t "settings.health_threshold.help"}}"><svg><use href="#ico-help"></use></svg></button>
+            <span class="field-help-text" role="tooltip">{{t "settings.health_threshold.help_text"}}</span>
+          </span>
+        </span>
         <span class="stepper" role="group" aria-labelledby="lbl-health-threshold">
           <button type="button" class="stepper-btn" aria-label="{{t "settings.health_threshold.decrease"}}" x-on:click="stepField('healthScoreThreshold', -1)" x-on:pointerdown="startRepeat('healthScoreThreshold', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
-          <input class="stepper-input" type="number" min="1" max="600" step="1" x-model.number="healthScoreThreshold" aria-labelledby="lbl-health-threshold">
+          <input class="stepper-input" type="number" min="10" max="3600" step="1" x-model.number="healthScoreThreshold" aria-labelledby="lbl-health-threshold">
           <button type="button" class="stepper-btn" aria-label="{{t "settings.health_threshold.increase"}}" x-on:click="stepField('healthScoreThreshold', 1)" x-on:pointerdown="startRepeat('healthScoreThreshold', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </div>
