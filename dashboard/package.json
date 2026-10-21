@@ -2,8 +2,7 @@
   "name": "energy-node-dashboard-assets",
   "private": true,
   "dependencies": {
-    "apexcharts": "^4.7.0",
-    "gridstack": "^13.0.2"
+    "apexcharts": "^4.7.0"
   },
   "devDependencies": {
     "fake-indexeddb": "^6.2.5",

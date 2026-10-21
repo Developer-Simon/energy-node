@@ -46,7 +46,7 @@ the standard library.
 The libraries are vendored into the repository, with no CDN and no build step.
 [`dashboard/internal/webui/static/js-deps/THIRD-PARTY-NOTICES.md`](../../dashboard/internal/webui/static/js-deps/THIRD-PARTY-NOTICES.md)
 lists them with versions and licenses (Alpine.js, ApexCharts, Choices.js,
-Cytoscape.js, flatpickr, GridStack.js, htmx).
+Cytoscape.js, flatpickr, htmx).
 `installer/webui/` embeds the same build, and its notices file points to that
 list.
 
