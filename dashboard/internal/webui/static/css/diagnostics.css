@@ -338,3 +338,55 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--text); }
 @media (prefers-contrast: more) {
   .diag-card, .diag-device, .diag-group { background: var(--panel); border-color: var(--border); }
 }
+
+/* --- Service-Logs (Abschnitt unter den Meldungen) ------------------------ */
+.service-logs-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem .8rem; margin-top: .9rem; }
+.service-logs-field { display: flex; flex-direction: column; gap: .25rem; min-width: 0; color: var(--text-subtle); font-size: .82rem; }
+.service-logs-field select,
+.service-logs-field input {
+  min-height: 2.2rem;
+  padding: .3rem .55rem;
+  border: 1px solid var(--border);
+  border-radius: .5rem;
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  font-size: .9rem;
+}
+.service-logs-search { flex: 1 1 12rem; }
+.service-logs-search input { width: 100%; box-sizing: border-box; }
+.service-logs-status { margin: .7rem 0 0; color: var(--text-muted); font-size: .88rem; }
+.service-logs-error { color: var(--bad); }
+
+.log-lines {
+  box-sizing: border-box;
+  max-height: 26rem;
+  overflow-y: auto;
+  margin: .7rem 0 0;
+  padding: .4rem 0;
+  list-style: none;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--sunken);
+  font-family: ui-monospace, monospace;
+  font-size: .8rem;
+  line-height: 1.45;
+}
+.log-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .1rem .6rem;
+  padding: .18rem .8rem;
+  color: var(--text);
+}
+.log-time { color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.log-priority { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.log-unit { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-message { flex: 1 1 16rem; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.log-truncated { margin-left: .35rem; color: var(--text-faint); font-style: italic; }
+.log-error .log-priority { color: var(--bad); }
+.log-warning .log-priority { color: var(--warn); }
+.log-info .log-priority { color: var(--info); }
+.log-debug .log-priority,
+.log-debug .log-message { color: var(--text-muted); }
