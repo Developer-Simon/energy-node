@@ -241,3 +241,15 @@ test('poll is skipped while the tab is hidden', async () => {
   await component.poll();
   assert.equal(calls, 0);
 });
+
+test('load ends on the newest line like a terminal', async () => {
+  const { fetchImpl } = routedFetch({
+    logs: [json({ entries: [entry('first'), entry('second')], cursor: 's=2', limited: false })],
+  });
+  const { component } = createServiceLogsPanel({ fetchImpl });
+  const list = { scrollTop: 0, scrollHeight: 640 };
+  component.$refs = { list };
+  component.$nextTick = (fn) => fn();
+  await component.load();
+  assert.equal(list.scrollTop, 640);
+});

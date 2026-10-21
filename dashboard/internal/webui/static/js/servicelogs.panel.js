@@ -74,6 +74,7 @@
         this.cursor = result.cursor || '';
         this.limited = Boolean(result.limited);
         this.loaded = true;
+        this.scrollToEnd();
       } catch (error) {
         if (generation !== this.generation) return;
         this.error = error.message;
@@ -103,9 +104,7 @@
         }
         this.cursor = result.cursor || cursor;
         this.error = '';
-        if (pinned) {
-          this.$nextTick(() => { list.scrollTop = list.scrollHeight; });
-        }
+        if (pinned) this.scrollToEnd();
       } catch (error) {
         if (generation !== this.generation) return;
         this.error = error.message;
@@ -113,6 +112,16 @@
       } finally {
         this.polling = false;
       }
+    },
+
+    // The newest line sits at the bottom, like a terminal: a fresh load and
+    // every poll that started at the bottom end on the last line.
+    scrollToEnd() {
+      if (!this.$nextTick) return;
+      this.$nextTick(() => {
+        const list = this.$refs && this.$refs.list;
+        if (list) list.scrollTop = list.scrollHeight;
+      });
     },
 
     setAutoRefresh(on) {
