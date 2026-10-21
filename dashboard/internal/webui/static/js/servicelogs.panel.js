@@ -85,6 +85,9 @@
     async poll() {
       if (!this.cursor || this.loading || this.polling) return;
       if (document.visibilityState === 'hidden') return;
+      // Another top-level tab is active: x-show hides this section, and the
+      // panel stays mounted, so the timer must not keep polling.
+      if (this.$el && this.$el.offsetParent === null) return;
       const generation = this.generation;
       const cursor = this.cursor;
       this.polling = true;

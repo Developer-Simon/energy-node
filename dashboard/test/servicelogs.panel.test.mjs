@@ -220,6 +220,17 @@ test('priorityClass maps journald levels', () => {
   }
 });
 
+test('poll is skipped while the panel is not visible', async () => {
+  let calls = 0;
+  const { component } = createServiceLogsPanel({
+    fetchImpl: async () => { calls += 1; throw new Error('should not be called'); },
+  });
+  component.$el = { offsetParent: null };
+  component.cursor = 's=1';
+  await component.poll();
+  assert.equal(calls, 0);
+});
+
 test('poll is skipped while the tab is hidden', async () => {
   let calls = 0;
   const { component, window } = createServiceLogsPanel({
