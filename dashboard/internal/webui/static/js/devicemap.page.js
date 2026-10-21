@@ -29,6 +29,16 @@
 
   const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false};
 
+  // Browser storage of the local view. Reading the property itself can throw
+  // (blocked storage), then null goes on and DeviceMapViewPrefs keeps nothing.
+  const viewStorage = () => {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      return null;
+    }
+  };
+
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
   // device_id, so it can't collide with one.
   const SNAP_GHOST_ID = '__devicemap-snap-ghost__';
@@ -74,6 +84,9 @@
       selectedEdge: null, // {id, source, target, overrideId, membership} | null
       viewMenuOpen: false,
       unsaved: false,
+      // Browser-side view settings that differ from the server default, see
+      // setView(). Sparse, so a default changed on the server still reaches this browser.
+      localView: {},
       // Sub-device form while open: {mode, subId, deviceId, entityId, name, icon, channel, error}.
       subForm: null,
       subSaving: false,
@@ -194,6 +207,7 @@
           this.flowsUnavailable = flows === null;
           this.invalidConfigs = this.stubInfo().invalid;
           this.savedDeviceMap = JSON.parse(JSON.stringify(this.deviceMap));
+          this.initLocalView();
           this.renderGraph();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
@@ -1660,9 +1674,67 @@
       // deviceMap can arrive without a view (older revisions, or tests that
       // build deviceMap by hand) - merge onto defaults everywhere instead of
       // requiring every call site to null-check.
+      // The view saved on the server, with defaults for every key. save() sends
+      // this one, the browser settings in localView never reach the map.
+      get serverView() {
+        const model = window.DeviceMapModel;
+        const base = {...DEFAULT_VIEW, layers: model.DEFAULT_LAYERS, wiring_types: model.DEFAULT_WIRING_TYPES};
+        return window.DeviceMapViewPrefs.merge(base, this.deviceMap.view || {});
+      },
+
+      // What the page shows: the server view with this browser's settings on top.
       get view() {
-        const stored = this.deviceMap.view || {};
-        return {...DEFAULT_VIEW, ...stored, layers: {...window.DeviceMapModel.DEFAULT_LAYERS, ...(stored.layers || {})}};
+        return window.DeviceMapViewPrefs.merge(this.serverView, this.localView);
+      },
+
+      // Keeps only the browser settings that still differ from the server view,
+      // so a key that became the server default drops out of storage.
+      initLocalView() {
+        const prefs = window.DeviceMapViewPrefs;
+        const storage = viewStorage();
+        const server = this.serverView;
+        this.localView = prefs.diff(server, prefs.merge(server, prefs.load(storage, server)));
+        prefs.store(storage, this.localView);
+      },
+
+      // Changes a view setting for this browser only. The map stays as it is
+      // (no unsaved flag), the caller redraws what the change touches.
+      setView(patch) {
+        const prefs = window.DeviceMapViewPrefs;
+        this.localView = prefs.diff(this.serverView, prefs.merge(this.view, patch));
+        prefs.store(viewStorage(), this.localView);
+      },
+
+      viewDiffersFromDefault() {
+        return !window.DeviceMapViewPrefs.isEmpty(this.localView);
+      },
+
+      // Writes this browser's view as the server default. Node positions and
+      // the unsaved flag are left alone.
+      async saveDefaultView() {
+        try {
+          const saved = await requestJSON('/api/v1/device/map/view', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+            body: JSON.stringify(this.view),
+          });
+          const view = (saved && saved.view) || this.view;
+          this.deviceMap = {...this.deviceMap, view};
+          this.savedDeviceMap = {...this.savedDeviceMap, view};
+          this.localView = {};
+          window.DeviceMapViewPrefs.store(viewStorage(), this.localView);
+          this.$store.toasts.push(t('devicemap.view.default_saved'));
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
+      // Drops this browser's view settings, the server default applies again.
+      resetViewToDefault() {
+        this.localView = {};
+        window.DeviceMapViewPrefs.store(viewStorage(), this.localView);
+        this.renderGraph();
+        this.$store.toasts.push(t('devicemap.view.default_restored'));
       },
 
       isLayerPending(name) {
@@ -1670,23 +1742,19 @@
       },
 
       toggleAutomationLinks() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, hide_automation_links: !this.view.hide_automation_links}};
-        this.unsaved = true;
+        this.setView({hide_automation_links: !this.view.hide_automation_links});
         this.renderGraph();
       },
 
       toggleWidthByPower() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, width_by_power: !this.view.width_by_power}};
-        this.unsaved = true;
+        this.setView({width_by_power: !this.view.width_by_power});
         this.applyFlows();
       },
 
       async toggleLayer(name) {
         if (this.isLayerPending(name) || !(name in window.DeviceMapModel.DEFAULT_LAYERS)) return;
         const turningOn = !this.view.layers[name];
-        const layers = {...this.view.layers, [name]: turningOn};
-        this.deviceMap = {...this.deviceMap, view: {...this.view, layers}};
-        this.unsaved = true;
+        this.setView({layers: {...this.view.layers, [name]: turningOn}});
         this.closePopover();
         if (turningOn && (name === 'data' || name === 'balance')) {
           await this.loadFlows();
@@ -1891,20 +1959,17 @@
       },
 
       toggleSnapToGrid() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, snap_to_grid: !this.view.snap_to_grid}};
-        this.unsaved = true;
+        this.setView({snap_to_grid: !this.view.snap_to_grid});
       },
 
       toggleShowGrid() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, show_grid: !this.view.show_grid}};
-        this.unsaved = true;
+        this.setView({show_grid: !this.view.show_grid});
         this.syncGridBackground();
       },
 
       setEdgeStyle(style) {
         if (!window.DeviceMapGraph.EDGE_STYLES[style]) return;
-        this.deviceMap = {...this.deviceMap, view: {...this.view, edge_style: style}};
-        this.unsaved = true;
+        this.setView({edge_style: style});
         if (cy) cy.style(this.graphStyle());
       },
 
@@ -2352,7 +2417,7 @@
           // The switch roles live in the energy roles, the map keeps only the
           // edge channels (edge_props).
           // sub_devices go back unchanged, the server keeps its own copy anyway.
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view, sub_devices: this.subDevices()};
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.serverView, sub_devices: this.subDevices()};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},

@@ -25,15 +25,27 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
+const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'devicemap-view-prefs.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
-function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
+// In-memory stand-in for window.localStorage, where the browser's view
+// settings are kept.
+function fakeStorage() {
+  const items = new Map();
+  return {
+    getItem: key => (items.has(key) ? items.get(key) : null),
+    setItem: (key, value) => items.set(key, String(value)),
+    removeItem: key => items.delete(key),
+  };
+}
+
+function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl, storage = fakeStorage() } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
+  Object.defineProperty(dom.window, 'localStorage', { value: storage, configurable: true });
   if (cytoscapeImpl) dom.window.cytoscape = cytoscapeImpl;
   installI18n(dom.window);
   vm.runInContext(themeSource, context);
@@ -42,7 +54,7 @@ function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl }
   const component = factory();
   component.$refs = {}; // no canvas -> renderGraph() no-ops, matching real "panel not visible yet" state
   const stores = attachStores(component, { modal: fakeModalStore({ answer: confirmAnswer }) });
-  return { component, window: dom.window, stores };
+  return { component, window: dom.window, stores, storage };
 }
 
 // A minimal stand-in for a Cytoscape instance, just enough surface for
@@ -436,7 +448,7 @@ test('view defaults apply when the loaded device map has no view section (older 
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
 
-  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false }, wiring_types: { energy: true, data: true, info: true } });
 });
 
 test('a device without a saved position is placed below the existing arrangement instead of triggering a full re-layout', () => {
@@ -648,7 +660,8 @@ test('setEdgeStyle updates the style in place without recreating the cytoscape i
 
   component.setEdgeStyle('elbow');
 
-  assert.equal(component.deviceMap.view.edge_style, 'elbow');
+  assert.equal(component.view.edge_style, 'elbow');
+  assert.equal(component.unsaved, false, 'a view change is kept in the browser, not saved with the map');
   assert.equal(createCalls, 1, 'must not destroy/recreate the cytoscape instance');
   assert.equal(styleCalls.length, 1, 'must push the updated style onto the existing instance');
 });
@@ -665,7 +678,7 @@ test('save() includes the current view settings in the PUT body', async () => {
 
   await component.save();
 
-  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
+  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false }, wiring_types: { energy: true, data: true, info: true } });
 });
 
 test('discardChanges restores the last loaded/saved snapshot without a network call, and clears unsaved', async () => {
@@ -749,13 +762,13 @@ test('view always carries all four layers, defaulting old maps to wiring and ene
   assert.equal(component.view.width_by_power, false);
 });
 
-test('toggleLayer flips one layer and marks the map unsaved', () => {
+test('toggleLayer flips one layer and does not mark the map unsaved', () => {
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
   component.toggleLayer('wiring');
   assert.equal(component.view.layers.wiring, false);
   assert.equal(component.view.layers.energy, true);
-  assert.equal(component.unsaved, true);
+  assert.equal(component.unsaved, false);
 });
 
 test('wiring edges become a dotted track when only the energy layer is on', () => {
@@ -768,14 +781,15 @@ test('wiring edges become a dotted track when only the energy layer is on', () =
   assert.equal(component.graphStyle().find(rule => rule.selector === 'edge.devicemap-wiring').style.display, 'none');
 });
 
-test('save() sends the layers with the view', async () => {
+test('save() sends the server view, not the layers this browser toggled', async () => {
   let body;
   const fetchImpl = async (url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({}) }; };
   const { component } = createDevicemapPanel({ fetchImpl });
   component.deviceMap = { version: 1, nodes: [], edges: [] };
   component.toggleLayer('wiring');
   await component.save();
-  assert.deepEqual(body.view.layers, { wiring: false, energy: true, balance: false, data: false });
+  assert.equal(component.view.layers.wiring, false);
+  assert.deepEqual(body.view.layers, { wiring: true, energy: true, balance: false, data: false });
   assert.equal(body.view.width_by_power, false);
 });
 
@@ -838,12 +852,12 @@ test('registry updates refresh the energy snapshot at most once per second, only
   assert.equal(energyCalls, 2, 'no requests while another dashboard tab is active');
 });
 
-test('toggleWidthByPower flips the view flag and marks the map unsaved', () => {
+test('toggleWidthByPower flips the view flag and does not mark the map unsaved', () => {
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
   component.toggleWidthByPower();
   assert.equal(component.view.width_by_power, true);
-  assert.equal(component.unsaved, true);
+  assert.equal(component.unsaved, false);
 });
 
 test('lines to the automation node are shown by default and hidden by toggleAutomationLinks', () => {
@@ -863,7 +877,7 @@ test('lines to the automation node are shown by default and hidden by toggleAuto
 
   component.toggleAutomationLinks();
   assert.equal(component.view.hide_automation_links, true);
-  assert.equal(component.unsaved, true);
+  assert.equal(component.unsaved, false);
   assert.deepEqual(JSON.parse(JSON.stringify(component.buildEdgeElements().map(element => element.data.id))), ['edge-bat::netz']);
   assert.equal(component.dataEdges().length, 0);
 
@@ -3049,4 +3063,122 @@ test('show meter from the sub panel asks, then discards the drafts and opens the
   await component.navigatePanel('plug_b');
   assert.equal(stores.modal.calls.length, 1, 'a clean panel leaves without asking');
   assert.equal(component.panelId, 'plug_b');
+});
+
+// View settings: the browser keeps what differs from the server default, the
+// default itself is saved only by saveDefaultView().
+const viewTable = map => ({
+  '/api/v1/devices': [],
+  '/api/v1/device/map': map,
+  '/api/v1/device/icons': [],
+  '/api/v1/devices/switches': [],
+});
+
+test('toggleShowGrid keeps the change in the browser and drops it again when switched back', () => {
+  const { component, storage } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+
+  component.toggleShowGrid();
+  assert.equal(component.unsaved, false);
+  assert.equal(component.viewDiffersFromDefault(), true);
+  assert.equal(storage.getItem('devicemap-view'), '{"show_grid":true}');
+
+  component.toggleShowGrid();
+  assert.equal(component.unsaved, false);
+  assert.equal(component.viewDiffersFromDefault(), false);
+  assert.equal(storage.getItem('devicemap-view'), null);
+});
+
+test('load() drops a stored setting that already is the server default', async () => {
+  const map = { version: 2, nodes: [], edges: [], view: { show_grid: true } };
+  const { component, storage } = createDevicemapPanel({ fetchImpl: routes(viewTable(map)) });
+  storage.setItem('devicemap-view', '{"show_grid":true}');
+
+  await component.load();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(component.localView)), {});
+  assert.equal(storage.getItem('devicemap-view'), null);
+  assert.equal(component.view.show_grid, true);
+});
+
+test('load() shows the stored setting on top of a server view that differs in another key', async () => {
+  const map = { version: 2, nodes: [], edges: [], view: { edge_style: 'elbow' } };
+  const { component, storage } = createDevicemapPanel({ fetchImpl: routes(viewTable(map)) });
+  storage.setItem('devicemap-view', '{"show_grid":true}');
+
+  await component.load();
+
+  assert.equal(component.view.edge_style, 'elbow');
+  assert.equal(component.view.show_grid, true);
+});
+
+test('save() sends the server view, so a browser-only grid change is not written to the map', async () => {
+  let body;
+  const fetchImpl = async (url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({}) }; };
+  const { component } = createDevicemapPanel({ fetchImpl });
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleShowGrid();
+
+  await component.save();
+
+  assert.equal(component.view.show_grid, true);
+  assert.equal(body.view.show_grid, false);
+});
+
+test('saveDefaultView writes the browser view as the server default and keeps positions and the unsaved flag', async () => {
+  const calls = [];
+  const map = { version: 2, nodes: [{ device_id: 'device_a', x: 1, y: 2 }], edges: [] };
+  const { component, storage } = createDevicemapPanel({
+    fetchImpl: routes({
+      '/api/v1/device/map/view': options => ({ ...map, view: JSON.parse(options.body) }),
+    }, calls),
+  });
+  component.devices = [{ id: 'device_a', name: 'A', relations: [] }];
+  component.deviceMap = JSON.parse(JSON.stringify(map));
+  component.savedDeviceMap = JSON.parse(JSON.stringify(map));
+  component.onNodeDragFree({ target: fakeNode('device_a', { x: 12, y: 34 }) });
+  component.toggleShowGrid();
+  const nodesBefore = JSON.parse(JSON.stringify(component.deviceMap.nodes));
+
+  await component.saveDefaultView();
+
+  const puts = calls.filter(call => call.method === 'PUT');
+  assert.equal(puts.length, 1);
+  assert.equal(puts[0].url, '/api/v1/device/map/view');
+  assert.equal(JSON.parse(puts[0].body).show_grid, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.localView)), {});
+  assert.equal(storage.getItem('devicemap-view'), null);
+  assert.equal(component.view.show_grid, true);
+  assert.equal(component.unsaved, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.deviceMap.nodes)), nodesBefore);
+});
+
+test('resetViewToDefault drops the browser view and its stored entry', () => {
+  const { component, storage } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleShowGrid();
+
+  component.resetViewToDefault();
+
+  assert.equal(component.view.show_grid, false);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.localView)), {});
+  assert.equal(storage.getItem('devicemap-view'), null);
+});
+
+test('a storage that throws keeps the view working for this session', async () => {
+  const blocked = {
+    getItem() { throw new Error('blocked'); },
+    setItem() { throw new Error('blocked'); },
+    removeItem() { throw new Error('blocked'); },
+  };
+  const { component } = createDevicemapPanel({
+    fetchImpl: routes(viewTable({ version: 1, nodes: [], edges: [] })),
+    storage: blocked,
+  });
+
+  await component.load();
+  component.toggleShowGrid();
+
+  assert.equal(component.view.show_grid, true);
+  assert.equal(component.viewDiffersFromDefault(), true);
 });
