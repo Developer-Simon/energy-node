@@ -1183,9 +1183,9 @@ class AutomationService:
             self.mqtt_config = new_app_config.mqtt
             logging.getLogger().setLevel(new_app_config.log_level)
             if hasattr(self, 'slave') and self.slave is not None:
-                self.slave.apply_config_defaults(
+                self.slave.apply_rates(
                     poll_interval_s=new_service_config.poll_interval_s,
-                    diagnostic_multiplier=new_service_config.diagnostic_poll_multiplier,
+                    diagnostic_poll_multiplier=new_service_config.diagnostic_poll_multiplier,
                 )
 
         self.config_store.commit(new_doc)
@@ -1196,7 +1196,7 @@ class AutomationService:
 
     def _make_slave(self) -> Slave:
         return Slave(service_id=self.service_config.service_id, poll_core=self.poll_core,
-                     default_poll_interval_s=self.doc.settings.tick_interval_s,
+                     poll_interval_s=self.doc.settings.tick_interval_s,
                      on_config_reload=self.reload_config,
                      on_poll_error=lambda exc: LOG.error("Scheduler-Fehler: %s", exc),
                      config_store=self.config_store)

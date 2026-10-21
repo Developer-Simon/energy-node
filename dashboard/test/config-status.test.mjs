@@ -29,6 +29,11 @@ test('classify ignores a status of another revision', () => {
   assert.equal(S.classify({ received: true, runtime_status: 'ok', config_revision: '' }, ''), 'pending', 'no revision, no claim');
 });
 
+test('classify takes a matching revision with runtime ok as applied', () => {
+  const S = load();
+  assert.equal(S.classify({ received: true, runtime_status: 'ok', config_revision: 'rev' }, 'rev'), 'applied');
+});
+
 test('watch polls until its own revision answers', async () => {
   const S = load();
   const answers = [

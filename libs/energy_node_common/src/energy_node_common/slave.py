@@ -13,7 +13,7 @@ spaeterer reload gelingt.
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import paho.mqtt.client as mqtt
 
@@ -53,30 +53,29 @@ class Slave:
         service_id: str,
         poll_core: Callable,
         poll_diagnostics: Optional[Callable] = None,
-        default_poll_interval_s: float = 60,
-        default_diagnostic_multiplier: float = 10,
+        poll_interval_s: float = 60,
+        diagnostic_poll_multiplier: float = 10,
         node_device_id: Optional[str] = None,
-        on_setting_changed: Optional[Callable[[str, Any], None]] = None,
         on_simulation_changed: Optional[Callable[[str, bool], None]] = None,
         on_config_reload: Optional[Callable[[], None]] = None,
         on_poll_error: Optional[Callable[[Exception], None]] = None,
         async_loop=None,
         config_store=None,
     ):
+        """Die Werte sind die aktuellen, `apply_rates()` setzt sie bei `config/reload` neu."""
         self.service_id = service_id
         self.base_topic = f"outstation/{service_id}"
 
         # Abfrageraten kommen aus der config.json und werden nur ueber
-        # apply_config_defaults() aktualisiert.
-        self.poll_interval_s = default_poll_interval_s
-        self.diagnostic_poll_multiplier = default_diagnostic_multiplier
+        # apply_rates() aktualisiert.
+        self.poll_interval_s = poll_interval_s
+        self.diagnostic_poll_multiplier = diagnostic_poll_multiplier
         self._simulation_active: dict[str, bool] = {}
         self._master_simulation_set_topic = (
             master_settings_set_topic(node_device_id, SIMULATION_SETTING)
             if node_device_id
             else None
         )
-        self._on_setting_changed = on_setting_changed
         self._on_simulation_changed = on_simulation_changed
         self._on_config_reload = on_config_reload
         self._last_update_ts: Optional[int] = None
@@ -112,22 +111,6 @@ class Slave:
                 on_error=on_poll_error,
                 name=f"{service_id}-slave-scheduler",
             )
-
-    @property
-    def settings_topics(self) -> tuple:
-        """Topics, die der Service in seinem `on_connect` abonnieren muss."""
-        topics = [self._config_reload_topic]
-        if self._master_simulation_set_topic:
-            topics.append(self._master_simulation_set_topic)
-        topics.extend(
-            topic
-            for device_id in self._simulation_active
-            for topic in (
-                settings_set_topic(device_id, SIMULATION_SETTING),
-                settings_state_topic(device_id, SIMULATION_SETTING),
-            )
-        )
-        return tuple(topics)
 
     def register_devices(
         self, device_ids: list[str] | tuple[str, ...], client: Optional[mqtt.Client] = None
@@ -250,10 +233,10 @@ class Slave:
             self._config_result = ("ok", "", "")
         self._publish_status(client)
 
-    def apply_config_defaults(
+    def apply_rates(
         self,
         poll_interval_s: Optional[float] = None,
-        diagnostic_multiplier: Optional[float] = None,
+        diagnostic_poll_multiplier: Optional[float] = None,
     ) -> None:
         """Neue Abfrageraten aus config.json uebernehmen.
 
@@ -263,8 +246,8 @@ class Slave:
         """
         if poll_interval_s is not None:
             self.poll_interval_s = poll_interval_s
-        if diagnostic_multiplier is not None:
-            self.diagnostic_poll_multiplier = diagnostic_multiplier
+        if diagnostic_poll_multiplier is not None:
+            self.diagnostic_poll_multiplier = diagnostic_poll_multiplier
 
     def _publish_simulation_ack(self, client: mqtt.Client, device_id: str, active: bool) -> None:
         mqtt_helpers.publish(client, self._simulation_state_topic(device_id), int(active))
@@ -280,9 +263,6 @@ class Slave:
         else:
             error_code = ""
         status = SlaveStatus(
-            poll_interval_s=self.poll_interval_s,
-            diagnostic_poll_multiplier=self.diagnostic_poll_multiplier,
-            actual_poll_interval_s=self.poll_interval_s,
             simulation_active=self.simulation_active,
             last_update=self._last_update_ts,
             runtime_status=runtime_status,

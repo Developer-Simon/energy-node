@@ -4,8 +4,8 @@
 
 ### Fixes
 
+- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153) (c184d81)
 - **installer:** firewall station completes without the webhook step (4d33879)
-- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153)
 
 ### Tests
 

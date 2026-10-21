@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.4 (2026-10-21)
+
+### Refactors
+
+- **services:** name the slave poll rates after what they are (7cd303e)
+- **common:** clean up the slave status and hooks (#155)
+
 ## v0.4.3 (2026-10-06)
 
 ### Documentation

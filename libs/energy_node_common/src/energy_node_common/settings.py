@@ -58,22 +58,14 @@ def parse_bool(value) -> tuple[Optional[bool], Optional[str]]:
     return None, "invalid_boolean_value"
 
 
-def validate_simulation_active(value) -> Optional[str]:
-    _, error = parse_bool(value)
-    return error
-
-
 @dataclass
 class SlaveStatus:
     """Gemeinsame Statusstruktur, die jeder Slave retained veroeffentlicht.
     Ein ablehnender Slave wird ueber `runtime_status`/`error` sichtbar."""
 
-    poll_interval_s: float
-    diagnostic_poll_multiplier: float
-    actual_poll_interval_s: float
     simulation_active: bool = False
     last_update: Optional[int] = None
-    runtime_status: str = "ok"  # "ok" | "rejected" | "pending"
+    runtime_status: str = "ok"  # "ok" | "rejected"
     error: str = ""
     # Stabiler Fehlercode (z. B. charge_source_required), den das Dashboard
     # uebersetzt. Leer, wenn der Fehler keinen Code hat.
@@ -84,9 +76,6 @@ class SlaveStatus:
 
     def to_dict(self) -> dict:
         return {
-            "poll_interval_s": self.poll_interval_s,
-            "diagnostic_poll_multiplier": self.diagnostic_poll_multiplier,
-            "actual_poll_interval_s": self.actual_poll_interval_s,
             "simulation_active": int(self.simulation_active),
             "last_update": self.last_update,
             "runtime_status": self.runtime_status,
@@ -100,9 +89,6 @@ class SlaveStatus:
     def from_dict(cls, data: dict) -> "SlaveStatus":
         simulation_active_value, _ = parse_bool(data.get("simulation_active", False))
         return cls(
-            poll_interval_s=data.get("poll_interval_s"),
-            diagnostic_poll_multiplier=data.get("diagnostic_poll_multiplier"),
-            actual_poll_interval_s=data.get("actual_poll_interval_s"),
             simulation_active=simulation_active_value or False,
             last_update=data.get("last_update"),
             runtime_status=data.get("runtime_status", "ok"),
