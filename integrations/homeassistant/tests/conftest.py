@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import pytest_socket
 from homeassistant.util import slugify
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -16,6 +17,20 @@ W = {"unit_of_measurement": "W"}
 def pytest_configure(config):
     """Add custom_components to sys.path before any tests run."""
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+
+@pytest.fixture(autouse=True)
+def enable_marked_sockets(request):
+    """Let enable_socket tests open loopback sockets whatever the plugin order is.
+
+    pytest-socket enables sockets for marked tests in its setup hook, the Home
+    Assistant plugin disables them again in its own. Which of the two runs last
+    depends on the plugin registration order, which differs between
+    environments (it broke only on CI). A fixture runs after all setup hooks,
+    so the marker wins everywhere.
+    """
+    if request.node.get_closest_marker("enable_socket"):
+        pytest_socket.enable_socket()
 
 
 @pytest.fixture(autouse=True)
