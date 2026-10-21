@@ -29,9 +29,9 @@ func TestEngineInterpretsHealthThresholdAsSeconds(t *testing.T) {
 		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
 		Entity: registry.EntityInfo{UniqueID: "temp", Component: "sensor", StateTopic: "state/temp", UnitOfMeasurement: "C"},
 	})
-	reg.UpdateState("state/temp", []byte(`21.5`), false, now.Add(-3*time.Second))
+	reg.UpdateState("state/temp", []byte(`21.5`), false, now.Add(-15*time.Second))
 	store := settings.NewStore(t.TempDir())
-	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 2, SweepIntervalSeconds: 300}); err != nil {
+	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 10, SweepIntervalSeconds: 300}); err != nil {
 		t.Fatal(err)
 	}
 	warnings := NewEngine(reg, store).Evaluate(now)
@@ -40,7 +40,7 @@ func TestEngineInterpretsHealthThresholdAsSeconds(t *testing.T) {
 			return
 		}
 	}
-	t.Fatal("expected a NoStateUpdate warning after more than two seconds")
+	t.Fatal("expected a NoStateUpdate warning after more than ten seconds")
 }
 
 func TestRulesAreIndividuallyEvaluable(t *testing.T) {

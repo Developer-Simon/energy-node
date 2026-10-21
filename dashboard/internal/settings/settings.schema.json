@@ -7,10 +7,11 @@
   "properties": {
     "health_score_threshold": {
       "type": "integer",
-      "minimum": 1,
-      "default": 3,
+      "minimum": 10,
+      "maximum": 3600,
+      "default": 180,
       "title": "Health score threshold",
-      "description": "Number of health points below which a device is reported as unhealthy."
+      "description": "Seconds without a new value after which a value counts as not updated. The health score of a device falls to zero at this age."
     },
     "sweep_interval_seconds": {
       "type": "integer",

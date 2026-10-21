@@ -1840,9 +1840,9 @@ func TestLayoutGetShipsCardCatalog(t *testing.T) {
 func TestSettingsRevisionEndpoints(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	first := settings.Default()
-	first.HealthScoreThreshold = 3
+	first.HealthScoreThreshold = 30
 	second := settings.Default()
-	second.HealthScoreThreshold = 9
+	second.HealthScoreThreshold = 60
 	if err := store.SaveSettings(first); err != nil {
 		t.Fatal(err)
 	}
@@ -1863,7 +1863,7 @@ func TestSettingsRevisionEndpoints(t *testing.T) {
 
 	read := httptest.NewRecorder()
 	router.ServeHTTP(read, httptest.NewRequest("GET", "/api/v1/settings/revisions/"+revisions[0].Name, nil))
-	if read.Code != 200 || !strings.Contains(read.Body.String(), `"health_score_threshold":3`) {
+	if read.Code != 200 || !strings.Contains(read.Body.String(), `"health_score_threshold":30`) {
 		t.Fatalf("read status %d: %s", read.Code, read.Body.String())
 	}
 
@@ -1871,7 +1871,7 @@ func TestSettingsRevisionEndpoints(t *testing.T) {
 	restoreRequest := httptest.NewRequest("POST", "/api/v1/settings/restore", strings.NewReader(`{"revision":"`+revisions[0].Name+`"}`))
 	restoreRequest.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(restore, restoreRequest)
-	if restore.Code != 200 || !strings.Contains(restore.Body.String(), `"health_score_threshold":3`) {
+	if restore.Code != 200 || !strings.Contains(restore.Body.String(), `"health_score_threshold":30`) {
 		t.Fatalf("restore status %d: %s", restore.Code, restore.Body.String())
 	}
 

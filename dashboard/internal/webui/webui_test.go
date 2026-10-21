@@ -270,7 +270,7 @@ func TestOverviewRendersTailscaleSettingsWorkflow(t *testing.T) {
 
 func TestOverviewDisablesRuntimeStatusFromSettings(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
-	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 3, SweepIntervalSeconds: 300, ShowRuntimeStatus: false}); err != nil {
+	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 60, SweepIntervalSeconds: 300, ShowRuntimeStatus: false}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1233,7 +1233,7 @@ func TestOverviewRendersThemeAttribute(t *testing.T) {
 	reg := registry.New()
 	store := settings.NewStore(t.TempDir())
 	if err := store.SaveSettings(settings.Settings{
-		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
+		HealthScoreThreshold: 60, SweepIntervalSeconds: 300,
 		ShowRuntimeStatus: true,
 		DeviceViewMode:    settings.DeviceViewModeControl, Theme: settings.ThemeSignalgelb,
 	}); err != nil {
@@ -1260,7 +1260,7 @@ func TestOverviewFallsBackToMintWithoutStore(t *testing.T) {
 func TestLoginRendersThemeAttribute(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	if err := store.SaveSettings(settings.Settings{
-		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
+		HealthScoreThreshold: 60, SweepIntervalSeconds: 300,
 		ShowRuntimeStatus: true,
 		DeviceViewMode:    settings.DeviceViewModeControl, Theme: settings.ThemeTageslicht,
 	}); err != nil {

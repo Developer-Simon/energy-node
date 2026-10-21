@@ -538,9 +538,13 @@ type Store struct {
 
 func NewStore(dir string) *Store { return &Store{dir: filepath.Clean(dir)} }
 
+// healthScoreThresholdMin is the smallest health threshold in seconds the
+// schema accepts. Loaded values below it are raised to the default.
+const healthScoreThresholdMin = 10
+
 func Default() Settings {
 	return Settings{
-		HealthScoreThreshold: 3, SweepIntervalSeconds: 300, ShowRuntimeStatus: true,
+		HealthScoreThreshold: 180, SweepIntervalSeconds: 300, ShowRuntimeStatus: true,
 		DeviceViewMode: DeviceViewModeCompact, Theme: ThemeMint,
 		NumberFormat: numfmt.FormatAuto, NumberGrouping: numfmt.GroupingMatch,
 		ShowConfigEntitiesOnTile: false, ShowDiagnosticEntitiesOnTile: false,
@@ -645,6 +649,12 @@ func (s *Store) LoadSettings() (Settings, error) {
 	default:
 		if err := json.Unmarshal(data, &value); err != nil {
 			return Settings{}, fmt.Errorf("settings.json: invalid JSON: %w", err)
+		}
+		// Older builds stored the threshold in minutes. Values below the
+		// schema minimum are raised here, on load only, so the saved
+		// revision stays as it was written.
+		if value.HealthScoreThreshold < healthScoreThresholdMin {
+			value.HealthScoreThreshold = Default().HealthScoreThreshold
 		}
 	}
 	if s.sweepDefault > 0 && !hasJSONKey(data, "sweep_interval_seconds") {
