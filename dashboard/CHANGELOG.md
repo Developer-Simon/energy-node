@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.3 (2026-10-21)
+## v0.10.4 (2026-10-21)
 
 ### Features
 
@@ -10,13 +10,18 @@
 ### Fixes
 
 - clearer update notice, firewall station completes, service steps skip unchanged libraries (#153) (c184d81)
+- **settings:** measure the health threshold in seconds with a usable default (7366e0d)
+- **settings:** explain the health threshold in seconds (9716ff5)
+- **settings:** show the health threshold help as a tooltip (8851977)
+- **diagnostics:** use a working health threshold (#157)
 
 ### Refactors
 
 - **common:** clean up the slave status and hooks (#155) (00ddbed)
+- **webui:** remove Gridstack (#156) (d89aab3)
+- **diagnostics:** drop the poll interval entity that no service publishes (8f3c65b)
 - **webui:** remove the unreachable Gridstack path from the layout editor (269a4f1)
 - **webui:** drop unused layout editor helpers (2a66065)
-- **webui:** remove Gridstack (#156)
 - **webui:** drop the unreachable pending runtime status (9c2eb2b)
 
 ### Documentation
