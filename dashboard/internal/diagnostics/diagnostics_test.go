@@ -186,17 +186,39 @@ func TestDiscoveryRulesReportMismatchAndRetainState(t *testing.T) {
 	}
 }
 
-func TestHealthUsesThreePollIntervals(t *testing.T) {
+func TestHealthUsesTheConfiguredThreshold(t *testing.T) {
+	now := time.Now().UTC()
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "node"}, Entity: registry.EntityInfo{UniqueID: "temp", ObjectID: "temperature", StateTopic: "state/temp"}})
+	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "node"}, Entity: registry.EntityInfo{UniqueID: "power", ObjectID: "power", StateTopic: "state/power"}})
+	reg.UpdateState("state/temp", []byte("21"), false, now.Add(-5*time.Second))
+	reg.UpdateState("state/power", []byte("400"), false, now.Add(-30*time.Second))
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 30, SweepIntervalSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
+
+	health := NewEngine(reg, store).Health(now)
+	if len(health) != 1 || health[0].ThresholdSeconds != 30 || health[0].Score != 83 {
+		t.Fatalf("health = %#v, want 30-second threshold and score 83", health)
+	}
+}
+
+func TestHealthCountsPollIntervalEntityLikeAnyOther(t *testing.T) {
 	now := time.Now().UTC()
 	reg := registry.New()
 	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "node"}, Entity: registry.EntityInfo{UniqueID: "poll", ObjectID: "poll_interval_s", StateTopic: "state/poll"}})
 	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "node"}, Entity: registry.EntityInfo{UniqueID: "temp", ObjectID: "temperature", StateTopic: "state/temp"}})
 	reg.UpdateState("state/poll", []byte("10"), false, now)
-	reg.UpdateState("state/temp", []byte("21"), false, now.Add(-5*time.Second))
+	reg.UpdateState("state/temp", []byte("21"), false, now.Add(-20*time.Second))
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 30, SweepIntervalSeconds: 300}); err != nil {
+		t.Fatal(err)
+	}
 
-	health := NewEngine(reg, nil).Health(now)
-	if len(health) != 1 || health[0].ThresholdSeconds != 30 || health[0].Score != 83 {
-		t.Fatalf("health = %#v, want 30-second threshold and score 83", health)
+	health := NewEngine(reg, store).Health(now)
+	if len(health) != 1 || health[0].ThresholdSeconds != 30 || health[0].Score != 100 {
+		t.Fatalf("health = %#v, want threshold 30 and score 100 from the newest entity", health)
 	}
 }
 
