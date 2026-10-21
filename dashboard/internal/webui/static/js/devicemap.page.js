@@ -118,6 +118,9 @@
       groupWholePending: false,
       categoryForGroup: false,
       canEditEnergy: true,
+      canEditMap: true,
+      canEditMapView: true,
+      filterMenuOpen: false,
       csrfToken: '',
       panelSaving: false,
       registryOff: null,
@@ -199,6 +202,8 @@
           // laesst requireEnergyMutation den Schreibzugriff durch.
           this.csrfToken = (session && session.csrf_token) || '';
           this.canEditEnergy = !session || session.edit_energy !== false;
+          this.canEditMap = !session || session.edit_device_map !== false;
+          this.canEditMapView = !session || session.edit_device_map_view !== false;
           this.devices = devices || [];
           this.deviceMap = deviceMap || {version: 1, nodes: [], edges: []};
           this.energy = energy;
@@ -649,7 +654,7 @@
       // setProp keeps the channel for energy and drops it for other types.
       setEdgeType(type) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership || edge.subDevice || !window.DeviceMapWiring.TYPES.includes(type)) return;
+        if (!this.canEditMap || !edge || edge.membership || edge.subDevice || !window.DeviceMapWiring.TYPES.includes(type)) return;
         const current = this.edgePropsFor(edge);
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type, direction: current.direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
@@ -658,7 +663,7 @@
 
       setEdgeDirection(direction) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership || edge.subDevice) return;
+        if (!this.canEditMap || !edge || edge.membership || edge.subDevice) return;
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
         this.afterEdgePropsChange();
@@ -668,7 +673,7 @@
       // moves the edge to another switch output, so the state follows it.
       setEdgeChannel(channel) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership || !Number.isInteger(channel)) return;
+        if (!this.canEditMap || !edge || edge.membership || !Number.isInteger(channel)) return;
         const current = this.edgePropsFor(edge);
         if (current.type !== 'energy') return;
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction: current.direction, channel})};
@@ -721,7 +726,7 @@
 
       async reverseSelectedRelation() {
         const selected = this.selectedEdge;
-        if (!selected || !selected.overrideId) return;
+        if (!this.canEditMap || !selected || !selected.overrideId) return;
         try {
           const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST', headers: {'X-CSRF-Token': this.csrfToken}});
           const edges = (this.deviceMap.edges || []).map(edge => (edge.id === result.relation.id ? result.relation : edge));
@@ -1709,6 +1714,37 @@
         return !window.DeviceMapViewPrefs.isEmpty(this.localView);
       },
 
+      // Shows or hides one connection type for this browser. The wiring edges
+      // and the energy flows are restyled from the new filter.
+      toggleWiringType(type) {
+        if (!window.DeviceMapWiring.TYPES.includes(type)) return;
+        const wiringTypes = {...this.view.wiring_types, [type]: !this.view.wiring_types[type]};
+        this.setView({wiring_types: wiringTypes});
+        if (cy) cy.style(this.graphStyle());
+        this.applyFlows();
+      },
+
+      // A type is greyed out while the wiring layer is off, the energy type
+      // stays available because the energy layer draws its own edges.
+      wiringTypeDisabled(type) {
+        return type !== 'energy' && !this.view.layers.wiring;
+      },
+
+      wiringFilterActive() {
+        return window.DeviceMapWiring.TYPES.some(type => !this.view.wiring_types[type]);
+      },
+
+      energyFlowHidden() {
+        return Boolean(this.view.layers.energy && !this.view.wiring_types.energy);
+      },
+
+      showEnergyEdges() {
+        const wiringTypes = {...this.view.wiring_types, energy: true};
+        this.setView({wiring_types: wiringTypes});
+        if (cy) cy.style(this.graphStyle());
+        this.applyFlows();
+      },
+
       // Writes this browser's view as the server default. Node positions and
       // the unsaved flag are left alone.
       async saveDefaultView() {
@@ -1887,7 +1923,7 @@
         // (firing dragfree instead of tap) - connect mode would then never
         // see the tap. Disabling grab while connect mode is active makes a
         // click unambiguously a tap, on mouse and touch alike.
-        cy.autoungrabify(this.connectMode);
+        cy.autoungrabify(this.connectMode || !this.canEditMap);
         cy.on('drag', 'node', event => this.onNodeDrag(event));
         cy.on('dragfree', 'node', event => this.onNodeDragFree(event));
         cy.on('tap', 'node', event => this.onNodeTap(event));
@@ -1989,6 +2025,7 @@
       },
 
       async toggleConnectMode() {
+        if (!this.canEditMap) return;
         if (!this.connectMode && this.panelId) {
           if (!(await this.leavePanel())) return;
           this.closePanel();
@@ -1999,7 +2036,7 @@
         this.connectSourceLabel = '';
         this.clearEdgeSelection();
         if (cy) {
-          cy.autoungrabify(this.connectMode);
+          cy.autoungrabify(this.connectMode || !this.canEditMap);
           cy.nodes().removeClass('devicemap-connect-source');
         }
       },

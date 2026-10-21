@@ -3182,3 +3182,102 @@ test('a storage that throws keeps the view working for this session', async () =
   assert.equal(component.view.show_grid, true);
   assert.equal(component.viewDiffersFromDefault(), true);
 });
+
+// Wiring filter and edit roles: the filter is a browser setting, the roles come
+// from the session that load() reads.
+test('toggleWiringType flips one type for this browser only and ignores unknown types', () => {
+  const { component, storage } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+
+  component.toggleWiringType('info');
+  assert.equal(component.view.wiring_types.info, false);
+  assert.equal(storage.getItem('devicemap-view'), '{"wiring_types":{"info":false}}');
+  assert.equal(component.unsaved, false);
+
+  component.toggleWiringType('bogus');
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view.wiring_types)), { energy: true, data: true, info: false });
+});
+
+test('wiringTypeDisabled marks the types greyed out while the wiring layer is off', () => {
+  const component = panelWith({ devices: [], layers: { wiring: false, energy: true, balance: false, data: false } });
+  assert.equal(component.wiringTypeDisabled('data'), true);
+  assert.equal(component.wiringTypeDisabled('info'), true);
+  assert.equal(component.wiringTypeDisabled('energy'), false);
+
+  component.deviceMap.view.layers.wiring = true;
+  component.localView = {};
+  assert.equal(component.wiringTypeDisabled('data'), false);
+});
+
+test('wiringFilterActive is true once one type is filtered out', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  assert.equal(component.wiringFilterActive(), false);
+  component.toggleWiringType('data');
+  assert.equal(component.wiringFilterActive(), true);
+});
+
+test('energyFlowHidden is true while the energy layer is on and the energy filter is off', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  assert.equal(component.energyFlowHidden(), false);
+
+  component.toggleWiringType('energy');
+  assert.equal(component.energyFlowHidden(), true);
+
+  component.toggleLayer('energy');
+  assert.equal(component.energyFlowHidden(), false, 'layer off means nothing to hide');
+});
+
+test('showEnergyEdges turns the energy filter back on', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleWiringType('energy');
+  assert.equal(component.energyFlowHidden(), true);
+
+  component.showEnergyEdges();
+
+  assert.equal(component.view.wiring_types.energy, true);
+  assert.equal(component.energyFlowHidden(), false);
+});
+
+test('a session without edit_device_map blocks connect mode and edge edits, but not the wiring filter', async () => {
+  const map = { version: 2, nodes: [], edges: [], edge_props: [] };
+  const table = { ...viewTable(map), '/api/v1/auth/session': { edit_device_map: false, edit_device_map_view: true, edit_energy: true, csrf_token: 'c' } };
+  const { component } = createDevicemapPanel({ fetchImpl: routes(table) });
+  await component.load();
+  assert.equal(component.canEditMap, false);
+  assert.equal(component.canEditMapView, true);
+
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  await component.toggleConnectMode();
+  assert.equal(component.connectMode, false);
+  component.setEdgeType('info');
+  component.setEdgeDirection('fixed_up');
+  component.setEdgeChannel(2);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.deviceMap.edge_props)), []);
+
+  component.toggleWiringType('data');
+  assert.equal(component.view.wiring_types.data, false);
+});
+
+test('a session without edit_device_map_view leaves the map editable', async () => {
+  const map = { version: 2, nodes: [], edges: [] };
+  const table = { ...viewTable(map), '/api/v1/auth/session': { edit_device_map_view: false, csrf_token: 'c' } };
+  const { component } = createDevicemapPanel({ fetchImpl: routes(table) });
+  await component.load();
+  assert.equal(component.canEditMap, true);
+  assert.equal(component.canEditMapView, false);
+});
+
+test('without edit rights reverseSelectedRelation makes no request', async () => {
+  const calls = [];
+  const { component } = createDevicemapPanel({ fetchImpl: routes({}, calls) });
+  component.canEditMap = false;
+  component.csrfToken = 'c';
+  component.selectedEdge = { source: 'wr', target: 'akku', overrideId: 'relation-1' };
+
+  await component.reverseSelectedRelation();
+
+  assert.equal(calls.length, 0);
+});
