@@ -19,6 +19,10 @@ APP_CONFIG_TARGET="/etc/energy-node/config.json"
 APP_CONFIG_BACKUP="/etc/energy-node/.config.json.bak"
 APP_CONFIG_OWNER="energynode"
 
+# journalctl binary for read-journal. scripts/tests/test_bootstrap_dashboard_read_journal.sh
+# replaces this line with a stub, so keep the assignment on one line.
+JOURNALCTL="/usr/bin/journalctl"
+
 # apply_bridge_config installs BRIDGE_STAGED as BRIDGE_TARGET and restarts
 # mosquitto, with two independent defenses against a compromised dashboard
 # process and one rollback path against a working-but-wrong configuration:
@@ -109,11 +113,78 @@ apply_app_config() {
   exit 0
 }
 
-if [ "$#" -ne 1 ]; then
-  exit 64
-fi
+# read_journal prints journal entries of one allowlisted unit as JSON lines.
+# Arguments: key (dashboard|tailscale), since in minutes (15|60|360|1440|10080),
+# lines (100|200|500|1000) and an optional cursor. The cursor must start with
+# "s=", be at most 256 characters, and contain only [A-Za-z0-9=;], so it can
+# never be read as a journalctl option. Exit codes of journalctl pass through.
+read_journal() {
+  key="$1"
+  since="$2"
+  lines="$3"
+  cursor="$4"
+
+  case "$key" in
+    dashboard) unit="energy-node-dashboard.service" ;;
+    tailscale) unit="tailscaled.service" ;;
+    *) exit 65 ;;
+  esac
+  case "$since" in
+    15|60|360|1440|10080) : ;;
+    *) exit 65 ;;
+  esac
+  case "$lines" in
+    100|200|500|1000) : ;;
+    *) exit 65 ;;
+  esac
+
+  if [ -n "$cursor" ]; then
+    [ "${#cursor}" -le 256 ] || exit 65
+    case "$cursor" in
+      s=*) : ;;
+      *) exit 65 ;;
+    esac
+    case "$cursor" in
+      *[!A-Za-z0-9=\;]*) exit 65 ;;
+    esac
+    exec "$JOURNALCTL" \
+      --no-pager \
+      --quiet \
+      --output=json \
+      --output-fields=MESSAGE,PRIORITY,_SYSTEMD_UNIT \
+      --unit="$unit" \
+      --since="-${since}min" \
+      --lines="$lines" \
+      --after-cursor="$cursor"
+  fi
+
+  exec "$JOURNALCTL" \
+    --no-pager \
+    --quiet \
+    --output=json \
+    --output-fields=MESSAGE,PRIORITY,_SYSTEMD_UNIT \
+    --unit="$unit" \
+    --since="-${since}min" \
+    --lines="$lines"
+}
+
+case "${1:-}" in
+  read-journal)
+    if [ "$#" -ne 4 ] && [ "$#" -ne 5 ]; then
+      exit 64
+    fi
+    ;;
+  *)
+    if [ "$#" -ne 1 ]; then
+      exit 64
+    fi
+    ;;
+esac
 
 case "$1" in
+  read-journal)
+    read_journal "$2" "$3" "$4" "${5:-}"
+    ;;
   restart-dashboard)
     exec /bin/systemctl restart energy-node-dashboard.service
     ;;
