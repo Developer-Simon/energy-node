@@ -250,7 +250,7 @@
       },
 
       flowElements() {
-        if (!this.view.layers.energy || !this.energy) return [];
+        if (!this.view.layers.energy || !this.energy || this.view.wiring_types?.energy === false) return [];
         // Off outputs and the dead area carry no flow.
         const cut = new Set(this.switchTargets(this.switchStatus()).keys());
         return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});

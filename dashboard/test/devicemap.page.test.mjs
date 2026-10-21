@@ -926,6 +926,15 @@ test('flowElements is empty while the energy layer is off or the snapshot is mis
   assert.equal(component.flowElements().length, 0);
 });
 
+test('flowElements is empty while the energy connection type is switched off in view.wiring_types', () => {
+  const { component } = createDevicemapPanel();
+  flowFixture(component);
+  assert.ok(component.flowElements().length > 0);
+  component.toggleWiringType('energy');
+  assert.equal(component.view.wiring_types.energy, false);
+  assert.equal(component.flowElements().length, 0);
+});
+
 test('applyFlows replaces a flow whose direction changed instead of duplicating it', () => {
   const { component } = createDevicemapPanel();
   flowFixture(component, 800);

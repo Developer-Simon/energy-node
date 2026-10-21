@@ -153,6 +153,18 @@ test('style draws dead edges dotted in the rest colour without arrow', () => {
   assert.equal(rule.style['target-arrow-shape'], 'none');
 });
 
+test('style hides wiring edges of a connection type switched off in view.wiring_types', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555' };
+  const layers = { wiring: true, energy: true };
+  const hidden = DeviceMapGraph.style({ view: { edge_style: 'straight', layers, wiring_types: { energy: true, data: false, info: true } }, theme, color: () => '#000', reducedMotion: false });
+  assert.ok(hidden.some(entry => entry.selector === 'edge.devicemap-wiring.devicemap-conn-data' && entry.style.display === 'none'), 'data edges are hidden');
+  assert.equal(hidden.some(entry => entry.selector === 'edge.devicemap-wiring.devicemap-conn-energy' && entry.style.display === 'none'), false);
+  assert.equal(hidden.some(entry => entry.selector === 'edge.devicemap-wiring.devicemap-conn-info' && entry.style.display === 'none'), false);
+  const shown = DeviceMapGraph.style({ view: { edge_style: 'straight', layers, wiring_types: { energy: true, data: true, info: true } }, theme, color: () => '#000', reducedMotion: false });
+  assert.equal(shown.some(entry => /devicemap-conn-(energy|data|info)$/.test(entry.selector) && entry.style.display === 'none'), false);
+});
+
 test('style draws a filled port at the source of each switched edge in its state color', () => {
   const { DeviceMapGraph } = loadGraph();
   const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555', ok: '#666', bad: '#777' };
