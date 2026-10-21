@@ -31,7 +31,7 @@
   // und mit dem, was valid() unten prueft - der Stepper kann also nie einen
   // Wert erzeugen, den das Speichern ablehnt.
   const STEP_FIELDS = {
-    healthScoreThreshold: {min: 1, max: 600, step: 1},
+    healthScoreThreshold: {min: 10, max: 3600, step: 1},
     sweepIntervalSeconds: {min: 30, max: 3600, step: 30},
     liveUpdateIntervalSeconds: {min: 1, max: 60, step: 1},
     historySampleIntervalSeconds: {min: 5, max: 3600, step: 5},
@@ -42,7 +42,7 @@
   };
 
   const settingsPanel = () => ({
-    healthScoreThreshold: 3,
+    healthScoreThreshold: 180,
     sweepIntervalSeconds: 300,
     showRuntimeStatus: true,
     deviceViewMode: 'compact',
@@ -478,7 +478,7 @@
     },
 
     get valid() {
-      return this.healthScoreThreshold >= 1 && this.sweepIntervalSeconds >= 1 &&
+      return this.healthScoreThreshold >= 10 && this.healthScoreThreshold <= 3600 && this.sweepIntervalSeconds >= 1 &&
         this.liveUpdateIntervalSeconds >= 1 && this.liveUpdateIntervalSeconds <= 60 &&
         this.historySampleIntervalSeconds >= 5 && this.historySampleIntervalSeconds <= 3600 &&
         this.historyRetentionHours >= 1 && this.historyBudgetMb >= 16;

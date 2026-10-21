@@ -2104,6 +2104,7 @@
   "settings.health_threshold.decrease": "Health-Schwellwert verringern",
   "settings.health_threshold.increase": "Health-Schwellwert erhöhen",
   "settings.health_threshold.label": "Health-Schwellwert",
+  "settings.health_threshold.note": "Sekunden ohne neuen Wert, nach denen ein Wert als nicht aktualisiert gilt. Der Health-Score eines Geräts fällt in diesem Alter auf null.",
   "settings.history.budget_size": "Budget {mb} MB reicht für rund {days} Tage",
   "settings.history.budget_size_only": "Budget {mb} MB",
   "settings.history.budget_time": "Aufbewahrung {hours} Stunden",

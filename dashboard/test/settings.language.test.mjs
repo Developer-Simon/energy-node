@@ -20,7 +20,7 @@ const scriptSource = fs.readFileSync(
 const jsonResponse = (body, ok = true) => ({ ok, status: ok ? 200 : 400, json: async () => body });
 
 const settingsResponse = {
-  health_score_threshold: 3, sweep_interval_seconds: 300,
+  health_score_threshold: 180, sweep_interval_seconds: 300,
   show_runtime_status: true, device_view_mode: 'compact', theme: 'mint',
   show_config_entities_on_tile: false, show_diagnostic_entities_on_tile: false,
   live_update_interval_seconds: 3, wide_panels: [], status_bar_items: [],

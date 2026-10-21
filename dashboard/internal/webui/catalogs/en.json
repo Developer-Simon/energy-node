@@ -2104,6 +2104,7 @@
   "settings.health_threshold.decrease": "Decrease health threshold",
   "settings.health_threshold.increase": "Increase health threshold",
   "settings.health_threshold.label": "Health threshold",
+  "settings.health_threshold.note": "Seconds without a new value after which a value counts as not updated. The health score of a device falls to zero at this age.",
   "settings.history.budget_size": "Budget of {mb} MB lasts about {days} days",
   "settings.history.budget_size_only": "Budget {mb} MB",
   "settings.history.budget_time": "Kept for {hours} hours",

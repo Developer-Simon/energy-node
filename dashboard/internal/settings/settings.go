@@ -650,9 +650,9 @@ func (s *Store) LoadSettings() (Settings, error) {
 		if err := json.Unmarshal(data, &value); err != nil {
 			return Settings{}, fmt.Errorf("settings.json: invalid JSON: %w", err)
 		}
-		// Older builds stored the threshold in minutes. Values below the
-		// schema minimum are raised here, on load only, so the saved
-		// revision stays as it was written.
+		// Older builds used this value as health points (default 3). Values
+		// below the schema minimum are raised here, on load only, so the
+		// saved revision stays as it was written.
 		if value.HealthScoreThreshold < healthScoreThresholdMin {
 			value.HealthScoreThreshold = Default().HealthScoreThreshold
 		}

@@ -66,7 +66,7 @@ function createSettingsPanel({ fetchImpl, withChoices = true } = {}) {
 const jsonResponse = (body, ok = true) => ({ ok, status: ok ? 200 : 400, json: async () => body });
 
 const settingsResponse = (overrides = {}) => ({
-  health_score_threshold: 3, sweep_interval_seconds: 300,
+  health_score_threshold: 180, sweep_interval_seconds: 300,
   show_runtime_status: true, device_view_mode: 'compact', theme: 'mint',
   show_config_entities_on_tile: false, show_diagnostic_entities_on_tile: false,
   live_update_interval_seconds: 3, wide_panels: [], status_bar_items: [],
@@ -351,4 +351,32 @@ test('fitTabs() does nothing while the panel is hidden and has no width', () => 
   component.fitTabs();
   assert.deepEqual(hiddenTabs(nav), []);
   assert.equal(component.overflowTabs.length, 0);
+});
+
+// The health threshold is measured in seconds. The stepper, the form field
+// bounds and valid() must all agree with the server schema (minimum 10,
+// maximum 3600) so the form can never produce a value that saving rejects.
+test('health threshold is in seconds: default 180, stepper bounds 10 to 3600', () => {
+  const { component } = createSettingsPanel();
+  assert.equal(component.healthScoreThreshold, 180);
+
+  component.healthScoreThreshold = 10;
+  component.stepField('healthScoreThreshold', -1);
+  assert.equal(component.healthScoreThreshold, 10);
+
+  component.healthScoreThreshold = 3600;
+  component.stepField('healthScoreThreshold', 1);
+  assert.equal(component.healthScoreThreshold, 3600);
+});
+
+test('valid() rejects a health threshold below 10 seconds or above 3600', () => {
+  const { component } = createSettingsPanel();
+  component.healthScoreThreshold = 9;
+  assert.equal(component.valid, false);
+  component.healthScoreThreshold = 10;
+  assert.equal(component.valid, true);
+  component.healthScoreThreshold = 3600;
+  assert.equal(component.valid, true);
+  component.healthScoreThreshold = 3601;
+  assert.equal(component.valid, false);
 });
