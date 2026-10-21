@@ -706,6 +706,8 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session) {
 		"automations":             auth.HasRole(session.User, auth.RoleAutomations),
 		"edit_layout":             auth.HasRole(session.User, auth.RoleEditLayout),
 		"edit_energy":             auth.HasRole(session.User, auth.RoleEditEnergy),
+		"edit_device_map":         auth.HasRole(session.User, auth.RoleEditDeviceMap),
+		"edit_device_map_view":    auth.HasRole(session.User, auth.RoleEditDeviceMapView),
 		"csrf_token":              session.CSRFToken,
 		"expires_at":              session.ExpiresAt,
 	})

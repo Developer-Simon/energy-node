@@ -2499,3 +2499,17 @@ func TestAutomationStateEndpointReturnsTheFullDocument(t *testing.T) {
 		t.Fatalf("no automation service should 404, got %d: %s", missing.Code, missing.Body.String())
 	}
 }
+
+func TestAuthSessionReportsDeviceMapRoles(t *testing.T) {
+	body := getAuthSessionAsGuest(t)
+	var session map[string]any
+	if err := json.Unmarshal(body, &session); err != nil {
+		t.Fatalf("Sitzungsantwort ist kein JSON: %v", err)
+	}
+	if session["edit_device_map"] != true {
+		t.Fatalf("Gäste haben RoleEditDeviceMap, das Flag fehlt aber: %v", session)
+	}
+	if session["edit_device_map_view"] != true {
+		t.Fatalf("Gäste haben RoleEditDeviceMapView, das Flag fehlt aber: %v", session)
+	}
+}
