@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -184,7 +185,7 @@ func TestEnergyRestoreAppliesTheRestoredAssignmentsToTheResolver(t *testing.T) {
 	}
 }
 
-func TestDeviceMapWritesNeedEditEnergyAndCSRF(t *testing.T) {
+func TestDeviceMapWritesNeedDeviceMapRolesAndCSRF(t *testing.T) {
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
 		t.Fatal(err)
@@ -205,6 +206,7 @@ func TestDeviceMapWritesNeedEditEnergyAndCSRF(t *testing.T) {
 		{http.MethodDelete, "/api/v1/device/map/relations/x", ``},
 		{http.MethodPost, "/api/v1/device/map/relations/x/reverse", ``},
 		{http.MethodPost, "/api/v1/device/map/restore", `{"revision":"x"}`},
+		{http.MethodPut, "/api/v1/device/map/view", `{}`},
 	}
 	for _, c := range cases {
 		without := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
@@ -228,6 +230,67 @@ func TestDeviceMapWritesNeedEditEnergyAndCSRF(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	if requireEnergyMutation(recorder, noRole, manager) || recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"energy_forbidden"`) {
 		t.Fatalf("a user without edit_energy must get energy_forbidden: %d %s", recorder.Code, recorder.Body.String())
+	}
+
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveDeviceMap(settings.DeviceMap{Nodes: []settings.DeviceMapNode{{DeviceID: "first", X: 1, Y: 1}}}); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := stored
+	moved.Nodes = append([]settings.DeviceMapNode(nil), stored.Nodes...)
+	moved.Nodes[0].X = 9
+	movedBody, _ := json.Marshal(moved)
+	flipped := stored
+	flipped.View.ShowGrid = !stored.View.ShowGrid
+	flippedBody, _ := json.Marshal(flipped)
+	viewBody, _ := json.Marshal(stored.View)
+	viewBody = []byte(strings.Replace(string(viewBody), `"show_grid":false`, `"show_grid":true`, 1))
+
+	// Direct calls: the user comes from the context, the guest session supplies
+	// the CSRF token, so only the role check decides the outcome.
+	mapHandler := handleDeviceMap(store, manager)
+	subHandler := handleDeviceMapSub(store, registry.New(), config.NewManager(t.TempDir()), nil, manager)
+	call := func(handler http.HandlerFunc, method, path string, body []byte, roles ...string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, bytes.NewReader(body))
+		req.AddCookie(cookie)
+		req.Header.Set("X-CSRF-Token", session.CSRFToken)
+		req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "tester", Roles: roles}))
+		rec := httptest.NewRecorder()
+		handler(rec, req)
+		return rec
+	}
+	viewOnly := []string{auth.RoleEditDeviceMapView}
+	structureOnly := []string{auth.RoleEditDeviceMap}
+
+	if rec := call(mapHandler, http.MethodPut, "/api/v1/device/map", movedBody, viewOnly...); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"device_map_forbidden"`) {
+		t.Fatalf("moving a node needs edit_device_map: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call(mapHandler, http.MethodPut, "/api/v1/device/map", flippedBody, structureOnly...); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"device_map_view_forbidden"`) {
+		t.Fatalf("changing the view needs edit_device_map_view: %d %s", rec.Code, rec.Body.String())
+	}
+	afterReject, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterReject.View.ShowGrid != stored.View.ShowGrid {
+		t.Fatalf("a rejected view change must not be saved: show_grid %v", afterReject.View.ShowGrid)
+	}
+	if rec := call(subHandler, http.MethodPut, "/api/v1/device/map/view", []byte(`{}`), structureOnly...); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"device_map_view_forbidden"`) {
+		t.Fatalf("view endpoint needs edit_device_map_view: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call(subHandler, http.MethodPut, "/api/v1/device/map/view", viewBody, viewOnly...); rec.Code != http.StatusOK {
+		t.Fatalf("view endpoint with edit_device_map_view: %d %s", rec.Code, rec.Body.String())
+	}
+	saved, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.View.ShowGrid || len(saved.Nodes) != 1 || saved.Nodes[0].X != 1 {
+		t.Fatalf("view endpoint must only replace the view: %+v", saved)
 	}
 }
 
