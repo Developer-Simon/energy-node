@@ -931,7 +931,7 @@ def test_discovery_value_template_keys_exist_in_their_own_payload():
     payloads = {
         "state": automation.build_state_document({"r1": {"enabled": True, "fire_count": 1}}, [], at=1.0, online=True),
         "last_event": {"at": 1.0, "message": "x"},
-        "status": SlaveStatus(poll_interval_s=1, diagnostic_poll_multiplier=1, actual_poll_interval_s=1).to_dict(),
+        "status": SlaveStatus().to_dict(),
         "test_result": {"at": 1.0, "rule_id": "r1", "action_index": 0, "status": "published",
                          "topic": "werkstatt/x/set", "payload": "on", "reason": None},
         "history": automation.build_history_document({"r1": [{"at": 1.0, "result": "fired"}]}, at=1.0),

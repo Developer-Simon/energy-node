@@ -142,7 +142,7 @@ def test_config_reload_still_dispatches():
     assert called == [True]
 
 
-def test_status_payload_keeps_poll_fields():
+def test_status_payload_omits_poll_fields():
     client = FakeClient()
     slave = Slave(service_id="x", poll_core=lambda: None,
                   default_poll_interval_s=42, default_diagnostic_multiplier=7)
@@ -152,8 +152,10 @@ def test_status_payload_keeps_poll_fields():
     topic, payload = client.published[-1]
     data = json.loads(payload)
     assert topic == "outstation/x/settings/status"
-    assert data["poll_interval_s"] == 42
-    assert data["diagnostic_poll_multiplier"] == 7
+    assert "poll_interval_s" not in data
+    assert "diagnostic_poll_multiplier" not in data
+    assert "actual_poll_interval_s" not in data
+    assert "runtime_status" in data
 
 
 if __name__ == "__main__":

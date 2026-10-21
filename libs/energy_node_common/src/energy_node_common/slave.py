@@ -280,9 +280,6 @@ class Slave:
         else:
             error_code = ""
         status = SlaveStatus(
-            poll_interval_s=self.poll_interval_s,
-            diagnostic_poll_multiplier=self.diagnostic_poll_multiplier,
-            actual_poll_interval_s=self.poll_interval_s,
             simulation_active=self.simulation_active,
             last_update=self._last_update_ts,
             runtime_status=runtime_status,

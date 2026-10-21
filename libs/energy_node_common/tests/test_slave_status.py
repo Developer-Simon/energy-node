@@ -56,10 +56,17 @@ def _slave(store, reload_calls=None):
     return Slave("svc", lambda: None, on_config_reload=on_reload, config_store=store)
 
 
+def test_status_to_dict_has_exactly_the_remaining_keys():
+    status = SlaveStatus()
+    assert set(status.to_dict()) == {
+        "simulation_active", "last_update", "runtime_status", "error",
+        "error_code", "config_revision", "applied_revision",
+    }
+
+
 def test_new_status_fields_round_trip():
-    status = SlaveStatus(poll_interval_s=10, diagnostic_poll_multiplier=2, actual_poll_interval_s=10,
-                         runtime_status="rejected", error="kaputt", error_code="charge_source_required",
-                         config_revision="abc", applied_revision="def")
+    status = SlaveStatus(simulation_active=True, last_update=12, runtime_status="rejected", error="kaputt",
+                         error_code="charge_source_required", config_revision="abc", applied_revision="def")
     data = status.to_dict()
     assert data["error_code"] == "charge_source_required"
     assert data["config_revision"] == "abc"
