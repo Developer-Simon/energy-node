@@ -31,7 +31,7 @@ run_case() {
   label="$1"; want="$2"; stub="$3"; shift 3
   rm -f "$tmp/args"
   rc=0
-  "$helper" "$@" >"$tmp/out" 2>&1 || rc=$?
+  "$helper" "$@" </dev/null >"$tmp/out" 2>&1 || rc=$?
   [ "$rc" -eq "$want" ] || fail "$label: exit $rc, want $want" "$(cat "$tmp/out")"
   if [ "$stub" = no ]; then
     [ ! -e "$tmp/args" ] || fail "$label: journalctl stub was called"
@@ -64,6 +64,24 @@ cat > "$tmp/want" <<'EOF'
 --after-cursor=s=ab12;i=3f;b=cd;m=1;t=2;x=ef
 EOF
 cmp -s "$tmp/args" "$tmp/want" || fail "tailscale 15 100 cursor: wrong journalctl arguments" "$(cat "$tmp/args")"
+
+# Every allowlisted key maps to its unit
+while read -r key unit; do
+  run_case "key $key" 0 yes read-journal "$key" 60 200
+  grep -qx -- "--unit=$unit" "$tmp/args" || fail "key $key: expected --unit=$unit" "$(cat "$tmp/args")"
+done <<'EOF'
+dashboard energy-node-dashboard.service
+updater energy-node-updater.service
+automation automation.service
+battery-soc battery-soc.service
+shelly shelly-rpc.service
+trucki trucki-http.service
+tuya tuya.service
+apsystems apsystems-ez1.service
+mosquitto mosquitto.service
+caddy caddy.service
+tailscale tailscaled.service
+EOF
 
 # Unit, since and lines are checked against fixed lists
 run_case "unknown unit sshd" 65 no read-journal sshd 60 200

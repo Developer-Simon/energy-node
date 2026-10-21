@@ -115,7 +115,8 @@ apply_app_config() {
 
 # read_journal prints journal entries of one allowlisted unit as JSON lines.
 # Arguments: key (dashboard|tailscale), since in minutes (15|60|360|1440|10080),
-# lines (100|200|500|1000) and an optional cursor. The cursor must start with
+# lines (100|200|500|1000) and an optional cursor. The key is one of the
+# eleven allowlisted service keys in the case below. The cursor must start with
 # "s=", be at most 256 characters, and contain only [A-Za-z0-9=;], so it can
 # never be read as a journalctl option. Exit codes of journalctl pass through.
 read_journal() {
@@ -126,6 +127,15 @@ read_journal() {
 
   case "$key" in
     dashboard) unit="energy-node-dashboard.service" ;;
+    updater) unit="energy-node-updater.service" ;;
+    automation) unit="automation.service" ;;
+    battery-soc) unit="battery-soc.service" ;;
+    shelly) unit="shelly-rpc.service" ;;
+    trucki) unit="trucki-http.service" ;;
+    tuya) unit="tuya.service" ;;
+    apsystems) unit="apsystems-ez1.service" ;;
+    mosquitto) unit="mosquitto.service" ;;
+    caddy) unit="caddy.service" ;;
     tailscale) unit="tailscaled.service" ;;
     *) exit 65 ;;
   esac
