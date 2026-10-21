@@ -2166,6 +2166,37 @@ func TestDeviceMapWithoutHideAutomationLinksShowsThem(t *testing.T) {
 	}
 }
 
+func TestDeviceMapWithoutWiringTypesShowsAll(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"version":1,"nodes":[],"view":{"snap_to_grid":false,"show_grid":false,"grid_size":40,"edge_style":"straight"}}`
+	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewStore(dir).LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.WiringTypes != (DeviceMapWiringTypes{true, true, true}) {
+		t.Fatalf("wiring_types = %#v, want all three types shown for a file without wiring_types", got.View.WiringTypes)
+	}
+}
+
+func TestDeviceMapWiringTypesRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.View.WiringTypes = DeviceMapWiringTypes{Energy: true, Data: false, Info: false}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.WiringTypes != value.View.WiringTypes {
+		t.Fatalf("wiring_types = %#v, want %#v round-tripped", got.View.WiringTypes, value.View.WiringTypes)
+	}
+}
+
 func TestDeviceMapLayersRestoredRevisionWithoutLayersGetsDefaults(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(dir)
