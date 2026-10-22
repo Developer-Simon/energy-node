@@ -69,7 +69,7 @@ As of **2026-10-19**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `41` |
+| `css/base.css` | `42` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -137,11 +137,11 @@ on the `device-modal` template in
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
-| `diagnostics-panel` | – | `css/settings-controls.css` `14`, `css/diagnostics.css` `2` |
+| `diagnostics-panel` | – | `css/settings-controls.css` `16`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `9` | `css/manager.css` `46` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `1`, `js/energy.page.js` `13` | `css/manager.css` `46` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `46` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `23`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `46`, `css/settings-controls.css` `14` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `1`, `js/settings.page.js` `25`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `46`, `css/settings-controls.css` `16` |
 | `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `46`, `css/automations.css` `6` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `5` | `css/history.css` `7`, `css/stats.css` `3` |
 
@@ -263,6 +263,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.6 | `js/settings-masonry.js` (new, settings panel, cards fill the shorter column) · `js/settings.page.js` (settings panel, masonry, sidebar page picker and sheet instead of the More list) · `css/settings-controls.css` (settings, diagnostics: masonry, sidebar, picker, sheet, wizard slide-in) · `css/base.css` (settings sub tab row rules removed) | `1` (new) · `25` · `16` · `42` | 2026-10-22 |
 | v0.10.5 | `js/devicemap-view-prefs.js` (new, device map, browser view settings) · `js/devicemap-model.js` (energy, device map, edit rights and view defaults) · `js/devicemap-graph.js` (energy, device map, wiring filter) · `js/devicemap.page.js` (device map, filter button, view menu) · `css/manager.css` (5 panels) | `1` (new) · `14` · `9` · `29` · `46` | 2026-10-21 |
 | v0.10.3 | `js/layout-editor.js` (overview editor, unreachable Gridstack path removed, discarding changes also ends edit mode) | `19` | 2026-10-21 |
 | v0.10.2 | `js/config-status.js` (config and automations panels, unreachable `pending` runtime status removed) | `4` | 2026-10-21 |

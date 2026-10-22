@@ -1118,15 +1118,15 @@ func TestLayoutRejectsUnknownEnergyGraphicOptionValue(t *testing.T) {
 	}
 }
 
-// TestSettingsWidePanelsDefault: die Vorgabe gibt genau die vier Tabs frei,
-// die von Breite profitieren. Die textlastigen Tabs behalten die
-// 1180px-Lesebreite.
+// TestSettingsWidePanelsDefault: die Vorgabe gibt genau die Tabs frei, die
+// von Breite profitieren, seit der Seitenleiste auch die Einstellungen. Die
+// textlastigen Tabs behalten die 1180px-Lesebreite.
 func TestSettingsWidePanelsDefault(t *testing.T) {
 	value, err := NewStore(t.TempDir()).LoadSettings()
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"overview", "devices", "history", "layout"}
+	want := []string{"overview", "devices", "history", "layout", "settings"}
 	if !reflect.DeepEqual(value.WidePanels, want) {
 		t.Fatalf("WidePanels = %v, want %v", value.WidePanels, want)
 	}
