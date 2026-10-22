@@ -16,7 +16,7 @@
 - **dashboard:** show service logs on the diagnostics page (98b2272)
 - **dashboard:** rework the service logs view (a9dcdf7)
 - **dashboard:** keep the service log scrolled to the newest line (04d2e6a)
-- **dashboard:** service logs on the diagnostics page (#161)
+- **dashboard:** The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh. (#161)
 - **settings:** make the masthead title and subtitle configurable (b9217a1)
 - **settings:** rework the masthead card and share the energy save bar (bfff2a3)
 - **status:** offer CPU load in the system status bar (66f9c89)
