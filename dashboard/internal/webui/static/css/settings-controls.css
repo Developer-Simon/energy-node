@@ -28,7 +28,6 @@
   align-items: start;
 }
 .settings-cards > .settings-hint,
-.settings-cards > .setting-actions,
 .settings-cards > .setting-note,
 .settings-cards > .setting-actionbar-dock { grid-column: 1 / -1; }
 .settings-cards > .settings-hint {
@@ -442,7 +441,6 @@
 .setting-quiet-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
 /* --- Speicherleiste am Fuss des Kartenstapels -------------------------- */
-.setting-actions { display: flex; gap: .6rem; margin-top: .5rem; }
 
 /* --- Schwebende Speicherleiste fuer lange Formulare -----------------------
    Reines position:sticky ohne IntersectionObserver (anders als
@@ -519,8 +517,58 @@
 /* Freistehendes Label ueber einem Segmented-Block in einer Karte. */
 .setting-card > .setting-row-label { margin-top: .9rem; }
 
-/* Freitextfeld unter einem solchen Label (Kopfzeile: Titel, Untertitel). */
-.setting-card > .setting-text-input { display: block; width: 100%; box-sizing: border-box; margin-top: .35rem; }
+/* --- Kopfzeile: je Text eine Zeile mit Schalter ------------------------ */
+/* Gruppierte Liste: Feld und Schalter einer Zeile gehoeren zusammen, die
+   Trennlinie haelt die beiden Zeilen als eine Gruppe lesbar. */
+.masthead-setting-group { margin-top: .9rem; }
+.masthead-setting-row + .masthead-setting-row {
+  margin-top: .8rem;
+  padding-top: .8rem;
+  border-top: 1px solid var(--border-soft);
+}
+.masthead-setting-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text);
+  font-size: .92rem;
+}
+.masthead-setting-head > label:first-child { display: inline-flex; align-items: center; gap: .35rem; }
+.masthead-setting-field { position: relative; margin-top: .45rem; }
+.masthead-setting-field .setting-text-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 2.2rem;
+  border-radius: var(--radius-sm);
+  transition: opacity .2s var(--ease-out);
+}
+/* Ausgeblendet heisst nicht gesperrt: der Text bleibt bearbeitbar (der
+   Titel benennt weiter den Browser-Tab), tritt aber sichtbar zurueck. */
+.masthead-setting-row.is-off .setting-text-input { opacity: .55; }
+.masthead-setting-row.is-off .setting-text-input:focus { opacity: 1; }
+.masthead-setting-reset {
+  position: absolute;
+  top: 50%;
+  right: .3rem;
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-subtle);
+  transform: translateY(-50%);
+  cursor: pointer;
+  transition: background .12s ease, color .12s ease, transform .1s ease-out;
+}
+.masthead-setting-reset svg { width: .9rem; height: .9rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.masthead-setting-reset:hover { background: var(--panel-alt); color: var(--text); }
+.masthead-setting-reset:active { transform: translateY(-50%) scale(.9); }
+.masthead-setting-reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Choices.js-Mehrfachauswahl in einer Karte: Label oben, Auswahl darunter
    ueber die volle Kartenbreite - die 20rem-Deckelung der .form-grid-Fassung

@@ -159,7 +159,6 @@
       <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
       <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
     </section>
-    <div class="setting-actions"><button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
   <section id="settings-display" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'display'">
     <div class="setting-card">
@@ -188,21 +187,39 @@
       <p id="nav-mode-note" class="setting-note">{{t "settings.nav_mode.note"}}</p>
     </div>
 
-    <div class="setting-card">
+    <div class="setting-card masthead-setting">
       <h3 class="setting-card-title">{{t "settings.masthead.title"}}</h3>
       <p class="setting-note">{{t "settings.masthead.note"}}</p>
-      <label class="setting-row-label" for="dashboard-title">{{t "settings.masthead.title_label"}}</label>
-      <input id="dashboard-title" class="setting-text-input" type="text" maxlength="80" autocomplete="off" placeholder="Energy Node Dashboard" x-model="dashboardTitle">
-      <label class="switch-row" for="show-dashboard-title">
-        <span>{{t "settings.masthead.show_title"}}</span>
-        <span class="settings-toggle"><input id="show-dashboard-title" type="checkbox" role="switch" x-bind:checked="!dashboardTitleHidden" x-on:change="dashboardTitleHidden = !$event.target.checked" x-bind:aria-checked="!dashboardTitleHidden"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
-      </label>
-      <label class="setting-row-label" for="dashboard-subtitle">{{t "settings.masthead.subtitle_label"}}</label>
-      <input id="dashboard-subtitle" class="setting-text-input" type="text" maxlength="160" autocomplete="off" placeholder="{{t "masthead.subtitle"}}" x-model="dashboardSubtitle">
-      <label class="switch-row" for="show-dashboard-subtitle">
-        <span>{{t "settings.masthead.show_subtitle"}}</span>
-        <span class="settings-toggle"><input id="show-dashboard-subtitle" type="checkbox" role="switch" x-bind:checked="!dashboardSubtitleHidden" x-on:change="dashboardSubtitleHidden = !$event.target.checked" x-bind:aria-checked="!dashboardSubtitleHidden"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
-      </label>
+      <div class="masthead-setting-group">
+        <div class="masthead-setting-row" x-bind:class="{ 'is-off': dashboardTitleHidden }">
+          <div class="masthead-setting-head">
+            <label for="dashboard-title">
+              {{t "settings.masthead.title_label"}}
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="{{t "settings.masthead.title_help_button"}}">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip">{{t "settings.masthead.tab_note"}}</span>
+              </span>
+            </label>
+            <label class="settings-toggle"><input id="show-dashboard-title" type="checkbox" role="switch" aria-label="{{t "settings.masthead.show_title"}}" x-bind:checked="!dashboardTitleHidden" x-on:change="dashboardTitleHidden = !$event.target.checked" x-bind:aria-checked="!dashboardTitleHidden"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></label>
+          </div>
+          <div class="masthead-setting-field">
+            <input id="dashboard-title" class="setting-text-input" type="text" maxlength="80" autocomplete="off" placeholder="Energy Node Dashboard" x-model="dashboardTitle" x-ref="dashboardTitleInput">
+            <button class="masthead-setting-reset" type="button" x-cloak x-show="dashboardTitle.trim() !== ''" x-on:click="dashboardTitle = ''; $refs.dashboardTitleInput.focus()" aria-label="{{t "settings.masthead.reset"}}" title="{{t "settings.masthead.reset"}}"><svg aria-hidden="true"><use href="#ico-close"></use></svg></button>
+          </div>
+        </div>
+        <div class="masthead-setting-row" x-bind:class="{ 'is-off': dashboardSubtitleHidden }">
+          <div class="masthead-setting-head">
+            <label for="dashboard-subtitle">{{t "settings.masthead.subtitle_label"}}</label>
+            <label class="settings-toggle"><input id="show-dashboard-subtitle" type="checkbox" role="switch" aria-label="{{t "settings.masthead.show_subtitle"}}" x-bind:checked="!dashboardSubtitleHidden" x-on:change="dashboardSubtitleHidden = !$event.target.checked" x-bind:aria-checked="!dashboardSubtitleHidden"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></label>
+          </div>
+          <div class="masthead-setting-field">
+            <input id="dashboard-subtitle" class="setting-text-input" type="text" maxlength="160" autocomplete="off" placeholder="{{t "masthead.subtitle"}}" x-model="dashboardSubtitle" x-ref="dashboardSubtitleInput">
+            <button class="masthead-setting-reset" type="button" x-cloak x-show="dashboardSubtitle.trim() !== ''" x-on:click="dashboardSubtitle = ''; $refs.dashboardSubtitleInput.focus()" aria-label="{{t "settings.masthead.reset"}}" title="{{t "settings.masthead.reset"}}"><svg aria-hidden="true"><use href="#ico-close"></use></svg></button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="setting-card">
@@ -292,7 +309,6 @@
       </div>
     </div>
 
-    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
   <section id="settings-history" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'history'">
     <div class="setting-card">
@@ -429,8 +445,15 @@
       <button type="button" class="setting-quiet-btn" x-on:click="loadEnergyStatsStatus()">{{t "settings.history.energy_stats.status.button"}}</button>
     </div>
 
-    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
+  {{/* Eine Leiste fuer Allgemein, Darstellung und Verlaeufe, alle drei
+     speichern dasselbe Dokument. Sie steht ausserhalb der Kartenraster: ein
+     Grid-Element klebt nur innerhalb seiner eigenen Zelle. */}}
+  <div class="energy-actionbar-dock" x-show="['general', 'display', 'history'].includes(activeSettingsPage)">
+    <div class="energy-actionbar">
+      <button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button>
+    </div>
+  </div>
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
     {{template "revisions" .}}
   </div>

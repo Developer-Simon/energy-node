@@ -530,11 +530,19 @@
       };
     },
 
-    // Zeigt die gespeicherte Kopfzeile ohne Neuladen, leer faellt auf die
-    // Vorgabe zurueck wie im Server-Template (base.html).
+    // Was die Kopfzeile zeigt: leer heisst Vorgabe wie im Server-Template.
+    get mastheadPreviewTitle() {
+      return String(this.dashboardTitle || '').trim() || DEFAULT_DASHBOARD_TITLE;
+    },
+
+    get mastheadPreviewSubtitle() {
+      return String(this.dashboardSubtitle || '').trim() || t('masthead.subtitle');
+    },
+
+    // Zeigt die gespeicherte Kopfzeile ohne Neuladen.
     applyMasthead() {
-      const title = String(this.dashboardTitle || '').trim() || DEFAULT_DASHBOARD_TITLE;
-      const subtitle = String(this.dashboardSubtitle || '').trim() || t('masthead.subtitle');
+      const title = this.mastheadPreviewTitle;
+      const subtitle = this.mastheadPreviewSubtitle;
       document.title = title;
       document.querySelectorAll('[data-masthead-title]').forEach((node) => {
         node.textContent = title;

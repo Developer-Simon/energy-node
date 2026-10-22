@@ -101,3 +101,15 @@ test('empty fields fall back to the default title and the catalog subtitle', asy
   assert.notEqual(doc.querySelector('[data-masthead-subtitle]').textContent, 'masthead.subtitle');
   dom.window.close();
 });
+
+test('the masthead texts fall back to the defaults when empty', async () => {
+  const { dom, component } = load();
+  await component.load();
+  assert.equal(component.mastheadPreviewTitle, 'Werkstatt');
+  assert.equal(component.mastheadPreviewSubtitle, dom.window.I18n.t('masthead.subtitle'));
+  component.dashboardTitle = '  ';
+  component.dashboardSubtitle = 'Halle 2';
+  assert.equal(component.mastheadPreviewTitle, 'Energy Node Dashboard');
+  assert.equal(component.mastheadPreviewSubtitle, 'Halle 2');
+  dom.window.close();
+});
