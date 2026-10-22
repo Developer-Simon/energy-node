@@ -155,7 +155,7 @@ func renderOverviewWithLang(t *testing.T, lang string) string {
 func TestMastheadAndStatusBarFollowTheLanguage(t *testing.T) {
 	german := renderOverviewWithLang(t, "de")
 	for _, want := range []string{
-		"<small>Discovery-getriebene Live-Ansicht und lokaler Gerätemanager</small>",
+		"<small data-masthead-subtitle>Discovery-getriebene Live-Ansicht und lokaler Gerätemanager</small>",
 		`<span class="runtime-status-label">Systemstatus</span>`,
 		"$t('status.mqtt.connected')",
 		"x-data=\"updateBar()\"",
@@ -166,7 +166,7 @@ func TestMastheadAndStatusBarFollowTheLanguage(t *testing.T) {
 	}
 	english := renderOverviewWithLang(t, "en")
 	for _, want := range []string{
-		"<small>Discovery-driven live view and local device manager</small>",
+		"<small data-masthead-subtitle>Discovery-driven live view and local device manager</small>",
 		`<span class="runtime-status-label">System status</span>`,
 	} {
 		if !strings.Contains(english, want) {
@@ -303,5 +303,55 @@ func TestDeviceTileCountChipsUsePluralForms(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// A custom title reaches masthead, browser tab and sign-in. The switches hide
+// only the masthead parts and keep them in the page for the live update.
+func TestMastheadSettingsReachMastheadTabAndLogin(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	value := settings.Default()
+	value.DashboardTitle = "Werkstatt <Nord>"
+	value.DashboardSubtitle = "Halle 2"
+	value.DashboardTitleHidden = true
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+
+	overview := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), store).ServeHTTP(overview, httptest.NewRequest("GET", "/", nil))
+	body := overview.Body.String()
+	for _, want := range []string{
+		`<title>Werkstatt &lt;Nord&gt;</title>`,
+		`<h1 data-masthead-title hidden>Werkstatt &lt;Nord&gt;</h1>`,
+		`<small data-masthead-subtitle>Halle 2</small>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("overview lacks %q", want)
+		}
+	}
+
+	login := httptest.NewRecorder()
+	Login(false, store, "").ServeHTTP(login, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(login.Body.String(), `<h1>Werkstatt &lt;Nord&gt;</h1>`) {
+		t.Errorf("login lacks the custom title: %s", login.Body.String())
+	}
+}
+
+func TestMastheadDefaultsWithoutSettings(t *testing.T) {
+	overview := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(overview, httptest.NewRequest("GET", "/", nil))
+	body := overview.Body.String()
+	for _, want := range []string{
+		`<title>Energy Node Dashboard</title>`,
+		`<h1 data-masthead-title>Energy Node Dashboard</h1>`,
+		`<small data-masthead-subtitle>Discovery-getriebene Live-Ansicht und lokaler Gerätemanager</small>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("overview lacks %q", want)
+		}
+	}
+	if !strings.Contains(renderLogin(t, nil), `<h1>Energy Node Dashboard</h1>`) {
+		t.Error("login without a store must show the default title")
 	}
 }

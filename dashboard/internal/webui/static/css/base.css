@@ -257,6 +257,11 @@ body { font-family: system-ui, sans-serif; padding: 2rem 1.5rem; background: var
   font-size: .85rem;
   color: var(--text-muted);
 }
+/* Titel, Untertitel und Sprachwaehler lassen sich einzeln ausblenden
+   (Einstellungen > Darstellung > Kopfzeile). Sind alle drei aus, faellt die
+   Kopfzeile samt Abstand weg. */
+.masthead [hidden] { display: none; }
+.masthead:not(:has(h1:not([hidden]), small:not([hidden]), .lang-pill:not([hidden]))) { display: none; }
 /* Sprachwaehler (lang-pill.html): die DE | EN-Pille aus dem Installer als
    echte Radiogruppe. Sitzt am Ende der Titelzeile (margin-left: auto) und
    bricht auf schmalen Schirmen mit ihr um, statt absolut ueber dem Titel zu

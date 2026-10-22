@@ -814,6 +814,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		widePanels := settings.Default().WidePanels
 		statusBarItems := settings.Default().StatusBarItems
 		showLanguageSwitch := true
+		masthead := mastheadView{Title: settings.DefaultDashboardTitle, ShowTitle: true, ShowSubtitle: true}
 		historyViews := []settings.HistoryView{}
 		if store != nil {
 			if value, err := store.LoadSettings(); err == nil {
@@ -826,6 +827,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 				widePanels = value.WidePanels
 				statusBarItems = value.StatusBarItems
 				showLanguageSwitch = !value.LanguageSwitchHidden
+				masthead = mastheadFrom(value)
 				historyViews = value.HistoryViews
 			}
 		}
@@ -890,6 +892,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"Languages":          translator.Options(lang),
 			"CatalogVersion":     translator.Version(),
 			"ShowLanguageSwitch": showLanguageSwitch,
+			"Masthead":           masthead,
 
 			"NumberFormat":          numberFormat,
 			"NumberGrouping":        numberGrouping,
@@ -980,6 +983,30 @@ func Static() http.Handler {
 	})
 }
 
+// mastheadView ist die Kopfzeile aus den Einstellungen. Ein leerer Subtitle
+// heisst Katalogtext (masthead.subtitle), den das Template selbst uebersetzt.
+// Ausgeblendetes bleibt mit hidden im Dokument, damit das Speichern der
+// Einstellungen es ohne Neuladen wieder zeigen kann.
+type mastheadView struct {
+	Title        string
+	Subtitle     string
+	ShowTitle    bool
+	ShowSubtitle bool
+}
+
+func mastheadFrom(value settings.Settings) mastheadView {
+	view := mastheadView{
+		Title:        value.DashboardTitle,
+		Subtitle:     value.DashboardSubtitle,
+		ShowTitle:    !value.DashboardTitleHidden,
+		ShowSubtitle: !value.DashboardSubtitleHidden,
+	}
+	if view.Title == "" {
+		view.Title = settings.DefaultDashboardTitle
+	}
+	return view
+}
+
 // Die Anmeldeseite rendert ohne base.html und braucht das Theme deshalb
 // selbst - der Store ist hier der einzige Weg daran, weil noch keine
 // Sitzung existiert.
@@ -987,17 +1014,19 @@ func Login(guestOnly bool, store *settings.Store, adminAuthWarningKey string) ht
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		theme := settings.ThemeMint
 		showLanguageSwitch := true
+		title := settings.DefaultDashboardTitle
 		if store != nil {
 			if value, err := store.LoadSettings(); err == nil {
 				if value.Theme != "" {
 					theme = value.Theme
 				}
 				showLanguageSwitch = !value.LanguageSwitchHidden
+				title = mastheadFrom(value).Title
 			}
 		}
 		lang := localize.Resolve(r, translator.Languages())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarningKey": adminAuthWarningKey, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch}
+		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarningKey": adminAuthWarningKey, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch, "DashboardTitle": title}
 		if err := loginSets.get(lang).ExecuteTemplate(w, "login", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

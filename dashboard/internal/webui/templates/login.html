@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{t "login.title"}} | Energy Node Dashboard</title>
+  <title>{{t "login.title"}} | {{.DashboardTitle}}</title>
   <style>
     /* Eigene Kopie der Tokens: die Anmeldeseite rendert ohne base.html und
        lädt kein Stylesheet, damit sie auch bei kaputtem Asset-Pfad noch
@@ -48,7 +48,7 @@
 <body>
   <main>
     <div class="login-head">
-      <h1>Energy Node Dashboard</h1>
+      <h1>{{.DashboardTitle}}</h1>
       {{template "lang-pill" .}}
     </div>
     {{if .AdminAuthWarningKey}}<p class="admin-auth-warning" role="alert">{{/* i18n-keys: login.admin_auth_unavailable */}}{{t .AdminAuthWarningKey}}</p>{{end}}

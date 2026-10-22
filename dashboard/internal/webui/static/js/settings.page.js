@@ -30,6 +30,9 @@
   // und Verlaeufe). Die Grenzen decken sich mit den min/max der Formularfelder
   // und mit dem, was valid() unten prueft - der Stepper kann also nie einen
   // Wert erzeugen, den das Speichern ablehnt.
+  // Wie settings.DefaultDashboardTitle in Go.
+  const DEFAULT_DASHBOARD_TITLE = 'Energy Node Dashboard';
+
   const STEP_FIELDS = {
     healthScoreThreshold: {min: 10, max: 3600, step: 1},
     sweepIntervalSeconds: {min: 30, max: 3600, step: 30},
@@ -85,6 +88,11 @@
     // Set on the versions page, which saves it on its own (changelog_history).
     changelogHistory: 'recent',
     languageSwitchHidden: false,
+    // Leer heisst Vorgabe, die Felder zeigen sie als Platzhalter.
+    dashboardTitle: '',
+    dashboardSubtitle: '',
+    dashboardTitleHidden: false,
+    dashboardSubtitleHidden: false,
     // Die Sprache ist keine Knoten-Einstellung, sondern das Cookie dieses
     // Browsers (i18n.js). Die Kachel "Formatierung" zeigt sie trotzdem hier,
     // uebernommen wird sie wie alles auf der Seite erst mit "Speichern".
@@ -164,6 +172,10 @@
         this.updateCheckDisabled = Boolean(value.update_check_disabled);
         this.changelogHistory = ['recent', 'extended', 'all'].includes(value.changelog_history) ? value.changelog_history : 'recent';
         this.languageSwitchHidden = Boolean(value.language_switch_hidden);
+        this.dashboardTitle = typeof value.dashboard_title === 'string' ? value.dashboard_title : '';
+        this.dashboardSubtitle = typeof value.dashboard_subtitle === 'string' ? value.dashboard_subtitle : '';
+        this.dashboardTitleHidden = Boolean(value.dashboard_title_hidden);
+        this.dashboardSubtitleHidden = Boolean(value.dashboard_subtitle_hidden);
         this.uiLanguage = window.I18n ? window.I18n.lang : this.uiLanguage;
         this.loadHistoryUsage();
         this.followExchange();
@@ -511,7 +523,27 @@
         update_check_disabled: Boolean(this.updateCheckDisabled),
         changelog_history: this.changelogHistory,
         language_switch_hidden: Boolean(this.languageSwitchHidden),
+        dashboard_title: String(this.dashboardTitle || '').trim(),
+        dashboard_subtitle: String(this.dashboardSubtitle || '').trim(),
+        dashboard_title_hidden: Boolean(this.dashboardTitleHidden),
+        dashboard_subtitle_hidden: Boolean(this.dashboardSubtitleHidden),
       };
+    },
+
+    // Zeigt die gespeicherte Kopfzeile ohne Neuladen, leer faellt auf die
+    // Vorgabe zurueck wie im Server-Template (base.html).
+    applyMasthead() {
+      const title = String(this.dashboardTitle || '').trim() || DEFAULT_DASHBOARD_TITLE;
+      const subtitle = String(this.dashboardSubtitle || '').trim() || t('masthead.subtitle');
+      document.title = title;
+      document.querySelectorAll('[data-masthead-title]').forEach((node) => {
+        node.textContent = title;
+        node.hidden = Boolean(this.dashboardTitleHidden);
+      });
+      document.querySelectorAll('[data-masthead-subtitle]').forEach((node) => {
+        node.textContent = subtitle;
+        node.hidden = Boolean(this.dashboardSubtitleHidden);
+      });
     },
 
     // Kept as a method so tests can replace it, jsdom cannot reload.
@@ -560,6 +592,7 @@
           exchangeDisabled: Boolean(this.historyExchangeDisabled),
         }}));
         document.dispatchEvent(new CustomEvent('language-switch-setting-changed', {detail: {visible: !this.languageSwitchHidden}}));
+        this.applyMasthead();
         this.$store.toasts.push(t('settings.saved'));
         this.loadEnergyStatsStatus();
         // Erst nach dem erfolgreichen Speichern: der Sprachwechsel laedt neu,

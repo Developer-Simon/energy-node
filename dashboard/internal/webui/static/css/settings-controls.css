@@ -519,6 +519,9 @@
 /* Freistehendes Label ueber einem Segmented-Block in einer Karte. */
 .setting-card > .setting-row-label { margin-top: .9rem; }
 
+/* Freitextfeld unter einem solchen Label (Kopfzeile: Titel, Untertitel). */
+.setting-card > .setting-text-input { display: block; width: 100%; box-sizing: border-box; margin-top: .35rem; }
+
 /* Choices.js-Mehrfachauswahl in einer Karte: Label oben, Auswahl darunter
    ueber die volle Kartenbreite - die 20rem-Deckelung der .form-grid-Fassung
    quetscht die Chips im schmalen Kartenraster sonst ueber den Rand. */

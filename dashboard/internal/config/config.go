@@ -25,6 +25,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 type Document struct {
@@ -581,6 +582,13 @@ func applySchema(value, rawSchema any, path string) (map[string]bool, error) {
 	if min, ok := schema["minLength"].(float64); ok {
 		if text, isString := value.(string); isString && float64(len(text)) < min {
 			return nil, fmt.Errorf("%s must not be empty", path)
+		}
+	}
+	// In Zeichen, nicht Bytes: so deckt es sich mit maxlength im Formular,
+	// ein Umlaut zaehlt eins.
+	if max, ok := schema["maxLength"].(float64); ok {
+		if text, isString := value.(string); isString && float64(utf8.RuneCountInString(text)) > max {
+			return nil, fmt.Errorf("%s is too long", path)
 		}
 	}
 	if pattern, ok := schema["pattern"].(string); ok {

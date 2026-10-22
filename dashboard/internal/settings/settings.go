@@ -113,7 +113,22 @@ type Settings struct {
 	// Darstellung > Formatierung umschaltbar. Invertiert benannt wie
 	// UpdateCheckDisabled: der Nullwert heisst "Waehler sichtbar".
 	LanguageSwitchHidden bool `json:"language_switch_hidden"`
+
+	// DashboardTitle und DashboardSubtitle ersetzen Titel und Untertitel der
+	// Kopfzeile. Leer heisst Vorgabe: DefaultDashboardTitle bzw. der
+	// uebersetzte Katalogtext masthead.subtitle. Der Titel gilt auch fuer den
+	// Browser-Tab und die Anmeldeseite. Die beiden ...Hidden-Schalter blenden
+	// nur die Kopfzeile aus und sind invertiert benannt wie
+	// LanguageSwitchHidden.
+	DashboardTitle          string `json:"dashboard_title"`
+	DashboardSubtitle       string `json:"dashboard_subtitle"`
+	DashboardTitleHidden    bool   `json:"dashboard_title_hidden"`
+	DashboardSubtitleHidden bool   `json:"dashboard_subtitle_hidden"`
 }
+
+// DefaultDashboardTitle steht in der Kopfzeile, solange DashboardTitle leer
+// ist. Ein Produktname, deshalb nicht im Uebersetzungskatalog.
+const DefaultDashboardTitle = "Energy Node Dashboard"
 
 // HistoryView ist eine gespeicherte Verlaufssicht. Sie liegt serverseitig,
 // damit eine am Rechner angelegte Sicht auch am Telefon aufgeht - die Daten
@@ -2003,6 +2018,8 @@ func normalizeSettings(value Settings) Settings {
 	if value.ChangelogHistory == "" {
 		value.ChangelogHistory = ChangelogHistoryRecent
 	}
+	value.DashboardTitle = strings.TrimSpace(value.DashboardTitle)
+	value.DashboardSubtitle = strings.TrimSpace(value.DashboardSubtitle)
 	if value.HistoryExtraEntities == nil {
 		value.HistoryExtraEntities = []string{}
 	}

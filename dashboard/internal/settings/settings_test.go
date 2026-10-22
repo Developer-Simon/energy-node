@@ -2857,3 +2857,38 @@ func TestDiffDeviceMap(t *testing.T) {
 		}
 	}
 }
+
+func TestKopfzeileNichtGesetztHeisstVorgabe(t *testing.T) {
+	value := normalizeSettings(Settings{})
+	if value.DashboardTitle != "" || value.DashboardSubtitle != "" || value.DashboardTitleHidden || value.DashboardSubtitleHidden {
+		t.Fatalf("nicht gesetzt = %+v, want leere Texte und sichtbar", value)
+	}
+	custom := Default()
+	custom.DashboardTitle = "  Werkstatt  "
+	custom.DashboardSubtitle = "\tHalle 2\n"
+	custom.DashboardTitleHidden = true
+	custom.DashboardSubtitleHidden = true
+	got := normalizeSettings(custom)
+	if got.DashboardTitle != "Werkstatt" || got.DashboardSubtitle != "Halle 2" {
+		t.Fatalf("Texte = %q / %q, want getrimmt", got.DashboardTitle, got.DashboardSubtitle)
+	}
+	if !got.DashboardTitleHidden || !got.DashboardSubtitleHidden {
+		t.Fatal("ein bewusstes Ausblenden darf nicht zurueckgedreht werden")
+	}
+	if err := validateSettings(custom); err != nil {
+		t.Fatalf("eigene Kopfzeile ist ungueltig: %v", err)
+	}
+}
+
+func TestSchemaBegrenztDieKopfzeilenTexte(t *testing.T) {
+	value := Default()
+	value.DashboardTitle = strings.Repeat("x", 81)
+	if err := validateSettings(value); err == nil {
+		t.Fatal("ein Titel ueber 80 Zeichen muss abgelehnt werden")
+	}
+	value = Default()
+	value.DashboardSubtitle = strings.Repeat("x", 161)
+	if err := validateSettings(value); err == nil {
+		t.Fatal("ein Untertitel ueber 160 Zeichen muss abgelehnt werden")
+	}
+}
