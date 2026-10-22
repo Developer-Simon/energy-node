@@ -225,10 +225,13 @@
     <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
   <section id="settings-history" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'history'">
-    <p class="settings-hint">{{t "settings.history.hint"}}</p>
-
     <div class="setting-card">
-      <h3 class="setting-card-title">{{t "settings.history.title"}}</h3>
+      <h3 class="setting-card-title">{{t "settings.history.title"}}
+        <span class="field-help field-help-align-start">
+          <button class="field-help-trigger" type="button" aria-label="{{t "settings.history.hint_button"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "settings.history.hint"}}</span>
+        </span>
+      </h3>
       <p class="setting-note">{{t "settings.history.note"}}</p>
       <div class="setting-row">
         <span class="setting-row-label" id="lbl-history-interval">{{t "settings.history.sample_interval.label"}} <span class="setting-row-unit">{{t "settings.history.sample_interval.unit"}}</span></span>

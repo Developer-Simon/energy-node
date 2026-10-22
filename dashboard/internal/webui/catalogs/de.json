@@ -2152,6 +2152,7 @@
   "settings.history.exchange.status.button": "Status aktualisieren",
   "settings.history.exchange.title": "Geräteaustausch",
   "settings.history.hint": "Alle Messwerte liegen nur im Browser dieses Geräts. Hier steht, wie aufgezeichnet wird. Das gilt geräteübergreifend, die Daten selbst bleiben lokal.",
+  "settings.history.hint_button": "Erklärung zur Aufzeichnung",
   "settings.history.minute_window.decrease": "Minutenwerte-Fenster verringern",
   "settings.history.minute_window.increase": "Minutenwerte-Fenster erhöhen",
   "settings.history.minute_window.label": "Minutenwerte behalten",

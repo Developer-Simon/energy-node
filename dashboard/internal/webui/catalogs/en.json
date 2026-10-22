@@ -2152,6 +2152,7 @@
   "settings.history.exchange.status.button": "Refresh status",
   "settings.history.exchange.title": "Device exchange",
   "settings.history.hint": "All measurements stay in this device's browser. This is where you set how recording works. The settings apply across devices, the data itself stays local.",
+  "settings.history.hint_button": "About recording",
   "settings.history.minute_window.decrease": "Decrease minute value window",
   "settings.history.minute_window.increase": "Increase minute value window",
   "settings.history.minute_window.label": "Keep minute values",
