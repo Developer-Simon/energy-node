@@ -1,0 +1,76 @@
+{
+  "153": {
+    "de": {
+      "*": "Klarerer Update-Hinweis, die Firewall wird abgehakt, und Dienste laufen nur bei echten Änderungen."
+    }
+  },
+  "157": {
+    "de": {
+      "*": "Die Health-Schwelle gilt in Sekunden und hat einen sinnvollen Standard."
+    }
+  },
+  "158": {
+    "de": {
+      "*": "Die Device Map kann Verbindungen nach Typ (Energie, Daten, Info) ausblenden, über einen neuen Filterknopf."
+    },
+    "details": {
+      "*": {
+        "de": "Der Filterknopf neben dem Darstellungsmenü blendet Energie-, Daten- oder Info-Verbindungen und die Linien zum Automationsknoten aus, mit einem Schalter je Typ. Er ändert nur, was dieser Browser zeichnet.",
+        "doc": "dashboard/device-map.html#connection-types",
+        "en": "The filter button next to the display menu hides energy, data or informational connections and the lines to the automation node, with one switch per type. It only changes what this browser draws.",
+        "image": "dashboard-device-map-filter-menu.png"
+      }
+    }
+  },
+  "159": {
+    "de": {
+      "*": "Die Einstellungsseiten stehen in einer Seitenleiste, auf dem Handy in einem Blatt von unten."
+    },
+    "details": {
+      "*": {
+        "crop": [
+          0.02,
+          0.12,
+          0.6,
+          0.53
+        ],
+        "de": "Die Einstellungsseiten stehen in einer Seitenleiste, jede mit Symbol und kurzer Beschreibung. Auf dem Handy zeigt ein Knopf über dem Inhalt die aktuelle Seite und öffnet die ganze Liste als Blatt von unten.",
+        "doc": "dashboard/settings.html",
+        "en": "The settings pages sit in a sidebar, each with an icon and a short description. On a phone a button above the content shows the current page and opens the full list as a sheet from the bottom.",
+        "image": "dashboard-settings-general.png"
+      }
+    }
+  },
+  "160": {
+    "de": {
+      "*": "Titel und Untertitel des Dashboards lassen sich ändern oder ausblenden."
+    },
+    "details": {
+      "*": {
+        "crop": [
+          0.62,
+          0.135,
+          0.355,
+          0.35
+        ],
+        "de": "Die Karte Kopfzeile auf der Seite Darstellung legt Titel und Untertitel oben auf jeder Seite fest. Ein leeres Feld behält den Standardtext, und jede Zeile lässt sich ausblenden. Der Titel benennt auch den Browser-Tab und die Anmeldeseite.",
+        "doc": "dashboard/settings-appearance.html",
+        "en": "The Masthead card on the Appearance page sets the title and subtitle at the top of every page. An empty field keeps the default text, and each line can be hidden. The title also names the browser tab and the sign-in page.",
+        "image": "dashboard-settings-display.png"
+      }
+    }
+  },
+  "161": {
+    "de": {
+      "*": "Die Diagnoseseite zeigt die Protokolle der Energy-Node-Dienste, mit Suche und automatischer Aktualisierung."
+    },
+    "details": {
+      "*": {
+        "de": "Der Abschnitt Service-Logs auf der Diagnoseseite zeigt das Journal jeweils eines Dienstes. Wähle Dienst, Zeitraum und Zahl der Zeilen, durchsuche die geladenen Zeilen und schalte Automatisch aktualisieren ein, um neue Zeilen alle 5 Sekunden zu sehen. Dafür braucht es die Rolle system_actions.",
+        "doc": "dashboard/diagnostics.html#service-logs",
+        "en": "The Service logs section on the diagnostics page shows the journal of one service at a time. Choose the service, the time range and the number of lines, search the loaded lines and turn on Refresh automatically to see new lines every 5 seconds. It needs the system_actions role.",
+        "image": "dashboard-service-logs.png"
+      }
+    }
+  }
+}
