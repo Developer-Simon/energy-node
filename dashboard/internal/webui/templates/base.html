@@ -162,6 +162,7 @@
       <span x-show="items.includes('uptime')">{{t "status.label.uptime"}}: <strong x-text="formatUptime(status?.uptime_seconds)"></strong></span>
       <span x-show="items.includes('version')">{{t "status.label.version"}}: <strong x-text="status?.version || '-'"></strong></span>
       <span x-show="items.includes('cpu_temp')">{{t "status.label.cpu_temp"}}: <strong x-text="formatTemp(status?.node?.telemetry?.cpu_temp_c)"></strong></span>
+      <span x-show="items.includes('cpu_load')">{{t "status.label.cpu_load"}}: <strong x-text="formatPct(status?.node?.telemetry?.cpu_load_pct)"></strong></span>
       <span x-show="items.includes('ram')">{{t "status.label.ram"}}: <strong x-text="formatPct(status?.node?.telemetry?.ram_used_pct)"></strong></span>
       <span x-show="items.includes('undervoltage')" x-bind:class="status?.node?.telemetry?.undervoltage_now ? 'runtime-status-degraded' : ''">
         <strong x-text="status?.node?.telemetry?.undervoltage_now ? $t('status.undervoltage.now') : $t('status.undervoltage.ok')"></strong>

@@ -125,6 +125,7 @@
       {key: 'uptime', label: 'settings.status_bar.item.uptime'},
       {key: 'version', label: 'settings.status_bar.item.version'},
       {key: 'cpu_temp', label: 'settings.status_bar.item.cpu_temp'},
+      {key: 'cpu_load', label: 'settings.status_bar.item.cpu_load'},
       {key: 'ram', label: 'settings.status_bar.item.ram'},
       {key: 'undervoltage', label: 'settings.status_bar.item.undervoltage'},
     ],

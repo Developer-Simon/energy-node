@@ -78,6 +78,7 @@ func (a *Agent) Refresh(ctx context.Context, full bool) {
 // Telemetry ist der Ausschnitt fuer /api/v1/health und die Statusleiste.
 type Telemetry struct {
 	CPUTempC        *float64 `json:"cpu_temp_c"`
+	CPULoadPct      *float64 `json:"cpu_load_pct"`
 	RAMUsedPct      *float64 `json:"ram_used_pct"`
 	UndervoltageNow bool     `json:"undervoltage_now"`
 }
@@ -90,6 +91,7 @@ func (a *Agent) Telemetry() (Telemetry, bool) {
 	}
 	return Telemetry{
 		CPUTempC:        a.fast.CPUTempC,
+		CPULoadPct:      a.fast.CPULoadPct,
 		RAMUsedPct:      a.fast.RAMUsedPct,
 		UndervoltageNow: a.fast.UndervoltageNow,
 	}, true
