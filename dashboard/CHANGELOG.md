@@ -8,6 +8,7 @@
 - **settings:** Settings pages are listed in a sidebar, on phones in a sheet from the bottom. (#159) (797ce0c)
 - **settings:** make the masthead title and subtitle configurable (b9217a1)
 - **settings:** rework the masthead card and share the energy save bar (bfff2a3)
+- **status:** offer CPU load in the system status bar (66f9c89)
 - **settings:** The dashboard title and subtitle can be changed or hidden. (#160)
 - **settings:** fill gaps between settings cards with a masonry layout (f554a83)
 - **settings:** let the system status and tab width cards join the masonry (1780266)
