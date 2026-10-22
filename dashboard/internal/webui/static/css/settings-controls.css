@@ -377,6 +377,14 @@
   .settings-cards .setting-card:nth-of-type(2) { animation-delay: .04s; }
   .settings-cards .setting-card:nth-of-type(3) { animation-delay: .08s; }
   .settings-cards .setting-card:nth-of-type(4) { animation-delay: .12s; }
+  /* Tailscale und TinyTuya sind Assistenten statt Karten: Hilfe, Schritt-
+     anzeige und Schrittstapel fahren genauso gestaffelt auf. */
+  #settings-tailscale > *, #settings-tiny-tuya > * {
+    animation: setting-card-in .34s var(--ease-out) both;
+  }
+  #settings-tailscale > :nth-child(2), #settings-tiny-tuya > :nth-child(2) { animation-delay: .04s; }
+  #settings-tailscale > :nth-child(3), #settings-tiny-tuya > :nth-child(3) { animation-delay: .08s; }
+  #settings-tailscale > :nth-child(n+4), #settings-tiny-tuya > :nth-child(n+4) { animation-delay: .12s; }
   @keyframes setting-card-in {
     from { opacity: 0; transform: translateY(.5rem); }
     to   { opacity: 1; transform: none; }
