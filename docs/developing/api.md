@@ -645,10 +645,22 @@ Error codes: `config_unreadable`, `invalid_body`, `schema_violation`,
 | POST | `/api/v1/system/restart-dashboard` | `system_actions` + CSRF | Restart the dashboard service |
 | POST | `/api/v1/system/reboot` | `system_actions` + CSRF | Reboot the Pi |
 | POST | `/api/v1/system/poweroff` | `system_actions` + CSRF | Shut down the Pi |
+| GET | `/api/v1/system/logs/units` | `system_actions` | Allowlisted units, since and line presets, and the defaults |
+| GET | `/api/v1/system/logs` | `system_actions` | Journal entries of one allowlisted unit (`unit`, `since`, `lines`, `cursor`, `q`) |
 
 The response is `202 Accepted` with `{"action":"…","status":"accepted"}`. If a
 system action is already running, the answer is `409` with
 `system_action_busy`.
+
+The service log endpoints only read. They need the `system_actions` role but
+no CSRF token. `unit` is required and must be one of the allowlisted units
+that `/logs/units` lists. `since` is in minutes (default `60`) and `lines` is
+the number of entries (default `200`), both limited to the presets from
+`/logs/units`. `cursor` continues an earlier page and `q` filters the lines by
+substring. Errors: `log_query_invalid` (400), `journal_not_permitted` (503),
+`journal_failed` (502, `message` holds the detail), `journal_timeout` (504) and
+`journal_busy` (429, two queries already run). Responses carry
+`Cache-Control: no-store`.
 
 ### Versions and changelog
 

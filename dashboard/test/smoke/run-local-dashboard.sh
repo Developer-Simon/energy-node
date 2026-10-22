@@ -36,6 +36,10 @@
 #                                                # zusaetzlich ein Bundle zum Herunterladen an:
 #                                                # "Aktualisieren" (/redeploy/) laedt es, dann
 #                                                # folgt die Vorschau (Paketbezug, OTA)
+#   ./run-local-dashboard.sh --simulate-journal # simulierter system-action-Helper (read-journal)
+#                                                # plus sudo-Shim, damit die Service-Logs der
+#                                                # Diagnoseseite Zeilen zeigen. Braucht eine
+#                                                # Admin-Anmeldung, also meist --https
 #   ./run-local-dashboard.sh --preset NAME      # --fixture/--seed-data/--simulate gebuendelt,
 #                                                # siehe PRESETS unten; einzelne Flags danach
 #                                                # ueberstimmen das Preset
@@ -81,6 +85,10 @@
 #                    eigenen history_view-Kachel; Pruefung mit history-view-tile.mjs
 #   statistik        wie verlauf-kachel, mit der Kachel energy_stats und dem
 #                    Fake-Companion (Energiestatistik mit Daten)
+#   service-logs     wie battery-soc, mit --https und --simulate-journal: ein
+#                    simulierter system-action-Helper liefert Journal-Zeilen
+#                    fuer die Service-Logs der Diagnoseseite (Login admin,
+#                    Selbstsigniert-Warnung im Browser bestaetigen)
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
@@ -110,6 +118,7 @@ FAKE_COMPANION=0
 INSTALLED_SERVICES_OFF=0
 HTTPS=0
 SIMULATE_UPDATE=0
+SIMULATE_JOURNAL=0
 SIMULATE_PACKAGE=0
 SIMULATE_INSTALLED=0
 REAL_CHANGELOG=0
@@ -194,8 +203,13 @@ while [[ $# -gt 0 ]]; do
           SIMULATE=1
           FAKE_COMPANION=1
           ;;
+        service-logs)
+          FIXTURE="$HERE/fixtures/battery-soc.json"; SEED_DATA=""
+          HTTPS=1
+          SIMULATE_JOURNAL=1
+          ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht, verlauf-kachel, statistik)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht, verlauf-kachel, statistik, service-logs)" >&2
           exit 2
           ;;
       esac
@@ -207,6 +221,7 @@ while [[ $# -gt 0 ]]; do
     --theme) THEME="$2"; shift 2 ;;
     --installed-services-off) INSTALLED_SERVICES_OFF=1; shift ;;
     --https) HTTPS=1; shift ;;
+    --simulate-journal) SIMULATE_JOURNAL=1; shift ;;
     --simulate-update) SIMULATE_UPDATE=1; shift ;;
     --simulate-package) SIMULATE_UPDATE=1; SIMULATE_PACKAGE=1; shift ;;
     --simulate-installed) SIMULATE_INSTALLED=1; shift ;;
@@ -552,12 +567,13 @@ fi
 
 python3 - "$SCRIPT_ROOT/services/energy-node.config.json" "$WORK/config.json" \
          "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" \
-         "$INSTALLED_SERVICES_OFF" "$WORK/tls.crt" "$WORK/tls.key" "$HTTPS" <<'PY'
+         "$INSTALLED_SERVICES_OFF" "$WORK/tls.crt" "$WORK/tls.key" "$HTTPS" \
+         "$SIMULATE_JOURNAL" "$HERE/fake_journal_helper.py" <<'PY'
 import json
 import sys
 
 (vorlage, ziel, http_port, devices_dir, data_dir, mqtt_port, admin_pw,
- services_off, tls_cert, tls_key, https) = sys.argv[1:12]
+ services_off, tls_cert, tls_key, https, simulate_journal, journal_helper) = sys.argv[1:14]
 config = json.loads(open(vorlage, encoding="utf-8").read())
 config["mqtt"]["host"] = "127.0.0.1"
 config["mqtt"]["port"] = int(mqtt_port)
@@ -568,6 +584,11 @@ config["paths"]["data_dir"] = data_dir
 config["dashboard"]["port"] = int(http_port)
 config["dashboard"]["bind_address"] = "127.0.0.1"
 config["dashboard"]["admin_password_file"] = admin_pw
+# --simulate-journal: der Helper ist ein Skript im Repo, `sudo -n` wird ueber
+# einen Shim im PATH (siehe unten) zum direkten Aufruf. Jede andere Aktion
+# beantwortet der Fake mit Exit 64, Reboot und Poweroff bleiben wirkungslos.
+if simulate_journal == "1":
+    config["dashboard"]["system_action_helper"] = journal_helper
 if https == "1":
     config["dashboard"]["tls"] = {"cert_file": tls_cert, "key_file": tls_key}
 # --installed-services-off: alle sieben Dienste explizit aus, statt den
@@ -600,6 +621,14 @@ DASHBOARD_VERSION="$(tr -d '[:space:]' < "$DASHBOARD_DIR/VERSION")-dev"
   cd "$DASHBOARD_DIR"
   if [[ $SIMULATE_UPDATE -eq 1 ]]; then
     export ENERGY_NODE_UPDATES_API_BASE="http://127.0.0.1:$UPDATES_API_PORT"
+  fi
+  if [[ $SIMULATE_JOURNAL -eq 1 ]]; then
+    mkdir -p "$WORK/bin"
+    cp "$HERE/fake_sudo.sh" "$WORK/bin/sudo"
+    # 15 Minuten Vorlauf, damit die erste Abfrage sofort Zeilen findet.
+    python3 -c 'import time; print(time.time() - 900)' > "$WORK/journal-epoch"
+    export FAKE_JOURNAL_EPOCH="$WORK/journal-epoch"
+    export PATH="$WORK/bin:$PATH"
   fi
   if [[ $SIMULATE_PACKAGE -eq 1 || $SIMULATE_INSTALLED -eq 1 ]]; then
     export ENERGY_NODE_INSTALLER_STATE_DIR="$WORK/installer-state"
@@ -1114,6 +1143,30 @@ if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
     "data['state'] == 'ok' and data['done'] == 2 and data['finished_at']" \
     "$BASE/api/v1/updates/progress"
   rm -rf "$job_dir"
+fi
+
+# --simulate-journal: Service-Logs end-to-end, vom Endpunkt ueber sudo-Shim
+# und Fake-Helper bis zu den geparsten Zeilen.
+if [[ $SIMULATE_JOURNAL -eq 1 ]]; then
+  check "Service-Logs: Einheiten-Auswahl nennt elf Dienste" \
+    "len(data['units']) == 11 and data['default_unit'] == 'dashboard'" \
+    "$BASE/api/v1/system/logs/units"
+  check "Service-Logs: Dashboard liefert Zeilen mit Prioritaet und Einheit" \
+    "len(data['entries']) > 100 and data['cursor'].startswith('s=') and all('priority' in e and e['unit'] for e in data['entries'])" \
+    "$BASE/api/v1/system/logs?unit=dashboard&since=60&lines=200"
+  check "Service-Logs: Suchbegriff filtert, der Cursor rueckt trotzdem vor" \
+    "all('health' in e['message'].lower() for e in data['entries']) and data['cursor'].startswith('s=')" \
+    "$BASE/api/v1/system/logs?unit=dashboard&since=60&lines=200&q=HEALTH"
+  check "Service-Logs: nicht installierter Dienst liefert eine leere Liste" \
+    "data['entries'] == [] and data['cursor'] == ''" \
+    "$BASE/api/v1/system/logs?unit=caddy&since=60&lines=200"
+  code=$(curl -s "${CURL_INSECURE[@]}" -m 5 -o /dev/null -w '%{http_code}' -b "$COOKIES" -H "$SECURE_HEADER" \
+    "$BASE/api/v1/system/logs?unit=sshd&since=60&lines=200")
+  if [[ "$code" == "400" ]]; then
+    echo "  OK   Service-Logs: Dienst ausserhalb der Allowlist abgelehnt (HTTP 400)"
+  else
+    echo "  FEHL Service-Logs: unbekannter Dienst kam mit HTTP $code durch"; FAILED=1
+  fi
 fi
 
 check_history_exchange || FAILED=1

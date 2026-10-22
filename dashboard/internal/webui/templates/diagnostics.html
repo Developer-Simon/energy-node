@@ -162,5 +162,69 @@
       </table>
     </div>
   </section>
+
+  {{/* i18n-keys: diagnostics.logs.unit.dashboard, diagnostics.logs.unit.updater, diagnostics.logs.unit.automation, diagnostics.logs.unit.battery-soc, diagnostics.logs.unit.shelly, diagnostics.logs.unit.trucki, diagnostics.logs.unit.tuya, diagnostics.logs.unit.apsystems, diagnostics.logs.unit.mosquitto, diagnostics.logs.unit.caddy, diagnostics.logs.unit.tailscale, diagnostics.logs.since.15, diagnostics.logs.since.60, diagnostics.logs.since.360, diagnostics.logs.since.1440, diagnostics.logs.since.10080 */}}
+  <section class="diag-section service-logs" aria-labelledby="service-logs-heading" x-data="serviceLogsPanel()" x-init="init()" x-cloak x-show="canView">
+    <div class="diag-section-head">
+      <h3 id="service-logs-heading">{{t "diagnostics.logs.title"}}</h3>
+    </div>
+    <p class="diag-section-note">{{t "diagnostics.logs.description"}}</p>
+
+    <div class="service-logs-controls">
+      <label class="service-logs-field">
+        <span class="service-logs-field-label">{{t "diagnostics.logs.unit_label"}}</span>
+        <select x-on:change="unit = $event.target.value; load()">
+          <template x-for="name in (options ? options.units : [])" :key="name">
+            <option x-bind:value="name" x-bind:selected="unit === name" x-text="$t(`diagnostics.logs.unit.${name}`)"></option>
+          </template>
+        </select>
+      </label>
+      <div class="service-logs-field">
+        <span class="service-logs-field-label" id="service-logs-since-label">{{t "diagnostics.logs.since_label"}}</span>
+        <div class="segmented log-range" role="radiogroup" aria-labelledby="service-logs-since-label">
+          <span class="segmented-thumb" aria-hidden="true"></span>
+          <template x-for="minutes in (options ? options.since_minutes : [])" :key="minutes">
+            <label class="segmented-option"><input type="radio" name="service-logs-since" x-bind:value="minutes" x-bind:checked="since === minutes" x-on:change="since = minutes; load()"><span x-text="$t(`diagnostics.logs.since.${minutes}`)"></span></label>
+          </template>
+        </div>
+      </div>
+      <label class="service-logs-field">
+        <span class="service-logs-field-label">{{t "diagnostics.logs.lines_label"}}</span>
+        <select x-on:change="lines = Number($event.target.value); load()">
+          <template x-for="count in (options ? options.lines : [])" :key="count">
+            <option x-bind:value="count" x-bind:selected="lines === count" x-text="count"></option>
+          </template>
+        </select>
+      </label>
+      <label class="service-logs-field service-logs-search">
+        <span class="service-logs-field-label">{{t "diagnostics.logs.search_label"}}</span>
+        <input type="search" autocomplete="off" x-model="query" x-on:input="scheduleSearch()">
+      </label>
+    </div>
+
+    <div class="log-viewer" x-bind:class="{ 'is-loading': loading && loaded }" x-bind:aria-busy="loading">
+      <p class="log-notice" role="alert" x-cloak x-show="error" x-text="error"></p>
+      <p class="log-empty" x-cloak x-show="!loaded && loading">{{t "diagnostics.logs.loading"}}</p>
+      <p class="log-empty" x-cloak x-show="loaded && !loading && !error && entries.length === 0">{{t "diagnostics.logs.empty"}}</p>
+      <ol class="log-lines" x-ref="list" aria-live="polite" x-cloak x-show="entries.length > 0">
+        <template x-for="(entry, index) in entries" :key="index">
+          <li class="log-line" x-bind:class="priorityClass(entry)">
+            <time class="log-time" x-bind:datetime="entry.time" x-text="formatTime(entry)"></time>
+            <span class="log-dot" aria-hidden="true"></span>
+            <span class="log-message"><span class="visually-hidden" x-text="entry.priority <= 3 ? $t('diagnostics.logs.priority.error') : (entry.priority === 4 ? $t('diagnostics.logs.priority.warning') : (entry.priority === 7 ? $t('diagnostics.logs.priority.debug') : $t('diagnostics.logs.priority.info')))"></span><span x-text="entry.message"></span><span class="log-truncated" x-cloak x-show="entry.truncated" x-text="$t('diagnostics.logs.truncated')"></span></span>
+          </li>
+        </template>
+      </ol>
+      <div class="log-bar">
+        <p class="log-bar-note" x-cloak x-show="limited" x-text="$t('diagnostics.logs.limited', {lines: lines})"></p>
+        <button type="button" class="log-reload" x-on:click="load()" x-bind:disabled="loading">{{t "diagnostics.logs.load"}}</button>
+        <label class="log-live" x-bind:class="{ 'is-live': autoRefresh }">
+          <span class="log-live-dot" aria-hidden="true"></span>
+          <span>{{t "diagnostics.logs.auto_refresh"}}</span>
+          <span class="settings-toggle"><input type="checkbox" role="switch" x-bind:checked="autoRefresh" x-on:change="setAutoRefresh($event.target.checked)"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+        </label>
+      </div>
+    </div>
+  </section>
 </section>
 {{end}}

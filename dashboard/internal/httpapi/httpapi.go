@@ -154,6 +154,9 @@ type RouterDependencies struct {
 	// EnergyStats liefert /api/v1/energy/stats. nil heisst "nicht
 	// verfuegbar" (501), etwa in Tests ohne Datenverzeichnis.
 	EnergyStats *energystats.Service
+	// ServiceLogs liefert /api/v1/system/logs. nil heisst "nicht verfuegbar":
+	// die Routen fehlen dann ganz (404), etwa ohne System-Action-Helper.
+	ServiceLogs ServiceLogReader
 	// InstalledServices ist die aufgeloeste installed_services-Sicht aus
 	// appconfig.Config (Installer-Spec E7) fuer die drei Tabs/Unterseiten,
 	// die das Dashboard je nach Auswahl ausblendet: automation, tailscale,
@@ -325,6 +328,10 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
 		mux.HandleFunc("/api/v1/system/reboot", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Reboot))
 		mux.HandleFunc("/api/v1/system/poweroff", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Poweroff))
+	}
+	if dependencies.ServiceLogs != nil {
+		mux.HandleFunc("/api/v1/system/logs", handleServiceLogs(dependencies.Auth, dependencies.ServiceLogs))
+		mux.HandleFunc("/api/v1/system/logs/units", handleServiceLogUnits(dependencies.Auth))
 	}
 	if dependencies.AppConfigPath != "" {
 		mux.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))

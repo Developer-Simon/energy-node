@@ -7,3 +7,4 @@ energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-act
 energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action tailscale-up
 energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action tailscale-logout
 energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action tailscale-restart
+energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action read-journal *

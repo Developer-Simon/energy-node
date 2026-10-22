@@ -1,15 +1,25 @@
 # Changelog
 
-## v0.10.7 (2026-10-22)
+## v0.10.8 (2026-10-22)
 
 ### Features
 
 - **devicemap:** The device map can hide connections by type (energy, data, info) with a new filter button. (#158) (2e85408)
 - **settings:** Settings pages are listed in a sidebar, on phones in a sheet from the bottom. (#159) (797ce0c)
+- **settings:** The dashboard title and subtitle can be changed or hidden. (#160) (74a38ad)
+- **dashboard:** add read-journal action to the system action helper (27a811d)
+- **dashboard:** parse journal entries and validate log queries (1d1f7db)
+- **dashboard:** read allowlisted service journals through the helper (18c512c)
+- **dashboard:** add service log endpoints (399197c)
+- **dashboard:** add service log error texts and API docs (957bad1)
+- **dashboard:** add the service logs panel component (329d120)
+- **dashboard:** show service logs on the diagnostics page (98b2272)
+- **dashboard:** rework the service logs view (a9dcdf7)
+- **dashboard:** keep the service log scrolled to the newest line (04d2e6a)
+- **dashboard:** The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh. (#161)
 - **settings:** make the masthead title and subtitle configurable (b9217a1)
 - **settings:** rework the masthead card and share the energy save bar (bfff2a3)
 - **status:** offer CPU load in the system status bar (66f9c89)
-- **settings:** The dashboard title and subtitle can be changed or hidden. (#160)
 - **settings:** fill gaps between settings cards with a masonry layout (f554a83)
 - **settings:** let the system status and tab width cards join the masonry (1780266)
 - **settings:** move the history storage hint into a tooltip on the recording card (b87478c)
@@ -36,6 +46,8 @@
 
 - clearer update notice, firewall station completes, service steps skip unchanged libraries (#153) (c184d81)
 - **diagnostics:** use a working health threshold (#157) (48d39f7)
+- **dashboard:** allow all service keys in read-journal (20b27c4)
+- **dashboard:** pause service log polling while the panel is hidden (e72eb36)
 - **settings:** measure the health threshold in seconds with a usable default (7366e0d)
 - **settings:** explain the health threshold in seconds (9716ff5)
 - **settings:** show the health threshold help as a tooltip (8851977)
@@ -51,7 +63,12 @@
 
 ### Documentation
 
+- **dashboard:** add service log and connection filter screenshots (67e2ede)
 - remove the remaining Gridstack references (1f5d014)
+
+### Tests
+
+- **dashboard:** add a service-logs smoke preset with a simulated journal (04ec1f6)
 
 ### Chores
 

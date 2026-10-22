@@ -15,6 +15,9 @@
 //   C) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package --fake-companion
 //      node test/smoke/docs-screenshots.mjs dashboard-statistics
 //
+//   D) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-journal
+//      node test/smoke/docs-screenshots.mjs dashboard-service-logs
+//
 // --cards nimmt jede Uebersichtskarte einzeln in ihrer Mindestgroesse auf
 // (docs/images/dashboard-card-*.png, fuer docs/dashboard/overview-cards.md).
 // Dafuer legt es eine eigene Layout-Seite an, zeichnet --record-minutes lang
@@ -24,7 +27,7 @@
 // damit Tagesband und Verlauf sich bewegen.
 //
 // Ohne Namen werden alle Bilder ausser dashboard-history,
-// dashboard-settings-versions und dashboard-statistics geschrieben. Namen als Argumente begrenzen den
+// dashboard-settings-versions, dashboard-statistics und dashboard-service-logs geschrieben. Namen als Argumente begrenzen den
 // Lauf auf genau diese Bilder.
 //
 // Der Verlauf wird im Browser aufgezeichnet (IndexedDB, history-recorder.js).
@@ -63,7 +66,7 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics'];
+const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics', 'dashboard-service-logs'];
 const want = (name) => (args.names.length ? args.names.includes(name) : !OPT_IN.includes(name));
 
 await mkdir(args.out, { recursive: true });
@@ -198,13 +201,46 @@ async function all() {
     await shot(s.page, 'dashboard-statistics');
     await s.ctx.close();
   }
+  if (want('dashboard-service-logs')) {
+    // Needs the simulated journal (--simulate-journal): it feeds the lines.
+    // Its over-long test line comes every 97 s, so reload until the visible
+    // part of the list holds none, then take the section on its own.
+    s = await session(1110, 900);
+    await tab(s.page, 'diagnostics');
+    const logs = s.page.locator('section.service-logs');
+    await logs.locator('.log-line').first().waitFor({ timeout: 15000 });
+    for (let i = 0; i < 30; i++) {
+      const clean = await logs.evaluate((el) => {
+        const list = el.querySelector('.log-lines');
+        const box = list.getBoundingClientRect();
+        return ![...list.querySelectorAll('.log-line')].some((li) => {
+          const r = li.getBoundingClientRect();
+          return r.bottom > box.top && r.top < box.bottom && li.textContent.length > 300;
+        });
+      });
+      if (clean) break;
+      await s.page.waitForTimeout(5000);
+      await logs.getByRole('button', { name: 'Load', exact: true }).click();
+      await s.page.waitForTimeout(1500);
+    }
+    await logs.scrollIntoViewIfNeeded();
+    await s.page.waitForTimeout(600);
+    const box = await logs.boundingBox();
+    await s.page.screenshot({
+      path: path.join(args.out, 'dashboard-service-logs.png'),
+      clip: { x: box.x - 16, y: box.y - 16, width: box.width + 32, height: box.height + 32 },
+    });
+    console.log('geschrieben:', 'dashboard-service-logs');
+    await s.ctx.close();
+  }
 
   const subpages = [
     ['dashboard-settings-general', 'settings-general', 819],
     ['dashboard-settings-display', 'settings-display', 769],
     ['dashboard-settings-history', 'settings-history', 1235],
     ['dashboard-settings-tinytuya', 'settings-tiny-tuya', 691],
-    ['dashboard-settings-mqtt', 'settings-mqtt', 988],
+    // Tall enough for the whole connection card, so its save bar does not float over it.
+    ['dashboard-settings-mqtt', 'settings-mqtt', 1500],
     ['dashboard-settings-tailscale', 'settings-tailscale', 988],
     ['dashboard-settings-system', 'settings-system', 997],
     // Die Aenderungen des Dashboards aufgeklappt, damit der Schalter
@@ -221,6 +257,8 @@ async function all() {
     await s.page.locator(`#settings-panel [role="tab"][aria-controls="${id}"]`).click();
     await s.page.waitForTimeout(2000);
     if (prepare) await prepare(s.page);
+    // Keep the pointer off the sidebar, or the last hovered page stays lit.
+    await s.page.mouse.move(1, 1);
     await scrollToTabs(s.page);
     await shot(s.page, name);
     await s.ctx.close();
@@ -372,7 +410,7 @@ async function layoutEditorShowcase() {
 
 async function deviceMapShowcase() {
   const names = ['dashboard-device-map-device-panel', 'dashboard-device-map-group-panel', 'dashboard-device-map-picker',
-    'dashboard-device-map-view-menu', 'dashboard-device-map-create-group', 'dashboard-device-map-category',
+    'dashboard-device-map-view-menu', 'dashboard-device-map-filter-menu', 'dashboard-device-map-create-group', 'dashboard-device-map-category',
     'dashboard-device-map-balance', 'dashboard-device-map-dataflow', 'dashboard-device-map-switch-off',
     'dashboard-device-map-switch-channel', 'dashboard-device-map-sub-device'];
   if (!names.some(want)) return;
@@ -463,6 +501,16 @@ async function deviceMapShowcase() {
     });
     await s.page.waitForTimeout(600);
   }
+  if (want('dashboard-device-map-view-menu') || want('dashboard-device-map-filter-menu')) {
+    // The fixture map has no position for the own node yet, so the map places
+    // it and marks the positions unsaved. The menus are shot without that hint.
+    await map(() => {
+      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+      panel.placedCount = 0;
+      panel.unsaved = false;
+    });
+    await s.page.waitForTimeout(300);
+  }
   if (want('dashboard-device-map-view-menu')) {
     await s.page.locator('#devicemap-view-menu-toggle').click();
     await s.page.waitForTimeout(600);
@@ -474,6 +522,19 @@ async function deviceMapShowcase() {
       clip: { x, y, width: Math.max(toolbar.x + toolbar.width, menu.x + menu.width) + 8 - x, height: menu.y + menu.height + 8 - y } });
     console.log('geschrieben: dashboard-device-map-view-menu');
     await s.page.locator('#devicemap-view-menu-toggle').click();
+    await s.page.waitForTimeout(400);
+  }
+  if (want('dashboard-device-map-filter-menu')) {
+    await s.page.locator('#devicemap-filter-toggle').click();
+    await s.page.waitForTimeout(600);
+    const toolbar = await s.page.locator('#devicemap-panel .devicemap-toolbar').boundingBox();
+    const menu = await s.page.locator('#devicemap-filter-menu').boundingBox();
+    const x = Math.min(toolbar.x, menu.x) - 8;
+    const y = toolbar.y - 8;
+    await s.page.screenshot({ path: path.join(args.out, 'dashboard-device-map-filter-menu.png'),
+      clip: { x, y, width: Math.max(toolbar.x + toolbar.width, menu.x + menu.width) + 8 - x, height: menu.y + menu.height + 8 - y } });
+    console.log('geschrieben: dashboard-device-map-filter-menu');
+    await s.page.locator('#devicemap-filter-toggle').click();
     await s.page.waitForTimeout(400);
   }
   if (want('dashboard-device-map-create-group')) {

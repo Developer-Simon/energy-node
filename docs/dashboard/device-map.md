@@ -75,6 +75,8 @@ A connection you drew yourself can be reversed in the same card, which swaps
 parent and child. Connections that come from discovery and feeds into a group
 cannot be reversed, but their flow direction can still be set.
 
+![Filter menu with one switch per connection type](../images/dashboard-device-map-filter-menu.png)
+
 The filter button next to the view menu hides connection types in this
 browser, with one switch per type. Switching off Data or Informational hides
 those wiring lines. While the Wiring layer is off, the two are greyed out and
