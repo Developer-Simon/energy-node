@@ -69,7 +69,7 @@ As of **2026-10-19**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `41` |
+| `css/base.css` | `42` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -263,7 +263,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.10.6 | `js/settings-masonry.js` (new, settings panel, cards fill the shorter column) · `js/settings.page.js` (settings panel, attaches the masonry) · `css/settings-controls.css` (settings, diagnostics: `.settings-cards--masonry`) | `1` (new) · `25` · `16` | 2026-10-22 |
+| v0.10.6 | `js/settings-masonry.js` (new, settings panel, cards fill the shorter column) · `js/settings.page.js` (settings panel, masonry, sidebar page picker and sheet instead of the More list) · `css/settings-controls.css` (settings, diagnostics: masonry, sidebar, picker, sheet, wizard slide-in) · `css/base.css` (settings sub tab row rules removed) | `1` (new) · `25` · `16` · `42` | 2026-10-22 |
 | v0.10.5 | `js/devicemap-view-prefs.js` (new, device map, browser view settings) · `js/devicemap-model.js` (energy, device map, edit rights and view defaults) · `js/devicemap-graph.js` (energy, device map, wiring filter) · `js/devicemap.page.js` (device map, filter button, view menu) · `css/manager.css` (5 panels) | `1` (new) · `14` · `9` · `29` · `46` | 2026-10-21 |
 | v0.10.3 | `js/layout-editor.js` (overview editor, unreachable Gridstack path removed, discarding changes also ends edit mode) | `19` | 2026-10-21 |
 | v0.10.2 | `js/config-status.js` (config and automations panels, unreachable `pending` runtime status removed) | `4` | 2026-10-21 |

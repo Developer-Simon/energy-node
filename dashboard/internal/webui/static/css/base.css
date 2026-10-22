@@ -387,10 +387,7 @@ nav button:active { transform: scale(.97); }
 /* Der Menue-Ausloeser existiert im Markup immer, ist aber nur unterhalb
    700px sichtbar - der einzige Zusatz dieses Bauteils, der auf allen
    Breiten gilt. */
-/* Einstellungs-Untertabs: eine Zeile, was nicht passt, wandert in "Weitere"
-   (fitTabs in settings.page.js). Die Haupttabs behalten das Aufklappmenue. */
-nav.settings-nav { flex-wrap: nowrap; position: relative; }
-nav.settings-nav button[hidden], nav .nav-more[hidden] { display: none; }
+nav .nav-more[hidden] { display: none; }
 nav .nav-more { position: relative; display: flex; }
 nav .nav-more-toggle { display: flex; align-items: center; gap: .45rem; }
 nav .nav-more-toggle[aria-expanded="true"] .nav-menu-chevron { transform: rotate(180deg); }

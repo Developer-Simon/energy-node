@@ -582,61 +582,105 @@
   // Sub pages a deep link (?page=) may open.
   const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system'];
 
-  // How many of the tabs (widths in px) stay in the row. All of them when they
-  // fit, otherwise as many as fit next to the "More" button.
-  const visibleTabCount = (widths, available, moreWidth, gap) => {
-    const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(widths.length - 1, 0);
-    if (total <= available) return widths.length;
-    let used = moreWidth;
-    let count = 0;
-    for (const width of widths) {
-      used += width + gap;
-      if (used > available) break;
-      count += 1;
-    }
-    return count;
-  };
+  // How far a finger has to travel sideways on the page picker before it
+  // counts as a swipe to the neighbouring page instead of a tap.
+  const PICKER_SWIPE_PX = 40;
+  // How far the sheet has to be pulled down before it closes.
+  const SHEET_DRAG_PX = 60;
 
   const settingsPage = () => ({
     activeSettingsPage: 'general',
-    // Tabs that do not fit the row, shown in the "More" list: {page, label}.
-    overflowTabs: [],
-    moreOpen: false,
+    // The sub pages as the sidebar lists them: {page, icon, label, desc}. Read
+    // once from the server-rendered sidebar, so the picker and the sheet show
+    // exactly the same entries (installed services only, translated texts).
+    pages: [],
+    sheetOpen: false,
+    swiped: false,
+    swipeStartX: null,
+    dragStartY: null,
 
     init() {
       const requested = new URLSearchParams(window.location.search).get('page');
       if (SETTINGS_PAGES.includes(requested)) this.activeSettingsPage = requested;
       this.$nextTick(() => {
         window.dashboardSettingsMasonry?.attach(this.$el);
-        const nav = this.$refs.subnav;
-        if (!nav) return;
-        if (typeof ResizeObserver === 'function') new ResizeObserver(() => this.fitTabs()).observe(nav);
-        document.fonts?.ready?.then(() => this.fitTabs());
-        this.fitTabs();
+        this.collectPages();
       });
     },
 
-    // Measures with every tab shown, then hides what does not fit. Runs in one
-    // frame, so the row never paints the intermediate state. A hidden panel has
-    // no width, the observer calls again once it is shown.
-    fitTabs() {
-      const nav = this.$refs.subnav;
-      if (!nav || nav.clientWidth === 0) return;
-      const tabs = [...nav.querySelectorAll('button[role="tab"]')];
-      const more = nav.querySelector('.nav-more');
-      tabs.forEach((tab) => { tab.hidden = false; });
-      more.hidden = false;
-      const style = getComputedStyle(nav);
-      const available = nav.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
-      const gap = parseFloat(style.columnGap) || 0;
-      const keep = visibleTabCount(tabs.map((tab) => tab.offsetWidth), available, more.offsetWidth, gap);
-      tabs.forEach((tab, index) => { tab.hidden = index >= keep; });
-      this.overflowTabs = tabs.slice(keep).map((tab) => ({
+    collectPages() {
+      const list = this.$refs.subnav;
+      if (!list) return;
+      this.pages = [...list.querySelectorAll('[role="tab"]')].map((tab) => ({
         page: tab.getAttribute('aria-controls').replace(/^settings-/, ''),
-        label: tab.textContent.trim(),
+        icon: (tab.querySelector('use')?.getAttribute('href') || '').replace(/^#/, ''),
+        label: tab.querySelector('.settings-nav-title')?.textContent.trim() || '',
+        desc: tab.querySelector('.settings-nav-desc')?.textContent.trim() || '',
       }));
-      more.hidden = this.overflowTabs.length === 0;
-      if (this.overflowTabs.length === 0) this.moreOpen = false;
+    },
+
+    currentIndex() {
+      return Math.max(0, this.pages.findIndex((page) => page.page === this.activeSettingsPage));
+    },
+
+    currentPage() {
+      return this.pages[this.currentIndex()] || {page: '', icon: '', label: '', desc: ''};
+    },
+
+    stepPage(delta) {
+      const next = this.pages[this.currentIndex() + delta];
+      if (next) this.activeSettingsPage = next.page;
+    },
+
+    openSheet() {
+      // A swipe on the picker ends in a click as well; that one must not open
+      // the sheet on top of the page the swipe just switched to.
+      if (this.swiped) {
+        this.swiped = false;
+        return;
+      }
+      this.sheetOpen = true;
+      this.$nextTick(() => document.querySelector('#settings-sheet .settings-nav-item.active')?.focus());
+    },
+
+    closeSheet() {
+      if (!this.sheetOpen) return;
+      this.sheetOpen = false;
+      this.$refs.picker?.focus();
+    },
+
+    choosePage(page) {
+      this.activeSettingsPage = page;
+      this.closeSheet();
+    },
+
+    pickerSwipeStart(event) {
+      this.swipeStartX = event.clientX;
+    },
+
+    pickerSwipeEnd(event) {
+      if (this.swipeStartX === null) return;
+      const dx = event.clientX - this.swipeStartX;
+      this.swipeStartX = null;
+      if (Math.abs(dx) < PICKER_SWIPE_PX) return;
+      this.swiped = true;
+      this.stepPage(dx < 0 ? 1 : -1);
+    },
+
+    // Pulling the grab handle down closes the sheet. Only the handle, never
+    // the list: on touch the browser claims a vertical drag over the list for
+    // scrolling and ends it with pointercancel. The capture keeps pointerup on
+    // the handle even when the finger has left it.
+    sheetDragStart(event) {
+      this.dragStartY = event.clientY;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    },
+
+    sheetDragEnd(event) {
+      if (this.dragStartY === null) return;
+      const dy = event.clientY - this.dragStartY;
+      this.dragStartY = null;
+      if (dy > SHEET_DRAG_PX) this.closeSheet();
     },
   });
 

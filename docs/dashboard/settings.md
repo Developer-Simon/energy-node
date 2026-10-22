@@ -14,9 +14,14 @@ anchor_moves:
 
 # Settings
 
-Settings has eight sub-tabs: General, Appearance, History, MQTT, Tailscale,
+Settings has eight pages: General, Appearance, History, MQTT, Tailscale,
 TinyTuya, Versions and System. Tailscale and TinyTuya only appear when the
 matching service is installed.
+
+On wide screens the pages are listed in a sidebar next to the content, each
+with an icon and a short description. On narrow screens a button above the
+content shows the current page. Tapping it opens the full list as a sheet from
+the bottom. Swiping sideways on the button moves to the previous or next page.
 
 | Page | Tabs | What you set there |
 |---|---|---|
