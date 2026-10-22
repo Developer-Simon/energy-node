@@ -1,5 +1,13 @@
 {
   "de": {
     "*": "Die Device Map kann Verbindungen nach Typ (Energie, Daten, Info) ausblenden, über einen neuen Filterknopf."
+  },
+  "details": {
+    "*": {
+      "de": "Der Filterknopf neben dem Darstellungsmenü blendet Energie-, Daten- oder Info-Verbindungen und die Linien zum Automationsknoten aus, mit einem Schalter je Typ. Er ändert nur, was dieser Browser zeichnet.",
+      "doc": "dashboard/device-map.html#connection-types",
+      "en": "The filter button next to the display menu hides energy, data or informational connections and the lines to the automation node, with one switch per type. It only changes what this browser draws.",
+      "image": "dashboard-device-map-filter-menu.png"
+    }
   }
 }
