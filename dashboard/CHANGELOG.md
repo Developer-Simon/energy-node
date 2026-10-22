@@ -1,9 +1,18 @@
 # Changelog
 
-## v0.10.5 (2026-10-21)
+## v0.10.6 (2026-10-22)
 
 ### Features
 
+- **devicemap:** The device map can hide connections by type (energy, data, info) with a new filter button. (#158) (2e85408)
+- **settings:** fill gaps between settings cards with a masonry layout (f554a83)
+- **settings:** let the system status and tab width cards join the masonry (1780266)
+- **settings:** move the history storage hint into a tooltip on the recording card (b87478c)
+- **settings:** slide in the Tailscale and TinyTuya wizard blocks like the cards (f3e5f4c)
+- **webui:** add MQTT, Tailscale and Tuya icons to the sprite (4accb17)
+- **settings:** replace the sub tab row with a sidebar and a page sheet (16a7870)
+- **settings:** let the settings tab use the full width by default (7704136)
+- **settings:** Settings pages are listed in a sidebar, on phones in a sheet from the bottom. (#159)
 - **auth:** add edit_device_map and edit_device_map_view roles (5fccc61)
 - **settings:** store wiring type filter in the device map view (2030cf9)
 - **settings:** diff device map structure and view (36fe304)
@@ -16,7 +25,6 @@
 - **devicemap:** filter button, hidden energy notice and default view controls (e299f62)
 - **devicemap:** connection icon, automation lines in the filter, save keeps the view (84c88f1)
 - **devicemap:** use a funnel with a connection node as the filter icon (b663822)
-- **devicemap:** The device map can hide connections by type (energy, data, info) with a new filter button. (#158)
 - **webui:** end edit mode when changes are discarded (30afe53)
 - **settings:** update notice as a row with one update button (60a73fa)
 
