@@ -1,10 +1,15 @@
 # Changelog
 
-## v0.10.6 (2026-10-22)
+## v0.10.7 (2026-10-22)
 
 ### Features
 
 - **devicemap:** The device map can hide connections by type (energy, data, info) with a new filter button. (#158) (2e85408)
+- **settings:** Settings pages are listed in a sidebar, on phones in a sheet from the bottom. (#159) (797ce0c)
+- **settings:** make the masthead title and subtitle configurable (b9217a1)
+- **settings:** rework the masthead card and share the energy save bar (bfff2a3)
+- **status:** offer CPU load in the system status bar (66f9c89)
+- **settings:** The dashboard title and subtitle can be changed or hidden. (#160)
 - **settings:** fill gaps between settings cards with a masonry layout (f554a83)
 - **settings:** let the system status and tab width cards join the masonry (1780266)
 - **settings:** move the history storage hint into a tooltip on the recording card (b87478c)
@@ -12,7 +17,6 @@
 - **webui:** add MQTT, Tailscale and Tuya icons to the sprite (4accb17)
 - **settings:** replace the sub tab row with a sidebar and a page sheet (16a7870)
 - **settings:** let the settings tab use the full width by default (7704136)
-- **settings:** Settings pages are listed in a sidebar, on phones in a sheet from the bottom. (#159)
 - **auth:** add edit_device_map and edit_device_map_view roles (5fccc61)
 - **settings:** store wiring type filter in the device map view (2030cf9)
 - **settings:** diff device map structure and view (36fe304)

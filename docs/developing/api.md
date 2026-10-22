@@ -388,7 +388,7 @@ are the German fallback for clients that do not know the key. `key` is not
   "mqtt": { "connected": true, "broker_address": "localhost:1883" },
   "storage": { "available": true, "medium": "…", "mode": "…", "confidence": "…" },
   "node": {
-    "telemetry": { "cpu_temp_c": 47.8, "ram_used_pct": 63.1, "undervoltage_now": false },
+    "telemetry": { "cpu_temp_c": 47.8, "cpu_load_pct": 12.5, "ram_used_pct": 63.1, "undervoltage_now": false },
     "services": [
       { "id": "shelly", "state": "active" },
       { "id": "trucki", "state": "configured" }
@@ -402,7 +402,8 @@ connection is missing or the storage check fails.
 
 `node` reports what the dashboard's node agent (`internal/nodeagent`) publishes
 about the Pi. It is only present when the agent is wired in. `node.telemetry`
-is missing until the first reading arrives and then carries `cpu_temp_c` and
+is missing until the first reading arrives and then carries `cpu_temp_c`,
+`cpu_load_pct` (one minute load average per core, capped at 100) and
 `ram_used_pct` (each a number or `null`) and the `undervoltage_now` flag.
 `node.services` has one entry per configured device service,
 `{ "id": "<service_id>", "state": … }`. `state` is `active` when the service's

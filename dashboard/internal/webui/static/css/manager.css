@@ -336,7 +336,9 @@ select.schema-control {
 
 /* Sticky Materialleiste am unteren Panelrand: eine primaere Aktion statt der
    frueheren zwei identischen Speichern-Buttons. Vorbild .config-actionbar /
-   .devicemap-toolbar - hier rein per position:sticky, kein IntersectionObserver. */
+   .devicemap-toolbar - hier rein per position:sticky, kein IntersectionObserver.
+   Die Einstellungsseiten Allgemein, Darstellung und Verlaeufe nutzen dieselbe
+   Leiste (#settings-save, settings.html). */
 .energy-actionbar-dock {
   position: sticky; bottom: 0; z-index: 20;
   display: flex; justify-content: flex-end;
@@ -355,8 +357,9 @@ select.schema-control {
   backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
   box-shadow: 0 .5rem 1.75rem rgba(0, 0, 0, .34);
 }
-.energy-actionbar #energy-save { border-radius: 999px; transition: background .15s ease, transform .12s var(--energy-ease); }
-.energy-actionbar #energy-save:active:not(:disabled) { transform: scale(.97); }
+.energy-actionbar #energy-save, .energy-actionbar #settings-save { border-radius: 999px; transition: background .15s ease, transform .12s var(--energy-ease); }
+.energy-actionbar #energy-save:active:not(:disabled),
+.energy-actionbar #settings-save:active:not(:disabled) { transform: scale(.97); }
 
 @media (prefers-reduced-transparency: reduce) {
   .energy-actionbar { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft); }
@@ -369,10 +372,11 @@ select.schema-control {
 }
 @media (prefers-reduced-motion: reduce) {
   .energy-role-row, .energy-role-row .energy-role, .energy-role-row input[type="number"],
-  .energy-role-hide-toggle, .energy-actionbar #energy-save { transition-duration: .01ms; }
+  .energy-role-hide-toggle, .energy-actionbar #energy-save, .energy-actionbar #settings-save { transition-duration: .01ms; }
   .energy-role-row { animation: none; }
   .energy-role-row:active, .energy-role-hide-toggle:active,
-  .energy-actionbar #energy-save:active:not(:disabled) { transform: none; }
+  .energy-actionbar #energy-save:active:not(:disabled),
+  .energy-actionbar #settings-save:active:not(:disabled) { transform: none; }
 }
 /* Stage/Overlay: Toolbar, Hinweise und Kanten-Toolbar liegen als schwebende
    Materialschicht ueber dem Canvas statt im Dokumentfluss davor - Ein-/

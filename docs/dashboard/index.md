@@ -50,8 +50,8 @@ any device.
 Every tab has the same frame.
 
 The system status bar shows the broker connection, storage health, uptime and
-dashboard version. You can choose which of these fields appear or switch the
-bar off.
+dashboard version. You can choose which fields appear, including CPU
+temperature, CPU load and RAM of the Pi, or switch the bar off.
 
 The tab bar starts with the layout pages, which are your own overview pages
 named in the layout editor. After the divider come the fixed tabs: Devices,

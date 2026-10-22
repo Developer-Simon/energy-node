@@ -22,3 +22,9 @@ By default these are Overview, Devices, History, Layout and Settings.
 
 The **Formatting** card holds the language of this browser, the switch that
 shows or hides the `DE | EN` pill for everyone, and the number format.
+
+The **Masthead** card sets the title and subtitle at the top of every page.
+Leave a field empty to keep the default text. The title also names the
+browser tab and the sign-in page. **Show title** and **Show subtitle** hide
+them in the masthead only. With both hidden and the language pill off, the
+masthead disappears entirely.

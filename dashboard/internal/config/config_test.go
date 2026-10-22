@@ -154,6 +154,8 @@ func TestValidateDocumentEnforcesNumericAndArrayBounds(t *testing.T) {
 		{"minItems rejects empty array", `{"type":"array","minItems":1}`, `[]`, true},
 		{"minItems accepts one entry", `{"type":"array","minItems":1}`, `[1]`, false},
 		{"maxItems rejects overflow", `{"type":"array","maxItems":1}`, `[1,2]`, true},
+		{"maxLength rejects overflow", `{"type":"string","maxLength":3}`, `"abcd"`, true},
+		{"maxLength counts characters, not bytes", `{"type":"string","maxLength":3}`, `"äöü"`, false},
 		// numberValue() returns 0 for non-numbers, so a naive port of the
 		// minimum check would fail a string against exclusiveMinimum: 0.
 		{"exclusiveMinimum ignores strings", `{"exclusiveMinimum":0}`, `"text"`, false},
