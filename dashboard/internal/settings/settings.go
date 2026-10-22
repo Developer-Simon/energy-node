@@ -567,7 +567,7 @@ func Default() Settings {
 		DeviceViewMode: DeviceViewModeCompact, Theme: ThemeMint,
 		NumberFormat: numfmt.FormatAuto, NumberGrouping: numfmt.GroupingMatch,
 		ShowConfigEntitiesOnTile: false, ShowDiagnosticEntitiesOnTile: false,
-		LiveUpdateIntervalSeconds: 3, WidePanels: []string{"overview", "devices", "history", "layout"},
+		LiveUpdateIntervalSeconds: 3, WidePanels: []string{"overview", "devices", "history", "layout", "settings"},
 		StatusBarItems:               []string{"mqtt", "storage", "uptime", "version"},
 		HistorySampleIntervalSeconds: 10,
 		HistoryRetentionMode:         HistoryRetentionModeTime,
