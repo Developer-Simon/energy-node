@@ -1,0 +1,13 @@
+{
+  "de": {
+    "*": "Die Diagnoseseite zeigt die Protokolle der Energy-Node-Dienste, mit Suche und automatischer Aktualisierung."
+  },
+  "details": {
+    "*": {
+      "de": "Der Abschnitt Service-Logs auf der Diagnoseseite zeigt das Journal jeweils eines Dienstes. Wähle Dienst, Zeitraum und Zahl der Zeilen, durchsuche die geladenen Zeilen und schalte Automatisch aktualisieren ein, um neue Zeilen alle 5 Sekunden zu sehen. Dafür braucht es die Rolle system_actions.",
+      "doc": "dashboard/diagnostics.html#service-logs",
+      "en": "The Service logs section on the diagnostics page shows the journal of one service at a time. Choose the service, the time range and the number of lines, search the loaded lines and turn on Refresh automatically to see new lines every 5 seconds. It needs the system_actions role.",
+      "image": "dashboard-service-logs.png"
+    }
+  }
+}
