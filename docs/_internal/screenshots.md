@@ -19,7 +19,7 @@ node dashboard/test/smoke/docs-screenshots.mjs
 The first command prints a URL and credentials and stays up until Ctrl-C.
 `--simulate-package` makes a fake GitHub offer version 9.9.9 with a small
 package, which is what the update screenshots show. The second command writes
-every image on this page into `docs/images/`. Two images need their own run:
+every image on this page into `docs/images/`. Some images need their own run:
 
 - **History:** `docs-screenshots.mjs --history` keeps the dashboard open for
   about twelve minutes so the browser records enough history, then takes the
@@ -27,6 +27,10 @@ every image on this page into `docs/images/`. Two images need their own run:
 - **Versions:** restart the first command with `--simulate-installed` instead
   of `--simulate-package`, then run
   `docs-screenshots.mjs dashboard-settings-versions`.
+- **Service logs:** restart the first command with `--simulate-journal`
+  instead of `--simulate-package`, then run
+  `docs-screenshots.mjs dashboard-service-logs`. The fake journal feeds the
+  lines, and the script waits until no over-long test line is in view.
 - **Overview cards:** restart the first command with `--simulate` instead of
   `--simulate-package`, then run `docs-screenshots.mjs --cards`. It adds a
   layout page with one card of each type at its minimum width, records about

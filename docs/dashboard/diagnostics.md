@@ -44,6 +44,8 @@ many findings each choice leaves.
 
 ## Service logs
 
+![Service logs](../images/dashboard-service-logs.png)
+
 The service logs panel shows the journal lines of the Energy Node services. Only
 users with the `system_actions` role see it. Other users do not get the panel
 and the API answers with a permission error.
