@@ -607,6 +607,7 @@
       const requested = new URLSearchParams(window.location.search).get('page');
       if (SETTINGS_PAGES.includes(requested)) this.activeSettingsPage = requested;
       this.$nextTick(() => {
+        window.dashboardSettingsMasonry?.attach(this.$el);
         const nav = this.$refs.subnav;
         if (!nav) return;
         if (typeof ResizeObserver === 'function') new ResizeObserver(() => this.fitTabs()).observe(nav);

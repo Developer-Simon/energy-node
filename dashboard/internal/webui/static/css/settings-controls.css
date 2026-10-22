@@ -41,6 +41,15 @@
 @container settings-body (max-width: 46rem) {
   .settings-cards { grid-template-columns: 1fr; }
 }
+/* Mauerwerk statt starrer Zeilen, gesetzt von settings-masonry.js: jede
+   Karte spannt so viele 1px-Zeilen, wie sie samt 1rem Abstand hoch ist.
+   Der negative Rand nimmt den Abstand unter der letzten Karte wieder weg,
+   damit das Raster so hoch bleibt wie vorher. */
+.settings-cards--masonry {
+  grid-auto-rows: 1px;
+  row-gap: 0;
+  margin-bottom: -1rem;
+}
 
 /* --- Material-Karte -------------------------------------------------------- */
 /* Transluzente Flaeche wie .device-tile: die Karte liegt als eigene Schicht
