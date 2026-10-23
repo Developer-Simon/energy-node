@@ -2225,6 +2225,31 @@ test('stepValue leaves an untouched default out', () => {
   assert.equal('gain' in target, false);
 });
 
+test('fine tuning steppers keep defaults out of the saved document', async () => {
+  const { component, window } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [scenario],
+  };
+  const gainOpts = { fallback: 0.8, min: 0.1, max: 1, step: 0.1 };
+  const regulator = scenario.while.regulator;
+  component.stepValue(regulator, 'gain', 1, gainOpts);
+  component.stepValue(regulator, 'gain', -1, gainOpts);
+  let sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, undefined);
+  component.stepValue(regulator, 'gain', 1, gainOpts);
+  sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, 0.9);
+});
+
 // Regler-Kacheln: Stellglied und Messgerät, Picker, unbekanntes Gerät, Hinweis.
 function chipRegulator(regulator) {
   return { id: 'scn-reg', while: { mode: 'regulate', regulator: { direction: 'producer', target_w: 0, deadband_w: 20, ...regulator } } };

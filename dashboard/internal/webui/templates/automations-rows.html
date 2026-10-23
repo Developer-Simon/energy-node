@@ -569,7 +569,7 @@
                   <span class="auto-stepper" role="group" x-bind:aria-label="stepLabel">
                     <button class="auto-stepper-btn" type="button" x-bind:aria-label="$t('automations.stepper.decrease', { label: stepLabel })" x-on:click="stepValue(stepTarget, stepKey, -1, stepOpts)">&minus;</button>
                     <span class="auto-stepper-field">
-                      <input class="auto-input" type="number" inputmode="decimal" x-bind:min="stepOpts.min" x-bind:max="stepOpts.max" x-bind:step="stepOpts.step" x-bind:placeholder="stepOpts.fallback" x-bind:aria-label="stepLabel" x-model.number="stepTarget[stepKey]">
+                      <input class="auto-input" type="number" inputmode="decimal" x-bind:min="stepOpts.min" x-bind:max="stepOpts.max" x-bind:step="stepOpts.step" x-bind:placeholder="stepOpts.placeholder ?? stepOpts.fallback" x-bind:aria-label="stepLabel" x-model.number="stepTarget[stepKey]">
                       <span class="auto-input-unit" x-show="stepUnit" x-text="stepUnit"></span>
                     </span>
                     <button class="auto-stepper-btn" type="button" x-bind:aria-label="$t('automations.stepper.increase', { label: stepLabel })" x-on:click="stepValue(stepTarget, stepKey, 1, stepOpts)">+</button>

@@ -3371,3 +3371,30 @@ func TestRegulatorFormUsesDeviceChipsAndThePicker(t *testing.T) {
 		t.Fatal("automations.html bindet den device-picker nicht genau einmal ein")
 	}
 }
+
+// Die Feineinstellungen des Reglers sind eine Karte unter dem Regler, mit dem
+// Zahnrad-Icon und vier Steppern (Verstaerkung, Takt, Schritt, Max. Aenderung).
+func TestFineTuningIsACardWithSteppers(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	start := strings.Index(source, `class="auto-card`)
+	if start < 0 {
+		t.Fatal("Feineinstellungen sind keine auto-card")
+	}
+	card := source[start:]
+	if end := strings.Index(card, `{{end}}`); end > 0 {
+		card = card[:end]
+	}
+	if !strings.Contains(card, `ico-gear`) {
+		t.Fatal("Feineinstellungen-Karte ohne ico-gear")
+	}
+	if n := strings.Count(card, `{{template "auto-stepper"}}`); n != 4 {
+		t.Fatalf("Feineinstellungen-Karte hat %d auto-stepper, erwartet 4", n)
+	}
+	if !strings.Contains(source, `automations.scenario.edit.defaults_hint`) {
+		t.Fatal("Hinweiszeile automations.scenario.edit.defaults_hint fehlt")
+	}
+}

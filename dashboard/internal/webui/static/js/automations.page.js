@@ -1323,6 +1323,12 @@
       return (scenario.while && scenario.while.regulator) || {};
     },
 
+    // Standard der Schrittweite: Schrittweite der gewaehlten Entitaet, sonst 1.
+    regulatorStepDefault(scenario) {
+      const entity = this.entityByUniqueId((this.regulatorOf(scenario).output || {}).entity_id);
+      return entity && isNumber(entity.step) ? entity.step : 1;
+    },
+
     // Stellglied-Kacheln: gewaehltes zuerst, dazu hoechstens zwei passende.
     actuatorChips(scenario) {
       const regulator = this.regulatorOf(scenario);
