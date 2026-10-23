@@ -21,6 +21,7 @@ const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
 const scenarioSource = fs.readFileSync(path.join(jsDir, 'automations-scenario.js'), 'utf8');
 const chartSource = fs.readFileSync(path.join(jsDir, 'automations-chart.js'), 'utf8');
+const devicesSource = fs.readFileSync(path.join(jsDir, 'automations-devices.js'), 'utf8');
 const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
@@ -37,6 +38,7 @@ function createAutomationsPanel() {
   vm.runInContext(viewSource, context);
   vm.runInContext(scenarioSource, context);
   vm.runInContext(chartSource, context);
+  vm.runInContext(devicesSource, context);
   vm.runInContext(rollupSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();

@@ -64,6 +64,7 @@
     entities: [],
     readableEntities: [],
     devices: [],
+    assignments: {},
     runtimeState: null,
     online: false,
     csrfToken: '',
@@ -143,6 +144,7 @@
           requestJSON('/api/v1/energy/roles').catch(() => null),
         ]);
         this.categories = (roles && roles.categories) || {};
+        this.assignments = (roles && roles.assignments) || {};
         this.document = doc && doc.rules ? doc : emptyDocument();
         this.document.scenarios ||= [];
         this.view = this.document.scenarios.length ? 'scenarios' : 'rules';
