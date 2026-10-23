@@ -388,6 +388,30 @@ def test_stale_balance_sends_the_fallback_once():
     assert fallbacks[0]["reason"] == "balance_stale"
 
 
+def test_balance_based_when_stays_active_through_a_stale_balance():
+    history = []
+    scenario = normalized(zero_feed(
+        when={"conditions": [threshold_condition(comparison="above", threshold=500)]},
+        on_end={"actions": [publish_action("end")]},
+    ))
+    doc, engine, published, _ = scenario_engine_with([scenario], settings=regulator_settings(),
+                                                     history_sink=lambda sid, event: history.append((sid, event)))
+    regulate_tick(engine, doc, 1000, grid_export=900)
+    report = regulate_tick(engine, doc, 1010, grid_export=900, balance_age=999)
+    assert report["nulleinspeisung"]["phase"] == "fallback"
+    report = regulate_tick(engine, doc, 1020, grid_export=900, balance_age=999)
+    assert report["nulleinspeisung"]["phase"] == "fallback"
+    assert payloads(published) == ["50", "800"]
+    report = regulate_tick(engine, doc, 1030, grid_export=900)
+    assert report["nulleinspeisung"]["phase"] == "active"
+    assert payloads(published) == ["50", "800", "50"]
+    results = history_results(history)
+    assert results.count("started") == 1
+    assert results.count("fallback") == 1
+    assert "ended" not in results
+    assert "end" not in payloads(published)
+
+
 def test_recovery_continues_without_on_start():
     history = []
     doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
@@ -611,3 +635,34 @@ def test_scenario_history_lands_in_the_history_document():
     assert "started" in results
     history = service.client.state_payload("/history")
     assert "started" in [e["result"] for e in history["rules"]["nulleinspeisung"]]
+
+
+def test_removing_an_active_regulator_by_reload_ends_once_and_clears_its_topics(tmp_path):
+    path = tmp_path / "automation_rules.json"
+    path.write_text(json.dumps(doc_with(scenarios=[zero_feed_all_day()])))
+    config_store = ReloadableConfig(str(path), automation.load_and_validate)
+    service = scenario_service(config_store=config_store)
+    service.doc, _ = automation.load_initial_document(config_store)
+    service.topic_values["werkstatt/bkw/state"] = '{"power": 800}'
+    fresh_balance(service)
+    service.poll_core()
+    assert service.scenario_engine._runtime["nulleinspeisung"].phase == "active"
+    service.publish_scenario_discovery(service.doc)
+    before_removal = len(service.client.published)
+
+    path.write_text(json.dumps(doc_with(settings={"tick_interval_s": 10, "settling_seconds": 0,
+                                                  "balance_max_age_s": 30,
+                                                  "publish_allowed_prefixes": ["werkstatt/"]})))
+    service.reload_config()
+    service.poll_core()
+    service.poll_core()
+
+    after = service.client.published[before_removal:]
+    limit_topic = "werkstatt/bkw/limit/set"
+    assert [(t, p) for t, p, _r in after if t == limit_topic] == [(limit_topic, "800")]
+    state_topic = "outstation/automation/scenario/nulleinspeisung/state"
+    assert [(t, p, r) for t, p, r in after if t == state_topic] == [(state_topic, "", True)]
+    assert ("homeassistant/sensor/automation/scenario_nulleinspeisung_output/config", "", True) in after
+    assert any(t.endswith("scenario_nulleinspeisung_phase/config") and p == "" for t, p, _r in after)
+    assert "nulleinspeisung" not in service.scenario_engine._runtime
+    assert "nulleinspeisung" not in service.scenario_publishers
