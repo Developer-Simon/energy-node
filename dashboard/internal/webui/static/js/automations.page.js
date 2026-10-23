@@ -106,6 +106,12 @@
     scenarios: [],
   });
 
+  // Zustand des Vorlagen-Assistenten im Ruhezustand (Dialog zu).
+  const assistantIdle = () => ({
+    open: false, templateId: '', answers: {}, index: 0, name: '', query: '', category: 'all', context: null, effects: {},
+  });
+  const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
+
   const automationsPanel = () => ({
     ...window.DevicePicker.mixin(),
     loading: false,
@@ -151,6 +157,8 @@
     todayExportKWh: null,
     todayExportAt: 0,
     showHistory: readShowHistory(),
+    // Vorlagen-Assistent: Dialogzustand, nur solange er offen ist.
+    assistant: assistantIdle(),
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
@@ -1005,6 +1013,175 @@
       }
       const id = `szenario_${Date.now()}`;
       this.insertEntry('scenario', window.__automationScenario.emptyScenario(id, t('automations.new_scenario')));
+    },
+
+    // Vorlagen-Assistent: Zustand, Schrittfolge und Anlegen. Das Markup folgt
+    // in den Teilauftraegen 5b/5c.
+    async openAssistant() {
+      const [, energy] = await Promise.all([
+        this.loadDeviceCatalog(),
+        requestJSON('/api/v1/energy').catch(() => null),
+      ]);
+      const snapshot = energy || { values: {}, entities: [] };
+      this.assistant = {
+        ...assistantIdle(),
+        open: true,
+        context: window.__automationWizard.buildContext({ devices: this.devices, snapshot, document: this.document }),
+      };
+      const dialog = this.$refs.assistantDialog;
+      if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+      const search = this.$refs.assistantSearch;
+      if (search && typeof search.focus === 'function') search.focus();
+    },
+
+    // Schliesst den Dialog (Escape, Klick daneben, Schliessen-Knopf) und verwirft
+    // den Entwurf. Angelegt wird nur in assistantCreate().
+    closeAssistant() {
+      const dialog = this.$refs.assistantDialog;
+      if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
+      this.assistant = assistantIdle();
+    },
+
+    assistantTemplate() {
+      const id = this.assistant.templateId;
+      if (!id) return null;
+      return assistantTemplateList().find((template) => template.id === id) || null;
+    },
+
+    // Suchtreffer fuer Galerie: passt zu den Geraeten, und die uebrigen mit Grund.
+    assistantTemplates() {
+      const { query, category, context } = this.assistant;
+      if (!context) return { fitting: [], others: [] };
+      return window.__automationWizard.searchTemplates(assistantTemplateList(), { query, category }, context);
+    },
+
+    // Geraete fuer einen device-Schritt, mit Sperre und Grund aus dem Kontext.
+    assistantDevices(step) {
+      if (!step || !this.assistant.context) return [];
+      const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
+      return window.__automationWizard.devicesFor(kind, this.assistant.context);
+    },
+
+    startTemplate(id) {
+      const template = assistantTemplateList().find((item) => item.id === id);
+      if (!template || !this.assistant.context) return;
+      this.assistant.templateId = id;
+      this.assistant.answers = window.__automationWizard.defaultAnswers(template, this.assistant.context);
+      this.assistant.name = t(`automations.templates.${id}.title`);
+      this.assistant.index = 0;
+      this.assistant.effects = {};
+      this.refreshEffect(this.assistantStep());
+    },
+
+    // Leere Regel oder leeres Szenario: wie addRule/addScenario, der Dialog schliesst
+    // nur, wenn wirklich angelegt wurde.
+    startBlank(kind) {
+      const full = kind === 'scenario' ? !this.canAddScenario() : !this.canAddRule();
+      if (kind === 'scenario') this.addScenario();
+      else this.addRule();
+      if (!full) this.closeAssistant();
+    },
+
+    // Sichtbare Schritte samt Zusammenfassung; leer ohne gewaehlte Vorlage.
+    assistantSteps() {
+      const template = this.assistantTemplate();
+      if (!template) return [];
+      return window.__automationWizard.visibleSteps(template, this.assistant.answers);
+    },
+
+    assistantStep() {
+      return this.assistantSteps()[this.assistant.index] || null;
+    },
+
+    assistantCanAdvance() {
+      const step = this.assistantStep();
+      if (!step) return false;
+      return window.__automationWizard.stepComplete(step, this.assistant.answers[step.id]);
+    },
+
+    assistantNext() {
+      if (!this.assistantCanAdvance()) return;
+      if (this.assistant.index >= this.assistantSteps().length - 1) return;
+      this.assistant.index += 1;
+      this.refreshEffect(this.assistantStep());
+    },
+
+    // Aus dem ersten Schritt zurueck in die Galerie, sonst einen Schritt zurueck.
+    assistantBack() {
+      if (!this.assistant.templateId) return;
+      if (this.assistant.index === 0) {
+        this.assistant = { ...this.assistant, templateId: '', answers: {}, name: '', effects: {} };
+        return;
+      }
+      this.assistant.index -= 1;
+      this.refreshEffect(this.assistantStep());
+    },
+
+    // Springt zu einem Schritt, per ID oder mit dem Schritt selbst (Knopf "aendern").
+    assistantGoTo(step) {
+      const stepId = typeof step === 'string' ? step : (step && step.id);
+      const index = this.assistantSteps().findIndex((item) => item.id === stepId);
+      if (index < 0) return;
+      this.assistant.index = index;
+      this.refreshEffect(this.assistantStep());
+    },
+
+    // Wirkung eines Voreinstellungswerts aus den Vortagsdaten; eine inzwischen
+    // geaenderte Antwort ueberschreibt den Text nicht.
+    async refreshEffect(step) {
+      if (!step || step.type !== 'presets' || !step.effect) return;
+      const value = this.assistant.answers[step.id];
+      const text = await window.__automationWizard.presetEffect(step, value, this.assistant.context, window.HistoryStore);
+      if (this.assistant.open && this.assistant.answers[step.id] === value) {
+        this.assistant.effects[step.id] = text;
+      }
+    },
+
+    // Der Eintrag der Vorlage mit dem eingegebenen Namen, oder null ohne gueltige Antworten.
+    assistantBuild() {
+      const template = this.assistantTemplate();
+      const { answers, context, name } = this.assistant;
+      if (!template || !context) return null;
+      let built;
+      try {
+        built = template.build(answers, context);
+      } catch (error) {
+        return null;
+      }
+      if (name && name.trim() !== '') built.entry.name = name.trim();
+      return built;
+    },
+
+    assistantFull(kind) {
+      return kind === 'scenario' ? !this.canAddScenario() : !this.canAddRule();
+    },
+
+    // Zeilen der Zusammenfassung: Phase, Text und der Schritt zum Aendern.
+    assistantSummary() {
+      const template = this.assistantTemplate();
+      if (!template || !template.summary) return [];
+      return template.summary(this.assistant.answers, this.assistant.context);
+    },
+
+    // Vorschau des ersten Grenzwerts, nur bei Reglern.
+    assistantPreview() {
+      const built = this.assistantBuild();
+      if (!built || built.kind !== 'scenario') return '';
+      return window.__automationWizard.regulatorPreview(built.entry, this.assistant.context);
+    },
+
+    assistantListFull() {
+      const built = this.assistantBuild();
+      return !!built && this.assistantFull(built.kind);
+    },
+
+    // Legt die Vorlage an: ungespeichert, aktiv, mit Rueckgaengig. Bei voller Liste
+    // passiert nichts, der Dialog bleibt offen.
+    assistantCreate() {
+      const built = this.assistantBuild();
+      if (!built || this.assistantFull(built.kind)) return;
+      this.insertEntry(built.kind, built.entry);
+      this.closeAssistant();
     },
 
     // Gemeinsamer Kern fuer neue Regeln und Szenarien: anlegen, als neu

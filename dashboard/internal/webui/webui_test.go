@@ -1367,11 +1367,17 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	scenario := strings.Index(line, "automations-scenario.js?v=2")
 	chart := strings.Index(line, "automations-chart.js?v=2")
 	page := strings.Index(line, "automations.page.js?v=")
-	if scenario < 0 || chart < 0 || page < 0 {
-		t.Fatalf("Szenario-Module fehlen in der Skriptliste: %s", line)
+	wizard := strings.Index(line, "automation-wizard.js?v=1")
+	templates := strings.Index(line, "automation-templates.js?v=1")
+	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 {
+		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)
 	}
 	if scenario > page || chart > page {
 		t.Fatalf("Szenario-Module laden nach automations.page.js: %s", line)
+	}
+	// Die Vorlagen-Engine haengt am Baustein-Modul, beide vor der Seite.
+	if wizard > templates || templates > page {
+		t.Fatalf("Assistenten-Module in falscher Reihenfolge vor automations.page.js: %s", line)
 	}
 }
 
