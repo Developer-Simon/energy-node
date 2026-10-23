@@ -2123,6 +2123,34 @@ test('the owner hooks derive condition and action text from a report, not from a
   assert.equal(component.actionPreviewOf({ blocked: true, reason: 'nope' }, { type: 'publish' }).blocked, true);
 });
 
+test('the shared editors add and remove rows on scenario owners', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { ...regulatorEditScenario(), when: { conditions: [] }, on_start: { actions: [] } };
+  component.addCondition(scenario.when, 'balance');
+  component.addCondition(scenario.when, 'time');
+  component.removeCondition(scenario.when, 0);
+  assert.equal(scenario.when.conditions.length, 1);
+  assert.equal(scenario.when.conditions[0].type, 'time_window');
+  component.addAction(scenario.on_start, 'notify');
+  component.addAction(scenario.on_start, 'mqtt');
+  assert.equal(scenario.on_start.actions.length, 2);
+  component.removeAction(scenario.on_start, 0);
+  assert.equal(scenario.on_start.actions.length, 1);
+  assert.equal(scenario.on_start.actions[0].type, 'publish');
+});
+
+test('scenarioRows follows the owner when the while mode changes', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  const scope = component.scenarioRows(scenario, 'while', null);
+  assert.equal(scope.rowsOwner, scenario.while);
+  component.changeWhileMode(scenario, 'hold');
+  assert.equal(scope.rowsOwner.mode, 'hold');
+  assert.equal(scope.rowsOwner.actions.length, 0);
+  assert.equal(scope.showActTiles, false);
+  assert.equal(component.scenarioRows(scenario, 'until', 'until').rowsReport(0), null);
+});
+
 test('the editor keeps default fine tuning out of the saved document', async () => {
   const { component, window } = createAutomationsPanel();
   const scenario = regulatorEditScenario();

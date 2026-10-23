@@ -128,16 +128,11 @@
       <div class="auto-scenario-edit">
         <section class="auto-block">
           <h4 class="auto-block-cap">{{t "automations.scenario.phase.name.start"}}</h4>
-          <div x-data="{ get rowsOwner() { return scenario.when; }, rowsReport(index) { return scenarioConditionReport(scenario, 'when', index); }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
-            <ul class="auto-lines">
-              {{template "automations-condition-lines"}}
-            </ul>
-          </div>
-          <div x-data="{ get rowsOwner() { return scenario.on_start; }, rowsReport() { return null; }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
-            <ul class="auto-lines">
-              {{template "automations-action-lines"}}
-            </ul>
-          </div>
+          <div x-data="scenarioRows(scenario, 'when', 'when')"><div class="auto-edit-list">{{template "automations-condition-editors"}}</div>
+{{template "automations-condition-tiles"}}</div>
+          <div x-data="scenarioRows(scenario, 'on_start', null)"><div class="auto-edit-list">{{template "automations-action-editors"}}</div>
+{{template "automations-action-tiles"}}
+{{template "automations-entity-wizard"}}</div>
         </section>
 
         <section class="auto-block">
@@ -299,11 +294,9 @@
 
           <template x-if="scenario.while.mode === 'hold'">
             <div class="auto-regulator-edit">
-              <div x-data="{ get rowsOwner() { return scenario.while; }, rowsReport() { return null; }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
-                <ul class="auto-lines">
-                  {{template "automations-action-lines"}}
-                </ul>
-              </div>
+              <div x-data="scenarioRows(scenario, 'while', null)"><div class="auto-edit-list">{{template "automations-action-editors"}}</div>
+{{template "automations-action-tiles"}}
+{{template "automations-entity-wizard"}}</div>
               <div class="auto-flow-row">
                 <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-hold-repeat`">{{t "automations.rule_editor.repeat_label"}}</label>
                 <input x-bind:id="`scn-${scenario.id}-hold-repeat`" type="number" min="0" max="86400" x-model.number="scenario.while.repeat_seconds">
@@ -329,20 +322,15 @@
             <span class="auto-flow-label">{{t "automations.scenario.edit.until.switch"}}</span>
           </div>
           <template x-if="scenario.until">
-            <div x-data="{ get rowsOwner() { return scenario.until; }, rowsReport(index) { return scenarioConditionReport(scenario, 'until', index); }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
-              <ul class="auto-lines">
-                {{template "automations-condition-lines"}}
-              </ul>
-            </div>
+            <div x-data="scenarioRows(scenario, 'until', 'until')"><div class="auto-edit-list">{{template "automations-condition-editors"}}</div>
+{{template "automations-condition-tiles"}}</div>
           </template>
           <template x-if="!scenario.until">
-            <p class="auto-hint">{{t "automations.scenario.phase.end_when_false"}}</p>
+            <p class="auto-hint">{{t "automations.scenario.end_when_false"}}</p>
           </template>
-          <div x-data="{ get rowsOwner() { return scenario.on_end; }, rowsReport() { return null; }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
-            <ul class="auto-lines">
-              {{template "automations-action-lines"}}
-            </ul>
-          </div>
+          <div x-data="scenarioRows(scenario, 'on_end', null)"><div class="auto-edit-list">{{template "automations-action-editors"}}</div>
+{{template "automations-action-tiles"}}
+{{template "automations-entity-wizard"}}</div>
         </section>
 
         <div class="auto-edit-foot">

@@ -3247,25 +3247,26 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 	}
 }
 
-// Im Bearbeiten-Modus lesen die drei Phasenblöcke ihre Zeilen über die
-// gemeinsamen Zeilen-Defines. Jeder Block bringt seinen Besitzer mit, die
-// Bedingungszeilen den Bericht des Szenarios.
-func TestScenarioEditModeUsesTheSharedRowsDefines(t *testing.T) {
+// Im Bearbeiten-Modus sind die Zeilen editierbar wie in der Regelkarte: jeder
+// Phasenblock bindet die gemeinsamen Editoren und Kacheln an seinen Besitzer.
+func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
 	for _, want := range []string{
 		`<template x-if="scenarioEditing[scenario.id]">`,
-		`get rowsOwner() { return scenario.when; }`,
-		`get rowsOwner() { return scenario.on_start; }`,
-		`get rowsOwner() { return scenario.while; }`,
-		`get rowsOwner() { return scenario.until; }`,
-		`get rowsOwner() { return scenario.on_end; }`,
-		`rowsReport(index) { return scenarioConditionReport(scenario, 'when', index); }`,
-		`rowsReport(index) { return scenarioConditionReport(scenario, 'until', index); }`,
+		`scenarioRows(scenario, 'when', 'when')`,
+		`scenarioRows(scenario, 'on_start', null)`,
+		`scenarioRows(scenario, 'while', null)`,
+		`scenarioRows(scenario, 'until', 'until')`,
+		`scenarioRows(scenario, 'on_end', null)`,
 		`in rowsOwner.conditions`,
 		`in rowsOwner.actions`,
+		`removeCondition(rowsOwner, index)`,
+		`removeAction(rowsOwner, index)`,
+		`addCondition(rowsOwner, type.key)`,
+		`addAction(rowsOwner, type.key, $data)`,
 		`x-on:change="toggleUntil(scenario, $event.target.checked)"`,
 		`x-on:click="changeWhileMode(scenario, 'hold')"`,
 		`x-model="scenario.history_enabled"`,

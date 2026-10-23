@@ -564,6 +564,19 @@
       return (Array.isArray(reports) && reports[index]) || null;
     },
 
+    // Scope eines Szenario-Blocks fuer die gemeinsamen Zeilen-Editoren: der
+    // Besitzer ist scenario[key] (als Getter, damit ein Moduswechsel greift),
+    // block nennt den Bericht-Block (when, until) oder null bei Aktionen.
+    scenarioRows(scenario, key, block) {
+      const page = this;
+      return {
+        newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '',
+        showEntityWizard: false, showCondTiles: false, showActTiles: false,
+        get rowsOwner() { return scenario[key]; },
+        rowsReport(index) { return block ? page.scenarioConditionReport(scenario, block, index) : null; },
+      };
+    },
+
     scenarioStatus(scenario) {
       return window.__automationScenario.scenarioStatus(scenario, this.scenarioState(scenario), this.online, this.nowTick / 1000);
     },

@@ -34,12 +34,12 @@
 {{end}}
 
 {{define "automations-condition-editors"}}
-                <template x-for="(condition, index) in rule.conditions" x-bind:key="index">
+                <template x-for="(condition, index) in rowsOwner.conditions" x-bind:key="index">
                   <div class="edit-card">
                     <div class="edit-card-head">
                       <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
                       <span class="edit-card-title" x-text="describeCondition(condition).title"></span>
-                      <button class="icon-button danger" type="button" x-on:click="removeCondition(rule, index)"
+                      <button class="icon-button danger" type="button" x-on:click="removeCondition(rowsOwner, index)"
                               x-bind:title="$t('automations.condition.remove_button.tooltip')" x-bind:aria-label="$t('automations.condition.remove_button.tooltip')">
                         <svg class="automation-icon"><use href="#ico-trash"></use></svg>
                       </button>
@@ -270,12 +270,12 @@
 {{end}}
 
 {{define "automations-action-editors"}}
-                <template x-for="(action, index) in rule.actions" x-bind:key="index">
+                <template x-for="(action, index) in rowsOwner.actions" x-bind:key="index">
                   <div class="edit-card">
                     <div class="edit-card-head">
                       <svg class="automation-icon"><use x-bind:href="'#' + describeAction(action).icon"></use></svg>
                       <span class="edit-card-title" x-text="describeAction(action).title"></span>
-                      <button class="icon-button danger" type="button" x-on:click="removeAction(rule, index)"
+                      <button class="icon-button danger" type="button" x-on:click="removeAction(rowsOwner, index)"
                               x-bind:title="$t('automations.action.remove_aria')" x-bind:aria-label="$t('automations.action.remove_aria')">
                         <svg class="automation-icon"><use href="#ico-trash"></use></svg>
                       </button>
@@ -373,4 +373,160 @@
                     </template>
                   </div>
                 </template>
+{{end}}
+
+{{define "automations-condition-tiles"}}
+                    <button class="icon-button labeled" type="button" x-show="!showCondTiles" x-on:click="showCondTiles = true"
+                            x-bind:title="$t('automations.rule.add_condition')" x-bind:aria-label="$t('automations.rule.add_condition')">
+                      <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.rule.add_condition"}}</span>
+                    </button>
+                    <div class="type-tiles" role="group" x-show="showCondTiles" x-bind:aria-label="$t('automations.condition.add_button_aria')">
+                      <template x-for="type in conditionTypes()" x-bind:key="type.key">
+                        <button class="type-tile" type="button" x-on:click="addCondition(rowsOwner, type.key); showCondTiles = false"
+                                x-bind:title="type.hint" x-bind:aria-label="$t('automations.condition.add_aria', {type: type.label})">
+                          <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
+                          <span class="type-tile-label" x-text="type.label"></span>
+                        </button>
+                      </template>
+                    </div>
+{{end}}
+
+{{define "automations-action-tiles"}}
+                    <button class="icon-button labeled" type="button" x-show="!showActTiles" x-on:click="showActTiles = true"
+                            x-bind:title="$t('automations.rule.add_action')" x-bind:aria-label="$t('automations.rule.add_action')">
+                      <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.rule.add_action"}}</span>
+                    </button>
+                    <div class="type-tiles" role="group" x-show="showActTiles" x-bind:aria-label="$t('automations.action.add_button_aria')">
+                      <template x-for="type in actionTypes()" x-bind:key="type.key">
+                        <button class="type-tile" type="button"
+                                x-show="!type.advanced && (type.key !== 'entity' || entities.length)"
+                                x-on:click="addAction(rowsOwner, type.key, $data); showActTiles = false"
+                                x-bind:title="type.hint" x-bind:aria-label="$t('automations.action.add_aria', {type: type.label})">
+                          <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
+                          <span class="type-tile-label" x-text="type.label"></span>
+                        </button>
+                      </template>
+                    </div>
+
+                    <div class="edit-advanced" x-data="{ advancedOpen: false }">
+                      <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                        <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                        <span>{{t "automations.action.advanced"}}</span>
+                      </button>
+                      <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                        <div class="type-tiles">
+                          <template x-for="type in actionTypes()" x-bind:key="type.key">
+                            <button class="type-tile" type="button" x-show="type.advanced"
+                                    x-on:click="addAction(rowsOwner, type.key, $data)"
+                                    x-bind:title="type.hint" x-bind:aria-label="$t('automations.action.add_aria', {type: type.label})">
+                              <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
+                              <span class="type-tile-label" x-text="type.label"></span>
+                            </button>
+                          </template>
+                        </div>
+                      </div>
+                    </div>
+{{end}}
+
+{{define "automations-entity-wizard"}}
+                    <div class="edit-card entity-wizard" x-cloak x-show="entities.length && showEntityWizard">
+                  <div class="edit-card-head">
+                    <svg class="automation-icon"><use href="#ico-switch"></use></svg>
+                    <span class="edit-card-title">{{t "automations.wizard.entity.title"}}</span>
+                    <button class="icon-button" type="button" x-on:click="showEntityWizard = false"
+                            x-bind:title="$t('automations.wizard.entity.close_title')" x-bind:aria-label="$t('automations.wizard.entity.close_title')">
+                      <svg class="automation-icon"><use href="#ico-chevron"></use></svg>
+                    </button>
+                  </div>
+
+                  <div class="entity-wizard-row">
+                    <label for="wizard-entity">{{t "automations.wizard.entity.device_label"}}</label>
+                    <select id="wizard-entity" x-model="newEntityId">
+                      <option value="">{{t "automations.wizard.entity.device_select"}}</option>
+                      <template x-for="[deviceName, group] in commandableEntityGroups()" x-bind:key="deviceName">
+                        <optgroup x-bind:label="deviceName">
+                          <template x-for="entity in group" x-bind:key="entity.unique_id">
+                            <option x-bind:value="entity.unique_id" x-text="entity.name || entity.unique_id"></option>
+                          </template>
+                        </optgroup>
+                      </template>
+                    </select>
+                  </div>
+
+                  <div class="entity-wizard-row" x-show="newEntityId">
+                    <button class="icon-button labeled" type="button" x-bind:title="$t('automations.wizard.entity.on_title')" x-bind:aria-label="$t('automations.wizard.entity.on_title')"
+                            x-on:click="rowsOwner.actions.push(buildSwitchAction(entityByUniqueId(newEntityId), 'on')); showEntityWizard = false">
+                      <svg class="automation-icon"><use href="#ico-power-on"></use></svg><span>{{t "automations.wizard.entity.on_label"}}</span>
+                    </button>
+                    <button class="icon-button labeled" type="button" x-bind:title="$t('automations.wizard.entity.off_title')" x-bind:aria-label="$t('automations.wizard.entity.off_title')"
+                            x-on:click="rowsOwner.actions.push(buildSwitchAction(entityByUniqueId(newEntityId), 'off')); showEntityWizard = false">
+                      <svg class="automation-icon"><use href="#ico-power-off"></use></svg><span>{{t "automations.wizard.entity.off_label"}}</span>
+                    </button>
+                    <button class="icon-button labeled" type="button" x-bind:title="$t('automations.wizard.entity.toggle_title')" x-bind:aria-label="$t('automations.wizard.entity.toggle_title')"
+                            x-show="entityByUniqueId(newEntityId) && entityByUniqueId(newEntityId).payload_on && entityByUniqueId(newEntityId).payload_off"
+                            x-on:click="rowsOwner.actions.push(buildToggleAction(entityByUniqueId(newEntityId))); showEntityWizard = false">
+                      <svg class="automation-icon"><use href="#ico-switch"></use></svg><span>{{t "automations.wizard.entity.toggle_label"}}</span>
+                    </button>
+                  </div>
+
+                  <div class="edit-advanced" x-data="{ advancedOpen: false }" x-show="newEntityId">
+                    <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                      <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                      <span>{{t "automations.wizard.setpoint.summary"}}</span>
+                    </button>
+                    <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                      <div class="entity-wizard-row" style="padding-top: .6rem;">
+                        <label>{{t "automations.wizard.setpoint.source_label"}}
+                          <select x-model="newMode">
+                            <option value="constant">{{t "automations.wizard.setpoint.constant"}}</option><option value="balance">{{t "automations.wizard.setpoint.balance"}}</option>
+                          </select>
+                        </label>
+                        <template x-if="newMode === 'constant'">
+                          <input type="number" x-model.number="newConstantValue" x-bind:placeholder="$t('automations.wizard.setpoint.value_placeholder')" x-bind:aria-label="$t('automations.wizard.setpoint.value_aria')">
+                        </template>
+                        <template x-if="newMode === 'balance'">
+                          <span class="entity-wizard-row">
+                            <select x-model="newField" x-bind:aria-label="$t('automations.wizard.setpoint.field_aria')">
+                              <template x-for="[field, label] in balanceFields" x-bind:key="field">
+                                <option x-bind:value="field" x-text="label"></option>
+                              </template>
+                              <template x-if="customBalanceFields.length">
+                                <optgroup x-bind:label="$t('automations.metric.custom_group')">
+                                  <template x-for="[field, label] in customBalanceFields" x-bind:key="field">
+                                    <option x-bind:value="field" x-text="label"></option>
+                                  </template>
+                                </optgroup>
+                              </template>
+                            </select>
+                            <span class="edit-field-label">
+                              {{t "automations.wizard.setpoint.scale_label"}}
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.wizard.setpoint.scale_explain_aria')">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
+                              </span>
+                            </span>
+                            <input type="number" x-model.number="newScale" style="width: 4.5rem;" x-bind:aria-label="$t('automations.wizard.setpoint.scale_label')">
+                            <span class="edit-field-label">
+                              {{t "automations.wizard.setpoint.offset_label"}}
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.wizard.setpoint.offset_explain_aria')">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
+                              </span>
+                            </span>
+                            <input type="number" x-model.number="newOffset" style="width: 4.5rem;" x-bind:aria-label="$t('automations.wizard.setpoint.offset_label')">
+                          </span>
+                        </template>
+                        <button class="icon-button labeled accent" type="button"
+                                x-bind:title="$t('automations.wizard.setpoint.add_title')" x-bind:aria-label="$t('automations.wizard.setpoint.add_aria')"
+                                x-on:click="rowsOwner.actions.push(buildSetpointAction(entityByUniqueId(newEntityId), { mode: newMode, field: newField, scale: newScale, offset: newOffset, value: newConstantValue })); showEntityWizard = false">
+                          <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.wizard.setpoint.add_button"}}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 {{end}}

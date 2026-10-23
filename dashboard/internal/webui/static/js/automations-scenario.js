@@ -126,7 +126,7 @@
     return null;
   }
 
-  // i18n-keys: automations.scenario.phase.more_conditions, automations.scenario.phase.no_start, automations.scenario.phase.end_when_false, automations.scenario.phase.nothing_more, automations.scenario.phase.regulate_title, automations.scenario.phase.regulate_text, automations.scenario.phase.hold_text
+  // i18n-keys: automations.scenario.phase.more_conditions, automations.scenario.phase.no_start, automations.scenario.end_when_false, automations.scenario.phase.nothing_more, automations.scenario.phase.regulate_title, automations.scenario.phase.regulate_text, automations.scenario.phase.hold_text
   function conditionRow(phase, conditions, describeCondition) {
     const first = describeCondition(conditions[0]);
     const text = conditions.length > 1
@@ -165,7 +165,7 @@
     if (until.length > 0) {
       return { ...conditionRow('end', until, describeCondition), text: endText };
     }
-    return { phase: 'end', icon: 'ico-power-off', title: t('automations.scenario.phase.end_when_false'), text: endText };
+    return { phase: 'end', icon: 'ico-power-off', title: t('automations.scenario.end_when_false'), text: endText };
   }
 
   // i18n-keys: automations.scenario.phase.no_start
