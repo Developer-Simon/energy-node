@@ -2335,3 +2335,54 @@ test('actuatorChips and meterChips report the candidate count as a number', () =
   assert.equal(typeof meters.more, 'number');
   assert.equal(meters.more, 3);
 });
+
+// Aktionskarten: Art erkennen, Schalter umschalten, Sollwert-Quelle wechseln.
+const switchEntity = {
+  unique_id: 'wallbox_enable', name: 'Freigabe', command_topic: 'werkstatt/wallbox/enable',
+  state_topic: 'werkstatt/wallbox/state', value_template: '{{ value_json.state }}', payload_on: 'ON', payload_off: 'OFF',
+};
+const setpointEntity = { unique_id: 'wallbox_power', name: 'Leistung', command_topic: 'werkstatt/wallbox/set', min_value: 1380, max_value: 11000, step: 10 };
+
+test('actionKind tells switch, setpoint, notify and mqtt apart', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [switchEntity, setpointEntity];
+  assert.equal(component.actionKind(component.buildSwitchAction(switchEntity, 'on')), 'switch');
+  assert.equal(component.actionKind(component.buildToggleAction(switchEntity)), 'switch');
+  assert.equal(component.actionKind(component.buildSetpointAction(setpointEntity, { mode: 'constant', value: 800 })), 'setpoint');
+  assert.equal(component.actionKind(component.buildSetpointAction(setpointEntity, { mode: 'balance', field: 'pv' })), 'setpoint');
+  assert.equal(component.actionKind(component.buildMqttAction()), 'mqtt');
+  assert.equal(component.actionKind({ type: 'notification' }), 'notify');
+});
+
+test('setSwitchState toggle builds a toggle action for the same entity', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [switchEntity];
+  const rule = { actions: [component.buildSwitchAction(switchEntity, 'on')] };
+  component.setSwitchState(rule, 0, 'toggle');
+  const action = rule.actions[0];
+  assert.equal(action.payload_source, 'toggle');
+  assert.equal(action.entity_id, 'wallbox_enable');
+  assert.equal(action.topic, 'werkstatt/wallbox/enable');
+  assert.equal(action.source_topic, 'werkstatt/wallbox/state');
+  assert.equal(action.payload_on, 'ON');
+  assert.equal(action.payload_off, 'OFF');
+});
+
+test('setSetpointSource balance keeps the entity and bounds', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [setpointEntity];
+  const action = component.buildSetpointAction(setpointEntity, { mode: 'constant', value: 900 });
+  component.setSetpointSource(action, 'balance');
+  assert.equal(action.payload_source, 'balance');
+  assert.equal(action.field, 'pv');
+  assert.equal(action.entity_id, 'wallbox_power');
+  assert.equal(action.topic, 'werkstatt/wallbox/set');
+  assert.equal(action.min, 1380);
+  assert.equal(action.max, 11000);
+  assert.equal(action.step, 10);
+  component.setSetpointSource(action, 'constant');
+  assert.equal(action.payload_source, 'constant');
+  assert.equal(action.entity_id, 'wallbox_power');
+  assert.equal(action.min, 1380);
+  assert.equal(action.max, 11000);
+});

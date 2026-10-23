@@ -3,7 +3,7 @@
   const view = window.__automationsView;
   const { canTest, conditionState, describeAction, describeCondition, formatSeconds, gateVerdict, historyActionText, historyResultInfo, meterFraction, meterScale } = view;
   const { ACTION_TYPES, CONDITION_TYPES, FIELD_HELP, WEEKDAY_LABELS, WINDOW_TYPES, SERVICE_TEST_POLL_MS, SERVICE_TEST_TIMEOUT_MS, isNumber, requestJSON } = view.constants;
-  const { ROLE_GROUPS, actuatorCandidates, meterCandidates, chipList, pickerItems } = window.__automationDevices;
+  const { ROLE_GROUPS, actuatorCandidates, meterCandidates, switchCandidates, setpointCandidates, chipList, pickerItems } = window.__automationDevices;
 
   // Filter-Chips im Picker: gleiche Gruppen wie die Kacheln, Label wie dort.
   const ROLE_FILTER_LABEL_KEYS = {
@@ -14,6 +14,14 @@
     other: 'automations.devices.group.misc',
   };
   const roleFilters = () => ROLE_GROUPS.map((group) => ({ key: group.key, label: t(ROLE_FILTER_LABEL_KEYS[group.key]) }));
+
+  // Art-Label einer Aktionskarte; der Picker nutzt dasselbe Label als Titel.
+  const ACTION_KIND_LABEL_KEYS = {
+    switch: 'automations.action_kind.switch',
+    setpoint: 'automations.action_kind.setpoint',
+    notify: 'automations.action_kind.notify',
+    mqtt: 'automations.action_kind.mqtt',
+  };
 
   // Ein gespeichertes Geraet, das im Katalog fehlt, bleibt als Kachel sichtbar.
   const unknownChip = (topic) => ({
@@ -1179,6 +1187,85 @@
 
     buildNotificationAction() {
       return { type: 'notification', severity: 'info', title: '', message: '' };
+    },
+
+    // Art einer Aktion fuer die Karte: switch, setpoint, notify oder mqtt.
+    // Schalter erkennt man am Umschalt-Modus oder an Ein/Aus-Payloads der
+    // Entitaet, Sollwerte an den Grenzen min/max.
+    actionKind(action) {
+      if (!action) return 'mqtt';
+      if (action.type === 'notification') return 'notify';
+      if (action.type === 'publish' && action.entity_id) {
+        const entity = this.entityByUniqueId(action.entity_id);
+        const hasPayload = action.payload !== undefined && action.payload !== '';
+        const isOnOff = Boolean(entity) && hasPayload
+          && (action.payload === entity.payload_on || action.payload === entity.payload_off);
+        if (action.payload_source === 'toggle' || isOnOff) return 'switch';
+        if (isNumber(action.min) && isNumber(action.max)) return 'setpoint';
+      }
+      return 'mqtt';
+    },
+
+    // Schaltet eine Schalt-Aktion auf Ein, Aus oder Umschalten. Die Entitaet
+    // bleibt, die Aktion wird ueber die Builder neu aufgebaut.
+    setSwitchState(owner, index, state) {
+      const action = owner.actions[index];
+      const entity = action && this.entityByUniqueId(action.entity_id);
+      if (!entity) return;
+      const next = state === 'toggle' ? this.buildToggleAction(entity) : this.buildSwitchAction(entity, state);
+      owner.actions.splice(index, 1, next);
+    },
+
+    // Geraetewahl fuer Schalter und Sollwert. Der Picker zeigt nur die zur Art
+    // passenden Entitaeten; Art sowie Umschalt- bzw. Quellmodus bleiben erhalten.
+    async chooseActionDevice(owner, index) {
+      const action = owner.actions[index];
+      const kind = this.actionKind(action);
+      if (kind !== 'switch' && kind !== 'setpoint') return;
+      const candidates = kind === 'switch'
+        ? switchCandidates(this.devices, this.assignments)
+        : setpointCandidates(this.devices, this.assignments);
+      const uniqueId = await this.openPicker({
+        title: t(ACTION_KIND_LABEL_KEYS[kind]),
+        items: pickerItems(candidates),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: action.entity_id ? [action.entity_id] : [],
+      });
+      if (!uniqueId) return;
+      const entity = this.entityByUniqueId(uniqueId);
+      if (!entity) return;
+      if (kind === 'switch') {
+        const previous = this.entityByUniqueId(action.entity_id);
+        const wasOff = Boolean(previous) && action.payload === previous.payload_off;
+        const next = action.payload_source === 'toggle'
+          ? this.buildToggleAction(entity)
+          : this.buildSwitchAction(entity, wasOff ? 'off' : 'on');
+        owner.actions.splice(index, 1, next);
+        return;
+      }
+      const source = action.payload_source === 'balance'
+        ? { mode: 'balance', field: action.field ?? 'pv', scale: action.scale, offset: action.offset }
+        : { mode: 'constant', value: action.payload };
+      owner.actions.splice(index, 1, this.buildSetpointAction(entity, source));
+    },
+
+    // Quelle eines Sollwerts: fester Wert oder Messwert aus der Bilanz. Die
+    // Entitaet und ihre Grenzen bleiben unveraendert.
+    setSetpointSource(action, mode) {
+      if (mode === 'balance') {
+        action.payload_source = 'balance';
+        action.field = action.field || 'pv';
+        action.scale = action.scale ?? 1;
+        action.offset = action.offset ?? 0;
+        delete action.payload;
+        return;
+      }
+      action.payload_source = 'constant';
+      action.payload = String(action.payload ?? '');
+      delete action.field;
+      delete action.scale;
+      delete action.offset;
     },
 
     removeAction(rule, index) {
