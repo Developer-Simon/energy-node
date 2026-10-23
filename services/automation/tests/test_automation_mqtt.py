@@ -824,6 +824,7 @@ def test_build_state_document_shape():
         "at": 2.0, "online": True,
         "rules": {"r1": {"enabled": True, "fire_count": 0, "result": "fired"}},
         "events": [{"at": 1.0, "message": "x"}],
+        "scenarios": {},
         "rules_total": 1, "rules_enabled": 1, "rules_fired_total": 0,
     }
 
@@ -1715,7 +1716,7 @@ def test_entity_value_inherits_the_hold_seconds_guard_for_publish_rules():
                      "payload_source": "constant", "payload": "1"}],
     }
     errors = []
-    automation._validate_rule(rule, 0, errors, set())
+    automation._validate_rule(rule, 0, errors, set(), 30)
     assert any("hold_seconds must be >= 30" in e for e in errors)
 
 
@@ -1732,3 +1733,115 @@ def test_battery_soc_condition_type_is_rejected():
     errors = []
     automation._validate_condition(cond, 0, errors)
     assert any("unknown type" in e for e in errors)
+
+
+def test_publish_min_interval_defaults_to_30_and_regulator_interval_to_10(tmp_path):
+    doc = automation.load_and_validate(write_doc(tmp_path, document()))
+    assert doc.settings.publish_min_interval_s == 30
+    assert doc.settings.regulator_interval_s == 10
+
+
+def test_lower_publish_min_interval_allows_a_shorter_cooldown(tmp_path):
+    settings = {**minimal_settings(), "publish_min_interval_s": 10}
+    r = rule(cooldown_seconds=10, conditions=[balance_condition(hold_seconds=10)], actions=[publish_action()])
+    automation.load_and_validate(write_doc(tmp_path, document([r], settings)))
+
+
+def test_cooldown_below_the_configured_minimum_names_the_minimum(tmp_path):
+    settings = {**minimal_settings(), "publish_min_interval_s": 60}
+    r = rule(cooldown_seconds=30, conditions=[balance_condition(hold_seconds=60)], actions=[publish_action()])
+    with pytest.raises(automation.RuleValidationError, match="cooldown_seconds must be >= 60"):
+        automation.load_and_validate(write_doc(tmp_path, document([r], settings)))
+
+
+@pytest.mark.parametrize("key", ["publish_min_interval_s", "regulator_interval_s"])
+@pytest.mark.parametrize("value", [4, 3601, "10", True])
+def test_interval_settings_reject_out_of_range_values(tmp_path, key, value):
+    with pytest.raises(automation.RuleValidationError, match=f"settings.{key} must be a number between 5 and 3600"):
+        automation.load_and_validate(write_doc(tmp_path, document(settings={**minimal_settings(), key: value})))
+
+
+def test_repeat_fires_again_after_repeat_seconds_while_conditions_hold():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    r["repeat_seconds"] = 60
+    doc, engine, published, _ = engine_with([r])
+    balance = {"grid_export": 900}
+    engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=1000.0)
+    engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=1059.0)
+    assert len(published) == 1
+    result = engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=1060.0)
+    assert len(published) == 2
+    assert result["r1"]["result"] == "fired"
+    assert result["r1"]["fire_count"] == 2
+
+
+def test_repeat_stops_when_the_episode_ends():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    r["repeat_seconds"] = 60
+    doc, engine, published, _ = engine_with([r])
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1000.0)
+    engine.tick(doc, balance={"grid_export": 0}, balance_age=0, topic_values={}, now_ts=1030.0)
+    engine.tick(doc, balance={"grid_export": 0}, balance_age=0, topic_values={}, now_ts=1059.0)
+    assert len(published) == 1
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1090.0)
+    assert len(published) == 2
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1100.0)
+    assert len(published) == 2
+
+
+def test_a_new_episode_inside_the_repeat_window_fires_as_a_new_firing():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    r["repeat_seconds"] = 60
+    history = []
+    doc, engine, published, _ = engine_with([r], history_sink=lambda rid, entry: history.append((rid, entry)))
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1000.0)
+    engine.tick(doc, balance={"grid_export": 0}, balance_age=0, topic_values={}, now_ts=1030.0)
+    result = engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1040.0)
+    assert len(published) == 2
+    assert result["r1"]["result"] == "fired"
+    assert result["r1"]["fire_count"] == 2
+    assert len(history) == 2
+
+
+def test_repeat_records_history_only_for_the_first_firing_of_an_episode():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    r["repeat_seconds"] = 60
+    history = []
+    doc, engine, published, _ = engine_with([r], history_sink=lambda rid, entry: history.append((rid, entry)))
+    balance = {"grid_export": 900}
+    for now_ts in (1000.0, 1060.0, 1120.0):
+        result = engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=now_ts)
+        assert result["r1"]["result"] == "fired"
+    assert len(published) == 3
+    assert len(history) == 1
+
+
+def test_repeat_zero_keeps_the_edge_triggered_behaviour():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    r["repeat_seconds"] = 0
+    doc, engine, published, _ = engine_with([r])
+    balance = {"grid_export": 900}
+    engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=1000.0)
+    engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=2000.0)
+    assert len(published) == 1
+
+
+def test_repeat_with_a_toggle_action_is_rejected(tmp_path):
+    toggle = publish_action(payload_source="toggle", source_topic="werkstatt/x/state",
+                            payload_on="ON", payload_off="OFF")
+    r = rule(cooldown_seconds=30, repeat_seconds=60, conditions=[balance_condition(hold_seconds=30)],
+             actions=[notification_action(), toggle])
+    with pytest.raises(automation.RuleValidationError, match=r"repeat_seconds is not allowed with toggle action\[1\]"):
+        automation.load_and_validate(write_doc(tmp_path, document([r])))
+
+
+def test_repeat_below_the_publish_minimum_is_rejected(tmp_path):
+    r = rule(cooldown_seconds=30, repeat_seconds=20, conditions=[balance_condition(hold_seconds=30)],
+             actions=[publish_action()])
+    with pytest.raises(automation.RuleValidationError, match="repeat_seconds must be >= 30"):
+        automation.load_and_validate(write_doc(tmp_path, document([r])))
+
+
+def test_repeat_on_a_notification_only_rule_has_no_minimum(tmp_path):
+    r = rule(repeat_seconds=5)
+    automation.load_and_validate(write_doc(tmp_path, document([r])))  # no raise

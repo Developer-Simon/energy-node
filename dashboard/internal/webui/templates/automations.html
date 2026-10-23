@@ -248,7 +248,18 @@
                       </span>
                     </label>
                     <input x-bind:id="`cooldown-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.cooldown_seconds">
+                    <label x-bind:for="`repeat-${rule.id}`">
+                      {{t "automations.rule_editor.repeat_label"}}
+                      <span class="field-help">
+                        <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.repeat_help_aria_label')">
+                          <svg><use href="#ico-help"></use></svg>
+                        </button>
+                        <span class="field-help-text" role="tooltip" x-text="fieldHelp('repeat_seconds')"></span>
+                      </span>
+                    </label>
+                    <input x-bind:id="`repeat-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.repeat_seconds" x-bind:disabled="hasToggleAction(rule)">
                   </div>
+                  <p x-show="hasToggleAction(rule)">{{t "automations.rule_editor.repeat_blocked_toggle"}}</p>
                 </div>
 
                 <p class="message error" x-show="validateRuleBeforeSave(rule).length" x-text="validateRuleBeforeSave(rule).join(' / ')"></p>
@@ -796,6 +807,28 @@
                 </span>
               </label>
               <input id="automations-tick-interval" type="number" min="5" max="3600" x-model.number="document.settings.tick_interval_s">
+
+              <label for="automations-publish-min-interval">
+                {{t "automations.settings.publish_min_interval_label"}}
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.publish_min_interval_explain_aria')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('publish_min_interval_s')"></span>
+                </span>
+              </label>
+              <input id="automations-publish-min-interval" type="number" min="5" max="3600" x-model.number="document.settings.publish_min_interval_s">
+
+              <label for="automations-regulator-interval">
+                {{t "automations.settings.regulator_interval_label"}}
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.regulator_interval_explain_aria')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('regulator_interval_s')"></span>
+                </span>
+              </label>
+              <input id="automations-regulator-interval" type="number" min="5" max="3600" x-model.number="document.settings.regulator_interval_s">
 
               <label for="automations-settling-seconds">
                 {{t "automations.settings.settling_label"}}

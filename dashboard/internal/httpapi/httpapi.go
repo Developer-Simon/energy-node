@@ -1952,6 +1952,63 @@ type categoryReference struct {
 	Name string `json:"name"`
 }
 
+type categoryCondition struct {
+	Type  string `json:"type"`
+	Field string `json:"field"`
+}
+
+type categoryAction struct {
+	Type          string `json:"type"`
+	PayloadSource string `json:"payload_source"`
+	Field         string `json:"field"`
+}
+
+type categoryRule struct {
+	ID         string              `json:"id"`
+	Name       string              `json:"name"`
+	Conditions []categoryCondition `json:"conditions"`
+	Actions    []categoryAction    `json:"actions"`
+}
+
+type categoryPhase struct {
+	Conditions []categoryCondition `json:"conditions"`
+	Actions    []categoryAction    `json:"actions"`
+}
+
+type categoryScenario struct {
+	ID      string        `json:"id"`
+	Name    string        `json:"name"`
+	When    categoryPhase `json:"when"`
+	Until   categoryPhase `json:"until"`
+	OnStart categoryPhase `json:"on_start"`
+	While   struct {
+		Actions   []categoryAction `json:"actions"`
+		Regulator *struct {
+			Base struct {
+				Source string `json:"source"`
+				Field  string `json:"field"`
+			} `json:"base"`
+		} `json:"regulator"`
+	} `json:"while"`
+	OnEnd categoryPhase `json:"on_end"`
+}
+
+// categoryUsed reports whether a balance condition or a balance-sourced publish
+// reads the category field.
+func categoryUsed(field string, conditions []categoryCondition, actions []categoryAction) bool {
+	for _, condition := range conditions {
+		if condition.Type == "balance_threshold" && condition.Field == field {
+			return true
+		}
+	}
+	for _, action := range actions {
+		if action.Type == "publish" && action.PayloadSource == "balance" && action.Field == field {
+			return true
+		}
+	}
+	return false
+}
+
 // handleCategoryReferences lists the automation rules that read a custom
 // energy category, so the dashboard can warn before the category is removed.
 func handleCategoryReferences(configs *config.Manager) http.HandlerFunc {
@@ -1971,19 +2028,8 @@ func handleCategoryReferences(configs *config.Manager) http.HandlerFunc {
 			return
 		}
 		var doc struct {
-			Rules []struct {
-				ID         string `json:"id"`
-				Name       string `json:"name"`
-				Conditions []struct {
-					Type  string `json:"type"`
-					Field string `json:"field"`
-				} `json:"conditions"`
-				Actions []struct {
-					Type          string `json:"type"`
-					PayloadSource string `json:"payload_source"`
-					Field         string `json:"field"`
-				} `json:"actions"`
-			} `json:"rules"`
+			Rules     []categoryRule     `json:"rules"`
+			Scenarios []categoryScenario `json:"scenarios"`
 		}
 		if err == nil {
 			err = json.Unmarshal(data, &doc)
@@ -1995,19 +2041,19 @@ func handleCategoryReferences(configs *config.Manager) http.HandlerFunc {
 		field := "custom:" + id
 		references := []categoryReference{}
 		for _, rule := range doc.Rules {
-			used := false
-			for _, condition := range rule.Conditions {
-				if condition.Type == "balance_threshold" && condition.Field == field {
-					used = true
-				}
+			if categoryUsed(field, rule.Conditions, rule.Actions) {
+				references = append(references, categoryReference{ID: rule.ID, Name: rule.Name})
 			}
-			for _, action := range rule.Actions {
-				if action.Type == "publish" && action.PayloadSource == "balance" && action.Field == field {
-					used = true
-				}
+		}
+		for _, scenario := range doc.Scenarios {
+			conditions := append(append([]categoryCondition{}, scenario.When.Conditions...), scenario.Until.Conditions...)
+			actions := append(append(append([]categoryAction{}, scenario.OnStart.Actions...), scenario.While.Actions...), scenario.OnEnd.Actions...)
+			used := categoryUsed(field, conditions, actions)
+			if reg := scenario.While.Regulator; reg != nil && reg.Base.Source == "balance" && reg.Base.Field == field {
+				used = true
 			}
 			if used {
-				references = append(references, categoryReference{ID: rule.ID, Name: rule.Name})
+				references = append(references, categoryReference{ID: scenario.ID, Name: scenario.Name})
 			}
 		}
 		writeJSON(w, map[string][]categoryReference{"rules": references})

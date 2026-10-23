@@ -8,25 +8,27 @@ Semantik (Halte-/Hysterese-/Sperrzeit, Neustartverhalten, Sicherheit)."""
 from __future__ import annotations
 
 import collections
+import copy
 import datetime
 import json
 import logging
-import math
 import os
 import re
 import sys
 import tempfile
 import time
+import math
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from energy_node_common import appconfig
 from energy_node_common.config import ReloadableConfig
-from energy_node_common.discovery import entity_config, publish_discovery
+from energy_node_common.discovery import discovery_topic, entity_config, publish_discovery
 from energy_node_common.mqtt import build_client, publish_online_status, publish_json
 from energy_node_common.slave import Slave
 
 import ha_template
+import regulator
 import sun
 
 LOG = logging.getLogger("automation_mqtt")
@@ -126,6 +128,8 @@ class Settings:
     tick_interval_s: float = 10
     settling_seconds: float = 60
     balance_max_age_s: float = 30
+    publish_min_interval_s: float = 30
+    regulator_interval_s: float = 10
     publish_allowed_prefixes: list[str] = field(default_factory=list)
     history_limit: int = 10
     history_persist: bool = True
@@ -144,6 +148,7 @@ class RulesDocument:
     version: int
     settings: Settings
     rules: list[dict]
+    scenarios: list[dict] = field(default_factory=list)
 
 
 def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
@@ -268,7 +273,7 @@ def _validate_action(action: dict, index: int, errors: list[str]) -> dict:
     return result
 
 
-def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]) -> dict:
+def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str], min_interval: float) -> dict:
     prefix = f"rule[{index}]"
     result = dict(rule)
     rule_id = result.get("id", "")
@@ -281,6 +286,7 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
     if not isinstance(result.get("enabled"), bool):
         errors.append(f"{prefix}: enabled must be a boolean")
     result.setdefault("cooldown_seconds", 0)
+    result.setdefault("repeat_seconds", 0)
     result.setdefault("history_enabled", False)
     conditions = result.get("conditions", [])
     if not (1 <= len(conditions) <= 8):
@@ -292,12 +298,204 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
     result["actions"] = [_validate_action(a, i, errors) for i, a in enumerate(actions)]
     has_publish = any(a.get("type") == "publish" for a in result["actions"])
     if has_publish:
-        if result["cooldown_seconds"] < 30:
-            errors.append(f"{prefix}: cooldown_seconds must be >= 30 for a rule with a publish action")
+        if result["cooldown_seconds"] < min_interval:
+            errors.append(f"{prefix}: cooldown_seconds must be >= {min_interval:g} for a rule with a publish action")
         for i, cond in enumerate(result["conditions"]):
-            if "hold_seconds" in cond and cond["hold_seconds"] < 30:
-                errors.append(f"{prefix}.condition[{i}]: hold_seconds must be >= 30 for a rule with a publish action")
+            if "hold_seconds" in cond and cond["hold_seconds"] < min_interval:
+                errors.append(f"{prefix}.condition[{i}]: hold_seconds must be >= {min_interval:g} for a rule with a publish action")
+        if result["repeat_seconds"] > 0 and result["repeat_seconds"] < min_interval:
+            errors.append(f"{prefix}: repeat_seconds must be >= {min_interval:g} for a rule with a publish action")
+    if result["repeat_seconds"] > 0:
+        for i, action in enumerate(result["actions"]):
+            if action.get("type") == "publish" and action.get("payload_source") == "toggle":
+                errors.append(f"{prefix}: repeat_seconds is not allowed with toggle action[{i}]")
+                break
     return result
+
+
+_SCENARIO_LIMIT = 8
+_WHILE_MODES = ("regulate", "hold", "none")
+_DIRECTIONS = ("producer", "consumer")
+_BASE_SOURCES = ("entity", "balance", "last")
+
+
+def _number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _object(value, prefix: str, name: str, errors: list[str]) -> dict:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        errors.append(f"{prefix}: {name} must be an object")
+        return {}
+    return value
+
+
+def _bounded_list(value, low: int, high: int, label: str, prefix: str, errors: list[str]) -> list:
+    if not isinstance(value, list) or not (low <= len(value) <= high):
+        errors.append(f"{prefix}: needs {low}..{high} {label}")
+        return []
+    return value
+
+
+def _validate_each(items: list, validator, prefix: str, errors: list[str]) -> list:
+    """Prueft jedes Element mit eigenem Index; die Fehler bekommen den Pfad davor."""
+    result = []
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            errors.append(f"{prefix}[{i}]: must be an object")
+            continue
+        local: list[str] = []
+        result.append(validator(item, i, local))
+        errors.extend(f"{prefix}.{message}" for message in local)
+    return result
+
+
+def _validate_phase(raw, name: str, prefix: str, errors: list[str]) -> dict:
+    block = _object(raw, prefix, name, errors)
+    actions = _bounded_list(block.get("actions", []), 0, 8, "actions", f"{prefix}.{name}", errors)
+    return {"actions": _validate_each(actions, _validate_action, f"{prefix}.{name}", errors)}
+
+
+def _validate_regulator(raw: dict, prefix: str, errors: list[str]) -> dict:
+    result = dict(raw)
+
+    output = dict(_object(raw.get("output"), prefix, "output", errors))
+    if err := validate_publish_topic(output.get("topic", "")):
+        errors.append(f"{prefix}.output: {err}")
+    low, high = output.get("min"), output.get("max")
+    if not (_number(low) and _number(high)):
+        errors.append(f"{prefix}.output: min and max must be numbers")
+    elif low >= high:
+        errors.append(f"{prefix}.output: output.min must be below output.max")
+    output.setdefault("step", None)
+    output.setdefault("decimals", None)
+    if output["step"] is not None and not (_number(output["step"]) and output["step"] > 0):
+        errors.append(f"{prefix}.output: step must be above 0")
+    result["output"] = output
+
+    direction = raw.get("direction")
+    if direction not in _DIRECTIONS:
+        errors.append(f"{prefix}: direction must be producer or consumer")
+    result["target_w"] = raw.get("target_w", 0)
+    if not _number(result["target_w"]):
+        errors.append(f"{prefix}: target_w must be a number")
+    result["deadband_w"] = raw.get("deadband_w", 20)
+    if not (_number(result["deadband_w"]) and result["deadband_w"] >= 0):
+        errors.append(f"{prefix}: deadband_w must be 0 or more")
+    result["gain"] = raw.get("gain", 0.8)
+    if not (_number(result["gain"]) and 0.1 <= result["gain"] <= 1):
+        errors.append(f"{prefix}: gain must be between 0.1 and 1")
+    result["max_change_w"] = raw.get("max_change_w")
+    if result["max_change_w"] is not None and not (_number(result["max_change_w"]) and result["max_change_w"] > 0):
+        errors.append(f"{prefix}: max_change_w must be above 0")
+    result["interval_s"] = raw.get("interval_s")
+    if result["interval_s"] is not None and not (_number(result["interval_s"]) and 5 <= result["interval_s"] <= 3600):
+        errors.append(f"{prefix}: interval_s must be between 5 and 3600")
+
+    base = dict(_object(raw.get("base"), prefix, "base", errors))
+    source = base.get("source")
+    if source not in _BASE_SOURCES:
+        errors.append(f"{prefix}.base: source must be entity, balance or last")
+    elif source == "entity":
+        if err := validate_subscribe_topic(base.get("topic", "")):
+            errors.append(f"{prefix}.base: {err}")
+        entity_id = base.get("entity_id")
+        if not isinstance(entity_id, str) or not entity_id.strip():
+            errors.append(f"{prefix}.base: entity_id must not be empty")
+        template = base.get("value_template", "")
+        if not isinstance(template, str) or (template and ha_template.parse_value_template(template) is None):
+            errors.append(f"{prefix}.base: value_template is not one of the supported forms")
+        base.setdefault("value_template", "")
+    elif source == "balance" and not is_balance_field(base.get("field")):
+        errors.append(f"{prefix}.base: field must be one of {sorted(BALANCE_FIELDS)} or custom:<id>")
+    result["base"] = base
+
+    fallback = raw.get("fallback")
+    payload = fallback.get("payload") if isinstance(fallback, dict) else None
+    has_payload = isinstance(payload, str) and payload.strip() != ""
+    if direction == "producer" and not has_payload:
+        errors.append(f"{prefix}: fallback.payload is required for a producer")
+    elif fallback is not None and not has_payload:
+        errors.append(f"{prefix}: fallback.payload must be a non-empty string")
+    result["fallback"] = fallback if isinstance(fallback, dict) else None
+    return result
+
+
+def _validate_while(raw, prefix: str, errors: list[str], min_interval: float) -> dict:
+    block = _object(raw, prefix, "while", errors)
+    mode = block.get("mode", "none")
+    if mode not in _WHILE_MODES:
+        errors.append(f"{prefix}: while.mode must be regulate/hold/none")
+        return {"mode": "none"}
+    if mode == "none":
+        return {"mode": "none"}
+    if mode == "regulate":
+        regulator = block.get("regulator")
+        if not isinstance(regulator, dict):
+            errors.append(f"{prefix}: while.regulator is required for mode regulate")
+            return {"mode": mode}
+        return {"mode": mode, "regulator": _validate_regulator(regulator, f"{prefix}.while.regulator", errors)}
+
+    actions = _bounded_list(block.get("actions", []), 1, 8, "actions", f"{prefix}.while", errors)
+    actions = _validate_each(actions, _validate_action, f"{prefix}.while", errors)
+    repeat = block.get("repeat_seconds", 0)
+    if not (_number(repeat) and repeat > 0):
+        errors.append(f"{prefix}.while: repeat_seconds must be above 0 for mode hold")
+    elif repeat < min_interval and any(a.get("type") == "publish" for a in actions):
+        errors.append(f"{prefix}.while: repeat_seconds must be >= {min_interval:g} for a hold with a publish action")
+    for i, action in enumerate(actions):
+        if action.get("type") == "publish" and action.get("payload_source") == "toggle":
+            errors.append(f"{prefix}.while: hold does not allow a toggle action[{i}]")
+            break
+    return {"mode": mode, "actions": actions, "repeat_seconds": repeat}
+
+
+def _validate_scenario(scenario: dict, index: int, errors: list[str], seen_ids: set[str], min_interval: float) -> dict:
+    prefix = f"scenario[{index}]"
+    result = dict(scenario)
+    scenario_id = result.get("id", "")
+    if not _ID_RE.match(str(scenario_id)):
+        errors.append(f"{prefix}: id must match ^[a-z0-9][a-z0-9_-]{{0,63}}$")
+    elif scenario_id in seen_ids:
+        errors.append(f"{prefix}: duplicate id {scenario_id!r}")
+    else:
+        seen_ids.add(scenario_id)
+    name = result.get("name")
+    if not isinstance(name, str) or not name.strip():
+        errors.append(f"{prefix}: name must not be empty")
+    if not isinstance(result.get("enabled"), bool):
+        errors.append(f"{prefix}: enabled must be a boolean")
+    result["history_enabled"] = result.get("history_enabled", False)
+    if not isinstance(result["history_enabled"], bool):
+        errors.append(f"{prefix}: history_enabled must be a boolean")
+
+    when = _object(result.get("when"), prefix, "when", errors)
+    conditions = _bounded_list(when.get("conditions", []), 1, 8, "conditions", f"{prefix}.when", errors)
+    result["when"] = {"conditions": _validate_each(conditions, _validate_condition, f"{prefix}.when", errors)}
+
+    until = result.get("until")
+    if until is None:
+        result["until"] = None
+    else:
+        until_block = _object(until, prefix, "until", errors)
+        conditions = _bounded_list(until_block.get("conditions", []), 1, 8, "conditions", f"{prefix}.until", errors)
+        result["until"] = {"conditions": _validate_each(conditions, _validate_condition, f"{prefix}.until", errors)}
+
+    result["on_start"] = _validate_phase(result.get("on_start"), "on_start", prefix, errors)
+    result["on_end"] = _validate_phase(result.get("on_end"), "on_end", prefix, errors)
+    result["while"] = _validate_while(result.get("while"), prefix, errors, min_interval)
+    return result
+
+
+def _regulated_topic(scenario: dict) -> Optional[str]:
+    while_block = scenario.get("while") or {}
+    if while_block.get("mode") != "regulate":
+        return None
+    output = (while_block.get("regulator") or {}).get("output") or {}
+    topic = output.get("topic")
+    return topic if isinstance(topic, str) and topic else None
 
 
 def load_and_validate(path: str) -> RulesDocument:
@@ -319,11 +517,22 @@ def load_and_validate(path: str) -> RulesDocument:
         history_limit = 10
     else:
         history_limit = int(history_limit_raw)
+    intervals: dict[str, float] = {}
+    for key, default in (("publish_min_interval_s", 30), ("regulator_interval_s", 10)):
+        raw_value = settings_raw.get(key, default)
+        if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)) \
+                or not (5 <= raw_value <= 3600):
+            errors.append(f"settings.{key} must be a number between 5 and 3600")
+            intervals[key] = default
+        else:
+            intervals[key] = raw_value
     latitude, longitude = _validate_location(settings_raw, errors)
     settings = Settings(
         tick_interval_s=settings_raw.get("tick_interval_s", 10),
         settling_seconds=settings_raw.get("settling_seconds", 60),
         balance_max_age_s=settings_raw.get("balance_max_age_s", 30),
+        publish_min_interval_s=intervals["publish_min_interval_s"],
+        regulator_interval_s=intervals["regulator_interval_s"],
         publish_allowed_prefixes=list(settings_raw.get("publish_allowed_prefixes", [])),
         history_limit=history_limit,
         history_persist=bool(settings_raw.get("history_persist", True)),
@@ -336,12 +545,34 @@ def load_and_validate(path: str) -> RulesDocument:
         errors.append("at most 16 rules are allowed")
 
     seen_ids: set[str] = set()
-    rules = [_validate_rule(r, i, errors, seen_ids) for i, r in enumerate(rules_raw)]
+    rules = [_validate_rule(r, i, errors, seen_ids, settings.publish_min_interval_s) for i, r in enumerate(rules_raw)]
+
+    scenarios_raw = raw.get("scenarios", [])
+    if not isinstance(scenarios_raw, list):
+        errors.append("scenarios must be a list")
+        scenarios_raw = []
+    if len(scenarios_raw) > _SCENARIO_LIMIT:
+        errors.append(f"at most {_SCENARIO_LIMIT} scenarios are allowed")
+    scenarios: list[dict] = []
+    regulated: dict[str, str] = {}
+    for i, scenario_raw in enumerate(scenarios_raw):
+        if not isinstance(scenario_raw, dict):
+            errors.append(f"scenario[{i}]: must be an object")
+            continue
+        scenario = _validate_scenario(scenario_raw, i, errors, seen_ids, settings.publish_min_interval_s)
+        scenarios.append(scenario)
+        topic = _regulated_topic(scenario)
+        if topic is None:
+            continue
+        if topic in regulated:
+            errors.append(f"scenario[{i}]: output.topic is already regulated by scenario {regulated[topic]!r}")
+        else:
+            regulated[topic] = scenario.get("id")
 
     if errors:
         raise RuleValidationError("; ".join(errors))
 
-    return RulesDocument(version=raw["version"], settings=settings, rules=rules)
+    return RulesDocument(version=raw["version"], settings=settings, rules=rules, scenarios=scenarios)
 
 
 def extract_json_value(payload: str, json_key: str) -> Optional[float]:
@@ -594,21 +825,14 @@ def resolve_publish_value(action: dict, *, balance: Optional[dict], topic_values
             return None, "value_unparseable"
 
     value = base_value * action.get("scale", 1) + action.get("offset", 0)
-    step = action.get("step")
-    if step:
-        # Floor, not round-to-nearest: a surplus-driven setpoint (e.g. wallbox
-        # charge power from grid_export) must never round up past what is
-        # actually available.
-        value = math.floor(value / step) * step
-    if action.get("min") is not None:
-        value = max(value, action["min"])
-    if action.get("max") is not None:
-        value = min(value, action["max"])
-    decimals = action.get("decimals")
-    if decimals is not None:
-        value = round(value, decimals)
-        return f"{value:.{decimals}f}", None
-    return str(value), None
+    _, payload = regulator.quantize(
+        value,
+        step=action.get("step"),
+        minimum=action.get("min"),
+        maximum=action.get("max"),
+        decimals=action.get("decimals"),
+    )
+    return payload, None
 
 
 class ActionExecutor:
@@ -663,6 +887,77 @@ class RuleRuntime:
     fire_count: int = 0
 
 
+def _apply_hysteresis(cond: dict, cond_rt: ConditionRuntime, balance: Optional[dict]) -> Optional[bool]:
+    """Returns the hysteresis-latched met/not-met state for
+    balance_threshold conditions with hysteresis > 0, or None if
+    hysteresis doesn't apply (caller then uses the raw comparison)."""
+    if cond["type"] != "balance_threshold" or cond.get("hysteresis", 0) <= 0 or balance is None:
+        return None
+    value = balance_value(balance, cond["field"])
+    if value is None:
+        return None
+    threshold, hysteresis = cond["threshold"], cond["hysteresis"]
+    if cond["comparison"] == "above":
+        cond_rt.latched = (value >= threshold - hysteresis) if cond_rt.latched else (value > threshold)
+    else:
+        cond_rt.latched = (value <= threshold + hysteresis) if cond_rt.latched else (value < threshold)
+    return cond_rt.latched
+
+
+def _evaluate_one(cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location):
+    raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
+                                             location=location)
+    latched = _apply_hysteresis(cond, cond_rt, balance)
+    if latched is not None:
+        raw_met = latched
+
+    if not raw_met:
+        cond_rt.since = None
+        return raw_met, False, reason
+
+    if cond_rt.since is None:
+        cond_rt.since = now_ts
+    hold_seconds = cond.get("hold_seconds", 0)
+    held_met = (now_ts - cond_rt.since) >= hold_seconds
+    return raw_met, held_met, reason
+
+
+@dataclass
+class ConditionsResult:
+    all_raw: bool
+    all_held: bool
+    saw_stale: bool
+    reports: list
+
+
+def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[dict], topic_values: dict,
+                        now_ts: float, location) -> ConditionsResult:
+    """Evaluates all conditions of one rule or scenario against their runtimes
+    and builds the report list shown in the dashboard."""
+    reports = []
+    all_raw = True
+    all_held = True
+    saw_stale = False
+    for cond, cond_rt in zip(conditions, runtimes):
+        raw_met, held_met, reason = _evaluate_one(
+            cond, cond_rt, balance=balance, topic_values=topic_values, now_ts=now_ts, location=location)
+        if reason == "balance_stale":
+            saw_stale = True
+        all_raw = all_raw and raw_met
+        all_held = all_held and held_met
+        hold_seconds = cond.get("hold_seconds", 0)
+        remaining = max(0.0, hold_seconds - (now_ts - cond_rt.since)) if cond_rt.since is not None else float(hold_seconds)
+        # value/target sind rein fuer die Anzeige im Dashboard - siehe
+        # docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md.
+        # met/since/hold_remaining bleiben unveraendert, darauf bauen Spec A und C auf.
+        value, target = condition_value(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
+                                        location=location)
+        reports.append({"met": held_met, "raw_met": raw_met, "value": value,
+                        "target": target, "since": cond_rt.since,
+                        "hold_remaining": remaining})
+    return ConditionsResult(all_raw=all_raw, all_held=all_held, saw_stale=saw_stale, reports=reports)
+
+
 class Engine:
     """Ausgewertet wird jeder Tick fuer jede Regel neu; Zustand lebt nur in
     self._runtime (RAM, kein Neustart-ueberlebender Speicher - siehe
@@ -681,39 +976,6 @@ class Engine:
             rt.conditions.append(ConditionRuntime())
         return rt
 
-    def _apply_hysteresis(self, cond: dict, cond_rt: ConditionRuntime, balance: Optional[dict]) -> Optional[bool]:
-        """Returns the hysteresis-latched met/not-met state for
-        balance_threshold conditions with hysteresis > 0, or None if
-        hysteresis doesn't apply (caller then uses the raw comparison)."""
-        if cond["type"] != "balance_threshold" or cond.get("hysteresis", 0) <= 0 or balance is None:
-            return None
-        value = balance_value(balance, cond["field"])
-        if value is None:
-            return None
-        threshold, hysteresis = cond["threshold"], cond["hysteresis"]
-        if cond["comparison"] == "above":
-            cond_rt.latched = (value >= threshold - hysteresis) if cond_rt.latched else (value > threshold)
-        else:
-            cond_rt.latched = (value <= threshold + hysteresis) if cond_rt.latched else (value < threshold)
-        return cond_rt.latched
-
-    def _evaluate_one(self, cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location):
-        raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
-                                                 location=location)
-        latched = self._apply_hysteresis(cond, cond_rt, balance)
-        if latched is not None:
-            raw_met = latched
-
-        if not raw_met:
-            cond_rt.since = None
-            return raw_met, False, reason
-
-        if cond_rt.since is None:
-            cond_rt.since = now_ts
-        hold_seconds = cond.get("hold_seconds", 0)
-        held_met = (now_ts - cond_rt.since) >= hold_seconds
-        return raw_met, held_met, reason
-
     def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
               topic_values: dict, now_ts: float) -> dict:
         settling = (now_ts - self.started_at) < doc.settings.settling_seconds
@@ -730,29 +992,13 @@ class Engine:
                 results[rule_id] = self._rule_result(rt, rule, "disabled", None, [], preview=[], cooldown_remaining=0.0)
                 continue
 
-            condition_reports = []
-            all_raw = True
-            all_held = True
-            saw_stale = False
-            for cond, cond_rt in zip(rule["conditions"], rt.conditions):
-                raw_met, held_met, reason = self._evaluate_one(
-                    cond, cond_rt, balance=effective_balance, topic_values=topic_values, now_ts=now_ts,
-                    location=doc.settings.location)
-                if reason == "balance_stale":
-                    saw_stale = True
-                all_raw = all_raw and raw_met
-                all_held = all_held and held_met
-                hold_seconds = cond.get("hold_seconds", 0)
-                remaining = max(0.0, hold_seconds - (now_ts - cond_rt.since)) if cond_rt.since is not None else float(hold_seconds)
-                # value/target sind rein fuer die Anzeige im Dashboard - siehe
-                # docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md.
-                # met/since/hold_remaining bleiben unveraendert, darauf bauen Spec A und C auf.
-                value, target = condition_value(cond, balance=effective_balance,
-                                                 topic_values=topic_values, now_ts=now_ts,
-                                                 location=doc.settings.location)
-                condition_reports.append({"met": held_met, "raw_met": raw_met, "value": value,
-                                          "target": target, "since": cond_rt.since,
-                                          "hold_remaining": remaining})
+            evaluation = evaluate_conditions(rule["conditions"], rt.conditions, balance=effective_balance,
+                                             topic_values=topic_values, now_ts=now_ts,
+                                             location=doc.settings.location)
+            condition_reports = evaluation.reports
+            all_raw = evaluation.all_raw
+            all_held = evaluation.all_held
+            saw_stale = evaluation.saw_stale
 
             if not all_raw:
                 rt.fired_this_episode = False
@@ -773,37 +1019,54 @@ class Engine:
                 # before cooldown so the same still-true episode keeps
                 # reporting "fired" instead of flipping to "cooldown" the
                 # instant its own cooldown window starts ticking down.
-                results[rule_id] = self._rule_result(rt, rule, "fired", None, condition_reports, preview, cooldown_remaining)
+                # repeat_seconds > 0 re-runs the action chain every
+                # repeat_seconds while the conditions keep holding.
+                if rule.get("repeat_seconds", 0) > 0 and all_held and now_ts - rt.last_fired_at >= rule["repeat_seconds"]:
+                    outcome_result, fired_actions = self._fire(rule, rt, balance=effective_balance,
+                                                               topic_values=topic_values, now_ts=now_ts,
+                                                               record_history=False)
+                    cooldown_remaining = max(0.0, rule.get("cooldown_seconds", 0) - (now_ts - rt.last_fired_at))
+                    results[rule_id] = self._rule_result(rt, rule, outcome_result, None, condition_reports, fired_actions, cooldown_remaining)
+                else:
+                    results[rule_id] = self._rule_result(rt, rule, "fired", None, condition_reports, preview, cooldown_remaining)
             elif cooldown_remaining > 0:
                 results[rule_id] = self._rule_result(rt, rule, "cooldown", None, condition_reports, preview, cooldown_remaining)
             elif not all_held:
                 results[rule_id] = self._rule_result(rt, rule, "hold_pending", None, condition_reports, preview, cooldown_remaining)
             else:
-                fired_actions = []
-                any_blocked = False
-                any_error = False
-                for action in rule["actions"]:
-                    try:
-                        outcome = self.executor.execute(action, balance=effective_balance, topic_values=topic_values, event_sink=self.event_sink)
-                    except Exception as exc:  # noqa: BLE001 - a broker/publish failure must not crash the tick
-                        outcome = {"blocked": True, "reason": str(exc)}
-                        any_error = True
-                    fired_actions.append(outcome)
-                    if outcome.get("blocked"):
-                        any_blocked = True
-                rt.last_fired_at = now_ts
-                rt.fired_this_episode = True
-                rt.fire_count += 1
+                outcome_result, fired_actions = self._fire(rule, rt, balance=effective_balance,
+                                                           topic_values=topic_values, now_ts=now_ts,
+                                                           record_history=True)
                 cooldown_remaining = max(0.0, rule.get("cooldown_seconds", 0) - (now_ts - rt.last_fired_at))
-                outcome_result = "error" if any_error else ("blocked" if any_blocked else "fired")
-                if self.history_sink is not None:
-                    history_actions = [{**outcome, "type": action["type"]}
-                                        for action, outcome in zip(rule["actions"], fired_actions)]
-                    self.history_sink(rule_id, {"result": outcome_result, "reason": None,
-                                                 "test": False, "actions": history_actions})
                 results[rule_id] = self._rule_result(rt, rule, outcome_result, None, condition_reports, fired_actions, cooldown_remaining)
 
         return results
+
+    def _fire(self, rule: dict, rt: RuleRuntime, *, balance, topic_values, now_ts: float,
+              record_history: bool) -> tuple[str, list]:
+        rule_id = rule["id"]
+        fired_actions = []
+        any_blocked = False
+        any_error = False
+        for action in rule["actions"]:
+            try:
+                outcome = self.executor.execute(action, balance=balance, topic_values=topic_values, event_sink=self.event_sink)
+            except Exception as exc:  # noqa: BLE001 - a broker/publish failure must not crash the tick
+                outcome = {"blocked": True, "reason": str(exc)}
+                any_error = True
+            fired_actions.append(outcome)
+            if outcome.get("blocked"):
+                any_blocked = True
+        rt.last_fired_at = now_ts
+        rt.fired_this_episode = True
+        rt.fire_count += 1
+        outcome_result = "error" if any_error else ("blocked" if any_blocked else "fired")
+        if record_history and self.history_sink is not None:
+            history_actions = [{**outcome, "type": action["type"]}
+                                for action, outcome in zip(rule["actions"], fired_actions)]
+            self.history_sink(rule_id, {"result": outcome_result, "reason": None,
+                                         "test": False, "actions": history_actions})
+        return outcome_result, fired_actions
 
     @staticmethod
     def _rule_result(rt: RuleRuntime, rule: dict, result: str, reason: Optional[str], conditions: list,
@@ -813,6 +1076,269 @@ class Engine:
             "fired_at": rt.last_fired_at, "fire_count": rt.fire_count,
             "cooldown_remaining": cooldown_remaining,
             "conditions": conditions, "actions": preview,
+        }
+
+
+@dataclass
+class ScenarioRuntime:
+    phase: str = "idle"
+    since: Optional[float] = None
+    when: list = field(default_factory=list)
+    until: list = field(default_factory=list)
+    definition: Optional[dict] = None
+    last_value: Optional[float] = None
+    last_sent_at: Optional[float] = None
+    last_step_at: Optional[float] = None
+    last_hold_at: Optional[float] = None
+    net: Optional[float] = None
+    error: Optional[float] = None
+    base: Optional[float] = None
+    reason: Optional[str] = None
+
+
+_SCENARIO_ACTIVE_PHASES = ("active", "fallback")
+
+
+def _finite_float(value) -> Optional[float]:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def regulator_base_value(regulator: dict, *, balance: Optional[dict], topic_values: dict,
+                         last_value: Optional[float]) -> Optional[float]:
+    base = regulator["base"]
+    source = base["source"]
+    if source == "entity":
+        payload = topic_values.get(base.get("topic", ""))
+        if payload is None:
+            return None
+        return _finite_float(ha_template.extract_value(payload, base.get("value_template", "")))
+    if source == "balance":
+        if balance is None:
+            return None
+        return _finite_float(balance_value(balance, base["field"]))
+    if last_value is not None:
+        return float(last_value)
+    output = regulator["output"]
+    return float(output["max"] if regulator["direction"] == "producer" else output["min"])
+
+
+class ScenarioEngine:
+    """Zustandsmaschine fuer Szenarien (idle, active, fallback, disabled).
+    Der Zustand lebt nur im RAM, wie bei Engine."""
+
+    def __init__(self, executor: ActionExecutor, *, started_at: float, event_sink, history_sink=None):
+        self.executor = executor
+        self.started_at = started_at
+        self.event_sink = event_sink
+        self.history_sink = history_sink
+        self._runtime: dict[str, ScenarioRuntime] = {}
+
+    def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
+             topic_values: dict, now_ts: float) -> dict:
+        settling = (now_ts - self.started_at) < doc.settings.settling_seconds
+        balance_stale = balance_age is None or balance_age > doc.settings.balance_max_age_s
+        effective_balance = None if balance_stale else balance
+        location = doc.settings.location
+        ctx = {"balance": effective_balance, "topic_values": topic_values}
+
+        results = {}
+        seen = set()
+        settings = doc.settings
+        for scenario in doc.scenarios:
+            sid = scenario["id"]
+            seen.add(sid)
+            rt = self._runtime.setdefault(sid, ScenarioRuntime())
+
+            if not scenario["enabled"]:
+                if rt.phase in _SCENARIO_ACTIVE_PHASES:
+                    self._end(sid, rt, **ctx)
+                rt.phase = "disabled"
+                rt.reason = None
+                rt.when = []
+                rt.until = []
+                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
+            else:
+                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
+                self._advance(sid, scenario, rt, when_eval, until_eval, settling=settling, now_ts=now_ts,
+                              settings=settings, **ctx)
+
+            results[sid] = self._report(rt, scenario, when_eval, until_eval)
+
+        for sid in list(self._runtime):
+            if sid in seen:
+                continue
+            rt = self._runtime.pop(sid)
+            if rt.phase in _SCENARIO_ACTIVE_PHASES:
+                self._end(sid, rt, **ctx)
+        return results
+
+    def _evaluate(self, scenario: dict, rt: ScenarioRuntime, *, balance, topic_values, now_ts, location):
+        when_conditions = scenario["when"]["conditions"]
+        while len(rt.when) < len(when_conditions):
+            rt.when.append(ConditionRuntime())
+        when_eval = evaluate_conditions(when_conditions, rt.when, balance=balance, topic_values=topic_values,
+                                        now_ts=now_ts, location=location)
+        until_eval = None
+        if scenario["until"] is None:
+            rt.until = []
+        else:
+            until_conditions = scenario["until"]["conditions"]
+            while len(rt.until) < len(until_conditions):
+                rt.until.append(ConditionRuntime())
+            until_eval = evaluate_conditions(until_conditions, rt.until, balance=balance,
+                                             topic_values=topic_values, now_ts=now_ts, location=location)
+        return when_eval, until_eval
+
+    def _advance(self, sid: str, scenario: dict, rt: ScenarioRuntime, when_eval, until_eval, *,
+                 settling: bool, now_ts: float, settings, balance, topic_values) -> None:
+        ctx = {"balance": balance, "topic_values": topic_values}
+        if rt.phase not in _SCENARIO_ACTIVE_PHASES:
+            rt.reason = None
+            if settling:
+                rt.reason = "settling"
+            elif when_eval.saw_stale:
+                rt.reason = "balance_stale"
+            elif when_eval.all_held:
+                self._start(sid, scenario, rt, now_ts=now_ts, **ctx)
+                self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
+            return
+
+        if until_eval is None:
+            ends = not when_eval.all_raw and not when_eval.saw_stale
+        else:
+            ends = until_eval.all_held
+        if ends:
+            self._end(sid, rt, **ctx)
+            return
+        rt.reason = None
+        self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
+
+    def _start(self, sid: str, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values) -> None:
+        rt.phase = "active"
+        rt.since = now_ts
+        rt.last_hold_at = None
+        rt.definition = copy.deepcopy(scenario)
+        outcomes = self._run_actions(scenario["on_start"]["actions"], balance=balance, topic_values=topic_values)
+        self._record(sid, "started", outcomes)
+
+    def _end(self, sid: str, rt: ScenarioRuntime, *, balance, topic_values) -> None:
+        on_end = (rt.definition or {}).get("on_end", {"actions": []})
+        outcomes = self._run_actions(on_end["actions"], balance=balance, topic_values=topic_values)
+        self._record(sid, "ended", outcomes)
+        rt.phase = "idle"
+        rt.since = None
+        rt.definition = None
+        rt.last_value = None
+        rt.last_step_at = None
+        rt.last_hold_at = None
+        rt.when = []
+        rt.until = []
+
+    def _run_while(self, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, settings, balance,
+                   topic_values) -> None:
+        while_block = scenario["while"]
+        if while_block["mode"] == "hold":
+            if rt.last_hold_at is None or now_ts - rt.last_hold_at >= while_block["repeat_seconds"]:
+                rt.last_hold_at = now_ts
+                self._run_actions(while_block["actions"], balance=balance, topic_values=topic_values)
+        elif while_block["mode"] == "regulate":
+            self._regulate(scenario["id"], scenario, rt, now_ts=now_ts, settings=settings,
+                           balance=balance, topic_values=topic_values)
+
+    def _regulate(self, sid: str, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, settings,
+                  balance, topic_values) -> None:
+        regulator_def = scenario["while"]["regulator"]
+        interval = regulator_def.get("interval_s")
+        if interval is None:
+            interval = settings.regulator_interval_s
+        interval = max(interval, settings.tick_interval_s)
+        if rt.last_step_at is not None and now_ts - rt.last_step_at < interval:
+            return
+        rt.last_step_at = now_ts
+
+        output_topic = regulator_def["output"]["topic"]
+        base = regulator_base_value(regulator_def, balance=balance, topic_values=topic_values,
+                                    last_value=rt.last_value)
+        if balance is None or base is None:
+            reason = "balance_stale" if balance is None else "base_missing"
+            rt.base = base
+            rt.reason = reason
+            if rt.phase != "fallback":
+                rt.phase = "fallback"
+                outcomes = []
+                fallback = regulator_def.get("fallback")
+                if fallback:
+                    outcomes = self._run_actions([{
+                        "type": "publish", "topic": output_topic, "payload_source": "constant",
+                        "payload": fallback["payload"], "retain": False,
+                    }], balance=balance, topic_values=topic_values)
+                    if not outcomes[0].get("blocked"):
+                        rt.last_value = _finite_float(fallback["payload"])
+                self._record(sid, "fallback", outcomes, reason=reason)
+            return
+
+        if rt.phase == "fallback":
+            rt.phase = "active"
+            self._record(sid, "recovered", [])
+
+        net = (balance_value(balance, "grid_import") or 0) - (balance_value(balance, "grid_export") or 0)
+        step = regulator.compute_step(regulator_def, net=net, base=base, last_value=rt.last_value)
+        rt.net = net
+        rt.error = step.error
+        rt.base = base
+        rt.reason = step.reason
+        if step.payload is None:
+            return
+
+        outcomes = self._run_actions([{
+            "type": "publish", "topic": output_topic, "payload_source": "constant",
+            "payload": step.payload, "retain": False,
+        }], balance=balance, topic_values=topic_values)
+        outcome = outcomes[0]
+        if outcome.get("blocked"):
+            rt.reason = outcome.get("reason")
+            return
+        rt.last_value = step.value
+        rt.last_sent_at = now_ts
+        deadband = regulator_def["deadband_w"]
+        if deadband > 0 and abs(step.error) > 5 * deadband:
+            self._record(sid, "jump", outcomes)
+
+    def _run_actions(self, actions: list, *, balance, topic_values) -> list[dict]:
+        outcomes = []
+        for action in actions:
+            try:
+                outcome = self.executor.execute(action, balance=balance, topic_values=topic_values,
+                                                event_sink=self.event_sink)
+            except Exception as exc:  # noqa: BLE001 - a broker/publish failure must not crash the tick
+                outcome = {"blocked": True, "reason": str(exc)}
+            outcomes.append({**outcome, "type": action["type"]})
+        return outcomes
+
+    def _record(self, sid: str, result: str, outcomes: list, reason: Optional[str] = None) -> None:
+        if self.history_sink is not None:
+            self.history_sink(sid, {"result": result, "reason": reason, "test": False, "actions": outcomes})
+
+    @staticmethod
+    def _report(rt: ScenarioRuntime, scenario: dict, when_eval, until_eval) -> dict:
+        return {
+            "enabled": scenario["enabled"],
+            "phase": rt.phase,
+            "since": rt.since,
+            "net": rt.net,
+            "error": rt.error,
+            "output": rt.last_value if rt.phase in _SCENARIO_ACTIVE_PHASES else None,
+            "base": rt.base,
+            "last_sent_at": rt.last_sent_at,
+            "reason": rt.reason,
+            "when": when_eval.reports,
+            "until": until_eval.reports if until_eval is not None else [],
         }
 
 
@@ -890,9 +1416,11 @@ class RuleHistory:
             pass  # Persistenz ist ein Nice-to-have, kein Show-Stopper
 
 
-def build_state_document(rule_results: dict, events: list, *, at: float, online: bool) -> dict:
+def build_state_document(rule_results: dict, events: list, *, at: float, online: bool,
+                         scenario_results: Optional[dict] = None) -> dict:
     return {
         "at": at, "online": online, "rules": rule_results, "events": events,
+        "scenarios": scenario_results or {},
         "rules_total": len(rule_results),
         "rules_enabled": sum(1 for r in rule_results.values() if r.get("enabled") is True),
         "rules_fired_total": sum(r.get("fire_count", 0) for r in rule_results.values()),
@@ -979,6 +1507,29 @@ def discovery_object_ids(device_id: str, base_topic: str, device_block: dict) ->
             ("sensor", "history", history_config)]
 
 
+def scenario_state_topic(base_topic: str, scenario_id: str) -> str:
+    return f"{base_topic}/scenario/{scenario_id}/state"
+
+
+def scenario_discovery(device_id: str, base_topic: str, device_block: dict, scenario: dict) -> list:
+    """Phase ist immer da, der Stellwert nur bei Szenarien mit Regler."""
+    sid = scenario["id"]
+    name = scenario["name"]
+    state_topic = scenario_state_topic(base_topic, sid)
+    phase_object = f"scenario_{sid}_phase"
+    entries = [("sensor", phase_object, entity_config(
+        device_id, base_topic, phase_object, f"{name} Phase", device_block,
+        state_topic=state_topic, entity_category="diagnostic",
+        value_template="{{ value_json.phase }}"))]
+    if scenario["while"]["mode"] == "regulate":
+        output_object = f"scenario_{sid}_output"
+        entries.append(("sensor", output_object, entity_config(
+            device_id, base_topic, output_object, f"{name} Stellwert", device_block,
+            state_topic=state_topic, unit_of_measurement="W", device_class="power",
+            state_class="measurement", value_template="{{ value_json.output }}")))
+    return entries
+
+
 def load_initial_document(config_store: ReloadableConfig) -> tuple:
     doc, error = config_store.load_or(RulesDocument(version=1, settings=Settings(), rules=[]))
     return doc, (str(error) if error is not None else None)
@@ -1005,6 +1556,11 @@ class AutomationService:
             started_at = time.time()
         self.engine = Engine(self.executor, started_at=started_at, event_sink=self._on_event,
                               history_sink=self._on_fired)
+        self.scenario_engine = ScenarioEngine(self.executor, started_at=started_at, event_sink=self._on_event,
+                                              history_sink=self._on_fired)
+        self.scenario_publishers: dict[str, ChangeGatedPublisher] = {}
+        self._scenario_discovery: set[tuple[str, str]] = set()
+        self._scenario_ids: set[str] = set()
         self.events = EventRing(maxlen=10)
         self.topic_values: dict = {}
         self.subscribed_topics: set = set()
@@ -1019,13 +1575,31 @@ class AutomationService:
     def required_topics(self, doc: RulesDocument) -> set:
         topics = {BALANCE_TOPIC, self.test_command_topic}
         for rule in doc.rules:
-            for cond in rule["conditions"]:
-                if cond["type"] in ("topic_value", "entity_value"):
-                    topics.add(cond["topic"])
-            for action in rule["actions"]:
-                if action["type"] == "publish" and action.get("payload_source") in ("topic", "toggle"):
-                    topics.add(action["source_topic"])
+            self._add_condition_topics(topics, rule["conditions"])
+            self._add_action_topics(topics, rule["actions"])
+        for scenario in doc.scenarios:
+            self._add_condition_topics(topics, scenario["when"]["conditions"])
+            if scenario["until"] is not None:
+                self._add_condition_topics(topics, scenario["until"]["conditions"])
+            self._add_action_topics(topics, scenario["on_start"]["actions"])
+            self._add_action_topics(topics, scenario["on_end"]["actions"])
+            self._add_action_topics(topics, scenario["while"].get("actions", []))
+            regulator_def = scenario["while"].get("regulator")
+            if regulator_def and regulator_def["base"]["source"] == "entity":
+                topics.add(regulator_def["base"]["topic"])
         return topics
+
+    @staticmethod
+    def _add_condition_topics(topics: set, conditions: list) -> None:
+        for cond in conditions:
+            if cond["type"] in ("topic_value", "entity_value"):
+                topics.add(cond["topic"])
+
+    @staticmethod
+    def _add_action_topics(topics: set, actions: list) -> None:
+        for action in actions:
+            if action["type"] == "publish" and action.get("payload_source") in ("topic", "toggle"):
+                topics.add(action["source_topic"])
 
     def apply_subscriptions(self, doc: RulesDocument) -> None:
         wanted = self.required_topics(doc)
@@ -1034,6 +1608,36 @@ class AutomationService:
         for topic in self.subscribed_topics - wanted:
             self.client.unsubscribe(topic)
         self.subscribed_topics = wanted
+
+    def _discovery_block(self) -> dict:
+        node_device_id = DEFAULT_NODE_DEVICE_ID
+        if getattr(self, "app_config", None) is not None:
+            node_device_id = self.app_config.dashboard.node_device_id or DEFAULT_NODE_DEVICE_ID
+        return device_block(self.service_config.service_id, node_device_id)
+
+    def publish_scenario_discovery(self, doc: RulesDocument) -> None:
+        """Veroeffentlicht die Discovery aller Szenarien. Was beim letzten Aufruf
+        veroeffentlicht war und jetzt fehlt, wird mit leerem retained Payload
+        geloescht; das Zustandstopic eines entfernten Szenarios ebenso."""
+        previous = getattr(self, "_scenario_discovery", set())
+        previous_ids = getattr(self, "_scenario_ids", set())
+        if not doc.scenarios and not previous and not previous_ids:
+            return
+        device_id = self.service_config.service_id
+        block = self._discovery_block()
+        current: dict[tuple[str, str], dict] = {}
+        for scenario in doc.scenarios:
+            for component, object_id, config in scenario_discovery(device_id, self.base_topic, block, scenario):
+                current[(component, object_id)] = config
+        for (component, object_id), config in current.items():
+            publish_discovery(self.client, device_id, component, object_id, config)
+        for component, object_id in previous - set(current):
+            self._publish_raw_json(discovery_topic(component, device_id, object_id), "")
+        scenario_ids = {scenario["id"] for scenario in doc.scenarios}
+        for sid in previous_ids - scenario_ids:
+            self._publish_raw_json(scenario_state_topic(self.base_topic, sid), "")
+        self._scenario_discovery = set(current)
+        self._scenario_ids = scenario_ids
 
     def _publish_action(self, topic: str, payload: str, retain: bool) -> None:
         self.client.publish(topic, payload, qos=0, retain=retain)
@@ -1045,8 +1649,10 @@ class AutomationService:
         self.events.push(message, at=time.time())
 
     def _on_fired(self, rule_id: str, event: dict) -> None:
-        rule = next((r for r in self.doc.rules if r["id"] == rule_id), None)
-        if not rule or not rule.get("history_enabled"):
+        item = next((r for r in self.doc.rules if r["id"] == rule_id), None)
+        if item is None:
+            item = next((s for s in self.doc.scenarios if s["id"] == rule_id), None)
+        if not item or not item.get("history_enabled"):
             return
         self.history.record(rule_id, {**event, "at": time.time()}, limit=int(self.doc.settings.history_limit))
 
@@ -1059,12 +1665,10 @@ class AutomationService:
         # bei unveraendertem Dokument nach einem Reconnect auf gar nichts.
         self.subscribed_topics = set()
         self.apply_subscriptions(self.doc)
-        node_device_id = DEFAULT_NODE_DEVICE_ID
-        if getattr(self, "app_config", None) is not None:
-            node_device_id = self.app_config.dashboard.node_device_id or DEFAULT_NODE_DEVICE_ID
-        block = device_block(self.service_config.service_id, node_device_id)
+        block = self._discovery_block()
         for component, object_id, config in discovery_object_ids(self.service_config.service_id, self.base_topic, block):
             publish_discovery(client, self.service_config.service_id, component, object_id, config)
+        self.publish_scenario_discovery(self.doc)
         self.slave.start(client)
 
     def on_message(self, client, userdata, msg):
@@ -1155,10 +1759,22 @@ class AutomationService:
         balance_age = None if self.last_balance_at is None else now - self.last_balance_at
         results = self.engine.tick(self.doc, balance=self.last_balance, balance_age=balance_age,
                                     topic_values=self.topic_values, now_ts=now)
-        state_doc = build_state_document(results, self.events.as_list(), at=now, online=True)
+        scenario_results = self.scenario_engine.tick(self.doc, balance=self.last_balance, balance_age=balance_age,
+                                                     topic_values=self.topic_values, now_ts=now)
+        state_doc = build_state_document(results, self.events.as_list(), at=now, online=True,
+                                         scenario_results=scenario_results)
         self.state_publisher.maybe_publish(f"{self.base_topic}/state", state_doc, now)
-        history_by_rule = {rule["id"]: self.history.as_list(rule["id"])
-                            for rule in self.doc.rules if rule.get("history_enabled")}
+        for sid, report in scenario_results.items():
+            if sid not in self.scenario_publishers:
+                self.scenario_publishers[sid] = ChangeGatedPublisher(self._publish_raw_json, heartbeat_seconds=60)
+            scenario_state = {"at": now, "phase": report["phase"]}
+            if report["output"] is not None:
+                scenario_state["output"] = report["output"]
+            self.scenario_publishers[sid].maybe_publish(scenario_state_topic(self.base_topic, sid), scenario_state, now)
+        for sid in set(self.scenario_publishers) - set(scenario_results):
+            del self.scenario_publishers[sid]
+        history_by_rule = {item["id"]: self.history.as_list(item["id"])
+                            for item in [*self.doc.rules, *self.doc.scenarios] if item.get("history_enabled")}
         history_doc = build_history_document(history_by_rule, at=now)
         self.history_publisher.maybe_publish(f"{self.base_topic}/history", history_doc, now)
         newest = self.events.as_list()
@@ -1193,6 +1809,7 @@ class AutomationService:
         self.executor.publish_allowed_prefixes = new_doc.settings.publish_allowed_prefixes
         self.history.path = self._history_path if new_doc.settings.history_persist else None
         self.apply_subscriptions(new_doc)
+        self.publish_scenario_discovery(new_doc)
 
     def _make_slave(self) -> Slave:
         return Slave(service_id=self.service_config.service_id, poll_core=self.poll_core,

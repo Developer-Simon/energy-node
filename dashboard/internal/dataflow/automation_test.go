@@ -1,6 +1,7 @@
 package dataflow
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -102,5 +103,76 @@ func TestAutomationGraphWithoutServiceDeviceHasNoExecutesEdge(t *testing.T) {
 		if edge.Details.Kind == "executes" {
 			t.Fatalf("unexpected executes edge %+v", edge)
 		}
+	}
+}
+
+const scenarioDoc = `{"version":1,"settings":{},"rules":[],"scenarios":[{
+ "id":"nulleinspeisung","name":"Nulleinspeisung","enabled":true,"template":"zero_feed","history_enabled":true,
+ "when":{"conditions":[{"type":"sun_window","from":"sunrise","to":"sunset"}]},
+ "until":null,
+ "on_start":{"actions":[{"type":"notification","severity":"info","title":"Nulleinspeisung","message":"startet"}]},
+ "while":{"mode":"regulate","regulator":{
+   "output":{"topic":"bkw/limit/set","entity_id":"bkw_limit","min":50,"max":800,"step":10,"decimals":0},
+   "direction":"producer","target_w":30,"deadband_w":20,"gain":0.8,
+   "base":{"source":"entity","entity_id":"bkw_power","topic":"bkw/state","value_template":"{{ value_json.power }}"},
+   "fallback":{"payload":"800"}}},
+ "on_end":{"actions":[{"type":"publish","topic":"bkw/limit/set","payload_source":"constant","payload":"800"}]}}]}`
+
+func scenarioDevices() []registry.DeviceView {
+	return append(testDevices(),
+		registry.DeviceView{ID: "bkw", Entities: []registry.EntityView{{UniqueID: "bkw_power", StateTopic: "bkw/state"}}},
+		registry.DeviceView{ID: "wr", Entities: []registry.EntityView{{UniqueID: "bkw_limit", StateTopic: "bkw/limit", CommandTopic: "bkw/limit/set"}}})
+}
+
+func TestAutomationGraphBuildsScenarioEdges(t *testing.T) {
+	graph, err := automationGraph([]byte(scenarioDoc), NewIndex(scenarioDevices()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(graph.Nodes) != 1 {
+		t.Fatalf("nodes = %+v", graph.Nodes)
+	}
+	node := graph.Nodes[0]
+	if node.VirtualID != "rule:nulleinspeisung" || node.Kind != "rule" || node.Label != "Nulleinspeisung" || node.Link.Tab != "automations" || node.Link.Target != "nulleinspeisung" {
+		t.Errorf("scenario node = %+v", node)
+	}
+	byID := map[string]Edge{}
+	for _, edge := range graph.Edges {
+		byID[edge.ID] = edge
+	}
+	out := byID["auto:rule:nulleinspeisung/out"]
+	if out.From.VirtualID != node.VirtualID || out.To.DeviceID != "wr" || out.To.EntityID != "bkw_limit" || out.Details.Kind != "regulator_output" || out.TitleKey != "devicemap.flow.title.regulator_output" {
+		t.Errorf("output edge = %+v", out)
+	}
+	base := byID["auto:rule:nulleinspeisung/base"]
+	if base.From.DeviceID != "bkw" || base.From.EntityID != "bkw_power" || base.To.VirtualID != node.VirtualID || base.Details.Kind != "regulator_base" || base.TitleKey != "devicemap.flow.title.regulator_base" {
+		t.Errorf("base edge = %+v", base)
+	}
+	end := byID["auto:rule:nulleinspeisung/e0"]
+	if end.From.VirtualID != node.VirtualID || end.To.DeviceID != "wr" {
+		t.Errorf("on_end edge = %+v", end)
+	}
+	if len(graph.Unresolved) != 0 {
+		t.Errorf("unresolved = %+v", graph.Unresolved)
+	}
+}
+
+func TestAutomationGraphReportsAnUnknownRegulatorOutput(t *testing.T) {
+	doc := strings.Replace(scenarioDoc, `"topic":"bkw/limit/set","entity_id"`, `"topic":"nobody/limit/set","entity_id"`, 1)
+	graph, err := automationGraph([]byte(doc), NewIndex(scenarioDevices()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, item := range graph.Unresolved {
+		if item.ID == "auto:rule:nulleinspeisung/out" {
+			found = true
+			if item.Item != "nulleinspeisung" || item.Reason != ReasonNoConsumer || item.TitleKey != "devicemap.flow.title.regulator_output" {
+				t.Errorf("unresolved output = %+v", item)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("no unresolved output in %+v", graph.Unresolved)
 	}
 }

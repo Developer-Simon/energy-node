@@ -2408,6 +2408,45 @@ func TestCategoryReferencesListsRulesUsingTheCategory(t *testing.T) {
 	}
 }
 
+func TestCategoryReferencesListsScenariosUsingTheCategory(t *testing.T) {
+	dir := t.TempDir()
+	rules := `{"version":1,"settings":{},"rules":[],"scenarios":[` +
+		`{"id":"s1","name":"Wallbox start","enabled":true,"when":{"conditions":[{"type":"balance_threshold","field":"custom:wp","comparison":"above","threshold":1400}]},` +
+		`"on_start":{"actions":[]},"while":{"mode":"none"},"on_end":{"actions":[]}},` +
+		`{"id":"s2","name":"Regulate","enabled":true,"when":{"conditions":[{"type":"balance_threshold","field":"pv","comparison":"above","threshold":1}]},` +
+		`"on_start":{"actions":[]},"while":{"mode":"regulate","regulator":{"output":{"topic":"x/limit/set","min":50,"max":800,"step":10,"decimals":0},` +
+		`"direction":"consumer","target_w":30,"deadband_w":20,"gain":0.8,"base":{"source":"balance","field":"custom:wp"},"fallback":{"payload":"0"}}},` +
+		`"on_end":{"actions":[]}},` +
+		`{"id":"s3","name":"Other","enabled":true,"when":{"conditions":[{"type":"balance_threshold","field":"custom:boiler","comparison":"above","threshold":1}]},` +
+		`"on_start":{"actions":[]},"while":{"mode":"none"},"on_end":{"actions":[]}}` +
+		`]}`
+	if err := os.WriteFile(filepath.Join(dir, "automation_rules.json"), []byte(rules), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "automation_rules.schema.json"), []byte(`{"type":"object"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), config.NewManager(dir), settings.NewStore(t.TempDir()))
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/energy/category-references?id=wp", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body)
+	}
+	var body struct {
+		Rules []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"rules"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Rules) != 2 || body.Rules[0].ID != "s1" || body.Rules[0].Name != "Wallbox start" || body.Rules[1].ID != "s2" || body.Rules[1].Name != "Regulate" {
+		t.Fatalf("scenarios = %+v", body.Rules)
+	}
+}
+
 func TestCategoryReferencesWithoutRulesFileIsEmpty(t *testing.T) {
 	router := NewRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
 	response := httptest.NewRecorder()

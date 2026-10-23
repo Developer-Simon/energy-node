@@ -1,12 +1,45 @@
 # Changelog
 
-## v0.5.3 (2026-10-21)
+## v0.6.0 (2026-10-23)
+
+### Features
+
+- **automation:** Automation rules can repeat their actions while their conditions hold. (#163)
+
+### Tests
+
+- **automation:** pin stale-balance regulation and scenario removal (17a4855)
+
+### Chores
+
+- **automation:** scenario smoke fixture and 0.6.0 manifest (dcd062c)
+
+## v0.5.3 (2026-10-23)
+
+### Features
+
+- **automation:** configurable publish minimum and regulator interval (df47655)
+- **automation:** repeat a rule's actions while its conditions hold (4e3707d)
+- **automation:** regulator step and shared value quantizing (af319df)
+- **automation:** validate scenarios (de7556c)
+- **automation:** scenario state machine (5692aa1)
+- **automation:** feedback regulator for scenarios (97e8dd7)
+- **automation:** publish scenario state, history and discovery (48c7dfa)
+
+### Fixes
+
+- **automation:** use plain types in the scenario schema (56e2c04)
 
 ### Refactors
 
+- **automation:** share condition evaluation between engines (a96a4e4)
 - **common:** clean up the slave status and hooks (#155) (00ddbed)
 - **common:** drop unused poll fields and pending from the slave status (00528ff)
 - **services:** name the slave poll rates after what they are (7cd303e)
+
+### Tests
+
+- **automation:** pin episode reset and repeat result (7f939e0)
 
 ## v0.5.2 (2026-10-18)
 
