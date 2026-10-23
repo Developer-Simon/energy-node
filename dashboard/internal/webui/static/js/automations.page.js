@@ -948,13 +948,53 @@
       return errors;
     },
 
+    // Das Regler-Ziel eines Szenarios, sonst null.
+    regulatorTopic(scenario) {
+      const current = scenario.while;
+      if (!current || current.mode !== 'regulate' || !current.regulator || !current.regulator.output) return null;
+      return current.regulator.output.topic || null;
+    },
+
     validateDocumentBeforeSave() {
       const errors = (this.document.rules || []).flatMap((rule) => this.validateRuleBeforeSave(rule));
+      const scenarios = this.document.scenarios || [];
+      const minInterval = this.minPublishInterval();
+      for (const scenario of scenarios) {
+        const otherOutputs = scenarios
+          .filter((other) => other !== scenario)
+          .map((other) => this.regulatorTopic(other))
+          .filter(Boolean);
+        errors.push(...window.__automationScenario.validateScenarioBeforeSave(scenario, { minInterval, otherOutputs }));
+      }
       const settings = this.document.settings || {};
       if (isNumber(settings.latitude) !== isNumber(settings.longitude)) {
         errors.push(t('automations.validation.location_incomplete'));
       }
       return errors;
+    },
+
+    // Szenarien fuer den Speicherkoerper: Regler-Defaults fallen weg, und
+    // ein null taucht nicht im Dokument auf (der Dienst liest null nicht).
+    scenariosPayload() {
+      const strip = window.__automationScenario.stripRegulatorDefaults;
+      const withoutNulls = (value) => {
+        if (Array.isArray(value)) return value.map(withoutNulls);
+        if (value && typeof value === 'object') {
+          const out = {};
+          for (const [key, entry] of Object.entries(value)) {
+            if (entry !== null && entry !== undefined) out[key] = withoutNulls(entry);
+          }
+          return out;
+        }
+        return value;
+      };
+      return (this.document.scenarios || []).map((scenario) => {
+        const copy = { ...scenario };
+        if (copy.while && copy.while.regulator) {
+          copy.while = { ...copy.while, regulator: strip(copy.while.regulator) };
+        }
+        return withoutNulls(copy);
+      });
     },
 
     async save() {
@@ -994,10 +1034,13 @@
         const saved = await requestJSON('/api/v1/configurations/automation_rules', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
-          body: JSON.stringify({ ...this.document, settings: settingsToSave }),
+          body: JSON.stringify({ ...this.document, settings: settingsToSave, scenarios: this.scenariosPayload() }),
         });
         this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
+        this.newIds = {};
+        clearTimeout(this._undoTimer);
+        this.undo = null;
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');

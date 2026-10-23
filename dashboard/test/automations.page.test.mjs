@@ -821,6 +821,16 @@ test('save() stores exactly the typed prefixes and clears the auto flag', async 
   assert.equal(sentBody.settings.publish_allowed_prefixes_auto, false);
 });
 
+function validScenario(id) {
+  return {
+    id, name: 'Nulleinspeisung', enabled: false,
+    when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 }] },
+    on_start: { actions: [] },
+    while: { mode: 'none' },
+    on_end: { actions: [] },
+  };
+}
+
 test('save keeps scenarios in the document', async () => {
   const { component, window } = createAutomationsPanel();
   component.document = {
@@ -828,7 +838,7 @@ test('save keeps scenarios in the document', async () => {
     settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
                 publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
     rules: [],
-    scenarios: [{ id: 'nulleinspeisung' }],
+    scenarios: [validScenario('nulleinspeisung')],
   };
   component.csrfToken = 'tok';
   component.pollRuntimeStatus = async () => {};
@@ -839,7 +849,7 @@ test('save keeps scenarios in the document', async () => {
     return { ok: true, json: async () => ({}) };
   };
   await component.save();
-  assert.deepEqual(JSON.parse(JSON.stringify(sentBody.scenarios)), [{ id: 'nulleinspeisung' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(sentBody.scenarios)), [validScenario('nulleinspeisung')]);
 });
 
 test('load() displays an empty prefix field even though the auto-filled list is stored', async () => {
@@ -1644,4 +1654,52 @@ test('adding is blocked at 16 rules and 8 scenarios', () => {
   component.addScenario();
   assert.equal(component.document.scenarios.length, 8);
   assert.equal(component.canAddScenario(), false);
+});
+
+function savePanelWithFetch(component, window, sent) {
+  component.csrfToken = 'tok';
+  component.pollRuntimeStatus = async () => {};
+  window.fetch = async (url, options) => {
+    if (options && options.method === 'PUT') { sent.body = options.body; return { ok: true, json: async () => ({}) }; }
+    if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+    return { ok: true, json: async () => ({}) };
+  };
+}
+
+test('save strips regulator defaults and never sends null', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [{
+      ...validScenario('regler'),
+      when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: null, hold_seconds: 300 }] },
+      while: { mode: 'regulate', regulator: {
+        output: { topic: 'werkstatt/heizstab/set', min: 0, max: 3000, step: 1, decimals: 0 },
+        gain: 0.8, deadband_w: 20, direction: 'consumer',
+      } },
+    }],
+  };
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.ok(sent.body, 'the save must reach the server');
+  assert.equal(sent.body.includes('"gain":0.8'), false);
+  assert.equal(sent.body.includes('null'), false);
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.8, 'the document keeps its values');
+});
+
+test('save clears the new markers and the undo bar', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.addScenario();
+  const scenario = component.document.scenarios[0];
+  scenario.when.conditions.push({ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 });
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.ok(sent.body, 'the save must reach the server');
+  assert.deepEqual(Object.keys(component.newIds), []);
+  assert.equal(component.undo, null);
 });
