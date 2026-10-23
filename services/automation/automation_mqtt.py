@@ -146,6 +146,7 @@ class RulesDocument:
     version: int
     settings: Settings
     rules: list[dict]
+    scenarios: list[dict] = field(default_factory=list)
 
 
 def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
@@ -310,6 +311,191 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
     return result
 
 
+_SCENARIO_LIMIT = 8
+_WHILE_MODES = ("regulate", "hold", "none")
+_DIRECTIONS = ("producer", "consumer")
+_BASE_SOURCES = ("entity", "balance", "last")
+
+
+def _number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _object(value, prefix: str, name: str, errors: list[str]) -> dict:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        errors.append(f"{prefix}: {name} must be an object")
+        return {}
+    return value
+
+
+def _bounded_list(value, low: int, high: int, label: str, prefix: str, errors: list[str]) -> list:
+    if not isinstance(value, list) or not (low <= len(value) <= high):
+        errors.append(f"{prefix}: needs {low}..{high} {label}")
+        return []
+    return value
+
+
+def _validate_each(items: list, validator, prefix: str, errors: list[str]) -> list:
+    """Prueft jedes Element mit eigenem Index; die Fehler bekommen den Pfad davor."""
+    result = []
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            errors.append(f"{prefix}[{i}]: must be an object")
+            continue
+        local: list[str] = []
+        result.append(validator(item, i, local))
+        errors.extend(f"{prefix}.{message}" for message in local)
+    return result
+
+
+def _validate_phase(raw, name: str, prefix: str, errors: list[str]) -> dict:
+    block = _object(raw, prefix, name, errors)
+    actions = _bounded_list(block.get("actions", []), 0, 8, "actions", f"{prefix}.{name}", errors)
+    return {"actions": _validate_each(actions, _validate_action, f"{prefix}.{name}", errors)}
+
+
+def _validate_regulator(raw: dict, prefix: str, errors: list[str]) -> dict:
+    result = dict(raw)
+
+    output = dict(_object(raw.get("output"), prefix, "output", errors))
+    if err := validate_publish_topic(output.get("topic", "")):
+        errors.append(f"{prefix}.output: {err}")
+    low, high = output.get("min"), output.get("max")
+    if not (_number(low) and _number(high)):
+        errors.append(f"{prefix}.output: min and max must be numbers")
+    elif low >= high:
+        errors.append(f"{prefix}.output: output.min must be below output.max")
+    output.setdefault("step", None)
+    output.setdefault("decimals", None)
+    if output["step"] is not None and not (_number(output["step"]) and output["step"] > 0):
+        errors.append(f"{prefix}.output: step must be above 0")
+    result["output"] = output
+
+    direction = raw.get("direction")
+    if direction not in _DIRECTIONS:
+        errors.append(f"{prefix}: direction must be producer or consumer")
+    result["target_w"] = raw.get("target_w", 0)
+    if not _number(result["target_w"]):
+        errors.append(f"{prefix}: target_w must be a number")
+    result["deadband_w"] = raw.get("deadband_w", 20)
+    if not (_number(result["deadband_w"]) and result["deadband_w"] >= 0):
+        errors.append(f"{prefix}: deadband_w must be 0 or more")
+    result["gain"] = raw.get("gain", 0.8)
+    if not (_number(result["gain"]) and 0.1 <= result["gain"] <= 1):
+        errors.append(f"{prefix}: gain must be between 0.1 and 1")
+    result["max_change_w"] = raw.get("max_change_w")
+    if result["max_change_w"] is not None and not (_number(result["max_change_w"]) and result["max_change_w"] > 0):
+        errors.append(f"{prefix}: max_change_w must be above 0")
+    result["interval_s"] = raw.get("interval_s")
+    if result["interval_s"] is not None and not (_number(result["interval_s"]) and 5 <= result["interval_s"] <= 3600):
+        errors.append(f"{prefix}: interval_s must be between 5 and 3600")
+
+    base = dict(_object(raw.get("base"), prefix, "base", errors))
+    source = base.get("source")
+    if source not in _BASE_SOURCES:
+        errors.append(f"{prefix}.base: source must be entity, balance or last")
+    elif source == "entity":
+        if err := validate_subscribe_topic(base.get("topic", "")):
+            errors.append(f"{prefix}.base: {err}")
+        entity_id = base.get("entity_id")
+        if not isinstance(entity_id, str) or not entity_id.strip():
+            errors.append(f"{prefix}.base: entity_id must not be empty")
+        template = base.get("value_template", "")
+        if not isinstance(template, str) or (template and ha_template.parse_value_template(template) is None):
+            errors.append(f"{prefix}.base: value_template is not one of the supported forms")
+        base.setdefault("value_template", "")
+    elif source == "balance" and not is_balance_field(base.get("field")):
+        errors.append(f"{prefix}.base: field must be one of {sorted(BALANCE_FIELDS)} or custom:<id>")
+    result["base"] = base
+
+    fallback = raw.get("fallback")
+    payload = fallback.get("payload") if isinstance(fallback, dict) else None
+    has_payload = isinstance(payload, str) and payload.strip() != ""
+    if direction == "producer" and not has_payload:
+        errors.append(f"{prefix}: fallback.payload is required for a producer")
+    elif fallback is not None and not has_payload:
+        errors.append(f"{prefix}: fallback.payload must be a non-empty string")
+    result["fallback"] = fallback if isinstance(fallback, dict) else None
+    return result
+
+
+def _validate_while(raw, prefix: str, errors: list[str], min_interval: float) -> dict:
+    block = _object(raw, prefix, "while", errors)
+    mode = block.get("mode", "none")
+    if mode not in _WHILE_MODES:
+        errors.append(f"{prefix}: while.mode must be regulate/hold/none")
+        return {"mode": "none"}
+    if mode == "none":
+        return {"mode": "none"}
+    if mode == "regulate":
+        regulator = block.get("regulator")
+        if not isinstance(regulator, dict):
+            errors.append(f"{prefix}: while.regulator is required for mode regulate")
+            return {"mode": mode}
+        return {"mode": mode, "regulator": _validate_regulator(regulator, f"{prefix}.while.regulator", errors)}
+
+    actions = _bounded_list(block.get("actions", []), 1, 8, "actions", f"{prefix}.while", errors)
+    actions = _validate_each(actions, _validate_action, f"{prefix}.while", errors)
+    repeat = block.get("repeat_seconds", 0)
+    if not (_number(repeat) and repeat > 0):
+        errors.append(f"{prefix}.while: repeat_seconds must be above 0 for mode hold")
+    elif repeat < min_interval and any(a.get("type") == "publish" for a in actions):
+        errors.append(f"{prefix}.while: repeat_seconds must be >= {min_interval:g} for a hold with a publish action")
+    for i, action in enumerate(actions):
+        if action.get("type") == "publish" and action.get("payload_source") == "toggle":
+            errors.append(f"{prefix}.while: hold does not allow a toggle action[{i}]")
+            break
+    return {"mode": mode, "actions": actions, "repeat_seconds": repeat}
+
+
+def _validate_scenario(scenario: dict, index: int, errors: list[str], seen_ids: set[str], min_interval: float) -> dict:
+    prefix = f"scenario[{index}]"
+    result = dict(scenario)
+    scenario_id = result.get("id", "")
+    if not _ID_RE.match(str(scenario_id)):
+        errors.append(f"{prefix}: id must match ^[a-z0-9][a-z0-9_-]{{0,63}}$")
+    elif scenario_id in seen_ids:
+        errors.append(f"{prefix}: duplicate id {scenario_id!r}")
+    else:
+        seen_ids.add(scenario_id)
+    name = result.get("name")
+    if not isinstance(name, str) or not name.strip():
+        errors.append(f"{prefix}: name must not be empty")
+    if not isinstance(result.get("enabled"), bool):
+        errors.append(f"{prefix}: enabled must be a boolean")
+    result["history_enabled"] = result.get("history_enabled", False)
+    if not isinstance(result["history_enabled"], bool):
+        errors.append(f"{prefix}: history_enabled must be a boolean")
+
+    when = _object(result.get("when"), prefix, "when", errors)
+    conditions = _bounded_list(when.get("conditions", []), 1, 8, "conditions", f"{prefix}.when", errors)
+    result["when"] = {"conditions": _validate_each(conditions, _validate_condition, f"{prefix}.when", errors)}
+
+    until = result.get("until")
+    if until is None:
+        result["until"] = None
+    else:
+        until_block = _object(until, prefix, "until", errors)
+        conditions = _bounded_list(until_block.get("conditions", []), 1, 8, "conditions", f"{prefix}.until", errors)
+        result["until"] = {"conditions": _validate_each(conditions, _validate_condition, f"{prefix}.until", errors)}
+
+    result["on_start"] = _validate_phase(result.get("on_start"), "on_start", prefix, errors)
+    result["on_end"] = _validate_phase(result.get("on_end"), "on_end", prefix, errors)
+    result["while"] = _validate_while(result.get("while"), prefix, errors, min_interval)
+    return result
+
+
+def _regulated_topic(scenario: dict) -> Optional[str]:
+    while_block = scenario.get("while") or {}
+    if while_block.get("mode") != "regulate":
+        return None
+    output = (while_block.get("regulator") or {}).get("output") or {}
+    topic = output.get("topic")
+    return topic if isinstance(topic, str) and topic else None
+
+
 def load_and_validate(path: str) -> RulesDocument:
     with open(path, "r", encoding="utf-8") as handle:
         try:
@@ -359,10 +545,32 @@ def load_and_validate(path: str) -> RulesDocument:
     seen_ids: set[str] = set()
     rules = [_validate_rule(r, i, errors, seen_ids, settings.publish_min_interval_s) for i, r in enumerate(rules_raw)]
 
+    scenarios_raw = raw.get("scenarios", [])
+    if not isinstance(scenarios_raw, list):
+        errors.append("scenarios must be a list")
+        scenarios_raw = []
+    if len(scenarios_raw) > _SCENARIO_LIMIT:
+        errors.append(f"at most {_SCENARIO_LIMIT} scenarios are allowed")
+    scenarios: list[dict] = []
+    regulated: dict[str, str] = {}
+    for i, scenario_raw in enumerate(scenarios_raw):
+        if not isinstance(scenario_raw, dict):
+            errors.append(f"scenario[{i}]: must be an object")
+            continue
+        scenario = _validate_scenario(scenario_raw, i, errors, seen_ids, settings.publish_min_interval_s)
+        scenarios.append(scenario)
+        topic = _regulated_topic(scenario)
+        if topic is None:
+            continue
+        if topic in regulated:
+            errors.append(f"scenario[{i}]: output.topic is already regulated by scenario {regulated[topic]!r}")
+        else:
+            regulated[topic] = scenario.get("id")
+
     if errors:
         raise RuleValidationError("; ".join(errors))
 
-    return RulesDocument(version=raw["version"], settings=settings, rules=rules)
+    return RulesDocument(version=raw["version"], settings=settings, rules=rules, scenarios=scenarios)
 
 
 def extract_json_value(payload: str, json_key: str) -> Optional[float]:

@@ -551,6 +551,8 @@
   "config.validation.input_check": "Check input ({label}): {error}",
   "dataflow.automation_rules.action_topic": "Action topic",
   "dataflow.automation_rules.condition_topic": "Condition topic",
+  "dataflow.automation_rules.regulator_base": "Actuator reading",
+  "dataflow.automation_rules.regulator_output": "Regulator output",
   "dataflow.automation_rules.source_topic": "Value source topic",
   "dataflow.battery_soc_devices.bank_a_voltage": "Voltage bank A",
   "dataflow.battery_soc_devices.bank_b_voltage": "Voltage bank B",

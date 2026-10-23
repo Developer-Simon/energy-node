@@ -551,6 +551,8 @@
   "config.validation.input_check": "Eingabe prüfen ({label}): {error}",
   "dataflow.automation_rules.action_topic": "Aktions-Topic",
   "dataflow.automation_rules.condition_topic": "Bedingungs-Topic",
+  "dataflow.automation_rules.regulator_base": "Messwert des Stellglieds",
+  "dataflow.automation_rules.regulator_output": "Stellwert des Reglers",
   "dataflow.automation_rules.source_topic": "Topic der Wertquelle",
   "dataflow.battery_soc_devices.bank_a_voltage": "Spannung Bank A",
   "dataflow.battery_soc_devices.bank_b_voltage": "Spannung Bank B",

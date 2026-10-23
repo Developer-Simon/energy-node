@@ -22,6 +22,817 @@
         "longitude": { "type": "number", "minimum": -180, "maximum": 180, "description": "Longitude of the site for sun_window, only together with latitude" }
       }
     },
+    "scenarios": {
+      "type": "array",
+      "maxItems": 8,
+      "description": "Scenarios with start, end and a regulator or hold phase. Their ids share the namespace with rules.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "enabled",
+          "when"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "template": {
+            "type": "string",
+            "description": "Only for display and reopening in the wizard"
+          },
+          "history_enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "when": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "conditions"
+            ],
+            "properties": {
+              "conditions": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "balance_threshold",
+                        "topic_value",
+                        "time_window",
+                        "entity_value",
+                        "sun_window"
+                      ]
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
+                    },
+                    "comparison": {
+                      "type": "string",
+                      "enum": [
+                        "above",
+                        "below",
+                        "equals",
+                        "not_equals"
+                      ]
+                    },
+                    "threshold": {
+                      "type": "number"
+                    },
+                    "hysteresis": {
+                      "type": "number",
+                      "minimum": 0,
+                      "default": 0
+                    },
+                    "hold_seconds": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 86400,
+                      "default": 0
+                    },
+                    "topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "input",
+                        "label": "Condition topic",
+                        "json_key_field": "json_key"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.condition_topic"
+                    },
+                    "json_key": {
+                      "type": "string",
+                      "format": "mqtt-json-key"
+                    },
+                    "entity_id": {
+                      "type": "string"
+                    },
+                    "value_template": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "number"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "start": {
+                      "type": "string"
+                    },
+                    "end": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string",
+                      "enum": [
+                        "sunrise",
+                        "sunset"
+                      ]
+                    },
+                    "to": {
+                      "type": "string",
+                      "enum": [
+                        "sunrise",
+                        "sunset"
+                      ]
+                    },
+                    "from_offset_min": {
+                      "type": "integer",
+                      "minimum": -240,
+                      "maximum": 240,
+                      "default": 0
+                    },
+                    "to_offset_min": {
+                      "type": "integer",
+                      "minimum": -240,
+                      "maximum": 240,
+                      "default": 0
+                    },
+                    "weekdays": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "description": "0 = Monday … 6 = Sunday. Empty means every day. The day on which the window starts counts, even across midnight."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "until": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "conditions"
+            ],
+            "properties": {
+              "conditions": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "balance_threshold",
+                        "topic_value",
+                        "time_window",
+                        "entity_value",
+                        "sun_window"
+                      ]
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
+                    },
+                    "comparison": {
+                      "type": "string",
+                      "enum": [
+                        "above",
+                        "below",
+                        "equals",
+                        "not_equals"
+                      ]
+                    },
+                    "threshold": {
+                      "type": "number"
+                    },
+                    "hysteresis": {
+                      "type": "number",
+                      "minimum": 0,
+                      "default": 0
+                    },
+                    "hold_seconds": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 86400,
+                      "default": 0
+                    },
+                    "topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "input",
+                        "label": "Condition topic",
+                        "json_key_field": "json_key"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.condition_topic"
+                    },
+                    "json_key": {
+                      "type": "string",
+                      "format": "mqtt-json-key"
+                    },
+                    "entity_id": {
+                      "type": "string"
+                    },
+                    "value_template": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "number"
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "start": {
+                      "type": "string"
+                    },
+                    "end": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string",
+                      "enum": [
+                        "sunrise",
+                        "sunset"
+                      ]
+                    },
+                    "to": {
+                      "type": "string",
+                      "enum": [
+                        "sunrise",
+                        "sunset"
+                      ]
+                    },
+                    "from_offset_min": {
+                      "type": "integer",
+                      "minimum": -240,
+                      "maximum": 240,
+                      "default": 0
+                    },
+                    "to_offset_min": {
+                      "type": "integer",
+                      "minimum": -240,
+                      "maximum": 240,
+                      "default": 0
+                    },
+                    "weekdays": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 6
+                      },
+                      "description": "0 = Monday … 6 = Sunday. Empty means every day. The day on which the window starts counts, even across midnight."
+                    }
+                  }
+                }
+              }
+            },
+            "description": "Empty ends the scenario when a when condition is no longer met"
+          },
+          "on_start": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "actions": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "publish",
+                        "notification"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "output",
+                        "label": "Action topic"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.action_topic"
+                    },
+                    "retain": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "payload_source": {
+                      "type": "string",
+                      "enum": [
+                        "constant",
+                        "balance",
+                        "topic",
+                        "toggle"
+                      ]
+                    },
+                    "payload": {
+                      "type": "string"
+                    },
+                    "payload_on": {
+                      "type": "string"
+                    },
+                    "payload_off": {
+                      "type": "string"
+                    },
+                    "value_template": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
+                    },
+                    "source_topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "input",
+                        "label": "Value source topic",
+                        "json_key_field": "source_json_key"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.source_topic"
+                    },
+                    "source_json_key": {
+                      "type": "string",
+                      "format": "mqtt-json-key"
+                    },
+                    "scale": {
+                      "type": "number",
+                      "default": 1
+                    },
+                    "offset": {
+                      "type": "number",
+                      "default": 0
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "step": {
+                      "type": "number"
+                    },
+                    "decimals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "entity_id": {
+                      "type": "string"
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "info",
+                        "warning",
+                        "critical"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "on_end": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "actions": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "publish",
+                        "notification"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "output",
+                        "label": "Action topic"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.action_topic"
+                    },
+                    "retain": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "payload_source": {
+                      "type": "string",
+                      "enum": [
+                        "constant",
+                        "balance",
+                        "topic",
+                        "toggle"
+                      ]
+                    },
+                    "payload": {
+                      "type": "string"
+                    },
+                    "payload_on": {
+                      "type": "string"
+                    },
+                    "payload_off": {
+                      "type": "string"
+                    },
+                    "value_template": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
+                    },
+                    "source_topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "input",
+                        "label": "Value source topic",
+                        "json_key_field": "source_json_key"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.source_topic"
+                    },
+                    "source_json_key": {
+                      "type": "string",
+                      "format": "mqtt-json-key"
+                    },
+                    "scale": {
+                      "type": "number",
+                      "default": 1
+                    },
+                    "offset": {
+                      "type": "number",
+                      "default": 0
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "step": {
+                      "type": "number"
+                    },
+                    "decimals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "entity_id": {
+                      "type": "string"
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "info",
+                        "warning",
+                        "critical"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "while": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "regulate",
+                  "hold",
+                  "none"
+                ],
+                "default": "none"
+              },
+              "regulator": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "output",
+                  "direction",
+                  "base"
+                ],
+                "properties": {
+                  "output": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "topic",
+                      "min",
+                      "max"
+                    ],
+                    "properties": {
+                      "topic": {
+                        "type": "string",
+                        "format": "mqtt-topic",
+                        "x-dataflow": {
+                          "direction": "output",
+                          "label": "Regulator output"
+                        },
+                        "x-dataflow-label-key": "dataflow.automation_rules.regulator_output"
+                      },
+                      "entity_id": {
+                        "type": "string"
+                      },
+                      "min": {
+                        "type": "number"
+                      },
+                      "max": {
+                        "type": "number"
+                      },
+                      "step": {
+                        "type": [
+                          "number",
+                          "null"
+                        ],
+                        "exclusiveMinimum": 0
+                      },
+                      "decimals": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 0,
+                        "maximum": 6
+                      }
+                    }
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "producer",
+                      "consumer"
+                    ],
+                    "description": "producer: feed-in lowers the setpoint (inverter). consumer: feed-in raises it (wallbox, heater)."
+                  },
+                  "target_w": {
+                    "type": "number",
+                    "default": 0
+                  },
+                  "deadband_w": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 20
+                  },
+                  "gain": {
+                    "type": "number",
+                    "minimum": 0.1,
+                    "maximum": 1,
+                    "default": 0.8
+                  },
+                  "max_change_w": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "exclusiveMinimum": 0,
+                    "description": "Largest change per step in W, empty for no limit"
+                  },
+                  "interval_s": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 5,
+                    "maximum": 3600,
+                    "description": "Own step interval, empty uses settings.regulator_interval_s"
+                  },
+                  "base": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "source"
+                    ],
+                    "properties": {
+                      "source": {
+                        "type": "string",
+                        "enum": [
+                          "entity",
+                          "balance",
+                          "last"
+                        ]
+                      },
+                      "field": {
+                        "type": "string",
+                        "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
+                      },
+                      "entity_id": {
+                        "type": "string"
+                      },
+                      "topic": {
+                        "type": "string",
+                        "format": "mqtt-topic",
+                        "x-dataflow": {
+                          "direction": "input",
+                          "label": "Regulator reading"
+                        },
+                        "x-dataflow-label-key": "dataflow.automation_rules.regulator_base"
+                      },
+                      "value_template": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "fallback": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "payload": {
+                        "type": "string"
+                      }
+                    },
+                    "description": "Payload sent while the balance is stale or the reading is missing. Required for a producer."
+                  }
+                }
+              },
+              "actions": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 8,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "required": [
+                    "type"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "publish",
+                        "notification"
+                      ]
+                    },
+                    "topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "output",
+                        "label": "Action topic"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.action_topic"
+                    },
+                    "retain": {
+                      "type": "boolean",
+                      "default": false
+                    },
+                    "payload_source": {
+                      "type": "string",
+                      "enum": [
+                        "constant",
+                        "balance",
+                        "topic",
+                        "toggle"
+                      ]
+                    },
+                    "payload": {
+                      "type": "string"
+                    },
+                    "payload_on": {
+                      "type": "string"
+                    },
+                    "payload_off": {
+                      "type": "string"
+                    },
+                    "value_template": {
+                      "type": "string"
+                    },
+                    "field": {
+                      "type": "string",
+                      "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
+                    },
+                    "source_topic": {
+                      "type": "string",
+                      "format": "mqtt-topic",
+                      "x-dataflow": {
+                        "direction": "input",
+                        "label": "Value source topic",
+                        "json_key_field": "source_json_key"
+                      },
+                      "x-dataflow-label-key": "dataflow.automation_rules.source_topic"
+                    },
+                    "source_json_key": {
+                      "type": "string",
+                      "format": "mqtt-json-key"
+                    },
+                    "scale": {
+                      "type": "number",
+                      "default": 1
+                    },
+                    "offset": {
+                      "type": "number",
+                      "default": 0
+                    },
+                    "min": {
+                      "type": "number"
+                    },
+                    "max": {
+                      "type": "number"
+                    },
+                    "step": {
+                      "type": "number"
+                    },
+                    "decimals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    },
+                    "entity_id": {
+                      "type": "string"
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "info",
+                        "warning",
+                        "critical"
+                      ]
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "description": "Only for mode hold: 1 to 8 actions"
+              },
+              "repeat_seconds": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 86400,
+                "description": "Only for mode hold: the actions repeat while when stays met"
+              }
+            }
+          }
+        }
+      }
+    },
     "rules": {
       "type": "array",
       "maxItems": 16,
