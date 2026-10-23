@@ -8,6 +8,7 @@ Semantik (Halte-/Hysterese-/Sperrzeit, Neustartverhalten, Sicherheit)."""
 from __future__ import annotations
 
 import collections
+import copy
 import datetime
 import json
 import logging
@@ -1074,6 +1075,176 @@ class Engine:
             "fired_at": rt.last_fired_at, "fire_count": rt.fire_count,
             "cooldown_remaining": cooldown_remaining,
             "conditions": conditions, "actions": preview,
+        }
+
+
+@dataclass
+class ScenarioRuntime:
+    phase: str = "idle"
+    since: Optional[float] = None
+    when: list = field(default_factory=list)
+    until: list = field(default_factory=list)
+    definition: Optional[dict] = None
+    last_value: Optional[float] = None
+    last_sent_at: Optional[float] = None
+    last_step_at: Optional[float] = None
+    last_hold_at: Optional[float] = None
+    net: Optional[float] = None
+    error: Optional[float] = None
+    base: Optional[float] = None
+    reason: Optional[str] = None
+
+
+_SCENARIO_ACTIVE_PHASES = ("active", "fallback")
+
+
+class ScenarioEngine:
+    """Zustandsmaschine fuer Szenarien (idle, active, fallback, disabled).
+    Der Zustand lebt nur im RAM, wie bei Engine."""
+
+    def __init__(self, executor: ActionExecutor, *, started_at: float, event_sink, history_sink=None):
+        self.executor = executor
+        self.started_at = started_at
+        self.event_sink = event_sink
+        self.history_sink = history_sink
+        self._runtime: dict[str, ScenarioRuntime] = {}
+
+    def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
+             topic_values: dict, now_ts: float) -> dict:
+        settling = (now_ts - self.started_at) < doc.settings.settling_seconds
+        balance_stale = balance_age is None or balance_age > doc.settings.balance_max_age_s
+        effective_balance = None if balance_stale else balance
+        location = doc.settings.location
+        ctx = {"balance": effective_balance, "topic_values": topic_values}
+
+        results = {}
+        seen = set()
+        for scenario in doc.scenarios:
+            sid = scenario["id"]
+            seen.add(sid)
+            rt = self._runtime.setdefault(sid, ScenarioRuntime())
+
+            if not scenario["enabled"]:
+                if rt.phase in _SCENARIO_ACTIVE_PHASES:
+                    self._end(sid, rt, **ctx)
+                rt.phase = "disabled"
+                rt.reason = None
+                rt.when = []
+                rt.until = []
+                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
+            else:
+                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
+                self._advance(sid, scenario, rt, when_eval, until_eval, settling=settling, now_ts=now_ts, **ctx)
+
+            results[sid] = self._report(rt, scenario, when_eval, until_eval)
+
+        for sid in list(self._runtime):
+            if sid in seen:
+                continue
+            rt = self._runtime.pop(sid)
+            if rt.phase in _SCENARIO_ACTIVE_PHASES:
+                self._end(sid, rt, **ctx)
+        return results
+
+    def _evaluate(self, scenario: dict, rt: ScenarioRuntime, *, balance, topic_values, now_ts, location):
+        when_conditions = scenario["when"]["conditions"]
+        while len(rt.when) < len(when_conditions):
+            rt.when.append(ConditionRuntime())
+        when_eval = evaluate_conditions(when_conditions, rt.when, balance=balance, topic_values=topic_values,
+                                        now_ts=now_ts, location=location)
+        until_eval = None
+        if scenario["until"] is None:
+            rt.until = []
+        else:
+            until_conditions = scenario["until"]["conditions"]
+            while len(rt.until) < len(until_conditions):
+                rt.until.append(ConditionRuntime())
+            until_eval = evaluate_conditions(until_conditions, rt.until, balance=balance,
+                                             topic_values=topic_values, now_ts=now_ts, location=location)
+        return when_eval, until_eval
+
+    def _advance(self, sid: str, scenario: dict, rt: ScenarioRuntime, when_eval, until_eval, *,
+                 settling: bool, now_ts: float, balance, topic_values) -> None:
+        ctx = {"balance": balance, "topic_values": topic_values}
+        if rt.phase not in _SCENARIO_ACTIVE_PHASES:
+            rt.reason = None
+            if settling:
+                rt.reason = "settling"
+            elif when_eval.saw_stale:
+                rt.reason = "balance_stale"
+            elif when_eval.all_held:
+                self._start(sid, scenario, rt, now_ts=now_ts, **ctx)
+                self._run_while(scenario, rt, now_ts=now_ts, **ctx)
+            return
+
+        if until_eval is None:
+            ends = not when_eval.all_raw and not when_eval.saw_stale
+        else:
+            ends = until_eval.all_held
+        if ends:
+            self._end(sid, rt, **ctx)
+            return
+        rt.reason = None
+        self._run_while(scenario, rt, now_ts=now_ts, **ctx)
+
+    def _start(self, sid: str, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values) -> None:
+        rt.phase = "active"
+        rt.since = now_ts
+        rt.last_hold_at = None
+        rt.definition = copy.deepcopy(scenario)
+        outcomes = self._run_actions(scenario["on_start"]["actions"], balance=balance, topic_values=topic_values)
+        self._record(sid, "started", outcomes)
+
+    def _end(self, sid: str, rt: ScenarioRuntime, *, balance, topic_values) -> None:
+        on_end = (rt.definition or {}).get("on_end", {"actions": []})
+        outcomes = self._run_actions(on_end["actions"], balance=balance, topic_values=topic_values)
+        self._record(sid, "ended", outcomes)
+        rt.phase = "idle"
+        rt.since = None
+        rt.definition = None
+        rt.last_value = None
+        rt.last_step_at = None
+        rt.last_hold_at = None
+        rt.when = []
+        rt.until = []
+
+    def _run_while(self, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values) -> None:
+        while_block = scenario["while"]
+        if while_block["mode"] == "hold":
+            if rt.last_hold_at is None or now_ts - rt.last_hold_at >= while_block["repeat_seconds"]:
+                rt.last_hold_at = now_ts
+                self._run_actions(while_block["actions"], balance=balance, topic_values=topic_values)
+        # mode "regulate" is filled in by the regulator step (Task 6).
+
+    def _run_actions(self, actions: list, *, balance, topic_values) -> list[dict]:
+        outcomes = []
+        for action in actions:
+            try:
+                outcome = self.executor.execute(action, balance=balance, topic_values=topic_values,
+                                                event_sink=self.event_sink)
+            except Exception as exc:  # noqa: BLE001 - a broker/publish failure must not crash the tick
+                outcome = {"blocked": True, "reason": str(exc)}
+            outcomes.append({**outcome, "type": action["type"]})
+        return outcomes
+
+    def _record(self, sid: str, result: str, outcomes: list) -> None:
+        if self.history_sink is not None:
+            self.history_sink(sid, {"result": result, "reason": None, "test": False, "actions": outcomes})
+
+    @staticmethod
+    def _report(rt: ScenarioRuntime, scenario: dict, when_eval, until_eval) -> dict:
+        return {
+            "enabled": scenario["enabled"],
+            "phase": rt.phase,
+            "since": rt.since,
+            "net": rt.net,
+            "error": rt.error,
+            "output": rt.last_value if rt.phase in _SCENARIO_ACTIVE_PHASES else None,
+            "base": rt.base,
+            "last_sent_at": rt.last_sent_at,
+            "reason": rt.reason,
+            "when": when_eval.reports,
+            "until": until_eval.reports if until_eval is not None else [],
         }
 
 

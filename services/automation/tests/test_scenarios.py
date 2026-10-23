@@ -164,3 +164,161 @@ def test_regulate_with_entity_base_needs_a_valid_topic(tmp_path):
 def test_a_document_without_scenarios_still_loads(tmp_path):
     doc = load(tmp_path, doc_with(rules=[rule()]))
     assert doc.scenarios == []
+
+
+def publish_action(payload):
+    return {"type": "publish", "topic": "werkstatt/x/set", "payload_source": "constant", "payload": payload}
+
+
+def threshold_condition(comparison="above", threshold=500, field_name="grid_export", hold_seconds=0):
+    return {"type": "balance_threshold", "field": field_name, "comparison": comparison,
+            "threshold": threshold, "hysteresis": 0, "hold_seconds": hold_seconds}
+
+
+def scenario_def(**overrides):
+    raw = {
+        "id": "x",
+        "name": "X",
+        "enabled": True,
+        "when": {"conditions": [threshold_condition()]},
+        "on_start": {"actions": [publish_action("start")]},
+        "on_end": {"actions": [publish_action("end")]},
+        "while": {"mode": "none"},
+    }
+    raw.update(overrides)
+    return raw
+
+
+def normalized(raw):
+    errors = []
+    result = automation._validate_scenario(raw, 0, errors, set(), 30)
+    assert not errors
+    return result
+
+
+def scenario_engine_with(scenarios, settings=None, started_at=0.0, history_sink=None):
+    doc = automation.RulesDocument(version=1, settings=settings or automation.Settings(settling_seconds=0),
+                                   rules=[], scenarios=scenarios)
+    published = []
+    events = []
+    executor = automation.ActionExecutor(publish_fn=lambda t, p, r: published.append((t, p, r)),
+                                          publish_allowed_prefixes=["werkstatt/"])
+    engine = automation.ScenarioEngine(executor, started_at=started_at, event_sink=events.append,
+                                       history_sink=history_sink)
+    return doc, engine, published, events
+
+
+def payloads(published):
+    return [payload for _topic, payload, _retain in published]
+
+
+def tick(engine, doc, now_ts, grid_export=900, balance_age=0):
+    return engine.tick(doc, balance={"grid_export": grid_export}, balance_age=balance_age,
+                       topic_values={}, now_ts=now_ts)
+
+
+def test_scenario_starts_once_and_runs_on_start():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def())])
+    tick(engine, doc, 1000)
+    report = tick(engine, doc, 1010)
+    assert payloads(published) == ["start"]
+    assert report["x"]["phase"] == "active"
+
+
+def test_scenario_ends_when_a_when_condition_drops():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def())])
+    tick(engine, doc, 1000)
+    report = tick(engine, doc, 1010, grid_export=0)
+    assert payloads(published) == ["start", "end"]
+    assert report["x"]["phase"] == "idle"
+
+
+def test_until_keeps_the_scenario_running_until_it_holds():
+    until = {"conditions": [threshold_condition(comparison="below", threshold=100, field_name="grid_export",
+                                                hold_seconds=300)]}
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(until=until))])
+    tick(engine, doc, 1000, grid_export=900)
+    tick(engine, doc, 1010, grid_export=300)
+    assert payloads(published) == ["start"]
+    tick(engine, doc, 1020, grid_export=50)
+    tick(engine, doc, 1319, grid_export=50)
+    assert payloads(published) == ["start"]
+    report = tick(engine, doc, 1320, grid_export=50)
+    assert payloads(published) == ["start", "end"]
+    assert report["x"]["phase"] == "idle"
+
+
+def test_settling_delays_the_start():
+    settings = automation.Settings(settling_seconds=60)
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def())], settings=settings,
+                                                     started_at=1000)
+    report = tick(engine, doc, 1030)
+    assert report["x"]["phase"] == "idle"
+    assert report["x"]["reason"] == "settling"
+    report = tick(engine, doc, 1061)
+    assert report["x"]["phase"] == "active"
+    assert payloads(published) == ["start"]
+
+
+def test_stale_balance_neither_starts_nor_ends():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def())])
+    tick(engine, doc, 1000)
+    report = tick(engine, doc, 1010, balance_age=999)
+    assert report["x"]["phase"] == "active"
+    assert payloads(published) == ["start"]
+
+
+def test_disabling_an_active_scenario_runs_on_end():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def())])
+    tick(engine, doc, 1000)
+    doc.scenarios = [normalized(scenario_def(enabled=False))]
+    report = tick(engine, doc, 1010)
+    assert payloads(published) == ["start", "end"]
+    assert report["x"]["phase"] == "disabled"
+
+
+def test_removing_an_active_scenario_runs_on_end_once():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def())])
+    tick(engine, doc, 1000)
+    doc.scenarios = []
+    tick(engine, doc, 1010)
+    tick(engine, doc, 1020)
+    assert payloads(published) == ["start", "end"]
+
+
+def test_hold_repeats_its_actions():
+    hold = {"mode": "hold", "actions": [publish_action("on")], "repeat_seconds": 60}
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(**{"while": hold}))])
+    tick(engine, doc, 1000)
+    assert payloads(published) == ["start", "on"]
+    tick(engine, doc, 1030)
+    assert payloads(published) == ["start", "on"]
+    tick(engine, doc, 1060)
+    assert payloads(published) == ["start", "on", "on"]
+
+
+def test_history_events_for_start_and_end():
+    history = []
+    doc, engine, _, _ = scenario_engine_with([normalized(scenario_def())],
+                                             history_sink=lambda sid, event: history.append((sid, event)))
+    tick(engine, doc, 1000)
+    tick(engine, doc, 1010, grid_export=0)
+    assert [(sid, event["result"]) for sid, event in history] == [("x", "started"), ("x", "ended")]
+    started = history[0][1]
+    assert started["reason"] is None
+    assert started["test"] is False
+    assert started["actions"][0]["type"] == "publish"
+    assert started["actions"][0]["topic"] == "werkstatt/x/set"
+
+
+def test_engine_condition_reports_are_unchanged():
+    executor = automation.ActionExecutor(publish_fn=lambda *args: None, publish_allowed_prefixes=[])
+    engine = automation.Engine(executor, started_at=0, event_sink=lambda message: None)
+    doc = automation.RulesDocument(
+        version=1,
+        settings=automation.Settings(settling_seconds=0, balance_max_age_s=30),
+        rules=[{"id": "r1", "name": "R", "enabled": True, "cooldown_seconds": 300,
+                "conditions": [threshold_condition()],
+                "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]}])
+    results = engine.tick(doc, balance={"grid_export": 620}, balance_age=1, topic_values={}, now_ts=1000)
+    assert set(results["r1"]["conditions"][0]) == {"met", "raw_met", "value", "target", "since", "hold_remaining"}
