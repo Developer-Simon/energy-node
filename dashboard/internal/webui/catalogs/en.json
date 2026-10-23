@@ -67,6 +67,8 @@
   "automations.add_rule_button.tooltip": "Create a new rule",
   "automations.add_scenario_button.label": "New scenario",
   "automations.add_scenario_button.tooltip": "Create a new scenario",
+  "automations.assistant.device.already_regulated": "Already regulated by {name}",
+  "automations.assistant.device.no_limit": "No power limit set",
   "automations.badge.balance_stale": "Balance stale",
   "automations.badge.blocked": "Blocked",
   "automations.badge.cooldown": "Cooldown",

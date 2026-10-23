@@ -67,6 +67,8 @@
   "automations.add_rule_button.tooltip": "Neue Regel anlegen",
   "automations.add_scenario_button.label": "Neues Szenario",
   "automations.add_scenario_button.tooltip": "Neues Szenario anlegen",
+  "automations.assistant.device.already_regulated": "Wird bereits von {name} geregelt",
+  "automations.assistant.device.no_limit": "Keine Leistungsgrenze hinterlegt",
   "automations.badge.balance_stale": "Bilanz veraltet",
   "automations.badge.blocked": "Blockiert",
   "automations.badge.cooldown": "Sperrzeit",
