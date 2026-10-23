@@ -26,7 +26,8 @@
     version: 1,
     settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
                 history_limit: 10, history_persist: true,
-                publish_allowed_prefixes: [], publish_allowed_prefixes_auto: false },
+                publish_allowed_prefixes: [], publish_allowed_prefixes_auto: false,
+                publish_min_interval_s: 30, regulator_interval_s: 10 },
     rules: [],
   });
 
@@ -846,18 +847,37 @@
       return key ? t(key) : result;
     },
 
+    // Kleinster Abstand fuer Befehle, vom Dienst mit dem Standard 30 s vorgegeben.
+    minPublishInterval() {
+      const configured = this.document.settings && this.document.settings.publish_min_interval_s;
+      return isNumber(configured) ? configured : 30;
+    },
+
+    hasToggleAction(rule) {
+      return (rule.actions || []).some((action) => action.type === 'publish' && action.payload_source === 'toggle');
+    },
+
     validateRuleBeforeSave(rule) {
       const errors = [];
       if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(rule.id || '')) errors.push(t('automations.validation.invalid_id', { name: rule.name }));
       if (!rule.conditions || rule.conditions.length < 1 || rule.conditions.length > 8) errors.push(t('automations.validation.condition_count', { name: rule.name }));
       if (!rule.actions || rule.actions.length < 1 || rule.actions.length > 8) errors.push(t('automations.validation.action_count', { name: rule.name }));
       const hasPublish = (rule.actions || []).some((action) => action.type === 'publish');
+      const minimum = this.minPublishInterval();
+      const repeat = rule.repeat_seconds || 0;
       if (hasPublish) {
-        if ((rule.cooldown_seconds || 0) < 30) errors.push(t('automations.validation.cooldown_too_short', { name: rule.name }));
+        if ((rule.cooldown_seconds || 0) < minimum) errors.push(t('automations.validation.cooldown_too_short', { name: rule.name, min: minimum }));
         for (const condition of rule.conditions || []) {
-          if ('hold_seconds' in condition && condition.hold_seconds < 30) {
-            errors.push(t('automations.validation.hold_seconds_too_short', { name: rule.name }));
+          if ('hold_seconds' in condition && condition.hold_seconds < minimum) {
+            errors.push(t('automations.validation.hold_seconds_too_short', { name: rule.name, min: minimum }));
           }
+        }
+      }
+      if (repeat > 0) {
+        if (this.hasToggleAction(rule)) {
+          errors.push(t('automations.validation.repeat_with_toggle', { name: rule.name }));
+        } else if (hasPublish && repeat < minimum) {
+          errors.push(t('automations.validation.repeat_too_short', { name: rule.name, min: minimum }));
         }
       }
       for (const condition of rule.conditions || []) {

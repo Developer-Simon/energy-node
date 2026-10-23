@@ -196,6 +196,63 @@ test('client-side validation does not require hold_seconds >= 30 for notificatio
   assert.deepEqual(JSON.parse(JSON.stringify(component.validateRuleBeforeSave(rule))), []);
 });
 
+test('client-side validation uses the configured publish minimum', () => {
+  const { component } = createAutomationsPanel();
+  const publish = { type: 'publish', topic: 'werkstatt/x/set', retain: false, payload_source: 'constant', payload: '1' };
+  component.document.settings.publish_min_interval_s = 10;
+  const atMinimum = {
+    id: 'r1', name: 'A', enabled: true, cooldown_seconds: 10,
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 10 }],
+    actions: [publish],
+  };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.validateRuleBeforeSave(atMinimum))), []);
+  component.document.settings.publish_min_interval_s = 60;
+  const belowMinimum = {
+    id: 'r1', name: 'A', enabled: true, cooldown_seconds: 30,
+    conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }],
+    actions: [publish],
+  };
+  const errors = component.validateRuleBeforeSave(belowMinimum);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].includes('60'));
+});
+
+test('client-side validation blocks repeat with a toggle action', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A', enabled: true, cooldown_seconds: 60, repeat_seconds: 60,
+    conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }],
+    actions: [{ type: 'publish', topic: 'werkstatt/x/set', retain: false, payload_source: 'toggle' }],
+  };
+  const errors = component.validateRuleBeforeSave(rule);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].includes('Umschalten'));
+  rule.repeat_seconds = 0;
+  assert.deepEqual(JSON.parse(JSON.stringify(component.validateRuleBeforeSave(rule))), []);
+});
+
+test('client-side validation blocks repeat below the publish minimum on a publishing rule', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A', enabled: true, cooldown_seconds: 60, repeat_seconds: 20,
+    conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }],
+    actions: [{ type: 'publish', topic: 'werkstatt/x/set', retain: false, payload_source: 'constant', payload: '1' }],
+  };
+  const errors = component.validateRuleBeforeSave(rule);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].includes('repeat_seconds'));
+  rule.repeat_seconds = 30;
+  assert.deepEqual(JSON.parse(JSON.stringify(component.validateRuleBeforeSave(rule))), []);
+});
+
+test('hasToggleAction detects a toggle publish action', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.hasToggleAction({ actions: [{ type: 'publish', payload_source: 'toggle' }] }), true);
+  assert.equal(component.hasToggleAction({ actions: [{ type: 'publish', payload_source: 'constant' }] }), false);
+  assert.equal(component.hasToggleAction({ actions: [{ type: 'notification' }] }), false);
+  assert.equal(component.hasToggleAction({}), false);
+});
+
 test('the view helpers load on their own, without the page', () => {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
@@ -759,6 +816,27 @@ test('save() stores exactly the typed prefixes and clears the auto flag', async 
   await component.save();
   assert.deepEqual(sentBody.settings.publish_allowed_prefixes, ['werkstatt/']);
   assert.equal(sentBody.settings.publish_allowed_prefixes_auto, false);
+});
+
+test('save keeps scenarios in the document', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [{ id: 'nulleinspeisung' }],
+  };
+  component.csrfToken = 'tok';
+  component.pollRuntimeStatus = async () => {};
+  let sentBody;
+  window.fetch = async (url, options) => {
+    if (options && options.method === 'PUT') { sentBody = JSON.parse(options.body); return { ok: true, json: async () => ({}) }; }
+    if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+    return { ok: true, json: async () => ({}) };
+  };
+  await component.save();
+  assert.deepEqual(JSON.parse(JSON.stringify(sentBody.scenarios)), [{ id: 'nulleinspeisung' }]);
 });
 
 test('load() displays an empty prefix field even though the auto-filled list is stored', async () => {

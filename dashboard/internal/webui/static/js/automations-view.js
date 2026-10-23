@@ -133,7 +133,7 @@
       hint: 'automations.action_type.mqtt.hint' },
   ];
 
-  // i18n-keys: automations.field_help.balance_max_age_s, automations.field_help.cooldown_seconds, automations.field_help.history_enabled, automations.field_help.history_limit, automations.field_help.history_persist, automations.field_help.hold_seconds, automations.field_help.hysteresis, automations.field_help.json_key, automations.field_help.location, automations.field_help.offset, automations.field_help.payload, automations.field_help.publish_allowed_prefixes, automations.field_help.retain, automations.field_help.scale, automations.field_help.settling_seconds, automations.field_help.tick_interval_s, automations.field_help.topic
+  // i18n-keys: automations.field_help.balance_max_age_s, automations.field_help.cooldown_seconds, automations.field_help.history_enabled, automations.field_help.history_limit, automations.field_help.history_persist, automations.field_help.hold_seconds, automations.field_help.hysteresis, automations.field_help.json_key, automations.field_help.location, automations.field_help.offset, automations.field_help.payload, automations.field_help.publish_allowed_prefixes, automations.field_help.publish_min_interval_s, automations.field_help.regulator_interval_s, automations.field_help.repeat_seconds, automations.field_help.retain, automations.field_help.scale, automations.field_help.settling_seconds, automations.field_help.tick_interval_s, automations.field_help.topic
   // Die Erklaerungen zu den Fachbegriffen. Die Begriffe selbst bleiben in der
   // Oberflaeche stehen, damit sie in der Doku und in der rules.json
   // wiederzufinden sind - erklaert wird daneben.
@@ -145,6 +145,9 @@
     settling_seconds: 'automations.field_help.settling_seconds',
     balance_max_age_s: 'automations.field_help.balance_max_age_s',
     publish_allowed_prefixes: 'automations.field_help.publish_allowed_prefixes',
+    publish_min_interval_s: 'automations.field_help.publish_min_interval_s',
+    regulator_interval_s: 'automations.field_help.regulator_interval_s',
+    repeat_seconds: 'automations.field_help.repeat_seconds',
     history_limit: 'automations.field_help.history_limit',
     history_enabled: 'automations.field_help.history_enabled',
     location: 'automations.field_help.location',
