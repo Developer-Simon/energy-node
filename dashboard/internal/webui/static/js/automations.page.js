@@ -545,6 +545,13 @@
       return (states && states[scenario.id]) || null;
     },
 
+    // Bericht einer Bedingungszeile der Start- (when) oder Endphase (until).
+    scenarioConditionReport(scenario, block, index) {
+      const state = this.scenarioState(scenario);
+      const reports = state && state[block];
+      return (Array.isArray(reports) && reports[index]) || null;
+    },
+
     scenarioStatus(scenario) {
       return window.__automationScenario.scenarioStatus(scenario, this.scenarioState(scenario), this.online, this.nowTick / 1000);
     },
@@ -1225,6 +1232,60 @@
       const current = scenario.while;
       if (!current || current.mode !== 'regulate' || !current.regulator || !current.regulator.output) return null;
       return current.regulator.output.topic || null;
+    },
+
+    // Stellglieder fuer den Regler: steuerbare Zahlen-Entitaeten mit Grenzen.
+    regulatorOutputEntities() {
+      return (this.entities || []).filter((entity) => isNumber(entity.min_value) && isNumber(entity.max_value));
+    },
+
+    // Das Stellglied uebernimmt Topic und Grenzen. Beim Wechselrichter ist der
+    // Ersatzwert Pflicht, er kommt als Hoechstwert des Stellglieds.
+    setRegulatorOutput(scenario, uniqueId) {
+      const entity = this.entityByUniqueId(uniqueId);
+      const regulator = scenario.while && scenario.while.regulator;
+      if (!entity || !regulator) return;
+      const output = { topic: entity.command_topic, entity_id: entity.unique_id, min: entity.min_value, max: entity.max_value };
+      if (isNumber(entity.step)) output.step = entity.step;
+      regulator.output = output;
+      if (regulator.direction === 'producer') regulator.fallback = { payload: String(entity.max_value) };
+    },
+
+    // Die Basis kommt von einem Geraet (entity), aus der Bilanz (balance)
+    // oder vom zuletzt gesendeten Stellwert (last).
+    setRegulatorBase(scenario, source, uniqueId) {
+      const regulator = scenario.while && scenario.while.regulator;
+      if (!regulator) return;
+      if (source === 'entity') {
+        const entity = (this.readableEntities || []).find((candidate) => candidate.unique_id === uniqueId);
+        if (!entity) return;
+        regulator.base = { source, entity_id: entity.unique_id, topic: entity.state_topic, value_template: entity.value_template || '' };
+      } else if (source === 'balance') {
+        regulator.base = { source, field: 'pv' };
+      } else {
+        regulator.base = { source: 'last' };
+      }
+    },
+
+    // Der Ersatzwert bleibt beim Wechsel zum Verbraucher stehen, er ist dort
+    // nur optional. Fehlt er beim Wechsel zum Wechselrichter, kommt der Hoechstwert.
+    setRegulatorDirection(scenario, direction) {
+      const regulator = scenario.while && scenario.while.regulator;
+      if (!regulator || !['producer', 'consumer'].includes(direction)) return;
+      regulator.direction = direction;
+      const hasFallback = Boolean(regulator.fallback && regulator.fallback.payload);
+      if (direction === 'producer' && !hasFallback && isNumber(regulator.output && regulator.output.max)) {
+        regulator.fallback = { payload: String(regulator.output.max) };
+      }
+    },
+
+    // Schalter "Eigene Endbedingung" und Moduswahl "Regeln, Halten, Nichts".
+    toggleUntil(scenario, on) {
+      window.__automationScenario.setUntil(scenario, on);
+    },
+
+    changeWhileMode(scenario, mode) {
+      window.__automationScenario.setWhileMode(scenario, mode);
     },
 
     validateDocumentBeforeSave() {

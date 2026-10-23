@@ -2016,3 +2016,120 @@ test('a consumer regulator reports its direction so the card takes the consumer 
   assert.equal(component.regulatorFigures(consumer).direction, 'consumer');
   assert.equal(component.regulatorFigures(regulatorScenario('b')).direction, 'producer');
 });
+
+// --- Szenario-Regler und Phasen bearbeiten (Task 8a) ---------------------
+
+const regulatorEditScenario = () => ({
+  id: 's1', name: 'Regler', enabled: false,
+  when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 }] },
+  on_start: { actions: [] },
+  while: { mode: 'regulate', regulator: {
+    output: { topic: 'werkstatt/x/set', min: 0, max: 800 },
+    direction: 'producer', target_w: 0, base: { source: 'last' }, fallback: { payload: '800' },
+  } },
+  on_end: { actions: [] },
+});
+
+test('setRegulatorOutput takes topic and bounds from the entity and seeds the fallback', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [{ unique_id: 'heizstab', command_topic: 'werkstatt/heizstab/set', min_value: 0, max_value: 3000, step: 1 }];
+  const scenario = regulatorEditScenario();
+  component.setRegulatorOutput(scenario, 'heizstab');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.output)),
+    { topic: 'werkstatt/heizstab/set', entity_id: 'heizstab', min: 0, max: 3000, step: 1 });
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.fallback)), { payload: '3000' });
+});
+
+test('regulatorOutputEntities keeps only entities with numeric bounds', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [
+    { unique_id: 'heizstab', min_value: 0, max_value: 3000 },
+    { unique_id: 'schalter', payload_on: 'ON', payload_off: 'OFF' },
+    { unique_id: 'halb', min_value: 0 },
+  ];
+  assert.deepEqual(component.regulatorOutputEntities().map((entity) => entity.unique_id), ['heizstab']);
+});
+
+test('setRegulatorBase entity copies topic and template', () => {
+  const { component } = createAutomationsPanel();
+  component.readableEntities = [{ unique_id: 'pv_inv', state_topic: 'werkstatt/pv/state', value_template: '{{ value_json.power }}' }];
+  const scenario = regulatorEditScenario();
+  component.setRegulatorBase(scenario, 'entity', 'pv_inv');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.base)),
+    { source: 'entity', entity_id: 'pv_inv', topic: 'werkstatt/pv/state', value_template: '{{ value_json.power }}' });
+  component.setRegulatorBase(scenario, 'balance');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.base)), { source: 'balance', field: 'pv' });
+  component.setRegulatorBase(scenario, 'last');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.base)), { source: 'last' });
+});
+
+test('setRegulatorDirection keeps the fallback for consumers and seeds it for producers', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  component.setRegulatorDirection(scenario, 'consumer');
+  assert.equal(scenario.while.regulator.direction, 'consumer');
+  assert.equal(scenario.while.regulator.fallback.payload, '800');
+  scenario.while.regulator.fallback = undefined;
+  component.setRegulatorDirection(scenario, 'producer');
+  assert.equal(scenario.while.regulator.fallback.payload, '800');
+});
+
+test('turning the end condition off leaves no until key', async () => {
+  const { component, window } = createAutomationsPanel();
+  const scenario = { ...regulatorEditScenario(), while: { mode: 'none' },
+    until: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 }] } };
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [scenario],
+  };
+  component.toggleUntil(scenario, false);
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.ok(sent.body, 'the save must reach the server');
+  assert.equal('until' in JSON.parse(sent.body).scenarios[0], false);
+});
+
+test('switching while mode to hold starts with a 60 s repeat', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { ...regulatorEditScenario() };
+  component.changeWhileMode(scenario, 'hold');
+  assert.equal(scenario.while.mode, 'hold');
+  assert.equal(scenario.while.repeat_seconds, 60);
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.actions)), []);
+});
+
+test('scenario condition rows read reports from the scenario state', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  const report = { met: true, raw_met: true, value: 120, target: 100, since: 1, hold_remaining: 0 };
+  component.runtimeState = { rules: {}, scenarios: { s1: { when: [report], until: [] } } };
+  assert.equal(component.scenarioConditionReport(scenario, 'when', 0), report);
+  assert.equal(component.scenarioConditionReport(scenario, 'until', 0), null);
+  assert.equal(component.scenarioConditionReport(scenario, 'when', 3), null);
+});
+
+test('the editor keeps default fine tuning out of the saved document', async () => {
+  const { component, window } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  scenario.while.regulator.gain = 0.8;
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [scenario],
+  };
+  let sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, undefined);
+  scenario.while.regulator.gain = 0.5;
+  sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, 0.5);
+});
