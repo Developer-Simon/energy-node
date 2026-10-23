@@ -111,6 +111,12 @@
     open: false, templateId: '', answers: {}, index: 0, name: '', query: '', category: 'all', context: null, effects: {},
   });
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
+  // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
+  const ASSIST_DEVICE_ICONS = { inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch' };
+  const ASSIST_TILE_ICONS = {
+    sun: 'ico-sun', min: 'ico-clock', battery: 'ico-battery', always: 'ico-play', fixed: 'ico-calendar',
+    import: 'ico-grid', runtime: 'ico-clock', sunset: 'ico-sun', info: 'ico-info', warning: 'ico-warning', critical: 'ico-bell',
+  };
 
   const automationsPanel = () => ({
     ...window.DevicePicker.mixin(),
@@ -1182,6 +1188,73 @@
       if (!built || this.assistantFull(built.kind)) return;
       this.insertEntry(built.kind, built.entry);
       this.closeAssistant();
+    },
+
+    // Anzeige-Helfer des Assistenten-Markups: Texte aus dem Katalog, Symbole,
+    // Sperren mit Grund und Voreinstellungen.
+    assistantCopy(template, path) {
+      return template ? t(`automations.templates.${template.id}.${path}`) : '';
+    },
+
+    assistantStepText(step, field) {
+      if (!step) return '';
+      if (step.id === 'summary') return t('automations.assistant.summary.short');
+      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.${field}`);
+    },
+
+    assistantOptionText(step, option, field) {
+      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.options.${option.id}.${field}`);
+    },
+
+    assistantCategories() {
+      return ['all', ...window.__automationWizard.CATEGORIES];
+    },
+
+    assistantCategoryLabel(category) {
+      return t(`automations.assistant.category.${category}`);
+    },
+
+    assistantAvailability(template) {
+      return window.__automationWizard.templateAvailability(template, this.assistant.context);
+    },
+
+    assistantReason(step, option) {
+      return window.__automationWizard.optionUnavailable(option, this.assistant.context, this.assistant.answers);
+    },
+
+    assistantDeviceIcon(step) {
+      const role = typeof step.filter === 'string' ? step.filter : step.filter.role;
+      return ASSIST_DEVICE_ICONS[role] || 'ico-device';
+    },
+
+    assistantTileIcon(option) {
+      return ASSIST_TILE_ICONS[option.id] || 'ico-flash';
+    },
+
+    // Waehlt einen Wert; bei Voreinstellungen wird die Wirkung neu berechnet.
+    assistantPick(step, value) {
+      this.assistant.answers[step.id] = value;
+      this.refreshEffect(step);
+    },
+
+    assistantIsCustom(step) {
+      return !step.options.some((option) => option.id === this.assistant.answers[step.id]);
+    },
+
+    // Eigener Wert: der naechste Wert ueber dem aktuellen, der keine Voreinstellung ist.
+    assistantCustom(step) {
+      let value = Number(this.assistant.answers[step.id]) || 0;
+      while (step.options.some((option) => option.id === value)) value += 5;
+      this.assistantPick(step, value);
+    },
+
+    assistantBackLabel() {
+      if (this.assistant.index === 0) return t('automations.assistant.gallery');
+      return this.assistantStepText(this.assistantSteps()[this.assistant.index - 1], 'short');
+    },
+
+    assistantNextLabel() {
+      return this.assistantStepText(this.assistantSteps()[this.assistant.index + 1], 'short');
     },
 
     // Gemeinsamer Kern fuer neue Regeln und Szenarien: anlegen, als neu

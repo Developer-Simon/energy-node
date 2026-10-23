@@ -1442,6 +1442,24 @@ func TestAutomationsPanelLoadsItsOwnStylesheet(t *testing.T) {
 	}
 }
 
+// TestAutomationsPanelShipsTheAssistantDialog haelt fest, dass der Vorlagen-
+// Assistent als Dialog im Panel steht und ueber den Kopfknopf oeffnet.
+func TestAutomationsPanelShipsTheAssistantDialog(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`<dialog`, `x-ref="assistantDialog"`, `class="auto-assist"`, `class="auto-assist-sheet"`,
+		`x-ref="assistantSearch"`, `x-on:click="openAssistant()"`,
+		`x-on:close="`, `closeAssistant()`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+}
+
 // TestOverviewEmbedsEnergySnapshotOnce haelt fest, dass der Energie-
 // Schnappschuss genau einmal im Fragment steht. Vorher trug ihn jede der
 // sieben Energiekarten separat - identischer Inhalt, 26,6 KB von 56,3 KB

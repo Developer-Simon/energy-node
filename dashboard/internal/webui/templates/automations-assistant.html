@@ -1,0 +1,230 @@
+{{define "automations-assistant"}}
+{{/* Vorlagen-Assistent als Dialog. Zustand und Schritte liegen in automations.page.js
+     (assistant, openAssistant, assistantNext, ...). Jeder Baustein ist ein eigenes
+     x-if mit genau einem Wurzelelement, Alpine verwirft sonst Geschwister still. */}}
+<dialog x-ref="assistantDialog" class="auto-assist" aria-label="{{t "automations.assistant.title"}}"
+        x-on:close="!$refs.assistantDialog.open && closeAssistant()"
+        x-on:click="$event.target === $el && closeAssistant()">
+  <div class="auto-assist-sheet">
+
+    <template x-if="!assistant.templateId">
+      <div class="auto-assist-step auto-assist-gallery">
+        <div class="auto-assist-head">
+          <span class="auto-assist-spacer" aria-hidden="true"></span>
+          <h2 class="auto-assist-title" id="auto-assist-title">{{t "automations.assistant.title"}}</h2>
+          <div class="auto-assist-end">
+            <button class="icon-button auto-assist-close" type="button" x-on:click="closeAssistant()"
+                    x-bind:title="$t('automations.assistant.close')" x-bind:aria-label="$t('automations.assistant.close')">
+              <svg class="automation-icon"><use href="#ico-close"></use></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="auto-assist-body">
+          <input class="auto-assist-search" type="search" autocomplete="off" x-ref="assistantSearch"
+                 x-model="assistant.query"
+                 x-bind:placeholder="$t('automations.assistant.search_placeholder')"
+                 x-bind:aria-label="$t('automations.assistant.search_placeholder')">
+
+          <div class="auto-assist-cats" role="group">
+            <template x-for="category in assistantCategories()" x-bind:key="category">
+              <button type="button" class="auto-assist-cat"
+                      x-bind:aria-pressed="assistant.category === category ? 'true' : 'false'"
+                      x-on:click="assistant.category = category"
+                      x-text="assistantCategoryLabel(category)"></button>
+            </template>
+          </div>
+
+          <template x-if="assistantTemplates().fitting.length > 0">
+            <div class="auto-assist-group">
+              <span class="auto-assist-cap"
+                    x-text="assistant.query.trim() ? $t('automations.assistant.matches') : $t('automations.assistant.fits_devices')"></span>
+              <div class="auto-assist-tiles">
+                <template x-for="template in assistantTemplates().fitting" x-bind:key="template.id">
+                  <button type="button" class="auto-assist-tile" x-on:click="startTemplate(template.id)">
+                    <span class="auto-assist-tile-icon">
+                      <svg class="automation-icon"><use x-bind:href="'#' + template.icon"></use></svg>
+                    </span>
+                    <b x-text="assistantCopy(template, 'title')"></b>
+                    <span class="auto-assist-blurb" x-text="assistantCopy(template, 'blurb')"></span>
+                    <span class="auto-assist-hint" x-text="assistantAvailability(template).hint"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="assistantTemplates().others.length > 0">
+            <div class="auto-assist-group">
+              <span class="auto-assist-cap" x-text="$t('automations.assistant.others')"></span>
+              <div class="auto-assist-list">
+                <template x-for="template in assistantTemplates().others" x-bind:key="template.id">
+                  <div class="auto-assist-row is-off">
+                    <span class="auto-assist-tile-icon">
+                      <svg class="automation-icon"><use x-bind:href="'#' + template.icon"></use></svg>
+                    </span>
+                    <span class="auto-assist-row-text">
+                      <b x-text="assistantCopy(template, 'title')"></b>
+                      <span class="auto-assist-blurb" x-text="assistantCopy(template, 'blurb')"></span>
+                    </span>
+                    <span class="auto-assist-reason" x-text="assistantAvailability(template).reason"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <p class="auto-assist-empty" x-show="assistantTemplates().fitting.length + assistantTemplates().others.length === 0"
+             x-text="$t('automations.assistant.none')"></p>
+        </div>
+
+        <div class="auto-assist-foot">
+          <span class="auto-assist-blank-cap">{{t "automations.assistant.blank"}}</span>
+          <button type="button" class="icon-button labeled" x-on:click="startBlank('rule')">
+            <span x-text="$t('automations.assistant.blank_rule')"></span>
+          </button>
+          <button type="button" class="icon-button labeled" x-on:click="startBlank('scenario')">
+            <span x-text="$t('automations.assistant.blank_scenario')"></span>
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="assistant.templateId">
+      <div class="auto-assist-step">
+        <div class="auto-assist-head">
+          <button class="auto-assist-back" type="button" x-on:click="assistantBack()">
+            <span x-text="'‹ ' + assistantBackLabel()"></span>
+          </button>
+          <div class="auto-assist-dots" role="img"
+               x-bind:aria-label="$t('automations.assistant.dots_aria', { n: assistant.index + 1, total: assistantSteps().length })">
+            <template x-for="(item, index) in assistantSteps()" x-bind:key="item.id">
+              <i x-bind:class="{ 'is-done': index < assistant.index, 'is-now': index === assistant.index }"></i>
+            </template>
+          </div>
+          <div class="auto-assist-end">
+            <button class="icon-button auto-assist-close" type="button" x-on:click="closeAssistant()"
+                    x-bind:title="$t('automations.assistant.close')" x-bind:aria-label="$t('automations.assistant.close')">
+              <svg class="automation-icon"><use href="#ico-close"></use></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="auto-assist-body">
+          <span class="auto-assist-cap" x-text="assistantCopy(assistantTemplate(), 'title')"></span>
+          <h2 class="auto-assist-title" x-text="assistantStepText(assistantStep(), 'title')"></h2>
+          <p class="auto-assist-help" x-show="assistantStep() && assistantStep().id !== 'summary'"
+             x-text="assistantStepText(assistantStep(), 'help')"></p>
+
+          <template x-if="assistantStep() && assistantStep().type === 'device'">
+            <div class="auto-assist-block" role="radiogroup" x-bind:aria-label="assistantStepText(assistantStep(), 'title')">
+              <template x-for="device in assistantDevices(assistantStep())" x-bind:key="device.id">
+                <label class="auto-assist-option"
+                       x-bind:class="{ 'is-selected': assistant.answers[assistantStep().id] === device.id, 'is-off': !!device.disabled }">
+                  <input type="radio" name="auto-assist-device" x-bind:value="device.id"
+                         x-bind:checked="assistant.answers[assistantStep().id] === device.id"
+                         x-bind:disabled="!!device.disabled"
+                         x-on:change="assistantPick(assistantStep(), device.id)">
+                  <svg class="automation-icon"><use x-bind:href="'#' + assistantDeviceIcon(assistantStep())"></use></svg>
+                  <span class="auto-assist-option-text">
+                    <b x-text="device.deviceName"></b>
+                    <span class="auto-assist-live" x-text="device.live || ''"></span>
+                  </span>
+                  <span class="auto-assist-reason" x-show="device.disabled" x-text="device.disabled || ''"></span>
+                </label>
+              </template>
+              <p class="auto-assist-hint" x-text="$t('automations.assistant.device.missing_hint')"></p>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'choice'">
+            <div class="auto-assist-block auto-assist-cards" role="radiogroup">
+              <template x-for="option in assistantStep().options" x-bind:key="option.id">
+                <button type="button" class="auto-assist-card" role="radio"
+                        x-bind:class="{ 'is-selected': assistant.answers[assistantStep().id] === option.id, 'is-off': !!assistantReason(assistantStep(), option) }"
+                        x-bind:aria-checked="assistant.answers[assistantStep().id] === option.id ? 'true' : 'false'"
+                        x-bind:disabled="!!assistantReason(assistantStep(), option)"
+                        x-on:click="assistantPick(assistantStep(), option.id)">
+                  <span class="auto-assist-badge" x-show="option.recommended" x-text="$t('automations.assistant.recommended')"></span>
+                  <b x-text="assistantOptionText(assistantStep(), option, 'title')"></b>
+                  <span x-text="assistantOptionText(assistantStep(), option, 'text')"></span>
+                  <span class="auto-assist-reason" x-show="assistantReason(assistantStep(), option)"
+                        x-text="assistantReason(assistantStep(), option) || ''"></span>
+                </button>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'tiles'">
+            <div class="auto-assist-block auto-assist-tile-grid" role="radiogroup">
+              <template x-for="option in assistantStep().options" x-bind:key="option.id">
+                <button type="button" class="auto-assist-card auto-assist-card-tile" role="radio"
+                        x-bind:class="{ 'is-selected': assistant.answers[assistantStep().id] === option.id, 'is-off': !!assistantReason(assistantStep(), option) }"
+                        x-bind:aria-checked="assistant.answers[assistantStep().id] === option.id ? 'true' : 'false'"
+                        x-bind:disabled="!!assistantReason(assistantStep(), option)"
+                        x-on:click="assistantPick(assistantStep(), option.id)">
+                  <span class="auto-assist-tile-icon">
+                    <svg class="automation-icon"><use x-bind:href="'#' + assistantTileIcon(option)"></use></svg>
+                  </span>
+                  <b x-text="assistantOptionText(assistantStep(), option, 'title')"></b>
+                  <span x-text="assistantOptionText(assistantStep(), option, 'text')"></span>
+                  <span class="auto-assist-reason" x-show="assistantReason(assistantStep(), option)"
+                        x-text="assistantReason(assistantStep(), option) || ''"></span>
+                </button>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'presets'">
+            <div class="auto-assist-block">
+              <div class="auto-assist-seg" role="radiogroup">
+                <template x-for="option in assistantStep().options" x-bind:key="option.id">
+                  <button type="button"
+                          x-bind:aria-pressed="assistant.answers[assistantStep().id] === option.id ? 'true' : 'false'"
+                          x-bind:class="{ 'is-selected': assistant.answers[assistantStep().id] === option.id }"
+                          x-on:click="assistantPick(assistantStep(), option.id)"
+                          x-text="assistantOptionText(assistantStep(), option, 'title')"></button>
+                </template>
+                <button type="button"
+                        x-bind:aria-pressed="assistantIsCustom(assistantStep()) ? 'true' : 'false'"
+                        x-bind:class="{ 'is-selected': assistantIsCustom(assistantStep()) }"
+                        x-on:click="assistantCustom(assistantStep())"
+                        x-text="$t('automations.assistant.custom')"></button>
+              </div>
+              <label class="auto-assist-custom" x-show="assistantIsCustom(assistantStep())">
+                <span x-text="$t('automations.assistant.custom')"></span>
+                <input class="inp" type="number" x-model.number="assistant.answers[assistantStep().id]"
+                       x-on:change="refreshEffect(assistantStep())">
+                <span x-text="assistantStepText(assistantStep(), 'unit')"></span>
+              </label>
+              <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id]"
+                 x-text="assistant.effects[assistantStep().id] || ''"></p>
+            </div>
+          </template>
+
+          <!-- 5c: Bausteine multi, number, time und summary folgen hier, je ein eigenes
+               x-if mit genau einem Wurzelelement. -->
+        </div>
+
+        <div class="auto-assist-foot">
+          <div class="auto-assist-foot-text">
+            <span class="auto-assist-next" x-show="assistantStep() && assistantStep().id !== 'summary'"
+                  x-text="$t('automations.assistant.next_hint', { step: assistantNextLabel() })"></span>
+            <p class="auto-assist-notice" x-show="assistantStep() && assistantStep().id === 'summary' && assistantListFull()"
+               x-text="$t('automations.assistant.list_full')"></p>
+          </div>
+          <button type="button" class="icon-button labeled primary" x-show="assistantStep() && assistantStep().id !== 'summary'"
+                  x-bind:disabled="!assistantCanAdvance()" x-on:click="assistantNext()">
+            <span x-text="$t('automations.assistant.next')"></span>
+          </button>
+          <button type="button" class="icon-button labeled primary" x-show="assistantStep() && assistantStep().id === 'summary'"
+                  x-bind:disabled="assistantListFull()" x-on:click="assistantCreate()">
+            <span x-text="$t('automations.assistant.create')"></span>
+          </button>
+        </div>
+      </div>
+    </template>
+
+  </div>
+</dialog>
+{{end}}

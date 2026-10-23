@@ -51,6 +51,11 @@
           <svg class="automation-icon"><use href="#ico-plus"></use></svg>
           <span>{{t "automations.add_rule_button.label"}}</span>
         </button>
+        <button class="icon-button labeled" type="button" x-on:click="openAssistant()"
+                x-bind:title="$t('automations.assistant.open_button')" x-bind:aria-label="$t('automations.assistant.open_button')">
+          <svg class="automation-icon"><use href="#ico-plus"></use></svg>
+          <span>{{t "automations.assistant.open_button"}}</span>
+        </button>
         <label class="auto-bar-switch">
           <span class="settings-toggle">
             <input type="checkbox" role="switch" x-bind:checked="showHistory"
@@ -228,6 +233,7 @@
       </div>
     </div>
   </template>
+  {{template "automations-assistant" .}}
   {{template "device-picker" .}}
 </section>
 {{end}}
