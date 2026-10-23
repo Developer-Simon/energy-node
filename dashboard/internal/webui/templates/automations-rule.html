@@ -132,12 +132,12 @@
                       <span class="auto-flow-label">{{t "automations.rule.flow.mode_label"}}</span>
                       <div class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.rule.flow.mode_label')">
                         <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRepeatMode(rule, 'once')"
-                                x-bind:aria-checked="rule.repeat_seconds != null ? 'false' : 'true'">{{t "automations.rule.flow.once_segment"}}</button>
+                                x-bind:aria-checked="rule.repeat_seconds > 0 ? 'false' : 'true'">{{t "automations.rule.flow.once_segment"}}</button>
                         <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRepeatMode(rule, 'repeat')"
                                 x-bind:disabled="hasToggleAction(rule)"
-                                x-bind:aria-checked="rule.repeat_seconds != null ? 'true' : 'false'">{{t "automations.rule.flow.repeat_segment"}}</button>
+                                x-bind:aria-checked="rule.repeat_seconds > 0 ? 'true' : 'false'">{{t "automations.rule.flow.repeat_segment"}}</button>
                       </div>
-                      <template x-if="rule.repeat_seconds != null">
+                      <template x-if="rule.repeat_seconds > 0">
                         <span class="auto-flow-row">
                           <span>{{t "automations.rule.flow.every"}}</span>
                           <input x-bind:id="`repeat-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.repeat_seconds"

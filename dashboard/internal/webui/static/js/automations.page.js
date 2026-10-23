@@ -435,12 +435,6 @@
       return window.__automationsView.formatSeconds(seconds);
     },
 
-    conditionValueText(rule, index) {
-      const report = this.conditionReport(rule, index);
-      if (!report || report.value === null || report.value === undefined) return '—';
-      return String(report.value);
-    },
-
     conditionStateText(rule, index) {
       return this.conditionTextOf(this.conditionReport(rule, index), rule.conditions[index] || {});
     },
@@ -507,17 +501,6 @@
         return { blocked: false, text: `„${preview.title || ''}" — ${preview.message || ''}` };
       }
       return { blocked: false, text: `${preview.topic} → ${preview.payload}` };
-    },
-
-    renderMiniChain(rule) {
-      return {
-        conditions: rule.conditions.map((condition, index) => ({
-          icon: this.describeCondition(condition).icon,
-          state: this.conditionState(rule, index),
-        })),
-        actions: rule.actions.map((action) => ({ icon: this.describeAction(action).icon })),
-        gate: this.gateVerdict(rule),
-      };
     },
 
     isDirty(rule) {

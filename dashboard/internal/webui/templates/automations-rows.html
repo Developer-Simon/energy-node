@@ -440,7 +440,7 @@
                   </div>
 
                   <div class="entity-wizard-row">
-                    <label for="wizard-entity">{{t "automations.wizard.entity.device_label"}}</label>
+                    <label>{{t "automations.wizard.entity.device_label"}}</label>
                     <select id="wizard-entity" x-model="newEntityId">
                       <option value="">{{t "automations.wizard.entity.device_select"}}</option>
                       <template x-for="[deviceName, group] in commandableEntityGroups()" x-bind:key="deviceName">
@@ -450,7 +450,7 @@
                           </template>
                         </optgroup>
                       </template>
-                    </select>
+                    </select></label>
                   </div>
 
                   <div class="entity-wizard-row" x-show="newEntityId">

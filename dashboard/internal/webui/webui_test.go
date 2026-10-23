@@ -1346,8 +1346,6 @@ func TestUpdateBarIconIsStyledByItsClass(t *testing.T) {
 	}
 }
 
-// Icon-only Knoepfe brauchen beides: title fuer die Maus, aria-label fuer
-// Screenreader. Die Konvention stammt aus der Device-Map.
 // Die Szenario-Module laden vor dem Seitenskript, sonst fehlt
 // window.__automationScenario beim ersten Render der Seite.
 func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
@@ -1377,6 +1375,8 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 }
 
+// Icon-only Knoepfe brauchen beides: title fuer die Maus, aria-label fuer
+// Screenreader. Die Konvention stammt aus der Device-Map.
 func TestAutomationsIconButtonsCarryAccessibleNames(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).

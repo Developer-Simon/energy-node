@@ -263,7 +263,7 @@
   "automations.save_status.rejected": "rejected: {reason}",
   "automations.saved": "Saved.",
   "automations.scenario.chart.aria_label": "Grid power and output in the selected period",
-  "automations.scenario.chart.empty": "No measurements in this period yet.",
+  "automations.scenario.chart.empty": "No history data yet",
   "automations.scenario.chart.legend_band": "Tolerance around the target",
   "automations.scenario.chart.legend_grid": "Grid",
   "automations.scenario.chart.legend_output": "Output",

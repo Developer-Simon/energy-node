@@ -555,15 +555,6 @@ test('collapsing a rule closes its editor even when it was open', () => {
   assert.equal(component.editing[rule.id], false);
 });
 
-test('renderMiniChain yields one entry per condition plus the gate tone', () => {
-  const component = panelWithState(sampleState);
-  const chain = component.renderMiniChain(sampleRule);
-  assert.equal(chain.conditions.length, 1);
-  assert.equal(chain.conditions[0].state, 'pending');
-  assert.equal(chain.actions.length, 1);
-  assert.equal(chain.gate.tone, 'wait');
-});
-
 test('offline scenarios show a dash for net and setpoint and highlight no phase', () => {
   const { component } = createAutomationsPanel();
   const scenario = regulatorEditScenario();

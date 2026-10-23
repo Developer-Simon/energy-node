@@ -263,7 +263,7 @@
   "automations.save_status.rejected": "abgelehnt: {reason}",
   "automations.saved": "Gespeichert.",
   "automations.scenario.chart.aria_label": "Netzleistung und Stellwert im gewählten Zeitraum",
-  "automations.scenario.chart.empty": "Noch keine Messwerte in diesem Zeitraum.",
+  "automations.scenario.chart.empty": "Noch keine Verlaufsdaten",
   "automations.scenario.chart.legend_band": "Toleranz um das Ziel",
   "automations.scenario.chart.legend_grid": "Netz",
   "automations.scenario.chart.legend_output": "Stellwert",
