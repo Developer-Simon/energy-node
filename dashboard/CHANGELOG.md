@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.10.9 (2026-10-23)
+
+### Features
+
+- **automation:** validate scenarios (de7556c)
+- **dashboard:** map automation scenarios in the data flow (eb3a375)
+- **automations:** repeat validation and interval settings logic (a128e57)
+- **automations:** repeat field and interval settings in the editor (39a3aeb)
+- **automation:** Automation rules can repeat their actions while their conditions hold, and the automation service gains scenarios with a feedback regulator. (#163)
+
+### Fixes
+
+- **dashboard:** add German texts for the scenario schema (e5aa7dd)
+- **automations:** field help names the configurable minimum interval (7567a97)
+
+### Tests
+
+- **dashboard:** cover the automation rules schema with scenarios (d5d7d36)
+- **dashboard:** make alle-funktionen the default smoke preset (5c25a87)
+
+### Chores
+
+- **dashboard:** bump automations asset versions (34f8085)
+- **automation:** scenario smoke fixture and 0.6.0 manifest (dcd062c)
+
 ## v0.10.8 (2026-10-22)
 
 ### Features
@@ -7,6 +32,7 @@
 - **devicemap:** The device map can hide connections by type (energy, data, info) with a new filter button. (#158) (2e85408)
 - **settings:** Settings pages are listed in a sidebar, on phones in a sheet from the bottom. (#159) (797ce0c)
 - **settings:** The dashboard title and subtitle can be changed or hidden. (#160) (74a38ad)
+- **dashboard:** The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh. (#161) (06fca9b)
 - **dashboard:** add read-journal action to the system action helper (27a811d)
 - **dashboard:** parse journal entries and validate log queries (1d1f7db)
 - **dashboard:** read allowlisted service journals through the helper (18c512c)
@@ -16,7 +42,6 @@
 - **dashboard:** show service logs on the diagnostics page (98b2272)
 - **dashboard:** rework the service logs view (a9dcdf7)
 - **dashboard:** keep the service log scrolled to the newest line (04d2e6a)
-- **dashboard:** The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh. (#161)
 - **settings:** make the masthead title and subtitle configurable (b9217a1)
 - **settings:** rework the masthead card and share the energy save bar (bfff2a3)
 - **status:** offer CPU load in the system status bar (66f9c89)
