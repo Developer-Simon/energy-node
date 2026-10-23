@@ -62,9 +62,9 @@ def test_time_window_across_midnight_counts_the_start_day():
     assert evaluate(cond, local_ts("2024-06-07", "03:00"))[0] is False  # Freitag frueh: Fenster von Donnerstag
 
 
-def test_time_window_with_equal_start_and_end_is_empty():
+def test_time_window_with_equal_start_and_end_is_a_whole_day():
     cond = {"type": "time_window", "start": "08:00", "end": "08:00", "weekdays": []}
-    assert evaluate(cond, local_ts("2024-06-07", "08:00"))[0] is False
+    assert evaluate(cond, local_ts("2024-06-07", "08:00"))[0] is True
 
 
 def test_time_window_needs_no_location():

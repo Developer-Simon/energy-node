@@ -423,6 +423,22 @@ def test_evaluate_condition_raw_time_window_respects_weekdays():
     assert met is False
 
 
+def test_equal_start_and_end_is_a_whole_day():
+    import datetime
+    cond = {"type": "time_window", "start": "00:00", "end": "00:00", "weekdays": []}
+
+    def at(day, hour, minute, second=0):
+        return datetime.datetime(2026, 10, day, hour, minute, second).timestamp()
+
+    for day in (23, 24):
+        for hour, minute in ((0, 0), (12, 0), (23, 59)):
+            met, _ = automation.evaluate_condition_raw(cond, balance=None, topic_values={}, now_ts=at(day, hour, minute))
+            assert met is True, (day, hour, minute)
+    # Kein Loch zwischen zwei Tagen: 23:59:59 am ersten und 00:00:00 am zweiten Tag sind beide erfuellt.
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values={}, now_ts=at(23, 23, 59, 59))[0] is True
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values={}, now_ts=at(24, 0, 0))[0] is True
+
+
 def _timestamp_at(hour, minute, weekday):
     """Hilfsfunktion: liefert nur (hour, minute, weekday) an evaluate_condition_raw,
     das now_ts selbst wird von evaluate_condition_raw fuer time_window nicht als

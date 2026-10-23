@@ -55,6 +55,12 @@
             "type": "boolean",
             "default": false
           },
+          "max_duration_s": {
+            "type": "number",
+            "minimum": 60,
+            "maximum": 86400,
+            "description": "Ends the scenario after this many seconds. Missing means no limit."
+          },
           "when": {
             "type": "object",
             "additionalProperties": false,

@@ -90,6 +90,10 @@ func TestAutomationSchemaCases(t *testing.T) {
 			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`,
 				`"enabled":true,"while":{"mode":"hold","actions":[],"repeat_seconds":-1},`, 1)+`]`), false},
 		{"nine scenarios", automationDoc(defaultAutomationSettings, "["+strings.Join(nineScenarios, ",")+"]"), false},
+		{"max_duration_s below one minute", automationDoc(defaultAutomationSettings,
+			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":59,`, 1)+`]`), false},
+		{"max_duration_s of ten minutes", automationDoc(defaultAutomationSettings,
+			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":600,`, 1)+`]`), true},
 		{"unknown key in scenario", automationDoc(defaultAutomationSettings,
 			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"unknown":1,`, 1)+`]`), false},
 		{"publish_min_interval_s below five", automationDoc(
