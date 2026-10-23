@@ -3312,3 +3312,30 @@ func TestDevicePickerTemplateSupportsSpriteIconsAndFilters(t *testing.T) {
 		}
 	}
 }
+
+// Die Bedingungskarten nutzen weiche Felder und Stepper statt der alten
+// Editor-Karte mit Linie links. Geprueft wird der Bedingungs-Block, die
+// Aktions-Editoren folgen erst in einer spaeteren Aufgabe.
+func TestConditionEditorsUseSoftFieldsAndSteppers(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	block, _, found := strings.Cut(source[strings.Index(source, `{{define "automations-condition-editors"}}`):], `{{define "automations-action-editors"}}`)
+	if !found {
+		t.Fatal("Bedingungs-Editoren nicht gefunden")
+	}
+	if !strings.Contains(block, `class="auto-card`) {
+		t.Fatal("Bedingungs-Editoren nutzen keine auto-card")
+	}
+	if !strings.Contains(block, `{{template "auto-stepper"}}`) {
+		t.Fatal("Bedingungs-Editoren nutzen keinen auto-stepper")
+	}
+	if strings.Contains(block, `class="edit-card"`) {
+		t.Fatal("Bedingungs-Editoren nutzen noch edit-card")
+	}
+	if !strings.Contains(source, `{{define "auto-stepper"}}`) {
+		t.Fatal("Baustein auto-stepper fehlt")
+	}
+}
