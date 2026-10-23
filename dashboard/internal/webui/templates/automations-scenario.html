@@ -1,26 +1,126 @@
 {{define "automations-scenario"}}
-<div class="auto-scenario-head">
-  <span class="auto-scenario-name" x-show="!scenarioEditing[scenario.id]" x-text="scenario.name"></span>
-  <input type="text" class="auto-scenario-name" x-show="scenarioEditing[scenario.id]" x-model="scenario.name"
-         x-bind:aria-label="$t('automations.scenario.name_input.aria_label')">
-  <span class="automation-unsaved-badge" x-cloak x-show="newIds[scenario.id]">{{t "automations.scenario.new_badge"}}</span>
+<template x-if="!scenarioExpanded[scenario.id]">
+  <div class="auto-scenario-row" role="button" tabindex="0"
+       x-bind:aria-expanded="'false'"
+       x-on:click="toggleScenarioExpanded(scenario)"
+       x-on:keydown.enter.prevent="toggleScenarioExpanded(scenario)"
+       x-on:keydown.space.prevent="toggleScenarioExpanded(scenario)">
+    <span class="auto-tile"><svg class="automation-icon"><use x-bind:href="'#' + scenarioIcon(scenario)"></use></svg></span>
+    <span class="auto-scenario-text">
+      <span class="auto-scenario-name" x-text="scenario.name"></span>
+      <span class="auto-sub" x-show="scenarioStatus(scenario).detail" x-text="scenarioStatus(scenario).detail"></span>
+    </span>
+    <template x-if="scenarioProgress(scenario)">
+      <div class="auto-progress" role="img"
+           x-bind:aria-label="$t('automations.scenario.progress.aria_label')"
+           x-bind:title="scenarioProgress(scenario).label">
+        <i x-bind:style="'width: ' + scenarioProgress(scenario).percent + '%'"></i>
+      </div>
+    </template>
+    <span class="auto-pill" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
+    <label class="settings-toggle" x-on:click.stop x-on:keydown.stop
+           x-bind:title="scenario.enabled ? $t('automations.scenario.enabled_toggle.title_on') : $t('automations.scenario.enabled_toggle.title_off')">
+      <input type="checkbox" x-model="scenario.enabled"
+             x-bind:aria-label="$t('automations.scenario.enabled_toggle.aria_label', {name: scenario.name})">
+      <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+    </label>
+  </div>
+</template>
 
-  <label class="settings-toggle"
-         x-bind:title="scenario.enabled ? $t('automations.scenario.enabled_toggle.title_on') : $t('automations.scenario.enabled_toggle.title_off')">
-    <input type="checkbox" x-model="scenario.enabled"
-           x-bind:aria-label="$t('automations.scenario.enabled_toggle.aria_label', {name: scenario.name})">
-    <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
-  </label>
+<template x-if="scenarioExpanded[scenario.id]">
+  <div class="auto-scenario-open">
+    <div class="auto-scenario-head">
+      <button class="icon-button auto-collapse" type="button" x-on:click="toggleScenarioExpanded(scenario)"
+              x-bind:aria-expanded="'true'"
+              x-bind:title="$t('automations.scenario.collapse_button.tooltip', {name: scenario.name})"
+              x-bind:aria-label="$t('automations.scenario.collapse_button.tooltip', {name: scenario.name})">
+        <svg class="automation-icon auto-chevron is-open"><use href="#ico-chevron"></use></svg>
+      </button>
+      <span class="auto-tile is-accent"><svg class="automation-icon"><use x-bind:href="'#' + scenarioIcon(scenario)"></use></svg></span>
+      <span class="auto-scenario-name" x-show="!scenarioEditing[scenario.id]" x-text="scenario.name"></span>
+      <input type="text" class="auto-scenario-name" x-show="scenarioEditing[scenario.id]" x-model="scenario.name"
+             x-bind:aria-label="$t('automations.scenario.name_input.aria_label')">
+      <span class="auto-pill" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
+      <span class="automation-unsaved-badge" x-cloak x-show="newIds[scenario.id]">{{t "automations.scenario.new_badge"}}</span>
 
-  <button class="icon-button" x-bind:class="{ active: scenarioEditing[scenario.id] }" type="button"
-          x-on:click="scenarioEditing[scenario.id] = !scenarioEditing[scenario.id]"
-          x-bind:title="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')"
-          x-bind:aria-label="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')">
-    <svg class="automation-icon"><use x-bind:href="scenarioEditing[scenario.id] ? '#ico-check' : '#ico-pencil'"></use></svg>
-  </button>
-  <button class="icon-button danger" type="button" x-on:click="removeScenario(scenario.id)"
-          x-bind:title="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})" x-bind:aria-label="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})">
-    <svg class="automation-icon"><use href="#ico-trash"></use></svg>
-  </button>
-</div>
+      <label class="settings-toggle"
+             x-bind:title="scenario.enabled ? $t('automations.scenario.enabled_toggle.title_on') : $t('automations.scenario.enabled_toggle.title_off')">
+        <input type="checkbox" x-model="scenario.enabled"
+               x-bind:aria-label="$t('automations.scenario.enabled_toggle.aria_label', {name: scenario.name})">
+        <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+      </label>
+
+      <button class="icon-button" x-bind:class="{ active: scenarioEditing[scenario.id] }" type="button"
+              x-on:click="scenarioEditing[scenario.id] = !scenarioEditing[scenario.id]"
+              x-bind:title="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')"
+              x-bind:aria-label="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')">
+        <svg class="automation-icon"><use x-bind:href="scenarioEditing[scenario.id] ? '#ico-check' : '#ico-pencil'"></use></svg>
+      </button>
+      <button class="icon-button danger" type="button" x-on:click="removeScenario(scenario.id)"
+              x-bind:title="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})" x-bind:aria-label="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})">
+        <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+      </button>
+    </div>
+
+    <template x-if="scenario.while && scenario.while.mode === 'regulate'">
+      <div class="auto-regulator">
+        <div class="auto-figures">
+          <div class="auto-figure">
+            <span class="auto-figure-label"><svg class="automation-icon automation-icon-sm"><use href="#ico-grid"></use></svg>{{t "automations.scenario.figures.net_label"}}</span>
+            <span class="auto-figure-value is-grid"><span x-text="gridNowText(scenario)"></span><small x-show="gridNowText(scenario) !== '—'"> W</small></span>
+            <span class="auto-figure-hint" x-text="$t('automations.scenario.figures.net_hint', {target: regulatorFigures(scenario).target, band: regulatorFigures(scenario).band})"></span>
+          </div>
+          <div class="auto-figure">
+            <span class="auto-figure-label"><svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + scenarioIcon(scenario)"></use></svg>{{t "automations.scenario.figures.output_label"}}</span>
+            <span class="auto-figure-value is-output"><span x-text="regulatorFigures(scenario).output"></span><small x-show="regulatorFigures(scenario).output !== '—'"> W</small></span>
+            <span class="auto-figure-hint" x-text="$t('automations.scenario.figures.output_hint', {min: regulatorFigures(scenario).min, max: regulatorFigures(scenario).max})"></span>
+          </div>
+          <div class="auto-figure">
+            <span class="auto-figure-label"><svg class="automation-icon automation-icon-sm"><use href="#ico-history"></use></svg>{{t "automations.scenario.figures.today_label"}}</span>
+            <span class="auto-figure-value"><span x-text="todayExportText()"></span><small x-show="todayExportText() !== '—'"> kWh</small></span>
+            <span class="auto-figure-hint">{{t "automations.scenario.figures.today_hint"}}</span>
+          </div>
+        </div>
+
+        <figure class="auto-chart">
+          <div class="auto-plot" x-show="!chartFor(scenario).empty">
+            <svg class="auto-plot-svg" viewBox="0 0 600 170" preserveAspectRatio="none" role="img"
+                 x-bind:aria-label="$t('automations.scenario.chart.aria_label')">
+              <rect class="auto-chart-band" x="0" width="600" x-bind:y="chartFor(scenario).band.y" x-bind:height="chartFor(scenario).band.height"></rect>
+              <path class="auto-chart-output" x-bind:d="chartFor(scenario).outputPath"></path>
+              <path class="auto-chart-grid" x-bind:d="chartFor(scenario).gridPath"></path>
+            </svg>
+            <template x-for="tick in chartFor(scenario).yTicks" x-bind:key="tick.label">
+              <span class="auto-chart-tick" x-bind:style="'top: ' + tick.y + 'px'" x-text="tick.label"></span>
+            </template>
+            <template x-for="marker in chartFor(scenario).markers" x-bind:key="marker.x + marker.kind">
+              <span class="auto-chart-marker" x-bind:style="'left: ' + (marker.x / 600 * 100) + '%'" x-text="marker.label"></span>
+            </template>
+          </div>
+          <p class="auto-chart-empty" x-show="chartFor(scenario).empty" x-text="$t('automations.scenario.chart.empty')"></p>
+          <figcaption class="auto-chart-legend">
+            <span><i class="auto-swatch is-grid"></i>{{t "automations.scenario.chart.legend_grid"}}</span>
+            <span><i class="auto-swatch is-output"></i>{{t "automations.scenario.chart.legend_output"}}</span>
+            <span><i class="auto-swatch is-band"></i>{{t "automations.scenario.chart.legend_band"}}</span>
+            <span class="auto-range" role="group" aria-label="{{t "automations.scenario.chart.range_label"}}">
+              <button type="button" x-bind:aria-pressed="scenarioRange(scenario.id) === '30m' ? 'true' : 'false'" x-on:click="setChartRange(scenario, '30m')">{{t "automations.scenario.chart.range.30m"}}</button>
+              <button type="button" x-bind:aria-pressed="scenarioRange(scenario.id) === '6h' ? 'true' : 'false'" x-on:click="setChartRange(scenario, '6h')">{{t "automations.scenario.chart.range.6h"}}</button>
+              <button type="button" x-bind:aria-pressed="scenarioRange(scenario.id) === 'today' ? 'true' : 'false'" x-on:click="setChartRange(scenario, 'today')">{{t "automations.scenario.chart.range.today"}}</button>
+            </span>
+          </figcaption>
+        </figure>
+      </div>
+    </template>
+
+    <div class="auto-phases">
+      <template x-for="(phase, index) in scenarioPhases(scenario)" x-bind:key="phase.phase">
+        <div class="auto-phase" x-bind:class="{ 'is-active': activePhaseIndex(scenario) === index }">
+          <span class="auto-phase-head"><svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + phase.icon"></use></svg><span class="auto-phase-cap" x-text="phase.label"></span></span>
+          <b x-text="phase.title"></b>
+          <span class="auto-phase-text" x-text="phase.text"></span>
+        </div>
+      </template>
+    </div>
+  </div>
+</template>
 {{end}}

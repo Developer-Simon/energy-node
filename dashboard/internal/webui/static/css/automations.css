@@ -222,12 +222,70 @@
 .auto-undo-button:hover { background: var(--panel); }
 .auto-list { list-style: none; padding: 0; margin: 0; }
 
-/* --- Szenario-Zeile (Platzhalter bis zum Szenario-Editor) --- */
-.auto-scenario { border: 1px solid var(--border-soft); background: var(--panel); padding: .8rem .9rem; margin-bottom: .8rem; }
+/* --- Szenario-Karte: zugeklappte Zeile, aufgeklappter Kopf, Werte, Diagramm, Phasenleiste --- */
+.auto-scenario { border: 1px solid var(--border-soft); background: var(--panel); margin-bottom: .8rem; }
+.auto-scenario-row { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; padding: .8rem .9rem; cursor: pointer; }
+.auto-scenario-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.auto-scenario-open { display: grid; gap: .9rem; padding: .8rem .9rem 1rem; }
 .auto-scenario-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .auto-scenario-head .settings-toggle { flex: none; }
+.auto-scenario-text { display: grid; gap: .1rem; flex: 1; min-width: 12rem; }
+.auto-scenario-text .auto-scenario-name { flex: none; min-width: 0; }
 .auto-scenario-name { flex: 1; min-width: 12rem; font: inherit; font-weight: 600; color: var(--text-strong); }
 input.auto-scenario-name { border: 1px solid var(--border); border-radius: 6px; padding: .25rem .45rem; background: var(--sunken); color: var(--text-strong); }
+.auto-sub { font-size: .84rem; color: var(--text-subtle); }
+.auto-tile { width: 2.4rem; height: 2.4rem; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--panel-alt); color: var(--text-subtle); }
+.auto-tile.is-accent { background: var(--accent-bg); color: var(--accent-line); }
+.auto-tile .automation-icon { width: 1.3rem; height: 1.3rem; }
+.auto-collapse { flex: none; }
+.auto-chevron { transition: transform 180ms var(--ease-out); }
+.auto-chevron.is-open { transform: rotate(90deg); }
+.auto-pill { display: inline-flex; align-items: center; gap: .35rem; flex: none; padding: .15rem .6rem; border-radius: 999px; font-size: .76rem; font-weight: 600; white-space: nowrap; background: var(--panel-alt); color: var(--text-subtle); }
+.auto-pill::before { content: ""; width: .42rem; height: .42rem; border-radius: 50%; background: currentColor; }
+.auto-pill.ok { background: var(--ok-bg); color: var(--ok); }
+.auto-pill.bad { background: var(--bad-bg); color: var(--bad); }
+.auto-pill.wait { background: var(--warn-bg); color: var(--warn); }
+.auto-pill.info { background: var(--info-bg); color: var(--info); }
+.auto-progress { width: 9rem; height: .5rem; flex: none; border-radius: 4px; background: var(--sunken); overflow: hidden; }
+.auto-progress i { display: block; height: 100%; border-radius: 4px; background: var(--flow-grid); transition: width 400ms var(--ease-out); }
+.auto-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .9rem; }
+.auto-figure { display: grid; gap: .25rem; align-content: start; }
+.auto-figure-label { display: flex; align-items: center; gap: .35rem; font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }
+.auto-figure-value { font-size: 2rem; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--text-strong); }
+.auto-figure-value small { font-size: 1rem; font-weight: 600; color: var(--text-subtle); letter-spacing: 0; }
+.auto-figure-value.is-grid { color: var(--flow-grid); }
+.auto-figure-value.is-output { color: var(--flow-pv); }
+.auto-figure-hint { font-size: .8rem; color: var(--text-muted); }
+.auto-chart { margin: 0; display: grid; gap: .35rem; padding: .8rem .8rem .5rem; border-radius: 14px; background: var(--sunken); }
+.auto-plot { position: relative; height: 170px; }
+.auto-plot-svg { display: block; width: 100%; height: 170px; overflow: visible; }
+.auto-chart-band { fill: var(--accent-bg); }
+.auto-chart-grid, .auto-chart-output { fill: none; stroke-width: 2.2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.auto-chart-grid { stroke: var(--flow-grid); }
+.auto-chart-output { stroke: var(--flow-pv); }
+.auto-chart-tick { position: absolute; left: .3rem; transform: translateY(-50%); font-size: .7rem; color: var(--text-muted); font-variant-numeric: tabular-nums; pointer-events: none; }
+.auto-chart-marker { position: absolute; top: 0; height: 100%; padding-left: .3rem; border-left: 1px solid var(--border); font-size: .7rem; color: var(--text-subtle); white-space: nowrap; pointer-events: none; }
+.auto-chart-empty { margin: 0; padding: 2.2rem 0; text-align: center; font-size: .86rem; color: var(--text-muted); }
+.auto-chart-legend { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; padding-top: .2rem; font-size: .76rem; color: var(--text-muted); }
+.auto-swatch { display: inline-block; width: .9rem; height: .5rem; margin-right: .35rem; border-radius: 3px; vertical-align: middle; }
+.auto-swatch.is-grid { background: var(--flow-grid); }
+.auto-swatch.is-output { background: var(--flow-pv); }
+.auto-swatch.is-band { background: var(--accent-bg); outline: 1px solid var(--accent-line); }
+.auto-range { margin-left: auto; display: inline-flex; gap: .1rem; padding: .15rem; border-radius: 8px; background: var(--panel); }
+.auto-range button { font: inherit; font-size: .76rem; border: 0; border-radius: 6px; padding: .25rem .55rem; background: transparent; color: var(--text-subtle); cursor: pointer; }
+.auto-range button[aria-pressed="true"] { background: var(--panel-alt); color: var(--text-strong); font-weight: 600; }
+.auto-range button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.auto-phases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+.auto-phase { display: grid; gap: .25rem; align-content: start; padding: .7rem .8rem; border-radius: 12px; background: var(--panel-alt); }
+.auto-phase.is-active { background: var(--accent-bg); outline: 1px solid var(--accent-line); }
+.auto-phase-head { display: flex; align-items: center; gap: .35rem; }
+.auto-phase-cap { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }
+.auto-phase b { font-size: .9rem; color: var(--text-strong); }
+.auto-phase-text { font-size: .82rem; color: var(--text-subtle); }
+@media (max-width: 560px) {
+  .auto-phases { grid-template-columns: 1fr; }
+  .auto-progress { width: 5rem; }
+}
 
 /* Frisch angelegte Eintraege bis zum Speichern: Akzentkante links. */
 .auto-is-new { box-shadow: inset 3px 0 0 var(--accent-line); }

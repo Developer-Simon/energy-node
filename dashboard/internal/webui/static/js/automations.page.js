@@ -549,6 +549,55 @@
       return window.__automationScenario.scenarioStatus(scenario, this.scenarioState(scenario), this.online, this.nowTick / 1000);
     },
 
+    // Symbol der Kachel: Wechselrichter bei Einspeisung, sonst das Symbol der ersten Startaktion.
+    scenarioIcon(scenario) {
+      const regulator = scenario.while && scenario.while.regulator;
+      if (regulator) return regulator.direction === 'consumer' ? 'ico-flash' : 'ico-inverter';
+      const first = ((scenario.on_start && scenario.on_start.actions) || [])[0];
+      return first ? this.describeAction(first).icon : 'ico-power-on';
+    },
+
+    // Werte der Regler-Karte: Ziel, Toleranz, Grenzen und der aktuelle Stellwert.
+    regulatorFigures(scenario) {
+      const regulator = (scenario.while && scenario.while.regulator) || {};
+      const output = regulator.output || {};
+      const state = this.scenarioState(scenario);
+      return {
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        band: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        min: isNumber(output.min) ? output.min : 0,
+        max: isNumber(output.max) ? output.max : 0,
+        output: state && isNumber(state.output) ? Math.round(state.output) : '—',
+      };
+    },
+
+    todayExportText() {
+      return this.todayExportKWh === null ? '—' : window.I18n.formatNumber(this.todayExportKWh, 2);
+    },
+
+    // Die drei Phasen der Leiste mit Bezeichnung.
+    // i18n-keys: automations.scenario.phase.name.start, automations.scenario.phase.name.while, automations.scenario.phase.name.end
+    scenarioPhases(scenario) {
+      const names = { start: 'automations.scenario.phase.name.start', while: 'automations.scenario.phase.name.while', end: 'automations.scenario.phase.name.end' };
+      return window.__automationScenario
+        .phaseSummary(scenario, (condition) => this.describeCondition(condition), (action) => this.describeAction(action))
+        .map((row) => ({ ...row, label: t(names[row.phase]) }));
+    },
+
+    // Index der aktiven Phase in scenarioPhases, -1 wenn keine aktiv ist.
+    activePhaseIndex(scenario) {
+      const phase = window.__automationScenario.activePhase(this.scenarioState(scenario), this.nowTick / 1000);
+      return { start: 0, while: 1, end: 2 }[phase] ?? -1;
+    },
+
+    // Balken des Startfortschritts, nur solange die Karte wartet oder bereit ist.
+    scenarioProgress(scenario) {
+      const key = this.scenarioStatus(scenario).key;
+      if (key !== 'waiting' && key !== 'ready') return null;
+      const progress = window.__automationScenario.startProgress(scenario, this.scenarioState(scenario));
+      return progress ? { percent: Math.round(progress.fraction * 100), label: progress.label } : null;
+    },
+
     // Liest Rohwerte und Minutenwerte beider Serien aus dem Verlauf (IndexedDB),
     // fuellt die Luecken der Rohstufe mit Minutenwerten und duennt auf
     // CHART_MAX_POINTS aus. Jeder Fehler ergibt leere Serien, nie eine Ausnahme.

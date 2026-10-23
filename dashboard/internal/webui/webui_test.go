@@ -3160,3 +3160,38 @@ func TestDevicesTabCardsCarryStructureAndRowTemplate(t *testing.T) {
 		t.Error("Kompaktkarte im Geraete-Tab ist nicht automatisch")
 	}
 }
+
+// Die Szenario-Karte: die zugeklappte Zeile ist per Tastatur bedienbar, der
+// Schalter ist ein <label>, Werte und Diagramm gibt es nur beim Regler.
+func TestScenarioCardMarkupCarriesRowChartAndPhases(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`class="auto-scenario-row" role="button" tabindex="0"`,
+		`x-on:keydown.enter.prevent="toggleScenarioExpanded(scenario)"`,
+		`x-on:keydown.space.prevent="toggleScenarioExpanded(scenario)"`,
+		`x-if="scenario.while && scenario.while.mode === 'regulate'"`,
+		`class="auto-figures"`,
+		`Heute eingespeist`,
+		`viewBox="0 0 600 170"`,
+		`class="auto-chart-band"`,
+		`class="auto-chart-grid"`,
+		`class="auto-chart-output"`,
+		`class="auto-chart-legend"`,
+		`class="auto-phases"`,
+		`'is-active': activePhaseIndex(scenario) === index`,
+		`automations.scenario.chart.empty`,
+		`<label class="settings-toggle" x-on:click.stop`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Szenario-Karte: %q fehlt im Automations-Panel", want)
+		}
+	}
+	// Der Schalter der zugeklappten Zeile ist ein <label>, damit er auch per
+	// Klick auf den Schalter schaltet; ein <span> ließe sich nicht umlegen.
+	if !strings.Contains(body, `<label class="settings-toggle" x-on:click.stop x-on:keydown.stop`) {
+		t.Fatal("der Szenario-Schalter der zugeklappten Zeile ist kein <label class=\"settings-toggle\">")
+	}
+}

@@ -1849,3 +1849,56 @@ test('an offline service shows no running time', () => {
   assert.equal(status.label, 'Dienst offline');
   assert.equal(status.detail, '');
 });
+
+test('regulator figures read target, band, limits and the live output', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorScenario('a');
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', output: 412.4 } } };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.regulatorFigures(scenario))), { target: 0, band: 20, min: 0, max: 800, output: 412 });
+  component.runtimeState.scenarios.a = { phase: 'active' };
+  assert.equal(component.regulatorFigures(scenario).output, '—');
+});
+
+test('the tile icon is the inverter for producers and the first start action otherwise', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.scenarioIcon(regulatorScenario('a')), 'ico-inverter');
+  const consumer = regulatorScenario('b');
+  consumer.while.regulator.direction = 'consumer';
+  assert.equal(component.scenarioIcon(consumer), 'ico-flash');
+  assert.equal(component.scenarioIcon(holdScenario('c')), 'ico-power-on');
+});
+
+test('today export text uses two decimals with a comma and a dash before the first value', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.todayExportText(), '—');
+  component.todayExportKWh = 12.3;
+  assert.equal(component.todayExportText(), '12,30');
+});
+
+test('the phase bar marks the while phase while running and the end phase just after it ended', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorScenario('a');
+  const nowSec = Date.now() / 1000;
+  component.nowTick = nowSec * 1000;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', since: nowSec - 100 } } };
+  assert.equal(component.activePhaseIndex(scenario), 1);
+  component.runtimeState.scenarios.a = { phase: 'idle', since: nowSec - 5, conditions: [] };
+  assert.equal(component.activePhaseIndex(scenario), 2);
+  component.runtimeState.scenarios.a = { phase: 'idle', since: nowSec - 600, conditions: [] };
+  assert.equal(component.activePhaseIndex(scenario), -1);
+  const phases = JSON.parse(JSON.stringify(component.scenarioPhases(scenario)));
+  assert.deepEqual(phases.map((row) => row.phase), ['start', 'while', 'end']);
+  assert.ok(phases.every((row) => typeof row.label === 'string' && row.label.length > 0));
+});
+
+test('the start progress bar shows only while waiting for the start', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorScenario('a');
+  component.online = true;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'idle', conditions: [{ value: 50, raw_met: false, met: false }] } } };
+  const progress = JSON.parse(JSON.stringify(component.scenarioProgress(scenario)));
+  assert.equal(progress.percent, Math.round(50 / 100 * 100));
+  assert.equal(progress.label, '50 / 100 W');
+  component.runtimeState.scenarios.a.phase = 'active';
+  assert.equal(component.scenarioProgress(scenario), null);
+});
