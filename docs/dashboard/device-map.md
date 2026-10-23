@@ -103,6 +103,9 @@ Click a group for its sum, its members and the count as a whole switch. Members
 are added with the picker or by hanging a device under the group in connect
 mode.
 
+The picker has a search field and role filter chips, and each device shows the
+icon of its role in that role's colour.
+
 ![Device picker](../images/dashboard-device-map-picker.png)
 
 ![Create group dialog](../images/dashboard-device-map-create-group.png)

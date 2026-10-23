@@ -26,6 +26,15 @@ never runs rules itself. It only edits the JSON, and the Python service
 evaluates the rules and publishes. See
 [Device services → Automations](../services/automations.md).
 
+## Choosing devices
+
+The editors offer devices in role groups: inverter, wallbox, heat pump, grid and
+other. A field shows up to two device chips, with the selected device first.
+Each chip shows the icon of its role in the colour of that role. **Show all (n)**
+opens the device picker with every matching device. The picker has a search
+field and role filter chips. A click on a device selects it, and a picker for a
+single choice closes at once.
+
 ## Scenarios
 
 A scenario has three phases. **Start** holds the conditions that begin it,
@@ -97,10 +106,18 @@ text next to it.
 - **Measured value**, which can be a **Device** meter, the **Balance** or the
   **Last value**.
 
+A band preview under the target shows the tolerance band and the current grid
+balance. It states whether the grid is inside or outside the band, or that the
+grid value is not known yet.
+
 Under **Fine tuning** you find **Gain**, **Minimum in W**, **Maximum in W**,
 **Step size in W**, **Max. change per step in W**, **Interval in s** and
 **Fallback value**. An empty interval uses the regulator interval from the
 settings (see Settings below).
+
+Each fine tuning field shows its default as a grey placeholder. A default is
+not saved, so the field stays empty and keeps following the default. A stepper
+on an empty field starts from the default.
 
 For **Hold** the phase sends its actions again every **Repeat every (s)**
 seconds, 60 by default, while the scenario is active.
@@ -135,6 +152,14 @@ The rule editor has four parts.
   at least the minimum interval for commands (see Settings). The repeat is off
   for a rule with a toggle action, because every repeat would flip the state back.
 
+### Action cards
+
+Each action is a card with the icon of its kind. **Switch** sets a device to
+On, Off or Toggle. **Setpoint** sends a value to an output, and the value can
+come from a measurement. **Notify** raises a notification with a level, a title
+and a text. **MQTT command** publishes a payload to a topic. The head of a
+setpoint card takes the colour of its device's role.
+
 ### Reading a rule
 
 The state between conditions and actions shows the rule's current result, for
@@ -163,7 +188,9 @@ not the newest value the dashboard has elsewhere. The header says how long ago
 the service last reported. When it is offline, the page shows the last known
 state.
 
-**Show history** lists the last triggers of one rule.
+Collapsed rule cards show a sparkline of their recent triggers. **Show history**
+opens the list of the last triggers of one rule, each marked as Triggered,
+Blocked or Error. A trigger from a test carries a Test badge.
 
 ## Undo
 
