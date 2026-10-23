@@ -1206,6 +1206,10 @@
       return 'mqtt';
     },
 
+    actionKindLabel(action) {
+      return t(ACTION_KIND_LABEL_KEYS[this.actionKind(action)]);
+    },
+
     // Schaltet eine Schalt-Aktion auf Ein, Aus oder Umschalten. Die Entitaet
     // bleibt, die Aktion wird ueber die Builder neu aufgebaut.
     setSwitchState(owner, index, state) {
@@ -1266,6 +1270,31 @@
       delete action.field;
       delete action.scale;
       delete action.offset;
+    },
+
+    // Ton der Sollwert-Karte: Rollenfarbe des Geraets, sonst neutral.
+    actionTone(action) {
+      const role = ((action && this.assignments[action.entity_id]) || {}).role;
+      if (role === 'pv') return 'pv';
+      if (role === 'wallbox') return 'wallbox';
+      if (role === 'heat_pump') return 'heatpump';
+      if (role === 'grid' || role === 'grid_import' || role === 'grid_export') return 'grid';
+      return '';
+    },
+
+    // Zahlenfeld des Sollwert-Steppers. Das Payload bleibt Text (so verlangt es
+    // der Dienst), der Stepper rechnet mit Zahlen.
+    setpointValueTarget(action) {
+      return {
+        get value() {
+          const payload = action.payload;
+          return payload === undefined || payload === null || payload === '' ? '' : Number(payload);
+        },
+        set value(next) {
+          const number = Number(next);
+          action.payload = next === '' || next === null || next === undefined || !Number.isFinite(number) ? '' : String(number);
+        },
+      };
     },
 
     removeAction(rule, index) {

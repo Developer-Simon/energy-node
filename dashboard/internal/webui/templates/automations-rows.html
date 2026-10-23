@@ -305,106 +305,196 @@
 
 {{define "automations-action-editors"}}
                 <template x-for="(action, index) in rowsOwner.actions" x-bind:key="index">
-                  <div class="edit-card">
-                    <div class="edit-card-head">
-                      <svg class="automation-icon"><use x-bind:href="'#' + describeAction(action).icon"></use></svg>
-                      <span class="edit-card-title" x-text="describeAction(action).title"></span>
-                      <button class="icon-button danger" type="button" x-on:click="removeAction(rowsOwner, index)"
-                              x-bind:title="$t('automations.action.remove_aria')" x-bind:aria-label="$t('automations.action.remove_aria')">
-                        <svg class="automation-icon"><use href="#ico-trash"></use></svg>
-                      </button>
-                    </div>
-
-                    <template x-if="action.type === 'publish'">
-                      <div>
-                        <div class="edit-sentence">
-                          <span class="edit-sentence-lead">{{t "automations.action.publish.lead"}}</span>
-                          <span>{{t "automations.action.publish.send_to"}}</span>
-                          <input type="text" x-model="action.topic" x-bind:placeholder="$t('automations.action.publish.topic_placeholder')" x-bind:aria-label="$t('automations.action.publish.topic_aria')">
-                          <template x-if="action.payload_source === 'constant'">
-                            <span class="edit-sentence">
-                              <span>{{t "automations.action.publish.constant_value"}}</span>
-                              <input type="text" x-model="action.payload" x-bind:aria-label="$t('automations.action.publish.payload_aria')">
-                            </span>
-                          </template>
-                          <span x-show="action.payload_source === 'balance'">
-                            <span x-text="$t('automations.action.publish.balance_field', {field: action.field})"></span>
-                          </span>
-                          <span x-show="action.payload_source === 'toggle'">
-                            <span x-text="$t('automations.action.publish.toggle_sentence', {on: action.payload_on, off: action.payload_off, topic: action.source_topic})"></span>
-                          </span>
-                        </div>
-
-                        <div class="edit-card-warning" x-show="computeDrift(action, entities).drifted"
-                             x-text="$t('automations.action.mqtt_warning', {current_topic: computeDrift(action, entities).currentTopic})"></div>
-
-                        <div class="edit-advanced" x-data="{ advancedOpen: false }">
-                          <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
-                            <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
-                            <span>{{t "automations.action.publish.advanced"}}</span>
+                  <div class="auto-cond">
+                    <div class="auto-card">
+                      <div class="auto-card-head">
+                        <span class="auto-tile-icon" x-bind:class="{ 'is-tone-accent': actionKind(action) === 'switch', 'is-tone-info': actionKind(action) === 'notify' }">
+                          <svg class="automation-icon"><use x-bind:href="'#' + ({ switch: 'ico-switch', setpoint: 'ico-flash', notify: 'ico-bell', mqtt: 'ico-mqtt' })[actionKind(action)]"></use></svg>
+                        </span>
+                        <span class="auto-card-title" x-text="describeAction(action).title"></span>
+                        <span class="auto-card-kind" x-text="actionKindLabel(action)"></span>
+                        <template x-if="rowsCanTest && hasAutomationsRole">
+                          <button class="auto-card-test" type="button"
+                                  x-bind:disabled="!rowsTestState(index).allowed"
+                                  x-bind:title="rowsTestState(index).reason || $t('automations.action.test_button.tooltip_allowed')"
+                                  x-bind:aria-label="$t('automations.action.test_button.aria_label')"
+                                  x-on:click="rowsRunTest(index)">
+                            <svg class="automation-icon"><use href="#ico-play"></use></svg>
+                            <span>{{t "automations.action.test_button.label"}}</span>
                           </button>
-                          <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
-                            <div class="edit-field-grid">
-                              <span class="edit-field-label">
-                                {{t "automations.action.publish.retained_label"}}
-                                <span class="field-help">
-                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.retained_explain_aria')">
-                                    <svg><use href="#ico-help"></use></svg>
-                                  </button>
-                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('retain')"></span>
-                                </span>
-                              </span>
-                              <input type="checkbox" x-model="action.retain" x-bind:aria-label="$t('automations.action.publish.retained_checkbox_aria')">
-                              <span class="edit-unit"></span>
+                        </template>
+                        <button class="auto-card-delete" type="button" x-on:click="removeAction(rowsOwner, index)"
+                                x-bind:title="$t('automations.action.remove_aria')" x-bind:aria-label="$t('automations.action.remove_aria')">
+                          <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                        </button>
+                      </div>
 
-                              <template x-if="action.payload_source === 'balance'">
-                                <span class="edit-field-label">
-                                  {{t "automations.action.publish.scale_label"}}
-                                  <span class="field-help">
-                                    <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.scale_explain_aria')">
-                                      <svg><use href="#ico-help"></use></svg>
-                                    </button>
-                                    <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
-                                  </span>
-                                </span>
-                              </template>
-                              <template x-if="action.payload_source === 'balance'">
-                                <input type="number" x-model.number="action.scale" x-bind:aria-label="$t('automations.action.publish.scale_label')">
-                              </template>
-                              <template x-if="action.payload_source === 'balance'"><span class="edit-unit">×</span></template>
-
-                              <template x-if="action.payload_source === 'balance'">
-                                <span class="edit-field-label">
-                                  {{t "automations.action.publish.offset_label"}}
-                                  <span class="field-help">
-                                    <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.offset_explain_aria')">
-                                      <svg><use href="#ico-help"></use></svg>
-                                    </button>
-                                    <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
-                                  </span>
-                                </span>
-                              </template>
-                              <template x-if="action.payload_source === 'balance'">
-                                <input type="number" x-model.number="action.offset" x-bind:aria-label="$t('automations.action.publish.offset_label')">
-                              </template>
-                              <template x-if="action.payload_source === 'balance'"><span class="edit-unit">W</span></template>
+                      <template x-if="actionKind(action) === 'switch' || actionKind(action) === 'setpoint'">
+                        <div class="auto-fields">
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label">{{t "automations.wizard.entity.device_label"}}</span>
+                            <div class="auto-device-chips" role="group" x-bind:aria-label="$t('automations.wizard.entity.device_label')">
+                              <div class="auto-device-chip is-selected">
+                                <span class="auto-tile-icon" x-bind:class="actionTone(action) ? 'is-tone-' + actionTone(action) : ''"><svg class="automation-icon"><use x-bind:href="'#' + describeAction(action).icon"></use></svg></span>
+                                <span class="auto-device-chip-text"><b x-text="describeAction(action).title"></b><small x-text="action.topic"></small></span>
+                              </div>
+                              <button type="button" class="auto-device-more" x-on:click="chooseActionDevice(rowsOwner, index)"
+                                      x-text="$t('automations.action.device.change_button')"></button>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    </template>
 
-                    <template x-if="action.type === 'notification'">
-                      <div class="edit-sentence">
-                        <span class="edit-sentence-lead">{{t "automations.action.notify.lead"}}</span>
-                        <span>{{t "automations.action.notify.send"}}</span>
-                        <select x-model="action.severity" x-bind:aria-label="$t('automations.action.notify.severity_aria')">
-                          <option value="info">{{t "automations.action.notify.info"}}</option><option value="warning">{{t "automations.action.notify.warning"}}</option><option value="critical">{{t "automations.action.notify.critical"}}</option>
-                        </select>
-                        <input type="text" x-model="action.title" x-bind:placeholder="$t('automations.action.notify.title_placeholder')" x-bind:aria-label="$t('automations.action.notify.title_aria')">
-                        <input type="text" x-model="action.message" x-bind:placeholder="$t('automations.action.notify.message_placeholder')" x-bind:aria-label="$t('automations.action.notify.message_aria')">
-                      </div>
-                    </template>
+                          <template x-if="actionKind(action) === 'switch'">
+                            <div class="auto-field auto-field-wide">
+                              <span class="auto-field-label">{{t "automations.action.switch.target_label"}}</span>
+                              <span class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.action.switch.target_label')">
+                                <button class="auto-segment-tab" type="button" role="radio" x-on:click="setSwitchState(rowsOwner, index, 'on')"
+                                        x-bind:aria-checked="action.payload_source !== 'toggle' && action.payload === (entityByUniqueId(action.entity_id) || {}).payload_on ? 'true' : 'false'">{{t "automations.action.switch.on"}}</button>
+                                <button class="auto-segment-tab" type="button" role="radio" x-on:click="setSwitchState(rowsOwner, index, 'off')"
+                                        x-bind:aria-checked="action.payload_source !== 'toggle' && action.payload === (entityByUniqueId(action.entity_id) || {}).payload_off ? 'true' : 'false'">{{t "automations.action.switch.off"}}</button>
+                                <button class="auto-segment-tab" type="button" role="radio" x-on:click="setSwitchState(rowsOwner, index, 'toggle')"
+                                        x-bind:aria-checked="action.payload_source === 'toggle' ? 'true' : 'false'">{{t "automations.action.switch.toggle"}}</button>
+                              </span>
+                            </div>
+                          </template>
+
+                          <template x-if="actionKind(action) === 'setpoint'">
+                            <div class="auto-fields">
+                              <template x-if="action.payload_source !== 'balance'">
+                                <div class="auto-field" x-data="{ get stepTarget() { return setpointValueTarget(action) }, stepKey: 'value', get stepOpts() { return { min: action.min, max: action.max, step: action.step || 1 } }, get stepUnit() { return (entityByUniqueId(action.entity_id) || {}).unit_of_measurement || '' }, stepLabel: $t('automations.action.value_label') }">
+                                  <span class="auto-field-label">{{t "automations.action.value_label"}}</span>
+                                  {{template "auto-stepper"}}
+                                </div>
+                              </template>
+                              <div class="auto-field">
+                                <span class="auto-field-label">{{t "automations.action.setpoint.source_label"}}</span>
+                                <span class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.action.setpoint.source_label')">
+                                  <button class="auto-segment-tab" type="button" role="radio" x-on:click="setSetpointSource(action, 'constant')"
+                                          x-bind:aria-checked="action.payload_source !== 'balance' ? 'true' : 'false'">{{t "automations.wizard.setpoint.constant"}}</button>
+                                  <button class="auto-segment-tab" type="button" role="radio" x-on:click="setSetpointSource(action, 'balance')"
+                                          x-bind:aria-checked="action.payload_source === 'balance' ? 'true' : 'false'">{{t "automations.action.setpoint.source_balance"}}</button>
+                                </span>
+                              </div>
+                              <template x-if="action.payload_source === 'balance'">
+                                <div class="auto-fields">
+                                  <div class="auto-field">
+                                    <span class="auto-field-label">{{t "automations.condition.balance.field_label"}}</span>
+                                    <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
+                                      <template x-for="[field, label] in balanceFields" x-bind:key="field">
+                                        <option x-bind:value="field" x-text="label"></option>
+                                      </template>
+                                      <template x-if="customBalanceFields.length">
+                                        <optgroup x-bind:label="$t('automations.metric.custom_group')">
+                                          <template x-for="[field, label] in customBalanceFields" x-bind:key="field">
+                                            <option x-bind:value="field" x-text="label"></option>
+                                          </template>
+                                        </optgroup>
+                                      </template>
+                                    </select>
+                                  </div>
+                                  <div class="auto-field">
+                                    <span class="auto-field-label">{{t "automations.action.publish.scale_label"}}</span>
+                                    <input class="auto-input" type="number" x-model.number="action.scale" x-bind:aria-label="$t('automations.action.publish.scale_label')">
+                                  </div>
+                                  <div class="auto-field">
+                                    <span class="auto-field-label">{{t "automations.action.publish.offset_label"}}</span>
+                                    <input class="auto-input" type="number" x-model.number="action.offset" x-bind:aria-label="$t('automations.action.publish.offset_label')">
+                                  </div>
+                                </div>
+                              </template>
+                            </div>
+                          </template>
+                        </div>
+                      </template>
+
+                      <template x-if="actionKind(action) === 'notify'">
+                        <div class="auto-fields">
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label">{{t "automations.action.notify.level_label"}}</span>
+                            <span class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.action.notify.level_label')">
+                              <button class="auto-segment-tab" type="button" role="radio" x-on:click="action.severity = 'info'"
+                                      x-bind:aria-checked="action.severity === 'info' ? 'true' : 'false'">{{t "automations.action.notify.info"}}</button>
+                              <button class="auto-segment-tab" type="button" role="radio" x-on:click="action.severity = 'warning'"
+                                      x-bind:aria-checked="action.severity === 'warning' ? 'true' : 'false'">{{t "automations.action.notify.warning"}}</button>
+                              <button class="auto-segment-tab" type="button" role="radio" x-on:click="action.severity = 'critical'"
+                                      x-bind:aria-checked="action.severity === 'critical' ? 'true' : 'false'">{{t "automations.action.notify.critical"}}</button>
+                            </span>
+                          </div>
+                          <div class="auto-field">
+                            <span class="auto-field-label">{{t "automations.action.notify.title_label"}}</span>
+                            <input class="auto-input" type="text" x-model="action.title" x-bind:placeholder="$t('automations.action.notify.title_placeholder')" x-bind:aria-label="$t('automations.action.notify.title_aria')">
+                          </div>
+                          <div class="auto-field">
+                            <span class="auto-field-label">{{t "automations.action.notify.text_label"}}</span>
+                            <input class="auto-input" type="text" x-model="action.message" x-bind:placeholder="$t('automations.action.notify.message_placeholder')" x-bind:aria-label="$t('automations.action.notify.message_aria')">
+                          </div>
+                        </div>
+                      </template>
+
+                      <template x-if="actionKind(action) === 'mqtt'">
+                        <div class="auto-fields">
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label">{{t "automations.action.publish.topic_aria"}}</span>
+                            <span class="auto-input-icon">
+                              <svg class="automation-icon"><use href="#ico-topic"></use></svg>
+                              <input class="auto-input" type="text" x-model="action.topic" x-bind:placeholder="$t('automations.action.publish.topic_placeholder')" x-bind:aria-label="$t('automations.action.publish.topic_aria')">
+                            </span>
+                          </div>
+                          <template x-if="action.payload_source !== 'balance'">
+                            <div class="auto-field">
+                              <span class="auto-field-label">{{t "automations.action.value_label"}}</span>
+                              <input class="auto-input" type="text" x-model="action.payload" x-bind:aria-label="$t('automations.action.publish.payload_aria')">
+                            </div>
+                          </template>
+                          <template x-if="action.payload_source === 'balance'">
+                            <div class="auto-fields">
+                              <div class="auto-field">
+                                <span class="auto-field-label">{{t "automations.condition.balance.field_label"}}</span>
+                                <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
+                                  <template x-for="[field, label] in balanceFields" x-bind:key="field">
+                                    <option x-bind:value="field" x-text="label"></option>
+                                  </template>
+                                  <template x-if="customBalanceFields.length">
+                                    <optgroup x-bind:label="$t('automations.metric.custom_group')">
+                                      <template x-for="[field, label] in customBalanceFields" x-bind:key="field">
+                                        <option x-bind:value="field" x-text="label"></option>
+                                      </template>
+                                    </optgroup>
+                                  </template>
+                                </select>
+                              </div>
+                              <div class="auto-field">
+                                <span class="auto-field-label">{{t "automations.action.publish.scale_label"}}</span>
+                                <input class="auto-input" type="number" x-model.number="action.scale" x-bind:aria-label="$t('automations.action.publish.scale_label')">
+                              </div>
+                              <div class="auto-field">
+                                <span class="auto-field-label">{{t "automations.action.publish.offset_label"}}</span>
+                                <input class="auto-input" type="number" x-model.number="action.offset" x-bind:aria-label="$t('automations.action.publish.offset_label')">
+                              </div>
+                            </div>
+                          </template>
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label">
+                              {{t "automations.action.mqtt.retained_label"}}
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.retained_explain_aria')">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('retain')"></span>
+                              </span>
+                            </span>
+                            <span class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.action.publish.retained_checkbox_aria')">
+                              <button class="auto-segment-tab" type="button" role="radio" x-on:click="action.retain = false"
+                                      x-bind:aria-checked="action.retain ? 'false' : 'true'">{{t "automations.action.mqtt.retained_no"}}</button>
+                              <button class="auto-segment-tab" type="button" role="radio" x-on:click="action.retain = true"
+                                      x-bind:aria-checked="action.retain ? 'true' : 'false'">{{t "automations.action.mqtt.retained_yes"}}</button>
+                            </span>
+                          </div>
+                        </div>
+                      </template>
+
+                      <div class="edit-card-warning" x-show="computeDrift(action, entities).drifted"
+                           x-text="$t('automations.action.mqtt_warning', {current_topic: computeDrift(action, entities).currentTopic})"></div>
+                    </div>
                   </div>
                 </template>
 {{end}}

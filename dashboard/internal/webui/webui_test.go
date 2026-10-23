@@ -3398,3 +3398,36 @@ func TestFineTuningIsACardWithSteppers(t *testing.T) {
 		t.Fatal("Hinweiszeile automations.scenario.edit.defaults_hint fehlt")
 	}
 }
+
+// Die Aktionskarten zeigen je Aktion Art, Testen (nur mit rowsCanTest) und Loeschen.
+// Der Editor-Block der Aktionen nutzt keine edit-card mehr.
+func TestActionCardsShowKindTestAndDelete(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	block, _, found := strings.Cut(source[strings.Index(source, `{{define "automations-action-editors"}}`):], `{{define "automations-condition-tiles"}}`)
+	if !found {
+		t.Fatal("Aktions-Editoren nicht gefunden")
+	}
+	for _, marker := range []string{
+		`actionKind(action)`,
+		`ico-play`,
+		`ico-trash`,
+		`auto-card`,
+		`rowsCanTest`,
+		`removeAction(rowsOwner, index)`,
+		`chooseActionDevice(rowsOwner, index)`,
+		`setSwitchState(rowsOwner, index,`,
+		`setSetpointSource(action,`,
+		`{{template "auto-stepper"}}`,
+	} {
+		if !strings.Contains(block, marker) {
+			t.Fatalf("Aktions-Editoren ohne %q", marker)
+		}
+	}
+	if strings.Contains(block, `class="edit-card"`) {
+		t.Fatal("Aktions-Editoren nutzen noch edit-card")
+	}
+}
