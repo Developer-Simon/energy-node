@@ -1770,6 +1770,7 @@ def test_repeat_fires_again_after_repeat_seconds_while_conditions_hold():
     assert len(published) == 1
     result = engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=1060.0)
     assert len(published) == 2
+    assert result["r1"]["result"] == "fired"
     assert result["r1"]["fire_count"] == 2
 
 
@@ -1783,6 +1784,22 @@ def test_repeat_stops_when_the_episode_ends():
     assert len(published) == 1
     engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1090.0)
     assert len(published) == 2
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1100.0)
+    assert len(published) == 2
+
+
+def test_a_new_episode_inside_the_repeat_window_fires_as_a_new_firing():
+    r = rule_with_hold(hold_seconds=0, cooldown_seconds=0)
+    r["repeat_seconds"] = 60
+    history = []
+    doc, engine, published, _ = engine_with([r], history_sink=lambda rid, entry: history.append((rid, entry)))
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1000.0)
+    engine.tick(doc, balance={"grid_export": 0}, balance_age=0, topic_values={}, now_ts=1030.0)
+    result = engine.tick(doc, balance={"grid_export": 900}, balance_age=0, topic_values={}, now_ts=1040.0)
+    assert len(published) == 2
+    assert result["r1"]["result"] == "fired"
+    assert result["r1"]["fire_count"] == 2
+    assert len(history) == 2
 
 
 def test_repeat_records_history_only_for_the_first_firing_of_an_episode():
@@ -1792,7 +1809,8 @@ def test_repeat_records_history_only_for_the_first_firing_of_an_episode():
     doc, engine, published, _ = engine_with([r], history_sink=lambda rid, entry: history.append((rid, entry)))
     balance = {"grid_export": 900}
     for now_ts in (1000.0, 1060.0, 1120.0):
-        engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=now_ts)
+        result = engine.tick(doc, balance=balance, balance_age=0, topic_values={}, now_ts=now_ts)
+        assert result["r1"]["result"] == "fired"
     assert len(published) == 3
     assert len(history) == 1
 
