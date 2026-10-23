@@ -22,6 +22,10 @@
     ['battery_energy_kwh', 'automations.metric.battery_energy_kwh'],
   ];
 
+  const RULE_LIMIT = 16;
+  const SCENARIO_LIMIT = 8;
+  const UNDO_MS = 10000;
+
   const emptyDocument = () => ({
     version: 1,
     settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
@@ -29,6 +33,7 @@
                 publish_allowed_prefixes: [], publish_allowed_prefixes_auto: false,
                 publish_min_interval_s: 30, regulator_interval_s: 10 },
     rules: [],
+    scenarios: [],
   });
 
   const automationsPanel = () => ({
@@ -57,6 +62,14 @@
     locating: false,
 
     settingsOpen: false,
+    // Reiter der Seitenschale: Szenarien oder Einzelregeln.
+    view: 'rules',
+    // Frisch angelegte Eintraege (ID -> true) bis zum Speichern.
+    newIds: {},
+    // Rueckgaengig-Balken nach dem Anlegen, verschwindet nach 10 Sekunden.
+    undo: null,
+    scenarioExpanded: {},
+    scenarioEditing: {},
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
@@ -103,6 +116,10 @@
         ]);
         this.categories = (roles && roles.categories) || {};
         this.document = doc && doc.rules ? doc : emptyDocument();
+        this.document.scenarios ||= [];
+        this.view = this.document.scenarios.length ? 'scenarios' : 'rules';
+        this.newIds = {};
+        this.undo = null;
         // Ein auf der Platte gespeichertes Dokument kann aelter sein als ein
         // seither neu hinzugekommenes settings-Feld (z.B. history_limit/
         // history_persist) - ohne diesen Merge wuerde ein fehlendes Feld im
@@ -473,6 +490,34 @@
       if (collapsing) this.editing[rule.id] = false;
     },
 
+    toggleScenarioExpanded(scenario) {
+      const collapsing = this.scenarioExpanded[scenario.id];
+      this.scenarioExpanded[scenario.id] = !collapsing;
+      if (collapsing) this.scenarioEditing[scenario.id] = false;
+    },
+
+    // Zaehlt, was beim naechsten Speichern anders ist: neue, geaenderte und
+    // geloeschte Regeln und Szenarien sowie ein Eintrag fuer die Einstellungen.
+    unsavedCount() {
+      if (!this.savedDocument) return 0;
+      const saved = this.savedDocument;
+      const countEntries = (kind) => {
+        const current = this.document[kind] || [];
+        const before = saved[kind] || [];
+        const changed = current.filter((entry) => {
+          const old = before.find((candidate) => candidate.id === entry.id);
+          return !old || JSON.stringify(old) !== JSON.stringify(entry);
+        }).length;
+        const removed = before.filter((entry) => !current.some((candidate) => candidate.id === entry.id)).length;
+        return changed + removed;
+      };
+      const settingsChanged = JSON.stringify(saved.settings) !== JSON.stringify(this.document.settings) ? 1 : 0;
+      return countEntries('rules') + countEntries('scenarios') + settingsChanged;
+    },
+
+    canAddRule() { return (this.document.rules || []).length < RULE_LIMIT; },
+    canAddScenario() { return (this.document.scenarios || []).length < SCENARIO_LIMIT; },
+
     // Die Device Map verweist auf eine Regel: aufklappen, zur Regel scrollen
     // und sie kurz hervorheben.
     focusRule(ruleId) {
@@ -587,8 +632,83 @@
     },
 
     addRule() {
+      if (!this.canAddRule()) {
+        this.notify(t('automations.limit.rules', { max: RULE_LIMIT }), 'warning');
+        return;
+      }
       const id = `regel_${Date.now()}`;
-      this.document.rules.push({ id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
+      this.insertEntry('rule', { id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
+    },
+
+    addScenario() {
+      if (!this.canAddScenario()) {
+        this.notify(t('automations.limit.scenarios', { max: SCENARIO_LIMIT }), 'warning');
+        return;
+      }
+      const id = `szenario_${Date.now()}`;
+      this.insertEntry('scenario', window.__automationScenario.emptyScenario(id, t('automations.new_scenario')));
+    },
+
+    // Gemeinsamer Kern fuer neue Regeln und Szenarien: anlegen, als neu
+    // markieren, aufklappen, Editor oeffnen, Reiter wechseln, Rueckgaengig anbieten.
+    insertEntry(kind, entry) {
+      if (kind === 'scenario') {
+        this.document.scenarios.push(entry);
+        this.scenarioExpanded[entry.id] = true;
+        this.scenarioEditing[entry.id] = true;
+        this.view = 'scenarios';
+      } else {
+        this.document.rules.push(entry);
+        this.expanded[entry.id] = true;
+        this.editing[entry.id] = true;
+        this.view = 'rules';
+      }
+      this.newIds[entry.id] = true;
+      this.armUndo({
+        label: kind === 'scenario' ? t('automations.undo.scenario_added') : t('automations.undo.rule_added'),
+        kind,
+        id: entry.id,
+      });
+      return entry;
+    },
+
+    armUndo(undo) {
+      clearTimeout(this._undoTimer);
+      this.undo = undo;
+      this._undoTimer = setTimeout(() => { this.undo = null; }, UNDO_MS);
+      if (this._undoTimer && this._undoTimer.unref) this._undoTimer.unref();
+    },
+
+    // Entfernt den zuletzt angelegten Eintrag per ID, auch wenn er inzwischen
+    // bearbeitet wurde.
+    undoInsert() {
+      const undo = this.undo;
+      if (!undo) return;
+      if (undo.kind === 'scenario') {
+        this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== undo.id);
+        delete this.scenarioExpanded[undo.id];
+        delete this.scenarioEditing[undo.id];
+      } else {
+        this.document.rules = this.document.rules.filter((entry) => entry.id !== undo.id);
+        delete this.expanded[undo.id];
+        delete this.editing[undo.id];
+      }
+      delete this.newIds[undo.id];
+      clearTimeout(this._undoTimer);
+      this.undo = null;
+    },
+
+    async removeScenario(scenarioId) {
+      const scenario = this.document.scenarios.find((entry) => entry.id === scenarioId);
+      const confirmed = await this.$store.modal.confirm({
+        title: t('automations.delete_scenario.title', { name: (scenario && scenario.name) || scenarioId }),
+        body: t('automations.delete_scenario.body'),
+        confirmLabel: t('common.delete'),
+        danger: true,
+      });
+      if (!confirmed) return;
+      this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== scenarioId);
+      if (this.undo && this.undo.id === scenarioId) this.undo = null;
     },
 
     // Der Loeschknopf traegt seit dem Umbau nur noch ein Icon - ein

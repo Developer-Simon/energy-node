@@ -19,6 +19,8 @@ const configStatusSource = fs.readFileSync(
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
+const scenarioSource = fs.readFileSync(path.join(jsDir, 'automations-scenario.js'), 'utf8');
+const chartSource = fs.readFileSync(path.join(jsDir, 'automations-chart.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -32,6 +34,8 @@ function createAutomationsPanel() {
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
   vm.runInContext(viewSource, context);
+  vm.runInContext(scenarioSource, context);
+  vm.runInContext(chartSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -1586,4 +1590,58 @@ test('the old wizard is gone from the page component', () => {
   for (const name of ['startRuleWizard', 'wizardRule', 'wizardCanAdvance', 'wizardNext', 'wizardBack', 'wizardFinish', 'isWizardRule', 'wizardShows', 'this.wizard']) {
     assert.equal(scriptSource.includes(name), false, name);
   }
+});
+
+test('unsavedCount counts new, changed and deleted entries and settings', () => {
+  const { component } = createAutomationsPanel();
+  component.document = {
+    version: 1, settings: { history_limit: 10 },
+    rules: [JSON.parse(JSON.stringify(sampleRule))],
+    scenarios: [{ id: 's1', name: 'Pumpe', enabled: false }],
+  };
+  component.savedDocument = JSON.parse(JSON.stringify(component.document));
+  assert.equal(component.unsavedCount(), 0);
+  component.document.rules[0].name = 'Geaendert';
+  component.document.rules.push({ id: 'r9', name: 'Neu', conditions: [], actions: [] });
+  component.document.scenarios = [];
+  component.document.settings.history_limit = 20;
+  assert.equal(component.unsavedCount(), 4);
+});
+
+test('addScenario marks the entry new, opens it and offers undo', () => {
+  const { component } = createAutomationsPanel();
+  component.addScenario();
+  const scenario = component.document.scenarios[0];
+  assert.match(scenario.id, /^szenario_\d+$/);
+  assert.equal(component.newIds[scenario.id], true);
+  assert.equal(component.scenarioExpanded[scenario.id], true);
+  assert.equal(component.scenarioEditing[scenario.id], true);
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.undo.kind, 'scenario');
+  assert.equal(component.undo.id, scenario.id);
+  component.undoInsert();
+});
+
+test('undoInsert removes the new entry even after it was edited', () => {
+  const { component } = createAutomationsPanel();
+  component.addRule();
+  const rule = component.document.rules[0];
+  component.addCondition(rule, 'balance');
+  rule.name = 'Geaendert';
+  component.undoInsert();
+  assert.equal(component.document.rules.length, 0);
+  assert.equal(component.newIds[rule.id], undefined);
+  assert.equal(component.undo, null);
+});
+
+test('adding is blocked at 16 rules and 8 scenarios', () => {
+  const { component } = createAutomationsPanel();
+  for (let i = 0; i < 16; i += 1) component.document.rules.push({ id: `r${i}`, name: 'x', conditions: [], actions: [] });
+  component.addRule();
+  assert.equal(component.document.rules.length, 16);
+  assert.equal(component.canAddRule(), false);
+  for (let i = 0; i < 8; i += 1) component.document.scenarios.push({ id: `s${i}`, name: 'x' });
+  component.addScenario();
+  assert.equal(component.document.scenarios.length, 8);
+  assert.equal(component.canAddScenario(), false);
 });
