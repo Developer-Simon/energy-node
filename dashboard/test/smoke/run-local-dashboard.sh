@@ -45,14 +45,14 @@
 #                                                # ueberstimmen das Preset
 #
 # PRESETS (--preset NAME):
-#   battery-soc      fixtures/battery-soc.json, kein Seed (= Skript-Standard)
+#   battery-soc      fixtures/battery-soc.json, kein Seed (frueherer Skript-Standard)
 #   energie          fixtures/energie-ueberschuss.json + seed/energie-alle-karten
 #   energie-simulate wie energie, zusaetzlich --simulate
 #   uebersicht-push  wie energie-simulate, zusaetzlich entity_value und
 #                    entity_group - das Raster, das Stufe 3 tauschfrei macht
 #   energie-kombiniert  fixtures/energie-kombiniert.json + seed/energie-kombiniert
 #                       (load_mode "combined", Band/Board einzeln, Ring gesammelt)
-#   alle-funktionen  fixtures/alle-funktionen.json + seed/alle-funktionen ("teuer,
+#   alle-funktionen  Skript-Standard ohne weitere Flags. fixtures/alle-funktionen.json + seed/alle-funktionen ("teuer,
 #                    aber nahezu vollstaendig", siehe README)
 #   geraete-kacheln  fixtures/geraete-kacheln.json + seed/geraete-kacheln (zwei
 #                    schmale device-Kacheln mit Slider, span "1" auf der
@@ -132,6 +132,13 @@ PASSWORD="smoketest1234"
 # echten (selbstsignierten) Zertifikat, dann ist der Header ueberfluessig,
 # schadet aber nicht.
 SECURE_HEADER="X-Forwarded-Proto: https"
+
+# Ohne --preset/--fixture/--seed-data/--devices gilt das Preset alle-funktionen,
+# das auch die Automationen mitbringt. Das alte Verhalten bleibt mit
+# --preset battery-soc erreichbar.
+if ! printf '%s\n' "$@" | grep -qxE -e '--preset|--fixture|--seed-data|--devices'; then
+  set -- --preset alle-funktionen "$@"
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

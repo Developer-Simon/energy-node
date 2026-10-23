@@ -83,7 +83,7 @@ from the package. That is expected, the local build reports `<VERSION>-dev`.
 |---|---|
 | `--keep` | keeps running instead of tearing down; URL and credentials are printed |
 | `--devices DIR` | device configurations from `DIR` instead of `services/battery_soc` |
-| `--fixture FILE` | retained messages from `FILE` instead of `fixtures/battery-soc.json` |
+| `--fixture FILE` | retained messages from `FILE` instead of the default preset `alle-funktionen` (the former default is `--preset battery-soc`) |
 | `--seed-data DIR` | `*.json` from `DIR` into the data directory, **before** the dashboard starts |
 | `--theme NAME` | `mint`, `stromblau`, `signalgelb` or `tageslicht` in `settings.json` |
 | `--port N` | different HTTP port (default 18100) |
