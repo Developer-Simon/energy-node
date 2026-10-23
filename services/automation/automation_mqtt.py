@@ -11,7 +11,6 @@ import collections
 import datetime
 import json
 import logging
-import math
 import os
 import re
 import sys
@@ -27,6 +26,7 @@ from energy_node_common.mqtt import build_client, publish_online_status, publish
 from energy_node_common.slave import Slave
 
 import ha_template
+import regulator
 import sun
 
 LOG = logging.getLogger("automation_mqtt")
@@ -615,21 +615,14 @@ def resolve_publish_value(action: dict, *, balance: Optional[dict], topic_values
             return None, "value_unparseable"
 
     value = base_value * action.get("scale", 1) + action.get("offset", 0)
-    step = action.get("step")
-    if step:
-        # Floor, not round-to-nearest: a surplus-driven setpoint (e.g. wallbox
-        # charge power from grid_export) must never round up past what is
-        # actually available.
-        value = math.floor(value / step) * step
-    if action.get("min") is not None:
-        value = max(value, action["min"])
-    if action.get("max") is not None:
-        value = min(value, action["max"])
-    decimals = action.get("decimals")
-    if decimals is not None:
-        value = round(value, decimals)
-        return f"{value:.{decimals}f}", None
-    return str(value), None
+    _, payload = regulator.quantize(
+        value,
+        step=action.get("step"),
+        minimum=action.get("min"),
+        maximum=action.get("max"),
+        decimals=action.get("decimals"),
+    )
+    return payload, None
 
 
 class ActionExecutor:
