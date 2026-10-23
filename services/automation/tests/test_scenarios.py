@@ -322,3 +322,128 @@ def test_engine_condition_reports_are_unchanged():
                 "actions": [{"type": "notification", "severity": "info", "title": "t", "message": "m"}]}])
     results = engine.tick(doc, balance={"grid_export": 620}, balance_age=1, topic_values={}, now_ts=1000)
     assert set(results["r1"]["conditions"][0]) == {"met", "raw_met", "value", "target", "since", "hold_remaining"}
+
+
+def regulator_settings(**overrides):
+    values = {"settling_seconds": 0, "tick_interval_s": 10, "regulator_interval_s": 10}
+    values.update(overrides)
+    return automation.Settings(**values)
+
+
+def regulate_scenario(**reg_overrides):
+    """Nulleinspeisung mit Zeitfenster statt Sonnenfenster, damit der Test ohne Standort laeuft."""
+    raw = zero_feed(when={"conditions": [{"type": "time_window", "start": "00:00", "end": "23:59"}]},
+                    **{"while": with_regulator(**reg_overrides)})
+    return normalized(raw)
+
+
+def regulate_tick(engine, doc, now_ts, grid_import=0, grid_export=470, balance_age=0, topic_values=None):
+    values = {"werkstatt/bkw/state": '{"power": 800}'} if topic_values is None else topic_values
+    return engine.tick(doc, balance={"grid_import": grid_import, "grid_export": grid_export},
+                       balance_age=balance_age, topic_values=values, now_ts=now_ts)
+
+
+def history_results(history):
+    return [event["result"] for _sid, event in history]
+
+
+def test_regulator_sends_the_first_step_on_activation():
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings())
+    report = regulate_tick(engine, doc, 1000)
+    assert published == [("werkstatt/bkw/limit/set", "400", False)]
+    assert report["nulleinspeisung"]["output"] == 400
+    assert report["nulleinspeisung"]["net"] == -470
+
+
+def test_regulator_waits_for_its_interval():
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario(interval_s=30)],
+                                                     settings=regulator_settings())
+    regulate_tick(engine, doc, 1000)
+    regulate_tick(engine, doc, 1010)
+    regulate_tick(engine, doc, 1020)
+    assert payloads(published) == ["400"]
+    regulate_tick(engine, doc, 1030, grid_export=270)
+    assert payloads(published) == ["400", "560"]
+
+
+def test_regulator_interval_never_beats_the_tick():
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario(interval_s=5)],
+                                                     settings=regulator_settings(tick_interval_s=20))
+    regulate_tick(engine, doc, 1000)
+    regulate_tick(engine, doc, 1010, grid_export=270)
+    assert payloads(published) == ["400"]
+
+
+def test_stale_balance_sends_the_fallback_once():
+    history = []
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
+                                                     history_sink=lambda sid, event: history.append((sid, event)))
+    regulate_tick(engine, doc, 1000)
+    regulate_tick(engine, doc, 1010, balance_age=999)
+    report = regulate_tick(engine, doc, 1020, balance_age=999)
+    assert payloads(published) == ["400", "800"]
+    assert report["nulleinspeisung"]["phase"] == "fallback"
+    fallbacks = [event for _sid, event in history if event["result"] == "fallback"]
+    assert len(fallbacks) == 1
+    assert fallbacks[0]["reason"] == "balance_stale"
+
+
+def test_recovery_continues_without_on_start():
+    history = []
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
+                                                     history_sink=lambda sid, event: history.append((sid, event)))
+    regulate_tick(engine, doc, 1000)
+    regulate_tick(engine, doc, 1010, balance_age=999)
+    report = regulate_tick(engine, doc, 1020)
+    assert report["nulleinspeisung"]["phase"] == "active"
+    assert [r for r in history_results(history) if r != "jump"] == ["started", "fallback", "recovered"]
+    assert payloads(published) == ["400", "800", "400"]
+
+
+def test_missing_entity_reading_uses_the_fallback_not_last():
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings())
+    report = regulate_tick(engine, doc, 1000, topic_values={})
+    assert payloads(published) == ["800"]
+    assert report["nulleinspeisung"]["reason"] == "base_missing"
+
+
+def test_base_from_balance_and_from_last():
+    balance_reg = with_regulator(base={"source": "balance", "field": "grid_export"})["regulator"]
+    assert automation.regulator_base_value(balance_reg, balance={"grid_export": 470}, topic_values={},
+                                           last_value=None) == 470
+    assert automation.regulator_base_value(balance_reg, balance=None, topic_values={},
+                                           last_value=None) is None
+
+    last_reg = with_regulator(base={"source": "last"})["regulator"]
+    assert automation.regulator_base_value(last_reg, balance=None, topic_values={}, last_value=None) == 800
+    assert automation.regulator_base_value(last_reg, balance=None, topic_values={}, last_value=300) == 300
+
+    consumer_reg = with_regulator(base={"source": "last"}, direction="consumer", fallback=None)["regulator"]
+    assert automation.regulator_base_value(consumer_reg, balance=None, topic_values={}, last_value=None) == 50
+
+
+def test_blocked_publish_does_not_move_last_value():
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings())
+    engine.executor.publish_allowed_prefixes = ["andere/"]
+    report = regulate_tick(engine, doc, 1000)
+    assert published == []
+    assert engine._runtime["nulleinspeisung"].last_value is None
+    assert report["nulleinspeisung"]["reason"] == "topic does not match any allowed prefix"
+
+
+def test_large_error_records_a_jump():
+    history = []
+    doc, engine, _, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings(),
+                                             history_sink=lambda sid, event: history.append((sid, event)))
+    regulate_tick(engine, doc, 1000)
+    assert "jump" in history_results(history)
+
+
+def test_zero_deadband_records_no_jump():
+    history = []
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario(deadband_w=0)],
+                                                     settings=regulator_settings(),
+                                                     history_sink=lambda sid, event: history.append((sid, event)))
+    regulate_tick(engine, doc, 1000)
+    assert payloads(published) == ["400"]
+    assert "jump" not in history_results(history)

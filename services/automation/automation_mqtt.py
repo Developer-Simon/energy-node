@@ -17,6 +17,7 @@ import re
 import sys
 import tempfile
 import time
+import math
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -1098,6 +1099,35 @@ class ScenarioRuntime:
 _SCENARIO_ACTIVE_PHASES = ("active", "fallback")
 
 
+def _finite_float(value) -> Optional[float]:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def regulator_base_value(regulator: dict, *, balance: Optional[dict], topic_values: dict,
+                         last_value: Optional[float]) -> Optional[float]:
+    base = regulator["base"]
+    source = base["source"]
+    if source == "entity":
+        payload = topic_values.get(base.get("topic", ""))
+        if payload is None:
+            return None
+        return _finite_float(ha_template.extract_value(payload, base.get("value_template", "")))
+    if source == "balance":
+        if balance is None:
+            return None
+        return _finite_float(balance_value(balance, base["field"]))
+    if last_value is not None:
+        return float(last_value)
+    output = regulator["output"]
+    return float(output["max"] if regulator["direction"] == "producer" else output["min"])
+
+
 class ScenarioEngine:
     """Zustandsmaschine fuer Szenarien (idle, active, fallback, disabled).
     Der Zustand lebt nur im RAM, wie bei Engine."""
@@ -1119,6 +1149,7 @@ class ScenarioEngine:
 
         results = {}
         seen = set()
+        settings = doc.settings
         for scenario in doc.scenarios:
             sid = scenario["id"]
             seen.add(sid)
@@ -1134,7 +1165,8 @@ class ScenarioEngine:
                 when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
             else:
                 when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
-                self._advance(sid, scenario, rt, when_eval, until_eval, settling=settling, now_ts=now_ts, **ctx)
+                self._advance(sid, scenario, rt, when_eval, until_eval, settling=settling, now_ts=now_ts,
+                              settings=settings, **ctx)
 
             results[sid] = self._report(rt, scenario, when_eval, until_eval)
 
@@ -1164,7 +1196,7 @@ class ScenarioEngine:
         return when_eval, until_eval
 
     def _advance(self, sid: str, scenario: dict, rt: ScenarioRuntime, when_eval, until_eval, *,
-                 settling: bool, now_ts: float, balance, topic_values) -> None:
+                 settling: bool, now_ts: float, settings, balance, topic_values) -> None:
         ctx = {"balance": balance, "topic_values": topic_values}
         if rt.phase not in _SCENARIO_ACTIVE_PHASES:
             rt.reason = None
@@ -1174,7 +1206,7 @@ class ScenarioEngine:
                 rt.reason = "balance_stale"
             elif when_eval.all_held:
                 self._start(sid, scenario, rt, now_ts=now_ts, **ctx)
-                self._run_while(scenario, rt, now_ts=now_ts, **ctx)
+                self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
             return
 
         if until_eval is None:
@@ -1185,7 +1217,7 @@ class ScenarioEngine:
             self._end(sid, rt, **ctx)
             return
         rt.reason = None
-        self._run_while(scenario, rt, now_ts=now_ts, **ctx)
+        self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
 
     def _start(self, sid: str, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values) -> None:
         rt.phase = "active"
@@ -1208,13 +1240,75 @@ class ScenarioEngine:
         rt.when = []
         rt.until = []
 
-    def _run_while(self, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values) -> None:
+    def _run_while(self, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, settings, balance,
+                   topic_values) -> None:
         while_block = scenario["while"]
         if while_block["mode"] == "hold":
             if rt.last_hold_at is None or now_ts - rt.last_hold_at >= while_block["repeat_seconds"]:
                 rt.last_hold_at = now_ts
                 self._run_actions(while_block["actions"], balance=balance, topic_values=topic_values)
-        # mode "regulate" is filled in by the regulator step (Task 6).
+        elif while_block["mode"] == "regulate":
+            self._regulate(scenario["id"], scenario, rt, now_ts=now_ts, settings=settings,
+                           balance=balance, topic_values=topic_values)
+
+    def _regulate(self, sid: str, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, settings,
+                  balance, topic_values) -> None:
+        regulator_def = scenario["while"]["regulator"]
+        interval = regulator_def.get("interval_s")
+        if interval is None:
+            interval = settings.regulator_interval_s
+        interval = max(interval, settings.tick_interval_s)
+        if rt.last_step_at is not None and now_ts - rt.last_step_at < interval:
+            return
+        rt.last_step_at = now_ts
+
+        output_topic = regulator_def["output"]["topic"]
+        base = regulator_base_value(regulator_def, balance=balance, topic_values=topic_values,
+                                    last_value=rt.last_value)
+        if balance is None or base is None:
+            reason = "balance_stale" if balance is None else "base_missing"
+            rt.base = base
+            rt.reason = reason
+            if rt.phase != "fallback":
+                rt.phase = "fallback"
+                outcomes = []
+                fallback = regulator_def.get("fallback")
+                if fallback:
+                    outcomes = self._run_actions([{
+                        "type": "publish", "topic": output_topic, "payload_source": "constant",
+                        "payload": fallback["payload"], "retain": False,
+                    }], balance=balance, topic_values=topic_values)
+                    if not outcomes[0].get("blocked"):
+                        rt.last_value = _finite_float(fallback["payload"])
+                self._record(sid, "fallback", outcomes, reason=reason)
+            return
+
+        if rt.phase == "fallback":
+            rt.phase = "active"
+            self._record(sid, "recovered", [])
+
+        net = (balance_value(balance, "grid_import") or 0) - (balance_value(balance, "grid_export") or 0)
+        step = regulator.compute_step(regulator_def, net=net, base=base, last_value=rt.last_value)
+        rt.net = net
+        rt.error = step.error
+        rt.base = base
+        rt.reason = step.reason
+        if step.payload is None:
+            return
+
+        outcomes = self._run_actions([{
+            "type": "publish", "topic": output_topic, "payload_source": "constant",
+            "payload": step.payload, "retain": False,
+        }], balance=balance, topic_values=topic_values)
+        outcome = outcomes[0]
+        if outcome.get("blocked"):
+            rt.reason = outcome.get("reason")
+            return
+        rt.last_value = step.value
+        rt.last_sent_at = now_ts
+        deadband = regulator_def["deadband_w"]
+        if deadband > 0 and abs(step.error) > 5 * deadband:
+            self._record(sid, "jump", outcomes)
 
     def _run_actions(self, actions: list, *, balance, topic_values) -> list[dict]:
         outcomes = []
@@ -1227,9 +1321,9 @@ class ScenarioEngine:
             outcomes.append({**outcome, "type": action["type"]})
         return outcomes
 
-    def _record(self, sid: str, result: str, outcomes: list) -> None:
+    def _record(self, sid: str, result: str, outcomes: list, reason: Optional[str] = None) -> None:
         if self.history_sink is not None:
-            self.history_sink(sid, {"result": result, "reason": None, "test": False, "actions": outcomes})
+            self.history_sink(sid, {"result": result, "reason": reason, "test": False, "actions": outcomes})
 
     @staticmethod
     def _report(rt: ScenarioRuntime, scenario: dict, when_eval, until_eval) -> dict:
