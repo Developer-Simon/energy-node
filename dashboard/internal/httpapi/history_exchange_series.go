@@ -8,6 +8,7 @@ package httpapi
 import (
 	"encoding/json"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
@@ -155,4 +156,33 @@ func recordedExchangeSeries(reg *registry.Registry, store *settings.Store, confi
 		}
 		return exchangeSeriesFrom(snapshot, extras)
 	}
+}
+
+// HistorySamplerValues liefert die Werte, die der Sampler des Dashboards
+// einmal pro Minute in den Ringpuffer schreibt: role:grid (Import minus
+// Export) und die Ausgaben der Szenario-Regler. Ohne Regler-Szenarien ist
+// die Map leer, denn dann gibt es nichts, was das Dashboard selbst messen
+// muesste (Abweichung 2). Nicht lesbare Werte fehlen in der Map.
+func HistorySamplerValues(snapshot energy.Snapshot, reg *registry.Registry, configs *config.Manager) map[string]float64 {
+	values := map[string]float64{}
+	ids := scenarioOutputEntityIDs(configs)
+	if len(ids) == 0 {
+		return values
+	}
+	if snapshot.HasValue(string(energy.RoleGrid)) || snapshot.HasValue(string(energy.RoleGridImport)) || snapshot.HasValue(string(energy.RoleGridExport)) {
+		values["role:grid"] = snapshot.GridImportPower() - snapshot.GridExportPower()
+	}
+	if reg != nil {
+		for _, entity := range reg.Values(ids) {
+			if !entity.HasValue {
+				continue
+			}
+			value, err := strconv.ParseFloat(entity.Value, 64)
+			if err != nil {
+				continue
+			}
+			values[entity.UniqueID] = value
+		}
+	}
+	return values
 }

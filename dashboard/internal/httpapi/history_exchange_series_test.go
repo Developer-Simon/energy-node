@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -182,5 +183,53 @@ func TestRecordedExchangeSeriesAnnouncesScenarioOutputs(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("series = %+v, want automation_scenario_a_output with unit W", series)
+	}
+}
+
+func TestHistorySamplerValuesIsEmptyWithoutRegulatingScenarios(t *testing.T) {
+	snapshot := energy.Snapshot{Values: map[energy.Role]float64{energy.RoleGrid: -300}}
+	configs := writeScenarioRules(t, `{"version":1,"settings":{},"rules":[],"scenarios":[]}`)
+	if got := HistorySamplerValues(snapshot, registry.New(), configs); len(got) != 0 {
+		t.Fatalf("values = %+v, want empty", got)
+	}
+}
+
+func TestHistorySamplerValuesReadsGridAndScenarioOutputs(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_scenario_a_output", Component: "sensor", ObjectID: "scenario_a_output",
+			Name: "A Ausgabe", StateTopic: "automation/scenario_a_output", UnitOfMeasurement: "W",
+		},
+	})
+	reg.UpdateTopic("automation/scenario_a_output", []byte("615"), false, time.Now())
+	snapshot := energy.Snapshot{Values: map[energy.Role]float64{
+		energy.RoleGridImport: 0,
+		energy.RoleGridExport: 470,
+	}}
+	configs := writeScenarioRules(t, threeScenarioRules)
+
+	got := HistorySamplerValues(snapshot, reg, configs)
+	if got["role:grid"] != -470 || got["automation_scenario_a_output"] != 615 || len(got) != 2 {
+		t.Fatalf("values = %+v, want role:grid -470 and output 615", got)
+	}
+}
+
+func TestHistorySamplerValuesSkipsANonNumericOutput(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_scenario_a_output", Component: "sensor", ObjectID: "scenario_a_output",
+			Name: "A Ausgabe", StateTopic: "automation/scenario_a_output", UnitOfMeasurement: "W",
+		},
+	})
+	reg.UpdateTopic("automation/scenario_a_output", []byte("kaputt"), false, time.Now())
+	configs := writeScenarioRules(t, threeScenarioRules)
+
+	got := HistorySamplerValues(energy.Snapshot{}, reg, configs)
+	if _, ok := got["automation_scenario_a_output"]; ok || len(got) != 0 {
+		t.Fatalf("values = %+v, want no entry for a non-numeric output", got)
 	}
 }

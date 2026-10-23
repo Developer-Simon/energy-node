@@ -34,6 +34,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -154,6 +155,10 @@ type RouterDependencies struct {
 	// EnergyStats liefert /api/v1/energy/stats. nil heisst "nicht
 	// verfuegbar" (501), etwa in Tests ohne Datenverzeichnis.
 	EnergyStats *energystats.Service
+	// HistorySampler fuellt den Ringpuffer der Verlaufsvermittlung einmal
+	// pro Minute mit role:grid und den Szenario-Ausgaben. nil heisst: nur
+	// der Browser schreibt in den Puffer.
+	HistorySampler *historyexchange.Sampler
 	// ServiceLogs liefert /api/v1/system/logs. nil heisst "nicht verfuegbar":
 	// die Routen fehlen dann ganz (404), etwa ohne System-Action-Helper.
 	ServiceLogs ServiceLogReader
@@ -308,6 +313,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
 	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store, configs))
 	exchange := newHistoryExchange(recordedExchangeSeries(reg, store, configs, resolver))
+	if dependencies.HistorySampler != nil {
+		dependencies.HistorySampler.Attach(exchange.buffer)
+	}
 	// Nil-Pruefung am Zeiger: ein nil *Sync im Interface waere nicht nil.
 	if dependencies.EnergyStats != nil && dependencies.EnergyStats.Sync != nil {
 		exchange.attachStats(dependencies.EnergyStats.Sync)

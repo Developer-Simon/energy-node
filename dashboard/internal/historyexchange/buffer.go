@@ -33,7 +33,9 @@ type key struct {
 }
 
 // Buffer haelt die juengsten Minutenwerte im Arbeitsspeicher. Er wird vom
-// aufzeichnenden Client gefuellt, nicht vom Server selbst gemessen: die
+// aufzeichnenden Client gefuellt, nicht vom Server selbst gemessen (Ausnahme:
+// der Sampler in sampler.go fuellt role:grid und die Szenario-Ausgaben, siehe
+// AGENTS.md): die
 // Vorzeichenlogik der Energie-Rollen liegt in EnergyModel im Browser, und
 // sie ein zweites Mal in Go zu fuehren waere die teurere Haelfte des
 // Tauschs (siehe history-recorder.js).
