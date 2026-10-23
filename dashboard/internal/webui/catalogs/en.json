@@ -677,6 +677,8 @@
   "devicemap.flow.title.payload_balance": "Value from the balance",
   "devicemap.flow.title.payload_topic": "Value from a topic",
   "devicemap.flow.title.publish": "Action",
+  "devicemap.flow.title.regulator_base": "Actuator reading",
+  "devicemap.flow.title.regulator_output": "Regulator output",
   "devicemap.flow.title.topic_value": "Condition topic value",
   "devicemap.focus.clear": "Clear focus",
   "devicemap.focus.summary.one": "{name} · {n} connected · Esc clears",

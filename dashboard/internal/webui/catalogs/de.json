@@ -677,6 +677,8 @@
   "devicemap.flow.title.payload_balance": "Wert aus der Bilanz",
   "devicemap.flow.title.payload_topic": "Wert aus einem Topic",
   "devicemap.flow.title.publish": "Aktion",
+  "devicemap.flow.title.regulator_base": "Messwert des Stellglieds",
+  "devicemap.flow.title.regulator_output": "Stellwert des Reglers",
   "devicemap.flow.title.topic_value": "Bedingung Topic-Wert",
   "devicemap.focus.clear": "Fokus aufheben",
   "devicemap.focus.summary.one": "{name} · {n} verbunden · Esc hebt auf",
