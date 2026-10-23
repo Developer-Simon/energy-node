@@ -259,7 +259,7 @@
                     </label>
                     <input x-bind:id="`repeat-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.repeat_seconds" x-bind:disabled="hasToggleAction(rule)">
                   </div>
-                  <p class="hint" x-show="hasToggleAction(rule)">{{t "automations.rule_editor.repeat_blocked_toggle"}}</p>
+                  <p x-show="hasToggleAction(rule)">{{t "automations.rule_editor.repeat_blocked_toggle"}}</p>
                 </div>
 
                 <p class="message error" x-show="validateRuleBeforeSave(rule).length" x-text="validateRuleBeforeSave(rule).join(' / ')"></p>
