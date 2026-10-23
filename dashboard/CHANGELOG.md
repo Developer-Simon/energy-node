@@ -8,7 +8,7 @@
 - **dashboard:** map automation scenarios in the data flow (eb3a375)
 - **automations:** repeat validation and interval settings logic (a128e57)
 - **automations:** repeat field and interval settings in the editor (39a3aeb)
-- **automation:** Automation rules can repeat their actions while their conditions hold, and the automation service gains scenarios with a feedback regulator. (#163)
+- **automation:** Automation rules can repeat their actions while their conditions hold. (#163)
 
 ### Fixes
 

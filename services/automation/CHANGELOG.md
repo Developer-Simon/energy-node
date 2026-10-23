@@ -4,7 +4,7 @@
 
 ### Features
 
-- **automation:** Automation rules can repeat their actions while their conditions hold, and the automation service gains scenarios with a feedback regulator. (#163)
+- **automation:** Automation rules can repeat their actions while their conditions hold. (#163)
 
 ### Tests
 
