@@ -267,7 +267,7 @@ input.auto-scenario-name { border: 1px solid var(--border); border-radius: 6px; 
 
 /* --- Karten der Bedingungen und weiche Felder (Entwurf Teil 2): Kopf mit Ton-Kachel,
    Felder mit Fuellung statt Rahmen, Stepper mit Einheit im Feld. --- */
-.auto-card { display: grid; gap: .8rem; padding: .9rem 1rem 1rem; border-radius: 16px; background: var(--panel); box-shadow: 0 1px 0 rgba(255, 255, 255, .04) inset, 0 6px 18px rgba(0, 0, 0, .25); }
+.auto-card { display: grid; gap: .8rem; padding: .9rem 1rem 1rem; border-radius: 16px; background: var(--panel); box-shadow: 0 6px 18px color-mix(in srgb, var(--text-strong) 12%, transparent); }
 .auto-card-head { display: flex; align-items: center; gap: .6rem; }
 .auto-card-title { flex: 1; min-width: 0; font-weight: 650; color: var(--text-strong); }
 .auto-card-kind { font-size: .76rem; color: var(--text-faint); }
@@ -275,7 +275,7 @@ input.auto-scenario-name { border: 1px solid var(--border); border-radius: 6px; 
 .auto-card-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .auto-card-toggle .rule-expand-chevron { width: .9rem; height: .9rem; flex: none; color: var(--text-faint); }
 .auto-card-hint { margin: 0; font-size: .8rem; color: var(--text-faint); }
-.auto-card-delete { display: grid; place-items: center; width: 2rem; height: 2rem; flex: none; border-radius: 9px; border: 1px solid rgba(240, 139, 139, .35); background: transparent; color: var(--bad); cursor: pointer; }
+.auto-card-delete { display: grid; place-items: center; width: 2rem; height: 2rem; flex: none; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); background: transparent; color: var(--bad); cursor: pointer; }
 .auto-card-delete:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .auto-card-test { display: inline-flex; align-items: center; gap: .35rem; height: 2rem; padding: 0 .7rem; flex: none; border-radius: 9px; border: 1px solid var(--accent-line); background: transparent; color: var(--accent); font: inherit; font-size: .85rem; cursor: pointer; }
 .auto-card-test .automation-icon { width: .95rem; height: .95rem; }
