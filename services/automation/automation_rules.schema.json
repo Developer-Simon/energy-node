@@ -183,10 +183,7 @@
             }
           },
           "until": {
-            "type": [
-              "object",
-              "null"
-            ],
+            "type": "object",
             "additionalProperties": false,
             "required": [
               "conditions"
@@ -602,17 +599,11 @@
                         "type": "number"
                       },
                       "step": {
-                        "type": [
-                          "number",
-                          "null"
-                        ],
+                        "type": "number",
                         "exclusiveMinimum": 0
                       },
                       "decimals": {
-                        "type": [
-                          "integer",
-                          "null"
-                        ],
+                        "type": "integer",
                         "minimum": 0,
                         "maximum": 6
                       }
@@ -642,18 +633,12 @@
                     "default": 0.8
                   },
                   "max_change_w": {
-                    "type": [
-                      "number",
-                      "null"
-                    ],
+                    "type": "number",
                     "exclusiveMinimum": 0,
                     "description": "Largest change per step in W, empty for no limit"
                   },
                   "interval_s": {
-                    "type": [
-                      "number",
-                      "null"
-                    ],
+                    "type": "number",
                     "minimum": 5,
                     "maximum": 3600,
                     "description": "Own step interval, empty uses settings.regulator_interval_s"
@@ -695,10 +680,7 @@
                     }
                   },
                   "fallback": {
-                    "type": [
-                      "object",
-                      "null"
-                    ],
+                    "type": "object",
                     "additionalProperties": false,
                     "properties": {
                       "payload": {
