@@ -3221,6 +3221,29 @@ func TestConsumerRegulatorCardUsesTheConsumerColour(t *testing.T) {
 	}
 }
 
+// Zugeklappt zeigt ein Regler-Szenario Netz und Stellwert neben der Pill,
+// solange kein Fortschritt zur Startschwelle an ihrer Stelle steht.
+func TestCollapsedRegulatorRowShowsNetAndOutput(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	collapsed, _, found := strings.Cut(string(tpl), `<template x-if="scenarioExpanded[scenario.id]">`)
+	if !found {
+		t.Fatal("aufgeklappte Karte nicht gefunden")
+	}
+	for _, marker := range []string{
+		`x-if="scenario.while && scenario.while.mode === 'regulate' && !scenarioProgress(scenario)"`,
+		`class="auto-mini-figures"`,
+		`x-text="gridNowText(scenario)"`,
+		`x-text="regulatorFigures(scenario).output"`,
+	} {
+		if !strings.Contains(collapsed, marker) {
+			t.Fatalf("zugeklappte Zeile ohne %s", marker)
+		}
+	}
+}
+
 // Die Regelkarte gliedert sich in Wenn, Dann und Ablauf, mit Live-Balken oben
 // und Zeitleiste unten. Die alten Spalten Ursache, Tor und Wirkung sind weg.
 func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {

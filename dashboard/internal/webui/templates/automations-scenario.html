@@ -17,6 +17,18 @@
         <i x-bind:style="'width: ' + scenarioProgress(scenario).percent + '%'"></i>
       </div>
     </template>
+    <template x-if="scenario.while && scenario.while.mode === 'regulate' && !scenarioProgress(scenario)">
+      <div class="auto-mini-figures" x-bind:class="{ 'is-consumer': regulatorFigures(scenario).direction === 'consumer' }">
+        <span class="auto-mini-figure">
+          <small>{{t "automations.scenario.figures.net_label"}}</small>
+          <b class="is-grid"><span x-text="gridNowText(scenario)"></span><span x-show="gridNowText(scenario) !== '—'"> W</span></b>
+        </span>
+        <span class="auto-mini-figure">
+          <small>{{t "automations.scenario.figures.output_label"}}</small>
+          <b class="is-output"><span x-text="regulatorFigures(scenario).output"></span><span x-show="regulatorFigures(scenario).output !== '—'"> W</span></b>
+        </span>
+      </div>
+    </template>
     <span class="auto-pill" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
     <label class="settings-toggle" x-on:click.stop x-on:keydown.stop
            x-bind:title="scenario.enabled ? $t('automations.scenario.enabled_toggle.title_on') : $t('automations.scenario.enabled_toggle.title_off')">
