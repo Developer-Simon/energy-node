@@ -885,6 +885,77 @@ class RuleRuntime:
     fire_count: int = 0
 
 
+def _apply_hysteresis(cond: dict, cond_rt: ConditionRuntime, balance: Optional[dict]) -> Optional[bool]:
+    """Returns the hysteresis-latched met/not-met state for
+    balance_threshold conditions with hysteresis > 0, or None if
+    hysteresis doesn't apply (caller then uses the raw comparison)."""
+    if cond["type"] != "balance_threshold" or cond.get("hysteresis", 0) <= 0 or balance is None:
+        return None
+    value = balance_value(balance, cond["field"])
+    if value is None:
+        return None
+    threshold, hysteresis = cond["threshold"], cond["hysteresis"]
+    if cond["comparison"] == "above":
+        cond_rt.latched = (value >= threshold - hysteresis) if cond_rt.latched else (value > threshold)
+    else:
+        cond_rt.latched = (value <= threshold + hysteresis) if cond_rt.latched else (value < threshold)
+    return cond_rt.latched
+
+
+def _evaluate_one(cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location):
+    raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
+                                             location=location)
+    latched = _apply_hysteresis(cond, cond_rt, balance)
+    if latched is not None:
+        raw_met = latched
+
+    if not raw_met:
+        cond_rt.since = None
+        return raw_met, False, reason
+
+    if cond_rt.since is None:
+        cond_rt.since = now_ts
+    hold_seconds = cond.get("hold_seconds", 0)
+    held_met = (now_ts - cond_rt.since) >= hold_seconds
+    return raw_met, held_met, reason
+
+
+@dataclass
+class ConditionsResult:
+    all_raw: bool
+    all_held: bool
+    saw_stale: bool
+    reports: list
+
+
+def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[dict], topic_values: dict,
+                        now_ts: float, location) -> ConditionsResult:
+    """Evaluates all conditions of one rule or scenario against their runtimes
+    and builds the report list shown in the dashboard."""
+    reports = []
+    all_raw = True
+    all_held = True
+    saw_stale = False
+    for cond, cond_rt in zip(conditions, runtimes):
+        raw_met, held_met, reason = _evaluate_one(
+            cond, cond_rt, balance=balance, topic_values=topic_values, now_ts=now_ts, location=location)
+        if reason == "balance_stale":
+            saw_stale = True
+        all_raw = all_raw and raw_met
+        all_held = all_held and held_met
+        hold_seconds = cond.get("hold_seconds", 0)
+        remaining = max(0.0, hold_seconds - (now_ts - cond_rt.since)) if cond_rt.since is not None else float(hold_seconds)
+        # value/target sind rein fuer die Anzeige im Dashboard - siehe
+        # docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md.
+        # met/since/hold_remaining bleiben unveraendert, darauf bauen Spec A und C auf.
+        value, target = condition_value(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
+                                        location=location)
+        reports.append({"met": held_met, "raw_met": raw_met, "value": value,
+                        "target": target, "since": cond_rt.since,
+                        "hold_remaining": remaining})
+    return ConditionsResult(all_raw=all_raw, all_held=all_held, saw_stale=saw_stale, reports=reports)
+
+
 class Engine:
     """Ausgewertet wird jeder Tick fuer jede Regel neu; Zustand lebt nur in
     self._runtime (RAM, kein Neustart-ueberlebender Speicher - siehe
@@ -903,39 +974,6 @@ class Engine:
             rt.conditions.append(ConditionRuntime())
         return rt
 
-    def _apply_hysteresis(self, cond: dict, cond_rt: ConditionRuntime, balance: Optional[dict]) -> Optional[bool]:
-        """Returns the hysteresis-latched met/not-met state for
-        balance_threshold conditions with hysteresis > 0, or None if
-        hysteresis doesn't apply (caller then uses the raw comparison)."""
-        if cond["type"] != "balance_threshold" or cond.get("hysteresis", 0) <= 0 or balance is None:
-            return None
-        value = balance_value(balance, cond["field"])
-        if value is None:
-            return None
-        threshold, hysteresis = cond["threshold"], cond["hysteresis"]
-        if cond["comparison"] == "above":
-            cond_rt.latched = (value >= threshold - hysteresis) if cond_rt.latched else (value > threshold)
-        else:
-            cond_rt.latched = (value <= threshold + hysteresis) if cond_rt.latched else (value < threshold)
-        return cond_rt.latched
-
-    def _evaluate_one(self, cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location):
-        raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
-                                                 location=location)
-        latched = self._apply_hysteresis(cond, cond_rt, balance)
-        if latched is not None:
-            raw_met = latched
-
-        if not raw_met:
-            cond_rt.since = None
-            return raw_met, False, reason
-
-        if cond_rt.since is None:
-            cond_rt.since = now_ts
-        hold_seconds = cond.get("hold_seconds", 0)
-        held_met = (now_ts - cond_rt.since) >= hold_seconds
-        return raw_met, held_met, reason
-
     def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
               topic_values: dict, now_ts: float) -> dict:
         settling = (now_ts - self.started_at) < doc.settings.settling_seconds
@@ -952,29 +990,13 @@ class Engine:
                 results[rule_id] = self._rule_result(rt, rule, "disabled", None, [], preview=[], cooldown_remaining=0.0)
                 continue
 
-            condition_reports = []
-            all_raw = True
-            all_held = True
-            saw_stale = False
-            for cond, cond_rt in zip(rule["conditions"], rt.conditions):
-                raw_met, held_met, reason = self._evaluate_one(
-                    cond, cond_rt, balance=effective_balance, topic_values=topic_values, now_ts=now_ts,
-                    location=doc.settings.location)
-                if reason == "balance_stale":
-                    saw_stale = True
-                all_raw = all_raw and raw_met
-                all_held = all_held and held_met
-                hold_seconds = cond.get("hold_seconds", 0)
-                remaining = max(0.0, hold_seconds - (now_ts - cond_rt.since)) if cond_rt.since is not None else float(hold_seconds)
-                # value/target sind rein fuer die Anzeige im Dashboard - siehe
-                # docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md.
-                # met/since/hold_remaining bleiben unveraendert, darauf bauen Spec A und C auf.
-                value, target = condition_value(cond, balance=effective_balance,
-                                                 topic_values=topic_values, now_ts=now_ts,
-                                                 location=doc.settings.location)
-                condition_reports.append({"met": held_met, "raw_met": raw_met, "value": value,
-                                          "target": target, "since": cond_rt.since,
-                                          "hold_remaining": remaining})
+            evaluation = evaluate_conditions(rule["conditions"], rt.conditions, balance=effective_balance,
+                                             topic_values=topic_values, now_ts=now_ts,
+                                             location=doc.settings.location)
+            condition_reports = evaluation.reports
+            all_raw = evaluation.all_raw
+            all_held = evaluation.all_held
+            saw_stale = evaluation.saw_stale
 
             if not all_raw:
                 rt.fired_this_episode = False
