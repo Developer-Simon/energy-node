@@ -89,6 +89,18 @@ test('meter candidates show the live value with sign', () => {
   assert.equal(candidates[0].valueText, 'jetzt +74 W');
 });
 
+test('meter candidates keep an entity without a value so a saved meter stays selectable', () => {
+  const devices = load();
+  const meter = {
+    id: 'meter2', name: 'Zweitzähler',
+    entities: [{ unique_id: 'meter2_power', name: 'Leistung', state_topic: 'werkstatt/m2/state', template_supported: true }],
+  };
+  const candidates = plain(devices.meterCandidates([meter], {}));
+  assert.equal(candidates.length, 1);
+  assert.equal(candidates[0].id, 'meter2_power');
+  assert.equal(candidates[0].valueText, '');
+});
+
 test('chipList puts the selection first and counts all', () => {
   const devices = load();
   const candidates = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, fits: true }));

@@ -1336,7 +1336,7 @@
       const list = chipList(actuatorCandidates(this.devices, this.assignments, regulator.direction), output.entity_id, 2);
       return {
         chips: withUnknown(list, output.topic),
-        more: list.length,
+        more: list.more,
         hint: list.chips.length ? '' : t('automations.scenario.edit.no_actuator'),
       };
     },
@@ -1346,7 +1346,7 @@
       const base = this.regulatorOf(scenario).base || {};
       const selected = base.source === 'entity' ? base.entity_id : undefined;
       const list = chipList(meterCandidates(this.devices, this.assignments), selected, 2);
-      return { chips: withUnknown(list, base.topic), more: list.length };
+      return { chips: withUnknown(list, base.topic), more: list.more };
     },
 
     async chooseActuator(scenario) {

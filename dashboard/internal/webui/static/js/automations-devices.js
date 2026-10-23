@@ -109,7 +109,7 @@
     const result = [];
     for (const device of devices || []) {
       for (const entity of device.entities || []) {
-        if (!hasText(entity.state_topic) || !entity.template_supported || !isNumber(entity.value)) continue;
+        if (!hasText(entity.state_topic) || !entity.template_supported) continue;
         result.push(candidate(device, entity, assignments, entity.name, valueText(entity), true));
       }
     }

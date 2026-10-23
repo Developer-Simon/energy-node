@@ -2305,3 +2305,33 @@ test('no actuator candidates shows the hint', () => {
   assert.equal(result.hint, window.I18n.t('automations.scenario.edit.no_actuator'));
   assert.notEqual(result.hint, 'automations.scenario.edit.no_actuator');
 });
+
+test('actuatorChips and meterChips report the candidate count as a number', () => {
+  const { component } = createAutomationsPanel();
+  component.devices = [
+    ...inverterDevices(),
+    {
+      id: 'inv2',
+      name: 'Zweiter Wechselrichter',
+      entities: [{ unique_id: 'inv2_limit', name: 'Limit', command_topic: 'inv2/limit/set', min_value: 0, max_value: 500 }],
+    },
+    {
+      id: 'meters',
+      name: 'Zähler',
+      entities: [
+        { unique_id: 'm1', name: 'A', state_topic: 'm1/state', template_supported: true, value: 1 },
+        { unique_id: 'm2', name: 'B', state_topic: 'm2/state', template_supported: true },
+        { unique_id: 'm3', name: 'C', state_topic: 'm3/state', template_supported: true, value: 3 },
+      ],
+    },
+  ];
+  component.assignments = { inv_limit: { role: 'pv' }, inv2_limit: { role: 'pv' } };
+  component.entities = component.flattenCommandableEntities(component.devices);
+  const scenario = chipRegulator({ output: null, base: null });
+  const actuators = component.actuatorChips(scenario);
+  const meters = component.meterChips(scenario);
+  assert.equal(typeof actuators.more, 'number');
+  assert.equal(actuators.more, 2);
+  assert.equal(typeof meters.more, 'number');
+  assert.equal(meters.more, 3);
+});
