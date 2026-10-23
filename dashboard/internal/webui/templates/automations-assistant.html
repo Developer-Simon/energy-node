@@ -202,8 +202,102 @@
             </div>
           </template>
 
-          <!-- 5c: Bausteine multi, number, time und summary folgen hier, je ein eigenes
-               x-if mit genau einem Wurzelelement. -->
+          <template x-if="assistantStep() && assistantStep().type === 'multi'">
+            <div class="auto-assist-block">
+              <template x-for="option in assistantStep().options" x-bind:key="option.id">
+                <div class="auto-assist-option-wrap">
+                  <label class="settings-toggle auto-assist-check"
+                         x-bind:class="{ 'is-off': !!assistantReason(assistantStep(), option), 'is-selected': !!assistant.answers[assistantStep().id][option.id] }">
+                    <span class="auto-assist-check-text">
+                      <b x-text="assistantOptionText(assistantStep(), option, 'title')"></b>
+                      <span class="auto-assist-blurb" x-show="assistantOptionText(assistantStep(), option, 'text')"
+                            x-text="assistantOptionText(assistantStep(), option, 'text')"></span>
+                      <span class="auto-assist-reason" x-show="assistantReason(assistantStep(), option)"
+                            x-text="assistantReason(assistantStep(), option) || ''"></span>
+                    </span>
+                    <input type="checkbox" role="switch"
+                           x-bind:checked="!!assistant.answers[assistantStep().id][option.id]"
+                           x-bind:disabled="!!assistantReason(assistantStep(), option)"
+                           x-on:change="assistant.answers[assistantStep().id][option.id] = $event.target.checked">
+                    <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                  </label>
+                  <div class="auto-assist-reveal" x-show="option.reveal && !!assistant.answers[assistantStep().id][option.id]">
+                    <template x-if="option.reveal && option.reveal.type === 'time'">
+                      <label class="auto-assist-field">
+                        <span x-text="$t('automations.assistant.reveal.time')"></span>
+                        <input class="inp" type="time"
+                               x-model="assistant.answers[assistantStep().id][option.id + '_value']">
+                      </label>
+                    </template>
+                    <template x-if="!option.reveal || option.reveal.type !== 'time'">
+                      <div class="auto-assist-days" role="group" x-bind:aria-label="$t('automations.assistant.reveal.weekdays')">
+                        <template x-for="(label, day) in weekdayLabels()" x-bind:key="day">
+                          <button type="button" x-text="label"
+                                  x-bind:aria-pressed="(assistant.answers[assistantStep().id][option.id + '_value'] || []).includes(day) ? 'true' : 'false'"
+                                  x-on:click="assistantToggleDay(assistant.answers[assistantStep().id], option.id + '_value', day)"></button>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'number'">
+            <div class="auto-assist-block">
+              <label class="auto-assist-field">
+                <input class="inp auto-assist-number" type="number"
+                       x-bind:min="assistantStep().min" x-bind:max="assistantStep().max"
+                       x-model.number="assistant.answers[assistantStep().id]">
+                <span x-text="assistantStepText(assistantStep(), 'unit')"></span>
+              </label>
+              <p class="auto-assist-hint" x-text="$t('automations.assistant.number.range', { min: assistantStep().min, max: assistantStep().max })"></p>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'time'">
+            <div class="auto-assist-block">
+              <div class="auto-assist-time">
+                <label class="auto-assist-field">
+                  <span x-text="$t('automations.assistant.time.from')"></span>
+                  <input class="inp" type="time" x-model="assistant.answers[assistantStep().id].from">
+                </label>
+                <label class="auto-assist-field">
+                  <span x-text="$t('automations.assistant.time.to')"></span>
+                  <input class="inp" type="time" x-model="assistant.answers[assistantStep().id].to">
+                </label>
+              </div>
+              <div class="auto-assist-days" role="group" x-bind:aria-label="$t('automations.assistant.time.weekdays')">
+                <template x-for="(label, day) in weekdayLabels()" x-bind:key="day">
+                  <button type="button" x-text="label"
+                          x-bind:aria-pressed="assistant.answers[assistantStep().id].days.includes(day) ? 'true' : 'false'"
+                          x-on:click="assistantToggleDay(assistant.answers[assistantStep().id], 'days', day)"></button>
+                </template>
+              </div>
+              <p class="auto-assist-notice" x-show="!assistantCanAdvance()" x-text="$t('automations.assistant.time.invalid')"></p>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().id === 'summary'">
+            <div class="auto-assist-block">
+              <label class="auto-assist-field auto-assist-name">
+                <span class="auto-assist-cap" x-text="$t('automations.assistant.name')"></span>
+                <input class="inp" type="text" maxlength="80" autocomplete="off" x-model="assistant.name">
+              </label>
+              <div class="auto-assist-sum">
+                <template x-for="(row, index) in assistantSummary()" x-bind:key="index">
+                  <div class="auto-assist-sum-row">
+                    <span class="auto-assist-cap" x-text="row.label"></span>
+                    <span class="auto-assist-sum-text" x-text="row.text"></span>
+                    <button type="button" class="auto-assist-change" x-show="row.step" x-on:click="assistantGoTo(row.step)"
+                            x-text="$t('automations.assistant.change')"></button>
+                  </div>
+                </template>
+              </div>
+              <p class="auto-assist-preview" x-show="assistantPreview()" x-text="assistantPreview()"></p>
+            </div>
+          </template>
         </div>
 
         <div class="auto-assist-foot">

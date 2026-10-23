@@ -1248,6 +1248,12 @@
       this.assistantPick(step, value);
     },
 
+    // Schaltet einen Wochentag (0 bis 6) in einer Liste um, etwa bei Zeit und Mehrfachwahl.
+    assistantToggleDay(holder, key, day) {
+      const days = holder[key] || [];
+      holder[key] = days.includes(day) ? days.filter((item) => item !== day) : [...days, day].sort();
+    },
+
     assistantBackLabel() {
       if (this.assistant.index === 0) return t('automations.assistant.gallery');
       return this.assistantStepText(this.assistantSteps()[this.assistant.index - 1], 'short');

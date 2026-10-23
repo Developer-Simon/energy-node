@@ -2619,6 +2619,15 @@ test('assistantGoTo jumps from the summary to the step', async () => {
   assert.equal(component.assistantStep().id, 'target');
 });
 
+test('assistantToggleDay adds and removes a weekday in a holder', async () => {
+  const { component } = await assistantPanel();
+  const holder = { days: [0, 2] };
+  component.assistantToggleDay(holder, 'days', 1);
+  assert.equal(JSON.stringify(holder.days), '[0,1,2]');
+  component.assistantToggleDay(holder, 'days', 0);
+  assert.equal(JSON.stringify(holder.days), '[1,2]');
+});
+
 test('a second zero_feed gets its own id and cannot pick the same inverter', async () => {
   const { component } = await assistantPanel();
   await component.openAssistant();

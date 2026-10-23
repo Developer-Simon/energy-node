@@ -1460,6 +1460,29 @@ func TestAutomationsPanelShipsTheAssistantDialog(t *testing.T) {
 	}
 }
 
+// TestAutomationsPanelShipsAssistantBlocks haelt fest, dass die Bausteine
+// multi, number, time und summary samt Zusammenfassung im Assistenten-Markup stehen.
+func TestAutomationsPanelShipsAssistantBlocks(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`assistantStep().type === 'multi'`, `assistantStep().type === 'number'`,
+		`assistantStep().type === 'time'`, `assistantStep().id === 'summary'`,
+		`class="settings-toggle auto-assist-check"`, `assistantToggleDay(`,
+		`assistantGoTo(row.step)`, `assistantPreview()`, `$t('automations.assistant.change')`,
+		`class="auto-assist-sum-row"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Baustein %q fehlt im Automations-Panel", marker)
+		}
+	}
+	if strings.Contains(body, "5c: Bausteine") {
+		t.Fatal("der Platzhalter fuer die Bausteine ist noch im Markup")
+	}
+}
+
 // TestOverviewEmbedsEnergySnapshotOnce haelt fest, dass der Energie-
 // Schnappschuss genau einmal im Fragment steht. Vorher trug ihn jede der
 // sieben Energiekarten separat - identischer Inhalt, 26,6 KB von 56,3 KB
