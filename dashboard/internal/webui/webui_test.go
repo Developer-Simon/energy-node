@@ -3244,6 +3244,52 @@ func TestCollapsedRegulatorRowShowsNetAndOutput(t *testing.T) {
 	}
 }
 
+// Der Schalter "Verlaeufe anzeigen" sitzt in der Kopfleiste zwischen Abstandhalter
+// und Speichern und ist ein <label class="settings-toggle">.
+func TestHeaderOffersTheHistorySwitch(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	bar := strings.Index(source, `class="auto-bar"`)
+	if bar < 0 {
+		t.Fatal("Kopfleiste .auto-bar nicht gefunden")
+	}
+	header := source[bar:]
+	save := strings.Index(header, `x-on:click="save()"`)
+	label := strings.Index(header, `<label class="settings-toggle"`)
+	if label < 0 {
+		t.Fatal("Verlaufsschalter ist kein <label class=\"settings-toggle\"> in der Kopfleiste")
+	}
+	for _, want := range []string{`setShowHistory(`, `automations.show_history`} {
+		if !strings.Contains(header[label:], want) {
+			t.Fatalf("Verlaufsschalter ohne %s", want)
+		}
+	}
+	if save < 0 || label > save {
+		t.Fatal("Verlaufsschalter steht nicht vor dem Speichern-Knopf")
+	}
+}
+
+// Zugeklappte Regler-Zeilen zeigen bei eingeschaltetem Verlauf die Sparkline,
+// sonst weiter Netz und Stellwert.
+func TestCollapsedRowSwitchesToSparkline(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	collapsed, _, found := strings.Cut(string(tpl), `<template x-if="scenarioExpanded[scenario.id]">`)
+	if !found {
+		t.Fatal("aufgeklappte Karte nicht gefunden")
+	}
+	for _, marker := range []string{`sparklineFor(scenario)`, `auto-spark`, `showHistory`} {
+		if !strings.Contains(collapsed, marker) {
+			t.Fatalf("zugeklappte Zeile ohne %s", marker)
+		}
+	}
+}
+
 // Die Regelkarte gliedert sich in Wenn, Dann und Ablauf, mit Live-Balken oben
 // und Zeitleiste unten. Die alten Spalten Ursache, Tor und Wirkung sind weg.
 func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {

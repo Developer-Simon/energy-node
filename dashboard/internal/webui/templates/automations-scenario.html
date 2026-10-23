@@ -8,6 +8,7 @@
     <span class="auto-tile"><svg class="automation-icon"><use x-bind:href="'#' + scenarioIcon(scenario)"></use></svg></span>
     <span class="auto-scenario-text">
       <span class="auto-scenario-name" x-text="scenario.name"></span>
+      <span class="auto-pill" x-show="showHistory" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
       <span class="auto-sub" x-show="scenarioStatus(scenario).detail" x-text="scenarioStatus(scenario).detail"></span>
     </span>
     <template x-if="scenarioProgress(scenario)">
@@ -18,7 +19,7 @@
       </div>
     </template>
     <template x-if="scenario.while && scenario.while.mode === 'regulate' && !scenarioProgress(scenario)">
-      <div class="auto-mini-figures" x-bind:class="{ 'is-consumer': regulatorFigures(scenario).direction === 'consumer' }">
+      <div class="auto-mini-figures" x-show="!showHistory" x-bind:class="{ 'is-consumer': regulatorFigures(scenario).direction === 'consumer' }">
         <span class="auto-mini-figure">
           <small>{{t "automations.scenario.figures.net_label"}}</small>
           <b class="is-grid"><span x-text="gridNowText(scenario)"></span><span x-show="gridNowText(scenario) !== '—'"> W</span></b>
@@ -29,7 +30,19 @@
         </span>
       </div>
     </template>
-    <span class="auto-pill" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
+    <template x-if="showHistory && scenario.while && scenario.while.mode === 'regulate' && !scenarioProgress(scenario)">
+      <div class="auto-spark-row">
+        <svg class="auto-spark" viewBox="0 0 150 34" aria-hidden="true">
+          <rect class="auto-spark-band" x="0" width="150" x-bind:y="sparklineFor(scenario).band.y" x-bind:height="sparklineFor(scenario).band.height"></rect>
+          <path class="auto-spark-line" fill="none" stroke-width="2" x-bind:d="sparklineFor(scenario).path"></path>
+        </svg>
+        <span class="auto-mini-figure">
+          <small>{{t "automations.scenario.figures.output_label"}}</small>
+          <b class="is-output"><span x-text="regulatorFigures(scenario).output"></span><span x-show="regulatorFigures(scenario).output !== '—'"> W</span></b>
+        </span>
+      </div>
+    </template>
+    <span class="auto-pill" x-show="!showHistory" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
     <label class="settings-toggle" x-on:click.stop x-on:keydown.stop
            x-bind:title="scenario.enabled ? $t('automations.scenario.enabled_toggle.title_on') : $t('automations.scenario.enabled_toggle.title_off')">
       <input type="checkbox" x-model="scenario.enabled"

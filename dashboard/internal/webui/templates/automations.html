@@ -51,6 +51,12 @@
           <svg class="automation-icon"><use href="#ico-plus"></use></svg>
           <span>{{t "automations.add_rule_button.label"}}</span>
         </button>
+        <label class="settings-toggle">
+          <input type="checkbox" role="switch" x-bind:checked="showHistory"
+                 x-on:change="setShowHistory($event.target.checked)">
+          <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          <span>{{t "automations.show_history"}}</span>
+        </label>
         <button class="icon-button labeled primary" type="button" x-on:click="save()"
                 x-bind:disabled="saving"
                 x-bind:title="saving ? $t('automations.save_all_button.tooltip_saving') : $t('automations.save_all_button.tooltip_ready')"
