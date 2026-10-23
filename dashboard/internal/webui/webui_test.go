@@ -3246,3 +3246,33 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 		}
 	}
 }
+
+// Im Bearbeiten-Modus lesen die drei Phasenblöcke ihre Zeilen über die
+// gemeinsamen Zeilen-Defines. Jeder Block bringt seinen Besitzer mit, die
+// Bedingungszeilen den Bericht des Szenarios.
+func TestScenarioEditModeUsesTheSharedRowsDefines(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`<template x-if="scenarioEditing[scenario.id]">`,
+		`get rowsOwner() { return scenario.when; }`,
+		`get rowsOwner() { return scenario.on_start; }`,
+		`get rowsOwner() { return scenario.while; }`,
+		`get rowsOwner() { return scenario.until; }`,
+		`get rowsOwner() { return scenario.on_end; }`,
+		`rowsReport(index) { return scenarioConditionReport(scenario, 'when', index); }`,
+		`rowsReport(index) { return scenarioConditionReport(scenario, 'until', index); }`,
+		`in rowsOwner.conditions`,
+		`in rowsOwner.actions`,
+		`x-on:change="toggleUntil(scenario, $event.target.checked)"`,
+		`x-on:click="changeWhileMode(scenario, 'hold')"`,
+		`x-model="scenario.history_enabled"`,
+		"Wenn eine Startbedingung nicht mehr erfüllt ist",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Szenario-Bearbeitung: %q fehlt im Automations-Panel", want)
+		}
+	}
+}

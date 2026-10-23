@@ -2112,6 +2112,17 @@ test('scenario condition rows read reports from the scenario state', () => {
   assert.equal(component.scenarioConditionReport(scenario, 'when', 3), null);
 });
 
+test('the owner hooks derive condition and action text from a report, not from a rule', () => {
+  const { component } = createAutomationsPanel();
+  const report = { met: true, raw_met: true, value: 120, target: 100, since: 1, hold_remaining: 0 };
+  assert.equal(component.conditionStateOf(null), 'novalue');
+  assert.equal(component.conditionStateOf(report), 'met');
+  assert.equal(component.conditionStateOf({ value: 120, raw_met: true, met: false }), 'pending');
+  assert.equal(component.conditionTextOf(null, { type: 'balance_threshold' }), component.conditionStateText({ conditions: [{ type: 'balance_threshold' }] }, 0));
+  assert.equal(component.actionPreviewOf({ topic: 'a/set', payload: 'ON' }, { type: 'publish' }).text, 'a/set → ON');
+  assert.equal(component.actionPreviewOf({ blocked: true, reason: 'nope' }, { type: 'publish' }).blocked, true);
+});
+
 test('the editor keeps default fine tuning out of the saved document', async () => {
   const { component, window } = createAutomationsPanel();
   const scenario = regulatorEditScenario();

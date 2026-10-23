@@ -238,3 +238,12 @@ input.auto-scenario-name { border: 1px solid var(--border); border-radius: 6px; 
 
 /* Frisch angelegte Eintraege bis zum Speichern: Akzentkante links. */
 .auto-is-new { box-shadow: inset 3px 0 0 var(--accent-line); }
+.auto-scenario-edit { display: grid; gap: 1rem; padding-top: .4rem; }
+.auto-regulator-edit { display: grid; gap: .8rem; }
+.auto-edit-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: .6rem .9rem; align-items: start; }
+.auto-field { display: grid; gap: .3rem; align-content: start; min-width: 0; }
+.auto-field-wide { grid-column: 1 / -1; }
+.auto-field-head { display: inline-flex; align-items: center; gap: .3rem; }
+.auto-field-label { font-size: .8rem; color: var(--text-muted); }
+.auto-field input, .auto-field select { width: 100%; min-width: 0; }
+.auto-edit-foot { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-top: .8rem; border-top: 1px solid var(--border-soft); }

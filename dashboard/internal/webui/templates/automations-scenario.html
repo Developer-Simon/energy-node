@@ -112,15 +112,255 @@
       </div>
     </template>
 
-    <div class="auto-phases">
-      <template x-for="(phase, index) in scenarioPhases(scenario)" x-bind:key="phase.phase">
-        <div class="auto-phase" x-bind:class="{ 'is-active': activePhaseIndex(scenario) === index }">
-          <span class="auto-phase-head"><svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + phase.icon"></use></svg><span class="auto-phase-cap" x-text="phase.label"></span></span>
-          <b x-text="phase.title"></b>
-          <span class="auto-phase-text" x-text="phase.text"></span>
+    <template x-if="!scenarioEditing[scenario.id]">
+      <div class="auto-phases">
+        <template x-for="(phase, index) in scenarioPhases(scenario)" x-bind:key="phase.phase">
+          <div class="auto-phase" x-bind:class="{ 'is-active': activePhaseIndex(scenario) === index }">
+            <span class="auto-phase-head"><svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + phase.icon"></use></svg><span class="auto-phase-cap" x-text="phase.label"></span></span>
+            <b x-text="phase.title"></b>
+            <span class="auto-phase-text" x-text="phase.text"></span>
+          </div>
+        </template>
+      </div>
+    </template>
+
+    <template x-if="scenarioEditing[scenario.id]">
+      <div class="auto-scenario-edit">
+        <section class="auto-block">
+          <h4 class="auto-block-cap">{{t "automations.scenario.phase.name.start"}}</h4>
+          <div x-data="{ get rowsOwner() { return scenario.when; }, rowsReport(index) { return scenarioConditionReport(scenario, 'when', index); }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
+            <ul class="auto-lines">
+              {{template "automations-condition-lines"}}
+            </ul>
+          </div>
+          <div x-data="{ get rowsOwner() { return scenario.on_start; }, rowsReport() { return null; }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
+            <ul class="auto-lines">
+              {{template "automations-action-lines"}}
+            </ul>
+          </div>
+        </section>
+
+        <section class="auto-block">
+          <h4 class="auto-block-cap">{{t "automations.scenario.phase.name.while"}}</h4>
+          <div class="auto-flow-row">
+            <span class="auto-flow-label">{{t "automations.scenario.edit.while.aria"}}</span>
+            <div class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.scenario.edit.while.aria')">
+              <button class="auto-segment-tab" type="button" role="radio" x-on:click="changeWhileMode(scenario, 'regulate')"
+                      x-bind:aria-checked="scenario.while.mode === 'regulate' ? 'true' : 'false'">{{t "automations.scenario.edit.while.regulate"}}</button>
+              <button class="auto-segment-tab" type="button" role="radio" x-on:click="changeWhileMode(scenario, 'hold')"
+                      x-bind:aria-checked="scenario.while.mode === 'hold' ? 'true' : 'false'">{{t "automations.scenario.edit.while.hold"}}</button>
+              <button class="auto-segment-tab" type="button" role="radio" x-on:click="changeWhileMode(scenario, 'none')"
+                      x-bind:aria-checked="scenario.while.mode === 'none' ? 'true' : 'false'">{{t "automations.scenario.edit.while.none"}}</button>
+            </div>
+          </div>
+
+          <template x-if="scenario.while.mode === 'regulate' && scenario.while.regulator">
+            <div class="auto-regulator-edit">
+              <div class="auto-edit-grid">
+                <div class="auto-field">
+                  <span class="auto-field-head">
+                    <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-target`">{{t "automations.scenario.edit.regulator.target_label"}}</label>
+                    <span class="field-help">
+                      <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.target_label')})">
+                        <svg><use href="#ico-help"></use></svg>
+                      </button>
+                      <span class="field-help-text" role="tooltip" x-text="fieldHelp('target_w')"></span>
+                    </span>
+                  </span>
+                  <input x-bind:id="`scn-${scenario.id}-target`" type="number" x-model.number="scenario.while.regulator.target_w">
+                </div>
+                <div class="auto-field">
+                  <span class="auto-field-head">
+                    <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-deadband`">{{t "automations.scenario.edit.regulator.deadband_label"}}</label>
+                    <span class="field-help">
+                      <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.deadband_label')})">
+                        <svg><use href="#ico-help"></use></svg>
+                      </button>
+                      <span class="field-help-text" role="tooltip" x-text="fieldHelp('deadband_w')"></span>
+                    </span>
+                  </span>
+                  <input x-bind:id="`scn-${scenario.id}-deadband`" type="number" x-model.number="scenario.while.regulator.deadband_w">
+                </div>
+                <div class="auto-field">
+                  <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-output`">{{t "automations.scenario.edit.regulator.output_label"}}</label>
+                  <select x-bind:id="`scn-${scenario.id}-output`" x-on:change="setRegulatorOutput(scenario, $event.target.value)">
+                    <option value="" x-bind:selected="!regulatorTopic(scenario)">{{t "automations.scenario.edit.regulator.output_placeholder"}}</option>
+                    <template x-for="entity in regulatorOutputEntities()" x-bind:key="entity.unique_id">
+                      <option x-bind:value="entity.unique_id" x-text="entity.name || entity.unique_id"
+                              x-bind:selected="entity.command_topic === regulatorTopic(scenario)"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="auto-field">
+                  <span class="auto-field-label">{{t "automations.scenario.edit.regulator.direction_label"}}</span>
+                  <div class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.scenario.edit.regulator.direction_label')">
+                    <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRegulatorDirection(scenario, 'producer')"
+                            x-bind:aria-checked="scenario.while.regulator.direction !== 'consumer' ? 'true' : 'false'">{{t "automations.scenario.edit.regulator.direction_producer"}}</button>
+                    <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRegulatorDirection(scenario, 'consumer')"
+                            x-bind:aria-checked="scenario.while.regulator.direction === 'consumer' ? 'true' : 'false'">{{t "automations.scenario.edit.regulator.direction_consumer"}}</button>
+                  </div>
+                </div>
+                <div class="auto-field auto-field-wide">
+                  <span class="auto-field-label">{{t "automations.scenario.edit.regulator.base_label"}}</span>
+                  <div class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.scenario.edit.regulator.base_label')">
+                    <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRegulatorBase(scenario, 'entity', (readableEntities[0] || {}).unique_id)"
+                            x-bind:aria-checked="(scenario.while.regulator.base || {}).source === 'entity' ? 'true' : 'false'">{{t "automations.scenario.edit.regulator.base_entity"}}</button>
+                    <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRegulatorBase(scenario, 'balance')"
+                            x-bind:aria-checked="(scenario.while.regulator.base || {}).source === 'balance' ? 'true' : 'false'">{{t "automations.scenario.edit.regulator.base_balance"}}</button>
+                    <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRegulatorBase(scenario, 'last')"
+                            x-bind:aria-checked="(scenario.while.regulator.base || {}).source === 'last' ? 'true' : 'false'">{{t "automations.scenario.edit.regulator.base_last"}}</button>
+                  </div>
+                  <template x-if="(scenario.while.regulator.base || {}).source === 'entity'">
+                    <select x-bind:aria-label="$t('automations.scenario.edit.regulator.base_entity_label')"
+                            x-on:change="setRegulatorBase(scenario, 'entity', $event.target.value)">
+                      <template x-for="entity in readableEntities" x-bind:key="entity.unique_id">
+                        <option x-bind:value="entity.unique_id" x-text="entity.name || entity.unique_id"
+                                x-bind:selected="entity.unique_id === (scenario.while.regulator.base || {}).entity_id"></option>
+                      </template>
+                    </select>
+                  </template>
+                </div>
+              </div>
+
+              <div class="edit-advanced" x-data="{ advancedOpen: false }">
+                <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                  <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                  <span>{{t "automations.scenario.edit.advanced"}}</span>
+                </button>
+                <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                  <div class="auto-edit-grid">
+                    <div class="auto-field">
+                      <span class="auto-field-head">
+                        <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-gain`">{{t "automations.scenario.edit.regulator.gain_label"}}</label>
+                        <span class="field-help">
+                          <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.gain_label')})">
+                            <svg><use href="#ico-help"></use></svg>
+                          </button>
+                          <span class="field-help-text" role="tooltip" x-text="fieldHelp('gain')"></span>
+                        </span>
+                      </span>
+                      <input x-bind:id="`scn-${scenario.id}-gain`" type="number" step="0.1" x-model.number="scenario.while.regulator.gain">
+                    </div>
+                    <div class="auto-field">
+                      <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-min`">{{t "automations.scenario.edit.regulator.min_label"}}</label>
+                      <input x-bind:id="`scn-${scenario.id}-min`" type="number" x-model.number="scenario.while.regulator.output.min">
+                    </div>
+                    <div class="auto-field">
+                      <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-max`">{{t "automations.scenario.edit.regulator.max_label"}}</label>
+                      <input x-bind:id="`scn-${scenario.id}-max`" type="number" x-model.number="scenario.while.regulator.output.max">
+                    </div>
+                    <div class="auto-field">
+                      <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-step`">{{t "automations.scenario.edit.regulator.step_label"}}</label>
+                      <input x-bind:id="`scn-${scenario.id}-step`" type="number" x-model.number="scenario.while.regulator.output.step">
+                    </div>
+                    <div class="auto-field">
+                      <span class="auto-field-head">
+                        <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-max-change`">{{t "automations.scenario.edit.regulator.max_change_label"}}</label>
+                        <span class="field-help">
+                          <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.max_change_label')})">
+                            <svg><use href="#ico-help"></use></svg>
+                          </button>
+                          <span class="field-help-text" role="tooltip" x-text="fieldHelp('max_change_w')"></span>
+                        </span>
+                      </span>
+                      <input x-bind:id="`scn-${scenario.id}-max-change`" type="number" x-model.number="scenario.while.regulator.max_change_w">
+                    </div>
+                    <div class="auto-field">
+                      <span class="auto-field-head">
+                        <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-interval`">{{t "automations.scenario.edit.regulator.interval_label"}}</label>
+                        <span class="field-help">
+                          <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.interval_label')})">
+                            <svg><use href="#ico-help"></use></svg>
+                          </button>
+                          <span class="field-help-text" role="tooltip" x-text="fieldHelp('interval_s')"></span>
+                        </span>
+                      </span>
+                      <input x-bind:id="`scn-${scenario.id}-interval`" type="number" x-model.number="scenario.while.regulator.interval_s">
+                    </div>
+                    <div class="auto-field">
+                      <span class="auto-field-head">
+                        <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-fallback`">{{t "automations.scenario.edit.regulator.fallback_label"}}</label>
+                        <span class="field-help">
+                          <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.fallback_label')})">
+                            <svg><use href="#ico-help"></use></svg>
+                          </button>
+                          <span class="field-help-text" role="tooltip" x-text="fieldHelp('fallback')"></span>
+                        </span>
+                      </span>
+                      <input x-bind:id="`scn-${scenario.id}-fallback`" type="text"
+                             x-bind:value="(scenario.while.regulator.fallback || {}).payload || ''"
+                             x-on:input="scenario.while.regulator.fallback = { payload: $event.target.value }">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="scenario.while.mode === 'hold'">
+            <div class="auto-regulator-edit">
+              <div x-data="{ get rowsOwner() { return scenario.while; }, rowsReport() { return null; }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
+                <ul class="auto-lines">
+                  {{template "automations-action-lines"}}
+                </ul>
+              </div>
+              <div class="auto-flow-row">
+                <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-hold-repeat`">{{t "automations.rule_editor.repeat_label"}}</label>
+                <input x-bind:id="`scn-${scenario.id}-hold-repeat`" type="number" min="0" max="86400" x-model.number="scenario.while.repeat_seconds">
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.repeat_help_aria_label')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('repeat_seconds')"></span>
+                </span>
+              </div>
+            </div>
+          </template>
+        </section>
+
+        <section class="auto-block">
+          <h4 class="auto-block-cap">{{t "automations.scenario.phase.name.end"}}</h4>
+          <div class="auto-flow-row">
+            <label class="settings-toggle">
+              <input type="checkbox" x-bind:checked="Boolean(scenario.until)" x-on:change="toggleUntil(scenario, $event.target.checked)"
+                     x-bind:aria-label="$t('automations.scenario.edit.until.switch')">
+              <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+            </label>
+            <span class="auto-flow-label">{{t "automations.scenario.edit.until.switch"}}</span>
+          </div>
+          <template x-if="scenario.until">
+            <div x-data="{ get rowsOwner() { return scenario.until; }, rowsReport(index) { return scenarioConditionReport(scenario, 'until', index); }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
+              <ul class="auto-lines">
+                {{template "automations-condition-lines"}}
+              </ul>
+            </div>
+          </template>
+          <template x-if="!scenario.until">
+            <p class="auto-hint">{{t "automations.scenario.phase.end_when_false"}}</p>
+          </template>
+          <div x-data="{ get rowsOwner() { return scenario.on_end; }, rowsReport() { return null; }, rowsPreview() { return { blocked: false, text: '' }; }, rowsTestState() { return { allowed: false }; }, rowsRunTest() {}, rowsCanTest: false }">
+            <ul class="auto-lines">
+              {{template "automations-action-lines"}}
+            </ul>
+          </div>
+        </section>
+
+        <div class="auto-edit-foot">
+          <label class="settings-toggle">
+            <input type="checkbox" x-model="scenario.history_enabled"
+                   x-bind:aria-label="$t('automations.scenario.edit.history.enabled_aria_label', {name: scenario.name})">
+            <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+          </label>
+          <span class="auto-flow-label">{{t "automations.scenario.edit.history.label"}}</span>
+          <span class="field-help">
+            <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.history.label')})">
+              <svg><use href="#ico-help"></use></svg>
+            </button>
+            <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_enabled')"></span>
+          </span>
         </div>
-      </template>
-    </div>
+      </div>
+    </template>
   </div>
 </template>
 {{end}}
