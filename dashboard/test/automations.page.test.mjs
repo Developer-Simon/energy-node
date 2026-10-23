@@ -21,6 +21,7 @@ const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
 const scenarioSource = fs.readFileSync(path.join(jsDir, 'automations-scenario.js'), 'utf8');
 const chartSource = fs.readFileSync(path.join(jsDir, 'automations-chart.js'), 'utf8');
+const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -36,6 +37,7 @@ function createAutomationsPanel() {
   vm.runInContext(viewSource, context);
   vm.runInContext(scenarioSource, context);
   vm.runInContext(chartSource, context);
+  vm.runInContext(rollupSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -1717,4 +1719,133 @@ test('save clears the new markers and the undo bar', async () => {
   assert.ok(sent.body, 'the save must reach the server');
   assert.deepEqual(Object.keys(component.newIds), []);
   assert.equal(component.undo, null);
+});
+
+// --- Szenario-Karte: Daten, Live-Punkte, Tagesexport ---------------------
+
+const regulatorScenario = (id) => ({
+  id, name: id, enabled: true,
+  when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 0 }] },
+  on_start: { actions: [] },
+  while: { mode: 'regulate', regulator: { output: { topic: 't', min: 0, max: 800 }, direction: 'producer', target_w: 0 } },
+  on_end: { actions: [] },
+});
+
+const holdScenario = (id) => ({
+  id, name: id, enabled: true,
+  when: { conditions: [] }, on_start: { actions: [] }, while: { mode: 'none' }, on_end: { actions: [] },
+});
+
+test('regulating scenarios start expanded, others collapsed', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const doc = { version: 1, settings: {}, rules: [], scenarios: [regulatorScenario('reg'), holdScenario('plain')] };
+    window.fetch = async (url) => {
+      if (url.endsWith('/api/v1/configurations/automation_rules')) return { ok: true, json: async () => doc };
+      if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+      if (url.endsWith('/api/v1/auth/session')) return { ok: true, json: async () => ({ csrf_token: 'tok', automations: true }) };
+      if (url.endsWith('/api/v1/energy/roles')) return { ok: true, json: async () => ({ categories: {} }) };
+      if (url.includes('/api/v1/energy/stats')) return { ok: true, json: async () => ({ total: { kwh: { grid_export: 1 } } }) };
+      throw new Error(`unexpected fetch ${url}`);
+    };
+    await component.load();
+    assert.equal(component.scenarioExpanded.reg, true);
+    assert.notEqual(component.scenarioExpanded.plain, true);
+  } finally {
+    window.close();
+  }
+});
+
+test('loadScenarioChart survives a missing HistoryStore', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    delete window.HistoryStore;
+    await component.loadScenarioChart(regulatorScenario('a'));
+    assert.deepEqual(JSON.parse(JSON.stringify(component.chartPoints.a)), { grid: [], output: [] });
+  } finally {
+    window.close();
+  }
+});
+
+test('loadScenarioChart fills raw gaps with minute rows', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    const minute = 60000;
+    // Rohwerte bis 21 min vor jetzt, 1m-Werte danach: die Luecke fuellt die Minutenreihe.
+    const raw = Array.from({ length: 10 }, (_, i) => ({ series: 'role:grid', ts: now - 30 * minute + i * minute, v: 100, u: 'W' }));
+    const rollup = Array.from({ length: 20 }, (_, i) => ({ series: 'role:grid', ts: now - 20 * minute + i * minute, min: 50, max: 50, avg: 50, n: 1, u: 'W' }));
+    window.HistoryStore = {
+      readRange: async (tier, series) => {
+        if (series !== 'role:grid') return [];
+        return tier === 'raw' ? raw : rollup;
+      },
+    };
+    await component.loadScenarioChart(regulatorScenario('a'));
+    const points = JSON.parse(JSON.stringify(component.chartPoints.a.grid));
+    assert.equal(points.length, 30);
+    assert.ok(points.every((point, index) => index === 0 || point.ts > points[index - 1].ts), 'points are ordered by time');
+    assert.ok(points[points.length - 1].ts >= now / 1000 - 120, 'the chart reaches the present');
+    assert.deepEqual(JSON.parse(JSON.stringify(component.chartPoints.a.output)), []);
+  } finally {
+    window.close();
+  }
+});
+
+test('state updates append live points and drop those older than 30 minutes', () => {
+  const { component } = createAutomationsPanel();
+  const nowSec = Date.now() / 1000;
+  component.livePoints = { a: [{ ts: nowSec - 1900, grid: 5 }, { ts: nowSec - 60, grid: 6 }] };
+  component.applyStateObject({ rules: {}, scenarios: { a: { phase: 'active', net: 120, output: 300 } } });
+  const points = JSON.parse(JSON.stringify(component.livePoints.a));
+  assert.equal(points.length, 2);
+  assert.ok(Math.abs(points[0].ts - (nowSec - 60)) < 1, 'the 30 minute old point is gone');
+  assert.equal(points[0].grid, 6);
+  assert.equal(points[1].grid, 120);
+  assert.equal(points[1].output, 300);
+  assert.ok(Math.abs(points[1].ts - nowSec) < 5, 'live points carry seconds');
+});
+
+test('gridNowText falls back to the last chart point and then to a dash', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorScenario('a');
+  const nowSec = Date.now() / 1000;
+  component.nowTick = nowSec * 1000;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active' } } };
+  component.chartPoints = { a: { grid: [{ ts: nowSec - 30, value: 250 }], output: [] } };
+  assert.equal(component.gridNowText(scenario), '+250');
+  component.chartPoints.a.grid[0].ts = nowSec - 300;
+  assert.equal(component.gridNowText(scenario), '—');
+  component.runtimeState.scenarios.a.net = -120;
+  assert.equal(component.gridNowText(scenario), '−120');
+});
+
+test('today export reads grid_export from the day statistics', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    let requested = '';
+    window.fetch = async (url) => {
+      requested = String(url);
+      return { ok: true, json: async () => ({ total: { kwh: { grid_export: 12.34 } } }) };
+    };
+    await component.refreshTodayExport();
+    assert.match(requested, /\/api\/v1\/energy\/stats\?period=day$/);
+    assert.equal(component.todayExportKWh, 12.34);
+    // Ein Fehler laesst den alten Wert stehen.
+    window.fetch = async () => { throw new Error('offline'); };
+    await component.refreshTodayExport();
+    assert.equal(component.todayExportKWh, 12.34);
+  } finally {
+    window.close();
+  }
+});
+
+test('an offline service shows no running time', () => {
+  const { component } = createAutomationsPanel();
+  component.online = false;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', since: Date.now() / 1000 - 100 } } };
+  const status = component.scenarioStatus(regulatorScenario('a'));
+  assert.equal(status.key, 'offline');
+  assert.equal(status.label, 'Dienst offline');
+  assert.equal(status.detail, '');
 });

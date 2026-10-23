@@ -25,6 +25,26 @@
   const RULE_LIMIT = 16;
   const SCENARIO_LIMIT = 8;
   const UNDO_MS = 10000;
+  // Szenario-Diagramm: Geometrie wie im Entwurf, Punkte und Takte in Sekunden.
+  const CHART_WIDTH = 600;
+  const CHART_HEIGHT = 170;
+  const CHART_MAX_POINTS = 300;
+  const CHART_REFRESH_MS = 60000;
+  const EXPORT_REFRESH_MS = 300000;
+  const LIVE_WINDOW_S = 1800;
+  const LIVE_MAX_POINTS = 180;
+  const GRID_NOW_MAX_AGE_S = 120;
+  const DEFAULT_RANGE = '30m';
+  const DEFAULT_DEADBAND_W = 20;
+  const GRID_SERIES = 'role:grid';
+
+  const outputSeriesName = (id) => `automation_scenario_${id}_output`;
+
+  // Vorzeichen wie im Entwurf: + Bezug, − Einspeisung.
+  const signedW = (watts) => {
+    const rounded = Math.round(watts);
+    return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded)}`;
+  };
 
   const emptyDocument = () => ({
     version: 1,
@@ -70,6 +90,14 @@
     undo: null,
     scenarioExpanded: {},
     scenarioEditing: {},
+    // Diagramm je Szenario: Bereich (Start 30 min), gelesene Punkte, Live-Punkte
+    // aus den Zustandsupdates, Zeitpunkt des letzten Ladens, Tagesexport in kWh.
+    chartRange: {},
+    chartPoints: {},
+    livePoints: {},
+    chartLoadedAt: {},
+    todayExportKWh: null,
+    todayExportAt: 0,
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
@@ -118,6 +146,10 @@
         this.document = doc && doc.rules ? doc : emptyDocument();
         this.document.scenarios ||= [];
         this.view = this.document.scenarios.length ? 'scenarios' : 'rules';
+        // Regler-Szenarien starten aufgeklappt; ein Klick des Nutzers bleibt erhalten.
+        this.document.scenarios.forEach((scenario) => {
+          if (scenario.while && scenario.while.mode === 'regulate') this.scenarioExpanded[scenario.id] ??= true;
+        });
         this.newIds = {};
         this.undo = null;
         // Ein auf der Platte gespeichertes Dokument kann aelter sein als ein
@@ -160,11 +192,12 @@
         // aktuellen Zeit berechnet - dafuer braucht es keine neuen Daten vom
         // Dienst, nur einen reaktiven Sekundentakt im Browser.
         if (!this._clockTimer) {
-          this._clockTimer = setInterval(() => { this.nowTick = Date.now(); }, 1000);
+          this._clockTimer = setInterval(() => { this.nowTick = Date.now(); this.scenarioTick(); }, 1000);
           // Node hat hier ein Timeout-Objekt mit unref() (haelt den Prozess
           // z.B. in Tests nicht am Leben); im Browser ist es nur eine Zahl.
           if (typeof this._clockTimer.unref === 'function') this._clockTimer.unref();
         }
+        this.scenarioTick();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -357,6 +390,7 @@
       if (!document || typeof document.rules !== 'object' || document.rules === null) return;
       this.runtimeState = document;
       this.lastStateAt = Date.now();
+      this.recordLivePoints(document);
     },
 
     applyHistoryDocument(document) {
@@ -494,6 +528,139 @@
       const collapsing = this.scenarioExpanded[scenario.id];
       this.scenarioExpanded[scenario.id] = !collapsing;
       if (collapsing) this.scenarioEditing[scenario.id] = false;
+      else this.loadScenarioChart(scenario);
+    },
+
+    setChartRange(scenario, range) {
+      this.chartRange[scenario.id] = range;
+      this.loadScenarioChart(scenario);
+    },
+
+    scenarioRange(id) {
+      return this.chartRange[id] || DEFAULT_RANGE;
+    },
+
+    scenarioState(scenario) {
+      const states = this.runtimeState && this.runtimeState.scenarios;
+      return (states && states[scenario.id]) || null;
+    },
+
+    scenarioStatus(scenario) {
+      return window.__automationScenario.scenarioStatus(scenario, this.scenarioState(scenario), this.online, this.nowTick / 1000);
+    },
+
+    // Liest Rohwerte und Minutenwerte beider Serien aus dem Verlauf (IndexedDB),
+    // fuellt die Luecken der Rohstufe mit Minutenwerten und duennt auf
+    // CHART_MAX_POINTS aus. Jeder Fehler ergibt leere Serien, nie eine Ausnahme.
+    async loadScenarioChart(scenario) {
+      const id = scenario.id;
+      const range = this.scenarioRange(id);
+      this.chartLoadedAt[id] = Date.now();
+      const store = window.HistoryStore;
+      const rollup = window.HistoryRollup;
+      const chart = window.__automationChart;
+      let points = { grid: [], output: [] };
+      if (store && rollup && chart) {
+        try {
+          const bounds = chart.rangeBounds(range, Date.now());
+          const fromMs = bounds.from * 1000;
+          const toMs = bounds.to * 1000;
+          const readSeries = async (series) => {
+            const raw = await store.readRange('raw', series, fromMs, toMs);
+            const minute = await store.readRange('1m', series, fromMs, toMs);
+            const { rows } = rollup.fillRawGaps(rollup.normalize(raw || []), rollup.normalize(minute || []), fromMs, toMs);
+            const own = rows.filter((row) => row.series === series).sort((left, right) => left.ts - right.ts);
+            // Der Chart arbeitet in Sekunden, der Verlauf speichert Millisekunden.
+            return rollup.thin(own, CHART_MAX_POINTS).map((row) => ({ ts: row.ts / 1000, value: row.avg }));
+          };
+          points = { grid: await readSeries(GRID_SERIES), output: await readSeries(outputSeriesName(id)) };
+        } catch (error) {
+          points = { grid: [], output: [] };
+        }
+      }
+      // Wechselt der Bereich waehrend des Lesens, gehoert das Ergebnis nicht mehr.
+      if (this.scenarioRange(id) === range) this.chartPoints[id] = points;
+    },
+
+    // Haengt je Zustandsupdate einen Punkt an, mit Zahl in net und output.
+    // Punkte aelter als 30 min fallen weg, es bleiben hoechstens LIVE_MAX_POINTS.
+    recordLivePoints(document) {
+      const nowSec = Date.now() / 1000;
+      const cutoff = nowSec - LIVE_WINDOW_S;
+      Object.entries(document.scenarios || {}).forEach(([id, state]) => {
+        const point = { ts: nowSec };
+        if (state && isNumber(state.net)) point.grid = state.net;
+        if (state && isNumber(state.output)) point.output = state.output;
+        const kept = (this.livePoints[id] || []).filter((entry) => entry.ts >= cutoff);
+        if (point.grid !== undefined || point.output !== undefined) kept.push(point);
+        this.livePoints[id] = kept.slice(-LIVE_MAX_POINTS);
+      });
+    },
+
+    // Gelesene Punkte, danach die Live-Punkte, die juenger sind als der letzte gelesene.
+    chartSeries(id, key) {
+      const read = (this.chartPoints[id] && this.chartPoints[id][key]) || [];
+      const lastRead = read.length ? read[read.length - 1].ts : -Infinity;
+      const live = (this.livePoints[id] || [])
+        .filter((entry) => isNumber(entry[key]) && entry.ts > lastRead)
+        .map((entry) => ({ ts: entry.ts, value: entry[key] }));
+      return [...read, ...live];
+    },
+
+    chartFor(scenario) {
+      const chart = window.__automationChart;
+      const regulator = (scenario.while && scenario.while.regulator) || {};
+      const bounds = chart.rangeBounds(this.scenarioRange(scenario.id), this.nowTick);
+      return chart.scenarioChart({
+        grid: this.chartSeries(scenario.id, 'grid'),
+        output: this.chartSeries(scenario.id, 'output'),
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        deadband: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        events: this.liveHistory[scenario.id] || [],
+        from: bounds.from,
+        to: bounds.to,
+        width: CHART_WIDTH,
+        height: CHART_HEIGHT,
+      });
+    },
+
+    // Netz jetzt: der Zustand, sonst der letzte Netzpunkt, wenn er juenger als 2 min ist.
+    gridNowText(scenario) {
+      const state = this.scenarioState(scenario);
+      if (state && isNumber(state.net)) return signedW(state.net);
+      const grid = this.chartSeries(scenario.id, 'grid');
+      const last = grid[grid.length - 1];
+      if (last && this.nowTick / 1000 - last.ts < GRID_NOW_MAX_AGE_S) return signedW(last.value);
+      return '—';
+    },
+
+    // Tagesexport aus den Tagesstatistik. Ein Fehler laesst den alten Wert stehen.
+    async refreshTodayExport() {
+      try {
+        const stats = await requestJSON('/api/v1/energy/stats?period=day');
+        const kwh = stats && stats.total && stats.total.kwh && stats.total.kwh.grid_export;
+        if (isNumber(kwh)) this.todayExportKWh = kwh;
+      } catch (error) {
+        // voruebergehender Fehler, der naechste Takt versucht es erneut
+      }
+    },
+
+    // Takt des Sekundentimers: aufgeklappte Karten alle 60 s neu laden, der
+    // Tagesexport alle 5 min, nur bei sichtbarer Seite und mit mindestens einem Regler.
+    scenarioTick() {
+      if (document.visibilityState !== 'visible') return;
+      const nowMs = Date.now();
+      const scenarios = this.document.scenarios || [];
+      scenarios.forEach((scenario) => {
+        if (this.scenarioExpanded[scenario.id] && nowMs - (this.chartLoadedAt[scenario.id] || 0) >= CHART_REFRESH_MS) {
+          this.loadScenarioChart(scenario);
+        }
+      });
+      const hasRegulator = scenarios.some((scenario) => scenario.while && scenario.while.mode === 'regulate');
+      if (hasRegulator && nowMs - this.todayExportAt >= EXPORT_REFRESH_MS) {
+        this.todayExportAt = nowMs;
+        this.refreshTodayExport();
+      }
     },
 
     // Zaehlt, was beim naechsten Speichern anders ist: neue, geaenderte und
