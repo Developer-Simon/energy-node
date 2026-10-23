@@ -332,3 +332,98 @@ test('lowest reads the minimum', () => {
   assert.equal(wizard.lowest([]), null);
   assert.equal(wizard.lowest(undefined), null);
 });
+
+test('presetEffect returns nothing without history rows', async () => {
+  const { wizard } = load();
+  const ctx = wizard.buildContext({ devices, snapshot: { values: {} }, document: {} });
+  const calls = [];
+  const empty = { readRange: async (...args) => { calls.push(args); return []; } };
+  const failing = { readRange: async () => { throw new Error('closed'); } };
+  assert.equal(await wizard.presetEffect({ id: 'start', effect: 'starts' }, 1400, ctx, empty), '');
+  assert.equal(await wizard.presetEffect({ id: 'soc', effect: 'soc' }, 40, ctx, empty), '');
+  assert.equal(await wizard.presetEffect({ id: 'start', effect: 'starts' }, 1400, ctx, failing), '');
+  assert.equal(await wizard.presetEffect({ id: 'soc', effect: 'soc' }, 40, ctx, failing), '');
+  assert.equal(await wizard.presetEffect({ id: 'start', effect: 'none' }, 1400, ctx, empty), '');
+  assert.equal(calls[0][0], '1m');
+  assert.equal(calls[0][1], 'role:grid');
+  assert.equal(calls[1][1], 'role:battery_soc');
+  assert.ok(calls[0][3] - calls[0][2] > 23 * 3600 * 1000);
+});
+
+test('presetEffect describes the band, the first feed-in minute and the lowest charge level', async () => {
+  const { wizard, t } = load();
+  const ctx = wizard.buildContext({ devices, snapshot: { values: {} }, document: {} });
+  const band = await wizard.presetEffect({ id: 'target', effect: 'band' }, 30, ctx, null);
+  assert.equal(band, t('automations.assistant.effect.band', { low: '10', high: '50' }));
+  const rows = [{ ts: 1000, min: -10, avg: -20 }, { ts: 60000, min: -1500, avg: -1400 }];
+  const store = { readRange: async () => rows };
+  const first = new Date(60000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const time = `${pad(first.getHours())}:${pad(first.getMinutes())}`;
+  assert.equal(await wizard.presetEffect({ id: 'start', effect: 'starts' }, 1400, ctx, store),
+    t('automations.assistant.effect.reached_at', { time }));
+  assert.equal(await wizard.presetEffect({ id: 'start', effect: 'starts' }, 5000, ctx, store),
+    t('automations.assistant.effect.not_reached'));
+  const socStore = { readRange: async () => [{ min: 35 }, { min: 22 }] };
+  assert.equal(await wizard.presetEffect({ id: 'soc', effect: 'soc' }, 40, ctx, socStore),
+    t('automations.assistant.effect.lowest_soc', { value: '22' }));
+});
+
+test('regulatorStep matches the python cases', () => {
+  const { wizard } = load();
+  const reg = (overrides = {}) => ({
+    output: { min: 50, max: 800, step: 10, decimals: 0 },
+    direction: 'producer', target_w: 30, deadband_w: 20, gain: 0.8,
+    ...overrides,
+  });
+  const step = (regulator, input) => plain(wizard.regulatorStep(regulator, input));
+  // producer: Einspeisung senkt die Grenze
+  assert.deepEqual(step(reg(), { net: -470, base: 800, lastValue: 800 }),
+    { value: 400, payload: '400', reason: null, error: -500 });
+  // consumer: Einspeisung hebt den Sollwert
+  const consumer = reg({ direction: 'consumer', target_w: 0, output: { min: 0, max: 3700, step: 100, decimals: 0 } });
+  assert.equal(step(consumer, { net: -1500, base: 0, lastValue: null }).payload, '1200');
+  // Totband: nichts senden
+  assert.deepEqual(step(reg(), { net: 45, base: 500, lastValue: 500 }),
+    { value: null, payload: null, reason: 'deadband', error: 15 });
+  // Abrunden auf step, nicht runden
+  assert.equal(step(reg(), { net: -100, base: 800, lastValue: null }).payload, '690');
+  // Grenzen
+  assert.equal(step(reg(), { net: -5000, base: 800, lastValue: null }).payload, '50');
+  assert.equal(step(reg(), { net: 5000, base: 800, lastValue: null }).payload, '800');
+  // max_change_w begrenzt den Schritt gegen den letzten Wert
+  assert.equal(step(reg({ max_change_w: 100 }), { net: -470, base: 800, lastValue: 800 }).payload, '700');
+  // unveraendert: nichts erneut senden
+  assert.deepEqual(step(reg(), { net: 60, base: 780, lastValue: 800 }),
+    { value: null, payload: null, reason: 'unchanged', error: 30 });
+});
+
+test('regulatorStep uses gain 0.8 and deadband 20 when they are missing', () => {
+  const { wizard } = load();
+  const bare = { output: { min: 50, max: 800, step: 10, decimals: 0 }, direction: 'producer', target_w: 30 };
+  assert.equal(wizard.regulatorStep(bare, { net: -470, base: 800, lastValue: 800 }).payload, '400');
+  assert.equal(wizard.regulatorStep(bare, { net: 45, base: 500, lastValue: null }).reason, 'deadband');
+});
+
+test('regulatorPreview describes the next limit', () => {
+  const { wizard } = load();
+  const scenario = {
+    while: {
+      mode: 'regulate',
+      regulator: {
+        output: { topic: 'werkstatt/pv1/limit', min: 50, max: 800, step: 10, decimals: 0 },
+        direction: 'producer', target_w: 30, deadband_w: 20, gain: 0.8,
+        base: { source: 'balance', field: 'pv' },
+        fallback: { payload: '800' },
+      },
+    },
+  };
+  const ctx = wizard.buildContext({ devices, snapshot: { values: { grid: -470, pv: 800 } }, document: {} });
+  assert.equal(wizard.regulatorPreview(scenario, ctx), 'Die Grenze sinkt von 800 W auf 400 W.');
+  const holdCtx = wizard.buildContext({ devices, snapshot: { values: { grid: 45, pv: 800 } }, document: {} });
+  assert.equal(wizard.regulatorPreview(scenario, holdCtx), 'Der Regler lässt die Grenze unverändert.');
+  const noNet = wizard.buildContext({ devices, snapshot: { values: { pv: 800 } }, document: {} });
+  assert.equal(wizard.regulatorPreview(scenario, noNet), '');
+  const rule = { while: { mode: 'hold' } };
+  assert.equal(wizard.regulatorPreview(rule, ctx), '');
+});

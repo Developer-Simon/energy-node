@@ -337,6 +337,111 @@
     return values.length ? Math.min(...values) : null;
   }
 
+  // Vortag als Zeitraum in Millisekunden, beide Enden eingeschlossen (wie readRange).
+  function yesterdayRange(now = new Date()) {
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+    const todayStart = new Date(year, month, day).getTime();
+    const yesterdayStart = new Date(year, month, day - 1).getTime();
+    return [yesterdayStart, todayStart - 1];
+  }
+
+  function clockText(ts) {
+    const date = new Date(ts);
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  // Wirkung eines Voreinstellungswerts aus den Vortagsdaten. Ohne Zeilen oder bei
+  // einem Fehler des Verlaufs bleibt der Text leer.
+  async function presetEffect(step, value, ctx, store) {
+    if (step.effect === 'band') {
+      return t('automations.assistant.effect.band', {
+        low: formatNumber(value - 20),
+        high: formatNumber(value + 20),
+      });
+    }
+    if (step.effect !== 'starts' && step.effect !== 'soc') return '';
+    if (!store || typeof store.readRange !== 'function') return '';
+    const [from, to] = yesterdayRange();
+    try {
+      if (step.effect === 'starts') {
+        const rows = await store.readRange('1m', 'role:grid', from, to);
+        if (!rows || !rows.length) return '';
+        const ts = firstReached(rows, value);
+        return ts === null
+          ? t('automations.assistant.effect.not_reached')
+          : t('automations.assistant.effect.reached_at', { time: clockText(ts) });
+      }
+      const rows = await store.readRange('1m', 'role:battery_soc', from, to);
+      if (!rows || !rows.length) return '';
+      const low = lowest(rows);
+      return low === null ? '' : t('automations.assistant.effect.lowest_soc', { value: formatNumber(low) });
+    } catch (error) {
+      return '';
+    }
+  }
+
+  // Spiegel von compute_step() in services/automation/regulator.py, gleiche
+  // Reihenfolge: Fehler, Totband, Vorzeichen, max_change_w, Abrunden auf step,
+  // Grenzen, unveraendert. Fehlende gain und deadband_w fallen auf 0.8 und 20.
+  function regulatorStep(regulator, { net, base, lastValue }) {
+    const hasLast = isNumber(lastValue);
+    const target = isNumber(regulator.target_w) ? regulator.target_w : 0;
+    const deadband = isNumber(regulator.deadband_w) ? regulator.deadband_w : 20;
+    const gain = isNumber(regulator.gain) ? regulator.gain : 0.8;
+    const error = net - target;
+    if (Math.abs(error) <= deadband) return { value: null, payload: null, reason: 'deadband', error };
+    const sign = regulator.direction === 'producer' ? 1 : -1;
+    let value = base + sign * gain * error;
+    if (isNumber(regulator.max_change_w) && hasLast) {
+      value = Math.min(Math.max(value, lastValue - regulator.max_change_w), lastValue + regulator.max_change_w);
+    }
+    const output = regulator.output || {};
+    if (isNumber(output.step) && output.step > 0) value = Math.floor(value / output.step) * output.step;
+    if (isNumber(output.min)) value = Math.max(value, output.min);
+    if (isNumber(output.max)) value = Math.min(value, output.max);
+    const payload = isNumber(output.decimals) ? value.toFixed(output.decimals) : String(value);
+    if (hasLast && value === lastValue) return { value: null, payload: null, reason: 'unchanged', error };
+    return { value, payload, reason: null, error };
+  }
+
+  // Messwert der Basis: Geraetemesswert, Bilanzfeld oder der letzte Sollwert.
+  function regulatorBase(base, output, ctx) {
+    const source = base && base.source;
+    if (source === 'last') return isNumber(output.max) ? output.max : null;
+    if (source === 'balance') {
+      const value = ((ctx.snapshot && ctx.snapshot.values) || {})[base.field];
+      return isNumber(value) ? value : null;
+    }
+    if (source === 'entity') {
+      const entity = (ctx.readable || []).find((item) => item.state_topic === base.topic);
+      if (!entity || !hasValue(entity)) return null;
+      const number = Number(entity.value);
+      return Number.isFinite(number) ? number : null;
+    }
+    return null;
+  }
+
+  // Vorschau des naechsten Grenzwerts eines Regler-Szenarios: "sinkt" oder "steigt"
+  // von der Basis auf den neuen Wert, sonst "unveraendert".
+  function regulatorPreview(scenario, ctx) {
+    const scenarioWhile = scenario && scenario.while;
+    if (!scenarioWhile || scenarioWhile.mode !== 'regulate' || !scenarioWhile.regulator) return '';
+    const regulator = scenarioWhile.regulator;
+    const output = regulator.output || {};
+    const net = gridNet(ctx.snapshot);
+    if (net === null) return '';
+    const base = regulatorBase(regulator.base, output, ctx);
+    if (base === null) return '';
+    const lastValue = regulator.direction === 'consumer' ? output.min : output.max;
+    const step = regulatorStep(regulator, { net, base, lastValue: isNumber(lastValue) ? lastValue : null });
+    if (step.value === null || step.value === base) return t('automations.assistant.preview.hold');
+    const key = step.value < base ? 'automations.assistant.preview.lower' : 'automations.assistant.preview.raise';
+    return t(key, { from: formatNumber(base), to: formatNumber(step.value) });
+  }
+
   window.__automationWizard = {
     CATEGORIES,
     buildContext,
@@ -346,6 +451,9 @@
     gridNet,
     lowest,
     optionUnavailable,
+    presetEffect,
+    regulatorPreview,
+    regulatorStep,
     searchTemplates,
     stepComplete,
     templateAvailability,
