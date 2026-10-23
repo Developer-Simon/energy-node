@@ -54,6 +54,13 @@ rule fire again.
 Cooldown (`cooldown_seconds`) starts each time the rule fires, also when an
 action failed. A failing publish therefore does not repeat on every tick.
 
+Repeat (`repeat_seconds`) runs the actions again while all conditions keep
+holding, once `repeat_seconds` have passed since the last firing. A repeat
+does not wait for the cooldown, because the cooldown only applies to starting
+a new episode. Each repeat counts up `fire_count`, but only the first trigger of
+an episode is written to the history. The repeat uses the same actions as the
+first trigger, so a rule with a `toggle` action cannot repeat.
+
 ## 3. Restart and rejected rules
 
 The service keeps no evaluation state across a restart.
@@ -65,6 +72,9 @@ The service keeps no evaluation state across a restart.
   time, the first trigger comes after `max(hold_seconds, settling_seconds)` at
   the earliest.
 - Rules that depend on the balance also wait for the first fresh balance.
+- Scenario phases live in memory as well. After a restart every scenario
+  starts `idle`. An `active` scenario from before the restart is not ended,
+  so its `on_end` does not run.
 
 An invalid `automation_rules.json` never stops the process. If the file is
 invalid at start, the service runs with no rules, stays online and reports
@@ -119,14 +129,20 @@ The service refuses a rule file that breaks any of these rules:
   `outstation/energy_node/energy/balance`, `outstation/energy_node/status/online`,
   `outstation/energy_node/state` and `outstation/energy_node/diagnostics`. The
   `settings/` topics below `outstation/energy_node/` stay allowed.
-- A rule with a `publish` action needs `cooldown_seconds` of at least 30, and
-  every `hold_seconds` in it must be at least 30.
+- A rule with a `publish` action needs `cooldown_seconds` of at least
+  `publish_min_interval_s` (default 30 s), and every `hold_seconds` and a
+  `repeat_seconds` above 0 in it must be at least `publish_min_interval_s` too.
+- A rule with `repeat_seconds` above 0 must not contain a `toggle` action.
 - At most 16 rules, each with 1 to 8 conditions and 1 to 8 actions. Rule IDs
-  match `^[a-z0-9][a-z0-9_-]{0,63}$` and are unique.
+  match `^[a-z0-9][a-z0-9_-]{0,63}$` and are unique. Scenario IDs follow the
+  same pattern and share the namespace with the rule IDs.
+- At most 8 scenarios. Two scenarios cannot regulate the same output topic.
+- A `hold` in a scenario must not contain a `toggle` action.
 
 At run time a `publish` action is also checked against
 `publish_allowed_prefixes`. With an empty list, every publish is blocked and
-the rule reports `blocked` with the reason.
+the rule reports `blocked` with the reason. The same check applies to every
+step of a regulator. A blocked step leaves the last sent value unchanged.
 
 ## 6. Details of the conditions
 
@@ -165,3 +181,91 @@ only. The dashboard still shows it, but nothing is written to the SD card, and
 a restart clears it. The switch takes effect on the next reload without a
 restart. Entries of deleted rules, or of rules whose history was switched off,
 stay in the file.
+
+## 8. Scenarios and the regulator
+
+The fields of a scenario are listed in [`automations.md`](automations.md#scenarios).
+This section explains its phases, the regulator and what happens at the edges.
+
+The service keeps every scenario in one of four phases:
+
+| Phase | Meaning |
+|---|---|
+| `disabled` | The scenario is switched off. Its conditions are not used to start it. |
+| `idle` | Waiting for `when`. |
+| `active` | Started. `on_start` has run, and `while` runs on every tick. |
+| `fallback` | Active, but the regulator has no fresh balance or no base value. Only for `regulate`. |
+
+The transitions are:
+
+- `idle` to `active`: all `when` conditions hold for their hold time. Nothing
+  starts while the service is settling or while a `when` condition needs a
+  stale balance. `on_start` runs once, then the `while` part runs in the same
+  tick.
+- `active` to `idle`: without `until`, as soon as one `when` condition is no
+  longer met, without waiting for a hold time. A stale balance does not end the
+  scenario. With `until`, as soon as all `until` conditions have held for their
+  hold time. `on_end` runs once.
+- `active` to `fallback`: the balance is stale, or the base value is missing.
+  The `fallback` payload is published once when the phase changes, if one is
+  set. A blocked fallback does not count as sent.
+- `fallback` to `active`: the balance and the base value are back. The
+  regulator carries on with its next step, and the `recovered` event is
+  recorded.
+- `enabled` set to `false` while active: `on_end` runs once, then the phase is
+  `disabled`. Deleting an active scenario also runs `on_end` once. Enabling a
+  disabled scenario returns it to `idle`.
+
+A `hold` scenario runs its actions when it starts and then every
+`repeat_seconds` while it is active. It has no fallback.
+
+The regulator computes one step per tick, when its interval has passed:
+
+```text
+net    = balance.grid_import - balance.grid_export    (W, positive = import)
+error  = net - target_w
+if |error| <= deadband_w: no step
+value  = base + sign * gain * error                   sign = +1 producer, -1 consumer
+value  = last sent value +/- max_change_w            (only when max_change_w is set and a value was sent)
+value  = floor(value / step) * step                  (only when step is set)
+value  = clamp(value, min, max), rounded to decimals
+publish only if value differs from the last sent value
+```
+
+For a producer, export (negative net) lowers the setpoint. For a consumer,
+export raises it. The step rounds down, so a setpoint derived from a surplus
+never exceeds that surplus. The clamp runs after the rounding to `step`, so
+`min` and `max` apply as configured, even when they are not multiples of
+`step`.
+
+The `base` of the regulator comes from one of three sources:
+
+- `entity`: the value of the entity's state topic, read with its value
+  template. If it has no number, the regulator goes to `fallback`. It does not
+  use the last value instead.
+- `balance`: one balance field, named by `field`.
+- `last`: the last value sent. Before the first step, the start value is `max`
+  for a producer and `min` for a consumer.
+
+A regulator steps at most once per interval. The interval is `interval_s` of
+the regulator if set, otherwise `regulator_interval_s`, and it is never shorter
+than `tick_interval_s`. The first step runs in the tick in which the scenario
+starts. Inside the deadband nothing is sent. When the error is above five times
+the deadband, the step is recorded as `jump` in the history.
+
+The `scenario_<id>_output` sensor shows the last sent value while the scenario
+is `active` or in `fallback`. The state document `<base>/state` has a
+`scenarios` object per scenario ID, with `phase`, `since`, `net`, `error`,
+`output`, `base`, `last_sent_at`, `reason` and the condition reports.
+
+The settling time counts from the service start, so a reload does not start
+it again. A reload keeps the phase, the last sent value and the timers of every
+scenario with the same ID. An active scenario is not started again, so
+`on_start` does not run twice. The regulator and hold settings come from the
+reloaded file. The `on_end` actions are the ones saved when the scenario
+started, so an edited `on_end` takes effect at the next start. When a scenario
+is removed from the file, its discovery entries and its state topic are
+cleared.
+
+With `history_enabled` on a scenario, the history records `started`, `ended`,
+`fallback`, `recovered` and `jump`, together with the actions that ran.

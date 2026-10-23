@@ -52,6 +52,19 @@ not the newest value the dashboard has elsewhere. The header says how long ago
 the service last reported. When it is offline, the page shows the last known
 state.
 
+## Settings
+
+Two settings on this page set the smallest intervals for commands and
+regulators:
+
+- **Minimum interval for commands (s)** (`publish_min_interval_s`, default 30)
+  is the shortest cooldown, hold time and repeat interval that a rule with a
+  command may have. The default suits a Raspberry Pi 1. Faster hardware can go
+  lower.
+- **Regulator interval (s)** (`regulator_interval_s`, default 10) is how often a
+  regulator adjusts its output, when its scenario sets no interval of its own.
+  A regulator never runs faster than the tick interval.
+
 ## Saving
 
 **Save** writes all rules and then waits up to 15 seconds for the service to
@@ -63,6 +76,15 @@ offline. The rules are saved and take effect once it is back.
 The rule file is also listed under [Configuration](configuration.md), with its
 revisions and **Restore**. Use the raw JSON there if this page cannot express
 something.
+
+## Repeating a rule
+
+**Repeat every (s)** in the rule editor, next to **Cooldown after triggering
+(s)**, makes the rule send its actions again while its conditions keep holding.
+The value is the interval between the repeats. 0, the default, means once per
+trigger. A repeat must be at least the minimum interval for commands (see
+Settings). The field is disabled for a rule with a toggle action, because every
+repeat would flip the state back.
 
 ## Testing an action
 
