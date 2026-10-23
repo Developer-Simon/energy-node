@@ -1157,6 +1157,18 @@
       return first ? this.describeAction(first).icon : 'ico-flash';
     },
 
+    // Kurzvorschau der zugeklappten Regel: Bedingungen mit ihrem Live-Zustand,
+    // dann die Aktionen, jeweils nur als Icon.
+    rulePreview(rule) {
+      return {
+        conditions: (rule.conditions || []).map((condition, index) => ({
+          icon: this.describeCondition(condition).icon,
+          state: this.conditionState(rule, index),
+        })),
+        actions: (rule.actions || []).map((action) => ({ icon: this.describeAction(action).icon })),
+      };
+    },
+
     // Live-Balken der ersten Bilanzbedingung. Das Band liegt zwischen Schwelle
     // und Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
     liveBar(rule) {

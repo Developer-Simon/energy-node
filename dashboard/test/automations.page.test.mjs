@@ -1920,6 +1920,21 @@ test('ruleIcon follows the first action', () => {
   assert.equal(component.ruleIcon({}), 'ico-flash');
 });
 
+test('rulePreview lists condition states and action icons', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 0 }],
+    actions: [{ type: 'notification', title: 'Hallo' }],
+  };
+  component.runtimeState = { rules: { r1: { conditions: [{ value: 900, target: 800, raw_met: true, met: true }] } } };
+  const preview = JSON.parse(JSON.stringify(component.rulePreview(rule)));
+  assert.equal(preview.conditions.length, 1);
+  assert.equal(preview.conditions[0].state, 'met');
+  assert.deepEqual(preview.actions, [{ icon: 'ico-bell' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.rulePreview({}))), { conditions: [], actions: [] });
+});
+
 test('liveBar puts the hysteresis band below an above-threshold', () => {
   const { component } = createAutomationsPanel();
   const rule = {

@@ -3,7 +3,7 @@
 
 .automation-rule { border: 1px solid var(--border-soft); background: var(--panel); padding: .9rem; margin-bottom: .8rem; }
 .automation-rule.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
-.automation-rule-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-bottom: .7rem; border-bottom: 1px solid var(--border-soft); }
+.automation-rule-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
 .automation-rule-name { font-weight: 600; color: var(--text-strong); flex: 1; min-width: 12rem; }
 .automation-unsaved-badge { flex: none; padding: .15rem .6rem; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-size: .76rem; white-space: nowrap; }
 
@@ -18,7 +18,8 @@
 .automation-rule-head .settings-toggle { flex: none; }
 
 /* --- Regelkarte: Kopf, Live-Balken, Wenn/Dann/Ablauf, Zeitleiste --- */
-.auto-rule-body { margin-top: .8rem; }
+/* Die Trennlinie gehoert zum Inhalt, damit zugeklappte Regeln keine leere Linie zeigen. */
+.auto-rule-body { margin-top: .7rem; padding-top: .8rem; border-top: 1px solid var(--border-soft); }
 .auto-rule-view, .auto-rule-edit { display: grid; gap: .9rem; }
 .auto-live { display: grid; gap: .35rem; }
 .auto-live-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
@@ -193,6 +194,11 @@ input.auto-scenario-name { border: 1px solid var(--border); border-radius: 6px; 
 .auto-pill.info { background: var(--info-bg); color: var(--info); }
 .auto-progress { width: 9rem; height: .5rem; flex: none; border-radius: 4px; background: var(--sunken); overflow: hidden; }
 .auto-progress i { display: block; height: 100%; border-radius: 4px; background: var(--flow-grid); transition: width 400ms var(--ease-out); }
+.auto-rule-preview { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .55rem; border-radius: 999px; background: var(--sunken); color: var(--text-muted); }
+.auto-rule-preview .met { color: var(--ok); }
+.auto-rule-preview .unmet { color: var(--text-faint); }
+.auto-rule-preview .pending { color: var(--warn); }
+.auto-rule-preview-arrow { color: var(--text-faint); width: .8rem; height: .8rem; }
 .auto-mini-figures { display: flex; gap: 1.1rem; align-items: baseline; flex: none; }
 .auto-mini-figure { display: grid; gap: .05rem; text-align: right; }
 .auto-mini-figure small { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }

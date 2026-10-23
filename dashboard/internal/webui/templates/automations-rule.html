@@ -11,6 +11,15 @@
               <span class="automation-rule-name" x-show="!editing[rule.id]" x-text="rule.name"></span>
               <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
                      x-bind:aria-label="$t('automations.rule.name_input.aria_label')">
+              <span class="auto-rule-preview" aria-hidden="true" x-show="!expanded[rule.id]">
+                <template x-for="(entry, index) in rulePreview(rule).conditions" x-bind:key="'c' + index">
+                  <svg class="automation-icon automation-icon-sm" x-bind:class="entry.state"><use x-bind:href="'#' + entry.icon"></use></svg>
+                </template>
+                <svg class="automation-icon automation-icon-sm auto-rule-preview-arrow"><use href="#ico-chevron"></use></svg>
+                <template x-for="(entry, index) in rulePreview(rule).actions" x-bind:key="'a' + index">
+                  <svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + entry.icon"></use></svg>
+                </template>
+              </span>
               <span class="auto-pill" x-bind:class="gateVerdict(rule).tone" x-bind:title="gateVerdict(rule).detail" x-text="gateVerdict(rule).label"></span>
               <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
 
