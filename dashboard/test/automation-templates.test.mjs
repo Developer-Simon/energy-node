@@ -83,6 +83,23 @@ const VARIANTS = {
     { mode: 'min' },
     { extras: { connected: false, history: true } },
   ],
+  surplus_switch: [
+    { off: 'runtime', runtime: 120 },
+    { extras: { weekdays: false, weekdays_value: [0, 1, 2, 3, 4], repeat: false } },
+    { off: 'sunset', extras: { weekdays: true, weekdays_value: [0, 1, 2, 3, 4], repeat: true } },
+  ],
+  battery_warn: [
+    { below: 10, severity: 'critical' },
+  ],
+  time_switch: [
+    { window: { from: '06:00', to: '08:00', days: [0, 1, 2, 3, 4] } },
+  ],
+};
+
+// Zusaetzliche Mitteilungstexte, die eine Vorlage im gebauten Eintrag verwendet.
+const NOTICE_KEYS = {
+  zero_feed: ['automations.templates.zero_feed.notice.title', 'automations.templates.zero_feed.notice.message'],
+  battery_warn: ['automations.templates.battery_warn.notice.title', 'automations.templates.battery_warn.notice.message'],
 };
 
 test('zero_feed builds the documented shape with the default answers', () => {
@@ -211,6 +228,111 @@ test('surplus_wallbox always has an end condition', () => {
   }
 });
 
+test('surplus_switch builds the documented shape', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx), ctx);
+  const entry = plain(result.entry);
+  assert.equal(result.kind, 'scenario');
+  assert.equal(entry.id, 'surplus_switch');
+  assert.equal(entry.template, 'surplus_switch');
+  assert.equal(entry.enabled, true);
+  assert.deepEqual(entry.when.conditions, [{
+    type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 1500, hysteresis: 0, hold_seconds: 120,
+  }]);
+  assert.deepEqual(entry.until.conditions[0], {
+    type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 120,
+  });
+  assert.equal('max_duration_s' in entry, false);
+  assert.equal(entry.while.mode, 'hold');
+  assert.deepEqual(entry.on_start.actions, []);
+  assert.equal(entry.on_end.actions[0].payload, 'OFF');
+});
+
+test('surplus_switch without repeat switches on once at the start', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    extras: { weekdays: false, weekdays_value: [0, 1, 2, 3, 4], repeat: false },
+  }), ctx).entry);
+  assert.equal(entry.while.mode, 'none');
+  assert.deepEqual(entry.on_start.actions, [{
+    type: 'publish', topic: 'werkstatt/wb/switch', retain: false, payload_source: 'constant', payload: 'ON', entity_id: 'wb_switch',
+  }]);
+});
+
+test('surplus_switch with a fixed runtime ends by time only', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { off: 'runtime', runtime: 120 }), ctx).entry);
+  assert.equal(entry.max_duration_s, 7200);
+  assert.equal('until' in entry, false);
+});
+
+test('surplus_switch repeat holds the switch on while the condition stays met', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    extras: { weekdays: false, weekdays_value: [0, 1, 2, 3, 4], repeat: true },
+  }), ctx).entry);
+  assert.equal(entry.while.mode, 'hold');
+  assert.equal(entry.while.repeat_seconds, 60);
+  assert.equal(entry.while.actions[0].payload, 'ON');
+  assert.deepEqual(entry.on_start.actions, []);
+});
+
+test('surplus_switch weekdays add a time window to the start condition', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'surplus_switch');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    extras: { weekdays: true, weekdays_value: [0, 1, 2, 3, 4], repeat: false },
+  }), ctx).entry);
+  assert.deepEqual(entry.when.conditions[1], {
+    type: 'time_window', start: '00:00', end: '00:00', weekdays: [0, 1, 2, 3, 4],
+  });
+});
+
+test('battery_warn builds the documented shape', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'battery_warn');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx), ctx);
+  const rule = plain(result.entry);
+  assert.equal(result.kind, 'rule');
+  assert.equal(rule.id, 'battery_warn');
+  assert.equal(rule.enabled, true);
+  assert.equal(rule.cooldown_seconds, 3600);
+  assert.deepEqual(rule.conditions, [{
+    type: 'balance_threshold', field: 'battery_soc', comparison: 'below', threshold: 20, hysteresis: 2, hold_seconds: 60,
+  }]);
+  assert.deepEqual(rule.actions, [{
+    type: 'notification',
+    severity: 'warning',
+    title: t('automations.templates.battery_warn.notice.title'),
+    message: t('automations.templates.battery_warn.notice.message', { value: '20' }),
+  }]);
+});
+
+test('time_switch builds the documented shape', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'time_switch');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx), ctx);
+  const entry = plain(result.entry);
+  assert.equal(result.kind, 'scenario');
+  assert.equal(entry.id, 'time_switch');
+  assert.equal(entry.template, 'time_switch');
+  assert.deepEqual(entry.when.conditions, [{ type: 'time_window', start: '11:00', end: '15:00', weekdays: [] }]);
+  assert.equal(entry.while.mode, 'none');
+  assert.equal(entry.on_start.actions[0].payload, 'ON');
+  assert.equal(entry.on_end.actions[0].payload, 'OFF');
+});
+
 test('no built entry contains null', () => {
   const { wizard, templates } = load();
   const ctx = plain(contextFor(wizard));
@@ -246,9 +368,7 @@ test('every template has texts in both catalogs', () => {
         }
       }
     }
-    if (template.id === 'zero_feed') {
-      keys.push('automations.templates.zero_feed.notice.title', 'automations.templates.zero_feed.notice.message');
-    }
+    keys.push(...(NOTICE_KEYS[template.id] || []));
     for (const key of keys) {
       for (const [lang, dict] of [['de', de], ['en', en]]) {
         assert.ok(typeof dict[key] === 'string' && dict[key] !== '', `${lang} missing ${key}`);

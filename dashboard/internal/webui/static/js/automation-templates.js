@@ -336,5 +336,209 @@
     },
   };
 
-  window.__automationTemplates = { TEMPLATES: [zeroFeed, surplusWallbox] };
+  // ---------------------------------------------------------------- Gerät bei Überschuss
+
+  const surplusSwitch = {
+    id: 'surplus_switch',
+    category: 'switching',
+    icon: 'ico-switch',
+    requires: { devices: 'switch' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch' },
+      {
+        id: 'on', type: 'presets', default: 1500, effect: 'starts',
+        options: [{ id: 1000 }, { id: 1500 }, { id: 2500 }],
+      },
+      {
+        id: 'off', type: 'tiles', default: 'import',
+        options: [
+          { id: 'import' },
+          { id: 'runtime' },
+          { id: 'sunset', unavailable: sunUnavailable },
+        ],
+      },
+      {
+        id: 'runtime', type: 'number', min: 10, max: 600, default: 120,
+        when: (answers) => answers.off === 'runtime',
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [
+          { id: 'weekdays', default: false, reveal: { default: [0, 1, 2, 3, 4] } },
+          { id: 'repeat', default: true },
+        ],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const repeat = !!answers.extras.repeat;
+
+      const when = [B('grid_export', 'above', answers.on, 120)];
+      if (answers.extras.weekdays) {
+        when.push({
+          type: 'time_window', start: '00:00', end: '00:00', weekdays: weekdaysOf(answers.extras.weekdays_value),
+        });
+      }
+
+      const scenario = {
+        id: uniqueId('surplus_switch', ctx.usedIds),
+        name: t('automations.templates.surplus_switch.title'),
+        enabled: true,
+        template: 'surplus_switch',
+        when: { conditions: when },
+        on_start: { actions: repeat ? [] : [Sw(entity, true)] },
+        on_end: { actions: [Sw(entity, false)] },
+        while: repeat
+          ? { mode: 'hold', actions: [Sw(entity, true)], repeat_seconds: 60 }
+          : { mode: 'none' },
+      };
+      // Ende nur ueber die Zeit (feste Laufzeit) oder ueber eine Bedingung.
+      if (answers.off === 'runtime') {
+        scenario.max_duration_s = answers.runtime * 60;
+      } else if (answers.off === 'sunset') {
+        scenario.until = {
+          conditions: [{ type: 'sun_window', from: 'sunset', to: 'sunrise', from_offset_min: 0, to_offset_min: 0 }],
+        };
+      } else {
+        scenario.until = { conditions: [B('grid_import', 'above', 100, 120)] };
+      }
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers) {
+      const rows = [{
+        label: phase('when'),
+        text: t('automations.assistant.summary.switch.when', { minutes: 2, value: num(answers.on) }),
+        step: 'on',
+      }];
+      if (answers.extras.weekdays) {
+        rows.push({
+          label: phase('when'),
+          text: t('automations.assistant.summary.switch.days', { days: daysText(answers.extras.weekdays_value) }),
+          step: 'extras',
+        });
+      }
+      if (answers.extras.repeat) {
+        rows.push({ label: phase('run'), text: t('automations.assistant.summary.switch.repeat'), step: 'extras' });
+      } else {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.switch.start_on'), step: 'device' });
+      }
+      if (answers.off === 'runtime') {
+        rows.push({
+          label: phase('until'),
+          text: t('automations.assistant.summary.switch.until_runtime', { minutes: num(answers.runtime) }),
+          step: 'runtime',
+        });
+      } else if (answers.off === 'sunset') {
+        rows.push({ label: phase('until'), text: t('automations.assistant.summary.switch.until_sunset'), step: 'off' });
+      } else {
+        rows.push({
+          label: phase('until'),
+          text: t('automations.assistant.summary.switch.until_import', { minutes: 2, value: num(100) }),
+          step: 'off',
+        });
+      }
+      rows.push({ label: phase('end'), text: t('automations.assistant.summary.switch.end_off'), step: 'device' });
+      return rows;
+    },
+  };
+
+  // ---------------------------------------------------------------- Akku-Warnung
+
+  const batteryWarn = {
+    id: 'battery_warn',
+    category: 'warning',
+    icon: 'ico-battery',
+    requires: { soc: true },
+    steps: [
+      { id: 'below', type: 'presets', default: 20, effect: 'soc', options: [{ id: 10 }, { id: 20 }, { id: 30 }] },
+      {
+        id: 'severity', type: 'tiles', default: 'warning',
+        options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
+      },
+    ],
+    build(answers, ctx) {
+      const rule = {
+        id: uniqueId('battery_warn', ctx.usedIds),
+        name: t('automations.templates.battery_warn.title'),
+        enabled: true,
+        cooldown_seconds: 3600,
+        conditions: [{ ...B('battery_soc', 'below', answers.below, 60), hysteresis: 2 }],
+        actions: [{
+          type: 'notification',
+          severity: answers.severity,
+          title: t('automations.templates.battery_warn.notice.title'),
+          message: t('automations.templates.battery_warn.notice.message', { value: num(answers.below) }),
+        }],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers) {
+      return [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.battery.when', { value: num(answers.below) }),
+          step: 'below',
+        },
+        {
+          label: phase('then'),
+          text: t('automations.assistant.summary.battery.then', {
+            severity: t(`automations.templates.battery_warn.steps.severity.options.${answers.severity}.title`),
+          }),
+          step: 'severity',
+        },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Schalter nach Uhrzeit
+
+  const timeSwitch = {
+    id: 'time_switch',
+    category: 'time',
+    icon: 'ico-clock',
+    requires: { devices: 'switch' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'switch' },
+      { id: 'window', type: 'time', default: { from: '11:00', to: '15:00', days: ALL_DAYS } },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.switches, answers.device);
+      const entity = requireEntity(entry);
+      const scenario = {
+        id: uniqueId('time_switch', ctx.usedIds),
+        name: t('automations.templates.time_switch.title'),
+        enabled: true,
+        template: 'time_switch',
+        when: {
+          conditions: [{
+            type: 'time_window', start: answers.window.from, end: answers.window.to,
+            weekdays: weekdaysOf(answers.window.days),
+          }],
+        },
+        while: { mode: 'none' },
+        on_start: { actions: [Sw(entity, true)] },
+        on_end: { actions: [Sw(entity, false)] },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers) {
+      return [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.time.when', { from: answers.window.from, to: answers.window.to }),
+          step: 'window',
+        },
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.switch.days', { days: daysText(answers.window.days) }),
+          step: 'window',
+        },
+        { label: phase('start'), text: t('automations.assistant.summary.switch.start_on'), step: 'device' },
+        { label: phase('end'), text: t('automations.assistant.summary.switch.end_off'), step: 'device' },
+      ];
+    },
+  };
+
+  window.__automationTemplates = { TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch] };
 })();
