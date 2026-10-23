@@ -599,7 +599,7 @@
         band: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
         min: isNumber(output.min) ? output.min : 0,
         max: isNumber(output.max) ? output.max : 0,
-        output: state && isNumber(state.output) ? Math.round(state.output) : '—',
+        output: this.online && state && isNumber(state.output) ? Math.round(state.output) : '—',
         // Verbraucher-Regler zeigen Stellwert und Verlauf in der Verbraucherfarbe.
         direction: regulator.direction === 'consumer' ? 'consumer' : 'producer',
       };
@@ -620,12 +620,14 @@
 
     // Index der aktiven Phase in scenarioPhases, -1 wenn keine aktiv ist.
     activePhaseIndex(scenario) {
+      if (!this.online) return -1;
       const phase = window.__automationScenario.activePhase(this.scenarioState(scenario), this.nowTick / 1000);
       return { start: 0, while: 1, end: 2 }[phase] ?? -1;
     },
 
     // Balken des Startfortschritts, nur solange die Karte wartet oder bereit ist.
     scenarioProgress(scenario) {
+      if (!this.online) return null;
       const key = this.scenarioStatus(scenario).key;
       if (key !== 'waiting' && key !== 'ready') return null;
       const progress = window.__automationScenario.startProgress(scenario, this.scenarioState(scenario));
@@ -709,6 +711,7 @@
 
     // Netz jetzt: der Zustand, sonst der letzte Netzpunkt, wenn er juenger als 2 min ist.
     gridNowText(scenario) {
+      if (!this.online) return '—';
       const state = this.scenarioState(scenario);
       if (state && isNumber(state.net)) return signedW(state.net);
       const grid = this.chartSeries(scenario.id, 'grid');

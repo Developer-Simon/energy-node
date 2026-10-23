@@ -564,6 +564,21 @@ test('renderMiniChain yields one entry per condition plus the gate tone', () => 
   assert.equal(chain.gate.tone, 'wait');
 });
 
+test('offline scenarios show a dash for net and setpoint and highlight no phase', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  component.runtimeState = { rules: {}, scenarios: { [scenario.id]: { phase: 'active', output: 300, net: 120 } } };
+  component.online = true;
+  assert.equal(component.regulatorFigures(scenario).output, 300);
+  assert.notEqual(component.gridNowText(scenario), '—');
+  assert.equal(component.activePhaseIndex(scenario), 1);
+  component.online = false;
+  assert.equal(component.regulatorFigures(scenario).output, '—');
+  assert.equal(component.gridNowText(scenario), '—');
+  assert.equal(component.activePhaseIndex(scenario), -1);
+  assert.equal(component.scenarioProgress(scenario), null);
+});
+
 test('applyStateObject stores the state and its timestamp', () => {
   const { component } = createAutomationsPanel();
   component.applyStateObject(sampleState);
@@ -1808,6 +1823,7 @@ test('state updates append live points and drop those older than 30 minutes', ()
 
 test('gridNowText falls back to the last chart point and then to a dash', () => {
   const { component } = createAutomationsPanel();
+  component.online = true;
   const scenario = regulatorScenario('a');
   const nowSec = Date.now() / 1000;
   component.nowTick = nowSec * 1000;
@@ -1852,6 +1868,7 @@ test('an offline service shows no running time', () => {
 
 test('regulator figures read target, band, limits and the live output', () => {
   const { component } = createAutomationsPanel();
+  component.online = true;
   const scenario = regulatorScenario('a');
   component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', output: 412.4 } } };
   assert.deepEqual(JSON.parse(JSON.stringify(component.regulatorFigures(scenario))), { target: 0, band: 20, min: 0, max: 800, output: 412, direction: 'producer' });
@@ -1877,6 +1894,7 @@ test('today export text uses two decimals with a comma and a dash before the fir
 
 test('the phase bar marks the while phase while running and the end phase just after it ended', () => {
   const { component } = createAutomationsPanel();
+  component.online = true;
   const scenario = regulatorScenario('a');
   const nowSec = Date.now() / 1000;
   component.nowTick = nowSec * 1000;
