@@ -824,6 +824,7 @@ def test_build_state_document_shape():
         "at": 2.0, "online": True,
         "rules": {"r1": {"enabled": True, "fire_count": 0, "result": "fired"}},
         "events": [{"at": 1.0, "message": "x"}],
+        "scenarios": {},
         "rules_total": 1, "rules_enabled": 1, "rules_fired_total": 0,
     }
 

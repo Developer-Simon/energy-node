@@ -23,7 +23,7 @@ from typing import Any, Optional
 
 from energy_node_common import appconfig
 from energy_node_common.config import ReloadableConfig
-from energy_node_common.discovery import entity_config, publish_discovery
+from energy_node_common.discovery import discovery_topic, entity_config, publish_discovery
 from energy_node_common.mqtt import build_client, publish_online_status, publish_json
 from energy_node_common.slave import Slave
 
@@ -1416,9 +1416,11 @@ class RuleHistory:
             pass  # Persistenz ist ein Nice-to-have, kein Show-Stopper
 
 
-def build_state_document(rule_results: dict, events: list, *, at: float, online: bool) -> dict:
+def build_state_document(rule_results: dict, events: list, *, at: float, online: bool,
+                         scenario_results: Optional[dict] = None) -> dict:
     return {
         "at": at, "online": online, "rules": rule_results, "events": events,
+        "scenarios": scenario_results or {},
         "rules_total": len(rule_results),
         "rules_enabled": sum(1 for r in rule_results.values() if r.get("enabled") is True),
         "rules_fired_total": sum(r.get("fire_count", 0) for r in rule_results.values()),
@@ -1505,6 +1507,29 @@ def discovery_object_ids(device_id: str, base_topic: str, device_block: dict) ->
             ("sensor", "history", history_config)]
 
 
+def scenario_state_topic(base_topic: str, scenario_id: str) -> str:
+    return f"{base_topic}/scenario/{scenario_id}/state"
+
+
+def scenario_discovery(device_id: str, base_topic: str, device_block: dict, scenario: dict) -> list:
+    """Phase ist immer da, der Stellwert nur bei Szenarien mit Regler."""
+    sid = scenario["id"]
+    name = scenario["name"]
+    state_topic = scenario_state_topic(base_topic, sid)
+    phase_object = f"scenario_{sid}_phase"
+    entries = [("sensor", phase_object, entity_config(
+        device_id, base_topic, phase_object, f"{name} Phase", device_block,
+        state_topic=state_topic, entity_category="diagnostic",
+        value_template="{{ value_json.phase }}"))]
+    if scenario["while"]["mode"] == "regulate":
+        output_object = f"scenario_{sid}_output"
+        entries.append(("sensor", output_object, entity_config(
+            device_id, base_topic, output_object, f"{name} Stellwert", device_block,
+            state_topic=state_topic, unit_of_measurement="W", device_class="power",
+            state_class="measurement", value_template="{{ value_json.output }}")))
+    return entries
+
+
 def load_initial_document(config_store: ReloadableConfig) -> tuple:
     doc, error = config_store.load_or(RulesDocument(version=1, settings=Settings(), rules=[]))
     return doc, (str(error) if error is not None else None)
@@ -1531,6 +1556,11 @@ class AutomationService:
             started_at = time.time()
         self.engine = Engine(self.executor, started_at=started_at, event_sink=self._on_event,
                               history_sink=self._on_fired)
+        self.scenario_engine = ScenarioEngine(self.executor, started_at=started_at, event_sink=self._on_event,
+                                              history_sink=self._on_fired)
+        self.scenario_publishers: dict[str, ChangeGatedPublisher] = {}
+        self._scenario_discovery: set[tuple[str, str]] = set()
+        self._scenario_ids: set[str] = set()
         self.events = EventRing(maxlen=10)
         self.topic_values: dict = {}
         self.subscribed_topics: set = set()
@@ -1545,13 +1575,31 @@ class AutomationService:
     def required_topics(self, doc: RulesDocument) -> set:
         topics = {BALANCE_TOPIC, self.test_command_topic}
         for rule in doc.rules:
-            for cond in rule["conditions"]:
-                if cond["type"] in ("topic_value", "entity_value"):
-                    topics.add(cond["topic"])
-            for action in rule["actions"]:
-                if action["type"] == "publish" and action.get("payload_source") in ("topic", "toggle"):
-                    topics.add(action["source_topic"])
+            self._add_condition_topics(topics, rule["conditions"])
+            self._add_action_topics(topics, rule["actions"])
+        for scenario in doc.scenarios:
+            self._add_condition_topics(topics, scenario["when"]["conditions"])
+            if scenario["until"] is not None:
+                self._add_condition_topics(topics, scenario["until"]["conditions"])
+            self._add_action_topics(topics, scenario["on_start"]["actions"])
+            self._add_action_topics(topics, scenario["on_end"]["actions"])
+            self._add_action_topics(topics, scenario["while"].get("actions", []))
+            regulator_def = scenario["while"].get("regulator")
+            if regulator_def and regulator_def["base"]["source"] == "entity":
+                topics.add(regulator_def["base"]["topic"])
         return topics
+
+    @staticmethod
+    def _add_condition_topics(topics: set, conditions: list) -> None:
+        for cond in conditions:
+            if cond["type"] in ("topic_value", "entity_value"):
+                topics.add(cond["topic"])
+
+    @staticmethod
+    def _add_action_topics(topics: set, actions: list) -> None:
+        for action in actions:
+            if action["type"] == "publish" and action.get("payload_source") in ("topic", "toggle"):
+                topics.add(action["source_topic"])
 
     def apply_subscriptions(self, doc: RulesDocument) -> None:
         wanted = self.required_topics(doc)
@@ -1560,6 +1608,36 @@ class AutomationService:
         for topic in self.subscribed_topics - wanted:
             self.client.unsubscribe(topic)
         self.subscribed_topics = wanted
+
+    def _discovery_block(self) -> dict:
+        node_device_id = DEFAULT_NODE_DEVICE_ID
+        if getattr(self, "app_config", None) is not None:
+            node_device_id = self.app_config.dashboard.node_device_id or DEFAULT_NODE_DEVICE_ID
+        return device_block(self.service_config.service_id, node_device_id)
+
+    def publish_scenario_discovery(self, doc: RulesDocument) -> None:
+        """Veroeffentlicht die Discovery aller Szenarien. Was beim letzten Aufruf
+        veroeffentlicht war und jetzt fehlt, wird mit leerem retained Payload
+        geloescht; das Zustandstopic eines entfernten Szenarios ebenso."""
+        previous = getattr(self, "_scenario_discovery", set())
+        previous_ids = getattr(self, "_scenario_ids", set())
+        if not doc.scenarios and not previous and not previous_ids:
+            return
+        device_id = self.service_config.service_id
+        block = self._discovery_block()
+        current: dict[tuple[str, str], dict] = {}
+        for scenario in doc.scenarios:
+            for component, object_id, config in scenario_discovery(device_id, self.base_topic, block, scenario):
+                current[(component, object_id)] = config
+        for (component, object_id), config in current.items():
+            publish_discovery(self.client, device_id, component, object_id, config)
+        for component, object_id in previous - set(current):
+            self._publish_raw_json(discovery_topic(component, device_id, object_id), "")
+        scenario_ids = {scenario["id"] for scenario in doc.scenarios}
+        for sid in previous_ids - scenario_ids:
+            self._publish_raw_json(scenario_state_topic(self.base_topic, sid), "")
+        self._scenario_discovery = set(current)
+        self._scenario_ids = scenario_ids
 
     def _publish_action(self, topic: str, payload: str, retain: bool) -> None:
         self.client.publish(topic, payload, qos=0, retain=retain)
@@ -1571,8 +1649,10 @@ class AutomationService:
         self.events.push(message, at=time.time())
 
     def _on_fired(self, rule_id: str, event: dict) -> None:
-        rule = next((r for r in self.doc.rules if r["id"] == rule_id), None)
-        if not rule or not rule.get("history_enabled"):
+        item = next((r for r in self.doc.rules if r["id"] == rule_id), None)
+        if item is None:
+            item = next((s for s in self.doc.scenarios if s["id"] == rule_id), None)
+        if not item or not item.get("history_enabled"):
             return
         self.history.record(rule_id, {**event, "at": time.time()}, limit=int(self.doc.settings.history_limit))
 
@@ -1585,12 +1665,10 @@ class AutomationService:
         # bei unveraendertem Dokument nach einem Reconnect auf gar nichts.
         self.subscribed_topics = set()
         self.apply_subscriptions(self.doc)
-        node_device_id = DEFAULT_NODE_DEVICE_ID
-        if getattr(self, "app_config", None) is not None:
-            node_device_id = self.app_config.dashboard.node_device_id or DEFAULT_NODE_DEVICE_ID
-        block = device_block(self.service_config.service_id, node_device_id)
+        block = self._discovery_block()
         for component, object_id, config in discovery_object_ids(self.service_config.service_id, self.base_topic, block):
             publish_discovery(client, self.service_config.service_id, component, object_id, config)
+        self.publish_scenario_discovery(self.doc)
         self.slave.start(client)
 
     def on_message(self, client, userdata, msg):
@@ -1681,10 +1759,22 @@ class AutomationService:
         balance_age = None if self.last_balance_at is None else now - self.last_balance_at
         results = self.engine.tick(self.doc, balance=self.last_balance, balance_age=balance_age,
                                     topic_values=self.topic_values, now_ts=now)
-        state_doc = build_state_document(results, self.events.as_list(), at=now, online=True)
+        scenario_results = self.scenario_engine.tick(self.doc, balance=self.last_balance, balance_age=balance_age,
+                                                     topic_values=self.topic_values, now_ts=now)
+        state_doc = build_state_document(results, self.events.as_list(), at=now, online=True,
+                                         scenario_results=scenario_results)
         self.state_publisher.maybe_publish(f"{self.base_topic}/state", state_doc, now)
-        history_by_rule = {rule["id"]: self.history.as_list(rule["id"])
-                            for rule in self.doc.rules if rule.get("history_enabled")}
+        for sid, report in scenario_results.items():
+            if sid not in self.scenario_publishers:
+                self.scenario_publishers[sid] = ChangeGatedPublisher(self._publish_raw_json, heartbeat_seconds=60)
+            scenario_state = {"at": now, "phase": report["phase"]}
+            if report["output"] is not None:
+                scenario_state["output"] = report["output"]
+            self.scenario_publishers[sid].maybe_publish(scenario_state_topic(self.base_topic, sid), scenario_state, now)
+        for sid in set(self.scenario_publishers) - set(scenario_results):
+            del self.scenario_publishers[sid]
+        history_by_rule = {item["id"]: self.history.as_list(item["id"])
+                            for item in [*self.doc.rules, *self.doc.scenarios] if item.get("history_enabled")}
         history_doc = build_history_document(history_by_rule, at=now)
         self.history_publisher.maybe_publish(f"{self.base_topic}/history", history_doc, now)
         newest = self.events.as_list()
@@ -1719,6 +1809,7 @@ class AutomationService:
         self.executor.publish_allowed_prefixes = new_doc.settings.publish_allowed_prefixes
         self.history.path = self._history_path if new_doc.settings.history_persist else None
         self.apply_subscriptions(new_doc)
+        self.publish_scenario_discovery(new_doc)
 
     def _make_slave(self) -> Slave:
         return Slave(service_id=self.service_config.service_id, poll_core=self.poll_core,

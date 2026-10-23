@@ -447,3 +447,167 @@ def test_zero_deadband_records_no_jump():
     regulate_tick(engine, doc, 1000)
     assert payloads(published) == ["400"]
     assert "jump" not in history_results(history)
+
+
+# --- Task 7: Dienst-Verdrahtung (Topics, Zustand, Verlauf, Discovery) ---
+
+import time
+from pathlib import Path
+from unittest.mock import Mock
+
+from energy_node_common.config import ReloadableConfig
+
+import ha_template
+from test_automation_mqtt import FakeClient, FakeSlave
+
+
+def zero_feed_all_day():
+    """Nulleinspeisung mit Zeitfenster, damit sie ohne Standort aktiv wird."""
+    return zero_feed(when={"conditions": [{"type": "time_window", "start": "00:00", "end": "23:59"}]})
+
+
+def scenario_service(scenarios=(), rules=(), *, config_store=None):
+    """AutomationService ohne echten MQTT-Client. Der Client sammelt Publishes
+    in FakeClient, damit die Tests die Topics direkt pruefen koennen."""
+    doc = automation.RulesDocument(
+        version=1,
+        settings=automation.Settings(settling_seconds=0, balance_max_age_s=30,
+                                      publish_allowed_prefixes=["werkstatt/"]),
+        rules=list(rules), scenarios=list(scenarios))
+    service_config = Mock()
+    service_config.service_id = "automation"
+    if config_store is None:
+        config_store = Mock()
+        config_store.load_or.return_value = (doc, None)
+    service = automation.AutomationService(service_config, Mock(), config_store, history_path=None, started_at=0.0)
+    service.doc = doc
+    service.client = FakeClient()
+    service.slave = FakeSlave()
+    return service
+
+
+def fresh_balance(service, **values):
+    service.last_balance = {"grid_import": 0, "grid_export": 470, **values}
+    service.last_balance_at = time.time()
+
+
+def test_required_topics_include_scenario_inputs():
+    scenario = normalized(zero_feed(
+        when={"conditions": [{"type": "topic_value", "topic": "werkstatt/when/state", "json_key": "v",
+                              "comparison": "above", "value": 1, "hold_seconds": 0}]},
+        until={"conditions": [{"type": "entity_value", "topic": "werkstatt/until/state", "entity_id": "u",
+                               "json_key": "v", "comparison": "above", "value": 1, "hold_seconds": 0}]},
+        on_start={"actions": [{"type": "publish", "topic": "werkstatt/out/set", "payload_source": "topic",
+                               "source_topic": "werkstatt/start/state", "retain": False}]},
+    ))
+    service = scenario_service([scenario])
+    topics = service.required_topics(service.doc)
+    assert {"werkstatt/when/state", "werkstatt/until/state", "werkstatt/start/state",
+            "werkstatt/bkw/state"} <= topics
+
+
+def test_state_document_carries_scenarios():
+    scenarios = {"x": {"phase": "active", "output": 120}}
+    doc = automation.build_state_document({}, [], at=1.0, online=True, scenario_results=scenarios)
+    assert doc["scenarios"] == scenarios
+    assert automation.build_state_document({}, [], at=1.0, online=True)["scenarios"] == {}
+
+
+def test_poll_core_publishes_the_scenario_state_topic():
+    service = scenario_service([regulate_scenario()])
+    service.topic_values["werkstatt/bkw/state"] = '{"power": 800}'
+    fresh_balance(service)
+    service.poll_core()
+    state = service.client.state_payload("/scenario/nulleinspeisung/state")
+    assert state["phase"] == "active"
+    assert "output" in state
+    assert state["at"] > 0
+
+
+def test_idle_scenario_state_has_no_output_key():
+    scenario = normalized(zero_feed(when={"conditions": [threshold_condition(threshold=5000)]}))
+    service = scenario_service([scenario])
+    fresh_balance(service)
+    service.poll_core()
+    state = service.client.state_payload("/scenario/nulleinspeisung/state")
+    assert state["phase"] == "idle"
+    assert "output" not in state
+
+
+def test_discovery_has_output_only_for_regulating_scenarios():
+    regulating = normalized(zero_feed())
+    plain = normalized(zero_feed(id="nur_phase", **{"while": {"mode": "none"}}))
+    block = automation.device_block("automation", "energy_node")
+    reg_entries = automation.scenario_discovery("automation", "outstation/automation", block, regulating)
+    plain_entries = automation.scenario_discovery("automation", "outstation/automation", block, plain)
+    assert [object_id for _c, object_id, _cfg in plain_entries] == ["scenario_nur_phase_phase"]
+    assert [object_id for _c, object_id, _cfg in reg_entries] == [
+        "scenario_nulleinspeisung_phase", "scenario_nulleinspeisung_output"]
+    output = reg_entries[1][2]
+    assert output["unit_of_measurement"] == "W"
+    assert output["state_class"] == "measurement"
+    assert output["device_class"] == "power"
+    assert output["value_template"] == "{{ value_json.output }}"
+    assert output["name"] == "Nulleinspeisung Stellwert"
+    assert output["state_topic"] == "outstation/automation/scenario/nulleinspeisung/state"
+    phase = reg_entries[0][2]
+    assert phase["entity_category"] == "diagnostic"
+    assert phase["value_template"] == "{{ value_json.phase }}"
+    assert phase["name"] == "Nulleinspeisung Phase"
+
+
+def test_scenario_discovery_value_templates_are_readable_by_the_dashboard():
+    block = automation.device_block("automation", "energy_node")
+    entries = automation.scenario_discovery("automation", "outstation/automation", block, normalized(zero_feed()))
+    for _component, _object_id, config in entries:
+        assert ha_template.parse_value_template(config["value_template"]) is not None
+
+
+def test_reload_clears_discovery_of_a_removed_scenario(tmp_path):
+    path = tmp_path / "automation_rules.json"
+    path.write_text(json.dumps(doc_with(scenarios=[zero_feed_all_day()])))
+    config_store = ReloadableConfig(str(path), automation.load_and_validate)
+    service = scenario_service(config_store=config_store)
+    service.doc, _ = automation.load_initial_document(config_store)
+    service.publish_scenario_discovery(service.doc)
+
+    path.write_text(json.dumps(doc_with()))
+    service.reload_config()
+
+    published = service.client.published
+    assert ("homeassistant/sensor/automation/scenario_nulleinspeisung_output/config", "", True) in published
+    assert ("outstation/automation/scenario/nulleinspeisung/state", "", True) in published
+
+
+def test_reload_with_the_same_file_does_not_restart_an_active_scenario(tmp_path):
+    path = tmp_path / "automation_rules.json"
+    path.write_text(json.dumps(doc_with(scenarios=[zero_feed_all_day()])))
+    config_store = ReloadableConfig(str(path), automation.load_and_validate)
+    service = scenario_service(config_store=config_store)
+    service.doc, _ = automation.load_initial_document(config_store)
+    service.topic_values["werkstatt/bkw/state"] = '{"power": 800}'
+    fresh_balance(service)
+    service.poll_core()
+    runtime = service.scenario_engine._runtime["nulleinspeisung"]
+    assert runtime.phase == "active"
+    since, last_value = runtime.since, runtime.last_value
+
+    service.reload_config()
+    fresh_balance(service)
+    service.poll_core()
+
+    assert runtime is service.scenario_engine._runtime["nulleinspeisung"]
+    assert runtime.since == since
+    assert runtime.last_value == last_value
+    assert [e["result"] for e in service.history.as_list("nulleinspeisung")].count("started") == 1
+
+
+def test_scenario_history_lands_in_the_history_document():
+    service = scenario_service([regulate_scenario()])
+    service.topic_values["werkstatt/bkw/state"] = '{"power": 800}'
+    fresh_balance(service)
+    service.poll_core()
+    results = [e["result"] for e in service.history.as_list("nulleinspeisung")]
+    assert "started" in results
+    history = service.client.state_payload("/history")
+    assert "started" in [e["result"] for e in history["rules"]["nulleinspeisung"]]
