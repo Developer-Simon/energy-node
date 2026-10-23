@@ -3,6 +3,32 @@
   const view = window.__automationsView;
   const { canTest, conditionState, describeAction, describeCondition, formatSeconds, gateVerdict, historyActionText, historyResultInfo, meterFraction, meterScale } = view;
   const { ACTION_TYPES, CONDITION_TYPES, FIELD_HELP, WEEKDAY_LABELS, WINDOW_TYPES, SERVICE_TEST_POLL_MS, SERVICE_TEST_TIMEOUT_MS, isNumber, requestJSON } = view.constants;
+  const { ROLE_GROUPS, actuatorCandidates, meterCandidates, chipList, pickerItems } = window.__automationDevices;
+
+  // Filter-Chips im Picker: gleiche Gruppen wie die Kacheln, Label wie dort.
+  const ROLE_FILTER_LABEL_KEYS = {
+    inverter: 'automations.devices.group.inverter',
+    wallbox: 'automations.devices.group.wallbox',
+    heat_pump: 'automations.devices.group.heat_pump',
+    grid: 'automations.devices.group.grid',
+    other: 'automations.devices.group.misc',
+  };
+  const roleFilters = () => ROLE_GROUPS.map((group) => ({ key: group.key, label: t(ROLE_FILTER_LABEL_KEYS[group.key]) }));
+
+  // Ein gespeichertes Geraet, das im Katalog fehlt, bleibt als Kachel sichtbar.
+  const unknownChip = (topic) => ({
+    id: '',
+    unknown: true,
+    deviceName: t('automations.devices.unknown'),
+    subtitle: topic || '',
+    valueText: '',
+    icon: 'ico-device',
+    tone: '',
+    fits: true,
+  });
+
+  // Hoechstens zwei Kacheln; ein fehlendes gespeichertes Geraet nimmt den ersten Platz ein.
+  const withUnknown = (list, topic) => (list.missing ? [unknownChip(topic), ...list.chips.slice(0, 1)] : list.chips);
 
   const BALANCE_FIELDS_BASE = [
     ['grid_export', 'automations.metric.grid_export'],
@@ -30,6 +56,7 @@
   const CHART_HEIGHT = 170;
   const CHART_MAX_POINTS = 300;
   const CHART_REFRESH_MS = 60000;
+  const CATALOG_REFRESH_MS = 30000;
   const EXPORT_REFRESH_MS = 300000;
   const LIVE_WINDOW_S = 1800;
   const LIVE_MAX_POINTS = 180;
@@ -57,6 +84,7 @@
   });
 
   const automationsPanel = () => ({
+    ...window.DevicePicker.mixin(),
     loading: false,
     saving: false,
     document: emptyDocument(),
@@ -717,13 +745,29 @@
 
     // Netz jetzt: der Zustand, sonst der letzte Netzpunkt, wenn er juenger als 2 min ist.
     gridNowText(scenario) {
-      if (!this.online) return '—';
+      const net = this.gridNetNow(scenario);
+      return net === null ? '—' : signedW(net);
+    },
+
+    // Netz als Zahl in W oder null, gleiche Quelle wie gridNowText.
+    gridNetNow(scenario) {
+      if (!this.online) return null;
       const state = this.scenarioState(scenario);
-      if (state && isNumber(state.net)) return signedW(state.net);
+      if (state && isNumber(state.net)) return state.net;
       const grid = this.chartSeries(scenario.id, 'grid');
       const last = grid[grid.length - 1];
-      if (last && this.nowTick / 1000 - last.ts < GRID_NOW_MAX_AGE_S) return signedW(last.value);
-      return '—';
+      if (last && this.nowTick / 1000 - last.ts < GRID_NOW_MAX_AGE_S) return last.value;
+      return null;
+    },
+
+    // Vorschau des Toleranzbands fuer das Regler-Formular.
+    bandPreviewFor(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      return window.__automationChart.bandPreview({
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        deadband: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        net: this.gridNetNow(scenario),
+      });
     },
 
     // Tagesexport aus den Tagesstatistik. Ein Fehler laesst den alten Wert stehen.
@@ -740,6 +784,7 @@
     // Takt des Sekundentimers: aufgeklappte Karten alle 60 s neu laden, der
     // Tagesexport alle 5 min, nur bei sichtbarer Seite und mit mindestens einem Regler.
     scenarioTick() {
+      this.syncCatalogRefresh();
       if (document.visibilityState !== 'visible') return;
       const nowMs = Date.now();
       const scenarios = this.document.scenarios || [];
@@ -1274,6 +1319,69 @@
     },
 
     // Das Regler-Ziel eines Szenarios, sonst null.
+    regulatorOf(scenario) {
+      return (scenario.while && scenario.while.regulator) || {};
+    },
+
+    // Stellglied-Kacheln: gewaehltes zuerst, dazu hoechstens zwei passende.
+    actuatorChips(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      const output = regulator.output || {};
+      const list = chipList(actuatorCandidates(this.devices, this.assignments, regulator.direction), output.entity_id, 2);
+      return {
+        chips: withUnknown(list, output.topic),
+        more: list.length,
+        hint: list.chips.length ? '' : t('automations.scenario.edit.no_actuator'),
+      };
+    },
+
+    // Messgeraete fuer den Messwert "Gerät", gleicher Aufbau wie die Stellglieder.
+    meterChips(scenario) {
+      const base = this.regulatorOf(scenario).base || {};
+      const selected = base.source === 'entity' ? base.entity_id : undefined;
+      const list = chipList(meterCandidates(this.devices, this.assignments), selected, 2);
+      return { chips: withUnknown(list, base.topic), more: list.length };
+    },
+
+    async chooseActuator(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      const selected = regulator.output && regulator.output.entity_id;
+      const uniqueId = await this.openPicker({
+        title: t('automations.scenario.edit.regulator.output_label'),
+        items: pickerItems(actuatorCandidates(this.devices, this.assignments, regulator.direction)),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: selected ? [selected] : [],
+      });
+      if (uniqueId) this.setRegulatorOutput(scenario, uniqueId);
+    },
+
+    async chooseMeter(scenario) {
+      const base = this.regulatorOf(scenario).base || {};
+      const uniqueId = await this.openPicker({
+        title: t('automations.scenario.edit.regulator.base_entity_label'),
+        items: pickerItems(meterCandidates(this.devices, this.assignments)),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: base.source === 'entity' && base.entity_id ? [base.entity_id] : [],
+      });
+      if (uniqueId) this.setRegulatorBase(scenario, 'entity', uniqueId);
+    },
+
+    // Solange ein Szenario-Editor offen ist, holt sich die Seite den Geraetekatalog
+    // alle 30 s neu, damit die Live-Werte in den Kacheln stimmen. Der Sekundentakt
+    // stoppt den Timer, sobald kein Editor mehr offen ist.
+    syncCatalogRefresh() {
+      const editing = Object.values(this.scenarioEditing).some(Boolean);
+      if (editing && !this._catalogTimer) {
+        this._catalogTimer = setInterval(() => { this.loadDeviceCatalog().catch(() => {}); }, CATALOG_REFRESH_MS);
+        if (typeof this._catalogTimer.unref === 'function') this._catalogTimer.unref();
+      } else if (!editing && this._catalogTimer) {
+        clearInterval(this._catalogTimer);
+        this._catalogTimer = null;
+      }
+    },
+
     regulatorTopic(scenario) {
       const current = scenario.while;
       if (!current || current.mode !== 'regulate' || !current.regulator || !current.regulator.output) return null;

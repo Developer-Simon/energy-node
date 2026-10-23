@@ -22,6 +22,7 @@ const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf
 const scenarioSource = fs.readFileSync(path.join(jsDir, 'automations-scenario.js'), 'utf8');
 const chartSource = fs.readFileSync(path.join(jsDir, 'automations-chart.js'), 'utf8');
 const devicesSource = fs.readFileSync(path.join(jsDir, 'automations-devices.js'), 'utf8');
+const pickerSource = fs.readFileSync(path.join(jsDir, 'device-picker.js'), 'utf8');
 const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
@@ -39,6 +40,7 @@ function createAutomationsPanel() {
   vm.runInContext(scenarioSource, context);
   vm.runInContext(chartSource, context);
   vm.runInContext(devicesSource, context);
+  vm.runInContext(pickerSource, context);
   vm.runInContext(rollupSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
@@ -2221,4 +2223,60 @@ test('stepValue leaves an untouched default out', () => {
   component.stepValue(target, 'gain', 1, { fallback: 0.8, step: 0.1 });
   component.stepValue(target, 'gain', -1, { fallback: 0.8, step: 0.1 });
   assert.equal('gain' in target, false);
+});
+
+// Regler-Kacheln: Stellglied und Messgerät, Picker, unbekanntes Gerät, Hinweis.
+function chipRegulator(regulator) {
+  return { id: 'scn-reg', while: { mode: 'regulate', regulator: { direction: 'producer', target_w: 0, deadband_w: 20, ...regulator } } };
+}
+
+function inverterDevices() {
+  return [{
+    id: 'inv',
+    name: 'Wechselrichter',
+    entities: [{ unique_id: 'inv_limit', name: 'Leistungslimit', command_topic: 'inv/limit/set', min_value: 0, max_value: 800, step: 10, unit_of_measurement: 'W' }],
+  }];
+}
+
+test('chooseActuator writes topic and bounds from the picked entity', async () => {
+  const { component } = createAutomationsPanel();
+  component.devices = inverterDevices();
+  component.assignments = { inv_limit: { role: 'pv' } };
+  component.entities = component.flattenCommandableEntities(component.devices);
+  const scenario = chipRegulator({ output: null });
+  let options = null;
+  component.openPicker = async (request) => {
+    options = request;
+    return 'inv_limit';
+  };
+  await component.chooseActuator(scenario);
+  assert.equal(options.mode, 'single');
+  assert.equal(scenario.while.regulator.output.topic, 'inv/limit/set');
+  assert.equal(scenario.while.regulator.output.min, 0);
+  assert.equal(scenario.while.regulator.output.max, 800);
+  assert.equal(scenario.while.regulator.fallback.payload, '800');
+});
+
+test('a missing saved actuator shows as unknown', () => {
+  const { component } = createAutomationsPanel();
+  component.devices = [];
+  component.assignments = {};
+  component.entities = [];
+  const scenario = chipRegulator({ output: { topic: 'old/limit/set', entity_id: 'gone', min: 0, max: 800 } });
+  const result = component.actuatorChips(scenario);
+  assert.equal(result.chips.length, 1);
+  assert.equal(result.chips[0].unknown, true);
+  assert.equal(result.chips[0].deviceName, 'Unbekanntes Gerät');
+  assert.equal(result.chips[0].subtitle, 'old/limit/set');
+});
+
+test('no actuator candidates shows the hint', () => {
+  const { component, window } = createAutomationsPanel();
+  component.devices = [];
+  component.assignments = {};
+  component.entities = [];
+  const result = component.actuatorChips(chipRegulator({ output: null }));
+  assert.equal(result.chips.length, 0);
+  assert.equal(result.hint, window.I18n.t('automations.scenario.edit.no_actuator'));
+  assert.notEqual(result.hint, 'automations.scenario.edit.no_actuator');
 });
