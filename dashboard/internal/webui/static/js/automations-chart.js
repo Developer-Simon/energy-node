@@ -117,5 +117,28 @@
       }));
   }
 
-  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, triggerTimeline };
+  // Vorschau des Toleranzbands im Regler-Formular. Die Achse reicht von
+  // target - span bis target + span, in Prozent der Breite. Liegt net sonst
+  // ausserhalb, waechst span auf |net - target| * 1.2.
+  function bandPreview({ target, deadband, net, span = 200 }) {
+    let axisSpan = span;
+    const hasNet = net !== null && net !== undefined && Number.isFinite(net);
+    if (hasNet && Math.abs(net - target) > axisSpan) {
+      axisSpan = Math.abs(net - target) * 1.2;
+    }
+    const lo = target - axisSpan;
+    const total = axisSpan * 2;
+    const percent = (value) => ((value - lo) / total) * 100;
+    return {
+      zone: {
+        left: percent(target - deadband),
+        width: (deadband * 2 / total) * 100,
+      },
+      target: percent(target),
+      now: hasNet ? percent(net) : null,
+      inside: hasNet ? Math.abs(net - target) <= deadband : null,
+    };
+  }
+
+  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, triggerTimeline, bandPreview };
 })();

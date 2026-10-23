@@ -132,3 +132,20 @@ test('triggerTimeline colours fired, blocked and scenario events', () => {
     { x: 60, tone: 'info' },
   ]);
 });
+
+test('bandPreview centres the target and marks a value outside the band', () => {
+  const chart = load();
+  const preview = plain(chart.bandPreview({ target: 30, deadband: 20, net: 104 }));
+  assert.equal(preview.target, 50);
+  assert.equal(preview.inside, false);
+  assert.ok(preview.now > preview.target);
+  assert.equal(preview.zone.left, 45);
+  assert.equal(preview.zone.width, 10);
+});
+
+test('bandPreview widens the axis for far values', () => {
+  const chart = load();
+  const preview = plain(chart.bandPreview({ target: 30, deadband: 20, net: 900 }));
+  assert.ok(preview.now <= 100);
+  assert.equal(preview.inside, false);
+});
