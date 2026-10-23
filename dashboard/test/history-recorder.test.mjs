@@ -466,3 +466,22 @@ test('bei abgeschaltetem Austausch meldet der Recorder nichts an', async () => {
   assert.deepEqual(exchange.watched, []);
   dom.window.close();
 });
+
+test('extraSamples asks the server even without extra entities', async () => {
+  const dom = load();
+  await dom.window.dashboardHistorizer.whenReady();
+  const historizer = dom.window.dashboardHistorizer;
+  const entityCalls = [];
+  dom.window.fetch = url => {
+    if (String(url).includes('/api/v1/history/entities')) entityCalls.push(String(url));
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({at: new Date().toISOString(), values: {pv: 100}, roles: [], samples: []}),
+    });
+  };
+
+  await historizer.collectOnce();
+
+  assert.equal(entityCalls.length, 1);
+  dom.window.close();
+});

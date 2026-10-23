@@ -39,7 +39,7 @@ func TestHistoryEntitiesReturnsOnlyConfiguredEntities(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	handleHistoryEntities(reg, store)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
+	handleHistoryEntities(reg, store, nil)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
@@ -78,7 +78,7 @@ func TestHistoryEntitiesReturnsEmptyListWithoutConfiguration(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 
 	recorder := httptest.NewRecorder()
-	handleHistoryEntities(reg, store)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
+	handleHistoryEntities(reg, store, nil)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
@@ -112,7 +112,7 @@ func TestHistoryEntitiesSkipsUnknownAndUnparsableEntities(t *testing.T) {
 	}
 
 	recorder := httptest.NewRecorder()
-	handleHistoryEntities(reg, store)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
+	handleHistoryEntities(reg, store, nil)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
 	var body struct {
 		Samples []struct {
 			EntityID string   `json:"entity_id"`
@@ -135,9 +135,67 @@ func TestHistoryEntitiesSkipsUnknownAndUnparsableEntities(t *testing.T) {
 
 func TestHistoryEntitiesRejectsNonGET(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	handleHistoryEntities(registry.New(), settings.NewStore(t.TempDir()))(
+	handleHistoryEntities(registry.New(), settings.NewStore(t.TempDir()), nil)(
 		recorder, httptest.NewRequest(http.MethodPost, "/api/v1/history/entities", nil))
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("status = %d, want 405", recorder.Code)
+	}
+}
+
+func TestHistoryEntitiesServesScenarioOutputsWithoutExtraEntities(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_scenario_a_output", Component: "sensor", ObjectID: "scenario_a_output",
+			Name: "A Ausgabe", StateTopic: "automation/scenario_a_output", UnitOfMeasurement: "W",
+		},
+	})
+	reg.UpdateTopic("automation/scenario_a_output", []byte("615"), false, time.Now())
+	configs := writeScenarioRules(t, `{"version":1,"settings":{},"rules":[],"scenarios":[`+
+		`{"id":"a","name":"A","enabled":true,"when":{"conditions":[]},"on_start":{"actions":[]},"while":{"mode":"regulate"},"on_end":{"actions":[]}}]}`)
+
+	recorder := httptest.NewRecorder()
+	handleHistoryEntities(reg, settings.NewStore(t.TempDir()), configs)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
+	var body struct {
+		Samples []struct {
+			EntityID string   `json:"entity_id"`
+			Value    *float64 `json:"value"`
+		} `json:"samples"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Samples) != 1 || body.Samples[0].EntityID != "automation_scenario_a_output" || body.Samples[0].Value == nil || *body.Samples[0].Value != 615 {
+		t.Fatalf("samples = %+v, want the scenario output with 615", body.Samples)
+	}
+}
+
+func TestHistoryEntitiesSkipsAnIdleScenarioOutput(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_scenario_a_output", Component: "sensor", ObjectID: "scenario_a_output",
+			Name: "A Ausgabe", StateTopic: "automation/scenario_a_output", UnitOfMeasurement: "W",
+		},
+	})
+	reg.UpdateTopic("automation/scenario_a_output", []byte(""), false, time.Now())
+	configs := writeScenarioRules(t, `{"version":1,"settings":{},"rules":[],"scenarios":[`+
+		`{"id":"a","name":"A","enabled":true,"when":{"conditions":[]},"on_start":{"actions":[]},"while":{"mode":"regulate"},"on_end":{"actions":[]}}]}`)
+
+	recorder := httptest.NewRecorder()
+	handleHistoryEntities(reg, settings.NewStore(t.TempDir()), configs)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/history/entities", nil))
+	var body struct {
+		Samples []struct {
+			EntityID string   `json:"entity_id"`
+			Value    *float64 `json:"value"`
+		} `json:"samples"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Samples) != 1 || body.Samples[0].Value != nil {
+		t.Fatalf("samples = %+v, want one sample with a null value", body.Samples)
 	}
 }

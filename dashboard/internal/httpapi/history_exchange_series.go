@@ -6,9 +6,11 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"sort"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -73,18 +75,83 @@ func exchangeSeriesFrom(snapshot energy.Snapshot, extras []registry.EntityValue)
 	return list
 }
 
+// automationScenarioOutputPrefix und automationScenarioOutputSuffix bilden die
+// Entitaets-ID eines Szenario-Reglers nach. Sie stehen so in entity_config
+// in libs/energy_node_common/src/energy_node_common/discovery.py
+// (unique_id = f"{device_id}_{object_id}", Geraet "automation").
+const (
+	automationScenarioOutputPrefix = "automation_scenario_"
+	automationScenarioOutputSuffix = "_output"
+)
+
+// scenarioOutputEntityIDs liefert die Ausgabe-Entitaeten aller Szenarien mit
+// while.mode "regulate" in Dokumentreihenfolge. Fehlt die Datei oder ist sie
+// kaputt, gibt es keine Ausgaben und keinen Fehler.
+func scenarioOutputEntityIDs(configs *config.Manager) []string {
+	if configs == nil {
+		return nil
+	}
+	data, err := configs.Read("automation_rules")
+	if err != nil {
+		return nil
+	}
+	var doc struct {
+		Scenarios []struct {
+			ID    string `json:"id"`
+			While struct {
+				Mode string `json:"mode"`
+			} `json:"while"`
+		} `json:"scenarios"`
+	}
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil
+	}
+	var ids []string
+	for _, scenario := range doc.Scenarios {
+		if scenario.While.Mode == "regulate" {
+			ids = append(ids, automationScenarioOutputPrefix+scenario.ID+automationScenarioOutputSuffix)
+		}
+	}
+	return ids
+}
+
+// recordedEntityIDs sind die Entitaeten, die der Browser zusaetzlich zu den
+// Rollen aufzeichnet: history_extra_entities (Reihenfolge erhalten), danach
+// die Szenario-Ausgaben, Duplikate entfernt. Allowlist von /history/entities
+// und Serienliste der Ankuendigung kommen beide hier her, sonst laufen sie
+// auseinander.
+func recordedEntityIDs(store *settings.Store, configs *config.Manager) []string {
+	ids := []string{}
+	seen := map[string]bool{}
+	add := func(id string) {
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	if store != nil {
+		if value, err := store.LoadSettings(); err == nil {
+			for _, id := range value.HistoryExtraEntities {
+				add(id)
+			}
+		}
+	}
+	for _, id := range scenarioOutputEntityIDs(configs) {
+		add(id)
+	}
+	return ids
+}
+
 // recordedExchangeSeries baut die Liste bei jeder Ankuendigung neu: die
 // Rollenzuordnung und history_extra_entities aendern sich zur Laufzeit.
 // Ein unlesbarer Einstellungsstand laesst nur die Zusatzentitaeten weg, die
 // Ankuendigung selbst scheitert daran nicht.
-func recordedExchangeSeries(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver) func() []exchangeSeries {
+func recordedExchangeSeries(reg *registry.Registry, store *settings.Store, configs *config.Manager, resolver *energy.Resolver) func() []exchangeSeries {
 	return func() []exchangeSeries {
 		snapshot := energy.Aggregate(reg.Snapshot(), resolver, time.Now().UTC())
 		var extras []registry.EntityValue
-		if store != nil {
-			if value, err := store.LoadSettings(); err == nil && len(value.HistoryExtraEntities) > 0 {
-				extras = reg.Values(value.HistoryExtraEntities)
-			}
+		if ids := recordedEntityIDs(store, configs); len(ids) > 0 {
+			extras = reg.Values(ids)
 		}
 		return exchangeSeriesFrom(snapshot, extras)
 	}
