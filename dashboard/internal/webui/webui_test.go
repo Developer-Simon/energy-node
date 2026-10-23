@@ -3306,7 +3306,7 @@ func TestDevicePickerTemplateSupportsSpriteIconsAndFilters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, marker := range []string{`x-bind:href="'#' + item.iconRef"`, "pickerFilter", "item.subtitle", "is-dim"} {
+	for _, marker := range []string{`x-bind:href="'#' + item.iconRef"`, `x-on:click="pickerFilter(chip.key)"`, `x-on:keydown.enter="if (picker.mode === 'single') { $event.preventDefault(); pickerChoose(item.id) }"`, "item.subtitle", "is-dim"} {
 		if !strings.Contains(string(source), marker) {
 			t.Fatalf("device picker template does not contain %q", marker)
 		}

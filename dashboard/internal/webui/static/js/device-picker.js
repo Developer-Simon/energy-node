@@ -62,6 +62,10 @@
       return this.picker ? sections(this.picker.items, this.picker.query, this.picker.filter) : [];
     },
 
+    pickerFilter(key) {
+      if (this.picker) this.picker.filter = key;
+    },
+
     // Chips above the list: "Alle" first, then the caller's role filters.
     pickerFilterChips() {
       const filters = this.picker ? this.picker.filters : [];
@@ -82,7 +86,7 @@
       this.picker.selected = selected.includes(id) ? selected.filter(other => other !== id) : [...selected, id];
     },
 
-    // Double click on a single-choice item: pick it and confirm at once.
+    // Double click or Enter on a single-choice item: pick it and confirm at once.
     pickerChoose(id) {
       if (!this.picker || this.picker.mode !== 'single') return;
       this.togglePick(id);

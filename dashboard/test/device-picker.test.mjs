@@ -106,3 +106,38 @@ test('preselected ids are picked on open', () => {
   assert.equal(component.isPicked('b'), false);
   component.closePicker(false);
 });
+
+test('single mode double click picks the item and resolves at once', async () => {
+  const component = load().mixin();
+  const pending = component.openPicker({ title: 'T', items, mode: 'single' });
+  component.togglePick('a');
+  component.pickerChoose('c');
+  assert.equal(component.picker, null);
+  assert.equal(await pending, 'c');
+});
+
+test('single mode Enter on a focused item picks it and resolves', async () => {
+  const component = load().mixin();
+  const pending = component.openPicker({ title: 'T', items, mode: 'single' });
+  component.pickerChoose('b');
+  assert.equal(component.picker, null);
+  assert.equal(await pending, 'b');
+});
+
+test('multi mode ignores the immediate pick and stays open', () => {
+  const component = load().mixin();
+  component.openPicker({ title: 'T', items });
+  component.pickerChoose('a');
+  assert.notEqual(component.picker, null);
+  assert.equal(component.isPicked('a'), false);
+  component.closePicker(false);
+});
+
+test('the role filter chips set the filter through pickerFilter', () => {
+  const component = load().mixin();
+  component.openPicker({ title: 'T', items: roleItems, filters: [{ key: 'wallbox', label: 'Wallbox' }] });
+  component.pickerFilter('wallbox');
+  assert.equal(component.picker.filter, 'wallbox');
+  assert.deepEqual(plain(component.pickerFilterChips().map(chip => chip.key)), ['', 'wallbox']);
+  component.closePicker(false);
+});

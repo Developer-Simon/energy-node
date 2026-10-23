@@ -121,7 +121,7 @@
         </label>
         <div class="device-picker-filters" role="radiogroup" aria-label="{{t "device_picker.filter.label"}}" x-show="picker.filters.length">
           <template x-for="chip in pickerFilterChips()" x-bind:key="chip.key">
-            <button type="button" class="device-picker-chip" role="radio" x-bind:class="{ 'is-active': picker.filter === chip.key }" x-bind:aria-checked="picker.filter === chip.key ? 'true' : 'false'" x-on:click="picker.filter = chip.key">
+            <button type="button" class="device-picker-chip" role="radio" x-bind:class="{ 'is-active': picker.filter === chip.key }" x-bind:aria-checked="picker.filter === chip.key ? 'true' : 'false'" x-on:click="pickerFilter(chip.key)">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-show="chip.iconRef"><use x-bind:href="'#' + chip.iconRef"></use></svg>
               <span x-text="chip.label"></span>
             </button>
@@ -133,7 +133,7 @@
               <h3 class="devicemap-panel-eyebrow" x-text="section.label"></h3>
               <template x-for="item in section.items" x-bind:key="item.id">
                 <label class="device-picker-item" x-bind:class="{ 'is-picked': isPicked(item.id), 'is-dim': item.dim }" x-on:dblclick="pickerChoose(item.id)">
-                  <input x-bind:type="picker.mode === 'single' ? 'radio' : 'checkbox'" name="device-picker-choice" x-bind:checked="isPicked(item.id)" x-on:change="togglePick(item.id)" x-bind:aria-describedby="item.subtitle ? 'device-picker-sub-' + item.id : null">
+                  <input x-bind:type="picker.mode === 'single' ? 'radio' : 'checkbox'" name="device-picker-choice" x-bind:checked="isPicked(item.id)" x-on:change="togglePick(item.id)" x-on:keydown.enter="if (picker.mode === 'single') { $event.preventDefault(); pickerChoose(item.id) }" x-bind:aria-describedby="item.dim && item.subtitle ? 'device-picker-sub-' + item.id : null">
                   <span class="device-picker-icon" x-bind:class="item.tone ? 'is-tone-' + item.tone : ''" aria-hidden="true">
                     <svg viewBox="0 0 24 24" x-show="item.iconRef"><use x-bind:href="'#' + item.iconRef"></use></svg>
                     <svg viewBox="0 0 24 24" x-show="!item.iconRef && item.iconMarkup" x-html="item.iconMarkup"></svg>
