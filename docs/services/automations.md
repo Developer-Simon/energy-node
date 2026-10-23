@@ -9,7 +9,9 @@ component: service:automation
 
 The rule engine runs as a process separate from the dashboard on purpose. The
 dashboard edits the rule file but never publishes a rule's action itself, so
-the web UI cannot switch a relay.
+the web UI cannot switch a relay. The templates of the dashboard assistant live
+only in the browser, not in the service, which sees only the finished rules and
+scenarios.
 
 [How it works](automations-how-it-works.md) explains when a rule fires, what
 its result means, how publish values are computed and which topics a rule may

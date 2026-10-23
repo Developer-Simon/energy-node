@@ -41,6 +41,45 @@ The balance field and the entity of a condition use the same picker. The
 selected field or entity shows as a chip with its role icon, **Change** opens
 the picker.
 
+## Assistant
+
+**Create from template** opens the assistant. It builds a scenario or a rule
+from a few questions, so you do not need to know the fields.
+
+The first page is the gallery. A search field matches the title, the text and
+the keywords of each template. Category buttons narrow the list to **Charging**,
+**Grid feed**, **Switching**, **Time** or **Warnings**. Templates that fit your
+devices show as tiles. Templates whose device or battery is missing are listed
+under **More templates** with the reason. Under the tiles, **Without a
+template** creates an empty rule or an empty scenario.
+
+A template then asks its steps one at a time. Each step has a device choice,
+a set of cards or tiles, a number or a time window. Options that do not apply,
+for example the sun option without a known location, are greyed out with the
+reason. The dots at the top show your place. **Back** returns to the previous
+step or to the gallery, and **Next** is enabled once the step has an answer.
+
+The last page is the summary. It lists the answers as plain sentences grouped
+by phase: **When**, **Running**, **Ends**, **On start**, **On end** and
+**Then**. Each row has a **change** button that jumps back to the step that
+sets it. **Create** adds the entry.
+
+The new entry lands in its list, expanded and in edit mode, switched on and
+marked as new. It is not saved yet. The page counts it as an unsaved change
+until you save the document. A bar shows **Scenario added** or **Rule added**
+with an **Undo** button for 10 seconds, as in [Undo](#undo). If the list is
+full, the summary shows a note and **Create** is disabled.
+
+The templates are these. The phases describe what the entry does in words.
+
+| Template | Category | Creates | Phases |
+|---|---|---|---|
+| Zero feed-in | Grid feed | A scenario that regulates an inverter so that feed-in stays near a target of 10, 30 or 60 W. The period is the sun window, always, or a time window with weekdays. The regulator measures the inverter's own reading, the house grid balance or the last setpoint sent. | When the period starts. Running: the setpoint follows the measured value. Ends: with the period, the limit returns to its maximum if the reset option is on. A notification at the start is optional. |
+| Surplus charging | Charging | A scenario that regulates a wallbox with the surplus. It starts when feed-in stays above 1400, 2000 or 3000 W for 3 minutes. The vehicle must be plugged in if that option is on. | When feed-in stays above the chosen power. Running: the charging power follows the surplus, at least the minimum of the wallbox. Ends: with one of three end conditions that you choose, sunset, a charge level below a limit between 10 and 90 %, or grid import above 200 W for 5 minutes. On start the switch of the wallbox turns on, on end it turns off or the power drops back to the minimum. |
+| Device on surplus | Switching | A scenario that switches a device on when feed-in is at least 1000, 1500 or 2500 W for 2 minutes. Optionally it stays on by repeating the switch command each minute, and it applies only on chosen weekdays. | When feed-in is high enough. Running: the device stays on while the condition holds, if repeat is on. Ends: after a fixed runtime of 10 to 600 minutes, at sunset, or when grid import stays above 100 W for 2 minutes. On end the device turns off. |
+| Battery warning | Warnings | A rule that sends a notification when the charge level falls below 10, 20 or 30 %. You choose the severity info, warning or critical. It fires at most once an hour. | When the charge level falls below the limit. Then: a notification with the chosen severity appears. |
+| Time switch | Time | A scenario that switches a device on for a daily time window, by default 11:00 to 15:00, optionally on chosen weekdays. | When the window starts. Ends: when the window ends, the device turns off. |
+
 ## Scenarios
 
 A scenario has three phases. **Start** holds the conditions that begin it,
