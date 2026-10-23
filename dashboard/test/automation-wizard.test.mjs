@@ -158,3 +158,177 @@ test('devicesFor returns the list for each filter', () => {
   assert.equal(wizard.devicesFor('wallbox', ctx), ctx.wallboxes);
   assert.equal(wizard.devicesFor('switch', ctx), ctx.switches);
 });
+
+// Kleine Vorlagen mit fertigen Texten, damit die Suche ohne Katalogeintraege
+// der Vorlagen laeuft (die Vorlagen selbst kommen in Task 4).
+const zeroFeed = {
+  id: 'zero_feed', category: 'feed_in', title: 'Nulleinspeisung',
+  blurb: 'Speist nur so viel ein, wie das Haus braucht.', keywords: 'einspeisung null limit drossel',
+  requires: { devices: 'inverter' },
+  steps: [
+    { id: 'device', type: 'device', filter: 'inverter' },
+    { id: 'period', type: 'tiles', default: 'sun', options: [
+      { id: 'sun', unavailable: (ctx) => (ctx.hasLocation ? '' : 'automations.assistant.unavailable.location') },
+      { id: 'always' },
+      { id: 'fixed' },
+    ] },
+    { id: 'window', type: 'time', when: (answers) => answers.period === 'fixed', default: { from: '08:00', to: '18:00', days: [0, 1, 2, 3, 4, 5, 6] } },
+    { id: 'extras', type: 'multi', options: [
+      { id: 'reset', default: true },
+      { id: 'notify' },
+      { id: 'deadline', reveal: { type: 'time', default: '07:00' } },
+    ] },
+  ],
+};
+
+const chargeTemplate = {
+  id: 'surplus_wallbox', category: 'charging', title: 'Überschussladen',
+  blurb: 'Das Auto lädt mit Sonnenstrom.', keywords: 'wallbox auto laden',
+  requires: { devices: 'wallbox' },
+  steps: [
+    { id: 'device', type: 'device', filter: { role: 'wallbox' } },
+    { id: 'start', type: 'presets', default: 1400, options: [{ id: 1400 }, { id: 2000 }] },
+  ],
+};
+
+const timeTemplate = {
+  id: 'time_switch', category: 'time', title: 'Zeitfenster schalten',
+  blurb: 'Ein Gerät läuft zu festen Zeiten.', keywords: 'zeit uhr schalten',
+  requires: { devices: 'switch' },
+  steps: [
+    { id: 'device', type: 'device', filter: 'switch' },
+    { id: 'window', type: 'time', default: { from: '11:00', to: '15:00', days: [0, 1, 2, 3, 4, 5, 6] } },
+  ],
+};
+
+const batteryTemplate = {
+  id: 'battery_warn', category: 'warning', title: 'Akku-Warnung',
+  blurb: 'Mitteilung bei niedrigem Ladestand.', keywords: 'akku batterie soc',
+  requires: { soc: true },
+  steps: [
+    { id: 'below', type: 'presets', default: 20, options: [{ id: 10 }, { id: 20 }] },
+  ],
+};
+
+test('visibleSteps drops a step whose when is false and always ends with summary', () => {
+  const { wizard } = load();
+  const ids = plain(wizard.visibleSteps(zeroFeed, { period: 'always' })).map((step) => step.id);
+  assert.deepEqual(ids, ['device', 'period', 'extras', 'summary']);
+  const fixed = plain(wizard.visibleSteps(zeroFeed, { period: 'fixed' })).map((step) => step.id);
+  assert.deepEqual(fixed, ['device', 'period', 'window', 'extras', 'summary']);
+});
+
+test('changing an earlier answer recounts the steps at once', () => {
+  const { wizard } = load();
+  const before = wizard.visibleSteps(zeroFeed, { period: 'fixed' });
+  const after = wizard.visibleSteps(zeroFeed, { period: 'always' });
+  assert.equal(after.length, before.length - 1);
+  assert.equal(after.some((step) => step.id === 'window'), false);
+});
+
+test('defaultAnswers skips an unavailable default option', () => {
+  const { wizard } = load();
+  const noLocation = wizard.buildContext({ devices, snapshot, document: { rules: [], scenarios: [], settings: {} } });
+  assert.equal(plain(wizard.defaultAnswers(zeroFeed, noLocation)).period, 'always');
+  const withLocation = wizard.buildContext({ devices, snapshot, document });
+  assert.equal(plain(wizard.defaultAnswers(zeroFeed, withLocation)).period, 'sun');
+});
+
+test('defaultAnswers picks the first usable device and copies time and multi answers', () => {
+  const { wizard } = load();
+  const ctx = wizard.buildContext({ devices, snapshot, document });
+  const answers = plain(wizard.defaultAnswers(zeroFeed, ctx));
+  assert.equal(answers.device, '');
+  assert.equal(plain(wizard.defaultAnswers(chargeTemplate, ctx)).device, 'wb_limit');
+  assert.deepEqual(answers.extras, { reset: true, notify: false, deadline: false, deadline_value: '07:00' });
+  const timeAnswers = plain(wizard.defaultAnswers(timeTemplate, ctx));
+  assert.deepEqual(timeAnswers.window, { from: '11:00', to: '15:00', days: [0, 1, 2, 3, 4, 5, 6] });
+  assert.equal(timeAnswers.device, 'wb_switch');
+});
+
+test('templateAvailability names the missing device and hints at the found ones', () => {
+  const { wizard, t } = load();
+  const ctx = wizard.buildContext({ devices, snapshot, document });
+  assert.deepEqual(plain(wizard.templateAvailability(zeroFeed, ctx)), {
+    available: false,
+    reason: t('automations.assistant.unavailable.inverter'),
+    hint: '',
+  });
+  assert.deepEqual(plain(wizard.templateAvailability(chargeTemplate, ctx)), {
+    available: true,
+    reason: '',
+    hint: t('automations.assistant.hint.device_one', { name: 'Wallbox' }),
+  });
+  assert.equal(wizard.templateAvailability(timeTemplate, ctx).hint, t('automations.assistant.hint.device_many', { n: 3 }));
+  assert.equal(wizard.templateAvailability(batteryTemplate, ctx).available, true);
+  const noSoc = wizard.buildContext({ devices, snapshot: { values: {}, entities: [] }, document });
+  assert.equal(wizard.templateAvailability(batteryTemplate, noSoc).reason, t('automations.assistant.unavailable.soc'));
+});
+
+test('searchTemplates splits fitting and others and finds keywords', () => {
+  const { wizard } = load();
+  const ctx = wizard.buildContext({ devices, snapshot, document });
+  const templates = [zeroFeed, chargeTemplate, timeTemplate];
+  const all = plain(wizard.searchTemplates(templates, { query: '', category: 'all' }, ctx));
+  assert.deepEqual(all.fitting.map((item) => item.id), ['surplus_wallbox', 'time_switch']);
+  assert.deepEqual(all.others.map((item) => item.id), ['zero_feed']);
+  const keyword = plain(wizard.searchTemplates(templates, { query: 'auto', category: 'all' }, ctx));
+  assert.deepEqual(keyword.fitting.map((item) => item.id), ['surplus_wallbox']);
+  assert.deepEqual(keyword.others, []);
+  const umlaut = plain(wizard.searchTemplates(templates, { query: 'Überschuss', category: 'all' }, ctx));
+  assert.deepEqual(umlaut.fitting.map((item) => item.id), ['surplus_wallbox']);
+  const unavailable = plain(wizard.searchTemplates(templates, { query: 'drossel', category: 'all' }, ctx));
+  assert.deepEqual(unavailable.fitting, []);
+  assert.deepEqual(unavailable.others.map((item) => item.id), ['zero_feed']);
+  const byCategory = plain(wizard.searchTemplates(templates, { query: '', category: 'charging' }, ctx));
+  assert.deepEqual(byCategory.fitting.map((item) => item.id), ['surplus_wallbox']);
+  assert.deepEqual(byCategory.others, []);
+});
+
+test('CATEGORIES lists the five template categories', () => {
+  const { wizard } = load();
+  assert.deepEqual(plain(wizard.CATEGORIES), ['feed_in', 'charging', 'switching', 'warning', 'time']);
+});
+
+test('uniqueId appends a counter', () => {
+  const { wizard } = load();
+  assert.equal(wizard.uniqueId('zero_feed', []), 'zero_feed');
+  assert.equal(wizard.uniqueId('zero_feed', ['rule-1']), 'zero_feed');
+  assert.equal(wizard.uniqueId('zero_feed', ['zero_feed']), 'zero_feed_2');
+  assert.equal(wizard.uniqueId('zero_feed', ['zero_feed', 'zero_feed_2']), 'zero_feed_3');
+});
+
+test('stepComplete checks device, number, presets and time', () => {
+  const { wizard } = load();
+  assert.equal(wizard.stepComplete({ type: 'device' }, ''), false);
+  assert.equal(wizard.stepComplete({ type: 'device' }, 'pv1_limit'), true);
+  assert.equal(wizard.stepComplete({ type: 'number', min: 10, max: 90 }, 5), false);
+  assert.equal(wizard.stepComplete({ type: 'number', min: 10, max: 90 }, 40), true);
+  assert.equal(wizard.stepComplete({ type: 'presets' }, 0), false);
+  assert.equal(wizard.stepComplete({ type: 'presets' }, 1400), true);
+  assert.equal(wizard.stepComplete({ type: 'time' }, { from: '08:00', to: '08:00', days: [] }), false);
+  assert.equal(wizard.stepComplete({ type: 'time' }, { from: '25:00', to: '08:00', days: [] }), false);
+  assert.equal(wizard.stepComplete({ type: 'time' }, { from: '08:00', to: '18:00', days: [] }), true);
+  assert.equal(wizard.stepComplete({ type: 'tiles' }, 'sun'), true);
+});
+
+test('firstReached finds the first minute with enough feed-in', () => {
+  const { wizard } = load();
+  const rows = [
+    { ts: 1000, min: 0, avg: 120 },
+    { ts: 2000, min: -40, avg: -30 },
+    { ts: 3000, min: -260, avg: -200 },
+    { ts: 4000, min: -300, avg: -250 },
+  ];
+  assert.equal(wizard.firstReached(rows, 100), 3000);
+  assert.equal(wizard.firstReached(rows, 250), 4000);
+  assert.equal(wizard.firstReached(rows, 500), null);
+  assert.equal(wizard.firstReached([], 10), null);
+});
+
+test('lowest reads the minimum', () => {
+  const { wizard } = load();
+  assert.equal(wizard.lowest([{ min: 5 }, { min: -3 }, { min: 12 }]), -3);
+  assert.equal(wizard.lowest([]), null);
+  assert.equal(wizard.lowest(undefined), null);
+});

@@ -169,9 +169,187 @@
     return importPower - exportPower;
   }
 
+  // Vorlagenkategorien der Suche. Die Vorlagen selbst liegen in Task 4.
+  const CATEGORIES = ['feed_in', 'charging', 'switching', 'warning', 'time'];
+  const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+  const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+  // Grund, warum eine Option gerade nicht wählbar ist, oder ''.
+  function optionUnavailable(option, ctx, answers) {
+    if (!option || typeof option.unavailable !== 'function') return '';
+    return option.unavailable(ctx, answers) || '';
+  }
+
+  // Texte einer Vorlage: fertige Strings am Objekt haben Vorrang, sonst der
+  // Katalogschluessel automations.templates.<id>.<feld>.
+  function templateText(template, field) {
+    if (typeof template[field] === 'string') return template[field];
+    return t(`automations.templates.${template.id}.${field}`);
+  }
+
+  function templateKeywords(template) {
+    if (Array.isArray(template.keywords)) return template.keywords.join(' ');
+    return templateText(template, 'keywords');
+  }
+
+  // Verfuegbarkeit einer Vorlage aus den Geraetelisten und dem Akkusignal.
+  function templateAvailability(template, ctx) {
+    const requires = template.requires || {};
+    let reason = '';
+    let hint = '';
+    if (requires.devices) {
+      const usable = devicesFor(requires.devices, ctx).filter((item) => !item.disabled);
+      if (!usable.length) {
+        reason = t(`automations.assistant.unavailable.${requires.devices}`);
+      } else {
+        hint = usable.length === 1
+          ? t('automations.assistant.hint.device_one', { name: usable[0].deviceName })
+          : t('automations.assistant.hint.device_many', { n: usable.length });
+      }
+    }
+    if (!reason && requires.soc) {
+      if (!ctx.socAvailable) reason = t('automations.assistant.unavailable.soc');
+      else if (!hint) hint = t('automations.assistant.hint.soc');
+    }
+    return { available: !reason, reason, hint: reason ? '' : hint };
+  }
+
+  // Suche nach Wortern in Titel, Kurztext und Schluesselwoertern (Kleinschreibung,
+  // Umlaute bleiben). Jedes Wort muss treffen. Ohne Suche gelten alle Vorlagen.
+  function searchTemplates(templates, { query = '', category = 'all' } = {}, ctx) {
+    const words = String(query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const fitting = [];
+    const others = [];
+    for (const template of templates || []) {
+      if (category && category !== 'all' && template.category !== category) continue;
+      if (words.length) {
+        const haystack = [templateText(template, 'title'), templateText(template, 'blurb'), templateKeywords(template)]
+          .join(' ').toLowerCase();
+        if (!words.every((word) => haystack.includes(word))) continue;
+      }
+      (templateAvailability(template, ctx).available ? fitting : others).push(template);
+    }
+    return { fitting, others };
+  }
+
+  // Standardwert je Schritt. Ist der Standard nicht verfügbar, gilt die erste
+  // verfügbare Option bzw. das erste verfügbare Gerät.
+  function defaultAnswer(step, ctx, answers) {
+    const options = step.options || [];
+    switch (step.type) {
+      case 'device': {
+        const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
+        const list = devicesFor(kind, ctx);
+        const preferred = list.find((item) => item.id === step.default && !item.disabled);
+        const first = list.find((item) => !item.disabled);
+        return (preferred || first || {}).id || '';
+      }
+      case 'choice':
+      case 'tiles': {
+        const available = (option) => !optionUnavailable(option, ctx, answers);
+        const preferred = options.find((option) => option.id === step.default && available(option));
+        const first = options.find((option) => available(option));
+        if (preferred) return preferred.id;
+        if (first) return first.id;
+        return step.default === undefined ? '' : step.default;
+      }
+      case 'presets':
+        return step.default !== undefined ? step.default : (options[0] || {}).id;
+      case 'number':
+        return step.default !== undefined ? step.default : step.min;
+      case 'time': {
+        const source = step.default || { from: '', to: '', days: WEEKDAYS };
+        return { from: source.from, to: source.to, days: [...(source.days || [])] };
+      }
+      case 'multi': {
+        const result = {};
+        for (const option of options) {
+          result[option.id] = !!option.default && !optionUnavailable(option, ctx, answers);
+          if (option.reveal) {
+            const value = option.reveal.default;
+            result[`${option.id}_value`] = Array.isArray(value) ? [...value] : value;
+          }
+        }
+        return result;
+      }
+      default:
+        return step.default;
+    }
+  }
+
+  function defaultAnswers(template, ctx) {
+    const answers = {};
+    for (const step of template.steps || []) {
+      answers[step.id] = defaultAnswer(step, ctx, answers);
+    }
+    return answers;
+  }
+
+  // Sichtbare Schritte: ohne when oder mit when(answers) === true, danach die
+  // Zusammenfassung. Die Liste ist eine Funktion der Antworten und wird bei jeder
+  // Änderung neu berechnet.
+  function visibleSteps(template, answers) {
+    const steps = (template.steps || []).filter((step) => !step.when || step.when(answers) === true);
+    return [...steps, { id: 'summary', type: 'summary' }];
+  }
+
+  function stepComplete(step, answer) {
+    switch (step.type) {
+      case 'device':
+        return typeof answer === 'string' && answer !== '';
+      case 'number':
+        return isNumber(answer)
+          && (step.min === undefined || answer >= step.min)
+          && (step.max === undefined || answer <= step.max);
+      case 'presets':
+        return isNumber(answer) && answer > 0;
+      case 'time':
+        return !!answer && TIME_PATTERN.test(answer.from) && TIME_PATTERN.test(answer.to)
+          && answer.from !== answer.to;
+      default:
+        return true;
+    }
+  }
+
+  // Kleinste freie ID: base, sonst base_2, base_3 ...
+  function uniqueId(base, usedIds) {
+    const used = new Set(usedIds || []);
+    if (!used.has(base)) return base;
+    let counter = 2;
+    while (used.has(`${base}_${counter}`)) counter += 1;
+    return `${base}_${counter}`;
+  }
+
+  // Zeitstempel der frühesten Minute mit mindestens thresholdW Einspeisung.
+  // Einspeisung ist negativ in role:grid.
+  function firstReached(rows, thresholdW) {
+    let found = null;
+    for (const row of rows || []) {
+      if (!isNumber(row.avg) || row.avg > -thresholdW) continue;
+      if (found === null || row.ts < found) found = row.ts;
+    }
+    return found;
+  }
+
+  // Kleinster Minimalwert in den Zeilen, null ohne Zeilen.
+  function lowest(rows) {
+    const values = (rows || []).map((row) => row.min).filter(isNumber);
+    return values.length ? Math.min(...values) : null;
+  }
+
   window.__automationWizard = {
+    CATEGORIES,
     buildContext,
+    defaultAnswers,
     devicesFor,
+    firstReached,
     gridNet,
+    lowest,
+    optionUnavailable,
+    searchTemplates,
+    stepComplete,
+    templateAvailability,
+    uniqueId,
+    visibleSteps,
   };
 })();
