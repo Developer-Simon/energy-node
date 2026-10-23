@@ -1902,3 +1902,109 @@ test('the start progress bar shows only while waiting for the start', () => {
   component.runtimeState.scenarios.a.phase = 'active';
   assert.equal(component.scenarioProgress(scenario), null);
 });
+
+test('ruleIcon follows the first action', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.ruleIcon({ actions: [{ type: 'notification', title: 'Hallo' }] }), 'ico-bell');
+  assert.equal(component.ruleIcon({ actions: [{ type: 'publish', topic: 'werkstatt/x/set', payload_source: 'constant', payload: '1' }] }), 'ico-switch');
+  assert.equal(component.ruleIcon({ actions: [] }), 'ico-flash');
+  assert.equal(component.ruleIcon({}), 'ico-flash');
+});
+
+test('liveBar puts the hysteresis band below an above-threshold', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 100, hold_seconds: 300 }],
+    actions: [],
+  };
+  component.runtimeState = { rules: { r1: { conditions: [{ value: 650, target: 800, raw_met: false, met: false }] } } };
+  const bar = JSON.parse(JSON.stringify(component.liveBar(rule)));
+  assert.equal(bar.fraction, 650 / 1600);
+  assert.equal(bar.mark, 800 / 1600);
+  assert.equal(bar.band.left, 700 / 1600);
+  assert.equal(bar.band.width, 100 / 1600);
+  assert.equal(bar.valueText, '650 W');
+});
+
+test('liveBar puts the hysteresis band above a below-threshold', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'below', threshold: 800, hysteresis: 100, hold_seconds: 0 }],
+    actions: [],
+  };
+  component.runtimeState = { rules: { r1: { conditions: [{ value: 900, target: 800, raw_met: false, met: false }] } } };
+  const bar = JSON.parse(JSON.stringify(component.liveBar(rule)));
+  assert.equal(bar.band.left, 800 / 1600);
+  assert.equal(bar.band.width, 100 / 1600);
+});
+
+test('liveBar is null without a balance condition and has no band without hysteresis', () => {
+  const { component } = createAutomationsPanel();
+  const timeOnly = { id: 'r1', conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }], actions: [] };
+  assert.equal(component.liveBar(timeOnly), null);
+  const plain = { id: 'r2', conditions: [{ type: 'balance_threshold', field: 'pv', comparison: 'above', threshold: 500, hysteresis: 0, hold_seconds: 0 }], actions: [] };
+  assert.equal(component.liveBar(plain).band, null);
+});
+
+test('setRepeatMode once removes repeat_seconds', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', repeat_seconds: 120, actions: [] };
+  component.setRepeatMode(rule, 'once');
+  assert.equal('repeat_seconds' in rule, false);
+});
+
+test('setRepeatMode repeat uses 60 s or the publish minimum when that is larger', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', actions: [] };
+  component.setRepeatMode(rule, 'repeat');
+  assert.equal(rule.repeat_seconds, 60);
+  component.document.settings.publish_min_interval_s = 90;
+  component.setRepeatMode(rule, 'repeat');
+  assert.equal(rule.repeat_seconds, 90);
+});
+
+test('repeat stays locked while a toggle action exists', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', actions: [{ type: 'publish', topic: 'werkstatt/x/set', payload_source: 'toggle' }] };
+  assert.equal(component.setRepeatMode(rule, 'repeat'), false);
+  assert.equal('repeat_seconds' in rule, false);
+  component.setRepeatMode(rule, 'once');
+  assert.equal('repeat_seconds' in rule, false);
+});
+
+test('row editors write into the model', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 100, hold_seconds: 300 }],
+    actions: [],
+  };
+  component.setComparison(rule.conditions[0], 'below');
+  assert.equal(rule.conditions[0].comparison, 'below');
+  component.setComparison(rule.conditions[0], 'sideways');
+  assert.equal(rule.conditions[0].comparison, 'below');
+  rule.conditions[0].threshold = 950;
+  assert.equal(rule.conditions[0].threshold, 950);
+});
+
+test('ruleTimeline keeps only the last six hours', () => {
+  const { component } = createAutomationsPanel();
+  const nowSec = 1_000_000;
+  component.nowTick = nowSec * 1000;
+  component.liveHistory = {
+    r1: [
+      { at: nowSec - 7 * 3600, result: 'fired' },
+      { at: nowSec - 5 * 3600, result: 'blocked' },
+      { at: nowSec - 60, result: 'fired' },
+      { at: nowSec + 10, result: 'fired' },
+    ],
+  };
+  const timeline = JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'r1' })));
+  assert.equal(timeline.length, 2);
+  assert.equal(timeline[0].x, ((nowSec - 5 * 3600) - (nowSec - 6 * 3600)) / (6 * 3600) * 600);
+  assert.equal(timeline[0].tone, 'bad');
+  assert.equal(timeline[1].tone, 'ok');
+  assert.deepEqual(JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'unknown' }))), []);
+});

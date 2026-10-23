@@ -1131,6 +1131,60 @@
       return (rule.actions || []).some((action) => action.type === 'publish' && action.payload_source === 'toggle');
     },
 
+    // Icon der Kachel: die erste Aktion bestimmt sie, ohne Aktion ein Blitz.
+    ruleIcon(rule) {
+      const first = (rule.actions || [])[0];
+      return first ? this.describeAction(first).icon : 'ico-flash';
+    },
+
+    // Live-Balken der ersten Bilanzbedingung. Das Band liegt zwischen Schwelle
+    // und Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
+    liveBar(rule) {
+      const index = (rule.conditions || []).findIndex((condition) => condition.type === 'balance_threshold');
+      if (index < 0) return null;
+      const condition = rule.conditions[index];
+      const report = this.conditionReport(rule, index);
+      const value = report && isNumber(report.value) ? report.value : null;
+      const target = report && isNumber(report.target) ? report.target : condition.threshold;
+      const view = window.__automationsView;
+      const scale = view.meterScale(condition, { value, target }, this.entityForCondition(condition));
+      const hysteresis = isNumber(condition.hysteresis) ? condition.hysteresis : 0;
+      let band = null;
+      if (hysteresis > 0) {
+        const [low, high] = condition.comparison === 'below'
+          ? [condition.threshold, condition.threshold + hysteresis]
+          : [condition.threshold - hysteresis, condition.threshold];
+        const left = view.meterFraction(low, scale);
+        band = { left, width: view.meterFraction(high, scale) - left };
+      }
+      const unit = this.describeCondition(condition).unit;
+      const valueText = value === null ? '—' : `${value} ${unit}`.trim();
+      return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText };
+    },
+
+    // Zeitleiste der letzten sechs Stunden, Sekunden wie der Dienst sie liefert.
+    ruleTimeline(rule) {
+      const now = this.nowTick / 1000;
+      return window.__automationChart.triggerTimeline(this.liveHistory[rule.id] || [], now - 6 * 3600, now, 600);
+    },
+
+    // "once" loescht das Wiederholintervall, "repeat" setzt es auf den groesseren
+    // Wert aus einer Minute und dem Veroeffentlichungs-Minimum. Mit einer
+    // Umschalt-Aktion bleibt Wiederholen gesperrt, dann gibt es false zurueck.
+    setRepeatMode(rule, mode) {
+      if (mode === 'once') {
+        delete rule.repeat_seconds;
+        return true;
+      }
+      if (this.hasToggleAction(rule)) return false;
+      rule.repeat_seconds = Math.max(60, this.minPublishInterval());
+      return true;
+    },
+
+    setComparison(condition, value) {
+      if (value === 'above' || value === 'below') condition.comparison = value;
+    },
+
     validateRuleBeforeSave(rule) {
       const errors = [];
       if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(rule.id || '')) errors.push(t('automations.validation.invalid_id', { name: rule.name }));
