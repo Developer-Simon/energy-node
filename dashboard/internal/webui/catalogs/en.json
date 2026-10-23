@@ -726,6 +726,8 @@
   "device_picker.confirm.other": "Add {n}",
   "device_picker.confirm_none": "Add",
   "device_picker.empty": "No matches.",
+  "device_picker.filter.all": "All",
+  "device_picker.filter.label": "Filter by role",
   "device_picker.member_of": "in {group}",
   "device_picker.search": "Search",
   "device_picker.section.groups": "Groups",

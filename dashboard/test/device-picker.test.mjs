@@ -65,3 +65,44 @@ test('confirming without a selection resolves with null', async () => {
   component.closePicker(true);
   assert.equal(await pending, null);
 });
+
+const roleItems = [
+  { id: 'g', kind: 'group', name: 'Keller', section: '' },
+  { id: 'w', kind: 'device', name: 'Wallbox Garage', section: 'go-e', filter: 'wallbox' },
+  { id: 'p', kind: 'device', name: 'Dach Wechselrichter', section: 'APsystems', filter: 'pv' },
+  { id: 'x', kind: 'device', name: 'Bastelkiste', section: '' },
+];
+
+test('sections filters by role and keeps groups first', () => {
+  const picker = load();
+  const ids = sections => plain(sections.flatMap(section => section.items.map(item => item.id)));
+  assert.deepEqual(ids(picker.sections(roleItems, '', 'wallbox')), ['g', 'w']);
+  assert.deepEqual(ids(picker.sections(roleItems, '', '')), ['g', 'p', 'w', 'x']);
+});
+
+test('single mode replaces the selection and resolves one id', async () => {
+  const component = load().mixin();
+  const pending = component.openPicker({ title: 'T', items, mode: 'single' });
+  component.togglePick('a');
+  component.togglePick('c');
+  assert.deepEqual(plain(component.picker.selected), ['c']);
+  component.closePicker(true);
+  assert.equal(await pending, 'c');
+});
+
+test('multi mode stays the default', async () => {
+  const component = load().mixin();
+  const pending = component.openPicker({ title: 'T', items });
+  component.togglePick('a');
+  component.togglePick('c');
+  component.closePicker(true);
+  assert.deepEqual(plain(await pending), ['a', 'c']);
+});
+
+test('preselected ids are picked on open', () => {
+  const component = load().mixin();
+  component.openPicker({ title: 'T', items, selected: ['a'] });
+  assert.equal(component.isPicked('a'), true);
+  assert.equal(component.isPicked('b'), false);
+  component.closePicker(false);
+});

@@ -3300,3 +3300,15 @@ func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
 		}
 	}
 }
+
+func TestDevicePickerTemplateSupportsSpriteIconsAndFilters(t *testing.T) {
+	source, err := fs.ReadFile(templateFS, "templates/devicemap.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`x-bind:href="'#' + item.iconRef"`, "pickerFilter", "item.subtitle", "is-dim"} {
+		if !strings.Contains(string(source), marker) {
+			t.Fatalf("device picker template does not contain %q", marker)
+		}
+	}
+}

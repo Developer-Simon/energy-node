@@ -726,6 +726,8 @@
   "device_picker.confirm.other": "{n} übernehmen",
   "device_picker.confirm_none": "Übernehmen",
   "device_picker.empty": "Keine Treffer.",
+  "device_picker.filter.all": "Alle",
+  "device_picker.filter.label": "Nach Rolle filtern",
   "device_picker.member_of": "in {group}",
   "device_picker.search": "Suchen",
   "device_picker.section.groups": "Gruppen",
