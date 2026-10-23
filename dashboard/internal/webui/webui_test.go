@@ -1314,6 +1314,8 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 		"ico-help", "ico-gear", "ico-power-on", "ico-power-off",
 		// Fuers Verlaeufe-Panel ergaenzte Symbole
 		"ico-calendar", "ico-download", "ico-close",
+		// Geraete-Symbol des Wechselrichters fuer Szenarien
+		"ico-inverter",
 	} {
 		if !strings.Contains(page, `id="`+symbol+`"`) {
 			t.Fatalf("Sprite-Symbol %s fehlt in der Shell", symbol)
@@ -1324,7 +1326,7 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
-	for _, marker := range []string{`class="rule`, `class="cond`, `class="gate`, `class="act`, `mini-chain`} {
+	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="cond`, `class="gate`, `class="act`, `mini-chain`} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Fluss-Markup %q fehlt im Automations-Panel", marker)
 		}
@@ -1346,6 +1348,35 @@ func TestUpdateBarIconIsStyledByItsClass(t *testing.T) {
 
 // Icon-only Knoepfe brauchen beides: title fuer die Maus, aria-label fuer
 // Screenreader. Die Konvention stammt aus der Device-Map.
+// Die Szenario-Module laden vor dem Seitenskript, sonst fehlt
+// window.__automationScenario beim ersten Render der Seite.
+func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	body := recorder.Body.String()
+	const attr = `data-panel-script="`
+	panel := strings.Index(body, `id="automations-panel"`)
+	if panel < 0 {
+		t.Fatal("das Automations-Panel fehlt in der Shell")
+	}
+	start := strings.Index(body[panel:], attr)
+	if start < 0 {
+		t.Fatal("das Automations-Panel hat keine data-panel-script-Liste")
+	}
+	line := body[panel+start+len(attr):]
+	line = line[:strings.Index(line, `"`)]
+	scenario := strings.Index(line, "automations-scenario.js?v=1")
+	chart := strings.Index(line, "automations-chart.js?v=1")
+	page := strings.Index(line, "automations.page.js?v=")
+	if scenario < 0 || chart < 0 || page < 0 {
+		t.Fatalf("Szenario-Module fehlen in der Skriptliste: %s", line)
+	}
+	if scenario > page || chart > page {
+		t.Fatalf("Szenario-Module laden nach automations.page.js: %s", line)
+	}
+}
+
 func TestAutomationsIconButtonsCarryAccessibleNames(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).

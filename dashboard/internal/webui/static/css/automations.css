@@ -179,14 +179,6 @@
   .automation-collapse { transition-duration: 0s !important; }
 }
 
-/* --- Assistent: eine Schrittleiste ueber der frisch angelegten Regel. --- */
-.wizard-bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .75rem; margin-bottom: .7rem; border: 1px solid var(--accent-line); background: var(--accent-bg); }
-.wizard-steps { display: flex; align-items: center; gap: .4rem; flex: 1; font-size: .78rem; color: var(--text-muted); }
-.wizard-step { display: inline-flex; align-items: center; gap: .3rem; }
-.wizard-step.current { color: var(--accent); font-weight: 600; }
-.wizard-step.done { color: var(--ok); }
-.wizard-step-sep { color: var(--border); }
-
 /* --- Layout: Kette, nur breit und nur im Beobachten-Modus --- */
 @media (min-width: 62rem) {
   .automation-rule[data-mode="view"] .rule-flow {
@@ -214,3 +206,28 @@
 .history-badge { font-weight: 600; }
 .history-test { margin-left: .4rem; font-size: .68rem; padding: .05rem .35rem; border: 1px solid var(--border); color: var(--text-subtle); }
 .history-actions { list-style: none; padding: 0; margin: .3rem 0 0; font-family: ui-monospace, monospace; font-size: .74rem; color: var(--text-subtle); }
+
+/* --- Seitenschale: Zaehler, Reiter, Anlegen, Rueckgaengig --- */
+.auto-bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+.auto-bar .auto-dirty { font-size: .84rem; color: var(--warn); }
+.auto-bar > .icon-button.primary { margin-left: auto; }
+.auto-segment { display: inline-flex; gap: .15rem; padding: .2rem; border-radius: 10px; background: var(--sunken); }
+.auto-segment-tab { display: inline-flex; align-items: center; gap: .4rem; border: 0; background: transparent; color: var(--text-subtle); padding: .4rem .8rem; border-radius: 8px; font: inherit; font-size: .88rem; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+.auto-segment-tab[aria-selected="true"] { background: var(--panel); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.auto-segment-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.auto-count { font-size: .76rem; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.auto-undo { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .55rem .75rem; margin-bottom: .8rem; border-radius: 10px; background: var(--info-bg); color: var(--info); font-size: .88rem; }
+.auto-undo > span { flex: 1; }
+.auto-undo-button { font: inherit; font-size: .84rem; font-weight: 600; color: var(--info); background: transparent; border: 1px solid var(--info-line); border-radius: 8px; padding: .25rem .65rem; cursor: pointer; }
+.auto-undo-button:hover { background: var(--panel); }
+.auto-list { list-style: none; padding: 0; margin: 0; }
+
+/* --- Szenario-Zeile (Platzhalter bis zum Szenario-Editor) --- */
+.auto-scenario { border: 1px solid var(--border-soft); background: var(--panel); padding: .8rem .9rem; margin-bottom: .8rem; }
+.auto-scenario-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.auto-scenario-head .settings-toggle { flex: none; }
+.auto-scenario-name { flex: 1; min-width: 12rem; font: inherit; font-weight: 600; color: var(--text-strong); }
+input.auto-scenario-name { border: 1px solid var(--border); border-radius: 6px; padding: .25rem .45rem; background: var(--sunken); color: var(--text-strong); }
+
+/* Frisch angelegte Eintraege bis zum Speichern: Akzentkante links. */
+.auto-is-new { box-shadow: inset 3px 0 0 var(--accent-line); }

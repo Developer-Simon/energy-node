@@ -1602,6 +1602,21 @@ test('the old wizard is gone from the page component', () => {
   }
 });
 
+test('the old wizard is gone from the templates and the stylesheet', () => {
+  const webui = path.join(here, '..', 'internal', 'webui');
+  const templateDir = path.join(webui, 'templates');
+  const templates = fs.readdirSync(templateDir).filter((name) => /^automations.*\.html$/.test(name));
+  assert.ok(templates.includes('automations-rows.html'));
+  for (const name of templates) {
+    const source = fs.readFileSync(path.join(templateDir, name), 'utf8');
+    for (const marker of ['wizard-bar', 'startRuleWizard', 'wizardShows', 'isWizardRule', 'wizardCanAdvance', 'wizardNext', 'wizardBack', 'wizard.step']) {
+      assert.equal(source.includes(marker), false, `${name} still contains ${marker}`);
+    }
+  }
+  const css = fs.readFileSync(path.join(webui, 'static', 'css', 'automations.css'), 'utf8');
+  assert.equal(css.includes('.wizard-'), false);
+});
+
 test('unsavedCount counts new, changed and deleted entries and settings', () => {
   const { component } = createAutomationsPanel();
   component.document = {
