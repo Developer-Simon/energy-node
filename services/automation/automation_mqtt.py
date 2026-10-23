@@ -283,6 +283,7 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
     if not isinstance(result.get("enabled"), bool):
         errors.append(f"{prefix}: enabled must be a boolean")
     result.setdefault("cooldown_seconds", 0)
+    result.setdefault("repeat_seconds", 0)
     result.setdefault("history_enabled", False)
     conditions = result.get("conditions", [])
     if not (1 <= len(conditions) <= 8):
@@ -299,6 +300,13 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
         for i, cond in enumerate(result["conditions"]):
             if "hold_seconds" in cond and cond["hold_seconds"] < min_interval:
                 errors.append(f"{prefix}.condition[{i}]: hold_seconds must be >= {min_interval:g} for a rule with a publish action")
+        if result["repeat_seconds"] > 0 and result["repeat_seconds"] < min_interval:
+            errors.append(f"{prefix}: repeat_seconds must be >= {min_interval:g} for a rule with a publish action")
+    if result["repeat_seconds"] > 0:
+        for i, action in enumerate(result["actions"]):
+            if action.get("type") == "publish" and action.get("payload_source") == "toggle":
+                errors.append(f"{prefix}: repeat_seconds is not allowed with toggle action[{i}]")
+                break
     return result
 
 
@@ -786,37 +794,54 @@ class Engine:
                 # before cooldown so the same still-true episode keeps
                 # reporting "fired" instead of flipping to "cooldown" the
                 # instant its own cooldown window starts ticking down.
-                results[rule_id] = self._rule_result(rt, rule, "fired", None, condition_reports, preview, cooldown_remaining)
+                # repeat_seconds > 0 re-runs the action chain every
+                # repeat_seconds while the conditions keep holding.
+                if rule.get("repeat_seconds", 0) > 0 and all_held and now_ts - rt.last_fired_at >= rule["repeat_seconds"]:
+                    outcome_result, fired_actions = self._fire(rule, rt, balance=effective_balance,
+                                                               topic_values=topic_values, now_ts=now_ts,
+                                                               record_history=False)
+                    cooldown_remaining = max(0.0, rule.get("cooldown_seconds", 0) - (now_ts - rt.last_fired_at))
+                    results[rule_id] = self._rule_result(rt, rule, outcome_result, None, condition_reports, fired_actions, cooldown_remaining)
+                else:
+                    results[rule_id] = self._rule_result(rt, rule, "fired", None, condition_reports, preview, cooldown_remaining)
             elif cooldown_remaining > 0:
                 results[rule_id] = self._rule_result(rt, rule, "cooldown", None, condition_reports, preview, cooldown_remaining)
             elif not all_held:
                 results[rule_id] = self._rule_result(rt, rule, "hold_pending", None, condition_reports, preview, cooldown_remaining)
             else:
-                fired_actions = []
-                any_blocked = False
-                any_error = False
-                for action in rule["actions"]:
-                    try:
-                        outcome = self.executor.execute(action, balance=effective_balance, topic_values=topic_values, event_sink=self.event_sink)
-                    except Exception as exc:  # noqa: BLE001 - a broker/publish failure must not crash the tick
-                        outcome = {"blocked": True, "reason": str(exc)}
-                        any_error = True
-                    fired_actions.append(outcome)
-                    if outcome.get("blocked"):
-                        any_blocked = True
-                rt.last_fired_at = now_ts
-                rt.fired_this_episode = True
-                rt.fire_count += 1
+                outcome_result, fired_actions = self._fire(rule, rt, balance=effective_balance,
+                                                           topic_values=topic_values, now_ts=now_ts,
+                                                           record_history=True)
                 cooldown_remaining = max(0.0, rule.get("cooldown_seconds", 0) - (now_ts - rt.last_fired_at))
-                outcome_result = "error" if any_error else ("blocked" if any_blocked else "fired")
-                if self.history_sink is not None:
-                    history_actions = [{**outcome, "type": action["type"]}
-                                        for action, outcome in zip(rule["actions"], fired_actions)]
-                    self.history_sink(rule_id, {"result": outcome_result, "reason": None,
-                                                 "test": False, "actions": history_actions})
                 results[rule_id] = self._rule_result(rt, rule, outcome_result, None, condition_reports, fired_actions, cooldown_remaining)
 
         return results
+
+    def _fire(self, rule: dict, rt: RuleRuntime, *, balance, topic_values, now_ts: float,
+              record_history: bool) -> tuple[str, list]:
+        rule_id = rule["id"]
+        fired_actions = []
+        any_blocked = False
+        any_error = False
+        for action in rule["actions"]:
+            try:
+                outcome = self.executor.execute(action, balance=balance, topic_values=topic_values, event_sink=self.event_sink)
+            except Exception as exc:  # noqa: BLE001 - a broker/publish failure must not crash the tick
+                outcome = {"blocked": True, "reason": str(exc)}
+                any_error = True
+            fired_actions.append(outcome)
+            if outcome.get("blocked"):
+                any_blocked = True
+        rt.last_fired_at = now_ts
+        rt.fired_this_episode = True
+        rt.fire_count += 1
+        outcome_result = "error" if any_error else ("blocked" if any_blocked else "fired")
+        if record_history and self.history_sink is not None:
+            history_actions = [{**outcome, "type": action["type"]}
+                                for action, outcome in zip(rule["actions"], fired_actions)]
+            self.history_sink(rule_id, {"result": outcome_result, "reason": None,
+                                         "test": False, "actions": history_actions})
+        return outcome_result, fired_actions
 
     @staticmethod
     def _rule_result(rt: RuleRuntime, rule: dict, result: str, reason: Optional[str], conditions: list,
