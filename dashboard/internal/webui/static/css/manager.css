@@ -1194,7 +1194,11 @@ div.devicemap-view-menu-row { cursor: default; }
 /* Device picker (device-picker.js): a modal sheet with search, sections per
    manufacturer and a check mark per row. */
 .app-modal.device-picker { width: min(30rem, calc(100vw - 2rem)); padding: 0; border-left-width: 1px; border-radius: var(--radius-lg); overflow: hidden; }
-.device-picker-form { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; max-height: min(40rem, calc(100vh - 4rem)); }
+/* Flex statt fester Grid-Zeilen: die Filterzeile ist optional, eine feste
+   Zeilenliste liess sie auf 0 schrumpfen und die Liste lag ueber den Chips. */
+.device-picker-form { display: flex; flex-direction: column; max-height: min(40rem, calc(100vh - 4rem)); }
+.device-picker-form > * { flex: none; }
+.device-picker-form > .device-picker-list { flex: 1 1 auto; min-height: 0; }
 .device-picker .app-modal-title { padding: 1.1rem 1.25rem .5rem; margin: 0; }
 .device-picker-search { position: relative; display: block; margin: 0 1.25rem .5rem; }
 .device-picker-search svg { position: absolute; left: .7rem; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }

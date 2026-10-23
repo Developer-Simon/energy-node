@@ -1364,7 +1364,7 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
-	scenario := strings.Index(line, "automations-scenario.js?v=1")
+	scenario := strings.Index(line, "automations-scenario.js?v=2")
 	chart := strings.Index(line, "automations-chart.js?v=2")
 	page := strings.Index(line, "automations.page.js?v=")
 	if scenario < 0 || chart < 0 || page < 0 {
@@ -3258,11 +3258,13 @@ func TestHeaderOffersTheHistorySwitch(t *testing.T) {
 	}
 	header := source[bar:]
 	save := strings.Index(header, `x-on:click="save()"`)
-	label := strings.Index(header, `<label class="settings-toggle"`)
+	// Der Schalter steckt in einem Label mit Text: .settings-toggle selbst hat
+	// eine feste Breite, Text darin lief ueber den Speichern-Knopf.
+	label := strings.Index(header, `<label class="auto-bar-switch"`)
 	if label < 0 {
-		t.Fatal("Verlaufsschalter ist kein <label class=\"settings-toggle\"> in der Kopfleiste")
+		t.Fatal("Verlaufsschalter ist kein <label class=\"auto-bar-switch\"> in der Kopfleiste")
 	}
-	for _, want := range []string{`setShowHistory(`, `automations.show_history`} {
+	for _, want := range []string{`class="settings-toggle"`, `setShowHistory(`, `automations.show_history`} {
 		if !strings.Contains(header[label:], want) {
 			t.Fatalf("Verlaufsschalter ohne %s", want)
 		}
@@ -3335,7 +3337,7 @@ func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
 		`removeCondition(rowsOwner, index)`,
 		`removeAction(rowsOwner, index)`,
 		`addCondition(rowsOwner, type.key)`,
-		`addAction(rowsOwner, type.key, $data)`,
+		`addAction(rowsOwner, type.key)`,
 		`x-on:change="toggleUntil(scenario, $event.target.checked)"`,
 		`x-on:click="changeWhileMode(scenario, 'hold')"`,
 		`x-model="scenario.history_enabled"`,

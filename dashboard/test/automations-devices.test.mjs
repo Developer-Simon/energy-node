@@ -104,11 +104,49 @@ test('meter candidates keep an entity without a value so a saved meter stays sel
 test('chipList puts the selection first and counts all', () => {
   const devices = load();
   const candidates = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, fits: true }));
-  const result = plain(devices.chipList(candidates, 'd'));
+  const result = plain(devices.chipList(candidates, 'd', 2));
   assert.equal(result.chips[0].id, 'd');
   assert.equal(result.chips.length, 2);
   assert.equal(result.more, 5);
   assert.equal(result.missing, false);
+  // Ohne Grenze liefert die Liste alle, die Zeile kuerzt per CSS.
+  assert.deepEqual(plain(devices.chipList(candidates, 'd')).chips.map((c) => c.id), ['d', 'a', 'b', 'c', 'e']);
+});
+
+test('live values also come from numeric strings, short texts stay as they are', () => {
+  const devices = load();
+  const meter = { id: 'm', name: 'Netz', entities: [
+    { unique_id: 'p', name: 'Leistung', state_topic: 'm/p', template_supported: true, unit_of_measurement: 'W', value: '-1432' },
+    { unique_id: 's', name: 'Ausgang', state_topic: 'm/s', template_supported: true, value: 'ON' },
+  ] };
+  const [power, state] = plain(devices.meterCandidates([meter], {}));
+  assert.equal(power.valueText, 'jetzt -1432 W');
+  assert.equal(state.valueText, 'jetzt ON');
+  const limit = { ...inverter, entities: [{ ...inverter.entities[0], value: '800' }] };
+  assert.equal(plain(devices.actuatorCandidates([limit], assignments, 'producer'))[0].valueText, 'jetzt +800 W');
+});
+
+test('entityChip describes any entity with role, name and value', () => {
+  const devices = load();
+  const chip = plain(devices.entityChip([wallbox], assignments, 'wb_current'));
+  assert.equal(chip.deviceName, 'Wallbox');
+  assert.equal(chip.subtitle, 'Ladestrom');
+  assert.equal(chip.tone, 'wallbox');
+  assert.equal(chip.valueText, 'jetzt 10 A');
+  assert.equal(devices.entityChip([wallbox], assignments, 'gone'), null);
+});
+
+test('balance fields get role icons and custom categories the layers icon', () => {
+  const devices = load();
+  const fields = plain(devices.balanceFieldCandidates([['grid_export', 'Netzeinspeisung'], ['pv', 'PV'], ['battery_soc', 'SoC'], ['custom:x', 'Eigene']]));
+  assert.deepEqual(fields.map((f) => [f.id, f.icon, f.tone]), [
+    ['grid_export', 'ico-grid', 'grid'], ['pv', 'ico-sun', 'pv'], ['battery_soc', 'ico-battery', ''], ['custom:x', 'ico-layers', ''],
+  ]);
+});
+
+test('picker items carry no member badge', () => {
+  const devices = load();
+  assert.equal(plain(devices.pickerItems([{ id: 'a', deviceName: 'A', group: 'other', fits: true }]))[0].memberOf, '');
 });
 
 test('chipList flags a saved id that no longer exists', () => {

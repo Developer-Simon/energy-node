@@ -32,6 +32,13 @@
 
   const isNumber = (value) => typeof value === 'number' && Number.isFinite(value);
   const hasText = (value) => value !== undefined && value !== null && value !== '';
+  // Die Registry liefert Messwerte als Text ("800", "-1432"), Grenzen als Zahl.
+  const toNumber = (value) => {
+    if (isNumber(value)) return value;
+    if (typeof value !== 'string' || value.trim() === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
 
   function deviceRoleGroup(device, assignments) {
     const roles = new Set(
@@ -56,15 +63,21 @@
     return t(LABEL_KEY[key] || LABEL_KEY.other);
   }
 
+  // Aktueller Wert als "jetzt ...": Zahlen mit Einheit, Watt mit Vorzeichen,
+  // kurze Texte (ON, OFF) unveraendert, ohne Wert leer.
   function valueText(entity) {
-    if (!isNumber(entity.value)) return '';
+    const number = toNumber(entity.value);
+    if (number === null) {
+      const text = typeof entity.value === 'string' ? entity.value.trim() : '';
+      return text && text.length <= 16 ? t('automations.devices.value_now', { value: text }) : '';
+    }
     const unit = entity.unit_of_measurement || '';
     if (unit === 'W') {
-      const sign = entity.value > 0 ? '+' : '';
-      return t('automations.devices.value_now', { value: `${sign}${formatNumber(entity.value)} W` });
+      const sign = number > 0 ? '+' : '';
+      return t('automations.devices.value_now', { value: `${sign}${formatNumber(number)} W` });
     }
     const suffix = unit ? ` ${unit}` : '';
-    return t('automations.devices.value_now', { value: `${formatNumber(entity.value)}${suffix}` });
+    return t('automations.devices.value_now', { value: `${formatNumber(number)}${suffix}` });
   }
 
   function candidate(device, entity, assignments, subtitle, text, fits) {
@@ -122,7 +135,7 @@
     for (const device of devices || []) {
       for (const entity of device.entities || []) {
         if (!hasText(entity.command_topic) || !hasText(entity.payload_on) || !hasText(entity.payload_off)) continue;
-        result.push(candidate(device, entity, assignments, entity.name, '', true));
+        result.push(candidate(device, entity, assignments, entity.name, valueText(entity), true));
       }
     }
     return result;
@@ -133,9 +146,10 @@
   }
 
   // Gewaehltes Item zuerst (auch wenn es abgeblendet ist), danach die passenden
-  // in Listenreihenfolge, insgesamt hoechstens limit Chips. missing meldet eine
+  // in Listenreihenfolge, insgesamt hoechstens limit Chips. Die Kachelreihe
+  // zeigt davon so viele, wie in eine Zeile passen. missing meldet eine
   // gespeicherte ID, die nicht mehr in der Liste steht.
-  function chipList(candidates, selectedId, limit = 2) {
+  function chipList(candidates, selectedId, limit = 12) {
     const list = candidates || [];
     const selected = selectedId ? list.find((c) => c.id === selectedId) : undefined;
     const chips = selected ? [selected] : [];
@@ -157,13 +171,52 @@
       subtitle: c.subtitle,
       valueText: c.valueText,
       iconMarkup: '',
-      memberOf: [],
+      memberOf: '',
       kind: 'device',
       dim: !c.fits,
     }));
   }
 
+  // Kachel fuer eine beliebige Entitaet (Aktion, Bedingung): Geraet, Rolle,
+  // Entitaetsname und aktueller Wert. null, wenn die Entitaet fehlt.
+  function entityChip(devices, assignments, uniqueId) {
+    if (!uniqueId) return null;
+    for (const device of devices || []) {
+      const entity = (device.entities || []).find((item) => item.unique_id === uniqueId);
+      if (entity) return candidate(device, entity, assignments, entity.name, valueText(entity), true);
+    }
+    return null;
+  }
+
+  // Bilanzfelder als Picker-Kandidaten mit Rollen-Icon. fields ist die Liste
+  // [Feld, Label] der Seite, eigene Kategorien kommen in die Gruppe "other".
+  const FIELD_STYLE = {
+    grid_export: 'grid', grid_import: 'grid', gap_applied: 'grid',
+    pv: 'inverter', autarkie: 'inverter', eigenverbrauch: 'inverter',
+    wallbox: 'wallbox', heat_pump: 'heat_pump',
+  };
+  const FIELD_ICON = {
+    load_total: 'ico-load', base: 'ico-load',
+    battery_charge: 'ico-battery', battery_discharge: 'ico-battery', battery_soc: 'ico-battery',
+    battery_capacity_kwh: 'ico-battery', battery_energy_kwh: 'ico-battery',
+    pv: 'ico-sun', autarkie: 'ico-sun', eigenverbrauch: 'ico-sun',
+  };
+  function balanceFieldCandidates(fields) {
+    return (fields || []).map(([field, label]) => {
+      const group = FIELD_STYLE[field] || 'other';
+      const style = GROUP_BY_KEY[group];
+      return {
+        id: field, deviceName: label, entityName: '', group,
+        icon: FIELD_ICON[field] || (field.startsWith('custom:') ? 'ico-layers' : style.icon),
+        tone: style.tone, subtitle: '', valueText: '', fits: true, topic: '',
+      };
+    });
+  }
+
   window.__automationDevices = {
+    toNumber,
+    entityChip,
+    balanceFieldCandidates,
     ROLE_GROUPS,
     deviceRoleGroup,
     actuatorCandidates,

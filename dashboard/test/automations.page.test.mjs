@@ -1265,13 +1265,78 @@ test('addAction legt Benachrichtigung und rohen MQTT-Befehl an', () => {
   assert.equal(rule.actions[1].topic, '');
 });
 
-test('addAction mit "entity" legt keine Aktion an, sondern oeffnet den Geraete-Assistenten', () => {
+test('addAction mit "entity" oeffnet den Picker und legt die Aktion erst mit der Wahl an', async () => {
   const { component } = createAutomationsPanel();
+  component.devices = [{ id: 'wb', name: 'Wallbox', entities: [switchEntity, { ...setpointEntity, value: '4200' }] }];
+  component.entities = component.flattenCommandableEntities(component.devices);
   const rule = { id: 'r1', conditions: [], actions: [] };
-  const scope = { showEntityWizard: false };
-  component.addAction(rule, 'entity', scope);
+  let options = null;
+  component.openPicker = async (request) => { options = request; return null; };
+  await component.addAction(rule, 'entity');
+  assert.equal(options.mode, 'single');
+  assert.equal(options.items.map((item) => item.id).sort().join(), 'wallbox_enable,wallbox_power');
   assert.equal(rule.actions.length, 0);
-  assert.equal(scope.showEntityWizard, true);
+  component.openPicker = async () => 'wallbox_enable';
+  await component.addAction(rule, 'entity');
+  assert.equal(rule.actions[0].payload, 'ON');
+  component.openPicker = async () => 'wallbox_power';
+  await component.addAction(rule, 'entity');
+  assert.equal(component.actionKind(rule.actions[1]), 'setpoint');
+  assert.equal(rule.actions[1].payload, '4200');
+});
+
+test('a publish action on a device topic counts as setpoint even without entity_id', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [setpointEntity];
+  const action = { type: 'publish', topic: 'werkstatt/wallbox/set', payload_source: 'constant', payload: '20', retain: false };
+  assert.equal(component.actionKind(action), 'setpoint');
+  assert.deepEqual(JSON.parse(JSON.stringify(component.actionBounds(action))), { min: 1380, max: 11000, step: 10, unit: '' });
+  assert.equal(component.actionKind({ ...action, topic: 'fremd/topic' }), 'mqtt');
+});
+
+test('new rules and scenarios start enabled with history, new balance conditions with hysteresis 5', () => {
+  const { component } = createAutomationsPanel();
+  component.addRule();
+  const rule = component.document.rules.at(-1);
+  assert.equal(rule.enabled, true);
+  assert.equal(rule.history_enabled, true);
+  component.addBalanceCondition(rule);
+  assert.equal(rule.conditions[0].hysteresis, 5);
+  component.addScenario();
+  const scenario = component.document.scenarios.at(-1);
+  assert.equal(scenario.enabled, true);
+  assert.equal(scenario.history_enabled, true);
+});
+
+test('picking a wallbox as actuator switches the regulator to consumer', () => {
+  const { component } = createAutomationsPanel();
+  component.devices = [{ id: 'wb', name: 'Wallbox', entities: [setpointEntity] }];
+  component.assignments = { wallbox_power: { role: 'wallbox' } };
+  component.entities = component.flattenCommandableEntities(component.devices);
+  const scenario = chipRegulator({ output: null });
+  component.setRegulatorOutput(scenario, 'wallbox_power');
+  assert.equal(scenario.while.regulator.direction, 'consumer');
+});
+
+test('liveBars has one bar per numeric condition', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', conditions: [
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 50 },
+    { type: 'time_window', start: '08:00', end: '18:00' },
+    { type: 'entity_value', entity_id: '', comparison: 'below', value: 20 },
+    { type: 'entity_value', entity_id: '', comparison: 'equals', text: 'ON' },
+  ], actions: [] };
+  assert.deepEqual(component.liveBars(rule).map((bar) => bar.index), [0, 2]);
+});
+
+test('setComparison allows equals only outside balance conditions', () => {
+  const { component } = createAutomationsPanel();
+  const balance = { type: 'balance_threshold', comparison: 'above' };
+  component.setComparison(balance, 'equals');
+  assert.equal(balance.comparison, 'above');
+  const entity = { type: 'entity_value', comparison: 'above' };
+  component.setComparison(entity, 'not_equals');
+  assert.equal(entity.comparison, 'not_equals');
 });
 
 // --- Loeschen mit Rueckfrage ------------------------------------------------
