@@ -484,7 +484,7 @@ flowchart LR
     REC --> IDB
     IDB --> MNT --> IDB
     IDB --> CHART
-    EX["history-exchange.js"] <-->|"/api/v1/history/exchange/*"| SRV{{"dashboard<br/>relay + 24 h ring buffer"}}
+    EX["history-exchange.js"] <-->|"/api/v1/history/exchange/*"| SRV{{"dashboard<br/>relay + 24 h ring buffer<br/>+ scenario sampler"}}
     IDB <--> EX
 ```
 {% endraw %}
@@ -518,6 +518,16 @@ still fill gaps after a reload. Peers announce their coverage as coarse rasters
 Only the `1m` and `5m` tiers are exchanged. Raw samples are not, because their
 offset timestamps would not deduplicate. Protocol version 1 allows 500 rows per
 delivery, 20 000 per request and 1 MiB per body.
+
+The ring buffer has a second source besides the browsers: the dashboard itself.
+Every 10 s the energy tick hands its snapshot to a sampler. The sampler keeps the
+open minute in memory and writes one row per series when the minute closes. Each
+row is stamped with the start of its minute. The series are `role:grid` (import minus export) and the
+output sensors of every automation scenario with `while.mode` set to `regulate`.
+Without such a scenario the sampler writes nothing, so the exception stays as
+narrow as possible. A row a browser has already delivered for the same minute
+stays as it is. The rows are never written to disk and the automation service
+never reads them back.
 
 Each browser runs the exchange in one of two modes, stored per device in
 `localStorage` (`history-exchange-mode`). `always` offers its own coverage and
@@ -723,6 +733,11 @@ only when it changed. When another peer joins it sends the current offer again.
 On a lost connection it reconnects with a pause growing from 2 to 60 seconds.
 The guest session is kept across reconnects, because every guest login writes
 `users.json` on the node's SD card.
+
+The companion needs no change for the scenario outputs. `series_map.resolve()`
+resolves every announced series that is not a role through the MQTT `unique_id`
+in the entity registry, and the scenario series `automation_scenario_<id>_output`
+is exactly that `unique_id`.
 
 ### The sidebar page
 

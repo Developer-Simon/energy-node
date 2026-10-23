@@ -1314,6 +1314,8 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 		"ico-help", "ico-gear", "ico-power-on", "ico-power-off",
 		// Fuers Verlaeufe-Panel ergaenzte Symbole
 		"ico-calendar", "ico-download", "ico-close",
+		// Geraete-Symbol des Wechselrichters fuer Szenarien
+		"ico-inverter",
 	} {
 		if !strings.Contains(page, `id="`+symbol+`"`) {
 			t.Fatalf("Sprite-Symbol %s fehlt in der Shell", symbol)
@@ -1324,7 +1326,7 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
-	for _, marker := range []string{`class="rule`, `class="cond`, `class="gate`, `class="act`, `mini-chain`} {
+	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="auto-line`, `class="auto-pill`, `class="auto-rule-timeline`} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Fluss-Markup %q fehlt im Automations-Panel", marker)
 		}
@@ -1341,6 +1343,35 @@ func TestUpdateBarIconIsStyledByItsClass(t *testing.T) {
 	page := recorder.Body.String()
 	if !strings.Contains(page, `<svg class="update-bar-icon" viewBox="0 0 24 24" aria-hidden="true">`) {
 		t.Fatal("das Icon der Update-Leiste braucht class=\"update-bar-icon\" (fill:none, stroke aus base.css)")
+	}
+}
+
+// Die Szenario-Module laden vor dem Seitenskript, sonst fehlt
+// window.__automationScenario beim ersten Render der Seite.
+func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	body := recorder.Body.String()
+	const attr = `data-panel-script="`
+	panel := strings.Index(body, `id="automations-panel"`)
+	if panel < 0 {
+		t.Fatal("das Automations-Panel fehlt in der Shell")
+	}
+	start := strings.Index(body[panel:], attr)
+	if start < 0 {
+		t.Fatal("das Automations-Panel hat keine data-panel-script-Liste")
+	}
+	line := body[panel+start+len(attr):]
+	line = line[:strings.Index(line, `"`)]
+	scenario := strings.Index(line, "automations-scenario.js?v=1")
+	chart := strings.Index(line, "automations-chart.js?v=1")
+	page := strings.Index(line, "automations.page.js?v=")
+	if scenario < 0 || chart < 0 || page < 0 {
+		t.Fatalf("Szenario-Module fehlen in der Skriptliste: %s", line)
+	}
+	if scenario > page || chart > page {
+		t.Fatalf("Szenario-Module laden nach automations.page.js: %s", line)
 	}
 }
 
@@ -3127,5 +3158,145 @@ func TestDevicesTabCardsCarryStructureAndRowTemplate(t *testing.T) {
 	_, compact := render(t, reg, store, "/?fragment=devices-live&view_mode=compact")
 	if !strings.Contains(compact, `data-compact-auto="true"`) {
 		t.Error("Kompaktkarte im Geraete-Tab ist nicht automatisch")
+	}
+}
+
+// Die Szenario-Karte: die zugeklappte Zeile ist per Tastatur bedienbar, der
+// Schalter ist ein <label>, Werte und Diagramm gibt es nur beim Regler.
+func TestScenarioCardMarkupCarriesRowChartAndPhases(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`class="auto-scenario-row" role="button" tabindex="0"`,
+		`x-on:keydown.enter.prevent="toggleScenarioExpanded(scenario)"`,
+		`x-on:keydown.space.prevent="toggleScenarioExpanded(scenario)"`,
+		`x-if="scenario.while && scenario.while.mode === 'regulate'"`,
+		`class="auto-figures"`,
+		`Heute eingespeist`,
+		`viewBox="0 0 600 170"`,
+		`class="auto-chart-band"`,
+		`class="auto-chart-grid"`,
+		`class="auto-chart-output"`,
+		`class="auto-chart-legend"`,
+		`class="auto-phases"`,
+		`'is-active': activePhaseIndex(scenario) === index`,
+		`automations.scenario.chart.empty`,
+		`<label class="settings-toggle" x-on:click.stop`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Szenario-Karte: %q fehlt im Automations-Panel", want)
+		}
+	}
+	// Der Schalter der zugeklappten Zeile ist ein <label>, damit er auch per
+	// Klick auf den Schalter schaltet; ein <span> ließe sich nicht umlegen.
+	if !strings.Contains(body, `<label class="settings-toggle" x-on:click.stop x-on:keydown.stop`) {
+		t.Fatal("der Szenario-Schalter der zugeklappten Zeile ist kein <label class=\"settings-toggle\">")
+	}
+}
+
+// Ein Verbraucher-Regler faerbt Stellwert, Verlauf und Legende in der
+// Verbraucherfarbe. Die Klasse setzt die Karte, das CSS die Farben.
+func TestConsumerRegulatorCardUsesTheConsumerColour(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tpl), `'is-consumer': regulatorFigures(scenario).direction === 'consumer'`) {
+		t.Fatal("der Regler-Wrapper setzt die Klasse is-consumer nicht")
+	}
+	css, err := os.ReadFile("static/css/automations.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range []string{
+		`.auto-regulator.is-consumer .auto-figure-value.is-output { color: var(--flow-wallbox); }`,
+		`.auto-regulator.is-consumer .auto-chart-output { stroke: var(--flow-wallbox); }`,
+		`.auto-regulator.is-consumer .auto-swatch.is-output { background: var(--flow-wallbox); }`,
+	} {
+		if !strings.Contains(string(css), rule) {
+			t.Fatalf("CSS-Regel fehlt: %s", rule)
+		}
+	}
+}
+
+// Zugeklappt zeigt ein Regler-Szenario Netz und Stellwert neben der Pill,
+// solange kein Fortschritt zur Startschwelle an ihrer Stelle steht.
+func TestCollapsedRegulatorRowShowsNetAndOutput(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	collapsed, _, found := strings.Cut(string(tpl), `<template x-if="scenarioExpanded[scenario.id]">`)
+	if !found {
+		t.Fatal("aufgeklappte Karte nicht gefunden")
+	}
+	for _, marker := range []string{
+		`x-if="scenario.while && scenario.while.mode === 'regulate' && !scenarioProgress(scenario)"`,
+		`class="auto-mini-figures"`,
+		`x-text="gridNowText(scenario)"`,
+		`x-text="regulatorFigures(scenario).output"`,
+	} {
+		if !strings.Contains(collapsed, marker) {
+			t.Fatalf("zugeklappte Zeile ohne %s", marker)
+		}
+	}
+}
+
+// Die Regelkarte gliedert sich in Wenn, Dann und Ablauf, mit Live-Balken oben
+// und Zeitleiste unten. Die alten Spalten Ursache, Tor und Wirkung sind weg.
+func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		"Wenn alles zutrifft",
+		"auto-rule-timeline",
+		"auto-live",
+		"auto-blocks",
+		`<template x-if="!editing[rule.id]">`,
+		`<template x-if="editing[rule.id]">`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Regelkarte: %q fehlt im Automations-Panel", want)
+		}
+	}
+	for _, gone := range []string{`class="gate"`, "mini-chain", "rule-column", "rule-arrow"} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("Regelkarte: %q gibt es nicht mehr", gone)
+		}
+	}
+}
+
+// Im Bearbeiten-Modus sind die Zeilen editierbar wie in der Regelkarte: jeder
+// Phasenblock bindet die gemeinsamen Editoren und Kacheln an seinen Besitzer.
+func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`<template x-if="scenarioEditing[scenario.id]">`,
+		`scenarioRows(scenario, 'when', 'when')`,
+		`scenarioRows(scenario, 'on_start', null)`,
+		`scenarioRows(scenario, 'while', null)`,
+		`scenarioRows(scenario, 'until', 'until')`,
+		`scenarioRows(scenario, 'on_end', null)`,
+		`in rowsOwner.conditions`,
+		`in rowsOwner.actions`,
+		`removeCondition(rowsOwner, index)`,
+		`removeAction(rowsOwner, index)`,
+		`addCondition(rowsOwner, type.key)`,
+		`addAction(rowsOwner, type.key, $data)`,
+		`x-on:change="toggleUntil(scenario, $event.target.checked)"`,
+		`x-on:click="changeWhileMode(scenario, 'hold')"`,
+		`x-model="scenario.history_enabled"`,
+		"Wenn eine Startbedingung nicht mehr erfüllt ist",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Szenario-Bearbeitung: %q fehlt im Automations-Panel", want)
+		}
 	}
 }

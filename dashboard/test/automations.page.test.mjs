@@ -19,6 +19,9 @@ const configStatusSource = fs.readFileSync(
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
+const scenarioSource = fs.readFileSync(path.join(jsDir, 'automations-scenario.js'), 'utf8');
+const chartSource = fs.readFileSync(path.join(jsDir, 'automations-chart.js'), 'utf8');
+const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -32,6 +35,9 @@ function createAutomationsPanel() {
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
   vm.runInContext(viewSource, context);
+  vm.runInContext(scenarioSource, context);
+  vm.runInContext(chartSource, context);
+  vm.runInContext(rollupSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -538,25 +544,30 @@ test('expanding a collapsed rule does not start editing', () => {
   assert.equal(Boolean(component.editing[rule.id]), false);
 });
 
-test('collapsing a rule keeps editing while the wizard runs for it', () => {
+test('collapsing a rule closes its editor even when it was open', () => {
   const component = panelWithState(sampleState);
   component.document = { version: 1, settings: {}, rules: [JSON.parse(JSON.stringify(sampleRule))] };
   const rule = component.document.rules[0];
   component.expanded[rule.id] = true;
   component.editing[rule.id] = true;
-  component.wizard = { active: true, step: 2, ruleId: rule.id };
   component.toggleExpanded(rule);
   assert.equal(component.expanded[rule.id], false);
-  assert.equal(component.editing[rule.id], true);
+  assert.equal(component.editing[rule.id], false);
 });
 
-test('renderMiniChain yields one entry per condition plus the gate tone', () => {
-  const component = panelWithState(sampleState);
-  const chain = component.renderMiniChain(sampleRule);
-  assert.equal(chain.conditions.length, 1);
-  assert.equal(chain.conditions[0].state, 'pending');
-  assert.equal(chain.actions.length, 1);
-  assert.equal(chain.gate.tone, 'wait');
+test('offline scenarios show a dash for net and setpoint and highlight no phase', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  component.runtimeState = { rules: {}, scenarios: { [scenario.id]: { phase: 'active', output: 300, net: 120 } } };
+  component.online = true;
+  assert.equal(component.regulatorFigures(scenario).output, 300);
+  assert.notEqual(component.gridNowText(scenario), '—');
+  assert.equal(component.activePhaseIndex(scenario), 1);
+  component.online = false;
+  assert.equal(component.regulatorFigures(scenario).output, '—');
+  assert.equal(component.gridNowText(scenario), '—');
+  assert.equal(component.activePhaseIndex(scenario), -1);
+  assert.equal(component.scenarioProgress(scenario), null);
 });
 
 test('applyStateObject stores the state and its timestamp', () => {
@@ -818,6 +829,16 @@ test('save() stores exactly the typed prefixes and clears the auto flag', async 
   assert.equal(sentBody.settings.publish_allowed_prefixes_auto, false);
 });
 
+function validScenario(id) {
+  return {
+    id, name: 'Nulleinspeisung', enabled: false,
+    when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 }] },
+    on_start: { actions: [] },
+    while: { mode: 'none' },
+    on_end: { actions: [] },
+  };
+}
+
 test('save keeps scenarios in the document', async () => {
   const { component, window } = createAutomationsPanel();
   component.document = {
@@ -825,7 +846,7 @@ test('save keeps scenarios in the document', async () => {
     settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
                 publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
     rules: [],
-    scenarios: [{ id: 'nulleinspeisung' }],
+    scenarios: [validScenario('nulleinspeisung')],
   };
   component.csrfToken = 'tok';
   component.pollRuntimeStatus = async () => {};
@@ -836,7 +857,7 @@ test('save keeps scenarios in the document', async () => {
     return { ok: true, json: async () => ({}) };
   };
   await component.save();
-  assert.deepEqual(JSON.parse(JSON.stringify(sentBody.scenarios)), [{ id: 'nulleinspeisung' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(sentBody.scenarios)), [validScenario('nulleinspeisung')]);
 });
 
 test('load() displays an empty prefix field even though the auto-filled list is stored', async () => {
@@ -1274,63 +1295,6 @@ test('removeRule laesst die Regel stehen, wenn die Rueckfrage verneint wird', as
   assert.deepEqual(component.document.rules.map((rule) => rule.id), ['r1']);
 });
 
-// --- Assistent fuer neue Regeln --------------------------------------------
-
-test('startRuleWizard legt eine Regel an und beginnt bei Schritt 1', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  assert.equal(component.document.rules.length, 1);
-  assert.equal(component.wizard.active, true);
-  assert.equal(component.wizard.step, 1);
-  assert.equal(component.wizard.ruleId, component.document.rules[0].id);
-});
-
-test('der Assistent laesst Schritt 1 erst verlassen, wenn eine Bedingung steht', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  const rule = component.document.rules[0];
-
-  assert.equal(component.wizardCanAdvance(), false);
-  component.wizardNext();
-  assert.equal(component.wizard.step, 1);
-
-  component.addCondition(rule, 'balance');
-  assert.equal(component.wizardCanAdvance(), true);
-  component.wizardNext();
-  assert.equal(component.wizard.step, 2);
-});
-
-test('der Assistent laesst Schritt 2 erst verlassen, wenn eine Aktion steht', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  const rule = component.document.rules[0];
-  component.addCondition(rule, 'balance');
-  component.wizardNext();
-
-  assert.equal(component.wizardCanAdvance(), false);
-  component.addAction(rule, 'notify');
-  assert.equal(component.wizardCanAdvance(), true);
-  component.wizardNext();
-  assert.equal(component.wizard.step, 3);
-});
-
-test('wizardBack geht zurueck, aber nie vor Schritt 1', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  component.wizardBack();
-  assert.equal(component.wizard.step, 1);
-});
-
-test('wizardFinish beendet den Assistenten und laesst die Regel im Bearbeiten-Modus stehen', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  const ruleId = component.wizard.ruleId;
-  component.wizardFinish();
-  assert.equal(component.wizard.active, false);
-  assert.equal(component.editing[ruleId], true);
-  assert.equal(component.expanded[ruleId], true);
-});
-
 test('historyResultInfo maps result codes to tone and German label', () => {
   const { component } = createAutomationsPanel();
   assert.deepEqual(JSON.parse(JSON.stringify(component.historyResultInfo('fired'))), { tone: 'ok', label: 'Ausgelöst' });
@@ -1638,4 +1602,597 @@ test('load() stores the custom categories from /api/v1/energy/roles', async () =
   assert.equal(component.categories.sauna.label, 'Sauna');
   assert.equal(component.categories.sauna.base, 'consumer');
   window.close();
+});
+
+test('the old wizard is gone from the page component', () => {
+  for (const name of ['startRuleWizard', 'wizardRule', 'wizardCanAdvance', 'wizardNext', 'wizardBack', 'wizardFinish', 'isWizardRule', 'wizardShows', 'this.wizard']) {
+    assert.equal(scriptSource.includes(name), false, name);
+  }
+});
+
+test('the old wizard is gone from the templates and the stylesheet', () => {
+  const webui = path.join(here, '..', 'internal', 'webui');
+  const templateDir = path.join(webui, 'templates');
+  const templates = fs.readdirSync(templateDir).filter((name) => /^automations.*\.html$/.test(name));
+  assert.ok(templates.includes('automations-rows.html'));
+  for (const name of templates) {
+    const source = fs.readFileSync(path.join(templateDir, name), 'utf8');
+    for (const marker of ['wizard-bar', 'startRuleWizard', 'wizardShows', 'isWizardRule', 'wizardCanAdvance', 'wizardNext', 'wizardBack', 'wizard.step']) {
+      assert.equal(source.includes(marker), false, `${name} still contains ${marker}`);
+    }
+  }
+  const css = fs.readFileSync(path.join(webui, 'static', 'css', 'automations.css'), 'utf8');
+  assert.equal(css.includes('.wizard-'), false);
+});
+
+test('unsavedCount counts new, changed and deleted entries and settings', () => {
+  const { component } = createAutomationsPanel();
+  component.document = {
+    version: 1, settings: { history_limit: 10 },
+    rules: [JSON.parse(JSON.stringify(sampleRule))],
+    scenarios: [{ id: 's1', name: 'Pumpe', enabled: false }],
+  };
+  component.savedDocument = JSON.parse(JSON.stringify(component.document));
+  assert.equal(component.unsavedCount(), 0);
+  component.document.rules[0].name = 'Geaendert';
+  component.document.rules.push({ id: 'r9', name: 'Neu', conditions: [], actions: [] });
+  component.document.scenarios = [];
+  component.document.settings.history_limit = 20;
+  assert.equal(component.unsavedCount(), 4);
+});
+
+test('addScenario marks the entry new, opens it and offers undo', () => {
+  const { component } = createAutomationsPanel();
+  component.addScenario();
+  const scenario = component.document.scenarios[0];
+  assert.match(scenario.id, /^szenario_\d+$/);
+  assert.equal(component.newIds[scenario.id], true);
+  assert.equal(component.scenarioExpanded[scenario.id], true);
+  assert.equal(component.scenarioEditing[scenario.id], true);
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.undo.kind, 'scenario');
+  assert.equal(component.undo.id, scenario.id);
+  component.undoInsert();
+});
+
+test('undoInsert removes the new entry even after it was edited', () => {
+  const { component } = createAutomationsPanel();
+  component.addRule();
+  const rule = component.document.rules[0];
+  component.addCondition(rule, 'balance');
+  rule.name = 'Geaendert';
+  component.undoInsert();
+  assert.equal(component.document.rules.length, 0);
+  assert.equal(component.newIds[rule.id], undefined);
+  assert.equal(component.undo, null);
+});
+
+test('adding is blocked at 16 rules and 8 scenarios', () => {
+  const { component } = createAutomationsPanel();
+  for (let i = 0; i < 16; i += 1) component.document.rules.push({ id: `r${i}`, name: 'x', conditions: [], actions: [] });
+  component.addRule();
+  assert.equal(component.document.rules.length, 16);
+  assert.equal(component.canAddRule(), false);
+  for (let i = 0; i < 8; i += 1) component.document.scenarios.push({ id: `s${i}`, name: 'x' });
+  component.addScenario();
+  assert.equal(component.document.scenarios.length, 8);
+  assert.equal(component.canAddScenario(), false);
+});
+
+function savePanelWithFetch(component, window, sent) {
+  component.csrfToken = 'tok';
+  component.pollRuntimeStatus = async () => {};
+  window.fetch = async (url, options) => {
+    if (options && options.method === 'PUT') { sent.body = options.body; return { ok: true, json: async () => ({}) }; }
+    if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+    return { ok: true, json: async () => ({}) };
+  };
+}
+
+test('save strips regulator defaults and never sends null', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [{
+      ...validScenario('regler'),
+      when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: null, hold_seconds: 300 }] },
+      while: { mode: 'regulate', regulator: {
+        output: { topic: 'werkstatt/heizstab/set', min: 0, max: 3000, step: 1, decimals: 0 },
+        gain: 0.8, deadband_w: 20, direction: 'consumer',
+      } },
+    }],
+  };
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.ok(sent.body, 'the save must reach the server');
+  assert.equal(sent.body.includes('"gain":0.8'), false);
+  assert.equal(sent.body.includes('null'), false);
+  assert.equal(component.document.scenarios[0].while.regulator.gain, 0.8, 'the document keeps its values');
+});
+
+test('save clears the new markers and the undo bar', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.addScenario();
+  const scenario = component.document.scenarios[0];
+  scenario.when.conditions.push({ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 });
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.ok(sent.body, 'the save must reach the server');
+  assert.deepEqual(Object.keys(component.newIds), []);
+  assert.equal(component.undo, null);
+});
+
+// --- Szenario-Karte: Daten, Live-Punkte, Tagesexport ---------------------
+
+const regulatorScenario = (id) => ({
+  id, name: id, enabled: true,
+  when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 0 }] },
+  on_start: { actions: [] },
+  while: { mode: 'regulate', regulator: { output: { topic: 't', min: 0, max: 800 }, direction: 'producer', target_w: 0 } },
+  on_end: { actions: [] },
+});
+
+const holdScenario = (id) => ({
+  id, name: id, enabled: true,
+  when: { conditions: [] }, on_start: { actions: [] }, while: { mode: 'none' }, on_end: { actions: [] },
+});
+
+test('regulating scenarios start expanded, others collapsed', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const doc = { version: 1, settings: {}, rules: [], scenarios: [regulatorScenario('reg'), holdScenario('plain')] };
+    window.fetch = async (url) => {
+      if (url.endsWith('/api/v1/configurations/automation_rules')) return { ok: true, json: async () => doc };
+      if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+      if (url.endsWith('/api/v1/auth/session')) return { ok: true, json: async () => ({ csrf_token: 'tok', automations: true }) };
+      if (url.endsWith('/api/v1/energy/roles')) return { ok: true, json: async () => ({ categories: {} }) };
+      if (url.includes('/api/v1/energy/stats')) return { ok: true, json: async () => ({ total: { kwh: { grid_export: 1 } } }) };
+      throw new Error(`unexpected fetch ${url}`);
+    };
+    await component.load();
+    assert.equal(component.scenarioExpanded.reg, true);
+    assert.notEqual(component.scenarioExpanded.plain, true);
+  } finally {
+    window.close();
+  }
+});
+
+test('loadScenarioChart survives a missing HistoryStore', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    delete window.HistoryStore;
+    await component.loadScenarioChart(regulatorScenario('a'));
+    assert.deepEqual(JSON.parse(JSON.stringify(component.chartPoints.a)), { grid: [], output: [] });
+  } finally {
+    window.close();
+  }
+});
+
+test('loadScenarioChart fills raw gaps with minute rows', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    const minute = 60000;
+    // Rohwerte bis 21 min vor jetzt, 1m-Werte danach: die Luecke fuellt die Minutenreihe.
+    const raw = Array.from({ length: 10 }, (_, i) => ({ series: 'role:grid', ts: now - 30 * minute + i * minute, v: 100, u: 'W' }));
+    const rollup = Array.from({ length: 20 }, (_, i) => ({ series: 'role:grid', ts: now - 20 * minute + i * minute, min: 50, max: 50, avg: 50, n: 1, u: 'W' }));
+    window.HistoryStore = {
+      readRange: async (tier, series) => {
+        if (series !== 'role:grid') return [];
+        return tier === 'raw' ? raw : rollup;
+      },
+    };
+    await component.loadScenarioChart(regulatorScenario('a'));
+    const points = JSON.parse(JSON.stringify(component.chartPoints.a.grid));
+    assert.equal(points.length, 30);
+    assert.ok(points.every((point, index) => index === 0 || point.ts > points[index - 1].ts), 'points are ordered by time');
+    assert.ok(points[points.length - 1].ts >= now / 1000 - 120, 'the chart reaches the present');
+    assert.deepEqual(JSON.parse(JSON.stringify(component.chartPoints.a.output)), []);
+  } finally {
+    window.close();
+  }
+});
+
+test('state updates append live points and drop those older than 30 minutes', () => {
+  const { component } = createAutomationsPanel();
+  const nowSec = Date.now() / 1000;
+  component.livePoints = { a: [{ ts: nowSec - 1900, grid: 5 }, { ts: nowSec - 60, grid: 6 }] };
+  component.applyStateObject({ rules: {}, scenarios: { a: { phase: 'active', net: 120, output: 300 } } });
+  const points = JSON.parse(JSON.stringify(component.livePoints.a));
+  assert.equal(points.length, 2);
+  assert.ok(Math.abs(points[0].ts - (nowSec - 60)) < 1, 'the 30 minute old point is gone');
+  assert.equal(points[0].grid, 6);
+  assert.equal(points[1].grid, 120);
+  assert.equal(points[1].output, 300);
+  assert.ok(Math.abs(points[1].ts - nowSec) < 5, 'live points carry seconds');
+});
+
+test('gridNowText falls back to the last chart point and then to a dash', () => {
+  const { component } = createAutomationsPanel();
+  component.online = true;
+  const scenario = regulatorScenario('a');
+  const nowSec = Date.now() / 1000;
+  component.nowTick = nowSec * 1000;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active' } } };
+  component.chartPoints = { a: { grid: [{ ts: nowSec - 30, value: 250 }], output: [] } };
+  assert.equal(component.gridNowText(scenario), '+250');
+  component.chartPoints.a.grid[0].ts = nowSec - 300;
+  assert.equal(component.gridNowText(scenario), '—');
+  component.runtimeState.scenarios.a.net = -120;
+  assert.equal(component.gridNowText(scenario), '−120');
+});
+
+test('today export reads grid_export from the day statistics', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    let requested = '';
+    window.fetch = async (url) => {
+      requested = String(url);
+      return { ok: true, json: async () => ({ total: { kwh: { grid_export: 12.34 } } }) };
+    };
+    await component.refreshTodayExport();
+    assert.match(requested, /\/api\/v1\/energy\/stats\?period=day$/);
+    assert.equal(component.todayExportKWh, 12.34);
+    // Ein Fehler laesst den alten Wert stehen.
+    window.fetch = async () => { throw new Error('offline'); };
+    await component.refreshTodayExport();
+    assert.equal(component.todayExportKWh, 12.34);
+  } finally {
+    window.close();
+  }
+});
+
+test('an offline service shows no running time', () => {
+  const { component } = createAutomationsPanel();
+  component.online = false;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', since: Date.now() / 1000 - 100 } } };
+  const status = component.scenarioStatus(regulatorScenario('a'));
+  assert.equal(status.key, 'offline');
+  assert.equal(status.label, 'Dienst offline');
+  assert.equal(status.detail, '');
+});
+
+test('regulator figures read target, band, limits and the live output', () => {
+  const { component } = createAutomationsPanel();
+  component.online = true;
+  const scenario = regulatorScenario('a');
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', output: 412.4 } } };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.regulatorFigures(scenario))), { target: 0, band: 20, min: 0, max: 800, output: 412, direction: 'producer' });
+  component.runtimeState.scenarios.a = { phase: 'active' };
+  assert.equal(component.regulatorFigures(scenario).output, '—');
+});
+
+test('the tile icon is the inverter for producers and the first start action otherwise', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.scenarioIcon(regulatorScenario('a')), 'ico-inverter');
+  const consumer = regulatorScenario('b');
+  consumer.while.regulator.direction = 'consumer';
+  assert.equal(component.scenarioIcon(consumer), 'ico-flash');
+  assert.equal(component.scenarioIcon(holdScenario('c')), 'ico-power-on');
+});
+
+test('today export text uses two decimals with a comma and a dash before the first value', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.todayExportText(), '—');
+  component.todayExportKWh = 12.3;
+  assert.equal(component.todayExportText(), '12,30');
+});
+
+test('the phase bar marks the while phase while running and the end phase just after it ended', () => {
+  const { component } = createAutomationsPanel();
+  component.online = true;
+  const scenario = regulatorScenario('a');
+  const nowSec = Date.now() / 1000;
+  component.nowTick = nowSec * 1000;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', since: nowSec - 100 } } };
+  assert.equal(component.activePhaseIndex(scenario), 1);
+  component.runtimeState.scenarios.a = { phase: 'idle', since: nowSec - 5, conditions: [] };
+  assert.equal(component.activePhaseIndex(scenario), 2);
+  component.runtimeState.scenarios.a = { phase: 'idle', since: nowSec - 600, conditions: [] };
+  assert.equal(component.activePhaseIndex(scenario), -1);
+  const phases = JSON.parse(JSON.stringify(component.scenarioPhases(scenario)));
+  assert.deepEqual(phases.map((row) => row.phase), ['start', 'while', 'end']);
+  assert.ok(phases.every((row) => typeof row.label === 'string' && row.label.length > 0));
+});
+
+test('the start progress bar shows only while waiting for the start', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorScenario('a');
+  component.online = true;
+  component.runtimeState = { rules: {}, scenarios: { a: { phase: 'idle', conditions: [{ value: 50, raw_met: false, met: false }] } } };
+  const progress = JSON.parse(JSON.stringify(component.scenarioProgress(scenario)));
+  assert.equal(progress.percent, Math.round(50 / 100 * 100));
+  assert.equal(progress.label, '50 / 100 W');
+  component.runtimeState.scenarios.a.phase = 'active';
+  assert.equal(component.scenarioProgress(scenario), null);
+});
+
+test('ruleIcon follows the first action', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.ruleIcon({ actions: [{ type: 'notification', title: 'Hallo' }] }), 'ico-bell');
+  assert.equal(component.ruleIcon({ actions: [{ type: 'publish', topic: 'werkstatt/x/set', payload_source: 'constant', payload: '1' }] }), 'ico-switch');
+  assert.equal(component.ruleIcon({ actions: [] }), 'ico-flash');
+  assert.equal(component.ruleIcon({}), 'ico-flash');
+});
+
+test('rulePreview lists condition states and action icons', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 0 }],
+    actions: [{ type: 'notification', title: 'Hallo' }],
+  };
+  component.runtimeState = { rules: { r1: { conditions: [{ value: 900, target: 800, raw_met: true, met: true }] } } };
+  const preview = JSON.parse(JSON.stringify(component.rulePreview(rule)));
+  assert.equal(preview.conditions.length, 1);
+  assert.equal(preview.conditions[0].state, 'met');
+  assert.deepEqual(preview.actions, [{ icon: 'ico-bell' }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.rulePreview({}))), { conditions: [], actions: [] });
+});
+
+test('liveBar puts the hysteresis band below an above-threshold', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 100, hold_seconds: 300 }],
+    actions: [],
+  };
+  component.runtimeState = { rules: { r1: { conditions: [{ value: 650, target: 800, raw_met: false, met: false }] } } };
+  const bar = JSON.parse(JSON.stringify(component.liveBar(rule)));
+  assert.equal(bar.fraction, 650 / 1600);
+  assert.equal(bar.mark, 800 / 1600);
+  assert.equal(bar.band.left, 700 / 1600);
+  assert.equal(bar.band.width, 100 / 1600);
+  assert.equal(bar.valueText, '650 W');
+});
+
+test('liveBar puts the hysteresis band above a below-threshold', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'below', threshold: 800, hysteresis: 100, hold_seconds: 0 }],
+    actions: [],
+  };
+  component.runtimeState = { rules: { r1: { conditions: [{ value: 900, target: 800, raw_met: false, met: false }] } } };
+  const bar = JSON.parse(JSON.stringify(component.liveBar(rule)));
+  assert.equal(bar.band.left, 800 / 1600);
+  assert.equal(bar.band.width, 100 / 1600);
+});
+
+test('liveBar is null without a balance condition and has no band without hysteresis', () => {
+  const { component } = createAutomationsPanel();
+  const timeOnly = { id: 'r1', conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }], actions: [] };
+  assert.equal(component.liveBar(timeOnly), null);
+  const plain = { id: 'r2', conditions: [{ type: 'balance_threshold', field: 'pv', comparison: 'above', threshold: 500, hysteresis: 0, hold_seconds: 0 }], actions: [] };
+  assert.equal(component.liveBar(plain).band, null);
+});
+
+test('setRepeatMode once removes repeat_seconds', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', repeat_seconds: 120, actions: [] };
+  component.setRepeatMode(rule, 'once');
+  assert.equal('repeat_seconds' in rule, false);
+});
+
+test('setRepeatMode repeat uses 60 s or the publish minimum when that is larger', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', actions: [] };
+  component.setRepeatMode(rule, 'repeat');
+  assert.equal(rule.repeat_seconds, 60);
+  component.document.settings.publish_min_interval_s = 90;
+  component.setRepeatMode(rule, 'repeat');
+  assert.equal(rule.repeat_seconds, 90);
+});
+
+test('repeat stays locked while a toggle action exists', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', actions: [{ type: 'publish', topic: 'werkstatt/x/set', payload_source: 'toggle' }] };
+  assert.equal(component.setRepeatMode(rule, 'repeat'), false);
+  assert.equal('repeat_seconds' in rule, false);
+  component.setRepeatMode(rule, 'once');
+  assert.equal('repeat_seconds' in rule, false);
+});
+
+test('row editors write into the model', () => {
+  const { component } = createAutomationsPanel();
+  const rule = {
+    id: 'r1', name: 'A',
+    conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 100, hold_seconds: 300 }],
+    actions: [],
+  };
+  component.setComparison(rule.conditions[0], 'below');
+  assert.equal(rule.conditions[0].comparison, 'below');
+  component.setComparison(rule.conditions[0], 'sideways');
+  assert.equal(rule.conditions[0].comparison, 'below');
+  rule.conditions[0].threshold = 950;
+  assert.equal(rule.conditions[0].threshold, 950);
+});
+
+test('ruleTimeline keeps only the last six hours', () => {
+  const { component } = createAutomationsPanel();
+  const nowSec = 1_000_000;
+  component.nowTick = nowSec * 1000;
+  component.liveHistory = {
+    r1: [
+      { at: nowSec - 7 * 3600, result: 'fired' },
+      { at: nowSec - 5 * 3600, result: 'blocked' },
+      { at: nowSec - 60, result: 'fired' },
+      { at: nowSec + 10, result: 'fired' },
+    ],
+  };
+  const timeline = JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'r1' })));
+  assert.equal(timeline.length, 2);
+  assert.equal(timeline[0].x, ((nowSec - 5 * 3600) - (nowSec - 6 * 3600)) / (6 * 3600) * 600);
+  assert.equal(timeline[0].tone, 'bad');
+  assert.equal(timeline[1].tone, 'ok');
+  assert.deepEqual(JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'unknown' }))), []);
+});
+
+test('a consumer regulator reports its direction so the card takes the consumer colour', () => {
+  const { component } = createAutomationsPanel();
+  const consumer = regulatorScenario('a');
+  consumer.while.regulator.direction = 'consumer';
+  assert.equal(component.regulatorFigures(consumer).direction, 'consumer');
+  assert.equal(component.regulatorFigures(regulatorScenario('b')).direction, 'producer');
+});
+
+// --- Szenario-Regler und Phasen bearbeiten (Task 8a) ---------------------
+
+const regulatorEditScenario = () => ({
+  id: 's1', name: 'Regler', enabled: false,
+  when: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 }] },
+  on_start: { actions: [] },
+  while: { mode: 'regulate', regulator: {
+    output: { topic: 'werkstatt/x/set', min: 0, max: 800 },
+    direction: 'producer', target_w: 0, base: { source: 'last' }, fallback: { payload: '800' },
+  } },
+  on_end: { actions: [] },
+});
+
+test('setRegulatorOutput takes topic and bounds from the entity and seeds the fallback', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [{ unique_id: 'heizstab', command_topic: 'werkstatt/heizstab/set', min_value: 0, max_value: 3000, step: 1 }];
+  const scenario = regulatorEditScenario();
+  component.setRegulatorOutput(scenario, 'heizstab');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.output)),
+    { topic: 'werkstatt/heizstab/set', entity_id: 'heizstab', min: 0, max: 3000, step: 1 });
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.fallback)), { payload: '3000' });
+});
+
+test('regulatorOutputEntities keeps only entities with numeric bounds', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [
+    { unique_id: 'heizstab', min_value: 0, max_value: 3000 },
+    { unique_id: 'schalter', payload_on: 'ON', payload_off: 'OFF' },
+    { unique_id: 'halb', min_value: 0 },
+  ];
+  assert.deepEqual(component.regulatorOutputEntities().map((entity) => entity.unique_id), ['heizstab']);
+});
+
+test('setRegulatorBase entity copies topic and template', () => {
+  const { component } = createAutomationsPanel();
+  component.readableEntities = [{ unique_id: 'pv_inv', state_topic: 'werkstatt/pv/state', value_template: '{{ value_json.power }}' }];
+  const scenario = regulatorEditScenario();
+  component.setRegulatorBase(scenario, 'entity', 'pv_inv');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.base)),
+    { source: 'entity', entity_id: 'pv_inv', topic: 'werkstatt/pv/state', value_template: '{{ value_json.power }}' });
+  component.setRegulatorBase(scenario, 'balance');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.base)), { source: 'balance', field: 'pv' });
+  component.setRegulatorBase(scenario, 'last');
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.base)), { source: 'last' });
+});
+
+test('setRegulatorDirection keeps the fallback for consumers and seeds it for producers', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  component.setRegulatorDirection(scenario, 'consumer');
+  assert.equal(scenario.while.regulator.direction, 'consumer');
+  assert.equal(scenario.while.regulator.fallback.payload, '800');
+  scenario.while.regulator.fallback = undefined;
+  component.setRegulatorDirection(scenario, 'producer');
+  assert.equal(scenario.while.regulator.fallback.payload, '800');
+});
+
+test('turning the end condition off leaves no until key', async () => {
+  const { component, window } = createAutomationsPanel();
+  const scenario = { ...regulatorEditScenario(), while: { mode: 'none' },
+    until: { conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 300 }] } };
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [scenario],
+  };
+  component.toggleUntil(scenario, false);
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.ok(sent.body, 'the save must reach the server');
+  assert.equal('until' in JSON.parse(sent.body).scenarios[0], false);
+});
+
+test('switching while mode to hold starts with a 60 s repeat', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { ...regulatorEditScenario() };
+  component.changeWhileMode(scenario, 'hold');
+  assert.equal(scenario.while.mode, 'hold');
+  assert.equal(scenario.while.repeat_seconds, 60);
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.actions)), []);
+});
+
+test('scenario condition rows read reports from the scenario state', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  const report = { met: true, raw_met: true, value: 120, target: 100, since: 1, hold_remaining: 0 };
+  component.runtimeState = { rules: {}, scenarios: { s1: { when: [report], until: [] } } };
+  assert.equal(component.scenarioConditionReport(scenario, 'when', 0), report);
+  assert.equal(component.scenarioConditionReport(scenario, 'until', 0), null);
+  assert.equal(component.scenarioConditionReport(scenario, 'when', 3), null);
+});
+
+test('the owner hooks derive condition and action text from a report, not from a rule', () => {
+  const { component } = createAutomationsPanel();
+  const report = { met: true, raw_met: true, value: 120, target: 100, since: 1, hold_remaining: 0 };
+  assert.equal(component.conditionStateOf(null), 'novalue');
+  assert.equal(component.conditionStateOf(report), 'met');
+  assert.equal(component.conditionStateOf({ value: 120, raw_met: true, met: false }), 'pending');
+  assert.equal(component.conditionTextOf(null, { type: 'balance_threshold' }), component.conditionStateText({ conditions: [{ type: 'balance_threshold' }] }, 0));
+  assert.equal(component.actionPreviewOf({ topic: 'a/set', payload: 'ON' }, { type: 'publish' }).text, 'a/set → ON');
+  assert.equal(component.actionPreviewOf({ blocked: true, reason: 'nope' }, { type: 'publish' }).blocked, true);
+});
+
+test('the shared editors add and remove rows on scenario owners', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { ...regulatorEditScenario(), when: { conditions: [] }, on_start: { actions: [] } };
+  component.addCondition(scenario.when, 'balance');
+  component.addCondition(scenario.when, 'time');
+  component.removeCondition(scenario.when, 0);
+  assert.equal(scenario.when.conditions.length, 1);
+  assert.equal(scenario.when.conditions[0].type, 'time_window');
+  component.addAction(scenario.on_start, 'notify');
+  component.addAction(scenario.on_start, 'mqtt');
+  assert.equal(scenario.on_start.actions.length, 2);
+  component.removeAction(scenario.on_start, 0);
+  assert.equal(scenario.on_start.actions.length, 1);
+  assert.equal(scenario.on_start.actions[0].type, 'publish');
+});
+
+test('scenarioRows follows the owner when the while mode changes', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  const scope = component.scenarioRows(scenario, 'while', null);
+  assert.equal(scope.rowsOwner, scenario.while);
+  component.changeWhileMode(scenario, 'hold');
+  assert.equal(scope.rowsOwner.mode, 'hold');
+  assert.equal(scope.rowsOwner.actions.length, 0);
+  assert.equal(scope.showActTiles, false);
+  assert.equal(component.scenarioRows(scenario, 'until', 'until').rowsReport(0), null);
+});
+
+test('the editor keeps default fine tuning out of the saved document', async () => {
+  const { component, window } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  scenario.while.regulator.gain = 0.8;
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [scenario],
+  };
+  let sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, undefined);
+  scenario.while.regulator.gain = 0.5;
+  sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, 0.5);
 });

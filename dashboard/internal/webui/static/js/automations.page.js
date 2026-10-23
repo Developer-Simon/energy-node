@@ -22,6 +22,30 @@
     ['battery_energy_kwh', 'automations.metric.battery_energy_kwh'],
   ];
 
+  const RULE_LIMIT = 16;
+  const SCENARIO_LIMIT = 8;
+  const UNDO_MS = 10000;
+  // Szenario-Diagramm: Geometrie wie im Entwurf, Punkte und Takte in Sekunden.
+  const CHART_WIDTH = 600;
+  const CHART_HEIGHT = 170;
+  const CHART_MAX_POINTS = 300;
+  const CHART_REFRESH_MS = 60000;
+  const EXPORT_REFRESH_MS = 300000;
+  const LIVE_WINDOW_S = 1800;
+  const LIVE_MAX_POINTS = 180;
+  const GRID_NOW_MAX_AGE_S = 120;
+  const DEFAULT_RANGE = '30m';
+  const DEFAULT_DEADBAND_W = 20;
+  const GRID_SERIES = 'role:grid';
+
+  const outputSeriesName = (id) => `automation_scenario_${id}_output`;
+
+  // Vorzeichen wie im Entwurf: + Bezug, − Einspeisung.
+  const signedW = (watts) => {
+    const rounded = Math.round(watts);
+    return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${Math.abs(rounded)}`;
+  };
+
   const emptyDocument = () => ({
     version: 1,
     settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
@@ -29,6 +53,7 @@
                 publish_allowed_prefixes: [], publish_allowed_prefixes_auto: false,
                 publish_min_interval_s: 30, regulator_interval_s: 10 },
     rules: [],
+    scenarios: [],
   });
 
   const automationsPanel = () => ({
@@ -56,11 +81,23 @@
     statusPollMs: 1000,
     locating: false,
 
-    // Der Assistent fuehrt nur durch eine frisch angelegte Regel: Schritt 1
-    // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
-    // Datenmodell an - er blendet nur, was schon da ist, schrittweise ein.
-    wizard: { active: false, step: 1, ruleId: '' },
     settingsOpen: false,
+    // Reiter der Seitenschale: Szenarien oder Einzelregeln.
+    view: 'rules',
+    // Frisch angelegte Eintraege (ID -> true) bis zum Speichern.
+    newIds: {},
+    // Rueckgaengig-Balken nach dem Anlegen, verschwindet nach 10 Sekunden.
+    undo: null,
+    scenarioExpanded: {},
+    scenarioEditing: {},
+    // Diagramm je Szenario: Bereich (Start 30 min), gelesene Punkte, Live-Punkte
+    // aus den Zustandsupdates, Zeitpunkt des letzten Ladens, Tagesexport in kWh.
+    chartRange: {},
+    chartPoints: {},
+    livePoints: {},
+    chartLoadedAt: {},
+    todayExportKWh: null,
+    todayExportAt: 0,
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
@@ -107,6 +144,14 @@
         ]);
         this.categories = (roles && roles.categories) || {};
         this.document = doc && doc.rules ? doc : emptyDocument();
+        this.document.scenarios ||= [];
+        this.view = this.document.scenarios.length ? 'scenarios' : 'rules';
+        // Regler-Szenarien starten aufgeklappt; ein Klick des Nutzers bleibt erhalten.
+        this.document.scenarios.forEach((scenario) => {
+          if (scenario.while && scenario.while.mode === 'regulate') this.scenarioExpanded[scenario.id] ??= true;
+        });
+        this.newIds = {};
+        this.undo = null;
         // Ein auf der Platte gespeichertes Dokument kann aelter sein als ein
         // seither neu hinzugekommenes settings-Feld (z.B. history_limit/
         // history_persist) - ohne diesen Merge wuerde ein fehlendes Feld im
@@ -147,11 +192,12 @@
         // aktuellen Zeit berechnet - dafuer braucht es keine neuen Daten vom
         // Dienst, nur einen reaktiven Sekundentakt im Browser.
         if (!this._clockTimer) {
-          this._clockTimer = setInterval(() => { this.nowTick = Date.now(); }, 1000);
+          this._clockTimer = setInterval(() => { this.nowTick = Date.now(); this.scenarioTick(); }, 1000);
           // Node hat hier ein Timeout-Objekt mit unref() (haelt den Prozess
           // z.B. in Tests nicht am Leben); im Browser ist es nur eine Zahl.
           if (typeof this._clockTimer.unref === 'function') this._clockTimer.unref();
         }
+        this.scenarioTick();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -344,6 +390,7 @@
       if (!document || typeof document.rules !== 'object' || document.rules === null) return;
       this.runtimeState = document;
       this.lastStateAt = Date.now();
+      this.recordLivePoints(document);
     },
 
     applyHistoryDocument(document) {
@@ -364,7 +411,12 @@
     },
 
     conditionState(rule, index) {
-      return window.__automationsView.conditionState(this.conditionReport(rule, index));
+      return this.conditionStateOf(this.conditionReport(rule, index));
+    },
+
+    // Zustand einer Bedingungszeile aus ihrem Bericht, null heisst noch kein Wert.
+    conditionStateOf(report) {
+      return window.__automationsView.conditionState(report);
     },
 
     describeCondition(condition) {
@@ -383,16 +435,13 @@
       return window.__automationsView.formatSeconds(seconds);
     },
 
-    conditionValueText(rule, index) {
-      const report = this.conditionReport(rule, index);
-      if (!report || report.value === null || report.value === undefined) return '—';
-      return String(report.value);
+    conditionStateText(rule, index) {
+      return this.conditionTextOf(this.conditionReport(rule, index), rule.conditions[index] || {});
     },
 
-    conditionStateText(rule, index) {
-      const report = this.conditionReport(rule, index);
-      const state = this.conditionState(rule, index);
-      const condition = rule.conditions[index] || {};
+    // Statustext einer Bedingungszeile aus Bericht und Bedingung.
+    conditionTextOf(report, condition) {
+      const state = this.conditionStateOf(report);
       if (state === 'novalue' && condition.type === 'sun_window') {
         return this.hasLocation() ? t('automations.condition_state.sun_no_event') : t('automations.condition_state.no_location');
       }
@@ -441,24 +490,17 @@
 
     actionPreview(rule, index) {
       const state = this.ruleState(rule);
-      const preview = state && state.actions && state.actions[index];
+      return this.actionPreviewOf(state && state.actions && state.actions[index], rule.actions[index]);
+    },
+
+    // Vorschau einer Aktionszeile aus ihrem Vorschau-Eintrag, null heisst keine Vorschau.
+    actionPreviewOf(preview, action) {
       if (!preview) return { blocked: false, text: t('automations.action_preview.no_preview') };
       if (preview.blocked) return { blocked: true, text: preview.reason || t('automations.action_preview.blocked') };
-      if (rule.actions[index] && rule.actions[index].type === 'notification') {
+      if (action && action.type === 'notification') {
         return { blocked: false, text: `„${preview.title || ''}" — ${preview.message || ''}` };
       }
       return { blocked: false, text: `${preview.topic} → ${preview.payload}` };
-    },
-
-    renderMiniChain(rule) {
-      return {
-        conditions: rule.conditions.map((condition, index) => ({
-          icon: this.describeCondition(condition).icon,
-          state: this.conditionState(rule, index),
-        })),
-        actions: rule.actions.map((action) => ({ icon: this.describeAction(action).icon })),
-        gate: this.gateVerdict(rule),
-      };
     },
 
     isDirty(rule) {
@@ -470,12 +512,247 @@
 
     startEditing(rule) { this.editing[rule.id] = true; this.expanded[rule.id] = true; },
     stopEditing(rule) { this.editing[rule.id] = false; },
-    // Collapsing closes the editor too, the wizard keeps its own editing state.
+    // Collapsing closes the editor too.
     toggleExpanded(rule) {
       const collapsing = this.expanded[rule.id];
       this.expanded[rule.id] = !collapsing;
-      if (collapsing && !this.isWizardRule(rule)) this.editing[rule.id] = false;
+      if (collapsing) this.editing[rule.id] = false;
     },
+
+    toggleScenarioExpanded(scenario) {
+      const collapsing = this.scenarioExpanded[scenario.id];
+      this.scenarioExpanded[scenario.id] = !collapsing;
+      if (collapsing) this.scenarioEditing[scenario.id] = false;
+      else this.loadScenarioChart(scenario);
+    },
+
+    setChartRange(scenario, range) {
+      this.chartRange[scenario.id] = range;
+      this.loadScenarioChart(scenario);
+    },
+
+    scenarioRange(id) {
+      return this.chartRange[id] || DEFAULT_RANGE;
+    },
+
+    scenarioState(scenario) {
+      const states = this.runtimeState && this.runtimeState.scenarios;
+      return (states && states[scenario.id]) || null;
+    },
+
+    // Bericht einer Bedingungszeile der Start- (when) oder Endphase (until).
+    scenarioConditionReport(scenario, block, index) {
+      const state = this.scenarioState(scenario);
+      const reports = state && state[block];
+      return (Array.isArray(reports) && reports[index]) || null;
+    },
+
+    // Scope eines Szenario-Blocks fuer die gemeinsamen Zeilen-Editoren: der
+    // Besitzer ist scenario[key] (als Getter, damit ein Moduswechsel greift),
+    // block nennt den Bericht-Block (when, until) oder null bei Aktionen.
+    scenarioRows(scenario, key, block) {
+      const page = this;
+      return {
+        newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '',
+        showEntityWizard: false, showCondTiles: false, showActTiles: false,
+        get rowsOwner() { return scenario[key]; },
+        rowsReport(index) { return block ? page.scenarioConditionReport(scenario, block, index) : null; },
+      };
+    },
+
+    scenarioStatus(scenario) {
+      return window.__automationScenario.scenarioStatus(scenario, this.scenarioState(scenario), this.online, this.nowTick / 1000);
+    },
+
+    // Symbol der Kachel: Wechselrichter bei Einspeisung, sonst das Symbol der ersten Startaktion.
+    scenarioIcon(scenario) {
+      const regulator = scenario.while && scenario.while.regulator;
+      if (regulator) return regulator.direction === 'consumer' ? 'ico-flash' : 'ico-inverter';
+      const first = ((scenario.on_start && scenario.on_start.actions) || [])[0];
+      return first ? this.describeAction(first).icon : 'ico-power-on';
+    },
+
+    // Werte der Regler-Karte: Ziel, Toleranz, Grenzen und der aktuelle Stellwert.
+    regulatorFigures(scenario) {
+      const regulator = (scenario.while && scenario.while.regulator) || {};
+      const output = regulator.output || {};
+      const state = this.scenarioState(scenario);
+      return {
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        band: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        min: isNumber(output.min) ? output.min : 0,
+        max: isNumber(output.max) ? output.max : 0,
+        output: this.online && state && isNumber(state.output) ? Math.round(state.output) : '—',
+        // Verbraucher-Regler zeigen Stellwert und Verlauf in der Verbraucherfarbe.
+        direction: regulator.direction === 'consumer' ? 'consumer' : 'producer',
+      };
+    },
+
+    todayExportText() {
+      return this.todayExportKWh === null ? '—' : window.I18n.formatNumber(this.todayExportKWh, 2);
+    },
+
+    // Die drei Phasen der Leiste mit Bezeichnung.
+    // i18n-keys: automations.scenario.phase.name.start, automations.scenario.phase.name.while, automations.scenario.phase.name.end
+    scenarioPhases(scenario) {
+      const names = { start: 'automations.scenario.phase.name.start', while: 'automations.scenario.phase.name.while', end: 'automations.scenario.phase.name.end' };
+      return window.__automationScenario
+        .phaseSummary(scenario, (condition) => this.describeCondition(condition), (action) => this.describeAction(action))
+        .map((row) => ({ ...row, label: t(names[row.phase]) }));
+    },
+
+    // Index der aktiven Phase in scenarioPhases, -1 wenn keine aktiv ist.
+    activePhaseIndex(scenario) {
+      if (!this.online) return -1;
+      const phase = window.__automationScenario.activePhase(this.scenarioState(scenario), this.nowTick / 1000);
+      return { start: 0, while: 1, end: 2 }[phase] ?? -1;
+    },
+
+    // Balken des Startfortschritts, nur solange die Karte wartet oder bereit ist.
+    scenarioProgress(scenario) {
+      if (!this.online) return null;
+      const key = this.scenarioStatus(scenario).key;
+      if (key !== 'waiting' && key !== 'ready') return null;
+      const progress = window.__automationScenario.startProgress(scenario, this.scenarioState(scenario));
+      return progress ? { percent: Math.round(progress.fraction * 100), label: progress.label } : null;
+    },
+
+    // Liest Rohwerte und Minutenwerte beider Serien aus dem Verlauf (IndexedDB),
+    // fuellt die Luecken der Rohstufe mit Minutenwerten und duennt auf
+    // CHART_MAX_POINTS aus. Jeder Fehler ergibt leere Serien, nie eine Ausnahme.
+    async loadScenarioChart(scenario) {
+      const id = scenario.id;
+      const range = this.scenarioRange(id);
+      this.chartLoadedAt[id] = Date.now();
+      const store = window.HistoryStore;
+      const rollup = window.HistoryRollup;
+      const chart = window.__automationChart;
+      let points = { grid: [], output: [] };
+      if (store && rollup && chart) {
+        try {
+          const bounds = chart.rangeBounds(range, Date.now());
+          const fromMs = bounds.from * 1000;
+          const toMs = bounds.to * 1000;
+          const readSeries = async (series) => {
+            const raw = await store.readRange('raw', series, fromMs, toMs);
+            const minute = await store.readRange('1m', series, fromMs, toMs);
+            const { rows } = rollup.fillRawGaps(rollup.normalize(raw || []), rollup.normalize(minute || []), fromMs, toMs);
+            const own = rows.filter((row) => row.series === series).sort((left, right) => left.ts - right.ts);
+            // Der Chart arbeitet in Sekunden, der Verlauf speichert Millisekunden.
+            return rollup.thin(own, CHART_MAX_POINTS).map((row) => ({ ts: row.ts / 1000, value: row.avg }));
+          };
+          points = { grid: await readSeries(GRID_SERIES), output: await readSeries(outputSeriesName(id)) };
+        } catch (error) {
+          points = { grid: [], output: [] };
+        }
+      }
+      // Wechselt der Bereich waehrend des Lesens, gehoert das Ergebnis nicht mehr.
+      if (this.scenarioRange(id) === range) this.chartPoints[id] = points;
+    },
+
+    // Haengt je Zustandsupdate einen Punkt an, mit Zahl in net und output.
+    // Punkte aelter als 30 min fallen weg, es bleiben hoechstens LIVE_MAX_POINTS.
+    recordLivePoints(document) {
+      const nowSec = Date.now() / 1000;
+      const cutoff = nowSec - LIVE_WINDOW_S;
+      Object.entries(document.scenarios || {}).forEach(([id, state]) => {
+        const point = { ts: nowSec };
+        if (state && isNumber(state.net)) point.grid = state.net;
+        if (state && isNumber(state.output)) point.output = state.output;
+        const kept = (this.livePoints[id] || []).filter((entry) => entry.ts >= cutoff);
+        if (point.grid !== undefined || point.output !== undefined) kept.push(point);
+        this.livePoints[id] = kept.slice(-LIVE_MAX_POINTS);
+      });
+    },
+
+    // Gelesene Punkte, danach die Live-Punkte, die juenger sind als der letzte gelesene.
+    chartSeries(id, key) {
+      const read = (this.chartPoints[id] && this.chartPoints[id][key]) || [];
+      const lastRead = read.length ? read[read.length - 1].ts : -Infinity;
+      const live = (this.livePoints[id] || [])
+        .filter((entry) => isNumber(entry[key]) && entry.ts > lastRead)
+        .map((entry) => ({ ts: entry.ts, value: entry[key] }));
+      return [...read, ...live];
+    },
+
+    chartFor(scenario) {
+      const chart = window.__automationChart;
+      const regulator = (scenario.while && scenario.while.regulator) || {};
+      const bounds = chart.rangeBounds(this.scenarioRange(scenario.id), this.nowTick);
+      return chart.scenarioChart({
+        grid: this.chartSeries(scenario.id, 'grid'),
+        output: this.chartSeries(scenario.id, 'output'),
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        deadband: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        events: this.liveHistory[scenario.id] || [],
+        from: bounds.from,
+        to: bounds.to,
+        width: CHART_WIDTH,
+        height: CHART_HEIGHT,
+      });
+    },
+
+    // Netz jetzt: der Zustand, sonst der letzte Netzpunkt, wenn er juenger als 2 min ist.
+    gridNowText(scenario) {
+      if (!this.online) return '—';
+      const state = this.scenarioState(scenario);
+      if (state && isNumber(state.net)) return signedW(state.net);
+      const grid = this.chartSeries(scenario.id, 'grid');
+      const last = grid[grid.length - 1];
+      if (last && this.nowTick / 1000 - last.ts < GRID_NOW_MAX_AGE_S) return signedW(last.value);
+      return '—';
+    },
+
+    // Tagesexport aus den Tagesstatistik. Ein Fehler laesst den alten Wert stehen.
+    async refreshTodayExport() {
+      try {
+        const stats = await requestJSON('/api/v1/energy/stats?period=day');
+        const kwh = stats && stats.total && stats.total.kwh && stats.total.kwh.grid_export;
+        if (isNumber(kwh)) this.todayExportKWh = kwh;
+      } catch (error) {
+        // voruebergehender Fehler, der naechste Takt versucht es erneut
+      }
+    },
+
+    // Takt des Sekundentimers: aufgeklappte Karten alle 60 s neu laden, der
+    // Tagesexport alle 5 min, nur bei sichtbarer Seite und mit mindestens einem Regler.
+    scenarioTick() {
+      if (document.visibilityState !== 'visible') return;
+      const nowMs = Date.now();
+      const scenarios = this.document.scenarios || [];
+      scenarios.forEach((scenario) => {
+        if (this.scenarioExpanded[scenario.id] && nowMs - (this.chartLoadedAt[scenario.id] || 0) >= CHART_REFRESH_MS) {
+          this.loadScenarioChart(scenario);
+        }
+      });
+      const hasRegulator = scenarios.some((scenario) => scenario.while && scenario.while.mode === 'regulate');
+      if (hasRegulator && nowMs - this.todayExportAt >= EXPORT_REFRESH_MS) {
+        this.todayExportAt = nowMs;
+        this.refreshTodayExport();
+      }
+    },
+
+    // Zaehlt, was beim naechsten Speichern anders ist: neue, geaenderte und
+    // geloeschte Regeln und Szenarien sowie ein Eintrag fuer die Einstellungen.
+    unsavedCount() {
+      if (!this.savedDocument) return 0;
+      const saved = this.savedDocument;
+      const countEntries = (kind) => {
+        const current = this.document[kind] || [];
+        const before = saved[kind] || [];
+        const changed = current.filter((entry) => {
+          const old = before.find((candidate) => candidate.id === entry.id);
+          return !old || JSON.stringify(old) !== JSON.stringify(entry);
+        }).length;
+        const removed = before.filter((entry) => !current.some((candidate) => candidate.id === entry.id)).length;
+        return changed + removed;
+      };
+      const settingsChanged = JSON.stringify(saved.settings) !== JSON.stringify(this.document.settings) ? 1 : 0;
+      return countEntries('rules') + countEntries('scenarios') + settingsChanged;
+    },
+
+    canAddRule() { return (this.document.rules || []).length < RULE_LIMIT; },
+    canAddScenario() { return (this.document.scenarios || []).length < SCENARIO_LIMIT; },
 
     // Die Device Map verweist auf eine Regel: aufklappen, zur Regel scrollen
     // und sie kurz hervorheben.
@@ -591,66 +868,83 @@
     },
 
     addRule() {
-      const id = `regel_${Date.now()}`;
-      this.document.rules.push({ id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
-    },
-
-    startRuleWizard() {
-      this.addRule();
-      const rule = this.document.rules[this.document.rules.length - 1];
-      this.wizard = { active: true, step: 1, ruleId: rule.id };
-      this.expanded[rule.id] = true;
-      this.editing[rule.id] = true;
-    },
-
-    wizardRule() {
-      return this.document.rules.find((rule) => rule.id === this.wizard.ruleId) || null;
-    },
-
-    // Schritt 1 braucht eine Bedingung, Schritt 2 eine Aktion - genau die
-    // Bedingung, an der validateRuleBeforeSave() sonst erst beim Speichern
-    // scheitert. Schritt 3 hat nichts zu erzwingen.
-    wizardCanAdvance() {
-      const rule = this.wizardRule();
-      if (!rule) return false;
-      if (this.wizard.step === 1) return rule.conditions.length > 0;
-      if (this.wizard.step === 2) return rule.actions.length > 0;
-      return true;
-    },
-
-    wizardNext() {
-      if (!this.wizardCanAdvance()) return;
-      if (this.wizard.step >= 3) return this.wizardFinish();
-      this.wizard.step += 1;
-    },
-
-    wizardBack() {
-      if (this.wizard.step > 1) this.wizard.step -= 1;
-    },
-
-    // Beendet nur die Fuehrung - die Regel bleibt im Bearbeiten-Modus offen,
-    // damit man ohne Bruch weitermachen kann. Gespeichert wird wie immer
-    // ausdruecklich ueber die Werkzeugleiste.
-    wizardFinish() {
-      const ruleId = this.wizard.ruleId;
-      this.wizard = { active: false, step: 1, ruleId: '' };
-      if (ruleId) {
-        this.editing[ruleId] = true;
-        this.expanded[ruleId] = true;
+      if (!this.canAddRule()) {
+        this.notify(t('automations.limit.rules', { max: RULE_LIMIT }), 'warning');
+        return;
       }
+      const id = `regel_${Date.now()}`;
+      this.insertEntry('rule', { id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
     },
 
-    isWizardRule(rule) {
-      return this.wizard.active && this.wizard.ruleId === rule.id;
+    addScenario() {
+      if (!this.canAddScenario()) {
+        this.notify(t('automations.limit.scenarios', { max: SCENARIO_LIMIT }), 'warning');
+        return;
+      }
+      const id = `szenario_${Date.now()}`;
+      this.insertEntry('scenario', window.__automationScenario.emptyScenario(id, t('automations.new_scenario')));
     },
 
-    // Welche Abschnitte der Regelkarte der Assistent gerade zeigt.
-    wizardShows(rule, section) {
-      if (!this.isWizardRule(rule)) return true;
-      if (section === 'conditions') return this.wizard.step >= 1;
-      if (section === 'actions') return this.wizard.step >= 2;
-      if (section === 'tuning') return this.wizard.step >= 3;
-      return true;
+    // Gemeinsamer Kern fuer neue Regeln und Szenarien: anlegen, als neu
+    // markieren, aufklappen, Editor oeffnen, Reiter wechseln, Rueckgaengig anbieten.
+    insertEntry(kind, entry) {
+      if (kind === 'scenario') {
+        this.document.scenarios.push(entry);
+        this.scenarioExpanded[entry.id] = true;
+        this.scenarioEditing[entry.id] = true;
+        this.view = 'scenarios';
+      } else {
+        this.document.rules.push(entry);
+        this.expanded[entry.id] = true;
+        this.editing[entry.id] = true;
+        this.view = 'rules';
+      }
+      this.newIds[entry.id] = true;
+      this.armUndo({
+        label: kind === 'scenario' ? t('automations.undo.scenario_added') : t('automations.undo.rule_added'),
+        kind,
+        id: entry.id,
+      });
+      return entry;
+    },
+
+    armUndo(undo) {
+      clearTimeout(this._undoTimer);
+      this.undo = undo;
+      this._undoTimer = setTimeout(() => { this.undo = null; }, UNDO_MS);
+      if (this._undoTimer && this._undoTimer.unref) this._undoTimer.unref();
+    },
+
+    // Entfernt den zuletzt angelegten Eintrag per ID, auch wenn er inzwischen
+    // bearbeitet wurde.
+    undoInsert() {
+      const undo = this.undo;
+      if (!undo) return;
+      if (undo.kind === 'scenario') {
+        this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== undo.id);
+        delete this.scenarioExpanded[undo.id];
+        delete this.scenarioEditing[undo.id];
+      } else {
+        this.document.rules = this.document.rules.filter((entry) => entry.id !== undo.id);
+        delete this.expanded[undo.id];
+        delete this.editing[undo.id];
+      }
+      delete this.newIds[undo.id];
+      clearTimeout(this._undoTimer);
+      this.undo = null;
+    },
+
+    async removeScenario(scenarioId) {
+      const scenario = this.document.scenarios.find((entry) => entry.id === scenarioId);
+      const confirmed = await this.$store.modal.confirm({
+        title: t('automations.delete_scenario.title', { name: (scenario && scenario.name) || scenarioId }),
+        body: t('automations.delete_scenario.body'),
+        confirmLabel: t('common.delete'),
+        danger: true,
+      });
+      if (!confirmed) return;
+      this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== scenarioId);
+      if (this.undo && this.undo.id === scenarioId) this.undo = null;
     },
 
     // Der Loeschknopf traegt seit dem Umbau nur noch ein Icon - ein
@@ -857,6 +1151,72 @@
       return (rule.actions || []).some((action) => action.type === 'publish' && action.payload_source === 'toggle');
     },
 
+    // Icon der Kachel: die erste Aktion bestimmt sie, ohne Aktion ein Blitz.
+    ruleIcon(rule) {
+      const first = (rule.actions || [])[0];
+      return first ? this.describeAction(first).icon : 'ico-flash';
+    },
+
+    // Kurzvorschau der zugeklappten Regel: Bedingungen mit ihrem Live-Zustand,
+    // dann die Aktionen, jeweils nur als Icon.
+    rulePreview(rule) {
+      return {
+        conditions: (rule.conditions || []).map((condition, index) => ({
+          icon: this.describeCondition(condition).icon,
+          state: this.conditionState(rule, index),
+        })),
+        actions: (rule.actions || []).map((action) => ({ icon: this.describeAction(action).icon })),
+      };
+    },
+
+    // Live-Balken der ersten Bilanzbedingung. Das Band liegt zwischen Schwelle
+    // und Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
+    liveBar(rule) {
+      const index = (rule.conditions || []).findIndex((condition) => condition.type === 'balance_threshold');
+      if (index < 0) return null;
+      const condition = rule.conditions[index];
+      const report = this.conditionReport(rule, index);
+      const value = report && isNumber(report.value) ? report.value : null;
+      const target = report && isNumber(report.target) ? report.target : condition.threshold;
+      const view = window.__automationsView;
+      const scale = view.meterScale(condition, { value, target }, this.entityForCondition(condition));
+      const hysteresis = isNumber(condition.hysteresis) ? condition.hysteresis : 0;
+      let band = null;
+      if (hysteresis > 0) {
+        const [low, high] = condition.comparison === 'below'
+          ? [condition.threshold, condition.threshold + hysteresis]
+          : [condition.threshold - hysteresis, condition.threshold];
+        const left = view.meterFraction(low, scale);
+        band = { left, width: view.meterFraction(high, scale) - left };
+      }
+      const unit = this.describeCondition(condition).unit;
+      const valueText = value === null ? '—' : `${value} ${unit}`.trim();
+      return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText };
+    },
+
+    // Zeitleiste der letzten sechs Stunden, Sekunden wie der Dienst sie liefert.
+    ruleTimeline(rule) {
+      const now = this.nowTick / 1000;
+      return window.__automationChart.triggerTimeline(this.liveHistory[rule.id] || [], now - 6 * 3600, now, 600);
+    },
+
+    // "once" loescht das Wiederholintervall, "repeat" setzt es auf den groesseren
+    // Wert aus einer Minute und dem Veroeffentlichungs-Minimum. Mit einer
+    // Umschalt-Aktion bleibt Wiederholen gesperrt, dann gibt es false zurueck.
+    setRepeatMode(rule, mode) {
+      if (mode === 'once') {
+        delete rule.repeat_seconds;
+        return true;
+      }
+      if (this.hasToggleAction(rule)) return false;
+      rule.repeat_seconds = Math.max(60, this.minPublishInterval());
+      return true;
+    },
+
+    setComparison(condition, value) {
+      if (value === 'above' || value === 'below') condition.comparison = value;
+    },
+
     validateRuleBeforeSave(rule) {
       const errors = [];
       if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(rule.id || '')) errors.push(t('automations.validation.invalid_id', { name: rule.name }));
@@ -890,13 +1250,107 @@
       return errors;
     },
 
+    // Das Regler-Ziel eines Szenarios, sonst null.
+    regulatorTopic(scenario) {
+      const current = scenario.while;
+      if (!current || current.mode !== 'regulate' || !current.regulator || !current.regulator.output) return null;
+      return current.regulator.output.topic || null;
+    },
+
+    // Stellglieder fuer den Regler: steuerbare Zahlen-Entitaeten mit Grenzen.
+    regulatorOutputEntities() {
+      return (this.entities || []).filter((entity) => isNumber(entity.min_value) && isNumber(entity.max_value));
+    },
+
+    // Das Stellglied uebernimmt Topic und Grenzen. Beim Wechselrichter ist der
+    // Ersatzwert Pflicht, er kommt als Hoechstwert des Stellglieds.
+    setRegulatorOutput(scenario, uniqueId) {
+      const entity = this.entityByUniqueId(uniqueId);
+      const regulator = scenario.while && scenario.while.regulator;
+      if (!entity || !regulator) return;
+      const output = { topic: entity.command_topic, entity_id: entity.unique_id, min: entity.min_value, max: entity.max_value };
+      if (isNumber(entity.step)) output.step = entity.step;
+      regulator.output = output;
+      if (regulator.direction === 'producer') regulator.fallback = { payload: String(entity.max_value) };
+    },
+
+    // Die Basis kommt von einem Geraet (entity), aus der Bilanz (balance)
+    // oder vom zuletzt gesendeten Stellwert (last).
+    setRegulatorBase(scenario, source, uniqueId) {
+      const regulator = scenario.while && scenario.while.regulator;
+      if (!regulator) return;
+      if (source === 'entity') {
+        const entity = (this.readableEntities || []).find((candidate) => candidate.unique_id === uniqueId);
+        if (!entity) return;
+        regulator.base = { source, entity_id: entity.unique_id, topic: entity.state_topic, value_template: entity.value_template || '' };
+      } else if (source === 'balance') {
+        regulator.base = { source, field: 'pv' };
+      } else {
+        regulator.base = { source: 'last' };
+      }
+    },
+
+    // Der Ersatzwert bleibt beim Wechsel zum Verbraucher stehen, er ist dort
+    // nur optional. Fehlt er beim Wechsel zum Wechselrichter, kommt der Hoechstwert.
+    setRegulatorDirection(scenario, direction) {
+      const regulator = scenario.while && scenario.while.regulator;
+      if (!regulator || !['producer', 'consumer'].includes(direction)) return;
+      regulator.direction = direction;
+      const hasFallback = Boolean(regulator.fallback && regulator.fallback.payload);
+      if (direction === 'producer' && !hasFallback && isNumber(regulator.output && regulator.output.max)) {
+        regulator.fallback = { payload: String(regulator.output.max) };
+      }
+    },
+
+    // Schalter "Eigene Endbedingung" und Moduswahl "Regeln, Halten, Nichts".
+    toggleUntil(scenario, on) {
+      window.__automationScenario.setUntil(scenario, on);
+    },
+
+    changeWhileMode(scenario, mode) {
+      window.__automationScenario.setWhileMode(scenario, mode);
+    },
+
     validateDocumentBeforeSave() {
       const errors = (this.document.rules || []).flatMap((rule) => this.validateRuleBeforeSave(rule));
+      const scenarios = this.document.scenarios || [];
+      const minInterval = this.minPublishInterval();
+      for (const scenario of scenarios) {
+        const otherOutputs = scenarios
+          .filter((other) => other !== scenario)
+          .map((other) => this.regulatorTopic(other))
+          .filter(Boolean);
+        errors.push(...window.__automationScenario.validateScenarioBeforeSave(scenario, { minInterval, otherOutputs }));
+      }
       const settings = this.document.settings || {};
       if (isNumber(settings.latitude) !== isNumber(settings.longitude)) {
         errors.push(t('automations.validation.location_incomplete'));
       }
       return errors;
+    },
+
+    // Szenarien fuer den Speicherkoerper: Regler-Defaults fallen weg, und
+    // ein null taucht nicht im Dokument auf (der Dienst liest null nicht).
+    scenariosPayload() {
+      const strip = window.__automationScenario.stripRegulatorDefaults;
+      const withoutNulls = (value) => {
+        if (Array.isArray(value)) return value.map(withoutNulls);
+        if (value && typeof value === 'object') {
+          const out = {};
+          for (const [key, entry] of Object.entries(value)) {
+            if (entry !== null && entry !== undefined) out[key] = withoutNulls(entry);
+          }
+          return out;
+        }
+        return value;
+      };
+      return (this.document.scenarios || []).map((scenario) => {
+        const copy = { ...scenario };
+        if (copy.while && copy.while.regulator) {
+          copy.while = { ...copy.while, regulator: strip(copy.while.regulator) };
+        }
+        return withoutNulls(copy);
+      });
     },
 
     async save() {
@@ -936,10 +1390,13 @@
         const saved = await requestJSON('/api/v1/configurations/automation_rules', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
-          body: JSON.stringify({ ...this.document, settings: settingsToSave }),
+          body: JSON.stringify({ ...this.document, settings: settingsToSave, scenarios: this.scenariosPayload() }),
         });
         this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
+        this.newIds = {};
+        clearTimeout(this._undoTimer);
+        this.undo = null;
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');

@@ -92,7 +92,7 @@ As of **2026-10-19**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-coverage.js` | `4` |
 | `js/history-exchange.js` | `8` |
 | `js/history-maintenance.js` | `1` |
-| `js/history-recorder.js` | `11` |
+| `js/history-recorder.js` | `12` |
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `38` |
 | `js/update-bar.js` | `3` |
@@ -140,9 +140,9 @@ on the `device-modal` template in
 | `diagnostics-panel` | `js/servicelogs.panel.js` `1` (new) | `css/settings-controls.css` `17`, `css/diagnostics.css` `3` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `9` | `css/manager.css` `47` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `1`, `js/energy.page.js` `13` | `css/manager.css` `47` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `3`, `js/device-picker.js` `1`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `47` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `4`, `js/device-picker.js` `1`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `47` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `1`, `js/settings.page.js` `26`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `47`, `css/settings-controls.css` `17` |
-| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `3`, `js/automations.page.js` `13` | `css/manager.css` `47`, `css/automations.css` `6` |
+| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `4`, `js/automations-scenario.js` `1` (new), `js/automations-chart.js` `1` (new), `js/automations.page.js` `14` | `css/manager.css` `47`, `css/automations.css` `7` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `5` | `css/history.css` `7`, `css/stats.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -263,6 +263,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.10 | `js/automations-view.js` (devicemap and automations panels, scenario helpers and status pills) · `js/automations.page.js` (automations panel, scenario and rule tabs, rule editor blocks, undo bar) · `js/automations-scenario.js` (new, automations panel, scenario card and editor) · `js/automations-chart.js` (new, automations panel, scenario chart with 30 min, 6 h and today ranges) · `js/history-recorder.js` (scenario regulator outputs recorded without a settings entry) · `css/automations.css` (automations panel, scenario and rule editor layout) | `4` · `14` · `1` (new) · `1` (new) · `12` · `7` | 2026-10-23 |
 | v0.10.9 | `js/automations-view.js` (devicemap and automations panels, field help for repeat and the two interval settings) · `js/automations.page.js` (automations panel, repeat field and configurable minimum interval in the rule editor) | `3` · `13` | 2026-10-23 |
 | v0.10.8 | `js/servicelogs.panel.js` (new, diagnostics panel, service log view with polling) · `css/diagnostics.css` (diagnostics panel, service log section) | `1` (new) · `3` | 2026-10-22 |
 | v0.10.7 | `js/settings.page.js` (settings panel, masthead title and subtitle with live update) · `css/settings-controls.css` (settings, diagnostics: masthead card rows, old save row removed) · `css/base.css` (masthead parts hideable, empty masthead collapses) · `css/manager.css` (5 panels: settings save button shares the energy action bar) | `26` · `17` · `43` · `47` | 2026-10-22 |

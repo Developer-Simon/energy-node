@@ -30,6 +30,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -198,6 +199,7 @@ func main() {
 	tailscaleClient := tailscale.NewClient(cfg.Tailscale.Bin, systemactions.ExecOutputRunner{}, time.Duration(cfg.Tailscale.StatusTimeoutS)*time.Second)
 	runtimeStore := runtimecache.NewStore(dataDir)
 	energyStatsStore := energystats.NewStore(filepath.Join(dataDir, "energystats"))
+	historySampler := historyexchange.NewSampler()
 	energyRecorder := energystats.NewRecorder(energyStatsStore, energystats.SystemClockReady("/run/systemd/timesync", 15*time.Minute))
 	energyCategories := func() map[string]energy.Category { return energyResolver.Model().Categories }
 	energySync := energystats.NewSync(energyStatsStore, time.Now)
@@ -533,6 +535,7 @@ func main() {
 			Tailscale:           tailscaleClient,
 			Resolver:            energyResolver,
 			EnergyStats:         energyStats,
+			HistorySampler:      historySampler,
 			InstalledServices: map[string]bool{
 				"automation": cfg.ServiceInstalled("automation"),
 				"tailscale":  cfg.ServiceInstalled("tailscale"),
@@ -572,6 +575,7 @@ func main() {
 				now := time.Now()
 				snapshot := energy.Aggregate(reg.Snapshot(), energyResolver, now.UTC()).WithInterpretation(energyResolver.Interpretation())
 				energyRecorder.Observe(now, time.Since(monoStart), snapshot)
+				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()
 			}
 		}

@@ -1,7 +1,9 @@
 // dashboard/internal/webui/static/js/history-recorder.js
 // Zeichnet die Verlaufs-Historie in die IndexedDB auf. Standard sind
 // ausschliesslich die Energie-Rollen ("role:pv" usw.); einzelne Entitaeten
-// kommen ueber history_extra_entities aus den Einstellungen dazu.
+// kommen ueber history_extra_entities aus den Einstellungen dazu. Die
+// Ausgaben der Szenario-Regler kommen ebenfalls ueber /api/v1/history/entities
+// und brauchen keinen Eintrag in den Einstellungen.
 //
 // Zwei Punkte, die die Vorgaengerfassung nicht hatte:
 //
@@ -180,7 +182,6 @@
   };
 
   const extraSamples = async at => {
-    if (!config.extraEntities.length) return [];
     const response = await fetch(`${basePath()}/api/v1/history/entities`);
     if (!response.ok) throw new Error(t('history.recorder.extra_entities_failed'));
     const body = await response.json();

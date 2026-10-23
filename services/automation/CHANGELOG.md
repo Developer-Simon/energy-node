@@ -4,7 +4,7 @@
 
 ### Features
 
-- **automation:** Automation rules can repeat their actions while their conditions hold. (#163)
+- **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 
 ### Tests
 
@@ -14,7 +14,7 @@
 
 - **automation:** scenario smoke fixture and 0.6.0 manifest (dcd062c)
 
-## v0.5.3 (2026-10-23)
+## v0.5.3 (2026-10-21)
 
 ### Features
 
@@ -32,8 +32,8 @@
 
 ### Refactors
 
-- **automation:** share condition evaluation between engines (a96a4e4)
 - **common:** clean up the slave status and hooks (#155) (00ddbed)
+- **automation:** share condition evaluation between engines (a96a4e4)
 - **common:** drop unused poll fields and pending from the slave status (00528ff)
 - **services:** name the slave poll rates after what they are (7cd303e)
 

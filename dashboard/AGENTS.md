@@ -58,6 +58,7 @@ The settings page Versionen shows every component version from the installer's `
 - Preserve `/api/v1` versioning and use consistent JSON errors for API failures. Add method checks to handlers that do not support every HTTP method.
 - Keep Raspberry Pi resource use in mind: avoid unnecessary dependencies, background work, and broker-wide wildcard subscriptions. Durable server-side history is avoided with two named exceptions: the Verläufe history lives entirely in the browser's IndexedDB, the Go process stores only its configuration; and the automation service's persisted, opt-in, per-rule trigger history file, which the dashboard only reads — bounded and capped by the service, not evaluated or accumulated by the Go process. SQLite, four-level Discovery, plugins, backup/import/export, and device commands are currently excluded; no automation engine and no automation runtime state in the Go process.
 - Do not commit credentials from environment files. Do not change existing bridge topics or Python services as part of an unrelated dashboard change.
+- The in-memory exchange buffer may additionally be fed by the dashboard itself with `role:grid` and the automation service's scenario output sensors, sampled once per minute from the registry. Display only, never read back by the service.
 
 ## References
 
