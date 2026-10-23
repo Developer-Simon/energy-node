@@ -138,11 +138,11 @@ on the `device-modal` template in
 |---|---|---|
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | `js/servicelogs.panel.js` `1` (new) | `css/settings-controls.css` `17`, `css/diagnostics.css` `3` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `9` | `css/manager.css` `47` |
-| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `1`, `js/energy.page.js` `13` | `css/manager.css` `47` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `4`, `js/device-picker.js` `1`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `47` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `1`, `js/settings.page.js` `26`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `47`, `css/settings-controls.css` `17` |
-| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `4`, `js/automations-scenario.js` `1` (new), `js/automations-chart.js` `1` (new), `js/automations.page.js` `14` | `css/manager.css` `47`, `css/automations.css` `7` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `9` | `css/manager.css` `48` |
+| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `2`, `js/energy.page.js` `13` | `css/manager.css` `48` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `4`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `48` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `1`, `js/settings.page.js` `26`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `17` |
+| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `4`, `js/automations-scenario.js` `2`, `js/automations-chart.js` `2`, `js/automations-devices.js` `1` (new), `js/device-picker.js` `2`, `js/automations.page.js` `15` | `css/manager.css` `48`, `css/automations.css` `8` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `5` | `css/history.css` `7`, `css/stats.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -168,7 +168,8 @@ place pulls the old file from the cache:
 
 - `css/manager.css` – 5 panels (`config`, `energy`, `devicemap`, `settings`, `automations`)
 - `js/devicemap-subdevices.js` – `energy-panel` and `devicemap-panel`
-- `js/device-picker.js`, `js/devicemap-graph.js`, `js/devicemap-wiring.js` – `energy-panel` and `devicemap-panel`
+- `js/device-picker.js` – `energy-panel`, `devicemap-panel` and `automations-panel`
+- `js/devicemap-graph.js`, `js/devicemap-wiring.js` – `energy-panel` and `devicemap-panel`
 - `js/energy-model.js` – channel 2 (`history-panel`), `stats-panel` **and** channel 3 (energy cards)
 - `js/energy-stats-model.js` – `stats-panel` **and** channel 3 (energy cards)
 - `js/revisions.js`, `js/schema-form.js` – several manager panels and the overview editor assets
@@ -263,6 +264,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.11 | `js/automations.page.js` (automations panel, device chips and picker, fine tuning card, action cards, history switch) · `js/automations-chart.js` (automations panel, regulator band preview) · `js/automations-devices.js` (new, automations panel, device candidates for actuators, meters and actions) · `js/device-picker.js` (energy, device map and automations panels, single choice, role filters and tones) · `css/automations.css` (automations panel, chips, condition and action cards, steppers, sparklines) · `css/manager.css` (5 panels, picker role filters and tones) · `js/automations-scenario.js` (automations panel, new scenarios start enabled with history) | `15` · `2` · `1` (new) · `2` · `8` · `48` · `2` | 2026-10-23 |
 | v0.10.10 | `js/automations-view.js` (devicemap and automations panels, scenario helpers and status pills) · `js/automations.page.js` (automations panel, scenario and rule tabs, rule editor blocks, undo bar) · `js/automations-scenario.js` (new, automations panel, scenario card and editor) · `js/automations-chart.js` (new, automations panel, scenario chart with 30 min, 6 h and today ranges) · `js/history-recorder.js` (scenario regulator outputs recorded without a settings entry) · `css/automations.css` (automations panel, scenario and rule editor layout) | `4` · `14` · `1` (new) · `1` (new) · `12` · `7` | 2026-10-23 |
 | v0.10.9 | `js/automations-view.js` (devicemap and automations panels, field help for repeat and the two interval settings) · `js/automations.page.js` (automations panel, repeat field and configurable minimum interval in the rule editor) | `3` · `13` | 2026-10-23 |
 | v0.10.8 | `js/servicelogs.panel.js` (new, diagnostics panel, service log view with polling) · `css/diagnostics.css` (diagnostics panel, service log section) | `1` (new) · `3` | 2026-10-22 |

@@ -1,10 +1,24 @@
 # Changelog
 
-## v0.10.10 (2026-10-23)
+## v0.10.11 (2026-10-23)
 
 ### Features
 
 - **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
+- **automations:** The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor. (#164) (04148fb)
+- **dashboard:** single choice, role filters and tones in the device picker (91d14ed)
+- **automations:** device candidates for actuators, meters and actions (c76380a)
+- **automations:** stepper helper and soft field styles (1d06267)
+- **automations:** condition cards with soft fields and steppers (9021a6d)
+- **automations:** band preview geometry for the regulator (d2cb6cf)
+- **automations:** regulator device chips and picker logic (b132725)
+- **automations:** regulator band preview and device chips markup (9f3c3ac)
+- **automations:** fine tuning card with steppers (edbc8a0)
+- **automations:** action kind and device choice logic (b207441)
+- **automations:** action cards for switch, setpoint, notify and mqtt (88032aa)
+- **automations:** sparkline geometry and history switch logic (cdc9fb6)
+- **automations:** history switch with sparklines in collapsed rows (5e717f0)
+- **automations:** Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker. (#165)
 - **history:** record scenario regulator outputs alongside extra entities (b23357d)
 - **history:** sample scenario series into the exchange buffer (d0da2c6)
 - **automations:** scenario status, phases and validation helpers (d07ce4f)
@@ -18,7 +32,6 @@
 - **automations:** redesigned rule card with when, then and flow blocks (6595beb)
 - **automations:** scenario regulator editing helpers (cce322e)
 - **automations:** edit scenario phases and the regulator (81e78fe)
-- **automations:** The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor. (#164)
 - **automation:** validate scenarios (de7556c)
 - **dashboard:** map automation scenarios in the data flow (eb3a375)
 - **automations:** repeat validation and interval settings logic (a128e57)
@@ -26,6 +39,11 @@
 
 ### Fixes
 
+- **dashboard:** accept a picker choice with Enter in single mode (e65eb65)
+- **automations:** chip counts and value-less meter candidates (b5b9f77)
+- **automations:** role tone on the setpoint action head (87c770e)
+- **automations:** use theme tokens in action card styles (44da706)
+- **automations:** editor review round for device chips, conditions and actions (abc57f3)
 - **automations:** colour consumer regulator output by direction (a96c26d)
 - **automations:** editable condition and action rows in the scenario editor (6d0b4e1)
 - **automations:** hide retained scenario values while the service is offline (af504e0)
@@ -42,6 +60,7 @@
 
 ### Documentation
 
+- **automations:** device chips, picker and action cards (411838a)
 - **automations:** scenario page and rule editor (6352d47)
 
 ### Tests

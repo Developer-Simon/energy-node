@@ -26,6 +26,21 @@ never runs rules itself. It only edits the JSON, and the Python service
 evaluates the rules and publishes. See
 [Device services → Automations](../services/automations.md).
 
+## Choosing devices
+
+The editors offer devices in role groups: inverter, wallbox, heat pump, grid and
+other. A field shows as many device chips as fit in one row, with the selected
+device first. Each chip shows the icon of its role in the colour of that role
+and the current value of the entity. **Show all (n)** opens the device picker
+with every matching device and its current value. The picker has a search field
+and role filter chips. A click on a device selects it, and a double click or
+Enter takes it at once. Picking a wallbox or heat pump as the output switches
+the regulator to **Follow consumer**, picking an inverter switches it back.
+
+The balance field and the entity of a condition use the same picker. The
+selected field or entity shows as a chip with its role icon, **Change** opens
+the picker.
+
 ## Scenarios
 
 A scenario has three phases. **Start** holds the conditions that begin it,
@@ -40,7 +55,9 @@ status pill and an on/off switch. While the start conditions are not yet met,
 a thin bar under the name shows how close the first balance threshold is to
 its limit, with the current value and the limit in W.
 
-Expanding the card shows the figures, the chart and the phase bar. The status
+A click on the card expands it. The icon tile collapses it again, outside the
+editor a click on the name does the same. Expanding the card shows the figures,
+the chart and the phase bar. The status
 pill shows the current state of the scenario:
 
 | Pill | Meaning |
@@ -97,10 +114,18 @@ text next to it.
 - **Measured value**, which can be a **Device** meter, the **Balance** or the
   **Last value**.
 
+A band preview under the target shows the tolerance band and the current grid
+balance. It states whether the grid is inside or outside the band, or that the
+grid value is not known yet.
+
 Under **Fine tuning** you find **Gain**, **Minimum in W**, **Maximum in W**,
 **Step size in W**, **Max. change per step in W**, **Interval in s** and
 **Fallback value**. An empty interval uses the regulator interval from the
 settings (see Settings below).
+
+Each fine tuning field shows its default as a grey placeholder. A default is
+not saved, so the field stays empty and keeps following the default. A stepper
+on an empty field starts from the default.
 
 For **Hold** the phase sends its actions again every **Repeat every (s)**
 seconds, 60 by default, while the scenario is active.
@@ -125,15 +150,31 @@ current state and, in the expanded view, its blocks.
 The rule editor has four parts.
 
 - **When all of these apply** (Wenn) lists the conditions. All of them must hold
-  for the rule to trigger.
+  for the rule to trigger. **Above** and **below** carry an up and a down arrow.
+  A balance condition shows its **Hysteresis** directly in the card, a new one
+  starts with 5 in the unit of its field (5 W for power).
 - **Then** (Dann) lists the actions that run on a trigger.
 - **Flow** (Ablauf) sets the **Cooldown after triggering (s)**, the time a rule
-  waits after a trigger before it may trigger again, and the **Run mode**.
+  waits after a trigger before it may trigger again, the **Run mode** and
+  **Record history**.
 - **Repeat** (Wiederholen) is the **Repeat** segment of the run mode. It shows
   **Every (s) while met**, which makes the rule send its actions again while its
   conditions keep holding. **Once** sends them once per trigger. Repeat must be
   at least the minimum interval for commands (see Settings). The repeat is off
   for a rule with a toggle action, because every repeat would flip the state back.
+
+### Action cards
+
+Each action is a card with the icon of its kind. **Switch device** under
+**+ Action** opens the device picker, a switch starts on On and a setpoint
+with the device's current value. An action that sends to the command topic of
+a known device shows as **Switch** or **Setpoint** with that device, **MQTT
+command** is left for topics without a device. The **Advanced** tiles appear
+once **+ Action** is open. **Switch** sets a device to
+On, Off or Toggle. **Setpoint** sends a value to an output, and the value can
+come from a measurement. **Notify** raises a notification with a level, a title
+and a text. **MQTT command** publishes a payload to a topic. The head of a
+setpoint card takes the colour of its device's role.
 
 ### Reading a rule
 
@@ -154,8 +195,9 @@ Each condition card shows one of four states:
 | met, hold time left | The condition is met and waits for its hold time. |
 | met | The condition is met and its hold time is over. |
 
-The rule card also shows a timeline of the triggers in the last 6 hours, with
-the live value of the measured field next to the threshold.
+The rule card also shows a timeline of the triggers in the last 6 hours. Above
+the blocks, in the view and in the editor, each numeric condition has a bar with
+its live value next to the threshold.
 
 The live values come from the automation service, which evaluates every
 `tick_interval_s` (default 10 s). They show what the rule last computed with,
@@ -163,11 +205,14 @@ not the newest value the dashboard has elsewhere. The header says how long ago
 the service last reported. When it is offline, the page shows the last known
 state.
 
-**Show history** lists the last triggers of one rule.
+Collapsed rule cards show a sparkline of their recent triggers. **Show full
+history** opens the list of the last triggers of one rule, each marked as Triggered,
+Blocked or Error. A trigger from a test carries a Test badge.
 
 ## Undo
 
-Adding a scenario or a rule shows a bar above the list for 10 seconds, for
+A new scenario or rule starts switched on and records its history. Adding one
+shows a bar above the list for 10 seconds, for
 example **Scenario added**, with an **Undo** button. Undo removes the new item
 again. The bar disappears on its own after the time runs out, and it does not
 touch items that were already there.

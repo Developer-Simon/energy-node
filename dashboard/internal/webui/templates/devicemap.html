@@ -119,18 +119,30 @@
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
           <input type="search" x-model="picker.query" placeholder="{{t "device_picker.search"}}" aria-label="{{t "device_picker.search"}}" autocomplete="off">
         </label>
+        <div class="device-picker-filters" role="radiogroup" aria-label="{{t "device_picker.filter.label"}}" x-show="picker.filters.length">
+          <template x-for="chip in pickerFilterChips()" x-bind:key="chip.key">
+            <button type="button" class="device-picker-chip" role="radio" x-bind:class="{ 'is-active': picker.filter === chip.key }" x-bind:aria-checked="picker.filter === chip.key ? 'true' : 'false'" x-on:click="pickerFilter(chip.key)">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-show="chip.iconRef"><use x-bind:href="'#' + chip.iconRef"></use></svg>
+              <span x-text="chip.label"></span>
+            </button>
+          </template>
+        </div>
         <div class="device-picker-list">
           <template x-for="section in pickerSections()" x-bind:key="section.key">
             <section class="device-picker-section">
               <h3 class="devicemap-panel-eyebrow" x-text="section.label"></h3>
               <template x-for="item in section.items" x-bind:key="item.id">
-                <label class="device-picker-item" x-bind:class="{ 'is-picked': isPicked(item.id) }">
-                  <input type="checkbox" x-bind:checked="isPicked(item.id)" x-on:change="togglePick(item.id)">
-                  <span class="device-picker-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" x-show="item.iconMarkup" x-html="item.iconMarkup"></svg>
-                    <svg viewBox="0 0 24 24" x-show="!item.iconMarkup"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg>
+                <label class="device-picker-item" x-bind:class="{ 'is-picked': isPicked(item.id), 'is-dim': item.dim }" x-on:dblclick="pickerChoose(item.id)">
+                  <input x-bind:type="picker.mode === 'single' ? 'radio' : 'checkbox'" name="device-picker-choice" x-bind:checked="isPicked(item.id)" x-on:change="togglePick(item.id)" x-on:keydown.enter="if (picker.mode === 'single') { $event.preventDefault(); pickerChoose(item.id) }" x-bind:aria-describedby="item.dim && item.subtitle ? 'device-picker-sub-' + item.id : null">
+                  <span class="device-picker-icon" x-bind:class="item.tone ? 'is-tone-' + item.tone : ''" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" x-show="item.iconRef"><use x-bind:href="'#' + item.iconRef"></use></svg>
+                    <svg viewBox="0 0 24 24" x-show="!item.iconRef && item.iconMarkup" x-html="item.iconMarkup"></svg>
+                    <svg viewBox="0 0 24 24" x-show="!item.iconRef && !item.iconMarkup"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg>
                   </span>
-                  <span class="device-picker-name"><span x-text="item.name"></span><span class="device-picker-badge" x-show="item.memberOf" x-text="$t('device_picker.member_of', {group: item.memberOf})"></span></span>
+                  <span class="device-picker-text">
+                    <span class="device-picker-name"><span x-text="item.name"></span><span class="device-picker-badge" x-show="item.memberOf" x-text="$t('device_picker.member_of', {group: item.memberOf})"></span></span>
+                    <span class="device-picker-subtitle" x-show="item.subtitle" x-bind:id="'device-picker-sub-' + item.id" x-text="item.subtitle"></span>
+                  </span>
                   <span class="device-picker-value" x-text="item.valueText"></span>
                   <svg class="device-picker-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
                 </label>

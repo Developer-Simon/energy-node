@@ -3,6 +3,43 @@
   const view = window.__automationsView;
   const { canTest, conditionState, describeAction, describeCondition, formatSeconds, gateVerdict, historyActionText, historyResultInfo, meterFraction, meterScale } = view;
   const { ACTION_TYPES, CONDITION_TYPES, FIELD_HELP, WEEKDAY_LABELS, WINDOW_TYPES, SERVICE_TEST_POLL_MS, SERVICE_TEST_TIMEOUT_MS, isNumber, requestJSON } = view.constants;
+  const { ROLE_GROUPS, actuatorCandidates, meterCandidates, switchCandidates, setpointCandidates, chipList, pickerItems, entityChip, balanceFieldCandidates, deviceRoleGroup } = window.__automationDevices;
+
+  // Filter-Chips im Picker: gleiche Gruppen wie die Kacheln, Label wie dort.
+  const ROLE_FILTER_LABEL_KEYS = {
+    inverter: 'automations.devices.group.inverter',
+    wallbox: 'automations.devices.group.wallbox',
+    heat_pump: 'automations.devices.group.heat_pump',
+    grid: 'automations.devices.group.grid',
+    other: 'automations.devices.group.misc',
+  };
+  const roleFilters = () => ROLE_GROUPS.map((group) => ({ key: group.key, label: t(ROLE_FILTER_LABEL_KEYS[group.key]) }));
+
+  // Art-Label einer Aktionskarte; der Picker nutzt dasselbe Label als Titel.
+  const ACTION_KIND_LABEL_KEYS = {
+    switch: 'automations.action_kind.switch',
+    setpoint: 'automations.action_kind.setpoint',
+    notify: 'automations.action_kind.notify',
+    mqtt: 'automations.action_kind.mqtt',
+  };
+
+  // Ein gespeichertes Geraet, das im Katalog fehlt, bleibt als Kachel sichtbar.
+  const unknownChip = (topic) => ({
+    id: '',
+    unknown: true,
+    deviceName: t('automations.devices.unknown'),
+    subtitle: topic || '',
+    valueText: '',
+    icon: 'ico-device',
+    tone: '',
+    fits: true,
+  });
+
+  // Ein fehlendes gespeichertes Geraet nimmt den ersten Platz ein.
+  const withUnknown = (list, topic) => (list.missing ? [unknownChip(topic), ...list.chips] : list.chips);
+
+  // Hysterese neuer Bilanz-Bedingungen, in der Einheit des Felds (meist W).
+  const DEFAULT_HYSTERESIS = 5;
 
   const BALANCE_FIELDS_BASE = [
     ['grid_export', 'automations.metric.grid_export'],
@@ -30,11 +67,24 @@
   const CHART_HEIGHT = 170;
   const CHART_MAX_POINTS = 300;
   const CHART_REFRESH_MS = 60000;
+  const CATALOG_REFRESH_MS = 30000;
   const EXPORT_REFRESH_MS = 300000;
   const LIVE_WINDOW_S = 1800;
   const LIVE_MAX_POINTS = 180;
   const GRID_NOW_MAX_AGE_S = 120;
   const DEFAULT_RANGE = '30m';
+  const SHOW_HISTORY_KEY = 'automations.show_history';
+  const SPARK_WIDTH = 150;
+  const SPARK_HEIGHT = 34;
+
+  // Schalter "Verlaeufe anzeigen": ohne lesbaren Speicher gilt er nur fuer diese Sitzung.
+  function readShowHistory() {
+    try {
+      return window.localStorage.getItem(SHOW_HISTORY_KEY) === '1';
+    } catch (error) {
+      return false;
+    }
+  }
   const DEFAULT_DEADBAND_W = 20;
   const GRID_SERIES = 'role:grid';
 
@@ -57,6 +107,7 @@
   });
 
   const automationsPanel = () => ({
+    ...window.DevicePicker.mixin(),
     loading: false,
     saving: false,
     document: emptyDocument(),
@@ -64,6 +115,7 @@
     entities: [],
     readableEntities: [],
     devices: [],
+    assignments: {},
     runtimeState: null,
     online: false,
     csrfToken: '',
@@ -98,6 +150,7 @@
     chartLoadedAt: {},
     todayExportKWh: null,
     todayExportAt: 0,
+    showHistory: readShowHistory(),
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
@@ -143,6 +196,7 @@
           requestJSON('/api/v1/energy/roles').catch(() => null),
         ]);
         this.categories = (roles && roles.categories) || {};
+        this.assignments = (roles && roles.assignments) || {};
         this.document = doc && doc.rules ? doc : emptyDocument();
         this.document.scenarios ||= [];
         this.view = this.document.scenarios.length ? 'scenarios' : 'rules';
@@ -435,6 +489,27 @@
       return window.__automationsView.formatSeconds(seconds);
     },
 
+    // Stepper fuer Zahlenfelder: ein leeres Feld startet beim Standard, das
+    // Ergebnis wird auf step gerundet und auf min/max geklemmt. Landet der Wert
+    // wieder auf dem Standard, faellt der Schluessel weg, damit Standards nie
+    // im Dokument stehen.
+    stepValue(target, key, delta, { min, max, step = 1, fallback } = {}) {
+      const raw = target[key];
+      const empty = raw === undefined || raw === null || raw === '';
+      const base = empty ? fallback : Number(raw);
+      const start = Number.isFinite(base) ? base : 0;
+      const decimals = (String(step).split('.')[1] || '').length;
+      let next = Number((Math.round((start + delta * step) / step) * step).toFixed(decimals));
+      if (min !== undefined && next < min) next = min;
+      if (max !== undefined && next > max) next = max;
+      if (next === fallback) {
+        delete target[key];
+      } else {
+        target[key] = next;
+      }
+      return next;
+    },
+
     conditionStateText(rule, index) {
       return this.conditionTextOf(this.conditionReport(rule, index), rule.conditions[index] || {});
     },
@@ -553,8 +628,8 @@
     scenarioRows(scenario, key, block) {
       const page = this;
       return {
-        newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '',
-        showEntityWizard: false, showCondTiles: false, showActTiles: false,
+        showCondTiles: false, showActTiles: false,
+        rowsCanTest: false,
         get rowsOwner() { return scenario[key]; },
         rowsReport(index) { return block ? page.scenarioConditionReport(scenario, block, index) : null; },
       };
@@ -694,13 +769,59 @@
 
     // Netz jetzt: der Zustand, sonst der letzte Netzpunkt, wenn er juenger als 2 min ist.
     gridNowText(scenario) {
-      if (!this.online) return '—';
+      const net = this.gridNetNow(scenario);
+      return net === null ? '—' : signedW(net);
+    },
+
+    // Netz als Zahl in W oder null, gleiche Quelle wie gridNowText.
+    gridNetNow(scenario) {
+      if (!this.online) return null;
       const state = this.scenarioState(scenario);
-      if (state && isNumber(state.net)) return signedW(state.net);
+      if (state && isNumber(state.net)) return state.net;
       const grid = this.chartSeries(scenario.id, 'grid');
       const last = grid[grid.length - 1];
-      if (last && this.nowTick / 1000 - last.ts < GRID_NOW_MAX_AGE_S) return signedW(last.value);
-      return '—';
+      if (last && this.nowTick / 1000 - last.ts < GRID_NOW_MAX_AGE_S) return last.value;
+      return null;
+    },
+
+    // Schalter in der Kopfleiste. Beim Einschalten laden alle Regler-Szenarien
+    // ihr Diagramm, auch die zugeklappten, damit die Minidiagramme Daten haben.
+    setShowHistory(on) {
+      this.showHistory = !!on;
+      try {
+        window.localStorage.setItem(SHOW_HISTORY_KEY, on ? '1' : '0');
+      } catch (error) {
+        // ohne Speicher bleibt der Schalter bis zum Neuladen erhalten
+      }
+      if (!on) return Promise.resolve();
+      const scenarios = (this.document && this.document.scenarios) || [];
+      const regulators = scenarios.filter((scenario) => scenario.while && scenario.while.mode === 'regulate');
+      return Promise.all(regulators.map((scenario) => this.loadScenarioChart(scenario)));
+    },
+
+    // Minidiagramm der zugeklappten Regler-Zeile: Netzverlauf der letzten 30 min mit Toleranzband.
+    sparklineFor(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      const bounds = window.__automationChart.rangeBounds('30m', this.nowTick);
+      return window.__automationChart.sparkline({
+        points: this.chartSeries(scenario.id, 'grid'),
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        deadband: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        from: bounds.from,
+        to: bounds.to,
+        width: SPARK_WIDTH,
+        height: SPARK_HEIGHT,
+      });
+    },
+
+    // Vorschau des Toleranzbands fuer das Regler-Formular.
+    bandPreviewFor(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      return window.__automationChart.bandPreview({
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        deadband: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        net: this.gridNetNow(scenario),
+      });
     },
 
     // Tagesexport aus den Tagesstatistik. Ein Fehler laesst den alten Wert stehen.
@@ -717,6 +838,7 @@
     // Takt des Sekundentimers: aufgeklappte Karten alle 60 s neu laden, der
     // Tagesexport alle 5 min, nur bei sichtbarer Seite und mit mindestens einem Regler.
     scenarioTick() {
+      this.syncCatalogRefresh();
       if (document.visibilityState !== 'visible') return;
       const nowMs = Date.now();
       const scenarios = this.document.scenarios || [];
@@ -873,7 +995,7 @@
         return;
       }
       const id = `regel_${Date.now()}`;
-      this.insertEntry('rule', { id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
+      this.insertEntry('rule', { id, name: t('automations.new_rule'), enabled: true, history_enabled: true, cooldown_seconds: 60, conditions: [], actions: [] });
     },
 
     addScenario() {
@@ -972,7 +1094,7 @@
     fieldHelp(key) { return FIELD_HELP[key] ? t(FIELD_HELP[key]) : ''; },
 
     addBalanceCondition(rule) {
-      rule.conditions.push({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 100, hold_seconds: 300 });
+      rule.conditions.push({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: DEFAULT_HYSTERESIS, hold_seconds: 300 });
     },
 
     addTimeWindowCondition(rule) {
@@ -1061,12 +1183,36 @@
       if (key === 'sun') return this.addSunWindowCondition(rule);
     },
 
-    // scope ist der x-data-Bereich der Regelzeile; "entity" legt keine Aktion
-    // an, sondern klappt dort den Geraete-Assistenten auf.
-    addAction(rule, key, scope) {
+    // "entity" oeffnet den Geraete-Picker, die Aktion entsteht erst mit der Wahl.
+    addAction(rule, key) {
       if (key === 'notify') return void rule.actions.push(this.buildNotificationAction());
       if (key === 'mqtt') return void rule.actions.push(this.buildMqttAction());
-      if (key === 'entity' && scope) scope.showEntityWizard = true;
+      if (key === 'entity') return this.addDeviceAction(rule);
+    },
+
+    // Neue Geraete-Aktion: Schalter und Sollwerte in einem Picker. Ein Schalter
+    // startet auf Ein, ein Sollwert mit dem aktuellen Wert, sonst dem Minimum.
+    async addDeviceAction(rule) {
+      const seen = new Set();
+      const candidates = [...switchCandidates(this.devices, this.assignments), ...setpointCandidates(this.devices, this.assignments)]
+        .filter((candidate) => !seen.has(candidate.id) && seen.add(candidate.id));
+      const uniqueId = await this.openPicker({
+        title: t('automations.action.device.pick_title'),
+        items: pickerItems(candidates),
+        mode: 'single',
+        filters: roleFilters(),
+      });
+      const entity = uniqueId && this.entityByUniqueId(uniqueId);
+      if (!entity) return null;
+      let action;
+      if (entity.payload_on !== undefined && entity.payload_on !== null && entity.payload_on !== '') {
+        action = this.buildSwitchAction(entity, 'on');
+      } else {
+        const current = window.__automationDevices.toNumber(entity.value);
+        action = this.buildSetpointAction(entity, { mode: 'constant', value: current ?? entity.min_value });
+      }
+      rule.actions.push(action);
+      return action;
     },
 
     removeCondition(rule, index) {
@@ -1111,6 +1257,137 @@
 
     buildNotificationAction() {
       return { type: 'notification', severity: 'info', title: '', message: '' };
+    },
+
+    // Entitaet hinter einer Publish-Aktion: ueber entity_id, sonst ueber das
+    // Topic (aeltere Aktionen und reine MQTT-Aktionen auf ein Geraete-Topic).
+    actionEntity(action) {
+      if (!action || action.type !== 'publish') return null;
+      if (action.entity_id) return this.entityByUniqueId(action.entity_id);
+      if (!action.topic) return null;
+      return (this.entities || []).find((entity) => entity.command_topic === action.topic) || null;
+    },
+
+    // Art einer Aktion fuer die Karte: switch, setpoint, notify oder mqtt.
+    // Schalter erkennt man am Umschalt-Modus oder an Ein/Aus-Payloads der
+    // Entitaet, Sollwerte an den Grenzen min/max der Aktion oder der Entitaet.
+    // MQTT bleibt nur, wenn kein Geraet hinter dem Topic steht.
+    actionKind(action) {
+      if (!action) return 'mqtt';
+      if (action.type === 'notification') return 'notify';
+      const entity = this.actionEntity(action);
+      if (action.type === 'publish' && (entity || action.entity_id)) {
+        const hasPayload = action.payload !== undefined && action.payload !== '';
+        const isOnOff = Boolean(entity) && hasPayload
+          && (action.payload === entity.payload_on || action.payload === entity.payload_off);
+        if (action.payload_source === 'toggle' || isOnOff) return 'switch';
+        if (isNumber(action.min) && isNumber(action.max)) return 'setpoint';
+        if (entity && isNumber(entity.min_value) && isNumber(entity.max_value)) return 'setpoint';
+      }
+      return 'mqtt';
+    },
+
+    // Grenzen eines Sollwerts: aus der Aktion, sonst aus der Entitaet.
+    actionBounds(action) {
+      const entity = this.actionEntity(action) || {};
+      return {
+        min: isNumber(action.min) ? action.min : entity.min_value,
+        max: isNumber(action.max) ? action.max : entity.max_value,
+        step: isNumber(action.step) ? action.step : (isNumber(entity.step) ? entity.step : 1),
+        unit: entity.unit_of_measurement || '',
+      };
+    },
+
+    // Kachel des Geraets einer Aktion mit Rolle und aktuellem Wert.
+    actionChip(action) {
+      const entity = this.actionEntity(action);
+      return (entity && entityChip(this.devices, this.assignments, entity.unique_id)) || unknownChip(action && action.topic);
+    },
+
+    actionKindLabel(action) {
+      return t(ACTION_KIND_LABEL_KEYS[this.actionKind(action)]);
+    },
+
+    // Schaltet eine Schalt-Aktion auf Ein, Aus oder Umschalten. Die Entitaet
+    // bleibt, die Aktion wird ueber die Builder neu aufgebaut.
+    setSwitchState(owner, index, state) {
+      const action = owner.actions[index];
+      const entity = this.actionEntity(action);
+      if (!entity) return;
+      const next = state === 'toggle' ? this.buildToggleAction(entity) : this.buildSwitchAction(entity, state);
+      owner.actions.splice(index, 1, next);
+    },
+
+    // Geraetewahl fuer Schalter und Sollwert. Der Picker zeigt nur die zur Art
+    // passenden Entitaeten; Art sowie Umschalt- bzw. Quellmodus bleiben erhalten.
+    async chooseActionDevice(owner, index) {
+      const action = owner.actions[index];
+      const kind = this.actionKind(action);
+      if (kind !== 'switch' && kind !== 'setpoint') return;
+      const candidates = kind === 'switch'
+        ? switchCandidates(this.devices, this.assignments)
+        : setpointCandidates(this.devices, this.assignments);
+      const uniqueId = await this.openPicker({
+        title: t(ACTION_KIND_LABEL_KEYS[kind]),
+        items: pickerItems(candidates),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: this.actionEntity(action) ? [this.actionEntity(action).unique_id] : [],
+      });
+      if (!uniqueId) return;
+      const entity = this.entityByUniqueId(uniqueId);
+      if (!entity) return;
+      if (kind === 'switch') {
+        const previous = this.actionEntity(action);
+        const wasOff = Boolean(previous) && action.payload === previous.payload_off;
+        const next = action.payload_source === 'toggle'
+          ? this.buildToggleAction(entity)
+          : this.buildSwitchAction(entity, wasOff ? 'off' : 'on');
+        owner.actions.splice(index, 1, next);
+        return;
+      }
+      const source = action.payload_source === 'balance'
+        ? { mode: 'balance', field: action.field ?? 'pv', scale: action.scale, offset: action.offset }
+        : { mode: 'constant', value: action.payload };
+      owner.actions.splice(index, 1, this.buildSetpointAction(entity, source));
+    },
+
+    // Quelle eines Sollwerts: fester Wert oder Messwert aus der Bilanz. Die
+    // Entitaet und ihre Grenzen bleiben unveraendert.
+    setSetpointSource(action, mode) {
+      if (mode === 'balance') {
+        action.payload_source = 'balance';
+        action.field = action.field || 'pv';
+        action.scale = action.scale ?? 1;
+        action.offset = action.offset ?? 0;
+        delete action.payload;
+        return;
+      }
+      action.payload_source = 'constant';
+      action.payload = String(action.payload ?? '');
+      delete action.field;
+      delete action.scale;
+      delete action.offset;
+    },
+
+    // Ton der Sollwert-Karte: Rollenfarbe des Geraets, sonst neutral.
+    actionTone(action) {
+      return this.actionChip(action).tone || '';
+    },
+
+    // Zahlenfeld des Sollwert-Steppers. Das Payload bleibt Text (so verlangt es
+    // der Dienst), der Stepper rechnet mit Zahlen.
+    setpointValueTarget(action) {
+      return {
+        get value() {
+          const payload = action.payload;
+          return payload === undefined || payload === null || payload === '' ? '' : Number(payload);
+        },
+        set value(next) {
+          const number = Number(next);
+          action.payload = next === '' || next === null || next === undefined || !Number.isFinite(number) ? '' : String(number);
+        },
+      };
     },
 
     removeAction(rule, index) {
@@ -1169,23 +1446,40 @@
       };
     },
 
-    // Live-Balken der ersten Bilanzbedingung. Das Band liegt zwischen Schwelle
-    // und Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
+    // Live-Balken fuer jede Zahlen-Bedingung (Bilanz, Entitaet ueber/unter).
+    liveBars(rule) {
+      return (rule.conditions || [])
+        .map((condition, index) => {
+          const numeric = condition.type === 'balance_threshold'
+            || (condition.type === 'entity_value' && (condition.comparison === 'above' || condition.comparison === 'below'));
+          if (!numeric) return null;
+          const bar = this.liveBarOf(condition, this.conditionReport(rule, index));
+          return { ...bar, index, title: this.describeCondition(condition).title };
+        })
+        .filter(Boolean);
+    },
+
+    // Live-Balken der ersten Bilanzbedingung, wie vor liveBars.
     liveBar(rule) {
       const index = (rule.conditions || []).findIndex((condition) => condition.type === 'balance_threshold');
       if (index < 0) return null;
-      const condition = rule.conditions[index];
-      const report = this.conditionReport(rule, index);
+      return this.liveBarOf(rule.conditions[index], this.conditionReport(rule, index));
+    },
+
+    // Balken einer Bedingung. Das Band liegt zwischen Schwelle und
+    // Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
+    liveBarOf(condition, report) {
+      const threshold = condition.type === 'entity_value' ? condition.value : condition.threshold;
       const value = report && isNumber(report.value) ? report.value : null;
-      const target = report && isNumber(report.target) ? report.target : condition.threshold;
+      const target = report && isNumber(report.target) ? report.target : threshold;
       const view = window.__automationsView;
       const scale = view.meterScale(condition, { value, target }, this.entityForCondition(condition));
       const hysteresis = isNumber(condition.hysteresis) ? condition.hysteresis : 0;
       let band = null;
-      if (hysteresis > 0) {
+      if (hysteresis > 0 && isNumber(threshold)) {
         const [low, high] = condition.comparison === 'below'
-          ? [condition.threshold, condition.threshold + hysteresis]
-          : [condition.threshold - hysteresis, condition.threshold];
+          ? [threshold, threshold + hysteresis]
+          : [threshold - hysteresis, threshold];
         const left = view.meterFraction(low, scale);
         band = { left, width: view.meterFraction(high, scale) - left };
       }
@@ -1213,8 +1507,48 @@
       return true;
     },
 
+    // Bilanz kennt nur ueber/unter, Entitaet und Topic auch gleich/ungleich.
     setComparison(condition, value) {
-      if (value === 'above' || value === 'below') condition.comparison = value;
+      const allowed = condition.type === 'balance_threshold' ? ['above', 'below'] : ['above', 'below', 'equals', 'not_equals'];
+      if (allowed.includes(value)) condition.comparison = value;
+    },
+
+    // Kachel des Bilanzfelds einer Bedingung mit Rollen-Icon.
+    conditionFieldChip(condition) {
+      const fields = [...this.balanceFields, ...this.customBalanceFields];
+      const chip = balanceFieldCandidates(fields).find((candidate) => candidate.id === condition.field);
+      return chip || { ...unknownChip(condition.field), deviceName: condition.field || t('automations.devices.unknown') };
+    },
+
+    async chooseConditionField(condition) {
+      const fields = [...this.balanceFields, ...this.customBalanceFields];
+      const field = await this.openPicker({
+        title: t('automations.condition.balance.field_label'),
+        items: pickerItems(balanceFieldCandidates(fields)),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: condition.field ? [condition.field] : [],
+      });
+      if (field) condition.field = field;
+    },
+
+    // Kachel der Entitaet einer Bedingung, ohne Wahl ein Platzhalter.
+    conditionEntityChip(condition) {
+      if (!condition.entity_id) return null;
+      return entityChip(this.devices, this.assignments, condition.entity_id) || unknownChip(condition.topic);
+    },
+
+    async chooseConditionEntity(condition) {
+      const uniqueId = await this.openPicker({
+        title: t('automations.condition.entity.entity_label'),
+        items: pickerItems(meterCandidates(this.devices, this.assignments)),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: condition.entity_id ? [condition.entity_id] : [],
+      });
+      if (!uniqueId) return;
+      condition.entity_id = uniqueId;
+      this.adoptConditionEntity(condition);
     },
 
     validateRuleBeforeSave(rule) {
@@ -1251,6 +1585,75 @@
     },
 
     // Das Regler-Ziel eines Szenarios, sonst null.
+    regulatorOf(scenario) {
+      return (scenario.while && scenario.while.regulator) || {};
+    },
+
+    // Standard der Schrittweite: Schrittweite der gewaehlten Entitaet, sonst 1.
+    regulatorStepDefault(scenario) {
+      const entity = this.entityByUniqueId((this.regulatorOf(scenario).output || {}).entity_id);
+      return entity && isNumber(entity.step) ? entity.step : 1;
+    },
+
+    // Stellglied-Kacheln: gewaehltes zuerst, dazu hoechstens zwei passende.
+    actuatorChips(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      const output = regulator.output || {};
+      const list = chipList(actuatorCandidates(this.devices, this.assignments, regulator.direction), output.entity_id, 2);
+      return {
+        chips: withUnknown(list, output.topic),
+        more: list.more,
+        hint: list.chips.length ? '' : t('automations.scenario.edit.no_actuator'),
+      };
+    },
+
+    // Messgeraete fuer den Messwert "Gerät", gleicher Aufbau wie die Stellglieder.
+    meterChips(scenario) {
+      const base = this.regulatorOf(scenario).base || {};
+      const selected = base.source === 'entity' ? base.entity_id : undefined;
+      const list = chipList(meterCandidates(this.devices, this.assignments), selected, 2);
+      return { chips: withUnknown(list, base.topic), more: list.more };
+    },
+
+    async chooseActuator(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      const selected = regulator.output && regulator.output.entity_id;
+      const uniqueId = await this.openPicker({
+        title: t('automations.scenario.edit.regulator.output_label'),
+        items: pickerItems(actuatorCandidates(this.devices, this.assignments, regulator.direction)),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: selected ? [selected] : [],
+      });
+      if (uniqueId) this.setRegulatorOutput(scenario, uniqueId);
+    },
+
+    async chooseMeter(scenario) {
+      const base = this.regulatorOf(scenario).base || {};
+      const uniqueId = await this.openPicker({
+        title: t('automations.scenario.edit.regulator.base_entity_label'),
+        items: pickerItems(meterCandidates(this.devices, this.assignments)),
+        mode: 'single',
+        filters: roleFilters(),
+        selected: base.source === 'entity' && base.entity_id ? [base.entity_id] : [],
+      });
+      if (uniqueId) this.setRegulatorBase(scenario, 'entity', uniqueId);
+    },
+
+    // Solange ein Szenario-Editor offen ist, holt sich die Seite den Geraetekatalog
+    // alle 30 s neu, damit die Live-Werte in den Kacheln stimmen. Der Sekundentakt
+    // stoppt den Timer, sobald kein Editor mehr offen ist.
+    syncCatalogRefresh() {
+      const editing = Object.values(this.scenarioEditing).some(Boolean);
+      if (editing && !this._catalogTimer) {
+        this._catalogTimer = setInterval(() => { this.loadDeviceCatalog().catch(() => {}); }, CATALOG_REFRESH_MS);
+        if (typeof this._catalogTimer.unref === 'function') this._catalogTimer.unref();
+      } else if (!editing && this._catalogTimer) {
+        clearInterval(this._catalogTimer);
+        this._catalogTimer = null;
+      }
+    },
+
     regulatorTopic(scenario) {
       const current = scenario.while;
       if (!current || current.mode !== 'regulate' || !current.regulator || !current.regulator.output) return null;
@@ -1271,6 +1674,12 @@
       const output = { topic: entity.command_topic, entity_id: entity.unique_id, min: entity.min_value, max: entity.max_value };
       if (isNumber(entity.step)) output.step = entity.step;
       regulator.output = output;
+      // Wallbox und Waermepumpe sind Verbraucher, ein Wechselrichter erzeugt.
+      // Sonstige Geraete lassen die Richtung stehen.
+      const device = (this.devices || []).find((item) => (item.entities || []).some((other) => other.unique_id === uniqueId));
+      const group = device ? deviceRoleGroup(device, this.assignments) : 'other';
+      if (group === 'wallbox' || group === 'heat_pump') this.setRegulatorDirection(scenario, 'consumer');
+      else if (group === 'inverter') this.setRegulatorDirection(scenario, 'producer');
       if (regulator.direction === 'producer') regulator.fallback = { payload: String(entity.max_value) };
     },
 

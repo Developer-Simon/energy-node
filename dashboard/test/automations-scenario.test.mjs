@@ -48,7 +48,7 @@ test('emptyScenario has no until and no null fields', () => {
   const s = load();
   const scenario = s.emptyScenario('wallbox', 'Wallbox');
   assert.deepEqual(plain(scenario), {
-    id: 'wallbox', name: 'Wallbox', enabled: false,
+    id: 'wallbox', name: 'Wallbox', enabled: true, history_enabled: true,
     when: { conditions: [] }, on_start: { actions: [] }, while: { mode: 'none' }, on_end: { actions: [] },
   });
   assert.equal(JSON.stringify(scenario).includes('null'), false);

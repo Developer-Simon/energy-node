@@ -30,7 +30,7 @@
 
   function emptyScenario(id, name) {
     return {
-      id, name, enabled: false,
+      id, name, enabled: true, history_enabled: true,
       when: { conditions: [] },
       on_start: { actions: [] },
       while: { mode: 'none' },

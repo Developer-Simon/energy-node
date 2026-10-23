@@ -21,22 +21,27 @@ const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
 const scenarioSource = fs.readFileSync(path.join(jsDir, 'automations-scenario.js'), 'utf8');
 const chartSource = fs.readFileSync(path.join(jsDir, 'automations-chart.js'), 'utf8');
+const devicesSource = fs.readFileSync(path.join(jsDir, 'automations-devices.js'), 'utf8');
+const pickerSource = fs.readFileSync(path.join(jsDir, 'device-picker.js'), 'utf8');
 const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
 );
 
-function createAutomationsPanel() {
+function createAutomationsPanel(setup) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
   installI18n(dom.window);
+  if (setup) setup(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
   vm.runInContext(viewSource, context);
   vm.runInContext(scenarioSource, context);
   vm.runInContext(chartSource, context);
+  vm.runInContext(devicesSource, context);
+  vm.runInContext(pickerSource, context);
   vm.runInContext(rollupSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
@@ -1260,13 +1265,78 @@ test('addAction legt Benachrichtigung und rohen MQTT-Befehl an', () => {
   assert.equal(rule.actions[1].topic, '');
 });
 
-test('addAction mit "entity" legt keine Aktion an, sondern oeffnet den Geraete-Assistenten', () => {
+test('addAction mit "entity" oeffnet den Picker und legt die Aktion erst mit der Wahl an', async () => {
   const { component } = createAutomationsPanel();
+  component.devices = [{ id: 'wb', name: 'Wallbox', entities: [switchEntity, { ...setpointEntity, value: '4200' }] }];
+  component.entities = component.flattenCommandableEntities(component.devices);
   const rule = { id: 'r1', conditions: [], actions: [] };
-  const scope = { showEntityWizard: false };
-  component.addAction(rule, 'entity', scope);
+  let options = null;
+  component.openPicker = async (request) => { options = request; return null; };
+  await component.addAction(rule, 'entity');
+  assert.equal(options.mode, 'single');
+  assert.equal(options.items.map((item) => item.id).sort().join(), 'wallbox_enable,wallbox_power');
   assert.equal(rule.actions.length, 0);
-  assert.equal(scope.showEntityWizard, true);
+  component.openPicker = async () => 'wallbox_enable';
+  await component.addAction(rule, 'entity');
+  assert.equal(rule.actions[0].payload, 'ON');
+  component.openPicker = async () => 'wallbox_power';
+  await component.addAction(rule, 'entity');
+  assert.equal(component.actionKind(rule.actions[1]), 'setpoint');
+  assert.equal(rule.actions[1].payload, '4200');
+});
+
+test('a publish action on a device topic counts as setpoint even without entity_id', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [setpointEntity];
+  const action = { type: 'publish', topic: 'werkstatt/wallbox/set', payload_source: 'constant', payload: '20', retain: false };
+  assert.equal(component.actionKind(action), 'setpoint');
+  assert.deepEqual(JSON.parse(JSON.stringify(component.actionBounds(action))), { min: 1380, max: 11000, step: 10, unit: '' });
+  assert.equal(component.actionKind({ ...action, topic: 'fremd/topic' }), 'mqtt');
+});
+
+test('new rules and scenarios start enabled with history, new balance conditions with hysteresis 5', () => {
+  const { component } = createAutomationsPanel();
+  component.addRule();
+  const rule = component.document.rules.at(-1);
+  assert.equal(rule.enabled, true);
+  assert.equal(rule.history_enabled, true);
+  component.addBalanceCondition(rule);
+  assert.equal(rule.conditions[0].hysteresis, 5);
+  component.addScenario();
+  const scenario = component.document.scenarios.at(-1);
+  assert.equal(scenario.enabled, true);
+  assert.equal(scenario.history_enabled, true);
+});
+
+test('picking a wallbox as actuator switches the regulator to consumer', () => {
+  const { component } = createAutomationsPanel();
+  component.devices = [{ id: 'wb', name: 'Wallbox', entities: [setpointEntity] }];
+  component.assignments = { wallbox_power: { role: 'wallbox' } };
+  component.entities = component.flattenCommandableEntities(component.devices);
+  const scenario = chipRegulator({ output: null });
+  component.setRegulatorOutput(scenario, 'wallbox_power');
+  assert.equal(scenario.while.regulator.direction, 'consumer');
+});
+
+test('liveBars has one bar per numeric condition', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', conditions: [
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 50 },
+    { type: 'time_window', start: '08:00', end: '18:00' },
+    { type: 'entity_value', entity_id: '', comparison: 'below', value: 20 },
+    { type: 'entity_value', entity_id: '', comparison: 'equals', text: 'ON' },
+  ], actions: [] };
+  assert.deepEqual(component.liveBars(rule).map((bar) => bar.index), [0, 2]);
+});
+
+test('setComparison allows equals only outside balance conditions', () => {
+  const { component } = createAutomationsPanel();
+  const balance = { type: 'balance_threshold', comparison: 'above' };
+  component.setComparison(balance, 'equals');
+  assert.equal(balance.comparison, 'above');
+  const entity = { type: 'entity_value', comparison: 'above' };
+  component.setComparison(entity, 'not_equals');
+  assert.equal(entity.comparison, 'not_equals');
 });
 
 // --- Loeschen mit Rueckfrage ------------------------------------------------
@@ -2195,4 +2265,217 @@ test('the editor keeps default fine tuning out of the saved document', async () 
   savePanelWithFetch(component, window, sent);
   await component.save();
   assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, 0.5);
+});
+
+test('stepValue starts empty fields at the default', () => {
+  const { component } = createAutomationsPanel();
+  const target = {};
+  component.stepValue(target, 'gain', 1, { fallback: 0.8, step: 0.1 });
+  assert.equal(target.gain, 0.9);
+});
+
+test('stepValue clamps at the bounds', () => {
+  const { component } = createAutomationsPanel();
+  const target = { offset: 0 };
+  component.stepValue(target, 'offset', -1, { min: 0, step: 1 });
+  assert.equal(target.offset, 0);
+  component.stepValue(target, 'offset', 5, { min: 0, max: 4, step: 1 });
+  assert.equal(target.offset, 4);
+});
+
+test('stepValue leaves an untouched default out', () => {
+  const { component } = createAutomationsPanel();
+  const target = {};
+  component.stepValue(target, 'gain', 1, { fallback: 0.8, step: 0.1 });
+  component.stepValue(target, 'gain', -1, { fallback: 0.8, step: 0.1 });
+  assert.equal('gain' in target, false);
+});
+
+test('fine tuning steppers keep defaults out of the saved document', async () => {
+  const { component, window } = createAutomationsPanel();
+  const scenario = regulatorEditScenario();
+  component.document = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [],
+    scenarios: [scenario],
+  };
+  const gainOpts = { fallback: 0.8, min: 0.1, max: 1, step: 0.1 };
+  const regulator = scenario.while.regulator;
+  component.stepValue(regulator, 'gain', 1, gainOpts);
+  component.stepValue(regulator, 'gain', -1, gainOpts);
+  let sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, undefined);
+  component.stepValue(regulator, 'gain', 1, gainOpts);
+  sent = {};
+  savePanelWithFetch(component, window, sent);
+  await component.save();
+  assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, 0.9);
+});
+
+// Regler-Kacheln: Stellglied und Messgerät, Picker, unbekanntes Gerät, Hinweis.
+function chipRegulator(regulator) {
+  return { id: 'scn-reg', while: { mode: 'regulate', regulator: { direction: 'producer', target_w: 0, deadband_w: 20, ...regulator } } };
+}
+
+function inverterDevices() {
+  return [{
+    id: 'inv',
+    name: 'Wechselrichter',
+    entities: [{ unique_id: 'inv_limit', name: 'Leistungslimit', command_topic: 'inv/limit/set', min_value: 0, max_value: 800, step: 10, unit_of_measurement: 'W' }],
+  }];
+}
+
+test('chooseActuator writes topic and bounds from the picked entity', async () => {
+  const { component } = createAutomationsPanel();
+  component.devices = inverterDevices();
+  component.assignments = { inv_limit: { role: 'pv' } };
+  component.entities = component.flattenCommandableEntities(component.devices);
+  const scenario = chipRegulator({ output: null });
+  let options = null;
+  component.openPicker = async (request) => {
+    options = request;
+    return 'inv_limit';
+  };
+  await component.chooseActuator(scenario);
+  assert.equal(options.mode, 'single');
+  assert.equal(scenario.while.regulator.output.topic, 'inv/limit/set');
+  assert.equal(scenario.while.regulator.output.min, 0);
+  assert.equal(scenario.while.regulator.output.max, 800);
+  assert.equal(scenario.while.regulator.fallback.payload, '800');
+});
+
+test('a missing saved actuator shows as unknown', () => {
+  const { component } = createAutomationsPanel();
+  component.devices = [];
+  component.assignments = {};
+  component.entities = [];
+  const scenario = chipRegulator({ output: { topic: 'old/limit/set', entity_id: 'gone', min: 0, max: 800 } });
+  const result = component.actuatorChips(scenario);
+  assert.equal(result.chips.length, 1);
+  assert.equal(result.chips[0].unknown, true);
+  assert.equal(result.chips[0].deviceName, 'Unbekanntes Gerät');
+  assert.equal(result.chips[0].subtitle, 'old/limit/set');
+});
+
+test('no actuator candidates shows the hint', () => {
+  const { component, window } = createAutomationsPanel();
+  component.devices = [];
+  component.assignments = {};
+  component.entities = [];
+  const result = component.actuatorChips(chipRegulator({ output: null }));
+  assert.equal(result.chips.length, 0);
+  assert.equal(result.hint, window.I18n.t('automations.scenario.edit.no_actuator'));
+  assert.notEqual(result.hint, 'automations.scenario.edit.no_actuator');
+});
+
+test('actuatorChips and meterChips report the candidate count as a number', () => {
+  const { component } = createAutomationsPanel();
+  component.devices = [
+    ...inverterDevices(),
+    {
+      id: 'inv2',
+      name: 'Zweiter Wechselrichter',
+      entities: [{ unique_id: 'inv2_limit', name: 'Limit', command_topic: 'inv2/limit/set', min_value: 0, max_value: 500 }],
+    },
+    {
+      id: 'meters',
+      name: 'Zähler',
+      entities: [
+        { unique_id: 'm1', name: 'A', state_topic: 'm1/state', template_supported: true, value: 1 },
+        { unique_id: 'm2', name: 'B', state_topic: 'm2/state', template_supported: true },
+        { unique_id: 'm3', name: 'C', state_topic: 'm3/state', template_supported: true, value: 3 },
+      ],
+    },
+  ];
+  component.assignments = { inv_limit: { role: 'pv' }, inv2_limit: { role: 'pv' } };
+  component.entities = component.flattenCommandableEntities(component.devices);
+  const scenario = chipRegulator({ output: null, base: null });
+  const actuators = component.actuatorChips(scenario);
+  const meters = component.meterChips(scenario);
+  assert.equal(typeof actuators.more, 'number');
+  assert.equal(actuators.more, 2);
+  assert.equal(typeof meters.more, 'number');
+  assert.equal(meters.more, 3);
+});
+
+// Aktionskarten: Art erkennen, Schalter umschalten, Sollwert-Quelle wechseln.
+const switchEntity = {
+  unique_id: 'wallbox_enable', name: 'Freigabe', command_topic: 'werkstatt/wallbox/enable',
+  state_topic: 'werkstatt/wallbox/state', value_template: '{{ value_json.state }}', payload_on: 'ON', payload_off: 'OFF',
+};
+const setpointEntity = { unique_id: 'wallbox_power', name: 'Leistung', command_topic: 'werkstatt/wallbox/set', min_value: 1380, max_value: 11000, step: 10 };
+
+test('actionKind tells switch, setpoint, notify and mqtt apart', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [switchEntity, setpointEntity];
+  assert.equal(component.actionKind(component.buildSwitchAction(switchEntity, 'on')), 'switch');
+  assert.equal(component.actionKind(component.buildToggleAction(switchEntity)), 'switch');
+  assert.equal(component.actionKind(component.buildSetpointAction(setpointEntity, { mode: 'constant', value: 800 })), 'setpoint');
+  assert.equal(component.actionKind(component.buildSetpointAction(setpointEntity, { mode: 'balance', field: 'pv' })), 'setpoint');
+  assert.equal(component.actionKind(component.buildMqttAction()), 'mqtt');
+  assert.equal(component.actionKind({ type: 'notification' }), 'notify');
+});
+
+test('setSwitchState toggle builds a toggle action for the same entity', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [switchEntity];
+  const rule = { actions: [component.buildSwitchAction(switchEntity, 'on')] };
+  component.setSwitchState(rule, 0, 'toggle');
+  const action = rule.actions[0];
+  assert.equal(action.payload_source, 'toggle');
+  assert.equal(action.entity_id, 'wallbox_enable');
+  assert.equal(action.topic, 'werkstatt/wallbox/enable');
+  assert.equal(action.source_topic, 'werkstatt/wallbox/state');
+  assert.equal(action.payload_on, 'ON');
+  assert.equal(action.payload_off, 'OFF');
+});
+
+test('setSetpointSource balance keeps the entity and bounds', () => {
+  const { component } = createAutomationsPanel();
+  component.entities = [setpointEntity];
+  const action = component.buildSetpointAction(setpointEntity, { mode: 'constant', value: 900 });
+  component.setSetpointSource(action, 'balance');
+  assert.equal(action.payload_source, 'balance');
+  assert.equal(action.field, 'pv');
+  assert.equal(action.entity_id, 'wallbox_power');
+  assert.equal(action.topic, 'werkstatt/wallbox/set');
+  assert.equal(action.min, 1380);
+  assert.equal(action.max, 11000);
+  assert.equal(action.step, 10);
+  component.setSetpointSource(action, 'constant');
+  assert.equal(action.payload_source, 'constant');
+  assert.equal(action.entity_id, 'wallbox_power');
+  assert.equal(action.min, 1380);
+  assert.equal(action.max, 11000);
+});
+
+test('showHistory survives a throwing localStorage', () => {
+  const { component, window } = createAutomationsPanel((win) => {
+    Object.defineProperty(win, 'localStorage', { get() { throw new Error('denied'); } });
+  });
+  try {
+    assert.equal(component.showHistory, false);
+    component.setShowHistory(true);
+    assert.equal(component.showHistory, true);
+  } finally {
+    window.close();
+  }
+});
+
+test('turning history on loads charts for collapsed regulators', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    component.document = { version: 1, settings: {}, rules: [], scenarios: [regulatorScenario('reg'), holdScenario('plain')] };
+    const loaded = [];
+    component.loadScenarioChart = async (scenario) => { loaded.push(scenario.id); };
+    await component.setShowHistory(true);
+    assert.deepEqual(loaded, ['reg']);
+    assert.notEqual(component.scenarioExpanded.reg, true);
+  } finally {
+    window.close();
+  }
 });

@@ -1194,7 +1194,11 @@ div.devicemap-view-menu-row { cursor: default; }
 /* Device picker (device-picker.js): a modal sheet with search, sections per
    manufacturer and a check mark per row. */
 .app-modal.device-picker { width: min(30rem, calc(100vw - 2rem)); padding: 0; border-left-width: 1px; border-radius: var(--radius-lg); overflow: hidden; }
-.device-picker-form { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; max-height: min(40rem, calc(100vh - 4rem)); }
+/* Flex statt fester Grid-Zeilen: die Filterzeile ist optional, eine feste
+   Zeilenliste liess sie auf 0 schrumpfen und die Liste lag ueber den Chips. */
+.device-picker-form { display: flex; flex-direction: column; max-height: min(40rem, calc(100vh - 4rem)); }
+.device-picker-form > * { flex: none; }
+.device-picker-form > .device-picker-list { flex: 1 1 auto; min-height: 0; }
 .device-picker .app-modal-title { padding: 1.1rem 1.25rem .5rem; margin: 0; }
 .device-picker-search { position: relative; display: block; margin: 0 1.25rem .5rem; }
 .device-picker-search svg { position: absolute; left: .7rem; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
@@ -1218,6 +1222,21 @@ div.devicemap-view-menu-row { cursor: default; }
 .device-picker-item.is-picked .device-picker-check { opacity: 1; transform: scale(1); }
 .device-picker-empty { margin: 1rem .5rem; color: var(--text-muted); font-size: .88rem; }
 .device-picker .app-modal-actions { padding: .75rem 1.25rem 1rem; border-top: 1px solid var(--border-soft); }
+.device-picker-text { display: grid; gap: 1px; min-width: 0; }
+.device-picker-subtitle { font-size: .76rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.device-picker-item.is-dim { opacity: .5; }
+.device-picker-icon.is-tone-pv { background: color-mix(in srgb, var(--flow-pv) 16%, transparent); color: var(--flow-pv); }
+.device-picker-icon.is-tone-grid { background: color-mix(in srgb, var(--flow-grid) 16%, transparent); color: var(--flow-grid); }
+.device-picker-icon.is-tone-wallbox { background: color-mix(in srgb, var(--flow-wallbox) 16%, transparent); color: var(--flow-wallbox); }
+.device-picker-icon.is-tone-heatpump { background: color-mix(in srgb, var(--flow-heatpump) 16%, transparent); color: var(--flow-heatpump); }
+.device-picker-icon.is-tone-accent { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.device-picker-icon.is-tone-info { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
+.device-picker-icon svg { fill: none; stroke: currentColor; }
+.device-picker-filters { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 1.25rem .6rem; }
+.device-picker-chip { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .7rem; border: 0; border-radius: 999px; background: var(--panel-alt); color: var(--text-muted); font-size: .8rem; cursor: pointer; }
+.device-picker-chip svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.device-picker-chip.is-active { background: var(--accent-bg); color: var(--text-strong); box-shadow: inset 0 0 0 1px var(--accent-line); }
+.device-picker-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .device-picker-check { transform: none; } }
 
 /* Base type, colour and icon of a custom category, shared by the device

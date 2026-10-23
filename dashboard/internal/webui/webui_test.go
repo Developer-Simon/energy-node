@@ -55,7 +55,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=9\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=14,/static/js/devicemap-subdevices.js?v=1,/static/js/devicemap-graph.js?v=9,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=4,/static/js/energy-plant.js?v=6,/static/js/device-picker.js?v=1,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=13\"", "data-panel-css=\"/static/css/manager.css?v=47\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=9\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=14,/static/js/devicemap-subdevices.js?v=1,/static/js/devicemap-graph.js?v=9,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=4,/static/js/energy-plant.js?v=6,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=13\"", "data-panel-css=\"/static/css/manager.css?v=48\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -161,7 +161,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=47,/static/css/settings-controls.css?v=17"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=17"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1135,7 +1135,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=47,/node/static/css/settings-controls.css?v=17"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=17"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1364,8 +1364,8 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
-	scenario := strings.Index(line, "automations-scenario.js?v=1")
-	chart := strings.Index(line, "automations-chart.js?v=1")
+	scenario := strings.Index(line, "automations-scenario.js?v=2")
+	chart := strings.Index(line, "automations-chart.js?v=2")
 	page := strings.Index(line, "automations.page.js?v=")
 	if scenario < 0 || chart < 0 || page < 0 {
 		t.Fatalf("Szenario-Module fehlen in der Skriptliste: %s", line)
@@ -3244,6 +3244,54 @@ func TestCollapsedRegulatorRowShowsNetAndOutput(t *testing.T) {
 	}
 }
 
+// Der Schalter "Verlaeufe anzeigen" sitzt in der Kopfleiste zwischen Abstandhalter
+// und Speichern und ist ein <label class="settings-toggle">.
+func TestHeaderOffersTheHistorySwitch(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	bar := strings.Index(source, `class="auto-bar"`)
+	if bar < 0 {
+		t.Fatal("Kopfleiste .auto-bar nicht gefunden")
+	}
+	header := source[bar:]
+	save := strings.Index(header, `x-on:click="save()"`)
+	// Der Schalter steckt in einem Label mit Text: .settings-toggle selbst hat
+	// eine feste Breite, Text darin lief ueber den Speichern-Knopf.
+	label := strings.Index(header, `<label class="auto-bar-switch"`)
+	if label < 0 {
+		t.Fatal("Verlaufsschalter ist kein <label class=\"auto-bar-switch\"> in der Kopfleiste")
+	}
+	for _, want := range []string{`class="settings-toggle"`, `setShowHistory(`, `automations.show_history`} {
+		if !strings.Contains(header[label:], want) {
+			t.Fatalf("Verlaufsschalter ohne %s", want)
+		}
+	}
+	if save < 0 || label > save {
+		t.Fatal("Verlaufsschalter steht nicht vor dem Speichern-Knopf")
+	}
+}
+
+// Zugeklappte Regler-Zeilen zeigen bei eingeschaltetem Verlauf die Sparkline,
+// sonst weiter Netz und Stellwert.
+func TestCollapsedRowSwitchesToSparkline(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	collapsed, _, found := strings.Cut(string(tpl), `<template x-if="scenarioExpanded[scenario.id]">`)
+	if !found {
+		t.Fatal("aufgeklappte Karte nicht gefunden")
+	}
+	for _, marker := range []string{`sparklineFor(scenario)`, `auto-spark`, `showHistory`} {
+		if !strings.Contains(collapsed, marker) {
+			t.Fatalf("zugeklappte Zeile ohne %s", marker)
+		}
+	}
+}
+
 // Die Regelkarte gliedert sich in Wenn, Dann und Ablauf, mit Live-Balken oben
 // und Zeitleiste unten. Die alten Spalten Ursache, Tor und Wirkung sind weg.
 func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
@@ -3289,7 +3337,7 @@ func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
 		`removeCondition(rowsOwner, index)`,
 		`removeAction(rowsOwner, index)`,
 		`addCondition(rowsOwner, type.key)`,
-		`addAction(rowsOwner, type.key, $data)`,
+		`addAction(rowsOwner, type.key)`,
 		`x-on:change="toggleUntil(scenario, $event.target.checked)"`,
 		`x-on:click="changeWhileMode(scenario, 'hold')"`,
 		`x-model="scenario.history_enabled"`,
@@ -3298,5 +3346,159 @@ func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("Szenario-Bearbeitung: %q fehlt im Automations-Panel", want)
 		}
+	}
+}
+
+func TestDevicePickerTemplateSupportsSpriteIconsAndFilters(t *testing.T) {
+	source, err := fs.ReadFile(templateFS, "templates/devicemap.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`x-bind:href="'#' + item.iconRef"`, `x-on:click="pickerFilter(chip.key)"`, `x-on:keydown.enter="if (picker.mode === 'single') { $event.preventDefault(); pickerChoose(item.id) }"`, "item.subtitle", "is-dim"} {
+		if !strings.Contains(string(source), marker) {
+			t.Fatalf("device picker template does not contain %q", marker)
+		}
+	}
+}
+
+// Die Bedingungskarten nutzen weiche Felder und Stepper statt der alten
+// Editor-Karte mit Linie links. Geprueft wird der Bedingungs-Block, die
+// Aktions-Editoren folgen erst in einer spaeteren Aufgabe.
+func TestConditionEditorsUseSoftFieldsAndSteppers(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	block, _, found := strings.Cut(source[strings.Index(source, `{{define "automations-condition-editors"}}`):], `{{define "automations-action-editors"}}`)
+	if !found {
+		t.Fatal("Bedingungs-Editoren nicht gefunden")
+	}
+	if !strings.Contains(block, `class="auto-card`) {
+		t.Fatal("Bedingungs-Editoren nutzen keine auto-card")
+	}
+	if !strings.Contains(block, `{{template "auto-stepper"}}`) {
+		t.Fatal("Bedingungs-Editoren nutzen keinen auto-stepper")
+	}
+	if strings.Contains(block, `class="edit-card"`) {
+		t.Fatal("Bedingungs-Editoren nutzen noch edit-card")
+	}
+	if !strings.Contains(source, `{{define "auto-stepper"}}`) {
+		t.Fatal("Baustein auto-stepper fehlt")
+	}
+}
+
+// Das Regler-Formular zeigt Geraete als Kacheln und oeffnet den Picker fuer
+// "Alle anzeigen". Der Picker ist einmal im Automationen-Template eingebunden.
+func TestRegulatorFormUsesDeviceChipsAndThePicker(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	for _, marker := range []string{
+		`actuatorChips(scenario)`,
+		`meterChips(scenario)`,
+		`chooseActuator(scenario)`,
+		`chooseMeter(scenario)`,
+		`bandPreviewFor(scenario)`,
+		`role="img"`,
+		`class="auto-device-chip`,
+		`is-selected`,
+		`automations.devices.show_all`,
+	} {
+		if !strings.Contains(source, marker) {
+			t.Fatalf("Regler-Formular fehlt %s", marker)
+		}
+	}
+	page, err := os.ReadFile("templates/automations.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(page), `{{template "device-picker" .}}`) != 1 {
+		t.Fatal("automations.html bindet den device-picker nicht genau einmal ein")
+	}
+}
+
+// Die Feineinstellungen des Reglers sind eine Karte unter dem Regler, mit dem
+// Zahnrad-Icon und vier Steppern (Verstaerkung, Takt, Schritt, Max. Aenderung).
+func TestFineTuningIsACardWithSteppers(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	start := strings.Index(source, `class="auto-card`)
+	if start < 0 {
+		t.Fatal("Feineinstellungen sind keine auto-card")
+	}
+	card := source[start:]
+	if end := strings.Index(card, `{{end}}`); end > 0 {
+		card = card[:end]
+	}
+	if !strings.Contains(card, `ico-gear`) {
+		t.Fatal("Feineinstellungen-Karte ohne ico-gear")
+	}
+	if n := strings.Count(card, `{{template "auto-stepper"}}`); n != 4 {
+		t.Fatalf("Feineinstellungen-Karte hat %d auto-stepper, erwartet 4", n)
+	}
+	if !strings.Contains(source, `automations.scenario.edit.defaults_hint`) {
+		t.Fatal("Hinweiszeile automations.scenario.edit.defaults_hint fehlt")
+	}
+}
+
+// Die Aktionskarten zeigen je Aktion Art, Testen (nur mit rowsCanTest) und Loeschen.
+// Der Editor-Block der Aktionen nutzt keine edit-card mehr.
+func TestActionCardsShowKindTestAndDelete(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	block, _, found := strings.Cut(source[strings.Index(source, `{{define "automations-action-editors"}}`):], `{{define "automations-condition-tiles"}}`)
+	if !found {
+		t.Fatal("Aktions-Editoren nicht gefunden")
+	}
+	for _, marker := range []string{
+		`actionKind(action)`,
+		`ico-play`,
+		`ico-trash`,
+		`auto-card`,
+		`rowsCanTest`,
+		`removeAction(rowsOwner, index)`,
+		`chooseActionDevice(rowsOwner, index)`,
+		`setSwitchState(rowsOwner, index,`,
+		`setSetpointSource(action,`,
+		`{{template "auto-stepper"}}`,
+	} {
+		if !strings.Contains(block, marker) {
+			t.Fatalf("Aktions-Editoren ohne %q", marker)
+		}
+	}
+	if strings.Contains(block, `class="edit-card"`) {
+		t.Fatal("Aktions-Editoren nutzen noch edit-card")
+	}
+}
+
+// Die Kopf-Kachel der Sollwert-Karte traegt die Rollenfarbe des Geraets.
+func TestSetpointActionHeadUsesRoleTone(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	block, _, found := strings.Cut(source[strings.Index(source, `{{define "automations-action-editors"}}`):], `{{define "automations-condition-tiles"}}`)
+	if !found {
+		t.Fatal("Aktions-Editoren nicht gefunden")
+	}
+	head, _, found := strings.Cut(block[strings.Index(block, `<div class="auto-card-head">`):], `auto-card-title`)
+	if !found {
+		t.Fatal("Kopf der Aktionskarte nicht gefunden")
+	}
+	if !strings.Contains(head, `actionTone(action)`) {
+		t.Fatal("Kopf-Kachel der Aktionskarte ohne actionTone")
+	}
+	if !strings.Contains(head, `'is-tone-' + actionTone(action)`) {
+		t.Fatal("Kopf-Kachel der Sollwert-Karte ohne Rollenfarbe")
 	}
 }
