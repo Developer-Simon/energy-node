@@ -3431,3 +3431,26 @@ func TestActionCardsShowKindTestAndDelete(t *testing.T) {
 		t.Fatal("Aktions-Editoren nutzen noch edit-card")
 	}
 }
+
+// Die Kopf-Kachel der Sollwert-Karte traegt die Rollenfarbe des Geraets.
+func TestSetpointActionHeadUsesRoleTone(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	block, _, found := strings.Cut(source[strings.Index(source, `{{define "automations-action-editors"}}`):], `{{define "automations-condition-tiles"}}`)
+	if !found {
+		t.Fatal("Aktions-Editoren nicht gefunden")
+	}
+	head, _, found := strings.Cut(block[strings.Index(block, `<div class="auto-card-head">`):], `auto-card-title`)
+	if !found {
+		t.Fatal("Kopf der Aktionskarte nicht gefunden")
+	}
+	if !strings.Contains(head, `actionTone(action)`) {
+		t.Fatal("Kopf-Kachel der Aktionskarte ohne actionTone")
+	}
+	if !strings.Contains(head, `'is-tone-' + actionTone(action)`) {
+		t.Fatal("Kopf-Kachel der Sollwert-Karte ohne Rollenfarbe")
+	}
+}

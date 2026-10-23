@@ -308,7 +308,7 @@
                   <div class="auto-cond">
                     <div class="auto-card">
                       <div class="auto-card-head">
-                        <span class="auto-tile-icon" x-bind:class="{ 'is-tone-accent': actionKind(action) === 'switch', 'is-tone-info': actionKind(action) === 'notify' }">
+                        <span class="auto-tile-icon" x-bind:class="actionKind(action) === 'switch' ? 'is-tone-accent' : actionKind(action) === 'notify' ? 'is-tone-info' : actionKind(action) === 'setpoint' && actionTone(action) ? 'is-tone-' + actionTone(action) : ''">
                           <svg class="automation-icon"><use x-bind:href="'#' + ({ switch: 'ico-switch', setpoint: 'ico-flash', notify: 'ico-bell', mqtt: 'ico-mqtt' })[actionKind(action)]"></use></svg>
                         </span>
                         <span class="auto-card-title" x-text="describeAction(action).title"></span>
