@@ -1,19 +1,48 @@
 # Changelog
 
-## v0.10.9 (2026-10-23)
+## v0.10.10 (2026-10-23)
 
 ### Features
 
+- **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
+- **history:** record scenario regulator outputs alongside extra entities (b23357d)
+- **history:** sample scenario series into the exchange buffer (d0da2c6)
+- **automations:** scenario status, phases and validation helpers (d07ce4f)
+- **automations:** chart geometry for scenario cards and rule timelines (a45e173)
+- **automations:** scenario state, undo and limits in the page component (b76494f)
+- **automations:** save scenarios with validation and default stripping (b173330)
+- **automations:** scenario and rule tabs, undo bar and shared row editors (d814754)
+- **automations:** scenario chart data, live points and today export in the page component (48b888c)
+- **automations:** live scenario card with chart and phase bar (42f0fdc)
+- **automations:** rule card live bar, timeline and repeat mode helpers (9877b67)
+- **automations:** redesigned rule card with when, then and flow blocks (6595beb)
+- **automations:** scenario regulator editing helpers (cce322e)
+- **automations:** edit scenario phases and the regulator (81e78fe)
+- **automations:** The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor. (#164)
 - **automation:** validate scenarios (de7556c)
 - **dashboard:** map automation scenarios in the data flow (eb3a375)
 - **automations:** repeat validation and interval settings logic (a128e57)
 - **automations:** repeat field and interval settings in the editor (39a3aeb)
-- **automation:** Automation rules can repeat their actions while their conditions hold. (#163)
 
 ### Fixes
 
+- **automations:** colour consumer regulator output by direction (a96c26d)
+- **automations:** editable condition and action rows in the scenario editor (6d0b4e1)
+- **automations:** hide retained scenario values while the service is offline (af504e0)
+- **automations:** repeat check, unique wizard ids and dead code cleanup (d298834)
+- **automations:** show net and setpoint in the collapsed scenario row (c9a200d)
+- **automations:** restore the short preview in collapsed rules (fd35320)
 - **dashboard:** add German texts for the scenario schema (e5aa7dd)
 - **automations:** field help names the configurable minimum interval (7567a97)
+
+### Refactors
+
+- **automations:** remove the rule wizard from the page component (b468dc1)
+- **automations:** row editors read state through owner hooks (75b2998)
+
+### Documentation
+
+- **automations:** scenario page and rule editor (6352d47)
 
 ### Tests
 
