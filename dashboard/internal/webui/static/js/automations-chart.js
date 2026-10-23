@@ -8,6 +8,7 @@
   const AXIS_MIN_W = 100;
   const AXIS_PAD = 0.1;
   const TICK_COUNT = 4;
+  const SPARK_PAD = 0.1;
 
   // Toene fuer Szenario-Ergebnisse. Die Regel-Ergebnisse fired, blocked und
   // error kommen aus historyResultInfo in automations-view.js.
@@ -57,6 +58,16 @@
     return factor * magnitude;
   }
 
+  // Ein Abstand ueber GAP_SECONDS setzt die Linie neu an (M statt L).
+  function gapPath(points, xOf, yOf) {
+    let previous = null;
+    return points.map((point) => {
+      const command = previous === null || point.ts - previous > GAP_SECONDS ? 'M' : 'L';
+      previous = point.ts;
+      return `${command}${xOf(point.ts).toFixed(1)} ${yOf(point.value).toFixed(1)}`;
+    }).join(' ');
+  }
+
   function scenarioChart({ grid, output, target, deadband, events, from, to, width, height }) {
     const span = to - from || 1;
     const inRange = (point) => point.ts >= from && point.ts <= to;
@@ -71,15 +82,7 @@
     const xOf = (ts) => ((ts - from) / span) * width;
     const yOf = (value) => height - ((value - lo) / (hi - lo)) * height;
 
-    // Ein Abstand ueber GAP_SECONDS setzt die Linie neu an (M statt L).
-    const linePath = (points) => {
-      let previous = null;
-      return points.map((point) => {
-        const command = previous === null || point.ts - previous > GAP_SECONDS ? 'M' : 'L';
-        previous = point.ts;
-        return `${command}${xOf(point.ts).toFixed(1)} ${yOf(point.value).toFixed(1)}`;
-      }).join(' ');
-    };
+    const linePath = (points) => gapPath(points, xOf, yOf);
 
     const bandTop = yOf(target + deadband);
     const bandBottom = yOf(target - deadband);
@@ -104,6 +107,31 @@
       markers,
       yTicks,
       empty,
+    };
+  }
+
+  // Minidiagramm der zugeklappten Regler-Zeile: Netzlinie und Toleranzband.
+  // Die Y-Achse umfasst Werte und Band mit 10 % Rand, ohne die feste 100-W-Achse.
+  function sparkline({ points, target, deadband, from, to, width = 150, height = 34 }) {
+    const span = to - from || 1;
+    const inRange = points.filter((point) => point.ts >= from && point.ts <= to);
+    const values = [...inRange.map((point) => point.value), target - deadband, target + deadband];
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    const pad = (high - low) * SPARK_PAD || 1;
+    const lo = low - pad;
+    const hi = high + pad;
+
+    const xOf = (ts) => ((ts - from) / span) * width;
+    const yOf = (value) => height - ((value - lo) / (hi - lo)) * height;
+
+    const bandTop = yOf(target + deadband);
+    const bandBottom = yOf(target - deadband);
+
+    return {
+      path: gapPath(inRange, xOf, yOf),
+      band: { y: bandTop, height: bandBottom - bandTop },
+      empty: inRange.length === 0,
     };
   }
 
@@ -140,5 +168,5 @@
     };
   }
 
-  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, triggerTimeline, bandPreview };
+  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, sparkline, triggerTimeline, bandPreview };
 })();

@@ -149,3 +149,26 @@ test('bandPreview widens the axis for far values', () => {
   assert.ok(preview.now <= 100);
   assert.equal(preview.inside, false);
 });
+
+test('sparkline draws the band and breaks gaps', () => {
+  const chart = load();
+  const result = plain(chart.sparkline({
+    points: [{ ts: 0, value: 10 }, { ts: 60, value: 20 }, { ts: 300, value: 30 }],
+    target: 20, deadband: 10, from: 0, to: 300, width: 150, height: 34,
+  }));
+  assert.equal(result.empty, false);
+  assert.equal((result.path.match(/M/g) || []).length, 2);
+  assert.equal((result.path.match(/L/g) || []).length, 1);
+  assert.ok(result.band.height > 0);
+  assert.ok(result.band.y >= 0);
+  assert.ok(result.band.y + result.band.height <= 34);
+});
+
+test('sparkline is empty without points', () => {
+  const chart = load();
+  const result = plain(chart.sparkline({ points: [], target: 0, deadband: 0, from: 0, to: 300, width: 150, height: 34 }));
+  assert.equal(result.empty, true);
+  assert.equal(result.path, '');
+  assert.ok(Number.isFinite(result.band.y));
+  assert.ok(Number.isFinite(result.band.height));
+});

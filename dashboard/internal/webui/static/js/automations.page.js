@@ -70,6 +70,18 @@
   const LIVE_MAX_POINTS = 180;
   const GRID_NOW_MAX_AGE_S = 120;
   const DEFAULT_RANGE = '30m';
+  const SHOW_HISTORY_KEY = 'automations.show_history';
+  const SPARK_WIDTH = 150;
+  const SPARK_HEIGHT = 34;
+
+  // Schalter "Verlaeufe anzeigen": ohne lesbaren Speicher gilt er nur fuer diese Sitzung.
+  function readShowHistory() {
+    try {
+      return window.localStorage.getItem(SHOW_HISTORY_KEY) === '1';
+    } catch (error) {
+      return false;
+    }
+  }
   const DEFAULT_DEADBAND_W = 20;
   const GRID_SERIES = 'role:grid';
 
@@ -135,6 +147,7 @@
     chartLoadedAt: {},
     todayExportKWh: null,
     todayExportAt: 0,
+    showHistory: readShowHistory(),
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
@@ -766,6 +779,36 @@
       const last = grid[grid.length - 1];
       if (last && this.nowTick / 1000 - last.ts < GRID_NOW_MAX_AGE_S) return last.value;
       return null;
+    },
+
+    // Schalter in der Kopfleiste. Beim Einschalten laden alle Regler-Szenarien
+    // ihr Diagramm, auch die zugeklappten, damit die Minidiagramme Daten haben.
+    setShowHistory(on) {
+      this.showHistory = !!on;
+      try {
+        window.localStorage.setItem(SHOW_HISTORY_KEY, on ? '1' : '0');
+      } catch (error) {
+        // ohne Speicher bleibt der Schalter bis zum Neuladen erhalten
+      }
+      if (!on) return Promise.resolve();
+      const scenarios = (this.document && this.document.scenarios) || [];
+      const regulators = scenarios.filter((scenario) => scenario.while && scenario.while.mode === 'regulate');
+      return Promise.all(regulators.map((scenario) => this.loadScenarioChart(scenario)));
+    },
+
+    // Minidiagramm der zugeklappten Regler-Zeile: Netzverlauf der letzten 30 min mit Toleranzband.
+    sparklineFor(scenario) {
+      const regulator = this.regulatorOf(scenario);
+      const bounds = window.__automationChart.rangeBounds('30m', this.nowTick);
+      return window.__automationChart.sparkline({
+        points: this.chartSeries(scenario.id, 'grid'),
+        target: isNumber(regulator.target_w) ? regulator.target_w : 0,
+        deadband: isNumber(regulator.deadband_w) ? regulator.deadband_w : DEFAULT_DEADBAND_W,
+        from: bounds.from,
+        to: bounds.to,
+        width: SPARK_WIDTH,
+        height: SPARK_HEIGHT,
+      });
     },
 
     // Vorschau des Toleranzbands fuer das Regler-Formular.

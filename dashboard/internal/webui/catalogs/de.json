@@ -390,6 +390,7 @@
   "automations.settings.tick_interval_explain_aria": "Erklärung zu Tick-Intervall",
   "automations.settings.tick_interval_label": "Tick-Intervall (s)",
   "automations.settings.title": "Für Fortgeschrittene: Einstellungen des Dienstes",
+  "automations.show_history": "Verläufe anzeigen",
   "automations.state_unknown": "Zustand unbekannt",
   "automations.stepper.decrease": "{label} verringern",
   "automations.stepper.increase": "{label} erhöhen",

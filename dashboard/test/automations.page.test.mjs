@@ -29,10 +29,11 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 
-function createAutomationsPanel() {
+function createAutomationsPanel(setup) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
   installI18n(dom.window);
+  if (setup) setup(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
@@ -2385,4 +2386,31 @@ test('setSetpointSource balance keeps the entity and bounds', () => {
   assert.equal(action.entity_id, 'wallbox_power');
   assert.equal(action.min, 1380);
   assert.equal(action.max, 11000);
+});
+
+test('showHistory survives a throwing localStorage', () => {
+  const { component, window } = createAutomationsPanel((win) => {
+    Object.defineProperty(win, 'localStorage', { get() { throw new Error('denied'); } });
+  });
+  try {
+    assert.equal(component.showHistory, false);
+    component.setShowHistory(true);
+    assert.equal(component.showHistory, true);
+  } finally {
+    window.close();
+  }
+});
+
+test('turning history on loads charts for collapsed regulators', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    component.document = { version: 1, settings: {}, rules: [], scenarios: [regulatorScenario('reg'), holdScenario('plain')] };
+    const loaded = [];
+    component.loadScenarioChart = async (scenario) => { loaded.push(scenario.id); };
+    await component.setShowHistory(true);
+    assert.deepEqual(loaded, ['reg']);
+    assert.notEqual(component.scenarioExpanded.reg, true);
+  } finally {
+    window.close();
+  }
 });
