@@ -1326,7 +1326,7 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
-	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="cond`, `class="gate`, `class="act`, `mini-chain`} {
+	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="auto-line`, `class="auto-pill`, `class="auto-rule-timeline`} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Fluss-Markup %q fehlt im Automations-Panel", marker)
 		}
@@ -3217,6 +3217,32 @@ func TestConsumerRegulatorCardUsesTheConsumerColour(t *testing.T) {
 	} {
 		if !strings.Contains(string(css), rule) {
 			t.Fatalf("CSS-Regel fehlt: %s", rule)
+		}
+	}
+}
+
+// Die Regelkarte gliedert sich in Wenn, Dann und Ablauf, mit Live-Balken oben
+// und Zeitleiste unten. Die alten Spalten Ursache, Tor und Wirkung sind weg.
+func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		"Wenn alles zutrifft",
+		"auto-rule-timeline",
+		"auto-live",
+		"auto-blocks",
+		`<template x-if="!editing[rule.id]">`,
+		`<template x-if="editing[rule.id]">`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Regelkarte: %q fehlt im Automations-Panel", want)
+		}
+	}
+	for _, gone := range []string{`class="gate"`, "mini-chain", "rule-column", "rule-arrow"} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("Regelkarte: %q gibt es nicht mehr", gone)
 		}
 	}
 }

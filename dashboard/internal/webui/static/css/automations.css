@@ -1,7 +1,5 @@
-/* Automations-Tab: Fluss-Darstellung Ursache -> Tor -> Wirkung.
-   Zwei Layouts aus demselben Markup: Kette (drei Spalten, ab 62rem im
-   Beobachten-Modus) und Rezept (eine Spalte, schmal oder beim Bearbeiten).
-   Siehe docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md */
+/* Automations-Tab: Regelkarte mit Wenn, Dann und Ablauf, Szenario-Karte und Seitenschale.
+   Die Regelspalten Ursache, Tor und Wirkung sind entfallen. */
 
 .automation-rule { border: 1px solid var(--border-soft); background: var(--panel); padding: .9rem; margin-bottom: .8rem; }
 .automation-rule.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
@@ -11,77 +9,7 @@
 
 /* .automation-icon selbst steht in base.css - hier nur die Faerbungen. */
 .automation-icon-sm { width: .95rem; height: .95rem; }
-.automation-icon-lg { width: 1.5rem; height: 1.5rem; }
 
-.automation-value { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--text-strong); font-size: 1.2rem; font-weight: 600; }
-.automation-unit { font-size: .78em; font-weight: 400; color: var(--text-muted); }
-
-/* --- Bedingungskarte --- */
-.cond { border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); background: var(--panel-alt); padding: .65rem .75rem; }
-.cond-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.cond-title { font-weight: 600; color: var(--text-strong); font-size: .9rem; }
-.cond-summary { font-size: .8rem; color: var(--text-muted); }
-.cond-head .automation-value { margin-left: auto; }
-.cond-state { display: flex; align-items: center; gap: .35rem; font-size: .76rem; margin-top: .3rem; color: var(--text-faint); }
-
-.cond-meter { position: relative; height: .42rem; background: var(--track); margin: .5rem 0 .25rem; }
-.cond-meter-fill { position: absolute; inset: 0 auto 0 0; background: var(--text-faint); }
-.cond-meter-mark { position: absolute; top: -.22rem; bottom: -.22rem; width: 2px; background: var(--text-subtle); }
-.cond-meter-band { position: absolute; top: 0; bottom: 0; background: var(--warn-bg); }
-.cond-meter-legend { display: flex; justify-content: space-between; font-size: .7rem; color: var(--text-faint); font-family: ui-monospace, monospace; }
-
-.cond.met { border-left-color: var(--ok); }
-.cond.met .automation-icon, .cond.met .cond-state { color: var(--ok); }
-.cond.met .cond-meter-fill { background: var(--ok); }
-.cond.pending { border-left-color: var(--warn); }
-.cond.pending .automation-icon, .cond.pending .cond-state { color: var(--warn); }
-.cond.pending .cond-meter-fill { background: var(--warn); }
-.cond.novalue { border-left-color: var(--bad); }
-.cond.novalue .cond-state { color: var(--bad); }
-
-.cond-conjunction { display: flex; align-items: center; gap: .5rem; font-family: ui-monospace, monospace; font-size: .68rem; letter-spacing: .16em; color: var(--text-faint); }
-.cond-conjunction::before, .cond-conjunction::after { content: ""; flex: 1; height: 1px; background: var(--border-soft); }
-
-/* --- Tor --- */
-.gate { border: 1px solid var(--border); background: var(--sunken); padding: .7rem .8rem; display: flex; flex-direction: column; gap: .25rem; }
-.gate-verdict { display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .92rem; }
-.gate-detail { font-size: .78rem; color: var(--text-subtle); }
-.gate-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .73rem; color: var(--text-muted); font-family: ui-monospace, monospace; }
-.gate.ok   { border-color: var(--ok-line);   background: var(--ok-bg); }
-.gate.ok   .gate-verdict { color: var(--ok); }
-.gate.wait { border-color: var(--warn-line); background: var(--warn-bg); }
-.gate.wait .gate-verdict { color: var(--warn); }
-.gate.info { border-color: var(--info-line); background: var(--info-bg); }
-.gate.info .gate-verdict { color: var(--info); }
-.gate.bad  { border-color: var(--bad-line);  background: var(--bad-bg); }
-.gate.bad  .gate-verdict { color: var(--bad); }
-.gate.off  .gate-verdict { color: var(--text-muted); }
-
-/* --- Aktionskarte --- */
-.act { border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); background: var(--panel-alt); padding: .65rem .75rem; display: flex; flex-direction: column; gap: .45rem; }
-.act-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.act-title { font-weight: 600; color: var(--text-strong); font-size: .9rem; }
-.act.command { border-left-color: var(--flow-battery); }
-.act.command .act-head .automation-icon { color: var(--flow-battery); }
-.act.notify { border-left-color: var(--info); }
-.act.notify .act-head .automation-icon { color: var(--info); }
-.act-preview { font-family: ui-monospace, monospace; font-size: .74rem; color: var(--text-subtle); background: var(--sunken); border: 1px solid var(--border-soft); padding: .3rem .45rem; overflow-x: auto; white-space: nowrap; }
-.act-preview.blocked { color: var(--bad); border-color: var(--bad-line); }
-
-.act-test { align-self: flex-start; }
-
-/* --- Mini-Kette in der zugeklappten Zeile --- */
-.mini-chain { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
-.mini-chain .automation-icon-sm { color: var(--text-faint); }
-.mini-chain .met  { color: var(--ok); }
-.mini-chain .pending { color: var(--warn); }
-.mini-chain .novalue { color: var(--bad); }
-.mini-chain-arrow { color: var(--border); }
-.mini-chain-gate { font-size: .72rem; padding: .05rem .4rem; border: 1px solid var(--border); color: var(--text-subtle); }
-.mini-chain-gate.ok { border-color: var(--ok-line); color: var(--ok); }
-.mini-chain-gate.wait { border-color: var(--warn-line); color: var(--warn); }
-.mini-chain-gate.info { border-color: var(--info-line); color: var(--info); }
-.mini-chain-gate.bad { border-color: var(--bad-line); color: var(--bad); }
 
 /* Ein Symbol statt zwei: der Pfeil zeigt nach rechts und dreht sich beim
    Aufklappen nach unten. */
@@ -89,11 +17,41 @@
 .rule-expand-chevron.expanded { transform: rotate(90deg); }
 .automation-rule-head .settings-toggle { flex: none; }
 
-/* --- Layout: Rezept ist die Grundform --- */
-.rule-flow { display: flex; flex-direction: column; gap: .55rem; margin-top: .8rem; }
-.rule-clause { display: flex; align-items: baseline; gap: .6rem; font-family: ui-monospace, monospace; font-size: .74rem; letter-spacing: .14em; color: var(--accent); }
-.rule-clause-rule { flex: 1; height: 1px; background: var(--accent-line); opacity: .45; }
-.rule-arrow { display: none; }
+/* --- Regelkarte: Kopf, Live-Balken, Wenn/Dann/Ablauf, Zeitleiste --- */
+.auto-rule-body { margin-top: .8rem; }
+.auto-rule-view, .auto-rule-edit { display: grid; gap: .9rem; }
+.auto-live { display: grid; gap: .35rem; }
+.auto-live-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
+.auto-live-value { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-strong); }
+.auto-live-bar { position: relative; height: .55rem; border-radius: 4px; background: var(--sunken); }
+.auto-live-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 4px; background: var(--flow-grid); transition: width 400ms var(--ease-out); }
+.auto-live-band { position: absolute; top: 0; bottom: 0; background: var(--warn-bg); outline: 1px solid var(--warn-line); }
+.auto-live-mark { position: absolute; top: -.25rem; bottom: -.25rem; width: 2px; background: var(--text-strong); }
+.auto-blocks { display: grid; gap: .9rem; }
+.auto-block { display: grid; gap: .4rem; align-content: start; }
+.auto-block-cap { margin: 0; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }
+.auto-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.auto-line { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; padding: .45rem .65rem; border-radius: 10px; background: var(--panel-alt); font-size: .88rem; }
+.auto-line > .automation-icon { flex: none; color: var(--text-faint); }
+.auto-line.is-met > .automation-icon { color: var(--ok); }
+.auto-line-text { font-weight: 600; color: var(--text-strong); }
+.auto-line-note { flex: 1 1 auto; font-size: .8rem; color: var(--text-muted); }
+.auto-line-note.blocked { color: var(--bad); }
+.auto-line-check { width: 1rem; height: 1rem; margin-left: auto; color: var(--ok); }
+.auto-line .act-test { margin-left: auto; }
+.auto-rule-timeline { display: grid; gap: .4rem; }
+.auto-timeline-track { position: relative; height: 1.1rem; border-radius: 4px; background: var(--sunken); }
+.auto-timeline-mark { position: absolute; top: .2rem; bottom: .2rem; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--text-faint); }
+.auto-timeline-mark.ok { background: var(--ok); }
+.auto-timeline-mark.bad { background: var(--bad); }
+.auto-timeline-mark.info { background: var(--info); }
+.auto-timeline-axis { display: flex; justify-content: space-between; font-size: .7rem; font-family: ui-monospace, monospace; color: var(--text-muted); }
+.auto-edit-list { display: grid; gap: .6rem; }
+.auto-flow-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .88rem; color: var(--text-subtle); }
+.auto-flow-label { min-width: 9rem; }
+.auto-segment-tab[aria-checked="true"] { background: var(--panel); color: var(--text-strong); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.auto-segment-tab:disabled { opacity: .5; cursor: not-allowed; }
+.auto-hint { margin: 0; font-size: .8rem; color: var(--warn); }
 
 /* --- Bearbeiten-Modus: dieselbe Kartenform wie in der Ansicht, nur mit
    Eingabefeldern. Erste Zeile liest sich als Satz, alles Feinere steckt im
@@ -177,19 +135,6 @@
   .rule-expand-chevron { transition: none; }
   /* x-collapse sets its transition inline; a zero duration makes Alpine finish at once. */
   .automation-collapse { transition-duration: 0s !important; }
-}
-
-/* --- Layout: Kette, nur breit und nur im Beobachten-Modus --- */
-@media (min-width: 62rem) {
-  .automation-rule[data-mode="view"] .rule-flow {
-    display: grid;
-    grid-template-columns: 1fr auto minmax(11rem, 15rem) auto 1fr;
-    align-items: center;
-    gap: .9rem;
-  }
-  .automation-rule[data-mode="view"] .rule-clause { display: none; }
-  .automation-rule[data-mode="view"] .rule-arrow { display: flex; align-items: center; color: var(--border); }
-  .automation-rule[data-mode="view"] .rule-column { display: flex; flex-direction: column; gap: .5rem; }
 }
 
 /* --- Verlauf --- */
