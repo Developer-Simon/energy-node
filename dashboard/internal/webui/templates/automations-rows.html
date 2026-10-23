@@ -1,10 +1,10 @@
 {{define "automations-condition-lines"}}
                 <template x-for="(condition, index) in rowsOwner.conditions" x-bind:key="index">
-                  <li class="auto-line" x-bind:class="{ 'is-met': conditionState(rowsOwner, index) === 'met' }">
+                  <li class="auto-line" x-bind:class="{ 'is-met': conditionStateOf(rowsReport(index)) === 'met' }">
                     <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
                     <span class="auto-line-text" x-text="describeCondition(condition).title"></span>
-                    <span class="auto-line-note" x-text="conditionStateText(rowsOwner, index)"></span>
-                    <svg class="automation-icon auto-line-check" x-show="conditionState(rowsOwner, index) === 'met'"><use href="#ico-check"></use></svg>
+                    <span class="auto-line-note" x-text="conditionTextOf(rowsReport(index), condition)"></span>
+                    <svg class="automation-icon auto-line-check" x-show="conditionStateOf(rowsReport(index)) === 'met'"><use href="#ico-check"></use></svg>
                   </li>
                 </template>
 {{end}}
@@ -14,18 +14,18 @@
                   <li class="auto-line">
                     <svg class="automation-icon"><use x-bind:href="'#' + describeAction(action).icon"></use></svg>
                     <span class="auto-line-text" x-text="describeAction(action).title"></span>
-                    <span class="auto-line-note" x-bind:class="{ blocked: actionPreview(rowsOwner, index).blocked }"
-                          x-text="actionPreview(rowsOwner, index).text"></span>
+                    <span class="auto-line-note" x-bind:class="{ blocked: rowsPreview(index).blocked }"
+                          x-text="rowsPreview(index).text"></span>
                     <template x-if="computeDrift(action, entities).drifted">
                       <span class="auto-line-note blocked"
                             x-text="$t('automations.action.mqtt_warning', {current_topic: computeDrift(action, entities).currentTopic})"></span>
                     </template>
                     <button class="icon-button labeled accent act-test" type="button"
-                            x-show="hasAutomationsRole"
-                            x-bind:disabled="!testState(rowsOwner, index).allowed"
-                            x-bind:title="testState(rowsOwner, index).reason || $t('automations.action.test_button.tooltip_allowed')"
+                            x-show="rowsCanTest && hasAutomationsRole"
+                            x-bind:disabled="!rowsTestState(index).allowed"
+                            x-bind:title="rowsTestState(index).reason || $t('automations.action.test_button.tooltip_allowed')"
                             x-bind:aria-label="$t('automations.action.test_button.aria_label')"
-                            x-on:click="testAction(rowsOwner, index)">
+                            x-on:click="rowsRunTest(index)">
                       <svg class="automation-icon"><use href="#ico-play"></use></svg>
                       <span>{{t "automations.action.test_button.label"}}</span>
                     </button>

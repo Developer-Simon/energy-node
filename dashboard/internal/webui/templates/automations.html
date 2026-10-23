@@ -77,7 +77,7 @@
       <p class="sub" x-cloak x-show="view === 'rules' && document.rules.length === 0">{{t "automations.list.no_rules"}}</p>
       <ul style="list-style: none; padding: 0;" x-cloak x-show="view === 'rules'">
         <template x-for="rule in document.rules" x-bind:key="rule.id">
-          <li class="automation-rule auto-rule" x-bind:data-rule-id="rule.id" x-bind:class="{ 'is-flash': flashRule === rule.id, 'auto-is-new': newIds[rule.id] }" x-bind:data-mode="editing[rule.id] ? 'edit' : 'view'" x-data="{ newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '', showEntityWizard: false, showCondTiles: false, showActTiles: false, get rowsOwner() { return rule; }, rowsReport(index) { return conditionReport(rule, index); } }">
+          <li class="automation-rule auto-rule" x-bind:data-rule-id="rule.id" x-bind:class="{ 'is-flash': flashRule === rule.id, 'auto-is-new': newIds[rule.id] }" x-bind:data-mode="editing[rule.id] ? 'edit' : 'view'" x-data="{ newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '', showEntityWizard: false, showCondTiles: false, showActTiles: false, get rowsOwner() { return rule; }, rowsReport(index) { return conditionReport(rule, index); }, rowsPreview(index) { return actionPreview(rule, index); }, rowsTestState(index) { return testState(rule, index); }, rowsRunTest(index) { return testAction(rule, index); }, rowsCanTest: true }">
             {{template "automations-rule"}}
           </li>
         </template>

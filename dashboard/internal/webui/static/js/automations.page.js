@@ -411,7 +411,12 @@
     },
 
     conditionState(rule, index) {
-      return window.__automationsView.conditionState(this.conditionReport(rule, index));
+      return this.conditionStateOf(this.conditionReport(rule, index));
+    },
+
+    // Zustand einer Bedingungszeile aus ihrem Bericht, null heisst noch kein Wert.
+    conditionStateOf(report) {
+      return window.__automationsView.conditionState(report);
     },
 
     describeCondition(condition) {
@@ -437,9 +442,12 @@
     },
 
     conditionStateText(rule, index) {
-      const report = this.conditionReport(rule, index);
-      const state = this.conditionState(rule, index);
-      const condition = rule.conditions[index] || {};
+      return this.conditionTextOf(this.conditionReport(rule, index), rule.conditions[index] || {});
+    },
+
+    // Statustext einer Bedingungszeile aus Bericht und Bedingung.
+    conditionTextOf(report, condition) {
+      const state = this.conditionStateOf(report);
       if (state === 'novalue' && condition.type === 'sun_window') {
         return this.hasLocation() ? t('automations.condition_state.sun_no_event') : t('automations.condition_state.no_location');
       }
@@ -488,10 +496,14 @@
 
     actionPreview(rule, index) {
       const state = this.ruleState(rule);
-      const preview = state && state.actions && state.actions[index];
+      return this.actionPreviewOf(state && state.actions && state.actions[index], rule.actions[index]);
+    },
+
+    // Vorschau einer Aktionszeile aus ihrem Vorschau-Eintrag, null heisst keine Vorschau.
+    actionPreviewOf(preview, action) {
       if (!preview) return { blocked: false, text: t('automations.action_preview.no_preview') };
       if (preview.blocked) return { blocked: true, text: preview.reason || t('automations.action_preview.blocked') };
-      if (rule.actions[index] && rule.actions[index].type === 'notification') {
+      if (action && action.type === 'notification') {
         return { blocked: false, text: `„${preview.title || ''}" — ${preview.message || ''}` };
       }
       return { blocked: false, text: `${preview.topic} → ${preview.payload}` };
