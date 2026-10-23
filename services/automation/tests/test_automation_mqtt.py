@@ -1715,7 +1715,7 @@ def test_entity_value_inherits_the_hold_seconds_guard_for_publish_rules():
                      "payload_source": "constant", "payload": "1"}],
     }
     errors = []
-    automation._validate_rule(rule, 0, errors, set())
+    automation._validate_rule(rule, 0, errors, set(), 30)
     assert any("hold_seconds must be >= 30" in e for e in errors)
 
 
@@ -1732,3 +1732,29 @@ def test_battery_soc_condition_type_is_rejected():
     errors = []
     automation._validate_condition(cond, 0, errors)
     assert any("unknown type" in e for e in errors)
+
+
+def test_publish_min_interval_defaults_to_30_and_regulator_interval_to_10(tmp_path):
+    doc = automation.load_and_validate(write_doc(tmp_path, document()))
+    assert doc.settings.publish_min_interval_s == 30
+    assert doc.settings.regulator_interval_s == 10
+
+
+def test_lower_publish_min_interval_allows_a_shorter_cooldown(tmp_path):
+    settings = {**minimal_settings(), "publish_min_interval_s": 10}
+    r = rule(cooldown_seconds=10, conditions=[balance_condition(hold_seconds=10)], actions=[publish_action()])
+    automation.load_and_validate(write_doc(tmp_path, document([r], settings)))
+
+
+def test_cooldown_below_the_configured_minimum_names_the_minimum(tmp_path):
+    settings = {**minimal_settings(), "publish_min_interval_s": 60}
+    r = rule(cooldown_seconds=30, conditions=[balance_condition(hold_seconds=60)], actions=[publish_action()])
+    with pytest.raises(automation.RuleValidationError, match="cooldown_seconds must be >= 60"):
+        automation.load_and_validate(write_doc(tmp_path, document([r], settings)))
+
+
+@pytest.mark.parametrize("key", ["publish_min_interval_s", "regulator_interval_s"])
+@pytest.mark.parametrize("value", [4, 3601, "10", True])
+def test_interval_settings_reject_out_of_range_values(tmp_path, key, value):
+    with pytest.raises(automation.RuleValidationError, match=f"settings.{key} must be a number between 5 and 3600"):
+        automation.load_and_validate(write_doc(tmp_path, document(settings={**minimal_settings(), key: value})))

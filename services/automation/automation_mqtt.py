@@ -126,6 +126,8 @@ class Settings:
     tick_interval_s: float = 10
     settling_seconds: float = 60
     balance_max_age_s: float = 30
+    publish_min_interval_s: float = 30
+    regulator_interval_s: float = 10
     publish_allowed_prefixes: list[str] = field(default_factory=list)
     history_limit: int = 10
     history_persist: bool = True
@@ -268,7 +270,7 @@ def _validate_action(action: dict, index: int, errors: list[str]) -> dict:
     return result
 
 
-def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]) -> dict:
+def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str], min_interval: float) -> dict:
     prefix = f"rule[{index}]"
     result = dict(rule)
     rule_id = result.get("id", "")
@@ -292,11 +294,11 @@ def _validate_rule(rule: dict, index: int, errors: list[str], seen_ids: set[str]
     result["actions"] = [_validate_action(a, i, errors) for i, a in enumerate(actions)]
     has_publish = any(a.get("type") == "publish" for a in result["actions"])
     if has_publish:
-        if result["cooldown_seconds"] < 30:
-            errors.append(f"{prefix}: cooldown_seconds must be >= 30 for a rule with a publish action")
+        if result["cooldown_seconds"] < min_interval:
+            errors.append(f"{prefix}: cooldown_seconds must be >= {min_interval:g} for a rule with a publish action")
         for i, cond in enumerate(result["conditions"]):
-            if "hold_seconds" in cond and cond["hold_seconds"] < 30:
-                errors.append(f"{prefix}.condition[{i}]: hold_seconds must be >= 30 for a rule with a publish action")
+            if "hold_seconds" in cond and cond["hold_seconds"] < min_interval:
+                errors.append(f"{prefix}.condition[{i}]: hold_seconds must be >= {min_interval:g} for a rule with a publish action")
     return result
 
 
@@ -319,11 +321,22 @@ def load_and_validate(path: str) -> RulesDocument:
         history_limit = 10
     else:
         history_limit = int(history_limit_raw)
+    intervals: dict[str, float] = {}
+    for key, default in (("publish_min_interval_s", 30), ("regulator_interval_s", 10)):
+        raw_value = settings_raw.get(key, default)
+        if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)) \
+                or not (5 <= raw_value <= 3600):
+            errors.append(f"settings.{key} must be a number between 5 and 3600")
+            intervals[key] = default
+        else:
+            intervals[key] = raw_value
     latitude, longitude = _validate_location(settings_raw, errors)
     settings = Settings(
         tick_interval_s=settings_raw.get("tick_interval_s", 10),
         settling_seconds=settings_raw.get("settling_seconds", 60),
         balance_max_age_s=settings_raw.get("balance_max_age_s", 30),
+        publish_min_interval_s=intervals["publish_min_interval_s"],
+        regulator_interval_s=intervals["regulator_interval_s"],
         publish_allowed_prefixes=list(settings_raw.get("publish_allowed_prefixes", [])),
         history_limit=history_limit,
         history_persist=bool(settings_raw.get("history_persist", True)),
@@ -336,7 +349,7 @@ def load_and_validate(path: str) -> RulesDocument:
         errors.append("at most 16 rules are allowed")
 
     seen_ids: set[str] = set()
-    rules = [_validate_rule(r, i, errors, seen_ids) for i, r in enumerate(rules_raw)]
+    rules = [_validate_rule(r, i, errors, seen_ids, settings.publish_min_interval_s) for i, r in enumerate(rules_raw)]
 
     if errors:
         raise RuleValidationError("; ".join(errors))
