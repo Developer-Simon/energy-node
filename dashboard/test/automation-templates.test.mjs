@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { installI18n, catalog } from './helpers/i18n.mjs';
+import { buildFixture } from './tools/automation-template-fixture.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
@@ -404,4 +405,9 @@ test('summary steps point at visible steps', () => {
       }
     }
   }
+});
+
+test('the built fixture is current', () => {
+  const file = path.join(here, 'fixtures', 'automation-templates-built.json');
+  assert.deepEqual(plain(buildFixture()), JSON.parse(fs.readFileSync(file, 'utf8')));
 });
