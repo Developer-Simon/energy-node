@@ -1716,6 +1716,14 @@
       window.__automationScenario.setUntil(scenario, on);
     },
 
+    maxDurationMinutes(scenario) {
+      return window.__automationScenario.maxDurationMinutes(scenario);
+    },
+
+    setMaxDurationMinutes(scenario, minutes) {
+      window.__automationScenario.setMaxDurationMinutes(scenario, minutes);
+    },
+
     changeWhileMode(scenario, mode) {
       window.__automationScenario.setWhileMode(scenario, mode);
     },

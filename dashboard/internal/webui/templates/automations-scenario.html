@@ -395,6 +395,17 @@
           <template x-if="!scenario.until">
             <p class="auto-hint">{{t "automations.scenario.end_when_false"}}</p>
           </template>
+          <div class="auto-flow-row">
+            <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-max-duration`">{{t "automations.scenario.edit.max_duration.label"}}</label>
+            <input class="auto-input" x-bind:id="`scn-${scenario.id}-max-duration`" type="number" min="1" max="1440" step="1"
+                   x-bind:value="maxDurationMinutes(scenario)" x-on:input="setMaxDurationMinutes(scenario, $event.target.value)">
+            <span class="field-help">
+              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.max_duration.label')})">
+                <svg><use href="#ico-help"></use></svg>
+              </button>
+              <span class="field-help-text" role="tooltip" x-text="fieldHelp('max_duration_s')"></span>
+            </span>
+          </div>
           <div x-data="scenarioRows(scenario, 'on_end', null)"><div class="auto-edit-list">{{template "automations-action-editors"}}</div>
 {{template "automations-action-tiles"}}</div>
         </section>

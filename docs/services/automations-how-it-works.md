@@ -202,10 +202,18 @@ The transitions are:
   starts while the service is settling or while a `when` condition needs a
   stale balance. `on_start` runs once, then the `while` part runs in the same
   tick.
-- `active` to `idle`: without `until`, as soon as one `when` condition is no
-  longer met, without waiting for a hold time. A stale balance does not end the
-  scenario. With `until`, as soon as all `until` conditions have held for their
-  hold time. `on_end` runs once.
+- `active` to `idle`: the end checks run in this order. First, with
+  `max_duration_s` set, once the scenario has been active that long
+  (`reason = duration_reached`). Then, with `until`, as soon as all `until`
+  conditions have held for their hold time. Without `until` and without
+  `max_duration_s`, as soon as one `when` condition is no longer met, without
+  waiting for a hold time. A stale balance does not end the scenario. A
+  scenario with `max_duration_s` and no `until` ignores a `when` condition that
+  drops, and ends only by time. `on_end` runs once in every case.
+- Rearming: after a time end, the scenario does not start again at once. It
+  waits until one tick finds a `when` condition unmet, and only then starts
+  again on a later tick where `when` holds. Until then its reason is
+  `rearm_pending`.
 - `active` to `fallback`: the balance is stale, or the base value is missing.
   The `fallback` payload is published once when the phase changes, if one is
   set. A blocked fallback does not count as sent.
