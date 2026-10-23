@@ -3339,3 +3339,35 @@ func TestConditionEditorsUseSoftFieldsAndSteppers(t *testing.T) {
 		t.Fatal("Baustein auto-stepper fehlt")
 	}
 }
+
+// Das Regler-Formular zeigt Geraete als Kacheln und oeffnet den Picker fuer
+// "Alle anzeigen". Der Picker ist einmal im Automationen-Template eingebunden.
+func TestRegulatorFormUsesDeviceChipsAndThePicker(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	for _, marker := range []string{
+		`actuatorChips(scenario)`,
+		`meterChips(scenario)`,
+		`chooseActuator(scenario)`,
+		`chooseMeter(scenario)`,
+		`bandPreviewFor(scenario)`,
+		`role="img"`,
+		`class="auto-device-chip`,
+		`is-selected`,
+		`automations.devices.show_all`,
+	} {
+		if !strings.Contains(source, marker) {
+			t.Fatalf("Regler-Formular fehlt %s", marker)
+		}
+	}
+	page, err := os.ReadFile("templates/automations.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(page), `{{template "device-picker" .}}`) != 1 {
+		t.Fatal("automations.html bindet den device-picker nicht genau einmal ein")
+	}
+}
