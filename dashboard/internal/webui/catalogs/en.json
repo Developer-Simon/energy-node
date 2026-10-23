@@ -368,6 +368,8 @@
   "automations.settings.tick_interval_label": "Tick interval (s)",
   "automations.settings.title": "Advanced: service settings",
   "automations.state_unknown": "State unknown",
+  "automations.stepper.decrease": "Decrease {label}",
+  "automations.stepper.increase": "Increase {label}",
   "automations.summary.balance": "{comparison} {threshold} {unit}",
   "automations.summary.balance_hysteresis": "{comparison} {threshold} {unit}, hysteresis {hysteresis}",
   "automations.summary.entity_value": "{comparison} {expected}",

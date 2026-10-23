@@ -2198,3 +2198,27 @@ test('the editor keeps default fine tuning out of the saved document', async () 
   await component.save();
   assert.equal(JSON.parse(sent.body).scenarios[0].while.regulator.gain, 0.5);
 });
+
+test('stepValue starts empty fields at the default', () => {
+  const { component } = createAutomationsPanel();
+  const target = {};
+  component.stepValue(target, 'gain', 1, { fallback: 0.8, step: 0.1 });
+  assert.equal(target.gain, 0.9);
+});
+
+test('stepValue clamps at the bounds', () => {
+  const { component } = createAutomationsPanel();
+  const target = { offset: 0 };
+  component.stepValue(target, 'offset', -1, { min: 0, step: 1 });
+  assert.equal(target.offset, 0);
+  component.stepValue(target, 'offset', 5, { min: 0, max: 4, step: 1 });
+  assert.equal(target.offset, 4);
+});
+
+test('stepValue leaves an untouched default out', () => {
+  const { component } = createAutomationsPanel();
+  const target = {};
+  component.stepValue(target, 'gain', 1, { fallback: 0.8, step: 0.1 });
+  component.stepValue(target, 'gain', -1, { fallback: 0.8, step: 0.1 });
+  assert.equal('gain' in target, false);
+});

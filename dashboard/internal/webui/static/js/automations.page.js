@@ -437,6 +437,27 @@
       return window.__automationsView.formatSeconds(seconds);
     },
 
+    // Stepper fuer Zahlenfelder: ein leeres Feld startet beim Standard, das
+    // Ergebnis wird auf step gerundet und auf min/max geklemmt. Landet der Wert
+    // wieder auf dem Standard, faellt der Schluessel weg, damit Standards nie
+    // im Dokument stehen.
+    stepValue(target, key, delta, { min, max, step = 1, fallback } = {}) {
+      const raw = target[key];
+      const empty = raw === undefined || raw === null || raw === '';
+      const base = empty ? fallback : Number(raw);
+      const start = Number.isFinite(base) ? base : 0;
+      const decimals = (String(step).split('.')[1] || '').length;
+      let next = Number((Math.round((start + delta * step) / step) * step).toFixed(decimals));
+      if (min !== undefined && next < min) next = min;
+      if (max !== undefined && next > max) next = max;
+      if (next === fallback) {
+        delete target[key];
+      } else {
+        target[key] = next;
+      }
+      return next;
+    },
+
     conditionStateText(rule, index) {
       return this.conditionTextOf(this.conditionReport(rule, index), rule.conditions[index] || {});
     },
