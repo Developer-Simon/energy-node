@@ -1854,7 +1854,7 @@ test('regulator figures read target, band, limits and the live output', () => {
   const { component } = createAutomationsPanel();
   const scenario = regulatorScenario('a');
   component.runtimeState = { rules: {}, scenarios: { a: { phase: 'active', output: 412.4 } } };
-  assert.deepEqual(JSON.parse(JSON.stringify(component.regulatorFigures(scenario))), { target: 0, band: 20, min: 0, max: 800, output: 412 });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.regulatorFigures(scenario))), { target: 0, band: 20, min: 0, max: 800, output: 412, direction: 'producer' });
   component.runtimeState.scenarios.a = { phase: 'active' };
   assert.equal(component.regulatorFigures(scenario).output, '—');
 });
@@ -2007,4 +2007,12 @@ test('ruleTimeline keeps only the last six hours', () => {
   assert.equal(timeline[0].tone, 'bad');
   assert.equal(timeline[1].tone, 'ok');
   assert.deepEqual(JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'unknown' }))), []);
+});
+
+test('a consumer regulator reports its direction so the card takes the consumer colour', () => {
+  const { component } = createAutomationsPanel();
+  const consumer = regulatorScenario('a');
+  consumer.while.regulator.direction = 'consumer';
+  assert.equal(component.regulatorFigures(consumer).direction, 'consumer');
+  assert.equal(component.regulatorFigures(regulatorScenario('b')).direction, 'producer');
 });

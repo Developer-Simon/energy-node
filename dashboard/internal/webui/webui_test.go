@@ -3195,3 +3195,28 @@ func TestScenarioCardMarkupCarriesRowChartAndPhases(t *testing.T) {
 		t.Fatal("der Szenario-Schalter der zugeklappten Zeile ist kein <label class=\"settings-toggle\">")
 	}
 }
+
+// Ein Verbraucher-Regler faerbt Stellwert, Verlauf und Legende in der
+// Verbraucherfarbe. Die Klasse setzt die Karte, das CSS die Farben.
+func TestConsumerRegulatorCardUsesTheConsumerColour(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(tpl), `'is-consumer': regulatorFigures(scenario).direction === 'consumer'`) {
+		t.Fatal("der Regler-Wrapper setzt die Klasse is-consumer nicht")
+	}
+	css, err := os.ReadFile("static/css/automations.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rule := range []string{
+		`.auto-regulator.is-consumer .auto-figure-value.is-output { color: var(--flow-wallbox); }`,
+		`.auto-regulator.is-consumer .auto-chart-output { stroke: var(--flow-wallbox); }`,
+		`.auto-regulator.is-consumer .auto-swatch.is-output { background: var(--flow-wallbox); }`,
+	} {
+		if !strings.Contains(string(css), rule) {
+			t.Fatalf("CSS-Regel fehlt: %s", rule)
+		}
+	}
+}

@@ -63,7 +63,7 @@
     </div>
 
     <template x-if="scenario.while && scenario.while.mode === 'regulate'">
-      <div class="auto-regulator">
+      <div class="auto-regulator" x-bind:class="{ 'is-consumer': regulatorFigures(scenario).direction === 'consumer' }">
         <div class="auto-figures">
           <div class="auto-figure">
             <span class="auto-figure-label"><svg class="automation-icon automation-icon-sm"><use href="#ico-grid"></use></svg>{{t "automations.scenario.figures.net_label"}}</span>

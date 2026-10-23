@@ -263,6 +263,10 @@ input.auto-scenario-name { border: 1px solid var(--border); border-radius: 6px; 
 .auto-chart-grid, .auto-chart-output { fill: none; stroke-width: 2.2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .auto-chart-grid { stroke: var(--flow-grid); }
 .auto-chart-output { stroke: var(--flow-pv); }
+/* Verbraucher-Regler: Stellwert, Verlauf und Legende in der Verbraucherfarbe. */
+.auto-regulator.is-consumer .auto-figure-value.is-output { color: var(--flow-wallbox); }
+.auto-regulator.is-consumer .auto-chart-output { stroke: var(--flow-wallbox); }
+.auto-regulator.is-consumer .auto-swatch.is-output { background: var(--flow-wallbox); }
 .auto-chart-tick { position: absolute; left: .3rem; transform: translateY(-50%); font-size: .7rem; color: var(--text-muted); font-variant-numeric: tabular-nums; pointer-events: none; }
 .auto-chart-marker { position: absolute; top: 0; height: 100%; padding-left: .3rem; border-left: 1px solid var(--border); font-size: .7rem; color: var(--text-subtle); white-space: nowrap; pointer-events: none; }
 .auto-chart-empty { margin: 0; padding: 2.2rem 0; text-align: center; font-size: .86rem; color: var(--text-muted); }

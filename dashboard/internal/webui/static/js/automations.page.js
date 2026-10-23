@@ -568,6 +568,8 @@
         min: isNumber(output.min) ? output.min : 0,
         max: isNumber(output.max) ? output.max : 0,
         output: state && isNumber(state.output) ? Math.round(state.output) : '—',
+        // Verbraucher-Regler zeigen Stellwert und Verlauf in der Verbraucherfarbe.
+        direction: regulator.direction === 'consumer' ? 'consumer' : 'producer',
       };
     },
 
