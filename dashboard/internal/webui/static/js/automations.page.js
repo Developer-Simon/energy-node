@@ -56,10 +56,6 @@
     statusPollMs: 1000,
     locating: false,
 
-    // Der Assistent fuehrt nur durch eine frisch angelegte Regel: Schritt 1
-    // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
-    // Datenmodell an - er blendet nur, was schon da ist, schrittweise ein.
-    wizard: { active: false, step: 1, ruleId: '' },
     settingsOpen: false,
 
     get balanceFields() {
@@ -470,11 +466,11 @@
 
     startEditing(rule) { this.editing[rule.id] = true; this.expanded[rule.id] = true; },
     stopEditing(rule) { this.editing[rule.id] = false; },
-    // Collapsing closes the editor too, the wizard keeps its own editing state.
+    // Collapsing closes the editor too.
     toggleExpanded(rule) {
       const collapsing = this.expanded[rule.id];
       this.expanded[rule.id] = !collapsing;
-      if (collapsing && !this.isWizardRule(rule)) this.editing[rule.id] = false;
+      if (collapsing) this.editing[rule.id] = false;
     },
 
     // Die Device Map verweist auf eine Regel: aufklappen, zur Regel scrollen
@@ -593,64 +589,6 @@
     addRule() {
       const id = `regel_${Date.now()}`;
       this.document.rules.push({ id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
-    },
-
-    startRuleWizard() {
-      this.addRule();
-      const rule = this.document.rules[this.document.rules.length - 1];
-      this.wizard = { active: true, step: 1, ruleId: rule.id };
-      this.expanded[rule.id] = true;
-      this.editing[rule.id] = true;
-    },
-
-    wizardRule() {
-      return this.document.rules.find((rule) => rule.id === this.wizard.ruleId) || null;
-    },
-
-    // Schritt 1 braucht eine Bedingung, Schritt 2 eine Aktion - genau die
-    // Bedingung, an der validateRuleBeforeSave() sonst erst beim Speichern
-    // scheitert. Schritt 3 hat nichts zu erzwingen.
-    wizardCanAdvance() {
-      const rule = this.wizardRule();
-      if (!rule) return false;
-      if (this.wizard.step === 1) return rule.conditions.length > 0;
-      if (this.wizard.step === 2) return rule.actions.length > 0;
-      return true;
-    },
-
-    wizardNext() {
-      if (!this.wizardCanAdvance()) return;
-      if (this.wizard.step >= 3) return this.wizardFinish();
-      this.wizard.step += 1;
-    },
-
-    wizardBack() {
-      if (this.wizard.step > 1) this.wizard.step -= 1;
-    },
-
-    // Beendet nur die Fuehrung - die Regel bleibt im Bearbeiten-Modus offen,
-    // damit man ohne Bruch weitermachen kann. Gespeichert wird wie immer
-    // ausdruecklich ueber die Werkzeugleiste.
-    wizardFinish() {
-      const ruleId = this.wizard.ruleId;
-      this.wizard = { active: false, step: 1, ruleId: '' };
-      if (ruleId) {
-        this.editing[ruleId] = true;
-        this.expanded[ruleId] = true;
-      }
-    },
-
-    isWizardRule(rule) {
-      return this.wizard.active && this.wizard.ruleId === rule.id;
-    },
-
-    // Welche Abschnitte der Regelkarte der Assistent gerade zeigt.
-    wizardShows(rule, section) {
-      if (!this.isWizardRule(rule)) return true;
-      if (section === 'conditions') return this.wizard.step >= 1;
-      if (section === 'actions') return this.wizard.step >= 2;
-      if (section === 'tuning') return this.wizard.step >= 3;
-      return true;
     },
 
     // Der Loeschknopf traegt seit dem Umbau nur noch ein Icon - ein

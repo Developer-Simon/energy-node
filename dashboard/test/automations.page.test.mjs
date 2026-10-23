@@ -538,16 +538,15 @@ test('expanding a collapsed rule does not start editing', () => {
   assert.equal(Boolean(component.editing[rule.id]), false);
 });
 
-test('collapsing a rule keeps editing while the wizard runs for it', () => {
+test('collapsing a rule closes its editor even when it was open', () => {
   const component = panelWithState(sampleState);
   component.document = { version: 1, settings: {}, rules: [JSON.parse(JSON.stringify(sampleRule))] };
   const rule = component.document.rules[0];
   component.expanded[rule.id] = true;
   component.editing[rule.id] = true;
-  component.wizard = { active: true, step: 2, ruleId: rule.id };
   component.toggleExpanded(rule);
   assert.equal(component.expanded[rule.id], false);
-  assert.equal(component.editing[rule.id], true);
+  assert.equal(component.editing[rule.id], false);
 });
 
 test('renderMiniChain yields one entry per condition plus the gate tone', () => {
@@ -1274,63 +1273,6 @@ test('removeRule laesst die Regel stehen, wenn die Rueckfrage verneint wird', as
   assert.deepEqual(component.document.rules.map((rule) => rule.id), ['r1']);
 });
 
-// --- Assistent fuer neue Regeln --------------------------------------------
-
-test('startRuleWizard legt eine Regel an und beginnt bei Schritt 1', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  assert.equal(component.document.rules.length, 1);
-  assert.equal(component.wizard.active, true);
-  assert.equal(component.wizard.step, 1);
-  assert.equal(component.wizard.ruleId, component.document.rules[0].id);
-});
-
-test('der Assistent laesst Schritt 1 erst verlassen, wenn eine Bedingung steht', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  const rule = component.document.rules[0];
-
-  assert.equal(component.wizardCanAdvance(), false);
-  component.wizardNext();
-  assert.equal(component.wizard.step, 1);
-
-  component.addCondition(rule, 'balance');
-  assert.equal(component.wizardCanAdvance(), true);
-  component.wizardNext();
-  assert.equal(component.wizard.step, 2);
-});
-
-test('der Assistent laesst Schritt 2 erst verlassen, wenn eine Aktion steht', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  const rule = component.document.rules[0];
-  component.addCondition(rule, 'balance');
-  component.wizardNext();
-
-  assert.equal(component.wizardCanAdvance(), false);
-  component.addAction(rule, 'notify');
-  assert.equal(component.wizardCanAdvance(), true);
-  component.wizardNext();
-  assert.equal(component.wizard.step, 3);
-});
-
-test('wizardBack geht zurueck, aber nie vor Schritt 1', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  component.wizardBack();
-  assert.equal(component.wizard.step, 1);
-});
-
-test('wizardFinish beendet den Assistenten und laesst die Regel im Bearbeiten-Modus stehen', () => {
-  const { component } = createAutomationsPanel();
-  component.startRuleWizard();
-  const ruleId = component.wizard.ruleId;
-  component.wizardFinish();
-  assert.equal(component.wizard.active, false);
-  assert.equal(component.editing[ruleId], true);
-  assert.equal(component.expanded[ruleId], true);
-});
-
 test('historyResultInfo maps result codes to tone and German label', () => {
   const { component } = createAutomationsPanel();
   assert.deepEqual(JSON.parse(JSON.stringify(component.historyResultInfo('fired'))), { tone: 'ok', label: 'Ausgelöst' });
@@ -1638,4 +1580,10 @@ test('load() stores the custom categories from /api/v1/energy/roles', async () =
   assert.equal(component.categories.sauna.label, 'Sauna');
   assert.equal(component.categories.sauna.base, 'consumer');
   window.close();
+});
+
+test('the old wizard is gone from the page component', () => {
+  for (const name of ['startRuleWizard', 'wizardRule', 'wizardCanAdvance', 'wizardNext', 'wizardBack', 'wizardFinish', 'isWizardRule', 'wizardShows', 'this.wizard']) {
+    assert.equal(scriptSource.includes(name), false, name);
+  }
 });
