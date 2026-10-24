@@ -71,7 +71,7 @@
       "scenarios": [
         {
           "id": "zero_feed",
-          "name": "Einspeisung auf Zielwert regeln",
+          "name": "Nulleinspeisung",
           "enabled": true,
           "template": "zero_feed",
           "history_enabled": true,
@@ -129,7 +129,7 @@
         },
         {
           "id": "surplus_wallbox",
-          "name": "Überschuss in die Wallbox leiten",
+          "name": "Überschussladen",
           "enabled": true,
           "template": "surplus_wallbox",
           "history_enabled": true,
@@ -494,7 +494,7 @@
       "scenarios": [
         {
           "id": "zero_feed_2",
-          "name": "Einspeisung auf Zielwert regeln",
+          "name": "Nulleinspeisung",
           "enabled": true,
           "template": "zero_feed",
           "history_enabled": true,
@@ -551,7 +551,7 @@
         },
         {
           "id": "surplus_wallbox_2",
-          "name": "Überschuss in die Wallbox leiten",
+          "name": "Überschussladen",
           "enabled": true,
           "template": "surplus_wallbox",
           "history_enabled": true,
@@ -660,7 +660,7 @@
       "scenarios": [
         {
           "id": "zero_feed_3",
-          "name": "Einspeisung auf Zielwert regeln",
+          "name": "Nulleinspeisung",
           "enabled": true,
           "template": "zero_feed",
           "history_enabled": true,
@@ -723,7 +723,7 @@
         },
         {
           "id": "surplus_wallbox_3",
-          "name": "Überschuss in die Wallbox leiten",
+          "name": "Überschussladen",
           "enabled": true,
           "template": "surplus_wallbox",
           "history_enabled": true,
@@ -823,7 +823,7 @@
       "scenarios": [
         {
           "id": "zero_feed_4",
-          "name": "Einspeisung auf Zielwert regeln",
+          "name": "Nulleinspeisung",
           "enabled": true,
           "template": "zero_feed",
           "history_enabled": true,
