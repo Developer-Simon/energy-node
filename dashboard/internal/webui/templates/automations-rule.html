@@ -29,13 +29,13 @@
                 <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
               </label>
 
-              <button class="icon-button" x-bind:class="{ active: editing[rule.id] }" type="button"
+              <button class="icon-button auto-btn-ghost" x-bind:class="{ active: editing[rule.id] }" type="button"
                       x-on:click="editing[rule.id] ? stopEditing(rule) : startEditing(rule)"
                       x-bind:title="editing[rule.id] ? $t('automations.rule.edit_button.tooltip_stop') : $t('automations.rule.edit_button.tooltip_edit')"
                       x-bind:aria-label="editing[rule.id] ? $t('automations.rule.edit_button.tooltip_stop') : $t('automations.rule.edit_button.tooltip_edit')">
                 <svg class="automation-icon"><use x-bind:href="editing[rule.id] ? '#ico-check' : '#ico-pencil'"></use></svg>
               </button>
-              <button class="icon-button danger" type="button" x-on:click="removeRule(rule.id)"
+              <button class="icon-button danger auto-btn-ghost" type="button" x-on:click="removeRule(rule.id)"
                       x-bind:title="$t('automations.rule.delete_button.tooltip', {name: rule.name})" x-bind:aria-label="$t('automations.rule.delete_button.tooltip', {name: rule.name})">
                 <svg class="automation-icon"><use href="#ico-trash"></use></svg>
               </button>

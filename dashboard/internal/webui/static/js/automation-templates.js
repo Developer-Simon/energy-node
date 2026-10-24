@@ -83,9 +83,9 @@
           { id: 'battery', unavailable: socUnavailable },
         ],
       },
-      { id: 'soc', type: 'number', min: 10, max: 90, default: 40, when: (answers) => answers.mode === 'battery' },
+      { id: 'soc', type: 'number', min: 10, max: 90, step: 5, default: 40, when: (answers) => answers.mode === 'battery' },
       {
-        id: 'start', type: 'presets', default: 1400, effect: 'starts',
+        id: 'start', type: 'presets', step: 100, default: 1400, effect: 'starts',
         options: [{ id: 1400 }, { id: 2000 }, { id: 3000 }],
       },
       {
@@ -252,7 +252,7 @@
           { id: 'last' },
         ],
       },
-      { id: 'target', type: 'presets', default: 30, effect: 'band', options: [{ id: 60 }, { id: 30 }, { id: 10 }] },
+      { id: 'target', type: 'presets', step: 5, default: 30, effect: 'band', options: [{ id: 60 }, { id: 30 }, { id: 10 }] },
       {
         id: 'period', type: 'tiles', default: 'sun',
         options: [
@@ -346,7 +346,7 @@
     steps: [
       { id: 'device', type: 'device', filter: 'switch' },
       {
-        id: 'on', type: 'presets', default: 1500, effect: 'starts',
+        id: 'on', type: 'presets', step: 100, default: 1500, effect: 'starts',
         options: [{ id: 1000 }, { id: 1500 }, { id: 2500 }],
       },
       {
@@ -358,7 +358,7 @@
         ],
       },
       {
-        id: 'runtime', type: 'number', min: 10, max: 600, default: 120,
+        id: 'runtime', type: 'number', min: 10, max: 600, step: 10, default: 120,
         when: (answers) => answers.off === 'runtime',
       },
       {
@@ -451,7 +451,7 @@
     icon: 'ico-battery',
     requires: { soc: true },
     steps: [
-      { id: 'below', type: 'presets', default: 20, effect: 'soc', options: [{ id: 10 }, { id: 20 }, { id: 30 }] },
+      { id: 'below', type: 'presets', step: 5, default: 20, effect: 'soc', options: [{ id: 10 }, { id: 20 }, { id: 30 }] },
       {
         id: 'severity', type: 'tiles', default: 'warning',
         options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],

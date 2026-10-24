@@ -1364,7 +1364,7 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
-	scenario := strings.Index(line, "automations-scenario.js?v=2")
+	scenario := strings.Index(line, "automations-scenario.js?v=3")
 	chart := strings.Index(line, "automations-chart.js?v=2")
 	page := strings.Index(line, "automations.page.js?v=")
 	wizard := strings.Index(line, "automation-wizard.js?v=1")
@@ -1422,7 +1422,7 @@ func TestAutomationsSettingsSitBelowTheRulesInAnAdvancedSection(t *testing.T) {
 	if !strings.Contains(body, "automations-advanced") {
 		t.Fatal("die Dienst-Einstellungen stehen nicht im Fortgeschrittenen-Bereich")
 	}
-	rules := strings.Index(body, `x-on:click="addRule()"`)
+	rules := strings.Index(body, `x-on:click="openAssistant()"`)
 	settings := strings.Index(body, "automations-advanced")
 	if rules < 0 || settings < 0 || settings < rules {
 		t.Fatalf("die Dienst-Einstellungen stehen nicht unter den Regeln (Regeln bei %d, Einstellungen bei %d)", rules, settings)

@@ -39,20 +39,8 @@
           </button>
         </div>
 
-        <button class="icon-button labeled accent" type="button" x-show="view === 'scenarios'" x-on:click="addScenario()"
-                x-bind:disabled="!canAddScenario()"
-                x-bind:title="$t('automations.add_scenario_button.tooltip')" x-bind:aria-label="$t('automations.add_scenario_button.tooltip')">
-          <svg class="automation-icon"><use href="#ico-plus"></use></svg>
-          <span>{{t "automations.add_scenario_button.label"}}</span>
-        </button>
-        <button class="icon-button labeled accent" type="button" x-show="view === 'rules'" x-on:click="addRule()"
-                x-bind:disabled="!canAddRule()"
-                x-bind:title="$t('automations.add_rule_button.tooltip')" x-bind:aria-label="$t('automations.add_rule_button.tooltip')">
-          <svg class="automation-icon"><use href="#ico-plus"></use></svg>
-          <span>{{t "automations.add_rule_button.label"}}</span>
-        </button>
-        <button class="icon-button labeled" type="button" x-on:click="openAssistant()"
-                x-bind:title="$t('automations.assistant.open_button')" x-bind:aria-label="$t('automations.assistant.open_button')">
+        <button class="auto-assist-open" type="button" x-on:click="openAssistant()"
+                x-bind:title="$t('automations.assistant.open_tooltip')" x-bind:aria-label="$t('automations.assistant.open_tooltip')">
           <svg class="automation-icon"><use href="#ico-plus"></use></svg>
           <span>{{t "automations.assistant.open_button"}}</span>
         </button>
@@ -64,7 +52,7 @@
           </span>
           <span>{{t "automations.show_history"}}</span>
         </label>
-        <button class="icon-button labeled primary" type="button" x-on:click="save()"
+        <button class="icon-button labeled primary auto-btn" type="button" x-on:click="save()"
                 x-bind:disabled="saving"
                 x-bind:title="saving ? $t('automations.save_all_button.tooltip_saving') : $t('automations.save_all_button.tooltip_ready')"
                 x-bind:aria-label="saving ? $t('automations.save_all_button.tooltip_saving') : $t('automations.save_all_button.tooltip_ready')">
@@ -122,7 +110,7 @@
               <div class="automations-location">
                 <input id="automations-longitude" type="number" min="-180" max="180" step="any"
                        placeholder="z. B. 13.405" x-model.number="document.settings.longitude">
-                <button class="icon-button labeled" type="button" x-on:click="useCurrentLocation()"
+                <button class="icon-button labeled auto-btn" type="button" x-on:click="useCurrentLocation()"
                         x-bind:disabled="!geolocationAvailable() || locating"
                         x-bind:title="$t('automations.settings.location_button')" x-bind:aria-label="$t('automations.settings.location_button')">
                   <svg class="automation-icon"><use href="#ico-check"></use></svg>

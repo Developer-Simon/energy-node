@@ -20,7 +20,7 @@
                       <span class="auto-line-note blocked"
                             x-text="$t('automations.action.mqtt_warning', {current_topic: computeDrift(action, entities).currentTopic})"></span>
                     </template>
-                    <button class="icon-button labeled accent act-test" type="button"
+                    <button class="icon-button labeled auto-btn act-test" type="button"
                             x-show="rowsCanTest && hasAutomationsRole"
                             x-bind:disabled="!rowsTestState(index).allowed"
                             x-bind:title="rowsTestState(index).reason || $t('automations.action.test_button.tooltip_allowed')"
@@ -107,7 +107,7 @@
                                x-text="$t('automations.condition.entity.missing_warning', {entity_id: condition.entity_id})"></div>
                           <div class="edit-card-warning auto-field-wide" x-show="computeConditionDrift(condition, readableEntities).drifted">
                             <span x-text="$t('automations.condition.entity.drifted_warning', {current_topic: computeConditionDrift(condition, readableEntities).currentTopic})"></span>
-                            <button class="icon-button labeled" type="button" x-on:click="adoptConditionEntity(condition)"
+                            <button class="icon-button labeled auto-btn-link" type="button" x-on:click="adoptConditionEntity(condition)"
                                     x-bind:title="$t('automations.condition.entity.adopt_button.tooltip')" x-bind:aria-label="$t('automations.condition.entity.adopt_button.tooltip')">
                               <svg class="automation-icon"><use href="#ico-check"></use></svg>
                               <span>{{t "automations.condition.entity.adopt_button.label"}}</span>
@@ -206,7 +206,7 @@
                           </div>
                           <div class="edit-card-warning auto-field-wide" x-show="!hasLocation()">
                             <span>{{t "automations.condition.sun_window.no_location"}}</span>
-                            <button class="icon-button labeled" type="button" x-on:click="openLocationSettings()"
+                            <button class="icon-button labeled auto-btn-link" type="button" x-on:click="openLocationSettings()"
                                     x-bind:title="$t('automations.condition.sun_window.set_location_title')" x-bind:aria-label="$t('automations.condition.sun_window.set_location_title')">
                               <svg class="automation-icon"><use href="#ico-gear"></use></svg>
                               <span>{{t "automations.condition.sun_window.set_location_button"}}</span>
@@ -474,7 +474,7 @@
 {{end}}
 
 {{define "automations-condition-tiles"}}
-                    <button class="icon-button labeled" type="button" x-show="!showCondTiles" x-on:click="showCondTiles = true"
+                    <button class="icon-button labeled auto-btn-add" type="button" x-show="!showCondTiles" x-on:click="showCondTiles = true"
                             x-bind:title="$t('automations.rule.add_condition')" x-bind:aria-label="$t('automations.rule.add_condition')">
                       <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.rule.add_condition"}}</span>
                     </button>
@@ -490,7 +490,7 @@
 {{end}}
 
 {{define "automations-action-tiles"}}
-                    <button class="icon-button labeled" type="button" x-show="!showActTiles" x-on:click="showActTiles = true"
+                    <button class="icon-button labeled auto-btn-add" type="button" x-show="!showActTiles" x-on:click="showActTiles = true"
                             x-bind:title="$t('automations.rule.add_action')" x-bind:aria-label="$t('automations.rule.add_action')">
                       <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.rule.add_action"}}</span>
                     </button>

@@ -75,13 +75,13 @@
         <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
       </label>
 
-      <button class="icon-button" x-bind:class="{ active: scenarioEditing[scenario.id] }" type="button"
+      <button class="icon-button auto-btn-ghost" x-bind:class="{ active: scenarioEditing[scenario.id] }" type="button"
               x-on:click="scenarioEditing[scenario.id] = !scenarioEditing[scenario.id]"
               x-bind:title="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')"
               x-bind:aria-label="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')">
         <svg class="automation-icon"><use x-bind:href="scenarioEditing[scenario.id] ? '#ico-check' : '#ico-pencil'"></use></svg>
       </button>
-      <button class="icon-button danger" type="button" x-on:click="removeScenario(scenario.id)"
+      <button class="icon-button danger auto-btn-ghost" type="button" x-on:click="removeScenario(scenario.id)"
               x-bind:title="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})" x-bind:aria-label="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})">
         <svg class="automation-icon"><use href="#ico-trash"></use></svg>
       </button>
