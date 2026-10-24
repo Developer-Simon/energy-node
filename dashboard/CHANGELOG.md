@@ -1,11 +1,24 @@
 # Changelog
 
-## v0.10.11 (2026-10-23)
+## v0.10.12 (2026-10-24)
 
 ### Features
 
 - **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 - **automations:** The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor. (#164) (04148fb)
+- **automations:** Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker. (#165) (8f0b222)
+- **automation:** whole-day time windows and a maximum scenario duration (5483950)
+- **automations:** maximum duration field in the scenario editor (2d7cf1a)
+- **automations:** assistant device context (cf874ee)
+- **automations:** assistant steps, search and answers (b6844f3)
+- **automations:** assistant effects and regulator preview (54f188b)
+- **automations:** zero feed and wallbox surplus templates (3717f33)
+- **automations:** switch surplus, battery warning and time switch templates (d6b05fb)
+- **automations:** validated assistant template fixture (7b58e68)
+- **automations:** assistant dialog state and creation (1201636)
+- **automations:** assistant dialog gallery and first step blocks (18d80b3)
+- **automations:** assistant multi, number, time and summary blocks (45c2d25)
+- **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166)
 - **dashboard:** single choice, role filters and tones in the device picker (91d14ed)
 - **automations:** device candidates for actuators, meters and actions (c76380a)
 - **automations:** stepper helper and soft field styles (1d06267)
@@ -18,7 +31,6 @@
 - **automations:** action cards for switch, setpoint, notify and mqtt (88032aa)
 - **automations:** sparkline geometry and history switch logic (cdc9fb6)
 - **automations:** history switch with sparklines in collapsed rows (5e717f0)
-- **automations:** Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker. (#165)
 - **history:** record scenario regulator outputs alongside extra entities (b23357d)
 - **history:** sample scenario series into the exchange buffer (d0da2c6)
 - **automations:** scenario status, phases and validation helpers (d07ce4f)
@@ -39,6 +51,7 @@
 
 ### Fixes
 
+- **automations:** assistant layout, neutral buttons and steppers (4782e5b)
 - **dashboard:** accept a picker choice with Enter in single mode (e65eb65)
 - **automations:** chip counts and value-less meter candidates (b5b9f77)
 - **automations:** role tone on the setpoint action head (87c770e)
@@ -60,6 +73,7 @@
 
 ### Documentation
 
+- **automations:** plainer texts and template names in the assistant (18224e9)
 - **automations:** device chips, picker and action cards (411838a)
 - **automations:** scenario page and rule editor (6352d47)
 
