@@ -486,6 +486,10 @@ def _validate_scenario(scenario: dict, index: int, errors: list[str], seen_ids: 
     result["on_start"] = _validate_phase(result.get("on_start"), "on_start", prefix, errors)
     result["on_end"] = _validate_phase(result.get("on_end"), "on_end", prefix, errors)
     result["while"] = _validate_while(result.get("while"), prefix, errors, min_interval)
+    if "max_duration_s" in result:
+        duration = result["max_duration_s"]
+        if not (_number(duration) and 60 <= duration <= 86400):
+            errors.append(f"{prefix}: max_duration_s must be between 60 and 86400")
     return result
 
 
@@ -621,8 +625,9 @@ def _local_at(day: datetime.date, clock: str) -> float:
 def _time_window_bounds(cond: dict, day: datetime.date, location) -> tuple:
     start = _local_at(day, cond["start"])
     end = _local_at(day, cond["end"])
-    if end < start:
+    if end <= start:
         # Ueber Mitternacht, z. B. 22:00 -> 06:00: das Ende liegt am Folgetag.
+        # Gleiche Zeiten (00:00 -> 00:00) ergeben einen ganzen Tag.
         end = _local_at(day + datetime.timedelta(days=1), cond["end"])
     return (start, end), ""
 
@@ -1094,6 +1099,7 @@ class ScenarioRuntime:
     error: Optional[float] = None
     base: Optional[float] = None
     reason: Optional[str] = None
+    rearm: bool = False
 
 
 _SCENARIO_ACTIVE_PHASES = ("active", "fallback")
@@ -1198,19 +1204,31 @@ class ScenarioEngine:
     def _advance(self, sid: str, scenario: dict, rt: ScenarioRuntime, when_eval, until_eval, *,
                  settling: bool, now_ts: float, settings, balance, topic_values) -> None:
         ctx = {"balance": balance, "topic_values": topic_values}
+        max_duration = scenario.get("max_duration_s")
         if rt.phase not in _SCENARIO_ACTIVE_PHASES:
             rt.reason = None
+            if rt.rearm and not when_eval.all_raw:
+                # Erst eine unerfuellte Bedingung macht das Szenario wieder startbar.
+                rt.rearm = False
             if settling:
                 rt.reason = "settling"
             elif when_eval.saw_stale:
                 rt.reason = "balance_stale"
+            elif rt.rearm:
+                rt.reason = "rearm_pending"
             elif when_eval.all_held:
                 self._start(sid, scenario, rt, now_ts=now_ts, **ctx)
                 self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
             return
 
+        if max_duration is not None and now_ts - rt.since >= max_duration:
+            self._end(sid, rt, **ctx)
+            rt.reason = "duration_reached"
+            rt.rearm = True
+            return
         if until_eval is None:
-            ends = not when_eval.all_raw and not when_eval.saw_stale
+            # Ohne until endet ein Szenario mit max_duration_s nur ueber die Zeit.
+            ends = max_duration is None and not when_eval.all_raw and not when_eval.saw_stale
         else:
             ends = until_eval.all_held
         if ends:

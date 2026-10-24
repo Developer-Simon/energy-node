@@ -90,6 +90,10 @@ func TestAutomationSchemaCases(t *testing.T) {
 			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`,
 				`"enabled":true,"while":{"mode":"hold","actions":[],"repeat_seconds":-1},`, 1)+`]`), false},
 		{"nine scenarios", automationDoc(defaultAutomationSettings, "["+strings.Join(nineScenarios, ",")+"]"), false},
+		{"max_duration_s below one minute", automationDoc(defaultAutomationSettings,
+			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":59,`, 1)+`]`), false},
+		{"max_duration_s of ten minutes", automationDoc(defaultAutomationSettings,
+			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":600,`, 1)+`]`), true},
 		{"unknown key in scenario", automationDoc(defaultAutomationSettings,
 			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"unknown":1,`, 1)+`]`), false},
 		{"publish_min_interval_s below five", automationDoc(
@@ -111,6 +115,30 @@ func TestAutomationSchemaCases(t *testing.T) {
 // The five scenario item schemas are copies of the rule item schemas. A
 // change to one side must land on the other, or the editor and the service
 // disagree about what a condition or action may contain.
+// The assistant templates build their documents in the browser. Each built
+// document in the shared fixture must pass the same schema the service
+// enforces, or a template would produce a file the service rejects.
+func TestAutomationTemplateFixtureMatchesTheSchema(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "test", "fixtures", "automation-templates-built.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Documents []json.RawMessage `json:"documents"`
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if len(fixture.Documents) == 0 {
+		t.Fatal("fixture has no documents")
+	}
+	for i, doc := range fixture.Documents {
+		if err := ValidateDocument(doc, automationSchema(t)); err != nil {
+			t.Errorf("document %d: %v", i, err)
+		}
+	}
+}
+
 func TestScenarioItemSchemasMatchTheRuleItemSchemas(t *testing.T) {
 	var schema map[string]any
 	if err := json.Unmarshal(automationSchema(t), &schema); err != nil {

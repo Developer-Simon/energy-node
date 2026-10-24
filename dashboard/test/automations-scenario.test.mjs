@@ -323,3 +323,24 @@ function validRegulated() {
     },
   });
 }
+
+test('validation rejects max_duration_s below one minute', () => {
+  const s = load();
+  const tooShort = s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 59 }), { minInterval: 10, otherOutputs: [] });
+  assert.equal(tooShort.length, 1);
+  assert.ok(tooShort[0].includes('Minute'));
+  const tooLong = s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 86401 }), { minInterval: 10, otherOutputs: [] });
+  assert.equal(tooLong.length, 1);
+  assert.deepEqual(plain(s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 600 }), { minInterval: 10, otherOutputs: [] })), []);
+});
+
+test('the end block writes minutes as seconds and removes the key when empty', () => {
+  const s = load();
+  const scenario = scenarioWith();
+  s.setMaxDurationMinutes(scenario, 10);
+  assert.equal(scenario.max_duration_s, 600);
+  assert.equal(s.maxDurationMinutes(scenario), 10);
+  s.setMaxDurationMinutes(scenario, '');
+  assert.equal('max_duration_s' in scenario, false);
+  assert.equal(s.maxDurationMinutes(scenario), '');
+});

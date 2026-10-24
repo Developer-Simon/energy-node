@@ -49,6 +49,24 @@
     };
   }
 
+  // Die Oberflaeche rechnet Minuten, gespeichert werden Sekunden. Leer
+  // loescht den Schluessel, dann endet das Szenario nicht nach Zeit.
+  const MAX_DURATION_MIN_S = 60;
+  const MAX_DURATION_MAX_S = 86400;
+
+  function maxDurationMinutes(scenario) {
+    return isNumber(scenario.max_duration_s) ? scenario.max_duration_s / 60 : '';
+  }
+
+  function setMaxDurationMinutes(scenario, minutes) {
+    const value = Number(minutes);
+    if (isEmpty(minutes) || !Number.isFinite(value)) {
+      delete scenario.max_duration_s;
+      return;
+    }
+    scenario.max_duration_s = Math.round(value * 60);
+  }
+
   // Ein Moduswechsel verwirft den alten Inhalt: der Regler und die Aktionen
   // der Wiederholung passen zu keinem anderen Modus.
   function setWhileMode(scenario, mode) {
@@ -185,7 +203,7 @@
     return (actions || []).some((action) => action.type === 'publish');
   }
 
-  // i18n-keys: automations.validation.scenario_invalid_id, automations.validation.scenario_condition_count, automations.validation.scenario_until_count, automations.validation.scenario_action_count, automations.validation.scenario_hold_actions, automations.validation.scenario_repeat_with_toggle, automations.validation.scenario_repeat_too_short, automations.validation.scenario_regulator_topic, automations.validation.scenario_regulator_topic_taken, automations.validation.scenario_regulator_range, automations.validation.scenario_gain_range, automations.validation.scenario_regulator_fallback
+  // i18n-keys: automations.validation.scenario_max_duration, automations.validation.scenario_invalid_id, automations.validation.scenario_condition_count, automations.validation.scenario_until_count, automations.validation.scenario_action_count, automations.validation.scenario_hold_actions, automations.validation.scenario_repeat_with_toggle, automations.validation.scenario_repeat_too_short, automations.validation.scenario_regulator_topic, automations.validation.scenario_regulator_topic_taken, automations.validation.scenario_regulator_range, automations.validation.scenario_gain_range, automations.validation.scenario_regulator_fallback
   function validateScenarioBeforeSave(scenario, ctx = {}) {
     const errors = [];
     const name = scenario.name;
@@ -200,6 +218,13 @@
     const phaseActions = [(scenario.on_start || {}).actions, (scenario.on_end || {}).actions];
     if (phaseActions.some((actions) => (actions || []).length > 8)) {
       errors.push(t('automations.validation.scenario_action_count', { name }));
+    }
+
+    if (!isEmpty(scenario.max_duration_s)) {
+      const seconds = scenario.max_duration_s;
+      if (!(seconds >= MAX_DURATION_MIN_S && seconds <= MAX_DURATION_MAX_S)) {
+        errors.push(t('automations.validation.scenario_max_duration', { name }));
+      }
     }
 
     const current = scenario.while || {};
@@ -256,7 +281,7 @@
   }
 
   window.__automationScenario = {
-    emptyScenario, setUntil, setWhileMode, scenarioStatus, activePhase,
+    emptyScenario, setUntil, setWhileMode, setMaxDurationMinutes, maxDurationMinutes, scenarioStatus, activePhase,
     startProgress, phaseSummary, validateScenarioBeforeSave, stripRegulatorDefaults,
   };
 })();

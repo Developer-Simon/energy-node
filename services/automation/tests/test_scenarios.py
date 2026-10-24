@@ -297,6 +297,51 @@ def test_hold_repeats_its_actions():
     assert payloads(published) == ["start", "on", "on"]
 
 
+def test_max_duration_ends_the_scenario_and_waits_for_rearm():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(max_duration_s=600))])
+    tick(engine, doc, 1000)
+    assert payloads(published) == ["start"]
+    report = tick(engine, doc, 1600)
+    assert payloads(published) == ["start", "end"]
+    assert report["x"]["phase"] == "idle"
+    assert report["x"]["reason"] == "duration_reached"
+    report = tick(engine, doc, 1610)
+    assert report["x"]["phase"] == "idle"
+    assert report["x"]["reason"] == "rearm_pending"
+    assert payloads(published) == ["start", "end"]
+    # Erst eine unerfuellte Bedingung scharf machen, dann startet das Szenario wieder.
+    tick(engine, doc, 1620, grid_export=0)
+    tick(engine, doc, 1630)
+    assert payloads(published) == ["start", "end", "start"]
+
+
+def test_max_duration_without_until_ignores_a_dropping_when():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(max_duration_s=600))])
+    tick(engine, doc, 1000)
+    report = tick(engine, doc, 1100, grid_export=0)
+    assert report["x"]["phase"] == "active"
+    assert payloads(published) == ["start"]
+    tick(engine, doc, 1600)
+    assert payloads(published) == ["start", "end"]
+
+
+def test_until_still_ends_before_max_duration():
+    until = {"conditions": [threshold_condition(comparison="below", threshold=100, field_name="grid_export")]}
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(until=until, max_duration_s=600))])
+    tick(engine, doc, 1000, grid_export=900)
+    report = tick(engine, doc, 1100, grid_export=50)
+    assert payloads(published) == ["start", "end"]
+    assert report["x"]["phase"] == "idle"
+    assert report["x"]["reason"] is None
+
+
+def test_max_duration_out_of_range_is_rejected():
+    for value in (59, 86401):
+        errors = []
+        automation._validate_scenario(scenario_def(max_duration_s=value), 0, errors, set(), 30)
+        assert errors == ["scenario[0]: max_duration_s must be between 60 and 86400"]
+
+
 def test_history_events_for_start_and_end():
     history = []
     doc, engine, _, _ = scenario_engine_with([normalized(scenario_def())],

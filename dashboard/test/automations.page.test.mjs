@@ -24,6 +24,8 @@ const chartSource = fs.readFileSync(path.join(jsDir, 'automations-chart.js'), 'u
 const devicesSource = fs.readFileSync(path.join(jsDir, 'automations-devices.js'), 'utf8');
 const pickerSource = fs.readFileSync(path.join(jsDir, 'device-picker.js'), 'utf8');
 const rollupSource = fs.readFileSync(path.join(jsDir, 'history-rollup.js'), 'utf8');
+const wizardSource = fs.readFileSync(path.join(jsDir, 'automation-wizard.js'), 'utf8');
+const templatesSource = fs.readFileSync(path.join(jsDir, 'automation-templates.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -43,6 +45,8 @@ function createAutomationsPanel(setup) {
   vm.runInContext(devicesSource, context);
   vm.runInContext(pickerSource, context);
   vm.runInContext(rollupSource, context);
+  vm.runInContext(wizardSource, context);
+  vm.runInContext(templatesSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -2478,4 +2482,168 @@ test('turning history on loads charts for collapsed regulators', async () => {
   } finally {
     window.close();
   }
+});
+
+// Assistent (Task 5a): Zustand und Anlegen. Die Geraete und der Snapshot
+// kommen ueber fetch, wie auf der Seite.
+const assistantDevices = [
+  {
+    id: 'pv1', name: 'Wechselrichter Dach',
+    entities: [
+      { unique_id: 'pv1_limit', name: 'Leistungsgrenze', command_topic: 'werkstatt/pv1/limit', min_value: 50, max_value: 800, step: 10, unit_of_measurement: 'W', has_value: true, value: '500' },
+      { unique_id: 'pv1_power', name: 'Leistung', state_topic: 'werkstatt/pv1/power', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '742' },
+    ],
+  },
+  {
+    id: 'pv2', name: 'Wechselrichter Garage',
+    entities: [
+      { unique_id: 'pv2_limit', name: 'Leistungsgrenze', command_topic: 'werkstatt/pv2/limit', min_value: 50, max_value: 600, step: 10, unit_of_measurement: 'W', has_value: true, value: '400' },
+      { unique_id: 'pv2_power', name: 'Leistung', state_topic: 'werkstatt/pv2/power', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '310' },
+    ],
+  },
+];
+
+const assistantSnapshot = {
+  values: { pv: 1052, grid_export: 0, grid_import: 0, battery_soc: 64 },
+  entities: [
+    { device_id: 'pv1', entity_id: 'pv1_power', role: { role: 'pv' } },
+    { device_id: 'pv2', entity_id: 'pv2_power', role: { role: 'pv' } },
+  ],
+};
+
+function stubAssistantFetch(window) {
+  window.fetch = async (url) => {
+    let body = null;
+    if (url.endsWith('/api/v1/devices')) body = assistantDevices;
+    if (url.endsWith('/api/v1/energy')) body = assistantSnapshot;
+    if (body === null) throw new Error(`unexpected fetch ${url}`);
+    return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(body)) };
+  };
+}
+
+// Panel mit gespeichertem Stand, damit unsavedCount() die Aenderungen zaehlt.
+async function assistantPanel() {
+  const harness = createAutomationsPanel();
+  stubAssistantFetch(harness.window);
+  harness.component.savedDocument = JSON.parse(JSON.stringify(harness.component.document));
+  return harness;
+}
+
+test('openAssistant builds the context and shows the gallery', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  assert.equal(component.assistant.open, true);
+  assert.equal(component.assistant.templateId, '');
+  assert.ok(component.assistant.context, 'the context is built on open');
+  assert.equal(component.assistant.context.inverters.length, 2);
+  assert.equal(component.assistantSteps().length, 0);
+  const { fitting, others } = component.assistantTemplates();
+  assert.ok(fitting.some((template) => template.id === 'zero_feed'));
+  assert.ok(others.some((template) => template.id === 'surplus_wallbox'), 'no wallbox means the template is listed as unavailable');
+});
+
+test('closing the assistant by escape creates nothing', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  component.startTemplate('zero_feed');
+  component.assistant.query = 'Feed';
+  const before = JSON.stringify(component.document);
+  component.closeAssistant();
+  assert.equal(JSON.stringify(component.document), before);
+  assert.equal(component.unsavedCount(), 0);
+  assert.equal(component.assistant.open, false);
+  await component.openAssistant();
+  assert.equal(component.assistant.query, '', 'a new open starts with an empty search');
+  assert.equal(component.assistant.templateId, '');
+});
+
+test('creating zero_feed inserts an active unsaved scenario and offers undo', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  component.view = 'rules';
+  component.startTemplate('zero_feed');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  const scenarios = component.document.scenarios;
+  assert.equal(scenarios.length, 1);
+  assert.equal(scenarios[0].id, 'zero_feed');
+  assert.equal(scenarios[0].enabled, true);
+  assert.equal(component.view, 'scenarios');
+  assert.equal(component.newIds.zero_feed, true);
+  assert.equal(component.undo.id, 'zero_feed');
+  assert.equal(component.unsavedCount(), 1);
+  assert.equal(component.assistant.open, false);
+});
+
+test('creating battery_warn switches to the rules tab', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  component.view = 'scenarios';
+  component.startTemplate('battery_warn');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+  assert.equal(component.document.rules.length, 1);
+  assert.equal(component.view, 'rules');
+});
+
+test('create is blocked when the scenario list is full', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  component.document.scenarios = Array.from({ length: 8 }, (_, index) => ({ id: `szenario_${index}`, name: 'Voll', enabled: true }));
+  component.startTemplate('zero_feed');
+  component.assistantGoTo('summary');
+  assert.equal(component.assistantListFull(), true);
+  component.assistantCreate();
+  assert.equal(component.document.scenarios.length, 8);
+  assert.equal(component.undo, null);
+  assert.equal(component.assistant.open, true, 'the dialog stays open');
+});
+
+test('back from the first step returns to the gallery', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  component.startTemplate('zero_feed');
+  assert.equal(component.assistantStep().id, 'device');
+  component.assistantBack();
+  assert.equal(component.assistant.templateId, '');
+  assert.equal(component.assistant.open, true);
+});
+
+test('assistantGoTo jumps from the summary to the step', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  component.startTemplate('zero_feed');
+  component.assistantGoTo('summary');
+  assert.equal(component.assistantStep().id, 'summary');
+  component.assistantGoTo('target');
+  assert.equal(component.assistantStep().id, 'target');
+});
+
+test('assistantToggleDay adds and removes a weekday in a holder', async () => {
+  const { component } = await assistantPanel();
+  const holder = { days: [0, 2] };
+  component.assistantToggleDay(holder, 'days', 1);
+  assert.equal(JSON.stringify(holder.days), '[0,1,2]');
+  component.assistantToggleDay(holder, 'days', 0);
+  assert.equal(JSON.stringify(holder.days), '[1,2]');
+});
+
+test('a second zero_feed gets its own id and cannot pick the same inverter', async () => {
+  const { component } = await assistantPanel();
+  await component.openAssistant();
+  component.startTemplate('zero_feed');
+  assert.equal(component.assistant.answers.device, 'pv1_limit');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+
+  await component.openAssistant();
+  component.startTemplate('zero_feed');
+  assert.equal(component.assistant.answers.device, 'pv2_limit', 'the regulated inverter is disabled');
+  component.assistantGoTo('summary');
+  component.assistantCreate();
+
+  const [first, second] = component.document.scenarios;
+  assert.equal(first.id, 'zero_feed');
+  assert.equal(second.id, 'zero_feed_2');
+  assert.equal(second.while.regulator.output.topic, 'werkstatt/pv2/limit');
 });

@@ -1364,14 +1364,20 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
-	scenario := strings.Index(line, "automations-scenario.js?v=2")
+	scenario := strings.Index(line, "automations-scenario.js?v=3")
 	chart := strings.Index(line, "automations-chart.js?v=2")
 	page := strings.Index(line, "automations.page.js?v=")
-	if scenario < 0 || chart < 0 || page < 0 {
-		t.Fatalf("Szenario-Module fehlen in der Skriptliste: %s", line)
+	wizard := strings.Index(line, "automation-wizard.js?v=1")
+	templates := strings.Index(line, "automation-templates.js?v=1")
+	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 {
+		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)
 	}
 	if scenario > page || chart > page {
 		t.Fatalf("Szenario-Module laden nach automations.page.js: %s", line)
+	}
+	// Die Vorlagen-Engine haengt am Baustein-Modul, beide vor der Seite.
+	if wizard > templates || templates > page {
+		t.Fatalf("Assistenten-Module in falscher Reihenfolge vor automations.page.js: %s", line)
 	}
 }
 
@@ -1416,7 +1422,7 @@ func TestAutomationsSettingsSitBelowTheRulesInAnAdvancedSection(t *testing.T) {
 	if !strings.Contains(body, "automations-advanced") {
 		t.Fatal("die Dienst-Einstellungen stehen nicht im Fortgeschrittenen-Bereich")
 	}
-	rules := strings.Index(body, `x-on:click="addRule()"`)
+	rules := strings.Index(body, `x-on:click="openAssistant()"`)
 	settings := strings.Index(body, "automations-advanced")
 	if rules < 0 || settings < 0 || settings < rules {
 		t.Fatalf("die Dienst-Einstellungen stehen nicht unter den Regeln (Regeln bei %d, Einstellungen bei %d)", rules, settings)
@@ -1433,6 +1439,47 @@ func TestAutomationsPanelLoadsItsOwnStylesheet(t *testing.T) {
 	body := recorder.Body.String()
 	if !strings.Contains(body, "static/css/automations.css") {
 		t.Fatal("automations.css ist nicht als Panel-Stylesheet eingetragen")
+	}
+}
+
+// TestAutomationsPanelShipsTheAssistantDialog haelt fest, dass der Vorlagen-
+// Assistent als Dialog im Panel steht und ueber den Kopfknopf oeffnet.
+func TestAutomationsPanelShipsTheAssistantDialog(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`<dialog`, `x-ref="assistantDialog"`, `class="auto-assist"`, `class="auto-assist-sheet"`,
+		`x-ref="assistantSearch"`, `x-on:click="openAssistant()"`,
+		`x-on:close="`, `closeAssistant()`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+}
+
+// TestAutomationsPanelShipsAssistantBlocks haelt fest, dass die Bausteine
+// multi, number, time und summary samt Zusammenfassung im Assistenten-Markup stehen.
+func TestAutomationsPanelShipsAssistantBlocks(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`assistantStep().type === 'multi'`, `assistantStep().type === 'number'`,
+		`assistantStep().type === 'time'`, `assistantStep().id === 'summary'`,
+		`class="settings-toggle auto-assist-check"`, `assistantToggleDay(`,
+		`assistantGoTo(row.step)`, `assistantPreview()`, `$t('automations.assistant.change')`,
+		`class="auto-assist-sum-row"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Baustein %q fehlt im Automations-Panel", marker)
+		}
+	}
+	if strings.Contains(body, "5c: Bausteine") {
+		t.Fatal("der Platzhalter fuer die Bausteine ist noch im Markup")
 	}
 }
 

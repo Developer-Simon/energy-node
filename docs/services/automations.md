@@ -9,7 +9,9 @@ component: service:automation
 
 The rule engine runs as a process separate from the dashboard on purpose. The
 dashboard edits the rule file but never publishes a rule's action itself, so
-the web UI cannot switch a relay.
+the web UI cannot switch a relay. The templates of the dashboard assistant live
+only in the browser, not in the service, which sees only the finished rules and
+scenarios.
 
 [How it works](automations-how-it-works.md) explains when a rule fires, what
 its result means, how publish values are computed and which topics a rule may
@@ -45,7 +47,9 @@ category is removed later, the field has no value and the condition stays unmet.
 The same applies to a publish action that takes its value from the balance.
 
 A window that crosses midnight belongs to the day it starts on: a `time_window`
-from 22:00 to 06:00 on Fridays also holds at 03:00 on Saturday. `sun_window`
+from 22:00 to 06:00 on Fridays also holds at 03:00 on Saturday. A `time_window`
+with the same start and end covers the whole day: 00:00 to 00:00 holds from one
+midnight to the next, without a gap. `sun_window`
 computes sunrise and sunset on the device itself from the location in
 `settings.latitude` and `settings.longitude`, with no internet access. Without
 a location, a `sun_window` condition stays unmet. The dashboard can fill the
@@ -122,6 +126,7 @@ Scenario fields:
 | `history_enabled` | Records the start, end, fallback, recovery and large regulator jumps. |
 | `when` | 1 to 8 conditions of the same types as rules. All must hold to start the scenario. |
 | `until` | Optional, 1 to 8 conditions. Without it, the scenario ends when a `when` condition is no longer met. With it, the scenario ends when all `until` conditions hold. |
+| `max_duration_s` | Optional, 60 to 86400 seconds. After this time the scenario ends, even while `when` still holds. It starts again only after `when` has been unmet once. Without `until`, this time is the only end condition. Missing means no time limit. |
 | `on_start`, `on_end` | 0 to 8 actions each, of the same types as rule actions. |
 | `while.regulator` | Required for `regulate`. See below. |
 | `while.actions`, `while.repeat_seconds` | For `hold`: 1 to 8 actions and a repeat interval above 0. |

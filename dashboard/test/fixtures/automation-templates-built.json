@@ -1,0 +1,882 @@
+{
+  "documents": [
+    {
+      "version": 1,
+      "settings": {
+        "tick_interval_s": 10,
+        "settling_seconds": 60,
+        "balance_max_age_s": 30,
+        "history_limit": 10,
+        "history_persist": true,
+        "publish_min_interval_s": 30,
+        "regulator_interval_s": 10,
+        "latitude": 52.5,
+        "longitude": 13.4,
+        "publish_allowed_prefixes": [
+          "werkstatt/pv1/limit",
+          "werkstatt/wb/limit",
+          "werkstatt/wb/switch"
+        ]
+      },
+      "rules": [
+        {
+          "id": "battery_warn",
+          "name": "Akku-Warnung",
+          "enabled": true,
+          "cooldown_seconds": 3600,
+          "conditions": [
+            {
+              "type": "balance_threshold",
+              "field": "battery_soc",
+              "comparison": "below",
+              "threshold": 20,
+              "hysteresis": 2,
+              "hold_seconds": 60
+            }
+          ],
+          "actions": [
+            {
+              "type": "notification",
+              "severity": "warning",
+              "title": "Akku-Ladestand niedrig",
+              "message": "Der Ladestand des Akkus liegt unter 20 %."
+            }
+          ]
+        },
+        {
+          "id": "battery_warn_2",
+          "name": "Akku-Warnung",
+          "enabled": true,
+          "cooldown_seconds": 3600,
+          "conditions": [
+            {
+              "type": "balance_threshold",
+              "field": "battery_soc",
+              "comparison": "below",
+              "threshold": 10,
+              "hysteresis": 2,
+              "hold_seconds": 60
+            }
+          ],
+          "actions": [
+            {
+              "type": "notification",
+              "severity": "critical",
+              "title": "Akku-Ladestand niedrig",
+              "message": "Der Ladestand des Akkus liegt unter 10 %."
+            }
+          ]
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "zero_feed",
+          "name": "Nulleinspeisung",
+          "enabled": true,
+          "template": "zero_feed",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "sun_window",
+                "from": "sunrise",
+                "to": "sunset",
+                "from_offset_min": 0,
+                "to_offset_min": 0
+              }
+            ]
+          },
+          "on_start": {
+            "actions": []
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/pv1/limit",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "800",
+                "entity_id": "pv1_limit"
+              }
+            ]
+          },
+          "while": {
+            "mode": "regulate",
+            "regulator": {
+              "output": {
+                "topic": "werkstatt/pv1/limit",
+                "entity_id": "pv1_limit",
+                "min": 50,
+                "max": 800,
+                "step": 10,
+                "decimals": 0
+              },
+              "direction": "producer",
+              "target_w": 30,
+              "deadband_w": 20,
+              "base": {
+                "source": "entity",
+                "entity_id": "pv1_power",
+                "topic": "werkstatt/pv1/power",
+                "value_template": ""
+              },
+              "fallback": {
+                "payload": "800"
+              }
+            }
+          }
+        },
+        {
+          "id": "surplus_wallbox",
+          "name": "Überschussladen",
+          "enabled": true,
+          "template": "surplus_wallbox",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_export",
+                "comparison": "above",
+                "threshold": 1400,
+                "hysteresis": 0,
+                "hold_seconds": 180
+              },
+              {
+                "type": "entity_value",
+                "topic": "werkstatt/wb/plug",
+                "entity_id": "wb_plug",
+                "value_template": "",
+                "comparison": "equals",
+                "text": "ON"
+              }
+            ]
+          },
+          "until": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_import",
+                "comparison": "above",
+                "threshold": 200,
+                "hysteresis": 0,
+                "hold_seconds": 300
+              }
+            ]
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "regulate",
+            "regulator": {
+              "output": {
+                "topic": "werkstatt/wb/limit",
+                "entity_id": "wb_limit",
+                "min": 1400,
+                "max": 11000,
+                "step": 100
+              },
+              "direction": "consumer",
+              "target_w": 0,
+              "deadband_w": 100,
+              "base": {
+                "source": "entity",
+                "entity_id": "wb_power",
+                "topic": "werkstatt/wb/power",
+                "value_template": ""
+              },
+              "fallback": {
+                "payload": "1400"
+              }
+            }
+          }
+        },
+        {
+          "id": "surplus_switch",
+          "name": "Gerät bei Überschuss schalten",
+          "enabled": true,
+          "template": "surplus_switch",
+          "when": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_export",
+                "comparison": "above",
+                "threshold": 1500,
+                "hysteresis": 0,
+                "hold_seconds": 120
+              }
+            ]
+          },
+          "on_start": {
+            "actions": []
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "hold",
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ],
+            "repeat_seconds": 60
+          },
+          "until": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_import",
+                "comparison": "above",
+                "threshold": 100,
+                "hysteresis": 0,
+                "hold_seconds": 120
+              }
+            ]
+          }
+        },
+        {
+          "id": "surplus_switch_2",
+          "name": "Gerät bei Überschuss schalten",
+          "enabled": true,
+          "template": "surplus_switch",
+          "when": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_export",
+                "comparison": "above",
+                "threshold": 1500,
+                "hysteresis": 0,
+                "hold_seconds": 120
+              }
+            ]
+          },
+          "on_start": {
+            "actions": []
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "hold",
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ],
+            "repeat_seconds": 60
+          },
+          "max_duration_s": 7200
+        },
+        {
+          "id": "surplus_switch_3",
+          "name": "Gerät bei Überschuss schalten",
+          "enabled": true,
+          "template": "surplus_switch",
+          "when": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_export",
+                "comparison": "above",
+                "threshold": 1500,
+                "hysteresis": 0,
+                "hold_seconds": 120
+              }
+            ]
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "none"
+          },
+          "until": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_import",
+                "comparison": "above",
+                "threshold": 100,
+                "hysteresis": 0,
+                "hold_seconds": 120
+              }
+            ]
+          }
+        },
+        {
+          "id": "time_switch",
+          "name": "Schalter nach Uhrzeit",
+          "enabled": true,
+          "template": "time_switch",
+          "when": {
+            "conditions": [
+              {
+                "type": "time_window",
+                "start": "11:00",
+                "end": "15:00",
+                "weekdays": []
+              }
+            ]
+          },
+          "while": {
+            "mode": "none"
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          }
+        },
+        {
+          "id": "time_switch_2",
+          "name": "Schalter nach Uhrzeit",
+          "enabled": true,
+          "template": "time_switch",
+          "when": {
+            "conditions": [
+              {
+                "type": "time_window",
+                "start": "06:00",
+                "end": "08:00",
+                "weekdays": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4
+                ]
+              }
+            ]
+          },
+          "while": {
+            "mode": "none"
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "settings": {
+        "tick_interval_s": 10,
+        "settling_seconds": 60,
+        "balance_max_age_s": 30,
+        "history_limit": 10,
+        "history_persist": true,
+        "publish_min_interval_s": 30,
+        "regulator_interval_s": 10,
+        "latitude": 52.5,
+        "longitude": 13.4,
+        "publish_allowed_prefixes": [
+          "werkstatt/pv1/limit",
+          "werkstatt/wb/limit",
+          "werkstatt/wb/switch"
+        ]
+      },
+      "rules": [],
+      "scenarios": [
+        {
+          "id": "zero_feed_2",
+          "name": "Nulleinspeisung",
+          "enabled": true,
+          "template": "zero_feed",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "time_window",
+                "start": "00:00",
+                "end": "00:00",
+                "weekdays": []
+              }
+            ]
+          },
+          "on_start": {
+            "actions": []
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/pv1/limit",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "800",
+                "entity_id": "pv1_limit"
+              }
+            ]
+          },
+          "while": {
+            "mode": "regulate",
+            "regulator": {
+              "output": {
+                "topic": "werkstatt/pv1/limit",
+                "entity_id": "pv1_limit",
+                "min": 50,
+                "max": 800,
+                "step": 10,
+                "decimals": 0
+              },
+              "direction": "producer",
+              "target_w": 30,
+              "deadband_w": 20,
+              "base": {
+                "source": "entity",
+                "entity_id": "pv1_power",
+                "topic": "werkstatt/pv1/power",
+                "value_template": ""
+              },
+              "fallback": {
+                "payload": "800"
+              }
+            }
+          }
+        },
+        {
+          "id": "surplus_wallbox_2",
+          "name": "Überschussladen",
+          "enabled": true,
+          "template": "surplus_wallbox",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_export",
+                "comparison": "above",
+                "threshold": 1400,
+                "hysteresis": 0,
+                "hold_seconds": 180
+              },
+              {
+                "type": "entity_value",
+                "topic": "werkstatt/wb/plug",
+                "entity_id": "wb_plug",
+                "value_template": "",
+                "comparison": "equals",
+                "text": "ON"
+              }
+            ]
+          },
+          "until": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "battery_soc",
+                "comparison": "below",
+                "threshold": 40,
+                "hysteresis": 0,
+                "hold_seconds": 60
+              }
+            ]
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "regulate",
+            "regulator": {
+              "output": {
+                "topic": "werkstatt/wb/limit",
+                "entity_id": "wb_limit",
+                "min": 1400,
+                "max": 11000,
+                "step": 100
+              },
+              "direction": "consumer",
+              "target_w": 0,
+              "deadband_w": 100,
+              "base": {
+                "source": "entity",
+                "entity_id": "wb_power",
+                "topic": "werkstatt/wb/power",
+                "value_template": ""
+              },
+              "fallback": {
+                "payload": "1400"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "settings": {
+        "tick_interval_s": 10,
+        "settling_seconds": 60,
+        "balance_max_age_s": 30,
+        "history_limit": 10,
+        "history_persist": true,
+        "publish_min_interval_s": 30,
+        "regulator_interval_s": 10,
+        "latitude": 52.5,
+        "longitude": 13.4,
+        "publish_allowed_prefixes": [
+          "werkstatt/pv1/limit",
+          "werkstatt/wb/limit",
+          "werkstatt/wb/switch"
+        ]
+      },
+      "rules": [],
+      "scenarios": [
+        {
+          "id": "zero_feed_3",
+          "name": "Nulleinspeisung",
+          "enabled": true,
+          "template": "zero_feed",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "time_window",
+                "start": "08:00",
+                "end": "18:00",
+                "weekdays": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4
+                ]
+              }
+            ]
+          },
+          "on_start": {
+            "actions": []
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/pv1/limit",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "800",
+                "entity_id": "pv1_limit"
+              }
+            ]
+          },
+          "while": {
+            "mode": "regulate",
+            "regulator": {
+              "output": {
+                "topic": "werkstatt/pv1/limit",
+                "entity_id": "pv1_limit",
+                "min": 50,
+                "max": 800,
+                "step": 10,
+                "decimals": 0
+              },
+              "direction": "producer",
+              "target_w": 30,
+              "deadband_w": 20,
+              "base": {
+                "source": "entity",
+                "entity_id": "pv1_power",
+                "topic": "werkstatt/pv1/power",
+                "value_template": ""
+              },
+              "fallback": {
+                "payload": "800"
+              }
+            }
+          }
+        },
+        {
+          "id": "surplus_wallbox_3",
+          "name": "Überschussladen",
+          "enabled": true,
+          "template": "surplus_wallbox",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_export",
+                "comparison": "above",
+                "threshold": 1400,
+                "hysteresis": 0,
+                "hold_seconds": 180
+              },
+              {
+                "type": "entity_value",
+                "topic": "werkstatt/wb/plug",
+                "entity_id": "wb_plug",
+                "value_template": "",
+                "comparison": "equals",
+                "text": "ON"
+              }
+            ]
+          },
+          "until": {
+            "conditions": [
+              {
+                "type": "balance_threshold",
+                "field": "grid_import",
+                "comparison": "above",
+                "threshold": 200,
+                "hysteresis": 0,
+                "hold_seconds": 300
+              }
+            ]
+          },
+          "on_start": {
+            "actions": []
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/limit",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "1400",
+                "entity_id": "wb_limit"
+              }
+            ]
+          },
+          "while": {
+            "mode": "regulate",
+            "regulator": {
+              "output": {
+                "topic": "werkstatt/wb/limit",
+                "entity_id": "wb_limit",
+                "min": 1400,
+                "max": 11000,
+                "step": 100
+              },
+              "direction": "consumer",
+              "target_w": 0,
+              "deadband_w": 100,
+              "base": {
+                "source": "entity",
+                "entity_id": "wb_power",
+                "topic": "werkstatt/wb/power",
+                "value_template": ""
+              },
+              "fallback": {
+                "payload": "1400"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "settings": {
+        "tick_interval_s": 10,
+        "settling_seconds": 60,
+        "balance_max_age_s": 30,
+        "history_limit": 10,
+        "history_persist": true,
+        "publish_min_interval_s": 30,
+        "regulator_interval_s": 10,
+        "latitude": 52.5,
+        "longitude": 13.4,
+        "publish_allowed_prefixes": [
+          "werkstatt/pv1/limit",
+          "werkstatt/wb/limit",
+          "werkstatt/wb/switch"
+        ]
+      },
+      "rules": [],
+      "scenarios": [
+        {
+          "id": "zero_feed_4",
+          "name": "Nulleinspeisung",
+          "enabled": true,
+          "template": "zero_feed",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "sun_window",
+                "from": "sunrise",
+                "to": "sunset",
+                "from_offset_min": 0,
+                "to_offset_min": 0
+              }
+            ]
+          },
+          "on_start": {
+            "actions": []
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/pv1/limit",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "800",
+                "entity_id": "pv1_limit"
+              }
+            ]
+          },
+          "while": {
+            "mode": "regulate",
+            "regulator": {
+              "output": {
+                "topic": "werkstatt/pv1/limit",
+                "entity_id": "pv1_limit",
+                "min": 50,
+                "max": 800,
+                "step": 10,
+                "decimals": 0
+              },
+              "direction": "producer",
+              "target_w": 30,
+              "deadband_w": 20,
+              "base": {
+                "source": "last"
+              },
+              "fallback": {
+                "payload": "800"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
