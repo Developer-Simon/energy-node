@@ -3004,6 +3004,10 @@ func handleTinyTuyaDevices(probe tinytuya.Prober, credentialStore *tinytuya.Cred
 			methodNotAllowed(w)
 			return
 		}
+		// Die Geraeteliste nutzt die gespeicherten Cloud-Zugangsdaten und gehoert zur Einrichtung.
+		if !requireRoleIfUser(w, r, auth.RoleSetupTinyTuya, "setup_tiny_tuya_forbidden", "error.setup_tiny_tuya_forbidden", "Zum Einrichten von TinyTuya fehlt die Berechtigung.") {
+			return
+		}
 		if probe == nil {
 			writeTinyTuyaError(w, http.StatusNotImplemented, "tiny_tuya_unavailable", errors.New("Der TinyTuya-Helper ist nicht konfiguriert"))
 			return

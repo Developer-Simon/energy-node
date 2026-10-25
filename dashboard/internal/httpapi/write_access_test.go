@@ -173,7 +173,24 @@ func TestTinyTuyaConfigureRequiresSetupTinyTuya(t *testing.T) {
 		t.Fatalf("edit_config alone credentials status %d: %s", recorder.Code, recorder.Body.String())
 	}
 
+	// Die Geraeteliste der Cloud gehoert zur Einrichtung, der Probe-Aufruf darf erst danach kommen.
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/devices", `{}`, configEditor, configCSRF))
+	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "setup_tiny_tuya_forbidden" {
+		t.Fatalf("edit_config alone device list status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/devices", `{}`, viewer, csrf))
+	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "setup_tiny_tuya_forbidden" {
+		t.Fatalf("view_config device list status %d: %s", recorder.Code, recorder.Body.String())
+	}
+
 	setup, setupCSRF := loginWithRoles(t, router, manager, "tuya-setup", []string{auth.RoleViewConfig, auth.RoleSetupTinyTuya})
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/devices", `{}`, setup, setupCSRF))
+	if recorder.Code == http.StatusForbidden {
+		t.Fatalf("setup_tiny_tuya device list refused: %s", recorder.Body.String())
+	}
 	recorder = httptest.NewRecorder()
 	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/configure", `{}`, setup, setupCSRF))
 	if recorder.Code == http.StatusForbidden {
