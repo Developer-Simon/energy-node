@@ -140,6 +140,8 @@ func TestUsersRoutesRequireUserManagementHTTPSAndCSRF(t *testing.T) {
 		{name: "password-policy", method: http.MethodPut, path: "/api/v1/users/password-policy", body: `{"min_length":12}`, write: true},
 		{name: "me/password", method: http.MethodPut, path: "/api/v1/users/me/password", body: `{"old_password":"` + restrictedTestPassword + `","password":"viewer-pass-2"}`, self: true, write: true},
 		{name: "me/http-password", method: http.MethodPut, path: "/api/v1/users/me/http-password", body: `{"password":"viewer-http-1"}`, self: true, write: true},
+		{name: "sessions", method: http.MethodGet, path: "/api/v1/user-sessions"},
+		{name: "end session", method: http.MethodDelete, path: "/api/v1/user-sessions/0123456789abcdef", write: true},
 	}
 	for _, route := range routes {
 		t.Run(route.name, func(t *testing.T) {
@@ -294,6 +296,7 @@ func TestUsersErrorMapping(t *testing.T) {
 	wantUsersError(t, post(`{"username":"ANNA","password":"anna-pass-1","roles":[]}`), http.StatusConflict, "user_exists")
 	wantUsersError(t, post(`{"username":"ab","password":"anna-pass-1","roles":[]}`), http.StatusBadRequest, "invalid_user")
 	wantUsersError(t, post(`{"username":"neu","password":"kurz","roles":[]}`), http.StatusBadRequest, "invalid_user")
+	wantUsersError(t, post(`{"username":"password-policy","password":"anna-pass-1","roles":[]}`), http.StatusBadRequest, "invalid_user")
 	wantUsersError(t, post(`{"username":"neu","password":"neu-pass-1","roles":["gibt_es_nicht"]}`), http.StatusBadRequest, "invalid_user")
 	wantUsersError(t, put("/api/v1/users/ghost", `{"roles":[],"disabled":false}`), http.StatusNotFound, "user_not_found")
 	wantUsersError(t, put("/api/v1/users/guest-roles", `{"roles":["user_management"]}`), http.StatusBadRequest, "invalid_user")
@@ -412,4 +415,57 @@ func TestUsersCatalogMarksElevatedRoles(t *testing.T) {
 			t.Errorf("catalog lacks %s", key)
 		}
 	}
+}
+
+// TestUserSessionsListAndEnd: der Admin listet die Sitzungen ohne Token, sieht
+// die eigene als Current, beendet die Sitzung von bob und kann die eigene nicht
+// beenden. Nach dem Beenden ist bobs Sitzung ungültig.
+func TestUserSessionsListAndEnd(t *testing.T) {
+	router, manager := newRestrictedTestRouter(t, nil)
+	adminCookie, adminCSRF := sessionFor(t, router, "admin", usersAdminPassword)
+	bobCookie, _ := loginWithRoles(t, router, manager, "bob", []string{auth.RoleViewDevices})
+
+	recorder := usersCall(router, http.MethodGet, "/api/v1/user-sessions", "", adminCookie, "", true)
+	wantUsersStatus(t, recorder, http.StatusOK)
+	if strings.Contains(recorder.Body.String(), adminCookie.Value) || strings.Contains(recorder.Body.String(), bobCookie.Value) {
+		t.Fatal("the session listing must not contain a token")
+	}
+	var listing struct {
+		Sessions []struct {
+			ID       string `json:"id"`
+			Username string `json:"username"`
+			Current  bool   `json:"current"`
+		} `json:"sessions"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &listing); err != nil {
+		t.Fatal(err)
+	}
+	var adminID, bobID string
+	for _, session := range listing.Sessions {
+		switch session.Username {
+		case "admin":
+			adminID = session.ID
+			if !session.Current {
+				t.Fatal("admin's own session must be marked current")
+			}
+		case "bob":
+			bobID = session.ID
+			if session.Current {
+				t.Fatal("bob's session must not be marked current for admin")
+			}
+		}
+	}
+	if adminID == "" || bobID == "" {
+		t.Fatalf("listing misses admin or bob: %s", recorder.Body.String())
+	}
+
+	wantUsersError(t, usersCall(router, http.MethodDelete, "/api/v1/user-sessions/"+adminID, "", adminCookie, adminCSRF, true), http.StatusConflict, "self_protection")
+	wantUsersError(t, usersCall(router, http.MethodDelete, "/api/v1/user-sessions/0123456789abcdef", "", adminCookie, adminCSRF, true), http.StatusNotFound, "user_not_found")
+	wantUsersStatus(t, usersCall(router, http.MethodDelete, "/api/v1/user-sessions/"+bobID, "", adminCookie, adminCSRF, true), http.StatusOK)
+
+	session := usersCall(router, http.MethodGet, "/api/v1/auth/session", "", bobCookie, "", true)
+	if session.Code == http.StatusOK {
+		t.Fatal("bob's ended session must no longer be accepted")
+	}
+	wantUsersStatus(t, usersCall(router, http.MethodGet, "/api/v1/auth/session", "", adminCookie, "", true), http.StatusOK)
 }

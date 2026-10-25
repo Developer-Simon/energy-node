@@ -9,7 +9,10 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 )
 
-const usersPathPrefix = "/api/v1/users"
+const (
+	usersPathPrefix        = "/api/v1/users"
+	userSessionsPathPrefix = "/api/v1/user-sessions"
+)
 
 // handleUsers serves /api/v1/users: the list with its catalog and guest
 // settings (GET) and account creation (POST).
@@ -88,6 +91,52 @@ func handleUserSub(manager *auth.Manager) http.HandlerFunc {
 			}
 		}
 	}
+}
+
+// handleUserSessions serves GET /api/v1/user-sessions (the live sessions) and
+// DELETE /api/v1/user-sessions/{id} (ends one session, never the caller's own).
+func handleUserSessions(manager *auth.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, userSessionsPathPrefix), "/")
+		if rest == "" {
+			if r.Method != http.MethodGet {
+				methodNotAllowed(w, http.MethodGet)
+				return
+			}
+			if !requireUsersAccess(w, r, manager, false) {
+				return
+			}
+			writeJSON(w, map[string]any{"sessions": manager.Sessions(sessionCookieValue(r))})
+			return
+		}
+		if strings.Contains(rest, "/") {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodDelete {
+			methodNotAllowed(w, http.MethodDelete)
+			return
+		}
+		if !requireUsersAccess(w, r, manager, true) {
+			return
+		}
+		actor, _ := auth.UserFromContext(r.Context())
+		if err := manager.EndSession(actor.Username, rest, sessionCookieValue(r)); err != nil {
+			writeUserError(w, err)
+			return
+		}
+		writeJSON(w, map[string]string{"status": "session_ended"})
+	}
+}
+
+// sessionCookieValue returns the token of the session cookie of the request,
+// or an empty string when there is none.
+func sessionCookieValue(r *http.Request) string {
+	cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
 }
 
 // handleUser serves PUT (roles and disabled) and DELETE for one account.

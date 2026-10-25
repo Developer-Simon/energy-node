@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -66,6 +67,25 @@ func (e PasswordTooShortError) Is(target error) bool {
 }
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
+
+// reservedUsernames sind Namen, die ein Festpfad der API belegt. Ein Konto mit
+// diesem Namen würde den Pfad unter /api/v1/users/{name} verdecken.
+var reservedUsernames = map[string]bool{"password-policy": true}
+
+// sessionIDLength is the length of the session ID: the first characters of the
+// SHA-256 hash of the token, which is the key of the session map.
+const sessionIDLength = 16
+
+// SessionInfo beschreibt eine angemeldete Sitzung für die Sitzungsliste. Das
+// Token selbst steht nicht darin, nur die ID.
+type SessionInfo struct {
+	ID         string    `json:"id"`
+	Username   string    `json:"username"`
+	Guest      bool      `json:"guest"`
+	Restricted bool      `json:"restricted"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	Current    bool      `json:"current"`
+}
 
 // Users liefert die lokalen Konten sortiert nach Name, ohne Hashes.
 func (m *Manager) Users() []User {
@@ -205,6 +225,68 @@ func (m *Manager) DeleteUser(actor, username string) error {
 	return nil
 }
 
+// Sessions liefert alle nicht abgelaufenen Sitzungen, sortiert nach Konto und
+// Ablauf. Current markiert die Sitzung zu currentToken.
+func (m *Manager) Sessions(currentToken string) []SessionInfo {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := m.now()
+	currentKey := tokenHash(currentToken)
+	out := []SessionInfo{}
+	for key, session := range m.sessions {
+		if !session.ExpiresAt.After(now) {
+			continue
+		}
+		out = append(out, SessionInfo{
+			ID:         key[:sessionIDLength],
+			Username:   session.User.Username,
+			Guest:      session.User.Guest,
+			Restricted: session.Restricted,
+			ExpiresAt:  session.ExpiresAt,
+			Current:    key == currentKey,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Username != out[j].Username {
+			return out[i].Username < out[j].Username
+		}
+		if !out[i].ExpiresAt.Equal(out[j].ExpiresAt) {
+			return out[i].ExpiresAt.Before(out[j].ExpiresAt)
+		}
+		return out[i].ID < out[j].ID
+	})
+	return out
+}
+
+// EndSession beendet genau die Sitzung mit der ID aus Sessions. Die Sitzung
+// currentToken lässt sich so nicht beenden, dafür ist die Abmeldung da.
+// Schlägt das Speichern fehl, bleibt die Sitzung im Speicher beendet.
+func (m *Manager) EndSession(actor, id, currentToken string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := m.now()
+	key := ""
+	for candidate, session := range m.sessions {
+		if candidate[:sessionIDLength] == id && session.ExpiresAt.After(now) {
+			key = candidate
+			break
+		}
+	}
+	if key == "" {
+		return ErrUserNotFound
+	}
+	if key == tokenHash(currentToken) {
+		return ErrSelfProtection
+	}
+	username := m.sessions[key].User.Username
+	delete(m.sessions, key)
+	if err := m.saveSessionsLocked(); err != nil {
+		return err
+	}
+	log.Printf("auth: %s %s %s", actor, "end_session", username)
+	return nil
+}
+
 // commitLocked übernimmt den neuen Stand und speichert ihn. Schlägt das Speichern
 // der Konten fehl, bleibt der alte Stand. Ein Fehler beim Speichern der Sessions
 // lässt den neuen Stand im Speicher stehen, weil die Konten dann schon gespeichert sind.
@@ -239,7 +321,7 @@ func checkLastAdmin(before, after int) error {
 
 func normalizeUsername(username string) (string, error) {
 	name := strings.ToLower(username)
-	if !usernamePattern.MatchString(name) || strings.HasPrefix(name, "guest-") {
+	if !usernamePattern.MatchString(name) || strings.HasPrefix(name, "guest-") || reservedUsernames[name] {
 		return "", ErrInvalidUsername
 	}
 	return name, nil
