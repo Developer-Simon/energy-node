@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.14 (2026-10-25)
+## v0.10.15 (2026-10-25)
 
 ### Features
 
@@ -9,6 +9,12 @@
 - **automations:** Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker. (#165) (8f0b222)
 - **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
 - **auth:** Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions. (#167) (95146f8)
+- **automations:** Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet. (#168) (3037d6d)
+- **automations:** target band math for the assistant (fb27c76)
+- **automations:** draggable target band component (c054437)
+- **automations:** draggable target band with optional tolerance (bde335e)
+- **automations:** cache-bust, docs and band wording for the target band (d688439)
+- **automations:** The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide. (#169)
 - **automations:** trigger strip spans the last four triggers (6fca6e7)
 - **automations:** testRule runs every action in order (1e2528d)
 - **automations:** desktop rule row and header from the draft (a891d5c)
@@ -22,7 +28,6 @@
 - **automations:** assistant opens as a bottom sheet on phones (11d3f70)
 - **automations:** device value path chip with live pill (2565ee8)
 - **automations:** live bar preloads values while editing (503ae13)
-- **automations:** Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet. (#168)
 - **auth:** central permission catalog with view requirements (ea26663)
 - **auth:** versioned users.json with one-time migration and bootstrap-only admin (e4560c9)
 - **auth:** connection-aware login with HTTP password and restricted sessions (312baa0)
@@ -82,6 +87,7 @@
 
 ### Fixes
 
+- **automations:** target band toggle and preview frame as in the draft (7e70b3c)
 - **automations:** align the desktop rule editor with the draft (2f1160c)
 - **automations:** align the mobile rule card and editor with the draft (49c21c2)
 - **automations:** stepper for repeat, divided stepper buttons, tooltip and source row (f73fa79)
