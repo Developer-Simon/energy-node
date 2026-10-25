@@ -3068,7 +3068,7 @@
   "users.http_warning.placeholder": "HTTP password, at least 10 characters",
   "users.http_warning.remove": "Remove",
   "users.http_warning.removed_toast": "HTTP password removed, over HTTP the main password applies again",
-  "users.http_warning.risk": "Over HTTP, the password travels unencrypted over the network. Anyone who reads it can sign in over HTTPS with all permissions. An own HTTP password prevents this.",
+  "users.http_warning.risk": "Over HTTP, the password travels unencrypted over the network. Anyone who reads it can sign in over HTTPS with all permissions. A separate HTTP password prevents this.",
   "users.http_warning.safe": "Over HTTP, the account signs in with its own HTTP password. This always gives only the restricted session, even over HTTPS. The main password never goes over HTTP.",
   "users.http_warning.set": "Set HTTP password (recommended)",
   "users.http_warning.set_toast": "HTTP password for {name} set, HTTP sessions ended",
