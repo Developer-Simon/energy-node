@@ -3713,10 +3713,8 @@ func TestSettingsUsersPageForOwnAccountAndManagers(t *testing.T) {
 	if strings.Count(manager, `id="settings-account-heading"`) != 1 {
 		t.Fatal("Kontokarte muss genau einmal erscheinen")
 	}
-	system, _, found := strings.Cut(manager[strings.Index(manager, `id="settings-system"`):], `id="settings-users"`)
-	if !found {
-		t.Fatal("System- oder Benutzer-Reiter nicht gefunden")
-	}
+	rest := manager[strings.Index(manager, `id="settings-system"`):]
+	system := rest[:strings.Index(rest[1:], `<section id="settings-`)+1]
 	if strings.Contains(system, `id="settings-account-heading"`) {
 		t.Fatal("der System-Reiter darf keine Kontokarte mehr enthalten")
 	}

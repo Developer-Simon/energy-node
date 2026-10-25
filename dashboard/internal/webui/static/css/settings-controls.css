@@ -722,7 +722,7 @@
 /* Benutzer-Unterreiter (users.html, users.page.js). Alle Klassen mit Praefix
    users-; keine globalen Selektoren. Schalter nur als label.settings-toggle.
    Bewegung nach Spec Abschnitt 8, Kurven aus base.css. */
-.users-cards > .setting-card, .users-cards > .users-manage > .setting-card { grid-column: 1 / -1; }
+.users-cards > .users-manage > .setting-card, .users-account-cards > .setting-card { grid-column: 1 / -1; }
 /* Die Verwaltungs-Karten sitzen in einem Wrapper, der keine Box erzeugt: so
    bleiben sie direkte Rasterelemente fuer Spalten und Mauerwerk. */
 .users-manage { display: contents; }
