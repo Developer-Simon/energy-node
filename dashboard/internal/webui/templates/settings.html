@@ -481,7 +481,7 @@
     </section>{{end}}
     {{if .HasOwnAccount}}<section class="setting-card users-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible">
       <div class="settings-account" x-cloak x-show="accountVisible">
-        <h4 class="settings-account-subtitle" id="settings-account-heading">{{t "settings.account.title"}}</h4>
+        <h3 class="setting-card-title" id="settings-account-heading">{{t "settings.account.title"}}</h3>
         <p class="settings-account-notice" role="note" x-cloak x-show="accountRestricted">{{t "settings.account.restricted"}}</p>
         <form class="settings-account-form" x-on:submit.prevent="changeOwnPassword()">
           <h4 class="settings-account-subtitle">{{t "settings.account.password_title"}}</h4>
