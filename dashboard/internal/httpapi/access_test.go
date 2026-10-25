@@ -5,9 +5,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
 func okHandler() http.Handler {
@@ -112,5 +121,188 @@ func TestViewGateResolvesPathDependentPermission(t *testing.T) {
 	}
 	if code := serveAt("/api/v1/configurations/shelly", automations); code != http.StatusForbidden {
 		t.Fatalf("shelly with only view_automations: status %d", code)
+	}
+}
+
+// registeredPatternPattern matches a route registration in the source, for
+// example g.HandleFunc("/api/v1/devices", … or mux.Handle("/static/", ….
+var registeredPatternPattern = regexp.MustCompile(`\b(?:g|mux)\.Handle(?:Func)?\("([^"]+)"`)
+
+func registeredPatternsInSource(t *testing.T) map[string]bool {
+	t.Helper()
+	patterns := map[string]bool{}
+	for _, file := range []string{"httpapi.go", "history_exchange.go"} {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, match := range registeredPatternPattern.FindAllStringSubmatch(string(data), -1) {
+			patterns[match[1]] = true
+		}
+	}
+	return patterns
+}
+
+func TestEveryRegisteredRouteHasAnAccessGroup(t *testing.T) {
+	registered := registeredPatternsInSource(t)
+	if len(registered) == 0 {
+		t.Fatal("no route registrations found, the scan is broken")
+	}
+	for pattern := range registered {
+		if _, ok := routeTable[pattern]; !ok {
+			t.Errorf("route %s has no access group in routeTable", pattern)
+		}
+	}
+	for pattern := range routeTable {
+		if !registered[pattern] {
+			t.Errorf("routeTable entry %s is stale, no route registers it", pattern)
+		}
+	}
+}
+
+// sessionRequest builds a GET request with the session cookie. secure selects
+// the HTTPS header and the matching cookie name.
+func sessionRequest(t *testing.T, path string, cookie *http.Cookie, secure bool) *http.Request {
+	request := httptest.NewRequest(http.MethodGet, path, nil)
+	// Streaming handlers such as /api/v1/events return only when the request ends.
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	t.Cleanup(cancel)
+	request = request.WithContext(ctx)
+	if secure {
+		request.Header.Set("X-Forwarded-Proto", "https")
+	}
+	if cookie != nil {
+		request.AddCookie(cookie)
+	}
+	return request
+}
+
+// viewForbiddenCode reports whether a response is the view gate's 403.
+func viewForbiddenCode(recorder *httptest.ResponseRecorder) bool {
+	var body struct {
+		Code string `json:"code"`
+	}
+	return recorder.Code == http.StatusForbidden && json.Unmarshal(recorder.Body.Bytes(), &body) == nil && body.Code == "view_forbidden"
+}
+
+func TestConfigurationsGateFollowsTheName(t *testing.T) {
+	router, manager := newRestrictedTestRouter(t, nil)
+	cookie, _ := loginWithRoles(t, router, manager, "automata", []string{auth.RoleViewAutomations})
+
+	allowed := httptest.NewRecorder()
+	router.ServeHTTP(allowed, sessionRequest(t, "/api/v1/configurations/automation_rules", cookie, true))
+	if viewForbiddenCode(allowed) {
+		t.Fatalf("automation_rules with view_automations was gated: %s", allowed.Body.String())
+	}
+	denied := httptest.NewRecorder()
+	router.ServeHTTP(denied, sessionRequest(t, "/api/v1/configurations/shelly", cookie, true))
+	if !viewForbiddenCode(denied) {
+		t.Fatalf("shelly with only view_automations: status %d, want view_forbidden", denied.Code)
+	}
+}
+
+func TestOverviewOnlyAccountKeepsSharedLiveData(t *testing.T) {
+	router, manager := newRestrictedTestRouter(t, nil)
+	cookie, _ := loginWithRoles(t, router, manager, "olga", []string{auth.RoleViewOverview})
+	for _, path := range []string{"/api/v1/events", "/api/v1/energy", "/api/v1/history/entities", "/api/v1/energy/stats", "/api/v1/device/map"} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, sessionRequest(t, path, cookie, true))
+		if viewForbiddenCode(recorder) {
+			t.Errorf("%s gated for an overview-only account", path)
+		}
+	}
+}
+
+func TestAccountWithoutAnyViewIsRejectedOnSharedData(t *testing.T) {
+	router, manager := newRestrictedTestRouter(t, nil)
+	cookie, _ := loginWithRoles(t, router, manager, "nora", nil)
+
+	devices := httptest.NewRecorder()
+	router.ServeHTTP(devices, sessionRequest(t, "/api/v1/devices", cookie, true))
+	if !viewForbiddenCode(devices) {
+		t.Fatalf("/api/v1/devices without any view: status %d, want view_forbidden", devices.Code)
+	}
+	settings := httptest.NewRecorder()
+	router.ServeHTTP(settings, sessionRequest(t, "/api/v1/settings", cookie, true))
+	if settings.Code != http.StatusOK {
+		t.Fatalf("/api/v1/settings without any view: status %d, want 200", settings.Code)
+	}
+}
+
+func TestHistoryExchangeIgnoresViewPermissions(t *testing.T) {
+	router, manager := newRestrictedTestRouter(t, nil)
+	cookie, _ := loginWithRoles(t, router, manager, "heinz", []string{auth.RoleViewStats})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/history/exchange", cookie, true))
+	if viewForbiddenCode(recorder) {
+		t.Fatalf("history exchange gated without view_history: %s", recorder.Body.String())
+	}
+}
+
+func TestNoUserMeansNoViewGate(t *testing.T) {
+	router := NewRouterWithDependencies(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/diagnostics", nil, false))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("without auth: status %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+// TestMigratedGuestPassesEveryViewGate: a guest created on a users.json in the
+// field format (no version, guest roles from before the permission model) gets
+// the migrated view roles and is never refused by a view gate.
+func TestMigratedGuestPassesEveryViewGate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	fixture := `{"users":[{"username":"admin","roles":["system_actions","tune_live_updates","automations"]},` +
+		`{"username":"guest-abc","guest":true,"roles":["automations","edit_layout","check_updates","edit_energy","edit_device_map","edit_device_map_view"]}]}`
+	if err := os.WriteFile(path, []byte(fixture), 0600); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := auth.NewManager(path, "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
+
+	guest := httptest.NewRecorder()
+	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
+	if guest.Code != http.StatusOK {
+		t.Fatalf("guest login status %d: %s", guest.Code, guest.Body.String())
+	}
+	cookies := guest.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("guest cookies = %+v", cookies)
+	}
+	session := httptest.NewRecorder()
+	router.ServeHTTP(session, sessionRequest(t, "/api/v1/auth/session", cookies[0], false))
+	if session.Code != http.StatusOK {
+		t.Fatalf("guest session not recognized: status %d: %s", session.Code, session.Body.String())
+	}
+
+	patterns := make([]string, 0, len(routeTable))
+	for pattern := range routeTable {
+		patterns = append(patterns, pattern)
+	}
+	sort.Strings(patterns)
+	for _, pattern := range patterns {
+		// Logging out ends the guest session, which would hide every later
+		// pattern behind 401, so it stays out of the sweep.
+		if pattern == "/api/v1/auth/logout" {
+			continue
+		}
+		path := pattern
+		if strings.HasSuffix(path, "/") {
+			path += "x"
+		}
+		recorder := httptest.NewRecorder()
+		func() {
+			// A handler that panics on the test's empty dependencies was
+			// reached, so the gate let the request through.
+			defer func() { _ = recover() }()
+			router.ServeHTTP(recorder, sessionRequest(t, path, cookies[0], false))
+		}()
+		if viewForbiddenCode(recorder) {
+			t.Errorf("migrated guest refused by a view gate on %s", path)
+		}
 	}
 }

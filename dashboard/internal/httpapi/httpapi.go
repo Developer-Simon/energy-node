@@ -251,7 +251,7 @@ func NewAuthenticatedRouter(reg *registry.Registry, configs *config.Manager, sto
 }
 
 func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, store *settings.Store, probe tinytuya.Prober, credentialStore *tinytuya.CredentialStore, publisher CommandPublisher, storageProvider storagehealth.Provider, cache runtimecache.StatusProvider, dependencies RouterDependencies) *http.ServeMux {
-	mux := http.NewServeMux()
+	g := &guardedMux{mux: http.NewServeMux()}
 	commands := newCommandHistory()
 	engine := diagnostics.NewEngine(reg, store)
 	engine.SetConfigManager(configs)
@@ -260,42 +260,42 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, now))
-	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
-	mux.Handle("/static/", webui.Static())
-	mux.Handle("/i18n/", webui.I18nScript())
+	g.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, now))
+	g.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
+	g.Handle("/static/", webui.Static())
+	g.Handle("/i18n/", webui.I18nScript())
 	if dependencies.Redeploy != nil {
-		mux.Handle("/redeploy/", requireRoleGate(dependencies.Auth, auth.RoleUpdateSettings, "update_settings_forbidden", "error.update_settings_forbidden", "Für den Installer fehlt die Berechtigung update_settings", dependencies.Redeploy))
+		g.Handle("/redeploy/", requireRoleGate(dependencies.Auth, auth.RoleUpdateSettings, "update_settings_forbidden", "error.update_settings_forbidden", "Für den Installer fehlt die Berechtigung update_settings", dependencies.Redeploy))
 	}
 	stateDir := dependencies.InstallerStateDir
 	if stateDir == "" {
 		stateDir = versions.DefaultStateDir
 	}
-	mux.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
-	mux.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
-	mux.HandleFunc("/api/v1/changelog/highlights", handleChangelogHighlights(stateDir))
+	g.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
+	g.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
+	g.HandleFunc("/api/v1/changelog/highlights", handleChangelogHighlights(stateDir))
 	if dependencies.UpdatesCache != nil {
-		mux.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
-		mux.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
+		g.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
+		g.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
 	}
 	if dependencies.UpdaterJobDir != "" {
-		mux.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
+		g.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
 	}
-	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
-	mux.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
-	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
+	g.HandleFunc("/api/v1/devices", handleDevices(reg))
+	g.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
+	g.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
-	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
-	mux.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
+	g.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
+	g.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
 	// /api/v1/discovery ist ohne Schraegstrich registriert, hat also keinen
 	// Unterrouter, mit dem diese Route kollidieren koennte.
-	mux.HandleFunc("/api/v1/discovery/summary", handleDiscoverySummary(reg))
-	mux.HandleFunc("/api/v1/entities/", handleEntityCommand(reg, publisher, commands))
-	mux.HandleFunc("/api/v1/topics", handleTopics(reg))
-	mux.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
-	mux.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
-	mux.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
-	mux.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
+	g.HandleFunc("/api/v1/discovery/summary", handleDiscoverySummary(reg))
+	g.HandleFunc("/api/v1/entities/", handleEntityCommand(reg, publisher, commands))
+	g.HandleFunc("/api/v1/topics", handleTopics(reg))
+	g.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
+	g.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
+	g.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
+	g.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
 	resolver := dependencies.Resolver
 	if resolver == nil {
 		resolver = energy.NewResolver(nil)
@@ -305,13 +305,13 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 			applyEnergyConfig(resolver, value)
 		}
 	}
-	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
-	mux.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
-	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
-	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
-	mux.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
-	mux.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
-	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store, configs))
+	g.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
+	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
+	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
+	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store, configs))
 	exchange := newHistoryExchange(recordedExchangeSeries(reg, store, configs, resolver))
 	if dependencies.HistorySampler != nil {
 		dependencies.HistorySampler.Attach(exchange.buffer)
@@ -320,91 +320,91 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.EnergyStats != nil && dependencies.EnergyStats.Sync != nil {
 		exchange.attachStats(dependencies.EnergyStats.Sync)
 	}
-	exchange.routes(mux)
-	mux.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))
-	mux.HandleFunc("/api/v1/diagnostics/rules", handleDiagnosticRules(engine))
-	mux.HandleFunc("/api/v1/diagnostics/health", handleDiagnosticHealth(engine))
-	mux.HandleFunc("/api/v1/health/storage", handleStorageHealth(storageProvider))
-	mux.HandleFunc("/api/v1/shelly/presets", handleShellyPresets(dependencies.ShellyPresets))
+	exchange.routes(g)
+	g.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))
+	g.HandleFunc("/api/v1/diagnostics/rules", handleDiagnosticRules(engine))
+	g.HandleFunc("/api/v1/diagnostics/health", handleDiagnosticHealth(engine))
+	g.HandleFunc("/api/v1/health/storage", handleStorageHealth(storageProvider))
+	g.HandleFunc("/api/v1/shelly/presets", handleShellyPresets(dependencies.ShellyPresets))
 	if dependencies.Auth != nil {
-		mux.HandleFunc("/api/v1/auth/login", handleAuthLogin(dependencies.Auth))
-		mux.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
-		mux.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
-		mux.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
-		mux.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
-		mux.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
-		mux.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
-		mux.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/login", handleAuthLogin(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
+		g.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
+		g.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
+		g.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
+		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
 	}
 	if dependencies.SystemActions != nil {
-		mux.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
-		mux.HandleFunc("/api/v1/system/reboot", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Reboot))
-		mux.HandleFunc("/api/v1/system/poweroff", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Poweroff))
+		g.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
+		g.HandleFunc("/api/v1/system/reboot", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Reboot))
+		g.HandleFunc("/api/v1/system/poweroff", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Poweroff))
 	}
 	if dependencies.ServiceLogs != nil {
-		mux.HandleFunc("/api/v1/system/logs", handleServiceLogs(dependencies.Auth, dependencies.ServiceLogs))
-		mux.HandleFunc("/api/v1/system/logs/units", handleServiceLogUnits(dependencies.Auth))
+		g.HandleFunc("/api/v1/system/logs", handleServiceLogs(dependencies.Auth, dependencies.ServiceLogs))
+		g.HandleFunc("/api/v1/system/logs/units", handleServiceLogUnits(dependencies.Auth))
 	}
 	if dependencies.AppConfigPath != "" {
-		mux.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))
-		mux.HandleFunc("/api/v1/system/config/schema", handleSystemConfigSchema())
+		g.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))
+		g.HandleFunc("/api/v1/system/config/schema", handleSystemConfigSchema())
 	}
 	if configs != nil {
-		mux.HandleFunc("/api/v1/configurations", handleConfigurations(configs))
-		mux.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth, dependencies.NodeAgent))
-		mux.HandleFunc("/api/v1/automations/test", handleAutomationTest(publisher, dependencies.Auth))
-		mux.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(configs))
-		mux.HandleFunc("/api/v1/energy/category-references", handleCategoryReferences(configs))
+		g.HandleFunc("/api/v1/configurations", handleConfigurations(configs))
+		g.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth, dependencies.NodeAgent))
+		g.HandleFunc("/api/v1/automations/test", handleAutomationTest(publisher, dependencies.Auth))
+		g.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(configs))
+		g.HandleFunc("/api/v1/energy/category-references", handleCategoryReferences(configs))
 	}
 	if store != nil {
-		mux.HandleFunc("/api/v1/layout", handleLayout(store))
-		mux.HandleFunc("/api/v1/layout/", handleLayoutRevision(store))
-		mux.HandleFunc("/api/v1/settings", handleSettings(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/settings/", handleSettingsRevision(store))
-		mux.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
+		g.HandleFunc("/api/v1/layout", handleLayout(store))
+		g.HandleFunc("/api/v1/layout/", handleLayoutRevision(store))
+		g.HandleFunc("/api/v1/settings", handleSettings(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/settings/", handleSettingsRevision(store))
+		g.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
 		if deviceMap, err := store.LoadDeviceMap(); err == nil {
 			applyRelationOverrides(reg, deviceMap)
 			applySubDeviceLabels(resolver, deviceMap)
 		}
-		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, resolver, dependencies.Auth))
-		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
-		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
-		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase, dependencies.EnergySensorOptions))
-		mux.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
-		mux.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
-		mux.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
+		g.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, resolver, dependencies.Auth))
+		g.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
+		g.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
+		g.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase, dependencies.EnergySensorOptions))
+		g.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
+		g.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
+		g.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
 
 		bridgeTargetPath := dependencies.BridgeTargetPath
 		if bridgeTargetPath == "" {
 			bridgeTargetPath = defaultBridgeTargetPath
 		}
 		bridgeApplyState := newBridgeApplyState()
-		mux.HandleFunc("/api/v1/mqtt/bridge", handleBridgeConfig(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.MQTTBridgeWatcher))
-		mux.HandleFunc("/api/v1/mqtt/bridge/credentials", handleBridgeCredentials(dependencies.BridgeCredentials, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/bridge/apply", handleBridgeApply(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.SystemActions, dependencies.MQTTBridgeWatcher, dependencies.DataDir, bridgeApplyState))
-		mux.HandleFunc("/api/v1/mqtt/bridge/restart", handleBridgeRestart(dependencies.Auth, dependencies.SystemActions))
-		mux.HandleFunc("/api/v1/mqtt/bridge/status", handleBridgeStatus(store, dependencies.BridgeCredentials, dependencies.MQTTBridgeWatcher, dependencies.SystemStatusRunner, bridgeTargetPath, bridgeApplyState))
-		mux.HandleFunc("/api/v1/mqtt/bridge/", handleBridgeSub(store, dependencies.Auth, dependencies.MQTTBridgeWatcher))
+		g.HandleFunc("/api/v1/mqtt/bridge", handleBridgeConfig(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.MQTTBridgeWatcher))
+		g.HandleFunc("/api/v1/mqtt/bridge/credentials", handleBridgeCredentials(dependencies.BridgeCredentials, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/bridge/apply", handleBridgeApply(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.SystemActions, dependencies.MQTTBridgeWatcher, dependencies.DataDir, bridgeApplyState))
+		g.HandleFunc("/api/v1/mqtt/bridge/restart", handleBridgeRestart(dependencies.Auth, dependencies.SystemActions))
+		g.HandleFunc("/api/v1/mqtt/bridge/status", handleBridgeStatus(store, dependencies.BridgeCredentials, dependencies.MQTTBridgeWatcher, dependencies.SystemStatusRunner, bridgeTargetPath, bridgeApplyState))
+		g.HandleFunc("/api/v1/mqtt/bridge/", handleBridgeSub(store, dependencies.Auth, dependencies.MQTTBridgeWatcher))
 	}
-	mux.HandleFunc("/api/v1/tiny-tuya/devices", handleTinyTuyaDevices(probe, credentialStore))
-	mux.HandleFunc("/api/v1/tiny-tuya/status", handleTinyTuyaStatus(probe))
-	mux.HandleFunc("/api/v1/tiny-tuya/configure", handleTinyTuyaConfigure(configs))
-	mux.HandleFunc("/api/v1/tiny-tuya/credentials", handleTinyTuyaCredentials(credentialStore))
+	g.HandleFunc("/api/v1/tiny-tuya/devices", handleTinyTuyaDevices(probe, credentialStore))
+	g.HandleFunc("/api/v1/tiny-tuya/status", handleTinyTuyaStatus(probe))
+	g.HandleFunc("/api/v1/tiny-tuya/configure", handleTinyTuyaConfigure(configs))
+	g.HandleFunc("/api/v1/tiny-tuya/credentials", handleTinyTuyaCredentials(credentialStore))
 	if dependencies.Tailscale != nil {
 		tailscaleActionState := newTailscaleActionState()
-		mux.HandleFunc("/api/v1/tailscale/status", handleTailscaleStatus(dependencies.Tailscale, tailscaleActionState))
-		mux.HandleFunc("/api/v1/tailscale/prereqs", handleTailscalePrereqs(dependencies.Tailscale))
-		mux.HandleFunc("/api/v1/tailscale/login", handleTailscaleLogin(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
-		mux.HandleFunc("/api/v1/tailscale/logout", handleTailscaleLogout(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
-		mux.HandleFunc("/api/v1/tailscale/restart", handleTailscaleRestart(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/status", handleTailscaleStatus(dependencies.Tailscale, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/prereqs", handleTailscalePrereqs(dependencies.Tailscale))
+		g.HandleFunc("/api/v1/tailscale/login", handleTailscaleLogin(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/logout", handleTailscaleLogout(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/restart", handleTailscaleRestart(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 	}
-	mux.HandleFunc("/", webui.OverviewWithDeviceFilterAndEngine(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices))
-	return mux
+	g.HandleFunc("/", webui.OverviewWithDeviceFilterAndEngine(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices))
+	return g.ServeMux()
 }
 
 func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarningKey string, next http.Handler) http.Handler {
