@@ -484,7 +484,6 @@
         <h3 class="setting-card-title" id="settings-account-heading">{{t "settings.account.title"}}</h3>
         <p class="settings-account-notice" role="note" x-cloak x-show="accountRestricted">{{t "settings.account.restricted"}}</p>
         <form class="settings-account-form" x-on:submit.prevent="changeOwnPassword()">
-          <h4 class="settings-account-subtitle">{{t "settings.account.password_title"}}</h4>
           <label class="settings-account-label" for="settings-account-old">{{t "settings.account.old_password"}}</label>
           <input id="settings-account-old" class="settings-account-input" type="password" autocomplete="current-password" x-model="passwordForm.old">
           <label class="settings-account-label" for="settings-account-new">{{t "settings.account.new_password"}}</label>
