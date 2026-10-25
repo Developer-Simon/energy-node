@@ -20,14 +20,39 @@
 /* --- Regelkarte: Kopf, Live-Balken, Wenn/Dann/Ablauf, Zeitleiste --- */
 /* Die Trennlinie gehoert zum Inhalt, damit zugeklappte Regeln keine leere Linie zeigen. */
 .auto-rule-body { margin-top: .7rem; padding-top: .8rem; border-top: 1px solid var(--border-soft); }
+/* Ab 900 px ist die zugeklappte Zeile ein Band: die ganze Zeile klappt auf, ausser dem Schalter. */
+@media (min-width: 900px) {
+  .automation-rule { padding: 0; }
+  .automation-rule-head { padding: 14px 18px; gap: 14px; }
+  .automation-rule-head .automation-rule-name { font-size: 1.02rem; }
+  .auto-rule-body { margin-top: 0; padding: 14px 18px 18px; }
+}
 .auto-rule-view, .auto-rule-edit { display: grid; gap: .9rem; }
-.auto-live { display: grid; gap: .35rem; }
-.auto-live-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
-.auto-live-value { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-strong); }
-.auto-live-bar { position: relative; height: .55rem; border-radius: 4px; background: var(--sunken); }
-.auto-live-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 4px; background: var(--flow-grid); transition: width 400ms var(--ease-out); }
-.auto-live-band { position: absolute; top: 0; bottom: 0; background: var(--warn-bg); outline: 1px solid var(--warn-line); }
-.auto-live-mark { position: absolute; top: -.25rem; bottom: -.25rem; width: 2px; background: var(--text-strong); }
+.auto-live { display: grid; gap: 6px; }
+.auto-live-bar { position: relative; height: 34px; border-radius: 10px; background: var(--sunken); overflow: hidden; }
+.auto-live-fill { position: absolute; top: 0; bottom: 0; left: 0; transition: width 400ms var(--ease-out); }
+.auto-live-bar.is-tone-grid .auto-live-fill { background: color-mix(in srgb, var(--flow-grid) 35%, transparent); }
+.auto-live-bar.is-tone-pv .auto-live-fill { background: color-mix(in srgb, var(--flow-pv) 35%, transparent); }
+.auto-live-bar.is-tone-battery .auto-live-fill { background: color-mix(in srgb, var(--flow-battery) 35%, transparent); }
+.auto-live-bar.is-tone-load .auto-live-fill { background: color-mix(in srgb, var(--flow-load) 35%, transparent); }
+.auto-live-bar.is-tone-wallbox .auto-live-fill { background: color-mix(in srgb, var(--flow-wallbox) 35%, transparent); }
+.auto-live-bar.is-tone-heatpump .auto-live-fill { background: color-mix(in srgb, var(--flow-heatpump) 35%, transparent); }
+.auto-live-band { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--accent-line) 25%, transparent) 5px 8px); }
+.auto-live-mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent-line); }
+.auto-live-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: .84rem; color: var(--text-strong); font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .auto-live-fill { transition: none; } }
+
+/* Schaltflaechen im Kopf der Regel: Testen geistert, Bearbeiten hat einen Rahmen. */
+.auto-btn-text { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border-soft); background: var(--panel-alt); color: var(--text-strong); font: inherit; font-size: .88rem; font-weight: 600; padding: 9px 14px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.auto-btn-text .automation-icon { width: .95rem; height: .95rem; }
+.auto-btn-text.is-ghost { background: transparent; border-color: transparent; color: var(--text-subtle); }
+.auto-btn-text.is-active { background: var(--accent-bg); color: var(--accent); }
+.auto-btn-text:active:not(:disabled) { transform: scale(.97); }
+.auto-btn-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .auto-btn-text.is-ghost:hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); color: var(--text-strong); } }
+@media (prefers-reduced-motion: reduce) { .auto-btn-text:active:not(:disabled) { transform: none; } }
+.auto-rule-chevron { flex: none; color: var(--text-faint); }
+.automation-rule-head.is-collapsed { cursor: pointer; }
 .auto-blocks { display: grid; gap: .9rem; }
 .auto-block { display: grid; gap: .4rem; align-content: start; }
 .auto-block-cap { margin: 0; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }

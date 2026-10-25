@@ -3358,10 +3358,24 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 		"auto-blocks",
 		`<template x-if="!editing[rule.id]">`,
 		`<template x-if="editing[rule.id]">`,
+		`x-on:click="testRule(rule)"`,
+		`x-on:click="startEditing(rule)"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("Regelkarte: %q fehlt im Automations-Panel", want)
 		}
+	}
+	// Der Kopf der Regel hat keinen Papierkorb mehr, Loeschen gibt es nur im Bearbeiten.
+	rule, err := fs.ReadFile(templateFS, "templates/automations-rule.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	header, _, found := strings.Cut(string(rule), `<div class="auto-rule-body"`)
+	if !found {
+		t.Fatal("Regelkarte: Kopf und Ansicht nicht getrennt")
+	}
+	if strings.Contains(header, "removeRule(") {
+		t.Fatal("Regelkarte: der Kopf enthaelt noch removeRule")
 	}
 	for _, gone := range []string{`class="gate"`, "mini-chain", "rule-column", "rule-arrow"} {
 		if strings.Contains(body, gone) {

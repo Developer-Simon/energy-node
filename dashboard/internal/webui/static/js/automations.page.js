@@ -1718,9 +1718,18 @@
             || (condition.type === 'entity_value' && (condition.comparison === 'above' || condition.comparison === 'below'));
           if (!numeric) return null;
           const bar = this.liveBarOf(condition, this.conditionReport(rule, index));
-          return { ...bar, index, title: this.describeCondition(condition).title };
+          return { ...bar, index, title: this.describeCondition(condition).title, tone: this.liveTone(condition) };
         })
         .filter(Boolean);
+    },
+
+    // Ton des Live-Balkens nach der Rolle des Felds, sonst Netz.
+    liveTone(condition) {
+      const tones = {
+        grid_export: 'grid', grid_import: 'grid', pv: 'pv', load_total: 'load', base: 'load',
+        wallbox: 'wallbox', heat_pump: 'heatpump', battery_charge: 'battery', battery_discharge: 'battery',
+      };
+      return tones[condition.field] || 'grid';
     },
 
     // Live-Balken der ersten Bilanzbedingung, wie vor liveBars.
@@ -1749,7 +1758,8 @@
       }
       const unit = this.describeCondition(condition).unit;
       const valueText = value === null ? '—' : `${value} ${unit}`.trim();
-      return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText };
+      const thresholdText = isNumber(threshold) ? `${threshold} ${unit}`.trim() : '';
+      return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText, thresholdText };
     },
 
     // Auslöse-Leiste der letzten vier Auslösungen, Sekunden wie der Dienst sie liefert.
