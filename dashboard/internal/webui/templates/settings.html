@@ -166,6 +166,34 @@
       <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
       <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
     </section>
+    <section class="setting-card settings-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible">
+      <h3 class="setting-card-title" id="settings-account-heading">{{t "settings.account.title"}}</h3>
+      <p class="setting-note" x-text="$t('settings.account.signed_in', {name: accountUsername})"></p>
+      <p class="settings-account-notice" role="note" x-cloak x-show="accountRestricted">{{t "settings.account.restricted"}}</p>
+      <form class="settings-account-form" x-on:submit.prevent="changeOwnPassword()">
+        <h4 class="settings-account-subtitle">{{t "settings.account.password_title"}}</h4>
+        <label class="settings-account-label" for="settings-account-old">{{t "settings.account.old_password"}}</label>
+        <input id="settings-account-old" class="settings-account-input" type="password" autocomplete="current-password" x-model="passwordForm.old">
+        <label class="settings-account-label" for="settings-account-new">{{t "settings.account.new_password"}}</label>
+        <input id="settings-account-new" class="settings-account-input" type="password" autocomplete="new-password" placeholder="{{t "users.password.placeholder"}}" x-model="passwordForm.next">
+        <label class="settings-account-label" for="settings-account-repeat">{{t "settings.account.repeat_password"}}</label>
+        <input id="settings-account-repeat" class="settings-account-input" type="password" autocomplete="new-password" x-model="passwordForm.repeat">
+        <p class="settings-account-error" role="alert" x-cloak x-show="passwordError" x-text="passwordError"></p>
+        <div class="settings-account-actions">
+          <button type="submit" x-bind:disabled="accountBusy">{{t "settings.account.password_change"}}</button>
+        </div>
+      </form>
+      <div class="settings-account-http" x-cloak x-show="accountHTTPLogin">
+        <h4 class="settings-account-subtitle">{{t "settings.account.http_title"}}</h4>
+        <p class="setting-note">{{t "users.http_warning.risk"}}</p>
+        <input class="settings-account-input" type="password" autocomplete="new-password" aria-label="{{t "users.http_warning.placeholder"}}" placeholder="{{t "users.http_warning.placeholder"}}" x-model="httpPasswordDraft">
+        <p class="settings-account-error" role="alert" x-cloak x-show="!httpPasswordValid">{{t "users.create.password_error"}}</p>
+        <div class="settings-account-actions">
+          <button type="button" x-bind:disabled="accountBusy || !httpPasswordValid || httpPasswordDraft.length === 0" x-on:click="saveHTTPPassword()">{{t "users.http_warning.apply"}}</button>
+          <button type="button" x-bind:disabled="accountBusy" x-on:click="httpPasswordDraft = ''; saveHTTPPassword()">{{t "users.http_warning.remove"}}</button>
+        </div>
+      </div>
+    </section>
   </section>
   <section id="settings-display" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'display'">
     <div class="setting-card">

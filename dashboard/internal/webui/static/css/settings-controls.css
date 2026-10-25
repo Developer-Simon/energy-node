@@ -876,3 +876,14 @@
 @media (prefers-reduced-transparency: reduce) {
   .users-savebar { background: var(--panel-alt); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
+
+/* Konto-Karte in Allgemein: eigenes Passwort und HTTP-Passwort. */
+.settings-account-notice { margin: .6rem 0; padding: .5rem .7rem; border-radius: var(--radius-sm); background: var(--sunken); color: var(--text); font-size: .84rem; }
+.settings-account-form,
+.settings-account-http { display: grid; gap: .35rem; margin-top: .8rem; }
+.settings-account-subtitle { margin: .6rem 0 .2rem; font-size: .9rem; }
+.settings-account-label { color: var(--text-muted); font-size: .8rem; }
+.settings-account-input { box-sizing: border-box; width: 100%; background: var(--sunken); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: .4rem .6rem; font: inherit; font-size: .84rem; }
+.settings-account-input:focus { outline: none; border-color: var(--accent-line); }
+.settings-account-error { margin: 0; color: var(--accent); font-size: .8rem; }
+.settings-account-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }

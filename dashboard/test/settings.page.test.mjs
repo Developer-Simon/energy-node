@@ -417,3 +417,119 @@ test('valid() rejects a health threshold below 10 seconds or above 3600', () => 
   component.healthScoreThreshold = 3601;
   assert.equal(component.valid, false);
 });
+
+// The Konto card in Allgemein: own password, HTTP password and the notice for
+// a session that signed in over HTTP. Guests (and later HA accounts) get no card.
+const accountFetch = (session, calls = []) => async (url, options) => {
+  if (url === '/api/v1/settings') return jsonResponse(settingsResponse());
+  if (url === '/api/v1/auth/session') return jsonResponse(session);
+  if (url === '/api/v1/health/storage') return jsonResponse({ available: false });
+  if (url.startsWith('/api/v1/users/me/')) {
+    calls.push({ url, options });
+    return jsonResponse({ status: 'ok' });
+  }
+  throw new Error(`unexpected fetch ${url}`);
+};
+
+const signedInSession = (overrides = {}) => ({
+  username: 'anna', guest: false, restricted: false, http_login: false,
+  csrf_token: 'csrf-1', ...overrides,
+});
+
+test('the Konto card is hidden for guest sessions', async () => {
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ username: 'guest', guest: true })),
+  });
+  await component.load();
+  assert.equal(component.accountVisible, false);
+});
+
+test('the Konto card is shown for a signed in account', async () => {
+  const { component } = createSettingsPanel({ fetchImpl: accountFetch(signedInSession()) });
+  await component.load();
+  assert.equal(component.accountVisible, true);
+  assert.equal(component.accountUsername, 'anna');
+});
+
+test('a session over HTTP (restricted: true) sets the notice flag', async () => {
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ restricted: true })),
+  });
+  await component.load();
+  assert.equal(component.accountRestricted, true);
+});
+
+test('a session over HTTPS has no restricted notice', async () => {
+  const { component } = createSettingsPanel({ fetchImpl: accountFetch(signedInSession()) });
+  await component.load();
+  assert.equal(component.accountRestricted, false);
+});
+
+test('the HTTP password block follows http_login from the session', async () => {
+  const withLogin = createSettingsPanel({ fetchImpl: accountFetch(signedInSession({ http_login: true })) });
+  await withLogin.component.load();
+  assert.equal(withLogin.component.accountHTTPLogin, true);
+
+  const without = createSettingsPanel({ fetchImpl: accountFetch(signedInSession()) });
+  await without.component.load();
+  assert.equal(without.component.accountHTTPLogin, false);
+});
+
+test('changing the own password sends old_password and password to me/password', async () => {
+  const calls = [];
+  const { component, stores } = createSettingsPanel({ fetchImpl: accountFetch(signedInSession(), calls) });
+  await component.load();
+  component.passwordForm = { old: 'altes-passwort', next: 'neues-passwort-1', repeat: 'neues-passwort-1' };
+
+  const ok = await component.changeOwnPassword();
+
+  assert.equal(ok, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/api/v1/users/me/password');
+  assert.equal(calls[0].options.method, 'PUT');
+  assert.equal(calls[0].options.headers['X-CSRF-Token'], 'csrf-1');
+  assert.deepEqual(JSON.parse(calls[0].options.body), { old_password: 'altes-passwort', password: 'neues-passwort-1' });
+  assert.equal(component.passwordForm.next, '');
+  assert.equal(stores.toasts.items.length, 1);
+  assert.equal(stores.toasts.items[0].severity, 'info');
+});
+
+test('a repeat that differs from the new password makes no request and shows an inline error', async () => {
+  const calls = [];
+  const { component } = createSettingsPanel({ fetchImpl: accountFetch(signedInSession(), calls) });
+  await component.load();
+  component.passwordForm = { old: 'altes-passwort', next: 'neues-passwort-1', repeat: 'neues-passwort-2' };
+
+  const ok = await component.changeOwnPassword();
+
+  assert.equal(ok, false);
+  assert.equal(calls.length, 0);
+  assert.notEqual(component.passwordError, '');
+});
+
+test('a new password under 10 characters makes no request', async () => {
+  const calls = [];
+  const { component } = createSettingsPanel({ fetchImpl: accountFetch(signedInSession(), calls) });
+  await component.load();
+  component.passwordForm = { old: 'altes-passwort', next: 'kurz', repeat: 'kurz' };
+
+  assert.equal(await component.changeOwnPassword(), false);
+  assert.equal(calls.length, 0);
+  assert.notEqual(component.passwordError, '');
+});
+
+test('an empty HTTP password removes it via me/http-password with an empty body', async () => {
+  const calls = [];
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ http_login: true }), calls),
+  });
+  await component.load();
+  component.httpPasswordDraft = '';
+
+  await component.saveHTTPPassword();
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/api/v1/users/me/http-password');
+  assert.equal(calls[0].options.method, 'PUT');
+  assert.deepEqual(JSON.parse(calls[0].options.body), { password: '' });
+});
