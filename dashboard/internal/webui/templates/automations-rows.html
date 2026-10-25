@@ -38,31 +38,33 @@
 
 {{define "automations-condition-editors"}}
                 <template x-for="(condition, index) in rowsOwner.conditions" x-bind:key="index">
-                  <div class="auto-cond">
+                  <div class="auto-cond" x-bind:class="typeof rowsReport === 'function' ? condStateClass(rowsReport(index)) : ''">
                     <div class="auto-card">
                       <div class="auto-card-head">
                         <span class="auto-tile-icon" x-bind:class="{ 'is-tone-grid': condition.type === 'balance_threshold', 'is-tone-pv': condition.type === 'sun_window', 'is-tone-info': condition.type === 'time_window' }">
                           <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
                         </span>
                         <span class="auto-card-title" x-text="describeCondition(condition).title"></span>
+                        <span class="auto-card-actions">
                         <button class="auto-card-delete" type="button" x-on:click="removeCondition(rowsOwner, index)"
                                 x-bind:title="$t('automations.condition.remove_button.tooltip')" x-bind:aria-label="$t('automations.condition.remove_button.tooltip')">
                           <svg class="automation-icon"><use href="#ico-trash"></use></svg>
                         </button>
+                        </span>
                       </div>
 
                       <template x-if="condition.type === 'balance_threshold'">
                         <div class="auto-fields">
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label">{{t "automations.condition.balance.field_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.field_label"}}</span>
                             {{template "auto-condition-chip" "field"}}
                           </div>
                           <div class="auto-field">
-                            <span class="auto-field-label">{{t "automations.condition.balance.comparison_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.comparison_label"}}</span>
                             {{template "auto-comparison" "balance"}}
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'threshold', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.balance.threshold_label') }">
-                            <span class="auto-field-label">{{t "automations.condition.balance.threshold_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.threshold_label"}}</span>
                             {{template "auto-stepper"}}
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hysteresis', stepOpts: { min: 0, step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.hysteresis_aria_label') }">
@@ -87,19 +89,19 @@
                       <template x-if="condition.type === 'entity_value'">
                         <div class="auto-fields">
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label">{{t "automations.condition.entity.entity_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.entity_label"}}</span>
                             {{template "auto-condition-chip" "entity"}}
                           </div>
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label">{{t "automations.condition.entity.comparison_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.comparison_label"}}</span>
                             {{template "auto-comparison" "all"}}
                           </div>
                           <div class="auto-field" x-show="condition.comparison === 'above' || condition.comparison === 'below'" x-data="{ get stepTarget() { return condition }, stepKey: 'value', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.entity.value_label') }">
-                            <span class="auto-field-label">{{t "automations.condition.entity.value_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.value_label"}}</span>
                             {{template "auto-stepper"}}
                           </div>
                           <div class="auto-field" x-show="condition.comparison === 'equals' || condition.comparison === 'not_equals'">
-                            <span class="auto-field-label">{{t "automations.condition.entity.text_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.text_label"}}</span>
                             <input class="auto-input" type="text" x-model="condition.text" x-bind:aria-label="$t('automations.condition.entity.text_label')">
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
@@ -122,18 +124,18 @@
                       <template x-if="condition.type === 'topic_value'">
                         <div class="auto-fields">
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label">{{t "automations.condition.topic.topic_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.topic.topic_label"}}</span>
                             <span class="auto-input-icon">
                               <svg class="automation-icon"><use href="#ico-topic"></use></svg>
                               <input class="auto-input" type="text" x-model="condition.topic" x-bind:placeholder="$t('automations.condition.topic.topic_placeholder')" x-bind:aria-label="$t('automations.condition.topic.topic_label')">
                             </span>
                           </div>
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label">{{t "automations.condition.topic.comparison_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.topic.comparison_label"}}</span>
                             {{template "auto-comparison" "all"}}
                           </div>
                           <div class="auto-field">
-                            <span class="auto-field-label">{{t "automations.condition.topic.value_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.topic.value_label"}}</span>
                             <input class="auto-input" type="text" x-model="condition.text" x-bind:aria-label="$t('automations.condition.topic.value_label')">
                           </div>
                           <div class="auto-field">
@@ -266,7 +268,8 @@
 
 {{define "auto-hold-label"}}
                             <span class="auto-field-head">
-                              <span class="auto-field-label">{{t "automations.condition.hold_label"}}</span>
+                              <span class="auto-field-label auto-hold-long">{{t "automations.condition.hold_label"}}</span>
+                              <span class="auto-hold-short">{{t "automations.condition.hold_short"}}</span>
                               <span class="field-help">
                                 <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hold_seconds_aria_label')">
                                   <svg><use href="#ico-help"></use></svg>
@@ -290,6 +293,7 @@
                         </span>
                         <span class="auto-card-title" x-text="(actionKind(action) === 'switch' || actionKind(action) === 'setpoint') && actionChip(action).entityName ? actionChip(action).entityName : describeAction(action).title"></span>
                         <span class="auto-card-kind" x-text="actionKindLabel(action)"></span>
+                        <span class="auto-card-actions">
                         <template x-if="rowsCanTest && hasAutomationsRole">
                           <button class="auto-card-test" type="button"
                                   x-bind:disabled="!rowsTestState(index).allowed"
@@ -300,10 +304,12 @@
                             <span>{{t "automations.action.test_button.label"}}</span>
                           </button>
                         </template>
+
                         <button class="auto-card-delete" type="button" x-on:click="removeAction(rowsOwner, index)"
                                 x-bind:title="$t('automations.action.remove_aria')" x-bind:aria-label="$t('automations.action.remove_aria')">
                           <svg class="automation-icon"><use href="#ico-trash"></use></svg>
                         </button>
+                        </span>
                       </div>
 
                       <template x-if="actionKind(action) === 'switch' || actionKind(action) === 'setpoint'">
@@ -354,7 +360,7 @@
                               <template x-if="action.payload_source === 'balance'">
                                 <div class="auto-fields auto-field-wide">
                                   <div class="auto-field">
-                                    <span class="auto-field-label">{{t "automations.condition.balance.field_label"}}</span>
+                                    <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.field_label"}}</span>
                                     <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
                                       <template x-for="[field, label] in balanceFields" x-bind:key="field">
                                         <option x-bind:value="field" x-text="label"></option>
@@ -425,7 +431,7 @@
                           <template x-if="action.payload_source === 'balance'">
                             <div class="auto-fields auto-field-wide">
                               <div class="auto-field">
-                                <span class="auto-field-label">{{t "automations.condition.balance.field_label"}}</span>
+                                <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.field_label"}}</span>
                                 <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
                                   <template x-for="[field, label] in balanceFields" x-bind:key="field">
                                     <option x-bind:value="field" x-text="label"></option>

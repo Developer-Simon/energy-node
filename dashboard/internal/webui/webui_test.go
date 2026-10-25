@@ -3395,6 +3395,36 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 	}
 }
 
+// Der Bearbeiten-Zweig der Regel hat eine Fussleiste mit Loeschen, Verwerfen und
+// Fertig, und die Sperrzeit ist ein Stepper statt eines Zahlenfelds.
+func TestAutomationsRuleEditorHasFooterActions(t *testing.T) {
+	tpl, err := fs.ReadFile(templateFS, "templates/automations-rule.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, edit, found := strings.Cut(string(tpl), `<template x-if="editing[rule.id]">`)
+	if !found {
+		t.Fatal("Bearbeiten-Zweig nicht gefunden")
+	}
+	for _, want := range []string{
+		`removeRule(rule.id)`,
+		`discardEditing(rule)`,
+		`stopEditing(rule)`,
+		`automations.rule.footer.delete`,
+		`automations.rule.footer.discard`,
+		`automations.rule.footer.done`,
+		`auto-stepper`,
+		`stepKey: 'cooldown_seconds'`,
+	} {
+		if !strings.Contains(edit, want) {
+			t.Fatalf("Bearbeiten-Zweig: %q fehlt", want)
+		}
+	}
+	if strings.Contains(edit, `type="number" min="0" max="86400" x-model.number="rule.cooldown_seconds"`) {
+		t.Fatal("Bearbeiten-Zweig: Sperrzeit ist noch ein Zahlenfeld")
+	}
+}
+
 // Im Bearbeiten-Modus sind die Zeilen editierbar wie in der Regelkarte: jeder
 // Phasenblock bindet die gemeinsamen Editoren und Kacheln an seinen Besitzer.
 func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {

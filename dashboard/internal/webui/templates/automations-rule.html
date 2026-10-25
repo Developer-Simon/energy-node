@@ -148,10 +148,16 @@
                     {{template "automations-action-tiles"}}
                   </section>
 
-                  <section class="auto-block">
+                  <section class="auto-block auto-flow-group">
                     <h4 class="auto-block-cap">{{t "automations.rule.block.flow"}}</h4>
                     <div class="auto-flow-row">
                       <span class="auto-flow-label">{{t "automations.rule.flow.mode_label"}}</span>
+                      <span class="field-help">
+                        <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.repeat_help_aria_label')">
+                          <svg><use href="#ico-help"></use></svg>
+                        </button>
+                        <span class="field-help-text" role="tooltip" x-text="fieldHelp('repeat_seconds')"></span>
+                      </span>
                       <div class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.rule.flow.mode_label')">
                         <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRepeatMode(rule, 'once')"
                                 x-bind:aria-checked="rule.repeat_seconds > 0 ? 'false' : 'true'">{{t "automations.rule.flow.once_segment"}}</button>
@@ -176,7 +182,7 @@
                     </div>
                     <p class="auto-hint" x-show="hasToggleAction(rule)">{{t "automations.rule_editor.repeat_blocked_toggle"}}</p>
                     <div class="auto-flow-row">
-                      <label class="auto-flow-label" x-bind:for="`cooldown-${rule.id}`">
+                      <span class="auto-flow-label">
                         {{t "automations.rule_editor.cooldown_label"}}
                         <span class="field-help">
                           <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.cooldown_help_aria_label')">
@@ -184,8 +190,10 @@
                           </button>
                           <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_seconds')"></span>
                         </span>
-                      </label>
-                      <input x-bind:id="`cooldown-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.cooldown_seconds">
+                      </span>
+                      <div class="auto-field" x-data="{ get stepTarget() { return rule }, stepKey: 'cooldown_seconds', stepOpts: { min: 0, step: 10, fallback: 0 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.rule_editor.cooldown_label') }">
+                        {{template "auto-stepper"}}
+                      </div>
                     </div>
                     <div class="auto-flow-row">
                       <label class="auto-bar-switch">
@@ -206,6 +214,22 @@
                       </span>
                     </div>
                   </section>
+
+                  <div class="auto-rule-foot">
+                    <button class="auto-btn-text is-danger" type="button" x-on:click="removeRule(rule.id)">
+                      <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                      <span>{{t "automations.rule.footer.delete"}}</span>
+                    </button>
+                    <span class="auto-rule-foot-main">
+                      <button class="auto-btn-text is-ghost" type="button" x-on:click="discardEditing(rule)">
+                        <span>{{t "automations.rule.footer.discard"}}</span>
+                      </button>
+                      <button class="auto-btn-text is-primary" type="button" x-on:click="stopEditing(rule)">
+                        <svg class="automation-icon"><use href="#ico-check"></use></svg>
+                        <span>{{t "automations.rule.footer.done"}}</span>
+                      </button>
+                    </span>
+                  </div>
                 </div>
               </template>
 
