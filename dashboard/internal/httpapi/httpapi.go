@@ -413,10 +413,8 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 		cookie, err := r.Cookie(sessionCookieName(secureRequest))
 		if err == nil {
 			if session, ok := manager.Session(cookie.Value); ok {
-				if secureRequest || !auth.HasRole(session.User, auth.RoleSystemActions) {
-					next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), session.User)))
-					return
-				}
+				next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), auth.EffectiveUser(session, secureRequest))))
+				return
 			}
 		}
 		if r.URL.Path == "/" && r.Method == http.MethodGet {
@@ -437,10 +435,6 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			methodNotAllowed(w)
 			return
 		}
-		if !isSecureRequest(r) {
-			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.login", nil, "Admin-Anmeldung ist nur über HTTPS verfügbar")
-			return
-		}
 		var request struct {
 			Username string `json:"username"`
 			Password string `json:"password"`
@@ -449,9 +443,14 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 			return
 		}
-		session, err := manager.Login(request.Username, request.Password, isSecureRequest(r))
+		secureRequest := isSecureRequest(r)
+		session, err := manager.Login(request.Username, request.Password, secureRequest)
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			writeError(w, http.StatusUnauthorized, "invalid_credentials", "Benutzername oder Passwort ist ungültig")
+			return
+		}
+		if errors.Is(err, auth.ErrInsecureLoginNotAllowed) {
+			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.account", nil, "Für dieses Konto ist die Anmeldung nur über HTTPS möglich.")
 			return
 		}
 		if err != nil {
@@ -459,7 +458,7 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		setSessionCookie(w, r, session)
-		writeAuthSession(w, session)
+		writeAuthSession(w, session, secureRequest)
 	}
 }
 
@@ -475,7 +474,7 @@ func handleAuthGuest(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		setSessionCookie(w, r, session)
-		writeAuthSession(w, session)
+		writeAuthSession(w, session, isSecureRequest(r))
 	}
 }
 
@@ -495,11 +494,7 @@ func handleAuthSession(manager *auth.Manager) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
-		if !isSecureRequest(r) && auth.HasRole(session.User, auth.RoleSystemActions) {
-			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.sessions", nil, "Admin-Sitzungen sind nur über HTTPS verfügbar")
-			return
-		}
-		writeAuthSession(w, session)
+		writeAuthSession(w, session, isSecureRequest(r))
 	}
 }
 
@@ -708,21 +703,37 @@ func isSecureRequest(r *http.Request) bool {
 	return r.TLS != nil || strings.EqualFold(forwardedProto, "https")
 }
 
-func writeAuthSession(w http.ResponseWriter, session auth.Session) {
+// writeAuthSession answers with the permissions that apply to this request:
+// roles and flags come from auth.EffectiveUser, so a restricted session or a
+// request over HTTP never reports an HTTPS-only role as granted.
+func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool) {
 	w.Header().Set("Cache-Control", "no-store")
+	user := auth.EffectiveUser(session, secure)
+	withheld := auth.Withheld(session, secure)
+	if withheld == nil {
+		withheld = []string{}
+	}
 	writeJSON(w, map[string]any{
-		"username":                session.User.Username,
-		"guest":                   session.User.Guest,
-		"roles":                   session.User.Roles,
-		"system_actions":          auth.HasRole(session.User, auth.RoleSystemActions),
-		"delete_device_discovery": auth.HasRole(session.User, auth.RoleDeleteDeviceDiscovery),
-		"tune_live_updates":       auth.HasRole(session.User, auth.RoleTuneLiveUpdates),
-		"mqtt_config":             auth.HasRole(session.User, auth.RoleMQTTConfig),
-		"automations":             auth.HasRole(session.User, auth.RoleAutomations),
-		"edit_layout":             auth.HasRole(session.User, auth.RoleEditLayout),
-		"edit_energy":             auth.HasRole(session.User, auth.RoleEditEnergy),
-		"edit_device_map":         auth.HasRole(session.User, auth.RoleEditDeviceMap),
-		"edit_device_map_view":    auth.HasRole(session.User, auth.RoleEditDeviceMapView),
+		"username":                user.Username,
+		"guest":                   user.Guest,
+		"roles":                   user.Roles,
+		"restricted":              session.Restricted,
+		"withheld":                withheld,
+		"system_actions":          auth.HasRole(user, auth.RoleSystemActions),
+		"delete_device_discovery": auth.HasRole(user, auth.RoleDeleteDeviceDiscovery),
+		"tune_live_updates":       auth.HasRole(user, auth.RoleTuneLiveUpdates),
+		"mqtt_config":             auth.HasRole(user, auth.RoleMQTTConfig),
+		"automations":             auth.HasRole(user, auth.RoleAutomations),
+		"edit_layout":             auth.HasRole(user, auth.RoleEditLayout),
+		"edit_energy":             auth.HasRole(user, auth.RoleEditEnergy),
+		"edit_device_map":         auth.HasRole(user, auth.RoleEditDeviceMap),
+		"edit_device_map_view":    auth.HasRole(user, auth.RoleEditDeviceMapView),
+		"user_management":         auth.HasRole(user, auth.RoleUserManagement),
+		"http_login":              auth.HasRole(user, auth.RoleHTTPLogin),
+		"install_updates":         auth.HasRole(user, auth.RoleInstallUpdates),
+		"update_settings":         auth.HasRole(user, auth.RoleUpdateSettings),
+		"tailscale":               auth.HasRole(user, auth.RoleTailscale),
+		"view_logs":               auth.HasRole(user, auth.RoleViewLogs),
 		"csrf_token":              session.CSRFToken,
 		"expires_at":              session.ExpiresAt,
 	})

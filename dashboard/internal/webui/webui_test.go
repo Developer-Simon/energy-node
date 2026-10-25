@@ -1217,12 +1217,15 @@ func TestLoginOmitsAdminAuthWarningByDefault(t *testing.T) {
 	}
 }
 
-func TestLoginKeepsGuestOnlyFlagAndRootPathsWithoutPrefix(t *testing.T) {
+func TestLoginOverHTTPKeepsFormUsableAndRootPathsWithoutPrefix(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Login(true, nil, "").ServeHTTP(recorder, httptest.NewRequest("GET", "/login", nil))
 	body := recorder.Body.String()
-	if !strings.Contains(body, "<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required disabled>") {
-		t.Fatalf("guest-only login page does not disable the password form: %s", body)
+	if !strings.Contains(body, "<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required>") {
+		t.Fatalf("login page over HTTP does not render the password form as usable: %s", body)
+	}
+	if strings.Contains(body, "required disabled") {
+		t.Fatalf("login page over HTTP disables a form field: %s", body)
 	}
 	if !strings.Contains(body, `<html lang="de" data-base-path="" data-theme="mint">`) {
 		t.Fatalf("unproxied login page does not fall back to an empty base path: %s", body)

@@ -38,12 +38,11 @@ func TestAuthenticatedRouterSupportsGuestModeButProtectsSystemActions(t *testing
 	if login.Code != http.StatusOK || !strings.Contains(login.Body.String(), "Als Gast fortfahren") {
 		t.Fatalf("login page status %d: %s", login.Code, login.Body.String())
 	}
-	if !strings.Contains(login.Body.String(), "name=\"username\" autocomplete=\"username\" required disabled") ||
-		!strings.Contains(login.Body.String(), "name=\"password\" type=\"password\" autocomplete=\"current-password\" required disabled") ||
-		!strings.Contains(login.Body.String(), "type=\"submit\" disabled") {
-		t.Fatal("HTTP login page does not render the disabled admin login form")
+	if !strings.Contains(login.Body.String(), "name=\"username\" autocomplete=\"username\" required>") ||
+		!strings.Contains(login.Body.String(), "name=\"password\" type=\"password\" autocomplete=\"current-password\" required>") {
+		t.Fatal("HTTP login page does not render the login form as usable")
 	}
-	if !strings.Contains(login.Body.String(), "Funktionalität reduziert") {
+	if !strings.Contains(login.Body.String(), "Über HTTP ist die Funktionalität reduziert") {
 		t.Fatal("HTTP login page does not explain the reduced functionality")
 	}
 
