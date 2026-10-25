@@ -67,6 +67,9 @@ type User struct {
 	Disabled         bool      `json:"disabled"`
 	CreatedAt        time.Time `json:"created_at"`
 	LastLoginAt      time.Time `json:"last_login_at"`
+	// HasHTTPPassword is set only in the output of Users and Guests; the hash
+	// itself never leaves the package.
+	HasHTTPPassword bool `json:"has_http_password,omitempty"`
 }
 
 type userFile struct {
