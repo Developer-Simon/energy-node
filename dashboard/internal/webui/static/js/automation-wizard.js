@@ -281,6 +281,7 @@
     const answers = {};
     for (const step of template.steps || []) {
       answers[step.id] = defaultAnswer(step, ctx, answers);
+      if (step.tolerance) answers.tolerance = step.tolerance.default;
     }
     return answers;
   }
@@ -356,12 +357,7 @@
   // Wirkung eines Voreinstellungswerts aus den Vortagsdaten. Ohne Zeilen oder bei
   // einem Fehler des Verlaufs bleibt der Text leer.
   async function presetEffect(step, value, ctx, store) {
-    if (step.effect === 'band') {
-      return t('automations.assistant.effect.band', {
-        low: formatNumber(value - 20),
-        high: formatNumber(value + 20),
-      });
-    }
+    if (step.effect === 'band') return '';
     if (step.effect !== 'starts' && step.effect !== 'soc') return '';
     if (!store || typeof store.readRange !== 'function') return '';
     const [from, to] = yesterdayRange();
@@ -459,5 +455,6 @@
     templateAvailability,
     uniqueId,
     visibleSteps,
+    yesterdayRange,
   };
 })();

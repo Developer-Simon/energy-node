@@ -1492,6 +1492,48 @@ func TestAutomationsPanelShipsAssistantBlocks(t *testing.T) {
 	}
 }
 
+// TestAutomationsAssistantShipsTheTargetBand haelt fest, dass der Schritt
+// "Wie knapp soll geregelt werden?" das Zielband mit Toleranzschalter,
+// Kennzahlen und Tastatur-Schieberegler ausliefert. Die Rolle des Schiebers
+// setzt automation-band.js, daher wird die Quelle geprueft.
+func TestAutomationsAssistantShipsTheTargetBand(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`x-ref="assistBand"`, `automations.assistant.band.tolerance_toggle`,
+		`assistantBandToggleTolerance()`, `assistantBandStats()`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Zielband-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	js, err := os.ReadFile("static/js/automation-band.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`role`, `slider`} {
+		if !strings.Contains(string(js), marker) {
+			t.Fatalf("automation-band.js setzt den Schieber nicht: %q fehlt", marker)
+		}
+	}
+	shell := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(shell, httptest.NewRequest("GET", "/", nil))
+	const attr = `data-panel-script="`
+	panel := strings.Index(shell.Body.String(), `id="automations-panel"`)
+	start := strings.Index(shell.Body.String()[panel:], attr)
+	line := shell.Body.String()[panel+start+len(attr):]
+	line = line[:strings.Index(line, `"`)]
+	sheet := strings.Index(line, "automation-sheet.js?v=1")
+	band := strings.Index(line, "automation-band.js?v=1")
+	page := strings.Index(line, "automations.page.js?v=")
+	if band < 0 || band < sheet || band > page {
+		t.Fatalf("automation-band.js steht nicht zwischen automation-sheet.js und automations.page.js: %s", line)
+	}
+}
+
 // TestOverviewEmbedsEnergySnapshotOnce haelt fest, dass der Energie-
 // Schnappschuss genau einmal im Fragment steht. Vorher trug ihn jede der
 // sieben Energiekarten separat - identischer Inhalt, 26,6 KB von 56,3 KB

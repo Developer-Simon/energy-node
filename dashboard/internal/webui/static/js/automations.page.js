@@ -126,7 +126,12 @@
   // Zustand des Vorlagen-Assistenten im Ruhezustand (Dialog zu).
   const assistantIdle = () => ({
     open: false, templateId: '', answers: {}, index: 0, name: '', query: '', category: 'all', context: null, effects: {},
+    band: { tolOn: false, errors: null },
   });
+  // Zielband im Assistenten: Griff und Zustand leben ausserhalb der reaktiven Daten.
+  let bandHandle = null;
+  let bandState = null;
+  const bandSigned = (value) => (value > 0 ? '+' : (value < 0 ? '\u2212' : '')) + window.I18n.formatNumber(Math.abs(value));
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
   const ASSIST_DEVICE_ICONS = { inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch' };
@@ -1251,6 +1256,7 @@
       this.assistantOpener = null;
       const finish = () => {
         if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
+        this.destroyAssistantBand();
         this.assistant = assistantIdle();
         if (opener && typeof opener.focus === 'function') opener.focus();
       };
@@ -1318,6 +1324,7 @@
       this.assistant.name = t(`automations.templates.${id}.title`);
       this.assistant.index = 0;
       this.assistant.effects = {};
+      this.assistant.band = { tolOn: false, errors: null };
       this.refreshEffect(this.assistantStep());
     },
 
@@ -1358,7 +1365,8 @@
     assistantBack() {
       if (!this.assistant.templateId) return;
       if (this.assistant.index === 0) {
-        this.assistant = { ...this.assistant, templateId: '', answers: {}, name: '', effects: {} };
+        this.destroyAssistantBand();
+        this.assistant = { ...this.assistant, templateId: '', answers: {}, name: '', effects: {}, band: { tolOn: false, errors: null } };
         return;
       }
       this.assistant.index -= 1;
@@ -1378,11 +1386,114 @@
     // geaenderte Antwort ueberschreibt den Text nicht.
     async refreshEffect(step) {
       if (!step || step.type !== 'presets' || !step.effect) return;
+      if (step.effect === 'band') {
+        await this.loadBandErrors();
+        return;
+      }
       const value = this.assistant.answers[step.id];
       const text = await window.__automationWizard.presetEffect(step, value, this.assistant.context, window.HistoryStore);
       if (this.assistant.open && this.assistant.answers[step.id] === value) {
         this.assistant.effects[step.id] = text;
       }
+    },
+
+    // Gestrige Minutenwerte fuer das Zielband, einmal je Assistent. Ein Fehler ergibt keine Daten.
+    async loadBandErrors() {
+      const { band } = this.assistant;
+      if (!band || band.errors !== null) return;
+      let errors = [];
+      try {
+        const [from, to] = window.__automationWizard.yesterdayRange();
+        const rows = await window.HistoryStore.readRange('1m', 'role:grid', from, to);
+        errors = window.__automationBand.errorsFromRows(rows);
+      } catch (error) {
+        errors = [];
+      }
+      band.errors = errors;
+      if (bandHandle) bandHandle.redraw();
+    },
+
+    // Zieht das Band neu: Ziel und Toleranz aus den Antworten, Toleranz ohne Schalter 20 W.
+    assistantBandSync() {
+      if (!bandHandle || !bandState) return;
+      const { answers, band } = this.assistant;
+      bandState.target = answers.target;
+      bandState.tol = band.tolOn ? answers.tolerance : 20;
+      bandHandle.redraw();
+    },
+
+    // Legt das Band in den SVG-Knoten des Schritts. Ein vorheriges Band wird vorher aufgeloest.
+    mountAssistantBand() {
+      this.destroyAssistantBand();
+      const svg = this.$refs.assistBand;
+      if (!svg || !window.__automationBand) return;
+      const page = this;
+      const { answers, band } = this.assistant;
+      bandState = { target: answers.target, tol: band.tolOn ? answers.tolerance : 20 };
+      bandHandle = window.__automationBand.mountBand(svg, {
+        state: bandState,
+        tolEditable: () => page.assistant.band.tolOn,
+        errors: () => (page.assistant.band.errors || []),
+        labels: {
+          feedIn: t('automations.assistant.band.feed_in'),
+          import: t('automations.assistant.band.import'),
+          axis: t('automations.assistant.band.axis'),
+          axisShort: t('automations.assistant.band.axis_short'),
+          target: (value) => t('automations.assistant.band.target', { value: bandSigned(value) }),
+          targetTol: (value, tol) => t('automations.assistant.band.target_tol', { value: bandSigned(value), tol }),
+          valueText: (value, tol) => (page.assistant.band.tolOn
+            ? t('automations.assistant.band.target_tol', { value: bandSigned(value), tol })
+            : t('automations.assistant.band.target', { value: bandSigned(value) })),
+        },
+        onChange: (state) => {
+          page.assistant.answers.target = Math.round(state.target);
+          if (page.assistant.band.tolOn) page.assistant.answers.tolerance = Math.round(state.tol);
+        },
+      });
+    },
+
+    destroyAssistantBand() {
+      if (bandHandle) bandHandle.destroy();
+      bandHandle = null;
+      bandState = null;
+    },
+
+    // Schalter "Toleranz anpassen": aus setzt die Toleranz zurueck auf 20 W.
+    assistantBandToggleTolerance() {
+      const { answers, band } = this.assistant;
+      band.tolOn = !band.tolOn;
+      if (!band.tolOn) answers.tolerance = 20;
+      this.assistantBandSync();
+    },
+
+    // Preset-Karte: Feder vom aktuellen Wert aus, ohne Schalter die Toleranz 20 W.
+    assistantBandPreset(value) {
+      const { answers, band } = this.assistant;
+      if (!band.tolOn) answers.tolerance = 20;
+      if (bandHandle && bandState) {
+        if (!band.tolOn) bandState.tol = 20;
+        bandHandle.setTarget(value);
+      } else {
+        answers.target = value;
+      }
+    },
+
+    // Fusshinweis des Zielbands: das Netz bei diesem Wert halten.
+    assistantBandHint() {
+      return t('automations.assistant.band.hold', { value: bandSigned(this.assistant.answers.target) });
+    },
+
+    // Kennzahlen des Bands fuer die drei Kacheln, null ohne Daten.
+    assistantBandStats() {
+      const { answers, band } = this.assistant;
+      if (!window.__automationBand) return null;
+      const stats = window.__automationBand.bandStats(band.errors || [], answers.target, answers.tolerance ?? 20);
+      if (!stats) return null;
+      return {
+        fed: window.I18n.formatNumber(stats.fedKwh, 2),
+        drawn: window.I18n.formatNumber(stats.drawnKwh, 2),
+        moves: window.I18n.formatNumber(stats.movesPerHour, 1),
+      };
     },
 
     // Der Eintrag der Vorlage mit dem eingegebenen Namen, oder null ohne gueltige Antworten.
@@ -1476,6 +1587,7 @@
     // Waehlt einen Wert; bei Voreinstellungen wird die Wirkung neu berechnet.
     assistantPick(step, value) {
       this.assistant.answers[step.id] = value;
+      if (step.effect === 'band') this.assistantBandSync();
       this.refreshEffect(step);
     },
 

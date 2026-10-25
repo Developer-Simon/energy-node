@@ -252,7 +252,10 @@
           { id: 'last' },
         ],
       },
-      { id: 'target', type: 'presets', step: 5, default: 30, effect: 'band', options: [{ id: 60 }, { id: 30 }, { id: 10 }] },
+      {
+        id: 'target', type: 'presets', step: 5, default: 30, effect: 'band', options: [{ id: 60 }, { id: 30 }, { id: 10 }],
+        tolerance: { default: 20, min: 5, max: 60 },
+      },
       {
         id: 'period', type: 'tiles', default: 'sun',
         options: [
@@ -298,7 +301,7 @@
             output: { ...outputOf(entity), decimals: 0 },
             direction: 'producer',
             target_w: answers.target,
-            deadband_w: 20,
+            deadband_w: Number.isFinite(answers.tolerance) ? answers.tolerance : 20,
             base: measureBase(answers.measure, entry),
             fallback: { payload: String(max) },
           },

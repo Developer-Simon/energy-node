@@ -354,7 +354,7 @@ test('presetEffect describes the band, the first feed-in minute and the lowest c
   const { wizard, t } = load();
   const ctx = wizard.buildContext({ devices, snapshot: { values: {} }, document: {} });
   const band = await wizard.presetEffect({ id: 'target', effect: 'band' }, 30, ctx, null);
-  assert.equal(band, t('automations.assistant.effect.band', { low: '10', high: '50' }));
+  assert.equal(band, '');
   const rows = [{ ts: 1000, min: -10, avg: -20 }, { ts: 60000, min: -1500, avg: -1400 }];
   const store = { readRange: async () => rows };
   const first = new Date(60000);
