@@ -233,6 +233,9 @@ func TestHTTPPasswordRules(t *testing.T) {
 	if err := manager.SetOwnHTTPPassword(session.Token, "http-password-2"); err != nil {
 		t.Fatal(err)
 	}
+	if _, ok := manager.Session(session.Token); !ok {
+		t.Fatal("the calling session must survive its own HTTP password change")
+	}
 
 	// An empty value removes the HTTP password.
 	if err := manager.SetHTTPPassword("admin", "admin", ""); err != nil {
@@ -445,5 +448,68 @@ func TestMigrationNoticeClearsAfterSetGuestRoles(t *testing.T) {
 	}
 	if want := []string{RoleViewOverview}; !reflect.DeepEqual(restarted.GuestRoles(), want) {
 		t.Fatalf("GuestRoles after restart: got %v, want %v", restarted.GuestRoles(), want)
+	}
+}
+
+func TestEmptyHTTPPasswordWithoutHTTPLoginIsNoop(t *testing.T) {
+	manager, path := loginManager(t,
+		User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}},
+		User{Username: "bob", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleViewOverview}},
+	)
+	bob, err := manager.Login("bob", usersTestPassword, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := manager.SetHTTPPassword("admin", "bob", ""); err != nil {
+		t.Fatalf("admin clearing HTTP password without http_login: got %v, want nil", err)
+	}
+	if err := manager.SetOwnHTTPPassword(bob.Token, ""); err != nil {
+		t.Fatalf("own clearing HTTP password without http_login: got %v, want nil", err)
+	}
+	if _, ok := manager.Session(bob.Token); !ok {
+		t.Fatal("bob's session must survive a no-op HTTP password clear")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("users.json changed on a no-op HTTP password clear")
+	}
+}
+
+func TestSetOwnHTTPPasswordKeepsCallingSession(t *testing.T) {
+	manager, _ := loginManager(t,
+		User{Username: "bob", PasswordHash: mustHash(t, usersTestPassword), HTTPPasswordHash: mustHash(t, "http-password-1"), Roles: []string{RoleViewOverview, RoleHTTPLogin}},
+	)
+	full, err := manager.Login("bob", usersTestPassword, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caller, err := manager.Login("bob", "http-password-1", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := manager.Login("bob", "http-password-1", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := manager.SetOwnHTTPPassword(caller.Token, "http-password-2"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := manager.Session(caller.Token); !ok {
+		t.Fatal("the calling restricted session must survive its own HTTP password change")
+	}
+	if _, ok := manager.Session(other.Token); ok {
+		t.Fatal("bob's other restricted session must be discarded")
+	}
+	if _, ok := manager.Session(full.Token); !ok {
+		t.Fatal("bob's full session must survive an HTTP password change")
 	}
 }

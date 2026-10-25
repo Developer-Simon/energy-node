@@ -300,7 +300,8 @@ func (m *Manager) SetHTTPPassword(actor, username, newPassword string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	name := strings.ToLower(username)
-	if err := m.setHTTPPasswordLocked(name, newPassword); err != nil {
+	changed, err := m.setHTTPPasswordLocked(name, newPassword, "")
+	if err != nil || !changed {
 		return err
 	}
 	log.Printf("auth: %s %s %s", actor, "http_password", name)
@@ -317,7 +318,8 @@ func (m *Manager) SetOwnHTTPPassword(token, newPassword string) error {
 		return ErrInvalidCredentials
 	}
 	name := session.User.Username
-	if err := m.setHTTPPasswordLocked(name, newPassword); err != nil {
+	changed, err := m.setHTTPPasswordLocked(name, newPassword, tokenHash(token))
+	if err != nil || !changed {
 		return err
 	}
 	log.Printf("auth: %s %s %s", name, "http_password", name)
@@ -325,26 +327,32 @@ func (m *Manager) SetOwnHTTPPassword(token, newPassword string) error {
 }
 
 // setHTTPPasswordLocked prüft und setzt das HTTP-Passwort und verwirft die
-// eingeschränkten Sessions des Kontos.
-func (m *Manager) setHTTPPasswordLocked(name, newPassword string) error {
+// eingeschränkten Sessions des Kontos außer der Sitzung keep (leer bei Admin-
+// Änderungen). Ein leeres Passwort für ein Konto ohne http_login ist ein
+// No-op: es gibt nichts zu entfernen, also wird nichts geschrieben und keine
+// Session verworfen. changed sagt, ob ein Schreibvorgang stattfand.
+func (m *Manager) setHTTPPasswordLocked(name, newPassword, keep string) (changed bool, err error) {
 	current, ok := m.users[name]
 	if !ok || current.Guest {
-		return ErrUserNotFound
+		return false, ErrUserNotFound
 	}
 	if !containsRole(current.Roles, RoleHTTPLogin) {
-		return ErrHTTPLoginRequired
+		if newPassword == "" {
+			return false, nil
+		}
+		return false, ErrHTTPLoginRequired
 	}
 	updated := current
 	if newPassword != "" {
 		if err := validatePassword(newPassword); err != nil {
-			return err
+			return false, err
 		}
 		if verifyPassword(current.PasswordHash, newPassword) {
-			return ErrHTTPPasswordReused
+			return false, ErrHTTPPasswordReused
 		}
 		hash, err := hashPassword(newPassword)
 		if err != nil {
-			return err
+			return false, err
 		}
 		updated.HTTPPasswordHash = hash
 	} else {
@@ -357,14 +365,14 @@ func (m *Manager) setHTTPPasswordLocked(name, newPassword string) error {
 		if session.User.Username != name {
 			continue
 		}
-		if session.Restricted {
+		if session.Restricted && key != keep {
 			delete(sessions, key)
 			continue
 		}
 		session.User = updated
 		sessions[key] = session
 	}
-	return m.commitLocked(users, sessions)
+	return true, m.commitLocked(users, sessions)
 }
 
 // ChangeOwnPassword ändert das Passwort des Kontos der Sitzung token nach
