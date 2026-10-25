@@ -1,12 +1,30 @@
 # Changelog
 
-## v0.10.12 (2026-10-24)
+## v0.10.13 (2026-10-25)
 
 ### Features
 
 - **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 - **automations:** The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor. (#164) (04148fb)
 - **automations:** Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker. (#165) (8f0b222)
+- **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
+- **auth:** central permission catalog with view requirements (ea26663)
+- **auth:** versioned users.json with one-time migration and bootstrap-only admin (e4560c9)
+- **auth:** connection-aware login with HTTP password and restricted sessions (312baa0)
+- **auth:** user management API with last-admin and self protection (ec12b25)
+- **auth:** passwords and guest defaults in the user management API (a4859f1)
+- **httpapi:** effective permissions per request instead of rejecting HTTP admin sessions (d4130d1)
+- **httpapi:** user management routes (ca543d0)
+- **webui:** permission model for the users page (639d700)
+- **webui:** texts for the users settings page (9560ee3)
+- **webui:** users page component (8bc6586)
+- **webui:** users settings page with permission categories (0e14413)
+- **settings:** change own password and HTTP password (36f53b4)
+- **auth:** configurable minimum password length and elevated permission flag (a65d55f)
+- **auth:** list and end logged-in sessions (6d4e063)
+- **webui:** sessions tab, elevated rights warning and password policy in the users page (4a534fd)
+- **webui:** users page buttons, sessions tab, user icon and account card in system access (f7059a5)
+- **auth:** Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions. (#167)
 - **automation:** whole-day time windows and a maximum scenario duration (5483950)
 - **automations:** maximum duration field in the scenario editor (2d7cf1a)
 - **automations:** assistant device context (cf874ee)
@@ -18,7 +36,6 @@
 - **automations:** assistant dialog state and creation (1201636)
 - **automations:** assistant dialog gallery and first step blocks (18d80b3)
 - **automations:** assistant multi, number, time and summary blocks (45c2d25)
-- **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166)
 - **dashboard:** single choice, role filters and tones in the device picker (91d14ed)
 - **automations:** device candidates for actuators, meters and actions (c76380a)
 - **automations:** stepper helper and soft field styles (1d06267)
@@ -51,6 +68,12 @@
 
 ### Fixes
 
+- **auth:** keep own session when changing the HTTP password (c377a40)
+- **auth:** drop restricted sessions when http_login is removed (c5dfcf7)
+- **webui:** wording of the HTTP password risk text (7a5a105)
+- **webui:** collision-free id for the new account card (c7a6141)
+- **webui:** users page motion, savebar and input checks (c965da2)
+- **auth:** installing the offered update is not an elevated permission (10c617f)
 - **automations:** assistant layout, neutral buttons and steppers (4782e5b)
 - **dashboard:** accept a picker choice with Enter in single mode (e65eb65)
 - **automations:** chip counts and value-less meter candidates (b5b9f77)
@@ -68,6 +91,7 @@
 
 ### Refactors
 
+- **auth:** split tailscale, service logs and installer access out of system_actions (9fb6ee4)
 - **automations:** remove the rule wizard from the page component (b468dc1)
 - **automations:** row editors read state through owner hooks (75b2998)
 
@@ -79,11 +103,14 @@
 
 ### Tests
 
+- grant view prerequisites in role tests (c39e023)
+- **smoke:** restricted account and live permission change (a54097d)
 - **dashboard:** cover the automation rules schema with scenarios (d5d7d36)
 - **dashboard:** make alle-funktionen the default smoke preset (5c25a87)
 
 ### Chores
 
+- **webui:** bump asset versions (60da1fe)
 - **dashboard:** bump automations asset versions (34f8085)
 - **automation:** scenario smoke fixture and 0.6.0 manifest (dcd062c)
 
