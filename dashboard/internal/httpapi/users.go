@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -24,6 +25,7 @@ func handleUsers(manager *auth.Manager) http.HandlerFunc {
 				"users":            manager.Users(),
 				"guests":           manager.Guests(),
 				"guest_roles":      manager.GuestRoles(),
+				"password_policy":  passwordPolicy(manager),
 				"catalog":          usersCatalog(),
 				"migration_notice": manager.MigrationNotice(),
 				"self":             actor.Username,
@@ -66,6 +68,8 @@ func handleUserSub(manager *auth.Manager) http.HandlerFunc {
 			handleUsers(manager).ServeHTTP(w, r)
 		case rest == "guest-roles":
 			handleGuestRoles(manager).ServeHTTP(w, r)
+		case rest == "password-policy":
+			handlePasswordPolicy(manager).ServeHTTP(w, r)
 		case rest == "me/password":
 			handleOwnPassword(manager).ServeHTTP(w, r)
 		case rest == "me/http-password":
@@ -204,6 +208,42 @@ func handleGuestRoles(manager *auth.Manager) http.HandlerFunc {
 	}
 }
 
+// handlePasswordPolicy sets the minimum length for new passwords.
+func handlePasswordPolicy(manager *auth.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			methodNotAllowed(w, http.MethodPut)
+			return
+		}
+		if !requireUsersAccess(w, r, manager, true) {
+			return
+		}
+		actor, _ := auth.UserFromContext(r.Context())
+		var request struct {
+			MinLength int `json:"min_length"`
+		}
+		if err := decodeBody(r, &request); err != nil {
+			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+			return
+		}
+		if err := manager.SetMinPasswordLength(actor.Username, request.MinLength); err != nil {
+			writeUserError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"password_policy": passwordPolicy(manager)})
+	}
+}
+
+// passwordPolicy describes the minimum password length and the bounds the
+// administrator may choose from.
+func passwordPolicy(manager *auth.Manager) map[string]any {
+	return map[string]any{
+		"min_length": manager.MinPasswordLength(),
+		"min":        auth.MinPasswordLengthLowest,
+		"max":        auth.MinPasswordLengthHighest,
+	}
+}
+
 // handleOwnPassword lets every signed-in account change its own password. It
 // needs no user_management, only HTTPS and CSRF.
 func handleOwnPassword(manager *auth.Manager) http.HandlerFunc {
@@ -302,6 +342,7 @@ func usersCatalog() []map[string]any {
 			"https_only":    info.HTTPSOnly,
 			"guest_allowed": info.GuestAllowed,
 			"ha_allowed":    info.HAAllowed,
+			"elevated":      info.Elevated,
 		})
 	}
 	return out
@@ -324,8 +365,15 @@ func writeUserError(w http.ResponseWriter, err error) {
 		writeErrorKey(w, http.StatusForbidden, "old_password_invalid", "error.old_password_invalid", nil, "Das bisherige Passwort ist falsch")
 	case errors.Is(err, auth.ErrInvalidUsername):
 		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.username", nil, "Der Benutzername braucht 3 bis 32 Zeichen aus a bis z, Ziffern, Punkt, Unterstrich oder Minus und darf nicht mit guest- beginnen")
+	case errors.Is(err, auth.ErrInvalidPasswordPolicy):
+		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.password_policy", nil, "Die Mindestlänge des Passworts muss zwischen 8 und 64 Zeichen liegen")
 	case errors.Is(err, auth.ErrWeakPassword):
-		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.password", nil, "Das Passwort ist zu kurz, es braucht mindestens 10 Zeichen")
+		var short auth.PasswordTooShortError
+		minLength := auth.DefaultMinPasswordLength
+		if errors.As(err, &short) {
+			minLength = short.MinLength
+		}
+		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.password", map[string]any{"min_length": minLength}, fmt.Sprintf("Das Passwort ist zu kurz, es braucht mindestens %d Zeichen", minLength))
 	case errors.Is(err, auth.ErrUnknownRole):
 		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.roles", nil, "Eine Berechtigung ist unbekannt")
 	case errors.Is(err, auth.ErrGuestRoleNotAllowed):

@@ -460,7 +460,7 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		setSessionCookie(w, r, session)
-		writeAuthSession(w, session, secureRequest)
+		writeAuthSession(w, session, secureRequest, manager.MinPasswordLength())
 	}
 }
 
@@ -476,7 +476,7 @@ func handleAuthGuest(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		setSessionCookie(w, r, session)
-		writeAuthSession(w, session, isSecureRequest(r))
+		writeAuthSession(w, session, isSecureRequest(r), manager.MinPasswordLength())
 	}
 }
 
@@ -496,7 +496,7 @@ func handleAuthSession(manager *auth.Manager) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
-		writeAuthSession(w, session, isSecureRequest(r))
+		writeAuthSession(w, session, isSecureRequest(r), manager.MinPasswordLength())
 	}
 }
 
@@ -705,8 +705,9 @@ func isSecureRequest(r *http.Request) bool {
 
 // writeAuthSession answers with the permissions that apply to this request:
 // roles and flags come from auth.EffectiveUser, so a restricted session or a
-// request over HTTP never reports an HTTPS-only role as granted.
-func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool) {
+// request over HTTP never reports an HTTPS-only role as granted. minPasswordLength
+// is the current minimum for new passwords, so the forms can show it.
+func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, minPasswordLength int) {
 	w.Header().Set("Cache-Control", "no-store")
 	user := auth.EffectiveUser(session, secure)
 	withheld := auth.Withheld(session, secure)
@@ -734,6 +735,7 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool) 
 		"update_settings":         auth.HasRole(user, auth.RoleUpdateSettings),
 		"tailscale":               auth.HasRole(user, auth.RoleTailscale),
 		"view_logs":               auth.HasRole(user, auth.RoleViewLogs),
+		"password_min_length":     minPasswordLength,
 		"csrf_token":              session.CSRFToken,
 		"expires_at":              session.ExpiresAt,
 	})

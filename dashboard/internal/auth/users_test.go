@@ -542,3 +542,122 @@ func TestRemovingHTTPLoginDropsRestrictedSessions(t *testing.T) {
 		t.Fatalf("full session roles: got %v, want %v", session.User.Roles, want)
 	}
 }
+
+// TestMinPasswordLengthDefaultsToTen: ohne Eintrag in users.json gilt die
+// Mindestlänge 10, ein 9-Zeichen-Passwort ist abgewiesen.
+func TestMinPasswordLengthDefaultsToTen(t *testing.T) {
+	manager, _ := loginManager(t, User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}})
+	if got := manager.MinPasswordLength(); got != 10 {
+		t.Fatalf("default minimum: got %d, want 10", got)
+	}
+	if _, err := manager.CreateUser("admin", "dana", "123456789", nil); !errors.Is(err, ErrWeakPassword) {
+		t.Fatalf("9 character password: got %v, want ErrWeakPassword", err)
+	}
+	if _, err := manager.CreateUser("admin", "dana", "1234567890", nil); err != nil {
+		t.Fatalf("10 character password: %v", err)
+	}
+}
+
+// TestSetMinPasswordLengthAppliesToNewPasswords: 12 gesetzt, 11 Zeichen
+// abgewiesen (mit der Mindestlänge im Fehler), 12 Zeichen angenommen.
+func TestSetMinPasswordLengthAppliesToNewPasswords(t *testing.T) {
+	manager, _ := loginManager(t, User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}})
+	if err := manager.SetMinPasswordLength("admin", 12); err != nil {
+		t.Fatal(err)
+	}
+	if got := manager.MinPasswordLength(); got != 12 {
+		t.Fatalf("MinPasswordLength: got %d, want 12", got)
+	}
+	_, err := manager.CreateUser("admin", "dana", "abcdefghijk", nil)
+	if !errors.Is(err, ErrWeakPassword) {
+		t.Fatalf("11 character password: got %v, want ErrWeakPassword", err)
+	}
+	var short PasswordTooShortError
+	if !errors.As(err, &short) || short.MinLength != 12 {
+		t.Fatalf("error does not carry the minimum 12: %#v", err)
+	}
+	if _, err := manager.CreateUser("admin", "dana", "abcdefghijkl", nil); err != nil {
+		t.Fatalf("12 character password: %v", err)
+	}
+	if err := manager.SetPassword("admin", "dana", "abcdefghijk"); !errors.Is(err, ErrWeakPassword) {
+		t.Fatalf("SetPassword with 11 characters: got %v, want ErrWeakPassword", err)
+	}
+}
+
+// TestSetMinPasswordLengthRejectsOutOfBounds: nur 8 bis 64 sind erlaubt, ein
+// abgewiesener Wert ändert weder den Stand noch users.json.
+func TestSetMinPasswordLengthRejectsOutOfBounds(t *testing.T) {
+	manager, path := loginManager(t, User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}})
+	if err := manager.SetMinPasswordLength("admin", 12); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, n := range []int{0, -1, 7, 65, 1000} {
+		if err := manager.SetMinPasswordLength("admin", n); !errors.Is(err, ErrInvalidPasswordPolicy) {
+			t.Fatalf("length %d: got %v, want ErrInvalidPasswordPolicy", n, err)
+		}
+	}
+	if got := manager.MinPasswordLength(); got != 12 {
+		t.Fatalf("rejected values changed the minimum to %d", got)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("users.json changed after a rejected policy")
+	}
+	for _, n := range []int{8, 64} {
+		if err := manager.SetMinPasswordLength("admin", n); err != nil {
+			t.Fatalf("length %d must be accepted: %v", n, err)
+		}
+	}
+}
+
+// TestMinPasswordLengthSurvivesRestart: ein neuer Manager auf derselben Datei
+// liest die Mindestlänge wieder ein.
+func TestMinPasswordLengthSurvivesRestart(t *testing.T) {
+	manager, path := loginManager(t, User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}})
+	if err := manager.SetMinPasswordLength("admin", 14); err != nil {
+		t.Fatal(err)
+	}
+	restarted := mustManager(t, path, "", "")
+	if got := restarted.MinPasswordLength(); got != 14 {
+		t.Fatalf("after restart: got %d, want 14", got)
+	}
+}
+
+// TestSetMinPasswordLengthRestoresOnSaveFailure: lässt sich users.json nicht
+// schreiben, bleibt die alte Mindestlänge.
+func TestSetMinPasswordLengthRestoresOnSaveFailure(t *testing.T) {
+	manager, path := loginManager(t, User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}})
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	// Ein Verzeichnis an der Stelle der Datei lässt das Umbenennen scheitern.
+	if err := os.Mkdir(path, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.SetMinPasswordLength("admin", 12); err == nil {
+		t.Fatal("save failure was not reported")
+	}
+	if got := manager.MinPasswordLength(); got != 10 {
+		t.Fatalf("failed save changed the minimum to %d, want 10", got)
+	}
+}
+
+// TestRoleElevatedFlags: genau die sechs erhöhten Berechtigungen sind markiert.
+func TestRoleElevatedFlags(t *testing.T) {
+	elevated := map[string]bool{
+		RoleUserManagement: true, "system_actions": true, RoleUpdateSettings: true,
+		RoleInstallUpdates: true, RoleTailscale: true, "mqtt_config": true,
+	}
+	for _, info := range Roles() {
+		if info.Elevated != elevated[info.Key] {
+			t.Errorf("%s: Elevated %v, want %v", info.Key, info.Elevated, elevated[info.Key])
+		}
+	}
+}

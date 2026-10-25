@@ -18,8 +18,11 @@ var (
 	// ErrInvalidUsername meldet einen Benutzernamen außerhalb der Regeln (3 bis 32
 	// Zeichen aus [a-z0-9._-], Präfix guest- reserviert).
 	ErrInvalidUsername = errors.New("invalid username")
-	// ErrWeakPassword meldet ein Passwort unter der Mindestlänge.
+	// ErrWeakPassword meldet ein Passwort unter der Mindestlänge. Der Fehler
+	// aus validatePassword ist ein PasswordTooShortError, der die Grenze nennt.
 	ErrWeakPassword = errors.New("password is too short")
+	// ErrInvalidPasswordPolicy meldet eine Mindestlänge außerhalb von 8 bis 64.
+	ErrInvalidPasswordPolicy = errors.New("minimum password length out of range")
 	// ErrUserExists meldet einen Benutzernamen, der ohne Rücksicht auf Groß- und
 	// Kleinschreibung schon vergeben ist.
 	ErrUserExists = errors.New("username already exists")
@@ -38,7 +41,29 @@ var (
 	ErrHTTPLoginRequired = errors.New("account needs the http_login role")
 )
 
-const minPasswordLength = 10
+const (
+	// DefaultMinPasswordLength gilt, solange users.json keine Mindestlänge
+	// setzt, und nach dem Start ohne Eintrag.
+	DefaultMinPasswordLength = 10
+	// MinPasswordLengthLowest und MinPasswordLengthHighest sind die Grenzen,
+	// in denen der Administrator die Mindestlänge setzen kann.
+	MinPasswordLengthLowest  = 8
+	MinPasswordLengthHighest = 64
+)
+
+// PasswordTooShortError meldet ein Passwort unter der gerade geltenden
+// Mindestlänge. errors.Is(err, ErrWeakPassword) trifft ihn ebenfalls.
+type PasswordTooShortError struct {
+	MinLength int
+}
+
+func (e PasswordTooShortError) Error() string {
+	return ErrWeakPassword.Error()
+}
+
+func (e PasswordTooShortError) Is(target error) bool {
+	return target == ErrWeakPassword
+}
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
 
@@ -79,7 +104,7 @@ func (m *Manager) CreateUser(actor, username, password string, roles []string) (
 	if _, exists := m.users[name]; exists {
 		return User{}, ErrUserExists
 	}
-	if err := validatePassword(password); err != nil {
+	if err := m.validatePasswordLocked(password); err != nil {
 		return User{}, err
 	}
 	normalized, err := validateRoles(roles)
@@ -220,10 +245,39 @@ func normalizeUsername(username string) (string, error) {
 	return name, nil
 }
 
-func validatePassword(password string) error {
-	if utf8.RuneCountInString(password) < minPasswordLength {
-		return ErrWeakPassword
+// validatePasswordLocked prüft die Länge gegen die aktuelle Mindestlänge. Der
+// Aufrufer hält m.mu.
+func (m *Manager) validatePasswordLocked(password string) error {
+	if utf8.RuneCountInString(password) < m.minPasswordLength {
+		return PasswordTooShortError{MinLength: m.minPasswordLength}
 	}
+	return nil
+}
+
+// MinPasswordLength liefert die Mindestlänge für neue Passwörter.
+func (m *Manager) MinPasswordLength() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.minPasswordLength
+}
+
+// SetMinPasswordLength setzt die Mindestlänge für neue Passwörter. Bestehende
+// Passwörter bleiben unberührt. Werte außerhalb von 8 bis 64 werden abgewiesen.
+func (m *Manager) SetMinPasswordLength(actor string, n int) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if n < MinPasswordLengthLowest || n > MinPasswordLengthHighest {
+		return ErrInvalidPasswordPolicy
+	}
+	// Wie SetGuestRoles: die Länge steht in users.json und wird bei einem
+	// Fehler beim Speichern zurückgesetzt.
+	old := m.minPasswordLength
+	m.minPasswordLength = n
+	if err := m.saveLocked(); err != nil {
+		m.minPasswordLength = old
+		return err
+	}
+	log.Printf("auth: %s %s %s", actor, "password_policy", "passwords")
 	return nil
 }
 
@@ -272,7 +326,7 @@ func (m *Manager) SetPassword(actor, username, newPassword string) error {
 	if !ok || current.Guest {
 		return ErrUserNotFound
 	}
-	if err := validatePassword(newPassword); err != nil {
+	if err := m.validatePasswordLocked(newPassword); err != nil {
 		return err
 	}
 	hash, err := hashPassword(newPassword)
@@ -346,7 +400,7 @@ func (m *Manager) setHTTPPasswordLocked(name, newPassword, keep string) (changed
 	}
 	updated := current
 	if newPassword != "" {
-		if err := validatePassword(newPassword); err != nil {
+		if err := m.validatePasswordLocked(newPassword); err != nil {
 			return false, err
 		}
 		if verifyPassword(current.PasswordHash, newPassword) {
@@ -393,7 +447,7 @@ func (m *Manager) ChangeOwnPassword(token, oldPassword, newPassword string) erro
 	if !ok || current.Guest || current.PasswordHash == "" || !verifyPassword(current.PasswordHash, oldPassword) {
 		return ErrInvalidCredentials
 	}
-	if err := validatePassword(newPassword); err != nil {
+	if err := m.validatePasswordLocked(newPassword); err != nil {
 		return err
 	}
 	hash, err := hashPassword(newPassword)

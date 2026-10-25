@@ -31,7 +31,13 @@ type usersListing struct {
 		HTTPSOnly    bool   `json:"https_only"`
 		GuestAllowed bool   `json:"guest_allowed"`
 		HAAllowed    bool   `json:"ha_allowed"`
+		Elevated     bool   `json:"elevated"`
 	} `json:"catalog"`
+	PasswordPolicy struct {
+		MinLength int `json:"min_length"`
+		Min       int `json:"min"`
+		Max       int `json:"max"`
+	} `json:"password_policy"`
 	MigrationNotice bool   `json:"migration_notice"`
 	Self            string `json:"self"`
 }
@@ -131,6 +137,7 @@ func TestUsersRoutesRequireUserManagementHTTPSAndCSRF(t *testing.T) {
 		{name: "http-password", method: http.MethodPut, path: "/api/v1/users/anna/http-password", body: `{"password":"anna-http-1"}`, write: true},
 		{name: "delete", method: http.MethodDelete, path: "/api/v1/users/anna", write: true},
 		{name: "guest-roles", method: http.MethodPut, path: "/api/v1/users/guest-roles", body: `{"roles":["view_overview"]}`, write: true},
+		{name: "password-policy", method: http.MethodPut, path: "/api/v1/users/password-policy", body: `{"min_length":12}`, write: true},
 		{name: "me/password", method: http.MethodPut, path: "/api/v1/users/me/password", body: `{"old_password":"` + restrictedTestPassword + `","password":"viewer-pass-2"}`, self: true, write: true},
 		{name: "me/http-password", method: http.MethodPut, path: "/api/v1/users/me/http-password", body: `{"password":"viewer-http-1"}`, self: true, write: true},
 	}
@@ -323,5 +330,86 @@ func TestUpdateUserIsLastWriteWins(t *testing.T) {
 	}
 	if roles := listing.Users[idx].Roles; len(roles) != 1 || roles[0] != auth.RoleViewOverview {
 		t.Fatalf("anna roles = %v, want [%s] from the second PUT", roles, auth.RoleViewOverview)
+	}
+}
+
+// TestPasswordPolicyRoute: PUT setzt die Mindestlänge, GET und die Sitzung
+// zeigen sie, ein Wert außerhalb von 8 bis 64 kommt als invalid_user zurück,
+// und das Anlegen eines Kontos mit zu kurzem Passwort scheitert.
+func TestPasswordPolicyRoute(t *testing.T) {
+	router, _ := newRestrictedTestRouter(t, nil)
+	adminCookie, adminCSRF := sessionFor(t, router, "admin", usersAdminPassword)
+
+	if listing := listUsers(t, router, adminCookie); listing.PasswordPolicy.MinLength != 10 || listing.PasswordPolicy.Min != 8 || listing.PasswordPolicy.Max != 64 {
+		t.Fatalf("default policy: %+v", listing.PasswordPolicy)
+	}
+
+	recorder := usersCall(router, http.MethodPut, "/api/v1/users/password-policy", `{"min_length":12}`, adminCookie, adminCSRF, true)
+	wantUsersStatus(t, recorder, http.StatusOK)
+	var put struct {
+		PasswordPolicy struct {
+			MinLength int `json:"min_length"`
+			Min       int `json:"min"`
+			Max       int `json:"max"`
+		} `json:"password_policy"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &put); err != nil {
+		t.Fatal(err)
+	}
+	if put.PasswordPolicy.MinLength != 12 || put.PasswordPolicy.Min != 8 || put.PasswordPolicy.Max != 64 {
+		t.Fatalf("PUT answer: %+v", put.PasswordPolicy)
+	}
+	if listing := listUsers(t, router, adminCookie); listing.PasswordPolicy.MinLength != 12 {
+		t.Fatalf("GET after PUT: %+v", listing.PasswordPolicy)
+	}
+
+	for _, body := range []string{`{"min_length":7}`, `{"min_length":65}`, `{"min_length":0}`} {
+		wantUsersError(t, usersCall(router, http.MethodPut, "/api/v1/users/password-policy", body, adminCookie, adminCSRF, true), http.StatusBadRequest, "invalid_user")
+	}
+	if listing := listUsers(t, router, adminCookie); listing.PasswordPolicy.MinLength != 12 {
+		t.Fatalf("rejected value changed the policy: %+v", listing.PasswordPolicy)
+	}
+
+	wantUsersError(t, usersCall(router, http.MethodPost, "/api/v1/users", `{"username":"anna","password":"abcdefghijk","roles":[]}`, adminCookie, adminCSRF, true), http.StatusBadRequest, "invalid_user")
+	wantUsersStatus(t, usersCall(router, http.MethodPost, "/api/v1/users", `{"username":"anna","password":"abcdefghijkl","roles":[]}`, adminCookie, adminCSRF, true), http.StatusOK)
+
+	// Die Sitzung trägt die Mindestlänge, damit die Oberfläche sie ohne GET kennt.
+	login := usersCall(router, http.MethodPost, "/api/v1/auth/login", fmt.Sprintf(`{"username":"admin","password":%q}`, usersAdminPassword), nil, "", true)
+	wantUsersStatus(t, login, http.StatusOK)
+	var session struct {
+		PasswordMinLength int `json:"password_min_length"`
+	}
+	if err := json.Unmarshal(login.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	if session.PasswordMinLength != 12 {
+		t.Fatalf("password_min_length: got %d, want 12", session.PasswordMinLength)
+	}
+}
+
+// TestUsersCatalogMarksElevatedRoles: GET liefert elevated für jede
+// Berechtigung, genau die sechs erhöhten sind true.
+func TestUsersCatalogMarksElevatedRoles(t *testing.T) {
+	router, _ := newRestrictedTestRouter(t, nil)
+	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	want := map[string]bool{
+		auth.RoleUserManagement: true, "system_actions": true, auth.RoleUpdateSettings: true,
+		auth.RoleInstallUpdates: true, auth.RoleTailscale: true, "mqtt_config": true,
+	}
+	listing := listUsers(t, router, adminCookie)
+	if len(listing.Catalog) == 0 {
+		t.Fatal("empty catalog")
+	}
+	seen := map[string]bool{}
+	for _, entry := range listing.Catalog {
+		seen[entry.Key] = true
+		if entry.Elevated != want[entry.Key] {
+			t.Errorf("%s: elevated %v, want %v", entry.Key, entry.Elevated, want[entry.Key])
+		}
+	}
+	for key := range want {
+		if !seen[key] {
+			t.Errorf("catalog lacks %s", key)
+		}
 	}
 }

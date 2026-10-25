@@ -76,7 +76,9 @@ type userFile struct {
 	Version            int      `json:"version"`
 	GuestRoles         []string `json:"guest_roles"`
 	GuestRolesReviewed bool     `json:"guest_roles_reviewed,omitempty"`
-	Users              []User   `json:"users"`
+	// MinPasswordLength is the minimum for new passwords; absent or 0 means the default.
+	MinPasswordLength int    `json:"min_password_length,omitempty"`
+	Users             []User `json:"users"`
 }
 
 // sessionFile is what survives a restart of the dashboard, so an update
@@ -117,6 +119,8 @@ type Manager struct {
 	// guestRolesReviewed is false until the admin has set the guest roles
 	// once after a migration; it drives MigrationNotice.
 	guestRolesReviewed bool
+	// minPasswordLength is the minimum length for new passwords, from users.json.
+	minPasswordLength int
 	// sessions is keyed by tokenHash(token), the same key sessions.json
 	// stores, so a session loaded from disk is found like a fresh one.
 	sessions map[string]Session
@@ -147,6 +151,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 		now:                now,
 		guestRoles:         defaultGuestRoles(),
 		guestRolesReviewed: true,
+		minPasswordLength:  DefaultMinPasswordLength,
 	}
 	manager.mu.Lock()
 	changed, err := manager.loadLocked()
@@ -205,6 +210,10 @@ func (m *Manager) loadLocked() (bool, error) {
 			user.Roles = []string{}
 		}
 		m.users[user.Username] = user
+	}
+	m.minPasswordLength = DefaultMinPasswordLength
+	if file.MinPasswordLength >= MinPasswordLengthLowest && file.MinPasswordLength <= MinPasswordLengthHighest {
+		m.minPasswordLength = file.MinPasswordLength
 	}
 	changed := false
 	if file.Version < usersFileVersion {
@@ -414,6 +423,7 @@ func (m *Manager) saveLocked() error {
 		Version:            usersFileVersion,
 		GuestRoles:         append([]string{}, m.guestRoles...),
 		GuestRolesReviewed: m.guestRolesReviewed,
+		MinPasswordLength:  m.minPasswordLength,
 		Users:              users,
 	}
 	data, err := json.MarshalIndent(file, "", "  ")

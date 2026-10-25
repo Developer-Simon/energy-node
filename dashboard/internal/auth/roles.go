@@ -50,6 +50,9 @@ type RoleInfo struct {
 	HTTPSOnly    bool
 	GuestAllowed bool
 	HAAllowed    bool
+	// Elevated markiert die erhöhten Berechtigungen, die die Oberfläche
+	// hervorhebt.
+	Elevated bool
 }
 
 // roleCatalog steht in Anzeigereihenfolge, wie die Tabelle in der Spec,
@@ -74,15 +77,15 @@ var roleCatalog = []RoleInfo{
 	{Key: "edit_device_map", Category: CategorySetup, Requires: RoleViewDeviceMap, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleEditConfig, Category: CategorySetup, Requires: RoleViewConfig, GuestAllowed: true, HAAllowed: true},
 	{Key: "delete_device_discovery", Category: CategorySetup, Requires: RoleViewDevices, GuestAllowed: true, HAAllowed: true},
-	{Key: "mqtt_config", Category: CategorySetup, HTTPSOnly: true, HAAllowed: true},
+	{Key: "mqtt_config", Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: "tune_live_updates", Category: CategorySetup, GuestAllowed: true, HAAllowed: true},
 	{Key: "check_updates", Category: CategoryUpdates, GuestAllowed: true, HAAllowed: true},
-	{Key: RoleInstallUpdates, Category: CategoryUpdates, HAAllowed: true},
-	{Key: RoleUpdateSettings, Category: CategoryUpdates, HTTPSOnly: true, HAAllowed: true},
+	{Key: RoleInstallUpdates, Category: CategoryUpdates, HAAllowed: true, Elevated: true},
+	{Key: RoleUpdateSettings, Category: CategoryUpdates, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleViewLogs, Category: CategorySystem, Requires: RoleViewDiagnostics, HTTPSOnly: true, HAAllowed: true},
-	{Key: "system_actions", Category: CategorySystem, HTTPSOnly: true, HAAllowed: true},
-	{Key: RoleTailscale, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true},
-	{Key: RoleUserManagement, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true},
+	{Key: "system_actions", Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleTailscale, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleUserManagement, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleHTTPLogin, Category: CategorySystem},
 }
 
