@@ -1331,7 +1331,7 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
-	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="auto-line`, `class="auto-pill`, `class="auto-rule-timeline`} {
+	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="auto-line`, `class="auto-pill`, `class="auto-fires`} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Fluss-Markup %q fehlt im Automations-Panel", marker)
 		}
@@ -3353,7 +3353,7 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 	body := recorder.Body.String()
 	for _, want := range []string{
 		"Wenn alles zutrifft",
-		"auto-rule-timeline",
+		"auto-fires",
 		"auto-live",
 		"auto-blocks",
 		`<template x-if="!editing[rule.id]">`,

@@ -2087,7 +2087,7 @@ test('row editors write into the model', () => {
   assert.equal(rule.conditions[0].threshold, 950);
 });
 
-test('ruleTimeline keeps only the last six hours', () => {
+test('ruleTriggers shows the last four triggers and nothing for an unknown rule', () => {
   const { component } = createAutomationsPanel();
   const nowSec = 1_000_000;
   component.nowTick = nowSec * 1000;
@@ -2096,15 +2096,17 @@ test('ruleTimeline keeps only the last six hours', () => {
       { at: nowSec - 7 * 3600, result: 'fired' },
       { at: nowSec - 5 * 3600, result: 'blocked' },
       { at: nowSec - 60, result: 'fired' },
-      { at: nowSec + 10, result: 'fired' },
+      { at: nowSec - 6 * 3600 - 300, result: 'fired' },
     ],
   };
-  const timeline = JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'r1' })));
-  assert.equal(timeline.length, 2);
-  assert.equal(timeline[0].x, ((nowSec - 5 * 3600) - (nowSec - 6 * 3600)) / (6 * 3600) * 600);
-  assert.equal(timeline[0].tone, 'bad');
-  assert.equal(timeline[1].tone, 'ok');
-  assert.deepEqual(JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'unknown' }))), []);
+  const triggers = JSON.parse(JSON.stringify(component.ruleTriggers({ id: 'r1' })));
+  assert.equal(triggers.empty, false);
+  assert.equal(triggers.marks.length, 4);
+  assert.equal(triggers.marks[0].tone, 'ok');
+  assert.equal(triggers.marks[1].tone, 'bad');
+  const unknown = JSON.parse(JSON.stringify(component.ruleTriggers({ id: 'unknown' })));
+  assert.deepEqual(unknown.marks, []);
+  assert.equal(unknown.empty, true);
 });
 
 test('a consumer regulator reports its direction so the card takes the consumer colour', () => {

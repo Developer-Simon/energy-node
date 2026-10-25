@@ -96,17 +96,21 @@
                   </div>
 
                   <template x-if="rule.history_enabled">
-                    <div class="auto-rule-timeline">
-                      <span class="auto-block-cap">{{t "automations.rule.timeline.caption"}}</span>
-                      <div class="auto-timeline-track">
-                        <template x-for="(mark, index) in ruleTimeline(rule)" x-bind:key="index">
-                          <i class="auto-timeline-mark" x-bind:class="mark.tone" x-bind:style="{ left: (mark.x / 6) + '%' }"></i>
-                        </template>
+                    <div class="auto-fires">
+                      <div class="auto-fires-head" x-show="ruleTriggers(rule).marks.length">
+                        <span class="auto-block-cap" x-text="ruleTriggers(rule).marks.length === 1 ? $t('automations.rule.timeline.caption_one') : $t('automations.rule.timeline.caption_many', {count: ruleTriggers(rule).marks.length})"></span>
+                        <small x-text="$t('automations.rule.timeline.since', {time: ruleTriggers(rule).sinceLabel})"></small>
                       </div>
-                      <div class="auto-timeline-axis">
-                        <span>{{t "automations.rule.timeline.six_hours_ago"}}</span>
-                        <span>{{t "automations.rule.timeline.three_hours_ago"}}</span>
-                        <span>{{t "automations.rule.timeline.now"}}</span>
+                      <div class="auto-fires-track" x-bind:class="{ empty: ruleTriggers(rule).empty }">
+                        <template x-if="ruleTriggers(rule).empty">
+                          <span x-text="$t('automations.rule.timeline.empty')"></span>
+                        </template>
+                        <template x-for="(mark, index) in ruleTriggers(rule).marks" x-bind:key="index">
+                          <i x-bind:class="mark.tone" x-bind:style="{ left: (mark.x * 100) + '%' }" x-bind:title="mark.label"></i>
+                        </template>
+                        <template x-for="(mark, index) in ruleTriggers(rule).marks.filter((item) => item.showLabel)" x-bind:key="index">
+                          <em x-bind:style="{ left: (mark.x * 100) + '%' }" x-text="mark.label"></em>
+                        </template>
                       </div>
                     </div>
                   </template>

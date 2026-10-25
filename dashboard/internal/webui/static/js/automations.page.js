@@ -1744,10 +1744,9 @@
       return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText };
     },
 
-    // Zeitleiste der letzten sechs Stunden, Sekunden wie der Dienst sie liefert.
-    ruleTimeline(rule) {
-      const now = this.nowTick / 1000;
-      return window.__automationChart.triggerTimeline(this.liveHistory[rule.id] || [], now - 6 * 3600, now, 600);
+    // Auslöse-Leiste der letzten vier Auslösungen, Sekunden wie der Dienst sie liefert.
+    ruleTriggers(rule) {
+      return window.__automationChart.lastTriggers(this.liveHistory[rule.id] || [], this.nowTick / 1000);
     },
 
     // "once" loescht das Wiederholintervall, "repeat" setzt es auf den groesseren
