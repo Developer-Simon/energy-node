@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,16 +59,21 @@ const (
 )
 
 type User struct {
-	Username     string    `json:"username"`
-	PasswordHash string    `json:"password_hash,omitempty"`
-	Roles        []string  `json:"roles,omitempty"`
-	Guest        bool      `json:"guest,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	LastLoginAt  time.Time `json:"last_login_at"`
+	Username         string    `json:"username"`
+	PasswordHash     string    `json:"password_hash,omitempty"`
+	HTTPPasswordHash string    `json:"http_password_hash,omitempty"`
+	Roles            []string  `json:"roles,omitempty"`
+	Guest            bool      `json:"guest,omitempty"`
+	Disabled         bool      `json:"disabled"`
+	CreatedAt        time.Time `json:"created_at"`
+	LastLoginAt      time.Time `json:"last_login_at"`
 }
 
 type userFile struct {
-	Users []User `json:"users"`
+	Version            int      `json:"version"`
+	GuestRoles         []string `json:"guest_roles"`
+	GuestRolesReviewed bool     `json:"guest_roles_reviewed,omitempty"`
+	Users              []User   `json:"users"`
 }
 
 // sessionFile is what survives a restart of the dashboard, so an update
@@ -97,6 +103,13 @@ type Manager struct {
 	path         string
 	sessionsPath string
 	users        map[string]User
+	// guestRoles is the role list every new guest gets, read from users.json.
+	guestRoles []string
+	// migrated is true when this start moved users.json from version 1 to 2.
+	migrated bool
+	// guestRolesReviewed is false until the admin has set the guest roles
+	// once after a migration; it drives MigrationNotice.
+	guestRolesReviewed bool
 	// sessions is keyed by tokenHash(token), the same key sessions.json
 	// stores, so a session loaded from disk is found like a fresh one.
 	sessions map[string]Session
@@ -111,61 +124,36 @@ func NewManager(path, bootstrapUsername, bootstrapPassword string) (*Manager, er
 	return newManager(path, bootstrapUsername, bootstrapPassword, time.Now)
 }
 
-// guestRoles bekommt jeder Gast, solange es keine Rollen-Oberflaeche gibt
-// (siehe ContinueAsGuest). Die Nachruestung in newManager gibt sie auch
-// Gaesten, deren Konto vor einer neuen Rolle angelegt wurde.
-var guestRoles = []string{RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView}
-
 func newManager(path, bootstrapUsername, bootstrapPassword string, now func() time.Time) (*Manager, error) {
 	if bootstrapUsername == "" {
 		bootstrapUsername = "admin"
 	}
 	manager := &Manager{
-		path:         filepath.Clean(path),
-		sessionsPath: filepath.Join(filepath.Dir(filepath.Clean(path)), "sessions.json"),
-		users:        map[string]User{},
-		sessions:     map[string]Session{},
-		now:          now,
-	}
-	changed, err := manager.load()
-	if err != nil {
-		return nil, err
+		path:               filepath.Clean(path),
+		sessionsPath:       filepath.Join(filepath.Dir(filepath.Clean(path)), "sessions.json"),
+		users:              map[string]User{},
+		sessions:           map[string]Session{},
+		now:                now,
+		guestRoles:         defaultGuestRoles(),
+		guestRolesReviewed: true,
 	}
 	manager.mu.Lock()
-	// Roles added after an admin was first bootstrapped are backfilled here,
-	// since an existing users.json keeps the role list it was written with.
-	// Every new role that the bootstrap admin gets below belongs in this list
-	// too, or the already-installed node is the one that stays locked out.
-	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView} {
-		if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, role) {
-			user.Roles = append(user.Roles, role)
-			manager.users[bootstrapUsername] = user
-			changed = true
-		}
+	changed, err := manager.loadLocked()
+	if err != nil {
+		manager.mu.Unlock()
+		return nil, err
 	}
-	for name, user := range manager.users {
-		if !user.Guest {
-			continue
+	// The bootstrap admin is created only while no non-guest account exists.
+	// An existing one is never touched here: roles are managed in the UI.
+	if bootstrapPassword != "" && !manager.hasNonGuestLocked() {
+		hash, hashErr := hashPassword(bootstrapPassword)
+		if hashErr != nil {
+			manager.mu.Unlock()
+			return nil, hashErr
 		}
-		for _, role := range guestRoles {
-			if !HasRole(user, role) {
-				user.Roles = append(user.Roles, role)
-				changed = true
-			}
-		}
-		manager.users[name] = user
-	}
-	if bootstrapPassword != "" {
-		if _, exists := manager.users[bootstrapUsername]; !exists {
-			hash, hashErr := hashPassword(bootstrapPassword)
-			if hashErr != nil {
-				manager.mu.Unlock()
-				return nil, hashErr
-			}
-			nowValue := manager.now().UTC()
-			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView}, CreatedAt: nowValue, LastLoginAt: nowValue}
-			changed = true
-		}
+		nowValue := manager.now().UTC()
+		manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: Normalize(bootstrapAdminRoles()), CreatedAt: nowValue, LastLoginAt: nowValue}
+		changed = true
 	}
 	if changed {
 		if err := manager.saveLocked(); err != nil {
@@ -181,9 +169,9 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 	return manager, nil
 }
 
-func (m *Manager) load() (bool, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// loadLocked reads users.json, migrates it when it is older than the current
+// version and reports whether the file has to be written again.
+func (m *Manager) loadLocked() (bool, error) {
 	data, err := os.ReadFile(m.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -195,7 +183,9 @@ func (m *Manager) load() (bool, error) {
 	if err := json.Unmarshal(data, &file); err != nil {
 		return false, fmt.Errorf("users: invalid JSON: %w", err)
 	}
-	changed := false
+	if file.Version > usersFileVersion {
+		return false, fmt.Errorf("%w: %d (this dashboard reads up to %d)", ErrUnsupportedUsersVersion, file.Version, usersFileVersion)
+	}
 	for _, user := range file.Users {
 		if user.Username == "" || m.users[user.Username].Username != "" {
 			return false, fmt.Errorf("users: duplicate or empty username")
@@ -205,10 +195,34 @@ func (m *Manager) load() (bool, error) {
 		}
 		m.users[user.Username] = user
 	}
+	changed := false
+	if file.Version < usersFileVersion {
+		m.migrated = len(file.Users) > 0
+		m.guestRoles = migrateV1(m.users)
+		m.guestRolesReviewed = !m.migrated
+		changed = true
+	} else {
+		m.guestRoles = Normalize(guestAllowedOnly(file.GuestRoles))
+		m.guestRolesReviewed = file.GuestRolesReviewed
+		for name, user := range m.users {
+			user.Roles = Normalize(user.Roles)
+			m.users[name] = user
+		}
+	}
 	if m.cleanupGuestsLocked() {
 		changed = true
 	}
 	return changed, nil
+}
+
+// hasNonGuestLocked reports whether an account exists that is not a guest.
+func (m *Manager) hasNonGuestLocked() bool {
+	for _, user := range m.users {
+		if !user.Guest {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *Manager) Login(username, password string) (Session, error) {
@@ -236,12 +250,7 @@ func (m *Manager) ContinueAsGuest() (Session, error) {
 		return Session{}, err
 	}
 	nowValue := m.now().UTC()
-	// Provisional: guests get RoleAutomations, RoleEditLayout and
-	// RoleCheckUpdates too, since there is no per-user role UI yet and
-	// locking either behind an admin-only login would make the feature
-	// unusable for the primary user. Revisit once role management grows a
-	// UI (docs/developing/api.md, section Roles).
-	user := User{Username: username, Guest: true, Roles: append([]string(nil), guestRoles...), CreatedAt: nowValue, LastLoginAt: nowValue}
+	user := User{Username: username, Guest: true, Roles: append([]string(nil), m.guestRoles...), CreatedAt: nowValue, LastLoginAt: nowValue}
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
@@ -365,7 +374,15 @@ func (m *Manager) saveLocked() error {
 	for _, user := range m.users {
 		users = append(users, user)
 	}
-	data, err := json.MarshalIndent(userFile{Users: users}, "", "  ")
+	// Sorted, so the same state always produces the same bytes.
+	sort.Slice(users, func(i, j int) bool { return users[i].Username < users[j].Username })
+	file := userFile{
+		Version:            usersFileVersion,
+		GuestRoles:         append([]string{}, m.guestRoles...),
+		GuestRolesReviewed: m.guestRolesReviewed,
+		Users:              users,
+	}
+	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		return err
 	}

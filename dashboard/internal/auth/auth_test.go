@@ -86,40 +86,6 @@ func TestManagerCreatesAndCleansGuestUsers(t *testing.T) {
 	}
 }
 
-// An admin that predates a role keeps its stored role list, so every role
-// added after the first bootstrap has to be backfilled on load -- otherwise
-// the existing admin is the one account locked out of the new feature.
-func TestManagerBackfillsRolesForExistingAdmin(t *testing.T) {
-	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	path := filepath.Join(t.TempDir(), "users.json")
-	stored := `{"users":[{"username":"admin","password_hash":"x","roles":["system_actions"],` +
-		`"created_at":"2026-01-01T00:00:00Z","last_login_at":"2026-01-01T00:00:00Z"}]}`
-	if err := os.WriteFile(path, []byte(stored), 0600); err != nil {
-		t.Fatal(err)
-	}
-	manager, err := newManager(path, "admin", "secret", func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager.mu.Lock()
-	admin := manager.users["admin"]
-	manager.mu.Unlock()
-	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy} {
-		if !HasRole(admin, role) {
-			t.Errorf("existing admin was not backfilled with %q", role)
-		}
-	}
-	reloaded, err := newManager(path, "admin", "secret", func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
-	reloaded.mu.Lock()
-	defer reloaded.mu.Unlock()
-	if !HasRole(reloaded.users["admin"], RoleCheckUpdates) {
-		t.Error("backfilled roles were not persisted to users.json")
-	}
-}
-
 func TestManagerSessionsSurviveRestart(t *testing.T) {
 	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
@@ -233,30 +199,6 @@ func TestManagerStartsWithBrokenSessionsFile(t *testing.T) {
 	}
 }
 
-func TestManagerBackfillsEditEnergyForExistingAdminAndGuests(t *testing.T) {
-	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
-	path := filepath.Join(t.TempDir(), "users.json")
-	stored := `{"users":[` +
-		`{"username":"admin","password_hash":"x","roles":["system_actions"],"created_at":"2026-10-01T00:00:00Z","last_login_at":"2026-10-08T00:00:00Z"},` +
-		`{"username":"guest-old","guest":true,"roles":["automations","edit_layout","check_updates"],"created_at":"2026-10-07T00:00:00Z","last_login_at":"2026-10-08T00:00:00Z"}]}`
-	if err := os.WriteFile(path, []byte(stored), 0600); err != nil {
-		t.Fatal(err)
-	}
-	manager, err := newManager(path, "admin", "secret", func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager.mu.Lock()
-	admin, guest := manager.users["admin"], manager.users["guest-old"]
-	manager.mu.Unlock()
-	if !HasRole(admin, RoleEditEnergy) {
-		t.Error("existing admin was not backfilled with edit_energy")
-	}
-	if !HasRole(guest, RoleEditEnergy) {
-		t.Error("existing guest was not backfilled with edit_energy")
-	}
-}
-
 func TestNewGuestsGetEditEnergy(t *testing.T) {
 	manager, err := newManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret", time.Now)
 	if err != nil {
@@ -265,6 +207,9 @@ func TestNewGuestsGetEditEnergy(t *testing.T) {
 	session, err := manager.ContinueAsGuest()
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !containsRole(defaultGuestRoles(), RoleEditEnergy) {
+		t.Fatal("the default guest roles lack edit_energy")
 	}
 	if !HasRole(session.User, RoleEditEnergy) {
 		t.Fatal("a new guest must get edit_energy until there is a user management")
@@ -281,6 +226,9 @@ func TestGuestAndBootstrapGetDeviceMapRoles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !containsRole(defaultGuestRoles(), RoleEditDeviceMap) || !containsRole(defaultGuestRoles(), RoleEditDeviceMapView) {
+		t.Fatal("the default guest roles lack the device map roles")
+	}
 	if !HasRole(guest.User, RoleEditDeviceMap) || !HasRole(guest.User, RoleEditDeviceMapView) {
 		t.Fatal("a new guest must get edit_device_map and edit_device_map_view until there is a user management")
 	}
@@ -289,28 +237,5 @@ func TestGuestAndBootstrapGetDeviceMapRoles(t *testing.T) {
 	manager.mu.Unlock()
 	if !HasRole(admin, RoleEditDeviceMap) || !HasRole(admin, RoleEditDeviceMapView) {
 		t.Fatal("the bootstrap admin must get edit_device_map and edit_device_map_view")
-	}
-}
-
-func TestManagerBackfillsDeviceMapRolesForExistingGuest(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	path := filepath.Join(t.TempDir(), "users.json")
-	stored := `{"users":[` +
-		`{"username":"guest-old","guest":true,"roles":["edit_energy"],"created_at":"2026-10-20T00:00:00Z","last_login_at":"2026-10-20T00:00:00Z"}]}`
-	if err := os.WriteFile(path, []byte(stored), 0600); err != nil {
-		t.Fatal(err)
-	}
-	manager, err := newManager(path, "admin", "secret", func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager.mu.Lock()
-	guest := manager.users["guest-old"]
-	manager.mu.Unlock()
-	if !HasRole(guest, RoleEditDeviceMap) {
-		t.Error("existing guest was not backfilled with edit_device_map")
-	}
-	if !HasRole(guest, RoleEditDeviceMapView) {
-		t.Error("existing guest was not backfilled with edit_device_map_view")
 	}
 }
