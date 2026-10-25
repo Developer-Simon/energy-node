@@ -718,3 +718,30 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 
 /* Das Abzeichen zeigt nur die Regel-Bearbeitung auf dem Telefon, das Szenario-Formular bleibt ohne. */
 .auto-cond-badge { display: none; }
+
+/* --- Assistent als Blatt unter 900 px: unten angedockt, Griff, Zeilen statt Kacheln, Chips zum Wischen --- */
+.auto-assist-grab { display: none; }
+.auto-assist-chev { display: none; }
+@media (max-width: 899.98px) {
+  .auto-assist { inset: auto 0 0; width: 100%; max-width: 100%; max-height: 86vh; }
+  .auto-assist-sheet { max-height: 86vh; border-radius: 22px 22px 0 0; background: var(--panel); box-shadow: 0 -8px 32px rgba(0, 0, 0, .25); }
+  .auto-assist::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .auto-assist-grab { display: grid; place-items: center; height: 26px; flex: none; cursor: grab; touch-action: none; }
+  .auto-assist-grab span { width: 36px; height: 5px; border-radius: 999px; background: var(--border); }
+  .auto-assist-foot { padding: 10px 14px; background: var(--panel); }
+  .auto-assist-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .auto-assist-cat { flex: none; }
+  .auto-assist-tiles { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .auto-assist-tile { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 2px; align-items: center; padding: 10px 12px; text-align: left; }
+  .auto-assist-tile > .auto-assist-tile-icon { grid-column: 1; grid-row: 1 / span 3; width: 34px; height: 34px; }
+  .auto-assist-tile > b { grid-column: 2; grid-row: 1; min-width: 0; }
+  .auto-assist-tile > .auto-assist-blurb { grid-column: 2; grid-row: 2; }
+  .auto-assist-tile > .auto-assist-hint { grid-column: 2; grid-row: 3; }
+  .auto-assist-chev { display: block; grid-column: 3; grid-row: 1 / span 3; width: .9rem; height: .9rem; color: var(--text-faint); }
+}
+@media (max-width: 899.98px) and (prefers-reduced-motion: no-preference) {
+  .auto-assist[open] { animation: auto-sheet-up 420ms cubic-bezier(.32, .72, 0, 1); }
+  .auto-assist.is-closing { animation: auto-sheet-down 420ms cubic-bezier(.32, .72, 0, 1) forwards; }
+}
+@keyframes auto-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes auto-sheet-down { from { transform: none; } to { transform: translateY(100%); } }

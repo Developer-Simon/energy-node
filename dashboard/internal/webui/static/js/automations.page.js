@@ -1158,6 +1158,8 @@
     // Vorlagen-Assistent: Zustand, Schrittfolge und Anlegen. Das Markup folgt
     // in den Teilauftraegen 5b/5c.
     async openAssistant() {
+      const active = document.activeElement;
+      this.assistantOpener = active && active !== document.body ? active : document.querySelector('.auto-assist-open');
       const [, energy] = await Promise.all([
         this.loadDeviceCatalog(),
         requestJSON('/api/v1/energy').catch(() => null),
@@ -1170,6 +1172,7 @@
       };
       const dialog = this.$refs.assistantDialog;
       if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+      this.attachAssistantSheet();
       const search = this.$refs.assistantSearch;
       if (search && typeof search.focus === 'function') search.focus();
     },
@@ -1178,8 +1181,48 @@
     // den Entwurf. Angelegt wird nur in assistantCreate().
     closeAssistant() {
       const dialog = this.$refs.assistantDialog;
-      if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
-      this.assistant = assistantIdle();
+      this.detachAssistantSheet();
+      const opener = this.assistantOpener;
+      this.assistantOpener = null;
+      const finish = () => {
+        if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
+        this.assistant = assistantIdle();
+        if (opener && typeof opener.focus === 'function') opener.focus();
+      };
+      const slides = typeof window.matchMedia === 'function'
+        && window.matchMedia('(max-width: 899.98px) and (prefers-reduced-motion: no-preference)').matches;
+      if (dialog && dialog.open && slides) {
+        // Auf dem Telefon faehrt das Blatt nach unten weg, dann schliesst der Dialog.
+        let done = false;
+        const once = () => {
+          if (done) return;
+          done = true;
+          dialog.classList.remove('is-closing');
+          finish();
+        };
+        dialog.style.transform = '';
+        dialog.classList.add('is-closing');
+        dialog.addEventListener('animationend', (event) => { if (event.target === dialog) once(); }, { once: true });
+        setTimeout(once, 480);
+        return;
+      }
+      finish();
+    },
+
+    // Blatt unter 900 px: der Griff folgt dem Finger und schliesst, sonst federt es zurueck.
+    attachAssistantSheet() {
+      this.detachAssistantSheet();
+      const dialog = this.$refs.assistantDialog;
+      const grab = this.$refs.assistantGrab;
+      const sheet = window.__automationSheet;
+      const phone = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 899.98px)').matches;
+      if (!sheet || !dialog || !grab || !phone) return;
+      this.assistantDetach = sheet.attach(grab, dialog, { onClose: () => this.closeAssistant() });
+    },
+
+    detachAssistantSheet() {
+      if (typeof this.assistantDetach === 'function') this.assistantDetach();
+      this.assistantDetach = null;
     },
 
     assistantTemplate() {

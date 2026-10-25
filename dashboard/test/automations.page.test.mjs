@@ -1987,6 +1987,19 @@ test('setShowHistory loads rule sparklines only for rules with a series', async 
   }
 });
 
+test('closeAssistant restores focus to the opener', () => {
+  const { component, window } = createAutomationsPanel();
+  const opener = window.document.createElement('button');
+  const elsewhere = window.document.createElement('button');
+  window.document.body.appendChild(opener);
+  window.document.body.appendChild(elsewhere);
+  elsewhere.focus();
+  component.assistantOpener = opener;
+  component.closeAssistant();
+  assert.equal(window.document.activeElement, opener);
+  assert.equal(component.assistantOpener, null);
+});
+
 test('ruleEditStatus shows only the status without a trigger history', () => {
   const { component } = createAutomationsPanel();
   component.online = true;
