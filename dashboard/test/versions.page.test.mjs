@@ -188,11 +188,11 @@ test('groupTitle translates known change types and keeps the label of unknown on
   assert.equal(component.groupTitle({ type: 'other', label: 'Other' }), de['settings.versions.change_type_other']);
 });
 
-test('load() also reads the cached update status and the system_actions flag', async () => {
+test('load() also reads the cached update status and the update_settings flag', async () => {
   const panel = createVersionsPanel({
     fetchImpl: async (url) => {
       if (url === '/api/v1/versions') return jsonResponse(SNAPSHOT);
-      if (url === '/api/v1/auth/session') return jsonResponse({ system_actions: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ update_settings: true });
       if (url === '/api/v1/updates/status') return jsonResponse({ available: true, latest: '1.4.2', notes_url: 'https://example.invalid' });
       throw new Error(`unexpected fetch ${url}`);
     },
@@ -200,7 +200,7 @@ test('load() also reads the cached update status and the system_actions flag', a
   await panel.component.load();
   assert.equal(panel.component.updateStatus.available, true);
   assert.equal(panel.component.updateStatus.latest, '1.4.2');
-  assert.equal(panel.component.canSystemActions, true);
+  assert.equal(panel.component.canUpdateSettings, true);
 });
 
 test('an update status that was never checked counts as no result', async () => {
@@ -214,7 +214,7 @@ test('an update status that was never checked counts as no result', async () => 
   });
   await panel.component.load();
   assert.equal(panel.component.updateStatus, null);
-  assert.equal(panel.component.canSystemActions, false);
+  assert.equal(panel.component.canUpdateSettings, false);
 });
 
 test('checkForUpdates() stores the answer and ignores a second click while running', async () => {

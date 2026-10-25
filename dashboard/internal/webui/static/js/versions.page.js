@@ -68,7 +68,7 @@
     mode: 'highlights',
     updateStatus: null,
     checkingForUpdates: false,
-    canSystemActions: false,
+    canUpdateSettings: false,
     updateCheckDisabled: false,
     savingUpdateCheck: false,
     changelogHistory: 'recent',
@@ -102,9 +102,9 @@
     async loadUpdates() {
       try {
         const session = await requestJSON('/api/v1/auth/session');
-        this.canSystemActions = Boolean(session.system_actions);
+        this.canUpdateSettings = Boolean(session.update_settings);
       } catch (error) {
-        this.canSystemActions = false;
+        this.canUpdateSettings = false;
       }
       try {
         const value = await requestJSON('/api/v1/settings');

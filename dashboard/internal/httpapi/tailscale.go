@@ -79,7 +79,7 @@ func handleTailscalePrereqs(client *tailscale.Client) http.HandlerFunc {
 }
 
 // handleTailscaleAction is the shared shape of the three privileged
-// Tailscale actions (login, logout, restart): RoleSystemActions + HTTPS +
+// Tailscale actions (login, logout, restart): RoleTailscale + HTTPS +
 // CSRF, same three-gate pattern as handleBridgeApply/handleBridgeRestart,
 // executed through the root system-action helper, and recorded in state
 // regardless of outcome.
@@ -89,7 +89,7 @@ func handleTailscaleAction(authManager *auth.Manager, executor SystemActionExecu
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleSystemActions, "tailscale_forbidden", "error.tailscale_forbidden.action", "Für diese Tailscale-Aktion fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleTailscale, "tailscale_forbidden", "error.tailscale_forbidden.action", "Für diese Tailscale-Aktion fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {

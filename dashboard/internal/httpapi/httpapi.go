@@ -265,7 +265,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.Handle("/static/", webui.Static())
 	mux.Handle("/i18n/", webui.I18nScript())
 	if dependencies.Redeploy != nil {
-		mux.Handle("/redeploy/", requireSystemActions(dependencies.Auth, dependencies.Redeploy))
+		mux.Handle("/redeploy/", requireRoleGate(dependencies.Auth, auth.RoleUpdateSettings, "update_settings_forbidden", "error.update_settings_forbidden", "Für den Installer fehlt die Berechtigung update_settings", dependencies.Redeploy))
 	}
 	stateDir := dependencies.InstallerStateDir
 	if stateDir == "" {
@@ -513,19 +513,17 @@ func handleAuthLogout(manager *auth.Manager) http.HandlerFunc {
 	}
 }
 
-// requireSystemActions gates a whole mounted sub-handler behind the same
-// privilege handleSystemAction demands for a single endpoint: the
-// RoleSystemActions role, plus a valid CSRF token on every state-changing
-// method. It exists for /redeploy/, which is a *larger* privilege than any
-// single system action -- it triggers a root-privileged bootstrap run --
-// and must therefore never be reachable for a guest session, which
-// authMiddleware alone would happily let through (a guest has a valid
-// session, just no privilege). GET stays token-free so the screen itself
-// and its SSE stream load exactly like every other read-only route.
-func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler {
+// requireRoleGate gates a whole mounted sub-handler behind one role, plus a
+// valid CSRF token on every state-changing method. It exists for /redeploy/,
+// which is a *larger* privilege than any single action -- it triggers a
+// root-privileged bootstrap run -- and must therefore never be reachable for a
+// guest session, which authMiddleware alone would happily let through (a guest
+// has a valid session, just no privilege). GET stays token-free so the screen
+// itself and its SSE stream load exactly like every other read-only route.
+func requireRoleGate(manager *auth.Manager, role, code, key, message string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if manager == nil {
-			writeError(w, http.StatusNotImplemented, "system_actions_unavailable", "Systemaktionen sind nicht konfiguriert")
+			writeError(w, http.StatusNotImplemented, "authentication_unavailable", "Anmeldung ist nicht konfiguriert")
 			return
 		}
 		user, ok := auth.UserFromContext(r.Context())
@@ -533,8 +531,8 @@ func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
-		if !auth.HasRole(user, auth.RoleSystemActions) {
-			writeError(w, http.StatusForbidden, "system_actions_forbidden", "Für Systemaktionen fehlt die Berechtigung")
+		if !auth.HasRole(user, role) {
+			writeErrorKey(w, http.StatusForbidden, code, key, nil, message)
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -558,7 +556,7 @@ func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler
 
 // SessionCSRFToken returns the CSRF token of the session a request carries, or
 // "" when there is none. The mounted installer screen sends the token its page
-// was rendered with in X-Installer-Token, which requireSystemActions accepts
+// was rendered with in X-Installer-Token, which requireRoleGate accepts
 // as the CSRF carrier; rendering the page with this value is what lets the
 // screen's own POSTs (prepare, run, cancel) pass that gate.
 func SessionCSRFToken(manager *auth.Manager) func(*http.Request) string {

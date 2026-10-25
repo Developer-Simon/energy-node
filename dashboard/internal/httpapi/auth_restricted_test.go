@@ -41,6 +41,30 @@ func createRestrictedTestAccount(t *testing.T, manager *auth.Manager, username s
 	}
 }
 
+// loginWithRoles creates an account with exactly the given roles and logs it
+// in over HTTPS, so its session keeps every role it was granted. It returns the
+// session cookie and the CSRF token of that session.
+func loginWithRoles(t *testing.T, router http.Handler, manager *auth.Manager, username string, roles []string) (*http.Cookie, string) {
+	t.Helper()
+	createRestrictedTestAccount(t, manager, username, roles)
+	body := fmt.Sprintf(`{"username":%q,"password":%q}`, username, restrictedTestPassword)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Forwarded-Proto", "https")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("HTTPS login of %s status %d: %s", username, recorder.Code, recorder.Body.String())
+	}
+	var session struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&session); err != nil {
+		t.Fatal(err)
+	}
+	return recorder.Result().Cookies()[0], session.CSRFToken
+}
+
 // loginOverHTTP logs in without X-Forwarded-Proto and returns the cookie the
 // server set; that cookie carries the unsecure name.
 func loginOverHTTP(t *testing.T, router http.Handler, username string) *http.Cookie {
@@ -125,7 +149,7 @@ func TestRestrictedSessionCannotReachRedeployOverHTTPS(t *testing.T) {
 		request.Header.Set("X-Forwarded-Proto", "https")
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, request)
-		if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"system_actions_forbidden"`) {
+		if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"update_settings_forbidden"`) {
 			t.Fatalf("restricted %s /redeploy/ over HTTPS status %d: %s", method, recorder.Code, recorder.Body.String())
 		}
 	}

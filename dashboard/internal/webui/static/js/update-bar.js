@@ -3,7 +3,7 @@
 // the masthead pill. Everything it shows comes from three GET endpoints:
 // /api/v1/updates/progress (the updater's job directory, every session),
 // /api/v1/updates/status (the cached GitHub check, check_updates role) and
-// /api/v1/auth/session (system_actions decides install and details links).
+// /api/v1/auth/session (update_settings decides install and details links).
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const withBase = (p) => `${window.__DASHBOARD_BASE_PATH__ || ''}${p}`;
@@ -120,7 +120,7 @@
       this.loaded = true;
       try {
         const session = await getJSON('/api/v1/auth/session');
-        this.canInstall = Boolean(session && session.system_actions);
+        this.canInstall = Boolean(session && session.update_settings);
       } catch (error) {
         this.canInstall = false;
       }

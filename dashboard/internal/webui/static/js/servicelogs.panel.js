@@ -40,7 +40,7 @@
     async init() {
       try {
         const session = await requestJSON('/api/v1/auth/session').catch(() => null);
-        this.canView = Boolean(session && session.system_actions);
+        this.canView = Boolean(session && session.view_logs);
         if (!this.canView) return;
         this.options = await requestJSON('/api/v1/system/logs/units');
         this.unit = this.options.default_unit || this.unit;
