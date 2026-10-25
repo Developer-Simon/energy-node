@@ -141,3 +141,24 @@ func Normalize(roles []string) []string {
 	sort.Strings(out)
 	return out
 }
+
+// ViewRoles liefert die Ansehen-Berechtigungen in Katalogreihenfolge.
+func ViewRoles() []string {
+	out := make([]string, 0, len(roleCatalog))
+	for _, info := range roleCatalog {
+		if info.Category == CategoryView {
+			out = append(out, info.Key)
+		}
+	}
+	return out
+}
+
+// HasAnyView meldet, ob der Benutzer mindestens eine Ansehen-Berechtigung hat.
+func HasAnyView(user User) bool {
+	for _, role := range ViewRoles() {
+		if containsRole(user.Roles, role) {
+			return true
+		}
+	}
+	return false
+}

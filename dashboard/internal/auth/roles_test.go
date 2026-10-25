@@ -38,6 +38,18 @@ func TestNormalizeDropsUnknownAndUnmetRequirements(t *testing.T) {
 	}
 }
 
+func TestHasAnyView(t *testing.T) {
+	if HasAnyView(User{}) {
+		t.Fatal("user without roles must not have any view")
+	}
+	if !HasAnyView(User{Roles: []string{RoleViewStats}}) {
+		t.Fatal("view_stats must count as a view")
+	}
+	if HasAnyView(User{Roles: []string{RoleOperateDevices}}) {
+		t.Fatal("operate roles alone must not count as a view")
+	}
+}
+
 func TestHasRoleRequiresTheViewPermission(t *testing.T) {
 	user := User{Roles: []string{RoleAutomations}}
 	if HasRole(user, RoleAutomations) {

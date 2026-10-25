@@ -2075,6 +2075,7 @@
   "error.user_not_found": "The user was not found",
   "error.user_save_failed": "The accounts could not be saved",
   "error.versions_unreadable": "The version data could not be read",
+  "error.view_forbidden": "You do not have permission to view this page.",
   "error.with_detail": "{message}: {detail}",
   "group_role.category_aria": "Category of the group",
   "group_role.new_category": "New category",

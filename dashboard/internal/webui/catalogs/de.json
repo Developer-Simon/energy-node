@@ -2075,6 +2075,7 @@
   "error.user_not_found": "Der Benutzer wurde nicht gefunden",
   "error.user_save_failed": "Die Konten konnten nicht gespeichert werden",
   "error.versions_unreadable": "Versionsdaten konnten nicht gelesen werden",
+  "error.view_forbidden": "Für diese Seite fehlt die Berechtigung zum Ansehen.",
   "error.with_detail": "{message}: {detail}",
   "group_role.category_aria": "Kategorie der Gruppe",
   "group_role.new_category": "Neue Kategorie",
