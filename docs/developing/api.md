@@ -149,6 +149,25 @@ password of other accounts. Every account can change its own password without
 it. The last administrator cannot lose `user_management`, and an account
 cannot delete or disable itself.
 
+#### Route access groups
+
+Every route is registered with one of three access groups. `routeTable` in
+`internal/httpapi/access.go` names the group of each pattern. The web UI
+applies the same rules to its panel fragments, so a hidden panel is refused on
+the server as well.
+
+| Group | Rule | Examples |
+|---|---|---|
+| `open` | No view gate. The handler does its own checks, such as the write role, HTTPS or CSRF | `/api/v1/settings`, `/api/v1/users`, `/api/v1/auth/login` |
+| `any view` | At least one `view_*` permission is needed | `/api/v1/history/entities`, `/api/v1/energy/interpretation` |
+| `page` | The `view_*` permission of the page is needed. Some routes pick it from the request | `/api/v1/diagnostics` needs `view_diagnostics`, `/api/v1/automation/state` needs `view_automations` |
+
+A refused request gets HTTP 403 with the error key `view_forbidden`. A request
+without a user, as on an instance without accounts, passes every gate.
+
+A new route without an entry in `routeTable` panics when it is registered, so
+the dashboard does not start. Add the entry in the same change as the route.
+
 ### Restricted HTTP sessions
 
 A session counts as restricted when the login came over plain HTTP, or when an
@@ -533,9 +552,11 @@ The dashboard then publishes to the fixed topic
 | DELETE | `/api/v1/device/map/relations/{id}` | – | Delete a relation (204) |
 | GET | `/api/v1/shelly/presets` | – | Shelly presets (read-only) |
 
-`PUT /api/v1/settings` only checks the `tune_live_updates` role when
-`live_update_interval_seconds` differs from the stored value. Any logged-in
-session can change every other field.
+`PUT /api/v1/settings` checks one role per changed field: `tune_live_updates`
+for `live_update_interval_seconds`, `view_history` for `history_views`, and
+`edit_settings` for every other field. A session without the role gets 403
+with `live_update_interval_forbidden`, `view_forbidden` or
+`edit_settings_forbidden`.
 
 Since layout v3 (Spec F), `GET /api/v1/layout` also returns `card_types`. It
 maps each item type to `{min_span, min_width, min_height, fills_height,
