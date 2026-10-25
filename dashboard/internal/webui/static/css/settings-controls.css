@@ -726,6 +726,11 @@
 /* Die Verwaltungs-Karten sitzen in einem Wrapper, der keine Box erzeugt: so
    bleiben sie direkte Rasterelemente fuer Spalten und Mauerwerk. */
 .users-manage { display: contents; }
+/* Die Kontokarte stand frueher unter der Systemzugriff-Karte und brachte
+   deren Trennlinie mit; auf der Benutzer-Seite faellt sie weg. Der Reiter-Block
+   bekommt oben denselben Abstand wie zwischen zwei Karten (1rem). */
+.users-account-card .settings-account { margin-top: 0; padding-top: 0; border-top: 0; }
+.users-cards { padding-top: 1rem; }
 .users-section-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
 .users-section-head .setting-card-title { margin: 0; }
 .users-section .setting-note { margin: .4rem 0 .6rem; }
