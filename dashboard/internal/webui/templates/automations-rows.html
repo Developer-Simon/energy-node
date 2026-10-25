@@ -360,7 +360,7 @@
                               </div>
                               <template x-if="action.payload_source === 'balance'">
                                 <div class="auto-fields auto-field-wide auto-source-row">
-                                  <div class="auto-field">
+                                  <div class="auto-field auto-field-metric">
                                     <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.condition.balance.field_label"}}</span>
                                     <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
                                       <template x-for="[field, label] in balanceFields" x-bind:key="field">

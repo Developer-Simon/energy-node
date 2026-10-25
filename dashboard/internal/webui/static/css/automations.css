@@ -566,8 +566,12 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 0 0 auto; }
   /* Aktion "Aus Messwert": Gerät, Messfelder und Quellwahl in einer umbrechenden Zeile wie die Satzzeilen. Die inneren Gruppen geben ihre Felder an die Zeile ab, die Quellwahl steht am Ende. */
   .auto-rule[data-mode="edit"] .auto-source-row { display: contents; }
-  .auto-rule[data-mode="edit"] .auto-field-device { flex: 1 1 14rem; }
-  .auto-rule[data-mode="edit"] .auto-field-source { order: 1; }
+  /* Eine Zeile: Gerät, Quelle, Messfeld, Skalierung, Offset. Nichts wächst, nur der Umbruch greift bei echtem Platzmangel. */
+  .auto-rule[data-mode="edit"] .auto-source-row .auto-field { order: 2; flex: 0 0 auto; }
+  .auto-rule[data-mode="edit"] .auto-field-device { flex: 0 0 auto; }
+  .auto-rule[data-mode="edit"] .auto-source-row .auto-field-source { order: 1; }
+  .auto-rule[data-mode="edit"] .auto-field-metric > select { max-width: 16rem; }
+  .auto-rule[data-mode="edit"] .auto-source-row .auto-field > input { width: 6ch; text-align: right; }
   .auto-rule[data-mode="edit"] .auto-field > input, .auto-rule[data-mode="edit"] .auto-field > select { width: auto; }
   .auto-rule[data-mode="edit"] .auto-stepper { min-width: 0; }
   .auto-rule[data-mode="edit"] .auto-stepper-field .auto-input { width: auto; min-width: 4ch; }
