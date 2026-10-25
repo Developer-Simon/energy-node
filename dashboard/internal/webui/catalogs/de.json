@@ -59,7 +59,7 @@
   "automations.action_preview.no_preview": "noch keine Vorschau",
   "automations.action_type.entity.hint": "Ein bekanntes Gerät ein- oder ausschalten oder einen Sollwert setzen.",
   "automations.action_type.entity.label": "Gerät schalten",
-  "automations.action_type.entity.short": "ein, aus, umschalten",
+  "automations.action_type.entity.short": "schalten oder Sollwert",
   "automations.action_type.mqtt.hint": "Topic und Payload von Hand eintragen. Nur nötig für Geräte, die das Dashboard nicht kennt.",
   "automations.action_type.mqtt.label": "MQTT-Befehl",
   "automations.action_type.mqtt.short": "erweitert",

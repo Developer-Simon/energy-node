@@ -59,7 +59,7 @@
   "automations.action_preview.no_preview": "no preview yet",
   "automations.action_type.entity.hint": "Switch a known device on or off, or set a setpoint.",
   "automations.action_type.entity.label": "Switch device",
-  "automations.action_type.entity.short": "on, off, toggle",
+  "automations.action_type.entity.short": "switch or set a value",
   "automations.action_type.mqtt.hint": "Enter topic and payload by hand. Only needed for devices the dashboard does not know.",
   "automations.action_type.mqtt.label": "MQTT command",
   "automations.action_type.mqtt.short": "advanced",
