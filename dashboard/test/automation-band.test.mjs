@@ -206,3 +206,113 @@ test('spring with reduced motion sets the value immediately and schedules nothin
   assert.equal(v.x, 100);
   assert.equal(frames.pending(), 0);
 });
+
+// ---------- mountBand: DOM part of the target band ----------
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function makeSvg(window, width = 580) {
+  const svg = window.document.createElementNS(SVG_NS, 'svg');
+  window.document.body.appendChild(svg);
+  svg.getBoundingClientRect = () => ({ left: 0, top: 0, width, height: 150, right: width, bottom: 150 });
+  return svg;
+}
+
+function bandOpts(state, over = {}) {
+  return {
+    state,
+    tolEditable: () => false,
+    errors: () => [],
+    labels: {
+      feedIn: 'Feed-in',
+      import: 'Import',
+      axis: 'Grid power in W',
+      axisShort: 'Grid in W',
+      target: (v) => `Target ${v} W`,
+      targetTol: (v, tol) => `Target ${v} W ± ${tol}`,
+      valueText: (v, tol) => `Target ${v} W, tolerance ${tol} W`,
+    },
+    onChange: () => {},
+    ...over,
+  };
+}
+
+function press(window, svg, key, shiftKey = false) {
+  svg.dispatchEvent(new window.KeyboardEvent('keydown', { key, shiftKey, bubbles: true }));
+}
+
+test('mountBand moves the target on arrow keys', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window);
+  const state = { target: 30, tol: 20 };
+  const band = api.mountBand(svg, bandOpts(state));
+  press(window, svg, 'ArrowRight');
+  assert.equal(state.target, 35);
+  press(window, svg, 'ArrowRight', true);
+  assert.equal(state.target, 55);
+  press(window, svg, 'ArrowLeft');
+  assert.equal(state.target, 50);
+  press(window, svg, 'ArrowDown', true);
+  assert.equal(state.target, 30);
+  band.destroy();
+});
+
+test('mountBand draws side handles only while tolEditable is true', () => {
+  const { api, window } = load({ reducedMotion: true });
+  const state = { target: 30, tol: 20 };
+
+  const fixed = makeSvg(window);
+  api.mountBand(fixed, bandOpts(state, { tolEditable: () => false }));
+  assert.equal(fixed.querySelector('[data-drag="l"]'), null);
+  assert.equal(fixed.querySelector('[data-drag="r"]'), null);
+  assert.ok(fixed.querySelector('[data-drag="move"]'), 'the window is always drawn');
+  assert.ok(fixed.textContent.includes('Target 30 W'));
+  assert.ok(!/Einspeisung|Bezug|Ziel/.test(fixed.textContent), 'no hardcoded German');
+
+  const editable = makeSvg(window);
+  api.mountBand(editable, bandOpts(state, { tolEditable: () => true }));
+  assert.ok(editable.querySelector('[data-drag="l"]'));
+  assert.ok(editable.querySelector('[data-drag="r"]'));
+  assert.ok(editable.textContent.includes('Target 30 W ± 20'));
+  assert.ok(!/Einspeisung|Bezug|Ziel/.test(editable.textContent), 'no hardcoded German');
+});
+
+test('mountBand setTarget springs to the value and reports every change', () => {
+  const { api, window } = load({ reducedMotion: false });
+  const frames = fakeFrames(window);
+  const svg = makeSvg(window);
+  const state = { target: 30, tol: 20 };
+  let calls = 0;
+  const band = api.mountBand(svg, bandOpts(state, { onChange: () => { calls += 1; } }));
+  band.setTarget(60);
+  frames.run(240);
+  assert.equal(state.target, 60);
+  assert.equal(frames.pending(), 0);
+  assert.ok(calls > 0, 'onChange is called while the spring runs');
+  band.destroy();
+});
+
+test('mountBand draws no histogram bars without errors but keeps the window', () => {
+  const { api, window } = load({ reducedMotion: true });
+  const empty = makeSvg(window);
+  api.mountBand(empty, bandOpts({ target: 30, tol: 20 }, { errors: () => [] }));
+  assert.equal(empty.querySelectorAll('rect.auto-band-bar').length, 0);
+  assert.ok(empty.querySelector('[data-drag="move"]'));
+
+  const filled = makeSvg(window);
+  api.mountBand(filled, bandOpts({ target: 30, tol: 20 }, { errors: () => [0, 5, -3] }));
+  assert.ok(filled.querySelectorAll('rect.auto-band-bar').length > 0);
+});
+
+test('mountBand sets aria-valuenow to the rounded target after a key press', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window);
+  const state = { target: 30, tol: 20 };
+  api.mountBand(svg, bandOpts(state));
+  press(window, svg, 'ArrowRight');
+  assert.equal(svg.getAttribute('aria-valuenow'), '35');
+  assert.equal(svg.getAttribute('role'), 'slider');
+  assert.equal(svg.getAttribute('aria-valuetext'), 'Target 35 W, tolerance 20 W');
+});
