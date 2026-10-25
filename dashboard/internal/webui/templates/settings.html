@@ -60,7 +60,7 @@
         <span class="settings-nav-title">{{t "settings.nav.versions"}}</span>
         <span class="settings-nav-desc">{{t "settings.nav.versions_desc"}}</span>
       </button>
-      {{if or .CanManageUsers .HasOwnAccount}}
+      {{if or .CanManageUsers .HasUser}}
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-users" x-bind:class="{ active: activeSettingsPage === 'users' }" x-bind:aria-selected="activeSettingsPage === 'users'" x-on:click="activeSettingsPage = 'users'">
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-user"></use></svg>
         <span class="settings-nav-title">{{t "users.nav"}}</span>
@@ -465,12 +465,23 @@
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
     {{template "revisions" .}}
   </div>
-  {{if or .CanManageUsers .HasOwnAccount}}
-  <section id="settings-users-account" role="tabpanel" class="settings-cards users-account-cards" x-show="activeSettingsPage === 'users'" aria-labelledby="settings-account-heading">
-    <section class="setting-card users-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible">
+  {{if or .CanManageUsers .HasUser}}
+  <section id="settings-users-account" role="tabpanel" class="settings-cards users-account-cards" x-show="activeSettingsPage === 'users'" aria-labelledby="settings-session-heading">
+    {{if .HasUser}}<section class="setting-card users-session-card" aria-labelledby="settings-session-heading" x-data="systemPanel()" x-init="load()">
+      <h3 class="setting-card-title" id="settings-session-heading">{{t "settings.session.title"}}</h3>
+      <div class="setting-row">
+        <span class="setting-row-label">{{t "settings.system.access.label"}} <strong class="system-access-user" x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong></span>
+      </div>
+      <div class="setting-card-foot">
+        <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
+          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
+          <span>{{t "settings.system.logout.button"}}</span>
+        </button>
+      </div>
+    </section>{{end}}
+    {{if .HasOwnAccount}}<section class="setting-card users-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible">
       <div class="settings-account" x-cloak x-show="accountVisible">
         <h4 class="settings-account-subtitle" id="settings-account-heading">{{t "settings.account.title"}}</h4>
-        <p class="setting-note" x-text="$t('settings.account.signed_in', {name: accountUsername})"></p>
         <p class="settings-account-notice" role="note" x-cloak x-show="accountRestricted">{{t "settings.account.restricted"}}</p>
         <form class="settings-account-form" x-on:submit.prevent="changeOwnPassword()">
           <h4 class="settings-account-subtitle">{{t "settings.account.password_title"}}</h4>
@@ -496,7 +507,7 @@
           </div>
         </div>
       </div>
-    </section>
+    </section>{{end}}
   </section>
   {{end}}
   </div>
@@ -504,16 +515,10 @@
     <section class="setting-card system-access-card" aria-labelledby="system-access-heading">
       <h3 class="setting-card-title" id="system-access-heading">{{t "settings.system.title"}}</h3>
       <div class="setting-row">
-        <span class="setting-row-label">{{t "settings.system.access.label"}} <strong class="system-access-user" x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong></span>
+        <span class="setting-row-label">{{t "settings.system.access.rights"}}</span>
         <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? $t('settings.system.access_badge.granted') : $t('settings.system.access_badge.guest')">{{t "settings.system.access_badge.checking"}}</span>
       </div>
       <p class="setting-note">{{t "settings.system.access.note"}}</p>
-      <div class="setting-card-foot">
-        <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
-          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
-          <span>{{t "settings.system.logout.button"}}</span>
-        </button>
-      </div>
     </section>
     <section class="setting-card system-actions-card" aria-labelledby="system-actions-heading">
       <h3 class="setting-card-title" id="system-actions-heading">{{t "settings.system.actions.title"}}</h3>

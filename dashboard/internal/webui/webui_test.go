@@ -3703,10 +3703,17 @@ func TestSettingsUsersPageForOwnAccountAndManagers(t *testing.T) {
 		}
 	}
 
-	// Gast: kein eigenes Konto, also kein Reiter Benutzer.
+	// Gast: kein eigenes Konto, also keine Kontokarte, aber die Anmeldung
+	// mit Abmelden auf der Seite Benutzer.
 	guest := settingsBody(auth.User{Username: "g", Guest: true, Roles: []string{auth.RoleViewOverview}})
-	if strings.Contains(guest, `aria-controls="settings-users"`) || strings.Contains(guest, `id="settings-account-heading"`) {
-		t.Fatal("Gast darf keinen Reiter Benutzer und keine Kontokarte sehen")
+	if strings.Contains(guest, `id="settings-account-heading"`) {
+		t.Fatal("Gast darf keine Kontokarte sehen")
+	}
+	if !strings.Contains(guest, `aria-controls="settings-users"`) || !strings.Contains(guest, `id="settings-session-heading"`) {
+		t.Fatal("Gast braucht den Reiter Benutzer mit der Anmeldung")
+	}
+	if !strings.Contains(manager, `id="settings-session-heading"`) {
+		t.Fatal("die Anmeldung fehlt auf der Seite Benutzer")
 	}
 
 	// Die Kontokarte liegt nicht mehr im System-Reiter.
@@ -3717,6 +3724,9 @@ func TestSettingsUsersPageForOwnAccountAndManagers(t *testing.T) {
 	system := rest[:strings.Index(rest[1:], `<section id="settings-`)+1]
 	if strings.Contains(system, `id="settings-account-heading"`) {
 		t.Fatal("der System-Reiter darf keine Kontokarte mehr enthalten")
+	}
+	if strings.Contains(system, `logout()`) {
+		t.Fatal("Abmelden gehoert auf die Seite Benutzer, nicht in den System-Reiter")
 	}
 }
 

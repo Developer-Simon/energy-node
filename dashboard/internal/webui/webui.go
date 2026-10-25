@@ -967,6 +967,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"CanEditLayout":      canEditLayout,
 			"CanManageUsers":     canManageUsers,
 			"HasOwnAccount":      hasOwnAccount,
+			"HasUser":            hasUser,
 			"ShowRuntimeStatus":  showRuntimeStatus,
 			"DeviceViewMode":     deviceViewMode,
 			"Theme":              theme,
