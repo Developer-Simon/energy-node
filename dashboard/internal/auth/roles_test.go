@@ -1,0 +1,50 @@
+package auth
+
+import (
+	"reflect"
+	"testing"
+)
+
+func TestRolesCatalogMatchesSpec(t *testing.T) {
+	keys := AllRoles()
+	if len(keys) != 29 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+		t.Fatalf("catalog order: %v", keys)
+	}
+	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {
+		info, _ := RoleByKey(key)
+		if !info.HTTPSOnly || info.GuestAllowed {
+			t.Fatalf("%s must be HTTPS-only and not guest-allowed: %+v", key, info)
+		}
+	}
+	for _, key := range []string{RoleInstallUpdates, RoleHTTPLogin} {
+		info, _ := RoleByKey(key)
+		if info.HTTPSOnly || info.GuestAllowed {
+			t.Fatalf("%s: %+v", key, info)
+		}
+	}
+	if info, _ := RoleByKey(RoleHTTPLogin); info.HAAllowed {
+		t.Fatal("http_login must not be allowed for HA accounts")
+	}
+	if info, _ := RoleByKey(RoleAutomations); info.Requires != RoleViewAutomations || info.Category != CategorySetup {
+		t.Fatalf("automations: %+v", info)
+	}
+}
+
+func TestNormalizeDropsUnknownAndUnmetRequirements(t *testing.T) {
+	got := Normalize([]string{"automations", "bogus", "view_devices", "operate_devices", "operate_devices"})
+	want := []string{"operate_devices", "view_devices"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+func TestHasRoleRequiresTheViewPermission(t *testing.T) {
+	user := User{Roles: []string{RoleAutomations}}
+	if HasRole(user, RoleAutomations) {
+		t.Fatal("automations without view_automations must not count")
+	}
+	user.Roles = append(user.Roles, RoleViewAutomations)
+	if !HasRole(user, RoleAutomations) {
+		t.Fatal("automations with view_automations must count")
+	}
+}

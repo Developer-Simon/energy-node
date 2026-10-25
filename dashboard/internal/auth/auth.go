@@ -480,7 +480,14 @@ func UserFromContext(ctx context.Context) (User, bool) {
 }
 
 func HasRole(user User, role string) bool {
-	for _, candidate := range user.Roles {
+	if info, ok := RoleByKey(role); ok && info.Requires != "" && !containsRole(user.Roles, info.Requires) {
+		return false
+	}
+	return containsRole(user.Roles, role)
+}
+
+func containsRole(roles []string, role string) bool {
+	for _, candidate := range roles {
 		if candidate == role {
 			return true
 		}
