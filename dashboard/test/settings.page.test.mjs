@@ -561,3 +561,28 @@ test('the own password keeps the minimum of 10 until the session says otherwise'
   component.httpPasswordDraft = 'a'.repeat(9);
   assert.equal(component.httpPasswordValid, false, 'nine characters are below the minimum');
 });
+
+// Read-only state: without edit_settings the save bar stays visible but cannot
+// save. A session without a roles list (no account, or an older server) keeps
+// the page open, as before.
+test('settings without edit_settings disable saving', async () => {
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ roles: ['tune_live_updates'] })),
+  });
+  await component.load();
+  assert.equal(component.canEditSettings, false);
+});
+
+test('settings with edit_settings keep saving enabled', async () => {
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ roles: ['edit_settings'] })),
+  });
+  await component.load();
+  assert.equal(component.canEditSettings, true);
+});
+
+test('settings without a roles list in the session stay editable', async () => {
+  const { component } = createSettingsPanel({ fetchImpl: stubbedLoadFetch({}) });
+  await component.load();
+  assert.equal(component.canEditSettings, true);
+});

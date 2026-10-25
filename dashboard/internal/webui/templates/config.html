@@ -15,7 +15,7 @@
     <strong>{{t "config.reload_failed.title"}}</strong>
     <span>{{t "config.reload_failed.description"}}</span>
     <code x-text="reloadError"></code>
-    <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading" x-text="reloading ? $t('config.reload_failed.retry_loading') : $t('config.reload_failed.retry')"></button>
+    <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading || !canEditConfig" x-text="reloading ? $t('config.reload_failed.retry_loading') : $t('config.reload_failed.retry')"></button>
   </div>
   <template x-if="runtimeState === 'rejected'">
     <div id="config-runtime-error" class="message error config-runtime-error" role="alert">
@@ -38,8 +38,8 @@
       <p class="config-json-note">{{t "config.editor.note"}}</p>
       <textarea id="config-editor" aria-label="{{t "config.editor.aria_label"}}" x-model="editorText"></textarea>
       <div class="config-json-actions">
-        <button id="config-editor-reset" type="button" x-on:click="resetEditor()" x-bind:disabled="!editorDirty">{{t "config.editor.reset"}}</button>
-        <button class="primary" id="config-save" type="button" x-on:click="saveEditor()" x-bind:disabled="saving || loading">{{t "config.editor.save"}}</button>
+        <button id="config-editor-reset" type="button" x-on:click="resetEditor()" x-bind:disabled="!editorDirty || !canEditConfig">{{t "config.editor.reset"}}</button>
+        <button class="primary" id="config-save" type="button" x-on:click="saveEditor()" x-bind:disabled="saving || loading || !canEditConfig">{{t "config.editor.save"}}</button>
       </div>
     </div>
   </details>
@@ -63,8 +63,9 @@
         <span class="config-actionbar-dot" aria-hidden="true"></span>
         <span class="config-actionbar-text" x-text="actionStatusText" aria-live="polite"></span>
       </span>
-      <button id="config-form-reset" type="button" class="config-actionbar-secondary" x-on:click="resetForm()" x-bind:disabled="loading || saving">{{t "config.reset"}}</button>
-      <button class="primary" id="config-form-save" type="submit" form="schema-form" x-bind:disabled="saving || loading" x-text="saving ? $t('common.save_loading') : $t('common.save')">{{t "common.save"}}</button>
+      <span class="config-readonly-hint" x-show="!canEditConfig" x-text="$t('config.read_only')"></span>
+      <button id="config-form-reset" type="button" class="config-actionbar-secondary" x-on:click="resetForm()" x-bind:disabled="loading || saving || !canEditConfig">{{t "config.reset"}}</button>
+      <button class="primary" id="config-form-save" type="submit" form="schema-form" x-bind:disabled="saving || loading || !canEditConfig" x-text="saving ? $t('common.save_loading') : $t('common.save')">{{t "common.save"}}</button>
     </div>
   </div>
   <div class="config-actionbar-sentinel" x-ref="actionSentinel" aria-hidden="true"></div>

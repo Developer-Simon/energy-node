@@ -57,6 +57,11 @@
     showDiagnosticEntitiesOnTile: false,
     liveUpdateIntervalSeconds: 3,
     canTuneLiveUpdates: false,
+    // Rollen aus der Sitzung; null, solange keine Sitzung mit Rollenliste da ist.
+    sessionRoles: null,
+    get canEditSettings() {
+      return this.sessionRoles === null || this.sessionRoles.includes('edit_settings');
+    },
     widePanels: [],
     historySampleIntervalSeconds: 10,
     historyRetentionMode: 'time',
@@ -203,6 +208,7 @@
         this.followExchange();
         this.refreshExchangeStatus();
         this.canTuneLiveUpdates = Boolean(session && session.tune_live_updates);
+        this.sessionRoles = session && 'roles' in session ? (Array.isArray(session.roles) ? session.roles : []) : null;
         this.accountUsername = session && !session.guest ? (session.username || '') : '';
         this.accountGuest = Boolean(session && session.guest);
         this.accountRestricted = Boolean(session && session.restricted);

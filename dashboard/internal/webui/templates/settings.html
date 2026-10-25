@@ -458,7 +458,8 @@
      Grid-Element klebt nur innerhalb seiner eigenen Zelle. */}}
   <div class="energy-actionbar-dock" x-show="['general', 'display', 'history'].includes(activeSettingsPage)">
     <div class="energy-actionbar">
-      <button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button>
+      <button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading || !canEditSettings" x-text="saving ? $t('settings.saving') : $t('common.save')"></button>
+      <span class="settings-read-only-hint" x-show="!canEditSettings" x-text="$t('settings.read_only')"></span>
     </div>
   </div>
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">

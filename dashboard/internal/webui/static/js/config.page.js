@@ -33,6 +33,11 @@
     loading: false,
     saving: false,
     reloading: false,
+    // Rollen aus der Sitzung; null, solange keine Sitzung mit Rollenliste da ist.
+    sessionRoles: null,
+    get canEditConfig() {
+      return this.sessionRoles === null || this.sessionRoles.includes('edit_config');
+    },
     shellyPresets: [],
     presetsError: '',
     reloadFailed: false,
@@ -211,11 +216,13 @@
       try {
         // Payload samples are a convenience only - an older server without the
         // endpoint (or a transient failure) must not block the whole form.
-        const [topics, samples, configs] = await Promise.all([
+        const [topics, samples, configs, session] = await Promise.all([
           requestJSON('/api/v1/topics'),
           requestJSON('/api/v1/topics/samples').catch(() => []),
           requestJSON('/api/v1/configurations'),
+          requestJSON('/api/v1/auth/session').catch(() => null),
         ]);
+        this.sessionRoles = session && 'roles' in session ? (Array.isArray(session.roles) ? session.roles : []) : null;
         this.topics = topics;
         this.topicSamples = new Map((samples || []).map(sample => [sample.topic, sample]));
         this.configs = configs;
