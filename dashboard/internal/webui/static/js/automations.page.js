@@ -100,6 +100,13 @@
     return avg;
   };
 
+  // Zahl des Live-Balkens im Format der Seite: Watt ganz, sonst hoechstens eine Nachkommastelle.
+  const formatLiveNumber = (value, unit) => {
+    if (!window.I18n) return String(value);
+    const rounded = unit === 'W' ? Math.round(value) : Math.round(value * 10) / 10;
+    return window.I18n.formatNumber(rounded, Number.isInteger(rounded) ? 0 : 1);
+  };
+
   // Vorzeichen wie im Entwurf: + Bezug, − Einspeisung.
   const signedW = (watts) => {
     const rounded = Math.round(watts);
@@ -1991,8 +1998,8 @@
         band = { left, width: view.meterFraction(high, scale) - left };
       }
       const unit = this.describeCondition(condition).unit;
-      const valueText = value === null ? '—' : `${value} ${unit}`.trim();
-      const thresholdText = isNumber(threshold) ? `${threshold} ${unit}`.trim() : '';
+      const valueText = value === null ? '—' : `${formatLiveNumber(value, unit)} ${unit}`.trim();
+      const thresholdText = isNumber(threshold) ? `${formatLiveNumber(threshold, unit)} ${unit}`.trim() : '';
       return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText, thresholdText };
     },
 

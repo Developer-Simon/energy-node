@@ -2193,9 +2193,21 @@ test('liveBars uses the entity live value in edit mode', () => {
   component.readableEntities = [{ unique_id: 'temp', deviceName: 'Pumpe', name: 'Vorlauf', value: '42.5', unit_of_measurement: '°C', state_topic: 'x', template_supported: true }];
   const rule = { id: 'r-temp', conditions: [{ type: 'entity_value', entity_id: 'temp', comparison: 'above', value: 40 }], actions: [] };
   component.editing[rule.id] = true;
-  assert.equal(component.liveBars(rule)[0].valueText, '42.5 °C');
+  assert.equal(component.liveBars(rule)[0].valueText, '42,5 °C');
   component.editing[rule.id] = false;
   assert.equal(component.liveBars(rule)[0].valueText, '—');
+});
+
+test('liveBar formats values in the page locale: watts whole, other units one decimal', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r-fmt', conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 1234.5 }], actions: [] };
+  component.runtimeState = { rules: { 'r-fmt': { conditions: [{ value: 872.3, target: 1234.5, raw_met: false, met: false }] } } };
+  const bar = JSON.parse(JSON.stringify(component.liveBar(rule)));
+  assert.equal(bar.valueText, '872 W');
+  assert.equal(bar.thresholdText, '1235 W');
+  const percent = { id: 'r-pct', conditions: [{ type: 'balance_threshold', field: 'autarkie', comparison: 'above', threshold: 50 }], actions: [] };
+  component.runtimeState = { rules: { 'r-pct': { conditions: [{ value: 64.25, target: 50, raw_met: false, met: false }] } } };
+  assert.equal(JSON.parse(JSON.stringify(component.liveBar(percent))).valueText, '64,3 %');
 });
 
 test('liveBar puts the hysteresis band below an above-threshold', () => {
