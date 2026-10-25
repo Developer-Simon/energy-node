@@ -131,6 +131,17 @@ test('zero_feed builds the documented shape with the default answers', () => {
   assert.equal('until' in entry, false);
 });
 
+test('zero_feed uses the tolerance answer as deadband, 20 W without one', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'zero_feed');
+  const ctx = plain(contextFor(wizard));
+  const deadband = (overrides) => plain(template.build(answersFor(wizard, template, ctx, overrides), ctx).entry)
+    .while.regulator.deadband_w;
+  assert.equal(deadband({ tolerance: 35 }), 35);
+  assert.equal(deadband({}), 20);
+  assert.equal(answersFor(wizard, template, ctx).tolerance, 20);
+});
+
 test('zero_feed always and fixed periods build their time windows', () => {
   const { wizard, templates } = load();
   const template = templateById(templates, 'zero_feed');

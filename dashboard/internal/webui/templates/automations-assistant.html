@@ -177,7 +177,7 @@
             </div>
           </template>
 
-          <template x-if="assistantStep() && assistantStep().type === 'presets'">
+          <template x-if="assistantStep() && assistantStep().type === 'presets' && assistantStep().effect !== 'band'">
             <div class="auto-assist-block">
               <div class="auto-assist-seg" role="radiogroup">
                 <template x-for="option in assistantStep().options" x-bind:key="option.id">
@@ -201,6 +201,44 @@
               </div>
               <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id]"
                  x-text="assistant.effects[assistantStep().id] || ''"></p>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'presets' && assistantStep().effect === 'band'">
+            <div class="auto-assist-block">
+              <div class="auto-pre3" role="group">
+                <template x-for="option in assistantStep().options" x-bind:key="option.id">
+                  <button type="button"
+                          x-bind:aria-pressed="assistant.answers[assistantStep().id] === option.id ? 'true' : 'false'"
+                          x-on:click="assistantBandPreset(option.id)">
+                    <b x-text="assistantOptionText(assistantStep(), option, 'title')"></b>
+                    <small x-text="'+' + option.id + ' W'"></small>
+                  </button>
+                </template>
+              </div>
+              <label class="auto-band-toggle">
+                <span class="settings-toggle">
+                  <input type="checkbox" role="switch" x-bind:checked="assistant.band.tolOn"
+                         x-on:change="assistantBandToggleTolerance()">
+                  <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                </span>
+                <span x-text="$t('automations.assistant.band.tolerance_toggle')"></span>
+              </label>
+              <div class="auto-band-wrap">
+                <svg class="auto-band-svg" x-ref="assistBand" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
+                     x-init="$nextTick(() => mountAssistantBand())"></svg>
+                <template x-if="assistantBandStats()">
+                  <div class="auto-band-stats">
+                    <div><b x-text="assistantBandStats().fed + ' kWh'"></b><span x-text="$t('automations.assistant.band.fed')"></span></div>
+                    <div><b x-text="assistantBandStats().drawn + ' kWh'"></b><span x-text="$t('automations.assistant.band.drawn')"></span></div>
+                    <div><b x-text="assistantBandStats().moves"></b><span x-text="$t('automations.assistant.band.moves')"></span></div>
+                  </div>
+                </template>
+              </div>
+              <div class="auto-band-fine" x-on:change="assistantBandSync()" x-on:click="assistantBandSync()"
+                   x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return 'target' }, get stepOpts() { return { min: -50, max: 150, step: 5 } }, get stepUnit() { return 'W' }, get stepLabel() { return assistantStepText(assistantStep(), 'title') } }">
+                {{template "auto-stepper"}}
+              </div>
             </div>
           </template>
 
@@ -304,7 +342,7 @@
         <div class="auto-assist-foot">
           <div class="auto-assist-foot-text">
             <span class="auto-assist-next" x-show="assistantStep() && assistantStep().id !== 'summary'"
-                  x-text="$t('automations.assistant.next_hint', { step: assistantNextLabel() })"></span>
+                  x-text="assistantStep() && assistantStep().effect === 'band' ? assistantBandHint() : $t('automations.assistant.next_hint', { step: assistantNextLabel() })"></span>
             <p class="auto-assist-notice" x-show="assistantStep() && assistantStep().id === 'summary' && assistantListFull()"
                x-text="$t('automations.assistant.list_full')"></p>
           </div>

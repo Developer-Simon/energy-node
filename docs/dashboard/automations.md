@@ -64,6 +64,17 @@ for example the sun option without a known location, are greyed out with the
 reason. The dots at the top show your place. **Back** returns to the previous
 step or to the gallery, and **Next** is enabled once the step has an answer.
 
+The step **How tight should it regulate?** of the zero feed template shows the
+target as a window on the grid axis. Drag the window to move the target, tap
+the axis to jump there, or use the arrow keys (5 W, with Shift 20 W). The three
+cards **Careful**, **Balanced** and **Tight** set +60, +30 and +10 W. The
+switch **Adjust tolerance** adds a handle on each edge of the window, so the
+tolerance can be dragged between 5 and 60 W. Switched off, the tolerance is
+20 W. The bars show how yesterday's grid power was spread around the target,
+and three figures show how much would have been fed in and drawn yesterday and
+how often the regulator would have adjusted per hour. Without history from
+yesterday the figures are left out and only the axis and the window remain.
+
 The last page is the summary. It lists the answers as plain sentences grouped
 by phase: **When**, **Running**, **Ends**, **On start**, **On end** and
 **Then**. Each row has a **change** button that jumps back to the step that
