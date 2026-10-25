@@ -69,6 +69,8 @@
     updateStatus: null,
     checkingForUpdates: false,
     canUpdateSettings: false,
+    // Verlauf der Changelogs und Update-Pruefung gehoeren zur Einrichtung (edit_setup).
+    canEditSetup: true,
     updateCheckDisabled: false,
     savingUpdateCheck: false,
     changelogHistory: 'recent',
@@ -103,8 +105,10 @@
       try {
         const session = await requestJSON('/api/v1/auth/session');
         this.canUpdateSettings = Boolean(session.update_settings);
+        this.canEditSetup = Boolean(session.edit_setup);
       } catch (error) {
         this.canUpdateSettings = false;
+        this.canEditSetup = true;
       }
       try {
         const value = await requestJSON('/api/v1/settings');

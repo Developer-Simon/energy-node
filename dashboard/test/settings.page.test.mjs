@@ -562,15 +562,37 @@ test('the own password keeps the minimum of 10 until the session says otherwise'
   assert.equal(component.httpPasswordValid, false, 'nine characters are below the minimum');
 });
 
-// Read-only state: without edit_settings the save bar stays visible but cannot
-// save. A session without a roles list (no account, or an older server) keeps
-// the page open, as before.
-test('settings without edit_settings disable saving', async () => {
+// Read-only state: without edit_settings and edit_setup the save bar stays
+// visible but cannot save. A session without a roles list (no account, or an
+// older server) keeps the page open, as before.
+test('settings without edit_settings or edit_setup disable saving', async () => {
   const { component } = createSettingsPanel({
-    fetchImpl: accountFetch(signedInSession({ roles: ['tune_live_updates'] })),
+    fetchImpl: accountFetch(signedInSession({ roles: [] })),
   });
   await component.load();
   assert.equal(component.canEditSettings, false);
+  assert.equal(component.canEditSetup, false);
+  assert.equal(component.canSave, false);
+});
+
+test('a design-only account can save but not change the setup', async () => {
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ roles: ['edit_settings'] })),
+  });
+  await component.load();
+  assert.equal(component.canEditSettings, true);
+  assert.equal(component.canEditSetup, false);
+  assert.equal(component.canSave, true);
+});
+
+test('a setup-only account can save and change the setup', async () => {
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ roles: ['edit_setup'] })),
+  });
+  await component.load();
+  assert.equal(component.canEditSettings, false);
+  assert.equal(component.canEditSetup, true);
+  assert.equal(component.canSave, true);
 });
 
 test('settings with edit_settings keep saving enabled', async () => {
