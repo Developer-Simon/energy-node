@@ -103,25 +103,92 @@ HTTPS.
 
 ### Roles
 
-| Role | Allows |
-|---|---|
-| `system_actions` | Restart/reboot/poweroff, apply bridge, Tailscale actions |
-| `mqtt_config` | Configure the MQTT connection and the Mosquitto bridge |
-| `automations` | Write and test automation rules |
-| `delete_device_discovery` | Delete a device's discovery entries |
-| `tune_live_updates` | Change `live_update_interval_seconds` |
-| `edit_layout` | Edit mode of the overview and writes to `/api/v1/device/prefs/{id}`. `PUT /api/v1/layout` itself has no gate yet |
-| `edit_energy` | Write the energy configuration: roles, interpretation, groups, categories and restoring their revisions |
-| `check_updates` | Ask whether a newer version is available on GitHub (`/api/v1/updates/status` and `/api/v1/updates/check`). Read only, it starts no update |
+The catalog below is the complete list of permissions, in the order the user
+management page shows them. The source is `internal/auth/roles.go`.
 
-A session without a role can read everything and change the layout, switch
-commands and the remaining settings.
+| Key | Category | Requires | HTTPS only | Guest |
+|---|---|---|---|---|
+| `view_overview` | view | – | no | yes |
+| `view_devices` | view | – | no | yes |
+| `view_history` | view | – | no | yes |
+| `view_stats` | view | – | no | yes |
+| `view_energy` | view | – | no | yes |
+| `view_device_map` | view | – | no | yes |
+| `view_config` | view | – | no | yes |
+| `view_automations` | view | – | no | yes |
+| `view_diagnostics` | view | – | no | yes |
+| `operate_devices` | operate | `view_devices` | no | yes |
+| `operate_automations` | operate | `view_automations` | no | yes |
+| `edit_layout` | design | `view_overview` | no | yes |
+| `edit_device_map_view` | design | `view_device_map` | no | yes |
+| `edit_settings` | design | – | no | yes |
+| `automations` | setup | `view_automations` | no | yes |
+| `edit_energy` | setup | `view_energy` | no | yes |
+| `edit_device_map` | setup | `view_device_map` | no | yes |
+| `edit_config` | setup | `view_config` | no | yes |
+| `delete_device_discovery` | setup | `view_devices` | no | yes |
+| `mqtt_config` | setup | – | yes | no |
+| `tune_live_updates` | setup | – | no | yes |
+| `check_updates` | updates | – | no | yes |
+| `install_updates` | updates | – | no | no |
+| `update_settings` | updates | – | yes | no |
+| `view_logs` | system | `view_diagnostics` | yes | no |
+| `system_actions` | system | – | yes | no |
+| `tailscale` | system | – | yes | no |
+| `user_management` | system | – | yes | no |
+| `http_login` | system | – | no | no |
 
-Guest sessions get `automations`, `edit_layout`, `edit_energy` and
-`check_updates` for now, because there is no per user role management yet. A
-guest can therefore write and test automation rules, which may publish to MQTT
-within `publish_allowed_prefixes`. Keep this in mind before you open guest
-access to people you do not trust.
+A permission marked "Requires" is dropped when its requirement is missing, so
+the stored list is always consistent. "HTTPS only" permissions are withheld
+from restricted sessions (see below). "Guest" tells whether the permission may
+be part of the guest roles, because guest accounts only get permissions with
+this flag.
+
+`user_management` lets its holder manage accounts, guest roles and the
+password of other accounts. Every account can change its own password without
+it. The last administrator cannot lose `user_management`, and an account
+cannot delete or disable itself.
+
+### Restricted HTTP sessions
+
+A session counts as restricted when the login came over plain HTTP, or when an
+HTTPS login matched the HTTP password instead of the main password. A
+restricted session keeps only the permissions that are not marked "HTTPS only".
+`GET /api/v1/auth/session` reports the effective roles, and `withheld` lists the
+permissions the account has but this session does not use. The change happens
+on every request, so a permission that is withdrawn from an account is gone
+from its open sessions at once, without a restart.
+
+Over HTTP only an account with `http_login` can sign in. Once an HTTP password
+is set, only that password works over HTTP, and the main password never does.
+An HTTP password must differ from the main password, and it needs `http_login`
+to be set at all.
+
+### Users (`/api/v1/users`)
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/users` | `user_management`, HTTPS | Accounts, guest roles, catalog and the caller's name |
+| POST | `/api/v1/users` | `user_management`, HTTPS, CSRF | Create an account with password and roles |
+| PUT | `/api/v1/users/{name}` | `user_management`, HTTPS, CSRF | Set roles and `disabled` |
+| DELETE | `/api/v1/users/{name}` | `user_management`, HTTPS, CSRF | Delete an account |
+| PUT | `/api/v1/users/{name}/password` | `user_management`, HTTPS, CSRF | Reset the password of an account |
+| PUT | `/api/v1/users/{name}/http-password` | `user_management`, HTTPS, CSRF | Set or, with an empty value, remove the HTTP password |
+| PUT | `/api/v1/users/guest-roles` | `user_management`, HTTPS, CSRF | Permissions every guest account gets |
+| PUT | `/api/v1/users/me/password` | HTTPS, CSRF | Change the own password, needs the old one |
+| PUT | `/api/v1/users/me/http-password` | HTTPS, CSRF | Set or remove the own HTTP password, needs `http_login` |
+
+Errors use the usual JSON form with a key such as `last_admin`,
+`self_protection` or `user_exists`.
+
+### Guest roles
+
+Guest sessions get the permissions listed under `guest_roles` in
+`GET /api/v1/users`, and only permissions with the Guest flag above can be
+chosen there. An admin sets them with `PUT /api/v1/users/guest-roles`. Whatever
+they include, a guest can act with it, for example write automation rules that
+publish to MQTT within `publish_allowed_prefixes`. Keep this in mind before you
+open guest access to people you do not trust.
 
 ### CSRF
 
@@ -645,14 +712,14 @@ Error codes: `config_unreadable`, `invalid_body`, `schema_violation`,
 | POST | `/api/v1/system/restart-dashboard` | `system_actions` + CSRF | Restart the dashboard service |
 | POST | `/api/v1/system/reboot` | `system_actions` + CSRF | Reboot the Pi |
 | POST | `/api/v1/system/poweroff` | `system_actions` + CSRF | Shut down the Pi |
-| GET | `/api/v1/system/logs/units` | `system_actions` | Allowlisted units, since and line presets, and the defaults |
-| GET | `/api/v1/system/logs` | `system_actions` | Journal entries of one allowlisted unit (`unit`, `since`, `lines`, `cursor`, `q`) |
+| GET | `/api/v1/system/logs/units` | `view_logs` | Allowlisted units, since and line presets, and the defaults |
+| GET | `/api/v1/system/logs` | `view_logs` | Journal entries of one allowlisted unit (`unit`, `since`, `lines`, `cursor`, `q`) |
 
 The response is `202 Accepted` with `{"action":"…","status":"accepted"}`. If a
 system action is already running, the answer is `409` with
 `system_action_busy`.
 
-The service log endpoints only read. They need the `system_actions` role but
+The service log endpoints only read. They need the `view_logs` role but
 no CSRF token. `unit` is required and must be one of the allowlisted units
 that `/logs/units` lists. `since` is in minutes (default `60`) and `lines` is
 the number of entries (default `200`), both limited to the presets from
