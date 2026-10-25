@@ -327,8 +327,10 @@
         } else {
           await this.send('PUT', `/api/v1/users/${enc(id)}`, {roles, disabled: Boolean(draft.disabled)});
         }
-        delete this.drafts[id];
+        // Reload before the draft goes: a render in between would rebuild the
+        // draft from the old account and show it as unsaved.
         await this.load();
+        delete this.drafts[id];
         this.markSaved(id);
         return true;
       } catch (error) {
@@ -347,10 +349,12 @@
       this.saving = NEW_ID;
       try {
         await this.send('POST', '/api/v1/users', {username, password: this.creating.password, roles});
+        // Reload before the draft goes: a render in between would rebuild the
+        // username's draft from the list, which does not have it yet.
+        await this.load();
         this.creating = null;
         delete this.drafts[NEW_ID];
         this.openId = username;
-        await this.load();
         this.markSaved(username);
         return true;
       } catch (error) {

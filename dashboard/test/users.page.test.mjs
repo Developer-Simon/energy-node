@@ -177,6 +177,73 @@ test('save sends PUT with normalized roles and clears the draft', async () => {
   assert.deepEqual(server.users.find((user) => user.username === 'anna').roles, ['view_overview']);
 });
 
+// Holds the next GET /api/v1/users after a PUT or POST until release() runs.
+// The request itself still reaches the fake server, only its answer waits.
+function holdReloadAfterWrite(window) {
+  const realFetch = window.fetch;
+  let writeDone = false;
+  let releaseFn = null;
+  window.fetch = async (url, options = {}) => {
+    const method = options.method || 'GET';
+    if (method !== 'GET' && method !== 'HEAD') {
+      const response = await realFetch(url, options);
+      writeDone = true;
+      return response;
+    }
+    if (url === '/api/v1/users' && writeDone) {
+      const response = await realFetch(url, options);
+      await new Promise((resolve) => { releaseFn = resolve; });
+      return response;
+    }
+    return realFetch(url, options);
+  };
+  return {
+    // Resolves once the reload is waiting, the moment Alpine would render.
+    async waitForHeldReload() {
+      while (!releaseFn) await new Promise((resolve) => setImmediate(resolve));
+    },
+    release() { releaseFn(); },
+  };
+}
+
+test('save keeps the saved roles when the open card renders while the reload is pending', async () => {
+  const { component, window } = createUsersPage();
+  await component.init();
+  component.toggleCard('anna');
+  // Removing view_devices takes operate_devices with it.
+  component.toggleRole('anna', 'view_devices');
+  const hold = holdReloadAfterWrite(window);
+
+  const saving = component.save('anna');
+  await hold.waitForHeldReload();
+  // The render effect of the open card runs before the reload has answered.
+  component.draftOf(component.openId);
+  hold.release();
+
+  assert.equal(await saving, true);
+  assert.equal(component.isDirty('anna'), false, 'the card does not show unsaved');
+  assert.deepEqual([...component.draftOf('anna').roles], ['view_overview'], 'the draft shows the saved roles');
+});
+
+test('create keeps the saved roles when the open card renders while the reload is pending', async () => {
+  const { component, window } = createUsersPage();
+  await component.init();
+  component.startCreate();
+  component.creating.username = 'neu.user';
+  component.creating.password = 'abcdefghij';
+  component.toggleRole('draft:new', 'view_history');
+  const hold = holdReloadAfterWrite(window);
+
+  const creating = component.save('draft:new');
+  await hold.waitForHeldReload();
+  component.draftOf(component.openId);
+  hold.release();
+
+  assert.equal(await creating, true);
+  assert.equal(component.isDirty('neu.user'), false, 'the new card does not show unsaved');
+  assert.deepEqual([...component.draftOf('neu.user').roles], ['view_history'], 'the draft shows the created roles');
+});
+
 test('creating a card enables Anlegen only for valid name and password', async () => {
   const { component, calls } = createUsersPage();
   await component.init();
