@@ -142,6 +142,8 @@
     accountGuest: false,
     accountRestricted: false,
     accountHTTPLogin: false,
+    // Minimum length of an own password, from the session. 10 until it is loaded.
+    passwordMin: ACCOUNT_MIN_PASSWORD,
     csrfToken: '',
     passwordForm: {old: '', next: '', repeat: ''},
     passwordError: '',
@@ -153,7 +155,7 @@
     },
 
     get httpPasswordValid() {
-      return this.httpPasswordDraft.length === 0 || this.httpPasswordDraft.length >= ACCOUNT_MIN_PASSWORD;
+      return this.httpPasswordDraft.length === 0 || codePoints(this.httpPasswordDraft) >= this.passwordMin;
     },
 
     setNavMode(mode) {
@@ -205,6 +207,7 @@
         this.accountGuest = Boolean(session && session.guest);
         this.accountRestricted = Boolean(session && session.restricted);
         this.accountHTTPLogin = Boolean(session && session.http_login);
+        this.passwordMin = Number(session && session.password_min_length) || ACCOUNT_MIN_PASSWORD;
         this.csrfToken = (session && session.csrf_token) || '';
         this.setChoicesSelection(this.widePanelsChoices, this.widePanels);
         this.setChoicesSelection(this.statusBarItemsChoices, this.statusBarItems);
@@ -227,8 +230,8 @@
         this.passwordError = t('settings.account.password_mismatch');
         return false;
       }
-      if (next.length < ACCOUNT_MIN_PASSWORD) {
-        this.passwordError = t('users.create.password_error');
+      if (codePoints(next) < this.passwordMin) {
+        this.passwordError = t('users.password.too_short', {min: this.passwordMin});
         return false;
       }
       this.accountBusy = true;
@@ -704,8 +707,10 @@
 
   // Sub pages a deep link (?page=) may open.
   const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system', 'users'];
-  // Mindestlaenge eines Passworts, wie in users.page.js und auf dem Server.
+  // Mindestlaenge eines Passworts bis die Sitzung sie meldet (session.password_min_length),
+  // danach gilt der Wert der Sitzung. Zeichen zaehlen als Codepunkte, wie auf dem Server.
   const ACCOUNT_MIN_PASSWORD = 10;
+  const codePoints = (value) => [...(value || '')].length;
 
   // How far a finger has to travel sideways on the page picker before it
   // counts as a swipe to the neighbouring page instead of a tap.

@@ -24,7 +24,8 @@ const CATALOG = [
   { key: 'view_devices', category: 'view', requires: null, https_only: false, guest_allowed: true, ha_allowed: true },
   { key: 'view_history', category: 'view', requires: null, https_only: false, guest_allowed: true, ha_allowed: true },
   { key: 'operate_devices', category: 'operate', requires: 'view_devices', https_only: false, guest_allowed: true, ha_allowed: true },
-  { key: 'user_management', category: 'system', requires: null, https_only: true, guest_allowed: false, ha_allowed: false },
+  { key: 'user_management', category: 'system', requires: null, https_only: true, guest_allowed: false, ha_allowed: false, elevated: true },
+  { key: 'tailscale', category: 'system', requires: null, https_only: false, guest_allowed: false, ha_allowed: false, elevated: true },
   { key: 'http_login', category: 'system', requires: null, https_only: false, guest_allowed: false, ha_allowed: false },
 ];
 
@@ -36,6 +37,12 @@ function createServer() {
       { username: 'werkstatt', roles: ['view_overview'], disabled: false, has_http_password: false },
     ],
     guestRoles: ['view_overview'],
+    policy: { min_length: 10, min: 8, max: 64 },
+    sessions: [
+      { id: 'a1b2c3d4e5f60708', username: 'anna', guest: false, restricted: false, expires_at: '2026-10-26T10:00:00Z', current: true },
+      { id: '0f1e2d3c4b5a6978', username: 'anna', guest: false, restricted: true, expires_at: '2026-10-25T20:00:00Z', current: false },
+      { id: 'ffeeddccbbaa9988', username: 'werkstatt', guest: true, restricted: false, expires_at: '2026-10-25T12:00:00Z', current: false },
+    ],
   };
 }
 
@@ -44,7 +51,7 @@ function route(server, url, method, body) {
   if (url === '/api/v1/users' && method === 'GET') {
     return {
       users: server.users.map((user) => ({ ...user, roles: [...user.roles] })),
-      guests: [],
+      password_policy: { ...server.policy },
       guest_roles: [...server.guestRoles],
       catalog: CATALOG,
       migration_notice: false,
@@ -55,6 +62,25 @@ function route(server, url, method, body) {
     server.guestRoles = body.roles;
     return { guest_roles: body.roles };
   }
+  if (url === '/api/v1/users' && method === 'POST') {
+    server.users.push({ username: body.username, roles: [...body.roles], disabled: false, has_http_password: false });
+    return { username: body.username };
+  }
+  if (url === '/api/v1/users/password-policy' && method === 'PUT') {
+    server.policy = { ...server.policy, min_length: body.min_length };
+    return { min_length: body.min_length };
+  }
+  if (url === '/api/v1/user-sessions' && method === 'GET') {
+    return { sessions: server.sessions.map((session) => ({ ...session })) };
+  }
+  const session = /^\/api\/v1\/user-sessions\/([^/]+)$/.exec(url);
+  if (session && method === 'DELETE') {
+    server.sessions = server.sessions.filter((item) => item.id !== session[1]);
+    return {};
+  }
+  if (/^\/api\/v1\/users\/[^/]+\/password$/.test(url) && method === 'PUT') {
+    return {};
+  }
   const account = /^\/api\/v1\/users\/([^/]+)$/.exec(url);
   if (account && method === 'PUT') {
     const user = server.users.find((item) => item.username === account[1]);
@@ -63,6 +89,24 @@ function route(server, url, method, body) {
     return { username: user.username };
   }
   throw new Error(`unexpected ${method} ${url}`);
+}
+
+// Replaces window.setInterval and clearInterval, so a test can see which
+// timers are running and fire them by hand.
+function fakeTimers(window) {
+  const active = new Map();
+  let nextId = 1;
+  window.setInterval = (fn, ms) => {
+    const id = nextId;
+    nextId += 1;
+    active.set(id, { fn, ms });
+    return id;
+  };
+  window.clearInterval = (id) => { active.delete(id); };
+  return {
+    get running() { return [...active.values()].map((timer) => timer.ms); },
+    tick() { [...active.values()].forEach((timer) => timer.fn()); },
+  };
 }
 
 function createUsersPage({ server = createServer() } = {}) {
@@ -86,7 +130,7 @@ function createUsersPage({ server = createServer() } = {}) {
   vm.runInContext(pageSource, context);
   const component = factories.usersPage();
   const stores = attachStores(component, { modal: fakeModalStore({ answer: true }) });
-  return { component, calls, server, stores };
+  return { component, calls, server, stores, window: dom.window, timers: fakeTimers(dom.window) };
 }
 
 const writes = (calls) => calls.filter((call) => call.method !== 'GET' && call.url !== '/api/v1/auth/session');
@@ -184,4 +228,201 @@ test('guest preset saves through guest-roles', async () => {
   assert.equal(component.isDirty('preset:guest'), false);
   // Copied out of the page's vm realm, so deepEqual compares plain arrays.
   assert.deepEqual([...component.presets[0].roles], ['view_history', 'view_overview']);
+});
+
+// --- password length from the live policy ----------------------------------
+
+test('before the users are loaded the minimum password length is 10', () => {
+  const { component } = createUsersPage();
+  assert.equal(component.passwordMin, 10);
+});
+
+test('password checks follow the live minimum from password_policy', async () => {
+  const server = createServer();
+  server.policy = { min_length: 12, min: 8, max: 64 };
+  const { component, calls } = createUsersPage({ server });
+  await component.init();
+  assert.equal(component.passwordMin, 12);
+
+  component.startCreate();
+  component.creating.username = 'neu.user';
+  component.creating.password = 'a'.repeat(11);
+  assert.equal(component.createPasswordValid(), false, 'eleven characters are too short for 12');
+  component.creating.password = 'ä'.repeat(12);
+  assert.equal(component.createPasswordValid(), true, 'umlauts count once, twelve are enough');
+
+  assert.equal(await component.resetPassword('anna', 'a'.repeat(11)), false);
+  assert.equal(writes(calls).length, 0, 'a short reset sends nothing');
+  assert.equal(await component.setHTTPPassword('anna', 'a'.repeat(11)), false);
+  assert.equal(writes(calls).length, 0, 'a short HTTP password sends nothing');
+
+  assert.equal(await component.resetPassword('anna', 'b'.repeat(12)), true);
+  assert.equal(writes(calls).at(-1).url, '/api/v1/users/anna/password');
+});
+
+// --- password policy ---------------------------------------------------------
+
+test('the policy draft saves through PUT password-policy and reloads the minimum', async () => {
+  const { component, calls, server, stores, window } = createUsersPage();
+  await component.init();
+  assert.equal(component.policyDirty(), false);
+
+  component.policyDraft = 12;
+  assert.equal(component.policyDirty(), true);
+  assert.equal(await component.savePolicy(), true);
+
+  const put = writes(calls).find((call) => call.method === 'PUT');
+  assert.equal(put.url, '/api/v1/users/password-policy');
+  assert.deepEqual(put.body, { min_length: 12 });
+  assert.equal(server.policy.min_length, 12);
+  assert.equal(component.policy.min_length, 12);
+  assert.equal(component.passwordMin, 12);
+  assert.equal(component.policyDirty(), false);
+  assert.equal(stores.toasts.last(), window.I18n.t('users.policy.saved'));
+});
+
+test('a policy outside the bounds makes no request and reports the range', async () => {
+  const { component, calls, window } = createUsersPage();
+  await component.init();
+
+  for (const value of [7, 65, 10.5]) {
+    component.policyDraft = value;
+    assert.notEqual(component.policyRangeError, '', `${value} is out of range`);
+    assert.equal(await component.savePolicy(), false);
+  }
+  assert.equal(writes(calls).length, 0);
+  component.policyDraft = 64;
+  assert.equal(component.policyRangeError, '');
+  assert.ok(window.I18n.t('users.policy.range_error', { min: 8, max: 64 }).includes('64'));
+});
+
+test('cancelPolicy drops the policy draft back to the saved minimum', async () => {
+  const { component } = createUsersPage();
+  await component.init();
+  component.policyDraft = 14;
+  component.cancelPolicy();
+  assert.equal(component.policyDraft, 10);
+  assert.equal(component.policyDirty(), false);
+});
+
+// --- elevated rights warning -------------------------------------------------
+
+test('elevatedFor lists the held elevated keys of the draft', async () => {
+  const { component } = createUsersPage();
+  await component.init();
+  assert.deepEqual([...component.elevatedFor('anna')], []);
+  component.toggleRole('anna', 'tailscale');
+  component.toggleRole('anna', 'user_management');
+  assert.deepEqual([...component.elevatedFor('anna')], ['user_management', 'tailscale'], 'catalog order');
+});
+
+test('saving newly added elevated rights asks first, cancelling sends nothing', async () => {
+  const { component, calls, stores, window } = createUsersPage();
+  await component.init();
+  stores.modal.answer = false;
+
+  component.toggleRole('anna', 'tailscale');
+  assert.equal(await component.save('anna'), false);
+
+  assert.equal(writes(calls).length, 0, 'the request waits for the answer');
+  assert.equal(stores.modal.calls.length, 1);
+  assert.equal(stores.modal.calls[0].danger, true);
+  assert.ok(stores.modal.calls[0].body.includes(window.I18n.t('users.role.tailscale.label')));
+  assert.equal(component.isDirty('anna'), true, 'the draft is kept');
+});
+
+test('the elevated confirm names only the newly added permissions and accepting sends', async () => {
+  const server = createServer();
+  server.users.push({ username: 'ops', roles: ['tailscale', 'view_overview'], disabled: false, has_http_password: false });
+  const { component, calls, stores, window } = createUsersPage({ server });
+  await component.init();
+
+  component.toggleRole('ops', 'user_management');
+  assert.equal(await component.save('ops'), true);
+
+  const body = stores.modal.calls[0].body;
+  assert.ok(body.includes(window.I18n.t('users.role.user_management.label')));
+  assert.ok(!body.includes(window.I18n.t('users.role.tailscale.label')), 'tailscale was already held');
+  const put = writes(calls).find((call) => call.method === 'PUT');
+  assert.equal(put.url, '/api/v1/users/ops');
+});
+
+test('creating an account with an elevated right asks first', async () => {
+  const { component, calls, stores } = createUsersPage();
+  await component.init();
+  component.startCreate();
+  component.creating.username = 'neu.user';
+  component.creating.password = 'abcdefghij';
+  component.toggleRole('draft:new', 'tailscale');
+
+  stores.modal.answer = false;
+  assert.equal(await component.save('draft:new'), false);
+  assert.equal(writes(calls).length, 0);
+  assert.equal(stores.modal.calls.length, 1);
+
+  stores.modal.answer = true;
+  assert.equal(await component.save('draft:new'), true);
+  assert.equal(writes(calls).filter((call) => call.method === 'POST').length, 1);
+});
+
+// --- sessions tab ------------------------------------------------------------
+
+test('opening the sessions tab loads the list and polls every 30 seconds', async () => {
+  const { component, calls, timers } = createUsersPage();
+  await component.init();
+  assert.equal(component.tab, 'accounts');
+  assert.deepEqual(timers.running, []);
+
+  await component.setTab('sessions');
+  assert.equal(component.tab, 'sessions');
+  assert.equal(component.sessions.length, 3);
+  assert.equal(component.sessionCountFor('anna'), 2);
+  assert.equal(component.sessionCountFor('nobody'), 0);
+  assert.deepEqual(timers.running, [30000]);
+
+  const before = calls.filter((call) => call.url === '/api/v1/user-sessions').length;
+  timers.tick();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(calls.filter((call) => call.url === '/api/v1/user-sessions').length, before + 1, 'the timer reloads');
+});
+
+test('leaving the sessions tab stops the timer and opening it again does not stack a second one', async () => {
+  const { component, timers } = createUsersPage();
+  await component.init();
+  await component.setTab('sessions');
+  await component.setTab('sessions');
+  assert.equal(timers.running.length, 1, 'one timer, not two');
+
+  component.setTab('accounts');
+  assert.deepEqual(timers.running, []);
+  timers.tick();
+  assert.deepEqual(timers.running, []);
+});
+
+test('endSession asks first, then sends DELETE and reloads the list', async () => {
+  const { component, calls, server, stores, window } = createUsersPage();
+  await component.init();
+  await component.setTab('sessions');
+
+  stores.modal.answer = false;
+  assert.equal(await component.endSession('0f1e2d3c4b5a6978'), false);
+  assert.equal(writes(calls).length, 0);
+
+  stores.modal.answer = true;
+  assert.equal(await component.endSession('0f1e2d3c4b5a6978'), true);
+  const del = writes(calls).find((call) => call.method === 'DELETE');
+  assert.equal(del.url, '/api/v1/user-sessions/0f1e2d3c4b5a6978');
+  assert.equal(server.sessions.length, 2);
+  assert.equal(component.sessions.length, 2, 'reloaded');
+  assert.equal(stores.modal.calls.at(-1).danger, true);
+  assert.equal(stores.toasts.last(), window.I18n.t('users.sessions.ended_toast', { name: 'anna' }));
+});
+
+test('the current session cannot be ended from the tab', async () => {
+  const { component } = createUsersPage();
+  await component.init();
+  await component.setTab('sessions');
+  const [current, other] = [component.sessions[0], component.sessions[1]];
+  assert.equal(component.canEndSession(current), false);
+  assert.equal(component.canEndSession(other), true);
 });

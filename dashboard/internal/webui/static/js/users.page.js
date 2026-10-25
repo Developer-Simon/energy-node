@@ -19,7 +19,10 @@
   // these never collide with an account name ('__new__' would, underscores are allowed).
   const GUEST_PRESET_ID = 'preset:guest';
   const NEW_ID = 'draft:new';
-  const MIN_PASSWORD = 10;
+  // Until GET /api/v1/users answers, the policy is the server default.
+  const DEFAULT_POLICY = Object.freeze({min_length: 10, min: 8, max: 64});
+  // The sessions tab reloads its list this often while it is open.
+  const SESSIONS_MS = 30000;
   const USERNAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
   // How long the "saved" note shows in a card head.
   const SAVED_MS = 1800;
@@ -50,8 +53,17 @@
     catalog: [],
     // Raw accounts from GET /api/v1/users, without hashes.
     accounts: [],
-    // Running guest sessions (guest accounts), ended with endGuest().
+    // Password policy from GET /api/v1/users: {min_length, min, max}.
+    policy: {...DEFAULT_POLICY},
+    // The minimum length as typed in the policy card, a number.
+    policyDraft: DEFAULT_POLICY.min_length,
+    // Open tab of the users page: 'accounts' or 'sessions'.
+    tab: 'accounts',
+    // Logged-in sessions from GET /api/v1/user-sessions.
     sessions: [],
+    sessionsError: '',
+    // Id of the 30 s reload timer while the sessions tab is open, else null.
+    sessionTimer: null,
     // The guest preset card. Its roles are guest_roles.
     presets: [],
     migrationNotice: false,
@@ -84,7 +96,9 @@
       try {
         const body = await requestJSON('/api/v1/users');
         this.accounts = body.users || [];
-        this.sessions = body.guests || [];
+        const keepPolicyDraft = this.policyDirty();
+        this.policy = {...DEFAULT_POLICY, ...(body.password_policy || {})};
+        if (!keepPolicyDraft) this.policyDraft = this.policy.min_length;
         this.presets = [{id: GUEST_PRESET_ID, roles: sortedRoles(body.guest_roles)}];
         this.catalog = body.catalog || [];
         this.self = body.self || '';
@@ -94,6 +108,11 @@
       } finally {
         this.loading = false;
       }
+    },
+
+    // Stops the sessions timer when the page goes away.
+    destroy() {
+      this.stopSessionTimer();
     },
 
     // --- identity helpers -------------------------------------------------
@@ -274,14 +293,35 @@
       return requestJSON(url, options);
     },
 
+    // Asks first when the save adds elevated permissions. Resolves to false
+    // when the user cancels, then nothing is sent.
+    async confirmElevated(id, roles) {
+      const added = window.UsersModel.newlyElevated(this.catalog, this.savedSnapshot(id).roles, roles);
+      if (added.length === 0) return true;
+      const list = added.map((key) => t(`users.role.${key}.label`)).join(', ');
+      const confirmed = await this.$store.modal.confirm({
+        title: t('users.elevated.confirm_title'),
+        body: t('users.elevated.confirm_body', {list}),
+        confirmLabel: t('users.elevated.confirm'),
+        danger: true,
+      });
+      return Boolean(confirmed);
+    },
+
+    // Elevated permissions the draft holds, catalog order. Empty for none.
+    elevatedFor(id) {
+      return window.UsersModel.elevatedKeys(this.catalog, this.draftOf(id).roles);
+    },
+
     async save(id) {
       if (this.saving) return false;
       if (this.cardKind(id) === 'new') return this.createAccount();
       if (!this.isDirty(id)) return false;
+      const draft = this.draftOf(id);
+      const roles = window.UsersModel.normalize(this.catalog, draft.roles);
+      if (!await this.confirmElevated(id, roles)) return false;
       this.saving = id;
       try {
-        const draft = this.draftOf(id);
-        const roles = window.UsersModel.normalize(this.catalog, draft.roles);
         if (this.cardKind(id) === 'preset') {
           await this.send('PUT', '/api/v1/users/guest-roles', {roles});
         } else {
@@ -303,6 +343,7 @@
       if (!this.createValid()) return false;
       const username = this.creating.username;
       const roles = window.UsersModel.normalize(this.catalog, this.draftOf(NEW_ID).roles);
+      if (!await this.confirmElevated(NEW_ID, roles)) return false;
       this.saving = NEW_ID;
       try {
         await this.send('POST', '/api/v1/users', {username, password: this.creating.password, roles});
@@ -352,11 +393,85 @@
     },
 
     createPasswordValid() {
-      return codePoints(this.creating && this.creating.password) >= MIN_PASSWORD;
+      return codePoints(this.creating && this.creating.password) >= this.passwordMin;
     },
 
     createValid() {
       return this.creating !== null && this.createNameValid() && this.createPasswordValid();
+    },
+
+    // --- passwords and policy ---------------------------------------------
+
+    // The minimum password length the server enforces, 10 until loaded.
+    get passwordMin() {
+      return Number(this.policy.min_length) || DEFAULT_POLICY.min_length;
+    },
+
+    policyDirty() {
+      return Number(this.policyDraft) !== this.policy.min_length;
+    },
+
+    // '' when the draft is a whole number within the bounds, else the message.
+    get policyRangeError() {
+      const value = Number(this.policyDraft);
+      if (Number.isInteger(value) && value >= this.policy.min && value <= this.policy.max) return '';
+      return t('users.policy.range_error', {min: this.policy.min, max: this.policy.max});
+    },
+
+    cancelPolicy() {
+      this.policyDraft = this.policy.min_length;
+    },
+
+    async savePolicy() {
+      if (!this.policyDirty() || this.policyRangeError) return false;
+      const done = await this.action(
+        () => this.send('PUT', '/api/v1/users/password-policy', {min_length: Number(this.policyDraft)}),
+        t('users.policy.saved'),
+      );
+      if (done) this.markSaved('policy');
+      return done;
+    },
+
+    // --- sessions tab -----------------------------------------------------
+
+    // Opens or leaves a tab. Leaving the sessions tab stops its timer, opening
+    // it again starts exactly one.
+    async setTab(name) {
+      this.tab = name === 'sessions' ? 'sessions' : 'accounts';
+      this.stopSessionTimer();
+      if (this.tab !== 'sessions') return;
+      this.sessionTimer = window.setInterval(() => this.loadSessions(), SESSIONS_MS);
+      await this.loadSessions();
+    },
+
+    stopSessionTimer() {
+      if (this.sessionTimer === null) return;
+      window.clearInterval(this.sessionTimer);
+      this.sessionTimer = null;
+    },
+
+    async loadSessions() {
+      try {
+        const body = await requestJSON('/api/v1/user-sessions');
+        this.sessions = body.sessions || [];
+        this.sessionsError = '';
+      } catch (error) {
+        this.sessionsError = error.message;
+      }
+    },
+
+    // {username: [session, ...]} for the account cards.
+    get sessionsByUser() {
+      return window.UsersModel.groupSessions(this.sessions);
+    },
+
+    sessionCountFor(username) {
+      return (this.sessionsByUser[username] || []).length;
+    },
+
+    // The session this page runs in cannot be ended from here.
+    canEndSession(session) {
+      return !session.current;
     },
 
     // --- passwords and sessions -------------------------------------------
@@ -395,7 +510,7 @@
     },
 
     async resetPassword(id, password) {
-      if (codePoints(password) < MIN_PASSWORD) return false;
+      if (codePoints(password) < this.passwordMin) return false;
       return this.action(
         () => this.send('PUT', `/api/v1/users/${enc(id)}/password`, {password}),
         t('users.password.toast', {name: id}),
@@ -403,7 +518,7 @@
     },
 
     async setHTTPPassword(id, password) {
-      if (codePoints(password) < MIN_PASSWORD) return false;
+      if (codePoints(password) < this.passwordMin) return false;
       return this.action(
         () => this.send('PUT', `/api/v1/users/${enc(id)}/http-password`, {password}),
         t('users.http_warning.set_toast', {name: id}),
@@ -438,19 +553,25 @@
       return done;
     },
 
-    async endGuest(name) {
+    async endSession(id) {
+      const session = this.sessions.find((item) => item.id === id);
+      const name = session ? session.username : '';
       const confirmed = await this.$store.modal.confirm({
-        title: t('users.delete_confirm.title', {name}),
-        body: t('users.delete_confirm.body'),
-        confirmLabel: t('users.guest.end'),
+        title: t('users.sessions.end_confirm.title', {name}),
+        body: t('users.sessions.end_confirm.body'),
+        confirmLabel: t('users.sessions.end'),
         danger: true,
       });
       if (!confirmed) return false;
-      return this.leave(
-        name,
-        () => this.send('DELETE', `/api/v1/users/${enc(name)}`),
-        t('users.delete_confirm.toast', {name}),
-      );
+      try {
+        await this.send('DELETE', `/api/v1/user-sessions/${enc(id)}`);
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
+      }
+      this.$store.toasts.push(t('users.sessions.ended_toast', {name}));
+      await this.loadSessions();
+      return true;
     },
   });
 

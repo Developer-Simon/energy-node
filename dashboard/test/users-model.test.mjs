@@ -90,3 +90,41 @@ test('ha accounts never offer http_login', () => {
   assert.ok(!keysOf('ha_set').includes('http_login'));
   assert.ok(!keysOf('guest').includes('system_actions'), 'guest access leaves out HTTPS-only system rights');
 });
+
+// Elevated permissions (catalog flag elevated): the warning lists only the ones
+// a save adds, so these helpers are checked on their own catalog.
+const elevatedCatalog = [
+  entry('view_config', 'view'),
+  entry('system_actions', 'system', { elevated: true }),
+  entry('tailscale', 'system', { elevated: true }),
+  entry('user_management', 'system', { elevated: true }),
+];
+
+test('elevatedKeys lists the held elevated keys in catalog order and ignores unknown keys', () => {
+  const model = loadModel();
+  const roles = ['user_management', 'view_config', 'tailscale', 'unknown_key'];
+  assert.deepEqual(plain(model.elevatedKeys(elevatedCatalog, roles)), ['tailscale', 'user_management']);
+  assert.deepEqual(plain(model.elevatedKeys(elevatedCatalog, ['view_config'])), []);
+});
+
+test('newlyElevated lists only the elevated keys the save adds', () => {
+  const model = loadModel();
+  const before = ['tailscale'];
+  const after = ['system_actions', 'tailscale', 'user_management', 'view_config'];
+  assert.deepEqual(plain(model.newlyElevated(elevatedCatalog, before, after)), ['system_actions', 'user_management']);
+  assert.deepEqual(plain(model.newlyElevated(elevatedCatalog, before, ['tailscale'])), []);
+  assert.deepEqual(plain(model.newlyElevated(elevatedCatalog, [], ['view_config'])), []);
+});
+
+test('groupSessions keeps the server order per username and returns an empty map for none', () => {
+  const model = loadModel();
+  const sessions = [
+    { id: 'a1', username: 'anna', guest: false, restricted: false, current: true },
+    { id: 'w1', username: 'werkstatt', guest: false, restricted: true, current: false },
+    { id: 'a2', username: 'anna', guest: false, restricted: false, current: false },
+  ];
+  const grouped = plain(model.groupSessions(sessions));
+  assert.deepEqual(grouped.anna.map((session) => session.id), ['a1', 'a2']);
+  assert.deepEqual(grouped.werkstatt.map((session) => session.id), ['w1']);
+  assert.deepEqual(plain(model.groupSessions([])), {});
+});

@@ -533,3 +533,31 @@ test('an empty HTTP password removes it via me/http-password with an empty body'
   assert.equal(calls[0].options.method, 'PUT');
   assert.deepEqual(JSON.parse(calls[0].options.body), { password: '' });
 });
+
+test('the own password check follows password_min_length from the session', async () => {
+  const calls = [];
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ password_min_length: 12 }), calls),
+  });
+  await component.load();
+  assert.equal(component.passwordMin, 12);
+
+  component.passwordForm = { old: 'altes-passwort', next: 'a'.repeat(11), repeat: 'a'.repeat(11) };
+  assert.equal(await component.changeOwnPassword(), false);
+  assert.equal(calls.length, 0, 'eleven characters make no request for a minimum of 12');
+  assert.notEqual(component.passwordError, '');
+
+  component.passwordForm = { old: 'altes-passwort', next: 'ä'.repeat(12), repeat: 'ä'.repeat(12) };
+  assert.equal(await component.changeOwnPassword(), true);
+  assert.equal(calls.length, 1);
+});
+
+test('the own password keeps the minimum of 10 until the session says otherwise', async () => {
+  const { component } = createSettingsPanel({ fetchImpl: accountFetch(signedInSession()) });
+  assert.equal(component.passwordMin, 10);
+  await component.load();
+  assert.equal(component.passwordMin, 10);
+  assert.equal(component.httpPasswordValid, true);
+  component.httpPasswordDraft = 'a'.repeat(9);
+  assert.equal(component.httpPasswordValid, false, 'nine characters are below the minimum');
+});

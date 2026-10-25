@@ -119,7 +119,33 @@
     }, []);
   }
 
+  // elevatedKeys(catalog, roles): the held permissions with the elevated flag
+  // (system restart or update, user management, MQTT, Tailscale), catalog order.
+  function elevatedKeys(catalog, roles) {
+    const held = new Set(roles);
+    return catalog
+      .filter(entry => entry.elevated && held.has(entry.key))
+      .map(entry => entry.key);
+  }
+
+  // newlyElevated(catalog, oldRoles, newRoles): the elevated keys a save adds.
+  // Keys that were already held are not listed again.
+  function newlyElevated(catalog, oldRoles, newRoles) {
+    const before = new Set(oldRoles);
+    return elevatedKeys(catalog, newRoles).filter(key => !before.has(key));
+  }
+
+  // groupSessions(sessions): {username: [session, ...]} in the order the server
+  // sent them.
+  function groupSessions(sessions) {
+    return sessions.reduce((groups, session) => {
+      (groups[session.username] = groups[session.username] || []).push(session);
+      return groups;
+    }, {});
+  }
+
   window.UsersModel = {
     available, normalize, locks, groupState, toggleGroup, httpWarning, summary,
+    elevatedKeys, newlyElevated, groupSessions,
   };
 })();
