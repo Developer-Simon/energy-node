@@ -1956,3 +1956,9 @@ small { color: var(--text-muted); }
 /* Angepinnte Favoriten: dieselbe Kachel wie im Messwerte-Tab, nur oberhalb
    der Tableiste und in einer Reihe. */
 .device-modal-pinned { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; margin-bottom: .75rem; }
+
+/* Hinweis fuer ein Konto ohne Ansehen-Berechtigung (Reiter Hinweis). */
+.no-access-card { display: flex; flex-direction: column; align-items: flex-start; gap: .6rem; max-width: 34rem; margin: 1.5rem auto; padding: 1.25rem 1.3rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
+.no-access-icon { width: 28px; height: 28px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.no-access-title { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+.no-access-body { margin: 0; color: var(--text-muted); line-height: 1.5; }

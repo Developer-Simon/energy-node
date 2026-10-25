@@ -181,6 +181,7 @@
     <nav id="dashboard-tabs" role="tablist" aria-label="{{t "nav.tabs_label"}}"
          x-bind:class="{ 'nav-open': navOpen }"
          x-effect="activePanel; activePage; extraPages.length; $nextTick(() => syncNavActive())">{{/* i18n-keys: nav.tabs_label */}}
+    {{if .NoViewAccess}}<button id="tab-no-access" class="tab" role="tab" aria-controls="no-access-panel" aria-selected="false" type="button" x-bind:class="{ active: activePanel === 'no-access-panel' }" x-bind:aria-selected="activePanel === 'no-access-panel'" x-on:click="setActivePanel('no-access-panel')">{{t "nav.no_access"}}</button>{{end}}
     {{if index .Can "view_overview"}}{{range .Layout.Pages}}
     {{/* x-show statt Entfernen: der Knopf ist server-gerendert, aber der
          Editor kann die Seite umbenannt oder geloescht haben (hiddenPages). */}}
@@ -241,6 +242,14 @@
   </div>
   <div class="page-content">
   {{if index .Can "view_overview"}}{{template "overview" .}}{{end}}
+{{if .NoViewAccess}}  <section id="no-access-panel" class="panel" role="tabpanel" aria-labelledby="tab-no-access" x-bind:class="{ active: activePanel === 'no-access-panel' }" x-show="activePanel === 'no-access-panel'">
+    <div class="no-access-card">
+      <svg class="no-access-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
+      <h2 class="no-access-title">{{t "no_access.title"}}</h2>
+      <p class="no-access-body">{{t "no_access.body"}}</p>
+      <button type="button" class="primary" x-on:click="setActivePanel('settings-panel')">{{t "no_access.open_account"}}</button>
+    </div>
+  </section>{{end}}
 {{if index .Can "view_devices"}}  <section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=devices"><p class="panel-loading" data-panel-loading>{{t "panel.devices_loading"}}</p></section>{{end}}
 {{if index .Can "view_history"}}  <section id="history-panel" class="panel" role="tabpanel" aria-labelledby="tab-history" x-bind:class="{ active: activePanel === 'history-panel' }" x-show="activePanel === 'history-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=history" data-panel-script="{{.BasePath}}/static/js-deps/apexcharts.min.js,{{.BasePath}}/static/js-deps/flatpickr.min.js?v=1,{{with .FlatpickrLocaleScript}}{{$.BasePath}}/static/js-deps/{{.}}?v=1,{{end}}{{.BasePath}}/static/js/history-export.js?v=2,{{.BasePath}}/static/js/energy-model.js?v=4,{{.BasePath}}/static/js/history-chart.js?v=5,{{.BasePath}}/static/js/history.js?v=21" data-panel-css="{{.BasePath}}/static/css/flatpickr.min.css?v=1,{{.BasePath}}/static/css/flatpickr.css?v=1,{{.BasePath}}/static/css/history.css?v=7"><p class="panel-loading" data-panel-loading>{{t "panel.history_loading"}}</p></section>{{end}}
 {{if index .Can "view_stats"}}  <section id="stats-panel" class="panel" role="tabpanel" aria-labelledby="tab-stats" x-bind:class="{ active: activePanel === 'stats-panel' }" x-show="activePanel === 'stats-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=stats" data-panel-script="{{.BasePath}}/static/js-deps/apexcharts.min.js,{{.BasePath}}/static/js/energy-model.js?v=4,{{.BasePath}}/static/js/energy-stats-model.js?v=4,{{.BasePath}}/static/js/stats.page.js?v=5" data-panel-css="{{.BasePath}}/static/css/history.css?v=7,{{.BasePath}}/static/css/stats.css?v=3"><p class="panel-loading" data-panel-loading>{{t "panel.stats_loading"}}</p></section>{{end}}

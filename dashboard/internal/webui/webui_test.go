@@ -3825,6 +3825,41 @@ func TestTabsFollowViewPermissions(t *testing.T) {
 	}
 }
 
+func TestAccountWithoutViewPermissionGetsTheNoticeTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: []string{auth.RoleEditLayout}}))
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-no-access"`, `id="no-access-panel"`, `data-initial-panel="no-access-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Konto ohne Ansehen-Recht: %s fehlt", want)
+		}
+	}
+}
+
+func TestAccountWithViewPermissionHasNoNoticeTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: []string{auth.RoleViewStats}}))
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+	body := rec.Body.String()
+	if strings.Contains(body, `id="tab-no-access"`) || strings.Contains(body, `id="no-access-panel"`) {
+		t.Fatalf("view_stats-Nutzer: der Hinweis-Reiter darf nicht erscheinen")
+	}
+	if !strings.Contains(body, `data-initial-panel="stats-panel"`) {
+		t.Fatalf("view_stats-Nutzer: data-initial-panel muss stats-panel sein")
+	}
+}
+
+func TestNoUserHasNoNoticeTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if strings.Contains(rec.Body.String(), `id="tab-no-access"`) {
+		t.Fatalf("ohne Nutzer darf es keinen Hinweis-Reiter geben")
+	}
+}
+
 func TestNoUserShowsEveryTab(t *testing.T) {
 	rec := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))

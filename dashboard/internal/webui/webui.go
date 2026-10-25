@@ -840,6 +840,9 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		for _, key := range auth.AllRoles() {
 			can[key] = !hasUser || auth.HasRole(user, key)
 		}
+		// Ein Konto ohne jede Ansehen-Berechtigung sieht nur den Hinweis
+		// und landet darauf, statt ohne Erklaerung auf den Einstellungen.
+		noViewAccess := hasUser && !auth.HasAnyView(user)
 		manager := configs != nil && store != nil
 
 		// Ein Panel oder Live-Fragment ohne seine Ansicht gibt es nicht, und
@@ -948,11 +951,16 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			resolvedInstalledServices[key] = value
 		}
 		setNumberSettings(settings.Settings{NumberFormat: numberFormat, NumberGrouping: numberGrouping})
+		initial := initialPanel(can, manager, resolvedInstalledServices["automation"])
+		if noViewAccess {
+			initial = "no-access-panel"
+		}
 		view := map[string]any{
 			"BasePath":           basepath.From(r),
 			"Manager":            manager,
 			"Can":                can,
-			"InitialPanel":       initialPanel(can, manager, resolvedInstalledServices["automation"]),
+			"InitialPanel":       initial,
+			"NoViewAccess":       noViewAccess,
 			"CanEditLayout":      canEditLayout,
 			"CanManageUsers":     canManageUsers,
 			"ShowRuntimeStatus":  showRuntimeStatus,
