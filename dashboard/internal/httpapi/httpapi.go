@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -2146,7 +2147,11 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 			return
 		}
 		parts := strings.Split(name, "/")
-		if name != "automation_rules" && isConfigurationWrite(r, parts) {
+		if isAutomationRulesRecovery(r, parts) {
+			if !requireRoleIfUser(w, r, auth.RoleAutomations, "automations_forbidden", "error.automations_forbidden.rules", "Für Automations-Regeln fehlt die Berechtigung") {
+				return
+			}
+		} else if name != "automation_rules" && isConfigurationWrite(r, parts) {
 			if !requireRoleIfUser(w, r, auth.RoleEditConfig, "edit_config_forbidden", "error.edit_config_forbidden", "Zum Bearbeiten der Gerätekonfiguration fehlt die Berechtigung.") {
 				return
 			}
@@ -2231,8 +2236,21 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 				return
 			}
 			if !auth.HasRole(user, auth.RoleAutomations) {
-				writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.rules", nil, "Für Automations-Regeln fehlt die Berechtigung")
-				return
+				if !auth.HasRole(user, auth.RoleOperateAutomations) {
+					writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.rules", nil, "Für Automations-Regeln fehlt die Berechtigung")
+					return
+				}
+				data, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+				if err != nil {
+					writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+					return
+				}
+				stored, err := manager.Read(name)
+				if err != nil || !onlyEnabledDiffers(stored, data) {
+					writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.rules", nil, "Für Automations-Regeln fehlt die Berechtigung")
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewReader(data))
 			}
 			cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
 			if err != nil || !authManager.ValidateCSRF(cookie.Value, r.Header.Get("X-CSRF-Token")) {
