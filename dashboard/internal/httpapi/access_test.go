@@ -99,14 +99,23 @@ func TestViewGateAnyViewNeedsOneViewPermission(t *testing.T) {
 	}
 }
 
-func TestViewGateResolvesPathDependentPermission(t *testing.T) {
-	resolve := func(r *http.Request) string {
-		if r.URL.Path == "/api/v1/configurations/automation_rules" {
-			return auth.RoleViewAutomations
-		}
-		return auth.RoleViewConfig
+func TestConfigurationViewFollowsTheName(t *testing.T) {
+	cases := map[string]string{
+		"/api/v1/configurations/automation_rules":        auth.RoleViewAutomations,
+		"/api/v1/configurations/automation_rules/schema": auth.RoleViewAutomations,
+		"/api/v1/configurations/shelly":                  auth.RoleViewConfig,
+		"/api/v1/configurations/shelly/automation_rules": auth.RoleViewConfig,
+		"/api/v1/configurations/":                        auth.RoleViewConfig,
 	}
-	gate := viewGate(routeAccess{group: groupPage, resolve: resolve}, okHandler())
+	for path, want := range cases {
+		if got := configurationView(httptest.NewRequest(http.MethodGet, path, nil)); got != want {
+			t.Errorf("configurationView(%s) = %s, want %s", path, got, want)
+		}
+	}
+}
+
+func TestViewGateResolvesPathDependentPermission(t *testing.T) {
+	gate := viewGate(routeAccess{group: groupPage, resolve: configurationView}, okHandler())
 
 	serveAt := func(path string, user auth.User) int {
 		request := httptest.NewRequest(http.MethodGet, path, nil)
@@ -185,6 +194,19 @@ func viewForbiddenCode(recorder *httptest.ResponseRecorder) bool {
 	return recorder.Code == http.StatusForbidden && json.Unmarshal(recorder.Body.Bytes(), &body) == nil && body.Code == "view_forbidden"
 }
 
+// assertPassedGate fails when a logged-in request was refused by the view gate
+// (403 view_forbidden) or lost its session (401). Any other status means the
+// handler ran; callers that know the handler's normal status assert it too.
+func assertPassedGate(t *testing.T, recorder *httptest.ResponseRecorder, path string) {
+	t.Helper()
+	if viewForbiddenCode(recorder) {
+		t.Errorf("%s refused by the view gate: %s", path, recorder.Body.String())
+	}
+	if recorder.Code == http.StatusUnauthorized {
+		t.Errorf("%s answered 401, the session was lost: %s", path, recorder.Body.String())
+	}
+}
+
 func TestConfigurationsGateFollowsTheName(t *testing.T) {
 	router, manager := newRestrictedTestRouter(t, nil)
 	cookie, _ := loginWithRoles(t, router, manager, "automata", []string{auth.RoleViewAutomations})
@@ -204,11 +226,22 @@ func TestConfigurationsGateFollowsTheName(t *testing.T) {
 func TestOverviewOnlyAccountKeepsSharedLiveData(t *testing.T) {
 	router, manager := newRestrictedTestRouter(t, nil)
 	cookie, _ := loginWithRoles(t, router, manager, "olga", []string{auth.RoleViewOverview})
-	for _, path := range []string{"/api/v1/events", "/api/v1/energy", "/api/v1/history/entities", "/api/v1/energy/stats", "/api/v1/device/map"} {
+	// The wanted status is the handler's normal answer on an empty dashboard.
+	// /api/v1/events is a stream that the request timeout ends, so it reports
+	// the 200 it wrote before that.
+	want := map[string]int{
+		"/api/v1/events":           http.StatusOK,
+		"/api/v1/energy":           http.StatusOK,
+		"/api/v1/history/entities": http.StatusOK,
+		"/api/v1/energy/stats":     http.StatusNotImplemented, // no energy stats service in this test
+		"/api/v1/device/map":       http.StatusOK,
+	}
+	for path, status := range want {
 		recorder := httptest.NewRecorder()
 		router.ServeHTTP(recorder, sessionRequest(t, path, cookie, true))
-		if viewForbiddenCode(recorder) {
-			t.Errorf("%s gated for an overview-only account", path)
+		assertPassedGate(t, recorder, path)
+		if recorder.Code != status {
+			t.Errorf("%s: status %d, want %d: %s", path, recorder.Code, status, recorder.Body.String())
 		}
 	}
 }
@@ -262,7 +295,12 @@ func TestMigratedGuestPassesEveryViewGate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
+	deps := RouterDependencies{Auth: manager}
+	reg, configs, store := registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())
+	router := NewAuthenticatedRouter(reg, configs, store, nil, nil, nil, nil, nil, deps)
+	// The same wiring without the session middleware, used to read which
+	// pattern each path is registered under.
+	mux := NewRouterWithDependencies(reg, configs, store, nil, nil, nil, nil, nil, deps)
 
 	guest := httptest.NewRecorder()
 	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
@@ -285,14 +323,21 @@ func TestMigratedGuestPassesEveryViewGate(t *testing.T) {
 	}
 	sort.Strings(patterns)
 	for _, pattern := range patterns {
-		// Logging out ends the guest session, which would hide every later
-		// pattern behind 401, so it stays out of the sweep.
-		if pattern == "/api/v1/auth/logout" {
+		// Open routes have no view gate, so the sweep leaves them out; their
+		// own checks belong to the handler tests.
+		if routeTable[pattern].group == groupOpen {
 			continue
 		}
 		path := pattern
 		if strings.HasSuffix(path, "/") {
 			path += "x"
+		}
+		// Without this check a pattern missing from the wiring would be
+		// answered by the "/" catch-all and pass the sweep unseen.
+		probe := httptest.NewRequest(http.MethodGet, path, nil)
+		if _, matched := mux.Handler(probe); matched != pattern {
+			t.Errorf("%s is not registered in the test router, the sweep would reach %q", pattern, matched)
+			continue
 		}
 		recorder := httptest.NewRecorder()
 		func() {
@@ -301,8 +346,6 @@ func TestMigratedGuestPassesEveryViewGate(t *testing.T) {
 			defer func() { _ = recover() }()
 			router.ServeHTTP(recorder, sessionRequest(t, path, cookies[0], false))
 		}()
-		if viewForbiddenCode(recorder) {
-			t.Errorf("migrated guest refused by a view gate on %s", path)
-		}
+		assertPassedGate(t, recorder, path)
 	}
 }
