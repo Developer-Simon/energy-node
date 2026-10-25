@@ -160,7 +160,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
-	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/settings-stepper.html", "templates/diagnostics.html", "templates/stats.html"))
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/users.html", "templates/settings-stepper.html", "templates/diagnostics.html", "templates/stats.html"))
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
@@ -783,6 +783,9 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// Deployment-Voraussetzung.
 		user, hasUser := auth.UserFromContext(r.Context())
 		canEditLayout := configs != nil && store != nil && (!hasUser || auth.HasRole(user, auth.RoleEditLayout))
+		// Der Reiter Benutzer gibt es nur mit user_management. Ohne Nutzer im
+		// Context (Tests, Instanz ohne auth.Manager) gibt es ihn nicht.
+		canManageUsers := hasUser && auth.HasRole(user, auth.RoleUserManagement)
 
 		// Das Editor-Fragment ist die einzige layout-veraendernde Oberflaeche
 		// und darf ohne die Rolle gar nicht erst rendern.
@@ -881,6 +884,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"BasePath":           basepath.From(r),
 			"Manager":            configs != nil && store != nil,
 			"CanEditLayout":      canEditLayout,
+			"CanManageUsers":     canManageUsers,
 			"ShowRuntimeStatus":  showRuntimeStatus,
 			"DeviceViewMode":     deviceViewMode,
 			"Theme":              theme,

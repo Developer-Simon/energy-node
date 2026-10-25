@@ -152,7 +152,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=4,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=1,/static/js/settings.page.js?v=26,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=7,/static/js/systemconfig.page.js?v=5",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=1,/static/js/settings.page.js?v=26,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=7,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=1,/static/js/users.page.js?v=1",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -3550,5 +3550,23 @@ func TestSetpointActionHeadUsesRoleTone(t *testing.T) {
 	}
 	if !strings.Contains(head, `'is-tone-' + actionTone(action)`) {
 		t.Fatal("Kopf-Kachel der Sollwert-Karte ohne Rollenfarbe")
+	}
+}
+
+func TestSettingsShowsUsersTabOnlyWithUserManagement(t *testing.T) {
+	settingsBody := func(roles []string) string {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil)
+		req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: roles}))
+		Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+		return rec.Body.String()
+	}
+
+	if body := settingsBody([]string{auth.RoleViewOverview}); strings.Contains(body, `aria-controls="settings-users"`) {
+		t.Fatal("ohne user_management darf der Reiter Benutzer nicht erscheinen")
+	}
+	if body := settingsBody([]string{auth.RoleUserManagement}); !strings.Contains(body, `aria-controls="settings-users"`) {
+		t.Fatal("mit user_management muss der Reiter Benutzer erscheinen")
 	}
 }
