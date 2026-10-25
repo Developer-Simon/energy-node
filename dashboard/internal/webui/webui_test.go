@@ -1370,7 +1370,7 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
 	scenario := strings.Index(line, "automations-scenario.js?v=3")
-	chart := strings.Index(line, "automations-chart.js?v=2")
+	chart := strings.Index(line, "automations-chart.js?v=3")
 	page := strings.Index(line, "automations.page.js?v=")
 	wizard := strings.Index(line, "automation-wizard.js?v=1")
 	templates := strings.Index(line, "automation-templates.js?v=1")
