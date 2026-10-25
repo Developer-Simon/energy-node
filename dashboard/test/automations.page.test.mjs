@@ -786,6 +786,19 @@ test('testRule calls testAction for every action in order', async () => {
   assert.deepEqual(JSON.parse(JSON.stringify(results)), [{ index: 0 }, { index: 1 }]);
 });
 
+test('discardEditing restores the rule as it was when editing started', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', enabled: true, conditions: [{ type: 'balance_threshold', field: 'grid_import', threshold: 500 }], actions: [] };
+  component.rules = [rule];
+  const reference = rule;
+  component.startEditing(rule);
+  rule.conditions[0].threshold = 800;
+  component.discardEditing(rule);
+  assert.equal(rule.conditions[0].threshold, 500);
+  assert.equal(component.rules[0], reference);
+  assert.equal(component.editing[rule.id], false);
+});
+
 test('computeAutoPublishPrefixes collects and sorts unique command_topics from known entities', () => {
   const { component } = createAutomationsPanel();
   component.entities = [

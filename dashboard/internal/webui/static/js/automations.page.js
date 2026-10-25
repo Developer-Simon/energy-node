@@ -138,6 +138,8 @@
     lastStateMessageAt: null,
     historyExpanded: {},
     editing: {},
+    // Stand einer Regel beim Start des Bearbeitens (ID -> Kopie), fuer Verwerfen.
+    editSnapshot: {},
     savedDocument: null,
     lastStateAt: 0,
     hasAutomationsRole: false,
@@ -615,8 +617,23 @@
       return JSON.stringify(saved) !== JSON.stringify(rule);
     },
 
-    startEditing(rule) { this.editing[rule.id] = true; this.expanded[rule.id] = true; },
+    // Der Schnappschuss entsteht nur beim Beginn, damit ein erneuter Klick auf
+    // Bearbeiten die urspruengliche Fassung nicht ueberschreibt.
+    startEditing(rule) {
+      if (!this.editing[rule.id]) this.editSnapshot[rule.id] = JSON.parse(JSON.stringify(rule));
+      this.editing[rule.id] = true;
+      this.expanded[rule.id] = true;
+    },
     stopEditing(rule) { this.editing[rule.id] = false; },
+    // Verwerfen setzt die Felder an Ort und Stelle zurueck, damit Alpine dieselbe Referenz behaelt.
+    discardEditing(rule) {
+      const snapshot = this.editSnapshot[rule.id];
+      if (snapshot) {
+        for (const key of Object.keys(rule)) delete rule[key];
+        Object.assign(rule, JSON.parse(JSON.stringify(snapshot)));
+      }
+      this.stopEditing(rule);
+    },
     // Collapsing closes the editor too.
     toggleExpanded(rule) {
       const collapsing = this.expanded[rule.id];
