@@ -3793,10 +3793,11 @@ func TestInitialPanelFollowsViewPermissions(t *testing.T) {
 		{"config needs manager", allowed(auth.RoleViewConfig, auth.RoleViewEnergy), false, true, "settings-panel"},
 		{"config with manager", allowed(auth.RoleViewConfig, auth.RoleViewEnergy), true, true, "config-panel"},
 		{"energy before devicemap", allowed(auth.RoleViewDeviceMap, auth.RoleViewEnergy), true, true, "energy-panel"},
-		{"devicemap needs manager", allowed(auth.RoleViewDeviceMap, auth.RoleViewDiagnostics), false, true, "diagnostics-panel"},
+		{"devicemap needs manager", allowed(auth.RoleViewDeviceMap, auth.RoleViewDiagnostics), false, true, "settings-panel"},
 		{"diagnostics before automations", allowed(auth.RoleViewAutomations, auth.RoleViewDiagnostics), true, true, "diagnostics-panel"},
 		{"automations needs service", allowed(auth.RoleViewAutomations), true, false, "settings-panel"},
 		{"automations with service", allowed(auth.RoleViewAutomations), true, true, "automations-panel"},
+		{"diagnostics needs manager", allowed(auth.RoleViewDiagnostics), false, true, "settings-panel"},
 		{"nothing allowed falls back", allowed(), true, true, "settings-panel"},
 	}
 	for _, tc := range cases {

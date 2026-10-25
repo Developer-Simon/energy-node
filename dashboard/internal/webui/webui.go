@@ -767,7 +767,7 @@ func initialPanel(can map[string]bool, manager, automationsInstalled bool) strin
 		{"config-panel", auth.RoleViewConfig, manager},
 		{"energy-panel", auth.RoleViewEnergy, manager},
 		{"devicemap-panel", auth.RoleViewDeviceMap, manager},
-		{"diagnostics-panel", auth.RoleViewDiagnostics, true},
+		{"diagnostics-panel", auth.RoleViewDiagnostics, manager},
 		{"automations-panel", auth.RoleViewAutomations, automationsInstalled},
 	}
 	for _, candidate := range candidates {
