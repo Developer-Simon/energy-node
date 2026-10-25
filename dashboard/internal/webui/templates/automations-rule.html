@@ -1,5 +1,5 @@
 {{define "automations-rule"}}
-            <div class="automation-rule-head" x-bind:class="{ 'is-collapsed': !expanded[rule.id] }" x-on:click="expanded[rule.id] || toggleExpanded(rule)">
+            <div class="automation-rule-head" x-bind:class="{ 'is-collapsed': !expanded[rule.id], 'is-editing': editing[rule.id] }" x-on:click="expanded[rule.id] || toggleExpanded(rule)">
               <button class="auto-tile is-accent auto-collapse" type="button" x-on:click.stop="toggleExpanded(rule)"
                       x-bind:aria-expanded="Boolean(expanded[rule.id])"
                       x-bind:title="expanded[rule.id] ? $t('automations.rule.expand_button.tooltip_collapse') : $t('automations.rule.expand_button.tooltip_expand')"

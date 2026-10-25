@@ -664,3 +664,57 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .auto-rule[data-mode="edit"] .auto-field-wide, .auto-rule[data-mode="edit"] .auto-field:has(> .auto-compare), .auto-rule[data-mode="edit"] .auto-field:has(.auto-hold-long) { grid-column: 1 / -1; }
 }
+
+/* --- Mobil, Korrektur: Kopf wie die zugeklappte Zeile, Editor-Kopf in einer Zeile, Karten als Raster --- */
+@media (max-width: 899.98px) {
+  .automation-rule-head { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 4px; align-items: center; padding: 12px 14px; }
+  .automation-rule-head > .auto-collapse { width: 34px; height: 34px; }
+  .automation-rule-head .auto-rule-main { grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+  .automation-rule-head .auto-rule-main .automation-rule-name { flex: 0 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .automation-rule-head.is-editing .auto-rule-main input.automation-rule-name { flex: 1 1 auto; width: 100%; min-width: 0; }
+  .automation-rule-head > .settings-toggle, .automation-rule-head > label.settings-toggle { grid-column: 3; grid-row: 1; }
+  .automation-rule-head .auto-pill, .automation-rule-head .auto-rule-chevron { display: none; }
+  .automation-rule-head:not(.is-editing) .auto-rule-preview, .automation-rule-head:not(.is-editing) .auto-rule-short { display: inline-flex !important; }
+  .automation-rule-head .auto-rule-preview .automation-icon-sm { width: 13px; height: 13px; }
+  .automation-rule-head .auto-rule-short { align-items: center; gap: 6px; font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+  .automation-rule-head.is-editing .auto-rule-edit-status { grid-column: 1 / -1; grid-row: 2; font-size: .8rem; color: var(--text-muted); }
+  .auto-rule[data-mode="edit"] .automation-rule-head { position: sticky; top: 0; z-index: 3; background: var(--panel); }
+  .auto-rule-body { padding: 12px 14px 14px; }
+  .auto-rule-view .act-test { display: none; }
+  .auto-rule-spark { padding: 4px 14px 0; }
+  .auto-rule-spark-svg { height: 30px; }
+  .auto-rule-spark-empty { display: block; height: 30px; line-height: 30px; }
+
+  /* Karten: Kopf und Aktionen werden Raster-Zellen der Karte. */
+  .auto-rule[data-mode="edit"] .auto-label-always-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .auto-rule[data-mode="edit"] .auto-card { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; column-gap: 10px; row-gap: 10px; align-items: center; }
+  .auto-rule[data-mode="edit"] .auto-card-head, .auto-rule[data-mode="edit"] .auto-card-actions { display: contents; }
+  .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card-title { grid-column: 2; grid-row: 1; }
+  .auto-rule[data-mode="edit"] .auto-card-kind { grid-column: 2; grid-row: 2; display: block; }
+  .auto-rule[data-mode="edit"] .auto-cond-badge { display: inline-flex; grid-column: 3; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card-delete { grid-column: 4; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card > .auto-fields { grid-column: 1 / -1; grid-row: 3; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .auto-rule[data-mode="edit"] .auto-card-test { grid-column: 1 / -1; grid-row: 4; width: 100%; justify-content: center; }
+  .auto-rule[data-mode="edit"] .auto-fields.auto-field-wide { grid-template-columns: minmax(0, 1fr); }
+  .auto-rule[data-mode="edit"] .auto-fields.auto-field-wide > .auto-field { grid-column: 1 / -1; }
+  .auto-rule[data-mode="edit"] .auto-field:has(> .auto-device-chips) { grid-column: 1 / -1; }
+  .auto-rule[data-mode="edit"] .auto-device-chips.is-single { display: flex; align-items: stretch; gap: 8px; width: 100%; }
+  .auto-rule[data-mode="edit"] .auto-device-chips.is-single > .auto-device-chip { flex: 1 1 auto; min-width: 0; max-width: none; }
+  .auto-rule[data-mode="edit"] .auto-device-chips.is-single > .auto-device-more { flex: none; align-self: center; }
+  .auto-rule[data-mode="edit"] .auto-stepper { width: 100%; min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-stepper-field { min-width: 0; flex: 1 1 auto; }
+  .auto-rule[data-mode="edit"] .auto-stepper-field .auto-input { width: 100%; min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-field:has(.auto-hold-long), .auto-rule[data-mode="edit"] .auto-field:has(> .auto-compare) { grid-column: 1 / -1; }
+
+  /* Fuss klebt unten, der Inhalt hat Abstand, damit nie die letzte Karte darunter liegt. */
+  .auto-rule[data-mode="edit"] .auto-rule-body { padding-bottom: 14px; }
+  .auto-rule[data-mode="edit"] .auto-rule-foot { position: sticky; bottom: 0; background: var(--panel); }
+}
+
+@media (min-width: 900px) {
+  .auto-cond-badge { display: none; }
+}
+
+/* Das Abzeichen zeigt nur die Regel-Bearbeitung auf dem Telefon, das Szenario-Formular bleibt ohne. */
+.auto-cond-badge { display: none; }

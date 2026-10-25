@@ -45,6 +45,7 @@
                           <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
                         </span>
                         <span class="auto-card-title" x-text="describeCondition(condition).title"></span>
+                        <span class="auto-cond-badge auto-cond-state" x-show="typeof rowsReport === 'function'" x-bind:class="typeof rowsReport === 'function' ? condStateClass(rowsReport(index)) : ''" x-text="typeof rowsReport === 'function' ? $t(condStateKey(rowsReport(index))) : ''"></span>
                         <span class="auto-card-actions">
                         <button class="auto-card-delete" type="button" x-on:click="removeCondition(rowsOwner, index)"
                                 x-bind:title="$t('automations.condition.remove_button.tooltip')" x-bind:aria-label="$t('automations.condition.remove_button.tooltip')">
@@ -56,7 +57,7 @@
                       <template x-if="condition.type === 'balance_threshold'">
                         <div class="auto-fields">
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.field_label"}}</span>
+                            <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.condition.balance.field_label"}}</span>
                             {{template "auto-condition-chip" "field"}}
                           </div>
                           <div class="auto-field">
@@ -315,7 +316,7 @@
                       <template x-if="actionKind(action) === 'switch' || actionKind(action) === 'setpoint'">
                         <div class="auto-fields">
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label auto-label-sr">{{t "automations.wizard.entity.device_label"}}</span>
+                            <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.wizard.entity.device_label"}}</span>
                             <div class="auto-device-chips is-single" role="group" x-bind:aria-label="$t('automations.wizard.entity.device_label')">
                               <div class="auto-device-chip is-selected" x-bind:class="{ 'is-unknown': actionChip(action).unknown }">
                                 <span class="auto-tile-icon" x-bind:class="actionChip(action).tone ? 'is-tone-' + actionChip(action).tone : ''"><svg class="automation-icon"><use x-bind:href="'#' + actionChip(action).icon"></use></svg></span>
@@ -360,7 +361,7 @@
                               <template x-if="action.payload_source === 'balance'">
                                 <div class="auto-fields auto-field-wide">
                                   <div class="auto-field">
-                                    <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.field_label"}}</span>
+                                    <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.condition.balance.field_label"}}</span>
                                     <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
                                       <template x-for="[field, label] in balanceFields" x-bind:key="field">
                                         <option x-bind:value="field" x-text="label"></option>
@@ -431,7 +432,7 @@
                           <template x-if="action.payload_source === 'balance'">
                             <div class="auto-fields auto-field-wide">
                               <div class="auto-field">
-                                <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.field_label"}}</span>
+                                <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.condition.balance.field_label"}}</span>
                                 <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
                                   <template x-for="[field, label] in balanceFields" x-bind:key="field">
                                     <option x-bind:value="field" x-text="label"></option>
