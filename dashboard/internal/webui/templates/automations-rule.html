@@ -28,6 +28,7 @@
                 </span>
               </span>
 
+              <span class="auto-rule-edit-status" x-show="editing[rule.id]" x-text="ruleEditStatus(rule)"></span>
               <button class="auto-btn-text is-ghost" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-on:click="testRule(rule)"
                       x-bind:title="$t('automations.rule.test_button')">
                 <svg class="automation-icon"><use href="#ico-play"></use></svg>
@@ -144,6 +145,20 @@
                   <template x-if="!rule.history_enabled">
                     <p class="sub">{{t "automations.history.disabled_message"}}</p>
                   </template>
+                  <div class="auto-mobile-actions">
+                    <button class="auto-btn-text" type="button" x-on:click="startEditing(rule)">
+                      <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
+                      <span>{{t "automations.rule.edit_button.label"}}</span>
+                    </button>
+                    <button class="auto-btn-text is-ghost" type="button" x-on:click="testRule(rule)">
+                      <svg class="automation-icon"><use href="#ico-play"></use></svg>
+                      <span>{{t "automations.rule.test_button"}}</span>
+                    </button>
+                    <button class="auto-btn-text is-ghost is-danger is-icon" type="button" x-on:click="removeRule(rule.id)"
+                            x-bind:aria-label="$t('automations.rule.footer.delete')" x-bind:title="$t('automations.rule.footer.delete')">
+                      <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                    </button>
+                  </div>
                 </div>
               </template>
 

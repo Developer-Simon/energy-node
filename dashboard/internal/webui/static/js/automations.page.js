@@ -937,6 +937,14 @@
       });
     },
 
+    // Kopfzeile des Editors: Status der Regel, dazu die letzte Auslösung, wenn es eine gibt.
+    ruleEditStatus(rule) {
+      const status = this.gateVerdict(rule).label;
+      const marks = this.ruleTriggers(rule).marks;
+      if (!marks.length) return status;
+      return t('automations.rule.edit.status_last', { status, time: marks[0].label });
+    },
+
     // Kurzstatus der Regel fuer die Listenzeile: erfuellt, wartet, Sperrzeit,
     // nicht erfuellt, Fehler oder aus. Aus gilt vor allem anderen.
     ruleShortStatus(rule) {

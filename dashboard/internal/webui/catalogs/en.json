@@ -346,6 +346,7 @@
   "automations.rule.cond_state.open": "open",
   "automations.rule.cond_state.pending": "waiting",
   "automations.rule.delete_button.tooltip": "Delete rule {name}",
+  "automations.rule.edit.status_last": "{status} · last {time}",
   "automations.rule.edit_button.label": "Edit",
   "automations.rule.edit_button.tooltip_edit": "Edit rule",
   "automations.rule.edit_button.tooltip_stop": "Stop editing",

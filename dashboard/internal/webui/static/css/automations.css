@@ -543,11 +543,11 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 /* Diese Hooks wirken nur in der Bearbeiten-Ansicht, das Szenario-Formular teilt die Vorlagen und bleibt unveraendert. */
 .auto-card-actions { display: contents; }
 .auto-hold-short, .auto-test-short, .auto-chip-chevron { display: none; }
-.auto-rule[data-mode="edit"] .auto-label-sr, .auto-rule[data-mode="edit"] .auto-card-title, .auto-rule[data-mode="edit"] .auto-card-kind, .auto-rule[data-mode="edit"] .auto-hold-long {
-  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
-}
 
 @media (min-width: 900px) {
+  .auto-rule[data-mode="edit"] .auto-label-sr, .auto-rule[data-mode="edit"] .auto-card-title, .auto-rule[data-mode="edit"] .auto-card-kind, .auto-rule[data-mode="edit"] .auto-hold-long {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
   /* Bedingungen und Aktionen: eine Zeile je Karte, Icon links, Felder mittig, Schaltflaechen rechts. */
   .auto-rule[data-mode="edit"] .auto-edit-list { gap: 0; background: var(--panel-alt); border-radius: 14px; overflow: hidden; }
   .auto-rule[data-mode="edit"] .auto-cond { gap: 0; margin-bottom: 0; border-top: 1px solid var(--border-soft); }
@@ -635,4 +635,32 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 @media (prefers-reduced-motion: reduce) {
   .auto-rule-spark { animation: none; }
   .auto-btn-text:active:not(:disabled) { transform: none; }
+}
+
+/* --- Mobil: Aufgeklappt mit Aktionen unten, Editor mit klebendem Kopf und Fuss, Telefon-Maßstab --- */
+.auto-btn-text.is-icon { padding: 8px 10px; }
+.auto-mobile-actions, .auto-rule-edit-status { display: none; }
+@media (max-width: 899.98px) {
+  .auto-rule-list { font-size: 13.5px; }
+  .auto-tile { width: 34px; height: 34px; }
+  .auto-btn-text { font-size: .84rem; padding: 8px 10px; }
+  .automation-rule-head .auto-btn-text { display: none; }
+  .auto-mobile-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+  .auto-mobile-actions .auto-btn-text { justify-content: center; }
+  .auto-mobile-actions .is-danger { color: var(--bad); }
+  .auto-line.is-met .auto-line-text { color: var(--ok); font-weight: 600; }
+  .auto-rule[data-mode="edit"] .automation-rule-head { position: sticky; top: 0; z-index: 3; background: var(--panel); flex-wrap: wrap; }
+  .auto-rule[data-mode="edit"] .auto-rule-edit-status { display: block; flex-basis: 100%; order: 9; font-size: .8rem; color: var(--text-muted); }
+  .auto-rule[data-mode="edit"] .auto-rule-foot { position: sticky; bottom: 0; z-index: 3; display: grid; grid-template-columns: 1fr 2fr; gap: 8px; padding: 10px 0; background: var(--panel); }
+  .auto-rule[data-mode="edit"] .auto-rule-foot > .is-danger { display: none; }
+  .auto-rule[data-mode="edit"] .auto-rule-foot-main { display: contents; }
+  .auto-rule[data-mode="edit"] .auto-rule-foot .auto-btn-text { justify-content: center; }
+  .auto-rule[data-mode="edit"] .auto-cond.is-met .auto-card { box-shadow: inset 3px 0 0 var(--ok); }
+  .auto-rule[data-mode="edit"] .auto-card-head { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; }
+  .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card-title { grid-column: 2; grid-row: 1; }
+  .auto-rule[data-mode="edit"] .auto-card-kind { grid-column: 2; grid-row: 2; }
+  .auto-rule[data-mode="edit"] .auto-card-actions { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 4px; }
+  .auto-rule[data-mode="edit"] .auto-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .auto-rule[data-mode="edit"] .auto-field-wide, .auto-rule[data-mode="edit"] .auto-field:has(> .auto-compare), .auto-rule[data-mode="edit"] .auto-field:has(.auto-hold-long) { grid-column: 1 / -1; }
 }

@@ -1987,6 +1987,15 @@ test('setShowHistory loads rule sparklines only for rules with a series', async 
   }
 });
 
+test('ruleEditStatus shows only the status without a trigger history', () => {
+  const { component } = createAutomationsPanel();
+  component.online = true;
+  component.runtimeState = { rules: {}, scenarios: {} };
+  component.liveHistory = {};
+  const rule = { id: 'h1', enabled: true, conditions: [], actions: [] };
+  assert.equal(component.ruleEditStatus(rule), component.gateVerdict(rule).label);
+});
+
 test('ruleShortStatus shows off for disabled rules and not met without a live state', () => {
   const { component } = createAutomationsPanel();
   component.online = true;
