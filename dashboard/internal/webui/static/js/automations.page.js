@@ -487,6 +487,22 @@
       return window.__automationsView.conditionState(report);
     },
 
+    // Klasse des Zustands: erfuellt, wartet (Haltezeit laeuft) oder offen.
+    condStateClass(report) {
+      const state = this.conditionStateOf(report);
+      if (state === 'met') return 'is-met';
+      if (state === 'pending') return 'is-pending';
+      return 'is-open';
+    },
+
+    // Schluessel des Zustandsabzeichens passend zu condStateClass.
+    condStateKey(report) {
+      const tone = this.condStateClass(report);
+      if (tone === 'is-met') return 'automations.rule.cond_state.met';
+      if (tone === 'is-pending') return 'automations.rule.cond_state.pending';
+      return 'automations.rule.cond_state.open';
+    },
+
     describeCondition(condition) {
       return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories);
     },

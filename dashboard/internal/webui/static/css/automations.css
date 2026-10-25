@@ -26,6 +26,14 @@
   .automation-rule-head { padding: 14px 18px; gap: 14px; }
   .automation-rule-head .automation-rule-name { font-size: 1.02rem; }
   .auto-rule-body { margin-top: 0; padding: 14px 18px 18px; }
+  /* Drei Spalten Wenn, Dann, Ablauf. Jede Gruppe ist eine Flaeche mit Zeilen. */
+  .auto-blocks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .auto-lines { gap: 0; background: var(--panel-alt); border-radius: 14px; overflow: hidden; }
+  .auto-line { min-height: 46px; padding: 11px 14px; border-radius: 0; background: transparent; border-top: 1px solid var(--border-soft); font-size: .88rem; }
+  .auto-lines > li:first-child { border-top: 0; }
+  .auto-line.is-met { background: var(--ok-bg); box-shadow: inset 3px 0 0 var(--ok); }
+  .auto-line.is-pending { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
+  .auto-line.is-open .auto-line-text { color: var(--text-muted); font-weight: 400; }
 }
 .auto-rule-view, .auto-rule-edit { display: grid; gap: .9rem; }
 .auto-live { display: grid; gap: 6px; }
@@ -65,6 +73,13 @@
 .auto-line-note.blocked { color: var(--bad); }
 .auto-line-check { width: 1rem; height: 1rem; margin-left: auto; color: var(--ok); }
 .auto-line .act-test { margin-left: auto; }
+
+/* Zustand einer Bedingung: erfuellt, wartet oder offen. */
+.auto-cond-state { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 700; padding: 2px 8px 2px 4px; border-radius: 999px; white-space: nowrap; }
+.auto-cond-state .automation-icon { width: 14px; height: 14px; }
+.auto-cond-state.is-met { background: var(--ok); color: var(--panel); }
+.auto-cond-state.is-pending { background: var(--warn-bg); color: var(--warn); }
+.auto-cond-state.is-open { padding-left: 8px; color: var(--text-faint); border: 1px dashed var(--border); }
 .auto-fires { display: grid; gap: 6px; padding-bottom: 6px; }
 .auto-fires-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .auto-fires-head small { font-size: 0.78rem; color: var(--text-muted); }

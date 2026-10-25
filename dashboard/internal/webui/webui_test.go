@@ -3360,6 +3360,7 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 		`<template x-if="editing[rule.id]">`,
 		`x-on:click="testRule(rule)"`,
 		`x-on:click="startEditing(rule)"`,
+		"auto-cond-state",
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("Regelkarte: %q fehlt im Automations-Panel", want)
@@ -3376,6 +3377,16 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 	}
 	if strings.Contains(header, "removeRule(") {
 		t.Fatal("Regelkarte: der Kopf enthaelt noch removeRule")
+	}
+	// Die Zustandsklassen entstehen im Skript, die Vorlage zeigt nur die Klasse.
+	script, err := fs.ReadFile(templateFS, "static/js/automations.page.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{"'is-met'", "'is-pending'", "'is-open'"} {
+		if !strings.Contains(string(script), marker) {
+			t.Fatalf("Regelkarte: Zustandsklasse %s fehlt im Skript", marker)
+		}
 	}
 	for _, gone := range []string{`class="gate"`, "mini-chain", "rule-column", "rule-arrow"} {
 		if strings.Contains(body, gone) {

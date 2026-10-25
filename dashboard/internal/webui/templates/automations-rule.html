@@ -92,6 +92,12 @@
                         <li class="auto-line">
                           <svg class="automation-icon"><use href="#ico-gate"></use></svg>
                           <span class="auto-line-text" x-text="$t('automations.rule.flow.cooldown', {seconds: rule.cooldown_seconds || 0})"></span>
+                          <span class="field-help">
+                            <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.cooldown_help_aria_label')">
+                              <svg><use href="#ico-help"></use></svg>
+                            </button>
+                            <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_seconds')"></span>
+                          </span>
                         </li>
                       </ul>
                     </section>
