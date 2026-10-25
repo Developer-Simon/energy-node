@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.15 (2026-10-25)
+## v0.10.16 (2026-10-25)
 
 ### Features
 
@@ -10,11 +10,27 @@
 - **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
 - **auth:** Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions. (#167) (95146f8)
 - **automations:** Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet. (#168) (3037d6d)
+- **automations:** The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide. (#169) (58993de)
+- **httpapi:** route access groups and view gate (part 1) (cb4bef7)
+- **httpapi:** route access table with server-side view permissions (07a5c27)
+- **httpapi:** enforce edit_settings on settings writes (c8f1070)
+- **httpapi:** enforce operate_devices and edit_config (f06b273)
+- **httpapi:** let operate_automations toggle rules and scenarios (4b3ca50)
+- **webui:** gate panels and live fragments by view permission (9442753)
+- **webui:** hide tabs and panels without their view permission (d85d1d9)
+- **webui:** start on the first permitted tab (63bd71c)
+- **webui:** read-only states for settings and configuration (13eac85)
+- **webui:** read-only states for automations (9756d0c)
+- **webui:** explain an account without view permissions (cd1efa5)
+- **auth:** split settings permissions into design and setup, add TinyTuya setup (4393ef8)
+- **webui:** settings controls follow the design and setup permissions (019688c)
+- **webui:** own account card on the users page (f7e44e3)
+- **webui:** sign-in card with sign out on the users page (11e5703)
+- **auth:** Permissions are enforced: accounts only see the pages they may view and only change what they may change. (#170)
 - **automations:** target band math for the assistant (fb27c76)
 - **automations:** draggable target band component (c054437)
 - **automations:** draggable target band with optional tolerance (bde335e)
 - **automations:** cache-bust, docs and band wording for the target band (d688439)
-- **automations:** The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide. (#169)
 - **automations:** trigger strip spans the last four triggers (6fca6e7)
 - **automations:** testRule runs every action in order (1e2528d)
 - **automations:** desktop rule row and header from the draft (a891d5c)
@@ -87,6 +103,14 @@
 
 ### Fixes
 
+- **httpapi:** tighten route access tests (f26982f)
+- **webui:** start on diagnostics only with the manager (36aaa68)
+- **webui:** base the operate-only save on the stored document (362252e)
+- **webui:** keep saved permissions after saving an account (9deefdf)
+- **httpapi:** require TinyTuya setup for the cloud device list (284fbe2)
+- **webui:** read-only automation rules in the new rule editor (8b60ed3)
+- **webui:** show the account card in the settings scope (606a032)
+- **webui:** no unsaved tag before any change on the users page (8b567bf)
 - **automations:** target band toggle and preview frame as in the draft (7e70b3c)
 - **automations:** align the desktop rule editor with the draft (2f1160c)
 - **automations:** align the mobile rule card and editor with the draft (49c21c2)
@@ -123,6 +147,7 @@
 
 ### Documentation
 
+- route access groups (10f6edb)
 - **automations:** plainer texts and template names in the assistant (18224e9)
 - **automations:** device chips, picker and action cards (411838a)
 - **automations:** scenario page and rule editor (6352d47)
@@ -137,16 +162,20 @@
 
 ### Style
 
+- **webui:** account card without the old divider (ad64fb5)
+- **webui:** account card title like the other cards (86f685e)
+- **webui:** one title for account and password (416b722)
 - **automations:** centred stepper values and dashed add tiles (676bbdd)
 - **automations:** device action tile mentions setpoints (f9e5f7b)
 - **automations:** stable stepper fields and top aligned tiles (bfc602c)
 
 ### Chores
 
+- **webui:** bump asset versions (b48bacf)
+- **webui:** bump asset versions for the account card (76577f1)
 - **automations:** cache-bust the rule view assets (e40a797)
 - **automations:** cache-bust the device helpers (3a8ac87)
 - **automations:** cache-bust the shared automation view helpers (8010d35)
-- **webui:** bump asset versions (60da1fe)
 - **dashboard:** bump automations asset versions (34f8085)
 - **automation:** scenario smoke fixture and 0.6.0 manifest (dcd062c)
 

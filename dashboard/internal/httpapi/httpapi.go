@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -251,7 +252,7 @@ func NewAuthenticatedRouter(reg *registry.Registry, configs *config.Manager, sto
 }
 
 func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, store *settings.Store, probe tinytuya.Prober, credentialStore *tinytuya.CredentialStore, publisher CommandPublisher, storageProvider storagehealth.Provider, cache runtimecache.StatusProvider, dependencies RouterDependencies) *http.ServeMux {
-	mux := http.NewServeMux()
+	g := &guardedMux{mux: http.NewServeMux()}
 	commands := newCommandHistory()
 	engine := diagnostics.NewEngine(reg, store)
 	engine.SetConfigManager(configs)
@@ -260,42 +261,42 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, now))
-	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
-	mux.Handle("/static/", webui.Static())
-	mux.Handle("/i18n/", webui.I18nScript())
+	g.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, now))
+	g.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
+	g.Handle("/static/", webui.Static())
+	g.Handle("/i18n/", webui.I18nScript())
 	if dependencies.Redeploy != nil {
-		mux.Handle("/redeploy/", requireRoleGate(dependencies.Auth, auth.RoleUpdateSettings, "update_settings_forbidden", "error.update_settings_forbidden", "Für den Installer fehlt die Berechtigung update_settings", dependencies.Redeploy))
+		g.Handle("/redeploy/", requireRoleGate(dependencies.Auth, auth.RoleUpdateSettings, "update_settings_forbidden", "error.update_settings_forbidden", "Für den Installer fehlt die Berechtigung update_settings", dependencies.Redeploy))
 	}
 	stateDir := dependencies.InstallerStateDir
 	if stateDir == "" {
 		stateDir = versions.DefaultStateDir
 	}
-	mux.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
-	mux.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
-	mux.HandleFunc("/api/v1/changelog/highlights", handleChangelogHighlights(stateDir))
+	g.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
+	g.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
+	g.HandleFunc("/api/v1/changelog/highlights", handleChangelogHighlights(stateDir))
 	if dependencies.UpdatesCache != nil {
-		mux.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
-		mux.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
+		g.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
+		g.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
 	}
 	if dependencies.UpdaterJobDir != "" {
-		mux.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
+		g.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
 	}
-	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
-	mux.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
-	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
+	g.HandleFunc("/api/v1/devices", handleDevices(reg))
+	g.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
+	g.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
-	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
-	mux.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
+	g.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
+	g.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
 	// /api/v1/discovery ist ohne Schraegstrich registriert, hat also keinen
 	// Unterrouter, mit dem diese Route kollidieren koennte.
-	mux.HandleFunc("/api/v1/discovery/summary", handleDiscoverySummary(reg))
-	mux.HandleFunc("/api/v1/entities/", handleEntityCommand(reg, publisher, commands))
-	mux.HandleFunc("/api/v1/topics", handleTopics(reg))
-	mux.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
-	mux.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
-	mux.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
-	mux.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
+	g.HandleFunc("/api/v1/discovery/summary", handleDiscoverySummary(reg))
+	g.HandleFunc("/api/v1/entities/", handleEntityCommand(reg, publisher, commands))
+	g.HandleFunc("/api/v1/topics", handleTopics(reg))
+	g.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
+	g.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
+	g.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
+	g.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
 	resolver := dependencies.Resolver
 	if resolver == nil {
 		resolver = energy.NewResolver(nil)
@@ -305,13 +306,13 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 			applyEnergyConfig(resolver, value)
 		}
 	}
-	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
-	mux.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
-	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
-	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
-	mux.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
-	mux.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
-	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store, configs))
+	g.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
+	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
+	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
+	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store, configs))
 	exchange := newHistoryExchange(recordedExchangeSeries(reg, store, configs, resolver))
 	if dependencies.HistorySampler != nil {
 		dependencies.HistorySampler.Attach(exchange.buffer)
@@ -320,91 +321,91 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.EnergyStats != nil && dependencies.EnergyStats.Sync != nil {
 		exchange.attachStats(dependencies.EnergyStats.Sync)
 	}
-	exchange.routes(mux)
-	mux.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))
-	mux.HandleFunc("/api/v1/diagnostics/rules", handleDiagnosticRules(engine))
-	mux.HandleFunc("/api/v1/diagnostics/health", handleDiagnosticHealth(engine))
-	mux.HandleFunc("/api/v1/health/storage", handleStorageHealth(storageProvider))
-	mux.HandleFunc("/api/v1/shelly/presets", handleShellyPresets(dependencies.ShellyPresets))
+	exchange.routes(g)
+	g.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))
+	g.HandleFunc("/api/v1/diagnostics/rules", handleDiagnosticRules(engine))
+	g.HandleFunc("/api/v1/diagnostics/health", handleDiagnosticHealth(engine))
+	g.HandleFunc("/api/v1/health/storage", handleStorageHealth(storageProvider))
+	g.HandleFunc("/api/v1/shelly/presets", handleShellyPresets(dependencies.ShellyPresets))
 	if dependencies.Auth != nil {
-		mux.HandleFunc("/api/v1/auth/login", handleAuthLogin(dependencies.Auth))
-		mux.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
-		mux.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
-		mux.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
-		mux.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
-		mux.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
-		mux.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
-		mux.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/login", handleAuthLogin(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
+		g.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
+		g.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
+		g.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
+		g.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
+		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
 	}
 	if dependencies.SystemActions != nil {
-		mux.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
-		mux.HandleFunc("/api/v1/system/reboot", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Reboot))
-		mux.HandleFunc("/api/v1/system/poweroff", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Poweroff))
+		g.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
+		g.HandleFunc("/api/v1/system/reboot", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Reboot))
+		g.HandleFunc("/api/v1/system/poweroff", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Poweroff))
 	}
 	if dependencies.ServiceLogs != nil {
-		mux.HandleFunc("/api/v1/system/logs", handleServiceLogs(dependencies.Auth, dependencies.ServiceLogs))
-		mux.HandleFunc("/api/v1/system/logs/units", handleServiceLogUnits(dependencies.Auth))
+		g.HandleFunc("/api/v1/system/logs", handleServiceLogs(dependencies.Auth, dependencies.ServiceLogs))
+		g.HandleFunc("/api/v1/system/logs/units", handleServiceLogUnits(dependencies.Auth))
 	}
 	if dependencies.AppConfigPath != "" {
-		mux.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))
-		mux.HandleFunc("/api/v1/system/config/schema", handleSystemConfigSchema())
+		g.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))
+		g.HandleFunc("/api/v1/system/config/schema", handleSystemConfigSchema())
 	}
 	if configs != nil {
-		mux.HandleFunc("/api/v1/configurations", handleConfigurations(configs))
-		mux.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth, dependencies.NodeAgent))
-		mux.HandleFunc("/api/v1/automations/test", handleAutomationTest(publisher, dependencies.Auth))
-		mux.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(configs))
-		mux.HandleFunc("/api/v1/energy/category-references", handleCategoryReferences(configs))
+		g.HandleFunc("/api/v1/configurations", handleConfigurations(configs))
+		g.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth, dependencies.NodeAgent))
+		g.HandleFunc("/api/v1/automations/test", handleAutomationTest(publisher, dependencies.Auth))
+		g.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(configs))
+		g.HandleFunc("/api/v1/energy/category-references", handleCategoryReferences(configs))
 	}
 	if store != nil {
-		mux.HandleFunc("/api/v1/layout", handleLayout(store))
-		mux.HandleFunc("/api/v1/layout/", handleLayoutRevision(store))
-		mux.HandleFunc("/api/v1/settings", handleSettings(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/settings/", handleSettingsRevision(store))
-		mux.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
+		g.HandleFunc("/api/v1/layout", handleLayout(store))
+		g.HandleFunc("/api/v1/layout/", handleLayoutRevision(store))
+		g.HandleFunc("/api/v1/settings", handleSettings(store))
+		g.HandleFunc("/api/v1/settings/", handleSettingsRevision(store))
+		g.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
 		if deviceMap, err := store.LoadDeviceMap(); err == nil {
 			applyRelationOverrides(reg, deviceMap)
 			applySubDeviceLabels(resolver, deviceMap)
 		}
-		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, resolver, dependencies.Auth))
-		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
-		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
-		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase, dependencies.EnergySensorOptions))
-		mux.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
-		mux.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
-		mux.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
+		g.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, resolver, dependencies.Auth))
+		g.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
+		g.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
+		g.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase, dependencies.EnergySensorOptions))
+		g.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
+		g.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
+		g.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
 
 		bridgeTargetPath := dependencies.BridgeTargetPath
 		if bridgeTargetPath == "" {
 			bridgeTargetPath = defaultBridgeTargetPath
 		}
 		bridgeApplyState := newBridgeApplyState()
-		mux.HandleFunc("/api/v1/mqtt/bridge", handleBridgeConfig(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.MQTTBridgeWatcher))
-		mux.HandleFunc("/api/v1/mqtt/bridge/credentials", handleBridgeCredentials(dependencies.BridgeCredentials, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt/bridge/apply", handleBridgeApply(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.SystemActions, dependencies.MQTTBridgeWatcher, dependencies.DataDir, bridgeApplyState))
-		mux.HandleFunc("/api/v1/mqtt/bridge/restart", handleBridgeRestart(dependencies.Auth, dependencies.SystemActions))
-		mux.HandleFunc("/api/v1/mqtt/bridge/status", handleBridgeStatus(store, dependencies.BridgeCredentials, dependencies.MQTTBridgeWatcher, dependencies.SystemStatusRunner, bridgeTargetPath, bridgeApplyState))
-		mux.HandleFunc("/api/v1/mqtt/bridge/", handleBridgeSub(store, dependencies.Auth, dependencies.MQTTBridgeWatcher))
+		g.HandleFunc("/api/v1/mqtt/bridge", handleBridgeConfig(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.MQTTBridgeWatcher))
+		g.HandleFunc("/api/v1/mqtt/bridge/credentials", handleBridgeCredentials(dependencies.BridgeCredentials, dependencies.Auth))
+		g.HandleFunc("/api/v1/mqtt/bridge/apply", handleBridgeApply(store, dependencies.BridgeCredentials, dependencies.Auth, dependencies.SystemActions, dependencies.MQTTBridgeWatcher, dependencies.DataDir, bridgeApplyState))
+		g.HandleFunc("/api/v1/mqtt/bridge/restart", handleBridgeRestart(dependencies.Auth, dependencies.SystemActions))
+		g.HandleFunc("/api/v1/mqtt/bridge/status", handleBridgeStatus(store, dependencies.BridgeCredentials, dependencies.MQTTBridgeWatcher, dependencies.SystemStatusRunner, bridgeTargetPath, bridgeApplyState))
+		g.HandleFunc("/api/v1/mqtt/bridge/", handleBridgeSub(store, dependencies.Auth, dependencies.MQTTBridgeWatcher))
 	}
-	mux.HandleFunc("/api/v1/tiny-tuya/devices", handleTinyTuyaDevices(probe, credentialStore))
-	mux.HandleFunc("/api/v1/tiny-tuya/status", handleTinyTuyaStatus(probe))
-	mux.HandleFunc("/api/v1/tiny-tuya/configure", handleTinyTuyaConfigure(configs))
-	mux.HandleFunc("/api/v1/tiny-tuya/credentials", handleTinyTuyaCredentials(credentialStore))
+	g.HandleFunc("/api/v1/tiny-tuya/devices", handleTinyTuyaDevices(probe, credentialStore))
+	g.HandleFunc("/api/v1/tiny-tuya/status", handleTinyTuyaStatus(probe))
+	g.HandleFunc("/api/v1/tiny-tuya/configure", handleTinyTuyaConfigure(configs))
+	g.HandleFunc("/api/v1/tiny-tuya/credentials", handleTinyTuyaCredentials(credentialStore))
 	if dependencies.Tailscale != nil {
 		tailscaleActionState := newTailscaleActionState()
-		mux.HandleFunc("/api/v1/tailscale/status", handleTailscaleStatus(dependencies.Tailscale, tailscaleActionState))
-		mux.HandleFunc("/api/v1/tailscale/prereqs", handleTailscalePrereqs(dependencies.Tailscale))
-		mux.HandleFunc("/api/v1/tailscale/login", handleTailscaleLogin(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
-		mux.HandleFunc("/api/v1/tailscale/logout", handleTailscaleLogout(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
-		mux.HandleFunc("/api/v1/tailscale/restart", handleTailscaleRestart(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/status", handleTailscaleStatus(dependencies.Tailscale, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/prereqs", handleTailscalePrereqs(dependencies.Tailscale))
+		g.HandleFunc("/api/v1/tailscale/login", handleTailscaleLogin(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/logout", handleTailscaleLogout(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
+		g.HandleFunc("/api/v1/tailscale/restart", handleTailscaleRestart(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 	}
-	mux.HandleFunc("/", webui.OverviewWithDeviceFilterAndEngine(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices))
-	return mux
+	g.HandleFunc("/", webui.OverviewWithDeviceFilterAndEngine(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices))
+	return g.ServeMux()
 }
 
 func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarningKey string, next http.Handler) http.Handler {
@@ -724,7 +725,8 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, 
 		"withheld":                withheld,
 		"system_actions":          auth.HasRole(user, auth.RoleSystemActions),
 		"delete_device_discovery": auth.HasRole(user, auth.RoleDeleteDeviceDiscovery),
-		"tune_live_updates":       auth.HasRole(user, auth.RoleTuneLiveUpdates),
+		"edit_setup":              auth.HasRole(user, auth.RoleEditSetup),
+		"setup_tiny_tuya":         auth.HasRole(user, auth.RoleSetupTinyTuya),
 		"mqtt_config":             auth.HasRole(user, auth.RoleMQTTConfig),
 		"automations":             auth.HasRole(user, auth.RoleAutomations),
 		"edit_layout":             auth.HasRole(user, auth.RoleEditLayout),
@@ -766,6 +768,9 @@ func handleEntityCommand(reg *registry.Registry, publisher CommandPublisher, his
 		}
 		if publisher == nil {
 			writeError(w, http.StatusServiceUnavailable, "commands_unavailable", "MQTT-Befehle sind nicht verfügbar")
+			return
+		}
+		if !requireRoleIfUser(w, r, auth.RoleOperateDevices, "operate_devices_forbidden", "error.operate_devices_forbidden", "Zum Schalten von Geräten fehlt die Berechtigung.") {
 			return
 		}
 		command, ok := reg.Command(uniqueID)
@@ -1474,6 +1479,9 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				methodNotAllowed(w, http.MethodPost)
 				return
 			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
+				return
+			}
 			if !requireDeviceMutation(w, r, authManager, false, true) {
 				return
 			}
@@ -1495,6 +1503,9 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		if len(parts) == 2 && parts[1] == "unignore" {
 			if r.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)
+				return
+			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
 			if !requireDeviceMutation(w, r, authManager, false, true) {
@@ -1564,6 +1575,9 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		if len(parts) == 2 && parts[1] == "reload" {
 			if r.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)
+				return
+			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
 			// Reload always resets and rebuilds the entire registry (scope:
@@ -2134,6 +2148,15 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 			return
 		}
 		parts := strings.Split(name, "/")
+		if isAutomationRulesRecovery(r, parts) {
+			if !requireRoleIfUser(w, r, auth.RoleAutomations, "automations_forbidden", "error.automations_forbidden.rules", "Für Automations-Regeln fehlt die Berechtigung") {
+				return
+			}
+		} else if name != "automation_rules" && isConfigurationWrite(r, parts) {
+			if !requireRoleIfUser(w, r, auth.RoleEditConfig, "edit_config_forbidden", "error.edit_config_forbidden", "Zum Bearbeiten der Gerätekonfiguration fehlt die Berechtigung.") {
+				return
+			}
+		}
 		if len(parts) == 2 && parts[1] == "status" {
 			if r.Method != http.MethodGet {
 				methodNotAllowed(w, http.MethodGet)
@@ -2214,8 +2237,21 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 				return
 			}
 			if !auth.HasRole(user, auth.RoleAutomations) {
-				writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.rules", nil, "Für Automations-Regeln fehlt die Berechtigung")
-				return
+				if !auth.HasRole(user, auth.RoleOperateAutomations) {
+					writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.rules", nil, "Für Automations-Regeln fehlt die Berechtigung")
+					return
+				}
+				data, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+				if err != nil {
+					writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+					return
+				}
+				stored, err := manager.Read(name)
+				if err != nil || !onlyEnabledDiffers(stored, data) {
+					writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.rules", nil, "Für Automations-Regeln fehlt die Berechtigung")
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewReader(data))
 			}
 			cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
 			if err != nil || !authManager.ValidateCSRF(cookie.Value, r.Header.Get("X-CSRF-Token")) {
@@ -2348,6 +2384,9 @@ func handleSettingsRevision(store *settings.Store) http.HandlerFunc {
 			return
 		}
 		if len(parts) == 1 && parts[0] == "restore" && r.Method == http.MethodPost {
+			if !requireSettingsRole(w, r, auth.RoleEditSettings) {
+				return
+			}
 			var request struct {
 				Revision string `json:"revision"`
 			}
@@ -2913,11 +2952,11 @@ func newRelationID() (string, error) {
 	return "relation-" + hex.EncodeToString(value), nil
 }
 
-// handleSettings guards live_update_interval_seconds behind the
-// tune_live_updates role: changing it requires the role, but every other
-// settings field remains writable by any authenticated user, matching the
-// endpoint's existing behavior.
-func handleSettings(store *settings.Store, authManager *auth.Manager) http.HandlerFunc {
+// handleSettings checks every changed settings field against its role (see
+// settingsChangeRoles): edit_settings for the design fields, edit_setup for the
+// setup fields such as the live update interval and view_history for the
+// history views.
+func handleSettings(store *settings.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -2938,18 +2977,13 @@ func handleSettings(store *settings.Store, authManager *auth.Manager) http.Handl
 				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
 				return
 			}
-			if value.LiveUpdateIntervalSeconds != current.LiveUpdateIntervalSeconds {
-				if authManager == nil {
-					writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
-					return
-				}
-				user, ok := auth.UserFromContext(r.Context())
-				if !ok {
-					writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
-					return
-				}
-				if !auth.HasRole(user, auth.RoleTuneLiveUpdates) {
-					writeError(w, http.StatusForbidden, "live_update_interval_forbidden", "Für das Anpassen des Live-Update-Intervalls fehlt die Berechtigung")
+			roles, err := settingsChangeRoles(current, value)
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
+				return
+			}
+			for _, role := range roles {
+				if !requireSettingsRole(w, r, role) {
 					return
 				}
 			}
@@ -2968,6 +3002,10 @@ func handleTinyTuyaDevices(probe tinytuya.Prober, credentialStore *tinytuya.Cred
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			methodNotAllowed(w)
+			return
+		}
+		// Die Geraeteliste nutzt die gespeicherten Cloud-Zugangsdaten und gehoert zur Einrichtung.
+		if !requireRoleIfUser(w, r, auth.RoleSetupTinyTuya, "setup_tiny_tuya_forbidden", "error.setup_tiny_tuya_forbidden", "Zum Einrichten von TinyTuya fehlt die Berechtigung.") {
 			return
 		}
 		if probe == nil {
@@ -3001,6 +3039,9 @@ type tinyTuyaCredentialMetadata struct {
 
 func handleTinyTuyaCredentials(store *tinytuya.CredentialStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && !requireRoleIfUser(w, r, auth.RoleSetupTinyTuya, "setup_tiny_tuya_forbidden", "error.setup_tiny_tuya_forbidden", "Zum Einrichten von TinyTuya fehlt die Berechtigung.") {
+			return
+		}
 		if store == nil {
 			writeJSON(w, tinyTuyaCredentialMetadata{})
 			return
@@ -3112,6 +3153,9 @@ func handleTinyTuyaConfigure(manager *config.Manager) http.HandlerFunc {
 			methodNotAllowed(w)
 			return
 		}
+		if !requireRoleIfUser(w, r, auth.RoleSetupTinyTuya, "setup_tiny_tuya_forbidden", "error.setup_tiny_tuya_forbidden", "Zum Einrichten von TinyTuya fehlt die Berechtigung.") {
+			return
+		}
 		if manager == nil {
 			writeError(w, http.StatusNotImplemented, "tiny_tuya_unavailable", "TinyTuya-Konfiguration ist nicht verfügbar")
 			return
@@ -3207,4 +3251,13 @@ func writeJSONStatus(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+// isConfigurationWrite reports whether a configuration request changes the
+// document: a PUT, or a POST to restore or reload it.
+func isConfigurationWrite(r *http.Request, parts []string) bool {
+	if r.Method == http.MethodPut {
+		return true
+	}
+	return r.Method == http.MethodPost && len(parts) == 2 && (parts[1] == "restore" || parts[1] == "reload")
 }

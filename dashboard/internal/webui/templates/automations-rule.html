@@ -29,19 +29,19 @@
               </span>
 
               <span class="auto-rule-edit-status" x-show="editing[rule.id]" x-text="ruleEditStatus(rule)"></span>
-              <button class="auto-btn-text is-ghost" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-on:click="testRule(rule)"
+              <button class="auto-btn-text is-ghost" type="button" x-show="canEditAutomations && expanded[rule.id] && !editing[rule.id]" x-on:click="testRule(rule)"
                       x-bind:title="$t('automations.rule.test_button')">
                 <svg class="automation-icon"><use href="#ico-play"></use></svg>
                 <span>{{t "automations.rule.test_button"}}</span>
               </button>
-              <button class="auto-btn-text" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-bind:class="{ 'is-active': editing[rule.id] }"
+              <button class="auto-btn-text" type="button" x-show="canEditAutomations && expanded[rule.id] && !editing[rule.id]" x-bind:class="{ 'is-active': editing[rule.id] }"
                       x-on:click="startEditing(rule)" x-bind:aria-pressed="Boolean(editing[rule.id])"
                       x-bind:title="$t('automations.rule.edit_button.tooltip_edit')">
                 <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
                 <span>{{t "automations.rule.edit_button.label"}}</span>
               </button>
 
-              <label class="settings-toggle" x-on:click.stop
+              <label class="settings-toggle" x-show="canEditAutomations || canOperateAutomations" x-on:click.stop
                      x-bind:title="rule.enabled ? $t('automations.rule.enabled_toggle.title_on') : $t('automations.rule.enabled_toggle.title_off')">
                 <input type="checkbox" x-bind:checked="rule.enabled" x-on:change="toggleEnabled(rule.id)"
                        x-bind:aria-label="$t('automations.rule.enabled_toggle.aria_label', {name: rule.name})">
@@ -64,6 +64,7 @@
             </div>
 
             <div class="auto-rule-body" x-show="expanded[rule.id]">
+              <fieldset class="auto-readonly-scope" x-bind:disabled="!canEditAutomations">
 
               <template x-if="liveBars(rule).length">
                 <div class="auto-live-list">
@@ -146,15 +147,15 @@
                     <p class="sub">{{t "automations.history.disabled_message"}}</p>
                   </template>
                   <div class="auto-mobile-actions">
-                    <button class="auto-btn-text" type="button" x-on:click="startEditing(rule)">
+                    <button class="auto-btn-text" type="button" x-show="canEditAutomations" x-on:click="startEditing(rule)">
                       <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
                       <span>{{t "automations.rule.edit_button.label"}}</span>
                     </button>
-                    <button class="auto-btn-text is-ghost" type="button" x-on:click="testRule(rule)">
+                    <button class="auto-btn-text is-ghost" type="button" x-show="canEditAutomations" x-on:click="testRule(rule)">
                       <svg class="automation-icon"><use href="#ico-play"></use></svg>
                       <span>{{t "automations.rule.test_button"}}</span>
                     </button>
-                    <button class="auto-btn-text is-ghost is-danger is-icon" type="button" x-on:click="removeRule(rule.id)"
+                    <button class="auto-btn-text is-ghost is-danger is-icon" type="button" x-show="canEditAutomations" x-on:click="removeRule(rule.id)"
                             x-bind:aria-label="$t('automations.rule.footer.delete')" x-bind:title="$t('automations.rule.footer.delete')">
                       <svg class="automation-icon"><use href="#ico-trash"></use></svg>
                     </button>
@@ -251,7 +252,7 @@
                   </section>
 
                   <div class="auto-rule-foot">
-                    <button class="auto-btn-text is-danger" type="button" x-on:click="removeRule(rule.id)">
+                    <button class="auto-btn-text is-danger" type="button" x-show="canEditAutomations" x-on:click="removeRule(rule.id)">
                       <svg class="automation-icon"><use href="#ico-trash"></use></svg>
                       <span>{{t "automations.rule.footer.delete"}}</span>
                     </button>
@@ -268,6 +269,7 @@
                 </div>
               </template>
 
+              </fieldset>
             </div>
 
             <div class="history" x-show="expanded[rule.id] && !editing[rule.id] && rule.history_enabled">

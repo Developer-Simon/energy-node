@@ -2,10 +2,11 @@
 {{/* i18n-keys: users.category.view, users.category.view.desc, users.category.operate, users.category.operate.desc, users.category.design, users.category.design.desc, users.category.setup, users.category.setup.desc, users.category.updates, users.category.updates.desc, users.category.system, users.category.system.desc */}}
 {{/* i18n-keys: users.role.view_overview.label, users.role.view_overview.desc, users.role.view_devices.label, users.role.view_devices.desc, users.role.view_history.label, users.role.view_history.desc, users.role.view_stats.label, users.role.view_stats.desc, users.role.view_energy.label, users.role.view_energy.desc, users.role.view_device_map.label, users.role.view_device_map.desc, users.role.view_config.label, users.role.view_config.desc */}}
 {{/* i18n-keys: users.role.view_automations.label, users.role.view_automations.desc, users.role.view_diagnostics.label, users.role.view_diagnostics.desc, users.role.operate_devices.label, users.role.operate_devices.desc, users.role.operate_automations.label, users.role.operate_automations.desc, users.role.edit_layout.label, users.role.edit_layout.desc, users.role.edit_device_map_view.label, users.role.edit_device_map_view.desc, users.role.edit_settings.label, users.role.edit_settings.desc */}}
-{{/* i18n-keys: users.role.automations.label, users.role.automations.desc, users.role.edit_energy.label, users.role.edit_energy.desc, users.role.edit_device_map.label, users.role.edit_device_map.desc, users.role.edit_config.label, users.role.edit_config.desc, users.role.delete_device_discovery.label, users.role.delete_device_discovery.desc, users.role.mqtt_config.label, users.role.mqtt_config.desc, users.role.tune_live_updates.label, users.role.tune_live_updates.desc */}}
+{{/* i18n-keys: users.role.automations.label, users.role.automations.desc, users.role.edit_energy.label, users.role.edit_energy.desc, users.role.edit_device_map.label, users.role.edit_device_map.desc, users.role.edit_config.label, users.role.edit_config.desc, users.role.delete_device_discovery.label, users.role.delete_device_discovery.desc, users.role.mqtt_config.label, users.role.mqtt_config.desc, users.role.edit_setup.label, users.role.edit_setup.desc, users.role.setup_tiny_tuya.label, users.role.setup_tiny_tuya.desc */}}
 {{/* i18n-keys: users.role.check_updates.label, users.role.check_updates.desc, users.role.install_updates.label, users.role.install_updates.desc, users.role.install_updates.note, users.role.update_settings.label, users.role.update_settings.desc, users.role.update_settings.note, users.role.view_logs.label, users.role.view_logs.desc, users.role.system_actions.label, users.role.system_actions.desc, users.role.tailscale.label, users.role.tailscale.desc, users.role.user_management.label, users.role.user_management.desc, users.role.http_login.label, users.role.http_login.desc */}}
-<section id="settings-users" role="tabpanel" class="settings-cards users-cards" x-show="activeSettingsPage === 'users'" x-data="usersPage()"
-  x-effect="if (activeSettingsPage !== 'users' && tab !== 'accounts') setTab('accounts')">
+<section id="settings-users" role="tabpanel" class="settings-cards users-cards" x-show="activeSettingsPage === 'users'">
+  {{if .CanManageUsers}}<div class="users-manage" x-data="usersPage()"
+    x-effect="if (activeSettingsPage !== 'users' && tab !== 'accounts') setTab('accounts')">
   <p class="settings-help" x-show="error" x-text="error"></p>
   <div class="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
     <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
@@ -88,6 +89,7 @@
       </template>
     </div>
   </div>
+  </div>{{end}}
 </section>
 {{end}}
 

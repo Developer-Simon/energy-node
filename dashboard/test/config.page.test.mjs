@@ -971,3 +971,31 @@ test('focusItem selects the configuration and flashes the entry with that id', a
   assert.equal(flashed.length, 1);
   assert.equal(flashed[0].querySelector('[data-schema-key="id"] input').value, 'bank');
 });
+
+// Read-only state: without edit_config the save, restore and reload controls
+// are disabled. A session without a roles list keeps the page open.
+const configSessionFetch = (session) => url => {
+  if (url === '/api/v1/auth/session') return Promise.resolve({ ok: true, json: async () => session });
+  return Promise.resolve({ ok: true, json: async () => ({}) });
+};
+
+test('config without edit_config disables save and restore', async () => {
+  const { component, window } = createConfigPanel();
+  window.fetch = configSessionFetch({ username: 'anna', roles: ['view_config'] });
+  await component.load();
+  assert.equal(component.canEditConfig, false);
+});
+
+test('config with edit_config keeps save and restore enabled', async () => {
+  const { component, window } = createConfigPanel();
+  window.fetch = configSessionFetch({ username: 'anna', roles: ['view_config', 'edit_config'] });
+  await component.load();
+  assert.equal(component.canEditConfig, true);
+});
+
+test('config without a roles list in the session stays editable', async () => {
+  const { component, window } = createConfigPanel();
+  window.fetch = configSessionFetch({});
+  await component.load();
+  assert.equal(component.canEditConfig, true);
+});

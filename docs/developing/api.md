@@ -128,13 +128,14 @@ management page shows them. The source is `internal/auth/roles.go`.
 | `edit_config` | setup | `view_config` | no | yes |
 | `delete_device_discovery` | setup | `view_devices` | no | yes |
 | `mqtt_config` | setup | – | yes | no |
-| `tune_live_updates` | setup | – | no | yes |
+| `edit_setup` | setup | – | no | yes |
+| `setup_tiny_tuya` | setup | – | yes | no |
+| `tailscale` | setup | – | yes | no |
 | `check_updates` | updates | – | no | yes |
 | `install_updates` | updates | – | no | no |
 | `update_settings` | updates | – | yes | no |
 | `view_logs` | system | `view_diagnostics` | yes | no |
 | `system_actions` | system | – | yes | no |
-| `tailscale` | system | – | yes | no |
 | `user_management` | system | – | yes | no |
 | `http_login` | system | – | no | no |
 
@@ -148,6 +149,25 @@ this flag.
 password of other accounts. Every account can change its own password without
 it. The last administrator cannot lose `user_management`, and an account
 cannot delete or disable itself.
+
+#### Route access groups
+
+Every route is registered with one of three access groups. `routeTable` in
+`internal/httpapi/access.go` names the group of each pattern. The web UI
+applies the same rules to its panel fragments, so a hidden panel is refused on
+the server as well.
+
+| Group | Rule | Examples |
+|---|---|---|
+| `open` | No view gate. The handler does its own checks, such as the write role, HTTPS or CSRF | `/api/v1/settings`, `/api/v1/users`, `/api/v1/auth/login` |
+| `any view` | At least one `view_*` permission is needed | `/api/v1/history/entities`, `/api/v1/energy/interpretation` |
+| `page` | The `view_*` permission of the page is needed. Some routes pick it from the request | `/api/v1/diagnostics` needs `view_diagnostics`, `/api/v1/automation/state` needs `view_automations` |
+
+A refused request gets HTTP 403 with the error key `view_forbidden`. A request
+without a user, as on an instance without accounts, passes every gate.
+
+A new route without an entry in `routeTable` panics when it is registered, so
+the dashboard does not start. Add the entry in the same change as the route.
 
 ### Restricted HTTP sessions
 
@@ -224,7 +244,8 @@ the role or other requirements.
   "roles": ["system_actions", "mqtt_config"],
   "system_actions": true,
   "delete_device_discovery": true,
-  "tune_live_updates": true,
+  "edit_setup": true,
+  "setup_tiny_tuya": false,
   "mqtt_config": true,
   "automations": true,
   "edit_layout": false,
@@ -515,7 +536,7 @@ The dashboard then publishes to the fixed topic
 
 | Method | Path | Gate | Purpose |
 |---|---|---|---|
-| GET/PUT | `/api/v1/settings` | `tune_live_updates` only for interval changes | Dashboard settings |
+| GET/PUT | `/api/v1/settings` | `edit_setup` for setup fields, `view_history` for history views, `edit_settings` for design fields | Dashboard settings |
 | GET | `/api/v1/settings/revisions` | – | Settings revisions |
 | GET | `/api/v1/settings/revisions/{revision}` | – | A single settings revision |
 | POST | `/api/v1/settings/restore` | – | Restore settings, body `{"revision":"…"}` |
@@ -533,9 +554,16 @@ The dashboard then publishes to the fixed topic
 | DELETE | `/api/v1/device/map/relations/{id}` | – | Delete a relation (204) |
 | GET | `/api/v1/shelly/presets` | – | Shelly presets (read-only) |
 
-`PUT /api/v1/settings` only checks the `tune_live_updates` role when
-`live_update_interval_seconds` differs from the stored value. Any logged-in
-session can change every other field.
+`PUT /api/v1/settings` checks one role per changed field: `edit_setup` for the
+setup fields, such as `live_update_interval_seconds` and the history retention,
+`view_history` for `history_views`, and `edit_settings` for every other field,
+the design. A session without the role gets 403 with `edit_setup_forbidden`,
+`view_forbidden` or `edit_settings_forbidden`.
+
+Version 3 of `users.json` split the old `tune_live_updates` role into
+`edit_setup` and `setup_tiny_tuya`. Every account keeps its rights: holders of
+`tune_live_updates` or `edit_settings` get `edit_setup`, and non-guest holders
+of `edit_config` get `setup_tiny_tuya`. Guests do not get `setup_tiny_tuya`.
 
 Since layout v3 (Spec F), `GET /api/v1/layout` also returns `card_types`. It
 maps each item type to `{min_span, min_width, min_height, fills_height,
@@ -785,8 +813,8 @@ test uses it.
 |---|---|---|---|
 | POST | `/api/v1/tiny-tuya/devices` | – | Fetch devices from the Tuya cloud |
 | POST | `/api/v1/tiny-tuya/status` | – | Status of a local device |
-| POST | `/api/v1/tiny-tuya/configure` | – | Add a device to `tuya_devices.json` |
-| GET/POST | `/api/v1/tiny-tuya/credentials` | – | Read/set cloud credentials |
+| POST | `/api/v1/tiny-tuya/configure` | `setup_tiny_tuya` | Add a device to `tuya_devices.json` |
+| GET/POST | `/api/v1/tiny-tuya/credentials` | `setup_tiny_tuya` for POST | Read/set cloud credentials |
 
 Error responses in this group also contain `tool_output` with the output of the
 Python helper. `GET .../credentials` returns metadata only:

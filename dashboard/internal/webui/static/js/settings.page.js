@@ -56,7 +56,19 @@
     showConfigEntitiesOnTile: false,
     showDiagnosticEntitiesOnTile: false,
     liveUpdateIntervalSeconds: 3,
-    canTuneLiveUpdates: false,
+    // Rollen aus der Sitzung; null, solange keine Sitzung mit Rollenliste da ist.
+    sessionRoles: null,
+    // Darstellung (edit_settings) und Einrichtung (edit_setup) sind getrennte
+    // Rechte. Speichern geht mit jedem der beiden, der Server prueft die Felder.
+    get canEditSettings() {
+      return this.sessionRoles === null || this.sessionRoles.includes('edit_settings');
+    },
+    get canEditSetup() {
+      return this.sessionRoles === null || this.sessionRoles.includes('edit_setup');
+    },
+    get canSave() {
+      return this.canEditSettings || this.canEditSetup;
+    },
     widePanels: [],
     historySampleIntervalSeconds: 10,
     historyRetentionMode: 'time',
@@ -202,7 +214,7 @@
         this.loadHistoryUsage();
         this.followExchange();
         this.refreshExchangeStatus();
-        this.canTuneLiveUpdates = Boolean(session && session.tune_live_updates);
+        this.sessionRoles = session && 'roles' in session ? (Array.isArray(session.roles) ? session.roles : []) : null;
         this.accountUsername = session && !session.guest ? (session.username || '') : '';
         this.accountGuest = Boolean(session && session.guest);
         this.accountRestricted = Boolean(session && session.restricted);
@@ -283,6 +295,16 @@
       if (!instance) return;
       instance.removeActiveItems();
       if (values.length) instance.setChoiceByValue(values);
+    },
+
+    // Die Choices-Felder haben eine eigene Oberflaeche, das disabled am <select>
+    // erreicht sie nicht. Darum folgen sie dem Darstellungsrecht ueber die API.
+    syncChoicesEnabled(enabled) {
+      for (const instance of [this.widePanelsChoices, this.statusBarItemsChoices]) {
+        if (!instance) continue;
+        if (enabled && typeof instance.enable === 'function') instance.enable();
+        if (!enabled && typeof instance.disable === 'function') instance.disable();
+      }
     },
 
     // Choices.js feuert bei Auswahlaenderungen ein eigenes "change" mit
@@ -896,8 +918,13 @@
     config: {id: '', name: '', device_type: 'valve'},
     loading: false,
     toolOutput: '',
+    // Die ganze Einrichtung braucht setup_tiny_tuya. Ohne Sitzung (kein Konto)
+    // bleibt sie offen, wie der Server es ohne Benutzer auch tut.
+    canSetupTinyTuya: false,
 
     async init() {
+      const session = await requestJSON('/api/v1/auth/session').catch(() => null);
+      this.canSetupTinyTuya = session === null || Boolean(session.setup_tiny_tuya);
       try {
         const value = await requestJSON('/api/v1/tiny-tuya/credentials');
         this.savedCredentials = Boolean(value.configured);

@@ -55,7 +55,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=9\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=14,/static/js/devicemap-subdevices.js?v=1,/static/js/devicemap-graph.js?v=9,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=4,/static/js/energy-plant.js?v=6,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=13\"", "data-panel-css=\"/static/css/manager.css?v=48\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=10\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=14,/static/js/devicemap-subdevices.js?v=1,/static/js/devicemap-graph.js?v=9,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=4,/static/js/energy-plant.js?v=6,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=13\"", "data-panel-css=\"/static/css/manager.css?v=48\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -152,7 +152,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=4,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=1,/static/js/settings.page.js?v=27,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=8,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=1,/static/js/users.page.js?v=1",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=28,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=9,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=1,/static/js/users.page.js?v=2",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -161,7 +161,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=18"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=19"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1130,12 +1130,12 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=43"`,
+		`href="/node/static/css/base.css?v=44"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=18"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=19"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -3009,7 +3009,7 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 
 	page := httptest.NewRecorder()
 	newHandler().ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
-	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=8") {
+	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=9") {
 		t.Fatal("base.html must lazy-load versions.page.js with the settings panel")
 	}
 }
@@ -3673,20 +3673,242 @@ func TestSetpointActionHeadUsesRoleTone(t *testing.T) {
 	}
 }
 
-func TestSettingsShowsUsersTabOnlyWithUserManagement(t *testing.T) {
-	settingsBody := func(roles []string) string {
+func TestSettingsUsersPageForOwnAccountAndManagers(t *testing.T) {
+	settingsBody := func(user auth.User) string {
 		t.Helper()
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil)
-		req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: roles}))
+		req = req.WithContext(auth.WithUser(req.Context(), user))
 		Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
 		return rec.Body.String()
 	}
 
-	if body := settingsBody([]string{auth.RoleViewOverview}); strings.Contains(body, `aria-controls="settings-users"`) {
-		t.Fatal("ohne user_management darf der Reiter Benutzer nicht erscheinen")
+	// Ohne user_management: Reiter und Kontokarte, aber keine Verwaltung.
+	own := settingsBody(auth.User{Username: "u", Roles: []string{auth.RoleViewOverview}})
+	if !strings.Contains(own, `aria-controls="settings-users"`) || !strings.Contains(own, `id="settings-users"`) {
+		t.Fatal("eigenes Konto ohne user_management: Reiter Benutzer fehlt")
 	}
-	if body := settingsBody([]string{auth.RoleUserManagement}); !strings.Contains(body, `aria-controls="settings-users"`) {
-		t.Fatal("mit user_management muss der Reiter Benutzer erscheinen")
+	if !strings.Contains(own, `id="settings-account-heading"`) {
+		t.Fatal("eigenes Konto ohne user_management: Kontokarte fehlt")
+	}
+	if strings.Contains(own, `x-data="usersPage()"`) || strings.Contains(own, `class="users-manage"`) {
+		t.Fatal("ohne user_management darf die Benutzerverwaltung nicht geladen werden")
+	}
+
+	// Mit user_management: Kontokarte und Verwaltung.
+	manager := settingsBody(auth.User{Username: "m", Roles: []string{auth.RoleUserManagement}})
+	for _, want := range []string{`aria-controls="settings-users"`, `id="settings-account-heading"`, `x-data="usersPage()"`, `class="users-manage"`} {
+		if !strings.Contains(manager, want) {
+			t.Fatalf("user_management: %s fehlt", want)
+		}
+	}
+
+	// Gast: kein eigenes Konto, also keine Kontokarte, aber die Anmeldung
+	// mit Abmelden auf der Seite Benutzer.
+	guest := settingsBody(auth.User{Username: "g", Guest: true, Roles: []string{auth.RoleViewOverview}})
+	if strings.Contains(guest, `id="settings-account-heading"`) {
+		t.Fatal("Gast darf keine Kontokarte sehen")
+	}
+	if !strings.Contains(guest, `aria-controls="settings-users"`) || !strings.Contains(guest, `id="settings-session-heading"`) {
+		t.Fatal("Gast braucht den Reiter Benutzer mit der Anmeldung")
+	}
+	if !strings.Contains(manager, `id="settings-session-heading"`) {
+		t.Fatal("die Anmeldung fehlt auf der Seite Benutzer")
+	}
+
+	// Die Kontokarte liegt nicht mehr im System-Reiter.
+	if strings.Count(manager, `id="settings-account-heading"`) != 1 {
+		t.Fatal("Kontokarte muss genau einmal erscheinen")
+	}
+	rest := manager[strings.Index(manager, `id="settings-system"`):]
+	system := rest[:strings.Index(rest[1:], `<section id="settings-`)+1]
+	if strings.Contains(system, `id="settings-account-heading"`) {
+		t.Fatal("der System-Reiter darf keine Kontokarte mehr enthalten")
+	}
+	if strings.Contains(system, `logout()`) {
+		t.Fatal("Abmelden gehoert auf die Seite Benutzer, nicht in den System-Reiter")
+	}
+}
+
+func viewPermissionRequest(target string, roles ...string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	return req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: roles}))
+}
+
+func TestPanelFragmentForbiddenWithoutView(t *testing.T) {
+	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=panel&panel=history", auth.RoleViewStats))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("panel=history ohne view_history muss 403 liefern, war %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=panel&panel=settings", auth.RoleViewStats))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("panel=settings ist immer erlaubt, war %d", rec.Code)
+	}
+}
+
+func TestLiveFragmentsForbiddenWithoutView(t *testing.T) {
+	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=overview-live", auth.RoleViewDevices))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("overview-live ohne view_overview muss 403 liefern, war %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=devices-live", auth.RoleViewOverview))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("devices-live ohne view_devices muss 403 liefern, war %d", rec.Code)
+	}
+}
+
+func TestBaseWithoutOverviewRendersWithoutTiles(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_relay", ObjectID: "relay", Component: "switch", Name: "Relais", CommandTopic: "node/relay/set", PayloadOn: "ON", PayloadOff: "OFF"},
+	})
+	rec := httptest.NewRecorder()
+	Overview(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, viewPermissionRequest("/", auth.RoleViewStats))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("base ohne view_overview muss rendern, war %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), `data-entity-id="node_relay"`) {
+		t.Fatal("ohne view_overview darf base keine Kacheln laden")
+	}
+}
+
+func TestTilesWithoutOperateDevicesHaveNoCommandButtons(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_relay", ObjectID: "relay", Component: "switch", Name: "Relais", CommandTopic: "node/relay/set", PayloadOn: "ON", PayloadOff: "OFF"},
+	})
+	handler := Overview(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	without := httptest.NewRecorder()
+	handler.ServeHTTP(without, viewPermissionRequest("/?fragment=devices-live&view_mode=control", auth.RoleViewDevices, auth.RoleViewOverview))
+	if without.Code != http.StatusOK {
+		t.Fatalf("got status %d", without.Code)
+	}
+	if strings.Contains(without.Body.String(), `class="entity-command-button"`) {
+		t.Fatal("ohne operate_devices darf keine Schaltflaeche in der Kachel stehen")
+	}
+
+	with := httptest.NewRecorder()
+	handler.ServeHTTP(with, viewPermissionRequest("/?fragment=devices-live&view_mode=control", auth.RoleViewDevices, auth.RoleOperateDevices))
+	if !strings.Contains(with.Body.String(), `class="entity-command-button"`) {
+		t.Fatal("mit operate_devices muss die Schaltflaeche in der Kachel stehen")
+	}
+}
+
+func TestInitialPanelFollowsViewPermissions(t *testing.T) {
+	allowed := func(roles ...string) map[string]bool {
+		can := map[string]bool{}
+		for _, key := range auth.AllRoles() {
+			can[key] = false
+		}
+		for _, role := range roles {
+			can[role] = true
+		}
+		return can
+	}
+
+	cases := []struct {
+		name                string
+		can                 map[string]bool
+		manager, automation bool
+		want                string
+	}{
+		{"overview wins", allowed(auth.RoleViewOverview, auth.RoleViewStats), true, true, "overview-panel"},
+		{"devices first", allowed(auth.RoleViewDevices, auth.RoleViewHistory, auth.RoleViewStats), true, true, "devices-panel"},
+		{"history before stats", allowed(auth.RoleViewStats, auth.RoleViewHistory), true, true, "history-panel"},
+		{"stats before config", allowed(auth.RoleViewConfig, auth.RoleViewStats), true, true, "stats-panel"},
+		{"config needs manager", allowed(auth.RoleViewConfig, auth.RoleViewEnergy), false, true, "settings-panel"},
+		{"config with manager", allowed(auth.RoleViewConfig, auth.RoleViewEnergy), true, true, "config-panel"},
+		{"energy before devicemap", allowed(auth.RoleViewDeviceMap, auth.RoleViewEnergy), true, true, "energy-panel"},
+		{"devicemap needs manager", allowed(auth.RoleViewDeviceMap, auth.RoleViewDiagnostics), false, true, "settings-panel"},
+		{"diagnostics before automations", allowed(auth.RoleViewAutomations, auth.RoleViewDiagnostics), true, true, "diagnostics-panel"},
+		{"automations needs service", allowed(auth.RoleViewAutomations), true, false, "settings-panel"},
+		{"automations with service", allowed(auth.RoleViewAutomations), true, true, "automations-panel"},
+		{"diagnostics needs manager", allowed(auth.RoleViewDiagnostics), false, true, "settings-panel"},
+		{"nothing allowed falls back", allowed(), true, true, "settings-panel"},
+	}
+	for _, tc := range cases {
+		if got := initialPanel(tc.can, tc.manager, tc.automation); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestTabsFollowViewPermissions(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: []string{auth.RoleViewStats}}))
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-stats"`, `id="tab-settings"`, `id="stats-panel"`, `data-initial-panel="stats-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("view_stats-Nutzer: %s fehlt", want)
+		}
+	}
+	for _, gone := range []string{`id="tab-history"`, `id="history-panel"`, `id="tab-overview"`, `id="overview-panel"`, `id="tab-automations"`, `id="automations-panel"`} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("view_stats-Nutzer: %s darf nicht erscheinen", gone)
+		}
+	}
+}
+
+func TestAccountWithoutViewPermissionGetsTheNoticeTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: []string{auth.RoleEditLayout}}))
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-no-access"`, `id="no-access-panel"`, `data-initial-panel="no-access-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Konto ohne Ansehen-Recht: %s fehlt", want)
+		}
+	}
+	if !strings.Contains(body, `data-account-href="/?panel=settings&amp;page=users"`) {
+		t.Fatal("Konto ohne Ansehen-Recht: der Hinweis muss zur Benutzer-Seite fuehren")
+	}
+}
+
+func TestAccountWithViewPermissionHasNoNoticeTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: []string{auth.RoleViewStats}}))
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+	body := rec.Body.String()
+	if strings.Contains(body, `id="tab-no-access"`) || strings.Contains(body, `id="no-access-panel"`) {
+		t.Fatalf("view_stats-Nutzer: der Hinweis-Reiter darf nicht erscheinen")
+	}
+	if !strings.Contains(body, `data-initial-panel="stats-panel"`) {
+		t.Fatalf("view_stats-Nutzer: data-initial-panel muss stats-panel sein")
+	}
+}
+
+func TestNoUserHasNoNoticeTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if strings.Contains(rec.Body.String(), `id="tab-no-access"`) {
+		t.Fatalf("ohne Nutzer darf es keinen Hinweis-Reiter geben")
+	}
+}
+
+func TestNoUserShowsEveryTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-devices"`, `id="tab-history"`, `id="tab-stats"`, `id="tab-config"`, `id="tab-energy"`, `id="tab-devicemap"`, `id="tab-diagnostics"`, `id="tab-automations"`, `id="tab-settings"`, `data-initial-panel="overview-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("ohne Nutzer fehlt %s", want)
+		}
 	}
 }

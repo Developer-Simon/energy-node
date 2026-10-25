@@ -19,15 +19,15 @@
   <section class="settings-step" x-show="currentStep === 1" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
     <h4>{{t "tinytuya.step1.title"}}</h4>
     <div class="form-grid">
-      <label for="tiny-tuya-region">{{t "tinytuya.region.label"}}</label><select id="tiny-tuya-region" x-model="region"><option value="eu">{{t "tinytuya.region.eu"}}</option><option value="us">{{t "tinytuya.region.us"}}</option><option value="cn">{{t "tinytuya.region.cn"}}</option><option value="in">{{t "tinytuya.region.in"}}</option></select>
-      <label for="tiny-tuya-access-id">{{t "tinytuya.accessid.label"}}</label><input id="tiny-tuya-access-id" type="text" autocomplete="off" x-model.trim="accessID">
-      <label for="tiny-tuya-access-secret">{{t "tinytuya.accesssecret.label"}}</label><input id="tiny-tuya-access-secret" type="password" autocomplete="off" x-model="accessSecret">
+      <label for="tiny-tuya-region">{{t "tinytuya.region.label"}}</label><select id="tiny-tuya-region" x-model="region" x-bind:disabled="!canSetupTinyTuya"><option value="eu">{{t "tinytuya.region.eu"}}</option><option value="us">{{t "tinytuya.region.us"}}</option><option value="cn">{{t "tinytuya.region.cn"}}</option><option value="in">{{t "tinytuya.region.in"}}</option></select>
+      <label for="tiny-tuya-access-id">{{t "tinytuya.accessid.label"}}</label><input id="tiny-tuya-access-id" type="text" autocomplete="off" x-model.trim="accessID" x-bind:disabled="!canSetupTinyTuya">
+      <label for="tiny-tuya-access-secret">{{t "tinytuya.accesssecret.label"}}</label><input id="tiny-tuya-access-secret" type="password" autocomplete="off" x-model="accessSecret" x-bind:disabled="!canSetupTinyTuya">
     </div>
     <p class="settings-help" x-show="savedCredentials && !savedAccessIDHint">{{t "tinytuya.step1.saved_credentials_no_hint"}}</p>
     <p class="settings-help" x-show="savedCredentials && savedAccessIDHint" x-text="$t('tinytuya.step1.saved_credentials', {hint: savedAccessIDHint})"></p>
-    <label><input type="checkbox" x-model="saveCredentials"> {{t "tinytuya.step1.save_for_later"}}</label>
+    <label><input type="checkbox" x-model="saveCredentials" x-bind:disabled="!canSetupTinyTuya"> {{t "tinytuya.step1.save_for_later"}}</label>
     <div class="toolbar">
-      <button class="icon-button labeled primary" type="button" x-on:click="loadDevices()" x-bind:disabled="loading || !credentialsValid" x-bind:title="loading ? $t('tinytuya.step1.loading') : $t('tinytuya.step1.load_devices')" x-bind:aria-label="loading ? $t('tinytuya.step1.loading') : $t('tinytuya.step1.load_devices')">
+      <button class="icon-button labeled primary" type="button" x-on:click="loadDevices()" x-bind:disabled="!canSetupTinyTuya || loading || !credentialsValid" x-bind:title="loading ? $t('tinytuya.step1.loading') : $t('tinytuya.step1.load_devices')" x-bind:aria-label="loading ? $t('tinytuya.step1.loading') : $t('tinytuya.step1.load_devices')">
         <svg class="automation-icon"><use href="#ico-download"></use></svg>
         <span x-text="loading ? $t('tinytuya.step1.loading') : $t('tinytuya.step1.load_devices')"></span>
       </button>
@@ -37,17 +37,17 @@
     <h4>{{t "tinytuya.step2.title"}}</h4>
     <p class="settings-help">{{t "tinytuya.step2.help"}}</p>
     <div class="form-grid">
-      <label for="tiny-tuya-device">{{t "tinytuya.device.label"}}</label><select id="tiny-tuya-device" x-model="selectedDeviceID" x-on:change="selectDevice()"><option value="">{{t "tinytuya.device.select_placeholder"}}</option><template x-for="device in devices" x-bind:key="device.device_id"><option x-bind:value="device.device_id" x-text="`${device.name || device.device_id} (${device.device_id})`"></option></template></select>
-      <label for="tiny-tuya-local-key">{{t "tinytuya.localkey.label"}}</label><input id="tiny-tuya-local-key" type="password" autocomplete="off" x-model="device.local_key">
-      <label for="tiny-tuya-ip">{{t "tinytuya.ip.label"}}</label><input id="tiny-tuya-ip" type="text" inputmode="url" x-model.trim="device.ip">
-      <label for="tiny-tuya-version">{{t "tinytuya.version.label"}}</label><input id="tiny-tuya-version" type="number" min="3" step="0.1" x-model.number="device.version">
+      <label for="tiny-tuya-device">{{t "tinytuya.device.label"}}</label><select id="tiny-tuya-device" x-model="selectedDeviceID" x-on:change="selectDevice()" x-bind:disabled="!canSetupTinyTuya"><option value="">{{t "tinytuya.device.select_placeholder"}}</option><template x-for="device in devices" x-bind:key="device.device_id"><option x-bind:value="device.device_id" x-text="`${device.name || device.device_id} (${device.device_id})`"></option></template></select>
+      <label for="tiny-tuya-local-key">{{t "tinytuya.localkey.label"}}</label><input id="tiny-tuya-local-key" type="password" autocomplete="off" x-model="device.local_key" x-bind:disabled="!canSetupTinyTuya">
+      <label for="tiny-tuya-ip">{{t "tinytuya.ip.label"}}</label><input id="tiny-tuya-ip" type="text" inputmode="url" x-model.trim="device.ip" x-bind:disabled="!canSetupTinyTuya">
+      <label for="tiny-tuya-version">{{t "tinytuya.version.label"}}</label><input id="tiny-tuya-version" type="number" min="3" step="0.1" x-model.number="device.version" x-bind:disabled="!canSetupTinyTuya">
     </div>
     <div class="toolbar">
-      <button class="icon-button labeled" type="button" x-on:click="goToStep(1)" x-bind:title="$t('tinytuya.common.back')" x-bind:aria-label="$t('tinytuya.common.back')">
+      <button class="icon-button labeled" type="button" x-on:click="goToStep(1)" x-bind:title="$t('tinytuya.common.back')" x-bind:aria-label="$t('tinytuya.common.back')" x-bind:disabled="!canSetupTinyTuya">
         <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
         <span>{{t "tinytuya.common.back"}}</span>
       </button>
-      <button class="icon-button labeled primary" type="button" x-on:click="testConnection()" x-bind:disabled="loading || !deviceValid" x-bind:title="loading ? $t('tinytuya.step2.testing') : $t('tinytuya.step2.test_connection')" x-bind:aria-label="loading ? $t('tinytuya.step2.testing') : $t('tinytuya.step2.test_connection')">
+      <button class="icon-button labeled primary" type="button" x-on:click="testConnection()" x-bind:disabled="!canSetupTinyTuya || loading || !deviceValid" x-bind:title="loading ? $t('tinytuya.step2.testing') : $t('tinytuya.step2.test_connection')" x-bind:aria-label="loading ? $t('tinytuya.step2.testing') : $t('tinytuya.step2.test_connection')">
         <svg class="automation-icon"><use href="#ico-flash"></use></svg>
         <span x-text="loading ? $t('tinytuya.step2.testing') : $t('tinytuya.step2.test_connection')"></span>
       </button>
@@ -57,15 +57,15 @@
     <h4>{{t "tinytuya.step3.title"}}</h4>
     <p class="settings-help">{{t "tinytuya.step3.help"}}</p>
     <div class="table-scroll">
-    <table><thead><tr><th>{{t "tinytuya.step3.table_headers.id"}}</th><th>{{t "tinytuya.step3.table_headers.type"}}</th><th>{{t "tinytuya.step3.table_headers.value"}}</th><th>{{t "tinytuya.step3.table_headers.switch_dp"}}</th></tr></thead><tbody><template x-for="item in dps" x-bind:key="item.id"><tr><td x-text="item.id"></td><td x-text="item.type"></td><td x-text="item.value"></td><td><input type="radio" name="tiny-tuya-switch-dp" x-bind:value="item.id" x-model="switchDP" x-bind:aria-label="$t('tinytuya.step3.radio_label')"></td></tr></template></tbody></table>
+    <table><thead><tr><th>{{t "tinytuya.step3.table_headers.id"}}</th><th>{{t "tinytuya.step3.table_headers.type"}}</th><th>{{t "tinytuya.step3.table_headers.value"}}</th><th>{{t "tinytuya.step3.table_headers.switch_dp"}}</th></tr></thead><tbody><template x-for="item in dps" x-bind:key="item.id"><tr><td x-text="item.id"></td><td x-text="item.type"></td><td x-text="item.value"></td><td><input type="radio" name="tiny-tuya-switch-dp" x-bind:value="item.id" x-model="switchDP" x-bind:aria-label="$t('tinytuya.step3.radio_label')" x-bind:disabled="!canSetupTinyTuya"></td></tr></template></tbody></table>
     </div>
     <details><summary>{{t "tinytuya.step3.show_raw_status"}}</summary><pre x-text="rawStatus"></pre></details>
     <div class="toolbar">
-      <button class="icon-button labeled" type="button" x-on:click="goToStep(2)" x-bind:title="$t('tinytuya.common.back')" x-bind:aria-label="$t('tinytuya.common.back')">
+      <button class="icon-button labeled" type="button" x-on:click="goToStep(2)" x-bind:title="$t('tinytuya.common.back')" x-bind:aria-label="$t('tinytuya.common.back')" x-bind:disabled="!canSetupTinyTuya">
         <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
         <span>{{t "tinytuya.common.back"}}</span>
       </button>
-      <button class="icon-button labeled primary" type="button" x-on:click="goToStep(4)" x-bind:disabled="!switchDP" x-bind:title="$t('tinytuya.step3.configure_device')" x-bind:aria-label="$t('tinytuya.step3.configure_device')">
+      <button class="icon-button labeled primary" type="button" x-on:click="goToStep(4)" x-bind:disabled="!canSetupTinyTuya || !switchDP" x-bind:title="$t('tinytuya.step3.configure_device')" x-bind:aria-label="$t('tinytuya.step3.configure_device')">
         <svg class="automation-icon"><use href="#ico-gear"></use></svg>
         <span>{{t "tinytuya.step3.configure_device"}}</span>
       </button>
@@ -74,17 +74,17 @@
   <section class="settings-step" x-show="currentStep === 4" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
     <h4>{{t "tinytuya.step4.title"}}</h4>
     <div class="form-grid">
-      <label for="tiny-tuya-config-id">{{t "tinytuya.configid.label"}}</label><input id="tiny-tuya-config-id" type="text" x-model.trim="config.id">
-      <label for="tiny-tuya-name">{{t "tinytuya.name.label"}}</label><input id="tiny-tuya-name" type="text" x-model.trim="config.name">
-      <label for="tiny-tuya-device-type">{{t "tinytuya.devicetype.label"}}</label><input id="tiny-tuya-device-type" type="text" x-model.trim="config.device_type">
+      <label for="tiny-tuya-config-id">{{t "tinytuya.configid.label"}}</label><input id="tiny-tuya-config-id" type="text" x-model.trim="config.id" x-bind:disabled="!canSetupTinyTuya">
+      <label for="tiny-tuya-name">{{t "tinytuya.name.label"}}</label><input id="tiny-tuya-name" type="text" x-model.trim="config.name" x-bind:disabled="!canSetupTinyTuya">
+      <label for="tiny-tuya-device-type">{{t "tinytuya.devicetype.label"}}</label><input id="tiny-tuya-device-type" type="text" x-model.trim="config.device_type" x-bind:disabled="!canSetupTinyTuya">
     </div>
     <p>{{t "tinytuya.step4.info"}}</p>
     <div class="toolbar">
-      <button class="icon-button labeled" type="button" x-on:click="goToStep(3)" x-bind:title="$t('tinytuya.common.back')" x-bind:aria-label="$t('tinytuya.common.back')">
+      <button class="icon-button labeled" type="button" x-on:click="goToStep(3)" x-bind:title="$t('tinytuya.common.back')" x-bind:aria-label="$t('tinytuya.common.back')" x-bind:disabled="!canSetupTinyTuya">
         <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
         <span>{{t "tinytuya.common.back"}}</span>
       </button>
-      <button class="icon-button labeled primary" type="button" x-on:click="saveDevice()" x-bind:disabled="loading || !configValid" x-bind:title="loading ? $t('tinytuya.step4.saving') : $t('tinytuya.step4.confirm')" x-bind:aria-label="loading ? $t('tinytuya.step4.saving') : $t('tinytuya.step4.confirm')">
+      <button class="icon-button labeled primary" type="button" x-on:click="saveDevice()" x-bind:disabled="!canSetupTinyTuya || loading || !configValid" x-bind:title="loading ? $t('tinytuya.step4.saving') : $t('tinytuya.step4.confirm')" x-bind:aria-label="loading ? $t('tinytuya.step4.saving') : $t('tinytuya.step4.confirm')">
         <svg class="automation-icon"><use href="#ico-save"></use></svg>
         <span x-text="loading ? $t('tinytuya.step4.saving') : $t('tinytuya.step4.confirm')"></span>
       </button>

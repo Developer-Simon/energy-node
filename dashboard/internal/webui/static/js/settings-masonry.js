@@ -19,6 +19,16 @@
     return Math.ceil(height + (Number.isFinite(gap) && gap > 0 ? gap : 0));
   }
 
+  // Die Karten eines Rasters: ein Kind mit display: contents (der Wrapper der
+  // Benutzer-Karten) gibt seine Kinder als eigene Karten weiter.
+  function isGroup(node, view) {
+    return view.getComputedStyle(node).display === 'contents';
+  }
+
+  function cardsOf(grid, view) {
+    return [...grid.children].flatMap(child => (isGroup(child, view) ? [...child.children] : [child]));
+  }
+
   function outerHeight(item, view) {
     const style = view.getComputedStyle(item);
     return item.offsetHeight + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
@@ -29,7 +39,7 @@
   function apply(grid) {
     const view = grid.ownerDocument.defaultView || window;
     const gap = parseFloat(view.getComputedStyle(grid).columnGap) || 0;
-    const items = [...grid.children];
+    const items = cardsOf(grid, view);
     const spans = items.map(item => rowSpan(outerHeight(item, view), gap));
     // Eine ausgeblendete Karte (x-show) hat Hoehe 0 und wird ohnehin nicht
     // platziert; ihr ResizeObserver meldet sich, sobald sie sichtbar wird.
@@ -55,11 +65,13 @@
     const resize = new view.ResizeObserver(schedule);
     const observeChildren = () => {
       resize.disconnect();
-      [...grid.children].forEach(item => resize.observe(item));
+      cardsOf(grid, view).forEach(item => resize.observe(item));
       schedule();
     };
     if (typeof view.MutationObserver === 'function') {
-      new view.MutationObserver(observeChildren).observe(grid, {childList: true});
+      const mutation = new view.MutationObserver(observeChildren);
+      mutation.observe(grid, {childList: true});
+      [...grid.children].filter(child => isGroup(child, view)).forEach(group => mutation.observe(group, {childList: true}));
     }
     observeChildren();
     apply(grid);

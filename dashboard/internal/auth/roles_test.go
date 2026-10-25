@@ -7,7 +7,7 @@ import (
 
 func TestRolesCatalogMatchesSpec(t *testing.T) {
 	keys := AllRoles()
-	if len(keys) != 29 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+	if len(keys) != 30 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
 		t.Fatalf("catalog order: %v", keys)
 	}
 	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {
@@ -35,6 +35,18 @@ func TestNormalizeDropsUnknownAndUnmetRequirements(t *testing.T) {
 	want := []string{"operate_devices", "view_devices"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v want %v", got, want)
+	}
+}
+
+func TestHasAnyView(t *testing.T) {
+	if HasAnyView(User{}) {
+		t.Fatal("user without roles must not have any view")
+	}
+	if !HasAnyView(User{Roles: []string{RoleViewStats}}) {
+		t.Fatal("view_stats must count as a view")
+	}
+	if HasAnyView(User{Roles: []string{RoleOperateDevices}}) {
+		t.Fatal("operate roles alone must not count as a view")
 	}
 }
 

@@ -100,6 +100,17 @@ func TestSettingsPutProtectsLiveUpdateIntervalByRoleButAllowsOtherFields(t *test
 	store := settings.NewStore(t.TempDir())
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
 
+	// Die Gastvorgabe ohne edit_setup: das Intervall ist dann gesperrt.
+	var guestRoles []string
+	for _, role := range manager.GuestRoles() {
+		if role != auth.RoleEditSetup {
+			guestRoles = append(guestRoles, role)
+		}
+	}
+	if err := manager.SetGuestRoles("admin", guestRoles); err != nil {
+		t.Fatal(err)
+	}
+
 	guest := httptest.NewRecorder()
 	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
 	if guest.Code != http.StatusOK {

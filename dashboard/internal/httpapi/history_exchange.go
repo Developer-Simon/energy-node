@@ -115,7 +115,7 @@ func (x *historyExchange) recordedSeries() []exchangeSeries {
 	return []exchangeSeries{}
 }
 
-func (x *historyExchange) routes(mux *http.ServeMux) {
+func (x *historyExchange) routes(mux routeRegistrar) {
 	mux.HandleFunc("/api/v1/history/exchange", x.handleAnnounce)
 	mux.HandleFunc("/api/v1/history/exchange/stream", x.handleStream)
 	mux.HandleFunc("/api/v1/history/exchange/offer", x.handleOffer)

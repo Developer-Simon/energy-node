@@ -72,7 +72,7 @@
       "maximum": 60,
       "default": 3,
       "title": "Live update interval",
-      "description": "Minimum number of seconds between live-fragment refreshes pushed over the SSE event stream. Changing this requires the tune_live_updates role."
+      "description": "Minimum number of seconds between live-fragment refreshes pushed over the SSE event stream. Changing this requires the edit_setup role."
     },
     "wide_panels": {
       "type": "array",

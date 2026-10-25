@@ -24,9 +24,9 @@
       <span class="setting-row-label" id="lbl-versions-history">{{t "settings.versions.history.label"}}</span>
       <div class="segmented segmented--3" role="radiogroup" aria-labelledby="lbl-versions-history">
         <span class="segmented-thumb" aria-hidden="true"></span>
-        <label class="segmented-option"><input type="radio" name="versions-history" value="recent" x-bind:checked="changelogHistory === 'recent'" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory('recent')"><span>{{t "settings.versions.history.recent"}}</span></label>
-        <label class="segmented-option"><input type="radio" name="versions-history" value="extended" x-bind:checked="changelogHistory === 'extended'" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory('extended')"><span>{{t "settings.versions.history.extended"}}</span></label>
-        <label class="segmented-option"><input type="radio" name="versions-history" value="all" x-bind:checked="changelogHistory === 'all'" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory('all')"><span>{{t "settings.versions.history.all"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="versions-history" value="recent" x-bind:checked="changelogHistory === 'recent'" x-bind:disabled="!canEditSetup || savingChangelogHistory" x-on:change="setChangelogHistory('recent')"><span>{{t "settings.versions.history.recent"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="versions-history" value="extended" x-bind:checked="changelogHistory === 'extended'" x-bind:disabled="!canEditSetup || savingChangelogHistory" x-on:change="setChangelogHistory('extended')"><span>{{t "settings.versions.history.extended"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="versions-history" value="all" x-bind:checked="changelogHistory === 'all'" x-bind:disabled="!canEditSetup || savingChangelogHistory" x-on:change="setChangelogHistory('all')"><span>{{t "settings.versions.history.all"}}</span></label>
       </div>
       <p class="setting-note" x-show="bundlesTotal > bundlesShown || changelogHistory !== 'recent'" x-text="$t('settings.versions.history.note', {shown: bundlesShown, total: bundlesTotal})"></p>
     </div>
@@ -36,7 +36,7 @@
     <label class="switch-row" for="update-check">
       <span class="version-help-anchor">{{t "settings.versions.updates.auto_check.label"}}<span class="field-help version-help"><button class="field-help-trigger" type="button" aria-label="{{t "settings.versions.updates.auto_check.help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "settings.versions.updates.auto_check.note"}}</span></span></span>
       <span class="settings-toggle">
-        <input id="update-check" type="checkbox" role="switch" x-bind:checked="!updateCheckDisabled" x-bind:disabled="savingUpdateCheck" x-on:change="setUpdateCheck($event.target.checked)" x-bind:aria-checked="(!updateCheckDisabled).toString()">
+        <input id="update-check" type="checkbox" role="switch" x-bind:checked="!updateCheckDisabled" x-bind:disabled="!canEditSetup || savingUpdateCheck" x-on:change="setUpdateCheck($event.target.checked)" x-bind:aria-checked="(!updateCheckDisabled).toString()">
         <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
       </span>
     </label>

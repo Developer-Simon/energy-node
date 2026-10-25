@@ -84,7 +84,7 @@
   };
 
   const dashboardShell = () => ({
-    activePanel: 'overview-panel',
+    activePanel: document.body.dataset.initialPanel || 'overview-panel',
     activePage: '',
     // Nur die Mobilansicht liest diesen Zustand: oberhalb 700px greift
     // keine CSS-Regel darauf zu, die Tab-Leiste rendert wie eh und je.
@@ -197,7 +197,14 @@
       window.dispatchEvent(new CustomEvent('registry-updated', {detail}));
     },
 
+    // Ein Reiter, den der Nutzer nicht sieht (fehlende Berechtigung), ist
+    // kein Ziel: der Aufruf bleibt ohne Wirkung.
+    hasTab(panel) {
+      return Boolean(document.querySelector(`[role="tab"][aria-controls="${panel}"]`));
+    },
+
     async setActivePanel(panel) {
+      if (!this.hasTab(panel)) return;
       // Verlaesst der Nutzer die Uebersicht mit offenem Bearbeitungsmodus und
       // ungespeicherten Aenderungen, fragt erst der Waechter des Editors nach
       // (Themen-<dialog>, kein window.confirm). Sagt er ab, bleibt alles stehen.
@@ -405,7 +412,7 @@
 
       const requestedPanel = new URLSearchParams(window.location.search).get('panel');
       const panelMap = {devices: 'devices-panel', history: 'history-panel', diagnostics: 'diagnostics-panel', config: 'config-panel', energy: 'energy-panel', devicemap: 'devicemap-panel', settings: 'settings-panel', automations: 'automations-panel'};
-      if (panelMap[requestedPanel]) this.activePanel = panelMap[requestedPanel];
+      if (panelMap[requestedPanel] && this.hasTab(panelMap[requestedPanel])) this.activePanel = panelMap[requestedPanel];
       this.loadPanel(this.activePanel);
       if (!window.EventSource) {
         this.liveFallback = window.setInterval(() => this.publishRegistryUpdate({source: 'fallback'}), 30000);

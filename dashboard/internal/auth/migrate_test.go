@@ -90,7 +90,7 @@ func TestMigrationKeepsBehaviorOfFieldFile(t *testing.T) {
 		}
 	}
 	file := readUsersFile(t, path)
-	if file.Version != 2 || !reflect.DeepEqual(file.GuestRoles, guest.Roles) {
+	if file.Version != 3 || !reflect.DeepEqual(file.GuestRoles, guest.Roles) {
 		t.Fatalf("file not migrated: version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 	if !manager.MigrationNotice() {
@@ -147,7 +147,7 @@ func TestBootstrapOnlyWithoutNonGuestUser(t *testing.T) {
 		t.Fatal("bootstrap admin must not get http_login")
 	}
 	file := readUsersFile(t, path)
-	if file.Version != 2 || !reflect.DeepEqual(file.GuestRoles, defaultGuestRoles()) {
+	if file.Version != 3 || !reflect.DeepEqual(file.GuestRoles, defaultGuestRoles()) {
 		t.Fatalf("bootstrap file version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 	if manager.MigrationNotice() {
@@ -170,26 +170,19 @@ func TestStartNoLongerBackfillsRoles(t *testing.T) {
 			{"username": "admin", "password_hash": mustHash(t, "secret-pass"), "roles": []string{"view_overview"}},
 		},
 	})
-	before, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	manager := mustManager(t, path, "admin", "")
 	if !reflect.DeepEqual(manager.users["admin"].Roles, []string{"view_overview"}) {
 		t.Fatalf("admin roles changed on start: %v", manager.users["admin"].Roles)
 	}
-	after, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatal("start rewrote a version 2 file")
+	// Die Version 2 wird nur auf Version 3 gehoben, die Rollen bleiben gleich.
+	if file := readUsersFile(t, path); file.Version != 3 || !reflect.DeepEqual(file.GuestRoles, []string{"view_overview"}) {
+		t.Fatalf("version 2 file after start: version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 }
 
 func TestUnknownVersionAbortsStart(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "users.json")
-	writeJSON(t, path, map[string]any{"version": 3, "users": []any{}})
+	writeJSON(t, path, map[string]any{"version": usersFileVersion + 1, "users": []any{}})
 	before, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -235,4 +228,111 @@ func removeRole(roles []string, role string) []string {
 		}
 	}
 	return out
+}
+
+// TestMigrateV2SplitsSetupPermissions prueft die Rollenumschreibung von
+// Version 2 nach Version 3 an den Eingaben, die eine Datei haben kann.
+func TestMigrateV2SplitsSetupPermissions(t *testing.T) {
+	cases := []struct {
+		name  string
+		roles []string
+		guest bool
+		want  []string
+	}{
+		{"live updates become setup", []string{RoleViewConfig, "tune_live_updates"}, false, []string{RoleViewConfig, RoleEditSetup}},
+		{"design settings give setup", []string{RoleEditSettings}, false, []string{RoleEditSettings, RoleEditSetup}},
+		{"config editor gets tiny tuya", []string{RoleViewConfig, RoleEditConfig}, false, []string{RoleViewConfig, RoleEditConfig, RoleSetupTinyTuya}},
+		{"guest config editor does not get tiny tuya", []string{RoleViewConfig, RoleEditConfig}, true, []string{RoleViewConfig, RoleEditConfig}},
+		{"edit_config without view_config is no right", []string{RoleEditConfig}, false, []string{RoleEditConfig}},
+		{"nothing to add", []string{RoleViewOverview}, false, []string{RoleViewOverview}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := Normalize(migrateV2(tc.roles, tc.guest))
+			if !reflect.DeepEqual(got, Normalize(tc.want)) {
+				t.Fatalf("migrateV2(%v, guest=%v) = %v, want %v", tc.roles, tc.guest, got, Normalize(tc.want))
+			}
+		})
+	}
+}
+
+func TestMigrationFromVersion2KeepsEveryRight(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	writeJSON(t, path, map[string]any{
+		"version":              2,
+		"guest_roles":          []string{RoleViewOverview, RoleViewConfig, RoleEditSettings, RoleEditConfig, "tune_live_updates"},
+		"guest_roles_reviewed": true,
+		"users": []map[string]any{
+			{"username": "admin", "password_hash": mustHash(t, "secret-pass"), "roles": []string{RoleViewConfig, RoleViewHistory, RoleEditSettings, RoleEditConfig, "tune_live_updates"}},
+			{"username": "setup", "password_hash": mustHash(t, "secret-pass"), "roles": []string{RoleViewConfig, "tune_live_updates"}},
+		},
+	})
+	manager := mustManager(t, path, "admin", "")
+
+	admin := manager.users["admin"]
+	for _, key := range []string{RoleViewHistory, RoleEditSettings, RoleEditConfig, RoleEditSetup, RoleSetupTinyTuya} {
+		if !HasRole(admin, key) {
+			t.Errorf("admin lacks %s after migration: %v", key, admin.Roles)
+		}
+	}
+	if containsRole(admin.Roles, "tune_live_updates") {
+		t.Fatalf("admin still has the removed key: %v", admin.Roles)
+	}
+
+	setup := manager.users["setup"]
+	if !HasRole(setup, RoleEditSetup) || HasRole(setup, RoleSetupTinyTuya) {
+		t.Errorf("setup account roles after migration: %v", setup.Roles)
+	}
+	if HasRole(setup, RoleEditSettings) {
+		t.Errorf("setup account gained the design permission: %v", setup.Roles)
+	}
+
+	if !HasRole(User{Roles: manager.GuestRoles(), Guest: true}, RoleEditSetup) {
+		t.Fatalf("guest lost the live update right: %v", manager.GuestRoles())
+	}
+	if containsRole(manager.GuestRoles(), RoleSetupTinyTuya) {
+		t.Fatalf("guest got TinyTuya setup: %v", manager.GuestRoles())
+	}
+
+	file := readUsersFile(t, path)
+	if file.Version != 3 {
+		t.Fatalf("file version %d, want 3", file.Version)
+	}
+	if manager.MigrationNotice() || !file.GuestRolesReviewed {
+		t.Fatal("version 2 review state must be kept, no new guest notice")
+	}
+	// Ein zweiter Start aendert nichts mehr.
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustManager(t, path, "admin", "")
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("second start after the version 3 migration changed users.json")
+	}
+}
+
+func TestMigrationFromVersion1GivesSetupPermissions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	writeJSON(t, path, map[string]any{"users": []map[string]any{
+		{"username": "admin", "password_hash": mustHash(t, "secret-pass"), "roles": []string{"system_actions", "tune_live_updates"}},
+	}})
+	manager := mustManager(t, path, "admin", "")
+	admin := manager.users["admin"]
+	if !HasRole(admin, RoleEditSetup) || !HasRole(admin, RoleSetupTinyTuya) {
+		t.Fatalf("version 1 admin lacks the setup rights: %v", admin.Roles)
+	}
+	if containsRole(admin.Roles, "tune_live_updates") {
+		t.Fatalf("version 1 admin keeps the removed key: %v", admin.Roles)
+	}
+	if !containsRole(manager.GuestRoles(), RoleEditSetup) || containsRole(manager.GuestRoles(), RoleSetupTinyTuya) {
+		t.Fatalf("default guest roles: %v", manager.GuestRoles())
+	}
+	if file := readUsersFile(t, path); file.Version != 3 {
+		t.Fatalf("file version %d, want 3", file.Version)
+	}
 }

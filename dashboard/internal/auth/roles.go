@@ -31,7 +31,9 @@ const (
 	RoleOperateDevices     = "operate_devices"
 	RoleOperateAutomations = "operate_automations"
 	RoleEditSettings       = "edit_settings"
+	RoleEditSetup          = "edit_setup"
 	RoleEditConfig         = "edit_config"
+	RoleSetupTinyTuya      = "setup_tiny_tuya"
 	RoleInstallUpdates     = "install_updates"
 	RoleUpdateSettings     = "update_settings"
 	RoleViewLogs           = "view_logs"
@@ -78,13 +80,14 @@ var roleCatalog = []RoleInfo{
 	{Key: RoleEditConfig, Category: CategorySetup, Requires: RoleViewConfig, GuestAllowed: true, HAAllowed: true},
 	{Key: "delete_device_discovery", Category: CategorySetup, Requires: RoleViewDevices, GuestAllowed: true, HAAllowed: true},
 	{Key: "mqtt_config", Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
-	{Key: "tune_live_updates", Category: CategorySetup, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleEditSetup, Category: CategorySetup, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleSetupTinyTuya, Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleTailscale, Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: "check_updates", Category: CategoryUpdates, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleInstallUpdates, Category: CategoryUpdates, HAAllowed: true},
 	{Key: RoleUpdateSettings, Category: CategoryUpdates, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleViewLogs, Category: CategorySystem, Requires: RoleViewDiagnostics, HTTPSOnly: true, HAAllowed: true},
 	{Key: "system_actions", Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
-	{Key: RoleTailscale, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleUserManagement, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleHTTPLogin, Category: CategorySystem},
 }
@@ -140,4 +143,25 @@ func Normalize(roles []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ViewRoles liefert die Ansehen-Berechtigungen in Katalogreihenfolge.
+func ViewRoles() []string {
+	out := make([]string, 0, len(roleCatalog))
+	for _, info := range roleCatalog {
+		if info.Category == CategoryView {
+			out = append(out, info.Key)
+		}
+	}
+	return out
+}
+
+// HasAnyView meldet, ob der Benutzer mindestens eine Ansehen-Berechtigung hat.
+func HasAnyView(user User) bool {
+	for _, role := range ViewRoles() {
+		if containsRole(user.Roles, role) {
+			return true
+		}
+	}
+	return false
 }

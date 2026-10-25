@@ -146,7 +146,14 @@
       return {roles: sortedRoles(account.roles), disabled: Boolean(account.disabled)};
     },
 
+    // Read only: renders call this, so it must not store anything. Before the
+    // first load the snapshot is empty, and a stored one would show as unsaved.
     draftOf(id) {
+      return this.drafts[id] || this.savedSnapshot(id);
+    },
+
+    // The stored draft for writing. The first change stores the snapshot.
+    ensureDraft(id) {
       if (!this.drafts[id]) this.drafts[id] = this.savedSnapshot(id);
       return this.drafts[id];
     },
@@ -217,7 +224,7 @@
     toggleRole(id, key) {
       const entry = this.catalog.find((item) => item.key === key);
       if (!entry || !window.UsersModel.available(this.catalog, this.kindOf(id)).includes(entry)) return;
-      const draft = this.draftOf(id);
+      const draft = this.ensureDraft(id);
       const held = draft.roles.includes(key);
       const lock = this.lockFor(id, key);
       if (held && lock === 'last_admin') return;
@@ -227,7 +234,7 @@
     },
 
     toggleGroup(id, category) {
-      const draft = this.draftOf(id);
+      const draft = this.ensureDraft(id);
       draft.roles = window.UsersModel.toggleGroup(
         this.catalog,
         {kind: this.kindOf(id)},
@@ -255,7 +262,7 @@
 
     setActive(id, active) {
       if (this.lockFor(id, '__active')) return;
-      this.draftOf(id).disabled = !active;
+      this.ensureDraft(id).disabled = !active;
     },
 
     // Head tags as i18n keys (users.tag.*), in the order of the prototype.
@@ -327,8 +334,10 @@
         } else {
           await this.send('PUT', `/api/v1/users/${enc(id)}`, {roles, disabled: Boolean(draft.disabled)});
         }
-        delete this.drafts[id];
+        // Reload before the draft goes: a render in between would rebuild the
+        // draft from the old account and show it as unsaved.
         await this.load();
+        delete this.drafts[id];
         this.markSaved(id);
         return true;
       } catch (error) {
@@ -347,10 +356,12 @@
       this.saving = NEW_ID;
       try {
         await this.send('POST', '/api/v1/users', {username, password: this.creating.password, roles});
+        // Reload before the draft goes: a render in between would rebuild the
+        // username's draft from the list, which does not have it yet.
+        await this.load();
         this.creating = null;
         delete this.drafts[NEW_ID];
         this.openId = username;
-        await this.load();
         this.markSaved(username);
         return true;
       } catch (error) {

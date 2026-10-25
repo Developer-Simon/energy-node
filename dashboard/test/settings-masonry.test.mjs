@@ -71,3 +71,19 @@ test('ohne ResizeObserver bleibt das normale Raster stehen', () => {
   assert.ok(!doc.querySelector('.settings-cards').classList.contains('settings-cards--masonry'));
   assert.equal(doc.getElementById('a').style.gridRowEnd, '');
 });
+
+test('attach zaehlt die Karten in einem display-contents-Wrapper als eigene Karten', () => {
+  const dom = load(`<!doctype html><html><body><section id="panel">
+    <div class="settings-cards" style="column-gap: 16px">
+      <div class="setting-card" id="a"></div>
+      <div class="users-manage" style="display: contents">
+        <div class="setting-card" id="b"></div>
+      </div>
+    </div></section></body></html>`);
+  const doc = dom.window.document;
+  setHeight(doc.getElementById('a'), 300);
+  setHeight(doc.getElementById('b'), 100);
+  dom.window.dashboardSettingsMasonry.attach(doc.getElementById('panel'));
+  assert.equal(doc.getElementById('a').style.gridRowEnd, 'span 316');
+  assert.equal(doc.getElementById('b').style.gridRowEnd, 'span 116');
+});

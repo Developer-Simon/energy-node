@@ -730,6 +730,54 @@ func layoutItem(root any, item settings.Item) layoutItemView {
 	return layoutItemView{Root: root, Item: item}
 }
 
+// panelViewRole nennt je Template die Ansicht, die sein Abruf braucht. Fehlt
+// sie, antwortet der Handler mit 403, bevor irgendwelche Daten geladen werden.
+// settings und base fehlen: sie sind immer erlaubt (base filtert selbst).
+var panelViewRole = map[string]string{
+	"devices":              auth.RoleViewDevices,
+	"history":              auth.RoleViewHistory,
+	"stats":                auth.RoleViewStats,
+	"diagnostics":          auth.RoleViewDiagnostics,
+	"config":               auth.RoleViewConfig,
+	"energy":               auth.RoleViewEnergy,
+	"devicemap":            auth.RoleViewDeviceMap,
+	"automations":          auth.RoleViewAutomations,
+	"layout-editor":        auth.RoleViewOverview,
+	"overview-live":        auth.RoleViewOverview,
+	"layout-item-fragment": auth.RoleViewOverview,
+	"devices-live":         auth.RoleViewDevices,
+	"device-card-fragment": auth.RoleViewDevices,
+}
+
+// initialPanel waehlt den Reiter, der beim Laden aktiv ist: Uebersicht, wenn
+// erlaubt, sonst der erste erlaubte Reiter in fester Reihenfolge, zuletzt die
+// Einstellungen. config, energy und devicemap gibt es nur mit Manager,
+// automations nur mit installiertem Dienst.
+func initialPanel(can map[string]bool, manager, automationsInstalled bool) string {
+	if can[auth.RoleViewOverview] {
+		return "overview-panel"
+	}
+	candidates := []struct {
+		panel, role string
+		available   bool
+	}{
+		{"devices-panel", auth.RoleViewDevices, true},
+		{"history-panel", auth.RoleViewHistory, true},
+		{"stats-panel", auth.RoleViewStats, true},
+		{"config-panel", auth.RoleViewConfig, manager},
+		{"energy-panel", auth.RoleViewEnergy, manager},
+		{"devicemap-panel", auth.RoleViewDeviceMap, manager},
+		{"diagnostics-panel", auth.RoleViewDiagnostics, manager},
+		{"automations-panel", auth.RoleViewAutomations, automationsInstalled},
+	}
+	for _, candidate := range candidates {
+		if candidate.available && can[candidate.role] {
+			return candidate.panel
+		}
+	}
+	return "settings-panel"
+}
+
 // templateNameForRequest maps the fragment/panel query parameters to the
 // template definition that serves them (see overviewTmpl's ParseFS call for
 // the full set). Returning ok=false means "unknown panel", a 404.
@@ -786,7 +834,26 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// Der Reiter Benutzer gibt es nur mit user_management. Ohne Nutzer im
 		// Context (Tests, Instanz ohne auth.Manager) gibt es ihn nicht.
 		canManageUsers := hasUser && auth.HasRole(user, auth.RoleUserManagement)
+		// Jedes eigene Konto (kein Gast) hat die Benutzer-Seite mit der
+		// Kontokarte; die Konten-Liste bleibt user_management vorbehalten.
+		hasOwnAccount := hasUser && !user.Guest
+		// Ohne Nutzer im Context (Tests, Instanz ohne auth.Manager) ist jede
+		// Ansicht erlaubt; sonst entscheidet die Rolle.
+		can := make(map[string]bool, len(auth.AllRoles()))
+		for _, key := range auth.AllRoles() {
+			can[key] = !hasUser || auth.HasRole(user, key)
+		}
+		// Ein Konto ohne jede Ansehen-Berechtigung sieht nur den Hinweis
+		// und landet darauf, statt ohne Erklaerung auf den Einstellungen.
+		noViewAccess := hasUser && !auth.HasAnyView(user)
+		manager := configs != nil && store != nil
 
+		// Ein Panel oder Live-Fragment ohne seine Ansicht gibt es nicht, und
+		// zwar vor jeder Datenbeschaffung.
+		if required, gated := panelViewRole[templateName]; gated && !can[required] {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		// Das Editor-Fragment ist die einzige layout-veraendernde Oberflaeche
 		// und darf ohne die Rolle gar nicht erst rendern.
 		if templateName == "layout-editor" && !canEditLayout {
@@ -803,9 +870,12 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// snapshot, layout load and energy aggregation every time.
 		itemFragment := templateName == "layout-item-fragment"
 		cardFragment := templateName == "device-card-fragment"
-		needsTiles := templateName == "base" || templateName == "overview-live" || templateName == "devices-live" || templateName == "devices" || itemFragment || cardFragment
-		needsEnergyAggregate := templateName == "base" || templateName == "overview-live" || templateName == "energy" || itemFragment
-		needsLayout := templateName == "base" || templateName == "overview-live" || itemFragment
+		// base braucht die Uebersicht nur mit view_overview; ohne sie laden wir
+		// weder Kacheln, Energie-Aggregat noch Layout.
+		baseOverview := templateName == "base" && can[auth.RoleViewOverview]
+		needsTiles := baseOverview || templateName == "overview-live" || templateName == "devices-live" || templateName == "devices" || itemFragment || cardFragment
+		needsEnergyAggregate := baseOverview || templateName == "overview-live" || templateName == "energy" || itemFragment
+		needsLayout := baseOverview || templateName == "overview-live" || itemFragment
 		needsDevices := needsTiles || needsEnergyAggregate
 
 		showRuntimeStatus := true
@@ -865,6 +935,10 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 					entity.HiddenOnTile = entity.DefaultHidden ||
 						(entity.EntityCategory == "config" && !showConfigEntitiesOnTile) ||
 						(entity.EntityCategory == "diagnostic" && !showDiagnosticEntitiesOnTile)
+					// Ohne operate_devices zeigen Kacheln nur Werte, keine Schalter.
+					if !can[auth.RoleOperateDevices] {
+						entity.Commandable = false
+					}
 				}
 			}
 		}
@@ -880,11 +954,20 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			resolvedInstalledServices[key] = value
 		}
 		setNumberSettings(settings.Settings{NumberFormat: numberFormat, NumberGrouping: numberGrouping})
+		initial := initialPanel(can, manager, resolvedInstalledServices["automation"])
+		if noViewAccess {
+			initial = "no-access-panel"
+		}
 		view := map[string]any{
 			"BasePath":           basepath.From(r),
-			"Manager":            configs != nil && store != nil,
+			"Manager":            manager,
+			"Can":                can,
+			"InitialPanel":       initial,
+			"NoViewAccess":       noViewAccess,
 			"CanEditLayout":      canEditLayout,
 			"CanManageUsers":     canManageUsers,
+			"HasOwnAccount":      hasOwnAccount,
+			"HasUser":            hasUser,
 			"ShowRuntimeStatus":  showRuntimeStatus,
 			"DeviceViewMode":     deviceViewMode,
 			"Theme":              theme,
