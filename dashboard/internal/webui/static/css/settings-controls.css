@@ -722,7 +722,10 @@
 /* Benutzer-Unterreiter (users.html, users.page.js). Alle Klassen mit Praefix
    users-; keine globalen Selektoren. Schalter nur als label.settings-toggle.
    Bewegung nach Spec Abschnitt 8, Kurven aus base.css. */
-.users-cards > .setting-card { grid-column: 1 / -1; }
+.users-cards > .setting-card, .users-cards > .users-manage > .setting-card { grid-column: 1 / -1; }
+/* Die Verwaltungs-Karten sitzen in einem Wrapper, der keine Box erzeugt: so
+   bleiben sie direkte Rasterelemente fuer Spalten und Mauerwerk. */
+.users-manage { display: contents; }
 .users-section-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
 .users-section-head .setting-card-title { margin: 0; }
 .users-section .setting-note { margin: .4rem 0 .6rem; }
@@ -752,7 +755,7 @@
 }
 
 /* Reiter Konten / Angemeldet: Schiebereiter in Segment-Optik wie .auto-segment */
-.users-cards > .users-tabs { grid-column: 1 / -1; justify-self: start; display: inline-flex; gap: .15rem; padding: .2rem; border-radius: 10px; background: var(--sunken); }
+.users-cards > .users-manage > .users-tabs { grid-column: 1 / -1; justify-self: start; display: inline-flex; gap: .15rem; padding: .2rem; border-radius: 10px; background: var(--sunken); }
 .users-tab { border: 0; border-radius: 8px; background: transparent; color: var(--text-subtle); padding: .4rem .8rem; font: inherit; font-size: .88rem; cursor: pointer; transition: background-color .15s ease, color .15s ease, transform 120ms var(--ease-out); }
 .users-tab:active { transform: scale(.97); }
 .users-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

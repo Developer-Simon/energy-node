@@ -247,7 +247,7 @@
       <svg class="no-access-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
       <h2 class="no-access-title">{{t "no_access.title"}}</h2>
       <p class="no-access-body">{{t "no_access.body"}}</p>
-      <button type="button" class="primary" x-on:click="setActivePanel('settings-panel')">{{t "no_access.open_account"}}</button>
+      {{if .HasOwnAccount}}<button type="button" class="primary" data-account-href="{{.BasePath}}/?panel=settings&amp;page=users" x-on:click="window.location.assign($el.dataset.accountHref)">{{t "no_access.open_account"}}</button>{{end}}
     </div>
   </section>{{end}}
 {{if index .Can "view_devices"}}  <section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=devices"><p class="panel-loading" data-panel-loading>{{t "panel.devices_loading"}}</p></section>{{end}}

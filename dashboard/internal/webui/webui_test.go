@@ -3673,21 +3673,52 @@ func TestSetpointActionHeadUsesRoleTone(t *testing.T) {
 	}
 }
 
-func TestSettingsShowsUsersTabOnlyWithUserManagement(t *testing.T) {
-	settingsBody := func(roles []string) string {
+func TestSettingsUsersPageForOwnAccountAndManagers(t *testing.T) {
+	settingsBody := func(user auth.User) string {
 		t.Helper()
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil)
-		req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: roles}))
+		req = req.WithContext(auth.WithUser(req.Context(), user))
 		Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
 		return rec.Body.String()
 	}
 
-	if body := settingsBody([]string{auth.RoleViewOverview}); strings.Contains(body, `aria-controls="settings-users"`) {
-		t.Fatal("ohne user_management darf der Reiter Benutzer nicht erscheinen")
+	// Ohne user_management: Reiter und Kontokarte, aber keine Verwaltung.
+	own := settingsBody(auth.User{Username: "u", Roles: []string{auth.RoleViewOverview}})
+	if !strings.Contains(own, `aria-controls="settings-users"`) || !strings.Contains(own, `id="settings-users"`) {
+		t.Fatal("eigenes Konto ohne user_management: Reiter Benutzer fehlt")
 	}
-	if body := settingsBody([]string{auth.RoleUserManagement}); !strings.Contains(body, `aria-controls="settings-users"`) {
-		t.Fatal("mit user_management muss der Reiter Benutzer erscheinen")
+	if !strings.Contains(own, `id="settings-account-heading"`) {
+		t.Fatal("eigenes Konto ohne user_management: Kontokarte fehlt")
+	}
+	if strings.Contains(own, `x-data="usersPage()"`) || strings.Contains(own, `class="users-manage"`) {
+		t.Fatal("ohne user_management darf die Benutzerverwaltung nicht geladen werden")
+	}
+
+	// Mit user_management: Kontokarte und Verwaltung.
+	manager := settingsBody(auth.User{Username: "m", Roles: []string{auth.RoleUserManagement}})
+	for _, want := range []string{`aria-controls="settings-users"`, `id="settings-account-heading"`, `x-data="usersPage()"`, `class="users-manage"`} {
+		if !strings.Contains(manager, want) {
+			t.Fatalf("user_management: %s fehlt", want)
+		}
+	}
+
+	// Gast: kein eigenes Konto, also kein Reiter Benutzer.
+	guest := settingsBody(auth.User{Username: "g", Guest: true, Roles: []string{auth.RoleViewOverview}})
+	if strings.Contains(guest, `aria-controls="settings-users"`) || strings.Contains(guest, `id="settings-account-heading"`) {
+		t.Fatal("Gast darf keinen Reiter Benutzer und keine Kontokarte sehen")
+	}
+
+	// Die Kontokarte liegt nicht mehr im System-Reiter.
+	if strings.Count(manager, `id="settings-account-heading"`) != 1 {
+		t.Fatal("Kontokarte muss genau einmal erscheinen")
+	}
+	system, _, found := strings.Cut(manager[strings.Index(manager, `id="settings-system"`):], `id="settings-users"`)
+	if !found {
+		t.Fatal("System- oder Benutzer-Reiter nicht gefunden")
+	}
+	if strings.Contains(system, `id="settings-account-heading"`) {
+		t.Fatal("der System-Reiter darf keine Kontokarte mehr enthalten")
 	}
 }
 
@@ -3835,6 +3866,9 @@ func TestAccountWithoutViewPermissionGetsTheNoticeTab(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("Konto ohne Ansehen-Recht: %s fehlt", want)
 		}
+	}
+	if !strings.Contains(body, `data-account-href="/?panel=settings&amp;page=users"`) {
+		t.Fatal("Konto ohne Ansehen-Recht: der Hinweis muss zur Benutzer-Seite fuehren")
 	}
 }
 

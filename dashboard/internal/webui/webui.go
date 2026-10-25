@@ -834,6 +834,9 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// Der Reiter Benutzer gibt es nur mit user_management. Ohne Nutzer im
 		// Context (Tests, Instanz ohne auth.Manager) gibt es ihn nicht.
 		canManageUsers := hasUser && auth.HasRole(user, auth.RoleUserManagement)
+		// Jedes eigene Konto (kein Gast) hat die Benutzer-Seite mit der
+		// Kontokarte; die Konten-Liste bleibt user_management vorbehalten.
+		hasOwnAccount := hasUser && !user.Guest
 		// Ohne Nutzer im Context (Tests, Instanz ohne auth.Manager) ist jede
 		// Ansicht erlaubt; sonst entscheidet die Rolle.
 		can := make(map[string]bool, len(auth.AllRoles()))
@@ -963,6 +966,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"NoViewAccess":       noViewAccess,
 			"CanEditLayout":      canEditLayout,
 			"CanManageUsers":     canManageUsers,
+			"HasOwnAccount":      hasOwnAccount,
 			"ShowRuntimeStatus":  showRuntimeStatus,
 			"DeviceViewMode":     deviceViewMode,
 			"Theme":              theme,
