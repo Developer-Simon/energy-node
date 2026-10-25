@@ -1176,6 +1176,52 @@ if [[ $SIMULATE_JOURNAL -eq 1 ]]; then
   fi
 fi
 
+# Benutzerverwaltung: ein Konto mit nur view_overview meldet sich ueber HTTPS an.
+# Der Admin entzieht die Berechtigung, dieselbe Sitzung sieht sie ohne
+# Neustart nicht mehr.
+echo "==> Benutzerverwaltung: eingeschraenktes Konto"
+ADMIN_CSRF="$(api "$BASE/api/v1/auth/session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["csrf_token"])')"
+SMOKE_USER="smoke-user"
+SMOKE_PASSWORD="smoke-user-pass-1"
+USER_COOKIES="$WORK/smoke-user-cookies.txt"
+curl -sf "${CURL_INSECURE[@]}" -m 5 -o /dev/null -H "$SECURE_HEADER" -H "X-CSRF-Token: $ADMIN_CSRF" \
+  -H 'Content-Type: application/json' -X POST "$BASE/api/v1/users" \
+  -b "$COOKIES" -d "{\"username\":\"$SMOKE_USER\",\"password\":\"$SMOKE_PASSWORD\",\"roles\":[\"view_overview\"]}" || FAILED=1
+curl -sf "${CURL_INSECURE[@]}" -m 5 -c "$USER_COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
+  -X POST "$BASE/api/v1/auth/login" -d "{\"username\":\"$SMOKE_USER\",\"password\":\"$SMOKE_PASSWORD\"}" > /dev/null || FAILED=1
+user_api() { curl -sf "${CURL_INSECURE[@]}" -m 5 -b "$USER_COOKIES" -H "$SECURE_HEADER" "$@"; }
+if user_api "$BASE/api/v1/auth/session" | python3 -c '
+import json, sys
+sys.exit(0 if json.load(sys.stdin)["roles"] == ["view_overview"] else 1)
+'; then
+  echo "  OK   smoke-user meldet sich mit view_overview an"
+else
+  echo "  FEHL smoke-user hat nach der Anmeldung nicht genau view_overview"; FAILED=1
+fi
+code=$(curl -s "${CURL_INSECURE[@]}" -m 5 -o /dev/null -w '%{http_code}' -b "$USER_COOKIES" -H "$SECURE_HEADER" \
+  "$BASE/api/v1/system/logs?unit=dashboard&since=60&lines=10")
+if [[ "$code" == "403" ]]; then
+  echo "  OK   Service-Logs fuer smoke-user abgelehnt (HTTP 403)"
+else
+  echo "  FEHL Service-Logs fuer smoke-user kam mit HTTP $code durch"; FAILED=1
+fi
+code=$(curl -s "${CURL_INSECURE[@]}" -m 5 -o /dev/null -w '%{http_code}' -b "$COOKIES" -H "$SECURE_HEADER" \
+  -H "X-CSRF-Token: $ADMIN_CSRF" -H 'Content-Type: application/json' -X PUT "$BASE/api/v1/users/$SMOKE_USER" \
+  -d '{"roles":[],"disabled":false}')
+if [[ "$code" == "200" ]]; then
+  echo "  OK   view_overview fuer smoke-user entzogen"
+else
+  echo "  FEHL Entziehen der Berechtigung kam mit HTTP $code"; FAILED=1
+fi
+if user_api "$BASE/api/v1/auth/session" | python3 -c '
+import json, sys
+sys.exit(0 if json.load(sys.stdin)["roles"] == [] else 1)
+'; then
+  echo "  OK   dieselbe Sitzung hat ohne Neustart keine Berechtigung mehr"
+else
+  echo "  FEHL dieselbe Sitzung behaelt die entzogene Berechtigung"; FAILED=1
+fi
+
 check_history_exchange || FAILED=1
 
 echo
