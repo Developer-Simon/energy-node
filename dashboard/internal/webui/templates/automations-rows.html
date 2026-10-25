@@ -315,7 +315,7 @@
 
                       <template x-if="actionKind(action) === 'switch' || actionKind(action) === 'setpoint'">
                         <div class="auto-fields">
-                          <div class="auto-field auto-field-wide">
+                          <div class="auto-field auto-field-wide auto-field-device">
                             <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.wizard.entity.device_label"}}</span>
                             <div class="auto-device-chips is-single" role="group" x-bind:aria-label="$t('automations.wizard.entity.device_label')">
                               <div class="auto-device-chip is-selected" x-bind:class="{ 'is-unknown': actionChip(action).unknown }">
@@ -342,14 +342,14 @@
                           </template>
 
                           <template x-if="actionKind(action) === 'setpoint'">
-                            <div class="auto-fields auto-field-wide">
+                            <div class="auto-fields auto-field-wide auto-source-row">
                               <template x-if="action.payload_source !== 'balance'">
                                 <div class="auto-field" x-data="{ get stepTarget() { return setpointValueTarget(action) }, stepKey: 'value', get stepOpts() { const b = actionBounds(action); return { min: b.min, max: b.max, step: b.step } }, get stepUnit() { return actionBounds(action).unit }, stepLabel: $t('automations.action.value_label') }">
                                   <span class="auto-field-label auto-label-sr">{{t "automations.action.value_label"}}</span>
                                   {{template "auto-stepper"}}
                                 </div>
                               </template>
-                              <div class="auto-field">
+                              <div class="auto-field auto-field-source">
                                 <span class="auto-field-label auto-label-sr">{{t "automations.action.setpoint.source_label"}}</span>
                                 <span class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.action.setpoint.source_label')">
                                   <button class="auto-segment-tab" type="button" role="radio" x-on:click="setSetpointSource(action, 'constant')"
@@ -359,7 +359,7 @@
                                 </span>
                               </div>
                               <template x-if="action.payload_source === 'balance'">
-                                <div class="auto-fields auto-field-wide">
+                                <div class="auto-fields auto-field-wide auto-source-row">
                                   <div class="auto-field">
                                     <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.condition.balance.field_label"}}</span>
                                     <select class="auto-input" x-model="action.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">

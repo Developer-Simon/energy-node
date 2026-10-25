@@ -203,9 +203,9 @@
                       <template x-if="rule.repeat_seconds > 0">
                         <span class="auto-flow-row">
                           <span>{{t "automations.rule.flow.every"}}</span>
-                          <input x-bind:id="`repeat-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.repeat_seconds"
-                                 x-bind:aria-label="$t('automations.rule_editor.repeat_label')">
-                          <span class="edit-unit">s</span>
+                          <span class="auto-field" x-data="{ get stepTarget() { return rule }, stepKey: 'repeat_seconds', stepOpts: { min: 1, max: 86400, step: 10 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.rule_editor.repeat_label') }">
+                            {{template "auto-stepper"}}
+                          </span>
                           <span class="field-help">
                             <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.repeat_help_aria_label')">
                               <svg><use href="#ico-help"></use></svg>

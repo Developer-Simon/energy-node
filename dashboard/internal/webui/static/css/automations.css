@@ -376,12 +376,13 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-input::-webkit-outer-spin-button, .auto-input::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
 .auto-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
-.auto-stepper { display: flex; align-items: stretch; height: 40px; min-width: 9.5rem; border-radius: 10px; background: var(--panel-alt); overflow: hidden; }
+/* Wie der .stepper in settings-controls.css: Rahmen außen, Trennlinien um das Zahlenfeld, Tasten ohne Rahmen. */
+.auto-stepper { box-sizing: border-box; display: flex; align-items: stretch; height: 40px; min-width: 9.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sunken); overflow: hidden; }
 /* Zahl und Einheit stehen auf einer Grundlinie, die kleinere Einheit beginnt
    also an der Unterkante der Ziffern. Ziffern haben keine Unterlaenge, mit
    der normalen Zeilenhoehe sitzen sie deshalb knapp 1 px zu hoch. Das
    padding-top im Feld darunter gleicht das aus (gemessen im Dialog). */
-.auto-stepper-field { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: .25rem; padding: 0 .35rem; }
+.auto-stepper-field { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: .25rem; padding: 0 .35rem; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 /* field-sizing haelt Zahl und Einheit als Paar in der Mitte, ohne Unterstuetzung bleibt 6ch. */
 .auto-stepper-field .auto-input { flex: 0 1 auto; width: 6ch; field-sizing: content; min-width: 2ch; max-width: 100%; height: 100%; padding: .12em 0 0; border-radius: 0; background: transparent; text-align: right; }
 .auto-stepper-field .auto-input-unit { position: static; transform: none; flex: none; }
@@ -549,7 +550,10 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
   }
   /* Bedingungen und Aktionen: eine Zeile je Karte, Icon links, Felder mittig, Schaltflaechen rechts. */
-  .auto-rule[data-mode="edit"] .auto-edit-list { gap: 0; background: var(--panel-alt); border-radius: 14px; overflow: hidden; }
+  /* Kein overflow: hidden an der Liste, sonst werden Hilfe-Tooltips der ersten und letzten Zeile abgeschnitten. Die Ecken runden die Zeilen selbst. */
+  .auto-rule[data-mode="edit"] .auto-edit-list { gap: 0; background: var(--panel-alt); border-radius: 14px; }
+  .auto-rule[data-mode="edit"] .auto-edit-list > .auto-cond:first-of-type { border-top-left-radius: 14px; border-top-right-radius: 14px; }
+  .auto-rule[data-mode="edit"] .auto-edit-list > .auto-cond:last-of-type { border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }
   .auto-rule[data-mode="edit"] .auto-cond { gap: 0; margin-bottom: 0; border-top: 1px solid var(--border-soft); }
   .auto-rule[data-mode="edit"] .auto-cond:first-child { border-top: 0; }
   .auto-rule[data-mode="edit"] .auto-cond.is-met { background: var(--ok-bg); box-shadow: inset 3px 0 0 var(--ok); }
@@ -560,6 +564,10 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-card > .auto-fields { grid-column: 2; grid-row: 1; min-width: 0; }
   .auto-rule[data-mode="edit"] .auto-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .auto-rule[data-mode="edit"] .auto-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 0 0 auto; }
+  /* Aktion "Aus Messwert": Gerät, Messfelder und Quellwahl in einer umbrechenden Zeile wie die Satzzeilen. Die inneren Gruppen geben ihre Felder an die Zeile ab, die Quellwahl steht am Ende. */
+  .auto-rule[data-mode="edit"] .auto-source-row { display: contents; }
+  .auto-rule[data-mode="edit"] .auto-field-device { flex: 1 1 14rem; }
+  .auto-rule[data-mode="edit"] .auto-field-source { order: 1; }
   .auto-rule[data-mode="edit"] .auto-field > input, .auto-rule[data-mode="edit"] .auto-field > select { width: auto; }
   .auto-rule[data-mode="edit"] .auto-stepper { min-width: 0; }
   .auto-rule[data-mode="edit"] .auto-stepper-field .auto-input { width: auto; min-width: 4ch; }
@@ -584,7 +592,7 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-flow-group .auto-flow-label { min-width: 0; }
   .auto-rule[data-mode="edit"] .auto-flow-icon { flex: none; width: 1rem; height: 1rem; color: var(--text-subtle); }
   .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-segment, .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-field, .auto-rule[data-mode="edit"] .auto-flow-toggle { margin-left: auto; }
-  .auto-rule[data-mode="edit"] .auto-flow-group .auto-stepper { background: var(--sunken); border-radius: 999px; }
+  .auto-rule[data-mode="edit"] .auto-flow-group .auto-stepper { background: var(--sunken); border-radius: var(--radius-sm); }
 }
 
 /* --- Mobil: Werkzeugleiste mit Verlauf-Knopf und Listenzeile mit Kurzstatus und Sparkline --- */
