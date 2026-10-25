@@ -3690,3 +3690,118 @@ func TestSettingsShowsUsersTabOnlyWithUserManagement(t *testing.T) {
 		t.Fatal("mit user_management muss der Reiter Benutzer erscheinen")
 	}
 }
+
+func viewPermissionRequest(target string, roles ...string) *http.Request {
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	return req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: roles}))
+}
+
+func TestPanelFragmentForbiddenWithoutView(t *testing.T) {
+	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=panel&panel=history", auth.RoleViewStats))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("panel=history ohne view_history muss 403 liefern, war %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=panel&panel=settings", auth.RoleViewStats))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("panel=settings ist immer erlaubt, war %d", rec.Code)
+	}
+}
+
+func TestLiveFragmentsForbiddenWithoutView(t *testing.T) {
+	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=overview-live", auth.RoleViewDevices))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("overview-live ohne view_overview muss 403 liefern, war %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=devices-live", auth.RoleViewOverview))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("devices-live ohne view_devices muss 403 liefern, war %d", rec.Code)
+	}
+}
+
+func TestBaseWithoutOverviewRendersWithoutTiles(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_relay", ObjectID: "relay", Component: "switch", Name: "Relais", CommandTopic: "node/relay/set", PayloadOn: "ON", PayloadOff: "OFF"},
+	})
+	rec := httptest.NewRecorder()
+	Overview(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, viewPermissionRequest("/", auth.RoleViewStats))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("base ohne view_overview muss rendern, war %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), `data-entity-id="node_relay"`) {
+		t.Fatal("ohne view_overview darf base keine Kacheln laden")
+	}
+}
+
+func TestTilesWithoutOperateDevicesHaveNoCommandButtons(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_relay", ObjectID: "relay", Component: "switch", Name: "Relais", CommandTopic: "node/relay/set", PayloadOn: "ON", PayloadOff: "OFF"},
+	})
+	handler := Overview(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	without := httptest.NewRecorder()
+	handler.ServeHTTP(without, viewPermissionRequest("/?fragment=devices-live&view_mode=control", auth.RoleViewDevices, auth.RoleViewOverview))
+	if without.Code != http.StatusOK {
+		t.Fatalf("got status %d", without.Code)
+	}
+	if strings.Contains(without.Body.String(), `class="entity-command-button"`) {
+		t.Fatal("ohne operate_devices darf keine Schaltflaeche in der Kachel stehen")
+	}
+
+	with := httptest.NewRecorder()
+	handler.ServeHTTP(with, viewPermissionRequest("/?fragment=devices-live&view_mode=control", auth.RoleViewDevices, auth.RoleOperateDevices))
+	if !strings.Contains(with.Body.String(), `class="entity-command-button"`) {
+		t.Fatal("mit operate_devices muss die Schaltflaeche in der Kachel stehen")
+	}
+}
+
+func TestInitialPanelFollowsViewPermissions(t *testing.T) {
+	allowed := func(roles ...string) map[string]bool {
+		can := map[string]bool{}
+		for _, key := range auth.AllRoles() {
+			can[key] = false
+		}
+		for _, role := range roles {
+			can[role] = true
+		}
+		return can
+	}
+
+	cases := []struct {
+		name                string
+		can                 map[string]bool
+		manager, automation bool
+		want                string
+	}{
+		{"overview wins", allowed(auth.RoleViewOverview, auth.RoleViewStats), true, true, "overview-panel"},
+		{"devices first", allowed(auth.RoleViewDevices, auth.RoleViewHistory, auth.RoleViewStats), true, true, "devices-panel"},
+		{"history before stats", allowed(auth.RoleViewStats, auth.RoleViewHistory), true, true, "history-panel"},
+		{"stats before config", allowed(auth.RoleViewConfig, auth.RoleViewStats), true, true, "stats-panel"},
+		{"config needs manager", allowed(auth.RoleViewConfig, auth.RoleViewEnergy), false, true, "settings-panel"},
+		{"config with manager", allowed(auth.RoleViewConfig, auth.RoleViewEnergy), true, true, "config-panel"},
+		{"energy before devicemap", allowed(auth.RoleViewDeviceMap, auth.RoleViewEnergy), true, true, "energy-panel"},
+		{"devicemap needs manager", allowed(auth.RoleViewDeviceMap, auth.RoleViewDiagnostics), false, true, "diagnostics-panel"},
+		{"diagnostics before automations", allowed(auth.RoleViewAutomations, auth.RoleViewDiagnostics), true, true, "diagnostics-panel"},
+		{"automations needs service", allowed(auth.RoleViewAutomations), true, false, "settings-panel"},
+		{"automations with service", allowed(auth.RoleViewAutomations), true, true, "automations-panel"},
+		{"nothing allowed falls back", allowed(), true, true, "settings-panel"},
+	}
+	for _, tc := range cases {
+		if got := initialPanel(tc.can, tc.manager, tc.automation); got != tc.want {
+			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
