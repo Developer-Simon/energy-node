@@ -768,6 +768,9 @@ func handleEntityCommand(reg *registry.Registry, publisher CommandPublisher, his
 			writeError(w, http.StatusServiceUnavailable, "commands_unavailable", "MQTT-Befehle sind nicht verfügbar")
 			return
 		}
+		if !requireRoleIfUser(w, r, auth.RoleOperateDevices, "operate_devices_forbidden", "error.operate_devices_forbidden", "Zum Schalten von Geräten fehlt die Berechtigung.") {
+			return
+		}
 		command, ok := reg.Command(uniqueID)
 		if !ok {
 			writeError(w, http.StatusNotFound, "command_not_supported", "Entität ist nicht schaltbar")
@@ -1474,6 +1477,9 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				methodNotAllowed(w, http.MethodPost)
 				return
 			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
+				return
+			}
 			if !requireDeviceMutation(w, r, authManager, false, true) {
 				return
 			}
@@ -1495,6 +1501,9 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		if len(parts) == 2 && parts[1] == "unignore" {
 			if r.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)
+				return
+			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
 			if !requireDeviceMutation(w, r, authManager, false, true) {
@@ -1564,6 +1573,9 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		if len(parts) == 2 && parts[1] == "reload" {
 			if r.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)
+				return
+			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
 			// Reload always resets and rebuilds the entire registry (scope:
@@ -2134,6 +2146,11 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 			return
 		}
 		parts := strings.Split(name, "/")
+		if name != "automation_rules" && isConfigurationWrite(r, parts) {
+			if !requireRoleIfUser(w, r, auth.RoleEditConfig, "edit_config_forbidden", "error.edit_config_forbidden", "Zum Bearbeiten der Gerätekonfiguration fehlt die Berechtigung.") {
+				return
+			}
+		}
 		if len(parts) == 2 && parts[1] == "status" {
 			if r.Method != http.MethodGet {
 				methodNotAllowed(w, http.MethodGet)
@@ -2998,6 +3015,9 @@ type tinyTuyaCredentialMetadata struct {
 
 func handleTinyTuyaCredentials(store *tinytuya.CredentialStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && !requireRoleIfUser(w, r, auth.RoleEditConfig, "edit_config_forbidden", "error.edit_config_forbidden", "Zum Bearbeiten der Gerätekonfiguration fehlt die Berechtigung.") {
+			return
+		}
 		if store == nil {
 			writeJSON(w, tinyTuyaCredentialMetadata{})
 			return
@@ -3109,6 +3129,9 @@ func handleTinyTuyaConfigure(manager *config.Manager) http.HandlerFunc {
 			methodNotAllowed(w)
 			return
 		}
+		if !requireRoleIfUser(w, r, auth.RoleEditConfig, "edit_config_forbidden", "error.edit_config_forbidden", "Zum Bearbeiten der Gerätekonfiguration fehlt die Berechtigung.") {
+			return
+		}
 		if manager == nil {
 			writeError(w, http.StatusNotImplemented, "tiny_tuya_unavailable", "TinyTuya-Konfiguration ist nicht verfügbar")
 			return
@@ -3204,4 +3227,13 @@ func writeJSONStatus(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(value)
+}
+
+// isConfigurationWrite reports whether a configuration request changes the
+// document: a PUT, or a POST to restore or reload it.
+func isConfigurationWrite(r *http.Request, parts []string) bool {
+	if r.Method == http.MethodPut {
+		return true
+	}
+	return r.Method == http.MethodPost && len(parts) == 2 && (parts[1] == "restore" || parts[1] == "reload")
 }
