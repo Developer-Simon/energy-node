@@ -146,7 +146,14 @@
       return {roles: sortedRoles(account.roles), disabled: Boolean(account.disabled)};
     },
 
+    // Read only: renders call this, so it must not store anything. Before the
+    // first load the snapshot is empty, and a stored one would show as unsaved.
     draftOf(id) {
+      return this.drafts[id] || this.savedSnapshot(id);
+    },
+
+    // The stored draft for writing. The first change stores the snapshot.
+    ensureDraft(id) {
       if (!this.drafts[id]) this.drafts[id] = this.savedSnapshot(id);
       return this.drafts[id];
     },
@@ -217,7 +224,7 @@
     toggleRole(id, key) {
       const entry = this.catalog.find((item) => item.key === key);
       if (!entry || !window.UsersModel.available(this.catalog, this.kindOf(id)).includes(entry)) return;
-      const draft = this.draftOf(id);
+      const draft = this.ensureDraft(id);
       const held = draft.roles.includes(key);
       const lock = this.lockFor(id, key);
       if (held && lock === 'last_admin') return;
@@ -227,7 +234,7 @@
     },
 
     toggleGroup(id, category) {
-      const draft = this.draftOf(id);
+      const draft = this.ensureDraft(id);
       draft.roles = window.UsersModel.toggleGroup(
         this.catalog,
         {kind: this.kindOf(id)},
@@ -255,7 +262,7 @@
 
     setActive(id, active) {
       if (this.lockFor(id, '__active')) return;
-      this.draftOf(id).disabled = !active;
+      this.ensureDraft(id).disabled = !active;
     },
 
     // Head tags as i18n keys (users.tag.*), in the order of the prototype.

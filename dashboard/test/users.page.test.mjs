@@ -206,6 +206,37 @@ function holdReloadAfterWrite(window) {
   };
 }
 
+test('reading a draft before the first load stores nothing and shows no unsaved tag', async () => {
+  const { component } = createUsersPage();
+  // A render can run before load() has filled presets and accounts.
+  component.draftOf('preset:guest');
+  component.draftOf('anna');
+  assert.equal(component.drafts['preset:guest'], undefined, 'reading does not store a draft');
+  assert.equal(component.drafts.anna, undefined, 'reading does not store a draft');
+
+  await component.init();
+
+  assert.equal(component.isDirty('preset:guest'), false, 'the guest preset is not unsaved');
+  assert.equal(component.isDirty('anna'), false, 'the account is not unsaved');
+  assert.ok(!component.tagsFor('preset:guest').includes('users.tag.unsaved'));
+  assert.ok(!component.tagsFor('anna').includes('users.tag.unsaved'));
+});
+
+test('a change after the load still marks the card unsaved and saves', async () => {
+  const { component, calls, server } = createUsersPage();
+  component.draftOf('anna');
+  await component.init();
+
+  component.toggleCard('anna');
+  component.toggleRole('anna', 'view_history');
+  assert.equal(component.isDirty('anna'), true, 'the change is a draft');
+
+  assert.equal(await component.save('anna'), true);
+  assert.equal(writes(calls).filter((call) => call.method === 'PUT').length, 1);
+  assert.ok(server.users.find((user) => user.username === 'anna').roles.includes('view_history'));
+  assert.equal(component.isDirty('anna'), false);
+});
+
 test('save keeps the saved roles when the open card renders while the reload is pending', async () => {
   const { component, window } = createUsersPage();
   await component.init();
