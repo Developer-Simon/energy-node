@@ -2854,36 +2854,42 @@ test('a second zero_feed gets its own id and cannot pick the same inverter', asy
 // Read-only states: without edit_automations the editor is read-only. With
 // operate_automations alone only the on/off switches stay usable, and save()
 // sends the stored document with the new enabled flags.
-test('operate-only save sends the stored document with only enabled flags changed', async () => {
+test('operate-only save sends the stored GET document with only enabled flags changed', async () => {
+  // Der Stand kommt ueber den echten load()-Pfad: fehlende neuere Settings-
+  // Felder und gesetztes publish_allowed_prefixes_auto. Der Server vergleicht
+  // mit der Datei auf der Platte, also muss der Body genau dieses Dokument sein.
   const { component, window } = createAutomationsPanel();
   const stored = {
     version: 1,
     settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
-                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+                publish_allowed_prefixes: ['werkstatt/wallbox/set'], publish_allowed_prefixes_auto: true },
     rules: [
       { id: 'r1', name: 'A', enabled: false, cooldown_seconds: 30, conditions: [], actions: [] },
       { id: 'r2', name: 'B', enabled: true, cooldown_seconds: 30, conditions: [], actions: [] },
     ],
     scenarios: [validScenario('nulleinspeisung')],
   };
-  component.savedDocument = JSON.parse(JSON.stringify(stored));
-  component.document = JSON.parse(JSON.stringify(stored));
-  component.document.rules[0].enabled = true;
-  component.sessionRoles = ['operate_automations', 'view_automations'];
-  component.csrfToken = 'tok';
-  component.pollRuntimeStatus = async () => {};
-  const requested = [];
   let sentBody;
   window.fetch = async (url, options) => {
-    requested.push(url);
     if (options && options.method === 'PUT') { sentBody = JSON.parse(options.body); return { ok: true, json: async () => ({}) }; }
+    if (url.endsWith('/api/v1/configurations/automation_rules')) return { ok: true, json: async () => JSON.parse(JSON.stringify(stored)) };
+    if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+    if (url.endsWith('/api/v1/auth/session')) {
+      return { ok: true, json: async () => ({ csrf_token: 'tok', roles: ['operate_automations', 'view_automations'] }) };
+    }
     return { ok: true, json: async () => ({}) };
   };
-  await component.save();
-  const expected = JSON.parse(JSON.stringify(stored));
-  expected.rules[0].enabled = true;
-  assert.deepEqual(sentBody, expected);
-  assert.deepEqual(requested.filter(url => url.endsWith('/api/v1/devices')), [], 'the prefix recalculation is skipped');
+  try {
+    await component.load();
+    component.pollRuntimeStatus = async () => {};
+    component.toggleEnabled('r1');
+    await component.save();
+    const expected = JSON.parse(JSON.stringify(stored));
+    expected.rules[0].enabled = true;
+    assert.deepEqual(sentBody, expected);
+  } finally {
+    window.close();
+  }
 });
 
 test('automations without any permission hide the toggles', () => {

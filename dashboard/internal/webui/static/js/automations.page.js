@@ -165,6 +165,9 @@
     // Stand einer Regel beim Start des Bearbeitens (ID -> Kopie), fuer Verwerfen.
     editSnapshot: {},
     savedDocument: null,
+    // Unveraenderte Kopie der Antwort des Servers (vor allen Merges), Grundlage
+    // des Nur-Bedienen-Speicherns; der Server vergleicht gegen genau diese Datei.
+    storedDocument: null,
     lastStateAt: 0,
     hasAutomationsRole: false,
     // Rollen aus der Sitzung; null, solange keine Sitzung mit Rollenliste da ist.
@@ -246,6 +249,7 @@
         ]);
         this.categories = (roles && roles.categories) || {};
         this.assignments = (roles && roles.assignments) || {};
+        this.storedDocument = JSON.parse(JSON.stringify(doc && doc.rules ? doc : emptyDocument()));
         this.document = doc && doc.rules ? doc : emptyDocument();
         this.document.scenarios ||= [];
         this.view = this.document.scenarios.length ? 'scenarios' : 'rules';
@@ -2411,7 +2415,7 @@
     // Nur Ein-Aus-Schalter (operate_automations ohne automations): gespeichert
     // wird der zuletzt gespeicherte Stand mit neuen enabled-Werten.
     operatePayload() {
-      const payload = JSON.parse(JSON.stringify(this.savedDocument));
+      const payload = JSON.parse(JSON.stringify(this.storedDocument));
       const enabledById = (list) => new Map((list || []).map((entry) => [entry.id, entry.enabled]));
       const rules = enabledById(this.document.rules);
       const scenarios = enabledById(this.document.scenarios);
@@ -2431,6 +2435,7 @@
         });
         this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(payload));
+        this.storedDocument = JSON.parse(JSON.stringify(payload));
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -2477,13 +2482,15 @@
           delete settingsToSave.latitude;
           delete settingsToSave.longitude;
         }
+        const sent = { ...this.document, settings: settingsToSave, scenarios: this.scenariosPayload() };
         const saved = await requestJSON('/api/v1/configurations/automation_rules', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
-          body: JSON.stringify({ ...this.document, settings: settingsToSave, scenarios: this.scenariosPayload() }),
+          body: JSON.stringify(sent),
         });
         this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
+        this.storedDocument = JSON.parse(JSON.stringify(sent));
         this.newIds = {};
         clearTimeout(this._undoTimer);
         this.undo = null;
