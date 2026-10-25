@@ -49,7 +49,7 @@
             <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
             <span>{{t "tailscale.step2.back_button"}}</span>
           </button>
-          <button class="icon-button labeled primary" type="button" x-on:click="startLogin()" x-bind:disabled="!canSystemActions || busy" x-bind:title="busy === 'login' ? $t('tailscale.step2.starting') : $t('tailscale.step2.start_login_button')" x-bind:aria-label="busy === 'login' ? $t('tailscale.step2.starting') : $t('tailscale.step2.start_login_button')">
+          <button class="icon-button labeled primary" type="button" x-on:click="startLogin()" x-bind:disabled="!canTailscale || busy" x-bind:title="busy === 'login' ? $t('tailscale.step2.starting') : $t('tailscale.step2.start_login_button')" x-bind:aria-label="busy === 'login' ? $t('tailscale.step2.starting') : $t('tailscale.step2.start_login_button')">
             <svg class="automation-icon"><use href="#ico-power-on"></use></svg>
             <span x-text="busy === 'login' ? $t('tailscale.step2.starting') : $t('tailscale.step2.start_login_button')"></span>
           </button>
@@ -59,7 +59,7 @@
           {{t "tailscale.step2.auth_url_label"}}
           <a x-bind:href="status.auth_url" target="_blank" rel="noopener noreferrer" x-text="status.auth_url"></a>
         </p>
-        <p class="settings-help" x-show="!canSystemActions">{{t "tailscale.step2.no_permission"}}</p>
+        <p class="settings-help" x-show="!canTailscale">{{t "tailscale.step2.no_permission"}}</p>
       </div>
     </template>
   </section>
@@ -105,11 +105,11 @@
         <svg class="automation-icon"><use href="#ico-history"></use></svg>
         <span x-text="statusLoading ? $t('tailscale.status.checking') : $t('tailscale.status.check_button')"></span>
       </button>
-      <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="!canSystemActions || busy" :title="$t('tailscale.status.logout_button')" :aria-label="$t('tailscale.status.logout_button')">
+      <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="!canTailscale || busy" :title="$t('tailscale.status.logout_button')" :aria-label="$t('tailscale.status.logout_button')">
         <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
         <span>{{t "tailscale.status.logout_button"}}</span>
       </button>
-      <button class="icon-button labeled" type="button" x-on:click="restart()" x-bind:disabled="!canSystemActions || busy" x-bind:title="busy === 'restart' ? $t('tailscale.status.restarting') : $t('tailscale.status.restart_button')" x-bind:aria-label="busy === 'restart' ? $t('tailscale.status.restarting') : $t('tailscale.status.restart_button')">
+      <button class="icon-button labeled" type="button" x-on:click="restart()" x-bind:disabled="!canTailscale || busy" x-bind:title="busy === 'restart' ? $t('tailscale.status.restarting') : $t('tailscale.status.restart_button')" x-bind:aria-label="busy === 'restart' ? $t('tailscale.status.restarting') : $t('tailscale.status.restart_button')">
         <svg class="automation-icon"><use href="#ico-history"></use></svg>
         <span x-text="busy === 'restart' ? $t('tailscale.status.restarting') : $t('tailscale.status.restart_button')"></span>
       </button>

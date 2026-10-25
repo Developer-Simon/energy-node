@@ -172,20 +172,34 @@ func TestTailscaleLogoutRequiresConfirm(t *testing.T) {
 	}
 }
 
-func TestTailscaleRestartRequiresSystemActionsOnlyAndNoConfirm(t *testing.T) {
+func TestTailscaleActionsNeedTailscaleRoleNotSystemActions(t *testing.T) {
 	executor := &fakeSystemExecutor{}
-	client := tailscale.NewClient("tailscale", fakeTailscaleOutputRunner{out: `{}`}, time.Second)
-	router, _ := newTailscaleTestRouter(t, executor, client)
-	adminCookie, csrfToken := loginAsAdmin(t, router)
+	client := tailscale.NewClient("tailscale", fakeTailscaleOutputRunner{out: `{"BackendState":"NeedsLogin","AuthURL":"https://login.tailscale.com/a/xxx"}`}, time.Second)
+	router, manager := newTailscaleTestRouter(t, executor, client)
 
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/tailscale/restart", nil)
-	request.AddCookie(adminCookie)
+	sysCookie, sysCSRF := loginWithRoles(t, router, manager, "sara", []string{auth.RoleSystemActions})
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/tailscale/login", strings.NewReader(`{"confirm":true}`))
+	request.AddCookie(sysCookie)
 	request.Header.Set("X-Forwarded-Proto", "https")
-	request.Header.Set("X-CSRF-Token", csrfToken)
+	request.Header.Set("X-CSRF-Token", sysCSRF)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"tailscale_forbidden"`) {
+		t.Fatalf("system_actions-only login status %d, want 403 tailscale_forbidden: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(executor.calls) != 0 {
+		t.Fatal("tailscale-up was executed with only system_actions")
+	}
+
+	tsCookie, tsCSRF := loginWithRoles(t, router, manager, "tina", []string{auth.RoleTailscale})
+	request = httptest.NewRequest(http.MethodPost, "/api/v1/tailscale/restart", nil)
+	request.AddCookie(tsCookie)
+	request.Header.Set("X-Forwarded-Proto", "https")
+	request.Header.Set("X-CSRF-Token", tsCSRF)
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
-		t.Fatalf("restart status %d, want 200: %s", recorder.Code, recorder.Body.String())
+		t.Fatalf("tailscale-role restart status %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
 	if len(executor.calls) != 1 || executor.calls[0] != systemactions.TailscaleRestart {
 		t.Fatalf("executor.calls = %#v, want a single TailscaleRestart call", executor.calls)

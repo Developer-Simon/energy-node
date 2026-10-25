@@ -56,7 +56,7 @@
           <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus ? updateStatus.notes_url : ''" target="_blank" rel="noopener" class="update-available-notes">{{t "settings.versions.updates.notes"}}<svg class="automation-icon"><use href="#ico-chevron"></use></svg></a>
         </span>
       </span>
-      <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="icon-button labeled primary update-available-cta">{{t "settings.versions.updates.cta"}}</a>
+      <a x-show="canUpdateSettings" x-bind:href="dashboardPath('/redeploy/')" class="icon-button labeled primary update-available-cta">{{t "settings.versions.updates.cta"}}</a>
     </div>
   </div>
   <template x-for="group in groups" :key="group.kind">

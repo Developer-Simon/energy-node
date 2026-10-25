@@ -1,13 +1,13 @@
 # Changelog
 
-## v0.7.0 (2026-10-23)
+## v0.7.0 (2026-10-24)
 
 ### Features
 
+- **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
+- **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 - **automations:** maximum duration field in the scenario editor (2d7cf1a)
 - **automations:** validated assistant template fixture (7b58e68)
-- **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166)
-- **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 - **automation:** whole-day time windows and a maximum scenario duration (5483950)
 
 ### Tests

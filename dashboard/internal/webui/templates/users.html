@@ -1,0 +1,258 @@
+{{define "users"}}
+{{/* i18n-keys: users.category.view, users.category.view.desc, users.category.operate, users.category.operate.desc, users.category.design, users.category.design.desc, users.category.setup, users.category.setup.desc, users.category.updates, users.category.updates.desc, users.category.system, users.category.system.desc */}}
+{{/* i18n-keys: users.role.view_overview.label, users.role.view_overview.desc, users.role.view_devices.label, users.role.view_devices.desc, users.role.view_history.label, users.role.view_history.desc, users.role.view_stats.label, users.role.view_stats.desc, users.role.view_energy.label, users.role.view_energy.desc, users.role.view_device_map.label, users.role.view_device_map.desc, users.role.view_config.label, users.role.view_config.desc */}}
+{{/* i18n-keys: users.role.view_automations.label, users.role.view_automations.desc, users.role.view_diagnostics.label, users.role.view_diagnostics.desc, users.role.operate_devices.label, users.role.operate_devices.desc, users.role.operate_automations.label, users.role.operate_automations.desc, users.role.edit_layout.label, users.role.edit_layout.desc, users.role.edit_device_map_view.label, users.role.edit_device_map_view.desc, users.role.edit_settings.label, users.role.edit_settings.desc */}}
+{{/* i18n-keys: users.role.automations.label, users.role.automations.desc, users.role.edit_energy.label, users.role.edit_energy.desc, users.role.edit_device_map.label, users.role.edit_device_map.desc, users.role.edit_config.label, users.role.edit_config.desc, users.role.delete_device_discovery.label, users.role.delete_device_discovery.desc, users.role.mqtt_config.label, users.role.mqtt_config.desc, users.role.tune_live_updates.label, users.role.tune_live_updates.desc */}}
+{{/* i18n-keys: users.role.check_updates.label, users.role.check_updates.desc, users.role.install_updates.label, users.role.install_updates.desc, users.role.install_updates.note, users.role.update_settings.label, users.role.update_settings.desc, users.role.update_settings.note, users.role.view_logs.label, users.role.view_logs.desc, users.role.system_actions.label, users.role.system_actions.desc, users.role.tailscale.label, users.role.tailscale.desc, users.role.user_management.label, users.role.user_management.desc, users.role.http_login.label, users.role.http_login.desc */}}
+<section id="settings-users" role="tabpanel" class="settings-cards users-cards" x-show="activeSettingsPage === 'users'" x-data="usersPage()"
+  x-effect="if (activeSettingsPage !== 'users' && tab !== 'accounts') setTab('accounts')">
+  <p class="settings-help" x-show="error" x-text="error"></p>
+  <div class="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
+    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
+    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
+  </div>
+
+  <div class="setting-card users-section" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
+    <div class="users-section-head">
+      <h3 class="setting-card-title">{{t "users.accounts"}}</h3>
+      <button type="button" class="users-btn users-btn--add" x-on:click="startCreate()">
+        <svg class="users-icon" aria-hidden="true"><use href="#ico-plus"></use></svg>
+        <span>{{t "users.create"}}</span>
+      </button>
+    </div>
+    <div class="users-list">
+      <div class="users-create" x-data="{ cardId: 'draft:new' }">
+        <template x-if="creating" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end" x-transition:leave="users-create-enter" x-transition:leave-start="users-create-enter-end" x-transition:leave-end="users-create-enter-start">{{template "users-card" .}}</template>
+      </div>
+      <template x-for="account in accounts" x-bind:key="account.username">
+        <div class="users-list-item" x-data="{ cardId: account.username }">
+          <div class="users-collapse" x-bind:class="{ 'is-leaving': leaving[cardId] }"><div class="users-collapse-inner">{{template "users-card" .}}</div></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <div class="setting-card users-section" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
+    <div class="users-section-head">
+      <h3 class="setting-card-title">{{t "users.policy.title"}}</h3>
+    </div>
+    <p class="setting-note">{{t "users.policy.hint"}}</p>
+    <label class="users-field-label" for="users-policy-min">{{t "users.policy.label"}}</label>
+    <div class="users-form-row">
+      <input id="users-policy-min" class="users-input users-policy-input" type="number" inputmode="numeric" step="1" autocomplete="off" x-bind:min="policy.min" x-bind:max="policy.max" x-model="policyDraft">
+      <span class="users-policy-unit">{{t "users.policy.unit"}}</span>
+    </div>
+    <p class="users-err" x-bind:class="{ 'is-show': policyDirty() && !!policyRangeError }" x-text="policyRangeError"></p>
+    <div class="users-actions" x-show="policyDirty()" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
+      <button type="button" class="users-btn users-btn--primary" x-bind:disabled="saving !== '' || !!policyRangeError" x-on:click="savePolicy()">{{t "users.policy.save"}}</button>
+      <button type="button" class="users-btn users-btn--ghost" x-on:click="cancelPolicy()">{{t "users.save.discard"}}</button>
+    </div>
+  </div>
+
+  <div class="setting-card users-section" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
+    <div class="users-section-head">
+      <h3 class="setting-card-title">{{t "users.presets"}}</h3>
+    </div>
+    <p class="setting-note">{{t "users.presets_hint"}}</p>
+    <p class="setting-note users-migration" x-show="migrationNotice">{{t "users.migration_notice"}}</p>
+    <div class="users-list">
+      <div class="users-list-item" x-data="{ cardId: 'preset:guest' }">{{template "users-card" .}}</div>
+    </div>
+  </div>
+
+  <div class="setting-card users-section" x-show="tab === 'sessions'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
+    <div class="users-section-head">
+      <h3 class="setting-card-title">{{t "users.sessions.title"}}</h3>
+    </div>
+    <p class="users-error" role="alert" x-show="sessionsError" x-text="sessionsError"></p>
+    <p class="setting-note" x-show="sessions.length === 0 && !sessionsError">{{t "users.sessions.empty"}}</p>
+    <div class="users-list">
+      <template x-for="(list, name) in sessionsByUser" x-bind:key="name">
+        <div class="users-session-group">
+          <div class="users-session-user">
+            <span class="users-session-label">{{t "users.sessions.user"}}</span>
+            <span class="users-session-name" x-text="name"></span>
+          </div>
+          <template x-for="session in list" x-bind:key="session.id">
+            <div class="users-session">
+              <span class="users-session-tags">
+                <span class="users-tag users-tag--warn" x-show="session.guest">{{t "users.sessions.guest"}}</span>
+                <span class="users-tag users-tag--warn" x-show="session.restricted">{{t "users.sessions.restricted"}}</span>
+                <span class="users-tag users-tag--on" x-show="session.current">{{t "users.sessions.current"}}</span>
+              </span>
+              <span class="users-session-meta" x-text="$t('users.sessions.expires', {time: new Date(session.expires_at).toLocaleString()})"></span>
+              <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-show="canEndSession(session)" x-bind:disabled="saving !== ''" x-on:click="endSession(session.id)">{{t "users.sessions.end"}}</button>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
+</section>
+{{end}}
+
+{{define "users-card"}}
+<article class="users-card" x-data="{ pwOpen: false, pwNew: '', httpOpen: false, httpNew: '' }"
+  x-bind:class="{ 'is-open': openId === cardId, 'is-disabled': cardKind(cardId) === 'account' && savedSnapshot(cardId).disabled, 'is-http': draftOf(cardId).roles.includes('http_login') }">
+  <button type="button" class="users-card-head" x-bind:aria-expanded="openId === cardId ? 'true' : 'false'" x-on:click="toggleCard(cardId)">
+    <span class="users-avatar" x-bind:class="{ 'is-preset': cardKind(cardId) === 'preset' }" aria-hidden="true"
+      x-text="cardKind(cardId) === 'preset' ? 'G' : (cardKind(cardId) === 'new' ? '+' : cardId.charAt(0).toUpperCase())"></span>
+    <span class="users-head-main">
+      <span class="users-head-name">
+        <span x-text="cardKind(cardId) === 'preset' ? $t('users.preset.guest') : (cardKind(cardId) === 'new' ? $t('users.new_account') : cardId)"></span>
+        <template x-for="tag in tagsFor(cardId)" x-bind:key="tag">
+          <span x-bind:class="'users-tag users-tag--' + ((tag === 'users.tag.you' || tag === 'users.tag.own_http_password') ? 'on' : (tag === 'users.tag.disabled' ? 'off' : 'warn'))" x-text="$t(tag)"></span>
+        </template>
+        <span class="users-tag" x-show="cardKind(cardId) === 'account' && sessionCountFor(cardId) > 0" x-text="$t('users.sessions.count', {count: sessionCountFor(cardId)})"></span>
+      </span>
+      <span class="users-head-meta" x-show="cardKind(cardId) === 'new'">{{t "users.not_created"}}</span>
+      <span class="users-head-meta" x-show="cardKind(cardId) === 'account' && accountFor(cardId) && accountFor(cardId).last_login_at && !accountFor(cardId).last_login_at.startsWith('0001')"
+        x-text="cardKind(cardId) === 'account' && accountFor(cardId) && accountFor(cardId).last_login_at ? $t('users.last_login', {time: new Date(accountFor(cardId).last_login_at).toLocaleString()}) : ''"></span>
+      <span class="users-summary" x-show="cardKind(cardId) !== 'new'">
+        <template x-for="row in summaryFor(cardId)" x-bind:key="row.category">
+          <span class="users-chip" x-text="$t(`users.category.${row.category}`) + ' ' + (row.label === 'all' ? $t('users.summary.all') : $t('users.summary.count', {n: row.n, m: row.m}))"></span>
+        </template>
+        <span class="users-chip users-chip--more" x-show="summaryFor(cardId).length === 0" x-text="$t('users.summary.none')"></span>
+      </span>
+    </span>
+    <span class="users-saved" x-bind:class="{ 'is-show': justSaved(cardId) }">{{t "users.saved"}}</span>
+    <svg class="users-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+  </button>
+
+  <div class="users-body" x-bind:inert="openId !== cardId">
+    <div class="users-body-inner">
+      <div class="users-content">
+        <template x-if="cardKind(cardId) === 'new'">
+          <div class="users-fields">
+            <div class="users-field">
+              <label class="users-field-label" for="users-create-name">{{t "users.create.name_label"}}</label>
+              <input class="users-input" id="users-create-name" type="text" autocomplete="off" placeholder="{{t "users.create.name_placeholder"}}" x-model="creating.username">
+              <p class="users-err" x-bind:class="{ 'is-show': creating.username.length > 0 && !createNameValid() }">{{t "users.create.name_error"}}</p>
+            </div>
+            <div class="users-field">
+              <label class="users-field-label" for="users-create-password">{{t "users.create.password_label"}}</label>
+              <input class="users-input" id="users-create-password" type="password" autocomplete="new-password" x-bind:placeholder="$t('users.create.password_placeholder', {min: passwordMin})" x-model="creating.password">
+              <p class="users-err" x-bind:class="{ 'is-show': creating.password.length > 0 && !createPasswordValid() }" x-text="$t('users.create.password_error', {min: passwordMin})"></p>
+            </div>
+          </div>
+        </template>
+
+        <div class="users-line" x-show="cardKind(cardId) === 'account'">
+          <span class="users-line-text">
+            <span>{{t "users.active.label"}}</span>
+            <span class="users-line-note">{{t "users.active.note"}}</span>
+          </span>
+          <label class="settings-toggle">
+            <input type="checkbox" role="switch" aria-label="{{t "users.active.label"}}" x-bind:checked="!draftOf(cardId).disabled" x-bind:disabled="!!lockFor(cardId, '__active')" x-on:change="setActive(cardId, $event.target.checked)">
+            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          </label>
+        </div>
+        <p class="users-hint" x-bind:class="{ 'is-show': !!lockFor(cardId, '__active') }" x-show="cardKind(cardId) === 'account'"><span
+          x-text="lockFor(cardId, '__active') === 'self' ? $t('users.lock.self') : (lockFor(cardId, '__active') === 'last_admin' ? $t('users.lock.last_admin') : '')"></span></p>
+
+        <div class="users-warn" x-bind:class="{ 'is-show': !!warningFor(cardId), 'is-safe': !!(warningFor(cardId) && warningFor(cardId).safe) }">
+          <div class="users-warn-fold"><div class="users-warn-inner">
+            <div class="users-warn-box">
+              <b class="users-warn-title" x-text="warningFor(cardId) && warningFor(cardId).safe ? $t('users.http_warning.title_safe') : $t('users.http_warning.title')"></b>
+              <span class="users-warn-list" x-text="warningFor(cardId) ? $t('users.http_warning.withheld', {permissions: warningFor(cardId).withheld.map((key) => $t(`users.role.${key}.label`)).join(', ')}) : ''"></span>
+              <p class="users-warn-text" x-show="warningFor(cardId) && !warningFor(cardId).safe">{{t "users.http_warning.risk"}}</p>
+              <p class="users-warn-text" x-show="warningFor(cardId) && warningFor(cardId).safe">{{t "users.http_warning.safe"}}</p>
+              <div class="users-actions" x-show="warningFor(cardId) && !warningFor(cardId).safe">
+                <button type="button" class="users-btn users-btn--link" x-on:click="httpOpen = !httpOpen">{{t "users.http_warning.set"}}</button>
+              </div>
+              <div class="users-actions" x-show="warningFor(cardId) && warningFor(cardId).safe">
+                <button type="button" class="users-btn" x-on:click="httpOpen = !httpOpen">{{t "users.http_warning.change"}}</button>
+                <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-on:click="removeHTTPPassword(cardId)">{{t "users.http_warning.remove"}}</button>
+              </div>
+              <div class="users-fold" x-bind:class="{ 'is-open': httpOpen }"><div class="users-fold-inner">
+                <div class="users-form-row">
+                  <input class="users-input" type="password" autocomplete="new-password" x-bind:placeholder="$t('users.http_warning.placeholder', {min: passwordMin})" x-model="httpNew">
+                  <button type="button" class="users-btn" x-bind:disabled="[...httpNew].length < passwordMin" x-on:click="setHTTPPassword(cardId, httpNew).then((ok) => { if (ok) { httpNew = ''; httpOpen = false; } })">{{t "users.http_warning.apply"}}</button>
+                  <button type="button" class="users-btn users-btn--ghost" x-on:click="httpOpen = false; httpNew = ''">{{t "users.http_warning.cancel"}}</button>
+                </div>
+              </div></div>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="users-warn users-elevated" x-bind:class="{ 'is-show': elevatedFor(cardId).length > 0 }">
+          <div class="users-warn-fold"><div class="users-warn-inner">
+            <div class="users-warn-box">
+              <b class="users-warn-title">{{t "users.elevated.title"}}</b>
+              <p class="users-warn-text">{{t "users.elevated.body"}}</p>
+              <span class="users-warn-list" x-text="elevatedFor(cardId).map((key) => $t(`users.role.${key}.label`)).join(', ')"></span>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="users-groups">
+          <template x-for="category in categories" x-bind:key="category">
+            <div class="users-group" x-show="entriesFor(cardId, category).length > 0" x-bind:class="{ 'is-open': isGroupOpen(cardId, category) }">
+              <div class="users-group-head">
+                <button type="button" class="users-group-toggle" x-bind:aria-expanded="isGroupOpen(cardId, category) ? 'true' : 'false'" x-on:click="toggleGroupOpen(cardId, category)">
+                  <svg class="users-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                  <span class="users-group-text">
+                    <span class="users-group-name" x-text="$t(`users.category.${category}`)"></span>
+                    <span class="users-group-desc" x-text="$t(`users.category.${category}.desc`)"></span>
+                  </span>
+                </button>
+                <span class="users-group-count" x-text="$t('users.summary.count', {n: groupStateFor(cardId, category).on, m: groupStateFor(cardId, category).of})"></span>
+                <label class="settings-toggle users-master" x-bind:data-state="groupStateFor(cardId, category).state">
+                  <input type="checkbox" role="switch" x-bind:aria-label="$t('users.category.toggle_aria', {category: $t(`users.category.${category}`)})" x-bind:checked="groupStateFor(cardId, category).state === 'on'" x-on:change="toggleGroup(cardId, category)">
+                  <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                </label>
+              </div>
+              <div class="users-group-fold"><div class="users-group-inner">
+                <div class="users-items">
+                  <template x-for="entry in entriesFor(cardId, category)" x-bind:key="entry.key">
+                    <div class="users-item" x-bind:class="{ 'is-locked': !!lockFor(cardId, entry.key) }">
+                      <div class="users-item-row">
+                        <label class="settings-toggle">
+                          <input type="checkbox" role="switch" x-bind:aria-label="$t(`users.role.${entry.key}.label`)" x-bind:checked="draftOf(cardId).roles.includes(entry.key)" x-bind:disabled="!!lockFor(cardId, entry.key)" x-on:change="toggleRole(cardId, entry.key)">
+                          <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                        </label>
+                        <span class="users-item-text">
+                          <span class="users-item-name">
+                            <span x-text="$t(`users.role.${entry.key}.label`)"></span>
+                            <span class="users-tag users-tag--warn users-https-tag" x-show="entry.https_only">{{t "users.tag.https_only"}}</span>
+                            <span class="users-tag users-tag--warn" x-show="entry.elevated">{{t "users.elevated.tag"}}</span>
+                          </span>
+                          <span class="users-item-desc" x-text="$t(`users.role.${entry.key}.desc`)"></span>
+                          <template x-if="entry.key === 'install_updates' || entry.key === 'update_settings'"><span class="users-item-note" x-text="$t(`users.role.${entry.key}.note`)"></span></template>
+                        </span>
+                      </div>
+                      <p class="users-why" x-text="lockFor(cardId, entry.key) === 'requires' ? $t('users.lock.requires', {view: $t(`users.role.${lockRequires(entry.key)}.label`)}) : (lockFor(cardId, entry.key) === 'last_admin' ? $t('users.lock.last_admin_role') : '')"></p>
+                    </div>
+                  </template>
+                </div>
+              </div></div>
+            </div>
+          </template>
+        </div>
+
+        <div class="users-actions" x-show="cardKind(cardId) === 'account'">
+          <button type="button" class="users-btn" x-on:click="pwOpen = !pwOpen">{{t "users.password.reset"}}</button>
+          <span class="users-grow"></span>
+          <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-show="!isSelf(cardId)" x-bind:disabled="saving !== ''" x-on:click="remove(cardId)">
+            <svg class="users-icon" aria-hidden="true"><use href="#ico-trash"></use></svg>
+            <span>{{t "users.delete.button"}}</span>
+          </button>
+        </div>
+        <div class="users-fold" x-show="cardKind(cardId) === 'account'" x-bind:class="{ 'is-open': pwOpen }"><div class="users-fold-inner">
+          <div class="users-form-row">
+            <input class="users-input" type="password" autocomplete="new-password" x-bind:placeholder="$t('users.password.placeholder', {min: passwordMin})" x-model="pwNew">
+            <button type="button" class="users-btn" x-bind:disabled="[...pwNew].length < passwordMin" x-on:click="resetPassword(cardId, pwNew).then((ok) => { if (ok) { pwNew = ''; pwOpen = false; } })">{{t "users.password.set"}}</button>
+            <button type="button" class="users-btn users-btn--ghost" x-on:click="pwOpen = false; pwNew = ''">{{t "users.password.cancel"}}</button>
+          </div>
+        </div></div>
+
+        <div class="users-savebar" x-bind:class="{ 'is-show': isDirty(cardId) }">
+          <span class="users-savebar-msg" x-text="cardKind(cardId) === 'new' ? $t('users.new_account') : $t('users.unsaved')"></span>
+          <button type="button" class="users-btn users-btn--ghost" x-on:click="discard(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.cancel') : $t('users.save.discard')"></button>
+          <button type="button" class="users-btn users-btn--primary" x-bind:disabled="saving !== '' || (cardKind(cardId) === 'new' && !createValid())" x-on:click="save(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.submit') : $t('users.save.save')"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+{{end}}

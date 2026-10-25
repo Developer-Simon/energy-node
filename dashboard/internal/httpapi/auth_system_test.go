@@ -38,12 +38,11 @@ func TestAuthenticatedRouterSupportsGuestModeButProtectsSystemActions(t *testing
 	if login.Code != http.StatusOK || !strings.Contains(login.Body.String(), "Als Gast fortfahren") {
 		t.Fatalf("login page status %d: %s", login.Code, login.Body.String())
 	}
-	if !strings.Contains(login.Body.String(), "name=\"username\" autocomplete=\"username\" required disabled") ||
-		!strings.Contains(login.Body.String(), "name=\"password\" type=\"password\" autocomplete=\"current-password\" required disabled") ||
-		!strings.Contains(login.Body.String(), "type=\"submit\" disabled") {
-		t.Fatal("HTTP login page does not render the disabled admin login form")
+	if !strings.Contains(login.Body.String(), "name=\"username\" autocomplete=\"username\" required>") ||
+		!strings.Contains(login.Body.String(), "name=\"password\" type=\"password\" autocomplete=\"current-password\" required>") {
+		t.Fatal("HTTP login page does not render the login form as usable")
 	}
-	if !strings.Contains(login.Body.String(), "Funktionalität reduziert") {
+	if !strings.Contains(login.Body.String(), "Über HTTP ist die Funktionalität reduziert") {
 		t.Fatal("HTTP login page does not explain the reduced functionality")
 	}
 
@@ -300,5 +299,48 @@ func TestAuthenticatedRouterProtectsTheRedeployMount(t *testing.T) {
 	router.ServeHTTP(runRecorder, run)
 	if runRecorder.Code != http.StatusOK || !reached {
 		t.Fatalf("admin POST /redeploy/api/run status %d, reached=%v: %s", runRecorder.Code, reached, runRecorder.Body.String())
+	}
+}
+
+// TestRedeployMountNeedsUpdateSettingsNotSystemActions: /redeploy/ is gated by
+// update_settings. An account with only system_actions is refused on GET and
+// POST, and an account with update_settings gets through.
+func TestRedeployMountNeedsUpdateSettingsNotSystemActions(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reached := false
+	redeploy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+	})
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, Redeploy: redeploy})
+
+	sysCookie, sysCSRF := loginWithRoles(t, router, manager, "sam", []string{auth.RoleSystemActions})
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		request := httptest.NewRequest(method, "/redeploy/", nil)
+		request.AddCookie(sysCookie)
+		request.Header.Set("X-Forwarded-Proto", "https")
+		request.Header.Set("X-CSRF-Token", sysCSRF)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"update_settings_forbidden"`) {
+			t.Fatalf("system_actions-only %s /redeploy/ status %d: %s", method, recorder.Code, recorder.Body.String())
+		}
+	}
+	if reached {
+		t.Fatal("system_actions alone reached the redeploy handler")
+	}
+
+	updCookie, updCSRF := loginWithRoles(t, router, manager, "uta", []string{auth.RoleUpdateSettings})
+	run := httptest.NewRequest(http.MethodPost, "/redeploy/api/run", nil)
+	run.AddCookie(updCookie)
+	run.Header.Set("X-Forwarded-Proto", "https")
+	run.Header.Set("X-CSRF-Token", updCSRF)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, run)
+	if recorder.Code != http.StatusOK || !reached {
+		t.Fatalf("update_settings POST /redeploy/api/run status %d, reached=%v: %s", recorder.Code, reached, recorder.Body.String())
 	}
 }

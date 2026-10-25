@@ -62,7 +62,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-10-19**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-10-25**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -95,7 +95,7 @@ As of **2026-10-19**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-recorder.js` | `12` |
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `38` |
-| `js/update-bar.js` | `3` |
+| `js/update-bar.js` | `4` |
 | `js/whatsnew.page.js` | `4` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
@@ -137,11 +137,11 @@ on the `device-modal` template in
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
-| `diagnostics-panel` | `js/servicelogs.panel.js` `1` (new) | `css/settings-controls.css` `17`, `css/diagnostics.css` `3` |
+| `diagnostics-panel` | `js/servicelogs.panel.js` `2` | `css/settings-controls.css` `18`, `css/diagnostics.css` `3` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `9` | `css/manager.css` `48` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `2`, `js/energy.page.js` `13` | `css/manager.css` `48` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `5`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `48` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `1`, `js/settings.page.js` `26`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `17` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `1`, `js/settings.page.js` `27`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `5`, `js/versions.page.js` `8`, `js/systemconfig.page.js` `5`, `js/users-model.js` `1` (new), `js/users.page.js` `1` (new) | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `18` |
 | `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `5`, `js/automations-scenario.js` `3`, `js/automations-chart.js` `2`, `js/automations-devices.js` `1`, `js/device-picker.js` `2`, `js/automation-wizard.js` `1` (new), `js/automation-templates.js` `1` (new), `js/automations.page.js` `16` | `css/manager.css` `48`, `css/automations.css` `9` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `5` | `css/history.css` `7`, `css/stats.css` `3` |
 
@@ -264,6 +264,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.13 | `js/users-model.js` (new, settings panel, users model) · `js/users.page.js` (new, settings panel, users page) · `js/settings.page.js` (settings panel, own password card and users deep link) · `js/tailscale.page.js` (settings panel, permission flags split out of system_actions) · `js/versions.page.js` (settings panel, permission flags split out of system_actions) · `js/update-bar.js` (permission flags split out of system_actions) · `js/servicelogs.panel.js` (diagnostics panel, permission flags split out of system_actions) · `css/settings-controls.css` (settings, diagnostics: users page and account card) | `1` (new) · `1` (new) · `27` · `5` · `8` · `4` · `2` · `18` | 2026-10-25 |
 | v0.10.12 | `js/automation-wizard.js` (new, automations panel, assistant step blocks and answers) · `js/automation-templates.js` (new, automations panel, assistant templates) · `js/automations.page.js` (automations panel, assistant dialog and creation) · `js/automations-scenario.js` (automations panel, maximum duration field) · `js/automations-view.js` (devicemap and automations panels, field help for maximum duration) · `css/automations.css` (automations panel, assistant dialog, role based buttons, stepper baseline) | `1` (new) · `1` (new) · `16` · `3` · `5` · `9` | 2026-10-24 |
 | v0.10.11 | `js/automations.page.js` (automations panel, device chips and picker, fine tuning card, action cards, history switch) · `js/automations-chart.js` (automations panel, regulator band preview) · `js/automations-devices.js` (new, automations panel, device candidates for actuators, meters and actions) · `js/device-picker.js` (energy, device map and automations panels, single choice, role filters and tones) · `css/automations.css` (automations panel, chips, condition and action cards, steppers, sparklines) · `css/manager.css` (5 panels, picker role filters and tones) · `js/automations-scenario.js` (automations panel, new scenarios start enabled with history) | `15` · `2` · `1` (new) · `2` · `8` · `48` · `2` | 2026-10-23 |
 | v0.10.10 | `js/automations-view.js` (devicemap and automations panels, scenario helpers and status pills) · `js/automations.page.js` (automations panel, scenario and rule tabs, rule editor blocks, undo bar) · `js/automations-scenario.js` (new, automations panel, scenario card and editor) · `js/automations-chart.js` (new, automations panel, scenario chart with 30 min, 6 h and today ranges) · `js/history-recorder.js` (scenario regulator outputs recorded without a settings entry) · `css/automations.css` (automations panel, scenario and rule editor layout) | `4` · `14` · `1` (new) · `1` (new) · `12` · `7` | 2026-10-23 |

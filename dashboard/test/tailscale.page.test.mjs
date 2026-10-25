@@ -40,7 +40,7 @@ const jsonResponse = (body, ok = true) => ({ ok, status: ok ? 200 : 400, json: a
 test('init() loads prereqs, status and the session role/HTTPS gate', async () => {
   const { component } = createTailscalePanel({
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', system_actions: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', tailscale: true });
       if (url === '/api/v1/tailscale/prereqs') return jsonResponse({ installed: true, version: '1.62.0', service_active: 'active', service_enabled: 'enabled' });
       if (url === '/api/v1/tailscale/status') return jsonResponse({ status: { installed: true, backend_state: 'NeedsLogin' } });
       throw new Error(`unexpected fetch ${url}`);
@@ -48,28 +48,14 @@ test('init() loads prereqs, status and the session role/HTTPS gate', async () =>
   });
   await component.init();
   assert.equal(component.csrfToken, 'tok');
-  assert.equal(component.canSystemActions, true);
+  assert.equal(component.canTailscale, true);
   assert.equal(component.prereqs.installed, true);
   assert.equal(component.prereqs.version, '1.62.0');
   assert.equal(component.status.backend_state, 'NeedsLogin');
 });
 
-test('canSystemActions is false without the system_actions role even over HTTPS', async () => {
+test('canTailscale is false with only system_actions, even over HTTPS', async () => {
   const { component } = createTailscalePanel({
-    fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', system_actions: false });
-      if (url === '/api/v1/tailscale/prereqs') return jsonResponse({ installed: true });
-      if (url === '/api/v1/tailscale/status') return jsonResponse({ status: {} });
-      throw new Error(`unexpected fetch ${url}`);
-    },
-  });
-  await component.init();
-  assert.equal(component.canSystemActions, false);
-});
-
-test('canSystemActions is false over plain HTTP even with the system_actions role', async () => {
-  const { component } = createTailscalePanel({
-    url: 'http://dashboard.local/',
     fetchImpl: async (url) => {
       if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', system_actions: true });
       if (url === '/api/v1/tailscale/prereqs') return jsonResponse({ installed: true });
@@ -78,15 +64,29 @@ test('canSystemActions is false over plain HTTP even with the system_actions rol
     },
   });
   await component.init();
-  assert.equal(component.canSystemActions, false);
+  assert.equal(component.canTailscale, false);
 });
 
-test('startLogin() is a no-op without canSystemActions, even if called directly', async () => {
+test('canTailscale is false over plain HTTP even with the tailscale role', async () => {
+  const { component } = createTailscalePanel({
+    url: 'http://dashboard.local/',
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', tailscale: true });
+      if (url === '/api/v1/tailscale/prereqs') return jsonResponse({ installed: true });
+      if (url === '/api/v1/tailscale/status') return jsonResponse({ status: {} });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  await component.init();
+  assert.equal(component.canTailscale, false);
+});
+
+test('startLogin() is a no-op without canTailscale, even if called directly', async () => {
   let calls = 0;
   const { component } = createTailscalePanel({
     fetchImpl: async () => { calls += 1; throw new Error('should not be called'); },
   });
-  component.canSystemActions = false;
+  component.canTailscale = false;
   await component.startLogin();
   assert.equal(calls, 0);
 });
@@ -106,7 +106,7 @@ test('startLogin() POSTs confirm:true with a CSRF header, then starts polling st
       throw new Error(`unexpected fetch ${url}`);
     },
   });
-  component.canSystemActions = true;
+  component.canTailscale = true;
   component.csrfToken = 'tok';
 
   await component.startLogin();
@@ -139,7 +139,7 @@ test('logout() does nothing if the user declines the confirmation dialog', async
     confirmResult: false,
     fetchImpl: async () => { calls += 1; throw new Error('should not be called'); },
   });
-  component.canSystemActions = true;
+  component.canTailscale = true;
   await component.logout();
   assert.equal(calls, 0);
 });
@@ -158,7 +158,7 @@ test('logout() POSTs confirm:true only after the user confirms', async () => {
       throw new Error(`unexpected fetch ${url}`);
     },
   });
-  component.canSystemActions = true;
+  component.canTailscale = true;
   component.csrfToken = 'tok';
 
   await component.logout();
@@ -180,7 +180,7 @@ test('restart() POSTs to /restart without a confirm body', async () => {
       throw new Error(`unexpected fetch ${url}`);
     },
   });
-  component.canSystemActions = true;
+  component.canTailscale = true;
   component.csrfToken = 'tok';
 
   await component.restart();

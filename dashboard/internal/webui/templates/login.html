@@ -52,12 +52,12 @@
       {{template "lang-pill" .}}
     </div>
     {{if .AdminAuthWarningKey}}<p class="admin-auth-warning" role="alert">{{/* i18n-keys: login.admin_auth_unavailable */}}{{t .AdminAuthWarningKey}}</p>{{end}}
-    <p>{{if .GuestOnly}}{{t "login.guest_only_hint"}}{{else}}{{t "login.prompt"}}{{end}}</p>
+    <p>{{if .OverHTTP}}{{t "login.http_hint"}}{{else}}{{t "login.prompt"}}{{end}}</p>
     <form id="login-form">
-      <label>{{t "login.username"}} <input name="username" autocomplete="username" required{{if .GuestOnly}} disabled{{end}}></label>
-      <label>{{t "login.password"}} <input name="password" type="password" autocomplete="current-password" required{{if .GuestOnly}} disabled{{end}}></label>
+      <label>{{t "login.username"}} <input name="username" autocomplete="username" required></label>
+      <label>{{t "login.password"}} <input name="password" type="password" autocomplete="current-password" required></label>
       <div class="actions">
-        <button type="submit"{{if .GuestOnly}} disabled{{end}}>{{t "login.submit"}}</button>
+        <button type="submit">{{t "login.submit"}}</button>
         <button class="secondary" id="guest-login" type="button">{{t "login.guest"}}</button>
       </div>
     </form>

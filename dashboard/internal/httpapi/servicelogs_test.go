@@ -33,11 +33,18 @@ func (f *fakeServiceLogReader) Read(_ context.Context, q servicelogs.Query) (ser
 
 func newServiceLogsTestRouter(t *testing.T, reader ServiceLogReader) http.Handler {
 	t.Helper()
+	router, _ := newServiceLogsTestRouterWithManager(t, reader)
+	return router
+}
+
+func newServiceLogsTestRouterWithManager(t *testing.T, reader ServiceLogReader) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, ServiceLogs: reader})
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, ServiceLogs: reader})
+	return router, manager
 }
 
 // serviceLogsGet sends a GET as an admin over HTTPS. Guest cookies are issued
@@ -66,19 +73,29 @@ func TestServiceLogsRequiresAuth(t *testing.T) {
 	}
 }
 
-func TestServiceLogsRequiresSystemActionsRole(t *testing.T) {
+func TestServiceLogsRequiresViewLogsNotSystemActions(t *testing.T) {
 	reader := &fakeServiceLogReader{}
-	router := newServiceLogsTestRouter(t, reader)
-	guest := loginAsGuest(t, router)
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/system/logs?unit=dashboard", nil)
-	request.AddCookie(guest)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"system_actions_forbidden"`) {
-		t.Fatalf("guest status %d: %s", recorder.Code, recorder.Body.String())
+	router, manager := newServiceLogsTestRouterWithManager(t, reader)
+	sysCookie, _ := loginWithRoles(t, router, manager, "sam", []string{auth.RoleSystemActions})
+	recorder := serviceLogsGet(t, router, "/api/v1/system/logs?unit=dashboard", sysCookie)
+	if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"logs_forbidden"`) {
+		t.Fatalf("system_actions-only status %d, want 403 logs_forbidden: %s", recorder.Code, recorder.Body.String())
 	}
 	if reader.calls != 0 {
-		t.Fatal("reader was called for a guest without the role")
+		t.Fatal("reader was called for a session without view_logs")
+	}
+}
+
+func TestServiceLogsAllowsViewDiagnosticsWithViewLogs(t *testing.T) {
+	reader := &fakeServiceLogReader{result: servicelogs.Result{Entries: []servicelogs.Entry{}}}
+	router, manager := newServiceLogsTestRouterWithManager(t, reader)
+	logCookie, _ := loginWithRoles(t, router, manager, "lena", []string{auth.RoleViewDiagnostics, auth.RoleViewLogs})
+	recorder := serviceLogsGet(t, router, "/api/v1/system/logs?unit=dashboard", logCookie)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("view_diagnostics + view_logs status %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+	if reader.calls != 1 {
+		t.Fatalf("reader calls = %d, want 1", reader.calls)
 	}
 }
 

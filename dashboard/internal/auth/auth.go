@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -58,16 +59,26 @@ const (
 )
 
 type User struct {
-	Username     string    `json:"username"`
-	PasswordHash string    `json:"password_hash,omitempty"`
-	Roles        []string  `json:"roles,omitempty"`
-	Guest        bool      `json:"guest,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
-	LastLoginAt  time.Time `json:"last_login_at"`
+	Username         string    `json:"username"`
+	PasswordHash     string    `json:"password_hash,omitempty"`
+	HTTPPasswordHash string    `json:"http_password_hash,omitempty"`
+	Roles            []string  `json:"roles,omitempty"`
+	Guest            bool      `json:"guest,omitempty"`
+	Disabled         bool      `json:"disabled"`
+	CreatedAt        time.Time `json:"created_at"`
+	LastLoginAt      time.Time `json:"last_login_at"`
+	// HasHTTPPassword is set only in the output of Users and Guests; the hash
+	// itself never leaves the package.
+	HasHTTPPassword bool `json:"has_http_password,omitempty"`
 }
 
 type userFile struct {
-	Users []User `json:"users"`
+	Version            int      `json:"version"`
+	GuestRoles         []string `json:"guest_roles"`
+	GuestRolesReviewed bool     `json:"guest_roles_reviewed,omitempty"`
+	// MinPasswordLength is the minimum for new passwords; absent or 0 means the default.
+	MinPasswordLength int    `json:"min_password_length,omitempty"`
+	Users             []User `json:"users"`
 }
 
 // sessionFile is what survives a restart of the dashboard, so an update
@@ -79,10 +90,11 @@ type sessionFile struct {
 }
 
 type storedSession struct {
-	TokenHash string    `json:"token_sha256"`
-	CSRFToken string    `json:"csrf_token"`
-	Username  string    `json:"username"`
-	ExpiresAt time.Time `json:"expires_at"`
+	TokenHash  string    `json:"token_sha256"`
+	CSRFToken  string    `json:"csrf_token"`
+	Username   string    `json:"username"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	Restricted bool      `json:"restricted,omitempty"`
 }
 
 type Session struct {
@@ -90,6 +102,9 @@ type Session struct {
 	CSRFToken string
 	User      User
 	ExpiresAt time.Time
+	// Restricted marks a session from an HTTP login or from the HTTP
+	// password; its HTTPS-only roles are withheld (see EffectiveUser).
+	Restricted bool
 }
 
 type Manager struct {
@@ -97,6 +112,15 @@ type Manager struct {
 	path         string
 	sessionsPath string
 	users        map[string]User
+	// guestRoles is the role list every new guest gets, read from users.json.
+	guestRoles []string
+	// migrated is true when this start moved users.json from version 1 to 2.
+	migrated bool
+	// guestRolesReviewed is false until the admin has set the guest roles
+	// once after a migration; it drives MigrationNotice.
+	guestRolesReviewed bool
+	// minPasswordLength is the minimum length for new passwords, from users.json.
+	minPasswordLength int
 	// sessions is keyed by tokenHash(token), the same key sessions.json
 	// stores, so a session loaded from disk is found like a fresh one.
 	sessions map[string]Session
@@ -107,65 +131,45 @@ type contextKey struct{}
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
+// ErrInsecureLoginNotAllowed meldet ein richtiges Passwort über HTTP bei
+// einem Konto ohne die Berechtigung http_login.
+var ErrInsecureLoginNotAllowed = errors.New("insecure login not allowed")
+
 func NewManager(path, bootstrapUsername, bootstrapPassword string) (*Manager, error) {
 	return newManager(path, bootstrapUsername, bootstrapPassword, time.Now)
 }
-
-// guestRoles bekommt jeder Gast, solange es keine Rollen-Oberflaeche gibt
-// (siehe ContinueAsGuest). Die Nachruestung in newManager gibt sie auch
-// Gaesten, deren Konto vor einer neuen Rolle angelegt wurde.
-var guestRoles = []string{RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView}
 
 func newManager(path, bootstrapUsername, bootstrapPassword string, now func() time.Time) (*Manager, error) {
 	if bootstrapUsername == "" {
 		bootstrapUsername = "admin"
 	}
 	manager := &Manager{
-		path:         filepath.Clean(path),
-		sessionsPath: filepath.Join(filepath.Dir(filepath.Clean(path)), "sessions.json"),
-		users:        map[string]User{},
-		sessions:     map[string]Session{},
-		now:          now,
-	}
-	changed, err := manager.load()
-	if err != nil {
-		return nil, err
+		path:               filepath.Clean(path),
+		sessionsPath:       filepath.Join(filepath.Dir(filepath.Clean(path)), "sessions.json"),
+		users:              map[string]User{},
+		sessions:           map[string]Session{},
+		now:                now,
+		guestRoles:         defaultGuestRoles(),
+		guestRolesReviewed: true,
+		minPasswordLength:  DefaultMinPasswordLength,
 	}
 	manager.mu.Lock()
-	// Roles added after an admin was first bootstrapped are backfilled here,
-	// since an existing users.json keeps the role list it was written with.
-	// Every new role that the bootstrap admin gets below belongs in this list
-	// too, or the already-installed node is the one that stays locked out.
-	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView} {
-		if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, role) {
-			user.Roles = append(user.Roles, role)
-			manager.users[bootstrapUsername] = user
-			changed = true
-		}
+	changed, err := manager.loadLocked()
+	if err != nil {
+		manager.mu.Unlock()
+		return nil, err
 	}
-	for name, user := range manager.users {
-		if !user.Guest {
-			continue
+	// The bootstrap admin is created only while no non-guest account exists.
+	// An existing one is never touched here: roles are managed in the UI.
+	if bootstrapPassword != "" && !manager.hasNonGuestLocked() {
+		hash, hashErr := hashPassword(bootstrapPassword)
+		if hashErr != nil {
+			manager.mu.Unlock()
+			return nil, hashErr
 		}
-		for _, role := range guestRoles {
-			if !HasRole(user, role) {
-				user.Roles = append(user.Roles, role)
-				changed = true
-			}
-		}
-		manager.users[name] = user
-	}
-	if bootstrapPassword != "" {
-		if _, exists := manager.users[bootstrapUsername]; !exists {
-			hash, hashErr := hashPassword(bootstrapPassword)
-			if hashErr != nil {
-				manager.mu.Unlock()
-				return nil, hashErr
-			}
-			nowValue := manager.now().UTC()
-			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView}, CreatedAt: nowValue, LastLoginAt: nowValue}
-			changed = true
-		}
+		nowValue := manager.now().UTC()
+		manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: Normalize(bootstrapAdminRoles()), CreatedAt: nowValue, LastLoginAt: nowValue}
+		changed = true
 	}
 	if changed {
 		if err := manager.saveLocked(); err != nil {
@@ -181,9 +185,9 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 	return manager, nil
 }
 
-func (m *Manager) load() (bool, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// loadLocked reads users.json, migrates it when it is older than the current
+// version and reports whether the file has to be written again.
+func (m *Manager) loadLocked() (bool, error) {
 	data, err := os.ReadFile(m.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
@@ -195,7 +199,9 @@ func (m *Manager) load() (bool, error) {
 	if err := json.Unmarshal(data, &file); err != nil {
 		return false, fmt.Errorf("users: invalid JSON: %w", err)
 	}
-	changed := false
+	if file.Version > usersFileVersion {
+		return false, fmt.Errorf("%w: %d (this dashboard reads up to %d)", ErrUnsupportedUsersVersion, file.Version, usersFileVersion)
+	}
 	for _, user := range file.Users {
 		if user.Username == "" || m.users[user.Username].Username != "" {
 			return false, fmt.Errorf("users: duplicate or empty username")
@@ -205,26 +211,77 @@ func (m *Manager) load() (bool, error) {
 		}
 		m.users[user.Username] = user
 	}
+	m.minPasswordLength = DefaultMinPasswordLength
+	if file.MinPasswordLength >= MinPasswordLengthLowest && file.MinPasswordLength <= MinPasswordLengthHighest {
+		m.minPasswordLength = file.MinPasswordLength
+	}
+	changed := false
+	if file.Version < usersFileVersion {
+		m.migrated = len(file.Users) > 0
+		m.guestRoles = migrateV1(m.users)
+		m.guestRolesReviewed = !m.migrated
+		changed = true
+	} else {
+		m.guestRoles = Normalize(guestAllowedOnly(file.GuestRoles))
+		m.guestRolesReviewed = file.GuestRolesReviewed
+		for name, user := range m.users {
+			user.Roles = Normalize(user.Roles)
+			m.users[name] = user
+		}
+	}
 	if m.cleanupGuestsLocked() {
 		changed = true
 	}
 	return changed, nil
 }
 
-func (m *Manager) Login(username, password string) (Session, error) {
+// hasNonGuestLocked reports whether an account exists that is not a guest.
+func (m *Manager) hasNonGuestLocked() bool {
+	for _, user := range m.users {
+		if !user.Guest {
+			return true
+		}
+	}
+	return false
+}
+
+// Login prüft die Anmeldung nach Spec Abschnitt 5. secure sagt, ob die Anfrage
+// über HTTPS kommt. Über HTTP entsteht immer eine eingeschränkte Sitzung.
+func (m *Manager) Login(username, password string, secure bool) (Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cleanupGuestsLocked()
 	user, ok := m.users[username]
-	if !ok || user.Guest || !verifyPassword(user.PasswordHash, password) {
+	if !ok || user.Guest || user.Disabled {
 		return Session{}, ErrInvalidCredentials
+	}
+	restricted := !secure
+	var matched bool
+	switch {
+	case !secure && user.HTTPPasswordHash != "":
+		// Über HTTP zählt nur das HTTP-Passwort, das Hauptpasswort nie.
+		matched = verifyPassword(user.HTTPPasswordHash, password)
+	case !secure:
+		matched = verifyPassword(user.PasswordHash, password)
+	case verifyPassword(user.PasswordHash, password):
+		matched = true
+	default:
+		// Über HTTPS prüft das HTTP-Passwort erst, wenn das Hauptpasswort nicht stimmt.
+		restricted = true
+		matched = user.HTTPPasswordHash != "" && verifyPassword(user.HTTPPasswordHash, password)
+	}
+	if !matched {
+		return Session{}, ErrInvalidCredentials
+	}
+	if !secure && !HasRole(user, RoleHTTPLogin) {
+		return Session{}, ErrInsecureLoginNotAllowed
 	}
 	user.LastLoginAt = m.now().UTC()
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
 	}
-	return m.newSessionLocked(user)
+	return m.newSessionLocked(user, restricted)
 }
 
 func (m *Manager) ContinueAsGuest() (Session, error) {
@@ -236,17 +293,12 @@ func (m *Manager) ContinueAsGuest() (Session, error) {
 		return Session{}, err
 	}
 	nowValue := m.now().UTC()
-	// Provisional: guests get RoleAutomations, RoleEditLayout and
-	// RoleCheckUpdates too, since there is no per-user role UI yet and
-	// locking either behind an admin-only login would make the feature
-	// unusable for the primary user. Revisit once role management grows a
-	// UI (docs/developing/api.md, section Roles).
-	user := User{Username: username, Guest: true, Roles: append([]string(nil), guestRoles...), CreatedAt: nowValue, LastLoginAt: nowValue}
+	user := User{Username: username, Guest: true, Roles: append([]string(nil), m.guestRoles...), CreatedAt: nowValue, LastLoginAt: nowValue}
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
 	}
-	return m.newSessionLocked(user)
+	return m.newSessionLocked(user, false)
 }
 
 func (m *Manager) Session(token string) (Session, bool) {
@@ -297,7 +349,7 @@ func (m *Manager) cleanupGuestsLocked() bool {
 	return changed
 }
 
-func (m *Manager) newSessionLocked(user User) (Session, error) {
+func (m *Manager) newSessionLocked(user User, restricted bool) (Session, error) {
 	token, err := randomID("session-")
 	if err != nil {
 		return Session{}, err
@@ -310,7 +362,7 @@ func (m *Manager) newSessionLocked(user User) (Session, error) {
 	if user.Guest {
 		lifetime = guestSessionLife
 	}
-	session := Session{Token: token, CSRFToken: csrfToken, User: user, ExpiresAt: m.now().Add(lifetime)}
+	session := Session{Token: token, CSRFToken: csrfToken, User: user, ExpiresAt: m.now().Add(lifetime), Restricted: restricted}
 	m.sessions[tokenHash(token)] = session
 	if err := m.saveSessionsLocked(); err != nil {
 		delete(m.sessions, tokenHash(token))
@@ -337,7 +389,7 @@ func (m *Manager) loadSessionsLocked() {
 		if !ok || stored.TokenHash == "" || !stored.ExpiresAt.After(now) {
 			continue
 		}
-		m.sessions[stored.TokenHash] = Session{CSRFToken: stored.CSRFToken, User: user, ExpiresAt: stored.ExpiresAt}
+		m.sessions[stored.TokenHash] = Session{CSRFToken: stored.CSRFToken, User: user, ExpiresAt: stored.ExpiresAt, Restricted: stored.Restricted}
 	}
 }
 
@@ -351,7 +403,7 @@ func (m *Manager) saveSessionsLocked() error {
 			delete(m.sessions, key)
 			continue
 		}
-		sessions = append(sessions, storedSession{TokenHash: key, CSRFToken: session.CSRFToken, Username: session.User.Username, ExpiresAt: session.ExpiresAt})
+		sessions = append(sessions, storedSession{TokenHash: key, CSRFToken: session.CSRFToken, Username: session.User.Username, ExpiresAt: session.ExpiresAt, Restricted: session.Restricted})
 	}
 	data, err := json.MarshalIndent(sessionFile{Sessions: sessions}, "", "  ")
 	if err != nil {
@@ -365,7 +417,16 @@ func (m *Manager) saveLocked() error {
 	for _, user := range m.users {
 		users = append(users, user)
 	}
-	data, err := json.MarshalIndent(userFile{Users: users}, "", "  ")
+	// Sorted, so the same state always produces the same bytes.
+	sort.Slice(users, func(i, j int) bool { return users[i].Username < users[j].Username })
+	file := userFile{
+		Version:            usersFileVersion,
+		GuestRoles:         append([]string{}, m.guestRoles...),
+		GuestRolesReviewed: m.guestRolesReviewed,
+		MinPasswordLength:  m.minPasswordLength,
+		Users:              users,
+	}
+	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -480,12 +541,49 @@ func UserFromContext(ctx context.Context) (User, bool) {
 }
 
 func HasRole(user User, role string) bool {
-	for _, candidate := range user.Roles {
+	if info, ok := RoleByKey(role); ok && info.Requires != "" && !containsRole(user.Roles, info.Requires) {
+		return false
+	}
+	return containsRole(user.Roles, role)
+}
+
+func containsRole(roles []string, role string) bool {
+	for _, candidate := range roles {
 		if candidate == role {
 			return true
 		}
 	}
 	return false
+}
+
+// EffectiveUser liefert eine Kopie des Benutzers mit den Berechtigungen, die
+// für diese Anfrage gelten: fehlende Voraussetzungen fallen weg, und über HTTP
+// oder in einer eingeschränkten Sitzung auch alle HTTPS-only-Berechtigungen.
+func EffectiveUser(session Session, secure bool) User {
+	user := session.User
+	withholdHTTPSOnly := !secure || session.Restricted
+	roles := make([]string, 0, len(user.Roles))
+	for _, key := range Normalize(user.Roles) {
+		if info, _ := RoleByKey(key); withholdHTTPSOnly && info.HTTPSOnly {
+			continue
+		}
+		roles = append(roles, key)
+	}
+	user.Roles = roles
+	return user
+}
+
+// Withheld nennt die Berechtigungen der Sitzung, die EffectiveUser für diese
+// Anfrage wegnimmt, in Katalogreihenfolge.
+func Withheld(session Session, secure bool) []string {
+	effective := EffectiveUser(session, secure).Roles
+	var out []string
+	for _, key := range AllRoles() {
+		if containsRole(session.User.Roles, key) && !containsRole(effective, key) {
+			out = append(out, key)
+		}
+	}
+	return out
 }
 
 func (s Session) CookieValue() string {

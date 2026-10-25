@@ -136,6 +136,27 @@
     storageHealthError: '',
     widePanelsChoices: null,
     statusBarItemsChoices: null,
+    // Konto-Karte: Benutzername, Sitzungsflags und CSRF-Token aus der Sitzung.
+    // Gaeste (und spaeter HA-Konten) bekommen keine Karte.
+    accountUsername: '',
+    accountGuest: false,
+    accountRestricted: false,
+    accountHTTPLogin: false,
+    // Minimum length of an own password, from the session. 10 until it is loaded.
+    passwordMin: ACCOUNT_MIN_PASSWORD,
+    csrfToken: '',
+    passwordForm: {old: '', next: '', repeat: ''},
+    passwordError: '',
+    httpPasswordDraft: '',
+    accountBusy: false,
+
+    get accountVisible() {
+      return Boolean(this.accountUsername) && !this.accountGuest;
+    },
+
+    get httpPasswordValid() {
+      return this.httpPasswordDraft.length === 0 || codePoints(this.httpPasswordDraft) >= this.passwordMin;
+    },
 
     setNavMode(mode) {
       this.navMode = mode === 'menu' ? 'menu' : 'more';
@@ -182,6 +203,12 @@
         this.followExchange();
         this.refreshExchangeStatus();
         this.canTuneLiveUpdates = Boolean(session && session.tune_live_updates);
+        this.accountUsername = session && !session.guest ? (session.username || '') : '';
+        this.accountGuest = Boolean(session && session.guest);
+        this.accountRestricted = Boolean(session && session.restricted);
+        this.accountHTTPLogin = Boolean(session && session.http_login);
+        this.passwordMin = Number(session && session.password_min_length) || ACCOUNT_MIN_PASSWORD;
+        this.csrfToken = (session && session.csrf_token) || '';
         this.setChoicesSelection(this.widePanelsChoices, this.widePanels);
         this.setChoicesSelection(this.statusBarItemsChoices, this.statusBarItems);
         this.loadEnergyStatsStatus();
@@ -190,6 +217,63 @@
       } finally {
         this.loading = false;
       }
+    },
+
+    // Eigenes Passwort: das alte wird verlangt, die aktuelle Sitzung bleibt, alle
+    // anderen enden. Fehler der Eingabe (Wiederholung, Laenge) gehen inline, ohne
+    // Anfrage. Liefert true bei Erfolg.
+    async changeOwnPassword() {
+      if (this.accountBusy) return false;
+      this.passwordError = '';
+      const {old, next, repeat} = this.passwordForm;
+      if (next !== repeat) {
+        this.passwordError = t('settings.account.password_mismatch');
+        return false;
+      }
+      if (codePoints(next) < this.passwordMin) {
+        this.passwordError = t('users.password.too_short', {min: this.passwordMin});
+        return false;
+      }
+      this.accountBusy = true;
+      try {
+        await this.accountRequest('PUT', '/api/v1/users/me/password', {old_password: old, password: next});
+        this.passwordForm = {old: '', next: '', repeat: ''};
+        this.$store.toasts.push(t('settings.account.password_toast'));
+        return true;
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
+      } finally {
+        this.accountBusy = false;
+      }
+    },
+
+    // Setzt das HTTP-Passwort des eigenen Kontos. Ein leerer Wert entfernt es.
+    async saveHTTPPassword() {
+      if (this.accountBusy || !this.httpPasswordValid) return false;
+      const password = this.httpPasswordDraft;
+      this.accountBusy = true;
+      try {
+        await this.accountRequest('PUT', '/api/v1/users/me/http-password', {password});
+        this.httpPasswordDraft = '';
+        this.$store.toasts.push(password
+          ? t('users.http_warning.set_toast', {name: this.accountUsername})
+          : t('users.http_warning.removed_toast'));
+        return true;
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
+      } finally {
+        this.accountBusy = false;
+      }
+    },
+
+    accountRequest(method, url, body) {
+      return requestJSON(url, {
+        method,
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+        body: JSON.stringify(body),
+      });
     },
 
     // Choices.js liest die Auswahl nur beim Erstellen aus dem <select>; spaetere
@@ -622,7 +706,11 @@
   });
 
   // Sub pages a deep link (?page=) may open.
-  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system'];
+  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system', 'users'];
+  // Mindestlaenge eines Passworts bis die Sitzung sie meldet (session.password_min_length),
+  // danach gilt der Wert der Sitzung. Zeichen zaehlen als Codepunkte, wie auf dem Server.
+  const ACCOUNT_MIN_PASSWORD = 10;
+  const codePoints = (value) => [...(value || '')].length;
 
   // How far a finger has to travel sideways on the page picker before it
   // counts as a swipe to the neighbouring page instead of a tap.

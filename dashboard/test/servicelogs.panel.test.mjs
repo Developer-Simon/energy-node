@@ -61,7 +61,7 @@ const entry = (message, priority = 6) => ({
 
 // Returns a fetch double that answers the session, units and log URLs and
 // records every URL it was asked for.
-function routedFetch({ session = { csrf_token: 'tok', system_actions: true }, logs = [], units = UNITS } = {}) {
+function routedFetch({ session = { csrf_token: 'tok', view_logs: true }, logs = [], units = UNITS } = {}) {
   const calls = [];
   let logIndex = 0;
   const fetchImpl = async (url) => {
@@ -80,8 +80,8 @@ function routedFetch({ session = { csrf_token: 'tok', system_actions: true }, lo
 
 const paramsOf = (url) => new URL(url, 'https://dashboard.local').searchParams;
 
-test('init hides the section without the system_actions role', async () => {
-  const { fetchImpl, calls } = routedFetch({ session: { csrf_token: 'tok', system_actions: false } });
+test('init hides the section with only system_actions, without view_logs', async () => {
+  const { fetchImpl, calls } = routedFetch({ session: { csrf_token: 'tok', system_actions: true } });
   const { component } = createServiceLogsPanel({ fetchImpl });
   await component.init();
   assert.equal(component.canView, false);

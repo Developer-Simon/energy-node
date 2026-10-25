@@ -16,26 +16,13 @@ type ServiceLogReader interface {
 	Read(context.Context, servicelogs.Query) (servicelogs.Result, error)
 }
 
-// requireSystemActionsRead gates the read-only service log endpoints behind
-// the same checks as handleSystemAction, minus the CSRF token: reading a
-// journal changes nothing. It sets Cache-Control: no-store because journal
-// lines can contain anything a service logged.
-func requireSystemActionsRead(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+// requireViewLogs gates the read-only service log endpoints behind the
+// view_logs role (which requires view_diagnostics), without a CSRF token:
+// reading a journal changes nothing. It sets Cache-Control: no-store because
+// journal lines can contain anything a service logged.
+func requireViewLogs(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
 	w.Header().Set("Cache-Control", "no-store")
-	if manager == nil {
-		writeError(w, http.StatusNotImplemented, "system_actions_unavailable", "Systemaktionen sind nicht konfiguriert")
-		return false
-	}
-	user, ok := auth.UserFromContext(r.Context())
-	if !ok {
-		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
-		return false
-	}
-	if !auth.HasRole(user, auth.RoleSystemActions) {
-		writeError(w, http.StatusForbidden, "system_actions_forbidden", "Für Systemaktionen fehlt die Berechtigung")
-		return false
-	}
-	return true
+	return requireRole(w, r, manager, auth.RoleViewLogs, "logs_forbidden", "error.logs_forbidden", "Für die Dienstprotokolle fehlt die Berechtigung")
 }
 
 // handleServiceLogs answers GET /api/v1/system/logs. Missing since and lines
@@ -46,7 +33,7 @@ func handleServiceLogs(manager *auth.Manager, reader ServiceLogReader) http.Hand
 			methodNotAllowed(w, http.MethodGet)
 			return
 		}
-		if !requireSystemActionsRead(w, r, manager) {
+		if !requireViewLogs(w, r, manager) {
 			return
 		}
 		values := r.URL.Query()
@@ -111,7 +98,7 @@ func handleServiceLogUnits(manager *auth.Manager) http.HandlerFunc {
 			methodNotAllowed(w, http.MethodGet)
 			return
 		}
-		if !requireSystemActionsRead(w, r, manager) {
+		if !requireViewLogs(w, r, manager) {
 			return
 		}
 		writeJSON(w, map[string]any{

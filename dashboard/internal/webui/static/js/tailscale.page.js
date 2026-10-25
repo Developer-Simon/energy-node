@@ -45,7 +45,7 @@
     lastAction: null,
     loginStarted: false,
     csrfToken: '',
-    canSystemActions: false,
+    canTailscale: false,
     loading: false,
     statusLoading: false,
     busy: false,
@@ -56,7 +56,7 @@
       try {
         const session = await requestJSON('/api/v1/auth/session').catch(() => null);
         this.csrfToken = (session && session.csrf_token) || '';
-        this.canSystemActions = Boolean(session && session.system_actions) && window.location.protocol === 'https:';
+        this.canTailscale = Boolean(session && session.tailscale) && window.location.protocol === 'https:';
         await Promise.all([this.checkPrereqs(), this.loadStatus()]);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -118,7 +118,7 @@
     },
 
     async startLogin() {
-      if (!this.canSystemActions || this.busy) return;
+      if (!this.canTailscale || this.busy) return;
       this.busy = 'login';
       this.loginStarted = true;
       try {
@@ -137,7 +137,7 @@
     },
 
     async logout() {
-      if (!this.canSystemActions || this.busy) return;
+      if (!this.canTailscale || this.busy) return;
       const confirmed = await this.$store.modal.confirm({
         title: t('tailscale.logout_confirm_title'),
         confirmLabel: t('tailscale.logout_confirm_button'),
@@ -161,7 +161,7 @@
     },
 
     async restart() {
-      if (!this.canSystemActions || this.busy) return;
+      if (!this.canTailscale || this.busy) return;
       this.busy = 'restart';
       try {
         await requestJSON('/api/v1/tailscale/restart', {

@@ -265,7 +265,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.Handle("/static/", webui.Static())
 	mux.Handle("/i18n/", webui.I18nScript())
 	if dependencies.Redeploy != nil {
-		mux.Handle("/redeploy/", requireSystemActions(dependencies.Auth, dependencies.Redeploy))
+		mux.Handle("/redeploy/", requireRoleGate(dependencies.Auth, auth.RoleUpdateSettings, "update_settings_forbidden", "error.update_settings_forbidden", "Für den Installer fehlt die Berechtigung update_settings", dependencies.Redeploy))
 	}
 	stateDir := dependencies.InstallerStateDir
 	if stateDir == "" {
@@ -331,6 +331,10 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
 		mux.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
 		mux.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
+		mux.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
+		mux.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
+		mux.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
+		mux.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
 	}
 	if dependencies.SystemActions != nil {
 		mux.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
@@ -413,10 +417,8 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 		cookie, err := r.Cookie(sessionCookieName(secureRequest))
 		if err == nil {
 			if session, ok := manager.Session(cookie.Value); ok {
-				if secureRequest || !auth.HasRole(session.User, auth.RoleSystemActions) {
-					next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), session.User)))
-					return
-				}
+				next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), auth.EffectiveUser(session, secureRequest))))
+				return
 			}
 		}
 		if r.URL.Path == "/" && r.Method == http.MethodGet {
@@ -437,10 +439,6 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			methodNotAllowed(w)
 			return
 		}
-		if !isSecureRequest(r) {
-			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.login", nil, "Admin-Anmeldung ist nur über HTTPS verfügbar")
-			return
-		}
 		var request struct {
 			Username string `json:"username"`
 			Password string `json:"password"`
@@ -449,9 +447,14 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 			return
 		}
-		session, err := manager.Login(request.Username, request.Password)
+		secureRequest := isSecureRequest(r)
+		session, err := manager.Login(request.Username, request.Password, secureRequest)
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			writeError(w, http.StatusUnauthorized, "invalid_credentials", "Benutzername oder Passwort ist ungültig")
+			return
+		}
+		if errors.Is(err, auth.ErrInsecureLoginNotAllowed) {
+			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.account", nil, "Für dieses Konto ist die Anmeldung nur über HTTPS möglich.")
 			return
 		}
 		if err != nil {
@@ -459,7 +462,7 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		setSessionCookie(w, r, session)
-		writeAuthSession(w, session)
+		writeAuthSession(w, session, secureRequest, manager.MinPasswordLength())
 	}
 }
 
@@ -475,7 +478,7 @@ func handleAuthGuest(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		setSessionCookie(w, r, session)
-		writeAuthSession(w, session)
+		writeAuthSession(w, session, isSecureRequest(r), manager.MinPasswordLength())
 	}
 }
 
@@ -495,11 +498,7 @@ func handleAuthSession(manager *auth.Manager) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
-		if !isSecureRequest(r) && auth.HasRole(session.User, auth.RoleSystemActions) {
-			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.sessions", nil, "Admin-Sitzungen sind nur über HTTPS verfügbar")
-			return
-		}
-		writeAuthSession(w, session)
+		writeAuthSession(w, session, isSecureRequest(r), manager.MinPasswordLength())
 	}
 }
 
@@ -518,19 +517,17 @@ func handleAuthLogout(manager *auth.Manager) http.HandlerFunc {
 	}
 }
 
-// requireSystemActions gates a whole mounted sub-handler behind the same
-// privilege handleSystemAction demands for a single endpoint: the
-// RoleSystemActions role, plus a valid CSRF token on every state-changing
-// method. It exists for /redeploy/, which is a *larger* privilege than any
-// single system action -- it triggers a root-privileged bootstrap run --
-// and must therefore never be reachable for a guest session, which
-// authMiddleware alone would happily let through (a guest has a valid
-// session, just no privilege). GET stays token-free so the screen itself
-// and its SSE stream load exactly like every other read-only route.
-func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler {
+// requireRoleGate gates a whole mounted sub-handler behind one role, plus a
+// valid CSRF token on every state-changing method. It exists for /redeploy/,
+// which is a *larger* privilege than any single action -- it triggers a
+// root-privileged bootstrap run -- and must therefore never be reachable for a
+// guest session, which authMiddleware alone would happily let through (a guest
+// has a valid session, just no privilege). GET stays token-free so the screen
+// itself and its SSE stream load exactly like every other read-only route.
+func requireRoleGate(manager *auth.Manager, role, code, key, message string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if manager == nil {
-			writeError(w, http.StatusNotImplemented, "system_actions_unavailable", "Systemaktionen sind nicht konfiguriert")
+			writeError(w, http.StatusNotImplemented, "authentication_unavailable", "Anmeldung ist nicht konfiguriert")
 			return
 		}
 		user, ok := auth.UserFromContext(r.Context())
@@ -538,8 +535,8 @@ func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
-		if !auth.HasRole(user, auth.RoleSystemActions) {
-			writeError(w, http.StatusForbidden, "system_actions_forbidden", "Für Systemaktionen fehlt die Berechtigung")
+		if !auth.HasRole(user, role) {
+			writeErrorKey(w, http.StatusForbidden, code, key, nil, message)
 			return
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -563,7 +560,7 @@ func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler
 
 // SessionCSRFToken returns the CSRF token of the session a request carries, or
 // "" when there is none. The mounted installer screen sends the token its page
-// was rendered with in X-Installer-Token, which requireSystemActions accepts
+// was rendered with in X-Installer-Token, which requireRoleGate accepts
 // as the CSRF carrier; rendering the page with this value is what lets the
 // screen's own POSTs (prepare, run, cancel) pass that gate.
 func SessionCSRFToken(manager *auth.Manager) func(*http.Request) string {
@@ -708,21 +705,39 @@ func isSecureRequest(r *http.Request) bool {
 	return r.TLS != nil || strings.EqualFold(forwardedProto, "https")
 }
 
-func writeAuthSession(w http.ResponseWriter, session auth.Session) {
+// writeAuthSession answers with the permissions that apply to this request:
+// roles and flags come from auth.EffectiveUser, so a restricted session or a
+// request over HTTP never reports an HTTPS-only role as granted. minPasswordLength
+// is the current minimum for new passwords, so the forms can show it.
+func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, minPasswordLength int) {
 	w.Header().Set("Cache-Control", "no-store")
+	user := auth.EffectiveUser(session, secure)
+	withheld := auth.Withheld(session, secure)
+	if withheld == nil {
+		withheld = []string{}
+	}
 	writeJSON(w, map[string]any{
-		"username":                session.User.Username,
-		"guest":                   session.User.Guest,
-		"roles":                   session.User.Roles,
-		"system_actions":          auth.HasRole(session.User, auth.RoleSystemActions),
-		"delete_device_discovery": auth.HasRole(session.User, auth.RoleDeleteDeviceDiscovery),
-		"tune_live_updates":       auth.HasRole(session.User, auth.RoleTuneLiveUpdates),
-		"mqtt_config":             auth.HasRole(session.User, auth.RoleMQTTConfig),
-		"automations":             auth.HasRole(session.User, auth.RoleAutomations),
-		"edit_layout":             auth.HasRole(session.User, auth.RoleEditLayout),
-		"edit_energy":             auth.HasRole(session.User, auth.RoleEditEnergy),
-		"edit_device_map":         auth.HasRole(session.User, auth.RoleEditDeviceMap),
-		"edit_device_map_view":    auth.HasRole(session.User, auth.RoleEditDeviceMapView),
+		"username":                user.Username,
+		"guest":                   user.Guest,
+		"roles":                   user.Roles,
+		"restricted":              session.Restricted,
+		"withheld":                withheld,
+		"system_actions":          auth.HasRole(user, auth.RoleSystemActions),
+		"delete_device_discovery": auth.HasRole(user, auth.RoleDeleteDeviceDiscovery),
+		"tune_live_updates":       auth.HasRole(user, auth.RoleTuneLiveUpdates),
+		"mqtt_config":             auth.HasRole(user, auth.RoleMQTTConfig),
+		"automations":             auth.HasRole(user, auth.RoleAutomations),
+		"edit_layout":             auth.HasRole(user, auth.RoleEditLayout),
+		"edit_energy":             auth.HasRole(user, auth.RoleEditEnergy),
+		"edit_device_map":         auth.HasRole(user, auth.RoleEditDeviceMap),
+		"edit_device_map_view":    auth.HasRole(user, auth.RoleEditDeviceMapView),
+		"user_management":         auth.HasRole(user, auth.RoleUserManagement),
+		"http_login":              auth.HasRole(user, auth.RoleHTTPLogin),
+		"install_updates":         auth.HasRole(user, auth.RoleInstallUpdates),
+		"update_settings":         auth.HasRole(user, auth.RoleUpdateSettings),
+		"tailscale":               auth.HasRole(user, auth.RoleTailscale),
+		"view_logs":               auth.HasRole(user, auth.RoleViewLogs),
+		"password_min_length":     minPasswordLength,
 		"csrf_token":              session.CSRFToken,
 		"expires_at":              session.ExpiresAt,
 	})
