@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
-import { installI18n } from './helpers/i18n.mjs';
+import { catalog, installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const configStatusSource = fs.readFileSync(
@@ -2849,4 +2849,77 @@ test('a second zero_feed gets its own id and cannot pick the same inverter', asy
   assert.equal(first.id, 'zero_feed');
   assert.equal(second.id, 'zero_feed_2');
   assert.equal(second.while.regulator.output.topic, 'werkstatt/pv2/limit');
+});
+
+// Read-only states: without edit_automations the editor is read-only. With
+// operate_automations alone only the on/off switches stay usable, and save()
+// sends the stored document with the new enabled flags.
+test('operate-only save sends the stored document with only enabled flags changed', async () => {
+  const { component, window } = createAutomationsPanel();
+  const stored = {
+    version: 1,
+    settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+                publish_allowed_prefixes: ['werkstatt/'], publish_allowed_prefixes_auto: false },
+    rules: [
+      { id: 'r1', name: 'A', enabled: false, cooldown_seconds: 30, conditions: [], actions: [] },
+      { id: 'r2', name: 'B', enabled: true, cooldown_seconds: 30, conditions: [], actions: [] },
+    ],
+    scenarios: [validScenario('nulleinspeisung')],
+  };
+  component.savedDocument = JSON.parse(JSON.stringify(stored));
+  component.document = JSON.parse(JSON.stringify(stored));
+  component.document.rules[0].enabled = true;
+  component.sessionRoles = ['operate_automations', 'view_automations'];
+  component.csrfToken = 'tok';
+  component.pollRuntimeStatus = async () => {};
+  const requested = [];
+  let sentBody;
+  window.fetch = async (url, options) => {
+    requested.push(url);
+    if (options && options.method === 'PUT') { sentBody = JSON.parse(options.body); return { ok: true, json: async () => ({}) }; }
+    return { ok: true, json: async () => ({}) };
+  };
+  await component.save();
+  const expected = JSON.parse(JSON.stringify(stored));
+  expected.rules[0].enabled = true;
+  assert.deepEqual(sentBody, expected);
+  assert.deepEqual(requested.filter(url => url.endsWith('/api/v1/devices')), [], 'the prefix recalculation is skipped');
+});
+
+test('automations without any permission hide the toggles', () => {
+  const { component } = createAutomationsPanel();
+  component.sessionRoles = ['view_automations'];
+  assert.equal(component.canEditAutomations, false);
+  assert.equal(component.canOperateAutomations, false);
+});
+
+test('operate_automations alone keeps the switches but not the editor', () => {
+  const { component } = createAutomationsPanel();
+  component.sessionRoles = ['operate_automations'];
+  assert.equal(component.canEditAutomations, false);
+  assert.equal(component.canOperateAutomations, true);
+});
+
+test('a session without a roles list keeps automations editable', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.canEditAutomations, true);
+  assert.equal(component.canOperateAutomations, true);
+});
+
+test('the read-only hints carry the agreed texts in both catalogs', () => {
+  const texts = {
+    de: {
+      'automations.read_only': 'Du kannst die Automationen ansehen, aber nicht bearbeiten.',
+      'automations.operate_only': 'Du kannst Regeln und Szenarien ein- und ausschalten, aber nicht bearbeiten.',
+    },
+    en: {
+      'automations.read_only': 'You can view the automations but not edit them.',
+      'automations.operate_only': 'You can switch rules and scenarios on and off but not edit them.',
+    },
+  };
+  for (const lang of ['de', 'en']) {
+    for (const [key, text] of Object.entries(texts[lang])) {
+      assert.equal(catalog(lang)[key], text, `${lang} ${key}`);
+    }
+  }
 });

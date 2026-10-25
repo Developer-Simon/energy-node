@@ -43,7 +43,7 @@
       </div>
     </template>
     <span class="auto-pill" x-show="!showHistory" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
-    <label class="settings-toggle" x-on:click.stop x-on:keydown.stop
+    <label class="settings-toggle" x-on:click.stop x-on:keydown.stop x-show="canEditAutomations || canOperateAutomations"
            x-bind:title="scenario.enabled ? $t('automations.scenario.enabled_toggle.title_on') : $t('automations.scenario.enabled_toggle.title_off')">
       <input type="checkbox" x-model="scenario.enabled"
              x-bind:aria-label="$t('automations.scenario.enabled_toggle.aria_label', {name: scenario.name})">
@@ -68,24 +68,25 @@
       <span class="auto-pill" x-bind:class="scenarioStatus(scenario).tone" x-text="scenarioStatus(scenario).label"></span>
       <span class="automation-unsaved-badge" x-cloak x-show="newIds[scenario.id]">{{t "automations.scenario.new_badge"}}</span>
 
-      <label class="settings-toggle"
+      <label class="settings-toggle" x-show="canEditAutomations || canOperateAutomations"
              x-bind:title="scenario.enabled ? $t('automations.scenario.enabled_toggle.title_on') : $t('automations.scenario.enabled_toggle.title_off')">
         <input type="checkbox" x-model="scenario.enabled"
                x-bind:aria-label="$t('automations.scenario.enabled_toggle.aria_label', {name: scenario.name})">
         <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
       </label>
 
-      <button class="icon-button auto-btn-ghost" x-bind:class="{ active: scenarioEditing[scenario.id] }" type="button"
+      <button class="icon-button auto-btn-ghost" x-show="canEditAutomations" x-bind:class="{ active: scenarioEditing[scenario.id] }" type="button"
               x-on:click="scenarioEditing[scenario.id] = !scenarioEditing[scenario.id]"
               x-bind:title="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')"
               x-bind:aria-label="scenarioEditing[scenario.id] ? $t('automations.scenario.edit_button.tooltip_stop') : $t('automations.scenario.edit_button.tooltip_edit')">
         <svg class="automation-icon"><use x-bind:href="scenarioEditing[scenario.id] ? '#ico-check' : '#ico-pencil'"></use></svg>
       </button>
-      <button class="icon-button danger auto-btn-ghost" type="button" x-on:click="removeScenario(scenario.id)"
+      <button class="icon-button danger auto-btn-ghost" x-show="canEditAutomations" type="button" x-on:click="removeScenario(scenario.id)"
               x-bind:title="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})" x-bind:aria-label="$t('automations.scenario.delete_button.tooltip', {name: scenario.name})">
         <svg class="automation-icon"><use href="#ico-trash"></use></svg>
       </button>
     </div>
+    <fieldset class="auto-readonly-scope" x-bind:disabled="!canEditAutomations">
 
     <template x-if="scenario.while && scenario.while.mode === 'regulate'">
       <div class="auto-regulator" x-bind:class="{ 'is-consumer': regulatorFigures(scenario).direction === 'consumer' }">
@@ -426,6 +427,7 @@
         </div>
       </div>
     </template>
+    </fieldset>
   </div>
 </template>
 {{end}}

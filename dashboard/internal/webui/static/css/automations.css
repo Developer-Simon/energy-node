@@ -790,3 +790,7 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 }
 @keyframes auto-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes auto-sheet-down { from { transform: none; } to { transform: translateY(100%); } }
+
+/* Nur-Lesen-Zustand: die Bearbeitungsfelder sind ein deaktiviertes fieldset, ohne Rahmen und Abstand. */
+.auto-readonly-scope { border: 0; margin: 0; padding: 0; min-width: 0; }
+.auto-readonly-hint { margin: 0 0 .6rem; }

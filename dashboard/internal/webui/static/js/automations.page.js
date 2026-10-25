@@ -167,6 +167,14 @@
     savedDocument: null,
     lastStateAt: 0,
     hasAutomationsRole: false,
+    // Rollen aus der Sitzung; null, solange keine Sitzung mit Rollenliste da ist.
+    sessionRoles: null,
+    get canEditAutomations() {
+      return this.sessionRoles === null || this.sessionRoles.includes('automations');
+    },
+    get canOperateAutomations() {
+      return this.sessionRoles === null || this.sessionRoles.includes('operate_automations');
+    },
     nowTick: Date.now(),
     statusPollMs: 1000,
     locating: false,
@@ -271,6 +279,7 @@
         // "automations" liefert der Sitzungsendpunkt seit Task 3; ohne die
         // Rolle werden die Test-Knoepfe gar nicht erst angeboten.
         this.hasAutomationsRole = Boolean(session && session.automations);
+        this.sessionRoles = session && 'roles' in session ? (Array.isArray(session.roles) ? session.roles : []) : null;
         this.loadRuntimeState();
         // dashboard.js verteilt jedes Registry-Update (SSE, mit
         // 30-Sekunden-Fallback) als 'registry-updated' auf window.
@@ -2399,7 +2408,42 @@
       });
     },
 
+    // Nur Ein-Aus-Schalter (operate_automations ohne automations): gespeichert
+    // wird der zuletzt gespeicherte Stand mit neuen enabled-Werten.
+    operatePayload() {
+      const payload = JSON.parse(JSON.stringify(this.savedDocument));
+      const enabledById = (list) => new Map((list || []).map((entry) => [entry.id, entry.enabled]));
+      const rules = enabledById(this.document.rules);
+      const scenarios = enabledById(this.document.scenarios);
+      (payload.rules || []).forEach((rule) => { if (rules.has(rule.id)) rule.enabled = rules.get(rule.id); });
+      (payload.scenarios || []).forEach((scenario) => { if (scenarios.has(scenario.id)) scenario.enabled = scenarios.get(scenario.id); });
+      return payload;
+    },
+
+    async saveOperate() {
+      this.saving = true;
+      try {
+        const payload = this.operatePayload();
+        const saved = await requestJSON('/api/v1/configurations/automation_rules', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
+          body: JSON.stringify(payload),
+        });
+        this.$store.toasts.push(t('automations.saved'));
+        this.savedDocument = JSON.parse(JSON.stringify(payload));
+        await this.pollRuntimeStatus(saved.checksum);
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.saving = false;
+      }
+    },
+
     async save() {
+      if (!this.canEditAutomations) {
+        if (this.canOperateAutomations) await this.saveOperate();
+        return;
+      }
       const errors = this.validateDocumentBeforeSave();
       if (errors.length > 0) {
         // Validierungsfehler vor dem Speichern - bleibt als critical stehen,

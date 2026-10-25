@@ -20,6 +20,8 @@
 
   <template x-if="!loading">
     <div>
+      <p class="sub auto-readonly-hint" x-cloak x-show="!canEditAutomations"
+         x-text="canOperateAutomations ? $t('automations.operate_only') : $t('automations.read_only')"></p>
       <div class="auto-bar">
         <span class="auto-dirty" x-cloak x-show="unsavedCount() > 0"
               x-text="$tn('automations.unsaved_count', unsavedCount(), {count: unsavedCount()})"></span>
@@ -39,7 +41,7 @@
           </button>
         </div>
 
-        <button class="auto-assist-open" type="button" x-on:click="openAssistant()"
+        <button class="auto-assist-open" type="button" x-show="canEditAutomations" x-on:click="openAssistant()"
                 x-bind:title="$t('automations.assistant.open_tooltip')" x-bind:aria-label="$t('automations.assistant.open_tooltip')">
           <svg class="automation-icon"><use href="#ico-plus"></use></svg>
           <span>{{t "automations.assistant.open_button"}}</span>
@@ -53,6 +55,7 @@
           <span>{{t "automations.show_history"}}</span>
         </label>
         <button class="icon-button labeled primary auto-btn" type="button" x-on:click="save()"
+                x-show="canEditAutomations || canOperateAutomations"
                 x-bind:disabled="saving"
                 x-bind:title="saving ? $t('automations.save_all_button.tooltip_saving') : $t('automations.save_all_button.tooltip_ready')"
                 x-bind:aria-label="saving ? $t('automations.save_all_button.tooltip_saving') : $t('automations.save_all_button.tooltip_ready')">
@@ -98,6 +101,7 @@
         </button>
         <div id="automations-advanced-panel" class="automation-collapse" x-cloak x-show="settingsOpen" x-collapse>
           <div class="automations-advanced-body">
+            <fieldset class="auto-readonly-scope" x-bind:disabled="!canEditAutomations">
             <div class="form-grid">
               <label for="automations-latitude">
                 {{t "automations.settings.latitude_label"}}
@@ -221,6 +225,7 @@
               <textarea id="automations-publish-prefixes" rows="3" x-model="publishAllowedPrefixesText"
                         x-bind:placeholder="$t('automations.settings.publish_prefixes_placeholder')"></textarea>
             </div>
+            </fieldset>
           </div>
         </div>
       </div>

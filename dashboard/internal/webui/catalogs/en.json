@@ -355,6 +355,8 @@
   "automations.new_rule": "New rule",
   "automations.new_scenario": "New scenario",
   "automations.no_live_values": "There are no live values.",
+  "automations.operate_only": "You can switch rules and scenarios on and off but not edit them.",
+  "automations.read_only": "You can view the automations but not edit them.",
   "automations.rule.add_action": "Action",
   "automations.rule.add_condition": "Condition",
   "automations.rule.block.flow": "Flow",

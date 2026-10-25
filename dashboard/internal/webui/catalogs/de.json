@@ -355,6 +355,8 @@
   "automations.new_rule": "Neue Regel",
   "automations.new_scenario": "Neues Szenario",
   "automations.no_live_values": "Es liegen keine Live-Werte vor.",
+  "automations.operate_only": "Du kannst Regeln und Szenarien ein- und ausschalten, aber nicht bearbeiten.",
+  "automations.read_only": "Du kannst die Automationen ansehen, aber nicht bearbeiten.",
   "automations.rule.add_action": "Aktion",
   "automations.rule.add_condition": "Bedingung",
   "automations.rule.block.flow": "Ablauf",
