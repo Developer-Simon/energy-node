@@ -773,6 +773,19 @@ test('testAction does nothing when testing is not allowed', async () => {
   assert.equal(called, false);
 });
 
+test('testRule calls testAction for every action in order', async () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', conditions: [], actions: [{ severity: 'info' }, { severity: 'info' }] };
+  const calls = [];
+  component.testAction = async (_rule, index) => {
+    calls.push(index);
+    return { index };
+  };
+  const results = await component.testRule(rule);
+  assert.deepEqual(calls, [0, 1]);
+  assert.deepEqual(JSON.parse(JSON.stringify(results)), [{ index: 0 }, { index: 1 }]);
+});
+
 test('computeAutoPublishPrefixes collects and sorts unique command_topics from known entities', () => {
   const { component } = createAutomationsPanel();
   component.entities = [

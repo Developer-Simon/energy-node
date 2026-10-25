@@ -999,6 +999,14 @@
       }
     },
 
+    async testRule(rule) {
+      const results = [];
+      for (let i = 0; i < (rule.actions || []).length; i++) {
+        results.push(await this.testAction(rule, i));
+      }
+      return results;
+    },
+
     notify(message, severity) {
       this.$store.toasts.push(message, severity);
     },
