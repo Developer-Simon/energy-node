@@ -494,6 +494,7 @@
                                 x-bind:title="type.hint" x-bind:aria-label="$t('automations.condition.add_aria', {type: type.label})">
                           <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
                           <span class="type-tile-label" x-text="type.label"></span>
+                          <small x-text="type.short"></small>
                         </button>
                       </template>
                     </div>
@@ -512,6 +513,7 @@
                                 x-bind:title="type.hint" x-bind:aria-label="$t('automations.action.add_aria', {type: type.label})">
                           <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
                           <span class="type-tile-label" x-text="type.label"></span>
+                          <small x-text="type.short"></small>
                         </button>
                       </template>
                     </div>
@@ -529,6 +531,7 @@
                                     x-bind:title="type.hint" x-bind:aria-label="$t('automations.action.add_aria', {type: type.label})">
                               <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
                               <span class="type-tile-label" x-text="type.label"></span>
+                              <small x-text="type.short"></small>
                             </button>
                           </template>
                         </div>

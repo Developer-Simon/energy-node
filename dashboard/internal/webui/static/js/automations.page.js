@@ -1522,8 +1522,8 @@
       if (rule) rule.enabled = !rule.enabled;
     },
 
-    conditionTypes() { return CONDITION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint) })); },
-    actionTypes() { return ACTION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint) })); },
+    conditionTypes() { return CONDITION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint), short: t(type.short) })); },
+    actionTypes() { return ACTION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint), short: t(type.short) })); },
     fieldHelp(key) { return FIELD_HELP[key] ? t(FIELD_HELP[key]) : ''; },
 
     addBalanceCondition(rule) {
