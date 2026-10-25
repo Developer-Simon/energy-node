@@ -20,14 +20,47 @@
 /* --- Regelkarte: Kopf, Live-Balken, Wenn/Dann/Ablauf, Zeitleiste --- */
 /* Die Trennlinie gehoert zum Inhalt, damit zugeklappte Regeln keine leere Linie zeigen. */
 .auto-rule-body { margin-top: .7rem; padding-top: .8rem; border-top: 1px solid var(--border-soft); }
+/* Ab 900 px ist die zugeklappte Zeile ein Band: die ganze Zeile klappt auf, ausser dem Schalter. */
+@media (min-width: 900px) {
+  .automation-rule { padding: 0; }
+  .automation-rule-head { padding: 14px 18px; gap: 14px; }
+  .automation-rule-head .automation-rule-name { font-size: 1.02rem; }
+  .auto-rule-body { margin-top: 0; padding: 14px 18px 18px; }
+  /* Drei Spalten Wenn, Dann, Ablauf. Jede Gruppe ist eine Flaeche mit Zeilen. */
+  .auto-blocks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .auto-lines { gap: 0; background: var(--panel-alt); border-radius: 14px; overflow: hidden; }
+  .auto-line { min-height: 46px; padding: 11px 14px; border-radius: 0; background: transparent; border-top: 1px solid var(--border-soft); font-size: .88rem; }
+  .auto-lines > li:first-child { border-top: 0; }
+  .auto-line.is-met { background: var(--ok-bg); box-shadow: inset 3px 0 0 var(--ok); }
+  .auto-line.is-pending { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
+  .auto-line.is-open .auto-line-text { color: var(--text-muted); font-weight: 400; }
+}
 .auto-rule-view, .auto-rule-edit { display: grid; gap: .9rem; }
-.auto-live { display: grid; gap: .35rem; }
-.auto-live-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
-.auto-live-value { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-strong); }
-.auto-live-bar { position: relative; height: .55rem; border-radius: 4px; background: var(--sunken); }
-.auto-live-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 4px; background: var(--flow-grid); transition: width 400ms var(--ease-out); }
-.auto-live-band { position: absolute; top: 0; bottom: 0; background: var(--warn-bg); outline: 1px solid var(--warn-line); }
-.auto-live-mark { position: absolute; top: -.25rem; bottom: -.25rem; width: 2px; background: var(--text-strong); }
+.auto-live { display: grid; gap: 6px; }
+.auto-live-bar { position: relative; height: 34px; border-radius: 10px; background: var(--sunken); overflow: hidden; }
+.auto-live-fill { position: absolute; top: 0; bottom: 0; left: 0; transition: width 400ms var(--ease-out); }
+.auto-live-bar.is-tone-grid .auto-live-fill { background: color-mix(in srgb, var(--flow-grid) 35%, transparent); }
+.auto-live-bar.is-tone-pv .auto-live-fill { background: color-mix(in srgb, var(--flow-pv) 35%, transparent); }
+.auto-live-bar.is-tone-battery .auto-live-fill { background: color-mix(in srgb, var(--flow-battery) 35%, transparent); }
+.auto-live-bar.is-tone-load .auto-live-fill { background: color-mix(in srgb, var(--flow-load) 35%, transparent); }
+.auto-live-bar.is-tone-wallbox .auto-live-fill { background: color-mix(in srgb, var(--flow-wallbox) 35%, transparent); }
+.auto-live-bar.is-tone-heatpump .auto-live-fill { background: color-mix(in srgb, var(--flow-heatpump) 35%, transparent); }
+.auto-live-band { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--accent-line) 25%, transparent) 5px 8px); }
+.auto-live-mark { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent-line); }
+.auto-live-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font-size: .84rem; color: var(--text-strong); font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .auto-live-fill { transition: none; } }
+
+/* Schaltflaechen im Kopf der Regel: Testen geistert, Bearbeiten hat einen Rahmen. */
+.auto-btn-text { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border-soft); background: var(--panel-alt); color: var(--text-strong); font: inherit; font-size: .88rem; font-weight: 600; padding: 9px 14px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+.auto-btn-text .automation-icon { width: .95rem; height: .95rem; }
+.auto-btn-text.is-ghost { background: transparent; border-color: transparent; color: var(--text-subtle); }
+.auto-btn-text.is-active { background: var(--accent-bg); color: var(--accent); }
+.auto-btn-text:active:not(:disabled) { transform: scale(.97); }
+.auto-btn-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .auto-btn-text.is-ghost:hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); color: var(--text-strong); } }
+@media (prefers-reduced-motion: reduce) { .auto-btn-text:active:not(:disabled) { transform: none; } }
+.auto-rule-chevron { flex: none; color: var(--text-faint); }
+.automation-rule-head.is-collapsed { cursor: pointer; }
 .auto-blocks { display: grid; gap: .9rem; }
 .auto-block { display: grid; gap: .4rem; align-content: start; }
 .auto-block-cap { margin: 0; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }
@@ -40,13 +73,23 @@
 .auto-line-note.blocked { color: var(--bad); }
 .auto-line-check { width: 1rem; height: 1rem; margin-left: auto; color: var(--ok); }
 .auto-line .act-test { margin-left: auto; }
-.auto-rule-timeline { display: grid; gap: .4rem; }
-.auto-timeline-track { position: relative; height: 1.1rem; border-radius: 4px; background: var(--sunken); }
-.auto-timeline-mark { position: absolute; top: .2rem; bottom: .2rem; width: 3px; margin-left: -1px; border-radius: 2px; background: var(--text-faint); }
-.auto-timeline-mark.ok { background: var(--ok); }
-.auto-timeline-mark.bad { background: var(--bad); }
-.auto-timeline-mark.info { background: var(--info); }
-.auto-timeline-axis { display: flex; justify-content: space-between; font-size: .7rem; font-family: ui-monospace, monospace; color: var(--text-muted); }
+
+/* Zustand einer Bedingung: erfuellt, wartet oder offen. */
+.auto-cond-state { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 700; padding: 2px 8px 2px 4px; border-radius: 999px; white-space: nowrap; }
+.auto-cond-state .automation-icon { width: 14px; height: 14px; }
+.auto-cond-state.is-met { background: var(--ok); color: var(--panel); }
+.auto-cond-state.is-pending { background: var(--warn-bg); color: var(--warn); }
+.auto-cond-state.is-open { padding-left: 8px; color: var(--text-faint); border: 1px dashed var(--border); }
+.auto-fires { display: grid; gap: 6px; padding-bottom: 6px; }
+.auto-fires-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.auto-fires-head small { font-size: 0.78rem; color: var(--text-muted); }
+.auto-fires-track { position: relative; height: 46px; border-radius: 10px; background: var(--sunken); }
+.auto-fires-track i { position: absolute; top: 8px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--ok); border: 3px solid var(--panel); box-shadow: 0 0 0 1px var(--ok); }
+.auto-fires-track i.bad { background: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+.auto-fires-track i.info { background: var(--info); box-shadow: 0 0 0 1px var(--info); }
+.auto-fires-track i.off { background: var(--text-faint); box-shadow: 0 0 0 1px var(--text-faint); }
+.auto-fires-track em { position: absolute; top: 26px; font-style: normal; font-size: 0.72rem; color: var(--text-subtle); transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.auto-fires-track.empty { display: grid; place-items: center; font-size: 0.82rem; color: var(--text-muted); height: 38px; }
 .auto-edit-list { display: grid; gap: .6rem; }
 .auto-flow-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .88rem; color: var(--text-subtle); }
 .auto-flow-label { min-width: 9rem; }
@@ -110,18 +153,20 @@
 
 /* --- Typ-Kacheln: das Icon traegt die Wiedererkennung, das Wort darunter
    die Bedeutung. Ohne Wort waere "Energiewert" nicht zu erraten. --- */
-.type-tiles { display: flex; gap: .5rem; flex-wrap: wrap; margin: .6rem 0 1.2rem; }
+.type-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: .6rem 0 1.2rem; }
 .type-tile {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem;
-  width: 7rem; min-height: 4.6rem; padding: .65rem .4rem;
-  border: 1px solid var(--border); border-radius: 3px;
-  background: var(--panel); color: var(--text-subtle);
-  font: inherit; font-size: .78rem; line-height: 1.25; text-align: center; cursor: pointer;
-  transition: background .15s ease, border-color .15s ease, color .15s ease;
+  display: grid; gap: 6px; justify-items: start; align-content: start; padding: 12px; border-radius: 12px;
+  border: 1px dashed var(--border); background: transparent; color: var(--text);
+  font: inherit; font-size: .86rem; text-align: left; cursor: pointer;
+  transition: background-color 150ms var(--ease-out), transform 100ms ease-out;
 }
 .type-tile svg { width: 1.5rem; height: 1.5rem; color: var(--accent); flex: none; }
-.type-tile:hover { border-color: var(--accent-line); background: var(--accent-bg); color: var(--text); }
+.type-tile-label { font-weight: 700; }
+.type-tile small { color: var(--text-muted); font-size: .76rem; }
 .type-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .type-tile:hover { background: var(--panel-alt); } }
+@media (prefers-reduced-motion: no-preference) { .type-tile:active { transform: scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .type-tile { transition: none; } }
 
 /* --- Dienst-Einstellungen: unter den Regeln, zugeklappt. Wer eine Regel
    anlegen will, soll nicht zuerst ueber das Tick-Intervall stolpern. --- */
@@ -333,14 +378,18 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-input::-webkit-outer-spin-button, .auto-input::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
 .auto-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
-.auto-stepper { display: flex; align-items: stretch; height: 40px; min-width: 9.5rem; border-radius: 10px; background: var(--panel-alt); overflow: hidden; }
+/* Wie der .stepper in settings-controls.css: Rahmen außen, Trennlinien um das Zahlenfeld, Tasten ohne Rahmen. */
+.auto-stepper { box-sizing: border-box; display: flex; align-items: stretch; height: 40px; min-width: 9.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sunken); overflow: hidden; }
 /* Zahl und Einheit stehen auf einer Grundlinie, die kleinere Einheit beginnt
    also an der Unterkante der Ziffern. Ziffern haben keine Unterlaenge, mit
    der normalen Zeilenhoehe sitzen sie deshalb knapp 1 px zu hoch. Das
    padding-top im Feld darunter gleicht das aus (gemessen im Dialog). */
-.auto-stepper-field { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: .25rem; padding: 0 .35rem; }
-/* field-sizing haelt Zahl und Einheit als Paar in der Mitte, ohne Unterstuetzung bleibt 6ch. */
-.auto-stepper-field .auto-input { flex: 0 1 auto; width: 6ch; field-sizing: content; min-width: 2ch; max-width: 100%; height: 100%; padding: .12em 0 0; border-radius: 0; background: transparent; text-align: right; }
+.auto-stepper-field { flex: 1; min-width: 4.5rem; display: flex; align-items: baseline; justify-content: center; gap: .25rem; padding: 0 .35rem; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+/* field-sizing macht das Eingabefeld so breit wie die Zahl. Zahl und Einheit
+   bleiben als Paar in der Mitte und wachsen nach beiden Seiten. Ohne
+   Unterstuetzung bleibt es bei 5ch und rechtsbuendig. */
+.auto-stepper-field .auto-input { flex: 0 1 auto; width: auto; field-sizing: content; min-width: 1ch; max-width: 100%; height: 100%; padding: .12em 0 0; border-radius: 0; background: transparent; text-align: center; }
+@supports not (field-sizing: content) { .auto-stepper-field .auto-input { width: 5ch; text-align: right; } }
 .auto-stepper-field .auto-input-unit { position: static; transform: none; flex: none; }
 .auto-stepper-field:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .auto-stepper-field .auto-input:focus { box-shadow: none; border-color: transparent; }
@@ -490,3 +539,234 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-assist-change { flex: none; padding: .2rem .3rem; border: 0; background: none; color: var(--accent-line); font: inherit; font-size: .85rem; cursor: pointer; }
 .auto-assist-change:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .auto-assist-preview { margin: 0; padding: .6rem .8rem; border-radius: 12px; background: var(--accent-bg); color: var(--text); font-size: .88rem; }
+
+/* --- Regel bearbeiten: Fussleiste, Schaltflaechen und Zeilen je Bedingung und Aktion --- */
+.auto-btn-text.is-danger { background: transparent; border-color: transparent; color: var(--bad); }
+.auto-btn-text.is-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.auto-rule-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 4px; border-top: 1px solid var(--border-soft); }
+.auto-rule-foot > .is-danger { margin-right: auto; }
+.auto-rule-foot-main { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+/* Diese Hooks wirken nur in der Bearbeiten-Ansicht, das Szenario-Formular teilt die Vorlagen und bleibt unveraendert. */
+.auto-card-actions { display: contents; }
+.auto-hold-short, .auto-test-short, .auto-chip-chevron { display: none; }
+
+@media (min-width: 900px) {
+  .auto-rule[data-mode="edit"] .auto-label-sr, .auto-rule[data-mode="edit"] .auto-card-title, .auto-rule[data-mode="edit"] .auto-card-kind, .auto-rule[data-mode="edit"] .auto-hold-long {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  /* Bedingungen und Aktionen: eine Zeile je Karte, Icon links, Felder mittig, Schaltflaechen rechts. */
+  /* Kein overflow: hidden an der Liste, sonst werden Hilfe-Tooltips der ersten und letzten Zeile abgeschnitten. Die Ecken runden die Zeilen selbst. */
+  .auto-rule[data-mode="edit"] .auto-edit-list { gap: 0; background: var(--panel-alt); border-radius: 14px; }
+  .auto-rule[data-mode="edit"] .auto-edit-list > .auto-cond:first-of-type { border-top-left-radius: 14px; border-top-right-radius: 14px; }
+  .auto-rule[data-mode="edit"] .auto-edit-list > .auto-cond:last-of-type { border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }
+  .auto-rule[data-mode="edit"] .auto-cond { gap: 0; margin-bottom: 0; border-top: 1px solid var(--border-soft); }
+  .auto-rule[data-mode="edit"] .auto-cond:first-child { border-top: 0; }
+  .auto-rule[data-mode="edit"] .auto-cond.is-met { background: var(--ok-bg); box-shadow: inset 3px 0 0 var(--ok); }
+  .auto-rule[data-mode="edit"] .auto-cond.is-pending { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
+  .auto-rule[data-mode="edit"] .auto-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 0; background: transparent; box-shadow: none; }
+  .auto-rule[data-mode="edit"] .auto-card-head { display: contents; }
+  .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1; background: transparent; }
+  .auto-rule[data-mode="edit"] .auto-card > .auto-fields { grid-column: 2; grid-row: 1; min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .auto-rule[data-mode="edit"] .auto-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 0 0 auto; }
+  /* Aktion "Aus Messwert": Gerät, Messfelder und Quellwahl in einer umbrechenden Zeile wie die Satzzeilen. Die inneren Gruppen geben ihre Felder an die Zeile ab, die Quellwahl steht am Ende. */
+  .auto-rule[data-mode="edit"] .auto-source-row { display: contents; }
+  /* Eine Zeile: Gerät, Quelle, Messfeld, Skalierung, Offset. Nichts wächst, nur der Umbruch greift bei echtem Platzmangel. */
+  .auto-rule[data-mode="edit"] .auto-source-row .auto-field { order: 2; flex: 0 0 auto; }
+  .auto-rule[data-mode="edit"] .auto-field-device { flex: 0 0 auto; }
+  .auto-rule[data-mode="edit"] .auto-source-row .auto-field-source { order: 1; }
+  .auto-rule[data-mode="edit"] .auto-field-metric > select { max-width: 16rem; }
+  .auto-rule[data-mode="edit"] .auto-source-row .auto-field > input { width: 6ch; text-align: right; }
+  .auto-rule[data-mode="edit"] .auto-field > input, .auto-rule[data-mode="edit"] .auto-field > select { width: auto; }
+  .auto-rule[data-mode="edit"] .auto-stepper { min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-stepper-field { min-width: 4.5rem; }
+  .auto-rule[data-mode="edit"] .auto-hold-short { display: inline; font-size: .8rem; color: var(--text-muted); }
+  .auto-rule[data-mode="edit"] .auto-card-actions { display: flex; align-items: center; gap: 4px; grid-column: 3; grid-row: 1; }
+  .auto-rule[data-mode="edit"] .auto-test-long { display: none; }
+  .auto-rule[data-mode="edit"] .auto-test-short { display: inline; }
+  .auto-rule[data-mode="edit"] .auto-card-test { border-color: transparent; background: transparent; color: var(--text-subtle); }
+  .auto-rule[data-mode="edit"] .auto-card-delete { border-color: transparent; background: transparent; color: var(--text-muted); }
+  /* Geraetekachel: nur Icon und Name, der Klick geht auf die Kachel. */
+  .auto-rule[data-mode="edit"] .auto-device-chips:has(> .auto-device-chip) { position: relative; }
+  .auto-rule[data-mode="edit"] .auto-device-chips:has(> .auto-device-chip) > .auto-device-more {
+    position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer;
+  }
+  .auto-rule[data-mode="edit"] .auto-device-chip { height: 32px; padding: 5px 10px 5px 6px; border-radius: 8px; border: 1px solid var(--accent-line); background: var(--accent-bg); }
+  .auto-rule[data-mode="edit"] .auto-device-chip .auto-tile-icon { width: 22px; height: 22px; border-radius: 6px; }
+  .auto-rule[data-mode="edit"] .auto-device-chip-text small { display: none; }
+  /* Geraetewert als Pfad in einer Zeile: Geraet fett, dann Wert. Nur die Bedingung hat is-path. */
+  .auto-rule[data-mode="edit"] .auto-device-chip.is-path { max-width: none; }
+  .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-text { display: flex; align-items: center; min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-text b { min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-text small { display: inline; min-width: 0; font-size: inherit; font-weight: 400; color: var(--text); }
+  .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-sep { color: var(--text-muted); margin: 0 6px; }
+  .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-value { display: inline-block; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+  .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-live { display: none; }
+  .auto-rule[data-mode="edit"] .auto-chip-chevron { display: block; flex: none; width: .9rem; height: .9rem; color: var(--text-muted); }
+  /* Ablauf: Zeilen wie im Entwurf, Icon links, Bedienelement rechts. */
+  .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 11px 14px; border-top: 1px solid var(--border-soft); background: var(--panel-alt); color: var(--text); }
+  .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row:first-of-type { border-top: 0; }
+  .auto-rule[data-mode="edit"] .auto-flow-group .auto-flow-label { min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-flow-icon { flex: none; width: 1rem; height: 1rem; color: var(--text-subtle); }
+  .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-segment, .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-field, .auto-rule[data-mode="edit"] .auto-flow-toggle { margin-left: auto; }
+  .auto-rule[data-mode="edit"] .auto-flow-group .auto-stepper { background: var(--sunken); border-radius: var(--radius-sm); }
+  .auto-rule[data-mode="edit"] .auto-flow-group .auto-stepper-field { min-width: 4.5rem; }
+}
+
+/* --- Mobil: Werkzeugleiste mit Verlauf-Knopf und Listenzeile mit Kurzstatus und Sparkline --- */
+.auto-history-toggle { display: none; align-items: center; justify-content: center; width: 2.6rem; height: 2.6rem; flex: none; border-radius: 10px; border: 1px solid var(--border-soft); background: var(--panel); color: var(--text-subtle); cursor: pointer; }
+.auto-history-toggle .automation-icon { width: 1.1rem; height: 1.1rem; }
+.auto-history-toggle[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent-line); color: var(--accent-line); }
+.auto-history-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.auto-rule-main { display: contents; }
+.auto-rule-short, .auto-rule-spark { display: none; }
+.auto-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); flex: none; }
+.auto-rule-short.is-ok .auto-dot { background: var(--ok); }
+.auto-rule-short.is-wait .auto-dot { background: var(--warn); }
+.auto-rule-short.is-info .auto-dot { background: var(--info); }
+.auto-rule-short.is-bad .auto-dot { background: var(--bad); }
+.auto-rule-spark-svg { display: block; width: 100%; height: 30px; overflow: visible; }
+.auto-rule-spark-line { fill: none; stroke: var(--flow-grid); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.auto-rule-spark.is-tone-pv .auto-rule-spark-line { stroke: var(--flow-pv); }
+.auto-rule-spark.is-tone-battery .auto-rule-spark-line { stroke: var(--flow-battery); }
+.auto-rule-spark.is-tone-load .auto-rule-spark-line { stroke: var(--flow-load); }
+.auto-rule-spark.is-tone-wallbox .auto-rule-spark-line { stroke: var(--flow-wallbox); }
+.auto-rule-spark.is-tone-heatpump .auto-rule-spark-line { stroke: var(--flow-heatpump); }
+.auto-rule-spark-target { stroke: var(--accent-line); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.auto-rule-spark-empty { font-size: .78rem; color: var(--text-muted); }
+@keyframes auto-spark-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 899.98px) {
+  .auto-bar { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+  .auto-bar > .auto-dirty { grid-column: 1 / -1; }
+  .auto-bar > .auto-segment { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; }
+  .auto-bar > .auto-assist-open, .auto-bar > .auto-btn { width: 100%; justify-content: center; }
+  .auto-bar > .auto-bar-switch { display: none; }
+  .auto-history-toggle { display: inline-flex; }
+  .automation-rule { padding: 0; }
+  .auto-rule-body { margin: 0; padding: 12px 12px 14px; }
+  .automation-rule-head.is-collapsed { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 12px; }
+  .automation-rule-head.is-collapsed .auto-collapse { width: 34px; height: 34px; }
+  .automation-rule-head.is-collapsed .auto-rule-main { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 8px; min-width: 0; }
+  .automation-rule-head.is-collapsed .automation-rule-name { flex: 0 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .automation-rule-head.is-collapsed .auto-rule-preview { flex: none; }
+  .automation-rule-head.is-collapsed .auto-rule-preview .automation-icon-sm { width: 13px; height: 13px; }
+  .automation-rule-head.is-collapsed .auto-rule-short { display: inline-flex; align-items: center; gap: 6px; flex: none; min-width: 0; font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+  .automation-rule-head.is-collapsed .auto-pill, .automation-rule-head.is-collapsed .auto-rule-chevron { display: none; }
+  .auto-rule-spark { display: block; padding: 0 12px 10px; animation: auto-spark-in 200ms var(--ease-out) backwards; }
+}
+@media (min-width: 900px) {
+  .auto-rule-spark { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auto-rule-spark { animation: none; }
+  .auto-btn-text:active:not(:disabled) { transform: none; }
+}
+
+/* --- Mobil: Aufgeklappt mit Aktionen unten, Editor mit klebendem Kopf und Fuss, Telefon-Maßstab --- */
+.auto-btn-text.is-icon { padding: 8px 10px; }
+.auto-mobile-actions, .auto-rule-edit-status { display: none; }
+@media (max-width: 899.98px) {
+  .auto-rule-list { font-size: 13.5px; }
+  .auto-tile { width: 34px; height: 34px; }
+  .auto-btn-text { font-size: .84rem; padding: 8px 10px; }
+  .automation-rule-head .auto-btn-text { display: none; }
+  .auto-mobile-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+  .auto-mobile-actions .auto-btn-text { justify-content: center; }
+  .auto-mobile-actions .is-danger { color: var(--bad); }
+  .auto-line.is-met .auto-line-text { color: var(--ok); font-weight: 600; }
+  .auto-rule[data-mode="edit"] .automation-rule-head { position: sticky; top: 0; z-index: 3; background: var(--panel); flex-wrap: wrap; }
+  .auto-rule[data-mode="edit"] .auto-rule-edit-status { display: block; flex-basis: 100%; order: 9; font-size: .8rem; color: var(--text-muted); }
+  .auto-rule[data-mode="edit"] .auto-rule-foot { position: sticky; bottom: 0; z-index: 3; display: grid; grid-template-columns: 1fr 2fr; gap: 8px; padding: 10px 0; background: var(--panel); }
+  .auto-rule[data-mode="edit"] .auto-rule-foot > .is-danger { display: none; }
+  .auto-rule[data-mode="edit"] .auto-rule-foot-main { display: contents; }
+  .auto-rule[data-mode="edit"] .auto-rule-foot .auto-btn-text { justify-content: center; }
+  .auto-rule[data-mode="edit"] .auto-cond.is-met .auto-card { box-shadow: inset 3px 0 0 var(--ok); }
+  .auto-rule[data-mode="edit"] .auto-card-head { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; }
+  .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card-title { grid-column: 2; grid-row: 1; }
+  .auto-rule[data-mode="edit"] .auto-card-kind { grid-column: 2; grid-row: 2; }
+  .auto-rule[data-mode="edit"] .auto-card-actions { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 4px; }
+  .auto-rule[data-mode="edit"] .auto-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .auto-rule[data-mode="edit"] .auto-field-wide, .auto-rule[data-mode="edit"] .auto-field:has(> .auto-compare), .auto-rule[data-mode="edit"] .auto-field:has(.auto-hold-long) { grid-column: 1 / -1; }
+}
+
+/* --- Mobil, Korrektur: Kopf wie die zugeklappte Zeile, Editor-Kopf in einer Zeile, Karten als Raster --- */
+@media (max-width: 899.98px) {
+  .automation-rule-head { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 4px; align-items: center; padding: 12px 14px; }
+  .automation-rule-head > .auto-collapse { width: 34px; height: 34px; }
+  .automation-rule-head .auto-rule-main { grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+  .automation-rule-head .auto-rule-main .automation-rule-name { flex: 0 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .automation-rule-head.is-editing .auto-rule-main input.automation-rule-name { flex: 1 1 auto; width: 100%; min-width: 0; }
+  .automation-rule-head > .settings-toggle, .automation-rule-head > label.settings-toggle { grid-column: 3; grid-row: 1; }
+  .automation-rule-head .auto-pill, .automation-rule-head .auto-rule-chevron { display: none; }
+  .automation-rule-head:not(.is-editing) .auto-rule-preview, .automation-rule-head:not(.is-editing) .auto-rule-short { display: inline-flex !important; }
+  .automation-rule-head .auto-rule-preview .automation-icon-sm { width: 13px; height: 13px; }
+  .automation-rule-head .auto-rule-short { align-items: center; gap: 6px; font-size: .78rem; color: var(--text-muted); white-space: nowrap; }
+  .automation-rule-head.is-editing .auto-rule-edit-status { grid-column: 1 / -1; grid-row: 2; font-size: .8rem; color: var(--text-muted); }
+  .auto-rule[data-mode="edit"] .automation-rule-head { position: sticky; top: 0; z-index: 3; background: var(--panel); }
+  .auto-rule-body { padding: 12px 14px 14px; }
+  .auto-rule-view .act-test { display: none; }
+  .auto-rule-spark { padding: 4px 14px 0; }
+  .auto-rule-spark-svg { height: 30px; }
+  .auto-rule-spark-empty { display: block; height: 30px; line-height: 30px; }
+
+  /* Karten: Kopf und Aktionen werden Raster-Zellen der Karte. */
+  .auto-rule[data-mode="edit"] .auto-label-always-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .auto-rule[data-mode="edit"] .auto-card { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto auto; column-gap: 10px; row-gap: 10px; align-items: center; }
+  .auto-rule[data-mode="edit"] .auto-card-head, .auto-rule[data-mode="edit"] .auto-card-actions { display: contents; }
+  .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card-title { grid-column: 2; grid-row: 1; }
+  .auto-rule[data-mode="edit"] .auto-card-kind { grid-column: 2; grid-row: 2; display: block; }
+  .auto-rule[data-mode="edit"] .auto-cond-badge { display: inline-flex; grid-column: 3; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card-delete { grid-column: 4; grid-row: 1 / span 2; }
+  .auto-rule[data-mode="edit"] .auto-card > .auto-fields { grid-column: 1 / -1; grid-row: 3; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .auto-rule[data-mode="edit"] .auto-card-test { grid-column: 1 / -1; grid-row: 4; width: 100%; justify-content: center; }
+  .auto-rule[data-mode="edit"] .auto-fields.auto-field-wide { grid-template-columns: minmax(0, 1fr); }
+  .auto-rule[data-mode="edit"] .auto-fields.auto-field-wide > .auto-field { grid-column: 1 / -1; }
+  .auto-rule[data-mode="edit"] .auto-field:has(> .auto-device-chips) { grid-column: 1 / -1; }
+  .auto-rule[data-mode="edit"] .auto-device-chips.is-single { display: flex; align-items: stretch; gap: 8px; width: 100%; }
+  .auto-rule[data-mode="edit"] .auto-device-chips.is-single > .auto-device-chip { flex: 1 1 auto; min-width: 0; max-width: none; }
+  .auto-rule[data-mode="edit"] .auto-device-chips.is-single > .auto-device-more { flex: none; align-self: center; }
+  .auto-rule[data-mode="edit"] .auto-stepper { width: 100%; min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-stepper-field { min-width: 0; flex: 1 1 auto; }
+  .auto-rule[data-mode="edit"] .auto-field:has(.auto-hold-long), .auto-rule[data-mode="edit"] .auto-field:has(> .auto-compare) { grid-column: 1 / -1; }
+
+  /* Fuss klebt unten, der Inhalt hat Abstand, damit nie die letzte Karte darunter liegt. */
+  .auto-rule[data-mode="edit"] .auto-rule-body { padding-bottom: 14px; }
+  .auto-rule[data-mode="edit"] .auto-rule-foot { position: sticky; bottom: 0; background: var(--panel); }
+}
+
+@media (min-width: 900px) {
+  .auto-cond-badge { display: none; }
+}
+
+/* Das Abzeichen zeigt nur die Regel-Bearbeitung auf dem Telefon, das Szenario-Formular bleibt ohne. */
+.auto-cond-badge { display: none; }
+
+/* --- Assistent als Blatt unter 900 px: unten angedockt, Griff, Zeilen statt Kacheln, Chips zum Wischen --- */
+.auto-assist-grab { display: none; }
+.auto-assist-chev { display: none; }
+@media (max-width: 899.98px) {
+  .auto-assist { inset: auto 0 0; width: 100%; max-width: 100%; max-height: 86vh; }
+  .auto-assist-sheet { max-height: 86vh; border-radius: 22px 22px 0 0; background: var(--panel); box-shadow: 0 -8px 32px rgba(0, 0, 0, .25); }
+  .auto-assist::backdrop { background: rgba(0, 0, 0, .45); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .auto-assist-grab { display: grid; place-items: center; height: 26px; flex: none; cursor: grab; touch-action: none; }
+  .auto-assist-grab span { width: 36px; height: 5px; border-radius: 999px; background: var(--border); }
+  .auto-assist-foot { padding: 10px 14px; background: var(--panel); }
+  .auto-assist-cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .auto-assist-cat { flex: none; }
+  .auto-assist-tiles { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .auto-assist-tile { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 2px; align-items: center; padding: 10px 12px; text-align: left; }
+  .auto-assist-tile > .auto-assist-tile-icon { grid-column: 1; grid-row: 1 / span 3; width: 34px; height: 34px; }
+  .auto-assist-tile > b { grid-column: 2; grid-row: 1; min-width: 0; }
+  .auto-assist-tile > .auto-assist-blurb { grid-column: 2; grid-row: 2; }
+  .auto-assist-tile > .auto-assist-hint { grid-column: 2; grid-row: 3; }
+  .auto-assist-chev { display: block; grid-column: 3; grid-row: 1 / span 3; width: .9rem; height: .9rem; color: var(--text-faint); }
+}
+@media (max-width: 899.98px) and (prefers-reduced-motion: no-preference) {
+  .auto-assist[open] { animation: auto-sheet-up 420ms cubic-bezier(.32, .72, 0, 1); }
+  .auto-assist.is-closing { animation: auto-sheet-down 420ms cubic-bezier(.32, .72, 0, 1) forwards; }
+}
+@keyframes auto-sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes auto-sheet-down { from { transform: none; } to { transform: translateY(100%); } }

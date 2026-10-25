@@ -1331,7 +1331,7 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
-	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="auto-line`, `class="auto-pill`, `class="auto-rule-timeline`} {
+	for _, marker := range []string{`auto-segment`, `auto-scenario`, `auto-rule`, `class="auto-line`, `class="auto-pill`, `class="auto-fires`} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Fluss-Markup %q fehlt im Automations-Panel", marker)
 		}
@@ -1370,17 +1370,21 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
 	scenario := strings.Index(line, "automations-scenario.js?v=3")
-	chart := strings.Index(line, "automations-chart.js?v=2")
+	chart := strings.Index(line, "automations-chart.js?v=3")
 	page := strings.Index(line, "automations.page.js?v=")
 	wizard := strings.Index(line, "automation-wizard.js?v=1")
 	templates := strings.Index(line, "automation-templates.js?v=1")
-	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 {
+	sheet := strings.Index(line, "automation-sheet.js?v=1")
+	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 || sheet < 0 {
 		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)
 	}
 	if scenario > page || chart > page {
 		t.Fatalf("Szenario-Module laden nach automations.page.js: %s", line)
 	}
 	// Die Vorlagen-Engine haengt am Baustein-Modul, beide vor der Seite.
+	if sheet > page {
+		t.Fatalf("automation-sheet.js lädt nach automations.page.js: %s", line)
+	}
 	if wizard > templates || templates > page {
 		t.Fatalf("Assistenten-Module in falscher Reihenfolge vor automations.page.js: %s", line)
 	}
@@ -3353,20 +3357,92 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 	body := recorder.Body.String()
 	for _, want := range []string{
 		"Wenn alles zutrifft",
-		"auto-rule-timeline",
+		"auto-fires",
 		"auto-live",
 		"auto-blocks",
 		`<template x-if="!editing[rule.id]">`,
 		`<template x-if="editing[rule.id]">`,
+		`x-on:click="testRule(rule)"`,
+		`x-on:click="startEditing(rule)"`,
+		"auto-cond-state",
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("Regelkarte: %q fehlt im Automations-Panel", want)
+		}
+	}
+	// Der Kopf der Regel hat keinen Papierkorb mehr, Loeschen gibt es nur im Bearbeiten.
+	rule, err := fs.ReadFile(templateFS, "templates/automations-rule.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	header, _, found := strings.Cut(string(rule), `<div class="auto-rule-body"`)
+	if !found {
+		t.Fatal("Regelkarte: Kopf und Ansicht nicht getrennt")
+	}
+	if strings.Contains(header, "removeRule(") {
+		t.Fatal("Regelkarte: der Kopf enthaelt noch removeRule")
+	}
+	// Die Zustandsklassen entstehen im Skript, die Vorlage zeigt nur die Klasse.
+	script, err := fs.ReadFile(templateFS, "static/js/automations.page.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{"'is-met'", "'is-pending'", "'is-open'"} {
+		if !strings.Contains(string(script), marker) {
+			t.Fatalf("Regelkarte: Zustandsklasse %s fehlt im Skript", marker)
 		}
 	}
 	for _, gone := range []string{`class="gate"`, "mini-chain", "rule-column", "rule-arrow"} {
 		if strings.Contains(body, gone) {
 			t.Fatalf("Regelkarte: %q gibt es nicht mehr", gone)
 		}
+	}
+}
+
+// Die Werkzeugleiste hat mobil einen Verlauf-Knopf mit Zustand, der den Schalter ersetzt.
+func TestAutomationsToolbarHasHistoryIconButton(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`x-on:click="setShowHistory(!showHistory)"`,
+		`x-bind:aria-pressed`,
+		"auto-history-toggle",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Werkzeugleiste: %q fehlt im Automations-Panel", want)
+		}
+	}
+}
+
+// Der Bearbeiten-Zweig der Regel hat eine Fussleiste mit Loeschen, Verwerfen und
+// Fertig, und die Sperrzeit ist ein Stepper statt eines Zahlenfelds.
+func TestAutomationsRuleEditorHasFooterActions(t *testing.T) {
+	tpl, err := fs.ReadFile(templateFS, "templates/automations-rule.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, edit, found := strings.Cut(string(tpl), `<template x-if="editing[rule.id]">`)
+	if !found {
+		t.Fatal("Bearbeiten-Zweig nicht gefunden")
+	}
+	for _, want := range []string{
+		`removeRule(rule.id)`,
+		`discardEditing(rule)`,
+		`stopEditing(rule)`,
+		`automations.rule.footer.delete`,
+		`automations.rule.footer.discard`,
+		`automations.rule.footer.done`,
+		`auto-stepper`,
+		`stepKey: 'cooldown_seconds'`,
+	} {
+		if !strings.Contains(edit, want) {
+			t.Fatalf("Bearbeiten-Zweig: %q fehlt", want)
+		}
+	}
+	if strings.Contains(edit, `type="number" min="0" max="86400" x-model.number="rule.cooldown_seconds"`) {
+		t.Fatal("Bearbeiten-Zweig: Sperrzeit ist noch ein Zahlenfeld")
 	}
 }
 

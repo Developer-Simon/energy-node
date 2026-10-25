@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.13 (2026-10-25)
+## v0.10.14 (2026-10-25)
 
 ### Features
 
@@ -8,6 +8,21 @@
 - **automations:** The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor. (#164) (04148fb)
 - **automations:** Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker. (#165) (8f0b222)
 - **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
+- **auth:** Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions. (#167) (95146f8)
+- **automations:** trigger strip spans the last four triggers (6fca6e7)
+- **automations:** testRule runs every action in order (1e2528d)
+- **automations:** desktop rule row and header from the draft (a891d5c)
+- **automations:** rule columns and condition states from the draft (8c5edb2)
+- **automations:** discard restores the rule from a snapshot (4dff996)
+- **automations:** sentence rows for the desktop rule editor (33a7d8f)
+- **automations:** history sparklines for single rules (15a82aa)
+- **automations:** mobile toolbar and rule list row (e980f02)
+- **automations:** mobile rule card and editor from the draft (047abcd)
+- **automations:** bottom sheet drag module (1010449)
+- **automations:** assistant opens as a bottom sheet on phones (11d3f70)
+- **automations:** device value path chip with live pill (2565ee8)
+- **automations:** live bar preloads values while editing (503ae13)
+- **automations:** Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet. (#168)
 - **auth:** central permission catalog with view requirements (ea26663)
 - **auth:** versioned users.json with one-time migration and bootstrap-only admin (e4560c9)
 - **auth:** connection-aware login with HTTP password and restricted sessions (312baa0)
@@ -24,7 +39,6 @@
 - **auth:** list and end logged-in sessions (6d4e063)
 - **webui:** sessions tab, elevated rights warning and password policy in the users page (4a534fd)
 - **webui:** users page buttons, sessions tab, user icon and account card in system access (f7059a5)
-- **auth:** Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions. (#167)
 - **automation:** whole-day time windows and a maximum scenario duration (5483950)
 - **automations:** maximum duration field in the scenario editor (2d7cf1a)
 - **automations:** assistant device context (cf874ee)
@@ -68,6 +82,12 @@
 
 ### Fixes
 
+- **automations:** align the desktop rule editor with the draft (2f1160c)
+- **automations:** align the mobile rule card and editor with the draft (49c21c2)
+- **automations:** stepper for repeat, divided stepper buttons, tooltip and source row (f73fa79)
+- **automations:** keep the measurement source row on one line (a1d8a02)
+- **automations:** live pill shows the prefix once (846adbe)
+- **automations:** live bar values use the locale format (fdf95e8)
 - **auth:** keep own session when changing the HTTP password (c377a40)
 - **auth:** drop restricted sessions when http_login is removed (c5dfcf7)
 - **webui:** wording of the HTTP password risk text (7a5a105)
@@ -103,13 +123,23 @@
 
 ### Tests
 
+- **automations:** follow the chart asset version (d6b2170)
 - grant view prerequisites in role tests (c39e023)
 - **smoke:** restricted account and live permission change (a54097d)
 - **dashboard:** cover the automation rules schema with scenarios (d5d7d36)
 - **dashboard:** make alle-funktionen the default smoke preset (5c25a87)
 
+### Style
+
+- **automations:** centred stepper values and dashed add tiles (676bbdd)
+- **automations:** device action tile mentions setpoints (f9e5f7b)
+- **automations:** stable stepper fields and top aligned tiles (bfc602c)
+
 ### Chores
 
+- **automations:** cache-bust the rule view assets (e40a797)
+- **automations:** cache-bust the device helpers (3a8ac87)
+- **automations:** cache-bust the shared automation view helpers (8010d35)
 - **webui:** bump asset versions (60da1fe)
 - **dashboard:** bump automations asset versions (34f8085)
 - **automation:** scenario smoke fixture and 0.6.0 manifest (dcd062c)

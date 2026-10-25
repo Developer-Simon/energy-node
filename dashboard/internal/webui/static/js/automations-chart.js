@@ -145,6 +145,32 @@
       }));
   }
 
+  // Die letzten count Ausloesungen, neueste zuerst. Das Fenster passt sich an
+  // sie an (mindestens 30 Minuten), damit jede Regel ihren eigenen Rhythmus zeigt.
+  function lastTriggers(events, nowSec, count = 4) {
+    const newest = events
+      .filter((event) => Number.isFinite(event.at))
+      .sort((a, b) => b.at - a.at)
+      .slice(0, count);
+    if (!newest.length) return { marks: [], sinceLabel: '', empty: true };
+    const agoMin = newest.map((event) => (nowSec - event.at) / 60);
+    const span = Math.max(30, agoMin[agoMin.length - 1] * 1.12);
+    let shownX = -Infinity;
+    const marks = newest.map((event, index) => {
+      const x = (100 - (agoMin[index] / span) * 92 - 4) / 100;
+      const showLabel = Math.abs(x - shownX) > 0.12;
+      if (showLabel) shownX = x;
+      return { x, label: clockLabel(event.at), showLabel, tone: resultInfo(event.result).tone };
+    });
+    return { marks, sinceLabel: clockLabel(newest[newest.length - 1].at), empty: false };
+  }
+
+  function clockLabel(atSec) {
+    const date = new Date(atSec * 1000);
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
   // Vorschau des Toleranzbands im Regler-Formular. Die Achse reicht von
   // target - span bis target + span, in Prozent der Breite. Liegt net sonst
   // ausserhalb, waechst span auf |net - target| * 1.2.
@@ -168,5 +194,5 @@
     };
   }
 
-  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, sparkline, triggerTimeline, bandPreview };
+  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, sparkline, triggerTimeline, lastTriggers, bandPreview };
 })();

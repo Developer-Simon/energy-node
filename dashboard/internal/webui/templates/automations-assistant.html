@@ -6,6 +6,7 @@
         x-on:close="!$refs.assistantDialog.open && closeAssistant()"
         x-on:click="$event.target === $el && closeAssistant()">
   <div class="auto-assist-sheet">
+    <div class="auto-assist-grab" x-ref="assistantGrab" aria-hidden="true"><span></span></div>
 
     <template x-if="!assistant.templateId">
       <div class="auto-assist-step auto-assist-gallery">
@@ -48,6 +49,7 @@
                     <b x-text="assistantCopy(template, 'title')"></b>
                     <span class="auto-assist-blurb" x-text="assistantCopy(template, 'blurb')"></span>
                     <span class="auto-assist-hint" x-text="assistantAvailability(template).hint"></span>
+                    <svg class="automation-icon auto-assist-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
                   </button>
                 </template>
               </div>

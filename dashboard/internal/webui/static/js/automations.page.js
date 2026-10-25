@@ -87,8 +87,25 @@
   }
   const DEFAULT_DEADBAND_W = 20;
   const GRID_SERIES = 'role:grid';
+  // Wie weit der Bearbeiten-Modus fuer den Live-Balken ohne Dienstmeldung zurueckschaut.
+  const EDIT_LIVE_WINDOW_MS = 5 * 60 * 1000;
 
   const outputSeriesName = (id) => `automation_scenario_${id}_output`;
+
+  // Vorzeichen des Minidiagramms: Netz ist im Verlauf positiv beim Bezug, also
+  // ist Einspeisung positiv und Bezug nie negativ.
+  const ruleSparkValue = (field, avg) => {
+    if (field === 'grid_export') return -avg;
+    if (field === 'grid_import') return Math.max(0, avg);
+    return avg;
+  };
+
+  // Zahl des Live-Balkens im Format der Seite: Watt ganz, sonst hoechstens eine Nachkommastelle.
+  const formatLiveNumber = (value, unit) => {
+    if (!window.I18n) return String(value);
+    const rounded = unit === 'W' ? Math.round(value) : Math.round(value * 10) / 10;
+    return window.I18n.formatNumber(rounded, Number.isInteger(rounded) ? 0 : 1);
+  };
 
   // Vorzeichen wie im Entwurf: + Bezug, − Einspeisung.
   const signedW = (watts) => {
@@ -138,6 +155,10 @@
     lastStateMessageAt: null,
     historyExpanded: {},
     editing: {},
+    // Vorbelegte Live-Werte im Bearbeiten-Modus (Regel-ID -> Bedingungs-Index -> Wert), wenn der Dienst keinen meldet.
+    editLive: {},
+    // Stand einer Regel beim Start des Bearbeitens (ID -> Kopie), fuer Verwerfen.
+    editSnapshot: {},
     savedDocument: null,
     lastStateAt: 0,
     hasAutomationsRole: false,
@@ -158,6 +179,7 @@
     // aus den Zustandsupdates, Zeitpunkt des letzten Ladens, Tagesexport in kWh.
     chartRange: {},
     chartPoints: {},
+    ruleSparkPoints: {},
     livePoints: {},
     chartLoadedAt: {},
     todayExportKWh: null,
@@ -487,6 +509,22 @@
       return window.__automationsView.conditionState(report);
     },
 
+    // Klasse des Zustands: erfuellt, wartet (Haltezeit laeuft) oder offen.
+    condStateClass(report) {
+      const state = this.conditionStateOf(report);
+      if (state === 'met') return 'is-met';
+      if (state === 'pending') return 'is-pending';
+      return 'is-open';
+    },
+
+    // Schluessel des Zustandsabzeichens passend zu condStateClass.
+    condStateKey(report) {
+      const tone = this.condStateClass(report);
+      if (tone === 'is-met') return 'automations.rule.cond_state.met';
+      if (tone === 'is-pending') return 'automations.rule.cond_state.pending';
+      return 'automations.rule.cond_state.open';
+    },
+
     describeCondition(condition) {
       return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories);
     },
@@ -599,8 +637,73 @@
       return JSON.stringify(saved) !== JSON.stringify(rule);
     },
 
-    startEditing(rule) { this.editing[rule.id] = true; this.expanded[rule.id] = true; },
-    stopEditing(rule) { this.editing[rule.id] = false; },
+    // Der Schnappschuss entsteht nur beim Beginn, damit ein erneuter Klick auf
+    // Bearbeiten die urspruengliche Fassung nicht ueberschreibt.
+    startEditing(rule) {
+      if (!this.editing[rule.id]) {
+        this.editSnapshot[rule.id] = JSON.parse(JSON.stringify(rule));
+        this.loadEditLive(rule);
+      }
+      this.editing[rule.id] = true;
+      this.expanded[rule.id] = true;
+    },
+    stopEditing(rule) {
+      this.editing[rule.id] = false;
+      const next = { ...this.editLive };
+      delete next[rule.id];
+      this.editLive = next;
+    },
+
+    // Vorbelegung der Live-Balken im Bearbeiten-Modus, nur fuer Bilanzbedingungen: der neueste
+    // Rohwert der letzten fuenf Minuten, mit denselben Vorzeichen wie das Minidiagramm. Jeder
+    // Fehler laesst den Balken bei "—", nie eine Ausnahme.
+    async loadEditLive(rule) {
+      const store = window.HistoryStore;
+      const rollup = window.HistoryRollup;
+      const values = {};
+      if (store && rollup) {
+        const now = Date.now();
+        const from = now - EDIT_LIVE_WINDOW_MS;
+        for (const [index, condition] of (rule.conditions || []).entries()) {
+          const series = condition.type === 'balance_threshold' ? this.seriesForCondition(condition) : null;
+          if (!series) continue;
+          try {
+            const raw = await store.readRange('raw', series, from, now);
+            const newest = rollup.normalize(raw || [])
+              .filter((row) => row.series === series && row.ts >= from && isNumber(row.avg))
+              .sort((left, right) => right.ts - left.ts)[0];
+            if (newest) values[index] = ruleSparkValue(condition.field, newest.avg);
+          } catch (error) {
+            // Ohne Vorbelegung bleibt der Balken bei "—".
+          }
+        }
+      }
+      this.editLive = { ...this.editLive, [rule.id]: values };
+    },
+
+    // Wert eines Balkens im Bearbeiten-Modus ohne Dienstmeldung: bei Bilanz die Vorbelegung,
+    // bei Geraeten der aktuelle Wert der Entitaet, sofern er eine Zahl ist.
+    editValueOf(rule, condition, index) {
+      if (condition.type === 'balance_threshold') {
+        const values = this.editLive[rule.id] || {};
+        return isNumber(values[index]) ? values[index] : null;
+      }
+      const entity = this.entityForCondition(condition);
+      if (!entity) return null;
+      if (typeof entity.value === 'string' && entity.value.trim() === '') return null;
+      if (typeof entity.value !== 'number' && typeof entity.value !== 'string') return null;
+      const number = Number(entity.value);
+      return Number.isFinite(number) ? number : null;
+    },
+    // Verwerfen setzt die Felder an Ort und Stelle zurueck, damit Alpine dieselbe Referenz behaelt.
+    discardEditing(rule) {
+      const snapshot = this.editSnapshot[rule.id];
+      if (snapshot) {
+        for (const key of Object.keys(rule)) delete rule[key];
+        Object.assign(rule, JSON.parse(JSON.stringify(snapshot)));
+      }
+      this.stopEditing(rule);
+    },
     // Collapsing closes the editor too.
     toggleExpanded(rule) {
       const collapsing = this.expanded[rule.id];
@@ -810,7 +913,9 @@
       if (!on) return Promise.resolve();
       const scenarios = (this.document && this.document.scenarios) || [];
       const regulators = scenarios.filter((scenario) => scenario.while && scenario.while.mode === 'regulate');
-      return Promise.all(regulators.map((scenario) => this.loadScenarioChart(scenario)));
+      const rules = (this.document && this.document.rules) || [];
+      const sparks = rules.filter((rule) => this.ruleSeries(rule) !== null).map((rule) => this.loadRuleSpark(rule));
+      return Promise.all([...regulators.map((scenario) => this.loadScenarioChart(scenario)), ...sparks]);
     },
 
     // Minidiagramm der zugeklappten Regler-Zeile: Netzverlauf der letzten 30 min mit Toleranzband.
@@ -826,6 +931,92 @@
         width: SPARK_WIDTH,
         height: SPARK_HEIGHT,
       });
+    },
+
+    // Erste Bilanzbedingung der Regel, sonst null.
+    ruleSparkCondition(rule) {
+      return (rule.conditions || []).find((condition) => condition.type === 'balance_threshold') || null;
+    },
+
+    // Serie des Verlaufs fuer das Feld der ersten Bilanzbedingung, sonst null.
+    // Eigene Kategorien heissen role:custom:<basis>:<id>, die Basis kommt aus den Kategorien.
+    ruleSeries(rule) {
+      return this.seriesForCondition(this.ruleSparkCondition(rule));
+    },
+
+    // Serie des Verlaufs fuer das Feld einer Bilanzbedingung, sonst null.
+    seriesForCondition(condition) {
+      if (!condition || typeof condition.field !== 'string') return null;
+      const roles = new Map([
+        ['grid_import', 'role:grid'], ['grid_export', 'role:grid'], ['pv', 'role:pv'],
+        ['load_total', 'role:load'], ['wallbox', 'role:wallbox'], ['heat_pump', 'role:heat_pump'],
+        ['battery_soc', 'role:battery_soc'], ['battery_charge', 'role:battery'], ['battery_discharge', 'role:battery'],
+      ]);
+      if (roles.has(condition.field)) return roles.get(condition.field);
+      if (condition.field.startsWith('custom:')) {
+        const id = condition.field.slice('custom:'.length);
+        const category = this.categories && this.categories[id];
+        return category && category.base ? `role:custom:${category.base}:${id}` : null;
+      }
+      return null;
+    },
+
+    // Liest 30 min Verlauf der Serie der Regel (Rohwerte und Minutenwerte), wie loadScenarioChart.
+    // Jeder Fehler ergibt keine Punkte, nie eine Ausnahme.
+    async loadRuleSpark(rule) {
+      const series = this.ruleSeries(rule);
+      const field = (this.ruleSparkCondition(rule) || {}).field;
+      const store = window.HistoryStore;
+      const rollup = window.HistoryRollup;
+      const chart = window.__automationChart;
+      let points = [];
+      if (series && store && rollup && chart) {
+        try {
+          const bounds = chart.rangeBounds('30m', Date.now());
+          const fromMs = bounds.from * 1000;
+          const toMs = bounds.to * 1000;
+          const raw = await store.readRange('raw', series, fromMs, toMs);
+          const minute = await store.readRange('1m', series, fromMs, toMs);
+          const { rows } = rollup.fillRawGaps(rollup.normalize(raw || []), rollup.normalize(minute || []), fromMs, toMs);
+          const own = rows.filter((row) => row.series === series).sort((left, right) => left.ts - right.ts);
+          points = rollup.thin(own, CHART_MAX_POINTS).map((row) => ({ ts: row.ts / 1000, value: ruleSparkValue(field, row.avg) }));
+        } catch (error) {
+          points = [];
+        }
+      }
+      this.ruleSparkPoints[rule.id] = points;
+    },
+
+    // Minidiagramm der Regel: die Schwelle als Linie, ohne Toleranzband.
+    ruleSparkFor(rule) {
+      const condition = this.ruleSparkCondition(rule) || {};
+      const bounds = window.__automationChart.rangeBounds('30m', this.nowTick);
+      return window.__automationChart.sparkline({
+        points: this.ruleSparkPoints[rule.id] || [],
+        target: isNumber(condition.threshold) ? condition.threshold : 0,
+        deadband: 0,
+        from: bounds.from,
+        to: bounds.to,
+        width: SPARK_WIDTH,
+        height: 30,
+      });
+    },
+
+    // Kopfzeile des Editors: Status der Regel, dazu die letzte Auslösung, wenn es eine gibt.
+    ruleEditStatus(rule) {
+      const status = this.gateVerdict(rule).label;
+      const marks = this.ruleTriggers(rule).marks;
+      if (!marks.length) return status;
+      return t('automations.rule.edit.status_last', { status, time: marks[0].label });
+    },
+
+    // Kurzstatus der Regel fuer die Listenzeile: erfuellt, wartet, Sperrzeit,
+    // nicht erfuellt, Fehler oder aus. Aus gilt vor allem anderen.
+    ruleShortStatus(rule) {
+      if (!rule.enabled) return { tone: 'disabled', label: t('automations.gate.short.disabled') };
+      const verdict = this.gateVerdict(rule);
+      const keys = { ok: 'automations.gate.short.ok', wait: 'automations.gate.short.wait', info: 'automations.gate.short.info', off: 'automations.gate.short.off', bad: 'automations.gate.short.bad' };
+      return { tone: verdict.tone, label: t(keys[verdict.tone] || 'automations.gate.short.off') };
     },
 
     // Vorschau des Toleranzbands fuer das Regler-Formular.
@@ -999,6 +1190,14 @@
       }
     },
 
+    async testRule(rule) {
+      const results = [];
+      for (let i = 0; i < (rule.actions || []).length; i++) {
+        results.push(await this.testAction(rule, i));
+      }
+      return results;
+    },
+
     notify(message, severity) {
       this.$store.toasts.push(message, severity);
     },
@@ -1024,6 +1223,8 @@
     // Vorlagen-Assistent: Zustand, Schrittfolge und Anlegen. Das Markup folgt
     // in den Teilauftraegen 5b/5c.
     async openAssistant() {
+      const active = document.activeElement;
+      this.assistantOpener = active && active !== document.body ? active : document.querySelector('.auto-assist-open');
       const [, energy] = await Promise.all([
         this.loadDeviceCatalog(),
         requestJSON('/api/v1/energy').catch(() => null),
@@ -1036,6 +1237,7 @@
       };
       const dialog = this.$refs.assistantDialog;
       if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+      this.attachAssistantSheet();
       const search = this.$refs.assistantSearch;
       if (search && typeof search.focus === 'function') search.focus();
     },
@@ -1044,8 +1246,48 @@
     // den Entwurf. Angelegt wird nur in assistantCreate().
     closeAssistant() {
       const dialog = this.$refs.assistantDialog;
-      if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
-      this.assistant = assistantIdle();
+      this.detachAssistantSheet();
+      const opener = this.assistantOpener;
+      this.assistantOpener = null;
+      const finish = () => {
+        if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
+        this.assistant = assistantIdle();
+        if (opener && typeof opener.focus === 'function') opener.focus();
+      };
+      const slides = typeof window.matchMedia === 'function'
+        && window.matchMedia('(max-width: 899.98px) and (prefers-reduced-motion: no-preference)').matches;
+      if (dialog && dialog.open && slides) {
+        // Auf dem Telefon faehrt das Blatt nach unten weg, dann schliesst der Dialog.
+        let done = false;
+        const once = () => {
+          if (done) return;
+          done = true;
+          dialog.classList.remove('is-closing');
+          finish();
+        };
+        dialog.style.transform = '';
+        dialog.classList.add('is-closing');
+        dialog.addEventListener('animationend', (event) => { if (event.target === dialog) once(); }, { once: true });
+        setTimeout(once, 480);
+        return;
+      }
+      finish();
+    },
+
+    // Blatt unter 900 px: der Griff folgt dem Finger und schliesst, sonst federt es zurueck.
+    attachAssistantSheet() {
+      this.detachAssistantSheet();
+      const dialog = this.$refs.assistantDialog;
+      const grab = this.$refs.assistantGrab;
+      const sheet = window.__automationSheet;
+      const phone = typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 899.98px)').matches;
+      if (!sheet || !dialog || !grab || !phone) return;
+      this.assistantDetach = sheet.attach(grab, dialog, { onClose: () => this.closeAssistant() });
+    },
+
+    detachAssistantSheet() {
+      if (typeof this.assistantDetach === 'function') this.assistantDetach();
+      this.assistantDetach = null;
     },
 
     assistantTemplate() {
@@ -1345,8 +1587,8 @@
       if (rule) rule.enabled = !rule.enabled;
     },
 
-    conditionTypes() { return CONDITION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint) })); },
-    actionTypes() { return ACTION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint) })); },
+    conditionTypes() { return CONDITION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint), short: t(type.short) })); },
+    actionTypes() { return ACTION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint), short: t(type.short) })); },
     fieldHelp(key) { return FIELD_HELP[key] ? t(FIELD_HELP[key]) : ''; },
 
     addBalanceCondition(rule) {
@@ -1433,10 +1675,13 @@
     // CONDITION_TYPES, also muss auch das Anlegen ueber denselben Schluessel
     // gehen. Unbekannter Schluessel legt bewusst nichts an.
     addCondition(rule, key) {
-      if (key === 'balance') return this.addBalanceCondition(rule);
-      if (key === 'entity') return this.addEntityValueCondition(rule);
-      if (key === 'time') return this.addTimeWindowCondition(rule);
-      if (key === 'sun') return this.addSunWindowCondition(rule);
+      let result;
+      if (key === 'balance') result = this.addBalanceCondition(rule);
+      if (key === 'entity') result = this.addEntityValueCondition(rule);
+      if (key === 'time') result = this.addTimeWindowCondition(rule);
+      if (key === 'sun') result = this.addSunWindowCondition(rule);
+      this.loadEditLive(rule);
+      return result;
     },
 
     // "entity" oeffnet den Geraete-Picker, die Aktion entsteht erst mit der Wahl.
@@ -1709,10 +1954,22 @@
           const numeric = condition.type === 'balance_threshold'
             || (condition.type === 'entity_value' && (condition.comparison === 'above' || condition.comparison === 'below'));
           if (!numeric) return null;
-          const bar = this.liveBarOf(condition, this.conditionReport(rule, index));
-          return { ...bar, index, title: this.describeCondition(condition).title };
+          const report = this.conditionReport(rule, index);
+          const hasReport = report && isNumber(report.value);
+          const fallback = this.editing[rule.id] && !hasReport ? this.editValueOf(rule, condition, index) : null;
+          const bar = this.liveBarOf(condition, report, fallback);
+          return { ...bar, index, title: this.describeCondition(condition).title, tone: this.liveTone(condition) };
         })
         .filter(Boolean);
+    },
+
+    // Ton des Live-Balkens nach der Rolle des Felds, sonst Netz.
+    liveTone(condition) {
+      const tones = {
+        grid_export: 'grid', grid_import: 'grid', pv: 'pv', load_total: 'load', base: 'load',
+        wallbox: 'wallbox', heat_pump: 'heatpump', battery_charge: 'battery', battery_discharge: 'battery',
+      };
+      return tones[condition.field] || 'grid';
     },
 
     // Live-Balken der ersten Bilanzbedingung, wie vor liveBars.
@@ -1724,9 +1981,10 @@
 
     // Balken einer Bedingung. Das Band liegt zwischen Schwelle und
     // Schwelle -/+ Hysterese: bei "above" darunter, bei "below" darueber.
-    liveBarOf(condition, report) {
+    liveBarOf(condition, report, fallback = null) {
       const threshold = condition.type === 'entity_value' ? condition.value : condition.threshold;
-      const value = report && isNumber(report.value) ? report.value : null;
+      const reported = report && isNumber(report.value) ? report.value : null;
+      const value = reported !== null ? reported : (isNumber(fallback) ? fallback : null);
       const target = report && isNumber(report.target) ? report.target : threshold;
       const view = window.__automationsView;
       const scale = view.meterScale(condition, { value, target }, this.entityForCondition(condition));
@@ -1740,14 +1998,14 @@
         band = { left, width: view.meterFraction(high, scale) - left };
       }
       const unit = this.describeCondition(condition).unit;
-      const valueText = value === null ? '—' : `${value} ${unit}`.trim();
-      return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText };
+      const valueText = value === null ? '—' : `${formatLiveNumber(value, unit)} ${unit}`.trim();
+      const thresholdText = isNumber(threshold) ? `${formatLiveNumber(threshold, unit)} ${unit}`.trim() : '';
+      return { fraction: view.meterFraction(value, scale), mark: view.meterFraction(target, scale), band, valueText, thresholdText };
     },
 
-    // Zeitleiste der letzten sechs Stunden, Sekunden wie der Dienst sie liefert.
-    ruleTimeline(rule) {
-      const now = this.nowTick / 1000;
-      return window.__automationChart.triggerTimeline(this.liveHistory[rule.id] || [], now - 6 * 3600, now, 600);
+    // Auslöse-Leiste der letzten vier Auslösungen, Sekunden wie der Dienst sie liefert.
+    ruleTriggers(rule) {
+      return window.__automationChart.lastTriggers(this.liveHistory[rule.id] || [], this.nowTick / 1000);
     },
 
     // "once" loescht das Wiederholintervall, "repeat" setzt es auf den groesseren
@@ -1776,7 +2034,7 @@
       return chip || { ...unknownChip(condition.field), deviceName: condition.field || t('automations.devices.unknown') };
     },
 
-    async chooseConditionField(condition) {
+    async chooseConditionField(condition, rule) {
       const fields = [...this.balanceFields, ...this.customBalanceFields];
       const field = await this.openPicker({
         title: t('automations.condition.balance.field_label'),
@@ -1785,7 +2043,9 @@
         filters: roleFilters(),
         selected: condition.field ? [condition.field] : [],
       });
-      if (field) condition.field = field;
+      if (!field) return;
+      condition.field = field;
+      if (rule) this.loadEditLive(rule);
     },
 
     // Kachel der Entitaet einer Bedingung, ohne Wahl ein Platzhalter.
@@ -1794,7 +2054,7 @@
       return entityChip(this.devices, this.assignments, condition.entity_id) || unknownChip(condition.topic);
     },
 
-    async chooseConditionEntity(condition) {
+    async chooseConditionEntity(condition, rule) {
       const uniqueId = await this.openPicker({
         title: t('automations.condition.entity.entity_label'),
         items: pickerItems(meterCandidates(this.devices, this.assignments)),
@@ -1805,6 +2065,7 @@
       if (!uniqueId) return;
       condition.entity_id = uniqueId;
       this.adoptConditionEntity(condition);
+      if (rule) this.loadEditLive(rule);
     },
 
     validateRuleBeforeSave(rule) {

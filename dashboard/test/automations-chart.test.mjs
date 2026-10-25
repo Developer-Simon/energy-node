@@ -110,6 +110,44 @@ test('scenarioChart keeps the y range around zero with at least 100 W', () => {
   assert.ok(zero.y > 0 && zero.y < 100);
 });
 
+const lastTriggers = (...args) => load().lastTriggers(...args);
+
+test('lastTriggers keeps the four newest and spans the oldest of them', () => {
+  const now = 1_000_000;
+  const ev = [12, 47, 51, 138, 290].map((m) => ({ at: now - m * 60, result: 'fired' }));
+  const r = lastTriggers(ev, now);
+  assert.equal(r.marks.length, 4);
+  assert.equal(r.empty, false);
+  assert.ok(Math.abs(r.marks[0].x - (100 - (12 / (138 * 1.12)) * 92 - 4) / 100) < 1e-9);
+  assert.equal(r.marks.filter((m) => m.showLabel).length, 3); // 47 und 51 liegen zu eng
+});
+
+test('lastTriggers uses at least 30 minutes', () => {
+  const now = 1_000_000;
+  const r = lastTriggers([{ at: now - 60, result: 'fired' }], now);
+  assert.ok(Math.abs(r.marks[0].x - (100 - (1 / 30) * 92 - 4) / 100) < 1e-9);
+});
+
+test('lastTriggers without events is empty', () => {
+  assert.deepEqual(plain(lastTriggers([], 1).marks), []);
+  assert.equal(lastTriggers([], 1).empty, true);
+});
+
+test('lastTriggers labels clock times and tones the marks', () => {
+  process.env.TZ = 'UTC';
+  const now = 1_000_000;
+  const r = plain(lastTriggers([
+    { at: now - 600, result: 'blocked' },
+    { at: now - 3600, result: 'fired' },
+  ], now));
+  assert.equal(r.marks[0].tone, 'bad');
+  assert.equal(r.marks[1].tone, 'ok');
+  // 1_000_000 s ist 13:46:40 UTC, also now - 600 s = 13:36 und now - 3600 s = 12:46.
+  assert.equal(r.marks[0].label, '13:36');
+  assert.equal(r.sinceLabel, '12:46');
+  assert.equal(r.marks[0].showLabel, true);
+});
+
 test('triggerTimeline colours fired, blocked and scenario events', () => {
   const chart = load();
   const timeline = plain(chart.triggerTimeline([

@@ -79,13 +79,13 @@
   // die PV-Einspeisung ist nur die haeufigste Vorbelegung.
   const CONDITION_TYPES = [
     { key: 'balance', icon: 'ico-sun', label: 'automations.condition_type.balance.label',
-      hint: 'automations.condition_type.balance.hint' },
+      hint: 'automations.condition_type.balance.hint', short: 'automations.condition_type.balance.short' },
     { key: 'entity', icon: 'ico-thermo', label: 'automations.condition_type.entity.label',
-      hint: 'automations.condition_type.entity.hint' },
+      hint: 'automations.condition_type.entity.hint', short: 'automations.condition_type.entity.short' },
     { key: 'time', icon: 'ico-clock', label: 'automations.condition_type.time.label',
-      hint: 'automations.condition_type.time.hint' },
+      hint: 'automations.condition_type.time.hint', short: 'automations.condition_type.time.short' },
     { key: 'sun', icon: 'ico-sun', label: 'automations.condition_type.sun.label',
-      hint: 'automations.condition_type.sun.hint' },
+      hint: 'automations.condition_type.sun.hint', short: 'automations.condition_type.sun.short' },
   ];
 
   // i18n-keys: automations.sun_event.sunrise, automations.sun_event.sunset
@@ -126,11 +126,11 @@
   // welche publish-Aktion daraus wird.
   const ACTION_TYPES = [
     { key: 'entity', icon: 'ico-switch', label: 'automations.action_type.entity.label', advanced: false,
-      hint: 'automations.action_type.entity.hint' },
+      hint: 'automations.action_type.entity.hint', short: 'automations.action_type.entity.short' },
     { key: 'notify', icon: 'ico-bell', label: 'automations.action_type.notify.label', advanced: false,
-      hint: 'automations.action_type.notify.hint' },
+      hint: 'automations.action_type.notify.hint', short: 'automations.action_type.notify.short' },
     { key: 'mqtt', icon: 'ico-topic', label: 'automations.action_type.mqtt.label', advanced: true,
-      hint: 'automations.action_type.mqtt.hint' },
+      hint: 'automations.action_type.mqtt.hint', short: 'automations.action_type.mqtt.short' },
   ];
 
   // i18n-keys: automations.field_help.balance_max_age_s, automations.field_help.cooldown_seconds, automations.field_help.history_enabled, automations.field_help.history_limit, automations.field_help.history_persist, automations.field_help.hold_seconds, automations.field_help.hysteresis, automations.field_help.json_key, automations.field_help.location, automations.field_help.offset, automations.field_help.payload, automations.field_help.publish_allowed_prefixes, automations.field_help.publish_min_interval_s, automations.field_help.regulator_interval_s, automations.field_help.repeat_seconds, automations.field_help.max_duration_s, automations.field_help.retain, automations.field_help.scale, automations.field_help.settling_seconds, automations.field_help.tick_interval_s, automations.field_help.topic, automations.field_help.target_w, automations.field_help.deadband_w, automations.field_help.gain, automations.field_help.max_change_w, automations.field_help.interval_s, automations.field_help.fallback, automations.field_help.base

@@ -1,61 +1,83 @@
 {{define "automations-rule"}}
-            <div class="automation-rule-head">
-              <button class="auto-tile is-accent auto-collapse" type="button" x-on:click="toggleExpanded(rule)"
+            <div class="automation-rule-head" x-bind:class="{ 'is-collapsed': !expanded[rule.id], 'is-editing': editing[rule.id] }" x-on:click="expanded[rule.id] || toggleExpanded(rule)">
+              <button class="auto-tile is-accent auto-collapse" type="button" x-on:click.stop="toggleExpanded(rule)"
                       x-bind:aria-expanded="Boolean(expanded[rule.id])"
                       x-bind:title="expanded[rule.id] ? $t('automations.rule.expand_button.tooltip_collapse') : $t('automations.rule.expand_button.tooltip_expand')"
                       x-bind:aria-label="expanded[rule.id] ? $t('automations.rule.expand_button.tooltip_collapse') : $t('automations.rule.expand_button.tooltip_expand')">
                 <svg class="automation-icon"><use x-bind:href="'#' + ruleIcon(rule)"></use></svg>
               </button>
 
-              <span class="automation-rule-name is-clickable" x-show="!editing[rule.id]" x-text="rule.name" x-on:click="toggleExpanded(rule)"></span>
-              <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
-                     x-bind:aria-label="$t('automations.rule.name_input.aria_label')">
-              <span class="auto-rule-preview" aria-hidden="true" x-show="!expanded[rule.id]">
-                <template x-for="(entry, index) in rulePreview(rule).conditions" x-bind:key="'c' + index">
-                  <svg class="automation-icon automation-icon-sm" x-bind:class="entry.state"><use x-bind:href="'#' + entry.icon"></use></svg>
-                </template>
-                <svg class="automation-icon automation-icon-sm auto-rule-preview-arrow"><use href="#ico-chevron"></use></svg>
-                <template x-for="(entry, index) in rulePreview(rule).actions" x-bind:key="'a' + index">
-                  <svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + entry.icon"></use></svg>
-                </template>
+              <span class="auto-rule-main">
+                <span class="automation-rule-name is-clickable" x-show="!editing[rule.id]" x-text="rule.name"></span>
+                <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
+                       x-bind:aria-label="$t('automations.rule.name_input.aria_label')">
+                <span class="auto-rule-preview" aria-hidden="true" x-show="!expanded[rule.id]">
+                  <template x-for="(entry, index) in rulePreview(rule).conditions" x-bind:key="'c' + index">
+                    <svg class="automation-icon automation-icon-sm" x-bind:class="entry.state"><use x-bind:href="'#' + entry.icon"></use></svg>
+                  </template>
+                  <svg class="automation-icon automation-icon-sm auto-rule-preview-arrow"><use href="#ico-chevron"></use></svg>
+                  <template x-for="(entry, index) in rulePreview(rule).actions" x-bind:key="'a' + index">
+                    <svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + entry.icon"></use></svg>
+                  </template>
+                </span>
+                <span class="auto-pill" x-bind:class="gateVerdict(rule).tone" x-bind:title="gateVerdict(rule).detail" x-text="gateVerdict(rule).label"></span>
+                <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
+                <span class="auto-rule-short" x-show="!expanded[rule.id]" x-bind:class="'is-' + ruleShortStatus(rule).tone">
+                  <i class="auto-dot" aria-hidden="true"></i>
+                  <span x-text="ruleShortStatus(rule).label"></span>
+                </span>
               </span>
-              <span class="auto-pill" x-bind:class="gateVerdict(rule).tone" x-bind:title="gateVerdict(rule).detail" x-text="gateVerdict(rule).label"></span>
-              <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
 
-              <label class="settings-toggle"
+              <span class="auto-rule-edit-status" x-show="editing[rule.id]" x-text="ruleEditStatus(rule)"></span>
+              <button class="auto-btn-text is-ghost" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-on:click="testRule(rule)"
+                      x-bind:title="$t('automations.rule.test_button')">
+                <svg class="automation-icon"><use href="#ico-play"></use></svg>
+                <span>{{t "automations.rule.test_button"}}</span>
+              </button>
+              <button class="auto-btn-text" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-bind:class="{ 'is-active': editing[rule.id] }"
+                      x-on:click="startEditing(rule)" x-bind:aria-pressed="Boolean(editing[rule.id])"
+                      x-bind:title="$t('automations.rule.edit_button.tooltip_edit')">
+                <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
+                <span>{{t "automations.rule.edit_button.label"}}</span>
+              </button>
+
+              <label class="settings-toggle" x-on:click.stop
                      x-bind:title="rule.enabled ? $t('automations.rule.enabled_toggle.title_on') : $t('automations.rule.enabled_toggle.title_off')">
                 <input type="checkbox" x-bind:checked="rule.enabled" x-on:change="toggleEnabled(rule.id)"
                        x-bind:aria-label="$t('automations.rule.enabled_toggle.aria_label', {name: rule.name})">
                 <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
               </label>
+              <svg class="automation-icon auto-rule-chevron" aria-hidden="true" x-show="!expanded[rule.id]"><use href="#ico-chevron"></use></svg>
+            </div>
 
-              <button class="icon-button auto-btn-ghost" x-bind:class="{ active: editing[rule.id] }" type="button"
-                      x-on:click="editing[rule.id] ? stopEditing(rule) : startEditing(rule)"
-                      x-bind:title="editing[rule.id] ? $t('automations.rule.edit_button.tooltip_stop') : $t('automations.rule.edit_button.tooltip_edit')"
-                      x-bind:aria-label="editing[rule.id] ? $t('automations.rule.edit_button.tooltip_stop') : $t('automations.rule.edit_button.tooltip_edit')">
-                <svg class="automation-icon"><use x-bind:href="editing[rule.id] ? '#ico-check' : '#ico-pencil'"></use></svg>
-              </button>
-              <button class="icon-button danger auto-btn-ghost" type="button" x-on:click="removeRule(rule.id)"
-                      x-bind:title="$t('automations.rule.delete_button.tooltip', {name: rule.name})" x-bind:aria-label="$t('automations.rule.delete_button.tooltip', {name: rule.name})">
-                <svg class="automation-icon"><use href="#ico-trash"></use></svg>
-              </button>
+            <div class="auto-rule-spark" x-show="showHistory && !expanded[rule.id]" x-bind:class="'is-tone-' + liveTone(ruleSparkCondition(rule) || {})"
+                 x-bind:style="{ animationDelay: (document.rules.indexOf(rule) * 40) + 'ms' }">
+              <template x-if="ruleSparkFor(rule).empty">
+                <span class="auto-rule-spark-empty">{{t "automations.rule.spark.empty"}}</span>
+              </template>
+              <template x-if="!ruleSparkFor(rule).empty">
+                <svg class="auto-rule-spark-svg" viewBox="0 0 150 30" preserveAspectRatio="none" aria-hidden="true">
+                  <line class="auto-rule-spark-target" x1="0" x2="150" x-bind:y1="ruleSparkFor(rule).band.y" x-bind:y2="ruleSparkFor(rule).band.y"></line>
+                  <path class="auto-rule-spark-line" x-bind:d="ruleSparkFor(rule).path"></path>
+                </svg>
+              </template>
             </div>
 
             <div class="auto-rule-body" x-show="expanded[rule.id]">
 
               <template x-if="liveBars(rule).length">
                 <div class="auto-live-list">
-                  <span class="auto-figure-label">{{t "automations.rule.live.label"}}</span>
                   <template x-for="bar in liveBars(rule)" x-bind:key="bar.index">
                     <div class="auto-live">
-                      <div class="auto-live-head">
-                        <span class="auto-live-title" x-text="bar.title"></span>
-                        <span class="auto-live-value" x-text="bar.valueText"></span>
-                      </div>
-                      <div class="auto-live-bar" role="img" x-bind:aria-label="$t('automations.rule.live.aria_label')">
+                      <span class="auto-figure-label" x-text="$t('automations.rule.live.caption', {field: bar.title})"></span>
+                      <div class="auto-live-bar" x-bind:class="'is-tone-' + bar.tone" role="img" x-bind:aria-label="$t('automations.rule.live.aria_label')">
                         <i class="auto-live-fill" x-bind:style="{ width: (bar.fraction * 100) + '%' }"></i>
                         <i class="auto-live-band" x-show="bar.band" x-bind:style="bar.band ? { left: (bar.band.left * 100) + '%', width: (bar.band.width * 100) + '%' } : {}"></i>
                         <i class="auto-live-mark" x-bind:style="{ left: (bar.mark * 100) + '%' }"></i>
+                        <span class="auto-live-label">
+                          <span x-text="bar.valueText"></span>
+                          <span x-show="bar.thresholdText" x-text="$t('automations.rule.live.threshold', {value: bar.thresholdText})"></span>
+                        </span>
                       </div>
                     </div>
                   </template>
@@ -90,29 +112,53 @@
                         <li class="auto-line">
                           <svg class="automation-icon"><use href="#ico-gate"></use></svg>
                           <span class="auto-line-text" x-text="$t('automations.rule.flow.cooldown', {seconds: rule.cooldown_seconds || 0})"></span>
+                          <span class="field-help">
+                            <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.cooldown_help_aria_label')">
+                              <svg><use href="#ico-help"></use></svg>
+                            </button>
+                            <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_seconds')"></span>
+                          </span>
                         </li>
                       </ul>
                     </section>
                   </div>
 
                   <template x-if="rule.history_enabled">
-                    <div class="auto-rule-timeline">
-                      <span class="auto-block-cap">{{t "automations.rule.timeline.caption"}}</span>
-                      <div class="auto-timeline-track">
-                        <template x-for="(mark, index) in ruleTimeline(rule)" x-bind:key="index">
-                          <i class="auto-timeline-mark" x-bind:class="mark.tone" x-bind:style="{ left: (mark.x / 6) + '%' }"></i>
-                        </template>
+                    <div class="auto-fires">
+                      <div class="auto-fires-head" x-show="ruleTriggers(rule).marks.length">
+                        <span class="auto-block-cap" x-text="ruleTriggers(rule).marks.length === 1 ? $t('automations.rule.timeline.caption_one') : $t('automations.rule.timeline.caption_many', {count: ruleTriggers(rule).marks.length})"></span>
+                        <small x-text="$t('automations.rule.timeline.since', {time: ruleTriggers(rule).sinceLabel})"></small>
                       </div>
-                      <div class="auto-timeline-axis">
-                        <span>{{t "automations.rule.timeline.six_hours_ago"}}</span>
-                        <span>{{t "automations.rule.timeline.three_hours_ago"}}</span>
-                        <span>{{t "automations.rule.timeline.now"}}</span>
+                      <div class="auto-fires-track" x-bind:class="{ empty: ruleTriggers(rule).empty }">
+                        <template x-if="ruleTriggers(rule).empty">
+                          <span x-text="$t('automations.rule.timeline.empty')"></span>
+                        </template>
+                        <template x-for="(mark, index) in ruleTriggers(rule).marks" x-bind:key="index">
+                          <i x-bind:class="mark.tone" x-bind:style="{ left: (mark.x * 100) + '%' }" x-bind:title="mark.label"></i>
+                        </template>
+                        <template x-for="(mark, index) in ruleTriggers(rule).marks.filter((item) => item.showLabel)" x-bind:key="index">
+                          <em x-bind:style="{ left: (mark.x * 100) + '%' }" x-text="mark.label"></em>
+                        </template>
                       </div>
                     </div>
                   </template>
                   <template x-if="!rule.history_enabled">
                     <p class="sub">{{t "automations.history.disabled_message"}}</p>
                   </template>
+                  <div class="auto-mobile-actions">
+                    <button class="auto-btn-text" type="button" x-on:click="startEditing(rule)">
+                      <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
+                      <span>{{t "automations.rule.edit_button.label"}}</span>
+                    </button>
+                    <button class="auto-btn-text is-ghost" type="button" x-on:click="testRule(rule)">
+                      <svg class="automation-icon"><use href="#ico-play"></use></svg>
+                      <span>{{t "automations.rule.test_button"}}</span>
+                    </button>
+                    <button class="auto-btn-text is-ghost is-danger is-icon" type="button" x-on:click="removeRule(rule.id)"
+                            x-bind:aria-label="$t('automations.rule.footer.delete')" x-bind:title="$t('automations.rule.footer.delete')">
+                      <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                    </button>
+                  </div>
                 </div>
               </template>
 
@@ -136,10 +182,17 @@
                     {{template "automations-action-tiles"}}
                   </section>
 
-                  <section class="auto-block">
+                  <section class="auto-block auto-flow-group">
                     <h4 class="auto-block-cap">{{t "automations.rule.block.flow"}}</h4>
                     <div class="auto-flow-row">
+                      <svg class="automation-icon auto-flow-icon" aria-hidden="true"><use href="#ico-history"></use></svg>
                       <span class="auto-flow-label">{{t "automations.rule.flow.mode_label"}}</span>
+                      <span class="field-help">
+                        <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.repeat_help_aria_label')">
+                          <svg><use href="#ico-help"></use></svg>
+                        </button>
+                        <span class="field-help-text" role="tooltip" x-text="fieldHelp('repeat_seconds')"></span>
+                      </span>
                       <div class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.rule.flow.mode_label')">
                         <button class="auto-segment-tab" type="button" role="radio" x-on:click="setRepeatMode(rule, 'once')"
                                 x-bind:aria-checked="rule.repeat_seconds > 0 ? 'false' : 'true'">{{t "automations.rule.flow.once_segment"}}</button>
@@ -150,9 +203,9 @@
                       <template x-if="rule.repeat_seconds > 0">
                         <span class="auto-flow-row">
                           <span>{{t "automations.rule.flow.every"}}</span>
-                          <input x-bind:id="`repeat-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.repeat_seconds"
-                                 x-bind:aria-label="$t('automations.rule_editor.repeat_label')">
-                          <span class="edit-unit">s</span>
+                          <span class="auto-field" x-data="{ get stepTarget() { return rule }, stepKey: 'repeat_seconds', stepOpts: { min: 1, max: 86400, step: 10 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.rule_editor.repeat_label') }">
+                            {{template "auto-stepper"}}
+                          </span>
                           <span class="field-help">
                             <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.repeat_help_aria_label')">
                               <svg><use href="#ico-help"></use></svg>
@@ -164,7 +217,8 @@
                     </div>
                     <p class="auto-hint" x-show="hasToggleAction(rule)">{{t "automations.rule_editor.repeat_blocked_toggle"}}</p>
                     <div class="auto-flow-row">
-                      <label class="auto-flow-label" x-bind:for="`cooldown-${rule.id}`">
+                      <svg class="automation-icon auto-flow-icon" aria-hidden="true"><use href="#ico-gate"></use></svg>
+                      <span class="auto-flow-label">
                         {{t "automations.rule_editor.cooldown_label"}}
                         <span class="field-help">
                           <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.cooldown_help_aria_label')">
@@ -172,28 +226,45 @@
                           </button>
                           <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_seconds')"></span>
                         </span>
-                      </label>
-                      <input x-bind:id="`cooldown-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.cooldown_seconds">
+                      </span>
+                      <div class="auto-field" x-data="{ get stepTarget() { return rule }, stepKey: 'cooldown_seconds', stepOpts: { min: 0, step: 10, fallback: 0 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.rule_editor.cooldown_label') }">
+                        {{template "auto-stepper"}}
+                      </div>
                     </div>
-                    <div class="auto-flow-row">
-                      <label class="auto-bar-switch">
-                        <span class="settings-toggle"
-                              x-bind:title="rule.history_enabled ? $t('automations.history.enabled_title') : $t('automations.history.disabled_title')">
-                          <input x-bind:id="`history-enabled-${rule.id}`" type="checkbox" role="switch"
-                                 x-model="rule.history_enabled" x-bind:aria-checked="rule.history_enabled"
-                                 x-bind:aria-label="$t('automations.history.enabled_aria_label', {name: rule.name})">
-                          <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
-                        </span>
-                        <span>{{t "automations.scenario.edit.history.label"}}</span>
-                      </label>
+                    <div class="auto-flow-row auto-flow-toggle-row">
+                      <svg class="automation-icon auto-flow-icon" aria-hidden="true"><use href="#ico-layers"></use></svg>
+                      <span class="auto-flow-label">{{t "automations.scenario.edit.history.label"}}</span>
                       <span class="field-help">
                         <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.history.explanation_button.aria_label')">
                           <svg><use href="#ico-help"></use></svg>
                         </button>
                         <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_enabled')"></span>
                       </span>
+                      <label class="settings-toggle auto-flow-toggle"
+                             x-bind:title="rule.history_enabled ? $t('automations.history.enabled_title') : $t('automations.history.disabled_title')">
+                        <input x-bind:id="`history-enabled-${rule.id}`" type="checkbox" role="switch"
+                               x-model="rule.history_enabled" x-bind:aria-checked="rule.history_enabled"
+                               x-bind:aria-label="$t('automations.history.enabled_aria_label', {name: rule.name})">
+                        <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                      </label>
                     </div>
                   </section>
+
+                  <div class="auto-rule-foot">
+                    <button class="auto-btn-text is-danger" type="button" x-on:click="removeRule(rule.id)">
+                      <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                      <span>{{t "automations.rule.footer.delete"}}</span>
+                    </button>
+                    <span class="auto-rule-foot-main">
+                      <button class="auto-btn-text is-ghost" type="button" x-on:click="discardEditing(rule)">
+                        <span>{{t "automations.rule.footer.discard"}}</span>
+                      </button>
+                      <button class="auto-btn-text is-primary" type="button" x-on:click="stopEditing(rule)">
+                        <svg class="automation-icon"><use href="#ico-check"></use></svg>
+                        <span>{{t "automations.rule.footer.done"}}</span>
+                      </button>
+                    </span>
+                  </div>
                 </div>
               </template>
 

@@ -773,6 +773,32 @@ test('testAction does nothing when testing is not allowed', async () => {
   assert.equal(called, false);
 });
 
+test('testRule calls testAction for every action in order', async () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', conditions: [], actions: [{ severity: 'info' }, { severity: 'info' }] };
+  const calls = [];
+  component.testAction = async (_rule, index) => {
+    calls.push(index);
+    return { index };
+  };
+  const results = await component.testRule(rule);
+  assert.deepEqual(calls, [0, 1]);
+  assert.deepEqual(JSON.parse(JSON.stringify(results)), [{ index: 0 }, { index: 1 }]);
+});
+
+test('discardEditing restores the rule as it was when editing started', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', enabled: true, conditions: [{ type: 'balance_threshold', field: 'grid_import', threshold: 500 }], actions: [] };
+  component.rules = [rule];
+  const reference = rule;
+  component.startEditing(rule);
+  rule.conditions[0].threshold = 800;
+  component.discardEditing(rule);
+  assert.equal(rule.conditions[0].threshold, 500);
+  assert.equal(component.rules[0], reference);
+  assert.equal(component.editing[rule.id], false);
+});
+
 test('computeAutoPublishPrefixes collects and sorts unique command_topics from known entities', () => {
   const { component } = createAutomationsPanel();
   component.entities = [
@@ -1872,6 +1898,128 @@ test('loadScenarioChart fills raw gaps with minute rows', async () => {
   }
 });
 
+// Regel mit einer Bilanzbedingung auf dem gegebenen Feld, Schwelle 400 W.
+function ruleOn(field) {
+  return { id: `r-${field}`, enabled: true, conditions: [{ type: 'balance_threshold', field, comparison: 'above', threshold: 400 }], actions: [] };
+}
+
+test('ruleSeries maps balance fields to history series', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.ruleSeries(ruleOn('grid_export')), 'role:grid');
+  assert.equal(component.ruleSeries(ruleOn('grid_import')), 'role:grid');
+  assert.equal(component.ruleSeries(ruleOn('pv')), 'role:pv');
+  assert.equal(component.ruleSeries(ruleOn('load_total')), 'role:load');
+  assert.equal(component.ruleSeries(ruleOn('wallbox')), 'role:wallbox');
+  assert.equal(component.ruleSeries(ruleOn('heat_pump')), 'role:heat_pump');
+  assert.equal(component.ruleSeries(ruleOn('battery_soc')), 'role:battery_soc');
+  assert.equal(component.ruleSeries(ruleOn('battery_charge')), 'role:battery');
+  assert.equal(component.ruleSeries(ruleOn('battery_discharge')), 'role:battery');
+  assert.equal(component.ruleSeries(ruleOn('autarkie')), null);
+  assert.equal(component.ruleSeries({ id: 'none', conditions: [], actions: [] }), null);
+  component.categories = { wp1: { base: 'consumer', label: 'WP' } };
+  assert.equal(component.ruleSeries(ruleOn('custom:wp1')), 'role:custom:consumer:wp1');
+  assert.equal(component.ruleSeries(ruleOn('custom:unknown')), null);
+});
+
+test('ruleSparkFor flips grid export to positive feed-in', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    const minute = 60000;
+    // Netz negativ heisst Einspeisung: -500 W sind 500 W Einspeisung, ueber der Schwelle 400 W.
+    const raw = Array.from({ length: 10 }, (_, i) => ({ series: 'role:grid', ts: now - 9 * minute + i * minute, v: -500, u: 'W' }));
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? raw : []) };
+    component.nowTick = now;
+    const rule = ruleOn('grid_export');
+    await component.loadRuleSpark(rule);
+    const points = JSON.parse(JSON.stringify(component.ruleSparkPoints[rule.id]));
+    assert.ok(points.length > 0, 'the sparkline has points');
+    assert.ok(points.every((point) => point.value === 500), 'feed-in is positive');
+    const spark = JSON.parse(JSON.stringify(component.ruleSparkFor(rule)));
+    assert.equal(spark.empty, false);
+    assert.equal(spark.band.height, 0, 'the threshold has no deadband');
+  } finally {
+    window.close();
+  }
+});
+
+test('ruleSparkFor clamps negative grid import to zero', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    const minute = 60000;
+    const raw = Array.from({ length: 10 }, (_, i) => ({ series: 'role:grid', ts: now - 9 * minute + i * minute, v: -500, u: 'W' }));
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? raw : []) };
+    component.nowTick = now;
+    const rule = ruleOn('grid_import');
+    await component.loadRuleSpark(rule);
+    const points = JSON.parse(JSON.stringify(component.ruleSparkPoints[rule.id]));
+    assert.ok(points.length > 0);
+    assert.ok(points.every((point) => point.value === 0), 'import is never negative');
+  } finally {
+    window.close();
+  }
+});
+
+test('loadRuleSpark survives a missing HistoryStore', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    delete window.HistoryStore;
+    const rule = ruleOn('grid_export');
+    await component.loadRuleSpark(rule);
+    assert.deepEqual(JSON.parse(JSON.stringify(component.ruleSparkPoints[rule.id])), []);
+  } finally {
+    window.close();
+  }
+});
+
+test('setShowHistory loads rule sparklines only for rules with a series', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    window.HistoryStore = { readRange: async () => [] };
+    component.document = { rules: [ruleOn('grid_export'), ruleOn('autarkie')], scenarios: [] };
+    const loaded = [];
+    component.loadRuleSpark = async (rule) => { loaded.push(rule.id); };
+    await component.setShowHistory(true);
+    assert.deepEqual(loaded, ['r-grid_export']);
+  } finally {
+    window.close();
+  }
+});
+
+test('closeAssistant restores focus to the opener', () => {
+  const { component, window } = createAutomationsPanel();
+  const opener = window.document.createElement('button');
+  const elsewhere = window.document.createElement('button');
+  window.document.body.appendChild(opener);
+  window.document.body.appendChild(elsewhere);
+  elsewhere.focus();
+  component.assistantOpener = opener;
+  component.closeAssistant();
+  assert.equal(window.document.activeElement, opener);
+  assert.equal(component.assistantOpener, null);
+});
+
+test('ruleEditStatus shows only the status without a trigger history', () => {
+  const { component } = createAutomationsPanel();
+  component.online = true;
+  component.runtimeState = { rules: {}, scenarios: {} };
+  component.liveHistory = {};
+  const rule = { id: 'h1', enabled: true, conditions: [], actions: [] };
+  assert.equal(component.ruleEditStatus(rule), component.gateVerdict(rule).label);
+});
+
+test('ruleShortStatus shows off for disabled rules and not met without a live state', () => {
+  const { component } = createAutomationsPanel();
+  component.online = true;
+  component.runtimeState = { rules: {}, scenarios: {} };
+  const disabled = component.ruleShortStatus({ id: 'a', enabled: false, conditions: [], actions: [] });
+  assert.equal(disabled.tone, 'disabled');
+  const unknown = component.ruleShortStatus({ id: 'b', enabled: true, conditions: [], actions: [] });
+  assert.equal(unknown.tone, 'off');
+  assert.equal(typeof unknown.label, 'string');
+});
+
 test('state updates append live points and drop those older than 30 minutes', () => {
   const { component } = createAutomationsPanel();
   const nowSec = Date.now() / 1000;
@@ -2009,6 +2157,59 @@ test('rulePreview lists condition states and action icons', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(component.rulePreview({}))), { conditions: [], actions: [] });
 });
 
+test('liveBars falls back to the preloaded value in edit mode', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? [{ series: 'role:grid', ts: now - 1000, v: -500 }] : []) };
+    const rule = ruleOn('grid_export');
+    await component.loadEditLive(rule);
+    component.editing[rule.id] = true;
+    assert.equal(component.liveBars(rule)[0].valueText, '500 W');
+    component.editing[rule.id] = false;
+    assert.equal(component.liveBars(rule)[0].valueText, '—');
+  } finally {
+    window.close();
+  }
+});
+
+test('liveBars prefers the service report over the preload', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? [{ series: 'role:grid', ts: now - 1000, v: -500 }] : []) };
+    const rule = ruleOn('grid_export');
+    await component.loadEditLive(rule);
+    component.runtimeState = { rules: { [rule.id]: { conditions: [{ value: 650, target: 400, raw_met: false, met: false }] } } };
+    component.editing[rule.id] = true;
+    assert.equal(component.liveBars(rule)[0].valueText, '650 W');
+  } finally {
+    window.close();
+  }
+});
+
+test('liveBars uses the entity live value in edit mode', () => {
+  const { component } = createAutomationsPanel();
+  component.readableEntities = [{ unique_id: 'temp', deviceName: 'Pumpe', name: 'Vorlauf', value: '42.5', unit_of_measurement: '°C', state_topic: 'x', template_supported: true }];
+  const rule = { id: 'r-temp', conditions: [{ type: 'entity_value', entity_id: 'temp', comparison: 'above', value: 40 }], actions: [] };
+  component.editing[rule.id] = true;
+  assert.equal(component.liveBars(rule)[0].valueText, '42,5 °C');
+  component.editing[rule.id] = false;
+  assert.equal(component.liveBars(rule)[0].valueText, '—');
+});
+
+test('liveBar formats values in the page locale: watts whole, other units one decimal', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r-fmt', conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 1234.5 }], actions: [] };
+  component.runtimeState = { rules: { 'r-fmt': { conditions: [{ value: 872.3, target: 1234.5, raw_met: false, met: false }] } } };
+  const bar = JSON.parse(JSON.stringify(component.liveBar(rule)));
+  assert.equal(bar.valueText, '872 W');
+  assert.equal(bar.thresholdText, '1235 W');
+  const percent = { id: 'r-pct', conditions: [{ type: 'balance_threshold', field: 'autarkie', comparison: 'above', threshold: 50 }], actions: [] };
+  component.runtimeState = { rules: { 'r-pct': { conditions: [{ value: 64.25, target: 50, raw_met: false, met: false }] } } };
+  assert.equal(JSON.parse(JSON.stringify(component.liveBar(percent))).valueText, '64,3 %');
+});
+
 test('liveBar puts the hysteresis band below an above-threshold', () => {
   const { component } = createAutomationsPanel();
   const rule = {
@@ -2087,7 +2288,7 @@ test('row editors write into the model', () => {
   assert.equal(rule.conditions[0].threshold, 950);
 });
 
-test('ruleTimeline keeps only the last six hours', () => {
+test('ruleTriggers shows the last four triggers and nothing for an unknown rule', () => {
   const { component } = createAutomationsPanel();
   const nowSec = 1_000_000;
   component.nowTick = nowSec * 1000;
@@ -2096,15 +2297,17 @@ test('ruleTimeline keeps only the last six hours', () => {
       { at: nowSec - 7 * 3600, result: 'fired' },
       { at: nowSec - 5 * 3600, result: 'blocked' },
       { at: nowSec - 60, result: 'fired' },
-      { at: nowSec + 10, result: 'fired' },
+      { at: nowSec - 6 * 3600 - 300, result: 'fired' },
     ],
   };
-  const timeline = JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'r1' })));
-  assert.equal(timeline.length, 2);
-  assert.equal(timeline[0].x, ((nowSec - 5 * 3600) - (nowSec - 6 * 3600)) / (6 * 3600) * 600);
-  assert.equal(timeline[0].tone, 'bad');
-  assert.equal(timeline[1].tone, 'ok');
-  assert.deepEqual(JSON.parse(JSON.stringify(component.ruleTimeline({ id: 'unknown' }))), []);
+  const triggers = JSON.parse(JSON.stringify(component.ruleTriggers({ id: 'r1' })));
+  assert.equal(triggers.empty, false);
+  assert.equal(triggers.marks.length, 4);
+  assert.equal(triggers.marks[0].tone, 'ok');
+  assert.equal(triggers.marks[1].tone, 'bad');
+  const unknown = JSON.parse(JSON.stringify(component.ruleTriggers({ id: 'unknown' })));
+  assert.deepEqual(unknown.marks, []);
+  assert.equal(unknown.empty, true);
 });
 
 test('a consumer regulator reports its direction so the card takes the consumer colour', () => {
