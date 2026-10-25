@@ -177,6 +177,7 @@
   "automations.condition.entity.drifted_warning": "Achtung: State-Topic oder Template hat sich geändert, aktuell: {current_topic}",
   "automations.condition.entity.entity_label": "Entität",
   "automations.condition.entity.missing_warning": "Achtung: Entität {entity_id} ist im Register nicht mehr zu finden. Die Regel läuft mit dem gespeicherten Topic weiter.",
+  "automations.condition.entity.now_label": "jetzt",
   "automations.condition.entity.text_label": "Vergleichstext",
   "automations.condition.entity.value_label": "Vergleichswert",
   "automations.condition.hold_aria_label": "Haltedauer in Sekunden",

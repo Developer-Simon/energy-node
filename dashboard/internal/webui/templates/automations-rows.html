@@ -100,10 +100,12 @@
                           <div class="auto-field" x-show="condition.comparison === 'above' || condition.comparison === 'below'" x-data="{ get stepTarget() { return condition }, stepKey: 'value', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.entity.value_label') }">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.value_label"}}</span>
                             {{template "auto-stepper"}}
+                            <span class="auto-cond-now" x-show="conditionEntityChip(condition)?.valueText"><span>{{t "automations.condition.entity.now_label"}}</span><b x-text="conditionEntityChip(condition)?.valueText"></b></span>
                           </div>
                           <div class="auto-field" x-show="condition.comparison === 'equals' || condition.comparison === 'not_equals'">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.text_label"}}</span>
                             <input class="auto-input" type="text" x-model="condition.text" x-bind:aria-label="$t('automations.condition.entity.text_label')">
+                            <span class="auto-cond-now" x-show="conditionEntityChip(condition)?.valueText"><span>{{t "automations.condition.entity.now_label"}}</span><b x-text="conditionEntityChip(condition)?.valueText"></b></span>
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
                             {{template "auto-hold-label"}}
@@ -234,9 +236,9 @@
                                 <span class="auto-device-chip-text"><b x-text="conditionFieldChip(condition).deviceName"></b></span><svg class="automation-icon auto-chip-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
                               </div>
                               <button type="button" class="auto-device-more" x-on:click="chooseConditionField(condition)">{{t "automations.action.device.change_button"}}</button>{{else}}<template x-if="conditionEntityChip(condition)">
-                                <div class="auto-device-chip is-selected">
+                                <div class="auto-device-chip is-selected is-path">
                                   <span class="auto-tile-icon" x-bind:class="conditionEntityChip(condition).tone ? 'is-tone-' + conditionEntityChip(condition).tone : ''"><svg class="automation-icon"><use x-bind:href="'#' + conditionEntityChip(condition).icon"></use></svg></span>
-                                  {{template "auto-chip-text" "conditionEntityChip(condition)"}}<svg class="automation-icon auto-chip-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                                  <span class="auto-device-chip-text"><b x-text="conditionEntityChip(condition).deviceName"></b><small><span class="auto-device-chip-sep" aria-hidden="true">›</span><span class="auto-device-chip-value" x-text="conditionEntityChip(condition).subtitle"></span><template x-if="conditionEntityChip(condition).valueText"><span class="auto-device-chip-live" x-text="' · ' + conditionEntityChip(condition).valueText"></span></template></small></span><svg class="automation-icon auto-chip-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
                                 </div>
                               </template>
                               <button type="button" class="auto-device-more" x-on:click="chooseConditionEntity(condition)"
