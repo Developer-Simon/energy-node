@@ -135,7 +135,9 @@ func (m *Manager) UpdateUser(actor, username string, roles []string, disabled bo
 		if session.User.Username != name {
 			continue
 		}
-		if disabled {
+		// Ohne http_login gibt es keine eingeschränkte Sitzung mehr, sie wird
+		// zusammen mit dem Entzug verworfen (Spec Abschnitt 4).
+		if disabled || (session.Restricted && !containsRole(normalized, RoleHTTPLogin)) {
 			delete(sessions, key)
 			continue
 		}

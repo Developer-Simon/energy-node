@@ -513,3 +513,32 @@ func TestSetOwnHTTPPasswordKeepsCallingSession(t *testing.T) {
 		t.Fatal("bob's full session must survive an HTTP password change")
 	}
 }
+
+func TestRemovingHTTPLoginDropsRestrictedSessions(t *testing.T) {
+	manager, _ := loginManager(t,
+		User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}},
+		User{Username: "bob", PasswordHash: mustHash(t, usersTestPassword), HTTPPasswordHash: mustHash(t, "http-password-1"), Roles: []string{RoleViewOverview, RoleViewDevices, RoleHTTPLogin}},
+	)
+	full, err := manager.Login("bob", usersTestPassword, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restricted, err := manager.Login("bob", "http-password-1", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := manager.UpdateUser("admin", "bob", []string{RoleViewOverview}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := manager.Session(restricted.Token); ok {
+		t.Fatal("restricted session must be discarded when http_login is removed")
+	}
+	session, ok := manager.Session(full.Token)
+	if !ok {
+		t.Fatal("full session must survive the removal of http_login")
+	}
+	if want := []string{RoleViewOverview}; !reflect.DeepEqual(session.User.Roles, want) {
+		t.Fatalf("full session roles: got %v, want %v", session.User.Roles, want)
+	}
+}
