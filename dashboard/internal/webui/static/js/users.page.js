@@ -23,6 +23,17 @@
   const USERNAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
   // How long the "saved" note shows in a card head.
   const SAVED_MS = 1800;
+  // Collapse time of a removed row (spec section 8: 240 to 260 ms). With
+  // prefers-reduced-motion the row only fades, so the wait is shorter.
+  const LEAVE_MS = 260;
+  const LEAVE_MS_REDUCED = 160;
+
+  // Code points, like Go runes: an umlaut or emoji counts once.
+  const codePoints = (value) => [...(value || '')].length;
+  const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+  const leaveDelay = () => (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? LEAVE_MS_REDUCED
+    : LEAVE_MS);
 
   const sortedRoles = (roles) => [...(roles || [])].sort();
   const sameRoles = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -57,6 +68,9 @@
     saving: '',
     // Card id -> true for a short time after a successful save.
     savedFlags: {},
+    // Row id (account or guest session) -> true while its collapse runs
+    // before it leaves the list.
+    leaving: {},
 
     async init() {
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
@@ -338,7 +352,7 @@
     },
 
     createPasswordValid() {
-      return ((this.creating && this.creating.password) || '').length >= MIN_PASSWORD;
+      return codePoints(this.creating && this.creating.password) >= MIN_PASSWORD;
     },
 
     createValid() {
@@ -360,8 +374,28 @@
       }
     },
 
+    // Like action(), but the row of id collapses first and only then leaves
+    // the list. Used for deleting an account and ending a guest session.
+    async leave(id, request, message) {
+      try {
+        await request();
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
+      }
+      if (message) this.$store.toasts.push(message);
+      this.leaving[id] = true;
+      await wait(leaveDelay());
+      try {
+        await this.load();
+      } finally {
+        delete this.leaving[id];
+      }
+      return true;
+    },
+
     async resetPassword(id, password) {
-      if ((password || '').length < MIN_PASSWORD) return false;
+      if (codePoints(password) < MIN_PASSWORD) return false;
       return this.action(
         () => this.send('PUT', `/api/v1/users/${enc(id)}/password`, {password}),
         t('users.password.toast', {name: id}),
@@ -369,7 +403,7 @@
     },
 
     async setHTTPPassword(id, password) {
-      if ((password || '').length < MIN_PASSWORD) return false;
+      if (codePoints(password) < MIN_PASSWORD) return false;
       return this.action(
         () => this.send('PUT', `/api/v1/users/${enc(id)}/http-password`, {password}),
         t('users.http_warning.set_toast', {name: id}),
@@ -392,7 +426,8 @@
         danger: true,
       });
       if (!confirmed) return false;
-      const done = await this.action(
+      const done = await this.leave(
+        id,
         () => this.send('DELETE', `/api/v1/users/${enc(id)}`),
         t('users.delete_confirm.toast', {name: id}),
       );
@@ -411,7 +446,8 @@
         danger: true,
       });
       if (!confirmed) return false;
-      return this.action(
+      return this.leave(
+        name,
         () => this.send('DELETE', `/api/v1/users/${enc(name)}`),
         t('users.delete_confirm.toast', {name}),
       );

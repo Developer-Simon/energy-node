@@ -19,7 +19,9 @@
         <template x-if="creating" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end" x-transition:leave="users-create-enter" x-transition:leave-start="users-create-enter-end" x-transition:leave-end="users-create-enter-start">{{template "users-card" .}}</template>
       </div>
       <template x-for="account in accounts" x-bind:key="account.username">
-        <div class="users-list-item" x-data="{ cardId: account.username }">{{template "users-card" .}}</div>
+        <div class="users-list-item" x-data="{ cardId: account.username }">
+          <div class="users-collapse" x-bind:class="{ 'is-leaving': leaving[cardId] }"><div class="users-collapse-inner">{{template "users-card" .}}</div></div>
+        </div>
       </template>
     </div>
   </div>
@@ -112,7 +114,7 @@
               <div class="users-fold" x-bind:class="{ 'is-open': httpOpen }"><div class="users-fold-inner">
                 <div class="users-form-row">
                   <input class="users-input" type="password" autocomplete="new-password" placeholder="{{t "users.http_warning.placeholder"}}" x-model="httpNew">
-                  <button type="button" class="icon-button labeled accent" x-bind:disabled="httpNew.length < 10" x-on:click="setHTTPPassword(cardId, httpNew).then((ok) => { if (ok) { httpNew = ''; httpOpen = false; } })">{{t "users.http_warning.apply"}}</button>
+                  <button type="button" class="icon-button labeled accent" x-bind:disabled="[...httpNew].length < 10" x-on:click="setHTTPPassword(cardId, httpNew).then((ok) => { if (ok) { httpNew = ''; httpOpen = false; } })">{{t "users.http_warning.apply"}}</button>
                   <button type="button" class="icon-button labeled" x-on:click="httpOpen = false; httpNew = ''">{{t "users.http_warning.cancel"}}</button>
                 </div>
               </div></div>
@@ -152,7 +154,7 @@
                             <span class="users-tag users-tag--warn users-https-tag" x-show="entry.https_only">{{t "users.tag.https_only"}}</span>
                           </span>
                           <span class="users-item-desc" x-text="$t(`users.role.${entry.key}.desc`)"></span>
-                          <span class="users-item-note" x-show="entry.key === 'install_updates' || entry.key === 'update_settings'" x-text="$t(`users.role.${entry.key}.note`)"></span>
+                          <template x-if="entry.key === 'install_updates' || entry.key === 'update_settings'"><span class="users-item-note" x-text="$t(`users.role.${entry.key}.note`)"></span></template>
                         </span>
                       </div>
                       <p class="users-why" x-text="lockFor(cardId, entry.key) === 'requires' ? $t('users.lock.requires', {view: $t(`users.role.${lockRequires(entry.key)}.label`)}) : (lockFor(cardId, entry.key) === 'last_admin' ? $t('users.lock.last_admin_role') : '')"></p>
@@ -167,11 +169,13 @@
         <div class="users-sessions" x-show="cardKind(cardId) === 'preset'">
           <h4 class="users-sub-title">{{t "users.guest.sessions_title"}}</h4>
           <template x-for="session in sessions" x-bind:key="session.username">
-            <div class="users-session">
-              <span class="users-session-name" x-text="session.username"></span>
-              <span class="users-session-meta" x-text="$t('users.guest.since', {time: new Date(session.created_at).toLocaleString()})"></span>
-              <button type="button" class="icon-button labeled danger" x-bind:disabled="saving !== ''" x-on:click="endGuest(session.username)">{{t "users.guest.end"}}</button>
-            </div>
+            <div class="users-collapse" x-bind:class="{ 'is-leaving': leaving[session.username] }"><div class="users-collapse-inner">
+              <div class="users-session">
+                <span class="users-session-name" x-text="session.username"></span>
+                <span class="users-session-meta" x-text="$t('users.guest.since', {time: new Date(session.created_at).toLocaleString()})"></span>
+                <button type="button" class="icon-button labeled danger" x-bind:disabled="saving !== ''" x-on:click="endGuest(session.username)">{{t "users.guest.end"}}</button>
+              </div>
+            </div></div>
           </template>
         </div>
 
@@ -186,7 +190,7 @@
         <div class="users-fold" x-show="cardKind(cardId) === 'account'" x-bind:class="{ 'is-open': pwOpen }"><div class="users-fold-inner">
           <div class="users-form-row">
             <input class="users-input" type="password" autocomplete="new-password" placeholder="{{t "users.password.placeholder"}}" x-model="pwNew">
-            <button type="button" class="icon-button labeled accent" x-bind:disabled="pwNew.length < 10" x-on:click="resetPassword(cardId, pwNew).then((ok) => { if (ok) { pwNew = ''; pwOpen = false; } })">{{t "users.password.set"}}</button>
+            <button type="button" class="icon-button labeled accent" x-bind:disabled="[...pwNew].length < 10" x-on:click="resetPassword(cardId, pwNew).then((ok) => { if (ok) { pwNew = ''; pwOpen = false; } })">{{t "users.password.set"}}</button>
             <button type="button" class="icon-button labeled" x-on:click="pwOpen = false; pwNew = ''">{{t "users.password.cancel"}}</button>
           </div>
         </div></div>

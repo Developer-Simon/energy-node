@@ -734,7 +734,7 @@
 .users-cards .icon-button:active:not(:disabled) { transform: scale(.97); }
 
 /* Karte: Kopf, Aufklappen */
-.users-card { margin: 0; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); overflow: hidden; transition: border-color 200ms ease, background-color 200ms ease; }
+.users-card { margin: 0; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); overflow: clip; transition: border-color 200ms ease, background-color 200ms ease; }
 .users-card.is-open { border-color: var(--accent-line); background: var(--panel-alt); }
 .users-card.is-disabled:not(.is-open) .users-card-head { opacity: .55; }
 .users-card-head { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: .75rem; width: 100%; padding: .75rem .9rem; cursor: pointer; transition: opacity 200ms ease; }
@@ -760,9 +760,14 @@
 /* Aufklappen: Höhe über grid-template-rows, Inhalt blendet versetzt ein */
 .users-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms var(--layout-ease); }
 .users-card.is-open > .users-body { grid-template-rows: 1fr; }
-.users-body-inner { min-height: 0; overflow: hidden; }
+.users-body-inner { min-height: 0; overflow: clip; }
 .users-content { padding: .1rem .9rem .9rem; opacity: 0; transform: translateY(-4px); transition: opacity 160ms ease, transform 160ms var(--ease-out); }
 .users-card.is-open > .users-body .users-content { opacity: 1; transform: none; transition: opacity 220ms ease 60ms, transform 260ms var(--ease-out) 60ms; }
+
+/* Zeilen, die verschwinden (Konto löschen, Gastsitzung beenden): klappen in 260 ms zu */
+.users-collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 260ms var(--layout-ease), opacity 200ms ease; }
+.users-collapse.is-leaving { grid-template-rows: 0fr; opacity: 0; }
+.users-collapse-inner { min-height: 0; overflow: clip; }
 
 /* Kartenanlegen: Zeile blendet auf und klappt ein */
 .users-create-enter { transition: opacity 240ms ease, transform 240ms var(--layout-ease); }
@@ -772,10 +777,10 @@
 /* Aufklapp-Zeilen (Passwort, HTTP-Passwort) */
 .users-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--layout-ease); }
 .users-fold.is-open { grid-template-rows: 1fr; }
-.users-fold-inner { min-height: 0; overflow: hidden; }
+.users-fold-inner { min-height: 0; overflow: clip; }
 .users-hint { display: grid; grid-template-rows: 0fr; margin: 0; font-size: .72rem; line-height: 1.4; color: var(--warn); opacity: 0; transition: grid-template-rows 220ms var(--layout-ease), opacity 180ms ease; }
 .users-hint.is-show { grid-template-rows: 1fr; opacity: 1; }
-.users-hint > span { min-height: 0; overflow: hidden; display: block; }
+.users-hint > span { min-height: 0; overflow: clip; display: block; }
 .users-hint.is-show > span { padding-top: .35rem; }
 
 /* Felder und Eingaben */
@@ -798,7 +803,7 @@
 /* HTTP-Warnung */
 .users-warn { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 240ms var(--layout-ease), opacity 180ms ease; }
 .users-warn.is-show { grid-template-rows: 1fr; opacity: 1; }
-.users-warn > .users-warn-fold { min-height: 0; overflow: hidden; }
+.users-warn > .users-warn-fold { min-height: 0; overflow: clip; }
 .users-warn-inner { min-height: 0; }
 .users-warn-box { margin-top: .75rem; padding: .65rem .75rem; border: 1px solid var(--warn-line); border-radius: var(--radius-md); background: var(--warn-bg); font-size: .78rem; color: var(--text-subtle); transition: background-color 200ms ease, border-color 200ms ease; }
 .users-warn.is-safe .users-warn-box { border-color: var(--accent-line); background: var(--accent-bg); }
@@ -821,7 +826,7 @@
 .users-group-count { font-size: .72rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .users-group-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 260ms var(--layout-ease); }
 .users-group.is-open > .users-group-fold { grid-template-rows: 1fr; }
-.users-group-inner { min-height: 0; overflow: hidden; }
+.users-group-inner { min-height: 0; overflow: clip; }
 .users-items { display: grid; grid-template-columns: 1fr 1fr; gap: .15rem 1rem; padding: 0 0 .65rem 1.4rem; opacity: 0; transition: opacity 160ms ease; }
 .users-group.is-open .users-items { opacity: 1; transition: opacity 220ms ease 60ms; }
 @container setting-card (max-width: 36rem) {
@@ -866,7 +871,8 @@
 .users-savebar-msg { flex: 1; min-width: 0; font-size: .78rem; color: var(--text-subtle); }
 
 @media (prefers-reduced-motion: reduce) {
-  .users-body, .users-fold, .users-warn, .users-hint, .users-group-fold { transition: none; }
+  .users-body, .users-fold, .users-warn, .users-hint, .users-group-fold, .users-collapse { transition: none; }
+  .users-collapse.is-leaving { transition: opacity 160ms ease; }
   .users-content, .users-card.is-open > .users-body .users-content { transform: none; transition: opacity 160ms ease; }
   .users-create-enter, .users-create-enter-start, .users-create-enter-end { transform: none; transition: opacity 160ms ease; }
   .users-savebar { transform: none; transition: opacity 160ms ease, visibility 0s linear 160ms; }
