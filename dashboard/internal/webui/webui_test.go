@@ -1319,6 +1319,8 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 		"ico-calendar", "ico-download", "ico-close",
 		// Geraete-Symbol des Wechselrichters fuer Szenarien
 		"ico-inverter",
+		// Benutzer-Eintrag der Einstellungen
+		"ico-user",
 	} {
 		if !strings.Contains(page, `id="`+symbol+`"`) {
 			t.Fatalf("Sprite-Symbol %s fehlt in der Shell", symbol)
