@@ -3805,3 +3805,32 @@ func TestInitialPanelFollowsViewPermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestTabsFollowViewPermissions(t *testing.T) {
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: []string{auth.RoleViewStats}}))
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-stats"`, `id="tab-settings"`, `id="stats-panel"`, `data-initial-panel="stats-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("view_stats-Nutzer: %s fehlt", want)
+		}
+	}
+	for _, gone := range []string{`id="tab-history"`, `id="history-panel"`, `id="tab-overview"`, `id="overview-panel"`, `id="tab-automations"`, `id="automations-panel"`} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("view_stats-Nutzer: %s darf nicht erscheinen", gone)
+		}
+	}
+}
+
+func TestNoUserShowsEveryTab(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-devices"`, `id="tab-history"`, `id="tab-stats"`, `id="tab-config"`, `id="tab-energy"`, `id="tab-devicemap"`, `id="tab-diagnostics"`, `id="tab-automations"`, `id="tab-settings"`, `data-initial-panel="overview-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("ohne Nutzer fehlt %s", want)
+		}
+	}
+}
