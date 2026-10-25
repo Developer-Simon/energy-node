@@ -449,7 +449,7 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 			return
 		}
-		session, err := manager.Login(request.Username, request.Password)
+		session, err := manager.Login(request.Username, request.Password, isSecureRequest(r))
 		if errors.Is(err, auth.ErrInvalidCredentials) {
 			writeError(w, http.StatusUnauthorized, "invalid_credentials", "Benutzername oder Passwort ist ungültig")
 			return

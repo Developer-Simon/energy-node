@@ -14,10 +14,10 @@ func TestManagerBootstrapsAdminAndCreatesSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := manager.Login("admin", "wrong"); err != ErrInvalidCredentials {
+	if _, err := manager.Login("admin", "wrong", true); err != ErrInvalidCredentials {
 		t.Fatalf("wrong password error = %v", err)
 	}
-	session, err := manager.Login("admin", "secret")
+	session, err := manager.Login("admin", "secret", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestManagerSessionsSurviveRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := manager.Login("admin", "secret")
+	session, err := manager.Login("admin", "secret", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +152,7 @@ func TestManagerDropsExpiredAndOrphanedSessionsOnLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session, err := manager.Login("admin", "secret")
+	session, err := manager.Login("admin", "secret", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestManagerStartsWithBrokenSessionsFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("broken sessions.json blocked the start: %v", err)
 	}
-	if _, err := manager.Login("admin", "secret"); err != nil {
+	if _, err := manager.Login("admin", "secret", true); err != nil {
 		t.Fatal(err)
 	}
 }

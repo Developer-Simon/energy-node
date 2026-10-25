@@ -85,10 +85,11 @@ type sessionFile struct {
 }
 
 type storedSession struct {
-	TokenHash string    `json:"token_sha256"`
-	CSRFToken string    `json:"csrf_token"`
-	Username  string    `json:"username"`
-	ExpiresAt time.Time `json:"expires_at"`
+	TokenHash  string    `json:"token_sha256"`
+	CSRFToken  string    `json:"csrf_token"`
+	Username   string    `json:"username"`
+	ExpiresAt  time.Time `json:"expires_at"`
+	Restricted bool      `json:"restricted,omitempty"`
 }
 
 type Session struct {
@@ -96,6 +97,9 @@ type Session struct {
 	CSRFToken string
 	User      User
 	ExpiresAt time.Time
+	// Restricted marks a session from an HTTP login or from the HTTP
+	// password; its HTTPS-only roles are withheld (see EffectiveUser).
+	Restricted bool
 }
 
 type Manager struct {
@@ -119,6 +123,10 @@ type Manager struct {
 type contextKey struct{}
 
 var ErrInvalidCredentials = errors.New("invalid credentials")
+
+// ErrInsecureLoginNotAllowed meldet ein richtiges Passwort über HTTP bei
+// einem Konto ohne die Berechtigung http_login.
+var ErrInsecureLoginNotAllowed = errors.New("insecure login not allowed")
 
 func NewManager(path, bootstrapUsername, bootstrapPassword string) (*Manager, error) {
 	return newManager(path, bootstrapUsername, bootstrapPassword, time.Now)
@@ -225,20 +233,43 @@ func (m *Manager) hasNonGuestLocked() bool {
 	return false
 }
 
-func (m *Manager) Login(username, password string) (Session, error) {
+// Login prüft die Anmeldung nach Spec Abschnitt 5. secure sagt, ob die Anfrage
+// über HTTPS kommt. Über HTTP entsteht immer eine eingeschränkte Sitzung.
+func (m *Manager) Login(username, password string, secure bool) (Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cleanupGuestsLocked()
 	user, ok := m.users[username]
-	if !ok || user.Guest || !verifyPassword(user.PasswordHash, password) {
+	if !ok || user.Guest || user.Disabled {
 		return Session{}, ErrInvalidCredentials
+	}
+	restricted := !secure
+	var matched bool
+	switch {
+	case !secure && user.HTTPPasswordHash != "":
+		// Über HTTP zählt nur das HTTP-Passwort, das Hauptpasswort nie.
+		matched = verifyPassword(user.HTTPPasswordHash, password)
+	case !secure:
+		matched = verifyPassword(user.PasswordHash, password)
+	case verifyPassword(user.PasswordHash, password):
+		matched = true
+	default:
+		// Über HTTPS prüft das HTTP-Passwort erst, wenn das Hauptpasswort nicht stimmt.
+		restricted = true
+		matched = user.HTTPPasswordHash != "" && verifyPassword(user.HTTPPasswordHash, password)
+	}
+	if !matched {
+		return Session{}, ErrInvalidCredentials
+	}
+	if !secure && !HasRole(user, RoleHTTPLogin) {
+		return Session{}, ErrInsecureLoginNotAllowed
 	}
 	user.LastLoginAt = m.now().UTC()
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
 	}
-	return m.newSessionLocked(user)
+	return m.newSessionLocked(user, restricted)
 }
 
 func (m *Manager) ContinueAsGuest() (Session, error) {
@@ -255,7 +286,7 @@ func (m *Manager) ContinueAsGuest() (Session, error) {
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
 	}
-	return m.newSessionLocked(user)
+	return m.newSessionLocked(user, false)
 }
 
 func (m *Manager) Session(token string) (Session, bool) {
@@ -306,7 +337,7 @@ func (m *Manager) cleanupGuestsLocked() bool {
 	return changed
 }
 
-func (m *Manager) newSessionLocked(user User) (Session, error) {
+func (m *Manager) newSessionLocked(user User, restricted bool) (Session, error) {
 	token, err := randomID("session-")
 	if err != nil {
 		return Session{}, err
@@ -319,7 +350,7 @@ func (m *Manager) newSessionLocked(user User) (Session, error) {
 	if user.Guest {
 		lifetime = guestSessionLife
 	}
-	session := Session{Token: token, CSRFToken: csrfToken, User: user, ExpiresAt: m.now().Add(lifetime)}
+	session := Session{Token: token, CSRFToken: csrfToken, User: user, ExpiresAt: m.now().Add(lifetime), Restricted: restricted}
 	m.sessions[tokenHash(token)] = session
 	if err := m.saveSessionsLocked(); err != nil {
 		delete(m.sessions, tokenHash(token))
@@ -346,7 +377,7 @@ func (m *Manager) loadSessionsLocked() {
 		if !ok || stored.TokenHash == "" || !stored.ExpiresAt.After(now) {
 			continue
 		}
-		m.sessions[stored.TokenHash] = Session{CSRFToken: stored.CSRFToken, User: user, ExpiresAt: stored.ExpiresAt}
+		m.sessions[stored.TokenHash] = Session{CSRFToken: stored.CSRFToken, User: user, ExpiresAt: stored.ExpiresAt, Restricted: stored.Restricted}
 	}
 }
 
@@ -360,7 +391,7 @@ func (m *Manager) saveSessionsLocked() error {
 			delete(m.sessions, key)
 			continue
 		}
-		sessions = append(sessions, storedSession{TokenHash: key, CSRFToken: session.CSRFToken, Username: session.User.Username, ExpiresAt: session.ExpiresAt})
+		sessions = append(sessions, storedSession{TokenHash: key, CSRFToken: session.CSRFToken, Username: session.User.Username, ExpiresAt: session.ExpiresAt, Restricted: session.Restricted})
 	}
 	data, err := json.MarshalIndent(sessionFile{Sessions: sessions}, "", "  ")
 	if err != nil {
@@ -510,6 +541,36 @@ func containsRole(roles []string, role string) bool {
 		}
 	}
 	return false
+}
+
+// EffectiveUser liefert eine Kopie des Benutzers mit den Berechtigungen, die
+// für diese Anfrage gelten: fehlende Voraussetzungen fallen weg, und über HTTP
+// oder in einer eingeschränkten Sitzung auch alle HTTPS-only-Berechtigungen.
+func EffectiveUser(session Session, secure bool) User {
+	user := session.User
+	withholdHTTPSOnly := !secure || session.Restricted
+	roles := make([]string, 0, len(user.Roles))
+	for _, key := range Normalize(user.Roles) {
+		if info, _ := RoleByKey(key); withholdHTTPSOnly && info.HTTPSOnly {
+			continue
+		}
+		roles = append(roles, key)
+	}
+	user.Roles = roles
+	return user
+}
+
+// Withheld nennt die Berechtigungen der Sitzung, die EffectiveUser für diese
+// Anfrage wegnimmt, in Katalogreihenfolge.
+func Withheld(session Session, secure bool) []string {
+	effective := EffectiveUser(session, secure).Roles
+	var out []string
+	for _, key := range AllRoles() {
+		if containsRole(session.User.Roles, key) && !containsRole(effective, key) {
+			out = append(out, key)
+		}
+	}
+	return out
 }
 
 func (s Session) CookieValue() string {

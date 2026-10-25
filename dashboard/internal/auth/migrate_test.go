@@ -156,7 +156,7 @@ func TestBootstrapOnlyWithoutNonGuestUser(t *testing.T) {
 
 	// A second bootstrap password does not replace the existing admin.
 	again := mustManager(t, path, "admin", "other-pass")
-	if _, err := again.Login("admin", "secret-pass"); err != nil {
+	if _, err := again.Login("admin", "secret-pass", true); err != nil {
 		t.Fatalf("existing admin lost its password: %v", err)
 	}
 }
