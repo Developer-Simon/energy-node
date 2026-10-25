@@ -25,10 +25,19 @@ const TABS = `
   <button id="tab-automations" class="tab" role="tab" aria-controls="automations-panel">Automationen</button>
 `;
 
-function createShell(navHtml = TABS) {
+// Alle Reiter, die Tests mit Bereichswechsel brauchen. Ohne Berechtigung fehlt
+// ein Reiter; setActivePanel laesst den Bereich dann unberuehrt.
+const ALL_TABS = `${TABS}
+  <button id="tab-energy" class="tab" role="tab" aria-controls="energy-panel">Energie</button>
+  <button id="tab-config" class="tab" role="tab" aria-controls="config-panel">Konfiguration</button>
+  <button id="tab-settings" class="tab" role="tab" aria-controls="settings-panel">Einstellungen</button>
+  <button id="tab-layout" class="tab" role="tab" aria-controls="layout-panel">Layout</button>
+`;
+
+function createShell(navHtml = TABS, { bodyAttrs = '', url = 'http://localhost/' } = {}) {
   const dom = new JSDOM(
-    `<!doctype html><html><body><div class="nav-shell"><nav id="dashboard-tabs">${navHtml}</nav></div></body></html>`,
-    { runScripts: 'outside-only', url: 'http://localhost/' },
+    `<!doctype html><html><body ${bodyAttrs}><div class="nav-shell"><nav id="dashboard-tabs">${navHtml}</nav></div></body></html>`,
+    { runScripts: 'outside-only', url },
   );
   const context = dom.getInternalVMContext();
   const factories = {};
@@ -82,7 +91,7 @@ test('activeTabLabel bleibt leer, wenn kein passender Tab im DOM steht', () => {
 });
 
 test('freigegebene Tabs heben die Breitendeckelung auf, gedeckelte setzen sie zurueck', () => {
-  const { component, window } = createShell();
+  const { component, window } = createShell(ALL_TABS);
   window.document.body.dataset.widePanels = 'overview,layout';
   component.initWidePanels();
   assert.equal(window.document.body.style.getPropertyValue('--page-max'), 'none');
@@ -181,7 +190,7 @@ test('extraPages und hiddenPages arbeiten mit IDs', () => {
 
 
 test('dashboard-open-panel switches the tab and asks the energy page to focus rows', async () => {
-  const { component, window } = createShell();
+  const { component, window } = createShell(ALL_TABS);
   component.loadPanel = () => {};
   component.init();
   const focused = [];
@@ -194,7 +203,7 @@ test('dashboard-open-panel switches the tab and asks the energy page to focus ro
 });
 
 test('dashboard-open-panel forwards config and automation focus requests', async () => {
-  const { component, window } = createShell();
+  const { component, window } = createShell(ALL_TABS);
   component.loadPanel = () => {};
   component.init();
   const seen = [];
@@ -306,4 +315,44 @@ test('the overview component ignores a deviceFocus request so no hidden dialog o
   window.dispatchEvent(new window.CustomEvent('devices-focus-device', { detail: { id: 'plug' } }));
   assert.deepEqual(selected, []);
   assert.equal(window.__deviceFocusRequest__, 'plug');
+});
+
+test('activePanel startet mit data-initial-panel des Bodys', () => {
+  const { component } = createShell(TABS, { bodyAttrs: 'data-initial-panel="devices-panel"' });
+  assert.equal(component.activePanel, 'devices-panel');
+});
+
+test('ohne data-initial-panel startet die Huelle auf der Uebersicht', () => {
+  const { component } = createShell();
+  assert.equal(component.activePanel, 'overview-panel');
+});
+
+test('?panel= fuer einen ausgeblendeten Tab wird ignoriert', () => {
+  const { component } = createShell(TABS, {
+    bodyAttrs: 'data-initial-panel="devices-panel"',
+    url: 'http://localhost/?panel=history',
+  });
+  component.loadPanel = () => {};
+  component.init();
+  assert.equal(component.activePanel, 'devices-panel');
+});
+
+test('?panel= fuer einen sichtbaren Tab wird uebernommen', () => {
+  const { component } = createShell(TABS, { url: 'http://localhost/?panel=devices' });
+  component.loadPanel = () => {};
+  component.init();
+  assert.equal(component.activePanel, 'devices-panel');
+});
+
+test('dashboard-open-panel fuer einen ausgeblendeten Tab laesst den Bereich unveraendert', async () => {
+  const { component, window } = createShell(`
+    <button id="tab-devices" class="tab" role="tab" aria-controls="devices-panel">Geraete</button>
+  `);
+  component.init();
+  let loads = 0;
+  component.loadPanel = () => { loads += 1; };
+  window.dispatchEvent(new window.CustomEvent('dashboard-open-panel', { detail: { panel: 'automations-panel' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.activePanel, 'overview-panel');
+  assert.equal(loads, 0, 'loadPanel bleibt ungerufen');
 });
