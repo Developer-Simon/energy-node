@@ -138,8 +138,8 @@ test('creating a card enables Anlegen only for valid name and password', async (
   await component.init();
 
   component.startCreate();
-  assert.equal(component.openId, 'new');
-  assert.equal(component.isDirty('new'), true);
+  assert.equal(component.openId, 'draft:new');
+  assert.equal(component.isDirty('draft:new'), true);
   assert.equal(component.createValid(), false, 'empty values are not valid');
 
   component.creating.username = 'anna';
@@ -162,7 +162,7 @@ test('creating a card enables Anlegen only for valid name and password', async (
   component.cancelCreate();
   assert.equal(component.creating, null);
   assert.equal(component.openId, null);
-  assert.equal(component.isDirty('new'), false);
+  assert.equal(component.isDirty('draft:new'), false);
   assert.equal(writes(calls).length, 0, 'nothing was sent while editing the new card');
 });
 

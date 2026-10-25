@@ -15,9 +15,10 @@
   };
 
   // Card ids. Local accounts use their name as id. The guest preset and the
-  // card for a new account are fixed ids.
+  // card for a new account are fixed ids. Usernames cannot contain a colon, so
+  // these never collide with an account name ('__new__' would, underscores are allowed).
   const GUEST_PRESET_ID = 'preset:guest';
-  const NEW_ID = 'new';
+  const NEW_ID = 'draft:new';
   const MIN_PASSWORD = 10;
   const USERNAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
   // How long the "saved" note shows in a card head.
