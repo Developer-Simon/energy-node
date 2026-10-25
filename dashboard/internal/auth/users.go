@@ -259,3 +259,216 @@ func copySessions(sessions map[string]Session) map[string]Session {
 	}
 	return out
 }
+
+// SetPassword setzt das Passwort eines lokalen Kontos durch einen Admin. Alle
+// Sessions des Kontos werden verworfen.
+func (m *Manager) SetPassword(actor, username, newPassword string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	name := strings.ToLower(username)
+	current, ok := m.users[name]
+	if !ok || current.Guest {
+		return ErrUserNotFound
+	}
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+	hash, err := hashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	updated := current
+	updated.PasswordHash = hash
+	users := copyUsers(m.users)
+	users[name] = updated
+	sessions := copySessions(m.sessions)
+	for key, session := range sessions {
+		if session.User.Username == name {
+			delete(sessions, key)
+		}
+	}
+	if err := m.commitLocked(users, sessions); err != nil {
+		return err
+	}
+	log.Printf("auth: %s %s %s", actor, "password", name)
+	return nil
+}
+
+// SetHTTPPassword setzt oder entfernt (leeres Passwort) das HTTP-Passwort eines
+// Kontos. Verworfen werden nur die eingeschränkten Sessions des Kontos.
+func (m *Manager) SetHTTPPassword(actor, username, newPassword string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	name := strings.ToLower(username)
+	if err := m.setHTTPPasswordLocked(name, newPassword); err != nil {
+		return err
+	}
+	log.Printf("auth: %s %s %s", actor, "http_password", name)
+	return nil
+}
+
+// SetOwnHTTPPassword setzt das HTTP-Passwort des Kontos der Sitzung token. Die
+// Regeln sind dieselben wie bei SetHTTPPassword.
+func (m *Manager) SetOwnHTTPPassword(token, newPassword string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	session, ok := m.liveSessionLocked(token)
+	if !ok {
+		return ErrInvalidCredentials
+	}
+	name := session.User.Username
+	if err := m.setHTTPPasswordLocked(name, newPassword); err != nil {
+		return err
+	}
+	log.Printf("auth: %s %s %s", name, "http_password", name)
+	return nil
+}
+
+// setHTTPPasswordLocked prüft und setzt das HTTP-Passwort und verwirft die
+// eingeschränkten Sessions des Kontos.
+func (m *Manager) setHTTPPasswordLocked(name, newPassword string) error {
+	current, ok := m.users[name]
+	if !ok || current.Guest {
+		return ErrUserNotFound
+	}
+	if !containsRole(current.Roles, RoleHTTPLogin) {
+		return ErrHTTPLoginRequired
+	}
+	updated := current
+	if newPassword != "" {
+		if err := validatePassword(newPassword); err != nil {
+			return err
+		}
+		if verifyPassword(current.PasswordHash, newPassword) {
+			return ErrHTTPPasswordReused
+		}
+		hash, err := hashPassword(newPassword)
+		if err != nil {
+			return err
+		}
+		updated.HTTPPasswordHash = hash
+	} else {
+		updated.HTTPPasswordHash = ""
+	}
+	users := copyUsers(m.users)
+	users[name] = updated
+	sessions := copySessions(m.sessions)
+	for key, session := range sessions {
+		if session.User.Username != name {
+			continue
+		}
+		if session.Restricted {
+			delete(sessions, key)
+			continue
+		}
+		session.User = updated
+		sessions[key] = session
+	}
+	return m.commitLocked(users, sessions)
+}
+
+// ChangeOwnPassword ändert das Passwort des Kontos der Sitzung token nach
+// Prüfung des alten Passworts. Die Sitzung token bleibt bestehen, alle anderen
+// Sitzungen des Kontos werden verworfen.
+func (m *Manager) ChangeOwnPassword(token, oldPassword, newPassword string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := tokenHash(token)
+	session, ok := m.liveSessionLocked(token)
+	if !ok {
+		return ErrInvalidCredentials
+	}
+	name := session.User.Username
+	current, ok := m.users[name]
+	if !ok || current.Guest || current.PasswordHash == "" || !verifyPassword(current.PasswordHash, oldPassword) {
+		return ErrInvalidCredentials
+	}
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+	hash, err := hashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	updated := current
+	updated.PasswordHash = hash
+	users := copyUsers(m.users)
+	users[name] = updated
+	sessions := copySessions(m.sessions)
+	for other, candidate := range sessions {
+		if candidate.User.Username == name && other != key {
+			delete(sessions, other)
+		}
+	}
+	kept := sessions[key]
+	kept.User = updated
+	sessions[key] = kept
+	if err := m.commitLocked(users, sessions); err != nil {
+		return err
+	}
+	log.Printf("auth: %s %s %s", name, "password", name)
+	return nil
+}
+
+// liveSessionLocked liefert die nicht abgelaufene Sitzung zu token.
+func (m *Manager) liveSessionLocked(token string) (Session, bool) {
+	session, ok := m.sessions[tokenHash(token)]
+	if !ok || !session.ExpiresAt.After(m.now()) {
+		return Session{}, false
+	}
+	return session, true
+}
+
+// GuestRoles liefert die Gastvorgabe.
+func (m *Manager) GuestRoles() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string{}, m.guestRoles...)
+}
+
+// SetGuestRoles setzt die Gastvorgabe. Nur Berechtigungen mit GuestAllowed sind
+// erlaubt. Die Vorgabe gilt für bestehende Gastkonten und Gastsitzungen sofort
+// und hebt den Migrationshinweis auf.
+func (m *Manager) SetGuestRoles(actor string, roles []string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	normalized, err := validateRoles(roles)
+	if err != nil {
+		return err
+	}
+	for _, key := range roles {
+		if info, _ := RoleByKey(key); !info.GuestAllowed {
+			return ErrGuestRoleNotAllowed
+		}
+	}
+	users := copyUsers(m.users)
+	for name, user := range users {
+		if user.Guest {
+			user.Roles = append([]string{}, normalized...)
+			users[name] = user
+		}
+	}
+	sessions := copySessions(m.sessions)
+	for key, session := range sessions {
+		if session.User.Guest {
+			session.User.Roles = append([]string{}, normalized...)
+			sessions[key] = session
+		}
+	}
+	// Eigener Ablauf statt commitLocked, weil die Gastvorgabe mit in users.json
+	// steht und bei einem Fehler beim Speichern der Konten zurückgesetzt werden muss.
+	oldRoles, oldReviewed := m.guestRoles, m.guestRolesReviewed
+	oldUsers, oldSessions := m.users, m.sessions
+	m.guestRoles, m.guestRolesReviewed = normalized, true
+	m.users, m.sessions = users, sessions
+	if err := m.saveLocked(); err != nil {
+		m.guestRoles, m.guestRolesReviewed = oldRoles, oldReviewed
+		m.users, m.sessions = oldUsers, oldSessions
+		return err
+	}
+	if err := m.saveSessionsLocked(); err != nil {
+		return err
+	}
+	log.Printf("auth: %s %s %s", actor, "guest_roles", "guests")
+	return nil
+}
