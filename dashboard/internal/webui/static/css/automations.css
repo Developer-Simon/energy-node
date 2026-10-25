@@ -155,7 +155,7 @@
    die Bedeutung. Ohne Wort waere "Energiewert" nicht zu erraten. --- */
 .type-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: .6rem 0 1.2rem; }
 .type-tile {
-  display: grid; gap: 6px; justify-items: start; padding: 12px; border-radius: 12px;
+  display: grid; gap: 6px; justify-items: start; align-content: start; padding: 12px; border-radius: 12px;
   border: 1px dashed var(--border); background: transparent; color: var(--text);
   font: inherit; font-size: .86rem; text-align: left; cursor: pointer;
   transition: background-color 150ms var(--ease-out), transform 100ms ease-out;
@@ -384,7 +384,7 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
    also an der Unterkante der Ziffern. Ziffern haben keine Unterlaenge, mit
    der normalen Zeilenhoehe sitzen sie deshalb knapp 1 px zu hoch. Das
    padding-top im Feld darunter gleicht das aus (gemessen im Dialog). */
-.auto-stepper-field { flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: .25rem; padding: 0 .35rem; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.auto-stepper-field { flex: 1; min-width: 4.5rem; display: flex; align-items: baseline; justify-content: center; gap: .25rem; padding: 0 .35rem; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
 /* field-sizing macht das Eingabefeld so breit wie die Zahl. Zahl und Einheit
    bleiben als Paar in der Mitte und wachsen nach beiden Seiten. Ohne
    Unterstuetzung bleibt es bei 5ch und rechtsbuendig. */
@@ -579,6 +579,7 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-source-row .auto-field > input { width: 6ch; text-align: right; }
   .auto-rule[data-mode="edit"] .auto-field > input, .auto-rule[data-mode="edit"] .auto-field > select { width: auto; }
   .auto-rule[data-mode="edit"] .auto-stepper { min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-stepper-field { min-width: 4.5rem; }
   .auto-rule[data-mode="edit"] .auto-hold-short { display: inline; font-size: .8rem; color: var(--text-muted); }
   .auto-rule[data-mode="edit"] .auto-card-actions { display: flex; align-items: center; gap: 4px; grid-column: 3; grid-row: 1; }
   .auto-rule[data-mode="edit"] .auto-test-long { display: none; }
@@ -601,6 +602,7 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-flow-icon { flex: none; width: 1rem; height: 1rem; color: var(--text-subtle); }
   .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-segment, .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-field, .auto-rule[data-mode="edit"] .auto-flow-toggle { margin-left: auto; }
   .auto-rule[data-mode="edit"] .auto-flow-group .auto-stepper { background: var(--sunken); border-radius: var(--radius-sm); }
+  .auto-rule[data-mode="edit"] .auto-flow-group .auto-stepper-field { min-width: 4.5rem; }
 }
 
 /* --- Mobil: Werkzeugleiste mit Verlauf-Knopf und Listenzeile mit Kurzstatus und Sparkline --- */
