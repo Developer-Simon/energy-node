@@ -263,7 +263,7 @@ func TestDeviceMapWritesNeedDeviceMapRolesAndCSRF(t *testing.T) {
 		handler(rec, req)
 		return rec
 	}
-	viewOnly := []string{auth.RoleEditDeviceMapView}
+	viewOnly := []string{auth.RoleViewDeviceMap, auth.RoleEditDeviceMapView}
 	structureOnly := []string{auth.RoleEditDeviceMap}
 
 	if rec := call(mapHandler, http.MethodPut, "/api/v1/device/map", movedBody, viewOnly...); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), `"code":"device_map_forbidden"`) {

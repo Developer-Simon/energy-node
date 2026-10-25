@@ -2336,7 +2336,7 @@ func TestBearbeitungsmodusHaengtAnDerRolleEditLayout(t *testing.T) {
 		return rec
 	}
 
-	if rec := withUser(auth.RoleEditLayout); !strings.Contains(rec.Body.String(), "data-mode-edit") {
+	if rec := withUser(auth.RoleViewOverview, auth.RoleEditLayout); !strings.Contains(rec.Body.String(), "data-mode-edit") {
 		t.Fatal("mit edit_layout muss der Editieren-Knopf erscheinen")
 	}
 	if rec := withUser(); strings.Contains(rec.Body.String(), "data-mode-edit") {
