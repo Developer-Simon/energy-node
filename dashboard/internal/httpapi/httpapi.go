@@ -359,7 +359,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if store != nil {
 		g.HandleFunc("/api/v1/layout", handleLayout(store))
 		g.HandleFunc("/api/v1/layout/", handleLayoutRevision(store))
-		g.HandleFunc("/api/v1/settings", handleSettings(store, dependencies.Auth))
+		g.HandleFunc("/api/v1/settings", handleSettings(store))
 		g.HandleFunc("/api/v1/settings/", handleSettingsRevision(store))
 		g.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
 		if deviceMap, err := store.LoadDeviceMap(); err == nil {
@@ -2348,6 +2348,9 @@ func handleSettingsRevision(store *settings.Store) http.HandlerFunc {
 			return
 		}
 		if len(parts) == 1 && parts[0] == "restore" && r.Method == http.MethodPost {
+			if !requireSettingsRole(w, r, auth.RoleEditSettings) {
+				return
+			}
 			var request struct {
 				Revision string `json:"revision"`
 			}
@@ -2913,11 +2916,10 @@ func newRelationID() (string, error) {
 	return "relation-" + hex.EncodeToString(value), nil
 }
 
-// handleSettings guards live_update_interval_seconds behind the
-// tune_live_updates role: changing it requires the role, but every other
-// settings field remains writable by any authenticated user, matching the
-// endpoint's existing behavior.
-func handleSettings(store *settings.Store, authManager *auth.Manager) http.HandlerFunc {
+// handleSettings checks every changed settings field against its role (see
+// settingsChangeRoles): edit_settings for most fields, tune_live_updates for
+// the live update interval and view_history for the history views.
+func handleSettings(store *settings.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -2938,18 +2940,13 @@ func handleSettings(store *settings.Store, authManager *auth.Manager) http.Handl
 				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
 				return
 			}
-			if value.LiveUpdateIntervalSeconds != current.LiveUpdateIntervalSeconds {
-				if authManager == nil {
-					writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
-					return
-				}
-				user, ok := auth.UserFromContext(r.Context())
-				if !ok {
-					writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
-					return
-				}
-				if !auth.HasRole(user, auth.RoleTuneLiveUpdates) {
-					writeError(w, http.StatusForbidden, "live_update_interval_forbidden", "Für das Anpassen des Live-Update-Intervalls fehlt die Berechtigung")
+			roles, err := settingsChangeRoles(current, value)
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
+				return
+			}
+			for _, role := range roles {
+				if !requireSettingsRole(w, r, role) {
 					return
 				}
 			}
