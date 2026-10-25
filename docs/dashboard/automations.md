@@ -46,10 +46,15 @@ the picker.
 **Assistant** in the bar above the list opens the assistant. It is the only way to add an entry. It builds a scenario or a rule
 from a few questions, so you do not need to know the fields.
 
+Below 900 px wide the assistant opens as a bottom sheet that slides up from the
+bottom of the screen. Drag its handle down to close it, or tap the dark area
+above it, or press Escape. A drag that stops short springs back. When the
+assistant closes, the focus returns to the **Assistant** button.
+
 The first page is the gallery. A search field matches the title, the text and
 the keywords of each template. Category buttons narrow the list to **Charging**,
 **Grid feed**, **Switching**, **Time** or **Warnings**. Templates that fit your
-devices show as tiles. Templates whose device or battery is missing are listed
+devices show as tiles on a desktop and as rows on a phone. Templates whose device or battery is missing are listed
 under **More templates** with the reason. Under the tiles, **Without a
 template** creates an empty rule or an empty scenario.
 
@@ -181,10 +186,27 @@ commands.
 
 ## Single rules
 
-The **Single rules** tab lists the rules as cards. A card shows the rule's
-current state and, in the expanded view, its blocks.
+The **Single rules** tab lists the rules. A collapsed row shows the rule's icon
+tile, its name, the device path (the condition icons, an arrow and the action
+icons), a status pill, the on/off switch and a chevron. A click on the row
+expands it, and the icon tile collapses it again. The switch does not expand
+the row.
+
+The expanded card shows the live bars, the three columns **When all of these
+apply**, **Then** and **Flow**, and the trigger strip. In the card head,
+**Test** runs every action of the rule once, in order. **Edit** opens the
+editor. A rule that is being edited shows neither button.
 
 ### Rule editor
+
+**Edit** opens the rule as sentence rows on desktop. Each condition and each
+action is one row, with its field labels, and the **Flow** column holds the
+cooldown, the run mode and **Record history**.
+
+The footer has **Delete rule** on the left, and **Discard** and **Done** on the
+right. **Discard** restores the rule as it was when you pressed **Edit**, so
+nothing you changed in the editor stays. **Done** keeps the changes and leaves
+the editor. Changes are not saved to the device until you save the document.
 
 The rule editor has four parts.
 
@@ -225,18 +247,20 @@ it, together with the last trigger and how often the rule has fired.
 lists every result. When the service is offline, the state always reads
 **Service offline**, because none of the values can be trusted.
 
-Each condition card shows one of four states:
+Each condition shows one of three states, in a badge next to its line:
 
 | State | Meaning |
 |---|---|
-| no value | The topic has never carried a message, or the balance is stale. |
-| threshold not reached | There is a value, but the condition is not met. |
-| met, hold time left | The condition is met and waits for its hold time. |
+| open | The condition is not met. The text beside the badge says why, for example that the threshold is not reached or that there is no value yet. |
+| waiting | The condition is met and waits for its hold time. |
 | met | The condition is met and its hold time is over. |
 
-The rule card also shows a timeline of the triggers in the last 6 hours. Above
-the blocks, in the view and in the editor, each numeric condition has a bar with
-its live value next to the threshold.
+The expanded rule card also shows a trigger strip with the last four triggers.
+Its time window fits those four triggers and is at least 30 minutes wide. The
+strip needs **Record history** to be on for the rule. Otherwise the card says
+that history is off for this rule. Above the blocks, each numeric condition has
+a live bar with the caption **Now · field**. The value is on the left, the
+threshold on the right, and a hatched part marks the hysteresis.
 
 The live values come from the automation service, which evaluates every
 `tick_interval_s` (default 10 s). They show what the rule last computed with,
@@ -244,9 +268,32 @@ not the newest value the dashboard has elsewhere. The header says how long ago
 the service last reported. When it is offline, the page shows the last known
 state.
 
-Collapsed rule cards show a sparkline of their recent triggers. **Show full
-history** opens the list of the last triggers of one rule, each marked as Triggered,
-Blocked or Error. A trigger from a test carries a Test badge.
+With **Show history** on in the toolbar, each rule with a balance condition shows a
+30 minute sparkline under its row. The line is the value of the balance field,
+and the dashed line is the threshold. Grid export is shown as positive feed-in.
+A rule without readings shows **No readings**. **Show full history** in the
+expanded card opens the list of the last triggers of one rule, each marked as
+Triggered, Blocked or Error. A trigger from a test carries a Test badge.
+
+### On a phone
+
+Below 900 px wide the toolbar has two rows. The first row switches between
+**Scenarios** and **Single rules**. The second row has **Assistant**, **Save**
+and a history icon button in place of the **Show history** switch. The button
+is pressed while history is on.
+
+A rule row shows its device path and a short status instead of the pill. The
+short status is **met**, **not met**, **Cooldown**, **waiting**, **Error** or
+**off**. The rule's switch stays at the right. When history is on, the sparkline
+sits under the row.
+
+The expanded card ends with a row of **Edit**, **Test** and a trash icon for
+**Delete rule**. The editor head stays at the top while you scroll. It shows
+the back tile, the name, the switch and one line with the status and the last
+trigger. The footer with **Discard** and **Done** stays at the bottom. The
+condition cards show their state badge, and the device and value fields take
+the full width of the card.
+
 
 ## Undo
 
