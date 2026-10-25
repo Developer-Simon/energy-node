@@ -152,7 +152,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=4,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=1,/static/js/settings.page.js?v=28,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=8,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=1,/static/js/users.page.js?v=1",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=1,/static/js/settings.page.js?v=28,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=9,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=1,/static/js/users.page.js?v=2",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -1130,7 +1130,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=43"`,
+		`href="/node/static/css/base.css?v=44"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -3009,7 +3009,7 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 
 	page := httptest.NewRecorder()
 	newHandler().ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
-	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=8") {
+	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=9") {
 		t.Fatal("base.html must lazy-load versions.page.js with the settings panel")
 	}
 }
