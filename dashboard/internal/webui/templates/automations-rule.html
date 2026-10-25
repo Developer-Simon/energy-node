@@ -22,12 +22,12 @@
               <span class="auto-pill" x-bind:class="gateVerdict(rule).tone" x-bind:title="gateVerdict(rule).detail" x-text="gateVerdict(rule).label"></span>
               <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
 
-              <button class="auto-btn-text is-ghost" type="button" x-show="expanded[rule.id]" x-on:click="testRule(rule)"
+              <button class="auto-btn-text is-ghost" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-on:click="testRule(rule)"
                       x-bind:title="$t('automations.rule.test_button')">
                 <svg class="automation-icon"><use href="#ico-play"></use></svg>
                 <span>{{t "automations.rule.test_button"}}</span>
               </button>
-              <button class="auto-btn-text" type="button" x-show="expanded[rule.id]" x-bind:class="{ 'is-active': editing[rule.id] }"
+              <button class="auto-btn-text" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-bind:class="{ 'is-active': editing[rule.id] }"
                       x-on:click="startEditing(rule)" x-bind:aria-pressed="Boolean(editing[rule.id])"
                       x-bind:title="$t('automations.rule.edit_button.tooltip_edit')">
                 <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
@@ -151,6 +151,7 @@
                   <section class="auto-block auto-flow-group">
                     <h4 class="auto-block-cap">{{t "automations.rule.block.flow"}}</h4>
                     <div class="auto-flow-row">
+                      <svg class="automation-icon auto-flow-icon" aria-hidden="true"><use href="#ico-history"></use></svg>
                       <span class="auto-flow-label">{{t "automations.rule.flow.mode_label"}}</span>
                       <span class="field-help">
                         <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.rule_editor.repeat_help_aria_label')">
@@ -182,6 +183,7 @@
                     </div>
                     <p class="auto-hint" x-show="hasToggleAction(rule)">{{t "automations.rule_editor.repeat_blocked_toggle"}}</p>
                     <div class="auto-flow-row">
+                      <svg class="automation-icon auto-flow-icon" aria-hidden="true"><use href="#ico-gate"></use></svg>
                       <span class="auto-flow-label">
                         {{t "automations.rule_editor.cooldown_label"}}
                         <span class="field-help">
@@ -195,23 +197,22 @@
                         {{template "auto-stepper"}}
                       </div>
                     </div>
-                    <div class="auto-flow-row">
-                      <label class="auto-bar-switch">
-                        <span class="settings-toggle"
-                              x-bind:title="rule.history_enabled ? $t('automations.history.enabled_title') : $t('automations.history.disabled_title')">
-                          <input x-bind:id="`history-enabled-${rule.id}`" type="checkbox" role="switch"
-                                 x-model="rule.history_enabled" x-bind:aria-checked="rule.history_enabled"
-                                 x-bind:aria-label="$t('automations.history.enabled_aria_label', {name: rule.name})">
-                          <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
-                        </span>
-                        <span>{{t "automations.scenario.edit.history.label"}}</span>
-                      </label>
+                    <div class="auto-flow-row auto-flow-toggle-row">
+                      <svg class="automation-icon auto-flow-icon" aria-hidden="true"><use href="#ico-layers"></use></svg>
+                      <span class="auto-flow-label">{{t "automations.scenario.edit.history.label"}}</span>
                       <span class="field-help">
                         <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.history.explanation_button.aria_label')">
                           <svg><use href="#ico-help"></use></svg>
                         </button>
                         <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_enabled')"></span>
                       </span>
+                      <label class="settings-toggle auto-flow-toggle"
+                             x-bind:title="rule.history_enabled ? $t('automations.history.enabled_title') : $t('automations.history.disabled_title')">
+                        <input x-bind:id="`history-enabled-${rule.id}`" type="checkbox" role="switch"
+                               x-model="rule.history_enabled" x-bind:aria-checked="rule.history_enabled"
+                               x-bind:aria-label="$t('automations.history.enabled_aria_label', {name: rule.name})">
+                        <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                      </label>
                     </div>
                   </section>
 

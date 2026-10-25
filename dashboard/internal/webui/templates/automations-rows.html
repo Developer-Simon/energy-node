@@ -230,12 +230,12 @@
                             <div class="auto-device-chips is-single" role="group">
                               {{if eq . "field"}}<div class="auto-device-chip is-selected">
                                 <span class="auto-tile-icon" x-bind:class="conditionFieldChip(condition).tone ? 'is-tone-' + conditionFieldChip(condition).tone : ''"><svg class="automation-icon"><use x-bind:href="'#' + conditionFieldChip(condition).icon"></use></svg></span>
-                                <span class="auto-device-chip-text"><b x-text="conditionFieldChip(condition).deviceName"></b></span>
+                                <span class="auto-device-chip-text"><b x-text="conditionFieldChip(condition).deviceName"></b></span><svg class="automation-icon auto-chip-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
                               </div>
                               <button type="button" class="auto-device-more" x-on:click="chooseConditionField(condition)">{{t "automations.action.device.change_button"}}</button>{{else}}<template x-if="conditionEntityChip(condition)">
                                 <div class="auto-device-chip is-selected">
                                   <span class="auto-tile-icon" x-bind:class="conditionEntityChip(condition).tone ? 'is-tone-' + conditionEntityChip(condition).tone : ''"><svg class="automation-icon"><use x-bind:href="'#' + conditionEntityChip(condition).icon"></use></svg></span>
-                                  {{template "auto-chip-text" "conditionEntityChip(condition)"}}
+                                  {{template "auto-chip-text" "conditionEntityChip(condition)"}}<svg class="automation-icon auto-chip-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
                                 </div>
                               </template>
                               <button type="button" class="auto-device-more" x-on:click="chooseConditionEntity(condition)"
@@ -301,7 +301,7 @@
                                   x-bind:aria-label="$t('automations.action.test_button.aria_label')"
                                   x-on:click="rowsRunTest(index)">
                             <svg class="automation-icon"><use href="#ico-play"></use></svg>
-                            <span>{{t "automations.action.test_button.label"}}</span>
+                            <span class="auto-test-long">{{t "automations.action.test_button.label"}}</span><span class="auto-test-short">{{t "automations.rule.test_button"}}</span>
                           </button>
                         </template>
 
@@ -315,11 +315,11 @@
                       <template x-if="actionKind(action) === 'switch' || actionKind(action) === 'setpoint'">
                         <div class="auto-fields">
                           <div class="auto-field auto-field-wide">
-                            <span class="auto-field-label">{{t "automations.wizard.entity.device_label"}}</span>
+                            <span class="auto-field-label auto-label-sr">{{t "automations.wizard.entity.device_label"}}</span>
                             <div class="auto-device-chips is-single" role="group" x-bind:aria-label="$t('automations.wizard.entity.device_label')">
                               <div class="auto-device-chip is-selected" x-bind:class="{ 'is-unknown': actionChip(action).unknown }">
                                 <span class="auto-tile-icon" x-bind:class="actionChip(action).tone ? 'is-tone-' + actionChip(action).tone : ''"><svg class="automation-icon"><use x-bind:href="'#' + actionChip(action).icon"></use></svg></span>
-                                {{template "auto-chip-text" "actionChip(action)"}}
+                                {{template "auto-chip-text" "actionChip(action)"}}<svg class="automation-icon auto-chip-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
                               </div>
                               <button type="button" class="auto-device-more" x-on:click="chooseActionDevice(rowsOwner, index)"
                                       x-text="$t('automations.action.device.change_button')"></button>
@@ -344,12 +344,12 @@
                             <div class="auto-fields auto-field-wide">
                               <template x-if="action.payload_source !== 'balance'">
                                 <div class="auto-field" x-data="{ get stepTarget() { return setpointValueTarget(action) }, stepKey: 'value', get stepOpts() { const b = actionBounds(action); return { min: b.min, max: b.max, step: b.step } }, get stepUnit() { return actionBounds(action).unit }, stepLabel: $t('automations.action.value_label') }">
-                                  <span class="auto-field-label">{{t "automations.action.value_label"}}</span>
+                                  <span class="auto-field-label auto-label-sr">{{t "automations.action.value_label"}}</span>
                                   {{template "auto-stepper"}}
                                 </div>
                               </template>
                               <div class="auto-field">
-                                <span class="auto-field-label">{{t "automations.action.setpoint.source_label"}}</span>
+                                <span class="auto-field-label auto-label-sr">{{t "automations.action.setpoint.source_label"}}</span>
                                 <span class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.action.setpoint.source_label')">
                                   <button class="auto-segment-tab" type="button" role="radio" x-on:click="setSetpointSource(action, 'constant')"
                                           x-bind:aria-checked="action.payload_source !== 'balance' ? 'true' : 'false'">{{t "automations.wizard.setpoint.constant"}}</button>
@@ -424,7 +424,7 @@
                           </div>
                           <template x-if="action.payload_source !== 'balance'">
                             <div class="auto-field">
-                              <span class="auto-field-label">{{t "automations.action.value_label"}}</span>
+                              <span class="auto-field-label auto-label-sr">{{t "automations.action.value_label"}}</span>
                               <input class="auto-input" type="text" x-model="action.payload" x-bind:aria-label="$t('automations.action.publish.payload_aria')">
                             </div>
                           </template>

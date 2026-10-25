@@ -540,33 +540,49 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-rule-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 4px; border-top: 1px solid var(--border-soft); }
 .auto-rule-foot > .is-danger { margin-right: auto; }
 .auto-rule-foot-main { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
-/* Schaltflaechen in den Karten bleiben im Szenario-Formular unveraendert. */
+/* Diese Hooks wirken nur in der Bearbeiten-Ansicht, das Szenario-Formular teilt die Vorlagen und bleibt unveraendert. */
 .auto-card-actions { display: contents; }
-/* Visuell versteckt, bleibt fuer Screenreader. */
-.auto-hold-short { display: none; }
+.auto-hold-short, .auto-test-short, .auto-chip-chevron { display: none; }
 .auto-rule[data-mode="edit"] .auto-label-sr, .auto-rule[data-mode="edit"] .auto-card-title, .auto-rule[data-mode="edit"] .auto-card-kind, .auto-rule[data-mode="edit"] .auto-hold-long {
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
 }
 
 @media (min-width: 900px) {
+  /* Bedingungen und Aktionen: eine Zeile je Karte, Icon links, Felder mittig, Schaltflaechen rechts. */
   .auto-rule[data-mode="edit"] .auto-edit-list { gap: 0; background: var(--panel-alt); border-radius: 14px; overflow: hidden; }
   .auto-rule[data-mode="edit"] .auto-cond { gap: 0; margin-bottom: 0; border-top: 1px solid var(--border-soft); }
   .auto-rule[data-mode="edit"] .auto-cond:first-child { border-top: 0; }
+  .auto-rule[data-mode="edit"] .auto-cond.is-met { background: var(--ok-bg); box-shadow: inset 3px 0 0 var(--ok); }
+  .auto-rule[data-mode="edit"] .auto-cond.is-pending { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
   .auto-rule[data-mode="edit"] .auto-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 14px; border-radius: 0; background: transparent; box-shadow: none; }
-  .auto-rule[data-mode="edit"] .auto-cond.is-met .auto-card { background: var(--ok-bg); box-shadow: inset 3px 0 0 var(--ok); }
-  .auto-rule[data-mode="edit"] .auto-cond.is-pending .auto-card { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
   .auto-rule[data-mode="edit"] .auto-card-head { display: contents; }
-  .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1; }
-  .auto-rule[data-mode="edit"] .auto-card > .auto-fields { grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-  .auto-rule[data-mode="edit"] .auto-card-actions { display: flex; align-items: center; gap: 4px; grid-column: 3; grid-row: 1; }
-  .auto-rule[data-mode="edit"] .auto-field { flex: 0 0 auto; }
-  .auto-rule[data-mode="edit"] .auto-field input:not(.auto-stepper-field input) { width: auto; }
-  .auto-rule[data-mode="edit"] .auto-stepper-field .auto-input { width: auto; min-width: 4ch; }
+  .auto-rule[data-mode="edit"] .auto-card-head > .auto-tile-icon { grid-column: 1; grid-row: 1; background: transparent; }
+  .auto-rule[data-mode="edit"] .auto-card > .auto-fields { grid-column: 2; grid-row: 1; min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .auto-rule[data-mode="edit"] .auto-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .auto-rule[data-mode="edit"] .auto-field > input, .auto-rule[data-mode="edit"] .auto-field > select { width: auto; }
   .auto-rule[data-mode="edit"] .auto-stepper { min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-stepper-field .auto-input { width: auto; min-width: 4ch; }
   .auto-rule[data-mode="edit"] .auto-hold-short { display: inline; font-size: .8rem; color: var(--text-muted); }
+  .auto-rule[data-mode="edit"] .auto-card-actions { display: flex; align-items: center; gap: 4px; grid-column: 3; grid-row: 1; }
+  .auto-rule[data-mode="edit"] .auto-test-long { display: none; }
+  .auto-rule[data-mode="edit"] .auto-test-short { display: inline; }
+  .auto-rule[data-mode="edit"] .auto-card-test { border-color: transparent; background: transparent; color: var(--text-subtle); }
+  .auto-rule[data-mode="edit"] .auto-card-delete { border-color: transparent; background: transparent; color: var(--text-muted); }
+  /* Geraetekachel: nur Icon und Name, der Klick geht auf die Kachel. */
+  .auto-rule[data-mode="edit"] .auto-device-chips:has(> .auto-device-chip) { position: relative; }
+  .auto-rule[data-mode="edit"] .auto-device-chips:has(> .auto-device-chip) > .auto-device-more {
+    position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer;
+  }
   .auto-rule[data-mode="edit"] .auto-device-chip { height: 32px; padding: 5px 10px 5px 6px; border-radius: 8px; border: 1px solid var(--accent-line); background: var(--accent-bg); }
   .auto-rule[data-mode="edit"] .auto-device-chip .auto-tile-icon { width: 22px; height: 22px; border-radius: 6px; }
-  .auto-rule[data-mode="edit"] .auto-device-chip::after { content: "\203A"; color: var(--text-muted); }
-  .auto-rule[data-mode="edit"] .auto-flow-group .auto-flow-row { justify-content: space-between; min-height: 46px; padding: 11px 14px; border-top: 1px solid var(--border-soft); background: var(--panel-alt); }
-  .auto-rule[data-mode="edit"] .auto-flow-group .auto-flow-row:first-of-type { border-top: 0; }
+  .auto-rule[data-mode="edit"] .auto-device-chip-text small { display: none; }
+  .auto-rule[data-mode="edit"] .auto-chip-chevron { display: block; flex: none; width: .9rem; height: .9rem; color: var(--text-muted); }
+  /* Ablauf: Zeilen wie im Entwurf, Icon links, Bedienelement rechts. */
+  .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 11px 14px; border-top: 1px solid var(--border-soft); background: var(--panel-alt); color: var(--text); }
+  .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row:first-of-type { border-top: 0; }
+  .auto-rule[data-mode="edit"] .auto-flow-group .auto-flow-label { min-width: 0; }
+  .auto-rule[data-mode="edit"] .auto-flow-icon { flex: none; width: 1rem; height: 1rem; color: var(--text-subtle); }
+  .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-segment, .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row > .auto-field, .auto-rule[data-mode="edit"] .auto-flow-toggle { margin-left: auto; }
+  .auto-rule[data-mode="edit"] .auto-flow-group .auto-stepper { background: var(--sunken); border-radius: 999px; }
 }
