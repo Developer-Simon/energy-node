@@ -133,6 +133,7 @@ test('entityChip describes any entity with role, name and value', () => {
   assert.equal(chip.subtitle, 'Ladestrom');
   assert.equal(chip.tone, 'wallbox');
   assert.equal(chip.valueText, 'jetzt 10 A');
+  assert.equal(chip.valueOnly, '10 A', 'the live pill gets the bare value, the prefix comes from its label');
   assert.equal(devices.entityChip([wallbox], assignments, 'gone'), null);
 });
 

@@ -30,6 +30,7 @@
     deviceName: t('automations.devices.unknown'),
     subtitle: topic || '',
     valueText: '',
+    valueOnly: '',
     icon: 'ico-device',
     tone: '',
     fits: true,

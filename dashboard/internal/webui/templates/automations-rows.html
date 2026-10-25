@@ -100,12 +100,12 @@
                           <div class="auto-field" x-show="condition.comparison === 'above' || condition.comparison === 'below'" x-data="{ get stepTarget() { return condition }, stepKey: 'value', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.entity.value_label') }">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.value_label"}}</span>
                             {{template "auto-stepper"}}
-                            <span class="auto-cond-now" x-show="conditionEntityChip(condition)?.valueText"><span>{{t "automations.condition.entity.now_label"}}</span><b x-text="conditionEntityChip(condition)?.valueText"></b></span>
+                            <span class="auto-cond-now" x-show="conditionEntityChip(condition)?.valueOnly"><span>{{t "automations.condition.entity.now_label"}}</span><b x-text="conditionEntityChip(condition)?.valueOnly"></b></span>
                           </div>
                           <div class="auto-field" x-show="condition.comparison === 'equals' || condition.comparison === 'not_equals'">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.text_label"}}</span>
                             <input class="auto-input" type="text" x-model="condition.text" x-bind:aria-label="$t('automations.condition.entity.text_label')">
-                            <span class="auto-cond-now" x-show="conditionEntityChip(condition)?.valueText"><span>{{t "automations.condition.entity.now_label"}}</span><b x-text="conditionEntityChip(condition)?.valueText"></b></span>
+                            <span class="auto-cond-now" x-show="conditionEntityChip(condition)?.valueOnly"><span>{{t "automations.condition.entity.now_label"}}</span><b x-text="conditionEntityChip(condition)?.valueOnly"></b></span>
                           </div>
                           <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
                             {{template "auto-hold-label"}}
