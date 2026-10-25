@@ -1,23 +1,3 @@
-  // Nur der Wert ohne "jetzt", etwa "+800 W" oder "ON". Leer, wenn kein Wert da ist.
-  function formatValue(entity) {
-    const number = toNumber(entity.value);
-    if (number === null) {
-      const text = typeof entity.value === "string" ? entity.value.trim() : "";
-      return text && text.length <= 16 ? text : "";
-    }
-    const unit = entity.unit_of_measurement || "";
-    if (unit === "W") {
-      const sign = number > 0 ? "+" : "";
-      return `${sign}${formatNumber(number)} W`;
-    }
-    const suffix = unit ? ` ${unit}` : "";
-    return `${formatNumber(number)}${suffix}`;
-  }
-
-  function valueText(entity) {
-    const value = formatValue(entity);
-    return value ? t("automations.devices.value_now", { value }) : "";
-  }
 (() => {
   // Reine Kandidaten-Listen fuer die Automationen-Editoren: Geraete nach
   // Rollen-Gruppen, Stellglieder mit Grenzen, Messwerte, Schalter und die
@@ -118,7 +98,6 @@
       tone: style.tone,
       subtitle,
       valueText: text,
-      valueOnly: formatValue(entity),
       fits,
       topic: entity.command_topic || entity.state_topic || '',
     };
@@ -235,7 +214,7 @@
       return {
         id: field, deviceName: label, entityName: '', group,
         icon: FIELD_ICON[field] || (field.startsWith('custom:') ? 'ico-layers' : style.icon),
-        tone: style.tone, subtitle: '', valueText: '', valueOnly: '', fits: true, topic: '',
+        tone: style.tone, subtitle: '', valueText: '', fits: true, topic: '',
       };
     });
   }

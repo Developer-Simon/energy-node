@@ -425,11 +425,6 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-device-chip-text small { font-size: .78rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .auto-device-chip-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
 .auto-device-chip-live { color: var(--flow-grid); font-variant-numeric: tabular-nums; }
-/* Aktueller Wert einer Geraetebedingung. Sichtbar nur in der Bearbeiten-Ansicht am Desktop. Die Klasse "is-met" kommt von der Zeile (.auto-cond). */
-.auto-cond-now { display: none; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; background: var(--sunken); color: var(--text-muted); font-size: .8rem; white-space: nowrap; }
-.auto-cond-now b { color: var(--text-strong); font-weight: 700; }
-.auto-cond.is-met .auto-cond-now { background: var(--ok-bg); color: var(--ok); }
-.auto-cond.is-met .auto-cond-now b { color: inherit; }
 .auto-device-more { box-sizing: border-box; flex: none; height: 3.25rem; padding: 0 .9rem; border: 1px dashed var(--border); border-radius: 12px; background: transparent; color: var(--text-muted); font: inherit; font-size: .85rem; font-weight: 550; white-space: nowrap; cursor: pointer; }
 .auto-device-more:hover { color: var(--text-strong); border-color: var(--text-faint); }
 .auto-device-more:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -607,7 +602,6 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
   .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-sep { color: var(--text-muted); margin: 0 6px; }
   .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-value { display: inline-block; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
   .auto-rule[data-mode="edit"] .auto-device-chip.is-path .auto-device-chip-live { display: none; }
-  .auto-rule[data-mode="edit"] .auto-cond-now { display: inline-flex; }
   .auto-rule[data-mode="edit"] .auto-chip-chevron { display: block; flex: none; width: .9rem; height: .9rem; color: var(--text-muted); }
   /* Ablauf: Zeilen wie im Entwurf, Icon links, Bedienelement rechts. */
   .auto-rule[data-mode="edit"] .auto-flow-group > .auto-flow-row { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 11px 14px; border-top: 1px solid var(--border-soft); background: var(--panel-alt); color: var(--text); }

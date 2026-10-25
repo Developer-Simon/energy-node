@@ -177,7 +177,6 @@
   "automations.condition.entity.drifted_warning": "Note: the state topic or template has changed, now: {current_topic}",
   "automations.condition.entity.entity_label": "Entity",
   "automations.condition.entity.missing_warning": "Note: entity {entity_id} is no longer in the registry. The rule keeps running with the saved topic.",
-  "automations.condition.entity.now_label": "now",
   "automations.condition.entity.text_label": "Comparison text",
   "automations.condition.entity.value_label": "Comparison value",
   "automations.condition.hold_aria_label": "Hold time in seconds",

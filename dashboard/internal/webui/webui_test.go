@@ -1420,23 +1420,6 @@ func TestAutomationsOffersEnergyValueInsteadOfPvSurplus(t *testing.T) {
 	}
 }
 
-// Die Geraetewert-Bedingung zeigt den aktuellen Wert als Pille nach dem
-// Wertfeld. Das Wort "jetzt" kommt aus dem Katalog, in beiden Sprachen.
-func TestDeviceValueConditionShowsLivePillWithCatalogLabel(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
-		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
-	if !strings.Contains(recorder.Body.String(), "auto-cond-now") {
-		t.Fatal("das Automations-Panel zeigt den aktuellen Wert einer Geraetebedingung nicht")
-	}
-	catalogs := readCatalogs(t)
-	for _, lang := range []string{"de", "en"} {
-		if _, ok := catalogs[lang]["automations.condition.entity.now_label"]; !ok {
-			t.Fatalf("Katalog %s fehlt automations.condition.entity.now_label", lang)
-		}
-	}
-}
-
 // Der Tab beginnt mit den Regeln, nicht mit dem Tick-Intervall: der lange
 // Erklaertext zu den Publish-Praefixen steckt jetzt im Hilfe-Popover.
 func TestAutomationsSettingsSitBelowTheRulesInAnAdvancedSection(t *testing.T) {

@@ -2157,6 +2157,47 @@ test('rulePreview lists condition states and action icons', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(component.rulePreview({}))), { conditions: [], actions: [] });
 });
 
+test('liveBars falls back to the preloaded value in edit mode', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? [{ series: 'role:grid', ts: now - 1000, v: -500 }] : []) };
+    const rule = ruleOn('grid_export');
+    await component.loadEditLive(rule);
+    component.editing[rule.id] = true;
+    assert.equal(component.liveBars(rule)[0].valueText, '500 W');
+    component.editing[rule.id] = false;
+    assert.equal(component.liveBars(rule)[0].valueText, '—');
+  } finally {
+    window.close();
+  }
+});
+
+test('liveBars prefers the service report over the preload', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? [{ series: 'role:grid', ts: now - 1000, v: -500 }] : []) };
+    const rule = ruleOn('grid_export');
+    await component.loadEditLive(rule);
+    component.runtimeState = { rules: { [rule.id]: { conditions: [{ value: 650, target: 400, raw_met: false, met: false }] } } };
+    component.editing[rule.id] = true;
+    assert.equal(component.liveBars(rule)[0].valueText, '650 W');
+  } finally {
+    window.close();
+  }
+});
+
+test('liveBars uses the entity live value in edit mode', () => {
+  const { component } = createAutomationsPanel();
+  component.readableEntities = [{ unique_id: 'temp', deviceName: 'Pumpe', name: 'Vorlauf', value: '42.5', unit_of_measurement: '°C', state_topic: 'x', template_supported: true }];
+  const rule = { id: 'r-temp', conditions: [{ type: 'entity_value', entity_id: 'temp', comparison: 'above', value: 40 }], actions: [] };
+  component.editing[rule.id] = true;
+  assert.equal(component.liveBars(rule)[0].valueText, '42.5 °C');
+  component.editing[rule.id] = false;
+  assert.equal(component.liveBars(rule)[0].valueText, '—');
+});
+
 test('liveBar puts the hysteresis band below an above-threshold', () => {
   const { component } = createAutomationsPanel();
   const rule = {
