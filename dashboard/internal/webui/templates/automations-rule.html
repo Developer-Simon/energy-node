@@ -7,20 +7,26 @@
                 <svg class="automation-icon"><use x-bind:href="'#' + ruleIcon(rule)"></use></svg>
               </button>
 
-              <span class="automation-rule-name is-clickable" x-show="!editing[rule.id]" x-text="rule.name"></span>
-              <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
-                     x-bind:aria-label="$t('automations.rule.name_input.aria_label')">
-              <span class="auto-rule-preview" aria-hidden="true" x-show="!expanded[rule.id]">
-                <template x-for="(entry, index) in rulePreview(rule).conditions" x-bind:key="'c' + index">
-                  <svg class="automation-icon automation-icon-sm" x-bind:class="entry.state"><use x-bind:href="'#' + entry.icon"></use></svg>
-                </template>
-                <svg class="automation-icon automation-icon-sm auto-rule-preview-arrow"><use href="#ico-chevron"></use></svg>
-                <template x-for="(entry, index) in rulePreview(rule).actions" x-bind:key="'a' + index">
-                  <svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + entry.icon"></use></svg>
-                </template>
+              <span class="auto-rule-main">
+                <span class="automation-rule-name is-clickable" x-show="!editing[rule.id]" x-text="rule.name"></span>
+                <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
+                       x-bind:aria-label="$t('automations.rule.name_input.aria_label')">
+                <span class="auto-rule-preview" aria-hidden="true" x-show="!expanded[rule.id]">
+                  <template x-for="(entry, index) in rulePreview(rule).conditions" x-bind:key="'c' + index">
+                    <svg class="automation-icon automation-icon-sm" x-bind:class="entry.state"><use x-bind:href="'#' + entry.icon"></use></svg>
+                  </template>
+                  <svg class="automation-icon automation-icon-sm auto-rule-preview-arrow"><use href="#ico-chevron"></use></svg>
+                  <template x-for="(entry, index) in rulePreview(rule).actions" x-bind:key="'a' + index">
+                    <svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + entry.icon"></use></svg>
+                  </template>
+                </span>
+                <span class="auto-pill" x-bind:class="gateVerdict(rule).tone" x-bind:title="gateVerdict(rule).detail" x-text="gateVerdict(rule).label"></span>
+                <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
+                <span class="auto-rule-short" x-show="!expanded[rule.id]" x-bind:class="'is-' + ruleShortStatus(rule).tone">
+                  <i class="auto-dot" aria-hidden="true"></i>
+                  <span x-text="ruleShortStatus(rule).label"></span>
+                </span>
               </span>
-              <span class="auto-pill" x-bind:class="gateVerdict(rule).tone" x-bind:title="gateVerdict(rule).detail" x-text="gateVerdict(rule).label"></span>
-              <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
 
               <button class="auto-btn-text is-ghost" type="button" x-show="expanded[rule.id] && !editing[rule.id]" x-on:click="testRule(rule)"
                       x-bind:title="$t('automations.rule.test_button')">
@@ -41,6 +47,19 @@
                 <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
               </label>
               <svg class="automation-icon auto-rule-chevron" aria-hidden="true" x-show="!expanded[rule.id]"><use href="#ico-chevron"></use></svg>
+            </div>
+
+            <div class="auto-rule-spark" x-show="showHistory && !expanded[rule.id]" x-bind:class="'is-tone-' + liveTone(ruleSparkCondition(rule) || {})"
+                 x-bind:style="{ animationDelay: (document.rules.indexOf(rule) * 40) + 'ms' }">
+              <template x-if="ruleSparkFor(rule).empty">
+                <span class="auto-rule-spark-empty">{{t "automations.rule.spark.empty"}}</span>
+              </template>
+              <template x-if="!ruleSparkFor(rule).empty">
+                <svg class="auto-rule-spark-svg" viewBox="0 0 150 30" preserveAspectRatio="none" aria-hidden="true">
+                  <line class="auto-rule-spark-target" x1="0" x2="150" x-bind:y1="ruleSparkFor(rule).band.y" x-bind:y2="ruleSparkFor(rule).band.y"></line>
+                  <path class="auto-rule-spark-line" x-bind:d="ruleSparkFor(rule).path"></path>
+                </svg>
+              </template>
             </div>
 
             <div class="auto-rule-body" x-show="expanded[rule.id]">

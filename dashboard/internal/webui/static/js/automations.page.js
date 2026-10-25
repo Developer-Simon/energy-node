@@ -937,6 +937,15 @@
       });
     },
 
+    // Kurzstatus der Regel fuer die Listenzeile: erfuellt, wartet, Sperrzeit,
+    // nicht erfuellt, Fehler oder aus. Aus gilt vor allem anderen.
+    ruleShortStatus(rule) {
+      if (!rule.enabled) return { tone: 'disabled', label: t('automations.gate.short.disabled') };
+      const verdict = this.gateVerdict(rule);
+      const keys = { ok: 'automations.gate.short.ok', wait: 'automations.gate.short.wait', info: 'automations.gate.short.info', off: 'automations.gate.short.off', bad: 'automations.gate.short.bad' };
+      return { tone: verdict.tone, label: t(keys[verdict.tone] || 'automations.gate.short.off') };
+    },
+
     // Vorschau des Toleranzbands fuer das Regler-Formular.
     bandPreviewFor(scenario) {
       const regulator = this.regulatorOf(scenario);

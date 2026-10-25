@@ -3395,6 +3395,23 @@ func TestAutomationsRuleCardGroupsWhenThenAndFlow(t *testing.T) {
 	}
 }
 
+// Die Werkzeugleiste hat mobil einen Verlauf-Knopf mit Zustand, der den Schalter ersetzt.
+func TestAutomationsToolbarHasHistoryIconButton(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`x-on:click="setShowHistory(!showHistory)"`,
+		`x-bind:aria-pressed`,
+		"auto-history-toggle",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("Werkzeugleiste: %q fehlt im Automations-Panel", want)
+		}
+	}
+}
+
 // Der Bearbeiten-Zweig der Regel hat eine Fussleiste mit Loeschen, Verwerfen und
 // Fertig, und die Sperrzeit ist ein Stepper statt eines Zahlenfelds.
 func TestAutomationsRuleEditorHasFooterActions(t *testing.T) {

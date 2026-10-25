@@ -59,6 +59,11 @@
           <svg class="automation-icon"><use href="#ico-save"></use></svg>
           <span x-text="saving ? $t('automations.save_all_button.label_saving') : $t('automations.save_all_button.label_ready')"></span>
         </button>
+        <button class="auto-history-toggle" type="button" x-on:click="setShowHistory(!showHistory)"
+                x-bind:aria-pressed="showHistory ? 'true' : 'false'"
+                x-bind:title="$t('automations.show_history')" x-bind:aria-label="$t('automations.show_history')">
+          <svg class="automation-icon"><use href="#ico-history"></use></svg>
+        </button>
       </div>
 
       <div class="auto-undo" role="status" x-cloak x-show="undo">

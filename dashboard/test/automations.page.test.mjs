@@ -1987,6 +1987,17 @@ test('setShowHistory loads rule sparklines only for rules with a series', async 
   }
 });
 
+test('ruleShortStatus shows off for disabled rules and not met without a live state', () => {
+  const { component } = createAutomationsPanel();
+  component.online = true;
+  component.runtimeState = { rules: {}, scenarios: {} };
+  const disabled = component.ruleShortStatus({ id: 'a', enabled: false, conditions: [], actions: [] });
+  assert.equal(disabled.tone, 'disabled');
+  const unknown = component.ruleShortStatus({ id: 'b', enabled: true, conditions: [], actions: [] });
+  assert.equal(unknown.tone, 'off');
+  assert.equal(typeof unknown.label, 'string');
+});
+
 test('state updates append live points and drop those older than 30 minutes', () => {
   const { component } = createAutomationsPanel();
   const nowSec = Date.now() / 1000;
