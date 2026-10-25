@@ -519,9 +519,9 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-pre3 button:active { transform: scale(0.97); }
 .auto-pre3 button[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) { .auto-pre3 button:active { transform: none; } }
-.auto-band-toggle { justify-self: start; }
+.auto-band-toggle { justify-self: start; display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--text-subtle); cursor: pointer; }
 .auto-band-svg { height: auto; width: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
-.auto-band-wrap { display: grid; gap: 10px; }
+.auto-band-wrap { border-radius: 14px; background: var(--panel); border: 1px solid var(--border-soft); padding: 14px; display: grid; gap: 10px; }
 .auto-band-handle { cursor: grab; }
 .auto-band-handle:active { cursor: grabbing; }
 .auto-band-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }

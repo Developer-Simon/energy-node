@@ -216,11 +216,13 @@
                   </button>
                 </template>
               </div>
-              <label class="settings-toggle auto-band-toggle">
+              <label class="auto-band-toggle">
+                <span class="settings-toggle">
+                  <input type="checkbox" role="switch" x-bind:checked="assistant.band.tolOn"
+                         x-on:change="assistantBandToggleTolerance()">
+                  <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                </span>
                 <span x-text="$t('automations.assistant.band.tolerance_toggle')"></span>
-                <input type="checkbox" role="switch" x-bind:checked="assistant.band.tolOn"
-                       x-on:change="assistantBandToggleTolerance()">
-                <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
               </label>
               <div class="auto-band-wrap">
                 <svg class="auto-band-svg" x-ref="assistBand" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
