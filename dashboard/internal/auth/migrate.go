@@ -4,7 +4,7 @@ import "errors"
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 2
+const usersFileVersion = 3
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -42,7 +42,8 @@ func migrateV1(users map[string]User) []string {
 		if !user.Guest && containsRole(user.Roles, RoleSystemActions) {
 			roles = append(roles, RoleInstallUpdates, RoleUpdateSettings, RoleTailscale, RoleViewLogs, RoleUserManagement)
 		}
-		user.Roles = Normalize(roles)
+		// Schritt 5 (Version 3): Einrichten trennen, siehe migrateV2.
+		user.Roles = Normalize(migrateV2(roles, user.Guest))
 		users[name] = user
 	}
 	// Schritt 4: die sechs bisherigen Gastrollen plus die Ergaenzungen aus
@@ -50,7 +51,37 @@ func migrateV1(users map[string]User) []string {
 	guest := append([]string(nil), legacyGuestRoles...)
 	guest = append(guest, viewRoleKeys()...)
 	guest = append(guest, RoleOperateDevices, RoleEditSettings, RoleEditConfig, RoleOperateAutomations)
-	return Normalize(guestAllowedOnly(guest))
+	return Normalize(guestAllowedOnly(migrateV2(guest, true)))
+}
+
+// migrateV2 bringt die Rollen einer Datei der Version 2 nach Version 3: das
+// Einrichten wird von tune_live_updates und edit_settings getrennt (Spec
+// Abschnitt 2, Version 3). Die Eingabe sind die rohen Rollen, vor Normalize,
+// weil Normalize den entfernten Schluessel tune_live_updates verwerfen wuerde.
+// Niemand verliert ein Recht: wer tune_live_updates oder edit_settings hat,
+// bekommt edit_setup; wer edit_config hat und kein Gast ist, bekommt
+// setup_tiny_tuya. Die Pruefung auf edit_config nimmt die wirksamen Rollen,
+// eine ohne view_config verworfene edit_config zaehlt also nicht.
+func migrateV2(roles []string, guest bool) []string {
+	out := make([]string, 0, len(roles)+2)
+	hasSetup := false
+	for _, key := range roles {
+		if key == "tune_live_updates" {
+			hasSetup = true
+			continue
+		}
+		if key == RoleEditSettings {
+			hasSetup = true
+		}
+		out = append(out, key)
+	}
+	if hasSetup {
+		out = append(out, RoleEditSetup)
+	}
+	if !guest && containsRole(Normalize(roles), RoleEditConfig) {
+		out = append(out, RoleSetupTinyTuya)
+	}
+	return out
 }
 
 // defaultGuestRoles ist die Gastvorgabe einer neuen Installation: die

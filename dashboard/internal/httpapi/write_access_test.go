@@ -150,21 +150,63 @@ func TestConfigurationWriteRequiresEditConfig(t *testing.T) {
 	}
 }
 
-func TestTinyTuyaConfigureRequiresEditConfig(t *testing.T) {
+func TestTinyTuyaConfigureRequiresSetupTinyTuya(t *testing.T) {
 	router, manager, _ := writeAccessRouter(t)
 
 	viewer, csrf := loginWithRoles(t, router, manager, "tuya-viewer", []string{auth.RoleViewConfig})
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/configure", `{}`, viewer, csrf))
-	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "edit_config_forbidden" {
+	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "setup_tiny_tuya_forbidden" {
 		t.Fatalf("view_config configure status %d: %s", recorder.Code, recorder.Body.String())
 	}
 
-	editor, editorCSRF := loginWithRoles(t, router, manager, "tuya-editor", []string{auth.RoleViewConfig, auth.RoleEditConfig})
+	// edit_config allein reicht fuer TinyTuya nicht mehr.
+	configEditor, configCSRF := loginWithRoles(t, router, manager, "tuya-config-editor", []string{auth.RoleViewConfig, auth.RoleEditConfig})
 	recorder = httptest.NewRecorder()
-	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/configure", `{}`, editor, editorCSRF))
+	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/configure", `{}`, configEditor, configCSRF))
+	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "setup_tiny_tuya_forbidden" {
+		t.Fatalf("edit_config alone configure status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/credentials", `{}`, configEditor, configCSRF))
+	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "setup_tiny_tuya_forbidden" {
+		t.Fatalf("edit_config alone credentials status %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	setup, setupCSRF := loginWithRoles(t, router, manager, "tuya-setup", []string{auth.RoleViewConfig, auth.RoleSetupTinyTuya})
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPost, "/api/v1/tiny-tuya/configure", `{}`, setup, setupCSRF))
 	if recorder.Code == http.StatusForbidden {
-		t.Fatalf("edit_config configure refused: %s", recorder.Body.String())
+		t.Fatalf("setup_tiny_tuya configure refused: %s", recorder.Body.String())
+	}
+}
+
+func TestSettingsSplitBetweenDesignAndSetup(t *testing.T) {
+	router, manager, _ := writeAccessRouter(t)
+
+	setupOnly, setupCSRF := loginWithRoles(t, router, manager, "setup-only", []string{auth.RoleEditSetup})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPut, "/api/v1/settings", `{"live_update_interval_seconds":10}`, setupOnly, setupCSRF))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("edit_setup changes the interval: status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPut, "/api/v1/settings", `{"show_runtime_status":false}`, setupOnly, setupCSRF))
+	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "edit_settings_forbidden" {
+		t.Fatalf("edit_setup changes a design field: status %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	designOnly, designCSRF := loginWithRoles(t, router, manager, "design-only", []string{auth.RoleEditSettings})
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPut, "/api/v1/settings", `{"live_update_interval_seconds":5}`, designOnly, designCSRF))
+	if recorder.Code != http.StatusForbidden || errorCode(recorder) != "edit_setup_forbidden" {
+		t.Fatalf("edit_settings changes a setup field: status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	// Der Intervall-Wert bleibt auf dem gespeicherten Stand (10), sonst zaehlt er als Einrichtung.
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, accountRequest(http.MethodPut, "/api/v1/settings", `{"show_runtime_status":false,"live_update_interval_seconds":10}`, designOnly, designCSRF))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("edit_settings design change: status %d: %s", recorder.Code, recorder.Body.String())
 	}
 }
 

@@ -23,7 +23,6 @@ import (
 const (
 	RoleSystemActions         = "system_actions"
 	RoleDeleteDeviceDiscovery = "delete_device_discovery"
-	RoleTuneLiveUpdates       = "tune_live_updates"
 	RoleMQTTConfig            = "mqtt_config"
 	RoleAutomations           = "automations"
 	// RoleEditLayout schaltet den Bearbeitungsmodus der Uebersicht frei
@@ -216,16 +215,30 @@ func (m *Manager) loadLocked() (bool, error) {
 		m.minPasswordLength = file.MinPasswordLength
 	}
 	changed := false
-	if file.Version < usersFileVersion {
+	if file.Version < 2 {
 		m.migrated = len(file.Users) > 0
 		m.guestRoles = migrateV1(m.users)
 		m.guestRolesReviewed = !m.migrated
 		changed = true
 	} else {
-		m.guestRoles = Normalize(guestAllowedOnly(file.GuestRoles))
+		// Version 2 kennt tune_live_updates, Version 3 nicht mehr: die Rollen
+		// werden einmal beim Uebergang umgeschrieben (migrateV2), danach nie wieder.
+		upgrade := file.Version < usersFileVersion
+		if upgrade {
+			changed = true
+		}
+		guestRoles := file.GuestRoles
+		if upgrade {
+			guestRoles = migrateV2(guestRoles, true)
+		}
+		m.guestRoles = Normalize(guestAllowedOnly(guestRoles))
 		m.guestRolesReviewed = file.GuestRolesReviewed
 		for name, user := range m.users {
-			user.Roles = Normalize(user.Roles)
+			roles := user.Roles
+			if upgrade {
+				roles = migrateV2(roles, user.Guest)
+			}
+			user.Roles = Normalize(roles)
 			m.users[name] = user
 		}
 	}

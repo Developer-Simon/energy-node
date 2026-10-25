@@ -7,7 +7,7 @@ import (
 
 func TestRolesCatalogMatchesSpec(t *testing.T) {
 	keys := AllRoles()
-	if len(keys) != 29 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+	if len(keys) != 30 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
 		t.Fatalf("catalog order: %v", keys)
 	}
 	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {

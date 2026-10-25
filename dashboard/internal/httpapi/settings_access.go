@@ -11,10 +11,24 @@ import (
 )
 
 // settingsFieldRoles names the permission that a changed settings field needs
-// instead of edit_settings.
+// instead of edit_settings: the setup fields need edit_setup, the history views
+// view_history.
 var settingsFieldRoles = map[string]string{
-	"live_update_interval_seconds": auth.RoleTuneLiveUpdates,
-	"history_views":                auth.RoleViewHistory,
+	"live_update_interval_seconds":    auth.RoleEditSetup,
+	"health_score_threshold":          auth.RoleEditSetup,
+	"sweep_interval_seconds":          auth.RoleEditSetup,
+	"history_sample_interval_seconds": auth.RoleEditSetup,
+	"history_retention_mode":          auth.RoleEditSetup,
+	"history_retention_hours":         auth.RoleEditSetup,
+	"history_budget_mb":               auth.RoleEditSetup,
+	"history_raw_window_hours":        auth.RoleEditSetup,
+	"history_minute_window_days":      auth.RoleEditSetup,
+	"history_extra_entities":          auth.RoleEditSetup,
+	"history_exchange_disabled":       auth.RoleEditSetup,
+	"energy_stats_recording":          auth.RoleEditSetup,
+	"changelog_history":               auth.RoleEditSetup,
+	"update_check_disabled":           auth.RoleEditSetup,
+	"history_views":                   auth.RoleViewHistory,
 }
 
 // requireRoleIfUser is requireRole for requests without a user in the context
@@ -75,12 +89,12 @@ func settingsFields(value settings.Settings) (map[string]json.RawMessage, error)
 }
 
 // requireSettingsRole checks one permission returned by settingsChangeRoles and
-// writes the matching 403 when it is missing. The live update interval and the
-// history views keep their own error codes.
+// writes the matching 403 when it is missing. The setup and the history views
+// keep their own error codes.
 func requireSettingsRole(w http.ResponseWriter, r *http.Request, role string) bool {
 	switch role {
-	case auth.RoleTuneLiveUpdates:
-		return requireRoleIfUser(w, r, role, "live_update_interval_forbidden", "error.live_update_interval_forbidden", "Für das Anpassen des Live-Update-Intervalls fehlt die Berechtigung")
+	case auth.RoleEditSetup:
+		return requireRoleIfUser(w, r, role, "edit_setup_forbidden", "error.edit_setup_forbidden", "Zum Ändern der Einrichtung fehlt die Berechtigung.")
 	case auth.RoleViewHistory:
 		return requireRoleIfUser(w, r, role, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.")
 	default:

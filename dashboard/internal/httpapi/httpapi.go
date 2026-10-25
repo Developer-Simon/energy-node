@@ -725,7 +725,8 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, 
 		"withheld":                withheld,
 		"system_actions":          auth.HasRole(user, auth.RoleSystemActions),
 		"delete_device_discovery": auth.HasRole(user, auth.RoleDeleteDeviceDiscovery),
-		"tune_live_updates":       auth.HasRole(user, auth.RoleTuneLiveUpdates),
+		"edit_setup":              auth.HasRole(user, auth.RoleEditSetup),
+		"setup_tiny_tuya":         auth.HasRole(user, auth.RoleSetupTinyTuya),
 		"mqtt_config":             auth.HasRole(user, auth.RoleMQTTConfig),
 		"automations":             auth.HasRole(user, auth.RoleAutomations),
 		"edit_layout":             auth.HasRole(user, auth.RoleEditLayout),
@@ -2952,8 +2953,9 @@ func newRelationID() (string, error) {
 }
 
 // handleSettings checks every changed settings field against its role (see
-// settingsChangeRoles): edit_settings for most fields, tune_live_updates for
-// the live update interval and view_history for the history views.
+// settingsChangeRoles): edit_settings for the design fields, edit_setup for the
+// setup fields such as the live update interval and view_history for the
+// history views.
 func handleSettings(store *settings.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -3033,7 +3035,7 @@ type tinyTuyaCredentialMetadata struct {
 
 func handleTinyTuyaCredentials(store *tinytuya.CredentialStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && !requireRoleIfUser(w, r, auth.RoleEditConfig, "edit_config_forbidden", "error.edit_config_forbidden", "Zum Bearbeiten der Gerätekonfiguration fehlt die Berechtigung.") {
+		if r.Method != http.MethodGet && !requireRoleIfUser(w, r, auth.RoleSetupTinyTuya, "setup_tiny_tuya_forbidden", "error.setup_tiny_tuya_forbidden", "Zum Einrichten von TinyTuya fehlt die Berechtigung.") {
 			return
 		}
 		if store == nil {
@@ -3147,7 +3149,7 @@ func handleTinyTuyaConfigure(manager *config.Manager) http.HandlerFunc {
 			methodNotAllowed(w)
 			return
 		}
-		if !requireRoleIfUser(w, r, auth.RoleEditConfig, "edit_config_forbidden", "error.edit_config_forbidden", "Zum Bearbeiten der Gerätekonfiguration fehlt die Berechtigung.") {
+		if !requireRoleIfUser(w, r, auth.RoleSetupTinyTuya, "setup_tiny_tuya_forbidden", "error.setup_tiny_tuya_forbidden", "Zum Einrichten von TinyTuya fehlt die Berechtigung.") {
 			return
 		}
 		if manager == nil {
