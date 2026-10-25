@@ -2906,6 +2906,14 @@ test('operate_automations alone keeps the switches but not the editor', () => {
   assert.equal(component.canOperateAutomations, true);
 });
 
+test('operate_automations alone cannot enter the rule edit mode', () => {
+  const { component } = createAutomationsPanel();
+  component.sessionRoles = ['operate_automations'];
+  const rule = { id: 'r1', name: 'A', enabled: true, cooldown_seconds: 30, conditions: [], actions: [] };
+  component.startEditing(rule);
+  assert.ok(!component.editing[rule.id]);
+});
+
 test('a session without a roles list keeps automations editable', () => {
   const { component } = createAutomationsPanel();
   assert.equal(component.canEditAutomations, true);

@@ -658,6 +658,7 @@
     // Der Schnappschuss entsteht nur beim Beginn, damit ein erneuter Klick auf
     // Bearbeiten die urspruengliche Fassung nicht ueberschreibt.
     startEditing(rule) {
+      if (!this.canEditAutomations) return;
       if (!this.editing[rule.id]) {
         this.editSnapshot[rule.id] = JSON.parse(JSON.stringify(rule));
         this.loadEditLive(rule);
