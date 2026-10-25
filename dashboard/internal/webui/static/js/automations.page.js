@@ -90,6 +90,14 @@
 
   const outputSeriesName = (id) => `automation_scenario_${id}_output`;
 
+  // Vorzeichen des Minidiagramms: Netz ist im Verlauf positiv beim Bezug, also
+  // ist Einspeisung positiv und Bezug nie negativ.
+  const ruleSparkValue = (field, avg) => {
+    if (field === 'grid_export') return -avg;
+    if (field === 'grid_import') return Math.max(0, avg);
+    return avg;
+  };
+
   // Vorzeichen wie im Entwurf: + Bezug, − Einspeisung.
   const signedW = (watts) => {
     const rounded = Math.round(watts);
@@ -160,6 +168,7 @@
     // aus den Zustandsupdates, Zeitpunkt des letzten Ladens, Tagesexport in kWh.
     chartRange: {},
     chartPoints: {},
+    ruleSparkPoints: {},
     livePoints: {},
     chartLoadedAt: {},
     todayExportKWh: null,
@@ -843,7 +852,9 @@
       if (!on) return Promise.resolve();
       const scenarios = (this.document && this.document.scenarios) || [];
       const regulators = scenarios.filter((scenario) => scenario.while && scenario.while.mode === 'regulate');
-      return Promise.all(regulators.map((scenario) => this.loadScenarioChart(scenario)));
+      const rules = (this.document && this.document.rules) || [];
+      const sparks = rules.filter((rule) => this.ruleSeries(rule) !== null).map((rule) => this.loadRuleSpark(rule));
+      return Promise.all([...regulators.map((scenario) => this.loadScenarioChart(scenario)), ...sparks]);
     },
 
     // Minidiagramm der zugeklappten Regler-Zeile: Netzverlauf der letzten 30 min mit Toleranzband.
@@ -858,6 +869,71 @@
         to: bounds.to,
         width: SPARK_WIDTH,
         height: SPARK_HEIGHT,
+      });
+    },
+
+    // Erste Bilanzbedingung der Regel, sonst null.
+    ruleSparkCondition(rule) {
+      return (rule.conditions || []).find((condition) => condition.type === 'balance_threshold') || null;
+    },
+
+    // Serie des Verlaufs fuer das Feld der ersten Bilanzbedingung, sonst null.
+    // Eigene Kategorien heissen role:custom:<basis>:<id>, die Basis kommt aus den Kategorien.
+    ruleSeries(rule) {
+      const condition = this.ruleSparkCondition(rule);
+      if (!condition || typeof condition.field !== 'string') return null;
+      const roles = new Map([
+        ['grid_import', 'role:grid'], ['grid_export', 'role:grid'], ['pv', 'role:pv'],
+        ['load_total', 'role:load'], ['wallbox', 'role:wallbox'], ['heat_pump', 'role:heat_pump'],
+        ['battery_soc', 'role:battery_soc'], ['battery_charge', 'role:battery'], ['battery_discharge', 'role:battery'],
+      ]);
+      if (roles.has(condition.field)) return roles.get(condition.field);
+      if (condition.field.startsWith('custom:')) {
+        const id = condition.field.slice('custom:'.length);
+        const category = this.categories && this.categories[id];
+        return category && category.base ? `role:custom:${category.base}:${id}` : null;
+      }
+      return null;
+    },
+
+    // Liest 30 min Verlauf der Serie der Regel (Rohwerte und Minutenwerte), wie loadScenarioChart.
+    // Jeder Fehler ergibt keine Punkte, nie eine Ausnahme.
+    async loadRuleSpark(rule) {
+      const series = this.ruleSeries(rule);
+      const field = (this.ruleSparkCondition(rule) || {}).field;
+      const store = window.HistoryStore;
+      const rollup = window.HistoryRollup;
+      const chart = window.__automationChart;
+      let points = [];
+      if (series && store && rollup && chart) {
+        try {
+          const bounds = chart.rangeBounds('30m', Date.now());
+          const fromMs = bounds.from * 1000;
+          const toMs = bounds.to * 1000;
+          const raw = await store.readRange('raw', series, fromMs, toMs);
+          const minute = await store.readRange('1m', series, fromMs, toMs);
+          const { rows } = rollup.fillRawGaps(rollup.normalize(raw || []), rollup.normalize(minute || []), fromMs, toMs);
+          const own = rows.filter((row) => row.series === series).sort((left, right) => left.ts - right.ts);
+          points = rollup.thin(own, CHART_MAX_POINTS).map((row) => ({ ts: row.ts / 1000, value: ruleSparkValue(field, row.avg) }));
+        } catch (error) {
+          points = [];
+        }
+      }
+      this.ruleSparkPoints[rule.id] = points;
+    },
+
+    // Minidiagramm der Regel: die Schwelle als Linie, ohne Toleranzband.
+    ruleSparkFor(rule) {
+      const condition = this.ruleSparkCondition(rule) || {};
+      const bounds = window.__automationChart.rangeBounds('30m', this.nowTick);
+      return window.__automationChart.sparkline({
+        points: this.ruleSparkPoints[rule.id] || [],
+        target: isNumber(condition.threshold) ? condition.threshold : 0,
+        deadband: 0,
+        from: bounds.from,
+        to: bounds.to,
+        width: SPARK_WIDTH,
+        height: 30,
       });
     },
 

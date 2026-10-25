@@ -1898,6 +1898,95 @@ test('loadScenarioChart fills raw gaps with minute rows', async () => {
   }
 });
 
+// Regel mit einer Bilanzbedingung auf dem gegebenen Feld, Schwelle 400 W.
+function ruleOn(field) {
+  return { id: `r-${field}`, enabled: true, conditions: [{ type: 'balance_threshold', field, comparison: 'above', threshold: 400 }], actions: [] };
+}
+
+test('ruleSeries maps balance fields to history series', () => {
+  const { component } = createAutomationsPanel();
+  assert.equal(component.ruleSeries(ruleOn('grid_export')), 'role:grid');
+  assert.equal(component.ruleSeries(ruleOn('grid_import')), 'role:grid');
+  assert.equal(component.ruleSeries(ruleOn('pv')), 'role:pv');
+  assert.equal(component.ruleSeries(ruleOn('load_total')), 'role:load');
+  assert.equal(component.ruleSeries(ruleOn('wallbox')), 'role:wallbox');
+  assert.equal(component.ruleSeries(ruleOn('heat_pump')), 'role:heat_pump');
+  assert.equal(component.ruleSeries(ruleOn('battery_soc')), 'role:battery_soc');
+  assert.equal(component.ruleSeries(ruleOn('battery_charge')), 'role:battery');
+  assert.equal(component.ruleSeries(ruleOn('battery_discharge')), 'role:battery');
+  assert.equal(component.ruleSeries(ruleOn('autarkie')), null);
+  assert.equal(component.ruleSeries({ id: 'none', conditions: [], actions: [] }), null);
+  component.categories = { wp1: { base: 'consumer', label: 'WP' } };
+  assert.equal(component.ruleSeries(ruleOn('custom:wp1')), 'role:custom:consumer:wp1');
+  assert.equal(component.ruleSeries(ruleOn('custom:unknown')), null);
+});
+
+test('ruleSparkFor flips grid export to positive feed-in', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    const minute = 60000;
+    // Netz negativ heisst Einspeisung: -500 W sind 500 W Einspeisung, ueber der Schwelle 400 W.
+    const raw = Array.from({ length: 10 }, (_, i) => ({ series: 'role:grid', ts: now - 9 * minute + i * minute, v: -500, u: 'W' }));
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? raw : []) };
+    component.nowTick = now;
+    const rule = ruleOn('grid_export');
+    await component.loadRuleSpark(rule);
+    const points = JSON.parse(JSON.stringify(component.ruleSparkPoints[rule.id]));
+    assert.ok(points.length > 0, 'the sparkline has points');
+    assert.ok(points.every((point) => point.value === 500), 'feed-in is positive');
+    const spark = JSON.parse(JSON.stringify(component.ruleSparkFor(rule)));
+    assert.equal(spark.empty, false);
+    assert.equal(spark.band.height, 0, 'the threshold has no deadband');
+  } finally {
+    window.close();
+  }
+});
+
+test('ruleSparkFor clamps negative grid import to zero', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    const now = Date.now();
+    const minute = 60000;
+    const raw = Array.from({ length: 10 }, (_, i) => ({ series: 'role:grid', ts: now - 9 * minute + i * minute, v: -500, u: 'W' }));
+    window.HistoryStore = { readRange: async (tier, series) => (series === 'role:grid' && tier === 'raw' ? raw : []) };
+    component.nowTick = now;
+    const rule = ruleOn('grid_import');
+    await component.loadRuleSpark(rule);
+    const points = JSON.parse(JSON.stringify(component.ruleSparkPoints[rule.id]));
+    assert.ok(points.length > 0);
+    assert.ok(points.every((point) => point.value === 0), 'import is never negative');
+  } finally {
+    window.close();
+  }
+});
+
+test('loadRuleSpark survives a missing HistoryStore', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    delete window.HistoryStore;
+    const rule = ruleOn('grid_export');
+    await component.loadRuleSpark(rule);
+    assert.deepEqual(JSON.parse(JSON.stringify(component.ruleSparkPoints[rule.id])), []);
+  } finally {
+    window.close();
+  }
+});
+
+test('setShowHistory loads rule sparklines only for rules with a series', async () => {
+  const { component, window } = createAutomationsPanel();
+  try {
+    window.HistoryStore = { readRange: async () => [] };
+    component.document = { rules: [ruleOn('grid_export'), ruleOn('autarkie')], scenarios: [] };
+    const loaded = [];
+    component.loadRuleSpark = async (rule) => { loaded.push(rule.id); };
+    await component.setShowHistory(true);
+    assert.deepEqual(loaded, ['r-grid_export']);
+  } finally {
+    window.close();
+  }
+});
+
 test('state updates append live points and drop those older than 30 minutes', () => {
   const { component } = createAutomationsPanel();
   const nowSec = Date.now() / 1000;
