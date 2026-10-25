@@ -80,7 +80,7 @@ var roleCatalog = []RoleInfo{
 	{Key: "mqtt_config", Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: "tune_live_updates", Category: CategorySetup, GuestAllowed: true, HAAllowed: true},
 	{Key: "check_updates", Category: CategoryUpdates, GuestAllowed: true, HAAllowed: true},
-	{Key: RoleInstallUpdates, Category: CategoryUpdates, HAAllowed: true, Elevated: true},
+	{Key: RoleInstallUpdates, Category: CategoryUpdates, HAAllowed: true},
 	{Key: RoleUpdateSettings, Category: CategoryUpdates, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleViewLogs, Category: CategorySystem, Requires: RoleViewDiagnostics, HTTPSOnly: true, HAAllowed: true},
 	{Key: "system_actions", Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},

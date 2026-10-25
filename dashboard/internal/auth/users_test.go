@@ -653,7 +653,7 @@ func TestSetMinPasswordLengthRestoresOnSaveFailure(t *testing.T) {
 func TestRoleElevatedFlags(t *testing.T) {
 	elevated := map[string]bool{
 		RoleUserManagement: true, "system_actions": true, RoleUpdateSettings: true,
-		RoleInstallUpdates: true, RoleTailscale: true, "mqtt_config": true,
+		RoleTailscale: true, "mqtt_config": true,
 	}
 	for _, info := range Roles() {
 		if info.Elevated != elevated[info.Key] {

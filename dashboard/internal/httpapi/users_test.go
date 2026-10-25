@@ -397,7 +397,7 @@ func TestUsersCatalogMarksElevatedRoles(t *testing.T) {
 	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
 	want := map[string]bool{
 		auth.RoleUserManagement: true, "system_actions": true, auth.RoleUpdateSettings: true,
-		auth.RoleInstallUpdates: true, auth.RoleTailscale: true, "mqtt_config": true,
+		auth.RoleTailscale: true, "mqtt_config": true,
 	}
 	listing := listUsers(t, router, adminCookie)
 	if len(listing.Catalog) == 0 {
