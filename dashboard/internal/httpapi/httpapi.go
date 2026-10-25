@@ -331,6 +331,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
 		mux.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
 		mux.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
+		mux.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
+		mux.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
 	}
 	if dependencies.SystemActions != nil {
 		mux.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
