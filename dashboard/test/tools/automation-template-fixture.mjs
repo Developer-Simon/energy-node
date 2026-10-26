@@ -88,6 +88,8 @@ function variants() {
     ['battery_warn', DEVICES, { below: 10, severity: 'critical' }],
     ['time_switch', DEVICES, {}],
     ['time_switch', DEVICES, { window: { from: '06:00', to: '08:00', days: WORKDAYS } }],
+    ['pv_missing', DEVICES, {}],
+    ['pv_missing', DEVICES, { limit: 50, minutes: 60, severity: 'critical' }],
   ];
 }
 

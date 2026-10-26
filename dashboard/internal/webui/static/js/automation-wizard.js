@@ -311,6 +311,7 @@
     if (filter === 'price') return ctx.prices;
     if (filter === 'input') return ctx.inputs;
     if (filter === 'grid_target') return ctx.gridTargets || [];
+    if (filter === 'inverter_measured') return (ctx.inverters || []).filter((item) => item.measured);
     return [];
   }
 

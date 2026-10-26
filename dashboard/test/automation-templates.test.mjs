@@ -139,6 +139,9 @@ const VARIANTS = {
     { input: 'steuer_dimm', targets: ['wb_limit'], power: 4.2, extras: { notify: false } },
     { input: 'steuer_dimm', targets: ['wb_limit'], power: 2, extras: { notify: true } },
   ],
+  pv_missing: [
+    { limit: 50, minutes: 60, severity: 'critical' },
+  ],
 };
 
 // Zusaetzliche Mitteilungstexte, die eine Vorlage im gebauten Eintrag verwendet.
@@ -147,6 +150,7 @@ const NOTICE_KEYS = {
   battery_warn: ['automations.templates.battery_warn.notice.title', 'automations.templates.battery_warn.notice.message'],
   heat_pump: ['automations.templates.heat_pump.notice.title', 'automations.templates.heat_pump.notice.message'],
   tariff: ['automations.templates.tariff.notice.title', 'automations.templates.tariff.notice.message'],
+  pv_missing: ['automations.templates.pv_missing.notice.title', 'automations.templates.pv_missing.notice.message'],
 };
 
 test('zero_feed builds the documented shape with the default answers', () => {
@@ -955,4 +959,54 @@ test('grid_signal summary names the input and every chosen target', () => {
   assert.equal(rows[0].text, 'Wenn Steuerbox das Dimmen meldet');
   assert.equal(rows[1].text, 'Wallbox Garage geht auf 6 A');
   assert.equal(rows[1].step, 'targets');
+});
+
+// PV-Ertrag fehlt: Regel mit Sonnenfenster, Ertragsgrenze über Haltedauer und Mitteilung.
+test('pv_missing builds a rule with a sun window and a hold on the yield', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'pv_missing');
+  const ctx = plain(contextFor(wizard));
+  const result = plain(template.build(answersFor(wizard, template, ctx), ctx));
+  assert.equal(result.kind, 'rule');
+  const rule = result.entry;
+  assert.equal(rule.enabled, true);
+  assert.equal(rule.cooldown_seconds, 21600);
+  assert.deepEqual(rule.conditions[0], {
+    type: 'sun_window', from: 'sunrise', to: 'sunset', from_offset_min: 60, to_offset_min: -60,
+  });
+  assert.deepEqual(rule.conditions[1], {
+    type: 'entity_value', topic: 'werkstatt/pv1/power', entity_id: 'pv1_power', value_template: '',
+    comparison: 'below', value: 20, hold_seconds: 1800,
+  });
+  assert.deepEqual(rule.actions, [{
+    type: 'notification', severity: 'warning',
+    title: t('automations.templates.pv_missing.notice.title'),
+    message: 'Der Wechselrichter liefert seit 30 Minuten weniger als 20 W, er hängt vermutlich.',
+  }]);
+});
+
+test('pv_missing takes the chosen limit, minutes and severity', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'pv_missing');
+  const ctx = plain(contextFor(wizard));
+  const rule = plain(template.build(answersFor(wizard, template, ctx, {
+    limit: 50, minutes: 60, severity: 'critical',
+  }), ctx).entry);
+  assert.equal(rule.conditions[1].value, 50);
+  assert.equal(rule.conditions[1].hold_seconds, 3600);
+  assert.equal(rule.actions[0].severity, 'critical');
+});
+
+test('pv_missing needs an inverter with its own reading', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'pv_missing');
+  const noReading = devices.map((device) => (device.id === 'pv1'
+    ? { ...device, entities: device.entities.filter((entity) => entity.unique_id !== 'pv1_power') }
+    : device));
+  const ctx = plain(contextFor(wizard, { devices: noReading }));
+  const availability = wizard.templateAvailability(template, ctx);
+  assert.equal(availability.available, false);
+  assert.equal(availability.reason, 'Der Wechselrichter meldet keinen eigenen Messwert');
+  assert.equal(wizard.devicesFor('inverter_measured', ctx).length, 0);
+  assert.equal(wizard.templateAvailability(template, plain(contextFor(wizard))).available, true);
 });

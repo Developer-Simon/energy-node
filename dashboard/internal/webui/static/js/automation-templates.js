@@ -1065,8 +1065,76 @@
     },
   };
 
+  // ---------------------------------------------------------------- PV-Ertrag fehlt
+
+  const pvMissing = {
+    id: 'pv_missing',
+    category: 'warning',
+    icon: 'ico-sun',
+    requires: { devices: 'inverter_measured' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'inverter_measured' },
+      { id: 'limit', type: 'number', min: 5, max: 200, step: 5, default: 20 },
+      { id: 'minutes', type: 'number', min: 10, max: 120, step: 5, default: 30 },
+      {
+        id: 'severity', type: 'tiles', default: 'warning',
+        options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.inverters, answers.device);
+      const measured = entry.measured;
+      if (!measured) throw new Error(`automation template: no own reading for ${entry.id}`);
+
+      const rule = {
+        id: uniqueId('pv_missing', ctx.usedIds),
+        name: t('automations.templates.pv_missing.title'),
+        enabled: true,
+        cooldown_seconds: 21600,
+        conditions: [
+          { type: 'sun_window', from: 'sunrise', to: 'sunset', from_offset_min: 60, to_offset_min: -60 },
+          {
+            type: 'entity_value', topic: measured.state_topic, entity_id: measured.unique_id,
+            value_template: measured.value_template || '', comparison: 'below', value: answers.limit,
+            hold_seconds: answers.minutes * 60,
+          },
+        ],
+        actions: [{
+          type: 'notification',
+          severity: answers.severity,
+          title: t('automations.templates.pv_missing.notice.title'),
+          message: t('automations.templates.pv_missing.notice.message', {
+            minutes: num(answers.minutes), value: num(answers.limit),
+          }),
+        }],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers, ctx) {
+      requireEntry(ctx.inverters, answers.device);
+      return [
+        { label: phase('when'), text: t('automations.assistant.summary.pv_missing.window'), step: 'device' },
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.pv_missing.under', {
+            minutes: num(answers.minutes), value: num(answers.limit),
+          }),
+          step: 'minutes',
+        },
+        {
+          label: phase('then'),
+          text: t('automations.assistant.summary.battery.then', {
+            severity: t(`automations.templates.pv_missing.steps.severity.options.${answers.severity}.title`),
+          }),
+          step: 'severity',
+        },
+        { label: phase('end'), text: t('automations.assistant.summary.pv_missing.cooldown'), step: 'severity' },
+      ];
+    },
+  };
+
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, gridCap, gridSignal],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, gridCap, gridSignal, pvMissing],
     chargeFit,
   };
 })();
