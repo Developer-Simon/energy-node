@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.17 (2026-10-26)
+## v0.10.18 (2026-10-26)
 
 ### Features
 
@@ -12,11 +12,26 @@
 - **automations:** Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet. (#168) (3037d6d)
 - **automations:** The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide. (#169) (58993de)
 - **auth:** Permissions are enforced: accounts only see the pages they may view and only change what they may change. (#170) (ab1e04a)
+- **updates:** install the offered update from the update bar (#171) (98937ad)
+- **automations:** minimum run time and pause fields in the scenario editor (5d8e12a)
+- **automations:** assistant context knows heat pumps, batteries and prices (8f19986)
+- **automations:** numbers, devices and reveal steps in the assistant logic (2adf4b6)
+- **automations:** render numbers, devices and reveal steps in the assistant (a550498)
+- **automations:** heat pump lift template (fe9e122)
+- **automations:** heat pump preview and contact ordering (ba65d8a)
+- **automations:** low tariff battery charging template (5a376cb)
+- **automations:** tariff price scale preview (5b7e9d9)
+- **automations:** grid cap and grid signal templates (6b58813)
+- **automations:** pv missing template (3ede1f7)
+- **automations:** heating rod template (ac597d7)
+- **automations:** draggable surplus threshold scale (0617f46)
+- **automations:** threshold scale for every preset step (5843854)
+- **automations:** refine the threshold slider (a78e6ed)
+- **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172)
 - **updates:** installer for exactly the offered update (f7ef7b7)
 - **httpapi:** install the offered update without the installer screen (cca3946)
 - **dashboard:** wire the offered-update installer (b46f53a)
 - **webui:** install the offered update from the update bar (af424f2)
-- **updates:** install the offered update from the update bar (#171)
 - **httpapi:** route access groups and view gate (part 1) (cb4bef7)
 - **httpapi:** route access table with server-side view permissions (07a5c27)
 - **httpapi:** enforce edit_settings on settings writes (c8f1070)
@@ -108,6 +123,14 @@
 
 ### Fixes
 
+- **automation:** schema descriptions name seconds, not minutes (960698a)
+- **automations:** convert euro prices to cent in the tariff template (49d93e9)
+- **automations:** icons and units in the numbers step (da90f43)
+- **automations:** tariff template needs a battery level (dc5ec3f)
+- **automations:** steppers for run time, pause and regulator fields (a29eba2)
+- **automations:** surplus scale fill and stable maximum (18aaea5)
+- **automations:** scenario stepper fields share one row on desktop (cb86282)
+- **automations:** drop the unit from stepper labels (7b498d4)
 - **updates:** retry the redeploy start while the prepare run winds down (970fa9d)
 - **httpapi:** keep a running job visible over an old install failure (9de6f28)
 - **httpapi:** tighten route access tests (f26982f)
@@ -162,6 +185,7 @@
 
 ### Tests
 
+- **dashboard:** follow the automation cache-bust values (8e65bde)
 - **smoke:** give the kept demo admin an HTTP login (af77863)
 - **automations:** follow the chart asset version (d6b2170)
 - grant view prerequisites in role tests (c39e023)
@@ -180,6 +204,7 @@
 
 ### Chores
 
+- **dashboard:** cache-bust automation assets for the energy templates (8434b47)
 - **webui:** bump asset versions (e84cb6e)
 - **webui:** bump asset versions for the account card (76577f1)
 - **automations:** cache-bust the rule view assets (e40a797)
