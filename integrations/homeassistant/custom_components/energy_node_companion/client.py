@@ -121,21 +121,30 @@ class DashboardClient:
             self._check(response, "stream")
             if response.status != 200:
                 raise ExchangeError(f"stream: HTTP {response.status}")
-            event = ""
-            data: list[str] = []
-            async for raw in response.content:
-                line = raw.decode("utf-8").rstrip("\r\n")
-                if line:
-                    if line.startswith("event:"):
-                        event = line[6:].strip()
-                    elif line.startswith("data:"):
-                        data.append(line[5:].lstrip())
-                    continue
-                if event and data:
-                    try:
-                        payload = json.loads("\n".join(data))
-                    except ValueError:
-                        payload = None
-                    if isinstance(payload, dict):
-                        yield event, payload
-                event, data = "", []
+            async for name, payload in iter_sse(response):
+                yield name, payload
+
+
+async def iter_sse(response: aiohttp.ClientResponse) -> AsyncIterator[tuple[str, dict]]:
+    """SSE-Ereignisse einer offenen Antwort als (Name, JSON-Objekt).
+
+    Unbenannte und kaputte Ereignisse fallen weg.
+    """
+    event = ""
+    data: list[str] = []
+    async for raw in response.content:
+        line = raw.decode("utf-8").rstrip("\r\n")
+        if line:
+            if line.startswith("event:"):
+                event = line[6:].strip()
+            elif line.startswith("data:"):
+                data.append(line[5:].lstrip())
+            continue
+        if event and data:
+            try:
+                payload = json.loads("\n".join(data))
+            except ValueError:
+                payload = None
+            if isinstance(payload, dict):
+                yield event, payload
+        event, data = "", []
