@@ -1500,7 +1500,8 @@
       const value = entry && entry.entity ? entry.entity.value : undefined;
       if (value === undefined || value === null || value === '') return null;
       const number = Number(value);
-      return Number.isFinite(number) ? number : null;
+      if (!Number.isFinite(number)) return null;
+      return window.__automationWizard.priceToCt(number, entry.entity.unit_of_measurement);
     },
 
     // Satz unter der Preisskala: Jetzt-Preis gegen die Schwelle, '' ohne Preis.

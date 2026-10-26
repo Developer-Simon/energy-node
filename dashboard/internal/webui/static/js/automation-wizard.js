@@ -708,6 +708,22 @@
     return t(key, { from: formatNumber(base), to: formatNumber(step.value) });
   }
 
+  // Preise in ct/kWh, EUR/kWh oder €/kWh. Umrechnung nur über den Faktor der Einheit,
+  // auf sechs Nachkommastellen gerundet, damit 0,285 € genau 28,5 ct ergibt.
+  const EURO_PER_KWH = /^(€|EUR)\s*\/\s*kWh$/i;
+  const roundPrice = (value) => Number(value.toFixed(6));
+  function priceToCt(value, unit) {
+    if (!isNumber(value)) return NaN;
+    const factor = EURO_PER_KWH.test(String(unit || '').trim()) ? 100 : 1;
+    return roundPrice(value * factor);
+  }
+  // Schwelle in ct zurück in die Einheit des Messwerts, etwa 15 ct als 0,15 € bei €/kWh.
+  function ctToPriceUnit(ct, unit) {
+    if (!isNumber(ct)) return NaN;
+    const factor = EURO_PER_KWH.test(String(unit || '').trim()) ? 100 : 1;
+    return roundPrice(ct / factor);
+  }
+
   // Satz zur Preisvorschau: Jetzt-Preis gegen die Schwelle. Ohne Preis kein Satz.
   // Geladen wird unter der Schwelle (Vergleich below).
   function priceNowText(now, thr) {
@@ -736,6 +752,8 @@
     optionUnavailable,
     presetEffect,
     priceNowText,
+    priceToCt,
+    ctToPriceUnit,
     regulatorPreview,
     regulatorStep,
     roundToStep,

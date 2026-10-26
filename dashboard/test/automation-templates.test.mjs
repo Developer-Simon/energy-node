@@ -749,3 +749,26 @@ test('tariff charge step returns the fit hint and nothing without a capacity', (
   const noCapacity = plain(contextFor(wizard, { snapshot: { ...snapshot, values: { ...snapshot.values, battery_capacity_kwh: undefined } } }));
   assert.equal(charge.hint(answers, noCapacity), '');
 });
+
+test('price units convert between euro and cent per kWh', () => {
+  const { wizard } = load();
+  assert.equal(wizard.priceToCt(0.285, '€/kWh'), 28.5);
+  assert.equal(wizard.priceToCt(0.2, 'EUR/kWh'), 20);
+  assert.equal(wizard.priceToCt(12.5, 'ct/kWh'), 12.5);
+  assert.equal(wizard.ctToPriceUnit(15, '€/kWh'), 0.15);
+  assert.equal(wizard.ctToPriceUnit(15, 'EUR/kWh'), 0.15);
+  assert.equal(wizard.ctToPriceUnit(15, 'ct/kWh'), 15);
+});
+
+test('tariff price in euro per kWh compares the threshold in euro', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const euroDevices = devices.map((device) => (device.id === 'tibber'
+    ? { ...device, entities: [{ ...device.entities[0], unit_of_measurement: '€/kWh', value: '0.285' }] }
+    : device));
+  const ctx = plain(wizard.buildContext({ devices: euroDevices, snapshot, document }));
+  const answers = answersFor(wizard, template, ctx, { source: 'price', thr: 15 });
+  const entry = plain(template.build(answers, ctx).entry);
+  assert.equal(entry.when.conditions[0].value, 0.15);
+  assert.ok(template.summary(answers, ctx)[0].text.includes('15 ct/kWh'));
+});

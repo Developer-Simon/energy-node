@@ -5,7 +5,7 @@
   // kommen aus dem Katalog: automations.templates.<id>.* und automations.assistant.*.
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const num = (value) => (window.I18n ? window.I18n.formatNumber(value) : String(value));
-  const { uniqueId } = window.__automationWizard;
+  const { uniqueId, ctToPriceUnit } = window.__automationWizard;
 
   const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -808,7 +808,8 @@
         const price = requireEntry(ctx.prices, answers.price).entity;
         when.push({
           type: 'entity_value', topic: price.state_topic, entity_id: price.unique_id,
-          value_template: price.value_template || '', comparison: 'below', value: answers.thr, hold_seconds: 0,
+          value_template: price.value_template || '', comparison: 'below',
+          value: ctToPriceUnit(answers.thr, price.unit_of_measurement), hold_seconds: 0,
         });
       }
       if (answers.extras.only) when.push(B('battery_soc', 'below', 30, 0));
