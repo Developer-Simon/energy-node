@@ -407,6 +407,28 @@
               <span class="field-help-text" role="tooltip" x-text="fieldHelp('max_duration_s')"></span>
             </span>
           </div>
+          <div class="auto-flow-row">
+            <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-min-run`">{{t "automations.scenario.edit.min_run.label"}}</label>
+            <input class="auto-input" x-bind:id="`scn-${scenario.id}-min-run`" type="number" min="0" max="1440" step="1"
+                   x-bind:value="minRunMinutes(scenario)" x-on:input="setMinRunMinutes(scenario, $event.target.value)">
+            <span class="field-help">
+              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.min_run.label')})">
+                <svg><use href="#ico-help"></use></svg>
+              </button>
+              <span class="field-help-text" role="tooltip" x-text="fieldHelp('min_run_s')"></span>
+            </span>
+          </div>
+          <div class="auto-flow-row">
+            <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-cooldown`">{{t "automations.scenario.edit.cooldown.label"}}</label>
+            <input class="auto-input" x-bind:id="`scn-${scenario.id}-cooldown`" type="number" min="0" max="1440" step="1"
+                   x-bind:value="cooldownMinutes(scenario)" x-on:input="setCooldownMinutes(scenario, $event.target.value)">
+            <span class="field-help">
+              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.cooldown.label')})">
+                <svg><use href="#ico-help"></use></svg>
+              </button>
+              <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_s')"></span>
+            </span>
+          </div>
           <div x-data="scenarioRows(scenario, 'on_end', null)"><div class="auto-edit-list">{{template "automations-action-editors"}}</div>
 {{template "automations-action-tiles"}}</div>
         </section>

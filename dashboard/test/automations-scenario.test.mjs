@@ -334,6 +334,40 @@ test('validation rejects max_duration_s below one minute', () => {
   assert.deepEqual(plain(s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 600 }), { minInterval: 10, otherOutputs: [] })), []);
 });
 
+test('the minimum run and pause write minutes as seconds, empty removes, zero stays', () => {
+  const s = load();
+  const scenario = scenarioWith();
+  s.setMinRunMinutes(scenario, 15);
+  assert.equal(scenario.min_run_s, 900);
+  assert.equal(s.minRunMinutes(scenario), 15);
+  s.setMinRunMinutes(scenario, 0);
+  assert.equal(scenario.min_run_s, 0);
+  assert.equal(s.minRunMinutes(scenario), 0);
+  s.setMinRunMinutes(scenario, '');
+  assert.equal('min_run_s' in scenario, false);
+  assert.equal(s.minRunMinutes(scenario), '');
+
+  s.setCooldownMinutes(scenario, 30);
+  assert.equal(scenario.cooldown_s, 1800);
+  assert.equal(s.cooldownMinutes(scenario), 30);
+  s.setCooldownMinutes(scenario, 0);
+  assert.equal(scenario.cooldown_s, 0);
+  s.setCooldownMinutes(scenario, '');
+  assert.equal('cooldown_s' in scenario, false);
+  assert.equal(s.cooldownMinutes(scenario), '');
+});
+
+test('validation accepts 0 and 3600 seconds for the minimum run and the pause, rejects 86401', () => {
+  const s = load();
+  const opts = { minInterval: 10, otherOutputs: [] };
+  for (const field of ['min_run_s', 'cooldown_s']) {
+    assert.deepEqual(plain(s.validateScenarioBeforeSave(scenarioWith({ [field]: 0 }), opts)), []);
+    assert.deepEqual(plain(s.validateScenarioBeforeSave(scenarioWith({ [field]: 3600 }), opts)), []);
+    const tooLong = s.validateScenarioBeforeSave(scenarioWith({ [field]: 86401 }), opts);
+    assert.equal(tooLong.length, 1);
+  }
+});
+
 test('the end block writes minutes as seconds and removes the key when empty', () => {
   const s = load();
   const scenario = scenarioWith();

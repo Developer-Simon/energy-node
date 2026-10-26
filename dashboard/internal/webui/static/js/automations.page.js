@@ -2367,6 +2367,22 @@
       window.__automationScenario.setMaxDurationMinutes(scenario, minutes);
     },
 
+    minRunMinutes(scenario) {
+      return window.__automationScenario.minRunMinutes(scenario);
+    },
+
+    setMinRunMinutes(scenario, minutes) {
+      window.__automationScenario.setMinRunMinutes(scenario, minutes);
+    },
+
+    cooldownMinutes(scenario) {
+      return window.__automationScenario.cooldownMinutes(scenario);
+    },
+
+    setCooldownMinutes(scenario, minutes) {
+      window.__automationScenario.setCooldownMinutes(scenario, minutes);
+    },
+
     changeWhileMode(scenario, mode) {
       window.__automationScenario.setWhileMode(scenario, mode);
     },
