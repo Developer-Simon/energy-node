@@ -342,15 +342,7 @@ test('scaleTicks lists the ticks every interval up to the maximum', () => {
   assert.deepEqual(Array.from(api.scaleTicks(100, SOC)), [0, 20, 40, 60, 80, 100]);
 });
 
-test('scaleValue snaps to the step and clamps to the range', () => {
-  const { api } = load();
-  assert.equal(api.scaleValue(201, 400, { min: 0, max: 40 }, 0.5), 20);
-  assert.equal(api.scaleValue(203, 400, { min: 0, max: 40 }, 0.5), 20.5);
-  assert.equal(api.scaleValue(-50, 400, { min: 0, max: 40 }, 0.5), 0);
-  assert.equal(api.scaleValue(999, 400, { min: 0, max: 40 }, 0.5), 40);
-});
-
-test('mountScale moves the threshold on arrow keys by one step, shift by four', () => {
+test('mountScale moves the threshold on arrow keys by one step, paging by ten', () => {
   const { api, window } = load({ reducedMotion: true });
   fakeFrames(window);
   const svg = makeSvg(window, 400);
@@ -358,10 +350,49 @@ test('mountScale moves the threshold on arrow keys by one step, shift by four', 
   const scale = api.mountScale(svg, scaleOpts(PRICE, state));
   press(window, svg, 'ArrowRight');
   assert.equal(state.thr, 15.5);
-  press(window, svg, 'ArrowRight', true);
-  assert.equal(state.thr, 17.5);
   press(window, svg, 'ArrowDown');
-  assert.equal(state.thr, 17);
+  assert.equal(state.thr, 15);
+  press(window, svg, 'PageUp');
+  assert.equal(state.thr, 20);
+  press(window, svg, 'PageDown');
+  assert.equal(state.thr, 15);
+  scale.destroy();
+});
+
+test('mountScale Home and End jump to the minimum and the maximum', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const state = { thr: 1500 };
+  const scale = api.mountScale(svg, scaleOpts(POWER, state));
+  press(window, svg, 'End');
+  assert.equal(state.thr, 6000);
+  press(window, svg, 'Home');
+  assert.equal(state.thr, 0);
+  scale.destroy();
+});
+
+test('mountScale keys do not snap to a preset', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const state = { thr: 1400 };
+  const scale = api.mountScale(svg, { ...scaleOpts(POWER, state), presets: [1550] });
+  press(window, svg, 'ArrowRight');
+  assert.equal(state.thr, 1500);
+  scale.destroy();
+});
+
+test('mountScale draws a small marker per preset on the rail', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const scale = api.mountScale(svg, { ...scaleOpts(POWER, { thr: 2500 }), presets: [1500, 2500, 3500] });
+  const marks = [...svg.querySelectorAll('rect.auto-scale-preset')];
+  assert.equal(marks.length, 3);
+  assert.equal(marks[0].getAttribute('width'), '2');
+  assert.equal(marks[0].getAttribute('fill'), 'var(--text-muted)');
+  assert.equal(marks[0].getAttribute('opacity'), '.5');
   scale.destroy();
 });
 
@@ -506,5 +537,117 @@ test('a grow scale keeps its maximum constant during a drag', () => {
   assert.deepEqual([...new Set(maxes)], ['6000']);
   assert.equal(state.thr, 6000, 'der Griff hat den Wert wirklich gezogen');
   pointer('pointerup', svg, 600);
+  scale.destroy();
+});
+
+// ---------- Verfeinerung des Schiebers: Griff, Gummiband, Rasten ----------
+
+// Eine Skala mit Zeigerereignissen. Breite 600 px entspricht dem Bereich 0 bis 6000 W, also 10 W je px.
+function scaleSvg(window, width = 600) {
+  const svg = makeSvg(window, width);
+  svg.setPointerCapture = () => {};
+  return svg;
+}
+
+function pointerAt(window, target, type, clientX) {
+  const ev = new window.Event(type, { bubbles: true });
+  Object.defineProperty(ev, 'clientX', { value: clientX });
+  Object.defineProperty(ev, 'pointerId', { value: 1 });
+  target.dispatchEvent(ev);
+}
+
+const handleOf = (svg) => svg.querySelector('[data-drag="thr"]');
+
+test('grabbing the handle keeps the value, the first move keeps the grab offset', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = scaleSvg(window);
+  const state = { thr: 3000 };
+  const scale = api.mountScale(svg, scaleOpts(POWER, state));
+  pointerAt(window, handleOf(svg), 'pointerdown', 320);
+  assert.equal(state.thr, 3000, 'der Wert springt beim Greifen nicht');
+  pointerAt(window, svg, 'pointermove', 330);
+  assert.equal(state.thr, 3100, 'der Griff folgt mit dem Versatz von 200 W');
+  pointerAt(window, svg, 'pointerup', 330);
+  scale.destroy();
+});
+
+test('pressing shows the drag state on the svg until release', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = scaleSvg(window);
+  const scale = api.mountScale(svg, scaleOpts(POWER, { thr: 3000 }));
+  pointerAt(window, handleOf(svg), 'pointerdown', 300);
+  assert.ok(svg.classList.contains('is-dragging'));
+  pointerAt(window, svg, 'pointerup', 300);
+  assert.equal(svg.classList.contains('is-dragging'), false);
+  scale.destroy();
+});
+
+test('pressing the track jumps to that spot and then follows the pointer one to one', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = scaleSvg(window);
+  const state = { thr: 1000 };
+  const scale = api.mountScale(svg, scaleOpts(POWER, state));
+  pointerAt(window, svg, 'pointerdown', 450);
+  assert.equal(state.thr, 4500);
+  assert.ok(svg.classList.contains('is-dragging'));
+  pointerAt(window, svg, 'pointermove', 460);
+  assert.equal(state.thr, 4600);
+  pointerAt(window, svg, 'pointerup', 460);
+  scale.destroy();
+});
+
+test('dragging past the maximum keeps the value at the edge and lets the handle overshoot', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = scaleSvg(window);
+  const state = { thr: 5800 };
+  const scale = api.mountScale(svg, scaleOpts(POWER, state));
+  pointerAt(window, handleOf(svg), 'pointerdown', 580);
+  pointerAt(window, svg, 'pointermove', 700);
+  assert.equal(state.thr, 6000);
+  // Jede Zeichnung ersetzt den Inhalt des SVG, daher den Strich nach jedem Schritt neu suchen.
+  const lineX = () => Number(handleOf(svg).querySelector('line').getAttribute('x1'));
+  assert.ok(lineX() > 600, 'der Griff steht ueber dem Rand');
+  pointerAt(window, svg, 'pointerup', 700);
+  assert.equal(lineX(), 600, 'mit reduzierter Bewegung sofort am Rand');
+  scale.destroy();
+});
+
+test('released overshoot springs back to the edge without passing it', () => {
+  const { api, window } = load();
+  const frames = fakeFrames(window);
+  const svg = scaleSvg(window);
+  const state = { thr: 5800 };
+  const scale = api.mountScale(svg, scaleOpts(POWER, state));
+  pointerAt(window, handleOf(svg), 'pointerdown', 580);
+  pointerAt(window, svg, 'pointermove', 700);
+  pointerAt(window, svg, 'pointerup', 700);
+  const xs = [];
+  for (let i = 0; i < 120 && frames.pending(); i += 1) {
+    frames.run(1);
+    xs.push(Number(handleOf(svg).querySelector('line').getAttribute('x1')));
+  }
+  assert.ok(xs.length > 2, 'die Feder laeuft');
+  assert.ok(xs.every((x) => x >= 600 - 1e-6), 'kein Überschwingen über den Rand');
+  assert.ok(xs.every((x, i) => i === 0 || x <= xs[i - 1] + 1e-6), 'das Zurückfedern ist monoton');
+  assert.equal(xs[xs.length - 1], 600);
+  scale.destroy();
+});
+
+test('dragging rests on a preset within 2 percent of the range', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = scaleSvg(window);
+  const state = { thr: 1000 };
+  const scale = api.mountScale(svg, { ...scaleOpts(POWER, state), presets: [1500] });
+  pointerAt(window, handleOf(svg), 'pointerdown', 100);
+  pointerAt(window, svg, 'pointermove', 152);
+  assert.equal(state.thr, 1500, 'innerhalb von 120 W rastet der Wert ein');
+  pointerAt(window, svg, 'pointermove', 130);
+  assert.equal(state.thr, 1300, 'außerhalb von 120 W rastet nichts');
+  pointerAt(window, svg, 'pointerup', 130);
   scale.destroy();
 });

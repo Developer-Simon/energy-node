@@ -815,6 +815,16 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 
 /* --- Schwellenskalen: Preis der Niedrigtarif-Vorlage (0 bis 40 ct) und Leistung des Überschusses (0 bis 6000 W), ziehbar, mit Markierung des Istwerts --- */
 .auto-assist-scale { display: grid; gap: 8px; padding: 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border-soft); }
-.auto-scale-svg { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
-.auto-scale-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+.auto-scale-svg { display: block; width: 100%; height: auto; min-height: 44px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.auto-scale-handle { transform-box: fill-box; transform-origin: center bottom; transition: transform 120ms var(--ease-out); }
+.auto-scale-svg.is-dragging .auto-scale-handle { transform: scale(1.06); }
+@media (hover: hover) and (pointer: fine) {
+  .auto-scale-svg { cursor: grab; }
+  .auto-scale-svg.is-dragging { cursor: grabbing; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auto-scale-handle { transition: none; }
+  .auto-scale-svg.is-dragging .auto-scale-handle { transform: none; }
+}
+.auto-scale-svg:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; border-radius: 8px; }
 .auto-assist-now, .auto-assist-fit { margin: 0; font-size: .86rem; color: var(--text-muted); }

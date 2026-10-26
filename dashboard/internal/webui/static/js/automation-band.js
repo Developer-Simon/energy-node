@@ -293,16 +293,17 @@
   // ---------- Waagerechte Schwellenskala: jeder presets-Schritt mit scale ----------
 
   const SCALE_H = 84;
+  const RAIL = Object.freeze({ y: 34, h: 22 });
+  const PRESET_SHARE = 0.02; // Rasten: innerhalb von 2 % des Bereichs auf einen Preset-Wert
+  const RUBBER_DIM = 60; // Breite des Gummibands in px, Konstante 0.55 wie im Blatt
+  const RUBBER_C = 0.55;
 
-  // Position in der Skala (Pixel) zu Wert im Bereich r = { min, max }, ungerundet und gerundet.
+  // Position in der Skala (Pixel) zu Wert im Bereich r = { min, max }, ungerundet.
   function scaleX(value, width, r) {
     return ((value - r.min) / (r.max - r.min)) * width;
   }
   function scaleRaw(x, width, r) {
     return r.min + (x / width) * (r.max - r.min);
-  }
-  function scaleValue(x, width, r, step) {
-    return clamp(snap(scaleRaw(x, width, r), step), r.min, r.max);
   }
 
   // Hoechstwert einer Skala: fest scale.max, bei grow (Leistung) die naechste volle Tick-Stufe
@@ -317,16 +318,20 @@
     return ticks;
   }
 
-  // Schwellenschieber auf einer waagerechten Skala: Pointer Capture, Raster cfg.step, Feder beim Sprung,
-  // Pfeiltasten (mit Shift das Vierfache). cfg: { state: { thr }, min, max, step, ticks (Abstand), grow,
-  // fill: 'below' | 'above', tickLabel(v), now(), labels: { threshold(v), valueText(v) }, onChange(state) }.
+  // Schwellenschieber auf einer waagerechten Skala. cfg: { state: { thr }, min, max, step, ticks (Abstand),
+  // grow, fill: 'below' | 'above', presets (Werte zum Einrasten), tickLabel(v), now(), labels:
+  // { threshold(v), valueText(v) }, onChange(state) }.
   // fill legt fest, auf welcher Seite der Schwelle die Akzentfarbe liegt: 'below' links (Preis, Anteil),
   // 'above' rechts (Leistung, ab der Schwelle startet die Vorlage).
   // now() liefert den Istwert oder null, dann keine Markierung.
+  // Ziehen: der Griff behaelt den Greifversatz, Ziehen ueber den Rand federt gedaempft und der Wert bleibt
+  // am Rand. Loslassen federt kritisch gedaempft zurueck. Tastatur setzt ohne Feder und rastet nicht.
   // Das Maximum wird nur beim Mounten, bei redraw() und bei Tastatur neu bestimmt, nicht waehrend eines Ziehens.
   function mountScale(svg, cfg) {
     const { state, labels } = cfg;
+    const presets = cfg.presets || [];
     let top = scaleMax(state.thr, cfg);
+    let over = 0; // Versatz des Griffs ueber den Rand in px, der Wert selbst bleibt am Rand
     const range = () => ({ min: cfg.min, max: top });
     const fillAbove = cfg.fill === 'above';
     const tickLabel = cfg.tickLabel || String;
@@ -337,21 +342,23 @@
     };
     const draw = () => {
       const r = range();
-      const x = scaleX(state.thr, W, r);
+      const base = scaleX(state.thr, W, r);
+      const x = base + over;
       const now = cfg.now ? cfg.now() : null;
       const marker = Number.isFinite(now)
         ? `<circle class="auto-scale-now" cx="${clamp(scaleX(now, W, r), 0, W)}" cy="45" r="5" fill="var(--text-strong)"/>`
         : '';
+      const marks = presets.map((p) => `<rect class="auto-scale-preset" x="${scaleX(p, W, r) - 1}" y="${RAIL.y}" width="2" height="${RAIL.h}" fill="var(--text-muted)" opacity=".5"/>`).join('');
       const pillX = clamp(x - 44, 0, W - 88);
       const ticks = scaleTicks(r.max, cfg).map((v) => {
         const anchor = v === r.min ? 'start' : (v === r.max ? 'end' : 'middle');
         return `<text x="${scaleX(v, W, r)}" y="${SCALE_H - 4}" font-size="11" fill="var(--text-muted)" text-anchor="${anchor}">${esc(tickLabel(v))}</text>`;
       }).join('');
       const fill = fillAbove
-        ? `<rect x="${x}" y="34" width="${W - x}" height="22" rx="8" fill="var(--accent)"/>`
-        : `<rect x="0" y="34" width="${x}" height="22" rx="8" fill="var(--accent)"/>`;
-      svg.innerHTML = `<rect x="0" y="34" width="${W}" height="22" rx="8" fill="var(--panel-alt)"/>`
-        + `${fill}${marker}`
+        ? `<rect x="${base}" y="${RAIL.y}" width="${W - base}" height="${RAIL.h}" rx="8" fill="var(--accent)"/>`
+        : `<rect x="0" y="${RAIL.y}" width="${base}" height="${RAIL.h}" rx="8" fill="var(--accent)"/>`;
+      svg.innerHTML = `<rect x="0" y="${RAIL.y}" width="${W}" height="${RAIL.h}" rx="8" fill="var(--panel-alt)"/>`
+        + `${fill}${marks}${marker}`
         + `<g class="auto-scale-handle" data-drag="thr"><rect x="${x - 12}" y="24" width="24" height="46" fill="transparent"/>`
         + `<line x1="${x}" x2="${x}" y1="26" y2="60" stroke="var(--accent-line)" stroke-width="2"/>`
         + `<rect x="${pillX}" y="4" width="88" height="20" rx="10" fill="var(--accent-line)"/>`
@@ -369,9 +376,26 @@
       state.thr = v;
       update();
     });
+    // Federt den Griff vom Rand zurueck, kritisch gedaempft (Feder wie im Zielband).
+    const bounce = spring(() => over, (v) => {
+      over = v;
+      draw();
+    });
     const svgX = (e) => {
       const r = svg.getBoundingClientRect();
       return (e.clientX - r.left) * (W / r.width);
+    };
+    // Wert zum Zeigerstand: innerhalb von 2 % des Bereichs auf ein Preset, sonst auf das Raster.
+    const pick = (raw, r) => {
+      const near = presets.find((p) => Math.abs(p - raw) <= PRESET_SHARE * (r.max - r.min));
+      return near !== undefined ? near : clamp(snap(raw, cfg.step), r.min, r.max);
+    };
+    // Versatz des Griffs ueber den Rand, gedaempft; innen null.
+    const overshoot = (raw, r) => {
+      const perUnit = W / (r.max - r.min);
+      if (raw < r.min) return rubber((raw - r.min) * perUnit, RUBBER_DIM, RUBBER_C);
+      if (raw > r.max) return rubber((raw - r.max) * perUnit, RUBBER_DIM, RUBBER_C);
+      return 0;
     };
 
     let drag = null;
@@ -380,37 +404,55 @@
       svg.removeEventListener('pointermove', drag.move);
       svg.removeEventListener('pointerup', drag.up);
       svg.removeEventListener('pointercancel', drag.up);
+      svg.classList.remove('is-dragging');
       drag = null;
     };
     const onPointerDown = (e) => {
       endDrag();
       tSpring.stop();
-      if (!e.target.closest('[data-drag]')) {
-        tSpring.to(scaleValue(svgX(e), W, range(), cfg.step));
-        return;
-      }
+      if (over !== 0) bounce.to(0);
+      const r = range();
+      const onHandle = Boolean(e.target.closest('[data-drag]'));
+      const at = scaleRaw(svgX(e), W, r);
+      // Auf der Spur springt die Schwelle mit der Feder auf die Stelle, danach folgt der Zeiger 1:1.
+      if (!onHandle) tSpring.to(pick(at, r));
       svg.setPointerCapture(e.pointerId);
-      const grab = scaleRaw(svgX(e), W, range()) - state.thr;
+      svg.classList.add('is-dragging');
+      // Am Griff bleibt der Versatz zwischen Zeiger und Schwelle erhalten, der Wert springt nicht.
+      const grab = onHandle ? at - state.thr : 0;
       const move = (ev) => {
-        const r = range();
-        state.thr = clamp(snap(scaleRaw(svgX(ev), W, r) - grab, cfg.step), r.min, r.max);
+        tSpring.stop();
+        bounce.stop();
+        const cur = range();
+        const raw = scaleRaw(svgX(ev), W, cur) - grab;
+        state.thr = pick(raw, cur);
+        over = overshoot(raw, cur);
         update();
       };
-      const up = () => endDrag();
+      const up = () => {
+        endDrag();
+        if (over !== 0) bounce.to(0);
+      };
       drag = { move, up };
       svg.addEventListener('pointermove', move);
       svg.addEventListener('pointerup', up);
       svg.addEventListener('pointercancel', up);
     };
+    // Pfeile ein Raster, Bild auf und Bild ab zehn Raster, Pos1 und Ende auf Minimum und Maximum. Ohne Feder, ohne Einrasten.
     const onKeyDown = (e) => {
-      const d = { ArrowRight: cfg.step, ArrowUp: cfg.step, ArrowLeft: -cfg.step, ArrowDown: -cfg.step }[e.key];
-      if (d === undefined) return;
+      const steps = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1, PageUp: 10, PageDown: -10 }[e.key];
+      let next;
+      if (steps !== undefined) next = state.thr + steps * cfg.step;
+      else if (e.key === 'Home') next = cfg.min;
+      else if (e.key === 'End') next = cfg.max;
+      else return;
       e.preventDefault();
       tSpring.stop();
-      const cand = snap(state.thr + d * (e.shiftKey ? 4 : 1), cfg.step);
+      bounce.stop();
+      over = 0;
+      const cand = snap(next, cfg.step);
       top = scaleMax(cand, cfg);
-      const r = range();
-      state.thr = clamp(cand, r.min, r.max);
+      state.thr = clamp(cand, cfg.min, top);
       update();
     };
 
@@ -432,12 +474,13 @@
         svg.removeEventListener('keydown', onKeyDown);
         endDrag();
         tSpring.stop();
+        bounce.stop();
       },
     };
   }
 
   window.__automationBand = {
     errorsFromRows, bandStats, histogram, snap, rubber, spring, LIMITS, mountBand,
-    scaleMax, scaleTicks, scaleX, scaleValue, mountScale,
+    scaleMax, scaleTicks, scaleX, mountScale,
   };
 })();

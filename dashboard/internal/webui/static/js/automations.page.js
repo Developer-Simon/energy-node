@@ -1563,6 +1563,7 @@
         ticks: scale.ticks,
         grow: scale.grow,
         fill: scale.fill,
+        presets: step.options.map((option) => option.id),
         now: () => page.assistantScaleNow(),
         tickLabel: fmt,
         labels: {
