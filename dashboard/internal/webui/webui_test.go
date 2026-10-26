@@ -4025,6 +4025,35 @@ func TestAutomationsAssistantShipsThePriceScale(t *testing.T) {
 	}
 }
 
+// TestAutomationsAssistantShipsThePowerScale haelt fest, dass der Schritt
+// "Ab wie viel Ueberschuss?" die Leistungsskala mit Schieber und Markierung des
+// Istwerts ausliefert, auch ohne Verlaufsdaten. Die Rolle des Schiebers setzt
+// automation-band.js, daher wird auch die Quelle geprueft.
+func TestAutomationsAssistantShipsThePowerScale(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`x-if="assistantStep().effect === 'surplus'"`, `class="auto-assist-power"`,
+		`x-ref="assistPower"`, `mountAssistantPower()`, `class="auto-power-svg"`,
+		`assistantSurplusText()`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Leistungsskala-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	js, err := os.ReadFile("static/js/automation-band.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`mountPowerScale`, `powerMax`, `setPointerCapture`} {
+		if !strings.Contains(string(js), marker) {
+			t.Fatalf("automation-band.js liefert die Leistungsskala nicht: %q fehlt", marker)
+		}
+	}
+}
+
 // Die Zeilen des Assistenten: numbers-Felder zeigen ein Symbol mit Ausweichwert
 // und ihre Einheit aus dem Katalog, die Reveal-Zeile zeigt Titel, Untertext und
 // Einheit der gewaehlten Kachel. Die Bindungen stehen im Panel-Fragment.

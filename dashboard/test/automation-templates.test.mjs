@@ -1226,3 +1226,19 @@ test('tariff needs a battery level, a battery without soc reports why', () => {
   const withSoc = plain(contextFor(wizard));
   assert.equal(wizard.templateAvailability(template, withSoc).available, true);
 });
+
+test('surplus scale text says whether the current surplus would start the heat pump', () => {
+  const { wizard } = load();
+  assert.equal(wizard.surplusNowText(1800, 1500), 'Jetzt 1800 W Überschuss, damit würde sie jetzt starten.');
+  assert.equal(wizard.surplusNowText(1200, 1500), 'Jetzt 1200 W Überschuss, damit würde sie jetzt nicht starten.');
+  assert.equal(wizard.surplusNowText(null, 1500), '');
+});
+
+test('surplus now reads the grid export from the context snapshot', () => {
+  const { wizard } = load();
+  assert.equal(wizard.surplusNow({ snapshot: { values: { grid_export: 800 } } }), 800);
+  assert.equal(wizard.surplusNow({ snapshot: { values: { grid: -450 } } }), 450);
+  assert.equal(wizard.surplusNow({ snapshot: { values: { grid_import: 300 } } }), 0);
+  assert.equal(wizard.surplusNow({ snapshot: { values: {} } }), null);
+  assert.equal(wizard.surplusNow(null), null);
+});

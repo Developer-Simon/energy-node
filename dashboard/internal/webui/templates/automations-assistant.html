@@ -256,6 +256,13 @@
               </div>
               <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id] && assistantStep().effect !== 'surplus'"
                  x-text="assistant.effects[assistantStep().id] || ''"></p>
+              <template x-if="assistantStep().effect === 'surplus'">
+                <div class="auto-assist-power">
+                  <svg class="auto-power-svg" x-ref="assistPower" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
+                       x-init="$nextTick(() => mountAssistantPower())"></svg>
+                  <p class="auto-assist-now" x-show="assistantSurplusText() !== ''" x-text="assistantSurplusText()"></p>
+                </div>
+              </template>
               <div class="auto-assist-surplus" x-show="assistantSurplusMarkup() !== ''"
                    x-html="assistantSurplusMarkup()"></div>
               <template x-if="assistantStep().effect === 'price'">

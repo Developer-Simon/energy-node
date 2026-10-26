@@ -757,6 +757,19 @@
     return t('automations.assistant.price.now', { price: formatNumber(now, 1), result });
   }
 
+  // Überschuss jetzt in W aus dem Assistenten-Kontext (Einspeisung positiv), null ohne Netzwert.
+  function surplusNow(ctx) {
+    const net = gridNet(ctx && ctx.snapshot);
+    return net === null ? null : Math.max(0, Math.round(-net));
+  }
+
+  // Satz zur Leistungsskala: Überschuss jetzt gegen die Schwelle. Ohne Wert kein Satz.
+  function surplusNowText(now, thr) {
+    if (!Number.isFinite(now) || !Number.isFinite(thr)) return '';
+    const result = now >= thr ? t('automations.assistant.surplus.now_start') : t('automations.assistant.surplus.now_hold');
+    return t('automations.assistant.surplus.now', { power: formatNumber(now, 0), result });
+  }
+
   // Parameter für Katalogtexte des Assistenten: die Antworten mit Zahl oder Text, dazu der
   // Ladestand aus dem Kontext als now, nur wenn er bekannt ist.
   function textParams(ctx, answers) {
@@ -796,6 +809,8 @@
     optionTextField,
     quarterSurplus,
     surplusMarkup,
+    surplusNow,
+    surplusNowText,
     surplusText,
     formatPrice,
     gridNet,

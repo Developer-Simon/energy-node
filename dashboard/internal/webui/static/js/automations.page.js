@@ -134,6 +134,9 @@
   // Preisskala der Niedrigtarif-Vorlage, ebenfalls ausserhalb der reaktiven Daten.
   let priceHandle = null;
   let priceState = null;
+  // Leistungsskala des Überschuss-Schritts, ebenfalls ausserhalb der reaktiven Daten.
+  let powerHandle = null;
+  let powerState = null;
   const bandSigned = (value) => (value > 0 ? '+' : (value < 0 ? '\u2212' : '')) + window.I18n.formatNumber(Math.abs(value));
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
@@ -1279,6 +1282,7 @@
         if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
         this.destroyAssistantBand();
         this.destroyAssistantPrice();
+        this.destroyAssistantPower();
         this.assistant = assistantIdle();
         if (opener && typeof opener.focus === 'function') opener.focus();
       };
@@ -1388,6 +1392,7 @@
       if (this.assistant.index === 0) {
         this.destroyAssistantBand();
         this.destroyAssistantPrice();
+        this.destroyAssistantPower();
         this.assistant = { ...this.assistant, templateId: '', answers: {}, name: '', effects: {}, band: { tolOn: false, errors: null } };
         return;
       }
@@ -1413,6 +1418,7 @@
         return;
       }
       if (step.effect === 'surplus') {
+        this.assistantPowerSync();
         await this.loadSurplus();
         return;
       }
@@ -1544,6 +1550,52 @@
       if (priceHandle) priceHandle.destroy();
       priceHandle = null;
       priceState = null;
+    },
+
+    // Überschuss jetzt in W aus dem Assistenten-Kontext, null ohne Netzwert.
+    assistantSurplusNow() {
+      return window.__automationWizard.surplusNow(this.assistant.context);
+    },
+
+    // Satz unter der Leistungsskala, '' ohne Live-Wert.
+    assistantSurplusText() {
+      const step = this.assistantStep();
+      if (!step || step.effect !== 'surplus') return '';
+      return window.__automationWizard.surplusNowText(this.assistantSurplusNow(), this.assistant.answers[step.id]);
+    },
+
+    // Zeichnet die Leistungsskala mit der Schwelle aus den Antworten neu, nach Wahl oder Stepper.
+    assistantPowerSync() {
+      const step = this.assistantStep();
+      if (!powerHandle || !powerState || !step || step.effect !== 'surplus') return;
+      powerState.thr = this.assistant.answers[step.id];
+      powerHandle.redraw();
+    },
+
+    // Legt die Leistungsskala in den SVG-Knoten des Überschuss-Schritts. Eine vorherige wird vorher aufgeloest.
+    mountAssistantPower() {
+      this.destroyAssistantPower();
+      const svg = this.$refs.assistPower;
+      const step = this.assistantStep();
+      if (!svg || !step || !window.__automationBand) return;
+      const page = this;
+      powerState = { thr: this.assistant.answers[step.id] };
+      powerHandle = window.__automationBand.mountPowerScale(svg, {
+        state: powerState,
+        now: () => page.assistantSurplusNow(),
+        tickLabel: (value) => window.I18n.formatNumber(value),
+        labels: {
+          threshold: (value) => `${window.I18n.formatNumber(value)} W`,
+          valueText: (value) => `${window.I18n.formatNumber(value)} W`,
+        },
+        onChange: (state) => { page.assistant.answers[step.id] = state.thr; },
+      });
+    },
+
+    destroyAssistantPower() {
+      if (powerHandle) powerHandle.destroy();
+      powerHandle = null;
+      powerState = null;
     },
 
     // Legt das Band in den SVG-Knoten des Schritts. Ein vorheriges Band wird vorher aufgeloest.

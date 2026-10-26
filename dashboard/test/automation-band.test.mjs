@@ -384,3 +384,78 @@ function priceOpts(state) {
     onChange: () => {},
   };
 }
+
+// ---------- Leistungsskala des Überschuss-Schritts ----------
+
+test('powerMax keeps 6000 W and grows to the next full 1000 W above a larger value', () => {
+  const { api } = load();
+  assert.equal(api.powerMax(0), 6000);
+  assert.equal(api.powerMax(6000), 6000);
+  assert.equal(api.powerMax(6001), 7000);
+  assert.equal(api.powerMax(6500), 7000);
+  assert.equal(api.powerMax(NaN), 6000);
+});
+
+test('mountPowerScale moves the threshold in 100 W steps, shift in 400 W, and stops at 0', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const state = { thr: 1500 };
+  const scale = api.mountPowerScale(svg, powerOpts(state));
+  press(window, svg, 'ArrowRight');
+  assert.equal(state.thr, 1600);
+  press(window, svg, 'ArrowRight', true);
+  assert.equal(state.thr, 2000);
+  press(window, svg, 'ArrowLeft');
+  assert.equal(state.thr, 1900);
+  state.thr = 0;
+  press(window, svg, 'ArrowDown');
+  assert.equal(state.thr, 0);
+  scale.destroy();
+});
+
+test('mountPowerScale grows its maximum with the threshold and shows ticks in 1000 W', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const state = { thr: 6000 };
+  const scale = api.mountPowerScale(svg, powerOpts(state));
+  assert.equal(svg.getAttribute('aria-valuemax'), '6000');
+  assert.ok(svg.innerHTML.includes('>6000<'));
+  press(window, svg, 'ArrowRight');
+  assert.equal(state.thr, 6100);
+  assert.equal(svg.getAttribute('aria-valuemax'), '7000');
+  assert.ok(svg.innerHTML.includes('>7000<'));
+  assert.ok(svg.innerHTML.includes('>1000<'));
+  scale.destroy();
+});
+
+test('mountPowerScale reports slider roles, the threshold pill and the current surplus marker', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const withNow = makeSvg(window, 600);
+  const scale = api.mountPowerScale(withNow, { ...powerOpts({ thr: 2500 }), now: () => 1200 });
+  assert.equal(withNow.getAttribute('role'), 'slider');
+  assert.equal(withNow.getAttribute('aria-valuenow'), '2500');
+  assert.equal(withNow.getAttribute('aria-valuetext'), '2500 W');
+  assert.ok(withNow.innerHTML.includes('2500 W'));
+  assert.ok(withNow.innerHTML.includes('auto-power-now'));
+  scale.destroy();
+  const without = makeSvg(window, 600);
+  const empty = api.mountPowerScale(without, { ...powerOpts({ thr: 2500 }), now: () => null });
+  assert.equal(without.innerHTML.includes('auto-power-now'), false);
+  empty.destroy();
+});
+
+function powerOpts(state) {
+  return {
+    state,
+    now: () => null,
+    tickLabel: (v) => String(v),
+    labels: {
+      threshold: (v) => `${v} W`,
+      valueText: (v) => `${v} W`,
+    },
+    onChange: () => {},
+  };
+}

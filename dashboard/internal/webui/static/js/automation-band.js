@@ -290,56 +290,75 @@
     };
   }
 
-  // ---------- Preisskala der Niedrigtarif-Vorlage: waagerecht von 0 bis 40 ct ----------
+  // ---------- Waagerechte Schwellenskala: Preis der Niedrigtarif-Vorlage und Leistung des Überschusses ----------
 
   const PRICE = Object.freeze({ min: 0, max: 40, step: 0.5 });
-  const PRICE_H = 84;
+  const PRICE_TICKS = Object.freeze([0, 10, 20, 30, 40]);
+  const POWER = Object.freeze({ min: 0, max: 6000, step: 100, grow: 1000 });
+  const SCALE_H = 84;
 
-  // Position in der Skala (Pixel) zu Preis (ct/kWh), ungerundet und gerundet.
-  function priceX(value, width) {
-    return ((value - PRICE.min) / (PRICE.max - PRICE.min)) * width;
+  // Position in der Skala (Pixel) zu Wert im Bereich r = { min, max }, ungerundet und gerundet.
+  function scaleX(value, width, r) {
+    return ((value - r.min) / (r.max - r.min)) * width;
   }
-  function priceRaw(x, width) {
-    return PRICE.min + (x / width) * (PRICE.max - PRICE.min);
+  function scaleRaw(x, width, r) {
+    return r.min + (x / width) * (r.max - r.min);
   }
-  function priceValue(x, width) {
-    return clamp(snap(priceRaw(x, width), PRICE.step), PRICE.min, PRICE.max);
+  function scaleValue(x, width, r, step) {
+    return clamp(snap(scaleRaw(x, width, r), step), r.min, r.max);
   }
 
-  // Preisschwelle als Schieber: Pointer Capture, Raster 0,5 ct, Feder beim Sprung,
-  // Pfeiltasten. opts: { state: { thr }, now(), labels: { threshold(v), valueText(v) }, onChange(state) }.
-  // now() liefert den aktuellen Preis oder null, dann gibt es keine Markierung.
-  function mountPriceScale(svg, opts) {
-    const { state, labels } = opts;
+  // Hoechstwert der Leistungsskala: fest 6000 W, bei einem groesseren Wert die naechste volle 1000 W darueber.
+  function powerMax(value) {
+    if (!Number.isFinite(value) || value <= POWER.max) return POWER.max;
+    return Math.ceil(value / POWER.grow) * POWER.grow;
+  }
+  function powerTicks(max) {
+    const ticks = [];
+    for (let v = 0; v <= max; v += POWER.grow) ticks.push(v);
+    return ticks;
+  }
+
+  // Schwellenschieber auf einer waagerechten Skala: Pointer Capture, Raster cfg.step, Feder beim Sprung,
+  // Pfeiltasten (mit Shift das Vierfache). cfg: { name, state: { thr }, min, max (Zahl oder fn()), step,
+  // ticks(max), tickLabel(v), now(), labels: { threshold(v), valueText(v) }, onChange(state) }.
+  // name bestimmt die CSS-Klassen auto-<name>-*. now() liefert den Istwert oder null, dann keine Markierung.
+  function mountScale(svg, cfg) {
+    const { state, labels, name } = cfg;
+    // cfg.max kann vom Wert abhaengen: ein Schritt ueber das Maximum laesst die Skala mitwachsen.
+    const range = (value = state.thr) => ({ min: cfg.min, max: typeof cfg.max === 'function' ? cfg.max(value) : cfg.max });
+    const tickLabel = cfg.tickLabel || String;
     let W = 320;
     const fit = () => {
       W = Math.round(svg.getBoundingClientRect().width) || 320;
-      svg.setAttribute('viewBox', `0 0 ${W} ${PRICE_H}`);
+      svg.setAttribute('viewBox', `0 0 ${W} ${SCALE_H}`);
     };
     const draw = () => {
-      const x = priceX(state.thr, W);
-      const now = opts.now ? opts.now() : null;
+      const r = range();
+      const x = scaleX(state.thr, W, r);
+      const now = cfg.now ? cfg.now() : null;
       const marker = Number.isFinite(now)
-        ? `<circle class="auto-price-now" cx="${clamp(priceX(now, W), 0, W)}" cy="45" r="5" fill="var(--text-strong)"/>`
+        ? `<circle class="auto-${name}-now" cx="${clamp(scaleX(now, W, r), 0, W)}" cy="45" r="5" fill="var(--text-strong)"/>`
         : '';
       const pillX = clamp(x - 44, 0, W - 88);
-      const ticks = [0, 10, 20, 30, 40].map((v) => {
-        const anchor = v === PRICE.min ? 'start' : (v === PRICE.max ? 'end' : 'middle');
-        return `<text x="${priceX(v, W)}" y="${PRICE_H - 4}" font-size="11" fill="var(--text-muted)" text-anchor="${anchor}">${v}</text>`;
+      const ticks = cfg.ticks(r.max).map((v) => {
+        const anchor = v === r.min ? 'start' : (v === r.max ? 'end' : 'middle');
+        return `<text x="${scaleX(v, W, r)}" y="${SCALE_H - 4}" font-size="11" fill="var(--text-muted)" text-anchor="${anchor}">${esc(tickLabel(v))}</text>`;
       }).join('');
       svg.innerHTML = `<rect x="0" y="34" width="${W}" height="22" rx="8" fill="var(--panel-alt)"/>`
         + `<rect x="0" y="34" width="${x}" height="22" rx="8" fill="var(--accent)"/>${marker}`
-        + `<g class="auto-price-handle" data-drag="thr"><rect x="${x - 12}" y="24" width="24" height="46" fill="transparent"/>`
+        + `<g class="auto-${name}-handle" data-drag="thr"><rect x="${x - 12}" y="24" width="24" height="46" fill="transparent"/>`
         + `<line x1="${x}" x2="${x}" y1="26" y2="60" stroke="var(--accent-line)" stroke-width="2"/>`
         + `<rect x="${pillX}" y="4" width="88" height="20" rx="10" fill="var(--accent-line)"/>`
         + `<text x="${pillX + 44}" y="18" font-size="11.5" font-weight="700" fill="var(--accent-ink)" text-anchor="middle">${esc(labels.threshold(state.thr))}</text></g>`
         + ticks;
+      svg.setAttribute('aria-valuemax', String(r.max));
       svg.setAttribute('aria-valuenow', String(state.thr));
       svg.setAttribute('aria-valuetext', labels.valueText(state.thr));
     };
     const update = () => {
       draw();
-      if (opts.onChange) opts.onChange(state);
+      if (cfg.onChange) cfg.onChange(state);
     };
     const tSpring = spring(() => state.thr, (v) => {
       state.thr = v;
@@ -362,13 +381,15 @@
       endDrag();
       tSpring.stop();
       if (!e.target.closest('[data-drag]')) {
-        tSpring.to(priceValue(svgX(e), W));
+        tSpring.to(scaleValue(svgX(e), W, range(), cfg.step));
         return;
       }
       svg.setPointerCapture(e.pointerId);
-      const grab = priceRaw(svgX(e), W) - state.thr;
+      const grab = scaleRaw(svgX(e), W, range()) - state.thr;
       const move = (ev) => {
-        state.thr = clamp(snap(priceRaw(svgX(ev), W) - grab, PRICE.step), PRICE.min, PRICE.max);
+        const cand = snap(scaleRaw(svgX(ev), W, range()) - grab, cfg.step);
+        const r = range(cand);
+        state.thr = clamp(cand, r.min, r.max);
         update();
       };
       const up = () => endDrag();
@@ -378,18 +399,19 @@
       svg.addEventListener('pointercancel', up);
     };
     const onKeyDown = (e) => {
-      const d = { ArrowRight: PRICE.step, ArrowUp: PRICE.step, ArrowLeft: -PRICE.step, ArrowDown: -PRICE.step }[e.key];
+      const d = { ArrowRight: cfg.step, ArrowUp: cfg.step, ArrowLeft: -cfg.step, ArrowDown: -cfg.step }[e.key];
       if (d === undefined) return;
       e.preventDefault();
       tSpring.stop();
-      state.thr = clamp(snap(state.thr + d * (e.shiftKey ? 4 : 1), PRICE.step), PRICE.min, PRICE.max);
+      const cand = snap(state.thr + d * (e.shiftKey ? 4 : 1), cfg.step);
+      const r = range(cand);
+      state.thr = clamp(cand, r.min, r.max);
       update();
     };
 
     svg.setAttribute('role', 'slider');
     svg.setAttribute('tabindex', '0');
-    svg.setAttribute('aria-valuemin', String(PRICE.min));
-    svg.setAttribute('aria-valuemax', String(PRICE.max));
+    svg.setAttribute('aria-valuemin', String(cfg.min));
     svg.addEventListener('pointerdown', onPointerDown);
     svg.addEventListener('keydown', onKeyDown);
     fit();
@@ -400,7 +422,8 @@
         draw();
       },
       setThreshold(value) {
-        tSpring.to(clamp(value, PRICE.min, PRICE.max));
+        const r = range(value);
+        tSpring.to(clamp(value, r.min, r.max));
       },
       destroy() {
         svg.removeEventListener('pointerdown', onPointerDown);
@@ -411,8 +434,35 @@
     };
   }
 
+  // Preisschwelle als Schieber: 0 bis 40 ct, Raster 0,5 ct, Markierung des aktuellen Preises.
+  // opts: { state: { thr }, now(), labels: { threshold(v), valueText(v) }, onChange(state) }.
+  function priceX(value, width) {
+    return scaleX(value, width, PRICE);
+  }
+  function priceValue(x, width) {
+    return scaleValue(x, width, PRICE, PRICE.step);
+  }
+  function mountPriceScale(svg, opts) {
+    return mountScale(svg, {
+      ...opts, name: 'price', min: PRICE.min, max: PRICE.max, step: PRICE.step, ticks: () => PRICE_TICKS,
+    });
+  }
+
+  // Leistungsschwelle des Überschusses: 0 bis 6000 W, Raster 100 W, Maximum passt sich bei Bedarf an.
+  // opts wie mountPriceScale, dazu tickLabel(v) fuer die Zahlen an der Achse.
+  function mountPowerScale(svg, opts) {
+    return mountScale(svg, {
+      ...opts,
+      name: 'power',
+      min: POWER.min,
+      max: (value) => powerMax(value),
+      step: POWER.step,
+      ticks: powerTicks,
+    });
+  }
+
   window.__automationBand = {
     errorsFromRows, bandStats, histogram, snap, rubber, spring, LIMITS, mountBand,
-    PRICE, priceX, priceValue, mountPriceScale,
+    PRICE, POWER, priceX, priceValue, mountPriceScale, powerMax, mountPowerScale,
   };
 })();
