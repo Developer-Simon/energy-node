@@ -648,6 +648,28 @@ test('pairing code counts down and disappears once paired', async () => {
   assert.equal(stores.toasts.last(), window.I18n.t('users.ha.paired_toast'));
 });
 
+test('re-pairing keeps the code until a new paired_at arrives', async () => {
+  const server = createServer();
+  server.companion = { paired: true, paired_at: '2026-10-12T08:00:00Z' };
+  const { component, server: srv, stores, window } = createUsersPage({ server });
+  await component.init();
+  assert.equal(component.pairingStage(), 'paired');
+
+  assert.equal(await component.createPairingCode(), true);
+  assert.equal(component.pairingStage(), 'code');
+
+  await component.load();
+  assert.equal(component.pairingCode, 'K7MQ2XWP9HDT', 'same paired_at keeps the code');
+  assert.equal(component.pairingStage(), 'code');
+  assert.notEqual(stores.toasts.last(), window.I18n.t('users.ha.paired_toast'));
+
+  srv.companion = { paired: true, paired_at: '2026-10-26T09:00:00Z' };
+  await component.load();
+  assert.equal(component.pairingCode, '', 'new paired_at means the pairing is done');
+  assert.equal(component.pairingStage(), 'paired');
+  assert.equal(stores.toasts.last(), window.I18n.t('users.ha.paired_toast'));
+});
+
 test('pairing code expires', async () => {
   const server = createServer();
   server.pairingMs = 3000;

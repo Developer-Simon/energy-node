@@ -149,9 +149,10 @@
     widePanelsChoices: null,
     statusBarItemsChoices: null,
     // Konto-Karte: Benutzername, Sitzungsflags und CSRF-Token aus der Sitzung.
-    // Gaeste (und spaeter HA-Konten) bekommen keine Karte.
+    // Gaeste und Sitzungen ueber die Home-Assistant-Kopplung bekommen keine Karte.
     accountUsername: '',
     accountGuest: false,
+    accountVia: '',
     accountRestricted: false,
     accountHTTPLogin: false,
     // Minimum length of an own password, from the session. 10 until it is loaded.
@@ -163,7 +164,7 @@
     accountBusy: false,
 
     get accountVisible() {
-      return Boolean(this.accountUsername) && !this.accountGuest;
+      return Boolean(this.accountUsername) && !this.accountGuest && this.accountVia !== 'companion';
     },
 
     get httpPasswordValid() {
@@ -217,6 +218,7 @@
         this.sessionRoles = session && 'roles' in session ? (Array.isArray(session.roles) ? session.roles : []) : null;
         this.accountUsername = session && !session.guest ? (session.username || '') : '';
         this.accountGuest = Boolean(session && session.guest);
+        this.accountVia = session && session.via ? session.via : '';
         this.accountRestricted = Boolean(session && session.restricted);
         this.accountHTTPLogin = Boolean(session && session.http_login);
         this.passwordMin = Number(session && session.password_min_length) || ACCOUNT_MIN_PASSWORD;

@@ -93,6 +93,9 @@
     pairingTimer: null,
     // True for a short time after the code was copied.
     pairingCopied: false,
+    // Companion state when the shown code was created: paired or not, and paired_at.
+    pairingWasPaired: false,
+    pairingBaseline: null,
     // Id of the timer that clears pairingCopied, else null.
     pairingCopiedTimer: null,
     // The guest preset card and the two Home Assistant preset cards. Their
@@ -144,9 +147,12 @@
         this.catalog = body.catalog || [];
         this.self = body.self || '';
         this.migrationNotice = Boolean(body.migration_notice);
-        // The server reports the pairing as done while a code is still shown:
-        // the code is used up, so it goes without a request.
-        if (this.pairingCode && this.companion.paired) {
+        // A pairing is done when the companion is paired and either was not paired
+        // when the code was created or has a new paired_at. A re-pair of an already
+        // paired companion keeps the code until the new pairing shows up.
+        const pairingDone = this.companion.paired
+          && (!this.pairingWasPaired || (this.companion.paired_at || null) !== this.pairingBaseline);
+        if (this.pairingCode && pairingDone) {
           this.clearPairingCode();
           this.$store.toasts.push(t('users.ha.paired_toast'));
         }
@@ -547,10 +553,11 @@
 
     // --- Home Assistant pairing -------------------------------------------
 
-    // 'paired', 'code' while a pairing code is shown, else 'none'.
+    // 'code' while a pairing code is shown, 'paired', else 'none'. A code shown
+    // while the companion is still paired is a re-pair in progress.
     pairingStage() {
-      if (this.companion.paired) return 'paired';
       if (this.pairingCode) return 'code';
+      if (this.companion.paired) return 'paired';
       return 'none';
     },
 
@@ -563,6 +570,8 @@
     async createPairingCode() {
       try {
         const body = await this.send('POST', '/api/v1/users/companion/pairing-code');
+        this.pairingWasPaired = Boolean(this.companion.paired);
+        this.pairingBaseline = this.companion.paired_at || null;
         this.pairingCode = body.code;
         this.pairingExpiresAt = body.expires_at;
         this.pairingRemaining = secondsUntil(body.expires_at);

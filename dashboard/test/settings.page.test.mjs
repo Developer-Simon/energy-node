@@ -419,7 +419,7 @@ test('valid() rejects a health threshold below 10 seconds or above 3600', () => 
 });
 
 // The Konto card in Allgemein: own password, HTTP password and the notice for
-// a session that signed in over HTTP. Guests (and later HA accounts) get no card.
+// a session that signed in over HTTP. Guests and Home Assistant sessions get no card.
 const accountFetch = (session, calls = []) => async (url, options) => {
   if (url === '/api/v1/settings') return jsonResponse(settingsResponse());
   if (url === '/api/v1/auth/session') return jsonResponse(session);
@@ -442,6 +442,15 @@ test('the Konto card is hidden for guest sessions', async () => {
   });
   await component.load();
   assert.equal(component.accountVisible, false);
+});
+
+test('the Konto card is hidden for a session signed in through Home Assistant', async () => {
+  const { component } = createSettingsPanel({
+    fetchImpl: accountFetch(signedInSession({ via: 'companion', http_login: true })),
+  });
+  await component.load();
+  assert.equal(component.accountVia, 'companion');
+  assert.equal(component.accountVisible, false, 'the password forms are not offered');
 });
 
 test('the Konto card is shown for a signed in account', async () => {
