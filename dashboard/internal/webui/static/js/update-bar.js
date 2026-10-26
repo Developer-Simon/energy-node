@@ -3,7 +3,9 @@
 // the masthead pill. Everything it shows comes from three GET endpoints:
 // /api/v1/updates/progress (the updater's job directory, every session),
 // /api/v1/updates/status (the cached GitHub check, check_updates role) and
-// /api/v1/auth/session (update_settings decides install and details links).
+// /api/v1/auth/session (install_updates decides the direct install button,
+// update_settings the installer link). The install button posts to
+// /api/v1/updates/install, which installs exactly the offered version.
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const withBase = (p) => `${window.__DASHBOARD_BASE_PATH__ || ''}${p}`;
@@ -50,7 +52,7 @@
 
   // updateBarView decides what the bar shows. It is pure so the tests can walk
   // every state without timers or fetches.
-  const updateBarView = ({ progress, lastProgress, status, canInstall, acknowledged, restarting, now }) => {
+  const updateBarView = ({ progress, lastProgress, status, canInstallDirect, canOpenInstaller, acknowledged, restarting, now }) => {
     const state = progress ? progress.state : 'idle';
     const last = lastProgress || progress;
     if (restarting && last && (last.state === 'running' || last.state === 'pending')) {
@@ -58,6 +60,9 @@
     }
     if (state === 'pending') {
       return { kind: 'pending', title: t('update_bar.running.title', { version: progress.version }), detail: t('update_bar.pending.detail'), percent: 0 };
+    }
+    if (state === 'preparing') {
+      return { kind: 'preparing', title: t('update_bar.preparing.title', { version: progress.version }), detail: t('update_bar.preparing.detail'), percent: 0 };
     }
     if (state === 'running') {
       return { kind: 'running', title: t('update_bar.running.title', { version: progress.version }), detail: runningDetail(progress), percent: percentOf(progress) };
@@ -79,9 +84,10 @@
       return {
         kind: 'available',
         title: t('update_bar.available.title', { version: status.latest }),
-        detail: canInstall ? t('update_bar.available.installed', { version: status.current }) : t('update_bar.available.login_hint', { version: status.current }),
+        detail: canInstallDirect || canOpenInstaller ? t('update_bar.available.installed', { version: status.current }) : t('update_bar.available.login_hint', { version: status.current }),
         notesUrl: status.notes_url || '',
-        canInstall,
+        canInstallDirect,
+        canOpenInstaller,
       };
     }
     return { kind: 'hidden' };
@@ -101,7 +107,10 @@
     progress: { state: 'idle' },
     lastProgress: null,
     status: null,
-    canInstall: false,
+    canInstallDirect: false,
+    canOpenInstaller: false,
+    csrfToken: '',
+    installing: false,
     restarting: false,
     acknowledged: readAck(),
     timer: 0,
@@ -110,7 +119,8 @@
     get view() {
       return updateBarView({
         progress: this.progress, lastProgress: this.lastProgress, status: this.status,
-        canInstall: this.canInstall, acknowledged: this.acknowledged, restarting: this.restarting, now: Date.now(),
+        canInstallDirect: this.canInstallDirect, canOpenInstaller: this.canOpenInstaller,
+        acknowledged: this.acknowledged, restarting: this.restarting, now: Date.now(),
       });
     },
 
@@ -120,9 +130,13 @@
       this.loaded = true;
       try {
         const session = await getJSON('/api/v1/auth/session');
-        this.canInstall = Boolean(session && session.update_settings);
+        this.canInstallDirect = Boolean(session && session.install_updates);
+        this.canOpenInstaller = Boolean(session && session.update_settings);
+        this.csrfToken = (session && session.csrf_token) || '';
       } catch (error) {
-        this.canInstall = false;
+        this.canInstallDirect = false;
+        this.canOpenInstaller = false;
+        this.csrfToken = '';
       }
       try {
         const status = await getJSON('/api/v1/updates/status');
@@ -147,8 +161,32 @@
         const last = this.lastProgress;
         this.restarting = Boolean(last && (this.progress.state === 'running' || this.progress.state === 'pending' || this.restarting));
       }
-      const busy = this.restarting || this.progress.state === 'running' || this.progress.state === 'pending';
+      const busy = this.restarting || ['running', 'pending', 'preparing'].includes(this.progress.state);
       this.timer = window.setTimeout(() => this.poll(), busy ? FAST_POLL_MS : SLOW_POLL_MS);
+    },
+
+    // The install button. The server answers 202 with the offered version; the
+    // progress poll then shows "preparing" right away instead of waiting for the
+    // slow cycle. Errors go to a toast, the bar keeps its state.
+    async installOffered() {
+      if (this.installing) return;
+      this.installing = true;
+      try {
+        const response = await fetch(withBase('/api/v1/updates/install'), {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': this.csrfToken },
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const message = window.I18n ? window.I18n.error(body, 'common.request_failed') : 'common.request_failed';
+          throw new Error(message);
+        }
+        await this.poll();
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.installing = false;
+      }
     },
 
     acknowledge() {

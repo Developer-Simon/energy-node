@@ -83,20 +83,21 @@
   <div class="update-bar" x-data="updateBar()" x-init="init()" x-cloak x-show="view.kind !== 'hidden'" x-bind:class="'update-bar-' + view.kind" role="status" aria-live="polite" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end">
     <svg class="update-bar-icon" viewBox="0 0 24 24" aria-hidden="true">
       <g x-show="view.kind === 'available'"><path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M4 19h16"/></g>
-      <path class="update-bar-spin" x-show="['pending', 'running', 'restarting'].includes(view.kind)" d="M21 12a9 9 0 1 1-6.2-8.56"/>
+      <path class="update-bar-spin" x-show="['pending', 'preparing', 'running', 'restarting'].includes(view.kind)" d="M21 12a9 9 0 1 1-6.2-8.56"/>
       <path x-show="view.kind === 'ok'" d="M5 12.5l4.5 4.5L19 7.5"/>
       <g x-show="view.kind === 'fail'"><path d="M12 7v6M12 17h.01"/><circle cx="12" cy="12" r="9.5"/></g>
     </svg>
     <div class="update-bar-main">
       <div class="update-bar-title" x-text="view.title"></div>
       <div class="update-bar-detail" x-text="view.detail"></div>
-      <div class="update-bar-track" x-show="['pending', 'running', 'restarting'].includes(view.kind)"><div class="update-bar-fill" x-bind:style="'width:' + (view.percent || 0) + '%'"></div></div>
+      <div class="update-bar-track" x-show="['pending', 'preparing', 'running', 'restarting'].includes(view.kind)"><div class="update-bar-fill" x-bind:style="'width:' + (view.percent || 0) + '%'"></div></div>
     </div>
     <div class="update-bar-actions">
       <a class="update-bar-button" x-show="view.kind === 'available' && view.notesUrl" x-bind:href="view.notesUrl" target="_blank" rel="noopener"><span x-text="$t('update_bar.available.github')"></span> <span aria-hidden="true">↗</span></a>
-      <a class="update-bar-button is-primary" x-show="view.kind === 'available' && view.canInstall" x-bind:href="redeployHref()" x-text="$t('update_bar.available.install')"></a>
+      <button type="button" class="update-bar-button is-primary" x-show="view.kind === 'available' && view.canInstallDirect" x-bind:disabled="installing" x-on:click="installOffered()" x-text="$t('update_bar.install')"></button>
+      <a class="update-bar-link" x-show="view.kind === 'available' && view.canOpenInstaller" x-bind:href="redeployHref()" x-text="$t('update_bar.open_installer')"></a>
       <button type="button" class="update-bar-button is-ok" x-show="view.kind === 'ok'" x-on:click="openWhatsNew()" x-text="$t('update_bar.ok.action')"></button>
-      <a class="update-bar-link" x-show="canInstall && ['running', 'fail'].includes(view.kind)" x-bind:href="redeployHref()" x-text="$t('update_bar.details')"></a>
+      <a class="update-bar-link" x-show="canOpenInstaller && ['running', 'fail'].includes(view.kind)" x-bind:href="redeployHref()" x-text="$t('update_bar.details')"></a>
       <button type="button" class="update-bar-dismiss" x-show="view.kind === 'fail'" x-on:click="acknowledge()" x-bind:aria-label="$t('update_bar.dismiss')" x-bind:title="$t('update_bar.dismiss')">×</button>
     </div>
   </div>
