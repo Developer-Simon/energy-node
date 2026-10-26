@@ -53,10 +53,37 @@ python3 -m venv .venv && .venv/bin/pip install -e libs/energy_node_common -e lib
 
 ## 2. Operating system
 
-Use a 32-bit (armhf) Raspberry Pi OS Lite image. The 64-bit images do not run
-on ARMv6. If the current 32-bit image does not boot on a Pi 1, use Raspberry Pi
-OS (Legacy, 32-bit) Lite instead. The reference node runs Python 3.11.2, which
-is enough for every service in this repository (`requires-python >= 3.9`).
+Use a Lite image without a desktop. The node runs headless, and on the small
+models every megabyte of RAM counts. Pick the image by model:
+
+| Hardware | Image | Installation package | Tested |
+|---|---|---|---|
+| Pi 1 (A, A+, B, B+) | Raspberry Pi OS (Legacy, 32-bit) Lite | `armv6` | ✓ |
+| Pi Zero, Zero W | Raspberry Pi OS (Legacy, 32-bit) Lite | `armv6` | ✗ |
+| Pi 2 | Raspberry Pi OS Lite (32-bit) | `armv6` | ✗ |
+| Pi Zero 2 W | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
+| Pi 3, 3+ | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
+| Pi 4, 400 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
+| Pi 5, 500 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
+| x86 64-bit (Intel N100, N150) | Debian 13 netinst | `amd64` | ✗ |
+| x86 32-bit (Intel Quark X1000, Vortex86EX2) | not supported | none | ✗ |
+
+The 64-bit images do not run on ARMv6, so a Pi 1 or the first Zero always needs
+a 32-bit image. The Legacy image is the one the reference node runs on a Pi 1.
+A 32-bit image on a newer Pi works too and gets the `armv6` package. The
+installer picks the package from the node's `uname -m`.
+
+On an x86 machine, keep only **SSH server** and **standard system utilities**
+in the Debian installer's software selection. There is no package for 32-bit
+x86, so the CPU must support 64-bit (x86-64). The installer stops on such a
+machine because it finds no package for its `uname -m` (`i586` or `i686`).
+Leave the root password empty during the installation, then Debian gives the
+first user `sudo`. The installer needs it without a password, which a Raspberry
+Pi OS user has by default. On Debian, add it yourself with a file in
+`/etc/sudoers.d/`.
+
+The reference node runs Python 3.11.2, which is enough for every service in
+this repository (`requires-python >= 3.9`).
 
 Flash the card with the Raspberry Pi Imager and set hostname, user, SSH and
 WiFi there. On a headless remote site you do not want to find out afterwards

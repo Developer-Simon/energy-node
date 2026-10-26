@@ -152,7 +152,12 @@ async function all() {
       await s.page.locator('.device-density-toggle').first().click();
       await s.page.waitForTimeout(1500);
     }
-    if (id === 'devicemap') await frameMap(s.page, 0.9);
+    if (id === 'devicemap') {
+      // Die Info-Kanten des Energy Node kreuzen die Verkabelung. Nur fuer
+      // dieses Bild ausgeblendet, die Sitzung endet danach.
+      await s.page.evaluate(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).toggleWiringType('info'));
+      await frameMap(s.page, 1, 64);
+    }
     await scrollToTabs(s.page);
     await shot(s.page, name);
     await s.ctx.close();
@@ -316,13 +321,13 @@ async function all() {
 // Die ganze Anordnung der Device Map ins Bild holen und dann zur Ecke unten
 // links hin verkleinern: oben liegt die Werkzeugleiste ueber der Flaeche,
 // rechts bei offenem Panel das Panel. ratio < 1 laesst dafuer Platz.
-async function frameMap(page, ratio) {
-  await page.evaluate(r => {
+async function frameMap(page, ratio, padding = 40) {
+  await page.evaluate(([r, pad]) => {
     const container = document.querySelector('#devicemap-panel [x-ref="canvas"]');
     const cy = container._cyreg.cy;
-    cy.fit(undefined, 40);
+    cy.fit(cy.elements().filter(el => el.visible() && el.style('opacity') !== '0'), pad);
     cy.zoom({ level: cy.zoom() * r, renderedPosition: { x: 24, y: container.clientHeight - 24 } });
-  }, ratio);
+  }, [ratio, padding]);
   await page.waitForTimeout(800);
 }
 
@@ -565,7 +570,7 @@ async function deviceMapShowcase() {
     }
     await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).save());
     await s.page.waitForTimeout(1000);
-    await frameMap(s.page, 0.92);
+    await frameMap(s.page, 1, 64);
     await element(stage, name);
   }
   await s.ctx.close();

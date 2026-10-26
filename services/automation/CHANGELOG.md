@@ -5,10 +5,10 @@
 ### Features
 
 - **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
+- **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
+- **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 - **automation:** minimum run time and pause for scenarios (16bade7)
 - **automations:** minimum run time and pause fields in the scenario editor (5d8e12a)
-- **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172)
-- **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 - **automations:** maximum duration field in the scenario editor (2d7cf1a)
 - **automations:** validated assistant template fixture (7b58e68)
 - **automation:** whole-day time windows and a maximum scenario duration (5483950)
