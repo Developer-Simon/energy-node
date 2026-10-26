@@ -53,7 +53,8 @@ assistant closes, the focus returns to the **Assistant** button.
 
 The first page is the gallery. A search field matches the title, the text and
 the keywords of each template. Category buttons narrow the list to **Charging**,
-**Grid feed**, **Switching**, **Time** or **Warnings**. Templates that fit your
+**Grid feed**, **Grid**, **Heating**, **Switching**, **Tariff**, **Time** or
+**Warnings**. Templates that fit your
 devices show as tiles on a desktop and as rows on a phone. Templates whose device or battery is missing are listed
 under **More templates** with the reason. Under the tiles, **Without a
 template** creates an empty rule or an empty scenario.
@@ -95,6 +96,43 @@ The templates are these. The phases describe what the entry does in words.
 | Device on surplus | Switching | A scenario that switches a device on when feed-in is at least 1000, 1500 or 2500 W for 2 minutes. Optionally it stays on by repeating the switch command each minute, and it applies only on chosen weekdays. | When feed-in is high enough. Running: the device stays on while the condition holds, if repeat is on. Ends: after a fixed runtime of 10 to 600 minutes, at sunset, or when grid import stays above 100 W for 2 minutes. On end the device turns off. |
 | Battery warning | Warnings | A rule that sends a notification when the charge level falls below 10, 20 or 30 %. You choose the severity info, warning or critical. It fires at most once an hour. | When the charge level falls below the limit. Then: a notification with the chosen severity appears. |
 | Time switch | Time | A scenario that switches a device on for a daily time window, by default 11:00 to 15:00, optionally on chosen weekdays. | When the window starts. Ends: when the window ends, the device turns off. |
+| Heat pump lift | Heating | A scenario that lifts a heat pump when feed-in stays above 1500, 2500 or 3500 W. It switches the SG Ready contact or raises the setpoint by 1 to 10 K, and it restores the old setpoint at the end. The minimum run time and the pause protect the compressor. | When feed-in stays above the chosen power for 5 minutes, and the battery is above its charge level if that option is on. Running: the heat pump is lifted. Ends: when feed-in stays below 40 % of the start power for 10 minutes. Then the contact goes off or the setpoint goes back, and the pause starts. |
+| Low-tariff battery charging | Tariff | A scenario that charges the battery at a chosen power up to a target charge level. It runs in a fixed night window or while the price is below a threshold of 10, 15 or 20 ct/kWh. Discharging can be blocked during the charge when the battery has a discharge limit. | When the window starts or the price falls below the threshold. Running: the battery charges at the chosen power until the target. Ends: when the window ends or the price rises above the threshold, and the power returns to automatic. |
+| Grid cap | Grid | A scenario that keeps the grid import just below a limit of 11, 16 or 25 kW by throttling a wallbox. | When the import stays above the limit minus 500 W for 10 seconds. Running: the wallbox follows the limit minus 500 W. Ends: when the import stays below the limit minus 1500 W for 10 minutes, and the wallbox returns to its maximum. |
+| Control signal per §14a | Grid | A scenario that answers a control signal of the grid operator. Heat pumps and wallboxes go to a chosen power, 4.2 kW by default, and return afterwards. | When the input of the control box shows its on value. Running: each chosen device goes to the chosen power. Ends: every device goes back to its maximum. |
+| Heating rod | Heating | A scenario that uses the surplus for a stepless heating rod. The rod takes the surplus and holds the grid export in a chosen band. | When the export stays above 100 W for one minute and the temperature is below the chosen maximum. Running: the rod follows the surplus. Ends: when the import stays above 100 W for 10 minutes, and the rod goes to its minimum power. |
+| PV yield missing | Warnings | A rule that warns when an inverter reports too little power during the day. | When the reading stays below a limit of 5 to 200 W for 10 to 120 minutes, between one hour after sunrise and one hour before sunset. Then a notification appears, at most once in six hours. |
+
+The energy templates need more than one kind of device. The assistant greys
+out a template and names the missing part when a requirement is not met.
+
+- **Heat pump lift** needs a device with the heat pump role on the energy page.
+  Assign the role there if the device is not listed. The device needs an SG
+  Ready switch, either its own switch or another switch you choose, or a
+  writable setpoint. The control step decides which one is used. With the SG
+  Ready contact, a contact step follows, and the device's own switch comes
+  first and is preselected. The minimum run time and the pause of the heat
+  pump are the **Run at least** and **Pause after the end** fields of its
+  scenario. The start step shows yesterday's surplus with the start threshold.
+- **Low-tariff battery charging** needs a battery with a writable charging
+  power. The price comes either from fixed times or from a measured price in
+  ct/kWh. A price in €/kWh is converted to ct/kWh. The block option needs a
+  discharge limit on the battery. The charge step shows the energy and the
+  duration from the capacity of the battery.
+- **Grid cap** needs a wallbox with a writable power. The speed step sets the
+  largest change per step, 1000 W for calm and 3000 W for fast.
+- **Control signal per §14a** needs an input of the control box with a payload
+  that means on, and at least one heat pump with a setpoint or one wallbox with
+  a writable power. Devices with another unit than W or A are locked with the
+  reason. A current setpoint is calculated for three phases at 230 V, so amps
+  are the power in kW times 1000 divided by 690, rounded.
+- **Heating rod** needs a device with a writable power in W or % and a
+  temperature sensor. The maximum temperature is checked only at the start of
+  a run. During the run the thermostat of the heating rod limits the
+  temperature, the dashboard does not. Battery priority needs a state of
+  charge.
+- **PV yield missing** needs an inverter with its own power reading. The sun
+  window needs a location in the settings.
 
 ## Scenarios
 
@@ -156,6 +194,13 @@ The pencil button on an expanded card opens the editor. It has three phases.
 - **End** runs the end actions. With **Own end condition** switched off, the
   scenario ends as soon as its start conditions are no longer met. With the
   switch on, its own conditions decide when it ends.
+
+Two more fields sit in the End phase. **Run at least (min)** keeps the scenario
+running for this many minutes, even if its end condition is met sooner.
+Switching the scenario off and the maximum run time still end it at once. Empty
+means no minimum. **Pause after the end (min)** blocks a new start for this many
+minutes after the scenario has ended, even if its start conditions hold again.
+Empty means no pause.
 
 For **Regulate** the form asks for the following values. Each field has a help
 text next to it.
