@@ -167,7 +167,11 @@ type Manager struct {
 	pairing *pendingPairing
 	// pairLimiter begrenzt die Fehlversuche beim Kopplen insgesamt.
 	pairLimiter *failureLimiter
-	now         func() time.Time
+	// haVerifier prüft Anmeldungen über Home Assistant; nil ohne Verifier.
+	haVerifier HAVerifier
+	// haLimiter begrenzt die Fehlversuche bei Anmeldungen über Home Assistant.
+	haLimiter *failureLimiter
+	now       func() time.Time
 }
 
 type contextKey struct{}
@@ -200,6 +204,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 		sessions:           map[string]Session{},
 		haAccounts:         map[string]HAAccount{},
 		pairLimiter:        newFailureLimiter(0, 10, time.Minute),
+		haLimiter:          newFailureLimiter(5, 20, time.Minute),
 		now:                now,
 		guestRoles:         defaultGuestRoles(),
 		guestRolesReviewed: true,
@@ -321,10 +326,57 @@ func (m *Manager) hasNonGuestLocked() bool {
 
 // Login prüft die Anmeldung nach Spec Abschnitt 5. secure sagt, ob die Anfrage
 // über HTTPS kommt. Über HTTP entsteht immer eine eingeschränkte Sitzung.
+// Kennt der Manager den Namen lokal, gilt nur das lokale Konto. Sonst fragt
+// er Home Assistant, wenn eine Kopplung und ein Verifier da sind.
 func (m *Manager) Login(username, password string, secure bool) (Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cleanupGuestsLocked()
+	name := strings.ToLower(username)
+	if _, ok := m.users[name]; ok {
+		return m.loginLocalLocked(name, password, secure)
+	}
+	return m.loginHALocked(username, name, password, secure)
+}
+
+// loginHALocked meldet einen HA-Benutzer an. Der Aufrufer hält m.mu. Während
+// der Abfrage bei Home Assistant wird m.mu freigegeben und danach wieder
+// genommen. Deshalb wird die Kopplung danach erneut geprüft.
+func (m *Manager) loginHALocked(username, name, password string, secure bool) (Session, error) {
+	if !secure || m.companion == nil || m.haVerifier == nil || !m.haLimiter.allowed(name, m.now()) {
+		return Session{}, ErrInvalidCredentials
+	}
+	verifier := m.haVerifier
+	m.mu.Unlock()
+	ctx, cancel := context.WithTimeout(context.Background(), HAVerifyTimeout)
+	identity, err := verifier.VerifyHA(ctx, username, password)
+	cancel()
+	m.mu.Lock()
+	if errors.Is(err, ErrInvalidCredentials) {
+		m.haLimiter.fail(name, m.now())
+		return Session{}, ErrInvalidCredentials
+	}
+	if err != nil {
+		return Session{}, ErrHomeAssistantUnavailable
+	}
+	if m.companion == nil {
+		return Session{}, ErrInvalidCredentials
+	}
+	nowValue := m.now().UTC()
+	account := m.upsertHAAccountLocked(identity, nowValue)
+	if account.Disabled {
+		return Session{}, ErrInvalidCredentials
+	}
+	account.LastLoginAt = nowValue
+	m.haAccounts[identity.UserID] = account
+	if err := m.saveLocked(); err != nil {
+		return Session{}, err
+	}
+	return m.newSessionLocked(m.haUserLocked(account), false)
+}
+
+// loginLocalLocked prüft die Anmeldung gegen ein lokales Konto oder einen Gast.
+func (m *Manager) loginLocalLocked(username, password string, secure bool) (Session, error) {
 	user, ok := m.users[username]
 	if !ok || user.Guest || user.Disabled {
 		return Session{}, ErrInvalidCredentials
@@ -424,6 +476,11 @@ func (m *Manager) cleanupGuestsLocked() bool {
 }
 
 func (m *Manager) newSessionLocked(user User, restricted bool) (Session, error) {
+	return m.newSessionViaLocked(user, restricted, "")
+}
+
+// newSessionViaLocked legt eine Sitzung an, die über den Weg via entstanden ist.
+func (m *Manager) newSessionViaLocked(user User, restricted bool, via string) (Session, error) {
 	token, err := randomID("session-")
 	if err != nil {
 		return Session{}, err
@@ -436,7 +493,7 @@ func (m *Manager) newSessionLocked(user User, restricted bool) (Session, error) 
 	if user.Guest {
 		lifetime = guestSessionLife
 	}
-	session := Session{Token: token, CSRFToken: csrfToken, User: user, ExpiresAt: m.now().Add(lifetime), Restricted: restricted}
+	session := Session{Token: token, CSRFToken: csrfToken, User: user, ExpiresAt: m.now().Add(lifetime), Restricted: restricted, Via: via}
 	m.sessions[tokenHash(token)] = session
 	if err := m.saveSessionsLocked(); err != nil {
 		delete(m.sessions, tokenHash(token))

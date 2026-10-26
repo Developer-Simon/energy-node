@@ -1,16 +1,42 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
+	"errors"
 	"log"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companionpair"
 )
+
+// HAIdentity ist die Identität eines Home-Assistant-Benutzers, wie ihn der
+// Verifier oder die Companion-Integration meldet.
+type HAIdentity struct {
+	UserID   string
+	Username string
+	Name     string
+	Admin    bool
+}
+
+// HAVerifier prüft Zugangsdaten bei Home Assistant.
+type HAVerifier interface {
+	// VerifyHA liefert die Identität, ErrInvalidCredentials bei falschen
+	// Zugangsdaten oder ErrHomeAssistantUnavailable.
+	VerifyHA(ctx context.Context, username, password string) (HAIdentity, error)
+}
+
+// HAVerifyTimeout begrenzt eine Prüfung bei Home Assistant.
+const HAVerifyTimeout = 5 * time.Second
+
+// ErrHomeAssistantUnavailable meldet, dass Home Assistant die Prüfung nicht
+// beantworten konnte.
+var ErrHomeAssistantUnavailable = errors.New("home assistant unavailable")
 
 // HAAccount ist ein Konto, das Home Assistant bereitstellt. Es hat keinen
 // lokalen Zugang: Anmeldung läuft über Home Assistant, die Berechtigungen
@@ -36,6 +62,99 @@ type CompanionStatus struct {
 	PairedAt         *time.Time `json:"paired_at,omitempty"`
 	LastSeenAt       *time.Time `json:"last_seen_at,omitempty"`
 	PairingExpiresAt *time.Time `json:"pairing_expires_at,omitempty"`
+}
+
+// SetHAVerifier setzt den Verifier für Anmeldungen über Home Assistant. nil
+// schaltet die Anmeldung über Home Assistant ab.
+func (m *Manager) SetHAVerifier(v HAVerifier) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.haVerifier = v
+}
+
+// CompanionSession startet eine Sitzung für einen HA-Benutzer, der über die
+// Companion-Kopplung kommt. Konto und Felder werden nachgeführt.
+func (m *Manager) CompanionSession(id HAIdentity) (Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.companion == nil {
+		return Session{}, ErrNotPaired
+	}
+	nowValue := m.now().UTC()
+	account := m.upsertHAAccountLocked(id, nowValue)
+	if account.Disabled {
+		return Session{}, ErrAccountDisabled
+	}
+	account.LastLoginAt = nowValue
+	m.haAccounts[id.UserID] = account
+	if err := m.saveLocked(); err != nil {
+		return Session{}, err
+	}
+	return m.newSessionViaLocked(m.haUserLocked(account), false, ViaCompanion)
+}
+
+// HAUserChanged übernimmt eine Änderung eines HA-Benutzers. Ist er inaktiv
+// oder entfernt, fallen alle seine Sitzungen weg, das Konto bleibt. Sonst
+// werden die HA-Sitzungen neu berechnet, damit ein geänderter Admin-Status
+// sofort wirkt. Unbekannte Konten bleiben unberührt.
+func (m *Manager) HAUserChanged(id HAIdentity, active, removed bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	current, ok := m.haAccounts[id.UserID]
+	if !ok {
+		return nil
+	}
+	updated := current
+	updated.Username = id.Username
+	updated.DisplayName = id.Name
+	updated.HAAdmin = id.Admin
+	dropSessions := removed || !active
+	changed := !reflect.DeepEqual(updated, current) || (dropSessions && m.hasHASessionLocked(id.UserID))
+	if !changed {
+		return nil
+	}
+	accounts := copyHAAccounts(m.haAccounts)
+	accounts[id.UserID] = updated
+	oldAccounts, oldSessions := m.haAccounts, m.sessions
+	m.haAccounts = accounts
+	m.sessions = copySessions(m.sessions)
+	m.refreshHASessionsLocked()
+	if dropSessions {
+		for key, session := range m.sessions {
+			if session.User.Source == SourceHomeAssistant && session.User.HAUserID == id.UserID {
+				delete(m.sessions, key)
+			}
+		}
+	}
+	if err := m.saveLocked(); err != nil {
+		m.haAccounts, m.sessions = oldAccounts, oldSessions
+		return err
+	}
+	return m.saveSessionsLocked()
+}
+
+// hasHASessionLocked meldet, ob das HA-Konto eine Sitzung hat.
+func (m *Manager) hasHASessionLocked(haUserID string) bool {
+	for _, session := range m.sessions {
+		if session.User.Source == SourceHomeAssistant && session.User.HAUserID == haUserID {
+			return true
+		}
+	}
+	return false
+}
+
+// upsertHAAccountLocked liefert das HA-Konto für id: das gespeicherte, mit
+// nachgeführtem Namen, Anzeigenamen und Admin-Status, oder ein neues mit den
+// Vorgaben. Gespeichert wird nicht, das macht der Aufrufer.
+func (m *Manager) upsertHAAccountLocked(id HAIdentity, nowValue time.Time) HAAccount {
+	account, ok := m.haAccounts[id.UserID]
+	if !ok {
+		account = HAAccount{HAUserID: id.UserID, RolesCustom: false, Roles: []string{}, CreatedAt: nowValue}
+	}
+	account.Username = id.Username
+	account.DisplayName = id.Name
+	account.HAAdmin = id.Admin
+	return account
 }
 
 // HAAccounts liefert die HA-Konten sortiert nach Name, dann nach HAUserID.
