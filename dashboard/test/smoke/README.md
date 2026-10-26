@@ -491,3 +491,26 @@ dashboard/test/smoke/run-local-dashboard.sh --keep --preset energie-simulate --f
 
 It can also run on its own against any running dashboard:
 `python3 dashboard/test/smoke/fake_companion.py http://127.0.0.1:18100 --days 400`.
+
+## Fake Home Assistant companion
+
+`fake_ha_companion.py` plays the Home Assistant companion integration against
+the companion port (`ENERGY_NODE_COMPANION_PORT`, the smoke test uses
+`DASHBOARD_SMOKE_COMPANION_PORT`, default 18101). It pairs with a pairing code
+from the admin account, checks the certificate fingerprint on the same
+connection before it sends anything, keeps the verify stream open and answers
+every password check: yes for `maria` with the right password, no otherwise.
+
+The script checks: a Home Assistant user signs in over HTTPS, the same sign-in
+without the HTTPS marker gets 401, the companion session reports
+`via == companion` on the companion port, the same cookie gets 401 on the main
+port, and after the admin removes the pairing the old token gets 401.
+
+```bash
+DASHBOARD_SMOKE_PORT=18110 DASHBOARD_SMOKE_MQTT_PORT=18111 \
+DASHBOARD_SMOKE_UPDATES_API_PORT=18112 DASHBOARD_SMOKE_COMPANION_PORT=18113 \
+  dashboard/test/smoke/run-local-dashboard.sh
+```
+
+While something else holds 18100 (for example a `--keep` run), use the ports
+above. The default ports would make the script stop that holder.
