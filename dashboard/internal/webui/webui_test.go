@@ -3603,7 +3603,7 @@ func TestFineTuningIsACardWithSteppers(t *testing.T) {
 		t.Fatal("Feineinstellungen sind keine auto-card")
 	}
 	card := source[start:]
-	if end := strings.Index(card, `{{end}}`); end > 0 {
+	if end := strings.Index(card, `</section>`); end > 0 {
 		card = card[:end]
 	}
 	if !strings.Contains(card, `ico-gear`) {
@@ -3619,6 +3619,38 @@ func TestFineTuningIsACardWithSteppers(t *testing.T) {
 
 // Die Aktionskarten zeigen je Aktion Art, Testen (nur mit rowsCanTest) und Loeschen.
 // Der Editor-Block der Aktionen nutzt keine edit-card mehr.
+// Die Zahlenfelder des Szenario-Editors (Regler und Ende) sind Stepper. Ausgabe
+// min/max und das Wiederholungsfeld der Halten-Schleife bleiben Zahlenfelder.
+func TestScenarioNumericFieldsUseSteppers(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	for _, want := range []string{
+		`stepKey: 'target_w'`,
+		`stepKey: 'deadband_w'`,
+		`stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }`,
+		`stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }`,
+	} {
+		if !strings.Contains(source, want) {
+			t.Fatalf("Szenario-Editor: Stepper %q fehlt", want)
+		}
+	}
+	for _, old := range []string{"-target`", "-deadband`", "-max-duration`", "-min-run`", "-cooldown`"} {
+		if strings.Contains(source, old) {
+			t.Fatalf("Szenario-Editor: altes Zahlenfeld mit id %s noch vorhanden", old)
+		}
+	}
+	// Bleiben als Zahlenfelder: Ausgabe min/max und das Wiederholungsfeld der Halten-Schleife.
+	if n := strings.Count(source, `type="number"`); n != 3 {
+		t.Fatalf("Szenario-Editor hat %d bare Zahlenfelder, erwartet 3 (Ausgabe min/max, Wiederholung)", n)
+	}
+	if n := strings.Count(source, `{{template "auto-stepper"}}`); n != 9 {
+		t.Fatalf("Szenario-Editor hat %d auto-stepper, erwartet 9", n)
+	}
+}
+
 func TestActionCardsShowKindTestAndDelete(t *testing.T) {
 	tpl, err := os.ReadFile("templates/automations-rows.html")
 	if err != nil {

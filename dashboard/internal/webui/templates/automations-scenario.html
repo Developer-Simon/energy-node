@@ -177,9 +177,9 @@
           <template x-if="scenario.while.mode === 'regulate' && scenario.while.regulator">
             <div class="auto-regulator-edit">
               <div class="auto-edit-grid">
-                <div class="auto-field">
+                <div class="auto-field" x-data="{ get stepTarget() { return scenario.while.regulator }, stepKey: 'target_w', stepOpts: { min: -50000, max: 50000, step: 10 }, stepUnit: 'W', stepLabel: $t('automations.scenario.edit.regulator.target_label') }">
                   <span class="auto-field-head">
-                    <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-target`">{{t "automations.scenario.edit.regulator.target_label"}}</label>
+                    <span class="auto-field-label">{{t "automations.scenario.edit.regulator.target_label"}}</span>
                     <span class="field-help">
                       <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.target_label')})">
                         <svg><use href="#ico-help"></use></svg>
@@ -187,14 +187,11 @@
                       <span class="field-help-text" role="tooltip" x-text="fieldHelp('target_w')"></span>
                     </span>
                   </span>
-                  <span class="auto-input-field">
-                    <input class="auto-input" x-bind:id="`scn-${scenario.id}-target`" type="number" x-model.number="scenario.while.regulator.target_w">
-                    <span class="auto-input-unit">W</span>
-                  </span>
+                  {{template "auto-stepper"}}
                 </div>
-                <div class="auto-field">
+                <div class="auto-field" x-data="{ get stepTarget() { return scenario.while.regulator }, stepKey: 'deadband_w', stepOpts: { min: 0, max: 5000, step: 10, fallback: 20 }, stepUnit: 'W', stepLabel: $t('automations.scenario.edit.regulator.deadband_label') }">
                   <span class="auto-field-head">
-                    <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-deadband`">{{t "automations.scenario.edit.regulator.deadband_label"}}</label>
+                    <span class="auto-field-label">{{t "automations.scenario.edit.regulator.deadband_label"}}</span>
                     <span class="field-help">
                       <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.deadband_label')})">
                         <svg><use href="#ico-help"></use></svg>
@@ -202,10 +199,7 @@
                       <span class="field-help-text" role="tooltip" x-text="fieldHelp('deadband_w')"></span>
                     </span>
                   </span>
-                  <span class="auto-input-field">
-                    <input class="auto-input" x-bind:id="`scn-${scenario.id}-deadband`" type="number" placeholder="20" x-model.number="scenario.while.regulator.deadband_w">
-                    <span class="auto-input-unit">W</span>
-                  </span>
+                  {{template "auto-stepper"}}
                 </div>
                 <div class="auto-band auto-field-wide">
                   <svg class="auto-band-svg" role="img" viewBox="0 0 100 20" preserveAspectRatio="none"
@@ -396,38 +390,41 @@
           <template x-if="!scenario.until">
             <p class="auto-hint">{{t "automations.scenario.end_when_false"}}</p>
           </template>
-          <div class="auto-flow-row">
-            <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-max-duration`">{{t "automations.scenario.edit.max_duration.label"}}</label>
-            <input class="auto-input" x-bind:id="`scn-${scenario.id}-max-duration`" type="number" min="1" max="1440" step="1"
-                   x-bind:value="maxDurationMinutes(scenario)" x-on:input="setMaxDurationMinutes(scenario, $event.target.value)">
-            <span class="field-help">
-              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.max_duration.label')})">
-                <svg><use href="#ico-help"></use></svg>
-              </button>
-              <span class="field-help-text" role="tooltip" x-text="fieldHelp('max_duration_s')"></span>
+          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return maxDurationMinutes(scenario) }, set v(x) { setMaxDurationMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.max_duration.label') }">
+            <span class="auto-field-head">
+              <span class="auto-field-label">{{t "automations.scenario.edit.max_duration.label"}}</span>
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.max_duration.label')})">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('max_duration_s')"></span>
+              </span>
             </span>
+            {{template "auto-stepper"}}
           </div>
-          <div class="auto-flow-row">
-            <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-min-run`">{{t "automations.scenario.edit.min_run.label"}}</label>
-            <input class="auto-input" x-bind:id="`scn-${scenario.id}-min-run`" type="number" min="0" max="1440" step="1"
-                   x-bind:value="minRunMinutes(scenario)" x-on:input="setMinRunMinutes(scenario, $event.target.value)">
-            <span class="field-help">
-              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.min_run.label')})">
-                <svg><use href="#ico-help"></use></svg>
-              </button>
-              <span class="field-help-text" role="tooltip" x-text="fieldHelp('min_run_s')"></span>
+          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return minRunMinutes(scenario) }, set v(x) { setMinRunMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.min_run.label') }">
+            <span class="auto-field-head">
+              <span class="auto-field-label">{{t "automations.scenario.edit.min_run.label"}}</span>
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.min_run.label')})">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('min_run_s')"></span>
+              </span>
             </span>
+            {{template "auto-stepper"}}
           </div>
-          <div class="auto-flow-row">
-            <label class="auto-flow-label" x-bind:for="`scn-${scenario.id}-cooldown`">{{t "automations.scenario.edit.cooldown.label"}}</label>
-            <input class="auto-input" x-bind:id="`scn-${scenario.id}-cooldown`" type="number" min="0" max="1440" step="1"
-                   x-bind:value="cooldownMinutes(scenario)" x-on:input="setCooldownMinutes(scenario, $event.target.value)">
-            <span class="field-help">
-              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.cooldown.label')})">
-                <svg><use href="#ico-help"></use></svg>
-              </button>
-              <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_s')"></span>
+          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return cooldownMinutes(scenario) }, set v(x) { setCooldownMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.cooldown.label') }">
+            <span class="auto-field-head">
+              <span class="auto-field-label">{{t "automations.scenario.edit.cooldown.label"}}</span>
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.cooldown.label')})">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_s')"></span>
+              </span>
             </span>
+            {{template "auto-stepper"}}
           </div>
           <div x-data="scenarioRows(scenario, 'on_end', null)"><div class="auto-edit-list">{{template "automations-action-editors"}}</div>
 {{template "automations-action-tiles"}}</div>
