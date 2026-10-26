@@ -27,6 +27,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/dataflow"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
@@ -218,6 +219,12 @@ type RouterDependencies struct {
 	// UpdateInstaller installs the offered update and reports its progress
 	// (internal/updateinstall). Nil disables POST /api/v1/updates/install.
 	UpdateInstaller UpdateInstaller
+	// Companion ist der Pruefkanal zur Home-Assistant-Companion-Integration
+	// (Port 8081). nil heisst: die Companion-Routen antworten 501.
+	Companion *companion.Hub
+	// CompanionFingerprint ist der Fingerabdruck des Companion-Zertifikats,
+	// an den der Kopplungsnachweis gebunden ist.
+	CompanionFingerprint string
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -342,6 +349,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
 		g.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
 		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
+		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
 	}
 	if dependencies.SystemActions != nil {
 		g.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
@@ -416,7 +424,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 
 func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarningKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if manager == nil || strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/i18n/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
+		if manager == nil || strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/i18n/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") || strings.HasPrefix(r.URL.Path, companionPrefix) {
 			next.ServeHTTP(w, r)
 			return
 		}
