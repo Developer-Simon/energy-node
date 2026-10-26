@@ -65,13 +65,13 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 86400,
-            "description": "The scenario runs at least this many minutes, even if the end condition is met sooner. Switching it off and the maximum run time still end it at once. Empty means no minimum."
+            "description": "The scenario runs at least this many seconds, even if the end condition is met sooner. Switching it off and the maximum run time still end it at once. Missing means no minimum."
           },
           "cooldown_s": {
             "type": "integer",
             "minimum": 0,
             "maximum": 86400,
-            "description": "After it ends, the scenario starts again only after this many minutes, even if the start condition holds again. Empty means no pause."
+            "description": "After it ends, the scenario starts again only after this many seconds, even if the start condition holds again. Missing means no pause."
           },
           "when": {
             "type": "object",
