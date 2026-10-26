@@ -1,10 +1,15 @@
 package auth
 
 import (
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/hex"
 	"log"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/companionpair"
 )
 
 // HAAccount ist ein Konto, das Home Assistant bereitstellt. Es hat keinen
@@ -138,12 +143,17 @@ func (m *Manager) DeleteHAAccount(actor, haUserID string) error {
 func (m *Manager) CompanionStatus() CompanionStatus {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.companion == nil {
-		return CompanionStatus{}
+	var status CompanionStatus
+	if m.companion != nil {
+		pairedAt := m.companion.PairedAt
+		lastSeen := m.companion.LastSeenAt
+		status = CompanionStatus{Paired: true, PairedAt: &pairedAt, LastSeenAt: &lastSeen}
 	}
-	pairedAt := m.companion.PairedAt
-	lastSeen := m.companion.LastSeenAt
-	return CompanionStatus{Paired: true, PairedAt: &pairedAt, LastSeenAt: &lastSeen}
+	if m.pairing != nil && m.now().Before(m.pairing.expiresAt) {
+		expiresAt := m.pairing.expiresAt
+		status.PairingExpiresAt = &expiresAt
+	}
+	return status
 }
 
 // haUserLocked liefert den wirksamen Benutzer eines HA-Kontos. Die Rollen sind
@@ -233,4 +243,149 @@ func validateHARoles(roles []string) ([]string, error) {
 		}
 	}
 	return Normalize(roles), nil
+}
+
+// pendingPairing ist der offene Kopplungscode. Er lebt nur im Speicher.
+type pendingPairing struct {
+	code      string
+	expiresAt time.Time
+	failures  int
+}
+
+// maxPairingFailures ist die Zahl der Fehlversuche, nach denen der Code verfällt.
+const maxPairingFailures = 5
+
+// CreatePairingCode erzeugt einen Kopplungscode und ersetzt einen offenen.
+// Der Code wird nur formatiert zurückgegeben und nie gespeichert.
+func (m *Manager) CreatePairingCode(actor string) (code string, expiresAt time.Time, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	raw, err := companionpair.NewCode()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	expiresAt = m.now().UTC().Add(PairingCodeLifetime)
+	m.pairing = &pendingPairing{code: raw, expiresAt: expiresAt}
+	log.Printf("auth: %s %s %s", actor, "pairing_code", "companion")
+	return companionpair.Format(raw), expiresAt, nil
+}
+
+// DropPairingCode verwirft einen offenen Kopplungscode.
+func (m *Manager) DropPairingCode(actor string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pairing = nil
+}
+
+// Pair koppelt die Companion-Integration. check bekommt den normalisierten
+// Code und prüft den Nachweis der Gegenseite. Jeder Fehlschlag zählt im
+// Begrenzer und am Code; beim fünften verfällt der Code.
+func (m *Manager) Pair(check func(code string) bool) (token, code string, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	now := m.now()
+	if !m.pairLimiter.allowed("", now) {
+		return "", "", ErrPairingInvalid
+	}
+	pending := m.pairing
+	if pending != nil && !now.Before(pending.expiresAt) {
+		m.pairing = nil
+		pending = nil
+	}
+	if pending == nil {
+		m.pairLimiter.fail("", now)
+		return "", "", ErrPairingInvalid
+	}
+	code = companionpair.Normalize(pending.code)
+	if !check(code) {
+		m.pairLimiter.fail("", now)
+		pending.failures++
+		if pending.failures >= maxPairingFailures {
+			m.pairing = nil
+		}
+		return "", "", ErrPairingInvalid
+	}
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", "", err
+	}
+	token = hex.EncodeToString(buf)
+
+	oldCompanion, oldRoles, oldSessions, oldPairing := m.companion, m.haRoles, m.sessions, m.pairing
+	m.companion = &companionFile{Label: "Home Assistant", TokenHash: tokenHash(token), PairedAt: now.UTC(), LastSeenAt: now.UTC()}
+	if m.haRoles == nil {
+		preset := Normalize(guestAllowedOnly(m.guestRoles))
+		m.haRoles = &haRolesFile{Admin: preset, User: append([]string{}, preset...)}
+	}
+	m.pairing = nil
+	m.sessions = withoutHASessions(m.sessions)
+	if err := m.saveLocked(); err != nil {
+		m.companion, m.haRoles, m.sessions, m.pairing = oldCompanion, oldRoles, oldSessions, oldPairing
+		return "", "", err
+	}
+	if err := m.saveSessionsLocked(); err != nil {
+		return "", "", err
+	}
+	log.Printf("auth: %s %s %s", "companion", "pair", "home_assistant")
+	return token, code, nil
+}
+
+// Unpair hebt die Kopplung auf. HA-Konten und Vorgaben bleiben.
+func (m *Manager) Unpair(actor string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.companion == nil {
+		return ErrNotPaired
+	}
+	oldCompanion, oldSessions, oldPairing := m.companion, m.sessions, m.pairing
+	m.companion, m.pairing = nil, nil
+	m.sessions = withoutHASessions(m.sessions)
+	if err := m.saveLocked(); err != nil {
+		m.companion, m.sessions, m.pairing = oldCompanion, oldSessions, oldPairing
+		return err
+	}
+	if err := m.saveSessionsLocked(); err != nil {
+		return err
+	}
+	log.Printf("auth: %s %s %s", actor, "unpair", "home_assistant")
+	return nil
+}
+
+// CompanionTokenValid prüft ein Token der Kopplung. Ohne Kopplung ist jedes falsch.
+func (m *Manager) CompanionTokenValid(token string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.companion == nil {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(m.companion.TokenHash), []byte(tokenHash(token))) == 1
+}
+
+// CompanionSeen schreibt den Zeitpunkt des letzten Kontakts der Companion-Seite.
+func (m *Manager) CompanionSeen() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.companion == nil {
+		return ErrNotPaired
+	}
+	old := m.companion
+	updated := *old
+	updated.LastSeenAt = m.now().UTC()
+	m.companion = &updated
+	if err := m.saveLocked(); err != nil {
+		m.companion = old
+		return err
+	}
+	return nil
+}
+
+// withoutHASessions liefert eine Kopie der Sitzungen ohne HA-Sitzungen.
+func withoutHASessions(sessions map[string]Session) map[string]Session {
+	out := make(map[string]Session, len(sessions))
+	for key, session := range sessions {
+		if session.User.Source != SourceHomeAssistant {
+			out[key] = session
+		}
+	}
+	return out
 }

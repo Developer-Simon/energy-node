@@ -163,7 +163,11 @@ type Manager struct {
 	haRoles *haRolesFile
 	// companion ist die Kopplung; nil ohne Kopplung.
 	companion *companionFile
-	now       func() time.Time
+	// pairing ist der offene Kopplungscode, nur im Speicher; nil ohne Code.
+	pairing *pendingPairing
+	// pairLimiter begrenzt die Fehlversuche beim Kopplen insgesamt.
+	pairLimiter *failureLimiter
+	now         func() time.Time
 }
 
 type contextKey struct{}
@@ -195,6 +199,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 		users:              map[string]User{},
 		sessions:           map[string]Session{},
 		haAccounts:         map[string]HAAccount{},
+		pairLimiter:        newFailureLimiter(0, 10, time.Minute),
 		now:                now,
 		guestRoles:         defaultGuestRoles(),
 		guestRolesReviewed: true,
