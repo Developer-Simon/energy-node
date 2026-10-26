@@ -131,6 +131,7 @@
 - **automations:** surplus scale fill and stable maximum (18aaea5)
 - **automations:** scenario stepper fields share one row on desktop (cb86282)
 - **automations:** drop the unit from stepper labels (7b498d4)
+- **automations:** name a missing setpoint value in the heat pump template (910c915)
 - **updates:** retry the redeploy start while the prepare run winds down (970fa9d)
 - **httpapi:** keep a running job visible over an old install failure (9de6f28)
 - **httpapi:** tighten route access tests (f26982f)
