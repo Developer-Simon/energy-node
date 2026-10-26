@@ -47,6 +47,14 @@ const devices = [
       { unique_id: 'wb_power', name: 'Ladeleistung Ist', state_topic: 'werkstatt/wb/power', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '1400' },
     ],
   },
+  {
+    id: 'hp', name: 'Wärmepumpe Keller',
+    entities: [
+      { unique_id: 'hp_setpoint', name: 'Warmwasser-Soll', command_topic: 'werkstatt/hp/setpoint', min_value: 30, max_value: 60, step: 1, unit_of_measurement: '°C', has_value: true, value: '45' },
+      { unique_id: 'hp_sg', name: 'SG Ready', command_topic: 'werkstatt/hp/sg', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+      { unique_id: 'hp_temp', name: 'Temperatur', state_topic: 'werkstatt/hp/temp', template_supported: true, device_class: 'temperature', unit_of_measurement: '°C', has_value: true, value: '44' },
+    ],
+  },
 ];
 
 const snapshot = {
@@ -54,6 +62,7 @@ const snapshot = {
   entities: [
     { device_id: 'pv1', entity_id: 'pv1_power', role: { role: 'pv' } },
     { device_id: 'wb', entity_id: 'wb_power', role: { role: 'wallbox' } },
+    { device_id: 'hp', entity_id: 'hp_temp', role: { role: 'heat_pump' } },
   ],
 };
 
@@ -95,12 +104,20 @@ const VARIANTS = {
   time_switch: [
     { window: { from: '06:00', to: '08:00', days: [0, 1, 2, 3, 4] } },
   ],
+  heat_pump: [
+    { control: 'setpoint', lift: 3 },
+    { contact: 'wb_switch' },
+    { battery: 'parallel' },
+    { period: 'fixed', window: { from: '10:00', to: '17:00', days: [0, 1, 2, 3, 4] } },
+    { extras: { notify: true, history: false } },
+  ],
 };
 
 // Zusaetzliche Mitteilungstexte, die eine Vorlage im gebauten Eintrag verwendet.
 const NOTICE_KEYS = {
   zero_feed: ['automations.templates.zero_feed.notice.title', 'automations.templates.zero_feed.notice.message'],
   battery_warn: ['automations.templates.battery_warn.notice.title', 'automations.templates.battery_warn.notice.message'],
+  heat_pump: ['automations.templates.heat_pump.notice.title', 'automations.templates.heat_pump.notice.message'],
 };
 
 test('zero_feed builds the documented shape with the default answers', () => {
@@ -406,7 +423,7 @@ test('summary steps point at visible steps', () => {
     const variants = [{}, ...(VARIANTS[template.id] || [])];
     for (const overrides of variants) {
       const answers = answersFor(wizard, template, ctx, overrides);
-      const visible = new Set(wizard.visibleSteps(template, answers).map((step) => step.id));
+      const visible = new Set(wizard.visibleSteps(template, answers, ctx).map((step) => step.id));
       const rows = plain(template.summary(answers, ctx));
       assert.ok(rows.length > 0, template.id);
       for (const row of rows) {
@@ -421,4 +438,125 @@ test('summary steps point at visible steps', () => {
 test('the built fixture is current', () => {
   const file = path.join(here, 'fixtures', 'automation-templates-built.json');
   assert.deepEqual(plain(buildFixture()), JSON.parse(fs.readFileSync(file, 'utf8')));
+});
+
+// Wärmepumpe: Ansteuerung über SG Ready oder Sollwert, mit Verdichterschutz.
+const heatPumpPlain = (device) => ({ ...device, entities: device.entities });
+const heatPumpPreset = (devicesOverride, snapshotOverride) => ({
+  devices: devicesOverride || devices,
+  snapshot: snapshotOverride || snapshot,
+  document,
+});
+
+test('heat_pump build with sg uses the chosen contact', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heat_pump');
+  const ctx = plain(wizard.buildContext(heatPumpPreset()));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { control: 'sg', contact: 'wb_switch' }), ctx).entry);
+  assert.equal(entry.template, 'heat_pump');
+  assert.deepEqual(entry.on_start.actions[0], {
+    type: 'publish', topic: 'werkstatt/wb/switch', retain: false, payload_source: 'constant', payload: 'ON', entity_id: 'wb_switch',
+  });
+  assert.deepEqual(entry.on_end.actions[0], {
+    type: 'publish', topic: 'werkstatt/wb/switch', retain: false, payload_source: 'constant', payload: 'OFF', entity_id: 'wb_switch',
+  });
+  assert.deepEqual(entry.when.conditions[0], {
+    type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 2500, hysteresis: 0, hold_seconds: 300,
+  });
+  assert.deepEqual(entry.when.conditions[1], {
+    type: 'balance_threshold', field: 'battery_soc', comparison: 'above', threshold: 80, hysteresis: 0, hold_seconds: 0,
+  });
+  assert.deepEqual(entry.until.conditions, [{
+    type: 'balance_threshold', field: 'grid_export', comparison: 'below', threshold: 1000, hysteresis: 0, hold_seconds: 600,
+  }]);
+  assert.deepEqual(entry.while, { mode: 'none' });
+  assert.equal(entry.min_run_s, 1800);
+  assert.equal(entry.cooldown_s, 1200);
+  assert.equal(entry.history_enabled, true);
+});
+
+test('heat_pump sg takes the own contact of the device by default', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heat_pump');
+  const ctx = plain(wizard.buildContext(heatPumpPreset()));
+  assert.equal(answersFor(wizard, template, ctx).contact, 'hp_sg');
+});
+
+test('heat_pump build with setpoint restores the value it found', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heat_pump');
+  const ctx = plain(wizard.buildContext(heatPumpPreset()));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { control: 'setpoint', lift: 3 }), ctx).entry);
+  assert.deepEqual(entry.on_start.actions[0], {
+    type: 'publish', topic: 'werkstatt/hp/setpoint', retain: false, payload_source: 'constant', payload: '48', entity_id: 'hp_setpoint',
+  });
+  assert.deepEqual(entry.on_end.actions[0], {
+    type: 'publish', topic: 'werkstatt/hp/setpoint', retain: false, payload_source: 'constant', payload: '45', entity_id: 'hp_setpoint',
+  });
+});
+
+test('heat_pump skips the contact step for setpoint', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heat_pump');
+  const ctx = plain(wizard.buildContext(heatPumpPreset()));
+  const ids = (control) => wizard.visibleSteps(template, answersFor(wizard, template, ctx, { control }), ctx).map((step) => step.id);
+  assert.equal(ids('setpoint').includes('contact'), false);
+  assert.equal(ids('setpoint').includes('lift'), true);
+  assert.equal(ids('sg').includes('contact'), true);
+  assert.equal(ids('sg').includes('lift'), false);
+});
+
+test('heat_pump is available with only a foreign switch', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'heat_pump');
+  const bare = { id: 'hp', name: 'Wärmepumpe Keller', entities: [
+    { unique_id: 'hp_temp', name: 'Temperatur', state_topic: 'werkstatt/hp/temp', template_supported: true, device_class: 'temperature', has_value: true, value: '44' },
+  ] };
+  const bareSnapshot = { ...snapshot, entities: [{ device_id: 'hp', entity_id: 'hp_temp', role: { role: 'heat_pump' } }] };
+  const withSwitch = plain(wizard.buildContext(heatPumpPreset([devices[1], bare], bareSnapshot)));
+  const availability = wizard.templateAvailability(template, withSwitch);
+  assert.equal(availability.available, true);
+  const answers = answersFor(wizard, template, withSwitch);
+  assert.equal(answers.control, 'sg');
+  assert.equal(answers.contact, 'wb_switch');
+  const entry = plain(template.build(answers, withSwitch).entry);
+  assert.equal(entry.on_start.actions[0].entity_id, 'wb_switch');
+
+  const bareOnly = plain(wizard.buildContext(heatPumpPreset([bare], bareSnapshot)));
+  const blocked = wizard.templateAvailability(template, bareOnly);
+  assert.equal(blocked.available, false);
+  assert.equal(blocked.reason, t('automations.assistant.unavailable.heat_pump'));
+});
+
+test('surplus effect reports the first quarter hour above the threshold', async () => {
+  const { wizard, t } = load();
+  const series = new Array(96).fill(null);
+  series[40] = 800;
+  series[41] = 900;
+  series[42] = 100;
+  assert.deepEqual(plain(wizard.surplusStats(series, 500)), { first: 40, count: 2, hours: 0, minutes: 30 });
+  assert.deepEqual(plain(wizard.surplusStats(series, 5000)), { first: -1, count: 0, hours: 0, minutes: 0 });
+
+  // Gestern: Export 800 W von 10:00 bis 10:29 und 1200 W von 16:00 bis 17:59, zusammen 2 h 30 min.
+  // Zeitstempel nach Wanduhr gebaut, damit ein Umstellungstag (Sommerzeit) nicht verschiebt.
+  const [from] = wizard.yesterdayRange();
+  const yesterday = new Date(from);
+  const rows = [];
+  for (let hour = 0; hour < 24; hour += 1) {
+    for (let minute = 0; minute < 60; minute += 1) {
+      const clock = hour * 60 + minute;
+      let avg = 50;
+      if (clock >= 600 && clock < 630) avg = -800;
+      if (clock >= 960 && clock < 1080) avg = -1200;
+      const ts = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), hour, minute).getTime();
+      rows.push({ ts, avg, min: avg, max: avg });
+    }
+  }
+  const store = { readRange: async () => rows };
+  const step = { effect: 'surplus' };
+  const text = await wizard.presetEffect(step, 500, {}, store);
+  assert.equal(text, t('automations.assistant.effect.surplus_reached', { time: '10:00', hours: 2, minutes: 30 }));
+  const none = await wizard.presetEffect(step, 5000, {}, store);
+  assert.equal(none, t('automations.assistant.effect.surplus_missed'));
+  assert.equal(await wizard.presetEffect(step, 500, {}, { readRange: async () => [] }), '');
 });

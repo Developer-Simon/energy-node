@@ -543,5 +543,170 @@
     },
   };
 
-  window.__automationTemplates = { TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch] };
+  // ---------------------------------------------------------------- Waermepumpe anheben
+
+  // Aktueller Sollwert als Zahl, NaN ohne Stellglied oder ohne Wert.
+  const currentSetpoint = (entry) => {
+    const value = entry.setpoint ? entry.setpoint.value : undefined;
+    if (value === undefined || value === null || value === '') return NaN;
+    return Number(value);
+  };
+  const hasSetpoint = (entry) => Number.isFinite(currentSetpoint(entry));
+
+  // Eigener Schalter der Wärmepumpe, zuerst vorgewählt im Kontakt-Schritt.
+  const ownSwitchOf = (ctx, deviceId) => {
+    const entry = (ctx.heatPumps || []).find((item) => item.id === deviceId);
+    return entry && entry.ownSwitch ? entry.ownSwitch.unique_id : '';
+  };
+
+  const heatPump = {
+    id: 'heat_pump',
+    category: 'heating',
+    icon: 'ico-heatpump',
+    requires: { devices: 'heat_pump' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'heat_pump' },
+      {
+        id: 'control', type: 'tiles', default: 'sg',
+        options: [
+          { id: 'sg', unavailable: (ctx) => (ctx.switches.length ? '' : t('automations.assistant.unavailable.switch')) },
+          {
+            id: 'setpoint',
+            unavailable: (ctx, answers) => (hasSetpoint(requireEntry(ctx.heatPumps, answers.device))
+              ? '' : t('automations.assistant.unavailable.heat_pump_setpoint')),
+          },
+        ],
+      },
+      {
+        id: 'contact', type: 'device', filter: 'switch', when: (answers) => answers.control === 'sg',
+        default: (ctx, answers) => ownSwitchOf(ctx, answers.device),
+      },
+      {
+        id: 'lift', type: 'number', min: 1, max: 10, step: 1, default: 5,
+        when: (answers) => answers.control === 'setpoint',
+      },
+      {
+        id: 'start', type: 'presets', step: 100, default: 2500, effect: 'surplus',
+        options: [{ id: 1500 }, { id: 2500 }, { id: 3500 }],
+      },
+      {
+        id: 'battery', type: 'tiles', default: 'first',
+        options: [
+          { id: 'first', reveal: { id: 'soc', default: 80, min: 20, max: 100, step: 5 } },
+          { id: 'parallel' },
+        ],
+        when: (answers, ctx) => !ctx || !socUnavailable(ctx),
+      },
+      {
+        id: 'protect', type: 'numbers',
+        fields: [
+          { id: 'run', min: 10, max: 120, step: 5, default: 30 },
+          { id: 'pause', min: 5, max: 60, step: 5, default: 20 },
+        ],
+      },
+      {
+        id: 'period', type: 'tiles', default: 'sun',
+        options: [
+          { id: 'sun', unavailable: sunUnavailable },
+          { id: 'always' },
+          { id: 'fixed' },
+        ],
+      },
+      {
+        id: 'window', type: 'time', when: (answers) => answers.period === 'fixed',
+        default: { from: '10:00', to: '17:00', days: ALL_DAYS },
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [{ id: 'notify', default: false }, { id: 'history', default: true }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.heatPumps, answers.device);
+      const start = answers.start;
+      const { run, pause } = answers.protect;
+
+      const when = [B('grid_export', 'above', start, 300)];
+      if (answers.battery === 'first') when.push(B('battery_soc', 'above', answers.soc, 0));
+      when.push(feedInWhen(answers));
+
+      // Ende, sobald der Überschuss zehn Minuten unter dem Haltewert liegt (Wolken).
+      const until = [B('grid_export', 'below', Math.round((start * 0.4) / 100) * 100, 600)];
+
+      let onStart;
+      let onEnd;
+      if (answers.control === 'sg') {
+        const contact = requireEntity(requireEntry(ctx.switches, answers.contact));
+        onStart = [Sw(contact, true)];
+        onEnd = [Sw(contact, false)];
+      } else {
+        if (!hasSetpoint(entry)) throw new Error(`automation template: no setpoint for ${entry.id}`);
+        const setpointEntity = entry.setpoint;
+        // Kein Gedaechtnis im Dienst: zurueck auf den Wert, der beim Anlegen galt.
+        const now = currentSetpoint(entry);
+        onStart = [setpoint(setpointEntity, String(now + answers.lift))];
+        onEnd = [setpoint(setpointEntity, String(now))];
+      }
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.heat_pump.notice.title'),
+          message: t('automations.templates.heat_pump.notice.message'),
+        });
+      }
+
+      const scenario = {
+        id: uniqueId('heat_pump', ctx.usedIds),
+        name: t('automations.templates.heat_pump.title'),
+        enabled: true,
+        template: 'heat_pump',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: when },
+        until: { conditions: until },
+        on_start: { actions: onStart },
+        on_end: { actions: onEnd },
+        while: { mode: 'none' },
+        min_run_s: run * 60,
+        cooldown_s: pause * 60,
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const entry = requireEntry(ctx.heatPumps, answers.device);
+      const start = answers.start;
+      const off = Math.round((start * 0.4) / 100) * 100;
+      const contact = answers.control === 'sg';
+      const now = contact ? 0 : currentSetpoint(entry);
+      let when = t('automations.assistant.summary.heat_pump.when', { start: num(start), minutes: 5 });
+      if (answers.battery === 'first') {
+        when += t('automations.assistant.summary.heat_pump.when_battery', { value: num(answers.soc) });
+      }
+      if (answers.period === 'sun') when += t('automations.assistant.summary.heat_pump.when_sun');
+      return [
+        {
+          label: phase('start'),
+          text: contact
+            ? t('automations.assistant.summary.heat_pump.start_contact')
+            : t('automations.assistant.summary.heat_pump.start_setpoint', { now: num(now), target: num(now + answers.lift) }),
+          step: 'control',
+        },
+        { label: phase('when'), text: when, step: 'start' },
+        {
+          label: phase('run'),
+          text: t('automations.assistant.summary.heat_pump.run', { min: num(answers.protect.run), value: num(off) }),
+          step: 'protect',
+        },
+        {
+          label: phase('end'),
+          text: (contact
+            ? t('automations.assistant.summary.heat_pump.end_contact')
+            : t('automations.assistant.summary.heat_pump.end_setpoint', { now: num(now) }))
+            + t('automations.assistant.summary.heat_pump.pause', { min: num(answers.protect.pause) }),
+          step: 'control',
+        },
+      ];
+    },
+  };
+
+  window.__automationTemplates = { TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump] };
 })();

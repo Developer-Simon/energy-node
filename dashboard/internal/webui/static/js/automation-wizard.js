@@ -358,7 +358,8 @@
       case 'device': {
         const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
         const list = devicesFor(kind, ctx);
-        const preferred = list.find((item) => item.id === step.default && !item.disabled);
+        const wanted = typeof step.default === 'function' ? step.default(ctx, answers) : step.default;
+        const preferred = list.find((item) => item.id === wanted && !item.disabled);
         const first = list.find((item) => !item.disabled);
         return (preferred || first || {}).id || '';
       }
@@ -411,6 +412,10 @@
     const answers = {};
     for (const step of template.steps || []) {
       answers[step.id] = defaultAnswer(step, ctx, answers);
+      const chosen = (step.options || []).find((option) => option.id === answers[step.id]);
+      if (chosen && chosen.reveal && answers[chosen.reveal.id] === undefined) {
+        answers[chosen.reveal.id] = chosen.reveal.default;
+      }
       if (step.tolerance) answers.tolerance = step.tolerance.default;
     }
     return answers;
@@ -419,8 +424,8 @@
   // Sichtbare Schritte: ohne when oder mit when(answers) === true, danach die
   // Zusammenfassung. Die Liste ist eine Funktion der Antworten und wird bei jeder
   // Änderung neu berechnet.
-  function visibleSteps(template, answers) {
-    const steps = (template.steps || []).filter((step) => !step.when || step.when(answers) === true);
+  function visibleSteps(template, answers, ctx) {
+    const steps = (template.steps || []).filter((step) => !step.when || step.when(answers, ctx) === true);
     return [...steps, { id: 'summary', type: 'summary' }];
   }
 
@@ -519,11 +524,45 @@
     return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
+  // Überschuss je Viertelstunde des Vortags: Mittel des Exports (-role:grid), ohne
+  // Import. Viertelstunden ohne Messwerte bleiben null. Index 0 ist 00:00.
+  const QUARTERS = 96;
+  function quarterSurplus(rows) {
+    const sums = new Array(QUARTERS).fill(0);
+    const counts = new Array(QUARTERS).fill(0);
+    for (const row of rows || []) {
+      if (!isNumber(row.avg) || !isNumber(row.ts)) continue;
+      const date = new Date(row.ts);
+      const slot = date.getHours() * 4 + Math.floor(date.getMinutes() / 15);
+      sums[slot] += Math.max(0, -row.avg);
+      counts[slot] += 1;
+    }
+    return sums.map((sum, slot) => (counts[slot] ? sum / counts[slot] : null));
+  }
+
+  // Erste Viertelstunde mit mindestens threshold, Anzahl solcher Viertelstunden und
+  // deren Summe als Stunden und Minuten. first ist -1, wenn keine erreicht wird.
+  function surplusStats(series, threshold) {
+    let first = -1;
+    let count = 0;
+    (series || []).forEach((value, slot) => {
+      if (!isNumber(value) || value < threshold) return;
+      count += 1;
+      if (first < 0) first = slot;
+    });
+    return { first, count, hours: Math.floor(count / 4), minutes: (count % 4) * 15 };
+  }
+
+  function quarterClock(slot) {
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(Math.floor(slot / 4))}:${pad((slot % 4) * 15)}`;
+  }
+
   // Wirkung eines Voreinstellungswerts aus den Vortagsdaten. Ohne Zeilen oder bei
   // einem Fehler des Verlaufs bleibt der Text leer.
   async function presetEffect(step, value, ctx, store) {
     if (step.effect === 'band') return '';
-    if (step.effect !== 'starts' && step.effect !== 'soc') return '';
+    if (step.effect !== 'starts' && step.effect !== 'soc' && step.effect !== 'surplus') return '';
     if (!store || typeof store.readRange !== 'function') return '';
     const [from, to] = yesterdayRange();
     try {
@@ -534,6 +573,15 @@
         return ts === null
           ? t('automations.assistant.effect.not_reached')
           : t('automations.assistant.effect.reached_at', { time: clockText(ts) });
+      }
+      if (step.effect === 'surplus') {
+        const rows = await store.readRange('1m', 'role:grid', from, to);
+        if (!rows || !rows.length) return '';
+        const stats = surplusStats(quarterSurplus(rows), value);
+        if (stats.first < 0) return t('automations.assistant.effect.surplus_missed');
+        return t('automations.assistant.effect.surplus_reached', {
+          time: quarterClock(stats.first), hours: stats.hours, minutes: stats.minutes,
+        });
       }
       const rows = await store.readRange('1m', 'role:battery_soc', from, to);
       if (!rows || !rows.length) return '';
@@ -620,6 +668,7 @@
     regulatorStep,
     roundToStep,
     searchTemplates,
+    surplusStats,
     stepComplete,
     toggleDevice,
     templateAvailability,
