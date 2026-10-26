@@ -490,6 +490,11 @@ def _validate_scenario(scenario: dict, index: int, errors: list[str], seen_ids: 
         duration = result["max_duration_s"]
         if not (_number(duration) and 60 <= duration <= 86400):
             errors.append(f"{prefix}: max_duration_s must be between 60 and 86400")
+    for key in ("min_run_s", "cooldown_s"):
+        if key in result:
+            value = result[key]
+            if not (isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 86400):
+                errors.append(f"{prefix}: {key} must be an integer between 0 and 86400")
     return result
 
 
@@ -1100,6 +1105,7 @@ class ScenarioRuntime:
     base: Optional[float] = None
     reason: Optional[str] = None
     rearm: bool = False
+    ended_at: Optional[float] = None
 
 
 _SCENARIO_ACTIVE_PHASES = ("active", "fallback")
@@ -1163,7 +1169,7 @@ class ScenarioEngine:
 
             if not scenario["enabled"]:
                 if rt.phase in _SCENARIO_ACTIVE_PHASES:
-                    self._end(sid, rt, **ctx)
+                    self._end(sid, rt, now_ts=now_ts, **ctx)
                 rt.phase = "disabled"
                 rt.reason = None
                 rt.when = []
@@ -1181,7 +1187,7 @@ class ScenarioEngine:
                 continue
             rt = self._runtime.pop(sid)
             if rt.phase in _SCENARIO_ACTIVE_PHASES:
-                self._end(sid, rt, **ctx)
+                self._end(sid, rt, now_ts=now_ts, **ctx)
         return results
 
     def _evaluate(self, scenario: dict, rt: ScenarioRuntime, *, balance, topic_values, now_ts, location):
@@ -1216,13 +1222,15 @@ class ScenarioEngine:
                 rt.reason = "balance_stale"
             elif rt.rearm:
                 rt.reason = "rearm_pending"
+            elif rt.ended_at is not None and now_ts - rt.ended_at < scenario.get("cooldown_s", 0):
+                rt.reason = "cooldown"
             elif when_eval.all_held:
                 self._start(sid, scenario, rt, now_ts=now_ts, **ctx)
                 self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
             return
 
         if max_duration is not None and now_ts - rt.since >= max_duration:
-            self._end(sid, rt, **ctx)
+            self._end(sid, rt, now_ts=now_ts, **ctx)
             rt.reason = "duration_reached"
             rt.rearm = True
             return
@@ -1231,8 +1239,9 @@ class ScenarioEngine:
             ends = max_duration is None and not when_eval.all_raw and not when_eval.saw_stale
         else:
             ends = until_eval.all_held
-        if ends:
-            self._end(sid, rt, **ctx)
+        # min_run_s verzoegert nur das Ende ueber when oder until, nicht max_duration_s.
+        if ends and now_ts - rt.since >= scenario.get("min_run_s", 0):
+            self._end(sid, rt, now_ts=now_ts, **ctx)
             return
         rt.reason = None
         self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
@@ -1245,12 +1254,13 @@ class ScenarioEngine:
         outcomes = self._run_actions(scenario["on_start"]["actions"], balance=balance, topic_values=topic_values)
         self._record(sid, "started", outcomes)
 
-    def _end(self, sid: str, rt: ScenarioRuntime, *, balance, topic_values) -> None:
+    def _end(self, sid: str, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values) -> None:
         on_end = (rt.definition or {}).get("on_end", {"actions": []})
         outcomes = self._run_actions(on_end["actions"], balance=balance, topic_values=topic_values)
         self._record(sid, "ended", outcomes)
         rt.phase = "idle"
         rt.since = None
+        rt.ended_at = now_ts
         rt.definition = None
         rt.last_value = None
         rt.last_step_at = None
