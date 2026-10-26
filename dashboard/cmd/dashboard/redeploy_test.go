@@ -16,6 +16,8 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch/bundlefetchtest"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
 
@@ -270,5 +272,83 @@ func TestNewStepTitlerNamesServiceStepsFromTheInstalledManifest(t *testing.T) {
 	}
 	if got := title(en, "88"); got != "" {
 		t.Fatalf("step missing from the manifest = %q, want empty", got)
+	}
+}
+
+func TestUpdateInstallerStagesARedeployJobForTheOfferedVersion(t *testing.T) {
+	archive := bundlefetchtest.BundleArchive(t, "v9.9.9", "armv6", true)
+	srv, _ := bundlefetchtest.ReleasesServer(t, "v9.9.9", "energy-node-v9.9.9-armv6.tar.gz", archive)
+
+	root := t.TempDir()
+	candidate := filepath.Join(root, "redeploy-candidate")
+	os.WriteFile(filepath.Join(root, "installed-manifest.json"), []byte(`{"version":"v9.0.0"}`), 0o644)
+	os.WriteFile(filepath.Join(root, "selection.json"), []byte(`{"steps":{}}`), 0o644)
+	jobDir := filepath.Join(root, "job")
+	os.MkdirAll(jobDir, 0o755)
+
+	fetcher := &bundlefetch.Fetcher{Client: &bundlefetch.Client{APIBase: srv.URL, Repo: "o/r"}, Arch: "armv6", DestDir: candidate}
+	setup, err := buildRedeploy(redeployConfig{
+		candidateBundleDir: candidate, installedManifestPath: filepath.Join(root, "installed-manifest.json"),
+		selectionPath: filepath.Join(root, "selection.json"), jobDir: jobDir,
+		prepare: prepareFunc(fetcher),
+	})
+	if err != nil {
+		t.Fatalf("buildRedeploy: %v", err)
+	}
+	// Let the staged job's tail finish so its goroutine does not outlive the test.
+	defer os.WriteFile(filepath.Join(jobDir, "status.json"), []byte(`{"result":"ok"}`), 0o644)
+
+	cache := &updatecheck.Cache{}
+	cache.Set(updatecheck.Result{Current: "9.0.0", Latest: "9.9.9", Available: true, CheckedAt: time.Now()})
+	installer := newUpdateInstaller(setup, jobDir, cache, func(context.Context) {})
+	if installer == nil {
+		t.Fatal("newUpdateInstaller = nil, want an installer for a fetching host")
+	}
+
+	version, err := installer.Install(context.Background())
+	if err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+	if version != "9.9.9" {
+		t.Fatalf("Install version = %q, want 9.9.9", version)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for !updaterjob.Pending(jobDir) {
+		if time.Now().After(deadline) {
+			t.Fatalf("no pending job after Install; status = %+v", installer.Status())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	job, err := updaterjob.ReadPending(jobDir)
+	if err != nil {
+		t.Fatalf("ReadPending: %v", err)
+	}
+	if job.BundleVersion != "v9.9.9" || job.Mode != "redeploy" {
+		t.Fatalf("pending job = %+v, want bundle v9.9.9 in mode redeploy", job)
+	}
+}
+
+func TestUpdateInstallerIsNilWithoutPrepare(t *testing.T) {
+	root := t.TempDir()
+	candidate := filepath.Join(root, "candidate")
+	os.MkdirAll(candidate, 0o755)
+	os.WriteFile(filepath.Join(root, "installed-manifest.json"), []byte(`{"version":"1.4.0"}`), 0o644)
+	os.WriteFile(filepath.Join(root, "selection.json"), []byte(`{"steps":{}}`), 0o644)
+	jobDir := filepath.Join(root, "job")
+	os.MkdirAll(jobDir, 0o755)
+
+	setup, err := buildRedeploy(redeployConfig{
+		candidateBundleDir: candidate, installedManifestPath: filepath.Join(root, "installed-manifest.json"),
+		selectionPath: filepath.Join(root, "selection.json"), jobDir: jobDir,
+	})
+	if err != nil {
+		t.Fatalf("buildRedeploy: %v", err)
+	}
+	if installer := newUpdateInstaller(setup, jobDir, &updatecheck.Cache{}, func(context.Context) {}); installer != nil {
+		t.Fatal("newUpdateInstaller != nil without a prepare seam, want nil")
+	}
+	if installer := newUpdateInstaller(nil, jobDir, &updatecheck.Cache{}, func(context.Context) {}); installer != nil {
+		t.Fatal("newUpdateInstaller(nil setup) != nil, want nil")
 	}
 }
