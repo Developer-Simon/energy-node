@@ -43,6 +43,24 @@ func TestCreateUserValidates(t *testing.T) {
 	}
 }
 
+// TestCreateUserRejectsReservedRouteNames: names of fixed API paths cannot be
+// new accounts, in any letter case.
+func TestCreateUserRejectsReservedRouteNames(t *testing.T) {
+	manager, _ := loginManager(t, User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}})
+
+	for _, name := range []string{"companion", "Companion", "ha-roles", "HA-Roles", "password-policy"} {
+		if _, err := manager.CreateUser("admin", name, usersTestPassword, nil); !errors.Is(err, ErrInvalidUsername) {
+			t.Fatalf("reserved name %q: got %v, want ErrInvalidUsername", name, err)
+		}
+	}
+	if _, ok := findUser(manager.Users(), "companion"); ok {
+		t.Fatal("rejected reserved name must not be stored")
+	}
+	if _, err := manager.CreateUser("admin", "companion-anna", usersTestPassword, nil); err != nil {
+		t.Fatalf("name that only starts like a reserved one: %v", err)
+	}
+}
+
 func TestCreateUserNormalizesRoles(t *testing.T) {
 	manager, _ := loginManager(t, User{Username: "admin", PasswordHash: mustHash(t, usersTestPassword), Roles: []string{RoleUserManagement}})
 

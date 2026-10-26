@@ -70,7 +70,7 @@ var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
 
 // reservedUsernames sind Namen, die ein Festpfad der API belegt. Ein Konto mit
 // diesem Namen würde den Pfad unter /api/v1/users/{name} verdecken.
-var reservedUsernames = map[string]bool{"password-policy": true}
+var reservedUsernames = map[string]bool{"password-policy": true, "companion": true, "ha-roles": true}
 
 // sessionIDLength is the length of the session ID: the first characters of the
 // SHA-256 hash of the token, which is the key of the session map.
