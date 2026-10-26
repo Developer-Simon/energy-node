@@ -1369,11 +1369,11 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
-	scenario := strings.Index(line, "automations-scenario.js?v=3")
+	scenario := strings.Index(line, "automations-scenario.js?v=4")
 	chart := strings.Index(line, "automations-chart.js?v=3")
 	page := strings.Index(line, "automations.page.js?v=")
-	wizard := strings.Index(line, "automation-wizard.js?v=2")
-	templates := strings.Index(line, "automation-templates.js?v=2")
+	wizard := strings.Index(line, "automation-wizard.js?v=3")
+	templates := strings.Index(line, "automation-templates.js?v=3")
 	sheet := strings.Index(line, "automation-sheet.js?v=1")
 	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 || sheet < 0 {
 		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)
@@ -1527,7 +1527,7 @@ func TestAutomationsAssistantShipsTheTargetBand(t *testing.T) {
 	line := shell.Body.String()[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
 	sheet := strings.Index(line, "automation-sheet.js?v=1")
-	band := strings.Index(line, "automation-band.js?v=1")
+	band := strings.Index(line, "automation-band.js?v=2")
 	page := strings.Index(line, "automations.page.js?v=")
 	if band < 0 || band < sheet || band > page {
 		t.Fatalf("automation-band.js steht nicht zwischen automation-sheet.js und automations.page.js: %s", line)
