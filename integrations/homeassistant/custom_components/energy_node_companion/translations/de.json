@@ -39,14 +39,16 @@
           "stats": "Energiestatistik liefern",
           "panel": "Seitenleiste",
           "panel_title": "Name in der Seitenleiste",
-          "panel_icon": "Symbol in der Seitenleiste"
+          "panel_icon": "Symbol in der Seitenleiste",
+          "pairing_code": "Kopplungscode"
         },
         "data_description": {
           "history": "Füllt Lücken in den Verlaufsdiagrammen des Dashboards aus dem Recorder.",
           "stats": "Sendet stündliche Energie je Rolle aus der Langzeitstatistik, damit das Dashboard Tage, Monate und Jahre zeigen kann.",
           "panel": "Zeigt das Dashboard in der Seitenleiste von Home Assistant, für alle Benutzer oder nur für Administratoren.",
           "panel_title": "Leer bedeutet Energy Node.",
-          "panel_icon": "Leer bedeutet das Solar-Symbol."
+          "panel_icon": "Leer bedeutet das Solar-Symbol.",
+          "pairing_code": "Den Code erzeugst du im Dashboard unter Einstellungen, Benutzer, Home Assistant. Danach können sich Home-Assistant-Benutzer im Dashboard anmelden."
         }
       },
       "stats": {
@@ -66,7 +68,9 @@
     },
     "error": {
       "nothing_enabled": "Schalte Verläufe, Energiestatistik oder die Seitenleiste ein. Ist alles aus, tut die Integration nichts.",
-      "not_a_counter": "Dieser Sensor ist kein Zähler. Wähle einen Energiesensor mit der Zustandsklasse total oder total_increasing."
+      "not_a_counter": "Dieser Sensor ist kein Zähler. Wähle einen Energiesensor mit der Zustandsklasse total oder total_increasing.",
+      "pairing_invalid": "Der Kopplungscode ist ungültig oder abgelaufen.",
+      "pairing_failed": "Die Kopplung ist fehlgeschlagen. Ist Port 8081 der Node erreichbar?"
     }
   },
   "selector": {
