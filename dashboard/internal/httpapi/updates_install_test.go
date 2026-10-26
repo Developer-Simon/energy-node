@@ -221,6 +221,30 @@ func TestProgressPrefersTheNewerFailure(t *testing.T) {
 	}
 }
 
+// TestProgressJobInFlightBeatsOldInstallerFailure: ein laufender oder wartender
+// Job bleibt sichtbar, auch wenn ein älterer Installer-Fehler vorliegt.
+func TestProgressJobInFlightBeatsOldInstallerFailure(t *testing.T) {
+	failedAt := time.Date(2026, 10, 26, 10, 0, 0, 0, time.UTC)
+	failure := updateinstall.Status{State: "fail", Version: "0.11.0", Code: "PREPARE_FAILED", FinishedAt: &failedAt}
+
+	running := t.TempDir()
+	writeState(t, running, "current.json", `{"bundle_version":"v0.10.0","steps":["10","60"],"run_id":"r2"}`)
+	writeState(t, running, "log", "1 ##STEP 10 ok\n2 ##STEP 60 begin\n")
+	rec := httptest.NewRecorder()
+	handleUpdatesProgress(running, nil, &fakeInstaller{status: failure})(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
+	if !strings.Contains(rec.Body.String(), `"state":"running"`) || strings.Contains(rec.Body.String(), `"state":"fail"`) {
+		t.Fatalf("running job: body = %s", rec.Body.String())
+	}
+
+	pending := t.TempDir()
+	writeState(t, pending, "pending.json", `{"bundle_version":"v0.10.0","steps":["10"],"run_id":"r3"}`)
+	rec = httptest.NewRecorder()
+	handleUpdatesProgress(pending, nil, &fakeInstaller{status: failure})(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
+	if !strings.Contains(rec.Body.String(), `"state":"pending"`) || strings.Contains(rec.Body.String(), `"state":"fail"`) {
+		t.Fatalf("pending job: body = %s", rec.Body.String())
+	}
+}
+
 // writeJobFinishedAt writes a finished, successful job whose status.json
 // carries the given modification time, which is when the job ended.
 func writeJobFinishedAt(t *testing.T, dir string, at time.Time) {

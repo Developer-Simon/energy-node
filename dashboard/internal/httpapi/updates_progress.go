@@ -47,7 +47,10 @@ func handleUpdatesProgress(jobDir string, stepTitle func(*http.Request, string) 
 			writeError(w, http.StatusInternalServerError, "updates_progress_unreadable", "Update-Fortschritt konnte nicht gelesen werden")
 			return
 		}
-		if installed.State == "fail" && installed.FinishedAt != nil && (progress.FinishedAt == nil || installed.FinishedAt.After(*progress.FinishedAt)) {
+		// A job that is pending or running is in flight and always stays
+		// visible; only a finished or absent job can be older than a failure.
+		inFlight := progress.State == "pending" || progress.State == "running"
+		if installed.State == "fail" && installed.FinishedAt != nil && !inFlight && (progress.FinishedAt == nil || installed.FinishedAt.After(*progress.FinishedAt)) {
 			writeJSON(w, installProgress{State: "fail", Version: installed.Version, Code: installed.Code, FinishedAt: installed.FinishedAt})
 			return
 		}
