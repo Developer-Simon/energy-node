@@ -26,7 +26,7 @@ func TestHandleUpdatesProgressNamesTheStep(t *testing.T) {
 	title := func(_ *http.Request, id string) string { return "Schritt-" + id }
 
 	rec := httptest.NewRecorder()
-	handleUpdatesProgress(dir, title)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
+	handleUpdatesProgress(dir, title, nil)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
 
 	if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
 		t.Fatalf("got %d, cache-control %q", rec.Code, rec.Header().Get("Cache-Control"))
@@ -46,7 +46,7 @@ func TestHandleUpdatesProgressNamesTheStep(t *testing.T) {
 
 func TestHandleUpdatesProgressIdleWithoutJob(t *testing.T) {
 	rec := httptest.NewRecorder()
-	handleUpdatesProgress(t.TempDir(), nil)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
+	handleUpdatesProgress(t.TempDir(), nil, nil)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
 	if rec.Code != http.StatusOK || !json.Valid(rec.Body.Bytes()) || !strings.Contains(rec.Body.String(), `"state":"idle"`) {
 		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
 	}
@@ -54,7 +54,7 @@ func TestHandleUpdatesProgressIdleWithoutJob(t *testing.T) {
 
 func TestHandleUpdatesProgressRejectsPost(t *testing.T) {
 	rec := httptest.NewRecorder()
-	handleUpdatesProgress(t.TempDir(), nil)(rec, httptest.NewRequest(http.MethodPost, "/api/v1/updates/progress", nil))
+	handleUpdatesProgress(t.TempDir(), nil, nil)(rec, httptest.NewRequest(http.MethodPost, "/api/v1/updates/progress", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("got %d", rec.Code)
 	}
@@ -65,7 +65,7 @@ func TestHandleUpdatesProgressBrokenStatusIs500(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(dir, "current.json"), []byte(`{"steps":["10"]}`), 0o644)
 	_ = os.WriteFile(filepath.Join(dir, "status.json"), []byte(`{`), 0o644)
 	rec := httptest.NewRecorder()
-	handleUpdatesProgress(dir, nil)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
+	handleUpdatesProgress(dir, nil, nil)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
 	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "updates_progress_unreadable") {
 		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
 	}

@@ -95,7 +95,7 @@ As of **2026-10-25**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-recorder.js` | `12` |
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `39` |
-| `js/update-bar.js` | `4` |
+| `js/update-bar.js` | `5` |
 | `js/whatsnew.page.js` | `4` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
@@ -264,6 +264,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.17 | `js/update-bar.js` (install the offered update from the update bar) | `5` | 2026-10-26 |
 | v0.10.16 | `css/base.css` (notice tab for accounts without view permissions) · `js/dashboard.js` (start on the first permitted tab, ignore hidden tabs) · `js/settings.page.js` (settings panel, design and setup permissions, read-only state) · `js/config.page.js` (config panel, read-only state) · `js/automations.page.js` (automations panel, read-only and operate-only states) · `css/automations.css` (automations panel, read-only hint) · `js/users.page.js` (settings panel, keep saved permissions after saving) · `js/versions.page.js` (settings panel, setup permission for update check and changelog) · `js/settings-masonry.js` (settings panel, cards inside a display contents group) · `css/settings-controls.css` (settings, diagnostics: own account card on the users page) | `44` · `39` · `28` · `10` · `19` · `12` · `2` · `9` · `2` · `19` | 2026-10-25 |
 | v0.10.15 | `js/automation-band.js` (new, automations panel, target band math and drag component) · `js/automations.page.js` (automations panel, target band in the assistant) · `js/automation-wizard.js` (automations panel, no preset text for the band step) · `js/automation-templates.js` (automations panel, tolerance answer of the zero feed template) · `css/automations.css` (automations panel, target band and preset cards) | `1` (new) · `18` · `2` · `2` · `11` | 2026-10-25 |
 | v0.10.14 | `js/automations.page.js` (automations panel, rule card, editor footer, mobile list with history sparklines, assistant sheet) · `js/automations-chart.js` (automations panel, last four triggers strip) · `js/automation-sheet.js` (new, automations panel, bottom sheet drag) · `css/automations.css` (automations panel, rule card and editor from the draft, mobile rule list, assistant sheet) · `js/automations-devices.js` (automations panel, live value without prefix) · `js/automations-view.js` (devicemap and automations panels, short subtitles for the add tiles) | `17` · `3` · `1` (new) · `10` · `2` · `6` | 2026-10-25 |

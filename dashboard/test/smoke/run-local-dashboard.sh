@@ -1305,6 +1305,38 @@ else
   echo "  FEHL Theme-Aenderung fuer smoke-history kam mit HTTP $code durch"; FAILED=1
 fi
 
+# Update installieren: ein Konto mit nur install_updates startet das angebotene
+# Update per POST /api/v1/updates/install. Das braucht ein angebotenes Update
+# (fake_github_releases.py, also --simulate-package) und das Zustandsverzeichnis
+# des Smoke-Tests. Der Updater laeuft hier nicht, der Auftrag bleibt pending.
+if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
+  echo "==> Update installieren: Konto mit install_updates"
+  UPDATER_COOKIES="$WORK/smoke-updater-cookies.txt"
+  create_smoke_user "smoke-updater" '["install_updates"]' "$UPDATER_COOKIES"
+  UPDATER_CSRF="$(curl -sf "${CURL_INSECURE[@]}" -m 5 -b "$UPDATER_COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/auth/session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["csrf_token"])')"
+  curl -sf "${CURL_INSECURE[@]}" -m 5 -o /dev/null -b "$UPDATER_COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/updates/check" || FAILED=1
+  code=$(curl -s "${CURL_INSECURE[@]}" -m 5 -o /dev/null -w '%{http_code}' -b "$UPDATER_COOKIES" -H "$SECURE_HEADER" \
+    -H "X-CSRF-Token: $UPDATER_CSRF" -H 'Content-Type: application/json' -X POST "$BASE/api/v1/updates/install")
+  if [[ "$code" == "202" ]]; then
+    echo "  OK   smoke-updater startet das angebotene Update (HTTP 202)"
+  else
+    echo "  FEHL Update-Installation fuer smoke-updater kam mit HTTP $code"; FAILED=1
+  fi
+  check_status "Installer-Bildschirm fuer smoke-updater gesperrt" 403 "$UPDATER_COOKIES" "$BASE/redeploy/"
+  update_state() { api "$BASE/api/v1/updates/progress" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("state", ""))' 2>/dev/null || true; }
+  for _ in $(seq 1 30); do
+    [[ "$(update_state)" == "pending" ]] && break
+    sleep 1
+  done
+  if [[ "$(update_state)" == "pending" ]]; then
+    echo "  OK   Update-Fortschritt meldet den wartenden Auftrag (pending)"
+  else
+    echo "  FEHL Update-Fortschritt meldet nicht pending: $(update_state)"; FAILED=1
+  fi
+  # Den Auftrag entfernen, damit spaetere Pruefungen nicht an ihm haengen.
+  rm -rf "$WORK/installer-state/job"
+fi
+
 check_history_exchange || FAILED=1
 
 echo
@@ -1314,7 +1346,22 @@ if [[ $KEEP -eq 1 ]]; then
     # jeder Anfrage neu, ein Neustart ist nicht noetig.
     python3 "$HERE/real_changelog.py" "$REPO_DIR" "$WORK/installer-state"
   fi
+  # Der Admin bekommt http_login und ein eigenes HTTP-Passwort, damit der
+  # Browser sich auch ohne --https anmelden kann (Sitzung dann eingeschraenkt,
+  # siehe Benutzerverwaltung). Das Hauptpasswort gilt weiter ueber HTTPS.
+  HTTP_PASSWORD="smoketest-http-1234"
+  admin_roles="$(api "$BASE/api/v1/users" | python3 -c '
+import json, sys
+users = json.load(sys.stdin)["users"]
+roles = [u for u in users if u["username"] == "admin"][0]["roles"]
+print(json.dumps(sorted(set(roles) | {"http_login"})))')"
+  api -o /dev/null -H "X-CSRF-Token: $ADMIN_CSRF" -H 'Content-Type: application/json' -X PUT "$BASE/api/v1/users/admin" \
+    -d "{\"roles\":$admin_roles,\"disabled\":false}" \
+    && api -o /dev/null -H "X-CSRF-Token: $ADMIN_CSRF" -H 'Content-Type: application/json' -X PUT "$BASE/api/v1/users/admin/http-password" \
+      -d "{\"password\":\"$HTTP_PASSWORD\"}" \
+    || echo "Warnung: HTTP-Login fuer admin konnte nicht eingerichtet werden" >&2
   echo "Dashboard laeuft weiter: $BASE  (Login admin / $PASSWORD)"
+  [[ $HTTPS -eq 1 ]] || echo "Ueber HTTP (eingeschraenkte Sitzung): admin / $HTTP_PASSWORD"
   echo "Arbeitsverzeichnis: $WORK"
   # go:embed bindet Templates/CSS/JS beim Kompilieren ein - dieser Prozess
   # zeigt bis zu seinem Ende den Stand von eben, auch bei neuen Dateien.

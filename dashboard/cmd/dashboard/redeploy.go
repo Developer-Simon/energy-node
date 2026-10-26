@@ -18,6 +18,8 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updateinstall"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterhost"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 	webui "github.com/Developer-Simon/energy-node-webui"
@@ -59,21 +61,41 @@ func prepareFunc(f *bundlefetch.Fetcher) func(context.Context, func(string, map[
 	}
 }
 
-// buildRedeployHandler builds the mounted /redeploy/ handler. Token is
+// redeploySetup is the wired redeploy screen: the mounted handler, the
+// server that runs its jobs (the installer's Runner) and the host that reads
+// the candidate manifest.
+type redeploySetup struct {
+	handler http.Handler
+	server  *hostapi.Server
+	host    *updaterhost.Host
+}
+
+// buildRedeployHandler builds the mounted /redeploy/ handler. It is the thin
+// wrapper over buildRedeploy for callers that need only the handler.
+func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
+	setup, err := buildRedeploy(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return setup.handler, nil
+}
+
+// buildRedeploy builds the mounted /redeploy/ handler. Token is
 // empty: the dashboard's own session auth already gates every request that
 // reaches here (E8's "dieselbe Authentifizierung wie das Dashboard"; that
 // gate wants the session's CSRF token on writes, which the page gets
 // through pageToken). The screen follows the dashboard's language per
 // request (cookie, then Accept-Language) and shows no switch of its own,
 // hence LanguageFixed: the switch in the dashboard header decides.
-func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
-	backend, err := updaterhost.New(updaterhost.Config{
+func buildRedeploy(cfg redeployConfig) (*redeploySetup, error) {
+	host, err := updaterhost.New(updaterhost.Config{
 		CandidateBundleDir: cfg.candidateBundleDir, InstalledManifestPath: cfg.installedManifestPath,
 		SelectionPath: cfg.selectionPath, StepsDir: cfg.stepsDir, JobDir: cfg.jobDir, Prepare: cfg.prepare,
 	})
 	if err != nil {
 		return nil, err
 	}
+	backend := host
 	catalogs, err := i18n.Load(webui.Catalogs())
 	if err != nil {
 		return nil, err
@@ -128,7 +150,32 @@ func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
 		}()
 	}
 
-	return server.Handler(), nil
+	return &redeploySetup{handler: server.Handler(), server: server, host: host}, nil
+}
+
+// newUpdateInstaller wires the installer for the offered update. It returns
+// nil when setup is nil or when the host cannot fetch (no prepare seam, so a
+// direct update has no download). Callers must pass the result on only when
+// it is non-nil: a nil *Installer inside an interface is not a nil interface.
+func newUpdateInstaller(setup *redeploySetup, jobDir string, cache *updatecheck.Cache, recheck func(context.Context)) *updateinstall.Installer {
+	if setup == nil || !setup.host.Describe().AutoPrepare {
+		return nil
+	}
+	return &updateinstall.Installer{
+		Runner:  setup.server,
+		Offer:   cache.Get,
+		Recheck: recheck,
+		Candidate: func(ctx context.Context) (string, error) {
+			manifest, err := setup.host.Manifest(ctx)
+			if err != nil {
+				return "", err
+			}
+			return manifest.BundleVersion, nil
+		},
+		JobBusy: func() bool {
+			return updaterjob.Pending(jobDir) || updaterjob.InFlight(jobDir)
+		},
+	}
 }
 
 // busSink adapts a *hostapi.Bus to hostapi.Sink for the resume path, which

@@ -215,6 +215,9 @@ type RouterDependencies struct {
 	// StepTitle names a bootstrap step in the request's language (the shared
 	// installer catalogs, step.<id>). Nil leaves step titles empty.
 	StepTitle func(r *http.Request, stepID string) string
+	// UpdateInstaller installs the offered update and reports its progress
+	// (internal/updateinstall). Nil disables POST /api/v1/updates/install.
+	UpdateInstaller UpdateInstaller
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -280,7 +283,10 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
 	}
 	if dependencies.UpdaterJobDir != "" {
-		g.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
+		g.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle, dependencies.UpdateInstaller))
+	}
+	if dependencies.UpdateInstaller != nil {
+		g.HandleFunc("/api/v1/updates/install", handleUpdatesInstall(dependencies.Auth, dependencies.UpdateInstaller))
 	}
 	g.HandleFunc("/api/v1/devices", handleDevices(reg))
 	g.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
@@ -621,7 +627,8 @@ func handleSystemAction(manager *auth.Manager, executor SystemActionExecutor, ac
 // requireCheckUpdatesRole is the read-only counterpart of the role check in
 // handleSystemAction: GET-only, no CSRF, gated behind RoleCheckUpdates
 // instead of RoleSystemActions since it only reveals a version comparison,
-// never anything that touches the node.
+// never anything that touches the node. install_updates passes too, so an
+// installer can see what it is about to install.
 func requireCheckUpdatesRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
 	if manager == nil {
 		writeError(w, http.StatusNotImplemented, "check_updates_unavailable", "Anmeldung ist nicht konfiguriert")
@@ -632,7 +639,7 @@ func requireCheckUpdatesRole(w http.ResponseWriter, r *http.Request, manager *au
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 		return false
 	}
-	if !auth.HasRole(user, auth.RoleCheckUpdates) {
+	if !auth.HasRole(user, auth.RoleCheckUpdates) && !auth.HasRole(user, auth.RoleInstallUpdates) {
 		writeError(w, http.StatusForbidden, "check_updates_forbidden", "Für die Update-Prüfung fehlt die Berechtigung")
 		return false
 	}

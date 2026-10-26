@@ -31,23 +31,96 @@ function load({ fetchImpl, storage = {} } = {}) {
 }
 
 const NOW = Date.parse('2026-10-10T12:00:00Z');
-const view = (input) => load().window.updateBarView({ now: NOW, acknowledged: '', restarting: false, canInstall: false, status: null, progress: { state: 'idle' }, ...input });
+const view = (input) => load().window.updateBarView({ now: NOW, acknowledged: '', restarting: false, canInstallDirect: false, canOpenInstaller: false, status: null, progress: { state: 'idle' }, ...input });
 
 test('idle without an available update is hidden', () => {
   assert.equal(view({}).kind, 'hidden');
 });
 
 test('available update with install right offers install and GitHub', () => {
-  const v = view({ status: { available: true, latest: 'v0.9.1', current: 'v0.9.0', notes_url: 'https://x' }, canInstall: true });
+  const v = view({ status: { available: true, latest: 'v0.9.1', current: 'v0.9.0', notes_url: 'https://x' }, canInstallDirect: true });
   assert.equal(v.kind, 'available');
-  assert.equal(v.canInstall, true);
+  assert.equal(v.canInstallDirect, true);
   assert.equal(v.notesUrl, 'https://x');
+});
+
+test('available update with install_updates alone shows the install button but no installer link', () => {
+  const v = view({ status: { available: true, latest: 'v0.9.1', current: 'v0.9.0' }, canInstallDirect: true });
+  assert.equal(v.canInstallDirect, true);
+  assert.equal(v.canOpenInstaller, false);
+  assert.match(v.detail, /Installiert ist v0\.9\.0/);
+});
+
+test('installer link needs update_settings and not install_updates', () => {
+  const v = view({ status: { available: true, latest: 'v0.9.1', current: 'v0.9.0' }, canOpenInstaller: true });
+  assert.equal(v.canOpenInstaller, true);
+  assert.equal(v.canInstallDirect, false);
+  assert.match(v.detail, /Installiert ist v0\.9\.0/);
 });
 
 test('available update without install right shows the login hint', () => {
   const v = view({ status: { available: true, latest: 'v0.9.1', current: 'v0.9.0' } });
   assert.equal(v.kind, 'available');
   assert.match(v.detail, /Logge dich als Admin ein/);
+});
+
+test('preparing shows the download title and counts as busy for polling', async () => {
+  const v = view({ progress: { state: 'preparing', version: 'v0.9.1' } });
+  assert.equal(v.kind, 'preparing');
+  assert.equal(v.title, 'Update auf v0.9.1 wird heruntergeladen');
+  assert.equal(v.percent, 0);
+  const { factories, timers } = load({
+    fetchImpl: async (url) => ({ ok: true, status: 200, json: async () => (url.endsWith('/progress') ? { state: 'preparing', version: 'v0.9.1' } : {}) }),
+  });
+  const bar = factories.updateBar();
+  await bar.poll();
+  assert.equal(timers.at(-1).ms, 2000);
+});
+
+test('install posts without body and switches to preparing', async () => {
+  const calls = [];
+  const toasts = [];
+  let progress = { state: 'idle' };
+  let installingDuringCall = null;
+  let bar = null;
+  const { factories } = load({
+    fetchImpl: async (url, options = {}) => {
+      calls.push({ url, options });
+      if (url.endsWith('/api/v1/updates/install')) {
+        installingDuringCall = bar.installing;
+        return { ok: true, status: 202, json: async () => ({ version: 'v0.9.1' }) };
+      }
+      if (url.endsWith('/api/v1/updates/progress')) return { ok: true, status: 200, json: async () => progress };
+      return { ok: true, status: 200, json: async () => ({}) };
+    },
+  });
+  bar = factories.updateBar();
+  bar.csrfToken = 'tok';
+  bar.$store = { toasts: { push: (message, level) => toasts.push({ message, level }) } };
+  progress = { state: 'preparing', version: 'v0.9.1' };
+  await bar.installOffered();
+  const post = calls.find((c) => c.options.method === 'POST');
+  assert.equal(post.url, '/api/v1/updates/install');
+  assert.equal(post.options.body, undefined);
+  assert.equal(post.options.headers['X-CSRF-Token'], 'tok');
+  assert.equal(installingDuringCall, true, 'the button is disabled while the call runs');
+  assert.equal(bar.installing, false);
+  assert.equal(bar.progress.state, 'preparing');
+  assert.equal(bar.view.kind, 'preparing');
+  assert.deepEqual(toasts, []);
+});
+
+test('a refused install shows the server message as a critical toast and keeps the bar', async () => {
+  const { factories, window } = load({
+    fetchImpl: async () => ({ ok: false, status: 409, json: async () => ({ code: 'update_in_progress', message_key: 'error.update_in_progress' }) }),
+  });
+  const bar = factories.updateBar();
+  const toasts = [];
+  bar.$store = { toasts: { push: (message, level) => toasts.push({ message, level }) } };
+  await bar.installOffered();
+  assert.deepEqual(toasts, [{ message: window.I18n.t('error.update_in_progress'), level: 'critical' }]);
+  assert.equal(bar.installing, false);
+  assert.equal(bar.view.kind, 'hidden');
 });
 
 test('running shows step counter, title and fraction', () => {

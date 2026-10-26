@@ -45,6 +45,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/updates/status":           {group: groupOpen},
 	"/api/v1/updates/check":            {group: groupOpen},
 	"/api/v1/updates/progress":         {group: groupOpen},
+	"/api/v1/updates/install":          {group: groupOpen},
 	"/api/v1/auth/login":               {group: groupOpen},
 	"/api/v1/auth/guest":               {group: groupOpen},
 	"/api/v1/auth/session":             {group: groupOpen},

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.16 (2026-10-25)
+## v0.10.17 (2026-10-26)
 
 ### Features
 
@@ -11,6 +11,12 @@
 - **auth:** Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions. (#167) (95146f8)
 - **automations:** Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet. (#168) (3037d6d)
 - **automations:** The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide. (#169) (58993de)
+- **auth:** Permissions are enforced: accounts only see the pages they may view and only change what they may change. (#170) (ab1e04a)
+- **updates:** installer for exactly the offered update (f7ef7b7)
+- **httpapi:** install the offered update without the installer screen (cca3946)
+- **dashboard:** wire the offered-update installer (b46f53a)
+- **webui:** install the offered update from the update bar (af424f2)
+- **updates:** install the offered update from the update bar (#171)
 - **httpapi:** route access groups and view gate (part 1) (cb4bef7)
 - **httpapi:** route access table with server-side view permissions (07a5c27)
 - **httpapi:** enforce edit_settings on settings writes (c8f1070)
@@ -26,7 +32,6 @@
 - **webui:** settings controls follow the design and setup permissions (019688c)
 - **webui:** own account card on the users page (f7e44e3)
 - **webui:** sign-in card with sign out on the users page (11e5703)
-- **auth:** Permissions are enforced: accounts only see the pages they may view and only change what they may change. (#170)
 - **automations:** target band math for the assistant (fb27c76)
 - **automations:** draggable target band component (c054437)
 - **automations:** draggable target band with optional tolerance (bde335e)
@@ -103,6 +108,8 @@
 
 ### Fixes
 
+- **updates:** retry the redeploy start while the prepare run winds down (970fa9d)
+- **httpapi:** keep a running job visible over an old install failure (9de6f28)
 - **httpapi:** tighten route access tests (f26982f)
 - **webui:** start on diagnostics only with the manager (36aaa68)
 - **webui:** base the operate-only save on the stored document (362252e)
@@ -147,6 +154,7 @@
 
 ### Documentation
 
+- installing the offered update (5903807)
 - route access groups (10f6edb)
 - **automations:** plainer texts and template names in the assistant (18224e9)
 - **automations:** device chips, picker and action cards (411838a)
@@ -154,6 +162,7 @@
 
 ### Tests
 
+- **smoke:** give the kept demo admin an HTTP login (af77863)
 - **automations:** follow the chart asset version (d6b2170)
 - grant view prerequisites in role tests (c39e023)
 - **smoke:** restricted account and live permission change (a54097d)
@@ -171,7 +180,7 @@
 
 ### Chores
 
-- **webui:** bump asset versions (b48bacf)
+- **webui:** bump asset versions (e84cb6e)
 - **webui:** bump asset versions for the account card (76577f1)
 - **automations:** cache-bust the rule view assets (e40a797)
 - **automations:** cache-bust the device helpers (3a8ac87)

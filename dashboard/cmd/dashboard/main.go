@@ -148,7 +148,7 @@ func main() {
 		installerStateDir = dir
 		jobDir = filepath.Join(dir, "job")
 	}
-	redeployHandler, err := buildRedeployHandler(redeployConfig{
+	redeploy, err := buildRedeploy(redeployConfig{
 		candidateBundleDir:    candidateDir,
 		installedManifestPath: filepath.Join(installerStateDir, "installed-manifest.json"),
 		selectionPath:         filepath.Join(installerStateDir, "selection.json"),
@@ -160,6 +160,10 @@ func main() {
 	})
 	if err != nil {
 		log.Printf("redeploy: could not start the local update handler: %v", err)
+	}
+	var redeployHandler http.Handler
+	if redeploy != nil {
+		redeployHandler = redeploy.handler
 	}
 
 	stepTitle, err := newStepTitler(dashwebui.Languages(), filepath.Join(installerStateDir, "installed-manifest.json"))
@@ -177,6 +181,22 @@ func main() {
 		updatesChecker.BaseURL = base
 	}
 	updatesCache := &updatecheck.Cache{}
+	// recheck is the update check the installer runs before it trusts the
+	// offer again; it refreshes the same cache the background check writes.
+	recheck := func(ctx context.Context) {
+		result, err := updatesChecker.Check(ctx, buildVersion)
+		if err != nil {
+			log.Printf("energy-node-dashboard: update check failed: %v", err)
+			return
+		}
+		updatesCache.Set(result)
+	}
+	// Passed on only when non-nil: a nil *Installer in the interface would
+	// register the install endpoint.
+	var updateInstaller httpapi.UpdateInstaller
+	if installer := newUpdateInstaller(redeploy, jobDir, updatesCache, recheck); installer != nil {
+		updateInstaller = installer
+	}
 
 	// appconfig.Load hat eine schema_version-1-Datei nur in-memory nach v2
 	// gehoben. Die Datei auf der Platte ist noch v1 - das Dashboard laeuft
@@ -549,11 +569,12 @@ func main() {
 			EnergySensorOptions: func() []energydiscovery.OptionalSensor {
 				return desiredOptionalSensors(currentSnapshot())
 			},
-			Redeploy:       redeployHandler,
-			UpdatesChecker: updatesChecker,
-			UpdatesCache:   updatesCache,
-			UpdaterJobDir:  jobDir,
-			StepTitle:      stepTitle,
+			Redeploy:        redeployHandler,
+			UpdatesChecker:  updatesChecker,
+			UpdatesCache:    updatesCache,
+			UpdaterJobDir:   jobDir,
+			StepTitle:       stepTitle,
+			UpdateInstaller: updateInstaller,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
