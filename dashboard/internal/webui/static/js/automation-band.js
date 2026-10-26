@@ -321,12 +321,17 @@
 
   // Schwellenschieber auf einer waagerechten Skala: Pointer Capture, Raster cfg.step, Feder beim Sprung,
   // Pfeiltasten (mit Shift das Vierfache). cfg: { name, state: { thr }, min, max (Zahl oder fn()), step,
-  // ticks(max), tickLabel(v), now(), labels: { threshold(v), valueText(v) }, onChange(state) }.
+  // ticks(max), tickLabel(v), fill: 'below' | 'above', now(), labels: { threshold(v), valueText(v) }, onChange(state) }.
+  // fill legt fest, auf welcher Seite der Schwelle die Akzentfarbe liegt: 'below' links (Preis),
+  // 'above' rechts (Ueberschuss, ab der Schwelle startet die Vorlage).
   // name bestimmt die CSS-Klassen auto-<name>-*. now() liefert den Istwert oder null, dann keine Markierung.
+  // Das Maximum wird nur beim Mounten, bei redraw() und bei Tastatur neu bestimmt, nicht waehrend eines Ziehens.
   function mountScale(svg, cfg) {
     const { state, labels, name } = cfg;
-    // cfg.max kann vom Wert abhaengen: ein Schritt ueber das Maximum laesst die Skala mitwachsen.
-    const range = (value = state.thr) => ({ min: cfg.min, max: typeof cfg.max === 'function' ? cfg.max(value) : cfg.max });
+    const maxFor = (value) => (typeof cfg.max === 'function' ? cfg.max(value) : cfg.max);
+    let top = maxFor(state.thr);
+    const range = () => ({ min: cfg.min, max: top });
+    const fillAbove = cfg.fill === 'above';
     const tickLabel = cfg.tickLabel || String;
     let W = 320;
     const fit = () => {
@@ -345,8 +350,11 @@
         const anchor = v === r.min ? 'start' : (v === r.max ? 'end' : 'middle');
         return `<text x="${scaleX(v, W, r)}" y="${SCALE_H - 4}" font-size="11" fill="var(--text-muted)" text-anchor="${anchor}">${esc(tickLabel(v))}</text>`;
       }).join('');
+      const fill = fillAbove
+        ? `<rect x="${x}" y="34" width="${W - x}" height="22" rx="8" fill="var(--accent)"/>`
+        : `<rect x="0" y="34" width="${x}" height="22" rx="8" fill="var(--accent)"/>`;
       svg.innerHTML = `<rect x="0" y="34" width="${W}" height="22" rx="8" fill="var(--panel-alt)"/>`
-        + `<rect x="0" y="34" width="${x}" height="22" rx="8" fill="var(--accent)"/>${marker}`
+        + `${fill}${marker}`
         + `<g class="auto-${name}-handle" data-drag="thr"><rect x="${x - 12}" y="24" width="24" height="46" fill="transparent"/>`
         + `<line x1="${x}" x2="${x}" y1="26" y2="60" stroke="var(--accent-line)" stroke-width="2"/>`
         + `<rect x="${pillX}" y="4" width="88" height="20" rx="10" fill="var(--accent-line)"/>`
@@ -387,9 +395,8 @@
       svg.setPointerCapture(e.pointerId);
       const grab = scaleRaw(svgX(e), W, range()) - state.thr;
       const move = (ev) => {
-        const cand = snap(scaleRaw(svgX(ev), W, range()) - grab, cfg.step);
-        const r = range(cand);
-        state.thr = clamp(cand, r.min, r.max);
+        const r = range();
+        state.thr = clamp(snap(scaleRaw(svgX(ev), W, r) - grab, cfg.step), r.min, r.max);
         update();
       };
       const up = () => endDrag();
@@ -404,7 +411,8 @@
       e.preventDefault();
       tSpring.stop();
       const cand = snap(state.thr + d * (e.shiftKey ? 4 : 1), cfg.step);
-      const r = range(cand);
+      top = maxFor(cand);
+      const r = range();
       state.thr = clamp(cand, r.min, r.max);
       update();
     };
@@ -419,10 +427,12 @@
 
     return {
       redraw() {
+        top = maxFor(state.thr);
         draw();
       },
       setThreshold(value) {
-        const r = range(value);
+        top = maxFor(value);
+        const r = range();
         tSpring.to(clamp(value, r.min, r.max));
       },
       destroy() {
@@ -458,6 +468,7 @@
       max: (value) => powerMax(value),
       step: POWER.step,
       ticks: powerTicks,
+      fill: 'above',
     });
   }
 

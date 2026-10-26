@@ -459,3 +459,60 @@ function powerOpts(state) {
     onChange: () => {},
   };
 }
+
+// Akzentfarbe auf der Seite der Schwelle: Preis links, Ueberschuss rechts (ab der Schwelle startet die Vorlage).
+function accentRect(svg) {
+  return [...svg.querySelectorAll('rect')].find((el) => el.getAttribute('fill') === 'var(--accent)');
+}
+
+test('mountPriceScale fills the accent left of the threshold', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const scale = api.mountPriceScale(svg, priceOpts({ thr: 20 }));
+  const fill = accentRect(svg);
+  assert.equal(fill.getAttribute('x'), '0');
+  assert.equal(fill.getAttribute('width'), '300');
+  scale.destroy();
+});
+
+test('mountPowerScale fills the accent right of the threshold', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const scale = api.mountPowerScale(svg, powerOpts({ thr: 3000 }));
+  const fill = accentRect(svg);
+  assert.equal(fill.getAttribute('x'), '300');
+  assert.equal(fill.getAttribute('width'), '300');
+  scale.destroy();
+});
+
+// Ein Ziehen am Griff: Das Maximum wird beim Mounten bestimmt und bleibt bis zum Loslassen gleich,
+// auch wenn der Wert ueber 6000 W geht. Der rechte Rand ist dann die Grenze.
+test('mountPowerScale keeps its maximum constant during a drag', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  svg.setPointerCapture = () => {};
+  const state = { thr: 5000 };
+  const scale = api.mountPowerScale(svg, powerOpts(state));
+  assert.equal(svg.getAttribute('aria-valuemax'), '6000');
+  const pointer = (type, target, clientX) => {
+    const ev = new window.Event(type, { bubbles: true });
+    Object.defineProperty(ev, 'clientX', { value: clientX });
+    Object.defineProperty(ev, 'pointerId', { value: 1 });
+    target.dispatchEvent(ev);
+  };
+  const handle = svg.querySelector('[data-drag="thr"]');
+  pointer('pointerdown', handle, 500);
+  const maxes = [];
+  for (const x of [520, 560, 590, 600, 600]) {
+    pointer('pointermove', svg, x);
+    maxes.push(svg.getAttribute('aria-valuemax'));
+    assert.ok(state.thr <= 6000, `Wert ${state.thr} darf das Maximum nicht ueberschreiten`);
+  }
+  assert.deepEqual([...new Set(maxes)], ['6000']);
+  assert.equal(state.thr, 6000, 'der Griff hat den Wert wirklich gezogen');
+  pointer('pointerup', svg, 600);
+  scale.destroy();
+});
