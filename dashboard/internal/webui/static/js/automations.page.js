@@ -131,6 +131,9 @@
   // Zielband im Assistenten: Griff und Zustand leben ausserhalb der reaktiven Daten.
   let bandHandle = null;
   let bandState = null;
+  // Preisskala der Niedrigtarif-Vorlage, ebenfalls ausserhalb der reaktiven Daten.
+  let priceHandle = null;
+  let priceState = null;
   const bandSigned = (value) => (value > 0 ? '+' : (value < 0 ? '\u2212' : '')) + window.I18n.formatNumber(Math.abs(value));
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
@@ -1271,6 +1274,7 @@
       const finish = () => {
         if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
         this.destroyAssistantBand();
+        this.destroyAssistantPrice();
         this.assistant = assistantIdle();
         if (opener && typeof opener.focus === 'function') opener.focus();
       };
@@ -1379,6 +1383,7 @@
       if (!this.assistant.templateId) return;
       if (this.assistant.index === 0) {
         this.destroyAssistantBand();
+        this.destroyAssistantPrice();
         this.assistant = { ...this.assistant, templateId: '', answers: {}, name: '', effects: {}, band: { tolOn: false, errors: null } };
         return;
       }
@@ -1405,6 +1410,10 @@
       }
       if (step.effect === 'surplus') {
         await this.loadSurplus();
+        return;
+      }
+      if (step.effect === 'price') {
+        this.assistantPriceSync();
         return;
       }
       const value = this.assistant.answers[step.id];
@@ -1475,6 +1484,61 @@
       bandState.target = answers.target;
       bandState.tol = band.tolOn ? answers.tolerance : 20;
       bandHandle.redraw();
+    },
+
+    // Hinweis unter dem Schritt, etwa der Ladehinweis; '' wenn der Schritt keinen hat.
+    assistantStepHint() {
+      const step = this.assistantStep();
+      if (!step || typeof step.hint !== 'function') return '';
+      return step.hint(this.assistant.answers, this.assistant.context) || '';
+    },
+
+    // Aktueller Preis des gewaehlten Messwerts in ct/kWh, null ohne Wert.
+    assistantPriceNow() {
+      const prices = (this.assistant.context && this.assistant.context.prices) || [];
+      const entry = prices.find((item) => item.id === this.assistant.answers.price);
+      const value = entry && entry.entity ? entry.entity.value : undefined;
+      if (value === undefined || value === null || value === '') return null;
+      const number = Number(value);
+      return Number.isFinite(number) ? number : null;
+    },
+
+    // Satz unter der Preisskala: Jetzt-Preis gegen die Schwelle, '' ohne Preis.
+    assistantPriceText() {
+      const step = this.assistantStep();
+      if (!step || step.effect !== 'price') return '';
+      return window.__automationWizard.priceNowText(this.assistantPriceNow(), this.assistant.answers[step.id]);
+    },
+
+    // Zeichnet die Skala mit der Schwelle aus den Antworten neu, nach Wahl oder Stepper.
+    assistantPriceSync() {
+      if (!priceHandle || !priceState) return;
+      priceState.thr = this.assistant.answers.thr;
+      priceHandle.redraw();
+    },
+
+    // Legt die Preisskala in den SVG-Knoten des Schritts. Eine vorherige Skala wird vorher aufgeloest.
+    mountAssistantPrice() {
+      this.destroyAssistantPrice();
+      const svg = this.$refs.assistPrice;
+      if (!svg || !window.__automationBand) return;
+      const page = this;
+      priceState = { thr: this.assistant.answers.thr };
+      priceHandle = window.__automationBand.mountPriceScale(svg, {
+        state: priceState,
+        now: () => page.assistantPriceNow(),
+        labels: {
+          threshold: (value) => t('automations.assistant.price.threshold', { value: window.I18n.formatNumber(value) }),
+          valueText: (value) => t('automations.assistant.price.value_text', { value: window.I18n.formatNumber(value) }),
+        },
+        onChange: (state) => { page.assistant.answers.thr = state.thr; },
+      });
+    },
+
+    destroyAssistantPrice() {
+      if (priceHandle) priceHandle.destroy();
+      priceHandle = null;
+      priceState = null;
     },
 
     // Legt das Band in den SVG-Knoten des Schritts. Ein vorheriges Band wird vorher aufgeloest.

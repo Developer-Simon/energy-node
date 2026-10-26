@@ -3963,3 +3963,32 @@ func TestAutomationsAssistantShipsTheSurplusPreview(t *testing.T) {
 		}
 	}
 }
+
+// TestAutomationsAssistantShipsThePriceScale haelt fest, dass der Schritt
+// "Ab welchem Preis laden?" der Niedrigtarif-Vorlage die Preisskala mit
+// Schieber, Markierung des aktuellen Preises und den Ladehinweis ausliefert.
+// Die Rolle des Schiebers setzt automation-band.js, daher wird auch die Quelle geprueft.
+func TestAutomationsAssistantShipsThePriceScale(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`x-ref="assistPrice"`, `mountAssistantPrice()`, `assistantPriceText()`,
+		`class="auto-price-svg"`, `class="auto-assist-price"`,
+		`x-if="assistantStepHint() !== ''"`, `assistantStepHint()`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Preisskala-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	js, err := os.ReadFile("static/js/automation-band.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`mountPriceScale`, `setPointerCapture`, `role`, `slider`} {
+		if !strings.Contains(string(js), marker) {
+			t.Fatalf("automation-band.js liefert die Preisskala nicht: %q fehlt", marker)
+		}
+	}
+}

@@ -290,5 +290,129 @@
     };
   }
 
-  window.__automationBand = { errorsFromRows, bandStats, histogram, snap, rubber, spring, LIMITS, mountBand };
+  // ---------- Preisskala der Niedrigtarif-Vorlage: waagerecht von 0 bis 40 ct ----------
+
+  const PRICE = Object.freeze({ min: 0, max: 40, step: 0.5 });
+  const PRICE_H = 84;
+
+  // Position in der Skala (Pixel) zu Preis (ct/kWh), ungerundet und gerundet.
+  function priceX(value, width) {
+    return ((value - PRICE.min) / (PRICE.max - PRICE.min)) * width;
+  }
+  function priceRaw(x, width) {
+    return PRICE.min + (x / width) * (PRICE.max - PRICE.min);
+  }
+  function priceValue(x, width) {
+    return clamp(snap(priceRaw(x, width), PRICE.step), PRICE.min, PRICE.max);
+  }
+
+  // Preisschwelle als Schieber: Pointer Capture, Raster 0,5 ct, Feder beim Sprung,
+  // Pfeiltasten. opts: { state: { thr }, now(), labels: { threshold(v), valueText(v) }, onChange(state) }.
+  // now() liefert den aktuellen Preis oder null, dann gibt es keine Markierung.
+  function mountPriceScale(svg, opts) {
+    const { state, labels } = opts;
+    let W = 320;
+    const fit = () => {
+      W = Math.round(svg.getBoundingClientRect().width) || 320;
+      svg.setAttribute('viewBox', `0 0 ${W} ${PRICE_H}`);
+    };
+    const draw = () => {
+      const x = priceX(state.thr, W);
+      const now = opts.now ? opts.now() : null;
+      const marker = Number.isFinite(now)
+        ? `<circle class="auto-price-now" cx="${clamp(priceX(now, W), 0, W)}" cy="45" r="5" fill="var(--text-strong)"/>`
+        : '';
+      const pillX = clamp(x - 44, 0, W - 88);
+      const ticks = [0, 10, 20, 30, 40].map((v) => {
+        const anchor = v === PRICE.min ? 'start' : (v === PRICE.max ? 'end' : 'middle');
+        return `<text x="${priceX(v, W)}" y="${PRICE_H - 4}" font-size="11" fill="var(--text-muted)" text-anchor="${anchor}">${v}</text>`;
+      }).join('');
+      svg.innerHTML = `<rect x="0" y="34" width="${W}" height="22" rx="8" fill="var(--panel-alt)"/>`
+        + `<rect x="0" y="34" width="${x}" height="22" rx="8" fill="var(--accent)"/>${marker}`
+        + `<g class="auto-price-handle" data-drag="thr"><rect x="${x - 12}" y="24" width="24" height="46" fill="transparent"/>`
+        + `<line x1="${x}" x2="${x}" y1="26" y2="60" stroke="var(--accent-line)" stroke-width="2"/>`
+        + `<rect x="${pillX}" y="4" width="88" height="20" rx="10" fill="var(--accent-line)"/>`
+        + `<text x="${pillX + 44}" y="18" font-size="11.5" font-weight="700" fill="var(--accent-ink)" text-anchor="middle">${esc(labels.threshold(state.thr))}</text></g>`
+        + ticks;
+      svg.setAttribute('aria-valuenow', String(state.thr));
+      svg.setAttribute('aria-valuetext', labels.valueText(state.thr));
+    };
+    const update = () => {
+      draw();
+      if (opts.onChange) opts.onChange(state);
+    };
+    const tSpring = spring(() => state.thr, (v) => {
+      state.thr = v;
+      update();
+    });
+    const svgX = (e) => {
+      const r = svg.getBoundingClientRect();
+      return (e.clientX - r.left) * (W / r.width);
+    };
+
+    let drag = null;
+    const endDrag = () => {
+      if (!drag) return;
+      svg.removeEventListener('pointermove', drag.move);
+      svg.removeEventListener('pointerup', drag.up);
+      svg.removeEventListener('pointercancel', drag.up);
+      drag = null;
+    };
+    const onPointerDown = (e) => {
+      endDrag();
+      tSpring.stop();
+      if (!e.target.closest('[data-drag]')) {
+        tSpring.to(priceValue(svgX(e), W));
+        return;
+      }
+      svg.setPointerCapture(e.pointerId);
+      const grab = priceRaw(svgX(e), W) - state.thr;
+      const move = (ev) => {
+        state.thr = clamp(snap(priceRaw(svgX(ev), W) - grab, PRICE.step), PRICE.min, PRICE.max);
+        update();
+      };
+      const up = () => endDrag();
+      drag = { move, up };
+      svg.addEventListener('pointermove', move);
+      svg.addEventListener('pointerup', up);
+      svg.addEventListener('pointercancel', up);
+    };
+    const onKeyDown = (e) => {
+      const d = { ArrowRight: PRICE.step, ArrowUp: PRICE.step, ArrowLeft: -PRICE.step, ArrowDown: -PRICE.step }[e.key];
+      if (d === undefined) return;
+      e.preventDefault();
+      tSpring.stop();
+      state.thr = clamp(snap(state.thr + d * (e.shiftKey ? 4 : 1), PRICE.step), PRICE.min, PRICE.max);
+      update();
+    };
+
+    svg.setAttribute('role', 'slider');
+    svg.setAttribute('tabindex', '0');
+    svg.setAttribute('aria-valuemin', String(PRICE.min));
+    svg.setAttribute('aria-valuemax', String(PRICE.max));
+    svg.addEventListener('pointerdown', onPointerDown);
+    svg.addEventListener('keydown', onKeyDown);
+    fit();
+    draw();
+
+    return {
+      redraw() {
+        draw();
+      },
+      setThreshold(value) {
+        tSpring.to(clamp(value, PRICE.min, PRICE.max));
+      },
+      destroy() {
+        svg.removeEventListener('pointerdown', onPointerDown);
+        svg.removeEventListener('keydown', onKeyDown);
+        endDrag();
+        tSpring.stop();
+      },
+    };
+  }
+
+  window.__automationBand = {
+    errorsFromRows, bandStats, histogram, snap, rubber, spring, LIMITS, mountBand,
+    PRICE, priceX, priceValue, mountPriceScale,
+  };
 })();

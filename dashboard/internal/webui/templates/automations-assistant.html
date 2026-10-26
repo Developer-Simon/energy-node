@@ -219,6 +219,9 @@
                   {{template "auto-stepper"}}
                 </div>
               </template>
+              <template x-if="assistantStepHint() !== ''">
+                <p class="auto-assist-fit" x-text="assistantStepHint()"></p>
+              </template>
             </div>
           </template>
 
@@ -248,6 +251,13 @@
                  x-text="assistant.effects[assistantStep().id] || ''"></p>
               <div class="auto-assist-surplus" x-show="assistantSurplusMarkup() !== ''"
                    x-html="assistantSurplusMarkup()"></div>
+              <template x-if="assistantStep().effect === 'price'">
+                <div class="auto-assist-price">
+                  <svg class="auto-price-svg" x-ref="assistPrice" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
+                       x-init="$nextTick(() => mountAssistantPrice())"></svg>
+                  <p class="auto-assist-now" x-show="assistantPriceText() !== ''" x-text="assistantPriceText()"></p>
+                </div>
+              </template>
             </div>
           </template>
 

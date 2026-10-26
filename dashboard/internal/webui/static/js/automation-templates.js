@@ -852,7 +852,9 @@
       const fixed = answers.source === 'fixed';
       const when = fixed
         ? t('automations.assistant.summary.tariff.when_fixed', { from: answers.window.from, to: answers.window.to })
-        : t('automations.assistant.summary.tariff.when_price', { thr: num(answers.thr) });
+        : t('automations.assistant.summary.tariff.when_price', {
+          name: requireEntry(ctx.prices, answers.price).deviceName, thr: num(answers.thr),
+        });
       const block = answers.extras.block;
       return [
         {

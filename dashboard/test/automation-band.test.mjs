@@ -316,3 +316,71 @@ test('mountBand sets aria-valuenow to the rounded target after a key press', () 
   assert.equal(svg.getAttribute('role'), 'slider');
   assert.equal(svg.getAttribute('aria-valuetext'), 'Target 35 W, tolerance 20 W');
 });
+
+// ---------- Preisskala der Niedrigtarif-Vorlage ----------
+
+test('priceX maps 0 to 40 ct across the width and priceValue snaps to 0.5 ct', () => {
+  const { api } = load();
+  assert.equal(api.priceX(0, 400), 0);
+  assert.equal(api.priceX(40, 400), 400);
+  assert.equal(api.priceX(20, 400), 200);
+  assert.equal(api.priceValue(201, 400), 20);
+  assert.equal(api.priceValue(203, 400), 20.5);
+  assert.equal(api.priceValue(-50, 400), 0);
+  assert.equal(api.priceValue(999, 400), 40);
+});
+
+test('mountPriceScale moves the threshold on arrow keys in 0.5 ct steps, shift in 2 ct', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 400);
+  const state = { thr: 15 };
+  const scale = api.mountPriceScale(svg, priceOpts(state));
+  press(window, svg, 'ArrowRight');
+  assert.equal(state.thr, 15.5);
+  press(window, svg, 'ArrowRight', true);
+  assert.equal(state.thr, 17.5);
+  press(window, svg, 'ArrowDown');
+  assert.equal(state.thr, 17);
+  scale.destroy();
+});
+
+test('mountPriceScale reports slider roles and the threshold label', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 400);
+  const scale = api.mountPriceScale(svg, priceOpts({ thr: 10 }));
+  assert.equal(svg.getAttribute('role'), 'slider');
+  assert.equal(svg.getAttribute('aria-valuemin'), '0');
+  assert.equal(svg.getAttribute('aria-valuemax'), '40');
+  assert.equal(svg.getAttribute('aria-valuenow'), '10');
+  assert.equal(svg.getAttribute('aria-valuetext'), '10 ct pro kWh');
+  assert.ok(svg.innerHTML.includes('unter 10 ct'));
+  assert.ok(svg.innerHTML.includes('data-drag="thr"'));
+  scale.destroy();
+});
+
+test('mountPriceScale draws the current price marker only with a value', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const withPrice = makeSvg(window, 400);
+  const scale = api.mountPriceScale(withPrice, { ...priceOpts({ thr: 15 }), now: () => 12.5 });
+  assert.ok(withPrice.innerHTML.includes('auto-price-now'));
+  scale.destroy();
+  const without = makeSvg(window, 400);
+  const empty = api.mountPriceScale(without, { ...priceOpts({ thr: 15 }), now: () => null });
+  assert.equal(without.innerHTML.includes('auto-price-now'), false);
+  empty.destroy();
+});
+
+function priceOpts(state) {
+  return {
+    state,
+    now: () => null,
+    labels: {
+      threshold: (v) => `unter ${v} ct`,
+      valueText: (v) => `${v} ct pro kWh`,
+    },
+    onChange: () => {},
+  };
+}

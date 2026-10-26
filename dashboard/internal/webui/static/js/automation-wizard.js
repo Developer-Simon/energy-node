@@ -708,6 +708,14 @@
     return t(key, { from: formatNumber(base), to: formatNumber(step.value) });
   }
 
+  // Satz zur Preisvorschau: Jetzt-Preis gegen die Schwelle. Ohne Preis kein Satz.
+  // Geladen wird unter der Schwelle (Vergleich below).
+  function priceNowText(now, thr) {
+    if (!Number.isFinite(now) || !Number.isFinite(thr)) return '';
+    const result = now < thr ? t('automations.assistant.price.load') : t('automations.assistant.price.hold');
+    return t('automations.assistant.price.now', { price: formatNumber(now, 1), result });
+  }
+
   window.__automationWizard = {
     CATEGORIES,
     buildContext,
@@ -727,6 +735,7 @@
     lowest,
     optionUnavailable,
     presetEffect,
+    priceNowText,
     regulatorPreview,
     regulatorStep,
     roundToStep,

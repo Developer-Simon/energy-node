@@ -723,3 +723,29 @@ test('tariff fit text for 46 to 80 percent at 2000 W on 10 kWh', () => {
   assert.equal(chargeFit({ soc: 46, target: 80, power: 2000, capacity: 0 }), '');
   assert.equal(chargeFit({ soc: 46, target: 80, power: 2000, capacity: undefined }), '');
 });
+
+test('tariff price text says whether the current price loads the battery', () => {
+  const { wizard } = load();
+  assert.equal(wizard.priceNowText(12.5, 15), 'Jetzt 12,5 ct, damit würde jetzt geladen.');
+  assert.equal(wizard.priceNowText(20, 15), 'Jetzt 20,0 ct, damit würde jetzt nicht geladen.');
+  assert.equal(wizard.priceNowText(null, 15), '');
+});
+
+test('tariff price summary names the chosen price device', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const ctx = plain(contextFor(wizard));
+  const answers = answersFor(wizard, template, ctx, { source: 'price', thr: 15 });
+  assert.ok(template.summary(answers, ctx)[0].text.startsWith('Tibber Preis unter 15 ct/kWh'));
+});
+
+test('tariff charge step returns the fit hint and nothing without a capacity', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const ctx = plain(contextFor(wizard));
+  const charge = template.steps.find((step) => step.id === 'charge');
+  const answers = answersFor(wizard, template, ctx, { charge: { target: 80, power: 2000 } });
+  assert.equal(charge.hint(answers, ctx), 'Von 46 % auf 80 % sind 3,4 kWh, bei 2000 W also etwa 1 h 42 min.');
+  const noCapacity = plain(contextFor(wizard, { snapshot: { ...snapshot, values: { ...snapshot.values, battery_capacity_kwh: undefined } } }));
+  assert.equal(charge.hint(answers, noCapacity), '');
+});
