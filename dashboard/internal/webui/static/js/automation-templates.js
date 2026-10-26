@@ -583,8 +583,11 @@
           },
           {
             id: 'setpoint',
-            unavailable: (ctx, answers) => (hasSetpoint(requireEntry(ctx.heatPumps, answers.device))
-              ? '' : t('automations.assistant.unavailable.heat_pump_setpoint')),
+            unavailable: (ctx, answers) => {
+              const entry = requireEntry(ctx.heatPumps, answers.device);
+              if (!entry.setpoint) return t('automations.assistant.unavailable.heat_pump_setpoint');
+              return hasSetpoint(entry) ? '' : t('automations.assistant.unavailable.heat_pump_setpoint_value');
+            },
           },
         ],
       },

@@ -220,6 +220,7 @@
   "automations.assistant.unavailable.heat_pump": "No heat pump with a setpoint or switch found",
   "automations.assistant.unavailable.heat_pump_control": "No switch and no setpoint available",
   "automations.assistant.unavailable.heat_pump_setpoint": "Device has no setpoint",
+  "automations.assistant.unavailable.heat_pump_setpoint_value": "Setpoint reports no value right now",
   "automations.assistant.unavailable.inverter": "No inverter with an adjustable power limit found",
   "automations.assistant.unavailable.inverter_measured": "The inverter reports no own reading",
   "automations.assistant.unavailable.location": "No location set in the settings",

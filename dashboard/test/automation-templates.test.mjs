@@ -639,6 +639,19 @@ test('heat_pump sg option shows the badge and the own-contact text only with an 
   assert.equal(wizard.optionTextField(sg, plainBare, own), 'text');
 });
 
+test('heat_pump setpoint option names a missing value', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'heat_pump');
+  const control = template.steps.find((step) => step.id === 'control');
+  const setpoint = control.options.find((option) => option.id === 'setpoint');
+  const withoutValue = { unique_id: 'hp_setpoint', name: 'Warmwasser-Soll', command_topic: 'werkstatt/hp/setpoint', min_value: 30, max_value: 60, step: 1, unit_of_measurement: '°C', has_value: false };
+  const ctx = plain(wizard.buildContext(heatPumpPreset([{ ...devices[2], entities: [withoutValue, devices[2].entities[1], devices[2].entities[2]] }])));
+  assert.equal(setpoint.unavailable(ctx, { device: 'hp_setpoint' }), t('automations.assistant.unavailable.heat_pump_setpoint_value'));
+
+  const noSetpoint = plain(wizard.buildContext(heatPumpPreset([{ ...devices[2], entities: [devices[2].entities[1], devices[2].entities[2]] }])));
+  assert.equal(setpoint.unavailable(noSetpoint, { device: 'hp_sg' }), t('automations.assistant.unavailable.heat_pump_setpoint'));
+});
+
 test('heat_pump without a soc signal drops the battery step and its condition', () => {
   const { wizard, templates } = load();
   const template = templateById(templates, 'heat_pump');

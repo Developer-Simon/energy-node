@@ -220,6 +220,7 @@
   "automations.assistant.unavailable.heat_pump": "Keine Wärmepumpe mit Sollwert oder Schalter gefunden",
   "automations.assistant.unavailable.heat_pump_control": "Kein Schalter und kein Sollwert vorhanden",
   "automations.assistant.unavailable.heat_pump_setpoint": "Gerät hat keinen Sollwert",
+  "automations.assistant.unavailable.heat_pump_setpoint_value": "Sollwert meldet gerade keinen Wert",
   "automations.assistant.unavailable.inverter": "Kein Wechselrichter mit einstellbarer Leistungsgrenze gefunden",
   "automations.assistant.unavailable.inverter_measured": "Der Wechselrichter meldet keinen eigenen Messwert",
   "automations.assistant.unavailable.location": "Kein Standort in den Einstellungen hinterlegt",
