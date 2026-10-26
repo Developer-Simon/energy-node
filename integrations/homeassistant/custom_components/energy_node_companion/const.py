@@ -4,6 +4,14 @@ DOMAIN = "energy_node_companion"
 CONF_URL = "url"
 CONF_VERIFY_SSL = "verify_ssl"
 
+# Kopplung mit dem Dashboard ueber den Companion-Port (TLS, Fingerabdruck
+# gepinnt). Token und Fingerabdruck liegen im Eintrag, der Kopplungscode nur
+# bis zur Kopplung.
+COMPANION_PORT = 8081
+CONF_TOKEN = "companion_token"
+CONF_FINGERPRINT = "companion_fingerprint"
+CONF_PAIRING_CODE = "pairing_code"
+
 # Protokollversion des Verlauf-Austauschs (exchangeProtocolVersion im
 # Dashboard, PROTOCOL in history-exchange.js).
 PROTOCOL = 1
