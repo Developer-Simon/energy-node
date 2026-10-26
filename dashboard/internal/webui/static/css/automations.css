@@ -390,7 +390,7 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
    Unterstuetzung bleibt es bei 5ch und rechtsbuendig. */
 .auto-stepper-field .auto-input { flex: 0 1 auto; width: auto; field-sizing: content; min-width: 1ch; max-width: 100%; height: 100%; padding: .12em 0 0; border-radius: 0; background: transparent; text-align: center; }
 @supports not (field-sizing: content) { .auto-stepper-field .auto-input { width: 5ch; text-align: right; } }
-.auto-stepper-field .auto-input-unit { position: static; transform: none; flex: none; }
+.auto-stepper-field .auto-input-unit { position: static; transform: none; flex: none; margin-left: 2px; }
 .auto-stepper-field:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .auto-stepper-field .auto-input:focus { box-shadow: none; border-color: transparent; }
 .auto-input-unit { position: absolute; top: 50%; right: .7rem; transform: translateY(-50%); font-size: .78rem; color: var(--text-muted); pointer-events: none; }

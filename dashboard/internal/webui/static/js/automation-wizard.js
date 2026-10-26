@@ -757,12 +757,38 @@
     return t('automations.assistant.price.now', { price: formatNumber(now, 1), result });
   }
 
+  // Parameter für Katalogtexte des Assistenten: die Antworten mit Zahl oder Text, dazu der
+  // Ladestand aus dem Kontext als now, nur wenn er bekannt ist.
+  function textParams(ctx, answers) {
+    const params = {};
+    for (const [key, value] of Object.entries(answers || {})) {
+      if (typeof value === 'number' || typeof value === 'string') params[key] = value;
+    }
+    const values = (ctx && ctx.snapshot && ctx.snapshot.values) || {};
+    if (isNumber(values.battery_soc)) params.now = Math.round(values.battery_soc);
+    return params;
+  }
+
+  // Untertext einer Reveal-Zeile: mit Ladestand, wenn der Kontext ihn kennt, sonst ohne.
+  function revealTextKey(params) {
+    return params && params.now !== undefined ? 'reveal.text' : 'reveal.text_fallback';
+  }
+
+  // Symbol eines numbers-Feldes. Ohne Angabe bleibt die Zeile mit dem Standard-Symbol gefüllt.
+  const FIELD_ICON_FALLBACK = 'ico-flash';
+  function fieldIcon(field) {
+    return field && typeof field.icon === 'string' && field.icon !== '' ? field.icon : FIELD_ICON_FALLBACK;
+  }
+
   window.__automationWizard = {
     CATEGORIES,
     buildContext,
     defaultAnswers,
     devicesFor,
     chooseOption,
+    fieldIcon,
+    revealTextKey,
+    textParams,
     decimalsOf,
     devicesForStep,
     firstReached,

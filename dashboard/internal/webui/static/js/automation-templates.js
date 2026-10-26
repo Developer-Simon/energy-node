@@ -607,8 +607,8 @@
       {
         id: 'protect', type: 'numbers',
         fields: [
-          { id: 'run', min: 10, max: 120, step: 5, default: 30 },
-          { id: 'pause', min: 5, max: 60, step: 5, default: 20 },
+          { id: 'run', min: 10, max: 120, step: 5, default: 30, icon: 'ico-history' },
+          { id: 'pause', min: 5, max: 60, step: 5, default: 20, icon: 'ico-gate' },
         ],
       },
       {
@@ -767,8 +767,8 @@
       {
         id: 'charge', type: 'numbers',
         fields: [
-          { id: 'target', min: 30, max: 100, step: 5, default: 80 },
-          { id: 'power', min: 500, max: 5000, step: 250, default: 2000 },
+          { id: 'target', min: 30, max: 100, step: 5, default: 80, icon: 'ico-battery' },
+          { id: 'power', min: 500, max: 5000, step: 250, default: 2000, icon: 'ico-flash' },
         ],
         // Hinweis unter dem Schritt: Energie und Dauer aus dem Ladestand des Kontexts.
         hint: (answers, ctx) => chargeFit({

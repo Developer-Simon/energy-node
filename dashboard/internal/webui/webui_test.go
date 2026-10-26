@@ -3927,7 +3927,7 @@ func TestAutomationsPanelShipsNumbersDevicesAndReveal(t *testing.T) {
 		`assistantStep().type === 'devices'`, `class="auto-assist-pick"`, `role="checkbox"`,
 		`x-bind:aria-checked="assistantPicked(assistantStep(), device.id)`, `assistantToggleDevice(assistantStep(), device.id)`,
 		`class="auto-assist-pick-check"`, `href="#ico-check"`,
-		`assistantRevealOption(assistantStep())`, `class="auto-assist-reveal auto-assist-tile-reveal"`,
+		`assistantRevealOption(assistantStep())`, `assistantRevealSub(assistantStep())`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Assistenten-Markup %q fehlt", marker)
@@ -3990,5 +3990,29 @@ func TestAutomationsAssistantShipsThePriceScale(t *testing.T) {
 		if !strings.Contains(string(js), marker) {
 			t.Fatalf("automation-band.js liefert die Preisskala nicht: %q fehlt", marker)
 		}
+	}
+}
+
+// Die Zeilen des Assistenten: numbers-Felder zeigen ein Symbol mit Ausweichwert
+// und ihre Einheit aus dem Katalog, die Reveal-Zeile zeigt Titel, Untertext und
+// Einheit der gewaehlten Kachel. Die Bindungen stehen im Panel-Fragment.
+func TestAutomationsAssistantNumbersRowsBindIconAndUnit(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`'#' + assistantFieldIcon(field)`,
+		`assistantFieldText(assistantStep(), field, 'unit')`,
+		`assistantRevealTitle(assistantStep())`,
+		`assistantRevealSub(assistantStep())`,
+		`assistantRevealUnit(assistantStep())`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	if strings.Contains(body, `'#ico-' + field.icon`) || strings.Contains(body, `field.unit || ''`) {
+		t.Fatal("das Assistenten-Markup liest Icon und Einheit nicht mehr direkt vom Feld")
 	}
 }

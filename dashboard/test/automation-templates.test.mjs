@@ -1098,3 +1098,117 @@ test('heating_rod is unavailable without a rod with power control and thermomete
   assert.equal(availability.available, false);
   assert.equal(availability.reason, 'Kein Heizstab mit Leistungsstellglied und Temperaturmesswert gefunden');
 });
+
+// Symbole und Platzhalter des Assistenten: Icons existieren im Sprite, Einheiten und Reveal-Texte
+// sind im Katalog, und kein Katalogtext behält einen nicht ersetzten Platzhalter.
+const spriteIds = () => {
+  const base = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'base.html'), 'utf8');
+  const ids = new Set([...base.matchAll(/symbol id="(ico-[a-z-]+)"/g)].map((match) => match[1]));
+  for (const match of base.matchAll(/deviceIconSymbol "(ico-[a-z-]+)"/g)) ids.add(match[1]);
+  return ids;
+};
+
+test('every icon the assistant scripts name exists in the sprite', () => {
+  const ids = spriteIds();
+  const files = ['automation-templates.js', 'automation-wizard.js', 'automations.page.js'];
+  for (const file of files) {
+    const source = fs.readFileSync(path.join(jsDir, file), 'utf8');
+    for (const match of source.matchAll(/'(ico-[a-z-]+)'/g)) {
+      assert.ok(ids.has(match[1]), `${file} uses ${match[1]}, not in the sprite`);
+    }
+  }
+  const { templates } = load();
+  for (const template of templates) {
+    assert.ok(ids.has(`ico-${template.icon.replace(/^ico-/, '')}`) || ids.has(template.icon), `${template.id} icon ${template.icon}`);
+    for (const step of template.steps) {
+      for (const field of step.fields || []) {
+        if (field.icon) assert.ok(ids.has(field.icon), `${template.id} ${field.id} icon ${field.icon}`);
+      }
+    }
+  }
+});
+
+test('every numbers field has an icon and a unit in the catalog', () => {
+  const { templates } = load();
+  const de = catalog('de');
+  const en = catalog('en');
+  const ids = spriteIds();
+  let checked = 0;
+  for (const template of templates) {
+    for (const step of template.steps.filter((item) => item.type === 'numbers')) {
+      for (const field of step.fields) {
+        checked += 1;
+        assert.ok(ids.has(field.icon || 'ico-flash'), `${template.id} ${field.id} icon`);
+        for (const dict of [de, en]) {
+          const unitKey = `automations.templates.${template.id}.steps.${step.id}.fields.${field.id}.unit`;
+          assert.ok(typeof dict[unitKey] === 'string' && dict[unitKey] !== '', `missing ${unitKey}`);
+        }
+      }
+    }
+  }
+  assert.ok(checked >= 4, 'the numbers steps of heat pump and tariff are covered');
+});
+
+test('the fallback icon keeps a numbers row filled', () => {
+  const { wizard } = load();
+  assert.equal(wizard.fieldIcon({ id: 'run' }), 'ico-flash');
+  assert.equal(wizard.fieldIcon({ id: 'run', icon: '' }), 'ico-flash');
+  assert.equal(wizard.fieldIcon({ id: 'run', icon: 'ico-history' }), 'ico-history');
+});
+
+test('the reveal of the battery shows its unit and the current state of charge', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'heat_pump');
+  const ctx = plain(contextFor(wizard));
+  const answers = answersFor(wizard, template, ctx);
+  const params = wizard.textParams(ctx, answers);
+  assert.equal(params.now, 46);
+  assert.equal(wizard.revealTextKey(params), 'reveal.text');
+  assert.equal(t('automations.templates.heat_pump.steps.battery.options.first.reveal.text', params), 'Heimspeicher, jetzt 46 %');
+  assert.equal(t('automations.templates.heat_pump.steps.battery.options.first.reveal.unit'), '%');
+  assert.equal(t('automations.templates.heat_pump.steps.battery.options.first.reveal.title'), 'Akku mindestens');
+});
+
+test('the reveal drops the current state of charge without a reading', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'heat_pump');
+  const noSoc = plain(contextFor(wizard, { snapshot: { ...snapshot, values: { pv: 862, grid_export: 0, grid_import: 0 } } }));
+  const params = wizard.textParams(noSoc, answersFor(wizard, template, noSoc));
+  assert.equal(params.now, undefined);
+  assert.equal(wizard.revealTextKey(params), 'reveal.text_fallback');
+  assert.equal(t('automations.templates.heat_pump.steps.battery.options.first.reveal.text_fallback', params), 'Heimspeicher');
+});
+
+test('no template text keeps a placeholder, with and without a state of charge', () => {
+  const { wizard, templates, t } = load();
+  const de = catalog('de');
+  const contexts = [
+    plain(contextFor(wizard)),
+    plain(contextFor(wizard, { snapshot: { ...snapshot, values: { pv: 862, grid_export: 0, grid_import: 0 } } })),
+  ];
+  const keysOf = (template, step) => {
+    const base = `automations.templates.${template.id}.steps.${step.id}`;
+    const keys = [`${base}.title`, `${base}.help`, `${base}.short`];
+    for (const option of step.options || []) {
+      const optionKey = `${base}.options.${option.id}`;
+      for (const field of ['title', 'text', 'badge', 'reveal.title', 'reveal.text', 'reveal.text_fallback']) {
+        keys.push(`${optionKey}.${field}`);
+      }
+    }
+    return keys.filter((key) => typeof de[key] === 'string');
+  };
+  for (const ctx of contexts) {
+    for (const template of templates) {
+      const answers = answersFor(wizard, template, ctx);
+      const params = wizard.textParams(ctx, answers);
+      // Der Reveal-Untertext wird nur in der Fassung gerendert, die der Kontext erlaubt.
+      const unused = wizard.revealTextKey(params) === 'reveal.text' ? 'reveal.text_fallback' : 'reveal.text';
+      for (const step of template.steps) {
+        for (const key of keysOf(template, step).filter((item) => !item.endsWith(`.${unused}`))) {
+          const text = t(key, params);
+          assert.equal(text.includes('{'), false, `${key} renders ${text}`);
+        }
+      }
+    }
+  }
+});

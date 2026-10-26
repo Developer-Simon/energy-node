@@ -176,12 +176,19 @@
                         x-text="assistantReason(assistantStep(), option) || ''"></span>
                 </button>
               </template>
-              <template x-if="assistantRevealOption(assistantStep())">
-                <div class="auto-assist-reveal auto-assist-tile-reveal"
-                     x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return assistantRevealOption(assistantStep()).reveal.id }, get stepOpts() { return assistantFieldOpts(assistantRevealOption(assistantStep()).reveal) }, get stepUnit() { return assistantRevealOption(assistantStep()).reveal.unit || '' }, get stepLabel() { return assistantOptionText(assistantStep(), assistantRevealOption(assistantStep()), 'title') } }">
-                  {{template "auto-stepper"}}
-                </div>
-              </template>
+            </div>
+          </template>
+
+          <template x-if="assistantRevealOption(assistantStep())">
+            <div class="auto-assist-block">
+              <div class="auto-assist-option auto-assist-number"
+                   x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return assistantRevealOption(assistantStep()).reveal.id }, get stepOpts() { return assistantFieldOpts(assistantRevealOption(assistantStep()).reveal) }, get stepUnit() { return assistantRevealUnit(assistantStep()) }, get stepLabel() { return assistantRevealTitle(assistantStep()) } }">
+                <span class="auto-assist-option-text">
+                  <b x-text="assistantRevealTitle(assistantStep())"></b>
+                  <span class="auto-assist-live" x-text="assistantRevealSub(assistantStep())"></span>
+                </span>
+                {{template "auto-stepper"}}
+              </div>
             </div>
           </template>
 
@@ -210,8 +217,8 @@
             <div class="auto-assist-block">
               <template x-for="field in assistantStep().fields" x-bind:key="field.id">
                 <div class="auto-assist-option auto-assist-number"
-                     x-data="{ get stepTarget() { return assistant.answers[assistantStep().id] }, get stepKey() { return field.id }, get stepOpts() { return assistantFieldOpts(field) }, get stepUnit() { return field.unit || '' }, get stepLabel() { return assistantFieldText(assistantStep(), field, 'title') } }">
-                  <svg class="automation-icon"><use x-bind:href="'#ico-' + field.icon"></use></svg>
+                     x-data="{ get stepTarget() { return assistant.answers[assistantStep().id] }, get stepKey() { return field.id }, get stepOpts() { return assistantFieldOpts(field) }, get stepUnit() { return assistantFieldText(assistantStep(), field, 'unit') }, get stepLabel() { return assistantFieldText(assistantStep(), field, 'title') } }">
+                  <svg class="automation-icon"><use x-bind:href="'#' + assistantFieldIcon(field)"></use></svg>
                   <span class="auto-assist-option-text">
                     <b x-text="assistantFieldText(assistantStep(), field, 'title')"></b>
                     <span class="auto-assist-live" x-text="assistantFieldText(assistantStep(), field, 'text')"></span>

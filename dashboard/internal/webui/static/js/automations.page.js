@@ -137,10 +137,14 @@
   const bandSigned = (value) => (value > 0 ? '+' : (value < 0 ? '\u2212' : '')) + window.I18n.formatNumber(Math.abs(value));
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
-  const ASSIST_DEVICE_ICONS = { inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch' };
+  const ASSIST_DEVICE_ICONS = {
+    inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch',
+    grid_target: 'ico-grid', input: 'ico-switch', inverter_measured: 'ico-inverter',
+  };
   const ASSIST_TILE_ICONS = {
     sun: 'ico-sun', min: 'ico-clock', battery: 'ico-battery', always: 'ico-play', fixed: 'ico-calendar',
     import: 'ico-grid', runtime: 'ico-clock', sunset: 'ico-sun', info: 'ico-info', warning: 'ico-warning', critical: 'ico-bell',
+    calm: 'ico-clock', fast: 'ico-flash',
   };
 
   const automationsPanel = () => ({
@@ -1665,8 +1669,13 @@
 
     // Anzeige-Helfer des Assistenten-Markups: Texte aus dem Katalog, Symbole,
     // Sperren mit Grund und Voreinstellungen.
-    assistantCopy(template, path) {
-      return template ? t(`automations.templates.${template.id}.${path}`) : '';
+    assistantCopy(template, path, params) {
+      return template ? t(`automations.templates.${template.id}.${path}`, params) : '';
+    },
+
+    // Platzhalter der Katalogtexte: Antworten und Ladestand aus dem Kontext.
+    assistantTextParams() {
+      return window.__automationWizard.textParams(this.assistant.context, this.assistant.answers);
     },
 
     assistantStepText(step, field) {
@@ -1676,7 +1685,30 @@
     },
 
     assistantOptionText(step, option, field) {
-      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.options.${option.id}.${field}`);
+      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.options.${option.id}.${field}`,
+        this.assistantTextParams());
+    },
+
+    // Reveal-Zeile einer Kachel: Titel, Untertext und Einheit aus dem Katalog der gewaehlten Option.
+    assistantRevealTitle(step) {
+      const option = this.assistantRevealOption(step);
+      return option ? this.assistantOptionText(step, option, 'reveal.title') : '';
+    },
+
+    assistantRevealSub(step) {
+      const option = this.assistantRevealOption(step);
+      if (!option) return '';
+      return this.assistantOptionText(step, option, window.__automationWizard.revealTextKey(this.assistantTextParams()));
+    },
+
+    assistantRevealUnit(step) {
+      const option = this.assistantRevealOption(step);
+      return option ? this.assistantOptionText(step, option, 'reveal.unit') : '';
+    },
+
+    // Symbol eines numbers-Feldes mit Ausweichsymbol.
+    assistantFieldIcon(field) {
+      return window.__automationWizard.fieldIcon(field);
     },
 
     assistantCategories() {
