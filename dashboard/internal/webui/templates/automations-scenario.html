@@ -176,7 +176,7 @@
 
           <template x-if="scenario.while.mode === 'regulate' && scenario.while.regulator">
             <div class="auto-regulator-edit">
-              <div class="auto-edit-grid">
+              <div class="auto-fields">
                 <div class="auto-field" x-data="{ get stepTarget() { return scenario.while.regulator }, stepKey: 'target_w', stepOpts: { min: -50000, max: 50000, step: 10 }, stepUnit: 'W', stepLabel: $t('automations.scenario.edit.regulator.target_label') }">
                   <span class="auto-field-head">
                     <span class="auto-field-label">{{t "automations.scenario.edit.regulator.target_label"}}</span>
@@ -201,6 +201,8 @@
                   </span>
                   {{template "auto-stepper"}}
                 </div>
+              </div>
+              <div class="auto-edit-grid">
                 <div class="auto-band auto-field-wide">
                   <svg class="auto-band-svg" role="img" viewBox="0 0 100 20" preserveAspectRatio="none"
                        x-bind:aria-label="bandPreviewFor(scenario).inside === null ? $t('automations.scenario.edit.band.unknown') : $t(bandPreviewFor(scenario).inside ? 'automations.scenario.edit.band.inside' : 'automations.scenario.edit.band.outside', {net: gridNowText(scenario)})">
@@ -390,6 +392,7 @@
           <template x-if="!scenario.until">
             <p class="auto-hint">{{t "automations.scenario.end_when_false"}}</p>
           </template>
+          <div class="auto-fields">
           <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return maxDurationMinutes(scenario) }, set v(x) { setMaxDurationMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.max_duration.label') }">
             <span class="auto-field-head">
               <span class="auto-field-label">{{t "automations.scenario.edit.max_duration.label"}}</span>
@@ -425,6 +428,7 @@
               </span>
             </span>
             {{template "auto-stepper"}}
+          </div>
           </div>
           <div x-data="scenarioRows(scenario, 'on_end', null)"><div class="auto-edit-list">{{template "automations-action-editors"}}</div>
 {{template "automations-action-tiles"}}</div>

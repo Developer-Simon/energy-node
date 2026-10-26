@@ -3490,6 +3490,47 @@ func TestAutomationsRuleEditorHasFooterActions(t *testing.T) {
 
 // Im Bearbeiten-Modus sind die Zeilen editierbar wie in der Regelkarte: jeder
 // Phasenblock bindet die gemeinsamen Editoren und Kacheln an seinen Besitzer.
+// Ziel und Totband sowie die drei Stepper am Ende liegen je in einem
+// auto-fields-Container, damit sie auf dem Desktop eine Zeile teilen.
+func TestScenarioStepperFieldsShareOneRow(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(tpl)
+	block := func(from, to string) string {
+		start := strings.Index(src, from)
+		if start < 0 {
+			t.Fatalf("Szenario-Markup: Anfang %q fehlt", from)
+		}
+		end := strings.Index(src[start:], to)
+		if end < 0 {
+			t.Fatalf("Szenario-Markup: Ende %q fehlt", to)
+		}
+		return src[start : start+end]
+	}
+	regulator := block(
+		"<div class=\"auto-fields\">\n                <div class=\"auto-field\" x-data=\"{ get stepTarget() { return scenario.while.regulator }, stepKey: 'target_w'",
+		"<div class=\"auto-edit-grid\">",
+	)
+	if n := strings.Count(regulator, `class="auto-field"`); n != 2 {
+		t.Fatalf("Ziel und Totband: %d Felder im auto-fields-Container, erwartet 2", n)
+	}
+	if !strings.Contains(regulator, "stepKey: 'deadband_w'") {
+		t.Fatal("Totband fehlt im auto-fields-Container von Ziel")
+	}
+	end := block(
+		"<div class=\"auto-fields\">\n          <div class=\"auto-field\" x-data=\"{ get stepTarget() { return { get v() { return maxDurationMinutes",
+		"<div x-data=\"scenarioRows(scenario, 'on_end', null)\">",
+	)
+	if n := strings.Count(end, `class="auto-field"`); n != 3 {
+		t.Fatalf("Ende-Felder: %d Felder im auto-fields-Container, erwartet 3", n)
+	}
+	if n := strings.Count(end, "stepKey: 'v'"); n != 3 {
+		t.Fatalf("Ende-Stepper: %d im auto-fields-Container, erwartet 3", n)
+	}
+}
+
 func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
