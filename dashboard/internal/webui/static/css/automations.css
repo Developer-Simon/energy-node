@@ -814,7 +814,7 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-assist-surplus-text { font-size: .86rem; color: var(--text-muted); }
 
 /* --- Schwellenskalen: Preis der Niedrigtarif-Vorlage (0 bis 40 ct) und Leistung des Überschusses (0 bis 6000 W), ziehbar, mit Markierung des Istwerts --- */
-.auto-assist-price, .auto-assist-power { display: grid; gap: 8px; padding: 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border-soft); }
-.auto-price-svg, .auto-power-svg { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
-.auto-price-svg:focus-visible, .auto-power-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
+.auto-assist-scale { display: grid; gap: 8px; padding: 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border-soft); }
+.auto-scale-svg { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
+.auto-scale-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 8px; }
 .auto-assist-now, .auto-assist-fit { margin: 0; font-size: .86rem; color: var(--text-muted); }

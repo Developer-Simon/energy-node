@@ -317,25 +317,45 @@ test('mountBand sets aria-valuenow to the rounded target after a key press', () 
   assert.equal(svg.getAttribute('aria-valuetext'), 'Target 35 W, tolerance 20 W');
 });
 
-// ---------- Preisskala der Niedrigtarif-Vorlage ----------
+// ---------- Schwellenskala fuer jeden presets-Schritt mit scale ----------
 
-test('priceX maps 0 to 40 ct across the width and priceValue snaps to 0.5 ct', () => {
+// Die Konfigurationen der Vorlagen, wie sie am Schritt stehen (automation-templates.js).
+const PRICE = { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' };
+const POWER = { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' };
+const SOC = { min: 0, max: 100, step: 5, ticks: 20, fill: 'below', unit: '%' };
+
+test('scaleMax keeps the fixed maximum, grows to the next full tick only with grow', () => {
   const { api } = load();
-  assert.equal(api.priceX(0, 400), 0);
-  assert.equal(api.priceX(40, 400), 400);
-  assert.equal(api.priceX(20, 400), 200);
-  assert.equal(api.priceValue(201, 400), 20);
-  assert.equal(api.priceValue(203, 400), 20.5);
-  assert.equal(api.priceValue(-50, 400), 0);
-  assert.equal(api.priceValue(999, 400), 40);
+  assert.equal(api.scaleMax(0, POWER), 6000);
+  assert.equal(api.scaleMax(6000, POWER), 6000);
+  assert.equal(api.scaleMax(6001, POWER), 7000);
+  assert.equal(api.scaleMax(6500, POWER), 7000);
+  assert.equal(api.scaleMax(NaN, POWER), 6000);
+  assert.equal(api.scaleMax(45, PRICE), 40, 'Cent haben kein grow');
+  assert.equal(api.scaleMax(101, SOC), 100, 'Prozent haben kein grow');
 });
 
-test('mountPriceScale moves the threshold on arrow keys in 0.5 ct steps, shift in 2 ct', () => {
+test('scaleTicks lists the ticks every interval up to the maximum', () => {
+  const { api } = load();
+  assert.deepEqual(Array.from(api.scaleTicks(40, PRICE)), [0, 10, 20, 30, 40]);
+  assert.deepEqual(Array.from(api.scaleTicks(6000, POWER)), [0, 1000, 2000, 3000, 4000, 5000, 6000]);
+  assert.deepEqual(Array.from(api.scaleTicks(100, SOC)), [0, 20, 40, 60, 80, 100]);
+});
+
+test('scaleValue snaps to the step and clamps to the range', () => {
+  const { api } = load();
+  assert.equal(api.scaleValue(201, 400, { min: 0, max: 40 }, 0.5), 20);
+  assert.equal(api.scaleValue(203, 400, { min: 0, max: 40 }, 0.5), 20.5);
+  assert.equal(api.scaleValue(-50, 400, { min: 0, max: 40 }, 0.5), 0);
+  assert.equal(api.scaleValue(999, 400, { min: 0, max: 40 }, 0.5), 40);
+});
+
+test('mountScale moves the threshold on arrow keys by one step, shift by four', () => {
   const { api, window } = load({ reducedMotion: true });
   fakeFrames(window);
   const svg = makeSvg(window, 400);
   const state = { thr: 15 };
-  const scale = api.mountPriceScale(svg, priceOpts(state));
+  const scale = api.mountScale(svg, scaleOpts(PRICE, state));
   press(window, svg, 'ArrowRight');
   assert.equal(state.thr, 15.5);
   press(window, svg, 'ArrowRight', true);
@@ -345,81 +365,110 @@ test('mountPriceScale moves the threshold on arrow keys in 0.5 ct steps, shift i
   scale.destroy();
 });
 
-test('mountPriceScale reports slider roles and the threshold label', () => {
+test('mountScale stops at the minimum and at the fixed maximum', () => {
   const { api, window } = load({ reducedMotion: true });
   fakeFrames(window);
   const svg = makeSvg(window, 400);
-  const scale = api.mountPriceScale(svg, priceOpts({ thr: 10 }));
+  const state = { thr: 40 };
+  const scale = api.mountScale(svg, scaleOpts(PRICE, state));
+  press(window, svg, 'ArrowRight');
+  assert.equal(state.thr, 40);
+  state.thr = 0;
+  press(window, svg, 'ArrowLeft');
+  assert.equal(state.thr, 0);
+  scale.destroy();
+});
+
+test('mountScale reports slider roles and the threshold label', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 400);
+  const scale = api.mountScale(svg, scaleOpts(PRICE, { thr: 10 }));
   assert.equal(svg.getAttribute('role'), 'slider');
   assert.equal(svg.getAttribute('aria-valuemin'), '0');
   assert.equal(svg.getAttribute('aria-valuemax'), '40');
   assert.equal(svg.getAttribute('aria-valuenow'), '10');
-  assert.equal(svg.getAttribute('aria-valuetext'), '10 ct pro kWh');
-  assert.ok(svg.innerHTML.includes('unter 10 ct'));
+  assert.equal(svg.getAttribute('aria-valuetext'), '10 ct');
+  assert.ok(svg.innerHTML.includes('10 ct'));
   assert.ok(svg.innerHTML.includes('data-drag="thr"'));
   scale.destroy();
 });
 
-test('mountPriceScale draws the current price marker only with a value', () => {
+test('mountScale draws the current marker only with a value', () => {
   const { api, window } = load({ reducedMotion: true });
   fakeFrames(window);
-  const withPrice = makeSvg(window, 400);
-  const scale = api.mountPriceScale(withPrice, { ...priceOpts({ thr: 15 }), now: () => 12.5 });
-  assert.ok(withPrice.innerHTML.includes('auto-price-now'));
+  const withNow = makeSvg(window, 400);
+  const scale = api.mountScale(withNow, { ...scaleOpts(PRICE, { thr: 15 }), now: () => 12.5 });
+  assert.ok(withNow.innerHTML.includes('auto-scale-now'));
   scale.destroy();
   const without = makeSvg(window, 400);
-  const empty = api.mountPriceScale(without, { ...priceOpts({ thr: 15 }), now: () => null });
-  assert.equal(without.innerHTML.includes('auto-price-now'), false);
+  const empty = api.mountScale(without, { ...scaleOpts(PRICE, { thr: 15 }), now: () => null });
+  assert.equal(without.innerHTML.includes('auto-scale-now'), false);
   empty.destroy();
 });
 
-function priceOpts(state) {
+test('mountScale draws the ticks of the configured interval', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const scale = api.mountScale(svg, scaleOpts(SOC, { thr: 20 }));
+  assert.ok(svg.innerHTML.includes('>80<'));
+  assert.equal(svg.innerHTML.includes('>30<'), false);
+  scale.destroy();
+});
+
+function scaleOpts(scale, state) {
   return {
     state,
+    min: scale.min,
+    max: scale.max,
+    step: scale.step,
+    ticks: scale.ticks,
+    grow: scale.grow,
+    fill: scale.fill,
     now: () => null,
+    tickLabel: (v) => String(v),
     labels: {
-      threshold: (v) => `unter ${v} ct`,
-      valueText: (v) => `${v} ct pro kWh`,
+      threshold: (v) => `${v} ${scale.unit}`,
+      valueText: (v) => `${v} ${scale.unit}`,
     },
     onChange: () => {},
   };
 }
 
-// ---------- Leistungsskala des Überschuss-Schritts ----------
+// Akzentfarbe auf der Seite der Schwelle: Preis und Anteil links, Ueberschuss rechts (ab der Schwelle startet die Vorlage).
+function accentRect(svg) {
+  return [...svg.querySelectorAll('rect')].find((el) => el.getAttribute('fill') === 'var(--accent)');
+}
 
-test('powerMax keeps 6000 W and grows to the next full 1000 W above a larger value', () => {
-  const { api } = load();
-  assert.equal(api.powerMax(0), 6000);
-  assert.equal(api.powerMax(6000), 6000);
-  assert.equal(api.powerMax(6001), 7000);
-  assert.equal(api.powerMax(6500), 7000);
-  assert.equal(api.powerMax(NaN), 6000);
-});
-
-test('mountPowerScale moves the threshold in 100 W steps, shift in 400 W, and stops at 0', () => {
+test('a below scale fills the accent left of the threshold', () => {
   const { api, window } = load({ reducedMotion: true });
   fakeFrames(window);
   const svg = makeSvg(window, 600);
-  const state = { thr: 1500 };
-  const scale = api.mountPowerScale(svg, powerOpts(state));
-  press(window, svg, 'ArrowRight');
-  assert.equal(state.thr, 1600);
-  press(window, svg, 'ArrowRight', true);
-  assert.equal(state.thr, 2000);
-  press(window, svg, 'ArrowLeft');
-  assert.equal(state.thr, 1900);
-  state.thr = 0;
-  press(window, svg, 'ArrowDown');
-  assert.equal(state.thr, 0);
+  const scale = api.mountScale(svg, scaleOpts(PRICE, { thr: 20 }));
+  const fill = accentRect(svg);
+  assert.equal(fill.getAttribute('x'), '0');
+  assert.equal(fill.getAttribute('width'), '300');
   scale.destroy();
 });
 
-test('mountPowerScale grows its maximum with the threshold and shows ticks in 1000 W', () => {
+test('an above scale fills the accent right of the threshold', () => {
+  const { api, window } = load({ reducedMotion: true });
+  fakeFrames(window);
+  const svg = makeSvg(window, 600);
+  const scale = api.mountScale(svg, scaleOpts(POWER, { thr: 3000 }));
+  const fill = accentRect(svg);
+  assert.equal(fill.getAttribute('x'), '300');
+  assert.equal(fill.getAttribute('width'), '300');
+  scale.destroy();
+});
+
+test('a grow scale grows its maximum with the threshold and shows ticks in 1000 W', () => {
   const { api, window } = load({ reducedMotion: true });
   fakeFrames(window);
   const svg = makeSvg(window, 600);
   const state = { thr: 6000 };
-  const scale = api.mountPowerScale(svg, powerOpts(state));
+  const scale = api.mountScale(svg, scaleOpts(POWER, state));
   assert.equal(svg.getAttribute('aria-valuemax'), '6000');
   assert.ok(svg.innerHTML.includes('>6000<'));
   press(window, svg, 'ArrowRight');
@@ -430,72 +479,15 @@ test('mountPowerScale grows its maximum with the threshold and shows ticks in 10
   scale.destroy();
 });
 
-test('mountPowerScale reports slider roles, the threshold pill and the current surplus marker', () => {
-  const { api, window } = load({ reducedMotion: true });
-  fakeFrames(window);
-  const withNow = makeSvg(window, 600);
-  const scale = api.mountPowerScale(withNow, { ...powerOpts({ thr: 2500 }), now: () => 1200 });
-  assert.equal(withNow.getAttribute('role'), 'slider');
-  assert.equal(withNow.getAttribute('aria-valuenow'), '2500');
-  assert.equal(withNow.getAttribute('aria-valuetext'), '2500 W');
-  assert.ok(withNow.innerHTML.includes('2500 W'));
-  assert.ok(withNow.innerHTML.includes('auto-power-now'));
-  scale.destroy();
-  const without = makeSvg(window, 600);
-  const empty = api.mountPowerScale(without, { ...powerOpts({ thr: 2500 }), now: () => null });
-  assert.equal(without.innerHTML.includes('auto-power-now'), false);
-  empty.destroy();
-});
-
-function powerOpts(state) {
-  return {
-    state,
-    now: () => null,
-    tickLabel: (v) => String(v),
-    labels: {
-      threshold: (v) => `${v} W`,
-      valueText: (v) => `${v} W`,
-    },
-    onChange: () => {},
-  };
-}
-
-// Akzentfarbe auf der Seite der Schwelle: Preis links, Ueberschuss rechts (ab der Schwelle startet die Vorlage).
-function accentRect(svg) {
-  return [...svg.querySelectorAll('rect')].find((el) => el.getAttribute('fill') === 'var(--accent)');
-}
-
-test('mountPriceScale fills the accent left of the threshold', () => {
-  const { api, window } = load({ reducedMotion: true });
-  fakeFrames(window);
-  const svg = makeSvg(window, 600);
-  const scale = api.mountPriceScale(svg, priceOpts({ thr: 20 }));
-  const fill = accentRect(svg);
-  assert.equal(fill.getAttribute('x'), '0');
-  assert.equal(fill.getAttribute('width'), '300');
-  scale.destroy();
-});
-
-test('mountPowerScale fills the accent right of the threshold', () => {
-  const { api, window } = load({ reducedMotion: true });
-  fakeFrames(window);
-  const svg = makeSvg(window, 600);
-  const scale = api.mountPowerScale(svg, powerOpts({ thr: 3000 }));
-  const fill = accentRect(svg);
-  assert.equal(fill.getAttribute('x'), '300');
-  assert.equal(fill.getAttribute('width'), '300');
-  scale.destroy();
-});
-
 // Ein Ziehen am Griff: Das Maximum wird beim Mounten bestimmt und bleibt bis zum Loslassen gleich,
 // auch wenn der Wert ueber 6000 W geht. Der rechte Rand ist dann die Grenze.
-test('mountPowerScale keeps its maximum constant during a drag', () => {
+test('a grow scale keeps its maximum constant during a drag', () => {
   const { api, window } = load({ reducedMotion: true });
   fakeFrames(window);
   const svg = makeSvg(window, 600);
   svg.setPointerCapture = () => {};
   const state = { thr: 5000 };
-  const scale = api.mountPowerScale(svg, powerOpts(state));
+  const scale = api.mountScale(svg, scaleOpts(POWER, state));
   assert.equal(svg.getAttribute('aria-valuemax'), '6000');
   const pointer = (type, target, clientX) => {
     const ev = new window.Event(type, { bubbles: true });

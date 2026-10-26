@@ -50,6 +50,8 @@ function createAutomationsPanel(setup) {
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
+  // Alpine stellt $nextTick bereit; ohne DOM laeuft der Rueckruf sofort.
+  component.$nextTick = (callback) => callback();
   const stores = attachStores(component);
   return { component, window: dom.window, stores };
 }

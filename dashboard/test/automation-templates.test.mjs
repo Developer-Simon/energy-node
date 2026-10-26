@@ -1242,3 +1242,26 @@ test('surplus now reads the grid export from the context snapshot', () => {
   assert.equal(wizard.surplusNow({ snapshot: { values: {} } }), null);
   assert.equal(wizard.surplusNow(null), null);
 });
+
+// Jeder presets-Schritt ausser band hat eine Skala mit den Werten der Vorlage. Der Schritt
+// "Eigener Wert" entfaellt dort, der Schieber stellt den Wert ein.
+test('every presets step except the band carries its threshold scale', () => {
+  const { templates } = load();
+  const expected = {
+    'surplus_wallbox:start': { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
+    'surplus_switch:on': { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
+    'battery_warn:below': { min: 0, max: 100, step: 5, ticks: 20, fill: 'below', unit: '%' },
+    'heat_pump:start': { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
+    'tariff:thr': { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
+    'grid_cap:limit': { min: 0, max: 30000, step: 100, ticks: 5000, grow: true, fill: 'above', unit: 'W' },
+  };
+  const found = {};
+  for (const template of templates) {
+    for (const step of template.steps) {
+      if (step.type !== 'presets' || step.effect === 'band') continue;
+      found[`${template.id}:${step.id}`] = plain(step.scale);
+    }
+  }
+  assert.deepEqual(Object.keys(found).sort(), Object.keys(expected).sort());
+  for (const key of Object.keys(expected)) assert.deepEqual(found[key], expected[key], key);
+});

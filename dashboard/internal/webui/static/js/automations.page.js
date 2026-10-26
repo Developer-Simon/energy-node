@@ -131,12 +131,9 @@
   // Zielband im Assistenten: Griff und Zustand leben ausserhalb der reaktiven Daten.
   let bandHandle = null;
   let bandState = null;
-  // Preisskala der Niedrigtarif-Vorlage, ebenfalls ausserhalb der reaktiven Daten.
-  let priceHandle = null;
-  let priceState = null;
-  // Leistungsskala des Überschuss-Schritts, ebenfalls ausserhalb der reaktiven Daten.
-  let powerHandle = null;
-  let powerState = null;
+  // Schwellenskala des presets-Schritts mit scale, ebenfalls ausserhalb der reaktiven Daten.
+  let scaleHandle = null;
+  let scaleState = null;
   const bandSigned = (value) => (value > 0 ? '+' : (value < 0 ? '\u2212' : '')) + window.I18n.formatNumber(Math.abs(value));
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
@@ -1281,8 +1278,7 @@
       const finish = () => {
         if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
         this.destroyAssistantBand();
-        this.destroyAssistantPrice();
-        this.destroyAssistantPower();
+        this.destroyAssistantScale();
         this.assistant = assistantIdle();
         if (opener && typeof opener.focus === 'function') opener.focus();
       };
@@ -1391,8 +1387,7 @@
       if (!this.assistant.templateId) return;
       if (this.assistant.index === 0) {
         this.destroyAssistantBand();
-        this.destroyAssistantPrice();
-        this.destroyAssistantPower();
+        this.destroyAssistantScale();
         this.assistant = { ...this.assistant, templateId: '', answers: {}, name: '', effects: {}, band: { tolOn: false, errors: null } };
         return;
       }
@@ -1412,20 +1407,18 @@
     // Wirkung eines Voreinstellungswerts aus den Vortagsdaten; eine inzwischen
     // geaenderte Antwort ueberschreibt den Text nicht.
     async refreshEffect(step) {
+      // Jede Wahl legt die Skala neu an, damit sie Grenzen und Wert des Schritts zeigt.
+      if (step && step.scale) this.$nextTick(() => this.mountAssistantScale());
       if (!step || step.type !== 'presets' || !step.effect) return;
       if (step.effect === 'band') {
         await this.loadBandErrors();
         return;
       }
       if (step.effect === 'surplus') {
-        this.assistantPowerSync();
         await this.loadSurplus();
         return;
       }
-      if (step.effect === 'price') {
-        this.assistantPriceSync();
-        return;
-      }
+      if (step.effect === 'price') return;
       const value = this.assistant.answers[step.id];
       const text = await window.__automationWizard.presetEffect(step, value, this.assistant.context, window.HistoryStore);
       if (this.assistant.open && this.assistant.answers[step.id] === value) {
@@ -1514,42 +1507,15 @@
       return window.__automationWizard.priceToCt(number, entry.entity.unit_of_measurement);
     },
 
-    // Satz unter der Preisskala: Jetzt-Preis gegen die Schwelle, '' ohne Preis.
-    assistantPriceText() {
-      const step = this.assistantStep();
-      if (!step || step.effect !== 'price') return '';
-      return window.__automationWizard.priceNowText(this.assistantPriceNow(), this.assistant.answers[step.id]);
-    },
-
-    // Zeichnet die Skala mit der Schwelle aus den Antworten neu, nach Wahl oder Stepper.
-    assistantPriceSync() {
-      if (!priceHandle || !priceState) return;
-      priceState.thr = this.assistant.answers.thr;
-      priceHandle.redraw();
-    },
-
-    // Legt die Preisskala in den SVG-Knoten des Schritts. Eine vorherige Skala wird vorher aufgeloest.
-    mountAssistantPrice() {
-      this.destroyAssistantPrice();
-      const svg = this.$refs.assistPrice;
-      if (!svg || !window.__automationBand) return;
-      const page = this;
-      priceState = { thr: this.assistant.answers.thr };
-      priceHandle = window.__automationBand.mountPriceScale(svg, {
-        state: priceState,
-        now: () => page.assistantPriceNow(),
-        labels: {
-          threshold: (value) => t('automations.assistant.price.threshold', { value: window.I18n.formatNumber(value) }),
-          valueText: (value) => t('automations.assistant.price.value_text', { value: window.I18n.formatNumber(value) }),
-        },
-        onChange: (state) => { page.assistant.answers.thr = state.thr; },
-      });
-    },
-
-    destroyAssistantPrice() {
-      if (priceHandle) priceHandle.destroy();
-      priceHandle = null;
-      priceState = null;
+    // Aktueller Preis des gewaehlten Messwerts in ct/kWh, null ohne Wert.
+    assistantPriceNow() {
+      const prices = (this.assistant.context && this.assistant.context.prices) || [];
+      const entry = prices.find((item) => item.id === this.assistant.answers.price);
+      const value = entry && entry.entity ? entry.entity.value : undefined;
+      if (value === undefined || value === null || value === '') return null;
+      const number = Number(value);
+      if (!Number.isFinite(number)) return null;
+      return window.__automationWizard.priceToCt(number, entry.entity.unit_of_measurement);
     },
 
     // Überschuss jetzt in W aus dem Assistenten-Kontext, null ohne Netzwert.
@@ -1557,45 +1523,60 @@
       return window.__automationWizard.surplusNow(this.assistant.context);
     },
 
-    // Satz unter der Leistungsskala, '' ohne Live-Wert.
-    assistantSurplusText() {
+    // Satz unter der Skala: Jetzt-Preis oder Jetzt-Überschuss gegen die Schwelle, '' sonst.
+    assistantScaleText() {
       const step = this.assistantStep();
-      if (!step || step.effect !== 'surplus') return '';
-      return window.__automationWizard.surplusNowText(this.assistantSurplusNow(), this.assistant.answers[step.id]);
+      if (!step || !step.scale) return '';
+      const thr = this.assistant.answers[step.id];
+      if (step.effect === 'price') return window.__automationWizard.priceNowText(this.assistantPriceNow(), thr);
+      if (step.effect === 'surplus') return window.__automationWizard.surplusNowText(this.assistantSurplusNow(), thr);
+      return '';
     },
 
-    // Zeichnet die Leistungsskala mit der Schwelle aus den Antworten neu, nach Wahl oder Stepper.
-    assistantPowerSync() {
+    // Istwert der Markierung auf der Skala: Preis bei Tarif, Überschuss bei Leistung, sonst null.
+    assistantScaleNow() {
       const step = this.assistantStep();
-      if (!powerHandle || !powerState || !step || step.effect !== 'surplus') return;
-      powerState.thr = this.assistant.answers[step.id];
-      powerHandle.redraw();
+      if (!step || !step.scale) return null;
+      if (step.effect === 'price') return this.assistantPriceNow();
+      if (step.effect === 'surplus' || step.effect === 'starts') return this.assistantSurplusNow();
+      return null;
     },
 
-    // Legt die Leistungsskala in den SVG-Knoten des Überschuss-Schritts. Eine vorherige wird vorher aufgeloest.
-    mountAssistantPower() {
-      this.destroyAssistantPower();
-      const svg = this.$refs.assistPower;
+    // Legt die Skala des Schritts in den SVG-Knoten. Eine vorherige Skala wird vorher aufgeloest.
+    mountAssistantScale() {
+      this.destroyAssistantScale();
+      const svg = this.$refs.assistScale;
       const step = this.assistantStep();
-      if (!svg || !step || !window.__automationBand) return;
+      if (!svg || !step || !step.scale || !window.__automationBand) return;
       const page = this;
-      powerState = { thr: this.assistant.answers[step.id] };
-      powerHandle = window.__automationBand.mountPowerScale(svg, {
-        state: powerState,
-        now: () => page.assistantSurplusNow(),
-        tickLabel: (value) => window.I18n.formatNumber(value),
+      const { scale } = step;
+      const fmt = (value) => window.I18n.formatNumber(value, scale.step < 1 ? 1 : 0);
+      // Der Tarif behält seine Katalogtexte ("unter 15 ct", "15 ct pro kWh"), sonst Zahl und Einheit.
+      const tariff = step.effect === 'price';
+      const plain = (value) => `${fmt(value)} ${scale.unit}`;
+      scaleState = { thr: this.assistant.answers[step.id] };
+      scaleHandle = window.__automationBand.mountScale(svg, {
+        state: scaleState,
+        min: scale.min,
+        max: scale.max,
+        step: scale.step,
+        ticks: scale.ticks,
+        grow: scale.grow,
+        fill: scale.fill,
+        now: () => page.assistantScaleNow(),
+        tickLabel: fmt,
         labels: {
-          threshold: (value) => `${window.I18n.formatNumber(value)} W`,
-          valueText: (value) => `${window.I18n.formatNumber(value)} W`,
+          threshold: tariff ? (value) => t('automations.assistant.price.threshold', { value: fmt(value) }) : plain,
+          valueText: tariff ? (value) => t('automations.assistant.price.value_text', { value: fmt(value) }) : plain,
         },
         onChange: (state) => { page.assistant.answers[step.id] = state.thr; },
       });
     },
 
-    destroyAssistantPower() {
-      if (powerHandle) powerHandle.destroy();
-      powerHandle = null;
-      powerState = null;
+    destroyAssistantScale() {
+      if (scaleHandle) scaleHandle.destroy();
+      scaleHandle = null;
+      scaleState = null;
     },
 
     // Legt das Band in den SVG-Knoten des Schritts. Ein vorheriges Band wird vorher aufgeloest.
@@ -1836,6 +1817,8 @@
         value = Number((value + increment).toFixed(decimals));
       }
       this.assistantPick(step, value);
+      // Mit Schieber setzt der Knopf den Fokus auf die Skala, Tasten ändern dann den Wert.
+      if (step.scale) this.$nextTick(() => { const svg = this.$refs.assistScale; if (svg) svg.focus(); });
     },
 
     // Schaltet einen Wochentag (0 bis 6) in einer Liste um, etwa bei Zeit und Mehrfachwahl.

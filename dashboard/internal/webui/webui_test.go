@@ -4047,8 +4047,8 @@ func TestAutomationsAssistantShipsThePriceScale(t *testing.T) {
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
 	for _, marker := range []string{
-		`x-ref="assistPrice"`, `mountAssistantPrice()`, `assistantPriceText()`,
-		`class="auto-price-svg"`, `class="auto-assist-price"`,
+		`x-ref="assistScale"`, `mountAssistantScale()`, `assistantScaleText()`,
+		`class="auto-scale-svg"`, `class="auto-assist-scale"`,
 		`x-if="assistantStepHint() !== ''"`, `assistantStepHint()`,
 	} {
 		if !strings.Contains(body, marker) {
@@ -4059,7 +4059,7 @@ func TestAutomationsAssistantShipsThePriceScale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, marker := range []string{`mountPriceScale`, `setPointerCapture`, `role`, `slider`} {
+	for _, marker := range []string{`mountScale`, `setPointerCapture`, `role`, `slider`} {
 		if !strings.Contains(string(js), marker) {
 			t.Fatalf("automation-band.js liefert die Preisskala nicht: %q fehlt", marker)
 		}
@@ -4076,9 +4076,9 @@ func TestAutomationsAssistantShipsThePowerScale(t *testing.T) {
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
 	body := recorder.Body.String()
 	for _, marker := range []string{
-		`x-if="assistantStep().effect === 'surplus'"`, `class="auto-assist-power"`,
-		`x-ref="assistPower"`, `mountAssistantPower()`, `class="auto-power-svg"`,
-		`assistantSurplusText()`,
+		`x-if="assistantStep().scale"`, `class="auto-assist-scale"`,
+		`x-ref="assistScale"`, `mountAssistantScale()`, `class="auto-scale-svg"`,
+		`assistantScaleText()`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Leistungsskala-Markup %q fehlt im Automations-Panel", marker)
@@ -4088,10 +4088,36 @@ func TestAutomationsAssistantShipsThePowerScale(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, marker := range []string{`mountPowerScale`, `powerMax`, `setPointerCapture`} {
+	for _, marker := range []string{`mountScale`, `scaleMax`, `setPointerCapture`} {
 		if !strings.Contains(string(js), marker) {
 			t.Fatalf("automation-band.js liefert die Leistungsskala nicht: %q fehlt", marker)
 		}
+	}
+}
+
+// TestAutomationsAssistantScaleReplacesTheCustomStepper haelt fest, dass alle
+// presets-Schritte mit Skala einen gemeinsamen Skalen-Block haben und der Stepper
+// unter "Eigener Wert" nur bei Schritten ohne scale bleibt.
+func TestAutomationsAssistantScaleReplacesTheCustomStepper(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`<template x-if="!assistantStep().scale">`,
+		`<template x-if="assistantStep().scale">`,
+		`x-init="$nextTick(() => mountAssistantScale())"`,
+		`x-on:click="assistantCustom(assistantStep())"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Skalen-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	if strings.Count(body, `class="auto-scale-svg"`) != 1 {
+		t.Fatalf("der Skalen-Block soll genau einmal im Assistenten stehen")
+	}
+	if strings.Contains(body, `mountAssistantPrice`) || strings.Contains(body, `mountAssistantPower`) {
+		t.Fatalf("die getrennten Preis- und Leistungs-Mounts sind zusammengefuehrt")
 	}
 }
 

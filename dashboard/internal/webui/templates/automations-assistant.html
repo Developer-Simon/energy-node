@@ -248,30 +248,25 @@
                         x-on:click="assistantCustom(assistantStep())"
                         x-text="$t('automations.assistant.custom')"></button>
               </div>
-              <div class="auto-assist-custom" x-show="assistantIsCustom(assistantStep())"
-                   x-on:click="refreshEffect(assistantStep())" x-on:change="refreshEffect(assistantStep())"
-                   x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return assistantStep().id }, get stepOpts() { return { min: assistantStep().min, max: assistantStep().max, step: assistantStep().step || 1 } }, get stepUnit() { return assistantStepText(assistantStep(), 'unit') }, get stepLabel() { return assistantStepText(assistantStep(), 'title') } }">
-                <span x-text="$t('automations.assistant.custom')"></span>
-                {{template "auto-stepper"}}
-              </div>
+              <template x-if="!assistantStep().scale">
+                <div class="auto-assist-custom" x-show="assistantIsCustom(assistantStep())"
+                     x-on:click="refreshEffect(assistantStep())" x-on:change="refreshEffect(assistantStep())"
+                     x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return assistantStep().id }, get stepOpts() { return { min: assistantStep().min, max: assistantStep().max, step: assistantStep().step || 1 } }, get stepUnit() { return assistantStepText(assistantStep(), 'unit') }, get stepLabel() { return assistantStepText(assistantStep(), 'title') } }">
+                  <span x-text="$t('automations.assistant.custom')"></span>
+                  {{template "auto-stepper"}}
+                </div>
+              </template>
               <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id] && assistantStep().effect !== 'surplus'"
                  x-text="assistant.effects[assistantStep().id] || ''"></p>
-              <template x-if="assistantStep().effect === 'surplus'">
-                <div class="auto-assist-power">
-                  <svg class="auto-power-svg" x-ref="assistPower" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
-                       x-init="$nextTick(() => mountAssistantPower())"></svg>
-                  <p class="auto-assist-now" x-show="assistantSurplusText() !== ''" x-text="assistantSurplusText()"></p>
+              <template x-if="assistantStep().scale">
+                <div class="auto-assist-scale">
+                  <svg class="auto-scale-svg" x-ref="assistScale" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
+                       x-init="$nextTick(() => mountAssistantScale())"></svg>
+                  <p class="auto-assist-now" x-show="assistantScaleText() !== ''" x-text="assistantScaleText()"></p>
                 </div>
               </template>
               <div class="auto-assist-surplus" x-show="assistantSurplusMarkup() !== ''"
                    x-html="assistantSurplusMarkup()"></div>
-              <template x-if="assistantStep().effect === 'price'">
-                <div class="auto-assist-price">
-                  <svg class="auto-price-svg" x-ref="assistPrice" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
-                       x-init="$nextTick(() => mountAssistantPrice())"></svg>
-                  <p class="auto-assist-now" x-show="assistantPriceText() !== ''" x-text="assistantPriceText()"></p>
-                </div>
-              </template>
             </div>
           </template>
 

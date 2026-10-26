@@ -87,6 +87,7 @@
       {
         id: 'start', type: 'presets', step: 100, default: 1400, effect: 'starts',
         options: [{ id: 1400 }, { id: 2000 }, { id: 3000 }],
+        scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
       {
         id: 'extras', type: 'multi',
@@ -351,6 +352,7 @@
       {
         id: 'on', type: 'presets', step: 100, default: 1500, effect: 'starts',
         options: [{ id: 1000 }, { id: 1500 }, { id: 2500 }],
+        scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
       {
         id: 'off', type: 'tiles', default: 'import',
@@ -454,7 +456,10 @@
     icon: 'ico-battery',
     requires: { soc: true },
     steps: [
-      { id: 'below', type: 'presets', step: 5, default: 20, effect: 'soc', options: [{ id: 10 }, { id: 20 }, { id: 30 }] },
+      {
+        id: 'below', type: 'presets', step: 5, default: 20, effect: 'soc', options: [{ id: 10 }, { id: 20 }, { id: 30 }],
+        scale: { min: 0, max: 100, step: 5, ticks: 20, fill: 'below', unit: '%' },
+      },
       {
         id: 'severity', type: 'tiles', default: 'warning',
         options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
@@ -595,6 +600,7 @@
       {
         id: 'start', type: 'presets', step: 100, default: 2500, effect: 'surplus',
         options: [{ id: 1500 }, { id: 2500 }, { id: 3500 }],
+        scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
       {
         id: 'battery', type: 'tiles', default: 'first',
@@ -761,6 +767,7 @@
       {
         id: 'thr', type: 'presets', step: 0.5, default: 15, effect: 'price',
         options: [{ id: 10 }, { id: 15 }, { id: 20 }],
+        scale: { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
         when: (answers) => answers.source === 'price',
       },
       { id: 'battery', type: 'device', filter: 'battery' },
@@ -900,6 +907,7 @@
       {
         id: 'limit', type: 'presets', step: 100, default: 11000,
         options: [{ id: 11000 }, { id: 16000 }, { id: 25000 }],
+        scale: { min: 0, max: 30000, step: 100, ticks: 5000, grow: true, fill: 'above', unit: 'W' },
       },
       { id: 'device', type: 'device', filter: 'wallbox' },
       {
