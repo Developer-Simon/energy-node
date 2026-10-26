@@ -23,6 +23,7 @@ function load(lang = 'de') {
   return {
     wizard: dom.window.__automationWizard,
     templates: dom.window.__automationTemplates.TEMPLATES,
+    chargeFit: dom.window.__automationTemplates.chargeFit,
     t: (key, params) => i18n.t(key, params),
   };
 }
@@ -55,14 +56,28 @@ const devices = [
       { unique_id: 'hp_temp', name: 'Temperatur', state_topic: 'werkstatt/hp/temp', template_supported: true, device_class: 'temperature', unit_of_measurement: '°C', has_value: true, value: '44' },
     ],
   },
+  {
+    id: 'bat', name: 'Batteriespeicher',
+    entities: [
+      { unique_id: 'bat_limit', name: 'Ladeleistung', command_topic: 'werkstatt/bat/limit', min_value: 0, max_value: 5000, step: 250, unit_of_measurement: 'W', has_value: true, value: '0' },
+      { unique_id: 'bat_soc', name: 'Ladestand', state_topic: 'werkstatt/bat/soc', template_supported: true, device_class: 'battery', unit_of_measurement: '%', has_value: true, value: '46' },
+    ],
+  },
+  {
+    id: 'tibber', name: 'Tibber Preis',
+    entities: [
+      { unique_id: 'tibber_price', name: 'Strompreis', state_topic: 'werkstatt/tibber/price', template_supported: true, unit_of_measurement: 'ct/kWh', has_value: true, value: '12.5' },
+    ],
+  },
 ];
 
 const snapshot = {
-  values: { pv: 862, grid_export: 0, grid_import: 0, battery_soc: 64 },
+  values: { pv: 862, grid_export: 0, grid_import: 0, battery_soc: 46, battery_capacity_kwh: 10 },
   entities: [
     { device_id: 'pv1', entity_id: 'pv1_power', role: { role: 'pv' } },
     { device_id: 'wb', entity_id: 'wb_power', role: { role: 'wallbox' } },
     { device_id: 'hp', entity_id: 'hp_temp', role: { role: 'heat_pump' } },
+    { device_id: 'bat', entity_id: 'bat_soc', role: { role: 'battery_soc' } },
   ],
 };
 
@@ -111,6 +126,11 @@ const VARIANTS = {
     { period: 'fixed', window: { from: '10:00', to: '17:00', days: [0, 1, 2, 3, 4] } },
     { extras: { notify: true, history: false } },
   ],
+  tariff: [
+    { source: 'price', thr: 10 },
+    { charge: { target: 60, power: 1000 } },
+    { extras: { block: false, only: true, notify: true, history: false } },
+  ],
 };
 
 // Zusaetzliche Mitteilungstexte, die eine Vorlage im gebauten Eintrag verwendet.
@@ -118,6 +138,7 @@ const NOTICE_KEYS = {
   zero_feed: ['automations.templates.zero_feed.notice.title', 'automations.templates.zero_feed.notice.message'],
   battery_warn: ['automations.templates.battery_warn.notice.title', 'automations.templates.battery_warn.notice.message'],
   heat_pump: ['automations.templates.heat_pump.notice.title', 'automations.templates.heat_pump.notice.message'],
+  tariff: ['automations.templates.tariff.notice.title', 'automations.templates.tariff.notice.message'],
 };
 
 test('zero_feed builds the documented shape with the default answers', () => {
@@ -618,4 +639,87 @@ test('surplus markup draws the threshold, the quarter hours above it and the tex
   assert.equal(markup.split('<rect').length - 1, 2);
   assert.equal(wizard.surplusMarkup([], 500, labels), '');
   assert.equal(wizard.surplusMarkup(new Array(96).fill(null), 500, labels), '');
+});
+
+// Akku laden bei Niedrigtarif: feste Zeiten oder Preisschwelle, Ziel und Entladesperre.
+const batteryWithLimit = {
+  id: 'bat', name: 'Batteriespeicher',
+  entities: [
+    ...devices.find((device) => device.id === 'bat').entities,
+    { unique_id: 'bat_discharge', name: 'Discharge limit', command_topic: 'werkstatt/bat/discharge', min_value: 0, max_value: 100, step: 1, unit_of_measurement: '%', has_value: true, value: '30' },
+  ],
+};
+
+test('tariff fixed builds a time window over midnight', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  assert.equal(entry.template, 'tariff');
+  assert.deepEqual(entry.when.conditions[0], { type: 'time_window', start: '22:00', end: '06:00', weekdays: [] });
+  assert.deepEqual(entry.when.conditions[1], {
+    type: 'balance_threshold', field: 'battery_soc', comparison: 'below', threshold: 80, hysteresis: 0, hold_seconds: 0,
+  });
+  assert.equal('until' in entry, false);
+  assert.deepEqual(entry.while, { mode: 'none' });
+  assert.deepEqual(entry.on_start.actions, [{
+    type: 'publish', topic: 'werkstatt/bat/limit', retain: false, payload_source: 'constant', payload: '2000', entity_id: 'bat_limit',
+  }]);
+  assert.deepEqual(entry.on_end.actions, [{
+    type: 'publish', topic: 'werkstatt/bat/limit', retain: false, payload_source: 'constant', payload: '0', entity_id: 'bat_limit',
+  }]);
+});
+
+test('tariff price builds an entity_value below the threshold', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const ctx = plain(contextFor(wizard));
+  const answers = answersFor(wizard, template, ctx, { source: 'price', thr: 15 });
+  const entry = plain(template.build(answers, ctx).entry);
+  assert.deepEqual(entry.when.conditions[0], {
+    type: 'entity_value', topic: 'werkstatt/tibber/price', entity_id: 'tibber_price', value_template: '', comparison: 'below', value: 15, hold_seconds: 0,
+  });
+});
+
+test('tariff price is unavailable without price entities', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const ctx = plain(contextFor(wizard, { devices: devices.filter((device) => device.id !== 'tibber') }));
+  const price = template.steps.find((step) => step.id === 'source').options.find((option) => option.id === 'price');
+  assert.equal(price.unavailable(ctx, {}), 'Kein Messwert in ct/kWh gefunden');
+  assert.equal(wizard.defaultAnswers(template, ctx).source, 'fixed');
+  const withPrice = plain(contextFor(wizard));
+  assert.equal(price.unavailable(withPrice, {}), '');
+});
+
+test('tariff block option needs a discharge limit', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const block = template.steps.find((step) => step.id === 'extras').options.find((option) => option.id === 'block');
+  const without = plain(contextFor(wizard));
+  assert.equal(block.unavailable(without, { battery: 'bat_limit' }), 'Akku hat keine Entladegrenze');
+  assert.equal(wizard.defaultAnswers(template, without).extras.block, false);
+
+  const withLimit = plain(wizard.buildContext({
+    devices: devices.map((device) => (device.id === 'bat' ? batteryWithLimit : device)), snapshot, document,
+  }));
+  assert.equal(block.unavailable(withLimit, { battery: 'bat_limit' }), '');
+  const answers = answersFor(wizard, template, withLimit, { extras: { block: true, only: false, notify: false, history: true } });
+  const entry = plain(template.build(answers, withLimit).entry);
+  assert.deepEqual(entry.on_start.actions[1], {
+    type: 'publish', topic: 'werkstatt/bat/discharge', retain: false, payload_source: 'constant', payload: '0', entity_id: 'bat_discharge',
+  });
+  assert.deepEqual(entry.on_end.actions[1], {
+    type: 'publish', topic: 'werkstatt/bat/discharge', retain: false, payload_source: 'constant', payload: '30', entity_id: 'bat_discharge',
+  });
+});
+
+test('tariff fit text for 46 to 80 percent at 2000 W on 10 kWh', () => {
+  const { chargeFit } = load();
+  assert.equal(
+    chargeFit({ soc: 46, target: 80, power: 2000, capacity: 10 }),
+    'Von 46 % auf 80 % sind 3,4 kWh, bei 2000 W also etwa 1 h 42 min.',
+  );
+  assert.equal(chargeFit({ soc: 46, target: 80, power: 2000, capacity: 0 }), '');
+  assert.equal(chargeFit({ soc: 46, target: 80, power: 2000, capacity: undefined }), '');
 });

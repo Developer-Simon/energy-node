@@ -165,8 +165,13 @@
       });
   }
 
+  // Entladegrenze eines Akkus: ein zweiter schreibbarer Wert mit device_class oder
+  // Namen, der „discharge“ enthält.
+  const isDischargeLimit = (entity) => /discharge/i.test(String(entity.device_class || ''))
+    || /discharge/i.test(String(entity.name || ''));
+
   // Akku: Geraete mit Rolle battery oder battery_soc. Ohne Stellglied in W oder %
-  // ist der Eintrag gesperrt.
+  // ist der Eintrag gesperrt. dischargeLimit ist null, wenn es keine Entladegrenze gibt.
   function batteryEntries(devices, index) {
     return devices
       .filter((device) => BATTERY_ROLES.some((role) => deviceHasRole(index, device.id, role)))
@@ -174,6 +179,9 @@
         const entities = device.entities || [];
         const setpoint = entities.find((entity) => isActuator(entity)
           && POWER_OR_PERCENT.test(String(entity.unit_of_measurement || ''))) || null;
+        const dischargeLimit = entities.find((entity) => isActuator(entity)
+          && (!setpoint || entity.unique_id !== setpoint.unique_id)
+          && isDischargeLimit(entity)) || null;
         const measured = entities.find((entity) => isReadable(entity)
           && BATTERY_ROLES.includes(index.entityRoles.get(entity.unique_id))) || null;
         const fallback = setpoint || measured || entities[0] || {};
@@ -182,6 +190,7 @@
           deviceName: device.name,
           live: liveText(measured),
           setpoint,
+          dischargeLimit,
           disabled: setpoint ? '' : t('automations.assistant.unavailable.battery_setpoint'),
         };
       });

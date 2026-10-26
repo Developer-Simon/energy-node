@@ -717,5 +717,171 @@
     },
   };
 
-  window.__automationTemplates = { TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump] };
+  // ---------------------------------------------------------------- Akku laden bei Niedrigtarif
+
+  // Wert eines Stellglieds als Zahl, NaN ohne Wert.
+  const valueOf = (entity) => {
+    const value = entity ? entity.value : undefined;
+    if (value === undefined || value === null || value === '') return NaN;
+    return Number(value);
+  };
+
+  // Satz zum Ladefortschritt: Energie von Ladestand bis Ziel und Dauer bei der Leistung.
+  // Ohne Kapazität, Ladestand oder Leistung gibt es keinen Satz.
+  function chargeFit({ soc, target, power, capacity }) {
+    if (!Number.isFinite(soc) || !Number.isFinite(target) || !(power > 0)) return '';
+    if (!Number.isFinite(capacity) || capacity <= 0) return '';
+    const kwh = Math.max(0, ((target - soc) / 100) * capacity);
+    const minutes = Math.round((kwh / (power / 1000)) * 60);
+    return t('automations.templates.tariff.steps.charge.fit', {
+      soc, target, kwh: window.I18n ? window.I18n.formatNumber(kwh, 1) : kwh.toFixed(1), power, h: Math.floor(minutes / 60), m: minutes % 60,
+    });
+  }
+
+  const batteryOf = (ctx, answers) => (ctx.batteries || []).find((item) => item.id === answers.battery) || {};
+
+  const tariff = {
+    id: 'tariff',
+    category: 'tariff',
+    icon: 'ico-battery',
+    requires: { devices: 'battery' },
+    steps: [
+      {
+        id: 'source', type: 'tiles', default: 'fixed',
+        options: [
+          { id: 'fixed' },
+          { id: 'price', unavailable: (ctx) => (ctx.prices.length ? '' : t('automations.assistant.unavailable.price')) },
+        ],
+      },
+      {
+        id: 'window', type: 'time', when: (answers) => answers.source === 'fixed',
+        default: { from: '22:00', to: '06:00', days: ALL_DAYS },
+      },
+      { id: 'price', type: 'device', filter: 'price', when: (answers) => answers.source === 'price' },
+      {
+        id: 'thr', type: 'presets', step: 0.5, default: 15, effect: 'price',
+        options: [{ id: 10 }, { id: 15 }, { id: 20 }],
+        when: (answers) => answers.source === 'price',
+      },
+      { id: 'battery', type: 'device', filter: 'battery' },
+      {
+        id: 'charge', type: 'numbers',
+        fields: [
+          { id: 'target', min: 30, max: 100, step: 5, default: 80 },
+          { id: 'power', min: 500, max: 5000, step: 250, default: 2000 },
+        ],
+        // Hinweis unter dem Schritt: Energie und Dauer aus dem Ladestand des Kontexts.
+        hint: (answers, ctx) => chargeFit({
+          soc: ctx.snapshot && ctx.snapshot.values ? ctx.snapshot.values.battery_soc : NaN,
+          capacity: ctx.snapshot && ctx.snapshot.values ? ctx.snapshot.values.battery_capacity_kwh : NaN,
+          target: answers.charge.target,
+          power: answers.charge.power,
+        }),
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [
+          {
+            id: 'block', default: true,
+            unavailable: (ctx, answers) => (batteryOf(ctx, answers).dischargeLimit
+              ? '' : t('automations.assistant.unavailable.discharge_limit')),
+          },
+          { id: 'only', default: false },
+          { id: 'notify', default: false },
+          { id: 'history', default: true },
+        ],
+      },
+    ],
+    build(answers, ctx) {
+      const battery = requireEntry(ctx.batteries, answers.battery);
+      if (!battery.setpoint) throw new Error(`automation template: no setpoint for ${battery.id}`);
+      if (!Number.isFinite(valueOf(battery.setpoint))) throw new Error(`automation template: no value for ${battery.id}`);
+      const { target, power } = answers.charge;
+      const setpointEntity = battery.setpoint;
+
+      const when = [];
+      if (answers.source === 'fixed') {
+        when.push({
+          type: 'time_window', start: answers.window.from, end: answers.window.to, weekdays: weekdaysOf(answers.window.days),
+        });
+      } else {
+        const price = requireEntry(ctx.prices, answers.price).entity;
+        when.push({
+          type: 'entity_value', topic: price.state_topic, entity_id: price.unique_id,
+          value_template: price.value_template || '', comparison: 'below', value: answers.thr, hold_seconds: 0,
+        });
+      }
+      if (answers.extras.only) when.push(B('battery_soc', 'below', 30, 0));
+      when.push(B('battery_soc', 'below', target, 0));
+
+      // Beim Start Ladeleistung oder Ladestand setzen, am Ende den beim Anlegen gefundenen Wert zurück.
+      const percent = setpointEntity.unit_of_measurement === '%';
+      const onStart = [setpoint(setpointEntity, percent ? String(target) : String(power))];
+      const onEnd = [setpoint(setpointEntity, String(valueOf(setpointEntity)))];
+      if (answers.extras.block) {
+        const limit = battery.dischargeLimit;
+        if (!limit) throw new Error(`automation template: no discharge limit for ${battery.id}`);
+        if (!Number.isFinite(valueOf(limit))) throw new Error(`automation template: no value for ${limit.unique_id}`);
+        onStart.push(setpoint(limit, '0'));
+        onEnd.push(setpoint(limit, String(valueOf(limit))));
+      }
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.tariff.notice.title'),
+          message: t('automations.templates.tariff.notice.message'),
+        });
+      }
+
+      // until entfällt: Das Szenario endet, sobald eine when-Bedingung nicht mehr gilt.
+      const scenario = {
+        id: uniqueId('tariff', ctx.usedIds),
+        name: t('automations.templates.tariff.title'),
+        enabled: true,
+        template: 'tariff',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: when },
+        on_start: { actions: onStart },
+        on_end: { actions: onEnd },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const battery = requireEntry(ctx.batteries, answers.battery);
+      const fixed = answers.source === 'fixed';
+      const when = fixed
+        ? t('automations.assistant.summary.tariff.when_fixed', { from: answers.window.from, to: answers.window.to })
+        : t('automations.assistant.summary.tariff.when_price', { thr: num(answers.thr) });
+      const block = answers.extras.block;
+      return [
+        {
+          label: phase('when'),
+          text: when + (answers.extras.only ? t('automations.assistant.summary.tariff.only') : ''),
+          step: fixed ? 'window' : 'thr',
+        },
+        {
+          label: phase('start'),
+          text: t('automations.assistant.summary.tariff.start', { name: battery.deviceName, power: num(answers.charge.power) })
+            + (block ? t('automations.assistant.summary.tariff.block') : ''),
+          step: 'charge',
+        },
+        {
+          label: phase('run'),
+          text: t('automations.assistant.summary.tariff.run', { target: num(answers.charge.target) }),
+          step: 'charge',
+        },
+        {
+          label: phase('end'),
+          text: t('automations.assistant.summary.tariff.end') + (block ? t('automations.assistant.summary.tariff.end_block') : ''),
+          step: 'charge',
+        },
+      ];
+    },
+  };
+
+  window.__automationTemplates = {
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff],
+    chargeFit,
+  };
 })();
