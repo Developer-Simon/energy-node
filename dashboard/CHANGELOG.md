@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.18 (2026-10-26)
+## v0.10.19 (2026-10-26)
 
 ### Features
 
@@ -13,6 +13,7 @@
 - **automations:** The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide. (#169) (58993de)
 - **auth:** Permissions are enforced: accounts only see the pages they may view and only change what they may change. (#170) (ab1e04a)
 - **updates:** install the offered update from the update bar (#171) (98937ad)
+- **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
 - **automations:** minimum run time and pause fields in the scenario editor (5d8e12a)
 - **automations:** assistant context knows heat pumps, batteries and prices (8f19986)
 - **automations:** numbers, devices and reveal steps in the assistant logic (2adf4b6)
@@ -27,7 +28,6 @@
 - **automations:** draggable surplus threshold scale (0617f46)
 - **automations:** threshold scale for every preset step (5843854)
 - **automations:** refine the threshold slider (a78e6ed)
-- **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172)
 - **updates:** installer for exactly the offered update (f7ef7b7)
 - **httpapi:** install the offered update without the installer screen (cca3946)
 - **dashboard:** wire the offered-update installer (b46f53a)
@@ -178,6 +178,7 @@
 
 ### Documentation
 
+- **devicemap:** tidy the screenshot preset and regenerate the images (#173)
 - installing the offered update (5903807)
 - route access groups (10f6edb)
 - **automations:** plainer texts and template names in the assistant (18224e9)
