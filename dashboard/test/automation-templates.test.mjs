@@ -69,6 +69,13 @@ const devices = [
       { unique_id: 'tibber_price', name: 'Strompreis', state_topic: 'werkstatt/tibber/price', template_supported: true, unit_of_measurement: 'ct/kWh', has_value: true, value: '12.5' },
     ],
   },
+  {
+    id: 'rod', name: 'Heizstab AC THOR',
+    entities: [
+      { unique_id: 'rod_power', name: 'Leistung', command_topic: 'werkstatt/rod/power', min_value: 0, max_value: 3000, step: 100, unit_of_measurement: 'W', has_value: true, value: '0' },
+      { unique_id: 'rod_temp', name: 'Temperatur', state_topic: 'werkstatt/rod/temp', template_supported: true, device_class: 'temperature', unit_of_measurement: '°C', has_value: true, value: '52' },
+    ],
+  },
 ];
 
 const snapshot = {
@@ -142,6 +149,10 @@ const VARIANTS = {
   pv_missing: [
     { limit: 50, minutes: 60, severity: 'critical' },
   ],
+  heating_rod: [
+    { target: 10, max_temp: 55, battery: 'parallel' },
+    { extras: { notify: true, history: false } },
+  ],
 };
 
 // Zusaetzliche Mitteilungstexte, die eine Vorlage im gebauten Eintrag verwendet.
@@ -151,6 +162,7 @@ const NOTICE_KEYS = {
   heat_pump: ['automations.templates.heat_pump.notice.title', 'automations.templates.heat_pump.notice.message'],
   tariff: ['automations.templates.tariff.notice.title', 'automations.templates.tariff.notice.message'],
   pv_missing: ['automations.templates.pv_missing.notice.title', 'automations.templates.pv_missing.notice.message'],
+  heating_rod: ['automations.templates.heating_rod.notice.title', 'automations.templates.heating_rod.notice.message'],
 };
 
 test('zero_feed builds the documented shape with the default answers', () => {
@@ -1009,4 +1021,80 @@ test('pv_missing needs an inverter with its own reading', () => {
   assert.equal(availability.reason, 'Der Wechselrichter meldet keinen eigenen Messwert');
   assert.equal(wizard.devicesFor('inverter_measured', ctx).length, 0);
   assert.equal(wizard.templateAvailability(template, plain(contextFor(wizard))).available, true);
+});
+
+// Heizstab mit Überschuss: Start über Netzexport und Temperatur, Ende über Netzbezug.
+test('heating_rod builds a consumer regulator, a start with two conditions and an end on grid import', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heating_rod');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  assert.equal(entry.template, 'heating_rod');
+  assert.deepEqual(entry.when.conditions[0], {
+    type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 60,
+  });
+  assert.deepEqual(entry.when.conditions[1], {
+    type: 'entity_value', topic: 'werkstatt/rod/temp', entity_id: 'rod_temp', value_template: '',
+    comparison: 'below', value: 65, hold_seconds: 0,
+  });
+  assert.deepEqual(entry.when.conditions[2], {
+    type: 'balance_threshold', field: 'battery_soc', comparison: 'above', threshold: 80, hysteresis: 0, hold_seconds: 0,
+  });
+  assert.deepEqual(entry.until, { conditions: [{
+    type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100, hysteresis: 0, hold_seconds: 600,
+  }] });
+  assert.equal(entry.while.regulator.direction, 'consumer');
+  assert.equal(entry.while.regulator.target_w, 30);
+  assert.equal(entry.while.regulator.deadband_w, 20);
+  assert.equal(entry.while.regulator.output.topic, 'werkstatt/rod/power');
+  assert.equal(entry.while.regulator.output.max, 3000);
+  assert.deepEqual(entry.while.regulator.base, { source: 'last' });
+  assert.deepEqual(entry.on_end.actions, [{
+    type: 'publish', topic: 'werkstatt/rod/power', retain: false, payload_source: 'constant', payload: '0', entity_id: 'rod_power',
+  }]);
+});
+
+test('heating_rod reads its base from the actuator when that is readable', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heating_rod');
+  const readableRod = devices.map((device) => (device.id === 'rod'
+    ? { ...device, entities: [{ ...device.entities[0], state_topic: 'werkstatt/rod/power', template_supported: true }, device.entities[1]] }
+    : device));
+  const ctx = plain(contextFor(wizard, { devices: readableRod }));
+  const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  assert.deepEqual(entry.while.regulator.base, {
+    source: 'entity', entity_id: 'rod_power', topic: 'werkstatt/rod/power', value_template: '',
+  });
+});
+
+test('heating_rod drops the battery condition without a state of charge', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heating_rod');
+  const noSoc = plain(contextFor(wizard, { snapshot: { ...snapshot, values: { pv: 862, grid_export: 0, grid_import: 0 } } }));
+  const answers = answersFor(wizard, template, noSoc);
+  assert.equal(template.steps.find((step) => step.id === 'battery').when(answers, noSoc), false);
+  const entry = plain(template.build(answers, noSoc).entry);
+  assert.equal(entry.when.conditions.length, 2);
+});
+
+test('heating_rod says that the thermostat limits the run, not the start check', () => {
+  const { t } = load();
+  assert.equal(
+    t('automations.templates.heating_rod.steps.max_temp.help'),
+    'Der Start prüft diese Temperatur. Während des Laufs begrenzt der Thermostat des Heizstabs.',
+  );
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heating_rod');
+  const ctx = plain(contextFor(wizard));
+  const rows = plain(template.summary(answersFor(wizard, template, ctx), ctx));
+  assert.ok(rows.some((row) => row.text === 'Der Start prüft die Temperatur. Während des Laufs begrenzt der Thermostat des Heizstabs.'));
+});
+
+test('heating_rod is unavailable without a rod with power control and thermometer', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heating_rod');
+  const ctx = plain(contextFor(wizard, { devices: devices.filter((device) => device.id !== 'rod') }));
+  const availability = wizard.templateAvailability(template, ctx);
+  assert.equal(availability.available, false);
+  assert.equal(availability.reason, 'Kein Heizstab mit Leistungsstellglied und Temperaturmesswert gefunden');
 });

@@ -1065,6 +1065,113 @@
     },
   };
 
+  // ---------------------------------------------------------------- Heizstab mit Überschuss
+
+  const heatingRod = {
+    id: 'heating_rod',
+    category: 'heating',
+    icon: 'ico-thermo',
+    requires: { devices: 'rod' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'rod' },
+      {
+        id: 'target', type: 'presets', step: 5, default: 30, effect: 'band', options: [{ id: 60 }, { id: 30 }, { id: 10 }],
+        tolerance: { default: 20, min: 5, max: 60 },
+      },
+      { id: 'max_temp', type: 'number', min: 40, max: 90, step: 1, default: 65 },
+      {
+        id: 'battery', type: 'tiles', default: 'first',
+        options: [
+          { id: 'first', reveal: { id: 'soc', default: 80, min: 20, max: 100, step: 5 } },
+          { id: 'parallel' },
+        ],
+        when: (answers, ctx) => !ctx || !socUnavailable(ctx),
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [{ id: 'notify', default: false }, { id: 'history', default: true }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.rods, answers.device);
+      const entity = requireEntity(entry);
+      const thermometer = entry.thermometer;
+      if (!thermometer) throw new Error(`automation template: no thermometer for ${entry.id}`);
+      const battery = answers.battery === 'first' && !socUnavailable(ctx);
+
+      // Der Start prüft die Temperatur. Während des Laufs begrenzt der Thermostat des Heizstabs,
+      // deshalb steht die Temperatur nur in when und nicht in until.
+      const when = [
+        B('grid_export', 'above', 100, 60),
+        {
+          type: 'entity_value', topic: thermometer.state_topic, entity_id: thermometer.unique_id,
+          value_template: thermometer.value_template || '', comparison: 'below', value: answers.max_temp, hold_seconds: 0,
+        },
+      ];
+      if (battery) when.push(B('battery_soc', 'above', answers.soc, 0));
+
+      const readable = !!entity.state_topic && !!entity.template_supported;
+      const regulator = {
+        output: outputOf(entity),
+        direction: 'consumer',
+        target_w: answers.target,
+        deadband_w: Number.isFinite(answers.tolerance) ? answers.tolerance : 20,
+        base: readable ? entityBase(entity) : { source: 'last' },
+        fallback: { payload: String(entity.min_value) },
+      };
+
+      const onStart = [];
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.heating_rod.notice.title'),
+          message: t('automations.templates.heating_rod.notice.message'),
+        });
+      }
+
+      const scenario = {
+        id: uniqueId('heating_rod', ctx.usedIds),
+        name: t('automations.templates.heating_rod.title'),
+        enabled: true,
+        template: 'heating_rod',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: when },
+        until: { conditions: [B('grid_import', 'above', 100, 600)] },
+        on_start: { actions: onStart },
+        on_end: { actions: [setpoint(entity, String(entity.min_value))] },
+        while: { mode: 'regulate', regulator },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      requireEntry(ctx.rods, answers.device);
+      const battery = answers.battery === 'first' && !socUnavailable(ctx);
+      const rows = [{
+        label: phase('when'),
+        text: t('automations.assistant.summary.heating_rod.when', { max: num(answers.max_temp) }),
+        step: 'max_temp',
+      }];
+      if (battery) {
+        rows.push({
+          label: phase('when'),
+          text: t('automations.assistant.summary.heating_rod.battery', { value: num(answers.soc) }),
+          step: 'battery',
+        });
+      }
+      rows.push({
+        label: phase('run'),
+        text: t('automations.assistant.summary.heating_rod.run', { target: num(answers.target) }),
+        step: 'target',
+      });
+      rows.push({ label: phase('run'), text: t('automations.assistant.summary.heating_rod.thermostat'), step: 'max_temp' });
+      rows.push({ label: phase('end'), text: t('automations.assistant.summary.heating_rod.end'), step: 'device' });
+      if (answers.extras.notify) {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.heating_rod.notify'), step: 'extras' });
+      }
+      return rows;
+    },
+  };
+
   // ---------------------------------------------------------------- PV-Ertrag fehlt
 
   const pvMissing = {
@@ -1134,7 +1241,7 @@
   };
 
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, gridCap, gridSignal, pvMissing],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, gridCap, gridSignal, pvMissing, heatingRod],
     chargeFit,
   };
 })();
