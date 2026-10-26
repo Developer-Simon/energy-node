@@ -1369,11 +1369,11 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
-	scenario := strings.Index(line, "automations-scenario.js?v=3")
+	scenario := strings.Index(line, "automations-scenario.js?v=4")
 	chart := strings.Index(line, "automations-chart.js?v=3")
 	page := strings.Index(line, "automations.page.js?v=")
-	wizard := strings.Index(line, "automation-wizard.js?v=2")
-	templates := strings.Index(line, "automation-templates.js?v=2")
+	wizard := strings.Index(line, "automation-wizard.js?v=3")
+	templates := strings.Index(line, "automation-templates.js?v=3")
 	sheet := strings.Index(line, "automation-sheet.js?v=1")
 	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 || sheet < 0 {
 		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)
@@ -1527,7 +1527,7 @@ func TestAutomationsAssistantShipsTheTargetBand(t *testing.T) {
 	line := shell.Body.String()[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
 	sheet := strings.Index(line, "automation-sheet.js?v=1")
-	band := strings.Index(line, "automation-band.js?v=1")
+	band := strings.Index(line, "automation-band.js?v=2")
 	page := strings.Index(line, "automations.page.js?v=")
 	if band < 0 || band < sheet || band > page {
 		t.Fatalf("automation-band.js steht nicht zwischen automation-sheet.js und automations.page.js: %s", line)
@@ -3490,6 +3490,47 @@ func TestAutomationsRuleEditorHasFooterActions(t *testing.T) {
 
 // Im Bearbeiten-Modus sind die Zeilen editierbar wie in der Regelkarte: jeder
 // Phasenblock bindet die gemeinsamen Editoren und Kacheln an seinen Besitzer.
+// Ziel und Totband sowie die drei Stepper am Ende liegen je in einem
+// auto-fields-Container, damit sie auf dem Desktop eine Zeile teilen.
+func TestScenarioStepperFieldsShareOneRow(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(tpl)
+	block := func(from, to string) string {
+		start := strings.Index(src, from)
+		if start < 0 {
+			t.Fatalf("Szenario-Markup: Anfang %q fehlt", from)
+		}
+		end := strings.Index(src[start:], to)
+		if end < 0 {
+			t.Fatalf("Szenario-Markup: Ende %q fehlt", to)
+		}
+		return src[start : start+end]
+	}
+	regulator := block(
+		"<div class=\"auto-fields\">\n                <div class=\"auto-field\" x-data=\"{ get stepTarget() { return scenario.while.regulator }, stepKey: 'target_w'",
+		"<div class=\"auto-edit-grid\">",
+	)
+	if n := strings.Count(regulator, `class="auto-field"`); n != 2 {
+		t.Fatalf("Ziel und Totband: %d Felder im auto-fields-Container, erwartet 2", n)
+	}
+	if !strings.Contains(regulator, "stepKey: 'deadband_w'") {
+		t.Fatal("Totband fehlt im auto-fields-Container von Ziel")
+	}
+	end := block(
+		"<div class=\"auto-fields\">\n          <div class=\"auto-field\" x-data=\"{ get stepTarget() { return { get v() { return maxDurationMinutes",
+		"<div x-data=\"scenarioRows(scenario, 'on_end', null)\">",
+	)
+	if n := strings.Count(end, `class="auto-field"`); n != 3 {
+		t.Fatalf("Ende-Felder: %d Felder im auto-fields-Container, erwartet 3", n)
+	}
+	if n := strings.Count(end, "stepKey: 'v'"); n != 3 {
+		t.Fatalf("Ende-Stepper: %d im auto-fields-Container, erwartet 3", n)
+	}
+}
+
 func TestScenarioEditModeUsesTheSharedRowEditors(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
@@ -3603,7 +3644,7 @@ func TestFineTuningIsACardWithSteppers(t *testing.T) {
 		t.Fatal("Feineinstellungen sind keine auto-card")
 	}
 	card := source[start:]
-	if end := strings.Index(card, `{{end}}`); end > 0 {
+	if end := strings.Index(card, `</section>`); end > 0 {
 		card = card[:end]
 	}
 	if !strings.Contains(card, `ico-gear`) {
@@ -3619,6 +3660,38 @@ func TestFineTuningIsACardWithSteppers(t *testing.T) {
 
 // Die Aktionskarten zeigen je Aktion Art, Testen (nur mit rowsCanTest) und Loeschen.
 // Der Editor-Block der Aktionen nutzt keine edit-card mehr.
+// Die Zahlenfelder des Szenario-Editors (Regler und Ende) sind Stepper. Ausgabe
+// min/max und das Wiederholungsfeld der Halten-Schleife bleiben Zahlenfelder.
+func TestScenarioNumericFieldsUseSteppers(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-scenario.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(tpl)
+	for _, want := range []string{
+		`stepKey: 'target_w'`,
+		`stepKey: 'deadband_w'`,
+		`stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }`,
+		`stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }`,
+	} {
+		if !strings.Contains(source, want) {
+			t.Fatalf("Szenario-Editor: Stepper %q fehlt", want)
+		}
+	}
+	for _, old := range []string{"-target`", "-deadband`", "-max-duration`", "-min-run`", "-cooldown`"} {
+		if strings.Contains(source, old) {
+			t.Fatalf("Szenario-Editor: altes Zahlenfeld mit id %s noch vorhanden", old)
+		}
+	}
+	// Bleiben als Zahlenfelder: Ausgabe min/max und das Wiederholungsfeld der Halten-Schleife.
+	if n := strings.Count(source, `type="number"`); n != 3 {
+		t.Fatalf("Szenario-Editor hat %d bare Zahlenfelder, erwartet 3 (Ausgabe min/max, Wiederholung)", n)
+	}
+	if n := strings.Count(source, `{{template "auto-stepper"}}`); n != 9 {
+		t.Fatalf("Szenario-Editor hat %d auto-stepper, erwartet 9", n)
+	}
+}
+
 func TestActionCardsShowKindTestAndDelete(t *testing.T) {
 	tpl, err := os.ReadFile("templates/automations-rows.html")
 	if err != nil {
@@ -3910,5 +3983,164 @@ func TestNoUserShowsEveryTab(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("ohne Nutzer fehlt %s", want)
 		}
+	}
+}
+
+// TestAutomationsPanelShipsNumbersDevicesAndReveal haelt die Darstellung der
+// Schritt-Typen numbers und devices sowie den reveal-Stepper unter einer Kachel
+// im Assistenten-Markup fest. Jeder Typ hat ein eigenes x-if mit einer Wurzel.
+func TestAutomationsPanelShipsNumbersDevicesAndReveal(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`assistantStep().type === 'numbers'`, `x-for="field in assistantStep().fields"`,
+		`assistantFieldText(assistantStep(), field, 'title')`, `class="auto-assist-option auto-assist-number"`,
+		`assistantStep().type === 'devices'`, `class="auto-assist-pick"`, `role="checkbox"`,
+		`x-bind:aria-checked="assistantPicked(assistantStep(), device.id)`, `assistantToggleDevice(assistantStep(), device.id)`,
+		`class="auto-assist-pick-check"`, `href="#ico-check"`,
+		`assistantRevealOption(assistantStep())`, `assistantRevealSub(assistantStep())`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Markup %q fehlt", marker)
+		}
+	}
+}
+
+// Vorschau der Überschuss-Vorlage und Reihenfolge im Kontakt-Schritt: das Markup
+// bindet die Vorschau an den Startwert und zeigt Abzeichen und Text je Kachel.
+func TestAutomationsAssistantShipsTheSurplusPreview(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`class="auto-assist-surplus"`, `x-html="assistantSurplusMarkup()"`,
+		`x-show="assistantSurplusMarkup() !== ''"`,
+		`assistantStep().effect !== 'surplus'`,
+		`x-text="assistantBadge(assistantStep(), option)"`,
+		`x-text="assistantTileText(assistantStep(), option)"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Vorschau-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	js, err := os.ReadFile("static/js/automation-wizard.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`surplusMarkup`, `auto-surplus-svg`, `devicesForStep`} {
+		if !strings.Contains(string(js), marker) {
+			t.Fatalf("automation-wizard.js liefert die Vorschau nicht: %q fehlt", marker)
+		}
+	}
+}
+
+// TestAutomationsAssistantShipsThePriceScale haelt fest, dass der Schritt
+// "Ab welchem Preis laden?" der Niedrigtarif-Vorlage die Preisskala mit
+// Schieber, Markierung des aktuellen Preises und den Ladehinweis ausliefert.
+// Die Rolle des Schiebers setzt automation-band.js, daher wird auch die Quelle geprueft.
+func TestAutomationsAssistantShipsThePriceScale(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`x-ref="assistScale"`, `mountAssistantScale()`, `assistantScaleText()`,
+		`class="auto-scale-svg"`, `class="auto-assist-scale"`,
+		`x-if="assistantStepHint() !== ''"`, `assistantStepHint()`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Preisskala-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	js, err := os.ReadFile("static/js/automation-band.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`mountScale`, `setPointerCapture`, `role`, `slider`} {
+		if !strings.Contains(string(js), marker) {
+			t.Fatalf("automation-band.js liefert die Preisskala nicht: %q fehlt", marker)
+		}
+	}
+}
+
+// TestAutomationsAssistantShipsThePowerScale haelt fest, dass der Schritt
+// "Ab wie viel Ueberschuss?" die Leistungsskala mit Schieber und Markierung des
+// Istwerts ausliefert, auch ohne Verlaufsdaten. Die Rolle des Schiebers setzt
+// automation-band.js, daher wird auch die Quelle geprueft.
+func TestAutomationsAssistantShipsThePowerScale(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`x-if="assistantStep().scale"`, `class="auto-assist-scale"`,
+		`x-ref="assistScale"`, `mountAssistantScale()`, `class="auto-scale-svg"`,
+		`assistantScaleText()`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Leistungsskala-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	js, err := os.ReadFile("static/js/automation-band.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`mountScale`, `scaleMax`, `setPointerCapture`} {
+		if !strings.Contains(string(js), marker) {
+			t.Fatalf("automation-band.js liefert die Leistungsskala nicht: %q fehlt", marker)
+		}
+	}
+}
+
+// TestAutomationsAssistantScaleReplacesTheCustomStepper haelt fest, dass alle
+// presets-Schritte mit Skala einen gemeinsamen Skalen-Block haben und der Stepper
+// unter "Eigener Wert" nur bei Schritten ohne scale bleibt.
+func TestAutomationsAssistantScaleReplacesTheCustomStepper(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`<template x-if="!assistantStep().scale">`,
+		`<template x-if="assistantStep().scale">`,
+		`x-init="$nextTick(() => mountAssistantScale())"`,
+		`x-on:click="assistantCustom(assistantStep())"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Skalen-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	if strings.Count(body, `class="auto-scale-svg"`) != 1 {
+		t.Fatalf("der Skalen-Block soll genau einmal im Assistenten stehen")
+	}
+	if strings.Contains(body, `mountAssistantPrice`) || strings.Contains(body, `mountAssistantPower`) {
+		t.Fatalf("die getrennten Preis- und Leistungs-Mounts sind zusammengefuehrt")
+	}
+}
+
+// Die Zeilen des Assistenten: numbers-Felder zeigen ein Symbol mit Ausweichwert
+// und ihre Einheit aus dem Katalog, die Reveal-Zeile zeigt Titel, Untertext und
+// Einheit der gewaehlten Kachel. Die Bindungen stehen im Panel-Fragment.
+func TestAutomationsAssistantNumbersRowsBindIconAndUnit(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`'#' + assistantFieldIcon(field)`,
+		`assistantFieldText(assistantStep(), field, 'unit')`,
+		`assistantRevealTitle(assistantStep())`,
+		`assistantRevealSub(assistantStep())`,
+		`assistantRevealUnit(assistantStep())`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	if strings.Contains(body, `'#ico-' + field.icon`) || strings.Contains(body, `field.unit || ''`) {
+		t.Fatal("das Assistenten-Markup liest Icon und Einheit nicht mehr direkt vom Feld")
 	}
 }

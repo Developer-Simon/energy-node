@@ -61,6 +61,18 @@
             "maximum": 86400,
             "description": "Ends the scenario after this many seconds. Missing means no limit."
           },
+          "min_run_s": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400,
+            "description": "The scenario runs at least this many seconds, even if the end condition is met sooner. Switching it off and the maximum run time still end it at once. Missing means no minimum."
+          },
+          "cooldown_s": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400,
+            "description": "After it ends, the scenario starts again only after this many seconds, even if the start condition holds again. Missing means no pause."
+          },
           "when": {
             "type": "object",
             "additionalProperties": false,

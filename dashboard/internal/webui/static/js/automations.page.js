@@ -126,18 +126,25 @@
   // Zustand des Vorlagen-Assistenten im Ruhezustand (Dialog zu).
   const assistantIdle = () => ({
     open: false, templateId: '', answers: {}, index: 0, name: '', query: '', category: 'all', context: null, effects: {},
-    band: { tolOn: false, errors: null },
+    band: { tolOn: false, errors: null }, surplus: null,
   });
   // Zielband im Assistenten: Griff und Zustand leben ausserhalb der reaktiven Daten.
   let bandHandle = null;
   let bandState = null;
+  // Schwellenskala des presets-Schritts mit scale, ebenfalls ausserhalb der reaktiven Daten.
+  let scaleHandle = null;
+  let scaleState = null;
   const bandSigned = (value) => (value > 0 ? '+' : (value < 0 ? '\u2212' : '')) + window.I18n.formatNumber(Math.abs(value));
   const assistantTemplateList = () => (window.__automationTemplates ? window.__automationTemplates.TEMPLATES : []);
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
-  const ASSIST_DEVICE_ICONS = { inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch' };
+  const ASSIST_DEVICE_ICONS = {
+    inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch',
+    grid_target: 'ico-grid', input: 'ico-switch', inverter_measured: 'ico-inverter',
+  };
   const ASSIST_TILE_ICONS = {
     sun: 'ico-sun', min: 'ico-clock', battery: 'ico-battery', always: 'ico-play', fixed: 'ico-calendar',
     import: 'ico-grid', runtime: 'ico-clock', sunset: 'ico-sun', info: 'ico-info', warning: 'ico-warning', critical: 'ico-bell',
+    calm: 'ico-clock', fast: 'ico-flash',
   };
 
   const automationsPanel = () => ({
@@ -1271,6 +1278,7 @@
       const finish = () => {
         if (dialog && typeof dialog.close === 'function' && dialog.open) dialog.close();
         this.destroyAssistantBand();
+        this.destroyAssistantScale();
         this.assistant = assistantIdle();
         if (opener && typeof opener.focus === 'function') opener.focus();
       };
@@ -1326,8 +1334,7 @@
     // Geraete fuer einen device-Schritt, mit Sperre und Grund aus dem Kontext.
     assistantDevices(step) {
       if (!step || !this.assistant.context) return [];
-      const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
-      return window.__automationWizard.devicesFor(kind, this.assistant.context);
+      return window.__automationWizard.devicesForStep(step, this.assistant.context, this.assistant.answers);
     },
 
     startTemplate(id) {
@@ -1355,7 +1362,7 @@
     assistantSteps() {
       const template = this.assistantTemplate();
       if (!template) return [];
-      return window.__automationWizard.visibleSteps(template, this.assistant.answers);
+      return window.__automationWizard.visibleSteps(template, this.assistant.answers, this.assistant.context);
     },
 
     assistantStep() {
@@ -1380,6 +1387,7 @@
       if (!this.assistant.templateId) return;
       if (this.assistant.index === 0) {
         this.destroyAssistantBand();
+        this.destroyAssistantScale();
         this.assistant = { ...this.assistant, templateId: '', answers: {}, name: '', effects: {}, band: { tolOn: false, errors: null } };
         return;
       }
@@ -1399,11 +1407,18 @@
     // Wirkung eines Voreinstellungswerts aus den Vortagsdaten; eine inzwischen
     // geaenderte Antwort ueberschreibt den Text nicht.
     async refreshEffect(step) {
+      // Jede Wahl legt die Skala neu an, damit sie Grenzen und Wert des Schritts zeigt.
+      if (step && step.scale) this.$nextTick(() => this.mountAssistantScale());
       if (!step || step.type !== 'presets' || !step.effect) return;
       if (step.effect === 'band') {
         await this.loadBandErrors();
         return;
       }
+      if (step.effect === 'surplus') {
+        await this.loadSurplus();
+        return;
+      }
+      if (step.effect === 'price') return;
       const value = this.assistant.answers[step.id];
       const text = await window.__automationWizard.presetEffect(step, value, this.assistant.context, window.HistoryStore);
       if (this.assistant.open && this.assistant.answers[step.id] === value) {
@@ -1427,6 +1442,44 @@
       if (bandHandle) bandHandle.redraw();
     },
 
+    // Gestrige Viertelstunden des Überschusses für die Vorschau, einmal je Assistent.
+    // Ohne Daten bleibt die Reihe leer, dann zeigt die Vorschau nichts.
+    async loadSurplus() {
+      if (!this.assistant.open || this.assistant.surplus !== null) return;
+      let series = [];
+      try {
+        const [from, to] = window.__automationWizard.yesterdayRange();
+        const rows = await window.HistoryStore.readRange('1m', 'role:grid', from, to);
+        series = window.__automationWizard.quarterSurplus(rows);
+      } catch (error) {
+        series = [];
+      }
+      if (this.assistant.open) this.assistant.surplus = series;
+    },
+
+    // Vorschau des Startwerts: Kurve und Schwelle aus den Antworten, '' ohne Daten.
+    assistantSurplusMarkup() {
+      const step = this.assistantStep();
+      if (!step || step.effect !== 'surplus' || !Array.isArray(this.assistant.surplus)) return '';
+      const wizard = window.__automationWizard;
+      const threshold = this.assistant.answers[step.id];
+      return wizard.surplusMarkup(this.assistant.surplus, threshold, {
+        start: t('automations.assistant.surplus.start_at', { value: window.I18n.formatNumber(threshold) }),
+        aria: t('automations.assistant.surplus.aria'),
+        text: wizard.surplusText(this.assistant.surplus, threshold),
+      });
+    },
+
+    // Abzeichen und Text einer Kachel, je nach Gerätekontext der Antworten.
+    assistantBadge(step, option) {
+      return window.__automationWizard.optionBadge(option, this.assistant.context, this.assistant.answers);
+    },
+
+    assistantTileText(step, option) {
+      const field = window.__automationWizard.optionTextField(option, this.assistant.context, this.assistant.answers);
+      return this.assistantOptionText(step, option, field);
+    },
+
     // Zieht das Band neu: Ziel und Toleranz aus den Antworten, Toleranz ohne Schalter 20 W.
     assistantBandSync() {
       if (!bandHandle || !bandState) return;
@@ -1434,6 +1487,97 @@
       bandState.target = answers.target;
       bandState.tol = band.tolOn ? answers.tolerance : 20;
       bandHandle.redraw();
+    },
+
+    // Hinweis unter dem Schritt, etwa der Ladehinweis; '' wenn der Schritt keinen hat.
+    assistantStepHint() {
+      const step = this.assistantStep();
+      if (!step || typeof step.hint !== 'function') return '';
+      return step.hint(this.assistant.answers, this.assistant.context) || '';
+    },
+
+    // Aktueller Preis des gewaehlten Messwerts in ct/kWh, null ohne Wert.
+    assistantPriceNow() {
+      const prices = (this.assistant.context && this.assistant.context.prices) || [];
+      const entry = prices.find((item) => item.id === this.assistant.answers.price);
+      const value = entry && entry.entity ? entry.entity.value : undefined;
+      if (value === undefined || value === null || value === '') return null;
+      const number = Number(value);
+      if (!Number.isFinite(number)) return null;
+      return window.__automationWizard.priceToCt(number, entry.entity.unit_of_measurement);
+    },
+
+    // Aktueller Preis des gewaehlten Messwerts in ct/kWh, null ohne Wert.
+    assistantPriceNow() {
+      const prices = (this.assistant.context && this.assistant.context.prices) || [];
+      const entry = prices.find((item) => item.id === this.assistant.answers.price);
+      const value = entry && entry.entity ? entry.entity.value : undefined;
+      if (value === undefined || value === null || value === '') return null;
+      const number = Number(value);
+      if (!Number.isFinite(number)) return null;
+      return window.__automationWizard.priceToCt(number, entry.entity.unit_of_measurement);
+    },
+
+    // Überschuss jetzt in W aus dem Assistenten-Kontext, null ohne Netzwert.
+    assistantSurplusNow() {
+      return window.__automationWizard.surplusNow(this.assistant.context);
+    },
+
+    // Satz unter der Skala: Jetzt-Preis oder Jetzt-Überschuss gegen die Schwelle, '' sonst.
+    assistantScaleText() {
+      const step = this.assistantStep();
+      if (!step || !step.scale) return '';
+      const thr = this.assistant.answers[step.id];
+      if (step.effect === 'price') return window.__automationWizard.priceNowText(this.assistantPriceNow(), thr);
+      if (step.effect === 'surplus') return window.__automationWizard.surplusNowText(this.assistantSurplusNow(), thr);
+      return '';
+    },
+
+    // Istwert der Markierung auf der Skala: Preis bei Tarif, Überschuss bei Leistung, sonst null.
+    assistantScaleNow() {
+      const step = this.assistantStep();
+      if (!step || !step.scale) return null;
+      if (step.effect === 'price') return this.assistantPriceNow();
+      if (step.effect === 'surplus' || step.effect === 'starts') return this.assistantSurplusNow();
+      return null;
+    },
+
+    // Legt die Skala des Schritts in den SVG-Knoten. Eine vorherige Skala wird vorher aufgeloest.
+    mountAssistantScale() {
+      this.destroyAssistantScale();
+      const svg = this.$refs.assistScale;
+      const step = this.assistantStep();
+      if (!svg || !step || !step.scale || !window.__automationBand) return;
+      const page = this;
+      const { scale } = step;
+      const fmt = (value) => window.I18n.formatNumber(value, scale.step < 1 ? 1 : 0);
+      // Der Tarif behält seine Katalogtexte ("unter 15 ct", "15 ct pro kWh"), sonst Zahl und Einheit.
+      const tariff = step.effect === 'price';
+      const plain = (value) => `${fmt(value)} ${scale.unit}`;
+      scaleState = { thr: this.assistant.answers[step.id] };
+      scaleHandle = window.__automationBand.mountScale(svg, {
+        state: scaleState,
+        min: scale.min,
+        max: scale.max,
+        step: scale.step,
+        ticks: scale.ticks,
+        grow: scale.grow,
+        fill: scale.fill,
+        presets: step.options.map((option) => option.id),
+        now: () => page.assistantScaleNow(),
+        tickLabel: fmt,
+        labels: {
+          threshold: tariff ? (value) => t('automations.assistant.price.threshold', { value: fmt(value) }) : plain,
+          valueText: tariff ? (value) => t('automations.assistant.price.value_text', { value: fmt(value) }) : plain,
+        },
+        onChange: (state) => { page.assistant.answers[step.id] = state.thr; },
+      });
+    },
+
+    destroyAssistantScale() {
+      if (scaleHandle) scaleHandle.destroy();
+      scaleHandle = null;
+      scaleState = null;
     },
 
     // Legt das Band in den SVG-Knoten des Schritts. Ein vorheriges Band wird vorher aufgeloest.
@@ -1559,8 +1703,13 @@
 
     // Anzeige-Helfer des Assistenten-Markups: Texte aus dem Katalog, Symbole,
     // Sperren mit Grund und Voreinstellungen.
-    assistantCopy(template, path) {
-      return template ? t(`automations.templates.${template.id}.${path}`) : '';
+    assistantCopy(template, path, params) {
+      return template ? t(`automations.templates.${template.id}.${path}`, params) : '';
+    },
+
+    // Platzhalter der Katalogtexte: Antworten und Ladestand aus dem Kontext.
+    assistantTextParams() {
+      return window.__automationWizard.textParams(this.assistant.context, this.assistant.answers);
     },
 
     assistantStepText(step, field) {
@@ -1570,7 +1719,30 @@
     },
 
     assistantOptionText(step, option, field) {
-      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.options.${option.id}.${field}`);
+      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.options.${option.id}.${field}`,
+        this.assistantTextParams());
+    },
+
+    // Reveal-Zeile einer Kachel: Titel, Untertext und Einheit aus dem Katalog der gewaehlten Option.
+    assistantRevealTitle(step) {
+      const option = this.assistantRevealOption(step);
+      return option ? this.assistantOptionText(step, option, 'reveal.title') : '';
+    },
+
+    assistantRevealSub(step) {
+      const option = this.assistantRevealOption(step);
+      if (!option) return '';
+      return this.assistantOptionText(step, option, window.__automationWizard.revealTextKey(this.assistantTextParams()));
+    },
+
+    assistantRevealUnit(step) {
+      const option = this.assistantRevealOption(step);
+      return option ? this.assistantOptionText(step, option, 'reveal.unit') : '';
+    },
+
+    // Symbol eines numbers-Feldes mit Ausweichsymbol.
+    assistantFieldIcon(field) {
+      return window.__automationWizard.fieldIcon(field);
     },
 
     assistantCategories() {
@@ -1600,9 +1772,36 @@
 
     // Waehlt einen Wert; bei Voreinstellungen wird die Wirkung neu berechnet.
     assistantPick(step, value) {
-      this.assistant.answers[step.id] = value;
+      window.__automationWizard.chooseOption(step, this.assistant.answers, value);
       if (step.effect === 'band') this.assistantBandSync();
       this.refreshEffect(step);
+    },
+
+    // Mehrfachauswahl eines devices-Schritts: ID an- oder abschalten.
+    assistantToggleDevice(step, id) {
+      this.assistant.answers[step.id] = window.__automationWizard.toggleDevice(this.assistant.answers[step.id], id);
+    },
+
+    assistantPicked(step, id) {
+      const list = this.assistant.answers[step.id];
+      return Array.isArray(list) && list.includes(id);
+    },
+
+    // Option mit reveal, die gerade gewaehlt ist, sonst null.
+    assistantRevealOption(step) {
+      if (!step || !step.options) return null;
+      const chosen = step.options.find((option) => option.id === this.assistant.answers[step.id]);
+      return chosen && chosen.reveal ? chosen : null;
+    },
+
+    // Texte eines numbers-Feldes aus dem Katalog.
+    assistantFieldText(step, field, key) {
+      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.fields.${field.id}.${key}`);
+    },
+
+    // Grenzen und Schritt eines Stepper-Feldes, auch fuer reveal-Werte.
+    assistantFieldOpts(field) {
+      return { min: field.min, max: field.max, step: field.step || 1 };
     },
 
     assistantIsCustom(step) {
@@ -1610,10 +1809,17 @@
     },
 
     // Eigener Wert: der naechste Wert ueber dem aktuellen, der keine Voreinstellung ist.
+    // Schrittweite wie beim Stepper, bei Nachkommastellen etwa 0,5.
     assistantCustom(step) {
+      const increment = step.step || 5;
+      const decimals = window.__automationWizard.decimalsOf(increment);
       let value = Number(this.assistant.answers[step.id]) || 0;
-      while (step.options.some((option) => option.id === value)) value += 5;
+      while (step.options.some((option) => option.id === value)) {
+        value = Number((value + increment).toFixed(decimals));
+      }
       this.assistantPick(step, value);
+      // Mit Schieber setzt der Knopf den Fokus auf die Skala, Tasten ändern dann den Wert.
+      if (step.scale) this.$nextTick(() => { const svg = this.$refs.assistScale; if (svg) svg.focus(); });
     },
 
     // Schaltet einen Wochentag (0 bis 6) in einer Liste um, etwa bei Zeit und Mehrfachwahl.
@@ -2365,6 +2571,22 @@
 
     setMaxDurationMinutes(scenario, minutes) {
       window.__automationScenario.setMaxDurationMinutes(scenario, minutes);
+    },
+
+    minRunMinutes(scenario) {
+      return window.__automationScenario.minRunMinutes(scenario);
+    },
+
+    setMinRunMinutes(scenario, minutes) {
+      window.__automationScenario.setMinRunMinutes(scenario, minutes);
+    },
+
+    cooldownMinutes(scenario) {
+      return window.__automationScenario.cooldownMinutes(scenario);
+    },
+
+    setCooldownMinutes(scenario, minutes) {
+      window.__automationScenario.setCooldownMinutes(scenario, minutes);
     },
 
     changeWhileMode(scenario, mode) {

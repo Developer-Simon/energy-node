@@ -390,7 +390,7 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
    Unterstuetzung bleibt es bei 5ch und rechtsbuendig. */
 .auto-stepper-field .auto-input { flex: 0 1 auto; width: auto; field-sizing: content; min-width: 1ch; max-width: 100%; height: 100%; padding: .12em 0 0; border-radius: 0; background: transparent; text-align: center; }
 @supports not (field-sizing: content) { .auto-stepper-field .auto-input { width: 5ch; text-align: right; } }
-.auto-stepper-field .auto-input-unit { position: static; transform: none; flex: none; }
+.auto-stepper-field .auto-input-unit { position: static; transform: none; flex: none; margin-left: 2px; }
 .auto-stepper-field:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
 .auto-stepper-field .auto-input:focus { box-shadow: none; border-color: transparent; }
 .auto-input-unit { position: absolute; top: 50%; right: .7rem; transform: translateY(-50%); font-size: .78rem; color: var(--text-muted); pointer-events: none; }
@@ -546,6 +546,19 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-assist-check-text b { color: var(--text-strong); }
 .auto-assist-option-wrap { display: grid; gap: .4rem; }
 .auto-assist-reveal { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 0 .8rem; }
+.auto-assist-tile-reveal { grid-column: 1 / -1; }
+.auto-assist-number { cursor: default; }
+.auto-assist-pick { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; width: 100%; box-sizing: border-box; padding: .65rem .8rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel-alt); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.auto-assist-pick.is-selected { border-color: var(--accent-line); }
+.auto-assist-pick.is-off { opacity: .55; cursor: not-allowed; }
+.auto-assist-pick .auto-assist-option-text { flex: 1 1 auto; min-width: 0; }
+.auto-assist-pick .auto-assist-reason { flex-basis: 100%; }
+.auto-assist-pick-check { display: grid; flex: none; place-items: center; width: 1.5rem; height: 1.5rem; border: 1px solid var(--border); border-radius: 50%; color: var(--accent-ink); }
+.auto-assist-pick-check .automation-icon { width: .9rem; height: .9rem; opacity: 0; transition: opacity 200ms var(--ease-out); }
+.auto-assist-pick.is-selected .auto-assist-pick-check { background: var(--accent); border-color: var(--accent); }
+.auto-assist-pick.is-selected .auto-assist-pick-check .automation-icon { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .auto-assist-pick:not(.is-off):hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .auto-assist-pick-check .automation-icon { transition: none; } }
 .auto-assist-field { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .9rem; color: var(--text); }
 .auto-assist-field > .auto-input { flex: 1 1 8rem; width: auto; }
 .auto-assist-time { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); gap: .6rem; }
@@ -794,3 +807,24 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 /* Nur-Lesen-Zustand: die Bearbeitungsfelder sind ein deaktiviertes fieldset, ohne Rahmen und Abstand. */
 .auto-readonly-scope { border: 0; margin: 0; padding: 0; min-width: 0; }
 .auto-readonly-hint { margin: 0 0 .6rem; }
+
+/* --- Vorschau der Überschuss-Vorlage: Kurve des Vortags unter dem Startwert --- */
+.auto-assist-surplus { display: grid; gap: 8px; padding: 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border-soft); }
+.auto-surplus-svg { width: 100%; height: auto; display: block; }
+.auto-assist-surplus-text { font-size: .86rem; color: var(--text-muted); }
+
+/* --- Schwellenskalen: Preis der Niedrigtarif-Vorlage (0 bis 40 ct) und Leistung des Überschusses (0 bis 6000 W), ziehbar, mit Markierung des Istwerts --- */
+.auto-assist-scale { display: grid; gap: 8px; padding: 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--border-soft); }
+.auto-scale-svg { display: block; width: 100%; height: auto; min-height: 44px; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.auto-scale-handle { transform-box: fill-box; transform-origin: center bottom; transition: transform 120ms var(--ease-out); }
+.auto-scale-svg.is-dragging .auto-scale-handle { transform: scale(1.06); }
+@media (hover: hover) and (pointer: fine) {
+  .auto-scale-svg { cursor: grab; }
+  .auto-scale-svg.is-dragging { cursor: grabbing; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auto-scale-handle { transition: none; }
+  .auto-scale-svg.is-dragging .auto-scale-handle { transform: none; }
+}
+.auto-scale-svg:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; border-radius: 8px; }
+.auto-assist-now, .auto-assist-fit { margin: 0; font-size: .86rem; color: var(--text-muted); }

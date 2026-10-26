@@ -5,7 +5,7 @@
   // kommen aus dem Katalog: automations.templates.<id>.* und automations.assistant.*.
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const num = (value) => (window.I18n ? window.I18n.formatNumber(value) : String(value));
-  const { uniqueId } = window.__automationWizard;
+  const { uniqueId, ctToPriceUnit } = window.__automationWizard;
 
   const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -87,6 +87,7 @@
       {
         id: 'start', type: 'presets', step: 100, default: 1400, effect: 'starts',
         options: [{ id: 1400 }, { id: 2000 }, { id: 3000 }],
+        scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
       {
         id: 'extras', type: 'multi',
@@ -351,6 +352,7 @@
       {
         id: 'on', type: 'presets', step: 100, default: 1500, effect: 'starts',
         options: [{ id: 1000 }, { id: 1500 }, { id: 2500 }],
+        scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
       },
       {
         id: 'off', type: 'tiles', default: 'import',
@@ -454,7 +456,10 @@
     icon: 'ico-battery',
     requires: { soc: true },
     steps: [
-      { id: 'below', type: 'presets', step: 5, default: 20, effect: 'soc', options: [{ id: 10 }, { id: 20 }, { id: 30 }] },
+      {
+        id: 'below', type: 'presets', step: 5, default: 20, effect: 'soc', options: [{ id: 10 }, { id: 20 }, { id: 30 }],
+        scale: { min: 0, max: 100, step: 5, ticks: 20, fill: 'below', unit: '%' },
+      },
       {
         id: 'severity', type: 'tiles', default: 'warning',
         options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
@@ -543,5 +548,711 @@
     },
   };
 
-  window.__automationTemplates = { TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch] };
+  // ---------------------------------------------------------------- Waermepumpe anheben
+
+  // Aktueller Sollwert als Zahl, NaN ohne Stellglied oder ohne Wert.
+  const currentSetpoint = (entry) => {
+    const value = entry.setpoint ? entry.setpoint.value : undefined;
+    if (value === undefined || value === null || value === '') return NaN;
+    return Number(value);
+  };
+  const hasSetpoint = (entry) => Number.isFinite(currentSetpoint(entry));
+
+  // Eigener Schalter der Wärmepumpe, zuerst vorgewählt im Kontakt-Schritt.
+  const ownSwitchOf = (ctx, deviceId) => {
+    const entry = (ctx.heatPumps || []).find((item) => item.id === deviceId);
+    return entry && entry.ownSwitch ? entry.ownSwitch.unique_id : '';
+  };
+
+  const heatPump = {
+    id: 'heat_pump',
+    category: 'heating',
+    icon: 'ico-heatpump',
+    requires: { devices: 'heat_pump' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'heat_pump' },
+      {
+        id: 'control', type: 'tiles', default: 'sg',
+        options: [
+          {
+            id: 'sg',
+            unavailable: (ctx) => (ctx.switches.length ? '' : t('automations.assistant.unavailable.switch')),
+            badge: (ctx, answers) => (ownSwitchOf(ctx, answers.device)
+              ? t('automations.templates.heat_pump.steps.control.options.sg.badge') : ''),
+            textField: (ctx, answers) => (ownSwitchOf(ctx, answers.device) ? 'text_own' : 'text'),
+          },
+          {
+            id: 'setpoint',
+            unavailable: (ctx, answers) => {
+              const entry = requireEntry(ctx.heatPumps, answers.device);
+              if (!entry.setpoint) return t('automations.assistant.unavailable.heat_pump_setpoint');
+              return hasSetpoint(entry) ? '' : t('automations.assistant.unavailable.heat_pump_setpoint_value');
+            },
+          },
+        ],
+      },
+      {
+        id: 'contact', type: 'device', filter: 'switch', when: (answers) => answers.control === 'sg',
+        default: (ctx, answers) => ownSwitchOf(ctx, answers.device),
+        first: (ctx, answers) => ownSwitchOf(ctx, answers.device),
+      },
+      {
+        id: 'lift', type: 'number', min: 1, max: 10, step: 1, default: 5,
+        when: (answers) => answers.control === 'setpoint',
+      },
+      {
+        id: 'start', type: 'presets', step: 100, default: 2500, effect: 'surplus',
+        options: [{ id: 1500 }, { id: 2500 }, { id: 3500 }],
+        scale: { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
+      },
+      {
+        id: 'battery', type: 'tiles', default: 'first',
+        options: [
+          { id: 'first', reveal: { id: 'soc', default: 80, min: 20, max: 100, step: 5 } },
+          { id: 'parallel' },
+        ],
+        when: (answers, ctx) => !ctx || !socUnavailable(ctx),
+      },
+      {
+        id: 'protect', type: 'numbers',
+        fields: [
+          { id: 'run', min: 10, max: 120, step: 5, default: 30, icon: 'ico-history' },
+          { id: 'pause', min: 5, max: 60, step: 5, default: 20, icon: 'ico-gate' },
+        ],
+      },
+      {
+        id: 'period', type: 'tiles', default: 'sun',
+        options: [
+          { id: 'sun', unavailable: sunUnavailable },
+          { id: 'always' },
+          { id: 'fixed' },
+        ],
+      },
+      {
+        id: 'window', type: 'time', when: (answers) => answers.period === 'fixed',
+        default: { from: '10:00', to: '17:00', days: ALL_DAYS },
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [{ id: 'notify', default: false }, { id: 'history', default: true }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.heatPumps, answers.device);
+      const start = answers.start;
+      const { run, pause } = answers.protect;
+
+      // Ohne Ladestand-Signal entfällt der Akku-Schritt, also auch seine Bedingung.
+      const battery = answers.battery === 'first' && !socUnavailable(ctx);
+      const when = [B('grid_export', 'above', start, 300)];
+      if (battery) when.push(B('battery_soc', 'above', answers.soc, 0));
+      when.push(feedInWhen(answers));
+
+      // Ende, sobald der Überschuss zehn Minuten unter dem Haltewert liegt (Wolken).
+      const until = [B('grid_export', 'below', Math.round((start * 0.4) / 100) * 100, 600)];
+
+      let onStart;
+      let onEnd;
+      if (answers.control === 'sg') {
+        const contact = requireEntity(requireEntry(ctx.switches, answers.contact));
+        onStart = [Sw(contact, true)];
+        onEnd = [Sw(contact, false)];
+      } else {
+        if (!hasSetpoint(entry)) throw new Error(`automation template: no setpoint for ${entry.id}`);
+        const setpointEntity = entry.setpoint;
+        // Kein Gedaechtnis im Dienst: zurueck auf den Wert, der beim Anlegen galt.
+        const now = currentSetpoint(entry);
+        onStart = [setpoint(setpointEntity, String(now + answers.lift))];
+        onEnd = [setpoint(setpointEntity, String(now))];
+      }
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.heat_pump.notice.title'),
+          message: t('automations.templates.heat_pump.notice.message'),
+        });
+      }
+
+      const scenario = {
+        id: uniqueId('heat_pump', ctx.usedIds),
+        name: t('automations.templates.heat_pump.title'),
+        enabled: true,
+        template: 'heat_pump',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: when },
+        until: { conditions: until },
+        on_start: { actions: onStart },
+        on_end: { actions: onEnd },
+        while: { mode: 'none' },
+        min_run_s: run * 60,
+        cooldown_s: pause * 60,
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const entry = requireEntry(ctx.heatPumps, answers.device);
+      const start = answers.start;
+      const off = Math.round((start * 0.4) / 100) * 100;
+      const contact = answers.control === 'sg';
+      const now = contact ? 0 : currentSetpoint(entry);
+      let when = t('automations.assistant.summary.heat_pump.when', { start: num(start), minutes: 5 });
+      if (answers.battery === 'first' && !socUnavailable(ctx)) {
+        when += t('automations.assistant.summary.heat_pump.when_battery', { value: num(answers.soc) });
+      }
+      if (answers.period === 'sun') when += t('automations.assistant.summary.heat_pump.when_sun');
+      return [
+        {
+          label: phase('start'),
+          text: contact
+            ? t('automations.assistant.summary.heat_pump.start_contact')
+            : t('automations.assistant.summary.heat_pump.start_setpoint', { now: num(now), target: num(now + answers.lift) }),
+          step: 'control',
+        },
+        { label: phase('when'), text: when, step: 'start' },
+        {
+          label: phase('run'),
+          text: t('automations.assistant.summary.heat_pump.run', { min: num(answers.protect.run), value: num(off) }),
+          step: 'protect',
+        },
+        {
+          label: phase('end'),
+          text: (contact
+            ? t('automations.assistant.summary.heat_pump.end_contact')
+            : t('automations.assistant.summary.heat_pump.end_setpoint', { now: num(now) }))
+            + t('automations.assistant.summary.heat_pump.pause', { min: num(answers.protect.pause) }),
+          step: 'control',
+        },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Akku laden bei Niedrigtarif
+
+  // Wert eines Stellglieds als Zahl, NaN ohne Wert.
+  const valueOf = (entity) => {
+    const value = entity ? entity.value : undefined;
+    if (value === undefined || value === null || value === '') return NaN;
+    return Number(value);
+  };
+
+  // Satz zum Ladefortschritt: Energie von Ladestand bis Ziel und Dauer bei der Leistung.
+  // Ohne Kapazität, Ladestand oder Leistung gibt es keinen Satz.
+  function chargeFit({ soc, target, power, capacity }) {
+    if (!Number.isFinite(soc) || !Number.isFinite(target) || !(power > 0)) return '';
+    if (!Number.isFinite(capacity) || capacity <= 0) return '';
+    const kwh = Math.max(0, ((target - soc) / 100) * capacity);
+    const minutes = Math.round((kwh / (power / 1000)) * 60);
+    return t('automations.templates.tariff.steps.charge.fit', {
+      soc, target, kwh: window.I18n ? window.I18n.formatNumber(kwh, 1) : kwh.toFixed(1), power, h: Math.floor(minutes / 60), m: minutes % 60,
+    });
+  }
+
+  const batteryOf = (ctx, answers) => (ctx.batteries || []).find((item) => item.id === answers.battery) || {};
+
+  const tariff = {
+    id: 'tariff',
+    category: 'tariff',
+    icon: 'ico-battery',
+    requires: { devices: 'battery', soc: true },
+    steps: [
+      {
+        id: 'source', type: 'tiles', default: 'fixed',
+        options: [
+          { id: 'fixed' },
+          { id: 'price', unavailable: (ctx) => (ctx.prices.length ? '' : t('automations.assistant.unavailable.price')) },
+        ],
+      },
+      {
+        id: 'window', type: 'time', when: (answers) => answers.source === 'fixed',
+        default: { from: '22:00', to: '06:00', days: ALL_DAYS },
+      },
+      { id: 'price', type: 'device', filter: 'price', when: (answers) => answers.source === 'price' },
+      {
+        id: 'thr', type: 'presets', step: 0.5, default: 15, effect: 'price',
+        options: [{ id: 10 }, { id: 15 }, { id: 20 }],
+        scale: { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
+        when: (answers) => answers.source === 'price',
+      },
+      { id: 'battery', type: 'device', filter: 'battery' },
+      {
+        id: 'charge', type: 'numbers',
+        fields: [
+          { id: 'target', min: 30, max: 100, step: 5, default: 80, icon: 'ico-battery' },
+          { id: 'power', min: 500, max: 5000, step: 250, default: 2000, icon: 'ico-flash' },
+        ],
+        // Hinweis unter dem Schritt: Energie und Dauer aus dem Ladestand des Kontexts.
+        hint: (answers, ctx) => chargeFit({
+          soc: ctx.snapshot && ctx.snapshot.values ? ctx.snapshot.values.battery_soc : NaN,
+          capacity: ctx.snapshot && ctx.snapshot.values ? ctx.snapshot.values.battery_capacity_kwh : NaN,
+          target: answers.charge.target,
+          power: answers.charge.power,
+        }),
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [
+          {
+            id: 'block', default: true,
+            unavailable: (ctx, answers) => (batteryOf(ctx, answers).dischargeLimit
+              ? '' : t('automations.assistant.unavailable.discharge_limit')),
+          },
+          { id: 'only', default: false },
+          { id: 'notify', default: false },
+          { id: 'history', default: true },
+        ],
+      },
+    ],
+    build(answers, ctx) {
+      const battery = requireEntry(ctx.batteries, answers.battery);
+      if (!battery.setpoint) throw new Error(`automation template: no setpoint for ${battery.id}`);
+      if (!Number.isFinite(valueOf(battery.setpoint))) throw new Error(`automation template: no value for ${battery.id}`);
+      const { target, power } = answers.charge;
+      const setpointEntity = battery.setpoint;
+
+      const when = [];
+      if (answers.source === 'fixed') {
+        when.push({
+          type: 'time_window', start: answers.window.from, end: answers.window.to, weekdays: weekdaysOf(answers.window.days),
+        });
+      } else {
+        const price = requireEntry(ctx.prices, answers.price).entity;
+        when.push({
+          type: 'entity_value', topic: price.state_topic, entity_id: price.unique_id,
+          value_template: price.value_template || '', comparison: 'below',
+          value: ctToPriceUnit(answers.thr, price.unit_of_measurement), hold_seconds: 0,
+        });
+      }
+      if (answers.extras.only) when.push(B('battery_soc', 'below', 30, 0));
+      when.push(B('battery_soc', 'below', target, 0));
+
+      // Beim Start Ladeleistung oder Ladestand setzen, am Ende den beim Anlegen gefundenen Wert zurück.
+      const percent = setpointEntity.unit_of_measurement === '%';
+      const onStart = [setpoint(setpointEntity, percent ? String(target) : String(power))];
+      const onEnd = [setpoint(setpointEntity, String(valueOf(setpointEntity)))];
+      if (answers.extras.block) {
+        const limit = battery.dischargeLimit;
+        if (!limit) throw new Error(`automation template: no discharge limit for ${battery.id}`);
+        if (!Number.isFinite(valueOf(limit))) throw new Error(`automation template: no value for ${limit.unique_id}`);
+        onStart.push(setpoint(limit, '0'));
+        onEnd.push(setpoint(limit, String(valueOf(limit))));
+      }
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.tariff.notice.title'),
+          message: t('automations.templates.tariff.notice.message'),
+        });
+      }
+
+      // until entfällt: Das Szenario endet, sobald eine when-Bedingung nicht mehr gilt.
+      const scenario = {
+        id: uniqueId('tariff', ctx.usedIds),
+        name: t('automations.templates.tariff.title'),
+        enabled: true,
+        template: 'tariff',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: when },
+        on_start: { actions: onStart },
+        on_end: { actions: onEnd },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const battery = requireEntry(ctx.batteries, answers.battery);
+      const fixed = answers.source === 'fixed';
+      const when = fixed
+        ? t('automations.assistant.summary.tariff.when_fixed', { from: answers.window.from, to: answers.window.to })
+        : t('automations.assistant.summary.tariff.when_price', {
+          name: requireEntry(ctx.prices, answers.price).deviceName, thr: num(answers.thr),
+        });
+      const block = answers.extras.block;
+      return [
+        {
+          label: phase('when'),
+          text: when + (answers.extras.only ? t('automations.assistant.summary.tariff.only') : ''),
+          step: fixed ? 'window' : 'thr',
+        },
+        {
+          label: phase('start'),
+          text: t('automations.assistant.summary.tariff.start', { name: battery.deviceName, power: num(answers.charge.power) })
+            + (block ? t('automations.assistant.summary.tariff.block') : ''),
+          step: 'charge',
+        },
+        {
+          label: phase('run'),
+          text: t('automations.assistant.summary.tariff.run', { target: num(answers.charge.target) }),
+          step: 'charge',
+        },
+        {
+          label: phase('end'),
+          text: t('automations.assistant.summary.tariff.end') + (block ? t('automations.assistant.summary.tariff.end_block') : ''),
+          step: 'charge',
+        },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Netzbezug deckeln
+
+  // Abstand zur Grenze, bei dem die Wallbox den Bezug regelt.
+  const GRID_CAP_MARGIN = 500;
+  // Abstand zur Grenze, unter dem das Szenario nach zehn Minuten endet.
+  const GRID_CAP_END_MARGIN = 1500;
+  const gridCapChange = (answers) => (answers.speed === 'fast' ? 3000 : 1000);
+
+  const gridCap = {
+    id: 'grid_cap',
+    category: 'grid',
+    icon: 'ico-grid',
+    requires: { devices: 'wallbox' },
+    steps: [
+      {
+        id: 'limit', type: 'presets', step: 100, default: 11000,
+        options: [{ id: 11000 }, { id: 16000 }, { id: 25000 }],
+        scale: { min: 0, max: 30000, step: 100, ticks: 5000, grow: true, fill: 'above', unit: 'W' },
+      },
+      { id: 'device', type: 'device', filter: 'wallbox' },
+      {
+        id: 'speed', type: 'tiles', default: 'calm',
+        options: [{ id: 'calm' }, { id: 'fast' }],
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [{ id: 'notify', default: false }, { id: 'history', default: true }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.wallboxes, answers.device);
+      const entity = requireEntity(entry);
+      const threshold = answers.limit - GRID_CAP_MARGIN;
+
+      const regulator = {
+        output: outputOf(entity),
+        direction: 'consumer',
+        target_w: threshold,
+        deadband_w: 200,
+        max_change_w: gridCapChange(answers),
+        base: entry.measured ? entityBase(entry.measured) : { source: 'last' },
+        fallback: { payload: String(entity.min_value) },
+      };
+
+      const onStart = [];
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.grid_cap.notice.title'),
+          message: t('automations.templates.grid_cap.notice.message'),
+        });
+      }
+
+      // Ende erst, wenn der Bezug zehn Minuten deutlich unter der Grenze liegt.
+      const scenario = {
+        id: uniqueId('grid_cap', ctx.usedIds),
+        name: t('automations.templates.grid_cap.title'),
+        enabled: true,
+        template: 'grid_cap',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: [B('grid_import', 'above', threshold, 10)] },
+        until: { conditions: [B('grid_import', 'below', answers.limit - GRID_CAP_END_MARGIN, 600)] },
+        on_start: { actions: onStart },
+        on_end: { actions: [setpoint(entity, String(entity.max_value))] },
+        while: { mode: 'regulate', regulator },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const entry = requireEntry(ctx.wallboxes, answers.device);
+      const entity = requireEntity(entry);
+      const threshold = answers.limit - GRID_CAP_MARGIN;
+      const rows = [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.grid_cap.when', { seconds: 10, value: num(threshold) }),
+          step: 'limit',
+        },
+        {
+          label: phase('run'),
+          text: t('automations.assistant.summary.grid_cap.run', {
+            value: num(threshold), change: num(gridCapChange(answers)),
+          }),
+          step: 'speed',
+        },
+        {
+          label: phase('end'),
+          text: t('automations.assistant.summary.grid_cap.end', { max: num(entity.max_value) }),
+          step: 'device',
+        },
+      ];
+      rows.push({
+        label: phase('until'),
+        text: t('automations.assistant.summary.grid_cap.until', { value: num(answers.limit - GRID_CAP_END_MARGIN) }),
+        step: 'limit',
+      });
+      if (answers.extras.notify) {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.grid_cap.notify'), step: 'extras' });
+      }
+      return rows;
+    },
+  };
+
+  // ---------------------------------------------------------------- Steuersignal nach §14a
+
+  // Sollwert eines Ziels aus der Leistung in kW: W direkt, A dreiphasig bei 230 V.
+  const signalValue = (kw, entity) => (entity.unit_of_measurement === 'A'
+    ? Math.round((kw * 1000) / 690)
+    : Math.round(kw * 1000));
+
+  const gridSignal = {
+    id: 'grid_signal',
+    category: 'grid',
+    icon: 'ico-gate',
+    requires: { devices: 'grid_target' },
+    steps: [
+      { id: 'input', type: 'device', filter: 'input' },
+      { id: 'targets', type: 'devices', filter: 'grid_target', default: [] },
+      { id: 'power', type: 'number', min: 1, max: 11, step: 0.1, default: 4.2 },
+      { id: 'extras', type: 'multi', options: [{ id: 'notify', default: true }] },
+    ],
+    build(answers, ctx) {
+      const input = requireEntry(ctx.inputs, answers.input).entity;
+      if (!answers.targets.length) throw new Error('automation template: no target chosen');
+      const targets = answers.targets.map((id) => {
+        const entry = requireEntry(ctx.gridTargets, id);
+        if (entry.disabled) throw new Error(`automation template: target not usable: ${id}`);
+        return requireEntity(entry);
+      });
+
+      const onStart = targets.map((entity) => setpoint(entity, String(signalValue(answers.power, entity))));
+      const onEnd = targets.map((entity) => setpoint(entity, String(entity.max_value)));
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.grid_signal.notice.title'),
+          message: t('automations.templates.grid_signal.notice.message'),
+        });
+      }
+
+      const scenario = {
+        id: uniqueId('grid_signal', ctx.usedIds),
+        name: t('automations.templates.grid_signal.title'),
+        enabled: true,
+        template: 'grid_signal',
+        when: {
+          conditions: [{
+            type: 'entity_value', topic: input.state_topic, entity_id: input.unique_id,
+            value_template: input.value_template || '', comparison: 'equals', text: input.payload_on || 'on',
+          }],
+        },
+        on_start: { actions: onStart },
+        on_end: { actions: onEnd },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const input = (ctx.inputs || []).find((item) => item.id === answers.input) || {};
+      const rows = [{
+        label: phase('when'),
+        text: t('automations.assistant.summary.grid_signal.when', { name: input.deviceName || '' }),
+        step: 'input',
+      }];
+      for (const id of answers.targets) {
+        const entry = requireEntry(ctx.gridTargets, id);
+        const entity = requireEntity(entry);
+        rows.push({
+          label: phase('start'),
+          text: t('automations.assistant.summary.grid_signal.start', {
+            name: entry.deviceName, value: num(signalValue(answers.power, entity)), unit: entity.unit_of_measurement,
+          }),
+          step: 'targets',
+        });
+      }
+      rows.push({ label: phase('end'), text: t('automations.assistant.summary.grid_signal.end'), step: 'targets' });
+      if (answers.extras.notify) {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.grid_signal.notify'), step: 'extras' });
+      }
+      return rows;
+    },
+  };
+
+  // ---------------------------------------------------------------- Heizstab mit Überschuss
+
+  const heatingRod = {
+    id: 'heating_rod',
+    category: 'heating',
+    icon: 'ico-thermo',
+    requires: { devices: 'rod' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'rod' },
+      {
+        id: 'target', type: 'presets', step: 5, default: 30, effect: 'band', options: [{ id: 60 }, { id: 30 }, { id: 10 }],
+        tolerance: { default: 20, min: 5, max: 60 },
+      },
+      { id: 'max_temp', type: 'number', min: 40, max: 90, step: 1, default: 65 },
+      {
+        id: 'battery', type: 'tiles', default: 'first',
+        options: [
+          { id: 'first', reveal: { id: 'soc', default: 80, min: 20, max: 100, step: 5 } },
+          { id: 'parallel' },
+        ],
+        when: (answers, ctx) => !ctx || !socUnavailable(ctx),
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [{ id: 'notify', default: false }, { id: 'history', default: true }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.rods, answers.device);
+      const entity = requireEntity(entry);
+      const thermometer = entry.thermometer;
+      if (!thermometer) throw new Error(`automation template: no thermometer for ${entry.id}`);
+      const battery = answers.battery === 'first' && !socUnavailable(ctx);
+
+      // Der Start prüft die Temperatur. Während des Laufs begrenzt der Thermostat des Heizstabs,
+      // deshalb steht die Temperatur nur in when und nicht in until.
+      const when = [
+        B('grid_export', 'above', 100, 60),
+        {
+          type: 'entity_value', topic: thermometer.state_topic, entity_id: thermometer.unique_id,
+          value_template: thermometer.value_template || '', comparison: 'below', value: answers.max_temp, hold_seconds: 0,
+        },
+      ];
+      if (battery) when.push(B('battery_soc', 'above', answers.soc, 0));
+
+      const readable = !!entity.state_topic && !!entity.template_supported;
+      const regulator = {
+        output: outputOf(entity),
+        direction: 'consumer',
+        target_w: answers.target,
+        deadband_w: Number.isFinite(answers.tolerance) ? answers.tolerance : 20,
+        base: readable ? entityBase(entity) : { source: 'last' },
+        fallback: { payload: String(entity.min_value) },
+      };
+
+      const onStart = [];
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.heating_rod.notice.title'),
+          message: t('automations.templates.heating_rod.notice.message'),
+        });
+      }
+
+      const scenario = {
+        id: uniqueId('heating_rod', ctx.usedIds),
+        name: t('automations.templates.heating_rod.title'),
+        enabled: true,
+        template: 'heating_rod',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: when },
+        until: { conditions: [B('grid_import', 'above', 100, 600)] },
+        on_start: { actions: onStart },
+        on_end: { actions: [setpoint(entity, String(entity.min_value))] },
+        while: { mode: 'regulate', regulator },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      requireEntry(ctx.rods, answers.device);
+      const battery = answers.battery === 'first' && !socUnavailable(ctx);
+      const rows = [{
+        label: phase('when'),
+        text: t('automations.assistant.summary.heating_rod.when', { max: num(answers.max_temp) }),
+        step: 'max_temp',
+      }];
+      if (battery) {
+        rows.push({
+          label: phase('when'),
+          text: t('automations.assistant.summary.heating_rod.battery', { value: num(answers.soc) }),
+          step: 'battery',
+        });
+      }
+      rows.push({
+        label: phase('run'),
+        text: t('automations.assistant.summary.heating_rod.run', { target: num(answers.target) }),
+        step: 'target',
+      });
+      rows.push({ label: phase('run'), text: t('automations.assistant.summary.heating_rod.thermostat'), step: 'max_temp' });
+      rows.push({ label: phase('end'), text: t('automations.assistant.summary.heating_rod.end'), step: 'device' });
+      if (answers.extras.notify) {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.heating_rod.notify'), step: 'extras' });
+      }
+      return rows;
+    },
+  };
+
+  // ---------------------------------------------------------------- PV-Ertrag fehlt
+
+  const pvMissing = {
+    id: 'pv_missing',
+    category: 'warning',
+    icon: 'ico-sun',
+    requires: { devices: 'inverter_measured' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'inverter_measured' },
+      { id: 'limit', type: 'number', min: 5, max: 200, step: 5, default: 20 },
+      { id: 'minutes', type: 'number', min: 10, max: 120, step: 5, default: 30 },
+      {
+        id: 'severity', type: 'tiles', default: 'warning',
+        options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.inverters, answers.device);
+      const measured = entry.measured;
+      if (!measured) throw new Error(`automation template: no own reading for ${entry.id}`);
+
+      const rule = {
+        id: uniqueId('pv_missing', ctx.usedIds),
+        name: t('automations.templates.pv_missing.title'),
+        enabled: true,
+        cooldown_seconds: 21600,
+        conditions: [
+          { type: 'sun_window', from: 'sunrise', to: 'sunset', from_offset_min: 60, to_offset_min: -60 },
+          {
+            type: 'entity_value', topic: measured.state_topic, entity_id: measured.unique_id,
+            value_template: measured.value_template || '', comparison: 'below', value: answers.limit,
+            hold_seconds: answers.minutes * 60,
+          },
+        ],
+        actions: [{
+          type: 'notification',
+          severity: answers.severity,
+          title: t('automations.templates.pv_missing.notice.title'),
+          message: t('automations.templates.pv_missing.notice.message', {
+            minutes: num(answers.minutes), value: num(answers.limit),
+          }),
+        }],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers, ctx) {
+      requireEntry(ctx.inverters, answers.device);
+      return [
+        { label: phase('when'), text: t('automations.assistant.summary.pv_missing.window'), step: 'device' },
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.pv_missing.under', {
+            minutes: num(answers.minutes), value: num(answers.limit),
+          }),
+          step: 'minutes',
+        },
+        {
+          label: phase('then'),
+          text: t('automations.assistant.summary.battery.then', {
+            severity: t(`automations.templates.pv_missing.steps.severity.options.${answers.severity}.title`),
+          }),
+          step: 'severity',
+        },
+        { label: phase('end'), text: t('automations.assistant.summary.pv_missing.cooldown'), step: 'severity' },
+      ];
+    },
+  };
+
+  window.__automationTemplates = {
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, gridCap, gridSignal, pvMissing, heatingRod],
+    chargeFit,
+  };
 })();

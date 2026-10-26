@@ -342,6 +342,60 @@ def test_max_duration_out_of_range_is_rejected():
         assert errors == ["scenario[0]: max_duration_s must be between 60 and 86400"]
 
 
+def test_scenario_min_run_delays_the_end():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(min_run_s=300))])
+    tick(engine, doc, 1000)
+    tick(engine, doc, 1100, grid_export=0)
+    assert payloads(published) == ["start"]
+    report = tick(engine, doc, 1299, grid_export=0)
+    assert report["x"]["phase"] == "active"
+    assert payloads(published) == ["start"]
+    report = tick(engine, doc, 1300, grid_export=0)
+    assert report["x"]["phase"] == "idle"
+    assert payloads(published) == ["start", "end"]
+
+
+def test_scenario_min_run_ignored_when_disabled():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(min_run_s=300))])
+    tick(engine, doc, 1000)
+    doc.scenarios[0]["enabled"] = False
+    report = tick(engine, doc, 1010)
+    assert report["x"]["phase"] == "disabled"
+    assert payloads(published) == ["start", "end"]
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(min_run_s=300))])
+    tick(engine, doc, 1000)
+    doc.scenarios = []
+    tick(engine, doc, 1010)
+    assert payloads(published) == ["start", "end"]
+
+
+def test_scenario_cooldown_blocks_restart():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(cooldown_s=600))])
+    tick(engine, doc, 1000)
+    tick(engine, doc, 1100, grid_export=0)
+    assert payloads(published) == ["start", "end"]
+    report = tick(engine, doc, 1110)
+    assert report["x"]["phase"] == "idle"
+    assert report["x"]["reason"] == "cooldown"
+    assert payloads(published) == ["start", "end"]
+    report = tick(engine, doc, 1699)
+    assert report["x"]["reason"] == "cooldown"
+    assert payloads(published) == ["start", "end"]
+    tick(engine, doc, 1700)
+    assert payloads(published) == ["start", "end", "start"]
+
+
+def test_scenario_rejects_negative_min_run():
+    for key in ("min_run_s", "cooldown_s"):
+        for value in (-1, 86401, 1.5, True):
+            errors = []
+            automation._validate_scenario(scenario_def(**{key: value}), 0, errors, set(), 30)
+            assert errors == [f"scenario[0]: {key} must be an integer between 0 and 86400"]
+        errors = []
+        automation._validate_scenario(scenario_def(**{key: 86400}), 0, errors, set(), 30)
+        assert errors == []
+
+
 def test_history_events_for_start_and_end():
     history = []
     doc, engine, _, _ = scenario_engine_with([normalized(scenario_def())],

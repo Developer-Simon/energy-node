@@ -5,7 +5,8 @@
   // DOM-Zugriffe. Eingaben sind die Geraete aus /api/v1/devices, der Snapshot aus
   // /api/v1/energy und das aktuelle Regeldokument.
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
-  const formatNumber = (value) => (window.I18n ? window.I18n.formatNumber(value) : String(value));
+  const formatNumber = (value, decimals) => (window.I18n
+    ? window.I18n.formatNumber(value, decimals) : String(value));
 
   const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
   const isNumber = (value) => typeof value === 'number' && Number.isFinite(value);
@@ -44,6 +45,20 @@
       if (hasText(topic) && !hasOwn(topics, topic)) topics[topic] = scenario.name || '';
     }
     return topics;
+  }
+
+  // Preis mit fester Nachkommazahl: Euro mit drei, Cent mit zwei Stellen.
+  function formatPrice(value, unit) {
+    const number = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(number)) return `${value} ${unit || ''}`.trim();
+    const decimals = /€|EUR/i.test(String(unit || '')) ? 3 : 2;
+    const text = formatNumber(number, decimals);
+    return unit ? `${text} ${unit}` : text;
+  }
+
+  function priceText(entity) {
+    if (!hasValue(entity)) return '—';
+    return formatPrice(entity.value, entity.unit_of_measurement);
   }
 
   function liveText(entity) {
@@ -119,6 +134,125 @@
     return result;
   }
 
+  const deviceHasRole = (index, deviceId, role) => (index.deviceRoles.get(deviceId) || new Set()).has(role);
+  const BATTERY_ROLES = ['battery', 'battery_soc'];
+  const RESERVED_ROD_ROLES = ['pv', 'wallbox', 'heat_pump', ...BATTERY_ROLES];
+  const POWER_OR_PERCENT = /^(W|%)$/;
+  const PRICE_UNIT = /^(ct|€|EUR)\s*\/\s*kWh$/i;
+  const INPUT_CLASSES = ['power', 'running', 'problem', 'plug'];
+
+  // Waermepumpe: Sollwert und eigener Schalter am selben Geraet. Gesperrt nur,
+  // wenn beides fehlt und im System kein Schalter existiert.
+  function heatPumpEntries(devices, index, switches) {
+    return devices
+      .filter((device) => deviceHasRole(index, device.id, 'heat_pump'))
+      .map((device) => {
+        const entities = device.entities || [];
+        const setpoint = entities.find((entity) => isActuator(entity)) || null;
+        const ownSwitch = entities.find((entity) => isSwitch(entity)) || null;
+        const measured = entities.find((entity) => isReadable(entity)
+          && index.entityRoles.get(entity.unique_id) === 'heat_pump') || null;
+        const blocked = !setpoint && !ownSwitch && switches.length === 0;
+        const fallback = setpoint || ownSwitch || measured || entities[0] || {};
+        return {
+          id: fallback.unique_id || device.id,
+          deviceName: device.name,
+          live: liveText(measured),
+          setpoint,
+          ownSwitch,
+          disabled: blocked ? t('automations.assistant.unavailable.heat_pump_control') : '',
+        };
+      });
+  }
+
+  // Entladegrenze eines Akkus: ein zweiter schreibbarer Wert mit device_class oder
+  // Namen, der „discharge“ enthält.
+  const isDischargeLimit = (entity) => /discharge/i.test(String(entity.device_class || ''))
+    || /discharge/i.test(String(entity.name || ''));
+
+  // Akku: Geraete mit Rolle battery oder battery_soc. Ohne Stellglied in W oder %
+  // ist der Eintrag gesperrt. dischargeLimit ist null, wenn es keine Entladegrenze gibt.
+  function batteryEntries(devices, index) {
+    return devices
+      .filter((device) => BATTERY_ROLES.some((role) => deviceHasRole(index, device.id, role)))
+      .map((device) => {
+        const entities = device.entities || [];
+        const setpoint = entities.find((entity) => isActuator(entity)
+          && POWER_OR_PERCENT.test(String(entity.unit_of_measurement || ''))) || null;
+        const dischargeLimit = entities.find((entity) => isActuator(entity)
+          && (!setpoint || entity.unique_id !== setpoint.unique_id)
+          && isDischargeLimit(entity)) || null;
+        const measured = entities.find((entity) => isReadable(entity)
+          && BATTERY_ROLES.includes(index.entityRoles.get(entity.unique_id))) || null;
+        const fallback = setpoint || measured || entities[0] || {};
+        return {
+          id: fallback.unique_id || device.id,
+          deviceName: device.name,
+          live: liveText(measured),
+          setpoint,
+          dischargeLimit,
+          disabled: setpoint ? '' : t('automations.assistant.unavailable.battery_setpoint'),
+        };
+      });
+  }
+
+  // Heizstab: ohne die Rollen der Erzeuger und Speicher, mit Stellglied in W oder %
+  // und einem Temperaturmesswert.
+  function rodEntries(devices, index, regulatedTopics) {
+    const result = [];
+    for (const device of devices) {
+      if (RESERVED_ROD_ROLES.some((role) => deviceHasRole(index, device.id, role))) continue;
+      const entities = device.entities || [];
+      const entity = entities.find((item) => isActuator(item)
+        && POWER_OR_PERCENT.test(String(item.unit_of_measurement || ''))) || null;
+      const thermometer = entities.find((item) => isReadable(item)
+        && item.device_class === 'temperature') || null;
+      if (!entity || !thermometer) continue;
+      result.push({
+        id: entity.unique_id,
+        deviceName: device.name,
+        live: liveText(thermometer),
+        entity,
+        thermometer,
+        disabled: disabledText(entity, regulatedTopics),
+      });
+    }
+    return result;
+  }
+
+  // Ziele des Netzsignals: Wärmepumpen mit Sollwert und Wallboxen mit Stellglied.
+  // Als Sollwert sind nur W und A zulässig, andere Einheiten sperren das Ziel mit Grund.
+  const SIGNAL_UNITS = ['W', 'A'];
+  function gridTargetEntries(heatPumps, wallboxes) {
+    const targets = [];
+    const unitReason = (entity) => {
+      const unit = String(entity.unit_of_measurement || '').trim();
+      if (!unit) return t('automations.assistant.device.unit_missing');
+      if (SIGNAL_UNITS.includes(unit)) return '';
+      return t('automations.assistant.device.unit_unsupported', { unit });
+    };
+    for (const item of heatPumps) {
+      if (item.setpoint) targets.push({ ...item, entity: item.setpoint, disabled: unitReason(item.setpoint) });
+    }
+    for (const item of wallboxes) {
+      if (item.entity) targets.push({ ...item, disabled: item.disabled || unitReason(item.entity) });
+    }
+    return targets;
+  }
+
+  // Lesbare Entitaeten je Geraet, die das Praedikat erfuellen.
+  function readableEntries(devices, predicate) {
+    const result = [];
+    for (const device of devices) {
+      for (const entity of device.entities || []) {
+        if (isReadable(entity) && predicate(entity)) {
+          result.push({ id: entity.unique_id, deviceName: device.name, entity, live: liveText(entity) });
+        }
+      }
+    }
+    return result;
+  }
+
   function buildContext({ devices = [], snapshot, document } = {}) {
     const index = roleIndex(snapshot);
     const regulatedTopics = regulatedTopicsOf(document);
@@ -130,10 +264,21 @@
     }
     const settings = (document && document.settings) || {};
     const values = (snapshot && snapshot.values) || {};
+    const switches = switchEntries(devices, regulatedTopics);
+    const wallboxes = wallboxEntries(devices, index, regulatedTopics);
+    const heatPumps = heatPumpEntries(devices, index, switches);
     return {
       inverters: inverterEntries(devices, index, regulatedTopics),
-      wallboxes: wallboxEntries(devices, index, regulatedTopics),
-      switches: switchEntries(devices, regulatedTopics),
+      wallboxes,
+      switches,
+      heatPumps,
+      gridTargets: gridTargetEntries(heatPumps, wallboxes),
+      batteries: batteryEntries(devices, index),
+      rods: rodEntries(devices, index, regulatedTopics),
+      prices: readableEntries(devices, (entity) => PRICE_UNIT.test(String(entity.unit_of_measurement || '')))
+        .map((item) => ({ ...item, live: priceText(item.entity) })),
+      inputs: readableEntries(devices, (entity) => hasText(entity.payload_on)
+        || INPUT_CLASSES.includes(entity.device_class)),
       socAvailable: hasOwn(values, 'battery_soc'),
       hasLocation: isNumber(settings.latitude) && isNumber(settings.longitude),
       regulatedTopics,
@@ -146,10 +291,27 @@
     };
   }
 
+  // Geräte eines Schritts. Liefert der Schritt first(ctx, answers), steht dieses
+  // Gerät vorne in der Liste (eigener Schalter der Wärmepumpe).
+  function devicesForStep(step, ctx, answers) {
+    const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
+    const list = devicesFor(kind, ctx);
+    if (typeof step.first !== 'function') return list;
+    const id = step.first(ctx, answers || {});
+    return [...list.filter((item) => item.id === id), ...list.filter((item) => item.id !== id)];
+  }
+
   function devicesFor(filter, ctx) {
     if (filter === 'inverter') return ctx.inverters;
     if (filter === 'wallbox') return ctx.wallboxes;
     if (filter === 'switch') return ctx.switches;
+    if (filter === 'heat_pump') return ctx.heatPumps;
+    if (filter === 'battery') return ctx.batteries;
+    if (filter === 'rod') return ctx.rods;
+    if (filter === 'price') return ctx.prices;
+    if (filter === 'input') return ctx.inputs;
+    if (filter === 'grid_target') return ctx.gridTargets || [];
+    if (filter === 'inverter_measured') return (ctx.inverters || []).filter((item) => item.measured);
     return [];
   }
 
@@ -170,7 +332,7 @@
   }
 
   // Vorlagenkategorien der Suche. Die Vorlagen selbst liegen in Task 4.
-  const CATEGORIES = ['feed_in', 'charging', 'switching', 'warning', 'time'];
+  const CATEGORIES = ['feed_in', 'charging', 'switching', 'heating', 'tariff', 'grid', 'warning', 'time'];
   const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
   const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -178,6 +340,16 @@
   function optionUnavailable(option, ctx, answers) {
     if (!option || typeof option.unavailable !== 'function') return '';
     return option.unavailable(ctx, answers) || '';
+  }
+
+  // Abzeichen einer Option ('' ohne), und das Textfeld, das die Kachel zeigt.
+  function optionBadge(option, ctx, answers) {
+    if (!option || typeof option.badge !== 'function') return '';
+    return option.badge(ctx, answers) || '';
+  }
+
+  function optionTextField(option, ctx, answers) {
+    return option && typeof option.textField === 'function' ? option.textField(ctx, answers) : 'text';
   }
 
   // Texte einer Vorlage: fertige Strings am Objekt haben Vorrang, sonst der
@@ -238,9 +410,9 @@
     const options = step.options || [];
     switch (step.type) {
       case 'device': {
-        const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
-        const list = devicesFor(kind, ctx);
-        const preferred = list.find((item) => item.id === step.default && !item.disabled);
+        const list = devicesForStep(step, ctx, answers);
+        const wanted = typeof step.default === 'function' ? step.default(ctx, answers) : step.default;
+        const preferred = list.find((item) => item.id === wanted && !item.disabled);
         const first = list.find((item) => !item.disabled);
         return (preferred || first || {}).id || '';
       }
@@ -252,6 +424,18 @@
         if (preferred) return preferred.id;
         if (first) return first.id;
         return step.default === undefined ? '' : step.default;
+      }
+      case 'numbers': {
+        const result = {};
+        for (const field of step.fields || []) {
+          result[field.id] = field.default !== undefined ? field.default : field.min;
+        }
+        return result;
+      }
+      case 'devices': {
+        const list = devicesForStep(step, ctx, answers);
+        const usable = new Set(list.filter((item) => !item.disabled).map((item) => item.id));
+        return (Array.isArray(step.default) ? step.default : []).filter((id) => usable.has(id));
       }
       case 'presets':
         return step.default !== undefined ? step.default : (options[0] || {}).id;
@@ -281,6 +465,10 @@
     const answers = {};
     for (const step of template.steps || []) {
       answers[step.id] = defaultAnswer(step, ctx, answers);
+      const chosen = (step.options || []).find((option) => option.id === answers[step.id]);
+      if (chosen && chosen.reveal && answers[chosen.reveal.id] === undefined) {
+        answers[chosen.reveal.id] = chosen.reveal.default;
+      }
       if (step.tolerance) answers.tolerance = step.tolerance.default;
     }
     return answers;
@@ -289,8 +477,8 @@
   // Sichtbare Schritte: ohne when oder mit when(answers) === true, danach die
   // Zusammenfassung. Die Liste ist eine Funktion der Antworten und wird bei jeder
   // Änderung neu berechnet.
-  function visibleSteps(template, answers) {
-    const steps = (template.steps || []).filter((step) => !step.when || step.when(answers) === true);
+  function visibleSteps(template, answers, ctx) {
+    const steps = (template.steps || []).filter((step) => !step.when || step.when(answers, ctx) === true);
     return [...steps, { id: 'summary', type: 'summary' }];
   }
 
@@ -304,12 +492,47 @@
           && (step.max === undefined || answer <= step.max);
       case 'presets':
         return isNumber(answer) && answer > 0;
+      case 'numbers':
+        return !!answer && (step.fields || []).every((field) => isNumber(answer[field.id])
+          && (field.min === undefined || answer[field.id] >= field.min)
+          && (field.max === undefined || answer[field.id] <= field.max));
+      case 'devices':
+        return Array.isArray(answer) && answer.length > 0;
       case 'time':
         return !!answer && TIME_PATTERN.test(answer.from) && TIME_PATTERN.test(answer.to)
           && answer.from !== answer.to;
       default:
         return true;
     }
+  }
+
+  // Mehrfachauswahl: ID hinzufuegen oder entfernen, neue Liste zurueck.
+  function toggleDevice(current, id) {
+    const list = Array.isArray(current) ? current : [];
+    return list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
+  }
+
+  // Waehlt eine Option. Hat sie ein reveal, wird dessen Standardwert gesetzt, falls
+  // noch kein Wert da ist. Ein frueher gesetzter Wert bleibt beim erneuten Waehlen.
+  function chooseOption(step, answers, optionId) {
+    answers[step.id] = optionId;
+    const option = (step.options || []).find((item) => item.id === optionId);
+    if (option && option.reveal && answers[option.reveal.id] === undefined) {
+      answers[option.reveal.id] = option.reveal.default;
+    }
+    return answers;
+  }
+
+  // Nachkommastellen eines Schritts, z. B. 0.5 -> 1.
+  function decimalsOf(step) {
+    const text = String(step);
+    return text.includes('.') ? text.split('.')[1].length : 0;
+  }
+
+  // Rundet auf ein Vielfaches von step und entfernt Fliesskommafehler.
+  function roundToStep(value, step) {
+    if (!isNumber(value) || !isNumber(step) || step <= 0) return value;
+    return Number((Math.round(value / step) * step).toFixed(decimalsOf(step)));
   }
 
   // Kleinste freie ID: base, sonst base_2, base_3 ...
@@ -354,11 +577,78 @@
     return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
+  // Überschuss je Viertelstunde des Vortags: Mittel des Exports (-role:grid), ohne
+  // Import. Viertelstunden ohne Messwerte bleiben null. Index 0 ist 00:00.
+  const QUARTERS = 96;
+  function quarterSurplus(rows) {
+    const sums = new Array(QUARTERS).fill(0);
+    const counts = new Array(QUARTERS).fill(0);
+    for (const row of rows || []) {
+      if (!isNumber(row.avg) || !isNumber(row.ts)) continue;
+      const date = new Date(row.ts);
+      const slot = date.getHours() * 4 + Math.floor(date.getMinutes() / 15);
+      sums[slot] += Math.max(0, -row.avg);
+      counts[slot] += 1;
+    }
+    return sums.map((sum, slot) => (counts[slot] ? sum / counts[slot] : null));
+  }
+
+  // Erste Viertelstunde mit mindestens threshold, Anzahl solcher Viertelstunden und
+  // deren Summe als Stunden und Minuten. first ist -1, wenn keine erreicht wird.
+  function surplusStats(series, threshold) {
+    let first = -1;
+    let count = 0;
+    (series || []).forEach((value, slot) => {
+      if (!isNumber(value) || value < threshold) return;
+      count += 1;
+      if (first < 0) first = slot;
+    });
+    return { first, count, hours: Math.floor(count / 4), minutes: (count % 4) * 15 };
+  }
+
+  function quarterClock(slot) {
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(Math.floor(slot / 4))}:${pad((slot % 4) * 15)}`;
+  }
+
+  // Satz zur Vorschau: Start und Dauer am Vortag, oder dass die Schwelle nicht erreicht wurde.
+  function surplusText(series, threshold) {
+    const stats = surplusStats(series, threshold);
+    if (stats.first < 0) return t('automations.assistant.effect.surplus_missed');
+    return t('automations.assistant.effect.surplus_reached', {
+      time: quarterClock(stats.first), hours: stats.hours, minutes: stats.minutes,
+    });
+  }
+
+  // Vorschau-Grafik wie surplusSvg im Entwurf: Überschusskurve des Vortags, Schwellenlinie,
+  // unterlegte Viertelstunden über der Schwelle und der Satz darunter. Ohne Daten ''.
+  // labels: { start, aria, text } als fertige Texte.
+  function surplusMarkup(series, threshold, labels) {
+    if (!Array.isArray(series) || !series.some(isNumber)) return '';
+    const W = 580;
+    const H = 120;
+    const max = 5000;
+    const x = (i) => (i / 95) * W;
+    const y = (v) => H - 18 - (Math.min(v, max) / max) * (H - 30);
+    const pts = series.map((v, i) => `${x(i).toFixed(1)},${y(isNumber(v) ? Math.max(0, v) : 0).toFixed(1)}`).join(' ');
+    const barWidth = (W / 95 + 0.5).toFixed(1);
+    const runs = series.map((v, i) => (isNumber(v) && v >= threshold
+      ? `<rect x="${x(i).toFixed(1)}" y="${y(v).toFixed(1)}" width="${barWidth}" height="${(H - 18 - y(v)).toFixed(1)}" fill="color-mix(in srgb, var(--flow-heatpump) 30%, transparent)"/>`
+      : '')).join('');
+    const hours = [6, 12, 18].map((h) => `<text x="${(x(h * 4) - 12).toFixed(1)}" y="${H - 2}" font-size="11" fill="var(--text-muted)">${h}:00</text>`).join('');
+    const line = y(threshold).toFixed(1);
+    return `<svg class="auto-surplus-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${labels.aria}">${runs}`
+      + `<polyline points="${pts}" fill="none" stroke="var(--flow-pv)" stroke-width="2" vector-effect="non-scaling-stroke"/>`
+      + `<line x1="0" x2="${W}" y1="${line}" y2="${line}" stroke="var(--accent-line)" stroke-dasharray="4 4"/>`
+      + `<text x="6" y="${(y(threshold) - 6).toFixed(1)}" font-size="11" fill="var(--accent-line)" font-weight="600">${labels.start}</text>${hours}</svg>`
+      + `<span class="auto-assist-surplus-text">${labels.text}</span>`;
+  }
+
   // Wirkung eines Voreinstellungswerts aus den Vortagsdaten. Ohne Zeilen oder bei
   // einem Fehler des Verlaufs bleibt der Text leer.
   async function presetEffect(step, value, ctx, store) {
     if (step.effect === 'band') return '';
-    if (step.effect !== 'starts' && step.effect !== 'soc') return '';
+    if (step.effect !== 'starts' && step.effect !== 'soc' && step.effect !== 'surplus') return '';
     if (!store || typeof store.readRange !== 'function') return '';
     const [from, to] = yesterdayRange();
     try {
@@ -369,6 +659,11 @@
         return ts === null
           ? t('automations.assistant.effect.not_reached')
           : t('automations.assistant.effect.reached_at', { time: clockText(ts) });
+      }
+      if (step.effect === 'surplus') {
+        const rows = await store.readRange('1m', 'role:grid', from, to);
+        if (!rows || !rows.length) return '';
+        return surplusText(quarterSurplus(rows), value);
       }
       const rows = await store.readRange('1m', 'role:battery_soc', from, to);
       if (!rows || !rows.length) return '';
@@ -438,20 +733,100 @@
     return t(key, { from: formatNumber(base), to: formatNumber(step.value) });
   }
 
+  // Preise in ct/kWh, EUR/kWh oder €/kWh. Umrechnung nur über den Faktor der Einheit,
+  // auf sechs Nachkommastellen gerundet, damit 0,285 € genau 28,5 ct ergibt.
+  const EURO_PER_KWH = /^(€|EUR)\s*\/\s*kWh$/i;
+  const roundPrice = (value) => Number(value.toFixed(6));
+  function priceToCt(value, unit) {
+    if (!isNumber(value)) return NaN;
+    const factor = EURO_PER_KWH.test(String(unit || '').trim()) ? 100 : 1;
+    return roundPrice(value * factor);
+  }
+  // Schwelle in ct zurück in die Einheit des Messwerts, etwa 15 ct als 0,15 € bei €/kWh.
+  function ctToPriceUnit(ct, unit) {
+    if (!isNumber(ct)) return NaN;
+    const factor = EURO_PER_KWH.test(String(unit || '').trim()) ? 100 : 1;
+    return roundPrice(ct / factor);
+  }
+
+  // Satz zur Preisvorschau: Jetzt-Preis gegen die Schwelle. Ohne Preis kein Satz.
+  // Geladen wird unter der Schwelle (Vergleich below).
+  function priceNowText(now, thr) {
+    if (!Number.isFinite(now) || !Number.isFinite(thr)) return '';
+    const result = now < thr ? t('automations.assistant.price.load') : t('automations.assistant.price.hold');
+    return t('automations.assistant.price.now', { price: formatNumber(now, 1), result });
+  }
+
+  // Überschuss jetzt in W aus dem Assistenten-Kontext (Einspeisung positiv), null ohne Netzwert.
+  function surplusNow(ctx) {
+    const net = gridNet(ctx && ctx.snapshot);
+    return net === null ? null : Math.max(0, Math.round(-net));
+  }
+
+  // Satz zur Leistungsskala: Überschuss jetzt gegen die Schwelle. Ohne Wert kein Satz.
+  function surplusNowText(now, thr) {
+    if (!Number.isFinite(now) || !Number.isFinite(thr)) return '';
+    const result = now >= thr ? t('automations.assistant.surplus.now_start') : t('automations.assistant.surplus.now_hold');
+    return t('automations.assistant.surplus.now', { power: formatNumber(now, 0), result });
+  }
+
+  // Parameter für Katalogtexte des Assistenten: die Antworten mit Zahl oder Text, dazu der
+  // Ladestand aus dem Kontext als now, nur wenn er bekannt ist.
+  function textParams(ctx, answers) {
+    const params = {};
+    for (const [key, value] of Object.entries(answers || {})) {
+      if (typeof value === 'number' || typeof value === 'string') params[key] = value;
+    }
+    const values = (ctx && ctx.snapshot && ctx.snapshot.values) || {};
+    if (isNumber(values.battery_soc)) params.now = Math.round(values.battery_soc);
+    return params;
+  }
+
+  // Untertext einer Reveal-Zeile: mit Ladestand, wenn der Kontext ihn kennt, sonst ohne.
+  function revealTextKey(params) {
+    return params && params.now !== undefined ? 'reveal.text' : 'reveal.text_fallback';
+  }
+
+  // Symbol eines numbers-Feldes. Ohne Angabe bleibt die Zeile mit dem Standard-Symbol gefüllt.
+  const FIELD_ICON_FALLBACK = 'ico-flash';
+  function fieldIcon(field) {
+    return field && typeof field.icon === 'string' && field.icon !== '' ? field.icon : FIELD_ICON_FALLBACK;
+  }
+
   window.__automationWizard = {
     CATEGORIES,
     buildContext,
     defaultAnswers,
     devicesFor,
+    chooseOption,
+    fieldIcon,
+    revealTextKey,
+    textParams,
+    decimalsOf,
+    devicesForStep,
     firstReached,
+    optionBadge,
+    optionTextField,
+    quarterSurplus,
+    surplusMarkup,
+    surplusNow,
+    surplusNowText,
+    surplusText,
+    formatPrice,
     gridNet,
     lowest,
     optionUnavailable,
     presetEffect,
+    priceNowText,
+    priceToCt,
+    ctToPriceUnit,
     regulatorPreview,
     regulatorStep,
+    roundToStep,
     searchTemplates,
+    surplusStats,
     stepComplete,
+    toggleDevice,
     templateAvailability,
     uniqueId,
     visibleSteps,

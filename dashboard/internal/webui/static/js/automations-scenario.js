@@ -67,6 +67,37 @@
     scenario.max_duration_s = Math.round(value * 60);
   }
 
+  // Mindestlaufzeit und Pause: wie die Höchstlaufzeit in Minuten angezeigt
+  // und in Sekunden gespeichert. Leer löscht den Schlüssel, 0 bleibt 0.
+  const MIN_RUN_MAX_S = 86400;
+  const COOLDOWN_MAX_S = 86400;
+
+  function minRunMinutes(scenario) {
+    return isNumber(scenario.min_run_s) ? scenario.min_run_s / 60 : '';
+  }
+
+  function setMinRunMinutes(scenario, minutes) {
+    const value = Number(minutes);
+    if (isEmpty(minutes) || !Number.isFinite(value)) {
+      delete scenario.min_run_s;
+      return;
+    }
+    scenario.min_run_s = Math.round(value * 60);
+  }
+
+  function cooldownMinutes(scenario) {
+    return isNumber(scenario.cooldown_s) ? scenario.cooldown_s / 60 : '';
+  }
+
+  function setCooldownMinutes(scenario, minutes) {
+    const value = Number(minutes);
+    if (isEmpty(minutes) || !Number.isFinite(value)) {
+      delete scenario.cooldown_s;
+      return;
+    }
+    scenario.cooldown_s = Math.round(value * 60);
+  }
+
   // Ein Moduswechsel verwirft den alten Inhalt: der Regler und die Aktionen
   // der Wiederholung passen zu keinem anderen Modus.
   function setWhileMode(scenario, mode) {
@@ -203,7 +234,7 @@
     return (actions || []).some((action) => action.type === 'publish');
   }
 
-  // i18n-keys: automations.validation.scenario_max_duration, automations.validation.scenario_invalid_id, automations.validation.scenario_condition_count, automations.validation.scenario_until_count, automations.validation.scenario_action_count, automations.validation.scenario_hold_actions, automations.validation.scenario_repeat_with_toggle, automations.validation.scenario_repeat_too_short, automations.validation.scenario_regulator_topic, automations.validation.scenario_regulator_topic_taken, automations.validation.scenario_regulator_range, automations.validation.scenario_gain_range, automations.validation.scenario_regulator_fallback
+  // i18n-keys: automations.validation.scenario_max_duration, automations.validation.scenario_min_run, automations.validation.scenario_cooldown, automations.validation.scenario_invalid_id, automations.validation.scenario_condition_count, automations.validation.scenario_until_count, automations.validation.scenario_action_count, automations.validation.scenario_hold_actions, automations.validation.scenario_repeat_with_toggle, automations.validation.scenario_repeat_too_short, automations.validation.scenario_regulator_topic, automations.validation.scenario_regulator_topic_taken, automations.validation.scenario_regulator_range, automations.validation.scenario_gain_range, automations.validation.scenario_regulator_fallback
   function validateScenarioBeforeSave(scenario, ctx = {}) {
     const errors = [];
     const name = scenario.name;
@@ -225,6 +256,13 @@
       if (!(seconds >= MAX_DURATION_MIN_S && seconds <= MAX_DURATION_MAX_S)) {
         errors.push(t('automations.validation.scenario_max_duration', { name }));
       }
+    }
+
+    if (!isEmpty(scenario.min_run_s) && !(scenario.min_run_s >= 0 && scenario.min_run_s <= MIN_RUN_MAX_S)) {
+      errors.push(t('automations.validation.scenario_min_run', { name }));
+    }
+    if (!isEmpty(scenario.cooldown_s) && !(scenario.cooldown_s >= 0 && scenario.cooldown_s <= COOLDOWN_MAX_S)) {
+      errors.push(t('automations.validation.scenario_cooldown', { name }));
     }
 
     const current = scenario.while || {};
@@ -281,7 +319,8 @@
   }
 
   window.__automationScenario = {
-    emptyScenario, setUntil, setWhileMode, setMaxDurationMinutes, maxDurationMinutes, scenarioStatus, activePhase,
+    emptyScenario, setUntil, setWhileMode, setMaxDurationMinutes, maxDurationMinutes, setMinRunMinutes, minRunMinutes,
+    setCooldownMinutes, cooldownMinutes, scenarioStatus, activePhase,
     startProgress, phaseSummary, validateScenarioBeforeSave, stripRegulatorDefaults,
   };
 })();

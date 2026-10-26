@@ -165,14 +165,69 @@
                         x-bind:aria-checked="assistant.answers[assistantStep().id] === option.id ? 'true' : 'false'"
                         x-bind:disabled="!!assistantReason(assistantStep(), option)"
                         x-on:click="assistantPick(assistantStep(), option.id)">
+                  <span class="auto-assist-badge" x-show="assistantBadge(assistantStep(), option)"
+                        x-text="assistantBadge(assistantStep(), option)"></span>
                   <span class="auto-assist-tile-icon">
                     <svg class="automation-icon"><use x-bind:href="'#' + assistantTileIcon(option)"></use></svg>
                   </span>
                   <b x-text="assistantOptionText(assistantStep(), option, 'title')"></b>
-                  <span x-text="assistantOptionText(assistantStep(), option, 'text')"></span>
+                  <span x-text="assistantTileText(assistantStep(), option)"></span>
                   <span class="auto-assist-reason" x-show="assistantReason(assistantStep(), option)"
                         x-text="assistantReason(assistantStep(), option) || ''"></span>
                 </button>
+              </template>
+            </div>
+          </template>
+
+          <template x-if="assistantRevealOption(assistantStep())">
+            <div class="auto-assist-block">
+              <div class="auto-assist-option auto-assist-number"
+                   x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return assistantRevealOption(assistantStep()).reveal.id }, get stepOpts() { return assistantFieldOpts(assistantRevealOption(assistantStep()).reveal) }, get stepUnit() { return assistantRevealUnit(assistantStep()) }, get stepLabel() { return assistantRevealTitle(assistantStep()) } }">
+                <span class="auto-assist-option-text">
+                  <b x-text="assistantRevealTitle(assistantStep())"></b>
+                  <span class="auto-assist-live" x-text="assistantRevealSub(assistantStep())"></span>
+                </span>
+                {{template "auto-stepper"}}
+              </div>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'devices'">
+            <div class="auto-assist-block" role="group" x-bind:aria-label="assistantStepText(assistantStep(), 'title')">
+              <template x-for="device in assistantDevices(assistantStep())" x-bind:key="device.id">
+                <button type="button" class="auto-assist-pick" role="checkbox"
+                        x-bind:class="{ 'is-selected': assistantPicked(assistantStep(), device.id), 'is-off': !!device.disabled }"
+                        x-bind:aria-checked="assistantPicked(assistantStep(), device.id) ? 'true' : 'false'"
+                        x-bind:disabled="!!device.disabled"
+                        x-on:click="assistantToggleDevice(assistantStep(), device.id)">
+                  <svg class="automation-icon"><use x-bind:href="'#' + assistantDeviceIcon(assistantStep())"></use></svg>
+                  <span class="auto-assist-option-text">
+                    <b x-text="device.deviceName"></b>
+                    <span class="auto-assist-live" x-text="device.live || ''"></span>
+                  </span>
+                  <span class="auto-assist-pick-check" aria-hidden="true"><svg class="automation-icon"><use href="#ico-check"></use></svg></span>
+                  <span class="auto-assist-reason" x-show="device.disabled" x-text="device.disabled || ''"></span>
+                </button>
+              </template>
+              <p class="auto-assist-hint" x-text="$t('automations.assistant.device.missing_hint')"></p>
+            </div>
+          </template>
+
+          <template x-if="assistantStep() && assistantStep().type === 'numbers'">
+            <div class="auto-assist-block">
+              <template x-for="field in assistantStep().fields" x-bind:key="field.id">
+                <div class="auto-assist-option auto-assist-number"
+                     x-data="{ get stepTarget() { return assistant.answers[assistantStep().id] }, get stepKey() { return field.id }, get stepOpts() { return assistantFieldOpts(field) }, get stepUnit() { return assistantFieldText(assistantStep(), field, 'unit') }, get stepLabel() { return assistantFieldText(assistantStep(), field, 'title') } }">
+                  <svg class="automation-icon"><use x-bind:href="'#' + assistantFieldIcon(field)"></use></svg>
+                  <span class="auto-assist-option-text">
+                    <b x-text="assistantFieldText(assistantStep(), field, 'title')"></b>
+                    <span class="auto-assist-live" x-text="assistantFieldText(assistantStep(), field, 'text')"></span>
+                  </span>
+                  {{template "auto-stepper"}}
+                </div>
+              </template>
+              <template x-if="assistantStepHint() !== ''">
+                <p class="auto-assist-fit" x-text="assistantStepHint()"></p>
               </template>
             </div>
           </template>
@@ -193,14 +248,25 @@
                         x-on:click="assistantCustom(assistantStep())"
                         x-text="$t('automations.assistant.custom')"></button>
               </div>
-              <div class="auto-assist-custom" x-show="assistantIsCustom(assistantStep())"
-                   x-on:click="refreshEffect(assistantStep())" x-on:change="refreshEffect(assistantStep())"
-                   x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return assistantStep().id }, get stepOpts() { return { min: assistantStep().min, max: assistantStep().max, step: assistantStep().step || 1 } }, get stepUnit() { return assistantStepText(assistantStep(), 'unit') }, get stepLabel() { return assistantStepText(assistantStep(), 'title') } }">
-                <span x-text="$t('automations.assistant.custom')"></span>
-                {{template "auto-stepper"}}
-              </div>
-              <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id]"
+              <template x-if="!assistantStep().scale">
+                <div class="auto-assist-custom" x-show="assistantIsCustom(assistantStep())"
+                     x-on:click="refreshEffect(assistantStep())" x-on:change="refreshEffect(assistantStep())"
+                     x-data="{ get stepTarget() { return assistant.answers }, get stepKey() { return assistantStep().id }, get stepOpts() { return { min: assistantStep().min, max: assistantStep().max, step: assistantStep().step || 1 } }, get stepUnit() { return assistantStepText(assistantStep(), 'unit') }, get stepLabel() { return assistantStepText(assistantStep(), 'title') } }">
+                  <span x-text="$t('automations.assistant.custom')"></span>
+                  {{template "auto-stepper"}}
+                </div>
+              </template>
+              <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id] && assistantStep().effect !== 'surplus'"
                  x-text="assistant.effects[assistantStep().id] || ''"></p>
+              <template x-if="assistantStep().scale">
+                <div class="auto-assist-scale">
+                  <svg class="auto-scale-svg" x-ref="assistScale" x-bind:aria-label="assistantStepText(assistantStep(), 'title')"
+                       x-init="$nextTick(() => mountAssistantScale())"></svg>
+                  <p class="auto-assist-now" x-show="assistantScaleText() !== ''" x-text="assistantScaleText()"></p>
+                </div>
+              </template>
+              <div class="auto-assist-surplus" x-show="assistantSurplusMarkup() !== ''"
+                   x-html="assistantSurplusMarkup()"></div>
             </div>
           </template>
 

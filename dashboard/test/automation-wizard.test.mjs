@@ -285,9 +285,9 @@ test('searchTemplates splits fitting and others and finds keywords', () => {
   assert.deepEqual(byCategory.others, []);
 });
 
-test('CATEGORIES lists the five template categories', () => {
+test('CATEGORIES lists the eight template categories', () => {
   const { wizard } = load();
-  assert.deepEqual(plain(wizard.CATEGORIES), ['feed_in', 'charging', 'switching', 'warning', 'time']);
+  assert.deepEqual(plain(wizard.CATEGORIES), ['feed_in', 'charging', 'switching', 'heating', 'tariff', 'grid', 'warning', 'time']);
 });
 
 test('uniqueId appends a counter', () => {
@@ -426,4 +426,187 @@ test('regulatorPreview describes the next limit', () => {
   assert.equal(wizard.regulatorPreview(scenario, noNet), '');
   const rule = { while: { mode: 'hold' } };
   assert.equal(wizard.regulatorPreview(rule, ctx), '');
+});
+
+// Geraete fuer Waermepumpen, Akkus, Heizstaebe, Preise und Steuereingaenge.
+const heatDevices = [
+  {
+    id: 'hp1', name: 'Waermepumpe Keller',
+    entities: [
+      { unique_id: 'hp1_setpoint', name: 'Sollwert', command_topic: 'werkstatt/hp1/setpoint', min_value: 30, max_value: 60, step: 1, unit_of_measurement: '°C', has_value: true, value: '45' },
+      { unique_id: 'hp1_power', name: 'Leistung', state_topic: 'werkstatt/hp1/power', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '1200' },
+    ],
+  },
+  { id: 'hp2', name: 'Waermepumpe Garten', entities: [
+    { unique_id: 'hp2_power', name: 'Leistung', state_topic: 'werkstatt/hp2/power', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '0' },
+  ] },
+  { id: 'hp3', name: 'Waermepumpe Altbau', entities: [] },
+  { id: 'bat1', name: 'Speicher Keller', entities: [
+    { unique_id: 'bat1_soc', name: 'Ladestand', state_topic: 'werkstatt/bat1/soc', template_supported: true, unit_of_measurement: '%', has_value: true, value: '64' },
+  ] },
+  { id: 'bat2', name: 'Speicher Garage', entities: [
+    { unique_id: 'bat2_limit', name: 'Ladeleistung', command_topic: 'werkstatt/bat2/limit', min_value: 0, max_value: 3000, step: 50, unit_of_measurement: 'W', has_value: true, value: '0' },
+  ] },
+  { id: 'rod1', name: 'Heizstab Warmwasser', entities: [
+    { unique_id: 'rod1_power', name: 'Leistung', command_topic: 'werkstatt/rod1/power', min_value: 0, max_value: 3000, step: 100, unit_of_measurement: 'W', has_value: true, value: '0' },
+    { unique_id: 'rod1_temp', name: 'Temperatur', state_topic: 'werkstatt/rod1/temp', template_supported: true, device_class: 'temperature', unit_of_measurement: '°C', has_value: true, value: '48' },
+  ] },
+  { id: 'tarif', name: 'Strompreis', entities: [
+    { unique_id: 'price_ct', name: 'Preis ct', state_topic: 'werkstatt/price/ct', template_supported: true, unit_of_measurement: 'ct/kWh', has_value: true, value: '28.5' },
+    { unique_id: 'price_eur', name: 'Preis EUR', state_topic: 'werkstatt/price/eur', template_supported: true, unit_of_measurement: '€/kWh', has_value: true, value: '0.285' },
+    { unique_id: 'price_w', name: 'Leistung', state_topic: 'werkstatt/price/w', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '500' },
+  ] },
+  { id: 'plug', name: 'Steckdose Flur', entities: [
+    { unique_id: 'plug_sw', name: 'Schalter', command_topic: 'werkstatt/plug/sw', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+    { unique_id: 'plug_state', name: 'Status', state_topic: 'werkstatt/plug/state', template_supported: true, payload_on: 'ON', has_value: true, value: 'ON' },
+  ] },
+];
+
+const heatSnapshot = {
+  values: {},
+  entities: [
+    { device_id: 'hp1', entity_id: 'hp1_power', role: { role: 'heat_pump' } },
+    { device_id: 'hp2', entity_id: 'hp2_power', role: { role: 'heat_pump' } },
+    { device_id: 'hp3', entity_id: 'hp3_state', role: { role: 'heat_pump' } },
+    { device_id: 'bat1', entity_id: 'bat1_soc', role: { role: 'battery_soc' } },
+    { device_id: 'bat2', entity_id: 'bat2_limit', role: { role: 'battery' } },
+  ],
+};
+
+const noSwitchDevices = heatDevices.filter((device) => device.id !== 'plug');
+
+test('a heat pump keeps its setpoint and is enabled', () => {
+  const { wizard } = load();
+  const ctx = plain(wizard.buildContext({ devices: heatDevices, snapshot: heatSnapshot, document: {} }));
+  const hp1 = ctx.heatPumps.find((item) => item.deviceName === 'Waermepumpe Keller');
+  assert.equal(hp1.setpoint.unique_id, 'hp1_setpoint');
+  assert.equal(hp1.ownSwitch, null);
+  assert.equal(hp1.live, '1200 W');
+  assert.equal(hp1.disabled, '');
+});
+
+test('a heat pump with only a foreign switch in the system stays enabled', () => {
+  const { wizard } = load();
+  const ctx = plain(wizard.buildContext({ devices: heatDevices, snapshot: heatSnapshot, document: {} }));
+  const hp2 = ctx.heatPumps.find((item) => item.deviceName === 'Waermepumpe Garten');
+  assert.equal(hp2.setpoint, null);
+  assert.equal(hp2.ownSwitch, null);
+  assert.equal(hp2.disabled, '');
+});
+
+test('a heat pump without setpoint or switch is blocked when the system has no switch', () => {
+  const { wizard, t } = load();
+  const ctx = plain(wizard.buildContext({ devices: noSwitchDevices, snapshot: heatSnapshot, document: {} }));
+  const hp2 = ctx.heatPumps.find((item) => item.deviceName === 'Waermepumpe Garten');
+  const hp3 = ctx.heatPumps.find((item) => item.deviceName === 'Waermepumpe Altbau');
+  assert.equal(hp2.disabled, t('automations.assistant.unavailable.heat_pump_control'));
+  assert.equal(hp3.disabled, t('automations.assistant.unavailable.heat_pump_control'));
+  assert.ok(hp3.disabled.length > 0);
+});
+
+test('a battery without a writable value is blocked, one with a W setpoint is not', () => {
+  const { wizard, t } = load();
+  const ctx = plain(wizard.buildContext({ devices: heatDevices, snapshot: heatSnapshot, document: {} }));
+  const soc = ctx.batteries.find((item) => item.deviceName === 'Speicher Keller');
+  const limit = ctx.batteries.find((item) => item.deviceName === 'Speicher Garage');
+  assert.equal(soc.setpoint, null);
+  assert.equal(soc.disabled, t('automations.assistant.unavailable.battery_setpoint'));
+  assert.equal(limit.setpoint.unique_id, 'bat2_limit');
+  assert.equal(limit.disabled, '');
+});
+
+test('prices are recognised in ct/kWh and EUR/kWh but not in W', () => {
+  const { wizard } = load();
+  const ctx = plain(wizard.buildContext({ devices: heatDevices, snapshot: heatSnapshot, document: {} }));
+  assert.deepEqual(ctx.prices.map((item) => item.id), ['price_ct', 'price_eur']);
+  assert.ok(ctx.prices[1].live.endsWith(' €/kWh'));
+});
+
+test('rods need a power setpoint and a temperature sensor and skip other roles', () => {
+  const { wizard } = load();
+  const ctx = plain(wizard.buildContext({ devices: heatDevices, snapshot: heatSnapshot, document: {} }));
+  assert.deepEqual(ctx.rods.map((item) => item.id), ['rod1_power']);
+  assert.equal(ctx.rods[0].thermometer.unique_id, 'rod1_temp');
+  assert.equal(ctx.rods[0].entity.unique_id, 'rod1_power');
+});
+
+test('inputs take readable entities with a payload_on', () => {
+  const { wizard } = load();
+  const ctx = plain(wizard.buildContext({ devices: heatDevices, snapshot: heatSnapshot, document: {} }));
+  assert.deepEqual(ctx.inputs.map((item) => item.id), ['plug_state']);
+});
+
+test('devicesFor knows the new kinds', () => {
+  const { wizard } = load();
+  const ctx = wizard.buildContext({ devices: heatDevices, snapshot: heatSnapshot, document: {} });
+  assert.equal(wizard.devicesFor('heat_pump', ctx), ctx.heatPumps);
+  assert.equal(wizard.devicesFor('battery', ctx), ctx.batteries);
+  assert.equal(wizard.devicesFor('rod', ctx), ctx.rods);
+  assert.equal(wizard.devicesFor('price', ctx), ctx.prices);
+  assert.equal(wizard.devicesFor('input', ctx), ctx.inputs);
+});
+
+test('numbers step defaults every field', () => {
+  const { wizard } = load();
+  const ctx = build(wizard);
+  const step = {
+    id: 'limits', type: 'numbers',
+    fields: [
+      { id: 'low', min: 0, max: 100, step: 1, unit: '%', default: 20, icon: 'battery' },
+      { id: 'high', min: 0, max: 100, step: 0.5, unit: 'ct/kWh', default: 28.5, icon: 'tariff' },
+    ],
+  };
+  const answers = plain(wizard.defaultAnswers({ steps: [step] }, ctx));
+  assert.deepEqual(answers.limits, { low: 20, high: 28.5 });
+  assert.equal(wizard.stepComplete(step, answers.limits), true);
+  assert.equal(wizard.stepComplete(step, { low: 120, high: 28.5 }), false);
+  assert.equal(wizard.stepComplete(step, { low: 20 }), false);
+});
+
+test('devices step blocks next while empty', () => {
+  const { wizard } = load();
+  const ctx = build(wizard);
+  const step = { id: 'chargers', type: 'devices', filter: 'wallbox' };
+  const answers = plain(wizard.defaultAnswers({ steps: [step] }, ctx));
+  assert.deepEqual(answers.chargers, []);
+  assert.equal(wizard.stepComplete(step, []), false);
+  assert.equal(wizard.stepComplete(step, ['wb_limit']), true);
+  assert.deepEqual(plain(wizard.toggleDevice([], 'wb_limit')), ['wb_limit']);
+  assert.deepEqual(plain(wizard.toggleDevice(['wb_limit'], 'wb_limit')), []);
+  assert.deepEqual(plain(wizard.toggleDevice(['sw_a'], 'wb_limit')), ['sw_a', 'wb_limit']);
+});
+
+test('tiles reveal default is set when the option is picked', () => {
+  const { wizard } = load();
+  const step = {
+    id: 'priority', type: 'tiles', default: 'house',
+    options: [
+      { id: 'battery', reveal: { id: 'battery_soc', min: 10, max: 90, step: 5, unit: '%', default: 30 } },
+      { id: 'house' },
+    ],
+  };
+  const answers = {};
+  wizard.chooseOption(step, answers, 'battery');
+  assert.equal(answers.priority, 'battery');
+  assert.equal(answers.battery_soc, 30);
+  wizard.chooseOption(step, answers, 'house');
+  assert.equal(answers.priority, 'house');
+  assert.equal(answers.battery_soc, 30);
+  answers.battery_soc = 55;
+  wizard.chooseOption(step, answers, 'battery');
+  assert.equal(answers.battery_soc, 55);
+});
+
+test('presets with decimal steps round without float noise', () => {
+  const { wizard } = load();
+  assert.equal(wizard.roundToStep(0.1 + 0.2, 0.1), 0.3);
+  assert.equal(wizard.roundToStep(28.46, 0.5), 28.5);
+  assert.equal(wizard.roundToStep(28.7, 1), 29);
+});
+
+test('formatPrice keeps three decimals for euro and two for cents', () => {
+  const { wizard } = load();
+  assert.equal(wizard.formatPrice(0.285, '€/kWh'), '0,285 €/kWh');
+  assert.equal(wizard.formatPrice(28.5, 'ct/kWh'), '28,50 ct/kWh');
+  assert.equal(wizard.formatPrice('abc', 'ct/kWh'), 'abc ct/kWh');
 });
