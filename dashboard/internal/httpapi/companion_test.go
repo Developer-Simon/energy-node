@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bufio"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -325,5 +326,35 @@ func TestUserChangedRouteDropsSessions(t *testing.T) {
 	}
 	if _, ok := manager.Session(created.Token); ok {
 		t.Fatal("session of the deactivated home assistant user survived")
+	}
+}
+
+func TestCompanionGateTreatsMissingForwardedProtoAsInsecure(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	token := pairCompanion(t, CompanionGate(manager, router), manager)
+	var seen *http.Request
+	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = r })
+	gate := CompanionGate(manager, inner)
+	for _, proto := range []string{"", "http", "http, https"} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/companion/stream", nil)
+		request.TLS = &tls.ConnectionState{}
+		request.Header.Set("Authorization", "Bearer "+token)
+		if proto != "" {
+			request.Header.Set("X-Forwarded-Proto", proto)
+		}
+		gate.ServeHTTP(httptest.NewRecorder(), request)
+		if seen == nil || seen.TLS != nil {
+			t.Fatalf("X-Forwarded-Proto %q: clone keeps TLS, want insecure", proto)
+		}
+	}
+	for _, proto := range []string{"https", "https, http"} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/companion/stream", nil)
+		request.TLS = &tls.ConnectionState{}
+		request.Header.Set("Authorization", "Bearer "+token)
+		request.Header.Set("X-Forwarded-Proto", proto)
+		gate.ServeHTTP(httptest.NewRecorder(), request)
+		if seen == nil || seen.TLS == nil {
+			t.Fatalf("X-Forwarded-Proto %q: clone lost TLS", proto)
+		}
 	}
 }

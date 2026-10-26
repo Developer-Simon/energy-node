@@ -28,8 +28,9 @@ var errInvalidNonce = errors.New("nonce must be 64 hex characters")
 // CompanionGate wraps the handler of the companion port (8081). Every request
 // needs the bearer token of the pairing, except the pairing itself. The
 // request that reaches next is a clone without the Authorization header and
-// carries the companion marker; it counts as insecure when X-Forwarded-Proto
-// names a scheme other than https.
+// carries the companion marker. Unless the first X-Forwarded-Proto value is
+// exactly https, the clone loses its TLS state and counts as insecure, so a
+// missing header fails closed.
 func CompanionGate(manager *auth.Manager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !(r.Method == http.MethodPost && r.URL.Path == companionPairPath) {
@@ -41,7 +42,7 @@ func CompanionGate(manager *auth.Manager, next http.Handler) http.Handler {
 		}
 		clone := r.Clone(context.WithValue(r.Context(), companionContextKey{}, true))
 		clone.Header.Del("Authorization")
-		if proto := firstForwardedProto(r); proto != "" && !strings.EqualFold(proto, "https") {
+		if firstForwardedProto(r) != "https" {
 			clone.TLS = nil
 		}
 		next.ServeHTTP(w, clone)
