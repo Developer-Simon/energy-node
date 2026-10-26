@@ -220,6 +220,26 @@
     return result;
   }
 
+  // Ziele des Netzsignals: Wärmepumpen mit Sollwert und Wallboxen mit Stellglied.
+  // Als Sollwert sind nur W und A zulässig, andere Einheiten sperren das Ziel mit Grund.
+  const SIGNAL_UNITS = ['W', 'A'];
+  function gridTargetEntries(heatPumps, wallboxes) {
+    const targets = [];
+    const unitReason = (entity) => {
+      const unit = String(entity.unit_of_measurement || '').trim();
+      if (!unit) return t('automations.assistant.device.unit_missing');
+      if (SIGNAL_UNITS.includes(unit)) return '';
+      return t('automations.assistant.device.unit_unsupported', { unit });
+    };
+    for (const item of heatPumps) {
+      if (item.setpoint) targets.push({ ...item, entity: item.setpoint, disabled: unitReason(item.setpoint) });
+    }
+    for (const item of wallboxes) {
+      if (item.entity) targets.push({ ...item, disabled: item.disabled || unitReason(item.entity) });
+    }
+    return targets;
+  }
+
   // Lesbare Entitaeten je Geraet, die das Praedikat erfuellen.
   function readableEntries(devices, predicate) {
     const result = [];
@@ -245,11 +265,14 @@
     const settings = (document && document.settings) || {};
     const values = (snapshot && snapshot.values) || {};
     const switches = switchEntries(devices, regulatedTopics);
+    const wallboxes = wallboxEntries(devices, index, regulatedTopics);
+    const heatPumps = heatPumpEntries(devices, index, switches);
     return {
       inverters: inverterEntries(devices, index, regulatedTopics),
-      wallboxes: wallboxEntries(devices, index, regulatedTopics),
+      wallboxes,
       switches,
-      heatPumps: heatPumpEntries(devices, index, switches),
+      heatPumps,
+      gridTargets: gridTargetEntries(heatPumps, wallboxes),
       batteries: batteryEntries(devices, index),
       rods: rodEntries(devices, index, regulatedTopics),
       prices: readableEntries(devices, (entity) => PRICE_UNIT.test(String(entity.unit_of_measurement || '')))
@@ -287,6 +310,7 @@
     if (filter === 'rod') return ctx.rods;
     if (filter === 'price') return ctx.prices;
     if (filter === 'input') return ctx.inputs;
+    if (filter === 'grid_target') return ctx.gridTargets || [];
     return [];
   }
 

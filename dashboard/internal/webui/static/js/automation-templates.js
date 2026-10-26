@@ -883,8 +883,190 @@
     },
   };
 
+  // ---------------------------------------------------------------- Netzbezug deckeln
+
+  // Abstand zur Grenze, bei dem die Wallbox den Bezug regelt.
+  const GRID_CAP_MARGIN = 500;
+  // Abstand zur Grenze, unter dem das Szenario nach zehn Minuten endet.
+  const GRID_CAP_END_MARGIN = 1500;
+  const gridCapChange = (answers) => (answers.speed === 'fast' ? 3000 : 1000);
+
+  const gridCap = {
+    id: 'grid_cap',
+    category: 'grid',
+    icon: 'ico-grid',
+    requires: { devices: 'wallbox' },
+    steps: [
+      {
+        id: 'limit', type: 'presets', step: 100, default: 11000,
+        options: [{ id: 11000 }, { id: 16000 }, { id: 25000 }],
+      },
+      { id: 'device', type: 'device', filter: 'wallbox' },
+      {
+        id: 'speed', type: 'tiles', default: 'calm',
+        options: [{ id: 'calm' }, { id: 'fast' }],
+      },
+      {
+        id: 'extras', type: 'multi',
+        options: [{ id: 'notify', default: false }, { id: 'history', default: true }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.wallboxes, answers.device);
+      const entity = requireEntity(entry);
+      const threshold = answers.limit - GRID_CAP_MARGIN;
+
+      const regulator = {
+        output: outputOf(entity),
+        direction: 'consumer',
+        target_w: threshold,
+        deadband_w: 200,
+        max_change_w: gridCapChange(answers),
+        base: entry.measured ? entityBase(entry.measured) : { source: 'last' },
+        fallback: { payload: String(entity.min_value) },
+      };
+
+      const onStart = [];
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.grid_cap.notice.title'),
+          message: t('automations.templates.grid_cap.notice.message'),
+        });
+      }
+
+      // Ende erst, wenn der Bezug zehn Minuten deutlich unter der Grenze liegt.
+      const scenario = {
+        id: uniqueId('grid_cap', ctx.usedIds),
+        name: t('automations.templates.grid_cap.title'),
+        enabled: true,
+        template: 'grid_cap',
+        history_enabled: !!answers.extras.history,
+        when: { conditions: [B('grid_import', 'above', threshold, 10)] },
+        until: { conditions: [B('grid_import', 'below', answers.limit - GRID_CAP_END_MARGIN, 600)] },
+        on_start: { actions: onStart },
+        on_end: { actions: [setpoint(entity, String(entity.max_value))] },
+        while: { mode: 'regulate', regulator },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const entry = requireEntry(ctx.wallboxes, answers.device);
+      const entity = requireEntity(entry);
+      const threshold = answers.limit - GRID_CAP_MARGIN;
+      const rows = [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.grid_cap.when', { seconds: 10, value: num(threshold) }),
+          step: 'limit',
+        },
+        {
+          label: phase('run'),
+          text: t('automations.assistant.summary.grid_cap.run', {
+            value: num(threshold), change: num(gridCapChange(answers)),
+          }),
+          step: 'speed',
+        },
+        {
+          label: phase('end'),
+          text: t('automations.assistant.summary.grid_cap.end', { max: num(entity.max_value) }),
+          step: 'device',
+        },
+      ];
+      rows.push({
+        label: phase('until'),
+        text: t('automations.assistant.summary.grid_cap.until', { value: num(answers.limit - GRID_CAP_END_MARGIN) }),
+        step: 'limit',
+      });
+      if (answers.extras.notify) {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.grid_cap.notify'), step: 'extras' });
+      }
+      return rows;
+    },
+  };
+
+  // ---------------------------------------------------------------- Steuersignal nach §14a
+
+  // Sollwert eines Ziels aus der Leistung in kW: W direkt, A dreiphasig bei 230 V.
+  const signalValue = (kw, entity) => (entity.unit_of_measurement === 'A'
+    ? Math.round((kw * 1000) / 690)
+    : Math.round(kw * 1000));
+
+  const gridSignal = {
+    id: 'grid_signal',
+    category: 'grid',
+    icon: 'ico-gate',
+    requires: { devices: 'grid_target' },
+    steps: [
+      { id: 'input', type: 'device', filter: 'input' },
+      { id: 'targets', type: 'devices', filter: 'grid_target', default: [] },
+      { id: 'power', type: 'number', min: 1, max: 11, step: 0.1, default: 4.2 },
+      { id: 'extras', type: 'multi', options: [{ id: 'notify', default: true }] },
+    ],
+    build(answers, ctx) {
+      const input = requireEntry(ctx.inputs, answers.input).entity;
+      if (!answers.targets.length) throw new Error('automation template: no target chosen');
+      const targets = answers.targets.map((id) => {
+        const entry = requireEntry(ctx.gridTargets, id);
+        if (entry.disabled) throw new Error(`automation template: target not usable: ${id}`);
+        return requireEntity(entry);
+      });
+
+      const onStart = targets.map((entity) => setpoint(entity, String(signalValue(answers.power, entity))));
+      const onEnd = targets.map((entity) => setpoint(entity, String(entity.max_value)));
+      if (answers.extras.notify) {
+        onStart.push({
+          type: 'notification', severity: 'info',
+          title: t('automations.templates.grid_signal.notice.title'),
+          message: t('automations.templates.grid_signal.notice.message'),
+        });
+      }
+
+      const scenario = {
+        id: uniqueId('grid_signal', ctx.usedIds),
+        name: t('automations.templates.grid_signal.title'),
+        enabled: true,
+        template: 'grid_signal',
+        when: {
+          conditions: [{
+            type: 'entity_value', topic: input.state_topic, entity_id: input.unique_id,
+            value_template: input.value_template || '', comparison: 'equals', text: input.payload_on || 'on',
+          }],
+        },
+        on_start: { actions: onStart },
+        on_end: { actions: onEnd },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const input = (ctx.inputs || []).find((item) => item.id === answers.input) || {};
+      const rows = [{
+        label: phase('when'),
+        text: t('automations.assistant.summary.grid_signal.when', { name: input.deviceName || '' }),
+        step: 'input',
+      }];
+      for (const id of answers.targets) {
+        const entry = requireEntry(ctx.gridTargets, id);
+        const entity = requireEntity(entry);
+        rows.push({
+          label: phase('start'),
+          text: t('automations.assistant.summary.grid_signal.start', {
+            name: entry.deviceName, value: num(signalValue(answers.power, entity)), unit: entity.unit_of_measurement,
+          }),
+          step: 'targets',
+        });
+      }
+      rows.push({ label: phase('end'), text: t('automations.assistant.summary.grid_signal.end'), step: 'targets' });
+      if (answers.extras.notify) {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.grid_signal.notify'), step: 'extras' });
+      }
+      return rows;
+    },
+  };
+
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, gridCap, gridSignal],
     chargeFit,
   };
 })();

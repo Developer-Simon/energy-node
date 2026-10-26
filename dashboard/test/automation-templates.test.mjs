@@ -131,6 +131,14 @@ const VARIANTS = {
     { charge: { target: 60, power: 1000 } },
     { extras: { block: false, only: true, notify: true, history: false } },
   ],
+  grid_cap: [
+    { limit: 25000, speed: 'fast' },
+    { extras: { notify: true, history: false } },
+  ],
+  grid_signal: [
+    { input: 'steuer_dimm', targets: ['wb_limit'], power: 4.2, extras: { notify: false } },
+    { input: 'steuer_dimm', targets: ['wb_limit'], power: 2, extras: { notify: true } },
+  ],
 };
 
 // Zusaetzliche Mitteilungstexte, die eine Vorlage im gebauten Eintrag verwendet.
@@ -388,10 +396,13 @@ test('no built entry contains null', () => {
   const ctx = plain(contextFor(wizard));
   const hasNull = (value) => JSON.stringify(value).includes('null');
   for (const template of templates) {
-    const variants = [{}, ...(VARIANTS[template.id] || [])];
+    // Das Netzsignal braucht einen Eingang und ein gewähltes Ziel, also den Signal-Kontext ohne Standard.
+    const isSignal = template.id === 'grid_signal';
+    const base = isSignal ? plain(signalContext(wizard)) : ctx;
+    const variants = isSignal ? VARIANTS.grid_signal : [{}, ...(VARIANTS[template.id] || [])];
     for (const overrides of variants) {
-      const answers = answersFor(wizard, template, ctx, overrides);
-      const result = template.build(answers, ctx);
+      const answers = answersFor(wizard, template, base, overrides);
+      const result = template.build(answers, base);
       assert.equal(hasNull(result), false, `${template.id} ${JSON.stringify(overrides)}`);
     }
   }
@@ -771,4 +782,177 @@ test('tariff price in euro per kWh compares the threshold in euro', () => {
   const entry = plain(template.build(answers, ctx).entry);
   assert.equal(entry.when.conditions[0].value, 0.15);
   assert.ok(template.summary(answers, ctx)[0].text.includes('15 ct/kWh'));
+});
+
+// Netzbezug deckeln und Steuersignal nach §14a. Das Signal braucht einen lesbaren Eingang,
+// eine Wallbox in A und die Kontext-Rolle wallbox im Snapshot.
+const controlBox = {
+  id: 'steuer', name: 'Steuerbox',
+  entities: [
+    { unique_id: 'steuer_dimm', name: 'Dimmsignal', state_topic: 'werkstatt/steuer/dimm', template_supported: true, payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' },
+  ],
+};
+
+const ampereWallbox = {
+  id: 'wba', name: 'Wallbox Garage',
+  entities: [
+    { unique_id: 'wba_limit', name: 'Ladestrom', command_topic: 'werkstatt/wba/limit', min_value: 6, max_value: 16, step: 1, unit_of_measurement: 'A', has_value: true, value: '16' },
+    { unique_id: 'wba_power', name: 'Ladestrom Ist', state_topic: 'werkstatt/wba/power', template_supported: true, unit_of_measurement: 'A', has_value: true, value: '10' },
+  ],
+};
+
+const signalSnapshot = {
+  ...snapshot,
+  entities: [...snapshot.entities, { device_id: 'wba', entity_id: 'wba_power', role: { role: 'wallbox' } }],
+};
+
+const signalContext = (wizard, overrides = {}) => plain(wizard.buildContext({
+  devices: [...devices, controlBox, ampereWallbox], snapshot: signalSnapshot, document, ...overrides,
+}));
+
+test('grid_cap regulates as consumer just below the limit', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_cap');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  assert.equal(entry.template, 'grid_cap');
+  assert.equal(entry.while.mode, 'regulate');
+  assert.equal(entry.while.regulator.direction, 'consumer');
+  assert.equal(entry.while.regulator.target_w, 10500);
+  assert.equal(entry.while.regulator.deadband_w, 200);
+  assert.equal(entry.while.regulator.max_change_w, 1000);
+  assert.equal(entry.while.regulator.output.topic, 'werkstatt/wb/limit');
+  assert.equal(entry.while.regulator.output.max, 11000);
+  assert.equal(entry.while.regulator.base.entity_id, 'wb_power');
+  assert.deepEqual(entry.when.conditions, [{
+    type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 10500, hysteresis: 0, hold_seconds: 10,
+  }]);
+  assert.deepEqual(entry.until, { conditions: [{
+    type: 'balance_threshold', field: 'grid_import', comparison: 'below', threshold: 9500, hysteresis: 0, hold_seconds: 600,
+  }] });
+  assert.deepEqual(entry.on_start.actions, []);
+  assert.deepEqual(entry.on_end.actions, [{
+    type: 'publish', topic: 'werkstatt/wb/limit', retain: false, payload_source: 'constant', payload: '11000', entity_id: 'wb_limit',
+  }]);
+  assert.equal(entry.history_enabled, true);
+});
+
+test('grid_cap fast speed and the 16 kW limit change the regulator', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_cap');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { limit: 16000, speed: 'fast' }), ctx).entry);
+  assert.equal(entry.while.regulator.target_w, 15500);
+  assert.equal(entry.while.regulator.max_change_w, 3000);
+  assert.equal(entry.when.conditions[0].threshold, 15500);
+  assert.equal(entry.until.conditions[0].threshold, 14500);
+});
+
+test('grid_cap ends only after ten minutes below the limit minus 1500 W', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_cap');
+  const ctx = plain(contextFor(wizard));
+  const until = plain(template.build(answersFor(wizard, template, ctx, { limit: 11000 }), ctx).entry).until;
+  assert.equal(until.conditions[0].field, 'grid_import');
+  assert.equal(until.conditions[0].comparison, 'below');
+  assert.equal(until.conditions[0].threshold, 9500);
+  assert.equal(until.conditions[0].hold_seconds, 600);
+});
+
+test('grid_cap notify adds the notice on start', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'grid_cap');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    extras: { notify: true, history: false },
+  }), ctx).entry);
+  assert.equal(entry.on_start.actions[0].type, 'notification');
+  assert.equal(entry.on_start.actions[0].title, t('automations.templates.grid_cap.notice.title'));
+  assert.equal(entry.history_enabled, false);
+});
+
+test('grid_cap is unavailable without a wallbox', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_cap');
+  const ctx = plain(contextFor(wizard, { devices: devices.filter((device) => device.id !== 'wb') }));
+  const availability = wizard.templateAvailability(template, ctx);
+  assert.equal(availability.available, false);
+  assert.equal(availability.reason, 'Keine Wallbox mit einstellbarer Leistung gefunden');
+});
+
+test('grid_signal converts kW to amps for a current setpoint', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_signal');
+  const ctx = signalContext(wizard);
+  const answers = answersFor(wizard, template, ctx, {
+    input: 'steuer_dimm', targets: ['wba_limit'], power: 4.2, extras: { notify: false },
+  });
+  const entry = plain(template.build(answers, ctx).entry);
+  assert.deepEqual(entry.on_start.actions, [{
+    type: 'publish', topic: 'werkstatt/wba/limit', retain: false, payload_source: 'constant', payload: '6', entity_id: 'wba_limit',
+  }]);
+  assert.deepEqual(entry.on_end.actions, [{
+    type: 'publish', topic: 'werkstatt/wba/limit', retain: false, payload_source: 'constant', payload: '16', entity_id: 'wba_limit',
+  }]);
+});
+
+test('grid_signal sets watts for a watt setpoint and triggers on the input value', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'grid_signal');
+  const ctx = signalContext(wizard);
+  const answers = answersFor(wizard, template, ctx, { input: 'steuer_dimm', targets: ['wb_limit'], power: 4.2 });
+  const entry = plain(template.build(answers, ctx).entry);
+  assert.deepEqual(entry.when.conditions, [{
+    type: 'entity_value', topic: 'werkstatt/steuer/dimm', entity_id: 'steuer_dimm', value_template: '', comparison: 'equals', text: 'ON',
+  }]);
+  assert.equal(entry.on_start.actions[0].payload, '4200');
+  assert.equal(entry.on_start.actions[1].type, 'notification');
+  assert.equal(entry.on_start.actions[1].title, t('automations.templates.grid_signal.notice.title'));
+  assert.equal(entry.on_end.actions[0].payload, '11000');
+  assert.deepEqual(entry.while, { mode: 'none' });
+  assert.equal('until' in entry, false);
+});
+
+test('grid_signal locks targets with another unit and names the reason', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_signal');
+  const ctx = signalContext(wizard);
+  const heatPump = ctx.gridTargets.find((item) => item.id === 'hp_setpoint');
+  assert.equal(heatPump.disabled, 'Stellglied in °C, nur W oder A möglich');
+  assert.equal(ctx.gridTargets.find((item) => item.id === 'wb_limit').disabled, '');
+  const answers = answersFor(wizard, template, ctx, { input: 'steuer_dimm', targets: ['hp_setpoint'] });
+  assert.throws(() => template.build(answers, ctx), /target not usable/);
+});
+
+test('grid_signal starts without a chosen target and needs one to continue', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_signal');
+  const ctx = signalContext(wizard);
+  const answers = plain(wizard.defaultAnswers(template, ctx));
+  assert.deepEqual(answers.targets, []);
+  const targets = template.steps.find((step) => step.id === 'targets');
+  assert.equal(wizard.stepComplete(targets, answers.targets), false);
+  assert.equal(wizard.stepComplete(targets, ['wb_limit']), true);
+});
+
+test('grid_signal is unavailable without a heat pump setpoint or wallbox control value', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_signal');
+  const ctx = plain(wizard.buildContext({ devices: [controlBox], snapshot, document }));
+  const availability = wizard.templateAvailability(template, ctx);
+  assert.equal(availability.available, false);
+  assert.equal(availability.reason, 'Keine Wärmepumpe mit Sollwert und keine Wallbox mit Stellglied gefunden');
+  const withTargets = wizard.templateAvailability(template, signalContext(wizard));
+  assert.equal(withTargets.available, true);
+});
+
+test('grid_signal summary names the input and every chosen target', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'grid_signal');
+  const ctx = signalContext(wizard);
+  const answers = answersFor(wizard, template, ctx, { input: 'steuer_dimm', targets: ['wba_limit'], power: 4.2 });
+  const rows = plain(template.summary(answers, ctx));
+  assert.equal(rows[0].text, 'Wenn Steuerbox das Dimmen meldet');
+  assert.equal(rows[1].text, 'Wallbox Garage geht auf 6 A');
+  assert.equal(rows[1].step, 'targets');
 });
