@@ -1346,7 +1346,22 @@ if [[ $KEEP -eq 1 ]]; then
     # jeder Anfrage neu, ein Neustart ist nicht noetig.
     python3 "$HERE/real_changelog.py" "$REPO_DIR" "$WORK/installer-state"
   fi
+  # Der Admin bekommt http_login und ein eigenes HTTP-Passwort, damit der
+  # Browser sich auch ohne --https anmelden kann (Sitzung dann eingeschraenkt,
+  # siehe Benutzerverwaltung). Das Hauptpasswort gilt weiter ueber HTTPS.
+  HTTP_PASSWORD="smoketest-http-1234"
+  admin_roles="$(api "$BASE/api/v1/users" | python3 -c '
+import json, sys
+users = json.load(sys.stdin)["users"]
+roles = [u for u in users if u["username"] == "admin"][0]["roles"]
+print(json.dumps(sorted(set(roles) | {"http_login"})))')"
+  api -o /dev/null -H "X-CSRF-Token: $ADMIN_CSRF" -H 'Content-Type: application/json' -X PUT "$BASE/api/v1/users/admin" \
+    -d "{\"roles\":$admin_roles,\"disabled\":false}" \
+    && api -o /dev/null -H "X-CSRF-Token: $ADMIN_CSRF" -H 'Content-Type: application/json' -X PUT "$BASE/api/v1/users/admin/http-password" \
+      -d "{\"password\":\"$HTTP_PASSWORD\"}" \
+    || echo "Warnung: HTTP-Login fuer admin konnte nicht eingerichtet werden" >&2
   echo "Dashboard laeuft weiter: $BASE  (Login admin / $PASSWORD)"
+  [[ $HTTPS -eq 1 ]] || echo "Ueber HTTP (eingeschraenkte Sitzung): admin / $HTTP_PASSWORD"
   echo "Arbeitsverzeichnis: $WORK"
   # go:embed bindet Templates/CSS/JS beim Kompilieren ein - dieser Prozess
   # zeigt bis zu seinem Ende den Stand von eben, auch bei neuen Dateien.
