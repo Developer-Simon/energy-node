@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 )
 
 const (
@@ -14,9 +15,9 @@ const (
 	userSessionsPathPrefix = "/api/v1/user-sessions"
 )
 
-// handleUsers serves /api/v1/users: the list with its catalog and guest
-// settings (GET) and account creation (POST).
-func handleUsers(manager *auth.Manager) http.HandlerFunc {
+// handleUsers serves /api/v1/users: the list with its catalog, guest and
+// Home Assistant settings (GET) and account creation (POST).
+func handleUsers(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -28,6 +29,9 @@ func handleUsers(manager *auth.Manager) http.HandlerFunc {
 				"users":            manager.Users(),
 				"guests":           manager.Guests(),
 				"guest_roles":      manager.GuestRoles(),
+				"ha_accounts":      manager.HAAccounts(),
+				"ha_roles":         haRolesListing(manager),
+				"companion":        companionListing(manager, hub),
 				"password_policy":  passwordPolicy(manager),
 				"catalog":          usersCatalog(),
 				"migration_notice": manager.MigrationNotice(),
@@ -60,15 +64,16 @@ func handleUsers(manager *auth.Manager) http.HandlerFunc {
 }
 
 // handleUserSub serves /api/v1/users/ and everything below it. The fixed
-// paths (me/password, me/http-password, guest-roles) are matched before the
-// {name} segment, which the account names cannot collide with: "me" is too
-// short and "guest-" is reserved.
-func handleUserSub(manager *auth.Manager) http.HandlerFunc {
+// paths (me/password, me/http-password, guest-roles, companion, ha-roles) are
+// matched before the {name} segment, which the account names cannot collide
+// with: "me" is too short, "guest-" is reserved. "companion" and "ha-roles"
+// are valid local account names, so such an account cannot be reached by name.
+func handleUserSub(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, usersPathPrefix), "/")
 		switch {
 		case rest == "":
-			handleUsers(manager).ServeHTTP(w, r)
+			handleUsers(manager, hub).ServeHTTP(w, r)
 		case rest == "guest-roles":
 			handleGuestRoles(manager).ServeHTTP(w, r)
 		case rest == "password-policy":
@@ -77,8 +82,22 @@ func handleUserSub(manager *auth.Manager) http.HandlerFunc {
 			handleOwnPassword(manager).ServeHTTP(w, r)
 		case rest == "me/http-password":
 			handleOwnHTTPPassword(manager).ServeHTTP(w, r)
+		case rest == "companion/pairing-code":
+			handleCompanionPairingCode(manager).ServeHTTP(w, r)
+		case rest == "companion":
+			handleCompanionUnpair(manager, hub).ServeHTTP(w, r)
+		case rest == "ha-roles":
+			handleHARoles(manager).ServeHTTP(w, r)
 		default:
 			name, action, _ := strings.Cut(rest, "/")
+			if haUserID, ok := strings.CutPrefix(name, haAccountPrefix); ok {
+				if action != "" {
+					http.NotFound(w, r)
+					return
+				}
+				handleHAAccount(manager, haUserID).ServeHTTP(w, r)
+				return
+			}
 			switch action {
 			case "":
 				handleUser(manager, name).ServeHTTP(w, r)
@@ -427,6 +446,10 @@ func writeUserError(w http.ResponseWriter, err error) {
 		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.roles", nil, "Eine Berechtigung ist unbekannt")
 	case errors.Is(err, auth.ErrGuestRoleNotAllowed):
 		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.guest_role", nil, "Diese Berechtigung ist für Gäste nicht erlaubt")
+	case errors.Is(err, auth.ErrHARoleNotAllowed):
+		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.ha_role", nil, "Anmeldung über HTTP ist für Home-Assistant-Konten nicht erlaubt.")
+	case errors.Is(err, auth.ErrNotPaired):
+		writeErrorKey(w, http.StatusConflict, "not_paired", "error.not_paired", nil, "Es ist kein Companion gekoppelt.")
 	case errors.Is(err, auth.ErrHTTPLoginRequired):
 		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.http_login", nil, "Ein HTTP-Passwort braucht die Berechtigung http_login")
 	default:

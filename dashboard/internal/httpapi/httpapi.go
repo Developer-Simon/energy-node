@@ -345,8 +345,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
 		g.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
 		g.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
-		g.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
-		g.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
+		g.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth, dependencies.Companion))
+		g.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth, dependencies.Companion))
 		g.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
 		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
 		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
@@ -437,7 +437,7 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 			}
 		}
 		if r.URL.Path == "/" && r.Method == http.MethodGet {
-			webui.Login(!secureRequest, store, adminAuthWarningKey).ServeHTTP(w, r)
+			webui.Login(!secureRequest, store, adminAuthWarningKey, manager.CompanionStatus().Paired).ServeHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
