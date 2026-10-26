@@ -744,7 +744,7 @@
     id: 'tariff',
     category: 'tariff',
     icon: 'ico-battery',
-    requires: { devices: 'battery' },
+    requires: { devices: 'battery', soc: true },
     steps: [
       {
         id: 'source', type: 'tiles', default: 'fixed',

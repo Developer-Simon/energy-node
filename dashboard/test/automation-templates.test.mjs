@@ -1212,3 +1212,17 @@ test('no template text keeps a placeholder, with and without a state of charge',
     }
   }
 });
+
+test('tariff needs a battery level, a battery without soc reports why', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'tariff');
+  const noSoc = { ...snapshot, values: { pv: 862, grid_export: 0, grid_import: 0 } };
+  const ctx = plain(wizard.buildContext({ devices, snapshot: noSoc, document }));
+  assert.equal(ctx.batteries.length, 1);
+  const availability = wizard.templateAvailability(template, ctx);
+  assert.equal(availability.available, false);
+  assert.equal(availability.reason, 'Kein Akku mit Ladestand gefunden');
+  assert.equal(templateById(templates, 'tariff').requires.soc, true);
+  const withSoc = plain(contextFor(wizard));
+  assert.equal(wizard.templateAvailability(template, withSoc).available, true);
+});
