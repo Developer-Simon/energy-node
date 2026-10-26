@@ -55,6 +55,13 @@ const (
 	sessionLifetime       = 24 * time.Hour
 	guestSessionLife      = 7 * 24 * time.Hour
 	passwordRounds        = 120000
+	// SourceHomeAssistant markiert Konten und Sitzungen, die aus Home Assistant
+	// kommen (User.Source). Lokale Konten und Gäste haben keine Quelle.
+	SourceHomeAssistant = "homeassistant"
+	// ViaCompanion markiert eine Sitzung, die über die Companion-Kopplung entstand.
+	ViaCompanion = "companion"
+	// PairingCodeLifetime ist die Gültigkeit eines Kopplungscodes.
+	PairingCodeLifetime = 10 * time.Minute
 )
 
 type User struct {
@@ -69,6 +76,26 @@ type User struct {
 	// HasHTTPPassword is set only in the output of Users and Guests; the hash
 	// itself never leaves the package.
 	HasHTTPPassword bool `json:"has_http_password,omitempty"`
+	// Source ist "" für lokale Konten und Gäste, SourceHomeAssistant für HA-Konten.
+	Source      string `json:"source,omitempty"`
+	HAUserID    string `json:"ha_user_id,omitempty"`
+	DisplayName string `json:"display_name,omitempty"`
+}
+
+// companionFile hält die Kopplung zur Home-Assistant-Companion-Integration. Der
+// Token selbst steht nie in der Datei, nur sein Hash.
+type companionFile struct {
+	Label      string    `json:"label"`
+	TokenHash  string    `json:"token_hash"`
+	PairedAt   time.Time `json:"paired_at"`
+	LastSeenAt time.Time `json:"last_seen_at"`
+}
+
+// haRolesFile sind die Vorgaben für HA-Konten: Admin für Konten mit HA-Admin,
+// User für alle anderen.
+type haRolesFile struct {
+	Admin []string `json:"admin"`
+	User  []string `json:"user"`
 }
 
 type userFile struct {
@@ -76,8 +103,11 @@ type userFile struct {
 	GuestRoles         []string `json:"guest_roles"`
 	GuestRolesReviewed bool     `json:"guest_roles_reviewed,omitempty"`
 	// MinPasswordLength is the minimum for new passwords; absent or 0 means the default.
-	MinPasswordLength int    `json:"min_password_length,omitempty"`
-	Users             []User `json:"users"`
+	MinPasswordLength int            `json:"min_password_length,omitempty"`
+	Users             []User         `json:"users"`
+	Companion         *companionFile `json:"companion,omitempty"`
+	HARoles           *haRolesFile   `json:"ha_roles,omitempty"`
+	HAUsers           []HAAccount    `json:"ha_users,omitempty"`
 }
 
 // sessionFile is what survives a restart of the dashboard, so an update
@@ -94,6 +124,8 @@ type storedSession struct {
 	Username   string    `json:"username"`
 	ExpiresAt  time.Time `json:"expires_at"`
 	Restricted bool      `json:"restricted,omitempty"`
+	HAUserID   string    `json:"ha_user_id,omitempty"`
+	Via        string    `json:"via,omitempty"`
 }
 
 type Session struct {
@@ -104,6 +136,8 @@ type Session struct {
 	// Restricted marks a session from an HTTP login or from the HTTP
 	// password; its HTTPS-only roles are withheld (see EffectiveUser).
 	Restricted bool
+	// Via nennt den Weg, auf dem die Sitzung entstand (ViaCompanion), leer sonst.
+	Via string
 }
 
 type Manager struct {
@@ -123,7 +157,13 @@ type Manager struct {
 	// sessions is keyed by tokenHash(token), the same key sessions.json
 	// stores, so a session loaded from disk is found like a fresh one.
 	sessions map[string]Session
-	now      func() time.Time
+	// haAccounts sind die Home-Assistant-Konten, nach HAUserID geschlüsselt.
+	haAccounts map[string]HAAccount
+	// haRoles sind die Vorgaben für HA-Konten; nil, solange ha_roles fehlt.
+	haRoles *haRolesFile
+	// companion ist die Kopplung; nil ohne Kopplung.
+	companion *companionFile
+	now       func() time.Time
 }
 
 type contextKey struct{}
@@ -133,6 +173,13 @@ var ErrInvalidCredentials = errors.New("invalid credentials")
 // ErrInsecureLoginNotAllowed meldet ein richtiges Passwort über HTTP bei
 // einem Konto ohne die Berechtigung http_login.
 var ErrInsecureLoginNotAllowed = errors.New("insecure login not allowed")
+
+var (
+	ErrPairingInvalid   = errors.New("pairing code invalid or expired")
+	ErrNotPaired        = errors.New("no companion paired")
+	ErrAccountDisabled  = errors.New("account disabled")
+	ErrHARoleNotAllowed = errors.New("role is not allowed for home assistant accounts")
+)
 
 func NewManager(path, bootstrapUsername, bootstrapPassword string) (*Manager, error) {
 	return newManager(path, bootstrapUsername, bootstrapPassword, time.Now)
@@ -147,6 +194,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 		sessionsPath:       filepath.Join(filepath.Dir(filepath.Clean(path)), "sessions.json"),
 		users:              map[string]User{},
 		sessions:           map[string]Session{},
+		haAccounts:         map[string]HAAccount{},
 		now:                now,
 		guestRoles:         defaultGuestRoles(),
 		guestRolesReviewed: true,
@@ -210,6 +258,14 @@ func (m *Manager) loadLocked() (bool, error) {
 		}
 		m.users[user.Username] = user
 	}
+	for _, account := range file.HAUsers {
+		if account.Roles == nil {
+			account.Roles = []string{}
+		}
+		m.haAccounts[account.HAUserID] = account
+	}
+	m.haRoles = file.HARoles
+	m.companion = file.Companion
 	m.minPasswordLength = DefaultMinPasswordLength
 	if file.MinPasswordLength >= MinPasswordLengthLowest && file.MinPasswordLength <= MinPasswordLengthHighest {
 		m.minPasswordLength = file.MinPasswordLength
@@ -398,8 +454,21 @@ func (m *Manager) loadSessionsLocked() {
 	}
 	now := m.now()
 	for _, stored := range file.Sessions {
+		if stored.TokenHash == "" || !stored.ExpiresAt.After(now) {
+			continue
+		}
+		if stored.HAUserID != "" {
+			// Eine HA-Sitzung kommt aus den HA-Konten, nie aus den lokalen
+			// Konten gleichen Namens. Fehlt das Konto oder ist es gesperrt, fällt sie weg.
+			account, ok := m.haAccounts[stored.HAUserID]
+			if !ok || account.Disabled {
+				continue
+			}
+			m.sessions[stored.TokenHash] = Session{CSRFToken: stored.CSRFToken, User: m.haUserLocked(account), ExpiresAt: stored.ExpiresAt, Via: stored.Via}
+			continue
+		}
 		user, ok := m.users[stored.Username]
-		if !ok || stored.TokenHash == "" || !stored.ExpiresAt.After(now) {
+		if !ok {
 			continue
 		}
 		m.sessions[stored.TokenHash] = Session{CSRFToken: stored.CSRFToken, User: user, ExpiresAt: stored.ExpiresAt, Restricted: stored.Restricted}
@@ -416,7 +485,7 @@ func (m *Manager) saveSessionsLocked() error {
 			delete(m.sessions, key)
 			continue
 		}
-		sessions = append(sessions, storedSession{TokenHash: key, CSRFToken: session.CSRFToken, Username: session.User.Username, ExpiresAt: session.ExpiresAt, Restricted: session.Restricted})
+		sessions = append(sessions, storedSession{TokenHash: key, CSRFToken: session.CSRFToken, Username: session.User.Username, ExpiresAt: session.ExpiresAt, Restricted: session.Restricted, HAUserID: session.User.HAUserID, Via: session.Via})
 	}
 	data, err := json.MarshalIndent(sessionFile{Sessions: sessions}, "", "  ")
 	if err != nil {
@@ -432,12 +501,25 @@ func (m *Manager) saveLocked() error {
 	}
 	// Sorted, so the same state always produces the same bytes.
 	sort.Slice(users, func(i, j int) bool { return users[i].Username < users[j].Username })
+	accounts := make([]HAAccount, 0, len(m.haAccounts))
+	for _, account := range m.haAccounts {
+		accounts = append(accounts, account)
+	}
+	sort.Slice(accounts, func(i, j int) bool {
+		if accounts[i].Username != accounts[j].Username {
+			return accounts[i].Username < accounts[j].Username
+		}
+		return accounts[i].HAUserID < accounts[j].HAUserID
+	})
 	file := userFile{
 		Version:            usersFileVersion,
 		GuestRoles:         append([]string{}, m.guestRoles...),
 		GuestRolesReviewed: m.guestRolesReviewed,
 		MinPasswordLength:  m.minPasswordLength,
 		Users:              users,
+		Companion:          m.companion,
+		HARoles:            m.haRoles,
+		HAUsers:            accounts,
 	}
 	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
