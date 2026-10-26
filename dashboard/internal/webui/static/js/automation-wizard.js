@@ -5,7 +5,8 @@
   // DOM-Zugriffe. Eingaben sind die Geraete aus /api/v1/devices, der Snapshot aus
   // /api/v1/energy und das aktuelle Regeldokument.
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
-  const formatNumber = (value) => (window.I18n ? window.I18n.formatNumber(value) : String(value));
+  const formatNumber = (value, decimals) => (window.I18n
+    ? window.I18n.formatNumber(value, decimals) : String(value));
 
   const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
   const isNumber = (value) => typeof value === 'number' && Number.isFinite(value);
@@ -44,6 +45,20 @@
       if (hasText(topic) && !hasOwn(topics, topic)) topics[topic] = scenario.name || '';
     }
     return topics;
+  }
+
+  // Preis mit fester Nachkommazahl: Euro mit drei, Cent mit zwei Stellen.
+  function formatPrice(value, unit) {
+    const number = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(number)) return `${value} ${unit || ''}`.trim();
+    const decimals = /€|EUR/i.test(String(unit || '')) ? 3 : 2;
+    const text = formatNumber(number, decimals);
+    return unit ? `${text} ${unit}` : text;
+  }
+
+  function priceText(entity) {
+    if (!hasValue(entity)) return '—';
+    return formatPrice(entity.value, entity.unit_of_measurement);
   }
 
   function liveText(entity) {
@@ -228,7 +243,8 @@
       heatPumps: heatPumpEntries(devices, index, switches),
       batteries: batteryEntries(devices, index),
       rods: rodEntries(devices, index, regulatedTopics),
-      prices: readableEntries(devices, (entity) => PRICE_UNIT.test(String(entity.unit_of_measurement || ''))),
+      prices: readableEntries(devices, (entity) => PRICE_UNIT.test(String(entity.unit_of_measurement || '')))
+        .map((item) => ({ ...item, live: priceText(item.entity) })),
       inputs: readableEntries(devices, (entity) => hasText(entity.payload_on)
         || INPUT_CLASSES.includes(entity.device_class)),
       socAvailable: hasOwn(values, 'battery_soc'),
@@ -355,6 +371,18 @@
         if (first) return first.id;
         return step.default === undefined ? '' : step.default;
       }
+      case 'numbers': {
+        const result = {};
+        for (const field of step.fields || []) {
+          result[field.id] = field.default !== undefined ? field.default : field.min;
+        }
+        return result;
+      }
+      case 'devices': {
+        const list = devicesFor(typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role), ctx);
+        const usable = new Set(list.filter((item) => !item.disabled).map((item) => item.id));
+        return (Array.isArray(step.default) ? step.default : []).filter((id) => usable.has(id));
+      }
       case 'presets':
         return step.default !== undefined ? step.default : (options[0] || {}).id;
       case 'number':
@@ -406,12 +434,47 @@
           && (step.max === undefined || answer <= step.max);
       case 'presets':
         return isNumber(answer) && answer > 0;
+      case 'numbers':
+        return !!answer && (step.fields || []).every((field) => isNumber(answer[field.id])
+          && (field.min === undefined || answer[field.id] >= field.min)
+          && (field.max === undefined || answer[field.id] <= field.max));
+      case 'devices':
+        return Array.isArray(answer) && answer.length > 0;
       case 'time':
         return !!answer && TIME_PATTERN.test(answer.from) && TIME_PATTERN.test(answer.to)
           && answer.from !== answer.to;
       default:
         return true;
     }
+  }
+
+  // Mehrfachauswahl: ID hinzufuegen oder entfernen, neue Liste zurueck.
+  function toggleDevice(current, id) {
+    const list = Array.isArray(current) ? current : [];
+    return list.includes(id) ? list.filter((item) => item !== id) : [...list, id];
+  }
+
+  // Waehlt eine Option. Hat sie ein reveal, wird dessen Standardwert gesetzt, falls
+  // noch kein Wert da ist. Ein frueher gesetzter Wert bleibt beim erneuten Waehlen.
+  function chooseOption(step, answers, optionId) {
+    answers[step.id] = optionId;
+    const option = (step.options || []).find((item) => item.id === optionId);
+    if (option && option.reveal && answers[option.reveal.id] === undefined) {
+      answers[option.reveal.id] = option.reveal.default;
+    }
+    return answers;
+  }
+
+  // Nachkommastellen eines Schritts, z. B. 0.5 -> 1.
+  function decimalsOf(step) {
+    const text = String(step);
+    return text.includes('.') ? text.split('.')[1].length : 0;
+  }
+
+  // Rundet auf ein Vielfaches von step und entfernt Fliesskommafehler.
+  function roundToStep(value, step) {
+    if (!isNumber(value) || !isNumber(step) || step <= 0) return value;
+    return Number((Math.round(value / step) * step).toFixed(decimalsOf(step)));
   }
 
   // Kleinste freie ID: base, sonst base_2, base_3 ...
@@ -545,15 +608,20 @@
     buildContext,
     defaultAnswers,
     devicesFor,
+    chooseOption,
+    decimalsOf,
     firstReached,
+    formatPrice,
     gridNet,
     lowest,
     optionUnavailable,
     presetEffect,
     regulatorPreview,
     regulatorStep,
+    roundToStep,
     searchTemplates,
     stepComplete,
+    toggleDevice,
     templateAvailability,
     uniqueId,
     visibleSteps,

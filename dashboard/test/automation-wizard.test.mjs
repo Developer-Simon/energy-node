@@ -545,3 +545,68 @@ test('devicesFor knows the new kinds', () => {
   assert.equal(wizard.devicesFor('price', ctx), ctx.prices);
   assert.equal(wizard.devicesFor('input', ctx), ctx.inputs);
 });
+
+test('numbers step defaults every field', () => {
+  const { wizard } = load();
+  const ctx = build(wizard);
+  const step = {
+    id: 'limits', type: 'numbers',
+    fields: [
+      { id: 'low', min: 0, max: 100, step: 1, unit: '%', default: 20, icon: 'battery' },
+      { id: 'high', min: 0, max: 100, step: 0.5, unit: 'ct/kWh', default: 28.5, icon: 'tariff' },
+    ],
+  };
+  const answers = plain(wizard.defaultAnswers({ steps: [step] }, ctx));
+  assert.deepEqual(answers.limits, { low: 20, high: 28.5 });
+  assert.equal(wizard.stepComplete(step, answers.limits), true);
+  assert.equal(wizard.stepComplete(step, { low: 120, high: 28.5 }), false);
+  assert.equal(wizard.stepComplete(step, { low: 20 }), false);
+});
+
+test('devices step blocks next while empty', () => {
+  const { wizard } = load();
+  const ctx = build(wizard);
+  const step = { id: 'chargers', type: 'devices', filter: 'wallbox' };
+  const answers = plain(wizard.defaultAnswers({ steps: [step] }, ctx));
+  assert.deepEqual(answers.chargers, []);
+  assert.equal(wizard.stepComplete(step, []), false);
+  assert.equal(wizard.stepComplete(step, ['wb_limit']), true);
+  assert.deepEqual(plain(wizard.toggleDevice([], 'wb_limit')), ['wb_limit']);
+  assert.deepEqual(plain(wizard.toggleDevice(['wb_limit'], 'wb_limit')), []);
+  assert.deepEqual(plain(wizard.toggleDevice(['sw_a'], 'wb_limit')), ['sw_a', 'wb_limit']);
+});
+
+test('tiles reveal default is set when the option is picked', () => {
+  const { wizard } = load();
+  const step = {
+    id: 'priority', type: 'tiles', default: 'house',
+    options: [
+      { id: 'battery', reveal: { id: 'battery_soc', min: 10, max: 90, step: 5, unit: '%', default: 30 } },
+      { id: 'house' },
+    ],
+  };
+  const answers = {};
+  wizard.chooseOption(step, answers, 'battery');
+  assert.equal(answers.priority, 'battery');
+  assert.equal(answers.battery_soc, 30);
+  wizard.chooseOption(step, answers, 'house');
+  assert.equal(answers.priority, 'house');
+  assert.equal(answers.battery_soc, 30);
+  answers.battery_soc = 55;
+  wizard.chooseOption(step, answers, 'battery');
+  assert.equal(answers.battery_soc, 55);
+});
+
+test('presets with decimal steps round without float noise', () => {
+  const { wizard } = load();
+  assert.equal(wizard.roundToStep(0.1 + 0.2, 0.1), 0.3);
+  assert.equal(wizard.roundToStep(28.46, 0.5), 28.5);
+  assert.equal(wizard.roundToStep(28.7, 1), 29);
+});
+
+test('formatPrice keeps three decimals for euro and two for cents', () => {
+  const { wizard } = load();
+  assert.equal(wizard.formatPrice(0.285, '€/kWh'), '0,285 €/kWh');
+  assert.equal(wizard.formatPrice(28.5, 'ct/kWh'), '28,50 ct/kWh');
+  assert.equal(wizard.formatPrice('abc', 'ct/kWh'), 'abc ct/kWh');
+});
