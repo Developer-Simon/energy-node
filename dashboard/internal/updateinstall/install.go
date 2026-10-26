@@ -86,7 +86,7 @@ func (i *Installer) run(ctx context.Context, version string) {
 	events, cancel := bus.Subscribe(bus.Seq())
 	defer cancel()
 
-	runID, err := i.Runner.StartRun(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare})
+	runID, err := startWithRetry(ctx, i.Runner, hostapi.RunRequest{Mode: hostapi.ModePrepare})
 	if err != nil {
 		i.fail(version, codeOf(err, "PREPARE_FAILED"))
 		return
@@ -106,13 +106,44 @@ func (i *Installer) run(ctx context.Context, version string) {
 		return
 	}
 
-	if _, err := i.Runner.StartRun(ctx, hostapi.RunRequest{Mode: hostapi.ModeRedeploy}); err != nil {
+	if _, err := startWithRetry(ctx, i.Runner, hostapi.RunRequest{Mode: hostapi.ModeRedeploy}); err != nil {
 		i.fail(version, codeOf(err, "REDEPLOY_FAILED"))
 		return
 	}
 	i.mu.Lock()
 	i.status = Status{State: "idle"}
 	i.mu.Unlock()
+}
+
+// startRetryWindow begrenzt, wie lange ein Start auf das Ende des vorigen
+// Laufs wartet. Der Lauf meldet run-finished, bevor der Server ihn als
+// beendet markiert, daher kann ein Start kurz nach dem Ende RUN_IN_PROGRESS
+// liefern.
+const (
+	startRetryWindow = 2 * time.Second
+	startRetryEvery  = 20 * time.Millisecond
+)
+
+// startWithRetry startet einen Lauf und wiederholt den Versuch, solange der
+// Server RUN_IN_PROGRESS meldet. Nach startRetryWindow gibt es den letzten
+// Fehler zurueck.
+func startWithRetry(ctx context.Context, runner Runner, req hostapi.RunRequest) (string, error) {
+	deadline := time.Now().Add(startRetryWindow)
+	for {
+		id, err := runner.StartRun(ctx, req)
+		if err == nil {
+			return id, nil
+		}
+		var typed *hostapi.Error
+		if !errors.As(err, &typed) || typed.Code != "RUN_IN_PROGRESS" || !time.Now().Before(deadline) {
+			return "", err
+		}
+		select {
+		case <-ctx.Done():
+			return "", err
+		case <-time.After(startRetryEvery):
+		}
+	}
 }
 
 // candidate liest die Kandidatenversion, ohne Funktion ist sie leer.
