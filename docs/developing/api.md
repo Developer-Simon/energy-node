@@ -757,6 +757,32 @@ substring. Errors: `log_query_invalid` (400), `journal_not_permitted` (503),
 `journal_busy` (429, two queries already run). Responses carry
 `Cache-Control: no-store`.
 
+### Updates
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| POST | `/api/v1/updates/install` | `install_updates` + CSRF | Install the update the dashboard currently offers |
+| GET | `/api/v1/updates/progress` | signed-in session | How far a staged update is, or how the last install failed |
+
+`POST /api/v1/updates/install` takes no parameters. The body and the query
+are ignored, so a client cannot name a version: the request installs exactly
+the offered release, which is signed and is the only one the dashboard
+offers. The route is not HTTPS-only, because the role is not HTTPS-only
+either. The answer is `202 Accepted` with `{"version":"v0.10.9"}`, the
+version being installed.
+
+Errors: `install_updates_forbidden` (403), `csrf_failed` (403),
+`no_update_available` (409, nothing is offered), `update_in_progress` (409,
+an install or an updater job is already running), `install_failed` (500) and
+`install_unavailable` (501, this device cannot install directly).
+
+`GET /api/v1/updates/progress` reports `{"state":"preparing","version":"…"}`
+while the installer prepares the offered update (download and staging). When
+the preparation fails, it reports `{"state":"fail","version":"…","code":"…",
+"finished_at":"…"}` until a newer job replaces it. After the staging run the
+job shows the usual `pending`, `running` and `ok` or `fail` states. The
+endpoint answers `Cache-Control: no-store`.
+
 ### Versions and changelog
 
 | Method | Path | Gate | Purpose |
