@@ -6,13 +6,16 @@
     "apsystems_dach_pv2_power": {
       "role": "pv"
     },
+    "balkon_kraftwerk_power": {
+      "role": "pv"
+    },
     "netz_zaehler_power": {
       "role": "grid"
     },
     "batterie_power": {
       "role": "battery"
     },
-    "batterie_soc": {
+    "bank_soc": {
       "role": "battery_soc",
       "capacity_kwh": 10
     },
@@ -37,6 +40,9 @@
     "relais_keller_switch_2": {
       "role": "switch",
       "channel": 2
+    },
+    "gefriertruhe_power": {
+      "role": "custom:cooling"
     }
   },
   "categories": {
@@ -45,6 +51,12 @@
       "base": "consumer",
       "color": "cat_3",
       "icon": "mdi:power-socket-de"
+    },
+    "cooling": {
+      "label": "Cooling",
+      "base": "consumer",
+      "color": "cat_1",
+      "icon": "mdi:fan"
     }
   },
   "groups": {

@@ -326,6 +326,8 @@
       "name": "Voltage",
       "unique_id": "bank_a_voltage",
       "state_topic": "bms/bank_a/voltage",
+      "unit_of_measurement": "V",
+      "device_class": "voltage",
       "availability_topic": "bms/bank_a/online",
       "payload_available": "true",
       "payload_not_available": "false",
@@ -354,7 +356,8 @@
   {"topic": "shelly/netz_lumentree/status", "payload": {"id": 0, "apower": 48.2, "voltage": 230.9, "source": "init"}},
   {"topic": "bms/bank_a/voltage", "payload": "26.8"},
 
-  {"topic": "homeassistant/sensor/bank/soc/config", "payload": {"name": "State of charge", "unique_id": "bank_soc", "state_topic": "bank/soc", "unit_of_measurement": "%", "device_class": "battery", "device": {"identifiers": ["bank"], "via_device": "energy_node", "name": "Battery SoC"}}},
+  {"topic": "homeassistant/sensor/bank/soc/config", "payload": {"name": "State of charge", "unique_id": "bank_soc", "state_topic": "bank/soc", "unit_of_measurement": "%", "device_class": "battery", "availability_topic": "bank/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["bank"], "via_device": "energy_node", "name": "Battery SoC"}}},
+  {"topic": "bank/online", "payload": "true"},
   {"topic": "bank/soc", "payload": "64"},
 
   {"topic": "homeassistant/number/wallbox/current/config", "payload": {"name": "Current", "unique_id": "wallbox_current", "state_topic": "wallbox/current", "command_topic": "wallbox/current/set", "unit_of_measurement": "A", "min": 6, "max": 16, "step": 1, "mode": "box", "availability_topic": "wallbox/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["wallbox"], "name": "Wallbox"}}},
@@ -376,11 +379,14 @@
   {"topic": "homeassistant/switch/relais_keller/switch_2/config", "payload": {"name": "Output 2", "unique_id": "relais_keller_switch_2", "state_topic": "relais/keller/2/output", "command_topic": "relais/keller/2/output/set", "payload_on": "ON", "payload_off": "OFF", "state_on": "ON", "state_off": "OFF", "availability_topic": "relais/keller/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["relais_keller"], "via_device": "energy_node", "name": "Cellar Relay"}}},
   {"topic": "homeassistant/sensor/relais_keller/power/config", "payload": {"name": "Power", "unique_id": "relais_keller_power", "state_topic": "relais/keller/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "relais/keller/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["relais_keller"], "via_device": "energy_node", "name": "Cellar Relay"}}},
   {"topic": "relais/keller/online", "payload": "true"},
-  {"topic": "relais/keller/status", "payload": {"id": 0, "apower": 0, "source": "smoke"}},
+  {"topic": "relais/keller/status", "payload": {"id": 0, "apower": 85, "source": "smoke"}},
   {"topic": "relais/keller/1/output", "payload": "ON"},
   {"topic": "relais/keller/2/output", "payload": "OFF"},
 
   {"topic": "homeassistant/sensor/balkon_kraftwerk/power/config", "payload": {"name": "Power", "unique_id": "balkon_kraftwerk_power", "state_topic": "outstation/balkon_kraftwerk/power_w", "unit_of_measurement": "W", "device_class": "power", "state_class": "measurement", "availability_topic": "outstation/balkon_kraftwerk/status/online", "payload_available": "1", "payload_not_available": "0", "device": { "identifiers": ["balkon_kraftwerk"], "name": "Balcony Power Plant" }}},
   {"topic": "outstation/balkon_kraftwerk/status/online", "payload": "1"},
-  {"topic": "outstation/balkon_kraftwerk/power_w", "payload": "180"}
+  {"topic": "outstation/balkon_kraftwerk/power_w", "payload": "180"},
+  {"topic": "homeassistant/sensor/gefriertruhe/power/config", "payload": {"name": "Power", "unique_id": "gefriertruhe_power", "state_topic": "outstation/gefriertruhe/power_w", "unit_of_measurement": "W", "device_class": "power", "state_class": "measurement", "availability_topic": "outstation/gefriertruhe/status/online", "payload_available": "1", "payload_not_available": "0", "device": { "identifiers": ["gefriertruhe"], "name": "Chest Freezer" }}},
+  {"topic": "outstation/gefriertruhe/status/online", "payload": "1"},
+  {"topic": "outstation/gefriertruhe/power_w", "payload": "85"}
 ]
