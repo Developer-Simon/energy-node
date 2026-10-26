@@ -838,6 +838,7 @@
 
   const systemPanel = () => ({
     username: '',
+    via: '',
     canSystemActions: false,
     csrfToken: '',
     loading: false,
@@ -848,6 +849,7 @@
       try {
         const session = await requestJSON('/api/v1/auth/session');
         this.username = session.username || '';
+        this.via = session.via || '';
         this.canSystemActions = Boolean(session.system_actions);
         this.csrfToken = session.csrf_token || '';
       } catch (error) {

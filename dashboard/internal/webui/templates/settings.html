@@ -473,10 +473,11 @@
         <span class="setting-row-label">{{t "settings.system.access.label"}} <strong class="system-access-user" x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong></span>
       </div>
       <div class="setting-card-foot">
-        <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
+        <button class="icon-button labeled danger" type="button" x-show="via !== 'companion'" x-on:click="logout()" x-bind:disabled="loading" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
           <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
           <span>{{t "settings.system.logout.button"}}</span>
         </button>
+        <p class="setting-note" x-show="via === 'companion'">{{t "settings.account.via_ha"}}</p>
       </div>
     </section>{{end}}
     {{if .HasOwnAccount}}<section class="setting-card users-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible">

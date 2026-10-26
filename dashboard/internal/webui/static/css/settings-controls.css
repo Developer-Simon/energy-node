@@ -930,6 +930,28 @@
   .users-savebar { background: var(--panel-alt); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 
+/* Home Assistant: Hinweise am Konto, Kopplungsabschnitt (Stufen, Code, Restzeit). */
+.users-ha-note { margin: .35rem 0 0; font-size: .76rem; line-height: 1.4; color: var(--text-faint); }
+.users-ha-note--warn { color: var(--warn); }
+.users-pair-stage { display: grid; margin-top: .6rem; }
+.users-pair-st { display: grid; gap: .4rem; min-width: 0; }
+.users-pair-enter { transition: opacity 200ms ease, transform 240ms var(--ease-out); }
+.users-pair-enter-start { opacity: 0; transform: translateY(4px); }
+.users-pair-enter-end { opacity: 1; transform: none; }
+.users-code { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; margin: .6rem 0 .7rem; font: 650 1.6rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-strong); }
+.users-code-group { display: flex; gap: .3rem; }
+.users-code-char { display: inline-block; width: 1.05em; text-align: center; background: var(--sunken); border-radius: 8px; padding: .55rem 0; opacity: 0; transform: translateY(6px) scale(.96); }
+.users-code.is-in .users-code-char { opacity: 1; transform: none; transition: opacity 200ms ease, transform 260ms var(--ease-out); }
+.users-bar { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.users-bar > i { display: block; height: 100%; background: var(--accent-line); transform-origin: left center; transition: transform 1s linear; }
+.users-steps { margin: .6rem 0 0; padding-left: 1.1rem; font-size: .76rem; color: var(--text-muted); }
+.users-steps li { margin: .15rem 0; }
+@media (prefers-reduced-motion: reduce) {
+  .users-pair-enter, .users-pair-enter-start, .users-pair-enter-end { transform: none; transition: opacity 160ms ease; }
+  .users-code-char, .users-code.is-in .users-code-char { transform: none; transition: opacity 160ms ease; }
+  .users-bar > i { transition: none; }
+}
+
 /* Konto im Systemzugriff: eigenes Passwort und HTTP-Passwort, unter dem Zugriffsstatus. */
 .settings-account { margin-top: .8rem; padding-top: .2rem; border-top: 1px solid var(--border-soft); }
 .settings-account-notice { margin: .6rem 0; padding: .5rem .7rem; border-radius: var(--radius-sm); background: var(--sunken); color: var(--text); font-size: .84rem; }
