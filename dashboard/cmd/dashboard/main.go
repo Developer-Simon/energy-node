@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,6 +26,8 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/companiontls"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -523,59 +526,85 @@ func main() {
 		}
 	}()
 
+	// Second listener for the Home Assistant companion, TLS on its own port.
+	// "0" disables it. A certificate failure only disables this listener.
+	companionPort := os.Getenv("ENERGY_NODE_COMPANION_PORT")
+	if companionPort == "" {
+		companionPort = "8081"
+	}
+	var companionHub *companion.Hub
+	var companionCert tls.Certificate
+	var companionFingerprint string
+	if companionPort != "0" {
+		cert, fingerprint, err := companiontls.LoadOrCreate(dataDir)
+		if err != nil {
+			log.Printf("energy-node-dashboard: companion port disabled, certificate: %v", err)
+		} else {
+			companionHub = companion.NewHub()
+			authManager.SetHAVerifier(companionHub)
+			companionCert = cert
+			companionFingerprint = fingerprint
+		}
+	}
+
+	// basepath.Middleware sits outermost so the router only ever sees
+	// root-relative paths, even when a reverse proxy serves the dashboard
+	// under a subpath (see knowhow/dashboard/dashboard-reverse-proxy-unterpfad.md).
+	// Both listeners serve this same handler.
+	handler := basepath.Middleware(httpapi.NewAuthenticatedRouter(reg, configManager, settingsStore, tinytuya.NewClient(
+		cfg.TinyTuya.ProbePython,
+		cfg.TinyTuya.ProbeScript,
+		probeTimeout,
+	), credentialStore, client, storageProvider, runtimeStore, httpapi.RouterDependencies{
+		MQTT:                client,
+		MQTTReconfigure:     client,
+		MQTTCredentials:     mqttCredentialStore,
+		Reloader:            client,
+		Auth:                authManager,
+		AdminAuthWarningKey: adminAuthWarningKey,
+		SystemActions:       systemExecutor,
+		ServiceLogs:         serviceLogs,
+		StartedAt:           startedAt,
+		DeviceFilter:        deviceFilterStore,
+		DeviceActions:       client,
+		ShellyPresets:       shellyPresetsStore,
+		Version:             buildVersion,
+		BridgeCredentials:   bridgeCredentialStore,
+		MQTTBridgeWatcher:   client,
+		DataDir:             dataDir,
+		InstallerStateDir:   installerStateDir,
+		AppConfigPath:       *configPath,
+		BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,
+		Tailscale:           tailscaleClient,
+		Resolver:            energyResolver,
+		EnergyStats:         energyStats,
+		HistorySampler:      historySampler,
+		InstalledServices: map[string]bool{
+			"automation": cfg.ServiceInstalled("automation"),
+			"tailscale":  cfg.ServiceInstalled("tailscale"),
+			"tuya":       cfg.ServiceInstalled("tuya"),
+		},
+		MQTTBase:       mqttBase,
+		NodeAgent:      nodeAgent,
+		NodeSimulation: nodeSimPublisher,
+		// Die API zeigt alle passenden Sensoren, ungefiltert, damit der
+		// MQTT-Tab sie abwaehlen kann.
+		EnergySensorOptions: func() []energydiscovery.OptionalSensor {
+			return desiredOptionalSensors(currentSnapshot())
+		},
+		Redeploy:             redeployHandler,
+		UpdatesChecker:       updatesChecker,
+		UpdatesCache:         updatesCache,
+		UpdaterJobDir:        jobDir,
+		StepTitle:            stepTitle,
+		UpdateInstaller:      updateInstaller,
+		Companion:            companionHub,
+		CompanionFingerprint: companionFingerprint,
+	}))
+
 	srv := &http.Server{
-		Addr: net.JoinHostPort(bindAddress, port),
-		// basepath.Middleware sits outermost so the router only ever sees
-		// root-relative paths, even when a reverse proxy serves the dashboard
-		// under a subpath (see knowhow/dashboard/dashboard-reverse-proxy-unterpfad.md).
-		Handler: basepath.Middleware(httpapi.NewAuthenticatedRouter(reg, configManager, settingsStore, tinytuya.NewClient(
-			cfg.TinyTuya.ProbePython,
-			cfg.TinyTuya.ProbeScript,
-			probeTimeout,
-		), credentialStore, client, storageProvider, runtimeStore, httpapi.RouterDependencies{
-			MQTT:                client,
-			MQTTReconfigure:     client,
-			MQTTCredentials:     mqttCredentialStore,
-			Reloader:            client,
-			Auth:                authManager,
-			AdminAuthWarningKey: adminAuthWarningKey,
-			SystemActions:       systemExecutor,
-			ServiceLogs:         serviceLogs,
-			StartedAt:           startedAt,
-			DeviceFilter:        deviceFilterStore,
-			DeviceActions:       client,
-			ShellyPresets:       shellyPresetsStore,
-			Version:             buildVersion,
-			BridgeCredentials:   bridgeCredentialStore,
-			MQTTBridgeWatcher:   client,
-			DataDir:             dataDir,
-			InstallerStateDir:   installerStateDir,
-			AppConfigPath:       *configPath,
-			BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,
-			Tailscale:           tailscaleClient,
-			Resolver:            energyResolver,
-			EnergyStats:         energyStats,
-			HistorySampler:      historySampler,
-			InstalledServices: map[string]bool{
-				"automation": cfg.ServiceInstalled("automation"),
-				"tailscale":  cfg.ServiceInstalled("tailscale"),
-				"tuya":       cfg.ServiceInstalled("tuya"),
-			},
-			MQTTBase:       mqttBase,
-			NodeAgent:      nodeAgent,
-			NodeSimulation: nodeSimPublisher,
-			// Die API zeigt alle passenden Sensoren, ungefiltert, damit der
-			// MQTT-Tab sie abwaehlen kann.
-			EnergySensorOptions: func() []energydiscovery.OptionalSensor {
-				return desiredOptionalSensors(currentSnapshot())
-			},
-			Redeploy:        redeployHandler,
-			UpdatesChecker:  updatesChecker,
-			UpdatesCache:    updatesCache,
-			UpdaterJobDir:   jobDir,
-			StepTitle:       stepTitle,
-			UpdateInstaller: updateInstaller,
-		})),
+		Addr:              net.JoinHostPort(bindAddress, port),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -688,6 +717,22 @@ func main() {
 		}
 	}()
 
+	var companionSrv *http.Server
+	if companionHub != nil {
+		companionSrv = &http.Server{
+			Addr:              net.JoinHostPort(bindAddress, companionPort),
+			Handler:           httpapi.CompanionGate(authManager, handler),
+			TLSConfig:         &tls.Config{Certificates: []tls.Certificate{companionCert}, MinVersion: tls.VersionTLS12},
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+		go func() {
+			log.Printf("energy-node-dashboard: companion listening on :%s (HTTPS)", companionPort)
+			if err := companionSrv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+				log.Printf("energy-node-dashboard: companion server error: %v", err)
+			}
+		}()
+	}
+
 	<-ctx.Done()
 
 	log.Println("energy-node-dashboard: shutdown signal received, shutting down...")
@@ -696,6 +741,11 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Printf("energy-node-dashboard: graceful shutdown failed: %v", err)
+	}
+	if companionSrv != nil {
+		if err := companionSrv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("energy-node-dashboard: companion graceful shutdown failed: %v", err)
+		}
 	}
 	if flusher, ok := storageProvider.(storagehealth.Flusher); ok {
 		if err := flusher.Flush(); err != nil {
