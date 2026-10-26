@@ -560,3 +560,62 @@ test('surplus effect reports the first quarter hour above the threshold', async 
   assert.equal(none, t('automations.assistant.effect.surplus_missed'));
   assert.equal(await wizard.presetEffect(step, 500, {}, { readRange: async () => [] }), '');
 });
+
+test('heat_pump contact step lists the own switch first and preselects it', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heat_pump');
+  const ctx = plain(contextFor(wizard));
+  const contact = template.steps.find((step) => step.id === 'contact');
+  const ids = wizard.devicesForStep(contact, ctx, { device: 'hp_setpoint' }).map((item) => item.id);
+  assert.equal(ids[0], 'hp_sg');
+  assert.deepEqual([...ids].sort(), ['hp_sg', 'wb_switch'].sort());
+  assert.equal(answersFor(wizard, template, ctx).contact, 'hp_sg');
+});
+
+test('heat_pump sg option shows the badge and the own-contact text only with an own switch', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'heat_pump');
+  const control = template.steps.find((step) => step.id === 'control');
+  const sg = control.options.find((option) => option.id === 'sg');
+  const ctx = plain(contextFor(wizard));
+  // Die Geräte-ID der Wärmepumpe ist die ihres Sollwerts, sonst die ihres Schalters.
+  const own = { device: 'hp_setpoint' };
+  assert.equal(wizard.optionBadge(sg, ctx, own), t('automations.templates.heat_pump.steps.control.options.sg.badge'));
+  assert.equal(wizard.optionTextField(sg, ctx, own), 'text_own');
+
+  const bare = wizard.buildContext(heatPumpPreset([devices[1], {
+    id: 'hp', name: 'Wärmepumpe Keller', entities: [devices[2].entities[2]],
+  }], { ...snapshot, values: snapshot.values }));
+  const plainBare = plain(bare);
+  assert.equal(wizard.optionBadge(sg, plainBare, own), '');
+  assert.equal(wizard.optionTextField(sg, plainBare, own), 'text');
+});
+
+test('heat_pump without a soc signal drops the battery step and its condition', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'heat_pump');
+  const noSoc = { ...snapshot, values: { pv: 862, grid_export: 0, grid_import: 0 } };
+  const ctx = plain(wizard.buildContext(heatPumpPreset(devices, noSoc)));
+  const answers = answersFor(wizard, template, ctx);
+  assert.equal(wizard.visibleSteps(template, answers, ctx).some((step) => step.id === 'battery'), false);
+  const entry = plain(template.build(answers, ctx).entry);
+  assert.equal(entry.when.conditions.length, 2);
+  assert.equal(entry.when.conditions.some((condition) => condition.field === 'battery_soc'), false);
+  assert.equal(template.summary(answers, ctx).some((row) => row.text.includes('Akku')), false);
+});
+
+test('surplus markup draws the threshold, the quarter hours above it and the text, empty without data', () => {
+  const { wizard } = load();
+  const series = new Array(96).fill(null);
+  series[40] = 800;
+  series[41] = 900;
+  series[42] = 100;
+  const labels = { start: 'Start ab 500 W', aria: 'Überschuss', text: 'Satz' };
+  const markup = wizard.surplusMarkup(series, 500, labels);
+  assert.ok(markup.includes('class="auto-surplus-svg"'));
+  assert.ok(markup.includes('Start ab 500 W'));
+  assert.ok(markup.includes('Satz'));
+  assert.equal(markup.split('<rect').length - 1, 2);
+  assert.equal(wizard.surplusMarkup([], 500, labels), '');
+  assert.equal(wizard.surplusMarkup(new Array(96).fill(null), 500, labels), '');
+});

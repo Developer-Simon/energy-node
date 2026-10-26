@@ -165,11 +165,13 @@
                         x-bind:aria-checked="assistant.answers[assistantStep().id] === option.id ? 'true' : 'false'"
                         x-bind:disabled="!!assistantReason(assistantStep(), option)"
                         x-on:click="assistantPick(assistantStep(), option.id)">
+                  <span class="auto-assist-badge" x-show="assistantBadge(assistantStep(), option)"
+                        x-text="assistantBadge(assistantStep(), option)"></span>
                   <span class="auto-assist-tile-icon">
                     <svg class="automation-icon"><use x-bind:href="'#' + assistantTileIcon(option)"></use></svg>
                   </span>
                   <b x-text="assistantOptionText(assistantStep(), option, 'title')"></b>
-                  <span x-text="assistantOptionText(assistantStep(), option, 'text')"></span>
+                  <span x-text="assistantTileText(assistantStep(), option)"></span>
                   <span class="auto-assist-reason" x-show="assistantReason(assistantStep(), option)"
                         x-text="assistantReason(assistantStep(), option) || ''"></span>
                 </button>
@@ -242,8 +244,10 @@
                 <span x-text="$t('automations.assistant.custom')"></span>
                 {{template "auto-stepper"}}
               </div>
-              <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id]"
+              <p class="auto-assist-effect" x-show="assistant.effects[assistantStep().id] && assistantStep().effect !== 'surplus'"
                  x-text="assistant.effects[assistantStep().id] || ''"></p>
+              <div class="auto-assist-surplus" x-show="assistantSurplusMarkup() !== ''"
+                   x-html="assistantSurplusMarkup()"></div>
             </div>
           </template>
 

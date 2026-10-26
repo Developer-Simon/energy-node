@@ -569,7 +569,13 @@
       {
         id: 'control', type: 'tiles', default: 'sg',
         options: [
-          { id: 'sg', unavailable: (ctx) => (ctx.switches.length ? '' : t('automations.assistant.unavailable.switch')) },
+          {
+            id: 'sg',
+            unavailable: (ctx) => (ctx.switches.length ? '' : t('automations.assistant.unavailable.switch')),
+            badge: (ctx, answers) => (ownSwitchOf(ctx, answers.device)
+              ? t('automations.templates.heat_pump.steps.control.options.sg.badge') : ''),
+            textField: (ctx, answers) => (ownSwitchOf(ctx, answers.device) ? 'text_own' : 'text'),
+          },
           {
             id: 'setpoint',
             unavailable: (ctx, answers) => (hasSetpoint(requireEntry(ctx.heatPumps, answers.device))
@@ -580,6 +586,7 @@
       {
         id: 'contact', type: 'device', filter: 'switch', when: (answers) => answers.control === 'sg',
         default: (ctx, answers) => ownSwitchOf(ctx, answers.device),
+        first: (ctx, answers) => ownSwitchOf(ctx, answers.device),
       },
       {
         id: 'lift', type: 'number', min: 1, max: 10, step: 1, default: 5,
@@ -626,8 +633,10 @@
       const start = answers.start;
       const { run, pause } = answers.protect;
 
+      // Ohne Ladestand-Signal entfällt der Akku-Schritt, also auch seine Bedingung.
+      const battery = answers.battery === 'first' && !socUnavailable(ctx);
       const when = [B('grid_export', 'above', start, 300)];
-      if (answers.battery === 'first') when.push(B('battery_soc', 'above', answers.soc, 0));
+      if (battery) when.push(B('battery_soc', 'above', answers.soc, 0));
       when.push(feedInWhen(answers));
 
       // Ende, sobald der Überschuss zehn Minuten unter dem Haltewert liegt (Wolken).
@@ -678,7 +687,7 @@
       const contact = answers.control === 'sg';
       const now = contact ? 0 : currentSetpoint(entry);
       let when = t('automations.assistant.summary.heat_pump.when', { start: num(start), minutes: 5 });
-      if (answers.battery === 'first') {
+      if (answers.battery === 'first' && !socUnavailable(ctx)) {
         when += t('automations.assistant.summary.heat_pump.when_battery', { value: num(answers.soc) });
       }
       if (answers.period === 'sun') when += t('automations.assistant.summary.heat_pump.when_sun');

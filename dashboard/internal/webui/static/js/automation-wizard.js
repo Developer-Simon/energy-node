@@ -259,6 +259,16 @@
     };
   }
 
+  // Geräte eines Schritts. Liefert der Schritt first(ctx, answers), steht dieses
+  // Gerät vorne in der Liste (eigener Schalter der Wärmepumpe).
+  function devicesForStep(step, ctx, answers) {
+    const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
+    const list = devicesFor(kind, ctx);
+    if (typeof step.first !== 'function') return list;
+    const id = step.first(ctx, answers || {});
+    return [...list.filter((item) => item.id === id), ...list.filter((item) => item.id !== id)];
+  }
+
   function devicesFor(filter, ctx) {
     if (filter === 'inverter') return ctx.inverters;
     if (filter === 'wallbox') return ctx.wallboxes;
@@ -296,6 +306,16 @@
   function optionUnavailable(option, ctx, answers) {
     if (!option || typeof option.unavailable !== 'function') return '';
     return option.unavailable(ctx, answers) || '';
+  }
+
+  // Abzeichen einer Option ('' ohne), und das Textfeld, das die Kachel zeigt.
+  function optionBadge(option, ctx, answers) {
+    if (!option || typeof option.badge !== 'function') return '';
+    return option.badge(ctx, answers) || '';
+  }
+
+  function optionTextField(option, ctx, answers) {
+    return option && typeof option.textField === 'function' ? option.textField(ctx, answers) : 'text';
   }
 
   // Texte einer Vorlage: fertige Strings am Objekt haben Vorrang, sonst der
@@ -356,8 +376,7 @@
     const options = step.options || [];
     switch (step.type) {
       case 'device': {
-        const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
-        const list = devicesFor(kind, ctx);
+        const list = devicesForStep(step, ctx, answers);
         const wanted = typeof step.default === 'function' ? step.default(ctx, answers) : step.default;
         const preferred = list.find((item) => item.id === wanted && !item.disabled);
         const first = list.find((item) => !item.disabled);
@@ -380,7 +399,7 @@
         return result;
       }
       case 'devices': {
-        const list = devicesFor(typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role), ctx);
+        const list = devicesForStep(step, ctx, answers);
         const usable = new Set(list.filter((item) => !item.disabled).map((item) => item.id));
         return (Array.isArray(step.default) ? step.default : []).filter((id) => usable.has(id));
       }
@@ -558,6 +577,39 @@
     return `${pad(Math.floor(slot / 4))}:${pad((slot % 4) * 15)}`;
   }
 
+  // Satz zur Vorschau: Start und Dauer am Vortag, oder dass die Schwelle nicht erreicht wurde.
+  function surplusText(series, threshold) {
+    const stats = surplusStats(series, threshold);
+    if (stats.first < 0) return t('automations.assistant.effect.surplus_missed');
+    return t('automations.assistant.effect.surplus_reached', {
+      time: quarterClock(stats.first), hours: stats.hours, minutes: stats.minutes,
+    });
+  }
+
+  // Vorschau-Grafik wie surplusSvg im Entwurf: Überschusskurve des Vortags, Schwellenlinie,
+  // unterlegte Viertelstunden über der Schwelle und der Satz darunter. Ohne Daten ''.
+  // labels: { start, aria, text } als fertige Texte.
+  function surplusMarkup(series, threshold, labels) {
+    if (!Array.isArray(series) || !series.some(isNumber)) return '';
+    const W = 580;
+    const H = 120;
+    const max = 5000;
+    const x = (i) => (i / 95) * W;
+    const y = (v) => H - 18 - (Math.min(v, max) / max) * (H - 30);
+    const pts = series.map((v, i) => `${x(i).toFixed(1)},${y(isNumber(v) ? Math.max(0, v) : 0).toFixed(1)}`).join(' ');
+    const barWidth = (W / 95 + 0.5).toFixed(1);
+    const runs = series.map((v, i) => (isNumber(v) && v >= threshold
+      ? `<rect x="${x(i).toFixed(1)}" y="${y(v).toFixed(1)}" width="${barWidth}" height="${(H - 18 - y(v)).toFixed(1)}" fill="color-mix(in srgb, var(--flow-heatpump) 30%, transparent)"/>`
+      : '')).join('');
+    const hours = [6, 12, 18].map((h) => `<text x="${(x(h * 4) - 12).toFixed(1)}" y="${H - 2}" font-size="11" fill="var(--text-muted)">${h}:00</text>`).join('');
+    const line = y(threshold).toFixed(1);
+    return `<svg class="auto-surplus-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${labels.aria}">${runs}`
+      + `<polyline points="${pts}" fill="none" stroke="var(--flow-pv)" stroke-width="2" vector-effect="non-scaling-stroke"/>`
+      + `<line x1="0" x2="${W}" y1="${line}" y2="${line}" stroke="var(--accent-line)" stroke-dasharray="4 4"/>`
+      + `<text x="6" y="${(y(threshold) - 6).toFixed(1)}" font-size="11" fill="var(--accent-line)" font-weight="600">${labels.start}</text>${hours}</svg>`
+      + `<span class="auto-assist-surplus-text">${labels.text}</span>`;
+  }
+
   // Wirkung eines Voreinstellungswerts aus den Vortagsdaten. Ohne Zeilen oder bei
   // einem Fehler des Verlaufs bleibt der Text leer.
   async function presetEffect(step, value, ctx, store) {
@@ -577,11 +629,7 @@
       if (step.effect === 'surplus') {
         const rows = await store.readRange('1m', 'role:grid', from, to);
         if (!rows || !rows.length) return '';
-        const stats = surplusStats(quarterSurplus(rows), value);
-        if (stats.first < 0) return t('automations.assistant.effect.surplus_missed');
-        return t('automations.assistant.effect.surplus_reached', {
-          time: quarterClock(stats.first), hours: stats.hours, minutes: stats.minutes,
-        });
+        return surplusText(quarterSurplus(rows), value);
       }
       const rows = await store.readRange('1m', 'role:battery_soc', from, to);
       if (!rows || !rows.length) return '';
@@ -658,7 +706,13 @@
     devicesFor,
     chooseOption,
     decimalsOf,
+    devicesForStep,
     firstReached,
+    optionBadge,
+    optionTextField,
+    quarterSurplus,
+    surplusMarkup,
+    surplusText,
     formatPrice,
     gridNet,
     lowest,

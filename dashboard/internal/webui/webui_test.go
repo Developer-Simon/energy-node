@@ -3934,3 +3934,32 @@ func TestAutomationsPanelShipsNumbersDevicesAndReveal(t *testing.T) {
 		}
 	}
 }
+
+// Vorschau der Überschuss-Vorlage und Reihenfolge im Kontakt-Schritt: das Markup
+// bindet die Vorschau an den Startwert und zeigt Abzeichen und Text je Kachel.
+func TestAutomationsAssistantShipsTheSurplusPreview(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`class="auto-assist-surplus"`, `x-html="assistantSurplusMarkup()"`,
+		`x-show="assistantSurplusMarkup() !== ''"`,
+		`assistantStep().effect !== 'surplus'`,
+		`x-text="assistantBadge(assistantStep(), option)"`,
+		`x-text="assistantTileText(assistantStep(), option)"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Vorschau-Markup %q fehlt im Automations-Panel", marker)
+		}
+	}
+	js, err := os.ReadFile("static/js/automation-wizard.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, marker := range []string{`surplusMarkup`, `auto-surplus-svg`, `devicesForStep`} {
+		if !strings.Contains(string(js), marker) {
+			t.Fatalf("automation-wizard.js liefert die Vorschau nicht: %q fehlt", marker)
+		}
+	}
+}

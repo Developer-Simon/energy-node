@@ -126,7 +126,7 @@
   // Zustand des Vorlagen-Assistenten im Ruhezustand (Dialog zu).
   const assistantIdle = () => ({
     open: false, templateId: '', answers: {}, index: 0, name: '', query: '', category: 'all', context: null, effects: {},
-    band: { tolOn: false, errors: null },
+    band: { tolOn: false, errors: null }, surplus: null,
   });
   // Zielband im Assistenten: Griff und Zustand leben ausserhalb der reaktiven Daten.
   let bandHandle = null;
@@ -1326,8 +1326,7 @@
     // Geraete fuer einen device-Schritt, mit Sperre und Grund aus dem Kontext.
     assistantDevices(step) {
       if (!step || !this.assistant.context) return [];
-      const kind = typeof step.filter === 'string' ? step.filter : (step.filter && step.filter.role);
-      return window.__automationWizard.devicesFor(kind, this.assistant.context);
+      return window.__automationWizard.devicesForStep(step, this.assistant.context, this.assistant.answers);
     },
 
     startTemplate(id) {
@@ -1355,7 +1354,7 @@
     assistantSteps() {
       const template = this.assistantTemplate();
       if (!template) return [];
-      return window.__automationWizard.visibleSteps(template, this.assistant.answers);
+      return window.__automationWizard.visibleSteps(template, this.assistant.answers, this.assistant.context);
     },
 
     assistantStep() {
@@ -1404,6 +1403,10 @@
         await this.loadBandErrors();
         return;
       }
+      if (step.effect === 'surplus') {
+        await this.loadSurplus();
+        return;
+      }
       const value = this.assistant.answers[step.id];
       const text = await window.__automationWizard.presetEffect(step, value, this.assistant.context, window.HistoryStore);
       if (this.assistant.open && this.assistant.answers[step.id] === value) {
@@ -1425,6 +1428,44 @@
       }
       band.errors = errors;
       if (bandHandle) bandHandle.redraw();
+    },
+
+    // Gestrige Viertelstunden des Überschusses für die Vorschau, einmal je Assistent.
+    // Ohne Daten bleibt die Reihe leer, dann zeigt die Vorschau nichts.
+    async loadSurplus() {
+      if (!this.assistant.open || this.assistant.surplus !== null) return;
+      let series = [];
+      try {
+        const [from, to] = window.__automationWizard.yesterdayRange();
+        const rows = await window.HistoryStore.readRange('1m', 'role:grid', from, to);
+        series = window.__automationWizard.quarterSurplus(rows);
+      } catch (error) {
+        series = [];
+      }
+      if (this.assistant.open) this.assistant.surplus = series;
+    },
+
+    // Vorschau des Startwerts: Kurve und Schwelle aus den Antworten, '' ohne Daten.
+    assistantSurplusMarkup() {
+      const step = this.assistantStep();
+      if (!step || step.effect !== 'surplus' || !Array.isArray(this.assistant.surplus)) return '';
+      const wizard = window.__automationWizard;
+      const threshold = this.assistant.answers[step.id];
+      return wizard.surplusMarkup(this.assistant.surplus, threshold, {
+        start: t('automations.assistant.surplus.start_at', { value: window.I18n.formatNumber(threshold) }),
+        aria: t('automations.assistant.surplus.aria'),
+        text: wizard.surplusText(this.assistant.surplus, threshold),
+      });
+    },
+
+    // Abzeichen und Text einer Kachel, je nach Gerätekontext der Antworten.
+    assistantBadge(step, option) {
+      return window.__automationWizard.optionBadge(option, this.assistant.context, this.assistant.answers);
+    },
+
+    assistantTileText(step, option) {
+      const field = window.__automationWizard.optionTextField(option, this.assistant.context, this.assistant.answers);
+      return this.assistantOptionText(step, option, field);
     },
 
     // Zieht das Band neu: Ziel und Toleranz aus den Antworten, Toleranz ohne Schalter 20 W.

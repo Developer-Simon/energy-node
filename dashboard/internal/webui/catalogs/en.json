@@ -170,6 +170,8 @@
   "automations.assistant.summary.wallbox.until_min": "At sunset",
   "automations.assistant.summary.wallbox.until_sun": "When grid import stays above {value} W for at least {minutes} minutes",
   "automations.assistant.summary.wallbox.when": "When feed-in stays above {start} W for at least {minutes} minutes",
+  "automations.assistant.surplus.aria": "Yesterday's surplus with the start threshold",
+  "automations.assistant.surplus.start_at": "Start from {value} W",
   "automations.assistant.time.from": "From",
   "automations.assistant.time.invalid": "From and to need two different times.",
   "automations.assistant.time.to": "To",

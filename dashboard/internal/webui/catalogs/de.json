@@ -170,6 +170,8 @@
   "automations.assistant.summary.wallbox.until_min": "Bei Sonnenuntergang",
   "automations.assistant.summary.wallbox.until_sun": "Wenn der Netzbezug mindestens {minutes} Minuten über {value} W liegt",
   "automations.assistant.summary.wallbox.when": "Wenn die Einspeisung mindestens {minutes} Minuten über {start} W liegt",
+  "automations.assistant.surplus.aria": "Überschuss gestern mit Startschwelle",
+  "automations.assistant.surplus.start_at": "Start ab {value} W",
   "automations.assistant.time.from": "Von",
   "automations.assistant.time.invalid": "Von und Bis brauchen zwei verschiedene Uhrzeiten.",
   "automations.assistant.time.to": "Bis",
