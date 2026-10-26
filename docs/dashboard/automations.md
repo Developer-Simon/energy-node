@@ -195,10 +195,10 @@ The pencil button on an expanded card opens the editor. It has three phases.
   scenario ends as soon as its start conditions are no longer met. With the
   switch on, its own conditions decide when it ends.
 
-Two more fields sit in the End phase. **Run at least (min)** keeps the scenario
+Two more fields sit in the End phase. **Run at least** keeps the scenario
 running for this many minutes, even if its end condition is met sooner.
 Switching the scenario off and the maximum run time still end it at once. Empty
-means no minimum. **Pause after the end (min)** blocks a new start for this many
+means no minimum. **Pause after the end** blocks a new start for this many
 minutes after the scenario has ended, even if its start conditions hold again.
 Empty means no pause.
 
