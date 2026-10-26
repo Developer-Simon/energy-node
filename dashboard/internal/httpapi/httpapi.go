@@ -431,7 +431,7 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 		secureRequest := isSecureRequest(r)
 		cookie, err := r.Cookie(sessionCookieName(secureRequest))
 		if err == nil {
-			if session, ok := manager.Session(cookie.Value); ok {
+			if session, ok := manager.Session(cookie.Value); ok && companionSessionAllowed(session, r) {
 				next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), auth.EffectiveUser(session, secureRequest))))
 				return
 			}
@@ -472,6 +472,10 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.account", nil, "Für dieses Konto ist die Anmeldung nur über HTTPS möglich.")
 			return
 		}
+		if errors.Is(err, auth.ErrHomeAssistantUnavailable) {
+			writeErrorKey(w, http.StatusServiceUnavailable, "ha_unavailable", "error.ha_unavailable", nil, "Home Assistant ist gerade nicht erreichbar. Lokale Konten funktionieren weiter.")
+			return
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "login_failed", "Anmeldung konnte nicht gespeichert werden")
 			return
@@ -509,12 +513,19 @@ func handleAuthSession(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		session, ok := manager.Session(cookie.Value)
-		if !ok {
+		if !ok || !companionSessionAllowed(session, r) {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
 		writeAuthSession(w, session, isSecureRequest(r), manager.MinPasswordLength())
 	}
+}
+
+// companionSessionAllowed reports whether a session may serve this request. A
+// companion session counts only on the companion port, elsewhere it is no
+// session at all.
+func companionSessionAllowed(session auth.Session, r *http.Request) bool {
+	return session.Via != auth.ViaCompanion || isCompanionRequest(r)
 }
 
 func handleAuthLogout(manager *auth.Manager) http.HandlerFunc {
@@ -734,6 +745,9 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, 
 	}
 	writeJSON(w, map[string]any{
 		"username":                user.Username,
+		"display_name":            user.DisplayName,
+		"source":                  user.Source,
+		"via":                     session.Via,
 		"guest":                   user.Guest,
 		"roles":                   user.Roles,
 		"restricted":              session.Restricted,

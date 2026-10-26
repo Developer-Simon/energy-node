@@ -287,6 +287,15 @@ func TestVerifyRouteResolvesPendingRequest(t *testing.T) {
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("login status %d: %s", recorder.Code, recorder.Body.String())
 		}
+		var session struct {
+			Source string `json:"source"`
+		}
+		if err := json.NewDecoder(recorder.Body).Decode(&session); err != nil {
+			t.Fatal(err)
+		}
+		if session.Source != auth.SourceHomeAssistant {
+			t.Fatalf("login source = %q, want %q", session.Source, auth.SourceHomeAssistant)
+		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("login did not finish after the verify answer")
 	}
@@ -305,28 +314,50 @@ func TestUserChangedRouteDropsSessions(t *testing.T) {
 	gate := CompanionGate(manager, router)
 	token := pairCompanion(t, gate, manager)
 	identity := `"ha_user_id":"ha-anna","username":"anna","name":"Anna","is_admin":false`
+	sessionToken := companionSessionToken(t, gate, token, "{"+identity+"}")
 
-	recorder := companionCall(gate, http.MethodPost, "/api/v1/companion/session", "{"+identity+"}", token)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("session status %d: %s", recorder.Code, recorder.Body.String())
+	if recorder := authSessionCall(gate, token, sessionToken, "https"); recorder.Code != http.StatusOK {
+		t.Fatalf("session before the change: status %d: %s", recorder.Code, recorder.Body.String())
 	}
-	var created struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(recorder.Body).Decode(&created); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := manager.Session(created.Token); !ok {
-		t.Fatal("companion session is missing before the change")
-	}
-
 	change := companionCall(gate, http.MethodPost, "/api/v1/companion/user-changed", "{"+identity+`,"active":false,"removed":false}`, token)
 	if change.Code != http.StatusNoContent {
 		t.Fatalf("user-changed status %d: %s", change.Code, change.Body.String())
 	}
-	if _, ok := manager.Session(created.Token); ok {
-		t.Fatal("session of the deactivated home assistant user survived")
+	wantCompanionError(t, authSessionCall(gate, token, sessionToken, "https"), http.StatusUnauthorized, "authentication_required")
+}
+
+// companionSessionToken starts a companion session over the gate and returns its token.
+func companionSessionToken(t *testing.T, gate http.Handler, pairToken, body string) string {
+	t.Helper()
+	recorder := companionCall(gate, http.MethodPost, "/api/v1/companion/session", body, pairToken)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("session status %d: %s", recorder.Code, recorder.Body.String())
 	}
+	var answer struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&answer); err != nil {
+		t.Fatal(err)
+	}
+	return answer.Token
+}
+
+// authSessionCall reads GET /api/v1/auth/session with the panel cookie of the
+// session token. pairToken is the bearer token for the gate ("" on the main
+// port). proto is the X-Forwarded-Proto value ("" sends none); the cookie name
+// follows the security of the request, as the panel reads it.
+func authSessionCall(handler http.Handler, pairToken, sessionToken, proto string) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", nil)
+	if proto != "" {
+		request.Header.Set("X-Forwarded-Proto", proto)
+	}
+	if pairToken != "" {
+		request.Header.Set("Authorization", "Bearer "+pairToken)
+	}
+	request.AddCookie(&http.Cookie{Name: sessionCookieName(proto == "https"), Value: sessionToken})
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	return recorder
 }
 
 func TestCompanionGateTreatsMissingForwardedProtoAsInsecure(t *testing.T) {
@@ -357,4 +388,76 @@ func TestCompanionGateTreatsMissingForwardedProtoAsInsecure(t *testing.T) {
 			t.Fatalf("X-Forwarded-Proto %q: clone lost TLS", proto)
 		}
 	}
+}
+
+func TestCompanionGateTreatsForwardedHTTPAsInsecure(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	gate := CompanionGate(manager, router)
+	if err := manager.SetHARoles("admin", []string{auth.RoleUserManagement}, nil); err != nil {
+		t.Fatal(err)
+	}
+	token := pairCompanion(t, gate, manager)
+	sessionToken := companionSessionToken(t, gate, token, `{"ha_user_id":"ha-root","username":"root","name":"Root","is_admin":true}`)
+
+	for _, tc := range []struct {
+		proto string
+		want  bool
+	}{{"http", false}, {"https", true}} {
+		recorder := authSessionCall(gate, token, sessionToken, tc.proto)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("X-Forwarded-Proto %s: status %d: %s", tc.proto, recorder.Code, recorder.Body.String())
+		}
+		var body struct {
+			UserManagement bool     `json:"user_management"`
+			Withheld       []string `json:"withheld"`
+		}
+		if err := json.NewDecoder(recorder.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.UserManagement != tc.want {
+			t.Fatalf("X-Forwarded-Proto %s: user_management = %v, want %v", tc.proto, body.UserManagement, tc.want)
+		}
+		withheld := false
+		for _, key := range body.Withheld {
+			withheld = withheld || key == auth.RoleUserManagement
+		}
+		if withheld == tc.want {
+			t.Fatalf("X-Forwarded-Proto %s: withheld = %v, user_management withheld want %v", tc.proto, body.Withheld, !tc.want)
+		}
+	}
+}
+
+func TestCompanionSessionIsRejectedOutsideCompanionPort(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	gate := CompanionGate(manager, router)
+	token := pairCompanion(t, gate, manager)
+	sessionToken := companionSessionToken(t, gate, token, `{"ha_user_id":"ha-anna","username":"anna","name":"Anna","is_admin":false}`)
+
+	wantCompanionError(t, authSessionCall(router, "", sessionToken, "https"), http.StatusUnauthorized, "authentication_required")
+
+	recorder := authSessionCall(gate, token, sessionToken, "https")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("over the gate: status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		Via    string `json:"via"`
+		Source string `json:"source"`
+		Name   string `json:"display_name"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Via != auth.ViaCompanion || body.Source != auth.SourceHomeAssistant || body.Name != "Anna" {
+		t.Fatalf("session answer = %+v, want via companion, source homeassistant, display_name Anna", body)
+	}
+}
+
+func TestLoginReportsHAUnavailable(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	gate := CompanionGate(manager, router)
+	pairCompanion(t, gate, manager)
+
+	// Paired, but no companion stream is open, so Home Assistant cannot answer.
+	recorder := usersCall(router, http.MethodPost, "/api/v1/auth/login", `{"username":"anna","password":"anna-pass"}`, nil, "", true)
+	wantCompanionError(t, recorder, http.StatusServiceUnavailable, "ha_unavailable")
 }
