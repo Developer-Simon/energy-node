@@ -1600,9 +1600,36 @@
 
     // Waehlt einen Wert; bei Voreinstellungen wird die Wirkung neu berechnet.
     assistantPick(step, value) {
-      this.assistant.answers[step.id] = value;
+      window.__automationWizard.chooseOption(step, this.assistant.answers, value);
       if (step.effect === 'band') this.assistantBandSync();
       this.refreshEffect(step);
+    },
+
+    // Mehrfachauswahl eines devices-Schritts: ID an- oder abschalten.
+    assistantToggleDevice(step, id) {
+      this.assistant.answers[step.id] = window.__automationWizard.toggleDevice(this.assistant.answers[step.id], id);
+    },
+
+    assistantPicked(step, id) {
+      const list = this.assistant.answers[step.id];
+      return Array.isArray(list) && list.includes(id);
+    },
+
+    // Option mit reveal, die gerade gewaehlt ist, sonst null.
+    assistantRevealOption(step) {
+      if (!step || !step.options) return null;
+      const chosen = step.options.find((option) => option.id === this.assistant.answers[step.id]);
+      return chosen && chosen.reveal ? chosen : null;
+    },
+
+    // Texte eines numbers-Feldes aus dem Katalog.
+    assistantFieldText(step, field, key) {
+      return this.assistantCopy(this.assistantTemplate(), `steps.${step.id}.fields.${field.id}.${key}`);
+    },
+
+    // Grenzen und Schritt eines Stepper-Feldes, auch fuer reveal-Werte.
+    assistantFieldOpts(field) {
+      return { min: field.min, max: field.max, step: field.step || 1 };
     },
 
     assistantIsCustom(step) {
@@ -1610,9 +1637,14 @@
     },
 
     // Eigener Wert: der naechste Wert ueber dem aktuellen, der keine Voreinstellung ist.
+    // Schrittweite wie beim Stepper, bei Nachkommastellen etwa 0,5.
     assistantCustom(step) {
+      const increment = step.step || 5;
+      const decimals = window.__automationWizard.decimalsOf(increment);
       let value = Number(this.assistant.answers[step.id]) || 0;
-      while (step.options.some((option) => option.id === value)) value += 5;
+      while (step.options.some((option) => option.id === value)) {
+        value = Number((value + increment).toFixed(decimals));
+      }
       this.assistantPick(step, value);
     },
 

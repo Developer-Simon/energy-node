@@ -3912,3 +3912,25 @@ func TestNoUserShowsEveryTab(t *testing.T) {
 		}
 	}
 }
+
+// TestAutomationsPanelShipsNumbersDevicesAndReveal haelt die Darstellung der
+// Schritt-Typen numbers und devices sowie den reveal-Stepper unter einer Kachel
+// im Assistenten-Markup fest. Jeder Typ hat ein eigenes x-if mit einer Wurzel.
+func TestAutomationsPanelShipsNumbersDevicesAndReveal(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=panel&panel=automations", nil))
+	body := recorder.Body.String()
+	for _, marker := range []string{
+		`assistantStep().type === 'numbers'`, `x-for="field in assistantStep().fields"`,
+		`assistantFieldText(assistantStep(), field, 'title')`, `class="auto-assist-option auto-assist-number"`,
+		`assistantStep().type === 'devices'`, `class="auto-assist-pick"`, `role="checkbox"`,
+		`x-bind:aria-checked="assistantPicked(assistantStep(), device.id)`, `assistantToggleDevice(assistantStep(), device.id)`,
+		`class="auto-assist-pick-check"`, `href="#ico-check"`,
+		`assistantRevealOption(assistantStep())`, `class="auto-assist-reveal auto-assist-tile-reveal"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Assistenten-Markup %q fehlt", marker)
+		}
+	}
+}

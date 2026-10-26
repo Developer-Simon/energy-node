@@ -546,6 +546,19 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 .auto-assist-check-text b { color: var(--text-strong); }
 .auto-assist-option-wrap { display: grid; gap: .4rem; }
 .auto-assist-reveal { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 0 .8rem; }
+.auto-assist-tile-reveal { grid-column: 1 / -1; }
+.auto-assist-number { cursor: default; }
+.auto-assist-pick { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; width: 100%; box-sizing: border-box; padding: .65rem .8rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel-alt); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.auto-assist-pick.is-selected { border-color: var(--accent-line); }
+.auto-assist-pick.is-off { opacity: .55; cursor: not-allowed; }
+.auto-assist-pick .auto-assist-option-text { flex: 1 1 auto; min-width: 0; }
+.auto-assist-pick .auto-assist-reason { flex-basis: 100%; }
+.auto-assist-pick-check { display: grid; flex: none; place-items: center; width: 1.5rem; height: 1.5rem; border: 1px solid var(--border); border-radius: 50%; color: var(--accent-ink); }
+.auto-assist-pick-check .automation-icon { width: .9rem; height: .9rem; opacity: 0; transition: opacity 200ms var(--ease-out); }
+.auto-assist-pick.is-selected .auto-assist-pick-check { background: var(--accent); border-color: var(--accent); }
+.auto-assist-pick.is-selected .auto-assist-pick-check .automation-icon { opacity: 1; }
+@media (hover: hover) and (pointer: fine) { .auto-assist-pick:not(.is-off):hover { background: color-mix(in srgb, var(--text-strong) 7%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .auto-assist-pick-check .automation-icon { transition: none; } }
 .auto-assist-field { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .9rem; color: var(--text); }
 .auto-assist-field > .auto-input { flex: 1 1 8rem; width: auto; }
 .auto-assist-time { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(10rem, 100%), 1fr)); gap: .6rem; }

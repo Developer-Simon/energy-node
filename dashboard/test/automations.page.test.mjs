@@ -2937,3 +2937,47 @@ test('the read-only hints carry the agreed texts in both catalogs', () => {
     }
   }
 });
+
+test('assistantPick sets the reveal default of a tile and keeps a changed value', async () => {
+  const { component } = await assistantPanel();
+  component.assistant.answers = {};
+  const step = {
+    id: 'priority', type: 'tiles',
+    options: [
+      { id: 'battery', reveal: { id: 'battery_soc', min: 10, max: 90, step: 5, unit: '%', default: 30 } },
+      { id: 'house' },
+    ],
+  };
+  component.assistantPick(step, 'battery');
+  assert.equal(component.assistant.answers.priority, 'battery');
+  assert.equal(component.assistant.answers.battery_soc, 30);
+  component.assistant.answers.battery_soc = 55;
+  component.assistantPick(step, 'house');
+  component.assistantPick(step, 'battery');
+  assert.equal(component.assistant.answers.battery_soc, 55);
+  assert.equal(component.assistantRevealOption(step).id, 'battery');
+  component.assistantPick(step, 'house');
+  assert.equal(component.assistantRevealOption(step), null);
+});
+
+test('assistantToggleDevice adds and removes ids and marks them as picked', async () => {
+  const { component } = await assistantPanel();
+  component.assistant.answers = {};
+  const step = { id: 'chargers', type: 'devices', filter: 'wallbox' };
+  component.assistantToggleDevice(step, 'wb_limit');
+  component.assistantToggleDevice(step, 'sw_a');
+  assert.deepEqual([...component.assistant.answers.chargers], ['wb_limit', 'sw_a']);
+  assert.equal(component.assistantPicked(step, 'sw_a'), true);
+  component.assistantToggleDevice(step, 'wb_limit');
+  assert.deepEqual([...component.assistant.answers.chargers], ['sw_a']);
+  assert.equal(component.assistantPicked(step, 'wb_limit'), false);
+});
+
+test('assistantCustom steps a decimal preset by its step', async () => {
+  const { component } = await assistantPanel();
+  component.assistant.answers = { price: 28.5 };
+  const step = { id: 'price', type: 'presets', step: 0.5, options: [{ id: 28 }, { id: 28.5 }] };
+  component.assistant.answers = { price: 28 };
+  component.assistantCustom(step);
+  assert.equal(component.assistant.answers.price, 29);
+});
