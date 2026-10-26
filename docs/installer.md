@@ -34,6 +34,9 @@ working directory under `/var/lib`, which needs root. The Pi also needs
 internet access for the system packages and for Tailscale, and your computer
 must reach it by name or IP address.
 
+Which image fits which Pi is listed under
+[Operating system](install/index.md#2-operating-system).
+
 Your computer can run Windows, macOS or Linux. On Windows the window uses the
 Edge WebView2 runtime, which current Windows 10 and 11 installations include.
 On Linux it needs GTK with WebKitGTK. If no window can be opened, the installer
