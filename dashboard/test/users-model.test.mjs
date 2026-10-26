@@ -128,3 +128,23 @@ test('groupSessions keeps the server order per username and returns an empty map
   assert.deepEqual(grouped.werkstatt.map((session) => session.id), ['w1']);
   assert.deepEqual(plain(model.groupSessions([])), {});
 });
+
+test('ha account without own selection locks every entry as preset', () => {
+  const model = loadModel();
+  const offered = catalog.filter(item => item.ha_allowed).map(item => item.key);
+  assert.ok(offered.length > 0);
+  const locked = model.locks(catalog, { kind: 'ha', custom: false }, [], alone);
+  offered.forEach(key => assert.equal(locked[key], 'preset', key));
+  assert.equal(locked.http_login, undefined, 'entries the kind never offers are not listed');
+
+  const custom = model.locks(catalog, { kind: 'ha', custom: true }, ['view_config'], alone);
+  assert.equal(Object.values(custom).includes('preset'), false, 'a own selection unlocks the entries');
+  const withoutView = model.locks(catalog, { kind: 'ha', custom: true }, [], alone);
+  assert.equal(withoutView.edit_config, 'requires', 'the dependency lock still applies');
+});
+
+test('ha kinds never offer http_login', () => {
+  const model = loadModel();
+  assert.equal(model.available(catalog, 'ha').some(item => item.key === 'http_login'), false);
+  assert.equal(model.available(catalog, 'ha_set').some(item => item.key === 'http_login'), false);
+});
