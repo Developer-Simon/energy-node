@@ -119,6 +119,96 @@
     return result;
   }
 
+  const deviceHasRole = (index, deviceId, role) => (index.deviceRoles.get(deviceId) || new Set()).has(role);
+  const BATTERY_ROLES = ['battery', 'battery_soc'];
+  const RESERVED_ROD_ROLES = ['pv', 'wallbox', 'heat_pump', ...BATTERY_ROLES];
+  const POWER_OR_PERCENT = /^(W|%)$/;
+  const PRICE_UNIT = /^(ct|€|EUR)\s*\/\s*kWh$/i;
+  const INPUT_CLASSES = ['power', 'running', 'problem', 'plug'];
+
+  // Waermepumpe: Sollwert und eigener Schalter am selben Geraet. Gesperrt nur,
+  // wenn beides fehlt und im System kein Schalter existiert.
+  function heatPumpEntries(devices, index, switches) {
+    return devices
+      .filter((device) => deviceHasRole(index, device.id, 'heat_pump'))
+      .map((device) => {
+        const entities = device.entities || [];
+        const setpoint = entities.find((entity) => isActuator(entity)) || null;
+        const ownSwitch = entities.find((entity) => isSwitch(entity)) || null;
+        const measured = entities.find((entity) => isReadable(entity)
+          && index.entityRoles.get(entity.unique_id) === 'heat_pump') || null;
+        const blocked = !setpoint && !ownSwitch && switches.length === 0;
+        const fallback = setpoint || ownSwitch || measured || entities[0] || {};
+        return {
+          id: fallback.unique_id || device.id,
+          deviceName: device.name,
+          live: liveText(measured),
+          setpoint,
+          ownSwitch,
+          disabled: blocked ? t('automations.assistant.unavailable.heat_pump_control') : '',
+        };
+      });
+  }
+
+  // Akku: Geraete mit Rolle battery oder battery_soc. Ohne Stellglied in W oder %
+  // ist der Eintrag gesperrt.
+  function batteryEntries(devices, index) {
+    return devices
+      .filter((device) => BATTERY_ROLES.some((role) => deviceHasRole(index, device.id, role)))
+      .map((device) => {
+        const entities = device.entities || [];
+        const setpoint = entities.find((entity) => isActuator(entity)
+          && POWER_OR_PERCENT.test(String(entity.unit_of_measurement || ''))) || null;
+        const measured = entities.find((entity) => isReadable(entity)
+          && BATTERY_ROLES.includes(index.entityRoles.get(entity.unique_id))) || null;
+        const fallback = setpoint || measured || entities[0] || {};
+        return {
+          id: fallback.unique_id || device.id,
+          deviceName: device.name,
+          live: liveText(measured),
+          setpoint,
+          disabled: setpoint ? '' : t('automations.assistant.unavailable.battery_setpoint'),
+        };
+      });
+  }
+
+  // Heizstab: ohne die Rollen der Erzeuger und Speicher, mit Stellglied in W oder %
+  // und einem Temperaturmesswert.
+  function rodEntries(devices, index, regulatedTopics) {
+    const result = [];
+    for (const device of devices) {
+      if (RESERVED_ROD_ROLES.some((role) => deviceHasRole(index, device.id, role))) continue;
+      const entities = device.entities || [];
+      const entity = entities.find((item) => isActuator(item)
+        && POWER_OR_PERCENT.test(String(item.unit_of_measurement || ''))) || null;
+      const thermometer = entities.find((item) => isReadable(item)
+        && item.device_class === 'temperature') || null;
+      if (!entity || !thermometer) continue;
+      result.push({
+        id: entity.unique_id,
+        deviceName: device.name,
+        live: liveText(thermometer),
+        entity,
+        thermometer,
+        disabled: disabledText(entity, regulatedTopics),
+      });
+    }
+    return result;
+  }
+
+  // Lesbare Entitaeten je Geraet, die das Praedikat erfuellen.
+  function readableEntries(devices, predicate) {
+    const result = [];
+    for (const device of devices) {
+      for (const entity of device.entities || []) {
+        if (isReadable(entity) && predicate(entity)) {
+          result.push({ id: entity.unique_id, deviceName: device.name, entity, live: liveText(entity) });
+        }
+      }
+    }
+    return result;
+  }
+
   function buildContext({ devices = [], snapshot, document } = {}) {
     const index = roleIndex(snapshot);
     const regulatedTopics = regulatedTopicsOf(document);
@@ -130,10 +220,17 @@
     }
     const settings = (document && document.settings) || {};
     const values = (snapshot && snapshot.values) || {};
+    const switches = switchEntries(devices, regulatedTopics);
     return {
       inverters: inverterEntries(devices, index, regulatedTopics),
       wallboxes: wallboxEntries(devices, index, regulatedTopics),
-      switches: switchEntries(devices, regulatedTopics),
+      switches,
+      heatPumps: heatPumpEntries(devices, index, switches),
+      batteries: batteryEntries(devices, index),
+      rods: rodEntries(devices, index, regulatedTopics),
+      prices: readableEntries(devices, (entity) => PRICE_UNIT.test(String(entity.unit_of_measurement || ''))),
+      inputs: readableEntries(devices, (entity) => hasText(entity.payload_on)
+        || INPUT_CLASSES.includes(entity.device_class)),
       socAvailable: hasOwn(values, 'battery_soc'),
       hasLocation: isNumber(settings.latitude) && isNumber(settings.longitude),
       regulatedTopics,
@@ -150,6 +247,11 @@
     if (filter === 'inverter') return ctx.inverters;
     if (filter === 'wallbox') return ctx.wallboxes;
     if (filter === 'switch') return ctx.switches;
+    if (filter === 'heat_pump') return ctx.heatPumps;
+    if (filter === 'battery') return ctx.batteries;
+    if (filter === 'rod') return ctx.rods;
+    if (filter === 'price') return ctx.prices;
+    if (filter === 'input') return ctx.inputs;
     return [];
   }
 
@@ -170,7 +272,7 @@
   }
 
   // Vorlagenkategorien der Suche. Die Vorlagen selbst liegen in Task 4.
-  const CATEGORIES = ['feed_in', 'charging', 'switching', 'warning', 'time'];
+  const CATEGORIES = ['feed_in', 'charging', 'switching', 'heating', 'tariff', 'grid', 'warning', 'time'];
   const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
   const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
