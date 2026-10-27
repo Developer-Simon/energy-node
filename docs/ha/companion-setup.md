@@ -31,6 +31,39 @@ The address is only suggested when Home Assistant knows the MQTT device
 "Energy Node" and the node has a Tailscale name. Otherwise the field is empty
 and you enter the address by hand.
 
+## Pair with the dashboard
+
+Pairing is needed for the sidebar page to sign in with Home Assistant accounts
+(see [Dashboard in the sidebar](companion-sidebar.md#signing-in)). Without
+pairing the integration works as before, and the sidebar page uses a guest
+session.
+
+1. In the dashboard open **Settings**, **Users**, section **Home Assistant**,
+   and choose **Create pairing code**. The code has 12 characters and is valid
+   for 10 minutes. It works once.
+2. In Home Assistant open the integration and choose **Configure**. Enter the
+   code in the field **Pairing code** and save.
+
+The integration connects to port 8081 of the node, the companion port. The
+node serves HTTPS there with its own certificate, which it creates once. Home
+Assistant must be able to reach port 8081 as well as the dashboard's port. The
+installer opens it in the firewall. Pairing fails with "Is port 8081 of the
+node reachable?" when it cannot be reached.
+
+The code never leaves the two systems. Both sides prove that they know it, and
+the proof is bound to the certificate of port 8081. The code therefore only
+works with this node.
+
+Pair again at any time. The new pairing replaces the old one, and the old
+token stops working at once. To
+end the pairing from the dashboard, choose **Unpair** in the same section.
+All sessions of Home Assistant accounts end then. Local accounts stay signed
+in.
+
+If the dashboard stops accepting the pairing, the integration logs a warning,
+removes the token and continues as a guest, as if it had never been paired.
+Pair again to restore the sign-in.
+
 ## Options
 
 Open the integration and choose **Configure** to change what it does. Saving

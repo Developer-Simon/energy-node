@@ -655,7 +655,7 @@ flowchart LR
     PEER <-->|"offer / request / deliver"| HX
     HX <--> B1
     HX -->|"1h"| ESY
-    B2 <--> PROXY <-->|"guest session or<br/>the user's own session"| DASH
+    B2 <--> PROXY <-->|"guest, own or Home Assistant<br/>user session, port 8081"| DASH
 ```
 {% endraw %}
 
@@ -739,6 +739,41 @@ resolves every announced series that is not a role through the MQTT `unique_id`
 in the entity registry, and the scenario series `automation_scenario_<id>_output`
 is exactly that `unique_id`.
 
+### Pairing and the companion port
+
+Besides the main port (8080), the dashboard listens on port 8081 for the
+companion. Port 8081 serves HTTPS with a certificate the dashboard creates once
+(ECDSA P-256, 20 years, `companion-tls.pem` and `companion-tls.key` in the data
+directory). Its routes live under `/api/v1/companion/*` and exist only there.
+Every request needs the pairing token as a bearer token, except the pairing
+itself. The gate treats a request as insecure unless `X-Forwarded-Proto` is
+exactly `https`.
+
+The pairing code is 12 characters, created in the Users section of the
+dashboard and valid for 10 minutes. It never travels. The companion and the
+dashboard each send an HMAC-SHA256 over the certificate fingerprint of port
+8081 and a fresh nonce, keyed with the code. The dashboard answers with the
+token and a second proof that also covers the token. So the code only works
+with this certificate, and a pairing cannot be replayed against another node.
+A new pairing or an unpairing ends all Home Assistant sessions and closes the
+open stream at once.
+
+Over the stream (`GET /api/v1/companion/stream`, server-sent events) the
+dashboard asks Home Assistant to check a password. A `verify` event carries
+the user name and password of a sign-in attempt, the companion answers on
+`POST /api/v1/companion/verify/{id}`, and the dashboard waits for at most five
+seconds. Home Assistant accounts only sign in over HTTPS, and a name that is
+also a local account never reaches this check. The companion sends a
+`user-changed` report when a Home Assistant user is changed or removed, so the
+dashboard drops that user's sessions. The stream also carries a `ping` every
+25 seconds.
+
+The companion holds one dashboard session per Home Assistant user. It asks
+for it with `POST /api/v1/companion/session`, which creates the account on first
+use, and keeps the token in memory until it expires. The next request after
+that asks for a new one. Sessions from that route are marked `via: companion` and work only on
+port 8081, so a cookie of one of them is refused on the main port.
+
 ### The sidebar page
 
 The page in the Home Assistant sidebar is the real dashboard, passed through by
@@ -769,11 +804,23 @@ check. The dashboard resolves its base path per request from
 
 Home Assistant's cookies, the panel cookie and the HA token from
 `Authorization` stay in Home Assistant. Upstream the request carries exactly
-one dashboard session and at most the language cookie `lang`. If the browser
-has signed in to the dashboard itself, its own session is used. Otherwise the
-proxy uses the guest session it shares with the history peer. A logout through
-the panel does not end that shared session, and a `GET` or `HEAD` on the guest
-session that hits a 401 is repeated once after a new guest login.
+one dashboard session and at most the language cookie `lang`. The proxy picks
+that session in this order:
+
+1. The browser's own dashboard session, if the browser has signed in to the
+   dashboard itself.
+2. With a pairing: the session of the Home Assistant user on port 8081. The
+   proxy sends the pairing token as the bearer and the session as a cookie. A
+   disabled account gets no session here.
+3. The guest session the proxy shares with the history peer.
+
+Without a pairing the proxy uses the guest session on the main port, as
+before. A logout through the panel does not end the shared guest session, and
+a `GET` or `HEAD` on a session that hits a 401 is repeated once after a new
+login. A 401 with the code `companion_unauthorized` means the dashboard no
+longer accepts the pairing. The proxy then answers 502, and the integration
+drops the token and fingerprint from its entry, logs a warning and reloads
+itself as a guest.
 
 The panel cookie lives only in Home Assistant's memory, so after a restart of
 Home Assistant the page fetches a new one. The page renews it every 30 minutes
