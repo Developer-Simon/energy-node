@@ -222,6 +222,7 @@
 
 - **dashboard:** smoke the companion pairing and home assistant sign-in (e60e02b)
 - **webui:** restore the closing braces lost in the rebase (503166b)
+- **webui:** expect the sign-in tab as the users page default (8c14e02)
 - **dashboard:** follow the automation cache-bust values (8e65bde)
 - **smoke:** give the kept demo admin an HTTP login (af77863)
 - **automations:** follow the chart asset version (d6b2170)
