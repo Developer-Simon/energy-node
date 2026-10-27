@@ -105,12 +105,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DASHBOARD_DIR="$(cd "$HERE/../.." && pwd)"
 REPO_DIR="$(cd "$DASHBOARD_DIR/.." && pwd)"
 SCRIPT_ROOT="$(cd "$HERE/../../.." && pwd)"
+FAKES="$REPO_DIR/demo/fakes"
+FIXTURES="$REPO_DIR/demo/fixtures"
 
 DEVICES_SOURCE="$REPO_DIR/services/battery_soc"
 # Weitere Konfigurationsverzeichnisse nach DEVICES_SOURCE, in dieser
 # Reihenfolge kopiert - eine spaetere Datei gleichen Namens gewinnt.
 EXTRA_DEVICES=()
-FIXTURE="$HERE/fixtures/battery-soc.json"
+FIXTURE="$FIXTURES/battery-soc.json"
 SEED_DATA=""
 THEME=""
 KEEP=0
@@ -156,70 +158,70 @@ while [[ $# -gt 0 ]]; do
     --preset)
       case "$2" in
         battery-soc)
-          FIXTURE="$HERE/fixtures/battery-soc.json"; SEED_DATA=""
+          FIXTURE="$FIXTURES/battery-soc.json"; SEED_DATA=""
           ;;
         energie)
-          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
-          SEED_DATA="$HERE/fixtures/seed/energie-alle-karten"
+          FIXTURE="$FIXTURES/energie-ueberschuss.json"
+          SEED_DATA="$FIXTURES/seed/energie-alle-karten"
           ;;
         energie-simulate)
-          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
-          SEED_DATA="$HERE/fixtures/seed/energie-alle-karten"
+          FIXTURE="$FIXTURES/energie-ueberschuss.json"
+          SEED_DATA="$FIXTURES/seed/energie-alle-karten"
           SIMULATE=1
           ;;
         uebersicht-push)
-          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
-          SEED_DATA="$HERE/fixtures/seed/uebersicht-push"
+          FIXTURE="$FIXTURES/energie-ueberschuss.json"
+          SEED_DATA="$FIXTURES/seed/uebersicht-push"
           SIMULATE=1
           ;;
         energie-kombiniert)
-          FIXTURE="$HERE/fixtures/energie-kombiniert.json"
-          SEED_DATA="$HERE/fixtures/seed/energie-kombiniert"
+          FIXTURE="$FIXTURES/energie-kombiniert.json"
+          SEED_DATA="$FIXTURES/seed/energie-kombiniert"
           ;;
         alle-funktionen)
-          FIXTURE="$HERE/fixtures/alle-funktionen.json"
-          SEED_DATA="$HERE/fixtures/seed/alle-funktionen"
-          EXTRA_DEVICES=("$REPO_DIR/services/automation" "$HERE/fixtures/devices/alle-funktionen")
+          FIXTURE="$FIXTURES/alle-funktionen.json"
+          SEED_DATA="$FIXTURES/seed/alle-funktionen"
+          EXTRA_DEVICES=("$REPO_DIR/services/automation" "$FIXTURES/devices/alle-funktionen")
           ;;
         geraete-kacheln)
-          FIXTURE="$HERE/fixtures/geraete-kacheln.json"
-          SEED_DATA="$HERE/fixtures/seed/geraete-kacheln"
+          FIXTURE="$FIXTURES/geraete-kacheln.json"
+          SEED_DATA="$FIXTURES/seed/geraete-kacheln"
           ;;
         docs-screenshots)
-          FIXTURE="$HERE/fixtures/alle-funktionen.json"
-          SEED_DATA="$HERE/fixtures/seed/docs-screenshots"
+          FIXTURE="$FIXTURES/alle-funktionen.json"
+          SEED_DATA="$FIXTURES/seed/docs-screenshots"
           # Ohne das Schema meldet das Dashboard "configuration
           # automation_rules has no matching schema"; die Regel aus der
           # Fixture ueberschreibt die leere Vorgabe des Dienstes.
-          EXTRA_DEVICES=("$REPO_DIR/services/automation" "$HERE/fixtures/devices/docs-screenshots")
+          EXTRA_DEVICES=("$REPO_DIR/services/automation" "$FIXTURES/devices/docs-screenshots")
           ;;
         notification)
-          FIXTURE="$HERE/fixtures/notification.json"; SEED_DATA=""
+          FIXTURE="$FIXTURES/notification.json"; SEED_DATA=""
           ;;
         keine-optionalen-dienste)
-          FIXTURE="$HERE/fixtures/battery-soc.json"; SEED_DATA=""
+          FIXTURE="$FIXTURES/battery-soc.json"; SEED_DATA=""
           INSTALLED_SERVICES_OFF=1
           ;;
         shelly-ht)
-          FIXTURE="$HERE/fixtures/shelly-ht.json"
-          SEED_DATA="$HERE/fixtures/seed/shelly-ht"
+          FIXTURE="$FIXTURES/shelly-ht.json"
+          SEED_DATA="$FIXTURES/seed/shelly-ht"
           # Schema und Presets aus dem Dienst selbst, damit die Probe den
           # Stand des Branches prueft; die Geraeteliste aus der Fixture.
-          EXTRA_DEVICES=("$REPO_DIR/services/shelly" "$HERE/fixtures/devices/shelly-ht")
+          EXTRA_DEVICES=("$REPO_DIR/services/shelly" "$FIXTURES/devices/shelly-ht")
           ;;
         verlauf-kachel)
-          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
-          SEED_DATA="$HERE/fixtures/seed/verlauf-kachel"
+          FIXTURE="$FIXTURES/energie-ueberschuss.json"
+          SEED_DATA="$FIXTURES/seed/verlauf-kachel"
           SIMULATE=1
           ;;
         statistik)
-          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
-          SEED_DATA="$HERE/fixtures/seed/statistik"
+          FIXTURE="$FIXTURES/energie-ueberschuss.json"
+          SEED_DATA="$FIXTURES/seed/statistik"
           SIMULATE=1
           FAKE_COMPANION=1
           ;;
         service-logs)
-          FIXTURE="$HERE/fixtures/battery-soc.json"; SEED_DATA=""
+          FIXTURE="$FIXTURES/battery-soc.json"; SEED_DATA=""
           HTTPS=1
           SIMULATE_JOURNAL=1
           ;;
@@ -375,7 +377,7 @@ mkdir -p "$WORK/devices" "$WORK/data"
 # --simulate-installed: dasselbe Zustandsverzeichnis, das Installer und Updater
 # auf einem echten Knoten unter /var/lib/energy-node-installer hinterlassen.
 if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
-  cp -r "$HERE/fixtures/installed-state" "$WORK/installer-state"
+  cp -r "$FIXTURES/installed-state" "$WORK/installer-state"
 fi
 # Nur Paare aus *.json + *.schema.json sind fuer den Manager sichtbar.
 cp "$DEVICES_SOURCE"/*.json "$WORK/devices/" 2>/dev/null || true
@@ -434,7 +436,7 @@ BROKER_ARGS=("$MQTT_PORT" "$FIXTURE" "--service-status" "$WORK/devices")
 for name in "${REJECT_CONFIGS[@]}"; do
   BROKER_ARGS+=("--reject-config" "$name")
 done
-python3 "$HERE/minibroker.py" "${BROKER_ARGS[@]}" > "$WORK/broker.log" 2>&1 &
+python3 "$FAKES/minibroker.py" "${BROKER_ARGS[@]}" > "$WORK/broker.log" 2>&1 &
 BROKER_PID=$!
 sleep 1
 
@@ -562,7 +564,7 @@ PY
   FAKE_GITHUB_ARGS+=("$WORK/package/$PACKAGE_ASSET")
 fi
 if [[ $SIMULATE_UPDATE -eq 1 ]]; then
-  python3 "$HERE/fake_github_releases.py" "${FAKE_GITHUB_ARGS[@]}" > "$WORK/updates-api.log" 2>&1 &
+  python3 "$FAKES/fake_github_releases.py" "${FAKE_GITHUB_ARGS[@]}" > "$WORK/updates-api.log" 2>&1 &
   UPDATES_API_PID=$!
   sleep 1
   echo "Update-Simulation: v9.9.9 ueber http://127.0.0.1:$UPDATES_API_PORT"
@@ -593,7 +595,7 @@ fi
 python3 - "$SCRIPT_ROOT/services/energy-node.config.json" "$WORK/config.json" \
          "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" \
          "$INSTALLED_SERVICES_OFF" "$WORK/tls.crt" "$WORK/tls.key" "$HTTPS" \
-         "$SIMULATE_JOURNAL" "$HERE/fake_journal_helper.py" <<'PY'
+         "$SIMULATE_JOURNAL" "$FAKES/fake_journal_helper.py" <<'PY'
 import json
 import sys
 
@@ -650,7 +652,7 @@ DASHBOARD_VERSION="$(tr -d '[:space:]' < "$DASHBOARD_DIR/VERSION")-dev"
   fi
   if [[ $SIMULATE_JOURNAL -eq 1 ]]; then
     mkdir -p "$WORK/bin"
-    cp "$HERE/fake_sudo.sh" "$WORK/bin/sudo"
+    cp "$FAKES/fake_sudo.sh" "$WORK/bin/sudo"
     # 15 Minuten Vorlauf, damit die erste Abfrage sofort Zeilen findet.
     python3 -c 'import time; print(time.time() - 900)' > "$WORK/journal-epoch"
     export FAKE_JOURNAL_EPOCH="$WORK/journal-epoch"
@@ -684,7 +686,7 @@ fi
 # --fake-companion: Gast-Peer wie die Home-Assistant-Integration. Das
 # Dashboard holt die Stundenwerte ab, sobald der Peer sein Angebot macht.
 if [[ $FAKE_COMPANION -eq 1 ]]; then
-  python3 "$HERE/fake_companion.py" "$BASE" > "$WORK/fake-companion.log" 2>&1 &
+  python3 "$FAKES/fake_companion.py" "$BASE" > "$WORK/fake-companion.log" 2>&1 &
   FAKE_COMPANION_PID=$!
   echo "Fake-Companion laeuft (PID $FAKE_COMPANION_PID), Log: $WORK/fake-companion.log"
 fi
@@ -921,7 +923,7 @@ fi
 # Die Bank-A-Kante kommt aus battery_soc_devices.json mit bank_a_voltage_topic.
 # Die bringt nur fixtures/devices/alle-funktionen mit, docs-screenshots teilt
 # die Fixture, nicht die Geraete.
-if [[ " ${EXTRA_DEVICES[*]-} " == *" $HERE/fixtures/devices/alle-funktionen "* ]]; then
+if [[ " ${EXTRA_DEVICES[*]-} " == *" $FIXTURES/devices/alle-funktionen "* ]]; then
   check "Datenfluss liefert eine Bank-A-Kante" \
     "any(e['details'].get('field') == 'bank_a_voltage_topic' for e in data['edges'])" \
     "$BASE/api/v1/device/map/flows"
@@ -1376,7 +1378,7 @@ else
     [[ "$(curl -sk -m 2 -o /dev/null -w '%{http_code}' "$COMPANION_BASE/api/v1/companion/pair")" != "000" ]] && break
     sleep 1
   done
-  python3 "$HERE/fake_ha_companion.py" --companion "$COMPANION_BASE" --code "$pairing_code" \
+  python3 "$FAKES/fake_ha_companion.py" --companion "$COMPANION_BASE" --code "$pairing_code" \
     --user "$HA_USER" --password "$HA_PASSWORD" --ha-user-id "$HA_USER_ID" \
     --token-file "$HA_TOKEN_FILE" > "$WORK/fake-ha-companion.log" 2>&1 &
   FAKE_HA_PID=$!
@@ -1470,7 +1472,7 @@ if [[ $KEEP -eq 1 ]]; then
   if [[ $REAL_CHANGELOG -eq 1 ]]; then
     # Erst nach den Fixture-Proben: die Versionsseite liest die Dateien bei
     # jeder Anfrage neu, ein Neustart ist nicht noetig.
-    python3 "$HERE/real_changelog.py" "$REPO_DIR" "$WORK/installer-state"
+    python3 "$FAKES/real_changelog.py" "$REPO_DIR" "$WORK/installer-state"
   fi
   # Der Admin bekommt http_login und ein eigenes HTTP-Passwort, damit der
   # Browser sich auch ohne --https anmelden kann (Sitzung dann eingeschraenkt,
@@ -1490,7 +1492,7 @@ print(json.dumps(sorted(set(roles) | {"http_login"})))')"
   [[ $HTTPS -eq 1 ]] || echo "Ueber HTTP (eingeschraenkte Sitzung): admin / $HTTP_PASSWORD"
   if [[ $CONSOLE -eq 1 ]]; then
     free_port "$CONSOLE_PORT"
-    python3 "$HERE/fake_console.py" --port "$CONSOLE_PORT" --dashboard "$BASE" --companion "$COMPANION_BASE" \
+    python3 "$FAKES/fake_console.py" --port "$CONSOLE_PORT" --dashboard "$BASE" --companion "$COMPANION_BASE" \
       > "$WORK/fake-console.log" 2>&1 &
     CONSOLE_PID=$!
     sleep 1

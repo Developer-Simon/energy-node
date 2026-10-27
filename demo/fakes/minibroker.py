@@ -31,10 +31,10 @@ schalten.
 PORT       Standard 18883.
 FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
            String oder ein Objekt sein (Objekte werden als JSON gesendet).
-           Ohne Angabe wird fixtures/battery-soc.json daneben geladen.
+           Ohne Angabe wird ../fixtures/battery-soc.json geladen.
 --simulate Sendet zusaetzlich alle SIMULATE_INTERVAL Sekunden aktualisierte
            Werte fuer die vier Leistungs-Topics aus
-           fixtures/energie-ueberschuss.json (PV, Netz, Batterie, Hauslast)
+           ../fixtures/energie-ueberschuss.json (PV, Netz, Batterie, Hauslast)
            an jede offene Verbindung - reine Sinuskurven um die
            Fixture-Basiswerte, keine Energiebilanz-Simulation. Damit zeigen
            die zeitbasierten Energie-Karten (energy_band/energy_day) im
@@ -65,7 +65,7 @@ import time
 from pathlib import Path
 
 DEFAULT_PORT = 18883
-DEFAULT_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "battery-soc.json"
+DEFAULT_FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "battery-soc.json"
 SIMULATE_INTERVAL = 3.0
 SERVICE_SCAN_INTERVAL = 1.0
 SERVICE_HEARTBEAT = 30.0
