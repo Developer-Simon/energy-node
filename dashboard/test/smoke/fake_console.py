@@ -297,9 +297,13 @@ def make_server(tabs: list[Tab], log: Log, port: int) -> http.server.ThreadingHT
     return server
 
 
-def build_tabs(args: argparse.Namespace) -> list[Tab]:
-    # Die Reiter (z. B. console_companion.CompanionTab) haengt Task 4 hier ein.
-    return []
+def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
+    tabs: list[Tab] = []
+    if args.companion and args.dashboard:
+        # Import erst hier: console_companion importiert Tab und Log aus diesem Modul.
+        from console_companion import CompanionTab
+        tabs.append(CompanionTab(log, args.companion, args.dashboard))
+    return tabs
 
 
 def main(argv: list[str]) -> int:
@@ -312,14 +316,14 @@ def main(argv: list[str]) -> int:
 
     log = Log()
     try:
-        server = make_server(build_tabs(args), log, args.port)
+        server = make_server(build_tabs(args, log), log, args.port)
     except OSError as exc:
         if exc.errno != errno.EADDRINUSE:
             raise
         print(f"Port {args.port} ist belegt", file=sys.stderr)
         return 2
 
-    print(f"Fake-Konsole auf http://127.0.0.1:{server.server_address[1]}/", flush=True)
+    print(f"Fake-Konsole: http://127.0.0.1:{server.server_address[1]}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
