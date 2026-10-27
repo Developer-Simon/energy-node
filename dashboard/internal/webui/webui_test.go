@@ -4142,6 +4142,8 @@ func TestAutomationsAssistantNumbersRowsBindIconAndUnit(t *testing.T) {
 	}
 	if strings.Contains(body, `'#ico-' + field.icon`) || strings.Contains(body, `field.unit || ''`) {
 		t.Fatal("das Assistenten-Markup liest Icon und Einheit nicht mehr direkt vom Feld")
+	}
+}
 
 // TestLoginOverHTTPShowsHAHintOnlyWhenPaired: the Home Assistant hint follows
 // the companion pairing, and only the HTTP variant of the login page shows it.
