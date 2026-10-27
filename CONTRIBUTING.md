@@ -92,7 +92,7 @@ bash scripts/tests/test_publish_mirror.sh                             # HACS mir
 cd integrations/homeassistant && ../../.venv-ha/bin/pytest            # HA integration
 cd dashboard && gofmt -l . && go vet ./... && go test ./...           # Go dashboard
 cd dashboard && npm install && npm test                               # dashboard JS
-dashboard/test/smoke/run-local-dashboard.sh                           # real dashboard, no Pi, no broker
+dashboard/test/smoke/smoke.sh                                        # real dashboard with fakes, no Pi, no broker
 ```
 
 ## Deploying to your own node

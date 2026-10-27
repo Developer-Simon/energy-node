@@ -4,47 +4,43 @@
 
 ### Reproducing these screenshots
 
-The smoke test starts the real dashboard against a fixture broker, with no
-Raspberry Pi, no Mosquitto and no devices. The `docs-screenshots` preset is
-built on the near-complete `alle-funktionen` fixture: battery SoC devices, the
-seven energy entities of a sunny moment, a fully modelled APsystems EZ1 with
-two strings and a writable power limit. It adds the layout, role assignment,
-device map and the automation rule seen above.
+The demo starts the real dashboard against a fixture broker, with no Raspberry
+Pi, no Mosquitto and no devices. `demo/demo.sh --docs` uses the near-complete
+`alle-funktionen.json` fixture: battery SoC devices, the seven energy entities
+of a sunny moment, a fully modelled APsystems EZ1 with two strings and a
+writable power limit. It adds the layout, role assignment, device map and the
+automation rule seen above.
 
 ```bash
-dashboard/test/smoke/run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package &
-node dashboard/test/smoke/docs-screenshots.mjs
+demo/demo.sh --docs --no-simulate
+node dashboard/test/browser/docs-screenshots.mjs
 ```
 
-The first command prints a URL and credentials and stays up until Ctrl-C.
-`--simulate-package` makes a fake GitHub offer version 9.9.9 with a small
-package, which is what the update screenshots show. The second command writes
-every image on this page into `docs/images/`. Some images need their own run:
+The first command prints a URL and credentials and stays up until Ctrl-C. The
+second command writes every image on this page into `docs/images/`. Some images
+need their own run:
 
 - **History:** `docs-screenshots.mjs --history` keeps the dashboard open for
   about twelve minutes so the browser records enough history, then takes the
   History tab.
-- **Versions:** restart the first command with `--simulate-installed` instead
-  of `--simulate-package`, then run
-  `docs-screenshots.mjs dashboard-settings-versions`.
-- **Service logs:** restart the first command with `--simulate-journal`
-  instead of `--simulate-package`, then run
-  `docs-screenshots.mjs dashboard-service-logs`. The fake journal feeds the
-  lines, and the script waits until no over-long test line is in view.
-- **Overview cards:** restart the first command with `--simulate` instead of
-  `--simulate-package`, then run `docs-screenshots.mjs --cards`. It adds a
-  layout page with one card of each type at its minimum width, records about
-  16 minutes of history (the battery trajectory needs 15) and writes
-  `dashboard-card-*.png`. The layout is restored afterwards.
+- **Versions:** `docs-screenshots.mjs dashboard-settings-versions`.
+- **Service logs:** `docs-screenshots.mjs dashboard-service-logs`. The script
+  waits until no over-long test line is in view.
+- **Overview cards:** with `demo/demo.sh --docs` running and the simulation on
+  (the default), run `docs-screenshots.mjs --cards`. It adds a layout page with
+  one card of each type at its minimum width, records about 16 minutes of
+  history (the battery trajectory needs 15) and writes `dashboard-card-*.png`.
+  The layout is restored afterwards.
 
 For a single screenshot of any page, `screenshot.mjs` is the simpler tool:
 
 ```bash
-node dashboard/test/smoke/screenshot.mjs --out /tmp/overview.png --lang en
+node dashboard/test/browser/screenshot.mjs --url https://localhost:18200/ --out /tmp/overview.png --lang en
 ```
 
-The full option list, the other presets and the fixtures behind them are
-documented in `dashboard/test/smoke/README.md` in the repository.
+The full option list and the other browser tools are documented in
+`dashboard/test/browser/README.md` in the repository. The fixtures are
+described in `demo/README.md`.
 
 ## Installer
 

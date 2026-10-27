@@ -136,8 +136,7 @@ bash scripts/tests/test_build_manifests.sh
 cd dashboard && go run ./cmd/schemagen && go test ./...
 ```
 
-Then start the dashboard locally with `dashboard/test/smoke/run-local-dashboard.sh`
-and open the configuration page. The new file should appear with its form, with
+Then start the demo locally with `demo/demo.sh` and open the configuration page. The new file should appear with its form, with
 the descriptions you wrote, and a save should reach the service.
 
 ## Documenting the service

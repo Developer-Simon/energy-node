@@ -74,14 +74,14 @@ to one column by itself.
 
 - `dashboard/test/dashboard.nav.test.mjs` covers the logic of the tab menu with
   JSDOM. Anything spatial is a visual check, JSDOM has no layout.
-- `dashboard/test/smoke/mobile-overflow.mjs` runs against a running smoke
-  dashboard (see `dashboard/test/smoke/README.md`). For each tab and width it
+- `dashboard/test/browser/mobile-overflow.mjs` runs against a running demo
+  dashboard (see `dashboard/test/browser/README.md`). For each tab and width it
   reports elements that reach beyond the right edge, once closed and once with
   every help button focused, because an open tooltip can widen the page too.
   Exit code 1 on overflow. It is not part of the CI, run it by hand after a
   change that touches layout:
 
   ```sh
-  dashboard/test/smoke/run-local-dashboard.sh --keep --preset docs-screenshots
-  node dashboard/test/smoke/mobile-overflow.mjs --widths 340,390,1280
+  demo/demo.sh
+  node dashboard/test/browser/mobile-overflow.mjs --widths 340,390,1280
   ```
