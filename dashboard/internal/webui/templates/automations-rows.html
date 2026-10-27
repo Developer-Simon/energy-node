@@ -101,6 +101,10 @@
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.value_label"}}</span>
                             {{template "auto-stepper"}}
                           </div>
+                          <div class="auto-field" x-show="condition.comparison === 'stale'" x-data="{ get stepTarget() { return { get minutes() { return Math.round((condition.max_age_s ?? 900) / 60); }, set minutes(value) { const n = Math.round(Number(value)); condition.max_age_s = (Number.isFinite(n) && String(value).trim() !== '' ? Math.min(1440, Math.max(1, n)) : 15) * 60; } }; }, stepKey: 'minutes', stepOpts: { min: 1, max: 1440, step: 1, placeholder: 15 }, stepUnit: $t('automations.condition.sun_window.unit_min'), stepLabel: $t('automations.condition.stale.value_aria') }">
+                            <span class="auto-field-label">{{t "automations.condition.stale.since_label"}}</span>
+                            {{template "auto-stepper"}}
+                          </div>
                           <div class="auto-field" x-show="condition.comparison === 'equals' || condition.comparison === 'not_equals'">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.text_label"}}</span>
                             <input class="auto-input" type="text" x-model="condition.text" x-bind:aria-label="$t('automations.condition.entity.text_label')">
@@ -135,7 +139,11 @@
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.topic.comparison_label"}}</span>
                             {{template "auto-comparison" "all"}}
                           </div>
-                          <div class="auto-field">
+                          <div class="auto-field" x-show="condition.comparison === 'stale'" x-data="{ get stepTarget() { return { get minutes() { return Math.round((condition.max_age_s ?? 900) / 60); }, set minutes(value) { const n = Math.round(Number(value)); condition.max_age_s = (Number.isFinite(n) && String(value).trim() !== '' ? Math.min(1440, Math.max(1, n)) : 15) * 60; } }; }, stepKey: 'minutes', stepOpts: { min: 1, max: 1440, step: 1, placeholder: 15 }, stepUnit: $t('automations.condition.sun_window.unit_min'), stepLabel: $t('automations.condition.stale.value_aria') }">
+                            <span class="auto-field-label">{{t "automations.condition.stale.since_label"}}</span>
+                            {{template "auto-stepper"}}
+                          </div>
+                          <div class="auto-field" x-show="condition.comparison !== 'stale'">
                             <span class="auto-field-label auto-label-sr">{{t "automations.condition.topic.value_label"}}</span>
                             <input class="auto-input" type="text" x-model="condition.text" x-bind:aria-label="$t('automations.condition.topic.value_label')">
                           </div>
@@ -176,6 +184,15 @@
                                       x-on:click="toggleWeekday(condition, day)"></button>
                             </template>
                           </div>
+                          <div class="weekday-chips auto-monthdays auto-field-wide" role="group" x-bind:aria-label="$t('automations.condition.time_window.month_days_aria')">
+                            <span class="weekday-chips-label" x-text="(condition.month_days || []).length ? $t('automations.condition.time_window.specific_month_days') : $t('automations.condition.time_window.any_month_day')"></span>
+                            <template x-for="day in monthDayNumbers()" x-bind:key="day">
+                              <button class="weekday-chip" type="button" x-text="day"
+                                      x-bind:class="{ active: hasMonthDay(condition, day) }"
+                                      x-bind:aria-pressed="hasMonthDay(condition, day)"
+                                      x-on:click="toggleMonthDay(condition, day)"></button>
+                            </template>
+                          </div>
                         </div>
                       </template>
 
@@ -208,6 +225,15 @@
                                       x-bind:class="{ active: hasWeekday(condition, day) }"
                                       x-bind:aria-pressed="hasWeekday(condition, day)"
                                       x-on:click="toggleWeekday(condition, day)"></button>
+                            </template>
+                          </div>
+                          <div class="weekday-chips auto-monthdays auto-field-wide" role="group" x-bind:aria-label="$t('automations.condition.sun_window.month_days_aria')">
+                            <span class="weekday-chips-label" x-text="(condition.month_days || []).length ? $t('automations.condition.sun_window.specific_month_days') : $t('automations.condition.sun_window.any_month_day')"></span>
+                            <template x-for="day in monthDayNumbers()" x-bind:key="day">
+                              <button class="weekday-chip" type="button" x-text="day"
+                                      x-bind:class="{ active: hasMonthDay(condition, day) }"
+                                      x-bind:aria-pressed="hasMonthDay(condition, day)"
+                                      x-on:click="toggleMonthDay(condition, day)"></button>
                             </template>
                           </div>
                           <div class="edit-card-warning auto-field-wide" x-show="!hasLocation()">
@@ -263,6 +289,10 @@
                               <button class="auto-segment-tab" type="button" role="radio" x-on:click="setComparison(condition, 'not_equals')"
                                       x-bind:aria-checked="condition.comparison === 'not_equals' ? 'true' : 'false'">
                                 <span class="auto-compare-glyph" aria-hidden="true">&ne;</span><span>{{t "automations.comparison.not_equals"}}</span>
+                              </button>
+                              <button class="auto-segment-tab" type="button" role="radio" x-on:click="setComparison(condition, 'stale')"
+                                      x-bind:aria-checked="condition.comparison === 'stale' ? 'true' : 'false'">
+                                <span>{{t "automations.comparison.stale"}}</span>
                               </button>{{end}}
                             </span>
 {{end}}

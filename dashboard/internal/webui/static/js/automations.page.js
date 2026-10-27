@@ -10,6 +10,9 @@
   const STALE_DEFAULT_MAX_AGE_S = 900;
   const COMPARE_VALUE_DEFAULT = 20;
 
+  // Monatstage fuer Zeitfenster und Sonnenfenster, 1 bis 31.
+  const MONTH_DAY_NUMBERS = Array.from({ length: 31 }, (_, index) => index + 1);
+
   // Filter-Chips im Picker: gleiche Gruppen wie die Kacheln, Label wie dort.
   const ROLE_FILTER_LABEL_KEYS = {
     inverter: 'automations.devices.group.inverter',
@@ -1952,6 +1955,19 @@
       if (days.has(day)) days.delete(day);
       else days.add(day);
       condition.weekdays = [...days].sort((a, b) => a - b);
+    },
+
+    monthDayNumbers() { return MONTH_DAY_NUMBERS; },
+
+    hasMonthDay(condition, day) {
+      return (condition.month_days || []).includes(day);
+    },
+
+    toggleMonthDay(condition, day) {
+      const days = new Set(condition.month_days || []);
+      if (days.has(day)) days.delete(day);
+      else days.add(day);
+      condition.month_days = [...days].sort((a, b) => a - b);
     },
 
     hasLocation() {

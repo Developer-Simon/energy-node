@@ -127,6 +127,9 @@
 .weekday-chip:hover { border-color: var(--accent-line); color: var(--text); }
 .weekday-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .weekday-chip.active { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent); }
+/* Monatstage 1 bis 31 in sieben Spalten, der Satz steht darueber. */
+.auto-monthdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: .3rem; }
+.auto-monthdays > .weekday-chips-label { grid-column: 1 / -1; }
 
 .automations-location { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
 .automations-location input { flex: 1 1 8rem; }

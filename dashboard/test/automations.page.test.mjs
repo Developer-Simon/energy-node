@@ -1579,6 +1579,23 @@ test('toggleWeekday schaltet einen Tag um und haelt die Liste sortiert', () => {
   assert.deepEqual([...legacy.weekdays], [2]);
 });
 
+test('toggleMonthDay schaltet einen Monatstag um und haelt die Liste sortiert', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'time_window', start: '08:00', end: '18:00', month_days: [15] };
+  assert.equal(component.hasMonthDay(condition, 15), true);
+  assert.equal(component.hasMonthDay(condition, 1), false);
+  component.toggleMonthDay(condition, 31);
+  component.toggleMonthDay(condition, 1);
+  assert.deepEqual([...condition.month_days], [1, 15, 31]);
+  component.toggleMonthDay(condition, 15);
+  assert.deepEqual([...condition.month_days], [1, 31]);
+  const legacy = { type: 'sun_window', from: 'sunrise', to: 'sunset' };
+  assert.equal(component.hasMonthDay(legacy, 3), false);
+  component.toggleMonthDay(legacy, 10);
+  assert.deepEqual([...legacy.month_days], [10]);
+  assert.deepEqual(component.monthDayNumbers().length, 31);
+});
+
 test('conditionStateText erklaert ein Sonnenfenster ohne Standort', () => {
   const component = panelWithState({ online: true, rules: { r1: { result: 'conditions_not_met',
     conditions: [{ met: false, raw_met: false, value: null, target: null, since: null, hold_remaining: 0 }], actions: [] } } });
