@@ -12,7 +12,9 @@ import http.server
 import json
 import queue
 import secrets
+import socket
 import ssl
+import struct
 import subprocess
 import sys
 import threading
@@ -41,6 +43,8 @@ class StubDashboard:
         self.open_streams = 0
         self._streams = []  # Warteschlangen der offenen Ströme
         self._lock = threading.Lock()
+        self.hold = None  # Event, das verify-Antworten zurueckhaelt, solange es nicht gesetzt ist
+        self.hold_entered = threading.Event()  # gesetzt, sobald eine Antwort festgehalten wird
         stub = self
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -84,6 +88,10 @@ class StubDashboard:
                 if path.startswith("/api/v1/companion/verify/"):
                     request_id = path.rsplit("/", 1)[1]
                     body = self._body()
+                    gate = stub.hold
+                    if gate is not None:
+                        stub.hold_entered.set()
+                        gate.wait(10)
                     status = stub.verify_status
                     stub.answers.append((request_id, status, body))
                     self._send(status, {})
@@ -122,6 +130,11 @@ class StubDashboard:
                         if item is None:
                             break
                         name, data = item
+                        if name == "kill":
+                            # RST statt sauberem Ende: der Companion sieht einen Fehler
+                            self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+                            self.connection.close()
+                            break
                         self.wfile.write(f"event: {name}\ndata: {json.dumps(data)}\n\n".encode())
                         self.wfile.flush()
                 except (BrokenPipeError, ConnectionResetError, OSError):
@@ -160,6 +173,20 @@ class StubDashboard:
     def end_stream(self):
         """Beendet alle offenen Ströme, wie das Dashboard beim Entkoppeln."""
         self._broadcast(None)
+
+    def kill_stream(self):
+        """Bricht alle offenen Ströme mit einem Verbindungsreset ab."""
+        self._broadcast(("kill", None))
+
+    def hold_verify(self):
+        """Haelt die naechste verify-Antwort zurueck, bis release_verify gerufen wird."""
+        self.hold_entered.clear()
+        self.hold = threading.Event()
+
+    def release_verify(self):
+        gate, self.hold = self.hold, None
+        if gate is not None:
+            gate.set()
 
     def set_verify_status(self, status):
         self.verify_status = status

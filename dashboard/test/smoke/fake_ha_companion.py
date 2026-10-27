@@ -93,6 +93,17 @@ def _print(text):
     print(text, flush=True)
 
 
+class _Stream:
+    """Ein Pruefstrom mit eigenem Stopp-Ereignis, Socket und Fehlertext."""
+
+    def __init__(self, token):
+        self.token = token
+        self.stop = threading.Event()
+        self.sock = None  # bleibt nach getresponse() erhalten, damit der Strom gezielt beendet werden kann
+        self.thread = None
+        self.failure = ""  # Ablehnung (401 oder anderer Status) oder Fehler, sonst leer
+
+
 class HACompanion:
     """Gekoppelter Companion mit Benutzertabelle, der den Pruefstrom haelt.
 
@@ -117,11 +128,8 @@ class HACompanion:
         self._paired = False
         self._connected = False
         self._error = ""
-        self._refusal = ""
-        self._stopping = False
-        self._sock = None  # Socket des Stroms, bleibt nach getresponse() erhalten
+        self._stream: _Stream | None = None  # aktueller (oder zuletzt gestarteter) Strom
         self._pending: dict[str, dict] = {}  # offene Prüfungen im manuellen Modus
-        self._thread = None
 
     # Verbindung
 
@@ -205,17 +213,19 @@ class HACompanion:
         with self._lock:
             if not self._paired:
                 raise PairError("nicht gekoppelt")
-            if self._thread is not None and self._thread.is_alive():
+            current = self._stream
+            if current is not None and not current.stop.is_set() and current.thread.is_alive():
                 return
-        self._start_stream()
+            self._begin_stream_locked()
 
     def wait(self) -> str:
-        """Wartet, bis der Strom-Thread endet. Gibt die Ablehnung zurueck (401 oder anderer Status), sonst ""."""
-        thread = self._thread
-        if thread is not None:
-            thread.join()
+        """Wartet, bis der Strom endet. Gibt die Ablehnung oder den Fehler zurueck, bei sauberem Stromende ""."""
         with self._lock:
-            return self._refusal
+            stream = self._stream
+        if stream is None:
+            return ""
+        stream.thread.join()
+        return stream.failure
 
     def token(self) -> str:
         with self._lock:
@@ -234,28 +244,31 @@ class HACompanion:
 
     def _start_stream(self) -> None:
         with self._lock:
-            token = self._token
-            self._stopping = False
-            self._refusal = ""
-            self._error = ""
-            thread = threading.Thread(target=self._stream, args=(token,), daemon=True)
-            self._thread = thread
-        thread.start()
+            self._begin_stream_locked()
+
+    def _begin_stream_locked(self) -> None:
+        """Startet einen neuen Strom. Der Aufrufer haelt den Lock."""
+        stream = _Stream(self._token)
+        self._error = ""
+        stream.thread = threading.Thread(target=self._stream_thread, args=(stream,), daemon=True)
+        self._stream = stream
+        stream.thread.start()
 
     def _stop_stream(self) -> None:
         with self._lock:
-            self._stopping = True
-            sock = self._sock
-            thread = self._thread
+            stream = self._stream
+            self._connected = False
+            if stream is None:
+                return
+            stream.stop.set()
+            sock = stream.sock
         if sock is not None:
             try:
                 sock.shutdown(socket.SHUT_RDWR)
             except OSError:
                 pass
-        if thread is not None and thread is not threading.current_thread():
-            thread.join(STOP_JOIN)
-        with self._lock:
-            self._connected = False
+        if stream.thread is not threading.current_thread():
+            stream.thread.join(STOP_JOIN)
 
     def _forget_token(self, error: str) -> None:
         """Vergisst das Token. Der Aufrufer haelt den Lock."""
@@ -264,43 +277,44 @@ class HACompanion:
         self._error = error
         self._pending.clear()
 
-    def _stream(self, token) -> None:
+    def _stream_thread(self, stream) -> None:
         opened = False
-        refusal = ""
-        error = ""
         conn = None
         try:
             conn = self._connect(STREAM_TIMEOUT)
             with self._lock:
-                self._sock = conn.sock
-                if self._stopping:
+                stream.sock = conn.sock
+                if stream.stop.is_set():
                     return
-            conn.request("GET", "/api/v1/companion/stream", headers=headers(token))
+            conn.request("GET", "/api/v1/companion/stream", headers=headers(stream.token))
             response = conn.getresponse()
             if response.status != 200:
-                refusal = f"Pruefstrom abgelehnt (HTTP {response.status})"
+                stream.failure = f"Pruefstrom abgelehnt (HTTP {response.status})"
                 return
             with self._lock:
-                self._connected = True
+                if self._stream is stream:
+                    self._connected = True
             opened = True
             self._log("Pruefstrom offen")
-            self._read_events(response, token)
-        except PairError as failure:
-            error = str(failure)
-        except (OSError, ValueError, http.client.HTTPException) as failure:
-            error = f"Pruefstrom unterbrochen: {failure}"
+            self._read_events(response, stream.token)
+        except Exception as failure:
+            if not stream.stop.is_set():
+                if isinstance(failure, PairError):
+                    stream.failure = str(failure)
+                else:
+                    stream.failure = f"Pruefstrom unterbrochen: {failure}"
         finally:
             if conn is not None:
                 conn.close()
             with self._lock:
-                stopping = self._stopping
-                self._sock = None
-                self._connected = False
-                self._refusal = refusal
-                if refusal:
-                    self._forget_token(refusal)
-                elif not stopping:
-                    self._forget_token(error or "Pruefstrom vom Dashboard beendet")
+                stream.sock = None
+                # Nur der aktuelle Strom darf den gemeinsamen Zustand aendern
+                if self._stream is stream:
+                    self._connected = False
+                    if stream.failure:
+                        self._forget_token(stream.failure)
+                    elif not stream.stop.is_set():
+                        self._forget_token("Pruefstrom vom Dashboard beendet")
             if opened:
                 self._log("Pruefstrom beendet")
 
@@ -322,7 +336,9 @@ class HACompanion:
     # Prüfungen
 
     def _find_user(self, username: str) -> HAUser | None:
-        for user in self.users.values():
+        with self._lock:
+            users = list(self.users.values())
+        for user in users:
             if user.username.lower() == username.lower():
                 return user
         return None

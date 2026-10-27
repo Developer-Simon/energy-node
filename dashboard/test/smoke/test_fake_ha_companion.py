@@ -3,6 +3,7 @@ import time
 
 import pytest
 
+import fake_ha_companion
 from fake_ha_companion import HACompanion, HAUser, PairError, main
 
 WRONG_CODE = "AAAAAAAAAAAA"
@@ -64,7 +65,7 @@ def test_auto_verify_rejects_wrong_password_and_inactive(stub_dashboard, compani
 
 def test_pair_with_wrong_code_reports_error(stub_dashboard, companions):
     companion, _ = companions()
-    with pytest.raises(PairError):
+    with pytest.raises(PairError, match=r"Kopplung abgelehnt \(HTTP 403\): .*Kopplungscode stimmt nicht"):
         companion.pair(WRONG_CODE)
     assert companion.state()["paired"] is False
 
@@ -72,7 +73,10 @@ def test_pair_with_wrong_code_reports_error(stub_dashboard, companions):
 def test_pair_wrong_code_returns_dashboard_answer(stub_dashboard, companions):
     companion, _ = companions()
     text = companion.pair_wrong_code()
-    assert text.strip()
+    status, _body = stub_dashboard.pair_requests[-1]
+    assert status == 403
+    assert "HTTP 403" in text
+    assert "Kopplungscode stimmt nicht" in text
     assert companion.state()["paired"] is False
 
 
@@ -102,26 +106,51 @@ def test_drop_and_open_stream_keep_pairing(stub_dashboard, companions):
     assert companion.state()["paired"] is True
 
 
-def test_cli_main_keeps_output_lines(stub_dashboard, capsys, tmp_path):
-    token_file = tmp_path / "token.txt"
-    argv = [
-        "--companion", stub_dashboard.url,
-        "--code", stub_dashboard.code,
+def cli_argv(stub, tmp_path):
+    return [
+        "--companion", stub.url,
+        "--code", stub.code,
         "--user", "maria",
         "--password", MARIA_PASSWORD,
         "--ha-user-id", "ha-smoke-maria",
         "--admin",
-        "--token-file", str(token_file),
+        "--token-file", str(tmp_path / "token.txt"),
     ]
-    runner = threading.Thread(target=main, args=(argv,), daemon=True)
+
+
+def run_cli(argv, outcome):
+    try:
+        main(argv)
+        outcome.append("returned")
+    except SystemExit as exit_request:
+        outcome.append(exit_request.code)
+
+
+def test_cli_main_keeps_output_lines(stub_dashboard, capsys, tmp_path):
+    token_file = tmp_path / "token.txt"
+    outcome = []
+    runner = threading.Thread(target=run_cli, args=(cli_argv(stub_dashboard, tmp_path), outcome), daemon=True)
     runner.start()
     wait_until(lambda: stub_dashboard.open_streams == 1)
     stub_dashboard.end_stream()
     runner.join(10)
     assert not runner.is_alive()
+    assert outcome == ["returned"]
     lines = capsys.readouterr().out.splitlines()
     assert lines == ["Gekoppelt, Token geschrieben", "Pruefstrom offen", "Pruefstrom beendet"]
     assert token_file.read_text() in stub_dashboard.tokens
+
+
+def test_cli_main_exits_1_when_stream_dies(stub_dashboard, capsys, tmp_path):
+    outcome = []
+    runner = threading.Thread(target=run_cli, args=(cli_argv(stub_dashboard, tmp_path), outcome), daemon=True)
+    runner.start()
+    wait_until(lambda: stub_dashboard.open_streams == 1)
+    stub_dashboard.kill_stream()
+    runner.join(10)
+    assert not runner.is_alive()
+    assert outcome == [1]
+    assert "FEHLER" in capsys.readouterr().err
 
 
 def test_manual_mode_queues_and_resolves(stub_dashboard, companions):
@@ -204,3 +233,70 @@ def test_user_changes_while_unpaired_do_not_call_dashboard(stub_dashboard, compa
     companion.remove_user("ha-smoke-tom")
     assert len(stub_dashboard.user_changes) == before
     assert "ha-smoke-anna" in companion.users
+
+
+def test_parallel_open_stream_starts_one_stream(stub_dashboard, companions):
+    companion, _ = companions()
+    companion.pair(stub_dashboard.code)
+    wait_until(lambda: companion.state()["connected"])
+    companion.drop_stream()
+    wait_until(lambda: stub_dashboard.open_streams == 0)
+    barrier = threading.Barrier(8)
+
+    def opener():
+        barrier.wait()
+        companion.open_stream()
+
+    openers = [threading.Thread(target=opener) for _ in range(8)]
+    for thread in openers:
+        thread.start()
+    for thread in openers:
+        thread.join(10)
+    wait_until(lambda: companion.state()["connected"])
+    time.sleep(0.3)
+    assert stub_dashboard.open_streams == 1
+
+
+def test_old_stream_thread_cannot_touch_new_stream(stub_dashboard, companions, monkeypatch):
+    monkeypatch.setattr(fake_ha_companion, "STOP_JOIN", 0.2)
+    companion, lines = companions()
+    companion.pair(stub_dashboard.code)
+    wait_until(lambda: companion.state()["connected"])
+    token = companion.token()
+    stub_dashboard.hold_verify()
+    stub_dashboard.push_verify("req-1", "tom", TOM_PASSWORD)
+    assert stub_dashboard.hold_entered.wait(5)
+    companion.drop_stream()
+    companion.open_stream()
+    wait_until(lambda: companion.state()["connected"])
+    stub_dashboard.release_verify()
+    wait_until(lambda: lines.count("Pruefstrom beendet") == 1)
+    state = companion.state()
+    assert state["paired"] is True
+    assert state["connected"] is True
+    assert companion.token() == token
+
+
+def test_user_table_changes_during_verifies_keep_stream(stub_dashboard, companions):
+    companion, _ = companions()
+    companion.pair(stub_dashboard.code)
+    wait_until(lambda: companion.state()["connected"])
+
+    def churn():
+        # Direkt unter dem Lock, damit viele Aenderungen auf die Pruefungen treffen
+        for i in range(20000):
+            with companion._lock:
+                companion.users[f"ha-x{i}"] = HAUser(f"ha-x{i}", f"x{i}", "pw", "X")
+                if i >= 100:
+                    companion.users.pop(f"ha-x{i - 100}", None)
+
+    writer = threading.Thread(target=churn)
+    writer.start()
+    for i in range(30):
+        stub_dashboard.push_verify(f"req-{i}", "maria", MARIA_PASSWORD)
+    for i in range(30):
+        assert stub_dashboard.answer(f"req-{i}")["ok"] is True
+    writer.join(30)
+    state = companion.state()
+    assert state["paired"] is True
+    assert state["connected"] is True
