@@ -1,6 +1,7 @@
 """HTTP-Views: Panel-Sitzung ausstellen und das Dashboard durchreichen."""
 from __future__ import annotations
 
+import json
 import logging
 
 import aiohttp
@@ -11,6 +12,7 @@ from homeassistant.core import HomeAssistant
 
 from .client import ExchangeError
 from .const import DOMAIN, PANEL_COOKIE, PANEL_SESSION_TTL_S, proxy_prefix
+from .link import CompanionLink
 from .panel_access import may_use_panel
 from .proxy_headers import guest_cookie, is_logout, own_session, response_headers, upstream_headers
 from .runtime import EnergyNodeData
@@ -22,6 +24,8 @@ UPSTREAM_TIMEOUT = aiohttp.ClientTimeout(total=None, sock_connect=15)
 # Nur Anfragen ohne Nebenwirkung werden nach einer neuen Gastanmeldung
 # wiederholt.
 RETRYABLE = ("GET", "HEAD")
+# Antwortcode des Companion-Tors, wenn das Kopplungstoken nicht passt.
+UNPAIRED_CODE = "companion_unauthorized"
 
 
 def _loaded(hass: HomeAssistant, entry_id: str) -> ConfigEntry | None:
@@ -29,6 +33,14 @@ def _loaded(hass: HomeAssistant, entry_id: str) -> ConfigEntry | None:
     if entry is None or entry.domain != DOMAIN or entry.state is not ConfigEntryState.LOADED:
         return None
     return entry
+
+
+def _error_code(payload: bytes) -> str | None:
+    try:
+        answer = json.loads(payload)
+    except ValueError:
+        return None
+    return answer.get("code") if isinstance(answer, dict) else None
 
 
 class PanelSessionView(HomeAssistantView):
@@ -88,19 +100,16 @@ class DashboardProxyView(HomeAssistantView):
             return web.json_response({"status": "logged_out"})
 
         body = await request.read() if request.body_exists else None
-        url = f"{data.base_url}/{path}"
         try:
-            token = "" if own else await data.client.ensure_session()
-            upstream = await self._send(data, request, url, body, own or guest_cookie(token, secure))
-            if upstream.status == 401 and own is None and request.method in RETRYABLE:
-                # Dashboard neu gestartet oder Gastsitzung abgelaufen.
-                upstream.release()
-                data.client.drop_session(token)
-                token = await data.client.ensure_session()
-                upstream = await self._send(data, request, url, body, guest_cookie(token, secure))
+            if data.link is None:
+                upstream = await self._guest(data, request, path, body, own, secure)
+            else:
+                upstream = await self._paired(hass, data, request, user, path, body, own, secure)
         except (aiohttp.ClientError, TimeoutError, ExchangeError) as err:
             _LOGGER.debug("Dashboard %s not reachable: %s", data.base_url, err)
             return web.Response(status=502, text="Dashboard not reachable")
+        if isinstance(upstream, web.StreamResponse):
+            return upstream
         return await self._relay(request, upstream)
 
     get = _handle
@@ -110,8 +119,121 @@ class DashboardProxyView(HomeAssistantView):
     patch = _handle
     head = _handle
 
+    async def _guest(
+        self,
+        data: EnergyNodeData,
+        request: web.Request,
+        path: str,
+        body: bytes | None,
+        own: str | None,
+        secure: bool,
+    ) -> aiohttp.ClientResponse:
+        """Ohne Kopplung: eigene Sitzung des Browsers oder die geteilte Gastsitzung ueber HTTP."""
+        url = f"{data.base_url}/{path}"
+        token = "" if own else await data.client.ensure_session()
+        upstream = await self._send(data.session, request, url, body, own or guest_cookie(token, secure))
+        if upstream.status == 401 and own is None and request.method in RETRYABLE:
+            # Dashboard neu gestartet oder Gastsitzung abgelaufen.
+            upstream.release()
+            data.client.drop_session(token)
+            token = await data.client.ensure_session()
+            upstream = await self._send(data.session, request, url, body, guest_cookie(token, secure))
+        return upstream
+
+    async def _paired(
+        self,
+        hass: HomeAssistant,
+        data: EnergyNodeData,
+        request: web.Request,
+        user,
+        path: str,
+        body: bytes | None,
+        own: str | None,
+        secure: bool,
+    ) -> aiohttp.ClientResponse | web.Response:
+        """Mit Kopplung: Companion-Port, Kopplungstoken als Bearer, Sitzung als Cookie.
+
+        Reihenfolge: eigene Sitzung des Browsers, dann die Sitzung des HA-Benutzers,
+        zuletzt die Gastsitzung. Ein 401 des Tors heisst, die Kopplung ist vorbei.
+        """
+        link = data.link
+        assert link is not None
+        url = f"{link.base}/{path}"
+        retryable = request.method in RETRYABLE
+        if own is not None:
+            response, _ = await self._answer(link, await self._send_paired(request, url, body, link, own))
+            return response
+
+        user_token = await self._user_token(hass, link, user)
+        if user_token is not None:
+            response, expired = await self._answer(
+                link, await self._send_paired(request, url, body, link, guest_cookie(user_token, secure))
+            )
+            if expired and retryable:
+                # Sitzung abgelaufen: einmal neu anmelden und wiederholen.
+                link.user_sessions.drop(user.id, user_token)
+                user_token = await self._user_token(hass, link, user)
+                if user_token is not None:
+                    response, _ = await self._answer(
+                        link, await self._send_paired(request, url, body, link, guest_cookie(user_token, secure))
+                    )
+            if user_token is not None:
+                return response
+
+        # Gesperrtes Konto oder keine Sitzung des Benutzers: geteilte Gastsitzung.
+        guest = await data.client.ensure_session()
+        response, expired = await self._answer(
+            link, await self._send_paired(request, url, body, link, guest_cookie(guest, secure))
+        )
+        if expired and retryable:
+            data.client.drop_session(guest)
+            guest = await data.client.ensure_session()
+            response, _ = await self._answer(
+                link, await self._send_paired(request, url, body, link, guest_cookie(guest, secure))
+            )
+        return response
+
+    async def _user_token(self, hass: HomeAssistant, link: CompanionLink, user) -> str | None:
+        """Sitzung des HA-Benutzers. None bei gesperrtem Konto oder wenn der Companion-Port nicht antwortet."""
+        try:
+            return await link.user_sessions.async_get(hass, user)
+        except (aiohttp.ClientError, TimeoutError, ExchangeError) as err:
+            _LOGGER.debug("companion session not available: %s", err)
+            return None
+
+    async def _send_paired(
+        self, request: web.Request, url: str, body: bytes | None, link: CompanionLink, cookie: str
+    ) -> aiohttp.ClientResponse:
+        return await self._send(
+            link.session, request, url, body, cookie, authorization=link.headers()["Authorization"], ssl=link.ssl
+        )
+
+    async def _answer(
+        self, link: CompanionLink, upstream: aiohttp.ClientResponse
+    ) -> tuple[aiohttp.ClientResponse | web.Response, bool]:
+        """Ob die Antwort weitergereicht wird, und ob eine Sitzung abgelaufen ist (401 ohne Tor-Code).
+
+        Ein 401 mit Tor-Code heisst, das Kopplungstoken passt nicht mehr: die Kopplung ist vorbei.
+        """
+        if upstream.status != 401:
+            return upstream, False
+        payload = await upstream.read()
+        upstream.release()
+        if _error_code(payload) == UNPAIRED_CODE:
+            link.report_unpaired()
+            return web.Response(status=502, text="Dashboard not reachable"), False
+        return web.Response(status=401, headers=response_headers(upstream.headers), body=payload), True
+
     async def _send(
-        self, data: EnergyNodeData, request: web.Request, url: str, body: bytes | None, cookie: str
+        self,
+        session: aiohttp.ClientSession,
+        request: web.Request,
+        url: str,
+        body: bytes | None,
+        cookie: str,
+        *,
+        authorization: str | None = None,
+        ssl=None,
     ) -> aiohttp.ClientResponse:
         headers = upstream_headers(
             request.headers,
@@ -120,8 +242,10 @@ class DashboardProxyView(HomeAssistantView):
             remote=request.remote,
             prefix=proxy_prefix(request.match_info["entry_id"]),
             session_cookie=cookie,
+            authorization=authorization,
         )
-        return await data.session.request(
+        extra = {} if ssl is None else {"ssl": ssl}
+        return await session.request(
             request.method,
             url,
             headers=headers,
@@ -129,6 +253,7 @@ class DashboardProxyView(HomeAssistantView):
             data=body,
             allow_redirects=False,
             timeout=UPSTREAM_TIMEOUT,
+            **extra,
         )
 
     async def _relay(self, request: web.Request, upstream: aiohttp.ClientResponse) -> web.StreamResponse:

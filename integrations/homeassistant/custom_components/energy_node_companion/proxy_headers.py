@@ -71,12 +71,14 @@ def upstream_headers(
     remote: str | None,
     prefix: str,
     session_cookie: str,
+    authorization: str | None = None,
 ) -> CIMultiDict[str]:
     """Header fuer die Anfrage an das Dashboard.
 
     Cookie enthaelt genau eine Dashboard-Sitzung und hoechstens die
     gewaehlte Sprache: HA-Cookies und das Panel-Cookie bleiben im Browser,
-    ebenso der HA-Token aus Authorization.
+    ebenso der HA-Token aus Authorization. Authorization setzt nur der Proxy,
+    und zwar das Kopplungstoken fuer den Companion-Port.
     """
     cookies = [session_cookie]
     lang = _cookie(incoming.get("Cookie", ""), LANGUAGE_COOKIE)
@@ -85,6 +87,8 @@ def upstream_headers(
     headers: CIMultiDict[str] = CIMultiDict(
         (name, value) for name, value in incoming.items() if name.lower() not in _DROP_REQUEST
     )
+    if authorization is not None:
+        headers["Authorization"] = authorization
     headers["Cookie"] = "; ".join(cookies)
     headers["X-Forwarded-Prefix"] = prefix
     headers["X-Forwarded-Proto"] = scheme

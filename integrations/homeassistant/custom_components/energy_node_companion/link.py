@@ -25,6 +25,34 @@ class Unpaired(Exception):
     """Das Dashboard nimmt das Token nicht mehr an."""
 
 
+class UserSessions:
+    """Panel-Sitzung je HA-Benutzer, im Speicher und nur fuer die Laufzeit des Eintrags."""
+
+    def __init__(self, link: CompanionLink) -> None:
+        self._link = link
+        self._tokens: dict[str, str] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
+
+    async def async_get(self, hass: HomeAssistant, user) -> str | None:
+        """Token des Benutzers, sonst eine neue Sitzung. None, wenn das Konto gesperrt ist."""
+        token = self._tokens.get(user.id)
+        if token is not None:
+            return token
+        lock = self._locks.setdefault(user.id, asyncio.Lock())
+        async with lock:
+            token = self._tokens.get(user.id)
+            if token is None:
+                token = await self._link.async_session(await async_identity(hass, user))
+                if token is not None:
+                    self._tokens[user.id] = token
+            return token
+
+    def drop(self, user_id: str, token: str) -> None:
+        """Verwirft das Token, aber nur wenn es noch das aktuelle ist."""
+        if self._tokens.get(user_id) == token:
+            del self._tokens[user_id]
+
+
 class CompanionLink:
     """Haelt den Pruefstrom offen und beantwortet, was darauf ankommt."""
 
@@ -44,6 +72,16 @@ class CompanionLink:
         self._fingerprint = fingerprint
         self._on_unpaired = on_unpaired
         self._unpaired = False
+        self.user_sessions = UserSessions(self)
+
+    @property
+    def base(self) -> str:
+        return self._base
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        """Sitzung fuer den Companion-Port. Der Fingerabdruck kommt pro Anfrage ueber ssl."""
+        return self._session
 
     @property
     def ssl(self) -> aiohttp.Fingerprint:
@@ -51,6 +89,10 @@ class CompanionLink:
 
     def headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._token}"}
+
+    def report_unpaired(self) -> None:
+        """Das Dashboard hat das Kopplungstoken abgelehnt."""
+        self._unpair()
 
     async def run(self) -> None:
         """Liest den Strom und verbindet sich mit Backoff neu. Endet bei Unpaired."""
