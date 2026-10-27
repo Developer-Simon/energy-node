@@ -499,7 +499,7 @@ test('creating an account with an elevated right asks first', async () => {
 test('opening the sessions tab loads the list and polls every 30 seconds', async () => {
   const { component, calls, timers } = createUsersPage();
   await component.init();
-  assert.equal(component.tab, 'accounts');
+  assert.equal(component.tab, 'signin');
   assert.deepEqual(timers.running, []);
 
   await component.setTab('sessions');
@@ -513,6 +513,20 @@ test('opening the sessions tab loads the list and polls every 30 seconds', async
   timers.tick();
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(calls.filter((call) => call.url === '/api/v1/user-sessions').length, before + 1, 'the timer reloads');
+});
+
+test('the sign-in tab is the default and shows the own session and account cards', async () => {
+  const { component } = createUsersPage();
+  await component.init();
+  assert.equal(component.signinShown, true);
+
+  await component.setTab('accounts');
+  assert.equal(component.tab, 'accounts');
+  assert.equal(component.signinShown, false);
+
+  await component.setTab('anything else');
+  assert.equal(component.tab, 'signin');
+  assert.equal(component.signinShown, true);
 });
 
 test('leaving the sessions tab stops the timer and opening it again does not stack a second one', async () => {
