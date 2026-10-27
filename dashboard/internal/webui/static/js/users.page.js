@@ -70,8 +70,10 @@
     policy: {...DEFAULT_POLICY},
     // The minimum length as typed in the policy card, a number.
     policyDraft: DEFAULT_POLICY.min_length,
-    // Open tab of the users page: 'accounts' or 'sessions'.
-    tab: 'accounts',
+    // Open tab of the users page: 'signin', 'accounts' or 'sessions'.
+    tab: 'signin',
+    // The own session and account cards belong to the sign-in tab.
+    get signinShown() { return this.tab === 'signin'; },
     // Logged-in sessions from GET /api/v1/user-sessions.
     sessions: [],
     sessionsError: '',
@@ -666,7 +668,7 @@
     // Opens or leaves a tab. Leaving the sessions tab stops its timer, opening
     // it again starts exactly one.
     async setTab(name) {
-      this.tab = name === 'sessions' ? 'sessions' : 'accounts';
+      this.tab = name === 'sessions' || name === 'accounts' ? name : 'signin';
       this.stopSessionTimer();
       if (this.tab !== 'sessions') return;
       this.sessionTimer = window.setInterval(() => this.loadSessions(), SESSIONS_MS);

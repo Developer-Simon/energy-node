@@ -7,12 +7,15 @@
 {{/* i18n-keys: users.role.check_updates.label, users.role.check_updates.desc, users.role.install_updates.label, users.role.install_updates.desc, users.role.install_updates.note, users.role.update_settings.label, users.role.update_settings.desc, users.role.update_settings.note, users.role.view_logs.label, users.role.view_logs.desc, users.role.system_actions.label, users.role.system_actions.desc, users.role.tailscale.label, users.role.tailscale.desc, users.role.user_management.label, users.role.user_management.desc, users.role.http_login.label, users.role.http_login.desc */}}
 <section id="settings-users" role="tabpanel" class="settings-cards users-cards" x-show="activeSettingsPage === 'users'">
   {{if .CanManageUsers}}<div class="users-manage" x-data="usersPage()"
-    x-effect="if (activeSettingsPage !== 'users' && tab !== 'accounts') setTab('accounts')">
+    x-effect="if (activeSettingsPage !== 'users' && tab !== 'signin') setTab('signin')">
   <p class="settings-help" x-show="error" x-text="error"></p>
   <div class="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
+    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
     <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
     <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
   </div>
+
+{{template "users-account-cards" .}}
 
   <div class="setting-card users-section" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
     <div class="users-section-head">
@@ -335,4 +338,54 @@
     </div>
   </div>
 </article>
+{{end}}
+
+{{define "users-account-cards"}}
+    {{if .HasUser}}<section class="setting-card users-session-card" aria-labelledby="settings-session-heading" x-data="systemPanel()" x-init="load()" x-show="signinShown">
+      <h3 class="setting-card-title" id="settings-session-heading">{{t "settings.session.title"}}</h3>
+      <div class="setting-row">
+        <span class="setting-row-label">{{t "settings.system.access.label"}} <strong class="system-access-user" x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong></span>
+      </div>
+      <div class="setting-card-foot">
+        <button class="icon-button labeled danger" type="button" x-show="via !== 'companion'" x-on:click="logout()" x-bind:disabled="loading" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
+          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
+          <span>{{t "settings.system.logout.button"}}</span>
+        </button>
+        <p class="setting-note" x-show="via === 'companion'">{{t "settings.account.via_ha"}}</p>
+      </div>
+    </section>{{end}}
+    {{if .HasOwnAccount}}<section class="setting-card users-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible && signinShown">
+      <div class="settings-account" x-cloak x-show="accountVisible">
+        <h3 class="setting-card-title" id="settings-account-heading">{{t "settings.account.title"}}</h3>
+        <p class="settings-account-notice" role="note" x-cloak x-show="accountRestricted">{{t "settings.account.restricted"}}</p>
+        <form class="settings-account-form" x-on:submit.prevent="changeOwnPassword()">
+          <label class="settings-account-label" for="settings-account-old">{{t "settings.account.old_password"}}</label>
+          <input id="settings-account-old" class="settings-account-input" type="password" autocomplete="current-password" x-model="passwordForm.old">
+          <label class="settings-account-label" for="settings-account-new">{{t "settings.account.new_password"}}</label>
+          <input id="settings-account-new" class="settings-account-input" type="password" autocomplete="new-password" x-bind:placeholder="$t('users.password.placeholder', {min: passwordMin})" x-model="passwordForm.next">
+          <label class="settings-account-label" for="settings-account-repeat">{{t "settings.account.repeat_password"}}</label>
+          <input id="settings-account-repeat" class="settings-account-input" type="password" autocomplete="new-password" x-model="passwordForm.repeat">
+          <p class="settings-account-error" role="alert" x-cloak x-show="passwordError" x-text="passwordError"></p>
+          <div class="settings-account-actions">
+            <button type="submit" class="users-btn users-btn--primary" x-bind:disabled="accountBusy">{{t "settings.account.password_change"}}</button>
+          </div>
+        </form>
+        <div class="settings-account-http" x-cloak x-show="accountHTTPLogin">
+          <h4 class="settings-account-subtitle">{{t "settings.account.http_title"}}
+            <span class="field-help">
+              <button class="field-help-trigger" type="button" aria-label="{{t "settings.account.http_explain_aria"}}">
+                <svg><use href="#ico-help"></use></svg>
+              </button>
+              <span class="field-help-text" role="tooltip">{{t "users.http_warning.risk"}}</span>
+            </span>
+          </h4>
+          <input class="settings-account-input" type="password" autocomplete="new-password" x-bind:aria-label="$t('users.http_warning.placeholder', {min: passwordMin})" x-bind:placeholder="$t('users.http_warning.placeholder', {min: passwordMin})" x-model="httpPasswordDraft">
+          <p class="settings-account-error" role="alert" x-cloak x-show="!httpPasswordValid" x-text="$t('users.create.password_error', {min: passwordMin})"></p>
+          <div class="settings-account-actions">
+            <button type="button" class="users-btn" x-bind:disabled="accountBusy || !httpPasswordValid || httpPasswordDraft.length === 0" x-on:click="saveHTTPPassword()">{{t "users.http_warning.apply"}}</button>
+            <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-bind:disabled="accountBusy" x-on:click="httpPasswordDraft = ''; saveHTTPPassword()">{{t "users.http_warning.remove"}}</button>
+          </div>
+        </div>
+      </div>
+    </section>{{end}}
 {{end}}
