@@ -139,6 +139,14 @@ async function all() {
       await s.page.waitForTimeout(20000);
       for (const b of await s.page.getByRole('button', { name: 'Refresh', exact: true }).all()) await b.click().catch(() => {});
       await s.page.waitForTimeout(3000);
+      // Das Bild zeigt die Batterie-Konfiguration, nicht die Automationsregeln,
+      // die das Auswahlfeld sonst zuerst laedt.
+      const select = s.page.locator('#config-name');
+      const battery = await select.locator('option', { hasText: /battery/i }).first().getAttribute('value');
+      await select.selectOption(battery);
+      await s.page.waitForTimeout(3000);
+      for (const b of await s.page.getByRole('button', { name: 'Refresh', exact: true }).all()) await b.click().catch(() => {});
+      await s.page.waitForTimeout(3000);
     }
     if (id === 'devices' && await s.page.locator('.device-density-toggle.active').count()) {
       await s.page.locator('.device-density-toggle').first().click();
