@@ -3603,7 +3603,7 @@
   "users.summary.none": "no permissions",
   "users.tab.accounts": "Accounts",
   "users.tab.sessions": "Sessions",
-  "users.tab.signin": "Sign-in",
+  "users.tab.signin": "Me",
   "users.tag.disabled": "disabled",
   "users.tag.ha": "Home Assistant",
   "users.tag.https_only": "HTTPS only",

@@ -3603,7 +3603,7 @@
   "users.summary.none": "keine Berechtigungen",
   "users.tab.accounts": "Konten",
   "users.tab.sessions": "Sitzungen",
-  "users.tab.signin": "Anmeldung",
+  "users.tab.signin": "Ich",
   "users.tag.disabled": "gesperrt",
   "users.tag.ha": "Home Assistant",
   "users.tag.https_only": "nur HTTPS",
