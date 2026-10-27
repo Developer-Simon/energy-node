@@ -10,7 +10,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"io/fs"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -32,13 +34,17 @@ const commonName = "energy-node-companion"
 // NotAfter plus 20 Jahre, KeyUsage DigitalSignature, ExtKeyUsage ServerAuth,
 // Seriennummer 128 Bit Zufall. Schlüsseldatei 0600, Zertifikat 0644.
 // fingerprint ist companionpair.Fingerprint des Blatt-DER.
+//
+// Erzeugt wird nur, wenn eine der beiden Dateien fehlt. Eine vorhandene, aber
+// kaputte oder nicht lesbare Datei ist ein Fehler und bleibt unangetastet:
+// ein neues Zertifikat wuerde den gekoppelten Fingerabdruck ungueltig machen.
 func LoadOrCreate(dir string) (cert tls.Certificate, fingerprint string, err error) {
 	cert, err = load(dir)
-	if err != nil {
+	if errors.Is(err, fs.ErrNotExist) {
 		cert, err = create(dir)
-		if err != nil {
-			return tls.Certificate{}, "", err
-		}
+	}
+	if err != nil {
+		return tls.Certificate{}, "", err
 	}
 	return cert, companionpair.Fingerprint(cert.Certificate[0]), nil
 }

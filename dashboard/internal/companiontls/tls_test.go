@@ -71,25 +71,46 @@ func TestCertificateIsLongLived(t *testing.T) {
 	}
 }
 
-func TestBrokenFilesAreReplaced(t *testing.T) {
+func TestBrokenFilesAreNotReplaced(t *testing.T) {
 	dir := t.TempDir()
+	if _, _, err := LoadOrCreate(dir); err != nil {
+		t.Fatalf("LoadOrCreate (Ausgangszustand): %v", err)
+	}
+	certPath := filepath.Join(dir, CertFile)
+	keyPath := filepath.Join(dir, KeyFile)
+	if err := os.WriteFile(certPath, []byte("Müll"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	keyBefore, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	if _, _, err := LoadOrCreate(dir); err == nil {
+		t.Fatal("LoadOrCreate mit kaputter Zertifikatsdatei: kein Fehler")
+	}
+	if certAfter, err := os.ReadFile(certPath); err != nil || string(certAfter) != "Müll" {
+		t.Fatalf("kaputte Zertifikatsdatei wurde verändert: %q, %v", certAfter, err)
+	}
+	if keyAfter, err := os.ReadFile(keyPath); err != nil || string(keyAfter) != string(keyBefore) {
+		t.Fatalf("Schlüsseldatei wurde verändert: %v", err)
+	}
+}
+
+func TestMissingFileIsCreatedAgain(t *testing.T) {
+	dir := t.TempDir()
 	_, before, err := LoadOrCreate(dir)
 	if err != nil {
 		t.Fatalf("LoadOrCreate (Ausgangszustand): %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, CertFile), []byte("Müll"), 0644); err != nil {
+	if err := os.Remove(filepath.Join(dir, KeyFile)); err != nil {
 		t.Fatal(err)
 	}
-
 	_, after, err := LoadOrCreate(dir)
 	if err != nil {
-		t.Fatalf("LoadOrCreate mit kaputter Datei: %v", err)
+		t.Fatalf("LoadOrCreate ohne Schlüsseldatei: %v", err)
 	}
-	if after == "" {
-		t.Fatal("fingerprint ist leer")
-	}
-	if after == before {
-		t.Fatal("kaputte Zertifikatsdatei wurde nicht ersetzt")
+	if after == "" || after == before {
+		t.Fatalf("fehlende Schlüsseldatei: fingerprint %q, vorher %q", after, before)
 	}
 }
