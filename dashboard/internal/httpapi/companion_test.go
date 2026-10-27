@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"bufio"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -474,4 +475,84 @@ func TestLoginReportsHAUnavailable(t *testing.T) {
 	// Paired, but no companion stream is open, so Home Assistant cannot answer.
 	recorder := usersCall(router, http.MethodPost, "/api/v1/auth/login", `{"username":"anna","password":"anna-pass"}`, nil, "", true)
 	wantCompanionError(t, recorder, http.StatusServiceUnavailable, "ha_unavailable")
+}
+
+// gateRequest builds a request for the companion gate. The context ends after
+// two seconds, so a stream that is not refused returns instead of hanging.
+func gateRequest(t *testing.T, method, path, body, token string, headers map[string]string) (*http.Request, context.CancelFunc) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	request := httptest.NewRequest(method, path, strings.NewReader(body)).WithContext(ctx)
+	request.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	for name, value := range headers {
+		request.Header.Set(name, value)
+	}
+	return request, cancel
+}
+
+func TestCompanionRoutesRefuseProxiedRequests(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	gate := CompanionGate(manager, router)
+	token := pairCompanion(t, gate, manager)
+	proxied := map[string]string{"X-Forwarded-Prefix": "/api/energy_node_companion/proxy/abc"}
+	for _, probe := range []struct {
+		method, path, body, token string
+	}{
+		{http.MethodPost, "/api/v1/companion/session", `{"ha_user_id":"ha-x","username":"x","is_admin":true}`, token},
+		{http.MethodPost, "/api/v1/companion/user-changed", `{"ha_user_id":"ha-x","removed":true}`, token},
+		{http.MethodGet, "/api/v1/companion/stream", "", token},
+		{http.MethodPost, "/api/v1/companion/pair", `{}`, ""},
+		{http.MethodPost, "/api/v1/companion/session", `{}`, ""},
+	} {
+		request, cancel := gateRequest(t, probe.method, probe.path, probe.body, probe.token, proxied)
+		recorder := httptest.NewRecorder()
+		gate.ServeHTTP(recorder, request)
+		cancel()
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("proxied %s %s: status %d, want 404", probe.method, probe.path, recorder.Code)
+		}
+	}
+}
+
+func TestCompanionRoutesStillWorkWithoutProxyHeader(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	gate := CompanionGate(manager, router)
+	token := pairCompanion(t, gate, manager)
+
+	request, cancel := gateRequest(t, http.MethodPost, "/api/v1/companion/session", `{"ha_user_id":"ha-x","username":"x","name":"X","is_admin":false}`, token, nil)
+	recorder := httptest.NewRecorder()
+	gate.ServeHTTP(recorder, request)
+	cancel()
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("session without proxy header: status %d: %s", recorder.Code, recorder.Body.String())
+	}
+
+	request, cancel = gateRequest(t, http.MethodGet, "/api/v1/companion/stream", "", token, nil)
+	recorder = httptest.NewRecorder()
+	gate.ServeHTTP(recorder, request)
+	cancel()
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("stream without proxy header: status %d", recorder.Code)
+	}
+}
+
+func TestCompanionGateTreatsForwardedProtoCaseInsensitively(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	token := pairCompanion(t, CompanionGate(manager, router), manager)
+
+	var secure bool
+	probe := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		secure = isSecureRequest(r)
+		w.WriteHeader(http.StatusNoContent)
+	})
+	gate := CompanionGate(manager, probe)
+	request, cancel := gateRequest(t, http.MethodPost, "/api/v1/companion/user-changed", `{"ha_user_id":"ha-x","removed":true}`, token, map[string]string{"X-Forwarded-Proto": "HTTPS"})
+	defer cancel()
+	gate.ServeHTTP(httptest.NewRecorder(), request)
+	if !secure {
+		t.Fatal(`X-Forwarded-Proto "HTTPS" must count as secure behind the gate`)
+	}
 }

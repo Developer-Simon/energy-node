@@ -29,10 +29,19 @@ var errInvalidNonce = errors.New("nonce must be 64 hex characters")
 // needs the bearer token of the pairing, except the pairing itself. The
 // request that reaches next is a clone without the Authorization header and
 // carries the companion marker. Unless the first X-Forwarded-Proto value is
-// exactly https, the clone loses its TLS state and counts as insecure, so a
-// missing header fails closed.
+// https (case ignored, as in isSecureRequest), the clone loses its TLS state
+// and counts as insecure, so a missing header fails closed.
+//
+// A request with X-Forwarded-Prefix came through the panel proxy of the
+// Home Assistant integration. The proxy always sets that header, and the
+// companion never does. The control routes are refused for such requests,
+// even with a valid token, so the panel cannot steer the pairing.
 func CompanionGate(manager *auth.Manager, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(r.Header.Values("X-Forwarded-Prefix")) > 0 && strings.HasPrefix(r.URL.Path, companionPrefix) {
+			http.NotFound(w, r)
+			return
+		}
 		if !(r.Method == http.MethodPost && r.URL.Path == companionPairPath) {
 			token, ok := bearerToken(r)
 			if !ok || manager == nil || !manager.CompanionTokenValid(token) {
@@ -42,7 +51,7 @@ func CompanionGate(manager *auth.Manager, next http.Handler) http.Handler {
 		}
 		clone := r.Clone(context.WithValue(r.Context(), companionContextKey{}, true))
 		clone.Header.Del("Authorization")
-		if firstForwardedProto(r) != "https" {
+		if !strings.EqualFold(firstForwardedProto(r), "https") {
 			clone.TLS = nil
 		}
 		next.ServeHTTP(w, clone)
