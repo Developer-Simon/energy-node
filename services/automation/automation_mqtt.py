@@ -170,12 +170,14 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
     elif ctype == "topic_value":
         if err := validate_subscribe_topic(result.get("topic", "")):
             errors.append(f"{prefix}: {err}")
-        if result.get("comparison") not in ("above", "below", "equals", "not_equals"):
+        if result.get("comparison") not in ("above", "below", "equals", "not_equals", "stale"):
             errors.append(f"{prefix}: invalid comparison")
         if result.get("comparison") in ("above", "below") and not isinstance(result.get("value"), (int, float)):
             errors.append(f"{prefix}: value must be a number for above/below")
         if result.get("comparison") in ("equals", "not_equals") and "text" not in result and "value" not in result:
             errors.append(f"{prefix}: equals/not_equals needs text or value")
+        if result.get("comparison") == "stale" and not _is_positive_number(result.get("max_age_s")):
+            errors.append(f"{prefix}: max_age_s must be a number above 0 for stale")
         result.setdefault("json_key", "")
         result.setdefault("hold_seconds", 0)
     elif ctype == "entity_value":
@@ -189,12 +191,14 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
             errors.append(f"{prefix}: value_template must be a string")
         elif template and ha_template.parse_value_template(template) is None:
             errors.append(f"{prefix}: value_template is not one of the supported forms")
-        if result.get("comparison") not in ("above", "below", "equals", "not_equals"):
+        if result.get("comparison") not in ("above", "below", "equals", "not_equals", "stale"):
             errors.append(f"{prefix}: invalid comparison")
         if result.get("comparison") in ("above", "below") and not isinstance(result.get("value"), (int, float)):
             errors.append(f"{prefix}: value must be a number for above/below")
         if result.get("comparison") in ("equals", "not_equals") and "text" not in result and "value" not in result:
             errors.append(f"{prefix}: equals/not_equals needs text or value")
+        if result.get("comparison") == "stale" and not _is_positive_number(result.get("max_age_s")):
+            errors.append(f"{prefix}: max_age_s must be a number above 0 for stale")
         result.setdefault("value_template", "")
         result.setdefault("hold_seconds", 0)
     elif ctype == "time_window":
@@ -203,6 +207,7 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
         if not _TIME_RE.match(str(result.get("end", ""))):
             errors.append(f"{prefix}: end must be HH:MM")
         _validate_weekdays(result, prefix, errors)
+        _validate_month_days(result, prefix, errors)
     elif ctype == "sun_window":
         for key in ("from", "to"):
             if result.get(key) not in _SUN_EVENTS:
@@ -214,6 +219,7 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
                 errors.append(f"{prefix}: {key} must be a whole number between "
                               f"-{_SUN_OFFSET_MAX_MIN} and {_SUN_OFFSET_MAX_MIN}")
         _validate_weekdays(result, prefix, errors)
+        _validate_month_days(result, prefix, errors)
     return result
 
 
@@ -222,6 +228,18 @@ def _validate_weekdays(result: dict, prefix: str, errors: list[str]) -> None:
     if any(not isinstance(d, int) or isinstance(d, bool) or d < 0 or d > 6 for d in weekdays):
         errors.append(f"{prefix}: weekdays must all be 0..6")
     result.setdefault("weekdays", [])
+
+
+def _validate_month_days(result: dict, prefix: str, errors: list[str]) -> None:
+    month_days = result.get("month_days", [])
+    if not isinstance(month_days, list) or \
+            any(not isinstance(d, int) or isinstance(d, bool) or d < 1 or d > 31 for d in month_days):
+        errors.append(f"{prefix}: month_days must all be 1..31")
+    result.setdefault("month_days", [])
+
+
+def _is_positive_number(value) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
 
 
 def _validate_location(settings_raw: dict, errors: list[str]) -> tuple[Optional[float], Optional[float]]:
@@ -669,9 +687,11 @@ def _active_window(cond: dict, now_ts: float, location) -> tuple:
     """Liefert (bounds, reason) fuer das Fenster, das jetzt gilt, oder das
     heutige, wenn keines gilt. Geprueft werden das heutige und das gestrige
     Fenster - ein Fenster ueber Mitternacht gehoert zu seinem Starttag, und
-    nur dessen Wochentag zaehlt fuer "weekdays"."""
+    nur dessen Wochentag zaehlt fuer "weekdays" und dessen Tag im Monat
+    fuer "month_days"."""
     bounds_for = _WINDOW_BOUNDS[cond["type"]]
     weekdays = cond.get("weekdays") or []
+    month_days = cond.get("month_days") or []
     today = datetime.date.fromtimestamp(now_ts)
     today_bounds, today_reason = None, ""
     for day in (today, today - datetime.timedelta(days=1)):
@@ -681,7 +701,8 @@ def _active_window(cond: dict, now_ts: float, location) -> tuple:
         if bounds is None:
             continue
         start, end = bounds
-        if start <= now_ts < end and (not weekdays or day.weekday() in weekdays):
+        if start <= now_ts < end and (not weekdays or day.weekday() in weekdays) \
+                and (not month_days or day.day in month_days):
             return bounds, ""
     return None, today_reason if today_bounds is None else ""
 
@@ -693,8 +714,21 @@ def _window_display_bounds(cond: dict, now_ts: float, location) -> Optional[tupl
     return _WINDOW_BOUNDS[cond["type"]](cond, datetime.date.fromtimestamp(now_ts), location)[0]
 
 
+def _topic_age(cond: dict, topic_seen_at: Optional[dict], started_at: Optional[float], now_ts: float) -> Optional[float]:
+    """Sekunden seit der letzten Nachricht auf dem Topic der Bedingung. Kam nie
+    eine Nachricht, zaehlt die Zeit seit dem Dienststart. None, wenn beides
+    fehlt, dann ist das Alter nicht bekannt."""
+    if topic_seen_at is None:
+        return None
+    seen = topic_seen_at.get(cond["topic"], started_at)
+    if seen is None:
+        return None
+    return now_ts - seen
+
+
 def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values: dict, now_ts: float,
-                           location: Optional[tuple] = None) -> tuple:
+                           location: Optional[tuple] = None, topic_seen_at: Optional[dict] = None,
+                           started_at: Optional[float] = None) -> tuple:
     ctype = cond["type"]
 
     if ctype == "balance_threshold":
@@ -704,6 +738,12 @@ def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values:
         if value is None:
             return False, "field_missing"
         return _compare(value, cond["comparison"], cond["threshold"]), ""
+
+    if ctype in ("topic_value", "entity_value") and cond.get("comparison") == "stale":
+        age = _topic_age(cond, topic_seen_at, started_at, now_ts)
+        if age is None:
+            return False, "topic_unknown"
+        return age > cond["max_age_s"], ""
 
     if ctype == "topic_value":
         payload = topic_values.get(cond["topic"])
@@ -750,7 +790,8 @@ def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values:
 
 
 def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, now_ts: float,
-                    location: Optional[tuple] = None) -> tuple:
+                    location: Optional[tuple] = None, topic_seen_at: Optional[dict] = None,
+                    started_at: Optional[float] = None) -> tuple:
     """Liefert (value, target) fuer die Live-Anzeige im Dashboard.
 
     value ist der Wert, mit dem die Regel gerade gerechnet hat, oder None,
@@ -759,6 +800,9 @@ def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, 
     wo es keine gibt. Rein beschreibend - die Auswertung selbst passiert
     unveraendert in evaluate_condition_raw."""
     ctype = cond["type"]
+
+    if ctype in ("topic_value", "entity_value") and cond.get("comparison") == "stale":
+        return _topic_age(cond, topic_seen_at, started_at, now_ts), cond["max_age_s"]
 
     if ctype == "balance_threshold":
         value = None if balance is None else balance_value(balance, cond["field"])
@@ -914,9 +958,11 @@ def _apply_hysteresis(cond: dict, cond_rt: ConditionRuntime, balance: Optional[d
     return cond_rt.latched
 
 
-def _evaluate_one(cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location):
+def _evaluate_one(cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location,
+                  topic_seen_at=None, started_at=None):
     raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
-                                             location=location)
+                                             location=location, topic_seen_at=topic_seen_at,
+                                             started_at=started_at)
     latched = _apply_hysteresis(cond, cond_rt, balance)
     if latched is not None:
         raw_met = latched
@@ -941,7 +987,8 @@ class ConditionsResult:
 
 
 def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[dict], topic_values: dict,
-                        now_ts: float, location) -> ConditionsResult:
+                        now_ts: float, location, topic_seen_at: Optional[dict] = None,
+                        started_at: Optional[float] = None) -> ConditionsResult:
     """Evaluates all conditions of one rule or scenario against their runtimes
     and builds the report list shown in the dashboard."""
     reports = []
@@ -950,7 +997,8 @@ def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[d
     saw_stale = False
     for cond, cond_rt in zip(conditions, runtimes):
         raw_met, held_met, reason = _evaluate_one(
-            cond, cond_rt, balance=balance, topic_values=topic_values, now_ts=now_ts, location=location)
+            cond, cond_rt, balance=balance, topic_values=topic_values, now_ts=now_ts, location=location,
+            topic_seen_at=topic_seen_at, started_at=started_at)
         if reason == "balance_stale":
             saw_stale = True
         all_raw = all_raw and raw_met
@@ -961,7 +1009,7 @@ def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[d
         # docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md.
         # met/since/hold_remaining bleiben unveraendert, darauf bauen Spec A und C auf.
         value, target = condition_value(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
-                                        location=location)
+                                        location=location, topic_seen_at=topic_seen_at, started_at=started_at)
         reports.append({"met": held_met, "raw_met": raw_met, "value": value,
                         "target": target, "since": cond_rt.since,
                         "hold_remaining": remaining})
@@ -987,7 +1035,7 @@ class Engine:
         return rt
 
     def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
-              topic_values: dict, now_ts: float) -> dict:
+              topic_values: dict, now_ts: float, topic_seen_at: Optional[dict] = None) -> dict:
         settling = (now_ts - self.started_at) < doc.settings.settling_seconds
         balance_stale = balance_age is None or balance_age > doc.settings.balance_max_age_s
         effective_balance = None if balance_stale else balance
@@ -1004,7 +1052,8 @@ class Engine:
 
             evaluation = evaluate_conditions(rule["conditions"], rt.conditions, balance=effective_balance,
                                              topic_values=topic_values, now_ts=now_ts,
-                                             location=doc.settings.location)
+                                             location=doc.settings.location, topic_seen_at=topic_seen_at,
+                                             started_at=self.started_at)
             condition_reports = evaluation.reports
             all_raw = evaluation.all_raw
             all_held = evaluation.all_held
@@ -1152,7 +1201,7 @@ class ScenarioEngine:
         self._runtime: dict[str, ScenarioRuntime] = {}
 
     def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
-             topic_values: dict, now_ts: float) -> dict:
+             topic_values: dict, now_ts: float, topic_seen_at: Optional[dict] = None) -> dict:
         settling = (now_ts - self.started_at) < doc.settings.settling_seconds
         balance_stale = balance_age is None or balance_age > doc.settings.balance_max_age_s
         effective_balance = None if balance_stale else balance
@@ -1174,9 +1223,9 @@ class ScenarioEngine:
                 rt.reason = None
                 rt.when = []
                 rt.until = []
-                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
+                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, topic_seen_at=topic_seen_at, **ctx)
             else:
-                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, **ctx)
+                when_eval, until_eval = self._evaluate(scenario, rt, now_ts=now_ts, location=location, topic_seen_at=topic_seen_at, **ctx)
                 self._advance(sid, scenario, rt, when_eval, until_eval, settling=settling, now_ts=now_ts,
                               settings=settings, **ctx)
 
@@ -1190,12 +1239,14 @@ class ScenarioEngine:
                 self._end(sid, rt, now_ts=now_ts, **ctx)
         return results
 
-    def _evaluate(self, scenario: dict, rt: ScenarioRuntime, *, balance, topic_values, now_ts, location):
+    def _evaluate(self, scenario: dict, rt: ScenarioRuntime, *, balance, topic_values, now_ts, location,
+                  topic_seen_at=None):
         when_conditions = scenario["when"]["conditions"]
         while len(rt.when) < len(when_conditions):
             rt.when.append(ConditionRuntime())
         when_eval = evaluate_conditions(when_conditions, rt.when, balance=balance, topic_values=topic_values,
-                                        now_ts=now_ts, location=location)
+                                        now_ts=now_ts, location=location, topic_seen_at=topic_seen_at,
+                                        started_at=self.started_at)
         until_eval = None
         if scenario["until"] is None:
             rt.until = []
@@ -1204,7 +1255,8 @@ class ScenarioEngine:
             while len(rt.until) < len(until_conditions):
                 rt.until.append(ConditionRuntime())
             until_eval = evaluate_conditions(until_conditions, rt.until, balance=balance,
-                                             topic_values=topic_values, now_ts=now_ts, location=location)
+                                             topic_values=topic_values, now_ts=now_ts, location=location,
+                                             topic_seen_at=topic_seen_at, started_at=self.started_at)
         return when_eval, until_eval
 
     def _advance(self, sid: str, scenario: dict, rt: ScenarioRuntime, when_eval, until_eval, *,
@@ -1591,6 +1643,7 @@ class AutomationService:
         self._scenario_ids: set[str] = set()
         self.events = EventRing(maxlen=10)
         self.topic_values: dict = {}
+        self.topic_seen_at: dict = {}
         self.subscribed_topics: set = set()
         self.last_balance = None
         self.last_balance_at = None
@@ -1717,6 +1770,7 @@ class AutomationService:
             self.last_balance_at = time.time()
             return
         self.topic_values[topic] = payload
+        self.topic_seen_at[topic] = time.time()
 
     def run_test_action(self, payload: str, now_ts: float) -> dict:
         """Fuehrt genau eine Aktion einer Regel aus - ohne Bedingungen,
@@ -1786,9 +1840,9 @@ class AutomationService:
         now = time.time()
         balance_age = None if self.last_balance_at is None else now - self.last_balance_at
         results = self.engine.tick(self.doc, balance=self.last_balance, balance_age=balance_age,
-                                    topic_values=self.topic_values, now_ts=now)
+                                    topic_values=self.topic_values, topic_seen_at=self.topic_seen_at, now_ts=now)
         scenario_results = self.scenario_engine.tick(self.doc, balance=self.last_balance, balance_age=balance_age,
-                                                     topic_values=self.topic_values, now_ts=now)
+                                                     topic_values=self.topic_values, topic_seen_at=self.topic_seen_at, now_ts=now)
         state_doc = build_state_document(results, self.events.as_list(), at=now, online=True,
                                          scenario_results=scenario_results)
         self.state_publisher.maybe_publish(f"{self.base_topic}/state", state_doc, now)

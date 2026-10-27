@@ -102,7 +102,10 @@
   function inverterEntries(devices, index, regulatedTopics) {
     return devices
       .filter((device) => (index.deviceRoles.get(device.id) || new Set()).has('pv'))
-      .map((device) => hardwareEntry(device, 'pv', index, regulatedTopics));
+      .map((device) => {
+        const ownSwitch = (device.entities || []).find((entity) => isSwitch(entity)) || null;
+        return hardwareEntry(device, 'pv', index, regulatedTopics, { ownSwitch });
+      });
   }
 
   function wallboxEntries(devices, index, regulatedTopics) {
@@ -311,7 +314,8 @@
     if (filter === 'price') return ctx.prices;
     if (filter === 'input') return ctx.inputs;
     if (filter === 'grid_target') return ctx.gridTargets || [];
-    if (filter === 'inverter_measured') return (ctx.inverters || []).filter((item) => item.measured);
+    // Nur lesend: die Sperre des Stellglieds (schon geregelt, kein Limit) gilt hier nicht.
+    if (filter === 'inverter_measured') return (ctx.inverters || []).filter((item) => item.measured).map((item) => ({ ...item, disabled: '' }));
     return [];
   }
 

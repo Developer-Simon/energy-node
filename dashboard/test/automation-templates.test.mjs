@@ -163,6 +163,7 @@ const NOTICE_KEYS = {
   tariff: ['automations.templates.tariff.notice.title', 'automations.templates.tariff.notice.message'],
   pv_missing: ['automations.templates.pv_missing.notice.title', 'automations.templates.pv_missing.notice.message'],
   heating_rod: ['automations.templates.heating_rod.notice.title', 'automations.templates.heating_rod.notice.message'],
+  inverter_silent: ['automations.templates.inverter_silent.notice.title', 'automations.templates.inverter_silent.notice.message'],
 };
 
 test('zero_feed builds the documented shape with the default answers', () => {
@@ -1266,6 +1267,7 @@ test('every presets step except the band carries its threshold scale', () => {
     'battery_warn:below': { min: 0, max: 100, step: 5, ticks: 20, fill: 'below', unit: '%' },
     'heat_pump:start': { min: 0, max: 6000, step: 100, ticks: 1000, grow: true, fill: 'above', unit: 'W' },
     'tariff:thr': { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
+    'wallbox_low_tariff:thr': { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
     'grid_cap:limit': { min: 0, max: 30000, step: 100, ticks: 5000, grow: true, fill: 'above', unit: 'W' },
   };
   const found = {};
@@ -1278,3 +1280,177 @@ test('every presets step except the band carries its threshold scale', () => {
   assert.deepEqual(Object.keys(found).sort(), Object.keys(expected).sort());
   for (const key of Object.keys(expected)) assert.deepEqual(found[key], expected[key], key);
 });
+
+test('battery_full_monthly with surplus charges on one day of the month up to full', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'battery_full_monthly');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  assert.equal(entry.template, 'battery_full_monthly');
+  assert.equal(entry.id, 'battery_full_monthly');
+  assert.deepEqual(entry.when.conditions, [
+    { type: 'time_window', start: '00:00', end: '00:00', weekdays: [], month_days: [1] },
+    { type: 'balance_threshold', field: 'battery_soc', comparison: 'below', threshold: 100, hysteresis: 0, hold_seconds: 0 },
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 200, hysteresis: 0, hold_seconds: 60 },
+  ]);
+  assert.equal('until' in entry, false);
+  assert.deepEqual(entry.on_start.actions, [{
+    type: 'publish', topic: 'werkstatt/bat/limit', retain: false, payload_source: 'constant', payload: '5000', entity_id: 'bat_limit',
+  }]);
+  assert.deepEqual(entry.on_end.actions, [{
+    type: 'publish', topic: 'werkstatt/bat/limit', retain: false, payload_source: 'constant', payload: '0', entity_id: 'bat_limit',
+  }]);
+});
+
+test('battery_full_monthly with grid source drops the surplus condition and takes the chosen day', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'battery_full_monthly');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, { source: 'grid', day: 28 }), ctx).entry);
+  assert.equal(entry.when.conditions.length, 2);
+  assert.deepEqual(entry.when.conditions[0].month_days, [28]);
+  assert.equal(entry.when.conditions.some((condition) => condition.field === 'grid_export'), false);
+});
+
+test('inverter_silent builds a stale entity rule without a time window', () => {
+  const { wizard, templates, t } = load();
+  const template = templateById(templates, 'inverter_silent');
+  const ctx = plain(contextFor(wizard));
+  const rule = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  assert.equal(rule.id, 'inverter_silent');
+  assert.equal(rule.enabled, true);
+  assert.equal(rule.cooldown_seconds, 21600);
+  assert.deepEqual(rule.conditions, [{
+    type: 'entity_value', topic: 'werkstatt/pv1/power', entity_id: 'pv1_power', value_template: '', comparison: 'stale', max_age_s: 900,
+  }]);
+  assert.deepEqual(rule.actions, [{
+    type: 'notification',
+    severity: 'warning',
+    title: t('automations.templates.inverter_silent.notice.title'),
+    message: t('automations.templates.inverter_silent.notice.message', { minutes: '15' }),
+  }]);
+});
+
+test('wallbox_low_tariff shares the tariff steps', () => {
+  const { templates } = load();
+  const tariff = templateById(templates, 'tariff');
+  const wallbox = templateById(templates, 'wallbox_low_tariff');
+  for (const id of ['source', 'window', 'price', 'thr']) {
+    const shared = tariff.steps.find((step) => step.id === id);
+    assert.ok(shared, id);
+    assert.equal(wallbox.steps.find((step) => step.id === id), shared, id);
+  }
+});
+
+test('wallbox_low_tariff builds a fixed window, the plug condition and the wallbox limits', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'wallbox_low_tariff');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx), ctx).entry);
+  assert.equal(entry.template, 'wallbox_low_tariff');
+  assert.deepEqual(entry.when.conditions, [
+    { type: 'time_window', start: '22:00', end: '06:00', weekdays: [] },
+    { type: 'entity_value', topic: 'werkstatt/wb/plug', entity_id: 'wb_plug', value_template: '', comparison: 'equals', text: 'ON' },
+  ]);
+  assert.deepEqual(entry.on_start.actions, [{
+    type: 'publish', topic: 'werkstatt/wb/limit', retain: false, payload_source: 'constant', payload: '11000', entity_id: 'wb_limit',
+  }]);
+  assert.deepEqual(entry.on_end.actions, [{
+    type: 'publish', topic: 'werkstatt/wb/limit', retain: false, payload_source: 'constant', payload: '1400', entity_id: 'wb_limit',
+  }]);
+  assert.deepEqual(entry.while, { mode: 'none' });
+});
+
+test('wallbox_low_tariff without the connected option and with a price drops the plug condition', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'wallbox_low_tariff');
+  const ctx = plain(contextFor(wizard));
+  const entry = plain(template.build(answersFor(wizard, template, ctx, {
+    source: 'price', thr: 15, connected: { connected: false },
+  }), ctx).entry);
+  assert.deepEqual(entry.when.conditions, [{
+    type: 'entity_value', topic: 'werkstatt/tibber/price', entity_id: 'tibber_price', value_template: '', comparison: 'below', value: 15, hold_seconds: 0,
+  }]);
+});
+
+// Neustart der Wechselrichter-Warnungen: aus beim Start, nach der Pause wieder an.
+const ownSwitchDevices = devices.map((device) => (device.id === 'pv1'
+  ? { ...device, entities: [...device.entities, { unique_id: 'pv1_switch', name: 'Schalter', command_topic: 'werkstatt/pv1/switch', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' }] }
+  : device));
+const noSwitchDevices = devices.map((device) => ({
+  ...device, entities: device.entities.filter((entity) => !(entity.payload_on && entity.payload_off)),
+}));
+const RESTART_TEMPLATES = ['inverter_silent', 'pv_missing'];
+const RESTART_LAST_STEP = { inverter_silent: 'again', pv_missing: 'severity' };
+
+for (const id of RESTART_TEMPLATES) {
+  test(`${id} without restart still builds the rule with the same conditions`, () => {
+    const { wizard, templates } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const result = plain(template.build(answersFor(wizard, template, ctx), ctx));
+    assert.equal(result.kind, 'rule');
+    assert.equal(result.entry.actions[0].type, 'notification');
+    assert.equal(result.entry.template, undefined);
+  });
+
+  test(`${id} with restart builds a scenario that switches off and back on`, () => {
+    const { wizard, templates, t } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const rule = plain(template.build(answersFor(wizard, template, ctx), ctx)).entry;
+    const answers = answersFor(wizard, template, ctx, { restart: { restart: true }, pause: 3 });
+    const result = plain(template.build(answers, ctx));
+    assert.equal(result.kind, 'scenario');
+    const scenario = result.entry;
+    assert.equal(scenario.id, id);
+    assert.equal(scenario.name, t(`automations.templates.${id}.title`));
+    assert.equal(scenario.enabled, true);
+    assert.equal(scenario.template, id);
+    assert.deepEqual(scenario.when, { conditions: rule.conditions });
+    const off = {
+      type: 'publish', topic: 'werkstatt/pv1/switch', retain: false, payload_source: 'constant', payload: 'OFF', entity_id: 'pv1_switch',
+    };
+    const on = { ...off, payload: 'ON' };
+    assert.deepEqual(scenario.on_start, { actions: [rule.actions[0], off] });
+    assert.deepEqual(scenario.on_end, { actions: [on] });
+    assert.deepEqual(scenario.while, { mode: 'none' });
+    assert.equal(scenario.max_duration_s, 180);
+    assert.equal(scenario.cooldown_s, rule.cooldown_seconds);
+  });
+
+  test(`${id} restart option is unavailable with the reason when no switch exists`, () => {
+    const { wizard, templates, t } = load();
+    const template = templateById(templates, id);
+    const restart = template.steps.find((step) => step.id === 'restart').options[0];
+    const bare = plain(contextFor(wizard, { devices: noSwitchDevices }));
+    assert.equal(restart.unavailable(bare, { device: 'pv1_limit' }), t('automations.assistant.unavailable.restart_switch'));
+    const own = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    assert.equal(restart.unavailable(own, { device: 'pv1_limit' }), '');
+    const others = plain(contextFor(wizard));
+    assert.equal(restart.unavailable(others, { device: 'pv1_limit' }), '');
+  });
+
+  test(`${id} switch step lists the inverter's own switch first and preselects it`, () => {
+    const { wizard, templates } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const step = template.steps.find((item) => item.id === 'switch');
+    const ids = wizard.devicesForStep(step, ctx, { device: 'pv1_limit' }).map((item) => item.id);
+    assert.equal(ids[0], 'pv1_switch');
+    assert.equal(answersFor(wizard, template, ctx).switch, 'pv1_switch');
+  });
+
+  test(`${id} summary names the switch and the pause only with restart`, () => {
+    const { wizard, templates, t } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const off = plain(template.summary(answersFor(wizard, template, ctx), ctx));
+    assert.equal(off.some((row) => row.step === 'pause'), false);
+    const on = plain(template.summary(answersFor(wizard, template, ctx, { restart: { restart: true }, pause: 3 }), ctx));
+    const row = on.find((item) => item.step === 'pause');
+    assert.equal(row.text, t('automations.assistant.summary.restart.then', { name: 'Wechselrichter Dach', minutes: '3' }));
+    assert.equal(on[on.length - 2].step, 'pause');
+    assert.equal(on[on.length - 1].step, RESTART_LAST_STEP[id]);
+  });
+}

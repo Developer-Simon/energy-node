@@ -1371,6 +1371,64 @@ test('setComparison allows equals only outside balance conditions', () => {
   assert.equal(entity.comparison, 'not_equals');
 });
 
+test('setComparison allows stale for entity values only, not for balance', () => {
+  const { component } = createAutomationsPanel();
+  const balance = { type: 'balance_threshold', comparison: 'above', threshold: 500 };
+  component.setComparison(balance, 'stale');
+  assert.equal(balance.comparison, 'above');
+  assert.equal(balance.max_age_s, undefined);
+
+  const entity = { type: 'entity_value', comparison: 'above', value: 50 };
+  component.setComparison(entity, 'stale');
+  assert.equal(entity.comparison, 'stale');
+  assert.equal(entity.max_age_s, 900);
+
+  component.setComparison(entity, 'below');
+  assert.equal(entity.comparison, 'below');
+  assert.equal(entity.max_age_s, undefined);
+  assert.equal(entity.value, 50, 'der Vergleichswert bleibt beim Wechsel zurueck erhalten');
+
+  const topic = { type: 'topic_value', comparison: 'equals', value: 1 };
+  component.setComparison(topic, 'stale');
+  assert.equal(topic.comparison, 'stale');
+  assert.equal(topic.max_age_s, 900);
+
+  const cleared = { type: 'entity_value', comparison: 'stale', max_age_s: 300 };
+  component.setComparison(cleared, 'not_equals');
+  assert.equal(cleared.comparison, 'not_equals');
+  assert.equal(cleared.max_age_s, undefined);
+  assert.equal(cleared.value, 20, 'ohne Vergleichswert greift der Standard von 20');
+});
+
+test('describeCondition stale', () => {
+  const entity = view().describeCondition(
+    { type: 'entity_value', entity_id: 'inverter_pv', comparison: 'stale', max_age_s: 900 },
+    { name: 'Wechselrichter', unit_of_measurement: 'W' });
+  assert.equal(entity.title, 'Wechselrichter');
+  assert.equal(entity.summary, 'Wechselrichter ohne neue Werte seit 15 min');
+
+  const rounded = view().describeCondition(
+    { type: 'topic_value', topic: 'shelly/temp', comparison: 'stale', max_age_s: 130 });
+  assert.equal(rounded.title, 'shelly/temp');
+  assert.equal(rounded.summary, 'shelly/temp ohne neue Werte seit 3 min');
+
+  const fallback = view().describeCondition({ type: 'topic_value', topic: 'shelly/temp', comparison: 'stale' });
+  assert.equal(fallback.summary, 'shelly/temp ohne neue Werte seit 15 min');
+});
+
+test('describeCondition month days', () => {
+  assert.equal(view().formatMonthDays([]), '');
+  assert.equal(view().formatMonthDays([15, 1, 15]), '1, 15');
+  const window = view().describeCondition({ type: 'time_window', start: '08:00', end: '18:00', month_days: [15, 1] });
+  assert.equal(window.summary, '08:00 – 18:00, am 1, 15. des Monats');
+  const both = view().describeCondition({
+    type: 'time_window', start: '08:00', end: '18:00', weekdays: [0, 1, 2, 3, 4], month_days: [1] });
+  assert.equal(both.summary, '08:00 – 18:00, Mo–Fr, am 1. des Monats');
+  const sun = view().describeCondition({
+    type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, month_days: [28] });
+  assert.equal(sun.summary, 'Sonnenaufgang – Sonnenuntergang, am 28. des Monats');
+});
+
 // --- Loeschen mit Rueckfrage ------------------------------------------------
 
 test('removeRule fragt vor dem Loeschen nach und entfernt erst nach Bestaetigung', async () => {
@@ -1519,6 +1577,23 @@ test('toggleWeekday schaltet einen Tag um und haelt die Liste sortiert', () => {
   const legacy = { type: 'time_window', start: '08:00', end: '18:00' };
   component.toggleWeekday(legacy, 2);
   assert.deepEqual([...legacy.weekdays], [2]);
+});
+
+test('toggleMonthDay schaltet einen Monatstag um und haelt die Liste sortiert', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'time_window', start: '08:00', end: '18:00', month_days: [15] };
+  assert.equal(component.hasMonthDay(condition, 15), true);
+  assert.equal(component.hasMonthDay(condition, 1), false);
+  component.toggleMonthDay(condition, 31);
+  component.toggleMonthDay(condition, 1);
+  assert.deepEqual([...condition.month_days], [1, 15, 31]);
+  component.toggleMonthDay(condition, 15);
+  assert.deepEqual([...condition.month_days], [1, 31]);
+  const legacy = { type: 'sun_window', from: 'sunrise', to: 'sunset' };
+  assert.equal(component.hasMonthDay(legacy, 3), false);
+  component.toggleMonthDay(legacy, 10);
+  assert.deepEqual([...legacy.month_days], [10]);
+  assert.deepEqual(component.monthDayNumbers().length, 31);
 });
 
 test('conditionStateText erklaert ein Sonnenfenster ohne Standort', () => {

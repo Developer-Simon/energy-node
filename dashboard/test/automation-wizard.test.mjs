@@ -151,6 +151,16 @@ test('gridNet matches the energy model for split and signed grid roles', () => {
   assert.equal(wizard.gridNet({ values: { pv: 800 } }), null);
 });
 
+test('inverter_measured ignores the actuator lock', () => {
+  const { wizard, t } = load();
+  const ctx = plain(build(wizard));
+  assert.equal(ctx.inverters[0].disabled, t('automations.assistant.device.already_regulated', { name: 'Regler Dach' }));
+  const measured = plain(wizard.devicesFor('inverter_measured', ctx));
+  assert.deepEqual(measured.map((item) => item.deviceName), ['Wechselrichter Dach', 'Wechselrichter Garage']);
+  assert.deepEqual(measured.map((item) => item.disabled), ['', '']);
+  assert.equal(ctx.inverters[1].disabled, t('automations.assistant.device.no_limit'));
+});
+
 test('devicesFor returns the list for each filter', () => {
   const { wizard } = load();
   const ctx = build(wizard);
@@ -609,4 +619,14 @@ test('formatPrice keeps three decimals for euro and two for cents', () => {
   assert.equal(wizard.formatPrice(0.285, '€/kWh'), '0,285 €/kWh');
   assert.equal(wizard.formatPrice(28.5, 'ct/kWh'), '28,50 ct/kWh');
   assert.equal(wizard.formatPrice('abc', 'ct/kWh'), 'abc ct/kWh');
+});
+
+test('an inverter keeps its own switch, null without one', () => {
+  const { wizard } = load();
+  const withSwitch = devices.map((device) => (device.id === 'pv2'
+    ? { ...device, entities: [...device.entities, { unique_id: 'pv2_switch', name: 'Schalter', command_topic: 'werkstatt/pv2/switch', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' }] }
+    : device));
+  const ctx = plain(build(wizard, { devices: withSwitch }));
+  assert.equal(ctx.inverters[1].ownSwitch.unique_id, 'pv2_switch');
+  assert.equal(ctx.inverters[0].ownSwitch, null);
 });

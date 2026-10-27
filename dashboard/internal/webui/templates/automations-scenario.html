@@ -166,11 +166,11 @@
             <span class="auto-flow-label">{{t "automations.scenario.edit.while.aria"}}</span>
             <div class="auto-segment" role="radiogroup" x-bind:aria-label="$t('automations.scenario.edit.while.aria')">
               <button class="auto-segment-tab" type="button" role="radio" x-on:click="changeWhileMode(scenario, 'regulate')"
-                      x-bind:aria-checked="scenario.while.mode === 'regulate' ? 'true' : 'false'">{{t "automations.scenario.edit.while.regulate"}}</button>
+                      x-bind:aria-checked="scenario.while.mode === 'regulate' ? 'true' : 'false'"><span class="auto-compare-glyph" aria-hidden="true">~</span><span>{{t "automations.scenario.edit.while.regulate"}}</span></button>
               <button class="auto-segment-tab" type="button" role="radio" x-on:click="changeWhileMode(scenario, 'hold')"
-                      x-bind:aria-checked="scenario.while.mode === 'hold' ? 'true' : 'false'">{{t "automations.scenario.edit.while.hold"}}</button>
+                      x-bind:aria-checked="scenario.while.mode === 'hold' ? 'true' : 'false'"><svg class="automation-icon automation-icon-sm" aria-hidden="true"><use href="#ico-gate"></use></svg><span>{{t "automations.scenario.edit.while.hold"}}</span></button>
               <button class="auto-segment-tab" type="button" role="radio" x-on:click="changeWhileMode(scenario, 'none')"
-                      x-bind:aria-checked="scenario.while.mode === 'none' ? 'true' : 'false'">{{t "automations.scenario.edit.while.none"}}</button>
+                      x-bind:aria-checked="scenario.while.mode === 'none' ? 'true' : 'false'"><svg class="automation-icon automation-icon-sm" aria-hidden="true"><use href="#ico-close"></use></svg><span>{{t "automations.scenario.edit.while.none"}}</span></button>
             </div>
           </div>
 
