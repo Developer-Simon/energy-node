@@ -33,7 +33,7 @@ checks_package() {
   # POST /redeploy/api/run mit mode "prepare", das Dashboard laedt das Bundle vom
   # Fake-GitHub in redeploy-candidate/, danach liest die Vorschau dessen Schritte
   # (GET /redeploy/api/plan). Der zweite Lauf muss den Download ueberspringen.
-  # Am Ende wird das Verzeichnis wieder geleert: bei --keep soll der erste Klick
+  # Am Ende wird das Verzeichnis wieder geleert: in der Demo soll der erste Klick
   # auf "Aktualisieren" im Browser das Herunterladen zeigen, nicht ein fertiges Paket.
   CANDIDATE="$WORK/data/redeploy-candidate"
   # Wie der Browser: den Token aus der ausgelieferten Seite nehmen (data-token)

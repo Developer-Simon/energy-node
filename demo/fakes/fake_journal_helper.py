@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simulated energy-node-dashboard-system-action for --preset service-logs.
+"""Simulated energy-node-dashboard-system-action for the demo (service logs).
 
 Only read-journal is implemented, with the argument checks of the real helper.
 Every other action exits 64, so reboot and poweroff stay harmless locally.

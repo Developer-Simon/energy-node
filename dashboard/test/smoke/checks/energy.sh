@@ -25,7 +25,7 @@ checks_live_push() {
   # PUBLISH-Pakete auf der offenen Verbindung - genau der Weg, ueber den auch ein
   # echtes Geraet Live-Updates liefert. Ohne diese Probe wuerde ein Bruch dieses
   # Pfads (z. B. eine vergessene Sperre auf der Verbindung) erst beim manuellen
-  # --keep-Blick in den Browser auffallen, als scheinbar "hangender" Chart.
+  # Blick in den Browser auffallen, als scheinbar "hangender" Chart.
   pv_payload() {
     api "$BASE/api/v1/topics/samples" | python3 -c "
 import json, sys
