@@ -120,6 +120,7 @@ class HACompanion:
         self._refusal = ""
         self._stopping = False
         self._sock = None  # Socket des Stroms, bleibt nach getresponse() erhalten
+        self._pending: dict[str, dict] = {}  # offene Prüfungen im manuellen Modus
         self._thread = None
 
     # Verbindung
@@ -194,6 +195,7 @@ class HACompanion:
             self._token = None
             self._paired = False
             self._error = ""
+            self._pending.clear()
 
     def drop_stream(self) -> None:
         """Schliesst den Strom, die Kopplung bleibt."""
@@ -227,7 +229,7 @@ class HACompanion:
                 "error": self._error,
                 "manual": self.manual,
                 "users": [asdict(user) for user in self.users.values()],
-                "pending": [],
+                "pending": [{"id": request["id"], "username": request.get("username", "")} for request in self._pending.values()],
             }
 
     def _start_stream(self) -> None:
@@ -260,6 +262,7 @@ class HACompanion:
         self._token = None
         self._paired = False
         self._error = error
+        self._pending.clear()
 
     def _stream(self, token) -> None:
         opened = False
@@ -325,6 +328,10 @@ class HACompanion:
         return None
 
     def _verify(self, request, token) -> None:
+        if self.manual:
+            with self._lock:
+                self._pending[request["id"]] = request
+            return
         user = self._find_user(request.get("username", ""))
         ok = user is not None and user.active and request.get("password") == user.password
         if ok:
@@ -337,9 +344,12 @@ class HACompanion:
             }
         else:
             result = {"ok": False, "ha_user_id": "", "username": "", "name": "", "is_admin": False}
-        status = self._post_verify(request["id"], result, token)
+        self._send_answer(request["id"], result, ok, token)
+
+    def _send_answer(self, request_id, result, ok, token) -> None:
+        status = self._post_verify(request_id, result, token)
         late = ", Pruefung abgelaufen" if status in (404, 410) else ""
-        self._log(f"verify {request['id']}: ok={ok} (HTTP {status}){late}")
+        self._log(f"verify {request_id}: ok={ok} (HTTP {status}){late}")
 
     def _post_verify(self, request_id, result, token) -> int:
         conn = self._connect(PAIR_TIMEOUT)
@@ -354,19 +364,75 @@ class HACompanion:
         conn.close()
         return response.status
 
-    # Benutzertabelle (Task 2b)
-
-    def save_user(self, user: HAUser) -> None:
-        raise NotImplementedError("save_user folgt in Task 2b")
-
-    def remove_user(self, ha_user_id: str) -> None:
-        raise NotImplementedError("remove_user folgt in Task 2b")
+    def resolve(self, request_id: str, decision: str) -> None:
+        """Beantwortet eine offene Prüfung im manuellen Modus: "yes", "no" oder "timeout"."""
+        if decision not in ("yes", "no", "timeout"):
+            raise ValueError(f"unbekannte Entscheidung: {decision}")
+        with self._lock:
+            request = self._pending.pop(request_id, None)
+            token = self._token
+        if request is None:
+            raise ValueError(f"keine offene Prüfung {request_id}")
+        if decision == "timeout":
+            self._log(f"verify {request_id}: Zeitüberschreitung, keine Antwort")
+            return
+        if decision == "no":
+            result = {"ok": False, "ha_user_id": "", "username": "", "name": "", "is_admin": False}
+            self._send_answer(request_id, result, False, token)
+            return
+        username = request.get("username", "")
+        user = self._find_user(username)
+        if user is not None:
+            result = {
+                "ok": True,
+                "ha_user_id": user.ha_user_id,
+                "username": user.username,
+                "name": user.name,
+                "is_admin": user.admin,
+            }
+        else:
+            result = {
+                "ok": True,
+                "ha_user_id": "ha-" + username,
+                "username": username,
+                "name": username,
+                "is_admin": False,
+            }
+        self._send_answer(request_id, result, True, token)
 
     def set_manual(self, on: bool) -> None:
-        raise NotImplementedError("set_manual folgt in Task 2b")
+        self.manual = bool(on)
 
-    def resolve(self, request_id: str, decision: str) -> None:
-        raise NotImplementedError("resolve folgt in Task 2b")
+    # Benutzertabelle
+
+    def save_user(self, user: HAUser) -> None:
+        """Legt einen Benutzer an oder ändert ihn und meldet die Änderung, wenn gekoppelt."""
+        with self._lock:
+            self.users[user.ha_user_id] = user
+            token = self._token
+        if token is not None:
+            body = {"ha_user_id": user.ha_user_id, "name": user.name, "admin": user.admin, "active": user.active}
+            self._post_user_changed(body, token)
+
+    def remove_user(self, ha_user_id: str) -> None:
+        """Löscht einen Benutzer und meldet das Löschen ohne Benutzernamen, wenn gekoppelt."""
+        with self._lock:
+            self.users.pop(ha_user_id, None)
+            token = self._token
+        if token is not None:
+            self._post_user_changed({"ha_user_id": ha_user_id, "removed": True}, token)
+
+    def _post_user_changed(self, body, token) -> None:
+        conn = self._connect(PAIR_TIMEOUT)
+        conn.request(
+            "POST",
+            "/api/v1/companion/user-changed",
+            body=json.dumps(body).encode(),
+            headers=headers(token, json_body=True),
+        )
+        response = conn.getresponse()
+        response.read()
+        conn.close()
 
 
 def parse_args(argv):
