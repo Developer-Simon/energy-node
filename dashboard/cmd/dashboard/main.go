@@ -177,9 +177,8 @@ func main() {
 	updatesChecker := &updatecheck.Checker{Repo: updatesRepo}
 	// ENERGY_NODE_UPDATES_API_BASE points the GitHub lookup at a different
 	// host instead of the real API. Unset in every real deployment; it
-	// exists so test/smoke/run-local-dashboard.sh --simulate-update can make
-	// an update look available (via fake_github_releases.py) without a real
-	// newer tag on GitHub.
+	// exists so demo/demo.sh (fake GitHub via fake_github_releases.py) can make
+	// an update look available without a real newer tag on GitHub.
 	if base := os.Getenv("ENERGY_NODE_UPDATES_API_BASE"); base != "" {
 		updatesChecker.BaseURL = base
 	}

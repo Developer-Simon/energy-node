@@ -1,0 +1,642 @@
+#!/usr/bin/env node
+// Nimmt die Dashboard-Screenshots fuer docs/ neu auf (docs/images/dashboard*.png).
+// Erwartet die laufende Demo: demo/demo.sh --docs --no-simulate (Bilder, Versionen,
+// Statistik und Service-Logs). Die Anmeldung laeuft als Admin ueber die API mit dem
+// Header, den das Smoke-Skript auch nutzt (X-Forwarded-Proto: https).
+//
+//   demo/demo.sh --docs --no-simulate
+//   node dashboard/test/browser/docs-screenshots.mjs
+//   node dashboard/test/browser/docs-screenshots.mjs --history     # ca. 12 min Aufzeichnung
+//
+//   demo/demo.sh --docs
+//   node dashboard/test/browser/docs-screenshots.mjs --cards
+//
+// --cards nimmt jede Uebersichtskarte einzeln in ihrer Mindestgroesse auf
+// (docs/images/dashboard-card-*.png, fuer docs/dashboard/overview-cards.md).
+// Dafuer legt es eine eigene Layout-Seite an, zeichnet --record-minutes lang
+// Verlauf auf (Vorgabe hier 16 min, die Batterie-Trajektorie braucht 15) und stellt
+// das Layout danach wieder her. Mit demo/demo.sh --docs laufen Tagesband und
+// Verlauf bereits und bewegen sich.
+//
+// Ohne Namen werden alle Bilder ausser dashboard-history,
+// dashboard-settings-versions, dashboard-statistics und dashboard-service-logs geschrieben. Namen als Argumente begrenzen den
+// Lauf auf genau diese Bilder.
+//
+// Der Verlauf wird im Browser aufgezeichnet (IndexedDB, history-recorder.js).
+// --history haelt deshalb eine Seite --record-minutes lang offen und
+// fotografiert danach im selben Kontext den Verlauf-Tab.
+import { chromium } from 'playwright';
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+
+function parseArgs(argv) {
+  const args = {
+    url: 'https://localhost:18200',
+    out: path.join(REPO_DIR, 'docs/images'),
+    password: 'smoketest1234',
+    history: false,
+    cards: false,
+    recordMinutes: null,
+    names: [],
+  };
+  for (let i = 0; i < argv.length; i++) {
+    if (!argv[i].startsWith('--')) { args.names.push(argv[i]); continue; }
+    const [flag, inlineValue] = argv[i].split(/=(.*)/s);
+    if (flag === '--history') { args.history = true; continue; }
+    if (flag === '--cards') { args.cards = true; continue; }
+    const value = inlineValue ?? argv[++i];
+    if (flag === '--url') args.url = value.replace(/\/$/, '');
+    else if (flag === '--out') args.out = path.resolve(value);
+    else if (flag === '--password') args.password = value;
+    else if (flag === '--record-minutes') args.recordMinutes = Number(value);
+    else throw new Error(`unbekannte Option: ${flag}`);
+  }
+  return args;
+}
+
+const args = parseArgs(process.argv.slice(2));
+const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics', 'dashboard-service-logs'];
+const want = (name) => (args.names.length ? args.names.includes(name) : !OPT_IN.includes(name));
+
+await mkdir(args.out, { recursive: true });
+const browser = await chromium.launch({ args: ['--no-sandbox'] });
+
+async function session(width, height) {
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height } });
+  await ctx.request.post(`${args.url}/api/v1/auth/login`, { data: { username: 'admin', password: args.password } });
+  await ctx.addCookies([{ name: 'lang', value: 'en', url: args.url }]);
+  const page = await ctx.newPage();
+  await page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(2500);
+  return { ctx, page };
+}
+
+async function tab(page, name) {
+  if (name === 'overview') await page.locator('button.tab.is-page').first().click();
+  else await page.locator('#tab-' + name).first().click();
+  await page.waitForTimeout(3000);
+}
+
+// Die Bilder beginnen an der Tab-Leiste, nicht am Seitenkopf. Das Polster
+// unten erlaubt das Scrollen auch auf kurzen Seiten.
+async function scrollToTabs(page) {
+  await page.evaluate(() => {
+    document.body.style.paddingBottom = '1200px';
+    const nav = document.querySelector('#tab-devices');
+    window.scrollTo(0, nav.getBoundingClientRect().top + window.scrollY - 12);
+  });
+  await page.waitForTimeout(600);
+}
+
+async function shot(page, name) {
+  await page.screenshot({ path: path.join(args.out, `${name}.png`) });
+  console.log('geschrieben:', name);
+}
+
+async function history() {
+  args.recordMinutes ??= 12;
+  const s = await session(1110, 818);
+  console.log(`zeichne den Verlauf ${args.recordMinutes} min auf ...`);
+  await s.page.waitForTimeout(args.recordMinutes * 60 * 1000);
+  await tab(s.page, 'history');
+  await s.page.getByRole('button', { name: '1 h', exact: true }).first().click().catch(() => {});
+  await s.page.waitForTimeout(3000);
+  await scrollToTabs(s.page);
+  await shot(s.page, 'dashboard-history');
+  await s.ctx.close();
+}
+
+async function all() {
+  let s;
+  if (want('dashboard')) {
+    s = await session(1920, 997);
+    await shot(s.page, 'dashboard');
+    await s.ctx.close();
+  }
+  if (want('dashboard-update-available')) {
+    s = await session(1280, 650);
+    await shot(s.page, 'dashboard-update-available');
+    await s.ctx.close();
+  }
+
+  const tabs = [
+    ['dashboard-overview', 'overview', 996],
+    ['dashboard-devices', 'devices', 553],
+    ['dashboard-config', 'config', 997],
+    ['dashboard-device-map', 'devicemap', 928],
+    ['dashboard-diagnosis', 'diagnostics', 1175],
+  ];
+  for (const [name, id, height] of tabs) {
+    if (!want(name)) continue;
+    s = await session(1110, height);
+    await tab(s.page, id);
+    if (id === 'config') {
+      // Die Konfigurationskarten brauchen einen Moment, bis alle Dienste
+      // geantwortet haben; danach einmal alle Karten auffrischen.
+      await s.page.waitForTimeout(20000);
+      for (const b of await s.page.getByRole('button', { name: 'Refresh', exact: true }).all()) await b.click().catch(() => {});
+      await s.page.waitForTimeout(3000);
+      // Das Bild zeigt die Batterie-Konfiguration, nicht die Automationsregeln,
+      // die das Auswahlfeld sonst zuerst laedt.
+      const select = s.page.locator('#config-name');
+      const battery = await select.locator('option', { hasText: /battery/i }).first().getAttribute('value');
+      await select.selectOption(battery);
+      await s.page.waitForTimeout(3000);
+      for (const b of await s.page.getByRole('button', { name: 'Refresh', exact: true }).all()) await b.click().catch(() => {});
+      await s.page.waitForTimeout(3000);
+    }
+    if (id === 'devices' && await s.page.locator('.device-density-toggle.active').count()) {
+      await s.page.locator('.device-density-toggle').first().click();
+      await s.page.waitForTimeout(1500);
+    }
+    if (id === 'devicemap') {
+      // Die Info-Kanten des Energy Node kreuzen die Verkabelung. Nur fuer
+      // dieses Bild ausgeblendet, die Sitzung endet danach.
+      await s.page.evaluate(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).toggleWiringType('info'));
+      await frameMap(s.page, 1, 64);
+    }
+    await scrollToTabs(s.page);
+    await shot(s.page, name);
+    await s.ctx.close();
+  }
+
+  if (want('dashboard-devices-detailed')) {
+    s = await session(1110, 997);
+    await tab(s.page, 'devices');
+    if (!await s.page.locator('.device-density-toggle.active').count()) await s.page.locator('.device-density-toggle').first().click();
+    await s.page.waitForTimeout(1500);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-devices-detailed');
+    await s.ctx.close();
+  }
+  if (want('dashboard-layout-editor')) {
+    s = await session(1110, 1000);
+    await s.page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+    await s.page.waitForTimeout(2000);
+    await s.page.getByRole('button', { name: /^\s*Block\s*$/ }).first().click();
+    await s.page.waitForTimeout(1500);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-layout-editor');
+    await s.ctx.close();
+  }
+  if (want('dashboard-automation')) {
+    s = await session(1110, 819);
+    await tab(s.page, 'automations');
+    await s.page.locator('[x-bind\\:aria-expanded^="Boolean(expanded"]').first().click();
+    await s.page.waitForTimeout(1500);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-automation');
+    await s.ctx.close();
+  }
+
+  await energyShowcase();
+  await deviceMapShowcase();
+  await deviceModalShowcase();
+  await layoutEditorShowcase();
+
+  if (want('dashboard-statistics')) {
+    // Needs the fake companion (--fake-companion): it feeds the hourly values.
+    s = await session(1110, 1100);
+    await tab(s.page, 'stats');
+    await s.page.waitForTimeout(2000);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-statistics');
+    await s.ctx.close();
+  }
+  if (want('dashboard-service-logs')) {
+    // Needs the simulated journal (--simulate-journal): it feeds the lines.
+    // Its over-long test line comes every 97 s, so reload until the visible
+    // part of the list holds none, then take the section on its own.
+    s = await session(1110, 900);
+    await tab(s.page, 'diagnostics');
+    const logs = s.page.locator('section.service-logs');
+    await logs.locator('.log-line').first().waitFor({ timeout: 15000 });
+    for (let i = 0; i < 30; i++) {
+      const clean = await logs.evaluate((el) => {
+        const list = el.querySelector('.log-lines');
+        const box = list.getBoundingClientRect();
+        return ![...list.querySelectorAll('.log-line')].some((li) => {
+          const r = li.getBoundingClientRect();
+          return r.bottom > box.top && r.top < box.bottom && li.textContent.length > 300;
+        });
+      });
+      if (clean) break;
+      await s.page.waitForTimeout(5000);
+      await logs.getByRole('button', { name: 'Load', exact: true }).click();
+      await s.page.waitForTimeout(1500);
+    }
+    await logs.scrollIntoViewIfNeeded();
+    await s.page.waitForTimeout(600);
+    const box = await logs.boundingBox();
+    await s.page.screenshot({
+      path: path.join(args.out, 'dashboard-service-logs.png'),
+      clip: { x: box.x - 16, y: box.y - 16, width: box.width + 32, height: box.height + 32 },
+    });
+    console.log('geschrieben:', 'dashboard-service-logs');
+    await s.ctx.close();
+  }
+
+  const subpages = [
+    ['dashboard-settings-general', 'settings-general', 819],
+    ['dashboard-settings-display', 'settings-display', 769],
+    ['dashboard-settings-history', 'settings-history', 1235],
+    ['dashboard-settings-tinytuya', 'settings-tiny-tuya', 691],
+    // Tall enough for the whole connection card, so its save bar does not float over it.
+    ['dashboard-settings-mqtt', 'settings-mqtt', 1500],
+    ['dashboard-settings-tailscale', 'settings-tailscale', 988],
+    ['dashboard-settings-system', 'settings-system', 997],
+    // Die Aenderungen des Dashboards aufgeklappt, damit der Schalter
+    // Highlights/Alles etwas zu zeigen hat.
+    ['dashboard-settings-versions', 'settings-versions', 1200, async (page) => {
+      await page.locator('#settings-versions .version-item button').first().click();
+      await page.waitForTimeout(1500);
+    }],
+  ];
+  for (const [name, id, height, prepare] of subpages) {
+    if (!want(name)) continue;
+    s = await session(1110, height);
+    await tab(s.page, 'settings');
+    await s.page.locator(`#settings-panel [role="tab"][aria-controls="${id}"]`).click();
+    await s.page.waitForTimeout(2000);
+    if (prepare) await prepare(s.page);
+    // Keep the pointer off the sidebar, or the last hovered page stays lit.
+    await s.page.mouse.move(1, 1);
+    await scrollToTabs(s.page);
+    await shot(s.page, name);
+    await s.ctx.close();
+  }
+
+  // Einzelne Karten des MQTT-Tabs, eingebunden in docs/dashboard/settings-mqtt.md.
+  const mqttCards = [
+    ['dashboard-settings-mqtt-sensors', 'Home Assistant & simulation'],
+    ['dashboard-settings-mqtt-metrics', 'Publish system metrics'],
+    ['dashboard-settings-mqtt-bridge', 'Mosquitto bridge status'],
+  ];
+  if (mqttCards.some(([name]) => want(name))) {
+    s = await session(1110, 1800);
+    await tab(s.page, 'settings');
+    await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-mqtt"]').click();
+    await s.page.waitForTimeout(2000);
+    for (const [name, title] of mqttCards) {
+      if (!want(name)) continue;
+      await element(s.page.locator('#settings-mqtt .setting-card', { has: s.page.getByRole('heading', { name: title }) }), name);
+    }
+    await s.ctx.close();
+  }
+
+  if (want('dashboard-update-preview')) {
+    s = await session(1280, 600);
+    await s.page.goto(`${args.url}/redeploy/`, { waitUntil: 'networkidle' });
+    await s.page.waitForTimeout(8000);
+    await shot(s.page, 'dashboard-update-preview');
+    await s.ctx.close();
+  }
+
+  // Mint zuletzt, damit das Dashboard danach wieder im Standardschema steht.
+  const themes = [
+    ['dashboard-theme-blue', 'Power blue'],
+    ['dashboard-theme-yellow', 'Signal yellow'],
+    ['dashboard-theme-light', 'Daylight'],
+    ['dashboard-theme-default-mint', 'Mint'],
+  ];
+  for (const [name, label] of themes) {
+    if (!want(name)) continue;
+    s = await session(1920, 997);
+    await tab(s.page, 'settings');
+    await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-display"]').click();
+    await s.page.waitForTimeout(1000);
+    await s.page.locator('#settings-display').getByText(label, { exact: true }).first().click();
+    await s.page.locator('#settings-save').click();
+    await s.page.waitForTimeout(2500);
+    await s.page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
+    await s.page.waitForTimeout(2500);
+    await shot(s.page, name);
+    await s.ctx.close();
+  }
+}
+
+// Die ganze Anordnung der Device Map ins Bild holen und dann zur Ecke unten
+// links hin verkleinern: oben liegt die Werkzeugleiste ueber der Flaeche,
+// rechts bei offenem Panel das Panel. ratio < 1 laesst dafuer Platz.
+async function frameMap(page, ratio, padding = 40) {
+  await page.evaluate(([r, pad]) => {
+    const container = document.querySelector('#devicemap-panel [x-ref="canvas"]');
+    const cy = container._cyreg.cy;
+    cy.fit(cy.elements().filter(el => el.visible() && el.style('opacity') !== '0'), pad);
+    cy.zoom({ level: cy.zoom() * r, renderedPosition: { x: 24, y: container.clientHeight - 24 } });
+  }, [ratio, padding]);
+  await page.waitForTimeout(800);
+}
+
+// Einzelbilder fuer docs/dashboard/energy.md: je Einstellung ein Ausschnitt
+// statt einer ganzen Seite. Das Seed docs-screenshots bringt dafuer zwei
+// Gruppen (Garage einzeln, Workshop als Ganzes) und eine eigene Kategorie mit.
+async function element(locator, name) {
+  await locator.screenshot({ path: path.join(args.out, `${name}.png`) });
+  console.log('geschrieben:', name);
+}
+
+async function energyShowcase() {
+  const names = ['dashboard-energy-plant', 'dashboard-energy-interpretation', 'dashboard-energy-roles', 'dashboard-energy-groups', 'dashboard-energy-categories'];
+  if (!names.some(want)) return;
+  const s = await session(1110, 1400);
+  await tab(s.page, 'energy');
+  if (want('dashboard-energy-plant')) await element(s.page.locator('.energy-plant'), 'dashboard-energy-plant');
+  for (const section of ['interpretation', 'roles', 'groups', 'categories']) {
+    const name = `dashboard-energy-${section}`;
+    if (!want(name)) continue;
+    const toggle = s.page.locator(`#energy-acc-${section}-toggle`);
+    if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+    await s.page.waitForTimeout(800);
+    const box = await s.page.locator(`[data-energy-section="${section}"]`).boundingBox();
+    // Die Rollentabelle ist lang, das Bild zeigt die Kacheln und die ersten Zeilen.
+    const height = section === 'roles' ? Math.min(box.height, 640) : box.height;
+    await s.page.evaluate(top => window.scrollTo(0, top), box.y + await s.page.evaluate(() => window.scrollY) - 8);
+    await s.page.waitForTimeout(400);
+    const fresh = await s.page.locator(`[data-energy-section="${section}"]`).boundingBox();
+    await s.page.screenshot({ path: path.join(args.out, `${name}.png`), clip: { x: fresh.x, y: fresh.y, width: fresh.width, height } });
+    console.log('geschrieben:', name);
+  }
+  await s.ctx.close();
+}
+
+// Das Geraete-Modal: breit mit Seitenleiste und Tabs, schmal als Akkordeon.
+// Es zeigt das Geraet mit den meisten Entitaeten, damit Messwerte und
+// Steuerung beide gefuellt sind.
+async function deviceModalShowcase() {
+  const names = ['dashboard-device-modal', 'dashboard-device-modal-narrow', 'dashboard-device-modal-manage'];
+  if (!names.some(want)) return;
+  for (const [name, width, height] of [['dashboard-device-modal', 1280, 900], ['dashboard-device-modal-narrow', 560, 900]]) {
+    if (!want(name)) continue;
+    const s = await session(width, height);
+    await tab(s.page, 'devices');
+    await s.page.locator('.compact-card:visible, .device-detail-trigger:visible').first().click();
+    await s.page.waitForSelector('dialog#device-modal[open]');
+    await s.page.waitForTimeout(2500);
+    await element(s.page.locator('dialog#device-modal'), name);
+    if (name === 'dashboard-device-modal' && want('dashboard-device-modal-manage')) {
+      await s.page.locator('.device-modal-trigger').filter({ hasText: 'Management' }).first().click();
+      await s.page.waitForTimeout(1200);
+      await element(s.page.locator('dialog#device-modal'), 'dashboard-device-modal-manage');
+    }
+    await s.ctx.close();
+  }
+}
+
+// Der Layout-Editor im Einzelnen: Kartenoptionen als Ausschnitt, die Zielbreite als ganze Seite. Das Bild des Baustein-Fensters
+// entsteht oben in `dashboard-layout-editor`.
+async function layoutEditorShowcase() {
+  const names = ['dashboard-layout-editor-options', 'dashboard-layout-editor-tablet'];
+  if (!names.some(want)) return;
+  const s = await session(1280, 900);
+  await s.page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+  await s.page.waitForTimeout(2000);
+  if (want('dashboard-layout-editor-tablet')) {
+    await s.page.getByRole('button', { name: 'Tablet' }).first().click();
+    await s.page.waitForTimeout(1200);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-layout-editor-tablet');
+    await s.page.getByRole('button', { name: 'Editor width' }).first().click();
+    await s.page.waitForTimeout(800);
+  }
+  if (want('dashboard-layout-editor-options')) {
+    await s.page.locator('.layout-grid-item').first().hover();
+    await s.page.locator('[data-role="options"]').first().click();
+    await s.page.waitForTimeout(800);
+    await element(s.page.locator('#layout-options-modal .layout-modal-sheet'), 'dashboard-layout-editor-options');
+    await s.page.keyboard.press('Escape');
+    await s.page.waitForTimeout(400);
+  }
+  await s.ctx.close();
+}
+
+async function deviceMapShowcase() {
+  const names = ['dashboard-device-map-device-panel', 'dashboard-device-map-group-panel', 'dashboard-device-map-picker',
+    'dashboard-device-map-view-menu', 'dashboard-device-map-filter-menu', 'dashboard-device-map-create-group', 'dashboard-device-map-category',
+    'dashboard-device-map-balance', 'dashboard-device-map-dataflow', 'dashboard-device-map-switch-off',
+    'dashboard-device-map-switch-channel', 'dashboard-device-map-sub-device'];
+  if (!names.some(want)) return;
+  const s = await session(1110, 928);
+  await tab(s.page, 'devicemap');
+  const map = (fn, arg) => s.page.evaluate(fn, arg);
+  const stage = s.page.locator('#devicemap-panel .devicemap-stage');
+  await scrollToTabs(s.page);
+  if (want('dashboard-device-map-device-panel')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openPanel('wallbox'));
+    await s.page.waitForTimeout(1200);
+    await frameMap(s.page, 0.75);
+    await element(stage, 'dashboard-device-map-device-panel');
+  }
+  if (want('dashboard-device-map-group-panel') || want('dashboard-device-map-picker')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openPanel('group:workshop'));
+    await s.page.waitForTimeout(1200);
+    await frameMap(s.page, 0.75);
+    if (want('dashboard-device-map-group-panel')) await element(stage, 'dashboard-device-map-group-panel');
+    if (want('dashboard-device-map-picker')) {
+      await s.page.locator('.devicemap-panel[data-open="true"]').getByRole('button', { name: 'Add members' }).click();
+      await s.page.waitForTimeout(800);
+      await element(s.page.locator('#devicemap-panel dialog.device-picker'), 'dashboard-device-map-picker');
+      await s.page.keyboard.press('Escape');
+      await s.page.waitForTimeout(400);
+    }
+  }
+  await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).closePanel());
+  await s.page.waitForTimeout(600);
+  // Opens the wiring card of the edge between two nodes and frames both nodes.
+  const openWiringCard = (a, b) => map(([a, b]) => {
+    const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+    const cy = document.querySelector('#devicemap-panel [x-ref="canvas"]')._cyreg.cy;
+    const first = cy.getElementById(a);
+    const second = cy.getElementById(b);
+    const edge = first.edgesWith(second).filter('.devicemap-wiring')[0];
+    panel.selectedEdge = {id: edge.id(), source: edge.data('source'), target: edge.data('target'), overrideId: edge.data('overrideId') || null, membership: edge.data('membership') || null};
+    cy.edges().removeClass('devicemap-selected-edge');
+    edge.addClass('devicemap-selected-edge');
+    // The card opens to the right of the edge midpoint, so the labels on the
+    // left of the pair stay uncovered.
+    cy.fit(first.union(second), 120);
+    panel.openWiringPopover(edge.renderedMidpoint());
+  }, [a, b]);
+  if (want('dashboard-device-map-switch-off')) {
+    // Plug Balcony is switched off: the wiring card of its edge to the
+    // inverter is open, the view is framed on that pair and its neighbours.
+    await openWiringCard('plug_balkon', 'balkon_kraftwerk');
+    await s.page.waitForTimeout(1200);
+    await element(stage, 'dashboard-device-map-switch-off');
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).clearEdgeSelection());
+    await s.page.waitForTimeout(600);
+  }
+  if (want('dashboard-device-map-switch-channel')) {
+    // Channel 2 of Cellar Relay is off: its edge to the dehumidifier is cut,
+    // the card shows the switch state and the cause above the link.
+    await openWiringCard('relais_keller', 'plug_entfeuchter');
+    await s.page.waitForTimeout(1200);
+    await element(stage, 'dashboard-device-map-switch-channel');
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).clearEdgeSelection());
+    await s.page.waitForTimeout(600);
+  }
+  if (want('dashboard-device-map-sub-device')) {
+    // The sub-device Washing machine hangs on the power value of the dehumidifier
+    // plug: its panel is open, the view is framed on the pair and the arrows are curved (local only, not saved).
+    await map(() => {
+      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+      const cy = document.querySelector('#devicemap-panel [x-ref="canvas"]')._cyreg.cy;
+      window.__prevEdgeStyle = panel.view.edge_style;
+      panel.setEdgeStyle('curved');
+      panel.openPanel('sub:waschmaschine');
+      // Frame the pair in the part of the stage the open panel leaves free.
+      const bb = cy.getElementById('sub:waschmaschine').union(cy.getElementById('plug_entfeuchter')).boundingBox();
+      const free = cy.width() - 400;
+      const zoom = Math.min(free / (bb.w + 200), cy.height() / (bb.h + 260), 1.1);
+      cy.zoom(zoom);
+      cy.pan({x: (free - (bb.x1 + bb.x2) * zoom) / 2, y: (cy.height() - (bb.y1 + bb.y2) * zoom) / 2});
+      panel.unsaved = false;
+      panel.placedCount = 0;
+    });
+    await s.page.waitForTimeout(1200);
+    await element(stage, 'dashboard-device-map-sub-device');
+    await map(() => {
+      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+      panel.closePanel();
+      panel.setEdgeStyle(window.__prevEdgeStyle);
+      panel.unsaved = false;
+    });
+    await s.page.waitForTimeout(600);
+  }
+  if (want('dashboard-device-map-view-menu') || want('dashboard-device-map-filter-menu')) {
+    // The fixture map has no position for the own node yet, so the map places
+    // it and marks the positions unsaved. The menus are shot without that hint.
+    await map(() => {
+      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+      panel.placedCount = 0;
+      panel.unsaved = false;
+    });
+    await s.page.waitForTimeout(300);
+  }
+  if (want('dashboard-device-map-view-menu')) {
+    await s.page.locator('#devicemap-view-menu-toggle').click();
+    await s.page.waitForTimeout(600);
+    const toolbar = await s.page.locator('#devicemap-panel .devicemap-toolbar').boundingBox();
+    const menu = await s.page.locator('#devicemap-view-menu').boundingBox();
+    const x = Math.min(toolbar.x, menu.x) - 8;
+    const y = toolbar.y - 8;
+    await s.page.screenshot({ path: path.join(args.out, 'dashboard-device-map-view-menu.png'),
+      clip: { x, y, width: Math.max(toolbar.x + toolbar.width, menu.x + menu.width) + 8 - x, height: menu.y + menu.height + 8 - y } });
+    console.log('geschrieben: dashboard-device-map-view-menu');
+    await s.page.locator('#devicemap-view-menu-toggle').click();
+    await s.page.waitForTimeout(400);
+  }
+  if (want('dashboard-device-map-filter-menu')) {
+    await s.page.locator('#devicemap-filter-toggle').click();
+    await s.page.waitForTimeout(600);
+    const toolbar = await s.page.locator('#devicemap-panel .devicemap-toolbar').boundingBox();
+    const menu = await s.page.locator('#devicemap-filter-menu').boundingBox();
+    const x = Math.min(toolbar.x, menu.x) - 8;
+    const y = toolbar.y - 8;
+    await s.page.screenshot({ path: path.join(args.out, 'dashboard-device-map-filter-menu.png'),
+      clip: { x, y, width: Math.max(toolbar.x + toolbar.width, menu.x + menu.width) + 8 - x, height: menu.y + menu.height + 8 - y } });
+    console.log('geschrieben: dashboard-device-map-filter-menu');
+    await s.page.locator('#devicemap-filter-toggle').click();
+    await s.page.waitForTimeout(400);
+  }
+  if (want('dashboard-device-map-create-group')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openGroupDialog());
+    await s.page.waitForTimeout(500);
+    await s.page.locator('#devicemap-panel dialog[open] input').fill('Garden');
+    await element(s.page.locator('#devicemap-panel dialog[open]'), 'dashboard-device-map-create-group');
+    await s.page.keyboard.press('Escape');
+    await s.page.waitForTimeout(400);
+  }
+  if (want('dashboard-device-map-category')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openCategoryDialog());
+    await s.page.waitForTimeout(500);
+    await s.page.locator('#devicemap-panel dialog[open] input').first().fill('Pool pump');
+    await element(s.page.locator('#devicemap-panel dialog[open]'), 'dashboard-device-map-category');
+    await s.page.keyboard.press('Escape');
+    await s.page.waitForTimeout(400);
+  }
+  // Die Ebenen zuletzt: sie platzieren neue Knoten, gespeichert wird nur,
+  // damit das Bild ohne den Hinweis auf ungespeicherte Positionen auskommt.
+  for (const [name, layers] of [['dashboard-device-map-balance', ['balance']], ['dashboard-device-map-dataflow', ['data']]]) {
+    if (!want(name)) continue;
+    for (const [layer, label] of [['balance', 'Roles'], ['data', 'Data flow']]) {
+      const on = await map(id => window.Alpine.$data(document.querySelector('#devicemap-panel')).view.layers[id], layer);
+      if (on === layers.includes(layer)) continue;
+      await s.page.locator('#devicemap-panel .devicemap-toolbar').getByRole('button', { name: label }).click();
+      await s.page.waitForTimeout(2500);
+    }
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).save());
+    await s.page.waitForTimeout(1000);
+    await frameMap(s.page, 1, 64);
+    await element(stage, name);
+  }
+  await s.ctx.close();
+}
+
+// Eine Karte je Typ in ihrer Mindestbreite (min_span Spalten) auf einer
+// eigenen Layout-Seite. Die Spalten werden auf das Rastermindestmass 18rem
+// festgesetzt, Karten mit fills_height auf ihre Mindesthoehe. Karten ohne
+// fills_height nehmen ihre Inhaltshoehe, mindestens min_height. Die
+// Spannen werden fest gesetzt, sonst dehnt layout-fill.js eine Karte in
+// eine Zeilenluecke.
+async function cards() {
+  args.recordMinutes ??= 16;
+  const s = await session(1500, 1200);
+  const api = `${args.url}/api/v1/layout`;
+  const original = await (await s.ctx.request.get(api)).json();
+  const csrf = (await (await s.ctx.request.get(`${args.url}/api/v1/auth/session`)).json()).csrf_token;
+  const put = (doc) => s.ctx.request.put(api, { data: { version: doc.version, pages: doc.pages }, headers: { 'X-CSRF-Token': csrf } });
+  const types = original.card_types;
+  const entries = [
+    ['energy_status', {}], ['energy_flow', {}], ['energy_ring', {}], ['energy_schema', {}],
+    ['energy_band', {}], ['energy_day', {}], ['energy_board', {}], ['energy_stats', {}],
+    ['battery_status', { display: 'column' }],
+    ['battery_status:trajectory', { type: 'battery_status', display: 'trajectory' }],
+    ['history_view', { title: 'PV and grid', history_range_hours: '1', history_series: ['role:pv', 'role:grid'] }],
+    ['diagnostics', {}],
+    ['entity_value', { ref: 'bank_a_voltage' }],
+    ['entity_group', { title: 'Battery banks', entity_refs: ['bank_a_voltage', 'bank_b_voltage', 'bank_soc'] }],
+    ['device', { ref: 'wallbox', display: 'detail' }],
+    ['device:compact', { type: 'device', ref: 'wallbox', display: 'compact' }],
+  ];
+  const items = entries.map(([key, extra]) => ({
+    id: `cards-${key.replace(':', '-')}`, type: key.split(':')[0], span: String(types[key].min_span), visible: true, ...extra,
+  }));
+  const page = { id: 'docs-cards', name: 'Cards', order: original.pages.length, groups: [{ id: 'docs-cards-all', name: 'Cards', items }] };
+  const res = await put({ version: original.version, pages: [...original.pages, page] });
+  if (!res.ok()) throw new Error(`Layout abgelehnt: ${res.status()} ${await res.text()}`);
+  try {
+    await s.page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
+    console.log(`zeichne den Verlauf ${args.recordMinutes} min auf ...`);
+    await s.page.waitForTimeout(args.recordMinutes * 60 * 1000);
+    await s.page.locator('button.tab.is-page', { hasText: 'Cards' }).first().click();
+    await s.page.waitForTimeout(4000);
+    await s.page.addStyleTag({ content: `
+      #overview-panel .layout-grid { grid-template-columns: repeat(auto-fill, 18rem) !important; align-items: start !important; }
+      #overview-panel .layout-grid-item[data-fills-height="true"] { height: var(--card-min-height); }
+      #overview-panel .layout-grid-item-1 { grid-column: span 1 !important; }
+      #overview-panel .layout-grid-item-2 { grid-column: span 2 !important; }` });
+    await s.page.waitForTimeout(2500);
+    for (const [key] of entries) {
+      const name = `dashboard-card-${key.replace(/[:_]/g, '-')}`;
+      const item = s.page.locator(`[data-layout-item-id="cards-${key.replace(':', '-')}"]`);
+      await item.scrollIntoViewIfNeeded();
+      await s.page.waitForTimeout(500);
+      await element(item, name);
+    }
+  } finally {
+    await put(original);
+    await s.ctx.close();
+  }
+}
+
+try {
+  if (args.history) await history();
+  else if (args.cards) await cards();
+  else await all();
+} finally {
+  await browser.close();
+}

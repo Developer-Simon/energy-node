@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.21 (2026-10-27)
+## v0.10.22 (2026-10-27)
 
 ### Features
 
@@ -15,13 +15,13 @@
 - **updates:** install the offered update from the update bar (#171) (98937ad)
 - **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
 - **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
+- **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
 - **automations:** describe month days and stale conditions (36a10b2)
 - **automations:** edit month days and stale conditions (53dbe9a)
 - **automations:** monthly full charge, silent inverter and low tariff wallbox templates (9e0696e)
 - **automations:** fold month days into an advanced section and add icons (13294d9)
 - **automations:** use a tilde for the regulate mode (7b0d7e6)
 - **automations:** offer a restart for silent and missing inverters (bbdfb76)
-- **automation:** Automation windows can be limited to days of the month. (#175)
 - **auth:** add companion pairing code and proofs (9835360)
 - **dashboard:** generate a long-lived certificate for the companion port (387ad1a)
 - **auth:** store home assistant accounts and presets (13ffa52)
@@ -150,6 +150,8 @@
 
 ### Fixes
 
+- **browser:** click the shared settings save button in docs-screenshots (2a25b39)
+- **browser:** select the battery configuration for the config screenshot (3d19e16)
 - **automation:** translate the schema texts for month days and stale (4fd14f4)
 - **automations:** measured-only inverters stay usable when already regulated (ea9450f)
 - **dashboard:** treat a missing forwarded proto as insecure on the companion port (5bf50cc)
@@ -221,6 +223,8 @@
 ### Documentation
 
 - **devicemap:** tidy the screenshot preset and regenerate the images (#173) (76369a2)
+- point the smoke and demo docs at demo.sh and smoke.sh (4dd76ad)
+- **demo:** drop stale preset and keep flag mentions from comments (8614214)
 - **automations:** month days, stale values and the new templates (efe2269)
 - installing the offered update (5903807)
 - route access groups (10f6edb)
@@ -230,6 +234,13 @@
 
 ### Tests
 
+- **demo:** move the fakes and fixtures to demo/ (502b209)
+- **smoke:** split the core and config checks into groups (7f8dbc3)
+- **smoke:** split the remaining checks into groups (1ac850f)
+- **smoke:** add smoke.sh with the main, no-services and balance runs (c86dda2)
+- **browser:** move the browser tools next to the dashboard and point them at the demo (30a00b5)
+- **smoke:** remove run-local-dashboard.sh and the view-only presets (ef71d11)
+- **smoke:** split the smoke test into a local demo and a CI smoke test (#176)
 - **dashboard:** smoke the companion pairing and home assistant sign-in (e60e02b)
 - **webui:** restore the closing braces lost in the rebase (503166b)
 - **webui:** expect the sign-in tab as the users page default (8c14e02)

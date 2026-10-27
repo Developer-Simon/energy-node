@@ -31,11 +31,11 @@ npm test
 
 For changes that unit tests alone can't convincingly cover (registry → HTTP
 API → form, or visual/theme checks — a Sichtprüfung), this repo has a local
-integration test — start the real dashboard with
-`test/smoke/run-local-dashboard.sh` (no mosquitto, no Pi access, no real
-devices needed — see `test/smoke/README.md`). Use `--keep` to leave it
-running and open it in a browser instead of tearing it down after the
-automated checks.
+integration test: `test/smoke/smoke.sh` starts the real dashboard with the
+fakes and checks it (no mosquitto, no Pi access, no real devices needed, see
+`test/smoke/README.md`). To look at the same dashboard in a browser, start
+`demo/demo.sh` from the repository root instead. It keeps running until Ctrl-C
+(see `demo/README.md`).
 
 The deployment target is a statically linked ARMv6 binary without CGO:
 

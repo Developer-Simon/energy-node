@@ -1,0 +1,1587 @@
+[
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv1_power/config",
+    "payload": {
+      "name": "PV1 power",
+      "unique_id": "apsystems_dach_pv1_power",
+      "state_topic": "outstation/apsystems_dach/pv1/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv2_power/config",
+    "payload": {
+      "name": "PV2 power",
+      "unique_id": "apsystems_dach_pv2_power",
+      "state_topic": "outstation/apsystems_dach/pv2/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/total_power/config",
+    "payload": {
+      "name": "Total power",
+      "unique_id": "apsystems_dach_total_power",
+      "state_topic": "outstation/apsystems_dach/total/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv1_energy_today/config",
+    "payload": {
+      "name": "PV1 daily yield",
+      "unique_id": "apsystems_dach_pv1_energy_today",
+      "state_topic": "outstation/apsystems_dach/pv1/energy_today_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv2_energy_today/config",
+    "payload": {
+      "name": "PV2 daily yield",
+      "unique_id": "apsystems_dach_pv2_energy_today",
+      "state_topic": "outstation/apsystems_dach/pv2/energy_today_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/total_energy_today/config",
+    "payload": {
+      "name": "Daily yield",
+      "unique_id": "apsystems_dach_total_energy_today",
+      "state_topic": "outstation/apsystems_dach/total/energy_today_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv1_energy_lifetime/config",
+    "payload": {
+      "name": "PV1 total yield",
+      "unique_id": "apsystems_dach_pv1_energy_lifetime",
+      "state_topic": "outstation/apsystems_dach/pv1/energy_lifetime_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv2_energy_lifetime/config",
+    "payload": {
+      "name": "PV2 total yield",
+      "unique_id": "apsystems_dach_pv2_energy_lifetime",
+      "state_topic": "outstation/apsystems_dach/pv2/energy_lifetime_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/total_energy_lifetime/config",
+    "payload": {
+      "name": "Total yield",
+      "unique_id": "apsystems_dach_total_energy_lifetime",
+      "state_topic": "outstation/apsystems_dach/total/energy_lifetime_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/number/pv_apsystems_dach/max_power_limit/config",
+    "payload": {
+      "name": "Power-Limit",
+      "unique_id": "apsystems_dach_max_power_limit",
+      "state_topic": "outstation/apsystems_dach/max_power_limit_w",
+      "command_topic": "outstation/apsystems_dach/max_power_limit_w/set",
+      "unit_of_measurement": "W",
+      "min": 30,
+      "max": 800,
+      "step": 1,
+      "mode": "box",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/switch/pv_apsystems_dach/power_status/config",
+    "payload": {
+      "name": "Operating status",
+      "unique_id": "apsystems_dach_power_status",
+      "state_topic": "outstation/apsystems_dach/power_status",
+      "command_topic": "outstation/apsystems_dach/power_status/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
+    "topic": "outstation/apsystems_dach/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/apsystems_dach/pv1/power_w",
+    "payload": "2200"
+  },
+  {
+    "topic": "outstation/apsystems_dach/pv2/power_w",
+    "payload": "2000"
+  },
+  {
+    "topic": "outstation/apsystems_dach/total/power_w",
+    "payload": "4200"
+  },
+  {
+    "topic": "outstation/apsystems_dach/pv1/energy_today_kwh",
+    "payload": "3.4"
+  },
+  {
+    "topic": "outstation/apsystems_dach/pv2/energy_today_kwh",
+    "payload": "3.1"
+  },
+  {
+    "topic": "outstation/apsystems_dach/total/energy_today_kwh",
+    "payload": "6.5"
+  },
+  {
+    "topic": "outstation/apsystems_dach/pv1/energy_lifetime_kwh",
+    "payload": "540.4"
+  },
+  {
+    "topic": "outstation/apsystems_dach/pv2/energy_lifetime_kwh",
+    "payload": "523.8"
+  },
+  {
+    "topic": "outstation/apsystems_dach/total/energy_lifetime_kwh",
+    "payload": "1064.2"
+  },
+  {
+    "topic": "outstation/apsystems_dach/max_power_limit_w",
+    "payload": "800"
+  },
+  {
+    "topic": "outstation/apsystems_dach/power_status",
+    "payload": "ON"
+  },
+  {
+    "topic": "homeassistant/sensor/netz_zaehler/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "netz_zaehler_power",
+      "state_topic": "zaehler/netz/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "zaehler/netz/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "netz_zaehler"
+        ],
+        "name": "Grid Meter"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/batterie_wr/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "batterie_power",
+      "state_topic": "batterie/wr/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "batterie/wr/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "batterie_wr"
+        ],
+        "name": "Battery Inverter"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/batterie_wr/soc/config",
+    "payload": {
+      "name": "State of charge",
+      "unique_id": "batterie_soc",
+      "state_topic": "batterie/wr/soc",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "availability_topic": "batterie/wr/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "batterie_wr"
+        ],
+        "name": "Battery Inverter"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/haus_zaehler/power/config",
+    "payload": {
+      "name": "House consumption",
+      "unique_id": "haus_last_power",
+      "state_topic": "zaehler/haus/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "zaehler/haus/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "haus_zaehler"
+        ],
+        "name": "House Meter"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/wallbox/power/config",
+    "payload": {
+      "name": "Charging power",
+      "unique_id": "wallbox_power",
+      "state_topic": "wallbox/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "wallbox/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "wallbox"
+        ],
+        "name": "Wallbox"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/waermepumpe/power/config",
+    "payload": {
+      "name": "Power draw",
+      "unique_id": "waermepumpe_power",
+      "state_topic": "waermepumpe/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "waermepumpe/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "waermepumpe"
+        ],
+        "name": "Heat Pump"
+      }
+    }
+  },
+  {
+    "topic": "zaehler/netz/online",
+    "payload": "true"
+  },
+  {
+    "topic": "batterie/wr/online",
+    "payload": "true"
+  },
+  {
+    "topic": "zaehler/haus/online",
+    "payload": "true"
+  },
+  {
+    "topic": "wallbox/online",
+    "payload": "true"
+  },
+  {
+    "topic": "waermepumpe/online",
+    "payload": "true"
+  },
+  {
+    "topic": "zaehler/netz/status",
+    "payload": {
+      "id": 0,
+      "apower": -1250,
+      "voltage": 231.2,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "batterie/wr/status",
+    "payload": {
+      "id": 0,
+      "apower": 900,
+      "voltage": 51.8,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "batterie/wr/soc",
+    "payload": "63.5"
+  },
+  {
+    "topic": "zaehler/haus/status",
+    "payload": {
+      "id": 0,
+      "apower": 2050,
+      "voltage": 230.7,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "wallbox/status",
+    "payload": {
+      "id": 0,
+      "apower": 600,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/werkstatt/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "werkstatt_power",
+      "state_topic": "werkstatt/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "werkstatt/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "werkstatt"
+        ],
+        "via_device": "energy_node",
+        "name": "Workshop Socket"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/automation/state/config",
+    "payload": {
+      "name": "Automation state",
+      "unique_id": "automation_state",
+      "device": {
+        "identifiers": [
+          "automation"
+        ],
+        "name": "Energy Automations",
+        "manufacturer": "Energy Node",
+        "via_device": "energy_node"
+      },
+      "state_topic": "outstation/automation/state",
+      "availability_topic": "outstation/automation/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "entity_category": "diagnostic",
+      "value_template": "{{ value_json.rules_enabled }}",
+      "json_attributes_topic": "outstation/automation/state",
+      "unit_of_measurement": "Regeln",
+      "state_class": "measurement"
+    }
+  },
+  {
+    "topic": "werkstatt/online",
+    "payload": "true"
+  },
+  {
+    "topic": "werkstatt/status",
+    "payload": {
+      "id": 0,
+      "apower": 350,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "waermepumpe/status",
+    "payload": {
+      "id": 0,
+      "apower": 450,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/netz_meanwell/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "netz_meanwell_power",
+      "state_topic": "shelly/netz_meanwell/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "shelly/netz_meanwell/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "netz_meanwell"
+        ],
+        "name": "MeanWell Charger (grid side)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/netz_lumentree/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "netz_lumentree_power",
+      "state_topic": "shelly/netz_lumentree/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "shelly/netz_lumentree/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "netz_lumentree"
+        ],
+        "name": "Lumentree Inverter (grid side)"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_a/voltage/config",
+    "payload": {
+      "name": "Voltage",
+      "unique_id": "bank_a_voltage",
+      "state_topic": "bms/bank_a/voltage",
+      "unit_of_measurement": "V",
+      "device_class": "voltage",
+      "availability_topic": "bms/bank_a/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "bms_bank_a"
+        ],
+        "via_device": "energy_node",
+        "name": "Shelly Uni Bank A"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_b/voltage/config",
+    "payload": {
+      "name": "Voltage",
+      "unique_id": "bank_b_voltage",
+      "state_topic": "bms/bank_b/voltage",
+      "availability_topic": "bms/bank_b/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "bms_bank_b"
+        ],
+        "via_device": "energy_node",
+        "name": "Shelly Uni Bank B (never sends)"
+      }
+    }
+  },
+  {
+    "topic": "shelly/netz_meanwell/online",
+    "payload": "true"
+  },
+  {
+    "topic": "shelly/netz_lumentree/online",
+    "payload": "true"
+  },
+  {
+    "topic": "bms/bank_a/online",
+    "payload": "true"
+  },
+  {
+    "topic": "bms/bank_b/online",
+    "payload": "false"
+  },
+  {
+    "topic": "shelly/netz_meanwell/status",
+    "payload": {
+      "id": 0,
+      "apower": 12.5,
+      "voltage": 231.4,
+      "current": 0.054,
+      "source": "init"
+    }
+  },
+  {
+    "topic": "shelly/netz_lumentree/status",
+    "payload": {
+      "id": 0,
+      "apower": 48.2,
+      "voltage": 230.9,
+      "source": "init"
+    }
+  },
+  {
+    "topic": "bms/bank_a/voltage",
+    "payload": "26.8"
+  },
+  {
+    "topic": "homeassistant/sensor/bank/soc/config",
+    "payload": {
+      "name": "State of charge",
+      "unique_id": "bank_soc",
+      "state_topic": "bank/soc",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "availability_topic": "bank/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "bank"
+        ],
+        "via_device": "energy_node",
+        "name": "Battery SoC"
+      }
+    }
+  },
+  {
+    "topic": "bank/online",
+    "payload": "true"
+  },
+  {
+    "topic": "bank/soc",
+    "payload": "64"
+  },
+  {
+    "topic": "homeassistant/number/wallbox/current/config",
+    "payload": {
+      "name": "Current",
+      "unique_id": "wallbox_current",
+      "state_topic": "wallbox/current",
+      "command_topic": "wallbox/current/set",
+      "unit_of_measurement": "A",
+      "min": 6,
+      "max": 16,
+      "step": 1,
+      "mode": "box",
+      "availability_topic": "wallbox/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "wallbox"
+        ],
+        "name": "Wallbox"
+      }
+    }
+  },
+  {
+    "topic": "wallbox/current",
+    "payload": "10"
+  },
+  {
+    "topic": "homeassistant/switch/plug_balkon/steckdose/config",
+    "payload": {
+      "name": "Socket",
+      "unique_id": "plug_balkon_steckdose",
+      "state_topic": "plug/balkon/output",
+      "command_topic": "plug/balkon/output/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "plug/balkon/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "plug_balkon"
+        ],
+        "via_device": "energy_node",
+        "name": "Plug Balcony"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/plug_balkon/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "plug_balkon_power",
+      "state_topic": "plug/balkon/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "plug/balkon/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "plug_balkon"
+        ],
+        "via_device": "energy_node",
+        "name": "Plug Balcony"
+      }
+    }
+  },
+  {
+    "topic": "plug/balkon/online",
+    "payload": "true"
+  },
+  {
+    "topic": "plug/balkon/status",
+    "payload": {
+      "id": 0,
+      "apower": 0,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "plug/balkon/output",
+    "payload": "OFF"
+  },
+  {
+    "topic": "homeassistant/switch/plug_entfeuchter/steckdose/config",
+    "payload": {
+      "name": "Socket",
+      "unique_id": "plug_entfeuchter_steckdose",
+      "state_topic": "plug/entfeuchter/output",
+      "command_topic": "plug/entfeuchter/output/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "plug/entfeuchter/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "plug_entfeuchter"
+        ],
+        "via_device": "energy_node",
+        "name": "Plug Dehumidifier"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/plug_entfeuchter/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "plug_entfeuchter_power",
+      "state_topic": "plug/entfeuchter/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "plug/entfeuchter/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "plug_entfeuchter"
+        ],
+        "via_device": "energy_node",
+        "name": "Plug Dehumidifier"
+      }
+    }
+  },
+  {
+    "topic": "plug/entfeuchter/online",
+    "payload": "true"
+  },
+  {
+    "topic": "plug/entfeuchter/status",
+    "payload": {
+      "id": 0,
+      "apower": 0,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "plug/entfeuchter/output",
+    "payload": "OFF"
+  },
+  {
+    "topic": "homeassistant/switch/relais_keller/switch_1/config",
+    "payload": {
+      "name": "Output 1",
+      "unique_id": "relais_keller_switch_1",
+      "state_topic": "relais/keller/1/output",
+      "command_topic": "relais/keller/1/output/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "relais/keller/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "relais_keller"
+        ],
+        "via_device": "energy_node",
+        "name": "Cellar Relay"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/switch/relais_keller/switch_2/config",
+    "payload": {
+      "name": "Output 2",
+      "unique_id": "relais_keller_switch_2",
+      "state_topic": "relais/keller/2/output",
+      "command_topic": "relais/keller/2/output/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "relais/keller/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "relais_keller"
+        ],
+        "via_device": "energy_node",
+        "name": "Cellar Relay"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/relais_keller/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "relais_keller_power",
+      "state_topic": "relais/keller/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "relais/keller/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "relais_keller"
+        ],
+        "via_device": "energy_node",
+        "name": "Cellar Relay"
+      }
+    }
+  },
+  {
+    "topic": "relais/keller/online",
+    "payload": "true"
+  },
+  {
+    "topic": "relais/keller/status",
+    "payload": {
+      "id": 0,
+      "apower": 85,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "relais/keller/1/output",
+    "payload": "ON"
+  },
+  {
+    "topic": "relais/keller/2/output",
+    "payload": "OFF"
+  },
+  {
+    "topic": "homeassistant/sensor/balkon_kraftwerk/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "balkon_kraftwerk_power",
+      "state_topic": "outstation/balkon_kraftwerk/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/balkon_kraftwerk/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "balkon_kraftwerk"
+        ],
+        "name": "Balcony Power Plant"
+      }
+    }
+  },
+  {
+    "topic": "outstation/balkon_kraftwerk/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/balkon_kraftwerk/power_w",
+    "payload": "180"
+  },
+  {
+    "topic": "homeassistant/sensor/gefriertruhe/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "gefriertruhe_power",
+      "state_topic": "outstation/gefriertruhe/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/gefriertruhe/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "gefriertruhe"
+        ],
+        "name": "Chest Freezer"
+      }
+    }
+  },
+  {
+    "topic": "outstation/gefriertruhe/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/gefriertruhe/power_w",
+    "payload": "85"
+  },
+  {
+    "topic": "homeassistant/sensor/battery_soc/voltage_pack/config",
+    "payload": {
+      "name": "Spannung (Bus)",
+      "unique_id": "battery_soc_voltage_pack",
+      "state_topic": "outstation/battery_soc/state",
+      "value_template": "{{ value_json.pack_voltage_v }}",
+      "device": {
+        "identifiers": [
+          "battery_soc"
+        ],
+        "name": "Batterie-Ladezustand"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/t2mg81a4e9/dcpower/config",
+    "payload": {
+      "name": "DC-Leistung",
+      "unique_id": "t2mg81a4e9_dcpower",
+      "state_topic": "outstation/t2mg81a4e9/field/dcpower",
+      "device": {
+        "identifiers": [
+          "t2mg81a4e9"
+        ],
+        "name": "Trucki T2MG (MeanWell)"
+      }
+    }
+  },
+  {
+    "topic": "outstation/battery_soc/state",
+    "payload": {
+      "pack_voltage_v": 27.36,
+      "pack_corrected_v_per_cell": 3.398,
+      "soc_combined_pct": 63.4
+    }
+  },
+  {
+    "topic": "outstation/battery_soc/tuning",
+    "payload": {
+      "generated_iso": "2026-09-06T21:30:00+0200",
+      "units": {
+        "pack": {
+          "suggestions": [
+            {
+              "key": "inverter_dc_ac_efficiency",
+              "current_value": 0.9,
+              "suggested_value": 0.945,
+              "confidence": "hoch",
+              "sample_count": 8,
+              "spread": 0.01
+            }
+          ],
+          "findings": [
+            {
+              "code": "zu_wenig_daten",
+              "severity": "info",
+              "message": "Nur 8 Kalibrierereignisse - der Innenwiderstand bleibt vorerst unveraendert."
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "topic": "outstation/t2mg81a4e9/field/dcpower",
+    "payload": "310.5"
+  },
+  {
+    "topic": "homeassistant/sensor/pv_wechselrichter/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "pv_wr_power",
+      "state_topic": "pv/wechselrichter/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": {
+        "identifiers": [
+          "pv_wechselrichter"
+        ],
+        "name": "PV-Wechselrichter"
+      }
+    }
+  },
+  {
+    "topic": "pv/wechselrichter/status",
+    "payload": {
+      "id": 0,
+      "apower": 4200,
+      "voltage": 402.1,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_bad/temperature/config",
+    "payload": {
+      "name": "Shelly H&T Bad Temperatur",
+      "unique_id": "ht_bad_temperature",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/temperature",
+      "availability_topic": "outstation/ht_bad/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_bad/humidity/config",
+    "payload": {
+      "name": "Shelly H&T Bad Luftfeuchte",
+      "unique_id": "ht_bad_humidity",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/humidity",
+      "availability_topic": "outstation/ht_bad/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "%",
+      "device_class": "humidity",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_bad/rssi/config",
+    "payload": {
+      "name": "Shelly H&T Bad WLAN-Signal",
+      "unique_id": "ht_bad_rssi",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/rssi",
+      "availability_topic": "outstation/ht_bad/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "dBm",
+      "device_class": "signal_strength",
+      "entity_category": "diagnostic",
+      "enabled_by_default": false
+    }
+  },
+  {
+    "topic": "homeassistant/binary_sensor/ht_bad/online/config",
+    "payload": {
+      "name": "Erreichbarkeit",
+      "unique_id": "ht_bad_online",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/status/online",
+      "device_class": "connectivity",
+      "payload_on": "1",
+      "payload_off": "0",
+      "entity_category": "diagnostic",
+      "json_attributes_topic": "outstation/ht_bad/status/online/attributes"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_keller/temperature/config",
+    "payload": {
+      "name": "Shelly Plus H&T Keller Temperatur",
+      "unique_id": "ht_keller_temperature",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/temperature",
+      "availability_topic": "outstation/ht_keller/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_keller/humidity/config",
+    "payload": {
+      "name": "Shelly Plus H&T Keller Luftfeuchte",
+      "unique_id": "ht_keller_humidity",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/humidity",
+      "availability_topic": "outstation/ht_keller/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "%",
+      "device_class": "humidity",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_keller/rssi/config",
+    "payload": {
+      "name": "Shelly Plus H&T Keller WLAN-Signal",
+      "unique_id": "ht_keller_rssi",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/rssi",
+      "availability_topic": "outstation/ht_keller/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "dBm",
+      "device_class": "signal_strength",
+      "entity_category": "diagnostic",
+      "enabled_by_default": false
+    }
+  },
+  {
+    "topic": "homeassistant/binary_sensor/ht_keller/online/config",
+    "payload": {
+      "name": "Erreichbarkeit",
+      "unique_id": "ht_keller_online",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/status/online",
+      "device_class": "connectivity",
+      "payload_on": "1",
+      "payload_off": "0",
+      "entity_category": "diagnostic",
+      "json_attributes_topic": "outstation/ht_keller/status/online/attributes"
+    }
+  },
+  {
+    "topic": "outstation/ht_bad/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/ht_bad/status/online/attributes",
+    "payload": {
+      "reason": "poll ok"
+    }
+  },
+  {
+    "topic": "outstation/ht_bad/status/last_update",
+    "payload": "1790150400"
+  },
+  {
+    "topic": "outstation/ht_bad/temperature",
+    "payload": "21.4"
+  },
+  {
+    "topic": "outstation/ht_bad/humidity",
+    "payload": "58.2"
+  },
+  {
+    "topic": "outstation/ht_bad/rssi",
+    "payload": "-67"
+  },
+  {
+    "topic": "outstation/ht_keller/temperature",
+    "payload": "12.3"
+  },
+  {
+    "topic": "outstation/ht_keller/humidity",
+    "payload": "71.0"
+  },
+  {
+    "topic": "outstation/ht_keller/rssi",
+    "payload": "-78"
+  },
+  {
+    "topic": "outstation/ht_keller/status/online",
+    "payload": "0"
+  },
+  {
+    "topic": "outstation/ht_keller/status/online/attributes",
+    "payload": {
+      "reason": "HTTPConnectionPool(host='192.0.2.22', port=80): Max retries exceeded"
+    }
+  },
+  {
+    "topic": "homeassistant/number/apsys_nord/power_limit/config",
+    "payload": {
+      "name": "Power-Limit",
+      "unique_id": "apsys_nord_power_limit",
+      "state_topic": "outstation/apsys_nord/power_limit_w",
+      "command_topic": "outstation/apsys_nord/power_limit_w/set",
+      "unit_of_measurement": "W",
+      "min": 30,
+      "max": 800,
+      "step": 1,
+      "mode": "box",
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsys_nord"
+        ],
+        "name": "AP Systems Nord-Dach"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/switch/apsys_nord/power_status/config",
+    "payload": {
+      "name": "Betriebsstatus",
+      "unique_id": "apsys_nord_power_status",
+      "state_topic": "outstation/apsys_nord/power_status",
+      "command_topic": "outstation/apsys_nord/power_status/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsys_nord"
+        ],
+        "name": "AP Systems Nord-Dach"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/apsys_nord/temperature/config",
+    "payload": {
+      "name": "Wechselrichtertemperatur",
+      "unique_id": "apsys_nord_temperature",
+      "state_topic": "outstation/apsys_nord/temperature_c",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsys_nord"
+        ],
+        "name": "AP Systems Nord-Dach"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/text/apsys_nord/standort_notiz/config",
+    "payload": {
+      "name": "Standort-Notiz",
+      "unique_id": "apsys_nord_standort_notiz",
+      "state_topic": "outstation/apsys_nord/standort_notiz",
+      "command_topic": "outstation/apsys_nord/standort_notiz/set",
+      "max": 255,
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsys_nord"
+        ],
+        "name": "AP Systems Nord-Dach"
+      }
+    }
+  },
+  {
+    "topic": "outstation/apsys_nord/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/apsys_nord/power_limit_w",
+    "payload": "800"
+  },
+  {
+    "topic": "outstation/apsys_nord/power_status",
+    "payload": "ON"
+  },
+  {
+    "topic": "outstation/apsys_nord/temperature_c",
+    "payload": "41.2"
+  },
+  {
+    "topic": "outstation/apsys_nord/standort_notiz",
+    "payload": "Montagegestell Ost, Neigung 32°, letzte Reinigung 2026-06-01"
+  },
+  {
+    "topic": "homeassistant/number/apsys_sued/power_limit/config",
+    "payload": {
+      "name": "Power-Limit",
+      "unique_id": "apsys_sued_power_limit",
+      "state_topic": "outstation/apsys_sued/power_limit_w",
+      "command_topic": "outstation/apsys_sued/power_limit_w/set",
+      "unit_of_measurement": "W",
+      "min": 30,
+      "max": 800,
+      "step": 1,
+      "mode": "box",
+      "availability_topic": "outstation/apsys_sued/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsys_sued"
+        ],
+        "name": "AP Systems Süd-Dach"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/switch/apsys_sued/power_status/config",
+    "payload": {
+      "name": "Betriebsstatus",
+      "unique_id": "apsys_sued_power_status",
+      "state_topic": "outstation/apsys_sued/power_status",
+      "command_topic": "outstation/apsys_sued/power_status/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "outstation/apsys_sued/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsys_sued"
+        ],
+        "name": "AP Systems Süd-Dach"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/apsys_sued/temperature/config",
+    "payload": {
+      "name": "Wechselrichtertemperatur",
+      "unique_id": "apsys_sued_temperature",
+      "state_topic": "outstation/apsys_sued/temperature_c",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsys_sued/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsys_sued"
+        ],
+        "name": "AP Systems Süd-Dach"
+      }
+    }
+  },
+  {
+    "topic": "outstation/apsys_sued/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/apsys_sued/power_limit_w",
+    "payload": "800"
+  },
+  {
+    "topic": "outstation/apsys_sued/power_status",
+    "payload": "ON"
+  },
+  {
+    "topic": "outstation/apsys_sued/temperature_c",
+    "payload": "39.7"
+  },
+  {
+    "topic": "homeassistant/sensor/energie_automationen/letzte_meldung/config",
+    "payload": {
+      "name": "Letzte Energie-Automatisierung",
+      "unique_id": "energie_automationen_letzte_meldung",
+      "state_topic": "outstation/energie_automationen/letzte_meldung",
+      "device": {
+        "identifiers": [
+          "energie_automationen"
+        ],
+        "name": "Energie-Automationen"
+      }
+    }
+  },
+  {
+    "topic": "outstation/energie_automationen/letzte_meldung",
+    "payload": "info: PV Leistung über 500 W - Wallbox eingeschaltet"
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_a/soc/config",
+    "payload": {
+      "name": "Ladezustand",
+      "unique_id": "bank_a_soc",
+      "state_topic": "bms/bank_a/state",
+      "value_template": "{{ value_json.soc }}",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "device": {
+        "identifiers": [
+          "bms_bank_a"
+        ],
+        "name": "BMS Bank A"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_a/exotic/config",
+    "payload": {
+      "name": "Exotischer Wert",
+      "unique_id": "bank_a_exotic",
+      "state_topic": "bms/bank_a/state",
+      "value_template": "{{ value_json.a.b.c }}",
+      "device": {
+        "identifiers": [
+          "bms_bank_a"
+        ],
+        "name": "BMS Bank A"
+      }
+    }
+  },
+  {
+    "topic": "bms/bank_a/state",
+    "payload": {
+      "soc": 61.5,
+      "a": {
+        "b": {
+          "c": 1
+        }
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/automation/last_event/config",
+    "payload": {
+      "name": "Letztes Ereignis",
+      "unique_id": "automation_last_event",
+      "state_topic": "outstation/automation/last_event",
+      "value_template": "{{ value_json.message }}",
+      "json_attributes_topic": "outstation/automation/last_event",
+      "availability_topic": "outstation/automation/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "automation"
+        ],
+        "name": "Energie-Automationen",
+        "manufacturer": "Energy Node"
+      }
+    }
+  },
+  {
+    "topic": "outstation/automation/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/automation/state",
+    "payload": {
+      "rules_enabled": 3,
+      "online": true
+    }
+  },
+  {
+    "topic": "outstation/automation/last_event",
+    "payload": {
+      "at": 1789000000,
+      "message": "warning: Netzeinspeisung gedrosselt - PV-Ueberschuss ueber Grenzwert"
+    }
+  }
+]

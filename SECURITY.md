@@ -20,8 +20,8 @@ Please include:
   deploy scripts)
 - the impact you expect (e.g. auth bypass, credential exposure, a bridge
   accepting unvalidated input from the network)
-- reproduction steps, ideally against the local smoke test
-  (`dashboard/test/smoke/run-local-dashboard.sh`) rather than real hardware
+- reproduction steps, ideally against the local demo (`demo/demo.sh`) rather
+  than real hardware
 
 There is no bug bounty; this is a hobby project run by one maintainer.
 Expect an acknowledgement within a few days and a fix or a public
