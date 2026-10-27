@@ -108,14 +108,34 @@
       : run.map((day) => t(WEEKDAY_LABELS[day])))).join(', ');
   }
 
+  // "1, 15, 28": Tage im Monat aufsteigend, ohne Duplikate, leer heisst ''.
+  function formatMonthDays(monthDays) {
+    const days = [...new Set(monthDays || [])].filter((day) => day >= 1 && day <= 31).sort((a, b) => a - b);
+    return days.join(', ');
+  }
+
   function formatSunPoint(event, offset) {
     const label = t(SUN_EVENT_LABELS[event] || event);
     if (!offset) return label;
     return `${label} ${offset > 0 ? '+' : '−'}${Math.abs(offset)} min`;
   }
 
+  // Wochentage und Monatstage haengen als Zusatz an den Zeitfenster-Satz.
   function weekdaySuffix(condition) {
-    return (condition.weekdays || []).length ? `, ${formatWeekdays(condition.weekdays)}` : '';
+    const parts = [];
+    if ((condition.weekdays || []).length) parts.push(formatWeekdays(condition.weekdays));
+    const days = formatMonthDays(condition.month_days);
+    if (days) parts.push(t('automations.describe.month_days', { days }));
+    return parts.length ? `, ${parts.join(', ')}` : '';
+  }
+
+  // Ohne max_age_s greift der Dienst-Standard von 15 Minuten.
+  const STALE_DEFAULT_S = 900;
+
+  // i18n-keys: automations.describe.stale, automations.describe.month_days
+  function describeStale(name, condition) {
+    const seconds = isNumber(condition.max_age_s) ? condition.max_age_s : STALE_DEFAULT_S;
+    return t('automations.describe.stale', { name, minutes: Math.ceil(seconds / 60) });
   }
 
   const WINDOW_TYPES = new Set(['time_window', 'sun_window']);
@@ -274,14 +294,18 @@
       const icon = (entity && DEVICE_CLASS_ICONS[entity.device_class]) || 'ico-topic';
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
       const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
+      const name = (entity && entity.name) || condition.topic || t('automations.entity_value');
+      if (condition.comparison === 'stale') return { icon, title: name, unit, summary: describeStale(name, condition) };
       const summaryKey = unit ? 'automations.summary.entity_value_unit' : 'automations.summary.entity_value';
-      return { icon, title: (entity && entity.name) || condition.topic || t('automations.entity_value'), unit,
+      return { icon, title: name, unit,
                summary: t(summaryKey, { comparison, expected, unit }) };
     }
     if (type === 'topic_value') {
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
       const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
-      return { icon: 'ico-topic', title: condition.topic || t('automations.topic_value'), unit: '',
+      const name = condition.topic || t('automations.topic_value');
+      if (condition.comparison === 'stale') return { icon: 'ico-topic', title: name, unit: '', summary: describeStale(name, condition) };
+      return { icon: 'ico-topic', title: name, unit: '',
                summary: t('automations.summary.topic_value', { comparison, expected }) };
     }
     if (type === 'time_window') {
@@ -328,7 +352,7 @@
 
   window.__automationsView = {
     conditionState, meterScale, meterFraction, gateVerdict, isPercentCondition,
-    describeCondition, describeAction, formatSeconds, canTest, formatWeekdays,
+    describeCondition, describeAction, formatSeconds, canTest, formatWeekdays, formatMonthDays,
     historyResultInfo, historyActionText,
     BALANCE_FIELD_INFO, GATE_VERDICTS, CONDITION_TYPES, ACTION_TYPES, FIELD_HELP,
     WEEKDAY_LABELS, SUN_EVENT_LABELS,

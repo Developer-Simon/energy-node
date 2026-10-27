@@ -5,6 +5,11 @@
   const { ACTION_TYPES, CONDITION_TYPES, FIELD_HELP, WEEKDAY_LABELS, WINDOW_TYPES, SERVICE_TEST_POLL_MS, SERVICE_TEST_TIMEOUT_MS, isNumber, requestJSON } = view.constants;
   const { ROLE_GROUPS, actuatorCandidates, meterCandidates, switchCandidates, setpointCandidates, chipList, pickerItems, entityChip, balanceFieldCandidates, deviceRoleGroup } = window.__automationDevices;
 
+  // Standardwerte beim Wechsel des Vergleichs: 15 Minuten fuer stale, 20 wie
+  // beim Anlegen einer Entitaetsbedingung fuer den Vergleichswert.
+  const STALE_DEFAULT_MAX_AGE_S = 900;
+  const COMPARE_VALUE_DEFAULT = 20;
+
   // Filter-Chips im Picker: gleiche Gruppen wie die Kacheln, Label wie dort.
   const ROLE_FILTER_LABEL_KEYS = {
     inverter: 'automations.devices.group.inverter',
@@ -2353,10 +2358,21 @@
       return true;
     },
 
-    // Bilanz kennt nur ueber/unter, Entitaet und Topic auch gleich/ungleich.
+    // Bilanz kennt nur ueber/unter, Entitaet und Topic auch gleich/ungleich
+    // und "stale" (keine neuen Werte seit max_age_s). Wechsel zu stale setzt
+    // den Standard von 15 Minuten, der Wechsel zurueck den Vergleichswert.
     setComparison(condition, value) {
-      const allowed = condition.type === 'balance_threshold' ? ['above', 'below'] : ['above', 'below', 'equals', 'not_equals'];
-      if (allowed.includes(value)) condition.comparison = value;
+      const allowed = condition.type === 'balance_threshold' ? ['above', 'below'] : ['above', 'below', 'equals', 'not_equals', 'stale'];
+      if (!allowed.includes(value)) return;
+      const wasStale = condition.comparison === 'stale';
+      condition.comparison = value;
+      if (value === 'stale') {
+        if (!isNumber(condition.max_age_s)) condition.max_age_s = STALE_DEFAULT_MAX_AGE_S;
+        return;
+      }
+      if (!wasStale) return;
+      delete condition.max_age_s;
+      if (!isNumber(condition.value)) condition.value = COMPARE_VALUE_DEFAULT;
     },
 
     // Kachel des Bilanzfelds einer Bedingung mit Rollen-Icon.

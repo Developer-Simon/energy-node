@@ -313,6 +313,8 @@
   "automations.delete_rule.title": "Regel „{name}“ löschen?",
   "automations.delete_scenario.body": "Das Szenario verschwindet aus der Liste und ist mit dem nächsten Speichern endgültig weg.",
   "automations.delete_scenario.title": "Szenario „{name}“ löschen?",
+  "automations.describe.month_days": "am {days}. des Monats",
+  "automations.describe.stale": "{name} ohne neue Werte seit {minutes} min",
   "automations.devices.group.grid": "Netz",
   "automations.devices.group.heat_pump": "Wärmepumpe",
   "automations.devices.group.inverter": "Wechselrichter",

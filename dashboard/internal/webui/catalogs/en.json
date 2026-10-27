@@ -313,6 +313,8 @@
   "automations.delete_rule.title": "Delete rule “{name}”?",
   "automations.delete_scenario.body": "The scenario disappears from the list and is gone for good with the next save.",
   "automations.delete_scenario.title": "Delete scenario “{name}”?",
+  "automations.describe.month_days": "on day {days} of the month",
+  "automations.describe.stale": "{name} no new values for {minutes} min",
   "automations.devices.group.grid": "Grid",
   "automations.devices.group.heat_pump": "Heat pump",
   "automations.devices.group.inverter": "Inverter",
