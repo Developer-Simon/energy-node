@@ -17,6 +17,8 @@ import json
 import math
 import os
 import random
+import socket
+import ssl
 import sys
 import threading
 import time
@@ -61,14 +63,30 @@ def hour_values(ts_ms):
 
 
 class Session:
-    def __init__(self, base):
+    def __init__(self, base, context=None):
         self.base = base.rstrip("/")
         self.cookie = ""
+        self.context = context
+        self._response = None
 
     def _open(self, request, timeout):
         if self.cookie:
             request.add_header("Cookie", self.cookie)
-        return urllib.request.urlopen(request, timeout=timeout)
+        return urllib.request.urlopen(request, timeout=timeout, context=self.context)
+
+    def close_stream(self):
+        """Beendet die offene Stromantwort, damit stream() zurueckkehrt.
+
+        Nur den Socket herunterfahren: response.close() wuerde auf den Lesevorgang
+        des anderen Threads warten.
+        """
+        response = self._response
+        if response is None:
+            return
+        try:
+            response.fp.raw._sock.shutdown(socket.SHUT_RDWR)
+        except (AttributeError, OSError):
+            pass
 
     def login(self):
         request = urllib.request.Request(self.base + "/api/v1/auth/guest", method="POST")
@@ -92,29 +110,67 @@ class Session:
     def stream(self):
         request = urllib.request.Request(self.base + "/api/v1/history/exchange/stream")
         with self._open(request, 120) as response:
-            event, data = "", []
-            for raw in response:
-                line = raw.decode().rstrip("\r\n")
-                if line:
-                    if line.startswith("event:"):
-                        event = line[6:].strip()
-                    elif line.startswith("data:"):
-                        data.append(line[5:].lstrip())
-                    continue
-                if event and data:
-                    try:
-                        yield event, json.loads("\n".join(data))
-                    except ValueError:
-                        pass
+            self._response = response
+            try:
                 event, data = "", []
+                for raw in response:
+                    line = raw.decode().rstrip("\r\n")
+                    if line:
+                        if line.startswith("event:"):
+                            event = line[6:].strip()
+                        elif line.startswith("data:"):
+                            data.append(line[5:].lstrip())
+                        continue
+                    if event and data:
+                        try:
+                            yield event, json.loads("\n".join(data))
+                        except ValueError:
+                            pass
+                    event, data = "", []
+            finally:
+                self._response = None
 
 
 class FakeCompanion:
-    def __init__(self, session, days):
+    def __init__(self, session, days, log=lambda text: None):
         self.session = session
         self.days = days
+        self.log = log
         self.peer_id = ""
         self.max_chunk = 500
+        self.scale = {role: 1.0 for role in ROLES}
+        self.faults = {"delay_ms": 0, "silent": False, "partial": False}
+        self.running = False
+        self.last_error = ""
+        self._stop = threading.Event()
+        self._thread = None
+        self._lock = threading.Lock()
+
+    def start(self):
+        """Startet die Verbindungsschleife im Hintergrund. Mehrfacher Aufruf ist harmlos."""
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive() and not self._stop.is_set():
+                return
+            self._stop = threading.Event()
+            self.running = True
+            self._thread = threading.Thread(target=self._loop, args=(self._stop,), daemon=True)
+            self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        self.running = False
+        self.peer_id = ""
+        self.session.close_stream()
+
+    def state(self):
+        return {
+            "running": self.running,
+            "peer_id": self.peer_id,
+            "days": self.days,
+            "scale": dict(self.scale),
+            "faults": dict(self.faults),
+            "error": self.last_error,
+        }
 
     def now_hour(self):
         return int(time.time() * 1000) // HOUR_MS * HOUR_MS
@@ -140,6 +196,7 @@ class FakeCompanion:
         coverage = {TIER: {f"role:{role}": census for role in ROLES}}
         self.session.post("/api/v1/history/exchange/offer", {
             "peer": self.peer_id, "label": "Fake Home Assistant", "kind": "companion", "coverage": coverage})
+        self.log("Angebot gesendet")
 
     def rows(self, series, begin, end):
         role = series.removeprefix("role:")
@@ -150,26 +207,43 @@ class FakeCompanion:
         start = -(-begin // HOUR_MS) * HOUR_MS
         out = []
         for ts in range(start, min(end, last + HOUR_MS), HOUR_MS):
-            value = hour_values(ts)[role]
+            value = round(hour_values(ts)[role] * self.scale.get(role, 1.0), 1)
             out.append({"series": series, "ts": ts, "min": value, "max": value, "avg": value, "n": 1, "u": "Wh"})
         return out
+
+    def deliver(self, base, seq, final, rows):
+        self.session.post("/api/v1/history/exchange/deliver", {**base, "seq": seq, "final": final, "rows": rows})
 
     def answer(self, payload):
         to, req_id = payload.get("peer"), payload.get("req_id")
         if not to or not req_id:
             return
-        base = {"peer": self.peer_id, "to": to, "req_id": req_id, "tier": payload.get("tier")}
-        rows = []
-        if payload.get("tier") == TIER:
-            for begin, end in payload.get("ranges") or []:
-                rows.extend(self.rows(str(payload.get("series") or ""), int(begin), int(end)))
-        if not rows:
-            self.session.post("/api/v1/history/exchange/deliver", {**base, "seq": 0, "final": True, "rows": []})
+        tier = payload.get("tier")
+        series = str(payload.get("series") or "")
+        ranges = payload.get("ranges") or []
+        base = {"peer": self.peer_id, "to": to, "req_id": req_id, "tier": tier}
+        self.log(f"Nachfrage {series} {tier} {len(ranges)} Bereiche")
+        if self.faults["silent"]:
             return
+        rows = []
+        if tier == TIER:
+            for begin, end in ranges:
+                rows.extend(self.rows(series, int(begin), int(end)))
+        if self.faults["delay_ms"]:
+            time.sleep(self.faults["delay_ms"] / 1000)
+        if not rows:
+            self.deliver(base, 0, True, [])
+            self.log("geliefert 0 Zeilen")
+            return
+        sent = 0
         for seq, start in enumerate(range(0, len(rows), self.max_chunk)):
-            self.session.post("/api/v1/history/exchange/deliver", {
-                **base, "seq": seq, "final": start + self.max_chunk >= len(rows),
-                "rows": rows[start:start + self.max_chunk]})
+            part = rows[start:start + self.max_chunk]
+            final = start + self.max_chunk >= len(rows) and not self.faults["partial"]
+            self.deliver(base, seq, final, part)
+            sent += len(part)
+            if self.faults["partial"]:
+                break
+        self.log(f"geliefert {sent} Zeilen")
 
     def spawn(self, fn, *args):
         def run():
@@ -179,34 +253,47 @@ class FakeCompanion:
                 print("fake companion:", error, file=sys.stderr)
         threading.Thread(target=run, daemon=True).start()
 
-    def refresher(self):
-        while True:
-            time.sleep(120)
+    def refresher(self, stop):
+        while not stop.wait(120):
             self.spawn(self.offer)
 
-    def run_once(self):
+    def run_once(self, stop):
         self.session.login()
         announcement = self.session.get_json("/api/v1/history/exchange")
         self.max_chunk = int(announcement.get("max_rows_per_deliver", 500))
         if TIER not in (announcement.get("tiers") or []):
             raise RuntimeError("the dashboard does not announce tier 1h")
         for event, payload in self.session.stream():
+            if stop.is_set():
+                break
             if event == "hello":
                 self.peer_id = str(payload.get("peer_id") or "")
+                self.last_error = ""
                 self.spawn(self.offer)
             elif event == "peer-joined":
                 self.spawn(self.offer)
             elif event == "request":
                 self.spawn(self.answer, payload)
 
-    def run(self):
-        threading.Thread(target=self.refresher, daemon=True).start()
-        while True:
+    def _loop(self, stop):
+        threading.Thread(target=self.refresher, args=(stop,), daemon=True).start()
+        while not stop.is_set():
             try:
-                self.run_once()
+                self.run_once(stop)
             except (urllib.error.URLError, OSError, RuntimeError) as error:
+                if stop.is_set():
+                    break
+                self.last_error = str(error)
                 print("fake companion:", error, "- retry in 3 s", file=sys.stderr)
-            time.sleep(3)
+            stop.wait(3)
+
+    def run(self):
+        """Blockiert bis stop() aufgerufen wird (CLI-Weg)."""
+        self.running = True
+        try:
+            self._loop(self._stop)
+        finally:
+            self.running = False
 
 
 def main():
