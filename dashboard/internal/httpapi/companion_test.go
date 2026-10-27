@@ -326,6 +326,20 @@ func TestUserChangedRouteDropsSessions(t *testing.T) {
 	wantCompanionError(t, authSessionCall(gate, token, sessionToken, "https"), http.StatusUnauthorized, "authentication_required")
 }
 
+func TestUserRemovedNeedsNoUsernameAndDropsSessions(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	gate := CompanionGate(manager, router)
+	token := pairCompanion(t, gate, manager)
+	identity := `"ha_user_id":"ha-anna","username":"anna","name":"Anna","is_admin":false`
+	sessionToken := companionSessionToken(t, gate, token, "{"+identity+"}")
+
+	change := companionCall(gate, http.MethodPost, "/api/v1/companion/user-changed", `{"ha_user_id":"ha-anna","removed":true}`, token)
+	if change.Code != http.StatusNoContent {
+		t.Fatalf("user-removed status %d: %s", change.Code, change.Body.String())
+	}
+	wantCompanionError(t, authSessionCall(gate, token, sessionToken, "https"), http.StatusUnauthorized, "authentication_required")
+}
+
 // companionSessionToken starts a companion session over the gate and returns its token.
 func companionSessionToken(t *testing.T, gate http.Handler, pairToken, body string) string {
 	t.Helper()

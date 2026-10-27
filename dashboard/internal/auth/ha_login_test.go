@@ -243,6 +243,25 @@ func TestHAUserChangedDropsSessionsOfInactiveUser(t *testing.T) {
 	}
 }
 
+func TestHAUserRemovedKeepsStoredIdentity(t *testing.T) {
+	m := mustManager(t, filepath.Join(t.TempDir(), "users.json"), "", "")
+	addHAAccount(t, m, HAAccount{HAUserID: "u1", Username: "maria", DisplayName: "Maria", HAAdmin: true, CreatedAt: now, LastLoginAt: now})
+	session := addHASession(t, m, "u1")
+	if err := m.HAUserChanged(HAIdentity{UserID: "u1"}, false, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m.Session(session.Token); ok {
+		t.Fatal("session of removed HA user still valid")
+	}
+	accounts := m.HAAccounts()
+	if len(accounts) != 1 {
+		t.Fatalf("account must stay: got %d accounts", len(accounts))
+	}
+	if accounts[0].Username != "maria" || accounts[0].DisplayName != "Maria" || !accounts[0].HAAdmin {
+		t.Fatalf("stored identity overwritten by removal: %+v", accounts[0])
+	}
+}
+
 func TestHAUserChangedAppliesAdminFlagAtOnce(t *testing.T) {
 	m := mustManager(t, filepath.Join(t.TempDir(), "users.json"), "", "")
 	if err := m.SetHARoles("admin", []string{RoleViewOverview}, []string{RoleViewDevices}); err != nil {

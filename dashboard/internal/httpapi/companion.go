@@ -206,7 +206,9 @@ func companionUserChanged(manager *auth.Manager, w http.ResponseWriter, r *http.
 		writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 		return
 	}
-	if body.HAUserID == "" || body.Username == "" {
+	// Ein entfernter Benutzer ist in Home Assistant schon weg, sein Name ist
+	// dann nicht mehr bekannt. Die Kennung reicht, um seine Sitzungen zu beenden.
+	if body.HAUserID == "" || (!body.Removed && body.Username == "") {
 		writeErrorDetail(w, http.StatusBadRequest, "invalid_body", errMissingHAUser)
 		return
 	}
@@ -217,7 +219,7 @@ func companionUserChanged(manager *auth.Manager, w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNoContent)
 }
 
-var errMissingHAUser = errors.New("ha_user_id and username are required")
+var errMissingHAUser = errors.New("ha_user_id is required, and username unless the user was removed")
 
 // companionIdentityBody is the identity part of the companion bodies.
 type companionIdentityBody struct {

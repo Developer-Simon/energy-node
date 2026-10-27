@@ -105,9 +105,13 @@ func (m *Manager) HAUserChanged(id HAIdentity, active, removed bool) error {
 		return nil
 	}
 	updated := current
-	updated.Username = id.Username
-	updated.DisplayName = id.Name
-	updated.HAAdmin = id.Admin
+	// Bei einer Entfernung liefert HA keine Angaben mehr: das gespeicherte
+	// Konto bleibt, es werden nur die Sitzungen beendet.
+	if !removed {
+		updated.Username = id.Username
+		updated.DisplayName = id.Name
+		updated.HAAdmin = id.Admin
+	}
 	dropSessions := removed || !active
 	changed := !reflect.DeepEqual(updated, current) || (dropSessions && m.hasHASessionLocked(id.UserID))
 	if !changed {
