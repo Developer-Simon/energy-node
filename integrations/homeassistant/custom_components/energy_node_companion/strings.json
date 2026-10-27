@@ -39,14 +39,16 @@
           "stats": "Supply energy statistics",
           "panel": "Sidebar",
           "panel_title": "Name in the sidebar",
-          "panel_icon": "Icon in the sidebar"
+          "panel_icon": "Icon in the sidebar",
+          "pairing_code": "Pairing code"
         },
         "data_description": {
           "history": "Fills gaps in the dashboard's history charts from the recorder.",
           "stats": "Sends hourly energy per role from the long-term statistics, so the dashboard can show days, months and years.",
           "panel": "Shows the dashboard in the Home Assistant sidebar, for all users or only for administrators.",
           "panel_title": "Empty uses Energy Node.",
-          "panel_icon": "Empty uses the solar icon."
+          "panel_icon": "Empty uses the solar icon.",
+          "pairing_code": "Create the code in the dashboard under Settings, Users, Home Assistant. Home Assistant users can then sign in to the dashboard."
         }
       },
       "stats": {
@@ -66,7 +68,9 @@
     },
     "error": {
       "nothing_enabled": "Turn on history, energy statistics or the sidebar. With all of them off the integration does nothing.",
-      "not_a_counter": "This sensor is not a meter. Pick an energy sensor with the state class total or total_increasing."
+      "not_a_counter": "This sensor is not a meter. Pick an energy sensor with the state class total or total_increasing.",
+      "pairing_invalid": "The pairing code is invalid or has expired.",
+      "pairing_failed": "Pairing failed. Is port 8081 of the node reachable?"
     }
   },
   "selector": {

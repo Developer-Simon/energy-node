@@ -33,7 +33,9 @@
   }
 
   // locks(catalog, account, draftRoles, context): {[key]: reason}. reason is
-  // 'requires' (the permission it needs is not held), 'last_admin' or 'self'.
+  // 'requires' (the permission it needs is not held), 'last_admin', 'self' or
+  // 'preset' (a Home Assistant account without its own selection follows the
+  // preset, so every entry it may hold is locked).
   // context = {self: boolean, otherActiveAdmins: number}, counting the other
   // active local accounts that hold user_management.
   function locks(catalog, account, draftRoles, context) {
@@ -47,6 +49,11 @@
       result.__active = 'last_admin';
     }
     if (context.self) result.__active = 'self';
+    if (account.kind === 'ha' && !account.custom) {
+      catalog.forEach(entry => {
+        if (entry.ha_allowed) result[entry.key] = 'preset';
+      });
+    }
     return result;
   }
 

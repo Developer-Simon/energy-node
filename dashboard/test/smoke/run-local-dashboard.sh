@@ -4,6 +4,7 @@
 #
 #   ./run-local-dashboard.sh                    # Pruefungen laufen, dann Abbau
 #   ./run-local-dashboard.sh --keep             # laeuft weiter, URL wird ausgegeben
+#   ./run-local-dashboard.sh --keep --console    # Fake-Konsole fuer Companion von Hand steuern
 #   ./run-local-dashboard.sh --devices DIR      # andere Konfigurationen einspielen
 #   ./run-local-dashboard.sh --fixture FILE     # andere Retained-Nachrichten
 #   ./run-local-dashboard.sh --seed-data DIR    # settings/layout/energy vorbelegen
@@ -113,6 +114,7 @@ FIXTURE="$HERE/fixtures/battery-soc.json"
 SEED_DATA=""
 THEME=""
 KEEP=0
+CONSOLE=0
 SIMULATE=0
 FAKE_COMPANION=0
 INSTALLED_SERVICES_OFF=0
@@ -126,6 +128,12 @@ REJECT_CONFIGS=()
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
 UPDATES_API_PORT="${DASHBOARD_SMOKE_UPDATES_API_PORT:-18884}"
+# Companion-Port: das Dashboard legt ihn mit ENERGY_NODE_COMPANION_PORT an
+# (Standard dort 8081). Der Smoke-Test nimmt 18101, damit er nicht mit einem
+# echten Dashboard auf 8081 kollidiert.
+COMPANION_PORT="${DASHBOARD_SMOKE_COMPANION_PORT:-18101}"
+# Fake-Konsole (--console): Reiter Companion zum Steuern von Kopplung und Verlauf.
+CONSOLE_PORT="${DASHBOARD_SMOKE_CONSOLE_PORT:-18102}"
 PASSWORD="smoketest1234"
 # isSecureRequest() akzeptiert TLS oder diesen Header - ohne ihn antwortet der
 # Login mit "secure_login_required". Bei --https laeuft der Server mit einem
@@ -235,12 +243,17 @@ while [[ $# -gt 0 ]]; do
     --real-changelog) SIMULATE_INSTALLED=1; REAL_CHANGELOG=1; shift ;;
     --reject-config) REJECT_CONFIGS+=("$2"); shift 2 ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
+    --console) CONSOLE=1; shift ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
 done
 
 if [[ $SIMULATE_INSTALLED -eq 1 && $SIMULATE_PACKAGE -eq 1 ]]; then
   echo "--simulate-installed und --simulate-package schreiben beide installed-manifest.json, bitte nur eins" >&2; exit 2
+fi
+
+if [[ $CONSOLE -eq 1 && $KEEP -eq 0 ]]; then
+  echo "--console braucht --keep" >&2; exit 2
 fi
 
 if [[ ! -f "$FIXTURE" ]]; then
@@ -263,8 +276,10 @@ mkdir -p "$RUN_ROOT"
 WORK="$(mktemp -d "$RUN_ROOT/XXXXXX")"
 BROKER_PID=""
 FAKE_COMPANION_PID=""
+FAKE_HA_PID=""
 DASHBOARD_PID=""
 UPDATES_API_PID=""
+CONSOLE_PID=""
 
 # Ein Ueberbleibsel eines abgebrochenen Laufs haelt sonst den Port, das neue
 # Dashboard kann nicht binden - und curl redet unbemerkt mit dem alten Prozess,
@@ -282,7 +297,9 @@ cleanup() {
   [[ -n "$DASHBOARD_PID" ]] && kill "$DASHBOARD_PID" 2>/dev/null || true
   [[ -n "$BROKER_PID" ]] && kill "$BROKER_PID" 2>/dev/null || true
   [[ -n "$FAKE_COMPANION_PID" ]] && kill "$FAKE_COMPANION_PID" 2>/dev/null || true
+  [[ -n "$FAKE_HA_PID" ]] && kill "$FAKE_HA_PID" 2>/dev/null || true
   [[ -n "$UPDATES_API_PID" ]] && kill "$UPDATES_API_PID" 2>/dev/null || true
+  [[ -n "$CONSOLE_PID" ]] && kill "$CONSOLE_PID" 2>/dev/null || true
   # `go run` startet das Binary als Kindprozess - der ueberlebt das kill sonst.
   pkill -f "go-build.*exe/dashboard" 2>/dev/null || true
   [[ $KEEP -eq 0 ]] && rm -rf "$WORK"
@@ -351,6 +368,7 @@ check_history_exchange() {
 
 free_port "$HTTP_PORT"
 free_port "$MQTT_PORT"
+free_port "$COMPANION_PORT"
 [[ $SIMULATE_UPDATE -eq 1 ]] && free_port "$UPDATES_API_PORT"
 
 mkdir -p "$WORK/devices" "$WORK/data"
@@ -626,6 +644,7 @@ PY
 DASHBOARD_VERSION="$(tr -d '[:space:]' < "$DASHBOARD_DIR/VERSION")-dev"
 (
   cd "$DASHBOARD_DIR"
+  export ENERGY_NODE_COMPANION_PORT="$COMPANION_PORT"
   if [[ $SIMULATE_UPDATE -eq 1 ]]; then
     export ENERGY_NODE_UPDATES_API_BASE="http://127.0.0.1:$UPDATES_API_PORT"
   fi
@@ -1337,6 +1356,113 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
   rm -rf "$WORK/installer-state/job"
 fi
 
+# Home-Assistant-Companion: Kopplung am Companion-Port, Anmeldung eines
+# HA-Benutzers ueber den Pruefstrom. fake_ha_companion.py spielt die Integration.
+echo "==> Companion: Kopplung und Home-Assistant-Anmeldung"
+COMPANION_BASE="https://127.0.0.1:$COMPANION_PORT"
+HA_USER="maria"
+HA_PASSWORD="maria-smoke-pass-1"
+HA_USER_ID="ha-smoke-maria"
+HA_TOKEN_FILE="$WORK/companion-token"
+HA_COOKIES="$WORK/smoke-ha-cookies.txt"
+pairing_code="$(api -X POST -H "X-CSRF-Token: $ADMIN_CSRF" -H 'Content-Type: application/json' \
+  "$BASE/api/v1/users/companion/pairing-code" | python3 -c 'import json,sys; print(json.load(sys.stdin)["code"])')" || pairing_code=""
+if [[ -z "$pairing_code" ]]; then
+  echo "  FEHL Kopplungscode konnte nicht angelegt werden"; FAILED=1
+else
+  # Der Companion-Port liegt im Dashboard-Prozess, er kann kurz nach dem Start
+  # noch nicht antworten. GET ohne Token ergibt 401 - jede Antwort zaehlt.
+  for _ in $(seq 1 20); do
+    [[ "$(curl -sk -m 2 -o /dev/null -w '%{http_code}' "$COMPANION_BASE/api/v1/companion/pair")" != "000" ]] && break
+    sleep 1
+  done
+  python3 "$HERE/fake_ha_companion.py" --companion "$COMPANION_BASE" --code "$pairing_code" \
+    --user "$HA_USER" --password "$HA_PASSWORD" --ha-user-id "$HA_USER_ID" \
+    --token-file "$HA_TOKEN_FILE" > "$WORK/fake-ha-companion.log" 2>&1 &
+  FAKE_HA_PID=$!
+  for _ in $(seq 1 10); do
+    [[ -s "$HA_TOKEN_FILE" ]] && break
+    sleep 1
+  done
+  if [[ ! -s "$HA_TOKEN_FILE" ]]; then
+    echo "  FEHL Fake-Companion hat kein Token erhalten (Log: $WORK/fake-ha-companion.log)"; FAILED=1
+  else
+    HA_TOKEN="$(cat "$HA_TOKEN_FILE")"
+
+    login_code="$(curl -s "${CURL_INSECURE[@]}" -m 20 -c "$HA_COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
+      -o "$WORK/ha-login.json" -w '%{http_code}' -X POST "$BASE/api/v1/auth/login" \
+      -d "{\"username\":\"$HA_USER\",\"password\":\"$HA_PASSWORD\"}")"
+    if [[ "$login_code" == "200" ]] && python3 -c '
+import json, sys
+sys.exit(0 if json.load(open(sys.argv[1])).get("source") == "homeassistant" else 1)
+' "$WORK/ha-login.json"; then
+      echo "  OK   Home-Assistant-Benutzer $HA_USER meldet sich ueber HTTPS an (source homeassistant)"
+    else
+      echo "  FEHL $HA_USER meldet sich nicht ueber HTTPS an (HTTP $login_code)"; FAILED=1
+    fi
+
+    # Unter echtem TLS ist jede Anfrage sicher, das Fehlen des Kennzeichens prueft dann nichts.
+    if [[ $HTTPS -eq 1 ]]; then
+      echo "  --   $HA_USER ohne HTTPS-Kennzeichen: uebersprungen (echtes TLS)"
+    else
+      code="$(curl -s "${CURL_INSECURE[@]}" -m 20 -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
+        -X POST "$BASE/api/v1/auth/login" -d "{\"username\":\"$HA_USER\",\"password\":\"$HA_PASSWORD\"}")"
+      if [[ "$code" == "401" ]]; then
+        echo "  OK   $HA_USER ohne HTTPS-Kennzeichen wird abgewiesen (HTTP 401)"
+      else
+        echo "  FEHL $HA_USER ohne HTTPS-Kennzeichen kam mit HTTP $code durch"; FAILED=1
+      fi
+    fi
+
+    session_code="$(curl -sk -m 15 -o "$WORK/companion-session.json" -w '%{http_code}' -X POST \
+      "$COMPANION_BASE/api/v1/companion/session" -H "Authorization: Bearer $HA_TOKEN" -H "$SECURE_HEADER" \
+      -H 'Content-Type: application/json' \
+      -d "{\"ha_user_id\":\"$HA_USER_ID\",\"username\":\"$HA_USER\",\"name\":\"Maria\",\"is_admin\":false}")"
+    CS_TOKEN="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["token"])' "$WORK/companion-session.json" 2>/dev/null)" || CS_TOKEN=""
+    if [[ "$session_code" == "200" && -n "$CS_TOKEN" ]]; then
+      echo "  OK   Companion-Sitzung fuer $HA_USER am Companion-Port ausgestellt (HTTP 200)"
+    else
+      echo "  FEHL Companion-Sitzung kam mit HTTP $session_code ohne Token"; FAILED=1
+    fi
+
+    if [[ -n "$CS_TOKEN" ]]; then
+      auth_code="$(curl -sk -m 15 -o "$WORK/companion-authsession.json" -w '%{http_code}' \
+        -H "Authorization: Bearer $HA_TOKEN" -H "Cookie: energy_node_session=$CS_TOKEN" -H "$SECURE_HEADER" \
+        "$COMPANION_BASE/api/v1/auth/session")"
+      if [[ "$auth_code" == "200" ]] && python3 -c '
+import json, sys
+sys.exit(0 if json.load(open(sys.argv[1])).get("via") == "companion" else 1)
+' "$WORK/companion-authsession.json"; then
+        echo "  OK   Sitzung am Companion-Port meldet via companion (HTTP 200)"
+      else
+        echo "  FEHL Sitzung am Companion-Port kam mit HTTP $auth_code ohne via companion"; FAILED=1
+      fi
+      code="$(curl -s "${CURL_INSECURE[@]}" -m 15 -o /dev/null -w '%{http_code}' \
+        -H "Cookie: energy_node_session=$CS_TOKEN" -H "$SECURE_HEADER" "$BASE/api/v1/auth/session")"
+      if [[ "$code" == "401" ]]; then
+        echo "  OK   Companion-Sitzung am Hauptport abgewiesen (HTTP 401)"
+      else
+        echo "  FEHL Companion-Sitzung kam am Hauptport mit HTTP $code durch"; FAILED=1
+      fi
+    fi
+
+    code="$(curl -s "${CURL_INSECURE[@]}" -m 10 -o /dev/null -w '%{http_code}' -b "$COOKIES" -H "$SECURE_HEADER" \
+      -H "X-CSRF-Token: $ADMIN_CSRF" -X DELETE "$BASE/api/v1/users/companion")"
+    if [[ "$code" == "200" ]]; then
+      echo "  OK   Kopplung durch Admin aufgehoben (HTTP 200)"
+    else
+      echo "  FEHL Kopplung aufheben kam mit HTTP $code"; FAILED=1
+    fi
+    code="$(curl -sk -m 15 -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $HA_TOKEN" \
+      -H "$SECURE_HEADER" "$COMPANION_BASE/api/v1/auth/session")"
+    if [[ "$code" == "401" ]]; then
+      echo "  OK   altes Companion-Token nach Entkoppeln abgewiesen (HTTP 401)"
+    else
+      echo "  FEHL altes Companion-Token kam nach Entkoppeln mit HTTP $code durch"; FAILED=1
+    fi
+  fi
+fi
+
 check_history_exchange || FAILED=1
 
 echo
@@ -1362,6 +1488,20 @@ print(json.dumps(sorted(set(roles) | {"http_login"})))')"
     || echo "Warnung: HTTP-Login fuer admin konnte nicht eingerichtet werden" >&2
   echo "Dashboard laeuft weiter: $BASE  (Login admin / $PASSWORD)"
   [[ $HTTPS -eq 1 ]] || echo "Ueber HTTP (eingeschraenkte Sitzung): admin / $HTTP_PASSWORD"
+  if [[ $CONSOLE -eq 1 ]]; then
+    free_port "$CONSOLE_PORT"
+    python3 "$HERE/fake_console.py" --port "$CONSOLE_PORT" --dashboard "$BASE" --companion "$COMPANION_BASE" \
+      > "$WORK/fake-console.log" 2>&1 &
+    CONSOLE_PID=$!
+    sleep 1
+    if kill -0 "$CONSOLE_PID" 2>/dev/null; then
+      echo "Fake-Konsole: http://127.0.0.1:$CONSOLE_PORT"
+    else
+      echo "Warnung: Fake-Konsole konnte nicht starten (Log: $WORK/fake-console.log)" >&2
+      CONSOLE_PID=""
+    fi
+    echo "Hinweis: Der automatische Lauf hat die Kopplung zum Ende aufgehoben. Den Kopplungscode in der Benutzerverwaltung neu erzeugen, dann in der Fake-Konsole koppeln."
+  fi
   echo "Arbeitsverzeichnis: $WORK"
   # go:embed bindet Templates/CSS/JS beim Kompilieren ein - dieser Prozess
   # zeigt bis zu seinem Ende den Stand von eben, auch bei neuen Dateien.

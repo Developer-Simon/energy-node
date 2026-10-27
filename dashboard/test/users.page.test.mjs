@@ -37,6 +37,12 @@ function createServer() {
       { username: 'werkstatt', roles: ['view_overview'], disabled: false, has_http_password: false },
     ],
     guestRoles: ['view_overview'],
+    // Home Assistant presets {admin, user}, null while they are not set.
+    haRoles: null,
+    haAccounts: [],
+    companion: { paired: false },
+    // Lifetime of a new pairing code in ms.
+    pairingMs: 600000,
     policy: { min_length: 10, min: 8, max: 64 },
     sessions: [
       { id: 'a1b2c3d4e5f60708', username: 'anna', guest: false, restricted: false, expires_at: '2026-10-26T10:00:00Z', current: true },
@@ -53,6 +59,9 @@ function route(server, url, method, body) {
       users: server.users.map((user) => ({ ...user, roles: [...user.roles] })),
       password_policy: { ...server.policy },
       guest_roles: [...server.guestRoles],
+      ha_roles: server.haRoles ? { admin: [...server.haRoles.admin], user: [...server.haRoles.user] } : null,
+      ha_accounts: server.haAccounts.map((account) => ({ ...account, roles: [...account.roles] })),
+      companion: { ...server.companion },
       catalog: CATALOG,
       migration_notice: false,
       self: 'simon',
@@ -61,6 +70,28 @@ function route(server, url, method, body) {
   if (url === '/api/v1/users/guest-roles' && method === 'PUT') {
     server.guestRoles = body.roles;
     return { guest_roles: body.roles };
+  }
+  if (url === '/api/v1/users/ha-roles' && method === 'PUT') {
+    server.haRoles = { admin: [...body.admin], user: [...body.user] };
+    return { ha_roles: server.haRoles };
+  }
+  if (url === '/api/v1/users/companion/pairing-code' && method === 'POST') {
+    return { code: 'K7MQ2XWP9HDT', expires_at: new Date(Date.now() + server.pairingMs).toISOString() };
+  }
+  if (url === '/api/v1/users/companion/pairing-code' && method === 'DELETE') {
+    return { status: 'pairing_code_dropped' };
+  }
+  if (url === '/api/v1/users/companion' && method === 'DELETE') {
+    server.companion = { paired: false };
+    return { status: 'unpaired' };
+  }
+  const haAccount = /^\/api\/v1\/users\/ha%3A([^/]+)$/.exec(url);
+  if (haAccount && method === 'PUT') {
+    const account = server.haAccounts.find((item) => item.ha_user_id === haAccount[1]);
+    account.roles = [...body.roles];
+    account.disabled = body.disabled;
+    account.roles_custom = body.roles_custom;
+    return { ha_user_id: account.ha_user_id };
   }
   if (url === '/api/v1/users' && method === 'POST') {
     server.users.push({ username: body.username, roles: [...body.roles], disabled: false, has_http_password: false });
@@ -468,7 +499,7 @@ test('creating an account with an elevated right asks first', async () => {
 test('opening the sessions tab loads the list and polls every 30 seconds', async () => {
   const { component, calls, timers } = createUsersPage();
   await component.init();
-  assert.equal(component.tab, 'accounts');
+  assert.equal(component.tab, 'signin');
   assert.deepEqual(timers.running, []);
 
   await component.setTab('sessions');
@@ -482,6 +513,20 @@ test('opening the sessions tab loads the list and polls every 30 seconds', async
   timers.tick();
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(calls.filter((call) => call.url === '/api/v1/user-sessions').length, before + 1, 'the timer reloads');
+});
+
+test('the sign-in tab is the default and shows the own session and account cards', async () => {
+  const { component } = createUsersPage();
+  await component.init();
+  assert.equal(component.signinShown, true);
+
+  await component.setTab('accounts');
+  assert.equal(component.tab, 'accounts');
+  assert.equal(component.signinShown, false);
+
+  await component.setTab('anything else');
+  assert.equal(component.tab, 'signin');
+  assert.equal(component.signinShown, true);
 });
 
 test('leaving the sessions tab stops the timer and opening it again does not stack a second one', async () => {
@@ -523,4 +568,133 @@ test('the current session cannot be ended from the tab', async () => {
   const [current, other] = [component.sessions[0], component.sessions[1]];
   assert.equal(component.canEndSession(current), false);
   assert.equal(component.canEndSession(other), true);
+});
+
+// One Home Assistant account (admin) and the presets, for the tests below.
+function haServer() {
+  const server = createServer();
+  server.haRoles = { admin: ['view_devices', 'view_overview'], user: ['view_overview'] };
+  server.haAccounts = [{
+    ha_user_id: 'u1', username: 'hanna', display_name: 'Hanna', ha_admin: true, roles_custom: false,
+    roles: [], disabled: false, name_conflict: false,
+  }];
+  return server;
+}
+
+test('ha presets appear only when ha_roles is set', async () => {
+  const plain = createUsersPage();
+  await plain.component.init();
+  assert.equal(plain.component.presets.length, 1);
+
+  const { component } = createUsersPage({ server: haServer() });
+  await component.init();
+  // Copied out of the page's vm realm, so deepEqual compares plain arrays.
+  assert.deepEqual([...component.presets.map((preset) => preset.id)], ['preset:guest', 'preset:ha_admin', 'preset:ha_user']);
+  assert.equal(component.kindOf('preset:ha_admin'), 'ha_set');
+});
+
+test('saving the ha admin preset sends both lists', async () => {
+  const { component, calls, server } = createUsersPage({ server: haServer() });
+  await component.init();
+  component.toggleRole('preset:ha_admin', 'view_history');
+  assert.equal(await component.save('preset:ha_admin'), true);
+
+  const put = writes(calls).find((call) => call.method === 'PUT');
+  assert.equal(put.url, '/api/v1/users/ha-roles');
+  assert.deepEqual(put.body, {
+    admin: ['view_history', 'view_overview', 'view_devices'].sort(),
+    user: ['view_overview'],
+  });
+  assert.deepEqual(server.haRoles, put.body);
+});
+
+test('switching an ha account to custom starts from its preset', async () => {
+  const { component } = createUsersPage({ server: haServer() });
+  await component.init();
+  const id = 'ha:u1';
+  assert.equal(component.kindOf(id), 'ha');
+  assert.equal(component.lockFor(id, 'view_history'), 'preset', 'the preset locks every entry');
+  assert.equal(component.isDirty(id), false);
+
+  component.setCustom(id, true);
+  assert.deepEqual([...component.draftOf(id).roles], ['view_devices', 'view_overview']);
+  assert.equal(component.isDirty(id), true, 'the switch alone is a change');
+});
+
+test('saving an ha account sends roles_custom', async () => {
+  const { component, calls } = createUsersPage({ server: haServer() });
+  await component.init();
+  const id = 'ha:u1';
+  component.setCustom(id, true);
+  component.toggleRole(id, 'view_history');
+  assert.equal(await component.save(id), true);
+
+  const put = writes(calls).find((call) => call.method === 'PUT');
+  assert.equal(put.url, '/api/v1/users/ha%3Au1');
+  assert.deepEqual(put.body, {
+    roles: ['view_devices', 'view_history', 'view_overview'],
+    disabled: false,
+    roles_custom: true,
+  });
+  assert.equal(component.accountFor(id).roles_custom, true, 'reloaded after the save');
+});
+
+test('pairing code counts down and disappears once paired', async () => {
+  const { component, server, timers, stores, window } = createUsersPage();
+  await component.init();
+  assert.equal(component.pairingStage(), 'none');
+
+  assert.equal(await component.createPairingCode(), true);
+  assert.equal(component.pairingStage(), 'code');
+  assert.equal(component.pairingCode, 'K7MQ2XWP9HDT');
+  assert.ok(component.pairingRemaining >= 599 && component.pairingRemaining <= 600, 'ten minutes');
+  assert.deepEqual(timers.running, [1000]);
+
+  const before = component.pairingRemaining;
+  timers.tick();
+  assert.equal(component.pairingRemaining, before - 1, 'one second per tick');
+
+  server.companion = { paired: true };
+  await component.load();
+  assert.equal(component.pairingCode, '', 'the code is used up');
+  assert.equal(component.pairingStage(), 'paired');
+  assert.deepEqual(timers.running, [], 'the countdown stops');
+  assert.equal(stores.toasts.last(), window.I18n.t('users.ha.paired_toast'));
+});
+
+test('re-pairing keeps the code until a new paired_at arrives', async () => {
+  const server = createServer();
+  server.companion = { paired: true, paired_at: '2026-10-12T08:00:00Z' };
+  const { component, server: srv, stores, window } = createUsersPage({ server });
+  await component.init();
+  assert.equal(component.pairingStage(), 'paired');
+
+  assert.equal(await component.createPairingCode(), true);
+  assert.equal(component.pairingStage(), 'code');
+
+  await component.load();
+  assert.equal(component.pairingCode, 'K7MQ2XWP9HDT', 'same paired_at keeps the code');
+  assert.equal(component.pairingStage(), 'code');
+  assert.notEqual(stores.toasts.last(), window.I18n.t('users.ha.paired_toast'));
+
+  srv.companion = { paired: true, paired_at: '2026-10-26T09:00:00Z' };
+  await component.load();
+  assert.equal(component.pairingCode, '', 'new paired_at means the pairing is done');
+  assert.equal(component.pairingStage(), 'paired');
+  assert.equal(stores.toasts.last(), window.I18n.t('users.ha.paired_toast'));
+});
+
+test('pairing code expires', async () => {
+  const server = createServer();
+  server.pairingMs = 3000;
+  const { component, timers, stores, window } = createUsersPage({ server });
+  await component.init();
+  await component.createPairingCode();
+  assert.equal(component.pairingStage(), 'code');
+
+  for (let tick = 0; tick < 10 && timers.running.length > 0; tick += 1) timers.tick();
+  assert.equal(component.pairingStage(), 'none');
+  assert.equal(component.pairingCode, '');
+  assert.deepEqual(timers.running, []);
+  assert.equal(stores.toasts.last(), window.I18n.t('users.ha.code_expired'));
 });

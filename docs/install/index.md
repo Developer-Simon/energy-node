@@ -247,6 +247,7 @@ Firewall:
 sudo ufw allow ssh
 sudo ufw allow 1883/tcp    # MQTT
 sudo ufw allow 8080/tcp    # dashboard (HTTP)
+sudo ufw allow 8081/tcp    # Home Assistant companion (HTTPS, own certificate)
 sudo ufw allow 443/tcp     # dashboard (HTTPS via Caddy, see section 8)
 sudo ufw enable
 ```

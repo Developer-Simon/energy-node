@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import aiohttp
 
 from .client import DashboardClient
+from .link import CompanionLink
 from .panel_access import PanelSessions
 
 
@@ -18,3 +19,5 @@ class EnergyNodeData:
     base_url: str
     panel_mode: str
     panel_sessions: PanelSessions
+    # Pruefkanal zum Companion-Port. Nur mit Token, also nach der Kopplung.
+    link: CompanionLink | None = None

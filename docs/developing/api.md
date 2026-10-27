@@ -197,6 +197,17 @@ to be set at all.
 | PUT | `/api/v1/users/guest-roles` | `user_management`, HTTPS, CSRF | Permissions every guest account gets |
 | PUT | `/api/v1/users/me/password` | HTTPS, CSRF | Change the own password, needs the old one |
 | PUT | `/api/v1/users/me/http-password` | HTTPS, CSRF | Set or remove the own HTTP password, needs `http_login` |
+| POST | `/api/v1/users/companion/pairing-code` | `user_management`, HTTPS, CSRF | Create the 12-character pairing code, valid for 10 minutes |
+| DELETE | `/api/v1/users/companion/pairing-code` | `user_management`, HTTPS, CSRF | Discard an open pairing code |
+| DELETE | `/api/v1/users/companion` | `user_management`, HTTPS, CSRF | Unpair the companion, all Home Assistant sessions end |
+| PUT | `/api/v1/users/ha-roles` | `user_management`, HTTPS, CSRF | Presets `admin` and `user` for Home Assistant accounts |
+| PUT | `/api/v1/users/ha:{ha_user_id}` | `user_management`, HTTPS, CSRF | Set roles, `roles_custom` and `disabled` of a Home Assistant account |
+| DELETE | `/api/v1/users/ha:{ha_user_id}` | `user_management`, HTTPS, CSRF | Delete a Home Assistant account |
+
+Home Assistant accounts have no password and no local sign-in. They are
+listed with the local accounts, but the `ha:` prefix keeps their path apart
+from local names, which cannot contain a colon. A local account cannot take
+the name of a Home Assistant account.
 
 Errors use the usual JSON form with a key such as `last_admin`,
 `self_protection` or `user_exists`.
@@ -854,6 +865,54 @@ server rejects it.
 `tuya_devices.json` (matching by `id` or `device_id`, otherwise appended) and
 saves it the same way as `PUT /api/v1/configurations/tuya_devices`, with
 revision and reload.
+
+## Companion port (8081)
+
+The Home Assistant companion talks to the dashboard on its own listener,
+port 8081, next to the main port (8080). It serves HTTPS with a certificate
+the dashboard creates once (ECDSA P-256, valid for 20 years) and keeps in the
+data directory as `companion-tls.pem` and `companion-tls.key`. Only the
+companion's own routes are served there, and the main port answers
+`/api/v1/companion/*` with 404.
+
+Every request to the companion port needs `Authorization: Bearer <token>`,
+the pairing token, with one exception: `POST /api/v1/companion/pair`. A
+missing or unknown token gets 401 with the code `companion_unauthorized`.
+The gate removes the header before the request reaches the handlers and
+treats the request as insecure unless `X-Forwarded-Proto` is exactly `https`.
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/api/v1/companion/pair` | Pair with the proofs of the companion, see below. Answers the token and the server proof |
+| GET | `/api/v1/companion/stream` | Server-sent events. `verify` asks for a Home Assistant sign-in check, `ping` every 25 seconds. A new stream ends the old one |
+| POST | `/api/v1/companion/verify/{id}` | Answer one `verify` event with `{ok, ha_user_id, username, name, is_admin}`. 204 on success, 404 `verify_unknown` when the check is no longer pending |
+| POST | `/api/v1/companion/session` | Start the dashboard session of a Home Assistant user. Body: `ha_user_id`, `username`, `name`, `is_admin`. Answers `token`, `csrf_token` and `expires_at`. Only valid on the companion port |
+| POST | `/api/v1/companion/user-changed` | Report a changed Home Assistant user, `active` and `removed`. An inactive or removed user loses all sessions. 204 |
+
+Pairing is a proof exchange, the code never travels. The companion sends
+`nonce` (64 hex characters) and `proof`, an HMAC-SHA256 over the context
+`energy-node-pair-v1`, `client`, the certificate fingerprint (SHA-256 of the
+DER certificate of port 8081) and the nonce, keyed with the code. The
+dashboard answers with a new `token` and a `proof` that also covers the token
+(`server`). Each side checks the other's proof, so neither side sends the code
+and a proof does not work against another certificate. The code has 12
+characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`, is valid for 10 minutes,
+and expires after five wrong attempts. Wrong attempts are also rate limited.
+
+A new pairing replaces the old one, and unpairing removes it. Both end all
+Home Assistant sessions at once and close the stream. Open `verify` checks
+then end as unavailable.
+
+Errors on these routes use the usual form:
+
+| Code | Status | Meaning |
+|---|---|---|
+| `companion_unauthorized` | 401 | Token missing or unknown, or the companion is not paired |
+| `pairing_invalid` | 403 | Wrong, used or expired pairing code |
+| `account_disabled` | 403 | The Home Assistant account is disabled in the dashboard |
+| `verify_unknown` | 404 | The `verify` check is no longer pending |
+| `invalid_body` | 400 | Body not decodable, nonce not valid, or `ha_user_id` or `username` missing |
+| `companion_failed` | 500 | The change could not be saved |
 
 ## Not under `/api/v1/`
 

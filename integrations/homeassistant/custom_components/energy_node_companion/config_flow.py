@@ -17,9 +17,11 @@ from homeassistant.helpers.selector import (
 
 from .client import AuthRequired, DashboardClient, ExchangeError
 from .const import (
-    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_STATS, CONF_URL, CONF_VERIFY_SSL, COUNTER_PREFIX,
-    DOMAIN, PANEL_ALL, PANEL_ICON, PANEL_MODES, PANEL_OFF, PANEL_TITLE, PROTOCOL, STATS_ROLES, counter_key,
+    CONF_FINGERPRINT, CONF_HISTORY, CONF_PAIRING_CODE, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_STATS,
+    CONF_TOKEN, CONF_URL, CONF_VERIFY_SSL, COUNTER_PREFIX, DOMAIN, PANEL_ALL, PANEL_ICON, PANEL_MODES, PANEL_OFF,
+    PANEL_TITLE, PROTOCOL, STATS_ROLES, counter_key,
 )
+from .pairing import PairingFailed, async_fetch_fingerprint, async_pair, companion_base
 
 # Das Geraet, das das Dashboard per MQTT Discovery anlegt
 # (energydiscovery.DeviceIdentifier). Sein configuration_url zeigt auf Caddy
@@ -130,6 +132,8 @@ OPTIONS_SCHEMA = vol.Schema({
     # beim Speichern, und das Panel nimmt wieder Name und Symbol ab Werk.
     vol.Optional(CONF_PANEL_TITLE): TextSelector(),
     vol.Optional(CONF_PANEL_ICON): IconSelector(),
+    # Kopplungscode aus dem Dashboard. Gefuellt koppelt das Speichern neu.
+    vol.Optional(CONF_PAIRING_CODE): TextSelector(),
 })
 
 # Ein Zaehler je Rolle, leer heisst Automatisch (Discovery-Sensor).
@@ -156,12 +160,16 @@ class EnergyNodeOptionsFlow(OptionsFlowWithReload):
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
+            # Der Code dient nur zum Koppeln und landet nie in den Optionen.
+            code = str(user_input.pop(CONF_PAIRING_CODE, "") or "").strip()
             if not user_input[CONF_HISTORY] and not user_input[CONF_STATS] and user_input[CONF_PANEL] == PANEL_OFF:
                 errors["base"] = "nothing_enabled"
-            elif user_input[CONF_STATS]:
-                self._base = user_input
-                return await self.async_step_stats()
-            else:
+            elif code:
+                errors = await self._async_pair(code)
+            if not errors:
+                if user_input[CONF_STATS]:
+                    self._base = user_input
+                    return await self.async_step_stats()
                 # Zaehler bleiben erhalten, falls die Statistik spaeter wieder an geht.
                 return self.async_create_entry(data={**_counters(self.config_entry.options), **user_input})
         current = {
@@ -174,6 +182,21 @@ class EnergyNodeOptionsFlow(OptionsFlowWithReload):
             data_schema=self.add_suggested_values_to_schema(OPTIONS_SCHEMA, user_input or current),
             errors=errors,
         )
+
+    async def _async_pair(self, code: str) -> dict[str, str]:
+        """Koppelt mit dem Dashboard und speichert Token und Fingerabdruck im Eintrag."""
+        base = companion_base(self.config_entry.data[CONF_URL])
+        try:
+            fingerprint = await async_fetch_fingerprint(self.hass, base)
+            token = await async_pair(
+                async_get_clientsession(self.hass, verify_ssl=False), base, code, fingerprint,
+            )
+        except PairingFailed as err:
+            return {"pairing_code": "pairing_invalid" if err.reason == "invalid_code" else "pairing_failed"}
+        self.hass.config_entries.async_update_entry(
+            self.config_entry, data={**self.config_entry.data, CONF_TOKEN: token, CONF_FINGERPRINT: fingerprint},
+        )
+        return {}
 
     async def async_step_stats(self, user_input: dict | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}

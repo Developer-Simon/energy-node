@@ -1,0 +1,178 @@
+import socket
+import time
+
+import pytest
+
+from fake_companion import HOUR_MS, ROLES, TIER, FakeCompanion, Session, hour_values
+
+PEER = "peer-1"
+
+
+def wait_until(predicate, timeout=5.0):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.02)
+    raise AssertionError("Bedingung nicht erreicht")
+
+
+@pytest.fixture
+def history_dashboard(stub_exchange):
+    return stub_exchange
+
+
+@pytest.fixture
+def make_companion(history_dashboard):
+    created = []
+
+    def make(days=3):
+        lines = []
+        companion = FakeCompanion(Session(history_dashboard.url), days, log=lines.append)
+        created.append(companion)
+        return companion, lines
+
+    yield make
+    for companion in created:
+        companion.stop()
+
+
+def started(history_dashboard, make_companion):
+    companion, lines = make_companion()
+    companion.start()
+    wait_until(lambda: history_dashboard.offers)
+    return companion, lines
+
+
+def daylight_window(now, hours=5):
+    """Fenster in der Vergangenheit mit PV-Erzeugung in allen Stunden."""
+    for back in range(6, 120):
+        begin = now - back * HOUR_MS
+        if all(hour_values(begin + i * HOUR_MS)["pv"] > 0 for i in range(hours)):
+            return begin, begin + hours * HOUR_MS
+    raise AssertionError("kein Tageslicht-Fenster gefunden")
+
+
+def ask(dashboard, begin, end, series="role:pv", req_id="r1"):
+    dashboard.send("request", {
+        "peer": "requester-1", "req_id": req_id, "series": series, "tier": TIER,
+        "ranges": [[begin, end]]})
+
+
+def test_start_makes_offer_after_hello(history_dashboard, make_companion):
+    companion, lines = started(history_dashboard, make_companion)
+
+    offer = history_dashboard.offers[0]
+    assert offer["peer"] == PEER
+    coverage = offer["coverage"][TIER]
+    assert set(coverage) == {f"role:{role}" for role in ROLES}
+    assert all("n" in census for census in coverage.values())
+    wait_until(lambda: "Angebot gesendet" in lines)
+
+
+def test_scale_multiplies_delivered_values(history_dashboard, make_companion):
+    companion, _ = started(history_dashboard, make_companion)
+    companion.scale["pv"] = 2.0
+    begin, end = daylight_window(companion.now_hour())
+
+    ask(history_dashboard, begin, end)
+    wait_until(lambda: any(body["final"] for _, body in history_dashboard.deliveries()))
+
+    rows = [row for _, body in history_dashboard.deliveries() for row in body["rows"]]
+    assert len(rows) == 5
+    for row in rows:
+        assert row["avg"] == pytest.approx(hour_values(row["ts"])["pv"] * 2, abs=0.06)
+        assert row["avg"] > 0
+
+
+def test_silent_fault_sends_no_deliver(history_dashboard, make_companion):
+    companion, lines = started(history_dashboard, make_companion)
+    companion.faults["silent"] = True
+    begin, end = daylight_window(companion.now_hour())
+
+    ask(history_dashboard, begin, end)
+    wait_until(lambda: any(line.startswith("Nachfrage") for line in lines))
+    time.sleep(0.2)
+
+    assert history_dashboard.deliveries() == []
+
+
+def test_partial_fault_sends_only_first_chunk_not_final(history_dashboard, make_companion):
+    companion, _ = started(history_dashboard, make_companion)
+    companion.faults["partial"] = True
+    begin, end = daylight_window(companion.now_hour())
+
+    ask(history_dashboard, begin, end)
+    wait_until(lambda: history_dashboard.deliveries())
+    time.sleep(0.3)
+
+    deliveries = history_dashboard.deliveries()
+    assert len(deliveries) == 1
+    body = deliveries[0][1]
+    assert body["final"] is False
+    assert len(body["rows"]) == history_dashboard.max_rows
+
+
+def test_delay_fault_delays_first_deliver(history_dashboard, make_companion):
+    companion, _ = started(history_dashboard, make_companion)
+    companion.faults["delay_ms"] = 300
+    begin, end = daylight_window(companion.now_hour())
+
+    sent = time.monotonic()
+    ask(history_dashboard, begin, end)
+    wait_until(lambda: history_dashboard.deliveries())
+
+    first_at = history_dashboard.deliveries()[0][0]
+    assert first_at - sent >= 0.29
+
+
+def test_stop_ends_loop_and_clears_peer(history_dashboard, make_companion):
+    companion, _ = started(history_dashboard, make_companion)
+    assert companion.peer_id == PEER
+
+    companion.stop()
+    time.sleep(0.5)
+
+    assert companion.running is False
+    assert companion.peer_id == ""
+    assert history_dashboard.stream_connections == 1
+    assert companion.state()["running"] is False
+
+
+def test_stop_during_login_ends_stream_promptly(history_dashboard, make_companion):
+    history_dashboard.login_gate.clear()
+    history_dashboard.hello_gate.clear()  # kein hello: nur ein Ereignis wuerde die Schleife beenden
+    companion, _ = make_companion()
+    companion.start()
+    assert history_dashboard.login_seen.wait(5)
+
+    companion.stop()
+    history_dashboard.login_gate.set()
+
+    companion._thread.join(3)
+    assert not companion._thread.is_alive()
+    wait_until(lambda: history_dashboard.open_streams == 0, timeout=3)
+    assert companion.running is False
+    assert companion.peer_id == ""
+
+
+def test_history_start_survives_unreachable_dashboard(make_companion):
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    companion = FakeCompanion(Session(f"http://127.0.0.1:{port}"), 3)
+    companion.start()
+    try:
+        wait_until(lambda: companion.state()["error"])
+        assert companion.running is True
+        assert companion.state()["error"]
+    finally:
+        companion.stop()
+
+
+def test_cli_signature_unchanged(history_dashboard):
+    companion = FakeCompanion(Session(history_dashboard.url), 400)
+
+    assert companion.scale == {role: 1.0 for role in ROLES}
+    assert companion.faults == {"delay_ms": 0, "silent": False, "partial": False}
+    assert companion.running is False

@@ -1100,7 +1100,7 @@ func mastheadFrom(value settings.Settings) mastheadView {
 // Login renders the sign-in page. overHTTP marks a request that is not
 // secure: the form stays usable there, and the page explains the reduced
 // functionality instead of disabling it.
-func Login(overHTTP bool, store *settings.Store, adminAuthWarningKey string) http.Handler {
+func Login(overHTTP bool, store *settings.Store, adminAuthWarningKey string, haPaired bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		theme := settings.ThemeMint
 		showLanguageSwitch := true
@@ -1116,7 +1116,7 @@ func Login(overHTTP bool, store *settings.Store, adminAuthWarningKey string) htt
 		}
 		lang := localize.Resolve(r, translator.Languages())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		data := map[string]any{"OverHTTP": overHTTP, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarningKey": adminAuthWarningKey, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch, "DashboardTitle": title}
+		data := map[string]any{"OverHTTP": overHTTP, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarningKey": adminAuthWarningKey, "HAPaired": haPaired, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch, "DashboardTitle": title}
 		if err := loginSets.get(lang).ExecuteTemplate(w, "login", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

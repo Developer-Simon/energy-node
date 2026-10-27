@@ -18,6 +18,9 @@
   // card for a new account are fixed ids. Usernames cannot contain a colon, so
   // these never collide with an account name ('__new__' would, underscores are allowed).
   const GUEST_PRESET_ID = 'preset:guest';
+  const HA_ADMIN_ID = 'preset:ha_admin';
+  const HA_USER_ID = 'preset:ha_user';
+  const HA_PREFIX = 'ha:';
   const NEW_ID = 'draft:new';
   // Until GET /api/v1/users answers, the policy is the server default.
   const DEFAULT_POLICY = Object.freeze({min_length: 10, min: 8, max: 64});
@@ -26,6 +29,11 @@
   const USERNAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
   // How long the "saved" note shows in a card head.
   const SAVED_MS = 1800;
+  // The pairing code is shown with a 1 s countdown; the list is reloaded
+  // every PAIRING_RELOAD_TICKS seconds while it is open.
+  const PAIRING_RELOAD_TICKS = 3;
+  // How long the copy button shows "Copied".
+  const COPIED_MS = 1800;
   // Collapse time of a removed row (spec section 8: 240 to 260 ms). With
   // prefers-reduced-motion the row only fades, so the wait is shorter.
   const LEAVE_MS = 260;
@@ -39,6 +47,11 @@
     : LEAVE_MS);
 
   const sortedRoles = (roles) => [...(roles || [])].sort();
+  // Whole seconds left until an ISO time, 0 when it is past or unreadable.
+  const secondsUntil = (iso) => {
+    const seconds = Math.ceil((Date.parse(iso) - Date.now()) / 1000);
+    return Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  };
   const sameRoles = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const enc = (name) => encodeURIComponent(name);
 
@@ -57,14 +70,38 @@
     policy: {...DEFAULT_POLICY},
     // The minimum length as typed in the policy card, a number.
     policyDraft: DEFAULT_POLICY.min_length,
-    // Open tab of the users page: 'accounts' or 'sessions'.
-    tab: 'accounts',
+    // Open tab of the users page: 'signin', 'accounts' or 'sessions'.
+    tab: 'signin',
+    // The own session and account cards belong to the sign-in tab.
+    get signinShown() { return this.tab === 'signin'; },
     // Logged-in sessions from GET /api/v1/user-sessions.
     sessions: [],
     sessionsError: '',
     // Id of the 30 s reload timer while the sessions tab is open, else null.
     sessionTimer: null,
-    // The guest preset card. Its roles are guest_roles.
+    // Home Assistant accounts from GET /api/v1/users, without hashes.
+    haAccounts: [],
+    // The presets for Home Assistant accounts {admin, user}, null until set.
+    haRoles: null,
+    // Companion pairing state from GET /api/v1/users: {paired, ...}.
+    companion: {paired: false},
+    // Open pairing code, '' when none is shown.
+    pairingCode: '',
+    // ISO time the open code expires, null when none.
+    pairingExpiresAt: null,
+    // Seconds left on the open code.
+    pairingRemaining: 0,
+    // Id of the 1 s countdown timer while a code is shown, else null.
+    pairingTimer: null,
+    // True for a short time after the code was copied.
+    pairingCopied: false,
+    // Companion state when the shown code was created: paired or not, and paired_at.
+    pairingWasPaired: false,
+    pairingBaseline: null,
+    // Id of the timer that clears pairingCopied, else null.
+    pairingCopiedTimer: null,
+    // The guest preset card and the two Home Assistant preset cards. Their
+    // roles are guest_roles and ha_roles.
     presets: [],
     migrationNotice: false,
     // Unsaved state per card id: {roles, disabled}. Survives switching cards.
@@ -100,9 +137,27 @@
         this.policy = {...DEFAULT_POLICY, ...(body.password_policy || {})};
         if (!keepPolicyDraft) this.policyDraft = this.policy.min_length;
         this.presets = [{id: GUEST_PRESET_ID, roles: sortedRoles(body.guest_roles)}];
+        this.haRoles = body.ha_roles || null;
+        if (this.haRoles) {
+          this.presets.push(
+            {id: HA_ADMIN_ID, roles: sortedRoles(this.haRoles.admin)},
+            {id: HA_USER_ID, roles: sortedRoles(this.haRoles.user)},
+          );
+        }
+        this.haAccounts = body.ha_accounts || [];
+        this.companion = body.companion || {paired: false};
         this.catalog = body.catalog || [];
         this.self = body.self || '';
         this.migrationNotice = Boolean(body.migration_notice);
+        // A pairing is done when the companion is paired and either was not paired
+        // when the code was created or has a new paired_at. A re-pair of an already
+        // paired companion keeps the code until the new pairing shows up.
+        const pairingDone = this.companion.paired
+          && (!this.pairingWasPaired || (this.companion.paired_at || null) !== this.pairingBaseline);
+        if (this.pairingCode && pairingDone) {
+          this.clearPairingCode();
+          this.$store.toasts.push(t('users.ha.paired_toast'));
+        }
       } catch (error) {
         this.error = error.message;
       } finally {
@@ -110,28 +165,38 @@
       }
     },
 
-    // Stops the sessions timer when the page goes away.
+    // Stops the timers when the page goes away.
     destroy() {
       this.stopSessionTimer();
+      this.stopPairingTimer();
+      window.clearTimeout(this.pairingCopiedTimer);
     },
 
     // --- identity helpers -------------------------------------------------
 
-    // 'preset' for the guest card, 'new' for the creation card, else 'account'.
+    // 'preset' for the guest and Home Assistant preset cards, 'ha' for a Home
+    // Assistant account, 'new' for the creation card, else 'account'.
     cardKind(id) {
-      if (id === GUEST_PRESET_ID) return 'preset';
+      if (id === GUEST_PRESET_ID || id === HA_ADMIN_ID || id === HA_USER_ID) return 'preset';
+      if (id.startsWith(HA_PREFIX)) return 'ha';
       if (id === NEW_ID) return 'new';
       return 'account';
     },
 
-    // The UsersModel account kind: 'guest' for the preset, 'local' otherwise.
+    // The UsersModel account kind: 'guest' for the guest preset, 'ha_set' for
+    // the Home Assistant presets, 'ha' for a Home Assistant account, else 'local'.
     kindOf(id) {
-      return this.cardKind(id) === 'preset' ? 'guest' : 'local';
+      const kind = this.cardKind(id);
+      if (kind === 'preset') return id === GUEST_PRESET_ID ? 'guest' : 'ha_set';
+      if (kind === 'ha') return 'ha';
+      return 'local';
     },
 
     accountFor(id) {
-      if (this.cardKind(id) === 'preset') return this.presets[0] || null;
-      if (this.cardKind(id) === 'new') return null;
+      const kind = this.cardKind(id);
+      if (kind === 'preset') return this.presets.find((preset) => preset.id === id) || null;
+      if (kind === 'ha') return this.haAccounts.find((account) => HA_PREFIX + account.ha_user_id === id) || null;
+      if (kind === 'new') return null;
       return this.accounts.find((account) => account.username === id) || null;
     },
 
@@ -139,10 +204,24 @@
       return this.cardKind(id) === 'account' && id === this.self;
     },
 
+    // The roles a Home Assistant account follows: the admin or the user preset.
+    haPresetRoles(account) {
+      if (!this.haRoles) return [];
+      return sortedRoles(account.ha_admin ? this.haRoles.admin : this.haRoles.user);
+    },
+
     // Roles and disabled state as stored on the server. A new card starts empty.
+    // A Home Assistant account without its own selection stores the preset.
     savedSnapshot(id) {
       const account = this.accountFor(id);
       if (!account) return {roles: [], disabled: false};
+      if (this.cardKind(id) === 'ha') {
+        return {
+          roles: account.roles_custom ? sortedRoles(account.roles) : this.haPresetRoles(account),
+          disabled: Boolean(account.disabled),
+          custom: Boolean(account.roles_custom),
+        };
+      }
       return {roles: sortedRoles(account.roles), disabled: Boolean(account.disabled)};
     },
 
@@ -165,7 +244,9 @@
       if (!this.drafts[id]) return false;
       const draft = this.drafts[id];
       const saved = this.savedSnapshot(id);
-      return !sameRoles(sortedRoles(draft.roles), saved.roles) || Boolean(draft.disabled) !== saved.disabled;
+      return !sameRoles(sortedRoles(draft.roles), saved.roles)
+        || Boolean(draft.disabled) !== saved.disabled
+        || Boolean(draft.custom) !== Boolean(saved.custom);
     },
 
     // Clicking the open card closes it, clicking another one switches. Drafts stay.
@@ -198,6 +279,12 @@
         .filter((entry) => entry.category === category);
     },
 
+    // The account as UsersModel reads it for locks: its kind and whether a
+    // Home Assistant account has its own selection.
+    lockAccount(id) {
+      return {kind: this.kindOf(id), custom: Boolean(this.draftOf(id).custom)};
+    },
+
     lockContext(id) {
       const otherActiveAdmins = this.accounts.filter((account) => account.username !== id
         && !account.disabled
@@ -208,7 +295,7 @@
     // {key: reason} for the draft. Reasons: 'requires', 'last_admin', 'self'.
     // The key '__active' carries the reason for the active switch.
     locksFor(id) {
-      return window.UsersModel.locks(this.catalog, {kind: this.kindOf(id)}, this.draftOf(id).roles, this.lockContext(id));
+      return window.UsersModel.locks(this.catalog, this.lockAccount(id), this.draftOf(id).roles, this.lockContext(id));
     },
 
     lockFor(id, key) {
@@ -227,6 +314,7 @@
       const draft = this.ensureDraft(id);
       const held = draft.roles.includes(key);
       const lock = this.lockFor(id, key);
+      if (lock === 'preset') return;
       if (held && lock === 'last_admin') return;
       if (!held && lock) return;
       const roles = held ? draft.roles.filter((role) => role !== key) : [...draft.roles, key];
@@ -237,7 +325,7 @@
       const draft = this.ensureDraft(id);
       draft.roles = window.UsersModel.toggleGroup(
         this.catalog,
-        {kind: this.kindOf(id)},
+        this.lockAccount(id),
         draft.roles,
         category,
         this.lockContext(id),
@@ -265,13 +353,28 @@
       this.ensureDraft(id).disabled = !active;
     },
 
+    // Home Assistant accounts only. Switching on starts from the preset when
+    // the draft is empty, switching off shows the preset again.
+    setCustom(id, on) {
+      const account = this.accountFor(id);
+      if (this.cardKind(id) !== 'ha' || !account) return;
+      const draft = this.ensureDraft(id);
+      draft.custom = Boolean(on);
+      const preset = this.haPresetRoles(account);
+      if (!draft.custom) draft.roles = preset;
+      else if (draft.roles.length === 0) draft.roles = preset;
+    },
+
     // Head tags as i18n keys (users.tag.*), in the order of the prototype.
     tagsFor(id) {
       const tags = [];
       const kind = this.cardKind(id);
       if (this.isSelf(id)) tags.push('users.tag.you');
+      if (kind === 'ha') tags.push('users.tag.ha');
       if (kind === 'new') tags.push('users.tag.new');
-      if (kind === 'account' && this.draftOf(id).disabled) tags.push('users.tag.disabled');
+      if ((kind === 'account' || kind === 'ha') && this.draftOf(id).disabled) tags.push('users.tag.disabled');
+      const account = this.accountFor(id);
+      if (kind === 'ha' && account && account.name_conflict) tags.push('users.tag.name_conflict');
       const warning = this.warningFor(id);
       if (warning) tags.push(warning.safe ? 'users.tag.own_http_password' : 'users.tag.restricted');
       if (this.isDirty(id) && kind !== 'new' && this.openId !== id) tags.push('users.tag.unsaved');
@@ -329,8 +432,15 @@
       if (!await this.confirmElevated(id, roles)) return false;
       this.saving = id;
       try {
-        if (this.cardKind(id) === 'preset') {
+        if (id === GUEST_PRESET_ID) {
           await this.send('PUT', '/api/v1/users/guest-roles', {roles});
+        } else if (this.cardKind(id) === 'preset') {
+          // Both Home Assistant presets travel together: the other list is the saved one.
+          const admin = id === HA_ADMIN_ID ? roles : sortedRoles(this.haRoles.admin);
+          const user = id === HA_USER_ID ? roles : sortedRoles(this.haRoles.user);
+          await this.send('PUT', '/api/v1/users/ha-roles', {admin, user});
+        } else if (this.cardKind(id) === 'ha') {
+          await this.send('PUT', `/api/v1/users/${enc(id)}`, {roles, disabled: Boolean(draft.disabled), roles_custom: Boolean(draft.custom)});
         } else {
           await this.send('PUT', `/api/v1/users/${enc(id)}`, {roles, disabled: Boolean(draft.disabled)});
         }
@@ -443,12 +553,122 @@
       return done;
     },
 
+    // --- Home Assistant pairing -------------------------------------------
+
+    // 'code' while a pairing code is shown, 'paired', else 'none'. A code shown
+    // while the companion is still paired is a re-pair in progress.
+    pairingStage() {
+      if (this.pairingCode) return 'code';
+      if (this.companion.paired) return 'paired';
+      return 'none';
+    },
+
+    // The copy button label: 'Copied' for a short time after a copy.
+    get copyLabel() {
+      return this.pairingCopied ? t('users.ha.copied') : t('users.ha.copy');
+    },
+
+    // Asks the server for a new code and counts it down.
+    async createPairingCode() {
+      try {
+        const body = await this.send('POST', '/api/v1/users/companion/pairing-code');
+        this.pairingWasPaired = Boolean(this.companion.paired);
+        this.pairingBaseline = this.companion.paired_at || null;
+        this.pairingCode = body.code;
+        this.pairingExpiresAt = body.expires_at;
+        this.pairingRemaining = secondsUntil(body.expires_at);
+        this.startPairingTimer();
+        return true;
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
+      }
+    },
+
+    // Discards the shown code. The server drops it too, so a later pairing
+    // with the same code fails.
+    async dropPairingCode() {
+      this.clearPairingCode();
+      try {
+        await this.send('DELETE', '/api/v1/users/companion/pairing-code');
+        return true;
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
+      }
+    },
+
+    // Ends the pairing after a confirm. The Home Assistant accounts stay.
+    async unpair() {
+      const confirmed = await this.$store.modal.confirm({
+        title: t('users.ha.unpair_title'),
+        body: t('users.ha.unpair_body'),
+        confirmLabel: t('users.ha.unpair'),
+        danger: true,
+      });
+      if (!confirmed) return false;
+      this.clearPairingCode();
+      return this.action(
+        () => this.send('DELETE', '/api/v1/users/companion'),
+        t('users.ha.unpaired_toast'),
+      );
+    },
+
+    // Copies the shown code. False when there is no code or the clipboard
+    // is not available (it needs HTTPS or localhost).
+    async copyPairingCode() {
+      if (!this.pairingCode) return false;
+      try {
+        await navigator.clipboard.writeText(this.pairingCode);
+      } catch (error) {
+        return false;
+      }
+      this.pairingCopied = true;
+      window.clearTimeout(this.pairingCopiedTimer);
+      this.pairingCopiedTimer = window.setTimeout(() => {
+        this.pairingCopied = false;
+        this.pairingCopiedTimer = null;
+      }, COPIED_MS);
+      return true;
+    },
+
+    // One tick per second: counts the code down, reloads the list every few
+    // seconds and drops the code when its time is up.
+    pairingTick() {
+      this.pairingRemaining = Math.max(0, this.pairingRemaining - 1);
+      if (this.pairingRemaining === 0) {
+        this.clearPairingCode();
+        this.$store.toasts.push(t('users.ha.code_expired'));
+        return;
+      }
+      if (this.pairingRemaining % PAIRING_RELOAD_TICKS === 0) this.load();
+    },
+
+    startPairingTimer() {
+      this.stopPairingTimer();
+      this.pairingTimer = window.setInterval(() => this.pairingTick(), 1000);
+    },
+
+    stopPairingTimer() {
+      if (this.pairingTimer === null) return;
+      window.clearInterval(this.pairingTimer);
+      this.pairingTimer = null;
+    },
+
+    // Forgets the shown code without a request.
+    clearPairingCode() {
+      this.stopPairingTimer();
+      this.pairingCode = '';
+      this.pairingExpiresAt = null;
+      this.pairingRemaining = 0;
+    },
+
     // --- sessions tab -----------------------------------------------------
 
     // Opens or leaves a tab. Leaving the sessions tab stops its timer, opening
     // it again starts exactly one.
     async setTab(name) {
-      this.tab = name === 'sessions' ? 'sessions' : 'accounts';
+      this.tab = name === 'sessions' || name === 'accounts' ? name : 'signin';
       this.stopSessionTimer();
       if (this.tab !== 'sessions') return;
       this.sessionTimer = window.setInterval(() => this.loadSessions(), SESSIONS_MS);
@@ -545,9 +765,11 @@
     },
 
     async remove(id) {
+      const isHA = this.cardKind(id) === 'ha';
+      const name = isHA ? this.accountFor(id).username : id;
       const confirmed = await this.$store.modal.confirm({
-        title: t('users.delete_confirm.title', {name: id}),
-        body: t('users.delete_confirm.body'),
+        title: t('users.delete_confirm.title', {name}),
+        body: isHA ? t('users.delete.ha_body', {name}) : t('users.delete_confirm.body'),
         confirmLabel: t('users.delete_confirm.confirm'),
         danger: true,
       });
@@ -555,7 +777,7 @@
       const done = await this.leave(
         id,
         () => this.send('DELETE', `/api/v1/users/${enc(id)}`),
-        t('users.delete_confirm.toast', {name: id}),
+        t('users.delete_confirm.toast', {name}),
       );
       if (done) {
         delete this.drafts[id];

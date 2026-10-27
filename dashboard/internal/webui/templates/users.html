@@ -2,16 +2,20 @@
 {{/* i18n-keys: users.category.view, users.category.view.desc, users.category.operate, users.category.operate.desc, users.category.design, users.category.design.desc, users.category.setup, users.category.setup.desc, users.category.updates, users.category.updates.desc, users.category.system, users.category.system.desc */}}
 {{/* i18n-keys: users.role.view_overview.label, users.role.view_overview.desc, users.role.view_devices.label, users.role.view_devices.desc, users.role.view_history.label, users.role.view_history.desc, users.role.view_stats.label, users.role.view_stats.desc, users.role.view_energy.label, users.role.view_energy.desc, users.role.view_device_map.label, users.role.view_device_map.desc, users.role.view_config.label, users.role.view_config.desc */}}
 {{/* i18n-keys: users.role.view_automations.label, users.role.view_automations.desc, users.role.view_diagnostics.label, users.role.view_diagnostics.desc, users.role.operate_devices.label, users.role.operate_devices.desc, users.role.operate_automations.label, users.role.operate_automations.desc, users.role.edit_layout.label, users.role.edit_layout.desc, users.role.edit_device_map_view.label, users.role.edit_device_map_view.desc, users.role.edit_settings.label, users.role.edit_settings.desc */}}
+{{/* i18n-keys: users.preset.ha_admin, users.preset.ha_admin.desc, users.preset.ha_user, users.preset.ha_user.desc, users.ha.tag.paired, users.ha.tag.waiting, users.ha.tag.unpaired */}}
 {{/* i18n-keys: users.role.automations.label, users.role.automations.desc, users.role.edit_energy.label, users.role.edit_energy.desc, users.role.edit_device_map.label, users.role.edit_device_map.desc, users.role.edit_config.label, users.role.edit_config.desc, users.role.delete_device_discovery.label, users.role.delete_device_discovery.desc, users.role.mqtt_config.label, users.role.mqtt_config.desc, users.role.edit_setup.label, users.role.edit_setup.desc, users.role.setup_tiny_tuya.label, users.role.setup_tiny_tuya.desc */}}
 {{/* i18n-keys: users.role.check_updates.label, users.role.check_updates.desc, users.role.install_updates.label, users.role.install_updates.desc, users.role.install_updates.note, users.role.update_settings.label, users.role.update_settings.desc, users.role.update_settings.note, users.role.view_logs.label, users.role.view_logs.desc, users.role.system_actions.label, users.role.system_actions.desc, users.role.tailscale.label, users.role.tailscale.desc, users.role.user_management.label, users.role.user_management.desc, users.role.http_login.label, users.role.http_login.desc */}}
 <section id="settings-users" role="tabpanel" class="settings-cards users-cards" x-show="activeSettingsPage === 'users'">
   {{if .CanManageUsers}}<div class="users-manage" x-data="usersPage()"
-    x-effect="if (activeSettingsPage !== 'users' && tab !== 'accounts') setTab('accounts')">
+    x-effect="if (activeSettingsPage !== 'users' && tab !== 'signin') setTab('signin')">
   <p class="settings-help" x-show="error" x-text="error"></p>
   <div class="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
+    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
     <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
     <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
   </div>
+
+{{template "users-account-cards" .}}
 
   <div class="setting-card users-section" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
     <div class="users-section-head">
@@ -27,6 +31,11 @@
       </div>
       <template x-for="account in accounts" x-bind:key="account.username">
         <div class="users-list-item" x-data="{ cardId: account.username }">
+          <div class="users-collapse" x-bind:class="{ 'is-leaving': leaving[cardId] }"><div class="users-collapse-inner">{{template "users-card" .}}</div></div>
+        </div>
+      </template>
+      <template x-for="account in haAccounts" x-bind:key="account.ha_user_id">
+        <div class="users-list-item" x-data="{ cardId: 'ha:' + account.ha_user_id }">
           <div class="users-collapse" x-bind:class="{ 'is-leaving': leaving[cardId] }"><div class="users-collapse-inner">{{template "users-card" .}}</div></div>
         </div>
       </template>
@@ -58,6 +67,64 @@
     <p class="setting-note users-migration" x-show="migrationNotice">{{t "users.migration_notice"}}</p>
     <div class="users-list">
       <div class="users-list-item" x-data="{ cardId: 'preset:guest' }">{{template "users-card" .}}</div>
+      <template x-if="haRoles">
+        <div class="users-list-item" x-data="{ cardId: 'preset:ha_admin' }">{{template "users-card" .}}</div>
+      </template>
+      <template x-if="haRoles">
+        <div class="users-list-item" x-data="{ cardId: 'preset:ha_user' }">{{template "users-card" .}}</div>
+      </template>
+    </div>
+  </div>
+
+  <div class="setting-card users-section users-pair" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end"
+    x-data="{ stage() { return this.pairingCode ? 'code' : this.pairingStage(); } }">
+    <div class="users-section-head">
+      <h3 class="setting-card-title">{{t "users.ha.title"}}</h3>
+      <span class="users-tag" x-bind:class="{ 'users-tag--on': stage() === 'paired', 'users-tag--warn': stage() === 'code' }"
+        x-text="stage() === 'paired' ? $t('users.ha.tag.paired') : (stage() === 'code' ? $t('users.ha.tag.waiting') : $t('users.ha.tag.unpaired'))"></span>
+    </div>
+    <div class="users-pair-stage">
+      <template x-if="stage() === 'none'" x-transition:enter="users-pair-enter" x-transition:enter-start="users-pair-enter-start" x-transition:enter-end="users-pair-enter-end" x-transition:leave="users-pair-enter" x-transition:leave-start="users-pair-enter-end" x-transition:leave-end="users-pair-enter-start">
+        <div class="users-pair-st">
+          <p class="setting-note">{{t "users.ha.unpaired"}}</p>
+          <div class="users-actions">
+            <button type="button" class="users-btn users-btn--primary" x-bind:disabled="saving !== ''" x-on:click="createPairingCode()">{{t "users.ha.generate"}}</button>
+          </div>
+        </div>
+      </template>
+      <template x-if="stage() === 'code'" x-transition:enter="users-pair-enter" x-transition:enter-start="users-pair-enter-start" x-transition:enter-end="users-pair-enter-end" x-transition:leave="users-pair-enter" x-transition:leave-start="users-pair-enter-end" x-transition:leave-end="users-pair-enter-start">
+        <div class="users-pair-st" x-data="{ on: false }" x-init="requestAnimationFrame(() => requestAnimationFrame(() => on = true))">
+          <p class="setting-note" x-text="$t('users.ha.code_valid', {time: Math.floor(pairingRemaining / 60) + ':' + String(pairingRemaining % 60).padStart(2, '0')})"></p>
+          <div class="users-code" x-bind:class="{ 'is-in': on }">
+            <template x-for="g in [0, 1, 2]" x-bind:key="g">
+              <span class="users-code-group">
+                <template x-for="(ch, i) in [...pairingCode.replace(/-/g, '')].slice(g * 4, g * 4 + 4)" x-bind:key="g * 4 + i">
+                  <span class="users-code-char" x-bind:style="{ transitionDelay: ((g * 4 + i) * 35) + 'ms' }" x-text="ch"></span>
+                </template>
+              </span>
+            </template>
+          </div>
+          <div class="users-bar"><i x-bind:style="{ transform: 'scaleX(' + (pairingRemaining / 600) + ')' }"></i></div>
+          <ol class="users-steps">
+            <li>{{t "users.ha.step1"}}</li>
+            <li>{{t "users.ha.step2"}}</li>
+          </ol>
+          <div class="users-actions">
+            <button type="button" class="users-btn" x-on:click="copyPairingCode()" x-text="copyLabel"></button>
+            <button type="button" class="users-btn users-btn--ghost" x-bind:disabled="saving !== ''" x-on:click="dropPairingCode()">{{t "users.ha.drop"}}</button>
+          </div>
+        </div>
+      </template>
+      <template x-if="stage() === 'paired'" x-transition:enter="users-pair-enter" x-transition:enter-start="users-pair-enter-start" x-transition:enter-end="users-pair-enter-end" x-transition:leave="users-pair-enter" x-transition:leave-start="users-pair-enter-end" x-transition:leave-end="users-pair-enter-start">
+        <div class="users-pair-st">
+          <p class="setting-note" x-text="$t('users.ha.paired_info', {date: companion.paired_at ? new Date(companion.paired_at).toLocaleDateString() : '', seen: companion.last_seen_at ? new Date(companion.last_seen_at).toLocaleString() : $t('users.ha.never_seen')})"></p>
+          <div class="users-actions">
+            <button type="button" class="users-btn" x-bind:disabled="saving !== ''" x-on:click="createPairingCode()">{{t "users.ha.repair"}}</button>
+            <span class="users-grow"></span>
+            <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-bind:disabled="saving !== ''" x-on:click="unpair()">{{t "users.ha.unpair"}}</button>
+          </div>
+        </div>
+      </template>
     </div>
   </div>
 
@@ -95,13 +162,13 @@
 
 {{define "users-card"}}
 <article class="users-card" x-data="{ pwOpen: false, pwNew: '', httpOpen: false, httpNew: '' }"
-  x-bind:class="{ 'is-open': openId === cardId, 'is-disabled': cardKind(cardId) === 'account' && savedSnapshot(cardId).disabled, 'is-http': draftOf(cardId).roles.includes('http_login') }">
+  x-bind:class="{ 'is-open': openId === cardId, 'is-disabled': (cardKind(cardId) === 'account' || cardKind(cardId) === 'ha') && savedSnapshot(cardId).disabled, 'is-http': draftOf(cardId).roles.includes('http_login') }">
   <button type="button" class="users-card-head" x-bind:aria-expanded="openId === cardId ? 'true' : 'false'" x-on:click="toggleCard(cardId)">
     <span class="users-avatar" x-bind:class="{ 'is-preset': cardKind(cardId) === 'preset' }" aria-hidden="true"
-      x-text="cardKind(cardId) === 'preset' ? 'G' : (cardKind(cardId) === 'new' ? '+' : cardId.charAt(0).toUpperCase())"></span>
+      x-text="cardKind(cardId) === 'preset' ? (cardId === 'preset:guest' ? 'G' : 'H') : (cardKind(cardId) === 'new' ? '+' : String((accountFor(cardId) && (accountFor(cardId).display_name || accountFor(cardId).username)) || cardId).charAt(0).toUpperCase())"></span>
     <span class="users-head-main">
       <span class="users-head-name">
-        <span x-text="cardKind(cardId) === 'preset' ? $t('users.preset.guest') : (cardKind(cardId) === 'new' ? $t('users.new_account') : cardId)"></span>
+        <span x-text="cardKind(cardId) === 'preset' ? (cardId === 'preset:guest' ? $t('users.preset.guest') : $t(cardId === 'preset:ha_admin' ? 'users.preset.ha_admin' : 'users.preset.ha_user')) : (cardKind(cardId) === 'new' ? $t('users.new_account') : ((accountFor(cardId) && (accountFor(cardId).display_name || accountFor(cardId).username)) || cardId))"></span>
         <template x-for="tag in tagsFor(cardId)" x-bind:key="tag">
           <span x-bind:class="'users-tag users-tag--' + ((tag === 'users.tag.you' || tag === 'users.tag.own_http_password') ? 'on' : (tag === 'users.tag.disabled' ? 'off' : 'warn'))" x-text="$t(tag)"></span>
         </template>
@@ -139,7 +206,7 @@
           </div>
         </template>
 
-        <div class="users-line" x-show="cardKind(cardId) === 'account'">
+        <div class="users-line" x-show="cardKind(cardId) === 'account' || cardKind(cardId) === 'ha'">
           <span class="users-line-text">
             <span>{{t "users.active.label"}}</span>
             <span class="users-line-note">{{t "users.active.note"}}</span>
@@ -149,8 +216,21 @@
             <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
           </label>
         </div>
-        <p class="users-hint" x-bind:class="{ 'is-show': !!lockFor(cardId, '__active') }" x-show="cardKind(cardId) === 'account'"><span
+        <p class="users-hint" x-bind:class="{ 'is-show': !!lockFor(cardId, '__active') }" x-show="cardKind(cardId) === 'account' || cardKind(cardId) === 'ha'"><span
           x-text="lockFor(cardId, '__active') === 'self' ? $t('users.lock.self') : (lockFor(cardId, '__active') === 'last_admin' ? $t('users.lock.last_admin') : '')"></span></p>
+
+        <div class="users-line" x-show="cardKind(cardId) === 'ha'">
+          <span class="users-line-text">
+            <span>{{t "users.ha_account.custom"}}</span>
+          </span>
+          <label class="settings-toggle">
+            <input type="checkbox" role="switch" aria-label="{{t "users.ha_account.custom"}}" x-bind:checked="!!draftOf(cardId).custom" x-on:change="setCustom(cardId, $event.target.checked)">
+            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          </label>
+        </div>
+        <p class="users-ha-note" x-show="cardKind(cardId) === 'ha' && !draftOf(cardId).custom" x-text="$t('users.ha_account.custom_off_hint', {preset: $t(accountFor(cardId) && accountFor(cardId).ha_admin ? 'users.preset.ha_admin' : 'users.preset.ha_user')})"></p>
+        <p class="users-ha-note users-ha-note--warn" x-show="cardKind(cardId) === 'ha' && accountFor(cardId) && accountFor(cardId).name_conflict">{{t "users.ha_account.name_conflict"}}</p>
+        <p class="users-ha-note" x-show="cardKind(cardId) === 'preset' && cardId !== 'preset:guest'" x-text="$t(cardId === 'preset:ha_admin' ? 'users.preset.ha_admin.desc' : 'users.preset.ha_user.desc')"></p>
 
         <div class="users-warn" x-bind:class="{ 'is-show': !!warningFor(cardId), 'is-safe': !!(warningFor(cardId) && warningFor(cardId).safe) }">
           <div class="users-warn-fold"><div class="users-warn-inner">
@@ -232,8 +312,9 @@
           </template>
         </div>
 
-        <div class="users-actions" x-show="cardKind(cardId) === 'account'">
-          <button type="button" class="users-btn" x-on:click="pwOpen = !pwOpen">{{t "users.password.reset"}}</button>
+        <p class="users-ha-note" x-show="cardKind(cardId) === 'ha'">{{t "users.ha_account.password_hint"}}</p>
+        <div class="users-actions" x-show="cardKind(cardId) === 'account' || cardKind(cardId) === 'ha'">
+          <button type="button" class="users-btn" x-show="cardKind(cardId) === 'account'" x-on:click="pwOpen = !pwOpen">{{t "users.password.reset"}}</button>
           <span class="users-grow"></span>
           <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-show="!isSelf(cardId)" x-bind:disabled="saving !== ''" x-on:click="remove(cardId)">
             <svg class="users-icon" aria-hidden="true"><use href="#ico-trash"></use></svg>
@@ -248,13 +329,65 @@
           </div>
         </div></div>
 
-        <div class="users-savebar" x-bind:class="{ 'is-show': isDirty(cardId) }">
-          <span class="users-savebar-msg" x-text="cardKind(cardId) === 'new' ? $t('users.new_account') : $t('users.unsaved')"></span>
-          <button type="button" class="users-btn users-btn--ghost" x-on:click="discard(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.cancel') : $t('users.save.discard')"></button>
-          <button type="button" class="users-btn users-btn--primary" x-bind:disabled="saving !== '' || (cardKind(cardId) === 'new' && !createValid())" x-on:click="save(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.submit') : $t('users.save.save')"></button>
-        </div>
+        <div class="users-savebar-wrap" x-bind:class="{ 'is-show': isDirty(cardId) }"><div class="users-savebar-clip">
+            <div class="users-savebar" x-bind:class="{ 'is-show': isDirty(cardId) }">
+              <span class="users-savebar-msg" x-text="cardKind(cardId) === 'new' ? $t('users.new_account') : $t('users.unsaved')"></span>
+              <button type="button" class="users-btn users-btn--ghost" x-on:click="discard(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.cancel') : $t('users.save.discard')"></button>
+              <button type="button" class="users-btn users-btn--primary" x-bind:disabled="saving !== '' || (cardKind(cardId) === 'new' && !createValid())" x-on:click="save(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.submit') : $t('users.save.save')"></button>
+            </div>
+        </div></div>
       </div>
     </div>
   </div>
 </article>
+{{end}}
+
+{{define "users-account-cards"}}
+    {{if .HasUser}}<section class="setting-card users-session-card" aria-labelledby="settings-session-heading" x-data="systemPanel()" x-init="load()" x-show="signinShown">
+      <h3 class="setting-card-title" id="settings-session-heading">{{t "settings.session.title"}}</h3>
+      <div class="setting-row">
+        <span class="setting-row-label">{{t "settings.system.access.label"}} <strong class="system-access-user" x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong></span>
+      </div>
+      <div class="setting-card-foot">
+        <button class="icon-button labeled danger" type="button" x-show="via !== 'companion'" x-on:click="logout()" x-bind:disabled="loading" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
+          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
+          <span>{{t "settings.system.logout.button"}}</span>
+        </button>
+        <p class="setting-note" x-show="via === 'companion'">{{t "settings.account.via_ha"}}</p>
+      </div>
+    </section>{{end}}
+    {{if .HasOwnAccount}}<section class="setting-card users-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible && signinShown">
+      <div class="settings-account" x-cloak x-show="accountVisible">
+        <h3 class="setting-card-title" id="settings-account-heading">{{t "settings.account.title"}}</h3>
+        <p class="settings-account-notice" role="note" x-cloak x-show="accountRestricted">{{t "settings.account.restricted"}}</p>
+        <form class="settings-account-form" x-on:submit.prevent="changeOwnPassword()">
+          <label class="settings-account-label" for="settings-account-old">{{t "settings.account.old_password"}}</label>
+          <input id="settings-account-old" class="settings-account-input" type="password" autocomplete="current-password" x-model="passwordForm.old">
+          <label class="settings-account-label" for="settings-account-new">{{t "settings.account.new_password"}}</label>
+          <input id="settings-account-new" class="settings-account-input" type="password" autocomplete="new-password" x-bind:placeholder="$t('users.password.placeholder', {min: passwordMin})" x-model="passwordForm.next">
+          <label class="settings-account-label" for="settings-account-repeat">{{t "settings.account.repeat_password"}}</label>
+          <input id="settings-account-repeat" class="settings-account-input" type="password" autocomplete="new-password" x-model="passwordForm.repeat">
+          <p class="settings-account-error" role="alert" x-cloak x-show="passwordError" x-text="passwordError"></p>
+          <div class="settings-account-actions">
+            <button type="submit" class="users-btn users-btn--primary" x-bind:disabled="accountBusy">{{t "settings.account.password_change"}}</button>
+          </div>
+        </form>
+        <div class="settings-account-http" x-cloak x-show="accountHTTPLogin">
+          <h4 class="settings-account-subtitle">{{t "settings.account.http_title"}}
+            <span class="field-help">
+              <button class="field-help-trigger" type="button" aria-label="{{t "settings.account.http_explain_aria"}}">
+                <svg><use href="#ico-help"></use></svg>
+              </button>
+              <span class="field-help-text" role="tooltip">{{t "users.http_warning.risk"}}</span>
+            </span>
+          </h4>
+          <input class="settings-account-input" type="password" autocomplete="new-password" x-bind:aria-label="$t('users.http_warning.placeholder', {min: passwordMin})" x-bind:placeholder="$t('users.http_warning.placeholder', {min: passwordMin})" x-model="httpPasswordDraft">
+          <p class="settings-account-error" role="alert" x-cloak x-show="!httpPasswordValid" x-text="$t('users.create.password_error', {min: passwordMin})"></p>
+          <div class="settings-account-actions">
+            <button type="button" class="users-btn" x-bind:disabled="accountBusy || !httpPasswordValid || httpPasswordDraft.length === 0" x-on:click="saveHTTPPassword()">{{t "users.http_warning.apply"}}</button>
+            <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-bind:disabled="accountBusy" x-on:click="httpPasswordDraft = ''; saveHTTPPassword()">{{t "users.http_warning.remove"}}</button>
+          </div>
+        </div>
+      </div>
+    </section>{{end}}
 {{end}}

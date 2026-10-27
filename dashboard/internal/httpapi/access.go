@@ -50,6 +50,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/auth/guest":               {group: groupOpen},
 	"/api/v1/auth/session":             {group: groupOpen},
 	"/api/v1/auth/logout":              {group: groupOpen},
+	"/api/v1/companion/":               {group: groupOpen},
 	"/api/v1/system/restart-dashboard": {group: groupOpen},
 	"/api/v1/system/reboot":            {group: groupOpen},
 	"/api/v1/system/poweroff":          {group: groupOpen},

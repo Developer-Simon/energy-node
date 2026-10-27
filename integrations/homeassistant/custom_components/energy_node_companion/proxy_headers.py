@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from http.cookies import CookieError, SimpleCookie
+from urllib.parse import unquote
 
 from multidict import CIMultiDict
 
@@ -71,12 +72,14 @@ def upstream_headers(
     remote: str | None,
     prefix: str,
     session_cookie: str,
+    authorization: str | None = None,
 ) -> CIMultiDict[str]:
     """Header fuer die Anfrage an das Dashboard.
 
     Cookie enthaelt genau eine Dashboard-Sitzung und hoechstens die
     gewaehlte Sprache: HA-Cookies und das Panel-Cookie bleiben im Browser,
-    ebenso der HA-Token aus Authorization.
+    ebenso der HA-Token aus Authorization. Authorization setzt nur der Proxy,
+    und zwar das Kopplungstoken fuer den Companion-Port.
     """
     cookies = [session_cookie]
     lang = _cookie(incoming.get("Cookie", ""), LANGUAGE_COOKIE)
@@ -85,6 +88,8 @@ def upstream_headers(
     headers: CIMultiDict[str] = CIMultiDict(
         (name, value) for name, value in incoming.items() if name.lower() not in _DROP_REQUEST
     )
+    if authorization is not None:
+        headers["Authorization"] = authorization
     headers["Cookie"] = "; ".join(cookies)
     headers["X-Forwarded-Prefix"] = prefix
     headers["X-Forwarded-Proto"] = scheme
@@ -104,3 +109,32 @@ def response_headers(upstream: Mapping[str, str]) -> CIMultiDict[str]:
 def is_logout(path: str) -> bool:
     """Ob der Proxy-Pfad die Abmeldung des Dashboards ist."""
     return path.strip("/") == "api/v1/auth/logout"
+
+
+_COMPANION_CONTROL = "api/v1/companion"
+
+
+def is_companion_control(path: str) -> bool:
+    """Ob der Proxy-Pfad die Companion-Routen trifft, auch in verschleierter Form.
+
+    Der Pfad wird mehrfach entschluesselt, Doppelschraegstriche, "." und ".."
+    aufgeloest und die Gross- und Kleinschreibung ignoriert. Im Zweifel gilt
+    der Pfad als Companion-Route.
+    """
+    decoded = path
+    for _ in range(5):
+        once = unquote(decoded)
+        if once == decoded:
+            break
+        decoded = once
+    parts: list[str] = []
+    for segment in decoded.split("/"):
+        if segment in ("", "."):
+            continue
+        if segment == "..":
+            if parts:
+                parts.pop()
+            continue
+        parts.append(segment)
+    normalized = "/".join(parts).lower()
+    return normalized == _COMPANION_CONTROL or normalized.startswith(_COMPANION_CONTROL + "/")

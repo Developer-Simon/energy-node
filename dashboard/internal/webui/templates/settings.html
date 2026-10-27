@@ -465,51 +465,13 @@
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
     {{template "revisions" .}}
   </div>
-  {{if or .CanManageUsers .HasUser}}
+  {{if and .HasUser (not .CanManageUsers)}}
   <section id="settings-users-account" role="tabpanel" class="settings-cards users-account-cards" x-show="activeSettingsPage === 'users'" aria-labelledby="settings-session-heading">
-    {{if .HasUser}}<section class="setting-card users-session-card" aria-labelledby="settings-session-heading" x-data="systemPanel()" x-init="load()">
-      <h3 class="setting-card-title" id="settings-session-heading">{{t "settings.session.title"}}</h3>
-      <div class="setting-row">
-        <span class="setting-row-label">{{t "settings.system.access.label"}} <strong class="system-access-user" x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong></span>
-      </div>
-      <div class="setting-card-foot">
-        <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
-          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
-          <span>{{t "settings.system.logout.button"}}</span>
-        </button>
-      </div>
-    </section>{{end}}
-    {{if .HasOwnAccount}}<section class="setting-card users-account-card" aria-labelledby="settings-account-heading" x-cloak x-show="accountVisible">
-      <div class="settings-account" x-cloak x-show="accountVisible">
-        <h3 class="setting-card-title" id="settings-account-heading">{{t "settings.account.title"}}</h3>
-        <p class="settings-account-notice" role="note" x-cloak x-show="accountRestricted">{{t "settings.account.restricted"}}</p>
-        <form class="settings-account-form" x-on:submit.prevent="changeOwnPassword()">
-          <label class="settings-account-label" for="settings-account-old">{{t "settings.account.old_password"}}</label>
-          <input id="settings-account-old" class="settings-account-input" type="password" autocomplete="current-password" x-model="passwordForm.old">
-          <label class="settings-account-label" for="settings-account-new">{{t "settings.account.new_password"}}</label>
-          <input id="settings-account-new" class="settings-account-input" type="password" autocomplete="new-password" x-bind:placeholder="$t('users.password.placeholder', {min: passwordMin})" x-model="passwordForm.next">
-          <label class="settings-account-label" for="settings-account-repeat">{{t "settings.account.repeat_password"}}</label>
-          <input id="settings-account-repeat" class="settings-account-input" type="password" autocomplete="new-password" x-model="passwordForm.repeat">
-          <p class="settings-account-error" role="alert" x-cloak x-show="passwordError" x-text="passwordError"></p>
-          <div class="settings-account-actions">
-            <button type="submit" class="users-btn users-btn--primary" x-bind:disabled="accountBusy">{{t "settings.account.password_change"}}</button>
-          </div>
-        </form>
-        <div class="settings-account-http" x-cloak x-show="accountHTTPLogin">
-          <h4 class="settings-account-subtitle">{{t "settings.account.http_title"}}</h4>
-          <p class="setting-note">{{t "users.http_warning.risk"}}</p>
-          <input class="settings-account-input" type="password" autocomplete="new-password" x-bind:aria-label="$t('users.http_warning.placeholder', {min: passwordMin})" x-bind:placeholder="$t('users.http_warning.placeholder', {min: passwordMin})" x-model="httpPasswordDraft">
-          <p class="settings-account-error" role="alert" x-cloak x-show="!httpPasswordValid" x-text="$t('users.create.password_error', {min: passwordMin})"></p>
-          <div class="settings-account-actions">
-            <button type="button" class="users-btn" x-bind:disabled="accountBusy || !httpPasswordValid || httpPasswordDraft.length === 0" x-on:click="saveHTTPPassword()">{{t "users.http_warning.apply"}}</button>
-            <button type="button" class="users-btn users-btn--ghost users-btn--danger" x-bind:disabled="accountBusy" x-on:click="httpPasswordDraft = ''; saveHTTPPassword()">{{t "users.http_warning.remove"}}</button>
-          </div>
-        </div>
-      </div>
-    </section>{{end}}
+    <div class="users-signin-group" x-data="{ signinShown: true }">
+{{template "users-account-cards" .}}
+    </div>
   </section>
   {{end}}
-  </div>
   <section id="settings-system" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
     <section class="setting-card system-access-card" aria-labelledby="system-access-heading">
       <h3 class="setting-card-title" id="system-access-heading">{{t "settings.system.title"}}</h3>
@@ -583,6 +545,7 @@
   {{template "tiny-tuya" .}}
   {{template "versions" .}}
   {{if or .CanManageUsers .HasOwnAccount}}{{template "users" .}}{{end}}
+  </div>
   <footer class="license-footer" aria-label="{{t "settings.system.license.heading"}}">
     <p>{{t "settings.system.license.label"}}<strong>{{t "settings.system.license.htmx_name"}}</strong> {{t "settings.system.license.htmx_license"}} <strong>{{t "settings.system.license.alpinejs_name"}}</strong> {{t "settings.system.license.alpinejs_license"}} <strong>{{t "settings.system.license.alpinejs_collapse_name"}}</strong> {{t "settings.system.license.alpinejs_collapse_license"}} <strong>{{t "settings.system.license.apexcharts_name"}}</strong> {{t "settings.system.license.apexcharts_license"}} <strong>{{t "settings.system.license.cytoscapejs_name"}}</strong> {{t "settings.system.license.cytoscapejs_license"}} <strong>{{t "settings.system.license.choicesjs_name"}}</strong> {{t "settings.system.license.choicesjs_license"}} <strong>{{t "settings.system.license.flatpickr_name"}}</strong> {{t "settings.system.license.flatpickr_license"}} <a href="https://github.com/bigskysoftware/htmx/blob/v2.0.6/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.htmx_license_link"}}</a> · <a href="https://github.com/alpinejs/alpine/blob/v3.14.9/README.md" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.alpinejs_readme_link"}}</a> · <a href="https://github.com/apexcharts/apexcharts.js/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.apexcharts_license_link"}}</a> · <a href="https://github.com/cytoscape/cytoscape.js/blob/v3.34.0/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.cytoscapejs_license_link"}}</a> · <a href="https://github.com/Choices-js/Choices/blob/v11.2.3/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.choicesjs_license_link"}}</a> · <a href="https://github.com/flatpickr/flatpickr/blob/v4.6.13/LICENSE.md" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.flatpickr_license_link"}}</a></p>
   </footer>

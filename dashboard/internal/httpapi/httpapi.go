@@ -27,6 +27,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/dataflow"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
@@ -218,6 +219,12 @@ type RouterDependencies struct {
 	// UpdateInstaller installs the offered update and reports its progress
 	// (internal/updateinstall). Nil disables POST /api/v1/updates/install.
 	UpdateInstaller UpdateInstaller
+	// Companion ist der Pruefkanal zur Home-Assistant-Companion-Integration
+	// (Port 8081). nil heisst: die Companion-Routen antworten 501.
+	Companion *companion.Hub
+	// CompanionFingerprint ist der Fingerabdruck des Companion-Zertifikats,
+	// an den der Kopplungsnachweis gebunden ist.
+	CompanionFingerprint string
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -338,10 +345,11 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/auth/guest", handleAuthGuest(dependencies.Auth))
 		g.HandleFunc("/api/v1/auth/session", handleAuthSession(dependencies.Auth))
 		g.HandleFunc("/api/v1/auth/logout", handleAuthLogout(dependencies.Auth))
-		g.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth))
-		g.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth))
+		g.HandleFunc("/api/v1/users", handleUsers(dependencies.Auth, dependencies.Companion))
+		g.HandleFunc("/api/v1/users/", handleUserSub(dependencies.Auth, dependencies.Companion))
 		g.HandleFunc("/api/v1/user-sessions", handleUserSessions(dependencies.Auth))
 		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
+		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
 	}
 	if dependencies.SystemActions != nil {
 		g.HandleFunc("/api/v1/system/restart-dashboard", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.RestartDashboard))
@@ -416,20 +424,20 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 
 func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarningKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if manager == nil || strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/i18n/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
+		if manager == nil || strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/i18n/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") || strings.HasPrefix(r.URL.Path, companionPrefix) {
 			next.ServeHTTP(w, r)
 			return
 		}
 		secureRequest := isSecureRequest(r)
 		cookie, err := r.Cookie(sessionCookieName(secureRequest))
 		if err == nil {
-			if session, ok := manager.Session(cookie.Value); ok {
+			if session, ok := manager.Session(cookie.Value); ok && companionSessionAllowed(session, r) {
 				next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), auth.EffectiveUser(session, secureRequest))))
 				return
 			}
 		}
 		if r.URL.Path == "/" && r.Method == http.MethodGet {
-			webui.Login(!secureRequest, store, adminAuthWarningKey).ServeHTTP(w, r)
+			webui.Login(!secureRequest, store, adminAuthWarningKey, manager.CompanionStatus().Paired).ServeHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -462,6 +470,10 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 		}
 		if errors.Is(err, auth.ErrInsecureLoginNotAllowed) {
 			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.account", nil, "Für dieses Konto ist die Anmeldung nur über HTTPS möglich.")
+			return
+		}
+		if errors.Is(err, auth.ErrHomeAssistantUnavailable) {
+			writeErrorKey(w, http.StatusServiceUnavailable, "ha_unavailable", "error.ha_unavailable", nil, "Home Assistant ist gerade nicht erreichbar. Lokale Konten funktionieren weiter.")
 			return
 		}
 		if err != nil {
@@ -501,12 +513,19 @@ func handleAuthSession(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		session, ok := manager.Session(cookie.Value)
-		if !ok {
+		if !ok || !companionSessionAllowed(session, r) {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
 		writeAuthSession(w, session, isSecureRequest(r), manager.MinPasswordLength())
 	}
+}
+
+// companionSessionAllowed reports whether a session may serve this request. A
+// companion session counts only on the companion port, elsewhere it is no
+// session at all.
+func companionSessionAllowed(session auth.Session, r *http.Request) bool {
+	return session.Via != auth.ViaCompanion || isCompanionRequest(r)
 }
 
 func handleAuthLogout(manager *auth.Manager) http.HandlerFunc {
@@ -726,6 +745,9 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, 
 	}
 	writeJSON(w, map[string]any{
 		"username":                user.Username,
+		"display_name":            user.DisplayName,
+		"source":                  user.Source,
+		"via":                     session.Via,
 		"guest":                   user.Guest,
 		"roles":                   user.Roles,
 		"restricted":              session.Restricted,

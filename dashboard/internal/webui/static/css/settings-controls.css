@@ -722,7 +722,7 @@
 /* Benutzer-Unterreiter (users.html, users.page.js). Alle Klassen mit Praefix
    users-; keine globalen Selektoren. Schalter nur als label.settings-toggle.
    Bewegung nach Spec Abschnitt 8, Kurven aus base.css. */
-.users-cards > .users-manage > .setting-card { grid-column: 1 / -1; }
+.users-cards > .users-manage > .setting-card:not(.users-session-card):not(.users-account-card) { grid-column: 1 / -1; }
 /* Anmeldung und Konto stehen nebeneinander, wie die Karten der anderen Seiten. */
 /* Die Verwaltungs-Karten sitzen in einem Wrapper, der keine Box erzeugt: so
    bleiben sie direkte Rasterelemente fuer Spalten und Mauerwerk. */
@@ -730,6 +730,8 @@
 /* Die Kontokarte stand frueher unter der Systemzugriff-Karte und brachte
    deren Trennlinie mit; auf der Benutzer-Seite faellt sie weg. Der Reiter-Block
    bekommt oben denselben Abstand wie zwischen zwei Karten (1rem). */
+.users-signin-group { display: contents; }
+.settings-account-subtitle .field-help { margin-left: .2rem; vertical-align: middle; }
 .users-account-card .settings-account { margin-top: 0; padding-top: 0; border-top: 0; }
 .users-cards { padding-top: 1rem; }
 .users-section-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
@@ -912,12 +914,16 @@
 .users-grow { flex: 1; }
 
 /* Speicherleiste: schwebt über dem Inhalt, nur bei Änderungen sichtbar */
-.users-savebar { position: sticky; bottom: .75rem; margin-top: .75rem; display: flex; align-items: center; gap: .5rem; padding: .5rem .5rem .5rem .9rem; border: 1px solid rgba(255, 255, 255, .08); border-radius: var(--radius-md); background: color-mix(in srgb, var(--panel-alt) 78%, transparent); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35); opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity 180ms ease, transform 220ms var(--ease-out), visibility 0s linear 220ms; }
+.users-savebar-wrap { position: sticky; bottom: .75rem; display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--layout-ease), margin-top 240ms var(--layout-ease); }
+.users-savebar-wrap.is-show { grid-template-rows: 1fr; margin-top: .75rem; }
+/* Ausgeblendet nimmt die Leiste keine Hoehe ein; der Clip laesst den Schatten ueberstehen. */
+.users-savebar-clip { min-height: 0; overflow: clip; overflow-clip-margin: 1.5rem; }
+.users-savebar { display: flex; align-items: center; gap: .5rem; padding: .5rem .5rem .5rem .9rem; border: 1px solid rgba(255, 255, 255, .08); border-radius: var(--radius-md); background: color-mix(in srgb, var(--panel-alt) 78%, transparent); backdrop-filter: blur(16px) saturate(160%); -webkit-backdrop-filter: blur(16px) saturate(160%); box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35); opacity: 0; visibility: hidden; transform: translateY(8px); transition: opacity 180ms ease, transform 220ms var(--ease-out), visibility 0s linear 220ms; }
 .users-savebar.is-show { opacity: 1; visibility: visible; transform: none; transition: opacity 180ms ease, transform 220ms var(--ease-out), visibility 0s; }
 .users-savebar-msg { flex: 1; min-width: 0; font-size: .78rem; color: var(--text-subtle); }
 
 @media (prefers-reduced-motion: reduce) {
-  .users-body, .users-fold, .users-warn, .users-hint, .users-group-fold, .users-collapse { transition: none; }
+  .users-body, .users-fold, .users-warn, .users-hint, .users-group-fold, .users-collapse, .users-savebar-wrap { transition: none; }
   .users-collapse.is-leaving { transition: opacity 160ms ease; }
   .users-content, .users-card.is-open > .users-body .users-content { transform: none; transition: opacity 160ms ease; }
   .users-create-enter, .users-create-enter-start, .users-create-enter-end { transform: none; transition: opacity 160ms ease; }
@@ -928,6 +934,28 @@
 }
 @media (prefers-reduced-transparency: reduce) {
   .users-savebar { background: var(--panel-alt); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* Home Assistant: Hinweise am Konto, Kopplungsabschnitt (Stufen, Code, Restzeit). */
+.users-ha-note { margin: .35rem 0 0; font-size: .76rem; line-height: 1.4; color: var(--text-faint); }
+.users-ha-note--warn { color: var(--warn); }
+.users-pair-stage { display: grid; margin-top: .6rem; }
+.users-pair-st { display: grid; gap: .4rem; min-width: 0; }
+.users-pair-enter { transition: opacity 200ms ease, transform 240ms var(--ease-out); }
+.users-pair-enter-start { opacity: 0; transform: translateY(4px); }
+.users-pair-enter-end { opacity: 1; transform: none; }
+.users-code { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; margin: .6rem 0 .7rem; font: 650 1.6rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-strong); }
+.users-code-group { display: flex; gap: .3rem; }
+.users-code-char { display: inline-block; width: 1.05em; text-align: center; background: var(--sunken); border-radius: 8px; padding: .55rem 0; opacity: 0; transform: translateY(6px) scale(.96); }
+.users-code.is-in .users-code-char { opacity: 1; transform: none; transition: opacity 200ms ease, transform 260ms var(--ease-out); }
+.users-bar { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.users-bar > i { display: block; height: 100%; background: var(--accent-line); transform-origin: left center; transition: transform 1s linear; }
+.users-steps { margin: .6rem 0 0; padding-left: 1.1rem; font-size: .76rem; color: var(--text-muted); }
+.users-steps li { margin: .15rem 0; }
+@media (prefers-reduced-motion: reduce) {
+  .users-pair-enter, .users-pair-enter-start, .users-pair-enter-end { transform: none; transition: opacity 160ms ease; }
+  .users-code-char, .users-code.is-in .users-code-char { transform: none; transition: opacity 160ms ease; }
+  .users-bar > i { transition: none; }
 }
 
 /* Konto im Systemzugriff: eigenes Passwort und HTTP-Passwort, unter dem Zugriffsstatus. */

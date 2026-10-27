@@ -33,11 +33,33 @@ Assistant host has to reach the node.
 
 ## Signing in
 
-The page opens with a guest session of the dashboard. A guest can look at
-everything and edit layouts and automation rules (see
-[Dashboard](../dashboard/index.md)). For the protected actions, sign in with
-a dashboard user as usual. The dashboard only accepts that sign-in when Home
-Assistant itself is served over HTTPS.
+Once the companion is [paired](companion-setup.md#pair-with-the-dashboard),
+the page opens as your Home Assistant user. You do not sign in a second time.
+The first time you open the page, the dashboard creates an account for you.
+It is listed under **Home Assistant** in the Users section, with the
+permissions of its preset or with permissions set for it individually. The
+account has no password of its own, so it can only be used through Home
+Assistant.
+
+An account that is disabled in the dashboard gets no personal session. The
+page then falls back to the guest session, which a guest can use as described
+in [Dashboard](../dashboard/index.md).
+
+Without pairing the page always opens as a guest. A guest can look at
+everything and edit layouts and automation rules. For the protected actions,
+sign in with a dashboard user as usual.
+
+The dashboard accepts Home Assistant accounts on its sign-in page too. Enter
+the user name and password of your Home Assistant user there. Two rules apply:
+
+- A name that also exists as a local dashboard account always signs in to the
+  local account. The dashboard does not ask Home Assistant for it.
+- Home Assistant accounts only sign in over HTTPS. When Home Assistant is
+  served over plain HTTP, the sign-in page says that Home Assistant accounts
+  need HTTPS.
+
+Over HTTP the page works too, but the permissions that need HTTPS stay
+unavailable, as they do for any other session without HTTPS.
 
 The page renews its access on its own while it is open. After a Home
 Assistant restart it fetches new access the next time you open it.

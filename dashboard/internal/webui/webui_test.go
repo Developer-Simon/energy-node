@@ -152,7 +152,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=4,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=28,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=9,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=1,/static/js/users.page.js?v=2",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=29,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=9,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=3",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -161,7 +161,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=19"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=20"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1135,7 +1135,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=19"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=20"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1184,7 +1184,7 @@ func TestOverviewRejectsHostileForwardedPrefix(t *testing.T) {
 }
 
 func TestLoginPrefixesAuthEndpoints(t *testing.T) {
-	body := renderWithBasePath(t, Login(false, nil, ""), "/node/login")
+	body := renderWithBasePath(t, Login(false, nil, "", false), "/node/login")
 	if !strings.Contains(body, `<html lang="de" data-base-path="/node" data-theme="mint">`) {
 		t.Fatalf("login page does not publish the base path: %s", body)
 	}
@@ -1200,7 +1200,7 @@ func TestLoginShowsAdminAuthWarningWhenSet(t *testing.T) {
 		request := httptest.NewRequest("GET", "/", nil)
 		request.AddCookie(&http.Cookie{Name: "lang", Value: lang})
 		recorder := httptest.NewRecorder()
-		Login(false, nil, "login.admin_auth_unavailable").ServeHTTP(recorder, request)
+		Login(false, nil, "login.admin_auth_unavailable", false).ServeHTTP(recorder, request)
 		want := `<p class="admin-auth-warning" role="alert">` + html.EscapeString(texts["login.admin_auth_unavailable"]) + `</p>`
 		if body := recorder.Body.String(); !strings.Contains(body, want) {
 			t.Errorf("%s login page does not show the admin auth warning %q", lang, want)
@@ -1210,7 +1210,7 @@ func TestLoginShowsAdminAuthWarningWhenSet(t *testing.T) {
 
 func TestLoginOmitsAdminAuthWarningByDefault(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	Login(false, nil, "").ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	Login(false, nil, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	body := recorder.Body.String()
 	if strings.Contains(body, `<p class="admin-auth-warning"`) {
 		t.Fatalf("login page shows an empty admin auth warning: %s", body)
@@ -1219,7 +1219,7 @@ func TestLoginOmitsAdminAuthWarningByDefault(t *testing.T) {
 
 func TestLoginOverHTTPKeepsFormUsableAndRootPathsWithoutPrefix(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	Login(true, nil, "").ServeHTTP(recorder, httptest.NewRequest("GET", "/login", nil))
+	Login(true, nil, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/login", nil))
 	body := recorder.Body.String()
 	if !strings.Contains(body, "<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required>") {
 		t.Fatalf("login page over HTTP does not render the password form as usable: %s", body)
@@ -1270,7 +1270,7 @@ func TestLoginRendersThemeAttribute(t *testing.T) {
 		t.Fatal(err)
 	}
 	recorder := httptest.NewRecorder()
-	Login(false, store, "").ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	Login(false, store, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	if !strings.Contains(recorder.Body.String(), `data-theme="tageslicht"`) {
 		t.Fatal("login page carries no data-theme attribute")
 	}
@@ -1278,7 +1278,7 @@ func TestLoginRendersThemeAttribute(t *testing.T) {
 
 func TestLoginWithoutStoreFallsBackToMint(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	Login(true, nil, "").ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	Login(true, nil, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	if !strings.Contains(recorder.Body.String(), `data-theme="mint"`) {
 		t.Fatal("missing store did not fall back to mint")
 	}
@@ -4142,5 +4142,38 @@ func TestAutomationsAssistantNumbersRowsBindIconAndUnit(t *testing.T) {
 	}
 	if strings.Contains(body, `'#ico-' + field.icon`) || strings.Contains(body, `field.unit || ''`) {
 		t.Fatal("das Assistenten-Markup liest Icon und Einheit nicht mehr direkt vom Feld")
+	}
+}
+
+// TestLoginOverHTTPShowsHAHintOnlyWhenPaired: the Home Assistant hint follows
+// the companion pairing, and only the HTTP variant of the login page shows it.
+func TestLoginOverHTTPShowsHAHintOnlyWhenPaired(t *testing.T) {
+	const german = "Home-Assistant-Konten benötigen HTTPS."
+	const english = "Home Assistant accounts need HTTPS."
+	render := func(overHTTP, paired bool, acceptLanguage string) string {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest("GET", "/", nil)
+		if acceptLanguage != "" {
+			request.Header.Set("Accept-Language", acceptLanguage)
+		}
+		Login(overHTTP, nil, "", paired).ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status %d", recorder.Code)
+		}
+		return recorder.Body.String()
+	}
+
+	if body := render(true, true, ""); !strings.Contains(body, german) {
+		t.Fatalf("paired over HTTP: German hint missing")
+	}
+	if body := render(true, true, "en"); !strings.Contains(body, english) {
+		t.Fatalf("paired over HTTP: English hint missing")
+	}
+	if body := render(true, false, ""); strings.Contains(body, german) {
+		t.Fatalf("unpaired over HTTP: hint must not show")
+	}
+	if body := render(false, true, ""); strings.Contains(body, german) {
+		t.Fatalf("paired over HTTPS: hint must not show")
 	}
 }

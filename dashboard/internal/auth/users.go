@@ -70,7 +70,7 @@ var usernamePattern = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
 
 // reservedUsernames sind Namen, die ein Festpfad der API belegt. Ein Konto mit
 // diesem Namen würde den Pfad unter /api/v1/users/{name} verdecken.
-var reservedUsernames = map[string]bool{"password-policy": true}
+var reservedUsernames = map[string]bool{"password-policy": true, "companion": true, "ha-roles": true}
 
 // sessionIDLength is the length of the session ID: the first characters of the
 // SHA-256 hash of the token, which is the key of the session map.
@@ -123,6 +123,13 @@ func (m *Manager) CreateUser(actor, username, password string, roles []string) (
 	}
 	if _, exists := m.users[name]; exists {
 		return User{}, ErrUserExists
+	}
+	// Ein Name, den ein HA-Konto trägt, ist für lokale Konten gesperrt, damit
+	// Sitzungen und Zuordnungen nie verwechselt werden können.
+	for _, account := range m.haAccounts {
+		if strings.EqualFold(account.Username, name) {
+			return User{}, ErrUserExists
+		}
 	}
 	if err := m.validatePasswordLocked(password); err != nil {
 		return User{}, err
@@ -177,7 +184,7 @@ func (m *Manager) UpdateUser(actor, username string, roles []string, disabled bo
 	}
 	sessions := copySessions(m.sessions)
 	for key, session := range sessions {
-		if session.User.Username != name {
+		if session.User.Source != "" || session.User.Username != name {
 			continue
 		}
 		// Ohne http_login gibt es keine eingeschränkte Sitzung mehr, sie wird
@@ -214,7 +221,7 @@ func (m *Manager) DeleteUser(actor, username string) error {
 	}
 	sessions := copySessions(m.sessions)
 	for key, session := range sessions {
-		if session.User.Username == name {
+		if session.User.Source == "" && session.User.Username == name {
 			delete(sessions, key)
 		}
 	}
@@ -421,7 +428,7 @@ func (m *Manager) SetPassword(actor, username, newPassword string) error {
 	users[name] = updated
 	sessions := copySessions(m.sessions)
 	for key, session := range sessions {
-		if session.User.Username == name {
+		if session.User.Source == "" && session.User.Username == name {
 			delete(sessions, key)
 		}
 	}
@@ -500,7 +507,7 @@ func (m *Manager) setHTTPPasswordLocked(name, newPassword, keep string) (changed
 	users[name] = updated
 	sessions := copySessions(m.sessions)
 	for key, session := range sessions {
-		if session.User.Username != name {
+		if session.User.Source != "" || session.User.Username != name {
 			continue
 		}
 		if session.Restricted && key != keep {
@@ -542,7 +549,7 @@ func (m *Manager) ChangeOwnPassword(token, oldPassword, newPassword string) erro
 	users[name] = updated
 	sessions := copySessions(m.sessions)
 	for other, candidate := range sessions {
-		if candidate.User.Username == name && other != key {
+		if candidate.User.Source == "" && candidate.User.Username == name && other != key {
 			delete(sessions, other)
 		}
 	}
@@ -559,7 +566,8 @@ func (m *Manager) ChangeOwnPassword(token, oldPassword, newPassword string) erro
 // liveSessionLocked liefert die nicht abgelaufene Sitzung zu token.
 func (m *Manager) liveSessionLocked(token string) (Session, bool) {
 	session, ok := m.sessions[tokenHash(token)]
-	if !ok || !session.ExpiresAt.After(m.now()) {
+	// Eine HA-Sitzung ändert keine lokalen Passwörter, auch nicht bei gleichem Namen.
+	if !ok || !session.ExpiresAt.After(m.now()) || session.User.Source != "" {
 		return Session{}, false
 	}
 	return session, true
