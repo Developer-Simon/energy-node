@@ -104,7 +104,7 @@ jobs:
           # replace directive (its local Re-Deploy screen implements
           # hostapi.Backend), so a change there can break the dashboard build
           # without touching a single file under dashboard/.
-          emit dashboard '^dashboard/|^installer/webui/|^services/[^/]+/[^/]+\.schema\.json$'
+          emit dashboard '^dashboard/|^demo/|^installer/webui/|^services/[^/]+/[^/]+\.schema\.json$'
           emit installer_webui '^installer/webui/'
           emit installer  '^installer/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^scripts/version/|^scripts/generate_changelog\.sh$|^scripts/build/(make_changelog_json|highlight_i18n|highlight_translations|highlight_details)\.py$|^scripts/release/release_highlights\.py$|^requirements-dev\.txt$'
@@ -170,6 +170,32 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+
+  dashboard-smoke:
+    name: Dashboard smoke test
+    needs: changes
+    if: needs.changes.outputs.dashboard == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: dashboard/go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - name: Fake tests
+        working-directory: demo/fakes
+        run: python -m pytest -q
+      - name: Smoke test
+        run: dashboard/test/smoke/smoke.sh
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-smoke-logs
+          path: dashboard/test/smoke/.run/
+          if-no-files-found: ignore
 
   installer-webui-go:
     name: Installer webui (Go)
@@ -415,6 +441,7 @@ jobs:
       - dashboard-go
       - installer-go
       - dashboard-js
+      - dashboard-smoke
       - installer-webui-go
       - installer-webui-js
       - installer-webui-e2e
