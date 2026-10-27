@@ -749,30 +749,35 @@
 
   const batteryOf = (ctx, answers) => (ctx.batteries || []).find((item) => item.id === answers.battery) || {};
 
+  // Schritte des Niedrigtarifs. tariff und wallbox_low_tariff teilen dieselben Objekte.
+  const TARIFF_STEPS = [
+    {
+      id: 'source', type: 'tiles', default: 'fixed',
+      options: [
+        { id: 'fixed' },
+        { id: 'price', unavailable: (ctx) => (ctx.prices.length ? '' : t('automations.assistant.unavailable.price')) },
+      ],
+    },
+    {
+      id: 'window', type: 'time', when: (answers) => answers.source === 'fixed',
+      default: { from: '22:00', to: '06:00', days: ALL_DAYS },
+    },
+    { id: 'price', type: 'device', filter: 'price', when: (answers) => answers.source === 'price' },
+    {
+      id: 'thr', type: 'presets', step: 0.5, default: 15, effect: 'price',
+      options: [{ id: 10 }, { id: 15 }, { id: 20 }],
+      scale: { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
+      when: (answers) => answers.source === 'price',
+    },
+  ];
+
   const tariff = {
     id: 'tariff',
     category: 'tariff',
     icon: 'ico-battery',
     requires: { devices: 'battery', soc: true },
     steps: [
-      {
-        id: 'source', type: 'tiles', default: 'fixed',
-        options: [
-          { id: 'fixed' },
-          { id: 'price', unavailable: (ctx) => (ctx.prices.length ? '' : t('automations.assistant.unavailable.price')) },
-        ],
-      },
-      {
-        id: 'window', type: 'time', when: (answers) => answers.source === 'fixed',
-        default: { from: '22:00', to: '06:00', days: ALL_DAYS },
-      },
-      { id: 'price', type: 'device', filter: 'price', when: (answers) => answers.source === 'price' },
-      {
-        id: 'thr', type: 'presets', step: 0.5, default: 15, effect: 'price',
-        options: [{ id: 10 }, { id: 15 }, { id: 20 }],
-        scale: { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
-        when: (answers) => answers.source === 'price',
-      },
+      ...TARIFF_STEPS,
       { id: 'battery', type: 'device', filter: 'battery' },
       {
         id: 'charge', type: 'numbers',
@@ -890,6 +895,220 @@
           step: 'charge',
         },
       ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Akku einmal im Monat voll
+
+  const batteryFullMonthly = {
+    id: 'battery_full_monthly',
+    category: 'charging',
+    icon: 'ico-battery',
+    requires: { devices: 'battery', soc: true },
+    steps: [
+      { id: 'battery', type: 'device', filter: 'battery' },
+      { id: 'day', type: 'number', min: 1, max: 28, step: 1, default: 1 },
+      {
+        id: 'source', type: 'tiles', default: 'surplus',
+        options: [{ id: 'surplus' }, { id: 'grid' }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.batteries, answers.battery);
+      if (!entry.setpoint) throw new Error(`automation template: no setpoint for ${entry.id}`);
+      const setpointEntity = entry.setpoint;
+      if (!Number.isFinite(valueOf(setpointEntity))) throw new Error(`automation template: no value for ${setpointEntity.unique_id}`);
+
+      const when = [
+        { type: 'time_window', start: '00:00', end: '00:00', weekdays: [], month_days: [answers.day] },
+        B('battery_soc', 'below', 100, 0),
+      ];
+      if (answers.source === 'surplus') when.push(B('grid_export', 'above', 200, 60));
+
+      // Kein until: das Szenario endet, sobald eine when-Bedingung nicht mehr gilt, also bei vollem Akku.
+      const scenario = {
+        id: uniqueId('battery_full_monthly', ctx.usedIds),
+        name: t('automations.templates.battery_full_monthly.title'),
+        enabled: true,
+        template: 'battery_full_monthly',
+        history_enabled: false,
+        when: { conditions: when },
+        on_start: { actions: [setpoint(setpointEntity, String(setpointEntity.max_value))] },
+        on_end: { actions: [setpoint(setpointEntity, String(valueOf(setpointEntity)))] },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const entry = requireEntry(ctx.batteries, answers.battery);
+      const setpointEntity = entry.setpoint;
+      if (!setpointEntity) throw new Error(`automation template: no setpoint for ${entry.id}`);
+      return [
+        { label: phase('when'), text: t('automations.assistant.summary.full_monthly.when', { day: num(answers.day) }), step: 'day' },
+        {
+          label: phase('when'),
+          text: answers.source === 'surplus'
+            ? t('automations.assistant.summary.full_monthly.surplus', { value: num(200) })
+            : t('automations.assistant.summary.full_monthly.grid'),
+          step: 'source',
+        },
+        {
+          label: phase('start'),
+          text: t('automations.assistant.summary.full_monthly.start', {
+            value: num(setpointEntity.max_value), unit: setpointEntity.unit_of_measurement || '',
+          }),
+          step: 'battery',
+        },
+        { label: phase('end'), text: t('automations.assistant.summary.full_monthly.end'), step: 'battery' },
+        { label: phase('until'), text: t('automations.assistant.summary.full_monthly.until'), step: 'battery' },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Wechselrichter meldet sich nicht
+
+  const inverterSilent = {
+    id: 'inverter_silent',
+    category: 'warning',
+    icon: 'ico-inverter',
+    requires: { devices: 'inverter_measured' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'inverter_measured' },
+      { id: 'minutes', type: 'number', min: 5, max: 120, step: 5, default: 15 },
+      {
+        id: 'severity', type: 'tiles', default: 'warning',
+        options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
+      },
+      { id: 'again', type: 'number', min: 1, max: 24, step: 1, default: 6 },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.inverters, answers.device);
+      const measured = entry.measured;
+      if (!measured) throw new Error(`automation template: no own reading for ${entry.id}`);
+
+      // Gilt auch nachts: keine Zeitbedingung, nur die Stille des Messwerts.
+      const rule = {
+        id: uniqueId('inverter_silent', ctx.usedIds),
+        name: t('automations.templates.inverter_silent.title'),
+        enabled: true,
+        cooldown_seconds: answers.again * 3600,
+        conditions: [{
+          type: 'entity_value', topic: measured.state_topic, entity_id: measured.unique_id,
+          value_template: measured.value_template || '', comparison: 'stale', max_age_s: answers.minutes * 60,
+        }],
+        actions: [{
+          type: 'notification',
+          severity: answers.severity,
+          title: t('automations.templates.inverter_silent.notice.title'),
+          message: t('automations.templates.inverter_silent.notice.message', { minutes: num(answers.minutes) }),
+        }],
+      };
+      return { kind: 'rule', entry: rule };
+    },
+    summary(answers, ctx) {
+      requireEntry(ctx.inverters, answers.device);
+      return [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.silent.when', { minutes: num(answers.minutes) }),
+          step: 'minutes',
+        },
+        {
+          label: phase('then'),
+          text: t('automations.assistant.summary.battery.then', {
+            severity: t(`automations.templates.inverter_silent.steps.severity.options.${answers.severity}.title`),
+          }),
+          step: 'severity',
+        },
+        { label: phase('end'), text: t('automations.assistant.summary.silent.again', { hours: num(answers.again) }), step: 'again' },
+      ];
+    },
+  };
+
+  // ---------------------------------------------------------------- Wallbox bei Niedrigtarif
+
+  const wallboxLowTariff = {
+    id: 'wallbox_low_tariff',
+    category: 'tariff',
+    icon: 'ico-wallbox',
+    requires: { devices: 'wallbox' },
+    steps: [
+      { id: 'device', type: 'device', filter: 'wallbox' },
+      ...TARIFF_STEPS,
+      {
+        id: 'connected', type: 'multi',
+        options: [{
+          id: 'connected', default: true,
+          unavailable: (ctx, answers) => (requireEntry(ctx.wallboxes, answers.device).plugEntity
+            ? '' : t('automations.assistant.unavailable.plug')),
+        }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.wallboxes, answers.device);
+      const entity = requireEntity(entry);
+      const plug = entry.plugEntity;
+
+      const when = [];
+      if (answers.source === 'fixed') {
+        when.push({
+          type: 'time_window', start: answers.window.from, end: answers.window.to, weekdays: weekdaysOf(answers.window.days),
+        });
+      } else {
+        const price = requireEntry(ctx.prices, answers.price).entity;
+        when.push({
+          type: 'entity_value', topic: price.state_topic, entity_id: price.unique_id,
+          value_template: price.value_template || '', comparison: 'below',
+          value: ctToPriceUnit(answers.thr, price.unit_of_measurement), hold_seconds: 0,
+        });
+      }
+      if (answers.connected.connected && plug) {
+        when.push({
+          type: 'entity_value', topic: plug.state_topic, entity_id: plug.unique_id,
+          value_template: plug.value_template || '', comparison: 'equals', text: plug.payload_on || 'ON',
+        });
+      }
+
+      // Beim Start volle Ladeleistung, am Ende zurück auf die Untergrenze der Wallbox.
+      const scenario = {
+        id: uniqueId('wallbox_low_tariff', ctx.usedIds),
+        name: t('automations.templates.wallbox_low_tariff.title'),
+        enabled: true,
+        template: 'wallbox_low_tariff',
+        history_enabled: false,
+        when: { conditions: when },
+        on_start: { actions: [setpoint(entity, String(entity.max_value))] },
+        on_end: { actions: [setpoint(entity, String(entity.min_value))] },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      const entry = requireEntry(ctx.wallboxes, answers.device);
+      const entity = requireEntity(entry);
+      const fixed = answers.source === 'fixed';
+      const when = fixed
+        ? t('automations.assistant.summary.tariff.when_fixed', { from: answers.window.from, to: answers.window.to })
+        : t('automations.assistant.summary.tariff.when_price', {
+          name: requireEntry(ctx.prices, answers.price).deviceName, thr: num(answers.thr),
+        });
+      const rows = [{ label: phase('when'), text: when, step: fixed ? 'window' : 'thr' }];
+      if (answers.connected.connected && entry.plugEntity) {
+        rows.push({ label: phase('when'), text: t('automations.assistant.summary.wallbox.connected'), step: 'connected' });
+      }
+      rows.push({
+        label: phase('start'),
+        text: t('automations.assistant.summary.low_tariff.start', {
+          value: num(entity.max_value), unit: entity.unit_of_measurement || '',
+        }),
+        step: 'device',
+      });
+      rows.push({
+        label: phase('end'),
+        text: t('automations.assistant.summary.wallbox.end_min', { min: num(entity.min_value) }),
+        step: 'device',
+      });
+      return rows;
     },
   };
 
@@ -1252,7 +1471,7 @@
   };
 
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, gridCap, gridSignal, pvMissing, heatingRod],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod],
     chargeFit,
   };
 })();
