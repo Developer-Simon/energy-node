@@ -252,6 +252,7 @@
   "automations.comparison.stale": "ohne neue Werte",
   "automations.condition.add_aria": "Bedingung hinzufügen: {type}",
   "automations.condition.add_button_aria": "Bedingung hinzufügen",
+  "automations.condition.advanced.month_days": "Erweitert: Tage im Monat",
   "automations.condition.balance.comparison_label": "Vergleich",
   "automations.condition.balance.field_label": "Bilanzfeld",
   "automations.condition.balance.threshold_label": "Schwellwert",

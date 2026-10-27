@@ -252,6 +252,7 @@
   "automations.comparison.stale": "no new values",
   "automations.condition.add_aria": "Add condition: {type}",
   "automations.condition.add_button_aria": "Add condition",
+  "automations.condition.advanced.month_days": "Advanced: days of the month",
   "automations.condition.balance.comparison_label": "Comparison",
   "automations.condition.balance.field_label": "Balance field",
   "automations.condition.balance.threshold_label": "Threshold",

@@ -184,14 +184,25 @@
                                       x-on:click="toggleWeekday(condition, day)"></button>
                             </template>
                           </div>
-                          <div class="weekday-chips auto-monthdays auto-field-wide" role="group" x-bind:aria-label="$t('automations.condition.time_window.month_days_aria')">
-                            <span class="weekday-chips-label" x-text="(condition.month_days || []).length ? $t('automations.condition.time_window.specific_month_days') : $t('automations.condition.time_window.any_month_day')"></span>
-                            <template x-for="day in monthDayNumbers()" x-bind:key="day">
-                              <button class="weekday-chip" type="button" x-text="day"
-                                      x-bind:class="{ active: hasMonthDay(condition, day) }"
-                                      x-bind:aria-pressed="hasMonthDay(condition, day)"
-                                      x-on:click="toggleMonthDay(condition, day)"></button>
-                            </template>
+                          <div class="auto-field-wide auto-advanced" x-data="{ open: (condition.month_days || []).length > 0 }">
+                            <button class="auto-advanced-toggle" type="button" x-on:click="open = !open" x-bind:aria-expanded="open ? 'true' : 'false'">
+                              <svg class="automation-icon auto-advanced-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                              <span>{{t "automations.condition.advanced.month_days"}}</span>
+                              <span class="auto-advanced-count" x-show="(condition.month_days || []).length" x-text="(condition.month_days || []).length"></span>
+                            </button>
+                            <div class="auto-advanced-body" x-bind:class="{ open: open }" x-bind:inert="!open">
+                              <div class="auto-advanced-inner">
+                                <div class="weekday-chips auto-monthdays" role="group" x-bind:aria-label="$t('automations.condition.time_window.month_days_aria')">
+                                  <span class="weekday-chips-label" x-text="(condition.month_days || []).length ? $t('automations.condition.time_window.specific_month_days') : $t('automations.condition.time_window.any_month_day')"></span>
+                                  <template x-for="day in monthDayNumbers()" x-bind:key="day">
+                                    <button class="weekday-chip" type="button" x-text="day"
+                                            x-bind:class="{ active: hasMonthDay(condition, day) }"
+                                            x-bind:aria-pressed="hasMonthDay(condition, day)"
+                                            x-on:click="toggleMonthDay(condition, day)"></button>
+                                  </template>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </template>
@@ -227,14 +238,25 @@
                                       x-on:click="toggleWeekday(condition, day)"></button>
                             </template>
                           </div>
-                          <div class="weekday-chips auto-monthdays auto-field-wide" role="group" x-bind:aria-label="$t('automations.condition.sun_window.month_days_aria')">
-                            <span class="weekday-chips-label" x-text="(condition.month_days || []).length ? $t('automations.condition.sun_window.specific_month_days') : $t('automations.condition.sun_window.any_month_day')"></span>
-                            <template x-for="day in monthDayNumbers()" x-bind:key="day">
-                              <button class="weekday-chip" type="button" x-text="day"
-                                      x-bind:class="{ active: hasMonthDay(condition, day) }"
-                                      x-bind:aria-pressed="hasMonthDay(condition, day)"
-                                      x-on:click="toggleMonthDay(condition, day)"></button>
-                            </template>
+                          <div class="auto-field-wide auto-advanced" x-data="{ open: (condition.month_days || []).length > 0 }">
+                            <button class="auto-advanced-toggle" type="button" x-on:click="open = !open" x-bind:aria-expanded="open ? 'true' : 'false'">
+                              <svg class="automation-icon auto-advanced-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                              <span>{{t "automations.condition.advanced.month_days"}}</span>
+                              <span class="auto-advanced-count" x-show="(condition.month_days || []).length" x-text="(condition.month_days || []).length"></span>
+                            </button>
+                            <div class="auto-advanced-body" x-bind:class="{ open: open }" x-bind:inert="!open">
+                              <div class="auto-advanced-inner">
+                                <div class="weekday-chips auto-monthdays" role="group" x-bind:aria-label="$t('automations.condition.sun_window.month_days_aria')">
+                                  <span class="weekday-chips-label" x-text="(condition.month_days || []).length ? $t('automations.condition.sun_window.specific_month_days') : $t('automations.condition.sun_window.any_month_day')"></span>
+                                  <template x-for="day in monthDayNumbers()" x-bind:key="day">
+                                    <button class="weekday-chip" type="button" x-text="day"
+                                            x-bind:class="{ active: hasMonthDay(condition, day) }"
+                                            x-bind:aria-pressed="hasMonthDay(condition, day)"
+                                            x-on:click="toggleMonthDay(condition, day)"></button>
+                                  </template>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                           <div class="edit-card-warning auto-field-wide" x-show="!hasLocation()">
                             <span>{{t "automations.condition.sun_window.no_location"}}</span>
@@ -292,7 +314,7 @@
                               </button>
                               <button class="auto-segment-tab" type="button" role="radio" x-on:click="setComparison(condition, 'stale')"
                                       x-bind:aria-checked="condition.comparison === 'stale' ? 'true' : 'false'">
-                                <span>{{t "automations.comparison.stale"}}</span>
+                                <span class="auto-compare-glyph" aria-hidden="true">?</span><span>{{t "automations.comparison.stale"}}</span>
                               </button>{{end}}
                             </span>
 {{end}}
