@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.20 (2026-10-27)
+## v0.10.21 (2026-10-27)
 
 ### Features
 
@@ -14,6 +14,14 @@
 - **auth:** Permissions are enforced: accounts only see the pages they may view and only change what they may change. (#170) (ab1e04a)
 - **updates:** install the offered update from the update bar (#171) (98937ad)
 - **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
+- **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
+- **automations:** describe month days and stale conditions (36a10b2)
+- **automations:** edit month days and stale conditions (53dbe9a)
+- **automations:** monthly full charge, silent inverter and low tariff wallbox templates (9e0696e)
+- **automations:** fold month days into an advanced section and add icons (13294d9)
+- **automations:** use a tilde for the regulate mode (7b0d7e6)
+- **automations:** offer a restart for silent and missing inverters (bbdfb76)
+- **automation:** Automation windows can be limited to days of the month. (#175)
 - **auth:** add companion pairing code and proofs (9835360)
 - **dashboard:** generate a long-lived certificate for the companion port (387ad1a)
 - **auth:** store home assistant accounts and presets (13ffa52)
@@ -33,7 +41,6 @@
 - **smoke:** start the fake console from run-local-dashboard.sh (21f0075)
 - **webui:** move own session and account cards into a sign-in users tab (d9d3602)
 - **webui:** name the sign-in users tab Me (1594fcb)
-- **auth:** sign in home assistant users through the companion (#174)
 - **automations:** minimum run time and pause fields in the scenario editor (5d8e12a)
 - **automations:** assistant context knows heat pumps, batteries and prices (8f19986)
 - **automations:** numbers, devices and reveal steps in the assistant logic (2adf4b6)
@@ -143,6 +150,8 @@
 
 ### Fixes
 
+- **automation:** translate the schema texts for month days and stale (4fd14f4)
+- **automations:** measured-only inverters stay usable when already regulated (ea9450f)
 - **dashboard:** treat a missing forwarded proto as insecure on the companion port (5bf50cc)
 - **auth:** reserve the companion route names for usernames (d27df23)
 - **auth:** keep the pairing code while re-pairing and hide password forms for home assistant sessions (87a3424)
@@ -212,6 +221,7 @@
 ### Documentation
 
 - **devicemap:** tidy the screenshot preset and regenerate the images (#173) (76369a2)
+- **automations:** month days, stale values and the new templates (efe2269)
 - installing the offered update (5903807)
 - route access groups (10f6edb)
 - **automations:** plainer texts and template names in the assistant (18224e9)
@@ -242,6 +252,7 @@
 
 ### Chores
 
+- **automations:** order the restart steps last and bump the wizard asset (e7ad540)
 - **webui:** bump asset versions for the users page (ab0427f)
 - **dashboard:** cache-bust automation assets for the energy templates (8434b47)
 - **webui:** bump asset versions (e84cb6e)

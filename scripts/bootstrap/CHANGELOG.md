@@ -1,11 +1,11 @@
 # Changelog
 
-## v0.2.4 (2026-10-26)
+## v0.2.4 (2026-10-27)
 
 ### Features
 
+- **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
 - **dashboard:** open the companion port 8081 (a44f4b2)
-- **auth:** sign in home assistant users through the companion (#174)
 
 ## v0.2.3 (2026-10-20)
 
