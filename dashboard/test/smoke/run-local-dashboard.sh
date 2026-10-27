@@ -1401,12 +1401,17 @@ sys.exit(0 if json.load(open(sys.argv[1])).get("source") == "homeassistant" else
       echo "  FEHL $HA_USER meldet sich nicht ueber HTTPS an (HTTP $login_code)"; FAILED=1
     fi
 
-    code="$(curl -s "${CURL_INSECURE[@]}" -m 20 -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
-      -X POST "$BASE/api/v1/auth/login" -d "{\"username\":\"$HA_USER\",\"password\":\"$HA_PASSWORD\"}")"
-    if [[ "$code" == "401" ]]; then
-      echo "  OK   $HA_USER ohne HTTPS-Kennzeichen wird abgewiesen (HTTP 401)"
+    # Unter echtem TLS ist jede Anfrage sicher, das Fehlen des Kennzeichens prueft dann nichts.
+    if [[ $HTTPS -eq 1 ]]; then
+      echo "  --   $HA_USER ohne HTTPS-Kennzeichen: uebersprungen (echtes TLS)"
     else
-      echo "  FEHL $HA_USER ohne HTTPS-Kennzeichen kam mit HTTP $code durch"; FAILED=1
+      code="$(curl -s "${CURL_INSECURE[@]}" -m 20 -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' \
+        -X POST "$BASE/api/v1/auth/login" -d "{\"username\":\"$HA_USER\",\"password\":\"$HA_PASSWORD\"}")"
+      if [[ "$code" == "401" ]]; then
+        echo "  OK   $HA_USER ohne HTTPS-Kennzeichen wird abgewiesen (HTTP 401)"
+      else
+        echo "  FEHL $HA_USER ohne HTTPS-Kennzeichen kam mit HTTP $code durch"; FAILED=1
+      fi
     fi
 
     session_code="$(curl -sk -m 15 -o "$WORK/companion-session.json" -w '%{http_code}' -X POST \
