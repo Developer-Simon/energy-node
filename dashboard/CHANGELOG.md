@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.19 (2026-10-26)
+## v0.10.20 (2026-10-27)
 
 ### Features
 
@@ -14,6 +14,26 @@
 - **auth:** Permissions are enforced: accounts only see the pages they may view and only change what they may change. (#170) (ab1e04a)
 - **updates:** install the offered update from the update bar (#171) (98937ad)
 - **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
+- **auth:** add companion pairing code and proofs (9835360)
+- **dashboard:** generate a long-lived certificate for the companion port (387ad1a)
+- **auth:** store home assistant accounts and presets (13ffa52)
+- **auth:** add companion pairing state (f0751c2)
+- **dashboard:** add the companion verify channel (95003c9)
+- **dashboard:** serve the companion port behind a token gate (f2d67c5)
+- **auth:** restrict panel sessions to the companion port (90313d8)
+- **auth:** manage pairing, presets and accounts of home assistant users (f755b48)
+- **dashboard:** open the companion port 8081 (a44f4b2)
+- **auth:** home assistant logic in the users page (98e513e)
+- **auth:** home assistant section, presets and accounts in the users page (28a9542)
+- **smoke:** add the fake console skeleton (798b397)
+- **smoke:** answer home assistant sign-ins manually and report user changes (f445f50)
+- **smoke:** make the fake history peer controllable (58dc608)
+- **smoke:** add the companion tab logic to the fake console (ea54675)
+- **smoke:** add the companion tab page to the fake console (91ea52b)
+- **smoke:** start the fake console from run-local-dashboard.sh (21f0075)
+- **webui:** move own session and account cards into a sign-in users tab (d9d3602)
+- **webui:** name the sign-in users tab Me (1594fcb)
+- **auth:** sign in home assistant users through the companion (#174)
 - **automations:** minimum run time and pause fields in the scenario editor (5d8e12a)
 - **automations:** assistant context knows heat pumps, batteries and prices (8f19986)
 - **automations:** numbers, devices and reveal steps in the assistant logic (2adf4b6)
@@ -123,6 +143,18 @@
 
 ### Fixes
 
+- **dashboard:** treat a missing forwarded proto as insecure on the companion port (5bf50cc)
+- **auth:** reserve the companion route names for usernames (d27df23)
+- **auth:** keep the pairing code while re-pairing and hide password forms for home assistant sessions (87a3424)
+- **auth:** accept a removed home assistant user without a username (01b1958)
+- **httpapi:** refuse companion routes that arrive through the panel proxy (375dc40)
+- **dashboard:** regenerate the companion certificate only when it is missing (a518e92)
+- **smoke:** harden the controllable fake companion (03e353f)
+- **smoke:** end the history peer stream when stopped during login (23f6795)
+- **smoke:** report a history offer without a running peer (82d6cd2)
+- **smoke:** skip the missing-HTTPS-marker probe under real TLS (6febecd)
+- **smoke:** use the unverifying context for the history peer guest login (cd4f601)
+- **webui:** size the account card to its content and shorten the password card title (966d5fc)
 - **automation:** schema descriptions name seconds, not minutes (960698a)
 - **automations:** convert euro prices to cent in the tariff template (49d93e9)
 - **automations:** icons and units in the numbers step (da90f43)
@@ -172,13 +204,14 @@
 
 ### Refactors
 
+- **smoke:** turn the fake home assistant companion into a controllable class (00e1fef)
 - **auth:** split tailscale, service logs and installer access out of system_actions (9fb6ee4)
 - **automations:** remove the rule wizard from the page component (b468dc1)
 - **automations:** row editors read state through owner hooks (75b2998)
 
 ### Documentation
 
-- **devicemap:** tidy the screenshot preset and regenerate the images (#173)
+- **devicemap:** tidy the screenshot preset and regenerate the images (#173) (76369a2)
 - installing the offered update (5903807)
 - route access groups (10f6edb)
 - **automations:** plainer texts and template names in the assistant (18224e9)
@@ -187,6 +220,8 @@
 
 ### Tests
 
+- **dashboard:** smoke the companion pairing and home assistant sign-in (e60e02b)
+- **webui:** restore the closing braces lost in the rebase (503166b)
 - **dashboard:** follow the automation cache-bust values (8e65bde)
 - **smoke:** give the kept demo admin an HTTP login (af77863)
 - **automations:** follow the chart asset version (d6b2170)
@@ -206,6 +241,7 @@
 
 ### Chores
 
+- **webui:** bump asset versions for the users page (ab0427f)
 - **dashboard:** cache-bust automation assets for the energy templates (8434b47)
 - **webui:** bump asset versions (e84cb6e)
 - **webui:** bump asset versions for the account card (76577f1)
