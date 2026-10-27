@@ -301,7 +301,7 @@ async function all() {
     await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-display"]').click();
     await s.page.waitForTimeout(1000);
     await s.page.locator('#settings-display').getByText(label, { exact: true }).first().click();
-    await s.page.locator('#settings-display').getByRole('button', { name: 'Save', exact: true }).first().click();
+    await s.page.locator('#settings-save').click();
     await s.page.waitForTimeout(2500);
     await s.page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
     await s.page.waitForTimeout(2500);
