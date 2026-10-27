@@ -1,18 +1,17 @@
 #!/usr/bin/env node
-// Prueft am laufenden Dashboard (run-local-dashboard.sh --keep --preset
-// verlauf-kachel), dass eine Verlaufskachel den Live-Tausch von
-// #overview-live als derselbe DOM-Knoten ueberlebt (hx-preserve) und dass
-// eine geaenderte Sicht einen neuen Knoten erzeugt.
-//   node test/smoke/history-view-tile.mjs [--url http://localhost:18100/]
+// Prueft an der laufenden Demo (demo/demo.sh, Gruppe Verlauf und Statistik), dass
+// eine Verlaufskachel den Live-Tausch von #overview-live als derselbe DOM-Knoten
+// ueberlebt (hx-preserve) und dass eine geaenderte Sicht einen neuen Knoten erzeugt.
+//   node dashboard/test/browser/history-view-tile.mjs [--url https://localhost:18200/]
 import { chromium } from 'playwright';
 
 const urlArg = process.argv.indexOf('--url');
-const url = (urlArg > 0 ? process.argv[urlArg + 1] : 'http://127.0.0.1:18100').replace(/\/$/, '');
+const url = (urlArg > 0 ? process.argv[urlArg + 1] : 'https://localhost:18200').replace(/\/$/, '');
 const fail = message => { console.error(`FEHLER: ${message}`); process.exitCode = 1; };
 
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 try {
-  const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' } });
   await ctx.request.post(`${url}/api/v1/auth/login`, { data: { username: 'admin', password: 'smoketest1234' } });
   const page = await ctx.newPage({ viewport: { width: 1280, height: 900 } });
   await page.goto(url, { waitUntil: 'networkidle' });

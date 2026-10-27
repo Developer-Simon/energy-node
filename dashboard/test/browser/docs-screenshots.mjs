@@ -1,30 +1,22 @@
 #!/usr/bin/env node
 // Nimmt die Dashboard-Screenshots fuer docs/ neu auf (docs/images/dashboard*.png).
-// Erwartet ein mit run-local-dashboard.sh --keep gestartetes Dashboard; die
-// Anmeldung laeuft als Admin ueber die API mit dem Header, den das Smoke-Skript
-// auch nutzt (X-Forwarded-Proto: https).
+// Erwartet die laufende Demo: demo/demo.sh --docs --no-simulate (Bilder, Versionen,
+// Statistik und Service-Logs). Die Anmeldung laeuft als Admin ueber die API mit dem
+// Header, den das Smoke-Skript auch nutzt (X-Forwarded-Proto: https).
 //
-// Zwei Laeufe, weil --simulate-installed und --simulate-package sich
-// ausschliessen:
-//   A) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package
-//      node test/smoke/docs-screenshots.mjs
-//      node test/smoke/docs-screenshots.mjs --history     # ca. 12 min Aufzeichnung
-//   B) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-installed
-//      node test/smoke/docs-screenshots.mjs dashboard-settings-versions
+//   demo/demo.sh --docs --no-simulate
+//   node dashboard/test/browser/docs-screenshots.mjs
+//   node dashboard/test/browser/docs-screenshots.mjs --history     # ca. 12 min Aufzeichnung
 //
-//   C) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package --fake-companion
-//      node test/smoke/docs-screenshots.mjs dashboard-statistics
-//
-//   D) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-journal
-//      node test/smoke/docs-screenshots.mjs dashboard-service-logs
+//   demo/demo.sh --docs
+//   node dashboard/test/browser/docs-screenshots.mjs --cards
 //
 // --cards nimmt jede Uebersichtskarte einzeln in ihrer Mindestgroesse auf
 // (docs/images/dashboard-card-*.png, fuer docs/dashboard/overview-cards.md).
 // Dafuer legt es eine eigene Layout-Seite an, zeichnet --record-minutes lang
 // Verlauf auf (Vorgabe hier 16 min, die Batterie-Trajektorie braucht 15) und stellt
-// das Layout danach wieder her. Am besten gegen
-//   run-local-dashboard.sh --keep --preset docs-screenshots --simulate
-// damit Tagesband und Verlauf sich bewegen.
+// das Layout danach wieder her. Mit demo/demo.sh --docs laufen Tagesband und
+// Verlauf bereits und bewegen sich.
 //
 // Ohne Namen werden alle Bilder ausser dashboard-history,
 // dashboard-settings-versions, dashboard-statistics und dashboard-service-logs geschrieben. Namen als Argumente begrenzen den
@@ -42,7 +34,7 @@ const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 
 function parseArgs(argv) {
   const args = {
-    url: 'http://localhost:18100',
+    url: 'https://localhost:18200',
     out: path.join(REPO_DIR, 'docs/images'),
     password: 'smoketest1234',
     history: false,
@@ -73,7 +65,7 @@ await mkdir(args.out, { recursive: true });
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 
 async function session(width, height) {
-  const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height } });
+  const ctx = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height } });
   await ctx.request.post(`${args.url}/api/v1/auth/login`, { data: { username: 'admin', password: args.password } });
   await ctx.addCookies([{ name: 'lang', value: 'en', url: args.url }]);
   const page = await ctx.newPage();

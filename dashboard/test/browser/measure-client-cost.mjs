@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Misst, was ein offener Uebersichts-Tab im Leerlauf kostet - gegen ein mit
-// run-local-dashboard.sh --keep gestartetes Dashboard.
+// laufende Demo (demo/demo.sh).
 //
 // Warum CDP und nicht performance.now(): die Kosten des outerHTML-Tauschs
 // liegen in Layout und Style-Neuberechnung, also ausserhalb von JavaScript.
@@ -10,14 +10,14 @@
 // Anmeldung wie in screenshot.mjs: ueber HTTP ist nur der Gast-Zugang
 // moeglich (login.html / GuestOnly).
 //
-//   dashboard/test/smoke/run-local-dashboard.sh --keep --preset energie-simulate &
-//   node dashboard/test/smoke/measure-client-cost.mjs --seconds 30
+//   demo/demo.sh &
+//   node dashboard/test/browser/measure-client-cost.mjs --seconds 30
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 function parseArgs(argv) {
-  const args = { url: 'http://localhost:18100/', seconds: 30, out: null, width: 1280, height: 900, swapTarget: 'overview-live' };
+  const args = { url: 'https://localhost:18200/', seconds: 30, out: null, width: 1280, height: 900, swapTarget: 'overview-live' };
   for (let i = 0; i < argv.length; i++) {
     const [flag, inlineValue] = argv[i].split(/=(.*)/s);
     const value = inlineValue ?? argv[++i];
@@ -43,7 +43,7 @@ const toMap = metrics => Object.fromEntries(metrics.map(m => [m.name, m.value]))
 const args = parseArgs(process.argv.slice(2));
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 try {
-  const page = await browser.newPage({ viewport: { width: args.width, height: args.height } });
+  const page = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: args.width, height: args.height } });
   await page.goto(args.url, { waitUntil: 'networkidle' });
 
   const guestButton = page.locator('#guest-login');

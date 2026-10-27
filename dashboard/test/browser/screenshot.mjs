@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-// Screenshot-Helfer fuer Sichtpruefungen am mit run-local-dashboard.sh --keep
-// gestarteten Dashboard. Playwright ist echte devDependency (siehe
-// package.json) und die Chromium-Revision liegt im ueblichen
-// ~/.cache/ms-playwright - kein Ad-hoc-Aufbau mehr pro Lauf noetig.
+// Screenshot-Helfer fuer Sichtpruefungen an der laufenden Demo (demo/demo.sh).
+// Playwright ist echte devDependency (siehe package.json) und die Chromium-Revision
+// liegt im ueblichen ~/.cache/ms-playwright - kein Ad-hoc-Aufbau mehr pro Lauf noetig.
 //
 // Anmeldung: ueber HTTP ist nur der Gast-Zugang moeglich (siehe login.html /
 // GuestOnly), daher klickt dieses Skript "Als Gast fortfahren", wenn die
@@ -10,9 +9,9 @@
 // das, ein echtes Admin-Login ist hier nicht das Ziel.
 //
 // Beispiele:
-//   node test/smoke/screenshot.mjs
-//   node test/smoke/screenshot.mjs --url http://localhost:18100/geraete --out /tmp/geraete.png
-//   node test/smoke/screenshot.mjs --lang de|en
+//   node dashboard/test/browser/screenshot.mjs
+//   node dashboard/test/browser/screenshot.mjs --url https://localhost:18200/geraete --out /tmp/geraete.png
+//   node dashboard/test/browser/screenshot.mjs --lang de|en
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -20,7 +19,7 @@ import path from 'node:path';
 function parseArgs(argv) {
   // width/height wie in measure-client-cost.mjs: dieselben Flag-Namen fuer
   // denselben Zweck (Viewport-Groesse), statt einer eigenen Konvention hier.
-  const args = { url: 'http://localhost:18100/', out: 'test/smoke/.run/screenshot.png', wait: null, width: 1280, height: 900 };
+  const args = { url: 'https://localhost:18200/', out: 'test/browser/.run/screenshot.png', wait: null, width: 1280, height: 900 };
   for (let i = 0; i < argv.length; i++) {
     const [flag, inlineValue] = argv[i].split(/=(.*)/s);
     const value = inlineValue ?? argv[++i];
@@ -38,7 +37,7 @@ function parseArgs(argv) {
 const args = parseArgs(process.argv.slice(2));
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 try {
-  const page = await browser.newPage({ viewport: { width: args.width, height: args.height } });
+  const page = await browser.newPage({ ignoreHTTPSErrors: true, viewport: { width: args.width, height: args.height } });
   if (args.lang) {
     const target = new URL(args.url);
     await page.context().addCookies([{ name: 'lang', value: args.lang, domain: target.hostname, path: '/' }]);

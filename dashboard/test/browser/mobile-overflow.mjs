@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Prüft am laufenden Smoke-Dashboard, ob eine Seite breiter als das Fenster
+// Prüft an der laufenden Demo (demo/demo.sh), ob eine Seite breiter als das Fenster
 // wird. Je Tab und Breite einmal geschlossen und einmal mit jedem sichtbaren
 // Hilfe-Knopf fokussiert, weil ein offener Tooltip die Seite ebenfalls
 // verbreitern kann. Meldet die äußersten Elemente, die über den rechten Rand
@@ -8,11 +8,11 @@
 // In den Einstellungen wird jeder Unterreiter einzeln geprüft, und ein
 // offener Tooltip muss waagrecht ganz im Fenster liegen.
 //
-//   node test/smoke/mobile-overflow.mjs --url http://localhost:18200 --widths 400,1280 overview settings energy devicemap stats
+//   node dashboard/test/browser/mobile-overflow.mjs --url https://localhost:18200 --widths 400,1280 overview settings energy devicemap stats
 import { chromium } from 'playwright';
 
 function parseArgs(argv) {
-  const args = { url: 'http://localhost:18100', widths: [400], password: 'smoketest1234', tabs: [] };
+  const args = { url: 'https://localhost:18200', widths: [400], password: 'smoketest1234', tabs: [] };
   for (let i = 0; i < argv.length; i++) {
     if (!argv[i].startsWith('--')) { args.tabs.push(argv[i]); continue; }
     const [flag, inlineValue] = argv[i].split(/=(.*)/s);
@@ -54,7 +54,7 @@ const report = (width, label, result) => {
 };
 try {
   for (const width of args.widths) {
-    const ctx = await browser.newContext({ extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height: 860 } });
+    const ctx = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height: 860 } });
     await ctx.request.post(`${args.url}/api/v1/auth/login`, { data: { username: 'admin', password: args.password } });
     const page = await ctx.newPage();
     await page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
