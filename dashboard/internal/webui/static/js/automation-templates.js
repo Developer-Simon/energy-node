@@ -1044,8 +1044,8 @@
         id: 'severity', type: 'tiles', default: 'warning',
         options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
       },
-      ...RESTART_STEPS,
       { id: 'again', type: 'number', min: 1, max: 24, step: 1, default: 6 },
+      ...RESTART_STEPS,
     ],
     build(answers, ctx) {
       const entry = requireEntry(ctx.inverters, answers.device);
@@ -1479,11 +1479,11 @@
       { id: 'device', type: 'device', filter: 'inverter_measured' },
       { id: 'limit', type: 'number', min: 5, max: 200, step: 5, default: 20 },
       { id: 'minutes', type: 'number', min: 10, max: 120, step: 5, default: 30 },
-      ...RESTART_STEPS,
       {
         id: 'severity', type: 'tiles', default: 'warning',
         options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
       },
+      ...RESTART_STEPS,
     ],
     build(answers, ctx) {
       const entry = requireEntry(ctx.inverters, answers.device);

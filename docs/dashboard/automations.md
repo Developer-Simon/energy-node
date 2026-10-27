@@ -141,6 +141,7 @@ out a template and names the missing part when a requirement is not met.
 - **Inverter silent** needs an inverter with its own reading. The rule uses the
   age of the last message, not its value, so it also warns when the value
   stays the same.
+- **Restart option** for **Inverter silent** and **PV yield missing**: the option is always listed and greyed out when no switch exists. With it on, the assistant creates a scenario instead of a rule. On start it sends the notice and switches the chosen switch off, after a pause of 1 to 30 minutes it switches it on again. The inverter's own switch comes first.
 - **Low-tariff wallbox** needs a wallbox with a writable power. The price and
   the fixed window work as in **Low-tariff battery charging**.
 
