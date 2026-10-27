@@ -13,6 +13,7 @@ import ssl
 from fake_companion import ROLES, FakeCompanion, Session
 from fake_console import Log, Tab
 from fake_ha_companion import HACompanion, HAUser, PairError
+from console_companion_ui import COMPANION_HTML
 
 ACTIONS = (
     "pair", "pair_wrong", "unpair", "drop_stream", "open_stream",
@@ -56,7 +57,7 @@ def _days(value):
 class CompanionTab(Tab):
     name = "companion"
     title = "Companion"
-    html = '<div id="tab-companion">Companion</div>'
+    html = COMPANION_HTML
 
     def __init__(self, log: Log, companion_url: str, dashboard_url: str) -> None:
         self._log = log

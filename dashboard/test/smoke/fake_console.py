@@ -95,7 +95,43 @@ nav button[aria-selected="true"] {
   color: var(--accent);
 }
 main {
+  min-width: 0;
+}
+#layout {
+  display: grid;
+  gap: 16px;
   padding: 16px;
+}
+#log-pane {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 12px;
+}
+#log-pane h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+#log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 70vh;
+  overflow: auto;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+#log-list li {
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+@media (min-width: 900px) {
+  #layout {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+    align-items: start;
+  }
 }
 section {
   display: none;
@@ -108,7 +144,10 @@ section.active {
 <body>
 <header><h1>Fake-Konsole</h1></header>
 <nav id="tabs" role="tablist"></nav>
+<div id="layout">
 <main id="panels"></main>
+<aside id="log-pane"><h2>Protokoll</h2><ul id="log-list"></ul></aside>
+</div>
 <script>
 window.tabs = window.tabs || {};
 (function () {
@@ -136,6 +175,26 @@ window.tabs = window.tabs || {};
     }
   }
 
+  let logLast = 0;
+  const logList = document.getElementById("log-list");
+  async function pollLog() {
+    try {
+      const resp = await fetch("/api/log?since=" + logLast);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      logLast = data.last;
+      for (const e of data.entries) {
+        const li = document.createElement("li");
+        li.textContent = e.t + " " + e.source + ": " + e.text;
+        logList.appendChild(li);
+      }
+      while (logList.children.length > 300) logList.removeChild(logList.firstChild);
+      logList.scrollTop = logList.scrollHeight;
+    } catch (err) {
+      /* naechster Durchlauf versucht es erneut */
+    }
+  }
+
   async function load() {
     const resp = await fetch("/api/tabs");
     const list = await resp.json();
@@ -152,10 +211,18 @@ window.tabs = window.tabs || {};
       s.dataset.tab = t.name;
       s.innerHTML = t.html;
       panels.appendChild(s);
+      // innerHTML startet keine Skripte: die Skripte des Fragments neu anlegen
+      for (const old of s.querySelectorAll("script")) {
+        const fresh = document.createElement("script");
+        fresh.textContent = old.textContent;
+        old.replaceWith(fresh);
+      }
     }
     if (list.length) show(list[0].name);
     for (const t of list) refresh(t.name);
     setInterval(() => { for (const t of list) refresh(t.name); }, 2000);
+    pollLog();
+    setInterval(pollLog, 1000);
   }
 
   load();

@@ -1,11 +1,13 @@
+import json
 import threading
 import time
+import urllib.request
 
 import pytest
 
 from conftest import STUB_CODE
 from console_companion import ACTIONS, CompanionTab
-from fake_console import Log
+from fake_console import Log, make_server
 from fake_companion import ROLES
 
 
@@ -162,3 +164,39 @@ def test_history_offer_without_running_peer_is_value_error(make_tab, stub_exchan
         tab.act("history_offer", {})
     time.sleep(0.2)
     assert stub_exchange.offers == []
+
+
+def test_html_fragment_mentions_all_actions():
+    html = CompanionTab.html
+    for action in ACTIONS:
+        assert action in html, action
+
+
+def test_html_fragment_has_german_labels():
+    html = CompanionTab.html
+    for label in [
+        "Koppeln", "Entkoppeln", "Falscher Code", "Strom trennen", "Strom öffnen",
+        "Prüfungen manuell beantworten", "Neu anbieten", "Nicht antworten",
+        "Nur ersten Block liefern",
+        "Eine Skalierung wirkt nur auf Zeiträume, die das Dashboard noch nicht abgeholt hat.",
+    ]:
+        assert label in html, label
+
+
+def test_page_and_fragment_are_served():
+    tab = CompanionTab(Log(), "https://127.0.0.1:9", "http://127.0.0.1:9")
+    server = make_server([tab], Log(), 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        with urllib.request.urlopen(base + "/") as resp:
+            page = resp.read().decode("utf-8")
+            assert resp.status == 200
+        assert 'id="log-list"' in page
+        with urllib.request.urlopen(base + "/api/tabs") as resp:
+            tabs = json.loads(resp.read().decode("utf-8"))
+        assert tabs == [{"name": "companion", "title": "Companion", "html": CompanionTab.html}]
+    finally:
+        server.shutdown()
+        server.server_close()
