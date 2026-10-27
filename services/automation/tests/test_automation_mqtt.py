@@ -4,6 +4,7 @@ Muster wie services/battery_soc/tests/: das Modul wird direkt importiert.
 Ausfuehren mit `.venv/bin/pytest services/automation/tests` (Projekt-venv).
 """
 
+import datetime
 import json
 import re
 import sys
@@ -1861,3 +1862,141 @@ def test_repeat_below_the_publish_minimum_is_rejected(tmp_path):
 def test_repeat_on_a_notification_only_rule_has_no_minimum(tmp_path):
     r = rule(repeat_seconds=5)
     automation.load_and_validate(write_doc(tmp_path, document([r])))  # no raise
+
+
+def test_month_days_checked_on_start_day():
+    # Fenster am 1. von 23:00 bis 01:00 - um 00:30 am 2. ist es noch der 1. als Starttag.
+    cond = {"type": "time_window", "start": "23:00", "end": "01:00", "weekdays": [], "month_days": [1]}
+    at_0030_on_2nd = datetime.datetime(2026, 3, 2, 0, 30).timestamp()
+    met, reason = automation.evaluate_condition_raw(
+        cond, balance={}, topic_values={}, now_ts=at_0030_on_2nd)
+    assert met is True and reason == ""
+
+    # Am 2. um 23:00 startet das Fenster am 2., der ist nicht in month_days.
+    at_2300_on_2nd = datetime.datetime(2026, 3, 2, 23, 0).timestamp()
+    met, _ = automation.evaluate_condition_raw(
+        cond, balance={}, topic_values={}, now_ts=at_2300_on_2nd)
+    assert met is False
+
+    # Mit month_days [2] zaehlt der Starttag 1. nicht mehr, auch wenn der 2. die Nacht enthaelt.
+    cond["month_days"] = [2]
+    met, _ = automation.evaluate_condition_raw(
+        cond, balance={}, topic_values={}, now_ts=at_0030_on_2nd)
+    assert met is False
+
+
+def test_month_days_validation_rejects_32():
+    errors = []
+    result = automation._validate_condition(
+        {"type": "time_window", "start": "08:00", "end": "18:00", "month_days": [32]}, 0, errors)
+    assert any("month_days" in e for e in errors)
+    assert result["month_days"] == [32]
+
+
+def test_month_days_validation_rejects_zero_and_non_numbers_and_defaults_to_empty():
+    for bad in ([0], [True], ["3"], 5):
+        errors = []
+        automation._validate_condition(
+            {"type": "sun_window", "from": "sunrise", "to": "sunset", "month_days": bad}, 0, errors)
+        assert any("month_days" in e for e in errors), bad
+    errors = []
+    result = automation._validate_condition(
+        {"type": "sun_window", "from": "sunrise", "to": "sunset"}, 0, errors)
+    assert errors == [] and result["month_days"] == []
+
+
+def _stale_cond(**overrides):
+    cond = {"type": "topic_value", "topic": "outstation/battery_soc/state",
+            "comparison": "stale", "max_age_s": 900, "json_key": ""}
+    cond.update(overrides)
+    return cond
+
+
+def test_stale_true_after_max_age():
+    now = 1_700_000_000.0
+    cond = _stale_cond()
+    met, reason = automation.evaluate_condition_raw(
+        cond, balance={}, topic_values={"outstation/battery_soc/state": "{}"}, now_ts=now,
+        topic_seen_at={"outstation/battery_soc/state": now - 901}, started_at=now - 5000)
+    assert met is True and reason == ""
+
+    met, _ = automation.evaluate_condition_raw(
+        cond, balance={}, topic_values={"outstation/battery_soc/state": "{}"}, now_ts=now,
+        topic_seen_at={"outstation/battery_soc/state": now - 899}, started_at=now - 5000)
+    assert met is False
+
+
+def test_stale_counts_from_start_when_never_seen():
+    now = 1_700_000_000.0
+    met, reason = automation.evaluate_condition_raw(
+        _stale_cond(), balance={}, topic_values={}, now_ts=now,
+        topic_seen_at={}, started_at=now - 100)
+    assert met is False and reason == ""
+
+    met, _ = automation.evaluate_condition_raw(
+        _stale_cond(), balance={}, topic_values={}, now_ts=now,
+        topic_seen_at={}, started_at=now - 1000)
+    assert met is True
+
+
+def test_stale_reports_topic_unknown_without_seen_data():
+    met, reason = automation.evaluate_condition_raw(
+        _stale_cond(), balance={}, topic_values={}, now_ts=1_700_000_000.0)
+    assert met is False and reason == "topic_unknown"
+
+
+def test_stale_requires_positive_max_age():
+    for bad in (0, -5, "900", None, True):
+        errors = []
+        automation._validate_condition(_stale_cond(max_age_s=bad), 0, errors)
+        assert any("max_age_s" in e for e in errors), bad
+
+    errors = []
+    automation._validate_condition(_stale_cond(), 0, errors)
+    assert errors == []
+
+    errors = []
+    automation._validate_condition(_entity_cond(comparison="stale", max_age_s=0), 0, errors)
+    assert any("max_age_s" in e for e in errors)
+
+
+def test_stale_condition_value_returns_age_and_max_age():
+    now = 1_700_000_000.0
+    value, target = automation.condition_value(
+        _stale_cond(), balance={}, topic_values={}, now_ts=now,
+        topic_seen_at={"outstation/battery_soc/state": now - 120}, started_at=now - 5000)
+    assert value == 120 and target == 900
+
+
+def test_stale_on_entity_value_uses_the_same_clock():
+    now = 1_700_000_000.0
+    cond = _entity_cond(comparison="stale", max_age_s=60)
+    met, _ = automation.evaluate_condition_raw(
+        cond, balance={}, topic_values={}, now_ts=now,
+        topic_seen_at={"outstation/battery_soc/state": now - 61}, started_at=now - 5000)
+    assert met is True
+
+
+def test_engine_passes_topic_seen_at_to_stale_conditions():
+    now = 1_700_000_000.0
+    rule_stale = rule(conditions=[_stale_cond()], cooldown_seconds=0)
+    doc, engine, _published, _events = engine_with([rule_stale], started_at=now - 5000)
+    result = engine.tick(doc, balance=None, balance_age=None, topic_values={}, now_ts=now,
+                         topic_seen_at={"outstation/battery_soc/state": now - 901})
+    assert result["r1"]["result"] == "fired"
+
+    result = engine.tick(doc, balance=None, balance_age=None, topic_values={}, now_ts=now,
+                         topic_seen_at={"outstation/battery_soc/state": now - 10})
+    assert result["r1"]["result"] == "conditions_not_met"
+
+
+def test_service_records_when_a_topic_last_arrived():
+    from unittest.mock import Mock
+
+    service = _service_with([rule(conditions=[_stale_cond()])])
+    service.slave = Mock(handle_message=Mock(return_value=False))
+    before = time.time()
+    msg = Mock(topic="outstation/battery_soc/state", payload=b"{}")
+    service.on_message(None, None, msg)
+    assert "outstation/battery_soc/state" in service.topic_seen_at
+    assert service.topic_seen_at["outstation/battery_soc/state"] >= before
