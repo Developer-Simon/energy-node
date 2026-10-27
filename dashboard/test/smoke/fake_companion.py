@@ -67,6 +67,7 @@ class Session:
         self.base = base.rstrip("/")
         self.cookie = ""
         self.context = context
+        self.closed = False  # gesetzt von close_stream, gelöscht von reopen
         self._response = None
 
     def _open(self, request, timeout):
@@ -80,6 +81,7 @@ class Session:
         Nur den Socket herunterfahren: response.close() wuerde auf den Lesevorgang
         des anderen Threads warten.
         """
+        self.closed = True
         response = self._response
         if response is None:
             return
@@ -87,6 +89,10 @@ class Session:
             response.fp.raw._sock.shutdown(socket.SHUT_RDWR)
         except (AttributeError, OSError):
             pass
+
+    def reopen(self):
+        """Erlaubt wieder Ströme, nach einem neuen start()."""
+        self.closed = False
 
     def login(self):
         request = urllib.request.Request(self.base + "/api/v1/auth/guest", method="POST")
@@ -112,6 +118,8 @@ class Session:
         with self._open(request, 120) as response:
             self._response = response
             try:
+                if self.closed:
+                    return  # Stop kam während der Anmeldung: Strom sofort schließen
                 event, data = "", []
                 for raw in response:
                     line = raw.decode().rstrip("\r\n")
@@ -152,6 +160,7 @@ class FakeCompanion:
             if self._thread is not None and self._thread.is_alive() and not self._stop.is_set():
                 return
             self._stop = threading.Event()
+            self.session.reopen()
             self.running = True
             self._thread = threading.Thread(target=self._loop, args=(self._stop,), daemon=True)
             self._thread.start()

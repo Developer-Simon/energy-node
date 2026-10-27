@@ -1,6 +1,7 @@
 import http.server
 import json
 import queue
+import select
 import socket
 import threading
 import time
@@ -29,6 +30,12 @@ class HistoryDashboard:
         self.offers = []
         self.delivers = []  # (monotonic Zeitpunkt, Koerper)
         self.stream_connections = 0
+        self.open_streams = 0
+        self.login_gate = threading.Event()  # gesetzt: Anmeldung antwortet sofort
+        self.login_gate.set()
+        self.login_seen = threading.Event()  # gesetzt, sobald eine Anmeldung eintrifft
+        self.hello_gate = threading.Event()  # gesetzt: hello wird sofort gesendet
+        self.hello_gate.set()
         self._streams = []
         self._lock = threading.Lock()
         stub = self
@@ -61,6 +68,8 @@ class HistoryDashboard:
 
             def do_POST(self):
                 if self.path == "/api/v1/auth/guest":
+                    stub.login_seen.set()
+                    stub.login_gate.wait(10)
                     self._send(200, {}, [("Set-Cookie", "sid=guest-1; Path=/")])
                     return
                 body = self._body()
@@ -79,24 +88,45 @@ class HistoryDashboard:
                 self.wfile.write(f"event: {event}\ndata: {json.dumps(payload)}\n\n".encode())
                 self.wfile.flush()
 
+            def _peer_closed(self):
+                readable, _, _ = select.select([self.connection], [], [], 0)
+                if not readable:
+                    return False
+                try:
+                    return self.connection.recv(1, socket.MSG_PEEK) == b""
+                except OSError:
+                    return True
+
             def _stream(self):
                 events = queue.Queue()
                 with stub._lock:
                     stub.stream_connections += 1
+                    stub.open_streams += 1
                     stub._streams.append(events)
-                self.send_response(200)
-                self.send_header("Content-Type", "text/event-stream")
-                self.send_header("Cache-Control", "no-cache")
-                self.end_headers()
                 try:
-                    self._write("hello", {"peer_id": PEER})
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream")
+                    self.send_header("Cache-Control", "no-cache")
+                    self.end_headers()
+                    hello_pending = True
                     while True:
-                        item = events.get()
+                        if hello_pending and stub.hello_gate.is_set():
+                            self._write("hello", {"peer_id": PEER})
+                            hello_pending = False
+                        try:
+                            item = events.get(timeout=0.05)
+                        except queue.Empty:
+                            if self._peer_closed():
+                                return
+                            continue
                         if item is None:
                             return
                         self._write(*item)
                 except OSError:
                     return
+                finally:
+                    with stub._lock:
+                        stub.open_streams -= 1
 
         self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
         self.server.daemon_threads = True
@@ -241,6 +271,23 @@ def test_stop_ends_loop_and_clears_peer(history_dashboard, make_companion):
     assert companion.peer_id == ""
     assert history_dashboard.stream_connections == 1
     assert companion.state()["running"] is False
+
+
+def test_stop_during_login_ends_stream_promptly(history_dashboard, make_companion):
+    history_dashboard.login_gate.clear()
+    history_dashboard.hello_gate.clear()  # kein hello: nur ein Ereignis wuerde die Schleife beenden
+    companion, _ = make_companion()
+    companion.start()
+    assert history_dashboard.login_seen.wait(5)
+
+    companion.stop()
+    history_dashboard.login_gate.set()
+
+    companion._thread.join(3)
+    assert not companion._thread.is_alive()
+    wait_until(lambda: history_dashboard.open_streams == 0, timeout=3)
+    assert companion.running is False
+    assert companion.peer_id == ""
 
 
 def test_history_start_survives_unreachable_dashboard(make_companion):
