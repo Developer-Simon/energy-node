@@ -4,6 +4,7 @@
 #
 #   ./run-local-dashboard.sh                    # Pruefungen laufen, dann Abbau
 #   ./run-local-dashboard.sh --keep             # laeuft weiter, URL wird ausgegeben
+#   ./run-local-dashboard.sh --keep --console    # Fake-Konsole fuer Companion von Hand steuern
 #   ./run-local-dashboard.sh --devices DIR      # andere Konfigurationen einspielen
 #   ./run-local-dashboard.sh --fixture FILE     # andere Retained-Nachrichten
 #   ./run-local-dashboard.sh --seed-data DIR    # settings/layout/energy vorbelegen
@@ -113,6 +114,7 @@ FIXTURE="$HERE/fixtures/battery-soc.json"
 SEED_DATA=""
 THEME=""
 KEEP=0
+CONSOLE=0
 SIMULATE=0
 FAKE_COMPANION=0
 INSTALLED_SERVICES_OFF=0
@@ -130,6 +132,8 @@ UPDATES_API_PORT="${DASHBOARD_SMOKE_UPDATES_API_PORT:-18884}"
 # (Standard dort 8081). Der Smoke-Test nimmt 18101, damit er nicht mit einem
 # echten Dashboard auf 8081 kollidiert.
 COMPANION_PORT="${DASHBOARD_SMOKE_COMPANION_PORT:-18101}"
+# Fake-Konsole (--console): Reiter Companion zum Steuern von Kopplung und Verlauf.
+CONSOLE_PORT="${DASHBOARD_SMOKE_CONSOLE_PORT:-18102}"
 PASSWORD="smoketest1234"
 # isSecureRequest() akzeptiert TLS oder diesen Header - ohne ihn antwortet der
 # Login mit "secure_login_required". Bei --https laeuft der Server mit einem
@@ -239,12 +243,17 @@ while [[ $# -gt 0 ]]; do
     --real-changelog) SIMULATE_INSTALLED=1; REAL_CHANGELOG=1; shift ;;
     --reject-config) REJECT_CONFIGS+=("$2"); shift 2 ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
+    --console) CONSOLE=1; shift ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
 done
 
 if [[ $SIMULATE_INSTALLED -eq 1 && $SIMULATE_PACKAGE -eq 1 ]]; then
   echo "--simulate-installed und --simulate-package schreiben beide installed-manifest.json, bitte nur eins" >&2; exit 2
+fi
+
+if [[ $CONSOLE -eq 1 && $KEEP -eq 0 ]]; then
+  echo "--console braucht --keep" >&2; exit 2
 fi
 
 if [[ ! -f "$FIXTURE" ]]; then
@@ -270,6 +279,7 @@ FAKE_COMPANION_PID=""
 FAKE_HA_PID=""
 DASHBOARD_PID=""
 UPDATES_API_PID=""
+CONSOLE_PID=""
 
 # Ein Ueberbleibsel eines abgebrochenen Laufs haelt sonst den Port, das neue
 # Dashboard kann nicht binden - und curl redet unbemerkt mit dem alten Prozess,
@@ -289,6 +299,7 @@ cleanup() {
   [[ -n "$FAKE_COMPANION_PID" ]] && kill "$FAKE_COMPANION_PID" 2>/dev/null || true
   [[ -n "$FAKE_HA_PID" ]] && kill "$FAKE_HA_PID" 2>/dev/null || true
   [[ -n "$UPDATES_API_PID" ]] && kill "$UPDATES_API_PID" 2>/dev/null || true
+  [[ -n "$CONSOLE_PID" ]] && kill "$CONSOLE_PID" 2>/dev/null || true
   # `go run` startet das Binary als Kindprozess - der ueberlebt das kill sonst.
   pkill -f "go-build.*exe/dashboard" 2>/dev/null || true
   [[ $KEEP -eq 0 ]] && rm -rf "$WORK"
@@ -1472,6 +1483,20 @@ print(json.dumps(sorted(set(roles) | {"http_login"})))')"
     || echo "Warnung: HTTP-Login fuer admin konnte nicht eingerichtet werden" >&2
   echo "Dashboard laeuft weiter: $BASE  (Login admin / $PASSWORD)"
   [[ $HTTPS -eq 1 ]] || echo "Ueber HTTP (eingeschraenkte Sitzung): admin / $HTTP_PASSWORD"
+  if [[ $CONSOLE -eq 1 ]]; then
+    free_port "$CONSOLE_PORT"
+    python3 "$HERE/fake_console.py" --port "$CONSOLE_PORT" --dashboard "$BASE" --companion "$COMPANION_BASE" \
+      > "$WORK/fake-console.log" 2>&1 &
+    CONSOLE_PID=$!
+    sleep 1
+    if kill -0 "$CONSOLE_PID" 2>/dev/null; then
+      echo "Fake-Konsole: http://127.0.0.1:$CONSOLE_PORT"
+    else
+      echo "Warnung: Fake-Konsole konnte nicht starten (Log: $WORK/fake-console.log)" >&2
+      CONSOLE_PID=""
+    fi
+    echo "Hinweis: Der automatische Lauf hat die Kopplung zum Ende aufgehoben. Den Kopplungscode in der Benutzerverwaltung neu erzeugen, dann in der Fake-Konsole koppeln."
+  fi
   echo "Arbeitsverzeichnis: $WORK"
   # go:embed bindet Templates/CSS/JS beim Kompilieren ein - dieser Prozess
   # zeigt bis zu seinem Ende den Stand von eben, auch bei neuen Dateien.

@@ -93,6 +93,7 @@ from the package. That is expected, the local build reports `<VERSION>-dev`.
 | `--simulate-update` | points the update checker (`internal/updatecheck`) at `fake_github_releases.py` instead of the real GitHub API, so it always reports `v9.9.9` available — visual check for the masthead badge and the "Nach Updates suchen" button in Systemzugriff |
 | `--simulate-package` | like `--simulate-update`, and the fake GitHub also offers a small bundle (`energy-node-v9.9.9-<arch>.tar.gz`, built for the machine's `GOARCH`) as a release asset. Opening *Aktualisieren* (`/redeploy/`) downloads it into `redeploy-candidate/` and then shows the preview with the bundle's steps. Uses a throwaway installer state directory (`ENERGY_NODE_INSTALLER_STATE_DIR`) with a `selection.json` and an installed version, so no root and no `/var/lib` access is needed; the root updater is not started, so do not press *Starten*. The download takes about four seconds on purpose (`FAKE_DOWNLOAD_SECONDS`) so the progress lines are visible. The script checks the whole path itself (download, preview, no second download for the same version) and empties `redeploy-candidate/` again afterwards |
 | `--preset NAME` | bundles `--fixture`/`--seed-data`/`--simulate` for one of the cases documented below (see "Presets") |
+| `--console` | only with `--keep`: starts the fake console (`fake_console.py`) on `DASHBOARD_SMOKE_CONSOLE_PORT` (default 18102) next to the dashboard and prints its URL. Without `--keep` the script stops before anything starts |
 
 View four themes with every energy card — one call per theme, without a single
 click in the UI:
@@ -514,3 +515,27 @@ DASHBOARD_SMOKE_UPDATES_API_PORT=18112 DASHBOARD_SMOKE_COMPANION_PORT=18113 \
 
 While something else holds 18100 (for example a `--keep` run), use the ports
 above. The default ports would make the script stop that holder.
+
+## Fake console
+
+`fake_console.py` is a small web page for driving the fake Home Assistant
+companion and the fake history peer by hand. With `--keep --console` the smoke
+test starts it next to the dashboard and prints its URL (port
+`DASHBOARD_SMOKE_CONSOLE_PORT`, default 18102):
+
+```bash
+dashboard/test/smoke/run-local-dashboard.sh --keep --console
+```
+
+The *Companion* tab has three cards. *Kopplung* pairs and unpairs with a code,
+sends a wrong code on purpose, and cuts or reopens the check stream. *HA-Benutzer*
+edits, adds and removes users, and with the manual switch the checks wait for a
+Yes, No or Timeout button. *Verlauf* signs the peer in and out of the exchange,
+sets the days and a factor per energy role, offers again, and injects faults:
+a delay, no answer, or only the first block.
+
+A factor only affects periods the dashboard has not fetched yet. The log on the
+right shows what both fake parts report.
+
+The automatic run removes the pairing at its end, so create a new pairing code
+in the user management before pairing from the console.
