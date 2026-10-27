@@ -102,6 +102,9 @@ The templates are these. The phases describe what the entry does in words.
 | Control signal per §14a | Grid | A scenario that answers a control signal of the grid operator. Heat pumps and wallboxes go to a chosen power, 4.2 kW by default, and return afterwards. | When the input of the control box shows its on value. Running: each chosen device goes to the chosen power. Ends: every device goes back to its maximum. |
 | Heating rod | Heating | A scenario that uses the surplus for a stepless heating rod. The rod takes the surplus and holds the grid export in a chosen band. | When the export stays above 100 W for one minute and the temperature is below the chosen maximum. Running: the rod follows the surplus. Ends: when the import stays above 100 W for 10 minutes, and the rod goes to its minimum power. |
 | PV yield missing | Warnings | A rule that warns when an inverter reports too little power during the day. | When the reading stays below a limit of 5 to 200 W for 10 to 120 minutes, between one hour after sunrise and one hour before sunset. Then a notification appears, at most once in six hours. |
+| Monthly full charge | Charging | A scenario that charges the battery to 100 % on one day of the month, from 1 to 28. The day runs from midnight to midnight. You choose whether surplus is enough or the battery may also charge from the grid. | When the chosen day of the month starts, the charge level is below 100 %, and with the surplus option the feed-in stays above 200 W for one minute. Running: the charging power goes to the maximum of the battery. Ends: when the battery is full or the day is over. Then the charging power returns to the value it had before. |
+| Inverter silent | Warnings | A rule that warns when an inverter sends no new reading for 5 to 120 minutes. It also applies at night. | When no new reading of the inverter arrives within the chosen minutes. Then a notification appears, and again after 1 to 24 hours at the earliest. |
+| Low-tariff wallbox | Tariff | A scenario that charges a wallbox at its maximum power in a fixed window or while the price is below a threshold of 10, 15 or 20 ct/kWh. The vehicle must be plugged in if that option is on. | When the window starts or the price falls below the threshold. Running: the wallbox charges at its maximum power. Ends: when the window ends or the price rises above the threshold, and the wallbox returns to its minimum. |
 
 The energy templates need more than one kind of device. The assistant greys
 out a template and names the missing part when a requirement is not met.
@@ -133,6 +136,13 @@ out a template and names the missing part when a requirement is not met.
   charge.
 - **PV yield missing** needs an inverter with its own power reading. The sun
   window needs a location in the settings.
+- **Monthly full charge** needs a battery with a writable charging power and a
+  charge level. The day is limited to 1 to 28, so every month has it.
+- **Inverter silent** needs an inverter with its own reading. The rule uses the
+  age of the last message, not its value, so it also warns when the value
+  stays the same.
+- **Low-tariff wallbox** needs a wallbox with a writable power. The price and
+  the fixed window work as in **Low-tariff battery charging**.
 
 ## Scenarios
 
@@ -270,6 +280,12 @@ The rule editor has four parts.
   for the rule to trigger. **Above** and **below** carry an up and a down arrow.
   A balance condition shows its **Hysteresis** directly in the card, a new one
   starts with 5 in the unit of its field (5 W for power).
+  A time window and a sun window also take **days of the month**, 1 to 31, next to
+  the weekdays. Without a chosen day the window applies every day. Like the
+  weekdays, the day on which the window starts counts. A condition on an entity
+  or a topic has the comparison **no new values**. It is met when the last
+  message is older than the minutes you set. If no message has arrived since the
+  service started, the time counts from the start of the service.
 - **Then** (Dann) lists the actions that run on a trigger.
 - **Flow** (Ablauf) sets the **Cooldown after triggering (s)**, the time a rule
   waits after a trigger before it may trigger again, the **Run mode** and
