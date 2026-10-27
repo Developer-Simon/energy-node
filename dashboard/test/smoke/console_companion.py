@@ -148,6 +148,8 @@ class CompanionTab(Tab):
     def _history_offer(self, body):
         if body.get("days") is not None:
             self._history.days = _days(_number(body, "days", int))
+        if not self._history.running:
+            raise ValueError("Der Peer ist nicht angemeldet")
         self._history.spawn(self._history.offer)
 
     def _history_faults(self, body):

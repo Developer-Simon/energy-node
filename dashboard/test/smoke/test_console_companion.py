@@ -153,3 +153,12 @@ def test_unknown_action_is_value_error(make_tab):
         tab.act("gibt_es_nicht", {})
     assert "pair" in ACTIONS
     assert "history_faults" in ACTIONS
+
+
+def test_history_offer_without_running_peer_is_value_error(make_tab, stub_exchange):
+    tab, _ = make_tab()
+
+    with pytest.raises(ValueError, match="Der Peer ist nicht angemeldet"):
+        tab.act("history_offer", {})
+    time.sleep(0.2)
+    assert stub_exchange.offers == []
