@@ -311,7 +311,8 @@
     if (filter === 'price') return ctx.prices;
     if (filter === 'input') return ctx.inputs;
     if (filter === 'grid_target') return ctx.gridTargets || [];
-    if (filter === 'inverter_measured') return (ctx.inverters || []).filter((item) => item.measured);
+    // Nur lesend: die Sperre des Stellglieds (schon geregelt, kein Limit) gilt hier nicht.
+    if (filter === 'inverter_measured') return (ctx.inverters || []).filter((item) => item.measured).map((item) => ({ ...item, disabled: '' }));
     return [];
   }
 

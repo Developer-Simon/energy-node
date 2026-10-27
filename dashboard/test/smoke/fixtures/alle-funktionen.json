@@ -228,6 +228,24 @@
     }
   },
   {
+    "topic": "homeassistant/number/batterie_wr/charge_power/config",
+    "payload": {
+      "name": "Charge power",
+      "unique_id": "batterie_charge_power",
+      "state_topic": "batterie/wr/charge_power",
+      "command_topic": "batterie/wr/charge_power/set",
+      "unit_of_measurement": "W",
+      "min": 0,
+      "max": 5000,
+      "step": 100,
+      "mode": "box",
+      "availability_topic": "batterie/wr/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": { "identifiers": ["batterie_wr"], "name": "Battery Inverter" }
+    }
+  },
+  {
     "topic": "homeassistant/sensor/haus_zaehler/power/config",
     "payload": {
       "name": "House consumption",
@@ -282,6 +300,7 @@
   {"topic": "zaehler/netz/status", "payload": {"id": 0, "apower": -1250, "voltage": 231.2, "source": "smoke"}},
   {"topic": "batterie/wr/status", "payload": {"id": 0, "apower": 900, "voltage": 51.8, "source": "smoke"}},
   {"topic": "batterie/wr/soc", "payload": "63.5"},
+  {"topic": "batterie/wr/charge_power", "payload": "2000"},
   {"topic": "zaehler/haus/status", "payload": {"id": 0, "apower": 2050, "voltage": 230.7, "source": "smoke"}},
   {"topic": "wallbox/status", "payload": {"id": 0, "apower": 600, "source": "smoke"}},
   {"topic": "homeassistant/sensor/werkstatt/power/config", "payload": {"name": "Power", "unique_id": "werkstatt_power", "state_topic": "werkstatt/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "werkstatt/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["werkstatt"], "via_device": "energy_node", "name": "Workshop Socket"}}},

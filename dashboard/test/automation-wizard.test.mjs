@@ -151,6 +151,16 @@ test('gridNet matches the energy model for split and signed grid roles', () => {
   assert.equal(wizard.gridNet({ values: { pv: 800 } }), null);
 });
 
+test('inverter_measured ignores the actuator lock', () => {
+  const { wizard, t } = load();
+  const ctx = plain(build(wizard));
+  assert.equal(ctx.inverters[0].disabled, t('automations.assistant.device.already_regulated', { name: 'Regler Dach' }));
+  const measured = plain(wizard.devicesFor('inverter_measured', ctx));
+  assert.deepEqual(measured.map((item) => item.deviceName), ['Wechselrichter Dach', 'Wechselrichter Garage']);
+  assert.deepEqual(measured.map((item) => item.disabled), ['', '']);
+  assert.equal(ctx.inverters[1].disabled, t('automations.assistant.device.no_limit'));
+});
+
 test('devicesFor returns the list for each filter', () => {
   const { wizard } = load();
   const ctx = build(wizard);
