@@ -210,10 +210,10 @@ class StubDashboard:
         self.server.server_close()
 
 
-@pytest.fixture
-def stub_dashboard(tmp_path):
-    cert = tmp_path / "stub-cert.pem"
-    key = tmp_path / "stub-key.pem"
+def make_self_signed_cert(directory):
+    """Erzeugt ein selbst signiertes Zertifikat (cert, key) im Verzeichnis."""
+    cert = directory / "stub-cert.pem"
+    key = directory / "stub-key.pem"
     subprocess.run(
         [
             "openssl", "req", "-x509", "-newkey", "ec",
@@ -224,6 +224,12 @@ def stub_dashboard(tmp_path):
         check=True,
         capture_output=True,
     )
+    return cert, key
+
+
+@pytest.fixture
+def stub_dashboard(tmp_path):
+    cert, key = make_self_signed_cert(tmp_path)
     stub = StubDashboard(cert, key)
     yield stub
     stub.close()

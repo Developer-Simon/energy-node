@@ -96,7 +96,7 @@ class Session:
 
     def login(self):
         request = urllib.request.Request(self.base + "/api/v1/auth/guest", method="POST")
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=10, context=self.context) as response:
             cookies = response.headers.get_all("Set-Cookie") or []
         self.cookie = "; ".join(item.split(";", 1)[0] for item in cookies)
         if not self.cookie:
