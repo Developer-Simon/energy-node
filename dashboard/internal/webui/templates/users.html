@@ -329,11 +329,13 @@
           </div>
         </div></div>
 
-        <div class="users-savebar" x-bind:class="{ 'is-show': isDirty(cardId) }">
-          <span class="users-savebar-msg" x-text="cardKind(cardId) === 'new' ? $t('users.new_account') : $t('users.unsaved')"></span>
-          <button type="button" class="users-btn users-btn--ghost" x-on:click="discard(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.cancel') : $t('users.save.discard')"></button>
-          <button type="button" class="users-btn users-btn--primary" x-bind:disabled="saving !== '' || (cardKind(cardId) === 'new' && !createValid())" x-on:click="save(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.submit') : $t('users.save.save')"></button>
-        </div>
+        <div class="users-savebar-wrap" x-bind:class="{ 'is-show': isDirty(cardId) }"><div class="users-savebar-clip">
+            <div class="users-savebar" x-bind:class="{ 'is-show': isDirty(cardId) }">
+              <span class="users-savebar-msg" x-text="cardKind(cardId) === 'new' ? $t('users.new_account') : $t('users.unsaved')"></span>
+              <button type="button" class="users-btn users-btn--ghost" x-on:click="discard(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.cancel') : $t('users.save.discard')"></button>
+              <button type="button" class="users-btn users-btn--primary" x-bind:disabled="saving !== '' || (cardKind(cardId) === 'new' && !createValid())" x-on:click="save(cardId)" x-text="cardKind(cardId) === 'new' ? $t('users.create.submit') : $t('users.save.save')"></button>
+            </div>
+        </div></div>
       </div>
     </div>
   </div>

@@ -2899,7 +2899,7 @@
   "settings.account.password_toast": "Password changed, other sessions ended",
   "settings.account.repeat_password": "Repeat new password",
   "settings.account.restricted": "Signed in over HTTP. Some permissions only apply over HTTPS.",
-  "settings.account.title": "Account and password",
+  "settings.account.title": "Password",
   "settings.account.via_ha": "Signed in through Home Assistant",
   "settings.choices.no_results": "No more options available",
   "settings.choices.placeholder": "Select ...",
