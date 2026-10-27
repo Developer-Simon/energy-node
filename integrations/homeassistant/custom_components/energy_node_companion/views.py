@@ -14,7 +14,9 @@ from .client import ExchangeError
 from .const import DOMAIN, PANEL_COOKIE, PANEL_SESSION_TTL_S, proxy_prefix
 from .link import CompanionLink
 from .panel_access import may_use_panel
-from .proxy_headers import guest_cookie, is_logout, own_session, response_headers, upstream_headers
+from .proxy_headers import (
+    guest_cookie, is_companion_control, is_logout, own_session, response_headers, upstream_headers,
+)
 from .runtime import EnergyNodeData
 
 _LOGGER = logging.getLogger(__name__)
@@ -158,6 +160,10 @@ class DashboardProxyView(HomeAssistantView):
         """
         link = data.link
         assert link is not None
+        if is_companion_control(path):
+            # Die Companion-Routen steuern die Kopplung. Mit dem Kopplungstoken
+            # duerfte das Panel sie nie erreichen.
+            return web.Response(status=404)
         url = f"{link.base}/{path}"
         retryable = request.method in RETRYABLE
         if own is not None:

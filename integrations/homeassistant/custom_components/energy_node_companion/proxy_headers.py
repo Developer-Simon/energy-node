@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from http.cookies import CookieError, SimpleCookie
+from urllib.parse import unquote
 
 from multidict import CIMultiDict
 
@@ -108,3 +109,32 @@ def response_headers(upstream: Mapping[str, str]) -> CIMultiDict[str]:
 def is_logout(path: str) -> bool:
     """Ob der Proxy-Pfad die Abmeldung des Dashboards ist."""
     return path.strip("/") == "api/v1/auth/logout"
+
+
+_COMPANION_CONTROL = "api/v1/companion"
+
+
+def is_companion_control(path: str) -> bool:
+    """Ob der Proxy-Pfad die Companion-Routen trifft, auch in verschleierter Form.
+
+    Der Pfad wird mehrfach entschluesselt, Doppelschraegstriche, "." und ".."
+    aufgeloest und die Gross- und Kleinschreibung ignoriert. Im Zweifel gilt
+    der Pfad als Companion-Route.
+    """
+    decoded = path
+    for _ in range(5):
+        once = unquote(decoded)
+        if once == decoded:
+            break
+        decoded = once
+    parts: list[str] = []
+    for segment in decoded.split("/"):
+        if segment in ("", "."):
+            continue
+        if segment == "..":
+            if parts:
+                parts.pop()
+            continue
+        parts.append(segment)
+    normalized = "/".join(parts).lower()
+    return normalized == _COMPANION_CONTROL or normalized.startswith(_COMPANION_CONTROL + "/")

@@ -39,6 +39,7 @@ async def node(hass, tmp_path):
     fingerprint = fingerprint_of(der)
     state = {
         "seen": [],
+        "control": [],
         "issued": [],
         "sessions": 0,
         "session_status": 200,
@@ -52,6 +53,7 @@ async def node(hass, tmp_path):
         return request.headers.get("Authorization") == f"Bearer {PAIRING}"
 
     async def stream(request):
+        state["control"].append(("stream", request.headers.get("X-Forwarded-Prefix")))
         if not paired(request):
             return _unpaired()
         response = web.StreamResponse(headers={"Content-Type": "text/event-stream"})
@@ -60,6 +62,7 @@ async def node(hass, tmp_path):
         return response
 
     async def session(request):
+        state["control"].append(("session", request.headers.get("X-Forwarded-Prefix")))
         if not paired(request):
             return _unpaired()
         await request.json()
@@ -219,3 +222,31 @@ async def test_companion_unauthorized_reports_unpaired_and_gives_502(node, hass_
         response = await _proxy(hass_client_no_auth, entry, cookie)
     assert response.status == 502
     report.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("POST", "api/v1/companion/session"),
+        ("POST", "api/v1/companion/user-changed"),
+        ("GET", "api/v1/companion/stream"),
+        ("POST", "api/v1/companion/pair"),
+        ("GET", "API/V1/Companion/stream"),
+        ("GET", "api/v1/x/../companion/stream"),
+        ("GET", "api%2Fv1%2Fcompanion%2Fstream"),
+        ("POST", "/api/v1/companion/session"),
+    ],
+)
+async def test_companion_control_routes_are_never_proxied(node, hass_client, hass_client_no_auth, method, path):
+    entry = await node["start"]()
+    cookie = await _panel_cookie(hass_client, entry)
+    # Ohne Frist haengt der Strom ewig. Eine Weiterleitung waere dann ein Fehler.
+    response = await asyncio.wait_for(
+        _proxy(hass_client_no_auth, entry, cookie, path=path, method=method, data=b"{}"), 5
+    )
+    assert response.status == 404
+    assert node["seen"] == []
+    # Der eigene Strom der Verbindung kommt ohne X-Forwarded-Prefix. Nur ein
+    # weitergeleiteter Aufruf zaehlt.
+    assert [call for call in node["control"] if call[1] is not None] == []
+    assert node["sessions"] == 0
