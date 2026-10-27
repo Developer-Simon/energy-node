@@ -121,7 +121,7 @@ json.dump(data, open('$WORK/invalid.json', 'w'))
 }
 
 checks_shelly() {
-  # --preset shelly-ht: die Unterstuetzung schlafender H&T-Geraete end-to-end.
+  # Gruppe shelly: die Unterstuetzung schlafender H&T-Geraete end-to-end.
   # Die Presets kommen unveraendert aus services/shelly - faellt dort das
   # sleepy-Flag weg, legt das Dashboard neue H&T wieder ohne Gnadenfrist an.
   check "shelly_devices ist als Konfiguration sichtbar" \
@@ -206,7 +206,7 @@ checks_dataflow() {
     "any(e['details'].get('kind') == 'executes' and e['from'].get('device_id') == 'automation' for e in data['edges'])" \
     "$BASE/api/v1/device/map/flows"
   # Die Bank-A-Kante kommt aus battery_soc_devices.json mit bank_a_voltage_topic.
-  # Die bringt nur fixtures/devices/alle-funktionen mit, docs-screenshots teilt
+  # Die bringt nur fixtures/devices/demo mit, docs-screenshots teilt
   # die Fixture, nicht die Geraete.
   check "Datenfluss liefert eine Bank-A-Kante" \
     "any(e['details'].get('field') == 'bank_a_voltage_topic' for e in data['edges'])" \
