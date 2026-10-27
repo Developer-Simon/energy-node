@@ -967,6 +967,71 @@
 
   // ---------------------------------------------------------------- Wechselrichter meldet sich nicht
 
+  // Eigener Schalter des Wechselrichters, zuerst vorgewählt im Schalter-Schritt des Neustarts.
+  const ownInverterSwitch = (ctx, deviceId) => {
+    const entry = (ctx.inverters || []).find((item) => item.id === deviceId);
+    return entry && entry.ownSwitch ? entry.ownSwitch.unique_id : '';
+  };
+
+  // Neustart: Schritte für Wechselrichter-Warnungen. Die Option steht immer da, gesperrt
+  // mit Grund, wenn weder der eigene Schalter noch ein anderer frei ist.
+  const restartChosen = (answers) => !!(answers.restart && answers.restart.restart);
+  const restartSteps = () => {
+    const restartOn = restartChosen;
+    return [
+      {
+        id: 'restart', type: 'multi',
+        options: [{
+          id: 'restart', default: false,
+          unavailable: (ctx, answers) => {
+            if (requireEntry(ctx.inverters, answers.device).ownSwitch) return '';
+            const usable = (ctx.switches || []).some((item) => !item.disabled);
+            return usable ? '' : t('automations.assistant.unavailable.restart_switch');
+          },
+        }],
+      },
+      {
+        id: 'switch', type: 'device', filter: 'switch',
+        first: (ctx, answers) => ownInverterSwitch(ctx, answers.device),
+        when: restartOn,
+      },
+      { id: 'pause', type: 'number', min: 1, max: 30, step: 1, default: 2, when: restartOn },
+    ];
+  };
+  const RESTART_STEPS = restartSteps();
+
+  // Mit Neustart wird aus der Regel ein Szenario: beim Start die Mitteilung und der Schalter
+  // aus, nach der Pause wieder an. Die Bedingungen bleiben dieselben wie bei der Regel.
+  function ruleOrRestart(templateId, rule, answers, ctx) {
+    if (!restartChosen(answers)) return { kind: 'rule', entry: rule };
+    const entity = requireEntity(requireEntry(ctx.switches, answers.switch));
+    const scenario = {
+      id: uniqueId(templateId, ctx.usedIds),
+      name: rule.name,
+      enabled: true,
+      template: templateId,
+      when: { conditions: rule.conditions },
+      on_start: { actions: [...rule.actions, Sw(entity, false)] },
+      on_end: { actions: [Sw(entity, true)] },
+      while: { mode: 'none' },
+      max_duration_s: answers.pause * 60,
+      cooldown_s: rule.cooldown_seconds,
+    };
+    return { kind: 'scenario', entry: scenario };
+  }
+
+  // Zeile der Zusammenfassung für den Neustart, vor dem Ende.
+  function restartSummaryRows(rows, answers, ctx) {
+    if (!restartChosen(answers)) return rows;
+    const switchEntry = requireEntry(ctx.switches, answers.switch);
+    const row = {
+      label: phase('then'),
+      text: t('automations.assistant.summary.restart.then', { name: switchEntry.deviceName, minutes: num(answers.pause) }),
+      step: 'pause',
+    };
+    return [...rows.slice(0, -1), row, rows[rows.length - 1]];
+  }
+
   const inverterSilent = {
     id: 'inverter_silent',
     category: 'warning',
@@ -979,6 +1044,7 @@
         id: 'severity', type: 'tiles', default: 'warning',
         options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
       },
+      ...RESTART_STEPS,
       { id: 'again', type: 'number', min: 1, max: 24, step: 1, default: 6 },
     ],
     build(answers, ctx) {
@@ -1003,11 +1069,11 @@
           message: t('automations.templates.inverter_silent.notice.message', { minutes: num(answers.minutes) }),
         }],
       };
-      return { kind: 'rule', entry: rule };
+      return ruleOrRestart('inverter_silent', rule, answers, ctx);
     },
     summary(answers, ctx) {
       requireEntry(ctx.inverters, answers.device);
-      return [
+      return restartSummaryRows([
         {
           label: phase('when'),
           text: t('automations.assistant.summary.silent.when', { minutes: num(answers.minutes) }),
@@ -1021,7 +1087,7 @@
           step: 'severity',
         },
         { label: phase('end'), text: t('automations.assistant.summary.silent.again', { hours: num(answers.again) }), step: 'again' },
-      ];
+      ], answers, ctx);
     },
   };
 
@@ -1413,6 +1479,7 @@
       { id: 'device', type: 'device', filter: 'inverter_measured' },
       { id: 'limit', type: 'number', min: 5, max: 200, step: 5, default: 20 },
       { id: 'minutes', type: 'number', min: 10, max: 120, step: 5, default: 30 },
+      ...RESTART_STEPS,
       {
         id: 'severity', type: 'tiles', default: 'warning',
         options: [{ id: 'info' }, { id: 'warning' }, { id: 'critical' }],
@@ -1445,11 +1512,11 @@
           }),
         }],
       };
-      return { kind: 'rule', entry: rule };
+      return ruleOrRestart('pv_missing', rule, answers, ctx);
     },
     summary(answers, ctx) {
       requireEntry(ctx.inverters, answers.device);
-      return [
+      return restartSummaryRows([
         { label: phase('when'), text: t('automations.assistant.summary.pv_missing.window'), step: 'device' },
         {
           label: phase('when'),
@@ -1466,7 +1533,7 @@
           step: 'severity',
         },
         { label: phase('end'), text: t('automations.assistant.summary.pv_missing.cooldown'), step: 'severity' },
-      ];
+      ], answers, ctx);
     },
   };
 

@@ -1372,3 +1372,85 @@ test('wallbox_low_tariff without the connected option and with a price drops the
     type: 'entity_value', topic: 'werkstatt/tibber/price', entity_id: 'tibber_price', value_template: '', comparison: 'below', value: 15, hold_seconds: 0,
   }]);
 });
+
+// Neustart der Wechselrichter-Warnungen: aus beim Start, nach der Pause wieder an.
+const ownSwitchDevices = devices.map((device) => (device.id === 'pv1'
+  ? { ...device, entities: [...device.entities, { unique_id: 'pv1_switch', name: 'Schalter', command_topic: 'werkstatt/pv1/switch', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' }] }
+  : device));
+const noSwitchDevices = devices.map((device) => ({
+  ...device, entities: device.entities.filter((entity) => !(entity.payload_on && entity.payload_off)),
+}));
+const RESTART_TEMPLATES = ['inverter_silent', 'pv_missing'];
+const RESTART_LAST_STEP = { inverter_silent: 'again', pv_missing: 'severity' };
+
+for (const id of RESTART_TEMPLATES) {
+  test(`${id} without restart still builds the rule with the same conditions`, () => {
+    const { wizard, templates } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const result = plain(template.build(answersFor(wizard, template, ctx), ctx));
+    assert.equal(result.kind, 'rule');
+    assert.equal(result.entry.actions[0].type, 'notification');
+    assert.equal(result.entry.template, undefined);
+  });
+
+  test(`${id} with restart builds a scenario that switches off and back on`, () => {
+    const { wizard, templates, t } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const rule = plain(template.build(answersFor(wizard, template, ctx), ctx)).entry;
+    const answers = answersFor(wizard, template, ctx, { restart: { restart: true }, pause: 3 });
+    const result = plain(template.build(answers, ctx));
+    assert.equal(result.kind, 'scenario');
+    const scenario = result.entry;
+    assert.equal(scenario.id, id);
+    assert.equal(scenario.name, t(`automations.templates.${id}.title`));
+    assert.equal(scenario.enabled, true);
+    assert.equal(scenario.template, id);
+    assert.deepEqual(scenario.when, { conditions: rule.conditions });
+    const off = {
+      type: 'publish', topic: 'werkstatt/pv1/switch', retain: false, payload_source: 'constant', payload: 'OFF', entity_id: 'pv1_switch',
+    };
+    const on = { ...off, payload: 'ON' };
+    assert.deepEqual(scenario.on_start, { actions: [rule.actions[0], off] });
+    assert.deepEqual(scenario.on_end, { actions: [on] });
+    assert.deepEqual(scenario.while, { mode: 'none' });
+    assert.equal(scenario.max_duration_s, 180);
+    assert.equal(scenario.cooldown_s, rule.cooldown_seconds);
+  });
+
+  test(`${id} restart option is unavailable with the reason when no switch exists`, () => {
+    const { wizard, templates, t } = load();
+    const template = templateById(templates, id);
+    const restart = template.steps.find((step) => step.id === 'restart').options[0];
+    const bare = plain(contextFor(wizard, { devices: noSwitchDevices }));
+    assert.equal(restart.unavailable(bare, { device: 'pv1_limit' }), t('automations.assistant.unavailable.restart_switch'));
+    const own = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    assert.equal(restart.unavailable(own, { device: 'pv1_limit' }), '');
+    const others = plain(contextFor(wizard));
+    assert.equal(restart.unavailable(others, { device: 'pv1_limit' }), '');
+  });
+
+  test(`${id} switch step lists the inverter's own switch first and preselects it`, () => {
+    const { wizard, templates } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const step = template.steps.find((item) => item.id === 'switch');
+    const ids = wizard.devicesForStep(step, ctx, { device: 'pv1_limit' }).map((item) => item.id);
+    assert.equal(ids[0], 'pv1_switch');
+    assert.equal(answersFor(wizard, template, ctx).switch, 'pv1_switch');
+  });
+
+  test(`${id} summary names the switch and the pause only with restart`, () => {
+    const { wizard, templates, t } = load();
+    const template = templateById(templates, id);
+    const ctx = plain(contextFor(wizard, { devices: ownSwitchDevices }));
+    const off = plain(template.summary(answersFor(wizard, template, ctx), ctx));
+    assert.equal(off.some((row) => row.step === 'pause'), false);
+    const on = plain(template.summary(answersFor(wizard, template, ctx, { restart: { restart: true }, pause: 3 }), ctx));
+    const row = on.find((item) => item.step === 'pause');
+    assert.equal(row.text, t('automations.assistant.summary.restart.then', { name: 'Wechselrichter Dach', minutes: '3' }));
+    assert.equal(on[on.length - 2].step, 'pause');
+    assert.equal(on[on.length - 1].step, RESTART_LAST_STEP[id]);
+  });
+}

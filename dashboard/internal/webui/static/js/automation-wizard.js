@@ -102,7 +102,10 @@
   function inverterEntries(devices, index, regulatedTopics) {
     return devices
       .filter((device) => (index.deviceRoles.get(device.id) || new Set()).has('pv'))
-      .map((device) => hardwareEntry(device, 'pv', index, regulatedTopics));
+      .map((device) => {
+        const ownSwitch = (device.entities || []).find((entity) => isSwitch(entity)) || null;
+        return hardwareEntry(device, 'pv', index, regulatedTopics, { ownSwitch });
+      });
   }
 
   function wallboxEntries(devices, index, regulatedTopics) {

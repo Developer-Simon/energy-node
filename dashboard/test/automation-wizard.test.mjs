@@ -620,3 +620,13 @@ test('formatPrice keeps three decimals for euro and two for cents', () => {
   assert.equal(wizard.formatPrice(28.5, 'ct/kWh'), '28,50 ct/kWh');
   assert.equal(wizard.formatPrice('abc', 'ct/kWh'), 'abc ct/kWh');
 });
+
+test('an inverter keeps its own switch, null without one', () => {
+  const { wizard } = load();
+  const withSwitch = devices.map((device) => (device.id === 'pv2'
+    ? { ...device, entities: [...device.entities, { unique_id: 'pv2_switch', name: 'Schalter', command_topic: 'werkstatt/pv2/switch', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'OFF' }] }
+    : device));
+  const ctx = plain(build(wizard, { devices: withSwitch }));
+  assert.equal(ctx.inverters[1].ownSwitch.unique_id, 'pv2_switch');
+  assert.equal(ctx.inverters[0].ownSwitch, null);
+});
