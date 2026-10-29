@@ -475,6 +475,122 @@ test('iconPickerOpen und moreMenuOpen schließen beim Gerätewechsel und mit clo
   assert.equal(panel.moreMenuOpen, false);
 });
 
+test('überlappende Sterne: schlagen beide fehl, steht das Modal auf der bestätigten Liste', async () => {
+  const panel = createDevicesPanel();
+  const { calls } = stubAppearanceFetch(panel, { favorite_refs: [], fail: true });
+  await Promise.all([
+    panel.toggleFavorite({ unique_id: 'node_temp' }),
+    panel.toggleFavorite({ unique_id: 'node_relay' }),
+  ]);
+  assert.equal(putsOf(calls).length, 2);
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), []);
+});
+
+test('überlappende Sterne werden nacheinander gespeichert und beide bleiben', async () => {
+  const panel = createDevicesPanel();
+  const { calls } = stubAppearanceFetch(panel, { favorite_refs: [] });
+  await Promise.all([
+    panel.toggleFavorite({ unique_id: 'node_temp' }),
+    panel.toggleFavorite({ unique_id: 'node_relay' }),
+  ]);
+  assert.deepEqual(putsOf(calls).map(call => call.body.favorite_refs), [['node_temp'], ['node_temp', 'node_relay']]);
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['node_temp', 'node_relay']);
+});
+
+test('Rückgängig des Sterns behält ein inzwischen geändertes Icon', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: [], icon_name: 'energy-node:sun' });
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+  await panel.saveIcon('energy-node:battery');
+  await pushed[0].options.action.run();
+
+  assert.deepEqual(putsOf(calls).at(-1).body, { icon: 'energy-node:battery', favorite_refs: [] });
+  assert.equal(panel.deviceDetail.icon_name, 'energy-node:battery');
+});
+
+test('Rückgängig des Icons behält die inzwischen geänderten Favoriten', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: [], icon_name: 'energy-node:sun' });
+  await panel.saveIcon('energy-node:battery');
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+  await pushed[0].options.action.run();
+
+  assert.deepEqual(putsOf(calls).at(-1).body, { icon: 'energy-node:sun', favorite_refs: ['node_relay'] });
+});
+
+test('ein fehlgeschlagenes Speichern nach Gerätewechsel lässt das neue Gerät unberührt', async () => {
+  const panel = createDevicesPanel();
+  const { pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp'], fail: true });
+  const realFetch = panel.testWindow.fetch;
+  panel.testWindow.fetch = async (url, options = {}) => {
+    // Der Nutzer wechselt das Gerät, während das PUT noch läuft.
+    if (options.method === 'PUT') {
+      panel.selectedDeviceId = 'shelly';
+      panel.deviceDetail = { id: 'shelly', icon_name: 'energy-node:sun', favorite_refs: ['shelly_x'], entities: [] };
+    }
+    return realFetch(url, options);
+  };
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+
+  assert.equal(panel.selectedDeviceId, 'shelly');
+  assert.equal(panel.deviceDetail.id, 'shelly');
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['shelly_x']);
+  assert.equal(pushed[0].severity, 'critical');
+});
+
+test('ein veralteter Refresh überschreibt die gespeicherten Favoriten nicht', async () => {
+  const panel = createDevicesPanel();
+  stubAppearanceFetch(panel, { favorite_refs: [] });
+  Object.defineProperty(panel.testWindow.document, 'visibilityState', { value: 'visible', configurable: true });
+  const realFetch = panel.testWindow.fetch;
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let held = false;
+  panel.testWindow.fetch = async (url, options = {}) => {
+    // Der erste Detail-Refresh (SSE-Takt) hängt, bis das Speichern durch ist.
+    if ((options.method || 'GET') === 'GET' && url === '/api/v1/devices/node' && !held) {
+      held = true;
+      await gate;
+      return ok({ ...nodeDetail([]) });
+    }
+    return realFetch(url, options);
+  };
+  const stale = panel.refreshSelectedDevice();
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+  release();
+  await stale;
+
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['node_relay']);
+  assert.equal(panel.isFavorite({ unique_id: 'node_relay' }), true);
+});
+
+test('Esc schließt zuerst Icon-Auswahl oder Mehr-Menü über den Dialog-Handler', () => {
+  const panel = createDevicesPanel();
+  const dialog = panel.testWindow.document.createElement('div');
+  panel.$refs = { deviceModalDialog: dialog };
+  panel.attachDeviceModal();
+  const pressEscape = () => {
+    const event = new panel.testWindow.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    dialog.dispatchEvent(event);
+    return event;
+  };
+
+  panel.iconPickerOpen = true;
+  const closedPicker = pressEscape();
+  assert.equal(panel.iconPickerOpen, false);
+  assert.equal(closedPicker.defaultPrevented, true);
+
+  panel.moreMenuOpen = true;
+  pressEscape();
+  assert.equal(panel.moreMenuOpen, false);
+
+  const idle = pressEscape();
+  assert.equal(idle.defaultPrevented, false);
+  panel.detachDeviceModal();
+});
+
+
 test('the icon picker groups the catalogue by category in catalogue order', () => {
   const panel = createDevicesPanel();
   panel.deviceIcons = [

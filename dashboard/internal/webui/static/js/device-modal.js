@@ -67,6 +67,8 @@
     prefsMessage: '',
     // Zaehlt jeden Stern, der am Limit scheitert (siehe toggleFavorite).
     favoriteLimitHit: 0,
+    // Kette der Schreibaktionen (queueAppearance). Kein reaktiver Datenwert.
+    appearanceQueue: null,
     // Icon-Auswahl und Mehr-Menue im Modal-Kopf. Beide schliessen beim
     // Gerätewechsel und bei Escape (closeFloatingMenus).
     iconPickerOpen: false,
@@ -153,12 +155,35 @@
       this.prefsDraft = {icon: appearance.icon};
     },
 
-    // Speichert Favoriten und Icon fuer deviceId. Der Stand im Modal wechselt
-    // sofort; scheitert das Speichern, geht er auf previous zurueck. deviceId
-    // ist das Geraet beim Ausloesen - nie selectedDeviceId, denn beim
-    // Rueckgaengig kann laengst ein anderes Geraet offen sein. undoable false
-    // ist das Rueckgaengig selbst, es bietet keine weitere Aktion an.
-    async writeAppearance(deviceId, next, previous, messageKey, undoable = true) {
+    // Liest Favoriten und Icon eines Geraets. Offen: aus dem Modal. Sonst vom
+    // Server, denn ein Rueckgaengig kann laengst ein anderes Geraet zeigen.
+    async appearanceFor(deviceId) {
+      if (this.selectedDeviceId === deviceId && this.deviceDetail) return this.appearanceOf();
+      const detail = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}`);
+      return {icon: detail.icon_name || '', favorite_refs: [...(detail.favorite_refs || [])]};
+    },
+
+    // Schreibaktionen laufen nacheinander. Jede liest ihren Ausgangsstand erst,
+    // wenn die vorige fertig ist. Scheitert die vorige, geht das Modal auf
+    // deren Ausgangsstand zurueck (den bestaetigten), nicht auf einen Zwischenstand.
+    queueAppearance(job) {
+      const run = (this.appearanceQueue || Promise.resolve()).then(job).catch(error => {
+        this.$store.toasts.push(error.message, 'critical');
+      });
+      this.appearanceQueue = run;
+      return run;
+    },
+
+    // Schreibt ein Feld (favorite_refs oder icon) fuer deviceId. Das andere Feld
+    // geht mit seinem aktuellen Stand mit. Nur aus queueAppearance aufrufen.
+    // undoable false ist das Rueckgaengig selbst, es bietet keine weitere Aktion.
+    async writeAppearanceField(deviceId, field, value, messageKey, undoable = true) {
+      const before = await this.appearanceFor(deviceId);
+      const previousValue = before[field];
+      const next = {...before, [field]: value};
+      // Ein Detail-Refresh, der vor dem Schreiben gestartet wurde, darf den
+      // Stand nach dem Speichern nicht mehr ueberschreiben (siehe refreshSelectedDevice).
+      if (this.selectedDeviceId === deviceId) this.detailRequestToken += 1;
       this.applyAppearance(deviceId, next);
       try {
         await requestJSON(
@@ -166,19 +191,20 @@
           {...this.mutationOptions({icon: next.icon, favorite_refs: next.favorite_refs}), method: 'PUT'},
         );
       } catch (error) {
-        this.applyAppearance(deviceId, previous);
+        this.applyAppearance(deviceId, before);
         this.$store.toasts.push(error.message, 'critical');
         return false;
       }
       // Das neu geladene Detail bringt die card_refs mit. Scheitert nur das
       // Nachladen, stimmt der Stand im Modal schon; der Fehler wird gemeldet.
+      if (this.selectedDeviceId === deviceId) this.detailRequestToken += 1;
       try {
         await this.loadDeviceDetail(deviceId);
       } catch (error) {
         if (this.selectedDeviceId === deviceId) this.detailError = error.message;
       }
       const options = undoable
-        ? {action: {run: () => this.writeAppearance(deviceId, previous, next, messageKey, false)}}
+        ? {action: {run: () => this.queueAppearance(() => this.writeAppearanceField(deviceId, field, previousValue, messageKey, false))}}
         : undefined;
       this.$store.toasts.push(t(messageKey), 'info', options);
       return true;
@@ -190,17 +216,19 @@
       const ref = entity?.unique_id;
       const deviceId = this.selectedDeviceId;
       if (!this.canEditAppearance || !ref || !deviceId || !this.deviceDetail) return;
-      const previous = this.appearanceOf();
-      const favorited = previous.favorite_refs.includes(ref);
-      if (!favorited && previous.favorite_refs.length >= FAVORITE_LIMIT) {
-        this.favoriteLimitHit += 1;
-        this.$store.toasts.push(t('devices.favourites.max'), 'warning');
-        return;
-      }
-      const favorite_refs = favorited
-        ? previous.favorite_refs.filter(item => item !== ref)
-        : [...previous.favorite_refs, ref];
-      await this.writeAppearance(deviceId, {icon: previous.icon, favorite_refs}, previous, 'devices.favourites.saved');
+      return this.queueAppearance(async () => {
+        const current = await this.appearanceFor(deviceId);
+        const favorited = current.favorite_refs.includes(ref);
+        if (!favorited && current.favorite_refs.length >= FAVORITE_LIMIT) {
+          this.favoriteLimitHit += 1;
+          this.$store.toasts.push(t('devices.favourites.max'), 'warning');
+          return;
+        }
+        const favorite_refs = favorited
+          ? current.favorite_refs.filter(item => item !== ref)
+          : [...current.favorite_refs, ref];
+        await this.writeAppearanceField(deviceId, 'favorite_refs', favorite_refs, 'devices.favourites.saved');
+      });
     },
 
     // Icon aus dem Katalog. Das Vorschlagsicon speichert als leere Auswahl,
@@ -208,9 +236,8 @@
     async saveIcon(name) {
       const deviceId = this.selectedDeviceId;
       if (!this.canEditAppearance || !name || !deviceId || !this.deviceDetail) return;
-      const previous = this.appearanceOf();
       const icon = name === this.defaultIconName ? '' : name;
-      await this.writeAppearance(deviceId, {icon, favorite_refs: previous.favorite_refs}, previous, 'devices.icon.saved');
+      return this.queueAppearance(() => this.writeAppearanceField(deviceId, 'icon', icon, 'devices.icon.saved'));
     },
 
     // Der Picker-Klick speichert sofort (saveIcon).
