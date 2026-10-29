@@ -27,6 +27,7 @@ schalten.
 
     python3 minibroker.py [PORT] [FIXTURE.json] [--simulate]
                           [--service-status DEVICES_DIR] [--reject-config NAME ...]
+                          [--control-port PORT]
 
 PORT       Standard 18883.
 FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
@@ -53,8 +54,15 @@ FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
            Meldet die Konfiguration NAME (z. B. battery_soc_devices) als
            abgelehnt: runtime_status "rejected", applied_revision bleibt die
            zuletzt angenommene Fassung. Mehrfach angebbar.
+--control-port PORT
+           Startet den Steuerserver auf 127.0.0.1:PORT (fuer die Fake-Konsole).
+           GET /state, GET /log?since=n, POST /simulate {"on"}, /device
+           {"topic", "online"}, /service {"config", "mode"}, /publish
+           {"topic", "payload", "retain"}, /disconnect, /reset. Ohne das Flag
+           gibt es keinen Steuerserver.
 """
 import hashlib
+import http.server
 import json
 import math
 import socket
@@ -63,6 +71,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from fakelog import Log
 
@@ -503,8 +512,79 @@ def service_status_loop(devices_dir, state):
         time.sleep(SERVICE_SCAN_INTERVAL)
 
 
+CONTROL_POST_PATHS = ("/simulate", "/device", "/service", "/publish", "/disconnect", "/reset")
+
+
+def _field(body, key):
+    if key not in body:
+        raise ValueError(f"{key} fehlt")
+    return body[key]
+
+
+def make_control_server(state, port):
+    """Steuerserver auf 127.0.0.1: Zustand lesen, Schalter setzen. Fehler kommen als JSON."""
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def _send(self, status, body):
+            data = json.dumps(body).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+        def _body(self):
+            length = int(self.headers.get("Content-Length", 0))
+            raw = self.rfile.read(length) if length else b""
+            body = json.loads(raw) if raw.strip() else {}
+            if not isinstance(body, dict):
+                raise ValueError("JSON-Objekt erwartet")
+            return body
+
+        def _dispatch(self, url):
+            if self.command == "GET":
+                if url.path == "/state":
+                    return 200, state.state()
+                if url.path == "/log":
+                    since = int(parse_qs(url.query).get("since", ["0"])[0])
+                    last, entries = state.log.since(since)
+                    return 200, {"last": last, "entries": entries}
+                return 404, {"error": "nicht gefunden"}
+            if url.path not in CONTROL_POST_PATHS:
+                return 404, {"error": "nicht gefunden"}
+            body = self._body()
+            if url.path == "/simulate":
+                state.set_simulate(_field(body, "on"))
+            elif url.path == "/device":
+                state.set_device(_field(body, "topic"), _field(body, "online"))
+            elif url.path == "/service":
+                state.set_service(_field(body, "config"), _field(body, "mode"))
+            elif url.path == "/publish":
+                state.publish(body.get("topic", ""), body.get("payload", ""), bool(body.get("retain", False)))
+            elif url.path == "/disconnect":
+                state.disconnect_all()
+            elif url.path == "/reset":
+                state.reset()
+            return 200, state.state()
+
+        def _respond(self):
+            try:
+                status, body = self._dispatch(urlsplit(self.path))
+            except ValueError as error:
+                status, body = 400, {"error": str(error)}
+            self._send(status, body)
+
+        do_GET = _respond
+        do_POST = _respond
+
+    return http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+
+
 def parse_args(argv):
-    opts = {"simulate": False, "service_status": None, "rejected": set(), "positional": []}
+    opts = {"simulate": False, "service_status": None, "rejected": set(), "control_port": None, "positional": []}
     i = 0
     while i < len(argv):
         arg = argv[i]
@@ -516,6 +596,9 @@ def parse_args(argv):
         elif arg == "--reject-config":
             i += 1
             opts["rejected"].add(argv[i])
+        elif arg == "--control-port":
+            i += 1
+            opts["control_port"] = int(argv[i])
         else:
             opts["positional"].append(arg)
         i += 1
@@ -535,6 +618,9 @@ def main():
         threading.Thread(target=service_status_loop,
                          args=(opts["service_status"], state),
                          daemon=True).start()
+    if opts["control_port"] is not None:
+        control = make_control_server(state, opts["control_port"])
+        threading.Thread(target=control.serve_forever, daemon=True).start()
 
     server = socket.socket()
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

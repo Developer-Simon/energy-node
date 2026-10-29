@@ -1,6 +1,9 @@
 import json
 import struct
 import sys
+import threading
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -137,3 +140,60 @@ def test_without_control_rejected_flag_behaves_as_before(tmp_path):
     status = settings_status(state, "battery_soc")
     assert status["runtime_status"] == "rejected"
     assert status["error"] == minibroker.REJECT_ERROR
+
+
+@pytest.fixture
+def control():
+    state = make_state(simulate=True)
+    server = minibroker.make_control_server(state, 0)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{server.server_address[1]}", state
+    server.shutdown()
+    server.server_close()
+
+
+def call(base, method, path, body=None):
+    data = None if body is None else json.dumps(body).encode("utf-8")
+    request = urllib.request.Request(base + path, data=data, method=method,
+                                     headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read())
+
+
+def test_control_state_and_actions(control):
+    base, state = control
+    status, body = call(base, "GET", "/state")
+    assert status == 200
+    assert body["port"] == 18883
+    assert body["simulate"] is True
+    status, body = call(base, "POST", "/simulate", {"on": False})
+    assert status == 200
+    assert body["simulate"] is False
+    assert state.simulate is False
+
+
+def test_control_bad_input_is_400_with_error(control):
+    base, _ = control
+    status, body = call(base, "POST", "/service", {"config": "x", "mode": "kaputt"})
+    assert status == 400
+    assert body == {"error": "unbekannter Modus"}
+
+
+def test_control_unknown_path_is_404(control):
+    base, _ = control
+    status, body = call(base, "GET", "/gibt-es-nicht")
+    assert status == 404
+    assert body == {"error": "nicht gefunden"}
+
+
+def test_control_log_returns_entries_since(control):
+    base, state = control
+    state.log.add("mqtt", "eins")
+    state.log.add("mqtt", "zwei")
+    status, body = call(base, "GET", "/log?since=1")
+    assert status == 200
+    assert body["last"] == 2
+    assert [entry["text"] for entry in body["entries"]] == ["zwei"]
