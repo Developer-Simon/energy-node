@@ -111,9 +111,12 @@
 <dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading" data-choices-script="{{.BasePath}}/static/js-deps/choices.min.js" data-choices-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2">
   <div class="device-modal-topbar">
     <div class="device-modal-topbar-id">
-      <div class="device-modal-topbar-icon" aria-hidden="true">
+      <button type="button" class="device-modal-topbar-icon" aria-label="{{t "devices.icon.label"}}" aria-haspopup="dialog" x-bind:aria-expanded="iconPickerOpen ? 'true' : 'false'" x-bind:disabled="!canEditAppearance" x-on:click="iconPickerOpen = !iconPickerOpen">
         <span class="device-modal-topbar-glyph" x-cloak x-show="deviceIcons.length" x-html="iconMarkup(savedIconName)"></span>
         <svg x-show="!deviceIcons.length" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">{{deviceIconMarkup "energy-node:chip"}}</svg>
+      </button>
+      <div class="device-modal-iconpop" x-cloak x-show="iconPickerOpen" x-on:click.outside="iconPickerOpen = false">
+        {{template "device-icon-picker" dict "Current" "draftIconName" "Default" "defaultIconName" "Pick" "saveIcon"}}
       </div>
       <div class="device-modal-topbar-text">
         <h3 id="device-modal-heading">
@@ -124,7 +127,20 @@
         <p class="device-detail-source" x-show="selectedDeviceId && !(deviceDetail?.manufacturer || deviceDetail?.model)" x-text="selectedDeviceId ? $t('devices.modal.device_prefix', {id: selectedDeviceId}) : ''"></p>
       </div>
     </div>
-    <button type="button" class="device-modal-topbar-close" x-on:click="closeDeviceDetail()">{{t "devices.modal.close"}}</button>
+    <div class="device-modal-topbar-actions">
+      <div class="device-modal-more-wrap">
+        <button type="button" class="device-modal-more" aria-label="{{t "devices.modal.more"}}" aria-haspopup="menu" x-bind:aria-expanded="moreMenuOpen ? 'true' : 'false'" x-on:click="moreMenuOpen = !moreMenuOpen">⋯</button>
+        <div class="device-modal-menu" role="menu" x-cloak x-show="moreMenuOpen" x-on:click.outside="moreMenuOpen = false">
+          <button type="button" role="menuitem" x-bind:disabled="reloadLoading || detailLoading" x-on:click="moreMenuOpen = false; reloadDevice()" x-text="reloadLoading ? $t('devices.management.reload_loading') : $t('devices.management.reload')"></button>
+          <button type="button" role="menuitem" x-on:click="moreMenuOpen = false; ignoreDevice(selectedDeviceId)">{{t "devices.management.ignore"}}</button>
+          <div class="device-modal-menu-sep" role="separator"></div>
+          <span class="device-action-tooltip" x-bind:title="canDeleteDiscovery ? $t('devices.management.delete') : $t('devices.management.delete_admin_only')">
+            <button type="button" role="menuitem" class="danger" x-bind:disabled="!canDeleteDiscovery" x-bind:aria-disabled="(!canDeleteDiscovery).toString()" x-on:click="moreMenuOpen = false; openDiscoveryDelete(selectedDeviceId)">{{t "devices.management.delete"}}</button>
+          </span>
+        </div>
+      </div>
+      <button type="button" class="device-modal-topbar-close" x-on:click="closeDeviceDetail()">{{t "devices.modal.close"}}</button>
+    </div>
   </div>
   <p x-show="detailLoading">{{t "devices.modal.loading"}}</p>
   <p class="message error" x-cloak x-show="detailError" x-text="detailError"></p>
@@ -132,13 +148,18 @@
     <aside class="device-modal-sidebar">
       {{template "device-modal-info-body" .}}
     </aside>
-    <div class="device-modal-pinned" x-cloak x-show="pinnedFavorites.length">
-      <template x-for="entity in pinnedFavorites" :key="`pinned-${entity.unique_id}`">
-        <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
-          <div class="k" x-text="entityDisplayName(entity)"></div>
-          <div class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+    <div class="device-modal-hero" x-cloak x-show="heroEntities.length" x-flip=".device-modal-stat" x-effect="favoriteLimitHit > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && $el.animate([{transform: 'translateX(0)'}, {transform: 'translateX(-4px)'}, {transform: 'translateX(4px)'}, {transform: 'translateX(0)'}], {duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)'})">
+      <template x-for="item in heroEntities" :key="item.entity.unique_id">
+        <article class="device-modal-stat" x-bind:class="{ 'is-warn': item.entity.stale || (item.entity.has_availability && !item.entity.available) }">
+          <div class="k" x-text="entityDisplayName(item.entity)"></div>
+          <div class="v"><span x-roll x-bind:data-roll-value="item.entity.value" x-bind:data-roll-unit="item.entity.unit_of_measurement || ''" x-text="item.entity.has_value ? I18n.formatValue(item.entity.value, item.entity.unit_of_measurement) : '-'"></span><small x-show="item.entity.has_value && item.entity.unit_of_measurement" x-text="item.entity.unit_of_measurement"></small></div>
+          <span class="device-modal-hero-auto" x-show="item.auto" x-text="$t('devices.favourites.auto')"></span>
+          <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(item.entity) }" x-bind:aria-pressed="isFavorite(item.entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(item.entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(item.entity)"><span aria-hidden="true" x-text="isFavorite(item.entity) ? '★' : '☆'"></span></button>
         </article>
       </template>
+    </div>
+    <div class="device-modal-hero-warnings">
+      {{template "device-modal-warning-list" "operationalWarnings"}}
     </div>
     <div class="device-modal-switcher" x-ref="deviceModalSwitcher">
 
@@ -223,39 +244,9 @@
         </button>
         <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-management">
 
-          <h4>{{t "devices.appearance.title"}}</h4>
-          <p class="device-prefs-hint" x-show="!canEditPrefs">{{t "devices.appearance.permission_required"}}</p>
-          <div class="device-prefs" x-show="canEditPrefs">
-            <p class="device-prefs-hint">{{t "devices.appearance.note"}}</p>
-            {{template "device-icon-picker" dict "Current" "draftIconName" "Default" "defaultIconName" "Pick" "pickIcon"}}
-            <label class="device-prefs-hint" for="device-prefs-favorites">{{t "devices.favourites.label"}}</label>
-            <div class="device-prefs-favorites">
-              <select id="device-prefs-favorites" multiple x-ref="favoritesSelect" x-on:change="syncFavoritesFromChoices()"></select>
-            </div>
-            <label class="device-prefs-pin">
-              <span>{{t "devices.favourites.pin"}}</span>
-              <span class="settings-toggle"><input type="checkbox" role="switch" x-model="prefsDraft.pin_favorites" x-bind:aria-checked="prefsDraft.pin_favorites"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
-            </label>
-            <div class="device-prefs-actions">
-              <button type="button" class="primary" x-bind:disabled="prefsSaving" x-on:click="saveDevicePrefs()"
-                      x-text="prefsSaving ? $t('devices.appearance.saving') : $t('devices.appearance.save')"></button>
-              <small class="device-prefs-status" x-cloak x-show="prefsMessage" x-text="prefsMessage"></small>
-            </div>
-          </div>
-
           <h4>{{t "devices.warnings.title"}}</h4>
-          <p x-show="!groupedWarnings.length">{{t "devices.warnings.empty"}}</p>
-          <template x-for="warning in groupedWarnings" :key="`${warning.rule_id}-${warning.key || warning.message}`">
-            <div class="device-modal-warning" x-bind:class="{ 'is-critical': warning.severity === 'critical' }">
-              <span aria-hidden="true" x-text="warning.severity === 'critical' ? '⛔' : '⚠'"></span>
-              <div>
-                <b x-text="warningText(warning, 'message')"></b>
-                <small x-show="warning.count > 1" x-text="$t('devices.warnings.affected_entities', {count: warning.count})"></small>
-                <small x-show="warning.affectedEntityIds.length" x-text="$t('devices.warnings.affected_entities_label') + warning.affectedEntityIds.map(id => entityLabel(id)).join(', ')"></small>
-                <small x-show="warning.hint" x-text="$t('devices.warnings.note_prefix') + warningText(warning, 'hint')"></small>
-              </div>
-            </div>
-          </template>
+          <p x-show="!configWarnings.length">{{t "devices.warnings.empty"}}</p>
+          {{template "device-modal-warning-list" "configWarnings"}}
 
           <div x-show="isAccordion" x-flip>
             <h4>{{t "devices.activity.title"}}</h4>
@@ -320,15 +311,6 @@
             </table>
           </div>
 
-          <h4>{{t "devices.management.title"}}</h4>
-          <div class="device-modal-manage-row">
-            <button type="button" x-on:click="reloadDevice()" x-bind:disabled="reloadLoading || detailLoading" x-text="reloadLoading ? $t('devices.management.reload_loading') : $t('devices.management.reload')"></button>
-            <span class="device-action-tooltip" x-bind:title="canDeleteDiscovery ? $t('devices.management.delete') : $t('devices.management.delete_admin_only')">
-              <button type="button" class="danger" x-bind:disabled="!canDeleteDiscovery" x-bind:aria-disabled="(!canDeleteDiscovery).toString()" x-on:click="openDiscoveryDelete(selectedDeviceId)">{{t "devices.management.delete"}}</button>
-            </span>
-            <button type="button" class="warnish" x-on:click="ignoreDevice(selectedDeviceId)">{{t "devices.management.ignore"}}</button>
-          </div>
-
         </div></div></div>
       </div>
 
@@ -390,9 +372,24 @@
 </div>
 {{end}}
 
+{{define "device-modal-warning-list"}}
+<template x-for="warning in {{.}}" :key="`${warning.rule_id}-${warning.key || warning.message}`">
+  <div class="device-modal-warning" x-bind:class="{ 'is-critical': warning.severity === 'critical' }">
+    <span aria-hidden="true" x-text="warning.severity === 'critical' ? '⛔' : '⚠'"></span>
+    <div>
+      <b x-text="warningText(warning, 'message')"></b>
+      <small x-show="warning.count > 1" x-text="$t('devices.warnings.affected_entities', {count: warning.count})"></small>
+      <small x-show="warning.affectedEntityIds.length" x-text="$t('devices.warnings.affected_entities_label') + warning.affectedEntityIds.map(id => entityLabel(id)).join(', ')"></small>
+      <small x-show="warning.hint" x-text="$t('devices.warnings.note_prefix') + warningText(warning, 'hint')"></small>
+    </div>
+  </div>
+</template>
+{{end}}
+
 {{define "device-modal-stat-tile"}}
 <template x-for="entity in {{.}}" :key="entity.unique_id">
   <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
+    <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(entity) }" x-bind:aria-pressed="isFavorite(entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(entity)"><span aria-hidden="true" x-text="isFavorite(entity) ? '★' : '☆'"></span></button>
     <div class="k" x-text="entityDisplayName(entity)"></div>
     <div class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
     <div class="device-modal-sub" x-show="subDeviceRowVisible(entity)" x-cloak>
@@ -413,6 +410,7 @@
 {{define "device-modal-control-tile"}}
 <template x-for="entity in {{.}}" :key="entity.unique_id">
   <article class="device-modal-control-card" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
+    <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(entity) }" x-bind:aria-pressed="isFavorite(entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(entity)"><span aria-hidden="true" x-text="isFavorite(entity) ? '★' : '☆'"></span></button>
     <div class="label" x-text="entityDisplayName(entity)"></div>
     <div x-show="entity.commandable && entity.component === 'number'" class="entity-number-control"><input type="range" class="entity-number-slider" data-command-type="number" x-model="entity.value" x-bind:data-entity-id="entity.unique_id" x-bind:min="entity.min_value ?? 0" x-bind:max="entity.max_value ?? 100" x-bind:step="entity.step ?? 'any'" x-bind:disabled="entity.pending" x-on:change="sendNumberCommand($el)" x-bind:aria-label="$t('entity.adjust', {name: entity.name || entity.object_id})"><output x-text="`${entity.value}${entity.unit_of_measurement ? ` ${entity.unit_of_measurement}` : ''}`"></output></div>
     <div x-show="!(entity.commandable && entity.component === 'number')" class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>

@@ -1780,6 +1780,7 @@
   "devices.modal.close": "Schließen ✕",
   "devices.modal.device_prefix": "Gerät: {id}",
   "devices.modal.loading": "Gerätedetails werden geladen ...",
+  "devices.modal.more": "Weitere Aktionen",
   "devices.modal.title": "Gerätedetails",
   "devices.mqtt_messages.empty": "Keine Nachricht",
   "devices.mqtt_messages.entity": "Entität",

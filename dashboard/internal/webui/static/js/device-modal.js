@@ -521,12 +521,6 @@
       return `${this.configDiagEntities.length}${staleDiagnostic ? ' · ⚠' : ''}`;
     },
 
-    // Stub bis zum Template-Task: devices.html liest pinnedFavorites.length
-    // beim Rendern. Der Anheft-Block faellt mit pin_favorites weg.
-    get pinnedFavorites() {
-      return [];
-    },
-
     // Die Hero-Kacheln des Geraets: bis zu drei Entitaeten aus card_refs.
     // auto markiert die, die nicht als Favorit gesetzt sind, sondern nur
     // automatisch vorgeschlagen werden.
