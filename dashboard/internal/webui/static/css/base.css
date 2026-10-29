@@ -1340,6 +1340,19 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
 .notification-toast-close svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .notification-toast-close:active { transform: scale(.9); }
 .notification-toast-close:focus-visible { outline: 2px solid var(--sev); outline-offset: 1px; }
+/* Aktion (etwa Rueckgaengig) steht als eigene Zeile unter der Meldung, bündig
+   mit dem Text. Feste Zeile und Spalte, damit sie die Auto-Platzierung der
+   uebrigen Elemente nicht verschiebt. */
+.notification-toast-action { grid-row: 2; grid-column: 2; justify-self: start; margin: .1rem 0 0 -.4rem; padding: .2rem .45rem; border: 0; border-radius: var(--radius-sm); background: none; color: var(--sev); font: inherit; font-weight: 600; cursor: pointer; transition: transform .1s var(--ease-out); }
+.notification-toast-action:active { transform: scale(.97); }
+.notification-toast-action:focus-visible { outline: 2px solid var(--sev); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .notification-toast-action:hover { background: color-mix(in srgb, var(--sev) 14%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notification-toast-action { transition: none; }
+  .notification-toast-action:active { transform: none; }
+}
 @media (hover: hover) and (pointer: fine) {
   .notification-toast-close:hover { color: var(--text-strong); background: rgba(255, 255, 255, .08); }
 }

@@ -281,6 +281,11 @@
             <span class="notification-toast-message" x-text="toast.message"></span>
             <span class="notification-toast-count" x-show="toast.count > 1"
                   x-text="`×${toast.count}`"></span>
+            <template x-if="toast.action">
+              <button type="button" class="notification-toast-action"
+                      x-text="toast.action.label"
+                      x-on:click="$store.toasts.runAction(toast.id)"></button>
+            </template>
             <button type="button" class="notification-toast-close"
                     x-bind:aria-label="$t('notify.close')"
                     x-on:click="$store.toasts.dismiss(toast.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-close"></use></svg></button>

@@ -1284,6 +1284,7 @@
   "common.save": "Speichern",
   "common.save_loading": "Speichert ...",
   "common.saved": "Gespeichert",
+  "common.undo": "Rückgängig",
   "common.unknown_error": "unbekannter Fehler",
   "common.yes": "ja",
   "config.action_status.editor_dirty": "JSON-Text geändert",

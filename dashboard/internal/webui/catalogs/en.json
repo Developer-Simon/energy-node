@@ -1284,6 +1284,7 @@
   "common.save": "Save",
   "common.save_loading": "Saving ...",
   "common.saved": "Saved",
+  "common.undo": "Undo",
   "common.unknown_error": "unknown error",
   "common.yes": "yes",
   "config.action_status.editor_dirty": "JSON text changed",
