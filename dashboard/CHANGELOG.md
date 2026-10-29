@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.24 (2026-10-29)
+## v0.10.25 (2026-10-29)
 
 ### Features
 
@@ -17,6 +17,23 @@
 - **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
 - **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
 - **webui:** redesign the toast with glass, timer line and swipe to dismiss (#178) (67cc079)
+- **auth:** add device analysis and device appearance rights (b787bd3)
+- **auth:** migrate users.json to version 4 with the device rights (a9a982b)
+- **httpapi:** gate device preferences behind edit_device_appearance (7ae6a7c)
+- **diagnostics:** flag operational warnings (499dc1d)
+- **httpapi:** withhold device analysis data without view_device_analysis (48ee750)
+- **httpapi:** add device activity entries (8234a53)
+- **httpapi:** serve device activity at /api/v1/devices/{id}/activity (7622be8)
+- **devices:** fill free card rows automatically after favourites (07fc67d)
+- **webui:** let a toast carry an undo action (45ca9c2)
+- **devices:** add favourite and rights state to the device dialog (ebc10d6)
+- **devices:** star favourites and save device appearance instantly (46b4590)
+- **devices:** load the device activity from its own endpoint (91145a8)
+- **devices:** favourites row, stars, icon popover and more menu markup (092eaae)
+- **devices:** style the favourites row, stars, icon popover and more menu (d5bc36d)
+- **devices:** analysis tab state for the device dialog (87454f1)
+- **devices:** per-entity analysis tab in the device dialog (714730e)
+- **devices:** star favourites, a per-entity analysis tab and two device rights (#180)
 - **automations:** describe month days and stale conditions (36a10b2)
 - **automations:** edit month days and stale conditions (53dbe9a)
 - **automations:** monthly full charge, silent inverter and low tariff wallbox templates (9e0696e)
@@ -151,6 +168,10 @@
 
 ### Fixes
 
+- **httpapi:** keep topics out of the device activity labels (622c6a8)
+- **automations:** read test results from their own endpoint (88ce5a1)
+- **devices:** make favourite and icon saves safe under overlap and undo (573d259)
+- **devices:** turn the favourites into a slim key figure bar (9a987f7)
 - **browser:** click the shared settings save button in docs-screenshots (2a25b39)
 - **browser:** select the battery configuration for the config screenshot (3d19e16)
 - **automation:** translate the schema texts for month days and stale (4fd14f4)
@@ -265,6 +286,8 @@
 ### Chores
 
 - **history:** surface leader start errors and add an opt-in diagnostics log (#177) (2947769)
+- **webui:** bump the automations.page.js cache-bust (d448dff)
+- **webui:** bump the cache-bust of the device dialog assets (cb83139)
 - **automations:** order the restart steps last and bump the wizard asset (e7ad540)
 - **webui:** bump asset versions for the users page (ab0427f)
 - **dashboard:** cache-bust automation assets for the energy templates (8434b47)
