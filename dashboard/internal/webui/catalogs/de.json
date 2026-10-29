@@ -2542,6 +2542,7 @@
   "history.range.month": "Monat",
   "history.range.quarter": "3 Monate",
   "history.range.week": "Woche",
+  "history.recorder.bootstrap_failed": "Start der Aufzeichnung fehlgeschlagen (Schritt {step}): {message}",
   "history.recorder.energy_load_failed": "Energie-Historie konnte Live-Daten nicht laden",
   "history.recorder.exchange_failed": "Verlauf-Austausch: {message}",
   "history.recorder.extra_entities_failed": "Zusätzliche Verlaufs-Entitäten konnten nicht gelesen werden",

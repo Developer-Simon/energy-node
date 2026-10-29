@@ -16,6 +16,25 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
 
+  // Diagnoseprotokoll: dashboardHistorizer.debug(true) in der Konsole,
+  // danach neu laden (siehe history-recorder.js, derselbe Schluessel).
+  const debugLog = (...args) => {
+    let on = false;
+    try {
+      on = window.localStorage.getItem('energy-node.history.debug') === '1';
+    } catch (error) {
+      // Privater Modus: ohne localStorage bleibt das Protokoll aus.
+    }
+    if (on) console.debug('[history-exchange]', ...args); // i18n-ignore: debug message
+  };
+
+  // Ein Fehler, der den Austausch anhaelt, wird auch in der Konsole sichtbar:
+  // die Kachel in den Einstellungen sieht nur der, der sie oeffnet.
+  const reportFailure = reason => {
+    console.error('[history-exchange]', reason); // i18n-ignore: debug message
+    return reason;
+  };
+
   const PROTOCOL = 1;
   const RECONNECT_MIN_MS = 2000;
   const RECONNECT_MAX_MS = 60000;
@@ -296,7 +315,7 @@
       return;
     }
     Promise.resolve(fn(payload)).catch(error => {
-      state.reason = t('history.exchange.handler_failed', {name, message: error.message});
+      state.reason = reportFailure(t('history.exchange.handler_failed', {name, message: error.message}));
       // QuotaExceededError ist kein voruebergehender Fehler - weiterlaufen
       // hiesse, im Minutentakt Fehler zu erzeugen.
       if (error && error.name === 'QuotaExceededError') stop(); // i18n-ignore
@@ -309,13 +328,15 @@
       state.reason = t('history.exchange.no_sse_support');
       return;
     }
+    debugLog('opening stream'); // i18n-ignore: debug message
     source = new EventSourceImpl(url('/stream'));
     source.addEventListener('hello', handler('hello', async payload => {
       if (Number(payload.protocol) !== PROTOCOL) {
-        state.reason = t('history.exchange.wrong_protocol');
+        state.reason = reportFailure(t('history.exchange.wrong_protocol'));
         stop();
         return;
       }
+      debugLog(`hello as ${payload.peer_id}, ${(payload.peers || []).length} peers`); // i18n-ignore: debug message
       peerId = payload.peer_id || '';
       peers = payload.peers || [];
       offers = {};
@@ -340,6 +361,7 @@
     }));
     source.addEventListener('error', () => {
       if (stopped) return;
+      debugLog(`stream error, reconnecting in ${reconnectDelay} ms`); // i18n-ignore: debug message
       if (source) source.close();
       source = null;
       peerId = '';
@@ -353,21 +375,22 @@
     stopped = false;
     mode = readMode();
     serve = readServe();
+    debugLog(`start, mode ${mode}`); // i18n-ignore: debug message
     try {
       const response = await fetcher(url(''));
       if (!response.ok) {
-        state.reason = t('history.exchange.no_server_support');
+        state.reason = reportFailure(t('history.exchange.no_server_support'));
         stopped = true;
         return false;
       }
       announcement = await response.json();
     } catch (error) {
-      state.reason = t('history.exchange.announcement_unreadable', {message: error.message});
+      state.reason = reportFailure(t('history.exchange.announcement_unreadable', {message: error.message}));
       stopped = true;
       return false;
     }
     if (Number(announcement.protocol) !== PROTOCOL) {
-      state.reason = t('history.exchange.wrong_protocol');
+      state.reason = reportFailure(t('history.exchange.wrong_protocol'));
       stopped = true;
       return false;
     }
