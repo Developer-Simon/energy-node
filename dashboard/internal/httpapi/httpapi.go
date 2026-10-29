@@ -1281,7 +1281,20 @@ func handleDevices(reg *registry.Registry) http.HandlerFunc {
 			methodNotAllowed(w, http.MethodGet)
 			return
 		}
-		writeVersionedJSON(w, r, reg.Version(), reg.Snapshot())
+		// Version vor dem Snapshot lesen: der Inhalt ist dann nie neuer als sein
+		// ETag, eine Aenderung dazwischen erzeugt hoechstens einen unnoetigen Abruf.
+		version := reg.Version()
+		snapshot := reg.Snapshot()
+		if canViewDeviceAnalysis(r) {
+			writeVersionedJSON(w, r, version, snapshot)
+			return
+		}
+		for i := range snapshot {
+			snapshot[i] = stripDeviceAnalysis(snapshot[i])
+		}
+		// Gefilterte und volle Antwort teilen dieselbe Registry-Version, deshalb
+		// braucht die gefilterte Sicht einen eigenen ETag.
+		writeVersionedJSONVariant(w, r, version, "no-analysis", snapshot)
 	}
 }
 
@@ -1652,7 +1665,14 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		stamped := []registry.DeviceView{dev}
 		webui.ApplyDevicePrefs(stamped, prefs)
 		dev = stamped[0]
-		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: engine.Device(id, now()), CommandActions: history.forDevice(id)})
+		warnings := engine.Device(id, now())
+		commandActions := history.forDevice(id)
+		if !canViewDeviceAnalysis(r) {
+			dev = stripDeviceAnalysis(dev)
+			warnings = operationalWarnings(warnings)
+			commandActions = []CommandAction{}
+		}
+		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: warnings, CommandActions: commandActions})
 	}
 }
 
@@ -1927,7 +1947,16 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func writeVersionedJSON(w http.ResponseWriter, r *http.Request, version uint64, value any) {
+	writeVersionedJSONVariant(w, r, version, "", value)
+}
+
+// writeVersionedJSONVariant tags the ETag with variant, so that responses
+// with different content for the same registry version never share one.
+func writeVersionedJSONVariant(w http.ResponseWriter, r *http.Request, version uint64, variant string, value any) {
 	etag := fmt.Sprintf("\"registry-%d\"", version)
+	if variant != "" {
+		etag = fmt.Sprintf("\"registry-%d-%s\"", version, variant)
+	}
 	w.Header().Set("ETag", etag)
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)
