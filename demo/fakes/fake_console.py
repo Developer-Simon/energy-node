@@ -9,7 +9,9 @@ String, die Fragmente der Reiter kommen per /api/tabs.
 
 Routen:
     GET  /                          Seite mit Reitern
-    GET  /api/tabs                  [{"name", "title", "html"}]
+    GET  /api/tabs                  [{"name", "title", "html", "sources"}]
+    GET  /api/status                [{"name", "level", "text"}]
+    POST /api/reset                 Alle Reiter auf Start, Antwort wie /api/status
     GET  /api/<tab>/state           Zustand des Reiters
     POST /api/<tab>/<action>        Aktion mit JSON-Body, Antwort = neuer Zustand
     GET  /api/log?since=<n>         {"last": n, "entries": [...]}
@@ -29,13 +31,11 @@ import http.server
 import json
 import os
 import sys
-import threading
-import time
 import urllib.parse
-from collections import deque
+
+from fakelog import Log
 
 DEFAULT_PORT = 18102
-LOG_SIZE = 500
 
 PAGE_HTML = """<!doctype html>
 <html lang="de">
@@ -233,42 +233,38 @@ window.tabs = window.tabs || {};
 """
 
 
-class Log:
-    """Ringpuffer fuer Meldungen mit fortlaufender Nummer."""
-
-    def __init__(self, size: int = LOG_SIZE) -> None:
-        self._entries = deque(maxlen=size)
-        self._counter = 0
-        self._lock = threading.Lock()
-
-    def add(self, source: str, text: str) -> None:
-        with self._lock:
-            self._counter += 1
-            self._entries.append({
-                "n": self._counter,
-                "t": time.strftime("%H:%M:%S"),
-                "source": source,
-                "text": text,
-            })
-
-    def since(self, n: int) -> tuple[int, list[dict]]:
-        with self._lock:
-            entries = [dict(e) for e in self._entries if e["n"] > n]
-            return self._counter, entries
-
-
 class Tab:
-    """Basisklasse fuer einen Reiter. Unterklassen setzen name, title, html."""
+    """Basisklasse fuer einen Reiter. Unterklassen setzen name, title, html
+    und bei Bedarf sources (Protokollquellen des Reiters)."""
 
     name: str = ""
     title: str = ""
     html: str = ""
+    sources: tuple[str, ...] = ()
 
     def state(self) -> dict:
         return {}
 
     def act(self, action: str, body: dict) -> dict:
         raise ValueError(f"unbekannte Aktion {action}")
+
+    def summary(self) -> dict:
+        return {"level": "ok", "text": ""}
+
+    def reset(self) -> None:
+        pass
+
+
+def status_list(tabs: list[Tab]) -> list[dict]:
+    """Zusammenfassung je Reiter. Ein Reiter, der nicht antwortet, gilt als Fehler."""
+    result = []
+    for tab in tabs:
+        try:
+            info = tab.summary()
+        except Exception:
+            info = {"level": "error", "text": "nicht erreichbar"}
+        result.append({"name": tab.name, "level": info["level"], "text": info["text"]})
+    return result
 
 
 class _Handler(http.server.BaseHTTPRequestHandler):
@@ -310,8 +306,12 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self._send(200, "text/html; charset=utf-8", PAGE_HTML.encode())
             return
         if segs == ["api", "tabs"]:
-            self._json(200, [{"name": t.name, "title": t.title, "html": t.html}
+            self._json(200, [{"name": t.name, "title": t.title, "html": t.html,
+                              "sources": list(t.sources)}
                              for t in self.server.tabs])
+            return
+        if segs == ["api", "status"]:
+            self._json(200, status_list(self.server.tabs))
             return
         if segs == ["api", "log"]:
             query = urllib.parse.parse_qs(url.query)
@@ -331,9 +331,21 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             return
         self._error(404, "nicht gefunden")
 
+    def _reset(self) -> None:
+        for tab in self.server.tabs:
+            try:
+                tab.reset()
+            except (ValueError, OSError) as exc:
+                self.server.log.add("konsole", f"{tab.title}: {exc}", "error")
+        self.server.log.add("konsole", "Alles auf Start zurückgesetzt")
+        self._json(200, status_list(self.server.tabs))
+
     def do_POST(self) -> None:
         url = urllib.parse.urlsplit(self.path)
         segs = [p for p in url.path.split("/") if p]
+        if segs == ["api", "reset"]:
+            self._reset()
+            return
         if len(segs) != 3 or segs[0] != "api":
             self._error(404, "nicht gefunden")
             return

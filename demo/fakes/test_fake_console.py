@@ -101,7 +101,7 @@ def test_unknown_tab_is_404(base_url):
 def test_tabs_listing_has_html_fragment(base_url):
     status, _, body = request(f"{base_url}/api/tabs")
     assert status == 200
-    assert json.loads(body) == [{"name": "echo", "title": "Echo", "html": "<p>echo</p>"}]
+    assert json.loads(body) == [{"name": "echo", "title": "Echo", "html": "<p>echo</p>", "sources": []}]
 
 
 def test_index_page_is_served(base_url):
@@ -137,3 +137,75 @@ def test_busy_port_exits_with_message(capsys):
     finally:
         server.server_close()
     assert "belegt" in capsys.readouterr().err
+
+
+class StatusTab(Tab):
+    name = "st"
+    title = "Status"
+    html = "<p>st</p>"
+    sources = ("st",)
+
+    def __init__(self):
+        self.resets = 0
+
+    def summary(self):
+        return {"level": "changed", "text": "verändert"}
+
+    def reset(self):
+        self.resets += 1
+
+
+class BrokenTab(Tab):
+    name = "kaputt"
+    title = "Kaputt"
+    html = "<p>kaputt</p>"
+
+    def summary(self):
+        raise OSError("weg")
+
+    def reset(self):
+        raise ValueError("geht nicht")
+
+
+@pytest.fixture
+def status_url():
+    log = Log()
+    st = StatusTab()
+    server = fake_console.make_server([st, BrokenTab()], log, 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}", log, st
+    server.shutdown()
+    server.server_close()
+
+
+def test_tabs_list_contains_sources(status_url):
+    base, _, _ = status_url
+    _, _, body = request(f"{base}/api/tabs")
+    tabs = json.loads(body)
+    assert tabs[0]["sources"] == ["st"]
+    assert tabs[1]["sources"] == []
+
+
+def test_status_reports_summary_and_unreachable(status_url):
+    base, _, _ = status_url
+    status, _, body = request(f"{base}/api/status")
+    assert status == 200
+    assert json.loads(body) == [
+        {"name": "st", "level": "changed", "text": "verändert"},
+        {"name": "kaputt", "level": "error", "text": "nicht erreichbar"},
+    ]
+
+
+def test_reset_calls_every_tab_and_logs_failures(status_url):
+    base, log, st = status_url
+    status, _, body = request(f"{base}/api/reset", method="POST", body={})
+    assert status == 200
+    assert json.loads(body)[0] == {"name": "st", "level": "changed", "text": "verändert"}
+    assert st.resets == 1
+    _, entries = log.since(0)
+    assert ("konsole", "Kaputt: geht nicht", "error") in [
+        (e["source"], e["text"], e["level"]) for e in entries]
+    last = entries[-1]
+    assert (last["source"], last["text"], last["level"]) == (
+        "konsole", "Alles auf Start zurückgesetzt", "info")

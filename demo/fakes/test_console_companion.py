@@ -196,7 +196,7 @@ def test_page_and_fragment_are_served():
         assert 'id="log-list"' in page
         with urllib.request.urlopen(base + "/api/tabs") as resp:
             tabs = json.loads(resp.read().decode("utf-8"))
-        assert tabs == [{"name": "companion", "title": "Companion", "html": CompanionTab.html}]
+        assert tabs == [{"name": "companion", "title": "Companion", "html": CompanionTab.html, "sources": []}]
     finally:
         server.shutdown()
         server.server_close()
