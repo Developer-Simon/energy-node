@@ -1,8 +1,10 @@
 package diagnostics
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -330,6 +332,55 @@ func TestWrongUnitRuleWarnsOnlyForSensorsWithoutUnit(t *testing.T) {
 	}}}
 	if warnings := (WrongUnitRule{}).Evaluate(switchEntity, ctx); len(warnings) != 0 {
 		t.Fatalf("got %d warnings for a non-sensor, want 0: %#v", len(warnings), warnings)
+	}
+}
+
+func TestIsOperationalRule(t *testing.T) {
+	for _, ruleID := range []string{"Offline", "NoStateUpdate"} {
+		if !IsOperationalRule(ruleID) {
+			t.Fatalf("IsOperationalRule(%q) = false, want true", ruleID)
+		}
+	}
+	for _, ruleID := range []string{"DiscoveryMismatch", "WrongUnit", "InvalidPayload"} {
+		if IsOperationalRule(ruleID) {
+			t.Fatalf("IsOperationalRule(%q) = true, want false", ruleID)
+		}
+	}
+
+	ctx := Context{Now: time.Now().UTC(), NoStateUpdateAfter: time.Minute}
+	offline := registry.DeviceView{ID: "node", Entities: []registry.EntityView{{
+		UniqueID: "temp", Component: "sensor", HasAvailability: true, Available: false,
+	}}}
+	warnings := OfflineRule{}.Evaluate(offline, ctx)
+	if len(warnings) != 1 {
+		t.Fatalf("got %d offline warnings, want 1: %#v", len(warnings), warnings)
+	}
+	if !warnings[0].Operational {
+		t.Fatal("Offline warning has Operational = false, want true")
+	}
+	raw, err := json.Marshal(warnings[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"operational":true`) {
+		t.Fatalf("Offline warning JSON %s lacks \"operational\":true", raw)
+	}
+
+	wrongUnit := WrongUnitRule{}.Evaluate(registry.DeviceView{ID: "node", Entities: []registry.EntityView{{
+		UniqueID: "temp", Component: "sensor",
+	}}}, ctx)
+	if len(wrongUnit) != 1 {
+		t.Fatalf("got %d wrong-unit warnings, want 1: %#v", len(wrongUnit), wrongUnit)
+	}
+	if wrongUnit[0].Operational {
+		t.Fatal("WrongUnit warning has Operational = true, want false")
+	}
+	raw, err = json.Marshal(wrongUnit[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"operational"`) {
+		t.Fatalf("WrongUnit warning JSON %s must omit the operational key", raw)
 	}
 }
 

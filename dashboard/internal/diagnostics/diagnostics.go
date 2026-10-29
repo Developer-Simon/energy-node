@@ -37,7 +37,16 @@ type Warning struct {
 	Message  string         `json:"message"`
 	Hint     string         `json:"hint"`
 	Details  map[string]any `json:"details,omitempty"`
-	At       time.Time      `json:"at"`
+	// Operational marks warnings about the running system (device offline,
+	// no state update) rather than about the device's configuration or payloads.
+	Operational bool      `json:"operational,omitempty"`
+	At          time.Time `json:"at"`
+}
+
+// IsOperationalRule reports whether warnings of the given rule describe the
+// device's live operation (connectivity and freshness) instead of its setup.
+func IsOperationalRule(ruleID string) bool {
+	return ruleID == "Offline" || ruleID == "NoStateUpdate"
 }
 
 type Context struct {
@@ -263,7 +272,7 @@ func healthStatus(score int) string {
 
 func warning(rule, key string, severity Severity, deviceID string, entity registry.EntityView, at time.Time) Warning {
 	text := ruleTexts[key]
-	return Warning{RuleID: rule, Key: key, Severity: severity, DeviceID: deviceID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Message: text.Message, Hint: text.Hint, At: at}
+	return Warning{RuleID: rule, Key: key, Severity: severity, DeviceID: deviceID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Message: text.Message, Hint: text.Hint, Operational: IsOperationalRule(rule), At: at}
 }
 
 func warningWithDetails(rule, key string, severity Severity, deviceID string, entity registry.EntityView, details map[string]any, at time.Time) Warning {
@@ -335,8 +344,9 @@ func (e *Engine) Device(deviceID string, now time.Time) []Warning {
 				warnings = append(warnings, Warning{
 					RuleID: "IgnoredDeviceDiscoveryStale", Key: "ignored_device_discovery_stale", Severity: SeverityWarning,
 					DeviceID: deviceID, Topic: topic,
-					Message: text.Message,
-					Hint:    text.Hint,
+					Message:     text.Message,
+					Hint:        text.Hint,
+					Operational: IsOperationalRule("IgnoredDeviceDiscoveryStale"),
 					Details: map[string]any{
 						"ignored":                  true,
 						"missing_discovery_topics": missing,
@@ -568,12 +578,13 @@ func (InvalidDiscoveryErrorRule) Evaluate(snapshot registry.DiagnosticsSnapshot,
 	for _, issue := range snapshot.DiscoveryErrors {
 		text := ruleTexts["invalid_discovery_payload"]
 		result = append(result, Warning{
-			RuleID:   "InvalidPayload",
-			Key:      "invalid_discovery_payload",
-			Severity: SeverityCritical,
-			Topic:    issue.Topic,
-			Message:  text.Message,
-			Hint:     text.Hint,
+			RuleID:      "InvalidPayload",
+			Key:         "invalid_discovery_payload",
+			Severity:    SeverityCritical,
+			Topic:       issue.Topic,
+			Message:     text.Message,
+			Hint:        text.Hint,
+			Operational: IsOperationalRule("InvalidPayload"),
 			Details: map[string]any{
 				"kind":     "discovery",
 				"error":    issue.Error,
@@ -610,8 +621,9 @@ func (rule IgnoredDeviceDiscoveryStaleRule) Evaluate(snapshot registry.Diagnosti
 		result = append(result, Warning{
 			RuleID: rule.RuleID(), Key: "ignored_device_discovery_stale", Severity: SeverityWarning,
 			DeviceID: record.DeviceID, Topic: topic,
-			Message: text.Message,
-			Hint:    text.Hint,
+			Message:     text.Message,
+			Hint:        text.Hint,
+			Operational: IsOperationalRule(rule.RuleID()),
 			Details: map[string]any{
 				"ignored":                  true,
 				"missing_discovery_topics": missing,
@@ -673,12 +685,13 @@ func (rule ConfiguredDeviceMissingRule) Evaluate(snapshot registry.DiagnosticsSn
 			name, _ := entry["name"].(string)
 			text := ruleTexts["configured_device_missing"]
 			result = append(result, Warning{
-				RuleID:   rule.RuleID(),
-				Key:      "configured_device_missing",
-				Severity: SeverityWarning,
-				DeviceID: id,
-				Message:  text.Message,
-				Hint:     text.Hint,
+				RuleID:      rule.RuleID(),
+				Key:         "configured_device_missing",
+				Severity:    SeverityWarning,
+				DeviceID:    id,
+				Message:     text.Message,
+				Hint:        text.Hint,
+				Operational: IsOperationalRule(rule.RuleID()),
 				Details: map[string]any{
 					"config_file":     document.Name + ".json",
 					"configured_id":   id,
