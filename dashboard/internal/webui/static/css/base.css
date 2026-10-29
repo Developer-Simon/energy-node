@@ -1804,11 +1804,30 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-menu [role="menuitem"].danger { color: var(--bad); }
 .device-modal-menu .device-action-tooltip { display: block; }
 .device-modal-menu-sep { height: 1px; margin: .3rem .2rem; background: var(--border-soft); }
-.device-modal-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; margin-bottom: .6rem; }
-.device-modal-hero .device-modal-stat { animation: device-modal-hero-enter 220ms var(--ease-out); }
-.device-modal-hero .device-modal-stat .k { padding-right: 2.2rem; }
-.device-modal-hero .device-modal-stat .v { font-size: 20px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.device-modal-hero-auto { position: absolute; top: .65rem; right: 2.1rem; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); pointer-events: none; }
+/* Favoritenreihe als schmale Kennzahlenleiste: eine gemeinsame Kachel, die
+   drei Werte durch Trennkanten geteilt. Sie sitzt in der Hauptspalte ueber
+   den Tabs und nimmt nur eine Zeilenhoehe ein. */
+.device-modal-summary { display: grid; gap: .5rem; padding: .9rem 1.2rem 0; }
+.device-modal-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.device-modal-hero-cell { position: relative; min-width: 0; padding: .5rem .8rem .55rem; animation: device-modal-hero-enter 220ms var(--ease-out); }
+.device-modal-hero-cell + .device-modal-hero-cell { border-left: 1px solid var(--border-soft); }
+.device-modal-hero-head { display: flex; align-items: center; gap: .35rem; min-width: 0; height: 1.25rem; }
+.device-modal-hero-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .74rem; color: var(--text-muted); }
+.device-modal-hero-auto { flex: none; font-size: 9.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); }
+.device-modal-hero-value { margin-top: .1rem; font-size: 1.15rem; line-height: 1.25; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; color: var(--text-strong, var(--text)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.device-modal-hero-value small { margin-left: .2rem; font-size: .7rem; color: var(--text-faint); letter-spacing: 0; }
+.device-modal-hero-cell.is-warn .device-modal-hero-value { color: var(--warn); }
+.device-modal-hero .device-modal-star { position: static; flex: none; width: 18px; height: 18px; margin-left: auto; font-size: .85rem; }
+.device-modal-hero-warnings .device-modal-warning { margin: 0; }
+/* Schmal reicht die Kopfzeile nicht fuer Name und "Auto": das Label wird
+   kleiner und sitzt oben rechts in der Ecke. Gekuerzt wird hoechstens der
+   Name, nie der Wert. */
+@container device-modal (max-width: 559px) {
+  .device-modal-hero-cell { padding: .45rem .55rem .5rem; }
+  .device-modal-hero-auto { position: absolute; top: .2rem; right: .35rem; font-size: 8px; }
+  .device-modal-hero-head { padding-top: .2rem; }
+  .device-modal-hero-value { font-size: 1.05rem; text-overflow: clip; }
+}
 .device-modal-star { position: absolute; top: .45rem; right: .45rem; z-index: 1; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-faint); font-size: 1rem; line-height: 1; cursor: pointer; opacity: .45; transition: transform 100ms var(--ease-out), opacity 150ms ease; }
 .device-modal-star.is-on { color: var(--warn); opacity: 1; }
 .device-modal-star:active { transform: scale(.85); }
@@ -1828,7 +1847,7 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
   .device-modal-menu [role="menuitem"]:hover:not(:disabled) { background: var(--panel-alt); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .device-modal-hero .device-modal-stat, .device-modal-iconpop, .device-modal-menu { animation-name: device-modal-fade; }
+  .device-modal-hero-cell, .device-modal-iconpop, .device-modal-menu { animation-name: device-modal-fade; }
   .device-modal-star { transition: opacity 150ms ease; }
   .device-modal-star:active { transform: none; }
 }
@@ -1886,15 +1905,12 @@ dialog#device-modal { container: device-modal / inline-size; }
      color-mix(--sunken, #000) sonst schmutzig-dunkel. Die Trennung zum
      Hauptbereich traegt jetzt allein die --border-Kante (nicht --border-soft),
      weil der Tonunterschied zur Kopfzeile dafuer zu klein ist. */
-  /* grid-row: 1 / span 2 haelt die Sidebar auf voller Hoehe, seit der
-     angepinnte Favoriten-Block als drittes Kind in dasselbe 2-Spalten-Grid
-     kam: ohne die Spanne setzt Auto-Placement den Block in Zeile 1/Spalte 2
-     und schiebt den Switcher nach Zeile 2/Spalte 1 - die Tableiste landet
-     dann in der 14.5rem-Sidebar-Spalte statt in der breiten Hauptspalte. */
-  .device-modal-sidebar { display: block; grid-row: 1 / span 2; padding: 1rem 1.1rem; border-right: 1px solid var(--border); background: var(--bg); }
-  /* Favoritenreihe und ihre Warnungen liegen in der Hauptspalte, nicht in
-     der Sidebar-Spalte (sonst setzt Auto-Placement sie links neben den Switcher). */
-  .device-modal-hero, .device-modal-hero-warnings { grid-column: 2; }
+  /* Das Raster hat genau zwei Kinder: Sidebar und Hauptspalte. Favoriten,
+     Warnungen und Tabs liegen gemeinsam in .device-modal-main, so streckt
+     keine eigene Rasterzeile die Favoriten auf Sidebar-Hoehe und die Sidebar
+     reicht immer bis unten. */
+  .device-modal-sidebar { display: block; padding: 1rem 1.1rem; border-right: 1px solid var(--border); background: var(--bg); }
+  .device-modal-main { grid-column: 2; min-width: 0; }
   /* row-gap 0: die eingeklappten Panelwraps (0fr-Grid, volle Breite) liegen
      als 0px-Zeilen zwischen Tableiste und aktivem Panel - mit row-gap
      wuerde jede davon einen sichtbaren Spalt aufaddieren und die Trennlinie
@@ -1927,6 +1943,7 @@ dialog#device-modal { container: device-modal / inline-size; }
    Auswahlstrich (die aufgeklappte Karte markiert die Auswahl), kein
    Tableisten-Rahmen - nur die Kartenkontur. */
 @container device-modal (max-width: 859px) {
+  .device-modal-summary { padding: .9rem 1rem 0; }
   .device-modal-switcher { display: block; padding: .9rem 1rem 1.1rem; }
   .device-modal-pair { display: block; border: 1px solid var(--border); border-radius: var(--radius-md); margin: 0 0 .6rem; background: var(--panel-alt); overflow: hidden; }
   .device-modal-trigger { width: 100%; border-radius: 0; padding: .7rem .85rem; background: transparent; }

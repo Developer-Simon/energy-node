@@ -162,3 +162,15 @@ test('jede Entitaet im Analyse-Tab ist ein device-modal-entity mit aria-expanded
   assert.match(header, /aria-expanded/);
   assert.match(header, /toggleAnalysisEntity\(/);
 });
+
+test('Favoritenreihe, Warnungen und Tabs liegen gemeinsam in der Hauptspalte', () => {
+  // Als eigene Kinder des Zwei-Spalten-Rasters wurden die Favoriten auf
+  // Sidebar-Hoehe gestreckt und die Sidebar endete vor dem Tab-Bereich.
+  const main = template.indexOf('class="device-modal-main"');
+  assert.ok(main > 0, 'device-modal-main fehlt');
+  const hero = template.indexOf('class="device-modal-hero"');
+  const switcher = template.indexOf('class="device-modal-switcher"');
+  assert.ok(main < hero && hero < switcher);
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'base.css'), 'utf8');
+  assert.doesNotMatch(css, /\.device-modal-sidebar \{[^}]*grid-row/);
+});

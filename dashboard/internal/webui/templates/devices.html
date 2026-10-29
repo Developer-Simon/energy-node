@@ -148,18 +148,26 @@
     <aside class="device-modal-sidebar">
       {{template "device-modal-info-body" .}}
     </aside>
-    <div class="device-modal-hero" x-cloak x-show="heroEntities.length" x-flip=".device-modal-stat" x-effect="favoriteLimitHit > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && $el.animate([{transform: 'translateX(0)'}, {transform: 'translateX(-4px)'}, {transform: 'translateX(4px)'}, {transform: 'translateX(0)'}], {duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)'})">
+    {{/* Hauptspalte: Favoritenreihe, Betriebswarnungen und Tabs liegen in
+         einem gemeinsamen Block, damit das Zwei-Spalten-Raster nur zwei Kinder
+         hat und die Sidebar die volle Hoehe behaelt. */}}
+    <div class="device-modal-main">
+    <div class="device-modal-summary" x-cloak x-show="heroEntities.length || operationalWarnings.length">
+    <div class="device-modal-hero" x-cloak x-show="heroEntities.length" x-flip=".device-modal-hero-cell" x-effect="favoriteLimitHit > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && $el.animate([{transform: 'translateX(0)'}, {transform: 'translateX(-4px)'}, {transform: 'translateX(4px)'}, {transform: 'translateX(0)'}], {duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)'})">
       <template x-for="item in heroEntities" :key="item.entity.unique_id">
-        <article class="device-modal-stat" x-bind:class="{ 'is-warn': item.entity.stale || (item.entity.has_availability && !item.entity.available) }">
-          <div class="k" x-text="entityDisplayName(item.entity)"></div>
-          <div class="v"><span x-roll x-bind:data-roll-value="item.entity.value" x-bind:data-roll-unit="item.entity.unit_of_measurement || ''" x-text="item.entity.has_value ? I18n.formatValue(item.entity.value, item.entity.unit_of_measurement) : '-'"></span><small x-show="item.entity.has_value && item.entity.unit_of_measurement" x-text="item.entity.unit_of_measurement"></small></div>
-          <span class="device-modal-hero-auto" x-show="item.auto" x-text="$t('devices.favourites.auto')"></span>
-          <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(item.entity) }" x-bind:aria-pressed="isFavorite(item.entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(item.entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(item.entity)"><span aria-hidden="true" x-text="isFavorite(item.entity) ? '★' : '☆'"></span></button>
+        <article class="device-modal-hero-cell" x-bind:class="{ 'is-warn': item.entity.stale || (item.entity.has_availability && !item.entity.available), 'is-auto': item.auto }">
+          <div class="device-modal-hero-head">
+            <span class="device-modal-hero-name" x-text="entityDisplayName(item.entity)"></span>
+            <span class="device-modal-hero-auto" x-show="item.auto" x-text="$t('devices.favourites.auto')"></span>
+            <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(item.entity) }" x-bind:aria-pressed="isFavorite(item.entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(item.entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(item.entity)"><span aria-hidden="true" x-text="isFavorite(item.entity) ? '★' : '☆'"></span></button>
+          </div>
+          <div class="device-modal-hero-value"><span x-roll x-bind:data-roll-value="item.entity.value" x-bind:data-roll-unit="item.entity.unit_of_measurement || ''" x-text="item.entity.has_value ? I18n.formatValue(item.entity.value, item.entity.unit_of_measurement) : '-'"></span><small x-show="item.entity.has_value && item.entity.unit_of_measurement" x-text="item.entity.unit_of_measurement"></small></div>
         </article>
       </template>
     </div>
-    <div class="device-modal-hero-warnings">
+    <div class="device-modal-hero-warnings" x-show="operationalWarnings.length">
       {{template "device-modal-warning-list" "operationalWarnings"}}
+    </div>
     </div>
     <div class="device-modal-switcher" x-ref="deviceModalSwitcher">
 
@@ -309,6 +317,7 @@
       </div>
 
       <span class="device-modal-underline" x-ref="deviceModalUnderline" aria-hidden="true"></span>
+    </div>
     </div>
   </div>
 </dialog>
