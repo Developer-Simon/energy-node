@@ -16,7 +16,7 @@
 - **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
 - **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
 - **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
-- **webui:** redesign the toast with glass, timer line and swipe to dismiss (#178)
+- **webui:** redesign the toast with glass, timer line and swipe to dismiss (#178) (67cc079)
 - **automations:** describe month days and stale conditions (36a10b2)
 - **automations:** edit month days and stale conditions (53dbe9a)
 - **automations:** monthly full charge, silent inverter and low tariff wallbox templates (9e0696e)
