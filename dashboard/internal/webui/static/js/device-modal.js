@@ -35,6 +35,8 @@
     reloadLoading: false,
     detailRequestToken: 0,
     activeDeviceTab: 'measurements',
+    // IDs der im Analyse-Tab aufgeklappten Entitaeten (siehe toggleAnalysisEntity).
+    openAnalysisEntities: new Set(),
     mergedTab: false,
     // Erfahrungswert, kein Naturgesetz: ab dieser verfuegbaren Hoehe der
     // device-modal-scrollarea (Sidebar+Switcher zusammen, siehe
@@ -386,13 +388,6 @@
       return rest || name;
     },
 
-    // Nur noch ein Lesepfad fuer das Template (Hinweis "keine Aktivitaet")
-    // und managementTeaser. Task 12 entfernt ihn zusammen mit den
-    // Template-Verweisen.
-    get recentMessages() {
-      return this.activityLog.filter(entry => entry.kind === 'message');
-    },
-
     formatStateValue(value) {
       if (value === null || value === undefined) return '–';
       if (typeof value === 'object') return JSON.stringify(value);
@@ -538,18 +533,37 @@
       return (this.deviceDetail?.favorite_refs || []).includes(entity?.unique_id);
     },
 
-    managementTeaser(now = new Date()) {
-      const warningCount = this.groupedWarnings.length;
-      const latest = [...(this.deviceDetail?.command_actions || []).map(a => a.at), ...this.recentMessages.map(m => m.at)]
-        .filter(Boolean)
-        .sort((left, right) => new Date(right) - new Date(left))[0];
-      const parts = [];
-      if (warningCount) parts.push(`⚠ ${warningCount}`);
-      if (latest) parts.push(this.relativeTime(latest, now));
-      return parts.join(' · ');
+    // Nur die Konfigurationswarnungen: Betriebswarnungen stehen im Hero.
+    managementTeaser() {
+      const warningCount = this.configWarnings.length;
+      return warningCount ? `⚠ ${warningCount}` : '';
+    },
+
+    // Anzahl der Schreibaktionen (command_actions) einer Entitaet, fuer den
+    // Befehls-Chip im Analyse-Tab.
+    commandCount(entity) {
+      const id = entity?.unique_id;
+      return (this.deviceDetail?.command_actions || []).filter(action => action.entity_id === id).length;
+    },
+
+    // Aufgeklappte Entitaeten des Analyse-Tabs. Ein neues Set ersetzt das
+    // alte, damit Alpine die Aenderung sicher sieht. Live-Refreshes lassen
+    // die Auswahl stehen; Geraetewechsel und Schliessen leeren sie.
+    toggleAnalysisEntity(id) {
+      const next = new Set(this.openAnalysisEntities);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      this.openAnalysisEntities = next;
+    },
+
+    isAnalysisEntityOpen(id) {
+      return this.openAnalysisEntities.has(id);
     },
 
     setDeviceTab(key) {
+      // Ohne view_device_analysis gibt es den Analyse-Tab nicht, also auch
+      // keinen Weg dorthin.
+      if (key === 'management' && !this.canViewAnalysis) return;
       this.activeDeviceTab = key;
       // Merge/Split nur anfassen, wenn der Nutzer gerade Messwerte/Steuerung
       // waehlt - so springt der Tab-Satz bei allen anderen Tabs nicht mehr um.
@@ -578,13 +592,14 @@
 
     // Beim Oeffnen eines Geraets ist immer derselbe Tab dran, unabhaengig
     // vom Ausloeser (Kachel oder Kompakt-Karte): der erste Entitaets-Tab,
-    // der etwas zu zeigen hat. "Verwaltung & Analyse" existiert immer und
-    // ist deshalb der Boden dieser Kette.
+    // der etwas zu zeigen hat. Der Analyse-Tab ist nur mit
+    // view_device_analysis der Boden dieser Kette; ohne das Recht faellt
+    // die Kette auf die Geraetedaten zurueck.
     defaultDeviceTab() {
       if (this.measurementEntities.length) return this.mergedTab ? 'measurementsControls' : 'measurements';
       if (this.controlEntities.length) return this.mergedTab ? 'measurementsControls' : 'controls';
       if (this.configDiagEntities.length) return 'configDiag';
-      return 'management';
+      return this.canViewAnalysis ? 'management' : 'deviceInfo';
     },
 
     applyMergeThreshold(height) {
@@ -627,6 +642,9 @@
     async openDevice(deviceId) {
       if (!deviceId) return;
       const requestToken = ++this.detailRequestToken;
+      // Gerätewechsel leert die Entitaets-Aufklappung; ein Neuladen desselben
+      // Geraets (reloadDevice) behaelt sie.
+      if (this.selectedDeviceId !== deviceId) this.openAnalysisEntities = new Set();
       this.selectedDeviceId = deviceId;
       this.deviceDetail = null;
       this.activityLog = [];
@@ -847,6 +865,7 @@
       this.selectedDeviceId = '';
       this.deviceDetail = null;
       this.activityLog = [];
+      this.openAnalysisEntities = new Set();
       this.detailError = '';
       this.closeFloatingMenus();
       this.closeSubDeviceForm();

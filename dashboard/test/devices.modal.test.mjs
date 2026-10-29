@@ -83,9 +83,14 @@ test('defaultDeviceTab waehlt den ersten nicht-leeren Entitaets-Tab', () => {
   assert.equal(panel.defaultDeviceTab(), 'controls');
 });
 
-test('defaultDeviceTab faellt auf management zurueck, wenn keine Entitaet passt', () => {
+test('ohne view_device_analysis gibt es keinen Analyse-Tab und kein Rueckfall darauf', () => {
   const panel = createDevicesPanel();
   panel.deviceDetail = { name: 'x', entities: [] };
+  panel.canViewAnalysis = false;
+  assert.equal(panel.defaultDeviceTab(), 'deviceInfo');
+  panel.setDeviceTab('management');
+  assert.notEqual(panel.activeDeviceTab, 'management');
+  panel.canViewAnalysis = true;
   assert.equal(panel.defaultDeviceTab(), 'management');
 });
 
@@ -117,15 +122,19 @@ test('relativeTime formatiert Sekunden, Minuten und Stunden', () => {
   assert.equal(panel.relativeTime(new Date('2026-08-28T10:00:00Z'), now), 'vor 2 h');
 });
 
-test('managementTeaser kombiniert Warn-Anzahl und letzte Aktivitaet', () => {
+test('managementTeaser zaehlt nur Konfigurationswarnungen', () => {
   const panel = createDevicesPanel();
-  const now = new Date('2026-08-28T12:00:00Z');
   panel.deviceDetail = {
     name: 'x', entities: [],
-    warnings: [{ rule_id: 'r1', severity: 'warning', message: 'm', hint: '' }],
+    warnings: [
+      { rule_id: 'Offline', severity: 'critical', message: 'off', hint: '', operational: true },
+      { rule_id: 'Naming', severity: 'warning', message: 'naming', hint: '', operational: false },
+    ],
     command_actions: [{ at: '2026-08-28T11:59:48Z', entity_id: 'e1', result: 'published' }],
   };
-  assert.equal(panel.managementTeaser(now), '⚠ 1 · vor 12 s');
+  assert.equal(panel.managementTeaser(), '⚠ 1');
+  panel.deviceDetail.warnings = [];
+  assert.equal(panel.managementTeaser(), '');
 });
 
 function measureAndControl() {
@@ -267,13 +276,54 @@ test('Eine Antwort nach dem Gerätewechsel wird verworfen', async () => {
   assert.equal(panel.activityLog.length, 0);
 });
 
-test('recentMessages ist eine Ableitung aus dem Aktivitäts-Log', () => {
+test('Entitaet klappt auf und bleibt nach einem Refresh offen', async () => {
   const panel = createDevicesPanel();
-  panel.activityLog = [
-    { key: 'cmd-1', at: '2026-10-18T10:00:00Z', kind: 'command', text: 'sw: Befehl gesendet' },
-    { key: 'msg-1', at: '2026-10-18T10:00:01Z', kind: 'message', text: 'x: 1' },
-  ];
-  assert.equal(panel.recentMessages.length, 1);
+  const detail = { id: 'dev', name: 'x', entities: [entity({ unique_id: 'e1' }), entity({ unique_id: 'e2' })] };
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  panel.testWindow.fetch = async url => (url.endsWith('/activity') ? ok({ entries: [] }) : ok(detail));
+  panel.selectedDeviceId = 'dev';
+  await panel.loadDeviceDetail('dev');
+  panel.toggleAnalysisEntity('e1');
+  assert.equal(panel.isAnalysisEntityOpen('e1'), true);
+  assert.equal(panel.isAnalysisEntityOpen('e2'), false);
+  await panel.refreshSelectedDevice();
+  assert.equal(panel.isAnalysisEntityOpen('e1'), true);
+  panel.toggleAnalysisEntity('e1');
+  assert.equal(panel.isAnalysisEntityOpen('e1'), false);
+});
+
+test('Entitaeten bleiben offen, aber ein Geraetewechsel leert die Auswahl', async () => {
+  const panel = createDevicesPanel();
+  const details = {
+    dev: { id: 'dev', name: 'x', entities: [entity({ unique_id: 'e1' })] },
+    other: { id: 'other', name: 'y', entities: [entity({ unique_id: 'e1' })] },
+  };
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  panel.testWindow.fetch = async url => {
+    if (url.endsWith('/activity')) return ok({ entries: [] });
+    if (url === '/api/v1/device/icons') return ok([]);
+    return ok(details[url.split('/').pop()]);
+  };
+  panel.$nextTick = callback => callback();
+  panel.$refs = {};
+  await panel.openDevice('dev');
+  panel.toggleAnalysisEntity('e1');
+  await panel.openDevice('other');
+  assert.equal(panel.isAnalysisEntityOpen('e1'), false);
+});
+
+test('Befehls-Chip zaehlt die Schreibaktionen der Entitaet', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    name: 'x', entities: [],
+    command_actions: [
+      { at: '2026-08-28T11:59:48Z', entity_id: 'e1', result: 'published' },
+      { at: '2026-08-28T11:59:50Z', entity_id: 'e1', result: 'failed' },
+      { at: '2026-08-28T11:59:51Z', entity_id: 'e2', result: 'published' },
+    ],
+  };
+  assert.equal(panel.commandCount(entity({ unique_id: 'e1' })), 2);
+  assert.equal(panel.commandCount(entity({ unique_id: 'e3' })), 0);
 });
 
 test('updatedRelative zeigt den relativen Abstand als Text, leer ohne last_updated', () => {
