@@ -1616,6 +1616,22 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			writeJSON(w, map[string]any{"device_id": id, "status": "discovery_deleted"})
 			return
 		}
+		if len(parts) == 2 && parts[1] == "activity" {
+			if r.Method != http.MethodGet {
+				methodNotAllowed(w, http.MethodGet)
+				return
+			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
+				return
+			}
+			dev, ok := reg.Get(id)
+			if !ok {
+				writeErrorKey(w, http.StatusNotFound, "device_not_found", "error.device_not_found.device", nil, "Gerät wurde nicht gefunden")
+				return
+			}
+			writeJSON(w, map[string]any{"entries": buildActivity(dev, history.forDevice(id))})
+			return
+		}
 		if len(parts) == 2 && parts[1] == "reload" {
 			if r.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)

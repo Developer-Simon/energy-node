@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 )
 
@@ -141,5 +144,55 @@ func TestActivityFormatsJSONValuesLikeJavaScript(t *testing.T) {
 		if got[i] != want[i] {
 			t.Fatalf("labels = %v, want %v", got, want)
 		}
+	}
+}
+
+func TestActivityNeedsViewDevices(t *testing.T) {
+	router := deviceAnalysisFixture(t)
+	noRoles := &auth.User{Username: "nobody"}
+	recorder := deviceAnalysisGET(t, router, "/api/v1/devices/shelly/activity", noRoles, "")
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status %d without view_devices, want 403: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestActivityWithoutAnalysisRight(t *testing.T) {
+	router := deviceAnalysisFixture(t)
+	recorder := deviceAnalysisGET(t, router, "/api/v1/devices/shelly/activity", viewOnlyUser, "")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d with view_devices only: %s", recorder.Code, recorder.Body.String())
+	}
+	body := recorder.Body.String()
+	if !strings.Contains(body, `"entries":[`) || !strings.Contains(body, `"kind":"command"`) {
+		t.Fatalf("activity entries missing: %s", body)
+	}
+	for _, topic := range []string{"state/shelly/relay", "state/shelly/status", "shelly/relay/0/set"} {
+		if strings.Contains(body, topic) {
+			t.Fatalf("topic %q leaked into activity: %s", topic, body)
+		}
+	}
+}
+
+func TestActivityUnknownDeviceIsNotFound(t *testing.T) {
+	router := deviceAnalysisFixture(t)
+	recorder := deviceAnalysisGET(t, router, "/api/v1/devices/missing/activity", viewOnlyUser, "")
+	if recorder.Code != http.StatusNotFound || !strings.Contains(recorder.Body.String(), "device_not_found") {
+		t.Fatalf("status %d, want 404 device_not_found: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestActivityEmptyListIsNotNull(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device:            registry.DeviceInfo{ID: "quiet", Name: "Quiet", Manufacturer: "Acme", Model: "Q1"},
+		Entity:            registry.EntityInfo{UniqueID: "quiet_sensor", Component: "sensor", ObjectID: "sensor", Name: "Sensor", StateTopic: "state/quiet/sensor"},
+		RawJSON:           `{"unique_id":"quiet_sensor"}`,
+		DiscoveryTopic:    "homeassistant/sensor/quiet/sensor/config",
+		DiscoveryRetained: true,
+	})
+	router := deviceAnalysisRouter(t, reg)
+	recorder := deviceAnalysisGET(t, router, "/api/v1/devices/quiet/activity", viewOnlyUser, "")
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"entries":[]`) {
+		t.Fatalf("status %d, want entries []: %s", recorder.Code, recorder.Body.String())
 	}
 }

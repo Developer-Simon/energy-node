@@ -276,6 +276,7 @@ the role or other requirements.
 | GET | `/api/v1/devices` | – | All devices with entities and live values |
 | GET | `/api/v1/devices/{id}` | – | A single device including `warnings` and `command_actions` |
 | GET | `/api/v1/devices/{id}/diagnostics` | – | The device's diagnostic warnings |
+| GET | `/api/v1/devices/{id}/activity` | `view_devices` | Recent commands (up to 3) and the states of the 3 newest messages as `{"entries": [...]}`, without topics; `entries` is never `null` |
 | POST | `/api/v1/devices/{id}/reload` | – | Rebuild the registry completely |
 | POST | `/api/v1/devices/{id}/ignore` | CSRF | Hide device |
 | POST | `/api/v1/devices/{id}/unignore` | CSRF | Undo hiding |
