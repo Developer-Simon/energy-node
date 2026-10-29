@@ -25,7 +25,7 @@ const recorderSource = read('history-recorder.js');
 // stillgelegt, fetch abgelehnt, damit collect() im eigenen catch endet.
 // locks und broadcast ersetzen Web Locks und BroadcastChannel, bevor der
 // Recorder laeuft.
-function load({withEnergyModel = true, locks = null, broadcast = null} = {}) {
+function load({withEnergyModel = true, locks = null, broadcast = null, beforeRecorder = null} = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {runScripts: 'outside-only', url: 'http://localhost/'});
   const context = dom.getInternalVMContext();
   installI18n(dom.window);
@@ -38,6 +38,7 @@ function load({withEnergyModel = true, locks = null, broadcast = null} = {}) {
   vm.runInContext(rollupSource, context);
   vm.runInContext(storeSource, context);
   if (withEnergyModel) vm.runInContext(energyModelSource, context);
+  if (beforeRecorder) beforeRecorder(dom);
   vm.runInContext(recorderSource, context);
   return dom;
 }
@@ -484,4 +485,43 @@ test('extraSamples asks the server even without extra entities', async () => {
 
   assert.equal(entityCalls.length, 1);
   dom.window.close();
+});
+
+// Ein Schritt des Fuehrungsantritts, der fehlschlaegt, ist nicht mehr still:
+// Meldung ueber das Ereignis und die Konsole, der Antritt bricht wie bisher ab.
+test('ein fehlgeschlagener Schritt des Fuehrungsantritts wird gemeldet', async () => {
+  const errors = [];
+  const events = [];
+  const dom = load({beforeRecorder: d => {
+    d.window.console.error = (...args) => errors.push(args.join(' '));
+    d.window.addEventListener('dashboard-history-error', event => events.push(event.detail.message));
+    d.window.HistoryStore.persist = async () => { throw new Error('Speicher gesperrt'); };
+  }});
+  await new Promise(resolve => setTimeout(resolve, 50));
+  assert.equal(events.length, 1);
+  assert.match(events[0], /persist/);
+  assert.match(events[0], /Speicher gesperrt/);
+  assert.equal(errors.length, 1);
+  assert.equal(dom.window.dashboardHistorizer.isLeader(), true);
+  dom.window.close();
+});
+
+test('das Diagnoseprotokoll ist aus und wird ueber debug() eingeschaltet', async () => {
+  const lines = [];
+  const dom = load({beforeRecorder: d => { d.window.console.debug = (...args) => lines.push(args.join(' ')); }});
+  await dom.window.dashboardHistorizer.whenReady();
+  assert.deepEqual(lines, []);
+  assert.equal(dom.window.dashboardHistorizer.debug(true), true);
+  dom.window.close();
+
+  const on = [];
+  const second = load({beforeRecorder: d => {
+    d.window.localStorage.setItem('energy-node.history.debug', '1');
+    d.window.console.debug = (...args) => on.push(args.join(' '));
+  }});
+  await second.window.dashboardHistorizer.whenReady();
+  assert.ok(on.some(line => /leader step persist: done/.test(line)));
+  assert.ok(on.some(line => /leader step maintenance: done/.test(line)));
+  assert.equal(second.window.dashboardHistorizer.debug(false), false);
+  second.window.close();
 });

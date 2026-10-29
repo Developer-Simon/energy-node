@@ -63,7 +63,53 @@
     if (channel) channel.postMessage({type: 'updated'});
   };
 
-  const announceError = message => window.dispatchEvent(new CustomEvent('dashboard-history-error', {detail: {message}}));
+  // Auf die Meldung hoert bisher keine Oberflaeche. Die Konsole ist deshalb
+  // der einzige Ort, an dem ein Fehler der Aufzeichnung oder des Austauschs
+  // sichtbar wird.
+  const announceError = message => {
+    console.error('[history]', message); // i18n-ignore: debug message
+    window.dispatchEvent(new CustomEvent('dashboard-history-error', {detail: {message}}));
+  };
+
+  // Das Diagnoseprotokoll ist aus und wird in der Konsole eingeschaltet:
+  // dashboardHistorizer.debug(true), danach neu laden. Der Schalter liegt in
+  // localStorage, weil die zu beobachtenden Schritte beim Laden der Seite
+  // laufen. history-exchange.js liest denselben Schluessel.
+  const DEBUG_KEY = 'energy-node.history.debug';
+  const debugEnabled = () => {
+    try {
+      return window.localStorage.getItem(DEBUG_KEY) === '1';
+    } catch (error) {
+      return false;
+    }
+  };
+  const setDebug = flag => {
+    try {
+      if (flag) window.localStorage.setItem(DEBUG_KEY, '1');
+      else window.localStorage.removeItem(DEBUG_KEY);
+    } catch (error) {
+      // Privater Modus: ohne localStorage bleibt das Protokoll aus.
+    }
+    return debugEnabled();
+  };
+  const debugLog = (...args) => {
+    if (debugEnabled()) console.debug('[history]', ...args); // i18n-ignore: debug message
+  };
+
+  // Ein Schritt des Fuehrungsantritts. Ein Fehler wird gemeldet und weiter
+  // geworfen: der Antritt bricht wie bisher ab, nur nicht mehr unbemerkt.
+  const bootstrapStep = async (name, run) => {
+    const began = Date.now();
+    debugLog(`leader step ${name}: start`); // i18n-ignore: debug message
+    try {
+      const result = await run();
+      debugLog(`leader step ${name}: done in ${Date.now() - began} ms`); // i18n-ignore: debug message
+      return result;
+    } catch (error) {
+      announceError(t('history.recorder.bootstrap_failed', {step: name, message: error.message}));
+      throw error;
+    }
+  };
 
   const runMaintenance = async () => {
     if (!leader || !window.HistoryMaintenance) return;
@@ -232,34 +278,42 @@
 
   const becomeLeader = async () => {
     leader = true;
-    persisted = await window.HistoryStore.persist();
-    paused = Boolean(await window.HistoryStore.meta('recording_paused'));
+    debugLog('became leader'); // i18n-ignore: debug message
+    persisted = await bootstrapStep('persist', () => window.HistoryStore.persist());
+    paused = Boolean(await bootstrapStep('recording_paused', () => window.HistoryStore.meta('recording_paused')));
     if (paused) {
       pauseReason = t('history.recorder.storage_full_paused');
       window.dispatchEvent(new CustomEvent('dashboard-history-paused', {detail: {reason: pauseReason}}));
     }
-    await collect();
+    await bootstrapStep('collect', collect);
     restartTimer();
     // Vorab einmal verdichten, statt bis zu MAINTENANCE_INTERVAL_MS auf den
     // ersten Timer-Tick zu warten: erst danach kennt die 1m-Stufe die frueh
     // verdichteten Saetze von heute (siehe EXCHANGE_GRACE_MS in
     // history-maintenance.js), und erst dann darf startExchange() unten das
     // erste Angebot mit ihnen fuellen.
-    await runMaintenance();
+    await bootstrapStep('maintenance', runMaintenance);
     maintenanceTimer = window.setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
-    startExchange();
+    startExchange().then(
+      started => debugLog(`exchange start returned ${started}`), // i18n-ignore: debug message
+      error => announceError(t('history.recorder.exchange_failed', {message: error.message})),
+    );
     signalReady();
   };
 
   // Der Lock wird gehalten, solange der Tab lebt: das Promise loest nie auf.
   // Schliesst der Tab, gibt der Browser den Lock frei und ein anderer Tab
   // uebernimmt automatisch.
+  //
+  // becomeLeader() meldet einen Fehler selbst (bootstrapStep); hier wird nur
+  // die zweite, unbehandelte Meldung der Rejection verhindert.
   const claimLeadership = async () => {
+    const lead = () => becomeLeader().catch(() => {});
     if (!navigator.locks || !navigator.locks.request) {
-      await becomeLeader();
+      await lead();
       return;
     }
-    navigator.locks.request(LOCK_NAME, {mode: 'exclusive'}, () => new Promise(() => { becomeLeader(); }));
+    navigator.locks.request(LOCK_NAME, {mode: 'exclusive'}, () => new Promise(() => { lead(); }));
   };
 
   // Nur der Leader tauscht (siehe history-exchange.js). Anmeldungen anderer
@@ -348,6 +402,7 @@
     config: () => ({...config}),
     status: () => ({paused, persisted, reason: pauseReason}),
     isLeader: () => leader,
+    debug: setDebug,
     startExchange,
     afterMaintenance,
     watchRange,

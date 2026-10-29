@@ -2542,6 +2542,7 @@
   "history.range.month": "Month",
   "history.range.quarter": "3 months",
   "history.range.week": "Week",
+  "history.recorder.bootstrap_failed": "Starting the recording failed (step {step}): {message}",
   "history.recorder.energy_load_failed": "Energy history could not load live data",
   "history.recorder.exchange_failed": "History exchange: {message}",
   "history.recorder.extra_entities_failed": "Could not read additional history entities",

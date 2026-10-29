@@ -117,6 +117,29 @@ data. See the idea P2.22 in the idea list.
 request, not a promise. The result is in `dashboardHistorizer.status().persisted`
 and shows as the "Storage not guaranteed" pill.
 
+## Diagnosing a silent start
+
+Only the leader tab records and exchanges, and `becomeLeader()` starts the
+exchange last, after `persist()`, the first `collect()` and the first
+`runMaintenance()`. A step that hangs or throws therefore delays or prevents the
+exchange without any visible sign except "Not connected" on the settings tile.
+
+Errors of those steps and of the exchange start now reach the console through
+`console.error` (prefix `[history]` and `[history-exchange]`). Nothing in the UI
+listens to the `dashboard-history-error` event.
+
+The step log is off by default. Switch it on in the browser console, then reload:
+
+```js
+dashboardHistorizer.debug(true)   // off again: dashboardHistorizer.debug(false)
+```
+
+The flag lives in `localStorage` under `energy-node.history.debug`, because the
+steps run while the page loads. With it on, the console shows one line per step
+with its duration (`leader step maintenance: done in 2300 ms`), the exchange
+start, the hello of the stream and every stream error with the reconnect delay.
+Filter the console by `[history`.
+
 ## Export
 
 CSV and JSON are built entirely in the browser from the local data

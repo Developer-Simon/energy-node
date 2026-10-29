@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.22 (2026-10-27)
+## v0.10.23 (2026-10-29)
 
 ### Features
 
@@ -234,13 +234,13 @@
 
 ### Tests
 
+- **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
 - **demo:** move the fakes and fixtures to demo/ (502b209)
 - **smoke:** split the core and config checks into groups (7f8dbc3)
 - **smoke:** split the remaining checks into groups (1ac850f)
 - **smoke:** add smoke.sh with the main, no-services and balance runs (c86dda2)
 - **browser:** move the browser tools next to the dashboard and point them at the demo (30a00b5)
 - **smoke:** remove run-local-dashboard.sh and the view-only presets (ef71d11)
-- **smoke:** split the smoke test into a local demo and a CI smoke test (#176)
 - **dashboard:** smoke the companion pairing and home assistant sign-in (e60e02b)
 - **webui:** restore the closing braces lost in the rebase (503166b)
 - **webui:** expect the sign-in tab as the users page default (8c14e02)
@@ -263,6 +263,7 @@
 
 ### Chores
 
+- **history:** surface leader start errors and add an opt-in diagnostics log (#177)
 - **automations:** order the restart steps last and bump the wizard asset (e7ad540)
 - **webui:** bump asset versions for the users page (ab0427f)
 - **dashboard:** cache-bust automation assets for the energy templates (8434b47)
