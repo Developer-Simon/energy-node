@@ -7,6 +7,8 @@
 # UPDATES_API_PORT, COMPANION_PORT, CONSOLE_PORT, FIXTURE, SEED_DATA,
 # DEVICE_SOURCES (Array, spaetere Quelle gewinnt), SIMULATE, HTTPS,
 # SERVICES_OFF, JOURNAL, INSTALLED, PACKAGE und UPDATES (0 oder 1).
+# BROKER_CONTROL_PORT ist optional: mit ihm hat der Broker einen Steuerport
+# und die Konsole den Reiter MQTT.
 
 _ENV_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_DIR="$(cd "$_ENV_LIB_DIR/.." && pwd)"
@@ -224,6 +226,7 @@ env_build_dashboard() {
 env_start_broker() {
   local args=("$MQTT_PORT" "$FIXTURE" "--service-status" "$WORK/devices")
   [[ "${SIMULATE:-0}" == "1" ]] && args+=("--simulate")
+  [[ -n "${BROKER_CONTROL_PORT:-}" ]] && args+=("--control-port" "$BROKER_CONTROL_PORT")
   python3 "$FAKES/minibroker.py" "${args[@]}" > "$WORK/broker.log" 2>&1 &
   env_track $!
   sleep 1
@@ -265,6 +268,10 @@ env_start_dashboard() {
       # 15 Minuten Vorlauf, damit die erste Abfrage sofort Zeilen findet.
       python3 -c 'import time; print(time.time() - 900)' > "$WORK/journal-epoch"
       export FAKE_JOURNAL_EPOCH="$WORK/journal-epoch"
+      # Jeder Demo-Start beginnt mit normalem Systemzustand.
+      rm -f "$WORK/fake-system.json" "$WORK/fake-system-events.jsonl"
+      export FAKE_SYSTEM_STATE="$WORK/fake-system.json"
+      export FAKE_SYSTEM_EVENTS="$WORK/fake-system-events.jsonl"
       export PATH="$WORK/bin:$PATH"
     fi
     if [[ "${INSTALLED:-0}" == "1" || "${PACKAGE:-0}" == "1" ]]; then
@@ -312,7 +319,21 @@ env_start_fake_companion() {
 
 # Startet die Fake-Konsole (Log: $WORK/fake-console.log). Warnt, wenn sie nicht laeuft.
 env_start_console() {
-  python3 "$FAKES/fake_console.py" --port "$CONSOLE_PORT" --dashboard "$BASE" --companion "$COMPANION_BASE" \
+  local args=(--port "$CONSOLE_PORT" --dashboard "$BASE" --companion "$COMPANION_BASE")
+  if [[ -n "${BROKER_CONTROL_PORT:-}" ]]; then
+    args+=(--broker-control "http://127.0.0.1:$BROKER_CONTROL_PORT")
+  fi
+  if [[ "${UPDATES:-0}" == "1" ]]; then
+    args+=(--updates "http://127.0.0.1:$UPDATES_API_PORT")
+  fi
+  if [[ "${INSTALLED:-0}" == "1" ]]; then
+    args+=(--installer-state "$WORK/installer-state" --installer-fixture "$FIXTURES/installed-state")
+  fi
+  if [[ "${JOURNAL:-0}" == "1" ]]; then
+    args+=(--system-state "$WORK/fake-system.json" --system-events "$WORK/fake-system-events.jsonl"
+           --journal-epoch "$WORK/journal-epoch")
+  fi
+  python3 "$FAKES/fake_console.py" "${args[@]}" \
     > "$WORK/fake-console.log" 2>&1 &
   local pid=$!
   env_track "$pid"

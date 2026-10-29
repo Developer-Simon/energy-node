@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 import threading
@@ -101,7 +102,7 @@ def test_unknown_tab_is_404(base_url):
 def test_tabs_listing_has_html_fragment(base_url):
     status, _, body = request(f"{base_url}/api/tabs")
     assert status == 200
-    assert json.loads(body) == [{"name": "echo", "title": "Echo", "html": "<p>echo</p>"}]
+    assert json.loads(body) == [{"name": "echo", "title": "Echo", "html": "<p>echo</p>", "sources": []}]
 
 
 def test_index_page_is_served(base_url):
@@ -137,3 +138,121 @@ def test_busy_port_exits_with_message(capsys):
     finally:
         server.server_close()
     assert "belegt" in capsys.readouterr().err
+
+
+class StatusTab(Tab):
+    name = "st"
+    title = "Status"
+    html = "<p>st</p>"
+    sources = ("st",)
+
+    def __init__(self):
+        self.resets = 0
+
+    def summary(self):
+        return {"level": "changed", "text": "verändert"}
+
+    def reset(self):
+        self.resets += 1
+
+
+class BrokenTab(Tab):
+    name = "kaputt"
+    title = "Kaputt"
+    html = "<p>kaputt</p>"
+
+    def summary(self):
+        raise OSError("weg")
+
+    def reset(self):
+        raise ValueError("geht nicht")
+
+
+@pytest.fixture
+def status_url():
+    log = Log()
+    st = StatusTab()
+    server = fake_console.make_server([st, BrokenTab()], log, 0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_address[1]}", log, st
+    server.shutdown()
+    server.server_close()
+
+
+def test_tabs_list_contains_sources(status_url):
+    base, _, _ = status_url
+    _, _, body = request(f"{base}/api/tabs")
+    tabs = json.loads(body)
+    assert tabs[0]["sources"] == ["st"]
+    assert tabs[1]["sources"] == []
+
+
+def test_status_reports_summary_and_unreachable(status_url):
+    base, _, _ = status_url
+    status, _, body = request(f"{base}/api/status")
+    assert status == 200
+    assert json.loads(body) == [
+        {"name": "st", "level": "changed", "text": "verändert"},
+        {"name": "kaputt", "level": "error", "text": "nicht erreichbar"},
+    ]
+
+
+def test_reset_calls_every_tab_and_logs_failures(status_url):
+    base, log, st = status_url
+    status, _, body = request(f"{base}/api/reset", method="POST", body={})
+    assert status == 200
+    assert json.loads(body)[0] == {"name": "st", "level": "changed", "text": "verändert"}
+    assert st.resets == 1
+    _, entries = log.since(0)
+    assert ("konsole", "Kaputt: geht nicht", "error") in [
+        (e["source"], e["text"], e["level"]) for e in entries]
+    last = entries[-1]
+    assert (last["source"], last["text"], last["level"]) == (
+        "konsole", "Alles auf Start zurückgesetzt", "info")
+
+
+def _fake_tab(name):
+    class FakeTab:
+        def __init__(self, *args):
+            self.args = args
+
+    FakeTab.name = name
+    return FakeTab
+
+
+def _namespace(**kwargs):
+    base = {
+        "port": 0, "dashboard": "", "companion": "", "broker_control": "",
+        "updates": "", "installer_state": "", "installer_fixture": "",
+        "system_state": "", "system_events": "", "journal_epoch": "",
+    }
+    base.update(kwargs)
+    return argparse.Namespace(**base)
+
+
+def test_build_tabs_order_and_conditions(tmp_path, monkeypatch):
+    import console_companion
+    import console_mqtt
+    import console_system
+    import console_updates
+
+    monkeypatch.setattr(console_companion, "CompanionTab", _fake_tab("companion"))
+    monkeypatch.setattr(console_mqtt, "MqttTab", _fake_tab("mqtt"))
+    monkeypatch.setattr(console_updates, "UpdatesTab", _fake_tab("updates"))
+    monkeypatch.setattr(console_system, "SystemTab", _fake_tab("system"))
+    args = _namespace(
+        broker_control="http://127.0.0.1:18285",
+        updates="http://127.0.0.1:18284",
+        installer_state=str(tmp_path / "installer-state"),
+        installer_fixture=str(tmp_path / "installed-state"),
+        system_state=str(tmp_path / "fake-system.json"),
+        system_events=str(tmp_path / "fake-system-events.jsonl"),
+        journal_epoch=str(tmp_path / "journal-epoch"),
+    )
+    tabs = fake_console.build_tabs(args, Log())
+    assert [t.name for t in tabs] == ["mqtt", "updates", "system"]
+
+
+def test_build_tabs_without_args_is_empty():
+    assert fake_console.build_tabs(_namespace(), Log()) == []

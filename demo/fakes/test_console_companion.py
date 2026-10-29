@@ -172,13 +172,55 @@ def test_html_fragment_mentions_all_actions():
         assert action in html, action
 
 
+def test_summary_reports_pairing_and_history(make_tab):
+    tab, _ = make_tab()
+    assert tab.summary() == {"level": "ok", "text": "nicht gekoppelt"}
+
+    tab.act("pair", {"code": STUB_CODE})
+    tab.act("history_start", {"days": 3})
+    wait_until(lambda: tab.state()["history"]["running"])
+    wait_until(lambda: tab.state()["ha"]["connected"])
+
+    assert tab.summary() == {"level": "ok", "text": "gekoppelt, Verlauf an"}
+
+
+def test_summary_marks_faults_as_changed(make_tab):
+    tab, _ = make_tab()
+
+    tab.act("history_faults", {"delay_ms": 500})
+
+    assert tab.summary()["level"] == "changed"
+
+
+def test_reset_clears_faults_manual_and_factors_but_keeps_pairing(make_tab):
+    tab, _ = make_tab()
+    tab.act("pair", {"code": STUB_CODE})
+    tab.act("manual", {"on": True})
+    tab.act("history_scale", {"role": "pv", "factor": 2.0})
+    tab.act("history_faults", {"delay_ms": 0, "silent": True, "partial": False})
+
+    tab.reset()
+
+    state = tab.state()
+    assert state["ha"]["paired"] is True
+    assert state["ha"]["manual"] is False
+    assert state["history"]["scale"]["pv"] == 1.0
+    assert state["history"]["faults"] == {"delay_ms": 0, "silent": False, "partial": False}
+
+
+def test_html_fragment_uses_shared_building_blocks():
+    for marker in ('id="tab-companion"', 'class="panel-head"', 'class="grp"', 'class="switch"',
+                   "data-manual", "data-history", "window.konsole.post"):
+        assert marker in CompanionTab.html
+
+
 def test_html_fragment_has_german_labels():
     html = CompanionTab.html
     for label in [
-        "Koppeln", "Entkoppeln", "Falscher Code", "Strom trennen", "Strom öffnen",
+        "Koppeln", "Entkoppeln", "Falscher Code", "Trennen", "Öffnen",
         "Prüfungen manuell beantworten", "Neu anbieten", "Nicht antworten",
         "Nur ersten Block liefern",
-        "Eine Skalierung wirkt nur auf Zeiträume, die das Dashboard noch nicht abgeholt hat.",
+        "Ein Faktor wirkt nur auf Zeiträume, die das Dashboard noch nicht abgeholt hat.",
     ]:
         assert label in html, label
 
@@ -196,7 +238,7 @@ def test_page_and_fragment_are_served():
         assert 'id="log-list"' in page
         with urllib.request.urlopen(base + "/api/tabs") as resp:
             tabs = json.loads(resp.read().decode("utf-8"))
-        assert tabs == [{"name": "companion", "title": "Companion", "html": CompanionTab.html}]
+        assert tabs == [{"name": "companion", "title": "Companion", "html": CompanionTab.html, "sources": ["ha", "verlauf"]}]
     finally:
         server.shutdown()
         server.server_close()
