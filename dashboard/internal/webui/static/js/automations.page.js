@@ -1159,26 +1159,18 @@
       // Das Ergebnis-Topic ist retained. Ein Ergebnis zaehlt nur, wenn es
       // juenger ist als die eigene Anfrage - sonst wuerde das letzte Ergebnis
       // vom Vortag als Antwort durchgehen.
-      // Wie bei "state" (siehe loadRuntimeState) hat test_result einen
-      // value_template ({{ value_json.status }}); das Go-Registry rendert
-      // damit .value auf den blossen Status-String (z.B. "published") -
-      // kein gueltiges JSON. Das volle Dokument mit rule_id/action_index/at
-      // steckt nur im rohen last_message.payload.
+      // Das volle Dokument mit rule_id/action_index/at liefert seit der eigenen
+      // Route /api/v1/automation/test-result. Die Geraeteliste enthaelt es nicht
+      // mehr, sobald der Nutzer kein view_device_analysis hat.
       const sentAtSeconds = sentAt / 1000;
       while (Date.now() < deadline) {
-        const automationDevice = this.automationDevice();
-        const entity = automationDevice
-          && (automationDevice.entities || []).find((candidate) => candidate.object_id === 'test_result');
-        const rawDocument = entity && entity.last_message && entity.last_message.payload;
-        if (rawDocument) {
-          try {
-            const result = JSON.parse(rawDocument);
-            if (result.rule_id === ruleId && result.action_index === actionIndex && result.at >= sentAtSeconds) {
-              return result;
-            }
-          } catch (error) {
-            // unvollstaendiges Dokument - beim naechsten Durchlauf erneut versuchen
+        try {
+          const result = await requestJSON('/api/v1/automation/test-result');
+          if (result && result.rule_id === ruleId && result.action_index === actionIndex && result.at >= sentAtSeconds) {
+            return result;
           }
+        } catch (error) {
+          // voruebergehender Fehler - beim naechsten Durchlauf erneut versuchen
         }
         await new Promise((resolve) => setTimeout(resolve, pollMs));
         await this.refreshFromRegistry();

@@ -308,8 +308,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/topics", handleTopics(reg))
 	g.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
 	g.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
-	g.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
-	g.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
+	g.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "rules", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
+	g.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "rules", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
+	g.HandleFunc("/api/v1/automation/test-result", handleAutomationDocument(reg, "test_result", "", "error.automation_not_found.no_test_result_topic", "Automations-Dienst ohne test_result-Topic"))
 	resolver := dependencies.Resolver
 	if resolver == nil {
 		resolver = energy.NewResolver(nil)
@@ -1437,7 +1438,9 @@ func handleAutomationNotification(reg *registry.Registry) http.HandlerFunc {
 // also covers settings.history_persist=false, unlike
 // /api/v1/automations/history/<id>, which reads the persisted file. A 204
 // means no usable document yet, so the client keeps whatever it last showed.
-func handleAutomationDocument(reg *registry.Registry, objectID, missingTopicKey, missingTopicMessage string) http.HandlerFunc {
+// requiredKey names a key whose value must be a JSON object ("rules" for state
+// and history); "" accepts any JSON object, as the flat test_result document needs.
+func handleAutomationDocument(reg *registry.Registry, objectID, requiredKey, missingTopicKey, missingTopicMessage string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w, http.MethodGet)
@@ -1464,12 +1467,17 @@ func handleAutomationDocument(reg *registry.Registry, objectID, missingTopicKey,
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		var document struct {
-			Rules map[string]json.RawMessage `json:"rules"`
-		}
-		if err := json.Unmarshal([]byte(payload), &document); err != nil || document.Rules == nil {
+		var document map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(payload), &document); err != nil || document == nil {
 			w.WriteHeader(http.StatusNoContent)
 			return
+		}
+		if requiredKey != "" {
+			var required map[string]json.RawMessage
+			if err := json.Unmarshal(document[requiredKey], &required); err != nil || required == nil {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(payload))

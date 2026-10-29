@@ -2259,6 +2259,7 @@
   "error.automation_not_found.no_last_event_topic": "Automations-Dienst ohne last_event-Topic",
   "error.automation_not_found.no_service": "Kein Automations-Dienst auf dieser Instanz",
   "error.automation_not_found.no_state_topic": "Automations-Dienst ohne state-Topic",
+  "error.automation_not_found.no_test_result_topic": "Automations-Dienst ohne test_result-Topic",
   "error.automations_forbidden": "Für diese Automations-Aktion fehlt die Berechtigung",
   "error.automations_forbidden.rules": "Für Automations-Regeln fehlt die Berechtigung",
   "error.automations_forbidden.tests": "Für Automations-Tests fehlt die Berechtigung",

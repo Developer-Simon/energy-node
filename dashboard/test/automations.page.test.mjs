@@ -951,40 +951,45 @@ test('load() fills in missing history settings with their Python defaults', asyn
   window.close();
 });
 
-// Regression: awaitTestResult() must read the full result document from
-// last_message.payload, not the templated "value" field. test_result has a
-// value_template ({{ value_json.status }}) like "state" does further up -
-// .value only ever holds the bare status string (e.g. "published"), which
-// is not valid JSON and can never match rule_id/action_index/at.
+// awaitTestResult() reads the full result document from its own route. The
+// device route's last_message is not used: it is empty without
+// view_device_analysis, and its templated "value" only holds the bare status.
 test('awaitTestResult ignores a result that predates the request', async () => {
-  const component = panelWithState(sampleState);
-  component.devices = [{
-    id: 'automation',
-    // sentAt (ms) / 1000 = 5 Sekunden; ein "at" von 2 Sekunden liegt davor.
-    entities: [{
-      object_id: 'test_result',
-      available: true,
-      value: 'published', // value_template-reduzierter Status, nicht das Dokument
-      last_message: { topic: 'outstation/automation/test/result', payload: JSON.stringify({ at: 2, rule_id: 'r1', action_index: 0, status: 'published' }) },
-    }],
-  }];
+  const { component, window } = createAutomationsPanel();
+  // sentAt (ms) / 1000 = 5 Sekunden; ein "at" von 2 Sekunden liegt davor.
+  stubFetch(window, (url) => (String(url).includes('/api/v1/automation/test-result')
+    ? { at: 2, rule_id: 'r1', action_index: 0, status: 'published' }
+    : automationDeviceView()));
   const result = await component.awaitTestResult('r1', 0, 5000, { timeoutMs: 20, pollMs: 5 });
   assert.equal(result, null, 'ein aelteres Ergebnis darf nicht als Antwort auf die neue Anfrage gelten');
 });
 
-test('awaitTestResult accepts a matching, newer result', async () => {
-  const component = panelWithState(sampleState);
+test('awaitTestResult accepts a matching, newer result from /api/v1/automation/test-result', async () => {
+  const { component, window } = createAutomationsPanel();
+  const document = { at: 9000, rule_id: 'r1', action_index: 0, status: 'blocked', reason: 'topic does not match any allowed prefix' };
+  const calls = stubFetch(window, (url) => (String(url).includes('/api/v1/automation/test-result')
+    ? document
+    : automationDeviceView()));
+  const result = await component.awaitTestResult('r1', 0, 5000, { timeoutMs: 50, pollMs: 5 });
+  assert.equal(result.status, 'blocked');
+  assert.ok(calls.includes('/api/v1/automation/test-result'));
+});
+
+test('awaitTestResult ignores last_message of the device route', async () => {
+  const { component, window } = createAutomationsPanel();
   component.devices = [{
     id: 'automation',
     entities: [{
       object_id: 'test_result',
       available: true,
-      value: 'blocked',
-      last_message: { topic: 'outstation/automation/test/result', payload: JSON.stringify({ at: 9000, rule_id: 'r1', action_index: 0, status: 'blocked', reason: 'topic does not match any allowed prefix' }) },
+      value: 'published',
+      last_message: { topic: 'outstation/automation/test/result', payload: JSON.stringify({ at: 9000, rule_id: 'r1', action_index: 0, status: 'published' }) },
     }],
   }];
-  const result = await component.awaitTestResult('r1', 0, 5000, { timeoutMs: 50, pollMs: 5 });
-  assert.equal(result.status, 'blocked');
+  // Ohne Analyse-Recht kommt auf der eigenen Route nichts Brauchbares (204 -> {}).
+  stubFetch(window, () => ({}));
+  const result = await component.awaitTestResult('r1', 0, 5000, { timeoutMs: 20, pollMs: 5 });
+  assert.equal(result, null);
 });
 
 test('battery_soc als Bilanzfeld bekommt eine Prozent-Skala, die kWh-Felder nicht', () => {

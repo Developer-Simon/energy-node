@@ -2644,3 +2644,58 @@ func TestDevicePrefsNeedDeviceAppearance(t *testing.T) {
 		t.Fatalf("edit_device_appearance: status %d body %s, want 200", allowed.Code, allowed.Body.String())
 	}
 }
+
+// The automations page reads the test result through its own route instead of
+// the device route's last_message, which is empty for users without
+// view_device_analysis. The document is returned raw, without a rules key.
+func TestAutomationTestResultDocument(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_test_result", ObjectID: "test_result",
+			StateTopic: "outstation/automation/test/result", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	document := `{"at":1760500000.1,"rule_id":"r1","action_index":0,"status":"published","topic":"shellies/wallbox/relay/0/command"}`
+	reg.UpdateState("outstation/automation/test/result", []byte(document), true, time.Now().UTC())
+
+	recorder := httptest.NewRecorder()
+	NewRouter(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automation/test-result", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("test result response %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder.Body.String() != document {
+		t.Fatalf("test result body = %s, want the raw document %s", recorder.Body.String(), document)
+	}
+}
+
+// The state and history documents must carry a rules object, otherwise the
+// route answers 204 and the page keeps what it last showed.
+func TestAutomationDocumentRoutesRequireRulesObject(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_state", ObjectID: "state",
+			StateTopic: "outstation/automation/state", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_history", ObjectID: "history",
+			StateTopic: "outstation/automation/history", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	reg.UpdateState("outstation/automation/state", []byte(`{"at":1760500000.1,"online":true}`), true, time.Now().UTC())
+	reg.UpdateState("outstation/automation/history", []byte(`{"at":1760500000.1,"rules":null}`), true, time.Now().UTC())
+
+	for _, path := range []string{"/api/v1/automation/state", "/api/v1/automation/history"} {
+		recorder := httptest.NewRecorder()
+		NewRouter(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusNoContent {
+			t.Fatalf("%s without a rules object should 204, got %d: %s", path, recorder.Code, recorder.Body.String())
+		}
+	}
+}

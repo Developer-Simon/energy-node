@@ -2259,6 +2259,7 @@
   "error.automation_not_found.no_last_event_topic": "Automation service has no last_event topic",
   "error.automation_not_found.no_service": "No automation service on this instance",
   "error.automation_not_found.no_state_topic": "Automation service has no state topic",
+  "error.automation_not_found.no_test_result_topic": "Automation service has no test_result topic",
   "error.automations_forbidden": "You do not have permission for this automation action",
   "error.automations_forbidden.rules": "You do not have permission for automation rules",
   "error.automations_forbidden.tests": "You do not have permission for automation tests",
