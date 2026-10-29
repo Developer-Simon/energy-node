@@ -262,6 +262,8 @@ the role or other requirements.
   "mqtt_config": true,
   "automations": true,
   "edit_layout": false,
+  "view_device_analysis": false,
+  "edit_device_appearance": false,
   "csrf_token": "…",
   "expires_at": "2026-08-12T09:00:00Z"
 }
@@ -559,7 +561,7 @@ The dashboard then publishes to the fixed topic
 | POST | `/api/v1/layout/restore` | – | Restore layout |
 | GET | `/api/v1/device/icons` | – | Icon catalogue (name, label, markup) |
 | GET | `/api/v1/device/prefs` | – | Device preferences document |
-| PUT | `/api/v1/device/prefs/{device_id}` | `edit_layout` + CSRF | Save icon, favourites, and pinning |
+| PUT | `/api/v1/device/prefs/{device_id}` | `edit_device_appearance` + CSRF | Save icon, favourites, and pinning |
 | GET/PUT | `/api/v1/device/map` | – | Device card including manual edges |
 | GET | `/api/v1/device/map/revisions` | – | Revisions |
 | POST | `/api/v1/device/map/restore` | – | Restore |
@@ -632,7 +634,7 @@ The server merges the changes into the saved document and returns the updated
 - `pin_favorites` is a boolean. Leave it out to clear it.
 
 A validation error returns `400` with `device_prefs_rejected`. With
-authentication active, the endpoint needs the `edit_layout` role and a CSRF
+authentication active, the endpoint needs the `edit_device_appearance` role and a CSRF
 token, like every endpoint that changes the layout.
 
 `POST /api/v1/device/map/relations` expects

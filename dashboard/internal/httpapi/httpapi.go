@@ -759,6 +759,8 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, 
 		"mqtt_config":             auth.HasRole(user, auth.RoleMQTTConfig),
 		"automations":             auth.HasRole(user, auth.RoleAutomations),
 		"edit_layout":             auth.HasRole(user, auth.RoleEditLayout),
+		"view_device_analysis":    auth.HasRole(user, auth.RoleViewDeviceAnalysis),
+		"edit_device_appearance":  auth.HasRole(user, auth.RoleEditDeviceAppearance),
 		"edit_energy":             auth.HasRole(user, auth.RoleEditEnergy),
 		"edit_device_map":         auth.HasRole(user, auth.RoleEditDeviceMap),
 		"edit_device_map_view":    auth.HasRole(user, auth.RoleEditDeviceMapView),
@@ -1654,14 +1656,14 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 	}
 }
 
-// requireLayoutMutation gates writes that change shared display
-// configuration. Deliberately stricter than the plain /api/v1/layout PUT
-// (which predates the auth manager): an instance running without
+// requireDeviceAppearanceMutation gates writes of device preferences (icon,
+// favourites, pin flag). Deliberately stricter than the plain /api/v1/layout
+// PUT (which predates the auth manager): an instance running without
 // authentication keeps working unchanged, but as soon as there are sessions,
-// the caller needs the role the layout editor asks for plus a valid CSRF
-// token - device preferences are visible to everyone who opens this
-// dashboard, not a private per-browser setting.
-func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+// the caller needs edit_device_appearance plus a valid CSRF token - device
+// preferences are visible to everyone who opens this dashboard, not a private
+// per-browser setting.
+func requireDeviceAppearanceMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
 	if manager == nil {
 		return true
 	}
@@ -1670,7 +1672,7 @@ func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 		return false
 	}
-	if !auth.HasRole(user, auth.RoleEditLayout) {
+	if !auth.HasRole(user, auth.RoleEditDeviceAppearance) {
 		writeError(w, http.StatusForbidden, "device_prefs_forbidden", "Für das Ändern der Darstellung fehlt die Berechtigung")
 		return false
 	}
@@ -1684,7 +1686,7 @@ func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth
 
 // requireEnergyMutation gates every write of energy.json (roles,
 // interpretation, groups, categories, restore). Same shape as
-// requireLayoutMutation: without an auth manager everything passes,
+// requireDeviceAppearanceMutation: without an auth manager everything passes,
 // otherwise the caller needs edit_energy plus a valid CSRF token.
 func requireEnergyMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
 	if manager == nil {
@@ -2723,7 +2725,7 @@ func handleDevicePrefsEntry(store *settings.Store, manager *auth.Manager) http.H
 			methodNotAllowed(w, http.MethodPut)
 			return
 		}
-		if !requireLayoutMutation(w, r, manager) {
+		if !requireDeviceAppearanceMutation(w, r, manager) {
 			return
 		}
 		var entry settings.DevicePrefsEntry
