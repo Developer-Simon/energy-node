@@ -1301,18 +1301,78 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
   .runtime-status,
   .runtime-status-details { animation: masthead-fade .25s ease both; }
 }
-/* min() statt 24rem: bei 390px Viewport ragte ein langer Toast mit
-   24rem Breite und 1rem rechtem Abstand links aus dem Bild. Am Desktop
-   gewinnt weiterhin 24rem. */
-.notification-toasts { position: fixed; top: 1rem; right: 1rem; z-index: 1000; display: flex; flex-direction: column; gap: .5rem; max-width: min(24rem, calc(100vw - 2rem)); }
-.notification-toast { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: start; padding: .75rem 1rem; border-radius: .5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); font-size: .9rem; border: 1px solid var(--border-soft); }
+/* Toasts (Glas, getoent nach Schwere). Der Stapel sitzt oben rechts, unter
+   600px ueber die volle Breite wie ein iOS-Banner. min() statt 24rem: bei
+   390px Viewport ragte ein langer Toast mit 24rem Breite und 1rem rechtem
+   Abstand links aus dem Bild. Am Desktop gewinnt weiterhin 24rem. */
+.notification-toasts { position: fixed; top: 1rem; right: 1rem; z-index: 1000; display: flex; flex-direction: column; width: min(24rem, calc(100vw - 2rem)); pointer-events: none; }
+@media (max-width: 600px) {
+  .notification-toasts { top: .5rem; right: .5rem; left: .5rem; width: auto; }
+}
+/* Slot und Clip lassen den Stapel beim Gehen nachruecken: die Zeilenhoehe
+   faehrt auf 0. Der Abstand liegt als Rand am Toast, damit er im Clip
+   mitschrumpft; geclippt wird erst beim Gehen, sonst schnitte der Clip
+   Schatten und Eintrittsbewegung ab. */
+.notification-toast-slot { display: grid; grid-template-rows: 1fr; }
+.notification-toast-clip { min-height: 0; }
+.notification-toast-slot.is-leaving .notification-toast-clip, .notification-toast-slot.is-swiped .notification-toast-clip { overflow-y: clip; }
+.notification-toast {
+  --sev: var(--ok);
+  pointer-events: auto; position: relative; overflow: hidden; touch-action: pan-y; user-select: none;
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: .6rem; align-items: start;
+  margin-bottom: .5rem; padding: .7rem .8rem .8rem; font-size: .9rem; color: var(--text);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  border: 1px solid color-mix(in srgb, var(--sev) 26%, var(--border-soft));
+  border-top-color: color-mix(in srgb, var(--sev) 40%, rgba(255, 255, 255, .2));
+  background: var(--panel);
+  background: linear-gradient(100deg, color-mix(in srgb, var(--sev) 13%, transparent), transparent 55%), color-mix(in srgb, var(--panel) 70%, transparent);
+  backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
+}
+.notification-toast-info { --sev: var(--ok); }
+.notification-toast-warning { --sev: var(--warn); }
+.notification-toast-critical { --sev: var(--bad); }
+.notification-toast-icon { width: 1rem; height: 1rem; margin-top: .15rem; flex: none; color: var(--sev); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .notification-toast-message { overflow-wrap: anywhere; }
-.notification-toast-count { font-variant-numeric: tabular-nums; color: var(--text-subtle); }
-.notification-toast-close { padding: 0 .15rem; border: 0; background: none; color: inherit; font-size: 1.1rem; line-height: 1.2; cursor: pointer; }
-.notification-toast-close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
-.notification-toast-info { color: var(--ok); background: var(--ok-bg); }
-.notification-toast-warning { color: var(--warn); background: var(--warn-bg); }
-.notification-toast-critical { color: var(--bad); background: var(--bad-bg); }
+.notification-toast-count { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: .82rem; margin-top: .1rem; }
+.notification-toast-close { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; margin: -.2rem -.3rem -.2rem 0; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--text-muted); cursor: pointer; transition: color .15s ease, background-color .15s ease, transform .1s var(--ease-out); }
+.notification-toast-close svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.notification-toast-close:active { transform: scale(.9); }
+.notification-toast-close:focus-visible { outline: 2px solid var(--sev); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) {
+  .notification-toast-close:hover { color: var(--text-strong); background: rgba(255, 255, 255, .08); }
+}
+/* Haarlinie: laeuft in der Dauer der Schwere von voll auf leer. Wird der
+   Ablauf angehalten, steht sie mit. */
+.notification-toast-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--sev); opacity: .55; transform-origin: left; animation: notification-toast-timer linear forwards; }
+.notification-toast-timer.is-paused { animation-play-state: paused; }
+@keyframes notification-toast-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+/* Bewegung. Transitions statt Keyframes, weil Toasts in schneller Folge
+   kommen und gehen und eine Transition vom aktuellen Wert weiterlaeuft.
+   Eintritt von oben, Austritt auf demselben Weg zurueck, Wischen nach rechts. */
+@media (prefers-reduced-motion: no-preference) {
+  .notification-toast-slot { transition: grid-template-rows .26s var(--ease-out); }
+  .notification-toast { opacity: 1; transform: translate3d(0, 0, 0) scale(1); transition: opacity .32s var(--ease-out), transform .38s var(--ease-out); }
+  @starting-style { .notification-toast { opacity: 0; transform: translate3d(0, -12px, 0) scale(.96); } }
+  .notification-toast.is-dragging { transition: none; }
+  .notification-toast-slot.is-leaving .notification-toast { opacity: 0; transform: translate3d(0, -8px, 0) scale(.96); transition-duration: .2s; }
+  /* Beim Wischen fliegt der Toast zuerst weg (inline, toast-gesture.js),
+     dann rueckt der Stapel nach. */
+  .notification-toast-slot.is-swiped { transition-delay: .14s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notification-toast { opacity: 1; transition: opacity .2s ease; }
+  @starting-style { .notification-toast { opacity: 0; } }
+  .notification-toast-slot.is-leaving .notification-toast, .notification-toast-slot.is-swiped .notification-toast { opacity: 0; }
+}
+.notification-toast-slot.is-leaving, .notification-toast-slot.is-swiped { grid-template-rows: 0fr; }
+@media (prefers-reduced-transparency: reduce) {
+  .notification-toast { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  .notification-toast { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-color: var(--sev); }
+}
 .device-detail { margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel); }
 dialog.device-detail { width: min(72rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); box-sizing: border-box; margin: auto; overflow: auto; color: var(--text); }
 dialog.device-detail::backdrop { background: rgba(0, 0, 0, .72); }

@@ -77,42 +77,141 @@ test('gleicher Text bei anderem Schweregrad erzeugt einen zweiten Eintrag', () =
   assert.equal(toasts.items.length, 2);
 });
 
-test('info startet einen 8-Sekunden-Timer, warning und critical nicht', () => {
-  const info = loadNotify();
-  info.toasts.push('gespeichert');
-  assert.equal(info.timers.length, 1);
-  assert.equal(info.timers[0].ms, 8000);
-
-  const warning = loadNotify();
-  warning.toasts.push('achtung', 'warning');
-  assert.equal(warning.timers.length, 0);
-
-  const critical = loadNotify();
-  critical.toasts.push('kaputt', 'critical');
-  assert.equal(critical.timers.length, 0);
+test('jede Schwere laeuft doppelt so langsam ab wie die vorige: 8 s, 16 s, 32 s', () => {
+  const expected = { info: 8000, warning: 16000, critical: 32000 };
+  Object.entries(expected).forEach(([severity, ms]) => {
+    const { toasts, timers } = loadNotify();
+    toasts.push('meldung', severity);
+    assert.equal(timers.length, 1, `${severity} stellt einen Timer`);
+    assert.equal(timers[0].ms, ms, `${severity} laeuft ${ms} ms`);
+    assert.equal(toasts.items[0].durationMs, ms);
+  });
 });
 
-test('eine zusammengefasste info-Meldung startet den Timer neu', () => {
+test('eine zusammengefasste Meldung startet den Ablauf neu und zaehlt run hoch', () => {
   const { toasts, timers } = loadNotify();
-  const id = toasts.push('gespeichert');
-  toasts.push('gespeichert');
+  const id = toasts.push('Anfrage fehlgeschlagen', 'critical');
+  toasts.push('Anfrage fehlgeschlagen', 'critical');
   assert.equal(timers.length, 2, 'ein zweiter Timer wurde gestellt');
   assert.equal(timers[0].cleared, true, 'der erste Timer wurde geloescht');
+  assert.equal(timers[1].ms, 32000);
   assert.equal(toasts.items[0].id, id);
+  assert.equal(toasts.items[0].run, 1);
 });
 
-test('dismiss() entfernt den Eintrag und loescht dessen Timer', () => {
+test('dismiss() markiert den Eintrag als leaving und loescht den Ablauf-Timer', () => {
   const { toasts, timers } = loadNotify();
   const id = toasts.push('gespeichert');
   toasts.dismiss(id);
-  assert.equal(toasts.items.length, 0);
-  assert.equal(timers[id - 1].cleared, true);
+  assert.equal(toasts.items.length, 1, 'der Eintrag bleibt fuer die Austrittsanimation stehen');
+  assert.equal(toasts.items[0].state, 'leaving');
+  assert.equal(timers[0].cleared, true);
 });
 
-test('der abgelaufene Timer entfernt den Toast', () => {
+test('dismiss(id, "swipe") markiert den Eintrag als swiped', () => {
+  const { toasts } = loadNotify();
+  const id = toasts.push('gespeichert');
+  toasts.dismiss(id, 'swipe');
+  assert.equal(toasts.items[0].state, 'swiped');
+});
+
+test('nach der Austrittsanimation faellt der Eintrag aus der Liste', () => {
+  const { toasts, timers } = loadNotify();
+  const id = toasts.push('gespeichert');
+  toasts.dismiss(id);
+  assert.equal(timers[1].ms, 520);
+  timers[1].fn();
+  assert.equal(toasts.items.length, 0);
+});
+
+test('ein zweites dismiss() desselben Toasts stellt keinen zweiten Austritts-Timer', () => {
+  const { toasts, timers } = loadNotify();
+  const id = toasts.push('gespeichert');
+  toasts.dismiss(id);
+  toasts.dismiss(id, 'swipe');
+  assert.equal(timers.length, 2);
+  assert.equal(toasts.items[0].state, 'leaving');
+});
+
+test('eine Meldung, die gerade geht, wird nicht hochgezaehlt, sondern neu angelegt', () => {
+  const { toasts } = loadNotify();
+  const id = toasts.push('gespeichert');
+  toasts.dismiss(id);
+  const again = toasts.push('gespeichert');
+  assert.notEqual(again, id);
+  assert.equal(toasts.items.length, 2);
+  assert.equal(toasts.items[0].count, 1);
+});
+
+test('hold() haelt den Ablauf an und release() setzt mit der Restzeit fort', () => {
+  const { toasts, timers, window } = loadNotify();
+  const realNow = window.Date.now;
+  let now = 1_000_000;
+  window.Date.now = () => now;
+  try {
+    const id = toasts.push('achtung', 'warning');
+    now += 5000;
+    toasts.hold(id, 'hover');
+    assert.equal(timers[0].cleared, true);
+    assert.equal(toasts.items[0].paused, true);
+    assert.equal(toasts.items[0].remainingMs, 11000);
+    now += 60000;
+    toasts.release(id, 'hover');
+    assert.equal(toasts.items[0].paused, false);
+    assert.equal(timers.length, 2);
+    assert.equal(timers[1].ms, 11000);
+  } finally {
+    window.Date.now = realNow;
+  }
+});
+
+test('mit zwei Gruenden laeuft der Ablauf erst nach dem letzten release() weiter', () => {
+  const { toasts, timers } = loadNotify();
+  const id = toasts.push('gespeichert');
+  toasts.hold(id, 'hover');
+  toasts.hold(id, 'focus');
+  toasts.release(id, 'hover');
+  assert.equal(toasts.items[0].paused, true);
+  assert.equal(timers.length, 1);
+  toasts.release(id, 'focus');
+  assert.equal(toasts.items[0].paused, false);
+  assert.equal(timers.length, 2);
+});
+
+test('nach dem Pausieren bleibt mindestens 1,5 s Restzeit', () => {
+  const { toasts, timers, window } = loadNotify();
+  const realNow = window.Date.now;
+  let now = 1_000_000;
+  window.Date.now = () => now;
+  try {
+    const id = toasts.push('gespeichert');
+    now += 7900;
+    toasts.hold(id, 'hover');
+    toasts.release(id, 'hover');
+    assert.equal(timers[1].ms, 1500);
+  } finally {
+    window.Date.now = realNow;
+  }
+});
+
+test('eine Wiederholung unter der Maus startet den Ablauf erst nach dem Verlassen', () => {
+  const { toasts, timers } = loadNotify();
+  const id = toasts.push('gespeichert');
+  toasts.hold(id, 'hover');
+  toasts.push('gespeichert');
+  assert.equal(timers.length, 1, 'kein neuer Timer, solange gehalten wird');
+  assert.equal(toasts.items[0].paused, true);
+  toasts.release(id, 'hover');
+  assert.equal(timers.length, 2);
+  assert.equal(timers[1].ms, 8000);
+});
+
+test('der abgelaufene Timer blendet den Toast aus und entfernt ihn danach', () => {
   const { toasts, timers } = loadNotify();
   toasts.push('gespeichert');
   timers[0].fn();
+  assert.equal(toasts.items[0].state, 'leaving');
+  timers[1].fn();
   assert.equal(toasts.items.length, 0);
 });
 

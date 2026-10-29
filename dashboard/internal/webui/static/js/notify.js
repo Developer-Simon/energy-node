@@ -8,14 +8,27 @@
 // ihn in showModal()/close().
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
-  const AUTO_DISMISS_MS = 8000;
+  // Jede Schwere bleibt doppelt so lange stehen wie die vorige. Fehler laufen
+  // ebenfalls ab: wer weggeschaut hat, findet sie ueber die Haarlinie am
+  // unteren Rand zumindest noch eine halbe Minute vor.
+  const DISMISS_MS = { info: 8000, warning: 16000, critical: 32000 };
+  // Nach dem Pausieren (Hover, Fokus, Wischen) bleibt mindestens so viel
+  // Restzeit, sonst verschwindet ein Toast direkt unter der Maus.
+  const MIN_REMAINING_MS = 1500;
+  // So lange laeuft die Austrittsanimation (base.css), bevor der Eintrag
+  // wirklich aus der Liste faellt. Etwas laenger als die laengste Transition.
+  const EXIT_MS = 520;
   const MAX_VISIBLE_TOASTS = 5;
   const SEVERITIES = ['info', 'warning', 'critical'];
 
   const toasts = {
     items: [],
-    // id -> Timer-Handle. Nur info-Toasts stehen hier drin.
+    // id -> Timer-Handle fuer das automatische Ausblenden.
     _timers: {},
+    // id -> Timer-Handle fuer das Entfernen nach der Austrittsanimation.
+    _exits: {},
+    // id -> Set der Gruende (hover, focus, drag), aus denen der Ablauf steht.
+    _holds: {},
     _nextId: 1,
 
     push(message, severity = 'info') {
@@ -24,44 +37,111 @@
       // Entdopplung: runtimeStatusPanel pollt alle 30 s und schreibt bei
       // Ausfall jedes Mal dieselbe Fehlermeldung - ohne Zusammenfassung
       // liefe die Liste in den 5er-Deckel und verdraengte alles andere.
-      const existing = this.items.find((item) => item.message === message && item.severity === level);
+      // Ein Toast, der gerade geht, zaehlt nicht mehr: die Meldung bekommt
+      // dann einen frischen Eintrag.
+      const existing = this.items.find((item) => (
+        item.state === 'open' && item.message === message && item.severity === level
+      ));
       if (existing) {
         existing.count += 1;
-        // Eine wiederholte Meldung ist noch aktuell: Timer neu starten.
-        if (level === 'info') this._arm(existing.id);
+        // run zaehlt Neustarts des Ablaufs: die Haarlinie im Template haengt
+        // daran und beginnt dadurch wieder von vorn.
+        existing.run += 1;
+        // Eine wiederholte Meldung ist noch aktuell: Ablauf neu starten.
+        this._arm(existing.id);
         return existing.id;
       }
       while (this.items.length >= MAX_VISIBLE_TOASTS) {
-        this._disarm(this.items[0].id);
-        this.items.shift();
+        this._remove(this.items[0].id);
       }
       // Ein hochgezaehlter Zaehler, kein Zeitstempel: zwei Toasts in derselben
       // Millisekunde bekaemen sonst denselben x-for-Schluessel.
       const id = this._nextId++;
-      this.items.push({ id, message, severity: level, count: 1 });
-      if (level === 'info') this._arm(id);
+      this.items.push({
+        id,
+        message,
+        severity: level,
+        count: 1,
+        run: 0,
+        // open | leaving | swiped. Die letzten beiden steuern die
+        // Austrittsanimation, der Eintrag bleibt dafuer noch in items.
+        state: 'open',
+        paused: false,
+        durationMs: DISMISS_MS[level],
+      });
+      this._arm(id);
       return id;
     },
 
-    dismiss(id) {
+    // via: 'swipe' fuer das Wegwischen, sonst faehrt der Toast den Eintrittsweg
+    // zurueck. Doppelte Aufrufe (Timer + Klick im selben Frame) sind harmlos.
+    dismiss(id, via) {
+      const item = this.items.find((entry) => entry.id === id);
+      if (!item || item.state !== 'open') return;
       this._disarm(id);
-      this.items = this.items.filter((item) => item.id !== id);
+      item.state = via === 'swipe' ? 'swiped' : 'leaving';
+      this._exits[id] = setTimeout(() => this._remove(id), EXIT_MS);
     },
 
     clear() {
       Object.keys(this._timers).forEach((key) => this._disarm(Number(key)));
+      Object.keys(this._exits).forEach((key) => clearTimeout(this._exits[key]));
+      this._exits = {};
       this.items = [];
     },
 
-    _arm(id) {
+    // Der Ablauf steht, solange mindestens ein Grund aktiv ist. Beim ersten
+    // Grund wird die Restzeit festgehalten, beim letzten laeuft sie weiter.
+    hold(id, reason) {
+      const item = this.items.find((entry) => entry.id === id);
+      if (!item || item.state !== 'open') return;
+      const reasons = this._holds[id] || (this._holds[id] = new Set());
+      const wasRunning = reasons.size === 0;
+      reasons.add(reason);
+      if (!wasRunning) return;
       this._disarm(id);
-      this._timers[id] = setTimeout(() => this.dismiss(id), AUTO_DISMISS_MS);
+      item.remainingMs = Math.max(0, item.remainingMs - (Date.now() - item.armedAt));
+      item.paused = true;
+    },
+
+    release(id, reason) {
+      const item = this.items.find((entry) => entry.id === id);
+      const reasons = this._holds[id];
+      if (!item || !reasons || !reasons.delete(reason) || reasons.size > 0) return;
+      delete this._holds[id];
+      if (item.state !== 'open') return;
+      item.paused = false;
+      this._schedule(item, Math.max(item.remainingMs, MIN_REMAINING_MS));
+    },
+
+    _arm(id) {
+      const item = this.items.find((entry) => entry.id === id);
+      if (!item) return;
+      this._disarm(id);
+      // Eine Wiederholung unter der Maus laeuft erst nach dem Verlassen los.
+      item.remainingMs = item.durationMs;
+      item.paused = this._holds[id] !== undefined && this._holds[id].size > 0;
+      if (!item.paused) this._schedule(item, item.durationMs);
+    },
+
+    _schedule(item, ms) {
+      item.remainingMs = ms;
+      item.armedAt = Date.now();
+      this._timers[item.id] = setTimeout(() => this.dismiss(item.id), ms);
     },
 
     _disarm(id) {
       if (this._timers[id] === undefined) return;
       clearTimeout(this._timers[id]);
       delete this._timers[id];
+    },
+
+    _remove(id) {
+      this._disarm(id);
+      clearTimeout(this._exits[id]);
+      delete this._exits[id];
+      delete this._holds[id];
+      this.items = this.items.filter((item) => item.id !== id);
     },
   };
 
