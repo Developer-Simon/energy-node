@@ -23,6 +23,8 @@
   // isSubDevicePowerUnit in der Go-API).
   const SUB_DEVICE_POWER_UNITS = ['W', 'kW'];
   const ACTIVITY_LOG_LIMIT = 200;
+  // Hoechstzahl der Favoriten je Geraet (maxFavoriteRefs in settings.go).
+  const FAVORITE_LIMIT = 3;
 
   window.deviceModalMixin = () => ({
     deviceDetail: null,
@@ -57,15 +59,18 @@
     deletePreviewError: '',
     deleteLoading: false,
 
-    // Darstellung je Geraet (device-prefs.json). prefsDraftFor merkt sich,
-    // fuer welches Geraet der Entwurf gefuellt wurde: loadDeviceDetail laeuft
-    // im SSE-Takt erneut, und ein erneutes Fuellen wuerde dem Nutzer die
-    // Eingabe unter den Fingern wegziehen.
+    // Darstellung je Geraet (device-prefs.json). Stern und Icon speichern
+    // sofort, darum spiegelt prefsDraft nur das gespeicherte Icon.
     deviceIcons: [],
-    prefsDraft: {icon: '', favorite_refs: [], pin_favorites: false},
-    prefsDraftFor: '',
+    prefsDraft: {icon: ''},
     prefsSaving: false,
     prefsMessage: '',
+    // Zaehlt jeden Stern, der am Limit scheitert (siehe toggleFavorite).
+    favoriteLimitHit: 0,
+    // Icon-Auswahl und Mehr-Menue im Modal-Kopf. Beide schliessen beim
+    // Gerätewechsel und bei Escape (closeFloatingMenus).
+    iconPickerOpen: false,
+    moreMenuOpen: false,
     subDevices: [],
     subEdgeProps: [],
     // False until the map of the open device has loaded. The create action
@@ -77,10 +82,6 @@
     // Opt-in switch "Manage sub-devices". Off whenever a device opens or
     // closes, never persisted. Create, edit and delete need it.
     subManage: false,
-    // Choices.js-Instanz der Favoriten-Mehrfachauswahl - dieselbe Bibliothek
-    // wie Settings > Darstellung und der Layout-Editor. Sie wird je Geraet
-    // neu aufgebaut (seedPrefsDraft), nicht im SSE-Takt.
-    favoritesChoices: null,
 
     async loadDeviceIcons() {
       if (this.deviceIcons.length) return;
@@ -118,12 +119,6 @@
       return groups;
     },
 
-    // Wer das Vorschlags-Icon waehlt, speichert "nichts" - so folgt das
-    // Geraet weiter seinem Typ, statt das Icon festzuschreiben.
-    pickIcon(name) {
-      this.prefsDraft.icon = name === this.defaultIconName ? '' : name;
-    },
-
     // Baut denselben SVG-Rumpf wie deviceIcon() in deviceicons.go, damit
     // Picker und gerenderte Karte identisch aussehen.
     iconMarkup(name) {
@@ -133,124 +128,99 @@
       return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${markup}</svg>`;
     },
 
+    // prefsDraft spiegelt nur das gespeicherte Icon (Anzeige im Picker).
     seedPrefsDraft() {
-      const deviceId = this.selectedDeviceId;
-      if (!deviceId || this.prefsDraftFor === deviceId) return;
-      this.prefsDraftFor = deviceId;
-      this.prefsDraft = {
+      this.prefsDraft = {icon: this.deviceDetail?.icon_name || ''};
+    },
+
+    // Favoriten und Icon, so wie das offene Geraet sie gerade hat. Jede
+    // Schreibaktion sendet beide Felder, darum gehen sie immer zusammen.
+    appearanceOf() {
+      return {
         icon: this.deviceDetail?.icon_name || '',
         favorite_refs: [...(this.deviceDetail?.favorite_refs || [])],
-        pin_favorites: this.deviceDetail?.pin_favorites === true,
       };
-      this.prefsMessage = '';
-      if (this.$nextTick) this.$nextTick(() => this.initFavoritesChoices());
     },
 
-    // Choices.js kommt erst mit dem ersten Modal - die Uebersicht laedt es
-    // sonst nur fuer den Editor, der Geraete-Tab gar nicht. Pfade stehen
-    // mit Basis-Praefix am <dialog> (data-choices-script/-css).
-    async ensureChoicesAssets() {
-      if (window.Choices) return;
-      const dialog = this.$refs?.deviceModalDialog;
-      const css = (dialog?.dataset.choicesCss || '').split(',').filter(Boolean);
-      const script = dialog?.dataset.choicesScript;
-      css.forEach(href => {
-        if (document.querySelector(`link[href="${href}"]`)) return;
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = href;
-        document.head.append(link);
-      });
-      if (!script) return;
-      await new Promise((resolve, reject) => {
-        const tag = document.createElement('script');
-        tag.src = script;
-        tag.onload = resolve;
-        tag.onerror = () => reject(new Error(t('panel.asset_load_failed', {url: script})));
-        document.head.append(tag);
-      });
-    },
-
-    destroyFavoritesChoices() {
-      if (!this.favoritesChoices) return;
-      this.favoritesChoices.destroy();
-      this.favoritesChoices = null;
-    },
-
-    async initFavoritesChoices() {
-      const deviceId = this.prefsDraftFor;
-      try {
-        await this.ensureChoicesAssets();
-      } catch (error) {
-        return;
-      }
-      const select = this.$refs?.favoritesSelect;
-      if (!window.Choices || !select || this.prefsDraftFor !== deviceId) return;
-      this.destroyFavoritesChoices();
-      // destroy() schreibt die Optionen samt selected ins <select> zurück.
-      // Eine neue Instanz übernähme sie als Chips in Optionsreihenfolge, und
-      // setChoiceByValue ordnet schon gewählte Werte nicht mehr um.
-      select.replaceChildren();
-      const refs = this.prefsDraft.favorite_refs;
-      const choices = new window.Choices(select, {
-        removeItemButton: true,
-        shouldSort: false,
-        maxItemCount: 3,
-        maxItemText: count => t('devices.favourites.max', {count}),
-        searchResultLimit: 30,
-        placeholderValue: t('devices.favourites.search_placeholder'),
-        noResultsText: t('devices.favourites.no_results'),
-        noChoicesText: t('devices.favourites.no_choices'),
-        itemSelectText: '',
-      });
-      // Choices legt vorbelegte Chips in der Reihenfolge der Optionen an,
-      // nicht in der von setChoiceByValue. Die Favoriten stehen darum vorn,
-      // in Auswahlreihenfolge - sie bestimmt die Zeilen der Kompaktkarte.
-      const entities = this.deviceDetail?.entities || [];
-      const rank = entity => {
-        const at = refs.indexOf(entity.unique_id);
-        return at < 0 ? refs.length : at;
+    // Setzt Favoriten und Icon im Modal, solange es noch dasselbe Geraet zeigt.
+    applyAppearance(deviceId, appearance) {
+      if (this.selectedDeviceId !== deviceId || !this.deviceDetail) return;
+      this.deviceDetail = {
+        ...this.deviceDetail,
+        icon_name: appearance.icon,
+        favorite_refs: [...appearance.favorite_refs],
       };
-      const ordered = entities.map((entity, index) => ({entity, index}))
-        .sort((a, b) => rank(a.entity) - rank(b.entity) || a.index - b.index)
-        .map(({entity}) => entity);
-      choices.setChoices(
-        ordered.map(entity => ({value: entity.unique_id, label: this.entityDisplayName(entity)})),
-        'value', 'label', true,
-      );
-      choices.setChoiceByValue([...refs]);
-      this.favoritesChoices = choices;
+      this.prefsDraft = {icon: appearance.icon};
     },
 
-    // Choices feuert "change" am <select>; die Reihenfolge der Chips ist die
-    // Reihenfolge der Auswahl.
-    syncFavoritesFromChoices() {
-      if (!this.favoritesChoices) return;
-      this.prefsDraft.favorite_refs = this.favoritesChoices.getValue(true);
-    },
-
-    async saveDevicePrefs() {
-      if (!this.selectedDeviceId || this.prefsSaving) return;
-      this.prefsSaving = true;
-      this.prefsMessage = '';
+    // Speichert Favoriten und Icon fuer deviceId. Der Stand im Modal wechselt
+    // sofort; scheitert das Speichern, geht er auf previous zurueck. deviceId
+    // ist das Geraet beim Ausloesen - nie selectedDeviceId, denn beim
+    // Rueckgaengig kann laengst ein anderes Geraet offen sein. undoable false
+    // ist das Rueckgaengig selbst, es bietet keine weitere Aktion an.
+    async writeAppearance(deviceId, next, previous, messageKey, undoable = true) {
+      this.applyAppearance(deviceId, next);
       try {
         await requestJSON(
-          `/api/v1/device/prefs/${encodeURIComponent(this.selectedDeviceId)}`,
-          {...this.mutationOptions(this.prefsDraft), method: 'PUT'},
+          `/api/v1/device/prefs/${encodeURIComponent(deviceId)}`,
+          {...this.mutationOptions({icon: next.icon, favorite_refs: next.favorite_refs}), method: 'PUT'},
         );
-        // Das Detail traegt die Praeferenzen mit; der Entwurf darf danach
-        // wieder aus dem Server-Stand kommen. Die Meldung erst danach setzen -
-        // seedPrefsDraft leert sie.
-        this.prefsDraftFor = '';
-        await this.loadDeviceDetail(this.selectedDeviceId);
-        this.seedPrefsDraft();
-        this.prefsMessage = t('common.saved');
-        await this.refreshAfterMutation();
       } catch (error) {
-        this.prefsMessage = error.message;
-      } finally {
-        this.prefsSaving = false;
+        this.applyAppearance(deviceId, previous);
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
       }
+      // Das neu geladene Detail bringt die card_refs mit. Scheitert nur das
+      // Nachladen, stimmt der Stand im Modal schon; der Fehler wird gemeldet.
+      try {
+        await this.loadDeviceDetail(deviceId);
+      } catch (error) {
+        if (this.selectedDeviceId === deviceId) this.detailError = error.message;
+      }
+      const options = undoable
+        ? {action: {run: () => this.writeAppearance(deviceId, previous, next, messageKey, false)}}
+        : undefined;
+      this.$store.toasts.push(t(messageKey), 'info', options);
+      return true;
+    },
+
+    // Stern am Entity. Ohne Recht passiert nichts. Ein viertes Favorit wird
+    // nicht gesendet, sondern nur gemeldet.
+    async toggleFavorite(entity) {
+      const ref = entity?.unique_id;
+      const deviceId = this.selectedDeviceId;
+      if (!this.canEditAppearance || !ref || !deviceId || !this.deviceDetail) return;
+      const previous = this.appearanceOf();
+      const favorited = previous.favorite_refs.includes(ref);
+      if (!favorited && previous.favorite_refs.length >= FAVORITE_LIMIT) {
+        this.favoriteLimitHit += 1;
+        this.$store.toasts.push(t('devices.favourites.max'), 'warning');
+        return;
+      }
+      const favorite_refs = favorited
+        ? previous.favorite_refs.filter(item => item !== ref)
+        : [...previous.favorite_refs, ref];
+      await this.writeAppearance(deviceId, {icon: previous.icon, favorite_refs}, previous, 'devices.favourites.saved');
+    },
+
+    // Icon aus dem Katalog. Das Vorschlagsicon speichert als leere Auswahl,
+    // damit das Geraet weiter seinem Typ folgt.
+    async saveIcon(name) {
+      const deviceId = this.selectedDeviceId;
+      if (!this.canEditAppearance || !name || !deviceId || !this.deviceDetail) return;
+      const previous = this.appearanceOf();
+      const icon = name === this.defaultIconName ? '' : name;
+      await this.writeAppearance(deviceId, {icon, favorite_refs: previous.favorite_refs}, previous, 'devices.icon.saved');
+    },
+
+    // Der Picker-Klick speichert sofort (saveIcon).
+    pickIcon(name) {
+      return this.saveIcon(name);
+    },
+
+    closeFloatingMenus() {
+      this.iconPickerOpen = false;
+      this.moreMenuOpen = false;
     },
 
     async ignoreDevice(deviceId) {
@@ -561,12 +531,10 @@
       return `${this.configDiagEntities.length}${staleDiagnostic ? ' · ⚠' : ''}`;
     },
 
-    // Die angepinnten Favoriten des Geraets - leer, solange der Schalter aus
-    // ist. Ein Ref ohne Treffer faellt still weg, wie ueberall sonst auch.
+    // Stub bis zum Template-Task: devices.html liest pinnedFavorites.length
+    // beim Rendern. Der Anheft-Block faellt mit pin_favorites weg.
     get pinnedFavorites() {
-      if (!this.deviceDetail?.pin_favorites) return [];
-      const byID = new Map((this.deviceDetail.entities || []).map(entity => [entity.unique_id, entity]));
-      return (this.deviceDetail.favorite_refs || []).map(ref => byID.get(ref)).filter(Boolean);
+      return [];
     },
 
     // Die Hero-Kacheln des Geraets: bis zu drei Entitaeten aus card_refs.
@@ -678,6 +646,7 @@
       this.selectedDeviceId = deviceId;
       this.deviceDetail = null;
       this.activityLog = [];
+      this.closeFloatingMenus();
       this.detailError = '';
       this.detailLoading = true;
       this.loadDeviceIcons();
@@ -895,11 +864,10 @@
       this.deviceDetail = null;
       this.activityLog = [];
       this.detailError = '';
-      this.prefsDraftFor = '';
+      this.closeFloatingMenus();
       this.closeSubDeviceForm();
       this.subLoadToken += 1;
       this.subManage = false;
-      this.destroyFavoritesChoices();
       if (this.livePatchStale) {
         this.livePatchStale = false;
         this.refreshLiveFragment();
@@ -930,6 +898,14 @@
         if (event.target === this.$refs.deviceModalDialog && this.selectedDeviceId) this.closeDeviceDetail();
       };
       this.$refs.deviceModalDialog?.addEventListener('close', this.dialogClosed);
+      // Esc schliesst erst ein offenes Icon-Feld oder Mehr-Menue, das Modal
+      // bleibt dabei stehen.
+      this.dialogKeydown = event => {
+        if (event.key !== 'Escape' || !(this.iconPickerOpen || this.moreMenuOpen)) return;
+        event.preventDefault();
+        this.closeFloatingMenus();
+      };
+      this.$refs.deviceModalDialog?.addEventListener('keydown', this.dialogKeydown);
       this.observeMergeThreshold();
       // Sekundentakt fuer die relative "aktualisiert vor X"-Anzeige im
       // Modal. Laeuft nur weiter, solange ein Geraet offen ist.
@@ -940,6 +916,7 @@
 
     detachDeviceModal() {
       if (this.dialogClosed) this.$refs.deviceModalDialog?.removeEventListener('close', this.dialogClosed);
+      if (this.dialogKeydown) this.$refs.deviceModalDialog?.removeEventListener('keydown', this.dialogKeydown);
       this.mergeObserver?.disconnect();
       if (this.clockTimer) window.clearInterval(this.clockTimer);
     },
