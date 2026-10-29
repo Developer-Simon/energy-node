@@ -31,6 +31,12 @@ const (
 	// anpassbar bleibt; die eigene Rolle ist das Plumbing, an das eine
 	// spaetere Rollen-Oberflaeche greift.
 	RoleEditLayout = "edit_layout"
+	// RoleViewDeviceAnalysis schaltet die Analyse im Geraete-Dialog frei:
+	// Rohdaten, Discovery, Schreibaktionen und Konfigurationswarnungen.
+	RoleViewDeviceAnalysis = "view_device_analysis"
+	// RoleEditDeviceAppearance schaltet das Festlegen von Icon und Favoriten
+	// eines Geraets frei. Wie RoleEditLayout bekommt sie vorlaeufig jeder.
+	RoleEditDeviceAppearance = "edit_device_appearance"
 	// RoleCheckUpdates schaltet nur das Lesen frei, ob auf GitHub eine
 	// neuere Version liegt (siehe internal/updatecheck) - keine der
 	// updater-startenden Aktionen hinter RoleSystemActions. Wie

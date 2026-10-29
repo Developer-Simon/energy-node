@@ -110,6 +110,7 @@ management page shows them. The source is `internal/auth/roles.go`.
 |---|---|---|---|---|
 | `view_overview` | view | – | no | yes |
 | `view_devices` | view | – | no | yes |
+| `view_device_analysis` | view | `view_devices` | no | yes |
 | `view_history` | view | – | no | yes |
 | `view_stats` | view | – | no | yes |
 | `view_energy` | view | – | no | yes |
@@ -120,6 +121,7 @@ management page shows them. The source is `internal/auth/roles.go`.
 | `operate_devices` | operate | `view_devices` | no | yes |
 | `operate_automations` | operate | `view_automations` | no | yes |
 | `edit_layout` | design | `view_overview` | no | yes |
+| `edit_device_appearance` | design | `view_devices` | no | yes |
 | `edit_device_map_view` | design | `view_device_map` | no | yes |
 | `edit_settings` | design | – | no | yes |
 | `automations` | setup | `view_automations` | no | yes |

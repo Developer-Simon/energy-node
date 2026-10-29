@@ -62,6 +62,7 @@ type RoleInfo struct {
 var roleCatalog = []RoleInfo{
 	{Key: RoleViewOverview, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewDevices, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleViewDeviceAnalysis, Category: CategoryView, Requires: RoleViewDevices, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewHistory, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewStats, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewEnergy, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
@@ -72,6 +73,7 @@ var roleCatalog = []RoleInfo{
 	{Key: RoleOperateDevices, Category: CategoryOperate, Requires: RoleViewDevices, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleOperateAutomations, Category: CategoryOperate, Requires: RoleViewAutomations, GuestAllowed: true, HAAllowed: true},
 	{Key: "edit_layout", Category: CategoryDesign, Requires: RoleViewOverview, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleEditDeviceAppearance, Category: CategoryDesign, Requires: RoleViewDevices, GuestAllowed: true, HAAllowed: true},
 	{Key: "edit_device_map_view", Category: CategoryDesign, Requires: RoleViewDeviceMap, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleEditSettings, Category: CategoryDesign, GuestAllowed: true, HAAllowed: true},
 	{Key: "automations", Category: CategorySetup, Requires: RoleViewAutomations, GuestAllowed: true, HAAllowed: true},
