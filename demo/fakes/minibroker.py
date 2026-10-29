@@ -64,12 +64,20 @@ import threading
 import time
 from pathlib import Path
 
+from fakelog import Log
+
 DEFAULT_PORT = 18883
 DEFAULT_FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "battery-soc.json"
 SIMULATE_INTERVAL = 3.0
 SERVICE_SCAN_INTERVAL = 1.0
 SERVICE_HEARTBEAT = 30.0
 REJECT_ERROR = "simulated rejection (minibroker --reject-config)"
+SERVICE_MODES = ("accept", "reject", "silent")
+SERVICE_MODE_LOG = {
+    "accept": ("angenommen", "info"),
+    "reject": ("abgelehnt (simuliert)", "warn"),
+    "silent": ("schweigt", "warn"),
+}
 
 # Amplitude/Periode/Phase je Topic, um die Basiswerte aus
 # fixtures/energie-ueberschuss.json herum - unabhaengige Sinuskurven statt
@@ -191,11 +199,144 @@ def echo_switch(messages, connections, topic, payload):
             broadcast(messages, connections, config["state_topic"], state.encode("utf-8"), False)
 
 
-def handle(conn, messages, connections):
-    # connections: {conn: threading.Lock()}, geteilt mit simulate_loop() - der
+def parse_client_id(body):
+    """Client-ID aus dem CONNECT-Rumpf: Protokollname, Level, Flags, Keepalive, dann die ID. Kaputt -> ""."""
+    try:
+        name_length = struct.unpack("!H", body[:2])[0]
+        offset = 2 + name_length + 4
+        length = struct.unpack("!H", body[offset:offset + 2])[0]
+        return body[offset + 2:offset + 2 + length].decode("utf-8")
+    except (struct.error, UnicodeDecodeError):
+        return ""
+
+
+class BrokerState:
+    """Zustand des Brokers, geteilt von Verbindungen, Schleifen und Steuerserver."""
+
+    def __init__(self, messages, port, simulate, rejected):
+        self.messages = messages
+        self.port = port
+        self.initial_simulate = simulate
+        self.simulate = simulate
+        self.initial_modes = {name: "reject" for name in rejected}
+        self.modes = dict(self.initial_modes)
+        self.connections = {}  # conn -> threading.Lock()
+        self.clients = {}      # conn -> {"client_id", "since"}
+        self.log = Log()
+        self.services = {}     # config -> "ok" | "rejected" | "silent", sobald der Dienst-Scan sie sah
+        self.stale = set()     # Konfigurationen, die der naechste Scan neu meldet
+        self.seen = {}         # config -> zuletzt gemeldete Pruefsumme
+        self.applied = {}      # config -> zuletzt angenommene Pruefsumme
+
+    def mode_of(self, config):
+        return self.modes.get(config, "accept")
+
+    def _device_map(self):
+        # availability_topic -> Name und Nutzlasten; die erste Discovery-Konfiguration je Topic gewinnt.
+        found = {}
+        for config_topic in sorted(list(self.messages)):
+            if not (config_topic.startswith("homeassistant/") and config_topic.endswith("/config")):
+                continue
+            try:
+                config = json.loads(self.messages.get(config_topic) or b"null")
+            except ValueError:
+                continue
+            if not isinstance(config, dict) or not config.get("availability_topic"):
+                continue
+            topic = config["availability_topic"]
+            if topic in found:
+                continue
+            device = config.get("device")
+            name = device.get("name") if isinstance(device, dict) else None
+            found[topic] = {
+                "name": name or topic,
+                "available": str(config.get("payload_available", "online")),
+                "not_available": str(config.get("payload_not_available", "offline")),
+            }
+        return found
+
+    def devices(self):
+        out = []
+        for topic, info in self._device_map().items():
+            online = self.messages.get(topic) != info["not_available"].encode("utf-8")
+            out.append({"topic": topic, "name": info["name"], "online": online})
+        return sorted(out, key=lambda device: device["name"])
+
+    def set_device(self, topic, online):
+        info = self._device_map().get(topic)
+        if info is None:
+            raise ValueError("unbekanntes Gerät")
+        payload = info["available" if online else "not_available"].encode("utf-8")
+        broadcast(self.messages, self.connections, topic, payload, False)
+        if online:
+            self.log.add("mqtt", f"{info['name']} online")
+        else:
+            self.log.add("mqtt", f"{info['name']} offline gemeldet", "warn")
+
+    def set_simulate(self, on):
+        self.simulate = bool(on)
+
+    def set_service(self, config, mode):
+        if mode not in SERVICE_MODES:
+            raise ValueError("unbekannter Modus")
+        self.modes[config] = mode
+        self.stale.add(config)
+        text, level = SERVICE_MODE_LOG[mode]
+        self.log.add("mqtt", f"{config} {text}", level)
+
+    def publish(self, topic, payload, retain):
+        if not topic:
+            raise ValueError("Topic fehlt")
+        relay(self.messages, self.connections, topic, payload.encode("utf-8"), retain)
+        self.log.add("konsole", f"Konsole sendet {topic}")
+
+    def disconnect_all(self):
+        conns = list(self.connections)
+        for conn in conns:
+            try:
+                conn.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+        self.log.add("mqtt", f"{len(conns)} Verbindungen getrennt", "warn")
+        return len(conns)
+
+    def reset(self):
+        self.simulate = self.initial_simulate
+        self.modes = dict(self.initial_modes)
+        for device in self.devices():
+            if not device["online"]:
+                self.set_device(device["topic"], True)
+        self.stale.update(self.services)
+        self.log.add("konsole", "Broker zurückgesetzt")
+
+    def state(self):
+        services = [
+            {
+                "config": config,
+                "mode": self.mode_of(config),
+                "initial_mode": self.initial_modes.get(config, "accept"),
+                "status": status,
+            }
+            for config, status in sorted(self.services.items())
+        ]
+        return {
+            "port": self.port,
+            "simulate": self.simulate,
+            "initial_simulate": self.initial_simulate,
+            "topics": len(self.messages),
+            "topic_names": sorted(name for name in list(self.messages) if not name.startswith("homeassistant/")),
+            "connections": [{"client_id": c["client_id"], "since": c["since"]} for c in list(self.clients.values())],
+            "devices": self.devices(),
+            "services": services,
+        }
+
+
+def handle(conn, state):
+    # state.connections: {conn: threading.Lock()}, geteilt mit simulate_loop() - der
     # Lock serialisiert sendall() zwischen dieser Verbindungs-Handhabung
     # (CONNACK/SUBACK/PINGRESP) und den periodischen Simulate-Publishes auf
     # demselben Socket, sonst koennten sich beide Threads verschraenken.
+    messages, connections = state.messages, state.connections
     lock = threading.Lock()
     try:
         while True:
@@ -217,6 +358,9 @@ def handle(conn, messages, connections):
                 with lock:
                     conn.sendall(b"\x20\x02\x00\x00")
                 connections[conn] = lock
+                client_id = parse_client_id(body)
+                state.clients[conn] = {"client_id": client_id, "since": time.time()}
+                state.log.add("mqtt", f"Client {client_id} verbunden")
             elif packet_type == 8:    # SUBSCRIBE -> SUBACK + alle Retained + Live-Refresh
                 packet_id = struct.unpack("!H", body[:2])[0]
                 with lock:
@@ -235,6 +379,8 @@ def handle(conn, messages, connections):
                 parsed = parse_publish(header[0] & 0x0F, body)
                 if parsed:
                     relay(messages, connections, *parsed)
+                    client = state.clients.get(conn, {}).get("client_id", "?")
+                    state.log.add("mqtt", f"{client} sendet {parsed[0]}")
             elif packet_type == 12:   # PINGREQ -> PINGRESP
                 with lock:
                     conn.sendall(b"\xd0\x00")
@@ -244,34 +390,45 @@ def handle(conn, messages, connections):
         return
     finally:
         connections.pop(conn, None)
+        client = state.clients.pop(conn, None)
+        if client:
+            state.log.add("mqtt", f"Client {client['client_id']} getrennt")
         conn.close()
 
 
-def simulate_loop(messages, connections):
-    # Periodisch neue Werte fuer SIMULATED_TOPICS berechnen, in messages
+def simulate_tick(state, t):
+    # Ein Tick der Simulation: neue Werte fuer SIMULATED_TOPICS in messages
     # ablegen (damit ein neu verbindender Client den aktuellen Stand als
     # Retained-Nachricht bekommt) und an jede offene Verbindung senden - als
     # nicht retained PUBLISH, wie eine echte Live-Publikation, sonst faerbte
-    # jeder Tick die Werte wieder auf "veraltet". Reine Sinuskurven um die
-    # Fixture-Basiswerte - kein Energiebilanz-Modell, nur genug Bewegung,
-    # damit die zeitbasierten Energie-Karten im Browser eine echte Kurve
-    # statt einer flachen Linie zeigen.
+    # jeder Tick die Werte wieder auf "veraltet". Ticks schreiben nichts ins
+    # Protokoll. Ist die Simulation aus, passiert nichts.
+    if not state.simulate:
+        return
+    messages, connections = state.messages, state.connections
+    for topic, (base, amplitude, period, phase) in SIMULATED_TOPICS.items():
+        if topic not in messages:
+            continue
+        values = json.loads(messages[topic])
+        values["apower"] = round(base + amplitude * math.sin(t / period + phase))
+        messages[topic] = json.dumps(values).encode("utf-8")
+        broadcast(messages, connections, topic, messages[topic], False)
+    if RELAY_SUM_TOPIC in messages and all(src in messages for src in RELAY_SUM_SOURCES):
+        relay_state = json.loads(messages[RELAY_SUM_TOPIC])
+        relay_state["apower"] = sum(json.loads(messages[src])["apower"] for src in RELAY_SUM_SOURCES)
+        messages[RELAY_SUM_TOPIC] = json.dumps(relay_state).encode("utf-8")
+        broadcast(messages, connections, RELAY_SUM_TOPIC, messages[RELAY_SUM_TOPIC], False)
+
+
+def simulate_loop(state):
+    # Reine Sinuskurven um die Fixture-Basiswerte - kein Energiebilanz-Modell,
+    # nur genug Bewegung, damit die zeitbasierten Energie-Karten im Browser
+    # eine echte Kurve statt einer flachen Linie zeigen. Die Schleife laeuft
+    # immer; solange die Simulation aus ist, ueberspringt simulate_tick jeden Tick.
     start = time.monotonic()
     while True:
         time.sleep(SIMULATE_INTERVAL)
-        t = time.monotonic() - start
-        for topic, (base, amplitude, period, phase) in SIMULATED_TOPICS.items():
-            if topic not in messages:
-                continue
-            state = json.loads(messages[topic])
-            state["apower"] = round(base + amplitude * math.sin(t / period + phase))
-            messages[topic] = json.dumps(state).encode("utf-8")
-            broadcast(messages, connections, topic, messages[topic], False)
-        if RELAY_SUM_TOPIC in messages and all(src in messages for src in RELAY_SUM_SOURCES):
-            relay_state = json.loads(messages[RELAY_SUM_TOPIC])
-            relay_state["apower"] = sum(json.loads(messages[src])["apower"] for src in RELAY_SUM_SOURCES)
-            messages[RELAY_SUM_TOPIC] = json.dumps(relay_state).encode("utf-8")
-            broadcast(messages, connections, RELAY_SUM_TOPIC, messages[RELAY_SUM_TOPIC], False)
+        simulate_tick(state, time.monotonic() - start)
 
 
 def broadcast(messages, connections, topic, payload, retain):
@@ -294,42 +451,53 @@ def service_id_for_config(name):
     return None
 
 
-def service_status_loop(devices_dir, rejected, messages, connections):
-    # Ein Dienst liest seine Datei, meldet das Ergebnis retained auf
-    # settings/status und nennt dabei die Pruefsumme der Datei. Genau diese
-    # vergleicht die Konfigurationsseite mit der Datei, die sie geschrieben
-    # hat - deshalb hier die echte SHA-256 der Bytes auf der Platte.
-    seen = {}      # config -> zuletzt gemeldete Pruefsumme
-    applied = {}   # config -> zuletzt angenommene Pruefsumme
+def service_status_scan(devices_dir, state, beat):
+    # Ein Durchlauf von service_status_loop. Ein Dienst liest seine Datei,
+    # meldet das Ergebnis retained auf settings/status und nennt dabei die
+    # Pruefsumme der Datei. Genau diese vergleicht die Konfigurationsseite mit
+    # der Datei, die sie geschrieben hat - deshalb hier die echte SHA-256 der
+    # Bytes auf der Platte. Der Modus kommt aus dem Zustand (accept, reject,
+    # silent); silent meldet weder Status noch Herzschlag.
+    for path in sorted(Path(devices_dir).glob("*.json")):
+        name = path.stem
+        if name.endswith(".schema"):
+            continue
+        service_id = service_id_for_config(name)
+        if not service_id:
+            continue
+        try:
+            revision = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            continue
+        mode = state.mode_of(name)
+        if mode == "silent":
+            state.services[name] = "silent"
+            continue
+        if state.seen.get(name) == revision and not beat and name not in state.stale:
+            continue
+        state.stale.discard(name)
+        state.seen[name] = revision
+        status = {"last_update": int(time.time()), "config_revision": revision}
+        if mode == "reject":
+            state.services[name] = "rejected"
+            status.update(runtime_status="rejected", error=REJECT_ERROR,
+                          applied_revision=state.applied.get(name, ""))
+        else:
+            state.applied[name] = revision
+            state.services[name] = "ok"
+            status.update(runtime_status="ok", error="", applied_revision=revision)
+        base = f"outstation/{service_id}"
+        broadcast(state.messages, state.connections, f"{base}/status/online", b"1", True)
+        broadcast(state.messages, state.connections, f"{base}/settings/status",
+                  json.dumps(status).encode("utf-8"), True)
+
+
+def service_status_loop(devices_dir, state):
     last_beat = 0.0
     while True:
         now = time.time()
         beat = now - last_beat >= SERVICE_HEARTBEAT
-        for path in sorted(Path(devices_dir).glob("*.json")):
-            name = path.stem
-            if name.endswith(".schema"):
-                continue
-            service_id = service_id_for_config(name)
-            if not service_id:
-                continue
-            try:
-                revision = hashlib.sha256(path.read_bytes()).hexdigest()
-            except OSError:
-                continue
-            if seen.get(name) == revision and not beat:
-                continue
-            seen[name] = revision
-            status = {"last_update": int(now), "config_revision": revision}
-            if name in rejected:
-                status.update(runtime_status="rejected", error=REJECT_ERROR,
-                              applied_revision=applied.get(name, ""))
-            else:
-                applied[name] = revision
-                status.update(runtime_status="ok", error="", applied_revision=revision)
-            base = f"outstation/{service_id}"
-            broadcast(messages, connections, f"{base}/status/online", b"1", True)
-            broadcast(messages, connections, f"{base}/settings/status",
-                      json.dumps(status).encode("utf-8"), True)
+        service_status_scan(devices_dir, state, beat)
         if beat:
             last_beat = now
         time.sleep(SERVICE_SCAN_INTERVAL)
@@ -360,26 +528,24 @@ def main():
     simulate = opts["simulate"]
     port = int(args[0]) if len(args) > 0 else DEFAULT_PORT
     fixture = args[1] if len(args) > 1 else DEFAULT_FIXTURE
-    messages = load_fixture(fixture)
-    connections = {}
+    state = BrokerState(load_fixture(fixture), port, simulate, opts["rejected"])
 
-    if simulate:
-        threading.Thread(target=simulate_loop, args=(messages, connections), daemon=True).start()
+    threading.Thread(target=simulate_loop, args=(state,), daemon=True).start()
     if opts["service_status"]:
         threading.Thread(target=service_status_loop,
-                         args=(opts["service_status"], opts["rejected"], messages, connections),
+                         args=(opts["service_status"], state),
                          daemon=True).start()
 
     server = socket.socket()
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("127.0.0.1", port))
     server.listen(5)
-    print(f"minibroker: port {port}, {len(messages)} retained message(s) "
+    print(f"minibroker: port {port}, {len(state.messages)} retained message(s) "
           f"from {fixture}{', simulating' if simulate else ''}"
           f"{', service status from ' + opts['service_status'] if opts['service_status'] else ''}", flush=True)
     while True:
         conn, _ = server.accept()
-        threading.Thread(target=handle, args=(conn, messages, connections), daemon=True).start()
+        threading.Thread(target=handle, args=(conn, state), daemon=True).start()
 
 
 if __name__ == "__main__":
