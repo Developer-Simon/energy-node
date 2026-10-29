@@ -739,3 +739,55 @@ test('opening a device clears the previous sub-devices before the new map arrive
   assert.equal(panel.subDevicesReady, false);
   assert.equal(panel.subCreateVisible(entities[0]), false);
 });
+
+test('heroEntities folgt card_refs und markiert Automatik', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    id: 'node',
+    card_refs: ['node_temp', 'node_relay', 'node_weg', 'node_fremd'],
+    favorite_refs: ['node_relay'],
+    entities: [
+      {unique_id: 'node_relay', name: 'Relais'},
+      {unique_id: 'node_temp', name: 'Temperatur'},
+      {unique_id: 'node_weg', name: 'Weg'},
+    ],
+  };
+  const hero = panel.heroEntities;
+  assert.deepEqual(hero.map(item => item.entity.unique_id), ['node_temp', 'node_relay', 'node_weg']);
+  assert.deepEqual(hero.map(item => item.auto), [true, false, true]);
+});
+
+test('Warnungen teilen sich in Betrieb und Konfiguration', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    name: 'test device',
+    warnings: [
+      {rule_id: 'Offline', key: 'offline', severity: 'critical', message: 'offline', operational: true, entity_id: 'a'},
+      {rule_id: 'Naming', key: 'naming', severity: 'warning', message: 'naming', operational: false, entity_id: 'b'},
+    ],
+  };
+  assert.deepEqual(Array.from(panel.operationalWarnings, warning => warning.rule_id), ['Offline']);
+  assert.deepEqual(Array.from(panel.configWarnings, warning => warning.rule_id), ['Naming']);
+});
+
+test('canViewAnalysis und canEditAppearance folgen der Session und sind ohne Session-API true', async () => {
+  const denied = createDevicesPanel();
+  denied.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ view_device_analysis: false, edit_device_appearance: false, csrf_token: 'x' }) });
+  await denied.loadSession();
+  assert.equal(denied.canViewAnalysis, false);
+  assert.equal(denied.canEditAppearance, false);
+  assert.equal(denied.canEditPrefs, false);
+
+  const allowed = createDevicesPanel();
+  allowed.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ view_device_analysis: true, edit_device_appearance: true }) });
+  await allowed.loadSession();
+  assert.equal(allowed.canViewAnalysis, true);
+  assert.equal(allowed.canEditAppearance, true);
+  assert.equal(allowed.canEditPrefs, true);
+
+  const noSession = createDevicesPanel();
+  noSession.testWindow.fetch = async () => { throw new Error('no session api'); };
+  await noSession.loadSession();
+  assert.equal(noSession.canViewAnalysis, true);
+  assert.equal(noSession.canEditAppearance, true);
+});

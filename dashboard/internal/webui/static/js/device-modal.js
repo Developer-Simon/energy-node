@@ -357,6 +357,16 @@
       return [...groups.values()];
     },
 
+    // Betriebswarnungen (Gerät offline, Bridge) und Konfigurationswarnungen
+    // teilen sich dieselben Gruppen; warning.operational trennt sie.
+    get operationalWarnings() {
+      return this.groupedWarnings.filter(warning => warning.operational);
+    },
+
+    get configWarnings() {
+      return this.groupedWarnings.filter(warning => !warning.operational);
+    },
+
     entityLabel(entityID) {
       const entity = (this.deviceDetail?.entities || []).find(item => item.unique_id === entityID);
       if (!entity) return entityID;
@@ -557,6 +567,23 @@
       if (!this.deviceDetail?.pin_favorites) return [];
       const byID = new Map((this.deviceDetail.entities || []).map(entity => [entity.unique_id, entity]));
       return (this.deviceDetail.favorite_refs || []).map(ref => byID.get(ref)).filter(Boolean);
+    },
+
+    // Die Hero-Kacheln des Geraets: bis zu drei Entitaeten aus card_refs.
+    // auto markiert die, die nicht als Favorit gesetzt sind, sondern nur
+    // automatisch vorgeschlagen werden.
+    get heroEntities() {
+      if (!this.deviceDetail) return [];
+      const byID = new Map((this.deviceDetail.entities || []).map(entity => [entity.unique_id, entity]));
+      const favorites = new Set(this.deviceDetail.favorite_refs || []);
+      return (this.deviceDetail.card_refs || [])
+        .map(ref => ({entity: byID.get(ref), auto: !favorites.has(ref)}))
+        .filter(item => item.entity)
+        .slice(0, 3);
+    },
+
+    isFavorite(entity) {
+      return (this.deviceDetail?.favorite_refs || []).includes(entity?.unique_id);
     },
 
     managementTeaser(now = new Date()) {
