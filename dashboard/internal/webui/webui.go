@@ -126,6 +126,11 @@ func stripDeviceName(deviceName, entityName string) string {
 	return name
 }
 
+// StripDeviceName is the exported form of stripDeviceName for the HTTP API.
+func StripDeviceName(deviceName, entityName string) string {
+	return stripDeviceName(deviceName, entityName)
+}
+
 func buildOverviewTemplate(lang string) *template.Template {
 	funcs := template.FuncMap{
 		"iconFor":            iconFor,
