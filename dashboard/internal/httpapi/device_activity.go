@@ -115,11 +115,7 @@ func recentActivityMessages(dev registry.DeviceView) []activityMessage {
 func messageActivityStates(dev registry.DeviceView, message activityMessage) []activityState {
 	raw := message.Message.Payload
 	if strings.TrimSpace(raw) == "" {
-		label := message.Message.Topic
-		if label == "" {
-			label = "MQTT"
-		}
-		return []activityState{{key: "empty", label: label, value: ""}}
+		return []activityState{{key: "empty", label: activityLabel(dev, message.UniqueID), value: ""}}
 	}
 
 	if parsed, ok := parseJSONOrdered(raw); ok {
@@ -132,17 +128,18 @@ func messageActivityStates(dev registry.DeviceView, message activityMessage) []a
 		}
 	}
 
-	label := message.Message.Topic
-	if label == "" {
-		label = "MQTT"
-	}
+	return []activityState{{key: "value", label: activityLabel(dev, message.UniqueID), value: raw}}
+}
+
+// activityLabel names a message by its entity. The topic is never a label:
+// the endpoint must not expose topics to users without view_device_analysis.
+func activityLabel(dev registry.DeviceView, uniqueID string) string {
 	for _, entity := range dev.Entities {
-		if entity.UniqueID == message.UniqueID {
-			label = entityDisplayName(dev.Name, entity)
-			break
+		if entity.UniqueID == uniqueID {
+			return entityDisplayName(dev.Name, entity)
 		}
 	}
-	return []activityState{{key: "value", label: label, value: raw}}
+	return "MQTT"
 }
 
 // walkJSONObject expands nested objects into dot paths. An empty nested

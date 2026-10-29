@@ -121,7 +121,7 @@ func TestActivityEmptyPayloadUsesEmptyKey(t *testing.T) {
 
 	entries := buildActivity(dev, nil)
 
-	if len(entries) != 1 || entries[0].Key != "msg-sensor-2026-10-18T10:00:00Z-empty" || entries[0].Label != "sensor/state" || entries[0].Value != "" {
+	if len(entries) != 1 || entries[0].Key != "msg-sensor-2026-10-18T10:00:00Z-empty" || entries[0].Label != "Sensor" || entries[0].Value != "" {
 		t.Fatalf("entries = %+v", entries)
 	}
 }
@@ -194,5 +194,30 @@ func TestActivityEmptyListIsNotNull(t *testing.T) {
 	recorder := deviceAnalysisGET(t, router, "/api/v1/devices/quiet/activity", viewOnlyUser, "")
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"entries":[]`) {
 		t.Fatalf("status %d, want entries []: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestActivityEmptyPayloadHidesTopicWithoutAnalysisRight(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device:            registry.DeviceInfo{ID: "quiet", Name: "Quiet", Manufacturer: "Acme", Model: "Q1"},
+		Entity:            registry.EntityInfo{UniqueID: "quiet_sensor", Component: "sensor", ObjectID: "sensor", Name: "Quiet Sensor", StateTopic: "state/quiet/sensor"},
+		RawJSON:           `{"unique_id":"quiet_sensor"}`,
+		DiscoveryTopic:    "homeassistant/sensor/quiet/sensor/config",
+		DiscoveryRetained: true,
+	})
+	reg.UpdateTopicWithQoS("state/quiet/sensor", []byte(""), false, 0, time.Now().UTC())
+	router := deviceAnalysisRouter(t, reg)
+
+	recorder := deviceAnalysisGET(t, router, "/api/v1/devices/quiet/activity", viewOnlyUser, "")
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK || !strings.Contains(body, `"key":"msg-quiet_sensor-`) {
+		t.Fatalf("status %d, want an empty-payload entry: %s", recorder.Code, body)
+	}
+	if !strings.Contains(body, `"label":"Sensor"`) {
+		t.Fatalf("empty-payload entry not labelled with the entity name: %s", body)
+	}
+	if strings.Contains(body, "state/quiet/sensor") {
+		t.Fatalf("state topic leaked into activity without view_device_analysis: %s", body)
 	}
 }
