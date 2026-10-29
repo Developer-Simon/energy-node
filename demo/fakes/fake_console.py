@@ -20,10 +20,19 @@ Ungueltige Eingaben (ValueError) antworten mit 400 und {"error": text}.
 Unbekannte Tabs oder Pfade antworten mit 404 und JSON.
 
     python3 fake_console.py [--port PORT] [--dashboard URL] [--companion URL]
+                            [--broker-control URL] [--updates URL]
+                            [--installer-state DIR --installer-fixture DIR]
+                            [--system-state FILE --system-events FILE --journal-epoch FILE]
 
 PORT       Standard aus DASHBOARD_SMOKE_CONSOLE_PORT, sonst 18102.
 --dashboard  Basis-URL des Dashboards (wird in Reitern verwendet).
 --companion  Basis-URL des Companions, z. B. https://127.0.0.1:8081.
+--broker-control  Steuer-URL des Fake-Brokers (Reiter MQTT).
+--updates    Basis-URL der Fake-GitHub-API (Reiter Updates).
+--installer-state, --installer-fixture  Installer-Zustand und seine Vorlage
+             (Reiter Updates, Installer-Teil nur mit beiden Argumenten).
+--system-state, --system-events, --journal-epoch  Zustand, Ereignisse und
+             Zeitbasis des System-Helpers (Reiter System, nur mit allen dreien).
 """
 import argparse
 import errno
@@ -32,6 +41,7 @@ import json
 import os
 import sys
 import urllib.parse
+from pathlib import Path
 
 from console_page import PAGE_HTML
 from fakelog import Log
@@ -187,10 +197,24 @@ def make_server(tabs: list[Tab], log: Log, port: int) -> http.server.ThreadingHT
 
 def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
     tabs: list[Tab] = []
+    # Die Reiter-Module importieren Tab und Log aus diesem Modul, deshalb
+    # erst hier importieren.
     if args.companion and args.dashboard:
-        # Import erst hier: console_companion importiert Tab und Log aus diesem Modul.
         from console_companion import CompanionTab
         tabs.append(CompanionTab(log, args.companion, args.dashboard))
+    if args.broker_control:
+        from console_mqtt import MqttTab
+        tabs.append(MqttTab(log, args.broker_control))
+    if args.updates:
+        from console_updates import InstallerState, UpdatesTab
+        installer = None
+        if args.installer_state and args.installer_fixture:
+            installer = InstallerState(Path(args.installer_state), Path(args.installer_fixture))
+        tabs.append(UpdatesTab(log, args.updates, installer))
+    if args.system_state and args.system_events and args.journal_epoch:
+        from console_system import SystemTab
+        tabs.append(SystemTab(log, Path(args.system_state), Path(args.system_events),
+                              Path(args.journal_epoch)))
     return tabs
 
 
@@ -200,6 +224,13 @@ def main(argv: list[str]) -> int:
                         default=int(os.environ.get("DASHBOARD_SMOKE_CONSOLE_PORT", DEFAULT_PORT)))
     parser.add_argument("--dashboard", default="")
     parser.add_argument("--companion", default="")
+    parser.add_argument("--broker-control", default="")
+    parser.add_argument("--updates", default="")
+    parser.add_argument("--installer-state", default="")
+    parser.add_argument("--installer-fixture", default="")
+    parser.add_argument("--system-state", default="")
+    parser.add_argument("--system-events", default="")
+    parser.add_argument("--journal-epoch", default="")
     args = parser.parse_args(argv)
 
     log = Log()

@@ -1,3 +1,4 @@
+import argparse
 import json
 import sys
 import threading
@@ -209,3 +210,49 @@ def test_reset_calls_every_tab_and_logs_failures(status_url):
     last = entries[-1]
     assert (last["source"], last["text"], last["level"]) == (
         "konsole", "Alles auf Start zurückgesetzt", "info")
+
+
+def _fake_tab(name):
+    class FakeTab:
+        def __init__(self, *args):
+            self.args = args
+
+    FakeTab.name = name
+    return FakeTab
+
+
+def _namespace(**kwargs):
+    base = {
+        "port": 0, "dashboard": "", "companion": "", "broker_control": "",
+        "updates": "", "installer_state": "", "installer_fixture": "",
+        "system_state": "", "system_events": "", "journal_epoch": "",
+    }
+    base.update(kwargs)
+    return argparse.Namespace(**base)
+
+
+def test_build_tabs_order_and_conditions(tmp_path, monkeypatch):
+    import console_companion
+    import console_mqtt
+    import console_system
+    import console_updates
+
+    monkeypatch.setattr(console_companion, "CompanionTab", _fake_tab("companion"))
+    monkeypatch.setattr(console_mqtt, "MqttTab", _fake_tab("mqtt"))
+    monkeypatch.setattr(console_updates, "UpdatesTab", _fake_tab("updates"))
+    monkeypatch.setattr(console_system, "SystemTab", _fake_tab("system"))
+    args = _namespace(
+        broker_control="http://127.0.0.1:18285",
+        updates="http://127.0.0.1:18284",
+        installer_state=str(tmp_path / "installer-state"),
+        installer_fixture=str(tmp_path / "installed-state"),
+        system_state=str(tmp_path / "fake-system.json"),
+        system_events=str(tmp_path / "fake-system-events.jsonl"),
+        journal_epoch=str(tmp_path / "journal-epoch"),
+    )
+    tabs = fake_console.build_tabs(args, Log())
+    assert [t.name for t in tabs] == ["mqtt", "updates", "system"]
+
+
+def test_build_tabs_without_args_is_empty():
+    assert fake_console.build_tabs(_namespace(), Log()) == []

@@ -36,8 +36,9 @@ code, stop the demo and start it again.
 
 Default ports are in the 182xx range, so the demo can run next to the smoke
 test (181xx). Set `DASHBOARD_DEMO_PORT`, `DASHBOARD_DEMO_COMPANION_PORT`,
-`DASHBOARD_DEMO_CONSOLE_PORT`, `DASHBOARD_DEMO_MQTT_PORT` and
-`DASHBOARD_DEMO_UPDATES_API_PORT` to use other ports. The demo refuses to start
+`DASHBOARD_DEMO_CONSOLE_PORT`, `DASHBOARD_DEMO_MQTT_PORT`,
+`DASHBOARD_DEMO_UPDATES_API_PORT` and `DASHBOARD_DEMO_BROKER_CONTROL_PORT`
+(default 18285, the control port of the broker) to use other ports. The demo refuses to start
 while one of its ports is taken, and it does not delete anything in that case.
 
 The state lives in `demo/.state/`: users, layout, history and the installer
@@ -46,19 +47,23 @@ which is removed again when the demo ends.
 
 ## Fake console
 
-The console is a small web page with tabs for driving the fakes by hand. Its
-*Companion* tab has three cards. *Kopplung* pairs and unpairs with a code,
-sends a wrong code on purpose, and cuts or reopens the check stream. *HA-Benutzer*
-edits, adds and removes users, and with the manual switch the checks wait for a
-Yes, No or Timeout button. *Verlauf* signs the peer in and out of the exchange,
-sets the days and a factor per energy role, offers again, and injects faults:
-a delay, no answer, or only the first block.
+The console is a web page for driving the fakes by hand. The sidebar lists one
+tab per area with its status. The button *Alles auf Start zurücksetzen* at the
+bottom resets the fakes only. It leaves users, history and the pairing of the
+companion as they are.
 
-A factor only affects periods the dashboard has not fetched yet. The log on the
-right shows what both fake parts report.
+- *Companion*: pairs and unpairs with a code, sends a wrong code on purpose, cuts or reopens the check stream, edits the Home Assistant users with the manual switch, and sets the days, the factor and the faults of the history peer.
+- *MQTT-Broker*: takes a device offline, lets a service refuse or stay silent, switches the simulation, publishes a message and disconnects clients.
+- *Updates*: answers the release check and the download, and sets the installer state to installed, none, previous or reset.
+- *System*: feeds the service logs with journal lines or injected errors, sets how the system helper answers, and sets which system actions succeed.
 
-The automatic run of the smoke test removes the pairing at its end, so create a
-new pairing code in the user management before pairing from the console.
+A factor only affects periods the dashboard has not fetched yet. The automatic
+run of the smoke test removes the pairing at its end, so create a new pairing
+code in the user management before pairing from the console.
+
+The log at the bottom shows the messages of all fakes. The filter *Dieser
+Bereich*, *Alle* or *Nur Fehler* chooses which ones are listed, and *Pause*
+stops the list from growing.
 
 ## Fakes
 
@@ -69,7 +74,13 @@ Each file in `demo/fakes/` imitates one part of the system:
 - `fake_ha_companion.py`: the Home Assistant companion, with pairing, the user table and the checks.
 - `fake_companion.py`: the history peer of the energy statistics, served over TLS.
 - `fake_console.py`: the web console with its tabs.
+- `console_page.py`: the page of the console, with the sidebar, the log and the tab frame.
+- `fakelog.py`: the log of the console, a ring buffer with levels.
+- `console_remote.py`: the JSON client the fakes in their own processes are reached through.
 - `console_companion.py` and `console_companion_ui.py`: the *Companion* tab of the console, server side and page fragment.
+- `console_mqtt.py` and `console_mqtt_ui.py`: the *MQTT-Broker* tab, server side and page fragment.
+- `console_updates.py` and `console_updates_ui.py`: the *Updates* tab, server side and page fragment.
+- `console_system.py` and `console_system_ui.py`: the *System* tab, server side and page fragment.
 - `fake_github_releases.py`: the GitHub releases API, so the update check finds a newer version.
 - `fake_journal_helper.py` and `fake_sudo.sh`: the system action helper and the sudo shim that feed the *Service logs* section.
 - `real_changelog.py`: copies the changelog of this repository into a simulated installer state.

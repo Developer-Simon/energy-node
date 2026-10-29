@@ -55,6 +55,7 @@ COMPANION_PORT="${DASHBOARD_DEMO_COMPANION_PORT:-18201}"
 CONSOLE_PORT="${DASHBOARD_DEMO_CONSOLE_PORT:-18202}"
 MQTT_PORT="${DASHBOARD_DEMO_MQTT_PORT:-18283}"
 UPDATES_API_PORT="${DASHBOARD_DEMO_UPDATES_API_PORT:-18284}"
+BROKER_CONTROL_PORT="${DASHBOARD_DEMO_BROKER_CONTROL_PORT:-18285}"
 
 HTTPS=1
 JOURNAL=1
@@ -88,7 +89,7 @@ if (( ${#EXTRA_DEVICES[@]} > 0 )); then
 fi
 
 # Nichts starten und nichts loeschen, solange einer der Ports belegt ist.
-for port in "$HTTP_PORT" "$COMPANION_PORT" "$CONSOLE_PORT" "$MQTT_PORT" "$UPDATES_API_PORT"; do
+for port in "$HTTP_PORT" "$COMPANION_PORT" "$CONSOLE_PORT" "$MQTT_PORT" "$UPDATES_API_PORT" "$BROKER_CONTROL_PORT"; do
   env_require_port "$port" || exit 1
 done
 
@@ -162,11 +163,15 @@ check_companion() {
 check_console() {
   curl -sf -m 5 "http://127.0.0.1:$CONSOLE_PORT/" > /dev/null
 }
+check_broker_control() {
+  curl -sf -m 5 "http://127.0.0.1:$BROKER_CONTROL_PORT/state" > /dev/null
+}
 check_updates() {
   curl -sf -m 5 "http://127.0.0.1:$UPDATES_API_PORT/" > /dev/null
 }
 check_part "Dashboard" "$WORK/dashboard.log" check_dashboard
 check_part "MQTT-Broker" "$WORK/broker.log" check_broker
+check_part "Broker-Steuerung" "$WORK/broker.log" check_broker_control
 check_part "Fake-Companion" "$WORK/fake-companion.log" check_companion
 check_part "Fake-Konsole" "$WORK/fake-console.log" check_console
 check_part "Fake-GitHub" "$WORK/updates-api.log" check_updates
