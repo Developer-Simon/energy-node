@@ -60,7 +60,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=44">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=45">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -265,15 +265,31 @@
 {{if index .Can "view_diagnostics"}}  <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-script="{{.BasePath}}/static/js/servicelogs.panel.js?v=2" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=20,{{.BasePath}}/static/css/diagnostics.css?v=3"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>{{end}}
   {{end}}
   </div>
+  <!-- Toasts: slot traegt die Hoehe, damit der Stapel beim Gehen weich
+       nachrueckt; clip laesst die Abstandsflaeche mitschrumpfen. Der Toast
+       selbst wird von x-toast-gesture (toast-gesture.js) bedient. Die
+       Haarlinie sitzt in einem keyed x-for, damit eine Wiederholung
+       (toast.run) sie neu erzeugt und der Ablauf wieder von vorn beginnt. -->
   <div class="notification-toasts" x-data aria-live="polite">
     <template x-for="toast in $store.toasts.items" :key="toast.id">
-      <div class="notification-toast" :class="`notification-toast-${toast.severity}`">
-        <span class="notification-toast-message" x-text="toast.message"></span>
-        <span class="notification-toast-count" x-show="toast.count > 1"
-              x-text="`×${toast.count}`"></span>
-        <button type="button" class="notification-toast-close"
-                x-bind:aria-label="$t('notify.close')"
-                x-on:click="$store.toasts.dismiss(toast.id)">×</button>
+      <div class="notification-toast-slot"
+           :class="{ 'is-leaving': toast.state === 'leaving', 'is-swiped': toast.state === 'swiped' }">
+        <div class="notification-toast-clip">
+          <div class="notification-toast" :class="`notification-toast-${toast.severity}`"
+               x-toast-gesture="toast">
+            <svg class="notification-toast-icon" viewBox="0 0 24 24" aria-hidden="true"><use :href="toast.severity === 'info' ? '#ico-check' : '#ico-warning'"></use></svg>
+            <span class="notification-toast-message" x-text="toast.message"></span>
+            <span class="notification-toast-count" x-show="toast.count > 1"
+                  x-text="`×${toast.count}`"></span>
+            <button type="button" class="notification-toast-close"
+                    x-bind:aria-label="$t('notify.close')"
+                    x-on:click="$store.toasts.dismiss(toast.id)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-close"></use></svg></button>
+            <template x-for="run in [toast.run]" :key="run">
+              <i class="notification-toast-timer" :class="{ 'is-paused': toast.paused }"
+                 :style="`animation-duration: ${toast.durationMs}ms`"></i>
+            </template>
+          </div>
+        </div>
       </div>
     </template>
   </div>
@@ -302,7 +318,8 @@
               x-text="$store.modal.confirmLabel"></button>
     </div>
   </dialog>
-  <script src="{{.BasePath}}/static/js/notify.js?v=1" defer></script>
+  <script src="{{.BasePath}}/static/js/notify.js?v=2" defer></script>
+  <script src="{{.BasePath}}/static/js/toast-gesture.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/theme.js" defer></script>
   <script src="{{.BasePath}}/static/js/layout-fill.js" defer></script>
   <script src="{{.BasePath}}/static/js/device-tile.js?v=2" defer></script>

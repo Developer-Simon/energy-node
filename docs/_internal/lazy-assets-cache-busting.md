@@ -69,14 +69,15 @@ As of **2026-10-25**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `44` |
+| `css/base.css` | `45` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
 
 | Asset | `?v=` |
 |---|---|
-| `js/notify.js` | `1` |
+| `js/notify.js` | `2` |
+| `js/toast-gesture.js` | `1` (new, swipe and pause of the toasts) |
 | `js/theme.js` | – |
 | `js/layout-fill.js` | – |
 | `js/device-tile.js` | `2` |
@@ -264,6 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.24 | `css/base.css` (toast redesign: glass, timer line, enter, exit and swipe motion) · `js/notify.js` (toast store: expiry for every severity, hold and release, exit state) · `js/toast-gesture.js` (new, swipe away, rubber band, pause on hover and focus) | `45` · `2` · `1` (new) | 2026-10-29 |
 | v0.10.23 | `js/history-recorder.js` (errors of the leader start shown in the console, opt-in diagnostics log) · `js/history-exchange.js` (start failures shown in the console, opt-in diagnostics log) | `13` · `9` | 2026-10-29 |
 | v0.10.21 | `js/automations-view.js` (devicemap and automations panels, sentences for month days and no new values) · `js/automation-templates.js` (automations panel, templates for the monthly full charge, a silent inverter and the low-tariff wallbox, restart option for the inverter warnings) · `js/automations.page.js` (automations panel, month day chips and the no new values comparison) · `css/automations.css` (automations panel, month day grid and advanced section) · `js/automation-wizard.js` (automations panel, inverter measured filter ignores the actuator lock, own switch of the inverter) | `8` · `4` · `21` · `14` · `4` | 2026-10-27 |
 | v0.10.20 | `css/settings-controls.css` (settings and diagnostics panels, Home Assistant pairing section and its styles) · `js/settings.page.js` (settings panel, no account card for sessions from the companion) · `js/users-model.js` (settings panel, Home Assistant accounts follow their preset) · `js/users.page.js` (settings panel, Home Assistant pairing code, countdown and unpair) | `20` · `29` · `2` · `3` | 2026-10-27 |
