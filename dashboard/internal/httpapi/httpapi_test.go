@@ -2699,3 +2699,18 @@ func TestAutomationDocumentRoutesRequireRulesObject(t *testing.T) {
 		}
 	}
 }
+
+// card_refs sind die Zeilen der Kompaktkarte. Sie kommen aus den Registry-Daten
+// vor dem Entfernen der Analyse-Daten und bleiben deshalb auch fuer Nutzer ohne
+// device_analysis-Recht erhalten.
+func TestDeviceDetailCarriesCardRefs(t *testing.T) {
+	reg := deviceAnalysisRegistry(t, deviceAnalysisMismatchDiscovery)
+	router := deviceAnalysisRouter(t, reg)
+	for _, user := range []*auth.User{viewOnlyUser, analysisUser} {
+		body := decodeDeviceAnalysisBody(t, deviceAnalysisGET(t, router, "/api/v1/devices/shelly", user, ""))
+		refs, ok := body["card_refs"].([]any)
+		if !ok || len(refs) != 1 || refs[0] != "shelly_relay" {
+			t.Fatalf("user %s: card_refs = %#v, want [shelly_relay]", user.Username, body["card_refs"])
+		}
+	}
+}

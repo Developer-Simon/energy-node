@@ -1689,6 +1689,9 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		stamped := []registry.DeviceView{dev}
 		webui.ApplyDevicePrefs(stamped, prefs)
 		dev = stamped[0]
+		// Vor dem Entfernen der Analyse-Daten berechnet: die Kartenzeilen
+		// gehoeren zur Kartenansicht und duerfen nicht vom Analyse-Recht abhaengen.
+		cardRefs := webui.CardRefs(dev)
 		warnings := engine.Device(id, now())
 		commandActions := history.forDevice(id)
 		if !canViewDeviceAnalysis(r) {
@@ -1696,7 +1699,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			warnings = operationalWarnings(warnings)
 			commandActions = []CommandAction{}
 		}
-		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: warnings, CommandActions: commandActions})
+		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: warnings, CommandActions: commandActions, CardRefs: cardRefs})
 	}
 }
 
@@ -1960,6 +1963,7 @@ type deviceDetailResponse struct {
 	registry.DeviceView
 	Warnings       []diagnostics.Warning `json:"warnings"`
 	CommandActions []CommandAction       `json:"command_actions"`
+	CardRefs       []string              `json:"card_refs"`
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
