@@ -21,6 +21,15 @@
   const MAX_VISIBLE_TOASTS = 5;
   const SEVERITIES = ['info', 'warning', 'critical'];
 
+  // Nur eine Aktion mit run-Funktion zaehlt. Ohne Label gilt das Standard-Label.
+  function normalizeAction(action) {
+    if (!action || typeof action.run !== 'function') return null;
+    const label = typeof action.label === 'string' && action.label.trim() !== ''
+      ? action.label
+      : t('common.undo');
+    return { label, run: action.run };
+  }
+
   const toasts = {
     items: [],
     // id -> Timer-Handle fuer das automatische Ausblenden.
@@ -31,16 +40,20 @@
     _holds: {},
     _nextId: 1,
 
-    push(message, severity = 'info') {
+    push(message, severity = 'info', options = {}) {
       if (typeof message !== 'string' || message.trim() === '') return null;
       const level = SEVERITIES.includes(severity) ? severity : 'info';
+      const action = normalizeAction(options && options.action);
       // Entdopplung: runtimeStatusPanel pollt alle 30 s und schreibt bei
       // Ausfall jedes Mal dieselbe Fehlermeldung - ohne Zusammenfassung
       // liefe die Liste in den 5er-Deckel und verdraengte alles andere.
       // Ein Toast, der gerade geht, zaehlt nicht mehr: die Meldung bekommt
-      // dann einen frischen Eintrag.
+      // dann einen frischen Eintrag. Ein Toast mit Aktion geht nie in einen
+      // anderen ueber, auch nicht umgekehrt: die Aktion gehoert zu genau
+      // diesem Ereignis.
       const existing = this.items.find((item) => (
         item.state === 'open' && item.message === message && item.severity === level
+        && !item.action && !action
       ));
       if (existing) {
         existing.count += 1;
@@ -68,9 +81,21 @@
         state: 'open',
         paused: false,
         durationMs: DISMISS_MS[level],
+        action,
       });
       this._arm(id);
       return id;
+    },
+
+    // Fuehrt die Aktion des Toasts einmal aus und schliesst ihn. Nach dem
+    // Schliessen ist der Eintrag im Zustand leaving, ein zweiter Aufruf
+    // findet also nichts Offenes mehr.
+    runAction(id) {
+      const item = this.items.find((entry) => entry.id === id);
+      if (!item || !item.action || item.state !== 'open') return;
+      const { run } = item.action;
+      this.dismiss(id);
+      run();
     },
 
     // via: 'swipe' fuer das Wegwischen, sonst faehrt der Toast den Eintrittsweg

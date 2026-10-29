@@ -57,3 +57,72 @@ test('3.7 der Schaltknopf der Kachel hat 2,75rem Trefferflaeche und eine eigene 
   assert.match(button, /padding:\s*\.7rem/);
   assert.match(ruleBody('.device-tile .entity-command-button:active'), /transform:\s*scale\(\.94\)/);
 });
+
+// Hilfen fuer die Favoritenreihe und das Modal (Task 11): Regeln samt
+// Position im Text und die Bloecke einer Media-Query.
+function allRules() {
+  const rules = [];
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  while ((m = re.exec(css)) !== null) {
+    rules.push({ selector: m[1].trim(), body: m[2], index: m.index });
+  }
+  return rules;
+}
+
+function mediaBlocks(prefix) {
+  const blocks = [];
+  let i = css.indexOf(prefix);
+  while (i !== -1) {
+    const open = css.indexOf('{', i);
+    let depth = 0;
+    let j = open;
+    for (; j < css.length; j++) {
+      if (css[j] === '{') depth++;
+      else if (css[j] === '}') {
+        depth--;
+        if (depth === 0) break;
+      }
+    }
+    blocks.push({ start: open + 1, end: j, body: css.slice(open + 1, j) });
+    i = css.indexOf(prefix, j);
+  }
+  return blocks;
+}
+
+test('11 kein transition: all im Geraete-Modal', () => {
+  const offenders = allRules()
+    .filter((rule) => rule.selector.includes('.device-modal-'))
+    .filter((rule) => /transition:\s*all\b/.test(rule.body))
+    .map((rule) => rule.selector);
+  assert.deepEqual(offenders, [], 'transition: all ist im Modal verboten');
+});
+
+test('11 device-modal-star hat eine prefers-reduced-motion-Regel', () => {
+  const reduced = mediaBlocks('@media (prefers-reduced-motion: reduce)');
+  assert.ok(
+    reduced.some((block) => /\.device-modal-star\b/.test(block.body)),
+    'reduced-motion-Regel fuer .device-modal-star fehlt',
+  );
+});
+
+test('11 die Hover-Regel des Sterns steht unter (hover: hover) and (pointer: fine)', () => {
+  const fine = mediaBlocks('@media (hover: hover) and (pointer: fine)');
+  assert.ok(
+    fine.some((block) => /\.device-modal-star\b/.test(block.body) && /:hover/.test(block.body)),
+    'keine Hover-Regel fuer .device-modal-star im Feinzeiger-Block',
+  );
+  const outside = allRules().filter((rule) =>
+    rule.selector.includes('.device-modal-star') &&
+    (rule.selector.includes(':hover') || rule.selector.includes(':focus-within')) &&
+    !fine.some((block) => rule.index > block.start && rule.index < block.end),
+  );
+  assert.deepEqual(outside.map((rule) => rule.selector), [], 'Stern-Hover ausserhalb des Feinzeiger-Blocks');
+});
+
+test('11 die eintretende Favoritenkachel blendet mit 220 ms var(--ease-out) ein', () => {
+  const rule = allRules().find((r) => r.selector.includes('.device-modal-hero') && /animation:/.test(r.body));
+  assert.ok(rule, 'Animationsregel fuer die Favoritenreihe fehlt');
+  assert.match(rule.body, /220ms\s+var\(--ease-out\)/);
+  assert.match(css, /@keyframes device-modal-hero-enter\s*\{[^}]*opacity:\s*0[^}]*scale\(\.96\)/);
+});

@@ -14,13 +14,54 @@ can switch, and where it comes from.
 ## Header and side column
 
 The header shows the device icon, its name, an online pill and manufacturer and
-model. The side column on the left holds the device ID, the number of entities,
-the devices it is linked to and the latest activity. A linked device is a chip:
+model. Click the icon to choose another one, see [Icon](#icon). The **⋯**
+button opens the [more menu](#more-menu).
+
+The side column on the left holds the device ID, the number of entities, the
+devices it is linked to and the latest activity. A linked device is a chip:
 click it to jump to that device. **Manage sub-devices** appears for devices that
 measure power, see [sub-devices](device-map.md#sub-devices).
 
-Favourite values, if any are set, are pinned above the tabs so the numbers you
-care about are visible without opening anything.
+## Favourites
+
+Each measurement and control tile has a star. Click it to mark the entity as a
+favourite. A device can have up to three favourites. A fourth star is not
+saved, the dialog shows **At most 3 favourites.** instead.
+
+Changes are saved at once and a toast confirms them with **Favourites saved.**
+and an **Undo** button. Undo puts the previous choice back.
+
+The favourites row sits at the top of the dialog, above the tabs. It shows the
+favourites as tiles with their live values. If fewer than three favourites are
+set, the row fills the free places with measurements of the device on its own.
+Those tiles carry an **Auto** label and their star stays empty. The compact
+card of the device shows the same rows, so both always match.
+
+Stars need the right to style devices, see [rights](#rights). Without it the
+row still shows the values, but no stars.
+
+## Icon
+
+Click the device icon in the header to open the icon picker. It lists the icon
+catalogue by category. Choosing an icon saves it at once with **Icon saved.**
+and an **Undo** button.
+
+A device without a chosen icon shows the suggested icon for its type, labelled
+**(suggested)** in the picker. Choosing the suggestion stores no custom icon,
+so the device keeps following its type.
+
+## More menu
+
+The **⋯** button, labelled **More actions**, offers:
+
+- **Reload discovery** rebuilds the discovery of this device from the retained
+  MQTT topics.
+- **Ignore device** hides the device after a confirmation. Ignoring is
+  reversible: the device is listed under the ignored devices and can be
+  reactivated there.
+- **Remove discovery** deletes the retained discovery topics of the device from
+  the broker. A confirmation first lists exactly what will be deleted and which
+  configuration still refers to the device. Only administrators can do that.
 
 ## Measurements and controls
 
@@ -42,29 +83,47 @@ read-only.
 
 Each tab carries a small counter with the number of entities inside.
 
-## Management and analysis
+## Analysis
 
-The last tab is for housekeeping:
+The last tab is labelled **Analysis**. It is only shown to users with the
+[device analysis right](#rights). It has two parts:
 
-- **Appearance** sets the device icon and up to three favourites, and whether
-  they are pinned to the top of the dialog. Without a choice, favourites are
-  picked automatically. The settings apply to everyone who opens the dashboard,
-  so they need the permission to edit the layout.
-- **Warnings** explain what is wrong with the device, for example an entity
-  that stopped reporting, with the affected entities and a hint.
-- **Latest MQTT messages**, **Discovery** and **Latest write actions** show
-  what the device sent, how it announced itself and which commands the
-  dashboard sent to it. The discovery payload of each entity is one click away.
-  This is the quickest way to find out why Home Assistant sees a device
-  differently from the dashboard.
-- **Device management** ignores the device, or removes its discovery. Ignoring
-  is reversible, the device is listed under the ignored devices and can be
-  reactivated there. Removing the discovery deletes the retained discovery
-  topics from the broker. A confirmation first lists exactly what will be
-  deleted and which configuration still refers to the device. Only
-  administrators can do that.
+- **Warnings** explain what is wrong with the configuration of the device, for
+  example an entity that stopped reporting, with the affected entities and a
+  hint. Operational warnings, such as a device that is offline, appear above
+  the tabs.
+- **Entities** lists every entity of the device. Each row shows its name, a
+  warning chip for stale entities and the number of commands sent to it. Click
+  a row to open it. It shows the state topic, the last message, the commands
+  with their results, and the discovery topic and source. The discovery payload
+  sits behind **Show**. This is the quickest way to find out why Home Assistant
+  sees a device differently from the dashboard.
 
-![Management and analysis tab](../images/dashboard-device-modal-manage.png)
+![Analysis tab](../images/dashboard-device-modal-manage.png)
+
+## Rights
+
+Three rights shape the dialog. They are set per user on the users page.
+
+- **Device analysis** (`view_device_analysis`, needs **Devices**) shows the
+  Analysis tab with the raw data of the device: discovery payloads, the last
+  MQTT message of each entity, the command history and the configuration
+  warnings.
+- **Style devices** (`edit_device_appearance`, needs **Devices**) allows the
+  stars and the icon. Without it neither is offered, and the server refuses
+  such a change.
+- **Arrange the overview** (`edit_layout`) only controls the layout of the
+  overview now. Favourites and icons of a device no longer depend on it.
+
+Without **Device analysis** the server withholds the analysis data, not only the
+tab. The device data leaves out discovery payloads and the last MQTT message of
+each entity, which is reduced to its time. The command history is empty, and
+only the operational warnings are returned. The activity list of the side
+column still shows the latest values, but never topics.
+
+When the users file is upgraded to the current version, the rights are carried
+over once and automatically. Users with **Devices** receive **Device analysis**,
+and users with **Arrange the overview** receive **Style devices**.
 
 ## On narrow screens
 

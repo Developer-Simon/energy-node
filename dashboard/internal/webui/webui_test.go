@@ -1130,7 +1130,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=45"`,
+		`href="/node/static/css/base.css?v=46"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -2794,35 +2794,71 @@ func TestApplyDevicePrefsStampsSnapshot(t *testing.T) {
 	}
 }
 
+// Favoriten stehen vorn, in der gewaehlten Reihenfolge; die Automatik fuellt
+// die freien Zeilen auf drei, ohne einen Favoriten doppelt zu zeigen.
+func TestPriorityEntitiesFillsAfterFavourites(t *testing.T) {
+	dev := devicePrefsTestDevice()
+	dev.FavoriteRefs = []string{"node_relay"}
+
+	picked := priorityEntities(dev)
+
+	want := []string{"node_relay", "node_temp", "node_uptime"}
+	if len(picked) != len(want) {
+		t.Fatalf("priorityEntities = %v, want %v", picked, want)
+	}
+	for i, id := range want {
+		if picked[i].UniqueID != id {
+			t.Fatalf("priorityEntities[%d] = %s, want %s (all %v)", i, picked[i].UniqueID, id, want)
+		}
+	}
+}
+
+// Die Favoriten bleiben in der gewaehlten Reihenfolge vorn, die Automatik
+// fuellt nur den Rest auf.
 func TestPriorityEntitiesUsesFavouritesInOrder(t *testing.T) {
 	dev := devicePrefsTestDevice()
 	dev.FavoriteRefs = []string{"node_relay", "node_temp"}
 
 	picked := priorityEntities(dev)
 
-	if len(picked) != 2 || picked[0].UniqueID != "node_relay" || picked[1].UniqueID != "node_temp" {
-		t.Fatalf("priorityEntities = %v, want the favourites in the picked order", picked)
+	want := []string{"node_relay", "node_temp", "node_uptime"}
+	if len(picked) != len(want) {
+		t.Fatalf("priorityEntities = %v, want %v", picked, want)
+	}
+	for i, id := range want {
+		if picked[i].UniqueID != id {
+			t.Fatalf("priorityEntities[%d] = %s, want %s (all %v)", i, picked[i].UniqueID, id, want)
+		}
 	}
 }
 
+// Ein Favorit ohne Wert verliert seinen Platz nicht: er steht vorn, die
+// Automatik fuellt die uebrigen zwei Zeilen.
 func TestPriorityEntitiesKeepsFavouriteWithoutValue(t *testing.T) {
 	dev := devicePrefsTestDevice()
 	dev.FavoriteRefs = []string{"node_pending"}
 
 	picked := priorityEntities(dev)
 
-	if len(picked) != 1 || picked[0].UniqueID != "node_pending" {
-		t.Fatalf("priorityEntities = %v, want an explicitly picked entity even without a value", picked)
+	if len(picked) != 3 || picked[0].UniqueID != "node_pending" {
+		t.Fatalf("priorityEntities = %v, want the pending favourite first and three rows in total", picked)
 	}
 }
 
-func TestPriorityEntitiesSkipsOrphanFavouriteAndFallsBackWhenEmpty(t *testing.T) {
+// Ein verwaister Favoriten-Ref belegt keinen Platz: die Automatik fuellt
+// die Karte, als haette es ihn nie gegeben.
+func TestPriorityEntitiesSkipsOrphanFavourite(t *testing.T) {
 	dev := devicePrefsTestDevice()
 	dev.FavoriteRefs = []string{"node_gone", "node_temp"}
 
 	picked := priorityEntities(dev)
-	if len(picked) != 1 || picked[0].UniqueID != "node_temp" {
-		t.Fatalf("priorityEntities = %v, want the orphan ref skipped silently", picked)
+	if len(picked) != 3 || picked[0].UniqueID != "node_temp" {
+		t.Fatalf("priorityEntities = %v, want node_temp first and three rows in total", picked)
+	}
+	for _, entity := range picked {
+		if entity.UniqueID == "node_gone" {
+			t.Fatalf("priorityEntities = %v, want the orphan ref to take no row", picked)
+		}
 	}
 
 	dev.FavoriteRefs = nil
@@ -3102,8 +3138,8 @@ func TestCompactRowsFollowPriorityAndCarryTheLabel(t *testing.T) {
 		t.Fatalf("leere Auswahl = %#v, want leeres Slice", got)
 	}
 	dev.FavoriteRefs = []string{"a2"}
-	if rows := CompactRows(dev); len(rows) != 1 || rows[0].ID != "a2" {
-		t.Fatalf("Favoriten ignoriert: %+v", rows)
+	if rows := CompactRows(dev); len(rows) != 2 || rows[0].ID != "a2" || rows[1].ID != "a1" {
+		t.Fatalf("Favorit nicht vorn oder Automatik fuellt nicht auf: %+v", rows)
 	}
 }
 

@@ -4,7 +4,7 @@ import "errors"
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 3
+const usersFileVersion = 4
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -43,7 +43,7 @@ func migrateV1(users map[string]User) []string {
 			roles = append(roles, RoleInstallUpdates, RoleUpdateSettings, RoleTailscale, RoleViewLogs, RoleUserManagement)
 		}
 		// Schritt 5 (Version 3): Einrichten trennen, siehe migrateV2.
-		user.Roles = Normalize(migrateV2(roles, user.Guest))
+		user.Roles = Normalize(migrateV3(migrateV2(roles, user.Guest)))
 		users[name] = user
 	}
 	// Schritt 4: die sechs bisherigen Gastrollen plus die Ergaenzungen aus
@@ -51,7 +51,7 @@ func migrateV1(users map[string]User) []string {
 	guest := append([]string(nil), legacyGuestRoles...)
 	guest = append(guest, viewRoleKeys()...)
 	guest = append(guest, RoleOperateDevices, RoleEditSettings, RoleEditConfig, RoleOperateAutomations)
-	return Normalize(guestAllowedOnly(migrateV2(guest, true)))
+	return Normalize(guestAllowedOnly(migrateV3(migrateV2(guest, true))))
 }
 
 // migrateV2 bringt die Rollen einer Datei der Version 2 nach Version 3: das
@@ -80,6 +80,21 @@ func migrateV2(roles []string, guest bool) []string {
 	}
 	if !guest && containsRole(Normalize(roles), RoleEditConfig) {
 		out = append(out, RoleSetupTinyTuya)
+	}
+	return out
+}
+
+// migrateV3 bringt die Geraete-Rechte einer Datei der Version 3 nach Version 4:
+// wer view_devices hat, bekommt view_device_analysis, wer edit_layout hat,
+// bekommt edit_device_appearance. Die Eingabe sind rohe Rollen, es gibt kein
+// Normalize, die Aufrufer normalisieren selbst.
+func migrateV3(roles []string) []string {
+	out := append([]string(nil), roles...)
+	if containsRole(roles, RoleViewDevices) {
+		out = append(out, RoleViewDeviceAnalysis)
+	}
+	if containsRole(roles, RoleEditLayout) {
+		out = append(out, RoleEditDeviceAppearance)
 	}
 	return out
 }

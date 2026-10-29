@@ -2584,3 +2584,133 @@ func TestAuthSessionReportsDeviceMapRoles(t *testing.T) {
 		t.Fatalf("Gäste haben RoleEditDeviceMapView, das Flag fehlt aber: %v", session)
 	}
 }
+
+func TestSessionReportsDeviceRights(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewAuthenticatedRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
+	cookie, _ := loginWithRoles(t, router, manager, "dora", []string{auth.RoleViewDevices, auth.RoleViewDeviceAnalysis})
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", nil)
+	request.Header.Set("X-Forwarded-Proto", "https")
+	request.AddCookie(cookie)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("session status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	var session map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &session); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if session["view_device_analysis"] != true {
+		t.Errorf("view_device_analysis = %v, want true", session["view_device_analysis"])
+	}
+	if session["edit_device_appearance"] != false {
+		t.Errorf("edit_device_appearance = %v, want false", session["edit_device_appearance"])
+	}
+}
+
+func TestDevicePrefsNeedDeviceAppearance(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := settings.NewStore(t.TempDir())
+	router := NewAuthenticatedRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
+
+	put := func(cookie *http.Cookie, csrf string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPut, "/api/v1/device/prefs/node", strings.NewReader(`{"icon":"mdi:raspberry-pi"}`))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("X-Forwarded-Proto", "https")
+		request.Header.Set("X-CSRF-Token", csrf)
+		request.AddCookie(cookie)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	layoutCookie, layoutCSRF := loginWithRoles(t, router, manager, "lena", []string{auth.RoleViewDevices, auth.RoleEditLayout})
+	denied := put(layoutCookie, layoutCSRF)
+	if denied.Code != http.StatusForbidden || !strings.Contains(denied.Body.String(), "device_prefs_forbidden") {
+		t.Fatalf("edit_layout only: status %d body %s, want 403 device_prefs_forbidden", denied.Code, denied.Body.String())
+	}
+
+	appearanceCookie, appearanceCSRF := loginWithRoles(t, router, manager, "ada", []string{auth.RoleViewDevices, auth.RoleEditDeviceAppearance})
+	allowed := put(appearanceCookie, appearanceCSRF)
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("edit_device_appearance: status %d body %s, want 200", allowed.Code, allowed.Body.String())
+	}
+}
+
+// The automations page reads the test result through its own route instead of
+// the device route's last_message, which is empty for users without
+// view_device_analysis. The document is returned raw, without a rules key.
+func TestAutomationTestResultDocument(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_test_result", ObjectID: "test_result",
+			StateTopic: "outstation/automation/test/result", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	document := `{"at":1760500000.1,"rule_id":"r1","action_index":0,"status":"published","topic":"shellies/wallbox/relay/0/command"}`
+	reg.UpdateState("outstation/automation/test/result", []byte(document), true, time.Now().UTC())
+
+	recorder := httptest.NewRecorder()
+	NewRouter(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automation/test-result", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("test result response %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder.Body.String() != document {
+		t.Fatalf("test result body = %s, want the raw document %s", recorder.Body.String(), document)
+	}
+}
+
+// The state and history documents must carry a rules object, otherwise the
+// route answers 204 and the page keeps what it last showed.
+func TestAutomationDocumentRoutesRequireRulesObject(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_state", ObjectID: "state",
+			StateTopic: "outstation/automation/state", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_history", ObjectID: "history",
+			StateTopic: "outstation/automation/history", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	reg.UpdateState("outstation/automation/state", []byte(`{"at":1760500000.1,"online":true}`), true, time.Now().UTC())
+	reg.UpdateState("outstation/automation/history", []byte(`{"at":1760500000.1,"rules":null}`), true, time.Now().UTC())
+
+	for _, path := range []string{"/api/v1/automation/state", "/api/v1/automation/history"} {
+		recorder := httptest.NewRecorder()
+		NewRouter(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusNoContent {
+			t.Fatalf("%s without a rules object should 204, got %d: %s", path, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
+// card_refs sind die Zeilen der Kompaktkarte. Sie kommen aus den Registry-Daten
+// vor dem Entfernen der Analyse-Daten und bleiben deshalb auch fuer Nutzer ohne
+// device_analysis-Recht erhalten.
+func TestDeviceDetailCarriesCardRefs(t *testing.T) {
+	reg := deviceAnalysisRegistry(t, deviceAnalysisMismatchDiscovery)
+	router := deviceAnalysisRouter(t, reg)
+	for _, user := range []*auth.User{viewOnlyUser, analysisUser} {
+		body := decodeDeviceAnalysisBody(t, deviceAnalysisGET(t, router, "/api/v1/devices/shelly", user, ""))
+		refs, ok := body["card_refs"].([]any)
+		if !ok || len(refs) != 1 || refs[0] != "shelly_relay" {
+			t.Fatalf("user %s: card_refs = %#v, want [shelly_relay]", user.Username, body["card_refs"])
+		}
+	}
+}

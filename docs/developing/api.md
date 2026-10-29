@@ -110,6 +110,7 @@ management page shows them. The source is `internal/auth/roles.go`.
 |---|---|---|---|---|
 | `view_overview` | view | – | no | yes |
 | `view_devices` | view | – | no | yes |
+| `view_device_analysis` | view | `view_devices` | no | yes |
 | `view_history` | view | – | no | yes |
 | `view_stats` | view | – | no | yes |
 | `view_energy` | view | – | no | yes |
@@ -120,6 +121,7 @@ management page shows them. The source is `internal/auth/roles.go`.
 | `operate_devices` | operate | `view_devices` | no | yes |
 | `operate_automations` | operate | `view_automations` | no | yes |
 | `edit_layout` | design | `view_overview` | no | yes |
+| `edit_device_appearance` | design | `view_devices` | no | yes |
 | `edit_device_map_view` | design | `view_device_map` | no | yes |
 | `edit_settings` | design | – | no | yes |
 | `automations` | setup | `view_automations` | no | yes |
@@ -260,6 +262,8 @@ the role or other requirements.
   "mqtt_config": true,
   "automations": true,
   "edit_layout": false,
+  "view_device_analysis": false,
+  "edit_device_appearance": false,
   "csrf_token": "…",
   "expires_at": "2026-08-12T09:00:00Z"
 }
@@ -270,8 +274,9 @@ the role or other requirements.
 | Method | Path | Gate | Purpose |
 |---|---|---|---|
 | GET | `/api/v1/devices` | – | All devices with entities and live values |
-| GET | `/api/v1/devices/{id}` | – | A single device including `warnings` and `command_actions` |
+| GET | `/api/v1/devices/{id}` | – | A single device including `warnings`, `command_actions` and `card_refs`. `card_refs` lists the entity IDs of the compact card rows, favourites first, at most three. Without `view_device_analysis` the discovery payloads and last messages are removed, `command_actions` is empty and only the operational warnings are returned |
 | GET | `/api/v1/devices/{id}/diagnostics` | – | The device's diagnostic warnings |
+| GET | `/api/v1/devices/{id}/activity` | `view_devices` | Recent commands (up to 3, `kind` `command`) and the states of the 3 newest messages (`kind` `message`) as `{"entries": [...]}`. Each entry has `key`, `at`, `kind`, `label`, `value` and `ok`, where `ok` marks a published command. Topics are never included, and `entries` is never `null`. The analysis right does not apply here |
 | POST | `/api/v1/devices/{id}/reload` | – | Rebuild the registry completely |
 | POST | `/api/v1/devices/{id}/ignore` | CSRF | Hide device |
 | POST | `/api/v1/devices/{id}/unignore` | CSRF | Undo hiding |
@@ -557,7 +562,7 @@ The dashboard then publishes to the fixed topic
 | POST | `/api/v1/layout/restore` | – | Restore layout |
 | GET | `/api/v1/device/icons` | – | Icon catalogue (name, label, markup) |
 | GET | `/api/v1/device/prefs` | – | Device preferences document |
-| PUT | `/api/v1/device/prefs/{device_id}` | `edit_layout` + CSRF | Save icon, favourites, and pinning |
+| PUT | `/api/v1/device/prefs/{device_id}` | `edit_device_appearance` + CSRF | Save icon and favourites |
 | GET/PUT | `/api/v1/device/map` | – | Device card including manual edges |
 | GET | `/api/v1/device/map/revisions` | – | Revisions |
 | POST | `/api/v1/device/map/restore` | – | Restore |
@@ -607,8 +612,8 @@ stores, `mdi` is the matching Material Design icon for Home Assistant
 discovery. Entries of one `category` are contiguous.
 
 **`GET /api/v1/device/prefs`** returns the complete `device-prefs.json` with the
-`icon`, `favorite_refs` and `pin_favorites` of every device. All browser
-sessions share it.
+`icon` and `favorite_refs` of every device. Older records may still carry
+`pin_favorites`, which nothing reads any more. All browser sessions share it.
 
 **`PUT /api/v1/device/prefs/{device_id}`**, with `{device_id}` URL-encoded.
 The body contains the fields to change:
@@ -616,8 +621,7 @@ The body contains the fields to change:
 ```json
 {
   "icon": "mdi:solar-panel",
-  "favorite_refs": ["entity-1", "entity-2"],
-  "pin_favorites": true
+  "favorite_refs": ["entity-1", "entity-2"]
 }
 ```
 
@@ -627,11 +631,12 @@ The server merges the changes into the saved document and returns the updated
 - `icon` must match `^mdi:[a-z0-9-]+$` (names from the icon catalogue). `null`
   or a missing field clears the custom icon.
 - `favorite_refs` is an array of at most 3 entity IDs. Leave it out to clear it.
-- `pin_favorites` is a boolean. Leave it out to clear it.
+- `pin_favorites` is no longer used. The server still accepts it as a boolean
+  and stores it, but the dashboard ignores it, so new clients leave it out.
 
 A validation error returns `400` with `device_prefs_rejected`. With
-authentication active, the endpoint needs the `edit_layout` role and a CSRF
-token, like every endpoint that changes the layout.
+authentication active, the endpoint needs the `edit_device_appearance` role and a
+CSRF token.
 
 `POST /api/v1/device/map/relations` expects
 `{"child_id":"…","parent_id":"…","kind":"via_device"}` and rejects

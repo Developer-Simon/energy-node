@@ -308,8 +308,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/topics", handleTopics(reg))
 	g.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
 	g.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
-	g.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
-	g.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
+	g.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "rules", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
+	g.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "rules", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
+	g.HandleFunc("/api/v1/automation/test-result", handleAutomationDocument(reg, "test_result", "", "error.automation_not_found.no_test_result_topic", "Automations-Dienst ohne test_result-Topic"))
 	resolver := dependencies.Resolver
 	if resolver == nil {
 		resolver = energy.NewResolver(nil)
@@ -759,6 +760,8 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, 
 		"mqtt_config":             auth.HasRole(user, auth.RoleMQTTConfig),
 		"automations":             auth.HasRole(user, auth.RoleAutomations),
 		"edit_layout":             auth.HasRole(user, auth.RoleEditLayout),
+		"view_device_analysis":    auth.HasRole(user, auth.RoleViewDeviceAnalysis),
+		"edit_device_appearance":  auth.HasRole(user, auth.RoleEditDeviceAppearance),
 		"edit_energy":             auth.HasRole(user, auth.RoleEditEnergy),
 		"edit_device_map":         auth.HasRole(user, auth.RoleEditDeviceMap),
 		"edit_device_map_view":    auth.HasRole(user, auth.RoleEditDeviceMapView),
@@ -1279,7 +1282,20 @@ func handleDevices(reg *registry.Registry) http.HandlerFunc {
 			methodNotAllowed(w, http.MethodGet)
 			return
 		}
-		writeVersionedJSON(w, r, reg.Version(), reg.Snapshot())
+		// Version vor dem Snapshot lesen: der Inhalt ist dann nie neuer als sein
+		// ETag, eine Aenderung dazwischen erzeugt hoechstens einen unnoetigen Abruf.
+		version := reg.Version()
+		snapshot := reg.Snapshot()
+		if canViewDeviceAnalysis(r) {
+			writeVersionedJSON(w, r, version, snapshot)
+			return
+		}
+		for i := range snapshot {
+			snapshot[i] = stripDeviceAnalysis(snapshot[i])
+		}
+		// Gefilterte und volle Antwort teilen dieselbe Registry-Version, deshalb
+		// braucht die gefilterte Sicht einen eigenen ETag.
+		writeVersionedJSONVariant(w, r, version, "no-analysis", snapshot)
 	}
 }
 
@@ -1422,7 +1438,9 @@ func handleAutomationNotification(reg *registry.Registry) http.HandlerFunc {
 // also covers settings.history_persist=false, unlike
 // /api/v1/automations/history/<id>, which reads the persisted file. A 204
 // means no usable document yet, so the client keeps whatever it last showed.
-func handleAutomationDocument(reg *registry.Registry, objectID, missingTopicKey, missingTopicMessage string) http.HandlerFunc {
+// requiredKey names a key whose value must be a JSON object ("rules" for state
+// and history); "" accepts any JSON object, as the flat test_result document needs.
+func handleAutomationDocument(reg *registry.Registry, objectID, requiredKey, missingTopicKey, missingTopicMessage string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w, http.MethodGet)
@@ -1449,12 +1467,17 @@ func handleAutomationDocument(reg *registry.Registry, objectID, missingTopicKey,
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		var document struct {
-			Rules map[string]json.RawMessage `json:"rules"`
-		}
-		if err := json.Unmarshal([]byte(payload), &document); err != nil || document.Rules == nil {
+		var document map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(payload), &document); err != nil || document == nil {
 			w.WriteHeader(http.StatusNoContent)
 			return
+		}
+		if requiredKey != "" {
+			var required map[string]json.RawMessage
+			if err := json.Unmarshal(document[requiredKey], &required); err != nil || required == nil {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(payload))
@@ -1601,6 +1624,22 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			writeJSON(w, map[string]any{"device_id": id, "status": "discovery_deleted"})
 			return
 		}
+		if len(parts) == 2 && parts[1] == "activity" {
+			if r.Method != http.MethodGet {
+				methodNotAllowed(w, http.MethodGet)
+				return
+			}
+			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
+				return
+			}
+			dev, ok := reg.Get(id)
+			if !ok {
+				writeErrorKey(w, http.StatusNotFound, "device_not_found", "error.device_not_found.device", nil, "Gerät wurde nicht gefunden")
+				return
+			}
+			writeJSON(w, map[string]any{"entries": buildActivity(dev, history.forDevice(id))})
+			return
+		}
 		if len(parts) == 2 && parts[1] == "reload" {
 			if r.Method != http.MethodPost {
 				methodNotAllowed(w, http.MethodPost)
@@ -1650,18 +1689,28 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		stamped := []registry.DeviceView{dev}
 		webui.ApplyDevicePrefs(stamped, prefs)
 		dev = stamped[0]
-		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: engine.Device(id, now()), CommandActions: history.forDevice(id)})
+		// Vor dem Entfernen der Analyse-Daten berechnet: die Kartenzeilen
+		// gehoeren zur Kartenansicht und duerfen nicht vom Analyse-Recht abhaengen.
+		cardRefs := webui.CardRefs(dev)
+		warnings := engine.Device(id, now())
+		commandActions := history.forDevice(id)
+		if !canViewDeviceAnalysis(r) {
+			dev = stripDeviceAnalysis(dev)
+			warnings = operationalWarnings(warnings)
+			commandActions = []CommandAction{}
+		}
+		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: warnings, CommandActions: commandActions, CardRefs: cardRefs})
 	}
 }
 
-// requireLayoutMutation gates writes that change shared display
-// configuration. Deliberately stricter than the plain /api/v1/layout PUT
-// (which predates the auth manager): an instance running without
+// requireDeviceAppearanceMutation gates writes of device preferences (icon,
+// favourites, pin flag). Deliberately stricter than the plain /api/v1/layout
+// PUT (which predates the auth manager): an instance running without
 // authentication keeps working unchanged, but as soon as there are sessions,
-// the caller needs the role the layout editor asks for plus a valid CSRF
-// token - device preferences are visible to everyone who opens this
-// dashboard, not a private per-browser setting.
-func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+// the caller needs edit_device_appearance plus a valid CSRF token - device
+// preferences are visible to everyone who opens this dashboard, not a private
+// per-browser setting.
+func requireDeviceAppearanceMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
 	if manager == nil {
 		return true
 	}
@@ -1670,7 +1719,7 @@ func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 		return false
 	}
-	if !auth.HasRole(user, auth.RoleEditLayout) {
+	if !auth.HasRole(user, auth.RoleEditDeviceAppearance) {
 		writeError(w, http.StatusForbidden, "device_prefs_forbidden", "Für das Ändern der Darstellung fehlt die Berechtigung")
 		return false
 	}
@@ -1684,7 +1733,7 @@ func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth
 
 // requireEnergyMutation gates every write of energy.json (roles,
 // interpretation, groups, categories, restore). Same shape as
-// requireLayoutMutation: without an auth manager everything passes,
+// requireDeviceAppearanceMutation: without an auth manager everything passes,
 // otherwise the caller needs edit_energy plus a valid CSRF token.
 func requireEnergyMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
 	if manager == nil {
@@ -1914,6 +1963,7 @@ type deviceDetailResponse struct {
 	registry.DeviceView
 	Warnings       []diagnostics.Warning `json:"warnings"`
 	CommandActions []CommandAction       `json:"command_actions"`
+	CardRefs       []string              `json:"card_refs"`
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -1925,7 +1975,16 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func writeVersionedJSON(w http.ResponseWriter, r *http.Request, version uint64, value any) {
+	writeVersionedJSONVariant(w, r, version, "", value)
+}
+
+// writeVersionedJSONVariant tags the ETag with variant, so that responses
+// with different content for the same registry version never share one.
+func writeVersionedJSONVariant(w http.ResponseWriter, r *http.Request, version uint64, variant string, value any) {
 	etag := fmt.Sprintf("\"registry-%d\"", version)
+	if variant != "" {
+		etag = fmt.Sprintf("\"registry-%d-%s\"", version, variant)
+	}
 	w.Header().Set("ETag", etag)
 	if r.Header.Get("If-None-Match") == etag {
 		w.WriteHeader(http.StatusNotModified)
@@ -2723,7 +2782,7 @@ func handleDevicePrefsEntry(store *settings.Store, manager *auth.Manager) http.H
 			methodNotAllowed(w, http.MethodPut)
 			return
 		}
-		if !requireLayoutMutation(w, r, manager) {
+		if !requireDeviceAppearanceMutation(w, r, manager) {
 			return
 		}
 		var entry settings.DevicePrefsEntry

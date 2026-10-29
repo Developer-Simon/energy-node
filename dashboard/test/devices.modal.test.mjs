@@ -83,9 +83,14 @@ test('defaultDeviceTab waehlt den ersten nicht-leeren Entitaets-Tab', () => {
   assert.equal(panel.defaultDeviceTab(), 'controls');
 });
 
-test('defaultDeviceTab faellt auf management zurueck, wenn keine Entitaet passt', () => {
+test('ohne view_device_analysis gibt es keinen Analyse-Tab und kein Rueckfall darauf', () => {
   const panel = createDevicesPanel();
   panel.deviceDetail = { name: 'x', entities: [] };
+  panel.canViewAnalysis = false;
+  assert.equal(panel.defaultDeviceTab(), 'deviceInfo');
+  panel.setDeviceTab('management');
+  assert.notEqual(panel.activeDeviceTab, 'management');
+  panel.canViewAnalysis = true;
   assert.equal(panel.defaultDeviceTab(), 'management');
 });
 
@@ -117,15 +122,19 @@ test('relativeTime formatiert Sekunden, Minuten und Stunden', () => {
   assert.equal(panel.relativeTime(new Date('2026-08-28T10:00:00Z'), now), 'vor 2 h');
 });
 
-test('managementTeaser kombiniert Warn-Anzahl und letzte Aktivitaet', () => {
+test('managementTeaser zaehlt nur Konfigurationswarnungen', () => {
   const panel = createDevicesPanel();
-  const now = new Date('2026-08-28T12:00:00Z');
   panel.deviceDetail = {
     name: 'x', entities: [],
-    warnings: [{ rule_id: 'r1', severity: 'warning', message: 'm', hint: '' }],
+    warnings: [
+      { rule_id: 'Offline', severity: 'critical', message: 'off', hint: '', operational: true },
+      { rule_id: 'Naming', severity: 'warning', message: 'naming', hint: '', operational: false },
+    ],
     command_actions: [{ at: '2026-08-28T11:59:48Z', entity_id: 'e1', result: 'published' }],
   };
-  assert.equal(panel.managementTeaser(now), '⚠ 1 · vor 12 s');
+  assert.equal(panel.managementTeaser(), '⚠ 1');
+  panel.deviceDetail.warnings = [];
+  assert.equal(panel.managementTeaser(), '');
 });
 
 function measureAndControl() {
@@ -191,80 +200,145 @@ test('applyMergeThreshold ruehrt den Merge-Zustand nicht an, solange ein anderer
   assert.equal(panel.activeDeviceTab, 'configDiag');
 });
 
-// messageStates baut seine Objekte im vm-Kontext von dashboard.js - ein
-// realmuebergreifendes deepStrictEqual scheitert am Prototyp, deshalb hier
-// feldweise geprueft.
-function plainStates(states) {
-  return Array.from(states, state => `${state.label}=${state.value}`);
+// Ersatz fuer den Block messageStates/activityEntries/recentMessages/activityLog-Tests.
+function fetchActivity(panel, entriesFor) {
+  const requested = [];
+  panel.testWindow.fetch = async url => {
+    requested.push(url);
+    const result = await entriesFor(url);
+    return { ok: true, json: async () => result };
+  };
+  return requested;
 }
 
-test('messageStates zerlegt ein JSON-Payload in einzelne Zustaende', () => {
+test('Aktivität kommt aus dem Aktivitäts-Endpunkt und wächst wie bisher', async () => {
   const panel = createDevicesPanel();
-  const states = panel.messageStates({ topic: 't', at: '2026-08-28T12:00:00Z', payload: '{"car":2,"amp":16}' });
-  assert.deepEqual(plainStates(states), ['car=2', 'amp=16']);
-});
-
-test('messageStates schluesselt verschachtelte Objekte mit Punkt-Pfad auf', () => {
-  const panel = createDevicesPanel();
-  const states = panel.messageStates({ topic: 't', at: '', payload: '{"balance":{"pv":4200,"categories":{"werkstatt":536}},"tags":[1,2]}' });
-  assert.deepEqual(plainStates(states), ['balance.pv=4200', 'balance.categories.werkstatt=536', 'tags=[1,2]']);
-});
-
-test('activityEntries ist flach, neueste Nachricht oben, mit stabilen Schluesseln', () => {
-  const panel = createDevicesPanel();
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1,"y":2}' } },
-    { unique_id: 'b', last_message: { topic: 'b', at: '2026-10-18T10:00:05Z', payload: 'on' } },
-  ], command_actions: [] };
-  const first = Array.from(panel.activityEntries, entry => entry.key);
-  assert.deepEqual(first, ['msg-b-2026-10-18T10:00:05Z-value', 'msg-a-2026-10-18T10:00:00Z-x', 'msg-a-2026-10-18T10:00:00Z-y']);
-  // Ein Live-Refresh mit identischen Daten liefert dieselben Schluessel.
-  panel.deviceDetail = JSON.parse(JSON.stringify(panel.deviceDetail));
-  assert.deepEqual(Array.from(panel.activityEntries, entry => entry.key), first);
-});
-
-test('recentMessages zaehlt eine Nachricht auf einem geteilten Topic nur einmal', () => {
-  const panel = createDevicesPanel();
-  const message = { topic: 'energy/balance', at: '2026-10-18T10:00:00Z', payload: '{"pv":1}' };
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'pv', last_message: message },
-    { unique_id: 'grid', last_message: { ...message } },
-    { unique_id: 'other', last_message: { topic: 'other', at: '2026-10-18T09:00:00Z', payload: '1' } },
+  panel.selectedDeviceId = 'dev';
+  let body = { entries: [
+    { key: 'msg-x-2026-10-18T10:00:00Z-value', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'x', value: '1' },
   ] };
-  assert.deepEqual(Array.from(panel.recentMessages, entry => entry.unique_id), ['pv', 'other']);
+  const requested = fetchActivity(panel, async () => body);
+  await panel.loadActivity('dev');
+  assert.deepEqual(requested, ['/api/v1/devices/dev/activity']);
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 1']);
+  // Der Server liefert nur die letzten Nachrichten. Neue Zeilen kommen oben
+  // dazu, bekannte bleiben darunter, auch wenn der Server sie nicht mehr sendet.
+  body = { entries: [
+    { key: 'msg-y-2026-10-18T10:00:05Z-value', at: '2026-10-18T10:00:05Z', kind: 'message', label: 'y', value: '2' },
+  ] };
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['y: 2', 'x: 1']);
+  assert.equal(panel.activityLog.length, 2);
 });
 
-test('activityLog waechst: neue Eintraege oben, alte bleiben darunter', () => {
+test('Aktivität setzt für einen leeren Payload den Katalogtext', async () => {
   const panel = createDevicesPanel();
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1}' } },
-  ], command_actions: [] };
-  panel.mergeActivity();
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:05Z', payload: '{"x":2}' } },
-  ], command_actions: [] };
-  panel.mergeActivity();
-  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 2', 'x: 1']);
-  // Ein Refresh ohne neue Nachricht aendert nichts.
-  panel.mergeActivity();
-  assert.equal(panel.activityLog.length, 2);
-  // Schliessen verwirft das Log.
-  panel.$refs = {};
-  panel.closeDeviceDetail();
+  panel.selectedDeviceId = 'dev';
+  fetchActivity(panel, async () => ({ entries: [
+    { key: 'msg-goe-2026-10-18T10:00:00Z-empty', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'goe/state', value: '' },
+  ] }));
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['goe/state: (leer)']);
+});
+
+test('Befehle zeigen gesendet oder fehlgeschlagen', async () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'dev';
+  fetchActivity(panel, async () => ({ entries: [
+    { key: 'cmd-2026-10-18T10:00:00Z-sw', at: '2026-10-18T10:00:00Z', kind: 'command', label: 'sw', ok: false },
+  ] }));
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['sw: Befehl fehlgeschlagen']);
+});
+
+test('Ein Fehler beim Abruf lässt die Aktivität stehen, ohne zu werfen', async () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'dev';
+  fetchActivity(panel, async () => ({ entries: [
+    { key: 'msg-x-2026-10-18T10:00:00Z-value', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'x', value: '1' },
+  ] }));
+  await panel.loadActivity('dev');
+  panel.testWindow.fetch = async () => { throw new Error('offline'); };
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 1']);
+});
+
+test('Eine Antwort nach dem Gerätewechsel wird verworfen', async () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'dev';
+  panel.testWindow.fetch = async () => {
+    panel.selectedDeviceId = 'other';
+    return { ok: true, json: async () => ({ entries: [
+      { key: 'msg-x-2026-10-18T10:00:00Z-value', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'x', value: '1' },
+    ] }) };
+  };
+  await panel.loadActivity('dev');
   assert.equal(panel.activityLog.length, 0);
 });
 
-test('messageStates zeigt ein skalares Payload als eine Zeile unter dem Topic', () => {
+test('Entitaet klappt auf und bleibt nach einem Refresh offen', async () => {
   const panel = createDevicesPanel();
-  panel.deviceDetail = { name: 'x', entities: [] };
-  const states = panel.messageStates({ topic: 'goe/state', at: '', payload: 'online' });
-  assert.deepEqual(plainStates(states), ['goe/state=online']);
+  const detail = { id: 'dev', name: 'x', entities: [entity({ unique_id: 'e1' }), entity({ unique_id: 'e2' })] };
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  panel.testWindow.fetch = async url => (url.endsWith('/activity') ? ok({ entries: [] }) : ok(detail));
+  panel.selectedDeviceId = 'dev';
+  await panel.loadDeviceDetail('dev');
+  panel.toggleAnalysisEntity('e1');
+  assert.equal(panel.isAnalysisEntityOpen('e1'), true);
+  assert.equal(panel.isAnalysisEntityOpen('e2'), false);
+  await panel.refreshSelectedDevice();
+  assert.equal(panel.isAnalysisEntityOpen('e1'), true);
+  panel.toggleAnalysisEntity('e1');
+  assert.equal(panel.isAnalysisEntityOpen('e1'), false);
 });
 
-test('messageStates markiert ein leeres Payload', () => {
+test('Entitaeten bleiben offen, aber ein Geraetewechsel leert die Auswahl', async () => {
   const panel = createDevicesPanel();
-  const states = panel.messageStates({ topic: 'goe/state', at: '', payload: '' });
-  assert.deepEqual(plainStates(states), ['goe/state=(leer)']);
+  const details = {
+    dev: { id: 'dev', name: 'x', entities: [entity({ unique_id: 'e1' })] },
+    other: { id: 'other', name: 'y', entities: [entity({ unique_id: 'e1' })] },
+  };
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  panel.testWindow.fetch = async url => {
+    if (url.endsWith('/activity')) return ok({ entries: [] });
+    if (url === '/api/v1/device/icons') return ok([]);
+    return ok(details[url.split('/').pop()]);
+  };
+  panel.$nextTick = callback => callback();
+  panel.$refs = {};
+  await panel.openDevice('dev');
+  panel.toggleAnalysisEntity('e1');
+  await panel.openDevice('other');
+  assert.equal(panel.isAnalysisEntityOpen('e1'), false);
+});
+
+test('Befehls-Chip zaehlt die Schreibaktionen der Entitaet', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    name: 'x', entities: [],
+    command_actions: [
+      { at: '2026-08-28T11:59:48Z', entity_id: 'e1', result: 'published' },
+      { at: '2026-08-28T11:59:50Z', entity_id: 'e1', result: 'failed' },
+      { at: '2026-08-28T11:59:51Z', entity_id: 'e2', result: 'published' },
+    ],
+  };
+  assert.equal(panel.commandCount(entity({ unique_id: 'e1' })), 2);
+  assert.equal(panel.commandCount(entity({ unique_id: 'e3' })), 0);
+});
+
+test('messageSummary zeigt Payload, QoS und retain, sonst einen Strich', () => {
+  const panel = createDevicesPanel();
+  assert.equal(panel.messageSummary(entity({ unique_id: 'e1' })), '-');
+  const message = entity({ unique_id: 'e2', last_message: { payload: '21.5', qos: 1, retained: true } });
+  assert.equal(panel.messageSummary(message), '21.5 · QoS 1 · retain');
+  const plain = entity({ unique_id: 'e3', last_message: { payload: '', qos: 0, retained: false } });
+  assert.equal(panel.messageSummary(plain), '(leer) · QoS 0');
+});
+
+test('commandResultText nennt gesendete und fehlgeschlagene Befehle', () => {
+  const panel = createDevicesPanel();
+  assert.equal(panel.commandResultText({ result: 'published' }), 'Befehl gesendet');
+  assert.equal(panel.commandResultText({ result: 'failed', error: 'offline' }), 'Fehler: offline');
 });
 
 test('updatedRelative zeigt den relativen Abstand als Text, leer ohne last_updated', () => {
@@ -314,130 +388,273 @@ test('positionUnderline setzt Breite/Position aus dem aktiven Trigger, ohne Fehl
   assert.doesNotThrow(() => panel.positionUnderline());
 });
 
-test('seedPrefsDraft füllt den Entwurf einmal je Gerät und überschreibt laufende Eingaben nicht', () => {
-  const panel = createDevicesPanel();
-  panel.selectedDeviceId = 'node';
-  panel.deviceDetail = {
+function nodeDetail(favorite_refs = [], icon_name = '') {
+  return {
     id: 'node',
-    icon_name: 'mdi:raspberry-pi',
-    favorite_refs: ['node_temp'],
-    pin_favorites: true,
-    entities: [{unique_id: 'node_temp'}, {unique_id: 'node_relay'}],
+    name: 'Knoten',
+    suggested_icon: 'energy-node:solar-panel',
+    icon_name,
+    favorite_refs: [...favorite_refs],
+    card_refs: ['node_temp', 'node_relay', 'node_pv'],
+    entities: [
+      {unique_id: 'node_temp', name: 'Temperatur'},
+      {unique_id: 'node_relay', name: 'Relais'},
+      {unique_id: 'node_pv', name: 'PV'},
+      {unique_id: 'node_grid', name: 'Netz'},
+    ],
   };
+}
 
-  panel.seedPrefsDraft();
-  assert.equal(panel.prefsDraft.icon, 'mdi:raspberry-pi');
-  // seedPrefsDraft() baut favorite_refs per Spread im vm-Kontext von
-  // dashboard.js - dasselbe realmuebergreifende deepStrictEqual-Problem wie
-  // bei messageStates oben, deshalb hier ueber Array.from in den Haupt-Realm
-  // geholt.
-  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), ['node_temp']);
-  assert.equal(panel.prefsDraft.pin_favorites, true);
-
-  // Der Nutzer tippt weiter, waehrend der SSE-Takt loadDeviceDetail erneut
-  // laufen laesst - der Entwurf darf dabei nicht zurueckspringen.
-  panel.prefsDraft.icon = 'mdi:solar-panel';
-  panel.seedPrefsDraft();
-  assert.equal(panel.prefsDraft.icon, 'mdi:solar-panel');
-
-  panel.selectedDeviceId = 'shelly';
-  panel.deviceDetail = {id: 'shelly', entities: []};
-  panel.seedPrefsDraft();
-  assert.equal(panel.prefsDraft.icon, '');
-  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), []);
-});
-
-test('pickIcon speichert das Vorschlags-Icon als leere Auswahl', () => {
-  const panel = createDevicesPanel();
-  panel.deviceDetail = {id: 'plug', suggested_icon: 'mdi:power-plug', entities: []};
-  panel.prefsDraft = {icon: '', favorite_refs: [], pin_favorites: false};
-
-  assert.equal(panel.draftIconName, 'mdi:power-plug');
-  assert.equal(panel.savedIconName, 'mdi:power-plug');
-
-  panel.pickIcon('energy-node:chip');
-  assert.equal(panel.prefsDraft.icon, 'energy-node:chip');
-  assert.equal(panel.draftIconName, 'energy-node:chip');
-
-  panel.pickIcon('mdi:power-plug');
-  assert.equal(panel.prefsDraft.icon, '');
-
-  // Ohne Vorschlag steht die leere Auswahl fuer den Chip.
-  panel.deviceDetail = {id: 'x', entities: []};
-  panel.pickIcon('energy-node:chip');
-  assert.equal(panel.prefsDraft.icon, '');
-  panel.deviceDetail = {id: 'x', icon_name: 'mdi:home', entities: []};
-  assert.equal(panel.savedIconName, 'mdi:home');
-});
-
-test('initFavoritesChoices füllt Choices in Auswahlreihenfolge, begrenzt auf drei', async () => {
-  const panel = createDevicesPanel();
-  const calls = {};
-  let selected = [];
-  panel.testWindow.Choices = class {
-    constructor(select, options) { calls.select = select; calls.options = options; }
-    setChoices(list) { calls.choices = Array.from(list, item => ({...item})); }
-    setChoiceByValue(values) { selected = Array.from(values); }
-    getValue() { return selected; }
-    destroy() { calls.destroyed = true; }
-  };
-  const select = panel.testWindow.document.createElement('select');
-  panel.$refs = {favoritesSelect: select, deviceModalDialog: {dataset: {}}};
-  panel.selectedDeviceId = 'node';
-  panel.prefsDraftFor = 'node';
-  panel.deviceDetail = {id: 'node', entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}]};
-  panel.prefsDraft = {icon: '', favorite_refs: ['node_relay', 'node_temp'], pin_favorites: false};
-
-  await panel.initFavoritesChoices();
-
-  assert.equal(calls.select, select);
-  assert.equal(calls.options.maxItemCount, 3);
-  // Favoriten zuerst, in Auswahlreihenfolge - Choices legt die Chips in
-  // Optionsreihenfolge an.
-  assert.deepEqual(calls.choices.map(item => item.value), ['node_relay', 'node_temp']);
-  assert.deepEqual(selected, ['node_relay', 'node_temp']);
-
-  selected = ['node_temp'];
-  panel.syncFavoritesFromChoices();
-  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), ['node_temp']);
-
-  panel.destroyFavoritesChoices();
-  assert.equal(calls.destroyed, true);
-  assert.equal(panel.favoritesChoices, null);
-});
-
-// Choices.destroy() schreibt die Optionen samt selected ins <select> zurück.
-// Bliebe das stehen, übernähme die nächste Instanz sie als Chips in
-// Optionsreihenfolge, die Auswahlreihenfolge ginge nach dem Speichern verloren.
-test('initFavoritesChoices startet nach destroy mit leerem select', async () => {
-  const panel = createDevicesPanel();
-  const doc = panel.testWindow.document;
-  const select = doc.createElement('select');
-  select.multiple = true;
-  const optionsAtConstruct = [];
-  panel.testWindow.Choices = class {
-    constructor(el) { optionsAtConstruct.push(Array.from(el.options, option => option.value)); }
-    setChoices() {}
-    setChoiceByValue() {}
-    getValue() { return []; }
-    destroy() {
-      const option = doc.createElement('option');
-      option.value = 'node_temp';
-      option.selected = true;
-      select.append(option);
+// Fake-Server fuer Darstellung: PUT speichert Icon und Favoriten, GET liefert
+// das Detail mit dem gespeicherten Stand (loadDeviceDetail laeuft danach neu).
+function stubAppearanceFetch(panel, { favorite_refs = [], icon_name = '', fail = false } = {}) {
+  const calls = [];
+  const pushed = [];
+  const server = { icon_name, favorite_refs: [...favorite_refs] };
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  panel.testWindow.fetch = async (url, options = {}) => {
+    const method = options.method || 'GET';
+    const body = options.body ? JSON.parse(options.body) : null;
+    calls.push({ url, method, body });
+    if (method === 'PUT') {
+      if (fail) return { ok: false, status: 500, json: async () => ({}) };
+      server.icon_name = body.icon;
+      server.favorite_refs = body.favorite_refs;
+      return ok({});
     }
+    if (url === '/api/v1/device/icons') return ok([]);
+    if (url === '/api/v1/devices/node') {
+      return ok({ ...nodeDetail(server.favorite_refs, server.icon_name) });
+    }
+    return ok({ id: 'shelly', name: 'Shelly', entities: [] });
   };
-  panel.$refs = {favoritesSelect: select, deviceModalDialog: {dataset: {}}};
+  panel.$store = { toasts: { push: (message, severity, options) => pushed.push({ message, severity, options }) } };
+  panel.csrfToken = 'csrf-token';
+  panel.canEditAppearance = true;
   panel.selectedDeviceId = 'node';
-  panel.prefsDraftFor = 'node';
-  panel.deviceDetail = {id: 'node', entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}]};
-  panel.prefsDraft = {icon: '', favorite_refs: ['node_relay'], pin_favorites: false};
+  panel.deviceDetail = nodeDetail(favorite_refs, icon_name);
+  return { calls, pushed, server };
+}
 
-  await panel.initFavoritesChoices();
-  await panel.initFavoritesChoices();
+const putsOf = calls => calls.filter(call => call.method === 'PUT');
 
-  assert.deepEqual(optionsAtConstruct[1], []);
+test('toggleFavorite fügt hinzu und sendet favorite_refs mit Icon', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp'], icon_name: 'energy-node:sun' });
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+
+  assert.equal(putsOf(calls).length, 1);
+  assert.equal(calls[0].url, '/api/v1/device/prefs/node');
+  assert.equal(calls[0].method, 'PUT');
+  // Icon wird mitgesendet, pin_favorites nicht mehr.
+  assert.deepEqual(calls[0].body, { icon: 'energy-node:sun', favorite_refs: ['node_temp', 'node_relay'] });
+  assert.equal(panel.isFavorite({ unique_id: 'node_relay' }), true);
+  assert.equal(pushed[0].message, 'Favoriten gespeichert.');
+  assert.equal(pushed[0].severity, 'info');
+  assert.ok(pushed[0].options.action, 'Erfolg bietet Rückgängig an');
 });
+
+test('toggleFavorite beim vierten Stern sendet nichts und meldet das Limit', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp', 'node_relay', 'node_pv'] });
+  await panel.toggleFavorite({ unique_id: 'node_grid' });
+
+  assert.equal(calls.length, 0);
+  assert.equal(panel.favoriteLimitHit, 1);
+  assert.equal(pushed.length, 1);
+  assert.equal(pushed[0].message, 'Höchstens 3 Favoriten.');
+  assert.equal(pushed[0].severity, 'warning');
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['node_temp', 'node_relay', 'node_pv']);
+});
+
+test('toggleFavorite ohne edit_device_appearance tut nichts', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp'] });
+  panel.canEditAppearance = false;
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+
+  assert.equal(calls.length, 0);
+  assert.equal(pushed.length, 0);
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['node_temp']);
+});
+
+test('Rückgängig setzt das ursprüngliche Gerät zurück, auch nach Gerätewechsel', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp'], icon_name: 'energy-node:sun' });
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+  const { action } = pushed[0].options;
+
+  // Der Nutzer wechselt das Gerät, bevor er Rückgängig klickt.
+  panel.selectedDeviceId = 'shelly';
+  panel.deviceDetail = { id: 'shelly', favorite_refs: ['shelly_x'], entities: [] };
+  await action.run();
+
+  const last = putsOf(calls).at(-1);
+  assert.equal(last.url, '/api/v1/device/prefs/node');
+  assert.deepEqual(last.body, { icon: 'energy-node:sun', favorite_refs: ['node_temp'] });
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['shelly_x']);
+});
+
+test('ein fehlgeschlagenes Speichern stellt die Favoriten wieder her', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp'], fail: true });
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+
+  assert.equal(putsOf(calls).length, 1);
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['node_temp']);
+  assert.equal(panel.isFavorite({ unique_id: 'node_relay' }), false);
+  assert.equal(pushed.length, 1);
+  assert.equal(pushed[0].severity, 'critical');
+  assert.equal(pushed[0].options, undefined, 'ein Fehler bietet keine Rückgängig-Aktion');
+});
+
+test('saveIcon speichert das Vorschlags-Icon als leere Auswahl und sendet andere Icons', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp'] });
+
+  await panel.saveIcon('energy-node:solar-panel');
+  assert.deepEqual(putsOf(calls)[0].body, { icon: '', favorite_refs: ['node_temp'] });
+  assert.equal(pushed[0].message, 'Icon gespeichert.');
+
+  await panel.saveIcon('energy-node:sun');
+  assert.deepEqual(putsOf(calls)[1].body, { icon: 'energy-node:sun', favorite_refs: ['node_temp'] });
+  assert.equal(panel.savedIconName, 'energy-node:sun');
+  assert.equal(panel.draftIconName, 'energy-node:sun');
+});
+
+test('iconPickerOpen und moreMenuOpen schließen beim Gerätewechsel und mit closeFloatingMenus', async () => {
+  const panel = createDevicesPanel();
+  stubAppearanceFetch(panel, { favorite_refs: [] });
+  panel.$nextTick = callback => callback();
+  panel.$refs = {};
+  panel.iconPickerOpen = true;
+  panel.moreMenuOpen = true;
+  await panel.openDevice('shelly');
+  assert.equal(panel.iconPickerOpen, false);
+  assert.equal(panel.moreMenuOpen, false);
+
+  panel.iconPickerOpen = true;
+  panel.moreMenuOpen = true;
+  panel.closeFloatingMenus();
+  assert.equal(panel.iconPickerOpen, false);
+  assert.equal(panel.moreMenuOpen, false);
+});
+
+test('überlappende Sterne: schlagen beide fehl, steht das Modal auf der bestätigten Liste', async () => {
+  const panel = createDevicesPanel();
+  const { calls } = stubAppearanceFetch(panel, { favorite_refs: [], fail: true });
+  await Promise.all([
+    panel.toggleFavorite({ unique_id: 'node_temp' }),
+    panel.toggleFavorite({ unique_id: 'node_relay' }),
+  ]);
+  assert.equal(putsOf(calls).length, 2);
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), []);
+});
+
+test('überlappende Sterne werden nacheinander gespeichert und beide bleiben', async () => {
+  const panel = createDevicesPanel();
+  const { calls } = stubAppearanceFetch(panel, { favorite_refs: [] });
+  await Promise.all([
+    panel.toggleFavorite({ unique_id: 'node_temp' }),
+    panel.toggleFavorite({ unique_id: 'node_relay' }),
+  ]);
+  assert.deepEqual(putsOf(calls).map(call => call.body.favorite_refs), [['node_temp'], ['node_temp', 'node_relay']]);
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['node_temp', 'node_relay']);
+});
+
+test('Rückgängig des Sterns behält ein inzwischen geändertes Icon', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: [], icon_name: 'energy-node:sun' });
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+  await panel.saveIcon('energy-node:battery');
+  await pushed[0].options.action.run();
+
+  assert.deepEqual(putsOf(calls).at(-1).body, { icon: 'energy-node:battery', favorite_refs: [] });
+  assert.equal(panel.deviceDetail.icon_name, 'energy-node:battery');
+});
+
+test('Rückgängig des Icons behält die inzwischen geänderten Favoriten', async () => {
+  const panel = createDevicesPanel();
+  const { calls, pushed } = stubAppearanceFetch(panel, { favorite_refs: [], icon_name: 'energy-node:sun' });
+  await panel.saveIcon('energy-node:battery');
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+  await pushed[0].options.action.run();
+
+  assert.deepEqual(putsOf(calls).at(-1).body, { icon: 'energy-node:sun', favorite_refs: ['node_relay'] });
+});
+
+test('ein fehlgeschlagenes Speichern nach Gerätewechsel lässt das neue Gerät unberührt', async () => {
+  const panel = createDevicesPanel();
+  const { pushed } = stubAppearanceFetch(panel, { favorite_refs: ['node_temp'], fail: true });
+  const realFetch = panel.testWindow.fetch;
+  panel.testWindow.fetch = async (url, options = {}) => {
+    // Der Nutzer wechselt das Gerät, während das PUT noch läuft.
+    if (options.method === 'PUT') {
+      panel.selectedDeviceId = 'shelly';
+      panel.deviceDetail = { id: 'shelly', icon_name: 'energy-node:sun', favorite_refs: ['shelly_x'], entities: [] };
+    }
+    return realFetch(url, options);
+  };
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+
+  assert.equal(panel.selectedDeviceId, 'shelly');
+  assert.equal(panel.deviceDetail.id, 'shelly');
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['shelly_x']);
+  assert.equal(pushed[0].severity, 'critical');
+});
+
+test('ein veralteter Refresh überschreibt die gespeicherten Favoriten nicht', async () => {
+  const panel = createDevicesPanel();
+  stubAppearanceFetch(panel, { favorite_refs: [] });
+  Object.defineProperty(panel.testWindow.document, 'visibilityState', { value: 'visible', configurable: true });
+  const realFetch = panel.testWindow.fetch;
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let held = false;
+  panel.testWindow.fetch = async (url, options = {}) => {
+    // Der erste Detail-Refresh (SSE-Takt) hängt, bis das Speichern durch ist.
+    if ((options.method || 'GET') === 'GET' && url === '/api/v1/devices/node' && !held) {
+      held = true;
+      await gate;
+      return ok({ ...nodeDetail([]) });
+    }
+    return realFetch(url, options);
+  };
+  const stale = panel.refreshSelectedDevice();
+  await panel.toggleFavorite({ unique_id: 'node_relay' });
+  release();
+  await stale;
+
+  assert.deepEqual(Array.from(panel.deviceDetail.favorite_refs), ['node_relay']);
+  assert.equal(panel.isFavorite({ unique_id: 'node_relay' }), true);
+});
+
+test('Esc schließt zuerst Icon-Auswahl oder Mehr-Menü über den Dialog-Handler', () => {
+  const panel = createDevicesPanel();
+  const dialog = panel.testWindow.document.createElement('div');
+  panel.$refs = { deviceModalDialog: dialog };
+  panel.attachDeviceModal();
+  const pressEscape = () => {
+    const event = new panel.testWindow.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    dialog.dispatchEvent(event);
+    return event;
+  };
+
+  panel.iconPickerOpen = true;
+  const closedPicker = pressEscape();
+  assert.equal(panel.iconPickerOpen, false);
+  assert.equal(closedPicker.defaultPrevented, true);
+
+  panel.moreMenuOpen = true;
+  pressEscape();
+  assert.equal(panel.moreMenuOpen, false);
+
+  const idle = pressEscape();
+  assert.equal(idle.defaultPrevented, false);
+  panel.detachDeviceModal();
+});
+
 
 test('the icon picker groups the catalogue by category in catalogue order', () => {
   const panel = createDevicesPanel();
@@ -464,24 +681,6 @@ test('iconMarkup baut ein vollständiges SVG und fällt auf den Standard zurück
   assert.match(chosen, /M3\.5 16 7 6Z/);
   assert.match(panel.iconMarkup('mdi:unbekannt'), /rect x="6"/);
   assert.match(panel.iconMarkup(''), /rect x="6"/);
-});
-
-test('pinnedFavorites zeigt nur bei gesetztem Schalter und überspringt verwaiste Refs', () => {
-  const panel = createDevicesPanel();
-  panel.deviceDetail = {
-    id: 'node',
-    favorite_refs: ['node_relay', 'node_weg', 'node_temp'],
-    pin_favorites: false,
-    entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}],
-  };
-
-  assert.deepEqual(Array.from(panel.pinnedFavorites), []);
-
-  panel.deviceDetail = {...panel.deviceDetail, pin_favorites: true};
-  assert.deepEqual(
-    Array.from(panel.pinnedFavorites, entity => entity.unique_id),
-    ['node_relay', 'node_temp'],
-  );
 });
 
 test('groupedWarnings groups warnings with the same key and rule_id', () => {
@@ -738,4 +937,54 @@ test('opening a device clears the previous sub-devices before the new map arrive
   assert.equal(panel.subDevices.length, 0);
   assert.equal(panel.subDevicesReady, false);
   assert.equal(panel.subCreateVisible(entities[0]), false);
+});
+
+test('heroEntities folgt card_refs und markiert Automatik', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    id: 'node',
+    card_refs: ['node_temp', 'node_relay', 'node_weg', 'node_fremd'],
+    favorite_refs: ['node_relay'],
+    entities: [
+      {unique_id: 'node_relay', name: 'Relais'},
+      {unique_id: 'node_temp', name: 'Temperatur'},
+      {unique_id: 'node_weg', name: 'Weg'},
+    ],
+  };
+  const hero = panel.heroEntities;
+  assert.deepEqual(hero.map(item => item.entity.unique_id), ['node_temp', 'node_relay', 'node_weg']);
+  assert.deepEqual(hero.map(item => item.auto), [true, false, true]);
+});
+
+test('Warnungen teilen sich in Betrieb und Konfiguration', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    name: 'test device',
+    warnings: [
+      {rule_id: 'Offline', key: 'offline', severity: 'critical', message: 'offline', operational: true, entity_id: 'a'},
+      {rule_id: 'Naming', key: 'naming', severity: 'warning', message: 'naming', operational: false, entity_id: 'b'},
+    ],
+  };
+  assert.deepEqual(Array.from(panel.operationalWarnings, warning => warning.rule_id), ['Offline']);
+  assert.deepEqual(Array.from(panel.configWarnings, warning => warning.rule_id), ['Naming']);
+});
+
+test('canViewAnalysis und canEditAppearance folgen der Session und sind ohne Session-API true', async () => {
+  const denied = createDevicesPanel();
+  denied.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ view_device_analysis: false, edit_device_appearance: false, csrf_token: 'x' }) });
+  await denied.loadSession();
+  assert.equal(denied.canViewAnalysis, false);
+  assert.equal(denied.canEditAppearance, false);
+
+  const allowed = createDevicesPanel();
+  allowed.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ view_device_analysis: true, edit_device_appearance: true }) });
+  await allowed.loadSession();
+  assert.equal(allowed.canViewAnalysis, true);
+  assert.equal(allowed.canEditAppearance, true);
+
+  const noSession = createDevicesPanel();
+  noSession.testWindow.fetch = async () => { throw new Error('no session api'); };
+  await noSession.loadSession();
+  assert.equal(noSession.canViewAnalysis, true);
+  assert.equal(noSession.canEditAppearance, true);
 });

@@ -682,7 +682,10 @@
       _tileRequests: null,
       csrfToken: '',
       canDeleteDiscovery: false,
-      canEditPrefs: false,
+      // Rechte des Geraete-Modals: Analyse-Tab (view_device_analysis) und
+      // Darstellung wie Stern und Icon (edit_device_appearance).
+      canViewAnalysis: false,
+      canEditAppearance: false,
       // Untergeraete des Geraete-Modals: canEditEnergy nach edit_energy, subDevices
       // und subEdgeProps aus /api/v1/device/map, subForm der offene Dialog.
       canEditEnergy: false,
@@ -701,7 +704,8 @@
           const session = await requestJSON('/api/v1/auth/session');
           this.csrfToken = session.csrf_token || '';
           this.canDeleteDiscovery = session.delete_device_discovery === true;
-          this.canEditPrefs = session.edit_layout !== false;
+          this.canViewAnalysis = session.view_device_analysis === true;
+          this.canEditAppearance = session.edit_device_appearance === true;
           this.canEditEnergy = session.edit_energy !== false;
         } catch (error) {
           this.csrfToken = '';
@@ -710,8 +714,9 @@
           // server checks edit_energy on every write anyway.
           this.canEditEnergy = true;
           // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung - dann
-          // laesst auch requireLayoutMutation den Schreibzugriff durch.
-          this.canEditPrefs = true;
+          // laesst der Server jede Schreibaktion durch.
+          this.canViewAnalysis = true;
+          this.canEditAppearance = true;
         }
       },
 

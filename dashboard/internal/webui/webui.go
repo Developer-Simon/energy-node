@@ -126,6 +126,11 @@ func stripDeviceName(deviceName, entityName string) string {
 	return name
 }
 
+// StripDeviceName is the exported form of stripDeviceName for the HTTP API.
+func StripDeviceName(deviceName, entityName string) string {
+	return stripDeviceName(deviceName, entityName)
+}
+
 func buildOverviewTemplate(lang string) *template.Template {
 	funcs := template.FuncMap{
 		"iconFor":            iconFor,
@@ -377,6 +382,18 @@ func CompactRows(dev registry.DeviceView) []CompactRow {
 	return rows
 }
 
+// CardRefs lists the entity IDs of the automatic compact card rows, in row
+// order (priorityEntities, favourites first). Never nil, so the JSON value
+// is an empty list rather than null.
+func CardRefs(dev registry.DeviceView) []string {
+	picked := priorityEntities(dev)
+	refs := make([]string, 0, len(picked))
+	for _, entity := range picked {
+		refs = append(refs, entity.UniqueID)
+	}
+	return refs
+}
+
 // maxCompactRows ist die Zeilenzahl, die auf eine Kompakt-Karte passt -
 // dieselbe Obergrenze, die das Layout-Item fuer seine entity_refs kennt.
 const maxCompactRows = 3
@@ -426,19 +443,24 @@ func resolveEntityRefs(dev registry.DeviceView, refs []string) []registry.Entity
 }
 
 // priorityEntities picks up to three entities to surface on a compact device
-// card: measurement entities that currently carry a value first (registry
-// order), then any other non-hidden entity that carries a value, so a device
-// whose only live entities are controls still shows something. Values only —
-// the template never renders an input for these.
+// card. Favourites come first, in the order they were picked; a favourite
+// without a match takes no row. The free rows are filled by the automatic
+// selection: measurement entities that currently carry a value first
+// (registry order), then any other non-hidden entity that carries a value, so
+// a device whose only live entities are controls still shows something. An
+// entity already picked is skipped. Values only - the template never renders
+// an input for these.
 func priorityEntities(dev registry.DeviceView) []registry.EntityView {
-	// Eine gesetzte Favoritenauswahl ersetzt die Automatik vollstaendig -
-	// leer heisst weiterhin Automatik.
-	if len(dev.FavoriteRefs) > 0 {
-		return resolveEntityRefs(dev, dev.FavoriteRefs)
-	}
 	const limit = 3
 	picked := make([]registry.EntityView, 0, limit)
 	seen := make(map[string]bool)
+	for _, e := range resolveEntityRefs(dev, dev.FavoriteRefs) {
+		if seen[e.UniqueID] {
+			continue
+		}
+		seen[e.UniqueID] = true
+		picked = append(picked, e)
+	}
 	take := func(pred func(registry.EntityView) bool) {
 		for _, e := range dev.Entities {
 			if len(picked) == limit {

@@ -7,7 +7,7 @@ import (
 
 func TestRolesCatalogMatchesSpec(t *testing.T) {
 	keys := AllRoles()
-	if len(keys) != 30 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+	if len(keys) != 32 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
 		t.Fatalf("catalog order: %v", keys)
 	}
 	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {
@@ -58,5 +58,25 @@ func TestHasRoleRequiresTheViewPermission(t *testing.T) {
 	user.Roles = append(user.Roles, RoleViewAutomations)
 	if !HasRole(user, RoleAutomations) {
 		t.Fatal("automations with view_automations must count")
+	}
+}
+
+func TestDeviceRightsInCatalog(t *testing.T) {
+	analysis, ok := RoleByKey(RoleViewDeviceAnalysis)
+	if !ok {
+		t.Fatal("view_device_analysis missing from the catalog")
+	}
+	if analysis.Category != CategoryView || analysis.Requires != RoleViewDevices || !analysis.GuestAllowed || !analysis.HAAllowed {
+		t.Fatalf("view_device_analysis: %+v", analysis)
+	}
+	appearance, ok := RoleByKey(RoleEditDeviceAppearance)
+	if !ok {
+		t.Fatal("edit_device_appearance missing from the catalog")
+	}
+	if appearance.Category != CategoryDesign || appearance.Requires != RoleViewDevices || !appearance.GuestAllowed || !appearance.HAAllowed {
+		t.Fatalf("edit_device_appearance: %+v", appearance)
+	}
+	if got := Normalize([]string{RoleViewDeviceAnalysis}); len(got) != 0 {
+		t.Fatalf("view_device_analysis without view_devices must be dropped, got %v", got)
 	}
 }

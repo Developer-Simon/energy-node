@@ -23,6 +23,8 @@
   // isSubDevicePowerUnit in der Go-API).
   const SUB_DEVICE_POWER_UNITS = ['W', 'kW'];
   const ACTIVITY_LOG_LIMIT = 200;
+  // Hoechstzahl der Favoriten je Geraet (maxFavoriteRefs in settings.go).
+  const FAVORITE_LIMIT = 3;
 
   window.deviceModalMixin = () => ({
     deviceDetail: null,
@@ -33,6 +35,8 @@
     reloadLoading: false,
     detailRequestToken: 0,
     activeDeviceTab: 'measurements',
+    // IDs der im Analyse-Tab aufgeklappten Entitaeten (siehe toggleAnalysisEntity).
+    openAnalysisEntities: new Set(),
     mergedTab: false,
     // Erfahrungswert, kein Naturgesetz: ab dieser verfuegbaren Hoehe der
     // device-modal-scrollarea (Sidebar+Switcher zusammen, siehe
@@ -44,10 +48,6 @@
     // Wechsel auf Messwerte/Steuerung den Merge-Zustand nachziehen kann,
     // ohne auf das naechste ResizeObserver-Ereignis zu warten.
     availableHeight: 0,
-    // true, sobald das Modal schmaler als die 860px-Container-Schwelle ist
-    // (Akkordeon statt Tableiste). Rein aus JS beobachtet, weil die
-    // Aktivitaets-Sektion in "Verwaltung & Analyse" nur im Akkordeon zeigt.
-    isAccordion: false,
     // Sekundentakt fuer die relative "aktualisiert vor X"-Anzeige.
     nowTick: Date.now(),
     clockTimer: null,
@@ -57,15 +57,18 @@
     deletePreviewError: '',
     deleteLoading: false,
 
-    // Darstellung je Geraet (device-prefs.json). prefsDraftFor merkt sich,
-    // fuer welches Geraet der Entwurf gefuellt wurde: loadDeviceDetail laeuft
-    // im SSE-Takt erneut, und ein erneutes Fuellen wuerde dem Nutzer die
-    // Eingabe unter den Fingern wegziehen.
+    // Darstellung je Geraet (device-prefs.json). Stern und Icon speichern
+    // sofort, darum spiegelt prefsDraft nur das gespeicherte Icon.
     deviceIcons: [],
-    prefsDraft: {icon: '', favorite_refs: [], pin_favorites: false},
-    prefsDraftFor: '',
-    prefsSaving: false,
-    prefsMessage: '',
+    prefsDraft: {icon: ''},
+    // Zaehlt jeden Stern, der am Limit scheitert (siehe toggleFavorite).
+    favoriteLimitHit: 0,
+    // Kette der Schreibaktionen (queueAppearance). Kein reaktiver Datenwert.
+    appearanceQueue: null,
+    // Icon-Auswahl und Mehr-Menue im Modal-Kopf. Beide schliessen beim
+    // Gerätewechsel und bei Escape (closeFloatingMenus).
+    iconPickerOpen: false,
+    moreMenuOpen: false,
     subDevices: [],
     subEdgeProps: [],
     // False until the map of the open device has loaded. The create action
@@ -77,10 +80,6 @@
     // Opt-in switch "Manage sub-devices". Off whenever a device opens or
     // closes, never persisted. Create, edit and delete need it.
     subManage: false,
-    // Choices.js-Instanz der Favoriten-Mehrfachauswahl - dieselbe Bibliothek
-    // wie Settings > Darstellung und der Layout-Editor. Sie wird je Geraet
-    // neu aufgebaut (seedPrefsDraft), nicht im SSE-Takt.
-    favoritesChoices: null,
 
     async loadDeviceIcons() {
       if (this.deviceIcons.length) return;
@@ -118,12 +117,6 @@
       return groups;
     },
 
-    // Wer das Vorschlags-Icon waehlt, speichert "nichts" - so folgt das
-    // Geraet weiter seinem Typ, statt das Icon festzuschreiben.
-    pickIcon(name) {
-      this.prefsDraft.icon = name === this.defaultIconName ? '' : name;
-    },
-
     // Baut denselben SVG-Rumpf wie deviceIcon() in deviceicons.go, damit
     // Picker und gerenderte Karte identisch aussehen.
     iconMarkup(name) {
@@ -133,124 +126,119 @@
       return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${markup}</svg>`;
     },
 
+    // prefsDraft spiegelt nur das gespeicherte Icon (Anzeige im Picker).
     seedPrefsDraft() {
-      const deviceId = this.selectedDeviceId;
-      if (!deviceId || this.prefsDraftFor === deviceId) return;
-      this.prefsDraftFor = deviceId;
-      this.prefsDraft = {
+      this.prefsDraft = {icon: this.deviceDetail?.icon_name || ''};
+    },
+
+    // Favoriten und Icon, so wie das offene Geraet sie gerade hat. Jede
+    // Schreibaktion sendet beide Felder, darum gehen sie immer zusammen.
+    appearanceOf() {
+      return {
         icon: this.deviceDetail?.icon_name || '',
         favorite_refs: [...(this.deviceDetail?.favorite_refs || [])],
-        pin_favorites: this.deviceDetail?.pin_favorites === true,
       };
-      this.prefsMessage = '';
-      if (this.$nextTick) this.$nextTick(() => this.initFavoritesChoices());
     },
 
-    // Choices.js kommt erst mit dem ersten Modal - die Uebersicht laedt es
-    // sonst nur fuer den Editor, der Geraete-Tab gar nicht. Pfade stehen
-    // mit Basis-Praefix am <dialog> (data-choices-script/-css).
-    async ensureChoicesAssets() {
-      if (window.Choices) return;
-      const dialog = this.$refs?.deviceModalDialog;
-      const css = (dialog?.dataset.choicesCss || '').split(',').filter(Boolean);
-      const script = dialog?.dataset.choicesScript;
-      css.forEach(href => {
-        if (document.querySelector(`link[href="${href}"]`)) return;
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = href;
-        document.head.append(link);
-      });
-      if (!script) return;
-      await new Promise((resolve, reject) => {
-        const tag = document.createElement('script');
-        tag.src = script;
-        tag.onload = resolve;
-        tag.onerror = () => reject(new Error(t('panel.asset_load_failed', {url: script})));
-        document.head.append(tag);
-      });
-    },
-
-    destroyFavoritesChoices() {
-      if (!this.favoritesChoices) return;
-      this.favoritesChoices.destroy();
-      this.favoritesChoices = null;
-    },
-
-    async initFavoritesChoices() {
-      const deviceId = this.prefsDraftFor;
-      try {
-        await this.ensureChoicesAssets();
-      } catch (error) {
-        return;
-      }
-      const select = this.$refs?.favoritesSelect;
-      if (!window.Choices || !select || this.prefsDraftFor !== deviceId) return;
-      this.destroyFavoritesChoices();
-      // destroy() schreibt die Optionen samt selected ins <select> zurück.
-      // Eine neue Instanz übernähme sie als Chips in Optionsreihenfolge, und
-      // setChoiceByValue ordnet schon gewählte Werte nicht mehr um.
-      select.replaceChildren();
-      const refs = this.prefsDraft.favorite_refs;
-      const choices = new window.Choices(select, {
-        removeItemButton: true,
-        shouldSort: false,
-        maxItemCount: 3,
-        maxItemText: count => t('devices.favourites.max', {count}),
-        searchResultLimit: 30,
-        placeholderValue: t('devices.favourites.search_placeholder'),
-        noResultsText: t('devices.favourites.no_results'),
-        noChoicesText: t('devices.favourites.no_choices'),
-        itemSelectText: '',
-      });
-      // Choices legt vorbelegte Chips in der Reihenfolge der Optionen an,
-      // nicht in der von setChoiceByValue. Die Favoriten stehen darum vorn,
-      // in Auswahlreihenfolge - sie bestimmt die Zeilen der Kompaktkarte.
-      const entities = this.deviceDetail?.entities || [];
-      const rank = entity => {
-        const at = refs.indexOf(entity.unique_id);
-        return at < 0 ? refs.length : at;
+    // Setzt Favoriten und Icon im Modal, solange es noch dasselbe Geraet zeigt.
+    applyAppearance(deviceId, appearance) {
+      if (this.selectedDeviceId !== deviceId || !this.deviceDetail) return;
+      this.deviceDetail = {
+        ...this.deviceDetail,
+        icon_name: appearance.icon,
+        favorite_refs: [...appearance.favorite_refs],
       };
-      const ordered = entities.map((entity, index) => ({entity, index}))
-        .sort((a, b) => rank(a.entity) - rank(b.entity) || a.index - b.index)
-        .map(({entity}) => entity);
-      choices.setChoices(
-        ordered.map(entity => ({value: entity.unique_id, label: this.entityDisplayName(entity)})),
-        'value', 'label', true,
-      );
-      choices.setChoiceByValue([...refs]);
-      this.favoritesChoices = choices;
+      this.prefsDraft = {icon: appearance.icon};
     },
 
-    // Choices feuert "change" am <select>; die Reihenfolge der Chips ist die
-    // Reihenfolge der Auswahl.
-    syncFavoritesFromChoices() {
-      if (!this.favoritesChoices) return;
-      this.prefsDraft.favorite_refs = this.favoritesChoices.getValue(true);
+    // Liest Favoriten und Icon eines Geraets. Offen: aus dem Modal. Sonst vom
+    // Server, denn ein Rueckgaengig kann laengst ein anderes Geraet zeigen.
+    async appearanceFor(deviceId) {
+      if (this.selectedDeviceId === deviceId && this.deviceDetail) return this.appearanceOf();
+      const detail = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}`);
+      return {icon: detail.icon_name || '', favorite_refs: [...(detail.favorite_refs || [])]};
     },
 
-    async saveDevicePrefs() {
-      if (!this.selectedDeviceId || this.prefsSaving) return;
-      this.prefsSaving = true;
-      this.prefsMessage = '';
+    // Schreibaktionen laufen nacheinander. Jede liest ihren Ausgangsstand erst,
+    // wenn die vorige fertig ist. Scheitert die vorige, geht das Modal auf
+    // deren Ausgangsstand zurueck (den bestaetigten), nicht auf einen Zwischenstand.
+    queueAppearance(job) {
+      const run = (this.appearanceQueue || Promise.resolve()).then(job).catch(error => {
+        this.$store.toasts.push(error.message, 'critical');
+      });
+      this.appearanceQueue = run;
+      return run;
+    },
+
+    // Schreibt ein Feld (favorite_refs oder icon) fuer deviceId. Das andere Feld
+    // geht mit seinem aktuellen Stand mit. Nur aus queueAppearance aufrufen.
+    // undoable false ist das Rueckgaengig selbst, es bietet keine weitere Aktion.
+    async writeAppearanceField(deviceId, field, value, messageKey, undoable = true) {
+      const before = await this.appearanceFor(deviceId);
+      const previousValue = before[field];
+      const next = {...before, [field]: value};
+      // Ein Detail-Refresh, der vor dem Schreiben gestartet wurde, darf den
+      // Stand nach dem Speichern nicht mehr ueberschreiben (siehe refreshSelectedDevice).
+      if (this.selectedDeviceId === deviceId) this.detailRequestToken += 1;
+      this.applyAppearance(deviceId, next);
       try {
         await requestJSON(
-          `/api/v1/device/prefs/${encodeURIComponent(this.selectedDeviceId)}`,
-          {...this.mutationOptions(this.prefsDraft), method: 'PUT'},
+          `/api/v1/device/prefs/${encodeURIComponent(deviceId)}`,
+          {...this.mutationOptions({icon: next.icon, favorite_refs: next.favorite_refs}), method: 'PUT'},
         );
-        // Das Detail traegt die Praeferenzen mit; der Entwurf darf danach
-        // wieder aus dem Server-Stand kommen. Die Meldung erst danach setzen -
-        // seedPrefsDraft leert sie.
-        this.prefsDraftFor = '';
-        await this.loadDeviceDetail(this.selectedDeviceId);
-        this.seedPrefsDraft();
-        this.prefsMessage = t('common.saved');
-        await this.refreshAfterMutation();
       } catch (error) {
-        this.prefsMessage = error.message;
-      } finally {
-        this.prefsSaving = false;
+        this.applyAppearance(deviceId, before);
+        this.$store.toasts.push(error.message, 'critical');
+        return false;
       }
+      // Das neu geladene Detail bringt die card_refs mit. Scheitert nur das
+      // Nachladen, stimmt der Stand im Modal schon; der Fehler wird gemeldet.
+      if (this.selectedDeviceId === deviceId) this.detailRequestToken += 1;
+      try {
+        await this.loadDeviceDetail(deviceId);
+      } catch (error) {
+        if (this.selectedDeviceId === deviceId) this.detailError = error.message;
+      }
+      const options = undoable
+        ? {action: {run: () => this.queueAppearance(() => this.writeAppearanceField(deviceId, field, previousValue, messageKey, false))}}
+        : undefined;
+      this.$store.toasts.push(t(messageKey), 'info', options);
+      return true;
+    },
+
+    // Stern am Entity. Ohne Recht passiert nichts. Ein viertes Favorit wird
+    // nicht gesendet, sondern nur gemeldet.
+    async toggleFavorite(entity) {
+      const ref = entity?.unique_id;
+      const deviceId = this.selectedDeviceId;
+      if (!this.canEditAppearance || !ref || !deviceId || !this.deviceDetail) return;
+      return this.queueAppearance(async () => {
+        const current = await this.appearanceFor(deviceId);
+        const favorited = current.favorite_refs.includes(ref);
+        if (!favorited && current.favorite_refs.length >= FAVORITE_LIMIT) {
+          this.favoriteLimitHit += 1;
+          this.$store.toasts.push(t('devices.favourites.max'), 'warning');
+          return;
+        }
+        const favorite_refs = favorited
+          ? current.favorite_refs.filter(item => item !== ref)
+          : [...current.favorite_refs, ref];
+        await this.writeAppearanceField(deviceId, 'favorite_refs', favorite_refs, 'devices.favourites.saved');
+      });
+    },
+
+    // Icon aus dem Katalog. Das Vorschlagsicon speichert als leere Auswahl,
+    // damit das Geraet weiter seinem Typ folgt.
+    async saveIcon(name) {
+      const deviceId = this.selectedDeviceId;
+      if (!this.canEditAppearance || !name || !deviceId || !this.deviceDetail) return;
+      const icon = name === this.defaultIconName ? '' : name;
+      return this.queueAppearance(() => this.writeAppearanceField(deviceId, 'icon', icon, 'devices.icon.saved'));
+    },
+
+    closeFloatingMenus() {
+      this.iconPickerOpen = false;
+      this.moreMenuOpen = false;
     },
 
     async ignoreDevice(deviceId) {
@@ -357,6 +345,16 @@
       return [...groups.values()];
     },
 
+    // Betriebswarnungen (Gerät offline, Bridge) und Konfigurationswarnungen
+    // teilen sich dieselben Gruppen; warning.operational trennt sie.
+    get operationalWarnings() {
+      return this.groupedWarnings.filter(warning => warning.operational);
+    },
+
+    get configWarnings() {
+      return this.groupedWarnings.filter(warning => !warning.operational);
+    },
+
     entityLabel(entityID) {
       const entity = (this.deviceDetail?.entities || []).find(item => item.unique_id === entityID);
       if (!entity) return entityID;
@@ -379,22 +377,6 @@
       return rest || name;
     },
 
-    // Entitaeten, die sich einen State-Topic teilen (z.B. die Bilanz von
-    // energy_node), tragen dieselbe Nachricht. Sie zaehlt nur einmal.
-    get recentMessages() {
-      const seen = new Set();
-      return (this.deviceDetail?.entities || [])
-        .filter(entity => entity.last_message)
-        .map(entity => ({unique_id: entity.unique_id, ...entity.last_message}))
-        .filter(message => {
-          const id = message.topic ? `${message.topic}|${message.at}` : message.unique_id;
-          if (seen.has(id)) return false;
-          seen.add(id);
-          return true;
-        })
-        .sort((left, right) => new Date(right.at) - new Date(left.at));
-    },
-
     formatStateValue(value) {
       if (value === null || value === undefined) return '–';
       if (typeof value === 'object') return JSON.stringify(value);
@@ -408,70 +390,42 @@
       return (item && item[part]) || '';
     },
 
-    // Eine empfangene MQTT-Nachricht wird als Liste einzelner Zustaende
-    // gezeigt (wie ein Set-Vorgang im Design, nur ohne "ok"): ein
-    // JSON-Objekt-Payload zerfaellt in je eine Zeile pro Schluessel, ein
-    // skalares Payload bleibt eine Zeile unter dem Entitaets- bzw.
-    // Topic-Namen. Kein Payload -> ein "(leer)"-Hinweis, damit die Zeile
-    // nicht verschwindet.
-    messageStates(message) {
-      if (!message) return [];
-      const raw = message.payload;
-      if (raw === undefined || raw === null || String(raw).trim() === '') {
-        return [{key: 'empty', label: message.topic || 'MQTT', value: t('devices.messages.empty_payload')}];
-      }
-      let parsed = null;
+    // Die Aktivitaet kommt vom Server (GET /api/v1/devices/{id}/activity), der
+    // pro Geraet nur die letzten Eintraege kennt. Das Log waechst trotzdem
+    // weiter: neue Zeilen kommen oben dazu, bekannte bleiben darunter stehen.
+    // Ein Fehler laesst die Anzeige stehen, eine Antwort fuer ein anderes
+    // Geraet wird verworfen.
+    async loadActivity(deviceId, requestToken = this.detailRequestToken) {
+      let body;
       try {
-        parsed = JSON.parse(raw);
+        body = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}/activity`);
       } catch (error) {
-        parsed = null;
+        return;
       }
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const states = [];
-        // Verschachtelte Objekte (z.B. balance.pv) zerfallen weiter, mit
-        // Punkt-Pfad als Label; Arrays bleiben ein JSON-Wert.
-        const walk = (object, prefix) => {
-          for (const [key, value] of Object.entries(object)) {
-            const path = prefix ? `${prefix}.${key}` : key;
-            if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length) walk(value, path);
-            else states.push({key: path, label: path, value: this.formatStateValue(value)});
-          }
-        };
-        walk(parsed, '');
-        if (states.length) return states;
-      }
-      const entity = (this.deviceDetail?.entities || []).find(item => item.unique_id === message.unique_id);
-      const label = entity ? this.entityDisplayName(entity) : (message.topic || 'MQTT');
-      return [{key: 'value', label, value: String(raw)}];
+      if (requestToken !== this.detailRequestToken || this.selectedDeviceId !== deviceId) return;
+      this.mergeActivity(body?.entries || []);
     },
 
-    // Aktivitaet als eine flache Liste: Befehle, dann die letzten Nachrichten
-    // (neueste oben) Zeile fuer Zeile. Flach statt x-for im x-for, weil Alpine
-    // beim Umsortieren nur das innere <template> verschiebt, nicht dessen
-    // Zeilen. Schluessel bleiben ueber Live-Refreshes stabil, damit x-flip
-    // bestehende Zeilen gleiten und nur neue einblenden laesst.
-    get activityEntries() {
-      const commands = (this.deviceDetail?.command_actions || []).slice(0, 3).map(action => ({
-        key: `cmd-${action.at}-${action.entity_id}`,
-        at: action.at,
-        text: `${action.entity_id}: ${action.result === 'published' ? t('devices.activity.command_sent') : t('devices.activity.command_failed')}`,
-      }));
-      const messages = this.recentMessages.slice(0, 3).flatMap(message => this.messageStates(message).map(state => ({
-        key: `msg-${message.unique_id}-${message.at}-${state.key}`,
-        at: message.at,
-        text: `${state.label}: ${state.value}`,
-      })));
-      return [...commands, ...messages];
-    },
-
-    // Der Server haelt pro Entitaet nur die letzte Nachricht. Damit die
-    // Aktivitaet waechst statt sich auszutauschen, schreibt das Modal sie
-    // mit: neue Zeilen kommen oben dazu, bekannte bleiben darunter stehen.
     // Gedeckelt, damit ein schnell sendendes Geraet den Speicher nicht fuellt.
-    mergeActivity() {
+    mergeActivity(entries = []) {
       const known = new Set(this.activityLog.map(entry => entry.key));
-      const fresh = this.activityEntries.filter(entry => !known.has(entry.key));
+      const fresh = entries.filter(entry => !known.has(entry.key)).map(entry => this.activityRow(entry));
       if (fresh.length) this.activityLog = [...fresh, ...this.activityLog].slice(0, ACTIVITY_LOG_LIMIT);
+    },
+
+    // Serverzeile -> Zeile fuers Template (key, at, kind, text). Der Text
+    // entsteht hier, damit das Template nur text ausgibt. Ein leerer
+    // MQTT-Payload kommt als Key ...-empty ohne Wert.
+    activityRow(entry) {
+      let text;
+      if (entry.kind === 'command') {
+        const result = entry.ok ? t('devices.activity.command_sent') : t('devices.activity.command_failed');
+        text = `${entry.label}: ${result}`;
+      } else {
+        const value = String(entry.key).endsWith('-empty') ? t('devices.messages.empty_payload') : entry.value;
+        text = `${entry.label}: ${value}`;
+      }
+      return {key: entry.key, at: entry.at, kind: entry.kind, text};
     },
 
     entityCategory(entity) {
@@ -551,26 +505,73 @@
       return `${this.configDiagEntities.length}${staleDiagnostic ? ' · ⚠' : ''}`;
     },
 
-    // Die angepinnten Favoriten des Geraets - leer, solange der Schalter aus
-    // ist. Ein Ref ohne Treffer faellt still weg, wie ueberall sonst auch.
-    get pinnedFavorites() {
-      if (!this.deviceDetail?.pin_favorites) return [];
+    // Die Hero-Kacheln des Geraets: bis zu drei Entitaeten aus card_refs.
+    // auto markiert die, die nicht als Favorit gesetzt sind, sondern nur
+    // automatisch vorgeschlagen werden.
+    get heroEntities() {
+      if (!this.deviceDetail) return [];
       const byID = new Map((this.deviceDetail.entities || []).map(entity => [entity.unique_id, entity]));
-      return (this.deviceDetail.favorite_refs || []).map(ref => byID.get(ref)).filter(Boolean);
+      const favorites = new Set(this.deviceDetail.favorite_refs || []);
+      return (this.deviceDetail.card_refs || [])
+        .map(ref => ({entity: byID.get(ref), auto: !favorites.has(ref)}))
+        .filter(item => item.entity)
+        .slice(0, 3);
     },
 
-    managementTeaser(now = new Date()) {
-      const warningCount = this.groupedWarnings.length;
-      const latest = [...(this.deviceDetail?.command_actions || []).map(a => a.at), ...this.recentMessages.map(m => m.at)]
-        .filter(Boolean)
-        .sort((left, right) => new Date(right) - new Date(left))[0];
-      const parts = [];
-      if (warningCount) parts.push(`⚠ ${warningCount}`);
-      if (latest) parts.push(this.relativeTime(latest, now));
+    isFavorite(entity) {
+      return (this.deviceDetail?.favorite_refs || []).includes(entity?.unique_id);
+    },
+
+    // Nur die Konfigurationswarnungen: Betriebswarnungen stehen im Hero.
+    managementTeaser() {
+      const warningCount = this.configWarnings.length;
+      return warningCount ? `⚠ ${warningCount}` : '';
+    },
+
+    // Schreibaktionen (command_actions) einer Entitaet, fuer den Analyse-Tab.
+    commandsFor(entity) {
+      const id = entity?.unique_id;
+      return (this.deviceDetail?.command_actions || []).filter(action => action.entity_id === id);
+    },
+
+    // Anzahl der Schreibaktionen einer Entitaet fuer den Befehls-Chip.
+    commandCount(entity) {
+      return this.commandsFor(entity).length;
+    },
+
+    // Ergebnis einer Schreibaktion als Text fuer die Befehlsliste.
+    commandResultText(action) {
+      if (action.result === 'published') return t('devices.activity.command_sent');
+      return t('devices.write_actions.error_prefix') + (action.error || t('devices.write_actions.unknown'));
+    },
+
+    // Letzte MQTT-Nachricht einer Entitaet als "Payload · QoS n · retain".
+    messageSummary(entity) {
+      const message = entity?.last_message;
+      if (!message) return '-';
+      const parts = [message.payload || t('devices.messages.empty_payload'), `${t('devices.mqtt_messages.qos')} ${message.qos ?? '-'}`];
+      if (message.retained) parts.push(t('devices.analysis.retained'));
       return parts.join(' · ');
     },
 
+    // Aufgeklappte Entitaeten des Analyse-Tabs. Ein neues Set ersetzt das
+    // alte, damit Alpine die Aenderung sicher sieht. Live-Refreshes lassen
+    // die Auswahl stehen; Geraetewechsel und Schliessen leeren sie.
+    toggleAnalysisEntity(id) {
+      const next = new Set(this.openAnalysisEntities);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      this.openAnalysisEntities = next;
+    },
+
+    isAnalysisEntityOpen(id) {
+      return this.openAnalysisEntities.has(id);
+    },
+
     setDeviceTab(key) {
+      // Ohne view_device_analysis gibt es den Analyse-Tab nicht, also auch
+      // keinen Weg dorthin.
+      if (key === 'management' && !this.canViewAnalysis) return;
       this.activeDeviceTab = key;
       // Merge/Split nur anfassen, wenn der Nutzer gerade Messwerte/Steuerung
       // waehlt - so springt der Tab-Satz bei allen anderen Tabs nicht mehr um.
@@ -599,13 +600,14 @@
 
     // Beim Oeffnen eines Geraets ist immer derselbe Tab dran, unabhaengig
     // vom Ausloeser (Kachel oder Kompakt-Karte): der erste Entitaets-Tab,
-    // der etwas zu zeigen hat. "Verwaltung & Analyse" existiert immer und
-    // ist deshalb der Boden dieser Kette.
+    // der etwas zu zeigen hat. Der Analyse-Tab ist nur mit
+    // view_device_analysis der Boden dieser Kette; ohne das Recht faellt
+    // die Kette auf die Geraetedaten zurueck.
     defaultDeviceTab() {
       if (this.measurementEntities.length) return this.mergedTab ? 'measurementsControls' : 'measurements';
       if (this.controlEntities.length) return this.mergedTab ? 'measurementsControls' : 'controls';
       if (this.configDiagEntities.length) return 'configDiag';
-      return 'management';
+      return this.canViewAnalysis ? 'management' : 'deviceInfo';
     },
 
     applyMergeThreshold(height) {
@@ -629,28 +631,24 @@
     observeMergeThreshold() {
       if (typeof ResizeObserver === 'undefined') return;
       const scrollarea = this.$refs.deviceModalScrollarea;
-      const dialog = this.$refs.deviceModalDialog;
-      if (!scrollarea && !dialog) return;
+      if (!scrollarea) return;
       this.mergeObserver = new ResizeObserver(entries => {
-        for (const entry of entries) {
-          if (entry.target === dialog) {
-            this.isAccordion = entry.contentRect.width > 0 && entry.contentRect.width < 860;
-          } else {
-            this.applyMergeThreshold(entry.contentRect.height);
-          }
-        }
+        for (const entry of entries) this.applyMergeThreshold(entry.contentRect.height);
         this.positionUnderline();
       });
-      if (scrollarea) this.mergeObserver.observe(scrollarea);
-      if (dialog) this.mergeObserver.observe(dialog);
+      this.mergeObserver.observe(scrollarea);
     },
 
     async openDevice(deviceId) {
       if (!deviceId) return;
       const requestToken = ++this.detailRequestToken;
+      // Gerätewechsel leert die Entitaets-Aufklappung; ein Neuladen desselben
+      // Geraets (reloadDevice) behaelt sie.
+      if (this.selectedDeviceId !== deviceId) this.openAnalysisEntities = new Set();
       this.selectedDeviceId = deviceId;
       this.deviceDetail = null;
       this.activityLog = [];
+      this.closeFloatingMenus();
       this.detailError = '';
       this.detailLoading = true;
       this.loadDeviceIcons();
@@ -660,9 +658,6 @@
       this.$nextTick(() => {
         const dialog = this.$refs.deviceModalDialog;
         if (dialog && !dialog.open) dialog.showModal();
-        if (dialog && typeof dialog.clientWidth === 'number' && dialog.clientWidth > 0) {
-          this.isAccordion = dialog.clientWidth < 860;
-        }
       });
       try {
         this.resetSubDevices();
@@ -689,7 +684,7 @@
       const detail = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}`);
       if (requestToken !== this.detailRequestToken || this.selectedDeviceId !== deviceId) return;
       this.deviceDetail = detail;
-      this.mergeActivity();
+      this.loadActivity(deviceId, requestToken);
       this.seedPrefsDraft();
       this.loadDeviceIcons();
       if (this.$nextTick) this.$nextTick(() => this.positionUnderline());
@@ -867,12 +862,12 @@
       this.selectedDeviceId = '';
       this.deviceDetail = null;
       this.activityLog = [];
+      this.openAnalysisEntities = new Set();
       this.detailError = '';
-      this.prefsDraftFor = '';
+      this.closeFloatingMenus();
       this.closeSubDeviceForm();
       this.subLoadToken += 1;
       this.subManage = false;
-      this.destroyFavoritesChoices();
       if (this.livePatchStale) {
         this.livePatchStale = false;
         this.refreshLiveFragment();
@@ -903,6 +898,14 @@
         if (event.target === this.$refs.deviceModalDialog && this.selectedDeviceId) this.closeDeviceDetail();
       };
       this.$refs.deviceModalDialog?.addEventListener('close', this.dialogClosed);
+      // Esc schliesst erst ein offenes Icon-Feld oder Mehr-Menue, das Modal
+      // bleibt dabei stehen.
+      this.dialogKeydown = event => {
+        if (event.key !== 'Escape' || !(this.iconPickerOpen || this.moreMenuOpen)) return;
+        event.preventDefault();
+        this.closeFloatingMenus();
+      };
+      this.$refs.deviceModalDialog?.addEventListener('keydown', this.dialogKeydown);
       this.observeMergeThreshold();
       // Sekundentakt fuer die relative "aktualisiert vor X"-Anzeige im
       // Modal. Laeuft nur weiter, solange ein Geraet offen ist.
@@ -913,6 +916,7 @@
 
     detachDeviceModal() {
       if (this.dialogClosed) this.$refs.deviceModalDialog?.removeEventListener('close', this.dialogClosed);
+      if (this.dialogKeydown) this.$refs.deviceModalDialog?.removeEventListener('keydown', this.dialogKeydown);
       this.mergeObserver?.disconnect();
       if (this.clockTimer) window.clearInterval(this.clockTimer);
     },

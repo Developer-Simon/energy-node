@@ -306,3 +306,69 @@ test('confirm() bei bereits offenem Modal loest sofort mit false auf', async () 
   assert.equal(warnings.length, 1, 'der Bug wird nicht verschwiegen');
   assert.equal(modal.title, 'erstens', 'das offene Modal wird nicht ueberschrieben');
 });
+
+test('push() mit Aktion fuehrt run genau einmal aus, ein zweites runAction tut nichts', () => {
+  const { toasts } = loadNotify();
+  let runs = 0;
+  const id = toasts.push('Regel angelegt', 'info', { action: { label: 'Rückgängig', run: () => { runs += 1; } } });
+  toasts.runAction(id);
+  toasts.runAction(id);
+  assert.equal(runs, 1);
+});
+
+test('runAction() schliesst den Toast mit der Aktion', () => {
+  const { toasts, timers } = loadNotify();
+  const id = toasts.push('Regel angelegt', 'info', { action: { label: 'Rückgängig', run: () => {} } });
+  toasts.runAction(id);
+  assert.equal(toasts.items[0].state, 'leaving');
+  assert.equal(timers[0].cleared, true);
+});
+
+test('runAction() bei unbekannter id oder ohne Aktion tut nichts und wirft nicht', () => {
+  const { toasts } = loadNotify();
+  const plain = toasts.push('gespeichert');
+  assert.doesNotThrow(() => toasts.runAction(999));
+  assert.doesNotThrow(() => toasts.runAction(plain));
+  assert.equal(toasts.items[0].state, 'open');
+});
+
+test('ein Toast mit Aktion entdoppelt nicht, auch bei gleichem Text und Schweregrad', () => {
+  const { toasts } = loadNotify();
+  const action = { label: 'Rückgängig', run: () => {} };
+  const first = toasts.push('Regel angelegt', 'info', { action });
+  const second = toasts.push('Regel angelegt', 'info', { action });
+  assert.notEqual(second, first);
+  assert.equal(toasts.items.length, 2);
+  assert.equal(toasts.items[0].count, 1);
+  assert.equal(toasts.items[1].count, 1);
+});
+
+test('ein Toast ohne Aktion fasst keinen Toast mit Aktion zusammen und umgekehrt', () => {
+  const { toasts } = loadNotify();
+  toasts.push('Regel angelegt', 'info', { action: { label: 'Rückgängig', run: () => {} } });
+  toasts.push('Regel angelegt');
+  assert.equal(toasts.items.length, 2);
+  assert.equal(toasts.items[0].count, 1);
+});
+
+test('der Toast mit Aktion laeuft in der Dauer seiner Schwere ab', () => {
+  const { toasts, timers } = loadNotify();
+  toasts.push('Regel angelegt', 'warning', { action: { label: 'Rückgängig', run: () => {} } });
+  assert.equal(timers[0].ms, 16000);
+  assert.equal(toasts.items[0].durationMs, 16000);
+});
+
+test('eine Aktion ohne run-Funktion wird ignoriert, der Toast bleibt ein normaler Toast', () => {
+  const { toasts } = loadNotify();
+  const id = toasts.push('gespeichert', 'info', { action: { label: 'Kaputt' } });
+  assert.equal(toasts.items[0].action, null);
+  assert.equal(toasts.items[0].id, id);
+  toasts.push('gespeichert');
+  assert.equal(toasts.items.length, 1, 'ohne Aktion wird weiterhin zusammengefasst');
+});
+
+test('ohne Label fällt die Aktion auf common.undo zurueck', () => {
+  const { toasts } = loadNotify();
+  toasts.push('gespeichert', 'info', { action: { run: () => {} } });
+  assert.equal(toasts.items[0].action.label, 'Rückgängig');
+});
