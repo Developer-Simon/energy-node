@@ -23,6 +23,8 @@ ACTIONS = ("release", "download", "installer_version", "installer_none", "instal
 VERSION_RE = re.compile(r"v\d+\.\d+\.\d+")
 UNREACHABLE = "GitHub-Fake nicht erreichbar"
 NOT_SET_UP = "Installer-Zustand ist nicht eingerichtet"
+NOT_READABLE = "Installer-Zustand nicht lesbar"
+NOT_WRITABLE = "Installer-Zustand nicht schreibbar"
 MODE_TEXT = {"none": "kein Update", "error": "Fehler 500", "ratelimit": "Rate-Limit"}
 
 
@@ -31,6 +33,18 @@ def _read(path: Path) -> bytes | None:
         return path.read_bytes()
     except FileNotFoundError:
         return None
+    except OSError:
+        raise ValueError(NOT_READABLE) from None
+
+
+def _parse_manifest(raw: bytes) -> dict:
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        raise ValueError(NOT_READABLE) from None
+    if not isinstance(data, dict):
+        raise ValueError(NOT_READABLE)
+    return data
 
 
 class InstallerState:
@@ -50,7 +64,7 @@ class InstallerState:
         version = ""
         raw = _read(self.state_dir / "installed-manifest.json")
         if raw is not None:
-            version = json.loads(raw.decode("utf-8")).get("version", "")
+            version = str(_parse_manifest(raw).get("version", ""))
         return {
             "version": version,
             "previous": (self.state_dir / "previous-manifest.json").exists(),
@@ -64,7 +78,7 @@ class InstallerState:
         target = self.state_dir / "installed-manifest.json"
         if not target.exists():
             shutil.copyfile(self.fixture_dir / "installed-manifest.json", target)
-        manifest = json.loads(target.read_text(encoding="utf-8"))
+        manifest = _parse_manifest(target.read_bytes())
         manifest["version"] = version
         manifest.setdefault("components", {})["dashboard"] = version
         handle, tmp = tempfile.mkstemp(dir=self.state_dir, prefix=".installed-", suffix=".tmp")
@@ -121,25 +135,31 @@ class UpdatesTab(Tab):
             return self.state()
         if self._installer is None:
             raise ValueError(NOT_SET_UP)
-        if action == "installer_version":
-            version = body.get("version", "")
-            self._installer.set_version(version)
-            self._log.add("updates", f"Installierte Version {version}")
-        elif action == "installer_none":
-            self._installer.remove_installed()
-            self._log.add("updates", "Keine Installation")
-        elif action == "installer_previous":
-            present = bool(body.get("present"))
-            self._installer.set_previous(present)
-            self._log.add("updates", "Vorherige Version vorhanden" if present else "Vorherige Version entfernt")
-        else:
-            self._installer.reset()
-            self._log.add("updates", "Installer-Zustand auf Fixture zurückgesetzt")
+        try:
+            if action == "installer_version":
+                version = body.get("version", "")
+                self._installer.set_version(version)
+                self._log.add("updates", f"Installierte Version {version}")
+            elif action == "installer_none":
+                self._installer.remove_installed()
+                self._log.add("updates", "Keine Installation")
+            elif action == "installer_previous":
+                present = bool(body.get("present"))
+                self._installer.set_previous(present)
+                self._log.add("updates", "Vorherige Version vorhanden" if present else "Vorherige Version entfernt")
+            else:
+                self._installer.reset()
+                self._log.add("updates", "Installer-Zustand auf Fixture zurückgesetzt")
+        except OSError:
+            raise ValueError(NOT_WRITABLE) from None
         return self.state()
 
     def reset(self) -> None:
         if self._installer is not None:
-            self._installer.reset()
+            try:
+                self._installer.reset()
+            except OSError:
+                raise ValueError(NOT_WRITABLE) from None
         try:
             self._remote.post("reset", {})
         except OSError:
@@ -155,7 +175,12 @@ class UpdatesTab(Tab):
             text = f"bietet {release['tag']}"
         else:
             text = MODE_TEXT[release["mode"]]
-        installer_changed = self._installer is not None and not self._installer.matches_fixture()
+        installer_changed = False
+        if self._installer is not None:
+            try:
+                installer_changed = not self._installer.state()["matches_fixture"]
+            except ValueError:
+                return {"level": "error", "text": NOT_READABLE}
         if installer_changed:
             text += ", Installer verändert"
         changed = (

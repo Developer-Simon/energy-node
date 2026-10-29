@@ -118,3 +118,12 @@ def test_fragment_markers(installer):
                    "data-abort", "data-installed", "data-previous"):
         assert marker in html
     assert 'data-group="installer"' not in updates_html(18284, False)
+
+
+def test_corrupt_manifest_is_error_summary_and_value_errors(tab, installer):
+    (installer.state_dir / "installed-manifest.json").write_text("{kaputt", encoding="utf-8")
+    assert tab.summary() == {"level": "error", "text": "Installer-Zustand nicht lesbar"}
+    with pytest.raises(ValueError, match="Installer-Zustand nicht lesbar"):
+        tab.state()
+    with pytest.raises(ValueError, match="Installer-Zustand nicht lesbar"):
+        tab.act("installer_version", {"version": "v0.9.0"})

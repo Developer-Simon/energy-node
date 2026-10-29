@@ -133,7 +133,10 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             if tab is None:
                 self._error(404, "unbekannter Tab")
                 return
-            self._json(200, tab.state())
+            try:
+                self._json(200, tab.state())
+            except (ValueError, OSError) as exc:
+                self._error(400, str(exc))
             return
         self._error(404, "nicht gefunden")
 
