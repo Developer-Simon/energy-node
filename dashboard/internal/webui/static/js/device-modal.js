@@ -359,20 +359,11 @@
       return rest || name;
     },
 
-    // Entitaeten, die sich einen State-Topic teilen (z.B. die Bilanz von
-    // energy_node), tragen dieselbe Nachricht. Sie zaehlt nur einmal.
+    // Nur noch ein Lesepfad fuer das Template (Hinweis "keine Aktivitaet")
+    // und managementTeaser. Task 12 entfernt ihn zusammen mit den
+    // Template-Verweisen.
     get recentMessages() {
-      const seen = new Set();
-      return (this.deviceDetail?.entities || [])
-        .filter(entity => entity.last_message)
-        .map(entity => ({unique_id: entity.unique_id, ...entity.last_message}))
-        .filter(message => {
-          const id = message.topic ? `${message.topic}|${message.at}` : message.unique_id;
-          if (seen.has(id)) return false;
-          seen.add(id);
-          return true;
-        })
-        .sort((left, right) => new Date(right.at) - new Date(left.at));
+      return this.activityLog.filter(entry => entry.kind === 'message');
     },
 
     formatStateValue(value) {
@@ -388,70 +379,42 @@
       return (item && item[part]) || '';
     },
 
-    // Eine empfangene MQTT-Nachricht wird als Liste einzelner Zustaende
-    // gezeigt (wie ein Set-Vorgang im Design, nur ohne "ok"): ein
-    // JSON-Objekt-Payload zerfaellt in je eine Zeile pro Schluessel, ein
-    // skalares Payload bleibt eine Zeile unter dem Entitaets- bzw.
-    // Topic-Namen. Kein Payload -> ein "(leer)"-Hinweis, damit die Zeile
-    // nicht verschwindet.
-    messageStates(message) {
-      if (!message) return [];
-      const raw = message.payload;
-      if (raw === undefined || raw === null || String(raw).trim() === '') {
-        return [{key: 'empty', label: message.topic || 'MQTT', value: t('devices.messages.empty_payload')}];
-      }
-      let parsed = null;
+    // Die Aktivitaet kommt vom Server (GET /api/v1/devices/{id}/activity), der
+    // pro Geraet nur die letzten Eintraege kennt. Das Log waechst trotzdem
+    // weiter: neue Zeilen kommen oben dazu, bekannte bleiben darunter stehen.
+    // Ein Fehler laesst die Anzeige stehen, eine Antwort fuer ein anderes
+    // Geraet wird verworfen.
+    async loadActivity(deviceId, requestToken = this.detailRequestToken) {
+      let body;
       try {
-        parsed = JSON.parse(raw);
+        body = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}/activity`);
       } catch (error) {
-        parsed = null;
+        return;
       }
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const states = [];
-        // Verschachtelte Objekte (z.B. balance.pv) zerfallen weiter, mit
-        // Punkt-Pfad als Label; Arrays bleiben ein JSON-Wert.
-        const walk = (object, prefix) => {
-          for (const [key, value] of Object.entries(object)) {
-            const path = prefix ? `${prefix}.${key}` : key;
-            if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length) walk(value, path);
-            else states.push({key: path, label: path, value: this.formatStateValue(value)});
-          }
-        };
-        walk(parsed, '');
-        if (states.length) return states;
-      }
-      const entity = (this.deviceDetail?.entities || []).find(item => item.unique_id === message.unique_id);
-      const label = entity ? this.entityDisplayName(entity) : (message.topic || 'MQTT');
-      return [{key: 'value', label, value: String(raw)}];
+      if (requestToken !== this.detailRequestToken || this.selectedDeviceId !== deviceId) return;
+      this.mergeActivity(body?.entries || []);
     },
 
-    // Aktivitaet als eine flache Liste: Befehle, dann die letzten Nachrichten
-    // (neueste oben) Zeile fuer Zeile. Flach statt x-for im x-for, weil Alpine
-    // beim Umsortieren nur das innere <template> verschiebt, nicht dessen
-    // Zeilen. Schluessel bleiben ueber Live-Refreshes stabil, damit x-flip
-    // bestehende Zeilen gleiten und nur neue einblenden laesst.
-    get activityEntries() {
-      const commands = (this.deviceDetail?.command_actions || []).slice(0, 3).map(action => ({
-        key: `cmd-${action.at}-${action.entity_id}`,
-        at: action.at,
-        text: `${action.entity_id}: ${action.result === 'published' ? t('devices.activity.command_sent') : t('devices.activity.command_failed')}`,
-      }));
-      const messages = this.recentMessages.slice(0, 3).flatMap(message => this.messageStates(message).map(state => ({
-        key: `msg-${message.unique_id}-${message.at}-${state.key}`,
-        at: message.at,
-        text: `${state.label}: ${state.value}`,
-      })));
-      return [...commands, ...messages];
-    },
-
-    // Der Server haelt pro Entitaet nur die letzte Nachricht. Damit die
-    // Aktivitaet waechst statt sich auszutauschen, schreibt das Modal sie
-    // mit: neue Zeilen kommen oben dazu, bekannte bleiben darunter stehen.
     // Gedeckelt, damit ein schnell sendendes Geraet den Speicher nicht fuellt.
-    mergeActivity() {
+    mergeActivity(entries = []) {
       const known = new Set(this.activityLog.map(entry => entry.key));
-      const fresh = this.activityEntries.filter(entry => !known.has(entry.key));
+      const fresh = entries.filter(entry => !known.has(entry.key)).map(entry => this.activityRow(entry));
       if (fresh.length) this.activityLog = [...fresh, ...this.activityLog].slice(0, ACTIVITY_LOG_LIMIT);
+    },
+
+    // Serverzeile -> Zeile fuers Template (key, at, kind, text). Der Text
+    // entsteht hier, damit das Template nur text ausgibt. Ein leerer
+    // MQTT-Payload kommt als Key ...-empty ohne Wert.
+    activityRow(entry) {
+      let text;
+      if (entry.kind === 'command') {
+        const result = entry.ok ? t('devices.activity.command_sent') : t('devices.activity.command_failed');
+        text = `${entry.label}: ${result}`;
+      } else {
+        const value = String(entry.key).endsWith('-empty') ? t('devices.messages.empty_payload') : entry.value;
+        text = `${entry.label}: ${value}`;
+      }
+      return {key: entry.key, at: entry.at, kind: entry.kind, text};
     },
 
     entityCategory(entity) {
@@ -685,7 +648,7 @@
       const detail = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}`);
       if (requestToken !== this.detailRequestToken || this.selectedDeviceId !== deviceId) return;
       this.deviceDetail = detail;
-      this.mergeActivity();
+      this.loadActivity(deviceId, requestToken);
       this.seedPrefsDraft();
       this.loadDeviceIcons();
       if (this.$nextTick) this.$nextTick(() => this.positionUnderline());

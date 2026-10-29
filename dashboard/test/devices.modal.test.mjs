@@ -191,80 +191,89 @@ test('applyMergeThreshold ruehrt den Merge-Zustand nicht an, solange ein anderer
   assert.equal(panel.activeDeviceTab, 'configDiag');
 });
 
-// messageStates baut seine Objekte im vm-Kontext von dashboard.js - ein
-// realmuebergreifendes deepStrictEqual scheitert am Prototyp, deshalb hier
-// feldweise geprueft.
-function plainStates(states) {
-  return Array.from(states, state => `${state.label}=${state.value}`);
+// Ersatz fuer den Block messageStates/activityEntries/recentMessages/activityLog-Tests.
+function fetchActivity(panel, entriesFor) {
+  const requested = [];
+  panel.testWindow.fetch = async url => {
+    requested.push(url);
+    const result = await entriesFor(url);
+    return { ok: true, json: async () => result };
+  };
+  return requested;
 }
 
-test('messageStates zerlegt ein JSON-Payload in einzelne Zustaende', () => {
+test('Aktivität kommt aus dem Aktivitäts-Endpunkt und wächst wie bisher', async () => {
   const panel = createDevicesPanel();
-  const states = panel.messageStates({ topic: 't', at: '2026-08-28T12:00:00Z', payload: '{"car":2,"amp":16}' });
-  assert.deepEqual(plainStates(states), ['car=2', 'amp=16']);
-});
-
-test('messageStates schluesselt verschachtelte Objekte mit Punkt-Pfad auf', () => {
-  const panel = createDevicesPanel();
-  const states = panel.messageStates({ topic: 't', at: '', payload: '{"balance":{"pv":4200,"categories":{"werkstatt":536}},"tags":[1,2]}' });
-  assert.deepEqual(plainStates(states), ['balance.pv=4200', 'balance.categories.werkstatt=536', 'tags=[1,2]']);
-});
-
-test('activityEntries ist flach, neueste Nachricht oben, mit stabilen Schluesseln', () => {
-  const panel = createDevicesPanel();
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1,"y":2}' } },
-    { unique_id: 'b', last_message: { topic: 'b', at: '2026-10-18T10:00:05Z', payload: 'on' } },
-  ], command_actions: [] };
-  const first = Array.from(panel.activityEntries, entry => entry.key);
-  assert.deepEqual(first, ['msg-b-2026-10-18T10:00:05Z-value', 'msg-a-2026-10-18T10:00:00Z-x', 'msg-a-2026-10-18T10:00:00Z-y']);
-  // Ein Live-Refresh mit identischen Daten liefert dieselben Schluessel.
-  panel.deviceDetail = JSON.parse(JSON.stringify(panel.deviceDetail));
-  assert.deepEqual(Array.from(panel.activityEntries, entry => entry.key), first);
-});
-
-test('recentMessages zaehlt eine Nachricht auf einem geteilten Topic nur einmal', () => {
-  const panel = createDevicesPanel();
-  const message = { topic: 'energy/balance', at: '2026-10-18T10:00:00Z', payload: '{"pv":1}' };
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'pv', last_message: message },
-    { unique_id: 'grid', last_message: { ...message } },
-    { unique_id: 'other', last_message: { topic: 'other', at: '2026-10-18T09:00:00Z', payload: '1' } },
+  panel.selectedDeviceId = 'dev';
+  let body = { entries: [
+    { key: 'msg-x-2026-10-18T10:00:00Z-value', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'x', value: '1' },
   ] };
-  assert.deepEqual(Array.from(panel.recentMessages, entry => entry.unique_id), ['pv', 'other']);
+  const requested = fetchActivity(panel, async () => body);
+  await panel.loadActivity('dev');
+  assert.deepEqual(requested, ['/api/v1/devices/dev/activity']);
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 1']);
+  // Der Server liefert nur die letzten Nachrichten. Neue Zeilen kommen oben
+  // dazu, bekannte bleiben darunter, auch wenn der Server sie nicht mehr sendet.
+  body = { entries: [
+    { key: 'msg-y-2026-10-18T10:00:05Z-value', at: '2026-10-18T10:00:05Z', kind: 'message', label: 'y', value: '2' },
+  ] };
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['y: 2', 'x: 1']);
+  assert.equal(panel.activityLog.length, 2);
 });
 
-test('activityLog waechst: neue Eintraege oben, alte bleiben darunter', () => {
+test('Aktivität setzt für einen leeren Payload den Katalogtext', async () => {
   const panel = createDevicesPanel();
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1}' } },
-  ], command_actions: [] };
-  panel.mergeActivity();
-  panel.deviceDetail = { name: 'x', entities: [
-    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:05Z', payload: '{"x":2}' } },
-  ], command_actions: [] };
-  panel.mergeActivity();
-  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 2', 'x: 1']);
-  // Ein Refresh ohne neue Nachricht aendert nichts.
-  panel.mergeActivity();
-  assert.equal(panel.activityLog.length, 2);
-  // Schliessen verwirft das Log.
-  panel.$refs = {};
-  panel.closeDeviceDetail();
+  panel.selectedDeviceId = 'dev';
+  fetchActivity(panel, async () => ({ entries: [
+    { key: 'msg-goe-2026-10-18T10:00:00Z-empty', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'goe/state', value: '' },
+  ] }));
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['goe/state: (leer)']);
+});
+
+test('Befehle zeigen gesendet oder fehlgeschlagen', async () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'dev';
+  fetchActivity(panel, async () => ({ entries: [
+    { key: 'cmd-2026-10-18T10:00:00Z-sw', at: '2026-10-18T10:00:00Z', kind: 'command', label: 'sw', ok: false },
+  ] }));
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['sw: Befehl fehlgeschlagen']);
+});
+
+test('Ein Fehler beim Abruf lässt die Aktivität stehen, ohne zu werfen', async () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'dev';
+  fetchActivity(panel, async () => ({ entries: [
+    { key: 'msg-x-2026-10-18T10:00:00Z-value', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'x', value: '1' },
+  ] }));
+  await panel.loadActivity('dev');
+  panel.testWindow.fetch = async () => { throw new Error('offline'); };
+  await panel.loadActivity('dev');
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 1']);
+});
+
+test('Eine Antwort nach dem Gerätewechsel wird verworfen', async () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'dev';
+  panel.testWindow.fetch = async () => {
+    panel.selectedDeviceId = 'other';
+    return { ok: true, json: async () => ({ entries: [
+      { key: 'msg-x-2026-10-18T10:00:00Z-value', at: '2026-10-18T10:00:00Z', kind: 'message', label: 'x', value: '1' },
+    ] }) };
+  };
+  await panel.loadActivity('dev');
   assert.equal(panel.activityLog.length, 0);
 });
 
-test('messageStates zeigt ein skalares Payload als eine Zeile unter dem Topic', () => {
+test('recentMessages ist eine Ableitung aus dem Aktivitäts-Log', () => {
   const panel = createDevicesPanel();
-  panel.deviceDetail = { name: 'x', entities: [] };
-  const states = panel.messageStates({ topic: 'goe/state', at: '', payload: 'online' });
-  assert.deepEqual(plainStates(states), ['goe/state=online']);
-});
-
-test('messageStates markiert ein leeres Payload', () => {
-  const panel = createDevicesPanel();
-  const states = panel.messageStates({ topic: 'goe/state', at: '', payload: '' });
-  assert.deepEqual(plainStates(states), ['goe/state=(leer)']);
+  panel.activityLog = [
+    { key: 'cmd-1', at: '2026-10-18T10:00:00Z', kind: 'command', text: 'sw: Befehl gesendet' },
+    { key: 'msg-1', at: '2026-10-18T10:00:01Z', kind: 'message', text: 'x: 1' },
+  ];
+  assert.equal(panel.recentMessages.length, 1);
 });
 
 test('updatedRelative zeigt den relativen Abstand als Text, leer ohne last_updated', () => {
