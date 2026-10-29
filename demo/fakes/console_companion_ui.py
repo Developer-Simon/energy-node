@@ -1,86 +1,87 @@
 """Oberflaeche des Reiters Companion (HTML-Fragment fuer die Fake-Konsole).
 
-Das Fragment bringt sein Stylesheet und sein Skript mit. Die Seite fuegt es
-per innerHTML ein und startet das Skript danach neu. Das Skript setzt
-window.tabs.companion = {render, actions}. render(state) ueberschreibt keine
-Eingabefelder, die gerade den Fokus haben.
+Das Fragment nutzt die Bausteine der Seite (Gruppen, Zeilen, Schalter,
+Fehlerzeilen) und bringt nur Tabellenregeln mit. Die Seite fuegt es per
+innerHTML ein und startet das Skript danach neu. Das Skript setzt
+window.tabs.companion = {render}. Aktionen laufen ueber
+window.konsole.post, render(state) ueberschreibt keine Eingabefelder, die
+gerade den Fokus haben.
 """
 
-COMPANION_HTML = """<div id="tab-companion" class="co-cards">
+COMPANION_HTML = """<div id="tab-companion">
 <style>
-#tab-companion .co-cards { display: grid; gap: 16px; max-width: 760px; }
-#tab-companion .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; }
-#tab-companion h2 { margin: 0 0 8px; font-size: 1.05rem; }
-#tab-companion h3 { margin: 12px 0 4px; font-size: 0.95rem; }
-#tab-companion .co-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
-#tab-companion .co-field { display: inline-flex; gap: 6px; align-items: center; }
-#tab-companion .co-check { display: inline-flex; gap: 6px; align-items: center; margin-right: 12px; }
-#tab-companion input[type=text], #tab-companion input[type=password], #tab-companion input[type=number] { padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); min-width: 0; max-width: 100%; }
-#tab-companion input[type=number] { width: 7em; }
 #tab-companion .co-table input[type=text], #tab-companion .co-table input[type=password] { width: 9em; }
-#tab-companion button { padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--fg); cursor: pointer; }
-#tab-companion .co-err, #tab-companion .co-state-err { color: #b3261e; margin: 6px 0 0; min-height: 1.2em; }
-#tab-companion .co-muted, #tab-companion .co-hint { color: var(--muted); }
-#tab-companion .co-hint { font-size: 0.9rem; }
-#tab-companion .co-tablewrap { overflow-x: auto; }
+#tab-companion input[type=number] { width: 7em; }
+#tab-companion input[data-code] { flex: 1; min-width: 10em; max-width: 16em; }
+#tab-companion .co-tablewrap { overflow-x: auto; padding: 4px 14px; }
 #tab-companion table { border-collapse: collapse; }
-#tab-companion th, #tab-companion td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-#tab-companion ul { padding-left: 18px; margin: 6px 0; }
+#tab-companion th, #tab-companion td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--sep); vertical-align: middle; }
+#tab-companion .pill-warn:empty { display: none; }
 </style>
 
-<div class="card" data-card="pair">
-  <h2>Kopplung</h2>
-  <p class="co-status" data-pair-status></p>
-  <p class="co-state-err" data-pair-error></p>
-  <div class="co-row">
-    <label class="co-field">Code <input type="text" data-code placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false"></label>
-    <button type="button" data-act="pair">Koppeln</button>
-  </div>
-  <div class="co-row">
-    <button type="button" data-act="unpair">Entkoppeln</button>
-    <button type="button" data-act="pair_wrong">Falscher Code</button>
-    <button type="button" data-act="drop_stream">Strom trennen</button>
-    <button type="button" data-act="open_stream">Strom öffnen</button>
-  </div>
-  <p class="co-err"></p>
+<div class="panel-head">
+  <h2>Companion</h2>
+  <p class="panel-meta" data-meta></p>
 </div>
 
-<div class="card" data-card="users">
-  <h2>HA-Benutzer</h2>
-  <div class="co-tablewrap">
-    <table class="co-table">
-      <thead><tr><th>Benutzername</th><th>Name</th><th>Passwort</th><th>Admin</th><th>aktiv</th><th></th></tr></thead>
-      <tbody data-users></tbody>
-    </table>
+<div class="grp" data-group="pair">
+  <h3>Kopplung</h3>
+  <div class="list">
+    <div class="row">Status <span class="pill pill-warn" data-ha-error></span><span class="v" data-pair-status></span></div>
+    <div class="row">
+      <input type="text" data-code placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" aria-label="Kopplungscode">
+      <span class="end">
+        <button type="button" class="btn btn-primary" data-act="pair">Koppeln</button>
+        <button type="button" class="btn" data-act="pair_wrong">Falscher Code</button>
+      </span>
+    </div>
+    <div class="row">Prüfstrom <span class="end">
+      <button type="button" class="btn" data-act="drop_stream">Trennen</button>
+      <button type="button" class="btn" data-act="open_stream">Öffnen</button>
+    </span></div>
+    <div class="row"><button type="button" class="btn btn-danger" data-act="unpair">Entkoppeln</button></div>
   </div>
-  <div class="co-row">
-    <label class="co-check"><input type="checkbox" data-manual> Prüfungen manuell beantworten</label>
-  </div>
-  <ul data-pending></ul>
-  <p class="co-err"></p>
+  <p class="grp-err"></p>
 </div>
 
-<div class="card" data-card="history">
-  <h2>Verlauf</h2>
-  <p class="co-status" data-hstatus></p>
-  <p class="co-state-err" data-hstate-error></p>
-  <div class="co-row">
-    <label class="co-field">Tage <input type="number" min="1" max="800" data-days></label>
-    <button type="button" data-act="history_start">Anmelden</button>
-    <button type="button" data-act="history_stop">Abmelden</button>
+<div class="grp" data-group="users">
+  <h3>HA-Benutzer</h3>
+  <div class="list">
+    <div class="row">Prüfungen manuell beantworten
+      <label class="switch"><input type="checkbox" data-manual aria-label="Prüfungen manuell beantworten"><span></span></label>
+    </div>
+    <div class="co-tablewrap">
+      <table class="co-table">
+        <thead><tr><th>Benutzername</th><th>Name</th><th>Passwort</th><th>Admin</th><th>aktiv</th><th></th></tr></thead>
+        <tbody data-users></tbody>
+      </table>
+    </div>
+    <div data-pending></div>
   </div>
-  <div class="co-row" data-factors></div>
-  <div class="co-row">
-    <button type="button" data-act="history_offer">Neu anbieten</button>
+  <p class="note">Mit manueller Beantwortung warten Prüfungen hier auf Ja, Nein oder Timeout.</p>
+  <p class="grp-err"></p>
+</div>
+
+<div class="grp" data-group="history">
+  <h3>Verlauf</h3>
+  <div class="list">
+    <div class="row">Am Austausch teilnehmen
+      <span class="pill pill-warn" data-hstate-error></span>
+      <label class="switch"><input type="checkbox" data-history aria-label="Am Austausch teilnehmen"><span></span></label>
+    </div>
+    <div class="row">Tage <input type="number" min="1" max="800" data-days aria-label="Tage"></div>
+    <div data-factors></div>
+    <div class="row">Verzögerung in ms <input type="number" min="0" max="60000" data-delay aria-label="Verzögerung in ms"></div>
+    <div class="row">Nicht antworten
+      <label class="switch"><input type="checkbox" data-silent aria-label="Nicht antworten"><span></span></label>
+    </div>
+    <div class="row">Nur ersten Block liefern
+      <label class="switch"><input type="checkbox" data-partial aria-label="Nur ersten Block liefern"><span></span></label>
+    </div>
+    <div class="row"><button type="button" class="btn" data-act="history_offer">Neu anbieten</button></div>
   </div>
-  <h3>Fehler</h3>
-  <div class="co-row">
-    <label class="co-field">Verzögerung in ms <input type="number" min="0" max="60000" data-delay></label>
-    <label class="co-check"><input type="checkbox" data-silent> Nicht antworten</label>
-    <label class="co-check"><input type="checkbox" data-partial> Nur ersten Block liefern</label>
-  </div>
-  <p class="co-hint">Eine Skalierung wirkt nur auf Zeiträume, die das Dashboard noch nicht abgeholt hat.</p>
-  <p class="co-err"></p>
+  <p class="note">Ein Faktor wirkt nur auf Zeiträume, die das Dashboard noch nicht abgeholt hat. Tage gelten ab der nächsten Anmeldung.</p>
+  <p class="grp-err"></p>
 </div>
 </div>
 <script>
@@ -96,20 +97,13 @@ COMPANION_HTML = """<div id="tab-companion" class="co-cards">
     battery_charge: "Batterie laden",
     battery_discharge: "Batterie entladen",
   };
-  const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-  const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ESC[c]);
   const $ = (sel) => root.querySelector(sel);
+  const esc = (v) => window.konsole.esc(v);
+  const setUnlessFocused = (el, value) => window.konsole.setUnlessFocused(el, value);
 
   let usersKey = null;
   let pendingKey = null;
 
-  // Ein Feld mit Fokus wird nicht ueberschrieben
-  const setUnlessFocused = (el, value) => {
-    if (el && el !== document.activeElement) {
-      if (el.type === "checkbox") el.checked = !!value;
-      else el.value = value;
-    }
-  };
   // Eine Tabelle mit Fokus in einem Eingabefeld wird nicht neu aufgebaut
   const editing = (container) => {
     const a = document.activeElement;
@@ -123,8 +117,8 @@ COMPANION_HTML = """<div id="tab-companion" class="co-cards">
       '<td><input type="password" data-u="password" value="' + esc(u.password) + '" autocomplete="off"></td>' +
       '<td><input type="checkbox" data-u="admin"' + (u.admin ? " checked" : "") + '></td>' +
       '<td><input type="checkbox" data-u="active"' + (u.active ? " checked" : "") + '></td>' +
-      '<td><button type="button" data-act="user_save">Speichern</button> ' +
-      '<button type="button" data-act="user_remove">Löschen</button></td></tr>';
+      '<td><button type="button" class="btn" data-act="user_save">Speichern</button> ' +
+      '<button type="button" class="btn btn-danger" data-act="user_remove">Löschen</button></td></tr>';
   }
 
   function newRow() {
@@ -134,14 +128,15 @@ COMPANION_HTML = """<div id="tab-companion" class="co-cards">
       '<td><input type="password" data-u="password" autocomplete="off"></td>' +
       '<td><input type="checkbox" data-u="admin"></td>' +
       '<td><input type="checkbox" data-u="active" checked></td>' +
-      '<td><button type="button" data-act="user_save">Speichern</button></td></tr>';
+      '<td><button type="button" class="btn" data-act="user_save">Speichern</button></td></tr>';
   }
 
   function renderPair(ha) {
     let status = "nicht gekoppelt";
     if (ha.paired) status = ha.connected ? "gekoppelt, Strom verbunden" : "gekoppelt, Strom getrennt";
+    $("[data-meta]").textContent = status;
     $("[data-pair-status]").textContent = status;
-    $("[data-pair-error]").textContent = ha.error || "";
+    $("[data-ha-error]").textContent = ha.error || "";
   }
 
   function renderUsers(ha) {
@@ -157,28 +152,25 @@ COMPANION_HTML = """<div id="tab-companion" class="co-cards">
     const pKey = JSON.stringify(ha.pending);
     if (pKey !== pendingKey) {
       pendingKey = pKey;
-      pending.innerHTML = ha.pending.length
-        ? ha.pending.map((p) =>
-            "<li>" + esc(p.username) + " " +
-            '<button type="button" data-act="resolve" data-id="' + esc(p.id) + '" data-decision="yes">Ja</button> ' +
-            '<button type="button" data-act="resolve" data-id="' + esc(p.id) + '" data-decision="no">Nein</button> ' +
-            '<button type="button" data-act="resolve" data-id="' + esc(p.id) + '" data-decision="timeout">Timeout</button></li>'
-          ).join("")
-        : '<li class="co-muted">Keine offenen Prüfungen</li>';
+      pending.innerHTML = ha.pending.map((p) =>
+        '<div class="row">Wartet: ' + esc(p.username) + '<span class="end">' +
+        '<button type="button" class="btn" data-act="resolve" data-id="' + esc(p.id) + '" data-decision="yes">Ja</button> ' +
+        '<button type="button" class="btn" data-act="resolve" data-id="' + esc(p.id) + '" data-decision="no">Nein</button> ' +
+        '<button type="button" class="btn" data-act="resolve" data-id="' + esc(p.id) + '" data-decision="timeout">Timeout</button>' +
+        '</span></div>'
+      ).join("");
     }
   }
 
   function renderHistory(h) {
-    let status = "abgemeldet";
-    if (h.running) status = h.peer_id ? "angemeldet, Peer " + h.peer_id : "verbindet";
-    $("[data-hstatus]").textContent = status;
     $("[data-hstate-error]").textContent = h.error || "";
+    setUnlessFocused($("[data-history]"), h.running);
 
     const grid = $("[data-factors]");
     if (!grid.children.length) {
       grid.innerHTML = Object.keys(h.scale).map((role) =>
-        '<label class="co-field">' + esc(ROLE_LABELS[role] || role) +
-        ' <input type="number" min="0" max="100" step="0.1" data-role="' + esc(role) + '"></label>'
+        '<div class="row">' + esc(ROLE_LABELS[role] || role) +
+        ' <input type="number" min="0" max="100" step="0.1" data-role="' + esc(role) + '" aria-label="' + esc(ROLE_LABELS[role] || role) + '"></div>'
       ).join("");
     }
     for (const input of grid.querySelectorAll("input")) {
@@ -226,51 +218,29 @@ COMPANION_HTML = """<div id="tab-companion" class="co-cards">
     return {};
   }
 
-  async function send(card, action, body) {
-    const err = card ? card.querySelector(".co-err") : null;
-    if (err) err.textContent = "";
-    let resp;
-    let data;
-    try {
-      resp = await fetch("/api/companion/" + action, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      data = await resp.json();
-    } catch (e) {
-      if (err) err.textContent = "Keine Verbindung zur Konsole.";
-      return null;
-    }
-    if (!resp.ok) {
-      if (err) err.textContent = data.error || "Aktion fehlgeschlagen.";
-      return null;
-    }
-    render(data);
-    return data;
-  }
-
   root.addEventListener("click", (event) => {
     const btn = event.target.closest("[data-act]");
     if (!btn || !root.contains(btn)) return;
-    send(btn.closest(".card"), btn.dataset.act, bodyFor(btn));
+    window.konsole.post("companion", btn.dataset.act, bodyFor(btn), btn);
   });
 
   root.addEventListener("change", (event) => {
     const el = event.target;
-    const card = el.closest(".card");
     if (el.matches("[data-manual]")) {
-      send(card, "manual", { on: el.checked });
+      window.konsole.post("companion", "manual", { on: el.checked }, el);
+    } else if (el.matches("[data-history]")) {
+      if (el.checked) window.konsole.post("companion", "history_start", { days: Number($("[data-days]").value) }, el);
+      else window.konsole.post("companion", "history_stop", {}, el);
     } else if (el.matches("[data-role]")) {
       if (el.value === "") return;
-      send(card, "history_scale", { role: el.dataset.role, factor: Number(el.value) });
+      window.konsole.post("companion", "history_scale", { role: el.dataset.role, factor: Number(el.value) }, el);
     } else if (el.matches("[data-delay], [data-silent], [data-partial]")) {
-      send(card, "history_faults", faultsBody());
+      window.konsole.post("companion", "history_faults", faultsBody(), el);
     }
   });
 
   window.tabs = window.tabs || {};
-  window.tabs.companion = { render: render, actions: { send: send } };
+  window.tabs.companion = { render: render };
 })();
 </script>
 </div>

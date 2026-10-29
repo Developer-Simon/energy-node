@@ -58,6 +58,7 @@ class CompanionTab(Tab):
     name = "companion"
     title = "Companion"
     html = COMPANION_HTML
+    sources = ("ha", "verlauf")
 
     def __init__(self, log: Log, companion_url: str, dashboard_url: str) -> None:
         self._log = log
@@ -67,6 +68,27 @@ class CompanionTab(Tab):
 
     def state(self) -> dict:
         return {"ha": self._ha.state(), "history": self._history.state()}
+
+    def summary(self) -> dict:
+        ha = self._ha.state()
+        history = self._history.state()
+        if ha["error"] or history["error"]:
+            return {"level": "error", "text": ha["error"] or history["error"]}
+        faults = history["faults"]
+        faulty = faults["delay_ms"] > 0 or faults["silent"] or faults["partial"]
+        scaled = any(factor != 1.0 for factor in history["scale"].values())
+        unplugged = ha["paired"] and not ha["connected"]
+        level = "changed" if ha["manual"] or faulty or scaled or unplugged else "ok"
+        parts = ["gekoppelt" if ha["paired"] else "nicht gekoppelt"]
+        if history["running"]:
+            parts.append("Verlauf an")
+        return {"level": level, "text": ", ".join(parts)}
+
+    def reset(self) -> None:
+        self._ha.set_manual(False)
+        self._history.faults = {"delay_ms": 0, "silent": False, "partial": False}
+        for role in ROLES:
+            self._history.scale[role] = 1.0
 
     def act(self, action: str, body: dict) -> dict:
         if action not in ACTIONS:
