@@ -36,7 +36,7 @@ function lazyPanel({ fail = false } = {}) {
   };
   const panel = factories.devicesPanel();
   const template = dom.window.document.createElement('template');
-  template.dataset.script = '/static/js/device-modal.js?v=1';
+  template.dataset.script = '/static/js/device-modal.js?v=2';
   panel.$refs = { deviceModalTemplate: template };
   panel.$nextTick = () => Promise.resolve();
   const toasts = [];
@@ -53,7 +53,7 @@ test('selectDevice laedt device-modal.js einmal und oeffnet dann das Geraet', as
   // also nach dem Laden ueber attachDeviceModal.
   panel.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ id: 'a', entities: [] }) });
   await panel.selectDevice('a');
-  assert.deepEqual(loaded, ['http://localhost/static/js/device-modal.js?v=1']);
+  assert.deepEqual(loaded, ['http://localhost/static/js/device-modal.js?v=2']);
   assert.equal(panel.deviceModalReady, true);
   assert.equal(panel.selectedDeviceId, 'a');
   panel.openDevice = id => { opened.push(id); };

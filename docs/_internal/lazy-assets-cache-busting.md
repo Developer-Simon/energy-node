@@ -62,21 +62,21 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-10-25**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-10-29**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `45` |
+| `css/base.css` | `46` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
 
 | Asset | `?v=` |
 |---|---|
-| `js/notify.js` | `2` |
+| `js/notify.js` | `3` |
 | `js/toast-gesture.js` | `1` (new, swipe and pause of the toasts) |
 | `js/theme.js` | – |
 | `js/layout-fill.js` | – |
@@ -95,7 +95,7 @@ As of **2026-10-25**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `39` |
+| `js/dashboard.js` | `40` |
 | `js/update-bar.js` | `5` |
 | `js/whatsnew.page.js` | `4` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
@@ -129,7 +129,7 @@ skips scripts already present as `<script src>`.
 |---|---|---|
 | `devices-panel` | – | – |
 
-`js/device-modal.js` `1` is lazy on its own trigger: `devicesPanel` loads it on
+`js/device-modal.js` `2` is lazy on its own trigger: `devicesPanel` loads it on
 the first device open (overview and devices tab). Its URL sits in `data-script`
 on the `device-modal` template in
 [devices.html](../../dashboard/internal/webui/templates/devices.html), not in
@@ -265,7 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.10.25 | `js/automations.page.js` (automations panel, test result read from its own endpoint for every viewer) | `22` | 2026-10-29 |
+| v0.10.25 | `css/base.css` (device dialog: favourite stars, icon popover, more menu and analysis tab styles) · `js/dashboard.js` (device dialog rights for the analysis tab and the appearance) · `js/notify.js` (toast with an undo action) · `js/device-modal.js` (device dialog: favourites, icon, more menu, analysis tab) · `js/automations.page.js` (automations panel, test result read from its own endpoint for every viewer) | `46` · `40` · `3` · `2` · `22` | 2026-10-29 |
 | v0.10.24 | `css/base.css` (toast redesign: glass, timer line, enter, exit and swipe motion) · `js/notify.js` (toast store: expiry for every severity, hold and release, exit state) · `js/toast-gesture.js` (new, swipe away, rubber band, pause on hover and focus) | `45` · `2` · `1` (new) | 2026-10-29 |
 | v0.10.23 | `js/history-recorder.js` (errors of the leader start shown in the console, opt-in diagnostics log) · `js/history-exchange.js` (start failures shown in the console, opt-in diagnostics log) | `13` · `9` | 2026-10-29 |
 | v0.10.21 | `js/automations-view.js` (devicemap and automations panels, sentences for month days and no new values) · `js/automation-templates.js` (automations panel, templates for the monthly full charge, a silent inverter and the low-tariff wallbox, restart option for the inverter warnings) · `js/automations.page.js` (automations panel, month day chips and the no new values comparison) · `css/automations.css` (automations panel, month day grid and advanced section) · `js/automation-wizard.js` (automations panel, inverter measured filter ignores the actuator lock, own switch of the inverter) | `8` · `4` · `21` · `14` · `4` | 2026-10-27 |
