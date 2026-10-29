@@ -294,8 +294,12 @@ class BrokerState:
         self.log.add("mqtt", f"{config} {text}", level)
 
     def publish(self, topic, payload, retain):
+        if not isinstance(topic, str):
+            raise ValueError("topic muss Text sein")
         if not topic:
             raise ValueError("Topic fehlt")
+        if not isinstance(payload, str):
+            raise ValueError("payload muss Text sein")
         relay(self.messages, self.connections, topic, payload.encode("utf-8"), retain)
         self.log.add("konsole", f"Konsole sendet {topic}")
 
@@ -418,13 +422,21 @@ def simulate_tick(state, t):
     for topic, (base, amplitude, period, phase) in SIMULATED_TOPICS.items():
         if topic not in messages:
             continue
-        values = json.loads(messages[topic])
-        values["apower"] = round(base + amplitude * math.sin(t / period + phase))
+        # Eine ungueltige Retained-Payload (kein JSON, kein Objekt mit apower) wird
+        # uebersprungen, damit die Simulationsschleife nicht abbricht.
+        try:
+            values = json.loads(messages[topic])
+            values["apower"] = round(base + amplitude * math.sin(t / period + phase))
+        except (ValueError, TypeError, KeyError):
+            continue
         messages[topic] = json.dumps(values).encode("utf-8")
         broadcast(messages, connections, topic, messages[topic], False)
     if RELAY_SUM_TOPIC in messages and all(src in messages for src in RELAY_SUM_SOURCES):
-        relay_state = json.loads(messages[RELAY_SUM_TOPIC])
-        relay_state["apower"] = sum(json.loads(messages[src])["apower"] for src in RELAY_SUM_SOURCES)
+        try:
+            relay_state = json.loads(messages[RELAY_SUM_TOPIC])
+            relay_state["apower"] = sum(json.loads(messages[src])["apower"] for src in RELAY_SUM_SOURCES)
+        except (ValueError, TypeError, KeyError):
+            return
         messages[RELAY_SUM_TOPIC] = json.dumps(relay_state).encode("utf-8")
         broadcast(messages, connections, RELAY_SUM_TOPIC, messages[RELAY_SUM_TOPIC], False)
 
@@ -573,7 +585,7 @@ def make_control_server(state, port):
         def _respond(self):
             try:
                 status, body = self._dispatch(urlsplit(self.path))
-            except ValueError as error:
+            except (ValueError, TypeError, AttributeError) as error:
                 status, body = 400, {"error": str(error)}
             self._send(status, body)
 

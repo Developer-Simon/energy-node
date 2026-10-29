@@ -197,3 +197,27 @@ def test_control_log_returns_entries_since(control):
     assert status == 200
     assert body["last"] == 2
     assert [entry["text"] for entry in body["entries"]] == ["zwei"]
+
+
+def test_control_publish_with_non_text_topic_is_400_and_server_keeps_running(control):
+    base, _ = control
+    status, body = call(base, "POST", "/publish", {"topic": 5, "payload": "x"})
+    assert status == 400
+    assert body == {"error": "topic muss Text sein"}
+    status, _ = call(base, "GET", "/state")
+    assert status == 200
+
+
+def test_control_publish_with_non_text_payload_is_400(control):
+    base, _ = control
+    status, body = call(base, "POST", "/publish", {"topic": "a/b", "payload": 5})
+    assert status == 400
+    assert body == {"error": "payload muss Text sein"}
+
+
+def test_simulate_tick_survives_invalid_retained_payloads():
+    state = make_state({"pv/wechselrichter/status": b"kein json",
+                        "zaehler/netz/status": b"5"}, simulate=True)
+    minibroker.simulate_tick(state, 1.0)
+    assert state.messages["pv/wechselrichter/status"] == b"kein json"
+    assert state.messages["zaehler/netz/status"] == b"5"
