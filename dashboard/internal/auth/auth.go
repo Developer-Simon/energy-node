@@ -293,25 +293,43 @@ func (m *Manager) loadLocked() (bool, error) {
 		m.guestRolesReviewed = !m.migrated
 		changed = true
 	} else {
-		// Version 2 kennt tune_live_updates, Version 3 nicht mehr: die Rollen
-		// werden einmal beim Uebergang umgeschrieben (migrateV2), danach nie wieder.
+		// Version 2 kennt tune_live_updates, Version 3 nicht mehr (migrateV2),
+		// Version 4 ergaenzt die Geraete-Rechte (migrateV3). Jede Umschreibung
+		// laeuft einmal beim Uebergang und nie wieder.
+		upgradeV2 := file.Version < 3
 		upgrade := file.Version < usersFileVersion
 		if upgrade {
 			changed = true
 		}
 		guestRoles := file.GuestRoles
-		if upgrade {
+		if upgradeV2 {
 			guestRoles = migrateV2(guestRoles, true)
+		}
+		if upgrade {
+			guestRoles = migrateV3(guestRoles)
 		}
 		m.guestRoles = Normalize(guestAllowedOnly(guestRoles))
 		m.guestRolesReviewed = file.GuestRolesReviewed
 		for name, user := range m.users {
 			roles := user.Roles
-			if upgrade {
+			if upgradeV2 {
 				roles = migrateV2(roles, user.Guest)
+			}
+			if upgrade {
+				roles = migrateV3(roles)
 			}
 			user.Roles = Normalize(roles)
 			m.users[name] = user
+		}
+		if upgrade {
+			for id, account := range m.haAccounts {
+				account.Roles = migrateV3(account.Roles)
+				m.haAccounts[id] = account
+			}
+			if m.haRoles != nil {
+				m.haRoles.Admin = migrateV3(m.haRoles.Admin)
+				m.haRoles.User = migrateV3(m.haRoles.User)
+			}
 		}
 	}
 	if m.cleanupGuestsLocked() {

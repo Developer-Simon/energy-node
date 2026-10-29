@@ -90,7 +90,7 @@ func TestMigrationKeepsBehaviorOfFieldFile(t *testing.T) {
 		}
 	}
 	file := readUsersFile(t, path)
-	if file.Version != 3 || !reflect.DeepEqual(file.GuestRoles, guest.Roles) {
+	if file.Version != 4 || !reflect.DeepEqual(file.GuestRoles, guest.Roles) {
 		t.Fatalf("file not migrated: version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 	if !manager.MigrationNotice() {
@@ -147,7 +147,7 @@ func TestBootstrapOnlyWithoutNonGuestUser(t *testing.T) {
 		t.Fatal("bootstrap admin must not get http_login")
 	}
 	file := readUsersFile(t, path)
-	if file.Version != 3 || !reflect.DeepEqual(file.GuestRoles, defaultGuestRoles()) {
+	if file.Version != 4 || !reflect.DeepEqual(file.GuestRoles, defaultGuestRoles()) {
 		t.Fatalf("bootstrap file version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 	if manager.MigrationNotice() {
@@ -175,7 +175,7 @@ func TestStartNoLongerBackfillsRoles(t *testing.T) {
 		t.Fatalf("admin roles changed on start: %v", manager.users["admin"].Roles)
 	}
 	// Die Version 2 wird nur auf Version 3 gehoben, die Rollen bleiben gleich.
-	if file := readUsersFile(t, path); file.Version != 3 || !reflect.DeepEqual(file.GuestRoles, []string{"view_overview"}) {
+	if file := readUsersFile(t, path); file.Version != 4 || !reflect.DeepEqual(file.GuestRoles, []string{"view_overview"}) {
 		t.Fatalf("version 2 file after start: version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 }
@@ -295,8 +295,8 @@ func TestMigrationFromVersion2KeepsEveryRight(t *testing.T) {
 	}
 
 	file := readUsersFile(t, path)
-	if file.Version != 3 {
-		t.Fatalf("file version %d, want 3", file.Version)
+	if file.Version != 4 {
+		t.Fatalf("file version %d, want 4", file.Version)
 	}
 	if manager.MigrationNotice() || !file.GuestRolesReviewed {
 		t.Fatal("version 2 review state must be kept, no new guest notice")
@@ -332,7 +332,92 @@ func TestMigrationFromVersion1GivesSetupPermissions(t *testing.T) {
 	if !containsRole(manager.GuestRoles(), RoleEditSetup) || containsRole(manager.GuestRoles(), RoleSetupTinyTuya) {
 		t.Fatalf("default guest roles: %v", manager.GuestRoles())
 	}
-	if file := readUsersFile(t, path); file.Version != 3 {
-		t.Fatalf("file version %d, want 3", file.Version)
+	if file := readUsersFile(t, path); file.Version != 4 {
+		t.Fatalf("file version %d, want 4", file.Version)
+	}
+}
+
+func TestMigrationFromVersion3GivesDeviceRights(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	writeJSON(t, path, map[string]any{
+		"version":              3,
+		"guest_roles":          []string{RoleViewOverview, RoleViewDevices, RoleEditLayout},
+		"guest_roles_reviewed": true,
+		"users": []map[string]any{
+			{"username": "admin", "password_hash": mustHash(t, "secret-pass"), "roles": []string{RoleViewDevices, RoleEditLayout, RoleViewOverview}},
+			{"username": "viewer", "password_hash": mustHash(t, "secret-pass"), "roles": []string{RoleViewDevices}},
+		},
+		"ha_roles": map[string]any{
+			"admin": []string{RoleViewDevices, RoleEditLayout, RoleViewOverview},
+			"user":  []string{RoleViewDevices},
+		},
+		"ha_users": []map[string]any{
+			{"ha_user_id": "ha-1", "username": "maria", "display_name": "Maria", "roles_custom": true, "roles": []string{RoleViewDevices}, "created_at": now, "last_login_at": now},
+		},
+	})
+	manager := mustManager(t, path, "admin", "")
+
+	admin := manager.users["admin"]
+	if !HasRole(admin, RoleViewDeviceAnalysis) || !HasRole(admin, RoleEditDeviceAppearance) {
+		t.Errorf("admin lacks the device rights: %v", admin.Roles)
+	}
+	viewer := manager.users["viewer"]
+	if !HasRole(viewer, RoleViewDeviceAnalysis) || HasRole(viewer, RoleEditDeviceAppearance) {
+		t.Errorf("viewer device rights: %v", viewer.Roles)
+	}
+	if !HasRole(User{Roles: manager.GuestRoles(), Guest: true}, RoleViewDeviceAnalysis) || !HasRole(User{Roles: manager.GuestRoles(), Guest: true}, RoleEditDeviceAppearance) {
+		t.Errorf("guest default roles: %v", manager.GuestRoles())
+	}
+
+	admin18, user18, set := manager.HARoles()
+	if !set || !containsRole(admin18, RoleViewDeviceAnalysis) || !containsRole(admin18, RoleEditDeviceAppearance) {
+		t.Errorf("ha admin roles: %v", admin18)
+	}
+	if !containsRole(user18, RoleViewDeviceAnalysis) || containsRole(user18, RoleEditDeviceAppearance) {
+		t.Errorf("ha user roles: %v", user18)
+	}
+	accounts := manager.HAAccounts()
+	if len(accounts) != 1 || !containsRole(accounts[0].Roles, RoleViewDeviceAnalysis) {
+		t.Errorf("ha account roles: %v", accounts)
+	}
+
+	file := readUsersFile(t, path)
+	if file.Version != 4 {
+		t.Fatalf("file version %d, want 4", file.Version)
+	}
+	if manager.MigrationNotice() {
+		t.Fatal("version 3 migration must not raise the guest notice")
+	}
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustManager(t, path, "admin", "")
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatal("second start after the version 4 migration changed users.json")
+	}
+}
+
+func TestMigrateV3WithoutSourceRightsAddsNothing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	writeJSON(t, path, map[string]any{
+		"version":              3,
+		"guest_roles":          []string{RoleViewOverview},
+		"guest_roles_reviewed": true,
+		"users": []map[string]any{
+			{"username": "admin", "password_hash": mustHash(t, "secret-pass"), "roles": []string{RoleViewOverview}},
+		},
+	})
+	manager := mustManager(t, path, "admin", "")
+	if roles := manager.users["admin"].Roles; !reflect.DeepEqual(roles, []string{RoleViewOverview}) {
+		t.Fatalf("admin roles %v, want only view_overview", roles)
+	}
+	if roles := manager.GuestRoles(); !reflect.DeepEqual(roles, []string{RoleViewOverview}) {
+		t.Fatalf("guest roles %v, want only view_overview", roles)
 	}
 }
