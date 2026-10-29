@@ -326,6 +326,21 @@ test('Befehls-Chip zaehlt die Schreibaktionen der Entitaet', () => {
   assert.equal(panel.commandCount(entity({ unique_id: 'e3' })), 0);
 });
 
+test('messageSummary zeigt Payload, QoS und retain, sonst einen Strich', () => {
+  const panel = createDevicesPanel();
+  assert.equal(panel.messageSummary(entity({ unique_id: 'e1' })), '-');
+  const message = entity({ unique_id: 'e2', last_message: { payload: '21.5', qos: 1, retained: true } });
+  assert.equal(panel.messageSummary(message), '21.5 · QoS 1 · retain');
+  const plain = entity({ unique_id: 'e3', last_message: { payload: '', qos: 0, retained: false } });
+  assert.equal(panel.messageSummary(plain), '(leer) · QoS 0');
+});
+
+test('commandResultText nennt gesendete und fehlgeschlagene Befehle', () => {
+  const panel = createDevicesPanel();
+  assert.equal(panel.commandResultText({ result: 'published' }), 'Befehl gesendet');
+  assert.equal(panel.commandResultText({ result: 'failed', error: 'offline' }), 'Fehler: offline');
+});
+
 test('updatedRelative zeigt den relativen Abstand als Text, leer ohne last_updated', () => {
   const panel = createDevicesPanel();
   panel.nowTick = new Date('2026-08-28T12:00:00Z').getTime();
@@ -960,14 +975,12 @@ test('canViewAnalysis und canEditAppearance folgen der Session und sind ohne Ses
   await denied.loadSession();
   assert.equal(denied.canViewAnalysis, false);
   assert.equal(denied.canEditAppearance, false);
-  assert.equal(denied.canEditPrefs, false);
 
   const allowed = createDevicesPanel();
   allowed.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ view_device_analysis: true, edit_device_appearance: true }) });
   await allowed.loadSession();
   assert.equal(allowed.canViewAnalysis, true);
   assert.equal(allowed.canEditAppearance, true);
-  assert.equal(allowed.canEditPrefs, true);
 
   const noSession = createDevicesPanel();
   noSession.testWindow.fetch = async () => { throw new Error('no session api'); };

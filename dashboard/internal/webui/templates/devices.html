@@ -236,10 +236,10 @@
         </div></div></div>
       </div>
 
-      <div class="device-modal-pair" data-tab="management">
+      <div class="device-modal-pair" data-tab="management" x-show="canViewAnalysis">
         <button type="button" class="device-modal-trigger" x-bind:class="{ active: activeDeviceTab === 'management' }" x-bind:aria-expanded="activeDeviceTab === 'management'" aria-controls="device-modal-panel-management" x-on:click="setDeviceTab('management')">
           <span class="device-modal-trigger-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg></span>
-          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">{{t "devices.manage_analyze.title"}}</span><span class="device-modal-trigger-info" x-bind:class="{ 'is-warn': groupedWarnings.length }" x-show="managementTeaser()" x-text="managementTeaser()"></span></span>
+          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">{{t "devices.analysis.title"}}</span><span class="device-modal-trigger-info" x-bind:class="{ 'is-warn': configWarnings.length }" x-show="managementTeaser()" x-text="managementTeaser()"></span></span>
           <span class="device-modal-chev" aria-hidden="true">▸</span>
         </button>
         <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-management">
@@ -248,68 +248,62 @@
           <p x-show="!configWarnings.length">{{t "devices.warnings.empty"}}</p>
           {{template "device-modal-warning-list" "configWarnings"}}
 
-          <div x-show="isAccordion" x-flip>
-            <h4>{{t "devices.activity.title"}}</h4>
-            <p x-show="!(deviceDetail?.command_actions || []).length && !recentMessages.length">{{t "devices.activity.empty"}}</p>
-            <template x-for="entry in activityLog" :key="entry.key"><div class="device-modal-log-entry"><time x-text="formatDetailTime(entry.at)"></time><span x-text="entry.text"></span></div></template>
-          </div>
-
-          <h4>{{t "devices.mqtt_messages.title"}}</h4>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>{{t "devices.mqtt_messages.entity"}}</th><th>{{t "devices.mqtt_messages.topic"}}</th><th>{{t "devices.mqtt_messages.timestamp"}}</th><th>{{t "devices.mqtt_messages.qos"}}</th><th>{{t "devices.mqtt_messages.retain"}}</th><th>{{t "devices.mqtt_messages.payload"}}</th></tr></thead>
-              <tbody>
-                <template x-for="entity in (deviceDetail?.entities || [])" :key="`${entity.unique_id}-message`">
-                  <tr>
-                    <td x-text="entityDisplayName(entity, 'unique_id')"></td>
-                    <td x-text="entity.last_message?.topic || '-'"></td>
-                    <td x-text="formatDetailTime(entity.last_message?.at)"></td>
-                    <td x-text="entity.last_message?.qos ?? '-'"></td>
-                    <td x-text="entity.last_message?.retained ? $t('common.yes') : $t('common.no')"></td>
-                    <td><pre class="device-detail-payload" x-text="entity.last_message?.payload || $t('devices.mqtt_messages.empty')"></pre></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-
-          <h4>{{t "devices.discovery.title"}}</h4>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>{{t "devices.discovery.entity"}}</th><th>{{t "devices.discovery.topic"}}</th><th>{{t "devices.discovery.source"}}</th><th>{{t "devices.discovery.qos"}}</th><th>{{t "devices.discovery.retain"}}</th><th>{{t "devices.discovery.payload"}}</th></tr></thead>
-              <tbody>
-                <template x-for="entity in (deviceDetail?.entities || [])" :key="`${entity.unique_id}-discovery`">
-                  <tr>
-                    <td x-text="entity.unique_id"></td>
-                    <td x-text="entity.discovery_topic || '-'"></td>
-                    <td x-text="entity.discovery_source || '-'"></td>
-                    <td x-text="entity.discovery_qos ?? '-'"></td>
-                    <td x-text="entity.discovery_retained ? $t('common.yes') : $t('common.no')"></td>
-                    <td><details><summary>{{t "devices.discovery.show"}}</summary><pre x-text="entity.discovery_json || $t('devices.discovery.no_payload')"></pre></details></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
-
-          <h4>{{t "devices.write_actions.title"}}</h4>
-          <p x-show="!(deviceDetail?.command_actions || []).length">{{t "devices.write_actions.empty"}}</p>
-          <div class="table-scroll" x-show="(deviceDetail?.command_actions || []).length">
-            <table>
-              <thead><tr><th>{{t "devices.write_actions.timestamp"}}</th><th>{{t "devices.write_actions.entity"}}</th><th>{{t "devices.write_actions.topic"}}</th><th>{{t "devices.write_actions.payload"}}</th><th>{{t "devices.write_actions.result"}}</th></tr></thead>
-              <tbody>
-                <template x-for="action in (deviceDetail?.command_actions || [])" :key="`${action.at}-${action.entity_id}`">
-                  <tr>
-                    <td x-text="formatDetailTime(action.at)"></td>
-                    <td x-text="action.entity_id"></td>
-                    <td x-text="action.topic"></td>
-                    <td x-text="action.payload"></td>
-                    <td x-text="action.result === 'published' ? 'published' : $t('devices.write_actions.error_prefix') + (action.error || $t('devices.write_actions.unknown'))"></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-          </div>
+          <h4>{{t "devices.analysis.entities"}}</h4>
+          <template x-for="entity in (deviceDetail?.entities || [])" :key="entity.unique_id">
+            <article class="device-modal-entity" x-bind:class="{ 'is-open': isAnalysisEntityOpen(entity.unique_id) }">
+              <button type="button" class="device-modal-entity-head" x-bind:aria-expanded="isAnalysisEntityOpen(entity.unique_id) ? 'true' : 'false'" x-on:click="toggleAnalysisEntity(entity.unique_id)">
+                <span class="device-modal-entity-arrow" aria-hidden="true">▸</span>
+                <span class="device-modal-entity-name" x-text="entityDisplayName(entity)"></span>
+                <span class="device-modal-entity-chips">
+                  <span class="device-modal-entity-chip is-warn" x-show="entity.stale" x-text="$t('devices.analysis.stale')"></span>
+                  <span class="device-modal-entity-chip" x-show="commandCount(entity) > 0" x-text="$tn('devices.analysis.commands', commandCount(entity))"></span>
+                </span>
+                <time class="device-modal-entity-time" x-show="entity.last_message?.at" x-text="relativeTime(entity.last_message?.at, new Date(nowTick))"></time>
+              </button>
+              <div class="device-modal-entity-panel" x-bind:inert="!isAnalysisEntityOpen(entity.unique_id)">
+                <div class="device-modal-entity-inner">
+                  <dl class="device-modal-entity-list">
+                    <div class="device-modal-entity-row">
+                      <dt>{{t "devices.mqtt_messages.topic"}}</dt>
+                      <dd x-text="entity.state_topic || '-'"></dd>
+                    </div>
+                    <div class="device-modal-entity-row">
+                      <dt>{{t "devices.analysis.last_message"}}</dt>
+                      <dd x-text="messageSummary(entity)"></dd>
+                    </div>
+                    <div class="device-modal-entity-row">
+                      <dt>{{t "devices.analysis.commands_label"}}</dt>
+                      <dd>
+                        <template x-for="action in commandsFor(entity)" :key="`${action.at}-${action.entity_id}`">
+                          <div class="device-modal-entity-command"><time x-text="formatDetailTime(action.at)"></time><span x-text="`${action.payload || '-'} · ${commandResultText(action)}`"></span></div>
+                        </template>
+                        <span x-show="!commandCount(entity)">-</span>
+                      </dd>
+                    </div>
+                    <div class="device-modal-entity-row">
+                      <dt>{{t "devices.discovery.title"}}</dt>
+                      <dd>
+                        <dl class="device-modal-entity-list is-sub">
+                          <div class="device-modal-entity-row">
+                            <dt>{{t "devices.discovery.topic"}}</dt>
+                            <dd x-text="entity.discovery_topic || '-'"></dd>
+                          </div>
+                          <div class="device-modal-entity-row">
+                            <dt>{{t "devices.discovery.source"}}</dt>
+                            <dd x-text="entity.discovery_source || '-'"></dd>
+                          </div>
+                        </dl>
+                        <details class="device-modal-entity-json">
+                          <summary>{{t "devices.discovery.show"}}</summary>
+                          <pre x-text="entity.discovery_json || $t('devices.discovery.no_payload')"></pre>
+                        </details>
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </article>
+          </template>
 
         </div></div></div>
       </div>
@@ -365,9 +359,9 @@
   <h5>{{t "devices.device_info.linked_devices"}}</h5>
   <template x-for="relation in (deviceDetail?.relations || [])" :key="`${relation.kind}-${relation.id}`"><button type="button" class="device-modal-relation-chip" x-on:click="selectDevice(relation.id)" x-text="(relation.kind === 'parent' ? $t('devices.device_info.parent_prefix') : $t('devices.device_info.child_prefix')) + (relation.name || relation.id)"></button></template>
 </div>
-<div x-show="!isAccordion" x-flip>
+<div x-flip>
   <h5>{{t "devices.device_info.activity"}}</h5>
-  <p x-show="!(deviceDetail?.command_actions || []).length && !recentMessages.length">{{t "devices.device_info.activity_empty"}}</p>
+  <p x-show="!activityLog.length">{{t "devices.device_info.activity_empty"}}</p>
   <template x-for="entry in activityLog" :key="entry.key"><div class="device-modal-log-entry"><time x-text="formatDetailTime(entry.at)"></time><span x-text="entry.text"></span></div></template>
 </div>
 {{end}}

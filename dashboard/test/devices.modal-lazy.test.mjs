@@ -125,3 +125,40 @@ test('das Icon im Modal-Kopf oeffnet ein Popover mit dem Icon-Picker auf saveIco
   assert.match(template, /class="device-modal-iconpop"/);
   assert.match(template, /dict "Current" "draftIconName" "Default" "defaultIconName" "Pick" "saveIcon"/);
 });
+
+// Analyse-Tab (Aufgabe 12): keine Tabellen mehr, je Entitaet ein Akkordeon.
+const managementPanel = () => {
+  const start = template.indexOf('id="device-modal-panel-management"');
+  assert.notEqual(start, -1, 'Management-Panel fehlt');
+  return template.slice(start, template.indexOf('device-modal-underline', start));
+};
+
+test('das Management-Panel hat keine <table> mehr', () => {
+  assert.doesNotMatch(managementPanel(), /<table/);
+  assert.doesNotMatch(managementPanel(), /table-scroll/);
+});
+
+test('der Analyse-Tab ist nur mit canViewAnalysis sichtbar und heisst devices.analysis.title', () => {
+  const pair = openTag(template, /<div class="device-modal-pair" data-tab="management"[^>]*>/);
+  assert.match(pair, /x-show="canViewAnalysis"/);
+  assert.match(template, /\{\{t "devices\.analysis\.title"\}\}/);
+  assert.doesNotMatch(template, /devices\.manage_analyze\.title/);
+});
+
+test('das Template liest kein recentMessages mehr', () => {
+  assert.doesNotMatch(template, /recentMessages/);
+});
+
+test('die Aktivitaet im Geraete-Abschnitt hat keine isAccordion-Bedingung', () => {
+  const info = defineBlock('device-modal-info-body');
+  assert.doesNotMatch(info, /isAccordion/);
+  assert.match(info, /activityLog/);
+});
+
+test('jede Entitaet im Analyse-Tab ist ein device-modal-entity mit aria-expanded', () => {
+  const panel = managementPanel();
+  assert.match(panel, /class="device-modal-entity/);
+  const header = openTag(panel, /<button[^>]*device-modal-entity-head[^>]*>/);
+  assert.match(header, /aria-expanded/);
+  assert.match(header, /toggleAnalysisEntity\(/);
+});

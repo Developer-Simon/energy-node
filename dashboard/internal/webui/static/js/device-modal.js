@@ -48,10 +48,6 @@
     // Wechsel auf Messwerte/Steuerung den Merge-Zustand nachziehen kann,
     // ohne auf das naechste ResizeObserver-Ereignis zu warten.
     availableHeight: 0,
-    // true, sobald das Modal schmaler als die 860px-Container-Schwelle ist
-    // (Akkordeon statt Tableiste). Rein aus JS beobachtet, weil die
-    // Aktivitaets-Sektion in "Verwaltung & Analyse" nur im Akkordeon zeigt.
-    isAccordion: false,
     // Sekundentakt fuer die relative "aktualisiert vor X"-Anzeige.
     nowTick: Date.now(),
     clockTimer: null,
@@ -65,8 +61,6 @@
     // sofort, darum spiegelt prefsDraft nur das gespeicherte Icon.
     deviceIcons: [],
     prefsDraft: {icon: ''},
-    prefsSaving: false,
-    prefsMessage: '',
     // Zaehlt jeden Stern, der am Limit scheitert (siehe toggleFavorite).
     favoriteLimitHit: 0,
     // Kette der Schreibaktionen (queueAppearance). Kein reaktiver Datenwert.
@@ -240,11 +234,6 @@
       if (!this.canEditAppearance || !name || !deviceId || !this.deviceDetail) return;
       const icon = name === this.defaultIconName ? '' : name;
       return this.queueAppearance(() => this.writeAppearanceField(deviceId, 'icon', icon, 'devices.icon.saved'));
-    },
-
-    // Der Picker-Klick speichert sofort (saveIcon).
-    pickIcon(name) {
-      return this.saveIcon(name);
     },
 
     closeFloatingMenus() {
@@ -539,11 +528,30 @@
       return warningCount ? `⚠ ${warningCount}` : '';
     },
 
-    // Anzahl der Schreibaktionen (command_actions) einer Entitaet, fuer den
-    // Befehls-Chip im Analyse-Tab.
-    commandCount(entity) {
+    // Schreibaktionen (command_actions) einer Entitaet, fuer den Analyse-Tab.
+    commandsFor(entity) {
       const id = entity?.unique_id;
-      return (this.deviceDetail?.command_actions || []).filter(action => action.entity_id === id).length;
+      return (this.deviceDetail?.command_actions || []).filter(action => action.entity_id === id);
+    },
+
+    // Anzahl der Schreibaktionen einer Entitaet fuer den Befehls-Chip.
+    commandCount(entity) {
+      return this.commandsFor(entity).length;
+    },
+
+    // Ergebnis einer Schreibaktion als Text fuer die Befehlsliste.
+    commandResultText(action) {
+      if (action.result === 'published') return t('devices.activity.command_sent');
+      return t('devices.write_actions.error_prefix') + (action.error || t('devices.write_actions.unknown'));
+    },
+
+    // Letzte MQTT-Nachricht einer Entitaet als "Payload · QoS n · retain".
+    messageSummary(entity) {
+      const message = entity?.last_message;
+      if (!message) return '-';
+      const parts = [message.payload || t('devices.messages.empty_payload'), `${t('devices.mqtt_messages.qos')} ${message.qos ?? '-'}`];
+      if (message.retained) parts.push(t('devices.analysis.retained'));
+      return parts.join(' · ');
     },
 
     // Aufgeklappte Entitaeten des Analyse-Tabs. Ein neues Set ersetzt das
@@ -623,20 +631,12 @@
     observeMergeThreshold() {
       if (typeof ResizeObserver === 'undefined') return;
       const scrollarea = this.$refs.deviceModalScrollarea;
-      const dialog = this.$refs.deviceModalDialog;
-      if (!scrollarea && !dialog) return;
+      if (!scrollarea) return;
       this.mergeObserver = new ResizeObserver(entries => {
-        for (const entry of entries) {
-          if (entry.target === dialog) {
-            this.isAccordion = entry.contentRect.width > 0 && entry.contentRect.width < 860;
-          } else {
-            this.applyMergeThreshold(entry.contentRect.height);
-          }
-        }
+        for (const entry of entries) this.applyMergeThreshold(entry.contentRect.height);
         this.positionUnderline();
       });
-      if (scrollarea) this.mergeObserver.observe(scrollarea);
-      if (dialog) this.mergeObserver.observe(dialog);
+      this.mergeObserver.observe(scrollarea);
     },
 
     async openDevice(deviceId) {
@@ -658,9 +658,6 @@
       this.$nextTick(() => {
         const dialog = this.$refs.deviceModalDialog;
         if (dialog && !dialog.open) dialog.showModal();
-        if (dialog && typeof dialog.clientWidth === 'number' && dialog.clientWidth > 0) {
-          this.isAccordion = dialog.clientWidth < 860;
-        }
       });
       try {
         this.resetSubDevices();

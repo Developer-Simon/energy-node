@@ -686,10 +686,6 @@
       // Darstellung wie Stern und Icon (edit_device_appearance).
       canViewAnalysis: false,
       canEditAppearance: false,
-      // Noch vom Darstellungs-Formular genutzt, faellt mit ihm weg.
-      get canEditPrefs() {
-        return this.canEditAppearance;
-      },
       // Untergeraete des Geraete-Modals: canEditEnergy nach edit_energy, subDevices
       // und subEdgeProps aus /api/v1/device/map, subForm der offene Dialog.
       canEditEnergy: false,
