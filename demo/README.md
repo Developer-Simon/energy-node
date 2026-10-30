@@ -14,6 +14,7 @@ persistent counterpart: it keeps running until you stop it.
 ```bash
 demo/demo.sh                    # start, the state is kept between runs
 demo/demo.sh --reset            # delete the state, then set up again
+demo/demo.sh --stop             # stop the running demo (with --docs: the docs instance)
 demo/demo.sh --docs             # fixture for the documentation screenshots
 demo/demo.sh --no-simulate      # PV, grid, battery and load stay still
 demo/demo.sh --devices DIR      # extra device configurations, the later source wins
@@ -26,7 +27,7 @@ What always runs:
 - the dashboard with HTTPS (self-signed certificate, accept it in the browser),
   the service logs, an installed-state, a package and the update fake
 - the MQTT broker (`minibroker.py`)
-- the fake Home Assistant companion
+- the fake Home Assistant companion and its history peer, which fills the statistics page
 - the fake console
 - the fake GitHub releases API
 
@@ -72,7 +73,7 @@ Each file in `demo/fakes/` imitates one part of the system:
 - `minibroker.py`: a deliberately incomplete MQTT 3.1.1 broker for local use only.
   It relays retained and live messages, plays the services' status and can simulate the power values.
 - `fake_ha_companion.py`: the Home Assistant companion, with pairing, the user table and the checks.
-- `fake_companion.py`: the history peer of the energy statistics, served over TLS.
+- `fake_companion.py`: the history peer of the energy statistics. It signs in to the HTTPS dashboard without checking the certificate and offers hourly values for 400 days, so the statistics page has data right after the start.
 - `fake_console.py`: the web console with its tabs.
 - `console_page.py`: the page of the console, with the sidebar, the log and the tab frame.
 - `fakelog.py`: the log of the console, a ring buffer with levels.

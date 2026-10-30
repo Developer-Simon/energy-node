@@ -70,3 +70,17 @@ def test_guest_login_over_https_without_context_fails_with_ssl_error(tls_guest_s
 
     with pytest.raises(urllib.error.URLError, match="CERTIFICATE_VERIFY_FAILED"):
         session.login()
+
+
+def test_session_for_https_logs_in_without_verifying_the_certificate(tls_guest_stub):
+    from fake_companion import session_for
+
+    session = session_for(tls_guest_stub)
+    session.login()
+    assert session.cookie == "sid=guest-1"
+
+
+def test_session_for_http_keeps_the_default_context():
+    from fake_companion import session_for
+
+    assert session_for("http://127.0.0.1:1").context is None

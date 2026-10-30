@@ -8,9 +8,7 @@ Jede Aktion ist eine Zeile in ACTIONS. Fehler werden als ValueError mit dem
 Text der Meldung geworfen, Kopplungsfehler zusaetzlich ins Protokoll
 geschrieben.
 """
-import ssl
-
-from fake_companion import ROLES, FakeCompanion, Session
+from fake_companion import ROLES, FakeCompanion, session_for
 from fake_console import Log, Tab
 from fake_ha_companion import HACompanion, HAUser, PairError
 from console_companion_ui import COMPANION_HTML
@@ -25,16 +23,6 @@ MAX_DAYS = 800
 MAX_FACTOR = 100.0
 MAX_DELAY_MS = 60000
 DEFAULT_DAYS = 400  # wie der CLI-Weg von fake_companion.py
-
-
-def _history_context(url):
-    """Unverifizierender Kontext fuer https-Dashboards, sonst None."""
-    if not url.startswith("https://"):
-        return None
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
-    return context
 
 
 def _number(body, key, kind, default=None):
@@ -63,8 +51,7 @@ class CompanionTab(Tab):
     def __init__(self, log: Log, companion_url: str, dashboard_url: str) -> None:
         self._log = log
         self._ha = HACompanion(companion_url, log=lambda text: log.add("ha", text))
-        session = Session(dashboard_url, context=_history_context(dashboard_url))
-        self._history = FakeCompanion(session, DEFAULT_DAYS, log=lambda text: log.add("verlauf", text))
+        self._history = FakeCompanion(session_for(dashboard_url), DEFAULT_DAYS, log=lambda text: log.add("verlauf", text))
 
     def state(self) -> dict:
         return {"ha": self._ha.state(), "history": self._history.state()}

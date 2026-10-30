@@ -8,6 +8,7 @@
 #   demo/demo.sh --docs              # Fixture fuer die Doku-Bilder, Zustand in demo/.run/docs
 #   demo/demo.sh --no-simulate       # PV, Netz, Batterie und Last bleiben stehen
 #   demo/demo.sh --devices DIR       # zusaetzliche Konfigurationen, spaetere Quelle gewinnt
+#   demo/demo.sh --stop              # laufende Demo beenden (mit --docs: die Docs-Instanz)
 #
 # Abbruch mit Strg-C beendet Dashboard und alle Fakes.
 
@@ -18,16 +19,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/env.sh"
 
 usage() {
-  echo "Aufruf: demo/demo.sh [--reset] [--docs] [--no-simulate] [--devices DIR]..." >&2
+  echo "Aufruf: demo/demo.sh [--reset] [--docs] [--no-simulate] [--devices DIR]... | --stop [--docs]" >&2
 }
 
 MODE=demo
 RESET=0
+STOP=0
 SIMULATE=1
 EXTRA_DEVICES=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --reset) RESET=1; shift ;;
+    --stop) STOP=1; shift ;;
     --docs) MODE=docs; shift ;;
     --no-simulate) SIMULATE=0; shift ;;
     --devices)
@@ -88,13 +91,38 @@ if (( ${#EXTRA_DEVICES[@]} > 0 )); then
   DEVICE_SOURCES+=("${EXTRA_DEVICES[@]}")
 fi
 
+# Beendet die laufende Demo ueber ihre PID-Datei. Ihr Trap raeumt Dashboard und Fakes ab.
+stop_demo() {
+  local pidfile="$WORK/demo.pid" pid
+  if [[ ! -f "$pidfile" ]] || ! pid="$(<"$pidfile")" || [[ ! "$pid" =~ ^[0-9]+$ ]] \
+    || ! tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q 'demo\.sh'; then
+    echo "Keine laufende Demo gefunden ($pidfile)"
+    rm -f "$pidfile"
+    return 0
+  fi
+  kill "$pid" 2>/dev/null
+  local _
+  for _ in $(seq 1 50); do
+    kill -0 "$pid" 2>/dev/null || { echo "Demo beendet (PID $pid)"; return 0; }
+    sleep 0.2
+  done
+  echo "FEHLER: Demo (PID $pid) laeuft nach 10 s noch" >&2
+  return 1
+}
+if [[ $STOP -eq 1 ]]; then
+  stop_demo
+  exit $?
+fi
+
 # Nichts starten und nichts loeschen, solange einer der Ports belegt ist.
 for port in "$HTTP_PORT" "$COMPANION_PORT" "$CONSOLE_PORT" "$MQTT_PORT" "$UPDATES_API_PORT" "$BROKER_CONTROL_PORT"; do
   env_require_port "$port" || exit 1
 done
 
+PIDFILE="$WORK/demo.pid"
 cleanup_all() {
   env_cleanup
+  [[ "$(cat "$PIDFILE" 2>/dev/null)" == "$$" ]] && rm -f "$PIDFILE"
   if [[ "$MODE" == docs ]]; then
     rm -rf "$WORK"
   fi
@@ -111,6 +139,7 @@ if [[ $RESET -eq 1 ]]; then
 fi
 
 mkdir -p "$WORK/bin" "$WORK/data" || exit 1
+echo "$$" > "$PIDFILE"
 if [[ ! -f "$WORK/.initialized" ]]; then
   echo "Erster Start, Zustand wird eingerichtet"
   # Ein abgebrochener Erststart hinterlaesst halbe Daten. Die werden verworfen.
@@ -158,7 +187,14 @@ check_broker() {
   [[ -n "$(ss -lntH "sport = :$MQTT_PORT" 2>/dev/null)" ]]
 }
 check_companion() {
-  kill -0 "$COMPANION_PID"
+  kill -0 "$COMPANION_PID" || return 1
+  # Der Peer hat sich angemeldet und sein Angebot gesendet (sonst fuellt sich die Statistik nicht)
+  local _
+  for _ in $(seq 1 20); do
+    grep -q "Angebot gesendet" "$WORK/fake-companion.log" && return 0
+    sleep 0.5
+  done
+  return 1
 }
 check_console() {
   curl -sf -m 5 "http://127.0.0.1:$CONSOLE_PORT/" > /dev/null

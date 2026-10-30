@@ -168,7 +168,7 @@
 
 ### Fixes
 
-- **webui:** stop the main tab "More" list from refitting itself in a loop (#181)
+- **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
 - **httpapi:** keep topics out of the device activity labels (622c6a8)
 - **automations:** read test results from their own endpoint (88ce5a1)
 - **devices:** make favourite and icon saves safe under overlap and undo (573d259)
