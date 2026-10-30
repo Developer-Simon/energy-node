@@ -139,6 +139,17 @@ class Session:
                 self._response = None
 
 
+def session_for(base):
+    """Session fuer base. Ein https-Dashboard hat in der Demo ein selbst signiertes
+    Zertifikat, das die Fake-Peers nicht pruefen."""
+    context = None
+    if base.startswith("https://"):
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    return Session(base, context=context)
+
+
 class FakeCompanion:
     def __init__(self, session, days, log=lambda text: None):
         self.session = session
@@ -311,7 +322,8 @@ def main():
     parser.add_argument("--days", type=int, default=400)
     parser.add_argument("--stop-after", type=float, default=0)
     args = parser.parse_args()
-    companion = FakeCompanion(Session(args.base), args.days)
+    companion = FakeCompanion(
+        session_for(args.base), args.days, log=lambda text: print("fake companion:", text, flush=True))
     if args.stop_after:
         threading.Timer(args.stop_after, lambda: os._exit(0)).start()
     try:

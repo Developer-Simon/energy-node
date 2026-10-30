@@ -158,7 +158,14 @@ check_broker() {
   [[ -n "$(ss -lntH "sport = :$MQTT_PORT" 2>/dev/null)" ]]
 }
 check_companion() {
-  kill -0 "$COMPANION_PID"
+  kill -0 "$COMPANION_PID" || return 1
+  # Der Peer hat sich angemeldet und sein Angebot gesendet (sonst fuellt sich die Statistik nicht)
+  local _
+  for _ in $(seq 1 20); do
+    grep -q "Angebot gesendet" "$WORK/fake-companion.log" && return 0
+    sleep 0.5
+  done
+  return 1
 }
 check_console() {
   curl -sf -m 5 "http://127.0.0.1:$CONSOLE_PORT/" > /dev/null
