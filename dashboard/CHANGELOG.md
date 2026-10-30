@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.25 (2026-10-29)
+## v0.10.26 (2026-10-30)
 
 ### Features
 
@@ -17,6 +17,7 @@
 - **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
 - **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
 - **webui:** redesign the toast with glass, timer line and swipe to dismiss (#178) (67cc079)
+- **devices:** star favourites, a per-entity analysis tab and two device rights (#180) (2139615)
 - **auth:** add device analysis and device appearance rights (b787bd3)
 - **auth:** migrate users.json to version 4 with the device rights (a9a982b)
 - **httpapi:** gate device preferences behind edit_device_appearance (7ae6a7c)
@@ -33,7 +34,6 @@
 - **devices:** style the favourites row, stars, icon popover and more menu (d5bc36d)
 - **devices:** analysis tab state for the device dialog (87454f1)
 - **devices:** per-entity analysis tab in the device dialog (714730e)
-- **devices:** star favourites, a per-entity analysis tab and two device rights (#180)
 - **automations:** describe month days and stale conditions (36a10b2)
 - **automations:** edit month days and stale conditions (53dbe9a)
 - **automations:** monthly full charge, silent inverter and low tariff wallbox templates (9e0696e)
@@ -168,6 +168,7 @@
 
 ### Fixes
 
+- **webui:** stop the main tab "More" list from refitting itself in a loop (#181)
 - **httpapi:** keep topics out of the device activity labels (622c6a8)
 - **automations:** read test results from their own endpoint (88ce5a1)
 - **devices:** make favourite and icon saves safe under overlap and undo (573d259)
