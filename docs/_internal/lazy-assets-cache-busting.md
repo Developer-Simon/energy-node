@@ -144,7 +144,7 @@ on the `device-modal` template in
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `5`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `48` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `20` |
 | `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `5`, `js/automations-scenario.js` `3`, `js/automations-chart.js` `2`, `js/automations-devices.js` `1`, `js/device-picker.js` `2`, `js/automation-wizard.js` `1` (new), `js/automation-templates.js` `1` (new), `js/automations.page.js` `22` | `css/manager.css` `48`, `css/automations.css` `12` |
-| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `5` | `css/history.css` `7`, `css/stats.css` `3` |
+| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `6` | `css/history.css` `7`, `css/stats.css` `4` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -265,6 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.27 | `js/stats.page.js` (stats panel, narrow screens: interval selection, table view switch, chart band) · `css/stats.css` (stats panel, floating back/next bar, interval and grid table views) | `6` · `4` | 2026-10-30 |
 | v0.10.26 | `js/dashboard.js` (main tab "More" list no longer refits itself in an endless loop on narrow screens) | `41` | 2026-10-30 |
 | v0.10.25 | `css/base.css` (device dialog: favourite stars, icon popover, more menu and analysis tab styles) · `js/dashboard.js` (device dialog rights for the analysis tab and the appearance) · `js/notify.js` (toast with an undo action) · `js/device-modal.js` (device dialog: favourites, icon, more menu, analysis tab) · `js/automations.page.js` (automations panel, test result read from its own endpoint for every viewer) | `46` · `40` · `3` · `2` · `22` | 2026-10-29 |
 | v0.10.24 | `css/base.css` (toast redesign: glass, timer line, enter, exit and swipe motion) · `js/notify.js` (toast store: expiry for every severity, hold and release, exit state) · `js/toast-gesture.js` (new, swipe away, rubber band, pause on hover and focus) | `45` · `2` · `1` (new) | 2026-10-29 |
