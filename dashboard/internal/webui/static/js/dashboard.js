@@ -110,7 +110,16 @@
       this.$watch('hiddenPages', refit);
       this.$watch('extraPages', refit);
       if (typeof ResizeObserver === 'function') new ResizeObserver(refit).observe(nav);
-      if (typeof MutationObserver === 'function') new MutationObserver(refit).observe(nav, {childList: true, subtree: true, characterData: true});
+      // Die Liste "Weitere" zeichnet fitNav selbst neu. Zaehlte das als
+      // Aenderung, liefe fitNav in einer Schleife ohne Ende.
+      const inMore = (record) => {
+        const node = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+        return Boolean(node && node.closest('.nav-more'));
+      };
+      if (typeof MutationObserver === 'function') {
+        new MutationObserver((records) => { if (!records.every(inMore)) refit(); })
+          .observe(nav, {childList: true, subtree: true, characterData: true});
+      }
       document.fonts?.ready?.then(refit);
       refit();
     },

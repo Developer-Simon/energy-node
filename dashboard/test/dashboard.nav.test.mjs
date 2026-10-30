@@ -262,6 +262,44 @@ test('fitNav tut im Modus menu nichts und raeumt vorherige Ausblendungen auf', (
   assert.equal(component.overflowNav.length, 0);
 });
 
+// Die Liste "Weitere" rendert fitNav selbst neu (x-for, x-text). Sieht der
+// Beobachter der Leiste das als Aenderung, misst fitNav ohne Ende weiter, am
+// Handy ruckelt dann das Scrollen.
+function watchFits(component) {
+  component.$nextTick = (fn) => fn();
+  component.$watch = () => {};
+  let fits = 0;
+  const fitNav = component.fitNav;
+  component.fitNav = function () { fits += 1; return fitNav.call(this); };
+  return () => fits;
+}
+const flushObservers = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+test('ein Neuzeichnen der Liste Weitere loest kein erneutes Messen aus', async () => {
+  const { component, nav } = createRow({ navWidth: 250 });
+  const fits = watchFits(component);
+  component.initNav();
+  await flushObservers();
+  const before = fits();
+  const item = nav.ownerDocument.createElement('button');
+  item.textContent = 'Geräte';
+  nav.querySelector('.nav-more').appendChild(item);
+  item.firstChild.replaceWith(nav.ownerDocument.createTextNode('Geräte'));
+  await flushObservers();
+  assert.equal(fits(), before);
+});
+
+test('eine geaenderte Tab-Beschriftung misst die Leiste neu', async () => {
+  const { component, nav } = createRow({ navWidth: 250 });
+  const fits = watchFits(component);
+  component.initNav();
+  await flushObservers();
+  const before = fits();
+  nav.querySelector('#tab-devices').textContent = 'Alle Geräte';
+  await flushObservers();
+  assert.equal(fits(), before + 1);
+});
+
 test('ein Klick auf einen Eintrag der Liste loest den Tab selbst aus', () => {
   const { component, nav } = createRow({ navWidth: 250 });
   component.fitNav();
