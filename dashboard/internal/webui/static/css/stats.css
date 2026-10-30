@@ -1,7 +1,12 @@
 /* Seite "Statistik". Zeitraum-Chips und Statuszeile kommen aus history.css
    (.history-chip, .history-status), hier steht nur, was die Seite braucht. */
 .stats-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin: 0 0 .9rem; }
-.stats-nav .history-chip:disabled { opacity: .4; cursor: default; }
+.stats-nav .history-chip:disabled { cursor: default; }
+/* Nur das Ende der Daten wird blass, nicht jedes Laden. Sonst flackern die
+   Knoepfe bei jedem Blaettern. */
+.stats-nav .history-chip.is-edge { opacity: .4; }
+.stats-step-icon { display: none; width: 1.15rem; height: 1.15rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.stats-step--prev .stats-step-icon { transform: scaleX(-1); }
 .stats-title { flex: 1 1 auto; text-align: center; color: var(--text-strong); font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
 .stats-error { margin: 0 0 .75rem; color: var(--bad); }
 
@@ -12,11 +17,17 @@
 
 .stats-card { margin: 0 0 1rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
 .stats-chart-card { padding: 1rem 1rem .6rem; }
-.stats-chart { min-height: 340px; }
+.stats-chart-stage { position: relative; }
+.stats-chart { position: relative; min-height: 340px; }
+/* Hinterlegt den gewaehlten Abschnitt, liegt unter dem transparenten SVG.
+   Lage und Groesse setzt stats.page.js aus der Zeichenflaeche. */
+.stats-chart-band { position: absolute; left: 0; top: 0; border-radius: 6px; background: color-mix(in srgb, var(--text) 9%, transparent); pointer-events: none; }
+.stats-chart-band[hidden] { display: none; }
 .stats-chart .apexcharts-tooltip { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); }
 .stats-chart .apexcharts-tooltip-title { background: var(--sunken); border-bottom: 1px solid var(--border); }
 
-.stats-table-wrap { overflow-x: auto; }
+.stats-table-wrap { overflow: hidden; }
+.stats-table-scroll { overflow-x: auto; }
 .stats-table { width: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
 .stats-table th, .stats-table td { padding: .45rem .6rem; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border-soft); }
 .stats-table thead th { background: var(--sunken); color: var(--text-muted); font-weight: 500; }
@@ -29,9 +40,75 @@
    der Abstand zum Text kommt dort von ApexCharts selbst. */
 .apexcharts-legend-marker .stats-swatch { margin-right: 0; flex: none; }
 .stats-table-total { color: var(--text-strong); font-weight: 600; }
+.stats-grid-unit { display: none; }
 
 @media (max-width: 760px) { .stats-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) {
   .stats-chart { min-height: 15rem; }
-  .stats-title { order: -1; flex-basis: 100%; }
+  /* Platz fuer die schwebende Leiste, damit sie die letzte Zeile nicht verdeckt. */
+  #stats-panel { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+
+  /* Zurueck und Vor als schwebende Glasleiste im Daumenbereich. Feste Breite,
+     damit sie beim Blaettern nicht mit der Titellaenge springt. */
+  .stats-nav {
+    position: fixed; z-index: 20; left: 50%; bottom: calc(.9rem + env(safe-area-inset-bottom, 0px));
+    width: min(22rem, calc(100vw - 2rem)); margin: 0; flex-wrap: nowrap; gap: .25rem; padding: .3rem;
+    transform: translateX(-50%);
+    border: 1px solid var(--border-soft); border-top-color: rgba(255, 255, 255, .16); border-radius: 999px;
+    background: color-mix(in srgb, var(--panel) 72%, transparent);
+    backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .35);
+  }
+  .stats-title { min-width: 0; font-size: .92rem; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stats-nav .stats-step {
+    flex: none; display: grid; place-items: center; width: 2.6rem; height: 2.6rem; padding: 0; border: 0; border-radius: 50%;
+    background: color-mix(in srgb, var(--text) 9%, transparent); color: var(--text-strong);
+  }
+  .stats-step-icon { display: block; }
+  .stats-step-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* Ohne die senkrechten Linien und den Tabellenabstand aus base.css. */
+  .stats-table { margin: 0; }
+  .stats-table th, .stats-table td { border-left: 0; border-right: 0; }
+
+  /* Tabelle: Umschalter Abschnitt/Raster, Chipleiste der Abschnitte. */
+  .stats-table-bar { display: flex; justify-content: flex-end; padding: .55rem .6rem 0; }
+  .stats-view-toggle { display: inline-flex; padding: 2px; border: 1px solid var(--border-soft); border-radius: 999px; background: var(--sunken); }
+  .stats-view-toggle button { padding: .3rem .8rem; border: 0; border-radius: 999px; background: transparent; color: var(--text-muted); font: inherit; font-size: .8rem; cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+  .stats-nav .stats-step:hover { border-color: transparent; color: var(--text-strong); }
+  .stats-view-toggle button[aria-pressed="true"] { background: var(--panel); color: var(--text-strong); box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+  .stats-bucket-strip {
+    display: flex; gap: .35rem; padding: .55rem .6rem; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 .6rem, #000 calc(100% - .6rem), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 .6rem, #000 calc(100% - .6rem), transparent);
+  }
+  .stats-bucket-strip::-webkit-scrollbar { display: none; }
+  .stats-bucket-strip .history-chip { flex: none; scroll-snap-align: center; font-variant-numeric: tabular-nums; }
+
+  /* Abschnittsansicht: drei Spalten, darum groesser und mit Fingerabstand. */
+  .stats-table--bucket { font-size: .95rem; }
+  .stats-table--bucket th, .stats-table--bucket td { padding: .6rem .75rem; }
+  .stats-table--bucket th[scope="row"] { white-space: normal; }
+  .stats-table--bucket .stats-swatch { width: .7rem; height: .7rem; }
+
+  /* Raster: nur der Farbpunkt, die Legende des Diagramms nennt die Rollen. */
+  .stats-table-wrap[data-view="grid"] .stats-role-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .stats-table-wrap[data-view="grid"] th[scope="row"] .stats-swatch { width: .7rem; height: .7rem; margin-right: 0; }
+  .stats-table-wrap[data-view="grid"] .stats-grid-unit { display: inline; }
+}
+@media (max-width: 640px) and (prefers-reduced-motion: no-preference) {
+  /* Die Leiste setzt erst nach dem Panel-Einzug ein: solange das Panel noch
+     ein transform traegt, haengt position: fixed am Panel statt am Fenster. */
+  .stats-nav { transition: opacity .24s var(--ease-out) .16s, transform .32s var(--ease-out) .16s; }
+  @starting-style { .stats-nav { opacity: 0; transform: translate(-50%, 10px) scale(.96); } }
+  .stats-nav .stats-step { transition: transform .12s var(--ease-out), background-color .15s ease; }
+  .stats-nav .stats-step:active:not(:disabled) { transform: scale(.9); }
+  .stats-chart-band { transition: transform .18s var(--ease-out); }
+}
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+  .stats-nav { transition: opacity .2s ease .16s; }
+  @starting-style { .stats-nav { opacity: 0; } }
+}
+@media (max-width: 640px) and (prefers-reduced-transparency: reduce) {
+  .stats-nav { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; }
 }

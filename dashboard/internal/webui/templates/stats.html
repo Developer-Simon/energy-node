@@ -9,9 +9,9 @@
       <button type="button" class="history-chip" x-bind:class="{active: period === 'year'}" x-bind:aria-pressed="period === 'year'" x-on:click="selectPeriod('year')">{{t "energy_stats.period.year"}}</button>
   </div>
   <div class="stats-nav" role="group" aria-label="{{t "energy_stats.period.label"}}">
-    <button type="button" class="history-chip" x-on:click="prev()" x-bind:disabled="!hasPrev || loading">{{t "energy_stats.prev"}}</button>
+    <button type="button" class="history-chip stats-step stats-step--prev" x-bind:class="{ 'is-edge': !hasPrev }" x-on:click="prev()" x-bind:disabled="!hasPrev || loading"><svg class="stats-step-icon" aria-hidden="true"><use href="#ico-chevron"></use></svg><span class="stats-step-text">{{t "energy_stats.prev"}}</span></button>
     <strong class="stats-title" aria-live="polite" x-text="title"></strong>
-    <button type="button" class="history-chip" x-on:click="next()" x-bind:disabled="!hasNext || loading">{{t "energy_stats.next"}}</button>
+    <button type="button" class="history-chip stats-step" x-bind:class="{ 'is-edge': !hasNext }" x-on:click="next()" x-bind:disabled="!hasNext || loading"><span class="stats-step-text">{{t "energy_stats.next"}}</span><svg class="stats-step-icon" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
   </div>
   <p class="stats-error" role="alert" x-show="error" x-text="error"></p>
   <dl class="stats-kpis">
@@ -27,14 +27,26 @@
   </div>
   <div class="history-empty" x-show="empty"><strong>{{t "energy_stats.empty"}}</strong></div>
   <div class="stats-card stats-chart-card" x-show="!empty">
-    <div class="stats-chart" role="img" aria-label="{{t "energy_stats.chart.label"}}" x-ref="chart"></div>
+    <div class="stats-chart-stage">
+      <div class="stats-chart-band" x-ref="band" aria-hidden="true" hidden></div>
+      <div class="stats-chart" role="img" aria-label="{{t "energy_stats.chart.label"}}" x-ref="chart"></div>
+    </div>
   </div>
-  <div class="stats-card stats-table-wrap" x-show="rows.length">
-    <table class="stats-table">
+  <div class="stats-card stats-table-wrap" x-show="rows.length" x-bind:data-view="narrow ? view : 'wide'">
+    <div class="stats-table-bar" x-show="narrow">
+      <div class="stats-view-toggle" role="group" aria-label="{{t "energy_stats.view.label"}}">
+        <button type="button" x-bind:aria-pressed="view === 'bucket'" x-on:click="setView('bucket')">{{t "energy_stats.view.bucket"}}</button>
+        <button type="button" x-bind:aria-pressed="view === 'grid'" x-on:click="setView('grid')">{{t "energy_stats.view.grid"}}</button>
+      </div>
+    </div>
+    <div class="stats-bucket-strip" role="group" aria-label="{{t "energy_stats.bucket.label"}}" x-ref="buckets" x-show="showBucket">
+      <template x-for="(label, index) in labels" x-bind:key="index"><button type="button" class="history-chip" x-bind:class="{ active: index === selected }" x-bind:aria-pressed="index === selected" x-on:click="selectBucket(index)" x-text="label"></button></template>
+    </div>
+    <table class="stats-table stats-table--bucket" x-show="showBucket">
       <thead>
         <tr>
           <th scope="col">{{t "energy_stats.table.role"}}</th>
-          <template x-for="(label, index) in labels" x-bind:key="index"><th scope="col" x-text="label"></th></template>
+          <th scope="col" x-text="selectedLabel"></th>
           <th scope="col">{{t "energy_stats.table.total"}}</th>
         </tr>
       </thead>
@@ -42,12 +54,32 @@
         <template x-for="row in rows" x-bind:key="row.role">
           <tr>
             <th scope="row"><span class="stats-swatch" x-bind:class="{ 'is-hatched': row.hatched }" aria-hidden="true" x-bind:style="`background-color:${row.color}`"></span><span x-text="row.label"></span></th>
-            <template x-for="(value, index) in row.values" x-bind:key="index"><td x-text="value"></td></template>
+            <td x-text="row.values[selected]"></td>
             <td class="stats-table-total" x-text="row.total"></td>
           </tr>
         </template>
       </tbody>
     </table>
+    <div class="stats-table-scroll" x-show="!showBucket">
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th scope="col"><span class="stats-role-label">{{t "energy_stats.table.role"}}</span><span class="stats-grid-unit" aria-hidden="true">kWh</span></th>
+          <template x-for="(label, index) in labels" x-bind:key="index"><th scope="col" x-text="label"></th></template>
+          <th scope="col">{{t "energy_stats.table.total"}}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="row in rows" x-bind:key="row.role">
+          <tr>
+            <th scope="row"><span class="stats-swatch" x-bind:class="{ 'is-hatched': row.hatched }" aria-hidden="true" x-bind:style="`background-color:${row.color}`"></span><span class="stats-role-label" x-text="row.label"></span></th>
+            <template x-for="(value, index) in row.values" x-bind:key="index"><td x-text="narrow ? row.compact[index] : value"></td></template>
+            <td class="stats-table-total" x-text="row.total"></td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+    </div>
   </div>
 </section>
 {{end}}

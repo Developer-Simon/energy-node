@@ -218,3 +218,76 @@ test('registry-updated erreicht onRevision, destroy meldet ab', async () => {
   assert.equal(calls.length, 1);
   dom.window.close();
 });
+
+test('laufender Zeitraum waehlt den juengsten Abschnitt mit Werten', async () => {
+  const {dom, make} = load();
+  const page = make();
+  await page.init();
+  assert.equal(page.selected, 0);
+  assert.equal(page.selectedLabel, page.labels[0]);
+  dom.window.close();
+});
+
+test('vergangener Zeitraum beginnt beim ersten Abschnitt, Blaettern behaelt die Wahl', async () => {
+  const past = {...DAY_FIXTURE, at: '2026-10-11', prev: '2026-10-10', next: '2026-10-12'};
+  const {dom, make} = load({'day|2026-10-11': past, 'day|2026-10-10': {...past, at: '2026-10-10', next: '2026-10-11'}, 'week|': {...DAY_FIXTURE, period: 'week'}});
+  const page = make();
+  page.focus({period: 'day', at: '2026-10-11'});
+  await page.load();
+  assert.equal(page.selected, 0);
+  page.selectBucket(1);
+  await page.prev();
+  assert.equal(page.selected, 1);
+  page.selectBucket(9);
+  assert.equal(page.selected, 1, 'ausserhalb der Abschnitte bleibt die Wahl');
+  await page.selectPeriod('week');
+  assert.equal(page.selected, 0);
+  dom.window.close();
+});
+
+test('Tabellenansicht wird im Browser gemerkt', async () => {
+  const {dom, make} = load();
+  const page = make();
+  await page.init();
+  assert.equal(page.view, 'bucket');
+  page.setView('grid');
+  assert.equal(dom.window.localStorage.getItem('stats.table_view'), 'grid');
+  assert.equal(make().view, 'grid');
+  dom.window.close();
+});
+
+test('Antippen eines Balkens waehlt den Abschnitt', async () => {
+  const {dom, make, charts} = load();
+  const page = make();
+  await page.init();
+  charts.at(-1).options.chart.events.click(null, null, {dataPointIndex: 1});
+  assert.equal(page.selected, 1);
+  charts.at(-1).options.chart.events.click(null, null, {dataPointIndex: -1});
+  assert.equal(page.selected, 1);
+  dom.window.close();
+});
+
+test('Antippen neben dem Balken waehlt die Spalte unter dem Finger', async () => {
+  const {dom, make, charts} = load();
+  const page = make();
+  await page.init();
+  const chart = charts.at(-1);
+  chart.w = {globals: {gridWidth: 200, gridHeight: 100, translateX: 50, translateY: 10}};
+  page.$refs.chart.getBoundingClientRect = () => ({left: 0, top: 0});
+  chart.options.chart.events.click({clientX: 160}, null, {dataPointIndex: null});
+  assert.equal(page.selected, 1);
+  chart.options.chart.events.click({clientX: 10}, null, {dataPointIndex: null});
+  assert.equal(page.selected, 1, 'links der Zeichenflaeche bleibt die Wahl');
+  dom.window.close();
+});
+
+test('Rasterzellen tragen eine kompakte Zahl ohne Einheit', async () => {
+  const {dom, make} = load();
+  const page = make();
+  await page.init();
+  const pv = page.rows.find(row => row.role === 'pv');
+  assert.equal(pv.values[0], '2,50 kWh');
+  assert.equal(pv.compact[0], '2,5');
+  assert.equal(pv.compact[1], '');
+  dom.window.close();
+});
