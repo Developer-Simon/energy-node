@@ -95,7 +95,7 @@ As of **2026-10-29**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `40` |
+| `js/dashboard.js` | `41` |
 | `js/update-bar.js` | `5` |
 | `js/whatsnew.page.js` | `4` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
@@ -265,6 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.26 | `js/dashboard.js` (main tab "More" list no longer refits itself in an endless loop on narrow screens) | `41` | 2026-10-30 |
 | v0.10.25 | `css/base.css` (device dialog: favourite stars, icon popover, more menu and analysis tab styles) · `js/dashboard.js` (device dialog rights for the analysis tab and the appearance) · `js/notify.js` (toast with an undo action) · `js/device-modal.js` (device dialog: favourites, icon, more menu, analysis tab) · `js/automations.page.js` (automations panel, test result read from its own endpoint for every viewer) | `46` · `40` · `3` · `2` · `22` | 2026-10-29 |
 | v0.10.24 | `css/base.css` (toast redesign: glass, timer line, enter, exit and swipe motion) · `js/notify.js` (toast store: expiry for every severity, hold and release, exit state) · `js/toast-gesture.js` (new, swipe away, rubber band, pause on hover and focus) | `45` · `2` · `1` (new) | 2026-10-29 |
 | v0.10.23 | `js/history-recorder.js` (errors of the leader start shown in the console, opt-in diagnostics log) · `js/history-exchange.js` (start failures shown in the console, opt-in diagnostics log) | `13` · `9` | 2026-10-29 |
