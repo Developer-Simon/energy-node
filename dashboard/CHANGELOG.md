@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.26 (2026-10-30)
+## v0.10.27 (2026-10-30)
 
 ### Features
 
@@ -18,6 +18,7 @@
 - **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
 - **webui:** redesign the toast with glass, timer line and swipe to dismiss (#178) (67cc079)
 - **devices:** star favourites, a per-entity analysis tab and two device rights (#180) (2139615)
+- **webui:** mobile view for the statistics page (#183)
 - **auth:** add device analysis and device appearance rights (b787bd3)
 - **auth:** migrate users.json to version 4 with the device rights (a9a982b)
 - **httpapi:** gate device preferences behind edit_device_appearance (7ae6a7c)
