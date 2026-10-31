@@ -537,7 +537,11 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		OnlineDeps:      h.onlineDepsNeeded(),
 		Steps:           list,
 		Selection:       h.selectionForRun(),
-		Secrets:         &steps.Secrets{MQTTPassword: req.MQTTPassword, AdminPassword: req.AdminPassword},
+		Secrets: &steps.Secrets{
+			MQTTPassword:  req.MQTTPassword,
+			AdminPassword: req.AdminPassword,
+			DashboardSeed: req.DashboardSeed(),
+		},
 		OnMarker: func(marker steps.Marker) {
 			sink.Marker(marker.StepID, markerState(marker.Kind), marker.Detail)
 		},

@@ -148,14 +148,28 @@ test('Start speichert die Auswahl, startet den Lauf und vergisst die Passwoerter
 
   assert.deepEqual(calls.map((call) => call.key), ['PUT /api/selection', 'POST /api/run']);
   assert.deepEqual(calls[0].body, { steps: INPUT.steps });
-  assert.deepEqual(calls[1].body, {
+  const { dashboard_prefs: prefs, ...run } = calls[1].body;
+  assert.deepEqual(run, {
     mode: 'install', mqtt_user: 'energynode', mqtt_password: 'mqtt-geheim', admin_password: 'admin-geheim',
     target_user: 'energynode', target_base: '/home/energynode',
   });
+  assert.equal(prefs.users[0].name, 'anna');
   assert.equal(shell.screen, 'run');
   assert.equal(shell.mutating, true);
   assert.equal(shell.installInput, null);
   assert.equal(shell.shared.dashboardPrefs.users[0].password, '');
+});
+
+test('Start schickt die Vorgaben mit den Benutzerzeilen und deren Passwoertern mit', async () => {
+  const { screen, shell, calls } = mount();
+  screen.addUser();
+  Object.assign(shell.shared.dashboardPrefs.users[0], { name: 'anna', template: 'operate', password: '1234567890' });
+  screen.chooseTheme('stromblau');
+  await screen.start();
+  const prefs = plain(calls[1].body.dashboard_prefs);
+  assert.deepEqual(prefs.users, [{ name: 'anna', template: 'operate', password: '1234567890' }]);
+  assert.equal(prefs.theme, 'stromblau');
+  assert.deepEqual(prefs.later, []);
 });
 
 test('ohne Eingaben aus dem Konfigurationsschritt startet nichts', async () => {

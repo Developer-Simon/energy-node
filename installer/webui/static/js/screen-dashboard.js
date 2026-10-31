@@ -222,6 +222,9 @@
             admin_password: input.adminPassword,
             target_user: input.targetUser,
             target_base: input.targetBase,
+            // Die Vorgaben reisen als Seed-Datei auf den Node; die Passwoerter
+            // darin gehen genau mit diesem Aufruf hinaus.
+            dashboard_prefs: copy(this.prefs),
           });
           // Die Passwoerter gingen genau einmal hinaus und bleiben nirgends.
           this.prefs.users.forEach(function (user) { user.password = ''; });
