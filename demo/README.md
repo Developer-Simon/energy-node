@@ -89,6 +89,39 @@ Each file in `demo/fakes/` imitates one part of the system:
 The tests for the fakes are pytest tests in `demo/fakes`. Run them from
 `demo/fakes` with the project's `.venv`: `.venv/bin/python3 -m pytest -q`.
 
+## Draft proxy
+
+`demo/draft_proxy.py` puts a draft on the real pages of the running demo. The
+dashboard embeds its assets with `go:embed`, so a draft that should run as real
+frontend code cannot just drop files into `static/`. The proxy sits in front of
+the demo, passes everything through and inserts the draft's files into the HTML
+responses.
+
+```bash
+demo/demo.sh                                    # terminal 1
+python3 demo/draft_proxy.py drafts/onboarding   # terminal 2
+```
+
+Open `https://localhost:18300` and accept its own self-signed certificate. The
+draft files are read on every request, so a reload shows a change.
+
+Each draft folder holds an `inject.json`:
+
+- `assets`: the folder served under `/__draft/`.
+- `page` and `head`: on a full page (recognised by the `page` marker), a
+  `<link>` or `<script defer>` for each file in `head` goes before `</head>`.
+- `insert`: fragments placed before a `before` marker, in responses that contain
+  `when` (default: the `before` marker itself). This covers lazily loaded panel
+  fragments as well.
+- `replace`: a text replacement in the response for `path`, for example a list
+  in a page script.
+
+A marker or a replacement text that is missing is reported on the console,
+because the template changed and the draft has to follow. The file doubles as
+the production diff: the implementation changes the templates at exactly these
+places. The proxy uses the standard library only. Its tests are
+`demo/fakes/test_draft_proxy.py`.
+
 ## Fixtures
 
 `demo/fixtures/` holds the data the demo and the tests load:
