@@ -277,6 +277,48 @@
    eines Dienstes stehen eingerueckt unter seiner Zeile. */
 .app[data-screen="diagnose"] .d.off{background:var(--text-faint)}
 .app[data-screen="diagnose"] .devs{margin:-.15rem 0 .3rem 1.15rem;font-size:.75rem;line-height:1.45;color:var(--text-muted)}
+/* Ergaenzung Diagnose: Live-Log-Karte (ll-, nach .cols), nicht in der Vorlage.
+   Masse aus dem Mockup livelog-layout.html, Tokens aus installer.css. Bewegt
+   wird nur opacity und transform, keine transition: all. */
+.app[data-screen="diagnose"] .ll{display:flex;flex-direction:column;gap:.55rem;min-width:0;padding:.85rem 1rem .9rem}
+.app[data-screen="diagnose"] .ll-h{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.app[data-screen="diagnose"] .ll-h .gh{margin:0}
+.app[data-screen="diagnose"] .ll-state{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:600;letter-spacing:.03em;color:var(--accent-soft)}
+.app[data-screen="diagnose"] .ll-state::before{content:"";flex:none;width:.42rem;height:.42rem;border-radius:50%;background:var(--accent)}
+.app[data-screen="diagnose"] .ll-state.paused{color:var(--text-muted)}
+.app[data-screen="diagnose"] .ll-state.paused::before{background:var(--text-faint)}
+.app[data-screen="diagnose"] .ll-state.off{color:var(--bad)}
+.app[data-screen="diagnose"] .ll-state.off::before{background:var(--bad)}
+.app[data-screen="diagnose"] .ll-sp{flex:1 1 auto}
+.app[data-screen="diagnose"] .ll-units{min-width:210px}
+.app[data-screen="diagnose"] .ll-status{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;font-size:.76rem;line-height:1.5;color:var(--text-subtle);font-variant-numeric:tabular-nums}
+.app[data-screen="diagnose"] .ll-err{margin:0;font-size:.76rem;line-height:1.45;color:var(--bad)}
+.app[data-screen="diagnose"] .ll-wrap{position:relative;min-width:0}
+.app[data-screen="diagnose"] .ll-log{height:210px;overflow:auto;overscroll-behavior:contain;border-radius:var(--radius-sm);background:var(--sunken);border:1px solid var(--border-soft);padding:.5rem .65rem;font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.6;color:var(--text-subtle);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18px);mask-image:linear-gradient(to bottom,transparent 0,#000 18px)}
+.app[data-screen="diagnose"] .ll-empty{margin:0;color:var(--text-faint)}
+.app[data-screen="diagnose"] .ll-ln{white-space:pre-wrap;word-break:break-word;animation:ll-in .16s cubic-bezier(.23,1,.32,1) both}
+.app[data-screen="diagnose"] .ll-ln.err{color:var(--bad)}
+.app[data-screen="diagnose"] .ll-ln.wrn{color:var(--warn)}
+.app[data-screen="diagnose"] .ll-ln.sys{color:var(--accent-soft)}
+@keyframes ll-in{from{opacity:0}to{opacity:1}}
+.app[data-screen="diagnose"] .ll-jump{position:absolute;right:.6rem;bottom:.55rem;border:1px solid var(--accent-line);background:color-mix(in srgb,var(--accent-bg) 82%,transparent);-webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%);color:var(--accent-soft);font:inherit;font-size:.72rem;font-weight:600;line-height:1.4;border-radius:999px;padding:.22rem .7rem;cursor:pointer;opacity:0;transform:translateY(6px) scale(.97);pointer-events:none;transition:opacity .18s cubic-bezier(.23,1,.32,1),transform .18s cubic-bezier(.23,1,.32,1)}
+.app[data-screen="diagnose"] .ll-jump::before{content:"\2193\00a0"}
+.app[data-screen="diagnose"] .ll-jump.show{opacity:1;transform:none;pointer-events:auto}
+.app[data-screen="diagnose"] .ll-foot{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem .9rem;margin-top:.15rem;padding-top:.6rem;border-top:1px solid var(--border-soft)}
+.app[data-screen="diagnose"] .ll-stage{display:flex;align-items:center;flex:1 1 auto;flex-wrap:wrap;gap:.6rem;min-width:0}
+.app[data-screen="diagnose"] .ll-stage-lbl{font-size:.76rem;color:var(--text-muted);white-space:nowrap}
+.app[data-screen="diagnose"] .ll-stages{grid-template-columns:repeat(4,1fr);flex:0 1 240px;min-width:200px}
+.app[data-screen="diagnose"] .ll-stages .segmented-thumb{width:calc((100% - 6px) / 4)}
+.app[data-screen="diagnose"] .ll-stages .segmented-option{padding:.3rem .4rem;font-size:.76rem;font-variant-numeric:tabular-nums}
+.app[data-screen="diagnose"] .ll-copy{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;max-width:100%}
+.app[data-screen="diagnose"] .ll-copy .ll-err{text-align:right}
+@media (prefers-reduced-motion:reduce){
+  .app[data-screen="diagnose"] .ll-ln{animation:none}
+  .app[data-screen="diagnose"] .ll-jump{transform:none;transition:opacity .15s ease}
+}
+@media (prefers-reduced-transparency:reduce){
+  .app[data-screen="diagnose"] .ll-jump{background:var(--accent-bg);-webkit-backdrop-filter:none;backdrop-filter:none}
+}
 /* Ergaenzungen ohne Vorlage: der Bildschirm "Was ist neu" (changelog) und die
    Zusammenfassung in der Vorschau (in der Karte "Was sich aendert", nicht zwischen
    Versionsleiste und Spalten: test/e2e/layout.spec.mjs haelt deren Lage gegen die Vorlage). Beides hat keine Vorlage in
