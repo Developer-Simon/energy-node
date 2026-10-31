@@ -40,6 +40,9 @@ var (
 	// ErrHTTPLoginRequired meldet ein HTTP-Passwort für ein Konto ohne http_login
 	// (wird in Stufe 1b genutzt).
 	ErrHTTPLoginRequired = errors.New("account needs the http_login role")
+
+	// ErrGuestAccessDisabled meldet einen Gastzugang, solange der Admin ihn abgeschaltet hat.
+	ErrGuestAccessDisabled = errors.New("guest access is disabled")
 )
 
 const (
@@ -624,5 +627,55 @@ func (m *Manager) SetGuestRoles(actor string, roles []string) error {
 		return err
 	}
 	log.Printf("auth: %s %s %s", actor, "guest_roles", "guests")
+	return nil
+}
+
+// GuestAccessEnabled meldet, ob sich Gäste anmelden dürfen.
+func (m *Manager) GuestAccessEnabled() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return !m.guestDisabled
+}
+
+// SetGuestAccess schaltet den Gastzugang ein oder ab. Beim Abschalten gehen alle
+// Gastkonten und Gastsitzungen verloren. Die Gastvorgabe bleibt erhalten, sodass
+// ein erneutes Einschalten mit derselben Vorgabe startet.
+func (m *Manager) SetGuestAccess(actor string, enabled bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	disabled := !enabled
+	users := copyUsers(m.users)
+	sessions := copySessions(m.sessions)
+	if disabled {
+		for name, user := range users {
+			if user.Guest {
+				delete(users, name)
+			}
+		}
+		for key, session := range sessions {
+			if session.User.Guest {
+				delete(sessions, key)
+			}
+		}
+	}
+	// Eigener Ablauf statt commitLocked, weil der Schalter mit in users.json steht
+	// und bei einem Fehler beim Speichern der Konten zurückgesetzt werden muss.
+	oldDisabled := m.guestDisabled
+	oldUsers, oldSessions := m.users, m.sessions
+	m.guestDisabled = disabled
+	m.users, m.sessions = users, sessions
+	if err := m.saveLocked(); err != nil {
+		m.guestDisabled = oldDisabled
+		m.users, m.sessions = oldUsers, oldSessions
+		return err
+	}
+	if err := m.saveSessionsLocked(); err != nil {
+		return err
+	}
+	state := "on"
+	if disabled {
+		state = "off"
+	}
+	log.Printf("auth: %s %s %s", actor, "guest_access", state)
 	return nil
 }

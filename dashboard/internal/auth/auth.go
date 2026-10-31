@@ -105,6 +105,8 @@ type userFile struct {
 	Version            int      `json:"version"`
 	GuestRoles         []string `json:"guest_roles"`
 	GuestRolesReviewed bool     `json:"guest_roles_reviewed,omitempty"`
+	// GuestDisabled schaltet den Gastzugang ab. Absent heißt eingeschaltet.
+	GuestDisabled bool `json:"guest_disabled,omitempty"`
 	// MinPasswordLength is the minimum for new passwords; absent or 0 means the default.
 	MinPasswordLength int            `json:"min_password_length,omitempty"`
 	Users             []User         `json:"users"`
@@ -155,6 +157,8 @@ type Manager struct {
 	// guestRolesReviewed is false until the admin has set the guest roles
 	// once after a migration; it drives MigrationNotice.
 	guestRolesReviewed bool
+	// guestDisabled ist true, solange der Gastzugang abgeschaltet ist.
+	guestDisabled bool
 	// minPasswordLength is the minimum length for new passwords, from users.json.
 	minPasswordLength int
 	// sessions is keyed by tokenHash(token), the same key sessions.json
@@ -279,6 +283,7 @@ func (m *Manager) loadLocked() (bool, error) {
 	}
 	m.haRoles = file.HARoles
 	m.companion = file.Companion
+	m.guestDisabled = file.GuestDisabled
 	m.minPasswordLength = DefaultMinPasswordLength
 	if file.MinPasswordLength >= MinPasswordLengthLowest && file.MinPasswordLength <= MinPasswordLengthHighest {
 		m.minPasswordLength = file.MinPasswordLength
@@ -440,6 +445,9 @@ func (m *Manager) loginLocalLocked(username, password string, secure bool) (Sess
 func (m *Manager) ContinueAsGuest() (Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.guestDisabled {
+		return Session{}, ErrGuestAccessDisabled
+	}
 	m.cleanupGuestsLocked()
 	username, err := randomID("guest-")
 	if err != nil {
@@ -459,7 +467,8 @@ func (m *Manager) Session(token string) (Session, bool) {
 	defer m.mu.Unlock()
 	key := tokenHash(token)
 	session, ok := m.sessions[key]
-	if !ok || !session.ExpiresAt.After(m.now()) {
+	// Eine Gastsitzung gilt nicht, solange der Gastzugang abgeschaltet ist.
+	if !ok || !session.ExpiresAt.After(m.now()) || (m.guestDisabled && session.User.Guest) {
 		if ok {
 			delete(m.sessions, key)
 		}
@@ -604,6 +613,7 @@ func (m *Manager) saveLocked() error {
 		Version:            usersFileVersion,
 		GuestRoles:         append([]string{}, m.guestRoles...),
 		GuestRolesReviewed: m.guestRolesReviewed,
+		GuestDisabled:      m.guestDisabled,
 		MinPasswordLength:  m.minPasswordLength,
 		Users:              users,
 		Companion:          m.companion,
