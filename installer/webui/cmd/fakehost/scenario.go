@@ -113,7 +113,7 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 			if !allowed {
 				sink.Marker("package", "begin", "")
 				sink.Log("package", b.say("Prüfe das Paket auf dem Gerät", "Checking the package on the device"))
-				return &hostapi.Error{Code: "PYTHON_ABI_MISMATCH", Detail: b.say("Python-ABI cp313, Bundle erwartet cp311", "Python ABI cp313, bundle expects cp311"), Status: http.StatusConflict}
+				return &hostapi.Error{Code: "PYTHON_ABI_MISMATCH", Detail: "abi=cp313 expected=cp311", Status: http.StatusConflict}
 			}
 		}
 		return b.FakeBackend.Run(ctx, req, sink)

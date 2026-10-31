@@ -196,12 +196,12 @@ test('PYTHON_ABI_MISMATCH bleibt im Bildschirm und bietet die Online-Installatio
   await screen.init();
   let shellFailCalled = false;
   shell.fail = () => { shellFailCalled = true; };
-  screen.finish({ ok: false, code: 'PYTHON_ABI_MISMATCH', detail: 'Python-ABI cp313, Bundle erwartet cp311' });
+  screen.finish({ ok: false, code: 'PYTHON_ABI_MISMATCH', detail: 'abi=cp313 expected=cp311' });
   assert.equal(screen.state, 'failed');
   assert.equal(screen.canAllowOnline, true);
   assert.equal(screen.canForceFull, false);
   assert.equal(shellFailCalled, false);
-  assert.ok(screen.lines.includes('Python-ABI cp313, Bundle erwartet cp311'));
+  assert.ok(screen.lines.includes('Python-ABI auf dem Gerät: cp313. Das Paket wurde für cp311 gebaut.'));
 });
 
 test('allowOnline() startet das Vorbereiten erneut mit allow_online_deps', async () => {

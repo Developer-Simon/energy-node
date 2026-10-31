@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
@@ -94,6 +95,32 @@ func DeployProgress(ctx context.Context, client *transport.Client, localArchiveP
 	return nil
 }
 
+// mismatchLine matches the German line verify_bundle.sh prints for a wrong
+// architecture or Python ABI ("Python-ABI cp313, Bundle erwartet cp311").
+var mismatchLine = regexp.MustCompile(`^(Architektur|Python-ABI) (\S+), Bundle erwartet (.+)$`)
+
+// verifyFailureMessage is the detail of a verify_bundle.sh rejection. The
+// script talks German, but the detail reaches an interface in the operator's
+// language. For a wrong architecture or Python ABI it therefore keeps only the
+// facts in a language-neutral form ("abi=cp313 expected=cp311"); the interface
+// words them. Every other rejection keeps the script's own lines.
+func verifyFailureMessage(code FaultCode, stderr string) string {
+	if code == FaultArchMismatch || code == FaultPythonABIMismatch {
+		for _, line := range strings.Split(stderr, "\n") {
+			m := mismatchLine.FindStringSubmatch(strings.TrimSpace(line))
+			if m == nil {
+				continue
+			}
+			key := "abi"
+			if m[1] == "Architektur" {
+				key = "arch"
+			}
+			return key + "=" + m[2] + " expected=" + strings.TrimSpace(m[3])
+		}
+	}
+	return verifyBundleErrorMessage(stderr)
+}
+
 // verifyBundleErrorMessage constructs the error message for a verify_bundle.sh
 // FEHLER result, including stderr output when available.
 func verifyBundleErrorMessage(stderr string) string {
@@ -157,7 +184,7 @@ func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir s
 		return nil
 	}
 	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: verifyBundleErrorMessage(stderr.String())}
+		return &Error{Code: FaultCode(code), Message: verifyFailureMessage(FaultCode(code), stderr.String())}
 	}
 	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
 }
@@ -188,7 +215,7 @@ func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDi
 		return nil
 	}
 	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: verifyBundleErrorMessage(stderr.String())}
+		return &Error{Code: FaultCode(code), Message: verifyFailureMessage(FaultCode(code), stderr.String())}
 	}
 	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
 }

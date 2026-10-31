@@ -433,6 +433,7 @@
   "precheck.transfer.unit": "{arch} · {size}",
   "precheck.transfer.units": "systemd units",
   "precheck.transfer.wheels": "Wheels",
+  "prepare.abiDetail": "Python ABI on the device: {device}. The package was built for {package}.",
   "prepare.abiMismatch": "The device runs a different Python version than this package was built for. The package can load its Python dependencies from the internet (piwheels or PyPI) while it installs. The device then needs internet access, and the package signature does not cover those files.",
   "prepare.allowOnline": "Load dependencies online",
   "prepare.done": "The package is on the device and has been verified.",
