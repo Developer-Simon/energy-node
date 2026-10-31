@@ -319,6 +319,11 @@
 @media (prefers-reduced-transparency:reduce){
   .app[data-screen="diagnose"] .ll-jump{background:var(--accent-bg);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
+/* Die Spalten schrumpfen nicht, sonst laufen ihre Karten unter die Live-Log-Karte.
+   Der Abstand kommt von .body, das scrollt. ~ statt +: das Template steht dazwischen. */
+.app[data-screen="diagnose"] .cols:has(~ .ll){flex-shrink:0}
+/* Beim Neuaufbau (Unit-Wechsel) faden die Zeilen nicht. */
+.app[data-screen="diagnose"] .ll-static .ll-ln{animation:none}
 /* Ergaenzungen ohne Vorlage: der Bildschirm "Was ist neu" (changelog) und die
    Zusammenfassung in der Vorschau (in der Karte "Was sich aendert", nicht zwischen
    Versionsleiste und Spalten: test/e2e/layout.spec.mjs haelt deren Lage gegen die Vorlage). Beides hat keine Vorlage in
