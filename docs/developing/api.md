@@ -190,13 +190,14 @@ to be set at all.
 
 | Method | Path | Gate | Purpose |
 |---|---|---|---|
-| GET | `/api/v1/users` | `user_management`, HTTPS | Accounts, guest roles, catalog and the caller's name |
+| GET | `/api/v1/users` | `user_management`, HTTPS | Accounts, guest roles, guest access, catalog and the caller's name |
 | POST | `/api/v1/users` | `user_management`, HTTPS, CSRF | Create an account with password and roles |
 | PUT | `/api/v1/users/{name}` | `user_management`, HTTPS, CSRF | Set roles and `disabled` |
 | DELETE | `/api/v1/users/{name}` | `user_management`, HTTPS, CSRF | Delete an account |
 | PUT | `/api/v1/users/{name}/password` | `user_management`, HTTPS, CSRF | Reset the password of an account |
 | PUT | `/api/v1/users/{name}/http-password` | `user_management`, HTTPS, CSRF | Set or, with an empty value, remove the HTTP password |
 | PUT | `/api/v1/users/guest-roles` | `user_management`, HTTPS, CSRF | Permissions every guest account gets |
+| PUT | `/api/v1/users/guest-access` | `user_management`, HTTPS, CSRF | Switch guest access on or off, body `{"enabled": bool}` |
 | PUT | `/api/v1/users/me/password` | HTTPS, CSRF | Change the own password, needs the old one |
 | PUT | `/api/v1/users/me/http-password` | HTTPS, CSRF | Set or remove the own HTTP password, needs `http_login` |
 | POST | `/api/v1/users/companion/pairing-code` | `user_management`, HTTPS, CSRF | Create the 12-character pairing code, valid for 10 minutes |
@@ -222,6 +223,18 @@ chosen there. An admin sets them with `PUT /api/v1/users/guest-roles`. Whatever
 they include, a guest can act with it, for example write automation rules that
 publish to MQTT within `publish_allowed_prefixes`. Keep this in mind before you
 open guest access to people you do not trust.
+
+The guest preset is view-only. It gives `view_overview`, `view_devices`,
+`view_history`, `view_stats`, `view_energy` and `view_device_map`, and nothing
+that changes data.
+
+### Guest access
+
+`GET /api/v1/users` reports the switch as `guest_access`. An admin changes it
+with `PUT /api/v1/users/guest-access`, body `{"enabled": false}`. While guest
+access is off, `POST /api/v1/auth/guest` responds with 403 and the error key
+`guest_access_disabled`. Switching it off ends all guest sessions and deletes
+the guest accounts.
 
 ### CSRF
 
@@ -580,6 +593,9 @@ Version 3 of `users.json` split the old `tune_live_updates` role into
 `edit_setup` and `setup_tiny_tuya`. Every account keeps its rights: holders of
 `tune_live_updates` or `edit_settings` get `edit_setup`, and non-guest holders
 of `edit_config` get `setup_tiny_tuya`. Guests do not get `setup_tiny_tuya`.
+
+Version 5 of `users.json` replaces untouched old default presets with the
+current ones. Presets that an admin has changed stay as they are.
 
 Since layout v3 (Spec F), `GET /api/v1/layout` also returns `card_types`. It
 maps each item type to `{min_span, min_width, min_height, fills_height,

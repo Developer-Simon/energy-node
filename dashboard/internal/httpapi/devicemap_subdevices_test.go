@@ -217,6 +217,9 @@ func TestSubDeviceWritesNeedEditEnergyAndCSRF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := manager.SetGuestRoles("admin", []string{auth.RoleViewEnergy, auth.RoleEditEnergy}); err != nil {
+		t.Fatal(err)
+	}
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
 	guest := httptest.NewRecorder()
 	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))

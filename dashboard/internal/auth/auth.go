@@ -26,36 +26,33 @@ const (
 	RoleMQTTConfig            = "mqtt_config"
 	RoleAutomations           = "automations"
 	// RoleEditLayout schaltet den Bearbeitungsmodus der Uebersicht frei
-	// (Editieren-Knopf, Editor-Fragment). Aktuell bekommt sie jeder - auch
-	// jeder Gast (siehe ContinueAsGuest) -, damit das Layout ohne Adminkonto
-	// anpassbar bleibt; die eigene Rolle ist das Plumbing, an das eine
-	// spaetere Rollen-Oberflaeche greift.
+	// (Editieren-Knopf, Editor-Fragment). Sie steht nicht in der Gastvorgabe,
+	// ein Gast bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditLayout = "edit_layout"
 	// RoleViewDeviceAnalysis schaltet die Analyse im Geraete-Dialog frei:
 	// Rohdaten, Discovery, Schreibaktionen und Konfigurationswarnungen.
 	RoleViewDeviceAnalysis = "view_device_analysis"
 	// RoleEditDeviceAppearance schaltet das Festlegen von Icon und Favoriten
-	// eines Geraets frei. Wie RoleEditLayout bekommt sie vorlaeufig jeder.
+	// eines Geraets frei. Sie steht nicht in der Gastvorgabe, ein Gast bekommt
+	// sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditDeviceAppearance = "edit_device_appearance"
 	// RoleCheckUpdates schaltet nur das Lesen frei, ob auf GitHub eine
 	// neuere Version liegt (siehe internal/updatecheck) - keine der
-	// updater-startenden Aktionen hinter RoleSystemActions. Wie
-	// RoleEditLayout bekommt sie provisorisch jeder, auch jeder Gast, weil
-	// es noch keine Rollen-Oberflaeche gibt, ueber die man das gezielt
-	// wieder entziehen koennte.
+	// updater-startenden Aktionen hinter RoleSystemActions. Sie steht nicht in
+	// der Gastvorgabe, ein Gast bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleCheckUpdates = "check_updates"
 	// RoleEditEnergy schaltet das Schreiben der Energie-Konfiguration frei:
 	// Rollen, Interpretation, Gruppen, Kategorien und das Wiederherstellen
-	// ihrer Revisionen. Wie RoleEditLayout bekommt sie vorlaeufig jeder, auch
-	// jeder Gast, bis es eine Benutzerverwaltung gibt.
+	// ihrer Revisionen. Sie steht nicht in der Gastvorgabe, ein Gast bekommt
+	// sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditEnergy = "edit_energy"
 	// RoleEditDeviceMap schaltet das Bearbeiten der Geraetekarte frei
-	// (Kanten, Schalter, Geraete). Wie RoleEditEnergy bekommt sie vorlaeufig
-	// jeder, auch jeder Gast, bis es eine Benutzerverwaltung gibt.
+	// (Kanten, Schalter, Geraete). Sie steht nicht in der Gastvorgabe, ein Gast
+	// bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditDeviceMap = "edit_device_map"
 	// RoleEditDeviceMapView schaltet das Umschalten der Geraetekarte in die
-	// Ansicht des Bearbeiters frei. Wie RoleEditDeviceMap bekommt sie
-	// vorlaeufig jeder, auch jeder Gast, bis es eine Benutzerverwaltung gibt.
+	// Ansicht des Bearbeiters frei. Sie steht nicht in der Gastvorgabe, ein
+	// Gast bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditDeviceMapView = "edit_device_map_view"
 	guestLifetime         = 7 * 24 * time.Hour
 	sessionLifetime       = 24 * time.Hour
@@ -108,6 +105,8 @@ type userFile struct {
 	Version            int      `json:"version"`
 	GuestRoles         []string `json:"guest_roles"`
 	GuestRolesReviewed bool     `json:"guest_roles_reviewed,omitempty"`
+	// GuestDisabled schaltet den Gastzugang ab. Absent heißt eingeschaltet.
+	GuestDisabled bool `json:"guest_disabled,omitempty"`
 	// MinPasswordLength is the minimum for new passwords; absent or 0 means the default.
 	MinPasswordLength int            `json:"min_password_length,omitempty"`
 	Users             []User         `json:"users"`
@@ -158,6 +157,8 @@ type Manager struct {
 	// guestRolesReviewed is false until the admin has set the guest roles
 	// once after a migration; it drives MigrationNotice.
 	guestRolesReviewed bool
+	// guestDisabled ist true, solange der Gastzugang abgeschaltet ist.
+	guestDisabled bool
 	// minPasswordLength is the minimum length for new passwords, from users.json.
 	minPasswordLength int
 	// sessions is keyed by tokenHash(token), the same key sessions.json
@@ -282,6 +283,7 @@ func (m *Manager) loadLocked() (bool, error) {
 	}
 	m.haRoles = file.HARoles
 	m.companion = file.Companion
+	m.guestDisabled = file.GuestDisabled
 	m.minPasswordLength = DefaultMinPasswordLength
 	if file.MinPasswordLength >= MinPasswordLengthLowest && file.MinPasswordLength <= MinPasswordLengthHighest {
 		m.minPasswordLength = file.MinPasswordLength
@@ -294,18 +296,16 @@ func (m *Manager) loadLocked() (bool, error) {
 		changed = true
 	} else {
 		// Version 2 kennt tune_live_updates, Version 3 nicht mehr (migrateV2),
-		// Version 4 ergaenzt die Geraete-Rechte (migrateV3). Jede Umschreibung
-		// laeuft einmal beim Uebergang und nie wieder.
+		// Version 4 ergaenzt die Geraete-Rechte (migrateV3), Version 5 ersetzt
+		// unveraenderte Vorgaben (migrateV4Locked). Jede Umschreibung laeuft
+		// einmal beim Uebergang und nie wieder.
 		upgradeV2 := file.Version < 3
-		upgrade := file.Version < usersFileVersion
-		if upgrade {
-			changed = true
-		}
+		upgradeV3 := file.Version < 4
 		guestRoles := file.GuestRoles
 		if upgradeV2 {
 			guestRoles = migrateV2(guestRoles, true)
 		}
-		if upgrade {
+		if upgradeV3 {
 			guestRoles = migrateV3(guestRoles)
 		}
 		m.guestRoles = Normalize(guestAllowedOnly(guestRoles))
@@ -315,13 +315,13 @@ func (m *Manager) loadLocked() (bool, error) {
 			if upgradeV2 {
 				roles = migrateV2(roles, user.Guest)
 			}
-			if upgrade {
+			if upgradeV3 {
 				roles = migrateV3(roles)
 			}
 			user.Roles = Normalize(roles)
 			m.users[name] = user
 		}
-		if upgrade {
+		if upgradeV3 {
 			for id, account := range m.haAccounts {
 				account.Roles = migrateV3(account.Roles)
 				m.haAccounts[id] = account
@@ -330,6 +330,14 @@ func (m *Manager) loadLocked() (bool, error) {
 				m.haRoles.Admin = migrateV3(m.haRoles.Admin)
 				m.haRoles.User = migrateV3(m.haRoles.User)
 			}
+		}
+	}
+	if file.Version < usersFileVersion {
+		// Version 5 ersetzt unveraenderte Vorgaben (migrateV4Locked).
+		replaced := m.migrateV4Locked()
+		changed = true
+		if replaced && m.hasNonGuestLocked() {
+			m.guestRolesReviewed = false
 		}
 	}
 	if m.cleanupGuestsLocked() {
@@ -437,6 +445,9 @@ func (m *Manager) loginLocalLocked(username, password string, secure bool) (Sess
 func (m *Manager) ContinueAsGuest() (Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.guestDisabled {
+		return Session{}, ErrGuestAccessDisabled
+	}
 	m.cleanupGuestsLocked()
 	username, err := randomID("guest-")
 	if err != nil {
@@ -456,7 +467,8 @@ func (m *Manager) Session(token string) (Session, bool) {
 	defer m.mu.Unlock()
 	key := tokenHash(token)
 	session, ok := m.sessions[key]
-	if !ok || !session.ExpiresAt.After(m.now()) {
+	// Eine Gastsitzung gilt nicht, solange der Gastzugang abgeschaltet ist.
+	if !ok || !session.ExpiresAt.After(m.now()) || (m.guestDisabled && session.User.Guest) {
 		if ok {
 			delete(m.sessions, key)
 		}
@@ -601,6 +613,7 @@ func (m *Manager) saveLocked() error {
 		Version:            usersFileVersion,
 		GuestRoles:         append([]string{}, m.guestRoles...),
 		GuestRolesReviewed: m.guestRolesReviewed,
+		GuestDisabled:      m.guestDisabled,
 		MinPasswordLength:  m.minPasswordLength,
 		Users:              users,
 		Companion:          m.companion,

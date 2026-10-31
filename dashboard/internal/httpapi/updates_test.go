@@ -29,6 +29,9 @@ func TestUpdatesRoutesAreGuestReachableButRequireASession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := manager.SetGuestRoles("admin", []string{auth.RoleCheckUpdates}); err != nil {
+		t.Fatal(err)
+	}
 	checker := &updatecheck.Checker{Repo: "Developer-Simon/energy-node", BaseURL: githubReleaseServer(t, "v1.4.2").URL}
 	cache := &updatecheck.Cache{}
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{

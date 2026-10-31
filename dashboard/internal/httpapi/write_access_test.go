@@ -243,3 +243,85 @@ func TestDeviceIgnoreRequiresViewDevices(t *testing.T) {
 		t.Fatalf("view_overview device detail refused: %s", recorder.Body.String())
 	}
 }
+
+// stubDeviceActioner records ignore calls so the success path can run without
+// a real MQTT client.
+type stubDeviceActioner struct {
+	ignored []string
+}
+
+func (s *stubDeviceActioner) IgnoreDevice(deviceID string) error {
+	s.ignored = append(s.ignored, deviceID)
+	return nil
+}
+
+func (s *stubDeviceActioner) UnignoreDevice(string) error { return nil }
+
+func (s *stubDeviceActioner) DeleteDeviceDiscovery(string) error { return nil }
+
+func TestIgnoreAndUnignoreNeedDeleteDiscoveryRole(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "shelly"},
+		Entity: registry.EntityInfo{UniqueID: "shelly_relay", Component: "switch", StateTopic: "state/shelly/relay", CommandTopic: "shelly/relay/0/set", PayloadOn: "ON", PayloadOff: "OFF"},
+	})
+	dir := t.TempDir()
+	actions := &stubDeviceActioner{}
+	router := NewAuthenticatedRouter(reg, config.NewManager(dir), settings.NewStore(dir), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, DeviceActions: actions})
+
+	// Ein Gast ohne Löschrecht: Gastzugang nur mit den Ansehen-Rechten.
+	if err := manager.SetGuestRoles("admin", auth.ViewRoles()); err != nil {
+		t.Fatal(err)
+	}
+	loginGuest := func() (*http.Cookie, string) {
+		t.Helper()
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("guest login status %d: %s", recorder.Code, recorder.Body.String())
+		}
+		var session struct {
+			CSRFToken string `json:"csrf_token"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &session); err != nil {
+			t.Fatal(err)
+		}
+		return recorder.Result().Cookies()[0], session.CSRFToken
+	}
+	guestPost := func(path string, cookie *http.Cookie, csrf string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, path, nil)
+		request.AddCookie(cookie)
+		request.Header.Set("X-CSRF-Token", csrf)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	guest, csrf := loginGuest()
+	for _, path := range []string{"/api/v1/devices/shelly/ignore", "/api/v1/devices/shelly/unignore"} {
+		recorder := guestPost(path, guest, csrf)
+		if recorder.Code != http.StatusForbidden || errorCode(recorder) != "device_discovery_forbidden" {
+			t.Fatalf("view-only guest %s: status %d: %s", path, recorder.Code, recorder.Body.String())
+		}
+	}
+	if len(actions.ignored) != 0 {
+		t.Fatalf("view-only guest ignored a device: %v", actions.ignored)
+	}
+
+	// Mit dem Löschrecht darf der Gast ignorieren.
+	if err := manager.SetGuestRoles("admin", append(auth.ViewRoles(), auth.RoleDeleteDeviceDiscovery)); err != nil {
+		t.Fatal(err)
+	}
+	guest, csrf = loginGuest()
+	recorder := guestPost("/api/v1/devices/shelly/ignore", guest, csrf)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("guest with delete_device_discovery ignore status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(actions.ignored) != 1 || actions.ignored[0] != "shelly" {
+		t.Fatalf("ignored devices = %v, want [shelly]", actions.ignored)
+	}
+}

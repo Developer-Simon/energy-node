@@ -29,6 +29,7 @@ func handleUsers(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 				"users":            manager.Users(),
 				"guests":           manager.Guests(),
 				"guest_roles":      manager.GuestRoles(),
+				"guest_access":     manager.GuestAccessEnabled(),
 				"ha_accounts":      manager.HAAccounts(),
 				"ha_roles":         haRolesListing(manager),
 				"companion":        companionListing(manager, hub),
@@ -76,6 +77,8 @@ func handleUserSub(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 			handleUsers(manager, hub).ServeHTTP(w, r)
 		case rest == "guest-roles":
 			handleGuestRoles(manager).ServeHTTP(w, r)
+		case rest == "guest-access":
+			handleGuestAccess(manager).ServeHTTP(w, r)
 		case rest == "password-policy":
 			handlePasswordPolicy(manager).ServeHTTP(w, r)
 		case rest == "me/password":
@@ -273,6 +276,37 @@ func handleGuestRoles(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, map[string]any{"guest_roles": manager.GuestRoles()})
+	}
+}
+
+// handleGuestAccess switches guest sign-in on or off. Switching it off ends
+// every guest account and guest session.
+func handleGuestAccess(manager *auth.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			methodNotAllowed(w, http.MethodPut)
+			return
+		}
+		if !requireUsersAccess(w, r, manager, true) {
+			return
+		}
+		actor, _ := auth.UserFromContext(r.Context())
+		var request struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := decodeBody(r, &request); err != nil {
+			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+			return
+		}
+		if request.Enabled == nil {
+			writeError(w, http.StatusBadRequest, "invalid_body", "Das Feld enabled fehlt")
+			return
+		}
+		if err := manager.SetGuestAccess(actor.Username, *request.Enabled); err != nil {
+			writeUserError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"guest_access": manager.GuestAccessEnabled()})
 	}
 }
 

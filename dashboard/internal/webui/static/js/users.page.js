@@ -103,6 +103,8 @@
     // The guest preset card and the two Home Assistant preset cards. Their
     // roles are guest_roles and ha_roles.
     presets: [],
+    // Whether guests may sign in, from guest_access in GET /api/v1/users.
+    guestAccess: true,
     migrationNotice: false,
     // Unsaved state per card id: {roles, disabled}. Survives switching cards.
     drafts: {},
@@ -137,6 +139,7 @@
         this.policy = {...DEFAULT_POLICY, ...(body.password_policy || {})};
         if (!keepPolicyDraft) this.policyDraft = this.policy.min_length;
         this.presets = [{id: GUEST_PRESET_ID, roles: sortedRoles(body.guest_roles)}];
+        this.guestAccess = body.guest_access !== false;
         this.haRoles = body.ha_roles || null;
         if (this.haRoles) {
           this.presets.push(
@@ -551,6 +554,31 @@
       );
       if (done) this.markSaved('policy');
       return done;
+    },
+
+    // Switches guest access on or off. The switch shows the new state at once
+    // and goes back to the old one when the request fails. Switching it off ends
+    // the guest sessions on the server, so the session list is reloaded too.
+    async saveGuestAccess(enabled) {
+      const previous = !enabled;
+      this.guestAccess = enabled;
+      this.saving = GUEST_PRESET_ID;
+      let done = false;
+      try {
+        done = await this.action(
+          () => this.send('PUT', '/api/v1/users/guest-access', {enabled}),
+          t(enabled ? 'users.guest_access.saved_on' : 'users.guest_access.saved_off'),
+        );
+      } finally {
+        this.saving = '';
+      }
+      if (!done) {
+        this.guestAccess = previous;
+        return false;
+      }
+      this.markSaved(GUEST_PRESET_ID);
+      await this.loadSessions();
+      return true;
     },
 
     // --- Home Assistant pairing -------------------------------------------

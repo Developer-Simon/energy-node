@@ -286,7 +286,11 @@ func TestNoUserMeansNoViewGate(t *testing.T) {
 // the migrated view roles and is never refused by a view gate.
 func TestMigratedGuestPassesEveryViewGate(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "users.json")
-	fixture := `{"users":[{"username":"admin","roles":["system_actions","tune_live_updates","automations"]},` +
+	// Version 4 with a customised guest list that holds every view role, so
+	// the migration keeps it and the sweep covers all view gates.
+	fixture := `{"version":4,"guest_roles":["view_overview","view_devices","view_device_analysis","view_history","view_stats",` +
+		`"view_energy","view_device_map","view_config","view_automations","view_diagnostics"],` +
+		`"users":[{"username":"admin","roles":["system_actions","tune_live_updates","automations"]},` +
 		`{"username":"guest-abc","guest":true,"roles":["automations","edit_layout","check_updates","edit_energy","edit_device_map","edit_device_map_view"]}]}`
 	if err := os.WriteFile(path, []byte(fixture), 0600); err != nil {
 		t.Fatal(err)

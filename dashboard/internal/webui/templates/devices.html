@@ -30,7 +30,7 @@
     <article class="ignored-device-row" data-device-id="{{.DeviceID}}">
       <div><strong>{{if .Name}}{{.Name}}{{else}}{{.DeviceID}}{{end}}</strong><small>{{.DeviceID}}{{if .Model}} · {{.Model}}{{end}}</small></div>
       {{if .Stale}}<span class="ignored-device-stale">{{t "devices.ignored.discovery_missing"}}</span>{{end}}
-      <button type="button" class="device-detail-trigger" data-device-id="{{.DeviceID}}" x-on:click="unignoreDevice($el.dataset.deviceId)">{{t "devices.ignored.reactivate"}}</button>
+      <button type="button" class="device-detail-trigger" data-device-id="{{.DeviceID}}" x-bind:disabled="!canDeleteDiscovery" x-on:click="unignoreDevice($el.dataset.deviceId)">{{t "devices.ignored.reactivate"}}</button>
     </article>
     {{end}}
   </section>
@@ -106,7 +106,7 @@
 
 {{define "device-modal"}}
 {{/* Rendert erst, wenn devicesPanel device-modal.js geladen hat (ensureDeviceModal). */}}
-<template x-if="deviceModalReady" x-ref="deviceModalTemplate" data-script="{{.BasePath}}/static/js/device-modal.js?v=2">
+<template x-if="deviceModalReady" x-ref="deviceModalTemplate" data-script="{{.BasePath}}/static/js/device-modal.js?v=3">
 <div class="device-modal-host">
 <dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading" data-choices-script="{{.BasePath}}/static/js-deps/choices.min.js" data-choices-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2">
   <div class="device-modal-topbar">
@@ -132,7 +132,9 @@
         <button type="button" class="device-modal-more" aria-label="{{t "devices.modal.more"}}" aria-haspopup="menu" x-bind:aria-expanded="moreMenuOpen ? 'true' : 'false'" x-on:click="moreMenuOpen = !moreMenuOpen">⋯</button>
         <div class="device-modal-menu" role="menu" x-cloak x-show="moreMenuOpen" x-on:click.outside="moreMenuOpen = false">
           <button type="button" role="menuitem" x-bind:disabled="reloadLoading || detailLoading" x-on:click="moreMenuOpen = false; reloadDevice()" x-text="reloadLoading ? $t('devices.management.reload_loading') : $t('devices.management.reload')"></button>
-          <button type="button" role="menuitem" x-on:click="moreMenuOpen = false; ignoreDevice(selectedDeviceId)">{{t "devices.management.ignore"}}</button>
+          <span class="device-action-tooltip" x-bind:title="canDeleteDiscovery ? $t('devices.management.ignore') : $t('devices.management.ignore_forbidden')">
+            <button type="button" role="menuitem" x-bind:disabled="!canDeleteDiscovery" x-bind:aria-disabled="(!canDeleteDiscovery).toString()" x-on:click="moreMenuOpen = false; ignoreDevice(selectedDeviceId)">{{t "devices.management.ignore"}}</button>
+          </span>
           <div class="device-modal-menu-sep" role="separator"></div>
           <span class="device-action-tooltip" x-bind:title="canDeleteDiscovery ? $t('devices.management.delete') : $t('devices.management.delete_admin_only')">
             <button type="button" role="menuitem" class="danger" x-bind:disabled="!canDeleteDiscovery" x-bind:aria-disabled="(!canDeleteDiscovery).toString()" x-on:click="moreMenuOpen = false; openDiscoveryDelete(selectedDeviceId)">{{t "devices.management.delete"}}</button>

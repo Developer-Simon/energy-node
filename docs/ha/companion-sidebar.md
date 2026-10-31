@@ -37,17 +37,21 @@ Once the companion is [paired](companion-setup.md#pair-with-the-dashboard),
 the page opens as your Home Assistant user. You do not sign in a second time.
 The first time you open the page, the dashboard creates an account for you.
 It is listed under **Home Assistant** in the Users section, with the
-permissions of its preset or with permissions set for it individually. The
-account has no password of its own, so it can only be used through Home
-Assistant.
+permissions of its preset or with permissions set for it individually. On
+first pairing the Home Assistant accounts get their own presets: the admin
+preset gives every permission that Home Assistant accounts may hold, except
+the elevated ones, and the user preset allows viewing, operating devices and
+automations, and designing the layout and device appearance. The account has
+no password of its own, so it can only be used through Home Assistant.
 
 An account that is disabled in the dashboard gets no personal session. The
 page then falls back to the guest session, which a guest can use as described
 in [Dashboard](../dashboard/index.md).
 
-Without pairing the page always opens as a guest. A guest can look at
-everything and edit layouts and automation rules. For the protected actions,
-sign in with a dashboard user as usual.
+Without pairing the page always opens as a guest, with the guest preset. A
+guest can view the dashboard but cannot change anything. When an admin has
+switched guest access off, the sidebar page shows only the sign-in. For the
+protected actions, sign in with a dashboard user as usual.
 
 The dashboard accepts Home Assistant accounts on its sign-in page too. Enter
 the user name and password of your Home Assistant user there. Two rules apply:

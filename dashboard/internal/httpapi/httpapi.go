@@ -438,7 +438,7 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 			}
 		}
 		if r.URL.Path == "/" && r.Method == http.MethodGet {
-			webui.Login(!secureRequest, store, adminAuthWarningKey, manager.CompanionStatus().Paired).ServeHTTP(w, r)
+			webui.Login(!secureRequest, store, adminAuthWarningKey, manager.CompanionStatus().Paired, manager.GuestAccessEnabled()).ServeHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -493,6 +493,10 @@ func handleAuthGuest(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		session, err := manager.ContinueAsGuest()
+		if errors.Is(err, auth.ErrGuestAccessDisabled) {
+			writeErrorKey(w, http.StatusForbidden, "guest_access_disabled", "error.guest_access_disabled", nil, "Gastzugang ist abgeschaltet")
+			return
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "guest_login_failed", "Gastzugang konnte nicht angelegt werden")
 			return
@@ -1534,7 +1538,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
-			if !requireDeviceMutation(w, r, authManager, false, true) {
+			if !requireDeviceMutation(w, r, authManager, true, true) {
 				return
 			}
 			if _, ok := reg.Get(id); !ok {
@@ -1560,7 +1564,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
-			if !requireDeviceMutation(w, r, authManager, false, true) {
+			if !requireDeviceMutation(w, r, authManager, true, true) {
 				return
 			}
 			if filter == nil || !filter.IsIgnored(id) {
@@ -1899,7 +1903,7 @@ func requireDeviceMutation(w http.ResponseWriter, r *http.Request, manager *auth
 		return false
 	}
 	if roleRequired && !auth.HasRole(user, auth.RoleDeleteDeviceDiscovery) {
-		writeError(w, http.StatusForbidden, "device_discovery_forbidden", "Für das Löschen der Discovery fehlt die Berechtigung")
+		writeError(w, http.StatusForbidden, "device_discovery_forbidden", "Für diese Geräteaktion fehlt die Berechtigung")
 		return false
 	}
 	if csrfRequired {

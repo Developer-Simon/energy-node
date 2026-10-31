@@ -1,10 +1,13 @@
 package auth
 
-import "errors"
+import (
+	"errors"
+	"reflect"
+)
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 4
+const usersFileVersion = 5
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -99,10 +102,72 @@ func migrateV3(roles []string) []string {
 	return out
 }
 
-// defaultGuestRoles ist die Gastvorgabe einer neuen Installation: die
-// Migration angewandt auf einen Gast mit der alten Rollenliste.
-func defaultGuestRoles() []string {
+// legacyDefaultGuestRoles ist die bisherige Gastvorgabe: die Migration
+// angewandt auf einen Gast mit der alten Rollenliste. Version 5 erkennt daran
+// unveraenderte Vorgaben (migrateV4Locked).
+func legacyDefaultGuestRoles() []string {
 	return migrateV1(map[string]User{"guest": {Username: "guest", Guest: true, Roles: legacyGuestRoles}})
+}
+
+// defaultGuestRoles ist die Gastvorgabe einer neuen Installation: nur ansehen,
+// keine Bearbeitung. Normalisiert, wie die Vorgabe nach einem Neustart aus
+// users.json kommt, damit Migration und Neuinstallation gleich vergleichen.
+func defaultGuestRoles() []string {
+	return Normalize([]string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats})
+}
+
+// defaultHAUserRoles ist die Vorgabe fuer HA-Konten ohne HA-Admin: Ansehen und
+// Bedienen, dazu Gestalten, Einstellungen und Update-Pruefung, kein Einrichten.
+func defaultHAUserRoles() []string {
+	return Normalize([]string{
+		RoleViewOverview, RoleViewDevices, RoleViewDeviceAnalysis, RoleViewHistory, RoleViewStats,
+		RoleViewEnergy, RoleViewDeviceMap, RoleViewConfig, RoleViewAutomations, RoleViewDiagnostics,
+		RoleOperateDevices, RoleOperateAutomations, RoleEditLayout, RoleEditDeviceAppearance,
+		RoleEditDeviceMapView, RoleEditSettings, RoleCheckUpdates,
+	})
+}
+
+// defaultHAAdminRoles ist die Vorgabe fuer HA-Konten mit HA-Admin: alle
+// HA-tauglichen Berechtigungen ohne die erhoehten.
+func defaultHAAdminRoles() []string {
+	var out []string
+	for _, info := range roleCatalog {
+		if info.HAAllowed && !info.Elevated {
+			out = append(out, info.Key)
+		}
+	}
+	return Normalize(out)
+}
+
+// migrateV4Locked wendet die Regeln der Version 5 an: eine unveraenderte
+// Gastvorgabe (genau die alte Standardliste) wird durch die neue ersetzt.
+// Gastkonten mit genau der alten Liste bekommen die neue Vorgabe, unabhaengig
+// davon, ob die Gastvorgabe ersetzt wurde. Die HA-Vorgaben werden nur
+// gemeinsam ersetzt, wenn beide Seiten unveraendert sind. Eigene HA-Konten
+// bleiben unberuehrt. Liefert, ob die Gastvorgabe ersetzt wurde.
+func (m *Manager) migrateV4Locked() (guestReplaced bool) {
+	legacy := legacyDefaultGuestRoles()
+	if sameRoles(m.guestRoles, legacy) {
+		m.guestRoles = defaultGuestRoles()
+		guestReplaced = true
+	}
+	for name, user := range m.users {
+		if user.Guest && sameRoles(user.Roles, legacy) {
+			user.Roles = defaultGuestRoles()
+			m.users[name] = user
+		}
+	}
+	if m.haRoles != nil && sameRoles(m.haRoles.Admin, legacy) && sameRoles(m.haRoles.User, legacy) {
+		m.haRoles.Admin = defaultHAAdminRoles()
+		m.haRoles.User = defaultHAUserRoles()
+	}
+	return guestReplaced
+}
+
+// sameRoles vergleicht zwei Rollenlisten nach Normalize, die Reihenfolge und
+// doppelte oder ungueltige Schluessel zaehlen nicht.
+func sameRoles(a, b []string) bool {
+	return reflect.DeepEqual(Normalize(a), Normalize(b))
 }
 
 // bootstrapAdminRoles sind alle Berechtigungen ausser http_login.

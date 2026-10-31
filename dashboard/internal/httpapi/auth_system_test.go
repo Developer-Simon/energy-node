@@ -30,6 +30,9 @@ func TestAuthenticatedRouterSupportsGuestModeButProtectsSystemActions(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := manager.SetGuestRoles("admin", []string{auth.RoleViewEnergy, "edit_energy"}); err != nil {
+		t.Fatal(err)
+	}
 	executor := &recordingSystemActionExecutor{}
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, SystemActions: executor})
 
@@ -100,13 +103,8 @@ func TestSettingsPutProtectsLiveUpdateIntervalByRoleButAllowsOtherFields(t *test
 	store := settings.NewStore(t.TempDir())
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
 
-	// Die Gastvorgabe ohne edit_setup: das Intervall ist dann gesperrt.
-	var guestRoles []string
-	for _, role := range manager.GuestRoles() {
-		if role != auth.RoleEditSetup {
-			guestRoles = append(guestRoles, role)
-		}
-	}
+	// Die Gastvorgabe mit edit_settings, aber ohne edit_setup: das Intervall ist dann gesperrt.
+	guestRoles := append(auth.ViewRoles(), auth.RoleEditSettings)
 	if err := manager.SetGuestRoles("admin", guestRoles); err != nil {
 		t.Fatal(err)
 	}

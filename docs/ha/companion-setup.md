@@ -36,7 +36,8 @@ and you enter the address by hand.
 Pairing is needed for the sidebar page to sign in with Home Assistant accounts
 (see [Dashboard in the sidebar](companion-sidebar.md#signing-in)). Without
 pairing the integration works as before, and the sidebar page uses a guest
-session.
+session. Pairing also gives the Home Assistant accounts their presets, as
+described in [Dashboard in the sidebar](companion-sidebar.md#signing-in).
 
 1. In the dashboard open **Settings**, **Users**, section **Home Assistant**,
    and choose **Create pairing code**. The code has 12 characters and is valid

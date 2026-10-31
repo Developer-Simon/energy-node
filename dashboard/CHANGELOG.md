@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.27 (2026-10-30)
+## v0.10.28 (2026-10-31)
 
 ### Features
 
@@ -18,7 +18,13 @@
 - **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
 - **webui:** redesign the toast with glass, timer line and swipe to dismiss (#178) (67cc079)
 - **devices:** star favourites, a per-entity analysis tab and two device rights (#180) (2139615)
-- **webui:** mobile view for the statistics page (#183)
+- **webui:** mobile view for the statistics page (#183) (eb97683)
+- **auth:** view-only guest preset and own presets for HA admins and users (ab16453)
+- **auth:** migrate untouched guest and HA presets to the new defaults (e7b742f)
+- **auth:** let an admin switch guest access off (77f3021)
+- **httpapi:** guest access switch endpoint and hide the guest button when off (c1b62a7)
+- **webui:** guest access switch on the guest preset card (79f8f56)
+- **auth:** Guests can only view by default, and an admin can switch guest access off. (#184)
 - **auth:** add device analysis and device appearance rights (b787bd3)
 - **auth:** migrate users.json to version 4 with the device rights (a9a982b)
 - **httpapi:** gate device preferences behind edit_device_appearance (7ae6a7c)
@@ -170,6 +176,10 @@
 ### Fixes
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
+- **auth:** normalize the guest preset and refresh role comments (81867fb)
+- **auth:** migrate legacy guest accounts independent of the preset and cover restored sessions (c485572)
+- **httpapi:** require delete_device_discovery to ignore or un-ignore a device (0caa6f8)
+- **webui:** do not offer guest sign-in in the login text when guest access is off (b88bb04)
 - **httpapi:** keep topics out of the device activity labels (622c6a8)
 - **automations:** read test results from their own endpoint (88ce5a1)
 - **devices:** make favourite and icon saves safe under overlap and undo (573d259)
@@ -259,6 +269,7 @@
 ### Tests
 
 - **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
+- **httpapi:** give guests the rights these tests need now that the preset is view-only (a4b75b8)
 - **demo:** move the fakes and fixtures to demo/ (502b209)
 - **smoke:** split the core and config checks into groups (7f8dbc3)
 - **smoke:** split the remaining checks into groups (1ac850f)

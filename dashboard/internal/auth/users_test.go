@@ -679,3 +679,83 @@ func TestRoleElevatedFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestGuestAccessDefaultsToOn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	manager := mustManager(t, path, "", "")
+	if !manager.GuestAccessEnabled() {
+		t.Fatal("guest access must be on by default")
+	}
+	// Ein Gastkonto erzwingt das Speichern, danach muss users.json den Schalter nicht kennen.
+	if _, err := manager.ContinueAsGuest(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(data, []byte("guest_disabled")) {
+		t.Fatal("users.json must not contain guest_disabled while guest access is on")
+	}
+}
+
+func TestDisablingGuestAccessEndsGuests(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	manager := mustManager(t, path, "", "")
+	guest, err := manager.ContinueAsGuest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.SetGuestAccess("admin", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := manager.Session(guest.Token); ok {
+		t.Fatal("guest session must end when guest access is switched off")
+	}
+	if got := manager.Guests(); len(got) != 0 {
+		t.Fatalf("guest accounts left after switching off: %v", got)
+	}
+	if _, err := manager.ContinueAsGuest(); !errors.Is(err, ErrGuestAccessDisabled) {
+		t.Fatalf("ContinueAsGuest while disabled: got %v, want ErrGuestAccessDisabled", err)
+	}
+	restarted := mustManager(t, path, "", "")
+	if restarted.GuestAccessEnabled() {
+		t.Fatal("guest access must stay off after a restart")
+	}
+}
+
+func TestGuestSessionRejectedWhileDisabled(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	manager := mustManager(t, path, "", "")
+	guest, err := manager.ContinueAsGuest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Lock()
+	manager.guestDisabled = true
+	manager.mu.Unlock()
+	if _, ok := manager.Session(guest.Token); ok {
+		t.Fatal("guest session must be rejected while guest access is disabled")
+	}
+}
+
+func TestReenablingGuestAccessUsesPreset(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	manager := mustManager(t, path, "", "")
+	if err := manager.SetGuestRoles("admin", []string{RoleViewOverview}); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.SetGuestAccess("admin", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.SetGuestAccess("admin", true); err != nil {
+		t.Fatal(err)
+	}
+	guest, err := manager.ContinueAsGuest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{RoleViewOverview}; !reflect.DeepEqual(guest.User.Roles, want) {
+		t.Fatalf("guest roles after re-enabling: got %v, want %v", guest.User.Roles, want)
+	}
+}
