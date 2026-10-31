@@ -546,6 +546,7 @@
   "step.70": "HTTPS via Caddy",
   "stepper.configure": "Configuration",
   "stepper.connect": "Connection",
+  "stepper.dashboard": "Dashboard",
   "stepper.precheck": "Pre-check",
   "stepper.prepare": "Preparation",
   "stepper.preview": "Preview",

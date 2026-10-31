@@ -94,7 +94,7 @@ function composedKeys() {
   for (const lang of Object.keys(catalogs)) {
     keys.push(`language.${lang}.short`);
   }
-  for (const screen of ['connect', 'precheck', 'configure', 'preview', 'run', 'result']) {
+  for (const screen of ['connect', 'precheck', 'configure', 'dashboard', 'preview', 'run', 'result']) {
     keys.push(`stepper.${screen}`);
   }
   for (let n = 1; n <= 12; n++) {
