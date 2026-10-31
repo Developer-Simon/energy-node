@@ -413,6 +413,7 @@
   "precheck.internet.ok": "deb.debian.org reachable, only needed for the system packages",
   "precheck.internet.title": "Internet access",
   "precheck.os.abi_mismatch": "{os} · Python {python} does not match the wheels ({abi})",
+  "precheck.os.abi_online": "{os} · Python {python}, dependencies come from the internet",
   "precheck.os.detail": "{os} · Python {python}",
   "precheck.os.title": "Operating system",
   "precheck.progress.loading": "Checking the target device …",
@@ -432,6 +433,8 @@
   "precheck.transfer.unit": "{arch} · {size}",
   "precheck.transfer.units": "systemd units",
   "precheck.transfer.wheels": "Wheels",
+  "prepare.abiMismatch": "The device runs a different Python version than this package was built for. The package can load its Python dependencies from the internet (piwheels or PyPI) while it installs. The device then needs internet access, and the package signature does not cover those files.",
+  "prepare.allowOnline": "Load dependencies online",
   "prepare.done": "The package is on the device and has been verified.",
   "prepare.failed": "The package could not be prepared.",
   "prepare.forceFull": "Transfer whole package again",
@@ -556,6 +559,7 @@
   "unit.tailscaled.service": "Tailscale service",
   "warning.DISK_LOW": "Little free space",
   "warning.NO_INTERNET": "No internet access",
+  "warning.PYTHON_ABI_ONLINE": "The device Python version differs from the package, dependencies are loaded from the internet",
   "warning.SUDO_PASSWORD_REQUIRED": "sudo needs a password",
   "warning.TIMEZONE_UTC": "Time zone is UTC"
 }

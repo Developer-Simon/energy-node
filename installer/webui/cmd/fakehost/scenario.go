@@ -27,6 +27,10 @@ type options struct {
 	english bool
 	// systemUpdates: Vorschau und Diagnose nennen ausstehende Systempakete.
 	systemUpdates bool
+	// abiMismatch: das Gerät hat eine andere Python-Version als das Paket.
+	// Das Vorbereiten scheitert mit PYTHON_ABI_MISMATCH, bis der Betreiber die
+	// Online-Installation freigibt.
+	abiMismatch bool
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -42,6 +46,8 @@ type stagedBackend struct {
 	// Knoten ein sudo-Passwort, bis EnableSudo gelingt. Eine Anmeldung mit
 	// Passwort nutzt dieses auch fuer sudo.
 	sudoLocked bool
+	// onlineDeps: die Online-Installation der Abhaengigkeiten ist freigegeben.
+	onlineDeps bool
 }
 
 // wrongSudoPassword lehnt die Attrappe ab; jedes andere nichtleere Passwort
@@ -55,7 +61,21 @@ func (b *stagedBackend) Precheck(ctx context.Context) (*hostapi.Precheck, error)
 	if locked {
 		return nil, &hostapi.Error{Code: "SUDO_REQUIRED", Status: http.StatusConflict}
 	}
-	return b.FakeBackend.Precheck(ctx)
+	view, err := b.FakeBackend.Precheck(ctx)
+	if err != nil || view == nil {
+		return view, err
+	}
+	b.mu.Lock()
+	online := b.onlineDeps
+	b.mu.Unlock()
+	if online {
+		// A copy: the shared fixture stays as it is.
+		changed := *view
+		changed.PythonABIOK = false
+		changed.Warnings = append(append([]string(nil), view.Warnings...), "PYTHON_ABI_ONLINE")
+		return &changed, nil
+	}
+	return view, nil
 }
 
 func (b *stagedBackend) EnableSudo(ctx context.Context, password string) error {
@@ -85,6 +105,17 @@ func (b *stagedBackend) Connect(ctx context.Context, req hostapi.ConnectRequest)
 func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
 	// Delegate prepare runs to FakeBackend which handles them correctly
 	if req.Mode == hostapi.ModePrepare {
+		if b.opts.abiMismatch {
+			b.mu.Lock()
+			b.onlineDeps = b.onlineDeps || req.AllowOnlineDeps
+			allowed := b.onlineDeps
+			b.mu.Unlock()
+			if !allowed {
+				sink.Marker("package", "begin", "")
+				sink.Log("package", b.say("Prüfe das Paket auf dem Gerät", "Checking the package on the device"))
+				return &hostapi.Error{Code: "PYTHON_ABI_MISMATCH", Detail: b.say("Python-ABI cp313, Bundle erwartet cp311", "Python ABI cp313, bundle expects cp311"), Status: http.StatusConflict}
+			}
+		}
 		return b.FakeBackend.Run(ctx, req, sink)
 	}
 

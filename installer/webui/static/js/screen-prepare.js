@@ -78,7 +78,7 @@
         if (!data.ok) {
           this.state = 'failed';
           this.lastErrorCode = data.code || null;
-          if (data.code === 'PACKAGE_VERIFY_FAILED_DELTA') {
+          if (data.code === 'PACKAGE_VERIFY_FAILED_DELTA' || data.code === 'PYTHON_ABI_MISMATCH') {
             if (data.detail) {
               this.lines.push(data.detail);
             }
@@ -114,6 +114,26 @@
       // operator re-choosing anything else.
       get canForceFull() {
         return this.state === 'failed' && this.lastErrorCode === 'PACKAGE_VERIFY_FAILED_DELTA';
+      },
+
+      // canAllowOnline: the node's Python does not match the wheels in the
+      // package. The operator can let the node fetch its Python dependencies
+      // from the internet instead, an explicit choice because those files are
+      // not covered by the package signature.
+      get canAllowOnline() {
+        return this.state === 'failed' && this.lastErrorCode === 'PYTHON_ABI_MISMATCH';
+      },
+
+      async allowOnline() {
+        this.state = 'working';
+        this.lines = [];
+        this.lastErrorCode = null;
+        this.shell.error = null;
+        await this.start({
+          mode: 'prepare',
+          force_full_transfer: !!this.shell.shared.forceFullTransfer,
+          allow_online_deps: true,
+        });
       },
 
       async forceFull() {

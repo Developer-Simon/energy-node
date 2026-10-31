@@ -413,6 +413,7 @@
   "precheck.internet.ok": "deb.debian.org erreichbar, nur für die Systempakete nötig",
   "precheck.internet.title": "Internetzugang",
   "precheck.os.abi_mismatch": "{os} · Python {python} passt nicht zu den Wheels ({abi})",
+  "precheck.os.abi_online": "{os} · Python {python}, Abhängigkeiten kommen aus dem Internet",
   "precheck.os.detail": "{os} · Python {python}",
   "precheck.os.title": "Betriebssystem",
   "precheck.progress.loading": "Zielgerät wird geprüft …",
@@ -432,6 +433,8 @@
   "precheck.transfer.unit": "{arch} · {size}",
   "precheck.transfer.units": "systemd-Units",
   "precheck.transfer.wheels": "Wheels",
+  "prepare.abiMismatch": "Auf dem Gerät läuft eine andere Python-Version, als für dieses Paket gebaut wurde. Das Paket kann seine Python-Abhängigkeiten bei der Installation aus dem Internet laden (piwheels oder PyPI). Das Gerät braucht dann Internetzugang, und die Signatur des Pakets deckt diese Dateien nicht ab.",
+  "prepare.allowOnline": "Abhängigkeiten online laden",
   "prepare.done": "Das Paket liegt auf dem Gerät und ist geprüft.",
   "prepare.failed": "Das Paket konnte nicht vorbereitet werden.",
   "prepare.forceFull": "Ganzes Paket neu übertragen",
@@ -556,6 +559,7 @@
   "unit.tailscaled.service": "Tailscale-Dienst",
   "warning.DISK_LOW": "Wenig freier Speicher",
   "warning.NO_INTERNET": "Kein Internetzugang",
+  "warning.PYTHON_ABI_ONLINE": "Die Python-Version des Geräts weicht vom Paket ab, Abhängigkeiten werden aus dem Internet geladen",
   "warning.SUDO_PASSWORD_REQUIRED": "sudo braucht ein Passwort",
   "warning.TIMEZONE_UTC": "Zeitzone ist UTC"
 }

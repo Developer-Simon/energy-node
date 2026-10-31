@@ -186,3 +186,23 @@ func TestAPasswordLoginNeedsNoSudoDialog(t *testing.T) {
 		t.Fatalf("precheck: %v", err)
 	}
 }
+
+func TestAnABIMismatchBlocksPrepareUntilOnlineDepsAreAllowed(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage", options{abiMismatch: true})
+	err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare}, &countingSink{})
+	typed, _ := err.(*hostapi.Error)
+	if typed == nil || typed.Code != "PYTHON_ABI_MISMATCH" {
+		t.Fatalf("prepare = %v, want PYTHON_ABI_MISMATCH", err)
+	}
+	if err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare, AllowOnlineDeps: true}, &countingSink{}); err != nil {
+		t.Fatalf("prepare with consent: %v", err)
+	}
+	view, err := backend.Precheck(ctx)
+	if err != nil {
+		t.Fatalf("precheck: %v", err)
+	}
+	if view.PythonABIOK || len(view.Blocking) != 0 || view.Warnings[len(view.Warnings)-1] != "PYTHON_ABI_ONLINE" {
+		t.Errorf("precheck after consent = ok:%v blocking:%v warnings:%v, want a PYTHON_ABI_ONLINE warning", view.PythonABIOK, view.Blocking, view.Warnings)
+	}
+}

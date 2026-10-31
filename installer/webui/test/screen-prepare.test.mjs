@@ -190,3 +190,28 @@ test('init() posts {mode:prepare, force_full_transfer:true} when shell.shared.fo
   await screen.init();
   assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: true } });
 });
+
+test('PYTHON_ABI_MISMATCH bleibt im Bildschirm und bietet die Online-Installation an', async () => {
+  const { screen, shell } = mount();
+  await screen.init();
+  let shellFailCalled = false;
+  shell.fail = () => { shellFailCalled = true; };
+  screen.finish({ ok: false, code: 'PYTHON_ABI_MISMATCH', detail: 'Python-ABI cp313, Bundle erwartet cp311' });
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canAllowOnline, true);
+  assert.equal(screen.canForceFull, false);
+  assert.equal(shellFailCalled, false);
+  assert.ok(screen.lines.includes('Python-ABI cp313, Bundle erwartet cp311'));
+});
+
+test('allowOnline() startet das Vorbereiten erneut mit allow_online_deps', async () => {
+  const { screen, calls } = mount();
+  screen.state = 'failed';
+  screen.lines = ['alt'];
+  screen.lastErrorCode = 'PYTHON_ABI_MISMATCH';
+  await screen.allowOnline();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: false, allow_online_deps: true } });
+  assert.equal(screen.state, 'working');
+  assert.equal(screen.lastErrorCode, null);
+  assert.equal(screen.canAllowOnline, false);
+});
