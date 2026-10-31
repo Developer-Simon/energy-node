@@ -19,6 +19,7 @@
     - label: "Dashboard"
       url: "dashboard/index.md"
       children:
+        - { label: "First-time setup", url: "dashboard/onboarding.md" }
         - label: "Overview & layout editor"
           url: "dashboard/overview.md"
           children:
