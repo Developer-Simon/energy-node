@@ -225,3 +225,26 @@ func TestStreamReturnsOnCancel(t *testing.T) {
 		t.Fatal("Stream did not return within 1s of cancel")
 	}
 }
+
+func TestStreamRedactsSecretsInEarlyExitDetail(t *testing.T) {
+	runner := &fakeRunner{
+		hostname:    "energy-node",
+		status:      activeStatus,
+		journalFail: "permission denied for hunter2-secret\n",
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	select {
+	case err := <-startStream(ctx, runner, hostapi.NewRedactor("hunter2-secret"), &recordingSink{}, time.Hour):
+		var apiErr *hostapi.Error
+		if !errors.As(err, &apiErr) || apiErr.Code != "UNIT_LOGS_FAILED" {
+			t.Fatalf("err = %#v, want UNIT_LOGS_FAILED", err)
+		}
+		if strings.Contains(apiErr.Detail, "hunter2-secret") || !strings.Contains(apiErr.Detail, "***") {
+			t.Errorf("detail = %q, want the secret masked", apiErr.Detail)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stream did not return after journalctl exited")
+	}
+}

@@ -131,7 +131,11 @@ func journal(ctx context.Context, r Runner, req hostapi.UnitLogsRequest, redact 
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return &hostapi.Error{Code: "UNIT_LOGS_FAILED", Detail: truncateDetail(strings.TrimSpace(stderr.String()))}
+	detail := strings.TrimSpace(stderr.String())
+	if redact != nil {
+		detail = redact.Line(detail)
+	}
+	return &hostapi.Error{Code: "UNIT_LOGS_FAILED", Detail: truncateDetail(detail)}
 }
 
 // truncateDetail kuerzt auf maxDetailRunes Zeichen.

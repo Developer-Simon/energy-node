@@ -17,7 +17,7 @@ const journalScript = `S=; if sudo -n true 2>/dev/null; then S='sudo -n'; fi
 exec 3<&0
 $S journalctl --follow --output=json --no-pager %s </dev/null &
 p=$!
-( cat <&3 >/dev/null; kill $p 2>/dev/null ) &
+( cat <&3 >/dev/null 2>&1; kill $p 2>/dev/null ) >/dev/null 2>&1 &
 wait $p`
 
 // statusProperties sind die Felder, die StatusCommand abfragt.
