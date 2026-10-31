@@ -24,7 +24,7 @@ The spotlight follows the control when the layout around it shifts.
 
 | Area | Steps |
 |---|---|
-| Access and users | Add more users, Guest access, Access on the go (only when Tailscale is installed), Connect Home Assistant |
+| Access and users | Add more users, Guest access, Access on the go (only when Tailscale is installed), Pair Home Assistant users |
 | Display | Colour scheme, Title and subtitle, System status, Tab width, Overview tiles |
 | System | Check for updates, System metrics |
 | Devices and energy roles | Choose a service, Set up devices, Check devices, Assign energy roles, Device map, Automations (only when the automation service is installed) |

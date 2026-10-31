@@ -2989,7 +2989,7 @@
   "onboarding.setup.admin.title": "Admin account",
   "onboarding.setup.automations.text": "Automations react to your devices and energy values. A rule can, for example, switch a device on as soon as there is enough PV surplus. Start from a template or create your own rules.",
   "onboarding.setup.automations.title": "Automations",
-  "onboarding.setup.companion.text": "The companion exchanges statistics and history with Home Assistant. Here you set what it may do. You do not set up devices here, they come in through the MQTT bridge, a tab in the MQTT settings.",
+  "onboarding.setup.companion.text": "The companion exchanges statistics and history with Home Assistant. Here you pair Home Assistant users so they can sign in with their HA account. You do not set up devices here, they come in through the MQTT bridge, a tab in the MQTT settings.",
   "onboarding.setup.companion.title": "Connect Home Assistant",
   "onboarding.setup.config.text": "Here you configure the chosen service and enter the device information. Once the devices are connected, they appear under Devices.",
   "onboarding.setup.config.title": "Set up devices",
