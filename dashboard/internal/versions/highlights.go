@@ -206,6 +206,14 @@ func highlightID(pr int) string {
 	return "h" + strconv.Itoa(pr)
 }
 
+// FreshInstall reports whether the node has no previous-manifest.json, which
+// means a first install: its highlights count as seen. An unreadable file
+// counts as an update, so nothing is hidden by mistake.
+func FreshInstall(stateDir string) bool {
+	_, err := os.Stat(filepath.Join(stateDir, "previous-manifest.json"))
+	return errors.Is(err, fs.ErrNotExist)
+}
+
 // documentIsFlagged mirrors isFlagged in versions.page.js: a changelog.json
 // from before the highlight flag carries none, and then every entry counts.
 func documentIsFlagged(doc fullDocument) bool {

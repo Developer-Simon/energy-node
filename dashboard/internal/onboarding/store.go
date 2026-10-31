@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // StepState beschreibt, wie ein Einrichtungsschritt steht.
@@ -30,19 +31,26 @@ type Run struct {
 	Index int    `json:"index"`
 }
 
-// UserProgress hält den Fortschritt eines einzelnen Nutzers.
+// UserProgress hält den Fortschritt eines einzelnen Nutzers. Welcome ist
+// gesetzt, solange die Begrüßungstour aussteht, Baseline, wenn Seen beim
+// Anlegen mit allen Highlights des Updates gefüllt wurde.
 type UserProgress struct {
 	Seen     []string `json:"seen"`
 	Welcomed bool     `json:"welcomed"`
 	Run      *Run     `json:"run"`
 	Queue    []string `json:"queue"`
+	Welcome  bool     `json:"welcome,omitempty"`
+	Baseline bool     `json:"baseline,omitempty"`
 }
 
-// Progress ist der gesamte Fortschritt einer Installation.
+// Progress ist der gesamte Fortschritt einer Installation. Since ist der
+// Zeitpunkt, ab dem die Einrichtungsführung lief. Konten, die danach angelegt
+// wurden, gelten als neu.
 type Progress struct {
 	SetupDone  bool                    `json:"setup_done"`
 	SetupSteps map[string]StepState    `json:"setup_steps"`
 	Users      map[string]UserProgress `json:"users"`
+	Since      time.Time               `json:"since"`
 }
 
 const fileName = "onboarding.json"
@@ -107,6 +115,38 @@ func (s *Store) UpdateUser(user string, mutate func(*UserProgress)) error {
 	mutate(&entry)
 	progress.Users[user] = entry
 	return s.saveLocked(progress)
+}
+
+// EnsureUser setzt beim ersten Aufruf Since auf now und legt für user einen
+// Eintrag aus seed an, wenn er noch keinen hat. seed bekommt Since. Liefert den
+// Fortschritt danach. Scheitert Lesen oder Schreiben, gilt der Stand trotzdem
+// für diese Anfrage und das Log bekommt eine Warnung, wie bei Load.
+func (s *Store) EnsureUser(user string, now time.Time, seed func(since time.Time) UserProgress) Progress {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	progress, err := s.loadLocked()
+	if err != nil {
+		log.Printf("onboarding: Fortschritt bleibt leer: %v", err)
+		progress = emptyProgress()
+		progress.Since = now
+		progress.Users[user] = seed(now)
+		return progress
+	}
+	changed := false
+	if progress.Since.IsZero() {
+		progress.Since = now
+		changed = true
+	}
+	if _, ok := progress.Users[user]; !ok {
+		progress.Users[user] = seed(progress.Since)
+		changed = true
+	}
+	if changed {
+		if err := s.saveLocked(progress); err != nil {
+			log.Printf("onboarding: Fortschritt nicht gespeichert: %v", err)
+		}
+	}
+	return progress
 }
 
 func emptyProgress() Progress {

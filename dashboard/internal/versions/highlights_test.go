@@ -336,3 +336,14 @@ func TestHighlightsWithoutTourOmitsTheKey(t *testing.T) {
 		t.Fatalf("response serialises a tour without any: %s", raw)
 	}
 }
+
+func TestFreshInstallMeansNoPreviousManifest(t *testing.T) {
+	dir := writeState(t, map[string]string{"installed-manifest.json": installedV090})
+	if !FreshInstall(dir) {
+		t.Fatal("no previous manifest must be a fresh install")
+	}
+	dir = writeState(t, map[string]string{"previous-manifest.json": `{"version":"v0.8.5"}`})
+	if FreshInstall(dir) {
+		t.Fatal("a previous manifest means an update")
+	}
+}
