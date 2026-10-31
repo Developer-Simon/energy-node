@@ -1195,6 +1195,21 @@ func TestLoginPrefixesAuthEndpoints(t *testing.T) {
 	}
 }
 
+// Without its own icon links the browser falls back to /favicon.ico, which
+// sits behind the session check and answers 401 on the sign-in page.
+func TestLoginLinksTheFaviconBehindTheBasePath(t *testing.T) {
+	body := renderWithBasePath(t, Login(false, nil, "", false, true), "/node/login")
+	for _, marker := range []string{
+		`<link rel="icon" href="/node/static/img/favicon.svg" type="image/svg+xml">`,
+		`<link rel="icon" href="/node/static/img/favicon.ico" sizes="any">`,
+		`<link rel="apple-touch-icon" href="/node/static/img/apple-touch-icon.png">`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Errorf("login page lacks %q", marker)
+		}
+	}
+}
+
 func TestLoginShowsAdminAuthWarningWhenSet(t *testing.T) {
 	for lang, texts := range readCatalogs(t) {
 		request := httptest.NewRequest("GET", "/", nil)

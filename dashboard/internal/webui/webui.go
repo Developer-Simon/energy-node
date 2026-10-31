@@ -1139,7 +1139,7 @@ func Login(overHTTP bool, store *settings.Store, adminAuthWarningKey string, haP
 		}
 		lang := localize.Resolve(r, translator.Languages())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		data := map[string]any{"OverHTTP": overHTTP, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarningKey": adminAuthWarningKey, "HAPaired": haPaired, "GuestAccess": guestAccess, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch, "DashboardTitle": title}
+		data := map[string]any{"OverHTTP": overHTTP, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarningKey": adminAuthWarningKey, "HAPaired": haPaired, "GuestAccess": guestAccess, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch, "DashboardTitle": title, "BrandIcon": makeIcon("mdi:lightning-bolt", iconPaths["mdi:lightning-bolt"], false).SVG}
 		if err := loginSets.get(lang).ExecuteTemplate(w, "login", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

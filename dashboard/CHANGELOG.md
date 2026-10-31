@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.28 (2026-10-31)
+## v0.10.29 (2026-10-31)
 
 ### Features
 
@@ -19,12 +19,13 @@
 - **webui:** redesign the toast with glass, timer line and swipe to dismiss (#178) (67cc079)
 - **devices:** star favourites, a per-entity analysis tab and two device rights (#180) (2139615)
 - **webui:** mobile view for the statistics page (#183) (eb97683)
+- **auth:** Guests can only view by default, and an admin can switch guest access off. (#184) (c4ffa07)
+- **webui:** redesign the login card and link the favicon (#185)
 - **auth:** view-only guest preset and own presets for HA admins and users (ab16453)
 - **auth:** migrate untouched guest and HA presets to the new defaults (e7b742f)
 - **auth:** let an admin switch guest access off (77f3021)
 - **httpapi:** guest access switch endpoint and hide the guest button when off (c1b62a7)
 - **webui:** guest access switch on the guest preset card (79f8f56)
-- **auth:** Guests can only view by default, and an admin can switch guest access off. (#184)
 - **auth:** add device analysis and device appearance rights (b787bd3)
 - **auth:** migrate users.json to version 4 with the device rights (a9a982b)
 - **httpapi:** gate device preferences behind edit_device_appearance (7ae6a7c)
