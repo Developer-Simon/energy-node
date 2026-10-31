@@ -141,7 +141,7 @@
         </div>
       </details>
       {{end}}
-      <div id="energy-roles" class="energy-roles-groups">
+      <div id="energy-roles" class="energy-roles-groups" data-tour="roles">
         <div class="energy-roles-group">
           <h4 class="energy-roles-group-title">{{t "energy.roles.section.energy_values"}}</h4>
           <div class="energy-roles"><template x-for="(entity, index) in visibleEnergyEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>

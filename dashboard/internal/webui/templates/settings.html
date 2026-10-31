@@ -183,7 +183,7 @@
         <label class="segmented-option"><input type="radio" name="device-view-mode" value="control" x-model="deviceViewMode" x-bind:disabled="!canEditSettings"><span>{{t "settings.device_view.control"}}</span></label>
       </div>
       <span class="setting-row-label" id="lbl-theme">{{t "settings.theme.label"}}</span>
-      <div class="segmented segmented--4" role="radiogroup" aria-labelledby="lbl-theme">
+      <div class="segmented segmented--4" data-tour="theme" role="radiogroup" aria-labelledby="lbl-theme">
         <span class="segmented-thumb" aria-hidden="true"></span>
         <label class="segmented-option"><input type="radio" name="theme" value="mint" x-model="theme" x-bind:disabled="!canEditSettings"><span>{{t "settings.theme.mint"}}</span></label>
         <label class="segmented-option"><input type="radio" name="theme" value="stromblau" x-model="theme" x-bind:disabled="!canEditSettings"><span>{{t "settings.theme.stromblau"}}</span></label>
@@ -199,7 +199,7 @@
       <p id="nav-mode-note" class="setting-note">{{t "settings.nav_mode.note"}}</p>
     </div>
 
-    <div class="setting-card masthead-setting">
+    <div class="setting-card masthead-setting" data-tour="title">
       <h3 class="setting-card-title">{{t "settings.masthead.title"}}</h3>
       <p class="setting-note">{{t "settings.masthead.note"}}</p>
       <div class="masthead-setting-group">
@@ -238,7 +238,7 @@
       <h3 class="setting-card-title">{{t "settings.formatting.title"}}</h3>
       <p class="setting-note">{{t "settings.formatting.note"}}</p>
       <span class="setting-row-label" id="lbl-ui-language">{{t "language.label"}}</span>
-      <div class="segmented" role="radiogroup" aria-labelledby="lbl-ui-language">
+      <div class="segmented" data-tour="language" role="radiogroup" aria-labelledby="lbl-ui-language">
         <span class="segmented-thumb" aria-hidden="true"></span>
         {{- range .Languages}}
         <label class="segmented-option"><input type="radio" name="ui-language" value="{{.Code}}" x-model="uiLanguage"><span>{{.Name}}</span></label>
@@ -277,7 +277,7 @@
       </label>
     </div>
 
-    <div class="setting-card">
+    <div class="setting-card" data-tour="statusbar">
       <h3 class="setting-card-title">{{t "settings.runtime_status.title"}}</h3>
       <label class="switch-row" for="show-runtime-status">
         <span>{{t "settings.runtime_status.show"}}</span>
@@ -301,7 +301,7 @@
       </div>
     </div>
 
-    <div class="setting-card">
+    <div class="setting-card" data-tour="tabwidth">
       <h3 class="setting-card-title">{{t "settings.wide_tabs.title"}}</h3>
       <div class="settings-multiselect-row settings-wide-panels">
         <label for="wide-panels-select">

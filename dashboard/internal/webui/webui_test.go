@@ -15,6 +15,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -4318,5 +4319,56 @@ func TestGuestNoteVisibleUntilComplete(t *testing.T) {
 	}
 	if body := render(guest, nil); strings.Contains(body, `class="ob-guest-note"`) {
 		t.Fatal("guest note shown without a setup source")
+	}
+}
+
+// Jeder Schritt der Ersteinrichtung braucht genau ein data-tour im Markup, sonst
+// findet die Fuehrung das Ziel nicht oder zeigt es doppelt. Gerendert wird als
+// Admin mit allen Diensten, die Seiten zusammen wie im Browser.
+func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
+	installed := map[string]bool{"automation": true, "tailscale": true, "tuya": true}
+	reg := registry.New()
+	handler := OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), installed)
+	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
+	pages := []string{
+		"/",
+		"/?fragment=panel&panel=settings",
+		"/?fragment=panel&panel=energy",
+		"/?fragment=panel&panel=devices",
+		"/?fragment=panel&panel=devicemap",
+	}
+	var body strings.Builder
+	for _, target := range pages {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest("GET", target, nil)
+		request = request.WithContext(auth.WithUser(request.Context(), admin))
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s: Status %d", target, recorder.Code)
+		}
+		body.WriteString(recorder.Body.String())
+	}
+	markup := body.String()
+
+	for _, step := range onboarding.Catalog(installed) {
+		switch step.ID {
+		case "favorites":
+			// Ohne Attribut: Die erste Gerätekachel findet die Führung über
+			// .device-tile-grid > :first-child bzw. .device-compact-grid > :first-child.
+			continue
+		case "guest":
+			// Die Schalterzeile steckt in der gemeinsamen users-card, die je Karte
+			// gerendert wird. Das Attribut ist ein x-bind-Ausdruck, der nur in der
+			// Gastkarte den Wert guest setzt. Eindeutig ist es erst im Browser.
+			want := `x-bind:data-tour="cardId === 'preset:guest' ? 'guest' : null"`
+			if strings.Count(markup, want) < 1 {
+				t.Errorf("guest: Schalterzeile ohne x-bind:data-tour im Markup")
+			}
+			continue
+		}
+		want := `data-tour="` + step.ID + `"`
+		if n := strings.Count(markup, want); n != 1 {
+			t.Errorf("%s: %d Treffer für %s, erwartet 1", step.ID, n, want)
+		}
 	}
 }

@@ -1,5 +1,5 @@
 {{define "tailscale"}}
-<section id="settings-tailscale" role="tabpanel" x-show="activeSettingsPage === 'tailscale'" x-data="tailscalePanel()" x-init="init()">
+<section id="settings-tailscale" data-tour="tailscale" role="tabpanel" x-show="activeSettingsPage === 'tailscale'" x-data="tailscalePanel()" x-init="init()">
   <details class="settings-help-panel" open>
     <summary>{{t "tailscale.help.title"}}</summary>
     <ol class="settings-help-list">

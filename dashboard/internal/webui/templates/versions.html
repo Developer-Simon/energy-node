@@ -31,7 +31,7 @@
       <p class="setting-note" x-show="bundlesTotal > bundlesShown || changelogHistory !== 'recent'" x-text="$t('settings.versions.history.note', {shown: bundlesShown, total: bundlesTotal})"></p>
     </div>
   </div>
-  <div class="setting-card">
+  <div class="setting-card" data-tour="updates">
     <h3 class="setting-card-title">{{t "settings.versions.updates.title"}}</h3>
     <label class="switch-row" for="update-check">
       <span class="version-help-anchor">{{t "settings.versions.updates.auto_check.label"}}<span class="field-help version-help"><button class="field-help-trigger" type="button" aria-label="{{t "settings.versions.updates.auto_check.help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "settings.versions.updates.auto_check.note"}}</span></span></span>
