@@ -39,6 +39,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -225,6 +226,9 @@ type RouterDependencies struct {
 	// CompanionFingerprint ist der Fingerabdruck des Companion-Zertifikats,
 	// an den der Kopplungsnachweis gebunden ist.
 	CompanionFingerprint string
+	// Onboarding speichert den Fortschritt der Einrichtungsführung. Nil
+	// heisst: die Onboarding-Routen sind nicht verfügbar.
+	Onboarding *onboarding.Store
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
