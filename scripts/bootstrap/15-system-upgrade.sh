@@ -93,6 +93,8 @@ if [[ "${#packages[@]}" -eq 0 ]]; then
 else
   step_log "Aktualisiere ${#packages[@]} Pakete: ${packages[*]}"
   apt_get -y upgrade || step_fail APT_UPGRADE_FAILED
+  # Die geladenen .deb-Dateien nehmen auf kleinen Karten viel Platz.
+  apt_get clean || step_log "apt-get clean ist fehlgeschlagen, der Paketcache bleibt liegen."
   reboot_packages="$(printf '%s\n' "${packages[@]}" | grep -E "${REBOOT_PACKAGES}" || true)"
   if [[ -n "${reboot_packages}" ]]; then
     "${SUDO[@]}" mkdir -p "$(dirname "${REBOOT_FLAG}")"

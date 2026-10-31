@@ -34,6 +34,8 @@ grep -q '^##STEP 10 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 grep -q '^apt-get update' "$APT_LOG" || fail "kein apt-get update" "$(cat "$APT_LOG")"
 grep -q 'install .*mosquitto' "$APT_LOG" || fail "mosquitto nicht installiert" "$(cat "$APT_LOG")"
 grep -q 'install .*ufw' "$APT_LOG" || fail "ufw nicht installiert" "$(cat "$APT_LOG")"
+grep -q 'install .*--no-install-recommends' "$APT_LOG" || fail "Recommends nicht abgeschaltet" "$(cat "$APT_LOG")"
+grep -q '^apt-get clean' "$APT_LOG" || fail "Paketcache nicht geleert" "$(cat "$APT_LOG")"
 
 # --- zweiter Lauf ueberspringt ueber den Stempel ---------------------------
 : > "$APT_LOG"
