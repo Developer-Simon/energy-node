@@ -2,8 +2,8 @@
 // Funktionen ohne DOM. Die Leiste (onboarding.js) holt Fortschritt, Rechte und
 // Dienste und reicht sie herein. ctx = {role, can: Set, device, installed,
 // t?}: can ist die Menge der Rechte der Sitzung, device 'phone' oder
-// 'desktop', installed die Dienste, t ein optionaler Uebersetzer (key, params).
-// Ohne t stehen die deutschen Texte aus dem Entwurf in der Datei.
+// 'desktop', installed die Dienste, t der Uebersetzer (key, params). Alle
+// Eyebrow-Texte kommen aus t, die Datei selbst enthaelt keine Texte.
 (() => {
   const PHONE_MAX = 759;
   const ORDER = ['setup', 'explore', 'welcome'];
@@ -29,9 +29,9 @@
     return deviceFits(step, ctx.device) && rightsFit(step, ctx);
   }
 
-  // Texte: ctx.t, sonst die deutschen Strings des Entwurfs.
-  function text(ctx, key, params, fallback) {
-    return typeof ctx.t === 'function' ? ctx.t(key, params) : fallback;
+  // Eyebrow-Texte nur aus dem Katalog ueber ctx.t.
+  function text(ctx, key, params) {
+    return ctx.t(key, params);
   }
 
   // Schritte eines Highlights, die fuer die Sitzung gelten. tour: false oder
@@ -46,7 +46,8 @@
     if (mode === 'setup') {
       if (ctx.role !== 'admin') return [];
       const stateOf = (id) => status[id] || 'open';
-      const eligible = setup.filter((s) => stepAllowed(s, ctx));
+      // Schritte ohne bekannten Bereich entfallen, sonst fehlt das Eyebrow.
+      const eligible = setup.filter((s) => stepAllowed(s, ctx) && areas.some((a) => a.id === s.area));
       const open = eligible.filter((s) => !['done', 'installer'].includes(stateOf(s.id)) || s.id === from);
       const start = from ? Math.max(0, open.findIndex((s) => s.id === from)) : 0;
       return open.slice(start).map((s) => {
@@ -54,15 +55,14 @@
         const areaIndex = areas.findIndex((a) => a.id === s.area);
         const label = areas[areaIndex].label;
         const eyebrow = text(ctx, 'onboarding.eyebrow.setup',
-          { n: areaIndex + 1, total: areas.length, area: label },
-          `Einrichtung ${areaIndex + 1} von ${areas.length} · ${label}`);
+          { n: areaIndex + 1, total: areas.length, area: label });
         return { ...s, eyebrow, dot: inArea.indexOf(s), dots: inArea.length };
       });
     }
     if (mode === 'change') {
       const step = setup.find((s) => s.id === from && stepAllowed(s, ctx));
       if (!step) return [];
-      const eyebrow = text(ctx, 'onboarding.eyebrow.change', {}, 'Einrichtung · Ändern');
+      const eyebrow = text(ctx, 'onboarding.eyebrow.change', {});
       return [{ ...step, eyebrow, dot: 0, dots: 1 }];
     }
     if (mode === 'explore') {
@@ -78,8 +78,7 @@
         .map((s) => ({ ...s, id: item.id, title: item.title, text: item.text, check: 'leave' })));
       return flat.map((s, i) => ({
         ...s,
-        eyebrow: text(ctx, 'onboarding.eyebrow.explore', { version: short, i: i + 1, total: flat.length },
-          `Neu in ${short} · ${i + 1} von ${flat.length}`),
+        eyebrow: text(ctx, 'onboarding.eyebrow.explore', { version: short, i: i + 1, total: flat.length }),
         dot: i,
         dots: flat.length,
       }));
@@ -89,8 +88,7 @@
       return steps.map((s, i) => ({
         ...s,
         check: 'leave',
-        eyebrow: text(ctx, 'onboarding.eyebrow.welcome', { i: i + 1, total: steps.length },
-          `Willkommen · ${i + 1} von ${steps.length}`),
+        eyebrow: text(ctx, 'onboarding.eyebrow.welcome', { i: i + 1, total: steps.length }),
         dot: i,
         dots: steps.length,
       }));

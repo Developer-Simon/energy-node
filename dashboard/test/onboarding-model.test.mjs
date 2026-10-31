@@ -27,11 +27,19 @@ const AREAS = [
   { id: 'devices', label: 'Geräte & Energierollen' },
 ];
 
+// ctx.t liest den echten Katalog und fuellt die {name}-Platzhalter.
+const catalog = JSON.parse(fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'catalogs', 'de.json'),
+  'utf8',
+));
+const t = (key, params = {}) => catalog[key].replace(/\{(\w+)\}/g, (_, name) => String(params[name]));
+
 const ctx = (overrides = {}) => ({
   role: 'admin',
   can: new Set(['view_devices', 'view_stats', 'edit_users']),
   device: 'desktop',
   installed: ['tailscale'],
+  t,
   ...overrides,
 });
 
@@ -102,6 +110,19 @@ test('welcome replaces explore in queue', () => {
   assert.deepEqual([...m.queueAfter(['explore', 'welcome'], 'setup')], ['welcome']);
   assert.deepEqual([...m.queueAfter(['explore'], 'setup')], ['explore']);
   assert.deepEqual([...m.queueAfter(['welcome', 'setup'], 'setup')], ['welcome']);
+  // Ohne welcome bleibt explore, die Reihenfolge ist setup vor explore.
+  assert.deepEqual([...m.queueAfter(['explore', 'setup'], 'welcome')], ['setup', 'explore']);
+});
+
+test('setup step with unknown area is skipped', () => {
+  const m = load();
+  const setup = [
+    { id: 'known', area: 'display', title: 'A', text: '', target: '', check: 'change' },
+    { id: 'orphan', area: 'nowhere', title: 'B', text: '', target: '', check: 'change' },
+  ];
+  const steps = m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen: {}, status: {}, ctx: ctx() });
+  assert.deepEqual(steps.map((s) => s.id), ['known']);
+  assert.equal(steps[0].dots, 1);
 });
 
 test('eyebrow strings match the draft', () => {
