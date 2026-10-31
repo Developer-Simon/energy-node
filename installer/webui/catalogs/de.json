@@ -330,6 +330,7 @@
   "error.TARGET_MISMATCH": "Das Paket ist für einen anderen Benutzer oder ein anderes Verzeichnis gebaut, als auf diesem Node eingerichtet ist.",
   "error.TARGET_UNKNOWN": "Auf dem Node steht nicht fest, für welchen Benutzer installiert wird. Bitte einmal mit dem Installer per SSH installieren.",
   "error.TOKEN_INVALID": "Dieses Fenster ist nicht mehr berechtigt. Starte den Installer neu.",
+  "error.UNIT_LOGS_FAILED": "Die Dienst-Logs lassen sich nicht lesen.",
   "error.UNKNOWN_STEP": "Das Paket kennt diesen Schritt nicht.",
   "error.UPDATER_TIMEOUT": "Der Update-Auftrag meldet sich nicht mehr. Der Verlauf auf dem Gerät zeigt, wie weit er kam.",
   "error.unknown": "Unbekannter Fehler: {code}",

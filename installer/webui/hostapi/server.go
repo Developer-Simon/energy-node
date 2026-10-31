@@ -86,6 +86,7 @@ type Bootstrap struct {
 	AutoPrepare     bool              `json:"auto_prepare,omitempty"`
 	CanOpenURL      bool              `json:"can_open_url,omitempty"`
 	CanSaveFile     bool              `json:"can_save_file,omitempty"`
+	UnitLogs        bool              `json:"unit_logs,omitempty"`
 	Credentials     *SavedCredentials `json:"credentials,omitempty"`
 }
 
@@ -156,6 +157,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/changelog", s.handleChangelog)
 	s.mux.HandleFunc("/api/system-updates", s.handleSystemUpdates)
 	s.mux.HandleFunc("/api/system-updates/refresh", s.handleSystemUpdatesRefresh)
+	s.mux.HandleFunc("/api/unit-logs", s.handleUnitLogs)
 	s.mux.HandleFunc("/api/package", s.handlePackage)
 	s.mux.HandleFunc("/api/package/upload", s.handlePackageUpload)
 }
@@ -231,6 +233,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	description := s.opts.Backend.Describe()
+	_, unitLogs := s.opts.Backend.(UnitLogsProvider)
 	writeJSON(w, http.StatusOK, Bootstrap{
 		Host:            description.Host,
 		EntryPoints:     description.EntryPoints,
@@ -246,6 +249,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		AutoPrepare:     description.AutoPrepare,
 		CanOpenURL:      s.opts.OpenURL != nil,
 		CanSaveFile:     s.opts.SaveFile != nil,
+		UnitLogs:        unitLogs,
 		Credentials:     description.Credentials,
 	})
 }

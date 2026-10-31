@@ -330,6 +330,7 @@
   "error.TARGET_MISMATCH": "The package was built for a different user or directory than this node is set up with.",
   "error.TARGET_UNKNOWN": "The node does not record which user to install for. Install once with the installer over SSH.",
   "error.TOKEN_INVALID": "This window is no longer authorised. Start the installer again.",
+  "error.UNIT_LOGS_FAILED": "The service logs cannot be read.",
   "error.UNKNOWN_STEP": "The package does not know this step.",
   "error.UPDATER_TIMEOUT": "The update job stopped reporting. The log on the device shows how far it got.",
   "error.unknown": "Unknown error: {code}",

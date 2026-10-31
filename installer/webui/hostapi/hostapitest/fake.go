@@ -66,6 +66,15 @@ type FakeBackend struct {
 	SystemUpdatesErr   error
 	SystemUpdatesCalls []bool
 
+	// UnitLogHostname, UnitLogLines und UnitStatuses steuern /api/unit-logs,
+	// UnitLogsErr laesst den Strom mit einem Fehler enden. UnitLogsSeen haelt
+	// je Verbindung die Anfrage fest.
+	UnitLogHostname string
+	UnitLogLines    []hostapi.UnitLogLine
+	UnitStatuses    []hostapi.UnitStatus
+	UnitLogsErr     error
+	UnitLogsSeen    []hostapi.UnitLogsRequest
+
 	// Steps ist das Drehbuch eines Laufs.
 	Steps []FakeStep
 	// StepDelay laesst einen Lauf langsam genug sein, um ein Abbrechen zu
@@ -213,6 +222,43 @@ func (f *FakeBackend) SystemUpdates(ctx context.Context, refresh bool) (*hostapi
 	defer f.mu.Unlock()
 	f.SystemUpdatesCalls = append(f.SystemUpdatesCalls, refresh)
 	return f.SystemUpdatesView, f.SystemUpdatesErr
+}
+
+// UnitLogs meldet Hello, alle Status und die Zeilen nach AfterCursor, bei
+// Backlog den Rest bis zur Grenze. Ohne Fehler blockiert es bis ctx endet.
+func (f *FakeBackend) UnitLogs(ctx context.Context, req hostapi.UnitLogsRequest, sink hostapi.UnitLogSink) error {
+	f.mu.Lock()
+	f.UnitLogsSeen = append(f.UnitLogsSeen, req)
+	hostname := f.UnitLogHostname
+	lines := append([]hostapi.UnitLogLine(nil), f.UnitLogLines...)
+	statuses := append([]hostapi.UnitStatus(nil), f.UnitStatuses...)
+	err := f.UnitLogsErr
+	f.mu.Unlock()
+
+	sink.Hello(hostname)
+	for _, status := range statuses {
+		sink.Status(status)
+	}
+	start := 0
+	switch {
+	case req.AfterCursor != "":
+		for i, line := range lines {
+			if line.Cursor == req.AfterCursor {
+				start = i + 1
+				break
+			}
+		}
+	case req.Backlog > 0 && len(lines) > req.Backlog:
+		start = len(lines) - req.Backlog
+	}
+	for _, line := range lines[start:] {
+		sink.Line(line)
+	}
+	if err != nil {
+		return err
+	}
+	<-ctx.Done()
+	return ctx.Err()
 }
 
 func (f *FakeBackend) Plan(ctx context.Context) (*hostapi.PlanView, error) {
