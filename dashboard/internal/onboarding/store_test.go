@@ -107,3 +107,21 @@ func TestConcurrentUpdateUser(t *testing.T) {
 		t.Fatalf("len(Seen) = %d, want %d", got, n)
 	}
 }
+
+// Ein Lesefehler, der nicht "Datei fehlt" ist, darf den gespeicherten Stand
+// nicht durch einen leeren überschreiben. Ein Verzeichnis unter dem Dateinamen
+// liefert genau so einen Fehler (EISDIR).
+func TestSetStepDoesNotOverwriteAfterReadError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, fileName)
+	if err := os.Mkdir(path, 0750); err != nil {
+		t.Skipf("cannot create a directory in place of the file: %v", err)
+	}
+	if err := NewStore(dir).SetStep("x", StepDone); err == nil {
+		t.Fatal("SetStep returned nil after a read error")
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		t.Fatalf("path was modified after a read error: info=%v err=%v", info, err)
+	}
+}

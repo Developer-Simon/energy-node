@@ -62,14 +62,22 @@ func NewStore(dir string) *Store { return &Store{dir: filepath.Clean(dir)} }
 func (s *Store) Load() Progress {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.loadLocked()
+	progress, err := s.loadLocked()
+	if err != nil {
+		log.Printf("onboarding: Fortschritt bleibt leer: %v", err)
+		return emptyProgress()
+	}
+	return progress
 }
 
 // SetStep setzt den Zustand eines Einrichtungsschritts.
 func (s *Store) SetStep(id string, state StepState) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	progress := s.loadLocked()
+	progress, err := s.loadLocked()
+	if err != nil {
+		return err
+	}
 	progress.SetupSteps[id] = state
 	return s.saveLocked(progress)
 }
@@ -78,7 +86,10 @@ func (s *Store) SetStep(id string, state StepState) error {
 func (s *Store) CompleteSetup() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	progress := s.loadLocked()
+	progress, err := s.loadLocked()
+	if err != nil {
+		return err
+	}
 	progress.SetupDone = true
 	return s.saveLocked(progress)
 }
@@ -88,27 +99,36 @@ func (s *Store) CompleteSetup() error {
 func (s *Store) UpdateUser(user string, mutate func(*UserProgress)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	progress := s.loadLocked()
+	progress, err := s.loadLocked()
+	if err != nil {
+		return err
+	}
 	entry := progress.Users[user]
 	mutate(&entry)
 	progress.Users[user] = entry
 	return s.saveLocked(progress)
 }
 
-func (s *Store) loadLocked() Progress {
-	empty := Progress{SetupSteps: map[string]StepState{}, Users: map[string]UserProgress{}}
+func emptyProgress() Progress {
+	return Progress{SetupSteps: map[string]StepState{}, Users: map[string]UserProgress{}}
+}
+
+// loadLocked liefert den Fortschritt für Schreibvorgänge. Eine fehlende Datei
+// und kaputtes JSON ergeben leeren Fortschritt (kaputtes JSON wird beim
+// nächsten Schreiben ersetzt). Jeder andere Lesefehler wird zurückgegeben,
+// damit ein vorübergehender Fehler nicht den gespeicherten Stand überschreibt.
+func (s *Store) loadLocked() (Progress, error) {
 	data, err := os.ReadFile(filepath.Join(s.dir, fileName))
 	if errors.Is(err, os.ErrNotExist) {
-		return empty
+		return emptyProgress(), nil
 	}
 	if err != nil {
-		log.Printf("onboarding: %s nicht lesbar, Fortschritt bleibt leer: %v", fileName, err)
-		return empty
+		return Progress{}, fmt.Errorf("onboarding: %s nicht lesbar: %w", fileName, err)
 	}
 	var loaded Progress
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		log.Printf("onboarding: %s ist kein gültiges JSON, Fortschritt bleibt leer: %v", fileName, err)
-		return empty
+		return emptyProgress(), nil
 	}
 	if loaded.SetupSteps == nil {
 		loaded.SetupSteps = map[string]StepState{}
@@ -116,7 +136,7 @@ func (s *Store) loadLocked() Progress {
 	if loaded.Users == nil {
 		loaded.Users = map[string]UserProgress{}
 	}
-	return loaded
+	return loaded, nil
 }
 
 func (s *Store) saveLocked(progress Progress) error {
