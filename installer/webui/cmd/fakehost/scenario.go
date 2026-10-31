@@ -384,7 +384,7 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 
 	fake.Steps = []hostapitest.FakeStep{
-		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-venv", say(opts.english, "12 Pakete installiert", "12 packages installed")}},
+		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-pip", say(opts.english, "12 Pakete installiert", "12 packages installed")}},
 		{ID: "15", Log: []string{say(opts.english, "Alle Systempakete sind aktuell.", "All system packages are up to date.")}},
 		{ID: "20", Log: []string{"mosquitto_passwd -b energynode ***", say(opts.english, "/etc/mosquitto/conf.d/default.conf geschrieben", "wrote /etc/mosquitto/conf.d/default.conf"), say(opts.english, "mosquitto neu gestartet, Testnachricht zugestellt", "restarted mosquitto, test message delivered")}},
 		{ID: "30", Log: []string{say(opts.english, "Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp", "Rules: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp"), say(opts.english, "ufw aktiv", "ufw active")}},

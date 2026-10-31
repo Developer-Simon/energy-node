@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.7 (2026-10-31)
+## v0.2.7 (2026-11-01)
 
 ### Features
 
@@ -16,8 +16,8 @@
 
 ### Fixes
 
+- **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191) (a96bebf)
 - **installer:** write the broker user into config.json (1be6458)
-- **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191)
 - **installer:** word the Python ABI mismatch detail in the window's language (2ba8848)
 - **installer:** let a tolerated Python ABI pass even when the package predates the consent (73fbcb3)
 - **installer:** open links in the system browser from the installer window (3aae129)

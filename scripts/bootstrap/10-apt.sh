@@ -36,7 +36,13 @@ fi
 step_log "Fehlende Pakete: ${missing[*]}"
 "${SUDO[@]}" apt-get update -qq || step_fail APT_UPDATE_FAILED
 # DEBIAN_FRONTEND hinter sudo, env_reset verwirft es sonst.
-"${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}" \
+# --no-install-recommends: python3-pip empfiehlt build-essential und
+# python3-dev, also die komplette gcc-Toolchain (rund 400 MB). Der Node
+# kompiliert nichts, Schritt 50 installiert nur fertige Wheels.
+"${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}" \
   || step_fail APT_INSTALL_FAILED
+# Die geladenen .deb-Dateien braucht niemand mehr, auf kleinen Karten sind
+# das schnell ueber 100 MB. Ein Fehler hier ist kein Grund zum Abbruch.
+"${SUDO[@]}" apt-get clean || step_log "apt-get clean ist fehlgeschlagen, der Paketcache bleibt liegen."
 
 step_ok

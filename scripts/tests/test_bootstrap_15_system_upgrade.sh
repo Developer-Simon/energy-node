@@ -59,6 +59,7 @@ grep -v -- '-o DPkg::Lock::Timeout=600' "$APT_LOG" | grep -q . \
 grep -- ' -y upgrade' "$APT_LOG" | grep -q -- '--force-confold' \
   || fail "upgrade ohne --force-confold" "$(cat "$APT_LOG")"
 grep -q 'mosquitto' <<<"$out" || fail "Paketliste fehlt im Log" "$out"
+grep -q ' clean$' "$APT_LOG" || fail "Paketcache nicht geleert" "$(cat "$APT_LOG")"
 [ -e "$flag" ] && fail "Neustart-Markierung ohne Kernel-Update"
 
 # --- zweiter Lauf: Stempel --------------------------------------------------
