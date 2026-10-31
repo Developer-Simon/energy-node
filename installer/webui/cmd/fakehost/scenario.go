@@ -31,6 +31,9 @@ type options struct {
 	// Das Vorbereiten scheitert mit PYTHON_ABI_MISMATCH, bis der Betreiber die
 	// Online-Installation freigibt.
 	abiMismatch bool
+	// deltaVerifyFails: die Teilübertragung besteht die Prüfung auf dem Gerät
+	// nicht. Erst die ganze Übertragung (force_full_transfer) gelingt.
+	deltaVerifyFails bool
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -115,6 +118,11 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 				sink.Log("package", b.say("Prüfe das Paket auf dem Gerät", "Checking the package on the device"))
 				return &hostapi.Error{Code: "PYTHON_ABI_MISMATCH", Detail: "abi=cp313 expected=cp311", Status: http.StatusConflict}
 			}
+		}
+		if b.opts.deltaVerifyFails && !req.ForceFullTransfer {
+			sink.Marker("package", "begin", "")
+			sink.Log("package", b.say("Prüfe das Paket auf dem Gerät", "Checking the package on the device"))
+			return &hostapi.Error{Code: "PACKAGE_VERIFY_FAILED_DELTA", Detail: "missing=wheels/aiohttp-3.14.5-cp313-linux_armv6l.whl\ntampered=bootstrap/10-apt.sh", Status: http.StatusConflict}
 		}
 		return b.FakeBackend.Run(ctx, req, sink)
 	}

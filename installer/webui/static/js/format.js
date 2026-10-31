@@ -66,5 +66,30 @@
       }
       return 0;
     },
+
+    // verifyDetail words the facts the host reports for a rejected package
+    // ("abi=cp313 expected=cp311", "missing=<file>", "tampered=<file>",
+    // "files=empty", "more=<n>"), one per line, with the catalog of the window.
+    // Any other line (an architecture fact, a free text) is shown as it came.
+    verifyDetail: function (detail, t) {
+      if (!detail) {
+        return '';
+      }
+      return String(detail).split('\n').map(function (line) {
+        var abi = /^abi=(\S+) expected=(\S+)$/.exec(line);
+        if (abi) {
+          return t('verify.abi', { device: abi[1], package: abi[2] });
+        }
+        var file = /^(missing|tampered)=(.+)$/.exec(line);
+        if (file) {
+          return t('verify.' + file[1], { file: file[2] });
+        }
+        var more = /^more=(\d+)$/.exec(line);
+        if (more) {
+          return t('verify.more', { count: more[1] });
+        }
+        return line === 'files=empty' ? t('verify.files_empty') : line;
+      }).join('\n');
+    },
   };
 })();

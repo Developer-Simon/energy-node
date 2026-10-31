@@ -13,7 +13,7 @@ const DASHBOARD = {
 };
 
 async function createShell({ bootstrap = BOOT, catalog = {}, stored = null, bootstrapError = null, hello, url } = {}) {
-  const { window } = loadScripts(['i18n.js', 'api.js', 'app.js'], { url });
+  const { window } = loadScripts(['i18n.js', 'format.js', 'api.js', 'app.js'], { url });
   if (stored) {
     window.localStorage.setItem('energy-node-installer.lang', stored);
   }
@@ -304,4 +304,12 @@ test('beim Dashboard mit auto_prepare steht das Vorbereiten als eigene, aktive S
   const items = shell.stepperParts.filter((part) => part.item);
   assert.deepEqual(plain(items.map((item) => item.key)), ['prepare', 'preview', 'run', 'result']);
   assert.equal(items[0].cls, 'st-item active');
+});
+
+test('fail() übersetzt die Fakten einer Paketprüfung im Detail und lässt anderes unberührt', async () => {
+  const { shell } = await createShell({ catalog: { 'verify.tampered': 'Datei stimmt nicht mit ihrer Prüfsumme überein: {file}' } });
+  shell.fail({ code: 'BUNDLE_HASH_MISMATCH', detail: 'tampered=bootstrap/10-apt.sh' });
+  assert.equal(shell.error.detail, 'Datei stimmt nicht mit ihrer Prüfsumme überein: bootstrap/10-apt.sh');
+  shell.fail({ code: 'ARCH_MISMATCH', detail: 'arch=x86_64 expected=armv6l' });
+  assert.equal(shell.error.detail, 'arch=x86_64 expected=armv6l');
 });

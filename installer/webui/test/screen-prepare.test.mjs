@@ -215,3 +215,14 @@ test('allowOnline() startet das Vorbereiten erneut mit allow_online_deps', async
   assert.equal(screen.lastErrorCode, null);
   assert.equal(screen.canAllowOnline, false);
 });
+
+test('die Prüfsummenfehler eines Pakets stehen übersetzt im Log', async () => {
+  const { screen } = mount();
+  await screen.init();
+  screen.finish({ ok: false, code: 'PACKAGE_VERIFY_FAILED_DELTA', detail: 'missing=wheels/a.whl\ntampered=bootstrap/10-apt.sh\nmore=2' });
+  assert.deepEqual(JSON.parse(JSON.stringify(screen.lines.slice(-1)[0].split('\n'))), [
+    'Datei fehlt im übertragenen Paket: wheels/a.whl',
+    'Datei stimmt nicht mit ihrer Prüfsumme überein: bootstrap/10-apt.sh',
+    '… und 2 weitere.',
+  ]);
+});

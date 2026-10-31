@@ -80,7 +80,7 @@
           this.lastErrorCode = data.code || null;
           if (data.code === 'PACKAGE_VERIFY_FAILED_DELTA' || data.code === 'PYTHON_ABI_MISMATCH') {
             if (data.detail) {
-              this.lines.push(this.detailText(data.code, data.detail));
+              this.lines.push(window.Format.verifyDetail(data.detail, function (key, args) { return window.I18n.t(key, args); }));
             }
           } else {
             this.shell.fail({ code: data.code, detail: data.detail });
@@ -114,17 +114,6 @@
       // operator re-choosing anything else.
       get canForceFull() {
         return this.state === 'failed' && this.lastErrorCode === 'PACKAGE_VERIFY_FAILED_DELTA';
-      },
-
-      // detailText words the facts the host reports for a wrong Python ABI
-      // ("abi=cp313 expected=cp311") in the language of the window. Any other
-      // detail is shown as it came.
-      detailText(code, detail) {
-        var match = code === 'PYTHON_ABI_MISMATCH' && /^abi=(\S+) expected=(\S+)$/.exec(detail);
-        if (!match) {
-          return detail;
-        }
-        return window.I18n.t('prepare.abiDetail', { device: match[1], package: match[2] });
       },
 
       // canAllowOnline: the node's Python does not match the wheels in the

@@ -99,12 +99,25 @@ func DeployProgress(ctx context.Context, client *transport.Client, localArchiveP
 // architecture or Python ABI ("Python-ABI cp313, Bundle erwartet cp311").
 var mismatchLine = regexp.MustCompile(`^(Architektur|Python-ABI) (\S+), Bundle erwartet (.+)$`)
 
+// hashLine matches the German lines verify_bundle.sh prints for a damaged
+// bundle: "fehlt: <file>" and "verfaelscht: <file>".
+var hashLine = regexp.MustCompile(`^(fehlt|verfaelscht): (.+)$`)
+
+// maxVerifyLines caps the problems one detail lists, as verifyBundleErrorMessage does.
+const maxVerifyLines = 10
+
 // verifyFailureMessage is the detail of a verify_bundle.sh rejection. The
 // script talks German, but the detail reaches an interface in the operator's
-// language. For a wrong architecture or Python ABI it therefore keeps only the
-// facts in a language-neutral form ("abi=cp313 expected=cp311"); the interface
-// words them. Every other rejection keeps the script's own lines.
+// language. For a wrong architecture, Python ABI or a damaged bundle it
+// therefore keeps only the facts in a language-neutral form ("abi=cp313
+// expected=cp311", "missing=<file>", "tampered=<file>", "files=empty"); the
+// interface words them. Every other rejection keeps the script's own lines.
 func verifyFailureMessage(code FaultCode, stderr string) string {
+	if code == FaultHashMismatch {
+		if msg := hashFailureMessage(stderr); msg != "" {
+			return msg
+		}
+	}
 	if code == FaultArchMismatch || code == FaultPythonABIMismatch {
 		for _, line := range strings.Split(stderr, "\n") {
 			m := mismatchLine.FindStringSubmatch(strings.TrimSpace(line))
@@ -119,6 +132,42 @@ func verifyFailureMessage(code FaultCode, stderr string) string {
 		}
 	}
 	return verifyBundleErrorMessage(stderr)
+}
+
+// hashFailureMessage turns the lines of a hash check into one fact per line.
+// It returns "" when nothing in stderr is recognised.
+func hashFailureMessage(stderr string) string {
+	var facts []string
+	recognised := false
+	for _, line := range strings.Split(stderr, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "":
+			continue
+		case strings.Contains(line, "'files' fehlt oder ist leer"):
+			facts = append(facts, "files=empty")
+			recognised = true
+		default:
+			if m := hashLine.FindStringSubmatch(line); m != nil {
+				key := "missing"
+				if m[1] == "verfaelscht" {
+					key = "tampered"
+				}
+				facts = append(facts, key+"="+m[2])
+				recognised = true
+			} else {
+				facts = append(facts, line)
+			}
+		}
+	}
+	if !recognised {
+		return ""
+	}
+	if len(facts) > maxVerifyLines {
+		extra := len(facts) - maxVerifyLines
+		facts = append(facts[:maxVerifyLines], fmt.Sprintf("more=%d", extra))
+	}
+	return strings.Join(facts, "\n")
 }
 
 // verifyBundleErrorMessage constructs the error message for a verify_bundle.sh

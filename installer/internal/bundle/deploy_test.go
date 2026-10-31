@@ -357,7 +357,7 @@ func TestVerifyRemoteDevChecksTamperedFiles(t *testing.T) {
 		t.Fatalf("uploading tampered content: %v", err)
 	}
 
-	// VerifyRemoteDev should now fail with BUNDLE_HASH_MISMATCH and error containing "verfaelscht"
+	// VerifyRemoteDev should now fail with BUNDLE_HASH_MISMATCH and the tampered file as "tampered=<file>"
 	err = bundle.VerifyRemoteDev(ctx, client, remoteDir)
 	var bundleErr *bundle.Error
 	if !errors.As(err, &bundleErr) {
@@ -366,8 +366,8 @@ func TestVerifyRemoteDevChecksTamperedFiles(t *testing.T) {
 	if bundleErr.Code != bundle.FaultHashMismatch {
 		t.Fatalf("expected FaultHashMismatch, got %s", bundleErr.Code)
 	}
-	if !strings.Contains(err.Error(), "verfaelscht: bootstrap/10-apt.sh") {
-		t.Fatalf("error message should contain 'verfaelscht: bootstrap/10-apt.sh', got: %v", err)
+	if !strings.Contains(err.Error(), "tampered=bootstrap/10-apt.sh") {
+		t.Fatalf("error message should contain 'tampered=bootstrap/10-apt.sh', got: %v", err)
 	}
 }
 

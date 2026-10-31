@@ -206,3 +206,16 @@ func TestAnABIMismatchBlocksPrepareUntilOnlineDepsAreAllowed(t *testing.T) {
 		t.Errorf("precheck after consent = ok:%v blocking:%v warnings:%v, want a PYTHON_ABI_ONLINE warning", view.PythonABIOK, view.Blocking, view.Warnings)
 	}
 }
+
+func TestAFailingDeltaVerifyNeedsTheFullTransfer(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage", options{deltaVerifyFails: true})
+	err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare}, &countingSink{})
+	typed, _ := err.(*hostapi.Error)
+	if typed == nil || typed.Code != "PACKAGE_VERIFY_FAILED_DELTA" {
+		t.Fatalf("prepare = %v, want PACKAGE_VERIFY_FAILED_DELTA", err)
+	}
+	if err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare, ForceFullTransfer: true}, &countingSink{}); err != nil {
+		t.Fatalf("full transfer: %v", err)
+	}
+}

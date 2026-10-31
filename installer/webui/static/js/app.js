@@ -326,7 +326,7 @@
         this.progress = null;
         this.error = {
           code: err && err.code ? err.code : 'BACKEND_ERROR',
-          detail: err && err.detail ? String(err.detail) : '',
+          detail: err && err.detail ? window.Format.verifyDetail(String(err.detail), this.t.bind(this)) : '',
         };
       },
 

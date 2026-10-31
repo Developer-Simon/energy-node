@@ -4,9 +4,18 @@
     {{template "stepper"}}
     <section class="card tall">
       <h2 class="card-h" x-text="t('prepare.heading')"></h2>
-      <p class="card-p" x-text="state === 'working' ? t(autoPrepare ? 'prepare.workingLocal' : 'prepare.working') : state === 'done' ? t('prepare.done') : (canForceFull ? t('prepare.verifyFailedDelta') : canAllowOnline ? t('prepare.abiMismatch') : t('prepare.failed'))"></p>
+      <p class="card-p" x-text="state === 'working' ? t(autoPrepare ? 'prepare.workingLocal' : 'prepare.working') : state === 'done' ? t('prepare.done') : t('prepare.failed')"></p>
       <template x-if="state === 'done' && unsigned">
         <p class="card-p" x-text="t('prepare.unsigned')"></p>
+      </template>
+      <template x-if="canForceFull || canAllowOnline">
+        <div class="prep-action" role="alert">
+          <span class="prep-action-ic">{{template "icon-warn"}}</span>
+          <span class="prep-action-b">
+            <span class="prep-action-t" x-text="t('prepare.actionNeeded')"></span>
+            <span class="prep-action-s" x-text="canForceFull ? t('prepare.verifyFailedDelta') : t('prepare.abiMismatch')"></span>
+          </span>
+        </div>
       </template>
       <pre class="log" x-text="lines.join('\n')"></pre>
     </section>
@@ -23,10 +32,10 @@
       <button type="button" class="ghost" @click="useExisting()" x-text="t('prepare.useExisting')"></button>
     </template>
     <template x-if="canAllowOnline">
-      <button type="button" class="ghost" @click="allowOnline()" x-text="t('prepare.allowOnline')"></button>
+      <button type="button" class="primary" @click="allowOnline()" x-text="t('prepare.allowOnline')"></button>
     </template>
     <template x-if="canForceFull">
-      <button type="button" class="ghost" @click="forceFull()" x-text="t('prepare.forceFull')"></button>
+      <button type="button" class="primary" @click="forceFull()" x-text="t('prepare.forceFull')"></button>
     </template>
     <span class="foot-spacer"></span>
     <template x-if="state === 'done' && unsigned">
