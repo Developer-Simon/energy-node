@@ -66,6 +66,21 @@
     { id: 'metrics', panel: 'settings-panel', page: 'mqtt', target: data('metrics'), check: 'change' },
     // Geräte einrichten: Dienste wählen und Geräteinformationen eintragen. Das
     // Formular ist der Bereich dafür, die Schaltleiste darüber bleibt außen vor.
+    // Dienst wählen: Das Auswahlfeld in der Aktionsleiste öffnet sich. Ohne
+    // Benutzeraktivierung verweigert der Browser das, dann bleibt es fokussiert.
+    {
+      id: 'configservice', panel: 'config-panel', need: 'view_config', target: data('configservice'), check: 'leave',
+      prepare: async () => {
+        await window.obOnboarding.waitFor(() => document.getElementById('config-name'), 1500);
+        const select = document.getElementById('config-name');
+        if (!select) return;
+        try {
+          select.showPicker();
+        } catch {
+          select.focus({ preventScroll: true });
+        }
+      },
+    },
     { id: 'config', panel: 'config-panel', need: 'view_config', target: data('config'), check: 'change' },
     {
       id: 'devices', panel: 'devices-panel', target: data('devices'), check: 'leave',

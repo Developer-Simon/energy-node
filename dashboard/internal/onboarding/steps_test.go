@@ -56,7 +56,7 @@ func TestCatalogOrderAndAreas(t *testing.T) {
 		"users", "guest", "tailscale", "companion",
 		"theme", "title", "statusbar", "tabwidth", "tiles",
 		"updates", "metrics",
-		"config", "devices", "roles", "devicemap", "automations",
+		"configservice", "config", "devices", "roles", "devicemap", "automations",
 	}
 	if got := stepIDs(steps); !slices.Equal(got, wantIDs) {
 		t.Fatalf("step IDs = %v, want %v", got, wantIDs)
@@ -66,7 +66,7 @@ func TestCatalogOrderAndAreas(t *testing.T) {
 		"theme": "display", "title": "display",
 		"statusbar": "display", "tabwidth": "display", "tiles": "display",
 		"updates": "system", "metrics": "system",
-		"config": "devices", "devices": "devices", "roles": "devices", "devicemap": "devices",
+		"configservice": "devices", "config": "devices", "devices": "devices", "roles": "devices", "devicemap": "devices",
 		"automations": "devices",
 	}
 	wantInstaller := map[string]bool{

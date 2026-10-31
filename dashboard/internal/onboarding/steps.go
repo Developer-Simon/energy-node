@@ -37,6 +37,7 @@ func Catalog(installed map[string]bool) []Step {
 		Step{ID: "tiles", Area: "display"},
 		Step{ID: "updates", Area: "system", Installer: true},
 		Step{ID: "metrics", Area: "system", Installer: true},
+		Step{ID: "configservice", Area: "devices"},
 		Step{ID: "config", Area: "devices"},
 		Step{ID: "devices", Area: "devices"},
 		Step{ID: "roles", Area: "devices"},

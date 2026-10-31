@@ -29,7 +29,7 @@ function load() {
 }
 
 test('the Go catalog IDs are read from steps.go', () => {
-  assert.equal(CATALOG_IDS.length, 16);
+  assert.equal(CATALOG_IDS.length, 17);
 });
 
 test('every setup step has a place and the server catalog IDs match', () => {
@@ -49,6 +49,14 @@ test('each setup place has panel, optional page and prepare, and a target', () =
     assert.equal(typeof step.target, 'string', `${step.id}: target`);
     assert.ok(['change', 'leave'].includes(step.check), `${step.id}: check`);
   }
+});
+
+test('configservice opens the service picker through prepare', () => {
+  const { setup } = load();
+  const step = setup.find((s) => s.id === 'configservice');
+  assert.equal(step.panel, 'config-panel');
+  assert.equal(typeof step.prepare, 'function');
+  assert.equal(step.target, '[data-tour="configservice"]');
 });
 
 test('every setup target uses data-tour', () => {
