@@ -63,6 +63,9 @@
       // Vorpruefung) - an derselben Stelle wie error, aber blau statt rot.
       // Ein Fehler geht immer vor: fail() und error setzen es implizit weg.
       progress: null,
+      // notice meldet etwas Gelungenes, das nicht von selbst sichtbar ist (eine
+      // gespeicherte Datei): { key, args }, blau wie progress, ohne Fehler.
+      notice: null,
       // bar traegt, was ein Bildschirm in der Kopfleiste zeigt: lead hinter
       // dem Titel, sub vor dem Umschalter, status und action dahinter.
       bar: emptyBar(),
@@ -155,6 +158,10 @@
         return text === key ? this.t('error.unknown', { code: this.error.code }) : text;
       },
 
+      get noticeText() {
+        return this.notice ? this.t(this.notice.key, this.notice.args) : '';
+      },
+
       get progressText() {
         return this.progress ? this.t(this.progress) : '';
       },
@@ -216,6 +223,7 @@
       navigate(screen, dir) {
         this.dir = dir;
         this.error = null;
+        this.notice = null;
         // progress raeumt sich verzoegert auf: setzte navigate() es hier
         // synchron auf null, faellt das in denselben Alpine-Durchlauf, in dem
         // Alpine das x-if des neuen Bildschirms (und damit dessen init()/
@@ -337,6 +345,19 @@
           }
         }
         window.open(url, '_blank', 'noopener');
+      },
+
+      // saveFile writes a text file to the Downloads folder through the host.
+      // The installer window is an embedded WebView that shows no download
+      // dialog, so a blob link saves nothing there. Hosts without a saver
+      // (the dashboard) keep the blob link in window.Download.
+      async saveFile(filename, content) {
+        try {
+          var saved = await window.Api.post('/api/save-file', { filename: filename, content: content });
+          this.notice = { key: 'notice.saved', args: { path: saved.path } };
+        } catch (err) {
+          this.fail(err);
+        }
       },
 
       fail(err) {

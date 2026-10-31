@@ -52,6 +52,11 @@ type Options struct {
 	// WebView that cannot open new windows. Nil (the dashboard host) leaves the
 	// buttons to window.open.
 	OpenURL func(url string) error
+	// SaveFile writes a text file (a log, the diagnose report) to the user's
+	// Downloads folder and returns its path. Only the installer sets it: its
+	// WebView shows no download dialog, so a blob link saves nothing. Nil
+	// leaves the download to the browser.
+	SaveFile func(filename string, content []byte) (string, error)
 }
 
 // Server ist Schicht 2.
@@ -80,6 +85,7 @@ type Bootstrap struct {
 	Package         *PackageInfo      `json:"package,omitempty"`
 	AutoPrepare     bool              `json:"auto_prepare,omitempty"`
 	CanOpenURL      bool              `json:"can_open_url,omitempty"`
+	CanSaveFile     bool              `json:"can_save_file,omitempty"`
 	Credentials     *SavedCredentials `json:"credentials,omitempty"`
 }
 
@@ -138,6 +144,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/keypair", s.handleKeypair)
 	s.mux.HandleFunc("/api/sudo", s.handleSudo)
 	s.mux.HandleFunc("/api/open-url", s.handleOpenURL)
+	s.mux.HandleFunc("/api/save-file", s.handleSaveFile)
 	s.mux.HandleFunc("/api/precheck", s.handlePrecheck)
 	s.mux.HandleFunc("/api/manifest", s.handleManifest)
 	s.mux.HandleFunc("/api/selection", s.handleSelection)
@@ -238,6 +245,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		Package:         description.Package,
 		AutoPrepare:     description.AutoPrepare,
 		CanOpenURL:      s.opts.OpenURL != nil,
+		CanSaveFile:     s.opts.SaveFile != nil,
 		Credentials:     description.Credentials,
 	})
 }

@@ -14,6 +14,11 @@
     },
 
     text: function (filename, content) {
+      var shell = window.Installer && window.Installer.shell;
+      if (shell && shell.bootstrap && shell.bootstrap.can_save_file) {
+        // The embedded installer window cannot download a blob; the host saves it.
+        return shell.saveFile(filename, content);
+      }
       var blob = new window.Blob([content], { type: 'text/plain;charset=utf-8' });
       var url = window.URL.createObjectURL(blob);
       var link = window.document.createElement('a');

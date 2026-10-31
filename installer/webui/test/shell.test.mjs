@@ -344,3 +344,35 @@ test('openExternal fällt auf window.open zurück, wenn der Wirt es nicht kann o
   assert.deepEqual(opened, ['https://example.org/a', 'https://example.org/b']);
   assert.equal(posted, 0);
 });
+
+test('saveFile schickt Name und Text an den Wirt und meldet den Pfad', async () => {
+  const { shell, window } = await createShell({
+    bootstrap: Object.assign({}, BOOT, { can_save_file: true }),
+    catalog: { 'notice.saved': 'Gespeichert unter {path}' },
+  });
+  const posted = [];
+  window.Api.post = async (path, body) => { posted.push([path, body]); return { path: '/home/dev/Downloads/log.txt' }; };
+  await shell.init();
+  await shell.saveFile('log.txt', 'zeile');
+  assert.deepEqual(JSON.parse(JSON.stringify(posted)), [['/api/save-file', { filename: 'log.txt', content: 'zeile' }]]);
+  assert.equal(shell.noticeText, 'Gespeichert unter /home/dev/Downloads/log.txt');
+  shell.go('result');
+  assert.equal(shell.notice, null, 'ein Bildschirmwechsel räumt den Hinweis weg');
+});
+
+test('Download.text lässt den Wirt speichern, wenn er das kann, sonst bleibt es beim Blob-Link', () => {
+  const hosted = loadScripts(['download.js']);
+  const saved = [];
+  hosted.window.Installer = { shell: { bootstrap: { can_save_file: true }, saveFile: (name, content) => { saved.push([name, content]); } } };
+  hosted.window.Download.text('a.txt', 'x');
+  assert.deepEqual(saved, [['a.txt', 'x']]);
+
+  const plain = loadScripts(['download.js']);
+  const clicked = [];
+  plain.window.Installer = { shell: { bootstrap: {} } };
+  plain.window.URL.createObjectURL = () => 'blob:x';
+  plain.window.URL.revokeObjectURL = () => {};
+  plain.window.HTMLAnchorElement.prototype.click = function () { clicked.push(this.download); };
+  plain.window.Download.text('b.txt', 'y');
+  assert.deepEqual(clicked, ['b.txt']);
+});
