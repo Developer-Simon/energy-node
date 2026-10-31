@@ -31,6 +31,7 @@ type RunOptions struct {
 	Secrets         *Secrets             // optional; only step 60 ever receives it
 	NodeConfigPath  string               // optional; where step 20 finds the MQTT user without credentials, default DefaultNodeConfigPath
 	RestartAll      bool                 // optional; steps see EN_RESTART=all and restart every service unit
+	OnlineDeps      bool                 // optional; the node's Python differs from the bundle's and the operator allowed loading dependencies online: the installer runs step 50 itself
 	OnMarker        func(Marker)
 	OnLog           func(stepID, line string)
 }
@@ -81,6 +82,9 @@ func Run(ctx context.Context, opts RunOptions) error {
 }
 
 func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Marker, error) {
+	if opts.OnlineDeps && step.ID == pythonDepsStepID {
+		return runOnlineDeps(ctx, opts, step)
+	}
 	bootstrapDir := path.Join(opts.RemoteBundleDir, "bootstrap")
 	scriptPath, err := resolveScriptPath(ctx, opts.Client, bootstrapDir, step.ID)
 	if err != nil {

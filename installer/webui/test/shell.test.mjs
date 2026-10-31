@@ -13,7 +13,7 @@ const DASHBOARD = {
 };
 
 async function createShell({ bootstrap = BOOT, catalog = {}, stored = null, bootstrapError = null, hello, url } = {}) {
-  const { window } = loadScripts(['i18n.js', 'api.js', 'app.js'], { url });
+  const { window } = loadScripts(['i18n.js', 'format.js', 'api.js', 'app.js'], { url });
   if (stored) {
     window.localStorage.setItem('energy-node-installer.lang', stored);
   }
@@ -304,4 +304,75 @@ test('beim Dashboard mit auto_prepare steht das Vorbereiten als eigene, aktive S
   const items = shell.stepperParts.filter((part) => part.item);
   assert.deepEqual(plain(items.map((item) => item.key)), ['prepare', 'preview', 'run', 'result']);
   assert.equal(items[0].cls, 'st-item active');
+});
+
+test('fail() übersetzt die Fakten einer Paketprüfung im Detail und lässt anderes unberührt', async () => {
+  const { shell } = await createShell({ catalog: { 'verify.tampered': 'Datei stimmt nicht mit ihrer Prüfsumme überein: {file}' } });
+  shell.fail({ code: 'BUNDLE_HASH_MISMATCH', detail: 'tampered=bootstrap/10-apt.sh' });
+  assert.equal(shell.error.detail, 'Datei stimmt nicht mit ihrer Prüfsumme überein: bootstrap/10-apt.sh');
+  shell.fail({ code: 'ARCH_MISMATCH', detail: 'arch=x86_64 expected=armv6l' });
+  assert.equal(shell.error.detail, 'arch=x86_64 expected=armv6l');
+});
+
+test('openExternal bittet den Wirt, die Adresse im Browser zu öffnen, wenn er das kann', async () => {
+  const { shell, window } = await createShell({ bootstrap: Object.assign({}, BOOT, { can_open_url: true }) });
+  const posted = [];
+  const opened = [];
+  window.Api.post = async (path, body) => { posted.push([path, body]); return {}; };
+  window.open = (url) => { opened.push(url); return null; };
+  await shell.init();
+  await shell.openExternal('https://login.tailscale.com/a/abc');
+  assert.deepEqual(JSON.parse(JSON.stringify(posted)), [['/api/open-url', { url: 'https://login.tailscale.com/a/abc' }]]);
+  assert.deepEqual(opened, []);
+});
+
+test('openExternal fällt auf window.open zurück, wenn der Wirt es nicht kann oder scheitert', async () => {
+  const withHost = await createShell({ bootstrap: Object.assign({}, BOOT, { can_open_url: true }) });
+  const opened = [];
+  withHost.window.Api.post = async () => { throw new Error('kein Browser'); };
+  withHost.window.open = (url) => { opened.push(url); return null; };
+  await withHost.shell.init();
+  await withHost.shell.openExternal('https://example.org/a');
+
+  const without = await createShell();
+  without.window.open = (url) => { opened.push(url); return null; };
+  let posted = 0;
+  without.window.Api.post = async () => { posted += 1; return {}; };
+  await without.shell.init();
+  await without.shell.openExternal('https://example.org/b');
+
+  assert.deepEqual(opened, ['https://example.org/a', 'https://example.org/b']);
+  assert.equal(posted, 0);
+});
+
+test('saveFile schickt Name und Text an den Wirt und meldet den Pfad', async () => {
+  const { shell, window } = await createShell({
+    bootstrap: Object.assign({}, BOOT, { can_save_file: true }),
+    catalog: { 'notice.saved': 'Gespeichert unter {path}' },
+  });
+  const posted = [];
+  window.Api.post = async (path, body) => { posted.push([path, body]); return { path: '/home/dev/Downloads/log.txt' }; };
+  await shell.init();
+  await shell.saveFile('log.txt', 'zeile');
+  assert.deepEqual(JSON.parse(JSON.stringify(posted)), [['/api/save-file', { filename: 'log.txt', content: 'zeile' }]]);
+  assert.equal(shell.noticeText, 'Gespeichert unter /home/dev/Downloads/log.txt');
+  shell.go('result');
+  assert.equal(shell.notice, null, 'ein Bildschirmwechsel räumt den Hinweis weg');
+});
+
+test('Download.text lässt den Wirt speichern, wenn er das kann, sonst bleibt es beim Blob-Link', () => {
+  const hosted = loadScripts(['download.js']);
+  const saved = [];
+  hosted.window.Installer = { shell: { bootstrap: { can_save_file: true }, saveFile: (name, content) => { saved.push([name, content]); } } };
+  hosted.window.Download.text('a.txt', 'x');
+  assert.deepEqual(saved, [['a.txt', 'x']]);
+
+  const plain = loadScripts(['download.js']);
+  const clicked = [];
+  plain.window.Installer = { shell: { bootstrap: {} } };
+  plain.window.URL.createObjectURL = () => 'blob:x';
+  plain.window.URL.revokeObjectURL = () => {};
+  plain.window.HTMLAnchorElement.prototype.click = function () { clicked.push(this.download); };
+  plain.window.Download.text('b.txt', 'y');
+  assert.deepEqual(clicked, ['b.txt']);
 });

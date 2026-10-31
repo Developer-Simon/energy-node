@@ -63,11 +63,11 @@ func defaultDetectMachine(ctx context.Context, c *transport.Client) (string, err
 	return strings.TrimSpace(stdout.String()), nil
 }
 
-func defaultVerifyStaged(ctx context.Context, c *transport.Client, remoteDir string, signed bool) error {
+func defaultVerifyStaged(ctx context.Context, c *transport.Client, remoteDir string, signed, allowABIMismatch bool) (bool, error) {
 	if signed {
-		return bundle.VerifyRemote(ctx, c, remoteDir, bundle.EmbeddedPublicKeyPEM())
+		return bundle.VerifyRemoteWith(ctx, c, remoteDir, bundle.EmbeddedPublicKeyPEM(), allowABIMismatch)
 	}
-	return bundle.VerifyRemoteDev(ctx, c, remoteDir)
+	return bundle.VerifyRemoteDevWith(ctx, c, remoteDir, allowABIMismatch)
 }
 
 // packageInfo baut den Teil von Description, den die Oberflaeche fuer die
@@ -242,8 +242,18 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
 	notef("package.log.verify", map[string]string{})
-	if err := verifyStaged(ctx, client, h.cfg.RemoteBundleDir, resolved.Signed); err != nil {
-		if usedDelta {
+	abiTolerated, err := verifyStaged(ctx, client, h.cfg.RemoteBundleDir, resolved.Signed, h.onlineDepsAllowed())
+	if err == nil {
+		h.mu.Lock()
+		h.abiTolerated = abiTolerated
+		h.mu.Unlock()
+	}
+	if err != nil {
+		// A wrong Python ABI is the node's property, not a damaged delta:
+		// retrying with a full transfer would fail the same way.
+		var bundleErr *bundle.Error
+		abiMismatch := errors.As(err, &bundleErr) && bundleErr.Code == bundle.FaultPythonABIMismatch
+		if usedDelta && !abiMismatch {
 			return &hostapi.Error{Code: "PACKAGE_VERIFY_FAILED_DELTA", Detail: err.Error(), Status: http.StatusConflict}
 		}
 		return err

@@ -23,7 +23,7 @@ source "${BUILD_DIR}/lib/manifest.sh"
 source "${BUILD_DIR}/lib/render.sh"
 
 ARCH=""
-PYTHON_MINOR="3.11"
+PYTHON_MINOR=""
 ABI=""
 BUNDLE_USER=""
 BUNDLE_BASE=""
@@ -34,18 +34,26 @@ TAILSCALE_TARBALL=""
 CADDY_BINARY=""
 SKIP_WHEELS=false
 DEV_VERSION=false
-TAILSCALE_VERSION="1.62.0"
+# Tailscale im Bundle: armv6 bleibt bei 1.62.0, der letzten Fassung, die dort
+# laeuft (siehe docs/install/index.md, Abschnitt 3). arm64 und amd64 bringen
+# eine aktuelle Fassung mit; die hier festgelegte ist die zum Zeitpunkt der
+# letzten Pflege neueste von https://pkgs.tailscale.com/stable/.
+TAILSCALE_VERSION_ARMV6="1.62.0"
+TAILSCALE_VERSION_64BIT="1.104.4"
+TAILSCALE_VERSION=""
 BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
 CORE_STEPS=(10 20 30 50 60 65)
-OPTIONAL_STEPS=(15 35 40 70)
+OPTIONAL_STEPS=(15 17 35 40 70)
 # 15 (Systempakete aktualisieren) ist optional mit Vorgabe an: abwaehlen
 # laesst nur die Pruefung uebrig (scripts/bootstrap/15-system-upgrade.sh).
 # Opt-in: optionale Schritte mit Vorgabe aus. 35 gibt den Port des Shelly-
 # Wake-Webhooks in der Firewall frei - das muss der Betreiber ausdruecklich
-# waehlen (scripts/bootstrap/35-ufw-shelly-webhook.sh).
-OPT_IN_STEPS=(35)
+# waehlen (scripts/bootstrap/35-ufw-shelly-webhook.sh). 17 legt das Journal in
+# den Arbeitsspeicher: spart Schreibzyklen auf der SD-Karte, kostet aber die
+# Logs nach einem Neustart (scripts/bootstrap/17-journal-volatile.sh).
+OPT_IN_STEPS=(17 35)
 # requires: ein optionaler Schritt, der nur zusammen mit einem anderen Sinn
 # ergibt. Ist der benoetigte Schritt abgewaehlt, gilt dieser als abgewaehlt
 # (plan.sh, Schritt-Skript, Oberflaeche). 35 oeffnet den Port eines
@@ -61,8 +69,9 @@ usage() {
   cat <<TXT
 
   --arch <armv6|arm64|amd64>   Pflicht.
-  --python-minor <3.11>        Python-Minor des Zielsystems.
-  --abi <cp311>                ABI-Tag; ohne Angabe aus --python-minor.
+  --python-minor <3.13>        Python-Minor des Zielsystems; Vorgabe je Architektur
+                               (armv6: 3.11, arm64 und amd64: 3.13).
+  --abi <cp313>                ABI-Tag; ohne Angabe aus --python-minor.
   --user <name>                Bundle fuer diesen Benutzer festlegen (ohne: allgemein).
   --base <pfad>                Zielbasis; ohne Angabe /home/<user> (nur mit --user).
   --out <pfad>                 Ausgabeverzeichnis (Vorgabe dist/).
@@ -97,7 +106,22 @@ done
 [[ -n "${ARCH}" ]] || { echo "--arch fehlt." >&2; exit 1; }
 # Prueft die Architektur, bevor irgendetwas gebaut wird.
 arch_platform_tags "${ARCH}" >/dev/null
+# Vorgabe je Architektur: das Legacy-Image fuer Pi 1 (armv6) ist Debian 12 mit
+# Python 3.11, die empfohlenen 64-Bit-Images (arm64, amd64) sind Debian 13 mit
+# Python 3.13. Ein Bundle traegt Wheels fuer genau eine Python-Version.
+if [[ -z "${PYTHON_MINOR}" ]]; then
+  case "${ARCH}" in
+    armv6) PYTHON_MINOR="3.11" ;;
+    *) PYTHON_MINOR="3.13" ;;
+  esac
+fi
 ABI="${ABI:-cp${PYTHON_MINOR//./}}"
+if [[ -z "${TAILSCALE_VERSION}" ]]; then
+  case "${ARCH}" in
+    armv6) TAILSCALE_VERSION="${TAILSCALE_VERSION_ARMV6}" ;;
+    *) TAILSCALE_VERSION="${TAILSCALE_VERSION_64BIT}" ;;
+  esac
+fi
 
 # Ohne --user/--base bleibt das Bundle allgemein: Units, Helfer, Sudoers und
 # die Konfigurationsvorlage behalten den Platzhalter "energynode", das

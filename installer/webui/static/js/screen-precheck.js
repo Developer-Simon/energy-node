@@ -5,7 +5,7 @@
 
   // Warnungen und Befunde, die eine eigene Zeile der Vorlage haben. Jeder
   // andere Code bekommt eine allgemeine Zeile.
-  var ROW_WARNINGS = ['DISK_LOW', 'NO_INTERNET', 'SUDO_PASSWORD_REQUIRED', 'TIMEZONE_UTC'];
+  var ROW_WARNINGS = ['DISK_LOW', 'NO_INTERNET', 'SUDO_PASSWORD_REQUIRED', 'TIMEZONE_UTC', 'PYTHON_ABI_ONLINE'];
   var ROW_BLOCKING = ['ARCH_MISMATCH', 'PYTHON_ABI_MISMATCH'];
 
   // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels baut
@@ -52,11 +52,16 @@
         report.arch_ok ? '' : t('fault.ARCH_MISMATCH.remediation')));
 
       var os = report.os_pretty_name || (report.os_id + ' ' + report.os_version_id).trim();
-      rows.push(row('os', t('precheck.os.title'), report.python_abi_ok ? 'ok' : 'bad',
-        report.python_abi_ok
-          ? t('precheck.os.detail', { os: os, python: report.python_version })
-          : t('precheck.os.abi_mismatch', { os: os, python: report.python_version, abi: manifest.python_abi }),
-        '', report.python_abi_ok ? '' : t('fault.PYTHON_ABI_MISMATCH.remediation')));
+      var abiOnline = !report.python_abi_ok && includes(warnings, 'PYTHON_ABI_ONLINE');
+      var osState = report.python_abi_ok ? 'ok' : (abiOnline ? 'warn' : 'bad');
+      var osDetail = t('precheck.os.detail', { os: os, python: report.python_version });
+      if (abiOnline) {
+        osDetail = t('precheck.os.abi_online', { os: os, python: report.python_version });
+      } else if (!report.python_abi_ok) {
+        osDetail = t('precheck.os.abi_mismatch', { os: os, python: report.python_version, abi: manifest.python_abi });
+      }
+      rows.push(row('os', t('precheck.os.title'), osState, osDetail,
+        '', osState === 'bad' ? t('fault.PYTHON_ABI_MISMATCH.remediation') : ''));
 
       var low = includes(warnings, 'DISK_LOW');
       var free = window.Format.gigabytes(report.disk_free_mb, lang);

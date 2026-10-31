@@ -190,3 +190,39 @@ test('init() posts {mode:prepare, force_full_transfer:true} when shell.shared.fo
   await screen.init();
   assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: true } });
 });
+
+test('PYTHON_ABI_MISMATCH bleibt im Bildschirm und bietet die Online-Installation an', async () => {
+  const { screen, shell } = mount();
+  await screen.init();
+  let shellFailCalled = false;
+  shell.fail = () => { shellFailCalled = true; };
+  screen.finish({ ok: false, code: 'PYTHON_ABI_MISMATCH', detail: 'abi=cp313 expected=cp311' });
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canAllowOnline, true);
+  assert.equal(screen.canForceFull, false);
+  assert.equal(shellFailCalled, false);
+  assert.ok(screen.lines.includes('Python-ABI auf dem Gerät: cp313. Das Paket wurde für cp311 gebaut.'));
+});
+
+test('allowOnline() startet das Vorbereiten erneut mit allow_online_deps', async () => {
+  const { screen, calls } = mount();
+  screen.state = 'failed';
+  screen.lines = ['alt'];
+  screen.lastErrorCode = 'PYTHON_ABI_MISMATCH';
+  await screen.allowOnline();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: false, allow_online_deps: true } });
+  assert.equal(screen.state, 'working');
+  assert.equal(screen.lastErrorCode, null);
+  assert.equal(screen.canAllowOnline, false);
+});
+
+test('die Prüfsummenfehler eines Pakets stehen übersetzt im Log', async () => {
+  const { screen } = mount();
+  await screen.init();
+  screen.finish({ ok: false, code: 'PACKAGE_VERIFY_FAILED_DELTA', detail: 'missing=wheels/a.whl\ntampered=bootstrap/10-apt.sh\nmore=2' });
+  assert.deepEqual(JSON.parse(JSON.stringify(screen.lines.slice(-1)[0].split('\n'))), [
+    'Datei fehlt im übertragenen Paket: wheels/a.whl',
+    'Datei stimmt nicht mit ihrer Prüfsumme überein: bootstrap/10-apt.sh',
+    '… und 2 weitere.',
+  ]);
+});

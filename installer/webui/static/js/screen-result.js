@@ -215,7 +215,7 @@
       },
 
       openUrl(url) {
-        window.open(url, '_blank', 'noopener');
+        this.shell.openExternal(url);
       },
 
       openDashboard() {

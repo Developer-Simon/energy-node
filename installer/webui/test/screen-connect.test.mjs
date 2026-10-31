@@ -405,3 +405,36 @@ test('nach dem Verbinden spiegelt bootstrap den neuen gemerkten Stand', async ()
   await off.screen.connect();
   assert.deepEqual(plain(off.shell.bootstrap.credentials), EMPTY_SAVED);
 });
+
+test('eine geaenderte Bootstrap-Antwort setzt die gewaehlte Paketart nicht zurueck', () => {
+  const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP } });
+  screen.selectPackage('github');
+  screen.host = 'meine-adresse.local';
+  screen.applyBootstrap();
+  assert.equal(screen.packageKind, 'github');
+  assert.equal(screen.host, 'meine-adresse.local');
+});
+
+test('das Verbinden merkt die gewaehlte Paketart ueber einen Bildschirmwechsel hinweg', async () => {
+  const { screen, shell, window } = mount({
+    shell: { bootstrap: PACKAGE_BOOTSTRAP },
+    responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR, 'PUT /api/package': {} },
+  });
+  fill(screen);
+  screen.selectPackage('github');
+  await screen.connect();
+
+  const again = window.Screens.screenConnect();
+  again.init();
+  assert.equal(again.packageKind, 'github');
+  assert.equal(shell.shared.packageChoice.kind, 'github');
+});
+
+test('eine gemerkte Wahl, die es nicht mehr gibt, faellt auf die Vorgabe zurueck', () => {
+  const { shell, window } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP } });
+  shell.shared.packageChoice = { kind: 'repo', repoPath: '/weg' };
+  shell.bootstrap = Object.assign({}, PACKAGE_BOOTSTRAP, { package: Object.assign({}, PACKAGE_BOOTSTRAP.package, { repo: { available: false, path: '' } }) });
+  const again = window.Screens.screenConnect();
+  again.init();
+  assert.equal(again.packageKind, 'bundled');
+});

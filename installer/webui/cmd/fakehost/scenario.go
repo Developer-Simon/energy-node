@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -27,6 +28,16 @@ type options struct {
 	english bool
 	// systemUpdates: Vorschau und Diagnose nennen ausstehende Systempakete.
 	systemUpdates bool
+	// abiMismatch: das Gerät hat eine andere Python-Version als das Paket.
+	// Das Vorbereiten scheitert mit PYTHON_ABI_MISMATCH, bis der Betreiber die
+	// Online-Installation freigibt.
+	abiMismatch bool
+	// deltaVerifyFails: die Teilübertragung besteht die Prüfung auf dem Gerät
+	// nicht. Erst die ganze Übertragung (force_full_transfer) gelingt.
+	deltaVerifyFails bool
+	// journalStep: das Manifest enthält den optionalen Schritt 17 (Journal nur
+	// im Arbeitsspeicher). Die Vorlage kennt ihn nicht, darum nur auf Wunsch.
+	journalStep bool
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -42,6 +53,8 @@ type stagedBackend struct {
 	// Knoten ein sudo-Passwort, bis EnableSudo gelingt. Eine Anmeldung mit
 	// Passwort nutzt dieses auch fuer sudo.
 	sudoLocked bool
+	// onlineDeps: die Online-Installation der Abhaengigkeiten ist freigegeben.
+	onlineDeps bool
 }
 
 // wrongSudoPassword lehnt die Attrappe ab; jedes andere nichtleere Passwort
@@ -55,7 +68,21 @@ func (b *stagedBackend) Precheck(ctx context.Context) (*hostapi.Precheck, error)
 	if locked {
 		return nil, &hostapi.Error{Code: "SUDO_REQUIRED", Status: http.StatusConflict}
 	}
-	return b.FakeBackend.Precheck(ctx)
+	view, err := b.FakeBackend.Precheck(ctx)
+	if err != nil || view == nil {
+		return view, err
+	}
+	b.mu.Lock()
+	online := b.onlineDeps
+	b.mu.Unlock()
+	if online {
+		// A copy: the shared fixture stays as it is.
+		changed := *view
+		changed.PythonABIOK = false
+		changed.Warnings = append(append([]string(nil), view.Warnings...), "PYTHON_ABI_ONLINE")
+		return &changed, nil
+	}
+	return view, nil
 }
 
 func (b *stagedBackend) EnableSudo(ctx context.Context, password string) error {
@@ -85,6 +112,22 @@ func (b *stagedBackend) Connect(ctx context.Context, req hostapi.ConnectRequest)
 func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
 	// Delegate prepare runs to FakeBackend which handles them correctly
 	if req.Mode == hostapi.ModePrepare {
+		if b.opts.abiMismatch {
+			b.mu.Lock()
+			b.onlineDeps = b.onlineDeps || req.AllowOnlineDeps
+			allowed := b.onlineDeps
+			b.mu.Unlock()
+			if !allowed {
+				sink.Marker("package", "begin", "")
+				sink.Log("package", b.say("Prüfe das Paket auf dem Gerät", "Checking the package on the device"))
+				return &hostapi.Error{Code: "PYTHON_ABI_MISMATCH", Detail: "abi=cp313 expected=cp311", Status: http.StatusConflict}
+			}
+		}
+		if b.opts.deltaVerifyFails && !req.ForceFullTransfer {
+			sink.Marker("package", "begin", "")
+			sink.Log("package", b.say("Prüfe das Paket auf dem Gerät", "Checking the package on the device"))
+			return &hostapi.Error{Code: "PACKAGE_VERIFY_FAILED_DELTA", Detail: "missing=wheels/aiohttp-3.14.5-cp313-linux_armv6l.whl\ntampered=bootstrap/10-apt.sh", Status: http.StatusConflict}
+		}
 		return b.FakeBackend.Run(ctx, req, sink)
 	}
 
@@ -232,6 +275,10 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "84", ServiceID: "trucki", Unit: "trucki-http.service", Optional: true, Default: true, Kind: "device"},
 		{ID: "85", ServiceID: "tuya", Unit: "tuya.service", Optional: true, Default: true, Kind: "device"},
 		{ID: "88", ServiceID: "automation", Unit: "automation.service", Optional: true, Default: true, Kind: "service"},
+	}
+	if opts.journalStep {
+		steps = append(steps, hostapi.StepView{ID: "17", Optional: true, Default: false})
+		sort.SliceStable(steps, func(i, j int) bool { return steps[i].ID < steps[j].ID })
 	}
 	if update {
 		steps = append(steps, hostapi.StepView{ID: "89", ServiceID: "modbus", Unit: "modbus.service", Optional: true, Default: false, Kind: "service"})

@@ -1,12 +1,28 @@
 # Changelog
 
-## v0.2.4 (2026-10-31)
+## v0.2.5 (2026-10-31)
 
 ### Features
 
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
+- **installer:** let the node fetch Python dependencies online when the operator allows it (f8be687)
+- **installer:** translate package check messages and flag the decisions a run waits for (1a3aa24)
+- **installer:** add an opt-in step that keeps the system journal in RAM only (fa45acc)
+- **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189)
 - **installer:** set up passwordless sudo and register the Linux window icon (3ebc64c)
 - **installer:** ask for the sudo password in a dialog on the precheck screen (1519c22)
+
+### Fixes
+
+- **installer:** word the Python ABI mismatch detail in the window's language (2ba8848)
+- **installer:** let a tolerated Python ABI pass even when the package predates the consent (73fbcb3)
+- **installer:** open links in the system browser from the installer window (3aae129)
+- **installer:** install the Python dependencies next to system packages (4aa1498)
+- **installer:** save logs and reports through the host (bb903fc)
+
+### Refactors
+
+- **installer:** install the Python dependencies online from the installer itself (a626640)
 
 ## v0.2.3 (2026-10-14)
 

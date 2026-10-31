@@ -45,6 +45,13 @@
         </span>
       </div>
     </template>
+    <template x-if="!error && notice">
+      <div class="alert alert--progress" role="status">
+        <span>
+          <div class="alert-t" x-text="noticeText"></div>
+        </span>
+      </div>
+    </template>
     <template x-if="!error && progress">
       <div class="alert alert--progress" role="status">
         <span class="spinner" aria-hidden="true"></span>

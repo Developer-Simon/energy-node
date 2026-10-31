@@ -216,3 +216,12 @@ test('ohne Passwort wird nichts gesendet, Abbrechen zeigt den Fehler im Banner',
   assert.equal(screen.sudoError, null);
   assert.equal(shell.error.code, 'SUDO_REQUIRED');
 });
+
+test('eine freigegebene Online-Installation macht die Zeile Betriebssystem gelb statt rot', async () => {
+  const { screen } = await mount(withReport({ python_abi_ok: false, python_version: '3.13.5', warnings: ['PYTHON_ABI_ONLINE'] }));
+  const os = screen.rows.find((row) => row.id === 'os');
+  assert.equal(os.state, 'warn');
+  assert.match(os.detail, /Abhängigkeiten werden aus dem Internet geladen/);
+  assert.equal(screen.rows.some((row) => row.id === 'warning-PYTHON_ABI_ONLINE'), false);
+  assert.equal(screen.blocking.length, 0);
+});

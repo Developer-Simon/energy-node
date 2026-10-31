@@ -50,6 +50,9 @@ const (
 	CodeConfigWriteFailed       Code = "CONFIG_WRITE_FAILED"
 	CodeDashboardBinaryMissing  Code = "DASHBOARD_BINARY_MISSING"
 	CodeDashboardStartFailed    Code = "DASHBOARD_START_FAILED"
+	CodeJournaldRestartFailed   Code = "JOURNALD_RESTART_FAILED"
+	CodeJournalConfForeign      Code = "JOURNAL_CONF_FOREIGN"
+	CodeJournalFailed           Code = "JOURNAL_FAILED"
 	CodeManifestsMissing        Code = "MANIFESTS_MISSING"
 	CodeManifestMissing         Code = "MANIFEST_MISSING"
 	CodeManifestParseFailed     Code = "MANIFEST_PARSE_FAILED"
@@ -90,6 +93,9 @@ var allCodes = []Code{
 	CodeConfigWriteFailed,
 	CodeDashboardBinaryMissing,
 	CodeDashboardStartFailed,
+	CodeJournaldRestartFailed,
+	CodeJournalConfForeign,
+	CodeJournalFailed,
 	CodeManifestsMissing,
 	CodeManifestMissing,
 	CodeManifestParseFailed,

@@ -1,11 +1,23 @@
 # Changelog
 
-## v0.2.4 (2026-10-27)
+## v0.2.5 (2026-10-31)
 
 ### Features
 
 - **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
+- **installer:** let the node fetch Python dependencies online when the operator allows it (f8be687)
+- **installer:** add an opt-in step that keeps the system journal in RAM only (fa45acc)
+- **bundle:** ship a current Tailscale in the arm64 and amd64 bundles (eb7c3e9)
+- **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189)
 - **dashboard:** open the companion port 8081 (a44f4b2)
+
+### Fixes
+
+- **installer:** install the Python dependencies next to system packages (4aa1498)
+
+### Refactors
+
+- **installer:** install the Python dependencies online from the installer itself (a626640)
 
 ## v0.2.3 (2026-10-20)
 

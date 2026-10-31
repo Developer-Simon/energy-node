@@ -40,7 +40,7 @@ for step_id, want in expect_keyed.items():
     if got != want:
         sys.exit("step %s: dashboard_key = %r, erwartet %r" % (step_id, got, want))
 
-expect_none = ["10", "15", "20", "30", "35", "50", "60", "70"]
+expect_none = ["10", "15", "17", "20", "30", "35", "50", "60", "70"]
 for step_id in expect_none:
     got = by_id.get(step_id, {}).get("dashboard_key")
     if got:
@@ -56,8 +56,12 @@ if step35.get("requires") != "83" or by_id.get("83", {}).get("service_id") != "s
     sys.exit("step 35: erwartet requires 83 (shelly), gefunden %r" % step35.get("requires"))
 if [s["id"] for s in manifest["steps"] if s.get("requires")] != ["35"]:
     sys.exit("requires steht an anderen Schritten als 35")
+# 17 legt das Journal in den Arbeitsspeicher: ebenfalls Opt-in, ohne Abhaengigkeit.
+step17 = by_id.get("17")
+if not step17 or step17.get("optional") is not True or step17.get("default") is not False or step17.get("requires"):
+    sys.exit("step 17: erwartet optional mit default false und ohne requires, gefunden %r" % step17)
 for step in manifest["steps"]:
-    if step["optional"] and step["id"] != "35" and step.get("default") is not True:
+    if step["optional"] and step["id"] not in ("17", "35") and step.get("default") is not True:
         sys.exit("step %s: optionaler Schritt ohne default true" % step["id"])
 # 15 aktualisiert die Systempakete: optional, Vorgabe an, direkt nach 10.
 step15 = by_id.get("15")
@@ -109,13 +113,13 @@ print("ok changelog.json")
 PY
 
 # Fingerabdruecke: jeder Schritt hat einen, nur die, die bewusst je
-# Bundle-Version laufen, nicht (15 Systemupdates, 35 haengt am Port aus
-# config.json, 65 schreibt immer).
+# Bundle-Version laufen, nicht (15 Systemupdates, 17 Journal, das auch eine
+# Abwahl zuruecknimmt, 35 haengt am Port aus config.json, 65 schreibt immer).
 python3 - "$extract" <<'PY'
 import json, pathlib, sys
 
 manifest = json.loads((pathlib.Path(sys.argv[1]) / "manifest.json").read_text(encoding="utf-8"))
-per_version = {"15", "35", "65"}
+per_version = {"15", "17", "35", "65"}
 for step in manifest["steps"]:
     has = bool(step.get("fingerprint"))
     if has == (step["id"] in per_version):

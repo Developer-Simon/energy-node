@@ -83,7 +83,15 @@ Pi OS user has by default. On Debian, add it yourself with a file in
 `/etc/sudoers.d/`.
 
 The reference node runs Python 3.11.2, which is enough for every service in
-this repository (`requires-python >= 3.9`).
+this repository (`requires-python >= 3.9`). An installation package carries
+its Python dependencies as wheels for one Python version: 3.11 (Debian 12
+"Bookworm") for `armv6`, 3.13 (Debian 13 "Trixie") for `arm64` and `amd64`.
+Those match the images in the table above. On an image with a different
+Python version, for example a 64-bit Bookworm, the installer reports the
+mismatch when it prepares the package and offers to let the node load the
+dependencies from the internet instead. You confirm that once, the node then
+needs internet access, and those files are not covered by the package
+signature. Everything else in the package stays verified.
 
 Flash the card with the Raspberry Pi Imager and set hostname, user, SSH and
 WiFi there. On a headless remote site you do not want to find out afterwards
@@ -107,6 +115,14 @@ packages and never reboots. When a kernel or firmware update needs a reboot,
 the result screen and the diagnose say so. Reboot the node yourself with
 `sudo reboot`.
 
+On a small SD card you can keep the system journal in RAM only. Tick **Keep the
+journal in RAM only** on the installer's configuration screen (step 17, off by
+default). The logs then no longer go to the card, which saves write cycles and
+some space, and the installer removes the journal that is already on the card.
+The price is that every log, including the service logs in the dashboard, is
+gone after a reboot. The RAM use is capped at 50 MB. Untick the step later and
+the installer restores the system default on its next run.
+
 ## 3. Packages you must install outdated first
 
 Two ecosystems have dropped or restricted ARMv6 support. In both cases the
@@ -116,8 +132,13 @@ the software update itself in place.
 
 | Software | Why the normal path fails | What to do instead |
 |---|---|---|
-| Tailscale | The official install script serves no ARMv6 build past 1.62.0 | Unpack the 1.62.0 tarball by hand, then `tailscale update` |
+| Tailscale (ARMv6 only) | The official install script serves no ARMv6 build past 1.62.0 | Unpack the 1.62.0 tarball by hand, then `tailscale update` |
 | Python packages | Recent Raspberry Pi OS marks the system Python as externally managed (PEP 668) | Install into the system interpreter with `--break-system-packages` |
+
+The Tailscale limit applies to ARMv6 only. The installation packages for `arm64`
+and `amd64` carry a current Tailscale version, so the installer needs no
+workaround there. The `armv6` package carries 1.62.0 and updates it in place
+when the node is signed in.
 
 ### 3.1 Tailscale — install 1.62.0, then update
 

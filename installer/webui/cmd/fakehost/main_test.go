@@ -186,3 +186,57 @@ func TestAPasswordLoginNeedsNoSudoDialog(t *testing.T) {
 		t.Fatalf("precheck: %v", err)
 	}
 }
+
+func TestAnABIMismatchBlocksPrepareUntilOnlineDepsAreAllowed(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage", options{abiMismatch: true})
+	err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare}, &countingSink{})
+	typed, _ := err.(*hostapi.Error)
+	if typed == nil || typed.Code != "PYTHON_ABI_MISMATCH" {
+		t.Fatalf("prepare = %v, want PYTHON_ABI_MISMATCH", err)
+	}
+	if err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare, AllowOnlineDeps: true}, &countingSink{}); err != nil {
+		t.Fatalf("prepare with consent: %v", err)
+	}
+	view, err := backend.Precheck(ctx)
+	if err != nil {
+		t.Fatalf("precheck: %v", err)
+	}
+	if view.PythonABIOK || len(view.Blocking) != 0 || view.Warnings[len(view.Warnings)-1] != "PYTHON_ABI_ONLINE" {
+		t.Errorf("precheck after consent = ok:%v blocking:%v warnings:%v, want a PYTHON_ABI_ONLINE warning", view.PythonABIOK, view.Blocking, view.Warnings)
+	}
+}
+
+func TestAFailingDeltaVerifyNeedsTheFullTransfer(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage", options{deltaVerifyFails: true})
+	err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare}, &countingSink{})
+	typed, _ := err.(*hostapi.Error)
+	if typed == nil || typed.Code != "PACKAGE_VERIFY_FAILED_DELTA" {
+		t.Fatalf("prepare = %v, want PACKAGE_VERIFY_FAILED_DELTA", err)
+	}
+	if err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare, ForceFullTransfer: true}, &countingSink{}); err != nil {
+		t.Fatalf("full transfer: %v", err)
+	}
+}
+
+func TestTheJournalStepAppearsOnlyOnRequest(t *testing.T) {
+	has := func(b *stagedBackend) bool {
+		view, err := b.Manifest(context.Background())
+		if err != nil {
+			t.Fatalf("manifest: %v", err)
+		}
+		for _, step := range view.Steps {
+			if step.ID == "17" {
+				return step.Optional && !step.Default
+			}
+		}
+		return false
+	}
+	if has(newScenario("vorlage", options{})) {
+		t.Errorf("step 17 must not be part of the draft scenario")
+	}
+	if !has(newScenario("vorlage", options{journalStep: true})) {
+		t.Errorf("--journal-step must add step 17 as optional and off by default")
+	}
+}

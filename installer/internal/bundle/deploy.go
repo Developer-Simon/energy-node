@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
@@ -94,6 +95,81 @@ func DeployProgress(ctx context.Context, client *transport.Client, localArchiveP
 	return nil
 }
 
+// mismatchLine matches the German line verify_bundle.sh prints for a wrong
+// architecture or Python ABI ("Python-ABI cp313, Bundle erwartet cp311").
+var mismatchLine = regexp.MustCompile(`^(Architektur|Python-ABI) (\S+), Bundle erwartet (.+)$`)
+
+// hashLine matches the German lines verify_bundle.sh prints for a damaged
+// bundle: "fehlt: <file>" and "verfaelscht: <file>".
+var hashLine = regexp.MustCompile(`^(fehlt|verfaelscht): (.+)$`)
+
+// maxVerifyLines caps the problems one detail lists, as verifyBundleErrorMessage does.
+const maxVerifyLines = 10
+
+// verifyFailureMessage is the detail of a verify_bundle.sh rejection. The
+// script talks German, but the detail reaches an interface in the operator's
+// language. For a wrong architecture, Python ABI or a damaged bundle it
+// therefore keeps only the facts in a language-neutral form ("abi=cp313
+// expected=cp311", "missing=<file>", "tampered=<file>", "files=empty"); the
+// interface words them. Every other rejection keeps the script's own lines.
+func verifyFailureMessage(code FaultCode, stderr string) string {
+	if code == FaultHashMismatch {
+		if msg := hashFailureMessage(stderr); msg != "" {
+			return msg
+		}
+	}
+	if code == FaultArchMismatch || code == FaultPythonABIMismatch {
+		for _, line := range strings.Split(stderr, "\n") {
+			m := mismatchLine.FindStringSubmatch(strings.TrimSpace(line))
+			if m == nil {
+				continue
+			}
+			key := "abi"
+			if m[1] == "Architektur" {
+				key = "arch"
+			}
+			return key + "=" + m[2] + " expected=" + strings.TrimSpace(m[3])
+		}
+	}
+	return verifyBundleErrorMessage(stderr)
+}
+
+// hashFailureMessage turns the lines of a hash check into one fact per line.
+// It returns "" when nothing in stderr is recognised.
+func hashFailureMessage(stderr string) string {
+	var facts []string
+	recognised := false
+	for _, line := range strings.Split(stderr, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "":
+			continue
+		case strings.Contains(line, "'files' fehlt oder ist leer"):
+			facts = append(facts, "files=empty")
+			recognised = true
+		default:
+			if m := hashLine.FindStringSubmatch(line); m != nil {
+				key := "missing"
+				if m[1] == "verfaelscht" {
+					key = "tampered"
+				}
+				facts = append(facts, key+"="+m[2])
+				recognised = true
+			} else {
+				facts = append(facts, line)
+			}
+		}
+	}
+	if !recognised {
+		return ""
+	}
+	if len(facts) > maxVerifyLines {
+		extra := len(facts) - maxVerifyLines
+		facts = append(facts[:maxVerifyLines], fmt.Sprintf("more=%d", extra))
+	}
+	return strings.Join(facts, "\n")
+}
+
 // verifyBundleErrorMessage constructs the error message for a verify_bundle.sh
 // FEHLER result, including stderr output when available.
 func verifyBundleErrorMessage(stderr string) string {
@@ -131,9 +207,17 @@ func verifyBundleErrorMessage(stderr string) string {
 // key is what actually defends against tampering; callers must run it
 // before Deploy.
 func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir string, pubKeyPEM []byte) error {
+	_, err := VerifyRemoteWith(ctx, client, remoteDir, pubKeyPEM, false)
+	return err
+}
+
+// VerifyRemoteWith is VerifyRemote with the operator's choice whether a
+// Python ABI that does not match the wheels is tolerated (online installation).
+// abiTolerated reports that the node's ABI did differ and was let through.
+func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir string, pubKeyPEM []byte, allowABIMismatch bool) (abiTolerated bool, err error) {
 	remotePubKey := fmt.Sprintf("/tmp/energy-node-installer-pubkey-%s-%s.pem", stagingTag(remoteDir), randomSuffix())
 	if err := client.UploadBytes(pubKeyPEM, remotePubKey, 0o600); err != nil {
-		return fmt.Errorf("uploading public key: %w", err)
+		return false, fmt.Errorf("uploading public key: %w", err)
 	}
 	defer client.RemoveRemote(remotePubKey)
 
@@ -145,15 +229,7 @@ func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir strin
 	)
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
-
-	result := LastLine(stdout.String())
-	if result == "OK" && runErr == nil {
-		return nil
-	}
-	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: verifyBundleErrorMessage(stderr.String())}
-	}
-	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
+	return verifyOutcome(runErr, stdout.String(), stderr.String(), allowABIMismatch)
 }
 
 // VerifyRemoteDev is VerifyRemote's --dev-unsigned counterpart: it runs
@@ -164,6 +240,12 @@ func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir strin
 // with --dev-unsigned never has one. It never uploads a public key, unlike
 // VerifyRemote, because none is needed.
 func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir string) error {
+	_, err := VerifyRemoteDevWith(ctx, client, remoteDir, false)
+	return err
+}
+
+// VerifyRemoteDevWith is VerifyRemoteDev with the same ABI choice as VerifyRemoteWith.
+func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDir string, allowABIMismatch bool) (abiTolerated bool, err error) {
 	command := fmt.Sprintf(
 		"bash %s --bundle %s --no-signature --target",
 		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
@@ -171,15 +253,28 @@ func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir st
 	)
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
+	return verifyOutcome(runErr, stdout.String(), stderr.String(), allowABIMismatch)
+}
 
-	result := LastLine(stdout.String())
+// verifyOutcome reads the result of a verify_bundle.sh run. With the operator's
+// consent a wrong Python ABI is let through. The script reports it only after
+// the signature, the hashes and the architecture passed, so this cannot hide
+// any other problem. The installer decides it and not the script, because the
+// script comes from the package that was just transferred and may be older
+// than the consent. The dependencies are then installed by the installer
+// itself (steps.RunOptions.OnlineDeps).
+func verifyOutcome(runErr error, stdout, stderr string, allowABIMismatch bool) (abiTolerated bool, err error) {
+	result := LastLine(stdout)
 	if result == "OK" && runErr == nil {
-		return nil
+		return false, nil
 	}
 	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: verifyBundleErrorMessage(stderr.String())}
+		if FaultCode(code) == FaultPythonABIMismatch && allowABIMismatch {
+			return true, nil
+		}
+		return false, &Error{Code: FaultCode(code), Message: verifyFailureMessage(FaultCode(code), stderr)}
 	}
-	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
+	return false, fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout, stderr)
 }
 
 // LastLine returns the last non-empty line of s, trimming a trailing
