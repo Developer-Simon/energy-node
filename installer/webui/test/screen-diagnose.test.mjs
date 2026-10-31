@@ -5,9 +5,19 @@ import { MANIFEST, DIAGNOSE } from './helpers/fixtures.mjs';
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
+// stubLive ersetzt LiveLog.open: der Test loest die Ereignisse von Hand aus.
+function stubLive(window) {
+  const live = { opens: [], closes: 0 };
+  window.LiveLog.open = (options) => {
+    live.opens.push(options);
+    return { close: () => { live.closes += 1; } };
+  };
+  return live;
+}
+
 async function mount(options = {}) {
   const mounted = mountScreen('screen-diagnose.js', 'screenDiagnose', Object.assign({
-    scripts: ['services.js', 'download.js'],
+    scripts: ['services.js', 'download.js', 'live-log.js'],
     catalog: realCatalog('de'),
     responses: Object.assign({
       'GET /api/diagnose': DIAGNOSE,
@@ -22,8 +32,41 @@ async function mount(options = {}) {
   }));
   mounted.window.setInterval = () => 1;
   mounted.window.clearInterval = () => {};
+  mounted.live = stubLive(mounted.window);
   await mounted.screen.init();
   return mounted;
+}
+
+const LIVE_UNITS = { unit_logs: true };
+const DASH = 'energy-node-dashboard.service';
+const UPD = 'energy-node-updater.service';
+const AT = 1761900000000;
+const line = (unit, msg, extra = {}) => Object.assign({ unit, at: AT, prio: 6, msg }, extra);
+const feed = (mounted) => mounted.live.opens[0];
+
+async function mountLive(options = {}) {
+  return mount(Object.assign({}, options, {
+    shell: Object.assign({ bootstrap: LIVE_UNITS }, options.shell),
+  }));
+}
+
+// attachLog legt das Log-Element an, wie es der x-ref in der Vorlage liefert.
+// Die Messwerte sind fest: 1000 px Inhalt, 200 px sichtbar.
+function attachLog(mounted) {
+  const el = mounted.window.document.createElement('div');
+  Object.defineProperties(el, {
+    scrollHeight: { value: 1000, writable: true, configurable: true },
+    clientHeight: { value: 200, writable: true, configurable: true },
+    scrollTop: { value: 0, writable: true, configurable: true },
+  });
+  mounted.screen.$refs = { liveLog: el };
+  return el;
+}
+
+// Der Oeffnen-Weg der Shell laeuft in der App ueber /api/open-url, wenn der
+// Wirt das kann. Hier dieselbe Weiterleitung, ohne die ganze app.js zu laden.
+function useHostOpen(mounted) {
+  mounted.shell.openExternal = (url) => mounted.window.Api.post('/api/open-url', { url });
 }
 
 const withCheck = (name, changes) => Object.assign({}, DIAGNOSE, {
@@ -356,4 +399,141 @@ test('der Bericht nennt die ausstehenden Systempakete', async () => {
   const text = saved[0].content;
   assert.ok(text.includes('INFO  system-updates  1  2026-10-04T06:12:00+00:00\n'), text);
   assert.ok(text.includes('INFO  system-update libssl3  3.0.11 -> 3.0.13\n'), text);
+});
+
+// Live-Log-Karte: nur mit bootstrap.unit_logs. Der Stream kommt von LiveLog.open,
+// der Test schickt die Ereignisse selbst.
+test('live card is absent without unit_logs', async () => {
+  const { screen, live } = await mount();
+  assert.equal(screen.liveEnabled, false);
+  assert.equal(live.opens.length, 0);
+});
+
+test('lines of the selected unit are appended as text', async () => {
+  const mounted = await mountLive();
+  const el = attachLog(mounted);
+  feed(mounted).onHello({ units: [DASH, UPD], hostname: 'energy-node' });
+  assert.equal(mounted.screen.live.empty, true);
+  feed(mounted).onLine(line(DASH, '<b>x</b>', { prio: 3, ident: 'systemd', pid: '1' }));
+  assert.equal(mounted.screen.live.empty, false);
+  const nodes = el.querySelectorAll('.ll-ln');
+  assert.equal(nodes.length, 1);
+  assert.ok(nodes[0].textContent.includes('<b>x</b>'), nodes[0].textContent);
+  assert.ok(nodes[0].classList.contains('err'));
+  assert.ok(nodes[0].classList.contains('sys'));
+  assert.ok(!el.innerHTML.includes('<b>'), el.innerHTML);
+});
+
+test('switching unit rebuilds from the buffer', async () => {
+  const mounted = await mountLive();
+  const el = attachLog(mounted);
+  const f = feed(mounted);
+  f.onLine(line(DASH, 'd1'));
+  f.onLine(line(DASH, 'd2'));
+  f.onLine(line(DASH, 'd3'));
+  f.onLine(line(UPD, 'u1'));
+  f.onLine(line(UPD, 'u2'));
+  assert.equal(el.querySelectorAll('.ll-ln').length, 3);
+  mounted.screen.liveSelect(UPD);
+  const nodes = [...el.querySelectorAll('.ll-ln')];
+  assert.deepEqual(nodes.map((node) => node.textContent.split(' ').at(-1)), ['u1', 'u2']);
+  assert.equal(mounted.screen.live.unit, UPD);
+  assert.equal(mounted.screen.live.follow, true);
+});
+
+test('scrolling up pauses and the jump pill resumes', async () => {
+  const mounted = await mountLive();
+  const { screen } = mounted;
+  const el = attachLog(mounted);
+  el.scrollTop = 100;
+  screen.liveScrolled();
+  assert.equal(screen.live.follow, false);
+  el.scrollTop = 800;
+  screen.liveScrolled();
+  assert.equal(screen.live.follow, true);
+  el.scrollTop = 100;
+  screen.liveScrolled();
+  screen.liveJump();
+  assert.equal(screen.live.follow, true);
+  assert.equal(el.scrollTop, 1000);
+});
+
+test('status text for a crash loop', async () => {
+  const mounted = await mountLive();
+  feed(mounted).onStatus({ unit: DASH, load: 'loaded', active: 'activating', sub: 'auto-restart', result: 'exit-code', exit_status: 1, restarts: 9, pid: 0, since: 0 });
+  assert.equal(mounted.screen.liveStatusText, 'activating (auto-restart) · Exit-Code 1 · Neustarts 9');
+});
+
+test('status text for a missing unit', async () => {
+  const mounted = await mountLive();
+  feed(mounted).onStatus({ unit: DASH, load: 'not-found', active: 'inactive', sub: 'dead', result: 'success', exit_status: 0, restarts: 0, pid: 0, since: 0 });
+  assert.equal(mounted.screen.liveStatusText, 'nicht installiert');
+});
+
+test('an end event shows the error text and the disconnected state', async () => {
+  const mounted = await mountLive();
+  feed(mounted).onEnd({ code: 'UNIT_LOGS_FAILED', detail: 'Failed to get journal' });
+  feed(mounted).onState('ended');
+  assert.equal(mounted.screen.live.state, 'ended');
+  assert.equal(mounted.screen.live.error, 'Die Dienst-Logs lassen sich nicht lesen. Failed to get journal');
+});
+
+test('save appends scrubbed log sections', async () => {
+  const mounted = await mountLive({ shell: { shared: { target: { host: '192.168.1.20', user: 'pi' } } } });
+  const saved = [];
+  mounted.window.Download.text = (name, content) => saved.push({ name, content });
+  feed(mounted).onHello({ units: [DASH, UPD], hostname: 'energy-node' });
+  feed(mounted).onLine(line(DASH, 'connect 192.168.1.20 refused'));
+  mounted.screen.live.stage = 100;
+  mounted.screen.save();
+  const text = saved[0].content;
+  assert.ok(text.includes('== log energy-node-dashboard.service'), text);
+  assert.ok(text.includes('<ip-1>'), text);
+  assert.ok(!text.includes('192.168.1.20'), text);
+});
+
+test('stage 0 saves the plain report', async () => {
+  const mounted = await mountLive();
+  const saved = [];
+  mounted.window.Download.text = (name, content) => saved.push({ name, content });
+  feed(mounted).onLine(line(DASH, 'hello'));
+  mounted.screen.live.stage = 0;
+  mounted.screen.save();
+  const text = saved[0].content;
+  assert.ok(!text.includes('== log'), text);
+  assert.ok(text.includes('FAIL  unit shelly-rpc.service  failed\n'), text);
+});
+
+test('copy for issue writes markdown and opens the issue page', async () => {
+  const mounted = await mountLive({ shell: { bootstrap: { unit_logs: true, can_open_url: true } }, responses: { 'POST /api/open-url': {} } });
+  const { screen, window, calls } = mounted;
+  const written = [];
+  Object.defineProperty(window.navigator, 'clipboard', { value: { writeText: async (text) => { written.push(text); } }, configurable: true });
+  useHostOpen(mounted);
+  feed(mounted).onLine(line(DASH, 'hello'));
+  screen.live.stage = 100;
+  await screen.copyForIssue();
+  assert.equal(written.length, 1);
+  assert.ok(written[0].startsWith('## energy-node diagnose'), written[0]);
+  assert.ok(written[0].includes('<details><summary>energy-node-dashboard.service'), written[0]);
+  assert.equal(screen.live.copyState, 'copied');
+  assert.deepEqual(calls.at(-1), { key: 'POST /api/open-url', body: { url: window.LiveLog.ISSUE_URL } });
+  screen.destroy();
+});
+
+test('copy failure shows the hint and opens nothing', async () => {
+  const mounted = await mountLive({ shell: { bootstrap: { unit_logs: true, can_open_url: true } }, responses: { 'POST /api/open-url': {} } });
+  const { screen, window, calls } = mounted;
+  Object.defineProperty(window.navigator, 'clipboard', { value: { writeText: async () => { throw new Error('denied'); } }, configurable: true });
+  window.document.execCommand = () => false;
+  useHostOpen(mounted);
+  await screen.copyForIssue();
+  assert.equal(screen.live.copyState, 'failed');
+  assert.equal(calls.some((call) => call.key === 'POST /api/open-url'), false);
+});
+
+test('destroy closes the stream', async () => {
+  const mounted = await mountLive();
+  mounted.screen.destroy();
+  assert.equal(mounted.live.closes, 1);
 });
