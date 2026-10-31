@@ -1538,7 +1538,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
-			if !requireDeviceMutation(w, r, authManager, false, true) {
+			if !requireDeviceMutation(w, r, authManager, true, true) {
 				return
 			}
 			if _, ok := reg.Get(id); !ok {
@@ -1564,7 +1564,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			if !requireRoleIfUser(w, r, auth.RoleViewDevices, "view_forbidden", "error.view_forbidden", "Für diese Seite fehlt die Berechtigung zum Ansehen.") {
 				return
 			}
-			if !requireDeviceMutation(w, r, authManager, false, true) {
+			if !requireDeviceMutation(w, r, authManager, true, true) {
 				return
 			}
 			if filter == nil || !filter.IsIgnored(id) {
@@ -1903,7 +1903,7 @@ func requireDeviceMutation(w http.ResponseWriter, r *http.Request, manager *auth
 		return false
 	}
 	if roleRequired && !auth.HasRole(user, auth.RoleDeleteDeviceDiscovery) {
-		writeError(w, http.StatusForbidden, "device_discovery_forbidden", "Für das Löschen der Discovery fehlt die Berechtigung")
+		writeError(w, http.StatusForbidden, "device_discovery_forbidden", "Für diese Geräteaktion fehlt die Berechtigung")
 		return false
 	}
 	if csrfRequired {

@@ -242,7 +242,7 @@
     },
 
     async ignoreDevice(deviceId) {
-      if (!deviceId) return;
+      if (!deviceId || !this.canDeleteDiscovery) return;
       const confirmed = await this.$store.modal.confirm({
         title: t('devices.ignore.title'),
         confirmLabel: t('devices.ignore.confirm'),

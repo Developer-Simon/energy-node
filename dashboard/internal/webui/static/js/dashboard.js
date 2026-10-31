@@ -744,7 +744,7 @@
       },
 
       async unignoreDevice(deviceId) {
-        if (!deviceId) return;
+        if (!deviceId || !this.canDeleteDiscovery) return;
         try {
           await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}/unignore`, this.mutationOptions());
           await this.refreshAfterMutation();
