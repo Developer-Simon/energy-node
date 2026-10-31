@@ -1,5 +1,25 @@
 {{define "screen-precheck"}}<template x-if="screen === 'precheck'">
 <div class="screen" x-data="screenPrecheck">
+  <template x-if="sudoError">
+    <div class="sudo-overlay" @keydown.escape="cancelSudo()">
+      <div class="sudo-dialog" role="dialog" aria-modal="true" aria-labelledby="sudo-title"
+           x-init="$nextTick(() => $el.querySelector('input').focus())">
+        <h2 class="card-h" id="sudo-title" x-text="t('sudo.dialog.title')"></h2>
+        <p class="card-p" x-text="t('sudo.dialog.text')"></p>
+        <div class="field">
+          <span class="lbl" id="sudo-password" x-text="t('field.sudo_password')"></span>
+          <input type="password" x-model="sudoPassword" aria-labelledby="sudo-password" autocomplete="off" @keydown.enter="submitSudo()">
+        </div>
+        <template x-if="sudoError.code === 'SUDO_PASSWORD_WRONG'">
+          <div class="sudo-error" role="alert" x-text="t('error.SUDO_PASSWORD_WRONG')"></div>
+        </template>
+        <div class="sudo-actions">
+          <button type="button" class="ghost" @click="cancelSudo()" x-text="t('action.cancel')"></button>
+          <button type="button" class="primary" :disabled="sudoBusy || sudoPassword === ''" @click="submitSudo()" x-text="t('sudo.dialog.submit')"></button>
+        </div>
+      </div>
+    </div>
+  </template>
   <div class="body">
     {{template "stepper"}}
 

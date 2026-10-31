@@ -177,3 +177,42 @@ test('ein gescheiterter Aufruf landet im Banner', async () => {
   assert.equal(mounted.screen.busy, false);
   assert.equal(mounted.screen.canProceed, false);
 });
+
+test('SUDO_REQUIRED oeffnet den Dialog statt eines Fehlerbanners', async () => {
+  const { screen, shell } = await mount(REPORT, { errors: { 'GET /api/precheck': { status: 409, code: 'SUDO_REQUIRED' } } });
+  assert.equal(screen.sudoError.code, 'SUDO_REQUIRED');
+  assert.equal(shell.error, null);
+});
+
+test('das sudo-Passwort geht an /api/sudo, danach laeuft die Vorpruefung erneut', async () => {
+  const { screen, calls, state } = await mount(REPORT, { errors: { 'GET /api/precheck': { status: 409, code: 'SUDO_REQUIRED' } } });
+  delete state.errors['GET /api/precheck'];
+  state.responses['POST /api/sudo'] = {};
+  screen.sudoPassword = 'raspberry';
+  await screen.submitSudo();
+
+  assert.deepEqual(plain(calls.filter((call) => call.key === 'POST /api/sudo')), [{ key: 'POST /api/sudo', body: { password: 'raspberry' } }]);
+  assert.equal(screen.sudoError, null);
+  assert.equal(screen.sudoPassword, '', 'das Passwort bleibt nicht in der Komponente');
+  assert.equal(screen.report.arch, 'armv6l');
+});
+
+test('ein falsches sudo-Passwort laesst den Dialog offen und leert das Feld', async () => {
+  const { screen, shell, state } = await mount(REPORT, { errors: { 'GET /api/precheck': { status: 409, code: 'SUDO_REQUIRED' } } });
+  state.errors['POST /api/sudo'] = { status: 401, code: 'SUDO_PASSWORD_WRONG' };
+  screen.sudoPassword = 'nope';
+  await screen.submitSudo();
+
+  assert.equal(screen.sudoError.code, 'SUDO_PASSWORD_WRONG');
+  assert.equal(screen.sudoPassword, '');
+  assert.equal(shell.error, null);
+});
+
+test('ohne Passwort wird nichts gesendet, Abbrechen zeigt den Fehler im Banner', async () => {
+  const { screen, shell, calls } = await mount(REPORT, { errors: { 'GET /api/precheck': { status: 409, code: 'SUDO_REQUIRED' } } });
+  await screen.submitSudo();
+  assert.equal(calls.some((call) => call.key === 'POST /api/sudo'), false);
+  screen.cancelSudo();
+  assert.equal(screen.sudoError, null);
+  assert.equal(shell.error.code, 'SUDO_REQUIRED');
+});

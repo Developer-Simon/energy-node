@@ -148,3 +148,41 @@ func TestSystemUpdatesAppearOnlyWithTheirFlag(t *testing.T) {
 		t.Fatalf("asked %+v, diagnose %+v, want three pending packages in both", asked, view.SystemUpdates)
 	}
 }
+
+func TestAKeyFileLoginNeedsTheSudoPasswordBeforeThePrecheck(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage", options{trusted: true})
+	if _, err := backend.Connect(ctx, hostapi.ConnectRequest{Host: "h", User: "pi", Kind: hostapi.AuthKey, KeyPath: "/k", AcceptFingerprint: fingerprint}); err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	code := func(err error) string {
+		typed, _ := err.(*hostapi.Error)
+		if typed == nil {
+			return ""
+		}
+		return typed.Code
+	}
+	if _, err := backend.Precheck(ctx); code(err) != "SUDO_REQUIRED" {
+		t.Fatalf("precheck = %v, want SUDO_REQUIRED", err)
+	}
+	if err := backend.EnableSudo(ctx, wrongSudoPassword); code(err) != "SUDO_PASSWORD_WRONG" {
+		t.Fatalf("wrong password = %v, want SUDO_PASSWORD_WRONG", err)
+	}
+	if err := backend.EnableSudo(ctx, "raspberry"); err != nil {
+		t.Fatalf("right password: %v", err)
+	}
+	if _, err := backend.Precheck(ctx); err != nil {
+		t.Fatalf("precheck after unlocking: %v", err)
+	}
+}
+
+func TestAPasswordLoginNeedsNoSudoDialog(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage", options{trusted: true})
+	if _, err := backend.Connect(ctx, hostapi.ConnectRequest{Host: "h", User: "pi", Kind: hostapi.AuthPassword, Secret: "pw", AcceptFingerprint: fingerprint}); err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	if _, err := backend.Precheck(ctx); err != nil {
+		t.Fatalf("precheck: %v", err)
+	}
+}

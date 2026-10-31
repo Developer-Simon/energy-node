@@ -331,3 +331,9 @@
 /* Ergaenzung Aktualisieren: Systempakete auf Abfrage (Schritt 15), ein
    Textknopf in der Zeile statt eines vollen Knopfs. */
 .app[data-screen="preview"] .svc-check{margin-left:.45rem;padding:0;border:0;background:none;font:inherit;font-size:.72rem;font-weight:400;color:var(--accent-soft);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+/* Ergaenzung Vorpruefung: Dialog fuer das sudo-Passwort, nicht in der Vorlage. */
+.app[data-screen="precheck"] .sudo-overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,.55)}
+.app[data-screen="precheck"] .sudo-dialog{width:min(28rem,100%);padding:1.1rem 1.2rem;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--panel)}
+.app[data-screen="precheck"] .sudo-dialog .field{margin-top:.9rem}
+.app[data-screen="precheck"] .sudo-error{margin-top:.7rem;padding:.5rem .75rem;border-radius:var(--radius-sm);border:1px solid var(--bad-line);background:var(--bad-bg);color:var(--bad);font-size:.78rem}
+.app[data-screen="precheck"] .sudo-actions{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem}

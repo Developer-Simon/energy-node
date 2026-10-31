@@ -50,6 +50,12 @@ type FakeBackend struct {
 	PlanErr       error
 	DiagnoseView  *hostapi.DiagnoseView
 	DiagnoseErr   error
+
+	// SudoErr laesst EnableSudo scheitern, LastSudoPassword haelt fest, was
+	// zuletzt ankam.
+	SudoErr          error
+	LastSudoPassword string
+
 	// ChangelogView und ChangelogErr steuern GET /api/changelog. Ein nil-View
 	// ohne Fehler heisst "dieses Paket hat keinen Changelog".
 	ChangelogView *hostapi.ChangelogView
@@ -164,6 +170,13 @@ func (f *FakeBackend) GenerateKeypair(ctx context.Context) (hostapi.KeypairResul
 		return hostapi.KeypairResult{}, f.KeypairErr
 	}
 	return f.Keypair, nil
+}
+
+func (f *FakeBackend) EnableSudo(ctx context.Context, password string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.LastSudoPassword = password
+	return f.SudoErr
 }
 
 func (f *FakeBackend) Precheck(ctx context.Context) (*hostapi.Precheck, error) {

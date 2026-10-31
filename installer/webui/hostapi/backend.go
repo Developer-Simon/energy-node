@@ -327,6 +327,9 @@ type Backend interface {
 	Describe() Description
 	Connect(ctx context.Context, req ConnectRequest) (ConnectResult, error)
 	GenerateKeypair(ctx context.Context) (KeypairResult, error)
+	// EnableSudo richtet mit dem sudo-Passwort passwortloses sudo fuer den
+	// angemeldeten Benutzer ein. Das Passwort wird nicht gemerkt.
+	EnableSudo(ctx context.Context, password string) error
 	Precheck(ctx context.Context) (*Precheck, error)
 	Manifest(ctx context.Context) (*ManifestView, error)
 	Selection(ctx context.Context) (*SelectionView, error)
