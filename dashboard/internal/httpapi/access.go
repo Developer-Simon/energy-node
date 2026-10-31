@@ -85,6 +85,8 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/tiny-tuya/credentials":    {group: groupOpen},
 	"/api/v1/users":                    {group: groupOpen},
 	"/api/v1/users/":                   {group: groupOpen},
+	"/api/v1/onboarding":               {group: groupOpen},
+	"/api/v1/onboarding/":              {group: groupOpen},
 	"/api/v1/user-sessions":            {group: groupOpen},
 	"/api/v1/user-sessions/":           {group: groupOpen},
 	"/api/v1/history/exchange":         {group: groupOpen},
