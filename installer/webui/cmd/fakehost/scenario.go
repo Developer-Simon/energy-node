@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -34,6 +35,9 @@ type options struct {
 	// deltaVerifyFails: die Teilübertragung besteht die Prüfung auf dem Gerät
 	// nicht. Erst die ganze Übertragung (force_full_transfer) gelingt.
 	deltaVerifyFails bool
+	// journalStep: das Manifest enthält den optionalen Schritt 17 (Journal nur
+	// im Arbeitsspeicher). Die Vorlage kennt ihn nicht, darum nur auf Wunsch.
+	journalStep bool
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -271,6 +275,10 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "84", ServiceID: "trucki", Unit: "trucki-http.service", Optional: true, Default: true, Kind: "device"},
 		{ID: "85", ServiceID: "tuya", Unit: "tuya.service", Optional: true, Default: true, Kind: "device"},
 		{ID: "88", ServiceID: "automation", Unit: "automation.service", Optional: true, Default: true, Kind: "service"},
+	}
+	if opts.journalStep {
+		steps = append(steps, hostapi.StepView{ID: "17", Optional: true, Default: false})
+		sort.SliceStable(steps, func(i, j int) bool { return steps[i].ID < steps[j].ID })
 	}
 	if update {
 		steps = append(steps, hostapi.StepView{ID: "89", ServiceID: "modbus", Unit: "modbus.service", Optional: true, Default: false, Kind: "service"})

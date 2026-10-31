@@ -219,3 +219,24 @@ func TestAFailingDeltaVerifyNeedsTheFullTransfer(t *testing.T) {
 		t.Fatalf("full transfer: %v", err)
 	}
 }
+
+func TestTheJournalStepAppearsOnlyOnRequest(t *testing.T) {
+	has := func(b *stagedBackend) bool {
+		view, err := b.Manifest(context.Background())
+		if err != nil {
+			t.Fatalf("manifest: %v", err)
+		}
+		for _, step := range view.Steps {
+			if step.ID == "17" {
+				return step.Optional && !step.Default
+			}
+		}
+		return false
+	}
+	if has(newScenario("vorlage", options{})) {
+		t.Errorf("step 17 must not be part of the draft scenario")
+	}
+	if !has(newScenario("vorlage", options{journalStep: true})) {
+		t.Errorf("--journal-step must add step 17 as optional and off by default")
+	}
+}
