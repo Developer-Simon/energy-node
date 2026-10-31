@@ -24,10 +24,11 @@ var (
 	stageBundle   = func(ctx context.Context, c *transport.Client, archive, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployProgress(ctx, c, archive, remoteDir, onProgress)
 	}
-	verifyStaged = defaultVerifyStaged
-	deltaBase    = bundle.DeltaBase
-	markVerified = bundle.MarkVerified
-	stageDelta   = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
+	verifyStaged        = defaultVerifyStaged
+	onlineDepsSupported = bundle.OnlineDepsSupported
+	deltaBase           = bundle.DeltaBase
+	markVerified        = bundle.MarkVerified
+	stageDelta          = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployDelta(ctx, c, bundleDir, changed, removed, remoteDir, onProgress)
 	}
 )
@@ -63,7 +64,7 @@ func defaultDetectMachine(ctx context.Context, c *transport.Client) (string, err
 	return strings.TrimSpace(stdout.String()), nil
 }
 
-func defaultVerifyStaged(ctx context.Context, c *transport.Client, remoteDir string, signed, allowABIMismatch bool) error {
+func defaultVerifyStaged(ctx context.Context, c *transport.Client, remoteDir string, signed, allowABIMismatch bool) (bool, error) {
 	if signed {
 		return bundle.VerifyRemoteWith(ctx, c, remoteDir, bundle.EmbeddedPublicKeyPEM(), allowABIMismatch)
 	}
@@ -242,7 +243,11 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
 	notef("package.log.verify", map[string]string{})
-	if err := verifyStaged(ctx, client, h.cfg.RemoteBundleDir, resolved.Signed, h.onlineDepsAllowed()); err != nil {
+	abiTolerated, err := verifyStaged(ctx, client, h.cfg.RemoteBundleDir, resolved.Signed, h.onlineDepsAllowed())
+	if err == nil && abiTolerated && !onlineDepsSupported(ctx, client, h.cfg.RemoteBundleDir) {
+		return &hostapi.Error{Code: "PACKAGE_NO_ONLINE_DEPS", Status: http.StatusConflict}
+	}
+	if err != nil {
 		// A wrong Python ABI is the node's property, not a damaged delta:
 		// retrying with a full transfer would fail the same way.
 		var bundleErr *bundle.Error

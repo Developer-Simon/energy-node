@@ -222,6 +222,7 @@
   "error.NO_PACKAGE": "No package has been selected or prepared yet.",
   "error.PACKAGE_FAILED": "The package could not be prepared.",
   "error.PACKAGE_FILE_INVALID": "This file is not a valid installation package.",
+  "error.PACKAGE_NO_ONLINE_DEPS": "This package is too old to load its dependencies online. Use a newer package, or build one from the repository.",
   "error.PACKAGE_STAGE_FAILED": "The package could not be transferred to the device.",
   "error.PACKAGE_UPLOAD_FAILED": "The package file could not be accepted.",
   "error.PACKAGE_VERIFY_FAILED_DELTA": "The package on the device failed verification after the partial transfer.",

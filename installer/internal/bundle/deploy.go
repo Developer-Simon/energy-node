@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -207,15 +208,17 @@ func verifyBundleErrorMessage(stderr string) string {
 // key is what actually defends against tampering; callers must run it
 // before Deploy.
 func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir string, pubKeyPEM []byte) error {
-	return VerifyRemoteWith(ctx, client, remoteDir, pubKeyPEM, false)
+	_, err := VerifyRemoteWith(ctx, client, remoteDir, pubKeyPEM, false)
+	return err
 }
 
 // VerifyRemoteWith is VerifyRemote with the operator's choice whether a
 // Python ABI that does not match the wheels is tolerated (online installation).
-func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir string, pubKeyPEM []byte, allowABIMismatch bool) error {
+// abiTolerated reports that the node's ABI did differ and was let through.
+func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir string, pubKeyPEM []byte, allowABIMismatch bool) (abiTolerated bool, err error) {
 	remotePubKey := fmt.Sprintf("/tmp/energy-node-installer-pubkey-%s-%s.pem", stagingTag(remoteDir), randomSuffix())
 	if err := client.UploadBytes(pubKeyPEM, remotePubKey, 0o600); err != nil {
-		return fmt.Errorf("uploading public key: %w", err)
+		return false, fmt.Errorf("uploading public key: %w", err)
 	}
 	defer client.RemoveRemote(remotePubKey)
 
@@ -227,15 +230,7 @@ func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir s
 	))
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
-
-	result := LastLine(stdout.String())
-	if result == "OK" && runErr == nil {
-		return nil
-	}
-	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: verifyFailureMessage(FaultCode(code), stderr.String())}
-	}
-	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
+	return verifyOutcome(runErr, stdout.String(), stderr.String(), allowABIMismatch)
 }
 
 // VerifyRemoteDev is VerifyRemote's --dev-unsigned counterpart: it runs
@@ -246,11 +241,12 @@ func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir s
 // with --dev-unsigned never has one. It never uploads a public key, unlike
 // VerifyRemote, because none is needed.
 func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir string) error {
-	return VerifyRemoteDevWith(ctx, client, remoteDir, false)
+	_, err := VerifyRemoteDevWith(ctx, client, remoteDir, false)
+	return err
 }
 
 // VerifyRemoteDevWith is VerifyRemoteDev with the same ABI choice as VerifyRemoteWith.
-func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDir string, allowABIMismatch bool) error {
+func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDir string, allowABIMismatch bool) (abiTolerated bool, err error) {
 	command := transport.BuildCommand(abiEnv(allowABIMismatch), fmt.Sprintf(
 		"bash %s --bundle %s --no-signature --target",
 		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
@@ -258,15 +254,36 @@ func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDi
 	))
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
+	return verifyOutcome(runErr, stdout.String(), stderr.String(), allowABIMismatch)
+}
 
-	result := LastLine(stdout.String())
+// verifyOutcome reads the result of a verify_bundle.sh run. With the operator's
+// consent a wrong Python ABI is let through. The script reports it only after
+// the signature, the hashes and the architecture passed, so this cannot hide
+// any other problem. It is decided here and not only by the script because the
+// script comes from the bundle that was just transferred, and a release made
+// before the consent existed ignores it.
+func verifyOutcome(runErr error, stdout, stderr string, allowABIMismatch bool) (abiTolerated bool, err error) {
+	result := LastLine(stdout)
 	if result == "OK" && runErr == nil {
-		return nil
+		return false, nil
 	}
 	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: verifyFailureMessage(FaultCode(code), stderr.String())}
+		if FaultCode(code) == FaultPythonABIMismatch && allowABIMismatch {
+			return true, nil
+		}
+		return false, &Error{Code: FaultCode(code), Message: verifyFailureMessage(FaultCode(code), stderr)}
 	}
-	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
+	return false, fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout, stderr)
+}
+
+// OnlineDepsSupported reports whether the bundle on the node can install its
+// Python dependencies online: its step 50 has to know EN_ONLINE_DEPS. A release
+// made before that option exists would stop at step 50 with the same Python ABI
+// error, so the installer says so before it transfers anything further.
+func OnlineDepsSupported(ctx context.Context, client *transport.Client, remoteDir string) bool {
+	script := path.Join(remoteDir, "bootstrap", "50-python-deps.sh")
+	return client.Run(ctx, "grep -q EN_ONLINE_DEPS "+transport.ShellQuote(script), io.Discard, io.Discard) == nil
 }
 
 // abiEnv is the environment verify_bundle.sh needs when the operator allowed

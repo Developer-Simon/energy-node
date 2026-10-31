@@ -222,6 +222,7 @@
   "error.NO_PACKAGE": "Es ist noch kein Paket ausgewählt oder vorbereitet.",
   "error.PACKAGE_FAILED": "Das Paket ließ sich nicht vorbereiten.",
   "error.PACKAGE_FILE_INVALID": "Diese Datei ist kein gültiges Installationspaket.",
+  "error.PACKAGE_NO_ONLINE_DEPS": "Dieses Paket ist zu alt, um seine Abhängigkeiten online zu laden. Nimm ein neueres Paket oder baue eines aus dem Repository.",
   "error.PACKAGE_STAGE_FAILED": "Das Paket ließ sich nicht auf das Gerät übertragen.",
   "error.PACKAGE_UPLOAD_FAILED": "Die Paketdatei ließ sich nicht entgegennehmen.",
   "error.PACKAGE_VERIFY_FAILED_DELTA": "Das Paket auf dem Gerät hat die Prüfung nach der Teilübertragung nicht bestanden.",
