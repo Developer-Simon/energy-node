@@ -306,7 +306,6 @@ func TestOnboardingInputLimitsRejected(t *testing.T) {
 		{name: "run mode 33 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": strings.Repeat("m", 33), "from": "start", "index": 0}}},
 		{name: "run index -1", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "start", "index": -1}}},
 		{name: "run index 1001", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "start", "index": 1001}}},
-		{name: "run from empty", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "", "index": 0}}},
 		{name: "run from 65 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": strings.Repeat("f", 65), "index": 0}}},
 	}
 	for _, tc := range cases {
@@ -334,6 +333,7 @@ func TestOnboardingInputLimitsAtBoundary(t *testing.T) {
 		{name: "queue entry 64 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"queue": []string{strings.Repeat("q", 64)}}},
 		{name: "run at the limits", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": strings.Repeat("m", 32), "from": strings.Repeat("f", 64), "index": 1000}}},
 		{name: "run index 0", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "start", "index": 0}}},
+		{name: "run without a source", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "", "index": 0}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

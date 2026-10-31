@@ -206,7 +206,7 @@ func handleOnboardingMe(store *onboarding.Store, user auth.User) http.HandlerFun
 				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
-			if len(run.Mode) > onboardingMaxRunModeBytes || !validOnboardingID(run.From) || run.Index < 0 || run.Index > onboardingMaxRunIndex {
+			if len(run.Mode) > onboardingMaxRunModeBytes || len(run.From) > onboardingMaxIDBytes || run.Index < 0 || run.Index > onboardingMaxRunIndex {
 				writeOnboardingInvalid(w)
 				return
 			}
