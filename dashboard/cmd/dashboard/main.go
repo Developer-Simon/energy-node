@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -112,6 +113,14 @@ func main() {
 	authManager, err := auth.NewManager(filepath.Join(dataDir, "users.json"), cfg.Dashboard.AdminUsername, adminPassword)
 	if err != nil {
 		log.Fatalf("energy-node-dashboard: auth store failed: %v", err)
+	}
+	// Die Vorgaben des Installers liegen neben auth.pw und gelten einmal beim
+	// Start. Ein Fehler darin bricht den Start nicht ab.
+	if cfg.Dashboard.AdminPasswordFile != "" {
+		seedPath := filepath.Join(filepath.Dir(cfg.Dashboard.AdminPasswordFile), onboarding.SeedFileName)
+		if err := onboarding.ApplySeed(seedPath, authManager, settingsStore, onboardingStore, slog.Default()); err != nil {
+			log.Printf("energy-node-dashboard: Vorgaben aus %s nicht vollständig übernommen: %v", onboarding.SeedFileName, err)
+		}
 	}
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	// Nur ein echter Reader im Interface, sonst waere ServiceLogs nie nil.

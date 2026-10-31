@@ -170,6 +170,9 @@ func sameRoles(a, b []string) bool {
 	return reflect.DeepEqual(Normalize(a), Normalize(b))
 }
 
+// AdminRoles liefert die Rechte des Kontos aus auth.pw (alle ausser http_login).
+func AdminRoles() []string { return bootstrapAdminRoles() }
+
 // bootstrapAdminRoles sind alle Berechtigungen ausser http_login.
 func bootstrapAdminRoles() []string {
 	var out []string

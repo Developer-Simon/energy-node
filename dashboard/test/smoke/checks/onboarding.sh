@@ -70,3 +70,20 @@ sys.exit(0 if json.load(sys.stdin)["role"] == "user" else 1)
     echo "  FEHL Schritt theme fuer eingeschraenktes Konto kam mit HTTP $code durch"; FAILED=1
   fi
 }
+
+# Lauf seed: die Vorgaben aus onboarding-seed.json sind beim Start uebernommen
+# (Schritte als installer, spaeter-Schritt als later) und die Datei ist weg.
+checks_onboarding_seed() {
+  echo "==> Einrichtungsfuehrung: Seed-Datei des Installers"
+  check "Seed: Schritte theme und users stehen auf installer" \
+    "data['setup']['steps'].get('theme') == 'installer' and data['setup']['steps'].get('users') == 'installer'" \
+    "$BASE/api/v1/onboarding"
+  check "Seed: Schritt guest steht auf later" \
+    "data['setup']['steps'].get('guest') == 'later'" \
+    "$BASE/api/v1/onboarding"
+  if [[ -e "$WORK/onboarding-seed.json" ]]; then
+    echo "  FEHL Seed-Datei ist nach dem Start noch vorhanden"; FAILED=1
+  else
+    echo "  OK   Seed-Datei nach dem Start geloescht"
+  fi
+}
