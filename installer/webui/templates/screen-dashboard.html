@@ -45,7 +45,7 @@
           <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
           <div class="dash-body dash-fold"><div class="dash-fold-in">
             <div class="dash-field tog">
-              <label class="settings-toggle"><input type="checkbox" role="switch" :checked="prefs.guest_access === true" @change="prefs.guest_access = $event.target.checked" :aria-label="t('dashboard.guest.switch')"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></label>
+              <label class="settings-toggle"><input type="checkbox" role="switch" :checked="guestOn" @change="prefs.guest_access = $event.target.checked" :aria-label="t('dashboard.guest.switch')"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></label>
               <span><span class="tog-t" x-text="t('dashboard.guest.switch')"></span><div class="tog-s" x-text="t('dashboard.guest.text')"></div></span>
             </div>
           </div></div>

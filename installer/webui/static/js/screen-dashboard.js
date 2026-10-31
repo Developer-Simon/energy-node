@@ -93,6 +93,11 @@
         return this.shell.shared.dashboardPrefs;
       },
 
+      // Das Dashboard hat den Gastzugang an, solange nichts anderes gesetzt ist.
+      get guestOn() {
+        return this.prefs.guest_access !== false;
+      },
+
       init() {
         if (!this.shell.shared.dashboardPrefs) {
           this.shell.shared.dashboardPrefs = defaultPrefs();

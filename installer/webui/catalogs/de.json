@@ -200,7 +200,7 @@
   "dashboard.title.title": "Titel",
   "dashboard.updates.label": "Updates",
   "dashboard.updates.switch": "Automatisch auf Updates prüfen",
-  "dashboard.updates.text": "Einmal täglich still im Hintergrund. Bei einem Fund erscheint ein Hinweis oben im Kopfbereich.",
+  "dashboard.updates.text": "Einmal täglich im Hintergrund. Bei einem Fund erscheint ein Hinweis oben im Kopfbereich.",
   "dashboard.users.add": "Benutzer hinzufügen",
   "dashboard.users.admin": "Admin",
   "dashboard.users.label": "Weitere Benutzer",

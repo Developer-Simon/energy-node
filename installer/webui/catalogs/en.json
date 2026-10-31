@@ -200,7 +200,7 @@
   "dashboard.title.title": "Title",
   "dashboard.updates.label": "Updates",
   "dashboard.updates.switch": "Check for updates automatically",
-  "dashboard.updates.text": "Once a day, quietly in the background. If something is found, a note appears at the top of the header.",
+  "dashboard.updates.text": "Once a day in the background. If something is found, a note appears at the top of the header.",
   "dashboard.users.add": "Add user",
   "dashboard.users.admin": "Admin",
   "dashboard.users.label": "More users",

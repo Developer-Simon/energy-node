@@ -201,3 +201,12 @@ test('Zurueck fuehrt in die Konfiguration', () => {
   assert.equal(shell.screen, 'configure');
   assert.equal(shell.dir, 'back');
 });
+
+test('guestOn: Standard (null) und true schalten den Gastzugang an, nur false aus', () => {
+  const { screen, shell } = mount();
+  assert.equal(screen.guestOn, true);
+  shell.shared.dashboardPrefs.guest_access = false;
+  assert.equal(screen.guestOn, false);
+  shell.shared.dashboardPrefs.guest_access = true;
+  assert.equal(screen.guestOn, true);
+});
