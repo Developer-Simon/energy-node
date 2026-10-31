@@ -9,6 +9,7 @@
 //   target (Selektor), check ('change' = hakt sich bei einer Eingabe im Ziel ab,
 //   'leave' = gilt mit Weiter als erledigt).
 // Titel und Text heissen onboarding.setup.<id>.title und .text und liegen im Katalog.
+// emptyText (Katalogschluessel) ersetzt den Text, wenn emptyWhen() beim Zeigen true liefert.
 //
 // Die Felder areas, installerOnly, explore und welcome sind unveraendert.
 (() => {
@@ -66,7 +67,13 @@
     // Geräte einrichten: Dienste wählen und Geräteinformationen eintragen. Das
     // Formular ist der Bereich dafür, die Schaltleiste darüber bleibt außen vor.
     { id: 'config', panel: 'config-panel', need: 'view_config', target: data('config'), check: 'change' },
-    { id: 'devices', panel: 'devices-panel', target: data('devices'), check: 'leave' },
+    {
+      id: 'devices', panel: 'devices-panel', target: data('devices'), check: 'leave',
+      // Keine Geräte gefunden: Leertext statt der Erklärung. Die Prüfung läuft
+      // beim Zeigen, weil sich die Karten bis dahin füllen können.
+      emptyText: 'onboarding.setup.devices.empty',
+      emptyWhen: () => !document.querySelector('#devices-panel .device-tile, #devices-panel .compact-card'),
+    },
     {
       id: 'roles', panel: 'energy-panel', target: data('roles'), check: 'change',
       prepare: () => {

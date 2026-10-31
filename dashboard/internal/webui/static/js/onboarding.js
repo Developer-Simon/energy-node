@@ -255,7 +255,7 @@
       const steps = window.obModel.buildSteps({
         mode, from, setup: this.setupItems, explore, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
       });
-      return steps.map((s) => ({ ...s, title: s.title ? t(s.title) : '', text: s.text ? t(s.text) : '' }));
+      return steps.map((s) => ({ ...s, title: s.title ? t(s.title) : '', text: s.text ? t(s.text) : '', emptyText: s.emptyText ? t(s.emptyText) : '' }));
     },
 
     start(mode, from = null, { index = 0 } = {}) {
@@ -396,6 +396,8 @@
     direction: 1,
     drag: null,
     cleanup: [],
+    // Sprachwahl in der Vorstellung, nur solange kein lang-Cookie gesetzt ist.
+    langPick: !/(?:^|;\s*)lang=/.test(document.cookie),
 
     init() {
       this.spot = window.obSpotlight.create(this.$refs.spot);
@@ -478,6 +480,9 @@
         return;
       }
       this.target = el;
+      // Leerer Bereich: Leertext statt Erklärung, erst jetzt sind die Karten da.
+      const empty = typeof step.emptyWhen === 'function' && step.emptyWhen();
+      this.s.steps[this.s.index].text = window.obModel.pickText(step, empty);
       this.reveal(el);
       this.spot.show(el, {
         onLost: () => { this.lost = true; },

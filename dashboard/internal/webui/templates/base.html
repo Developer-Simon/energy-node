@@ -542,6 +542,15 @@
             <div class="ob-bar-copy">
               <h2 class="ob-bar-title" id="ob-bar-title" x-text="step?.title"></h2>
               <p class="ob-bar-text" x-text="step?.text"></p>
+              <div class="ob-lang" x-show="step?.intro && langPick">
+                <span class="ob-lang-label">{{t "language.label"}}</span>
+                <div class="lang-pill ob-lang-pill" role="radiogroup" aria-label="{{t "language.label"}}" style="--lang-count: {{len .Languages}}">
+                  <span class="lang-pill-thumb" aria-hidden="true"></span>
+                  {{- range .Languages}}
+                  <label class="lang-pill-option" title="{{.Name}}"><input type="radio" name="ob-lang" value="{{.Code}}" data-lang-select{{if .Active}} checked{{end}}><span aria-hidden="true">{{.Short}}</span><span class="visually-hidden">{{.Name}}</span></label>
+                  {{- end}}
+                </div>
+              </div>
               <p class="ob-bar-state ob-bar-state--done" x-show="done">
                 <span class="ob-check" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-check"></use></svg></span>
                 <span>{{t "onboarding.bar.done"}}</span>

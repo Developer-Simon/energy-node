@@ -200,3 +200,11 @@ test('eyebrow strings match the draft', () => {
 
   assert.equal(m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen: {}, status: {}, ctx: ctx({ role: 'user' }) }).length, 0);
 });
+
+test('pickText zeigt den Leertext nur, wenn der Bereich leer ist', () => {
+  const m = load();
+  const step = { text: 'Erklaerung', emptyText: 'Leer' };
+  assert.equal(m.pickText(step, true), 'Leer');
+  assert.equal(m.pickText(step, false), 'Erklaerung');
+  assert.equal(m.pickText({ text: 'Erklaerung' }, true), 'Erklaerung');
+});

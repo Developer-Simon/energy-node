@@ -115,6 +115,12 @@
     return [];
   }
 
+  // Text eines Schritts beim Zeigen. Hat der Ort einen emptyText und trifft
+  // emptyWhen zu (der Bereich ist leer), gilt der Leertext, sonst der Text.
+  function pickText(step, empty) {
+    return empty && step.emptyText ? step.emptyText : step.text;
+  }
+
   // Wie viele aktuelle Highlights noch ungesehen sind und eine Tour fuer das Geraet haben.
   function unseenCount(explore, seen, ctx) {
     return explore.filter((v) => v.current)
@@ -153,6 +159,7 @@
     buildSteps,
     unseenCount,
     exploreState,
+    pickText,
     nextAfterResize,
     queueAfter,
   };
