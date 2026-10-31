@@ -210,6 +210,17 @@
     get unseenCount() {
       return window.obModel.unseenCount(window.obSteps.explore, this.seen, this.ctx());
     },
+    // Schritte eines Highlights, die fuer Rolle und Geraet gelten (wie in obModel).
+    tourSteps(item) {
+      if (item.tour === false || !item.steps) return [];
+      return item.steps.filter((s) => window.obModel.stepAllowed(s, this.ctx()));
+    },
+    // Merkt ein Highlight als gesehen, ohne Tour (Checkliste), und schreibt es ans Konto.
+    save(id) {
+      if (!id) return Promise.resolve(false);
+      this.seen = { ...this.seen, [id]: true };
+      return send('PUT', ME, { seen_add: [id] });
+    },
 
     // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. Das
     // Modell liefert Katalogschluessel, hier werden Titel und Texte uebersetzt.

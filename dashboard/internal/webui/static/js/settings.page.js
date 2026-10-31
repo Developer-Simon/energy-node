@@ -730,7 +730,7 @@
   });
 
   // Sub pages a deep link (?page=) may open.
-  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system', 'users'];
+  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system', 'users', 'checklist'];
   // Mindestlaenge eines Passworts bis die Sitzung sie meldet (session.password_min_length),
   // danach gilt der Wert der Sitzung. Zeichen zaehlen als Codepunkte, wie auf dem Server.
   const ACCOUNT_MIN_PASSWORD = 10;

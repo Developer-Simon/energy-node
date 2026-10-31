@@ -67,6 +67,11 @@
         <span class="settings-nav-desc">{{t "users.nav_desc"}}</span>
       </button>
       {{end}}
+      <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-checklist" x-bind:class="{ active: activeSettingsPage === 'checklist' }" x-bind:aria-selected="activeSettingsPage === 'checklist'" x-on:click="activeSettingsPage = 'checklist'">
+        <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
+        <span class="settings-nav-title">{{t "onboarding.checklist.title"}}<span class="ob-marker" aria-hidden="true" x-show="$store.onboarding.unseenCount"></span></span>
+        <span class="settings-nav-desc">{{t "onboarding.checklist.nav_desc"}}</span>
+      </button>
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-system" x-bind:class="{ active: activeSettingsPage === 'system' }" x-bind:aria-selected="activeSettingsPage === 'system'" x-on:click="activeSettingsPage = 'system'">
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
         <span class="settings-nav-title">{{t "settings.nav.system"}}</span>
@@ -472,6 +477,7 @@
     </div>
   </section>
   {{end}}
+  {{template "checklist" .}}
   <section id="settings-system" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
     <section class="setting-card system-access-card" aria-labelledby="system-access-heading">
       <h3 class="setting-card-title" id="system-access-heading">{{t "settings.system.title"}}</h3>
