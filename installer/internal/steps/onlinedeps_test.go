@@ -296,3 +296,12 @@ func TestOnlineDepsLogsVersionMismatch(t *testing.T) {
 		t.Errorf("log lines = %q, want one with %q", logs, "Python-Version weicht vom Paket ab")
 	}
 }
+
+func TestOnlineDepsPipIgnoresPackagesTheSystemOwns(t *testing.T) {
+	// Debian ships urllib3 without a RECORD file; --upgrade would try to
+	// uninstall it and fail with uninstall-no-record-file.
+	cmd := pipInstallCommand("/var/lib/energy-node-installer/bundle/wheels", true)
+	if !strings.Contains(cmd, "--ignore-installed") || strings.Contains(cmd, "--upgrade") {
+		t.Errorf("command = %q, want --ignore-installed and no --upgrade", cmd)
+	}
+}

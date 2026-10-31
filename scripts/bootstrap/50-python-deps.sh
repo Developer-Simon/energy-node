@@ -46,7 +46,7 @@ pip_install() {
   "${SUDO[@]}" "${PIP[@]}" install \
     --no-index \
     --find-links "${EN_BUNDLE_DIR}/wheels" \
-    --upgrade \
+    --ignore-installed \
     "$@" \
     "${wheels[@]}"
 }

@@ -103,13 +103,17 @@ func onlineDepsFailureCode(err error, output string) string {
 
 // pipInstallCommand installs the pure Python wheels of the bundle. Run from
 // the wheels directory with a relative glob, so no file name needs quoting.
+// --ignore-installed and not --upgrade: Debian ships packages such as urllib3
+// without the RECORD file pip needs to uninstall them ("uninstall-no-record-
+// file"). pip then installs next to them, under /usr/local, which comes first
+// on the module path, and leaves the system's copy alone.
 func pipInstallCommand(wheelsDir string, breakSystemPackages bool) string {
 	flag := ""
 	if breakSystemPackages {
 		flag = " --break-system-packages"
 	}
 	return fmt.Sprintf(
-		`cd %s && set -- ./*-none-any.whl && [ -e "$1" ] || exit %d; sudo python3 -m pip install --upgrade%s "$@"`,
+		`cd %s && set -- ./*-none-any.whl && [ -e "$1" ] || exit %d; sudo python3 -m pip install --ignore-installed%s "$@"`,
 		transport.ShellQuote(wheelsDir), exitNoWheels, flag)
 }
 

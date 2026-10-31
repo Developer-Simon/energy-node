@@ -58,6 +58,10 @@ grep -q '^##STEP 50 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 grep -q -- '--no-index' "$PIP_LOG" || fail "ohne --no-index" "$(cat "$PIP_LOG")"
 grep -q -- "--find-links $bundle/wheels" "$PIP_LOG" || fail "ohne --find-links" "$(cat "$PIP_LOG")"
 grep -q -- '--break-system-packages' "$PIP_LOG" || fail "ohne --break-system-packages" "$(cat "$PIP_LOG")"
+# Debian liefert Pakete wie urllib3 ohne RECORD-Datei; --upgrade scheiterte daran
+# (uninstall-no-record-file), --ignore-installed installiert daneben.
+grep -q -- '--ignore-installed' "$PIP_LOG" || fail "ohne --ignore-installed" "$(cat "$PIP_LOG")"
+grep -q -- '--upgrade' "$PIP_LOG" && fail "--upgrade scheitert an Paketen ohne RECORD" "$(cat "$PIP_LOG")"
 grep -q 'paho_mqtt-2.1.0' "$PIP_LOG" || fail "Wheel nicht uebergeben" "$(cat "$PIP_LOG")"
 [ "$(grep -c '^pip ' "$PIP_LOG")" = 1 ] || fail "mehr als ein pip-Aufruf" "$(cat "$PIP_LOG")"
 
