@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Der Installer kann die Python-Abhängigkeiten online laden, wenn die Python-Version des Geräts vom Paket abweicht, sobald du das bestätigst."
+  }
+}
