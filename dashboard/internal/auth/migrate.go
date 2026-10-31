@@ -140,23 +140,21 @@ func defaultHAAdminRoles() []string {
 }
 
 // migrateV4Locked wendet die Regeln der Version 5 an: eine unveraenderte
-// Gastvorgabe (genau die alte Standardliste) wird durch die neue ersetzt,
-// ebenso die Gastkonten mit der alten Liste, aber nur wenn die Vorgabe
-// ersetzt wurde. Die HA-Vorgaben werden nur gemeinsam ersetzt, wenn beide
-// Seiten unveraendert sind. Eigene HA-Konten bleiben unberuehrt. Liefert,
-// ob die Gastvorgabe ersetzt wurde.
+// Gastvorgabe (genau die alte Standardliste) wird durch die neue ersetzt.
+// Gastkonten mit genau der alten Liste bekommen die neue Vorgabe, unabhaengig
+// davon, ob die Gastvorgabe ersetzt wurde. Die HA-Vorgaben werden nur
+// gemeinsam ersetzt, wenn beide Seiten unveraendert sind. Eigene HA-Konten
+// bleiben unberuehrt. Liefert, ob die Gastvorgabe ersetzt wurde.
 func (m *Manager) migrateV4Locked() (guestReplaced bool) {
 	legacy := legacyDefaultGuestRoles()
 	if sameRoles(m.guestRoles, legacy) {
 		m.guestRoles = defaultGuestRoles()
 		guestReplaced = true
 	}
-	if guestReplaced {
-		for name, user := range m.users {
-			if user.Guest && sameRoles(user.Roles, legacy) {
-				user.Roles = defaultGuestRoles()
-				m.users[name] = user
-			}
+	for name, user := range m.users {
+		if user.Guest && sameRoles(user.Roles, legacy) {
+			user.Roles = defaultGuestRoles()
+			m.users[name] = user
 		}
 	}
 	if m.haRoles != nil && sameRoles(m.haRoles.Admin, legacy) && sameRoles(m.haRoles.User, legacy) {

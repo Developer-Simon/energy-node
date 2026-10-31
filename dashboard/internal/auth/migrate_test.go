@@ -514,3 +514,27 @@ func TestMigrationFromVersion4RestoredGuestSessionGetsNewRoles(t *testing.T) {
 		t.Errorf("restored guest session roles %v, want %v", session.User.Roles, defaultGuestRoles())
 	}
 }
+
+func TestMigrationFromVersion4LegacyGuestAccountGetsNewDefaultWithCustomPreset(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	customPreset := []string{RoleViewOverview, RoleEditLayout}
+	writeJSON(t, path, map[string]any{
+		"version":              4,
+		"guest_roles":          customPreset,
+		"guest_roles_reviewed": true,
+		"users": []map[string]any{
+			{"username": "admin", "password_hash": mustHash(t, "secret-pass"), "roles": bootstrapAdminRoles()},
+			{"username": "guest-abc", "guest": true, "roles": legacyDefaultGuestRoles(), "last_login_at": now},
+		},
+	})
+	manager := mustManager(t, path, "admin", "")
+	if got := manager.GuestRoles(); !reflect.DeepEqual(got, Normalize(customPreset)) {
+		t.Errorf("customized guest preset changed: %v", got)
+	}
+	if got := manager.users["guest-abc"].Roles; !reflect.DeepEqual(got, defaultGuestRoles()) {
+		t.Errorf("legacy guest account roles %v, want %v", got, defaultGuestRoles())
+	}
+	if manager.MigrationNotice() {
+		t.Error("no preset replacement, no notice")
+	}
+}
