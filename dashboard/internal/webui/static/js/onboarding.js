@@ -152,6 +152,8 @@
     loaded: false,
     setupDone: false,
     status: {},
+    // Einrichtungsschritte aus dem Server (setup.items), in Reihenfolge.
+    items: [],
     seen: {},
     welcomed: false,
     run: null,
@@ -177,11 +179,20 @@
       if (!progress) return false;
       this.role = progress.role || 'guest';
       this.setupDone = Boolean(progress.setup?.done);
-      this.status = progress.setup?.steps || {};
+      this.items = progress.setup?.items || [];
+      // Gespeichert und erkannt zusammen. Erkannt steht nur in den Items.
+      this.status = { ...(progress.setup?.steps || {}), ...Object.fromEntries(
+        this.items.filter((item) => item.state).map((item) => [item.id, item.state])) };
       this.seen = Object.fromEntries((progress.user?.seen || []).map((id) => [id, true]));
       this.welcomed = Boolean(progress.user?.welcomed);
       this.run = progress.user?.run || null;
       this.queue = progress.user?.queue || [];
+      // Die Sitzungswarteschlange nennt nur Einrichtung, und nur solange sie offen ist.
+      // Sie wird wie enqueue() ans Konto geschrieben, startet aber erst die Leiste.
+      if ((progress.queue || []).includes('setup') && !this.run && !this.queue.includes('setup')) {
+        this.queue = [...this.queue, 'setup'];
+        void send('PUT', ME, { queue: this.queue });
+      }
       this.loaded = true;
       return true;
     },
@@ -203,10 +214,18 @@
 
     // Zustand eines Einrichtungspunkts fuer Leiste und Checkliste.
     stateOf(id) { return this.status[id] || 'open'; },
+    // Einrichtungsschritte des Servers. Dienste, die nicht installiert sind,
+    // fehlen schon in der Liste. Der Ort kommt aus obSteps.setup, Titel und
+    // Text aus dem Katalog.
     get setupItems() {
-      // Schritte zu abgewaehlten Diensten entfallen. Die Umsetzung nimmt
-      // .InstalledServices, der Entwurf die Dienste der Demo.
-      return window.obSteps.setup.filter((step) => !step.needs || this.installed.includes(step.needs));
+      return this.items.flatMap((item) => {
+        const place = window.obSteps.setup.find((s) => s.id === item.id);
+        if (!place) return [];
+        return [{
+          ...place, area: item.area, installer: item.installer,
+          title: `onboarding.setup.${item.id}.title`, text: `onboarding.setup.${item.id}.text`,
+        }];
+      });
     },
     get setupCounts() {
       const items = [...window.obSteps.installerOnly, ...this.setupItems];
@@ -231,10 +250,10 @@
     // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. Das
     // Modell liefert Katalogschluessel, hier werden Titel und Texte uebersetzt.
     build(mode, from) {
-      const { setup, explore, welcome } = window.obSteps;
+      const { explore, welcome } = window.obSteps;
       const areas = window.obSteps.areas.map((a) => ({ ...a, label: t(a.label) }));
       const steps = window.obModel.buildSteps({
-        mode, from, setup, explore, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
+        mode, from, setup: this.setupItems, explore, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
       });
       return steps.map((s) => ({ ...s, title: s.title ? t(s.title) : '', text: s.text ? t(s.text) : '' }));
     },

@@ -14,13 +14,24 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (name) => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
 const sources = ['onboarding-steps.js', 'onboarding-model.js', 'onboarding.js', 'onboarding-checklist.js'].map((name) => [name, read(name)]);
 
+// Schritte des Servers mit tailscale (installiert), in Katalogreihenfolge.
+const SERVER_ITEMS = [
+  ['users', 'access', true], ['guest', 'access', true], ['tailscale', 'access', false],
+  ['companion', 'access', false], ['language', 'display', false], ['theme', 'display', true],
+  ['title', 'display', true], ['statusbar', 'display', true], ['tabwidth', 'display', true],
+  ['tiles', 'display', false], ['updates', 'system', true], ['metrics', 'system', true],
+  ['devices', 'devices', false], ['roles', 'devices', false], ['devicemap', 'devices', false],
+  ['favorites', 'devices', false],
+].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
+
 // Loads the page scripts into a jsdom window and returns the store plus a
 // checklist component bound to it. role decides admin or guest, width the device.
 async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = null } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><ul id="root"></ul></body></html>', { runScripts: 'outside-only', url, pretendToBeVisual: true });
   const { window } = dom;
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
-  const progress = { role, setup: { done: false, steps: {} }, user: { seen: [], welcomed: false, run: null, queue: [] } };
+  // Die Schritte des Servers (setup.items), wie steps.go sie in dieser Reihenfolge liefert.
+  const progress = { role, setup: { done: false, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] } };
   const calls = [];
   window.fetch = async (requestUrl, options = {}) => {
     calls.push({ url: requestUrl, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : undefined });
@@ -47,13 +58,14 @@ async function load({ url = 'http://localhost/', role = 'admin', width = 1024, e
   window.document.dispatchEvent(new window.Event('alpine:init'));
   await new Promise((resolve) => setImmediate(resolve));
   const store = stores.onboarding;
+  window.obOnboardingStore = store;
   const component = factories.obChecklist();
   component.$store = { onboarding: store };
   component.$root = window.document.getElementById('root');
   return { window, store, component, calls, t: (key, params) => window.I18n.t(key, params) };
 }
 
-const setupItem = (window, id) => [...window.obSteps.setup, ...window.obSteps.installerOnly].find((item) => item.id === id);
+const setupItem = (window, id) => [...window.obOnboardingStore.setupItems, ...window.obSteps.installerOnly].find((item) => item.id === id);
 
 test('setup rows show the state, its sub line and the action', async () => {
   const { window, store, component: cl, t } = await load();

@@ -1,16 +1,16 @@
-// Temporärer fester Beispielkatalog für PR 1, wird in späteren Tasks durch Schritte vom Server ersetzt.
-// Schrittkatalog des Entwurfs. In der Umsetzung kommt die Ersteinrichtung
-// aus dem Dashboard (Go, nach Rechten und installierten Diensten gefiltert)
-// und Neu erkunden aus /api/v1/changelog/highlights (changelog/highlights/<PR>.json).
-// Ziele adressiert die Umsetzung ueber data-tour="<id>". Im Entwurf stehen
-// hier noch Selektoren auf das heutige Markup, weil der Proxy keine
-// Attribute setzt.
+// Ortsangaben der Einrichtungsschritte und Beispiele für Neu erkunden. Welche
+// Einrichtungsschritte es gibt, ihre Reihenfolge und ihr Zustand kommen vom
+// Server (setup.items aus /api/v1/onboarding, nach Rechten und installierten
+// Diensten gefiltert). Hier steht nur, wo ein Schritt liegt: Seite, Vorbereitung
+// und das Ziel, das die Umsetzung ueber data-tour="<id>" findet.
 //
-// Felder je Schritt:
-//   id, area (nur Einrichten), panel + page (Ort, wie ?panel=&page=),
-//   target (Selektor oder Funktion), prepare (Ort oeffnen, z. B. Karte),
-//   title, text, check ('change' = hakt sich bei einer Eingabe im Ziel ab,
-//   'leave' = gilt mit Weiter als erledigt), needs (Dienst, sonst entfaellt).
+// Felder je Einrichtungsschritt:
+//   id, panel + page (Ort, wie ?panel=&page=), prepare (Ort oeffnen, z. B. Karte),
+//   target (Selektor), check ('change' = hakt sich bei einer Eingabe im Ziel ab,
+//   'leave' = gilt mit Weiter als erledigt).
+// Titel und Text heissen onboarding.setup.<id>.title und .text und liegen im Katalog.
+//
+// Die Felder areas, installerOnly, explore und welcome sind unveraendert.
 (() => {
   const guestCard = () => [...document.querySelectorAll('#settings-users .users-card')]
     .find((card) => card.querySelector('.users-avatar')?.textContent.trim() === 'G');
@@ -29,10 +29,7 @@
   };
   const firstVisible = (...selectors) => () => selectors.map((sel) => document.querySelector(sel))
     .find((el) => el && window.obSpotlight.visibleRect(el));
-  const labelled = (id) => () => document.querySelector(`[aria-labelledby="${id}"]`);
-  // Karte einer Einstellungsseite ueber ihre Ueberschrift.
-  const card = (page, title) => () => [...document.querySelectorAll(`#settings-${page} h3`)]
-    .find((h) => h.textContent.trim() === title)?.closest('.setting-card, section');
+  const data = (id) => `[data-tour="${id}"]`;
 
   // Texte: Die Felder label, title, text, sub und detail enthalten Schlüssel des
   // Katalogs (onboarding.*), onboarding.js löst sie mit $t auf. Die Wörter
@@ -52,125 +49,34 @@
     { id: 'services', area: 'system', title: 'onboarding.setup.services.title', sub: 'onboarding.setup.services.sub' },
   ];
 
-  // installer: true = dieselbe Einstellung gibt es im Installer-Schritt
-  // Dashboard (gleiche Felder, gleiche Texte).
-
+  // Orte der Einrichtungsschritte. Die Reihenfolge, Bereiche und Zustände
+  // kommen vom Server, onboarding.js führt beides zusammen.
   const setup = [
+    { id: 'users', panel: 'settings-panel', page: 'users', prepare: accountsTab, target: data('users'), check: 'leave' },
+    { id: 'guest', panel: 'settings-panel', page: 'users', prepare: openCard(guestCard), target: data('guest'), check: 'change' },
+    { id: 'tailscale', panel: 'settings-panel', page: 'tailscale', target: data('tailscale'), check: 'leave' },
+    { id: 'companion', panel: 'settings-panel', page: 'users', prepare: accountsTab, target: data('companion'), check: 'leave' },
+    { id: 'language', panel: 'settings-panel', page: 'display', target: data('language'), check: 'change' },
+    { id: 'theme', panel: 'settings-panel', page: 'display', target: data('theme'), check: 'change' },
+    { id: 'title', panel: 'settings-panel', page: 'display', target: data('title'), check: 'change' },
+    { id: 'statusbar', panel: 'settings-panel', page: 'display', target: data('statusbar'), check: 'change' },
+    { id: 'tabwidth', panel: 'settings-panel', page: 'display', target: data('tabwidth'), check: 'change' },
+    { id: 'tiles', panel: 'overview-panel', target: data('tiles'), check: 'leave' },
+    { id: 'updates', panel: 'settings-panel', page: 'versions', target: data('updates'), check: 'change' },
+    { id: 'metrics', panel: 'settings-panel', page: 'mqtt', target: data('metrics'), check: 'change' },
+    { id: 'devices', panel: 'devices-panel', target: data('devices'), check: 'leave' },
     {
-      id: 'users', area: 'access', installer: true, panel: 'settings-panel', page: 'users',
-      target: '#settings-users .users-btn--add', prepare: accountsTab,
-      title: 'onboarding.setup.users.title',
-      text: 'onboarding.setup.users.text',
-      check: 'leave',
-    },
-    {
-      id: 'guest', area: 'access', installer: true, panel: 'settings-panel', page: 'users',
-      target: guestSwitch, prepare: openCard(guestCard),
-      title: 'onboarding.setup.guest.title',
-      text: 'onboarding.setup.guest.text',
-      check: 'change',
-    },
-    {
-      id: 'tailscale', area: 'access', panel: 'settings-panel', page: 'tailscale', needs: 'tailscale',
-      target: '#settings-tailscale',
-      title: 'onboarding.setup.tailscale.title',
-      text: 'onboarding.setup.tailscale.text',
-      check: 'leave',
-    },
-    {
-      id: 'companion', area: 'access', panel: 'settings-panel', page: 'users',
-      target: card('users', 'Home Assistant'), prepare: accountsTab,
-      title: 'onboarding.setup.companion.title',
-      text: 'onboarding.setup.companion.text',
-      check: 'leave',
-    },
-    {
-      id: 'language', area: 'display', panel: 'settings-panel', page: 'display',
-      target: labelled('lbl-ui-language'),
-      title: 'onboarding.setup.language.title',
-      text: 'onboarding.setup.language.text',
-      check: 'change',
-    },
-    {
-      id: 'theme', area: 'display', installer: true, panel: 'settings-panel', page: 'display',
-      target: labelled('lbl-theme'),
-      title: 'onboarding.setup.theme.title',
-      text: 'onboarding.setup.theme.text',
-      check: 'change',
-    },
-    {
-      id: 'title', area: 'display', installer: true, panel: 'settings-panel', page: 'display',
-      target: '#settings-display .masthead-setting',
-      title: 'onboarding.setup.title.title',
-      text: 'onboarding.setup.title.text',
-      check: 'change',
-    },
-    {
-      id: 'statusbar', area: 'display', installer: true, panel: 'settings-panel', page: 'display',
-      target: card('display', 'Systemstatus'),
-      title: 'onboarding.setup.statusbar.title',
-      text: 'onboarding.setup.statusbar.text',
-      check: 'change',
-    },
-    {
-      id: 'tabwidth', area: 'display', installer: true, panel: 'settings-panel', page: 'display',
-      target: card('display', window.I18n.t('settings.wide_tabs.title')),
-      title: 'onboarding.setup.tabwidth.title',
-      text: 'onboarding.setup.tabwidth.text',
-      check: 'change',
-    },
-    {
-      id: 'tiles', area: 'display', panel: 'overview-panel',
-      target: '.layout-btn[data-mode-edit]',
-      title: 'onboarding.setup.tiles.title',
-      text: 'onboarding.setup.tiles.text',
-      check: 'leave',
-    },
-    {
-      id: 'updates', area: 'system', installer: true, panel: 'settings-panel', page: 'versions',
-      target: card('versions', 'Updates'),
-      title: 'onboarding.setup.updates.title',
-      text: 'onboarding.setup.updates.text',
-      check: 'change',
-    },
-    {
-      id: 'metrics', area: 'system', installer: true, panel: 'settings-panel', page: 'mqtt',
-      target: card('mqtt', 'Systemmetriken publizieren'),
-      title: 'onboarding.setup.metrics.title',
-      text: 'onboarding.setup.metrics.text',
-      check: 'change',
-    },
-    {
-      id: 'devices', area: 'devices', panel: 'devices-panel',
-      target: '#devices-panel .device-tile-grid',
-      title: 'onboarding.setup.devices.title',
-      text: 'onboarding.setup.devices.text',
-      check: 'leave',
-    },
-    {
-      id: 'roles', area: 'devices', panel: 'energy-panel',
-      target: '#energy-roles .energy-role-row', watch: '#energy-roles',
+      id: 'roles', panel: 'energy-panel', target: data('roles'), check: 'change',
       prepare: () => {
         const section = document.querySelector('section[data-energy-section="roles"]');
         if (section?.dataset.open !== 'true') document.getElementById('energy-acc-roles-toggle')?.click();
       },
-      title: 'onboarding.setup.roles.title',
-      text: 'onboarding.setup.roles.text',
-      check: 'change',
     },
+    { id: 'devicemap', panel: 'devicemap-panel', target: data('devicemap'), check: 'leave' },
+    // Die erste Kachel hat kein eigenes Attribut, sie ist das erste Kind des Rasters.
     {
-      id: 'devicemap', area: 'devices', panel: 'devicemap-panel',
-      target: '#devicemap-canvas',
-      title: 'onboarding.setup.devicemap.title',
-      text: 'onboarding.setup.devicemap.text',
-      check: 'leave',
-    },
-    {
-      id: 'favorites', area: 'devices', panel: 'devices-panel',
-      target: '#devices-panel .device-tile',
-      title: 'onboarding.setup.favorites.title',
-      text: 'onboarding.setup.favorites.text',
-      check: 'leave',
+      id: 'favorites', panel: 'devices-panel', check: 'leave',
+      target: '.device-tile-grid > :first-child, .device-compact-grid > :first-child',
     },
   ];
 

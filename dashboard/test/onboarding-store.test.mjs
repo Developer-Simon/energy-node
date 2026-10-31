@@ -16,9 +16,18 @@ const source = fs.readFileSync(path.join(scriptDir, 'onboarding.js'), 'utf8');
 const modelSource = fs.readFileSync(path.join(scriptDir, 'onboarding-model.js'), 'utf8');
 const stepsSource = fs.readFileSync(path.join(scriptDir, 'onboarding-steps.js'), 'utf8');
 
+// Die Schritte des Servers (setup.items), ohne tailscale, weil der Dienst fehlt.
+const ITEMS = [
+  ['users', 'access', true], ['guest', 'access', true], ['companion', 'access', false],
+  ['language', 'display', false], ['theme', 'display', true], ['title', 'display', true],
+  ['statusbar', 'display', true], ['tabwidth', 'display', true], ['tiles', 'display', false],
+  ['updates', 'system', true], ['metrics', 'system', true], ['devices', 'devices', false],
+  ['roles', 'devices', false], ['devicemap', 'devices', false], ['favorites', 'devices', false],
+].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
+
 const PROGRESS = {
   role: 'admin',
-  setup: { done: false, steps: {} },
+  setup: { done: false, steps: {}, items: ITEMS },
   user: { seen: [], welcomed: false, run: null, queue: [] },
 };
 const SESSION = { csrf_token: 'tok', roles: ['user_management', 'view_devices', 'view_stats'] };
