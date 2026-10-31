@@ -54,7 +54,7 @@ func stubSeams(t *testing.T, machine string) *staged {
 		}
 		return nil
 	}
-	verifyStaged = func(_ context.Context, _ *transport.Client, _ string, signed bool) error {
+	verifyStaged = func(_ context.Context, _ *transport.Client, _ string, signed, _ bool) error {
 		rec.verifyCalls++
 		rec.signed = signed
 		return nil
@@ -358,7 +358,7 @@ func TestPrepareADeltaVerifyFailureReportsADistinctCode(t *testing.T) {
 	stageDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
 		return nil
 	}
-	verifyStaged = func(context.Context, *transport.Client, string, bool) error { return errors.New("hash mismatch") }
+	verifyStaged = func(context.Context, *transport.Client, string, bool, bool) error { return errors.New("hash mismatch") }
 
 	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
 		t.Fatalf("SelectPackage: %v", err)
@@ -380,7 +380,7 @@ func TestPrepareAFullTransferVerifyFailureUsesTheUsualBundleFaultCode(t *testing
 		t.Fatalf("deltaBase must not be called for ForceFullTransfer")
 		return nil, ""
 	}
-	verifyStaged = func(context.Context, *transport.Client, string, bool) error {
+	verifyStaged = func(context.Context, *transport.Client, string, bool, bool) error {
 		return &bundle.Error{Code: bundle.FaultHashMismatch, Message: "boom"}
 	}
 
@@ -394,5 +394,77 @@ func TestPrepareAFullTransferVerifyFailureUsesTheUsualBundleFaultCode(t *testing
 	}
 	if rec.markCalls != 0 {
 		t.Errorf("markCalls = %d, want 0 (never called when verify fails)", rec.markCalls)
+	}
+}
+
+func TestPrepareTellsVerifyWhenTheOperatorAllowedOnlineDeps(t *testing.T) {
+	stubSeams(t, "armv6l")
+	h := hostWithBundled(t)
+	var got []bool
+	verifyStaged = func(_ context.Context, _ *transport.Client, _ string, _, allowABIMismatch bool) error {
+		got = append(got, allowABIMismatch)
+		return nil
+	}
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	for _, req := range []hostapi.RunRequest{
+		{Mode: hostapi.ModePrepare, ForceFullTransfer: true},
+		{Mode: hostapi.ModePrepare, ForceFullTransfer: true, AllowOnlineDeps: true},
+	} {
+		if err := h.Run(context.Background(), req, &recordingSink{}); err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+	}
+	if len(got) != 2 || got[0] || !got[1] {
+		t.Errorf("allowABIMismatch per verify = %v, want [false true]", got)
+	}
+}
+
+func TestPrepareADeltaABIMismatchKeepsItsOwnCode(t *testing.T) {
+	stubSeams(t, "armv6l")
+	h := hostWithBundled(t)
+	deltaBase = func(context.Context, *transport.Client, string) (*bundle.Manifest, string) {
+		return &bundle.Manifest{Files: map[string]string{}}, "none"
+	}
+	stageDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
+	verifyStaged = func(context.Context, *transport.Client, string, bool, bool) error {
+		return &bundle.Error{Code: bundle.FaultPythonABIMismatch, Message: "cp313"}
+	}
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "PYTHON_ABI_MISMATCH" {
+		t.Fatalf("err = %v, want PYTHON_ABI_MISMATCH, not a delta failure that a full transfer cannot fix", err)
+	}
+}
+
+func TestPreflightTurnsAnABIMismatchIntoAWarningOnlyWithConsentAndInternet(t *testing.T) {
+	h := hostWithBundled(t)
+	facts := PreflightFacts{Arch: "armv6l", PythonABI: "cp313", DiskFreeMB: 4096, SudoNopasswd: true, Internet: true}
+	has := func(list []string, code string) bool {
+		for _, c := range list {
+			if c == code {
+				return true
+			}
+		}
+		return false
+	}
+
+	if view := h.EvaluatePreflight(facts); !has(view.Blocking, "PYTHON_ABI_MISMATCH") {
+		t.Errorf("without consent blocking = %v, want PYTHON_ABI_MISMATCH", view.Blocking)
+	}
+	h.allowOnlineDeps = true
+	view := h.EvaluatePreflight(facts)
+	if has(view.Blocking, "PYTHON_ABI_MISMATCH") || !has(view.Warnings, "PYTHON_ABI_ONLINE") {
+		t.Errorf("with consent blocking = %v warnings = %v, want a PYTHON_ABI_ONLINE warning", view.Blocking, view.Warnings)
+	}
+	facts.Internet = false
+	if view := h.EvaluatePreflight(facts); !has(view.Blocking, "PYTHON_ABI_MISMATCH") {
+		t.Errorf("with consent but no internet blocking = %v, want PYTHON_ABI_MISMATCH", view.Blocking)
 	}
 }

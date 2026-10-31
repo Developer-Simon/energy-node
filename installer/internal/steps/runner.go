@@ -31,6 +31,7 @@ type RunOptions struct {
 	Secrets         *Secrets             // optional; only step 60 ever receives it
 	NodeConfigPath  string               // optional; where step 20 finds the MQTT user without credentials, default DefaultNodeConfigPath
 	RestartAll      bool                 // optional; steps see EN_RESTART=all and restart every service unit
+	OnlineDeps      bool                 // optional; the operator allowed pip to fetch dependencies online (EN_ONLINE_DEPS, EN_ALLOW_ABI_MISMATCH)
 	OnMarker        func(Marker)
 	OnLog           func(stepID, line string)
 }
@@ -105,6 +106,10 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 	}
 	if opts.RestartAll {
 		env["EN_RESTART"] = "all"
+	}
+	if opts.OnlineDeps {
+		env["EN_ONLINE_DEPS"] = "1"
+		env["EN_ALLOW_ABI_MISMATCH"] = "1"
 	}
 	scriptCommand := "bash " + transport.ShellQuote(scriptPath)
 	if step.ID == mosquittoStepID {

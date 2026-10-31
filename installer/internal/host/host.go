@@ -74,6 +74,17 @@ type Host struct {
 	// sudoPassword gilt fuer die laufende Verbindung und liegt nur im
 	// Speicher. Es dient dazu, einmalig passwortloses sudo einzurichten.
 	sudoPassword string
+
+	// allowOnlineDeps: der Betreiber hat freigegeben, dass der Node die
+	// Python-Abhaengigkeiten aus dem Netz holt, weil seine Python-ABI nicht
+	// zu den Wheels des Pakets passt. Gilt fuer die laufende Sitzung.
+	allowOnlineDeps bool
+}
+
+func (h *Host) onlineDepsAllowed() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.allowOnlineDeps
 }
 
 // New liest das Manifest des Bundles und baut den Wirt.
@@ -284,7 +295,13 @@ func (h *Host) EvaluatePreflight(facts PreflightFacts) *hostapi.Precheck {
 		view.Blocking = append(view.Blocking, "ARCH_MISMATCH")
 	}
 	if !view.PythonABIOK {
-		view.Blocking = append(view.Blocking, "PYTHON_ABI_MISMATCH")
+		// Mit Freigabe des Betreibers holt der Node die Abhaengigkeiten aus
+		// dem Netz; das braucht aber einen Internetzugang.
+		if h.onlineDepsAllowed() && facts.Internet {
+			view.Warnings = append(view.Warnings, "PYTHON_ABI_ONLINE")
+		} else {
+			view.Blocking = append(view.Blocking, "PYTHON_ABI_MISMATCH")
+		}
 	}
 	if !view.DiskOK {
 		view.Warnings = append(view.Warnings, "DISK_LOW")
@@ -472,6 +489,11 @@ func (h *Host) Changelog(ctx context.Context) (*hostapi.ChangelogView, error) {
 
 func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
 	if req.Mode == hostapi.ModePrepare {
+		if req.AllowOnlineDeps {
+			h.mu.Lock()
+			h.allowOnlineDeps = true
+			h.mu.Unlock()
+		}
 		return h.prepare(ctx, sink, req.ForceFullTransfer)
 	}
 	client, err := h.connected()
@@ -500,6 +522,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		TargetBase:      firstNonEmpty(req.TargetBase, manifest.TargetBase),
 		MQTTUser:        req.MQTTUser,
 		RestartAll:      req.RestartAll,
+		OnlineDeps:      h.onlineDepsAllowed(),
 		Steps:           list,
 		Selection:       h.selectionForRun(),
 		Secrets:         &steps.Secrets{MQTTPassword: req.MQTTPassword, AdminPassword: req.AdminPassword},

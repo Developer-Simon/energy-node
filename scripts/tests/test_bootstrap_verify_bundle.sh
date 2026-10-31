@@ -94,6 +94,19 @@ set -e
 [ "$rc" -eq 1 ] || fail "fremdes ABI nicht abgelehnt" "$rc"
 [ "${out##*$'\n'}" = "FEHLER PYTHON_ABI_MISMATCH" ] || fail "falscher Code" "$out"
 
+# --- freigegebenes fremdes ABI -------------------------------------------
+# Der Betreiber hat die Online-Installation freigegeben: nur das ABI wird
+# durchgelassen, die Pruefung endet mit OK.
+out="$(EN_ALLOW_ABI_MISMATCH=1 bash "$script" --bundle "$bundle" --target-only 2>/dev/null)" \
+  || fail "freigegebenes ABI wurde abgelehnt" "$out"
+[ "${out##*$'\n'}" = "OK" ] || fail "freigegebenes ABI endete nicht mit OK" "$out"
+write_manifest '["sparc64"]' cp36
+set +e
+out="$(EN_ALLOW_ABI_MISMATCH=1 bash "$script" --bundle "$bundle" --target-only 2>/dev/null)"; rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "die Freigabe liess eine fremde Architektur durch" "$rc"
+write_manifest "[\"$machine\"]" cp36
+
 # --- --target-only braucht keinen Schluessel -----------------------------
 # Die Signatur ist hier gueltig, aber der Schluessel wird gar nicht erst
 # uebergeben: der Schritt auf dem Node soll ohne ihn laufen koennen.

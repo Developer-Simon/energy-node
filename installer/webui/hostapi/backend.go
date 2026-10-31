@@ -242,6 +242,11 @@ type RunRequest struct {
 	// verification failed and they confirmed the retry (the prepare
 	// screen's recommendation dialog, on PACKAGE_VERIFY_FAILED_DELTA).
 	ForceFullTransfer bool `json:"force_full_transfer,omitempty"`
+	// AllowOnlineDeps erlaubt, die Python-Abhaengigkeiten auf dem Node aus dem
+	// Netz zu holen, wenn dessen Python-ABI nicht zu den Wheels des Pakets
+	// passt. Der Betreiber gibt das im Dialog des Vorbereiten-Bildschirms
+	// frei, nachdem PYTHON_ABI_MISMATCH gemeldet wurde.
+	AllowOnlineDeps bool `json:"allow_online_deps,omitempty"`
 	// Secrets gehen hinein und nie wieder hinaus.
 	MQTTPassword  string `json:"mqtt_password,omitempty"`
 	AdminPassword string `json:"admin_password,omitempty"`

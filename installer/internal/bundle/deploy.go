@@ -131,18 +131,24 @@ func verifyBundleErrorMessage(stderr string) string {
 // key is what actually defends against tampering; callers must run it
 // before Deploy.
 func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir string, pubKeyPEM []byte) error {
+	return VerifyRemoteWith(ctx, client, remoteDir, pubKeyPEM, false)
+}
+
+// VerifyRemoteWith is VerifyRemote with the operator's choice whether a
+// Python ABI that does not match the wheels is tolerated (online installation).
+func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir string, pubKeyPEM []byte, allowABIMismatch bool) error {
 	remotePubKey := fmt.Sprintf("/tmp/energy-node-installer-pubkey-%s-%s.pem", stagingTag(remoteDir), randomSuffix())
 	if err := client.UploadBytes(pubKeyPEM, remotePubKey, 0o600); err != nil {
 		return fmt.Errorf("uploading public key: %w", err)
 	}
 	defer client.RemoveRemote(remotePubKey)
 
-	command := fmt.Sprintf(
+	command := transport.BuildCommand(abiEnv(allowABIMismatch), fmt.Sprintf(
 		"bash %s --bundle %s --pubkey %s --target",
 		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
 		transport.ShellQuote(remoteDir),
 		transport.ShellQuote(remotePubKey),
-	)
+	))
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
 
@@ -164,11 +170,16 @@ func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir strin
 // with --dev-unsigned never has one. It never uploads a public key, unlike
 // VerifyRemote, because none is needed.
 func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir string) error {
-	command := fmt.Sprintf(
+	return VerifyRemoteDevWith(ctx, client, remoteDir, false)
+}
+
+// VerifyRemoteDevWith is VerifyRemoteDev with the same ABI choice as VerifyRemoteWith.
+func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDir string, allowABIMismatch bool) error {
+	command := transport.BuildCommand(abiEnv(allowABIMismatch), fmt.Sprintf(
 		"bash %s --bundle %s --no-signature --target",
 		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
 		transport.ShellQuote(remoteDir),
-	)
+	))
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
 
@@ -180,6 +191,16 @@ func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir st
 		return &Error{Code: FaultCode(code), Message: verifyBundleErrorMessage(stderr.String())}
 	}
 	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
+}
+
+// abiEnv is the environment verify_bundle.sh needs when the operator allowed
+// an online installation despite a Python ABI that does not match the wheels:
+// the ABI check then only warns. Architecture, hashes and signature stay strict.
+func abiEnv(allow bool) map[string]string {
+	if !allow {
+		return nil
+	}
+	return map[string]string{"EN_ALLOW_ABI_MISMATCH": "1"}
 }
 
 // LastLine returns the last non-empty line of s, trimming a trailing
