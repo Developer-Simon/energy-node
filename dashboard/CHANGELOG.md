@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.29 (2026-10-31)
+## v0.10.30 (2026-10-31)
 
 ### Features
 
@@ -20,7 +20,15 @@
 - **devices:** star favourites, a per-entity analysis tab and two device rights (#180) (2139615)
 - **webui:** mobile view for the statistics page (#183) (eb97683)
 - **auth:** Guests can only view by default, and an admin can switch guest access off. (#184) (c4ffa07)
-- **webui:** redesign the login card and link the favicon (#185)
+- **webui:** redesign the login card and link the favicon (#185) (2e8d91f)
+- **onboarding:** add the progress store (20b1744)
+- **httpapi:** add the onboarding progress API (f55c41f)
+- **webui:** add spring motion and spotlight for onboarding (14e83f5)
+- **webui:** add the onboarding decision model (9a42fae)
+- **webui:** add the onboarding bar markup, styles and texts (985466b)
+- **webui:** add the onboarding bar (483a4c1)
+- **webui:** add the onboarding checklist page (c53aed2)
+- **webui:** onboarding bar, spotlight and checklist (#186)
 - **auth:** view-only guest preset and own presets for HA admins and users (ab16453)
 - **auth:** migrate untouched guest and HA presets to the new defaults (e7b742f)
 - **auth:** let an admin switch guest access off (77f3021)
@@ -177,6 +185,15 @@
 ### Fixes
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
+- **onboarding:** do not overwrite progress after a failed read (79ea153)
+- **httpapi:** bound the onboarding input sizes (43eb762)
+- **webui:** take onboarding eyebrows from the catalog only (93c09eb)
+- **httpapi:** allow a run without a source (2061366)
+- **webui:** build the onboarding rights from the session (d409b91)
+- **webui:** shorten the checklist subtext in the settings list (62696f9)
+- **webui:** repair the base template and move users before versions (a9eda15)
+- **webui:** keep a tour step open when the user picks later (10dbea7)
+- **webui:** limit the statistics tour step to the phone (fb1c201)
 - **auth:** normalize the guest preset and refresh role comments (81867fb)
 - **auth:** migrate legacy guest accounts independent of the preset and cover restored sessions (c485572)
 - **httpapi:** require delete_device_discovery to ignore or un-ignore a device (0caa6f8)
@@ -270,6 +287,8 @@
 ### Tests
 
 - **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
+- **webui:** assert the checklist deep link scroll and highlight (3a4ac10)
+- **smoke:** add the onboarding progress check (9ab774b)
 - **httpapi:** give guests the rights these tests need now that the preset is view-only (a4b75b8)
 - **demo:** move the fakes and fixtures to demo/ (502b209)
 - **smoke:** split the core and config checks into groups (7f8dbc3)

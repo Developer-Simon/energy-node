@@ -152,7 +152,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=4,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=29,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=9,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=30,/static/js/onboarding-checklist.js?v=1,/static/js/mqtt.page.js?v=10,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=9,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -4251,5 +4251,38 @@ func TestLoginShowsGuestButtonOnlyWhenGuestAccessIsOn(t *testing.T) {
 	on := renderWithBasePath(t, Login(true, nil, "", false, true), "/login")
 	if !strings.Contains(on, `id="guest-login"`) {
 		t.Fatalf("login page with guest access on does not render the guest button: %s", on)
+	}
+}
+
+// Die Checkliste sitzt im Einstellungs-Panel. Gast und Admin muessen die
+// Seite ohne Fehler rendern: der Modus Einrichten erscheint nur fuer Admins,
+// das schaltet die Seite im Browser (x-show), nicht der Server.
+func TestSettingsChecklistRendersForGuestAndAdmin(t *testing.T) {
+	render := func(user auth.User) string {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil)
+		req = req.WithContext(auth.WithUser(req.Context(), user))
+		Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("settings panel for %q got status %d", user.Username, rec.Code)
+		}
+		return rec.Body.String()
+	}
+	for _, user := range []auth.User{
+		{Username: "g", Guest: true, Roles: []string{auth.RoleViewOverview}},
+		{Username: "a", Roles: []string{auth.RoleUserManagement}},
+	} {
+		body := render(user)
+		for _, want := range []string{
+			`<section id="settings-checklist"`,
+			`aria-controls="settings-checklist"`,
+			`x-data="obChecklist()"`,
+			`class="segmented ob-cl-switch"`,
+		} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("settings panel for %q lacks %s", user.Username, want)
+			}
+		}
 	}
 }

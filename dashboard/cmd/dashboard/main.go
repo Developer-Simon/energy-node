@@ -37,6 +37,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/servicelogs"
@@ -89,6 +90,7 @@ func main() {
 	shellyPresetsStore := shellypresets.NewStore(shellyPresetsPath)
 	configManager.ExcludeName(strings.TrimSuffix(filepath.Base(shellyPresetsPath), ".json"))
 	settingsStore := settings.NewStore(dataDir)
+	onboardingStore := onboarding.NewStore(dataDir)
 	settingsStore.SetSweepIntervalDefault(cfg.Dashboard.SweepIntervalSeconds)
 	deviceFilterStore := devicefilter.NewStore(dataDir)
 	if err := deviceFilterStore.Load(); err != nil {
@@ -571,6 +573,7 @@ func main() {
 		BridgeCredentials:   bridgeCredentialStore,
 		MQTTBridgeWatcher:   client,
 		DataDir:             dataDir,
+		Onboarding:          onboardingStore,
 		InstallerStateDir:   installerStateDir,
 		AppConfigPath:       *configPath,
 		BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,

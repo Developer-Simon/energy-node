@@ -35,6 +35,8 @@ source "$SMOKE_DIR/checks/companion.sh"
 source "$SMOKE_DIR/checks/energy.sh"
 # shellcheck source=dashboard/test/smoke/checks/updates.sh
 source "$SMOKE_DIR/checks/updates.sh"
+# shellcheck source=dashboard/test/smoke/checks/onboarding.sh
+source "$SMOKE_DIR/checks/onboarding.sh"
 
 # Smoke-Ports. Die Demo nutzt 182xx, der Smoke-Test 181xx.
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
@@ -118,6 +120,7 @@ gruppe() {
     installed) checks_installed ;;
     journal) checks_journal ;;
     users) checks_users ;;
+    onboarding) checks_onboarding ;;
     update_install) checks_update_install ;;
     companion) checks_companion ;;
     history_exchange) checks_history_exchange ;;
@@ -240,7 +243,7 @@ for name in haupt ohne-dienste bilanz; do
     haupt)
       konfiguriere_haupt
       fuehre_lauf haupt topics battery_config shelly seed dataflow live_push \
-        update_offer package installed journal users update_install companion \
+        update_offer package installed journal users onboarding update_install companion \
         history_exchange || RESULT=1
       ;;
     ohne-dienste)

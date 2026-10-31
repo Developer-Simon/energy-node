@@ -29,7 +29,7 @@ use makes the run fail, and the script leaves the process that holds it alone.
 
 | Run | Configuration | Check groups |
 |---|---|---|
-| `haupt` | Sources, fixture and seed data of the demo (`demo/demo.sh`), HTTPS, simulated power values, service logs, installed state, package and update fake | `topics`, `battery_config`, `shelly`, `seed`, `dataflow`, `live_push`, `update_offer`, `package`, `installed`, `journal`, `users`, `update_install`, `companion`, `history_exchange` |
+| `haupt` | Sources, fixture and seed data of the demo (`demo/demo.sh`), HTTPS, simulated power values, service logs, installed state, package and update fake | `topics`, `battery_config`, `shelly`, `seed`, `dataflow`, `live_push`, `update_offer`, `package`, `installed`, `journal`, `users`, `onboarding`, `update_install`, `companion`, `history_exchange` |
 | `ohne-dienste` | The demo sources, but all seven services switched off | `services_off` |
 | `bilanz` | `energie-ueberschuss.json` with the seed set `energie-alle-karten`, only the battery service, no simulation | `seed`, `energy_balance`, `companion` |
 
