@@ -3,6 +3,7 @@ package auth
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -48,6 +49,9 @@ func TestManagerCreatesAndCleansGuestUsers(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "users.json")
 	manager, err := newManager(path, "", "", func() time.Time { return now })
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.SetGuestRoles("admin", []string{RoleViewOverview, RoleViewAutomations, RoleAutomations, RoleEditLayout, RoleCheckUpdates}); err != nil {
 		t.Fatal(err)
 	}
 	guest, err := manager.ContinueAsGuest()
@@ -199,7 +203,7 @@ func TestManagerStartsWithBrokenSessionsFile(t *testing.T) {
 	}
 }
 
-func TestNewGuestsGetEditEnergy(t *testing.T) {
+func TestNewGuestsOnlyView(t *testing.T) {
 	manager, err := newManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret", time.Now)
 	if err != nil {
 		t.Fatal(err)
@@ -208,34 +212,39 @@ func TestNewGuestsGetEditEnergy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !containsRole(defaultGuestRoles(), RoleEditEnergy) {
-		t.Fatal("the default guest roles lack edit_energy")
-	}
-	if !HasRole(session.User, RoleEditEnergy) {
-		t.Fatal("a new guest must get edit_energy until there is a user management")
-	}
-}
-
-func TestGuestAndBootstrapGetDeviceMapRoles(t *testing.T) {
-	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
-	manager, err := newManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret", func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
-	guest, err := manager.ContinueAsGuest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !containsRole(defaultGuestRoles(), RoleEditDeviceMap) || !containsRole(defaultGuestRoles(), RoleEditDeviceMapView) {
-		t.Fatal("the default guest roles lack the device map roles")
-	}
-	if !HasRole(guest.User, RoleEditDeviceMap) || !HasRole(guest.User, RoleEditDeviceMapView) {
-		t.Fatal("a new guest must get edit_device_map and edit_device_map_view until there is a user management")
+	want := []string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats}
+	if !reflect.DeepEqual(session.User.Roles, want) {
+		t.Fatalf("new guest roles %v, want %v", session.User.Roles, want)
 	}
 	manager.mu.Lock()
 	admin := manager.users["admin"]
 	manager.mu.Unlock()
 	if !HasRole(admin, RoleEditDeviceMap) || !HasRole(admin, RoleEditDeviceMapView) {
-		t.Fatal("the bootstrap admin must get edit_device_map and edit_device_map_view")
+		t.Fatal("the bootstrap admin must keep edit_device_map and edit_device_map_view")
+	}
+}
+
+func TestHADefaultRoles(t *testing.T) {
+	user := defaultHAUserRoles()
+	for _, key := range append(ViewRoles(), RoleOperateDevices, RoleOperateAutomations, RoleEditLayout, RoleEditDeviceAppearance, RoleEditDeviceMapView, RoleEditSettings, RoleCheckUpdates) {
+		if !containsRole(user, key) {
+			t.Errorf("ha user preset lacks %s", key)
+		}
+	}
+	for _, key := range []string{RoleAutomations, RoleEditEnergy, RoleEditConfig, RoleEditSetup, RoleInstallUpdates, RoleViewLogs} {
+		if containsRole(user, key) {
+			t.Errorf("ha user preset has %s", key)
+		}
+	}
+	admin := defaultHAAdminRoles()
+	for _, key := range []string{RoleAutomations, RoleEditEnergy, RoleEditDeviceMap, RoleEditConfig, RoleDeleteDeviceDiscovery, RoleEditSetup, RoleInstallUpdates, RoleViewLogs, RoleCheckUpdates} {
+		if !containsRole(admin, key) {
+			t.Errorf("ha admin preset lacks %s", key)
+		}
+	}
+	for _, key := range []string{RoleMQTTConfig, RoleSetupTinyTuya, RoleTailscale, RoleUpdateSettings, RoleSystemActions, RoleUserManagement, RoleHTTPLogin} {
+		if containsRole(admin, key) {
+			t.Errorf("ha admin preset has %s", key)
+		}
 	}
 }

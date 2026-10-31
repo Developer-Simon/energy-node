@@ -99,10 +99,40 @@ func migrateV3(roles []string) []string {
 	return out
 }
 
-// defaultGuestRoles ist die Gastvorgabe einer neuen Installation: die
-// Migration angewandt auf einen Gast mit der alten Rollenliste.
-func defaultGuestRoles() []string {
+// legacyDefaultGuestRoles ist die bisherige Gastvorgabe: die Migration
+// angewandt auf einen Gast mit der alten Rollenliste. Nur noch als Altwert
+// fuer die Migrationstests.
+func legacyDefaultGuestRoles() []string {
 	return migrateV1(map[string]User{"guest": {Username: "guest", Guest: true, Roles: legacyGuestRoles}})
+}
+
+// defaultGuestRoles ist die Gastvorgabe einer neuen Installation: nur ansehen,
+// keine Bearbeitung. Die Reihenfolge ist die der Vorgabe, nicht sortiert.
+func defaultGuestRoles() []string {
+	return []string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats}
+}
+
+// defaultHAUserRoles ist die Vorgabe fuer HA-Konten ohne HA-Admin: Ansehen und
+// Bedienen, dazu Gestalten, Einstellungen und Update-Pruefung, kein Einrichten.
+func defaultHAUserRoles() []string {
+	return Normalize([]string{
+		RoleViewOverview, RoleViewDevices, RoleViewDeviceAnalysis, RoleViewHistory, RoleViewStats,
+		RoleViewEnergy, RoleViewDeviceMap, RoleViewConfig, RoleViewAutomations, RoleViewDiagnostics,
+		RoleOperateDevices, RoleOperateAutomations, RoleEditLayout, RoleEditDeviceAppearance,
+		RoleEditDeviceMapView, RoleEditSettings, RoleCheckUpdates,
+	})
+}
+
+// defaultHAAdminRoles ist die Vorgabe fuer HA-Konten mit HA-Admin: alle
+// HA-tauglichen Berechtigungen ohne die erhoehten.
+func defaultHAAdminRoles() []string {
+	var out []string
+	for _, info := range roleCatalog {
+		if info.HAAllowed && !info.Elevated {
+			out = append(out, info.Key)
+		}
+	}
+	return Normalize(out)
 }
 
 // bootstrapAdminRoles sind alle Berechtigungen ausser http_login.

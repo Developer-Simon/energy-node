@@ -221,13 +221,12 @@ func newClockManager(t *testing.T, start time.Time) (*Manager, *time.Time) {
 	return m, &clock
 }
 
-func TestPairWritesHARolesFromGuestRolesOnce(t *testing.T) {
+func TestPairWritesHADefaultsOnce(t *testing.T) {
 	m := mustManager(t, filepath.Join(t.TempDir(), "users.json"), "", "")
 	pairForTest(t, m)
 	admin, user, set := m.HARoles()
-	guest := m.GuestRoles()
-	if !set || !reflect.DeepEqual(admin, guest) || !reflect.DeepEqual(user, guest) {
-		t.Fatalf("first pairing: ha roles admin %v user %v set %v, want guest roles %v", admin, user, set, guest)
+	if !set || !(reflect.DeepEqual(admin, defaultHAAdminRoles()) && reflect.DeepEqual(user, defaultHAUserRoles())) {
+		t.Fatalf("first pairing: ha roles admin %v user %v set %v, want defaults admin %v user %v", admin, user, set, defaultHAAdminRoles(), defaultHAUserRoles())
 	}
 
 	if err := m.SetHARoles("admin", []string{RoleViewOverview}, []string{RoleViewDevices}); err != nil {

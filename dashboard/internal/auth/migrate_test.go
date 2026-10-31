@@ -147,7 +147,7 @@ func TestBootstrapOnlyWithoutNonGuestUser(t *testing.T) {
 		t.Fatal("bootstrap admin must not get http_login")
 	}
 	file := readUsersFile(t, path)
-	if file.Version != 4 || !reflect.DeepEqual(file.GuestRoles, defaultGuestRoles()) {
+	if file.Version != 4 || !reflect.DeepEqual(file.GuestRoles, legacyDefaultGuestRoles()) {
 		t.Fatalf("bootstrap file version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 	if manager.MigrationNotice() {

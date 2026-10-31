@@ -26,16 +26,15 @@ const (
 	RoleMQTTConfig            = "mqtt_config"
 	RoleAutomations           = "automations"
 	// RoleEditLayout schaltet den Bearbeitungsmodus der Uebersicht frei
-	// (Editieren-Knopf, Editor-Fragment). Aktuell bekommt sie jeder - auch
-	// jeder Gast (siehe ContinueAsGuest) -, damit das Layout ohne Adminkonto
-	// anpassbar bleibt; die eigene Rolle ist das Plumbing, an das eine
-	// spaetere Rollen-Oberflaeche greift.
+	// (Editieren-Knopf, Editor-Fragment). Sie steht nicht in der Gastvorgabe,
+	// ein Gast bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditLayout = "edit_layout"
 	// RoleViewDeviceAnalysis schaltet die Analyse im Geraete-Dialog frei:
 	// Rohdaten, Discovery, Schreibaktionen und Konfigurationswarnungen.
 	RoleViewDeviceAnalysis = "view_device_analysis"
 	// RoleEditDeviceAppearance schaltet das Festlegen von Icon und Favoriten
-	// eines Geraets frei. Wie RoleEditLayout bekommt sie vorlaeufig jeder.
+	// eines Geraets frei. Sie steht nicht in der Gastvorgabe, ein Gast bekommt
+	// sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditDeviceAppearance = "edit_device_appearance"
 	// RoleCheckUpdates schaltet nur das Lesen frei, ob auf GitHub eine
 	// neuere Version liegt (siehe internal/updatecheck) - keine der

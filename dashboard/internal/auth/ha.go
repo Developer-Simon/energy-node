@@ -437,8 +437,7 @@ func (m *Manager) Pair(check func(code string) bool) (token, code string, err er
 	oldCompanion, oldRoles, oldSessions, oldPairing := m.companion, m.haRoles, m.sessions, m.pairing
 	m.companion = &companionFile{Label: "Home Assistant", TokenHash: tokenHash(token), PairedAt: now.UTC(), LastSeenAt: now.UTC()}
 	if m.haRoles == nil {
-		preset := Normalize(guestAllowedOnly(m.guestRoles))
-		m.haRoles = &haRolesFile{Admin: preset, User: append([]string{}, preset...)}
+		m.haRoles = &haRolesFile{Admin: defaultHAAdminRoles(), User: defaultHAUserRoles()}
 	}
 	m.pairing = nil
 	m.sessions = withoutHASessions(m.sessions)
