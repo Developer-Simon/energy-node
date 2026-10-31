@@ -133,7 +133,7 @@
   <div class="layout-toolbar">
     <span class="layout-count" data-count></span>
     <span class="layout-spacer"></span>
-    {{if .CanEditLayout}}<button class="layout-btn" type="button" data-view-only data-mode-edit
+    {{if .CanEditLayout}}<button class="layout-btn" type="button" data-view-only data-mode-edit data-tour="tiles"
             x-on:click="enterEdit()" x-bind:disabled="busy"><svg class="automation-icon" aria-hidden="true"><use href="#ico-pencil"></use></svg>{{t "overview.edit"}}</button>{{end}}
   </div>
   {{/* Traeger fuer die Zielbreitenvorschau: applyTargetWidth() setzt hier

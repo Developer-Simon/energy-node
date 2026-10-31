@@ -356,8 +356,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/user-sessions/", handleUserSessions(dependencies.Auth))
 		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
 		if dependencies.Onboarding != nil {
-			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding))
-			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding))
+			onboardingInstalledServices := onboardingInstalled(dependencies.InstalledServices)
+			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices))
+			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices))
 		}
 	}
 	if dependencies.SystemActions != nil {
@@ -427,7 +428,11 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/tailscale/logout", handleTailscaleLogout(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 		g.HandleFunc("/api/v1/tailscale/restart", handleTailscaleRestart(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 	}
-	g.HandleFunc("/", webui.OverviewWithDeviceFilterAndEngine(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices))
+	var setupPending func() bool
+	if dependencies.Onboarding != nil {
+		setupPending = func() bool { return !dependencies.Onboarding.Load().SetupDone }
+	}
+	g.HandleFunc("/", webui.OverviewWithOnboarding(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices, setupPending))
 	return g.ServeMux()
 }
 

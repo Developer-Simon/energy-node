@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -24,8 +25,15 @@ type onboardingView struct {
 	Setup struct {
 		Done  bool              `json:"done"`
 		Steps map[string]string `json:"steps"`
+		Items []struct {
+			ID        string `json:"id"`
+			Area      string `json:"area"`
+			Installer bool   `json:"installer"`
+			State     string `json:"state"`
+		} `json:"items"`
 	} `json:"setup"`
-	User struct {
+	Queue []string `json:"queue"`
+	User  struct {
 		Seen     []string `json:"seen"`
 		Welcomed bool     `json:"welcomed"`
 		Run      *struct {
@@ -41,17 +49,34 @@ type onboardingView struct {
 // whose onboarding progress lives in onboardingDir.
 func newOnboardingTestRouter(t *testing.T, usersPath, onboardingDir string) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return newOnboardingRouterWithSettings(t, usersPath, onboardingDir, t.TempDir())
+}
+
+// newOnboardingRouterWithSettings is newOnboardingTestRouter with the settings
+// of the installation in settingsDir, so a test can prepare them first.
+func newOnboardingRouterWithSettings(t *testing.T, usersPath, onboardingDir, settingsDir string) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(usersPath, "admin", usersAdminPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
 	hub := companion.NewHub()
 	manager.SetHAVerifier(hub)
-	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(settingsDir), nil, nil, nil, nil, nil, RouterDependencies{
 		Auth:       manager,
 		Onboarding: onboarding.NewStore(onboardingDir),
 	})
 	return router, manager
+}
+
+// itemState returns the state of one setup item, or "" when it is missing or open.
+func itemState(view onboardingView, id string) string {
+	for _, item := range view.Setup.Items {
+		if item.ID == id {
+			return item.State
+		}
+	}
+	return ""
 }
 
 func newTestOnboardingRouter(t *testing.T) (http.Handler, *auth.Manager) {
@@ -339,5 +364,69 @@ func TestOnboardingInputLimitsAtBoundary(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			runOnboardingLimitCase(t, tc, http.StatusOK, "")
 		})
+	}
+}
+
+func TestQueueAdminGetsSetupFirst(t *testing.T) {
+	router, _ := newTestOnboardingRouter(t)
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+
+	view := getOnboarding(t, router, cookie)
+	if want := []string{"setup", "explore"}; !slices.Equal(view.Queue, want) {
+		t.Fatalf("admin queue = %v, want %v", view.Queue, want)
+	}
+	if len(view.Setup.Items) == 0 {
+		t.Fatal("setup items are missing")
+	}
+}
+
+func TestQueueNeverContainsSetupForGuest(t *testing.T) {
+	router, manager := newTestOnboardingRouter(t)
+	guestCookie, _ := guestSession(t, router)
+	readerCookie, _ := loginWithRoles(t, router, manager, "reader", []string{auth.RoleViewLogs})
+
+	for name, cookie := range map[string]*http.Cookie{"guest": guestCookie, "user": readerCookie} {
+		view := getOnboarding(t, router, cookie)
+		if slices.Contains(view.Queue, "setup") {
+			t.Fatalf("%s queue = %v, must not contain setup", name, view.Queue)
+		}
+	}
+}
+
+func TestSecondAdminDoesNotRestartSetup(t *testing.T) {
+	router, manager := newTestOnboardingRouter(t)
+	firstCookie, firstCSRF := sessionFor(t, router, "admin", usersAdminPassword)
+	wantUsersStatus(t, usersCall(router, http.MethodPost, "/api/v1/onboarding/setup/complete", "", firstCookie, firstCSRF, true), http.StatusOK)
+
+	secondCookie, _ := loginWithRoles(t, router, manager, "second", []string{auth.RoleUserManagement})
+	view := getOnboarding(t, router, secondCookie)
+	if want := []string{"explore"}; !slices.Equal(view.Queue, want) {
+		t.Fatalf("second admin queue = %v, want %v", view.Queue, want)
+	}
+}
+
+func TestExistingInstallBehavesLikeFresh(t *testing.T) {
+	// No onboarding.json, but the settings were changed before the upgrade.
+	settingsDir := t.TempDir()
+	changed := settings.Default()
+	changed.UpdateCheckDisabled = true
+	if err := settings.NewStore(settingsDir).SaveSettings(changed); err != nil {
+		t.Fatal(err)
+	}
+	router, _ := newOnboardingRouterWithSettings(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), settingsDir)
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+
+	view := getOnboarding(t, router, cookie)
+	if view.Setup.Done {
+		t.Fatal("existing install without onboarding.json must not count as set up")
+	}
+	if state := itemState(view, "updates"); state != "done" {
+		t.Fatalf("updates item = %q, want done from the changed settings", state)
+	}
+	if state := itemState(view, "theme"); state != "" {
+		t.Fatalf("theme item = %q, want open", state)
+	}
+	if want := []string{"setup", "explore"}; !slices.Equal(view.Queue, want) {
+		t.Fatalf("admin queue = %v, want %v", view.Queue, want)
 	}
 }

@@ -41,7 +41,7 @@
           </button>
         </div>
 
-        <button class="auto-assist-open" type="button" x-show="canEditAutomations" x-on:click="openAssistant()"
+        <button class="auto-assist-open" type="button" data-tour="automations" x-show="canEditAutomations" x-on:click="openAssistant()"
                 x-bind:title="$t('automations.assistant.open_tooltip')" x-bind:aria-label="$t('automations.assistant.open_tooltip')">
           <svg class="automation-icon"><use href="#ico-plus"></use></svg>
           <span>{{t "automations.assistant.open_button"}}</span>

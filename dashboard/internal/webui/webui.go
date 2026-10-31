@@ -836,6 +836,13 @@ func OverviewWithDeviceFilter(reg *registry.Registry, configs *config.Manager, s
 // callers that don't care (e.g. Overview/OverviewWithDeviceFilter above,
 // and every existing test) can keep passing nil.
 func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool) http.HandlerFunc {
+	return OverviewWithOnboarding(reg, configs, store, ignored, engine, installedServices, nil)
+}
+
+// OverviewWithOnboarding is OverviewWithDeviceFilterAndEngine plus setupPending,
+// which reports whether the installation's initial setup is still open. While
+// it is, a guest sees the guest note above the overview. nil means no note.
+func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool, setupPending func() bool) http.HandlerFunc {
 	resolver := energy.NewResolver(nil)
 	var resolverMu sync.Mutex
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -980,6 +987,9 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		if noViewAccess {
 			initial = "no-access-panel"
 		}
+		// Der Gast-Hinweis steht serverseitig im Seitenkopf, solange die
+		// Ersteinrichtung offen ist. Gäste sehen die Anlage sonst leer.
+		onboardingGuestNote := hasUser && user.Guest && setupPending != nil && setupPending()
 		view := map[string]any{
 			"BasePath":           basepath.From(r),
 			"Manager":            manager,
@@ -1003,6 +1013,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"ShowLanguageSwitch": showLanguageSwitch,
 			"Masthead":           masthead,
 
+			"OnboardingGuestNote":   onboardingGuestNote,
 			"NumberFormat":          numberFormat,
 			"NumberGrouping":        numberGrouping,
 			"FlatpickrLocaleScript": flatpickrLocaleScript(lang),

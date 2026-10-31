@@ -39,7 +39,7 @@
 {{end}}
 
 {{define "devices-control"}}
-<div class="device-tile-grid">
+<div class="device-tile-grid" data-tour="devices">
   {{range .Devices}}
   {{template "device-tile" .}}
   {{end}}
@@ -47,7 +47,7 @@
 {{end}}
 
 {{define "devices-compact"}}
-<div class="device-compact-grid">
+<div class="device-compact-grid" data-tour="devices">
   {{range .Devices}}
   {{template "compact-card" (compactCardAuto .)}}
   {{end}}

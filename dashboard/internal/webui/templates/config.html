@@ -24,7 +24,7 @@
       <button type="button" x-on:click="openRevisions()">{{t "config.runtime_error.open_revisions"}}</button>
     </div>
   </template>
-  <form id="schema-form" class="schema-form" novalidate x-ref="schemaForm" x-on:submit.prevent="saveForm()" x-on:input="formDirty = true" x-on:change="formDirty = true"></form>
+  <form id="schema-form" class="schema-form" data-tour="config" novalidate x-ref="schemaForm" x-on:submit.prevent="saveForm()" x-on:input="formDirty = true" x-on:change="formDirty = true"></form>
 
   <!-- Der Rohtext-Editor ist der seltenere Weg und liegt deshalb eine Ebene
        tiefer; sein Speichern-Button steht bei ihm drin statt in der
@@ -55,7 +55,7 @@
   <div class="config-actionbar-dock" x-bind:class="{ 'is-floating': actionsFloating }">
     <div class="config-actionbar" x-bind:class="{ 'is-compact': actionsCompact }" x-on:click="expandActions()" x-on:focusin="expandActions()">
       <span class="config-actionbar-lead">
-        <select id="config-name" aria-label="{{t "config.service.aria_label"}}" x-model="selectedName" x-on:change="loadConfig()"><template x-for="config in configs" x-bind:key="config.name"><option x-bind:value="config.name" x-text="config.label_key ? $t(config.label_key) : config.label"></option></template></select>
+        <select id="config-name" data-tour="configservice" aria-label="{{t "config.service.aria_label"}}" x-model="selectedName" x-on:change="loadConfig()"><template x-for="config in configs" x-bind:key="config.name"><option x-bind:value="config.name" x-text="config.label_key ? $t(config.label_key) : config.label"></option></template></select>
         <button id="config-load" type="button" x-on:click="loadConfig()" x-bind:disabled="loading || reloading">{{t "config.load"}}</button>
         <span class="config-actionbar-divider" aria-hidden="true"></span>
       </span>

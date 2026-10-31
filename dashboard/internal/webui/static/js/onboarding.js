@@ -152,6 +152,8 @@
     loaded: false,
     setupDone: false,
     status: {},
+    // Einrichtungsschritte aus dem Server (setup.items), in Reihenfolge.
+    items: [],
     seen: {},
     welcomed: false,
     run: null,
@@ -177,11 +179,20 @@
       if (!progress) return false;
       this.role = progress.role || 'guest';
       this.setupDone = Boolean(progress.setup?.done);
-      this.status = progress.setup?.steps || {};
+      this.items = progress.setup?.items || [];
+      // Gespeichert und erkannt zusammen. Erkannt steht nur in den Items.
+      this.status = { ...(progress.setup?.steps || {}), ...Object.fromEntries(
+        this.items.filter((item) => item.state).map((item) => [item.id, item.state])) };
       this.seen = Object.fromEntries((progress.user?.seen || []).map((id) => [id, true]));
       this.welcomed = Boolean(progress.user?.welcomed);
       this.run = progress.user?.run || null;
       this.queue = progress.user?.queue || [];
+      // Die Sitzungswarteschlange nennt nur Einrichtung, und nur solange sie offen ist.
+      // Sie wird wie enqueue() ans Konto geschrieben, startet aber erst die Leiste.
+      if ((progress.queue || []).includes('setup') && !this.run && !this.queue.includes('setup')) {
+        this.queue = [...this.queue, 'setup'];
+        void send('PUT', ME, { queue: this.queue });
+      }
       this.loaded = true;
       return true;
     },
@@ -198,16 +209,23 @@
     },
 
     get isAdmin() { return this.role === 'admin'; },
-    get showGuestNote() { return this.role === 'guest' && !this.setupDone; },
     get step() { return this.steps[this.index] || null; },
     get mode() { return this.run?.mode || null; },
 
     // Zustand eines Einrichtungspunkts fuer Leiste und Checkliste.
     stateOf(id) { return this.status[id] || 'open'; },
+    // Einrichtungsschritte des Servers. Dienste, die nicht installiert sind,
+    // fehlen schon in der Liste. Der Ort kommt aus obSteps.setup, Titel und
+    // Text aus dem Katalog.
     get setupItems() {
-      // Schritte zu abgewaehlten Diensten entfallen. Die Umsetzung nimmt
-      // .InstalledServices, der Entwurf die Dienste der Demo.
-      return window.obSteps.setup.filter((step) => !step.needs || this.installed.includes(step.needs));
+      return this.items.flatMap((item) => {
+        const place = window.obSteps.setup.find((s) => s.id === item.id);
+        if (!place) return [];
+        return [{
+          ...place, area: item.area, installer: item.installer,
+          title: `onboarding.setup.${item.id}.title`, text: `onboarding.setup.${item.id}.text`,
+        }];
+      });
     },
     get setupCounts() {
       const items = [...window.obSteps.installerOnly, ...this.setupItems];
@@ -232,12 +250,12 @@
     // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. Das
     // Modell liefert Katalogschluessel, hier werden Titel und Texte uebersetzt.
     build(mode, from) {
-      const { setup, explore, welcome } = window.obSteps;
+      const { explore, welcome } = window.obSteps;
       const areas = window.obSteps.areas.map((a) => ({ ...a, label: t(a.label) }));
       const steps = window.obModel.buildSteps({
-        mode, from, setup, explore, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
+        mode, from, setup: this.setupItems, explore, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
       });
-      return steps.map((s) => ({ ...s, title: s.title ? t(s.title) : '', text: s.text ? t(s.text) : '' }));
+      return steps.map((s) => ({ ...s, title: s.title ? t(s.title) : '', text: s.text ? t(s.text) : '', emptyText: s.emptyText ? t(s.emptyText) : '' }));
     },
 
     start(mode, from = null, { index = 0 } = {}) {
@@ -278,7 +296,10 @@
     // beim selben Schritt weitergehen. null beendet den Lauf.
     persistRun() {
       if (this.run) this.run = { ...this.run, index: this.index };
-      const run = this.run ? { mode: this.run.mode, from: this.run.from || '', index: this.index } : null;
+      // Einrichtung merkt sich den aktuellen Schritt als from. Die Vorstellung
+      // zaehlt im Index, nach dem Neuladen ist sie oft schon gesehen.
+      const from = this.mode === 'setup' && this.index > 0 ? (this.step?.id || '') : (this.run?.from || '');
+      const run = this.run ? { mode: this.run.mode, from, index: this.index } : null;
       void send('PUT', ME, { run });
     },
 
@@ -287,6 +308,11 @@
     markStep(state) {
       const step = this.step;
       if (!step) return Promise.resolve(false);
+      // Die Vorstellung hat kein Ziel und keinen Status, sie gilt mit Weiter als gesehen.
+      if (step.intro) {
+        this.seen = { ...this.seen, [step.id]: true };
+        return send('PUT', ME, { seen_add: [step.id] });
+      }
       if (this.mode === 'setup' || this.mode === 'change') {
         if (!this.isAdmin) return Promise.resolve(false);
         // Erledigt bleibt erledigt, auch wenn es spaeter vorgemerkt wird.
@@ -370,6 +396,8 @@
     direction: 1,
     drag: null,
     cleanup: [],
+    // Sprachwahl in der Vorstellung, nur solange kein lang-Cookie gesetzt ist.
+    langPick: !/(?:^|;\s*)lang=/.test(document.cookie),
 
     init() {
       this.spot = window.obSpotlight.create(this.$refs.spot);
@@ -395,7 +423,8 @@
         if (s.run) {
           const { mode, from, index } = s.run;
           // Nach Neuladen oder Login: beim selben Schritt weiter.
-          setTimeout(() => s.start(mode, from || null, { index }), 600);
+          // Einrichtung startet beim gemerkten Schritt, dort ist der Index 0.
+          setTimeout(() => s.start(mode, from || null, { index: mode === 'setup' && from ? 0 : index }), 600);
         } else if (s.queue.length) {
           setTimeout(() => s.advanceQueue(), 600);
         }
@@ -405,7 +434,10 @@
     get s() { return this.$store.onboarding; },
     get step() { return this.s.step; },
     get last() { return this.s.index >= this.s.steps.length - 1; },
-    get primaryLabel() { return this.last ? t('onboarding.bar.finish') : t('onboarding.bar.next'); },
+    get primaryLabel() {
+      if (this.step?.intro) return t('onboarding.bar.start');
+      return this.last ? t('onboarding.bar.finish') : t('onboarding.bar.next');
+    },
     get checklistLabel() { return this.s.mode === 'explore' ? t('onboarding.bar.checklist_explore') : t('onboarding.bar.checklist_setup'); },
     get closeLabel() { return this.s.mode === 'setup' ? t('onboarding.bar.skip_setup') : t('onboarding.bar.end_tour'); },
     get dotTransform() { return `translateX(${(this.step?.dot || 0) * 12}px)`; },
@@ -427,6 +459,12 @@
       if (this.collapsed) this.setCollapsed(false);
       this.swapIn();
       this.detach();
+      if (step.intro) {
+        // Vorstellung ohne Ziel: das Blatt bleibt offen, kein Spotlight, kein Ort.
+        this.target = null;
+        this.spot.hide();
+        return;
+      }
       this.spot.hold();
       const placed = await openPlace(step);
       let el = placed ? await waitFor(() => resolveTarget(step.target)) : null;
@@ -442,6 +480,9 @@
         return;
       }
       this.target = el;
+      // Leerer Bereich: Leertext statt Erklärung, erst jetzt sind die Karten da.
+      const empty = typeof step.emptyWhen === 'function' && step.emptyWhen();
+      this.s.steps[this.s.index].text = window.obModel.pickText(step, empty);
       this.reveal(el);
       this.spot.show(el, {
         onLost: () => { this.lost = true; },

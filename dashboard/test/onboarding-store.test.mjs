@@ -16,9 +16,18 @@ const source = fs.readFileSync(path.join(scriptDir, 'onboarding.js'), 'utf8');
 const modelSource = fs.readFileSync(path.join(scriptDir, 'onboarding-model.js'), 'utf8');
 const stepsSource = fs.readFileSync(path.join(scriptDir, 'onboarding-steps.js'), 'utf8');
 
+// Die Schritte des Servers (setup.items), ohne tailscale, weil der Dienst fehlt.
+const ITEMS = [
+  ['users', 'access', true], ['guest', 'access', true], ['companion', 'access', false],
+  ['theme', 'display', true], ['title', 'display', true],
+  ['statusbar', 'display', true], ['tabwidth', 'display', true], ['tiles', 'display', false],
+  ['updates', 'system', true], ['metrics', 'system', true], ['config', 'devices', false], ['devices', 'devices', false],
+  ['roles', 'devices', false], ['devicemap', 'devices', false],
+].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
+
 const PROGRESS = {
   role: 'admin',
-  setup: { done: false, steps: {} },
+  setup: { done: false, steps: {}, items: ITEMS },
   user: { seen: [], welcomed: false, run: null, queue: [] },
 };
 const SESSION = { csrf_token: 'tok', roles: ['user_management', 'view_devices', 'view_stats'] };
@@ -199,4 +208,16 @@ test('setup later() on a done step keeps done', async () => {
   store.markStep('later');
   assert.equal(calls.filter((c) => c.method === 'PUT').length, 0);
   assert.equal(store.stateOf('users'), 'done');
+});
+
+test('leaving the intro step marks setup-intro as seen and writes no setup step', async () => {
+  const { store, calls, bar } = await load();
+  store.steps = [{ id: 'setup-intro', intro: true, title: 'T', text: 'X', dot: 0, dots: 0 }, ...store.steps];
+  store.index = 0;
+  calls.length = 0;
+  bar().next();
+  const seen = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me' && c.body?.seen_add);
+  assert.deepEqual(seen.map((c) => [...c.body.seen_add]), [['setup-intro']]);
+  assert.equal(calls.some((c) => c.url === '/api/v1/onboarding/step'), false);
+  assert.equal(store.seen['setup-intro'], true);
 });

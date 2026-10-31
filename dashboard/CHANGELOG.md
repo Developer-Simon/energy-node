@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.31 (2026-10-31)
+## v0.10.32 (2026-10-31)
 
 ### Features
 
@@ -22,8 +22,19 @@
 - **auth:** Guests can only view by default, and an admin can switch guest access off. (#184) (c4ffa07)
 - **webui:** redesign the login card and link the favicon (#185) (2e8d91f)
 - **webui:** onboarding bar, spotlight and checklist (#186) (1191df6)
+- **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
+- **onboarding:** add the setup step catalog and detection (faaebd9)
+- **httpapi:** serve setup items and the guest note (99b8568)
+- **webui:** mark the setup step targets with data-tour (37d71e1)
+- **webui:** read the setup steps from the server (abef102)
+- **webui:** add an all-tabs switch to the tab width card (f41778b)
+- **webui:** add a welcome step before the setup (36bb471)
+- **onboarding:** drop language and favourites from the setup and add a device configuration step (14e0750)
+- **webui:** offer the language in the welcome step and explain empty devices (06f9f89)
+- **onboarding:** add an automations step to the devices area (b9db53b)
+- **onboarding:** add a step for choosing the device service (f39c8ec)
+- **onboarding:** A guided first-time setup walks admins through access, display, system and devices, with a welcome step first. (#188)
 - **installer:** ask for the sudo password in a dialog on the precheck screen (1519c22)
-- **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187)
 - **onboarding:** add the progress store (20b1744)
 - **httpapi:** add the onboarding progress API (f55c41f)
 - **webui:** add spring motion and spotlight for onboarding (14e83f5)
@@ -187,6 +198,15 @@
 ### Fixes
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
+- **webui:** keep the bold lead-in of the guest note (0765b68)
+- **webui:** let the spotlight follow layout shifts of its target (a12acd8)
+- **webui:** make the welcome text more personal (451a3c0)
+- **webui:** keep the guest note clear of the overview toolbar (fc4f09d)
+- **webui:** show the guest note below the system status (1fe4c48)
+- **webui:** rewrite the setup step texts (24ab827)
+- **webui:** correct the companion, status bar, update and device step texts (fb43ccb)
+- **webui:** describe the Home Assistant pairing step correctly (a09e006)
+- **webui:** find the accounts tab of the tour in every language (11d0050)
 - **onboarding:** do not overwrite progress after a failed read (79ea153)
 - **httpapi:** bound the onboarding input sizes (43eb762)
 - **webui:** take onboarding eyebrows from the catalog only (93c09eb)
@@ -289,6 +309,7 @@
 ### Tests
 
 - **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
+- **webui:** walk all setup steps in the browser (38ea222)
 - **webui:** assert the checklist deep link scroll and highlight (3a4ac10)
 - **smoke:** add the onboarding progress check (9ab774b)
 - **httpapi:** give guests the rights these tests need now that the preset is view-only (a4b75b8)

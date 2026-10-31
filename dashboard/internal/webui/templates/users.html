@@ -10,9 +10,9 @@
     x-effect="if (activeSettingsPage !== 'users' && tab !== 'signin') setTab('signin')">
   <p class="settings-help" x-show="error" x-text="error"></p>
   <div class="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
-    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
-    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
-    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="signin" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="accounts" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="sessions" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
   </div>
 
 {{template "users-account-cards" .}}
@@ -20,7 +20,7 @@
   <div class="setting-card users-section" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
     <div class="users-section-head">
       <h3 class="setting-card-title">{{t "users.accounts"}}</h3>
-      <button type="button" class="users-btn users-btn--add" x-on:click="startCreate()">
+      <button type="button" data-tour="users" class="users-btn users-btn--add" x-on:click="startCreate()">
         <svg class="users-icon" aria-hidden="true"><use href="#ico-plus"></use></svg>
         <span>{{t "users.create"}}</span>
       </button>
@@ -76,7 +76,7 @@
     </div>
   </div>
 
-  <div class="setting-card users-section users-pair" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end"
+  <div class="setting-card users-section users-pair" data-tour="companion" x-show="tab === 'accounts'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end"
     x-data="{ stage() { return this.pairingCode ? 'code' : this.pairingStage(); } }">
     <div class="users-section-head">
       <h3 class="setting-card-title">{{t "users.ha.title"}}</h3>
@@ -219,7 +219,7 @@
         <p class="users-hint" x-bind:class="{ 'is-show': !!lockFor(cardId, '__active') }" x-show="cardKind(cardId) === 'account' || cardKind(cardId) === 'ha'"><span
           x-text="lockFor(cardId, '__active') === 'self' ? $t('users.lock.self') : (lockFor(cardId, '__active') === 'last_admin' ? $t('users.lock.last_admin') : '')"></span></p>
 
-        <div class="users-line" x-show="cardId === 'preset:guest'">
+        <div class="users-line" x-bind:data-tour="cardId === 'preset:guest' ? 'guest' : null" x-show="cardId === 'preset:guest'">
           <span class="users-line-text">
             <span>{{t "users.guest_access.label"}}</span>
             <span class="users-line-note">{{t "users.guest_access.note"}}</span>

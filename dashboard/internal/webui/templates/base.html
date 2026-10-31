@@ -61,7 +61,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
   <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=46">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=1">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=2">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -173,6 +173,10 @@
       </span>
     </div>
   </div>
+  {{if .OnboardingGuestNote}}<div class="ob-guest-note" role="status">
+    <svg class="ob-guest-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
+    <p><strong>{{t "onboarding.guest_note.title"}}</strong> {{t "onboarding.guest_note.text"}}</p>
+  </div>{{end}}
   <div class="nav-shell" data-nav-mode="more" x-bind:data-nav-mode="navMode" x-on:click.outside="navOpen = false; navMoreOpen = false" x-on:keydown.escape="navOpen = false; navMoreOpen = false">
     <button class="nav-menu-toggle" type="button" aria-controls="dashboard-tabs"
             x-bind:aria-expanded="navOpen ? 'true' : 'false'"
@@ -361,10 +365,10 @@
   <script src="{{.BasePath}}/static/js/whatsnew.page.js?v=4" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-motion.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-spotlight.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-model.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding.js?v=1" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-spotlight.js?v=2" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-model.js?v=2" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=2" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine.min.js" defer></script>
@@ -538,6 +542,15 @@
             <div class="ob-bar-copy">
               <h2 class="ob-bar-title" id="ob-bar-title" x-text="step?.title"></h2>
               <p class="ob-bar-text" x-text="step?.text"></p>
+              <div class="ob-lang" x-show="step?.intro && langPick">
+                <span class="ob-lang-label">{{t "language.label"}}</span>
+                <div class="lang-pill ob-lang-pill" role="radiogroup" aria-label="{{t "language.label"}}" style="--lang-count: {{len .Languages}}">
+                  <span class="lang-pill-thumb" aria-hidden="true"></span>
+                  {{- range .Languages}}
+                  <label class="lang-pill-option" title="{{.Name}}"><input type="radio" name="ob-lang" value="{{.Code}}" data-lang-select{{if .Active}} checked{{end}}><span aria-hidden="true">{{.Short}}</span><span class="visually-hidden">{{.Name}}</span></label>
+                  {{- end}}
+                </div>
+              </div>
               <p class="ob-bar-state ob-bar-state--done" x-show="done">
                 <span class="ob-check" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-check"></use></svg></span>
                 <span>{{t "onboarding.bar.done"}}</span>
@@ -568,7 +581,7 @@
           </div>
           <div class="ob-bar-actions">
             <template x-if="!$store.onboarding.finished">
-              <button type="button" class="ob-btn" x-show="!done" x-on:click="later()">{{t "onboarding.bar.later"}}</button>
+              <button type="button" class="ob-btn" x-show="!done && !step?.intro" x-on:click="later()">{{t "onboarding.bar.later"}}</button>
             </template>
             <template x-if="$store.onboarding.finished">
               <button type="button" class="ob-btn" x-on:click="checklist()">{{t "onboarding.bar.checklist"}}</button>

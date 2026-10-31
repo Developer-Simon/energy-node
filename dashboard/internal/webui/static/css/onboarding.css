@@ -162,6 +162,11 @@
 .ob-bar-state { display: flex; align-items: center; gap: .45rem; margin: .25rem 0 0; font-size: .88rem; }
 .ob-bar-state--done { color: var(--ok); font-weight: 600; }
 .ob-bar-state--lost { flex-wrap: wrap; color: var(--text-muted); }
+/* Sprachwahl in der Vorstellung: die Pille aus der Masthead (base.css), nur
+   mit Beschriftung darueber. */
+.ob-lang { display: grid; gap: .3rem; margin-top: .35rem; }
+.ob-lang-label { color: var(--text-muted); font-size: .8rem; }
+.ob-lang-pill { justify-self: start; }
 
 /* Haken: kleiner gefuellter Kreis, kommt mit kurzem Einrasten. */
 .ob-check {

@@ -18,6 +18,7 @@ Konsole des Starts.
 | `docs-screenshots.mjs` | Die Bilder fuer `docs/images/` neu aufnehmen | `demo/demo.sh --docs --no-simulate`, dann `node dashboard/test/browser/docs-screenshots.mjs`. Mit `--history` zusaetzlich den Verlauf (ca. 12 min). Die Karten fuer `docs/dashboard/overview-cards.md`: `demo/demo.sh --docs`, dann `node dashboard/test/browser/docs-screenshots.mjs --cards` |
 | `history-view-tile.mjs` | Prueft, dass Verlaufskacheln den Live-Tausch ueberleben (Gruppe Verlauf und Statistik) | `node dashboard/test/browser/history-view-tile.mjs` |
 | `mobile-overflow.mjs` | Prueft Tabs und Breiten auf horizontales Ueberlaufen | `node dashboard/test/browser/mobile-overflow.mjs --widths 400,1280 overview settings energy devicemap stats` |
+| `onboarding-steps.mjs` | Prueft je Einrichtungsschritt, ob das Spotlight auf dem Ziel liegt (Desktop und Handy) | `node dashboard/test/browser/onboarding-steps.mjs --widths 1280,390` |
 | `measure-client-cost.mjs` | Misst die Kosten eines offenen Uebersichts-Tabs im Leerlauf | `node dashboard/test/browser/measure-client-cost.mjs --seconds 30` |
 
 Bilder und Messwerte landen standardmaessig in `dashboard/test/browser/.run/`
