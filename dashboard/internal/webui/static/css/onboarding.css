@@ -294,6 +294,9 @@
   align-items: flex-start;
   gap: .7rem;
   margin-top: 1rem;
+  /* Die Leiste der Uebersicht (.layout-toolbar) zieht sich per margin-top
+     -.75rem nach oben und liegt sonst ueber dem Hinweis. */
+  margin-bottom: 1.75rem;
   padding: .75rem 1rem;
   border: 1px solid color-mix(in srgb, var(--info-line) 70%, transparent);
   border-radius: 12px;
