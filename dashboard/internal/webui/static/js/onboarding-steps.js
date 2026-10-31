@@ -190,7 +190,7 @@
           id: 'h183', pr: 183, title: 'onboarding.explore.h183.title',
           text: 'onboarding.explore.h183.text',
           detail: 'onboarding.explore.h183.detail',
-          steps: [{ panel: 'stats-panel', target: firstVisible('#stats-panel .stats-view-toggle', '#stats-panel .stats-kpis'), need: 'view_stats' }],
+          steps: [{ panel: 'stats-panel', target: firstVisible('#stats-panel .stats-view-toggle', '#stats-panel .stats-kpis'), need: 'view_stats', device: 'phone' }],
         },
         {
           id: 'h181', pr: 181, title: 'onboarding.explore.h181.title', tour: false,
