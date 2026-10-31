@@ -62,8 +62,11 @@ menu on narrow screens instead.
 
 The frame also shows who you are logged in as. Over plain HTTP the dashboard
 only offers *continue as guest* and refuses the admin login unless the request
-arrives over HTTPS. A guest can look at everything and edit layouts and
-automation rules. The protected actions need a registered user with the
+arrives over HTTPS. A guest sees the overview, devices, history, statistics,
+energy and the device map, and cannot change anything. An admin adjusts this
+preset under **Settings**, **Users**, or switches guest access off. Then the
+dashboard offers no guest session, and over plain HTTP only the sign-in with
+`http_login` remains. The protected actions need a registered user with the
 matching role and HTTPS: the MQTT and bridge configuration (`mqtt_config`) and
 restart, reboot and shutdown (`system_actions`). See
 [operating/secrets](../operating/secrets.md).
