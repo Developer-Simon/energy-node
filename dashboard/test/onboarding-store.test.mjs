@@ -19,10 +19,10 @@ const stepsSource = fs.readFileSync(path.join(scriptDir, 'onboarding-steps.js'),
 // Die Schritte des Servers (setup.items), ohne tailscale, weil der Dienst fehlt.
 const ITEMS = [
   ['users', 'access', true], ['guest', 'access', true], ['companion', 'access', false],
-  ['language', 'display', false], ['theme', 'display', true], ['title', 'display', true],
+  ['theme', 'display', true], ['title', 'display', true],
   ['statusbar', 'display', true], ['tabwidth', 'display', true], ['tiles', 'display', false],
-  ['updates', 'system', true], ['metrics', 'system', true], ['devices', 'devices', false],
-  ['roles', 'devices', false], ['devicemap', 'devices', false], ['favorites', 'devices', false],
+  ['updates', 'system', true], ['metrics', 'system', true], ['config', 'devices', false], ['devices', 'devices', false],
+  ['roles', 'devices', false], ['devicemap', 'devices', false],
 ].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
 
 const PROGRESS = {

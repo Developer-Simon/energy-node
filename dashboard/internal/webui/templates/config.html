@@ -24,7 +24,7 @@
       <button type="button" x-on:click="openRevisions()">{{t "config.runtime_error.open_revisions"}}</button>
     </div>
   </template>
-  <form id="schema-form" class="schema-form" novalidate x-ref="schemaForm" x-on:submit.prevent="saveForm()" x-on:input="formDirty = true" x-on:change="formDirty = true"></form>
+  <form id="schema-form" class="schema-form" data-tour="config" novalidate x-ref="schemaForm" x-on:submit.prevent="saveForm()" x-on:input="formDirty = true" x-on:change="formDirty = true"></form>
 
   <!-- Der Rohtext-Editor ist der seltenere Weg und liegt deshalb eine Ebene
        tiefer; sein Speichern-Button steht bei ihm drin statt in der

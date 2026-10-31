@@ -40,19 +40,19 @@ func TestCatalogOrderAndAreas(t *testing.T) {
 	steps := Catalog(map[string]bool{"tailscale": true})
 	wantIDs := []string{
 		"users", "guest", "tailscale", "companion",
-		"language", "theme", "title", "statusbar", "tabwidth", "tiles",
+		"theme", "title", "statusbar", "tabwidth", "tiles",
 		"updates", "metrics",
-		"devices", "roles", "devicemap", "favorites",
+		"config", "devices", "roles", "devicemap",
 	}
 	if got := stepIDs(steps); !slices.Equal(got, wantIDs) {
 		t.Fatalf("step IDs = %v, want %v", got, wantIDs)
 	}
 	wantAreas := map[string]string{
 		"users": "access", "guest": "access", "tailscale": "access", "companion": "access",
-		"language": "display", "theme": "display", "title": "display",
+		"theme": "display", "title": "display",
 		"statusbar": "display", "tabwidth": "display", "tiles": "display",
 		"updates": "system", "metrics": "system",
-		"devices": "devices", "roles": "devices", "devicemap": "devices", "favorites": "devices",
+		"config": "devices", "devices": "devices", "roles": "devices", "devicemap": "devices",
 	}
 	wantInstaller := map[string]bool{
 		"users": true, "guest": true, "theme": true, "title": true,
@@ -115,7 +115,7 @@ func TestDetectPartiallyConfiguredInstall(t *testing.T) {
 	if got["roles"] != StepDone {
 		t.Errorf("roles = %q, want %q", got["roles"], StepDone)
 	}
-	for _, id := range []string{"users", "title", "statusbar", "tabwidth", "updates", "devices", "devicemap", "favorites", "tiles", "language"} {
+	for _, id := range []string{"users", "title", "statusbar", "tabwidth", "updates", "config", "devices", "devicemap", "tiles"} {
 		if got[id] == StepDone {
 			t.Errorf("%s detected as done, want open", id)
 		}

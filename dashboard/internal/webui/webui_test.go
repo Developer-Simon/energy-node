@@ -4334,6 +4334,7 @@ func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
 		"/",
 		"/?fragment=panel&panel=settings",
 		"/?fragment=panel&panel=energy",
+		"/?fragment=panel&panel=config",
 		"/?fragment=panel&panel=devices",
 		"/?fragment=panel&panel=devicemap",
 	}
@@ -4352,10 +4353,6 @@ func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
 
 	for _, step := range onboarding.Catalog(installed) {
 		switch step.ID {
-		case "favorites":
-			// Ohne Attribut: Die erste Gerätekachel findet die Führung über
-			// .device-tile-grid > :first-child bzw. .device-compact-grid > :first-child.
-			continue
 		case "guest":
 			// Die Schalterzeile steckt in der gemeinsamen users-card, die je Karte
 			// gerendert wird. Das Attribut ist ein x-bind-Ausdruck, der nur in der

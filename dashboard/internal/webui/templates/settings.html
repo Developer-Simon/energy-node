@@ -238,7 +238,7 @@
       <h3 class="setting-card-title">{{t "settings.formatting.title"}}</h3>
       <p class="setting-note">{{t "settings.formatting.note"}}</p>
       <span class="setting-row-label" id="lbl-ui-language">{{t "language.label"}}</span>
-      <div class="segmented" data-tour="language" role="radiogroup" aria-labelledby="lbl-ui-language">
+      <div class="segmented" role="radiogroup" aria-labelledby="lbl-ui-language">
         <span class="segmented-thumb" aria-hidden="true"></span>
         {{- range .Languages}}
         <label class="segmented-option"><input type="radio" name="ui-language" value="{{.Code}}" x-model="uiLanguage"><span>{{.Name}}</span></label>

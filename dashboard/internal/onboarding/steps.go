@@ -30,7 +30,6 @@ func Catalog(installed map[string]bool) []Step {
 	}
 	return append(steps,
 		Step{ID: "companion", Area: "access"},
-		Step{ID: "language", Area: "display"},
 		Step{ID: "theme", Area: "display", Installer: true},
 		Step{ID: "title", Area: "display", Installer: true},
 		Step{ID: "statusbar", Area: "display", Installer: true},
@@ -38,16 +37,16 @@ func Catalog(installed map[string]bool) []Step {
 		Step{ID: "tiles", Area: "display"},
 		Step{ID: "updates", Area: "system", Installer: true},
 		Step{ID: "metrics", Area: "system", Installer: true},
+		Step{ID: "config", Area: "devices"},
 		Step{ID: "devices", Area: "devices"},
 		Step{ID: "roles", Area: "devices"},
 		Step{ID: "devicemap", Area: "devices"},
-		Step{ID: "favorites", Area: "devices"},
 	)
 }
 
 // Detect liefert StepDone für die Schritte, deren Einstellungen vom Standard
-// abweichen. Offene Schritte fehlen in der Karte. Geräte, Gerätekarte,
-// Favoriten, Kacheln und Sprache werden nie automatisch erledigt.
+// abweichen. Offene Schritte fehlen in der Karte. Geräte einrichten, Geräte,
+// Gerätekarte und Kacheln werden nie automatisch erledigt.
 func Detect(set settings.Settings, energy settings.EnergyConfig, users []auth.User) map[string]StepState {
 	defaults := settings.Default()
 	detected := make(map[string]StepState)

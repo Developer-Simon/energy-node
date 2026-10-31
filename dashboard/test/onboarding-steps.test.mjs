@@ -29,7 +29,7 @@ function load() {
 }
 
 test('the Go catalog IDs are read from steps.go', () => {
-  assert.equal(CATALOG_IDS.length, 16);
+  assert.equal(CATALOG_IDS.length, 15);
 });
 
 test('every setup step has a place and the server catalog IDs match', () => {
@@ -51,13 +51,9 @@ test('each setup place has panel, optional page and prepare, and a target', () =
   }
 });
 
-test('targets use data-tour, except the first favourite tile', () => {
+test('every setup target uses data-tour', () => {
   const { setup } = load();
   for (const step of setup) {
-    if (step.id === 'favorites') {
-      assert.match(step.target, /:first-child/, 'favorites selects the first child of the grid');
-    } else {
-      assert.equal(step.target, `[data-tour="${step.id}"]`, step.id);
-    }
+    assert.equal(step.target, `[data-tour="${step.id}"]`, step.id);
   }
 });

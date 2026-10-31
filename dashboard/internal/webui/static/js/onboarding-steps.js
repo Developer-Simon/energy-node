@@ -56,7 +56,6 @@
     { id: 'guest', panel: 'settings-panel', page: 'users', prepare: openCard(guestCard), target: data('guest'), check: 'change' },
     { id: 'tailscale', panel: 'settings-panel', page: 'tailscale', target: data('tailscale'), check: 'leave' },
     { id: 'companion', panel: 'settings-panel', page: 'users', prepare: accountsTab, target: data('companion'), check: 'leave' },
-    { id: 'language', panel: 'settings-panel', page: 'display', target: data('language'), check: 'change' },
     { id: 'theme', panel: 'settings-panel', page: 'display', target: data('theme'), check: 'change' },
     { id: 'title', panel: 'settings-panel', page: 'display', target: data('title'), check: 'change' },
     { id: 'statusbar', panel: 'settings-panel', page: 'display', target: data('statusbar'), check: 'change' },
@@ -64,6 +63,9 @@
     { id: 'tiles', panel: 'overview-panel', target: data('tiles'), check: 'leave' },
     { id: 'updates', panel: 'settings-panel', page: 'versions', target: data('updates'), check: 'change' },
     { id: 'metrics', panel: 'settings-panel', page: 'mqtt', target: data('metrics'), check: 'change' },
+    // Geräte einrichten: Dienste wählen und Geräteinformationen eintragen. Das
+    // Formular ist der Bereich dafür, die Schaltleiste darüber bleibt außen vor.
+    { id: 'config', panel: 'config-panel', need: 'view_config', target: data('config'), check: 'change' },
     { id: 'devices', panel: 'devices-panel', target: data('devices'), check: 'leave' },
     {
       id: 'roles', panel: 'energy-panel', target: data('roles'), check: 'change',
@@ -73,11 +75,6 @@
       },
     },
     { id: 'devicemap', panel: 'devicemap-panel', target: data('devicemap'), check: 'leave' },
-    // Die erste Kachel hat kein eigenes Attribut, sie ist das erste Kind des Rasters.
-    {
-      id: 'favorites', panel: 'devices-panel', check: 'leave',
-      target: '.device-tile-grid > :first-child, .device-compact-grid > :first-child',
-    },
   ];
 
   // Neu erkunden: Beispiel aus den letzten Highlights, so wie es aus

@@ -25,9 +25,9 @@ The spotlight follows the control when the layout around it shifts.
 | Area | Steps |
 |---|---|
 | Access and users | Add more users, Guest access, Access on the go (only when Tailscale is installed), Connect Home Assistant |
-| Display | Language, Colour scheme, Title and subtitle, System status, Tab width, Overview tiles |
+| Display | Colour scheme, Title and subtitle, System status, Tab width, Overview tiles |
 | System | Check for updates, System metrics |
-| Devices and energy roles | Check devices, Assign energy roles, Device map, Favourites |
+| Devices and energy roles | Set up devices, Check devices, Assign energy roles, Device map |
 
 The Tailscale step only appears when the Tailscale service is installed on the
 node.
@@ -39,8 +39,10 @@ default. For example, a changed colour scheme, a changed tab width or a second
 account without admin rights counts as done. Steps that are not set up yet stay
 open.
 
-Language, Check devices, Device map, Favourites and Overview tiles are never
-checked off automatically. You decide when they are done.
+Set up devices, Check devices, Device map and Overview tiles are never checked
+off automatically. You decide when they are done. Language is offered on the
+welcome screen, and favourites are explained in the update highlights, so the
+setup no longer asks for them.
 
 ## Who sees the setup
 
