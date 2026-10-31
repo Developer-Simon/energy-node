@@ -97,7 +97,8 @@ test('the counter counts done and installer rows out of all items', async () => 
   const { total, done } = cl.counts;
   assert.equal(done, 4);
   assert.equal(t('onboarding.checklist.count', { done, total }), `4 von ${total}`);
-  assert.equal(cl.counts.total, store.setupCounts.total);
+  // 16 Einrichtungsschritte plus 3 nur im Installer, Dienst tailscale ist vorausgewaehlt.
+  assert.equal(total, 19);
 });
 
 test('the setup summary says how many items are still open', async () => {
@@ -170,13 +171,28 @@ test('a highlight without a tour is read in place and marked seen', async () => 
   assert.deepEqual(put?.body, { seen_add: ['h181'] });
 });
 
-test('the deep link picks the explore mode and focuses the item', async () => {
-  const { store, component: cl } = await load({ url: 'http://localhost/?panel=settings&page=checklist&mode=explore&item=h181' });
+test('the deep link picks the explore mode and scrolls to and highlights exactly that item', async () => {
+  const { window, store, component: cl } = await load({ url: 'http://localhost/?panel=settings&page=checklist&mode=explore&item=h181' });
+  const root = window.document.getElementById('root');
+  root.innerHTML = '<li data-item="h181"></li><li data-item="h184"></li>';
+  const target = root.querySelector('[data-item="h181"]');
+  const other = root.querySelector('[data-item="h184"]');
+  const scrolled = [];
+  const animated = [];
+  for (const el of [target, other]) {
+    el.scrollIntoView = (options) => scrolled.push({ el, options });
+    el.animate = (keyframes, options) => { animated.push({ el, keyframes, options }); return {}; };
+  }
   cl.init();
   assert.equal(store.checklistMode, 'explore');
-  // Der Punkt wird im Dokument gesucht, nicht im Modus, also genuegt ein Eintrag im Wurzelelement.
-  cl.$root.innerHTML = '<li data-item="h181"></li>';
-  cl.focusItem('h181');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(scrolled.length, 1, 'scrollIntoView is called once');
+  assert.equal(scrolled[0].el, target, 'scrollIntoView targets h181');
+  // Die Optionen kommen aus dem jsdom-Fenster, daher in dieses Realm kopieren.
+  assert.deepEqual({ ...scrolled[0].options }, { block: 'center', behavior: 'smooth' });
+  assert.equal(animated.length, 1, 'animate is called once');
+  assert.equal(animated[0].el, target, 'animate highlights h181');
+  assert.equal(animated[0].options.duration, 1600);
 });
 
 test('the deep link picks the setup mode for an admin', async () => {
