@@ -173,6 +173,10 @@
       </span>
     </div>
   </div>
+  {{if .OnboardingGuestNote}}<div class="ob-guest-note" role="status">
+    <svg class="ob-guest-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
+    <p><strong>{{t "onboarding.guest_note.title"}}</strong> {{t "onboarding.guest_note.text"}}</p>
+  </div>{{end}}
   <div class="nav-shell" data-nav-mode="more" x-bind:data-nav-mode="navMode" x-on:click.outside="navOpen = false; navMoreOpen = false" x-on:keydown.escape="navOpen = false; navMoreOpen = false">
     <button class="nav-menu-toggle" type="button" aria-controls="dashboard-tabs"
             x-bind:aria-expanded="navOpen ? 'true' : 'false'"
@@ -243,10 +247,6 @@
     </nav>
   </div>
   <div class="page-content">
-  {{if .OnboardingGuestNote}}<div class="ob-guest-note" role="status">
-    <svg class="ob-guest-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
-    <p><strong>{{t "onboarding.guest_note.title"}}</strong> {{t "onboarding.guest_note.text"}}</p>
-  </div>{{end}}
   {{if index .Can "view_overview"}}{{template "overview" .}}{{end}}
 {{if .NoViewAccess}}  <section id="no-access-panel" class="panel" role="tabpanel" aria-labelledby="tab-no-access" x-bind:class="{ active: activePanel === 'no-access-panel' }" x-show="activePanel === 'no-access-panel'">
     <div class="no-access-card">
