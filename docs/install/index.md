@@ -115,6 +115,14 @@ packages and never reboots. When a kernel or firmware update needs a reboot,
 the result screen and the diagnose say so. Reboot the node yourself with
 `sudo reboot`.
 
+On a small SD card you can keep the system journal in RAM only. Tick **Keep the
+journal in RAM only** on the installer's configuration screen (step 17, off by
+default). The logs then no longer go to the card, which saves write cycles and
+some space, and the installer removes the journal that is already on the card.
+The price is that every log, including the service logs in the dashboard, is
+gone after a reboot. The RAM use is capped at 50 MB. Untick the step later and
+the installer restores the system default on its next run.
+
 ## 3. Packages you must install outdated first
 
 Two ecosystems have dropped or restricted ARMv6 support. In both cases the
