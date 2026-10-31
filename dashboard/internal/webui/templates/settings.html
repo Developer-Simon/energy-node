@@ -303,6 +303,10 @@
 
     <div class="setting-card" data-tour="tabwidth">
       <h3 class="setting-card-title">{{t "settings.wide_tabs.title"}}</h3>
+      <label class="switch-row" for="wide-panels-all">
+        <span>{{t "settings.wide_tabs.all"}}</span>
+        <span class="settings-toggle"><input id="wide-panels-all" type="checkbox" role="switch" x-bind:checked="widePanels.length === widePanelOptions.length" x-on:change="widePanels = $event.target.checked ? widePanelOptions.map((tab) => tab.key) : []; setChoicesSelection(widePanelsChoices, widePanels)" x-bind:disabled="!canEditSettings"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+      </label>
       <div class="settings-multiselect-row settings-wide-panels">
         <label for="wide-panels-select">
           {{t "settings.wide_tabs.label"}}

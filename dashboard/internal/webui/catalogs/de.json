@@ -3425,6 +3425,7 @@
   "settings.whatsnew.more": "Mehr",
   "settings.whatsnew.since": "Seit deinem letzten Stand",
   "settings.whatsnew.title": "Das ist neu in {version}",
+  "settings.wide_tabs.all": "Alle Tabs in voller Breite",
   "settings.wide_tabs.help": "Erklärung zu Tabs ohne Breitendeckelung",
   "settings.wide_tabs.help_text": "Freigegebene Tabs nutzen für ihren Inhalt die volle Fensterbreite statt der Lesebreite von 1180px. Überschrift und Tab-Leiste haben immer die volle Breite.",
   "settings.wide_tabs.label": "Tabs ohne Breitendeckelung",

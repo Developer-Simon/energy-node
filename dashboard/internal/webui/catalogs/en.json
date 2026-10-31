@@ -3425,6 +3425,7 @@
   "settings.whatsnew.more": "More",
   "settings.whatsnew.since": "Since your last version",
   "settings.whatsnew.title": "New in {version}",
+  "settings.wide_tabs.all": "All tabs at full width",
   "settings.wide_tabs.help": "About tabs without a width limit",
   "settings.wide_tabs.help_text": "Selected tabs use the full window width for their content instead of the 1180px reading width. The heading and tab bar are always full width.",
   "settings.wide_tabs.label": "Tabs without a width limit",
