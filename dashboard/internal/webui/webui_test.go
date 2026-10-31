@@ -4307,6 +4307,8 @@ func TestGuestNoteVisibleUntilComplete(t *testing.T) {
 
 	if body := render(guest, open); !strings.Contains(body, `class="ob-guest-note"`) {
 		t.Fatal("guest note missing for a guest while setup is open")
+	} else if !strings.Contains(body, `<strong>Noch nicht eingerichtet.</strong>`) {
+		t.Fatal("guest note lost its bold lead-in")
 	}
 	if body := render(guest, done); strings.Contains(body, `class="ob-guest-note"`) {
 		t.Fatal("guest note shown after the setup is complete")

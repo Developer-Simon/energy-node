@@ -244,8 +244,8 @@
   </div>
   <div class="page-content">
   {{if .OnboardingGuestNote}}<div class="ob-guest-note" role="status">
-    <svg class="ob-guest-note-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
-    <p>{{t "onboarding.guest_note"}}</p>
+    <svg class="ob-guest-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
+    <p><strong>{{t "onboarding.guest_note.title"}}</strong> {{t "onboarding.guest_note.text"}}</p>
   </div>{{end}}
   {{if index .Can "view_overview"}}{{template "overview" .}}{{end}}
 {{if .NoViewAccess}}  <section id="no-access-panel" class="panel" role="tabpanel" aria-labelledby="tab-no-access" x-bind:class="{ active: activePanel === 'no-access-panel' }" x-show="activePanel === 'no-access-panel'">
