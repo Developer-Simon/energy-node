@@ -1425,6 +1425,9 @@ func TestAutomationRulesPutAllowsGuestWithCSRF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := authManager.SetGuestRoles("admin", []string{auth.RoleViewAutomations, auth.RoleOperateAutomations, auth.RoleAutomations}); err != nil {
+		t.Fatal(err)
+	}
 	guestSession, err := authManager.ContinueAsGuest()
 	if err != nil {
 		t.Fatal(err)
@@ -1470,6 +1473,9 @@ func postAutomationTest(t *testing.T, publisher CommandPublisher, body string) *
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := authManager.SetGuestRoles("admin", []string{auth.RoleViewAutomations, auth.RoleOperateAutomations, auth.RoleAutomations}); err != nil {
+		t.Fatal(err)
+	}
 	guestSession, err := authManager.ContinueAsGuest()
 	if err != nil {
 		t.Fatal(err)
@@ -1492,6 +1498,9 @@ func postAutomationTestWithoutCSRF(t *testing.T, publisher CommandPublisher, bod
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := authManager.SetGuestRoles("admin", []string{auth.RoleViewAutomations, auth.RoleOperateAutomations, auth.RoleAutomations}); err != nil {
+		t.Fatal(err)
+	}
 	guestSession, err := authManager.ContinueAsGuest()
 	if err != nil {
 		t.Fatal(err)
@@ -1511,6 +1520,9 @@ func getAuthSessionAsGuest(t *testing.T) []byte {
 	authDir := t.TempDir()
 	authManager, err := auth.NewManager(filepath.Join(authDir, "users.json"), "admin", "secret")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := authManager.SetGuestRoles("admin", []string{auth.RoleViewAutomations, auth.RoleAutomations, auth.RoleViewDeviceMap, auth.RoleEditDeviceMap, auth.RoleEditDeviceMapView}); err != nil {
 		t.Fatal(err)
 	}
 	guestSession, err := authManager.ContinueAsGuest()
