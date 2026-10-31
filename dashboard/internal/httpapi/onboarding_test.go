@@ -32,8 +32,22 @@ type onboardingView struct {
 			State     string `json:"state"`
 		} `json:"items"`
 	} `json:"setup"`
-	Queue []string `json:"queue"`
-	User  struct {
+	Queue   []string `json:"queue"`
+	Explore struct {
+		CurrentVersion string `json:"current_version"`
+		Items          []struct {
+			ID      string `json:"id"`
+			Version string `json:"version"`
+			Tour    *struct {
+				Steps []struct {
+					Target string `json:"target"`
+					Need   string `json:"need"`
+				} `json:"steps"`
+			} `json:"tour"`
+		} `json:"items"`
+		BaselineSeen bool `json:"baseline_seen"`
+	} `json:"explore"`
+	User struct {
 		Seen     []string `json:"seen"`
 		Welcomed bool     `json:"welcomed"`
 		Run      *struct {
@@ -56,6 +70,13 @@ func newOnboardingTestRouter(t *testing.T, usersPath, onboardingDir string) (htt
 // of the installation in settingsDir, so a test can prepare them first.
 func newOnboardingRouterWithSettings(t *testing.T, usersPath, onboardingDir, settingsDir string) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return newOnboardingRouterWithState(t, usersPath, onboardingDir, settingsDir, t.TempDir())
+}
+
+// newOnboardingRouterWithState is newOnboardingRouterWithSettings with the
+// installer state (changelog, manifests) in stateDir.
+func newOnboardingRouterWithState(t *testing.T, usersPath, onboardingDir, settingsDir, stateDir string) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(usersPath, "admin", usersAdminPassword)
 	if err != nil {
 		t.Fatal(err)
@@ -63,8 +84,9 @@ func newOnboardingRouterWithSettings(t *testing.T, usersPath, onboardingDir, set
 	hub := companion.NewHub()
 	manager.SetHAVerifier(hub)
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(settingsDir), nil, nil, nil, nil, nil, RouterDependencies{
-		Auth:       manager,
-		Onboarding: onboarding.NewStore(onboardingDir),
+		Auth:              manager,
+		Onboarding:        onboarding.NewStore(onboardingDir),
+		InstallerStateDir: stateDir,
 	})
 	return router, manager
 }

@@ -357,8 +357,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
 		if dependencies.Onboarding != nil {
 			onboardingInstalledServices := onboardingInstalled(dependencies.InstalledServices)
-			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices))
-			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices))
+			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir))
+			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir))
 		}
 	}
 	if dependencies.SystemActions != nil {

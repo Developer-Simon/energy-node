@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/versions"
 )
 
 const onboardingPathPrefix = "/api/v1/onboarding"
@@ -65,13 +67,83 @@ func onboardingInstalled(services map[string]bool) map[string]bool {
 	return installed
 }
 
+// onboardingExploreItem is one highlight of the last update for "Neu
+// erkunden". Tour holds only the steps the caller has the rights for and is
+// null when none is left, the highlight then counts as text only.
+type onboardingExploreItem struct {
+	ID      string                  `json:"id"`
+	Version string                  `json:"version"`
+	Tour    *versions.HighlightTour `json:"tour"`
+}
+
+// onboardingExplore lists the highlights of the last update, each ID once. A
+// missing or unreadable changelog gives an empty list.
+func onboardingExplore(stateDir string, user auth.User) (string, []onboardingExploreItem) {
+	items := []onboardingExploreItem{}
+	view, err := versions.Highlights(stateDir)
+	if err != nil {
+		return "", items
+	}
+	known := map[string]bool{}
+	for _, component := range view.Components {
+		for _, release := range component.Releases {
+			for _, entry := range release.Entries {
+				if entry.ID == "" || known[entry.ID] {
+					continue
+				}
+				known[entry.ID] = true
+				items = append(items, onboardingExploreItem{ID: entry.ID, Version: release.Version, Tour: onboardingTourFor(user, entry.Tour)})
+			}
+		}
+	}
+	return view.To, items
+}
+
+// onboardingTourFor keeps the steps whose permission the user holds. An
+// exemption or a tour without any allowed step gives nil.
+func onboardingTourFor(user auth.User, tour *versions.HighlightTour) *versions.HighlightTour {
+	if tour == nil {
+		return nil
+	}
+	steps := []versions.TourStep{}
+	for _, step := range tour.Steps {
+		if step.Need == "" || auth.HasRole(user, step.Need) {
+			steps = append(steps, step)
+		}
+	}
+	if len(steps) == 0 {
+		return nil
+	}
+	return &versions.HighlightTour{Steps: steps}
+}
+
+// onboardingSeed is the first progress of an account without an entry.
+// Accounts created after the onboarding started get the welcome and every
+// current highlight as seen. On a fresh install every account starts with
+// every highlight seen, and everyone but admins (they run the setup) gets the
+// welcome. Older accounts of an updated install start with nothing seen, so
+// "Neu erkunden" begins with this update.
+func onboardingSeed(user auth.User, role string, fresh bool, ids []string) func(time.Time) onboarding.UserProgress {
+	return func(since time.Time) onboarding.UserProgress {
+		switch {
+		case user.CreatedAt.After(since):
+			return onboarding.UserProgress{Seen: ids, Welcome: true, Baseline: true}
+		case fresh:
+			return onboarding.UserProgress{Seen: ids, Welcome: role != onboardingRoleAdmin, Baseline: true}
+		default:
+			return onboarding.UserProgress{Seen: []string{}}
+		}
+	}
+}
+
 // handleOnboarding serves /api/v1/onboarding and everything below it: the
 // progress of the caller (GET), the setup steps of the installation (PUT step,
 // POST setup/complete, admins only) and the progress of the caller's own
 // account (PUT me). The middleware has already checked the session, the user
 // comes from the request context. settingsStore and installed feed the setup
-// items that are detected from the current configuration.
-func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool) http.HandlerFunc {
+// items that are detected from the current configuration, stateDir holds the
+// changelog for "Neu erkunden".
+func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.UserFromContext(r.Context())
 		if !ok {
@@ -85,7 +157,7 @@ func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsSt
 				methodNotAllowed(w, http.MethodGet)
 				return
 			}
-			handleOnboardingGet(manager, store, settingsStore, installed, user)(w, r)
+			handleOnboardingGet(manager, store, settingsStore, installed, stateDir, user)(w, r)
 		case "step":
 			if r.Method != http.MethodPut {
 				methodNotAllowed(w, http.MethodPut)
@@ -148,10 +220,26 @@ func requireOnboardingAdmin(w http.ResponseWriter, r *http.Request, manager *aut
 	return true
 }
 
-func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, user auth.User) http.HandlerFunc {
+func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, user auth.User) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		progress := store.Load()
-		own := progress.Users[user.Username]
+		role := onboardingRoleOf(user)
+		currentVersion, exploreItems := onboardingExplore(stateDir, user)
+		ids := make([]string, 0, len(exploreItems))
+		for _, item := range exploreItems {
+			ids = append(ids, item.ID)
+		}
+		var progress onboarding.Progress
+		var own onboarding.UserProgress
+		if user.Guest {
+			// Guests come and go with their session, so their start is never
+			// stored. Every guest gets the welcome and nothing to explore.
+			progress = store.Load()
+			own = progress.Users[user.Username]
+			own.Seen, own.Welcome, own.Baseline = ids, true, true
+		} else {
+			progress = store.EnsureUser(user.Username, time.Now().UTC(), onboardingSeed(user, role, versions.FreshInstall(stateDir), ids))
+			own = progress.Users[user.Username]
+		}
 		seen, queue := own.Seen, own.Queue
 		if seen == nil {
 			seen = []string{}
@@ -159,7 +247,6 @@ func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, setting
 		if queue == nil {
 			queue = []string{}
 		}
-		role := onboardingRoleOf(user)
 		states := onboarding.Merge(onboardingDetected(settingsStore, manager), progress.SetupSteps)
 		catalog := onboarding.Catalog(installed)
 		items := make([]onboardingItem, 0, len(catalog))
@@ -178,7 +265,12 @@ func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, setting
 				"steps": progress.SetupSteps,
 				"items": items,
 			},
-			"queue": onboardingSessionQueue(role, progress.SetupDone),
+			"explore": map[string]any{
+				"current_version": currentVersion,
+				"items":           exploreItems,
+				"baseline_seen":   own.Baseline,
+			},
+			"queue": onboardingSessionQueue(role, progress.SetupDone, own.Welcome && !own.Welcomed),
 			"user": map[string]any{
 				"seen":     seen,
 				"welcomed": own.Welcomed,
@@ -191,12 +283,17 @@ func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, setting
 
 // onboardingSessionQueue lists the guides this session should run next. Only
 // an admin gets the setup while the installation is not set up yet. Guests and
-// users never see it.
-func onboardingSessionQueue(role string, setupDone bool) []string {
-	if role == onboardingRoleAdmin && !setupDone {
-		return []string{"setup", "explore"}
+// users never see it. A pending welcome replaces explore, everything counts as
+// seen for whoever gets it.
+func onboardingSessionQueue(role string, setupDone, welcome bool) []string {
+	tour := "explore"
+	if welcome {
+		tour = "welcome"
 	}
-	return []string{"explore"}
+	if role == onboardingRoleAdmin && !setupDone {
+		return []string{"setup", tour}
+	}
+	return []string{tour}
 }
 
 // onboardingDetected reads the current settings and accounts for the steps
