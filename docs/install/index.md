@@ -132,8 +132,13 @@ the software update itself in place.
 
 | Software | Why the normal path fails | What to do instead |
 |---|---|---|
-| Tailscale | The official install script serves no ARMv6 build past 1.62.0 | Unpack the 1.62.0 tarball by hand, then `tailscale update` |
+| Tailscale (ARMv6 only) | The official install script serves no ARMv6 build past 1.62.0 | Unpack the 1.62.0 tarball by hand, then `tailscale update` |
 | Python packages | Recent Raspberry Pi OS marks the system Python as externally managed (PEP 668) | Install into the system interpreter with `--break-system-packages` |
+
+The Tailscale limit applies to ARMv6 only. The installation packages for `arm64`
+and `amd64` carry a current Tailscale version, so the installer needs no
+workaround there. The `armv6` package carries 1.62.0 and updates it in place
+when the node is signed in.
 
 ### 3.1 Tailscale — install 1.62.0, then update
 

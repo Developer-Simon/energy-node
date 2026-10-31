@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Schritt 40: Tailscale 1.62.0 aus dem Bundle (INSTALLATION.md §3.1).
+# Schritt 40: Tailscale aus dem Bundle (INSTALLATION.md §3.1).
 #
 # Der Tarball reist im Bundle mit, statt vom Node geladen zu werden - ein
 # frisch aufgesetzter Node hat oft noch keinen brauchbaren Egress, und das
@@ -46,9 +46,10 @@ if [[ -f "${defaults}" ]] && has_forbidden_flag "${defaults}"; then
 fi
 
 # Eine vorhandene Installation, die nicht aelter ist als die im Bundle, bleibt
-# unangetastet. Der Tarball ist auf die letzte ARMv6-Fassung (1.62.0)
-# festgelegt; ein Node, der per "tailscale update" laengst darueber liegt,
-# wuerde sonst bei jedem neuen Bundle zurueckgesetzt - und "tailscale update"
+# unangetastet. Auf armv6 ist der Tarball auf die letzte dort laufende Fassung
+# (1.62.0) festgelegt, arm64 und amd64 bringen eine aktuelle mit; ein Node,
+# der per "tailscale update" laengst darueber liegt, wuerde sonst bei jedem
+# neuen Bundle zurueckgesetzt - und "tailscale update"
 # startet tailscaled neu und kappt damit die Verbindung, ueber die der
 # Installer selbst laeuft. Die Bundle-Fassung steht im Tarballnamen.
 bundled_version="$(basename "${tarballs[0]}" .tgz)"
@@ -104,7 +105,7 @@ if "${SUDO[@]}" tailscale status >/dev/null 2>&1; then
   else
     step_log "Node ist angemeldet; aktualisiere auf die aktuelle Fassung."
     "${SUDO[@]}" tailscale update --yes \
-      || step_log "tailscale update fehlgeschlagen; Fassung 1.62.0 bleibt aktiv."
+      || step_log "tailscale update fehlgeschlagen; Fassung ${bundled_version} bleibt aktiv."
   fi
   step_ok
   exit 0

@@ -94,4 +94,40 @@ abi_of() {
 [ "$(abi_of arm64)" = cp313 ] || fail "arm64 sollte cp313 bauen"
 [ "$(abi_of amd64)" = cp313 ] || fail "amd64 sollte cp313 bauen"
 
+# --- Tailscale-Fassung je Architektur ----------------------------------------
+# Ohne --tailscale-tarball holt der Bau den Tarball per curl. Ein Stub merkt
+# sich die Adresse: armv6 bleibt bei 1.62.0 (letzte dort laufende Fassung), die
+# 64-Bit-Architekturen bringen die aktuelle mit.
+mkdir -p "$tmp/curlbin"
+cat > "$tmp/curlbin/curl" <<'SH'
+#!/usr/bin/env bash
+out=""; url=""
+while [ $# -gt 0 ]; do
+  case "$1" in -o) out="$2"; shift 2 ;; http*) url="$1"; shift ;; *) shift ;; esac
+done
+printf '%s\n' "$url" >> "$CURL_LOG"
+cp "$TS_FAKE" "$out"
+SH
+chmod +x "$tmp/curlbin/curl"
+ts_url_of() {
+  local arch="$1"
+  : > "$tmp/curl.log"
+  CURL_LOG="$tmp/curl.log" TS_FAKE="$tmp/ts.tgz" PATH="$tmp/curlbin:$PATH" \
+    bash "$script" --arch "$arch" --out "$tmp/ts-$arch" --sign-key "$tmp/key.pem" \
+    --dashboard-binary "$tmp/fake-dashboard" --skip-wheels >"$tmp/build-ts-$arch.log" 2>&1 \
+    || fail "make_bundle.sh --arch $arch scheiterte" "$(cat "$tmp/build-ts-$arch.log")"
+  grep tailscale "$tmp/curl.log" | head -n 1
+}
+[ "$(ts_url_of armv6)" = "https://pkgs.tailscale.com/stable/tailscale_1.62.0_arm.tgz" ] || fail "armv6 sollte Tailscale 1.62.0 laden" "$(ts_url_of armv6)"
+case "$(ts_url_of arm64)" in
+  https://pkgs.tailscale.com/stable/tailscale_1.62.0_*) fail "arm64 sollte eine neuere Tailscale-Fassung laden" ;;
+  https://pkgs.tailscale.com/stable/tailscale_*_arm64.tgz) ;;
+  *) fail "arm64: unerwartete Tailscale-Adresse" "$(ts_url_of arm64)" ;;
+esac
+case "$(ts_url_of amd64)" in
+  https://pkgs.tailscale.com/stable/tailscale_1.62.0_*) fail "amd64 sollte eine neuere Tailscale-Fassung laden" ;;
+  https://pkgs.tailscale.com/stable/tailscale_*_amd64.tgz) ;;
+  *) fail "amd64: unerwartete Tailscale-Adresse" "$(ts_url_of amd64)" ;;
+esac
+
 echo "OK"

@@ -34,7 +34,13 @@ TAILSCALE_TARBALL=""
 CADDY_BINARY=""
 SKIP_WHEELS=false
 DEV_VERSION=false
-TAILSCALE_VERSION="1.62.0"
+# Tailscale im Bundle: armv6 bleibt bei 1.62.0, der letzten Fassung, die dort
+# laeuft (siehe docs/install/index.md, Abschnitt 3). arm64 und amd64 bringen
+# eine aktuelle Fassung mit; die hier festgelegte ist die zum Zeitpunkt der
+# letzten Pflege neueste von https://pkgs.tailscale.com/stable/.
+TAILSCALE_VERSION_ARMV6="1.62.0"
+TAILSCALE_VERSION_64BIT="1.104.4"
+TAILSCALE_VERSION=""
 BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
@@ -110,6 +116,12 @@ if [[ -z "${PYTHON_MINOR}" ]]; then
   esac
 fi
 ABI="${ABI:-cp${PYTHON_MINOR//./}}"
+if [[ -z "${TAILSCALE_VERSION}" ]]; then
+  case "${ARCH}" in
+    armv6) TAILSCALE_VERSION="${TAILSCALE_VERSION_ARMV6}" ;;
+    *) TAILSCALE_VERSION="${TAILSCALE_VERSION_64BIT}" ;;
+  esac
+fi
 
 # Ohne --user/--base bleibt das Bundle allgemein: Units, Helfer, Sudoers und
 # die Konfigurationsvorlage behalten den Platzhalter "energynode", das
