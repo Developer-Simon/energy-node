@@ -2793,6 +2793,7 @@
   "login.http_hint": "Über HTTP ist die Funktionalität reduziert. Anmelden können sich nur Konten mit der Berechtigung Anmeldung über HTTP. Hat das Konto ein HTTP-Passwort, gilt hier nur dieses.",
   "login.password": "Passwort",
   "login.prompt": "Bitte anmelden oder als Gast fortfahren.",
+  "login.prompt_no_guest": "Bitte anmelden.",
   "login.request_failed": "Anfrage fehlgeschlagen",
   "login.submit": "Anmelden",
   "login.title": "Anmeldung",

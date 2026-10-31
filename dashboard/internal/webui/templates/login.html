@@ -52,7 +52,7 @@
       {{template "lang-pill" .}}
     </div>
     {{if .AdminAuthWarningKey}}<p class="admin-auth-warning" role="alert">{{/* i18n-keys: login.admin_auth_unavailable */}}{{t .AdminAuthWarningKey}}</p>{{end}}
-    <p>{{if .OverHTTP}}{{t "login.http_hint"}}{{else}}{{t "login.prompt"}}{{end}}</p>
+    <p>{{if .OverHTTP}}{{t "login.http_hint"}}{{else if .GuestAccess}}{{t "login.prompt"}}{{else}}{{t "login.prompt_no_guest"}}{{end}}</p>
     {{if and .OverHTTP .HAPaired}}<p>{{t "login.http_ha_hint"}}</p>{{end}}
     <form id="login-form">
       <label>{{t "login.username"}} <input name="username" autocomplete="username" required></label>

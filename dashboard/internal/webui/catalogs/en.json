@@ -2793,6 +2793,7 @@
   "login.http_hint": "Functionality is reduced over HTTP. Only accounts with the permission Sign in over HTTP can sign in. If the account has an HTTP password, only that one applies here.",
   "login.password": "Password",
   "login.prompt": "Please sign in or continue as a guest.",
+  "login.prompt_no_guest": "Please sign in.",
   "login.request_failed": "Request failed",
   "login.submit": "Sign in",
   "login.title": "Sign in",

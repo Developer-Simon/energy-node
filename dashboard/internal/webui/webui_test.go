@@ -4214,6 +4214,20 @@ func TestLoginOverHTTPShowsHAHintOnlyWhenPaired(t *testing.T) {
 	}
 }
 
+func TestLoginPromptMentionsGuestOnlyWhenGuestAccessIsOn(t *testing.T) {
+	const withGuest = "Bitte anmelden oder als Gast fortfahren."
+	const withoutGuest = "Bitte anmelden."
+
+	off := renderWithBasePath(t, Login(false, nil, "", false, false), "/login")
+	if !strings.Contains(off, withoutGuest) || strings.Contains(off, withGuest) {
+		t.Fatalf("login prompt with guest access off: want %q without guest wording: %s", withoutGuest, off)
+	}
+	on := renderWithBasePath(t, Login(false, nil, "", false, true), "/login")
+	if !strings.Contains(on, withGuest) {
+		t.Fatalf("login prompt with guest access on: want %q: %s", withGuest, on)
+	}
+}
+
 func TestLoginShowsGuestButtonOnlyWhenGuestAccessIsOn(t *testing.T) {
 	off := renderWithBasePath(t, Login(true, nil, "", false, false), "/login")
 	if strings.Contains(off, `id="guest-login"`) {
