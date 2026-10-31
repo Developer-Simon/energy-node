@@ -198,7 +198,6 @@
     },
 
     get isAdmin() { return this.role === 'admin'; },
-    get showGuestNote() { return this.role === 'guest' && !this.setupDone; },
     get step() { return this.steps[this.index] || null; },
     get mode() { return this.run?.mode || null; },
 

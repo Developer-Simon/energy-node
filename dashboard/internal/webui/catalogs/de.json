@@ -2981,6 +2981,7 @@
   "onboarding.finish.setup.title": "Einrichtung abgeschlossen",
   "onboarding.finish.welcome.text": "Die Runde kannst du jederzeit in den Einstellungen unter Checkliste wiederholen.",
   "onboarding.finish.welcome.title": "Viel Spaß",
+  "onboarding.guest_note": "Noch nicht eingerichtet. Der Admin muss sich einmal anmelden und die Ersteinrichtung durchgehen. Bis dahin fehlen hier Geräte und Energiewerte.",
   "onboarding.setup.admin.sub": "Name und Passwort des ersten Kontos",
   "onboarding.setup.admin.title": "Admin-Zugang",
   "onboarding.setup.companion.text": "Die Energy Node Companion holt Geräte und Energiewerte nach Home Assistant. Hier legst du fest, was sie darf.",

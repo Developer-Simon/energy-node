@@ -4286,3 +4286,35 @@ func TestSettingsChecklistRendersForGuestAndAdmin(t *testing.T) {
 		}
 	}
 }
+
+// TestGuestNoteVisibleUntilComplete checks the server-rendered guest note: it
+// shows for a guest while the initial setup is open, and never for an account
+// with its own login or once the setup is complete.
+func TestGuestNoteVisibleUntilComplete(t *testing.T) {
+	reg := registry.New()
+	render := func(user auth.User, pending func() bool) string {
+		handler := OverviewWithOnboarding(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), nil, pending)
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req = req.WithContext(auth.WithUser(req.Context(), user))
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		return rec.Body.String()
+	}
+	guest := auth.User{Username: "guest", Guest: true, Roles: []string{auth.RoleViewOverview}}
+	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
+	open := func() bool { return true }
+	done := func() bool { return false }
+
+	if body := render(guest, open); !strings.Contains(body, `class="ob-guest-note"`) {
+		t.Fatal("guest note missing for a guest while setup is open")
+	}
+	if body := render(guest, done); strings.Contains(body, `class="ob-guest-note"`) {
+		t.Fatal("guest note shown after the setup is complete")
+	}
+	if body := render(admin, open); strings.Contains(body, `class="ob-guest-note"`) {
+		t.Fatal("guest note shown for an account with its own login")
+	}
+	if body := render(guest, nil); strings.Contains(body, `class="ob-guest-note"`) {
+		t.Fatal("guest note shown without a setup source")
+	}
+}
