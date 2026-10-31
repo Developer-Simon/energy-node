@@ -61,6 +61,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
   <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=46">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=1">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -220,7 +221,7 @@
 {{if index .Can "view_device_map"}}    <button id="tab-devicemap" class="tab" role="tab" aria-controls="devicemap-panel" aria-selected="false" type="button" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-bind:aria-selected="activePanel === 'devicemap-panel'" x-on:click="setActivePanel('devicemap-panel')">{{t "nav.devicemap"}}</button>{{end}}
 {{if index .Can "view_diagnostics"}}    <button id="tab-diagnostics" class="tab" role="tab" aria-controls="diagnostics-panel" aria-selected="false" type="button" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-bind:aria-selected="activePanel === 'diagnostics-panel'" x-on:click="setActivePanel('diagnostics-panel')">{{t "nav.diagnostics"}}</button>{{end}}
 {{if index .Can "view_automations"}}    {{if index .InstalledServices "automation"}}<button id="tab-automations" class="tab" role="tab" aria-controls="automations-panel" x-bind:class="{ active: activePanel === 'automations-panel' }" x-bind:aria-selected="activePanel === 'automations-panel'" x-on:click="setActivePanel('automations-panel')">{{t "nav.automations"}}</button>{{end}}{{end}}
-    <button id="tab-settings" class="tab" role="tab" aria-controls="settings-panel" aria-selected="false" type="button" x-bind:class="{ active: activePanel === 'settings-panel' }" x-bind:aria-selected="activePanel === 'settings-panel'" x-on:click="setActivePanel('settings-panel')">{{t "nav.settings"}}</button>
+    <button id="tab-settings" class="tab" role="tab" aria-controls="settings-panel" aria-selected="false" type="button" x-bind:class="{ active: activePanel === 'settings-panel' }" x-bind:aria-selected="activePanel === 'settings-panel'" x-on:click="setActivePanel('settings-panel')"><span class="ob-marker ob-marker--tab" aria-hidden="true" hidden></span>{{t "nav.settings"}}</button>
     {{end}}
     {{/* Modus "Weitere": passen nicht alle Tabs in die Zeile, blendet fitNav()
          den Rest aus und zeigt ihn in dieser Liste (dashboard.js). */}}
@@ -504,6 +505,81 @@
   })();
   </script>
   */}}
+
+<!-- Onboarding: Spotlight und begleitende Leiste (Umsetzung: base.html, Texte per {{t}}) -->
+<div class="ob-layer" x-data="obBar()" x-cloak>
+  <div class="ob-spot" x-ref="spot" aria-hidden="true">
+    <div class="ob-spot-dim"></div>
+    <div class="ob-spot-ring"><span class="ob-spot-ring-inner"></span></div>
+  </div>
+  <div class="ob-dock" x-bind:class="{ 'is-shown': $store.onboarding.active, 'is-left': left }" x-bind:inert="!$store.onboarding.active">
+    <div class="ob-bar-wrap">
+      <section class="ob-bar" x-ref="bar" role="region" aria-labelledby="ob-bar-title" aria-live="polite"
+               x-bind:class="{ 'is-collapsed': collapsed, 'is-done': done && !$store.onboarding.finished }">
+        <div class="ob-bar-handle" x-on:pointerdown="dragStart($event)" x-on:pointermove="dragMove($event)"
+             x-on:pointerup="dragEnd()" x-on:pointercancel="dragEnd()" x-on:click="toggleCollapsed()">
+          <span class="ob-bar-grab" aria-hidden="true"></span>
+          <span class="ob-bar-eyebrow" x-text="$store.onboarding.finished ? $t('onboarding.bar.checklist') : step?.eyebrow"></span>
+        </div>
+        <button type="button" class="ob-btn ob-btn--primary ob-bar-peek" x-show="collapsed && !$store.onboarding.finished"
+                x-on:click="next()" x-text="primaryLabel"></button>
+        <button type="button" class="ob-bar-close" x-bind:aria-label="closeLabel" x-bind:title="closeLabel"
+                x-show="!$store.onboarding.finished" x-on:click="$store.onboarding.skip()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-close"></use></svg>
+        </button>
+
+        <div class="ob-bar-body" x-ref="body">
+          <template x-if="!$store.onboarding.finished">
+            <div class="ob-bar-copy">
+              <h2 class="ob-bar-title" id="ob-bar-title" x-text="step?.title"></h2>
+              <p class="ob-bar-text" x-text="step?.text"></p>
+              <p class="ob-bar-state ob-bar-state--done" x-show="done">
+                <span class="ob-check" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-check"></use></svg></span>
+                <span>{{t "onboarding.bar.done"}}</span>
+              </p>
+              <p class="ob-bar-state ob-bar-state--lost" x-show="lost && !done">
+                <span>{{t "onboarding.bar.lost"}}</span>
+                <button type="button" class="ob-link" x-on:click="again()">{{t "onboarding.bar.show_again"}}</button>
+              </p>
+            </div>
+          </template>
+          <template x-if="$store.onboarding.finished">
+            <div class="ob-bar-copy">
+              <h2 class="ob-bar-title" id="ob-bar-title">
+                <span class="ob-check ob-check--lead" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-check"></use></svg></span>
+                <span x-text="$store.onboarding.finished.title"></span>
+              </h2>
+              <p class="ob-bar-text" x-text="$store.onboarding.finished.text"></p>
+            </div>
+          </template>
+        </div>
+
+        <div class="ob-bar-foot">
+          <div class="ob-dots" aria-hidden="true" x-show="!$store.onboarding.finished && (step?.dots || 0) > 1">
+            <template x-for="i in (step?.dots || 0)" x-bind:key="i">
+              <i x-bind:class="'is-' + dotState(i - 1)"></i>
+            </template>
+            <span class="ob-dots-thumb" x-bind:style="'transform:' + dotTransform"></span>
+          </div>
+          <div class="ob-bar-actions">
+            <template x-if="!$store.onboarding.finished">
+              <button type="button" class="ob-btn" x-show="!done" x-on:click="later()">{{t "onboarding.bar.later"}}</button>
+            </template>
+            <template x-if="$store.onboarding.finished">
+              <button type="button" class="ob-btn" x-on:click="checklist()">{{t "onboarding.bar.checklist"}}</button>
+            </template>
+            <button type="button" class="ob-btn ob-btn--primary" x-on:click="next()"
+                    x-text="$store.onboarding.finished ? ($store.onboarding.queue.length ? $t('onboarding.bar.next_whatsnew') : $t('onboarding.bar.close')) : primaryLabel"></button>
+          </div>
+        </div>
+        <button type="button" class="ob-link ob-bar-more" x-show="!$store.onboarding.finished" x-on:click="checklist()">
+          <span x-text="checklistLabel"></span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+        </button>
+      </section>
+    </div>
+  </div>
+</div>
 </body>
 </html>
 {{end}}
