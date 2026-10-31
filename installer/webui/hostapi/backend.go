@@ -73,10 +73,6 @@ type ConnectRequest struct {
 	// Remember merkt den Zugang nach einer gelungenen Anmeldung im
 	// Schluesselbund; false loescht einen gemerkten Eintrag.
 	Remember bool `json:"remember"`
-	// SudoPassword ist das sudo-Passwort des Benutzers auf dem Node. Es wird
-	// nur bei Anmeldung per Schluesseldatei gebraucht, weil sonst das
-	// SSH-Passwort dafuer gilt. Es bleibt im Speicher, wird nie gemerkt.
-	SudoPassword string `json:"sudo_password"`
 	// UseSavedSecret laesst den Wirt das gemerkte Passwort nehmen. Secret
 	// ist dann leer.
 	UseSavedSecret bool `json:"use_saved_secret"`
@@ -331,6 +327,9 @@ type Backend interface {
 	Describe() Description
 	Connect(ctx context.Context, req ConnectRequest) (ConnectResult, error)
 	GenerateKeypair(ctx context.Context) (KeypairResult, error)
+	// EnableSudo richtet mit dem sudo-Passwort passwortloses sudo fuer den
+	// angemeldeten Benutzer ein. Das Passwort wird nicht gemerkt.
+	EnableSudo(ctx context.Context, password string) error
 	Precheck(ctx context.Context) (*Precheck, error)
 	Manifest(ctx context.Context) (*ManifestView, error)
 	Selection(ctx context.Context) (*SelectionView, error)

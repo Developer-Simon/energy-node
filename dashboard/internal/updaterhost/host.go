@@ -146,6 +146,10 @@ func (h *Host) GenerateKeypair(context.Context) (hostapi.KeypairResult, error) {
 	return hostapi.KeypairResult{}, &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
 }
 
+func (h *Host) EnableSudo(context.Context, string) error {
+	return &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
+}
+
 func (h *Host) Precheck(context.Context) (*hostapi.Precheck, error) {
 	return nil, &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
 }

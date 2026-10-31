@@ -722,10 +722,11 @@ func firstNonEmpty(values ...string) string {
 }
 
 // sudoPasswordFor waehlt das Passwort, mit dem sudo auf dem Node einmalig
-// eingerichtet wird: bei Schluesseldatei das eigene Feld, sonst das SSH-Passwort.
+// eingerichtet wird: das SSH-Passwort. Bei Schluesseldatei gibt es keins; die
+// Oberflaeche fragt dann bei SUDO_REQUIRED nach (EnableSudo).
 func sudoPasswordFor(req hostapi.ConnectRequest, secret string) string {
 	if req.Kind == hostapi.AuthKey {
-		return req.SudoPassword
+		return ""
 	}
 	return secret
 }

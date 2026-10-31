@@ -14,7 +14,6 @@
       kind: 'password',
       secret: '',
       keyPath: '',
-      sudoPassword: '',
       makeKey: true,
       // fingerprint ist gesetzt, solange ein unbekannter Host-Key auf
       // Bestaetigung wartet. Ein geaenderter Key setzt ihn nie.
@@ -160,7 +159,6 @@
             kind: this.kind,
             secret: this.kind === 'password' ? this.secret : '',
             key_path: this.kind === 'key' ? this.keyPath : '',
-            sudo_password: this.kind === 'key' ? this.sudoPassword : '',
             accept_fingerprint: acceptFingerprint,
             remember: remember,
             use_saved_secret: useSaved,
@@ -186,7 +184,6 @@
             }
           }
           this.secret = '';
-          this.sudoPassword = '';
           await this.submitPackage();
           this.shell.shared.forceFullTransfer = this.forceFullTransfer;
           this.shell.afterConnect({ host: result.host || this.host, user: result.user || this.user });
@@ -211,7 +208,6 @@
       reset() {
         this.fingerprint = '';
         this.secret = '';
-        this.sudoPassword = '';
         this.shell.error = null;
       },
     };

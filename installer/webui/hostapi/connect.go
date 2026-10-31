@@ -72,6 +72,31 @@ func (s *Server) handleKeypair(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// sudoRequest ist der Rumpf von POST /api/sudo.
+type sudoRequest struct {
+	Password string `json:"password"`
+}
+
+func (s *Server) handleSudo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", r.Method)
+		return
+	}
+	if !s.requireConnection(w) {
+		return
+	}
+	var req sudoRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		return
+	}
+	if err := s.opts.Backend.EnableSudo(r.Context(), req.Password); err != nil {
+		writeBackendError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, struct{}{})
+}
+
 // requireConnection weist einen Aufruf ab, der eine Verbindung braucht, wenn
 // keine besteht. Wirte ohne Verbindungsbildschirm (Dashboard) durchlaufen die
 // Pruefung immer.

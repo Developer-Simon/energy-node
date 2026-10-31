@@ -3,6 +3,7 @@ package hostapi_test
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
@@ -147,5 +148,39 @@ func TestConnectReportsACredentialStoreFailure(t *testing.T) {
 	}
 	if got["credentials_error"] != "CREDENTIALS_STORE_FAILED" || got["connected"] != true {
 		t.Errorf("response = %v", got)
+	}
+}
+
+func TestSudoIsRefusedBeforeAConnection(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	rec := do(t, server, http.MethodPost, "/api/sudo", `{"password":"x"}`)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409 NOT_CONNECTED", rec.Code)
+	}
+}
+
+func TestSudoPassesThePasswordToTheBackend(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	if rec := do(t, server, http.MethodPost, "/api/connect", `{"host":"h","user":"u","kind":"key","key_path":"/k"}`); rec.Code != http.StatusOK {
+		t.Fatalf("connect failed: %s", rec.Body.String())
+	}
+	rec := do(t, server, http.MethodPost, "/api/sudo", `{"password":"pw"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if fake.LastSudoPassword != "pw" {
+		t.Errorf("backend got %q, want pw", fake.LastSudoPassword)
+	}
+}
+
+func TestSudoReportsABackendError(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	if rec := do(t, server, http.MethodPost, "/api/connect", `{"host":"h","user":"u","kind":"key","key_path":"/k"}`); rec.Code != http.StatusOK {
+		t.Fatalf("connect failed: %s", rec.Body.String())
+	}
+	fake.SudoErr = &hostapi.Error{Code: "SUDO_PASSWORD_WRONG", Status: http.StatusUnauthorized}
+	rec := do(t, server, http.MethodPost, "/api/sudo", `{"password":"bad"}`)
+	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "SUDO_PASSWORD_WRONG") {
+		t.Fatalf("got %d %s, want 401 SUDO_PASSWORD_WRONG", rec.Code, rec.Body.String())
 	}
 }

@@ -11,13 +11,13 @@ import (
 )
 
 func TestSudoPasswordForUsesTheSSHPasswordUnlessKeyLogin(t *testing.T) {
-	password := hostapi.ConnectRequest{Kind: hostapi.AuthPassword, SudoPassword: "ignored"}
+	password := hostapi.ConnectRequest{Kind: hostapi.AuthPassword}
 	if got := sudoPasswordFor(password, "ssh-pw"); got != "ssh-pw" {
 		t.Errorf("password login: got %q, want the ssh password", got)
 	}
-	key := hostapi.ConnectRequest{Kind: hostapi.AuthKey, SudoPassword: "sudo-pw"}
-	if got := sudoPasswordFor(key, "passphrase"); got != "sudo-pw" {
-		t.Errorf("key login: got %q, want the sudo field, never the key passphrase", got)
+	key := hostapi.ConnectRequest{Kind: hostapi.AuthKey}
+	if got := sudoPasswordFor(key, "passphrase"); got != "" {
+		t.Errorf("key login: got %q, want none, never the key passphrase", got)
 	}
 }
 

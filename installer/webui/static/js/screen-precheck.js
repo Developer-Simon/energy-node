@@ -122,6 +122,11 @@
       // expanded haelt, welche "was uebertragen wird"-Zeilen aufgeklappt sind
       // (Schluessel = line.key). Nur Zeilen mit items koennen aufklappen.
       expanded: {},
+      // sudoError haelt den Fehler, der den Dialog geoeffnet hat (SUDO_REQUIRED
+      // oder SUDO_PASSWORD_WRONG); null heisst: Dialog zu.
+      sudoError: null,
+      sudoPassword: '',
+      sudoBusy: false,
 
       toggleTransfer(key) {
         this.expanded[key] = !this.expanded[key];
@@ -149,10 +154,42 @@
           this.manifest = results[1];
           shared.manifest = results[1];
         } catch (err) {
-          this.shell.fail(err);
+          if (err.code === 'SUDO_REQUIRED' || err.code === 'SUDO_PASSWORD_WRONG') {
+            this.sudoError = err;
+          } else {
+            this.shell.fail(err);
+          }
         } finally {
           this.busy = false;
           this.shell.progress = null;
+        }
+      },
+
+      async submitSudo() {
+        if (this.sudoBusy || this.sudoPassword === '') {
+          return;
+        }
+        this.sudoBusy = true;
+        try {
+          await window.Api.post('/api/sudo', { password: this.sudoPassword });
+          this.sudoPassword = '';
+          this.sudoError = null;
+          await this.load();
+        } catch (err) {
+          // Ein falsches Passwort bleibt im Dialog, damit man es korrigiert.
+          this.sudoError = err;
+          this.sudoPassword = '';
+        } finally {
+          this.sudoBusy = false;
+        }
+      },
+
+      cancelSudo() {
+        var err = this.sudoError;
+        this.sudoError = null;
+        this.sudoPassword = '';
+        if (err) {
+          this.shell.fail(err);
         }
       },
 

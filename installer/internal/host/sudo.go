@@ -71,3 +71,22 @@ func sudoSetupError(err error, stderr string) error {
 	}
 	return &hostapi.Error{Code: "SUDO_SETUP_FAILED", Detail: fmt.Sprintf("%v (stderr: %s)", err, strings.TrimSpace(stderr)), Status: http.StatusConflict}
 }
+
+// EnableSudo richtet passwortloses sudo mit dem Passwort ein, das der Betreiber
+// im Dialog eingegeben hat. Nur ein gelungener Aufruf merkt es sich.
+func (h *Host) EnableSudo(ctx context.Context, password string) error {
+	client, err := h.connected()
+	if err != nil {
+		return err
+	}
+	if password == "" {
+		return &hostapi.Error{Code: "SUDO_REQUIRED", Status: http.StatusConflict}
+	}
+	if err := ensureSudoNopasswd(ctx, client, password); err != nil {
+		return err
+	}
+	h.mu.Lock()
+	h.sudoPassword = password
+	h.mu.Unlock()
+	return nil
+}

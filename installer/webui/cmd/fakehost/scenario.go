@@ -38,6 +38,37 @@ type stagedBackend struct {
 	opts    options
 	mu      sync.Mutex
 	trusted bool
+	// sudoLocked: nach einer Anmeldung mit Schluesseldatei verlangt der
+	// Knoten ein sudo-Passwort, bis EnableSudo gelingt. Eine Anmeldung mit
+	// Passwort nutzt dieses auch fuer sudo.
+	sudoLocked bool
+}
+
+// wrongSudoPassword lehnt die Attrappe ab; jedes andere nichtleere Passwort
+// schaltet sudo frei. So laesst sich die Fehlermeldung im Dialog sehen.
+const wrongSudoPassword = "wrong"
+
+func (b *stagedBackend) Precheck(ctx context.Context) (*hostapi.Precheck, error) {
+	b.mu.Lock()
+	locked := b.sudoLocked
+	b.mu.Unlock()
+	if locked {
+		return nil, &hostapi.Error{Code: "SUDO_REQUIRED", Status: http.StatusConflict}
+	}
+	return b.FakeBackend.Precheck(ctx)
+}
+
+func (b *stagedBackend) EnableSudo(ctx context.Context, password string) error {
+	if password == "" {
+		return &hostapi.Error{Code: "SUDO_REQUIRED", Status: http.StatusConflict}
+	}
+	if password == wrongSudoPassword {
+		return &hostapi.Error{Code: "SUDO_PASSWORD_WRONG", Status: http.StatusUnauthorized}
+	}
+	b.mu.Lock()
+	b.sudoLocked = false
+	b.mu.Unlock()
+	return b.FakeBackend.EnableSudo(ctx, password)
 }
 
 func (b *stagedBackend) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi.ConnectResult, error) {
@@ -47,6 +78,7 @@ func (b *stagedBackend) Connect(ctx context.Context, req hostapi.ConnectRequest)
 		return hostapi.ConnectResult{}, &hostapi.Error{Code: "HOSTKEY_UNKNOWN", Detail: fingerprint, Status: http.StatusConflict}
 	}
 	b.trusted = true
+	b.sudoLocked = req.Kind == hostapi.AuthKey
 	return b.FakeBackend.Connect(ctx, req)
 }
 
