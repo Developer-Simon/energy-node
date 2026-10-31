@@ -46,16 +46,22 @@
     return null;
   }
 
+  // Liest die Sitzung. Sie liefert das CSRF-Token fuer Schreibzugriffe und die
+  // Rechte, die canOf() daraus baut. null, wenn der Aufruf scheitert.
+  let csrfToken = '';
+  async function readSession() {
+    const session = await attempt(() => request(SESSION));
+    csrfToken = session?.csrf_token || '';
+    return session;
+  }
+
   // Schreibt mit CSRF-Token. Das Token kommt aus der Sitzung und wird beim
   // Fehlschlag verworfen, damit der zweite Versuch ein frisches holt.
-  let csrfToken = '';
   async function send(method, url, body) {
     const ok = await attempt(async () => {
       try {
-        if (!csrfToken) {
-          const session = await request(SESSION);
-          csrfToken = session.csrf_token || '';
-        }
+        if (!csrfToken) await readSession();
+        if (!csrfToken) throw new Error('csrf'); // i18n-ignore
         const headers = { 'X-CSRF-Token': csrfToken };
         if (body !== undefined) headers['Content-Type'] = 'application/json';
         await request(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -135,13 +141,11 @@
     return true;
   }
 
-  // Rechte der Rollen, wie der Entwurf sie kannte: Admin alles, Benutzer alles
-  // ausser Benutzer verwalten, Gast nur ansehen.
-  const canOf = (role) => {
-    if (role === 'admin') return { has: () => true };
-    if (role === 'user') return { has: (need) => need !== 'edit_users' };
-    return { has: (need) => ['view_devices', 'view_stats'].includes(need) };
-  };
+  // Rechte der Sitzung (Rechtenamen aus auth). Die Steps kennen einen Namen,
+  // den es als Recht nicht gibt: edit_users ist user_management. Sonst gewaehrt
+  // nichts etwas, was die Sitzung nicht hat.
+  const NEED_RIGHT = { edit_users: 'user_management' };
+  const canOf = (rights) => ({ has: (need) => rights.includes(NEED_RIGHT[need] || need) });
 
   const store = {
     role: 'guest',
@@ -155,6 +159,8 @@
     checklistMode: 'setup',
     // TEMP bis Task 9, dann aus der API: welche Dienste der Installer eingerichtet hat.
     installed: ['tailscale'],
+    // Rechte aus der Sitzung, leer solange sie nicht gelesen ist.
+    rights: [],
     // Zaehlt jeden Start. Ein neuer Lauf bei offener Leiste aendert weder
     // active noch zwingend index, nur dieser Zaehler.
     runId: 0,
@@ -166,7 +172,8 @@
     // Liest den Fortschritt des angemeldeten Kontos. Gelingt es nicht, bleibt
     // der Store leer und die Leiste startet nichts.
     async load() {
-      const progress = await attempt(() => request(PROGRESS));
+      const [progress, session] = await Promise.all([attempt(() => request(PROGRESS)), readSession()]);
+      this.rights = Array.isArray(session?.roles) ? session.roles : [];
       if (!progress) return false;
       this.role = progress.role || 'guest';
       this.setupDone = Boolean(progress.setup?.done);
@@ -183,7 +190,7 @@
     ctx() {
       return {
         role: this.role,
-        can: canOf(this.role),
+        can: canOf(this.rights),
         device: window.obModel.deviceOf(window.innerWidth),
         installed: this.installed,
         t,
@@ -235,7 +242,12 @@
 
     start(mode, from = null, { index = 0 } = {}) {
       const steps = this.build(mode, from);
-      if (!steps.length) return this.advanceQueue();
+      if (!steps.length) {
+        // Ein Lauf ohne Schritte wird nicht bei jedem Laden wieder versucht.
+        this.run = null;
+        void send('PUT', ME, { run: null });
+        return this.advanceQueue();
+      }
       this.steps = steps;
       this.index = Math.min(index, steps.length - 1);
       this.run = { mode, from, index: this.index };
