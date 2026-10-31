@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.30 (2026-10-31)
+## v0.10.31 (2026-10-31)
 
 ### Features
 
@@ -21,6 +21,9 @@
 - **webui:** mobile view for the statistics page (#183) (eb97683)
 - **auth:** Guests can only view by default, and an admin can switch guest access off. (#184) (c4ffa07)
 - **webui:** redesign the login card and link the favicon (#185) (2e8d91f)
+- **webui:** onboarding bar, spotlight and checklist (#186) (1191df6)
+- **installer:** ask for the sudo password in a dialog on the precheck screen (1519c22)
+- **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187)
 - **onboarding:** add the progress store (20b1744)
 - **httpapi:** add the onboarding progress API (f55c41f)
 - **webui:** add spring motion and spotlight for onboarding (14e83f5)
@@ -28,7 +31,6 @@
 - **webui:** add the onboarding bar markup, styles and texts (985466b)
 - **webui:** add the onboarding bar (483a4c1)
 - **webui:** add the onboarding checklist page (c53aed2)
-- **webui:** onboarding bar, spotlight and checklist (#186)
 - **auth:** view-only guest preset and own presets for HA admins and users (ab16453)
 - **auth:** migrate untouched guest and HA presets to the new defaults (e7b742f)
 - **auth:** let an admin switch guest access off (77f3021)

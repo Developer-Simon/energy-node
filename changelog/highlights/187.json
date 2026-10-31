@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Der Installer fragt das sudo-Passwort in einem Dialog ab und richtet passwortloses sudo auf dem Gerät ein."
+  }
+}

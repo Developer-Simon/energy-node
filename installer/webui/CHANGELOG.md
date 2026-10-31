@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.7 (2026-10-31)
+
+### Features
+
+- **installer:** set up passwordless sudo and register the Linux window icon (3ebc64c)
+- **installer:** ask for the sudo password in a dialog on the precheck screen (1519c22)
+- **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187)
+
+### Fixes
+
+- **installer:** tighten the sudo texts (a73c68f)
+
 ## v0.2.6 (2026-10-20)
 
 ### Fixes
