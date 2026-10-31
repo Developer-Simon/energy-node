@@ -2359,6 +2359,7 @@
   "error.energy_stats_unavailable": "Die Energiestatistik ist ohne Datenverzeichnis nicht verfügbar",
   "error.forbidden": "Für diese Aktion fehlt die Berechtigung",
   "error.forbidden.system_config": "Konfiguration darf nur mit Systemrechten geändert werden",
+  "error.guest_access_disabled": "Gastzugang ist abgeschaltet",
   "error.guest_login_failed": "Gastzugang konnte nicht angelegt werden",
   "error.ha_unavailable": "Home Assistant ist gerade nicht erreichbar. Lokale Konten funktionieren weiter.",
   "error.history_corrupt": "Verlaufsdaten sind beschädigt",

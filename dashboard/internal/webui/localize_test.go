@@ -20,7 +20,7 @@ func renderLogin(t *testing.T, mutate func(*http.Request)) string {
 		mutate(request)
 	}
 	recorder := httptest.NewRecorder()
-	Login(false, nil, "", false).ServeHTTP(recorder, request)
+	Login(false, nil, "", false, true).ServeHTTP(recorder, request)
 	if recorder.Code != 200 {
 		t.Fatalf("got status %d", recorder.Code)
 	}
@@ -135,7 +135,7 @@ func TestLoginGuestOnlyHintFollowsTheLanguage(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest("GET", "/", nil)
 	request.Header.Set("Accept-Language", "en")
-	Login(true, nil, "", false).ServeHTTP(recorder, request)
+	Login(true, nil, "", false, true).ServeHTTP(recorder, request)
 	if !strings.Contains(recorder.Body.String(), "Functionality is reduced over HTTP.") {
 		t.Fatalf("guest-only hint is not English: %s", recorder.Body.String())
 	}
@@ -220,7 +220,7 @@ func TestLanguageSwitchSettingHidesThePill(t *testing.T) {
 	}
 
 	login := httptest.NewRecorder()
-	Login(false, store, "", false).ServeHTTP(login, httptest.NewRequest("GET", "/", nil))
+	Login(false, store, "", false, true).ServeHTTP(login, httptest.NewRequest("GET", "/", nil))
 	if !strings.Contains(login.Body.String(), hidden) {
 		t.Errorf("login pill is not hidden: %s", login.Body.String())
 	}
@@ -332,7 +332,7 @@ func TestMastheadSettingsReachMastheadTabAndLogin(t *testing.T) {
 	}
 
 	login := httptest.NewRecorder()
-	Login(false, store, "", false).ServeHTTP(login, httptest.NewRequest("GET", "/", nil))
+	Login(false, store, "", false, true).ServeHTTP(login, httptest.NewRequest("GET", "/", nil))
 	if !strings.Contains(login.Body.String(), `<h1>Werkstatt &lt;Nord&gt;</h1>`) {
 		t.Errorf("login lacks the custom title: %s", login.Body.String())
 	}

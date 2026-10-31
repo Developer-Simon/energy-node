@@ -1184,7 +1184,7 @@ func TestOverviewRejectsHostileForwardedPrefix(t *testing.T) {
 }
 
 func TestLoginPrefixesAuthEndpoints(t *testing.T) {
-	body := renderWithBasePath(t, Login(false, nil, "", false), "/node/login")
+	body := renderWithBasePath(t, Login(false, nil, "", false, true), "/node/login")
 	if !strings.Contains(body, `<html lang="de" data-base-path="/node" data-theme="mint">`) {
 		t.Fatalf("login page does not publish the base path: %s", body)
 	}
@@ -1200,7 +1200,7 @@ func TestLoginShowsAdminAuthWarningWhenSet(t *testing.T) {
 		request := httptest.NewRequest("GET", "/", nil)
 		request.AddCookie(&http.Cookie{Name: "lang", Value: lang})
 		recorder := httptest.NewRecorder()
-		Login(false, nil, "login.admin_auth_unavailable", false).ServeHTTP(recorder, request)
+		Login(false, nil, "login.admin_auth_unavailable", false, true).ServeHTTP(recorder, request)
 		want := `<p class="admin-auth-warning" role="alert">` + html.EscapeString(texts["login.admin_auth_unavailable"]) + `</p>`
 		if body := recorder.Body.String(); !strings.Contains(body, want) {
 			t.Errorf("%s login page does not show the admin auth warning %q", lang, want)
@@ -1210,7 +1210,7 @@ func TestLoginShowsAdminAuthWarningWhenSet(t *testing.T) {
 
 func TestLoginOmitsAdminAuthWarningByDefault(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	Login(false, nil, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	Login(false, nil, "", false, true).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	body := recorder.Body.String()
 	if strings.Contains(body, `<p class="admin-auth-warning"`) {
 		t.Fatalf("login page shows an empty admin auth warning: %s", body)
@@ -1219,7 +1219,7 @@ func TestLoginOmitsAdminAuthWarningByDefault(t *testing.T) {
 
 func TestLoginOverHTTPKeepsFormUsableAndRootPathsWithoutPrefix(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	Login(true, nil, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/login", nil))
+	Login(true, nil, "", false, true).ServeHTTP(recorder, httptest.NewRequest("GET", "/login", nil))
 	body := recorder.Body.String()
 	if !strings.Contains(body, "<input name=\"password\" type=\"password\" autocomplete=\"current-password\" required>") {
 		t.Fatalf("login page over HTTP does not render the password form as usable: %s", body)
@@ -1270,7 +1270,7 @@ func TestLoginRendersThemeAttribute(t *testing.T) {
 		t.Fatal(err)
 	}
 	recorder := httptest.NewRecorder()
-	Login(false, store, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	Login(false, store, "", false, true).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	if !strings.Contains(recorder.Body.String(), `data-theme="tageslicht"`) {
 		t.Fatal("login page carries no data-theme attribute")
 	}
@@ -1278,7 +1278,7 @@ func TestLoginRendersThemeAttribute(t *testing.T) {
 
 func TestLoginWithoutStoreFallsBackToMint(t *testing.T) {
 	recorder := httptest.NewRecorder()
-	Login(true, nil, "", false).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	Login(true, nil, "", false, true).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	if !strings.Contains(recorder.Body.String(), `data-theme="mint"`) {
 		t.Fatal("missing store did not fall back to mint")
 	}
@@ -4193,7 +4193,7 @@ func TestLoginOverHTTPShowsHAHintOnlyWhenPaired(t *testing.T) {
 		if acceptLanguage != "" {
 			request.Header.Set("Accept-Language", acceptLanguage)
 		}
-		Login(overHTTP, nil, "", paired).ServeHTTP(recorder, request)
+		Login(overHTTP, nil, "", paired, true).ServeHTTP(recorder, request)
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("status %d", recorder.Code)
 		}
@@ -4211,5 +4211,16 @@ func TestLoginOverHTTPShowsHAHintOnlyWhenPaired(t *testing.T) {
 	}
 	if body := render(false, true, ""); strings.Contains(body, german) {
 		t.Fatalf("paired over HTTPS: hint must not show")
+	}
+}
+
+func TestLoginShowsGuestButtonOnlyWhenGuestAccessIsOn(t *testing.T) {
+	off := renderWithBasePath(t, Login(true, nil, "", false, false), "/login")
+	if strings.Contains(off, `id="guest-login"`) {
+		t.Fatalf("login page with guest access off renders the guest button: %s", off)
+	}
+	on := renderWithBasePath(t, Login(true, nil, "", false, true), "/login")
+	if !strings.Contains(on, `id="guest-login"`) {
+		t.Fatalf("login page with guest access on does not render the guest button: %s", on)
 	}
 }

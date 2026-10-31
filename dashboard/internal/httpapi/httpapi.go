@@ -438,7 +438,7 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 			}
 		}
 		if r.URL.Path == "/" && r.Method == http.MethodGet {
-			webui.Login(!secureRequest, store, adminAuthWarningKey, manager.CompanionStatus().Paired).ServeHTTP(w, r)
+			webui.Login(!secureRequest, store, adminAuthWarningKey, manager.CompanionStatus().Paired, manager.GuestAccessEnabled()).ServeHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -493,6 +493,10 @@ func handleAuthGuest(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		session, err := manager.ContinueAsGuest()
+		if errors.Is(err, auth.ErrGuestAccessDisabled) {
+			writeErrorKey(w, http.StatusForbidden, "guest_access_disabled", "error.guest_access_disabled", nil, "Gastzugang ist abgeschaltet")
+			return
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "guest_login_failed", "Gastzugang konnte nicht angelegt werden")
 			return

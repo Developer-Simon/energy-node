@@ -2359,6 +2359,7 @@
   "error.energy_stats_unavailable": "Energy statistics are not available without a data directory",
   "error.forbidden": "You do not have permission for this action",
   "error.forbidden.system_config": "The configuration can only be changed with system permissions",
+  "error.guest_access_disabled": "Guest access is switched off",
   "error.guest_login_failed": "Guest access could not be created",
   "error.ha_unavailable": "Home Assistant cannot be reached right now. Local accounts keep working.",
   "error.history_corrupt": "The history data is corrupt",
