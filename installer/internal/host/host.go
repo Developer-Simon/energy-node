@@ -79,6 +79,18 @@ type Host struct {
 	// Python-Abhaengigkeiten aus dem Netz holt, weil seine Python-ABI nicht
 	// zu den Wheels des Pakets passt. Gilt fuer die laufende Sitzung.
 	allowOnlineDeps bool
+	// abiTolerated: bei der letzten Pruefung wich die Python-ABI des Nodes vom
+	// Paket ab und wurde mit Freigabe durchgelassen. Schritt 50 laeuft dann
+	// im Installer (steps.RunOptions.OnlineDeps).
+	abiTolerated bool
+}
+
+// onlineDepsNeeded: die Abhaengigkeiten muessen aus dem Netz kommen, weil die
+// Python-ABI abweicht und der Betreiber das freigegeben hat.
+func (h *Host) onlineDepsNeeded() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.allowOnlineDeps && h.abiTolerated
 }
 
 func (h *Host) onlineDepsAllowed() bool {
@@ -522,7 +534,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		TargetBase:      firstNonEmpty(req.TargetBase, manifest.TargetBase),
 		MQTTUser:        req.MQTTUser,
 		RestartAll:      req.RestartAll,
-		OnlineDeps:      h.onlineDepsAllowed(),
+		OnlineDeps:      h.onlineDepsNeeded(),
 		Steps:           list,
 		Selection:       h.selectionForRun(),
 		Secrets:         &steps.Secrets{MQTTPassword: req.MQTTPassword, AdminPassword: req.AdminPassword},

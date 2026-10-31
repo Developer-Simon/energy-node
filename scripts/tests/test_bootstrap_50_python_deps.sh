@@ -61,22 +61,7 @@ grep -q -- '--break-system-packages' "$PIP_LOG" || fail "ohne --break-system-pac
 grep -q 'paho_mqtt-2.1.0' "$PIP_LOG" || fail "Wheel nicht uebergeben" "$(cat "$PIP_LOG")"
 [ "$(grep -c '^pip ' "$PIP_LOG")" = 1 ] || fail "mehr als ein pip-Aufruf" "$(cat "$PIP_LOG")"
 
-# --- freigegebene Online-Installation ---------------------------------------
-# Die Python-ABI passt nicht, der Betreiber hat die Online-Installation
-# freigegeben: kein --no-index, und nur reine Python-Wheels aus dem Bundle.
-rm -rf "$tmp/state"; : > "$PIP_LOG"
-printf 'x\n' > "$bundle/wheels/cryptography-50.0.2-cp311-abi3-linux_aarch64.whl"
-write_manifest "[\"$(uname -m)\"]" cp36
-out="$(EN_ALLOW_ABI_MISMATCH=1 EN_ONLINE_DEPS=1 bash "$script")"
-grep -q '^##STEP 50 ok$' <<<"$out" || fail "Online-Lauf nicht ok" "$out"
-grep -q -- '--no-index' "$PIP_LOG" && fail "Online-Lauf benutzte --no-index" "$(cat "$PIP_LOG")"
-grep -q 'cryptography' "$PIP_LOG" && fail "ein Binaer-Wheel ging an pip" "$(cat "$PIP_LOG")"
-grep -q 'paho_mqtt-2.1.0' "$PIP_LOG" || fail "reines Wheel fehlt" "$(cat "$PIP_LOG")"
-rm -f "$bundle/wheels/cryptography-50.0.2-cp311-abi3-linux_aarch64.whl"
-write_manifest "[\"$(uname -m)\"]" "$abi"
-
 # --- zweiter Lauf ueberspringt --------------------------------------------
-rm -rf "$tmp/state"; bash "$script" >/dev/null; : > "$PIP_LOG"
 : > "$PIP_LOG"
 out="$(bash "$script")"
 grep -q '^##STEP 50 skip bereits erledigt$' <<<"$out" || fail "nicht uebersprungen" "$out"

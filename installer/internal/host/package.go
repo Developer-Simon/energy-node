@@ -24,11 +24,10 @@ var (
 	stageBundle   = func(ctx context.Context, c *transport.Client, archive, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployProgress(ctx, c, archive, remoteDir, onProgress)
 	}
-	verifyStaged        = defaultVerifyStaged
-	onlineDepsSupported = bundle.OnlineDepsSupported
-	deltaBase           = bundle.DeltaBase
-	markVerified        = bundle.MarkVerified
-	stageDelta          = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
+	verifyStaged = defaultVerifyStaged
+	deltaBase    = bundle.DeltaBase
+	markVerified = bundle.MarkVerified
+	stageDelta   = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployDelta(ctx, c, bundleDir, changed, removed, remoteDir, onProgress)
 	}
 )
@@ -244,8 +243,10 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 	}
 	notef("package.log.verify", map[string]string{})
 	abiTolerated, err := verifyStaged(ctx, client, h.cfg.RemoteBundleDir, resolved.Signed, h.onlineDepsAllowed())
-	if err == nil && abiTolerated && !onlineDepsSupported(ctx, client, h.cfg.RemoteBundleDir) {
-		return &hostapi.Error{Code: "PACKAGE_NO_ONLINE_DEPS", Status: http.StatusConflict}
+	if err == nil {
+		h.mu.Lock()
+		h.abiTolerated = abiTolerated
+		h.mu.Unlock()
 	}
 	if err != nil {
 		// A wrong Python ABI is the node's property, not a damaged delta:

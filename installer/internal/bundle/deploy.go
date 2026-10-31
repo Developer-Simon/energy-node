@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -222,12 +221,12 @@ func VerifyRemoteWith(ctx context.Context, client *transport.Client, remoteDir s
 	}
 	defer client.RemoveRemote(remotePubKey)
 
-	command := transport.BuildCommand(abiEnv(allowABIMismatch), fmt.Sprintf(
+	command := fmt.Sprintf(
 		"bash %s --bundle %s --pubkey %s --target",
 		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
 		transport.ShellQuote(remoteDir),
 		transport.ShellQuote(remotePubKey),
-	))
+	)
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
 	return verifyOutcome(runErr, stdout.String(), stderr.String(), allowABIMismatch)
@@ -247,11 +246,11 @@ func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir st
 
 // VerifyRemoteDevWith is VerifyRemoteDev with the same ABI choice as VerifyRemoteWith.
 func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDir string, allowABIMismatch bool) (abiTolerated bool, err error) {
-	command := transport.BuildCommand(abiEnv(allowABIMismatch), fmt.Sprintf(
+	command := fmt.Sprintf(
 		"bash %s --bundle %s --no-signature --target",
 		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
 		transport.ShellQuote(remoteDir),
-	))
+	)
 	var stdout, stderr bytes.Buffer
 	runErr := client.Run(ctx, command, &stdout, &stderr)
 	return verifyOutcome(runErr, stdout.String(), stderr.String(), allowABIMismatch)
@@ -260,9 +259,10 @@ func VerifyRemoteDevWith(ctx context.Context, client *transport.Client, remoteDi
 // verifyOutcome reads the result of a verify_bundle.sh run. With the operator's
 // consent a wrong Python ABI is let through. The script reports it only after
 // the signature, the hashes and the architecture passed, so this cannot hide
-// any other problem. It is decided here and not only by the script because the
-// script comes from the bundle that was just transferred, and a release made
-// before the consent existed ignores it.
+// any other problem. The installer decides it and not the script, because the
+// script comes from the package that was just transferred and may be older
+// than the consent. The dependencies are then installed by the installer
+// itself (steps.RunOptions.OnlineDeps).
 func verifyOutcome(runErr error, stdout, stderr string, allowABIMismatch bool) (abiTolerated bool, err error) {
 	result := LastLine(stdout)
 	if result == "OK" && runErr == nil {
@@ -275,25 +275,6 @@ func verifyOutcome(runErr error, stdout, stderr string, allowABIMismatch bool) (
 		return false, &Error{Code: FaultCode(code), Message: verifyFailureMessage(FaultCode(code), stderr)}
 	}
 	return false, fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout, stderr)
-}
-
-// OnlineDepsSupported reports whether the bundle on the node can install its
-// Python dependencies online: its step 50 has to know EN_ONLINE_DEPS. A release
-// made before that option exists would stop at step 50 with the same Python ABI
-// error, so the installer says so before it transfers anything further.
-func OnlineDepsSupported(ctx context.Context, client *transport.Client, remoteDir string) bool {
-	script := path.Join(remoteDir, "bootstrap", "50-python-deps.sh")
-	return client.Run(ctx, "grep -q EN_ONLINE_DEPS "+transport.ShellQuote(script), io.Discard, io.Discard) == nil
-}
-
-// abiEnv is the environment verify_bundle.sh needs when the operator allowed
-// an online installation despite a Python ABI that does not match the wheels:
-// the ABI check then only warns. Architecture, hashes and signature stay strict.
-func abiEnv(allow bool) map[string]string {
-	if !allow {
-		return nil
-	}
-	return map[string]string{"EN_ALLOW_ABI_MISMATCH": "1"}
 }
 
 // LastLine returns the last non-empty line of s, trimming a trailing

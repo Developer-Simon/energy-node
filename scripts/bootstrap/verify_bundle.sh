@@ -107,14 +107,7 @@ PY
   case "${exit_code:-0}" in
     0) ;;
     2) die ARCH_MISMATCH ;;
-    3) # Der Betreiber hat im Installer freigegeben, die Abhaengigkeiten
-       # online zu holen (EN_ALLOW_ABI_MISMATCH, Schritt 50 installiert dann
-       # aus dem Netz). Alles andere an der Pruefung bleibt streng.
-       if [[ "${EN_ALLOW_ABI_MISMATCH:-}" == 1 ]]; then
-         echo "Hinweis: Python-ABI weicht ab, freigegeben fuer Online-Installation." >&2
-       else
-         die PYTHON_ABI_MISMATCH
-       fi ;;
+    3) die PYTHON_ABI_MISMATCH ;;
     *) die BUNDLE_MANIFEST_MISSING ;;
   esac
 fi

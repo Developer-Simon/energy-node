@@ -37,31 +37,14 @@ wheels=("${EN_BUNDLE_DIR}"/wheels/*.whl)
 shopt -u nullglob
 [[ "${#wheels[@]}" -gt 0 ]] || step_fail WHEELS_MISSING
 
-# EN_ONLINE_DEPS=1: der Betreiber hat im Installer freigegeben, dass die
-# Abhaengigkeiten aus dem Netz kommen, weil die Python-ABI des Nodes nicht zu
-# den Wheels des Bundles passt. Nur reine Python-Wheels (-none-any) aus dem
-# Bundle bleiben, pip loest den Rest ueber den Index des Nodes auf (auf
-# Raspberry Pi OS ist piwheels eingetragen).
-index_args=(--no-index)
-if [[ "${EN_ONLINE_DEPS:-}" == 1 ]]; then
-  index_args=()
-  pure=()
-  for wheel in "${wheels[@]}"; do
-    case "${wheel}" in *-none-any.whl) pure+=("${wheel}") ;; esac
-  done
-  [[ "${#pure[@]}" -gt 0 ]] || step_fail WHEELS_MISSING
-  wheels=("${pure[@]}")
-  step_log "Installiere ${#wheels[@]} Wheels aus dem Bundle, den Rest aus dem Netz (freigegeben)."
-else
-  step_log "Installiere ${#wheels[@]} Wheels aus dem Bundle, ohne Netz."
-fi
+step_log "Installiere ${#wheels[@]} Wheels aus dem Bundle, ohne Netz."
 
 log="$(mktemp)"
 trap 'rm -f "${log}"' EXIT
 
 pip_install() {
   "${SUDO[@]}" "${PIP[@]}" install \
-    "${index_args[@]}" \
+    --no-index \
     --find-links "${EN_BUNDLE_DIR}/wheels" \
     --upgrade \
     "$@" \

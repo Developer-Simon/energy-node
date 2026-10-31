@@ -35,14 +35,12 @@ type staged struct {
 func stubSeams(t *testing.T, machine string) *staged {
 	t.Helper()
 	origDetect, origStage, origVerify, origProvision := detectMachine, stageBundle, verifyStaged, provisionRemoteStateDir
-	origOnlineDeps := onlineDepsSupported
 	origDeltaBase, origMarkVerified := deltaBase, markVerified
 	origStageDelta := stageDelta
 	t.Cleanup(func() {
 		detectMachine, stageBundle, verifyStaged, provisionRemoteStateDir = origDetect, origStage, origVerify, origProvision
 		deltaBase, markVerified = origDeltaBase, origMarkVerified
 		stageDelta = origStageDelta
-		onlineDepsSupported = origOnlineDeps
 	})
 	rec := &staged{}
 	detectMachine = func(context.Context, *transport.Client) (string, error) { return machine, nil }
@@ -470,30 +468,5 @@ func TestPreflightTurnsAnABIMismatchIntoAWarningOnlyWithConsentAndInternet(t *te
 	facts.Internet = false
 	if view := h.EvaluatePreflight(facts); !has(view.Blocking, "PYTHON_ABI_MISMATCH") {
 		t.Errorf("with consent but no internet blocking = %v, want PYTHON_ABI_MISMATCH", view.Blocking)
-	}
-}
-
-func TestPrepareRefusesAToleratedABIWhenThePackageCannotInstallOnline(t *testing.T) {
-	rec := stubSeams(t, "armv6l")
-	h := hostWithBundled(t)
-	verifyStaged = func(context.Context, *transport.Client, string, bool, bool) (bool, error) { return true, nil }
-	supported := false
-	onlineDepsSupported = func(context.Context, *transport.Client, string) bool { return supported }
-	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
-		t.Fatalf("SelectPackage: %v", err)
-	}
-	req := hostapi.RunRequest{Mode: hostapi.ModePrepare, ForceFullTransfer: true, AllowOnlineDeps: true}
-
-	err := h.Run(context.Background(), req, &recordingSink{})
-	var apiErr *hostapi.Error
-	if !errors.As(err, &apiErr) || apiErr.Code != "PACKAGE_NO_ONLINE_DEPS" {
-		t.Fatalf("err = %v, want PACKAGE_NO_ONLINE_DEPS for a package whose step 50 predates the option", err)
-	}
-	if rec.markCalls != 0 {
-		t.Errorf("markCalls = %d, want 0 (the package is not accepted)", rec.markCalls)
-	}
-	supported = true
-	if err := h.Run(context.Background(), req, &recordingSink{}); err != nil {
-		t.Fatalf("a package that supports it must be accepted: %v", err)
 	}
 }
