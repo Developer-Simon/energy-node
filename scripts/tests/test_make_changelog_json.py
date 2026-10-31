@@ -255,6 +255,35 @@ def test_attach_details_sets_details_on_pr_entries_only(tmp_path):
     assert "details" not in entries[2], "PR 149 has no details key"
 
 
+def test_attach_tours_sets_tour_on_pr_entries_only():
+    releases = mcj.mark_highlights(mcj.parse_changelog(DETAILS_CHANGELOG))
+    step = {"target": "favorites", "title": {"en": "T", "de": "T"}, "text": {"en": "X", "de": "X"}}
+    translations = {148: {"tour": {"*": {"steps": [step]}}}, 149: {"de": {"*": "nur Text"}}}
+    mcj.attach_tours(releases, translations, "dashboard")
+    entries = releases[0]["groups"][0]["entries"]
+    assert entries[0]["tour"] == {"steps": [{**step, "device": "any"}]}
+    assert "tour" not in entries[1], "no PR number, no tour"
+    assert "tour" not in entries[2], "PR 149 has no tour key"
+
+
+def test_attach_tours_raises_on_a_broken_tour():
+    releases = mcj.mark_highlights(mcj.parse_changelog(DETAILS_CHANGELOG))
+    with pytest.raises(ValueError, match="#148 tour"):
+        mcj.attach_tours(releases, {148: {"tour": {"*": {"steps": []}}}}, "dashboard")
+
+
+def test_build_document_carries_the_tour(tmp_path):
+    repo = _details_repo(tmp_path)
+    (repo / "changelog/highlights/149.json").write_text(json.dumps({
+        "tour": {"*": {"exempt": "Only the backend changed"}},
+    }), encoding="utf-8")
+    table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
+    doc = mcj.build_document(repo, table, bundle_version="v0.10.0", max_releases=5, generated_at="t", image_ref="v0.10.0")
+    entries = doc["components"][0]["releases"][0]["groups"][0]["entries"]
+    assert entries[2]["tour"] == {"steps": [], "exempt": "Only the backend changed"}
+    assert "tour" not in entries[0]
+
+
 def test_build_document_resolves_details_with_the_image_ref(tmp_path):
     repo = _details_repo(tmp_path)
     table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
