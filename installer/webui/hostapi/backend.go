@@ -1,6 +1,9 @@
 package hostapi
 
-import "context"
+import (
+	"context"
+	"encoding/json"
+)
 
 // HostKind sagt der Oberflaeche, in welchem Wirt sie laeuft. Sie soll daraus
 // nur ableiten, was sie zeigt (etwa den Verbindungsbildschirm), nie, wie sie
@@ -250,8 +253,13 @@ type RunRequest struct {
 	// Secrets gehen hinein und nie wieder hinaus.
 	MQTTPassword  string `json:"mqtt_password,omitempty"`
 	AdminPassword string `json:"admin_password,omitempty"`
-	TargetUser    string `json:"target_user,omitempty"`
-	TargetBase    string `json:"target_base,omitempty"`
+	// DashboardPrefs sind die Vorgaben des Dashboard-Schritts (Schema wie
+	// der Zustand der Oberflaeche). Die Passwoerter darin sind Geheimnisse;
+	// Secrets() meldet sie an den Redactor, DashboardSeed() reicht sie als
+	// Seed-Datei an den Node weiter.
+	DashboardPrefs json.RawMessage `json:"dashboard_prefs,omitempty"`
+	TargetUser     string          `json:"target_user,omitempty"`
+	TargetBase     string          `json:"target_base,omitempty"`
 	// MQTTUser ist der Broker-Benutzer, den Schritt 20 anlegt.
 	MQTTUser string `json:"mqtt_user,omitempty"`
 	// RestartAll starts every service unit again, not only the ones whose
@@ -264,9 +272,51 @@ type RunRequest struct {
 	RunID string `json:"-"`
 }
 
-// Secrets liefert die Werte, die aus jeder Ausgabe gefiltert werden muessen.
+// Secrets liefert die Werte, die aus jeder Ausgabe gefiltert werden muessen:
+// die beiden Passwoerter und die Benutzerpasswoerter aus DashboardPrefs.
 func (r RunRequest) Secrets() []string {
-	return []string{r.MQTTPassword, r.AdminPassword}
+	_, passwords := r.dashboardPrefs()
+	return append([]string{r.MQTTPassword, r.AdminPassword}, passwords...)
+}
+
+// DashboardSeed liefert den Inhalt von onboarding-seed.json: die Vorgaben
+// plus version 1. Nil, wenn keine (lesbaren) Vorgaben kamen.
+func (r RunRequest) DashboardSeed() []byte {
+	fields, _ := r.dashboardPrefs()
+	if fields == nil {
+		return nil
+	}
+	fields["version"] = json.RawMessage("1")
+	data, err := json.Marshal(fields)
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// dashboardPrefs zerlegt DashboardPrefs tolerant: ein Rumpf, der nicht
+// passt, liefert weder Seed noch Passwoerter, statt zu paniken.
+func (r RunRequest) dashboardPrefs() (map[string]json.RawMessage, []string) {
+	if len(r.DashboardPrefs) == 0 {
+		return nil, nil
+	}
+	var wire struct {
+		Users []struct {
+			Password string `json:"password"`
+		} `json:"users"`
+	}
+	if err := json.Unmarshal(r.DashboardPrefs, &wire); err != nil {
+		return nil, nil
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(r.DashboardPrefs, &fields); err != nil || fields == nil {
+		return nil, nil
+	}
+	passwords := make([]string, 0, len(wire.Users))
+	for _, user := range wire.Users {
+		passwords = append(passwords, user.Password)
+	}
+	return fields, passwords
 }
 
 // Check ist eine Zeile der Diagnose-Pruefliste.

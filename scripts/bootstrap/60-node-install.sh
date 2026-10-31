@@ -9,7 +9,8 @@
 # und aus dem Bundle statt aus dem Arbeitsverzeichnis.
 #
 # Passwoerter kommen ausschliesslich als Pfad zu einer 0600-Datei. Ein
-# Argument mit dem Passwort selbst stuende in /proc/<pid>/cmdline.
+# Argument mit dem Passwort selbst stuende in /proc/<pid>/cmdline. Dasselbe
+# gilt fuer die Seed-Datei der Dashboard-Vorgaben (onboarding-seed.json).
 # Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
 # step-inputs: bootstrap/lib/step.sh bootstrap/lib/render.sh
@@ -24,10 +25,12 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/render.sh"
 BINARY_NAME="energy-node-dashboard"
 MQTT_PW_FILE=""
 ADMIN_PW_FILE=""
+SEED_FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mqtt-password-file) MQTT_PW_FILE="${2:-}"; shift 2 ;;
     --admin-password-file) ADMIN_PW_FILE="${2:-}"; shift 2 ;;
+    --onboarding-seed-file) SEED_FILE="${2:-}"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -193,6 +196,7 @@ place_secret() {
 place_secret "${MQTT_PW_FILE}" "${etc}/mqtt.pw" "mqtt.pw"
 "${SUDO[@]}" mkdir -p "${EN_ROOT}/etc/${BINARY_NAME}"
 place_secret "${ADMIN_PW_FILE}" "${EN_ROOT}/etc/${BINARY_NAME}/auth.pw" "auth.pw"
+place_secret "${SEED_FILE}" "${EN_ROOT}/etc/${BINARY_NAME}/onboarding-seed.json" "onboarding-seed.json"
 
 # --- starten --------------------------------------------------------------
 "${SUDO[@]}" systemctl daemon-reload

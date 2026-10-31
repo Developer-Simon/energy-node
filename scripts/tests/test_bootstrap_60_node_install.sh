@@ -141,6 +141,26 @@ grep -q 'mein-passwort' "$etc/mqtt.pw" || fail "mqtt.pw ueberschrieben"
 [ -e "$etc/manifests/weg.json" ] && fail "veraltetes Manifest nicht entfernt"
 [ -f "$etc/manifests/shelly.json" ] || fail "Manifest beim Ersetzen verloren"
 
+# --- Vorgaben des Dashboard-Schritts als Seed-Datei ------------------------
+seed_dst="$tmp/root/etc/energy-node-dashboard/onboarding-seed.json"
+printf '{"version":1,"theme":"stromblau"}\n' > "$tmp/seed.json"
+chmod 600 "$tmp/seed.json"
+rm -rf "$tmp/state"
+out="$(bash "$script" --mqtt-password-file "$tmp/mqtt.pw" --admin-password-file "$tmp/admin.pw" \
+                      --onboarding-seed-file "$tmp/seed.json")"
+grep -q '^##STEP 60 ok$' <<<"$out" || fail "Lauf mit Seed nicht ok" "$out"
+[ "$(cat "$seed_dst")" = '{"version":1,"theme":"stromblau"}' ] || fail "Seed-Datei falsch" "$(cat "$seed_dst" 2>&1)"
+[ "$(stat -c %a "$seed_dst")" = 640 ] || fail "Seed-Datei nicht 0640" "$(stat -c %a "$seed_dst")"
+grep -q 'stromblau' <<<"$out" && fail "Seed-Inhalt in der Ausgabe"
+
+# --- eine vorhandene Seed-Datei bleibt beim naechsten Lauf unangetastet ---
+printf '{"version":1,"theme":"mint"}\n' > "$seed_dst"
+rm -rf "$tmp/state"
+out="$(bash "$script" --mqtt-password-file "$tmp/mqtt.pw" --admin-password-file "$tmp/admin.pw" \
+                      --onboarding-seed-file "$tmp/seed.json")"
+grep -q '^##STEP 60 ok$' <<<"$out" || fail "zweiter Seed-Lauf nicht ok" "$out"
+[ "$(cat "$seed_dst")" = '{"version":1,"theme":"mint"}' ] || fail "vorhandene Seed-Datei ueberschrieben"
+
 # --- kaputte Sudoers-Regel wird nicht installiert -------------------------
 rm -rf "$tmp/state" "$tmp/root"
 set +e

@@ -1,14 +1,16 @@
 # Changelog
 
-## v0.2.5 (2026-10-31)
+## v0.2.6 (2026-10-31)
 
 ### Features
 
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
+- **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189) (86dfb1e)
+- **installer:** hand the dashboard presets to the node (1fea19b)
+- **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190)
 - **installer:** let the node fetch Python dependencies online when the operator allows it (f8be687)
 - **installer:** translate package check messages and flag the decisions a run waits for (1a3aa24)
 - **installer:** add an opt-in step that keeps the system journal in RAM only (fa45acc)
-- **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189)
 - **installer:** set up passwordless sudo and register the Linux window icon (3ebc64c)
 - **installer:** ask for the sudo password in a dialog on the precheck screen (1519c22)
 

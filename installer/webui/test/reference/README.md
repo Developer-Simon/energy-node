@@ -8,4 +8,4 @@ rendered geometry and German texts at 1080x720.
 
 Change a draft here first, in its own commit, then make the product follow.
 Screen mapping: Main=connect, Vorpruefung=precheck, Konfiguration=configure,
-Ausfuehrung=run, Ergebnis=result, Aktualisieren=preview, Diagnose=diagnose.
+Ausfuehrung=run, Ergebnis=result, Aktualisieren=preview, Diagnose=diagnose, Dashboard=dashboard.

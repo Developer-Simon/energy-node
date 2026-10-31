@@ -54,7 +54,7 @@ trap 'exit 130' INT TERM
 
 usage() {
   echo "Aufruf: dashboard/test/smoke/smoke.sh [--run NAME]..." >&2
-  echo "Laeufe: haupt, ohne-dienste, bilanz" >&2
+  echo "Laeufe: haupt, ohne-dienste, bilanz, seed" >&2
 }
 
 # Setzt alle Schalter auf den Stand "aus". Jeder Lauf schaltet nur sein Noetiges an.
@@ -70,6 +70,13 @@ setze_grundstand() {
   UPDATES=0
   SERVICES_OFF=0
   PACKAGE_ARCHIVE=""
+  SEED_JSON=""
+}
+
+# Lauf seed: Vorgaben des Installers als onboarding-seed.json neben auth.pw.
+konfiguriere_seed() {
+  setze_demo_quellen
+  SEED_JSON='{"version":1,"theme":"stromblau","users":[{"name":"smoke-seed","template":"view","password":"smoke-seed-pass-1"}],"later":["guest"]}'
 }
 
 # Quellen und Fixture wie die Demo (demo/demo.sh, Standard).
@@ -121,6 +128,7 @@ gruppe() {
     journal) checks_journal ;;
     users) checks_users ;;
     onboarding) checks_onboarding ;;
+    onboarding_seed) checks_onboarding_seed ;;
     update_install) checks_update_install ;;
     companion) checks_companion ;;
     history_exchange) checks_history_exchange ;;
@@ -143,6 +151,9 @@ starte_und_pruefe() {
   env_write_cert || return 1
   env_prepare_devices || return 1
   env_write_config || return 1
+  if [[ -n "$SEED_JSON" ]]; then
+    printf '%s' "$SEED_JSON" > "$WORK/onboarding-seed.json" || return 1
+  fi
   env_start_broker
   env_start_fake_github
   env_start_dashboard "$BIN"
@@ -208,7 +219,7 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       case "$2" in
-        haupt|ohne-dienste|bilanz) WANTED+=("$2") ;;
+        haupt|ohne-dienste|bilanz|seed) WANTED+=("$2") ;;
         *)
           echo "FEHLER: unbekannter Lauf $2" >&2
           usage
@@ -222,7 +233,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 if (( ${#WANTED[@]} == 0 )); then
-  WANTED=(haupt ohne-dienste bilanz)
+  WANTED=(haupt ohne-dienste bilanz seed)
 fi
 
 vorbereiten || exit 1
@@ -231,7 +242,7 @@ vorbereiten || exit 1
 # Gruppen: haupt prueft die Demo, ohne-dienste prueft abgeschaltete Dienste,
 # bilanz prueft exakte Energiewerte ohne Simulation.
 RESULT=0
-for name in haupt ohne-dienste bilanz; do
+for name in haupt ohne-dienste bilanz seed; do
   wanted=0
   for w in "${WANTED[@]}"; do
     [[ "$w" == "$name" ]] && wanted=1
@@ -253,6 +264,10 @@ for name in haupt ohne-dienste bilanz; do
     bilanz)
       konfiguriere_bilanz
       fuehre_lauf bilanz seed energy_balance companion || RESULT=1
+      ;;
+    seed)
+      konfiguriere_seed
+      fuehre_lauf seed onboarding_seed || RESULT=1
       ;;
   esac
 done

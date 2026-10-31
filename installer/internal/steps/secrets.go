@@ -108,6 +108,9 @@ func stageSecretsForStep20(client *transport.Client, user string, secrets *Secre
 type Secrets struct {
 	MQTTPassword  string
 	AdminPassword string
+	// DashboardSeed is the content of onboarding-seed.json (the dashboard
+	// presets plus version). Empty leaves the seed file out.
+	DashboardSeed []byte
 }
 
 // stageSecretsForStep60 uploads whichever passwords are set to 0600 temp
@@ -125,12 +128,12 @@ func stageSecretsForStep60(client *transport.Client, secrets *Secrets) (extraArg
 		}
 	}
 
-	stage := func(value, namePrefix, flag string) error {
-		if value == "" {
+	stage := func(data []byte, namePrefix, ext, flag string) error {
+		if len(data) == 0 {
 			return nil
 		}
-		remotePath := fmt.Sprintf("/tmp/energy-node-installer-%s-%s.pw", namePrefix, randomSuffix())
-		if err := client.UploadBytes([]byte(value), remotePath, 0o600); err != nil {
+		remotePath := fmt.Sprintf("/tmp/energy-node-installer-%s-%s%s", namePrefix, randomSuffix(), ext)
+		if err := client.UploadBytes(data, remotePath, 0o600); err != nil {
 			return err
 		}
 		uploaded = append(uploaded, remotePath)
@@ -138,13 +141,17 @@ func stageSecretsForStep60(client *transport.Client, secrets *Secrets) (extraArg
 		return nil
 	}
 
-	if err := stage(secrets.MQTTPassword, "mqtt", "--mqtt-password-file"); err != nil {
+	if err := stage([]byte(secrets.MQTTPassword), "mqtt", ".pw", "--mqtt-password-file"); err != nil {
 		cleanup()
 		return "", func() {}, fmt.Errorf("staging the MQTT password: %w", err)
 	}
-	if err := stage(secrets.AdminPassword, "admin", "--admin-password-file"); err != nil {
+	if err := stage([]byte(secrets.AdminPassword), "admin", ".pw", "--admin-password-file"); err != nil {
 		cleanup()
 		return "", func() {}, fmt.Errorf("staging the admin password: %w", err)
+	}
+	if err := stage(secrets.DashboardSeed, "onboarding-seed", ".json", "--onboarding-seed-file"); err != nil {
+		cleanup()
+		return "", func() {}, fmt.Errorf("staging the dashboard presets: %w", err)
 	}
 	return extraArgs, cleanup, nil
 }

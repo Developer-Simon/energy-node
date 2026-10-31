@@ -1,20 +1,25 @@
 # Changelog
 
-## v0.2.8 (2026-10-31)
+## v0.2.9 (2026-10-31)
 
 ### Features
 
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
+- **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189) (86dfb1e)
+- **installer:** add the dashboard step logic (79acd60)
+- **installer:** add the dashboard step (37e101b)
+- **installer:** hand the dashboard presets to the node (1fea19b)
+- **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190)
 - **installer:** let the node fetch Python dependencies online when the operator allows it (f8be687)
 - **installer:** offer the online dependency install in the prepare screen (24536b2)
 - **installer:** translate package check messages and flag the decisions a run waits for (1a3aa24)
 - **installer:** add an opt-in step that keeps the system journal in RAM only (fa45acc)
-- **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189)
 - **installer:** set up passwordless sudo and register the Linux window icon (3ebc64c)
 - **installer:** ask for the sudo password in a dialog on the precheck screen (1519c22)
 
 ### Fixes
 
+- **installer:** show the real guest access default and tighten the updates text (4a1d4fb)
 - **installer:** say what to do when the package needs another Python version (aaf9d68)
 - **installer:** keep the chosen package source while connecting (7acba32)
 - **installer:** word the Python ABI mismatch detail in the window's language (2ba8848)
@@ -27,6 +32,11 @@
 ### Refactors
 
 - **installer:** install the Python dependencies online from the installer itself (a626640)
+
+### Tests
+
+- **installer:** configure draft ends with Weiter (64f407b)
+- **installer:** install drafts show the dashboard step in the stepper (6064db4)
 
 ### Chores
 

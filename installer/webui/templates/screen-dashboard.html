@@ -1,0 +1,168 @@
+{{define "screen-dashboard"}}<template x-if="screen === 'dashboard'">
+<div class="screen" x-data="screenDashboard">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="cols">
+      <section class="card">
+        <h2 class="card-h" x-text="t('dashboard.access.heading')"></h2>
+        <p class="card-p" x-text="t('dashboard.access.text')"></p>
+
+        <div class="dash-group" data-key="admin" :data-state="prefs.admin_user ? 'set' : 'default'">
+          <div class="dash-head"><span class="lbl" id="dashboard-admin" x-text="t('dashboard.admin.label')"></span><span class="dash-state" :data-state="prefs.admin_user ? 'set' : 'default'" x-text="t('dashboard.state.' + (prefs.admin_user ? 'set' : 'default'))"></span></div>
+          <div class="dash-body dash-fold"><div class="dash-fold-in">
+            <div class="dash-field">
+              <input type="text" x-model.trim="prefs.admin_user" aria-labelledby="dashboard-admin" :aria-invalid="!adminValid" :placeholder="t('dashboard.admin.placeholder')" autocomplete="off" spellcheck="false">
+              <p class="hint" x-text="t('dashboard.admin.hint')"></p>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="dash-group" data-key="users" :data-state="groupState('users')">
+          <div class="dash-head"><span class="lbl" x-text="t('dashboard.users.label')"></span><span class="dash-state" :data-state="groupState('users')" x-text="t('dashboard.state.' + groupState('users'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('users') !== 'later'" @click="toggleLater('users')" x-text="t(groupState('users') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+          <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+          <div class="dash-body dash-fold"><div class="dash-fold-in">
+            <div class="dash-field dash-users">
+              <template x-for="(user, index) in prefs.users" :key="index">
+                <div class="dash-user">
+                  <input type="text" x-model.trim="user.name" :aria-label="t('dashboard.users.name_label')" :aria-invalid="!nameValid(user.name)" :placeholder="t('dashboard.users.name')" autocomplete="off" spellcheck="false">
+                  <select x-model="user.template" :aria-label="t('dashboard.users.template')">
+                    <option value="view" x-text="t('dashboard.users.view')"></option>
+                    <option value="operate" x-text="t('dashboard.users.operate')"></option>
+                    <option value="admin" x-text="t('dashboard.users.admin')"></option>
+                  </select>
+                  <button type="button" class="dash-user-remove" @click="removeUser(index)" :aria-label="t('dashboard.users.remove')">{{template "icon-close"}}</button>
+                  <input type="password" class="dash-user-pw" x-model="user.password" :aria-label="t('field.password')" :aria-invalid="!passwordValid(user.password)" :placeholder="t('dashboard.users.password')" autocomplete="new-password">
+                </div>
+              </template>
+              <button type="button" class="dash-add" @click="addUser()">{{template "icon-plus"}}<span x-text="t('dashboard.users.add')"></span></button>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="dash-group" data-key="guest" :data-state="groupState('guest')">
+          <div class="dash-head"><span class="lbl" x-text="t('dashboard.guest.label')"></span><span class="dash-state" :data-state="groupState('guest')" x-text="t('dashboard.state.' + groupState('guest'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('guest') !== 'later'" @click="toggleLater('guest')" x-text="t(groupState('guest') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+          <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+          <div class="dash-body dash-fold"><div class="dash-fold-in">
+            <div class="dash-field tog">
+              <label class="settings-toggle"><input type="checkbox" role="switch" :checked="guestOn" @change="prefs.guest_access = $event.target.checked" :aria-label="t('dashboard.guest.switch')"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></label>
+              <span><span class="tog-t" x-text="t('dashboard.guest.switch')"></span><div class="tog-s" x-text="t('dashboard.guest.text')"></div></span>
+            </div>
+          </div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-h" x-text="t('dashboard.look.heading')"></h2>
+        <p class="card-p" x-text="t('dashboard.look.text')"></p>
+
+        <div class="dash-group" data-key="theme" :data-state="groupState('theme')">
+          <div class="dash-head"><span class="lbl" x-text="t('dashboard.theme.label')"></span><span class="dash-state" :data-state="groupState('theme')" x-text="t('dashboard.state.' + groupState('theme'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('theme') !== 'later'" @click="toggleLater('theme')" x-text="t(groupState('theme') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+          <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+          <div class="dash-body dash-fold"><div class="dash-fold-in">
+            <div class="dash-field dash-themes" role="radiogroup" :aria-label="t('dashboard.theme.label')">
+              <div class="segmented-option" role="radio" tabindex="0" :class="{ on: (prefs.theme || 'mint') === 'mint' }" :aria-checked="(prefs.theme || 'mint') === 'mint'" @click="chooseTheme('mint')" @keydown.enter.prevent="chooseTheme('mint')" @keydown.space.prevent="chooseTheme('mint')"><span><span class="dash-swatch" style="background:#9fd"></span><span x-text="t('dashboard.theme.mint')"></span></span></div>
+              <div class="segmented-option" role="radio" tabindex="0" :class="{ on: prefs.theme === 'stromblau' }" :aria-checked="prefs.theme === 'stromblau'" @click="chooseTheme('stromblau')" @keydown.enter.prevent="chooseTheme('stromblau')" @keydown.space.prevent="chooseTheme('stromblau')"><span><span class="dash-swatch" style="background:#5ec8ff"></span><span x-text="t('dashboard.theme.stromblau')"></span></span></div>
+              <div class="segmented-option" role="radio" tabindex="0" :class="{ on: prefs.theme === 'signalgelb' }" :aria-checked="prefs.theme === 'signalgelb'" @click="chooseTheme('signalgelb')" @keydown.enter.prevent="chooseTheme('signalgelb')" @keydown.space.prevent="chooseTheme('signalgelb')"><span><span class="dash-swatch" style="background:#f5c400"></span><span x-text="t('dashboard.theme.signalgelb')"></span></span></div>
+              <div class="segmented-option" role="radio" tabindex="0" :class="{ on: prefs.theme === 'tageslicht' }" :aria-checked="prefs.theme === 'tageslicht'" @click="chooseTheme('tageslicht')" @keydown.enter.prevent="chooseTheme('tageslicht')" @keydown.space.prevent="chooseTheme('tageslicht')"><span><span class="dash-swatch" style="background:#f3f1ec"></span><span x-text="t('dashboard.theme.tageslicht')"></span></span></div>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="dash-group" data-key="title" :data-state="groupState('title')">
+          <div class="dash-head"><span class="lbl" x-text="t('dashboard.title.label')"></span><span class="dash-state" :data-state="groupState('title')" x-text="t('dashboard.state.' + groupState('title'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('title') !== 'later'" @click="toggleLater('title')" x-text="t(groupState('title') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+          <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+          <div class="dash-body dash-fold"><div class="dash-fold-in">
+            <div class="dash-field">
+              <div class="row2">
+                <input type="text" x-model.trim="prefs.title" :aria-label="t('dashboard.title.title')" :placeholder="t('dashboard.title.default')">
+                <input type="text" x-model.trim="prefs.subtitle" :aria-label="t('dashboard.title.subtitle')" :placeholder="t('dashboard.title.subtitle')">
+              </div>
+              <p class="hint" x-text="t('dashboard.title.hint')"></p>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="dash-group" data-key="statusbar" :data-state="groupState('statusbar')">
+          <div class="dash-head"><span class="lbl" x-text="t('dashboard.statusbar.label')"></span><span class="dash-state" :data-state="groupState('statusbar')" x-text="t('dashboard.state.' + groupState('statusbar'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('statusbar') !== 'later'" @click="toggleLater('statusbar')" x-text="t(groupState('statusbar') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+          <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+          <div class="dash-body dash-fold"><div class="dash-fold-in">
+            <div class="dash-field" :class="{ 'dash-off': prefs.show_runtime_status === false }">
+              <label class="dash-switch"><span x-text="t('dashboard.statusbar.switch')"></span><span class="settings-toggle"><input type="checkbox" role="switch" :checked="prefs.show_runtime_status !== false" @change="prefs.show_runtime_status = $event.target.checked"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+              <div class="chips" role="group" :aria-label="t('dashboard.statusbar.group')">
+                <template x-for="id in ['mqtt', 'cache', 'storage', 'uptime', 'version', 'cpu_temp', 'cpu_load', 'ram', 'undervoltage']" :key="id">
+                  <span class="chipk" role="checkbox" tabindex="0" :data-chip="id" :class="{ on: chipOn('statusbar', id) }" :aria-checked="chipOn('statusbar', id)" @click="toggleChip('statusbar', id)" @keydown.enter.prevent="toggleChip('statusbar', id)" @keydown.space.prevent="toggleChip('statusbar', id)" x-text="t('dashboard.item.' + id)"></span>
+                </template>
+              </div>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="dash-group" data-key="tabwidth" :data-state="groupState('tabwidth')">
+          <div class="dash-head"><span class="lbl" x-text="t('dashboard.tabwidth.label')"></span><span class="dash-state" :data-state="groupState('tabwidth')" x-text="t('dashboard.state.' + groupState('tabwidth'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('tabwidth') !== 'later'" @click="toggleLater('tabwidth')" x-text="t(groupState('tabwidth') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+          <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+          <div class="dash-body dash-fold"><div class="dash-fold-in">
+            <div class="dash-field">
+              <label class="dash-switch"><span x-text="t('dashboard.tabwidth.switch')"></span><span class="settings-toggle"><input type="checkbox" role="switch" :checked="allChips('tabwidth')" @change="setAllChips('tabwidth', $event.target.checked)"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+              <div class="chips" role="group" :aria-label="t('dashboard.tabwidth.group')">
+                <template x-for="id in ['overview', 'devices', 'history', 'config', 'energy', 'layout', 'devicemap', 'diagnostics', 'settings', 'automations']" :key="id">
+                  <span class="chipk" role="checkbox" tabindex="0" :data-chip="id" :class="{ on: chipOn('tabwidth', id) }" :aria-checked="chipOn('tabwidth', id)" @click="toggleChip('tabwidth', id)" @keydown.enter.prevent="toggleChip('tabwidth', id)" @keydown.space.prevent="toggleChip('tabwidth', id)" x-text="t('dashboard.tab.' + id)"></span>
+                </template>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="card">
+          <h2 class="card-h" x-text="t('dashboard.system.heading')"></h2>
+
+          <div class="dash-group" data-key="updates" :data-state="groupState('updates')">
+            <div class="dash-head"><span class="lbl" x-text="t('dashboard.updates.label')"></span><span class="dash-state" :data-state="groupState('updates')" x-text="t('dashboard.state.' + groupState('updates'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('updates') !== 'later'" @click="toggleLater('updates')" x-text="t(groupState('updates') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+            <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+            <div class="dash-body dash-fold"><div class="dash-fold-in">
+              <div class="dash-field tog">
+                <label class="settings-toggle"><input type="checkbox" role="switch" :checked="prefs.update_check !== false" @change="prefs.update_check = $event.target.checked" :aria-label="t('dashboard.updates.switch')"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></label>
+                <span><span class="tog-t" x-text="t('dashboard.updates.switch')"></span><div class="tog-s" x-text="t('dashboard.updates.text')"></div></span>
+              </div>
+            </div></div>
+          </div>
+
+          <div class="dash-group" data-key="metrics" :data-state="groupState('metrics')">
+            <div class="dash-head"><span class="lbl" x-text="t('dashboard.metrics.label')"></span><span class="dash-state" :data-state="groupState('metrics')" x-text="t('dashboard.state.' + groupState('metrics'))"></span><button type="button" class="dash-later-btn" :aria-expanded="groupState('metrics') !== 'later'" @click="toggleLater('metrics')" x-text="t(groupState('metrics') === 'later' ? 'dashboard.later.resume' : 'dashboard.later.action')"></button></div>
+            <div class="dash-fold dash-hintfold"><div class="dash-fold-in"><p class="dash-hint" x-text="t('dashboard.default_hint')"></p></div></div>
+            <div class="dash-body dash-fold"><div class="dash-fold-in">
+              <div class="dash-field">
+                <div class="tog-s" x-text="t('dashboard.metrics.text')"></div>
+                <div class="chips" role="group" :aria-label="t('dashboard.metrics.group')">
+                  <template x-for="id in ['cpu_temp', 'cpu_load', 'ram', 'disk', 'wifi_signal', 'undervoltage', 'throttled', 'last_boot', 'ip_address', 'mosquitto', 'tailscale', 'apt_updates']" :key="id">
+                    <span class="chipk" role="checkbox" tabindex="0" :data-chip="id" :class="{ on: chipOn('metrics', id) }" :aria-checked="chipOn('metrics', id)" @click="toggleChip('metrics', id)" @keydown.enter.prevent="toggleChip('metrics', id)" @keydown.space.prevent="toggleChip('metrics', id)" x-text="t('dashboard.metric.' + id)"></span>
+                  </template>
+                </div>
+              </div>
+            </div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2 class="card-h" x-text="t('dashboard.next.heading')"></h2>
+          <p class="card-p" x-text="t('dashboard.next.text')"></p>
+          <ul class="dash-next">
+            <li x-text="t('dashboard.next.ha')"></li>
+            <li x-text="t('dashboard.next.tiles')"></li>
+            <li x-text="t('dashboard.next.devices')"></li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint" x-text="t('configure.hint.mutates')"></span>
+    <button type="button" class="primary" :disabled="!canStart" @click="start()" x-text="t('action.start_install')"></button>
+  </footer>
+</div>
+</template>{{end}}

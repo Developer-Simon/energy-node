@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startFakehost, openPage, connect, startInstall, connectWithPackage, getDebugState, fillSecrets, SECRETS } from './fakehost.mjs';
+import { startFakehost, openPage, connect, startInstall, startFromDashboard, connectWithPackage, getDebugState, fillSecrets, SECRETS } from './fakehost.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const en = JSON.parse(fs.readFileSync(path.join(here, '..', '..', 'catalogs', 'en.json'), 'utf8'));
@@ -83,7 +83,7 @@ test('der Sprachumschalter wechselt jeden Text samt Fehlerklartext und bleibt ge
   await page.getByRole('button', { name: en['action.next'], exact: true }).click();
   await page.getByLabel(en['field.mqtt_password'], { exact: true }).fill(SECRETS.mqtt);
   await page.getByLabel(en['field.admin_password'], { exact: true }).fill(SECRETS.admin);
-  await page.getByRole('button', { name: en['action.start_install'] }).click();
+  await startFromDashboard(page, { next: en['action.next'], start: en['action.start_install'] });
 
   await page.locator('.app[data-screen="result"] .hero h1').waitFor({ timeout: 20000 });
   assert.equal(await page.locator('.hero h1').textContent(), en['result.fail.heading']);
@@ -152,7 +152,7 @@ test('mit gewaehltem Shelly-Webhook zeigt die Diagnose Port und Hinweis', () => 
   assert.equal(await webhook.isChecked(), false, 'Opt-in: standardmaessig aus');
   await webhook.click({ force: true });
   await fillSecrets(page);
-  await page.getByRole('button', { name: 'Installation starten' }).click();
+  await startFromDashboard(page);
   await page.locator('.app[data-screen="result"] .hero h1').waitFor({ timeout: 20000 });
 
   await page.getByRole('button', { name: 'Diagnose öffnen' }).click();

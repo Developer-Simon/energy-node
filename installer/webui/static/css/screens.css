@@ -345,3 +345,76 @@
 .app[data-screen="prepare"] .prep-action-b{flex:1 1 auto;min-width:0}
 .app[data-screen="prepare"] .prep-action-t{display:block;font-size:.84rem;font-weight:600;color:var(--text-strong)}
 .app[data-screen="prepare"] .prep-action-s{display:block;margin-top:.2rem;font-size:.78rem;line-height:1.45;color:var(--text-muted)}
+
+/* == Vorlage: Dashboard == */
+.app[data-screen="dashboard"] .cols{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:start;overflow:auto;margin:0 -.4rem;padding:0 .4rem 1.4rem; -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 1.4rem),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 1.4rem),transparent)}
+.app[data-screen="dashboard"] .stack{display:flex;flex-direction:column;gap:1rem}
+.app[data-screen="dashboard"] .row2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.app[data-screen="dashboard"] .hint{font-size:.745rem;color:var(--text-muted);line-height:1.45;margin:.4rem 0 0}
+.app[data-screen="dashboard"] .tog{display:flex;align-items:flex-start;gap:.7rem}
+.app[data-screen="dashboard"] .tog-t{font-size:.85rem;font-weight:600;color:var(--text-strong)}
+.app[data-screen="dashboard"] .tog-s{font-size:.755rem;color:var(--text-muted);line-height:1.42}
+.app[data-screen="dashboard"] .chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem}
+.app[data-screen="dashboard"] .chipk{font-size:.7rem;padding:.1rem .42rem;border-radius:5px;border:1px solid var(--border);color:var(--text-faint);cursor:pointer;user-select:none;transition:color .15s ease,background-color .15s ease,border-color .15s ease}
+.app[data-screen="dashboard"] .chipk.on{border-color:var(--accent-line);background:var(--accent-bg);color:var(--accent-soft)}
+.app[data-screen="dashboard"] .card{padding:.9rem 1rem}
+.app[data-screen="dashboard"] .card-p{margin-bottom:.55rem}
+/* == Ende Vorlage == */
+/* Ergaenzung Dashboard: Gruppen, Zustaende, Benutzer und Farbkarten (dash-*), nicht in der Vorlage. */
+/* --- Gruppen: ein Punkt der Checkliste im Dashboard ---------------------- */
+.app[data-screen="dashboard"] .dash-group { padding: .6rem 0; border-top: 1px solid var(--border-soft); }
+.app[data-screen="dashboard"] .dash-group:first-of-type { border-top: 0; padding-top: .1rem; }
+.app[data-screen="dashboard"] .dash-head { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .45rem; margin-bottom: .42rem; }
+.app[data-screen="dashboard"] .dash-head .lbl { margin: 0; white-space: nowrap; }
+.app[data-screen="dashboard"] .dash-state { display: inline-flex; align-items: center; padding: .06rem .42rem; border-radius: 999px; font-size: .66rem; font-weight: 600; letter-spacing: .02em; color: var(--text-faint); box-shadow: inset 0 0 0 1px var(--border-soft); transition: color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+.app[data-screen="dashboard"] .dash-state[data-state="set"] { color: var(--ok); background: var(--ok-bg); box-shadow: inset 0 0 0 1px var(--ok-line); }
+.app[data-screen="dashboard"] .dash-state[data-state="later"] { color: var(--text-subtle); box-shadow: inset 0 0 0 1px var(--border); background: repeating-linear-gradient(-45deg, transparent 0 4px, color-mix(in srgb, var(--text-faint) 14%, transparent) 4px 5px); }
+.app[data-screen="dashboard"] .dash-later-btn { margin-left: auto; padding: .14rem .45rem; border: 0; background: transparent; color: var(--text-muted); font-size: .72rem; white-space: nowrap; }
+.app[data-screen="dashboard"] .dash-later-btn:hover:not(:disabled) { background: var(--panel-alt); color: var(--accent-soft); }
+/* Zusammenfahren: .dash-fold ist eine Grid-Zeile, die von 1fr auf 0fr faehrt.
+   Der Inhalt blendet dabei aus und wird danach aus dem Fokus genommen. */
+.app[data-screen="dashboard"] .dash-fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .32s var(--ease); }
+.app[data-screen="dashboard"] .dash-fold-in { min-height: 0; overflow: hidden; transition: opacity .22s cubic-bezier(.23, 1, .32, 1), visibility 0s; }
+.app[data-screen="dashboard"] .dash-group[data-state="later"] .dash-body { grid-template-rows: 0fr; }
+.app[data-screen="dashboard"] .dash-group[data-state="later"] .dash-body .dash-fold-in { opacity: 0; visibility: hidden; transition: opacity .14s ease-out, visibility 0s .32s; }
+/* Hinweis nur im Standard: bei Gesetzt und Spaeter faehrt er ein. */
+.app[data-screen="dashboard"] .dash-group:not([data-state="default"]) .dash-hintfold { grid-template-rows: 0fr; }
+.app[data-screen="dashboard"] .dash-group:not([data-state="default"]) .dash-hintfold .dash-fold-in { opacity: 0; }
+.app[data-screen="dashboard"] .dash-hint { margin: 0 0 .45rem; font-size: .72rem; line-height: 1.4; color: var(--text-muted); }
+.app[data-screen="dashboard"] .dash-hint::before { content: ''; display: inline-block; width: .38rem; height: .38rem; margin-right: .38rem; border-radius: 50%; background: var(--accent-line); vertical-align: .08em; }
+.app[data-screen="dashboard"] .dash-group[data-state="later"] .dash-head { margin-bottom: 0; }
+.app[data-screen="dashboard"] .dash-group[data-state="later"] .dash-later-btn { color: var(--accent-soft); }
+
+/* Farbschema: zwei mal zwei, damit auch Stromblau und Signalgelb in die
+   schmale Spalte passen. Waehlt zugleich die Vorschau dieses Fensters. */
+.app[data-screen="dashboard"] .dash-themes { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+.app[data-screen="dashboard"] .dash-themes .segmented-option { place-items: center start; padding: .45rem .65rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sunken); font-size: .78rem; cursor: pointer; transition: color .2s ease, background-color .2s ease, border-color .2s ease; }
+.app[data-screen="dashboard"] .dash-themes .segmented-option.on { border-color: var(--accent-line); background: var(--accent-bg); }
+.app[data-screen="dashboard"] .dash-swatch { display: inline-block; width: .5rem; height: .5rem; margin-right: .3rem; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-strong) 28%, transparent); }
+
+/* Weitere Benutzer: eine Zeile pro Konto, Vorlage als Auswahl. */
+.app[data-screen="dashboard"] .dash-users { display: grid; gap: .45rem; }
+.app[data-screen="dashboard"] .dash-user { display: grid; grid-template-columns: 1fr 6.4rem auto; gap: .35rem; padding: .45rem; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel-alt); animation: dash-in .22s cubic-bezier(.23, 1, .32, 1) both; }
+.app[data-screen="dashboard"] .dash-user input, .app[data-screen="dashboard"] .dash-user select { padding: .38rem .5rem; font-size: .8rem; }
+.app[data-screen="dashboard"] .dash-user .dash-user-pw { grid-column: 1 / 3; }
+.app[data-screen="dashboard"] .dash-user-remove { grid-row: 1 / 3; grid-column: 3; align-self: center; padding: .3rem; border: 0; background: transparent; color: var(--text-faint); }
+.app[data-screen="dashboard"] .dash-user-remove svg { width: .9rem; height: .9rem; display: block; }
+.app[data-screen="dashboard"] .dash-add { justify-self: start; display: inline-flex; align-items: center; gap: .35rem; padding: .32rem .6rem; font-size: .78rem; border-style: dashed; }
+.app[data-screen="dashboard"] .dash-add svg { width: .85rem; height: .85rem; }
+@keyframes dash-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+
+.app[data-screen="dashboard"] .dash-switch { display: flex; align-items: center; justify-content: space-between; gap: .6rem; font-size: .82rem; color: var(--text); }
+.app[data-screen="dashboard"] .dash-switch + .chips { margin-top: .45rem; }
+.app[data-screen="dashboard"] .dash-off .chips { opacity: .45; pointer-events: none; transition: opacity .2s ease; }
+
+.app[data-screen="dashboard"] .dash-next { margin: .1rem 0 0; padding: 0; list-style: none; display: grid; gap: .3rem; }
+.app[data-screen="dashboard"] .dash-next li { display: flex; align-items: center; gap: .5rem; font-size: .78rem; color: var(--text-subtle); }
+.app[data-screen="dashboard"] .dash-next li::before { content: ''; flex: none; width: .7rem; height: .7rem; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--border); }
+
+@media (prefers-reduced-motion: reduce) {
+  .app[data-screen="dashboard"] .dash-fold { transition: none; }
+  .app[data-screen="dashboard"] .dash-user { animation-name: dash-fade; }
+  @keyframes dash-fade { from { opacity: 0; } to { opacity: 1; } }
+}
+/* Ergaenzung Dashboard: Farbschema-Uebergang am ganzen Fenster, nicht am Bildschirm. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .28s; }

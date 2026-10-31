@@ -108,3 +108,65 @@ printf '##STEP 10 ok\n'
 		t.Fatalf("Run: %v", err)
 	}
 }
+
+const checkSeedScript = `#!/bin/sh
+printf '##STEP 60 begin\n'
+seed_file=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --onboarding-seed-file) seed_file="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+if [ -z "$seed_file" ] || [ "$(cat "$seed_file")" != '{"version":1,"theme":"stromblau"}' ]; then
+  printf '##STEP 60 fail WRONG_SEED\n'
+  exit 0
+fi
+if [ "$(stat -c %a "$seed_file")" != "600" ]; then
+  printf '##STEP 60 fail WRONG_MODE\n'
+  exit 0
+fi
+echo "$seed_file" > /tmp/energy-node-installer-seed-test-path
+printf '##STEP 60 ok\n'
+`
+
+func TestRunStagesDashboardSeedForStep60AndCleansUpAfterwards(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"60-node-install.sh": checkSeedScript,
+	})
+	t.Cleanup(func() {
+		_ = client.RemoveRemote("/tmp/energy-node-installer-seed-test-path")
+	})
+
+	err := steps.Run(context.Background(), steps.RunOptions{
+		Client:          client,
+		RemoteBundleDir: bundleDir,
+		RemoteStateDir:  stateDir,
+		BundleVersion:   "v0.1.0",
+		Steps:           []bundle.StepEntry{{ID: "60", Optional: false}},
+		Secrets: &steps.Secrets{
+			MQTTPassword:  "mqtt-geheim",
+			AdminPassword: "admin-geheim",
+			DashboardSeed: []byte(`{"version":1,"theme":"stromblau"}`),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	var pathOut bytes.Buffer
+	if err := client.Run(context.Background(), "cat /tmp/energy-node-installer-seed-test-path", &pathOut, &bytes.Buffer{}); err != nil {
+		t.Fatalf("reading recorded seed path: %v", err)
+	}
+	stagedPath := trimNewlineForSteps(pathOut.String())
+
+	var stateOut bytes.Buffer
+	_ = client.Run(context.Background(), "test -e "+stagedPath+" && echo present || echo gone", &stateOut, &bytes.Buffer{})
+	if trimNewlineForSteps(stateOut.String()) != "gone" {
+		t.Fatalf("staged seed file was not cleaned up: %q", stagedPath)
+	}
+}

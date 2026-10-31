@@ -57,32 +57,42 @@ test('ohne beide Passwoerter startet nichts', async () => {
   assert.equal(screen.canStart, true);
 });
 
-test('start speichert die Auswahl, startet den Lauf und vergisst die Passwoerter', async () => {
+test('Weiter reicht die Eingaben an das Dashboard weiter, ohne etwas zu schicken', async () => {
   const { screen, shell, calls } = await mount();
   fillSecrets(screen);
   screen.toggle(screen.rows.find((row) => row.name === 'Tailscale'));
-  await screen.start();
+  screen.start();
 
-  assert.deepEqual(calls.map((call) => call.key), ['GET /api/manifest', 'GET /api/selection', 'PUT /api/selection', 'POST /api/run']);
-  assert.equal(calls[2].body.steps['40'], false);
-  assert.deepEqual(calls[3].body, {
-    mode: 'install', mqtt_user: 'energynode', mqtt_password: 'mqtt-geheim', admin_password: 'admin-geheim',
-    target_user: 'energynode', target_base: '/home/energynode',
-  });
-  assert.equal(shell.screen, 'run');
-  assert.equal(shell.mutating, true);
+  assert.deepEqual(calls.map((call) => call.key), ['GET /api/manifest', 'GET /api/selection']);
+  assert.equal(shell.screen, 'dashboard');
+  assert.equal(shell.installInput.steps['40'], false);
+  assert.equal(shell.installInput.mqttPassword, 'mqtt-geheim');
+  assert.equal(shell.installInput.adminPassword, 'admin-geheim');
+  assert.equal(shell.installInput.targetBase, '/home/energynode');
+  assert.equal(shell.mutating, false);
   assert.equal(JSON.stringify(shell.shared).includes('geheim'), false, 'kein Passwort in shared');
-  assert.equal(screen.mqttPassword, '');
-  assert.equal(screen.adminPassword, '');
 });
 
-test('ein abgewiesener Lauf bleibt auf dem Bildschirm und zeigt den Fehler', async () => {
-  const { screen, shell } = await mount({ errors: { 'POST /api/run': { code: 'RUN_IN_PROGRESS', status: 409 } } });
-  fillSecrets(screen);
-  await screen.start();
+test('ohne beide Passwoerter geht Weiter nicht weiter', async () => {
+  const { screen, shell } = await mount();
+  screen.mqttPassword = 'x';
+  screen.start();
   assert.equal(shell.screen, 'configure');
-  assert.equal(shell.error.code, 'RUN_IN_PROGRESS');
-  assert.equal(screen.busy, false);
+  assert.ok(!shell.installInput);
+});
+
+test('Zurueck vom Dashboard stellt Auswahl und Passwoerter wieder her', async () => {
+  const kept = { steps: Object.assign({}, SELECTION.steps, { 40: false }), mqttPassword: 'mqtt-geheim', adminPassword: 'admin-geheim' };
+  const { screen } = await mount({ shell: { installInput: kept } });
+  assert.equal(screen.steps['40'], false);
+  assert.equal(screen.mqttPassword, 'mqtt-geheim');
+  assert.equal(screen.adminPassword, 'admin-geheim');
+});
+
+test('Zurueck aus der Konfiguration verwirft die gemerkten Eingaben', async () => {
+  const { screen, shell } = await mount({ shell: { installInput: { steps: {} } } });
+  screen.back();
+  assert.equal(shell.installInput, null);
 });
 
 test('im Nur-Dienste-Modus speichert apply und kehrt in die Vorschau zurueck', async () => {

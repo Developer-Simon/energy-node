@@ -17,7 +17,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { startFakehost, SECRETS } from './fakehost.mjs';
+import { startFakehost, startFromDashboard, SECRETS } from './fakehost.mjs';
 
 const WEBUI_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const en = JSON.parse(fs.readFileSync(path.join(WEBUI_DIR, 'catalogs', 'en.json'), 'utf8'));
@@ -73,7 +73,7 @@ async function run() {
   await page.getByRole('button', { name: en['action.next'], exact: true }).click();
   await page.getByLabel(en['field.mqtt_password'], { exact: true }).fill(SECRETS.mqtt);
   await page.getByLabel(en['field.admin_password'], { exact: true }).fill(SECRETS.admin);
-  await page.getByRole('button', { name: en['action.start_install'] }).click();
+  await startFromDashboard(page, { next: en['action.next'], start: en['action.start_install'] });
   await page.locator('.app[data-screen="run"] .stp.now').waitFor({ timeout: 30000 });
   await page.waitForTimeout(1500);
   return { context, page, stop: () => runHost.stop() };

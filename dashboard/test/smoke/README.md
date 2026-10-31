@@ -12,11 +12,11 @@ demo, which keeps it running until Ctrl-C: see [demo/README.md](../../../demo/RE
 The fakes and fixtures are described there too.
 
 ```bash
-dashboard/test/smoke/smoke.sh                  # all three runs
+dashboard/test/smoke/smoke.sh                  # all four runs
 dashboard/test/smoke/smoke.sh --run haupt      # one run, the option can be repeated
 ```
 
-The runs always execute in the same order (`haupt`, `ohne-dienste`, `bilanz`),
+The runs always execute in the same order (`haupt`, `ohne-dienste`, `bilanz`, `seed`),
 whatever order `--run` names them in. Each run starts a fresh dashboard in its
 own directory `.run/<name>-XXXXXX` below this folder. A passed run deletes that
 directory, a failed run keeps it for analysis. The script exits with 0 only when
@@ -25,13 +25,14 @@ all selected runs pass.
 Before a run starts, all five ports below are checked. A port that is already in
 use makes the run fail, and the script leaves the process that holds it alone.
 
-## The three runs
+## The four runs
 
 | Run | Configuration | Check groups |
 |---|---|---|
 | `haupt` | Sources, fixture and seed data of the demo (`demo/demo.sh`), HTTPS, simulated power values, service logs, installed state, package and update fake | `topics`, `battery_config`, `shelly`, `seed`, `dataflow`, `live_push`, `update_offer`, `package`, `installed`, `journal`, `users`, `onboarding`, `update_install`, `companion`, `history_exchange` |
 | `ohne-dienste` | The demo sources, but all seven services switched off | `services_off` |
 | `bilanz` | `energie-ueberschuss.json` with the seed set `energie-alle-karten`, only the battery service, no simulation | `seed`, `energy_balance`, `companion` |
+| `seed` | The demo sources, plus an installer `onboarding-seed.json` next to `auth.pw` before the start | `onboarding_seed` |
 
 Why each run exists:
 

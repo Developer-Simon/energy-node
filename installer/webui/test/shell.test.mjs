@@ -83,14 +83,15 @@ test('der Titel folgt dem Einstiegspunkt', async () => {
   assert.equal(shell.title, 'Diagnose');
 });
 
-test('der Stepper der Erstinstallation hat fuenf Stationen und markiert den Weg', async () => {
+test('der Stepper der Erstinstallation hat sechs Stationen und markiert den Weg', async () => {
   const { shell } = await createShell({ catalog: { 'stepper.precheck': 'Vorprüfung' } });
   shell.screen = 'precheck';
   assert.deepEqual(classes(shell), [
     'st-item done', 'st-conn filled', 'st-item active', 'st-conn', 'st-item', 'st-conn', 'st-item', 'st-conn', 'st-item',
+    'st-conn', 'st-item',
   ]);
   const items = shell.stepperParts.filter((part) => part.item);
-  assert.deepEqual(plain(items.map((item) => item.n)), [1, 2, 3, 4, 5]);
+  assert.deepEqual(plain(items.map((item) => item.n)), [1, 2, 3, 4, 5, 6]);
   assert.equal(items[1].label, 'Vorprüfung');
   assert.equal(items[0].done, true);
 });
@@ -120,7 +121,7 @@ test('die Diagnose hat keinen Stepper', async () => {
 
 test('der Einstiegs-Umschalter steht nur auf Bildschirmen, die nichts veraendern', async () => {
   const { shell } = await createShell();
-  for (const [screen, visible] of [['connect', true], ['precheck', true], ['preview', true], ['diagnose', true], ['configure', false], ['run', false], ['result', false]]) {
+  for (const [screen, visible] of [['connect', true], ['precheck', true], ['preview', true], ['diagnose', true], ['configure', false], ['dashboard', false], ['run', false], ['result', false]]) {
     shell.screen = screen;
     assert.equal(shell.showEntrySwitch, visible, screen);
   }
@@ -288,7 +289,7 @@ test('das Vorbereiten hat im Stepper eine eigene Station statt unter Verbindung 
   const { shell } = await createShell({ bootstrap: Object.assign({}, BOOT, { package: {} }) });
   shell.screen = 'prepare';
   const items = shell.stepperParts.filter((part) => part.item);
-  assert.deepEqual(plain(items.map((item) => item.key)), ['connect', 'prepare', 'precheck', 'configure', 'run', 'result']);
+  assert.deepEqual(plain(items.map((item) => item.key)), ['connect', 'prepare', 'precheck', 'configure', 'dashboard', 'run', 'result']);
   assert.equal(items[0].done, true, 'Verbindung liegt hinter dem Vorbereiten');
   assert.equal(items[1].cls, 'st-item active');
 });

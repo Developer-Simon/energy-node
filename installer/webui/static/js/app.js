@@ -11,7 +11,7 @@
   // Plan C-II, Vertrag 5, als Tabellen.
   var FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose' };
   var FLOW = {
-    install: ['connect', 'prepare', 'precheck', 'configure', 'run', 'result'],
+    install: ['connect', 'prepare', 'precheck', 'configure', 'dashboard', 'run', 'result'],
     redeploy: ['connect', 'prepare', 'preview', 'run', 'result'],
   };
   // Auf diesen Bildschirmen ist noch nichts veraendert - nur dort steht der
@@ -69,6 +69,10 @@
       // bar traegt, was ein Bildschirm in der Kopfleiste zeigt: lead hinter
       // dem Titel, sub vor dem Umschalter, status und action dahinter.
       bar: emptyBar(),
+      // installInput: die Eingaben des Konfigurationsschritts bis zum Start
+      // (Auswahl und Passwoerter). Bewusst nicht in shared, das ein Lauf
+      // ohnehin nie sieht.
+      installInput: null,
       shared: {
         target: { host: '', user: '' },
         manifest: null,
@@ -77,6 +81,9 @@
         servicesOnly: false,
         run: null,
         lastRun: null,
+        // dashboardPrefs: was das Dashboard am fertigen Geraet einrichtet
+        // (screen-dashboard.js legt es beim Eintritt an).
+        dashboardPrefs: null,
         // forceFullTransfer: the connect screen's checkbox, read by
         // screen-prepare's very first /api/run call. It is a plain
         // per-session default, not something a screen ever needs to
