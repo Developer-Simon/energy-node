@@ -1,9 +1,13 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
@@ -202,4 +206,138 @@ func TestUnauthenticated401(t *testing.T) {
 	router, _ := newTestOnboardingRouter(t)
 	wantUsersError(t, usersCall(router, http.MethodGet, "/api/v1/onboarding", "", nil, "", true), http.StatusUnauthorized, "authentication_required")
 	wantUsersError(t, usersCall(router, http.MethodPut, "/api/v1/onboarding/step", `{"id":"theme","state":"done"}`, nil, "", true), http.StatusUnauthorized, "authentication_required")
+}
+
+// onboardingLimitCase is one request against the input limits. fill prepares
+// the stored progress before the request.
+type onboardingLimitCase struct {
+	name   string
+	method string
+	path   string
+	body   map[string]any
+	fill   func(t *testing.T, store *onboarding.Store)
+}
+
+func fillSetupSteps(t *testing.T, store *onboarding.Store, count int) {
+	t.Helper()
+	for i := 0; i < count; i++ {
+		if err := store.SetStep(fmt.Sprintf("step%03d", i), onboarding.StepDone); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func fillSeen(t *testing.T, store *onboarding.Store, count int) {
+	t.Helper()
+	seen := make([]string, count)
+	for i := range seen {
+		seen[i] = fmt.Sprintf("seen%03d", i)
+	}
+	if err := store.UpdateUser("admin", func(own *onboarding.UserProgress) { own.Seen = seen }); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func repeatedIDs(prefix string, count int) []string {
+	ids := make([]string, count)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("%s%03d", prefix, i)
+	}
+	return ids
+}
+
+func runOnboardingLimitCase(t *testing.T, tc onboardingLimitCase, wantStatus int, wantCode string) {
+	t.Helper()
+	dir := t.TempDir()
+	router, _ := newOnboardingTestRouter(t, filepath.Join(t.TempDir(), "users.json"), dir)
+	store := onboarding.NewStore(dir)
+	if err := store.SetStep("baseline", onboarding.StepDone); err != nil {
+		t.Fatal(err)
+	}
+	if tc.fill != nil {
+		tc.fill(t, store)
+	}
+	cookie, csrf := sessionFor(t, router, "admin", usersAdminPassword)
+	stored := filepath.Join(dir, "onboarding.json")
+	before, err := os.ReadFile(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(tc.body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := usersCall(router, tc.method, tc.path, string(body), cookie, csrf, true)
+	if wantStatus == http.StatusOK {
+		wantUsersStatus(t, recorder, http.StatusOK)
+		return
+	}
+	wantUsersError(t, recorder, wantStatus, wantCode)
+	after, err := os.ReadFile(stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("stored progress changed by a rejected request:\nbefore %s\nafter  %s", before, after)
+	}
+}
+
+const (
+	limitStepPath = "/api/v1/onboarding/step"
+	limitMePath   = "/api/v1/onboarding/me"
+)
+
+func TestOnboardingInputLimitsRejected(t *testing.T) {
+	cases := []onboardingLimitCase{
+		{name: "step id empty", method: http.MethodPut, path: limitStepPath, body: map[string]any{"id": "", "state": "done"}},
+		{name: "step id 65 bytes", method: http.MethodPut, path: limitStepPath, body: map[string]any{"id": strings.Repeat("a", 65), "state": "done"}},
+		{name: "new step id with 200 steps stored", method: http.MethodPut, path: limitStepPath, body: map[string]any{"id": "theme", "state": "done"}, fill: func(t *testing.T, store *onboarding.Store) {
+			fillSetupSteps(t, store, 199)
+		}},
+		{name: "seen_add entry empty", method: http.MethodPut, path: limitMePath, body: map[string]any{"seen_add": []string{""}}},
+		{name: "seen_add entry 65 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"seen_add": []string{strings.Repeat("a", 65)}}},
+		{name: "seen_add 101 entries", method: http.MethodPut, path: limitMePath, body: map[string]any{"seen_add": repeatedIDs("i", 101)}},
+		{name: "seen would reach 501", method: http.MethodPut, path: limitMePath, body: map[string]any{"seen_add": []string{"new"}}, fill: func(t *testing.T, store *onboarding.Store) {
+			fillSeen(t, store, 500)
+		}},
+		{name: "queue 6 entries", method: http.MethodPut, path: limitMePath, body: map[string]any{"queue": repeatedIDs("q", 6)}},
+		{name: "queue entry empty", method: http.MethodPut, path: limitMePath, body: map[string]any{"queue": []string{""}}},
+		{name: "queue entry 65 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"queue": []string{strings.Repeat("q", 65)}}},
+		{name: "run mode 33 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": strings.Repeat("m", 33), "from": "start", "index": 0}}},
+		{name: "run index -1", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "start", "index": -1}}},
+		{name: "run index 1001", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "start", "index": 1001}}},
+		{name: "run from empty", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "", "index": 0}}},
+		{name: "run from 65 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": strings.Repeat("f", 65), "index": 0}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runOnboardingLimitCase(t, tc, http.StatusBadRequest, "onboarding_invalid")
+		})
+	}
+}
+
+func TestOnboardingInputLimitsAtBoundary(t *testing.T) {
+	cases := []onboardingLimitCase{
+		{name: "step id 64 bytes", method: http.MethodPut, path: limitStepPath, body: map[string]any{"id": strings.Repeat("a", 64), "state": "later"}},
+		{name: "step id known with 200 steps stored", method: http.MethodPut, path: limitStepPath, body: map[string]any{"id": "step000", "state": "later"}, fill: func(t *testing.T, store *onboarding.Store) {
+			fillSetupSteps(t, store, 199)
+		}},
+		{name: "200th step id", method: http.MethodPut, path: limitStepPath, body: map[string]any{"id": "theme", "state": "done"}, fill: func(t *testing.T, store *onboarding.Store) {
+			fillSetupSteps(t, store, 198)
+		}},
+		{name: "seen_add 100 entries", method: http.MethodPut, path: limitMePath, body: map[string]any{"seen_add": repeatedIDs("i", 100)}},
+		{name: "seen reaches exactly 500", method: http.MethodPut, path: limitMePath, body: map[string]any{"seen_add": []string{"new"}}, fill: func(t *testing.T, store *onboarding.Store) {
+			fillSeen(t, store, 499)
+		}},
+		{name: "seen_add 64 byte id", method: http.MethodPut, path: limitMePath, body: map[string]any{"seen_add": []string{strings.Repeat("s", 64)}}},
+		{name: "queue 5 entries", method: http.MethodPut, path: limitMePath, body: map[string]any{"queue": repeatedIDs("q", 5)}},
+		{name: "queue entry 64 bytes", method: http.MethodPut, path: limitMePath, body: map[string]any{"queue": []string{strings.Repeat("q", 64)}}},
+		{name: "run at the limits", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": strings.Repeat("m", 32), "from": strings.Repeat("f", 64), "index": 1000}}},
+		{name: "run index 0", method: http.MethodPut, path: limitMePath, body: map[string]any{"run": map[string]any{"mode": "full", "from": "start", "index": 0}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			runOnboardingLimitCase(t, tc, http.StatusOK, "")
+		})
+	}
 }

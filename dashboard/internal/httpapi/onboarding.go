@@ -13,6 +13,30 @@ import (
 
 const onboardingPathPrefix = "/api/v1/onboarding"
 
+// Input limits. They only protect the size of onboarding.json against callers
+// with any session, guests included. They are no access control.
+const (
+	onboardingMaxIDBytes      = 64
+	onboardingMaxSeenAdd      = 100
+	onboardingMaxSeen         = 500
+	onboardingMaxQueue        = 5
+	onboardingMaxRunModeBytes = 32
+	onboardingMaxRunIndex     = 1000
+	onboardingMaxSetupSteps   = 200
+)
+
+// validOnboardingID reports whether id is a usable identifier: non-empty and
+// at most onboardingMaxIDBytes long.
+func validOnboardingID(id string) bool {
+	return id != "" && len(id) <= onboardingMaxIDBytes
+}
+
+// writeOnboardingInvalid answers a request that breaks an input limit or names
+// an invalid identifier.
+func writeOnboardingInvalid(w http.ResponseWriter) {
+	writeErrorKey(w, http.StatusBadRequest, "onboarding_invalid", "error.onboarding_invalid", nil, "Die Angabe zur Einrichtungsführung ist ungültig")
+}
+
 // Roles of the caller as the onboarding API reports them. A guest is never an
 // admin, even when a guest role somehow carries user_management.
 const (
@@ -141,9 +165,15 @@ func handleOnboardingStep(store *onboarding.Store) http.HandlerFunc {
 			return
 		}
 		state := onboarding.StepState(request.State)
-		if request.ID == "" || (state != onboarding.StepDone && state != onboarding.StepLater) {
-			writeErrorKey(w, http.StatusBadRequest, "onboarding_invalid", "error.onboarding_invalid", nil, "Die Angabe zur Einrichtungsführung ist ungültig")
+		if !validOnboardingID(request.ID) || (state != onboarding.StepDone && state != onboarding.StepLater) {
+			writeOnboardingInvalid(w)
 			return
+		}
+		if progress := store.Load(); len(progress.SetupSteps) >= onboardingMaxSetupSteps {
+			if _, known := progress.SetupSteps[request.ID]; !known {
+				writeOnboardingInvalid(w)
+				return
+			}
 		}
 		if err := store.SetStep(request.ID, state); err != nil {
 			writeError(w, http.StatusInternalServerError, "onboarding_save_failed", "Die Einrichtungsführung konnte nicht gespeichert werden")
@@ -174,6 +204,46 @@ func handleOnboardingMe(store *onboarding.Store, user auth.User) http.HandlerFun
 			run = &onboarding.Run{}
 			if err := json.Unmarshal(request.Run, run); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+				return
+			}
+			if len(run.Mode) > onboardingMaxRunModeBytes || !validOnboardingID(run.From) || run.Index < 0 || run.Index > onboardingMaxRunIndex {
+				writeOnboardingInvalid(w)
+				return
+			}
+		}
+		if len(request.SeenAdd) > onboardingMaxSeenAdd {
+			writeOnboardingInvalid(w)
+			return
+		}
+		for _, id := range request.SeenAdd {
+			if !validOnboardingID(id) {
+				writeOnboardingInvalid(w)
+				return
+			}
+		}
+		if request.Queue != nil {
+			if len(*request.Queue) > onboardingMaxQueue {
+				writeOnboardingInvalid(w)
+				return
+			}
+			for _, id := range *request.Queue {
+				if !validOnboardingID(id) {
+					writeOnboardingInvalid(w)
+					return
+				}
+			}
+		}
+		// Check the resulting seen list before anything is written.
+		if len(request.SeenAdd) > 0 {
+			current := store.Load().Users[user.Username].Seen
+			added := map[string]bool{}
+			for _, id := range request.SeenAdd {
+				if !slices.Contains(current, id) {
+					added[id] = true
+				}
+			}
+			if len(current)+len(added) > onboardingMaxSeen {
+				writeOnboardingInvalid(w)
 				return
 			}
 		}
