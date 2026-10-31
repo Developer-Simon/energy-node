@@ -296,7 +296,10 @@
     // beim selben Schritt weitergehen. null beendet den Lauf.
     persistRun() {
       if (this.run) this.run = { ...this.run, index: this.index };
-      const run = this.run ? { mode: this.run.mode, from: this.run.from || '', index: this.index } : null;
+      // Einrichtung merkt sich den aktuellen Schritt als from. Die Vorstellung
+      // zaehlt im Index, nach dem Neuladen ist sie oft schon gesehen.
+      const from = this.mode === 'setup' && this.index > 0 ? (this.step?.id || '') : (this.run?.from || '');
+      const run = this.run ? { mode: this.run.mode, from, index: this.index } : null;
       void send('PUT', ME, { run });
     },
 
@@ -305,6 +308,11 @@
     markStep(state) {
       const step = this.step;
       if (!step) return Promise.resolve(false);
+      // Die Vorstellung hat kein Ziel und keinen Status, sie gilt mit Weiter als gesehen.
+      if (step.intro) {
+        this.seen = { ...this.seen, [step.id]: true };
+        return send('PUT', ME, { seen_add: [step.id] });
+      }
       if (this.mode === 'setup' || this.mode === 'change') {
         if (!this.isAdmin) return Promise.resolve(false);
         // Erledigt bleibt erledigt, auch wenn es spaeter vorgemerkt wird.
@@ -413,7 +421,8 @@
         if (s.run) {
           const { mode, from, index } = s.run;
           // Nach Neuladen oder Login: beim selben Schritt weiter.
-          setTimeout(() => s.start(mode, from || null, { index }), 600);
+          // Einrichtung startet beim gemerkten Schritt, dort ist der Index 0.
+          setTimeout(() => s.start(mode, from || null, { index: mode === 'setup' && from ? 0 : index }), 600);
         } else if (s.queue.length) {
           setTimeout(() => s.advanceQueue(), 600);
         }
@@ -423,7 +432,10 @@
     get s() { return this.$store.onboarding; },
     get step() { return this.s.step; },
     get last() { return this.s.index >= this.s.steps.length - 1; },
-    get primaryLabel() { return this.last ? t('onboarding.bar.finish') : t('onboarding.bar.next'); },
+    get primaryLabel() {
+      if (this.step?.intro) return t('onboarding.bar.start');
+      return this.last ? t('onboarding.bar.finish') : t('onboarding.bar.next');
+    },
     get checklistLabel() { return this.s.mode === 'explore' ? t('onboarding.bar.checklist_explore') : t('onboarding.bar.checklist_setup'); },
     get closeLabel() { return this.s.mode === 'setup' ? t('onboarding.bar.skip_setup') : t('onboarding.bar.end_tour'); },
     get dotTransform() { return `translateX(${(this.step?.dot || 0) * 12}px)`; },
@@ -445,6 +457,12 @@
       if (this.collapsed) this.setCollapsed(false);
       this.swapIn();
       this.detach();
+      if (step.intro) {
+        // Vorstellung ohne Ziel: das Blatt bleibt offen, kein Spotlight, kein Ort.
+        this.target = null;
+        this.spot.hide();
+        return;
+      }
       this.spot.hold();
       const placed = await openPlace(step);
       let el = placed ? await waitFor(() => resolveTarget(step.target)) : null;

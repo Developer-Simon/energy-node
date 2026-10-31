@@ -366,7 +366,7 @@
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-motion.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-spotlight.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-model.js?v=1" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-model.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
@@ -572,7 +572,7 @@
           </div>
           <div class="ob-bar-actions">
             <template x-if="!$store.onboarding.finished">
-              <button type="button" class="ob-btn" x-show="!done" x-on:click="later()">{{t "onboarding.bar.later"}}</button>
+              <button type="button" class="ob-btn" x-show="!done && !step?.intro" x-on:click="later()">{{t "onboarding.bar.later"}}</button>
             </template>
             <template x-if="$store.onboarding.finished">
               <button type="button" class="ob-btn" x-on:click="checklist()">{{t "onboarding.bar.checklist"}}</button>

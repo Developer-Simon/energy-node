@@ -121,8 +121,47 @@ test('setup step with unknown area is skipped', () => {
     { id: 'orphan', area: 'nowhere', title: 'B', text: '', target: '', check: 'change' },
   ];
   const steps = m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen: {}, status: {}, ctx: ctx() });
-  assert.deepEqual(steps.map((s) => s.id), ['known']);
-  assert.equal(steps[0].dots, 1);
+  assert.deepEqual([...steps.map((s) => s.id)], ['setup-intro', 'known']);
+  assert.equal(steps[1].dots, 1);
+});
+
+test('setup starts with the intro step for an admin who has not seen it', () => {
+  const m = load();
+  const setup = [{ id: 'theme', area: 'display', title: 'B', text: '', target: '[data-tour="theme"]', check: 'change' }];
+  const steps = m.buildSteps({ mode: 'setup', from: null, setup, areas: AREAS, seen: {}, status: {}, ctx: ctx() });
+  assert.deepEqual([...steps.map((s) => s.id)], ['setup-intro', 'theme']);
+  const [intro] = steps;
+  assert.equal(intro.intro, true);
+  assert.equal(intro.target, null);
+  assert.equal(intro.panel, null);
+  assert.equal(intro.dots, 0);
+  assert.equal(intro.title, 'onboarding.setup.intro.title');
+  assert.equal(intro.text, 'onboarding.setup.intro.text');
+  assert.equal(intro.eyebrow, 'Einrichtung · Willkommen');
+});
+
+test('the intro step is absent once it is seen', () => {
+  const m = load();
+  const setup = [{ id: 'theme', area: 'display', title: 'B', text: '', target: '', check: 'change' }];
+  const steps = m.buildSteps({ mode: 'setup', from: null, setup, areas: AREAS, seen: { 'setup-intro': true }, status: {}, ctx: ctx() });
+  assert.deepEqual([...steps.map((s) => s.id)], ['theme']);
+});
+
+test('the intro step is absent when the run starts at a step', () => {
+  const m = load();
+  const setup = [
+    { id: 'theme', area: 'display', title: 'B', text: '', target: '', check: 'change' },
+    { id: 'title', area: 'display', title: 'C', text: '', target: '', check: 'change' },
+  ];
+  const steps = m.buildSteps({ mode: 'setup', from: 'title', setup, areas: AREAS, seen: {}, status: {}, ctx: ctx() });
+  assert.deepEqual([...steps.map((s) => s.id)], ['title']);
+});
+
+test('the intro step is absent for a user and without real steps', () => {
+  const m = load();
+  const setup = [{ id: 'theme', area: 'display', title: 'B', text: '', target: '', check: 'change' }];
+  assert.deepEqual([...m.buildSteps({ mode: 'setup', from: null, setup, areas: AREAS, seen: {}, status: {}, ctx: ctx({ role: 'user' }) })], []);
+  assert.deepEqual([...m.buildSteps({ mode: 'setup', from: null, setup: [], areas: AREAS, seen: {}, status: {}, ctx: ctx() })], []);
 });
 
 test('eyebrow strings match the draft', () => {

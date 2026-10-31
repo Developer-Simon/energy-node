@@ -41,6 +41,19 @@
     return item.steps.filter((s) => stepAllowed(s, ctx));
   }
 
+  // Id der Vorstellung vor der Einrichtung. Sie steht in seen, wenn sie
+  // verlassen wurde, und hat kein Ziel.
+  const INTRO_ID = 'setup-intro';
+  function introStep(ctx) {
+    return {
+      id: INTRO_ID, intro: true, panel: null, target: null,
+      title: 'onboarding.setup.intro.title',
+      text: 'onboarding.setup.intro.text',
+      eyebrow: text(ctx, 'onboarding.eyebrow.setup_intro', {}),
+      dot: 0, dots: 0,
+    };
+  }
+
   // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht.
   function buildSteps({ mode, from = null, setup = [], explore = [], welcome = [], areas = [], seen = {}, status = {}, ctx }) {
     if (mode === 'setup') {
@@ -50,7 +63,7 @@
       const eligible = setup.filter((s) => stepAllowed(s, ctx) && areas.some((a) => a.id === s.area));
       const open = eligible.filter((s) => !['done', 'installer'].includes(stateOf(s.id)) || s.id === from);
       const start = from ? Math.max(0, open.findIndex((s) => s.id === from)) : 0;
-      return open.slice(start).map((s) => {
+      const steps = open.slice(start).map((s) => {
         const inArea = open.filter((o) => o.area === s.area);
         const areaIndex = areas.findIndex((a) => a.id === s.area);
         const label = areas[areaIndex].label;
@@ -58,6 +71,12 @@
           { n: areaIndex + 1, total: areas.length, area: label });
         return { ...s, eyebrow, dot: inArea.indexOf(s), dots: inArea.length };
       });
+      // Vorstellung vor dem ersten Schritt, nur beim ganzen Lauf und solange sie
+      // nicht gesehen ist. Ohne Ziel: die Leiste zeigt nur den Text.
+      if (!from && !seen[INTRO_ID] && steps.length) {
+        return [introStep(ctx), ...steps];
+      }
+      return steps;
     }
     if (mode === 'change') {
       const step = setup.find((s) => s.id === from && stepAllowed(s, ctx));

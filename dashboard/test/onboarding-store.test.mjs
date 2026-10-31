@@ -209,3 +209,15 @@ test('setup later() on a done step keeps done', async () => {
   assert.equal(calls.filter((c) => c.method === 'PUT').length, 0);
   assert.equal(store.stateOf('users'), 'done');
 });
+
+test('leaving the intro step marks setup-intro as seen and writes no setup step', async () => {
+  const { store, calls, bar } = await load();
+  store.steps = [{ id: 'setup-intro', intro: true, title: 'T', text: 'X', dot: 0, dots: 0 }, ...store.steps];
+  store.index = 0;
+  calls.length = 0;
+  bar().next();
+  const seen = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me' && c.body?.seen_add);
+  assert.deepEqual(seen.map((c) => [...c.body.seen_add]), [['setup-intro']]);
+  assert.equal(calls.some((c) => c.url === '/api/v1/onboarding/step'), false);
+  assert.equal(store.seen['setup-intro'], true);
+});
