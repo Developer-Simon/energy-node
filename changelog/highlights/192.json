@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Installer überspringt empfohlene apt-Pakete und leert den Paketcache"
+  }
+}

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.9 (2026-11-01)
+## v0.2.10 (2026-11-01)
 
 ### Features
 
@@ -19,6 +19,7 @@
 
 ### Fixes
 
+- **installer:** skip recommended apt packages and clean the package cache (#192)
 - **installer:** show the real guest access default and tighten the updates text (4a1d4fb)
 - **installer:** say what to do when the package needs another Python version (aaf9d68)
 - **installer:** keep the chosen package source while connecting (7acba32)

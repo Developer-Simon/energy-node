@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.7 (2026-10-31)
+## v0.2.8 (2026-11-01)
 
 ### Features
 
@@ -15,9 +15,10 @@
 
 ### Fixes
 
+- **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191) (a96bebf)
+- **installer:** skip recommended apt packages and clean the package cache (#192)
 - **installer:** create dashboard/data so the dashboard unit can start (f625007)
 - **installer:** write the broker user into config.json (1be6458)
-- **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191)
 - **installer:** install the Python dependencies next to system packages (4aa1498)
 
 ### Refactors
