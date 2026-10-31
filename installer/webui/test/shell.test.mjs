@@ -313,3 +313,34 @@ test('fail() übersetzt die Fakten einer Paketprüfung im Detail und lässt ande
   shell.fail({ code: 'ARCH_MISMATCH', detail: 'arch=x86_64 expected=armv6l' });
   assert.equal(shell.error.detail, 'arch=x86_64 expected=armv6l');
 });
+
+test('openExternal bittet den Wirt, die Adresse im Browser zu öffnen, wenn er das kann', async () => {
+  const { shell, window } = await createShell({ bootstrap: Object.assign({}, BOOT, { can_open_url: true }) });
+  const posted = [];
+  const opened = [];
+  window.Api.post = async (path, body) => { posted.push([path, body]); return {}; };
+  window.open = (url) => { opened.push(url); return null; };
+  await shell.init();
+  await shell.openExternal('https://login.tailscale.com/a/abc');
+  assert.deepEqual(JSON.parse(JSON.stringify(posted)), [['/api/open-url', { url: 'https://login.tailscale.com/a/abc' }]]);
+  assert.deepEqual(opened, []);
+});
+
+test('openExternal fällt auf window.open zurück, wenn der Wirt es nicht kann oder scheitert', async () => {
+  const withHost = await createShell({ bootstrap: Object.assign({}, BOOT, { can_open_url: true }) });
+  const opened = [];
+  withHost.window.Api.post = async () => { throw new Error('kein Browser'); };
+  withHost.window.open = (url) => { opened.push(url); return null; };
+  await withHost.shell.init();
+  await withHost.shell.openExternal('https://example.org/a');
+
+  const without = await createShell();
+  without.window.open = (url) => { opened.push(url); return null; };
+  let posted = 0;
+  without.window.Api.post = async () => { posted += 1; return {}; };
+  await without.shell.init();
+  await without.shell.openExternal('https://example.org/b');
+
+  assert.deepEqual(opened, ['https://example.org/a', 'https://example.org/b']);
+  assert.equal(posted, 0);
+});

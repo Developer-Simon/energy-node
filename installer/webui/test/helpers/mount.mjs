@@ -58,6 +58,7 @@ export function fakeShell(window, overrides = {}) {
       this.shared.run = { runId: response.run_id, mode: request.mode, only: request.only || '', resumed: false };
       this.go('run');
     },
+    openExternal(url) { window.open(url, '_blank', 'noopener'); },
     finishRun(outcome) { this.mutating = false; this.shared.run = null; this.shared.lastRun = outcome; this.go('result'); },
   };
   for (const [key, value] of Object.entries(overrides)) {

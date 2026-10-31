@@ -42,6 +42,11 @@ func Candidates(goos string) []Candidate {
 	}
 }
 
+// OpenBrowser opens url in the operator's default browser. The window of the
+// installer cannot do that itself: an embedded WebView has no handler for
+// window.open, so the "open in browser" buttons ask the host to.
+func OpenBrowser(url string) error { return openInBrowser(url) }
+
 func openInBrowser(url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {

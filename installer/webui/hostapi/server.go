@@ -47,6 +47,11 @@ type Options struct {
 	// lines up with events published before the restart. Nil means a
 	// fresh, empty bus -- every host but the dashboard's resume path.
 	InitialBus *Bus
+	// OpenURL opens an address in the default browser of the machine the
+	// window runs on. Only the installer sets it: its window is an embedded
+	// WebView that cannot open new windows. Nil (the dashboard host) leaves the
+	// buttons to window.open.
+	OpenURL func(url string) error
 }
 
 // Server ist Schicht 2.
@@ -74,6 +79,7 @@ type Bootstrap struct {
 	BasePath        string            `json:"base_path"`
 	Package         *PackageInfo      `json:"package,omitempty"`
 	AutoPrepare     bool              `json:"auto_prepare,omitempty"`
+	CanOpenURL      bool              `json:"can_open_url,omitempty"`
 	Credentials     *SavedCredentials `json:"credentials,omitempty"`
 }
 
@@ -131,6 +137,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/connect", s.handleConnect)
 	s.mux.HandleFunc("/api/keypair", s.handleKeypair)
 	s.mux.HandleFunc("/api/sudo", s.handleSudo)
+	s.mux.HandleFunc("/api/open-url", s.handleOpenURL)
 	s.mux.HandleFunc("/api/precheck", s.handlePrecheck)
 	s.mux.HandleFunc("/api/manifest", s.handleManifest)
 	s.mux.HandleFunc("/api/selection", s.handleSelection)
@@ -230,6 +237,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		BasePath:        s.opts.BasePath,
 		Package:         description.Package,
 		AutoPrepare:     description.AutoPrepare,
+		CanOpenURL:      s.opts.OpenURL != nil,
 		Credentials:     description.Credentials,
 	})
 }

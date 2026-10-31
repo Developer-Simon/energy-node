@@ -119,6 +119,7 @@ func runUI(cfg uiConfig) error {
 	}
 	server, err := hostapi.New(hostapi.Options{
 		Backend: backend, Catalogs: catalogs, Language: language, Token: token,
+		OpenURL: shell.OpenBrowser,
 	})
 	if err != nil {
 		return err

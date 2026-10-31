@@ -137,7 +137,7 @@
       },
 
       openLogin() {
-        window.open(this.model.loginUrl, '_blank', 'noopener');
+        this.shell.openExternal(this.model.loginUrl);
       },
 
       get now() {

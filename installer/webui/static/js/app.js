@@ -322,6 +322,23 @@
         this.go(FIRST_SCREEN[this.entry]);
       },
 
+      // openExternal opens an address in the browser of this computer. The
+      // installer window is an embedded WebView without a handler for
+      // window.open, so the host opens it; a host that cannot (the dashboard,
+      // which runs in a real browser) leaves it to window.open.
+      async openExternal(url) {
+        var viaHost = !!(this.bootstrap && this.bootstrap.can_open_url);
+        if (viaHost) {
+          try {
+            await window.Api.post('/api/open-url', { url: url });
+            return;
+          } catch (err) {
+            // fall through: a browser window may still work
+          }
+        }
+        window.open(url, '_blank', 'noopener');
+      },
+
       fail(err) {
         this.progress = null;
         this.error = {
