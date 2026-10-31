@@ -65,3 +65,9 @@ test('every setup target uses data-tour', () => {
     assert.equal(step.target, `[data-tour="${step.id}"]`, step.id);
   }
 });
+
+// Orte dürfen keine übersetzten Beschriftungen suchen, sonst greifen sie in
+// der anderen Sprache ins Leere (Reiter Konten im Englischen).
+test('places do not look up elements by German label text', () => {
+  assert.doesNotMatch(source, /textContent\.trim\(\) === '[A-ZÄÖÜ][a-zäöüß]+'/);
+});

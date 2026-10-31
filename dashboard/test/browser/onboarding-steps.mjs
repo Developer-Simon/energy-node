@@ -5,7 +5,7 @@
 // Rechteck (Ring) ist das Zielrechteck mit dem Rand der Feder (8 px je Seite).
 // Die Toleranz betraegt 1 px. Exit 1 bei Abweichung.
 //
-//   node dashboard/test/browser/onboarding-steps.mjs --url https://localhost:18200 --widths 1280,390 [id ...]
+//   node dashboard/test/browser/onboarding-steps.mjs --url https://localhost:18200 --widths 1280,390 [--lang en] [id ...]
 import { chromium } from 'playwright';
 
 const PAD = 8;
@@ -20,6 +20,7 @@ function parseArgs(argv) {
     if (flag === '--url') args.url = value.replace(/\/$/, '');
     else if (flag === '--widths') args.widths = value.split(',').map(Number);
     else if (flag === '--password') args.password = value;
+    else if (flag === '--lang') args.lang = value;
     else throw new Error(`unbekannte Option: ${flag}`);
   }
   return args;
@@ -79,6 +80,7 @@ try {
       isMobile: width < 600,
       hasTouch: width < 600,
     });
+    if (args.lang) await ctx.addCookies([{ name: 'lang', value: args.lang, url: args.url }]);
     await ctx.request.post(`${args.url}/api/v1/auth/login`, { data: { username: 'admin', password: args.password } });
     const page = await ctx.newPage();
     page.on('pageerror', error => console.log(`  SEITENFEHLER ${width}px: ${error.message}`));

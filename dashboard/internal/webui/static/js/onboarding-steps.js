@@ -19,7 +19,7 @@
     .find((line) => line.querySelector('input[role="switch"]') && window.obSpotlight.visibleRect(line));
   // Benutzerseite: erst der Reiter Konten, dann die Karte aufklappen.
   const accountsTab = () => {
-    const tab = [...document.querySelectorAll('#settings-users .users-tab')].find((t) => t.textContent.trim() === 'Konten');
+    const tab = document.querySelector('#settings-users .users-tab[data-tab="accounts"]');
     if (tab && tab.getAttribute('aria-selected') !== 'true') tab.click();
   };
   const openCard = (find) => async () => {

@@ -10,9 +10,9 @@
     x-effect="if (activeSettingsPage !== 'users' && tab !== 'signin') setTab('signin')">
   <p class="settings-help" x-show="error" x-text="error"></p>
   <div class="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
-    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
-    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
-    <button type="button" role="tab" class="users-tab" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="signin" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="accounts" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="sessions" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
   </div>
 
 {{template "users-account-cards" .}}
