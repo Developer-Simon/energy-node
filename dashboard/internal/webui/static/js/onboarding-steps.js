@@ -82,6 +82,7 @@
       },
     },
     { id: 'devicemap', panel: 'devicemap-panel', target: data('devicemap'), check: 'leave' },
+    { id: 'automations', panel: 'automations-panel', need: 'view_automations', target: data('automations'), check: 'leave' },
   ];
 
   // Neu erkunden: Beispiel aus den letzten Highlights, so wie es aus

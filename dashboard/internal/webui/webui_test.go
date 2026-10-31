@@ -4337,6 +4337,7 @@ func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
 		"/?fragment=panel&panel=config",
 		"/?fragment=panel&panel=devices",
 		"/?fragment=panel&panel=devicemap",
+		"/?fragment=panel&panel=automations",
 	}
 	var body strings.Builder
 	for _, target := range pages {

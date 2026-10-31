@@ -36,13 +36,27 @@ func TestCatalogDropsTailscaleWhenNotInstalled(t *testing.T) {
 	}
 }
 
+func TestCatalogAutomationsNeedsService(t *testing.T) {
+	if slices.Contains(stepIDs(Catalog(map[string]bool{})), "automations") {
+		t.Fatal("automations step present although the service is not installed")
+	}
+	steps := Catalog(map[string]bool{"automation": true})
+	last := steps[len(steps)-1]
+	if last.ID != "automations" {
+		t.Fatalf("last step = %q, want automations", last.ID)
+	}
+	if last.Area != "devices" || last.Installer || last.Needs != "automation" {
+		t.Fatalf("automations step = %+v, want devices, not installer, Needs automation", last)
+	}
+}
+
 func TestCatalogOrderAndAreas(t *testing.T) {
-	steps := Catalog(map[string]bool{"tailscale": true})
+	steps := Catalog(map[string]bool{"tailscale": true, "automation": true})
 	wantIDs := []string{
 		"users", "guest", "tailscale", "companion",
 		"theme", "title", "statusbar", "tabwidth", "tiles",
 		"updates", "metrics",
-		"config", "devices", "roles", "devicemap",
+		"config", "devices", "roles", "devicemap", "automations",
 	}
 	if got := stepIDs(steps); !slices.Equal(got, wantIDs) {
 		t.Fatalf("step IDs = %v, want %v", got, wantIDs)
@@ -53,6 +67,7 @@ func TestCatalogOrderAndAreas(t *testing.T) {
 		"statusbar": "display", "tabwidth": "display", "tiles": "display",
 		"updates": "system", "metrics": "system",
 		"config": "devices", "devices": "devices", "roles": "devices", "devicemap": "devices",
+		"automations": "devices",
 	}
 	wantInstaller := map[string]bool{
 		"users": true, "guest": true, "theme": true, "title": true,

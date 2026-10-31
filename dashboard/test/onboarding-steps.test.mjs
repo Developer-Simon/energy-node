@@ -29,7 +29,7 @@ function load() {
 }
 
 test('the Go catalog IDs are read from steps.go', () => {
-  assert.equal(CATALOG_IDS.length, 15);
+  assert.equal(CATALOG_IDS.length, 16);
 });
 
 test('every setup step has a place and the server catalog IDs match', () => {

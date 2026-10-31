@@ -2987,6 +2987,8 @@
   "onboarding.guest_note.title": "Not set up yet.",
   "onboarding.setup.admin.sub": "Name and password of the first account",
   "onboarding.setup.admin.title": "Admin account",
+  "onboarding.setup.automations.text": "Automations react to your devices and energy values. A rule can, for example, switch a device on as soon as there is enough PV surplus. Start from a template or create your own rules.",
+  "onboarding.setup.automations.title": "Automations",
   "onboarding.setup.companion.text": "The companion exchanges statistics and history with Home Assistant. Here you set what it may do. You do not set up devices here, they come in through MQTT or the bridge.",
   "onboarding.setup.companion.title": "Connect Home Assistant",
   "onboarding.setup.config.text": "Here you choose the services that bring your devices into the dashboard and enter the device information. Once they are connected, they appear under Devices.",

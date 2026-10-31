@@ -18,8 +18,8 @@ type Step struct {
 	Needs     string
 }
 
-// Catalog liefert die Schritte in Anzeigereihenfolge. Der Schritt tailscale
-// entfällt, wenn der Dienst nicht installiert ist.
+// Catalog liefert die Schritte in Anzeigereihenfolge. Die Schritte tailscale
+// und automations entfallen, wenn ihr Dienst nicht installiert ist.
 func Catalog(installed map[string]bool) []Step {
 	steps := []Step{
 		{ID: "users", Area: "access", Installer: true},
@@ -28,7 +28,7 @@ func Catalog(installed map[string]bool) []Step {
 	if installed["tailscale"] {
 		steps = append(steps, Step{ID: "tailscale", Area: "access", Needs: "tailscale"})
 	}
-	return append(steps,
+	steps = append(steps,
 		Step{ID: "companion", Area: "access"},
 		Step{ID: "theme", Area: "display", Installer: true},
 		Step{ID: "title", Area: "display", Installer: true},
@@ -42,6 +42,10 @@ func Catalog(installed map[string]bool) []Step {
 		Step{ID: "roles", Area: "devices"},
 		Step{ID: "devicemap", Area: "devices"},
 	)
+	if installed["automation"] {
+		steps = append(steps, Step{ID: "automations", Area: "devices", Needs: "automation"})
+	}
+	return steps
 }
 
 // Detect liefert StepDone für die Schritte, deren Einstellungen vom Standard

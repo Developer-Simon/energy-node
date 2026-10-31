@@ -2987,6 +2987,8 @@
   "onboarding.guest_note.title": "Noch nicht eingerichtet.",
   "onboarding.setup.admin.sub": "Name und Passwort des ersten Kontos",
   "onboarding.setup.admin.title": "Admin-Zugang",
+  "onboarding.setup.automations.text": "Automationen reagieren auf deine Geräte und Energiewerte. Eine Regel kann zum Beispiel ein Gerät einschalten, sobald genug PV-Überschuss da ist. Starte mit einer Vorlage oder lege eigene Regeln an.",
+  "onboarding.setup.automations.title": "Automationen",
   "onboarding.setup.companion.text": "Die Companion tauscht Statistik und Verläufe mit Home Assistant aus. Hier legst du fest, was sie darf. Geräte richtest du nicht hier ein, sie kommen über MQTT oder die Bridge.",
   "onboarding.setup.companion.title": "Home Assistant verbinden",
   "onboarding.setup.config.text": "Hier wählst du die Dienste aus, über die deine Geräte ans Dashboard kommen, und trägst die Geräteinformationen ein. Sobald sie verbunden sind, erscheinen sie unter Geräte.",
