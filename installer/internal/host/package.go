@@ -231,6 +231,9 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		}
 	}()
 
+	if err := ensureSudoNopasswd(ctx, client, h.currentSudoPassword()); err != nil {
+		return err
+	}
 	if err := provisionRemoteStateDir(ctx, client, h.cfg.RemoteStateDir); err != nil {
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}

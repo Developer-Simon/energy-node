@@ -99,12 +99,21 @@ const cancelWaitGrace = 3 * time.Second
 // cancelWaitGrace, whichever comes first, rather than waiting out however
 // long the remote command takes to actually exit.
 func (c *Client) Run(ctx context.Context, command string, stdout, stderr io.Writer) error {
+	return c.RunWithStdin(ctx, command, nil, stdout, stderr)
+}
+
+// RunWithStdin is Run with the remote command's standard input fed from
+// stdin (nil means no input). It exists for secrets such as the sudo
+// password, which must travel over stdin and never appear in the command
+// line.
+func (c *Client) RunWithStdin(ctx context.Context, command string, stdin io.Reader, stdout, stderr io.Writer) error {
 	session, err := c.conn.NewSession()
 	if err != nil {
 		return fmt.Errorf("opening session: %w", err)
 	}
 	defer session.Close()
 
+	session.Stdin = stdin
 	session.Stdout = stdout
 	session.Stderr = stderr
 

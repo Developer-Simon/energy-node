@@ -28,12 +28,20 @@ test('connect schickt Host, Benutzer und Passwort und fuehrt in die Vorpruefung'
 
   assert.deepEqual(calls[0], {
     key: 'POST /api/connect',
-    body: { host: 'energy-node.local', user: 'pi', kind: 'password', secret: 'hunter2', key_path: '', accept_fingerprint: '', remember: false, use_saved_secret: false },
+    body: { host: 'energy-node.local', user: 'pi', kind: 'password', secret: 'hunter2', key_path: '', sudo_password: '', accept_fingerprint: '', remember: false, use_saved_secret: false },
   });
   assert.equal(shell.connected, true);
   assert.equal(shell.screen, 'precheck');
   assert.deepEqual(plain(shell.shared.target), { host: 'energy-node.local', user: 'pi' });
   assert.equal(screen.secret, '', 'das Passwort bleibt nach der Anmeldung nicht in der Komponente');
+});
+
+test('bei Passwort-Anmeldung geht kein eigenes sudo-Passwort mit', async () => {
+  const { screen, calls } = mount({ responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR } });
+  fill(screen);
+  screen.sudoPassword = 'left-over';
+  await screen.connect();
+  assert.equal(calls[0].body.sudo_password, '');
 });
 
 test('nach einer Passwort-Anmeldung wird das Schluesselpaar hinterlegt', async () => {
@@ -55,8 +63,11 @@ test('ohne Haken oder mit Schluesseldatei gibt es kein Schluesselpaar', async ()
   keyfile.screen.user = 'pi';
   keyfile.screen.kind = 'key';
   keyfile.screen.keyPath = '/home/dev/.ssh/id_ed25519';
+  keyfile.screen.sudoPassword = 'sudo-pw';
   await keyfile.screen.connect();
   assert.equal(keyfile.calls.length, 1);
+  assert.equal(keyfile.calls[0].body.sudo_password, 'sudo-pw', 'das sudo-Passwort geht bei Schluesseldatei mit');
+  assert.equal(keyfile.screen.sudoPassword, '', 'und bleibt danach nicht in der Komponente');
   assert.equal(keyfile.calls[0].body.key_path, '/home/dev/.ssh/id_ed25519');
   assert.equal(keyfile.calls[0].body.secret, '', 'mit Schluesseldatei geht kein Passwort mit');
 });

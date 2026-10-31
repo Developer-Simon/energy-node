@@ -12,6 +12,9 @@ func init() { newWebview = newGlazeWebview }
 // Open needs when neither stack can be loaded -- the state of a typical
 // headless CI runner, proven in webview_linux_test.go.
 func newGlazeWebview(url string) (embeddedWindow, error) {
+	// Before the window exists, so the compositor finds the entry when it
+	// first maps the window and the icon is there on the very first start.
+	registerDesktopEntry()
 	wv, err := glaze.New(false)
 	if err != nil {
 		return nil, err

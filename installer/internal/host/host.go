@@ -70,6 +70,10 @@ type Host struct {
 	pending *selection.Selection
 
 	creds *savedCredentials
+
+	// sudoPassword gilt fuer die laufende Verbindung und liegt nur im
+	// Speicher. Es dient dazu, einmalig passwortloses sudo einzurichten.
+	sudoPassword string
 }
 
 // New liest das Manifest des Bundles und baut den Wirt.
@@ -187,6 +191,9 @@ func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi
 	}
 
 	h.attachClient(client)
+	h.mu.Lock()
+	h.sudoPassword = sudoPasswordFor(req, secret)
+	h.mu.Unlock()
 
 	// Erst nach der gelungenen Anmeldung merken: ein falsches Passwort landet
 	// nie im Schluesselbund.
@@ -306,8 +313,8 @@ func (h *Host) Precheck(ctx context.Context) (*hostapi.Precheck, error) {
 	// exactly like the developer CLI does before its own first upload
 	// (internal/devcli.defaultProvisionRemoteStateDir) - passwordless sudo is
 	// already a hard precondition of this whole installer.
-	if err := provisionRemoteStateDir(ctx, client, h.cfg.RemoteStateDir); err != nil {
-		return nil, &hostapi.Error{Code: "PREFLIGHT_UPLOAD_FAILED", Detail: err.Error()}
+	if err := h.provision(ctx, client); err != nil {
+		return nil, err
 	}
 	// loaded() gibt manifest und bundleDir, oder einen Fehler wenn noch nicht
 	// geladen. Die Reihenfolge (connected, provision, dann loaded) ist bewusst,
@@ -712,6 +719,28 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// sudoPasswordFor waehlt das Passwort, mit dem sudo auf dem Node einmalig
+// eingerichtet wird: bei Schluesseldatei das eigene Feld, sonst das SSH-Passwort.
+func sudoPasswordFor(req hostapi.ConnectRequest, secret string) string {
+	if req.Kind == hostapi.AuthKey {
+		return req.SudoPassword
+	}
+	return secret
+}
+
+// provision richtet passwortloses sudo ein, falls es fehlt, und gibt dem
+// Benutzer danach das Statusverzeichnis. Die Reihenfolge ist zwingend: das
+// Verzeichnis anzulegen braucht sudo.
+func (h *Host) provision(ctx context.Context, client *transport.Client) error {
+	if err := ensureSudoNopasswd(ctx, client, h.currentSudoPassword()); err != nil {
+		return err
+	}
+	if err := provisionRemoteStateDir(ctx, client, h.cfg.RemoteStateDir); err != nil {
+		return &hostapi.Error{Code: "PREFLIGHT_UPLOAD_FAILED", Detail: err.Error()}
+	}
+	return nil
 }
 
 // provisionRemoteStateDir is a seam for tests; production always runs

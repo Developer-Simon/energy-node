@@ -9,6 +9,9 @@ import "testing"
 // is present -- the state ci.yml's installer-go job asserts before running
 // this test (see the "Assert WebKitGTK is absent" step).
 func TestNewGlazeWebviewFailsGracefullyWithoutWebKitGTK(t *testing.T) {
+	// When WebKitGTK is present the call registers a desktop entry; keep it
+	// out of the real home directory.
+	t.Setenv("XDG_DATA_HOME", t.TempDir())
 	win, err := newGlazeWebview("http://127.0.0.1:1/")
 	if err == nil {
 		win.Destroy()

@@ -39,9 +39,16 @@
           </div>
         </template>
         <template x-if="kind === 'key'">
-          <div class="field">
-            <span class="lbl" id="connect-keypath" x-text="t('field.key_path')"></span>
-            <input type="text" x-model.trim="keyPath" aria-labelledby="connect-keypath" autocomplete="off" spellcheck="false" @keydown.enter="connect()">
+          <div>
+            <div class="field">
+              <span class="lbl" id="connect-keypath" x-text="t('field.key_path')"></span>
+              <input type="text" x-model.trim="keyPath" aria-labelledby="connect-keypath" autocomplete="off" spellcheck="false" @keydown.enter="connect()">
+            </div>
+            <div class="field">
+              <span class="lbl" id="connect-sudo" x-text="t('field.sudo_password')"></span>
+              <input type="password" x-model="sudoPassword" aria-labelledby="connect-sudo" autocomplete="off" @keydown.enter="connect()">
+              <span class="check-s" x-text="t('connect.sudo.hint')"></span>
+            </div>
           </div>
         </template>
 
