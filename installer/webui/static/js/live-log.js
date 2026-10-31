@@ -109,7 +109,7 @@
         });
         // Ein Token aus Hex-Ziffern und Doppelpunkten gilt als IPv6, wenn es "::" enthaelt
         // oder mindestens fuenf Gruppen hat. ::1 und :: bleiben, Uhrzeiten haben nur drei Gruppen.
-        out = out.replace(/(?<![0-9A-Za-z_:])[0-9A-Fa-f:]+(?![0-9A-Za-z_:])/g, function (token) {
+        out = out.replace(/(?<![0-9A-Za-z_])[0-9A-Fa-f:]+(?![0-9A-Za-z_:])/g, function (token) {
           if (token === '::1' || token === '::') {
             return token;
           }
@@ -242,12 +242,10 @@
     return [ticks + 'text', body, ticks];
   }
 
-  // SCRUB_RESERVE haelt Platz, weil kurze Namen beim Schwaerzen laenger werden
-  // (user "ab" wird zu <user>). Das Budget gilt nach dem Schwaerzen.
-  var SCRUB_RESERVE = 4000;
-
-  function issueMarkdown(reportText, buffer, count, statusByUnit) {
-    var target = MARKDOWN_BUDGET - SCRUB_RESERVE;
+  // issueMarkdown baut den Issue-Text. scrub (optional) schwaerzt den fertigen Text;
+  // dann misst das Budget den geschwaerzten Text und das Ergebnis ist geschwaerzt.
+  function issueMarkdown(reportText, buffer, count, statusByUnit, scrub) {
+    var fit = scrub || function (text) { return text; };
     var report = String(reportText).replace(/\n+$/, '');
     var blocks = [];
     if (count > 0) {
@@ -287,8 +285,12 @@
     }
 
     var text = render();
-    while (text.length > target) {
-      var excess = text.length - target;
+    var final = fit(text);
+    while (final.length > MARKDOWN_BUDGET) {
+      // Gemessen wird am geschwaerzten Text, gekuerzt wird roh. Das Verhaeltnis rechnet
+      // den Zuwachs durch das Schwaerzen um, die Schleife misst danach neu.
+      var ratio = final.length / text.length;
+      var excess = Math.ceil((final.length - MARKDOWN_BUDGET) / ratio);
       var pending = blocks.filter(function (block) {
         return block.drop < block.texts.length;
       });
@@ -307,8 +309,9 @@
         longest.drop += 1;
       }
       text = render();
+      final = fit(text);
     }
-    return text;
+    return final;
   }
 
   function loadStage() {

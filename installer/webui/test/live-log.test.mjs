@@ -232,3 +232,21 @@ test('issueMarkdown summary names status and line count', () => {
   ));
   assert.ok(md.includes('<details><summary>energy-node-updater.service · no status yet · last 0 lines</summary>'));
 });
+
+test('scrub masks ipv6 right after a colon label', () => {
+  assert.equal(scrub({}, 'label:2001:db8::1'), 'label:<ipv6-1>');
+});
+
+test('issueMarkdown fits the budget after scrubbing', () => {
+  const { LiveLog } = setup();
+  const known = { user: 'ab', host: 'xy' };
+  const buf = LiveLog.buffer();
+  for (let i = 0; i < 2000; i += 1) {
+    buf.push({ unit: DASH, at: 0, msg: 'ab xy '.repeat(17) });
+  }
+  const scrubText = (text) => LiveLog.scrubber(known).text(text);
+  const md = LiveLog.issueMarkdown('report', buf, 2000, CRASH, scrubText);
+  assert.ok(md.includes('<user>'), 'scrubbed text is returned');
+  assert.ok(md.length <= LiveLog.MARKDOWN_BUDGET, `length ${md.length}`);
+  assert.ok(md.includes("older lines removed to fit GitHub's limit"));
+});
