@@ -84,6 +84,24 @@ def test_entries_without_tour_are_skipped():
     assert ht.validate({190: {"de": {"*": "Text"}}}) == []
 
 
+def test_null_tour_is_reported():
+    assert ht.validate({190: {"tour": None}}) == ["#190 tour: must be an object keyed by component"]
+
+
+def test_entry_must_be_an_object():
+    assert ht.validate(tours(["favorites"])) == ["#190 tour *: must be an object with steps or exempt"]
+
+
+def test_step_must_be_an_object():
+    assert ht.validate(tours({"steps": ["favorites"]})) == ["#190 tour *: step 1: step must be an object"]
+
+
+def test_texts_must_be_objects():
+    step = {**STEP, "title": "Favourites"}
+    assert ht.validate(tours({"steps": [step]})) == [
+        "#190 tour *: step 1: title must be an object keyed by language"]
+
+
 def test_resolve_fills_the_default_device():
     step = {k: v for k, v in STEP.items() if k not in ("device", "panel", "page", "need")}
     assert ht.resolve(tours({"steps": [step]}), 190, "dashboard") == {"steps": [{

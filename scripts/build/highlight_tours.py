@@ -107,7 +107,7 @@ def _step_problems(prefix, step):
 def _entry_problems(pr, key, entry):
     prefix = f"#{pr} {TOUR_KEY} {key}: "
     if not isinstance(entry, dict):
-        return [prefix + "tour must be an object"]
+        return [prefix + "must be an object with steps or exempt"]
     if "exempt" in entry:
         if set(entry) != {"exempt"}:
             return [prefix + "exempt stands alone, without steps"]
@@ -129,9 +129,9 @@ def validate(translations):
     wenn alle Touren stimmen."""
     problems = []
     for pr in sorted(translations):
-        tours = translations[pr].get(TOUR_KEY)
-        if tours is None:
+        if TOUR_KEY not in translations[pr]:
             continue
+        tours = translations[pr][TOUR_KEY]
         if not isinstance(tours, dict):
             problems.append(_tours_problem(pr))
             continue
