@@ -84,12 +84,15 @@ try {
     page.on('pageerror', error => console.log(`  SEITENFEHLER ${width}px: ${error.message}`));
     await page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => window.Alpine?.store('onboarding') && window.obSteps, null, { timeout: 15000 });
+    // Nach dem Laden startet die Leiste den gespeicherten Lauf nach 600 ms neu
+    // und wuerde den ersten Schritt ueberschreiben. Also erst danach starten.
+    await page.waitForTimeout(1200);
     const all = await page.evaluate(() => window.obSteps.setup.map(step => step.id));
     const ids = args.ids.length ? all.filter(id => args.ids.includes(id)) : all;
 
     for (const id of ids) {
-      // Lauf "change" mit genau diesem Schritt. "setup" ab dem Schritt liefe weiter.
-      await page.evaluate((id) => Alpine.store('onboarding').start('change', id), id);
+      // Echter Lauf ab diesem Schritt. Der Schritt ist der erste, es wird nicht weitergeschaltet.
+      await page.evaluate((id) => Alpine.store('onboarding').start('setup', id), id);
       const state = await settled(page, id);
       if (!state) {
         failed = true;
