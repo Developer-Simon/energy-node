@@ -98,7 +98,10 @@ fi
 # --- Laufzeitdateien im Heimatverzeichnis des Zielbenutzers ---------------
 target="${EN_ROOT}${EN_TARGET_BASE}/dashboard"
 devices="${EN_ROOT}${EN_TARGET_BASE}/devices"
-mkdir -p "${target}" "${devices}"
+# dashboard/data steht in ReadWritePaths= der Unit. Fehlt das Verzeichnis,
+# scheitert systemd beim Mount-Namespace mit 226/NAMESPACE, bevor das Binary
+# startet.
+mkdir -p "${target}" "${target}/data" "${devices}"
 install -m 0755 "${dash}/${BINARY_NAME}" "${target}/${BINARY_NAME}"
 # Frueher lag hier eine Kopie von services/VERSION fuer die Services-Version
 # in den Einstellungen. Die Versionen stehen jetzt im Installer-Manifest,
