@@ -119,8 +119,9 @@ type Secrets struct {
 // cleanup that removes them again. Secrets never survive on disk past the
 // step that consumes them: a path is the argument, never the value itself,
 // because /proc/<pid>/cmdline is world-readable (Umgang mit Geheimnissen in
-// the spec).
-func stageSecretsForStep60(client *transport.Client, secrets *Secrets) (extraArgs string, cleanup func(), err error) {
+// the spec). The broker user travels along with the MQTT password so that
+// the dashboard's config.json names the user step 20 created.
+func stageSecretsForStep60(client *transport.Client, mqttUser string, secrets *Secrets) (extraArgs string, cleanup func(), err error) {
 	var uploaded []string
 	cleanup = func() {
 		for _, p := range uploaded {
@@ -152,6 +153,9 @@ func stageSecretsForStep60(client *transport.Client, secrets *Secrets) (extraArg
 	if err := stage(secrets.DashboardSeed, "onboarding-seed", ".json", "--onboarding-seed-file"); err != nil {
 		cleanup()
 		return "", func() {}, fmt.Errorf("staging the dashboard presets: %w", err)
+	}
+	if secrets.MQTTPassword != "" && mqttUser != "" {
+		extraArgs += " --mqtt-user " + transport.ShellQuote(mqttUser)
 	}
 	return extraArgs, cleanup, nil
 }

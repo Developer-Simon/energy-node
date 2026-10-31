@@ -162,6 +162,17 @@ out="$(bash "$script" --mqtt-password-file "$tmp/mqtt.pw" --admin-password-file 
 grep -q '^##STEP 60 ok$' <<<"$out" || fail "zweiter Seed-Lauf nicht ok" "$out"
 [ "$(cat "$seed_dst")" = '{"version":1,"theme":"mint"}' ] || fail "vorhandene Seed-Datei ueberschrieben"
 
+# --- Broker-Benutzer vom Installer: config.json und mqtt.pw folgen ---------
+printf '{"mqtt":{"host":"meins","username":"alt"}}\n' > "$etc/config.json"
+printf 'mein-passwort\n'                              > "$etc/mqtt.pw"
+rm -rf "$tmp/state"
+out="$(bash "$script" --mqtt-password-file "$tmp/mqtt.pw" --mqtt-user broker-nutzer)"
+grep -q '^##STEP 60 ok$' <<<"$out" || fail "Lauf mit --mqtt-user nicht ok" "$out"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["mqtt"]["username"]=="broker-nutzer" and d["mqtt"]["host"]=="meins", d' \
+  "$etc/config.json" || fail "mqtt.username nicht gesetzt oder Rest veraendert" "$(cat "$etc/config.json")"
+grep -q 'mqtt-geheim' "$etc/mqtt.pw" || fail "mqtt.pw nicht ersetzt"
+rm -rf "$tmp/state"
+
 # --- kaputte Sudoers-Regel wird nicht installiert -------------------------
 rm -rf "$tmp/state" "$tmp/root"
 set +e
