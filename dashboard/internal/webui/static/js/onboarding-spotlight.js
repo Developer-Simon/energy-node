@@ -89,6 +89,12 @@
         }
         clearTimeout(lostTimer);
         lostTimer = 0;
+        // Unveraendertes Ziel: nichts zu tun. Ein Layoutsprung ohne
+        // Groessenaenderung (Nachbarn klappen zu) faellt durch den Takt auf.
+        const same = lastRect && root.classList.contains('is-on')
+          && Math.abs(rect.top - lastRect.top) < 0.5 && Math.abs(rect.left - lastRect.left) < 0.5
+          && Math.abs(rect.width - lastRect.width) < 0.5 && Math.abs(rect.height - lastRect.height) < 0.5;
+        if (same) return;
         if (!root.classList.contains('is-on')) {
           spring.set(boxOf(rect));
           root.classList.add('is-on');
@@ -108,10 +114,11 @@
       const method = on ? 'addEventListener' : 'removeEventListener';
       window[method]('scroll', follow, { capture: true, passive: true });
       window[method]('resize', follow, { passive: true });
-      // Taucht ein verlorenes Ziel ohne Scrollen wieder auf (Reiter zurueck),
-      // merkt das nur ein langsamer Takt.
+      // Solange ein Ziel gesetzt ist, misst ein Takt nach. Er faengt Verschiebungen
+      // ohne Scrollen und ohne Groessenaenderung ab und ein wieder aufgetauchtes
+      // Ziel (Reiter zurueck). Unveraenderte Messungen kosten nichts.
       clearInterval(poll);
-      if (on) poll = setInterval(() => { if (!root.classList.contains('is-on')) follow(); }, 500);
+      if (on) poll = setInterval(follow, 250);
       observer?.disconnect();
       observer = null;
       if (on && target && 'ResizeObserver' in window) {
