@@ -38,6 +38,7 @@ async function load({ progress = PROGRESS, session = SESSION, answer, run, prepa
     return { ok: true, status: 200, json: async () => body };
   };
   const stores = {};
+  const bars = {};
   // Set before installI18n runs its magic hook.
   window.Alpine = {
     magic() {},
@@ -45,7 +46,7 @@ async function load({ progress = PROGRESS, session = SESSION, answer, run, prepa
       if (value !== undefined) stores[name] = value;
       return stores[name];
     },
-    data() {},
+    data(name, factory) { bars[name] = factory; },
     effect() {},
   };
   installI18n(window);
@@ -62,7 +63,13 @@ async function load({ progress = PROGRESS, session = SESSION, answer, run, prepa
     store.index = 0;
     store.active = true;
   }
-  return { store, calls, window };
+  // The bar component, called with the store as its $store.
+  const bar = () => {
+    const b = bars.obBar();
+    b.$store = { onboarding: store };
+    return b;
+  };
+  return { store, calls, window, bar };
 }
 
 test('markStep done calls PUT step with {id,state} exactly once', async () => {
@@ -133,4 +140,63 @@ test('a run that builds no steps sends run:null once', async () => {
   const runClears = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me' && c.body && 'run' in c.body && c.body.run === null);
   assert.equal(runClears.length, 1);
   assert.equal(store.run, null);
+});
+
+test('setupCounts does not count a later step as done', async () => {
+  const { store } = await load({ prepare: false });
+  const before = store.setupCounts.done;
+  store.status = { ...store.status, users: 'later' };
+  assert.equal(store.setupCounts.done, before);
+  store.status = { ...store.status, users: 'done' };
+  assert.equal(store.setupCounts.done, before + 1);
+});
+
+test('explore later() sends no request and seen stays empty', async () => {
+  const { store, calls, bar } = await load({
+    prepare: false,
+    progress: { ...PROGRESS, role: 'user' },
+    session: SESSION,
+  });
+  store.start('explore', null, { index: 0 });
+  store.steps = [...store.steps, { ...store.steps[0] }];
+  calls.length = 0;
+  bar().later();
+  assert.equal(calls.length, 0, 'no request at all');
+  assert.equal(Object.keys(store.seen).length, 0);
+  assert.equal(store.index, 1);
+  assert.equal(store.active, true);
+});
+
+test('explore later() on the last step ends the tour without a finish card', async () => {
+  const { store, calls, bar } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('explore', null, { index: 0 });
+  store.index = store.steps.length - 1;
+  calls.length = 0;
+  bar().later();
+  assert.equal(store.active, false);
+  assert.equal(store.finished, null);
+  assert.equal(Object.keys(store.seen).length, 0);
+  const writes = calls.filter((c) => c.method === 'PUT');
+  assert.equal(writes.length, 1, 'only the run clear');
+  assert.deepEqual(writes[0].body, { run: null });
+});
+
+test('setup later() sends PUT step with state later', async () => {
+  const { store, calls, bar } = await load();
+  calls.length = 0;
+  bar().later();
+  const puts = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/step');
+  assert.equal(puts.length, 1);
+  assert.deepEqual(puts[0].body, { id: 'users', state: 'later' });
+  assert.equal(store.stateOf('users'), 'later');
+});
+
+test('setup later() on a done step keeps done', async () => {
+  const { store, calls } = await load({
+    progress: { ...PROGRESS, setup: { done: false, steps: { users: 'done' } } },
+  });
+  calls.length = 0;
+  store.markStep('later');
+  assert.equal(calls.filter((c) => c.method === 'PUT').length, 0);
+  assert.equal(store.stateOf('users'), 'done');
 });

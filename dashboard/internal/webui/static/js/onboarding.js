@@ -294,6 +294,9 @@
         this.status = { ...this.status, [step.id]: state };
         return send('PUT', STEP, { id: step.id, state });
       }
+      // Neu erkunden und Begruessung kennen nur gesehen. Vorgemerkt gibt es
+      // dort nicht, der Schritt bleibt offen.
+      if (state !== 'done') return Promise.resolve(false);
       this.seen = { ...this.seen, [step.id]: true };
       return send('PUT', ME, { seen_add: [step.id] });
     },
@@ -533,6 +536,14 @@
       this.s.index += 1;
     },
     later() {
+      // Tour (Neu erkunden, Begruessung): nichts schreiben, der Schritt bleibt
+      // offen. Am letzten Schritt endet die Tour ohne Abschlusskarte, wie beim
+      // Ueberspringen.
+      if (this.s.mode === 'explore' || this.s.mode === 'welcome') {
+        if (this.last) return this.s.skip();
+        this.s.index += 1;
+        return;
+      }
       this.s.markStep('later');
       if (this.last) return this.s.finish();
       this.s.index += 1;
