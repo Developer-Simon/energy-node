@@ -89,7 +89,7 @@ async function withHost(args, fn) {
   }
 }
 
-test('Verbindung, Vorpruefung, Konfiguration und Ergebnis liegen wie ihre Vorlagen', () => withHost([], async (page) => {
+test('Verbindung, Vorpruefung, Konfiguration, Dashboard und Ergebnis liegen wie ihre Vorlagen', () => withHost([], async (page) => {
   await fillLogin(page);
   await page.getByRole('button', { name: 'Verbinden', exact: true }).click();
   await page.locator('.tofu').waitFor();
@@ -104,6 +104,9 @@ test('Verbindung, Vorpruefung, Konfiguration und Ergebnis liegen wie ihre Vorlag
   await assertMatchesDraft(page, 'Konfiguration');
 
   await fillSecrets(page);
+  await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+  await page.locator('.app[data-screen="dashboard"] .dash-group').first().waitFor();
+  await assertMatchesDraft(page, 'Dashboard');
   await page.getByRole('button', { name: 'Installation starten' }).click();
   await page.locator('.app[data-screen="result"] .todo').nth(2).waitFor({ timeout: 20000 });
   await assertMatchesDraft(page, 'Ergebnis');

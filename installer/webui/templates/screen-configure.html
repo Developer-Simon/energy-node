@@ -83,7 +83,7 @@
     <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
     <span class="foot-spacer"></span>
     <span class="foot-hint" x-text="servicesOnly ? t('configure.hint.selection') : t('configure.hint.mutates')"></span>
-    <template x-if="!servicesOnly"><button type="button" class="primary" :disabled="!canStart" @click="start()" x-text="t('action.start_install')"></button></template>
+    <template x-if="!servicesOnly"><button type="button" class="primary" :disabled="!canStart" @click="start()" x-text="t('action.next')"></button></template>
     <template x-if="servicesOnly"><button type="button" class="primary" :disabled="!canApply" @click="apply()" x-text="t('action.apply_selection')"></button></template>
   </footer>
 </div>

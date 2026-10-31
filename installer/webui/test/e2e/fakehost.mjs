@@ -139,12 +139,19 @@ export async function connectWithPackage(page, packageKind, { trusted = false } 
   await waitForPrepare(page);
 }
 
+// Konfiguration reicht die Eingaben weiter, im Dashboard startet der Lauf.
+export async function startFromDashboard(page, { next = 'Weiter', start = 'Installation starten' } = {}) {
+  await page.getByRole('button', { name: next, exact: true }).click();
+  await page.locator('.app[data-screen="dashboard"] .dash-group').first().waitFor();
+  await page.getByRole('button', { name: start }).click();
+}
+
 export async function startInstall(page) {
   await page.locator('.app[data-screen="precheck"] .chk').first().waitFor();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
   await page.locator('.app[data-screen="configure"] .tog').first().waitFor();
   await fillSecrets(page);
-  await page.getByRole('button', { name: 'Installation starten' }).click();
+  await startFromDashboard(page);
   await page.locator('.app[data-screen="run"]').waitFor();
 }
 

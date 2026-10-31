@@ -1,0 +1,13 @@
+.cols{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:start;overflow:auto;margin:0 -.4rem;padding:0 .4rem 1.4rem;
+  -webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 1.4rem),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 1.4rem),transparent)}
+.stack{display:flex;flex-direction:column;gap:1rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.hint{font-size:.745rem;color:var(--text-muted);line-height:1.45;margin:.4rem 0 0}
+.tog{display:flex;align-items:flex-start;gap:.7rem}
+.tog-t{font-size:.85rem;font-weight:600;color:var(--text-strong)}
+.tog-s{font-size:.755rem;color:var(--text-muted);line-height:1.42}
+.chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.5rem}
+.chipk{font-size:.7rem;padding:.1rem .42rem;border-radius:5px;border:1px solid var(--border);color:var(--text-faint);cursor:pointer;user-select:none;transition:color .15s ease,background-color .15s ease,border-color .15s ease}
+.chipk.on{border-color:var(--accent-line);background:var(--accent-bg);color:var(--accent-soft)}
+.card{padding:.9rem 1rem}
+.card-p{margin-bottom:.55rem}
