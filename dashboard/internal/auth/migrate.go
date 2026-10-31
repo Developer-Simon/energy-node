@@ -107,9 +107,10 @@ func legacyDefaultGuestRoles() []string {
 }
 
 // defaultGuestRoles ist die Gastvorgabe einer neuen Installation: nur ansehen,
-// keine Bearbeitung. Die Reihenfolge ist die der Vorgabe, nicht sortiert.
+// keine Bearbeitung. Normalisiert, wie die Vorgabe nach einem Neustart aus
+// users.json kommt, damit Migration und Neuinstallation gleich vergleichen.
 func defaultGuestRoles() []string {
-	return []string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats}
+	return Normalize([]string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats})
 }
 
 // defaultHAUserRoles ist die Vorgabe fuer HA-Konten ohne HA-Admin: Ansehen und

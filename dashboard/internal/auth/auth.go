@@ -38,23 +38,21 @@ const (
 	RoleEditDeviceAppearance = "edit_device_appearance"
 	// RoleCheckUpdates schaltet nur das Lesen frei, ob auf GitHub eine
 	// neuere Version liegt (siehe internal/updatecheck) - keine der
-	// updater-startenden Aktionen hinter RoleSystemActions. Wie
-	// RoleEditLayout bekommt sie provisorisch jeder, auch jeder Gast, weil
-	// es noch keine Rollen-Oberflaeche gibt, ueber die man das gezielt
-	// wieder entziehen koennte.
+	// updater-startenden Aktionen hinter RoleSystemActions. Sie steht nicht in
+	// der Gastvorgabe, ein Gast bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleCheckUpdates = "check_updates"
 	// RoleEditEnergy schaltet das Schreiben der Energie-Konfiguration frei:
 	// Rollen, Interpretation, Gruppen, Kategorien und das Wiederherstellen
-	// ihrer Revisionen. Wie RoleEditLayout bekommt sie vorlaeufig jeder, auch
-	// jeder Gast, bis es eine Benutzerverwaltung gibt.
+	// ihrer Revisionen. Sie steht nicht in der Gastvorgabe, ein Gast bekommt
+	// sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditEnergy = "edit_energy"
 	// RoleEditDeviceMap schaltet das Bearbeiten der Geraetekarte frei
-	// (Kanten, Schalter, Geraete). Wie RoleEditEnergy bekommt sie vorlaeufig
-	// jeder, auch jeder Gast, bis es eine Benutzerverwaltung gibt.
+	// (Kanten, Schalter, Geraete). Sie steht nicht in der Gastvorgabe, ein Gast
+	// bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditDeviceMap = "edit_device_map"
 	// RoleEditDeviceMapView schaltet das Umschalten der Geraetekarte in die
-	// Ansicht des Bearbeiters frei. Wie RoleEditDeviceMap bekommt sie
-	// vorlaeufig jeder, auch jeder Gast, bis es eine Benutzerverwaltung gibt.
+	// Ansicht des Bearbeiters frei. Sie steht nicht in der Gastvorgabe, ein
+	// Gast bekommt sie nur, wenn ein Admin sie ihm gibt.
 	RoleEditDeviceMapView = "edit_device_map_view"
 	guestLifetime         = 7 * 24 * time.Hour
 	sessionLifetime       = 24 * time.Hour

@@ -212,7 +212,7 @@ func TestNewGuestsOnlyView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats}
+	want := []string{RoleViewDeviceMap, RoleViewDevices, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats}
 	if !reflect.DeepEqual(session.User.Roles, want) {
 		t.Fatalf("new guest roles %v, want %v", session.User.Roles, want)
 	}
