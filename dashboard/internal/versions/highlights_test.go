@@ -283,3 +283,56 @@ func TestHighlightsWithoutDetailsOmitsTheKey(t *testing.T) {
 		t.Fatalf("response serialises details without any: %s", raw)
 	}
 }
+
+func TestHighlightsPassesTourThrough(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json": `{"schema_version":1,"components":[{"id":"dashboard","label":"Dashboard","version":"v0.9.0","releases":[
+		  {"version":"v0.9.0","groups":[{"type":"feat","entries":[
+		    {"text":"favourites","pr":180,"breaking":false,"highlight":true,
+		     "tour":{"steps":[{"panel":"devices-panel","page":"users","target":"favorites","device":"phone","need":"view_devices",
+		       "title":{"en":"Favourites","de":"Favoriten"},"text":{"en":"Star a device","de":"Markiere ein Gerät"}}]}},
+		    {"text":"backend only","pr":181,"breaking":false,"highlight":true,
+		     "tour":{"steps":[],"exempt":"Only the backend changed"}}]}]}]}]}`,
+		"installed-manifest.json": `{"version":"v0.9.0","components":{"dashboard":"v0.9.0"}}`,
+	})
+	view, err := Highlights(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := view.Components[0].Releases[0].Entries
+	if entries[0].ID != "h180" || entries[1].ID != "h181" {
+		t.Fatalf("ids = %q %q", entries[0].ID, entries[1].ID)
+	}
+	tour := entries[0].Tour
+	if tour == nil || len(tour.Steps) != 1 || tour.Exempt != "" {
+		t.Fatalf("tour = %+v", tour)
+	}
+	step := tour.Steps[0]
+	if step.Panel != "devices-panel" || step.Page != "users" || step.Target != "favorites" || step.Device != "phone" || step.Need != "view_devices" {
+		t.Fatalf("step = %+v", step)
+	}
+	if step.Title["de"] != "Favoriten" || step.Text["en"] != "Star a device" {
+		t.Fatalf("texts = %v %v", step.Title, step.Text)
+	}
+	if exempt := entries[1].Tour; exempt == nil || exempt.Exempt != "Only the backend changed" || len(exempt.Steps) != 0 {
+		t.Fatalf("exempt = %+v", exempt)
+	}
+}
+
+func TestHighlightsWithoutTourOmitsTheKey(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          highlightsDoc,
+		"installed-manifest.json": installedV090,
+	})
+	view, err := Highlights(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"tour"`) {
+		t.Fatalf("response serialises a tour without any: %s", raw)
+	}
+}

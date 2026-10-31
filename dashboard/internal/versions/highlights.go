@@ -14,14 +14,17 @@ import (
 
 // HighlightsEntry is one highlighted change. I18n holds the text in other
 // languages than English (changelog/highlights/<PR>.json in the repo), the
-// page picks its own language and falls back to Text.
+// page picks its own language and falls back to Text. ID is "h<PR>", the key
+// the onboarding remembers a seen highlight by, empty without a PR.
 type HighlightsEntry struct {
+	ID       string            `json:"id,omitempty"`
 	Text     string            `json:"text"`
 	Scope    string            `json:"scope,omitempty"`
 	PR       int               `json:"pr,omitempty"`
 	Breaking bool              `json:"breaking"`
 	I18n     map[string]string `json:"i18n,omitempty"`
 	Details  *HighlightDetails `json:"details,omitempty"`
+	Tour     *HighlightTour    `json:"tour,omitempty"`
 }
 
 // HighlightImage is the screenshot of a highlight, with the crop (x, y, width,
@@ -39,6 +42,26 @@ type HighlightDetails struct {
 	Text  map[string]string `json:"text"`
 	Image *HighlightImage   `json:"image,omitempty"`
 	Doc   string            `json:"doc,omitempty"`
+}
+
+// HighlightTour walks a user through a highlight in the web UI. A highlight
+// with nothing to show carries the reason in Exempt and no steps.
+type HighlightTour struct {
+	Steps  []TourStep `json:"steps"`
+	Exempt string     `json:"exempt,omitempty"`
+}
+
+// TourStep points at one data-tour target. Panel and Page say where it
+// lives, Device is any, phone or desktop, Need the permission the step
+// requires.
+type TourStep struct {
+	Panel  string            `json:"panel,omitempty"`
+	Page   string            `json:"page,omitempty"`
+	Target string            `json:"target"`
+	Device string            `json:"device"`
+	Need   string            `json:"need,omitempty"`
+	Title  map[string]string `json:"title"`
+	Text   map[string]string `json:"text"`
 }
 
 // HighlightsRelease is one release of a component inside the range.
@@ -85,6 +108,7 @@ type fullDocument struct {
 					Highlight *bool             `json:"highlight"`
 					I18n      map[string]string `json:"i18n"`
 					Details   *HighlightDetails `json:"details"`
+					Tour      *HighlightTour    `json:"tour"`
 				} `json:"entries"`
 			} `json:"groups"`
 		} `json:"releases"`
@@ -160,7 +184,7 @@ func Highlights(stateDir string) (*HighlightsView, error) {
 					if flagged && (e.Highlight == nil || !*e.Highlight) {
 						continue
 					}
-					out.Entries = append(out.Entries, HighlightsEntry{Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n, Details: e.Details})
+					out.Entries = append(out.Entries, HighlightsEntry{ID: highlightID(e.PR), Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n, Details: e.Details, Tour: e.Tour})
 				}
 			}
 			if len(out.Entries) > 0 {
@@ -172,6 +196,14 @@ func Highlights(stateDir string) (*HighlightsView, error) {
 		}
 	}
 	return view, nil
+}
+
+// highlightID is "h<PR>", empty for an entry without a PR number.
+func highlightID(pr int) string {
+	if pr == 0 {
+		return ""
+	}
+	return "h" + strconv.Itoa(pr)
 }
 
 // documentIsFlagged mirrors isFlagged in versions.page.js: a changelog.json
