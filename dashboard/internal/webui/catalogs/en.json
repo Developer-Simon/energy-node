@@ -2997,7 +2997,7 @@
   "onboarding.setup.favorites.title": "Favorites",
   "onboarding.setup.guest.text": "Using guest access, anyone on the network can view the dashboard without an account. Guests cannot change anything.",
   "onboarding.setup.guest.title": "Guest access",
-  "onboarding.setup.intro.text": "You set up the essentials in four areas: access, display, system and devices. Every step can be left for later and nothing blocks you. You can find the checklist in the settings at any time.",
+  "onboarding.setup.intro.text": "Take a short tour to see what Energy Node can do. You set up access, display, system and devices, or leave any step for later. You can restart the tour at any time under Settings > Checklist.",
   "onboarding.setup.intro.title": "Welcome to Energy Node",
   "onboarding.setup.language.text": "Choose the language of the interface. It applies to this browser, and every user can switch it at the top.",
   "onboarding.setup.language.title": "Language",

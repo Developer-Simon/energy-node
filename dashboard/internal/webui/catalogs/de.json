@@ -2997,7 +2997,7 @@
   "onboarding.setup.favorites.title": "Favoriten",
   "onboarding.setup.guest.text": "Mit dem Gastzugang kann jeder im Netz das Dashboard ohne Konto ansehen. Gäste können nichts verändern.",
   "onboarding.setup.guest.title": "Gastzugang",
-  "onboarding.setup.intro.text": "In vier Bereichen richtest du das Wichtigste ein: Zugang, Darstellung, System und Geräte. Jeder Schritt lässt sich auf später legen, nichts blockiert. Die Checkliste findest du jederzeit in den Einstellungen.",
+  "onboarding.setup.intro.text": "Erfahre in einer kleinen Tour, was Energy Node alles kann. Du richtest Zugang, Darstellung, System und Geräte ein oder legst einen Schritt auf später. Die Tour startest du jederzeit neu unter Einstellungen > Checkliste.",
   "onboarding.setup.intro.title": "Willkommen bei Energy Node",
   "onboarding.setup.language.text": "Wähle die Sprache der Oberfläche. Sie gilt für diesen Browser, jeder Nutzer kann sie oben umschalten.",
   "onboarding.setup.language.title": "Sprache",
