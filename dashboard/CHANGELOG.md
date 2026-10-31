@@ -206,6 +206,7 @@
 - **webui:** rewrite the setup step texts (24ab827)
 - **webui:** correct the companion, status bar, update and device step texts (fb43ccb)
 - **webui:** describe the Home Assistant pairing step correctly (a09e006)
+- **webui:** find the accounts tab of the tour in every language (11d0050)
 - **onboarding:** do not overwrite progress after a failed read (79ea153)
 - **httpapi:** bound the onboarding input sizes (43eb762)
 - **webui:** take onboarding eyebrows from the catalog only (93c09eb)
