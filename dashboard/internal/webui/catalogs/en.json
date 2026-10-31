@@ -3600,7 +3600,7 @@
   "users.lock.last_admin_role": "The last active local account with user management keeps this permission.",
   "users.lock.requires": "Requires View: {view}",
   "users.lock.self": "Your own account cannot be disabled.",
-  "users.migration_notice": "Guests can currently change settings and device configuration. Check the Guest access preset.",
+  "users.migration_notice": "By default guests can now only view. Check the Guest access preset.",
   "users.nav": "Users",
   "users.nav_desc": "Accounts and permissions",
   "users.new_account": "New account",

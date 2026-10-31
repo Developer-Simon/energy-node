@@ -1,10 +1,13 @@
 package auth
 
-import "errors"
+import (
+	"errors"
+	"reflect"
+)
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 4
+const usersFileVersion = 5
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -100,8 +103,8 @@ func migrateV3(roles []string) []string {
 }
 
 // legacyDefaultGuestRoles ist die bisherige Gastvorgabe: die Migration
-// angewandt auf einen Gast mit der alten Rollenliste. Nur noch als Altwert
-// fuer die Migrationstests.
+// angewandt auf einen Gast mit der alten Rollenliste. Version 5 erkennt daran
+// unveraenderte Vorgaben (migrateV4Locked).
 func legacyDefaultGuestRoles() []string {
 	return migrateV1(map[string]User{"guest": {Username: "guest", Guest: true, Roles: legacyGuestRoles}})
 }
@@ -134,6 +137,39 @@ func defaultHAAdminRoles() []string {
 		}
 	}
 	return Normalize(out)
+}
+
+// migrateV4Locked wendet die Regeln der Version 5 an: eine unveraenderte
+// Gastvorgabe (genau die alte Standardliste) wird durch die neue ersetzt,
+// ebenso die Gastkonten mit der alten Liste, aber nur wenn die Vorgabe
+// ersetzt wurde. Die HA-Vorgaben werden nur gemeinsam ersetzt, wenn beide
+// Seiten unveraendert sind. Eigene HA-Konten bleiben unberuehrt. Liefert,
+// ob die Gastvorgabe ersetzt wurde.
+func (m *Manager) migrateV4Locked() (guestReplaced bool) {
+	legacy := legacyDefaultGuestRoles()
+	if sameRoles(m.guestRoles, legacy) {
+		m.guestRoles = defaultGuestRoles()
+		guestReplaced = true
+	}
+	if guestReplaced {
+		for name, user := range m.users {
+			if user.Guest && sameRoles(user.Roles, legacy) {
+				user.Roles = defaultGuestRoles()
+				m.users[name] = user
+			}
+		}
+	}
+	if m.haRoles != nil && sameRoles(m.haRoles.Admin, legacy) && sameRoles(m.haRoles.User, legacy) {
+		m.haRoles.Admin = defaultHAAdminRoles()
+		m.haRoles.User = defaultHAUserRoles()
+	}
+	return guestReplaced
+}
+
+// sameRoles vergleicht zwei Rollenlisten nach Normalize, die Reihenfolge und
+// doppelte oder ungueltige Schluessel zaehlen nicht.
+func sameRoles(a, b []string) bool {
+	return reflect.DeepEqual(Normalize(a), Normalize(b))
 }
 
 // bootstrapAdminRoles sind alle Berechtigungen ausser http_login.

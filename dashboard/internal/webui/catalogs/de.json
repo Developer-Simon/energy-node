@@ -3600,7 +3600,7 @@
   "users.lock.last_admin_role": "Das letzte aktive lokale Konto mit Benutzerverwaltung behält diese Berechtigung.",
   "users.lock.requires": "Braucht Ansehen: {view}",
   "users.lock.self": "Das eigene Konto lässt sich nicht sperren.",
-  "users.migration_notice": "Gäste dürfen derzeit Einstellungen und Gerätekonfiguration ändern. Prüfe die Vorgabe Gastzugang.",
+  "users.migration_notice": "Gäste dürfen standardmäßig nur noch ansehen. Prüfe die Vorgabe Gastzugang.",
   "users.nav": "Benutzer",
   "users.nav_desc": "Konten und Berechtigungen",
   "users.new_account": "Neues Konto",
