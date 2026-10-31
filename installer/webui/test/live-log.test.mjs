@@ -140,3 +140,95 @@ test('stage storage ignores values outside STAGES', () => {
   LiveLog.saveStage(3);
   assert.equal(store['energy-node.diagnose.log-lines'], '0');
 });
+
+function bufferWith(LiveLog, unit, count, text) {
+  const buf = LiveLog.buffer();
+  for (let i = 1; i <= count; i += 1) {
+    buf.push({ unit, at: 0, msg: text ? text(i) : `line ${i}` });
+  }
+  return buf;
+}
+
+const CRASH = {
+  [DASH]: { load: 'loaded', active: 'activating', sub: 'auto-restart', result: 'exit-code', exit_status: 1, restarts: 9, pid: 0, since: 0 },
+};
+
+test('reportSection names last n of total', () => {
+  const { LiveLog } = setup();
+  const buf = bufferWith(LiveLog, DASH, 30);
+  const section = LiveLog.reportSection(buf, DASH, 100, CRASH);
+  const lines = section.split('\n');
+  assert.equal(
+    lines[0],
+    '== log energy-node-dashboard.service · activating (auto-restart) · exit 1 · restarts 9 · last 30 of 30 lines ==',
+  );
+  assert.equal(lines.length, 31);
+  assert.match(lines[1], /^\d{2}:\d{2}:\d{2}\.\d{3} line 1$/);
+});
+
+test('reportSection is empty without lines to show', () => {
+  const { LiveLog } = setup();
+  assert.equal(LiveLog.reportSection(bufferWith(LiveLog, DASH, 30), DASH, 0, CRASH), '');
+});
+
+test('issueMarkdown fits the budget and says so', () => {
+  const { LiveLog } = setup();
+  const text = 'x'.repeat(100);
+  const buf = LiveLog.buffer();
+  for (let i = 0; i < 2000; i += 1) {
+    buf.push({ unit: DASH, at: 0, msg: text });
+    buf.push({ unit: UPD, at: 0, msg: text });
+  }
+  const md = LiveLog.issueMarkdown('report', buf, 2000, CRASH);
+  assert.ok(md.length <= LiveLog.MARKDOWN_BUDGET, `length ${md.length}`);
+  assert.ok(md.includes("older lines removed to fit GitHub's limit"));
+});
+
+test('issueMarkdown cuts only the longer log first', () => {
+  const { LiveLog } = setup();
+  const buf = LiveLog.buffer();
+  for (let i = 0; i < 2000; i += 1) {
+    buf.push({ unit: DASH, at: 0, msg: 'y'.repeat(100) });
+  }
+  for (let i = 0; i < 10; i += 1) {
+    buf.push({ unit: UPD, at: 0, msg: 'short' });
+  }
+  const md = LiveLog.issueMarkdown('report', buf, 2000, {});
+  assert.ok(md.length <= LiveLog.MARKDOWN_BUDGET);
+  const updater = md.slice(md.indexOf(`<summary>${UPD}`));
+  assert.equal(updater.includes('older lines removed'), false);
+  assert.equal(updater.split('short').length - 1, 10);
+});
+
+test('issueMarkdown fence survives backticks', () => {
+  const { LiveLog } = setup();
+  const buf = LiveLog.buffer();
+  buf.push({ unit: DASH, at: 0, msg: 'a ``` b </details> c' });
+  const md = LiveLog.issueMarkdown('report', buf, 100, {});
+  const open = md.indexOf('````text\n');
+  assert.ok(open !== -1, 'four-backtick fence opens');
+  const close = md.indexOf('\n````\n', open);
+  assert.ok(close !== -1, 'four-backtick fence closes');
+  const body = md.slice(open, close);
+  assert.ok(body.includes('</details>'));
+  assert.ok(body.includes('a ``` b'));
+});
+
+test('issueMarkdown with count 0 has no details', () => {
+  const { LiveLog } = setup();
+  const buf = bufferWith(LiveLog, DASH, 30);
+  const md = LiveLog.issueMarkdown('report', buf, 0, CRASH);
+  assert.equal(md.includes('<details>'), false);
+  assert.ok(md.startsWith('## energy-node diagnose\n\n```text\nreport\n```'));
+  assert.equal(md.endsWith('```'), true);
+});
+
+test('issueMarkdown summary names status and line count', () => {
+  const { LiveLog } = setup();
+  const buf = bufferWith(LiveLog, DASH, 2);
+  const md = LiveLog.issueMarkdown('report', buf, 100, CRASH);
+  assert.ok(md.includes(
+    '<details><summary>energy-node-dashboard.service · activating (auto-restart) · exit 1 · restarts 9 · last 2 lines</summary>',
+  ));
+  assert.ok(md.includes('<details><summary>energy-node-updater.service · no status yet · last 0 lines</summary>'));
+});

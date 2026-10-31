@@ -202,6 +202,115 @@
     };
   }
 
+  // Der Statustext ist neutral und englisch, wie der .txt-Bericht. Die Karte in der
+  // Diagnose baut ihn mit den Katalogtexten selbst.
+  function statusText(status) {
+    if (!status) {
+      return 'no status yet';
+    }
+    if (status.load === 'not-found') {
+      return 'not installed';
+    }
+    var text = status.active || 'unknown';
+    if (status.sub) {
+      text += ' (' + status.sub + ')';
+    }
+    if ((status.result && status.result !== 'success') || status.active !== 'active') {
+      text += ' · exit ' + (status.exit_status || 0);
+    }
+    return text + ' · restarts ' + (status.restarts || 0);
+  }
+
+  function reportSection(buffer, unit, count, statusByUnit) {
+    if (!count) {
+      return '';
+    }
+    var lines = buffer.lines(unit);
+    var shown = lines.slice(Math.max(0, lines.length - count));
+    var head = '== log ' + unit + ' · ' + statusText((statusByUnit || {})[unit]) +
+      ' · last ' + shown.length + ' of ' + buffer.total(unit) + ' lines ==';
+    return [head].concat(shown.map(formatLine)).join('\n');
+  }
+
+  // fence waehlt einen Zaun, der laenger ist als jeder Backtick-Lauf im Block.
+  function fence(body) {
+    var longest = 0;
+    (body.match(/`+/g) || []).forEach(function (run) {
+      longest = Math.max(longest, run.length);
+    });
+    var ticks = new Array(Math.max(3, longest + 1) + 1).join('`');
+    return [ticks + 'text', body, ticks];
+  }
+
+  // SCRUB_RESERVE haelt Platz, weil kurze Namen beim Schwaerzen laenger werden
+  // (user "ab" wird zu <user>). Das Budget gilt nach dem Schwaerzen.
+  var SCRUB_RESERVE = 4000;
+
+  function issueMarkdown(reportText, buffer, count, statusByUnit) {
+    var target = MARKDOWN_BUDGET - SCRUB_RESERVE;
+    var report = String(reportText).replace(/\n+$/, '');
+    var blocks = [];
+    if (count > 0) {
+      UNITS.forEach(function (unit) {
+        var lines = buffer.lines(unit);
+        var shown = lines.slice(Math.max(0, lines.length - count));
+        blocks.push({
+          unit: unit,
+          texts: shown.map(formatLine),
+          drop: 0,
+        });
+      });
+    }
+
+    function remaining(block) {
+      var chars = 0;
+      for (var i = block.drop; i < block.texts.length; i += 1) {
+        chars += block.texts[i].length + 1;
+      }
+      return chars;
+    }
+
+    function render() {
+      var out = ['## energy-node diagnose', '']
+        .concat(fence(report), ['']);
+      blocks.forEach(function (block) {
+        var body = block.texts.slice(block.drop);
+        if (block.drop > 0) {
+          body.unshift('[… ' + block.drop + ' older lines removed to fit GitHub\'s limit]');
+        }
+        var status = statusText((statusByUnit || {})[block.unit]);
+        out.push('<details><summary>' + block.unit + ' · ' + status +
+          ' · last ' + (block.texts.length - block.drop) + ' lines</summary>', '');
+        out = out.concat(fence(body.join('\n')), ['', '</details>', '']);
+      });
+      return out.join('\n').replace(/\n+$/, '');
+    }
+
+    var text = render();
+    while (text.length > target) {
+      var excess = text.length - target;
+      var pending = blocks.filter(function (block) {
+        return block.drop < block.texts.length;
+      });
+      if (pending.length === 0) {
+        break;
+      }
+      pending.sort(function (a, b) { return remaining(b) - remaining(a); });
+      var longest = pending[0];
+      var second = pending.length > 1 ? remaining(pending[1]) : 0;
+      // Das laengere Log wird zuerst bis zur Laenge des zweiten gekuerzt, danach abwechselnd.
+      var diff = remaining(longest) - second;
+      var want = diff > 0 ? Math.min(excess, diff) : Math.ceil(excess / 2);
+      var saved = 0;
+      while (saved < want && longest.drop < longest.texts.length) {
+        saved += longest.texts[longest.drop].length + 1;
+        longest.drop += 1;
+      }
+      text = render();
+    }
+    return text;
+  }
+
   function loadStage() {
     try {
       var raw = window.localStorage.getItem(STAGE_KEY);
@@ -239,6 +348,8 @@
     open: open,
     scrubber: scrubber,
     formatLine: formatLine,
+    reportSection: reportSection,
+    issueMarkdown: issueMarkdown,
     loadStage: loadStage,
     saveStage: saveStage,
   };
