@@ -24,6 +24,8 @@
       packageFile: null,
       forceFullTransfer: false,
       remember: false,
+      // prefilled: der Bootstrap hat das Formular schon einmal vorbelegt.
+      prefilled: false,
 
       get shell() {
         return window.Installer.shell;
@@ -67,13 +69,20 @@
         if (this.shell.bootstrap) {
           this.applyBootstrap();
         } else if (this.$watch) {
-          this.$watch('shell.bootstrap', () => this.applyBootstrap());
+          // Nur das erste Eintreffen fuellt das Formular vor. Spaetere
+          // Aenderungen von shell.bootstrap (etwa das Merken des Zugangs beim
+          // Verbinden) duerfen weder die Paketwahl noch Eingaben ueberschreiben.
+          this.$watch('shell.bootstrap', () => {
+            if (!this.prefilled) {
+              this.applyBootstrap();
+            }
+          });
         }
       },
 
       applyBootstrap() {
         var saved = this.saved;
-        if (saved) {
+        if (saved && !this.prefilled) {
           this.host = saved.host;
           this.user = saved.user;
           this.kind = saved.kind || 'password';
@@ -84,6 +93,32 @@
         if (info) {
           this.packageKind = info.bundled ? 'bundled' : 'github';
           this.repoPath = (info.repo && info.repo.path) || '';
+          // Kehrt der Betreiber zu diesem Bildschirm zurueck (etwa nach einem
+          // Fehler beim Vorbereiten), gilt seine frühere Wahl. Eine Datei
+          // laesst sich nicht merken, und ein nicht mehr vorhandenes Bundle
+          // oder Repository ebenso wenig.
+          var choice = this.shell.shared && this.shell.shared.packageChoice;
+          if (choice && this.choiceUsable(choice, info)) {
+            this.packageKind = choice.kind;
+            this.repoPath = choice.repoPath || this.repoPath;
+          }
+        }
+        this.prefilled = true;
+      },
+
+      choiceUsable(choice, info) {
+        if (choice.kind === 'bundled') {
+          return !!info.bundled;
+        }
+        if (choice.kind === 'repo') {
+          return !!(info.repo && info.repo.available);
+        }
+        return choice.kind === 'github';
+      },
+
+      rememberPackageChoice() {
+        if (this.shell.shared) {
+          this.shell.shared.packageChoice = { kind: this.packageKind, repoPath: this.repoPath };
         }
       },
 
@@ -130,6 +165,7 @@
           return;
         }
         this.packageKind = kind;
+        this.rememberPackageChoice();
       },
 
       async submitPackage() {
@@ -147,6 +183,7 @@
       },
 
       async attempt(acceptFingerprint) {
+        this.rememberPackageChoice();
         this.busy = true;
         this.shell.error = null;
         this.shell.progress = 'connect.progress.connecting';
