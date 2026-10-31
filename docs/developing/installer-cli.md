@@ -195,7 +195,7 @@ normal restart rule would miss that.
 | `--force-config` | Overwrite the node's existing `config.json` (asks for confirmation first) |
 | `--force-full` | Replace the node's whole bundle directory instead of sending only the changed files |
 | `--arch` | Target architecture: `armv6` (default, Pi 1 and Pi Zero W), `arm64`, `amd64` |
-| `--python-minor`, `--abi` | Override the bundle's Python version and wheel ABI tag |
+| `--python-minor`, `--abi` | Override the bundle's Python version and wheel ABI tag (default: 3.11 for `armv6`, 3.13 for `arm64` and `amd64`) |
 
 ### `installer ensure-secrets`
 

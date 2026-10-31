@@ -83,13 +83,15 @@ Pi OS user has by default. On Debian, add it yourself with a file in
 `/etc/sudoers.d/`.
 
 The reference node runs Python 3.11.2, which is enough for every service in
-this repository (`requires-python >= 3.9`). The installation package carries
-its Python dependencies as wheels for one Python version (3.11, Debian 12
-"Bookworm"). On a newer image such as Debian 13 "Trixie" (Python 3.13) the
-installer reports the mismatch when it prepares the package and offers to let
-the node load the dependencies from the internet instead. You confirm that
-once, the node then needs internet access, and those files are not covered by
-the package signature. Everything else in the package stays verified.
+this repository (`requires-python >= 3.9`). An installation package carries
+its Python dependencies as wheels for one Python version: 3.11 (Debian 12
+"Bookworm") for `armv6`, 3.13 (Debian 13 "Trixie") for `arm64` and `amd64`.
+Those match the images in the table above. On an image with a different
+Python version, for example a 64-bit Bookworm, the installer reports the
+mismatch when it prepares the package and offers to let the node load the
+dependencies from the internet instead. You confirm that once, the node then
+needs internet access, and those files are not covered by the package
+signature. Everything else in the package stays verified.
 
 Flash the card with the Raspberry Pi Imager and set hostname, user, SSH and
 WiFi there. On a headless remote site you do not want to find out afterwards

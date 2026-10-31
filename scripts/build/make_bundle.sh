@@ -23,7 +23,7 @@ source "${BUILD_DIR}/lib/manifest.sh"
 source "${BUILD_DIR}/lib/render.sh"
 
 ARCH=""
-PYTHON_MINOR="3.11"
+PYTHON_MINOR=""
 ABI=""
 BUNDLE_USER=""
 BUNDLE_BASE=""
@@ -61,8 +61,9 @@ usage() {
   cat <<TXT
 
   --arch <armv6|arm64|amd64>   Pflicht.
-  --python-minor <3.11>        Python-Minor des Zielsystems.
-  --abi <cp311>                ABI-Tag; ohne Angabe aus --python-minor.
+  --python-minor <3.13>        Python-Minor des Zielsystems; Vorgabe je Architektur
+                               (armv6: 3.11, arm64 und amd64: 3.13).
+  --abi <cp313>                ABI-Tag; ohne Angabe aus --python-minor.
   --user <name>                Bundle fuer diesen Benutzer festlegen (ohne: allgemein).
   --base <pfad>                Zielbasis; ohne Angabe /home/<user> (nur mit --user).
   --out <pfad>                 Ausgabeverzeichnis (Vorgabe dist/).
@@ -97,6 +98,15 @@ done
 [[ -n "${ARCH}" ]] || { echo "--arch fehlt." >&2; exit 1; }
 # Prueft die Architektur, bevor irgendetwas gebaut wird.
 arch_platform_tags "${ARCH}" >/dev/null
+# Vorgabe je Architektur: das Legacy-Image fuer Pi 1 (armv6) ist Debian 12 mit
+# Python 3.11, die empfohlenen 64-Bit-Images (arm64, amd64) sind Debian 13 mit
+# Python 3.13. Ein Bundle traegt Wheels fuer genau eine Python-Version.
+if [[ -z "${PYTHON_MINOR}" ]]; then
+  case "${ARCH}" in
+    armv6) PYTHON_MINOR="3.11" ;;
+    *) PYTHON_MINOR="3.13" ;;
+  esac
+fi
 ABI="${ABI:-cp${PYTHON_MINOR//./}}"
 
 # Ohne --user/--base bleibt das Bundle allgemein: Units, Helfer, Sudoers und

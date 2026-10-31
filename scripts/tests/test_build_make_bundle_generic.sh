@@ -77,4 +77,21 @@ if bash "$script" --arch armv6 --user 'bad user' --out "$tmp/dist-bad" \
   fail "ungueltiger --user akzeptiert"
 fi
 
+# --- Python-Vorgabe je Architektur -----------------------------------------
+# Ohne --python-minor/--abi: armv6 bleibt bei Python 3.11, die 64-Bit-
+# Architekturen bauen fuer Python 3.13 (Debian 13).
+abi_of() {
+  local arch="$1" dist="$tmp/default-$1"
+  bash "$script" --arch "$arch" --out "$dist" --sign-key "$tmp/key.pem" \
+    --dashboard-binary "$tmp/fake-dashboard" --tailscale-tarball "$tmp/ts.tgz" \
+    --skip-wheels >"$tmp/build-$arch.log" 2>&1 \
+    || fail "make_bundle.sh --arch $arch scheiterte" "$(cat "$tmp/build-$arch.log")"
+  local archive
+  archive="$(find "$dist" -maxdepth 1 -name "energy-node-*-$arch.tar.gz" | head -n 1)"
+  tar -xzOf "$archive" ./manifest.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["python_abi"])'
+}
+[ "$(abi_of armv6)" = cp311 ] || fail "armv6 sollte cp311 bauen"
+[ "$(abi_of arm64)" = cp313 ] || fail "arm64 sollte cp313 bauen"
+[ "$(abi_of amd64)" = cp313 ] || fail "amd64 sollte cp313 bauen"
+
 echo "OK"
