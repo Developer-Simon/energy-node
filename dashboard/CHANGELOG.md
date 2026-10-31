@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.33 (2026-10-31)
+## v0.10.33 (2026-11-01)
 
 ### Features
 
@@ -24,8 +24,8 @@
 - **webui:** onboarding bar, spotlight and checklist (#186) (1191df6)
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
 - **onboarding:** A guided first-time setup walks admins through access, display, system and devices, with a welcome step first. (#188) (7dab3e8)
+- **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
 - **onboarding:** apply the installer seed file on start (1cad38f)
-- **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190)
 - **onboarding:** add the setup step catalog and detection (faaebd9)
 - **httpapi:** serve setup items and the guest note (99b8568)
 - **webui:** mark the setup step targets with data-tour (37d71e1)

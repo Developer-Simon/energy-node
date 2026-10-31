@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Eine frische Installation startet jetzt das Dashboard. Es scheitert nicht mehr an einem fehlenden Datenordner oder an einer MQTT-Anmeldung, die der Broker ablehnt."
+  }
+}

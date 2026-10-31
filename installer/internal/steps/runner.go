@@ -132,7 +132,7 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 		scriptCommand += extraArgs
 	}
 	if step.ID == dashboardStepID && opts.Secrets != nil {
-		extraArgs, cleanupSecrets, err := stageSecretsForStep60(opts.Client, opts.Secrets)
+		extraArgs, cleanupSecrets, err := stageSecretsForStep60(opts.Client, opts.MQTTUser, opts.Secrets)
 		if err != nil {
 			return Marker{}, err
 		}

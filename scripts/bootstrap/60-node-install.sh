@@ -24,11 +24,13 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/render.sh"
 
 BINARY_NAME="energy-node-dashboard"
 MQTT_PW_FILE=""
+MQTT_USER=""
 ADMIN_PW_FILE=""
 SEED_FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mqtt-password-file) MQTT_PW_FILE="${2:-}"; shift 2 ;;
+    --mqtt-user) MQTT_USER="${2:-}"; shift 2 ;;
     --admin-password-file) ADMIN_PW_FILE="${2:-}"; shift 2 ;;
     --onboarding-seed-file) SEED_FILE="${2:-}"; shift 2 ;;
     *) shift ;;
@@ -98,7 +100,10 @@ fi
 # --- Laufzeitdateien im Heimatverzeichnis des Zielbenutzers ---------------
 target="${EN_ROOT}${EN_TARGET_BASE}/dashboard"
 devices="${EN_ROOT}${EN_TARGET_BASE}/devices"
-mkdir -p "${target}" "${devices}"
+# dashboard/data steht in ReadWritePaths= der Unit. Fehlt das Verzeichnis,
+# scheitert systemd beim Mount-Namespace mit 226/NAMESPACE, bevor das Binary
+# startet.
+mkdir -p "${target}" "${target}/data" "${devices}"
 install -m 0755 "${dash}/${BINARY_NAME}" "${target}/${BINARY_NAME}"
 # Frueher lag hier eine Kopie von services/VERSION fuer die Services-Version
 # in den Einstellungen. Die Versionen stehen jetzt im Installer-Manifest,
@@ -161,6 +166,26 @@ else
   step_log "config.json aus der Vorlage angelegt."
 fi
 
+# Der Broker-Benutzer, den Schritt 20 angelegt hat, muss in der config.json
+# stehen: die Vorlage traegt "energynode_client", das Rendern ersetzt den Namen
+# wegen des Unterstrichs nicht. Ohne Abgleich scheitert die Anmeldung mit
+# "not Authorized". Der Installer liefert den Benutzer nur zusammen mit dem
+# Passwort, das Schritt 20 in den Broker geschrieben hat.
+if [[ -n "${MQTT_USER}" ]]; then
+  user_cfg="$(mktemp)"
+  python3 - "${etc}/config.json" "${MQTT_USER}" > "${user_cfg}" <<'PY' || step_fail CONFIG_WRITE_FAILED
+import json, sys
+
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+doc.setdefault("mqtt", {})["username"] = sys.argv[2]
+json.dump(doc, sys.stdout, indent=2, sort_keys=True, ensure_ascii=False)
+sys.stdout.write("\n")
+PY
+  install_owned 0664 "${user_cfg}" "${etc}/config.json"
+  rm -f "${user_cfg}"
+  step_log "mqtt.username in config.json: ${MQTT_USER}."
+fi
+
 # Der Manifestsatz wird vollstaendig ersetzt: energy_node_common prueft ihn
 # in beide Richtungen gegen den services-Block der config.json, also laesst
 # ein uebrig gebliebenes Manifest eines entfernten Dienstes keine Bruecke
@@ -193,6 +218,13 @@ place_secret() {
   install_owned 0640 "${src}" "${dst}"
   step_log "${name} angelegt."
 }
+# Kommen Benutzer und Passwort zusammen vom Installer, sind es dieselben Werte,
+# die Schritt 20 gerade in den Broker geschrieben hat. Eine aeltere mqtt.pw
+# aus einem frueheren Lauf wuerde sonst weiter gelten und die Anmeldung
+# brechen.
+if [[ -n "${MQTT_USER}" && -n "${MQTT_PW_FILE}" && -f "${MQTT_PW_FILE}" && -e "${etc}/mqtt.pw" ]]; then
+  "${SUDO[@]}" rm -f "${etc}/mqtt.pw"
+fi
 place_secret "${MQTT_PW_FILE}" "${etc}/mqtt.pw" "mqtt.pw"
 "${SUDO[@]}" mkdir -p "${EN_ROOT}/etc/${BINARY_NAME}"
 place_secret "${ADMIN_PW_FILE}" "${EN_ROOT}/etc/${BINARY_NAME}/auth.pw" "auth.pw"

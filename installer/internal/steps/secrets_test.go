@@ -14,15 +14,21 @@ const checkSecretsScript = `#!/bin/sh
 printf '##STEP 60 begin\n'
 mqtt_file=""
 admin_file=""
+mqtt_user=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --mqtt-password-file) mqtt_file="$2"; shift 2 ;;
     --admin-password-file) admin_file="$2"; shift 2 ;;
+    --mqtt-user) mqtt_user="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
 if [ -z "$mqtt_file" ] || [ -z "$admin_file" ]; then
   printf '##STEP 60 fail MISSING_FLAGS\n'
+  exit 0
+fi
+if [ "$mqtt_user" != "broker" ]; then
+  printf '##STEP 60 fail WRONG_USER\n'
   exit 0
 fi
 if [ "$(cat "$mqtt_file")" != "mqtt-geheim" ] || [ "$(cat "$admin_file")" != "admin-geheim" ]; then
@@ -62,6 +68,7 @@ func TestRunStagesSecretsForStep60AndCleansUpAfterwards(t *testing.T) {
 		RemoteStateDir:  stateDir,
 		BundleVersion:   "v0.1.0",
 		Steps:           []bundle.StepEntry{{ID: "60", Optional: false}},
+		MQTTUser:        "broker",
 		Secrets:         &steps.Secrets{MQTTPassword: "mqtt-geheim", AdminPassword: "admin-geheim"},
 	})
 	if err != nil {
