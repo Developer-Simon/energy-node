@@ -9,6 +9,8 @@ release highlights in other languages than English:
 target of `scripts/generate_changelog.sh`. A PR file can also hold `details`
 for a larger highlight, see
 [details for bigger highlights](../../docs/developing/releasing.md#details-for-bigger-highlights).
+Every highlight of the dashboard also needs a `tour`, see
+[tours for web UI highlights](../../docs/developing/releasing.md#tours-for-web-ui-highlights).
 
 When a final release is tagged, the release workflow
 `archive-highlight-translations.yml` moves the files into a PR. The texts of one

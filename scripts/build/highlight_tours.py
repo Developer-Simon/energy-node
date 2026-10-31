@@ -21,7 +21,18 @@ Komponente und ersetzt das "*"-Objekt ganz (wie bei highlight_details).
 target ist eine data-tour-ID der Web-UI und Pflicht. panel, page und need
 sind optional, device ist any, phone oder desktop (Standard any). title und
 text brauchen Englisch und jede Sprache aus highlight_i18n.LANGUAGES.
+
+    highlight_tours.py check --repo <repo> --pr <N>
+
+check (CI): jedes Highlight des PRs in einer Komponente aus WEB_UI_TARGETS
+braucht eine Tour oder eine Ausnahme. PRs vor TOUR_REQUIRED_FROM_PR und die
+Archive v*.json und archive-v*.json prueft niemand.
 """
+import argparse
+import json
+import sys
+from pathlib import Path
+
 import highlight_i18n as hi
 
 TOUR_KEY = "tour"
@@ -29,6 +40,20 @@ DEFAULT_KEY = "*"
 DEVICES = ("any", "phone", "desktop")
 STEP_KEYS = {"panel", "page", "target", "device", "need", "title", "text"}
 OPTIONAL_KEYS = ("panel", "page", "need")
+# Erster PR des Onboardings (#186): aeltere PR-Dateien brauchen keine Tour.
+TOUR_REQUIRED_FROM_PR = 186
+# Komponenten, deren Highlights die Web-UI betreffen.
+WEB_UI_TARGETS = ("dashboard",)
+
+HINT = """
+Add a tour to changelog/highlights/{pr}.json, next to the language keys:
+
+    "tour": {{"*": {{"steps": [{{"target": "<data-tour id>",
+      "title": {{"en": "...", "de": "..."}}, "text": {{"en": "...", "de": "..."}}}}]}}}}
+
+A highlight with nothing to show gets "tour": {{"*": {{"exempt": "<reason>"}}}},
+only after the user agreed to the exemption. See docs/developing/releasing.md.
+"""
 
 
 def _text_languages():
@@ -142,3 +167,57 @@ def resolve(translations, pr, target):
         out["text"] = {lang: step["text"][lang] for lang in _text_languages()}
         steps.append(out)
     return {"steps": steps}
+
+
+def missing(repo, table, pr, translations):
+    """(Komponente, Version, Text) je Highlight des PRs in WEB_UI_TARGETS
+    ohne Tour und ohne Ausnahme."""
+    # Spaet importiert: make_changelog_json importiert dieses Modul.
+    from make_changelog_json import mark_highlights, parse_changelog
+
+    tours = translations.get(pr, {}).get(TOUR_KEY)
+    gaps = []
+    for row in table["components"]:
+        if row["target"] not in WEB_UI_TARGETS:
+            continue
+        changelog = Path(repo) / row["changelog"]
+        if not changelog.is_file():
+            continue
+        if isinstance(tours, dict) and _select(tours, row["target"])[0] is not None:
+            continue
+        for release in mark_highlights(parse_changelog(changelog.read_text(encoding="utf-8"))):
+            for group in release["groups"]:
+                for entry in group["entries"]:
+                    if entry.get("pr") == pr and entry.get("highlight"):
+                        gaps.append((row["label"], release["version"], entry["text"]))
+    return gaps
+
+
+def check(repo, pr):
+    if pr < TOUR_REQUIRED_FROM_PR:
+        print(f"PR #{pr}: before #{TOUR_REQUIRED_FROM_PR}, no tour required")
+        return 0
+    translations = hi.load_translations(repo / hi.TRANSLATIONS_DIR)
+    table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
+    gaps = missing(repo, table, pr, translations)
+    if not gaps:
+        print(f"PR #{pr}: every web UI highlight has a tour or an exemption")
+        return 0
+    for component, version, text in gaps:
+        print(f"PR #{pr}, {component} {version}: no tour for \"{text}\"")
+    print(HINT.format(pr=pr))
+    return 1
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    sub = parser.add_subparsers(dest="command", required=True)
+    command = sub.add_parser("check")
+    command.add_argument("--repo", required=True)
+    command.add_argument("--pr", required=True, type=int)
+    args = parser.parse_args(argv)
+    return check(Path(args.repo), args.pr)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
