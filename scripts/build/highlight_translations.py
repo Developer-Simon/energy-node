@@ -20,8 +20,9 @@ archive --tag (Release-Workflow): faltet alle changelog/highlights/<N>.json in
 changelog/highlights/<vX.Y.Z>.json, die Datei des vorigen Releases in
 archive-v<MAJOR>.json, und loescht die gefalteten Dateien.
 
-validate (CI): prueft die Details aller Dateien in changelog/highlights, nicht
-nur die des PRs (siehe highlight_details.validate). Eine Zeile je Meldung,
+validate (CI): prueft die Details und Touren aller Dateien in
+changelog/highlights, nicht nur die des PRs (siehe highlight_details.validate
+und highlight_tours.validate). Eine Zeile je Meldung,
 Exit 1 bei mindestens einer.
 """
 import argparse
@@ -31,6 +32,7 @@ from pathlib import Path
 
 import highlight_details
 import highlight_i18n
+import highlight_tours
 from make_changelog_json import mark_highlights, parse_changelog
 
 HINT = """
@@ -96,7 +98,7 @@ def check(repo, pr):
 
 def validate(repo):
     translations = highlight_i18n.load_translations(repo / highlight_i18n.TRANSLATIONS_DIR)
-    problems = highlight_details.validate(repo, translations)
+    problems = highlight_details.validate(repo, translations) + highlight_tours.validate(translations)
     for problem in problems:
         print(problem)
     return 1 if problems else 0
