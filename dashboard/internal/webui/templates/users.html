@@ -219,6 +219,18 @@
         <p class="users-hint" x-bind:class="{ 'is-show': !!lockFor(cardId, '__active') }" x-show="cardKind(cardId) === 'account' || cardKind(cardId) === 'ha'"><span
           x-text="lockFor(cardId, '__active') === 'self' ? $t('users.lock.self') : (lockFor(cardId, '__active') === 'last_admin' ? $t('users.lock.last_admin') : '')"></span></p>
 
+        <div class="users-line" x-show="cardId === 'preset:guest'">
+          <span class="users-line-text">
+            <span>{{t "users.guest_access.label"}}</span>
+            <span class="users-line-note">{{t "users.guest_access.note"}}</span>
+          </span>
+          <label class="settings-toggle">
+            <input type="checkbox" role="switch" aria-label="{{t "users.guest_access.label"}}" x-bind:checked="guestAccess" x-bind:disabled="saving !== ''" x-on:change="saveGuestAccess($event.target.checked)">
+            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          </label>
+        </div>
+        <p class="users-ha-note" x-show="cardId === 'preset:guest' && !guestAccess">{{t "users.guest_access.off_hint"}}</p>
+
         <div class="users-line" x-show="cardKind(cardId) === 'ha'">
           <span class="users-line-text">
             <span>{{t "users.ha_account.custom"}}</span>
