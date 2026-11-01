@@ -222,9 +222,38 @@ test('each version card links to its release notes on the versions page', async 
 
 test('the checklist template shows the shared highlight details and the release notes link', () => {
   const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
-  assert.match(template, /\{\{template "highlightDetails"\}\}/);
+  assert.match(template, /\{\{template "highlightDetailsBody"\}\}/);
   assert.match(template, /x-bind:href="releaseHref\(version\)"/);
   assert.match(template, /\{\{t "onboarding\.checklist\.release_notes"\}\}/);
+});
+
+test('the checklist reads a highlight directly: body only, no details wrapper, no doc link', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  const start = template.indexOf('class="ob-cl-detail"');
+  const end = template.indexOf('</li>', start);
+  assert.ok(start > 0 && end > start, 'the ob-cl-detail block exists');
+  const detail = template.slice(start, end);
+  assert.match(detail, /<div class="whatsnew-body" x-data="\{ entry: item, showDoc: false, cropped: true, loaded: false \}" x-effect="if \(isReading\(item\)\) loaded = true">\{\{template "highlightDetailsBody"\}\}<\/div>/);
+  assert.doesNotMatch(detail, /<summary/);
+  assert.doesNotMatch(detail, /<details/);
+  assert.doesNotMatch(detail, /\{\{template "highlightDetails"\}\}/);
+});
+
+test('the shared body shows the doc link only when showDoc is set, the versions page keeps the details wrapper', () => {
+  const partial = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'highlight-details.html'), 'utf8');
+  const body = partial.slice(partial.indexOf('{{define "highlightDetailsBody"}}'), partial.indexOf('{{define "highlightDetails"}}'));
+  assert.match(partial, /\{\{define "highlightDetailsBody"\}\}/);
+  assert.match(body, /<template x-if="entry\.details\.doc && showDoc">/);
+  assert.match(body, /<p class="whatsnew-text" x-text="window\.highlightDetails\.detailText\(entry\)"><\/p>/);
+  assert.match(body, /<span class="whatsnew-shot"/);
+  assert.match(partial, /x-data="\{ loaded: false, cropped: true, showDoc: true \}"/);
+  assert.match(partial, /<summary class="whatsnew-summary">/);
+  assert.match(partial, /<div class="whatsnew-body">\{\{template "highlightDetailsBody"\}\}<\/div>/);
+});
+
+test('the German doc link hint says the guide is English only', () => {
+  assert.equal(catalog('de')['settings.whatsnew.doc_link'], 'In der Anleitung ansehen (en)');
+  assert.equal(catalog('en')['settings.whatsnew.doc_link'], 'Open the guide');
 });
 
 test('the checklist links prominently to all versions and the version cards use the release notes chip', () => {

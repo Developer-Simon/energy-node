@@ -1,7 +1,4 @@
-{{define "highlightDetails"}}
-                    <details class="whatsnew-detail" name="whatsnew-detail" x-data="{ loaded: false, cropped: true }" x-on:toggle="loaded = loaded || $el.open; window.highlightDetails.onToggle($event)">
-                      <summary class="whatsnew-summary"><span><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="window.highlightDetails.text(entry)"></span></span><span class="whatsnew-more"><span class="whatsnew-more-closed">{{t "settings.whatsnew.more"}}</span><span class="whatsnew-more-open">{{t "settings.whatsnew.less"}}</span><svg class="whatsnew-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></span></summary>
-                      <div class="whatsnew-body">
+{{define "highlightDetailsBody"}}
                         <p class="whatsnew-text" x-text="window.highlightDetails.detailText(entry)"></p>
                         <template x-if="entry.details.image">
                           <figure class="whatsnew-figure">
@@ -11,9 +8,13 @@
                             </template>
                           </figure>
                         </template>
-                        <template x-if="entry.details.doc">
+                        <template x-if="entry.details.doc && showDoc">
                           <a class="whatsnew-link" x-bind:href="entry.details.doc" target="_blank" rel="noopener">{{t "settings.whatsnew.doc_link"}}</a>
                         </template>
-                      </div>
+{{end}}
+{{define "highlightDetails"}}
+                    <details class="whatsnew-detail" name="whatsnew-detail" x-data="{ loaded: false, cropped: true, showDoc: true }" x-on:toggle="loaded = loaded || $el.open; window.highlightDetails.onToggle($event)">
+                      <summary class="whatsnew-summary"><span><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="window.highlightDetails.text(entry)"></span></span><span class="whatsnew-more"><span class="whatsnew-more-closed">{{t "settings.whatsnew.more"}}</span><span class="whatsnew-more-open">{{t "settings.whatsnew.less"}}</span><svg class="whatsnew-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></span></summary>
+                      <div class="whatsnew-body">{{template "highlightDetailsBody"}}</div>
                     </details>
 {{end}}

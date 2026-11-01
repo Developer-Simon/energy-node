@@ -499,6 +499,8 @@
 }
 .ob-cl-detail { grid-column: 2 / -1; display: grid; gap: .4rem; padding-bottom: .2rem; }
 .ob-cl-detail p { margin: 0; font-size: .9rem; line-height: 1.5; }
+/* Die Details stehen ohne <details> direkt in der Zeile: der Body ist sonst unter .whatsnew-detail[open] unsichtbar. */
+.ob-cl-detail .whatsnew-body { opacity: 1; transform: none; padding: 0; }
 
 /* --- Barrierefreiheit ------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
