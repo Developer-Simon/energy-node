@@ -9,7 +9,9 @@
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(apiError(body));
+      const error = new Error(apiError(body));
+      error.body = body;
+      throw error;
     }
     return body;
   };
@@ -166,10 +168,18 @@
           body: JSON.stringify(this.form),
         });
         if (reconnect) {
-          const result = await requestJSON('/api/v1/mqtt/reconnect', {
-            method: 'POST',
-            headers: {'X-CSRF-Token': this.csrfToken},
-          });
+          // A failed reconnect answers 502 with {ok: false, status, error}. That
+          // body is the result to show, not a generic request failure.
+          let result;
+          try {
+            result = await requestJSON('/api/v1/mqtt/reconnect', {
+              method: 'POST',
+              headers: {'X-CSRF-Token': this.csrfToken},
+            });
+          } catch (error) {
+            if (!error.body || error.body.ok !== false) throw error;
+            result = error.body;
+          }
           this.status = result.status || this.status;
           if (result.ok) {
             this.$store.toasts.push(t('mqtt.saved_and_reconnected'));

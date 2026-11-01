@@ -176,6 +176,28 @@ test('save(true) also calls reconnect and reports its outcome', async () => {
   assert.equal(component.status.broker_address, 'broker.local:1883');
 });
 
+test('save(true) shows the broker error of a failed reconnect (HTTP 502) instead of a generic failure', async () => {
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/mqtt') return jsonResponse({});
+      if (url === '/api/v1/mqtt/reconnect') {
+        return jsonResponse({ ok: false, error: 'mqttclient: reconfigure failed: not Authorized', status: { connected: false, last_error: 'not Authorized' } }, false);
+      }
+      if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: false, last_error: 'not Authorized' });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.form = { ...component.form, host: 'broker.local', client_id: 'dashboard' };
+
+  await component.save(true);
+
+  assert.equal(stores.toasts.criticals.length, 1);
+  assert.match(stores.toasts.criticals[0], /not Authorized/);
+  assert.equal(component.status.last_error, 'not Authorized');
+});
+
 test('saveEnergyDevice() PUTs only the flag to its own endpoint, no full-config validity needed', async () => {
   const calls = [];
   const { component, stores } = createMqttPanel({

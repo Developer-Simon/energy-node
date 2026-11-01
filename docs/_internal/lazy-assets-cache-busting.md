@@ -265,7 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.10.34 | `js/mqtt.page.js` (settings panel, the connection test result is shown as a toast, no text lines below the buttons) | `11` | 2026-11-01 |
+| v0.10.34 | `js/mqtt.page.js` (settings panel, the connection test result is shown as a toast and a failed reconnect shows the broker error instead of a generic failure) | `11` | 2026-11-01 |
 | v0.10.28 | `js/users.page.js` (settings panel, guest preset card with the guest access switch) · `js/dashboard.js` (ignored devices: un-ignore needs the discovery permission) · `js/device-modal.js` (device dialog: ignore needs the discovery permission) | `4` · `42` · `3` | 2026-10-31 |
 | v0.10.27 | `js/stats.page.js` (stats panel, narrow screens: interval selection, table view switch, chart band) · `css/stats.css` (stats panel, floating back/next bar, interval and grid table views) | `6` · `4` | 2026-10-30 |
 | v0.10.26 | `js/dashboard.js` (main tab "More" list no longer refits itself in an endless loop on narrow screens) | `41` | 2026-10-30 |
