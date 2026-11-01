@@ -50,9 +50,9 @@ def test_core_catalog_matches_dashboard_catalog(lang):
 def test_parity_check_detects_drift():
     """Der Vergleich selbst muss scheitern, wenn er es soll - sonst waere
     der Paritaetstest oben wertlos."""
-    core = {"zu_wenig_daten": "{count} von {needed}", "kein_unterer_anker": "Text"}
-    dashboard = {"zu_wenig_daten": "{count} von {total}", "anker_unzuverlaessig": "x"}
+    core = {"too_few_samples": "{count} von {needed}", "no_lower_anchor": "Text"}
+    dashboard = {"too_few_samples": "{count} von {total}", "anchor_unreliable": "x"}
     problems = parity_problems(core, dashboard)
-    assert "placeholders differ: zu_wenig_daten" in problems
-    assert "missing in dashboard: kein_unterer_anker" in problems
-    assert "missing in core: anker_unzuverlaessig" in problems
+    assert "placeholders differ: too_few_samples" in problems
+    assert "missing in dashboard: no_lower_anchor" in problems
+    assert "missing in core: anchor_unreliable" in problems

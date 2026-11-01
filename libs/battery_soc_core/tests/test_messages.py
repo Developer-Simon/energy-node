@@ -18,5 +18,5 @@ def test_every_language_has_the_same_placeholders_per_key():
 
 
 def test_finding_key_appends_subject():
-    assert finding_key("unplausibel", {"subject": "efficiency"}) == "unplausibel_efficiency"
-    assert finding_key("zu_wenig_daten", {"count": 2, "needed": 5}) == "zu_wenig_daten"
+    assert finding_key("implausible", {"subject": "efficiency"}) == "implausible_efficiency"
+    assert finding_key("too_few_samples", {"count": 2, "needed": 5}) == "too_few_samples"

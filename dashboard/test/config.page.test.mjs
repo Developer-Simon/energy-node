@@ -501,7 +501,7 @@ const tuningPayloadPack = {
         { key: 'inverter_dc_ac_efficiency', current_value: 0.9, suggested_value: 0.945, confidence: 'hoch', sample_count: 8, spread: 0.01 },
       ],
       findings: [
-        { code: 'zu_wenig_daten', severity: 'info', message: 'Zu wenige Kalibrierereignisse für eine Innenwiderstandsschätzung.' },
+        { code: 'too_few_samples', severity: 'info', message: 'Zu wenige Kalibrierereignisse für eine Innenwiderstandsschätzung.' },
       ],
     },
   },
@@ -1003,7 +1003,7 @@ test('config without a roles list in the session stays editable', async () => {
 test('battery tuning findings are rendered from the catalog, not from the service text', () => {
   const payload = structuredClone(tuningPayloadPack);
   payload.units.pack.findings = [
-    { code: 'zu_wenig_daten', severity: 'info', message: 'Rohtext des Dienstes', params: { count: 0, needed: 5 } },
+    { code: 'too_few_samples', severity: 'info', message: 'Rohtext des Dienstes', params: { count: 0, needed: 5 } },
     { code: 'unbekannter_code', severity: 'info', message: 'Rueckfalltext' },
   ];
   const { component, document } = batteryPanel(liveBatteryStatePack, payload);

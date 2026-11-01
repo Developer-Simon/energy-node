@@ -119,16 +119,16 @@ def analyse(params, events):
 
     if full_events and not trustworthy:
         findings.append(_finding(
-            "anker_unzuverlaessig", "warnung", count=len(full_events)))
+            "anchor_unreliable", "warning", count=len(full_events)))
         return suggestions, findings
 
     if not any(e.side == "empty" for e in events):
-        findings.append(_finding("kein_unterer_anker", "info"))
+        findings.append(_finding("no_lower_anchor", "info"))
 
     usable = [e for e in trustworthy if e.charged_ah > 0 and e.discharged_ah > 0]
     if len(usable) < MIN_SAMPLES_FOR_SUGGESTION:
         findings.append(_finding(
-            "zu_wenig_daten", "info",
+            "too_few_samples", "info",
             count=len(usable), needed=MIN_SAMPLES_FOR_SUGGESTION))
         return suggestions, findings
 
@@ -142,7 +142,7 @@ def analyse(params, events):
     low, high = EFFICIENCY_BOUNDS
     if not low <= proposed <= high:
         findings.append(_finding(
-            "unplausibel", "warnung", subject="efficiency",
+            "implausible", "warning", subject="efficiency",
             value=f"{proposed:.3f}", low=low, high=high))
     else:
         direction = "hoeher" if proposed > params.inverter_dc_ac_efficiency else "niedriger"
@@ -168,7 +168,7 @@ def analyse(params, events):
         hot = [e for e in trustworthy if abs(e.current_a) >= threshold_a]
         if len(hot) >= len(trustworthy) / 2:
             findings.append(_finding(
-                "schwelle_zu_tief", "warnung",
+                "threshold_too_low", "warning",
                 hot=len(hot), total=len(trustworthy),
                 threshold=f"{threshold_a:.1f}"))
 
@@ -182,7 +182,7 @@ def analyse(params, events):
     if not resistance_candidates:
         if full_events or any(e.side == "empty" for e in events):
             findings.append(_finding(
-                "zu_geringer_strom", "info",
+                "current_too_low", "info",
                 min_current=f"{MIN_CURRENT_FOR_RESISTANCE_A:.1f}"))
     else:
         estimates = []
@@ -198,7 +198,7 @@ def analyse(params, events):
         low, high = RESISTANCE_BOUNDS
         if not low <= r_median <= high:
             findings.append(_finding(
-                "unplausibel", "warnung", subject="resistance",
+                "implausible", "warning", subject="resistance",
                 value=f"{r_median:.2f}", low=low, high=high))
         else:
             suggestions.append(Suggestion(

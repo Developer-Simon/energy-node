@@ -543,7 +543,7 @@ select.schema-control {
 .battery-tuning-suggestions { display: grid; gap: .4rem; font-size: .85rem; }
 .battery-tuning-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .85rem; }
 .battery-tuning-finding { font-size: .85rem; padding-left: 1rem; border-left: 3px solid var(--border-soft); }
-.battery-tuning-finding--warnung { border-left-color: var(--bad-line, #c0392b); }
+.battery-tuning-finding--warning, .battery-tuning-finding--warnung { border-left-color: var(--bad-line, #c0392b); }
 
 /* ---------------------------------------------------------------------------
    Konfigurationsseite: schwebende Aktionsleiste und eingeklappter JSON-Editor.

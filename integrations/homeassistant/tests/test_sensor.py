@@ -112,7 +112,7 @@ def _findings_sensor(hass, findings, language="en"):
 def test_findings_message_follows_ha_language(hass):
     """Findings with params are rendered in the HA language from the catalog."""
     finding = {
-        "code": "zu_wenig_daten",
+        "code": "too_few_samples",
         "severity": "info",
         "message": "2 von 5 benötigten Intervallen",
         "params": {"count": 2, "needed": 5},
@@ -128,7 +128,7 @@ def test_findings_message_follows_ha_language(hass):
 
 def test_findings_without_params_keep_message(hass):
     """A finding without params keeps its stored message."""
-    finding = {"code": "zu_wenig_daten", "severity": "info", "message": "Rohtext"}
+    finding = {"code": "too_few_samples", "severity": "info", "message": "Rohtext"}
     sensor, _ = _findings_sensor(hass, [finding], language="en")
 
     assert sensor.extra_state_attributes["findings"][0]["message"] == "Rohtext"
@@ -150,7 +150,7 @@ def test_finding_with_unknown_code_keeps_message(hass):
 def test_findings_translation_does_not_change_coordinator_data(hass):
     """The rendered attribute is a copy; the coordinator's finding stays as stored."""
     finding = {
-        "code": "zu_wenig_daten",
+        "code": "too_few_samples",
         "severity": "info",
         "message": "Rohtext",
         "params": {"count": 2, "needed": 5},

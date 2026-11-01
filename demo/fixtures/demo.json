@@ -1020,14 +1020,14 @@
           ],
           "findings": [
             {
-              "code": "zu_wenig_daten",
+              "code": "too_few_samples",
               "severity": "info",
               "message": "3 von 5 benötigten Intervallen zwischen zwei belastbaren Voll-Ankern. Ein einzelner Zyklus ist eine Anekdote, keine Messreihe.",
               "params": {"count": 3, "needed": 5}
             },
             {
-              "code": "unplausibel",
-              "severity": "warnung",
+              "code": "implausible",
+              "severity": "warning",
               "message": "Die Messreihe führt auf einen Innenwiderstand von 6.20 mOhm/Zelle, außerhalb des plausiblen Bereichs 0.1 bis 5.0. Das deutet eher auf eine falsch sitzende Spannungsmessung oder einen schlechten Kontakt als auf einen echten Zellwert hin.",
               "params": {"subject": "resistance", "value": "6.20", "low": 0.1, "high": 5.0}
             }
@@ -1037,7 +1037,7 @@
           "suggestions": [],
           "findings": [
             {
-              "code": "kein_unterer_anker",
+              "code": "no_lower_anchor",
               "severity": "info",
               "message": "Keine 0-%-Kalibrierung in der Historie. Ohne eine Strecke von voll bis leer ist die nutzbare Kapazität nicht bestimmbar, dafür gibt es hier grundsätzlich keinen Vorschlag. Schaltet der Wechselrichter oder das BMS vor empty_v_per_cell ab, ist calibration_tolerance_empty_v_per_cell der Hebel.",
               "params": {}

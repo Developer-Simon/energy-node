@@ -774,7 +774,7 @@
     tuningFindingText(finding) {
       if (!finding.params) return finding.message;
       const params = finding.params;
-      // i18n-keys: config.tuning.finding.anker_unzuverlaessig, config.tuning.finding.kein_unterer_anker, config.tuning.finding.zu_wenig_daten, config.tuning.finding.unplausibel_efficiency, config.tuning.finding.unplausibel_resistance, config.tuning.finding.schwelle_zu_tief, config.tuning.finding.zu_geringer_strom
+      // i18n-keys: config.tuning.finding.anchor_unreliable, config.tuning.finding.no_lower_anchor, config.tuning.finding.too_few_samples, config.tuning.finding.implausible_efficiency, config.tuning.finding.implausible_resistance, config.tuning.finding.threshold_too_low, config.tuning.finding.current_too_low
       const key = `config.tuning.finding.${finding.code}${params.subject ? `_${params.subject}` : ''}`;
       const text = t(key, params);
       return text && text !== key ? text : finding.message;

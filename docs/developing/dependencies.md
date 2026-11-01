@@ -35,9 +35,9 @@ The calibration findings of `battery_soc_core` (`libs/battery_soc_core/battery_s
 get their text from a catalog in `messages.py`, not from a string in the code.
 To add a finding:
 
-1. Pick the code, for example `zu_wenig_daten`. If the finding has a subject,
+1. Pick the code, for example `too_few_samples`. If the finding has a subject,
    the catalog key is the code plus the subject, for example
-   `unplausibel_efficiency`. `finding_key` builds it from `params["subject"]`.
+   `implausible_efficiency`. `finding_key` builds it from `params["subject"]`.
 2. Add the German and the English text to `CATALOGS` in `messages.py`, with the
    same placeholders as the `params` you pass.
 3. Add the same keys as `config.tuning.finding.<key>` to both dashboard catalogs,
