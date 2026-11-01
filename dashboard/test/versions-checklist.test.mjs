@@ -230,6 +230,13 @@ test('the crosslink motion is transitions only on named properties, never all, a
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.ob-crosslink/);
 });
 
+test('the version card head wraps onto clean lines: the chip and title never break, the eyebrow drops below', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'onboarding.css'), 'utf8');
+  assert.match(css, /\.ob-cl-summary-head\s*\{[^}]*flex-wrap: wrap;[^}]*row-gap: \.35rem;/);
+  assert.match(css, /\.ob-cl-summary-head \.setting-card-title\s*\{\s*white-space: nowrap;\s*\}/);
+  assert.match(css, /\.ob-cl-summary-head \.ob-crosslink--chip\s*\{\s*white-space: nowrap;\s*margin-left: auto;\s*\}/);
+});
+
 test('a stale highlight shows the hint and a disabled tour button, the checklist link stays', () => {
   const { component } = createPanel();
   assert.equal(component.highlightState({ id: 'h192' }), 'stale');

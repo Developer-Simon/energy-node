@@ -401,7 +401,9 @@
 .ob-cl-head { grid-column: 1 / -1; }
 .ob-cl-switch { max-width: 22rem; margin-top: 0; }
 .ob-cl-switch-label { display: inline-flex; align-items: center; }
-.ob-cl-summary-head { display: flex; align-items: baseline; justify-content: space-between; gap: .8rem; }
+.ob-cl-summary-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .8rem; row-gap: .35rem; }
+.ob-cl-summary-head .setting-card-title { white-space: nowrap; }
+.ob-cl-summary-head .ob-crosslink--chip { white-space: nowrap; margin-left: auto; }
 .ob-cl-count { color: var(--text-muted); font-size: .88rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ob-cl-count strong { color: var(--text-strong); font-weight: 650; }
 .ob-cl-eyebrow { color: var(--text-muted); font-size: .78rem; }
