@@ -324,6 +324,7 @@
 ### Tests
 
 - **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
+- **smoke:** probe the battery state under the demo bank topic (7e93a90)
 - **webui:** walk all setup steps in the browser (38ea222)
 - **webui:** assert the checklist deep link scroll and highlight (3a4ac10)
 - **smoke:** add the onboarding progress check (9ab774b)
