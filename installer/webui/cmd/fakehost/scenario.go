@@ -58,6 +58,10 @@ type stagedBackend struct {
 	sudoLocked bool
 	// onlineDeps: die Online-Installation der Abhaengigkeiten ist freigegeben.
 	onlineDeps bool
+	// mqttDenied: das Szenario "mqtt-denied" lehnt den MQTT-Login ab, bis
+	// ein Reparaturlauf von Schritt 20 mit einem Passwort ihn freigibt.
+	mqttDenied bool
+	mqttFixed  bool
 }
 
 // wrongSudoPassword lehnt die Attrappe ab; jedes andere nichtleere Passwort
@@ -134,6 +138,12 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 		return b.FakeBackend.Run(ctx, req, sink)
 	}
 
+	if b.mqttDenied && req.Mode == hostapi.ModeRepair && req.Only == "20" && req.MQTTPassword != "" {
+		b.mu.Lock()
+		b.mqttFixed = true
+		b.mu.Unlock()
+	}
+
 	for _, step := range b.Steps {
 		if req.Only != "" && step.ID != req.Only {
 			continue
@@ -206,14 +216,34 @@ func (b *stagedBackend) webhookChosen() bool {
 // aus - der Zustand direkt nach der Installation, also ein Hinweis.
 func (b *stagedBackend) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	view, err := b.FakeBackend.Diagnose(ctx)
-	if err != nil || view == nil || !b.webhookChosen() {
+	if err != nil || view == nil {
 		return view, err
 	}
+	webhook := b.webhookChosen()
+	b.mu.Lock()
+	mqtt := b.mqttDenied
+	fixed := b.mqttFixed
+	b.mu.Unlock()
+	if !webhook && !mqtt {
+		return view, nil
+	}
 	out := *view
-	out.Checks = append(append([]hostapi.Check{}, view.Checks...),
-		hostapi.Check{Name: "shelly webhook firewall 8082", OK: true, Detail: "allowed", RetryStepID: webhookStep, Group: "system", Subject: "shelly-webhook-firewall:8082"},
-		hostapi.Check{Name: "shelly webhook listener 8082", OK: false, Detail: "not listening", Group: "system", Subject: "shelly-webhook-listener:8082", Severity: "warn"},
-	)
+	out.Checks = append([]hostapi.Check{}, view.Checks...)
+	if webhook {
+		out.Checks = append(out.Checks,
+			hostapi.Check{Name: "shelly webhook firewall 8082", OK: true, Detail: "allowed", RetryStepID: webhookStep, Group: "system", Subject: "shelly-webhook-firewall:8082"},
+			hostapi.Check{Name: "shelly webhook listener 8082", OK: false, Detail: "not listening", Group: "system", Subject: "shelly-webhook-listener:8082", Severity: "warn"},
+		)
+	}
+	if mqtt {
+		// Szenario mqtt-denied: der Login steht auf "denied", bis Schritt 20
+		// mit einem Passwort gelaufen ist (wie checklist.go den Befund meldet).
+		mqttCheck := hostapi.Check{Name: "mqtt login", OK: true, Detail: "ok", RetryStepID: "20", Group: "system", Subject: "mqtt-login"}
+		if !fixed {
+			mqttCheck = hostapi.Check{Name: "mqtt login", OK: false, Detail: "denied", RetryStepID: "20", Group: "system", Subject: "mqtt-login", Needs: "mqtt_password"}
+		}
+		out.Checks = append(out.Checks, mqttCheck)
+	}
 	return &out, nil
 }
 
@@ -436,7 +466,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		fake.DiagnoseView.SystemUpdates = updates
 	}
 
-	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted}
+	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted, mqttDenied: name == "mqtt-denied"}
 }
 
 // logEntry ist eine Zeile der Neustart-Folge aus dem Mockup (livelog-layout.html).

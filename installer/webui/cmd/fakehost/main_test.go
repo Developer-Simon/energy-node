@@ -240,3 +240,41 @@ func TestTheJournalStepAppearsOnlyOnRequest(t *testing.T) {
 		t.Errorf("--journal-step must add step 17 as optional and off by default")
 	}
 }
+
+func TestTheMqttDeniedScenarioFlipsOnlyOnARepairWithThePassword(t *testing.T) {
+	backend := newScenario("mqtt-denied", options{})
+	ctx := context.Background()
+	mqttCheck := func() hostapi.Check {
+		view, err := backend.Diagnose(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range view.Checks {
+			if c.Subject == "mqtt-login" {
+				return c
+			}
+		}
+		t.Fatalf("the diagnose has no mqtt login check")
+		return hostapi.Check{}
+	}
+	want := hostapi.Check{Name: "mqtt login", OK: false, Detail: "denied", RetryStepID: "20", Group: "system", Subject: "mqtt-login", Needs: "mqtt_password"}
+	if got := mqttCheck(); got != want {
+		t.Fatalf("denied at start: got %+v, want %+v", got, want)
+	}
+
+	// Ohne Passwort bleibt der Login abgelehnt.
+	if err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModeRepair, Only: "20"}, &countingSink{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := mqttCheck(); got.OK {
+		t.Fatalf("a repair without the password must keep the login denied, got %+v", got)
+	}
+
+	// Mit dem Passwort, nur Schritt 20, ist der Login beim naechsten Abruf ok.
+	if err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModeRepair, Only: "20", MQTTPassword: "neu-geheim"}, &countingSink{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := mqttCheck(); !got.OK || got.Detail != "ok" || got.Needs != "" {
+		t.Fatalf("after the repair with the password: got %+v", got)
+	}
+}
