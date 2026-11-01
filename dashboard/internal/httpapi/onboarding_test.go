@@ -36,9 +36,16 @@ type onboardingView struct {
 	Explore struct {
 		CurrentVersion string `json:"current_version"`
 		Items          []struct {
-			ID      string `json:"id"`
-			Version string `json:"version"`
-			Tour    *struct {
+			ID      string            `json:"id"`
+			Version string            `json:"version"`
+			PR      int               `json:"pr"`
+			Text    string            `json:"text"`
+			I18n    map[string]string `json:"i18n"`
+			Details *struct {
+				Text map[string]string `json:"text"`
+				Doc  string            `json:"doc"`
+			} `json:"details"`
+			Tour *struct {
 				Steps []struct {
 					Target string `json:"target"`
 					Need   string `json:"need"`
@@ -526,5 +533,43 @@ func TestGuestMeStoresNothing(t *testing.T) {
 	}
 	if strings.Contains(string(data), "guest-") {
 		t.Fatalf("guest progress stored: %s", data)
+	}
+}
+
+func TestExploreItemCarriesTextAndDetails(t *testing.T) {
+	dir := t.TempDir()
+	changelog := `{"schema_version":1,"components":[{"id":"dashboard","label":"Dashboard","version":"v0.10.0","releases":[
+  {"version":"v0.10.0","groups":[{"type":"feat","entries":[
+    {"text":"Checklist","pr":192,"breaking":false,"highlight":true,
+     "i18n":{"de":"Checkliste"},
+     "details":{"text":{"en":"Longer text","de":"Laengerer Text"},"doc":"docs/checklist.md"},
+     "tour":{"steps":[{"target":"checklist","device":"any","title":{"en":"C"},"text":{"en":"C"}}]}}]}]}]}]}`
+	files := map[string]string{
+		"changelog.json":          changelog,
+		"installed-manifest.json": `{"version":"v0.10.0","components":{"dashboard":"v0.10.0"}}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	router, _ := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), dir)
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	items := getOnboarding(t, router, cookie).Explore.Items
+	if len(items) != 1 {
+		t.Fatalf("explore items = %+v, want one", items)
+	}
+	item := items[0]
+	if item.ID != "h192" || item.Version != "v0.10.0" || item.PR != 192 || item.Text != "Checklist" {
+		t.Fatalf("item = %+v, want id h192, version v0.10.0, pr 192, text Checklist", item)
+	}
+	if item.I18n["de"] != "Checkliste" {
+		t.Fatalf("i18n = %v, want de Checkliste", item.I18n)
+	}
+	if item.Details == nil || item.Details.Text["en"] != "Longer text" || item.Details.Doc != "docs/checklist.md" {
+		t.Fatalf("details = %+v, want the longer text and doc", item.Details)
+	}
+	if item.Tour == nil || len(item.Tour.Steps) != 1 {
+		t.Fatalf("tour = %+v, want the checklist step", item.Tour)
 	}
 }

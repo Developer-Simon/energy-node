@@ -71,9 +71,13 @@ func onboardingInstalled(services map[string]bool) map[string]bool {
 // erkunden". Tour holds only the steps the caller has the rights for and is
 // null when none is left, the highlight then counts as text only.
 type onboardingExploreItem struct {
-	ID      string                  `json:"id"`
-	Version string                  `json:"version"`
-	Tour    *versions.HighlightTour `json:"tour"`
+	ID      string                     `json:"id"`
+	Version string                     `json:"version"`
+	PR      int                        `json:"pr,omitempty"`
+	Text    string                     `json:"text"`
+	I18n    map[string]string          `json:"i18n,omitempty"`
+	Details *versions.HighlightDetails `json:"details,omitempty"`
+	Tour    *versions.HighlightTour    `json:"tour"`
 }
 
 // onboardingExplore lists the highlights of the last update, each ID once. A
@@ -92,7 +96,15 @@ func onboardingExplore(stateDir string, user auth.User) (string, []onboardingExp
 					continue
 				}
 				known[entry.ID] = true
-				items = append(items, onboardingExploreItem{ID: entry.ID, Version: release.Version, Tour: onboardingTourFor(user, entry.Tour)})
+				items = append(items, onboardingExploreItem{
+					ID:      entry.ID,
+					Version: release.Version,
+					PR:      entry.PR,
+					Text:    entry.Text,
+					I18n:    entry.I18n,
+					Details: entry.Details,
+					Tour:    onboardingTourFor(user, entry.Tour),
+				})
 			}
 		}
 	}
