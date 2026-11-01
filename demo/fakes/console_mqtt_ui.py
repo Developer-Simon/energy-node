@@ -54,7 +54,7 @@ MQTT_HTML = """<div id="tab-mqtt">
       <span class="end"><button type="button" class="btn btn-primary" data-act="login">Übernehmen</button></span>
     </div>
   </div>
-  <p class="note">Übernehmen setzt das Konto, das der Broker annimmt, und trennt alle Clients. Schickt das Dashboard andere Zugangsdaten, lehnt der Broker es ab (not Authorized). Ohne Schalter nimmt er wieder jeden an.</p>
+  <p class="note">Übernehmen setzt das Konto, das der Broker annimmt, und trennt alle Clients. Schickt das Dashboard andere Zugangsdaten, lehnt der Broker es ab (not Authorized). Ist der Schalter aus, nimmt er wieder jeden an.</p>
   <p class="grp-err"></p>
 </div>
 
