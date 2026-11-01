@@ -201,6 +201,22 @@ test('eyebrow strings match the draft', () => {
   assert.equal(m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen: {}, status: {}, ctx: ctx({ role: 'user' }) }).length, 0);
 });
 
+test('explore step keeps its own title and text, else the highlight text', () => {
+  const m = load();
+  const explore = [{
+    version: '0.12.0', current: true,
+    items: [{ id: 'h1', title: 'Highlight', text: 'Highlight text', steps: [
+      { id: 'h1a', title: 'Eigener Titel', text: 'Eigener Text', target: '', check: 'leave', literal: true },
+      { id: 'h1b', target: '', check: 'leave' },
+    ] }],
+  }];
+  const steps = m.buildSteps({ mode: 'explore', from: null, explore, seen: {}, status: {}, ctx: ctx() });
+  assert.equal(steps[0].title, 'Eigener Titel');
+  assert.equal(steps[0].text, 'Eigener Text');
+  assert.equal(steps[1].title, 'Highlight');
+  assert.equal(steps[1].text, 'Highlight text');
+});
+
 test('pickText zeigt den Leertext nur, wenn der Bereich leer ist', () => {
   const m = load();
   const step = { text: 'Erklaerung', emptyText: 'Leer' };

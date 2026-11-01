@@ -278,8 +278,9 @@ test('explore steps keep the highlight text and skip the catalog', async () => {
   assert.equal(store.steps.length, 1);
   const [first] = store.steps;
   assert.equal(first.id, 'h184');
-  assert.equal(first.title, 'Gast-Schalter');
-  assert.equal(first.text, 'Gast-Schalter');
+  // Der Schritt zeigt seinen eigenen Titel und Text (de), nicht das Highlight.
+  assert.equal(first.title, 'Gast');
+  assert.equal(first.text, 'Hier');
   assert.equal(first.target, '[data-tour="guest"]');
 });
 

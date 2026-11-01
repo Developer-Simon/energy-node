@@ -94,7 +94,8 @@
       const items = version.items.filter((item) => (from ? item.id === from : !seen[item.id]) && tourSteps(item, ctx).length);
       const short = version.version.replace(/\.0$/, '');
       const flat = items.flatMap((item) => tourSteps(item, ctx)
-        .map((s) => ({ ...s, id: item.id, title: item.title, text: item.text, check: 'leave' })));
+        // Der Schritt zeigt seinen eigenen Titel und Text, nur ohne eigenen faellt er auf das Highlight zurueck.
+        .map((s) => ({ ...s, id: item.id, title: s.title || item.title, text: s.text || item.text, check: 'leave' })));
       return flat.map((s, i) => ({
         ...s,
         eyebrow: text(ctx, 'onboarding.eyebrow.explore', { version: short, i: i + 1, total: flat.length }),
