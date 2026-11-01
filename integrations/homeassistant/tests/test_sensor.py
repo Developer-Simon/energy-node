@@ -91,3 +91,71 @@ async def test_suggestions_sensor_exists_per_unit_with_attributes(hass):
                 assert "findings" in state.attributes
                 break
         assert found, f"No suggestions sensor found for unit {unit.name}"
+
+
+def _findings_sensor(hass, findings, language="en"):
+    """Build a suggestions sensor on fake coordinator data (no entry setup needed)."""
+    from types import SimpleNamespace
+
+    from custom_components.battery_soc.sensor import BatterySocSuggestionsSensor
+
+    coord = SimpleNamespace(
+        entry=SimpleNamespace(entry_id="entry", title="Werkstatt Akku"),
+        data={"_tuning": {"pack": {"suggestions": [], "findings": findings}}},
+    )
+    hass.config.language = language
+    sensor = BatterySocSuggestionsSensor(coord, "pack")
+    sensor.hass = hass
+    return sensor, coord
+
+
+def test_findings_message_follows_ha_language(hass):
+    """Findings with params are rendered in the HA language from the catalog."""
+    finding = {
+        "code": "zu_wenig_daten",
+        "severity": "info",
+        "message": "2 von 5 benötigten Intervallen",
+        "params": {"count": 2, "needed": 5},
+    }
+    sensor, _ = _findings_sensor(hass, [finding], language="en")
+
+    attrs = sensor.extra_state_attributes
+    assert attrs["findings"][0]["message"] == (
+        "2 of 5 required intervals between two reliable full anchors. "
+        "A single cycle is an anecdote, not a series of measurements."
+    )
+
+
+def test_findings_without_params_keep_message(hass):
+    """A finding without params keeps its stored message."""
+    finding = {"code": "zu_wenig_daten", "severity": "info", "message": "Rohtext"}
+    sensor, _ = _findings_sensor(hass, [finding], language="en")
+
+    assert sensor.extra_state_attributes["findings"][0]["message"] == "Rohtext"
+
+
+def test_finding_with_unknown_code_keeps_message(hass):
+    """A finding whose code is not in the catalog keeps its stored message."""
+    finding = {
+        "code": "unbekannt",
+        "severity": "info",
+        "message": "Rohtext",
+        "params": {"count": 1},
+    }
+    sensor, _ = _findings_sensor(hass, [finding], language="en")
+
+    assert sensor.extra_state_attributes["findings"][0]["message"] == "Rohtext"
+
+
+def test_findings_translation_does_not_change_coordinator_data(hass):
+    """The rendered attribute is a copy; the coordinator's finding stays as stored."""
+    finding = {
+        "code": "zu_wenig_daten",
+        "severity": "info",
+        "message": "Rohtext",
+        "params": {"count": 2, "needed": 5},
+    }
+    sensor, coord = _findings_sensor(hass, [finding], language="en")
+
+    _ = sensor.extra_state_attributes
+    assert coord.data["_tuning"]["pack"]["findings"][0]["message"] == "Rohtext"

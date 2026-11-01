@@ -8,9 +8,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from .battery_soc_core import entity_specs, EntityDesc
+from .battery_soc_core.messages import CATALOGS, finding_key
 from .const import DOMAIN
 from .entity import BatterySocEntity
 from .coordinator import BatterySocCoordinator
+from .energy_node_messages import render
 
 
 def _sensor_device_class(value: str | None) -> SensorDeviceClass | None:
@@ -65,6 +67,26 @@ def _suggestions_desc(unit_name: str) -> EntityDesc:
     )
 
 
+def _localized_findings(findings: list[dict], language: str) -> list[dict]:
+    """Return copies of the findings with message in the HA language.
+
+    Only findings with params are translated, and only when the catalog knows
+    their key. Everything else keeps the stored message.
+    """
+    out = []
+    for finding in findings:
+        item = dict(finding)
+        if "params" in finding:
+            params = finding.get("params") or {}
+            text = render(
+                CATALOGS, language, finding_key(finding.get("code", ""), params), params
+            )
+            if text is not None:
+                item["message"] = text
+        out.append(item)
+    return out
+
+
 class BatterySocSuggestionsSensor(BatterySocEntity, SensorEntity):
     """Offene Einstellungsvorschlaege einer Einheit aus dem Kalibrierverhalten.
 
@@ -97,7 +119,9 @@ class BatterySocSuggestionsSensor(BatterySocEntity, SensorEntity):
         block = self._block()
         return {
             "suggestions": block.get("suggestions", []),
-            "findings": block.get("findings", []),
+            "findings": _localized_findings(
+                block.get("findings", []), self.hass.config.language
+            ),
         }
 
 
