@@ -15,6 +15,29 @@
 
 {{define "screen-diagnose"}}<template x-if="screen === 'diagnose'">
 <div class="screen" x-data="screenDiagnose">
+  <template x-if="pwDialog">
+    <div class="diag-pw-overlay" @keydown.escape="cancelRepair()">
+      <div class="diag-pw-dialog" role="dialog" aria-modal="true" aria-labelledby="diag-pw-title"
+           x-init="$nextTick(() => $el.querySelector('input').focus())">
+        <h2 class="card-h" id="diag-pw-title" x-text="t('diagnose.mqtt_dialog.title')"></h2>
+        <p class="card-p" x-text="t('diagnose.mqtt_dialog.hint')"></p>
+        <div class="field">
+          <span class="lbl" id="diag-pw-label" x-text="t('diagnose.mqtt_dialog.password')"></span>
+          <div class="diag-pw-row">
+            <input type="password" x-model="pwValue" aria-labelledby="diag-pw-label" autocomplete="off" @keydown.enter="submitRepair()">
+            <button type="button" class="small" :disabled="busy" @click="generatePassword()" x-text="t('diagnose.mqtt_dialog.generate')"></button>
+          </div>
+        </div>
+        <template x-if="pwValue !== '' && !pwValid">
+          <p class="diag-pw-error" role="alert" x-text="t('diagnose.mqtt_dialog.too_short')"></p>
+        </template>
+        <div class="diag-pw-actions">
+          <button type="button" class="ghost" @click="cancelRepair()" x-text="t('diagnose.mqtt_dialog.cancel')"></button>
+          <button type="button" class="primary" :disabled="busy || !pwValid" @click="submitRepair()" x-text="t('diagnose.mqtt_dialog.confirm')"></button>
+        </div>
+      </div>
+    </div>
+  </template>
   <div class="body">
     <div class="tally">
       <span class="tl ok"><span class="tl-n" x-text="tally.ok"></span><span class="tl-l" x-text="t('diagnose.tally.ok')"></span></span>

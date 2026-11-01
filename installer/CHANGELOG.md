@@ -1,15 +1,17 @@
 # Changelog
 
-## v0.2.8 (2026-11-01)
+## v0.2.9 (2026-11-01)
 
 ### Features
 
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
 - **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189) (86dfb1e)
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
+- **installer:** The installer diagnose shows a live log of the dashboard and the updater service with their state. (#193) (c4b434a)
+- **installer:** repair the MQTT login with a new password (284572b)
+- **installer:** report a refused MQTT login in the diagnose (b364cbb)
 - **installer:** parse journal lines and build the remote journal command (10cda6c)
 - **installer:** stream dashboard and updater journals over SSH (9b73955)
-- **installer:** The installer diagnose shows a live log of the dashboard and the updater service with their state. (#193)
 - **installer:** hand the dashboard presets to the node (1fea19b)
 - **installer:** let the node fetch Python dependencies online when the operator allows it (f8be687)
 - **installer:** translate package check messages and flag the decisions a run waits for (1a3aa24)
@@ -20,6 +22,8 @@
 ### Fixes
 
 - **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191) (a96bebf)
+- **installer:** force the step on a diagnose repair (fa2a5bc)
+- **installer:** The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password. (#194)
 - **installer:** end the journal session when journalctl exits and redact its error (fef88a9)
 - **installer:** run every step in a first setup, skip done steps only on update (5de64f7)
 - **installer:** write the broker user into config.json (1be6458)

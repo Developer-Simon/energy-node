@@ -39,7 +39,7 @@ func debugHandler(mainHandler http.Handler, backend *hostapitest.FakeBackend) ht
 func main() {
 	port := flag.Int("port", 8099, "Port auf 127.0.0.1")
 	language := flag.String("lang", "de", "Sprache beim ersten Laden")
-	scenario := flag.String("scenario", "vorlage", "vorlage (Erstinstallation), vorlage-update oder updater (vorlage-update als Lauf des Dashboard-Updaters: Dashboard-Wirt, abgewaehlte Schritte fehlen)")
+	scenario := flag.String("scenario", "vorlage", "vorlage (Erstinstallation), vorlage-update, updater (vorlage-update als Lauf des Dashboard-Updaters: Dashboard-Wirt, abgewaehlte Schritte fehlen) oder mqtt-denied (Diagnose meldet den abgelehnten MQTT-Login, bis Schritt 20 mit einem Passwort repariert ist)")
 	dashboard := flag.Bool("dashboard", false, "als Dashboard-Wirt auftreten: kein Verbindungsbildschirm, feste Sprache")
 	trusted := flag.Bool("trusted", false, "Host-Schluessel gilt als bekannt: kein Fingerabdruck-Dialog")
 	hold := flag.String("hold-step", "", "an diesem Schritt bis zum Abbrechen warten")

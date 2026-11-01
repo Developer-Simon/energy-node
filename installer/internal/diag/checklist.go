@@ -23,6 +23,9 @@ type Check struct {
 	Subject string
 	// Severity "warn" turns a failed check into a hint instead of an error.
 	Severity string
+	// Needs names the input a repair must ask the operator for, such as
+	// "mqtt_password"; "" if none is needed.
+	Needs string
 }
 
 // UnitNotInstalled is diagnose.sh's state for a service unit that is not
@@ -170,6 +173,32 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 		Group:       "config",
 		Subject:     "config.json",
 	})
+
+	// MQTT-Anmeldung (diagnose.sh-Probe): ein abgelehnter Login oder ein
+	// fehlendes Passwort ist ein Fehler, den Schritt 20 mit einem neuen
+	// Passwort repariert. Ein nicht erreichbarer Broker oder eine fehlende
+	// config.json bleibt still, dafuer meldet die Pruefung von Schritt 20 nichts.
+	switch r.MQTTLogin {
+	case "ok":
+		checks = append(checks, Check{
+			Name:        "mqtt login",
+			OK:          true,
+			Detail:      "ok",
+			RetryStepID: "20",
+			Group:       "system",
+			Subject:     "mqtt-login",
+		})
+	case "denied", "nopassword":
+		checks = append(checks, Check{
+			Name:        "mqtt login",
+			OK:          false,
+			Detail:      r.MQTTLogin,
+			RetryStepID: "20",
+			Group:       "system",
+			Subject:     "mqtt-login",
+			Needs:       "mqtt_password",
+		})
+	}
 
 	checks = append(checks, Check{
 		Name:        "tailscale login",

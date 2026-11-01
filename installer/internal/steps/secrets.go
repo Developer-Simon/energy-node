@@ -56,11 +56,19 @@ mqtt = json.load(open(sys.argv[1], encoding="utf-8")).get("mqtt", {})
 print(mqtt.get("username", ""))
 print(mqtt.get("password_file", "/etc/energy-node/mqtt.pw"))`
 
-// nodeMosquittoArgs builds step 20's arguments from what is already on the
-// node, as dashboard/energy-node-updater.sh does: the user and password
-// file from the running config, or -- on a first install -- from the
-// bundle's template. The password never leaves the node.
-func nodeMosquittoArgs(ctx context.Context, opts RunOptions) (string, error) {
+// NodeMQTTUser returns the broker user that the node's config names. A repair
+// that sets a new password needs the user as well, because steps 20 and 60
+// take it as an argument and the form only carries the password.
+func NodeMQTTUser(ctx context.Context, opts RunOptions) (string, error) {
+	user, _, err := readNodeMQTT(ctx, opts)
+	return user, err
+}
+
+// readNodeMQTT reads the broker user and password file from what is already
+// on the node, as dashboard/energy-node-updater.sh does: the running config,
+// or -- on a first install -- the bundle's template. It does not check that
+// the password file exists; a failure is reported as MQTT_CONFIG_UNREADABLE.
+func readNodeMQTT(ctx context.Context, opts RunOptions) (user, passwordFile string, err error) {
 	configPath := opts.NodeConfigPath
 	if configPath == "" {
 		configPath = DefaultNodeConfigPath
@@ -74,13 +82,22 @@ func nodeMosquittoArgs(ctx context.Context, opts RunOptions) (string, error) {
 		strings.Join(quoted, " "), transport.ShellQuote(readMqttConfigPy))
 	var stdout, stderr bytes.Buffer
 	if err := opts.Client.Run(ctx, command, &stdout, &stderr); err != nil {
-		return "", fmt.Errorf("reading the MQTT config: %w (stderr: %s)", err, stderr.String())
+		return "", "", &StepFailure{StepID: mosquittoStepID, Code: mqttConfigUnreadable}
 	}
 	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
 	if len(lines) != 2 || lines[0] == "" || lines[1] == "" {
-		return "", fmt.Errorf("the MQTT config names no user or password file")
+		return "", "", &StepFailure{StepID: mosquittoStepID, Code: mqttConfigUnreadable}
 	}
-	user, passwordFile := lines[0], lines[1]
+	return lines[0], lines[1], nil
+}
+
+// nodeMosquittoArgs builds step 20's arguments from what is already on the
+// node (see readNodeMQTT). The password never leaves the node.
+func nodeMosquittoArgs(ctx context.Context, opts RunOptions) (string, error) {
+	user, passwordFile, err := readNodeMQTT(ctx, opts)
+	if err != nil {
+		return "", err
+	}
 	if err := opts.Client.Run(ctx, "test -f "+transport.ShellQuote(passwordFile), io.Discard, io.Discard); err != nil {
 		return "", fmt.Errorf("the MQTT password file %s does not exist", passwordFile)
 	}
