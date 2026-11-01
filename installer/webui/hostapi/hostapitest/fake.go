@@ -74,6 +74,11 @@ type FakeBackend struct {
 	UnitStatuses    []hostapi.UnitStatus
 	UnitLogsErr     error
 	UnitLogsSeen    []hostapi.UnitLogsRequest
+	// UnitLogTick liefert nach dem Vorlauf i = 0, 1, ... je eine weitere Zeile
+	// im Abstand UnitLogInterval. ok false beendet die Folge; danach blockiert
+	// der Strom bis ctx endet.
+	UnitLogTick     func(i int) (hostapi.UnitLogLine, bool)
+	UnitLogInterval time.Duration
 
 	// Steps ist das Drehbuch eines Laufs.
 	Steps []FakeStep
@@ -233,6 +238,8 @@ func (f *FakeBackend) UnitLogs(ctx context.Context, req hostapi.UnitLogsRequest,
 	lines := append([]hostapi.UnitLogLine(nil), f.UnitLogLines...)
 	statuses := append([]hostapi.UnitStatus(nil), f.UnitStatuses...)
 	err := f.UnitLogsErr
+	tick := f.UnitLogTick
+	interval := f.UnitLogInterval
 	f.mu.Unlock()
 
 	sink.Hello(hostname)
@@ -257,8 +264,35 @@ func (f *FakeBackend) UnitLogs(ctx context.Context, req hostapi.UnitLogsRequest,
 	if err != nil {
 		return err
 	}
+	if tick != nil {
+		for i := 0; ; i++ {
+			if err := pause(ctx, interval); err != nil {
+				return err
+			}
+			line, ok := tick(i)
+			if !ok {
+				break
+			}
+			sink.Line(line)
+		}
+	}
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+// pause wartet d oder bis ctx endet. Ein Intervall von 0 kehrt sofort zurueck.
+func pause(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func (f *FakeBackend) Plan(ctx context.Context) (*hostapi.PlanView, error) {
