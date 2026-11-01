@@ -57,9 +57,34 @@ const SESSION = { csrf_token: 'tok', roles: ['user_management', 'view_devices', 
 // body or throws to simulate a network error. Progress and session have
 // finished loading before the test continues. The state of a running setup
 // step is set unless `run` is given.
-async function load({ progress = PROGRESS, session = SESSION, answer, run, prepare = true } = {}) {
+// Stub fuer matchMedia: matches laesst sich umschalten, switchTo feuert das
+// change-Ereignis wie der Browser beim Ueberschreiten des Breakpoints.
+function fakeMedia(matches) {
+  const listeners = [];
+  return {
+    matches,
+    addEventListener(type, fn) { if (type === 'change') listeners.push(fn); },
+    switchTo(next) {
+      this.matches = next;
+      for (const fn of listeners) fn({ matches: next });
+    },
+  };
+}
+
+// sessionStorage-Stub mit Map, wie der Browser es fuer eine Sitzung haelt.
+function memoryStorage() {
+  const data = new Map();
+  return {
+    getItem: (key) => (data.has(key) ? data.get(key) : null),
+    setItem: (key, value) => data.set(key, String(value)),
+  };
+}
+
+async function load({ progress = PROGRESS, session = SESSION, answer, run, prepare = true, storage, media = fakeMedia(false) } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const { window } = dom;
+  if (storage) Object.defineProperty(window, 'sessionStorage', { value: storage, configurable: true });
+  window.matchMedia = () => media;
   const calls = [];
   window.fetch = async (url, options = {}) => {
     const method = options.method || 'GET';
@@ -99,7 +124,7 @@ async function load({ progress = PROGRESS, session = SESSION, answer, run, prepa
     b.$store = { onboarding: store };
     return b;
   };
-  return { store, calls, window, bar };
+  return { store, calls, window, bar, media };
 }
 
 test('markStep done calls PUT step with {id,state} exactly once', async () => {
@@ -287,4 +312,88 @@ test('explore steps keep the highlight text and skip the catalog', async () => {
 test('the explore catalog is gone from obSteps', async () => {
   const { window } = await load();
   assert.equal('explore' in window.obSteps, false);
+});
+
+test('welcome steps need their tab right, a user without it gets no such step', async () => {
+  const { store: few } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: { csrf_token: 'tok', roles: ['view_devices'] } });
+  // [...] holt die Ergebnisse aus dem VM-Kontext in ein Array dieses Realms.
+  assert.deepEqual([...few.build('welcome', null).map((s) => s.id)], ['w-overview', 'w-devices', 'w-settings']);
+  const { store: all } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  assert.deepEqual([...all.build('welcome', null).map((s) => s.id)], ['w-overview', 'w-devices', 'w-stats', 'w-settings']);
+});
+
+test('finishing the welcome run sends welcomed:true once', async () => {
+  const { store, calls, bar } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('welcome', null, { index: 0 });
+  store.index = store.steps.length - 1;
+  calls.length = 0;
+  bar().next();
+  const writes = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me' && c.body && 'welcomed' in c.body);
+  assert.deepEqual(writes.map((c) => c.body), [{ welcomed: true }]);
+  assert.equal(store.welcomed, true);
+  assert.equal(store.finished.mode, 'welcome');
+});
+
+test('later on the last welcome step ends the tour without welcomed', async () => {
+  const { store, calls, bar } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('welcome', null, { index: 0 });
+  store.index = store.steps.length - 1;
+  calls.length = 0;
+  bar().later();
+  assert.equal(calls.some((c) => c.body && 'welcomed' in c.body), false);
+  assert.equal(store.welcomed, false);
+});
+
+test('a user with a pending welcome in the session queue gets it queued', async () => {
+  const { store } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user', queue: ['welcome'] }, session: SESSION });
+  assert.equal(store.queue.includes('welcome'), true);
+});
+
+test('a guest who finished the welcome is not welcomed again in this browser session', async () => {
+  const storage = memoryStorage();
+  const guest = { ...PROGRESS, role: 'guest', queue: ['welcome'] };
+  const first = await load({ prepare: false, storage, progress: guest, session: SESSION });
+  assert.equal(first.store.queue.includes('welcome'), true, 'the first visit gets the welcome');
+  first.store.start('welcome', null, { index: 0 });
+  first.store.index = first.store.steps.length - 1;
+  first.bar().next();
+  assert.equal(storage.getItem('ob-welcome-done'), '1');
+
+  const again = await load({ prepare: false, storage, progress: guest, session: SESSION });
+  assert.equal(again.store.queue.includes('welcome'), false, 'same session: no second welcome');
+});
+
+test('broken sessionStorage does not break the welcome', async () => {
+  const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  const { store, bar } = await load({ prepare: false, storage: broken, progress: { ...PROGRESS, role: 'guest', queue: ['welcome'] }, session: SESSION });
+  assert.equal(store.queue.includes('welcome'), true);
+  store.start('welcome', null, { index: 0 });
+  store.index = store.steps.length - 1;
+  assert.doesNotThrow(() => bar().next());
+  assert.equal(store.finished.mode, 'welcome');
+});
+
+test('a resize mid-run moves to the next step for the new device', async () => {
+  const { store, media } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.steps = [
+    { id: 'a', title: 'A', text: '', dot: 0, dots: 3 },
+    { id: 'b', device: 'phone', title: 'B', text: '', dot: 1, dots: 3 },
+    { id: 'c', device: 'desktop', title: 'C', text: '', dot: 2, dots: 3 },
+  ];
+  store.run = { mode: 'explore', from: null, index: 1 };
+  store.index = 1;
+  store.active = true;
+  media.switchTo(false);
+  assert.equal(store.index, 2);
+});
+
+test('a resize mid-run with no step left ends the run as finished', async () => {
+  const { store, media } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.steps = [{ id: 'd', device: 'desktop', title: 'D', text: '', dot: 0, dots: 1 }];
+  store.run = { mode: 'explore', from: null, index: 0 };
+  store.index = 0;
+  store.active = true;
+  media.switchTo(true);
+  assert.equal(store.finished.mode, 'explore');
+  assert.equal(store.index, 0);
 });

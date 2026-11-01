@@ -11,7 +11,7 @@
 // Titel und Text heissen onboarding.setup.<id>.title und .text und liegen im Katalog.
 // emptyText (Katalogschluessel) ersetzt den Text, wenn emptyWhen() beim Zeigen true liefert.
 //
-// Die Felder areas, installerOnly und welcome sind unveraendert. Neu erkunden
+// Die Felder areas und installerOnly sind unveraendert, welcome hat need je Reiter. Neu erkunden
 // kommt vom Server (explore), siehe onboarding.js.
 (() => {
   const guestCard = () => [...document.querySelectorAll('#settings-users .users-card')]
@@ -98,12 +98,13 @@
   ];
 
   // Begruessung fuer neue Benutzer und Gaeste: feste kurze Runde durch die
-  // Hauptbereiche, nach Rechten gefiltert (Tabs ohne Recht fehlen im DOM und
-  // entfallen deshalb von selbst).
+  // Hauptbereiche, nach Rechten gefiltert. Der Reiter Geraete braucht
+  // view_devices, der Reiter Statistik view_stats. Die anderen beiden
+  // Reiter sind fuer jede Sitzung da.
   const welcome = [
     { id: 'w-overview', panel: 'overview-panel', target: '[role="tab"][aria-controls="overview-panel"]', title: 'onboarding.welcome.w-overview.title', text: 'onboarding.welcome.w-overview.text' },
-    { id: 'w-devices', panel: 'devices-panel', target: '#tab-devices', title: 'onboarding.welcome.w-devices.title', text: 'onboarding.welcome.w-devices.text' },
-    { id: 'w-stats', panel: 'stats-panel', target: '#tab-stats', title: 'onboarding.welcome.w-stats.title', text: 'onboarding.welcome.w-stats.text' },
+    { id: 'w-devices', panel: 'devices-panel', need: 'view_devices', target: '#tab-devices', title: 'onboarding.welcome.w-devices.title', text: 'onboarding.welcome.w-devices.text' },
+    { id: 'w-stats', panel: 'stats-panel', need: 'view_stats', target: '#tab-stats', title: 'onboarding.welcome.w-stats.title', text: 'onboarding.welcome.w-stats.text' },
     { id: 'w-settings', panel: 'settings-panel', page: 'checklist', target: '#tab-settings', title: 'onboarding.welcome.w-settings.title', text: 'onboarding.welcome.w-settings.text' },
   ];
 

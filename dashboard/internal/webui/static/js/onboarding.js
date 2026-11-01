@@ -23,8 +23,19 @@
   const ME = '/api/v1/onboarding/me';
   const SETUP_COMPLETE = '/api/v1/onboarding/setup/complete';
   const SESSION = '/api/v1/auth/session';
+  // Begruessung eines Gastes gilt fuer die Dauer der Browsersitzung.
+  const WELCOME_DONE_KEY = 'ob-welcome-done';
 
   const t = (key, params) => window.I18n.t(key, params);
+
+  // Speicher der Browsersitzung. Ohne Zugriff (gesperrt, privates Fenster)
+  // bleibt die Begruessung des Gastes offen, sie kommt beim naechsten Laden wieder.
+  const welcomeDoneHere = () => {
+    try { return window.sessionStorage.getItem(WELCOME_DONE_KEY) === '1'; } catch { return false; }
+  };
+  const rememberWelcomeDone = () => {
+    try { window.sessionStorage.setItem(WELCOME_DONE_KEY, '1'); } catch { /* siehe welcomeDoneHere */ }
+  };
 
   const isPhone = () => window.matchMedia(PHONE).matches;
   const reduced = () => window.obMotion.reducedMotion();
@@ -190,10 +201,17 @@
       this.welcomed = Boolean(progress.user?.welcomed);
       this.run = progress.user?.run || null;
       this.queue = progress.user?.queue || [];
-      // Die Sitzungswarteschlange nennt nur Einrichtung, und nur solange sie offen ist.
+      // Die Sitzungswarteschlange nennt Einrichtung und Begruessung, solange sie offen sind.
       // Sie wird wie enqueue() ans Konto geschrieben, startet aber erst die Leiste.
       if ((progress.queue || []).includes('setup') && !this.run && !this.queue.includes('setup')) {
         this.queue = [...this.queue, 'setup'];
+        void send('PUT', ME, { queue: this.queue });
+      }
+      // Ein Gast hat kein Konto, sein Stand kommt nur aus dem Browser. Der Server
+      // meldet die Begruessung bei jedem Laden neu, deshalb gilt das Merkmal der Sitzung.
+      const guestDone = this.role === 'guest' && welcomeDoneHere();
+      if ((progress.queue || []).includes('welcome') && !guestDone && !this.run && !this.queue.includes('welcome')) {
+        this.queue = [...this.queue, 'welcome'];
         void send('PUT', ME, { queue: this.queue });
       }
       this.loaded = true;
@@ -372,6 +390,21 @@
       return send('PUT', ME, { seen_add: [step.id] });
     },
 
+    // Begruessung abgeschlossen: das Konto merkt es am Server, der Gast nur in der Sitzung.
+    markWelcomed() {
+      this.welcomed = true;
+      if (this.role === 'guest') rememberWelcomeDone();
+      void send('PUT', ME, { welcomed: true });
+    },
+    // Groessenwechsel mitten im Lauf. Bleibt der Schritt fuer das neue Geraet, geschieht
+    // nichts. Sonst springt der Lauf zum naechsten passenden Schritt, gibt es keinen, endet er.
+    resize(device) {
+      if (!this.active || !this.steps.length) return;
+      const next = window.obModel.nextAfterResize(this.steps, this.index, device);
+      if (next < 0) { this.finish(); return; }
+      if (next !== this.index) this.index = next;
+    },
+
     // Einrichtung beim Server als abgeschlossen melden (nur Admin).
     completeSetup() {
       if (!this.isAdmin) return Promise.resolve(false);
@@ -396,6 +429,8 @@
         this.finished = { mode, title: t('onboarding.finish.explore.title'), text: t('onboarding.finish.explore.text') };
       } else if (mode === 'welcome') {
         this.finished = { mode, title: t('onboarding.finish.welcome.title'), text: t('onboarding.finish.welcome.text') };
+        // Nur das vollstaendige Ende zaehlt. Weg hinaus (skip) und Spaeter lassen die Begruessung offen.
+        this.markWelcomed();
       } else {
         this.finished = null;
         this.close();
@@ -697,6 +732,8 @@
     window.Alpine.store('onboarding', store);
     window.Alpine.data('obBar', obBar);
     ready = window.Alpine.store('onboarding').load();
+    // Groessenwechsel mitten im Lauf. Einmal beim Start registriert, nicht pro Schritt.
+    window.matchMedia?.(PHONE)?.addEventListener('change', (event) => window.Alpine.store('onboarding').resize(event.matches ? 'phone' : 'desktop'));
   });
 
   // Marker am Einstellungs-Tab, solange es ungesehene Neuerungen gibt. Das
