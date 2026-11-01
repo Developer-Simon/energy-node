@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Die Installer-Diagnose erkennt eine MQTT-Anmeldung, die der Broker ablehnt, und repariert sie mit einem neuen Passwort."
+  }
+}
