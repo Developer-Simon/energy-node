@@ -229,6 +229,9 @@ type RouterDependencies struct {
 	// Onboarding speichert den Fortschritt der Einrichtungsführung. Nil
 	// heisst: die Onboarding-Routen sind nicht verfügbar.
 	Onboarding *onboarding.Store
+	// TourTargets liefert die data-tour-Ziele der eingebetteten Web-UI (siehe
+	// webui.TourTargets). Nil heisst: keine Tour gilt als veraltet.
+	TourTargets func() map[string]bool
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -357,8 +360,12 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/companion/", handleCompanion(dependencies.Auth, dependencies.Companion, dependencies.CompanionFingerprint))
 		if dependencies.Onboarding != nil {
 			onboardingInstalledServices := onboardingInstalled(dependencies.InstalledServices)
-			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir))
-			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir))
+			var tourTargets map[string]bool
+			if dependencies.TourTargets != nil {
+				tourTargets = dependencies.TourTargets()
+			}
+			g.HandleFunc("/api/v1/onboarding", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets))
+			g.HandleFunc("/api/v1/onboarding/", handleOnboarding(dependencies.Auth, dependencies.Onboarding, store, onboardingInstalledServices, stateDir, tourTargets))
 		}
 	}
 	if dependencies.SystemActions != nil {

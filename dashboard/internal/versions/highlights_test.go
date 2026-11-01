@@ -347,3 +347,104 @@ func TestFreshInstallMeansNoPreviousManifest(t *testing.T) {
 		t.Fatal("a previous manifest means an update")
 	}
 }
+
+// releasesDoc has releases of dashboard across four minor versions, plus one
+// release newer than the installed v0.10.2.
+const releasesDoc = `{"schema_version":1,"components":[
+ {"id":"dashboard","label":"Dashboard","kind":"app","version":"v0.10.2","releases":[
+  {"version":"v0.10.9","groups":[{"type":"feat","entries":[{"text":"not installed yet","pr":209,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.10.2","groups":[{"type":"fix","entries":[{"text":"ten two","pr":202,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.10.0","groups":[{"type":"feat","entries":[{"text":"ten zero","pr":190,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.9.1","groups":[{"type":"fix","entries":[{"text":"nine one","pr":191,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.9.0","groups":[{"type":"feat","entries":[{"text":"nine zero","pr":180,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.8.3","groups":[{"type":"feat","entries":[{"text":"eight three","pr":83,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.8.0","groups":[{"type":"feat","entries":[{"text":"eight zero","pr":80,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.7.4","groups":[{"type":"feat","entries":[{"text":"seven four","pr":74,"breaking":false,"highlight":true}]}]}]}]}`
+
+func TestReleasesKeepsTheLastThreeMinors(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          releasesDoc,
+		"installed-manifest.json": `{"version":"v0.10.2","components":{"dashboard":"v0.10.2"}}`,
+	})
+	view, err := Releases(dir, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.To != "v0.10.2" || view.SincePrevious || view.From != "" {
+		t.Fatalf("range = %+v", view)
+	}
+	if len(view.Components) != 1 {
+		t.Fatalf("components = %+v", view.Components)
+	}
+	var versionsSeen []string
+	var texts []string
+	for _, r := range view.Components[0].Releases {
+		versionsSeen = append(versionsSeen, r.Version)
+		for _, e := range r.Entries {
+			texts = append(texts, e.Text)
+		}
+	}
+	wantVersions := []string{"v0.10.2", "v0.10.0", "v0.9.1", "v0.9.0", "v0.8.3", "v0.8.0"}
+	if strings.Join(versionsSeen, ",") != strings.Join(wantVersions, ",") {
+		t.Fatalf("releases = %v, want %v (0.10.9 is newer than installed, 0.7.4 is a fourth minor back)", versionsSeen, wantVersions)
+	}
+	if strings.Join(texts, "|") != "ten two|ten zero|nine one|nine zero|eight three|eight zero" {
+		t.Fatalf("entries = %v", texts)
+	}
+}
+
+func TestReleasesWithFewerMinorsKeepsEverythingThere(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          highlightsDoc,
+		"installed-manifest.json": installedV090,
+	})
+	view, err := Releases(dir, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string][]string{}
+	for _, c := range view.Components {
+		for _, r := range c.Releases {
+			got[c.ID] = append(got[c.ID], r.Version)
+		}
+	}
+	if strings.Join(got["dashboard"], ",") != "v0.9.0,v0.8.6,v0.8.5" {
+		t.Fatalf("dashboard releases = %v, want the whole 0.9 and 0.8 range", got["dashboard"])
+	}
+}
+
+func TestReleasesSkipsDeselectedComponents(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          highlightsDoc,
+		"installed-manifest.json": installedV090,
+		"selection.json":          `{"steps":{"61":false}}`,
+	})
+	view, err := Releases(dir, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range view.Components {
+		if c.ID == "service:shelly" {
+			t.Fatalf("deselected shelly is listed: %+v", c)
+		}
+	}
+}
+
+func TestReleasesWithoutChangelogIsNoChangelog(t *testing.T) {
+	if _, err := Releases(t.TempDir(), 3); err == nil {
+		t.Fatal("missing changelog must fail")
+	}
+}
+
+func TestMinorOf(t *testing.T) {
+	for in, want := range map[string]string{
+		"v0.10.8":     "0.10",
+		"0.9.1-dev":   "0.9",
+		"v1.2":        "1.2",
+		"branch-only": "0.0",
+	} {
+		if got := MinorOf(in); got != want {
+			t.Fatalf("MinorOf(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

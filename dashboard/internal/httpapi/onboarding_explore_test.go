@@ -47,6 +47,13 @@ func newExploreRouter(t *testing.T, update bool) (http.Handler, *auth.Manager) {
 	return newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), exploreState(t, update))
 }
 
+// newExploreRouterWithTargets serves the update state with the given web UI
+// data-tour targets.
+func newExploreRouterWithTargets(t *testing.T, targets func() map[string]bool) (http.Handler, *auth.Manager) {
+	t.Helper()
+	return newOnboardingRouterWithTargets(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), exploreState(t, true), targets)
+}
+
 func exploreIDs(view onboardingView) []string {
 	ids := []string{}
 	for _, item := range view.Explore.Items {
@@ -59,10 +66,10 @@ func TestFreshInstallHasNothingUnseen(t *testing.T) {
 	router, _ := newExploreRouter(t, false)
 	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
 	view := getOnboarding(t, router, cookie)
-	if view.Explore.CurrentVersion != "v0.10.0" || !slices.Equal(exploreIDs(view), []string{"h190", "h191"}) {
+	if view.Explore.CurrentVersion != "v0.10.0" || !slices.Equal(exploreIDs(view), []string{"h190", "h191", "h150"}) {
 		t.Fatalf("explore = %+v", view.Explore)
 	}
-	if !view.Explore.BaselineSeen || !slices.Equal(view.User.Seen, []string{"h190", "h191"}) {
+	if !view.Explore.BaselineSeen || !slices.Equal(view.User.Seen, []string{"h190", "h191", "h150"}) {
 		t.Fatalf("fresh install: seen = %v, baseline = %v", view.User.Seen, view.Explore.BaselineSeen)
 	}
 	if want := []string{"setup", "explore"}; !slices.Equal(view.Queue, want) {
@@ -77,8 +84,8 @@ func TestExistingInstallUnseenStartsAtOnboardingRelease(t *testing.T) {
 	if view.Explore.BaselineSeen || len(view.User.Seen) != 0 {
 		t.Fatalf("update: seen = %v, baseline = %v, want nothing seen", view.User.Seen, view.Explore.BaselineSeen)
 	}
-	if !slices.Equal(exploreIDs(view), []string{"h190", "h191"}) {
-		t.Fatalf("items = %v, want the highlights of this update only", exploreIDs(view))
+	if !slices.Equal(exploreIDs(view), []string{"h190", "h191", "h150"}) {
+		t.Fatalf("items = %v, want the highlights of the last three minors", exploreIDs(view))
 	}
 	// The seed is stored once: a second call keeps the same state.
 	if again := getOnboarding(t, router, cookie); len(again.User.Seen) != 0 || again.Explore.BaselineSeen {
@@ -92,7 +99,7 @@ func TestNewUserGetsWelcomeAndEverythingSeen(t *testing.T) {
 	getOnboarding(t, router, adminCookie) // starts the onboarding
 	cookie, _ := loginWithRoles(t, router, manager, "newcomer", []string{auth.RoleViewDevices})
 	view := getOnboarding(t, router, cookie)
-	if !view.Explore.BaselineSeen || !slices.Equal(view.User.Seen, []string{"h190", "h191"}) {
+	if !view.Explore.BaselineSeen || !slices.Equal(view.User.Seen, []string{"h190", "h191", "h150"}) {
 		t.Fatalf("new user: seen = %v, baseline = %v", view.User.Seen, view.Explore.BaselineSeen)
 	}
 	if want := []string{"welcome"}; !slices.Equal(view.Queue, want) {
@@ -131,9 +138,54 @@ func TestRightsFilterLeavesTextOnlyAsSeen(t *testing.T) {
 		t.Fatalf("reader tours = %v, want h190 as text only (needs view_devices) and h191 with its step", tours)
 	}
 	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	adminTours := map[string]bool{}
 	for _, item := range getOnboarding(t, router, adminCookie).Explore.Items {
+		adminTours[item.ID] = item.Tour != nil
+	}
+	// h150 is a v0.9.0 highlight without any tour, so it is text only for everyone.
+	if !adminTours["h190"] || !adminTours["h191"] || adminTours["h150"] {
+		t.Fatalf("admin tours = %v, want h190 and h191 with tours and h150 as text only", adminTours)
+	}
+}
+
+func TestExploreItemsCarryTheMinorOfTheirRelease(t *testing.T) {
+	router, _ := newExploreRouter(t, true)
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	minors := map[string]string{}
+	for _, item := range getOnboarding(t, router, cookie).Explore.Items {
+		minors[item.ID] = item.Minor
+	}
+	// h150 is a v0.9.0 highlight: the second-latest minor is listed too.
+	if minors["h190"] != "0.10" || minors["h191"] != "0.10" || minors["h150"] != "0.9" {
+		t.Fatalf("minors = %v, want h190 and h191 at 0.10 and h150 at 0.9", minors)
+	}
+}
+
+func TestUnknownTourTargetIsStale(t *testing.T) {
+	// The web UI knows only the checklist target: h190 points at "favorites",
+	// which no template carries any more.
+	router, _ := newExploreRouterWithTargets(t, func() map[string]bool {
+		return map[string]bool{"checklist": true}
+	})
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	stale := map[string]bool{}
+	for _, item := range getOnboarding(t, router, cookie).Explore.Items {
 		if item.Tour == nil {
-			t.Fatalf("admin lost the tour of %s", item.ID)
+			continue // h150 has no tour at all
+		}
+		stale[item.ID] = item.Tour.Stale
+	}
+	if !stale["h190"] || stale["h191"] {
+		t.Fatalf("stale = %v, want h190 stale and h191 not", stale)
+	}
+}
+
+func TestWithoutKnownTargetsNothingIsStale(t *testing.T) {
+	router, _ := newExploreRouter(t, true)
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	for _, item := range getOnboarding(t, router, cookie).Explore.Items {
+		if item.Tour != nil && item.Tour.Stale {
+			t.Fatalf("item %s: tour is stale without known targets", item.ID)
 		}
 	}
 }

@@ -1,12 +1,14 @@
 package versions
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
@@ -92,27 +94,35 @@ type HighlightsView struct {
 }
 
 type fullDocument struct {
-	Components []struct {
-		ID       string `json:"id"`
-		Label    string `json:"label"`
-		Version  string `json:"version"`
-		Releases []struct {
-			Version string `json:"version"`
-			Date    string `json:"date"`
-			Groups  []struct {
-				Entries []struct {
-					Text      string            `json:"text"`
-					Scope     string            `json:"scope"`
-					PR        int               `json:"pr"`
-					Breaking  bool              `json:"breaking"`
-					Highlight *bool             `json:"highlight"`
-					I18n      map[string]string `json:"i18n"`
-					Details   *HighlightDetails `json:"details"`
-					Tour      *HighlightTour    `json:"tour"`
-				} `json:"entries"`
-			} `json:"groups"`
-		} `json:"releases"`
-	} `json:"components"`
+	Components []fullComponent `json:"components"`
+}
+
+type fullComponent struct {
+	ID       string        `json:"id"`
+	Label    string        `json:"label"`
+	Version  string        `json:"version"`
+	Releases []fullRelease `json:"releases"`
+}
+
+type fullRelease struct {
+	Version string      `json:"version"`
+	Date    string      `json:"date"`
+	Groups  []fullGroup `json:"groups"`
+}
+
+type fullGroup struct {
+	Entries []fullEntry `json:"entries"`
+}
+
+type fullEntry struct {
+	Text      string            `json:"text"`
+	Scope     string            `json:"scope"`
+	PR        int               `json:"pr"`
+	Breaking  bool              `json:"breaking"`
+	Highlight *bool             `json:"highlight"`
+	I18n      map[string]string `json:"i18n"`
+	Details   *HighlightDetails `json:"details"`
+	Tour      *HighlightTour    `json:"tour"`
 }
 
 // Highlights cuts the installed changelog.json down to the highlighted
@@ -123,23 +133,10 @@ type fullDocument struct {
 // only the release matching its installed version. Deselected services and
 // components without a highlighted entry in range are left out.
 func Highlights(stateDir string) (*HighlightsView, error) {
-	raw, err := hostapi.ReadChangelogDocument(stateDir)
+	doc, view, deselected, err := readHighlightsInput(stateDir)
 	if err != nil {
 		return nil, err
 	}
-	var doc fullDocument
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return nil, &hostapi.Error{Code: "CHANGELOG_UNREADABLE", Detail: err.Error()}
-	}
-
-	view := &HighlightsView{Components: []HighlightsComponent{}}
-	var manifest manifestFile
-	if installedRaw, err := os.ReadFile(filepath.Join(stateDir, "installed-manifest.json")); err == nil {
-		if json.Unmarshal(installedRaw, &manifest) == nil {
-			view.To = manifest.Version
-		}
-	}
-	deselected := deselectedDirs(stateDir, manifest)
 
 	previous := map[string]string{}
 	previousRaw, err := os.ReadFile(filepath.Join(stateDir, "previous-manifest.json"))
@@ -178,24 +175,120 @@ func Highlights(stateDir string) (*HighlightsView, error) {
 			if !inRange {
 				continue
 			}
-			out := HighlightsRelease{Version: release.Version, Date: release.Date, Entries: []HighlightsEntry{}}
-			for _, group := range release.Groups {
-				for _, e := range group.Entries {
-					if flagged && (e.Highlight == nil || !*e.Highlight) {
-						continue
-					}
-					out.Entries = append(out.Entries, HighlightsEntry{ID: highlightID(e.PR), Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n, Details: e.Details, Tour: e.Tour})
-				}
-			}
-			if len(out.Entries) > 0 {
-				component.Releases = append(component.Releases, out)
-			}
+			appendRelease(&component, release, flagged)
 		}
 		if len(component.Releases) > 0 {
 			view.Components = append(view.Components, component)
 		}
 	}
 	return view, nil
+}
+
+// Releases lists, per component, the releases of the last minors minor
+// versions it has installed or older: the highest major.minor values among
+// its releases that are not newer than its installed version, and every
+// release of those minors that is not newer than the installed one. It
+// filters entries like Highlights (flagged highlights, deselected services
+// left out) but ignores previous-manifest.json, so From stays empty and
+// SincePrevious false. The onboarding uses it for "Neu erkunden".
+func Releases(stateDir string, minors int) (*HighlightsView, error) {
+	doc, view, deselected, err := readHighlightsInput(stateDir)
+	if err != nil {
+		return nil, err
+	}
+	flagged := documentIsFlagged(doc)
+	for _, c := range doc.Components {
+		if isDeselected(c.ID, deselected) {
+			continue
+		}
+		window := latestMinors(c.Releases, c.Version, minors)
+		component := HighlightsComponent{ID: c.ID, Label: c.Label, To: c.Version}
+		for _, release := range c.Releases {
+			if !window[MinorOf(release.Version)] || compareVersions(release.Version, c.Version) > 0 {
+				continue
+			}
+			appendRelease(&component, release, flagged)
+		}
+		if len(component.Releases) > 0 {
+			view.Components = append(view.Components, component)
+		}
+	}
+	return view, nil
+}
+
+// readHighlightsInput reads the merged changelog and the installed manifest.
+// The view carries To and an empty component list, deselected holds the
+// services the user turned off.
+func readHighlightsInput(stateDir string) (fullDocument, *HighlightsView, map[string]bool, error) {
+	raw, err := hostapi.ReadChangelogDocument(stateDir)
+	if err != nil {
+		return fullDocument{}, nil, nil, err
+	}
+	var doc fullDocument
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return fullDocument{}, nil, nil, &hostapi.Error{Code: "CHANGELOG_UNREADABLE", Detail: err.Error()}
+	}
+
+	view := &HighlightsView{Components: []HighlightsComponent{}}
+	var manifest manifestFile
+	if installedRaw, err := os.ReadFile(filepath.Join(stateDir, "installed-manifest.json")); err == nil {
+		if json.Unmarshal(installedRaw, &manifest) == nil {
+			view.To = manifest.Version
+		}
+	}
+	return doc, view, deselectedDirs(stateDir, manifest), nil
+}
+
+// appendRelease adds the entries of release to component, the highlighted ones
+// only when the document is flagged. A release without entries is skipped.
+func appendRelease(component *HighlightsComponent, release fullRelease, flagged bool) {
+	out := HighlightsRelease{Version: release.Version, Date: release.Date, Entries: []HighlightsEntry{}}
+	for _, group := range release.Groups {
+		for _, e := range group.Entries {
+			if flagged && (e.Highlight == nil || !*e.Highlight) {
+				continue
+			}
+			out.Entries = append(out.Entries, HighlightsEntry{ID: highlightID(e.PR), Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n, Details: e.Details, Tour: e.Tour})
+		}
+	}
+	if len(out.Entries) > 0 {
+		component.Releases = append(component.Releases, out)
+	}
+}
+
+// latestMinors returns the major.minor keys (see MinorOf) of the count highest
+// minor versions among releases not newer than installed.
+func latestMinors(releases []fullRelease, installed string, count int) map[string]bool {
+	seen := map[[2]int]bool{}
+	for _, r := range releases {
+		if compareVersions(r.Version, installed) > 0 {
+			continue
+		}
+		p := versionParts(r.Version)
+		seen[[2]int{p[0], p[1]}] = true
+	}
+	minors := make([][2]int, 0, len(seen))
+	for m := range seen {
+		minors = append(minors, m)
+	}
+	slices.SortFunc(minors, func(a, b [2]int) int {
+		if a[0] != b[0] {
+			return cmp.Compare(b[0], a[0])
+		}
+		return cmp.Compare(b[1], a[1])
+	})
+	out := map[string]bool{}
+	for i := 0; i < len(minors) && i < count; i++ {
+		out[strconv.Itoa(minors[i][0])+"."+strconv.Itoa(minors[i][1])] = true
+	}
+	return out
+}
+
+// MinorOf is the major.minor part of a version without a leading "v", as
+// "0.10" for "v0.10.8". A version without numbers gives "0.0".
+func MinorOf(version string) string {
+	p := versionParts(version)
+	return strconv.Itoa(p[0]) + "." + strconv.Itoa(p[1])
 }
 
 // highlightID is "h<PR>", empty for an entry without a PR number.

@@ -67,24 +67,40 @@ func onboardingInstalled(services map[string]bool) map[string]bool {
 	return installed
 }
 
-// onboardingExploreItem is one highlight of the last update for "Neu
-// erkunden". Tour holds only the steps the caller has the rights for and is
-// null when none is left, the highlight then counts as text only.
+// onboardingExploreMinors is how many minor releases "Neu erkunden" lists per
+// component: the installed one and the two before it.
+const onboardingExploreMinors = 3
+
+// onboardingExploreItem is one highlight of the last releases for "Neu
+// erkunden". Minor is the major.minor of its release, Version the release
+// itself. Tour holds only the steps the caller has the rights for and is null
+// when none is left, the highlight then counts as text only.
 type onboardingExploreItem struct {
 	ID      string                     `json:"id"`
 	Version string                     `json:"version"`
+	Minor   string                     `json:"minor"`
 	PR      int                        `json:"pr,omitempty"`
 	Text    string                     `json:"text"`
 	I18n    map[string]string          `json:"i18n,omitempty"`
 	Details *versions.HighlightDetails `json:"details,omitempty"`
-	Tour    *versions.HighlightTour    `json:"tour"`
+	Tour    *onboardingTour            `json:"tour"`
 }
 
-// onboardingExplore lists the highlights of the last update, each ID once. A
+// onboardingTour is the tour of a highlight as the caller may walk it. Stale
+// is set when a step points at a data-tour target the web UI no longer has,
+// so the tour would find nothing on the page.
+type onboardingTour struct {
+	Steps []versions.TourStep `json:"steps"`
+	Stale bool                `json:"stale,omitempty"`
+}
+
+// onboardingExplore lists the highlights of the last onboardingExploreMinors
+// minor releases, each ID once, newest release first. targets are the
+// data-tour targets of the web UI, nil or empty marks no tour as stale. A
 // missing or unreadable changelog gives an empty list.
-func onboardingExplore(stateDir string, user auth.User) (string, []onboardingExploreItem) {
+func onboardingExplore(stateDir string, user auth.User, targets map[string]bool) (string, []onboardingExploreItem) {
 	items := []onboardingExploreItem{}
-	view, err := versions.Highlights(stateDir)
+	view, err := versions.Releases(stateDir, onboardingExploreMinors)
 	if err != nil {
 		return "", items
 	}
@@ -99,11 +115,12 @@ func onboardingExplore(stateDir string, user auth.User) (string, []onboardingExp
 				items = append(items, onboardingExploreItem{
 					ID:      entry.ID,
 					Version: release.Version,
+					Minor:   versions.MinorOf(release.Version),
 					PR:      entry.PR,
 					Text:    entry.Text,
 					I18n:    entry.I18n,
 					Details: entry.Details,
-					Tour:    onboardingTourFor(user, entry.Tour),
+					Tour:    onboardingTourFor(user, entry.Tour, targets),
 				})
 			}
 		}
@@ -112,8 +129,10 @@ func onboardingExplore(stateDir string, user auth.User) (string, []onboardingExp
 }
 
 // onboardingTourFor keeps the steps whose permission the user holds. An
-// exemption or a tour without any allowed step gives nil.
-func onboardingTourFor(user auth.User, tour *versions.HighlightTour) *versions.HighlightTour {
+// exemption or a tour without any allowed step gives nil. The tour is stale
+// when one of the kept steps names a target outside targets; without targets
+// nothing is stale.
+func onboardingTourFor(user auth.User, tour *versions.HighlightTour, targets map[string]bool) *onboardingTour {
 	if tour == nil {
 		return nil
 	}
@@ -126,7 +145,15 @@ func onboardingTourFor(user auth.User, tour *versions.HighlightTour) *versions.H
 	if len(steps) == 0 {
 		return nil
 	}
-	return &versions.HighlightTour{Steps: steps}
+	stale := false
+	if len(targets) > 0 {
+		for _, step := range steps {
+			if !targets[step.Target] {
+				stale = true
+			}
+		}
+	}
+	return &onboardingTour{Steps: steps, Stale: stale}
 }
 
 // onboardingSeed is the first progress of an account without an entry.
@@ -154,8 +181,9 @@ func onboardingSeed(user auth.User, role string, fresh bool, ids []string) func(
 // account (PUT me). The middleware has already checked the session, the user
 // comes from the request context. settingsStore and installed feed the setup
 // items that are detected from the current configuration, stateDir holds the
-// changelog for "Neu erkunden".
-func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string) http.HandlerFunc {
+// changelog for "Neu erkunden", tourTargets the data-tour targets of the web UI
+// that mark a tour as stale.
+func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := auth.UserFromContext(r.Context())
 		if !ok {
@@ -169,7 +197,7 @@ func handleOnboarding(manager *auth.Manager, store *onboarding.Store, settingsSt
 				methodNotAllowed(w, http.MethodGet)
 				return
 			}
-			handleOnboardingGet(manager, store, settingsStore, installed, stateDir, user)(w, r)
+			handleOnboardingGet(manager, store, settingsStore, installed, stateDir, tourTargets, user)(w, r)
 		case "step":
 			if r.Method != http.MethodPut {
 				methodNotAllowed(w, http.MethodPut)
@@ -232,10 +260,10 @@ func requireOnboardingAdmin(w http.ResponseWriter, r *http.Request, manager *aut
 	return true
 }
 
-func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, user auth.User) http.HandlerFunc {
+func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool, user auth.User) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := onboardingRoleOf(user)
-		currentVersion, exploreItems := onboardingExplore(stateDir, user)
+		currentVersion, exploreItems := onboardingExplore(stateDir, user, tourTargets)
 		ids := make([]string, 0, len(exploreItems))
 		for _, item := range exploreItems {
 			ids = append(ids, item.ID)

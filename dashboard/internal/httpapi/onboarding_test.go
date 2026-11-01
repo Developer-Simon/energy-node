@@ -38,6 +38,7 @@ type onboardingView struct {
 		Items          []struct {
 			ID      string            `json:"id"`
 			Version string            `json:"version"`
+			Minor   string            `json:"minor"`
 			PR      int               `json:"pr"`
 			Text    string            `json:"text"`
 			I18n    map[string]string `json:"i18n"`
@@ -50,6 +51,7 @@ type onboardingView struct {
 					Target string `json:"target"`
 					Need   string `json:"need"`
 				} `json:"steps"`
+				Stale bool `json:"stale"`
 			} `json:"tour"`
 		} `json:"items"`
 		BaselineSeen bool `json:"baseline_seen"`
@@ -85,6 +87,13 @@ func newOnboardingRouterWithSettings(t *testing.T, usersPath, onboardingDir, set
 // installer state (changelog, manifests) in stateDir.
 func newOnboardingRouterWithState(t *testing.T, usersPath, onboardingDir, settingsDir, stateDir string) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return newOnboardingRouterWithTargets(t, usersPath, onboardingDir, settingsDir, stateDir, nil)
+}
+
+// newOnboardingRouterWithTargets is newOnboardingRouterWithState with the
+// data-tour targets of the web UI as the caller names them (nil: none).
+func newOnboardingRouterWithTargets(t *testing.T, usersPath, onboardingDir, settingsDir, stateDir string, targets func() map[string]bool) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(usersPath, "admin", usersAdminPassword)
 	if err != nil {
 		t.Fatal(err)
@@ -95,6 +104,7 @@ func newOnboardingRouterWithState(t *testing.T, usersPath, onboardingDir, settin
 		Auth:              manager,
 		Onboarding:        onboarding.NewStore(onboardingDir),
 		InstallerStateDir: stateDir,
+		TourTargets:       targets,
 	})
 	return router, manager
 }

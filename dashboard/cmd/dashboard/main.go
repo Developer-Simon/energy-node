@@ -583,6 +583,7 @@ func main() {
 		MQTTBridgeWatcher:   client,
 		DataDir:             dataDir,
 		Onboarding:          onboardingStore,
+		TourTargets:         dashwebui.TourTargets,
 		InstallerStateDir:   installerStateDir,
 		AppConfigPath:       *configPath,
 		BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,
