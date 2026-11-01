@@ -154,6 +154,8 @@
     status: {},
     // Einrichtungsschritte aus dem Server (setup.items), in Reihenfolge.
     items: [],
+    // Highlights aus dem Server (explore), so wie /api/v1/onboarding sie liefert.
+    exploreData: { current_version: '', items: [] },
     seen: {},
     welcomed: false,
     run: null,
@@ -180,6 +182,7 @@
       this.role = progress.role || 'guest';
       this.setupDone = Boolean(progress.setup?.done);
       this.items = progress.setup?.items || [];
+      this.exploreData = { current_version: progress.explore?.current_version || '', items: progress.explore?.items || [] };
       // Gespeichert und erkannt zusammen. Erkannt steht nur in den Items.
       this.status = { ...(progress.setup?.steps || {}), ...Object.fromEntries(
         this.items.filter((item) => item.state).map((item) => [item.id, item.state])) };
@@ -232,8 +235,44 @@
       const done = items.filter((item) => ['done', 'installer'].includes(this.stateOf(item.id))).length;
       return { done, total: items.length };
     },
+    // Neu erkunden: die Highlights des Servers, nach Version gruppiert und im
+    // Format von obModel. Titel und Texte in der Seitensprache (sonst der
+    // englische Text). Schritte tragen literal, build() uebersetzt sie nicht mehr.
+    get exploreVersions() {
+      const localized = (map, fallback) => window.I18n.localized(map, fallback);
+      const current = this.exploreData.current_version;
+      const versions = [];
+      for (const item of this.exploreData.items) {
+        let version = versions.find((v) => v.version === item.version);
+        if (!version) {
+          version = { version: item.version, current: item.version === current, items: [] };
+          versions.push(version);
+        }
+        const text = localized(item.i18n, item.text);
+        version.items.push({
+          id: item.id,
+          pr: item.pr,
+          title: text,
+          text,
+          detail: item.details ? localized(item.details.text, item.details.text?.en) : '',
+          // tour null heisst: nur Text, keine Tour.
+          tour: item.tour ? undefined : false,
+          steps: (item.tour?.steps || []).map((s) => ({
+            panel: s.panel,
+            page: s.page,
+            target: `[data-tour="${s.target}"]`,
+            device: s.device,
+            need: s.need,
+            title: localized(s.title, s.title?.en),
+            text: localized(s.text, s.text?.en),
+            literal: true,
+          })),
+        });
+      }
+      return versions;
+    },
     get unseenCount() {
-      return window.obModel.unseenCount(window.obSteps.explore, this.seen, this.ctx());
+      return window.obModel.unseenCount(this.exploreVersions, this.seen, this.ctx());
     },
     // Schritte eines Highlights, die fuer Rolle und Geraet gelten (wie in obModel).
     tourSteps(item) {
@@ -249,13 +288,15 @@
 
     // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. Das
     // Modell liefert Katalogschluessel, hier werden Titel und Texte uebersetzt.
+    // Schritte mit literal (Neu erkunden) sind schon Text und bleiben so.
     build(mode, from) {
-      const { explore, welcome } = window.obSteps;
+      const { welcome } = window.obSteps;
       const areas = window.obSteps.areas.map((a) => ({ ...a, label: t(a.label) }));
       const steps = window.obModel.buildSteps({
-        mode, from, setup: this.setupItems, explore, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
+        mode, from, setup: this.setupItems, explore: this.exploreVersions, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
       });
-      return steps.map((s) => ({ ...s, title: s.title ? t(s.title) : '', text: s.text ? t(s.text) : '', emptyText: s.emptyText ? t(s.emptyText) : '' }));
+      const translate = (s, value) => (s.literal ? value || '' : (value ? t(value) : ''));
+      return steps.map((s) => ({ ...s, title: translate(s, s.title), text: translate(s, s.text), emptyText: s.emptyText ? t(s.emptyText) : '' }));
     },
 
     start(mode, from = null, { index = 0 } = {}) {

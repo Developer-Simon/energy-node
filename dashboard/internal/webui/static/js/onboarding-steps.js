@@ -1,4 +1,4 @@
-// Ortsangaben der Einrichtungsschritte und Beispiele für Neu erkunden. Welche
+// Ortsangaben der Einrichtungsschritte. Welche
 // Einrichtungsschritte es gibt, ihre Reihenfolge und ihr Zustand kommen vom
 // Server (setup.items aus /api/v1/onboarding, nach Rechten und installierten
 // Diensten gefiltert). Hier steht nur, wo ein Schritt liegt: Seite, Vorbereitung
@@ -11,12 +11,11 @@
 // Titel und Text heissen onboarding.setup.<id>.title und .text und liegen im Katalog.
 // emptyText (Katalogschluessel) ersetzt den Text, wenn emptyWhen() beim Zeigen true liefert.
 //
-// Die Felder areas, installerOnly, explore und welcome sind unveraendert.
+// Die Felder areas, installerOnly und welcome sind unveraendert. Neu erkunden
+// kommt vom Server (explore), siehe onboarding.js.
 (() => {
   const guestCard = () => [...document.querySelectorAll('#settings-users .users-card')]
     .find((card) => card.querySelector('.users-avatar')?.textContent.trim() === 'G');
-  const guestSwitch = () => [...(guestCard()?.querySelectorAll('.users-line') || [])]
-    .find((line) => line.querySelector('input[role="switch"]') && window.obSpotlight.visibleRect(line));
   // Benutzerseite: erst der Reiter Konten, dann die Karte aufklappen.
   const accountsTab = () => {
     const tab = document.querySelector('#settings-users .users-tab[data-tab="accounts"]');
@@ -28,8 +27,6 @@
     const card = find();
     if (card && !card.classList.contains('is-open')) card.querySelector('.users-card-head')?.click();
   };
-  const firstVisible = (...selectors) => () => selectors.map((sel) => document.querySelector(sel))
-    .find((el) => el && window.obSpotlight.visibleRect(el));
   const data = (id) => `[data-tour="${id}"]`;
 
   // Texte: Die Felder label, title, text, sub und detail enthalten Schlüssel des
@@ -100,44 +97,6 @@
     { id: 'automations', panel: 'automations-panel', need: 'view_automations', target: data('automations'), check: 'leave' },
   ];
 
-  // Neu erkunden: Beispiel aus den letzten Highlights, so wie es aus
-  // changelog.json kaeme. tour: false = Highlight ohne Tour (nur Text).
-  const explore = [
-    {
-      version: '0.12.0', current: true,
-      items: [
-        {
-          id: 'h184', pr: 184, title: 'onboarding.explore.h184.title',
-          text: 'onboarding.explore.h184.text',
-          detail: 'onboarding.explore.h184.detail',
-          steps: [{ panel: 'settings-panel', page: 'users', target: guestSwitch, prepare: openCard(guestCard), need: 'edit_users' }],
-        },
-        {
-          id: 'h183', pr: 183, title: 'onboarding.explore.h183.title',
-          text: 'onboarding.explore.h183.text',
-          detail: 'onboarding.explore.h183.detail',
-          steps: [{ panel: 'stats-panel', target: firstVisible('#stats-panel .stats-view-toggle', '#stats-panel .stats-kpis'), need: 'view_stats', device: 'phone' }],
-        },
-        {
-          id: 'h181', pr: 181, title: 'onboarding.explore.h181.title', tour: false,
-          text: 'onboarding.explore.h181.text',
-          detail: 'onboarding.explore.h181.detail',
-        },
-      ],
-    },
-    {
-      version: '0.11.0',
-      items: [
-        {
-          id: 'h180', pr: 180, title: 'onboarding.explore.h180.title',
-          text: 'onboarding.explore.h180.text',
-          detail: 'onboarding.explore.h180.detail',
-          steps: [{ panel: 'devices-panel', target: '#devices-panel .device-tile', need: 'view_devices' }],
-        },
-      ],
-    },
-  ];
-
   // Begruessung fuer neue Benutzer und Gaeste: feste kurze Runde durch die
   // Hauptbereiche, nach Rechten gefiltert (Tabs ohne Recht fehlen im DOM und
   // entfallen deshalb von selbst).
@@ -148,5 +107,5 @@
     { id: 'w-settings', panel: 'settings-panel', page: 'checklist', target: '#tab-settings', title: 'onboarding.welcome.w-settings.title', text: 'onboarding.welcome.w-settings.text' },
   ];
 
-  window.obSteps = { areas, setup, installerOnly, explore, welcome };
+  window.obSteps = { areas, setup, installerOnly, welcome };
 })();

@@ -24,14 +24,26 @@ const SERVER_ITEMS = [
   ['devicemap', 'devices', false],
 ].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
 
+// Highlights aus /api/v1/onboarding (explore) wie der Server sie liefert:
+// h181 ohne Tour, h184 mit einem Schritt ohne Rechte.
+const SAMPLE_EXPLORE = {
+  current_version: '0.12.0',
+  baseline_seen: false,
+  items: [
+    { id: 'h184', version: '0.12.0', pr: 184, text: 'Guest switch', details: null, tour: { steps: [{ panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: '', title: { en: 'Guest' }, text: { en: 'Here' } }] } },
+    { id: 'h181', version: '0.12.0', pr: 181, text: 'Text only', details: null, tour: null },
+  ],
+};
+
 // Loads the page scripts into a jsdom window and returns the store plus a
 // checklist component bound to it. role decides admin or guest, width the device.
-async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = null } = {}) {
+// explore ist der Server-Block explore (Standard: SAMPLE_EXPLORE).
+async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><ul id="root"></ul></body></html>', { runScripts: 'outside-only', url, pretendToBeVisual: true });
   const { window } = dom;
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
   // Die Schritte des Servers (setup.items), wie steps.go sie in dieser Reihenfolge liefert.
-  const progress = { role, setup: { done: false, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] } };
+  const progress = { role, setup: { done: false, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] }, explore };
   const calls = [];
   window.fetch = async (requestUrl, options = {}) => {
     calls.push({ url: requestUrl, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : undefined });
@@ -54,7 +66,6 @@ async function load({ url = 'http://localhost/', role = 'admin', width = 1024, e
   installI18n(window);
   const context = dom.getInternalVMContext();
   for (const [, source] of sources) vm.runInContext(source, context);
-  if (explore) window.obSteps.explore = explore;
   window.document.dispatchEvent(new window.Event('alpine:init'));
   await new Promise((resolve) => setImmediate(resolve));
   const store = stores.onboarding;
@@ -133,15 +144,12 @@ test('the setup mode is offered to admins only', async () => {
 });
 
 test('a highlight that only works on the other device has no button and names the device', async () => {
-  const phoneOnly = [{
-    version: '0.12.0', current: true,
-    items: [{
-      id: 'hp', title: 'onboarding.explore.h184.title', text: 'onboarding.explore.h184.text', detail: 'onboarding.explore.h184.detail',
-      steps: [{ panel: 'settings-panel', page: 'users', device: 'phone', target: '#x' }],
-    }],
-  }];
+  const phoneOnly = {
+    current_version: '0.12.0',
+    items: [{ id: 'hp', version: '0.12.0', text: 'Phone', tour: { steps: [{ panel: 'settings-panel', page: 'users', device: 'phone', target: 'x', title: {}, text: {} }] } }],
+  };
   const desktop = await load({ width: 1024, explore: phoneOnly });
-  const item = phoneOnly[0].items[0];
+  const [item] = desktop.store.exploreVersions[0].items;
   assert.equal(desktop.component.newsState(item), 'other-device');
   assert.equal(desktop.component.newsAction(item), '');
   assert.equal(desktop.component.newsSub(item), desktop.t('onboarding.checklist.only_phone'));
@@ -149,31 +157,31 @@ test('a highlight that only works on the other device has no button and names th
   desktop.component.newsAct(item);
   assert.equal(desktop.component.isReading(item), false);
 
-  const desktopOnly = [{
-    version: '0.12.0', current: true,
-    items: [{ id: 'dk', title: 'onboarding.explore.h184.title', text: 'onboarding.explore.h184.text', detail: 'onboarding.explore.h184.detail', steps: [{ panel: 'x', device: 'desktop', target: '#x' }] }],
-  }];
+  const desktopOnly = {
+    current_version: '0.12.0',
+    items: [{ id: 'dk', version: '0.12.0', text: 'Desktop', tour: { steps: [{ panel: 'x', device: 'desktop', target: 'x', title: {}, text: {} }] } }],
+  };
   const phone = await load({ width: 500, explore: desktopOnly });
-  const other = desktopOnly[0].items[0];
+  const [other] = phone.store.exploreVersions[0].items;
   assert.equal(phone.component.newsAction(other), '');
   assert.equal(phone.component.newsSub(other), 'Nur am Desktop');
 });
 
 test('a highlight that fits this device keeps its button', async () => {
-  const fits = [{
-    version: '0.12.0', current: true,
-    items: [{ id: 'ok', title: 'onboarding.explore.h184.title', text: 'onboarding.explore.h184.text', detail: 'onboarding.explore.h184.detail', steps: [{ panel: 'x', target: '#x' }] }],
-  }];
-  const { component: cl, t } = await load({ explore: fits });
-  const item = fits[0].items[0];
+  const fits = {
+    current_version: '0.12.0',
+    items: [{ id: 'ok', version: '0.12.0', text: 'Fits', tour: { steps: [{ panel: 'x', target: 'x', device: '', title: {}, text: {} }] } }],
+  };
+  const { store, component: cl, t } = await load({ explore: fits });
+  const [item] = store.exploreVersions[0].items;
   assert.equal(cl.newsState(item), 'new');
   assert.equal(cl.newsAction(item), t('onboarding.checklist.action_show'));
 });
 
 test('a highlight without a tour is read in place and marked seen', async () => {
-  const { window, store, component: cl, calls } = await load();
-  const item = window.obSteps.explore[0].items.find((i) => i.id === 'h181');
-  assert.ok(item, 'h181 is in the example catalog');
+  const { store, component: cl, calls } = await load();
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'h181');
+  assert.ok(item, 'h181 is in the server highlights');
   assert.equal(cl.newsState(item), 'text');
   cl.newsAct(item);
   assert.equal(cl.isReading(item), true);

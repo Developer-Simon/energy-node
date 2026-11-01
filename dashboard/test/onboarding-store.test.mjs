@@ -25,10 +25,31 @@ const ITEMS = [
   ['roles', 'devices', false], ['devicemap', 'devices', false],
 ].map(([id, area, installer]) => ({ id, area, installer, state: '' }));
 
+// Highlights aus /api/v1/onboarding (explore), wie der Server sie liefert.
+// h184 hat eine Tour mit einem Schritt, h181 keine Tour, h180 gehoert zur
+// aelteren Version.
+const EXPLORE = {
+  current_version: '0.12.0',
+  baseline_seen: false,
+  items: [
+    {
+      id: 'h184', version: '0.12.0', pr: 184, text: 'Guest switch', i18n: { de: 'Gast-Schalter' }, details: null,
+      tour: { steps: [{ panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: 'user_management', title: { de: 'Gast', en: 'Guest' }, text: { de: 'Hier', en: 'Here' } }] },
+    },
+    {
+      id: 'h181', version: '0.12.0', pr: 181, text: 'Text only', details: { text: { de: 'Mehr', en: 'More' } }, tour: null,
+    },
+    {
+      id: 'h180', version: '0.11.0', pr: 180, text: 'Older', tour: { steps: [{ panel: 'devices-panel', target: 'devices', device: 'any', need: 'view_devices', title: { en: 'Devices' }, text: { en: 'Here' } }] },
+    },
+  ],
+};
+
 const PROGRESS = {
   role: 'admin',
   setup: { done: false, steps: {}, items: ITEMS },
   user: { seen: [], welcomed: false, run: null, queue: [] },
+  explore: EXPLORE,
 };
 const SESSION = { csrf_token: 'tok', roles: ['user_management', 'view_devices', 'view_stats'] };
 
@@ -220,4 +241,49 @@ test('leaving the intro step marks setup-intro as seen and writes no setup step'
   assert.deepEqual(seen.map((c) => [...c.body.seen_add]), [['setup-intro']]);
   assert.equal(calls.some((c) => c.url === '/api/v1/onboarding/step'), false);
   assert.equal(store.seen['setup-intro'], true);
+});
+
+test('exploreVersions groups the server highlights in the model shape', async () => {
+  const { store } = await load();
+  const versions = store.exploreVersions;
+  // [...] holt die Ergebnisse aus dem VM-Kontext in ein Array dieses Realms.
+  assert.deepEqual([...versions.map((v) => [v.version, v.current])], [['0.12.0', true], ['0.11.0', false]]);
+  const [current] = versions;
+  assert.deepEqual([...current.items.map((i) => i.id)], ['h184', 'h181']);
+
+  // Titel und Text in der Sprache der Seite, sonst der englische Text.
+  const guest = current.items[0];
+  assert.equal(guest.pr, 184);
+  assert.equal(guest.title, 'Gast-Schalter');
+  assert.equal(guest.text, 'Gast-Schalter');
+  assert.equal(guest.tour, undefined);
+  assert.equal(guest.steps.length, 1);
+  assert.deepEqual({ ...guest.steps[0] }, {
+    panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: '', need: 'user_management',
+    title: 'Gast', text: 'Hier', literal: true,
+  });
+
+  // tour null: nur Text, keine Schritte.
+  const textOnly = current.items[1];
+  assert.equal(textOnly.title, 'Text only');
+  assert.equal(textOnly.tour, false);
+  assert.deepEqual([...textOnly.steps], []);
+  assert.equal(textOnly.detail, 'Mehr');
+});
+
+test('explore steps keep the highlight text and skip the catalog', async () => {
+  const { store } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  assert.equal(store.unseenCount, 1, 'h184 is the only unseen highlight with a tour');
+  store.start('explore', null, { index: 0 });
+  assert.equal(store.steps.length, 1);
+  const [first] = store.steps;
+  assert.equal(first.id, 'h184');
+  assert.equal(first.title, 'Gast-Schalter');
+  assert.equal(first.text, 'Gast-Schalter');
+  assert.equal(first.target, '[data-tour="guest"]');
+});
+
+test('the explore catalog is gone from obSteps', async () => {
+  const { window } = await load();
+  assert.equal('explore' in window.obSteps, false);
 });

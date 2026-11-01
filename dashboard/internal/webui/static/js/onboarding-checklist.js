@@ -75,7 +75,7 @@
         items: items.filter((item) => item.area === area.id),
       }));
     },
-    get versions() { return window.obSteps.explore; },
+    get versions() { return this.s.exploreVersions; },
     versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/\.0$/, '') }); },
     versionEyebrow(version) { return t(version.current ? 'onboarding.checklist.since_visit' : 'onboarding.checklist.older'); },
 
