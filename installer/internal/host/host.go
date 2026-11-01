@@ -534,9 +534,11 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		TargetBase:      firstNonEmpty(req.TargetBase, manifest.TargetBase),
 		MQTTUser:        req.MQTTUser,
 		RestartAll:      req.RestartAll,
-		OnlineDeps:      h.onlineDepsNeeded(),
-		Steps:           list,
-		Selection:       h.selectionForRun(),
+		// A first setup runs every step; only an update skips what is done.
+		Force:      req.Mode == hostapi.ModeInstall && req.Only == "",
+		OnlineDeps: h.onlineDepsNeeded(),
+		Steps:      list,
+		Selection:  h.selectionForRun(),
 		Secrets: &steps.Secrets{
 			MQTTPassword:  req.MQTTPassword,
 			AdminPassword: req.AdminPassword,
