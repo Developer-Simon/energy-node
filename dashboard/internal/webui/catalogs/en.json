@@ -2860,6 +2860,7 @@
   "mqtt.reconnect.loading": "Connecting ...",
   "mqtt.reconnect.note": "The broker is restarting and the connection is being restored. The live view pauses briefly.",
   "mqtt.reconnect_failed": "Reconnect failed: {error}",
+  "mqtt.reconnect_failed_disabled": "Reconnect failed: {error}. The switch for the dashboard settings is off, so the values from the configuration file still apply, not these entries.",
   "mqtt.save.loading": "Saving ...",
   "mqtt.saved_and_reconnected": "Saved and reconnected.",
   "mqtt.simulation.help": "About sending simulation mode to all bridges",

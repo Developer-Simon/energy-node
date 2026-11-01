@@ -184,7 +184,10 @@
           if (result.ok) {
             this.$store.toasts.push(t('mqtt.saved_and_reconnected'));
           } else {
-            this.$store.toasts.push(t('mqtt.reconnect_failed', {error: result.error || ''}), 'critical');
+            // With the switch off the reconnect uses the service configuration,
+            // not the form, so say that instead of leaving the user guessing.
+            const key = this.form.enabled ? 'mqtt.reconnect_failed' : 'mqtt.reconnect_failed_disabled';
+            this.$store.toasts.push(t(key, {error: result.error || ''}), 'critical');
           }
         } else {
           this.$store.toasts.push(t('common.saved') + '.');

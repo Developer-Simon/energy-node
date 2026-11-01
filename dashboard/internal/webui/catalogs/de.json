@@ -2860,6 +2860,7 @@
   "mqtt.reconnect.loading": "Verbinde ...",
   "mqtt.reconnect.note": "Broker startet neu, Verbindung wird wiederhergestellt. Die Live-Anzeige setzt kurz aus.",
   "mqtt.reconnect_failed": "Neu verbinden fehlgeschlagen: {error}",
+  "mqtt.reconnect_failed_disabled": "Neu verbinden fehlgeschlagen: {error}. Der Schalter für die Dashboard-Einstellungen ist aus, deshalb gelten weiter die Werte aus der Konfigurationsdatei und nicht diese Eingaben.",
   "mqtt.save.loading": "Speichere ...",
   "mqtt.saved_and_reconnected": "Gespeichert und neu verbunden.",
   "mqtt.simulation.help": "Erklärung zu Simulationsmodus an alle Bridges senden",
