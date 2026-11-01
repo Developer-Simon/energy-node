@@ -760,11 +760,24 @@
         (unitData.findings || []).forEach(f => {
           const row = document.createElement('div');
           row.className = `battery-tuning-finding battery-tuning-finding--${f.severity}`; // i18n-ignore
-          row.textContent = f.message;
+          row.textContent = this.tuningFindingText(f);
           section.append(row);
         });
       });
       body.append(section);
+    },
+
+    // Befunde kommen als {code, params, message}. Der Katalogtext gewinnt,
+    // message (deutscher Klartext des Dienstes) ist nur der Rueckfall fuer
+    // Codes ohne Katalogeintrag und fuer retained Payloads aelterer Dienste,
+    // die noch kein params-Feld tragen.
+    tuningFindingText(finding) {
+      if (!finding.params) return finding.message;
+      const params = finding.params;
+      // i18n-keys: config.tuning.finding.anchor_unreliable, config.tuning.finding.no_lower_anchor, config.tuning.finding.too_few_samples, config.tuning.finding.implausible_efficiency, config.tuning.finding.implausible_resistance, config.tuning.finding.threshold_too_low, config.tuning.finding.current_too_low
+      const key = `config.tuning.finding.${finding.code}${params.subject ? `_${params.subject}` : ''}`;
+      const text = t(key, params);
+      return text && text !== key ? text : finding.message;
     },
 
     refreshTuningSuggestions(objectNode) {

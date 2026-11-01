@@ -13,3 +13,10 @@ def test_vendored_core_matches_source():
     assert (to_write, to_delete) == ([], []), (
         f"vendored core is stale — run `.venv/bin/python scripts/vendor_core.py`. "
         f"write={to_write} delete={to_delete}")
+
+
+def test_vendored_messages_match_source():
+    src = REPO / "libs/energy_node_common/src/energy_node_common/messages.py"
+    dst = REPO / "integrations/homeassistant/custom_components/battery_soc/energy_node_messages.py"
+    assert dst.read_bytes() == src.read_bytes(), (
+        "vendored messages.py is stale — run `.venv/bin/python scripts/vendor_core.py`")

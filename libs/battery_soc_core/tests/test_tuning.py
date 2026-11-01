@@ -4,6 +4,7 @@ import pytest
 
 from tests.conftest import make_params
 from battery_soc_core.state import CalibrationEvent
+from battery_soc_core.messages import CATALOGS, finding_key
 from battery_soc_core.tuning import MIN_SAMPLES_FOR_SUGGESTION, analyse
 
 
@@ -23,7 +24,7 @@ def test_too_few_events_yields_no_suggestion():
     events = [full_event(100.0, 105.0, n=n) for n in range(MIN_SAMPLES_FOR_SUGGESTION - 1)]
     suggestions, findings = analyse(params, events)
     assert suggestions == []
-    assert any(f.code == "zu_wenig_daten" for f in findings)
+    assert any(f.code == "too_few_samples" for f in findings)
 
 
 def test_consistent_residual_suggests_a_higher_inverter_efficiency():
@@ -57,7 +58,7 @@ def test_suggestion_is_clamped_to_a_physical_range():
     events = [full_event(140.0, 100.0, n=n) for n in range(8)]
     suggestions, findings = analyse(params, events)
     assert not any(s.key == "inverter_dc_ac_efficiency" for s in suggestions)
-    assert any(f.code == "unplausibel" for f in findings)
+    assert any(f.code == "implausible" for f in findings)
 
 
 def test_untrustworthy_anchors_are_excluded():
@@ -67,7 +68,7 @@ def test_untrustworthy_anchors_are_excluded():
     events = [full_event(100.0, 105.0, taper_met=False, n=n) for n in range(8)]
     suggestions, findings = analyse(params, events)
     assert suggestions == []
-    assert any(f.code == "anker_unzuverlaessig" for f in findings)
+    assert any(f.code == "anchor_unreliable" for f in findings)
 
 
 def test_high_current_at_calibration_is_reported():
@@ -75,7 +76,7 @@ def test_high_current_at_calibration_is_reported():
                          bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0)
     events = [full_event(100.0, 105.0, current_a=17.0, n=n) for n in range(8)]
     _suggestions, findings = analyse(params, events)
-    assert any(f.code == "schwelle_zu_tief" for f in findings)
+    assert any(f.code == "threshold_too_low" for f in findings)
 
 
 def test_missing_bottom_anchor_is_reported_not_guessed():
@@ -85,7 +86,7 @@ def test_missing_bottom_anchor_is_reported_not_guessed():
     events = [full_event(100.0, 105.0, n=n) for n in range(8)]
     suggestions, findings = analyse(params, events)
     assert not any(s.key.endswith("capacity_ah") for s in suggestions)
-    assert any(f.code == "kein_unterer_anker" for f in findings)
+    assert any(f.code == "no_lower_anchor" for f in findings)
 
 
 # ---------------------------------------------------------------------------
@@ -152,7 +153,7 @@ def test_resistance_suggestion_needs_minimum_current_samples():
               for n, c in enumerate([0.3, 0.4, 0.2, 0.1, 0.35])]
     suggestions, findings = analyse(params, events)
     assert not any(s.key == "internal_resistance_mohm_per_cell" for s in suggestions)
-    assert any(f.code == "zu_geringer_strom" for f in findings)
+    assert any(f.code == "current_too_low" for f in findings)
 
 
 def test_resistance_suggestion_reports_implausible_values():
@@ -166,7 +167,7 @@ def test_resistance_suggestion_reports_implausible_values():
               for n, c in enumerate(currents)]
     suggestions, findings = analyse(params, events)
     assert not any(s.key == "internal_resistance_mohm_per_cell" for s in suggestions)
-    assert any(f.code == "unplausibel" for f in findings)
+    assert any(f.code == "implausible" for f in findings)
 
 
 def test_resistance_suggestion_reports_the_configured_value_when_set():
@@ -180,3 +181,52 @@ def test_resistance_suggestion_reports_the_configured_value_when_set():
     suggestions, _ = analyse(params, events)
     r = next(s for s in suggestions if s.key == "internal_resistance_mohm_per_cell")
     assert r.current_value == 1.0
+
+
+def test_findings_carry_params_for_translation():
+    params = make_params(inverter_dc_ac_efficiency=0.90)
+    events = [full_event(100.0, 105.0, n=n) for n in range(MIN_SAMPLES_FOR_SUGGESTION - 1)]
+    _suggestions, findings = analyse(params, events)
+    few = next(f for f in findings if f.code == "too_few_samples")
+    assert few.params == {"count": MIN_SAMPLES_FOR_SUGGESTION - 1, "needed": MIN_SAMPLES_FOR_SUGGESTION}
+
+
+def test_finding_message_comes_from_german_catalog():
+    params = make_params(inverter_dc_ac_efficiency=0.90)
+    events = [full_event(100.0, 105.0, n=n) for n in range(MIN_SAMPLES_FOR_SUGGESTION - 1)]
+    _suggestions, findings = analyse(params, events)
+    few = next(f for f in findings if f.code == "too_few_samples")
+    assert few.message == CATALOGS["de"]["too_few_samples"].format(**few.params)
+
+
+def test_every_emitted_finding_has_a_catalog_entry():
+    scenarios = []
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90),
+                      [full_event(100.0, 105.0, n=n) for n in range(MIN_SAMPLES_FOR_SUGGESTION - 1)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.95),
+                      [full_event(140.0, 100.0, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90),
+                      [full_event(100.0, 105.0, taper_met=False, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90, full_taper_c_rate=0.05,
+                                  bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0),
+                      [full_event(100.0, 105.0, current_a=17.0, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90),
+                      [full_event(100.0, 105.0, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                                  full_taper_c_rate=0.05, bank_a_capacity_ah=100.0,
+                                  bank_b_capacity_ah=100.0),
+                      [resistance_event(c, 1.2, 3.48, n=n)
+                       for n, c in enumerate([0.3, 0.4, 0.2, 0.1, 0.35])]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                                  empty_v_per_cell=2.70, full_taper_c_rate=0.05,
+                                  bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0),
+                      [resistance_event(c, 25.0, 3.48 if c > 0 else 2.70, n=n)
+                       for n, c in enumerate([4.0, 6.0, 8.0, 5.0, 7.0, -20.0, -30.0, -15.0])]))
+    codes = set()
+    for params, events in scenarios:
+        _suggestions, findings = analyse(params, events)
+        for f in findings:
+            codes.add(f.code)
+            assert finding_key(f.code, f.params) in CATALOGS["de"], finding_key(f.code, f.params)
+    assert {"too_few_samples", "anchor_unreliable", "no_lower_anchor",
+            "threshold_too_low", "implausible", "current_too_low"} <= codes

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.34 (2026-11-01)
+## v0.10.35 (2026-11-01)
 
 ### Features
 
@@ -25,6 +25,7 @@
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
 - **onboarding:** A guided first-time setup walks admins through access, display, system and devices, with a welcome step first. (#188) (7dab3e8)
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
+- **battery-soc:** render tuning findings from a shared message catalog (#196)
 - **dashboard:** retry the first MQTT connection in the background (903dc4e)
 - **onboarding:** apply the installer seed file on start (1cad38f)
 - **onboarding:** add the setup step catalog and detection (faaebd9)
@@ -201,6 +202,8 @@
 ### Fixes
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
+- **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195) (70464ad)
+- **battery-soc:** render tuning findings from the dashboard catalog (d8641fc)
 - **dashboard:** let Reconfigure work before the first MQTT connection (5e19e68)
 - **dashboard:** start without an MQTT connection and keep retrying (9b7ac80)
 - **dashboard:** read the MQTT client under the lock (bab3642)
@@ -209,7 +212,6 @@
 - **dashboard:** name the settings switch when a reconnect fails while it is off (6a04a80)
 - **dashboard:** explain the installer password when the settings switch is off (ceef385)
 - **dashboard:** drop the environment variable wording from the MQTT settings switch (befa2e2)
-- **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195)
 - **webui:** keep the bold lead-in of the guest note (0765b68)
 - **webui:** let the spotlight follow layout shifts of its target (a12acd8)
 - **webui:** make the welcome text more personal (451a3c0)
@@ -301,6 +303,7 @@
 
 ### Refactors
 
+- **battery-soc:** use English finding codes and severities (018296a)
 - **smoke:** turn the fake home assistant companion into a controllable class (00e1fef)
 - **auth:** split tailscale, service logs and installer access out of system_actions (9fb6ee4)
 - **automations:** remove the rule wizard from the page component (b468dc1)
@@ -322,6 +325,7 @@
 ### Tests
 
 - **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
+- **smoke:** probe the battery state under the demo bank topic (7e93a90)
 - **webui:** walk all setup steps in the browser (38ea222)
 - **webui:** assert the checklist deep link scroll and highlight (3a4ac10)
 - **smoke:** add the onboarding progress check (9ab774b)

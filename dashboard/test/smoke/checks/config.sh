@@ -21,7 +21,7 @@ checks_topics() {
     "any(s['topic'] == 'bms/bank_b/voltage' and s.get('device') and not s.get('payload') for s in data)" \
     "$BASE/api/v1/topics/samples"
   check "Live-Spannung der Batterieanlage ist als Probe abrufbar" \
-    "any(s['topic'] == 'outstation/battery_soc/state' and 'pack_corrected_v_per_cell' in s.get('payload', '') for s in data)" \
+    "any(s['topic'] == 'outstation/bank/state' and 'pack_corrected_v_per_cell' in s.get('payload', '') for s in data)" \
     "$BASE/api/v1/topics/samples"
   check "Proben sind nach Topic sortiert" \
     "[s['topic'] for s in data] == sorted(s['topic'] for s in data)" \

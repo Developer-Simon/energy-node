@@ -25,6 +25,13 @@ SRC_REL = Path("libs/battery_soc_core/battery_soc_core")
 DST_REL = Path(
     "integrations/homeassistant/custom_components/battery_soc/battery_soc_core"
 )
+# Single files copied byte for byte, (source, destination) relative to the repo root.
+FILE_PAIRS = [
+    (
+        Path("libs/energy_node_common/src/energy_node_common/messages.py"),
+        Path("integrations/homeassistant/custom_components/battery_soc/energy_node_messages.py"),
+    ),
+]
 
 
 def repo_root() -> Path:
@@ -67,6 +74,23 @@ def plan(src: Path, dst: Path) -> tuple[list[Path], list[Path]]:
     return sorted(to_write), sorted(to_delete)
 
 
+def file_plan(root: Path) -> list[Path]:
+    """Return the destination paths (repo-relative) of ``FILE_PAIRS`` that are
+    missing or differ from their source."""
+    drift: list[Path] = []
+    for src_rel, dst_rel in FILE_PAIRS:
+        target = root / dst_rel
+        if not target.exists() or target.read_bytes() != (root / src_rel).read_bytes():
+            drift.append(dst_rel)
+    return drift
+
+
+def apply_files(root: Path, drift: list[Path]) -> None:
+    for dst_rel in drift:
+        src_rel = next(s for s, d in FILE_PAIRS if d == dst_rel)
+        (root / dst_rel).write_bytes((root / src_rel).read_bytes())
+
+
 def apply(src: Path, dst: Path, plan_result: tuple[list[Path], list[Path]]) -> None:
     to_write, to_delete = plan_result
     for rel in to_write:
@@ -88,20 +112,24 @@ def main(argv: list[str]) -> int:
     root = repo_root()
     src, dst = root / SRC_REL, root / DST_REL
     to_write, to_delete = plan(src, dst)
+    file_drift = file_plan(root)
 
     if check:
-        if to_write or to_delete:
+        if to_write or to_delete or file_drift:
             print("DRIFT:")
             for rel in to_write:
                 print(f"  write  {rel}")
             for rel in to_delete:
                 print(f"  delete {rel}")
+            for rel in file_drift:
+                print(f"  write  {rel}")
             return 1
         print("vendored core in sync")
         return 0
 
     apply(src, dst, (to_write, to_delete))
-    print(f"synced {len(to_write)} files, removed {len(to_delete)}")
+    apply_files(root, file_drift)
+    print(f"synced {len(to_write) + len(file_drift)} files, removed {len(to_delete)}")
     return 0
 
 
