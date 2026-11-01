@@ -6,7 +6,8 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 script="$here/../bootstrap/diagnose.sh"
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+broker_pid=""
+trap 'kill "${broker_pid}" 2>/dev/null || true; rm -rf "$tmp"' EXIT
 fail() { echo "FAIL: $1"; [ -n "${2:-}" ] && printf '%s\n' "$2"; exit 1; }
 
 mkdir -p "$tmp/bin"
@@ -88,6 +89,91 @@ out="$(ACTIVE="mosquitto.service shelly-rpc.service" LISTENING="1883" \
 [ "$(get 'd["config"]["config.json"]')" = True ] || fail "config.json nicht erkannt" "$out"
 [ "$(get 'sorted(d["config"]["manifests"])')" = "['shelly', 'tuya']" ] || fail "Manifeste falsch" "$out"
 [ "$(get 'd["tailscale"]["angemeldet"]')" = True ] || fail "tailscale nicht angemeldet" "$out"
+
+# --- MQTT-Anmeldebefund ----------------------------------------------------
+# Fake-Broker: nimmt CONNECT an, schreibt die Rohbytes nach connect.bin und
+# antwortet mit dem CONNACK-Code aus connack (Vorgabe 0).
+cat > "$tmp/fake_broker.py" <<'PY'
+import os, socket, sys
+d = sys.argv[1]
+srv = socket.socket()
+srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(("127.0.0.1", 0))
+srv.listen(8)
+with open(os.path.join(d, "port"), "w") as f:
+    f.write(str(srv.getsockname()[1]))
+
+def recv_n(conn, n):
+    out = b""
+    while len(out) < n:
+        chunk = conn.recv(n - len(out))
+        if not chunk:
+            raise OSError("eof")
+        out += chunk
+    return out
+
+while True:
+    conn, _ = srv.accept()
+    conn.settimeout(3)
+    try:
+        header = recv_n(conn, 1)
+        length, mult = 0, 1
+        while True:
+            b = recv_n(conn, 1)[0]
+            length += (b & 0x7F) * mult
+            mult *= 128
+            if not b & 0x80:
+                break
+        body = recv_n(conn, length)
+        with open(os.path.join(d, "connect.bin"), "wb") as f:
+            f.write(header + body)
+        try:
+            code = int(open(os.path.join(d, "connack")).read().strip() or "0")
+        except OSError:
+            code = 0
+        conn.sendall(bytes([0x20, 0x02, 0x00, code]))
+    except OSError:
+        pass
+    finally:
+        conn.close()
+PY
+mkdir -p "$tmp/broker"
+python3 "$tmp/fake_broker.py" "$tmp/broker" &
+broker_pid=$!
+until [ -s "$tmp/broker/port" ]; do sleep 0.05; done
+broker_port="$(cat "$tmp/broker/port")"
+printf 'abc \n' > "$tmp/mqtt.pw"
+# mqtt_cfg <port> <passwortdatei>: schreibt die config.json des Tests.
+mqtt_cfg() {
+  printf '{"mqtt":{"host":"127.0.0.1","port":%s,"username":"en","password_file":"%s"}}\n' \
+    "$1" "$2" > "$tmp/root/etc/energy-node/config.json"
+}
+
+mqtt_cfg "$broker_port" "$tmp/mqtt.pw"
+printf '0\n' > "$tmp/broker/connack"
+out="$(ACTIVE="" LISTENING="" bash "$script")"
+[ "$(get 'd["mqtt"]["login"]')" = ok ] || fail "MQTT-Anmeldung nicht als ok erkannt" "$out"
+# Das Passwort muss byte-genau (Leerzeichen und Zeilenumbruch) im CONNECT stehen.
+python3 -c 'import sys; sys.exit(0 if open(sys.argv[1], "rb").read().endswith(b"\x00\x05abc \n") else 1)' \
+  "$tmp/broker/connect.bin" || fail "Passwort nicht byte-genau im CONNECT" "$(od -c "$tmp/broker/connect.bin")"
+
+printf '5\n' > "$tmp/broker/connack"
+out="$(ACTIVE="" LISTENING="" bash "$script")"
+[ "$(get 'd["mqtt"]["login"]')" = denied ] || fail "CONNACK 5 nicht als denied erkannt" "$out"
+
+mqtt_cfg "$broker_port" "$tmp/fehlt.pw"
+out="$(ACTIVE="" LISTENING="" bash "$script")"
+[ "$(get 'd["mqtt"]["login"]')" = nopassword ] || fail "fehlende Passwortdatei nicht als nopassword erkannt" "$out"
+
+closed_port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
+mqtt_cfg "$closed_port" "$tmp/mqtt.pw"
+out="$(ACTIVE="" LISTENING="" bash "$script")"
+[ "$(get 'd["mqtt"]["login"]')" = unreachable ] || fail "geschlossener Port nicht als unreachable erkannt" "$out"
+
+rm -f "$tmp/root/etc/energy-node/config.json"
+out="$(ACTIVE="" LISTENING="" bash "$script")"
+[ "$(get 'd["mqtt"]["login"]')" = "" ] || fail "ohne config.json entsteht ein Anmeldebefund" "$out"
+kill "$broker_pid" 2>/dev/null || true
 
 # --- ausstehende Systempakete mit Liste -------------------------------------
 out="$(UPGRADABLE="libssl3 openssl" bash "$script")"

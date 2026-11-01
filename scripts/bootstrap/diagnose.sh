@@ -82,6 +82,41 @@ for entry in data.get("steps", []):
     fi
   done
 
+  # Anmeldebefund am MQTT-Broker mit den Zugangsdaten aus der config.json.
+  # Das Passwort liest sudo aus der (root-eigenen) Datei und reicht es roh an
+  # die Probe weiter. Fehlt die config.json, entfaellt die Zeile.
+  local etc="${EN_ROOT}/etc/energy-node"
+  if [[ -f "${etc}/config.json" ]]; then
+    local mqtt_cfg="" mqtt_host mqtt_port mqtt_user mqtt_pwfile result pw
+    mqtt_cfg="$(python3 -c '
+import json, sys
+try:
+    mqtt = json.load(open(sys.argv[1], encoding="utf-8")).get("mqtt") or {}
+    fields = [
+        mqtt.get("host") or "127.0.0.1",
+        str(mqtt.get("port") or 1883),
+        mqtt.get("username") or "",
+        mqtt.get("password_file") or "/etc/energy-node/mqtt.pw",
+    ]
+except Exception:
+    sys.exit(1)
+print("\t".join(fields))
+' "${etc}/config.json" 2>/dev/null)" || mqtt_cfg=""
+    if [[ -n "${mqtt_cfg}" ]]; then
+      IFS=$'\t' read -r mqtt_host mqtt_port mqtt_user mqtt_pwfile <<<"${mqtt_cfg}"
+      # Das angehaengte x schuetzt Zeilenumbrueche am Passwortende vor dem
+      # Abschneiden durch die Befehlsersetzung; "if" trennt Lesefehler ab.
+      if pw="$("${SUDO[@]}" cat "${mqtt_pwfile}" 2>/dev/null && printf x)"; then
+        result="$(printf '%s' "${pw%x}" | python3 \
+          "$(dirname "${BASH_SOURCE[0]}")/lib/mqtt_probe.py" \
+          "${mqtt_host}" "${mqtt_port}" "${mqtt_user}")" || result=unreachable
+      else
+        result=nopassword
+      fi
+      printf 'mqtt%slogin%s%s\n' "$tab" "$tab" "${result}"
+    fi
+  fi
+
   # Shelly-Wake-Webhook: nur, wenn der Betreiber die Freigabe gewaehlt hat
   # (Schritt 35) und der Shelly-Dienst installiert ist. Firewall-Regel und
   # Listener getrennt: der Dienst lauscht erst, wenn webhook_enabled im
@@ -98,7 +133,6 @@ for entry in data.get("steps", []):
     printf 'webhook%slistening%s%s\n' "$tab" "$tab" "${listens}"
   fi
 
-  local etc="${EN_ROOT}/etc/energy-node"
   if [[ -f "${etc}/config.json" ]]; then
     printf 'config%sconfig.json%strue\n' "$tab" "$tab"
   else
@@ -198,6 +232,8 @@ report = {
     "ports": {},
     "config": {"config.json": False, "manifests": []},
     "tailscale": {"angemeldet": False},
+    # Anmeldebefund am MQTT-Broker: ok, denied, nopassword, unreachable, leer.
+    "mqtt": {"login": ""},
     # installierte Versionen: components wie im Manifest, services je Unit.
     "versions": {"components": {}, "services": {}},
     # Geraete je Unit: Liste aus id/name, null = Geraetedatei nicht lesbar.
@@ -224,6 +260,8 @@ for line in sys.stdin:
         report["config"]["manifests"].append(key)
     elif kind == "tailscale":
         report["tailscale"][key] = value == "true"
+    elif kind == "mqtt":
+        report["mqtt"][key] = value
     elif kind == "version":
         group, _, name = key.partition(":")
         report["versions"]["components" if group == "component" else "services"][name] = value
