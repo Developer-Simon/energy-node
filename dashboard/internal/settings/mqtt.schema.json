@@ -1,6 +1,6 @@
 {
   "title": "Dashboard MQTT broker connection",
-  "description": "The dashboard's own MQTT broker connection, as an alternative to MQTT_* environment variables.",
+  "description": "The dashboard's own MQTT broker connection, as an alternative to the MQTT login from the central configuration.",
   "type": "object",
   "additionalProperties": false,
   "required": ["enabled", "host", "port", "client_id", "tls", "tls_insecure", "keepalive_seconds", "clean_session", "discovery_prefix", "connect_timeout_seconds"],
@@ -9,7 +9,7 @@
       "type": "boolean",
       "default": false,
       "title": "Enabled",
-      "description": "If true, this document takes full precedence over MQTT_* environment variables."
+      "description": "If true, this document takes full precedence over the MQTT login from the central configuration."
     },
     "host": {"type": "string", "title": "Host"},
     "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 1883, "title": "Port"},

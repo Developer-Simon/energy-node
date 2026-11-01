@@ -16,7 +16,7 @@ title: "Troubleshooting"
 | Services run an old version of the shared package | The wheel was installed for a different interpreter than the unit's `/usr/bin/python3`; reinstall and `systemctl restart` the services |
 | Devices show as unavailable in Home Assistant, no errors in the log | Check that the bridge actually connected to the broker. The bridges only log paho's internal callback exceptions because `enable_logger()` is on |
 | Dashboard reachable but admin login rejected | Admin sessions require HTTPS. Use the Caddy endpoint instead of port 8080 |
-| Dashboard runs, but the MQTT tab shows "Last error" with "not Authorized" | The MQTT username or password does not match the broker. Check `mqtt.username` in `/etc/energy-node/config.json` and the password in `/etc/energy-node/mqtt.pw`, then correct them in the configuration. To use the MQTT tab instead, turn on "Use dashboard settings instead of environment variables" there and enter the user and password. The dashboard connects on its own once they match |
+| Dashboard runs, but the MQTT tab shows "Last error" with "not Authorized" | The MQTT username or password does not match the broker. Check `mqtt.username` in `/etc/energy-node/config.json` and the password in `/etc/energy-node/mqtt.pw`, then correct them in the configuration. To use the MQTT tab instead, turn on "Use the settings saved here instead of the installer settings" there and enter the user and password. The dashboard connects on its own once they match |
 | Occasional freezes or throttling on a Pi 1 | Power supply. Watch the node's own undervoltage sensor |
 
 ## Diagnosing with the installer
