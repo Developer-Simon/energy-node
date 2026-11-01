@@ -55,6 +55,7 @@
           <div class="ob-cl-summary-head">
             <h3 class="setting-card-title" x-text="versionLabel(version)"></h3>
             <span class="ob-cl-eyebrow" x-text="versionEyebrow(version)"></span>
+            <a class="ob-link" x-bind:href="releaseHref(version)">{{t "onboarding.checklist.release_notes"}}</a>
           </div>
           <ul class="ob-cl-list">
             <template x-for="item in version.items" x-bind:key="item.id">
@@ -69,8 +70,10 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
                 </button>
                 <div class="ob-cl-detail" x-show="isReading(item)" x-collapse>
-                  <p x-text="$t(item.text)"></p>
-                  <p class="setting-note" x-text="$t(item.detail)"></p>
+                  <template x-if="item.details">
+                    <div x-data="{ entry: item }">{{template "highlightDetails"}}</div>
+                  </template>
+                  <p x-show="!item.details" x-text="$t(item.text)"></p>
                   <a class="ob-link" href="#" x-on:click.prevent>{{t "onboarding.checklist.docs"}}</a>
                 </div>
               </li>

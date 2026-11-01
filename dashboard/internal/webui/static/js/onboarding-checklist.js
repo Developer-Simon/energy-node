@@ -40,16 +40,15 @@
     },
 
     // Wartet, bis der Punkt sichtbar ist (Seite oder Modus offen), scrollt
-    // zu ihm und markiert ihn kurz.
+    // zu ihm und markiert ihn kurz (Klasse is-target, siehe onboarding.css).
     focusItem(id) {
       if (!window.obOnboarding) return;
       window.obOnboarding.waitFor(() => [...this.$root.querySelectorAll('[data-item]')]
         .find((el) => el.dataset.item === id)).then((el) => {
         if (!el) return;
         el.scrollIntoView?.({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' });
-        if (reducedMotion() || !el.animate) return;
-        el.animate([{ outline: '2px solid var(--accent)', outlineOffset: '3px' }, { outline: '2px solid transparent', outlineOffset: '3px' }],
-          { duration: FOCUS_MS, easing: 'ease-out' });
+        el.classList.add('is-target');
+        window.setTimeout(() => el.classList.remove('is-target'), FOCUS_MS);
       });
     },
 
@@ -78,6 +77,10 @@
     get versions() { return this.s.exploreVersions; },
     versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/\.0$/, '') }); },
     versionEyebrow(version) { return t(version.current ? 'onboarding.checklist.since_visit' : 'onboarding.checklist.older'); },
+    // Die Versionsseite zeigt den Changelog dieser Version (?release=, siehe versions.page.js).
+    releaseHref(version) {
+      return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=versions&release=${encodeURIComponent(version.version)}`;
+    },
 
     isInstallerOnly(item) { return window.obSteps.installerOnly.some((i) => i.id === item.id); },
     stateOf(item) { return this.s.stateOf(item.id); },

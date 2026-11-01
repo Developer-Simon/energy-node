@@ -196,11 +196,15 @@
       this.acknowledged = key;
     },
 
-    // The dialog lives outside the bar (base.html), because the bar hides itself
-    // once the message is acknowledged. It listens for this event.
+    // The what's new dialog is gone: the checklist in explore mode shows the
+    // highlights of every version, and the bar acknowledges the finished update.
     openWhatsNew() {
       this.acknowledge();
-      window.dispatchEvent(new CustomEvent('update-whatsnew-open', { detail: { version: this.progress.version || '' } }));
+      this.go(withBase('/?panel=settings&page=checklist&mode=explore'));
+    },
+
+    go(url) {
+      window.location.assign(url);
     },
 
     redeployHref() {

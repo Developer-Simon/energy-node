@@ -52,8 +52,8 @@
 
   // Text des Zustands eines Highlights in der Versionsliste. other-device
   // hat seinen eigenen Text (je nach Geraet, siehe highlightLabel).
-  // i18n-keys: onboarding.checklist.news_new, settings.versions.highlight.seen, settings.versions.highlight.text
-  const HIGHLIGHT_LABEL_KEY = {new: 'onboarding.checklist.news_new', seen: 'settings.versions.highlight.seen', text: 'settings.versions.highlight.text'};
+  // i18n-keys: onboarding.checklist.news_new, onboarding.checklist.news_seen, settings.versions.highlight.text
+  const HIGHLIGHT_LABEL_KEY = {new: 'onboarding.checklist.news_new', seen: 'onboarding.checklist.news_seen', text: 'settings.versions.highlight.text'};
 
   // Der Eintrag des Highlights im Neu-erkunden-Stand des Stores, sonst null.
   const highlightItem = (store, entry) => {
@@ -95,7 +95,7 @@
     // Version aus ?release=, bis der Dashboard-Changelog geladen ist.
     releaseTarget: '',
 
-    // ?all=1 (the link of the what's new dialog) starts in the "all" view.
+    // ?all=1 starts in the "all" view.
     // ?release=<version> (Link aus der Checkliste) oeffnet den Dashboard-Changelog
     // in der Ansicht "Alles" und scrollt zu diesem Release.
     init() {

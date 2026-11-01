@@ -169,15 +169,38 @@ test('fail names step, title and code, rejected names the code', () => {
   assert.match(rejected.detail, /abgelehnt/);
 });
 
-test('acknowledge stores the key and openWhatsNew opens the dialog via an event', async () => {
+test('acknowledge stores the key and openWhatsNew opens the checklist in explore mode', () => {
   const { factories, window } = load();
   const bar = factories.updateBar();
   bar.progress = { state: 'ok', version: 'v0.9.1', run_id: 'r1', finished_at: '2026-10-10T11:00:00Z' };
-  let detail = null;
-  window.addEventListener('update-whatsnew-open', (event) => { detail = event.detail; });
+  const visited = [];
+  bar.go = (url) => visited.push(url);
   bar.openWhatsNew();
   assert.equal(window.localStorage.getItem('energy-node.update-bar.acknowledged'), 'r1');
-  assert.equal(detail.version, 'v0.9.1');
+  assert.deepEqual(visited, ['/?panel=settings&page=checklist&mode=explore']);
+});
+
+test('openWhatsNew keeps the dashboard base path in front of the checklist link', () => {
+  const { factories, window } = load();
+  const bar = factories.updateBar();
+  bar.progress = { state: 'ok', version: 'v0.9.1', run_id: 'r1', finished_at: '2026-10-10T11:00:00Z' };
+  const visited = [];
+  bar.go = (url) => visited.push(url);
+  window.__DASHBOARD_BASE_PATH__ = '/energy';
+  try {
+    bar.openWhatsNew();
+  } finally {
+    delete window.__DASHBOARD_BASE_PATH__;
+  }
+  assert.deepEqual(visited, ['/energy/?panel=settings&page=checklist&mode=explore']);
+});
+
+test('the what\'s new dialog is gone from the base page and its script is not loaded', () => {
+  const base = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'base.html'), 'utf8');
+  assert.equal(base.includes('update-whatsnew-open'), false);
+  assert.equal(base.includes('whatsNewPanel'), false);
+  assert.equal(base.includes('whatsnew.page.js'), false);
+  assert.equal(base.includes('update-bar-modal'), false);
 });
 
 test('a failed poll during a run switches to restarting and polls fast', async () => {

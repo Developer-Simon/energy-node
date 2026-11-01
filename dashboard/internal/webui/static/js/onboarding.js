@@ -254,6 +254,10 @@
           pr: item.pr,
           title: text,
           text,
+          // i18n und details wie vom Server: die Checkliste zeigt damit das
+          // gemeinsame Template highlight-details.html.
+          i18n: item.i18n,
+          details: item.details || null,
           detail: item.details ? localized(item.details.text, item.details.text?.en) : '',
           // tour null heisst: nur Text, keine Tour.
           tour: item.tour ? undefined : false,

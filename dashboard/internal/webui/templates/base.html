@@ -61,7 +61,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
   <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=46">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=2">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=3">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -102,58 +102,6 @@
       <button type="button" class="update-bar-dismiss" x-show="view.kind === 'fail'" x-on:click="acknowledge()" x-bind:aria-label="$t('update_bar.dismiss')" x-bind:title="$t('update_bar.dismiss')">×</button>
     </div>
   </div>
-  <!-- Neuerungen-Dialog: Update-Leiste und Versionsseite oeffnen ihn ueber das Ereignis update-whatsnew-open. -->
-  <dialog class="app-modal update-bar-modal" x-data="whatsNewPanel()" aria-labelledby="update-bar-modal-title"
-          x-on:update-whatsnew-open.window="openDialog($el)"
-          x-on:click="if ($event.target === $el) $el.close()">
-    <div class="whatsnew-head">
-      <span class="whatsnew-eyebrow">{{t "settings.whatsnew.eyebrow"}}</span>
-      <h2 class="app-modal-title" id="update-bar-modal-title" x-text="title"></h2>
-      <p class="setting-note" x-show="sincePrevious">{{t "settings.whatsnew.since"}} <span class="version-tag" x-text="from"></span> → <strong class="version-tag" x-text="to"></strong></p>
-    </div>
-    <div class="update-bar-modal-body">
-      <p class="settings-help" x-show="error" x-text="error"></p>
-      <p class="whatsnew-empty" x-show="!loading && !error && components.length === 0">{{t "settings.whatsnew.empty"}}</p>
-      <template x-for="component in components" :key="component.id">
-        <section class="whatsnew-tile">
-          <div class="whatsnew-tile-head">
-            <span class="whatsnew-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></span>
-            <h3 class="whatsnew-tile-title" x-text="component.label"></h3>
-            <span class="version-chip" x-text="component.from ? component.from + ' → ' + component.to : component.to"></span>
-          </div>
-          <ul class="release-entries">
-            <template x-for="(entry, index) in entriesOf(component)" :key="index">
-                <li x-bind:class="{ 'whatsnew-has-detail': entry.details }"><span class="release-breaking" x-show="entry.breaking && !entry.details">{{t "settings.versions.breaking"}}</span> <span x-show="!entry.details" x-text="entryText(entry)"></span>
-                  <template x-if="entry.details">
-                    <details class="whatsnew-detail" name="whatsnew-detail" x-data="{ loaded: false, cropped: true }" x-on:toggle="loaded = loaded || $el.open; onToggle($event)">
-                      <summary class="whatsnew-summary"><span><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></span><span class="whatsnew-more"><span class="whatsnew-more-closed">{{t "settings.whatsnew.more"}}</span><span class="whatsnew-more-open">{{t "settings.whatsnew.less"}}</span><svg class="whatsnew-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></span></summary>
-                      <div class="whatsnew-body">
-                        <p class="whatsnew-text" x-text="detailText(entry)"></p>
-                        <template x-if="entry.details.image">
-                          <figure class="whatsnew-figure">
-                            <span class="whatsnew-shot" x-bind:style="{ 'aspect-ratio': imageFrame(entry.details.image, cropped).aspect }"><img x-bind:src="loaded ? entry.details.image.url : null" x-bind:alt="entryText(entry)" x-bind:style="{ width: imageFrame(entry.details.image, cropped).width, height: imageFrame(entry.details.image, cropped).height, left: imageFrame(entry.details.image, cropped).left, top: imageFrame(entry.details.image, cropped).top }" x-on:load="$el.closest('.whatsnew-shot').classList.add('is-loaded')" x-on:error="$el.closest('.whatsnew-shot').classList.add('is-failed')"></span>
-                            <template x-if="entry.details.image.crop">
-                              <button type="button" class="whatsnew-crop-toggle" x-bind:aria-pressed="cropped ? 'false' : 'true'" x-on:click="cropped = !cropped"><span x-show="cropped">{{t "settings.whatsnew.full_image"}}</span><span x-show="!cropped">{{t "settings.whatsnew.crop"}}</span></button>
-                            </template>
-                          </figure>
-                        </template>
-                        <template x-if="entry.details.doc">
-                          <a class="whatsnew-link" x-bind:href="entry.details.doc" target="_blank" rel="noopener">{{t "settings.whatsnew.doc_link"}}</a>
-                        </template>
-                      </div>
-                    </details>
-                  </template>
-                </li>
-            </template>
-          </ul>
-        </section>
-      </template>
-    </div>
-    <div class="app-modal-actions">
-      <button type="button" x-on:click="showAll($el.closest('dialog'))">{{t "settings.whatsnew.all_changes"}}</button>
-      <button type="button" class="primary" x-on:click="$el.closest('dialog').close()">{{t "update_bar.modal.close"}}</button>
-    </div>
-  </dialog>
   <div id="runtime-status" class="runtime-status" data-runtime-status-enabled="{{if .ShowRuntimeStatus}}true{{else}}false{{end}}" data-status-bar-items="{{.StatusBarItems}}" x-data="runtimeStatusPanel()" x-init="init()" x-cloak x-show="enabled" aria-live="polite" aria-atomic="true">
     <div class="runtime-status-summary">
       <span class="runtime-status-label">{{t "status.title"}}</span>
@@ -264,7 +212,7 @@
 {{if index .Can "view_config"}}  <section id="config-panel" class="panel" role="tabpanel" aria-labelledby="tab-config" x-bind:class="{ active: activePanel === 'config-panel' }" x-show="activePanel === 'config-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=config" data-panel-script="{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/config-status.js?v=4,{{.BasePath}}/static/js/config.page.js?v=11" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48"><p class="panel-loading" data-panel-loading>{{t "panel.config_loading"}}</p></section>{{end}}
 {{if index .Can "view_energy"}}  <section id="energy-panel" class="panel" role="tabpanel" aria-labelledby="tab-energy" x-bind:class="{ active: activePanel === 'energy-panel' }" x-show="activePanel === 'energy-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=energy" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=14,{{.BasePath}}/static/js/devicemap-subdevices.js?v=1,{{.BasePath}}/static/js/devicemap-graph.js?v=9,{{.BasePath}}/static/js/devicemap-wiring.js?v=3,{{.BasePath}}/static/js/devicemap-dataflow.js?v=5,{{.BasePath}}/static/js/devicemap-node-svg.js?v=7,{{.BasePath}}/static/js/devicemap-labels.js?v=4,{{.BasePath}}/static/js/energy-plant.js?v=6,{{.BasePath}}/static/js/device-picker.js?v=2,{{.BasePath}}/static/js/devicemap-switch.js?v=2,{{.BasePath}}/static/js/energy.page.js?v=13" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48"><p class="panel-loading" data-panel-loading>{{t "panel.energy_loading"}}</p></section>{{end}}
 {{if index .Can "view_device_map"}}  <section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=devicemap" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=14,{{.BasePath}}/static/js/devicemap-node-svg.js?v=7,{{.BasePath}}/static/js/devicemap-labels.js?v=4,{{.BasePath}}/static/js/devicemap-subdevices.js?v=1,{{.BasePath}}/static/js/devicemap-graph.js?v=9,{{.BasePath}}/static/js/devicemap-wiring.js?v=3,{{.BasePath}}/static/js/devicemap-dataflow.js?v=5,{{.BasePath}}/static/js/automations-view.js?v=8,{{.BasePath}}/static/js/device-picker.js?v=2,{{.BasePath}}/static/js/devicemap-switch.js?v=2,{{.BasePath}}/static/js/devicemap-view-prefs.js?v=1,{{.BasePath}}/static/js/devicemap.page.js?v=29" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48"><p class="panel-loading" data-panel-loading>{{t "panel.devicemap_loading"}}</p></section>{{end}}
-  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings-masonry.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=30,{{.BasePath}}/static/js/onboarding-checklist.js?v=1,{{.BasePath}}/static/js/mqtt.page.js?v=11,{{.BasePath}}/static/js/tailscale.page.js?v=5,{{.BasePath}}/static/js/versions.page.js?v=10,{{.BasePath}}/static/js/systemconfig.page.js?v=5,{{.BasePath}}/static/js/users-model.js?v=2,{{.BasePath}}/static/js/users.page.js?v=4" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=48,{{.BasePath}}/static/css/settings-controls.css?v=20"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
+  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings-masonry.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=30,{{.BasePath}}/static/js/onboarding-checklist.js?v=2,{{.BasePath}}/static/js/mqtt.page.js?v=11,{{.BasePath}}/static/js/tailscale.page.js?v=5,{{.BasePath}}/static/js/versions.page.js?v=10,{{.BasePath}}/static/js/systemconfig.page.js?v=5,{{.BasePath}}/static/js/users-model.js?v=2,{{.BasePath}}/static/js/users.page.js?v=4" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=48,{{.BasePath}}/static/css/settings-controls.css?v=20"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
 {{if index .Can "view_automations"}}  {{if index .InstalledServices "automation"}}<section id="automations-panel" class="panel" role="tabpanel" aria-labelledby="tab-automations" x-bind:class="{ active: activePanel === 'automations-panel' }" x-show="activePanel === 'automations-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=automations" data-panel-script="{{.BasePath}}/static/js/config-status.js?v=4,{{.BasePath}}/static/js/automations-view.js?v=8,{{.BasePath}}/static/js/automations-scenario.js?v=4,{{.BasePath}}/static/js/automations-chart.js?v=3,{{.BasePath}}/static/js/automations-devices.js?v=2,{{.BasePath}}/static/js/device-picker.js?v=2,{{.BasePath}}/static/js/automation-wizard.js?v=4,{{.BasePath}}/static/js/automation-templates.js?v=4,{{.BasePath}}/static/js/automation-sheet.js?v=1,{{.BasePath}}/static/js/automation-band.js?v=2,{{.BasePath}}/static/js/automations.page.js?v=22" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48,{{.BasePath}}/static/css/automations.css?v=14"><p class="panel-loading" data-panel-loading>{{t "panel.automations_loading"}}</p></section>{{end}}{{end}}
   {{else}}
 {{if index .Can "view_diagnostics"}}  <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-script="{{.BasePath}}/static/js/servicelogs.panel.js?v=2" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=20,{{.BasePath}}/static/css/diagnostics.css?v=3"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>{{end}}
@@ -361,15 +309,14 @@
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=13" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/dashboard.js?v=42" defer></script>
-  <script src="{{.BasePath}}/static/js/update-bar.js?v=5" defer></script>
-  <script src="{{.BasePath}}/static/js/whatsnew.page.js?v=4" defer></script>
+  <script src="{{.BasePath}}/static/js/update-bar.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-motion.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-spotlight.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-model.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/highlight-details.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding.js?v=2" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding.js?v=3" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine.min.js" defer></script>

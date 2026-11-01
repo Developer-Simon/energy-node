@@ -93,7 +93,7 @@ test('highlightLabel names the state, the other-device label follows the device'
   assert.equal(component.highlightLabel({ id: 'h190' }), de['onboarding.checklist.only_phone'], 'on the desktop the highlight is for the phone');
   assert.equal(component.highlightLabel({ id: 'h999' }), '');
   const seen = createPanel({ seen: { h184: true } });
-  assert.equal(seen.component.highlightLabel({ id: 'h184' }), de['settings.versions.highlight.seen']);
+  assert.equal(seen.component.highlightLabel({ id: 'h184' }), de['onboarding.checklist.news_seen'], 'the checklist wording');
   const phone = createPanel({ device: 'phone' });
   assert.equal(phone.component.highlightLabel({ id: 'h191' }), de['onboarding.checklist.only_desktop'], 'on the phone the highlight is for the desktop');
   assert.equal(phone.component.highlightLabel({ id: 'h190' }), de['onboarding.checklist.news_new'], 'a phone highlight is new on the phone');
@@ -193,7 +193,7 @@ test('the versions tab of the settings nav shows the unseen marker', () => {
 });
 
 test('the catalogs drop the what\'s new key and carry the new texts in both languages', () => {
-  const keys = ['settings.versions.explore_link', 'settings.versions.highlight.checklist', 'settings.versions.highlight.seen', 'settings.versions.highlight.text'];
+  const keys = ['settings.versions.explore_link', 'settings.versions.highlight.checklist', 'settings.versions.highlight.text'];
   for (const key of keys) {
     assert.ok(de[key], `de ${key}`);
     assert.ok(en[key], `en ${key}`);
@@ -202,4 +202,10 @@ test('the catalogs drop the what\'s new key and carry the new texts in both lang
   assert.equal(en['settings.versions.explore_link'], "Explore what's new");
   assert.equal('settings.versions.whatsnew' in de, false);
   assert.equal('settings.versions.whatsnew' in en, false);
+  assert.equal('settings.versions.highlight.seen' in de, false, 'the seen state uses onboarding.checklist.news_seen');
+  assert.equal('settings.versions.highlight.seen' in en, false);
+  assert.equal('update_bar.modal.close' in de, false);
+  assert.equal('settings.whatsnew.title' in de, false);
+  assert.equal(de['onboarding.checklist.release_notes'], 'Release-Notes');
+  assert.equal(en['onboarding.checklist.release_notes'], 'Release notes');
 });

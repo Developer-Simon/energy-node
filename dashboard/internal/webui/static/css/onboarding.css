@@ -397,6 +397,8 @@
 .ob-cl-sub { color: var(--text-muted); font-size: .82rem; }
 .ob-cl-row.is-done .ob-cl-sub, .ob-cl-row.is-installer .ob-cl-sub { color: var(--ok); }
 .ob-cl-row.is-text .ob-cl-title { color: var(--text-subtle); font-weight: 500; }
+/* Deep Link ?item=: der Punkt, zu dem die Checkliste gescrollt hat (onboarding-checklist.js). */
+.ob-cl-row.is-target { outline: 2px solid var(--accent); outline-offset: 3px; }
 .ob-cl-action {
   display: inline-flex;
   align-items: center;
