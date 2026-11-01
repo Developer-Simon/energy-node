@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.33 (2026-11-01)
+## v0.10.34 (2026-11-01)
 
 ### Features
 
@@ -25,6 +25,7 @@
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
 - **onboarding:** A guided first-time setup walks admins through access, display, system and devices, with a welcome step first. (#188) (7dab3e8)
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
+- **dashboard:** retry the first MQTT connection in the background (903dc4e)
 - **onboarding:** apply the installer seed file on start (1cad38f)
 - **onboarding:** add the setup step catalog and detection (faaebd9)
 - **httpapi:** serve setup items and the guest note (99b8568)
@@ -200,6 +201,11 @@
 ### Fixes
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
+- **dashboard:** let Reconfigure work before the first MQTT connection (5e19e68)
+- **dashboard:** start without an MQTT connection and keep retrying (9b7ac80)
+- **dashboard:** read the MQTT client under the lock (bab3642)
+- **dashboard:** show the MQTT connection test result as a toast (6b9d31f)
+- **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195)
 - **webui:** keep the bold lead-in of the guest note (0765b68)
 - **webui:** let the spotlight follow layout shifts of its target (a12acd8)
 - **webui:** make the welcome text more personal (451a3c0)
@@ -299,6 +305,7 @@
 ### Documentation
 
 - **devicemap:** tidy the screenshot preset and regenerate the images (#173) (76369a2)
+- **dashboard:** describe the start without an MQTT connection (d8fb75f)
 - point the smoke and demo docs at demo.sh and smoke.sh (4dd76ad)
 - **demo:** drop stale preset and keep flag mentions from comments (8614214)
 - **automations:** month days, stale values and the new templates (efe2269)
