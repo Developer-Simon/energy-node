@@ -11,6 +11,7 @@
 #   EN_BUNDLE_DIR     entpacktes Bundle (Vorgabe /var/lib/energy-node-installer/bundle)
 #   EN_BUNDLE_VERSION Version im Stempel; ohne Fingerabdruck im Manifest gilt
 #                     ein Stempel einer anderen Version als nicht erledigt
+#   EN_FORCE          1 = Erst-Setup: step_done meldet nie "erledigt"
 #   EN_SUDO           Kommando-Praefix fuer privilegierte Aufrufe. "" = keines.
 
 EN_STATE_DIR="${EN_STATE_DIR:-/var/lib/energy-node-installer}"
@@ -101,6 +102,8 @@ step_fail() {
 # Fingerabdruck zaehlt wie bisher nur ein Stempel derselben Bundle-Version.
 step_done() {
   local stamp fingerprint
+  # Erst-Setup (EN_FORCE=1): jeder Schritt laeuft, Stempel zaehlen nicht.
+  [[ "${EN_FORCE:-}" == 1 ]] && return 1
   stamp="$(step_stamp_path "$1")"
   [[ -f "${stamp}" ]] || return 1
   fingerprint="$(step_fingerprint "$1")"

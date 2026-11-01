@@ -1,12 +1,13 @@
 # Changelog
 
-## v0.2.8 (2026-11-01)
+## v0.2.9 (2026-11-01)
 
 ### Features
 
 - **auth:** sign in home assistant users through the companion (#174) (7b1ba8c)
 - **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189) (86dfb1e)
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
+- **installer:** The installer diagnose shows a live log of the dashboard and the updater service with their state. (#193)
 - **installer:** hand the dashboard presets to the node (1fea19b)
 - **installer:** let the node fetch Python dependencies online when the operator allows it (f8be687)
 - **installer:** add an opt-in step that keeps the system journal in RAM only (fa45acc)
@@ -16,7 +17,8 @@
 ### Fixes
 
 - **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191) (a96bebf)
-- **installer:** skip recommended apt packages and clean the package cache (#192)
+- **installer:** skip recommended apt packages and clean the package cache (#192) (bc356b2)
+- **installer:** run every step in a first setup, skip done steps only on update (5de64f7)
 - **installer:** create dashboard/data so the dashboard unit can start (f625007)
 - **installer:** write the broker user into config.json (1be6458)
 - **installer:** install the Python dependencies next to system packages (4aa1498)

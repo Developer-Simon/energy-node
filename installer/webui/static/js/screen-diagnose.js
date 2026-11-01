@@ -322,16 +322,214 @@
       updatesError: '',
       checkedAt: 0,
       timer: null,
+      // Live-Log: Puffer und Stream liegen nicht in live, damit Alpine den
+      // EventSource nicht umhuellt. Die Zeilen selbst stehen im DOM.
+      live: {
+        unit: 'energy-node-dashboard.service',
+        follow: true,
+        state: 'connecting',
+        statuses: {},
+        hostname: '',
+        error: '',
+        empty: true,
+        stage: 100,
+        copyState: '',
+      },
+      liveBuffer: null,
+      liveStream: null,
+      liveCopyTimer: null,
 
       get shell() {
         return window.Installer.shell;
+      },
+
+      get liveEnabled() {
+        return !!(this.shell.bootstrap && this.shell.bootstrap.unit_logs);
       },
 
       async init() {
         var self = this;
         this.shell.bar.action = { label: this.shell.t('action.recheck'), run: function () { return self.load(); } };
         this.timer = window.setInterval(function () { self.updateBar(); }, 1000);
+        if (this.liveEnabled) {
+          this.liveStart();
+        }
         await this.load();
+      },
+
+      // liveStart oeffnet den Stream beim Oeffnen der Diagnose. Die Zeilen laufen
+      // immer in den Puffer, auch wenn gerade ein anderes Unit angezeigt wird.
+      liveStart() {
+        var self = this;
+        var LiveLog = window.LiveLog;
+        this.liveBuffer = LiveLog.buffer();
+        this.live.stage = LiveLog.loadStage();
+        this.liveStream = LiveLog.open({
+          onHello: function (hello) {
+            self.live.hostname = hello.hostname || '';
+            self.live.empty = self.liveBuffer.lines(self.live.unit).length === 0;
+          },
+          onLine: function (line) {
+            self.liveAppend(line);
+          },
+          onStatus: function (status) {
+            self.live.statuses[status.unit] = status;
+          },
+          onEnd: function (end) {
+            self.live.error = self.liveError(end);
+          },
+          onState: function (name) {
+            self.live.state = name;
+            if (name === 'ended' && !self.live.error) {
+              self.live.error = self.liveError({});
+            }
+          },
+        });
+      },
+
+      liveError(end) {
+        var t = this.shell.t.bind(this.shell);
+        var key = 'error.' + (end && end.code);
+        var message = t(key);
+        if (message === key) {
+          message = t('error.UNIT_LOGS_FAILED');
+        }
+        return end && end.detail ? message + ' ' + end.detail : message;
+      },
+
+      liveEl() {
+        return (this.$refs && this.$refs.liveLog) || null;
+      },
+
+      // liveNode baut eine Zeile. Der Text geht nur per textContent ins DOM.
+      liveNode(el, line) {
+        var classes = ['ll-ln'];
+        if (line.prio <= 3) {
+          classes.push('err');
+        } else if (line.prio === 4) {
+          classes.push('wrn');
+        }
+        if (line.ident === 'systemd') {
+          classes.push('sys');
+        }
+        var node = el.ownerDocument.createElement('div');
+        node.className = classes.join(' ');
+        node.textContent = window.LiveLog.formatLine(line);
+        return node;
+      },
+
+      liveAppend(line) {
+        this.liveBuffer.push(line);
+        if (line.unit !== this.live.unit) {
+          return;
+        }
+        this.live.empty = false;
+        var el = this.liveEl();
+        if (!el) {
+          return;
+        }
+        // Ein Element, das noch nicht zu diesem Unit gehoert, baut sich aus dem Puffer auf.
+        // Die Zeile ist dort schon drin.
+        if (el.dataset.unit !== this.live.unit) {
+          this.liveRebuild();
+          return;
+        }
+        var node = this.liveNode(el, line);
+        // Nur live angehaengte Zeilen blenden ein, der Neuaufbau nicht.
+        node.classList.add('ll-new');
+        el.appendChild(node);
+        var nodes = el.querySelectorAll('.ll-ln');
+        if (nodes.length > window.LiveLog.CAPACITY) {
+          el.removeChild(nodes[0]);
+        }
+        if (this.live.follow) {
+          el.scrollTop = el.scrollHeight;
+        }
+      },
+
+      // liveRebuild baut den Inhalt aus dem Puffer neu auf. Der Platzhalter .ll-empty
+      // liegt im Container und bleibt stehen, entfernt werden nur die Zeilen.
+      liveRebuild() {
+        var self = this;
+        var lines = this.liveBuffer.lines(this.live.unit);
+        this.live.empty = lines.length === 0;
+        var el = this.liveEl();
+        if (!el) {
+          return;
+        }
+        el.querySelectorAll('.ll-ln').forEach(function (node) {
+          el.removeChild(node);
+        });
+        lines.forEach(function (line) {
+          el.appendChild(self.liveNode(el, line));
+        });
+        el.dataset.unit = this.live.unit;
+        if (this.live.follow) {
+          el.scrollTop = el.scrollHeight;
+        }
+      },
+
+      liveSelect(unit) {
+        if (unit === this.live.unit || window.LiveLog.UNITS.indexOf(unit) === -1) {
+          return;
+        }
+        this.live.unit = unit;
+        this.live.follow = true;
+        this.liveRebuild();
+      },
+
+      liveJump() {
+        this.live.follow = true;
+        var el = this.liveEl();
+        if (el) {
+          el.scrollTop = el.scrollHeight;
+        }
+      },
+
+      // liveScrolled: unter 8 px vom Ende wird wieder mitgelaufen.
+      liveScrolled() {
+        var el = this.liveEl();
+        if (!el) {
+          return;
+        }
+        this.live.follow = el.scrollHeight - el.scrollTop - el.clientHeight < 8;
+      },
+
+      liveSetStage(n) {
+        if (window.LiveLog.STAGES.indexOf(n) === -1) {
+          return;
+        }
+        this.live.stage = n;
+        window.LiveLog.saveStage(n);
+      },
+
+      get liveStatusText() {
+        var t = this.shell.t.bind(this.shell);
+        var status = this.live.statuses[this.live.unit];
+        if (!status) {
+          return '';
+        }
+        if (status.load === 'not-found') {
+          return t('diagnose.live.not_installed');
+        }
+        var parts = [status.active + (status.sub ? ' (' + status.sub + ')' : '')];
+        if (status.result !== 'success' || status.active !== 'active') {
+          parts.push(t('diagnose.live.exit', { code: status.exit_status }));
+        }
+        parts.push(t('diagnose.live.restarts', { n: status.restarts }));
+        if (status.since > 0 && status.active === 'active') {
+          parts.push(t('diagnose.live.since', { duration: window.Format.duration(Date.now() - status.since) }));
+        }
+        if (status.pid > 0) {
+          parts.push(t('diagnose.live.pid', { pid: status.pid }));
+        }
+        return parts.join(' · ');
+      },
+
+      // liveKnown: was der Export schwaerzt. Geheimnisse schwaerzt der Server schon im Stream.
+      liveKnown() {
+        var target = this.shell.shared.target || {};
+        return { host: target.host || '', user: target.user || '', hostname: this.live.hostname, secrets: [] };
       },
 
       async load() {
@@ -371,6 +569,14 @@
         if (this.timer) {
           window.clearInterval(this.timer);
           this.timer = null;
+        }
+        if (this.liveStream) {
+          this.liveStream.close();
+          this.liveStream = null;
+        }
+        if (this.liveCopyTimer) {
+          window.clearTimeout(this.liveCopyTimer);
+          this.liveCopyTimer = null;
         }
       },
 
@@ -433,8 +639,77 @@
         }
       },
 
+      // save: Bericht plus je Unit die gepufferten Zeilen, alles geschwaerzt.
       save() {
-        window.Download.text('energy-node-diagnose-' + window.Download.stamp(new Date()) + '.txt', DiagnoseModel.reportText(this.view, new Date()));
+        var LiveLog = window.LiveLog;
+        var self = this;
+        var text = DiagnoseModel.reportText(this.view, new Date());
+        if (this.liveBuffer && this.live.stage > 0) {
+          LiveLog.UNITS.forEach(function (unit) {
+            var section = LiveLog.reportSection(self.liveBuffer, unit, self.live.stage, self.live.statuses);
+            if (section) {
+              text += '\n' + section + '\n';
+            }
+          });
+        }
+        text = LiveLog.scrubber(this.liveKnown()).text(text);
+        window.Download.text('energy-node-diagnose-' + window.Download.stamp(new Date()) + '.txt', text);
+      },
+
+      // copyForIssue: Markdown in die Zwischenablage, dann die Seite fuer ein neues Issue.
+      // Scheitert das Kopieren, oeffnet sich die Seite nicht.
+      async copyForIssue() {
+        if (!this.view || !this.liveBuffer) {
+          return;
+        }
+        var LiveLog = window.LiveLog;
+        var known = this.liveKnown();
+        var report = DiagnoseModel.reportText(this.view, new Date());
+        var markdown = LiveLog.issueMarkdown(report, this.liveBuffer, this.live.stage, this.live.statuses, function (text) {
+          return LiveLog.scrubber(known).text(text);
+        });
+        this.live.copyState = '';
+        var copied = await this.liveCopy(markdown);
+        if (!copied) {
+          this.live.copyState = 'failed';
+          return;
+        }
+        var self = this;
+        this.live.copyState = 'copied';
+        window.clearTimeout(this.liveCopyTimer);
+        this.liveCopyTimer = window.setTimeout(function () {
+          self.live.copyState = '';
+          self.liveCopyTimer = null;
+        }, 2000);
+        await this.shell.openExternal(LiveLog.ISSUE_URL);
+      },
+
+      // liveCopy: erst die Zwischenablage der Seite, dann ein verstecktes Feld mit execCommand.
+      async liveCopy(text) {
+        try {
+          if (window.navigator.clipboard && window.navigator.clipboard.writeText) {
+            await window.navigator.clipboard.writeText(text);
+            return true;
+          }
+        } catch (err) {
+          // weiter mit dem Ausweg
+        }
+        var doc = window.document;
+        var area = doc.createElement('textarea');
+        area.value = text;
+        area.setAttribute('readonly', '');
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        doc.body.appendChild(area);
+        area.select();
+        var ok = false;
+        try {
+          ok = !!doc.execCommand('copy');
+        } catch (err) {
+          ok = false;
+        }
+        doc.body.removeChild(area);
+        return ok;
       },
 
       close() {

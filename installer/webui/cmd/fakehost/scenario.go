@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -336,6 +339,7 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 
 	fake.ChangelogView = fixtureChangelog(update)
+	liveLogs(fake)
 
 	units := map[string]string{
 		"apsystems-ez1.service": "active", "battery-soc.service": "active", "shelly-rpc.service": "failed",
@@ -433,6 +437,70 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 
 	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted}
+}
+
+// logEntry ist eine Zeile der Neustart-Folge aus dem Mockup (livelog-layout.html).
+type logEntry struct {
+	prio       int
+	ident, pid string
+	msg        string
+}
+
+// dashboardCycle ist eine Neustart-Folge des Dashboards. Nur die letzte Zeile
+// traegt die Nummer des Neustarts (%n).
+var dashboardCycle = []logEntry{
+	{6, "systemd", "1", "Started energy-node-dashboard.service - Energy Node Dashboard."},
+	{6, "energy-node-dashboard", "4411", "loading config /opt/energy-node/dashboard/data/config.json"},
+	{6, "energy-node-dashboard", "4411", "mqtt: connecting to 127.0.0.1:1883 as energy-node"},
+	{3, "energy-node-dashboard", "4411", "mqtt: connection refused: not authorised"},
+	{3, "energy-node-dashboard", "4411", "fatal: bridge start failed"},
+	{4, "systemd", "1", "energy-node-dashboard.service: Main process exited, code=exited, status=1/FAILURE"},
+	{4, "systemd", "1", "energy-node-dashboard.service: Failed with result 'exit-code'."},
+	{6, "systemd", "1", "energy-node-dashboard.service: Scheduled restart job, restart counter is at %n."},
+}
+
+// dashboardLine liefert Zeile k der Folge. Jeder Neustart sind acht Zeilen,
+// der erste Neustart traegt die Nummer 8.
+func dashboardLine(k int, at time.Time) hostapi.UnitLogLine {
+	cycle, idx := k/len(dashboardCycle), k%len(dashboardCycle)
+	entry := dashboardCycle[idx]
+	msg := strings.ReplaceAll(entry.msg, "%n", strconv.Itoa(8+cycle))
+	return hostapi.UnitLogLine{
+		Unit: "energy-node-dashboard.service", At: at.UnixMilli(), Priority: entry.prio,
+		Ident: entry.ident, PID: entry.pid, Message: msg, Cursor: fmt.Sprintf("dash-%d", k),
+	}
+}
+
+// liveLogs gibt der Attrappe den Live-Log der Diagnose: zwölf Zeilen Vorlauf
+// (eine Neustart-Folge und ein Stück der nächsten), danach kommt alle 700 ms
+// eine weitere Zeile, bis der Kontext endet. Der Updater läuft ruhig.
+func liveLogs(fake *hostapitest.FakeBackend) {
+	now := time.Now()
+	since := now.Add(-3 * time.Hour).UnixMilli()
+	fake.UnitLogHostname = "energy-pi"
+	fake.UnitStatuses = []hostapi.UnitStatus{
+		{Unit: "energy-node-dashboard.service", Load: "loaded", Active: "activating", Sub: "auto-restart", Result: "exit-code", ExitStatus: 1, Restarts: 8},
+		{Unit: "energy-node-updater.service", Load: "loaded", Active: "active", Sub: "running", Result: "success", Restarts: 0, PID: 812, Since: since},
+	}
+	for k := 0; k < 12; k++ {
+		at := now.Add(time.Duration(k-12) * time.Second)
+		fake.UnitLogLines = append(fake.UnitLogLines, dashboardLine(k, at))
+	}
+	updater := []logEntry{
+		{6, "energy-node-updater", "812", "poll: no new release (0.10.9 is current)"},
+		{6, "energy-node-updater", "812", "sessions: 1 active"},
+		{6, "energy-node-updater", "812", "GET /api/status 200 3ms"},
+	}
+	for i, entry := range updater {
+		fake.UnitLogLines = append(fake.UnitLogLines, hostapi.UnitLogLine{
+			Unit: "energy-node-updater.service", At: now.Add(time.Duration(i-3) * time.Second).UnixMilli(),
+			Priority: entry.prio, Ident: entry.ident, PID: entry.pid, Message: entry.msg, Cursor: fmt.Sprintf("upd-%d", i),
+		})
+	}
+	fake.UnitLogInterval = 700 * time.Millisecond
+	fake.UnitLogTick = func(i int) (hostapi.UnitLogLine, bool) {
+		return dashboardLine(12+i, time.Now()), true
+	}
 }
 
 // jobSteps laesst die abgewaehlten Schritte weg, wie sie im Auftrag des

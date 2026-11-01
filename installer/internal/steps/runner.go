@@ -31,6 +31,7 @@ type RunOptions struct {
 	Secrets         *Secrets             // optional; only step 60 ever receives it
 	NodeConfigPath  string               // optional; where step 20 finds the MQTT user without credentials, default DefaultNodeConfigPath
 	RestartAll      bool                 // optional; steps see EN_RESTART=all and restart every service unit
+	Force           bool                 // optional; first setup: steps see EN_FORCE=1 and ignore their stamps, nothing is skipped as already done
 	OnlineDeps      bool                 // optional; the node's Python differs from the bundle's and the operator allowed loading dependencies online: the installer runs step 50 itself
 	OnMarker        func(Marker)
 	OnLog           func(stepID, line string)
@@ -106,6 +107,9 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 	}
 	if opts.TargetBase != "" {
 		env["EN_TARGET_BASE"] = opts.TargetBase
+	}
+	if opts.Force {
+		env["EN_FORCE"] = "1"
 	}
 	if opts.RestartAll {
 		env["EN_RESTART"] = "all"

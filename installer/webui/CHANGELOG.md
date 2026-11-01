@@ -1,12 +1,18 @@
 # Changelog
 
-## v0.2.10 (2026-11-01)
+## v0.2.11 (2026-11-01)
 
 ### Features
 
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
 - **installer:** The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it. (#189) (86dfb1e)
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
+- **installer:** stream unit logs over /api/unit-logs (a233363)
+- **installer:** buffer, scrub and stream live unit logs in the page (85fb1d7)
+- **installer:** export live logs as report section and issue markdown (c92459d)
+- **installer:** add the live log card markup, styles and texts to the diagnose (7ef2f78)
+- **installer:** drive the diagnose live log card (d40ef59)
+- **installer:** The installer diagnose shows a live log of the dashboard and the updater service with their state. (#193)
 - **installer:** add the dashboard step logic (79acd60)
 - **installer:** add the dashboard step (37e101b)
 - **installer:** hand the dashboard presets to the node (1fea19b)
@@ -19,7 +25,11 @@
 
 ### Fixes
 
-- **installer:** skip recommended apt packages and clean the package cache (#192)
+- **installer:** skip recommended apt packages and clean the package cache (#192) (bc356b2)
+- **installer:** fit the issue markdown after scrubbing and mask ipv6 after a colon (a17aae8)
+- **installer:** keep the diagnose columns from collapsing under the live log card (4c87895)
+- **installer:** fade only live-appended log lines, not the rebuild after a unit switch (265ca72)
+- **installer:** add space above the live log card in the diagnose (227fbfc)
 - **installer:** show the real guest access default and tighten the updates text (4a1d4fb)
 - **installer:** say what to do when the package needs another Python version (aaf9d68)
 - **installer:** keep the chosen package source while connecting (7acba32)
@@ -36,6 +46,7 @@
 
 ### Tests
 
+- **installer:** fake live logs and cover the issue copy end to end (ce61140)
 - **installer:** configure draft ends with Weiter (64f407b)
 - **installer:** install drafts show the dashboard step in the stepper (6064db4)
 

@@ -56,7 +56,7 @@ func installDepsOnline(ctx context.Context, r remoteRunner, opts RunOptions, ste
 	emit(Begin, "")
 
 	stamp := path.Join(opts.RemoteStateDir, "steps", step.ID)
-	if r.Run(ctx, stampMatchesCommand(stamp, step.Fingerprint, opts.BundleVersion), io.Discard, io.Discard) == nil {
+	if !opts.Force && r.Run(ctx, stampMatchesCommand(stamp, step.Fingerprint, opts.BundleVersion), io.Discard, io.Discard) == nil {
 		return emit(Skip, "bereits erledigt"), nil
 	}
 

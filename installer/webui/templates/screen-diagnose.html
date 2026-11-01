@@ -33,6 +33,44 @@
         </template>
       </div>
     </div>
+
+    <template x-if="liveEnabled">
+      <section class="card ll">
+        <div class="ll-h">
+          <p class="gh" x-text="t('diagnose.live.title')"></p>
+          <span class="ll-state" :class="{ paused: live.state !== 'ended' && !live.follow, off: live.state === 'ended' }" x-text="live.state === 'ended' ? t('diagnose.live.state.ended') : (live.follow ? t('diagnose.live.state.live') : t('diagnose.live.state.paused'))"></span>
+          <span class="ll-sp"></span>
+          <div class="segmented ll-units" role="radiogroup" :aria-label="t('diagnose.live.title')">
+            <span class="segmented-thumb" aria-hidden="true"></span>
+            <div class="segmented-option" role="radio" tabindex="0" :class="{ on: live.unit === 'energy-node-dashboard.service' }" :aria-checked="live.unit === 'energy-node-dashboard.service'" @click="liveSelect('energy-node-dashboard.service')" @keydown.enter.prevent="liveSelect('energy-node-dashboard.service')" @keydown.space.prevent="liveSelect('energy-node-dashboard.service')" x-text="t('diagnose.live.unit.dashboard')"></div>
+            <div class="segmented-option" role="radio" tabindex="0" :class="{ on: live.unit === 'energy-node-updater.service' }" :aria-checked="live.unit === 'energy-node-updater.service'" @click="liveSelect('energy-node-updater.service')" @keydown.enter.prevent="liveSelect('energy-node-updater.service')" @keydown.space.prevent="liveSelect('energy-node-updater.service')" x-text="t('diagnose.live.unit.updater')"></div>
+          </div>
+        </div>
+        <div class="ll-status" x-text="liveStatusText"></div>
+        <p class="ll-err" x-show="live.error" x-text="live.error"></p>
+        <div class="ll-wrap">
+          <div class="ll-log" x-ref="liveLog" @scroll="liveScrolled()">
+            <p class="ll-empty" x-show="live.empty" x-text="t('diagnose.live.empty')"></p>
+          </div>
+          <button type="button" class="ll-jump" :class="{ show: !live.follow }" @click="liveJump()" x-text="t('diagnose.live.jump')"></button>
+        </div>
+        <div class="ll-foot">
+          <div class="ll-stage">
+            <span class="ll-stage-lbl" x-text="t('diagnose.live.stage_label')"></span>
+            <div class="segmented ll-stages" role="radiogroup" :aria-label="t('diagnose.live.stage_label')">
+              <span class="segmented-thumb" aria-hidden="true" :style="'transform:translateX(' + [0, 100, 500, 2000].indexOf(live.stage) * 100 + '%)'"></span>
+              <template x-for="n in [0, 100, 500, 2000]" :key="n">
+                <div class="segmented-option" role="radio" tabindex="0" :class="{ on: live.stage === n }" :aria-checked="live.stage === n" @click="liveSetStage(n)" @keydown.enter.prevent="liveSetStage(n)" @keydown.space.prevent="liveSetStage(n)" x-text="n"></div>
+              </template>
+            </div>
+          </div>
+          <div class="ll-copy">
+            <button type="button" class="small" @click="copyForIssue()" x-text="live.copyState === 'copied' ? t('diagnose.live.copied') : t('diagnose.live.copy')"></button>
+            <p class="ll-err" x-show="live.copyState === 'failed'" x-text="t('diagnose.live.copy_failed')"></p>
+          </div>
+        </div>
+      </section>
+    </template>
   </div>
 
   <footer class="foot">

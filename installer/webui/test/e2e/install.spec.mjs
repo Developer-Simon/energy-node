@@ -248,3 +248,29 @@ test('die Paketdatei-Quelle sperrt den Verbinden-Button bis eine Datei ausgewaeh
 
   await context.close();
 }));
+
+test('die Diagnose zeigt Live-Logs und kopiert für ein Issue', () => withHost(['--trusted'], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.locator('.mode-i', { hasText: 'Diagnose' }).click();
+  await connect(page, { trusted: true });
+  await page.locator('.app[data-screen="diagnose"]').waitFor();
+
+  // Der Vorlauf kommt mit dem Oeffnen, danach laeuft die Folge weiter.
+  await page.waitForFunction(() => document.querySelectorAll('.ll-ln').length >= 12, null, { timeout: 10000 });
+  await page.locator('.ll-status', { hasText: 'Neustarts' }).waitFor();
+
+  // Der Umschalter zeigt das Updater-Log, die Dashboard-Zeilen verschwinden.
+  await page.locator('.ll-units .segmented-option', { hasText: 'Updater' }).click();
+  await page.locator('.ll-ln', { hasText: 'energy-node-updater[812]' }).first().waitFor();
+  assert.equal(await page.locator('.ll-ln', { hasText: 'energy-node-dashboard' }).count(), 0);
+
+  // Der Kopierknopf legt Markdown für das Issue in die Zwischenablage.
+  await page.getByRole('button', { name: 'Für Issue kopieren', exact: true }).click();
+  await page.locator('.ll-copy button', { hasText: 'Kopiert' }).waitFor();
+  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+  assert.ok(clipboard.startsWith('## energy-node diagnose'), 'Markdown beginnt mit der Überschrift');
+  assert.ok(clipboard.includes('<details>'), 'die Logs stehen in einem details-Block');
+  assert.ok(!clipboard.includes('energy-pi'), 'der Hostname ist im Kopierten geschwärzt');
+  await context.close();
+}));
