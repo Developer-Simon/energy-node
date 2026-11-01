@@ -296,7 +296,8 @@
 .app[data-screen="diagnose"] .ll-wrap{position:relative;min-width:0}
 .app[data-screen="diagnose"] .ll-log{height:210px;overflow:auto;overscroll-behavior:contain;border-radius:var(--radius-sm);background:var(--sunken);border:1px solid var(--border-soft);padding:.5rem .65rem;font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.6;color:var(--text-subtle);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18px);mask-image:linear-gradient(to bottom,transparent 0,#000 18px)}
 .app[data-screen="diagnose"] .ll-empty{margin:0;color:var(--text-faint)}
-.app[data-screen="diagnose"] .ll-ln{white-space:pre-wrap;word-break:break-word;animation:ll-in .16s cubic-bezier(.23,1,.32,1) both}
+.app[data-screen="diagnose"] .ll-ln{white-space:pre-wrap;word-break:break-word}
+.app[data-screen="diagnose"] .ll-ln.ll-new{animation:ll-in .16s cubic-bezier(.23,1,.32,1) both}
 .app[data-screen="diagnose"] .ll-ln.err{color:var(--bad)}
 .app[data-screen="diagnose"] .ll-ln.wrn{color:var(--warn)}
 .app[data-screen="diagnose"] .ll-ln.sys{color:var(--accent-soft)}
@@ -313,7 +314,7 @@
 .app[data-screen="diagnose"] .ll-copy{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;max-width:100%}
 .app[data-screen="diagnose"] .ll-copy .ll-err{text-align:right}
 @media (prefers-reduced-motion:reduce){
-  .app[data-screen="diagnose"] .ll-ln{animation:none}
+  .app[data-screen="diagnose"] .ll-ln.ll-new{animation:none}
   .app[data-screen="diagnose"] .ll-jump{transform:none;transition:opacity .15s ease}
 }
 @media (prefers-reduced-transparency:reduce){
@@ -322,8 +323,6 @@
 /* Die Spalten schrumpfen nicht, sonst laufen ihre Karten unter die Live-Log-Karte.
    Der Abstand kommt von .body, das scrollt. ~ statt +: das Template steht dazwischen. */
 .app[data-screen="diagnose"] .cols:has(~ .ll){flex-shrink:0}
-/* Beim Neuaufbau (Unit-Wechsel) faden die Zeilen nicht. */
-.app[data-screen="diagnose"] .ll-static .ll-ln{animation:none}
 /* Ergaenzungen ohne Vorlage: der Bildschirm "Was ist neu" (changelog) und die
    Zusammenfassung in der Vorschau (in der Karte "Was sich aendert", nicht zwischen
    Versionsleiste und Spalten: test/e2e/layout.spec.mjs haelt deren Lage gegen die Vorlage). Beides hat keine Vorlage in

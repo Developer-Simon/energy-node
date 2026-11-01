@@ -434,7 +434,10 @@
           this.liveRebuild();
           return;
         }
-        el.appendChild(this.liveNode(el, line));
+        var node = this.liveNode(el, line);
+        // Nur live angehaengte Zeilen blenden ein, der Neuaufbau nicht.
+        node.classList.add('ll-new');
+        el.appendChild(node);
         var nodes = el.querySelectorAll('.ll-ln');
         if (nodes.length > window.LiveLog.CAPACITY) {
           el.removeChild(nodes[0]);
@@ -454,7 +457,6 @@
         if (!el) {
           return;
         }
-        el.classList.add('ll-static');
         el.querySelectorAll('.ll-ln').forEach(function (node) {
           el.removeChild(node);
         });
@@ -464,12 +466,6 @@
         el.dataset.unit = this.live.unit;
         if (this.live.follow) {
           el.scrollTop = el.scrollHeight;
-        }
-        var clear = function () { el.classList.remove('ll-static'); };
-        if (window.requestAnimationFrame) {
-          window.requestAnimationFrame(clear);
-        } else {
-          window.setTimeout(clear, 0);
         }
       },
 

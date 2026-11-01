@@ -439,10 +439,13 @@ test('switching unit rebuilds from the buffer', async () => {
   assert.deepEqual(nodes.map((node) => node.textContent.split(' ').at(-1)), ['u1', 'u2']);
   assert.equal(mounted.screen.live.unit, UPD);
   assert.equal(mounted.screen.live.follow, true);
-  // Der Neuaufbau laeuft mit ll-static, das CSS schaltet dann die Zeilenanimation ab.
-  assert.equal(el.classList.contains('ll-static'), true);
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  assert.equal(el.classList.contains('ll-static'), false);
+  // Der Neuaufbau blendet nicht ein: nur live angehaengte Zeilen tragen ll-new.
+  assert.equal(nodes.some((node) => node.classList.contains('ll-new')), false);
+  f.onLine(line(UPD, 'u3'));
+  const last = el.querySelectorAll('.ll-ln');
+  assert.equal(last.length, 3);
+  assert.equal(last[2].classList.contains('ll-new'), true);
+  assert.equal(last[0].classList.contains('ll-new'), false);
 });
 
 test('scrolling up pauses and the jump pill resumes', async () => {
