@@ -62,12 +62,21 @@
         </div>
       </div>
 
+      <a class="ob-crosslink" href="?panel=settings&page=versions&all=1">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-history"></use></svg>
+        <span class="ob-crosslink-text">
+          <strong class="ob-crosslink-title">{{t "onboarding.checklist.all_versions"}}</strong>
+          <span class="ob-crosslink-sub">{{t "onboarding.checklist.all_versions_sub"}}</span>
+        </span>
+        <svg class="ob-crosslink-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+      </a>
+
       <template x-for="version in shownVersions" x-bind:key="version.version">
         <div class="setting-card ob-cl-card" x-bind:class="{ 'is-current': version.current }">
           <div class="ob-cl-summary-head">
             <h3 class="setting-card-title" x-text="versionLabel(version)"></h3>
             <span class="ob-cl-eyebrow" x-text="versionEyebrow(version)"></span>
-            <a class="ob-link" x-bind:href="releaseHref(version)">{{t "onboarding.checklist.release_notes"}}</a>
+            <a class="ob-crosslink ob-crosslink--chip" x-bind:href="releaseHref(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-history"></use></svg><span>{{t "onboarding.checklist.release_notes"}}</span><svg class="ob-crosslink-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></a>
           </div>
           <ul class="ob-cl-list">
             <template x-for="item in version.items" x-bind:key="item.id">

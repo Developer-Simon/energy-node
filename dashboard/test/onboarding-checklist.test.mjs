@@ -227,6 +227,15 @@ test('the checklist template shows the shared highlight details and the release 
   assert.match(template, /\{\{t "onboarding\.checklist\.release_notes"\}\}/);
 });
 
+test('the checklist links prominently to all versions and the version cards use the release notes chip', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(template, /<a class="ob-crosslink" href="\?panel=settings&page=versions&all=1">/);
+  assert.match(template, /\{\{t "onboarding\.checklist\.all_versions"\}\}/);
+  assert.match(template, /\{\{t "onboarding\.checklist\.all_versions_sub"\}\}/);
+  assert.match(template, /<a class="ob-crosslink ob-crosslink--chip" x-bind:href="releaseHref\(version\)">/);
+  assert.doesNotMatch(template, /class="ob-link" x-bind:href="releaseHref/);
+});
+
 test('the deep link picks the setup mode for an admin', async () => {
   const { store, component: cl } = await load({ url: 'http://localhost/?panel=settings&page=checklist&mode=setup' });
   store.checklistMode = 'explore';

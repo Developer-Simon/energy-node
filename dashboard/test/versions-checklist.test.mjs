@@ -189,6 +189,12 @@ test('the toolbar links to the checklist explore mode instead of the what\'s new
   assert.match(template, /x-bind:href="checklistHref\(\)"/);
 });
 
+test('the versions page opens with one prominent row to the checklist explore mode', () => {
+  assert.match(template, /<a class="ob-crosslink" x-bind:href="checklistHref\(\)">\s*<svg[^>]*><use href="#ico-check"><\/use><\/svg>\s*<span class="ob-crosslink-text">\s*<strong class="ob-crosslink-title">\{\{t "settings\.versions\.explore_link"\}\}<span class="ob-marker" aria-hidden="true" x-show="\$store\.onboarding\.unseenCount"><\/span><\/strong>\s*<span class="ob-crosslink-sub">\{\{t "settings\.versions\.explore_sub"\}\}<\/span>/);
+  assert.equal(template.includes('class="icon-button labeled accent" x-bind:href="checklistHref()"'), false);
+  assert.ok(template.indexOf('ob-crosslink') < template.indexOf('class="setting-card"'), 'the row sits above the first card');
+});
+
 test('the versions tab of the settings nav shows the unseen marker', () => {
   assert.match(settingsTemplate, /\{\{t "settings\.nav\.versions"\}\}<span class="ob-marker" aria-hidden="true" x-show="\$store\.onboarding\.unseenCount"><\/span>/);
 });
@@ -209,6 +215,19 @@ test('the catalogs drop the what\'s new key and carry the new texts in both lang
   assert.equal('settings.whatsnew.title' in de, false);
   assert.equal(de['onboarding.checklist.release_notes'], 'Release-Notes');
   assert.equal(en['onboarding.checklist.release_notes'], 'Release notes');
+  assert.equal(de['onboarding.checklist.all_versions'], 'Alle Versionen und Release-Notes');
+  assert.equal(en['onboarding.checklist.all_versions'], 'All versions and release notes');
+  assert.equal(de['onboarding.checklist.all_versions_sub'], 'Jede Änderung im Detail, auch ältere Versionen.');
+  assert.equal(en['onboarding.checklist.all_versions_sub'], 'Every change in detail, including older versions.');
+  assert.equal(de['settings.versions.explore_sub'], 'Neuerungen mit Tour Schritt für Schritt ansehen.');
+  assert.equal(en['settings.versions.explore_sub'], 'Walk through what is new, step by step.');
+});
+
+test('the crosslink motion is transitions only on named properties, never all, and it respects reduced motion', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'onboarding.css'), 'utf8');
+  assert.doesNotMatch(css, /transition:\s*all\b/);
+  assert.match(css, /\.ob-crosslink\s*\{[^}]*transition:\s*transform 160ms cubic-bezier\(0\.23, 1, 0\.32, 1\), background-color 160ms cubic-bezier\(0\.23, 1, 0\.32, 1\), border-color 160ms cubic-bezier\(0\.23, 1, 0\.32, 1\);/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*\.ob-crosslink/);
 });
 
 test('a stale highlight shows the hint and a disabled tour button, the checklist link stays', () => {
