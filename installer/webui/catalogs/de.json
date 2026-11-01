@@ -221,7 +221,7 @@
   "diagnose.devices.unreadable": "Gerätedatei nicht lesbar",
   "diagnose.fail.config.text": "{file} wurde nicht gefunden. Eine Reparatur wiederholt den Schritt, der sie schreibt.",
   "diagnose.fail.config.title": "Die Konfiguration fehlt",
-  "diagnose.fail.mqtt.text": "Der Broker nimmt das MQTT-Passwort des Node nicht an, oder es fehlt. Eine Reparatur setzt ein neues Passwort, dafür fragt sie nach einem.",
+  "diagnose.fail.mqtt.text": "Der Broker nimmt das MQTT-Passwort des Node nicht an, oder es fehlt. Die Reparatur fragt nach einem neuen Passwort und setzt es für den Broker und den Node.",
   "diagnose.fail.mqtt.title": "Die MQTT-Anmeldung klappt nicht",
   "diagnose.fail.other.title": "Prüfung fehlgeschlagen",
   "diagnose.fail.port.text": "Auf {ports} antwortet nichts. Eine Reparatur wiederholt den Schritt, der ihn öffnet.",

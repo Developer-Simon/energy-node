@@ -221,7 +221,7 @@
   "diagnose.devices.unreadable": "device file not readable",
   "diagnose.fail.config.text": "{file} was not found. A repair runs the step that writes it.",
   "diagnose.fail.config.title": "The configuration is missing",
-  "diagnose.fail.mqtt.text": "The broker does not accept the MQTT password of the node, or none is set. A repair sets a new password, for that it asks you for one.",
+  "diagnose.fail.mqtt.text": "The broker does not accept the MQTT password of the node, or none is set. The repair asks for a new password and sets it for the broker and the node.",
   "diagnose.fail.mqtt.title": "The MQTT login fails",
   "diagnose.fail.other.title": "Check failed",
   "diagnose.fail.port.text": "Nothing answers on {ports}. A repair runs the step that opens it again.",
