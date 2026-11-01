@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
-import { installI18n } from './helpers/i18n.mjs';
+import { catalog, installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (name) => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
@@ -38,9 +38,11 @@ const SAMPLE_EXPLORE = {
 // Loads the page scripts into a jsdom window and returns the store plus a
 // checklist component bound to it. role decides admin or guest, width the device.
 // explore ist der Server-Block explore (Standard: SAMPLE_EXPLORE).
-async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE, setupDone = false } = {}) {
+async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE, setupDone = false, older } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><ul id="root"></ul></body></html>', { runScripts: 'outside-only', url, pretendToBeVisual: true });
   const { window } = dom;
+  // Die Wahl der Filter-Schaltflaeche steht in der Sitzung, sie gilt schon beim Start.
+  if (older !== undefined) window.sessionStorage.setItem('ob-explore-older', older);
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
   // Die Schritte des Servers (setup.items), wie steps.go sie in dieser Reihenfolge liefert.
   const progress = { role, setup: { done: setupDone, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] }, explore };
@@ -285,4 +287,99 @@ test('a mode in the address wins over the default of a finished setup', async ()
 test('a finished setup opens the checklist on explore', async () => {
   const { store } = await load({ setupDone: true });
   assert.equal(store.checklistMode, 'explore');
+});
+
+// Eine Version mit einer Tour, die gesehen oder ungesehen ist, dazu ein Text.
+const STALE_EXPLORE = {
+  current_version: '0.12.0',
+  items: [{ id: 'st', version: '0.12.0', minor: '0.12', text: 'Stale', tour: { stale: true, steps: [{ panel: 'settings-panel', target: 'gone', device: '', need: '', title: {}, text: {} }] } }],
+};
+
+test('a stale tour shows a disabled tour button with the hint, and the text stays readable', async () => {
+  const { store, component: cl, calls, t } = await load({ explore: STALE_EXPLORE });
+  const [item] = store.exploreVersions[0].items;
+  assert.equal(cl.newsState(item), 'stale');
+  assert.equal(cl.isStale(item), true);
+  assert.equal(cl.newsSub(item), t('onboarding.checklist.news_stale'));
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_show'));
+  cl.newsAct(item);
+  assert.equal(store.run, null, 'a stale tour is not started');
+  cl.toggleReading(item);
+  assert.equal(cl.isReading(item), true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.some((c) => c.method === 'PUT'), false, 'reading a stale tour does not mark it seen');
+});
+
+test('a stale tour is no tour for the explore card', async () => {
+  const { component: cl, t } = await load({ explore: STALE_EXPLORE });
+  assert.equal(cl.exploreHasTour, false);
+  assert.equal(cl.exploreUnseen, 0);
+  assert.equal(cl.exploreNote, t('onboarding.checklist.explore_note_none'));
+});
+
+const TWO_MINORS = {
+  current_version: '0.12.2',
+  items: [
+    { id: 'n1', version: '0.12.2', minor: '0.12', text: 'Now', tour: null },
+    { id: 'o1', version: '0.11.0', minor: '0.11', text: 'Seen older', tour: { steps: [{ panel: 'settings-panel', target: 'guest', device: '', need: '', title: {}, text: {} }] } },
+    { id: 'o2', version: '0.10.0', minor: '0.10', text: 'Unseen older', tour: { steps: [{ panel: 'settings-panel', target: 'guest', device: '', need: '', title: {}, text: {} }] } },
+  ],
+};
+
+test('older versions are hidden unless they still have an unseen tour, the toggle shows the rest', async () => {
+  const { store, component: cl, t, window } = await load({ explore: TWO_MINORS });
+  store.seen = { o1: true };
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12', '0.10']);
+  assert.equal(cl.olderHidden, 1);
+  assert.equal(cl.olderToggleShown, true);
+  assert.equal(cl.olderLabel, t('onboarding.checklist.older_show', { n: 1 }));
+  cl.toggleOlder();
+  assert.equal(cl.olderOpen, true);
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12', '0.11', '0.10']);
+  assert.equal(cl.olderLabel, t('onboarding.checklist.older_hide'));
+  assert.equal(window.sessionStorage.getItem('ob-explore-older'), '1');
+  cl.toggleOlder();
+  assert.equal(window.sessionStorage.getItem('ob-explore-older'), '0');
+});
+
+test('the choice of the older filter is read from the session at the start', async () => {
+  const { component: cl } = await load({ explore: TWO_MINORS, older: '1' });
+  assert.equal(cl.olderOpen, true);
+  assert.equal(cl.shownVersions.length, 3);
+});
+
+test('the older filter is hidden without older cards', async () => {
+  const onlyCurrent = { current_version: '0.12.0', items: [{ id: 'n1', version: '0.12.0', minor: '0.12', text: 'Now', tour: null }] };
+  const { component: cl } = await load({ explore: onlyCurrent });
+  assert.equal(cl.olderToggleShown, false);
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12']);
+});
+
+test('a card is labelled by its minor and links to its newest release', async () => {
+  const { component: cl, t } = await load();
+  assert.equal(cl.versionLabel({ version: '0.12' }), t('onboarding.checklist.version', { version: '0.12' }));
+  assert.equal(cl.versionLabel({ version: '0.12.0' }), t('onboarding.checklist.version', { version: '0.12' }));
+  assert.equal(cl.versionLabel({ version: '1.0' }), t('onboarding.checklist.version', { version: '1.0' }));
+  assert.equal(cl.releaseHref({ version: '0.12', release: '0.12.2' }), '/?panel=settings&page=versions&release=0.12.2');
+});
+
+test('the explore part filters older cards and greys out stale tour buttons in the template', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(template, /x-for="version in shownVersions"/);
+  assert.match(template, /x-on:click="toggleOlder\(\)"/);
+  assert.match(template, /x-bind:aria-expanded="olderOpen \? 'true' : 'false'"/);
+  assert.match(template, /x-show="olderToggleShown"/);
+  assert.match(template, /x-bind:disabled="isStale\(item\)"/);
+  assert.match(template, /'is-disabled': isStale\(item\)/);
+});
+
+test('the filter and the stale hint have texts in both languages', () => {
+  for (const key of ['onboarding.checklist.older_show', 'onboarding.checklist.older_hide', 'onboarding.checklist.news_stale']) {
+    assert.ok(catalog('de')[key], `de ${key}`);
+    assert.ok(catalog('en')[key], `en ${key}`);
+  }
+  assert.match(catalog('de')['onboarding.checklist.older_show'], /\{n\}/);
+  assert.match(catalog('en')['onboarding.checklist.older_show'], /\{n\}/);
+  assert.equal(catalog('de')['onboarding.checklist.news_stale'], 'Diese Tour passt nicht mehr zur aktuellen Oberfläche.');
+  assert.equal(catalog('en')['onboarding.checklist.news_stale'], 'This tour no longer matches the current interface.');
 });

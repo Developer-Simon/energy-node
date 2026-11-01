@@ -21,14 +21,26 @@
     text: 'onboarding.checklist.action_read',
     seen: 'onboarding.checklist.action_again',
     new: 'onboarding.checklist.action_show',
+    // Veraltet: der Knopf bleibt sichtbar, ist aber ausgegraut.
+    stale: 'onboarding.checklist.action_show',
   };
   const FOCUS_MS = 1600;
+  // Schalter der aelteren Versionen in Neu erkunden, gilt fuer die Sitzung.
+  const OLDER_KEY = 'ob-explore-older';
 
   const t = (key, params) => window.I18n.t(key, params);
   const reducedMotion = () => Boolean(window.obMotion?.reducedMotion?.());
+  // Ohne Zugriff auf den Sitzungsspeicher bleibt die Wahl bei geschlossen.
+  const olderStored = () => {
+    try { return window.sessionStorage.getItem(OLDER_KEY) === '1'; } catch { return false; }
+  };
+  const rememberOlder = (open) => {
+    try { window.sessionStorage.setItem(OLDER_KEY, open ? '1' : '0'); } catch { /* siehe olderStored */ }
+  };
 
   const obChecklist = () => ({
     reading: {},
+    olderOpen: olderStored(),
 
     // Deep Link: Modus aus der Adresse, danach der Punkt.
     init() {
@@ -76,9 +88,10 @@
     },
     get versions() { return this.s.exploreVersions; },
     // Karte oben in Neu erkunden: die aktuelle Version bestimmt, ob es Touren gibt.
+    // Veraltete Touren zaehlen nicht, sie laufen nie.
     get exploreHasTour() {
       const current = this.versions.find((v) => v.current);
-      return Boolean(current?.items.some((item) => this.s.tourSteps(item).length));
+      return Boolean(current?.items.some((item) => !item.stale && this.s.tourSteps(item).length));
     },
     get exploreUnseen() { return this.s.unseenCount; },
     get exploreNote() {
@@ -88,11 +101,27 @@
     },
     // Tour starten, solange etwas ungesehen ist, sonst alle Touren noch einmal.
     exploreStart() { this.run('explore', null, { all: this.exploreUnseen === 0 }); },
-    versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/\.0$/, '') }); },
+    // Karte nach Minor (0.12). Ein altes dreiteiliges Format (0.12.0) zeigt ohne die 0.
+    versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/^(\d+\.\d+)\.0$/, '$1') }); },
     versionEyebrow(version) { return t(version.current ? 'onboarding.checklist.since_visit' : 'onboarding.checklist.older'); },
-    // Die Versionsseite zeigt den Changelog dieser Version (?release=, siehe versions.page.js).
+    // Die Versionsseite zeigt den Changelog des neuesten Release der Karte (?release=, siehe versions.page.js).
     releaseHref(version) {
-      return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=versions&release=${encodeURIComponent(version.version)}`;
+      return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=versions&release=${encodeURIComponent(version.release || version.version)}`;
+    },
+
+    // Aeltere Karten: ohne ungesehene Tour bleiben sie zu, der Schalter zeigt sie.
+    hasUnseenTour(version) {
+      return version.items.some((item) => !item.stale && !this.s.seen[item.id] && this.s.tourSteps(item).length);
+    },
+    shownByDefault(version) { return version.current || this.hasUnseenTour(version); },
+    get shownVersions() { return this.olderOpen ? this.versions : this.versions.filter((v) => this.shownByDefault(v)); },
+    get olderHidden() { return this.versions.filter((v) => !this.shownByDefault(v)).length; },
+    // Der Schalter steht, wenn es aeltere Karten gibt, die er zeigen oder wieder ausblenden kann.
+    get olderToggleShown() { return this.versions.some((v) => !v.current) && (this.olderOpen || this.olderHidden > 0); },
+    get olderLabel() { return t(this.olderOpen ? 'onboarding.checklist.older_hide' : 'onboarding.checklist.older_show', { n: this.olderHidden }); },
+    toggleOlder() {
+      this.olderOpen = !this.olderOpen;
+      rememberOlder(this.olderOpen);
     },
 
     isInstallerOnly(item) { return window.obSteps.installerOnly.some((i) => i.id === item.id); },
@@ -125,8 +154,10 @@
       if (state === 'other-device') return t(this.s.ctx().device === 'phone' ? 'onboarding.checklist.only_desktop' : 'onboarding.checklist.only_phone');
       if (state === 'seen') return t('onboarding.checklist.news_seen');
       if (state === 'new') return t('onboarding.checklist.news_new');
+      if (state === 'stale') return t('onboarding.checklist.news_stale');
       return t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights');
     },
+    isStale(item) { return this.newsState(item) === 'stale'; },
     // Ohne Eintrag (other-device) gibt es keinen Knopf: die Seite ist am
     // anderen Geraet zu zeigen.
     newsAction(item) {
@@ -134,15 +165,20 @@
       return key ? t(key) : '';
     },
     isReading(item) { return Boolean(this.reading[item.id]); },
+    // Der Knopf des Highlights: Text lesen, eine Tour starten. Veraltet startet nichts.
     newsAct(item) {
       const state = this.newsState(item);
-      if (state === 'other-device') return;
+      if (state === 'other-device' || state === 'stale') return;
       if (state === 'text') {
-        this.reading = { ...this.reading, [item.id]: !this.reading[item.id] };
-        this.s.save(item.id);
+        this.toggleReading(item);
         return;
       }
       this.run('explore', item.id);
+    },
+    // Details aufklappen. Ein Highlight nur mit Text gilt dabei als gesehen.
+    toggleReading(item) {
+      this.reading = { ...this.reading, [item.id]: !this.reading[item.id] };
+      if (this.newsState(item) === 'text') this.s.save(item.id);
     },
   });
 

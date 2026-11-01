@@ -53,7 +53,7 @@
   // Text des Zustands eines Highlights in der Versionsliste. other-device
   // hat seinen eigenen Text (je nach Geraet, siehe highlightLabel).
   // i18n-keys: onboarding.checklist.news_new, onboarding.checklist.news_seen, settings.versions.highlight.text
-  const HIGHLIGHT_LABEL_KEY = {new: 'onboarding.checklist.news_new', seen: 'onboarding.checklist.news_seen', text: 'settings.versions.highlight.text'};
+  const HIGHLIGHT_LABEL_KEY = {new: 'onboarding.checklist.news_new', seen: 'onboarding.checklist.news_seen', stale: 'onboarding.checklist.news_stale', text: 'settings.versions.highlight.text'};
 
   // Der Eintrag des Highlights im Neu-erkunden-Stand des Stores, sonst null.
   const highlightItem = (store, entry) => {
@@ -156,12 +156,13 @@
       return key ? t(key) : '';
     },
 
-    // Neu und gesehen haben eine Tour: der Knopf startet sie. Jeder Zustand mit
-    // Eintrag hat den Link in die Checkliste, nur ohne Tour gibt es keinen Knopf.
+    // Neu und gesehen haben eine Tour: der Knopf startet sie. Veraltet zeigt den
+    // Knopf ausgegraut (im Template). Jeder Zustand mit Eintrag hat den Link in
+    // die Checkliste, nur ohne Tour gibt es keinen Knopf.
     highlightButtons(entry) {
       const state = this.highlightState(entry);
       if (!state) return {run: false, runText: '', checklist: false};
-      const run = state === 'new' || state === 'seen';
+      const run = state === 'new' || state === 'seen' || state === 'stale';
       return {
         run,
         runText: run ? t(state === 'seen' ? 'onboarding.checklist.action_again' : 'onboarding.checklist.action_show') : '',
@@ -171,6 +172,7 @@
 
     // Startet die Tour des Highlights, wie die Checkliste: Warteschlange leeren, dann starten.
     showHighlight(entry) {
+      if (this.highlightState(entry) === 'stale') return;
       const store = this.$store.onboarding;
       store.queue = [];
       store.start('explore', entry.id);

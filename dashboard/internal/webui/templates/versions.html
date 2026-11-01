@@ -93,7 +93,7 @@
                           <div class="ob-cl-sub" x-show="highlightState(entry)">
                             <span class="ob-marker" aria-hidden="true" x-show="highlightState(entry) === 'new'"></span>
                             <span x-text="highlightLabel(entry)"></span>
-                            <button type="button" class="ob-btn ob-btn--primary" x-show="highlightButtons(entry).run" x-text="highlightButtons(entry).runText" x-on:click="showHighlight(entry)"></button>
+                            <button type="button" class="ob-btn ob-btn--primary" x-show="highlightButtons(entry).run" x-text="highlightButtons(entry).runText" x-bind:class="{ 'is-disabled': highlightState(entry) === 'stale' }" x-bind:disabled="highlightState(entry) === 'stale'" x-on:click="showHighlight(entry)"></button>
                             <a class="ob-link" x-show="highlightButtons(entry).checklist" x-bind:href="checklistHref(entry)">{{t "settings.versions.highlight.checklist"}}</a>
                           </div>
                         </li>

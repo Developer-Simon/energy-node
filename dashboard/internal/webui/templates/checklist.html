@@ -58,10 +58,11 @@
         <div class="ob-cl-summary-actions">
           <button type="button" class="ob-btn ob-btn--primary" x-show="exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.explore_start"}}</button>
           <button type="button" class="ob-btn" x-show="!exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.repeat"}}</button>
+          <button type="button" class="ob-btn ob-cl-older" x-show="olderToggleShown" x-bind:aria-expanded="olderOpen ? 'true' : 'false'" x-on:click="toggleOlder()"><span x-text="olderLabel"></span></button>
         </div>
       </div>
 
-      <template x-for="version in versions" x-bind:key="version.version">
+      <template x-for="version in shownVersions" x-bind:key="version.version">
         <div class="setting-card ob-cl-card" x-bind:class="{ 'is-current': version.current }">
           <div class="ob-cl-summary-head">
             <h3 class="setting-card-title" x-text="versionLabel(version)"></h3>
@@ -76,8 +77,12 @@
                   <span class="ob-cl-title" x-text="$t(item.title)"></span>
                   <span class="ob-cl-sub" x-text="newsSub(item)"></span>
                 </span>
-                <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:aria-expanded="isReading(item) ? 'true' : 'false'" x-on:click="newsAct(item)">
+                <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:class="{ 'is-disabled': isStale(item) }" x-bind:disabled="isStale(item)" x-bind:aria-expanded="isStale(item) ? null : (isReading(item) ? 'true' : 'false')" x-on:click="newsAct(item)">
                   <span x-text="newsAction(item)"></span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true" x-show="!isStale(item)" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
+                </button>
+                <button type="button" class="ob-cl-action" x-show="isStale(item)" x-bind:aria-expanded="isReading(item) ? 'true' : 'false'" x-on:click="toggleReading(item)">
+                  <span>{{t "onboarding.checklist.action_read"}}</span>
                   <svg viewBox="0 0 24 24" aria-hidden="true" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
                 </button>
                 <div class="ob-cl-detail" x-show="isReading(item)" x-collapse>

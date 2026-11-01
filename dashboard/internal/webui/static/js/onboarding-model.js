@@ -13,6 +13,11 @@
     return width <= PHONE_MAX ? 'phone' : 'desktop';
   }
 
+  // Minor einer Version: major.minor, aus 0.12.0 wird 0.12.
+  function minorOf(version) {
+    return String(version || '').split('.').slice(0, 2).join('.');
+  }
+
   // Gilt der Schritt fuer das Geraet? Ohne device-Feld oder mit 'any' immer.
   function deviceFits(step, device) {
     return !step.device || step.device === 'any' || step.device === device;
@@ -93,8 +98,9 @@
         ? explore.find((v) => v.items.some((item) => item.id === from))
         : explore.find((v) => v.current);
       if (!version) return [];
-      const items = version.items.filter((item) => (from ? item.id === from : all || !seen[item.id]) && tourSteps(item, ctx).length);
-      const short = version.version.replace(/\.0$/, '');
+      // Eine veraltete Tour laeuft nie, auch nicht aus der Checkliste.
+      const items = version.items.filter((item) => !item.stale && (from ? item.id === from : all || !seen[item.id]) && tourSteps(item, ctx).length);
+      const short = version.version.replace(/^(\d+\.\d+)\.0$/, '$1');
       const flat = items.flatMap((item) => tourSteps(item, ctx)
         // Der Schritt zeigt seinen eigenen Titel und Text, nur ohne eigenen faellt er auf das Highlight zurueck.
         .map((s) => ({ ...s, id: item.id, title: s.title || item.title, text: s.text || item.text, check: 'leave' })));
@@ -125,10 +131,11 @@
   }
 
   // Wie viele aktuelle Highlights noch ungesehen sind und eine Tour fuer das Geraet haben.
+  // Veraltete Touren zaehlen nicht.
   function unseenCount(explore, seen, ctx) {
     return explore.filter((v) => v.current)
       .flatMap((v) => v.items)
-      .filter((item) => !seen[item.id] && tourSteps(item, ctx).length).length;
+      .filter((item) => !item.stale && !seen[item.id] && tourSteps(item, ctx).length).length;
   }
 
   // Zustand eines Highlights fuer die Liste "Neu erkunden".
@@ -138,6 +145,8 @@
     const allowedByRights = steps.filter((s) => rightsFit(s, ctx));
     if (!allowedByRights.length) return 'text';
     if (!allowedByRights.some((s) => deviceFits(s, ctx.device))) return 'other-device';
+    // Veraltet gewinnt ueber gesehen: die Tour passt nicht mehr zur Oberflaeche.
+    if (item.stale) return 'stale';
     return seen[item.id] ? 'seen' : 'new';
   }
 
@@ -163,6 +172,7 @@
     unseenCount,
     exploreState,
     pickText,
+    minorOf,
     nextAfterResize,
     queueAfter,
   };

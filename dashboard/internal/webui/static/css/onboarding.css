@@ -347,6 +347,7 @@
   transition: transform .3s var(--ease-out);
 }
 .ob-cl-summary-actions { display: flex; gap: .5rem; margin-top: .8rem; }
+.ob-cl-older { margin-left: auto; }
 
 .ob-cl-list { display: grid; margin: .5rem 0 0; padding: 0; list-style: none; }
 .ob-cl-row {
@@ -417,6 +418,10 @@
   transition: background-color .15s ease, transform .1s var(--ease-out);
 }
 .ob-cl-action:active { transform: scale(.97); }
+/* Veraltete Tour: ausgegraut, ohne Hover (onboarding-checklist.js, versions.page.js). */
+.ob-cl-action.is-disabled, .ob-btn.is-disabled { opacity: .45; cursor: not-allowed; }
+.ob-cl-action.is-disabled:hover { background: none; }
+.ob-btn--primary.is-disabled:hover { background: var(--accent); }
 .ob-cl-action svg { width: .85rem; height: .85rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s var(--ease-out); }
 .ob-cl-action svg.is-open { transform: rotate(90deg); }
 .ob-cl-row.is-done .ob-cl-action, .ob-cl-row.is-installer .ob-cl-action, .ob-cl-row.is-seen .ob-cl-action { color: var(--text-subtle); }

@@ -28,6 +28,7 @@ const EXPLORE = [{
     { id: 'h181', pr: 181, title: 'Text', text: 'Text', tour: false, steps: [] },
     { id: 'h190', pr: 190, title: 'Phone', text: 'Phone', tour: undefined, steps: [{ panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: 'phone', need: '', title: 'Phone', text: 'Here', literal: true }] },
     { id: 'h191', pr: 191, title: 'Desktop', text: 'Desktop', tour: undefined, steps: [{ panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: 'desktop', need: '', title: 'Desktop', text: 'Here', literal: true }] },
+    { id: 'h192', pr: 192, title: 'Stale', text: 'Stale', tour: undefined, stale: true, steps: [{ panel: 'settings-panel', page: 'users', target: '[data-tour="gone"]', device: '', need: '', title: 'Stale', text: 'Here', literal: true }] },
   ],
 }];
 
@@ -208,4 +209,12 @@ test('the catalogs drop the what\'s new key and carry the new texts in both lang
   assert.equal('settings.whatsnew.title' in de, false);
   assert.equal(de['onboarding.checklist.release_notes'], 'Release-Notes');
   assert.equal(en['onboarding.checklist.release_notes'], 'Release notes');
+});
+
+test('a stale highlight shows the hint and a disabled tour button, the checklist link stays', () => {
+  const { component } = createPanel();
+  assert.equal(component.highlightState({ id: 'h192' }), 'stale');
+  assert.equal(component.highlightLabel({ id: 'h192' }), de['onboarding.checklist.news_stale']);
+  assert.deepEqual({ ...component.highlightButtons({ id: 'h192' }) }, { run: true, runText: de['onboarding.checklist.action_show'], checklist: true });
+  assert.match(template, /x-bind:disabled="highlightState\(entry\) === 'stale'"/);
 });

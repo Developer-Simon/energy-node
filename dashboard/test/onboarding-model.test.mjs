@@ -251,3 +251,34 @@ test('explore with all lists every item of the current version, seen or not', ()
   assert.deepEqual(m.buildSteps({ mode: 'explore', explore, seen, ctx: ctx(), all: true }).map((s) => s.id), ['a', 'b']);
   assert.deepEqual(m.buildSteps({ mode: 'explore', explore, seen, ctx: ctx() }).map((s) => s.id), ['b']);
 });
+
+test('minorOf keeps major.minor of a release version', () => {
+  const m = load();
+  assert.equal(m.minorOf('0.12.0'), '0.12');
+  assert.equal(m.minorOf('1.0.3'), '1.0');
+  assert.equal(m.minorOf('0.10'), '0.10');
+});
+
+test('a stale tour is stale and wins over seen', () => {
+  const m = load();
+  const item = { id: 'st', stale: true, steps: [{ id: 'st1', device: '', need: '' }] };
+  assert.equal(m.exploreState(item, {}, ctx()), 'stale');
+  assert.equal(m.exploreState(item, { st: true }, ctx()), 'stale');
+  assert.equal(m.exploreState({ ...item, stale: false }, {}, ctx()), 'new');
+});
+
+test('a stale tour is never run, not even when repeated or asked for', () => {
+  const m = load();
+  const explore = [{
+    version: '0.12', current: true,
+    items: [
+      { id: 'old', title: 'Old', text: 'Old', stale: true, steps: [{ id: 'o1', title: 'O', text: 'o', device: '', need: '', target: 'x' }] },
+      { id: 'ok', title: 'Ok', text: 'Ok', steps: [{ id: 'k1', title: 'K', text: 'k', device: '', need: '', target: 'x' }] },
+    ],
+  }];
+  const all = m.buildSteps({ mode: 'explore', all: true, explore, seen: {}, ctx: ctx() });
+  assert.deepEqual(all.map((s) => s.id), ['ok']);
+  const asked = m.buildSteps({ mode: 'explore', from: 'old', explore, seen: {}, ctx: ctx() });
+  assert.deepEqual(asked, []);
+  assert.equal(m.unseenCount(explore, {}, ctx()), 1);
+});

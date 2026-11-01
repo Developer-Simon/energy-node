@@ -257,17 +257,20 @@
       const done = items.filter((item) => ['done', 'installer'].includes(this.stateOf(item.id))).length;
       return { done, total: items.length };
     },
-    // Neu erkunden: die Highlights des Servers, nach Version gruppiert und im
-    // Format von obModel. Titel und Texte in der Seitensprache (sonst der
+    // Neu erkunden: die Highlights des Servers, nach Minor gruppiert und im
+    // Format von obModel. Eine Karte heisst nach dem Minor (0.12), release ist
+    // der neueste Release dieser Karte (der Server liefert neueste zuerst) und
+    // fuehrt den Changelog-Link. Titel und Texte in der Seitensprache (sonst der
     // englische Text). Schritte tragen literal, build() uebersetzt sie nicht mehr.
     get exploreVersions() {
       const localized = (map, fallback) => window.I18n.localized(map, fallback);
-      const current = this.exploreData.current_version;
+      const current = window.obModel.minorOf(this.exploreData.current_version);
       const versions = [];
       for (const item of this.exploreData.items) {
-        let version = versions.find((v) => v.version === item.version);
+        const minor = item.minor || window.obModel.minorOf(item.version);
+        let version = versions.find((v) => v.version === minor);
         if (!version) {
-          version = { version: item.version, current: item.version === current, items: [] };
+          version = { version: minor, release: item.version, current: minor === current, items: [] };
           versions.push(version);
         }
         const text = localized(item.i18n, item.text);
@@ -283,6 +286,8 @@
           detail: item.details ? localized(item.details.text, item.details.text?.en) : '',
           // tour null heisst: nur Text, keine Tour.
           tour: item.tour ? undefined : false,
+          // Veraltet: die Tour passt nicht mehr zur Oberflaeche (Server, Ziele fehlen).
+          stale: Boolean(item.tour?.stale),
           steps: (item.tour?.steps || []).map((s) => ({
             panel: s.panel,
             page: s.page,

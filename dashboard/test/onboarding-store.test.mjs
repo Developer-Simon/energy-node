@@ -272,7 +272,7 @@ test('exploreVersions groups the server highlights in the model shape', async ()
   const { store } = await load();
   const versions = store.exploreVersions;
   // [...] holt die Ergebnisse aus dem VM-Kontext in ein Array dieses Realms.
-  assert.deepEqual([...versions.map((v) => [v.version, v.current])], [['0.12.0', true], ['0.11.0', false]]);
+  assert.deepEqual([...versions.map((v) => [v.version, v.current])], [['0.12', true], ['0.11', false]]);
   const [current] = versions;
   assert.deepEqual([...current.items.map((i) => i.id)], ['h184', 'h181']);
 
@@ -459,4 +459,34 @@ test('finishing a setup run switches the checklist to explore', async () => {
   store.finish();
   assert.equal(store.finished.mode, 'setup');
   assert.equal(store.checklistMode, 'explore');
+});
+
+test('exploreVersions groups by minor, the card keeps the newest release for its link', async () => {
+  const explore = {
+    current_version: '0.12.2',
+    items: [
+      { id: 'a', version: '0.12.2', minor: '0.12', text: 'A', tour: null },
+      { id: 'b', version: '0.12.0', minor: '0.12', text: 'B', tour: null },
+      { id: 'c', version: '0.11.1', minor: '0.11', text: 'C', tour: null },
+      { id: 'd', version: '0.10.0', text: 'D', tour: null },
+    ],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const versions = store.exploreVersions;
+  assert.deepEqual([...versions.map((v) => [v.version, v.release, v.current])], [['0.12', '0.12.2', true], ['0.11', '0.11.1', false], ['0.10', '0.10.0', false]]);
+  assert.deepEqual([...versions[0].items.map((i) => i.id)], ['a', 'b']);
+});
+
+test('exploreVersions carries the stale flag of a tour', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'st', version: '0.12.0', minor: '0.12', text: 'Stale', tour: { stale: true, steps: [{ panel: 'settings-panel', target: 'gone', device: '', need: '', title: {}, text: {} }] } },
+      { id: 'ok', version: '0.12.0', minor: '0.12', text: 'Fine', tour: { steps: [{ panel: 'settings-panel', target: 'guest', device: '', need: '', title: {}, text: {} }] } },
+    ],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const [st, ok] = store.exploreVersions[0].items;
+  assert.equal(st.stale, true);
+  assert.equal(ok.stale, false);
 });
