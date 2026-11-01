@@ -44,6 +44,10 @@
     if (/^\d+$/.test(subject)) {
       return 'port';
     }
+    // Anmeldung am MQTT-Broker (Schritt 20): ok, denied oder nopassword.
+    if (subject === 'mqtt-login') {
+      return 'mqtt';
+    }
     return subject === 'tailscale' ? 'tailscale' : 'other';
   }
 
@@ -66,6 +70,28 @@
       return found
         ? shell.t('diagnose.retry', { n: found.number, name: name })
         : shell.t('diagnose.retry_plain', { name: name });
+    },
+
+    // randomPassword: Buchstaben und Ziffern aus dem Zufallsgenerator des
+    // Browsers. Bytes ab 248 werden verworfen, damit jedes Zeichen gleich
+    // wahrscheinlich ist (248 ist das kleinste Vielfache von 62 unter 256).
+    randomPassword: function (length) {
+      var size = length === undefined ? 24 : length;
+      var alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      var bytes = new Uint8Array(1);
+      var out = '';
+      while (out.length < size) {
+        window.crypto.getRandomValues(bytes);
+        if (bytes[0] < 248) {
+          out += alphabet.charAt(bytes[0] % 62);
+        }
+      }
+      return out;
+    },
+
+    // passwordValid: mindestens 8 Zeichen, keine Zeilenumbrueche.
+    passwordValid: function (value) {
+      return typeof value === 'string' && value.length >= 8 && !/[\r\n]/.test(value);
     },
 
     cards: function (view, manifest, shell, updatesState) {
@@ -117,6 +143,16 @@
         parts.push({ key: 'devs-' + unit, type: 'devs', cls: 'devs', text: text });
       }
 
+      // retryOf: der Reparaturknopf. needs nennt die Eingabe, die vorher
+      // gebraucht wird (etwa das MQTT-Passwort), sonst fehlt das Feld.
+      function retryOf(check) {
+        var retry = { stepId: check.retry_step_id, label: DiagnoseModel.retryLabel(check.retry_step_id, manifest, shell) };
+        if (check.needs) {
+          retry.needs = check.needs;
+        }
+        return retry;
+      }
+
       function follow(parts, check, title, text, warnText) {
         var level = levelOf(check);
         if (level === 'ok') {
@@ -128,7 +164,7 @@
         }
         parts.push({
           key: 'fail-' + check.name, type: 'fail', cls: 'fail', chip: check.detail, title: title, text: text,
-          retry: check.retry_step_id ? { stepId: check.retry_step_id, label: DiagnoseModel.retryLabel(check.retry_step_id, manifest, shell) } : null,
+          retry: check.retry_step_id ? retryOf(check) : null,
         });
       }
 
@@ -177,6 +213,10 @@
             case 'reboot':
               row(parts, check.name, t('diagnose.reboot'), t('diagnose.reboot.required'), levelOf(check));
               follow(parts, check, '', '', t('diagnose.warn.reboot'));
+              return;
+            case 'mqtt':
+              row(parts, check.name, t('diagnose.mqtt.label'), optional(shell, 'diagnose.mqtt.' + check.detail) || check.detail, levelOf(check));
+              follow(parts, check, t('diagnose.fail.mqtt.title'), t('diagnose.fail.mqtt.text'));
               return;
             case 'tailscale':
               row(parts, check.name, t('diagnose.tailscale'), t(check.ok ? 'diagnose.tailscale.in' : 'diagnose.tailscale.out'), levelOf(check));
@@ -338,6 +378,10 @@
       liveBuffer: null,
       liveStream: null,
       liveCopyTimer: null,
+      // pwDialog: offen, solange der Dialog fuer das MQTT-Passwort steht
+      // ({ stepId, label }). pwValue ist das getippte oder erzeugte Passwort.
+      pwDialog: null,
+      pwValue: '',
 
       get shell() {
         return window.Installer.shell;
@@ -598,21 +642,63 @@
         return DiagnoseModel.tally(this.view);
       },
 
+      get pwValid() {
+        return DiagnoseModel.passwordValid(this.pwValue);
+      },
+
+      // retry: ein Knopf, der eine Eingabe braucht (needs), oeffnet zuerst den
+      // Dialog. Sonst startet die Reparatur sofort.
       async retry(part) {
         if (!part.retry || this.busy) {
           return;
         }
+        if (part.retry.needs === 'mqtt_password') {
+          this.pwValue = '';
+          this.pwDialog = { stepId: part.retry.stepId, label: part.retry.label };
+          return;
+        }
+        await this.startRepair(part.retry.stepId, {});
+      },
+
+      // startRepair: startet die Reparatur eines Schritts, extra kommt in die
+      // Anfrage dazu. Gibt false zurueck, wenn der Start scheitert.
+      async startRepair(stepId, extra) {
         this.busy = true;
         this.shell.error = null;
         try {
-          var request = { mode: 'repair', only: part.retry.stepId };
+          var request = Object.assign({ mode: 'repair', only: stepId }, extra);
           var response = await window.Api.post('/api/run', request);
           this.shell.startRun(response, request);
+          return true;
         } catch (err) {
           this.shell.fail(err);
+          return false;
         } finally {
           this.busy = false;
         }
+      },
+
+      // submitRepair: mit gueltigem Passwort startet der Lauf. Scheitert der
+      // Start, bleibt der Dialog mit dem Wert offen.
+      async submitRepair() {
+        if (!this.pwDialog || !this.pwValid || this.busy) {
+          return;
+        }
+        var stepId = this.pwDialog.stepId;
+        var ok = await this.startRepair(stepId, { mqtt_password: this.pwValue });
+        if (ok) {
+          this.pwDialog = null;
+          this.pwValue = '';
+        }
+      },
+
+      cancelRepair() {
+        this.pwDialog = null;
+        this.pwValue = '';
+      },
+
+      generatePassword() {
+        this.pwValue = DiagnoseModel.randomPassword(24);
       },
 
       // refreshUpdates holt die Paketlisten jetzt frisch (apt-get update) und

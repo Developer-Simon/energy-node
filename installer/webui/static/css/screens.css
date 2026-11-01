@@ -383,6 +383,16 @@
 .app[data-screen="precheck"] .sudo-dialog .field{margin-top:.9rem}
 .app[data-screen="precheck"] .sudo-error{margin-top:.7rem;padding:.5rem .75rem;border-radius:var(--radius-sm);border:1px solid var(--bad-line);background:var(--bad-bg);color:var(--bad);font-size:.78rem}
 .app[data-screen="precheck"] .sudo-actions{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem}
+/* Ergaenzung Diagnose: Dialog fuer ein neues MQTT-Passwort bei der Reparatur
+   der Broker-Anmeldung, nicht in der Vorlage. */
+.app[data-screen="diagnose"] .diag-pw-overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,.55)}
+.app[data-screen="diagnose"] .diag-pw-dialog{width:min(30rem,100%);padding:1.1rem 1.2rem;border-radius:var(--radius-lg);border:1px solid var(--border);background:var(--panel)}
+.app[data-screen="diagnose"] .diag-pw-dialog .field{margin-top:.9rem}
+.app[data-screen="diagnose"] .diag-pw-row{display:flex;gap:.5rem;align-items:center}
+.app[data-screen="diagnose"] .diag-pw-row input{flex:1 1 auto;min-width:0;width:100%;box-sizing:border-box}
+.app[data-screen="diagnose"] .diag-pw-row button{flex:none}
+.app[data-screen="diagnose"] .diag-pw-error{margin-top:.6rem;font-size:.78rem;color:var(--bad)}
+.app[data-screen="diagnose"] .diag-pw-actions{display:flex;justify-content:flex-end;gap:.6rem;margin-top:1rem}
 /* Ergaenzung Paket vorbereiten: Hinweis, dass der Lauf eine Entscheidung des
    Betreibers erwartet (Teilübertragung fehlgeschlagen, Python-Version), nicht in der Vorlage. */
 .app[data-screen="prepare"] .prep-action{display:flex;gap:.8rem;align-items:flex-start;margin:.2rem 0 .9rem;padding:.8rem 1rem;border-radius:var(--radius-md);border:1px solid var(--warn-line);background:var(--warn-bg)}

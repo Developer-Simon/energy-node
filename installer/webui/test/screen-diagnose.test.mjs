@@ -147,6 +147,80 @@ test('eine Pruefung ohne Reparaturschritt hat keinen Knopf', async () => {
   assert.equal(screen.leftCards[0].parts.find((part) => part.type === 'fail').retry, null);
 });
 
+test('passwordValid verlangt mindestens 8 Zeichen ohne Zeilenumbruch', async () => {
+  const { window } = await mount();
+  const { passwordValid } = window.DiagnoseModel;
+  assert.equal(passwordValid(''), false);
+  assert.equal(passwordValid('1234567'), false);
+  assert.equal(passwordValid('12345678'), true);
+  assert.equal(passwordValid('1234\n5678'), false);
+});
+
+test('randomPassword liefert 24 Zeichen aus Buchstaben und Ziffern', async () => {
+  const { window } = await mount();
+  const value = window.DiagnoseModel.randomPassword();
+  assert.equal(value.length, 24);
+  assert.match(value, /^[A-Za-z0-9]{24}$/);
+  assert.equal(window.DiagnoseModel.randomPassword(12).length, 12);
+});
+
+test('MQTT-Anmeldung ist eine Zeile der System-Karte mit Klartext', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withMqtt('denied') } });
+  const card = screen.cards.find((c) => c.key === 'system');
+  assert.deepEqual(rows(card).find((row) => row[0] === 'MQTT-Anmeldung'), ['MQTT-Anmeldung', 'Passwort abgelehnt']);
+  const fail = card.parts.find((part) => part.key === 'fail-mqtt login');
+  assert.equal(fail.title, 'Die MQTT-Anmeldung klappt nicht');
+});
+
+// withMqtt: der Befund der Broker-Anmeldung, so wie ihn der Bericht mit needs liefert.
+const withMqtt = (detail) => Object.assign({}, DIAGNOSE, {
+  checks: DIAGNOSE.checks.concat([{ name: 'mqtt login', ok: false, detail, retry_step_id: '20', group: 'system', subject: 'mqtt-login', needs: 'mqtt_password' }]),
+});
+const mqttFail = (screen) => screen.cards.find((c) => c.key === 'system').parts.find((part) => part.key === 'fail-mqtt login');
+
+test('erneut ausfuehren bei fehlendem MQTT-Passwort oeffnet den Dialog und postet nicht', async () => {
+  const { screen, shell, calls } = await mount({ responses: { 'GET /api/diagnose': withMqtt('denied') } });
+  await screen.retry(mqttFail(screen));
+  assert.deepEqual(plain(screen.pwDialog), { stepId: '20', label: 'Schritt 2 · MQTT-Broker erneut ausführen' });
+  assert.equal(calls.some((call) => call.key === 'POST /api/run'), false);
+  assert.equal(shell.screen, 'diagnose');
+});
+
+test('Bestaetigen postet Schritt und Passwort und startet den Lauf', async () => {
+  const { screen, shell, calls } = await mount({ responses: { 'GET /api/diagnose': withMqtt('denied'), 'POST /api/run': { run_id: 'run-9', seq: 1 } } });
+  await screen.retry(mqttFail(screen));
+  screen.pwValue = '12345678';
+  await screen.submitRepair();
+  assert.deepEqual(calls.at(-1), { key: 'POST /api/run', body: { mode: 'repair', only: '20', mqtt_password: '12345678' } });
+  assert.equal(screen.pwDialog, null);
+  assert.equal(shell.screen, 'run');
+});
+
+test('Bestaetigen mit zu kurzem Passwort postet nichts', async () => {
+  const { screen, calls } = await mount({ responses: { 'GET /api/diagnose': withMqtt('denied') } });
+  await screen.retry(mqttFail(screen));
+  screen.pwValue = '1234567';
+  await screen.submitRepair();
+  assert.equal(calls.some((call) => call.key === 'POST /api/run'), false);
+  assert.notEqual(screen.pwDialog, null);
+});
+
+test('Abbrechen schliesst den Dialog und postet nichts', async () => {
+  const { screen, calls } = await mount({ responses: { 'GET /api/diagnose': withMqtt('nopassword') } });
+  await screen.retry(mqttFail(screen));
+  screen.cancelRepair();
+  assert.equal(screen.pwDialog, null);
+  assert.equal(calls.some((call) => call.key === 'POST /api/run'), false);
+});
+
+test('Zufaelliges Passwort fuellt das Feld mit einem gueltigen Wert', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withMqtt('denied') } });
+  await screen.retry(mqttFail(screen));
+  screen.generatePassword();
+  assert.match(screen.pwValue, /^[A-Za-z0-9]{24}$/);
+  assert.equal(screen.pwValid, true);
+});
+
 test('Erneut pruefen in der Kopfleiste laedt neu', async () => {
   const { shell, calls } = await mount();
   await shell.bar.action.run();
