@@ -417,7 +417,8 @@ func (c *Client) UnignoreDevice(deviceID string) error {
 }
 
 func (c *Client) DeleteDeviceDiscovery(deviceID string) error {
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot delete discovery while disconnected")
 	}
 	topics := c.reg.DiscoveryTopics(deviceID)
@@ -430,7 +431,7 @@ func (c *Client) DeleteDeviceDiscovery(deviceID string) error {
 		return errors.New("mqttclient: device has no discovery topics")
 	}
 	for _, topic := range topics {
-		token := c.paho.Publish(topic, 0, true, []byte{})
+		token := paho.Publish(topic, 0, true, []byte{})
 		if !token.WaitTimeout(5 * time.Second) {
 			return fmt.Errorf("mqttclient: discovery deletion timed out for %s", topic)
 		}
@@ -575,6 +576,15 @@ func (c *Client) setConfig(cfg Config) {
 	c.mu.Lock()
 	c.cfg = cfg
 	c.mu.Unlock()
+}
+
+// pahoClient returns the current Paho client. The retry loop replaces c.paho
+// from another goroutine, so every read outside c.mu goes through here. Never
+// call it while holding c.mu.
+func (c *Client) pahoClient() mqtt.Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.paho
 }
 
 func (c *Client) connectTimeout() time.Duration {
@@ -783,8 +793,8 @@ func (c *Client) logSummaryPeriodically() {
 // Close disconnects from the broker.
 func (c *Client) Close() {
 	c.cancel()
-	if c.paho != nil && c.paho.IsConnected() {
-		c.paho.Disconnect(250)
+	if paho := c.pahoClient(); paho != nil && paho.IsConnected() {
+		paho.Disconnect(250)
 	}
 	c.mu.Lock()
 	c.status.Connected = false
@@ -798,14 +808,15 @@ func (c *Client) Reload() error {
 	c.reloadMu.Lock()
 	defer c.reloadMu.Unlock()
 
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot reload while disconnected")
 	}
 	c.reg.Reset()
 	c.mu.Lock()
 	c.subscribed = make(map[string]bool)
 	c.mu.Unlock()
-	c.onConnect(c.paho)
+	c.onConnect(paho)
 	c.mu.Lock()
 	c.status.LastReloadAt = time.Now().UTC()
 	c.mu.Unlock()
@@ -818,11 +829,12 @@ func (c *Client) ReloadService(serviceID string) error {
 	if serviceID == "" {
 		return errors.New("mqttclient: service ID is empty")
 	}
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot request reload while disconnected")
 	}
 	topic := fmt.Sprintf("outstation/%s/config/reload", serviceID)
-	token := c.paho.Publish(topic, 0, false, "reload")
+	token := paho.Publish(topic, 0, false, "reload")
 	if !token.WaitTimeout(5 * time.Second) {
 		return errors.New("mqttclient: reload request timed out")
 	}
@@ -836,10 +848,11 @@ func (c *Client) Publish(topic, payload string) error {
 	if topic == "" {
 		return errors.New("mqttclient: command topic is empty")
 	}
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot publish while disconnected")
 	}
-	token := c.paho.Publish(topic, 0, false, payload)
+	token := paho.Publish(topic, 0, false, payload)
 	if !token.WaitTimeout(5 * time.Second) {
 		return errors.New("mqttclient: command publish timed out")
 	}
@@ -853,10 +866,11 @@ func (c *Client) PublishRetained(topic, payload string) error {
 	if topic == "" {
 		return errors.New("mqttclient: publish topic is empty")
 	}
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot publish while disconnected")
 	}
-	token := c.paho.Publish(topic, 0, true, payload)
+	token := paho.Publish(topic, 0, true, payload)
 	if !token.WaitTimeout(5 * time.Second) {
 		return errors.New("mqttclient: retained publish timed out")
 	}
@@ -1047,7 +1061,7 @@ func (c *Client) subscribeState(topic string) {
 		return
 	}
 
-	token := c.paho.Subscribe(topic, 0, c.handleState)
+	token := c.pahoClient().Subscribe(topic, 0, c.handleState)
 	if !token.WaitTimeout(5 * time.Second) {
 		c.logger.Printf("subscribe %s timed out", topic)
 		return
@@ -1065,11 +1079,12 @@ func (c *Client) unsubscribeState(topic string) {
 	c.mu.Lock()
 	delete(c.subscribed, topic)
 	c.mu.Unlock()
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return
 	}
 
-	token := c.paho.Unsubscribe(topic)
+	token := paho.Unsubscribe(topic)
 	if !token.WaitTimeout(5 * time.Second) {
 		c.logger.Printf("unsubscribe %s timed out", topic)
 		return

@@ -326,6 +326,68 @@ func TestStartConnectingStopsOnClose(t *testing.T) {
 	}
 }
 
+// fakeToken completes every operation immediately.
+type fakeToken struct {
+	mqtt.Token
+}
+
+func (fakeToken) WaitTimeout(time.Duration) bool { return true }
+func (fakeToken) Error() error                   { return nil }
+
+// publishPaho accepts Publish on top of the connected fake.
+type publishPaho struct {
+	fakePaho
+}
+
+func (publishPaho) Publish(string, byte, bool, interface{}) mqtt.Token { return fakeToken{} }
+
+// TestPublishRetainedWhileRetryLoopConnects races PublishRetained against the
+// retry loop, which replaces c.paho under c.mu when the second attempt succeeds.
+// Run with -race: an unlocked read of c.paho in PublishRetained is reported.
+func TestPublishRetainedWhileRetryLoopConnects(t *testing.T) {
+	client := newRetryTestClient(time.Millisecond)
+	var calls atomic.Int32
+	client.attempt = func() error {
+		if calls.Add(1) == 1 {
+			return errors.New("connection refused")
+		}
+		client.mu.Lock()
+		client.paho = publishPaho{fakePaho: fakePaho{connected: true}}
+		client.mu.Unlock()
+		return nil
+	}
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	var published atomic.Int32
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if client.PublishRetained("outstation/test", "1") == nil {
+				published.Add(1)
+			}
+		}
+	}()
+
+	client.StartConnecting()
+	waitForCount(t, &calls, 2)
+	deadline := time.Now().Add(2 * time.Second)
+	for published.Load() == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	close(stop)
+	<-done
+	if published.Load() == 0 {
+		t.Fatal("PublishRetained never succeeded after the retry loop connected")
+	}
+	client.Close()
+}
+
 func TestStartConnectingSkipsAttemptWhenAlreadyConnected(t *testing.T) {
 	client := newRetryTestClient(time.Millisecond)
 	var calls atomic.Int32
