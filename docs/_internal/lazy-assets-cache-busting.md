@@ -139,7 +139,7 @@ on the `device-modal` template in
 |---|---|---|
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | `js/servicelogs.panel.js` `2` | `css/settings-controls.css` `20`, `css/diagnostics.css` `3` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `10` | `css/manager.css` `48` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `48` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `2`, `js/energy.page.js` `13` | `css/manager.css` `48` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `5`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `48` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `11`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `20` |
@@ -265,6 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.35 | `js/config.page.js` (config panel, tuning findings are rendered from the catalog by code and params, with the service text as fallback) | `11` | 2026-11-01 |
 | v0.10.34 | `js/mqtt.page.js` (settings panel, the connection test result is shown as a toast and a failed reconnect shows the broker error instead of a generic failure) | `11` | 2026-11-01 |
 | v0.10.28 | `js/users.page.js` (settings panel, guest preset card with the guest access switch) · `js/dashboard.js` (ignored devices: un-ignore needs the discovery permission) · `js/device-modal.js` (device dialog: ignore needs the discovery permission) | `4` · `42` · `3` | 2026-10-31 |
 | v0.10.27 | `js/stats.page.js` (stats panel, narrow screens: interval selection, table view switch, chart band) · `css/stats.css` (stats panel, floating back/next bar, interval and grid table views) | `6` · `4` | 2026-10-30 |
