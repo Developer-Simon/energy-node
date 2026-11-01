@@ -72,18 +72,24 @@ func onboardingInstalled(services map[string]bool) map[string]bool {
 const onboardingExploreMinors = 3
 
 // onboardingExploreItem is one highlight of the last releases for "Neu
-// erkunden". Minor is the major.minor of its release, Version the release
-// itself. Tour holds only the steps the caller has the rights for and is null
-// when none is left, the highlight then counts as text only.
+// erkunden". Version is the dashboard release the item is shown under, Minor
+// its major.minor. Component is the component the highlight comes from
+// ("dashboard" for dashboard entries), ComponentLabel its changelog label and
+// ComponentVersion the release it came from. Tour holds only the steps the
+// caller has the rights for and is null when none is left, the highlight then
+// counts as text only.
 type onboardingExploreItem struct {
-	ID      string                     `json:"id"`
-	Version string                     `json:"version"`
-	Minor   string                     `json:"minor"`
-	PR      int                        `json:"pr,omitempty"`
-	Text    string                     `json:"text"`
-	I18n    map[string]string          `json:"i18n,omitempty"`
-	Details *versions.HighlightDetails `json:"details,omitempty"`
-	Tour    *onboardingTour            `json:"tour"`
+	ID               string                     `json:"id"`
+	Version          string                     `json:"version"`
+	Minor            string                     `json:"minor"`
+	Component        string                     `json:"component"`
+	ComponentLabel   string                     `json:"component_label"`
+	ComponentVersion string                     `json:"component_version,omitempty"`
+	PR               int                        `json:"pr,omitempty"`
+	Text             string                     `json:"text"`
+	I18n             map[string]string          `json:"i18n,omitempty"`
+	Details          *versions.HighlightDetails `json:"details,omitempty"`
+	Tour             *onboardingTour            `json:"tour"`
 }
 
 // onboardingTour is the tour of a highlight as the caller may walk it. Stale
@@ -95,9 +101,10 @@ type onboardingTour struct {
 }
 
 // onboardingExplore lists the highlights of the last onboardingExploreMinors
-// minor releases, each ID once, newest release first. targets are the
-// data-tour targets of the web UI, nil or empty marks no tour as stale. A
-// missing or unreadable changelog gives an empty list.
+// dashboard minor releases, each ID once: the dashboard releases newest first,
+// inside a release the dashboard entries first, then the other components.
+// targets are the data-tour targets of the web UI, nil or empty marks no tour
+// as stale. A missing or unreadable changelog gives an empty list.
 func onboardingExplore(stateDir string, user auth.User, targets map[string]bool) (string, []onboardingExploreItem) {
 	items := []onboardingExploreItem{}
 	view, err := versions.Releases(stateDir, onboardingExploreMinors)
@@ -105,24 +112,25 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 		return "", items
 	}
 	known := map[string]bool{}
-	for _, component := range view.Components {
-		for _, release := range component.Releases {
-			for _, entry := range release.Entries {
-				if entry.ID == "" || known[entry.ID] {
-					continue
-				}
-				known[entry.ID] = true
-				items = append(items, onboardingExploreItem{
-					ID:      entry.ID,
-					Version: release.Version,
-					Minor:   versions.MinorOf(release.Version),
-					PR:      entry.PR,
-					Text:    entry.Text,
-					I18n:    entry.I18n,
-					Details: entry.Details,
-					Tour:    onboardingTourFor(user, entry.Tour, targets),
-				})
+	for _, release := range view.Releases {
+		for _, entry := range release.Entries {
+			if entry.ID == "" || known[entry.ID] {
+				continue
 			}
+			known[entry.ID] = true
+			items = append(items, onboardingExploreItem{
+				ID:               entry.ID,
+				Version:          release.Version,
+				Minor:            versions.MinorOf(release.Version),
+				Component:        entry.Component,
+				ComponentLabel:   entry.ComponentLabel,
+				ComponentVersion: entry.ComponentVersion,
+				PR:               entry.PR,
+				Text:             entry.Text,
+				I18n:             entry.I18n,
+				Details:          entry.Details,
+				Tour:             onboardingTourFor(user, entry.Tour, targets),
+			})
 		}
 	}
 	return view.To, items

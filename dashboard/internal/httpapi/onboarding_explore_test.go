@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -187,5 +188,65 @@ func TestWithoutKnownTargetsNothingIsStale(t *testing.T) {
 		if item.Tour != nil && item.Tour.Stale {
 			t.Fatalf("item %s: tour is stale without known targets", item.ID)
 		}
+	}
+}
+
+// attachChangelog has two dashboard releases and a bootstrap release dated
+// between them: bootstrap v0.2.5 belongs under v0.10.8, v0.2.6 under v0.10.33.
+const attachChangelog = `{"schema_version":1,"components":[
+ {"id":"dashboard","label":"Dashboard","kind":"app","version":"v0.10.33","releases":[
+  {"version":"v0.10.33","date":"2026-10-31","groups":[{"type":"feat","entries":[{"text":"dashboard new","pr":300,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.10.8","date":"2026-10-22","groups":[{"type":"fix","entries":[{"text":"dashboard eight","pr":208,"breaking":false,"highlight":true}]}]}]},
+ {"id":"bootstrap","label":"Bootstrap","kind":"tool","version":"v0.2.6","releases":[
+  {"version":"v0.2.6","date":"2026-10-31","groups":[{"type":"fix","entries":[{"text":"bootstrap six","pr":260,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.2.5","date":"2026-10-20","groups":[{"type":"feat","entries":[{"text":"bootstrap five","pr":250,"breaking":false,"highlight":true}]}]}]}]}`
+
+func TestExploreItemsSitUnderTheirDashboardRelease(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"changelog.json":          attachChangelog,
+		"installed-manifest.json": `{"version":"v0.10.33","components":{"dashboard":"v0.10.33","bootstrap":"v0.2.6"}}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	router, _ := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), dir)
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	recorder := usersCall(router, http.MethodGet, "/api/v1/onboarding", "", cookie, "", true)
+	wantUsersStatus(t, recorder, http.StatusOK)
+	var body struct {
+		Explore struct {
+			CurrentVersion string `json:"current_version"`
+			Items          []struct {
+				ID               string `json:"id"`
+				Version          string `json:"version"`
+				Minor            string `json:"minor"`
+				Component        string `json:"component"`
+				ComponentLabel   string `json:"component_label"`
+				ComponentVersion string `json:"component_version"`
+			} `json:"items"`
+		} `json:"explore"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Explore.CurrentVersion != "v0.10.33" {
+		t.Fatalf("current_version = %q, want v0.10.33", body.Explore.CurrentVersion)
+	}
+	type item struct{ ID, Version, Minor, Component, ComponentLabel, ComponentVersion string }
+	var got []item
+	for _, it := range body.Explore.Items {
+		got = append(got, item{it.ID, it.Version, it.Minor, it.Component, it.ComponentLabel, it.ComponentVersion})
+	}
+	want := []item{
+		{"h300", "v0.10.33", "0.10", "dashboard", "Dashboard", "v0.10.33"},
+		{"h260", "v0.10.33", "0.10", "bootstrap", "Bootstrap", "v0.2.6"},
+		{"h208", "v0.10.8", "0.10", "dashboard", "Dashboard", "v0.10.8"},
+		{"h250", "v0.10.8", "0.10", "bootstrap", "Bootstrap", "v0.2.5"},
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("items = %+v\nwant %+v", got, want)
 	}
 }

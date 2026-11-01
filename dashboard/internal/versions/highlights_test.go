@@ -370,15 +370,12 @@ func TestReleasesKeepsTheLastThreeMinors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.To != "v0.10.2" || view.SincePrevious || view.From != "" {
-		t.Fatalf("range = %+v", view)
-	}
-	if len(view.Components) != 1 {
-		t.Fatalf("components = %+v", view.Components)
+	if view.To != "v0.10.2" {
+		t.Fatalf("to = %q", view.To)
 	}
 	var versionsSeen []string
 	var texts []string
-	for _, r := range view.Components[0].Releases {
+	for _, r := range view.Releases {
 		versionsSeen = append(versionsSeen, r.Version)
 		for _, e := range r.Entries {
 			texts = append(texts, e.Text)
@@ -402,14 +399,12 @@ func TestReleasesWithFewerMinorsKeepsEverythingThere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := map[string][]string{}
-	for _, c := range view.Components {
-		for _, r := range c.Releases {
-			got[c.ID] = append(got[c.ID], r.Version)
-		}
+	var got []string
+	for _, r := range view.Releases {
+		got = append(got, r.Version)
 	}
-	if strings.Join(got["dashboard"], ",") != "v0.9.0,v0.8.6,v0.8.5" {
-		t.Fatalf("dashboard releases = %v, want the whole 0.9 and 0.8 range", got["dashboard"])
+	if strings.Join(got, ",") != "v0.9.0,v0.8.6,v0.8.5" {
+		t.Fatalf("dashboard releases = %v, want the whole 0.9 and 0.8 range", got)
 	}
 }
 
@@ -423,9 +418,11 @@ func TestReleasesSkipsDeselectedComponents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, c := range view.Components {
-		if c.ID == "service:shelly" {
-			t.Fatalf("deselected shelly is listed: %+v", c)
+	for _, r := range view.Releases {
+		for _, e := range r.Entries {
+			if e.Component == "service:shelly" {
+				t.Fatalf("deselected shelly is listed: %+v", e)
+			}
 		}
 	}
 }
@@ -433,6 +430,93 @@ func TestReleasesSkipsDeselectedComponents(t *testing.T) {
 func TestReleasesWithoutChangelogIsNoChangelog(t *testing.T) {
 	if _, err := Releases(t.TempDir(), 3); err == nil {
 		t.Fatal("missing changelog must fail")
+	}
+}
+
+// attachDoc has three dashboard releases of minor 0.10 and v0.9.8, plus a
+// bootstrap and an automation release that fall between them by date.
+const attachDoc = `{"schema_version":1,"components":[
+ {"id":"dashboard","label":"Dashboard","kind":"app","version":"v0.10.33","releases":[
+  {"version":"v0.10.33","date":"2026-10-31","groups":[{"type":"feat","entries":[{"text":"dashboard new","pr":300,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.10.8","date":"2026-10-22","groups":[{"type":"fix","entries":[{"text":"dashboard eight","pr":208,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.10.0","date":"2026-10-19","groups":[{"type":"feat","entries":[{"text":"dashboard ten","pr":190,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.9.8","date":"2026-10-15","groups":[{"type":"feat","entries":[{"text":"dashboard nine","pr":198,"breaking":false,"highlight":true}]}]}]},
+ {"id":"bootstrap","label":"Bootstrap","kind":"tool","version":"v0.2.6","releases":[
+  {"version":"v0.2.6","date":"2026-10-31","groups":[{"type":"fix","entries":[{"text":"bootstrap six","pr":260,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.2.5","date":"2026-10-20","groups":[{"type":"feat","entries":[{"text":"bootstrap five","pr":250,"breaking":false,"highlight":true}]}]}]},
+ {"id":"service:automation","label":"Automation","kind":"service","version":"v0.7.2","releases":[
+  {"version":"v0.7.2","date":"2026-10-27","groups":[{"type":"feat","entries":[{"text":"automation seven two","pr":272,"breaking":false,"highlight":true}]}]}]}]}`
+
+func TestExploreAttachesComponentReleasesToDashboardReleases(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          attachDoc,
+		"installed-manifest.json": `{"version":"v0.10.33","components":{"dashboard":"v0.10.33","bootstrap":"v0.2.6","service:automation":"v0.7.2"}}`,
+	})
+	view, err := Releases(dir, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var releases []string
+	for _, r := range view.Releases {
+		releases = append(releases, r.Version)
+	}
+	if strings.Join(releases, ",") != "v0.10.33,v0.10.8,v0.10.0" {
+		t.Fatalf("releases = %v, want the three releases of minor 0.10, newest first", releases)
+	}
+	attached := map[string]string{}
+	var order []string
+	for _, r := range view.Releases {
+		for _, e := range r.Entries {
+			attached[e.Text] = r.Version + "|" + e.Component + "|" + e.ComponentLabel + "|" + e.ComponentVersion
+			if r.Version == "v0.10.33" {
+				order = append(order, e.Text)
+			}
+		}
+	}
+	want := map[string]string{
+		"dashboard new":        "v0.10.33|dashboard|Dashboard|v0.10.33",
+		"bootstrap six":        "v0.10.33|bootstrap|Bootstrap|v0.2.6",
+		"automation seven two": "v0.10.33|service:automation|Automation|v0.7.2",
+		"bootstrap five":       "v0.10.8|bootstrap|Bootstrap|v0.2.5",
+		"dashboard eight":      "v0.10.8|dashboard|Dashboard|v0.10.8",
+		"dashboard ten":        "v0.10.0|dashboard|Dashboard|v0.10.0",
+	}
+	for text, w := range want {
+		if attached[text] != w {
+			t.Errorf("%q attached as %q, want %q", text, attached[text], w)
+		}
+	}
+	if len(attached) != len(want) {
+		t.Fatalf("attached = %v, want exactly %v (v0.9.8 is outside the window)", attached, want)
+	}
+	if strings.Join(order, "|") != "dashboard new|bootstrap six|automation seven two" {
+		t.Fatalf("v0.10.33 entries = %v, want dashboard first, then changelog order", order)
+	}
+}
+
+func TestExploreWithoutDashboardFallsBackPerComponent(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json": `{"schema_version":1,"components":[
+ {"id":"bootstrap","label":"Bootstrap","kind":"tool","version":"v0.2.6","releases":[
+  {"version":"v0.2.6","date":"2026-10-31","groups":[{"type":"fix","entries":[{"text":"six","pr":260,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.2.5","date":"2026-10-20","groups":[{"type":"feat","entries":[{"text":"five","pr":250,"breaking":false,"highlight":true}]}]}]}]}`,
+		"installed-manifest.json": `{"version":"v0.2.6","components":{"bootstrap":"v0.2.6"}}`,
+	})
+	view, err := Releases(dir, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var releases []string
+	for _, r := range view.Releases {
+		releases = append(releases, r.Version)
+		for _, e := range r.Entries {
+			if e.Component != "bootstrap" || e.ComponentVersion != r.Version {
+				t.Fatalf("entry %q = %+v, want its own release as the component release", e.Text, e)
+			}
+		}
+	}
+	if strings.Join(releases, ",") != "v0.2.6,v0.2.5" {
+		t.Fatalf("releases = %v, want the bootstrap releases each on its own", releases)
 	}
 }
 

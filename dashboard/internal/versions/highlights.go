@@ -184,36 +184,145 @@ func Highlights(stateDir string) (*HighlightsView, error) {
 	return view, nil
 }
 
-// Releases lists, per component, the releases of the last minors minor
-// versions it has installed or older: the highest major.minor values among
-// its releases that are not newer than its installed version, and every
-// release of those minors that is not newer than the installed one. It
-// filters entries like Highlights (flagged highlights, deselected services
-// left out) but ignores previous-manifest.json, so From stays empty and
-// SincePrevious false. The onboarding uses it for "Neu erkunden".
-func Releases(stateDir string, minors int) (*HighlightsView, error) {
+// ExploreView is what "Neu erkunden" lists: the releases of the explore
+// window, newest first, and the installed version as To.
+type ExploreView struct {
+	To       string
+	Releases []ExploreRelease
+}
+
+// ExploreRelease is one release the explore list shows. Its entries are the
+// dashboard release's own and those of the other component releases attached
+// to it, the dashboard ones first.
+type ExploreRelease struct {
+	Version string
+	Date    string
+	Entries []ExploreEntry
+}
+
+// ExploreEntry is one highlight with the component release it came from.
+// ComponentVersion is that release, for the dashboard the dashboard release.
+type ExploreEntry struct {
+	HighlightsEntry
+	Component        string
+	ComponentLabel   string
+	ComponentVersion string
+}
+
+const dashboardComponent = "dashboard"
+
+// Releases builds the "Neu erkunden" list. The window is the last minors
+// minor versions among the dashboard releases not newer than the installed
+// one, with every dashboard release of those minors. Each release of another
+// component (not newer than its installed version) is attached to the
+// earliest window release dated on or after its own date, or to the newest
+// window release when there is none. Without a dashboard release in the
+// window every component lists its own last minors as releases of their own.
+// Entries are filtered like Highlights (flagged highlights, deselected
+// services left out) and previous-manifest.json is ignored.
+func Releases(stateDir string, minors int) (*ExploreView, error) {
 	doc, view, deselected, err := readHighlightsInput(stateDir)
 	if err != nil {
 		return nil, err
 	}
 	flagged := documentIsFlagged(doc)
+	components := make([]fullComponent, 0, len(doc.Components))
 	for _, c := range doc.Components {
-		if isDeselected(c.ID, deselected) {
-			continue
-		}
-		window := latestMinors(c.Releases, c.Version, minors)
-		component := HighlightsComponent{ID: c.ID, Label: c.Label, To: c.Version}
-		for _, release := range c.Releases {
-			if !window[MinorOf(release.Version)] || compareVersions(release.Version, c.Version) > 0 {
-				continue
-			}
-			appendRelease(&component, release, flagged)
-		}
-		if len(component.Releases) > 0 {
-			view.Components = append(view.Components, component)
+		if !isDeselected(c.ID, deselected) {
+			components = append(components, c)
 		}
 	}
-	return view, nil
+
+	var releases []ExploreRelease
+	if i := slices.IndexFunc(components, func(c fullComponent) bool { return c.ID == dashboardComponent }); i >= 0 {
+		releases = dashboardWindow(components[i], minors, flagged)
+	}
+	if len(releases) == 0 {
+		releases = ownReleases(components, minors, flagged)
+	} else {
+		for _, c := range components {
+			if c.ID != dashboardComponent {
+				attachComponent(releases, c, flagged)
+			}
+		}
+	}
+	return &ExploreView{To: view.To, Releases: slices.DeleteFunc(releases, func(r ExploreRelease) bool { return len(r.Entries) == 0 })}, nil
+}
+
+// dashboardWindow lists the dashboard releases of the last minors minor
+// versions, newest first, with the dashboard entries of each.
+func dashboardWindow(c fullComponent, minors int, flagged bool) []ExploreRelease {
+	window := latestMinors(c.Releases, c.Version, minors)
+	var out []ExploreRelease
+	for _, r := range c.Releases {
+		if !window[MinorOf(r.Version)] || compareVersions(r.Version, c.Version) > 0 {
+			continue
+		}
+		out = append(out, ExploreRelease{Version: r.Version, Date: r.Date, Entries: tagEntries(c, r.Version, releaseEntries(r, flagged))})
+	}
+	slices.SortStableFunc(out, func(a, b ExploreRelease) int { return compareVersions(b.Version, a.Version) })
+	return out
+}
+
+// attachComponent appends the entries of every release of c to the window
+// release each one belongs to, see attachIndex.
+func attachComponent(releases []ExploreRelease, c fullComponent, flagged bool) {
+	for _, r := range c.Releases {
+		if compareVersions(r.Version, c.Version) > 0 {
+			continue
+		}
+		entries := releaseEntries(r, flagged)
+		if len(entries) == 0 {
+			continue
+		}
+		i := attachIndex(releases, r.Date)
+		releases[i].Entries = append(releases[i].Entries, tagEntries(c, r.Version, entries)...)
+	}
+}
+
+// attachIndex is the index of the release a component release dated date
+// belongs to: the earliest release dated on or after date, the newest one
+// (index 0, releases are newest first) when none is. Dates compare as
+// strings, they are YYYY-MM-DD. Equal dates go to the lower version.
+func attachIndex(releases []ExploreRelease, date string) int {
+	best, found := 0, false
+	for i, r := range releases {
+		if r.Date < date {
+			continue
+		}
+		if !found || r.Date < releases[best].Date || (r.Date == releases[best].Date && compareVersions(r.Version, releases[best].Version) < 0) {
+			best, found = i, true
+		}
+	}
+	return best
+}
+
+// ownReleases is the fallback without a dashboard release in the window: per
+// component the releases of its last minors, each as a release of its own.
+func ownReleases(components []fullComponent, minors int, flagged bool) []ExploreRelease {
+	var out []ExploreRelease
+	for _, c := range components {
+		window := latestMinors(c.Releases, c.Version, minors)
+		for _, r := range c.Releases {
+			if !window[MinorOf(r.Version)] || compareVersions(r.Version, c.Version) > 0 {
+				continue
+			}
+			if entries := releaseEntries(r, flagged); len(entries) > 0 {
+				out = append(out, ExploreRelease{Version: r.Version, Date: r.Date, Entries: tagEntries(c, r.Version, entries)})
+			}
+		}
+	}
+	return out
+}
+
+// tagEntries names the component and the component release the entries came
+// from.
+func tagEntries(c fullComponent, version string, entries []HighlightsEntry) []ExploreEntry {
+	out := make([]ExploreEntry, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, ExploreEntry{HighlightsEntry: e, Component: c.ID, ComponentLabel: c.Label, ComponentVersion: version})
+	}
+	return out
 }
 
 // readHighlightsInput reads the merged changelog and the installed manifest.
@@ -239,21 +348,28 @@ func readHighlightsInput(stateDir string) (fullDocument, *HighlightsView, map[st
 	return doc, view, deselectedDirs(stateDir, manifest), nil
 }
 
-// appendRelease adds the entries of release to component, the highlighted ones
-// only when the document is flagged. A release without entries is skipped.
+// appendRelease adds the entries of release to component. A release without
+// entries is skipped.
 func appendRelease(component *HighlightsComponent, release fullRelease, flagged bool) {
-	out := HighlightsRelease{Version: release.Version, Date: release.Date, Entries: []HighlightsEntry{}}
+	entries := releaseEntries(release, flagged)
+	if len(entries) > 0 {
+		component.Releases = append(component.Releases, HighlightsRelease{Version: release.Version, Date: release.Date, Entries: entries})
+	}
+}
+
+// releaseEntries lists the entries of release, the highlighted ones only when
+// the document is flagged.
+func releaseEntries(release fullRelease, flagged bool) []HighlightsEntry {
+	var out []HighlightsEntry
 	for _, group := range release.Groups {
 		for _, e := range group.Entries {
 			if flagged && (e.Highlight == nil || !*e.Highlight) {
 				continue
 			}
-			out.Entries = append(out.Entries, HighlightsEntry{ID: highlightID(e.PR), Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n, Details: e.Details, Tour: e.Tour})
+			out = append(out, HighlightsEntry{ID: highlightID(e.PR), Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n, Details: e.Details, Tour: e.Tour})
 		}
 	}
-	if len(out.Entries) > 0 {
-		component.Releases = append(component.Releases, out)
-	}
+	return out
 }
 
 // latestMinors returns the major.minor keys (see MinorOf) of the count highest
