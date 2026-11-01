@@ -1,10 +1,13 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -321,6 +324,58 @@ func TestMQTTStatusReturnsProviderStatus(t *testing.T) {
 	}
 	if !status.Connected || status.BrokerAddress != "broker:1883" {
 		t.Fatalf("got status %#v, want the fake provider's status echoed back", status)
+	}
+}
+
+func TestMQTTStatusReportsFailedFirstConnectAndStartsWithoutBroker(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	client := mqttclient.NewWithContext(context.Background(), mqttclient.Config{
+		Host:              "127.0.0.1",
+		Port:              strconv.Itoa(port),
+		ClientID:          "energy-node-dashboard-test",
+		CleanSession:      true,
+		KeepaliveSeconds:  30,
+		ConnectTimeoutSec: 1,
+		DiscoveryPrefix:   "homeassistant",
+		Source:            "config",
+	}, registry.New(), nil)
+	t.Cleanup(client.Close)
+
+	if client.StartConnecting() {
+		t.Fatal("StartConnecting() = true against a closed port, want false")
+	}
+	if err := client.PublishRetained("outstation/energy_node/state", "{}"); err == nil {
+		t.Fatal("PublishRetained() without a connection returned nil, want an error")
+	}
+
+	store := settings.NewStore(t.TempDir())
+	router, _ := newMQTTTestRouter(t, store, nil, nil, client)
+	guestCookie := loginAsGuest(t, router)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/mqtt/status", nil)
+	request.AddCookie(guestCookie)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status GET code %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var status mqttclient.Status
+	if err := json.NewDecoder(recorder.Body).Decode(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status.Connected {
+		t.Fatalf("status.Connected = true, want false without a broker: %#v", status)
+	}
+	if status.LastError == "" {
+		t.Fatalf("status.LastError empty, want the failed connect reason: %#v", status)
 	}
 }
 

@@ -19,7 +19,7 @@
 
 - **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191) (a96bebf)
 - **installer:** skip recommended apt packages and clean the package cache (#192) (bc356b2)
-- **installer:** The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password. (#194)
+- **installer:** The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password. (#194) (ef2d7d6)
 - **installer:** run every step in a first setup, skip done steps only on update (5de64f7)
 - **installer:** create dashboard/data so the dashboard unit can start (f625007)
 - **installer:** write the broker user into config.json (1be6458)

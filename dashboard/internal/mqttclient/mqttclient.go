@@ -150,6 +150,7 @@ type Client struct {
 	discoveryObserver func(registry.Discovery)
 	filter            DeviceFilter
 	status            Status
+	everConnected     bool
 	verbose           bool
 
 	bridgeWatchTopic string
@@ -159,6 +160,11 @@ type Client struct {
 	watchHandler func(string, []byte)
 
 	connectPublisher func() []OutboundMessage
+
+	// retryDelay returns the wait before retry round n (1-based). attempt
+	// is one connection try. Tests replace both; see StartConnecting.
+	retryDelay func(attempt int) time.Duration
+	attempt    func() error
 }
 
 // SetVerboseLogging toggles the per-message discovery/state log lines. They
@@ -340,7 +346,9 @@ func NewWithContextAndFilter(parent context.Context, cfg Config, reg *registry.R
 		subscribed:     make(map[string]bool),
 		subscribeQueue: make(chan subscriptionOp, 256),
 		filter:         filter,
+		retryDelay:     defaultRetryDelay,
 	}
+	c.attempt = func() error { return c.connectWithTimeout(c.connectTimeout()) }
 	go c.subscriptionWorker()
 	return c
 }
@@ -409,7 +417,8 @@ func (c *Client) UnignoreDevice(deviceID string) error {
 }
 
 func (c *Client) DeleteDeviceDiscovery(deviceID string) error {
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot delete discovery while disconnected")
 	}
 	topics := c.reg.DiscoveryTopics(deviceID)
@@ -422,7 +431,7 @@ func (c *Client) DeleteDeviceDiscovery(deviceID string) error {
 		return errors.New("mqttclient: device has no discovery topics")
 	}
 	for _, topic := range topics {
-		token := c.paho.Publish(topic, 0, true, []byte{})
+		token := paho.Publish(topic, 0, true, []byte{})
 		if !token.WaitTimeout(5 * time.Second) {
 			return fmt.Errorf("mqttclient: discovery deletion timed out for %s", topic)
 		}
@@ -487,6 +496,73 @@ func (c *Client) Connect() error {
 	return c.connectWithTimeout(c.connectTimeout())
 }
 
+// StartConnecting makes one first connection try. On success it returns true.
+// On failure it records the error, returns false and keeps retrying in the
+// background until the connection succeeds or the Client is closed. Unlike
+// Connect, it never blocks for longer than one attempt, so the dashboard can
+// start while the broker is still unreachable.
+func (c *Client) StartConnecting() (connected bool) {
+	if err := c.attempt(); err != nil {
+		c.recordConnectFailure(err)
+		go c.retryLoop()
+		return false
+	}
+	return true
+}
+
+func (c *Client) recordConnectFailure(err error) {
+	c.mu.Lock()
+	c.status.LastError = err.Error()
+	c.status.FailedAttempts++
+	c.mu.Unlock()
+	c.logger.Printf("mqtt connect failed, retrying in the background: %v", err)
+}
+
+// retryLoop runs until the connection is up or c.ctx is cancelled. Each round
+// takes reloadMu, so a retry never overlaps a Reconfigure or Reload.
+func (c *Client) retryLoop() {
+	for round := 1; ; round++ {
+		timer := time.NewTimer(c.retryDelay(round))
+		select {
+		case <-c.ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+
+		c.reloadMu.Lock()
+		c.mu.Lock()
+		alreadyConnected := c.paho != nil && c.paho.IsConnected()
+		c.mu.Unlock()
+		if alreadyConnected {
+			c.reloadMu.Unlock()
+			return
+		}
+		err := c.attempt()
+		if err == nil {
+			c.mu.Lock()
+			c.status.LastError = ""
+			c.mu.Unlock()
+			c.reloadMu.Unlock()
+			return
+		}
+		c.recordConnectFailure(err)
+		c.reloadMu.Unlock()
+	}
+}
+
+// defaultRetryDelay doubles from 5 s per failed round and caps at 60 s.
+func defaultRetryDelay(attempt int) time.Duration {
+	delay := 5 * time.Second
+	for i := 1; i < attempt && delay < 60*time.Second; i++ {
+		delay *= 2
+	}
+	if delay > 60*time.Second {
+		return 60 * time.Second
+	}
+	return delay
+}
+
 // getConfig and setConfig guard c.cfg with c.mu so Reconfigure can swap the
 // active configuration while onConnect, buildOptions and friends keep
 // reading a consistent snapshot from any goroutine.
@@ -500,6 +576,15 @@ func (c *Client) setConfig(cfg Config) {
 	c.mu.Lock()
 	c.cfg = cfg
 	c.mu.Unlock()
+}
+
+// pahoClient returns the current Paho client. The retry loop replaces c.paho
+// from another goroutine, so every read outside c.mu goes through here. Never
+// call it while holding c.mu.
+func (c *Client) pahoClient() mqtt.Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.paho
 }
 
 func (c *Client) connectTimeout() time.Duration {
@@ -614,6 +699,11 @@ func (c *Client) disconnectLocked() {
 // permanently disconnected because of a typo in a saved setting. The
 // returned error is non-nil whenever the new configuration failed, even if
 // the fallback succeeded; Status().RolledBack distinguishes the two cases.
+//
+// If the Client has never connected (the dashboard started while the broker
+// was unreachable), there is no working configuration to fall back to. The
+// error is returned without a rollback, RolledBack stays false, and the retry
+// loop started by StartConnecting keeps trying the new configuration.
 func (c *Client) Reconfigure(cfg Config) error {
 	c.reloadMu.Lock()
 	defer c.reloadMu.Unlock()
@@ -627,7 +717,7 @@ func (c *Client) Reconfigure(cfg Config) error {
 	c.subscribed = make(map[string]bool)
 	c.mu.Unlock()
 
-	if err := c.connectWithTimeout(c.connectTimeout()); err == nil {
+	if err := c.attempt(); err == nil {
 		c.mu.Lock()
 		c.status.LastReconfiguredAt = time.Now().UTC()
 		c.status.LastError = ""
@@ -637,6 +727,17 @@ func (c *Client) Reconfigure(cfg Config) error {
 	} else {
 		primaryErr := err
 
+		c.mu.Lock()
+		everConnected := c.everConnected
+		c.mu.Unlock()
+		if !everConnected {
+			c.mu.Lock()
+			c.status.LastError = primaryErr.Error()
+			c.status.RolledBack = false
+			c.mu.Unlock()
+			return fmt.Errorf("mqttclient: reconfigure failed: %w", primaryErr)
+		}
+
 		c.disconnectLocked()
 		c.setConfig(previous)
 		c.reg.Reset()
@@ -644,7 +745,7 @@ func (c *Client) Reconfigure(cfg Config) error {
 		c.subscribed = make(map[string]bool)
 		c.mu.Unlock()
 
-		rollbackErr := c.connectWithTimeout(c.connectTimeout())
+		rollbackErr := c.attempt()
 		c.mu.Lock()
 		c.status.FailedAttempts++
 		if rollbackErr != nil {
@@ -692,8 +793,8 @@ func (c *Client) logSummaryPeriodically() {
 // Close disconnects from the broker.
 func (c *Client) Close() {
 	c.cancel()
-	if c.paho != nil && c.paho.IsConnected() {
-		c.paho.Disconnect(250)
+	if paho := c.pahoClient(); paho != nil && paho.IsConnected() {
+		paho.Disconnect(250)
 	}
 	c.mu.Lock()
 	c.status.Connected = false
@@ -707,14 +808,15 @@ func (c *Client) Reload() error {
 	c.reloadMu.Lock()
 	defer c.reloadMu.Unlock()
 
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot reload while disconnected")
 	}
 	c.reg.Reset()
 	c.mu.Lock()
 	c.subscribed = make(map[string]bool)
 	c.mu.Unlock()
-	c.onConnect(c.paho)
+	c.onConnect(paho)
 	c.mu.Lock()
 	c.status.LastReloadAt = time.Now().UTC()
 	c.mu.Unlock()
@@ -727,11 +829,12 @@ func (c *Client) ReloadService(serviceID string) error {
 	if serviceID == "" {
 		return errors.New("mqttclient: service ID is empty")
 	}
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot request reload while disconnected")
 	}
 	topic := fmt.Sprintf("outstation/%s/config/reload", serviceID)
-	token := c.paho.Publish(topic, 0, false, "reload")
+	token := paho.Publish(topic, 0, false, "reload")
 	if !token.WaitTimeout(5 * time.Second) {
 		return errors.New("mqttclient: reload request timed out")
 	}
@@ -745,10 +848,11 @@ func (c *Client) Publish(topic, payload string) error {
 	if topic == "" {
 		return errors.New("mqttclient: command topic is empty")
 	}
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot publish while disconnected")
 	}
-	token := c.paho.Publish(topic, 0, false, payload)
+	token := paho.Publish(topic, 0, false, payload)
 	if !token.WaitTimeout(5 * time.Second) {
 		return errors.New("mqttclient: command publish timed out")
 	}
@@ -762,10 +866,11 @@ func (c *Client) PublishRetained(topic, payload string) error {
 	if topic == "" {
 		return errors.New("mqttclient: publish topic is empty")
 	}
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return errors.New("mqttclient: cannot publish while disconnected")
 	}
-	token := c.paho.Publish(topic, 0, true, payload)
+	token := paho.Publish(topic, 0, true, payload)
 	if !token.WaitTimeout(5 * time.Second) {
 		return errors.New("mqttclient: retained publish timed out")
 	}
@@ -778,6 +883,7 @@ func (c *Client) onConnect(client mqtt.Client) {
 	cfg := c.getConfig()
 	c.mu.Lock()
 	c.status.Connected = true
+	c.everConnected = true
 	c.status.LastConnectedAt = time.Now().UTC()
 	c.status.BrokerAddress = cfg.Host + ":" + cfg.Port
 	c.status.Source = cfg.Source
@@ -955,7 +1061,7 @@ func (c *Client) subscribeState(topic string) {
 		return
 	}
 
-	token := c.paho.Subscribe(topic, 0, c.handleState)
+	token := c.pahoClient().Subscribe(topic, 0, c.handleState)
 	if !token.WaitTimeout(5 * time.Second) {
 		c.logger.Printf("subscribe %s timed out", topic)
 		return
@@ -973,11 +1079,12 @@ func (c *Client) unsubscribeState(topic string) {
 	c.mu.Lock()
 	delete(c.subscribed, topic)
 	c.mu.Unlock()
-	if c.paho == nil || !c.paho.IsConnected() {
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
 		return
 	}
 
-	token := c.paho.Unsubscribe(topic)
+	token := paho.Unsubscribe(topic)
 	if !token.WaitTimeout(5 * time.Second) {
 		c.logger.Printf("unsubscribe %s timed out", topic)
 		return

@@ -292,8 +292,8 @@ func main() {
 			log.Printf("energy-node-dashboard: restored %s from runtime cache", discovery.Entity.UniqueID)
 		}
 	})
-	if err := client.Connect(); err != nil {
-		log.Fatalf("energy-node-dashboard: mqtt connect failed: %v", err)
+	if !client.StartConnecting() {
+		log.Printf("energy-node-dashboard: mqtt not connected, retrying in the background: see the MQTT tab")
 	}
 	defer client.Close()
 

@@ -79,7 +79,35 @@ def test_reset_reaches_broker(tab, broker_state):
     assert broker_state.simulate is True
 
 
+def test_login_action_requires_account_and_disconnects(tab, broker_state):
+    state = tab.act("login", {"required": True, "user": "demo-mqtt", "password": "demo-richtig"})
+    assert broker_state.login == ("demo-mqtt", "demo-richtig")
+    assert state["login"]["required"] is True
+    assert state["login"]["user"] == "demo-mqtt"
+    assert "demo-richtig" not in json.dumps(state)
+    assert tab.summary() == {"level": "changed", "text": "Anmeldung verlangt"}
+
+
+def test_login_empty_password_keeps_the_old_one_for_the_same_user(tab, broker_state):
+    tab.act("login", {"required": True, "user": "demo-mqtt", "password": "demo-richtig"})
+    tab.act("login", {"required": True, "user": "demo-mqtt", "password": ""})
+    assert broker_state.login == ("demo-mqtt", "demo-richtig")
+    with pytest.raises(ValueError):
+        tab.act("login", {"required": True, "user": "other", "password": ""})
+    assert broker_state.login == ("demo-mqtt", "demo-richtig")
+
+
+def test_login_can_be_switched_off_and_reset_restores_the_start_state(tab, broker_state):
+    tab.act("login", {"required": True, "user": "demo-mqtt", "password": "demo-richtig"})
+    tab.act("login", {"required": False})
+    assert broker_state.login is None
+    assert tab.summary() == {"level": "ok", "text": "Simulation läuft"}
+    tab.act("login", {"required": True, "user": "demo-mqtt", "password": "demo-richtig"})
+    tab.reset()
+    assert broker_state.login is None
+
+
 def test_fragment_markers():
     for marker in ('id="tab-mqtt"', "data-simulate", "data-device", "data-service", "data-topic",
-                   "data-payload", "data-retain", "Alle trennen", "window.konsole.post"):
+                   "data-payload", "data-retain", "data-login-required", "data-login-user", "data-login-password", "Alle trennen", "window.konsole.post"):
         assert marker in MQTT_HTML

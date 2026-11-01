@@ -15,7 +15,8 @@ Sensoren weg, hier gibt es keine. Discovery-Topics (homeassistant/.../config)
 bleiben aussen vor: sie erneut ohne Retain-Flag zu senden kippte die
 "Discovery retained"-Anzeige im Geraete-Dialog auf "nein".
 
-BEWUSST UNVOLLSTAENDIG: kein QoS > 0, kein Wildcard-Matching (jede Nachricht geht an jede Verbindung), keine Authentifizierung.
+BEWUSST UNVOLLSTAENDIG: kein QoS > 0, kein Wildcard-Matching (jede Nachricht geht an jede Verbindung), keine Authentifizierung
+ausser dem einen Konto aus --login (siehe unten).
 Nichts davon wird fuer den Smoke-Test gebraucht. Nicht ausserhalb von Tests verwenden.
 
 PUBLISH von Clients wird wie bei einem echten Broker weitergereicht und retained abgelegt. So sieht das Dashboard seine eigene Discovery und zeigt das Geraet energy_node in jedem Preset.
@@ -27,7 +28,7 @@ schalten.
 
     python3 minibroker.py [PORT] [FIXTURE.json] [--simulate]
                           [--service-status DEVICES_DIR] [--reject-config NAME ...]
-                          [--control-port PORT]
+                          [--login USER PASSWORD] [--control-port PORT]
 
 PORT       Standard 18883.
 FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
@@ -54,11 +55,16 @@ FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
            Meldet die Konfiguration NAME (z. B. battery_soc_devices) als
            abgelehnt: runtime_status "rejected", applied_revision bleibt die
            zuletzt angenommene Fassung. Mehrfach angebbar.
+--login USER PASSWORD
+           Nur dieses Konto darf sich verbinden. Andere Zugangsdaten, auch
+           keine, beantwortet der Broker mit CONNACK 5 (not authorized) und
+           trennt. Ohne das Flag nimmt er jeden CONNECT an.
 --control-port PORT
            Startet den Steuerserver auf 127.0.0.1:PORT (fuer die Fake-Konsole).
            GET /state, GET /log?since=n, POST /simulate {"on"}, /device
            {"topic", "online"}, /service {"config", "mode"}, /publish
-           {"topic", "payload", "retain"}, /disconnect, /reset. Ohne das Flag
+           {"topic", "payload", "retain"}, /disconnect, /login {"required", "user",
+           "password"} (verlangt ein Konto und trennt alle), /reset. Ohne das Flag
            gibt es keinen Steuerserver.
 """
 import hashlib
@@ -208,6 +214,31 @@ def echo_switch(messages, connections, topic, payload):
             broadcast(messages, connections, config["state_topic"], state.encode("utf-8"), False)
 
 
+def parse_connect_login(body):
+    """(Benutzer, Passwort) aus dem CONNECT-Rumpf, ("", "") wenn keine gesendet wurden. Kaputt -> None."""
+    try:
+        name_length = struct.unpack("!H", body[:2])[0]
+        flags = body[2 + name_length + 1]
+        offset = 2 + name_length + 4  # Level, Flags, Keepalive ueberspringen
+        length = struct.unpack("!H", body[offset:offset + 2])[0]
+        offset += 2 + length          # Client-ID
+        if flags & 0x04:              # Will-Thema und Will-Nachricht ueberspringen
+            for _ in range(2):
+                length = struct.unpack("!H", body[offset:offset + 2])[0]
+                offset += 2 + length
+        user = password = ""
+        if flags & 0x80:
+            length = struct.unpack("!H", body[offset:offset + 2])[0]
+            user = body[offset + 2:offset + 2 + length].decode("utf-8")
+            offset += 2 + length
+        if flags & 0x40:
+            length = struct.unpack("!H", body[offset:offset + 2])[0]
+            password = body[offset + 2:offset + 2 + length].decode("utf-8")
+        return user, password
+    except (struct.error, UnicodeDecodeError, IndexError):
+        return None
+
+
 def parse_client_id(body):
     """Client-ID aus dem CONNECT-Rumpf: Protokollname, Level, Flags, Keepalive, dann die ID. Kaputt -> ""."""
     try:
@@ -222,7 +253,9 @@ def parse_client_id(body):
 class BrokerState:
     """Zustand des Brokers, geteilt von Verbindungen, Schleifen und Steuerserver."""
 
-    def __init__(self, messages, port, simulate, rejected):
+    def __init__(self, messages, port, simulate, rejected, login=None):
+        self.login = login     # (Benutzer, Passwort) oder None fuer offen
+        self.initial_login = login
         self.messages = messages
         self.port = port
         self.initial_simulate = simulate
@@ -285,6 +318,29 @@ class BrokerState:
     def set_simulate(self, on):
         self.simulate = bool(on)
 
+    def set_login(self, required, user, password):
+        """Verlangt ein Konto (oder nimmt wieder jeden an) und trennt alle Clients.
+
+        Ein leeres Passwort behaelt das bisherige, solange der Benutzer gleich bleibt.
+        Die Verbindungen werden getrennt, damit die Clients mit ihren Zugangsdaten
+        neu verbinden und die Ablehnung sichtbar wird.
+        """
+        if not required:
+            self.login = None
+            self.log.add("mqtt", "Anmeldung nicht mehr verlangt", "warn")
+        else:
+            if not isinstance(user, str) or not user:
+                raise ValueError("Benutzer fehlt")
+            if not isinstance(password, str):
+                raise ValueError("password muss Text sein")
+            if not password:
+                if self.login is None or self.login[0] != user:
+                    raise ValueError("Passwort fehlt")
+                password = self.login[1]
+            self.login = (user, password)
+            self.log.add("mqtt", f"Anmeldung verlangt für {user}", "warn")
+        self.disconnect_all()
+
     def set_service(self, config, mode):
         if mode not in SERVICE_MODES:
             raise ValueError("unbekannter Modus")
@@ -315,6 +371,7 @@ class BrokerState:
 
     def reset(self):
         self.simulate = self.initial_simulate
+        self.login = self.initial_login
         self.modes = dict(self.initial_modes)
         for device in self.devices():
             if not device["online"]:
@@ -341,6 +398,12 @@ class BrokerState:
             "connections": [{"client_id": c["client_id"], "since": c["since"]} for c in list(self.clients.values())],
             "devices": self.devices(),
             "services": services,
+            "login": {
+                "required": self.login is not None,
+                "user": self.login[0] if self.login else "",
+                "initial_required": self.initial_login is not None,
+                "initial_user": self.initial_login[0] if self.initial_login else "",
+            },
         }
 
 
@@ -367,7 +430,12 @@ def handle(conn, state):
                     return
                 body += chunk
 
-            if packet_type == 1:      # CONNECT -> CONNACK, akzeptiert immer
+            if packet_type == 1:      # CONNECT -> CONNACK, bei --login nur mit dem Konto
+                if state.login is not None and parse_connect_login(body) != state.login:
+                    with lock:
+                        conn.sendall(b"\x20\x02\x00\x05")
+                    state.log.add("mqtt", "CONNECT mit falschen Zugangsdaten abgelehnt")
+                    return
                 with lock:
                     conn.sendall(b"\x20\x02\x00\x00")
                 connections[conn] = lock
@@ -524,7 +592,7 @@ def service_status_loop(devices_dir, state):
         time.sleep(SERVICE_SCAN_INTERVAL)
 
 
-CONTROL_POST_PATHS = ("/simulate", "/device", "/service", "/publish", "/disconnect", "/reset")
+CONTROL_POST_PATHS = ("/simulate", "/device", "/service", "/publish", "/disconnect", "/login", "/reset")
 
 
 def _field(body, key):
@@ -578,6 +646,8 @@ def make_control_server(state, port):
                 state.publish(body.get("topic", ""), body.get("payload", ""), bool(body.get("retain", False)))
             elif url.path == "/disconnect":
                 state.disconnect_all()
+            elif url.path == "/login":
+                state.set_login(_field(body, "required"), body.get("user", ""), body.get("password", ""))
             elif url.path == "/reset":
                 state.reset()
             return 200, state.state()
@@ -596,12 +666,16 @@ def make_control_server(state, port):
 
 
 def parse_args(argv):
-    opts = {"simulate": False, "service_status": None, "rejected": set(), "control_port": None, "positional": []}
+    opts = {"simulate": False, "service_status": None, "rejected": set(), "login": None,
+            "control_port": None, "positional": []}
     i = 0
     while i < len(argv):
         arg = argv[i]
         if arg == "--simulate":
             opts["simulate"] = True
+        elif arg == "--login":
+            opts["login"] = (argv[i + 1], argv[i + 2])
+            i += 2
         elif arg == "--service-status":
             i += 1
             opts["service_status"] = argv[i]
@@ -623,7 +697,7 @@ def main():
     simulate = opts["simulate"]
     port = int(args[0]) if len(args) > 0 else DEFAULT_PORT
     fixture = args[1] if len(args) > 1 else DEFAULT_FIXTURE
-    state = BrokerState(load_fixture(fixture), port, simulate, opts["rejected"])
+    state = BrokerState(load_fixture(fixture), port, simulate, opts["rejected"], opts["login"])
 
     threading.Thread(target=simulate_loop, args=(state,), daemon=True).start()
     if opts["service_status"]:

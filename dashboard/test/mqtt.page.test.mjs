@@ -176,6 +176,52 @@ test('save(true) also calls reconnect and reports its outcome', async () => {
   assert.equal(component.status.broker_address, 'broker.local:1883');
 });
 
+test('save(true) shows the broker error of a failed reconnect (HTTP 502) instead of a generic failure', async () => {
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/mqtt') return jsonResponse({});
+      if (url === '/api/v1/mqtt/reconnect') {
+        return jsonResponse({ ok: false, error: 'mqttclient: reconfigure failed: not Authorized', status: { connected: false, last_error: 'not Authorized' } }, false);
+      }
+      if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: false, last_error: 'not Authorized' });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.form = { ...component.form, host: 'broker.local', client_id: 'dashboard' };
+
+  await component.save(true);
+
+  assert.equal(stores.toasts.criticals.length, 1);
+  assert.match(stores.toasts.criticals[0], /not Authorized/);
+  assert.equal(component.status.last_error, 'not Authorized');
+});
+
+test('save(true) names the switch in the failure toast while the dashboard settings are off', async () => {
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/mqtt') return jsonResponse({});
+      if (url === '/api/v1/mqtt/reconnect') return jsonResponse({ ok: false, error: 'not Authorized' }, false);
+      if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: false });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.form = { ...component.form, enabled: false, host: 'broker.local', client_id: 'dashboard' };
+
+  await component.save(true);
+
+  assert.match(stores.toasts.criticals[0], /not Authorized/);
+  assert.match(stores.toasts.criticals[0], /Schalter/);
+
+  component.form.enabled = true;
+  await component.save(true);
+  assert.equal(stores.toasts.criticals.length, 2);
+  assert.doesNotMatch(stores.toasts.criticals.at(-1), /Schalter/);
+});
+
 test('saveEnergyDevice() PUTs only the flag to its own endpoint, no full-config validity needed', async () => {
   const calls = [];
   const { component, stores } = createMqttPanel({
@@ -241,8 +287,8 @@ test('a non-empty password field is saved via /api/v1/mqtt/credentials before th
   assert.equal(component.passwordConfigured, true);
 });
 
-test('test() posts the candidate config plus the in-memory password and stores the result', async () => {
-  const { component } = createMqttPanel({
+test('test() posts the candidate config plus the in-memory password and shows a failed result as a critical toast', async () => {
+  const { component, stores } = createMqttPanel({
     fetchImpl: async (url, options) => {
       if (url === '/api/v1/mqtt/test') {
         const body = JSON.parse(options.body);
@@ -260,10 +306,27 @@ test('test() posts the candidate config plus the in-memory password and stores t
 
   await component.test();
 
-  assert.equal(component.testResult.ok, false);
-  assert.equal(component.testResult.error_code, 'connection_refused');
+  assert.equal(stores.toasts.criticals.length, 1);
+  assert.equal(stores.toasts.criticals[0], catalog('de')['mqtt.test.error.connection_refused']);
   // test() must not persist anything or touch the saved password.
   assert.equal(component.password, 's3cret');
+});
+
+test('test() shows a successful result as a normal toast', async () => {
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/mqtt/test') return jsonResponse({ ok: true, duration_ms: 42, discovery_messages_seen: 3 });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.form = { ...component.form, host: 'broker.local', client_id: 'dashboard' };
+
+  await component.test();
+
+  assert.equal(stores.toasts.last(), 'Verbindung erfolgreich (42 ms, 3 Discovery-Nachrichten gesehen)');
+  assert.deepEqual(stores.toasts.criticals, []);
 });
 
 test('sourceLabel translates the effective-config sources', () => {
@@ -325,8 +388,7 @@ test('every request goes through the reverse-proxy base path when one is set', a
 test('testErrorText() formats error with detail using error.with_detail', () => {
   const { component, window } = createMqttPanel();
   const catalogDe = catalog('de');
-  component.testResult = {ok: false, error_code: 'auth_failed', message: 'x', detail: 'not authorized'};
-  const result = component.testErrorText();
+  const result = component.testErrorText({ok: false, error_code: 'auth_failed', message: 'x', detail: 'not authorized'});
   const expectedMessage = catalogDe['mqtt.test.error.auth_failed'];
   const expectedFormat = catalogDe['error.with_detail'];
   const expected = expectedFormat.replace('{message}', expectedMessage).replace('{detail}', 'not authorized');
@@ -336,30 +398,26 @@ test('testErrorText() formats error with detail using error.with_detail', () => 
 test('testErrorText() formats error without detail', () => {
   const { component, window } = createMqttPanel();
   const catalogDe = catalog('de');
-  component.testResult = {ok: false, error_code: 'timeout', message: 'Verbindungsaufbau hat das Zeitlimit überschritten'};
-  const result = component.testErrorText();
+  const result = component.testErrorText({ok: false, error_code: 'timeout', message: 'Verbindungsaufbau hat das Zeitlimit überschritten'});
   const expected = catalogDe['mqtt.test.error.timeout'];
   assert.equal(result, expected);
 });
 
 test('testErrorText() falls back to error code and message for unknown error codes', () => {
   const { component, window } = createMqttPanel();
-  component.testResult = {ok: false, error_code: 'weird', message: 'boom'};
-  const result = component.testErrorText();
+  const result = component.testErrorText({ok: false, error_code: 'weird', message: 'boom'});
   assert.equal(result, 'weird: boom');
 });
 
-test('testErrorText() returns empty string when testResult is null', () => {
+test('testErrorText() returns empty string without a result', () => {
   const { component, window } = createMqttPanel();
-  component.testResult = null;
-  const result = component.testErrorText();
+  const result = component.testErrorText(null);
   assert.equal(result, '');
 });
 
-test('testErrorText() returns empty string when testResult.ok is true', () => {
+test('testErrorText() returns empty string when the result is ok', () => {
   const { component, window } = createMqttPanel();
-  component.testResult = {ok: true};
-  const result = component.testErrorText();
+  const result = component.testErrorText({ok: true});
   assert.equal(result, '');
 });
 

@@ -54,7 +54,7 @@ bottom resets the fakes only. It leaves users, history and the pairing of the
 companion as they are.
 
 - *Companion*: pairs and unpairs with a code, sends a wrong code on purpose, cuts or reopens the check stream, edits the Home Assistant users with the manual switch, and sets the days, the factor and the faults of the history peer.
-- *MQTT-Broker*: takes a device offline, lets a service refuse or stay silent, switches the simulation, publishes a message and disconnects clients.
+- *MQTT-Broker*: takes a device offline, lets a service refuse or stay silent, switches the simulation, requires a login (wrong MQTT password), publishes a message and disconnects clients.
 - *Updates*: answers the release check and the download, and sets the installer state to installed, none, previous or reset.
 - *System*: feeds the service logs with journal lines or injected errors, sets how the system helper answers, and sets which system actions succeed.
 

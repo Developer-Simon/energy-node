@@ -10,7 +10,7 @@ from console_mqtt_ui import MQTT_HTML
 from console_remote import RemoteFake
 from fake_console import Log, Tab
 
-ACTIONS = ("simulate", "device", "service", "publish", "disconnect")
+ACTIONS = ("simulate", "device", "service", "publish", "disconnect", "login")
 UNREACHABLE = "MQTT-Broker nicht erreichbar"
 
 
@@ -61,7 +61,9 @@ class MqttTab(Tab):
         rejected = sum(1 for service in deviating if service["mode"] == "reject")
         silent = sum(1 for service in deviating if service["mode"] == "silent")
         simulating = state["simulate"] != state["initial_simulate"]
-        changed = bool(offline or deviating or simulating)
+        login = state["login"]
+        login_changed = (login["required"], login["user"]) != (login["initial_required"], login["initial_user"])
+        changed = bool(offline or deviating or simulating or login_changed)
 
         parts = []
         if rejected:
@@ -70,6 +72,8 @@ class MqttTab(Tab):
             parts.append(_count(silent, "Dienst schweigt", "Dienste schweigen"))
         if offline:
             parts.append(_count(len(offline), "Gerät offline", "Geräte offline"))
+        if login_changed:
+            parts.append("Anmeldung verlangt" if login["required"] else "Anmeldung offen")
         if not parts:
             parts.append("Simulation läuft" if state["simulate"] else "Simulation aus")
         return {"level": "changed" if changed else "ok", "text": ", ".join(parts)}

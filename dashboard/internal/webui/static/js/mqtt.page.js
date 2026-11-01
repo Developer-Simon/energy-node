@@ -9,7 +9,9 @@
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(apiError(body));
+      const error = new Error(apiError(body));
+      error.body = body;
+      throw error;
     }
     return body;
   };
@@ -57,7 +59,6 @@
     loading: false,
     statusLoading: false,
     busy: false,
-    testResult: null,
     metricsChoices: null,
     energySensorOptions: [],
     energySensorsChoices: null,
@@ -116,8 +117,7 @@
     },
 
     // i18n-keys: mqtt.test.error.auth_failed, mqtt.test.error.connection_refused, mqtt.test.error.timeout, mqtt.test.error.tls_failed
-    testErrorText() {
-      const result = this.testResult;
+    testErrorText(result) {
       if (!result || result.ok) return '';
       const key = `mqtt.test.error.${result.error_code}`;
       if (!window.I18n || !window.I18n.has(key)) return `${result.error_code}: ${result.message}`; // i18n-ignore: unknown code, server text
@@ -160,7 +160,6 @@
     async save(reconnect) {
       if (!this.canConfigure || !this.valid || this.busy) return;
       this.busy = reconnect ? 'reconnect' : 'save';
-      this.testResult = null;
       try {
         await this.savePasswordIfChanged();
         await requestJSON('/api/v1/mqtt', {
@@ -169,15 +168,26 @@
           body: JSON.stringify(this.form),
         });
         if (reconnect) {
-          const result = await requestJSON('/api/v1/mqtt/reconnect', {
-            method: 'POST',
-            headers: {'X-CSRF-Token': this.csrfToken},
-          });
+          // A failed reconnect answers 502 with {ok: false, status, error}. That
+          // body is the result to show, not a generic request failure.
+          let result;
+          try {
+            result = await requestJSON('/api/v1/mqtt/reconnect', {
+              method: 'POST',
+              headers: {'X-CSRF-Token': this.csrfToken},
+            });
+          } catch (error) {
+            if (!error.body || error.body.ok !== false) throw error;
+            result = error.body;
+          }
           this.status = result.status || this.status;
           if (result.ok) {
             this.$store.toasts.push(t('mqtt.saved_and_reconnected'));
           } else {
-            this.$store.toasts.push(t('mqtt.reconnect_failed', {error: result.error || ''}), 'critical');
+            // With the switch off the reconnect uses the service configuration,
+            // not the form, so say that instead of leaving the user guessing.
+            const key = this.form.enabled ? 'mqtt.reconnect_failed' : 'mqtt.reconnect_failed_disabled';
+            this.$store.toasts.push(t(key, {error: result.error || ''}), 'critical');
           }
         } else {
           this.$store.toasts.push(t('common.saved') + '.');
@@ -380,13 +390,17 @@
     async test() {
       if (!this.canConfigure || !this.valid || this.busy) return;
       this.busy = 'test';
-      this.testResult = null;
       try {
-        this.testResult = await requestJSON('/api/v1/mqtt/test', {
+        const result = await requestJSON('/api/v1/mqtt/test', {
           method: 'POST',
           headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
           body: JSON.stringify({...this.form, password: this.password}),
         });
+        if (result.ok) {
+          this.$store.toasts.push(t('mqtt.test.success', {duration_ms: result.duration_ms, discovery_messages_seen: result.discovery_messages_seen}));
+        } else {
+          this.$store.toasts.push(this.testErrorText(result), 'critical');
+        }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {

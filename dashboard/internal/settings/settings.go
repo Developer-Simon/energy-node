@@ -460,7 +460,7 @@ type RelationOverride struct {
 }
 
 // MQTTConfig is the dashboard's own MQTT broker connection, stored in
-// mqtt.json as an alternative to MQTT_* environment variables. The broker
+// mqtt.json as an alternative to the MQTT login from the central configuration. The broker
 // password is deliberately not part of this struct - it lives in
 // mqtt_credentials.json (mode 0600) so it never ends up in a revision copy.
 type MQTTConfig struct {

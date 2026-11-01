@@ -28,8 +28,8 @@
 ### Fixes
 
 - **installer:** skip recommended apt packages and clean the package cache (#192) (bc356b2)
+- **installer:** The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password. (#194) (ef2d7d6)
 - **installer:** reword the MQTT login failure text (85eb618)
-- **installer:** The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password. (#194)
 - **installer:** fit the issue markdown after scrubbing and mask ipv6 after a colon (a17aae8)
 - **installer:** keep the diagnose columns from collapsing under the live log card (4c87895)
 - **installer:** fade only live-appended log lines, not the rebuild after a unit switch (265ca72)
