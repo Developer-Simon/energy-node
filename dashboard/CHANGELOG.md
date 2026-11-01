@@ -303,6 +303,7 @@
 
 ### Refactors
 
+- **battery-soc:** use English finding codes and severities (018296a)
 - **smoke:** turn the fake home assistant companion into a controllable class (00e1fef)
 - **auth:** split tailscale, service logs and installer access out of system_actions (9fb6ee4)
 - **automations:** remove the rule wizard from the page component (b468dc1)

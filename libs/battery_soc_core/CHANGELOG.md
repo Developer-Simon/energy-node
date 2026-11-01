@@ -13,6 +13,7 @@
 ### Refactors
 
 - **battery-soc:** render findings from a message catalog (de9360c)
+- **battery-soc:** use English finding codes and severities (018296a)
 
 ### Tests
 
