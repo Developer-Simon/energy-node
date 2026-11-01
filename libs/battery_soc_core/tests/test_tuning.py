@@ -180,3 +180,11 @@ def test_resistance_suggestion_reports_the_configured_value_when_set():
     suggestions, _ = analyse(params, events)
     r = next(s for s in suggestions if s.key == "internal_resistance_mohm_per_cell")
     assert r.current_value == 1.0
+
+
+def test_findings_carry_params_for_translation():
+    params = make_params(inverter_dc_ac_efficiency=0.90)
+    events = [full_event(100.0, 105.0, n=n) for n in range(MIN_SAMPLES_FOR_SUGGESTION - 1)]
+    _suggestions, findings = analyse(params, events)
+    few = next(f for f in findings if f.code == "zu_wenig_daten")
+    assert few.params == {"count": MIN_SAMPLES_FOR_SUGGESTION - 1, "needed": MIN_SAMPLES_FOR_SUGGESTION}

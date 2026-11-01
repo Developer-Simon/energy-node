@@ -31,7 +31,7 @@ fail-closed, das Anwenden ist eine bewusste Handlung im Dashboard."""
 from __future__ import annotations
 
 import statistics
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 # Unter dieser Zahl brauchbarer Intervalle wird nichts vorgeschlagen. Ein
@@ -79,7 +79,8 @@ class Suggestion:
 class Finding:
     code: str
     severity: str
-    message: str
+    message: str  # Klartext-Rueckfall; Oberflaechen uebersetzen ueber code + params
+    params: dict = field(default_factory=dict)
 
 
 def _confidence(spread):
@@ -114,7 +115,8 @@ def analyse(params, events):
             f"Alle {len(full_events)} Voll-Kalibrierungen haben das "
             "Tail-Strom-Kriterium verfehlt. Sie belegen keinen vollen Akku, "
             "also stuetzt keine davon eine Schaetzung. Erst full_taper_c_rate "
-            "setzen, dann eine Messreihe abwarten."))
+            "setzen, dann eine Messreihe abwarten.",
+            {"count": len(full_events)}))
         return suggestions, findings
 
     if not any(e.side == "empty" for e in events):
@@ -132,7 +134,8 @@ def analyse(params, events):
             "zu_wenig_daten", "info",
             f"{len(usable)} von {MIN_SAMPLES_FOR_SUGGESTION} benoetigten "
             "Intervallen zwischen zwei belastbaren Voll-Ankern. Ein "
-            "einzelner Zyklus ist eine Anekdote, keine Messreihe."))
+            "einzelner Zyklus ist eine Anekdote, keine Messreihe.",
+            {"count": len(usable), "needed": MIN_SAMPLES_FOR_SUGGESTION}))
         return suggestions, findings
 
     # b = charged/discharged je Intervall; Median statt Mittelwert, damit ein
@@ -151,7 +154,9 @@ def analyse(params, events):
             f"{low}-{high}. Das deutet auf ein anderes Problem als den "
             "Wirkungsgrad hin - eine zu tief stehende Voll-Schwelle, eine "
             "falsch angesetzte Kapazitaet oder eine Messquelle, die "
-            "zeitweise ausfaellt."))
+            "zeitweise ausfaellt.",
+            {"subject": "efficiency", "value": f"{proposed:.3f}",
+             "low": low, "high": high}))
     else:
         direction = "hoeher" if proposed > params.inverter_dc_ac_efficiency else "niedriger"
         suggestions.append(Suggestion(
@@ -181,7 +186,9 @@ def analyse(params, events):
                 f"loesten dicht am Tail-Strom aus (>= {threshold_a:.1f} A). "
                 "Das Paket nahm also noch fast die volle erlaubte Ladung auf. "
                 "Entweder steht full_v_per_cell zu tief, oder die Toleranz "
-                "auf der Voll-Seite ist zu weit."))
+                "auf der Voll-Seite ist zu weit.",
+                {"hot": len(hot), "total": len(trustworthy),
+                 "threshold": f"{threshold_a:.1f}"}))
 
     resistance_candidates = [
         e for e in trustworthy + [ev for ev in events if ev.side == "empty"]
@@ -197,7 +204,8 @@ def analyse(params, events):
                 f"Kein Kalibrierereignis mit mindestens "
                 f"{MIN_CURRENT_FOR_RESISTANCE_A:.1f} A Strom - der "
                 "Innenwiderstand ist bei kleinerem Strom nicht vom "
-                "Messrauschen zu unterscheiden."))
+                "Messrauschen zu unterscheiden.",
+                {"min_current": f"{MIN_CURRENT_FOR_RESISTANCE_A:.1f}"}))
     else:
         estimates = []
         for e in resistance_candidates:
@@ -217,7 +225,9 @@ def analyse(params, events):
                 f"{r_median:.2f} mOhm/Zelle, ausserhalb des plausiblen "
                 f"Bereichs {low}-{high}. Das deutet eher auf eine falsch "
                 "sitzende Spannungsmessung oder einen schlechten Kontakt "
-                "als auf einen echten Zellwert hin."))
+                "als auf einen echten Zellwert hin.",
+                {"subject": "resistance", "value": f"{r_median:.2f}",
+                 "low": low, "high": high}))
         else:
             suggestions.append(Suggestion(
                 key="internal_resistance_mohm_per_cell",

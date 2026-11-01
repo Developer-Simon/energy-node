@@ -999,3 +999,18 @@ test('config without a roles list in the session stays editable', async () => {
   await component.load();
   assert.equal(component.canEditConfig, true);
 });
+
+test('battery tuning findings are rendered from the catalog, not from the service text', () => {
+  const payload = structuredClone(tuningPayloadPack);
+  payload.units.pack.findings = [
+    { code: 'zu_wenig_daten', severity: 'info', message: 'Rohtext des Dienstes', params: { count: 0, needed: 5 } },
+    { code: 'unbekannter_code', severity: 'info', message: 'Rueckfalltext' },
+  ];
+  const { component, document } = batteryPanel(liveBatteryStatePack, payload);
+  const objectNode = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
+  document.body.append(objectNode);
+
+  const texts = [...objectNode.querySelectorAll('.battery-tuning .battery-tuning-finding')].map(el => el.textContent);
+  assert.ok(texts.includes('0 von 5 benötigten Intervallen zwischen zwei belastbaren Voll-Ankern. Ein einzelner Zyklus ist eine Anekdote, keine Messreihe.'), texts.join('|'));
+  assert.ok(texts.includes('Rueckfalltext'), 'a code without a catalog entry falls back to the service text');
+});
