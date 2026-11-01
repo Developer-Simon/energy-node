@@ -280,7 +280,7 @@
 /* Ergaenzung Diagnose: Live-Log-Karte (ll-, nach .cols), nicht in der Vorlage.
    Masse aus dem Mockup livelog-layout.html, Tokens aus installer.css. Bewegt
    wird nur opacity und transform, keine transition: all. */
-.app[data-screen="diagnose"] .ll{display:flex;flex-direction:column;gap:.55rem;min-width:0;padding:.85rem 1rem .9rem}
+.app[data-screen="diagnose"] .ll{display:flex;flex-direction:column;gap:.55rem;min-width:0;padding:.85rem 1rem .9rem;margin-top:1rem}
 .app[data-screen="diagnose"] .ll-h{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
 .app[data-screen="diagnose"] .ll-h .gh{margin:0}
 .app[data-screen="diagnose"] .ll-state{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:600;letter-spacing:.03em;color:var(--accent-soft)}
