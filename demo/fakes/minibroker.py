@@ -63,7 +63,8 @@ FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
            Startet den Steuerserver auf 127.0.0.1:PORT (fuer die Fake-Konsole).
            GET /state, GET /log?since=n, POST /simulate {"on"}, /device
            {"topic", "online"}, /service {"config", "mode"}, /publish
-           {"topic", "payload", "retain"}, /disconnect, /reset. Ohne das Flag
+           {"topic", "payload", "retain"}, /disconnect, /login {"required", "user",
+           "password"} (verlangt ein Konto und trennt alle), /reset. Ohne das Flag
            gibt es keinen Steuerserver.
 """
 import hashlib
@@ -254,6 +255,7 @@ class BrokerState:
 
     def __init__(self, messages, port, simulate, rejected, login=None):
         self.login = login     # (Benutzer, Passwort) oder None fuer offen
+        self.initial_login = login
         self.messages = messages
         self.port = port
         self.initial_simulate = simulate
@@ -316,6 +318,29 @@ class BrokerState:
     def set_simulate(self, on):
         self.simulate = bool(on)
 
+    def set_login(self, required, user, password):
+        """Verlangt ein Konto (oder nimmt wieder jeden an) und trennt alle Clients.
+
+        Ein leeres Passwort behaelt das bisherige, solange der Benutzer gleich bleibt.
+        Die Verbindungen werden getrennt, damit die Clients mit ihren Zugangsdaten
+        neu verbinden und die Ablehnung sichtbar wird.
+        """
+        if not required:
+            self.login = None
+            self.log.add("mqtt", "Anmeldung nicht mehr verlangt", "warn")
+        else:
+            if not isinstance(user, str) or not user:
+                raise ValueError("Benutzer fehlt")
+            if not isinstance(password, str):
+                raise ValueError("password muss Text sein")
+            if not password:
+                if self.login is None or self.login[0] != user:
+                    raise ValueError("Passwort fehlt")
+                password = self.login[1]
+            self.login = (user, password)
+            self.log.add("mqtt", f"Anmeldung verlangt für {user}", "warn")
+        self.disconnect_all()
+
     def set_service(self, config, mode):
         if mode not in SERVICE_MODES:
             raise ValueError("unbekannter Modus")
@@ -346,6 +371,7 @@ class BrokerState:
 
     def reset(self):
         self.simulate = self.initial_simulate
+        self.login = self.initial_login
         self.modes = dict(self.initial_modes)
         for device in self.devices():
             if not device["online"]:
@@ -372,6 +398,12 @@ class BrokerState:
             "connections": [{"client_id": c["client_id"], "since": c["since"]} for c in list(self.clients.values())],
             "devices": self.devices(),
             "services": services,
+            "login": {
+                "required": self.login is not None,
+                "user": self.login[0] if self.login else "",
+                "initial_required": self.initial_login is not None,
+                "initial_user": self.initial_login[0] if self.initial_login else "",
+            },
         }
 
 
@@ -560,7 +592,7 @@ def service_status_loop(devices_dir, state):
         time.sleep(SERVICE_SCAN_INTERVAL)
 
 
-CONTROL_POST_PATHS = ("/simulate", "/device", "/service", "/publish", "/disconnect", "/reset")
+CONTROL_POST_PATHS = ("/simulate", "/device", "/service", "/publish", "/disconnect", "/login", "/reset")
 
 
 def _field(body, key):
@@ -614,6 +646,8 @@ def make_control_server(state, port):
                 state.publish(body.get("topic", ""), body.get("payload", ""), bool(body.get("retain", False)))
             elif url.path == "/disconnect":
                 state.disconnect_all()
+            elif url.path == "/login":
+                state.set_login(_field(body, "required"), body.get("user", ""), body.get("password", ""))
             elif url.path == "/reset":
                 state.reset()
             return 200, state.state()

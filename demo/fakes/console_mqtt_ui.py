@@ -42,6 +42,22 @@ MQTT_HTML = """<div id="tab-mqtt">
   <p class="grp-err"></p>
 </div>
 
+<div class="grp" data-group="login">
+  <h3>Anmeldung</h3>
+  <div class="list">
+    <div class="row">Anmeldung verlangen
+      <label class="switch"><input type="checkbox" data-login-required aria-label="Anmeldung verlangen"><span></span></label>
+    </div>
+    <div class="row">
+      <input type="text" class="mq-field" data-login-user placeholder="Benutzer" autocomplete="off" spellcheck="false" aria-label="Benutzer">
+      <input type="text" class="mq-field" data-login-password placeholder="Passwort (leer lässt es unverändert)" autocomplete="off" spellcheck="false" aria-label="Passwort">
+      <span class="end"><button type="button" class="btn btn-primary" data-act="login">Übernehmen</button></span>
+    </div>
+  </div>
+  <p class="note">Übernehmen setzt das Konto, das der Broker annimmt, und trennt alle Clients. Schickt das Dashboard andere Zugangsdaten, lehnt der Broker es ab (not Authorized). Ohne Schalter nimmt er wieder jeden an.</p>
+  <p class="grp-err"></p>
+</div>
+
 <div class="grp" data-group="publish">
   <h3>Nachricht senden</h3>
   <div class="list">
@@ -151,6 +167,8 @@ MQTT_HTML = """<div id="tab-mqtt">
     $("[data-meta]").textContent = "Port " + state.port + ", " + state.connections.length +
       " Verbindungen, " + state.topics + " Topics";
     setUnlessFocused($("[data-simulate]"), state.simulate);
+    setUnlessFocused($("[data-login-required]"), state.login.required);
+    if (state.login.user) setUnlessFocused($("[data-login-user]"), state.login.user);
     renderDevices(state.devices);
     renderServices(state.services);
     renderTopics(state.topic_names);
@@ -160,6 +178,13 @@ MQTT_HTML = """<div id="tab-mqtt">
   function bodyFor(btn) {
     const act = btn.dataset.act;
     if (act === "service") return { config: btn.closest("[data-service]").dataset.service, mode: btn.dataset.value };
+    if (act === "login") {
+      return {
+        required: $("[data-login-required]").checked,
+        user: $("[data-login-user]").value,
+        password: $("[data-login-password]").value,
+      };
+    }
     if (act === "publish") {
       return {
         topic: $("[data-topic]").value,
