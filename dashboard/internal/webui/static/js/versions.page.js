@@ -50,6 +50,21 @@
   const HISTORY_LIMITS = {recent: 5, extended: 20, all: 0};
   const historyValue = (value) => (value in HISTORY_LIMITS ? value : 'recent');
 
+  // Text des Zustands eines Highlights in der Versionsliste. other-device
+  // hat seinen eigenen Text (je nach Geraet, siehe highlightLabel).
+  // i18n-keys: onboarding.checklist.news_new, settings.versions.highlight.seen, settings.versions.highlight.text
+  const HIGHLIGHT_LABEL_KEY = {new: 'onboarding.checklist.news_new', seen: 'settings.versions.highlight.seen', text: 'settings.versions.highlight.text'};
+
+  // Der Eintrag des Highlights im Neu-erkunden-Stand des Stores, sonst null.
+  const highlightItem = (store, entry) => {
+    if (!entry || !entry.id) return null;
+    for (const version of store.exploreVersions || []) {
+      const item = version.items.find((candidate) => candidate.id === entry.id);
+      if (item) return item;
+    }
+    return null;
+  };
+
   const kindTitle = (kind) => t(kind === 'other' ? 'settings.versions.kind_other' : `settings.versions.kind.${kind}`);
 
   const versionsPanel = () => ({
@@ -77,10 +92,17 @@
     bundlesTotal: 0,
     bundlesShown: 0,
     savingChangelogHistory: false,
+    // Version aus ?release=, bis der Dashboard-Changelog geladen ist.
+    releaseTarget: '',
 
     // ?all=1 (the link of the what's new dialog) starts in the "all" view.
+    // ?release=<version> (Link aus der Checkliste) oeffnet den Dashboard-Changelog
+    // in der Ansicht "Alles" und scrollt zu diesem Release.
     init() {
-      if (new URLSearchParams(window.location.search).get('all') === '1') this.mode = 'all';
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('all') === '1') this.mode = 'all';
+      this.releaseTarget = params.get('release') || '';
+      if (this.releaseTarget) this.mode = 'all';
     },
 
     async load() {
@@ -98,7 +120,66 @@
       } finally {
         this.loading = false;
       }
+      await this.openRelease();
       await this.loadUpdates();
+    },
+
+    // Oeffnet den Dashboard-Changelog und scrollt zum Release aus ?release=.
+    // Die Eintraege stehen erst im DOM, wenn Alpine die Schleifen gerendert hat.
+    async openRelease() {
+      const version = this.releaseTarget;
+      if (!version || !this.components.some((component) => component.id === 'dashboard')) return;
+      this.releaseTarget = '';
+      this.open = {...this.open, dashboard: true};
+      await this.loadReleases('dashboard');
+      if (this.$nextTick) await this.$nextTick();
+      const target = Array.from(document.querySelectorAll('[data-release]')).find((el) => el.dataset.release === version);
+      if (!target || !target.scrollIntoView) return;
+      const reduced = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      target.scrollIntoView({block: 'start', behavior: reduced ? 'auto' : 'smooth'});
+    },
+
+    // Zustand eines Highlights der Versionsliste (obModel.exploreState), leer ohne Eintrag.
+    highlightState(entry) {
+      const store = this.$store.onboarding;
+      const item = highlightItem(store, entry);
+      return item ? window.obModel.exploreState(item, store.seen, store.ctx()) : '';
+    },
+
+    // Der Text neben dem Highlight: Zustand, bei other-device das fehlende Geraet.
+    highlightLabel(entry) {
+      const state = this.highlightState(entry);
+      if (state === 'other-device') {
+        return t(this.$store.onboarding.ctx().device === 'phone' ? 'onboarding.checklist.only_desktop' : 'onboarding.checklist.only_phone');
+      }
+      const key = HIGHLIGHT_LABEL_KEY[state];
+      return key ? t(key) : '';
+    },
+
+    // Neu und gesehen haben eine Tour: der Knopf startet sie. Jeder Zustand mit
+    // Eintrag hat den Link in die Checkliste, nur ohne Tour gibt es keinen Knopf.
+    highlightButtons(entry) {
+      const state = this.highlightState(entry);
+      if (!state) return {run: false, runText: '', checklist: false};
+      const run = state === 'new' || state === 'seen';
+      return {
+        run,
+        runText: run ? t(state === 'seen' ? 'onboarding.checklist.action_again' : 'onboarding.checklist.action_show') : '',
+        checklist: true,
+      };
+    },
+
+    // Startet die Tour des Highlights, wie die Checkliste: Warteschlange leeren, dann starten.
+    showHighlight(entry) {
+      const store = this.$store.onboarding;
+      store.queue = [];
+      store.start('explore', entry.id);
+    },
+
+    // Deep Link in die Checkliste, Modus Neu erkunden, optional auf einen Punkt.
+    checklistHref(entry) {
+      const base = `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=checklist&mode=explore`;
+      return entry && entry.id ? `${base}&item=${encodeURIComponent(entry.id)}` : base;
     },
 
     async loadUpdates() {
