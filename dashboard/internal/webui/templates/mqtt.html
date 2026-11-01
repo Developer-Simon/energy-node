@@ -56,8 +56,6 @@
       </div>
     </div>
     <p class="setting-note" x-cloak x-show="busy === 'reconnect'">{{t "mqtt.reconnect.note"}}</p>
-    <div class="message error" role="alert" x-cloak x-show="testResult && !testResult.ok" x-text="testErrorText()"></div>
-    <div class="message" role="status" x-cloak x-show="testResult && testResult.ok" x-text="testResult && $t('mqtt.test.success', {duration_ms: testResult.duration_ms, discovery_messages_seen: testResult.discovery_messages_seen})"></div>
   </div>
 
   <section class="setting-card storage-health-panel" aria-labelledby="mqtt-status-heading" aria-live="polite">
