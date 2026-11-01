@@ -3,6 +3,8 @@ package mqttclient
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -373,6 +375,109 @@ func TestStartConnectingAttemptsRunUnderReloadMu(t *testing.T) {
 	client.reloadMu.Unlock()
 
 	waitForCount(t, &calls, 2)
+	client.Close()
+}
+
+// scriptedAttempt replaces c.attempt for the Reconfigure tests. While err is
+// set, every try fails with it. Once err is nil, a try leaves the Client in
+// the state a successful connect leaves behind: a connected fake paho.
+type scriptedAttempt struct {
+	mu    sync.Mutex
+	err   error
+	calls int
+}
+
+func (s *scriptedAttempt) install(client *Client) {
+	client.attempt = func() error {
+		s.mu.Lock()
+		s.calls++
+		err := s.err
+		s.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		client.mu.Lock()
+		client.paho = fakePaho{connected: true}
+		client.mu.Unlock()
+		return nil
+	}
+}
+
+func (s *scriptedAttempt) setErr(err error) {
+	s.mu.Lock()
+	s.err = err
+	s.mu.Unlock()
+}
+
+func (s *scriptedAttempt) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls
+}
+
+func waitForAttempts(t *testing.T, s *scriptedAttempt, want int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for s.count() < want {
+		if time.Now().After(deadline) {
+			t.Fatalf("attempt called %d times, want at least %d", s.count(), want)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestReconfigureAfterFailedStartStopsRetryLoop(t *testing.T) {
+	client := newRetryTestClient(time.Millisecond)
+	script := &scriptedAttempt{err: errors.New("not Authorized")}
+	script.install(client)
+
+	if client.StartConnecting() {
+		t.Fatal("StartConnecting() = true, want false for the failing first attempt")
+	}
+	waitForAttempts(t, script, 2)
+
+	script.setErr(nil)
+	if err := client.Reconfigure(Config{Host: "good"}); err != nil {
+		t.Fatalf("Reconfigure() error = %v, want nil", err)
+	}
+	// The loop may have succeeded just before Reconfigure, or its next round
+	// sees the connected fake paho. Either way no attempt may run afterwards.
+	afterReconfigure := script.count()
+	time.Sleep(50 * time.Millisecond)
+	if got := script.count(); got != afterReconfigure {
+		t.Fatalf("attempt still running after a successful Reconfigure: %d -> %d calls", afterReconfigure, got)
+	}
+	if got := client.Status().LastError; got != "" {
+		t.Fatalf("LastError = %q, want empty after a successful Reconfigure", got)
+	}
+	client.Close()
+}
+
+func TestReconfigureFailureAfterFailedStartKeepsRetrying(t *testing.T) {
+	client := newRetryTestClient(time.Millisecond)
+	script := &scriptedAttempt{err: errors.New("not Authorized")}
+	script.install(client)
+
+	client.StartConnecting()
+	waitForAttempts(t, script, 2)
+
+	script.setErr(errors.New("bad host"))
+	err := client.Reconfigure(Config{Host: "typo"})
+	if err == nil {
+		t.Fatal("Reconfigure() error = nil, want the connect error")
+	}
+	if strings.Contains(err.Error(), "rolled back") {
+		t.Fatalf("Reconfigure() error = %q, want no rollback without a working configuration", err)
+	}
+	status := client.Status()
+	if status.RolledBack {
+		t.Fatal("RolledBack = true, want false when there was never a working configuration")
+	}
+	if !strings.Contains(status.LastError, "bad host") {
+		t.Fatalf("LastError = %q, want the new configuration's error", status.LastError)
+	}
+	before := script.count()
+	waitForAttempts(t, script, before+2)
 	client.Close()
 }
 

@@ -150,6 +150,7 @@ type Client struct {
 	discoveryObserver func(registry.Discovery)
 	filter            DeviceFilter
 	status            Status
+	everConnected     bool
 	verbose           bool
 
 	bridgeWatchTopic string
@@ -688,6 +689,11 @@ func (c *Client) disconnectLocked() {
 // permanently disconnected because of a typo in a saved setting. The
 // returned error is non-nil whenever the new configuration failed, even if
 // the fallback succeeded; Status().RolledBack distinguishes the two cases.
+//
+// If the Client has never connected (the dashboard started while the broker
+// was unreachable), there is no working configuration to fall back to. The
+// error is returned without a rollback, RolledBack stays false, and the retry
+// loop started by StartConnecting keeps trying the new configuration.
 func (c *Client) Reconfigure(cfg Config) error {
 	c.reloadMu.Lock()
 	defer c.reloadMu.Unlock()
@@ -701,7 +707,7 @@ func (c *Client) Reconfigure(cfg Config) error {
 	c.subscribed = make(map[string]bool)
 	c.mu.Unlock()
 
-	if err := c.connectWithTimeout(c.connectTimeout()); err == nil {
+	if err := c.attempt(); err == nil {
 		c.mu.Lock()
 		c.status.LastReconfiguredAt = time.Now().UTC()
 		c.status.LastError = ""
@@ -711,6 +717,17 @@ func (c *Client) Reconfigure(cfg Config) error {
 	} else {
 		primaryErr := err
 
+		c.mu.Lock()
+		everConnected := c.everConnected
+		c.mu.Unlock()
+		if !everConnected {
+			c.mu.Lock()
+			c.status.LastError = primaryErr.Error()
+			c.status.RolledBack = false
+			c.mu.Unlock()
+			return fmt.Errorf("mqttclient: reconfigure failed: %w", primaryErr)
+		}
+
 		c.disconnectLocked()
 		c.setConfig(previous)
 		c.reg.Reset()
@@ -718,7 +735,7 @@ func (c *Client) Reconfigure(cfg Config) error {
 		c.subscribed = make(map[string]bool)
 		c.mu.Unlock()
 
-		rollbackErr := c.connectWithTimeout(c.connectTimeout())
+		rollbackErr := c.attempt()
 		c.mu.Lock()
 		c.status.FailedAttempts++
 		if rollbackErr != nil {
@@ -852,6 +869,7 @@ func (c *Client) onConnect(client mqtt.Client) {
 	cfg := c.getConfig()
 	c.mu.Lock()
 	c.status.Connected = true
+	c.everConnected = true
 	c.status.LastConnectedAt = time.Now().UTC()
 	c.status.BrokerAddress = cfg.Host + ":" + cfg.Port
 	c.status.Source = cfg.Source
