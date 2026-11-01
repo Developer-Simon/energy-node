@@ -49,6 +49,18 @@ type Report struct {
 	// SystemUpdates: ausstehende Systempakete (apt_pending.py), Information
 	// und keine Pruefung. nil = apt-get fehlte oder scheiterte.
 	SystemUpdates *steps.SystemUpdates `json:"system_updates"`
+	// MQTTLogin ist der Anmeldebefund der Broker-Probe aus diagnose.sh
+	// ("mqtt": {"login": ...}): ok, denied, nopassword, unreachable oder
+	// leer, wenn config.json fehlt. Der Wert kommt aus dem verschachtelten
+	// Objekt, siehe parseReport.
+	MQTTLogin string `json:"-"`
+}
+
+// mqttWire is the nested "mqtt" object of diagnose.sh's report.
+type mqttWire struct {
+	MQTT struct {
+		Login string `json:"login"`
+	} `json:"mqtt"`
 }
 
 // VersionsReport mirrors diagnose.sh's "versions" object: Components as in
@@ -93,9 +105,24 @@ func Run(ctx context.Context, client *transport.Client, remoteBundleDir, remoteS
 		return nil, fmt.Errorf("running diagnose.sh: %w (stderr: %s)", err, stderr.String())
 	}
 
-	var report Report
-	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+	report, err := parseReport(stdout.Bytes())
+	if err != nil {
 		return nil, fmt.Errorf("parsing diagnose.sh output: %w (stdout: %q)", err, stdout.String())
 	}
+	return report, nil
+}
+
+// parseReport decodes diagnose.sh's JSON report, including the nested mqtt
+// login that Report carries as a flat MQTTLogin.
+func parseReport(data []byte) (*Report, error) {
+	var wire struct {
+		Report
+		mqttWire
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return nil, err
+	}
+	report := wire.Report
+	report.MQTTLogin = wire.MQTT.Login
 	return &report, nil
 }

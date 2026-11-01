@@ -208,3 +208,41 @@ func TestChecklistWarnsAboutAPendingRebootOnlyWhenRequired(t *testing.T) {
 		t.Errorf("a pending reboot is a hint without a retry step, got %+v", *found)
 	}
 }
+
+func TestChecklistReportsADeniedMQTTLogin(t *testing.T) {
+	for _, login := range []string{"denied", "nopassword"} {
+		report := &diag.Report{MQTTLogin: login}
+		var found *diag.Check
+		for _, c := range report.Checklist(testSteps()) {
+			if c.Name == "mqtt login" {
+				c := c
+				found = &c
+			}
+		}
+		if found == nil {
+			t.Fatalf("%s: expected an mqtt login check", login)
+		}
+		if found.OK || found.Detail != login || found.RetryStepID != "20" || found.Group != "system" ||
+			found.Subject != "mqtt-login" || found.Needs != "mqtt_password" {
+			t.Errorf("%s: unexpected check %+v", login, *found)
+		}
+	}
+
+	report := &diag.Report{MQTTLogin: "ok"}
+	for _, c := range report.Checklist(testSteps()) {
+		if c.Name == "mqtt login" && (!c.OK || c.Needs != "") {
+			t.Errorf("a working login must pass without asking for input, got %+v", c)
+		}
+	}
+}
+
+func TestChecklistKeepsQuietWhenTheBrokerIsUnreachable(t *testing.T) {
+	for _, login := range []string{"unreachable", ""} {
+		report := &diag.Report{MQTTLogin: login}
+		for _, c := range report.Checklist(testSteps()) {
+			if c.Name == "mqtt login" {
+				t.Errorf("login %q: no mqtt login check expected, got %+v", login, c)
+			}
+		}
+	}
+}

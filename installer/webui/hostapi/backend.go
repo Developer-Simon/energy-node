@@ -331,6 +331,9 @@ type Check struct {
 	Subject string `json:"subject"`
 	// Severity "warn" macht aus einer fehlgeschlagenen Pruefung einen Hinweis.
 	Severity string `json:"severity,omitempty"`
+	// Needs nennt die Eingabe, die eine Reparatur vom Betreiber verlangt,
+	// etwa "mqtt_password".
+	Needs string `json:"needs,omitempty"`
 }
 
 // DiagnoseView ist die Antwort von GET /api/diagnose.

@@ -654,7 +654,7 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	for _, check := range report.Checklist(manifest.Steps) {
 		view.Checks = append(view.Checks, hostapi.Check{
 			Name: check.Name, OK: check.OK, Detail: check.Detail, RetryStepID: check.RetryStepID,
-			Group: check.Group, Subject: check.Subject, Severity: check.Severity,
+			Group: check.Group, Subject: check.Subject, Severity: check.Severity, Needs: check.Needs,
 		})
 	}
 	return view, nil
