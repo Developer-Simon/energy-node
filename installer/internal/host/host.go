@@ -524,6 +524,18 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		}
 		list = []bundle.StepEntry{entry}
 	}
+	if repairsPair(req) {
+		// A new broker password is written by step 20 and read by step 60,
+		// so both run as a pair, and both need the user the node names.
+		if req.MQTTUser == "" {
+			user, err := steps.NodeMQTTUser(ctx, steps.RunOptions{Client: client})
+			if err != nil {
+				return err
+			}
+			req.MQTTUser = user
+		}
+		list = repairList(*manifest, req)
+	}
 
 	opts := steps.RunOptions{
 		Client:          client,
@@ -557,6 +569,33 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 	}
 	h.recordAfterFullRun(ctx, client, req.Only, sink)
 	return nil
+}
+
+// repairList is the step list for a repair. A repair of step 20 or 60 that
+// carries a new MQTT password runs the pair 20 and 60 in that order, because
+// the broker and the dashboard must agree on the password. Any other repair
+// runs only the step it names.
+func repairList(manifest bundle.Manifest, req hostapi.RunRequest) []bundle.StepEntry {
+	if repairsPair(req) {
+		var pair []bundle.StepEntry
+		for _, id := range []string{"20", "60"} {
+			if entry, ok := manifest.StepByID(id); ok {
+				pair = append(pair, entry)
+			}
+		}
+		return pair
+	}
+	entry, ok := manifest.StepByID(req.Only)
+	if !ok {
+		return nil
+	}
+	return []bundle.StepEntry{entry}
+}
+
+// repairsPair reports whether a repair of step 20 or 60 carries a new MQTT
+// password, which makes it a repair of the broker and dashboard pair.
+func repairsPair(req hostapi.RunRequest) bool {
+	return req.Mode == hostapi.ModeRepair && req.MQTTPassword != "" && (req.Only == "20" || req.Only == "60")
 }
 
 // forceStamps reports whether the steps ignore their stamps and run anyway.

@@ -81,3 +81,39 @@ func TestRunReportsAMissingNodeConfigAsAnUnreadableMqttConfig(t *testing.T) {
 		t.Fatalf("err = %v, want step 20 MQTT_CONFIG_UNREADABLE", err)
 	}
 }
+
+func TestNodeMQTTUserReadsTheConfig(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"20-mosquitto.sh": mosquittoArgsScript})
+
+	config := path.Dir(stateDir) + "/config.json"
+	if err := client.UploadBytes([]byte(`{"mqtt": {"username": "energynode"}}`), config, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	user, err := steps.NodeMQTTUser(context.Background(), steps.RunOptions{Client: client, RemoteBundleDir: bundleDir, NodeConfigPath: config})
+	if err != nil {
+		t.Fatalf("NodeMQTTUser: %v", err)
+	}
+	if user != "energynode" {
+		t.Fatalf("user = %q, want %q", user, "energynode")
+	}
+}
+
+func TestNodeMQTTUserReportsMissingUsername(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"20-mosquitto.sh": mosquittoArgsScript})
+
+	config := path.Dir(stateDir) + "/config.json"
+	if err := client.UploadBytes([]byte(`{"mqtt": {"password_file": "/etc/energy-node/mqtt.pw"}}`), config, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := steps.NodeMQTTUser(context.Background(), steps.RunOptions{Client: client, RemoteBundleDir: bundleDir, NodeConfigPath: config})
+	var failure *steps.StepFailure
+	if !errors.As(err, &failure) || failure.Code != "MQTT_CONFIG_UNREADABLE" {
+		t.Fatalf("err = %v, want MQTT_CONFIG_UNREADABLE", err)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -368,5 +369,41 @@ printf '##STEP 10 ok\n'
 		if len(logs) != 1 || logs[0] != tc.want {
 			t.Errorf("restartAll=%v: logs = %q, want [%q]", tc.restartAll, logs, tc.want)
 		}
+	}
+}
+
+func TestRunStopsThePairWhenStep20Fails(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	const failScript = "#!/bin/sh\nprintf '##STEP %s begin\\n'\nprintf '##STEP %s fail SOME_CODE\\n'\n"
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"20-mosquitto.sh": scriptBody("20", failScript),
+		"60-install.sh":   scriptBody("60", okScript),
+	})
+
+	var ran []string
+	err := steps.Run(context.Background(), steps.RunOptions{
+		Client:          client,
+		RemoteBundleDir: bundleDir,
+		RemoteStateDir:  stateDir,
+		BundleVersion:   "v0.1.0",
+		Steps:           []bundle.StepEntry{{ID: "20"}, {ID: "60"}},
+		MQTTUser:        "energynode",
+		Secrets:         &steps.Secrets{MQTTPassword: "neu"},
+		OnMarker: func(m steps.Marker) {
+			if m.Kind == steps.Begin {
+				ran = append(ran, m.StepID)
+			}
+		},
+	})
+
+	var failure *steps.StepFailure
+	if !errors.As(err, &failure) || failure.StepID != "20" {
+		t.Fatalf("err = %v, want a StepFailure for step 20", err)
+	}
+	if len(ran) != 1 || ran[0] != "20" {
+		t.Fatalf("step 60 must not start after 20 failed: %v", ran)
 	}
 }
