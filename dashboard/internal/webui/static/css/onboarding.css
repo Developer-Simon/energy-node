@@ -279,7 +279,7 @@
 .ob-crosslink > svg:first-child { color: var(--accent); }
 .ob-crosslink-text { display: grid; flex: 1 1 auto; gap: .15rem; min-width: 0; }
 .ob-crosslink-title { color: var(--accent); font-size: .98rem; font-weight: 600; }
-.ob-crosslink-sub { color: var(--text-muted); font-size: .86rem; }
+.ob-crosslink-sub { color: var(--text); font-size: .86rem; }
 .ob-crosslink-chev {
   margin-left: auto;
   width: 1rem;

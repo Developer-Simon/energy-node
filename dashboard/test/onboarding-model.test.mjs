@@ -259,6 +259,12 @@ test('minorOf keeps major.minor of a release version', () => {
   assert.equal(m.minorOf('0.10'), '0.10');
 });
 
+test('minorOf strips a leading v of a tag version', () => {
+  const m = load();
+  assert.equal(m.minorOf('v0.10.33'), '0.10');
+  assert.equal(m.minorOf('v0.12.0'), '0.12');
+});
+
 test('a stale tour is stale and wins over seen', () => {
   const m = load();
   const item = { id: 'st', stale: true, steps: [{ id: 'st1', device: '', need: '' }] };

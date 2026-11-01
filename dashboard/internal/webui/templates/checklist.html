@@ -96,7 +96,7 @@
                 </button>
                 <div class="ob-cl-detail" x-show="isReading(item)" x-collapse>
                   <template x-if="item.details">
-                    <div class="whatsnew-body" x-data="{ entry: item, showDoc: false, cropped: true, loaded: false }" x-effect="if (isReading(item)) loaded = true">{{template "highlightDetailsBody"}}</div>
+                    <div class="whatsnew-body" x-data="{ entry: item, showDoc: true, cropped: true, loaded: false }" x-effect="if (isReading(item)) loaded = true">{{template "highlightDetailsBody"}}</div>
                   </template>
                   <p x-show="!item.details" x-text="$t(item.text)"></p>
                   <a class="ob-link" href="#" x-on:click.prevent>{{t "onboarding.checklist.docs"}}</a>

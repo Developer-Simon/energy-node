@@ -300,6 +300,9 @@
           })),
         });
       }
+      // Die installierte Version passt nicht zu einem Minor (der Bundle-Stand ist
+      // ein anderer als die Komponenten-Minors): dann gilt der neueste Minor.
+      if (versions.length && !versions.some((v) => v.current)) versions[0].current = true;
       return versions;
     },
     get unseenCount() {

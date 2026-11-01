@@ -477,6 +477,30 @@ test('exploreVersions groups by minor, the card keeps the newest release for its
   assert.deepEqual([...versions[0].items.map((i) => i.id)], ['a', 'b']);
 });
 
+test('exploreVersions matches a v-prefixed current version against the server minor', async () => {
+  const explore = {
+    current_version: 'v0.10.33',
+    items: [
+      { id: 'a', version: '0.10.33', minor: '0.10', text: 'A', tour: null },
+      { id: 'b', version: '0.9.4', minor: '0.9', text: 'B', tour: null },
+    ],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  assert.deepEqual([...store.exploreVersions.map((v) => [v.version, v.current])], [['0.10', true], ['0.9', false]]);
+});
+
+test('exploreVersions marks the newest group current when the installed version matches no minor', async () => {
+  const explore = {
+    current_version: '9.9.9',
+    items: [
+      { id: 'a', version: '0.10.33', minor: '0.10', text: 'A', tour: null },
+      { id: 'b', version: '0.9.4', minor: '0.9', text: 'B', tour: null },
+    ],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  assert.deepEqual([...store.exploreVersions.map((v) => [v.version, v.current])], [['0.10', true], ['0.9', false]]);
+});
+
 test('exploreVersions carries the stale flag of a tour', async () => {
   const explore = {
     current_version: '0.12.0',

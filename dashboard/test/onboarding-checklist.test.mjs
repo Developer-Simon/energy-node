@@ -227,16 +227,18 @@ test('the checklist template shows the shared highlight details and the release 
   assert.match(template, /\{\{t "onboarding\.checklist\.release_notes"\}\}/);
 });
 
-test('the checklist reads a highlight directly: body only, no details wrapper, no doc link', () => {
+test('the checklist reads a highlight directly: body only, no details wrapper, doc link shown', () => {
   const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
   const start = template.indexOf('class="ob-cl-detail"');
   const end = template.indexOf('</li>', start);
   assert.ok(start > 0 && end > start, 'the ob-cl-detail block exists');
   const detail = template.slice(start, end);
-  assert.match(detail, /<div class="whatsnew-body" x-data="\{ entry: item, showDoc: false, cropped: true, loaded: false \}" x-effect="if \(isReading\(item\)\) loaded = true">\{\{template "highlightDetailsBody"\}\}<\/div>/);
+  assert.match(detail, /<div class="whatsnew-body" x-data="\{ entry: item, showDoc: true, cropped: true, loaded: false \}" x-effect="if \(isReading\(item\)\) loaded = true">\{\{template "highlightDetailsBody"\}\}<\/div>/);
   assert.doesNotMatch(detail, /<summary/);
   assert.doesNotMatch(detail, /<details/);
   assert.doesNotMatch(detail, /\{\{template "highlightDetails"\}\}/);
+  const partial = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'highlight-details.html'), 'utf8');
+  assert.match(partial, /<a class="whatsnew-link" x-bind:href="entry\.details\.doc" target="_blank" rel="noopener">\{\{t "settings\.whatsnew\.doc_link"\}\}<\/a>/);
 });
 
 test('the shared body shows the doc link only when showDoc is set, the versions page keeps the details wrapper', () => {

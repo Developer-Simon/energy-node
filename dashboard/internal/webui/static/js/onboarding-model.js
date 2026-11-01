@@ -13,9 +13,9 @@
     return width <= PHONE_MAX ? 'phone' : 'desktop';
   }
 
-  // Minor einer Version: major.minor, aus 0.12.0 wird 0.12.
+  // Minor einer Version: major.minor, aus 0.12.0 wird 0.12, aus v0.12.0 ebenfalls 0.12.
   function minorOf(version) {
-    return String(version || '').split('.').slice(0, 2).join('.');
+    return String(version || '').replace(/^v/, '').split('.').slice(0, 2).join('.');
   }
 
   // Gilt der Schritt fuer das Geraet? Ohne device-Feld oder mit 'any' immer.
