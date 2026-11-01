@@ -452,3 +452,79 @@ func TestExistingInstallBehavesLikeFresh(t *testing.T) {
 		t.Fatalf("admin queue = %v, want %v", view.Queue, want)
 	}
 }
+
+// corruptOnboardingFile is an onboarding.json that is not valid JSON.
+const corruptOnboardingFile = `{"setup_done": tru`
+
+func writeCorruptOnboarding(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "onboarding.json")
+	if err := os.WriteFile(path, []byte(corruptOnboardingFile), 0640); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestCorruptFileGetStaysReadOnly(t *testing.T) {
+	dir := t.TempDir()
+	router, manager := newOnboardingTestRouter(t, filepath.Join(t.TempDir(), "users.json"), dir)
+	cookie, _ := loginWithRoles(t, router, manager, "reader", []string{auth.RoleViewLogs})
+	path := writeCorruptOnboarding(t, dir)
+
+	view := getOnboarding(t, router, cookie)
+	if !slices.Contains(view.Queue, "welcome") {
+		t.Fatalf("queue = %v, want the welcome computed in memory", view.Queue)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != corruptOnboardingFile {
+		t.Fatalf("GET rewrote the corrupt file: %q", after)
+	}
+}
+
+func TestCorruptFileMeWelcomeFinishes(t *testing.T) {
+	dir := t.TempDir()
+	router, manager := newOnboardingTestRouter(t, filepath.Join(t.TempDir(), "users.json"), dir)
+	cookie, csrf := loginWithRoles(t, router, manager, "reader", []string{auth.RoleViewLogs})
+	writeCorruptOnboarding(t, dir)
+
+	wantUsersStatus(t, usersCall(router, http.MethodPut, "/api/v1/onboarding/me", `{"welcomed":true}`, cookie, csrf, true), http.StatusOK)
+
+	view := getOnboarding(t, router, cookie)
+	if !view.User.Welcomed {
+		t.Fatalf("welcomed not stored after PUT on a corrupt file: %+v", view.User)
+	}
+	if slices.Contains(view.Queue, "welcome") {
+		t.Fatalf("welcome still queued after finishing it: %v", view.Queue)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "onboarding.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored onboarding.Progress
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatalf("file not rewritten as valid JSON: %v", err)
+	}
+	if stored.Since.IsZero() {
+		t.Fatal("since not set when the corrupt file was replaced")
+	}
+}
+
+func TestGuestMeStoresNothing(t *testing.T) {
+	dir := t.TempDir()
+	router, _ := newOnboardingTestRouter(t, filepath.Join(t.TempDir(), "users.json"), dir)
+	cookie, csrf := guestSession(t, router)
+
+	body := `{"seen_add":["intro"],"welcomed":true,"queue":["theme"],"run":{"mode":"full","from":"start","index":1}}`
+	wantUsersStatus(t, usersCall(router, http.MethodPut, "/api/v1/onboarding/me", body, cookie, csrf, true), http.StatusOK)
+
+	data, err := os.ReadFile(filepath.Join(dir, "onboarding.json"))
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "guest-") {
+		t.Fatalf("guest progress stored: %s", data)
+	}
+}

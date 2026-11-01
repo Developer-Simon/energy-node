@@ -107,8 +107,13 @@ func (s *Store) CompleteSetup() error {
 func (s *Store) UpdateUser(user string, mutate func(*UserProgress)) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	progress, err := s.loadLocked()
-	if err != nil {
+	progress, err := s.readLocked()
+	switch {
+	case errors.Is(err, errCorrupt):
+		// Eine kaputte Datei wird durch den Stand dieser Änderung ersetzt.
+		log.Printf("onboarding: %v, wird ersetzt", err)
+		progress.Since = time.Now().UTC()
+	case err != nil:
 		return err
 	}
 	entry := progress.Users[user]
@@ -124,8 +129,10 @@ func (s *Store) UpdateUser(user string, mutate func(*UserProgress)) error {
 func (s *Store) EnsureUser(user string, now time.Time, seed func(since time.Time) UserProgress) Progress {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	progress, err := s.loadLocked()
+	progress, err := s.readLocked()
 	if err != nil {
+		// Kaputte oder unlesbare Datei: der Stand gilt nur für diese Anfrage.
+		// Die Datei bleibt unberührt, damit ein GET nie schreibt.
 		log.Printf("onboarding: Fortschritt bleibt leer: %v", err)
 		progress = emptyProgress()
 		progress.Since = now
@@ -153,11 +160,25 @@ func emptyProgress() Progress {
 	return Progress{SetupSteps: map[string]StepState{}, Users: map[string]UserProgress{}}
 }
 
+// errCorrupt meldet eine Datei, die kein gültiges JSON ist.
+var errCorrupt = errors.New("onboarding: kaputtes JSON")
+
 // loadLocked liefert den Fortschritt für Schreibvorgänge. Eine fehlende Datei
 // und kaputtes JSON ergeben leeren Fortschritt (kaputtes JSON wird beim
 // nächsten Schreiben ersetzt). Jeder andere Lesefehler wird zurückgegeben,
 // damit ein vorübergehender Fehler nicht den gespeicherten Stand überschreibt.
 func (s *Store) loadLocked() (Progress, error) {
+	progress, err := s.readLocked()
+	if errors.Is(err, errCorrupt) {
+		log.Printf("onboarding: %v, Fortschritt bleibt leer", err)
+		return emptyProgress(), nil
+	}
+	return progress, err
+}
+
+// readLocked liest onboarding.json. Kaputtes JSON liefert leeren Fortschritt
+// zusammen mit errCorrupt, ein anderer Lesefehler liefert den Fehler.
+func (s *Store) readLocked() (Progress, error) {
 	data, err := os.ReadFile(filepath.Join(s.dir, fileName))
 	if errors.Is(err, os.ErrNotExist) {
 		return emptyProgress(), nil
@@ -167,8 +188,7 @@ func (s *Store) loadLocked() (Progress, error) {
 	}
 	var loaded Progress
 	if err := json.Unmarshal(data, &loaded); err != nil {
-		log.Printf("onboarding: %s ist kein gültiges JSON, Fortschritt bleibt leer: %v", fileName, err)
-		return emptyProgress(), nil
+		return emptyProgress(), fmt.Errorf("%w: %s: %v", errCorrupt, fileName, err)
 	}
 	if loaded.SetupSteps == nil {
 		loaded.SetupSteps = map[string]StepState{}

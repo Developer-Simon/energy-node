@@ -395,6 +395,11 @@ func handleOnboardingMe(store *onboarding.Store, user auth.User) http.HandlerFun
 				}
 			}
 		}
+		if user.Guest {
+			// Gäste speichern nichts, ihr Stand endet mit der Sitzung.
+			writeJSON(w, map[string]string{"status": "saved"})
+			return
+		}
 		// Check the resulting seen list before anything is written.
 		if len(request.SeenAdd) > 0 {
 			current := store.Load().Users[user.Username].Seen
