@@ -29,6 +29,7 @@
 - **installer:** fit the issue markdown after scrubbing and mask ipv6 after a colon (a17aae8)
 - **installer:** keep the diagnose columns from collapsing under the live log card (4c87895)
 - **installer:** fade only live-appended log lines, not the rebuild after a unit switch (265ca72)
+- **installer:** add space above the live log card in the diagnose (227fbfc)
 - **installer:** show the real guest access default and tighten the updates text (4a1d4fb)
 - **installer:** say what to do when the package needs another Python version (aaf9d68)
 - **installer:** keep the chosen package source while connecting (7acba32)
