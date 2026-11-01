@@ -4,6 +4,7 @@ import pytest
 
 from tests.conftest import make_params
 from battery_soc_core.state import CalibrationEvent
+from battery_soc_core.messages import CATALOGS, finding_key
 from battery_soc_core.tuning import MIN_SAMPLES_FOR_SUGGESTION, analyse
 
 
@@ -188,3 +189,44 @@ def test_findings_carry_params_for_translation():
     _suggestions, findings = analyse(params, events)
     few = next(f for f in findings if f.code == "zu_wenig_daten")
     assert few.params == {"count": MIN_SAMPLES_FOR_SUGGESTION - 1, "needed": MIN_SAMPLES_FOR_SUGGESTION}
+
+
+def test_finding_message_comes_from_german_catalog():
+    params = make_params(inverter_dc_ac_efficiency=0.90)
+    events = [full_event(100.0, 105.0, n=n) for n in range(MIN_SAMPLES_FOR_SUGGESTION - 1)]
+    _suggestions, findings = analyse(params, events)
+    few = next(f for f in findings if f.code == "zu_wenig_daten")
+    assert few.message == CATALOGS["de"]["zu_wenig_daten"].format(**few.params)
+
+
+def test_every_emitted_finding_has_a_catalog_entry():
+    scenarios = []
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90),
+                      [full_event(100.0, 105.0, n=n) for n in range(MIN_SAMPLES_FOR_SUGGESTION - 1)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.95),
+                      [full_event(140.0, 100.0, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90),
+                      [full_event(100.0, 105.0, taper_met=False, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90, full_taper_c_rate=0.05,
+                                  bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0),
+                      [full_event(100.0, 105.0, current_a=17.0, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90),
+                      [full_event(100.0, 105.0, n=n) for n in range(8)]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                                  full_taper_c_rate=0.05, bank_a_capacity_ah=100.0,
+                                  bank_b_capacity_ah=100.0),
+                      [resistance_event(c, 1.2, 3.48, n=n)
+                       for n, c in enumerate([0.3, 0.4, 0.2, 0.1, 0.35])]))
+    scenarios.append((make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                                  empty_v_per_cell=2.70, full_taper_c_rate=0.05,
+                                  bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0),
+                      [resistance_event(c, 25.0, 3.48 if c > 0 else 2.70, n=n)
+                       for n, c in enumerate([4.0, 6.0, 8.0, 5.0, 7.0, -20.0, -30.0, -15.0])]))
+    codes = set()
+    for params, events in scenarios:
+        _suggestions, findings = analyse(params, events)
+        for f in findings:
+            codes.add(f.code)
+            assert finding_key(f.code, f.params) in CATALOGS["de"], finding_key(f.code, f.params)
+    assert {"zu_wenig_daten", "anker_unzuverlaessig", "kein_unterer_anker",
+            "schwelle_zu_tief", "unplausibel", "zu_geringer_strom"} <= codes
