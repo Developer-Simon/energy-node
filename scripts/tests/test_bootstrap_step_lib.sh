@@ -26,7 +26,7 @@ grep -qx "bundle=v1.0.0" "$tmp/state/steps/10" || fail "Bundle-Version fehlt im 
 ( EN_BUNDLE_VERSION=v2.0.0; source "$lib"; step_done 10 ) && fail "step_done ignoriert Versionswechsel"
 ( source "$lib"; step_done 99 ) && fail "step_done meldet fremden Schritt als erledigt"
 # Erst-Setup: EN_FORCE=1 ueberspringt nie, auch nicht mit gueltigem Stempel.
-( EN_FORCE=1; source "$lib"; step_done 10 ) && fail "EN_FORCE=1 meldet Schritt als erledigt"
+( export EN_FORCE=1; source "$lib"; step_done 10 ) && fail "EN_FORCE=1 meldet Schritt als erledigt"
 
 # --- mit Fingerabdruck haelt der Stempel ueber ein Update hinweg ------------
 fp_bundle="$tmp/fp-bundle"
