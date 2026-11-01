@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.12 (2026-11-01)
+
+### Features
+
+- **common:** add message catalog renderer (1dfda5a)
+- **battery-soc:** render tuning findings from a shared message catalog (#196)
+
 ## v0.4.11 (2026-10-21)
 
 ### Refactors

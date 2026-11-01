@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.2.1 (2026-11-01)
+
+### Features
+
+- **battery-soc:** render tuning findings from a shared message catalog (#196)
+
+### Fixes
+
+- **battery-soc:** render tuning findings from the dashboard catalog (d8641fc)
+
+### Refactors
+
+- **battery-soc:** render findings from a message catalog (de9360c)
+
+### Tests
+
+- **battery-soc:** check the finding catalog against the dashboard catalogs (ab712cd)
+
 ## v0.2.0 (2026-09-25)
 
 ### Features
