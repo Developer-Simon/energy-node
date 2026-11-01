@@ -29,6 +29,28 @@ MQTT connection. Beyond that:
 `paho-mqtt`. Their logic lives in the internal packages `battery_soc_core` and
 `energy_node_common`, which only use the standard library.
 
+### Adding a finding message
+
+The calibration findings of `battery_soc_core` (`libs/battery_soc_core/battery_soc_core/tuning.py`)
+get their text from a catalog in `messages.py`, not from a string in the code.
+To add a finding:
+
+1. Pick the code, for example `zu_wenig_daten`. If the finding has a subject,
+   the catalog key is the code plus the subject, for example
+   `unplausibel_efficiency`. `finding_key` builds it from `params["subject"]`.
+2. Add the German and the English text to `CATALOGS` in `messages.py`, with the
+   same placeholders as the `params` you pass.
+3. Add the same keys as `config.tuning.finding.<key>` to both dashboard catalogs,
+   `dashboard/internal/webui/catalogs/de.json` and `en.json`.
+4. Raise the finding through `_finding(code, severity, **params)`. It formats the
+   German text from the catalog and keeps `params` for the dashboard to translate.
+
+`libs/battery_soc_core/tests/test_dashboard_catalog_parity.py` fails when the
+core catalog and a dashboard catalog differ in keys or placeholders. If a
+finding has no params, the dashboard shows the German `message` as the fallback.
+Run `.venv/bin/python3 scripts/vendor_core.py` afterwards, so the Home Assistant
+integration gets the new `messages.py`.
+
 ## Go: dashboard and installer
 
 | Package | Used by | What for |
