@@ -12,11 +12,12 @@ demo, which keeps it running until Ctrl-C: see [demo/README.md](../../../demo/RE
 The fakes and fixtures are described there too.
 
 ```bash
-dashboard/test/smoke/smoke.sh                  # all four runs
+dashboard/test/smoke/smoke.sh                  # all five runs
 dashboard/test/smoke/smoke.sh --run haupt      # one run, the option can be repeated
 ```
 
-The runs always execute in the same order (`haupt`, `ohne-dienste`, `bilanz`, `seed`),
+The runs always execute in the same order (`haupt`, `ohne-dienste`, `bilanz`, `seed`,
+`falsches-passwort`),
 whatever order `--run` names them in. Each run starts a fresh dashboard in its
 own directory `.run/<name>-XXXXXX` below this folder. A passed run deletes that
 directory, a failed run keeps it for analysis. The script exits with 0 only when
@@ -25,7 +26,7 @@ all selected runs pass.
 Before a run starts, all five ports below are checked. A port that is already in
 use makes the run fail, and the script leaves the process that holds it alone.
 
-## The four runs
+## The five runs
 
 | Run | Configuration | Check groups |
 |---|---|---|
@@ -33,6 +34,7 @@ use makes the run fail, and the script leaves the process that holds it alone.
 | `ohne-dienste` | The demo sources, but all seven services switched off | `services_off` |
 | `bilanz` | `energie-ueberschuss.json` with the seed set `energie-alle-karten`, only the battery service, no simulation | `seed`, `energy_balance`, `companion` |
 | `seed` | The demo sources, plus an installer `onboarding-seed.json` next to `auth.pw` before the start | `onboarding_seed` |
+| `falsches-passwort` | The demo sources, but the MQTT password of the dashboard is wrong. The fake broker accepts only the right one (`--login`) and rejects the connection | `mqtt_falsch` |
 
 Why each run exists:
 
@@ -43,6 +45,9 @@ Why each run exists:
 - **`bilanz`** needs exact energy values, which the simulation in the demo
   deliberately changes. Over plain HTTP this run also runs the probe
   "without the HTTPS flag refused", which is skipped under TLS.
+- **`falsches-passwort`** checks that the dashboard starts while the broker
+  refuses it. The status names the refusal, the password does not show up in
+  it, and the login page still answers.
 
 The check groups are the functions in `checks/`. Each group sets `FAILED=1` on
 an error and continues, so one run reports all its failures.
@@ -88,6 +93,11 @@ truth for the details.
 - with the simulation on, the PV power under `/api/v1/topics/samples` changes
   within ten seconds, proof that the simulated values arrive as MQTT `PUBLISH`
   on the open connection and not only that the broker process is alive
+
+The `mqtt_falsch` group (run `falsches-passwort`) checks that the dashboard
+starts without an MQTT connection: the login page answers with HTTP 200,
+`/api/v1/mqtt/status` shows `connected: false` with a `last_error` that names
+the refusal, and the password itself is not part of the status.
 
 The `companion` group also checks the history exchange interface. The
 announcement under `/api/v1/history/exchange` names protocol version 1 and

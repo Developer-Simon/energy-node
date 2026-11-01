@@ -37,6 +37,8 @@ source "$SMOKE_DIR/checks/energy.sh"
 source "$SMOKE_DIR/checks/updates.sh"
 # shellcheck source=dashboard/test/smoke/checks/onboarding.sh
 source "$SMOKE_DIR/checks/onboarding.sh"
+# shellcheck source=dashboard/test/smoke/checks/mqtt.sh
+source "$SMOKE_DIR/checks/mqtt.sh"
 
 # Smoke-Ports. Die Demo nutzt 182xx, der Smoke-Test 181xx.
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
@@ -54,7 +56,7 @@ trap 'exit 130' INT TERM
 
 usage() {
   echo "Aufruf: dashboard/test/smoke/smoke.sh [--run NAME]..." >&2
-  echo "Laeufe: haupt, ohne-dienste, bilanz, seed" >&2
+  echo "Laeufe: haupt, ohne-dienste, bilanz, seed, falsches-passwort" >&2
 }
 
 # Setzt alle Schalter auf den Stand "aus". Jeder Lauf schaltet nur sein Noetiges an.
@@ -71,6 +73,9 @@ setze_grundstand() {
   SERVICES_OFF=0
   PACKAGE_ARCHIVE=""
   SEED_JSON=""
+  MQTT_USERNAME=""
+  MQTT_PASSWORD=""
+  MQTT_BROKER_PASSWORD=""
 }
 
 # Lauf seed: Vorgaben des Installers als onboarding-seed.json neben auth.pw.
@@ -89,6 +94,14 @@ setze_demo_quellen() {
     "$REPO_DIR/services/shelly"
     "$FIXTURES/devices/demo"
   )
+}
+
+# Lauf falsches-passwort: der Broker verlangt ein Passwort, das Dashboard schickt ein anderes.
+konfiguriere_falsches_passwort() {
+  setze_demo_quellen
+  MQTT_USERNAME="smoke-mqtt"
+  MQTT_PASSWORD="smoke-falsch-1"
+  MQTT_BROKER_PASSWORD="smoke-richtig-1"
 }
 
 konfiguriere_haupt() {
@@ -129,6 +142,7 @@ gruppe() {
     users) checks_users ;;
     onboarding) checks_onboarding ;;
     onboarding_seed) checks_onboarding_seed ;;
+    mqtt_falsch) checks_mqtt_falsch ;;
     update_install) checks_update_install ;;
     companion) checks_companion ;;
     history_exchange) checks_history_exchange ;;
@@ -219,7 +233,7 @@ while [[ $# -gt 0 ]]; do
         exit 2
       fi
       case "$2" in
-        haupt|ohne-dienste|bilanz|seed) WANTED+=("$2") ;;
+        haupt|ohne-dienste|bilanz|seed|falsches-passwort) WANTED+=("$2") ;;
         *)
           echo "FEHLER: unbekannter Lauf $2" >&2
           usage
@@ -233,7 +247,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 if (( ${#WANTED[@]} == 0 )); then
-  WANTED=(haupt ohne-dienste bilanz seed)
+  WANTED=(haupt ohne-dienste bilanz seed falsches-passwort)
 fi
 
 vorbereiten || exit 1
@@ -242,7 +256,7 @@ vorbereiten || exit 1
 # Gruppen: haupt prueft die Demo, ohne-dienste prueft abgeschaltete Dienste,
 # bilanz prueft exakte Energiewerte ohne Simulation.
 RESULT=0
-for name in haupt ohne-dienste bilanz seed; do
+for name in haupt ohne-dienste bilanz seed falsches-passwort; do
   wanted=0
   for w in "${WANTED[@]}"; do
     [[ "$w" == "$name" ]] && wanted=1
@@ -268,6 +282,10 @@ for name in haupt ohne-dienste bilanz seed; do
     seed)
       konfiguriere_seed
       fuehre_lauf seed onboarding_seed || RESULT=1
+      ;;
+    falsches-passwort)
+      konfiguriere_falsches_passwort
+      fuehre_lauf falsches-passwort mqtt_falsch || RESULT=1
       ;;
   esac
 done

@@ -9,6 +9,8 @@
 # SERVICES_OFF, JOURNAL, INSTALLED, PACKAGE und UPDATES (0 oder 1).
 # BROKER_CONTROL_PORT ist optional: mit ihm hat der Broker einen Steuerport
 # und die Konsole den Reiter MQTT.
+# MQTT_USERNAME, MQTT_PASSWORD (Passwort des Dashboards) und MQTT_BROKER_PASSWORD
+# (Passwort des Brokers, dessen Konto MQTT_USERNAME ist) sind optional, Standard leer.
 
 _ENV_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_DIR="$(cd "$_ENV_LIB_DIR/.." && pwd)"
@@ -162,9 +164,16 @@ env_write_cert() {
 }
 
 # Schreibt auth.pw und config.json (Vorlage services/energy-node.config.json).
+# MQTT_USERNAME setzt Konto und Passwortdatei (MQTT_PASSWORD) der MQTT-Verbindung.
 env_write_config() {
   printf '%s' "$PASSWORD" > "$WORK/auth.pw" || return 1
   chmod 600 "$WORK/auth.pw" || return 1
+  local mqtt_password_file=""
+  if [[ -n "${MQTT_USERNAME:-}" ]]; then
+    printf '%s' "${MQTT_PASSWORD:-}" > "$WORK/mqtt.pw" || return 1
+    chmod 600 "$WORK/mqtt.pw" || return 1
+    mqtt_password_file="$WORK/mqtt.pw"
+  fi
   local journal_helper=""
   if [[ "${JOURNAL:-0}" == "1" ]]; then
     journal_helper="$FAKES/fake_journal_helper.py"
@@ -172,17 +181,18 @@ env_write_config() {
   python3 - "$REPO_DIR/services/energy-node.config.json" "$WORK/config.json" \
            "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" \
            "${SERVICES_OFF:-0}" "$WORK/tls.crt" "$WORK/tls.key" "${HTTPS:-0}" \
-           "${JOURNAL:-0}" "$journal_helper" <<'PY' || return 1
+           "${JOURNAL:-0}" "$journal_helper" "${MQTT_USERNAME:-}" "$mqtt_password_file" <<'PY' || return 1
 import json
 import sys
 
 (vorlage, ziel, http_port, devices_dir, data_dir, mqtt_port, admin_pw,
- services_off, tls_cert, tls_key, https, simulate_journal, journal_helper) = sys.argv[1:14]
+ services_off, tls_cert, tls_key, https, simulate_journal, journal_helper,
+ mqtt_user, mqtt_pw_file) = sys.argv[1:16]
 config = json.loads(open(vorlage, encoding="utf-8").read())
 config["mqtt"]["host"] = "127.0.0.1"
 config["mqtt"]["port"] = int(mqtt_port)
-config["mqtt"]["username"] = ""
-config["mqtt"]["password_file"] = ""
+config["mqtt"]["username"] = mqtt_user
+config["mqtt"]["password_file"] = mqtt_pw_file
 config["paths"]["devices_dir"] = devices_dir
 config["paths"]["data_dir"] = data_dir
 config["dashboard"]["port"] = int(http_port)
@@ -226,6 +236,7 @@ env_build_dashboard() {
 env_start_broker() {
   local args=("$MQTT_PORT" "$FIXTURE" "--service-status" "$WORK/devices")
   [[ "${SIMULATE:-0}" == "1" ]] && args+=("--simulate")
+  [[ -n "${MQTT_BROKER_PASSWORD:-}" ]] && args+=("--login" "$MQTT_USERNAME" "$MQTT_BROKER_PASSWORD")
   [[ -n "${BROKER_CONTROL_PORT:-}" ]] && args+=("--control-port" "$BROKER_CONTROL_PORT")
   python3 "$FAKES/minibroker.py" "${args[@]}" > "$WORK/broker.log" 2>&1 &
   env_track $!
