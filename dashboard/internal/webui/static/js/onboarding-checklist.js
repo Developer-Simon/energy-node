@@ -75,6 +75,19 @@
       }));
     },
     get versions() { return this.s.exploreVersions; },
+    // Karte oben in Neu erkunden: die aktuelle Version bestimmt, ob es Touren gibt.
+    get exploreHasTour() {
+      const current = this.versions.find((v) => v.current);
+      return Boolean(current?.items.some((item) => this.s.tourSteps(item).length));
+    },
+    get exploreUnseen() { return this.s.unseenCount; },
+    get exploreNote() {
+      if (!this.exploreHasTour) return t('onboarding.checklist.explore_note_none');
+      if (this.exploreUnseen) return t('onboarding.checklist.explore_note_unseen', { n: this.exploreUnseen });
+      return t('onboarding.checklist.explore_note_all_seen');
+    },
+    // Tour starten, solange etwas ungesehen ist, sonst alle Touren noch einmal.
+    exploreStart() { this.run('explore', null, { all: this.exploreUnseen === 0 }); },
     versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/\.0$/, '') }); },
     versionEyebrow(version) { return t(version.current ? 'onboarding.checklist.since_visit' : 'onboarding.checklist.older'); },
     // Die Versionsseite zeigt den Changelog dieser Version (?release=, siehe versions.page.js).
@@ -100,9 +113,9 @@
       const state = this.stateOf(item);
       this.run(state === 'open' || state === 'later' ? 'setup' : 'change', item.id);
     },
-    run(mode, from = null) {
+    run(mode, from = null, options = {}) {
       this.s.queue = [];
-      this.s.start(mode, from);
+      this.s.start(mode, from, options);
     },
 
     // Zustand eines Highlights: text, other-device, seen oder new.

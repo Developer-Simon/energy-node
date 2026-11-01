@@ -192,6 +192,10 @@
       if (!progress) return false;
       this.role = progress.role || 'guest';
       this.setupDone = Boolean(progress.setup?.done);
+      // Die Checkliste startet bei Neu erkunden, sobald die Einrichtung erledigt ist.
+      // Ein mode= in der Adresse (Deep Link) gewinnt, auch wenn der Store spaeter laedt.
+      const deepMode = new URLSearchParams(window.location.search).get('mode');
+      if (deepMode !== 'setup' && deepMode !== 'explore') this.checklistMode = this.setupDone ? 'explore' : 'setup';
       this.items = progress.setup?.items || [];
       this.exploreData = { current_version: progress.explore?.current_version || '', items: progress.explore?.items || [] };
       // Gespeichert und erkannt zusammen. Erkannt steht nur in den Items.
@@ -311,18 +315,19 @@
     // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. Das
     // Modell liefert Katalogschluessel, hier werden Titel und Texte uebersetzt.
     // Schritte mit literal (Neu erkunden) sind schon Text und bleiben so.
-    build(mode, from) {
+    // all: Wiederholen aus der Checkliste, jeder erlaubte Schritt, auch erledigte.
+    build(mode, from, all = false) {
       const { welcome } = window.obSteps;
       const areas = window.obSteps.areas.map((a) => ({ ...a, label: t(a.label) }));
       const steps = window.obModel.buildSteps({
-        mode, from, setup: this.setupItems, explore: this.exploreVersions, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
+        mode, from, all: Boolean(all), setup: this.setupItems, explore: this.exploreVersions, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
       });
       const translate = (s, value) => (s.literal ? value || '' : (value ? t(value) : ''));
       return steps.map((s) => ({ ...s, title: translate(s, s.title), text: translate(s, s.text), emptyText: s.emptyText ? t(s.emptyText) : '' }));
     },
 
-    start(mode, from = null, { index = 0 } = {}) {
-      const steps = this.build(mode, from);
+    start(mode, from = null, { index = 0, all = false } = {}) {
+      const steps = this.build(mode, from, all);
       if (!steps.length) {
         // Ein Lauf ohne Schritte wird nicht bei jedem Laden wieder versucht.
         this.run = null;
@@ -331,7 +336,7 @@
       }
       this.steps = steps;
       this.index = Math.min(index, steps.length - 1);
-      this.run = { mode, from, index: this.index };
+      this.run = { mode, from, index: this.index, all: Boolean(all) };
       this.finished = null;
       this.active = true;
       this.runId += 1;
@@ -362,7 +367,8 @@
       // Einrichtung merkt sich den aktuellen Schritt als from. Die Vorstellung
       // zaehlt im Index, nach dem Neuladen ist sie oft schon gesehen.
       const from = this.mode === 'setup' && this.index > 0 ? (this.step?.id || '') : (this.run?.from || '');
-      const run = this.run ? { mode: this.run.mode, from, index: this.index } : null;
+      // all steht nur im Lauf, wenn es gilt: so bleibt der Stand normaler Laeufe unveraendert.
+      const run = this.run ? { mode: this.run.mode, from, index: this.index, ...(this.run.all ? { all: true } : {}) } : null;
       void send('PUT', ME, { run });
     },
 
@@ -415,6 +421,8 @@
       const mode = this.mode;
       if (mode === 'setup') {
         this.setupDone = true;
+        // Abgeschlossen: die Checkliste zeigt danach Neu erkunden.
+        this.checklistMode = 'explore';
         void this.completeSetup();
         const items = this.setupItems;
         this.finished = {
@@ -501,10 +509,10 @@
         if (!loaded) return;
         const s = this.$store.onboarding;
         if (s.run) {
-          const { mode, from, index } = s.run;
+          const { mode, from, index, all } = s.run;
           // Nach Neuladen oder Login: beim selben Schritt weiter.
           // Einrichtung startet beim gemerkten Schritt, dort ist der Index 0.
-          setTimeout(() => s.start(mode, from || null, { index: mode === 'setup' && from ? 0 : index }), 600);
+          setTimeout(() => s.start(mode, from || null, { index: mode === 'setup' && from ? 0 : index, all: Boolean(all) }), 600);
         } else if (s.queue.length) {
           setTimeout(() => s.advanceQueue(), 600);
         }

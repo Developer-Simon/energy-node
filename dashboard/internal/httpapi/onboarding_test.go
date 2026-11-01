@@ -61,6 +61,7 @@ type onboardingView struct {
 			Mode  string `json:"mode"`
 			From  string `json:"from"`
 			Index int    `json:"index"`
+			All   bool   `json:"all"`
 		} `json:"run"`
 		Queue []string `json:"queue"`
 	} `json:"user"`
@@ -230,6 +231,22 @@ func TestMeOnlyTouchesOwnAccount(t *testing.T) {
 	admin = getOnboarding(t, router, adminCookie)
 	if admin.User.Run != nil || !admin.User.Welcomed || len(admin.User.Seen) != 1 {
 		t.Fatalf("after run null: %+v", admin.User)
+	}
+}
+
+// The all flag of a repeat run is stored with the run and comes back after a restart.
+func TestRepeatRunKeepsAllFlag(t *testing.T) {
+	usersPath := filepath.Join(t.TempDir(), "users.json")
+	stateDir := t.TempDir()
+	router, _ := newOnboardingTestRouter(t, usersPath, stateDir)
+	cookie, csrf := sessionFor(t, router, "admin", usersAdminPassword)
+	wantUsersStatus(t, usersCall(router, http.MethodPut, "/api/v1/onboarding/me", `{"run":{"mode":"setup","from":"users","index":0,"all":true}}`, cookie, csrf, true), http.StatusOK)
+
+	restarted, _ := newOnboardingTestRouter(t, usersPath, stateDir)
+	restartedCookie, _ := sessionFor(t, restarted, "admin", usersAdminPassword)
+	view := getOnboarding(t, restarted, restartedCookie)
+	if view.User.Run == nil || !view.User.Run.All || view.User.Run.From != "users" {
+		t.Fatalf("repeat run after restart = %+v, want all flag kept", view.User.Run)
 	}
 }
 

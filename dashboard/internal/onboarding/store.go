@@ -24,11 +24,13 @@ const (
 	StepInstaller StepState = "installer"
 )
 
-// Run ist ein laufender Durchgang der Führung für einen Nutzer.
+// Run ist ein laufender Durchgang der Führung für einen Nutzer. All steht,
+// wenn die Checkliste den ganzen Durchgang wiederholt, auch erledigte Schritte.
 type Run struct {
 	Mode  string `json:"mode"`
 	From  string `json:"from"`
 	Index int    `json:"index"`
+	All   bool   `json:"all,omitempty"`
 }
 
 // UserProgress hält den Fortschritt eines einzelnen Nutzers. Welcome ist

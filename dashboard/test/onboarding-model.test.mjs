@@ -224,3 +224,30 @@ test('pickText zeigt den Leertext nur, wenn der Bereich leer ist', () => {
   assert.equal(m.pickText(step, false), 'Erklaerung');
   assert.equal(m.pickText({ text: 'Erklaerung' }, true), 'Erklaerung');
 });
+
+test('setup with all repeats every allowed step, also the done and installer ones', () => {
+  const m = load();
+  const setup = [
+    { id: 'theme', area: 'display', title: 'A', text: '', target: '', check: 'change' },
+    { id: 'title', area: 'display', title: 'B', text: '', target: '', check: 'change' },
+    { id: 'devices', area: 'devices', title: 'C', text: '', target: '', check: 'change' },
+  ];
+  const status = { theme: 'done', title: 'done', devices: 'installer' };
+  const seen = { 'setup-intro': true };
+  assert.deepEqual(m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen, status, ctx: ctx(), all: true }).map((s) => s.id), ['theme', 'title', 'devices']);
+  assert.deepEqual(m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen, status, ctx: ctx() }).map((s) => s.id), []);
+});
+
+test('explore with all lists every item of the current version, seen or not', () => {
+  const m = load();
+  const explore = [
+    { version: '0.12.0', current: true, items: [
+      { id: 'a', title: 'A', text: 'A', steps: [{ title: 'A1', text: 'x', device: 'any' }] },
+      { id: 'b', title: 'B', text: 'B', steps: [{ title: 'B1', text: 'y', device: 'any' }] },
+    ] },
+    { version: '0.11.0', current: false, items: [{ id: 'c', title: 'C', text: 'C', steps: [{ title: 'C1', text: 'z' }] }] },
+  ];
+  const seen = { a: true };
+  assert.deepEqual(m.buildSteps({ mode: 'explore', explore, seen, ctx: ctx(), all: true }).map((s) => s.id), ['a', 'b']);
+  assert.deepEqual(m.buildSteps({ mode: 'explore', explore, seen, ctx: ctx() }).map((s) => s.id), ['b']);
+});

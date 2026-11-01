@@ -38,12 +38,12 @@ const SAMPLE_EXPLORE = {
 // Loads the page scripts into a jsdom window and returns the store plus a
 // checklist component bound to it. role decides admin or guest, width the device.
 // explore ist der Server-Block explore (Standard: SAMPLE_EXPLORE).
-async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE } = {}) {
+async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE, setupDone = false } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><ul id="root"></ul></body></html>', { runScripts: 'outside-only', url, pretendToBeVisual: true });
   const { window } = dom;
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
   // Die Schritte des Servers (setup.items), wie steps.go sie in dieser Reihenfolge liefert.
-  const progress = { role, setup: { done: false, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] }, explore };
+  const progress = { role, setup: { done: setupDone, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] }, explore };
   const calls = [];
   window.fetch = async (requestUrl, options = {}) => {
     calls.push({ url: requestUrl, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : undefined });
@@ -231,4 +231,58 @@ test('the deep link picks the setup mode for an admin', async () => {
   cl.init();
   assert.equal(store.checklistMode, 'setup');
   assert.equal(cl.mode, 'setup');
+});
+
+const TEXT_ONLY_EXPLORE = {
+  current_version: '0.12.0',
+  baseline_seen: false,
+  items: [{ id: 'h181', version: '0.12.0', pr: 181, text: 'Text only', details: null, tour: null }],
+};
+
+test('the explore card starts the tour while highlights are unseen', async () => {
+  const { store, component: cl, t } = await load();
+  assert.equal(cl.exploreUnseen, 1);
+  assert.equal(cl.exploreHasTour, true);
+  assert.equal(cl.exploreNote, t('onboarding.checklist.explore_note_unseen', { n: 1 }));
+  cl.exploreStart();
+  assert.equal(store.run.mode, 'explore');
+  assert.equal(store.run.all, false);
+  assert.equal(store.steps.length, 1);
+});
+
+test('the explore card repeats every tour once all is seen', async () => {
+  const { store, component: cl, t } = await load();
+  store.seen = { h184: true };
+  assert.equal(cl.exploreUnseen, 0);
+  assert.equal(cl.exploreNote, t('onboarding.checklist.explore_note_all_seen'));
+  cl.exploreStart();
+  assert.equal(store.run.all, true);
+  assert.equal(store.steps.length, 1);
+  assert.equal(store.steps[0].id, 'h184');
+});
+
+test('the explore card is disabled without any tour for this device', async () => {
+  const { component: cl, t } = await load({ explore: TEXT_ONLY_EXPLORE });
+  assert.equal(cl.exploreHasTour, false);
+  assert.equal(cl.exploreUnseen, 0);
+  assert.equal(cl.exploreNote, t('onboarding.checklist.explore_note_none'));
+});
+
+test('the setup repeat with all runs every allowed step', async () => {
+  const { window, store, component: cl } = await load();
+  store.status = Object.fromEntries(store.setupItems.map((item) => [item.id, 'done']));
+  cl.run('setup', cl.firstId, { all: true });
+  const allowed = store.setupItems.filter((item) => window.obModel.stepAllowed(item, store.ctx())).length;
+  assert.ok(allowed > 1);
+  assert.equal(store.steps.length, allowed);
+});
+
+test('a mode in the address wins over the default of a finished setup', async () => {
+  const { store } = await load({ url: 'http://localhost/?panel=settings&page=checklist&mode=setup', setupDone: true });
+  assert.equal(store.checklistMode, 'setup');
+});
+
+test('a finished setup opens the checklist on explore', async () => {
+  const { store } = await load({ setupDone: true });
+  assert.equal(store.checklistMode, 'explore');
 });

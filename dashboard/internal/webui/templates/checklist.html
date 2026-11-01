@@ -21,7 +21,7 @@
         <p class="setting-note" x-text="summaryNote"></p>
         <div class="ob-cl-summary-actions">
           <button type="button" class="ob-btn ob-btn--primary" x-show="openCount" x-on:click="run('setup')" x-text="$store.onboarding.setupDone ? $t('onboarding.checklist.review_open') : $t('onboarding.checklist.continue')"></button>
-          <button type="button" class="ob-btn" x-show="!openCount" x-on:click="run('setup', firstId)">{{t "onboarding.checklist.repeat"}}</button>
+          <button type="button" class="ob-btn" x-show="!openCount" x-on:click="run('setup', firstId, { all: true })">{{t "onboarding.checklist.repeat"}}</button>
         </div>
       </div>
 
@@ -50,6 +50,17 @@
 
     <!-- Neu erkunden: alle, nach Version, oben seit dem letzten Besuch. -->
     <div class="ob-cl-mode" x-show="mode === 'explore'">
+      <div class="setting-card ob-cl-summary">
+        <div class="ob-cl-summary-head">
+          <h3 class="setting-card-title">{{t "onboarding.checklist.explore_summary"}}</h3>
+        </div>
+        <p class="setting-note" x-text="exploreNote"></p>
+        <div class="ob-cl-summary-actions">
+          <button type="button" class="ob-btn ob-btn--primary" x-show="exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.explore_start"}}</button>
+          <button type="button" class="ob-btn" x-show="!exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.repeat"}}</button>
+        </div>
+      </div>
+
       <template x-for="version in versions" x-bind:key="version.version">
         <div class="setting-card ob-cl-card" x-bind:class="{ 'is-current': version.current }">
           <div class="ob-cl-summary-head">

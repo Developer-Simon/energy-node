@@ -397,3 +397,66 @@ test('a resize mid-run with no step left ends the run as finished', async () => 
   assert.equal(store.finished.mode, 'explore');
   assert.equal(store.index, 0);
 });
+
+// Alle Einrichtungspunkte erledigt: so sieht die Checkliste den Wiederholen-Knopf.
+const ALL_DONE = {
+  ...PROGRESS,
+  setup: { done: true, steps: {}, items: ITEMS.map((item) => ({ ...item, state: item.installer ? 'installer' : 'done' })) },
+};
+
+// Die Schritte, die fuer die Sitzung gelten (ohne Rechte entfaellt einer).
+const allowedSetup = (window, store) => store.setupItems.filter((s) => window.obModel.stepAllowed(s, store.ctx())).length;
+
+test('repeat with all runs every allowed setup step, not only the first', async () => {
+  const { store, window } = await load({ prepare: false, progress: ALL_DONE });
+  const first = store.setupItems[0].id;
+  const expected = allowedSetup(window, store);
+  assert.ok(expected > 1);
+  store.start('setup', first, { all: true });
+  assert.equal(store.steps.length, expected);
+});
+
+test('without all the same repeat collapses to one step', async () => {
+  const { store } = await load({ prepare: false, progress: ALL_DONE });
+  store.start('setup', store.setupItems[0].id);
+  assert.equal(store.steps.length, 1);
+});
+
+test('a repeat run resumes after a reload with the all flag', async () => {
+  const { store, calls, window } = await load({ prepare: false, progress: ALL_DONE });
+  const first = store.setupItems[0].id;
+  const expected = allowedSetup(window, store);
+  store.start('setup', first, { all: true });
+  store.index = 2;
+  store.persistRun();
+  const saved = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me' && c.body && 'run' in c.body).at(-1).body.run;
+  assert.equal(saved.all, true);
+  assert.equal(saved.from, store.setupItems[2].id);
+  // Nach dem Neuladen: der gemerkte Schritt ist der erste, der Lauf bleibt ganz.
+  const { store: again } = await load({ prepare: false, progress: { ...ALL_DONE, user: { ...ALL_DONE.user, run: saved } } });
+  again.start(saved.mode, saved.from || null, { index: 0, all: saved.all });
+  assert.equal(again.steps[0].id, store.setupItems[2].id);
+  assert.equal(again.steps.length, expected - 2);
+});
+
+test('the explore repeat with all includes the seen highlights', async () => {
+  const { store } = await load({ prepare: false });
+  store.seen = { h184: true };
+  store.start('explore', null, { all: true });
+  assert.deepEqual([...store.steps.map((s) => s.id)], ['h184']);
+});
+
+test('the checklist starts on explore when setup is done, else on setup', async () => {
+  const done = await load({ prepare: false, progress: ALL_DONE });
+  assert.equal(done.store.checklistMode, 'explore');
+  const open = await load({ prepare: false });
+  assert.equal(open.store.checklistMode, 'setup');
+});
+
+test('finishing a setup run switches the checklist to explore', async () => {
+  const { store } = await load();
+  store.checklistMode = 'setup';
+  store.finish();
+  assert.equal(store.finished.mode, 'setup');
+  assert.equal(store.checklistMode, 'explore');
+});

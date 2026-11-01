@@ -54,14 +54,16 @@
     };
   }
 
-  // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht.
-  function buildSteps({ mode, from = null, setup = [], explore = [], welcome = [], areas = [], seen = {}, status = {}, ctx }) {
+  // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. all = true
+  // (Wiederholen aus der Checkliste): jeder erlaubte Schritt, auch erledigte und
+  // gesehene.
+  function buildSteps({ mode, from = null, all = false, setup = [], explore = [], welcome = [], areas = [], seen = {}, status = {}, ctx }) {
     if (mode === 'setup') {
       if (ctx.role !== 'admin') return [];
       const stateOf = (id) => status[id] || 'open';
       // Schritte ohne bekannten Bereich entfallen, sonst fehlt das Eyebrow.
       const eligible = setup.filter((s) => stepAllowed(s, ctx) && areas.some((a) => a.id === s.area));
-      const open = eligible.filter((s) => !['done', 'installer'].includes(stateOf(s.id)) || s.id === from);
+      const open = eligible.filter((s) => all || !['done', 'installer'].includes(stateOf(s.id)) || s.id === from);
       const start = from ? Math.max(0, open.findIndex((s) => s.id === from)) : 0;
       const steps = open.slice(start).map((s) => {
         const inArea = open.filter((o) => o.area === s.area);
@@ -85,13 +87,13 @@
       return [{ ...step, eyebrow, dot: 0, dots: 1 }];
     }
     if (mode === 'explore') {
-      // Ohne from: die ungesehenen der aktuellen Version. Mit from (aus der
-      // Checkliste): genau dieses Highlight, auch aus aelteren Versionen.
+      // Ohne from: die ungesehenen der aktuellen Version, mit all alle. Mit from
+      // (aus der Checkliste): genau dieses Highlight, auch aus aelteren Versionen.
       const version = from
         ? explore.find((v) => v.items.some((item) => item.id === from))
         : explore.find((v) => v.current);
       if (!version) return [];
-      const items = version.items.filter((item) => (from ? item.id === from : !seen[item.id]) && tourSteps(item, ctx).length);
+      const items = version.items.filter((item) => (from ? item.id === from : all || !seen[item.id]) && tourSteps(item, ctx).length);
       const short = version.version.replace(/\.0$/, '');
       const flat = items.flatMap((item) => tourSteps(item, ctx)
         // Der Schritt zeigt seinen eigenen Titel und Text, nur ohne eigenen faellt er auf das Highlight zurueck.
