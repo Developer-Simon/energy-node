@@ -951,11 +951,22 @@
     "payload": "85"
   },
   {
+    "topic": "homeassistant/sensor/battery_soc/open_suggestions_pack/config",
+    "payload": {
+      "name": "Offene Einstellungsvorschläge",
+      "unique_id": "bank_open_suggestions_pack",
+      "state_topic": "outstation/bank/tuning",
+      "value_template": "{{ value_json.units.pack.suggestions | default([]) | length }}",
+      "json_attributes_topic": "outstation/bank/tuning",
+      "device": { "identifiers": ["battery_soc"], "name": "Batterie-Ladezustand" }
+    }
+  },
+  {
     "topic": "homeassistant/sensor/battery_soc/voltage_pack/config",
     "payload": {
       "name": "Spannung (Bus)",
       "unique_id": "battery_soc_voltage_pack",
-      "state_topic": "outstation/battery_soc/state",
+      "state_topic": "outstation/bank/state",
       "value_template": "{{ value_json.pack_voltage_v }}",
       "device": {
         "identifiers": [
@@ -980,19 +991,23 @@
     }
   },
   {
-    "topic": "outstation/battery_soc/state",
+    "topic": "outstation/bank/state",
     "payload": {
       "pack_voltage_v": 27.36,
+      "bank_a_voltage_v": 27.36,
+      "bank_a_corrected_v_per_cell": 3.398,
+      "bank_b_voltage_v": 27.2,
+      "bank_b_corrected_v_per_cell": 3.385,
       "pack_corrected_v_per_cell": 3.398,
       "soc_combined_pct": 63.4
     }
   },
   {
-    "topic": "outstation/battery_soc/tuning",
+    "topic": "outstation/bank/tuning",
     "payload": {
       "generated_iso": "2026-09-06T21:30:00+0200",
       "units": {
-        "pack": {
+        "bank_a": {
           "suggestions": [
             {
               "key": "inverter_dc_ac_efficiency",
@@ -1007,7 +1022,25 @@
             {
               "code": "zu_wenig_daten",
               "severity": "info",
-              "message": "Nur 8 Kalibrierereignisse - der Innenwiderstand bleibt vorerst unveraendert."
+              "message": "3 von 5 benötigten Intervallen zwischen zwei belastbaren Voll-Ankern. Ein einzelner Zyklus ist eine Anekdote, keine Messreihe.",
+              "params": {"count": 3, "needed": 5}
+            },
+            {
+              "code": "unplausibel",
+              "severity": "warnung",
+              "message": "Die Messreihe führt auf einen Innenwiderstand von 6.20 mOhm/Zelle, außerhalb des plausiblen Bereichs 0.1 bis 5.0. Das deutet eher auf eine falsch sitzende Spannungsmessung oder einen schlechten Kontakt als auf einen echten Zellwert hin.",
+              "params": {"subject": "resistance", "value": "6.20", "low": 0.1, "high": 5.0}
+            }
+          ]
+        },
+        "bank_b": {
+          "suggestions": [],
+          "findings": [
+            {
+              "code": "kein_unterer_anker",
+              "severity": "info",
+              "message": "Keine 0-%-Kalibrierung in der Historie. Ohne eine Strecke von voll bis leer ist die nutzbare Kapazität nicht bestimmbar, dafür gibt es hier grundsätzlich keinen Vorschlag. Schaltet der Wechselrichter oder das BMS vor empty_v_per_cell ab, ist calibration_tolerance_empty_v_per_cell der Hebel.",
+              "params": {}
             }
           ]
         }
