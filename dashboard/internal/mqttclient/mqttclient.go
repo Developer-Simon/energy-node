@@ -159,6 +159,11 @@ type Client struct {
 	watchHandler func(string, []byte)
 
 	connectPublisher func() []OutboundMessage
+
+	// retryDelay returns the wait before retry round n (1-based). attempt
+	// is one connection try. Tests replace both; see StartConnecting.
+	retryDelay func(attempt int) time.Duration
+	attempt    func() error
 }
 
 // SetVerboseLogging toggles the per-message discovery/state log lines. They
@@ -340,7 +345,9 @@ func NewWithContextAndFilter(parent context.Context, cfg Config, reg *registry.R
 		subscribed:     make(map[string]bool),
 		subscribeQueue: make(chan subscriptionOp, 256),
 		filter:         filter,
+		retryDelay:     defaultRetryDelay,
 	}
+	c.attempt = func() error { return c.connectWithTimeout(c.connectTimeout()) }
 	go c.subscriptionWorker()
 	return c
 }
@@ -485,6 +492,73 @@ func (c *Client) queueSubscription(topic string, subscribe bool) {
 // re-established automatically after a later reconnect.
 func (c *Client) Connect() error {
 	return c.connectWithTimeout(c.connectTimeout())
+}
+
+// StartConnecting makes one first connection try. On success it returns true.
+// On failure it records the error, returns false and keeps retrying in the
+// background until the connection succeeds or the Client is closed. Unlike
+// Connect, it never blocks for longer than one attempt, so the dashboard can
+// start while the broker is still unreachable.
+func (c *Client) StartConnecting() (connected bool) {
+	if err := c.attempt(); err != nil {
+		c.recordConnectFailure(err)
+		go c.retryLoop()
+		return false
+	}
+	return true
+}
+
+func (c *Client) recordConnectFailure(err error) {
+	c.mu.Lock()
+	c.status.LastError = err.Error()
+	c.status.FailedAttempts++
+	c.mu.Unlock()
+	c.logger.Printf("mqtt connect failed, retrying in the background: %v", err)
+}
+
+// retryLoop runs until the connection is up or c.ctx is cancelled. Each round
+// takes reloadMu, so a retry never overlaps a Reconfigure or Reload.
+func (c *Client) retryLoop() {
+	for round := 1; ; round++ {
+		timer := time.NewTimer(c.retryDelay(round))
+		select {
+		case <-c.ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+
+		c.reloadMu.Lock()
+		c.mu.Lock()
+		alreadyConnected := c.paho != nil && c.paho.IsConnected()
+		c.mu.Unlock()
+		if alreadyConnected {
+			c.reloadMu.Unlock()
+			return
+		}
+		err := c.attempt()
+		if err == nil {
+			c.mu.Lock()
+			c.status.LastError = ""
+			c.mu.Unlock()
+			c.reloadMu.Unlock()
+			return
+		}
+		c.recordConnectFailure(err)
+		c.reloadMu.Unlock()
+	}
+}
+
+// defaultRetryDelay doubles from 5 s per failed round and caps at 60 s.
+func defaultRetryDelay(attempt int) time.Duration {
+	delay := 5 * time.Second
+	for i := 1; i < attempt && delay < 60*time.Second; i++ {
+		delay *= 2
+	}
+	if delay > 60*time.Second {
+		return 60 * time.Second
+	}
+	return delay
 }
 
 // getConfig and setConfig guard c.cfg with c.mu so Reconfigure can swap the

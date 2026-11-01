@@ -3,8 +3,11 @@ package mqttclient
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 )
@@ -213,5 +216,178 @@ func TestWatchTopicsDeliversMessagesToTheHandler(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("watch handler not called")
+	}
+}
+
+// fakePaho only answers IsConnected and Disconnect. The embedded nil interface makes any
+// other method call panic, which is what we want: the retry loop must not
+// touch the broker client beyond that check.
+type fakePaho struct {
+	mqtt.Client
+	connected bool
+}
+
+func (f fakePaho) IsConnected() bool { return f.connected }
+
+// Disconnect is reached from Close on a connected fake. It is a no-op here.
+func (f fakePaho) Disconnect(uint) {}
+
+func newRetryTestClient(delay time.Duration) *Client {
+	client := NewWithContext(context.Background(), Config{}, registry.New(), nil)
+	client.retryDelay = func(int) time.Duration { return delay }
+	return client
+}
+
+func waitForCount(t *testing.T, counter *atomic.Int32, want int32) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for counter.Load() < want {
+		if time.Now().After(deadline) {
+			t.Fatalf("attempt called %d times, want at least %d", counter.Load(), want)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestStartConnectingReturnsTrueOnFirstSuccess(t *testing.T) {
+	client := newRetryTestClient(time.Millisecond)
+	var calls atomic.Int32
+	client.attempt = func() error {
+		calls.Add(1)
+		return nil
+	}
+
+	if !client.StartConnecting() {
+		t.Fatal("StartConnecting() = false, want true on first success")
+	}
+	if got := client.Status().FailedAttempts; got != 0 {
+		t.Fatalf("FailedAttempts = %d, want 0", got)
+	}
+	time.Sleep(30 * time.Millisecond)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("attempt called %d times, want exactly 1 (no retry loop on success)", got)
+	}
+}
+
+func TestStartConnectingRetriesUntilSuccess(t *testing.T) {
+	client := newRetryTestClient(time.Millisecond)
+	var calls atomic.Int32
+	client.attempt = func() error {
+		if calls.Add(1) <= 2 {
+			return errors.New("not Authorized")
+		}
+		return nil
+	}
+
+	if client.StartConnecting() {
+		t.Fatal("StartConnecting() = true, want false when the first attempt fails")
+	}
+	if got := client.Status().LastError; got != "not Authorized" {
+		t.Fatalf("LastError = %q, want %q", got, "not Authorized")
+	}
+	waitForCount(t, &calls, 3)
+	if got := calls.Load(); got != 3 {
+		t.Fatalf("attempt called %d times, want exactly 3", got)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for client.Status().LastError != "" {
+		if time.Now().After(deadline) {
+			t.Fatal("LastError not cleared after the successful retry")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if got := client.Status().FailedAttempts; got != 2 {
+		t.Fatalf("FailedAttempts = %d, want 2", got)
+	}
+	client.Close()
+}
+
+func TestStartConnectingStopsOnClose(t *testing.T) {
+	client := newRetryTestClient(20 * time.Millisecond)
+	var calls atomic.Int32
+	client.attempt = func() error {
+		calls.Add(1)
+		return errors.New("connection refused")
+	}
+
+	client.StartConnecting()
+	waitForCount(t, &calls, 2)
+
+	client.Close()
+	// One in-flight attempt may still finish after Close; afterwards the
+	// counter must stop moving.
+	time.Sleep(60 * time.Millisecond)
+	before := calls.Load()
+	time.Sleep(100 * time.Millisecond)
+	if after := calls.Load(); after != before {
+		t.Fatalf("attempt still running after Close: %d -> %d calls", before, after)
+	}
+}
+
+func TestStartConnectingSkipsAttemptWhenAlreadyConnected(t *testing.T) {
+	client := newRetryTestClient(time.Millisecond)
+	var calls atomic.Int32
+	client.attempt = func() error {
+		calls.Add(1)
+		return errors.New("not Authorized")
+	}
+	// Connected through another path before the loop's next round.
+	client.mu.Lock()
+	client.paho = fakePaho{connected: true}
+	client.status.Connected = true
+	client.mu.Unlock()
+
+	if client.StartConnecting() {
+		t.Fatal("StartConnecting() = true, want false for the failing first attempt")
+	}
+	// Give the loop several rounds to (not) run.
+	time.Sleep(100 * time.Millisecond)
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("attempt called %d times, want 1 (only the synchronous first try)", got)
+	}
+	client.Close()
+}
+
+func TestStartConnectingAttemptsRunUnderReloadMu(t *testing.T) {
+	client := newRetryTestClient(time.Millisecond)
+	var calls atomic.Int32
+	client.attempt = func() error {
+		n := calls.Add(1)
+		if n == 1 {
+			return errors.New("not Authorized")
+		}
+		if client.reloadMu.TryLock() {
+			client.reloadMu.Unlock()
+			t.Error("retry attempt ran without holding reloadMu")
+		}
+		return nil
+	}
+
+	client.reloadMu.Lock()
+	client.StartConnecting()
+	time.Sleep(50 * time.Millisecond)
+	if got := calls.Load(); got != 1 {
+		client.reloadMu.Unlock()
+		t.Fatalf("retry ran while reloadMu was held: %d calls", got)
+	}
+	client.reloadMu.Unlock()
+
+	waitForCount(t, &calls, 2)
+	client.Close()
+}
+
+func TestDefaultRetryDelayDoublesAndCapsAtOneMinute(t *testing.T) {
+	cases := map[int]time.Duration{
+		1:  5 * time.Second,
+		2:  10 * time.Second,
+		3:  20 * time.Second,
+		4:  40 * time.Second,
+		5:  60 * time.Second,
+		50: 60 * time.Second,
+	}
+	for attempt, want := range cases {
+		if got := defaultRetryDelay(attempt); got != want {
+			t.Errorf("defaultRetryDelay(%d) = %v, want %v", attempt, got, want)
+		}
 	}
 }
