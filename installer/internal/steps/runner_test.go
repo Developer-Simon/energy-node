@@ -222,6 +222,94 @@ printf '##STEP 40 ok\n'
 	}
 }
 
+func TestRunWithForceIgnoresAStampedStep(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	// Mirrors step_done: a stamp for this bundle version skips the step,
+	// unless EN_FORCE=1 is set.
+	const stampedScript = `#!/bin/sh
+printf '##STEP 10 begin\n'
+if [ "$EN_FORCE" != 1 ] && grep -qx "bundle=$EN_BUNDLE_VERSION" "$EN_STATE_DIR/steps/10" 2>/dev/null; then
+  printf '##STEP 10 skip\n'
+  exit 0
+fi
+printf '##STEP 10 ok\n'
+`
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"10-apt.sh": stampedScript,
+	})
+	run := func(force bool) steps.Marker {
+		t.Helper()
+		if err := client.Run(context.Background(), "mkdir -p "+stateDir+"/steps && printf 'bundle=v0.1.0\\n' > "+stateDir+"/steps/10", &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+			t.Fatalf("writing stamp: %v", err)
+		}
+		var markers []steps.Marker
+		err := steps.Run(context.Background(), steps.RunOptions{
+			Client:          client,
+			RemoteBundleDir: bundleDir,
+			RemoteStateDir:  stateDir,
+			BundleVersion:   "v0.1.0",
+			Force:           force,
+			Steps:           []bundle.StepEntry{{ID: "10", Optional: false}},
+			OnMarker:        func(m steps.Marker) { markers = append(markers, m) },
+		})
+		if err != nil {
+			t.Fatalf("Run(force=%v): %v", force, err)
+		}
+		if len(markers) == 0 {
+			t.Fatalf("Run(force=%v) reported no terminal marker", force)
+		}
+		return markers[len(markers)-1]
+	}
+
+	if got := run(false); got.Kind != steps.Skip {
+		t.Fatalf("without Force a stamped step should be skipped, got %+v", got)
+	}
+	if got := run(true); got.Kind != steps.OK {
+		t.Fatalf("with Force a stamped step should run, got %+v", got)
+	}
+}
+
+func TestRunWithForceStillHonoursTheSelection(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	// The script reads $EN_SELECTION itself, as step_selected does, so a
+	// deselected step skips even when Force is set.
+	const selectionScript = `#!/bin/sh
+printf '##STEP 40 begin\n'
+if grep -q '"40":false' "$EN_SELECTION"; then
+  printf '##STEP 40 skip\n'
+  exit 0
+fi
+printf '##STEP 40 ok\n'
+`
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"40-tailscale.sh": selectionScript,
+	})
+
+	var markers []steps.Marker
+	err := steps.Run(context.Background(), steps.RunOptions{
+		Client:          client,
+		RemoteBundleDir: bundleDir,
+		RemoteStateDir:  stateDir,
+		BundleVersion:   "v0.1.0",
+		Force:           true,
+		Steps:           []bundle.StepEntry{{ID: "40", Optional: true}},
+		Selection:       &selection.Selection{Steps: map[string]bool{"40": false}},
+		OnMarker:        func(m steps.Marker) { markers = append(markers, m) },
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(markers) == 0 || markers[len(markers)-1].Kind != steps.Skip {
+		t.Fatalf("a deselected step must stay skipped under Force, got %+v", markers)
+	}
+}
+
 func TestRunInlinesEnvironmentInsteadOfUsingSSHSetenv(t *testing.T) {
 	requireSFTPServerForSteps(t)
 	sshd := transporttest.Start(t)

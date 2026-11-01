@@ -534,11 +534,10 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		TargetBase:      firstNonEmpty(req.TargetBase, manifest.TargetBase),
 		MQTTUser:        req.MQTTUser,
 		RestartAll:      req.RestartAll,
-		// A first setup runs every step; only an update skips what is done.
-		Force:      req.Mode == hostapi.ModeInstall && req.Only == "",
-		OnlineDeps: h.onlineDepsNeeded(),
-		Steps:      list,
-		Selection:  h.selectionForRun(),
+		Force:           forceStamps(req),
+		OnlineDeps:      h.onlineDepsNeeded(),
+		Steps:           list,
+		Selection:       h.selectionForRun(),
 		Secrets: &steps.Secrets{
 			MQTTPassword:  req.MQTTPassword,
 			AdminPassword: req.AdminPassword,
@@ -558,6 +557,20 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 	}
 	h.recordAfterFullRun(ctx, client, req.Only, sink)
 	return nil
+}
+
+// forceStamps reports whether the steps ignore their stamps and run anyway.
+// A first setup runs every step, and so does a repair: the operator asked for
+// the step to be fixed, so an existing stamp must not skip it. An update
+// (install with Only set, redeploy) keeps the stamps and skips what is done.
+func forceStamps(req hostapi.RunRequest) bool {
+	switch req.Mode {
+	case hostapi.ModeRepair:
+		return true
+	case hostapi.ModeInstall:
+		return req.Only == ""
+	}
+	return false
 }
 
 // recordInstalled is a seam for tests; production always runs
