@@ -309,6 +309,7 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
 .ob-crosslink--tour svg { fill: currentColor; stroke: none; }
 /* Offene Touren: der Chip ist gefuellt wie der Knopf Tour starten. Sind alle gesehen, bleibt er ein neutraler Chip. */
 .ob-crosslink--tour.is-primary { background: var(--accent); color: var(--accent-ink); }
+.ob-crosslink--tour.is-primary > svg:first-child { color: inherit; }
 @media (hover: hover) and (pointer: fine) {
   .ob-crosslink--tour.is-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--text-strong)); }
 }
