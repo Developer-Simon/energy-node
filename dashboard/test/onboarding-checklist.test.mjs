@@ -205,7 +205,7 @@ test('a seen highlight with only one sentence has no action button and no expand
   assert.equal(cl.newsState(item), 'seen');
   assert.equal(cl.newsAction(item), '', 'no action button');
   assert.equal(cl.isMarkOnly(item), true);
-  assert.equal(cl.newsSub(item), '');
+  assert.equal(cl.newsSub(item), '', 'no tour and no permission limit: nothing to say');
 });
 
 test('a seen highlight without a tour but with details offers Lesen and only toggles the reading', async () => {
@@ -219,7 +219,7 @@ test('a seen highlight without a tour but with details offers Lesen and only tog
   assert.equal(cl.newsState(item), 'seen');
   assert.equal(cl.newsAction(item), t('onboarding.checklist.action_read'), 'Lesen, not Nochmal');
   assert.equal(cl.isMarkOnly(item), false);
-  assert.equal(cl.newsSub(item), t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights'), 'the subtitle stays as before');
+  assert.equal(cl.newsSub(item), t('onboarding.checklist.news_no_tour'), 'the subtitle stays as before');
   cl.newsAct(item);
   assert.equal(cl.isReading(item), true, 'the details open');
   assert.equal(store.run, null, 'no tour is started');
@@ -742,4 +742,20 @@ test('the toggles for older and earlier versions sit in their own card below the
   assert.ok(html.indexOf('class="setting-card ob-cl-more" data-tour="checklist-more"') > html.indexOf('x-for="version in versions"'));
   assert.match(more, /x-show="olderToggleShown \|\| archiveToggleShown"/);
   assert.match(more, /x-on:click="toggleArchive\(\)"[\s\S]*x-on:click="toggleOlder\(\)"/);
+});
+
+test('a tourless highlight says when the permissions hide its tour, with or without details', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'l1', version: '0.12.0', text: 'Limited', details: null, tour: null, tour_limited: true },
+      { id: 'l2', version: '0.12.0', text: 'Limited with details', details: { doc: '' }, tour: null, tour_limited: true },
+      { id: 'p1', version: '0.12.0', text: 'Text with details', details: { doc: '' }, tour: null },
+    ],
+  };
+  const { store, component: cl, t } = await load({ explore });
+  const [l1, l2, p1] = store.exploreVersions[0].items;
+  assert.equal(cl.newsSub(l1), t('onboarding.checklist.news_no_tour_rights'));
+  assert.equal(cl.newsSub(l2), t('onboarding.checklist.news_no_tour_rights'));
+  assert.equal(cl.newsSub(p1), t('onboarding.checklist.news_no_tour'), 'no permission limit: the details keep the old text');
 });

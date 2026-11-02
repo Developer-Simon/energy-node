@@ -298,6 +298,8 @@
           detail: item.details ? localized(item.details.text, item.details.text?.en) : '',
           // tour null heisst: nur Text, keine Tour.
           tour: item.tour ? undefined : false,
+          // tour_limited: der Nutzer hat die Rechte fuer alle Schritte nicht, die Tour fehlt deshalb.
+          tourLimited: Boolean(item.tour_limited),
           // Veraltet: die Tour passt nicht mehr zur Oberflaeche (Server, Ziele fehlen).
           stale: Boolean(item.tour?.stale),
           // Ersatz einer veralteten Tour: Highlight und Schritt (Index unter den erlaubten Schritten).

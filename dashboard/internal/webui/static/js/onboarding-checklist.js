@@ -210,9 +210,12 @@
     newsSub(item) {
       const state = this.newsState(item);
       if (state === 'other-device') return t(this.s.ctx().device === 'phone' ? 'onboarding.checklist.only_desktop' : 'onboarding.checklist.only_phone');
+      // Fehlt die Tour wegen der Rechte des Nutzers, sagt die Unterzeile das, mit oder ohne Details.
       // Ohne Tour und ohne Details steht der eine Satz schon als Titel, die Unterzeile bleibt leer.
-      if (noTour(item) && !item.details) return '';
-      if (noTour(item)) return t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights');
+      if (noTour(item)) {
+        if (item.tourLimited) return t('onboarding.checklist.news_no_tour_rights');
+        return item.details ? t('onboarding.checklist.news_no_tour') : '';
+      }
       if (state === 'seen') return t('onboarding.checklist.news_seen');
       if (state === 'new') return t('onboarding.checklist.news_new');
       return t(this.replacementStart(item) ? 'onboarding.checklist.news_replaced' : 'onboarding.checklist.news_stale');

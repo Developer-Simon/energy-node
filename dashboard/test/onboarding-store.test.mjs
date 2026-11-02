@@ -282,6 +282,7 @@ test('exploreVersions groups the server highlights in the model shape', async ()
   assert.equal(guest.title, 'Gast-Schalter');
   assert.equal(guest.text, 'Gast-Schalter');
   assert.equal(guest.tour, undefined);
+  assert.equal(guest.tourLimited, false);
   assert.equal(guest.steps.length, 1);
   assert.deepEqual({ ...guest.steps[0], open: [...guest.steps[0].open] }, {
     panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: '', need: 'user_management',
@@ -292,6 +293,7 @@ test('exploreVersions groups the server highlights in the model shape', async ()
   const textOnly = current.items[1];
   assert.equal(textOnly.title, 'Text only');
   assert.equal(textOnly.tour, false);
+  assert.equal(textOnly.tourLimited, false);
   assert.deepEqual([...textOnly.steps], []);
   assert.equal(textOnly.detail, 'Mehr');
 });
@@ -530,6 +532,21 @@ test('exploreVersions splits a card into one section per component, dashboard fi
   const [card] = store.exploreVersions;
   assert.deepEqual([...card.sections.map((s) => [s.id, s.label, s.version, [...s.items.map((i) => i.id)]])], [['dashboard', 'Dashboard', '', ['d1', 'd2']], ['bootstrap', 'Bootstrap', 'v0.2.6', ['b1']]]);
   assert.deepEqual([...card.items.map((i) => i.id)], ['d1', 'b1', 'd2']);
+});
+
+test('exploreVersions carries the tour_limited flag of a highlight without a tour for this user', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'lim', version: '0.12.0', minor: '0.12', text: 'Limited', tour: null, tour_limited: true },
+      { id: 'txt', version: '0.12.0', minor: '0.12', text: 'Text', tour: null },
+    ],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const [lim, txt] = store.exploreVersions[0].items;
+  assert.equal(lim.tourLimited, true);
+  assert.equal(lim.tour, false);
+  assert.equal(txt.tourLimited, false);
 });
 
 test('exploreVersions carries the stale flag of a tour', async () => {
