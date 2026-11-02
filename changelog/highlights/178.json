@@ -17,12 +17,12 @@
           ],
           "target": "toast",
           "text": {
-            "de": "Die Linie am unteren Rand zeigt, wie lange ein Toast noch stehen bleibt. Solange der Mauszeiger darauf liegt, hält die Zeit an. Nach rechts wischen schließt den Toast.",
-            "en": "The line at the bottom shows how long a toast stays. While the pointer is on it, the time stops. Swiping right closes the toast."
+            "de": "Der Ablauf der Benachrichtigung wird jetzt über eine ablaufende Leiste angezeigt. Die Nachricht kann auch durch Wischen direkt entfernt werden.",
+            "en": "The time left on a notification is now shown by a running-down bar. You can also dismiss the message directly by swiping."
           },
           "title": {
-            "de": "Neue Toasts",
-            "en": "New toasts"
+            "de": "Neue Benachrichtigungen",
+            "en": "New notifications"
           }
         }
       ]
