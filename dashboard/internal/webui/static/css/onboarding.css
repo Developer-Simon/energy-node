@@ -62,6 +62,10 @@
   from { opacity: 0; transform: scale(1.06); }
   to { opacity: 1; transform: none; }
 }
+.ob-spot-ring.is-pressing .ob-spot-ring-inner { animation: ob-ring-press .18s var(--ease-out); }
+@keyframes ob-ring-press {
+  50% { transform: scale(.94); }
+}
 .ob-spot.is-done .ob-spot-ring-inner { box-shadow: 0 0 0 2px var(--ok), 0 0 0 7px color-mix(in srgb, var(--ok) 22%, transparent); }
 .ob-spot.is-done .ob-spot-ring-inner::after {
   content: '';
@@ -193,13 +197,13 @@
 
 /* Fortschrittspunkte: der aktive Punkt gleitet, die anderen zeigen den
    Zustand ihres Schritts (erledigt gefuellt, spaeter hohl). */
-.ob-dots { position: relative; display: flex; gap: 6px; padding: 2px 0; }
+.ob-dots { position: relative; display: flex; flex: 1 1 0; flex-wrap: wrap; gap: 6px; min-width: 0; padding: 2px 0; }
 .ob-dots i { width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--text-strong) 22%, transparent); transition: background-color .2s ease; }
 .ob-dots i.is-done { background: color-mix(in srgb, var(--ok) 75%, transparent); }
 .ob-dots i.is-later { background: transparent; box-shadow: inset 0 0 0 1px var(--text-muted); }
 .ob-dots-thumb {
   position: absolute;
-  top: 2px;
+  top: 0;
   left: 0;
   width: 6px;
   height: 6px;
@@ -303,6 +307,12 @@
    die Aktion neben dem Link auf die Release-Notes zuerst ins Auge faellt. */
 button.ob-crosslink { font: inherit; cursor: pointer; }
 .ob-crosslink--tour svg { fill: currentColor; stroke: none; }
+/* Offene Touren: der Chip ist gefuellt wie der Knopf Tour starten. Sind alle gesehen, bleibt er ein neutraler Chip. */
+.ob-crosslink--tour.is-primary { background: var(--accent); color: var(--accent-ink); }
+.ob-crosslink--tour.is-primary > svg:first-child { color: inherit; }
+@media (hover: hover) and (pointer: fine) {
+  .ob-crosslink--tour.is-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--text-strong)); }
+}
 .ob-crosslink:active {
   transform: scale(.98);
   transition-duration: 100ms;
@@ -399,6 +409,8 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
 }
 .ob-marker[hidden] { display: none; }
 .ob-marker--tab { position: absolute; top: .55rem; right: .3rem; margin: 0; }
+/* Punkt an den Knoepfen der schmalen Navigation: im Text, auf der Mittellinie. */
+.nav-menu-toggle .ob-marker, .nav-more-toggle .ob-marker, .nav-more-list .ob-marker { flex: none; vertical-align: middle; }
 
 /* --- Checkliste ------------------------------------------------------------ */
 .ob-checklist .ob-cl-mode { display: contents; }
@@ -558,6 +570,7 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   .ob-bar-wrap, .ob-dock.is-shown .ob-bar-wrap { transform: none; transition: opacity .2s ease, visibility 0s linear .2s; }
   .ob-dock.is-shown .ob-bar-wrap { transition: opacity .2s ease, visibility 0s; }
   .ob-spot-ring.is-arriving .ob-spot-ring-inner { animation-name: ob-fade-in; }
+  .ob-spot-ring.is-pressing .ob-spot-ring-inner { animation-name: ob-fade-in; }
   .ob-spot.is-done .ob-spot-ring-inner::after { animation: none; }
   .ob-check { animation-name: ob-fade-in; }
   @keyframes ob-fade-in { from { opacity: 0; } to { opacity: 1; } }

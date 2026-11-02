@@ -25,6 +25,8 @@
   const SESSION = '/api/v1/auth/session';
   // Begruessung eines Gastes gilt fuer die Dauer der Browsersitzung.
   const WELCOME_DONE_KEY = 'ob-welcome-done';
+  // Neuerungen: die Zahl ungesehener Neuerungen, bei der das Angebot weggeklickt wurde.
+  const NEWS_NOTE_KEY = 'ob-news-note-dismissed';
 
   const t = (key, params) => window.I18n.t(key, params);
 
@@ -35,6 +37,16 @@
   };
   const rememberWelcomeDone = () => {
     try { window.sessionStorage.setItem(WELCOME_DONE_KEY, '1'); } catch { /* siehe welcomeDoneHere */ }
+  };
+  // null: nicht weggeklickt (oder kein Zugriff auf den Speicher).
+  const newsNoteDismissedHere = () => {
+    try {
+      const raw = window.sessionStorage.getItem(NEWS_NOTE_KEY);
+      return raw === null ? null : Number(raw);
+    } catch { return null; }
+  };
+  const rememberNewsNoteDismissed = (count) => {
+    try { window.sessionStorage.setItem(NEWS_NOTE_KEY, String(count)); } catch { /* ohne Speicher bleibt die Notiz offen */ }
   };
 
   const isPhone = () => window.matchMedia(PHONE).matches;
@@ -123,8 +135,11 @@
 
   // Ein Selektor kann mehrfach treffen (versteckte Kopien in anderen
   // Ansichten). Das erste sichtbare Element gewinnt.
-  const resolveTarget = (target) => {
+  // Mit scope werden zuerst die sichtbaren Treffer im Bereich einer Aktion gesucht.
+  const resolveTarget = (target, scope = null) => {
     if (typeof target === 'function') return target();
+    const inScope = scope ? [...scope.querySelectorAll(target)].find((el) => window.obSpotlight.visibleRect(el)) : null;
+    if (inScope) return inScope;
     const all = [...document.querySelectorAll(target)];
     return all.find((el) => window.obSpotlight.visibleRect(el)) || all[0] || null;
   };
@@ -183,6 +198,8 @@
     steps: [],
     index: 0,
     finished: null,
+    // Zahl ungesehener Neuerungen beim Wegklicken der Start-Notiz, null solange nicht weggeklickt.
+    newsNoteDismissed: newsNoteDismissedHere(),
 
     // Liest den Fortschritt des angemeldeten Kontos. Gelingt es nicht, bleibt
     // der Store leer und die Leiste startet nichts.
@@ -209,15 +226,18 @@
       // Sie wird wie enqueue() ans Konto geschrieben, startet aber erst die Leiste.
       if ((progress.queue || []).includes('setup') && !this.run && !this.queue.includes('setup')) {
         this.queue = [...this.queue, 'setup'];
-        void send('PUT', ME, { queue: this.queue });
+        void this.persistQueue();
       }
       // Ein Gast hat kein Konto, sein Stand kommt nur aus dem Browser. Der Server
       // meldet die Begruessung bei jedem Laden neu, deshalb gilt das Merkmal der Sitzung.
       const guestDone = this.role === 'guest' && welcomeDoneHere();
       if ((progress.queue || []).includes('welcome') && !guestDone && !this.run && !this.queue.includes('welcome')) {
         this.queue = [...this.queue, 'welcome'];
-        void send('PUT', ME, { queue: this.queue });
+        void this.persistQueue();
       }
+      // Das Angebot der Neuerungen startet nach Einrichtung und Begruessung. Es steht
+      // nur in der Sitzung, nie am Konto (persistQueue filtert es heraus).
+      if (!this.queue.length && !this.run && this.newsOfferWanted) this.queue = ['news'];
       this.loaded = true;
       return true;
     },
@@ -295,8 +315,12 @@
           detail: item.details ? localized(item.details.text, item.details.text?.en) : '',
           // tour null heisst: nur Text, keine Tour.
           tour: item.tour ? undefined : false,
+          // tour_limited: der Nutzer hat die Rechte fuer alle Schritte nicht, die Tour fehlt deshalb.
+          tourLimited: Boolean(item.tour_limited),
           // Veraltet: die Tour passt nicht mehr zur Oberflaeche (Server, Ziele fehlen).
           stale: Boolean(item.tour?.stale),
+          // Ersatz einer veralteten Tour: Highlight und Schritt (Index unter den erlaubten Schritten).
+          replacement: item.tour?.replacement || null,
           archive: Boolean(item.archive),
           steps: (item.tour?.steps || []).map((s) => ({
             panel: s.panel,
@@ -304,6 +328,8 @@
             target: `[data-tour="${s.target}"]`,
             device: s.device,
             need: s.need,
+            // Eintraege, die der Schritt oeffnet (Regeln, Zeitfenster), als Strings aus dem Server.
+            open: Array.isArray(s.open) ? s.open : [],
             title: localized(s.title, s.title?.en),
             text: localized(s.text, s.text?.en),
             literal: true,
@@ -316,6 +342,25 @@
     },
     get unseenCount() {
       return window.obModel.unseenCount(this.exploreVersions, this.seen, this.ctx());
+    },
+    // Gibt es in der aktuellen Version eine Tour fuer dieses Geraet und Recht (wie die Checkliste).
+    get newsTourAvailable() {
+      const current = this.exploreVersions.find((v) => v.current);
+      return Boolean(current?.items.some((item) => !item.stale && this.tourSteps(item).length));
+    },
+    // Bietet die Startseite die Neuerungen an: ungesehen mit Tour, kein Lauf offen und nicht
+    // weggeklickt, bis mehr ungesehen ist als beim Wegklicken. Der Admin erst nach der Einrichtung.
+    get newsOfferWanted() {
+      if (this.active || this.run || this.finished) return false;
+      if (this.role === 'admin' && !this.setupDone) return false;
+      const unseen = this.unseenCount;
+      if (!unseen || !this.newsTourAvailable) return false;
+      return this.newsNoteDismissed === null || unseen > this.newsNoteDismissed;
+    },
+    // Merkt die Zahl ungesehener Neuerungen beim Wegklicken. Erst mehr ungesehene zeigen wieder.
+    dismissNews() {
+      this.newsNoteDismissed = this.unseenCount;
+      rememberNewsNoteDismissed(this.newsNoteDismissed);
     },
     // Schritte eines Highlights, die fuer Rolle und Geraet gelten (wie in obModel).
     tourSteps(item) {
@@ -344,6 +389,8 @@
     },
 
     start(mode, from = null, { index = 0, all = false } = {}) {
+      // Das Angebot der Startseite ist ein Neu-erkunden-Lauf ueber die ungesehenen Neuerungen.
+      if (mode === 'news') return this.start('explore', window.obModel.NEWS_FROM);
       const steps = this.build(mode, from, all);
       if (!steps.length) {
         // Ein Lauf ohne Schritte wird nicht bei jedem Laden wieder versucht.
@@ -365,7 +412,7 @@
     enqueue(...modes) {
       this.queue = [...this.queue, ...modes.filter((m) => !this.queue.includes(m))];
       if (!this.active) this.advanceQueue();
-      void send('PUT', ME, { queue: this.queue });
+      void this.persistQueue();
     },
     advanceQueue() {
       let started = false;
@@ -373,8 +420,12 @@
         const mode = this.queue.shift();
         started = this.start(mode) === true;
       }
-      void send('PUT', ME, { queue: this.queue });
+      void this.persistQueue();
       return started;
+    },
+    // Schreibt die Warteschlange ans Konto, ohne das Angebot der Neuerungen (nur Sitzung).
+    persistQueue() {
+      return send('PUT', ME, { queue: this.queue.filter((m) => m !== 'news') });
     },
 
     // Schreibt den Lauf mit aktuellem Schritt, damit Neuladen oder Login
@@ -394,6 +445,8 @@
     markStep(state) {
       const step = this.step;
       if (!step) return Promise.resolve(false);
+      // Die Vorstellung des Angebots schreibt nichts: die Neuerungen gelten erst mit ihrer Tour als gesehen.
+      if (step.newsIntro) return Promise.resolve(false);
       // Die Vorstellung hat kein Ziel und keinen Status, sie gilt mit Weiter als gesehen.
       if (step.intro) {
         this.seen = { ...this.seen, [step.id]: true };
@@ -466,6 +519,12 @@
     },
     // Weg hinaus, ohne Rueckfrage: alles bleibt in der Checkliste erreichbar.
     skip() {
+      // Weg hinaus aus dem Angebot: gemerkt, ohne Abschlussmeldung.
+      if (this.step?.newsIntro) {
+        this.dismissNews();
+        this.close();
+        return;
+      }
       const mode = this.mode;
       if (mode === 'setup') {
         this.setupDone = true;
@@ -495,6 +554,14 @@
   // einen Lauf aus dem Fortschritt wieder aufnimmt.
   let ready = Promise.resolve(false);
 
+  // Lage des n-ten Punkts im Punktfeld (offsetLeft/offsetTop relativ zu .ob-dots).
+  // Ohne Messung rechnet der Daumen mit dem festen Abstand von 12 px.
+  function dotOffset(cells, index) {
+    const cell = Array.isArray(cells) ? cells[index] : null;
+    if (!cell || !Number.isFinite(cell.left) || !Number.isFinite(cell.top)) return { x: index * 12, y: 0 };
+    return { x: cell.left, y: cell.top };
+  }
+
   const obBar = () => ({
     spot: null,
     sheet: null,
@@ -507,6 +574,11 @@
     direction: 1,
     drag: null,
     cleanup: [],
+    // Lauf der Aktionen des aktuellen Schritts (window.obActions), null ohne Tour.
+    actions: null,
+    // Gemessene Punkte des Punktfelds und Freigabe der Daumen-Animation.
+    dotCells: [],
+    dotReady: false,
     // Sprachwahl in der Vorstellung, nur solange kein lang-Cookie gesetzt ist.
     langPick: !/(?:^|;\s*)lang=/.test(document.cookie),
 
@@ -518,16 +590,29 @@
         onUpdate: ({ y }) => { this.$refs.bar.style.transform = y ? `translate3d(0, ${y}px, 0)` : ''; },
       });
       this.$watch('$store.onboarding.active', (on) => { if (!on) this.hideAll(); });
-      this.$watch('$store.onboarding.runId', () => { this.direction = 1; this.show(); });
+      this.$watch('$store.onboarding.runId', () => { this.direction = 1; this.show(); this.$nextTick(() => this.measureDots()); });
       this.$watch('$store.onboarding.index', (next, prev) => {
         this.direction = next >= prev ? 1 : -1;
+        this.$nextTick(() => this.measureDots());
         if (this.$store.onboarding.active) {
           this.show();
           this.s.persistRun();
         }
       });
-      this.$watch('$store.onboarding.finished', (fin) => { if (fin) { this.spot.hide(); this.setCollapsed(false); this.swapIn(); } });
+      this.$watch('$store.onboarding.finished', (fin) => {
+        if (!fin) return;
+        this.spot.hide();
+        this.setCollapsed(false);
+        this.swapIn();
+        void window.obActions.next(this.actions, []);
+        this.actions = null;
+      });
       window.matchMedia(PHONE).addEventListener('change', () => { this.sheet.set({ y: 0 }); this.collapsed = false; this.left = false; });
+      // Die Fensterbreite aendert den Umbruch der Punkte, deshalb neu messen.
+      window.addEventListener('resize', () => this.measureDots());
+      if (typeof ResizeObserver !== 'undefined' && this.$refs.dots) {
+        new ResizeObserver(() => this.measureDots()).observe(this.$refs.dots);
+      }
       ready.then((loaded) => {
         if (!loaded) return;
         const s = this.$store.onboarding;
@@ -551,7 +636,19 @@
     },
     get checklistLabel() { return this.s.mode === 'explore' ? t('onboarding.bar.checklist_explore') : t('onboarding.bar.checklist_setup'); },
     get closeLabel() { return this.s.mode === 'setup' ? t('onboarding.bar.skip_setup') : t('onboarding.bar.end_tour'); },
-    get dotTransform() { return `translateX(${(this.step?.dot || 0) * 12}px)`; },
+    get dotTransform() {
+      const { x, y } = dotOffset(this.dotCells, this.step?.dot || 0);
+      return `translate(${x}px, ${y}px)`;
+    },
+    // Lage aller Punkte aus dem DOM. Versteckt (x-show) wird nicht gemessen,
+    // der ResizeObserver misst wieder, sobald das Feld sichtbar ist.
+    measureDots() {
+      const el = this.$refs.dots;
+      if (!el || !el.offsetParent) return;
+      this.dotCells = Array.from(el.querySelectorAll('i'), (dot) => ({ left: dot.offsetLeft, top: dot.offsetTop }));
+      // Erste Lage ohne Gleiten: die Animation erst im naechsten Frame freigeben.
+      if (!this.dotReady) requestAnimationFrame(() => { this.dotReady = true; });
+    },
     dotState(i) {
       const step = this.step;
       if (!step || (this.s.mode !== 'setup')) return '';
@@ -572,17 +669,30 @@
       this.detach();
       if (step.intro) {
         // Vorstellung ohne Ziel: das Blatt bleibt offen, kein Spotlight, kein Ort.
+        // Die Klicks des vorigen Schritts werden trotzdem zurueckgenommen.
+        this.actions = await window.obActions.next(this.actions, []);
+        if (step !== this.step) return;
         this.target = null;
         this.spot.hide();
         return;
       }
       this.spot.hold();
+      // Vor dem Ort: die Klicks des vorigen Schritts werden in seinem Bereich zurueckgenommen.
+      this.actions = await window.obActions.next(this.actions, step.open || []);
+      if (step !== this.step) return;
       const placed = await openPlace(step);
-      let el = placed ? await waitFor(() => resolveTarget(step.target)) : null;
+      await window.obActions.apply(this.actions, {
+        alive: () => step === this.step,
+        show: (el, opts) => this.pressOn(el, opts),
+        waitFor,
+      });
+      if (step !== this.step) return;
+      this.cleanup.push(window.obActions.watchTakeover(this.actions));
+      let el = placed ? await waitFor(() => resolveTarget(step.target, this.actions?.scope)) : null;
       if (el) await settle(el);
       if (step !== this.step) return;
       // Waehrend des Wartens kann ein Live-Tausch das Element ersetzt haben.
-      if (el && !el.isConnected) el = await waitFor(() => resolveTarget(step.target), 1500);
+      if (el && !el.isConnected) el = await waitFor(() => resolveTarget(step.target, this.actions?.scope), 1500);
       if (step !== this.step) return;
       if (!el) {
         // Ziel fehlt (anderer Dienst, Recht, Layout): Schritt ueberspringen.
@@ -598,7 +708,7 @@
       this.spot.show(el, {
         onLost: () => { this.lost = true; },
         onFound: () => { this.lost = false; },
-        resolve: () => resolveTarget(step.target),
+        resolve: () => resolveTarget(step.target, this.actions?.scope),
       });
       this.watchDone(el, step);
       this.avoidWhenStill(step);
@@ -615,6 +725,19 @@
       el.style.scrollMarginTop = `${top}px`;
       el.style.scrollMarginBottom = isPhone() ? `${bar.height + 36}px` : '24px';
       el.scrollIntoView({ block: rect.height > bottom - top ? 'start' : 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+    },
+
+    // Zeigt das Ziel einer Aktion und laesst es kurz pulsen, bevor geklickt wird.
+    // Bei reduzierter Bewegung entfaellt die Wartezeit vor dem Puls.
+    // opts.slow laesst langsamere Aktionen (Geraetedialog) laenger stehen.
+    async pressOn(el, opts = {}) {
+      const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const slow = Boolean(opts.slow) && !calm;
+      this.reveal(el);
+      this.spot.show(el);
+      if (!calm) await new Promise((resolve) => setTimeout(resolve, slow ? 750 : 280));
+      this.spot.press();
+      await new Promise((resolve) => setTimeout(resolve, slow ? 320 : (calm ? 120 : 140)));
     },
 
     // Erst entscheiden, wenn Scrollen und Feder zur Ruhe gekommen sind.
@@ -702,7 +825,15 @@
     },
     // Vorstellung auf spaeter legen: die Leiste geht zu, der gespeicherte Lauf bleibt
     // unveraendert (close() wuerde ihn loeschen). Beim naechsten Neuladen startet die Tour.
-    nextTime() { this.s.postpone(); },
+    // Beim Angebot der Neuerungen: gemerkt und zu. Es kommt erst wieder, wenn mehr ungesehen ist.
+    nextTime() {
+      if (this.step?.newsIntro) {
+        this.s.dismissNews();
+        this.s.close();
+        return;
+      }
+      this.s.postpone();
+    },
     back() { if (this.s.index > 0) this.s.index -= 1; },
     again() { this.lost = false; this.show(); },
     checklist() {
@@ -715,6 +846,8 @@
     hideAll() {
       this.detach();
       this.spot.hide();
+      void window.obActions.next(this.actions, []);
+      this.actions = null;
       this.collapsed = false;
       this.left = false;
       this.sheet.set({ y: 0 });
@@ -778,5 +911,5 @@
     window.Alpine.effect(() => { marker.hidden = !window.Alpine.store('onboarding').unseenCount; });
   });
 
-  window.obOnboarding = { openPlace, waitFor, resolveTarget };
+  window.obOnboarding = { openPlace, waitFor, resolveTarget, dotOffset };
 })();

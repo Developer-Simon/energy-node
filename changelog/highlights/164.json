@@ -28,6 +28,41 @@
         },
         {
           "need": "automations",
+          "open": [
+            "automations-rules",
+            "@open-rule"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-item",
+          "text": {
+            "de": "Die Einzelregeln sind überarbeitet. Eine Regel klappt auf und zeigt Bedingungen, Aktionen und Ablauf in einer Karte.",
+            "en": "Single rules have been reworked. A rule opens up and shows its conditions, actions and flow in one card."
+          },
+          "title": {
+            "de": "Überarbeitete Einzelregeln",
+            "en": "Reworked single rules"
+          }
+        },
+        {
+          "need": "automations",
+          "open": [
+            "automations-rules",
+            "@time-rule",
+            "rule-monthdays-toggle"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-monthdays",
+          "text": {
+            "de": "Ein Zeitfenster gilt an den gewählten Wochentagen. Unter Erweitert schränkst du es auf bestimmte Tage im Monat ein, etwa nur auf den 1. und den 15.",
+            "en": "A time window applies on the chosen weekdays. Under Advanced you limit it to certain days of the month, for example only the 1st and the 15th."
+          },
+          "title": {
+            "de": "Tage im Monat",
+            "en": "Days of the month"
+          }
+        },
+        {
+          "need": "automations",
           "panel": "automations-panel",
           "target": "automations",
           "text": {

@@ -45,11 +45,11 @@
        live plant view and the notices above stay visible. */}}
   <div class="energy-accordion">
     <section class="energy-acc" data-energy-section="interpretation" x-bind:data-open="isSectionOpen('interpretation') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading" data-tour="energy-interpretation"><button type="button" class="energy-acc-toggle" id="energy-acc-interpretation-toggle" aria-controls="energy-acc-interpretation" x-bind:aria-expanded="isSectionOpen('interpretation') ? 'true' : 'false'" x-on:click="toggleSection('interpretation', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-gear"></use></svg></span><span class="energy-acc-title">{{t "energy.roles.interpretation.heading"}}</span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
+      <h3 class="energy-acc-heading" data-tour="energy-interpretation"><button type="button" class="energy-acc-toggle" id="energy-acc-interpretation-toggle" data-tour="energy-interpretation-toggle"aria-controls="energy-acc-interpretation" x-bind:aria-expanded="isSectionOpen('interpretation') ? 'true' : 'false'" x-on:click="toggleSection('interpretation', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-gear"></use></svg></span><span class="energy-acc-title">{{t "energy.roles.interpretation.heading"}}</span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-interpretation" role="region" aria-labelledby="energy-acc-interpretation-toggle" x-show="isSectionOpen('interpretation')" x-cloak>
         <div class="energy-interpretation-body">
 
-          <div class="energy-interpretation-group">
+          <div class="energy-interpretation-group" data-tour="energy-load-mode">
             <span class="energy-interpretation-head"><span class="energy-interpretation-label">{{t "energy.role.consumption"}}</span></span>
             <div class="radio-card-group energy-load-modes" role="radiogroup" aria-label="{{t "energy.role.consumption"}}">
               <label class="radio-card"><input type="radio" name="load-mode" value="auto" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.auto_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.auto_desc"}}</span></span></label>
@@ -112,7 +112,7 @@
       </div>
     </section>
     <section class="energy-acc" data-energy-section="roles" x-bind:data-open="isSectionOpen('roles') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading" data-tour="energy-roles-head"><button type="button" class="energy-acc-toggle" id="energy-acc-roles-toggle" aria-controls="energy-acc-roles" x-bind:aria-expanded="isSectionOpen('roles') ? 'true' : 'false'" x-on:click="toggleSection('roles', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-flash"></use></svg></span><span class="energy-acc-title">{{t "energy.section.roles"}}</span><span class="energy-acc-meta" x-text="sectionMeta('roles')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
+      <h3 class="energy-acc-heading" data-tour="energy-roles-head"><button type="button" class="energy-acc-toggle" id="energy-acc-roles-toggle" data-tour="energy-roles-toggle"aria-controls="energy-acc-roles" x-bind:aria-expanded="isSectionOpen('roles') ? 'true' : 'false'" x-on:click="toggleSection('roles', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-flash"></use></svg></span><span class="energy-acc-title">{{t "energy.section.roles"}}</span><span class="energy-acc-meta" x-text="sectionMeta('roles')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-roles" role="region" aria-labelledby="energy-acc-roles-toggle" x-show="isSectionOpen('roles')" x-cloak>
       {{if .Energy.Roles}}
       <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
@@ -162,8 +162,8 @@
 
       </div>
     </section>
-    <section class="energy-acc" data-energy-section="groups" x-bind:data-open="isSectionOpen('groups') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading" data-tour="energy-groups"><button type="button" class="energy-acc-toggle" id="energy-acc-groups-toggle" aria-controls="energy-acc-groups" x-bind:aria-expanded="isSectionOpen('groups') ? 'true' : 'false'" x-on:click="toggleSection('groups', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg></span><span class="energy-acc-title">{{t "energy.groups.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('groups')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
+    <section class="energy-acc" data-energy-section="groups" data-tour="energy-groups" x-bind:data-open="isSectionOpen('groups') ? 'true' : 'false'">
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-groups-toggle" data-tour="energy-groups-toggle" aria-controls="energy-acc-groups" x-bind:aria-expanded="isSectionOpen('groups') ? 'true' : 'false'" x-on:click="toggleSection('groups', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg></span><span class="energy-acc-title">{{t "energy.groups.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('groups')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-groups" role="region" aria-labelledby="energy-acc-groups-toggle" x-show="isSectionOpen('groups')" x-cloak>
         <p class="energy-groups-empty" x-show="!Object.keys(groups).length">{{t "energy.groups.empty"}}</p>
         <div class="energy-card-grid">

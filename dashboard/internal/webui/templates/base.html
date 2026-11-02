@@ -61,7 +61,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
   <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=46">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=4">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/onboarding.css?v=5">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -130,6 +130,7 @@
             x-bind:aria-expanded="navOpen ? 'true' : 'false'"
             x-on:click="navOpen = !navOpen">
       <span x-text="activeTabLabel">{{t "nav.overview"}}</span>
+      <span class="ob-marker" aria-hidden="true" x-show="$store.onboarding.unseenCount"></span>
       <span class="nav-menu-chevron" aria-hidden="true"></span>
     </button>
     <nav id="dashboard-tabs" role="tablist" aria-label="{{t "nav.tabs_label"}}"
@@ -183,12 +184,13 @@
               x-bind:class="{ active: overflowNav.some((item) => item.active) }"
               x-on:click="navMoreOpen = !navMoreOpen">
         <span>{{t "nav.more"}}</span>
+        <span class="ob-marker" aria-hidden="true" x-show="$store.onboarding.unseenCount && overflowNav.some((item) => item.settings)"></span>
         <span class="nav-menu-chevron" aria-hidden="true"></span>
       </button>
       <div id="dashboard-more-list" class="nav-more-list" role="menu" x-show="navMoreOpen" x-cloak>
         <template x-for="item in overflowNav" x-bind:key="item.key">
           <button type="button" role="menuitem" x-bind:class="{ active: item.active }"
-                  x-text="item.label" x-on:click="item.el.click(); navMoreOpen = false"></button>
+                  x-on:click="item.el.click(); navMoreOpen = false"><span x-text="item.label"></span><span class="ob-marker" aria-hidden="true" x-show="item.settings && $store.onboarding.unseenCount"></span></button>
         </template>
       </div>
     </span>
@@ -212,7 +214,7 @@
 {{if index .Can "view_config"}}  <section id="config-panel" class="panel" role="tabpanel" aria-labelledby="tab-config" x-bind:class="{ active: activePanel === 'config-panel' }" x-show="activePanel === 'config-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=config" data-panel-script="{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/config-status.js?v=4,{{.BasePath}}/static/js/config.page.js?v=11" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48"><p class="panel-loading" data-panel-loading>{{t "panel.config_loading"}}</p></section>{{end}}
 {{if index .Can "view_energy"}}  <section id="energy-panel" class="panel" role="tabpanel" aria-labelledby="tab-energy" x-bind:class="{ active: activePanel === 'energy-panel' }" x-show="activePanel === 'energy-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=energy" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=14,{{.BasePath}}/static/js/devicemap-subdevices.js?v=1,{{.BasePath}}/static/js/devicemap-graph.js?v=9,{{.BasePath}}/static/js/devicemap-wiring.js?v=3,{{.BasePath}}/static/js/devicemap-dataflow.js?v=5,{{.BasePath}}/static/js/devicemap-node-svg.js?v=7,{{.BasePath}}/static/js/devicemap-labels.js?v=4,{{.BasePath}}/static/js/energy-plant.js?v=6,{{.BasePath}}/static/js/device-picker.js?v=2,{{.BasePath}}/static/js/devicemap-switch.js?v=2,{{.BasePath}}/static/js/energy.page.js?v=13" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48"><p class="panel-loading" data-panel-loading>{{t "panel.energy_loading"}}</p></section>{{end}}
 {{if index .Can "view_device_map"}}  <section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=devicemap" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=14,{{.BasePath}}/static/js/devicemap-node-svg.js?v=7,{{.BasePath}}/static/js/devicemap-labels.js?v=4,{{.BasePath}}/static/js/devicemap-subdevices.js?v=1,{{.BasePath}}/static/js/devicemap-graph.js?v=9,{{.BasePath}}/static/js/devicemap-wiring.js?v=3,{{.BasePath}}/static/js/devicemap-dataflow.js?v=5,{{.BasePath}}/static/js/automations-view.js?v=8,{{.BasePath}}/static/js/device-picker.js?v=2,{{.BasePath}}/static/js/devicemap-switch.js?v=2,{{.BasePath}}/static/js/devicemap-view-prefs.js?v=1,{{.BasePath}}/static/js/devicemap.page.js?v=29" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48"><p class="panel-loading" data-panel-loading>{{t "panel.devicemap_loading"}}</p></section>{{end}}
-  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings-masonry.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=30,{{.BasePath}}/static/js/onboarding-checklist.js?v=3,{{.BasePath}}/static/js/mqtt.page.js?v=11,{{.BasePath}}/static/js/tailscale.page.js?v=5,{{.BasePath}}/static/js/versions.page.js?v=10,{{.BasePath}}/static/js/systemconfig.page.js?v=5,{{.BasePath}}/static/js/users-model.js?v=2,{{.BasePath}}/static/js/users.page.js?v=4" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=48,{{.BasePath}}/static/css/settings-controls.css?v=20"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
+  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings-masonry.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=30,{{.BasePath}}/static/js/onboarding-checklist.js?v=4,{{.BasePath}}/static/js/mqtt.page.js?v=11,{{.BasePath}}/static/js/tailscale.page.js?v=5,{{.BasePath}}/static/js/versions.page.js?v=10,{{.BasePath}}/static/js/systemconfig.page.js?v=5,{{.BasePath}}/static/js/users-model.js?v=2,{{.BasePath}}/static/js/users.page.js?v=4" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=48,{{.BasePath}}/static/css/settings-controls.css?v=20"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
 {{if index .Can "view_automations"}}  {{if index .InstalledServices "automation"}}<section id="automations-panel" class="panel" role="tabpanel" aria-labelledby="tab-automations" x-bind:class="{ active: activePanel === 'automations-panel' }" x-show="activePanel === 'automations-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=automations" data-panel-script="{{.BasePath}}/static/js/config-status.js?v=4,{{.BasePath}}/static/js/automations-view.js?v=8,{{.BasePath}}/static/js/automations-scenario.js?v=4,{{.BasePath}}/static/js/automations-chart.js?v=3,{{.BasePath}}/static/js/automations-devices.js?v=2,{{.BasePath}}/static/js/device-picker.js?v=2,{{.BasePath}}/static/js/automation-wizard.js?v=4,{{.BasePath}}/static/js/automation-templates.js?v=4,{{.BasePath}}/static/js/automation-sheet.js?v=1,{{.BasePath}}/static/js/automation-band.js?v=2,{{.BasePath}}/static/js/automations.page.js?v=22" data-panel-css="{{.BasePath}}/static/css/manager.css?v=48,{{.BasePath}}/static/css/automations.css?v=14"><p class="panel-loading" data-panel-loading>{{t "panel.automations_loading"}}</p></section>{{end}}{{end}}
   {{else}}
 {{if index .Can "view_diagnostics"}}  <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-script="{{.BasePath}}/static/js/servicelogs.panel.js?v=2" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=20,{{.BasePath}}/static/css/diagnostics.css?v=3"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>{{end}}
@@ -229,7 +231,7 @@
            :class="{ 'is-leaving': toast.state === 'leaving', 'is-swiped': toast.state === 'swiped' }">
         <div class="notification-toast-clip">
           <div class="notification-toast" :class="`notification-toast-${toast.severity}`"
-               x-toast-gesture="toast">
+               x-toast-gesture="toast" data-tour="toast">
             <svg class="notification-toast-icon" viewBox="0 0 24 24" aria-hidden="true"><use :href="toast.severity === 'info' ? '#ico-check' : '#ico-warning'"></use></svg>
             <span class="notification-toast-message" x-text="toast.message"></span>
             <span class="notification-toast-count" x-show="toast.count > 1"
@@ -308,15 +310,16 @@
   <script src="{{.BasePath}}/static/js/history-maintenance.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=13" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/dashboard.js?v=42" defer></script>
+  <script src="{{.BasePath}}/static/js/dashboard.js?v=43" defer></script>
   <script src="{{.BasePath}}/static/js/update-bar.js?v=7" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-motion.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-spotlight.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding-model.js?v=4" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-spotlight.js?v=3" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-actions.js?v=1" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding-model.js?v=5" defer></script>
   <script src="{{.BasePath}}/static/js/highlight-details.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=3" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding.js?v=4" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding.js?v=5" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine.min.js" defer></script>
@@ -490,7 +493,7 @@
             <div class="ob-bar-copy">
               <h2 class="ob-bar-title" id="ob-bar-title" x-text="step?.title"></h2>
               <p class="ob-bar-text" x-text="step?.text"></p>
-              <div class="ob-lang" x-show="step?.intro && langPick">
+              <div class="ob-lang" x-show="step?.intro && !step?.newsIntro && langPick">
                 <span class="ob-lang-label">{{t "language.label"}}</span>
                 <div class="lang-pill ob-lang-pill" role="radiogroup" aria-label="{{t "language.label"}}" style="--lang-count: {{len .Languages}}">
                   <span class="lang-pill-thumb" aria-hidden="true"></span>
@@ -521,11 +524,11 @@
         </div>
 
         <div class="ob-bar-foot">
-          <div class="ob-dots" aria-hidden="true" x-show="!$store.onboarding.finished && (step?.dots || 0) > 1">
+          <div class="ob-dots" x-ref="dots" aria-hidden="true" x-show="!$store.onboarding.finished && (step?.dots || 0) > 1">
             <template x-for="i in (step?.dots || 0)" x-bind:key="i">
               <i x-bind:class="'is-' + dotState(i - 1)"></i>
             </template>
-            <span class="ob-dots-thumb" x-bind:style="'transform:' + dotTransform"></span>
+            <span class="ob-dots-thumb" x-bind:style="'transform:' + dotTransform + (dotReady ? '' : ';transition:none')"></span>
           </div>
           <div class="ob-bar-actions">
             <template x-if="!$store.onboarding.finished">

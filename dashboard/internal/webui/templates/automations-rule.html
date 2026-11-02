@@ -125,7 +125,7 @@
                   </div>
 
                   <template x-if="rule.history_enabled">
-                    <div class="auto-fires">
+                    <div class="auto-fires" data-tour="rule-fires">
                       <div class="auto-fires-head" x-show="ruleTriggers(rule).marks.length">
                         <span class="auto-block-cap" x-text="ruleTriggers(rule).marks.length === 1 ? $t('automations.rule.timeline.caption_one') : $t('automations.rule.timeline.caption_many', {count: ruleTriggers(rule).marks.length})"></span>
                         <small x-text="$t('automations.rule.timeline.since', {time: ruleTriggers(rule).sinceLabel})"></small>
@@ -183,7 +183,7 @@
                     {{template "automations-action-tiles"}}
                   </section>
 
-                  <section class="auto-block auto-flow-group">
+                  <section class="auto-block auto-flow-group" data-tour="rule-flow">
                     <h4 class="auto-block-cap">{{t "automations.rule.block.flow"}}</h4>
                     <div class="auto-flow-row">
                       <svg class="automation-icon auto-flow-icon" aria-hidden="true"><use href="#ico-history"></use></svg>

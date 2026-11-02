@@ -19,6 +19,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/versions"
 )
 
 // onboardingView is the GET /api/v1/onboarding response.
@@ -637,5 +638,118 @@ func TestExploreItemCarriesTextAndDetails(t *testing.T) {
 	}
 	if item.Tour == nil || len(item.Tour.Steps) != 1 {
 		t.Fatalf("tour = %+v, want the checklist step", item.Tour)
+	}
+}
+
+func TestTourIsStaleWhenAnOpenEntryIsUnknown(t *testing.T) {
+	targets := map[string]bool{"known": true}
+	user := auth.User{Roles: []string{auth.RoleViewOverview}}
+	stale := onboardingTourFor(user, &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "known", Device: "any", Open: []string{"gone"}},
+	}}, targets)
+	if stale == nil || !stale.Stale {
+		t.Fatalf("tour = %+v, want stale for an unknown open entry", stale)
+	}
+	fresh := onboardingTourFor(user, &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "known", Device: "any", Open: []string{"known"}},
+	}}, targets)
+	if fresh == nil || fresh.Stale {
+		t.Fatalf("tour = %+v, want not stale when every open entry is known", fresh)
+	}
+}
+
+func TestTourLimitedWhenPermissionsHideEveryStep(t *testing.T) {
+	needsAutomations := &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "known", Device: "any", Need: auth.RoleAutomations},
+	}}
+	without := auth.User{Roles: []string{auth.RoleViewOverview}}
+	with := auth.User{Roles: []string{auth.RoleViewOverview, auth.RoleViewAutomations, auth.RoleAutomations}}
+	if item := (onboardingExploreItem{Tour: onboardingTourFor(without, needsAutomations, nil), TourLimited: tourLimitedFor(without, needsAutomations)}); item.Tour != nil || !item.TourLimited {
+		t.Fatalf("item = %+v, want no tour and limited for a user without the role", item)
+	}
+	if tourLimitedFor(with, needsAutomations) {
+		t.Fatal("limited for a user with the role, want not limited")
+	}
+	if tourLimitedFor(without, nil) {
+		t.Fatal("limited without a tour, want not limited")
+	}
+	exempt := &versions.HighlightTour{Exempt: "Only the backend changed"}
+	if tourLimitedFor(without, exempt) {
+		t.Fatal("limited for an exempt tour, want not limited")
+	}
+}
+
+// replacementEntry builds an explore item and its unfiltered source tour the
+// way onboardingExplore does.
+func replacementEntry(id string, pr int, user auth.User, tour *versions.HighlightTour, targets map[string]bool) (onboardingExploreItem, *versions.HighlightTour) {
+	return onboardingExploreItem{ID: id, PR: pr, Tour: onboardingTourFor(user, tour, targets)}, tour
+}
+
+func TestReplacementPointsAtTheAllowedStep(t *testing.T) {
+	targets := map[string]bool{"known": true}
+	user := auth.User{Roles: []string{auth.RoleViewOverview}}
+	staleItem, staleSource := replacementEntry("h10", 10, user, &versions.HighlightTour{
+		Steps:      []versions.TourStep{{Target: "gone", Device: "any"}},
+		ReplacedBy: &versions.TourReplacement{PR: 20, Step: 2},
+	}, targets)
+	newItem, newSource := replacementEntry("h20", 20, user, &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "known", Device: "any"},
+		{Target: "known", Device: "any"},
+	}}, targets)
+	items := []onboardingExploreItem{staleItem, newItem}
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	if items[0].Tour.Replacement == nil || *items[0].Tour.Replacement != (onboardingReplacement{ID: "h20", Index: 1}) {
+		t.Fatalf("replacement = %+v, want h20 at index 1", items[0].Tour.Replacement)
+	}
+
+	// The first step needs a right the user lacks, so the walk starts at index 0.
+	newItem, newSource = replacementEntry("h20", 20, user, &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "known", Device: "any", Need: auth.RoleUserManagement},
+		{Target: "known", Device: "any"},
+	}}, targets)
+	staleItem, staleSource = replacementEntry("h10", 10, user, staleSource, targets)
+	items = []onboardingExploreItem{staleItem, newItem}
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	if items[0].Tour.Replacement == nil || *items[0].Tour.Replacement != (onboardingReplacement{ID: "h20", Index: 0}) {
+		t.Fatalf("replacement = %+v, want h20 at index 0", items[0].Tour.Replacement)
+	}
+}
+
+func TestReplacementNeedsAnAllowedStep(t *testing.T) {
+	targets := map[string]bool{"known": true}
+	user := auth.User{Roles: []string{auth.RoleViewOverview}}
+	staleTour := &versions.HighlightTour{
+		Steps:      []versions.TourStep{{Target: "gone", Device: "any"}},
+		ReplacedBy: &versions.TourReplacement{PR: 20, Step: 2},
+	}
+	// The named step needs a right the user lacks.
+	staleItem, staleSource := replacementEntry("h10", 10, user, staleTour, targets)
+	newItem, newSource := replacementEntry("h20", 20, user, &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "known", Device: "any"},
+		{Target: "known", Device: "any", Need: auth.RoleUserManagement},
+	}}, targets)
+	items := []onboardingExploreItem{staleItem, newItem}
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	if items[0].Tour.Replacement != nil {
+		t.Fatalf("replacement = %+v, want none when the step is not allowed", items[0].Tour.Replacement)
+	}
+
+	// The replacement highlight is stale itself.
+	newItem, newSource = replacementEntry("h20", 20, user, &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "gone", Device: "any"},
+	}}, targets)
+	staleItem, staleSource = replacementEntry("h10", 10, user, staleTour, targets)
+	items = []onboardingExploreItem{staleItem, newItem}
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	if items[0].Tour.Replacement != nil {
+		t.Fatalf("replacement = %+v, want none when the replacement is stale", items[0].Tour.Replacement)
+	}
+
+	// No listed highlight has the PR.
+	staleItem, staleSource = replacementEntry("h10", 10, user, staleTour, targets)
+	items = []onboardingExploreItem{staleItem}
+	resolveReplacements(items, []*versions.HighlightTour{staleSource}, user)
+	if items[0].Tour.Replacement != nil {
+		t.Fatalf("replacement = %+v, want none without a listed PR 20", items[0].Tour.Replacement)
 	}
 }

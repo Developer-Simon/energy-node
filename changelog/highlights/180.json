@@ -16,14 +16,30 @@
         {
           "need": "view_devices",
           "panel": "devices-panel",
-          "target": "devices",
+          "target": "device-tile",
           "text": {
-            "de": "Öffne die Details eines Geräts und markiere bis zu drei Werte als Favoriten. Sie stehen dann dauerhaft auf der Kachel und oben in den Gerätedetails.",
-            "en": "Open the details of a device and mark up to three values as favourites. They then stay on its tile and at the top of the device details."
+            "de": "Favoriten stehen dauerhaft auf der Kachel eines Geräts. Du wählst sie in den Gerätedetails.",
+            "en": "Favourites stay on the tile of a device. You choose them in the device details."
           },
           "title": {
             "de": "Favoriten-Werte",
             "en": "Favourite values"
+          }
+        },
+        {
+          "need": "edit_device_appearance",
+          "open": [
+            "@device-modal"
+          ],
+          "panel": "devices-panel",
+          "target": "device-favorite",
+          "text": {
+            "de": "Markiere bis zu drei Werte mit dem Stern als Favoriten. Sie stehen dann dauerhaft auf der Kachel und oben in den Gerätedetails.",
+            "en": "Mark up to three values as favourites with the star. They then stay on the tile and at the top of the device details."
+          },
+          "title": {
+            "de": "Stern setzen",
+            "en": "Set the star"
           }
         }
       ]

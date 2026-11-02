@@ -21,6 +21,30 @@ function load() {
   return { spotlight: dom.window.__obSpotlight };
 }
 
+// Ein Spotlight auf einem Wurzelelement mit Abdunkelung und Ring. Die Feder
+// wird nur erzeugt, press() braucht sie nicht.
+function loadRing() {
+  const dom = new JSDOM('<!doctype html><html><body><div id="root"><div class="ob-spot-dim"></div><div class="ob-spot-ring"><div class="ob-spot-ring-inner"></div></div></div></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
+  dom.window.obMotion = { createSpring: () => ({ values: null, set() {}, to() {}, shift() {} }) };
+  vm.runInContext(source, dom.getInternalVMContext());
+  const root = dom.window.document.getElementById('root');
+  return { dom, ring: root.querySelector('.ob-spot-ring'), spot: dom.window.obSpotlight.create(root) };
+}
+
+test('press restarts the pressing class on the ring', () => {
+  const { dom, ring, spot } = loadRing();
+  spot.press();
+  assert.equal(ring.classList.contains('is-pressing'), true);
+  // Ein zweiter Puls waehrend des ersten laeuft neu, die Klasse bleibt gesetzt.
+  spot.press();
+  assert.equal(ring.classList.contains('is-pressing'), true);
+  // Das Ende der Animation nimmt die Klasse wieder weg.
+  const end = new dom.window.Event('animationend', { bubbles: true });
+  Object.defineProperty(end, 'animationName', { value: 'ob-ring-press' });
+  ring.dispatchEvent(end);
+  assert.equal(ring.classList.contains('is-pressing'), false);
+});
+
 test('holePath() zeichnet die Flaeche mit einem runden Loch in evenodd', () => {
   const { spotlight } = load();
   const css = spotlight.holePath(100, 100, { x: 10, y: 10, w: 20, h: 20 }, 4);

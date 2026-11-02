@@ -282,16 +282,18 @@ test('exploreVersions groups the server highlights in the model shape', async ()
   assert.equal(guest.title, 'Gast-Schalter');
   assert.equal(guest.text, 'Gast-Schalter');
   assert.equal(guest.tour, undefined);
+  assert.equal(guest.tourLimited, false);
   assert.equal(guest.steps.length, 1);
-  assert.deepEqual({ ...guest.steps[0] }, {
+  assert.deepEqual({ ...guest.steps[0], open: [...guest.steps[0].open] }, {
     panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: '', need: 'user_management',
-    title: 'Gast', text: 'Hier', literal: true,
+    title: 'Gast', text: 'Hier', open: [], literal: true,
   });
 
   // tour null: nur Text, keine Schritte.
   const textOnly = current.items[1];
   assert.equal(textOnly.title, 'Text only');
   assert.equal(textOnly.tour, false);
+  assert.equal(textOnly.tourLimited, false);
   assert.deepEqual([...textOnly.steps], []);
   assert.equal(textOnly.detail, 'Mehr');
 });
@@ -398,6 +400,53 @@ test('a resize mid-run with no step left ends the run as finished', async () => 
   assert.equal(store.index, 0);
 });
 
+// Werte aus dem vm-Kontext haben einen anderen Prototyp, deshalb als JSON vergleichen.
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
+test('dotOffset takes the measured cell of the index and falls back to 12 px per dot', async () => {
+  const { window } = await load({ prepare: false });
+  const { dotOffset } = window.obOnboarding;
+  const cells = [{ left: 0, top: 2 }, { left: 12, top: 2 }, { left: 0, top: 14 }];
+  assert.deepEqual(plain(dotOffset(cells, 2)), { x: 0, y: 14 });
+  assert.deepEqual(plain(dotOffset(cells, 1)), { x: 12, y: 2 });
+  assert.deepEqual(plain(dotOffset([], 3)), { x: 36, y: 0 });
+  assert.deepEqual(plain(dotOffset(undefined, 1)), { x: 12, y: 0 });
+  assert.deepEqual(plain(dotOffset(cells, 7)), { x: 84, y: 0 });
+  assert.deepEqual(plain(dotOffset([{ left: NaN, top: 2 }], 0)), { x: 0, y: 0 });
+});
+
+test('the thumb follows the measured dot after the dots wrapped', async () => {
+  const { store, bar } = await load({ prepare: false });
+  store.steps = [
+    { id: 'a', title: 'A', text: '', dot: 0, dots: 3 },
+    { id: 'b', title: 'B', text: '', dot: 1, dots: 3 },
+    { id: 'c', title: 'C', text: '', dot: 2, dots: 3 },
+  ];
+  store.index = 2;
+  store.active = true;
+  const b = bar();
+  assert.equal(b.dotTransform, 'translate(24px, 0px)');
+  b.dotCells = [{ left: 0, top: 2 }, { left: 12, top: 2 }, { left: 0, top: 14 }];
+  assert.equal(b.dotTransform, 'translate(0px, 14px)');
+});
+
+test('measureDots reads the dot positions and skips a hidden dot row', async () => {
+  const { store, bar, window } = await load({ prepare: false });
+  // JSDOM kennt kein requestAnimationFrame; die Freigabe der Animation ist hier ohne Bedeutung.
+  window.requestAnimationFrame = () => 0;
+  store.steps = [{ id: 'a', title: 'A', text: '', dot: 0, dots: 2 }, { id: 'b', title: 'B', text: '', dot: 1, dots: 2 }];
+  store.index = 0;
+  store.active = true;
+  const dots = [{ offsetLeft: 0, offsetTop: 2 }, { offsetLeft: 12, offsetTop: 2 }];
+  const b = bar();
+  b.$refs = { dots: { offsetParent: null, querySelectorAll: () => dots.map((d) => ({ offsetLeft: d.offsetLeft, offsetTop: d.offsetTop })) } };
+  b.measureDots();
+  assert.deepEqual(plain(b.dotCells), []);
+  b.$refs.dots.offsetParent = {};
+  b.measureDots();
+  assert.deepEqual(plain(b.dotCells), [{ left: 0, top: 2 }, { left: 12, top: 2 }]);
+});
+
 // Alle Einrichtungspunkte erledigt: so sieht die Checkliste den Wiederholen-Knopf.
 const ALL_DONE = {
   ...PROGRESS,
@@ -461,6 +510,22 @@ test('finishing a setup run switches the checklist to explore', async () => {
   assert.equal(store.checklistMode, 'explore');
 });
 
+test('exploreVersions passes open through and defaults it to an empty list', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [{
+      id: 'a', version: '0.12.0', minor: '0.12', text: 'A', tour: { steps: [
+        { panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: 'user_management', title: { en: 'Guest' }, text: { en: 'Here' }, open: ['rule-1'] },
+        { panel: 'settings-panel', target: 'title', title: { en: 'Title' }, text: { en: 'There' } },
+      ] },
+    }],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const [first, second] = store.exploreVersions[0].items[0].steps;
+  assert.deepEqual([...first.open], ['rule-1']);
+  assert.deepEqual([...second.open], []);
+});
+
 test('exploreVersions makes one card per release, newest first, the first card is current', async () => {
   const explore = {
     current_version: '0.12.2',
@@ -516,6 +581,21 @@ test('exploreVersions splits a card into one section per component, dashboard fi
   assert.deepEqual([...card.items.map((i) => i.id)], ['d1', 'b1', 'd2']);
 });
 
+test('exploreVersions carries the tour_limited flag of a highlight without a tour for this user', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'lim', version: '0.12.0', minor: '0.12', text: 'Limited', tour: null, tour_limited: true },
+      { id: 'txt', version: '0.12.0', minor: '0.12', text: 'Text', tour: null },
+    ],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const [lim, txt] = store.exploreVersions[0].items;
+  assert.equal(lim.tourLimited, true);
+  assert.equal(lim.tour, false);
+  assert.equal(txt.tourLimited, false);
+});
+
 test('exploreVersions carries the stale flag of a tour', async () => {
   const explore = {
     current_version: '0.12.0',
@@ -528,4 +608,118 @@ test('exploreVersions carries the stale flag of a tour', async () => {
   const [st, ok] = store.exploreVersions[0].items;
   assert.equal(st.stale, true);
   assert.equal(ok.stale, false);
+});
+
+test('dismissNews keeps the unseen count for this browser session and returns for more', async () => {
+  const storage = memoryStorage();
+  const { store } = await load({ prepare: false, storage });
+  assert.equal(store.unseenCount, 1, 'h184 has a tour and is unseen');
+  store.dismissNews();
+  assert.equal(store.newsNoteDismissed, 1);
+  assert.equal(storage.getItem('ob-news-note-dismissed'), '1');
+
+  const again = await load({ prepare: false, storage });
+  assert.equal(again.store.newsNoteDismissed, 1, 'same browser session: the dismissal is still there');
+
+  const more = {
+    ...PROGRESS,
+    explore: { ...EXPLORE, items: [...EXPLORE.items, { id: 'h185', version: '0.12.0', pr: 185, text: 'Stats', details: null, tour: { steps: [{ panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: 'view_stats', title: { en: 'Stats' }, text: { en: 'Here' } }] } }] },
+  };
+  const later = await load({ prepare: false, storage, progress: more });
+  assert.equal(later.store.unseenCount, 2);
+  assert.ok(later.store.unseenCount > later.store.newsNoteDismissed, 'more unseen than at dismissal');
+});
+
+test('a broken sessionStorage does not throw on dismissNews', async () => {
+  const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  const { store } = await load({ prepare: false, storage: broken });
+  assert.equal(store.newsNoteDismissed, null);
+  assert.doesNotThrow(() => store.dismissNews());
+  assert.equal(store.newsNoteDismissed, 1, 'dismissed for this store even without storage');
+});
+
+// Admin mit abgeschlossener Einrichtung: das Angebot der Neuerungen darf kommen.
+const SETUP_DONE = { ...PROGRESS, setup: { ...PROGRESS.setup, done: true } };
+
+test('newsOfferWanted needs an unseen tour, no run and no dismissal, and an admin only after setup', async () => {
+  const storage = memoryStorage();
+  const admin = await load({ prepare: false, storage });
+  assert.equal(admin.store.unseenCount, 1, 'h184 has a tour and is unseen');
+  assert.equal(admin.store.newsOfferWanted, false, 'admin before setup: the setup welcome comes first');
+
+  const user = await load({ prepare: false, storage: memoryStorage(), progress: { ...PROGRESS, role: 'user' } });
+  assert.equal(user.store.newsOfferWanted, true, 'a user is offered it without setup');
+
+  const done = await load({ prepare: false, storage, progress: SETUP_DONE });
+  assert.equal(done.store.newsOfferWanted, true);
+  done.store.dismissNews();
+  assert.equal(done.store.newsOfferWanted, false, 'dismissed');
+
+  const more = {
+    ...SETUP_DONE,
+    explore: { ...EXPLORE, items: [...EXPLORE.items, { id: 'h185', version: '0.12.0', pr: 185, text: 'Stats', details: null, tour: { steps: [{ panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: 'view_stats', title: { en: 'Stats' }, text: { en: 'Here' } }] } }] },
+  };
+  const later = await load({ prepare: false, storage, progress: more });
+  assert.equal(later.store.unseenCount, 2);
+  assert.equal(later.store.newsOfferWanted, true, 'more unseen than at dismissal: offered again');
+
+  const running = await load({ storage: memoryStorage(), progress: SETUP_DONE });
+  assert.equal(running.store.newsOfferWanted, false, 'a run is active');
+});
+
+test('load() queues news for the session but never sends it to the account', async () => {
+  const { store, calls } = await load({ prepare: false, storage: memoryStorage(), progress: SETUP_DONE });
+  assert.deepEqual([...store.queue], ['news']);
+  assert.equal(calls.some((c) => c.method === 'PUT' && JSON.stringify(c.body ?? {}).includes('news')), false);
+  calls.length = 0;
+  await store.persistQueue();
+  const put = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me');
+  assert.equal(put.length, 1);
+  assert.deepEqual(put[0].body, { queue: [] });
+});
+
+test('start("news") starts the explore run with the intro first', async () => {
+  const { store } = await load({ prepare: false, storage: memoryStorage(), progress: SETUP_DONE });
+  store.queue = [];
+  assert.equal(store.start('news'), true);
+  assert.equal(store.run.mode, 'explore');
+  assert.equal(store.run.from, '@news');
+  assert.equal(store.steps[0].id, 'explore-intro');
+  assert.equal(store.steps[1].id, 'h184');
+});
+
+test('markStep on the news intro writes nothing', async () => {
+  const { store, calls } = await load({ prepare: false, storage: memoryStorage(), progress: SETUP_DONE });
+  store.queue = [];
+  store.start('news');
+  await new Promise((resolve) => setImmediate(resolve));
+  calls.length = 0;
+  assert.equal(await store.markStep('done'), false);
+  assert.equal(calls.length, 0);
+  assert.equal(store.seen['explore-intro'], undefined);
+});
+
+test('skip on the news intro dismisses without the tour ended toast', async () => {
+  const storage = memoryStorage();
+  const { store, window } = await load({ prepare: false, storage, progress: SETUP_DONE });
+  const pushed = [];
+  window.Alpine.store('toasts', { push: (...args) => pushed.push(args) });
+  store.queue = [];
+  store.start('news');
+  store.skip();
+  assert.deepEqual(pushed, []);
+  assert.equal(store.active, false);
+  assert.equal(storage.getItem('ob-news-note-dismissed'), '1');
+});
+
+test('nextTime on the news intro dismisses and closes the run', async () => {
+  const storage = memoryStorage();
+  const { store, bar } = await load({ prepare: false, storage, progress: SETUP_DONE });
+  store.queue = [];
+  store.start('news');
+  bar().nextTime();
+  assert.equal(store.active, false);
+  assert.equal(store.run, null);
+  assert.equal(storage.getItem('ob-news-note-dismissed'), '1');
+  assert.equal(store.newsOfferWanted, false, 'not offered again until more is unseen');
 });

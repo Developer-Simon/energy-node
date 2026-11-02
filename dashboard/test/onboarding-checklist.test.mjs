@@ -181,17 +181,59 @@ test('a highlight that fits this device keeps its button', async () => {
   assert.equal(cl.newsAction(item), t('onboarding.checklist.action_show'));
 });
 
-test('a highlight without a tour is read in place and marked seen', async () => {
-  const { store, component: cl, calls } = await load();
+test('a highlight with only one sentence is marked as read, the row has no chevron and no expand', async () => {
+  const { store, component: cl, calls, t } = await load();
   const item = store.exploreVersions[0].items.find((i) => i.id === 'h181');
   assert.ok(item, 'h181 is in the server highlights');
   assert.equal(cl.newsState(item), 'text');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_mark_read'));
+  assert.equal(cl.newsSub(item), '', 'the sentence is already the title, so the subtitle stays empty');
+  assert.equal(cl.isMarkOnly(item), true);
   cl.newsAct(item);
-  assert.equal(cl.isReading(item), true);
+  assert.equal(cl.isReading(item), false, 'clicking does not expand the sentence');
   assert.equal(store.seen.h181, true);
+  assert.equal(store.run, null, 'nothing is started');
   await new Promise((resolve) => setImmediate(resolve));
   const put = calls.find((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me');
   assert.deepEqual(put?.body, { seen_add: ['h181'] });
+});
+
+test('a seen highlight with only one sentence has no action button and no expand', async () => {
+  const { store, component: cl, t } = await load();
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'h181');
+  store.seen = { h181: true };
+  assert.equal(cl.newsState(item), 'seen');
+  assert.equal(cl.newsAction(item), '', 'no action button');
+  assert.equal(cl.isMarkOnly(item), true);
+  assert.equal(cl.newsSub(item), '', 'no tour and no permission limit: nothing to say');
+});
+
+test('a seen highlight without a tour but with details offers Lesen and only toggles the reading', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [{ id: 'dt', version: '0.12.0', text: 'With details', details: { doc: '' }, tour: null }],
+  };
+  const { store, component: cl, calls, t } = await load({ explore });
+  const item = store.exploreVersions[0].items[0];
+  store.seen = { dt: true };
+  assert.equal(cl.newsState(item), 'seen');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_read'), 'Lesen, not Nochmal');
+  assert.equal(cl.isMarkOnly(item), false);
+  assert.equal(cl.newsSub(item), t('onboarding.checklist.news_no_tour'), 'the subtitle stays as before');
+  cl.newsAct(item);
+  assert.equal(cl.isReading(item), true, 'the details open');
+  assert.equal(store.run, null, 'no tour is started');
+  cl.newsAct(item);
+  assert.equal(cl.isReading(item), false, 'the details close again');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.some((c) => c.method === 'PUT'), false, 'a seen highlight is not saved again');
+});
+
+test('the checklist row hides the chevron and the expand state for a highlight with only one sentence', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(template, /x-bind:aria-expanded="isStale\(item\) \|\| isMarkOnly\(item\) \? null : \(isReading\(item\) \? 'true' : 'false'\)"/);
+  assert.match(template, /<svg viewBox="0 0 24 24" aria-hidden="true" x-show="!isStale\(item\) && !isMarkOnly\(item\)"/);
+  assert.match(template, /<template x-if="item\.details">\s*<div class="ob-cl-detail" x-show="isReading\(item\)" x-collapse>/);
 });
 
 test('the deep link picks the explore mode and scrolls to and marks exactly that item', async () => {
@@ -366,6 +408,62 @@ test('a stale tour is no tour for the explore card', async () => {
   assert.equal(cl.exploreNote, t('onboarding.checklist.explore_note_none'));
 });
 
+// Eine veraltete Tour mit Ersatz: h20 zeigt die neue Stelle, der Schritt 1 (zweiter) ist der Start.
+const REPLACED_EXPLORE = {
+  current_version: '0.12.0',
+  items: [
+    { id: 'old', version: '0.12.0', minor: '0.12', text: 'Old', tour: { stale: true, replacement: { id: 'h20', index: 1 }, steps: [{ panel: 'settings-panel', target: 'gone', device: '', need: '', title: {}, text: {} }] } },
+    { id: 'h20', version: '0.12.0', minor: '0.12', text: 'New place', tour: { steps: [
+      { panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: '', title: { en: 'First' }, text: { en: 'One' } },
+      { panel: 'settings-panel', page: 'users', target: 'tailscale', device: '', need: '', title: { en: 'Second' }, text: { en: 'Two' } },
+    ] } },
+  ],
+};
+
+test('a stale highlight with a replacement offers to show the new place', async () => {
+  const { store, component: cl, t } = await load({ explore: REPLACED_EXPLORE });
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'old');
+  assert.equal(cl.newsState(item), 'stale');
+  assert.equal(cl.isStale(item), true);
+  assert.equal(cl.newsAction(item), 'Neue Stelle zeigen');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_replacement'));
+  assert.equal(cl.newsSub(item), t('onboarding.checklist.news_replaced'));
+  assert.equal(cl.isReading(item), false);
+  assert.ok(cl.replacementStart(item), 'the replacement is walkable on this device');
+});
+
+test('the replacement starts the replacing highlight at its step', async () => {
+  const { store, component: cl } = await load({ explore: REPLACED_EXPLORE });
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'old');
+  const started = [];
+  store.start = (...args) => started.push(args);
+  cl.newsAct(item);
+  // Das Optionsobjekt kommt aus dem VM-Realm, daher kopieren wie in den anderen Tests.
+  assert.equal(started.length, 1);
+  assert.deepEqual([started[0][0], started[0][1], { ...started[0][2] }], ['explore', 'h20', { index: 1 }]);
+  assert.equal(cl.isReading(item), false, 'a replacement start does not open the text');
+});
+
+test('a replacement step for another device leaves the stale hint', async () => {
+  const desktopOnly = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'old', version: '0.12.0', minor: '0.12', text: 'Old', tour: { stale: true, replacement: { id: 'hd', index: 0 }, steps: [{ panel: 'settings-panel', target: 'gone', device: '', need: '', title: {}, text: {} }] } },
+      { id: 'hd', version: '0.12.0', minor: '0.12', text: 'Desktop', tour: { steps: [{ panel: 'settings-panel', page: 'users', target: 'guest', device: 'desktop', need: '', title: {}, text: {} }] } },
+    ],
+  };
+  const { store, component: cl, t, calls } = await load({ width: 500, explore: desktopOnly });
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'old');
+  assert.equal(cl.replacementStart(item), null);
+  assert.equal(cl.isStale(item) && !cl.replacementStart(item), true, 'the button stays grey');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_show'));
+  assert.equal(cl.newsSub(item), t('onboarding.checklist.news_stale'));
+  cl.newsAct(item);
+  assert.equal(store.run, null, 'nothing is started');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.some((c) => c.method === 'PUT'), false);
+});
+
 const TWO_MINORS = {
   current_version: '0.12.2',
   items: [
@@ -444,8 +542,8 @@ test('the explore part keeps every card in the DOM and shows it with x-show, sta
   assert.match(template, /x-on:click="toggleOlder\(\)"/);
   assert.match(template, /x-bind:aria-expanded="olderOpen \? 'true' : 'false'"/);
   assert.match(template, /x-show="olderToggleShown"/);
-  assert.match(template, /x-bind:disabled="isStale\(item\)"/);
-  assert.match(template, /'is-disabled': isStale\(item\)/);
+  assert.match(template, /x-bind:disabled="isStale\(item\) && !replacementStart\(item\)"/);
+  assert.match(template, /'is-disabled': isStale\(item\) && !replacementStart\(item\)/);
 });
 
 test('the card has one list per component section and the subheadline is shown for every section but the dashboard', () => {
@@ -605,9 +703,34 @@ test('catching up runs every tour of that release from its first tour, seen or n
   assert.deepEqual([...store.steps.map((s) => s.id)], ['o2', 'o3', 'o3']);
 });
 
+test('the catch-up button turns into a repeat once every tour of that release is seen', async () => {
+  const { store, component: cl } = await load({ explore: CATCH_UP });
+  const older = cl.versions.find((v) => v.version === '0.11.0');
+  store.seen = { o2: true };
+  assert.equal(cl.catchUpDone(older), false);
+  store.seen = { o2: true, o3: true };
+  assert.equal(cl.catchUpDone(older), true);
+});
+
+test('the catch-up state ignores items without a tour and stale tours', async () => {
+  const explore = {
+    current_version: '0.12.2',
+    items: [
+      { id: 'n1', version: '0.12.2', minor: '0.12', text: 'Now', tour: { steps: [STEP] } },
+      { id: 'o1', version: '0.11.0', minor: '0.11', text: 'Text only', tour: null },
+      { id: 'o2', version: '0.11.0', minor: '0.11', text: 'Seen tour', tour: { steps: [STEP] } },
+      { id: 'o3', version: '0.11.0', minor: '0.11', text: 'Stale tour', tour: { steps: [STEP], stale: true } },
+    ],
+  };
+  const { store, component: cl } = await load({ explore });
+  const older = cl.versions.find((v) => v.version === '0.11.0');
+  store.seen = { o2: true };
+  assert.equal(cl.catchUpDone(older), true);
+});
+
 test('the checklist template puts the catch-up button next to the release notes chip', () => {
   const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
-  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" data-tour="checklist-catch-up" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
+  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" x-bind:class="\{ 'is-primary': !catchUpDone\(version\) \}" data-tour="checklist-catch-up" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
   assert.match(html, /catch_up/);
 });
 
@@ -619,4 +742,20 @@ test('the toggles for older and earlier versions sit in their own card below the
   assert.ok(html.indexOf('class="setting-card ob-cl-more" data-tour="checklist-more"') > html.indexOf('x-for="version in versions"'));
   assert.match(more, /x-show="olderToggleShown \|\| archiveToggleShown"/);
   assert.match(more, /x-on:click="toggleArchive\(\)"[\s\S]*x-on:click="toggleOlder\(\)"/);
+});
+
+test('a tourless highlight says when the permissions hide its tour, with or without details', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'l1', version: '0.12.0', text: 'Limited', details: null, tour: null, tour_limited: true },
+      { id: 'l2', version: '0.12.0', text: 'Limited with details', details: { doc: '' }, tour: null, tour_limited: true },
+      { id: 'p1', version: '0.12.0', text: 'Text with details', details: { doc: '' }, tour: null },
+    ],
+  };
+  const { store, component: cl, t } = await load({ explore });
+  const [l1, l2, p1] = store.exploreVersions[0].items;
+  assert.equal(cl.newsSub(l1), t('onboarding.checklist.news_no_tour_rights'));
+  assert.equal(cl.newsSub(l2), t('onboarding.checklist.news_no_tour_rights'));
+  assert.equal(cl.newsSub(p1), t('onboarding.checklist.news_no_tour'), 'no permission limit: the details keep the old text');
 });

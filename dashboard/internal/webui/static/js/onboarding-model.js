@@ -59,6 +59,20 @@
     };
   }
 
+  // from-Marke des Angebots auf der Startseite: wie ohne from gilt die Tour der
+  // ungesehenen Neuerungen der aktuellen Version, mit vorgeschalteter Vorstellung.
+  const NEWS_FROM = '@news';
+  const EXPLORE_INTRO_ID = 'explore-intro';
+  function exploreIntroStep(ctx, version) {
+    return {
+      id: EXPLORE_INTRO_ID, intro: true, newsIntro: true, panel: null, target: null,
+      title: 'onboarding.explore.intro.title',
+      text: 'onboarding.explore.intro.text',
+      eyebrow: text(ctx, 'onboarding.eyebrow.explore_intro', { version }),
+      dot: 0, dots: 0,
+    };
+  }
+
   // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. all = true
   // (Wiederholen aus der Checkliste): jeder erlaubte Schritt, auch erledigte und
   // gesehene.
@@ -92,6 +106,9 @@
       return [{ ...step, eyebrow, dot: 0, dots: 1 }];
     }
     if (mode === 'explore') {
+      // Das Angebot der Startseite ist die Tour ohne from: die ungesehenen der aktuellen Version.
+      const news = from === NEWS_FROM;
+      if (news) { from = null; all = false; }
       // Ohne from: die ungesehenen der aktuellen Version, mit all alle. Mit from
       // (aus der Checkliste): genau dieses Highlight, auch aus aelteren Versionen.
       // from und all zusammen (Tour nachholen): jede Tour des Release von from.
@@ -106,12 +123,14 @@
       const flat = items.flatMap((item) => tourSteps(item, ctx)
         // Der Schritt zeigt seinen eigenen Titel und Text, nur ohne eigenen faellt er auf das Highlight zurueck.
         .map((s) => ({ ...s, id: item.id, title: s.title || item.title, text: s.text || item.text, check: 'leave' })));
-      return flat.map((s, i) => ({
+      const steps = flat.map((s, i) => ({
         ...s,
         eyebrow: text(ctx, 'onboarding.eyebrow.explore', { version: short, i: i + 1, total: flat.length }),
         dot: i,
         dots: flat.length,
       }));
+      // Angebot mit Neuerungen: die Vorstellung kommt davor, ohne Neuerungen gibt es nichts zu zeigen.
+      return news && steps.length ? [exploreIntroStep(ctx, short), ...steps] : steps;
     }
     if (mode === 'welcome') {
       const steps = welcome.filter((s) => stepAllowed(s, ctx));
@@ -143,7 +162,8 @@
   // Zustand eines Highlights fuer die Liste "Neu erkunden".
   function exploreState(item, seen, ctx) {
     const steps = item.tour === false ? [] : (item.steps || []);
-    if (!steps.length) return 'text';
+    // Ohne Tour: gelesen oder nicht, mehr gibt es nicht zu zeigen.
+    if (!steps.length) return seen[item.id] ? 'seen' : 'text';
     const allowedByRights = steps.filter((s) => rightsFit(s, ctx));
     if (!allowedByRights.length) return 'text';
     if (!allowedByRights.some((s) => deviceFits(s, ctx.device))) return 'other-device';
@@ -177,5 +197,6 @@
     minorOf,
     nextAfterResize,
     queueAfter,
+    NEWS_FROM,
   };
 })();

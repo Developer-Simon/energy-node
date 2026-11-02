@@ -111,11 +111,11 @@
 <dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading" data-choices-script="{{.BasePath}}/static/js-deps/choices.min.js" data-choices-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2">
   <div class="device-modal-topbar">
     <div class="device-modal-topbar-id">
-      <button type="button" class="device-modal-topbar-icon" aria-label="{{t "devices.icon.label"}}" aria-haspopup="dialog" x-bind:aria-expanded="iconPickerOpen ? 'true' : 'false'" x-bind:disabled="!canEditAppearance" x-on:click="iconPickerOpen = !iconPickerOpen">
+      <button type="button" class="device-modal-topbar-icon" data-tour="device-icon-button" aria-label="{{t "devices.icon.label"}}" aria-haspopup="dialog" x-bind:aria-expanded="iconPickerOpen ? 'true' : 'false'" x-bind:disabled="!canEditAppearance" x-on:click="iconPickerOpen = !iconPickerOpen">
         <span class="device-modal-topbar-glyph" x-cloak x-show="deviceIcons.length" x-html="iconMarkup(savedIconName)"></span>
         <svg x-show="!deviceIcons.length" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">{{deviceIconMarkup "energy-node:chip"}}</svg>
       </button>
-      <div class="device-modal-iconpop" x-cloak x-show="iconPickerOpen" x-on:click.outside="iconPickerOpen = false">
+      <div class="device-modal-iconpop" data-tour="device-icon-picker" x-cloak x-show="iconPickerOpen" x-on:click.outside="iconPickerOpen = false">
         {{template "device-icon-picker" dict "Current" "draftIconName" "Default" "defaultIconName" "Pick" "saveIcon"}}
       </div>
       <div class="device-modal-topbar-text">
@@ -161,7 +161,7 @@
           <div class="device-modal-hero-head">
             <span class="device-modal-hero-name" x-text="entityDisplayName(item.entity)"></span>
             <span class="device-modal-hero-auto" x-show="item.auto" x-text="$t('devices.favourites.auto')"></span>
-            <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(item.entity) }" x-bind:aria-pressed="isFavorite(item.entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(item.entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(item.entity)"><span aria-hidden="true" x-text="isFavorite(item.entity) ? '★' : '☆'"></span></button>
+            <button type="button" class="device-modal-star" data-tour="device-favorite" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(item.entity) }" x-bind:aria-pressed="isFavorite(item.entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(item.entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(item.entity)"><span aria-hidden="true" x-text="isFavorite(item.entity) ? '★' : '☆'"></span></button>
           </div>
           <div class="device-modal-hero-value"><span x-roll x-bind:data-roll-value="item.entity.value" x-bind:data-roll-unit="item.entity.unit_of_measurement || ''" x-text="item.entity.has_value ? I18n.formatValue(item.entity.value, item.entity.unit_of_measurement) : '-'"></span><small x-show="item.entity.has_value && item.entity.unit_of_measurement" x-text="item.entity.unit_of_measurement"></small></div>
         </article>
@@ -394,7 +394,7 @@
 {{define "device-modal-stat-tile"}}
 <template x-for="entity in {{.}}" :key="entity.unique_id">
   <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
-    <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(entity) }" x-bind:aria-pressed="isFavorite(entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(entity)"><span aria-hidden="true" x-text="isFavorite(entity) ? '★' : '☆'"></span></button>
+    <button type="button" class="device-modal-star" data-tour="device-favorite" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(entity) }" x-bind:aria-pressed="isFavorite(entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(entity)"><span aria-hidden="true" x-text="isFavorite(entity) ? '★' : '☆'"></span></button>
     <div class="k" x-text="entityDisplayName(entity)"></div>
     <div class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
     <div class="device-modal-sub" x-show="subDeviceRowVisible(entity)" x-cloak>
@@ -415,7 +415,7 @@
 {{define "device-modal-control-tile"}}
 <template x-for="entity in {{.}}" :key="entity.unique_id">
   <article class="device-modal-control-card" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
-    <button type="button" class="device-modal-star" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(entity) }" x-bind:aria-pressed="isFavorite(entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(entity)"><span aria-hidden="true" x-text="isFavorite(entity) ? '★' : '☆'"></span></button>
+    <button type="button" class="device-modal-star" data-tour="device-favorite" x-show="canEditAppearance" x-bind:class="{ 'is-on': isFavorite(entity) }" x-bind:aria-pressed="isFavorite(entity) ? 'true' : 'false'" x-bind:aria-label="isFavorite(entity) ? $t('devices.favourites.unstar') : $t('devices.favourites.star')" x-on:click.stop="toggleFavorite(entity)"><span aria-hidden="true" x-text="isFavorite(entity) ? '★' : '☆'"></span></button>
     <div class="label" x-text="entityDisplayName(entity)"></div>
     <div x-show="entity.commandable && entity.component === 'number'" class="entity-number-control"><input type="range" class="entity-number-slider" data-command-type="number" x-model="entity.value" x-bind:data-entity-id="entity.unique_id" x-bind:min="entity.min_value ?? 0" x-bind:max="entity.max_value ?? 100" x-bind:step="entity.step ?? 'any'" x-bind:disabled="entity.pending" x-on:change="sendNumberCommand($el)" x-bind:aria-label="$t('entity.adjust', {name: entity.name || entity.object_id})"><output x-text="`${entity.value}${entity.unit_of_measurement ? ` ${entity.unit_of_measurement}` : ''}`"></output></div>
     <div x-show="!(entity.commandable && entity.component === 'number')" class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>

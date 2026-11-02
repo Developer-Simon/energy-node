@@ -1,5 +1,11 @@
 {
   "de": {
     "*": "Die Vorlage Nulleinspeisung stellt das Regelziel durch Ziehen eines Bandes auf der Netzachse ein, mit der Netzleistung von gestern als Orientierung."
+  },
+  "details": {
+    "*": {
+      "de": "Die Vorlage fragt „Wie knapp soll geregelt werden?“. Du verschiebst das Fenster durch Ziehen, Tippen oder mit den Pfeiltasten, oder du wählst eine der Karten Knapp, Ausgewogen und Vorsichtig. Mit „Toleranz anpassen“ ziehst du auch die Breite des Bandes. Die Balken zeigen die Verteilung der Netzleistung von gestern, auf das neue Ziel verschoben.",
+      "en": "The template asks “How tight should it regulate?”. You move the window by dragging, tapping or with the arrow keys, or you pick one of the cards Tight, Balanced and Careful. With “Adjust tolerance” you also drag the width of the band. The bars show yesterday's spread of the grid power, moved to the new target."
+    }
   }
 }

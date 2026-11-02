@@ -14,12 +14,16 @@
       "steps": [
         {
           "need": "user_management",
+          "open": [
+            "users-accounts",
+            "own-account"
+          ],
           "page": "users",
           "panel": "settings-panel",
-          "target": "users-tabs",
+          "target": "own-account-card",
           "text": {
-            "de": "In der Benutzerverwaltung gibst du jedem Benutzer fein eingestellte Berechtigungen. Unter Sitzungen siehst du alle, die gerade angemeldet sind.",
-            "en": "User management lets you give every user finely tuned permissions. Sessions lists everyone who is signed in right now."
+            "de": "In der Benutzerverwaltung gibst du jedem Benutzer fein eingestellte Berechtigungen.",
+            "en": "User management lets you give every user finely tuned permissions."
           },
           "title": {
             "de": "Benutzer und Berechtigungen",
@@ -28,12 +32,32 @@
         },
         {
           "need": "user_management",
+          "open": [
+            "users-sessions"
+          ],
+          "page": "users",
+          "panel": "settings-panel",
+          "target": "sessions",
+          "text": {
+            "de": "Unter Sitzungen siehst du alle, die gerade angemeldet sind.",
+            "en": "Sessions lists everyone who is signed in right now."
+          },
+          "title": {
+            "de": "Sitzungen",
+            "en": "Sessions"
+          }
+        },
+        {
+          "need": "user_management",
+          "open": [
+            "users-accounts"
+          ],
           "page": "users",
           "panel": "settings-panel",
           "target": "users",
           "text": {
-            "de": "Hier legst du ein neues Konto an. Gäste dürfen standardmäßig nur ansehen, und die Gastkarte schaltet den Gastzugang ab.",
-            "en": "Create a new account here. Guests may only view by default, and the guest card switches guest access off."
+            "de": "Hier legst du ein neues Konto an.",
+            "en": "Create a new account here."
           },
           "title": {
             "de": "Benutzer anlegen",
@@ -42,12 +66,33 @@
         },
         {
           "need": "user_management",
+          "open": [
+            "users-accounts",
+            "guest-card"
+          ],
+          "page": "users",
+          "panel": "settings-panel",
+          "target": "guest",
+          "text": {
+            "de": "Gäste dürfen standardmäßig nur ansehen. Mit diesem Schalter schaltest du den Gastzugang ganz ab.",
+            "en": "Guests may only view by default. This switch turns guest access off completely."
+          },
+          "title": {
+            "de": "Gastzugang",
+            "en": "Guest access"
+          }
+        },
+        {
+          "need": "user_management",
+          "open": [
+            "users-accounts"
+          ],
           "page": "users",
           "panel": "settings-panel",
           "target": "companion",
           "text": {
-            "de": "Die Benutzerverwaltung unterstützt auch Home-Assistant-Benutzer. Mit einem Kopplungscode verbindest du den Companion einmal, danach bleibt die Verbindung bestehen. Dafür brauchst du die Integration Energy Node Companion ab Version 0.4.0.",
-            "en": "User management also supports Home Assistant users. A pairing code connects the companion once, and the connection then stays. This needs the Energy Node Companion integration from version 0.4.0 on."
+            "de": "Die Benutzerverwaltung unterstützt auch Home-Assistant-Benutzer. Mit einem Kopplungscode verbindest du den Companion einmalig. Danach bleibt die Verbindung bestehen. Dafür brauchst du die Integration Energy Node Companion ab Version 0.4.0.",
+            "en": "User management also supports Home Assistant users. A pairing code connects the companion once. The connection then stays. This needs the Energy Node Companion integration from version 0.4.0 on."
           },
           "title": {
             "de": "Home-Assistant-Benutzer",
