@@ -100,11 +100,21 @@ type onboardingExploreItem struct {
 }
 
 // onboardingTour is the tour of a highlight as the caller may walk it. Stale
-// is set when a step points at a data-tour target the web UI no longer has,
-// so the tour would find nothing on the page.
+// is set when a step or one of its open entries names a target the web UI no
+// longer has, so the tour would find nothing on the page. Replacement is set
+// for a stale tour whose replacement highlight is listed and walkable.
 type onboardingTour struct {
-	Steps []versions.TourStep `json:"steps"`
-	Stale bool                `json:"stale,omitempty"`
+	Steps       []versions.TourStep    `json:"steps"`
+	Stale       bool                   `json:"stale,omitempty"`
+	Replacement *onboardingReplacement `json:"replacement,omitempty"`
+}
+
+// onboardingReplacement names the highlight that replaces a stale tour and the
+// index of the step the walk starts at, counted among the steps the user may
+// walk.
+type onboardingReplacement struct {
+	ID    string `json:"id"`
+	Index int    `json:"index"`
 }
 
 // onboardingExplore lists the highlights of the last onboardingExploreMinors
@@ -114,8 +124,10 @@ type onboardingTour struct {
 // as stale. A missing or unreadable changelog gives an empty list and false.
 // Highlights older than the window follow the window's items as archive, see
 // onboardingExploreArchiveMinors. If that wider read fails the archive stays empty.
+// Stale tours that name a replacement get it resolved, see resolveReplacements.
 func onboardingExplore(stateDir string, user auth.User, targets map[string]bool) (string, []onboardingExploreItem, bool) {
 	items := []onboardingExploreItem{}
+	sources := []*versions.HighlightTour{}
 	view, err := versions.Releases(stateDir, onboardingExploreMinors)
 	if err != nil {
 		return "", items, false
@@ -127,6 +139,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 				continue
 			}
 			known[entry.ID] = true
+			sources = append(sources, entry.Tour)
 			items = append(items, onboardingExploreItem{
 				ID:               entry.ID,
 				Version:          release.Version,
@@ -156,6 +169,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 					continue
 				}
 				known[entry.ID] = true
+				sources = append(sources, entry.Tour)
 				items = append(items, onboardingExploreItem{
 					ID:               entry.ID,
 					Version:          release.Version,
@@ -173,13 +187,48 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 			}
 		}
 	}
+	resolveReplacements(items, sources, user)
 	return view.To, items, true
+}
+
+// resolveReplacements gives every stale tour that names a replacement the
+// step of that highlight. The replacement is the listed highlight with the
+// PR, it must not be stale itself, and the named step must exist and be
+// allowed for the user. Index counts the allowed steps before that step. The
+// sources hold the unfiltered tour of each item, index by index.
+func resolveReplacements(items []onboardingExploreItem, sources []*versions.HighlightTour, user auth.User) {
+	for i := range items {
+		if items[i].Tour == nil || !items[i].Tour.Stale || sources[i] == nil || sources[i].ReplacedBy == nil {
+			continue
+		}
+		ref := sources[i].ReplacedBy
+		for j := range items {
+			if items[j].PR != ref.PR || items[j].Tour == nil || items[j].Tour.Stale || sources[j] == nil {
+				continue
+			}
+			steps := sources[j].Steps
+			if ref.Step < 1 || ref.Step > len(steps) {
+				continue
+			}
+			if need := steps[ref.Step-1].Need; need != "" && !auth.HasRole(user, need) {
+				continue
+			}
+			index := 0
+			for _, before := range steps[:ref.Step-1] {
+				if before.Need == "" || auth.HasRole(user, before.Need) {
+					index++
+				}
+			}
+			items[i].Tour.Replacement = &onboardingReplacement{ID: items[j].ID, Index: index}
+			break
+		}
+	}
 }
 
 // onboardingTourFor keeps the steps whose permission the user holds. An
 // exemption or a tour without any allowed step gives nil. The tour is stale
-// when one of the kept steps names a target outside targets; without targets
-// nothing is stale.
+// when one of the kept steps or one of its open entries names a target
+// outside targets; without targets nothing is stale.
 func onboardingTourFor(user auth.User, tour *versions.HighlightTour, targets map[string]bool) *onboardingTour {
 	if tour == nil {
 		return nil
@@ -198,6 +247,11 @@ func onboardingTourFor(user auth.User, tour *versions.HighlightTour, targets map
 		for _, step := range steps {
 			if !targets[step.Target] {
 				stale = true
+			}
+			for _, open := range step.Open {
+				if !targets[open] {
+					stale = true
+				}
 			}
 		}
 	}
