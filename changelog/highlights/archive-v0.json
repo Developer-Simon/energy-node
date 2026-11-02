@@ -197,6 +197,33 @@
   "53": {
     "de": {
       "*": "Geräte-Icons und angeheftete Favoriten-Entitäten"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_devices",
+            "panel": "devices-panel",
+            "target": "devices",
+            "text": {
+              "de": "Jedes Gerät hat ein eigenes Icon, und bis zu drei Werte eines Geräts lassen sich als Favoriten an seine Kachel heften.",
+              "en": "Every device has its own icon, and up to three values of a device can be pinned to its tile as favourites."
+            },
+            "title": {
+              "de": "Icons und Favoriten",
+              "en": "Icons and favourites"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Der Gerätedialog zeigt oben die Favoriten, bis zu drei Entitäten mit ihren Live-Werten. Ein Klick auf das Icon im Kopf öffnet den Katalog für ein anderes Icon.",
+        "doc": "dashboard/device-modal.html#favourites",
+        "en": "The device dialog shows the favourites at the top, up to three entities with their live values. Click the icon in the header to pick another icon from the catalogue.",
+        "image": "dashboard-device-modal.png"
+      }
     }
   },
   "54": {
@@ -212,11 +239,90 @@
   "58": {
     "de": {
       "*": "Reine DC-Systeme im MQTT-Service und bedingte Konfigurationsformulare"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_config",
+            "panel": "config-panel",
+            "target": "config",
+            "text": {
+              "de": "Das Konfigurationsformular zeigt ein Feld nur, wenn es zu deiner bisherigen Auswahl passt, etwa die Felder eines reinen DC-Systems.",
+              "en": "The configuration form shows a field only when it fits your choices so far, for example the fields of a DC-only system."
+            },
+            "title": {
+              "de": "Formulare passen sich an",
+              "en": "Forms that adapt"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Das Formular entsteht aus dem Schema des jeweiligen Dienstes. Felder, die von einer anderen Wahl abhängen, erscheinen erst mit dieser Wahl, und Werte werden vor dem Speichern geprüft.",
+        "doc": "dashboard/configuration.html",
+        "en": "The form is generated from the schema of each service. Fields that depend on another choice appear only with that choice, and values are checked before anything is saved.",
+        "image": "dashboard-config.png"
+      }
     }
   },
   "59": {
     "de": {
       "*": "Grundlage für die Lokalisierung mit Sprachumschalter"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "display",
+            "panel": "settings-panel",
+            "target": "language",
+            "text": {
+              "de": "Das Dashboard gibt es jetzt auch auf Englisch. Die Sprache richtet sich automatisch nach deinem Browser.",
+              "en": "The dashboard is now available in English too. The language follows your browser automatically."
+            },
+            "title": {
+              "de": "Sprache",
+              "en": "Language"
+            }
+          },
+          {
+            "target": "language-pill",
+            "text": {
+              "de": "Mit dem Umschalter in der Kopfzeile wechselst du die Sprache schnell.",
+              "en": "The switch in the masthead changes the language quickly."
+            },
+            "title": {
+              "de": "Schnell umschalten",
+              "en": "Quick switch"
+            }
+          },
+          {
+            "need": "edit_settings",
+            "page": "display",
+            "panel": "settings-panel",
+            "target": "numberformat",
+            "text": {
+              "de": "Passend zur Sprache kannst du auch die Zahlendarstellung selbst festlegen.",
+              "en": "Along with the language you can also set the number format yourself."
+            },
+            "title": {
+              "de": "Zahlenformat",
+              "en": "Number format"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Karte Formatierung auf der Seite Darstellung enthält die Sprache dieses Browsers, den Schalter für die Pille DE | EN und das Zahlenformat. Alle Texte des Dashboards, seine Fehlermeldungen und der Update-Bildschirm folgen der Sprache.",
+        "doc": "dashboard/settings-appearance.html",
+        "en": "The Formatting card on the Appearance page holds the language of this browser, the switch for the DE | EN pill and the number format. Every text of the dashboard, its error messages and the update screen follow the language.",
+        "image": "dashboard-settings-display.png"
+      }
     }
   },
   "60": {
@@ -232,6 +338,33 @@
   "63": {
     "de": {
       "*": "Wochentage im Editor und eine Bedingung sun_window"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_automations",
+            "panel": "automations-panel",
+            "target": "automations-rules",
+            "text": {
+              "de": "Eine Regel kann nur an gewählten Wochentagen gelten, und zwischen Sonnenaufgang und Sonnenuntergang. Beides stellst du in einer Einzelregel ein.",
+              "en": "A rule can apply on chosen weekdays only, and between sunrise and sunset. You set both in a single rule."
+            },
+            "title": {
+              "de": "Wochentage und Sonnenzeiten",
+              "en": "Weekdays and sun times"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Im Regeleditor bekommt ein Zeitfenster Wochentage, und das Sonnenfenster folgt Sonnenaufgang und Sonnenuntergang am Standort aus den Einstellungen.",
+        "doc": "dashboard/automations.html#rule-editor",
+        "en": "In the rule editor a time window takes weekdays, and the sun window follows sunrise and sunset at the location from the settings.",
+        "image": "dashboard-automation.png"
+      }
     }
   },
   "64": {
@@ -262,6 +395,33 @@
   "71": {
     "de": {
       "*": "Installierte Komponentenversionen werden in den Einstellungen angezeigt"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-components",
+            "text": {
+              "de": "Auf der Versionsseite siehst du jetzt jeden Softwareteil mit seiner Version. Mit Änderungen öffnest du den Changelog dazu.",
+              "en": "The versions page now lists every piece of software with its version. Changes opens its changelog."
+            },
+            "title": {
+              "de": "Installierte Versionen",
+              "en": "Installed versions"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Seite Versionen zeigt das installierte Paket und jede Komponente mit ihrer Version. Ein Dienst, der nicht installiert ist, ist als solcher markiert.",
+        "doc": "dashboard/settings-versions.html",
+        "en": "The Versions page shows the installed package and every component with its version. A service that is not installed is marked as such.",
+        "image": "dashboard-settings-versions.png"
+      }
     }
   },
   "72": {
@@ -302,11 +462,58 @@
   "82": {
     "de": {
       "*": "changelog.json liegt im Bundle und zeigt vor einem Update, was neu ist"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "check_updates",
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "updates",
+            "text": {
+              "de": "Bevor du ein Update installierst, zeigt dir die Update-Seite unter Änderungen ansehen, was das neue Paket ändert, die Breaking Changes zuerst.",
+              "en": "Before you install an update, View changes on the update page lists what the new package changes, breaking changes first."
+            },
+            "title": {
+              "de": "Vorher sehen, was neu ist",
+              "en": "See what is new first"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Update-Seite listet die Änderungen des neuen Pakets. Die Vorschau zeigt auch, welche Komponenten sich ändern und welche Dienste neu starten.",
+        "doc": "dashboard/settings-versions.html#updating-from-the-dashboard",
+        "en": "The update page lists the changes of the new package. The preview also shows which components change and which services restart.",
+        "image": "dashboard-update-preview.png"
+      }
     }
   },
   "84": {
     "de": {
       "*": "Die Changelog-Seiten öffnen mit den Highlights, der Schalter oben zeigt alles"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-highlights",
+            "text": {
+              "de": "Du kannst jetzt die Highlights aus den Änderungen herausfiltern.",
+              "en": "You can now filter the highlights out of the changes."
+            },
+            "title": {
+              "de": "Zuerst die Highlights",
+              "en": "Highlights first"
+            }
+          }
+        ]
+      }
     }
   },
   "85": {
@@ -327,16 +534,97 @@
   "98": {
     "de": {
       "*": "Der Status des Konfigurations-Services erscheint als Pille"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_config",
+            "panel": "config-panel",
+            "target": "config-status",
+            "text": {
+              "de": "Jeder Dienst zeigt jetzt, ob er läuft und ob er die zuletzt gespeicherte Datei übernommen hat.",
+              "en": "Every service now shows whether it runs and whether it took the last saved file."
+            },
+            "title": {
+              "de": "Dienststatus",
+              "en": "Service status"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Nach dem Speichern lädt der Dienst seine Datei neu. Lehnt er die neue Datei ab, behält er die alte, und die Statuspille meldet das.",
+        "doc": "dashboard/configuration.html",
+        "en": "After saving, the service reloads its file. If it refuses the new file, it keeps the old one and the status pill says so.",
+        "image": "dashboard-config.png"
+      }
     }
   },
   "99": {
     "de": {
       "*": "Verlaufskacheln für das Layout der Übersicht"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "edit_layout",
+            "panel": "overview-panel",
+            "target": "tiles",
+            "text": {
+              "de": "Verläufe gibt es jetzt auch als Kachel in der Übersicht. Dafür stellst du eine gespeicherte Ansicht oder eine neue Zusammenstellung ein.",
+              "en": "History charts are now available as an overview tile too. You set it up with a saved view or a new combination."
+            },
+            "title": {
+              "de": "Verlauf in der Übersicht",
+              "en": "History on the overview"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Karte Verlauf zeigt ein Diagramm der Verlaufsseite. Ihre Optionen wählen Quelle, Zeitraum, Statistik und Serien.",
+        "doc": "dashboard/overview-cards.html#history",
+        "en": "The History card shows a chart from the history page. Its options choose the source, the period, the statistic and the series.",
+        "image": "dashboard-card-history-view.png"
+      }
     }
   },
   "101": {
     "de": {
       "*": "Der Diagnose-Reiter wurde neu gestaltet"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_diagnostics",
+            "panel": "diagnostics-panel",
+            "target": "diagnostics",
+            "text": {
+              "de": "Sieh auf einen Blick, wie es deinem System geht. Die Zeile unter dem Titel fasst den Zustand zusammen, und ihr Punkt leuchtet grün, gelb oder rot.",
+              "en": "See at a glance how your system is doing. The line under the title sums up its state, and its dot glows green, yellow or red."
+            },
+            "title": {
+              "de": "Diagnose auf einen Blick",
+              "en": "Diagnostics at a glance"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Diagnoseseite fasst den Zustand in einer Zeile zusammen, zählt die Geräte der Discovery und listet die Befunde mit den betroffenen Geräten.",
+        "doc": "dashboard/diagnostics.html",
+        "en": "The diagnostics page sums up the state in one line, counts the discovery devices and lists the findings with the affected devices.",
+        "image": "dashboard-diagnosis.png"
+      }
     }
   },
   "102": {
@@ -347,6 +635,85 @@
   "103": {
     "de": {
       "*": "Ebenen, Rollenringe und Fokus im Gerätediagramm"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Die Device-Map ist komplett überarbeitet. Sie zeigt jetzt, wie deine Geräte energetisch zusammenhängen. Ein Klick auf ein Gerät hebt seine Verbindungen zu den anderen gezielt hervor.",
+              "en": "The device map has been reworked from the ground up. It now shows how your devices hang together in terms of energy. Click a device to highlight its connections to the others."
+            },
+            "title": {
+              "de": "Device-Map",
+              "en": "Device map"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-layer-energy",
+            "text": {
+              "de": "Mit Energie live siehst du die Energieflüsse live in der Device-Map.",
+              "en": "With Live energy you see the energy flows live on the device map."
+            },
+            "title": {
+              "de": "Energie live",
+              "en": "Live energy"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-layer-data",
+            "text": {
+              "de": "Zeigt, welche Automation in deinem System was steuert oder abfragt.",
+              "en": "Shows which automation in your system controls or reads what."
+            },
+            "title": {
+              "de": "Datenfluss",
+              "en": "Data flow"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-layer-balance",
+            "text": {
+              "de": "Zeichnet Linien zu allen Geräten, denen eine Energierolle zugeordnet ist.",
+              "en": "Draws lines to every device that has an energy role."
+            },
+            "title": {
+              "de": "Rollen",
+              "en": "Roles"
+            }
+          },
+          {
+            "need": "edit_energy",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Wähle ein Gerät aus, um ihm direkt in der Map eine Energierolle zu geben.",
+              "en": "Select a device to give it an energy role right on the map."
+            },
+            "title": {
+              "de": "Rollen zuweisen",
+              "en": "Assign roles"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Ebenenleiste wechselt zwischen Verdrahtung, Energie live, Datenfluss und Rollen. Die Ansicht gehört zu diesem Browser, und Als Standard speichern schreibt sie für jeden Browser in die Map.",
+        "doc": "dashboard/device-map.html#layers-and-view",
+        "en": "The layer bar switches between Wiring, Live energy, Data flow and Roles. The view belongs to this browser, and Save as default writes it into the map for every browser.",
+        "image": "dashboard-device-map.png"
+      }
     }
   },
   "105": {
@@ -362,6 +729,46 @@
   "108": {
     "de": {
       "*": "Energiegruppen und eigene Kategorien"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_energy",
+            "panel": "energy-panel",
+            "target": "energy-plant",
+            "text": {
+              "de": "Die Anordnung aus der Device-Map mit dem Live-Fluss und der Bilanz kannst du jetzt auch auf der Energie-Seite ansehen. Ein Klick auf ein Gerät hebt seine Zeilen in der Rollentabelle hervor.",
+              "en": "The arrangement from the device map with the live flow and the balance is now on the energy page too. Click a device to light up its rows in the role table."
+            },
+            "title": {
+              "de": "Anlage live",
+              "en": "Plant live"
+            }
+          },
+          {
+            "need": "edit_energy",
+            "panel": "energy-panel",
+            "target": "energy-groups",
+            "text": {
+              "de": "Mit Gruppen rechnest du mehrere Geräte in der Übersicht zusammen. Wahlweise weist du der ganzen Gruppe auch eine neue Verbrauchskategorie zu.",
+              "en": "Groups let you add up several devices in the overview. You can also give the whole group a new consumer category."
+            },
+            "title": {
+              "de": "Gruppen",
+              "en": "Groups"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Eine Gruppe fasst Geräte ohne eigenen Zähler zusammen. Ist Als Ganzes zählen an, zählt sie in einer Verbraucherkategorie, die du wählst oder direkt anlegst. Eigene Kategorien ergänzen eigene Verbraucher, Erzeuger oder Speicher.",
+        "doc": "dashboard/energy.html#groups",
+        "en": "A group bundles devices without a meter of their own. With Count as a whole on, it counts in one consumer category, which you pick or create in place. Custom categories add your own consumer, producer or storage types.",
+        "image": "dashboard-energy-groups.png"
+      }
     }
   },
   "109": {
@@ -387,11 +794,49 @@
   "114": {
     "de": {
       "*": "Der Katalog der Geräte-Icons wurde neu geordnet"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "edit_device_appearance",
+            "panel": "devices-panel",
+            "target": "devices",
+            "text": {
+              "de": "Die Icons, die du für ein Gerät wählen kannst, sind jetzt nach Kategorien geordnet und um weitere Varianten ergänzt.",
+              "en": "The icons you can choose for a device are now sorted into categories, and there are more variants."
+            },
+            "title": {
+              "de": "Icon-Katalog",
+              "en": "Icon catalogue"
+            }
+          }
+        ]
+      }
     }
   },
   "115": {
     "de": {
       "*": "Eigene Energiekategorien in Automatisierungen und ein überarbeiteter Editor"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_automations",
+            "panel": "automations-panel",
+            "target": "automations-rules",
+            "text": {
+              "de": "Eine Schwelle kann deine eigenen Kategorien von der Energie-Seite beobachten. Die Feldauswahl listet sie unter Eigene Kategorien.",
+              "en": "A threshold can watch your custom categories from the energy page. The field selection lists them under Custom categories."
+            },
+            "title": {
+              "de": "Eigene Kategorien in Regeln",
+              "en": "Your categories in rules"
+            }
+          }
+        ]
+      }
     }
   },
   "119": {
@@ -412,11 +857,91 @@
   "125": {
     "de": {
       "*": "Austausch und Verlaufsstatus erscheinen als Kacheln"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "history",
+            "panel": "settings-panel",
+            "target": "history-exchange",
+            "text": {
+              "de": "Im Geräteaustausch stellst du jetzt ein, dass nur abgefragt wird, solange ein Verlauf zu sehen ist. Dadurch ruckelt die Ansicht weniger, wenn du die Verläufe gerade nicht brauchst. Die aktiven Verbindungen siehst du in der Statuskachel.",
+              "en": "In the device exchange you can now fetch only while a history is shown. That keeps the view smoother when you do not need the history right now. The status tile shows the active connections."
+            },
+            "title": {
+              "de": "Geräteaustausch",
+              "en": "Device exchange"
+            }
+          },
+          {
+            "need": "view_history",
+            "panel": "history-panel",
+            "target": "history-status",
+            "text": {
+              "de": "Die Statuszeile gibt jetzt genauer Auskunft über die Datenlage.",
+              "en": "The status line now tells you more about the data it has."
+            },
+            "title": {
+              "de": "Verlaufsstatus",
+              "en": "History status"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Seite Verläufe der Einstellungen schaltet den Austausch zwischen Geräten und legt fest, wann dieser Browser austauscht. Unter der Auswahl zeigt eine Statuskachel, ob der Austausch verbunden ist und wie viele Werte er ergänzt hat.",
+        "doc": "dashboard/settings-history.html",
+        "en": "The History page of the settings switches the exchange between devices and chooses when this browser exchanges. Below the choices a status tile shows whether the exchange is connected and how many values it added.",
+        "image": "dashboard-settings-history.png"
+      }
     }
   },
   "126": {
     "de": {
       "*": "Der Bilanzknoten ist im Gerät energy_node aufgegangen"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Die Bilanz erscheint jetzt als Wert des Energy Node. Außerdem stehen die Automationen als eigenes Gerät in der Map und sind mit ihren Regeln verlinkt.",
+              "en": "The balance now shows as a value of the Energy Node. The automations also appear as a device of their own and link to their rules."
+            },
+            "title": {
+              "de": "Gerät Energy Node",
+              "en": "Energy Node device"
+            }
+          },
+          {
+            "need": "edit_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-connect",
+            "text": {
+              "de": "Verbindungen haben jetzt einen Typ. Jede Verbindung, die du zwischen zwei Geräten gezogen hast, lässt sich in ihrer Richtung umdrehen.",
+              "en": "Connections now have a type. Every connection you drew between two devices can be turned around."
+            },
+            "title": {
+              "de": "Verbindungstypen",
+              "en": "Connection types"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Der Energy Node ist die Bilanz selbst, das Gerät, das das Dashboard für Home Assistant veröffentlicht. Er zeigt die Netzleistung, und die Ebene Rollen verbindet jedes Gerät mit Energierolle mit ihm.",
+        "doc": "dashboard/device-map.html#roles-layer",
+        "en": "The Energy Node is the balance itself, the device the dashboard publishes for Home Assistant. It shows the net grid power, and the Roles layer connects every device with an energy role to it.",
+        "image": "dashboard-device-map-balance.png"
+      }
     }
   },
   "127": {
@@ -456,6 +981,51 @@
         "en": "The Statistics tab shows consumption, PV yield, grid import, feed-in and the battery flows for a day, week, month or year. The node records the hours itself, and with the companion the hours from Home Assistant replace them. A tile with the same figures is available for the overview.",
         "image": "dashboard-statistics.png"
       }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_stats",
+            "panel": "stats-panel",
+            "target": "stats-nav",
+            "text": {
+              "de": "Erfahre, was dein Energiesystem langfristig abwirft. Wähle eine Zeitspanne und einen Zeitpunkt, etwa einen Tag, eine Woche, einen Monat oder ein Jahr.",
+              "en": "Find out what your energy system yields over time. Choose a span and a point in time, such as a day, a week, a month or a year."
+            },
+            "title": {
+              "de": "Energiestatistik",
+              "en": "Energy statistics"
+            }
+          },
+          {
+            "need": "view_stats",
+            "panel": "stats-panel",
+            "target": "stats-kpis",
+            "text": {
+              "de": "Für den gewählten Zeitraum siehst du Kennzahlen zu Verbrauch, PV-Ertrag, Netzbezug, Einspeisung und den Batterieflüssen.",
+              "en": "For the chosen period you see key figures on consumption, PV yield, grid import, feed-in and the battery flows."
+            },
+            "title": {
+              "de": "Kennzahlen",
+              "en": "Key figures"
+            }
+          },
+          {
+            "need": "edit_layout",
+            "panel": "overview-panel",
+            "target": "tiles",
+            "text": {
+              "de": "Die Statistik gibt es auch als Karte für die Übersicht. Kennzahlen und Diagramm lassen sich für einen festen oder einen wählbaren Zeitraum einstellen.",
+              "en": "The statistics are also available as a card for the overview. Its key figures and chart can be set for a fixed or a selectable period."
+            },
+            "title": {
+              "de": "Statistikkarte",
+              "en": "Statistics card"
+            }
+          }
+        ]
+      }
     }
   },
   "133": {
@@ -466,6 +1036,47 @@
   "134": {
     "de": {
       "*": "Release-Highlights haben jetzt einen deutschen Text im Dashboard, im Installer und in den Release Notes."
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-highlights",
+            "text": {
+              "de": "Die Highlights gibt es jetzt auch auf Deutsch.",
+              "en": "The highlights are now available in German too."
+            },
+            "title": {
+              "de": "Highlights auf Deutsch",
+              "en": "Highlights in German"
+            }
+          },
+          {
+            "need": "edit_setup",
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-history",
+            "text": {
+              "de": "Blende beim Durchstöbern der Änderungen ältere Versionen aus der Ansicht aus.",
+              "en": "Leave older versions out of the view while you browse the changes."
+            },
+            "title": {
+              "de": "Versionen im Changelog",
+              "en": "Versions in the changelog"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Highlights eines Release tragen neben dem englischen einen deutschen Text. Das Dashboard zeigt den Text in seiner Sprache, ebenso der Installer und die Release Notes auf GitHub.",
+        "doc": "dashboard/settings-versions.html",
+        "en": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
+        "image": "dashboard-settings-versions.png"
+      }
     }
   },
   "135": {
@@ -509,6 +1120,54 @@
         "en": "System metrics such as Wi-Fi signal or undervoltage are published as diagnostic entities. Remove a metric from the selection to stop publishing it and add it again to resume. Changes are saved at once and need a login with configuration rights over HTTPS.",
         "image": "dashboard-settings-mqtt-metrics.png"
       }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "mqtt_config",
+            "page": "mqtt",
+            "panel": "settings-panel",
+            "target": "mqtt-bridge",
+            "text": {
+              "de": "Die Einrichtung der MQTT-Bridge zum Hauptstandort erklärt jetzt eine Schrittliste. Hast du schon eine Verbindung, musst du hier nichts tun.",
+              "en": "A step list now explains how to set up the MQTT bridge to the main site. If you already have a connection, there is nothing to do here."
+            },
+            "title": {
+              "de": "Bridge zum Hauptstandort",
+              "en": "Bridge to the main site"
+            }
+          },
+          {
+            "need": "mqtt_config",
+            "page": "mqtt",
+            "panel": "settings-panel",
+            "target": "metrics",
+            "text": {
+              "de": "Die Metriken, die per MQTT veröffentlicht werden, lassen sich jetzt filtern.",
+              "en": "The metrics published over MQTT can now be filtered."
+            },
+            "title": {
+              "de": "Systemmetriken",
+              "en": "System metrics"
+            }
+          },
+          {
+            "need": "mqtt_config",
+            "page": "mqtt",
+            "panel": "settings-panel",
+            "target": "mqtt-sensors",
+            "text": {
+              "de": "Neben den Energiewerten gehen jetzt auch Sensoren für Wallbox, Wärmepumpe und eigene Kategorien an Home Assistant. Standardmäßig wird jeder übertragen, hier wählst du einzelne ab.",
+              "en": "Next to the energy values, sensors for wallbox, heat pump and your own categories now go to Home Assistant as well. Each one is sent by default, and you can deselect it here."
+            },
+            "title": {
+              "de": "Sensoren für Home Assistant",
+              "en": "Sensors for Home Assistant"
+            }
+          }
+        ]
+      }
     }
   },
   "141": {
@@ -527,6 +1186,25 @@
         "doc": "dashboard/history.html#resolutions",
         "en": "The first pill above the chart lists the resolutions that fit the chosen span and shows how much of it each one covers. The automatic choice is the coarsest resolution that has data. A week or longer shows hourly values from the energy statistics, and there is a quick choice for 3 months.",
         "image": "dashboard-history.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_history",
+            "panel": "history-panel",
+            "target": "history-resolution",
+            "text": {
+              "de": "Pro Zeitspanne passt du jetzt die Auflösung an. Vorausgewählt ist die gröbste, weil weniger Datenpunkte flüssiger dargestellt werden.",
+              "en": "You can now adjust the resolution for each span. The coarsest one is preselected, because fewer points draw more smoothly."
+            },
+            "title": {
+              "de": "Auflösung",
+              "en": "Resolution"
+            }
+          }
+        ]
       }
     }
   },
@@ -566,6 +1244,25 @@
         "en": "House consumption is now always calculated from the balance. A house meter serves as a cross check and replaces the calculation only when no grid role is assigned. A line below the modes shows where the value comes from and how far the meter deviates.",
         "image": "dashboard-energy-interpretation.png"
       }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_energy",
+            "panel": "energy-panel",
+            "target": "energy-interpretation",
+            "text": {
+              "de": "Der Modus Automatisch übernimmt die Aufgabe des früheren Modus Kombiniert. Er bildet den Hausverbrauch aus der Bilanz und zieht gemessene Verbraucher davon ab, der Hauszähler dient als Kontrolle. Über die Statuszeile siehst du die aktuelle Abweichung direkt.",
+              "en": "The Automatic mode takes over from the former Combined mode. It builds the house consumption from the balance and subtracts the metered consumers, with the house meter as a cross-check. The status line shows the current deviation right away."
+            },
+            "title": {
+              "de": "Bilanz-Interpretation",
+              "en": "Balance interpretation"
+            }
+          }
+        ]
+      }
     }
   },
   "144": {
@@ -589,6 +1286,64 @@
         "doc": "dashboard/device-map.html#switchable-devices",
         "en": "The device map marks every device without power as off and fades it out. A switched off output cuts the connection behind it.",
         "image": "dashboard-device-map-switch-channel.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Geräte mit einem Schaltzustand können jetzt die Rolle Schaltet bekommen. Damit lässt sich darstellen und nachvollziehen, wie das Abschalten eine Kette von Geräten trennt. Ausgeschaltete Geräte werden ausgegraut und als aus markiert.",
+              "en": "Devices with a switch state can now get the role Switches. The map then shows how switching off cuts a chain of devices. Switched off devices are greyed out and marked as off."
+            },
+            "title": {
+              "de": "Ausgeschaltete Geräte",
+              "en": "Switched off devices"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-view",
+            "text": {
+              "de": "Darstellung und Filter sind jetzt getrennte Menüs. Was du unter Darstellung einstellst, gilt nur für dich in diesem Browser.",
+              "en": "Display and filter are separate menus now. What you set under Display applies only to you in this browser."
+            },
+            "title": {
+              "de": "Legende",
+              "en": "Legend"
+            }
+          },
+          {
+            "need": "edit_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Einen Verbraucher an einem Zwischenstecker, etwa eine Waschmaschine, legst du jetzt als Untergerät an. Er bekommt einen eigenen Namen, ein eigenes Icon und in der Device-Map einen eigenen Knoten, und auf der Energie-Seite und im Gerätedialog steht sein Name statt der Messung des Steckers.",
+              "en": "A consumer behind a smart plug, such as a washing machine, can now be added as a sub-device. It gets its own name, its own icon and its own node on the map, and the energy page and the device dialog show its name instead of the plug's measurement."
+            },
+            "title": {
+              "de": "Untergeräte",
+              "en": "Sub-devices"
+            }
+          },
+          {
+            "need": "edit_energy",
+            "panel": "energy-panel",
+            "target": "energy-roles-head",
+            "text": {
+              "de": "In der Rollentabelle lassen sich nur noch Einträge ausblenden, die noch keine Rolle haben. Ausgeblendete Einträge sind dann auch in der Device-Map nicht mehr sichtbar.",
+              "en": "In the role table you can now only hide entries that have no role yet. Hidden entries no longer show in the device map either."
+            },
+            "title": {
+              "de": "Ausgeblendete Energierollen",
+              "en": "Hidden energy roles"
+            }
+          }
+        ]
       }
     }
   },

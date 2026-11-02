@@ -76,7 +76,7 @@
     <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('mqtt.status.loading') : $t('mqtt.status.refresh')"></button></div>
   </section>
 
-  <div class="setting-card">
+  <div class="setting-card" data-tour="mqtt-sensors">
     <h3 class="setting-card-title">{{t "mqtt.ha.title"}}</h3>
     <label class="switch-row" for="mqtt-publish-energy-device">
       <span>{{t "mqtt.energy_device.label"}}
@@ -132,7 +132,7 @@
     <p class="setting-note" x-show="!canConfigure">{{t "mqtt.metrics.read_only"}}</p>
   </div>
 
-  <section id="settings-mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
+  <section id="settings-mqtt-bridge" data-tour="mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
     <details class="settings-help-panel setting-card--wide" open x-show="canConfigure">
       <summary>{{t "bridge.help.title"}}</summary>
       <ol class="settings-help-list">

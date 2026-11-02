@@ -41,6 +41,7 @@ type onboardingView struct {
 			ID      string            `json:"id"`
 			Version string            `json:"version"`
 			Minor   string            `json:"minor"`
+			Archive bool              `json:"archive"`
 			PR      int               `json:"pr"`
 			Text    string            `json:"text"`
 			I18n    map[string]string `json:"i18n"`

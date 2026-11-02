@@ -262,7 +262,8 @@
     // aktuelle. sections gruppiert die Highlights einer Karte nach Komponente
     // (Reihenfolge wie empfangen), items ist die flache Liste fuer obModel. Titel
     // und Texte in der Seitensprache (sonst der englische Text). Schritte tragen
-    // literal, build() uebersetzt sie nicht mehr.
+    // literal, build() uebersetzt sie nicht mehr. archive markiert Highlights
+    // einer frueheren Version (item.archive vom Server), sie bleiben zu, bis man sie zeigt.
     get exploreVersions() {
       const localized = (map, fallback) => window.I18n.localized(map, fallback);
       const versions = [];
@@ -270,9 +271,11 @@
         const minor = item.minor || window.obModel.minorOf(item.version);
         let version = versions.find((v) => v.release === item.version);
         if (!version) {
-          version = { version: item.version, minor, release: item.version, current: versions.length === 0, items: [], sections: [] };
+          version = { version: item.version, minor, release: item.version, current: versions.length === 0, archive: false, items: [], sections: [] };
           versions.push(version);
         }
+        // Eine frueher archivierte Version: ihre Karte bleibt zu, bis man sie zeigt.
+        if (item.archive) version.archive = true;
         const component = item.component || 'dashboard';
         let section = version.sections.find((s) => s.id === component);
         if (!section) {
@@ -294,6 +297,7 @@
           tour: item.tour ? undefined : false,
           // Veraltet: die Tour passt nicht mehr zur Oberflaeche (Server, Ziele fehlen).
           stale: Boolean(item.tour?.stale),
+          archive: Boolean(item.archive),
           steps: (item.tour?.steps || []).map((s) => ({
             panel: s.panel,
             page: s.page,

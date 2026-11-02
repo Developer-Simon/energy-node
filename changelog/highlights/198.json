@@ -1,0 +1,51 @@
+{
+  "de": {
+    "*": "Einstellungen, Checkliste: Jede sichtbare Funktion seit v0.8.0 hat eine Tour, Releases älter als die letzten drei Minor-Versionen stehen hinter „Weiter zurück erkunden“, und jede ältere Release-Karte kann ihre Tour nachholen."
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "page": "checklist",
+          "panel": "settings-panel",
+          "target": "checklist-more",
+          "text": {
+            "de": "Ältere Versionen klappst du in dieser Kachel Schritt für Schritt auf. Zuerst kommen die weiteren Releases, danach zeigt Weiter zurück erkunden auch die frühesten.",
+            "en": "This card opens older versions step by step. First come the further releases, then Explore further back shows the earliest ones too."
+          },
+          "title": {
+            "de": "Weiter zurück erkunden",
+            "en": "Explore further back"
+          }
+        },
+        {
+          "page": "checklist",
+          "panel": "settings-panel",
+          "target": "checklist-catch-up",
+          "text": {
+            "de": "Jede ältere Release-Karte mit Tour hat diesen Knopf. Er spielt alle Touren dieses Release ab.",
+            "en": "Every older release card with a tour has this button. It plays every tour of that release."
+          },
+          "title": {
+            "de": "Tour nachholen",
+            "en": "Take the tour"
+          }
+        },
+        {
+          "need": "install_updates",
+          "page": "versions",
+          "panel": "settings-panel",
+          "target": "updates",
+          "text": {
+            "de": "Wird ein Update angeboten, startet Jetzt installieren in der Update-Leiste es direkt. Vorher fragt das Dashboard noch einmal nach.",
+            "en": "When an update is offered, Install now in the update bar starts it right away. The dashboard asks once more before it begins."
+          },
+          "title": {
+            "de": "Jetzt installieren",
+            "en": "Install now"
+          }
+        }
+      ]
+    }
+  }
+}

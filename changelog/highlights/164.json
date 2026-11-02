@@ -1,5 +1,45 @@
 {
   "de": {
     "*": "Die Automationen-Seite zeigt Szenarien mit Live-Karte, Diagramm und Phasen-Editor und hat einen neu gestalteten Regeleditor."
+  },
+  "details": {
+    "*": {
+      "de": "Ein Szenario hat drei Phasen. Start enthält die Bedingungen, die es beginnen, Während beschreibt, was im Szenario passiert, und Ende enthält die Aktionen beim Stoppen. Typisch ist ein Regler, der die Netzbilanz nahe an einem Ziel hält.",
+      "doc": "dashboard/automations.html#scenarios",
+      "en": "A scenario has three phases. Start holds the conditions that begin it, While is what happens during the scenario and End holds the actions when it stops. The usual use is a regulator that keeps the grid balance near a target.",
+      "image": "dashboard-automation.png"
+    }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "view_automations",
+          "panel": "automations-panel",
+          "target": "automations-tabs",
+          "text": {
+            "de": "Neben den Einzelregeln gibt es jetzt Szenarien. Ein Szenario läuft in Phasen statt nach einer festen Regel. Die Einzelregeln haben eine verbesserte Live-Anzeige bekommen, und Szenarien zeigen im Regelbetrieb auch Diagramme.",
+            "en": "Next to single rules there are now scenarios. A scenario runs in phases instead of following one fixed rule. Single rules got an improved live view, and scenarios can also show charts in control mode."
+          },
+          "title": {
+            "de": "Szenarien und Einzelregeln",
+            "en": "Scenarios and single rules"
+          }
+        },
+        {
+          "need": "automations",
+          "panel": "automations-panel",
+          "target": "automations",
+          "text": {
+            "de": "Der Assistent hilft dir, neue Szenarien und Regeln anzulegen. In einem kurzen Dialog passt du die Vorlage an deine Geräte an und stellst Zusatzbedingungen ein. Vorlagen gibt es unter anderem für Nulleinspeisung, Überschussverbrauch und die Überwachung von Geräten.",
+            "en": "The assistant helps you create new scenarios and rules. In a short dialog you fit the template to your devices and set extra conditions. There are templates for zero feed-in, using surplus power and watching devices, among others."
+          },
+          "title": {
+            "de": "Assistent",
+            "en": "Assistant"
+          }
+        }
+      ]
+    }
   }
 }

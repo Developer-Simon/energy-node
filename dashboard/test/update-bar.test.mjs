@@ -96,7 +96,7 @@ test('install posts without body and switches to preparing', async () => {
   });
   bar = factories.updateBar();
   bar.csrfToken = 'tok';
-  bar.$store = { toasts: { push: (message, level) => toasts.push({ message, level }) } };
+  bar.$store = { toasts: { push: (message, level) => toasts.push({ message, level }) }, modal: { confirm: async () => true } };
   progress = { state: 'preparing', version: 'v0.9.1' };
   await bar.installOffered();
   const post = calls.find((c) => c.options.method === 'POST');
@@ -116,11 +116,31 @@ test('a refused install shows the server message as a critical toast and keeps t
   });
   const bar = factories.updateBar();
   const toasts = [];
-  bar.$store = { toasts: { push: (message, level) => toasts.push({ message, level }) } };
+  bar.$store = { toasts: { push: (message, level) => toasts.push({ message, level }) }, modal: { confirm: async () => true } };
   await bar.installOffered();
   assert.deepEqual(toasts, [{ message: window.I18n.t('error.update_in_progress'), level: 'critical' }]);
   assert.equal(bar.installing, false);
   assert.equal(bar.view.kind, 'hidden');
+});
+
+test('install asks first and posts nothing when the dialog is declined', async () => {
+  const calls = [];
+  const { factories, window } = load({ fetchImpl: async (url, options = {}) => { calls.push({ url, options }); return { ok: true, status: 200, json: async () => ({}) }; } });
+  const bar = factories.updateBar();
+  bar.status = { available: true, latest: 'v0.9.1', current: 'v0.9.0' };
+  bar.canInstallDirect = true;
+  const asked = [];
+  bar.$store = { toasts: { push: () => {} }, modal: { confirm: async (options) => { asked.push(options); return false; } } };
+  await bar.installOffered();
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].title, window.I18n.t('update_bar.confirm.title', { version: 'v0.9.1' }));
+  assert.equal(asked[0].confirmLabel, window.I18n.t('update_bar.install'));
+  assert.equal(calls.filter((c) => c.options.method === 'POST').length, 0);
+  assert.equal(bar.installing, false);
+});
+
+test('the available view carries the offered version for the dialog', () => {
+  assert.equal(view({ status: { available: true, latest: 'v0.9.1', current: 'v0.9.0' }, canInstallDirect: true }).version, 'v0.9.1');
 });
 
 test('running shows step counter, title and fraction', () => {

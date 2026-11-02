@@ -5,7 +5,7 @@
        nicht hier, sondern im Revisionsbereich, wo man sie vergleicht. -->
   <div class="config-meta">
     <span id="config-count" x-text="configCount"></span>
-    <span id="config-runtime-status" class="config-status" role="status" aria-live="polite" x-cloak x-show="runtimeState" x-bind:data-state="runtimeState" x-bind:aria-label="$t('config.runtime_status.label', {state: runtimeStateLabel})">
+    <span id="config-runtime-status" data-tour="config-status" class="config-status" role="status" aria-live="polite" x-cloak x-show="runtimeState" x-bind:data-state="runtimeState" x-bind:aria-label="$t('config.runtime_status.label', {state: runtimeStateLabel})">
       <span class="config-status-dot" aria-hidden="true"></span>
       <span class="config-status-text" x-text="runtimeStateLabel"></span>
     </span>

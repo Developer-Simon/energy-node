@@ -83,6 +83,7 @@
     if (status && status.available && !justInstalled) {
       return {
         kind: 'available',
+        version: status.latest,
         title: t('update_bar.available.title', { version: status.latest }),
         detail: canInstallDirect || canOpenInstaller ? t('update_bar.available.installed', { version: status.current }) : t('update_bar.available.login_hint', { version: status.current }),
         notesUrl: status.notes_url || '',
@@ -167,9 +168,16 @@
 
     // The install button. The server answers 202 with the offered version; the
     // progress poll then shows "preparing" right away instead of waiting for the
-    // slow cycle. Errors go to a toast, the bar keeps its state.
+    // slow cycle. Errors go to a toast, the bar keeps its state. The update
+    // restarts the dashboard, so the shared modal asks first.
     async installOffered() {
       if (this.installing) return;
+      const confirmed = await this.$store.modal.confirm({
+        title: t('update_bar.confirm.title', { version: this.view.version || '' }),
+        body: t('update_bar.confirm.body'),
+        confirmLabel: t('update_bar.install'),
+      });
+      if (!confirmed || this.installing) return;
       this.installing = true;
       try {
         const response = await fetch(withBase('/api/v1/updates/install'), {

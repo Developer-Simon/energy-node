@@ -62,7 +62,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-10-29**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -70,6 +70,7 @@ As of **2026-10-29**, read from `base.html` and `overview.html`. "–" means: no
 | Asset | `?v=` |
 |---|---|
 | `css/base.css` | `46` |
+| `css/onboarding.css` | `4` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -96,7 +97,9 @@ As of **2026-10-29**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `42` |
-| `js/update-bar.js` | `5` |
+| `js/update-bar.js` | `7` |
+| `js/onboarding-model.js` | `4` |
+| `js/onboarding.js` | `4` |
 | `js/whatsnew.page.js` | `4` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
@@ -142,7 +145,7 @@ on the `device-modal` template in
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `48` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `2`, `js/energy.page.js` `13` | `css/manager.css` `48` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `5`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `48` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `11`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `20` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `11`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4`, `js/onboarding-checklist.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `20` |
 | `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `5`, `js/automations-scenario.js` `3`, `js/automations-chart.js` `2`, `js/automations-devices.js` `1`, `js/device-picker.js` `2`, `js/automation-wizard.js` `1` (new), `js/automation-templates.js` `1` (new), `js/automations.page.js` `22` | `css/manager.css` `48`, `css/automations.css` `12` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `6` | `css/history.css` `7`, `css/stats.css` `4` |
 
@@ -265,6 +268,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.37 | `js/update-bar.js` (Install now asks first, the installer link reads Prepare installation) · `js/onboarding-model.js` (catch-up runs every tour of a release) · `js/onboarding.js` (archived explore releases) · `js/onboarding-checklist.js` (settings panel, archive toggle and catch-up chip) · `css/onboarding.css` (catch-up chip next to the release notes chip, own card for the version toggles) | `7` · `4` · `4` · `3` · `4` | 2026-11-02 |
 | v0.10.35 | `js/config.page.js` (config panel, tuning findings are rendered from the catalog by code and params, with the service text as fallback) | `11` | 2026-11-01 |
 | v0.10.34 | `js/mqtt.page.js` (settings panel, the connection test result is shown as a toast and a failed reconnect shows the broker error instead of a generic failure) | `11` | 2026-11-01 |
 | v0.10.28 | `js/users.page.js` (settings panel, guest preset card with the guest access switch) · `js/dashboard.js` (ignored devices: un-ignore needs the discovery permission) · `js/device-modal.js` (device dialog: ignore needs the discovery permission) | `4` · `42` · `3` | 2026-10-31 |

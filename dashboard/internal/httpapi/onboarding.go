@@ -71,6 +71,10 @@ func onboardingInstalled(services map[string]bool) map[string]bool {
 // component: the installed one and the two before it.
 const onboardingExploreMinors = 3
 
+// onboardingExploreArchiveMinors is so many minor releases that every release
+// of the changelog lies in the archive, not only the ones outside the window.
+const onboardingExploreArchiveMinors = 1000
+
 // onboardingExploreItem is one highlight of the last releases for "Neu
 // erkunden". Version is the dashboard release the item is shown under, Minor
 // its major.minor. Component is the component the highlight comes from
@@ -79,9 +83,12 @@ const onboardingExploreMinors = 3
 // caller has the rights for and is null when none is left, the highlight then
 // counts as text only.
 type onboardingExploreItem struct {
-	ID               string                     `json:"id"`
-	Version          string                     `json:"version"`
-	Minor            string                     `json:"minor"`
+	ID      string `json:"id"`
+	Version string `json:"version"`
+	Minor   string `json:"minor"`
+	// Archive is set for highlights older than the explore window. They are
+	// listed so their tours can be started, and are omitted when false.
+	Archive          bool                       `json:"archive,omitempty"`
 	Component        string                     `json:"component"`
 	ComponentLabel   string                     `json:"component_label"`
 	ComponentVersion string                     `json:"component_version,omitempty"`
@@ -105,6 +112,8 @@ type onboardingTour struct {
 // inside a release the dashboard entries first, then the other components.
 // targets are the data-tour targets of the web UI, nil or empty marks no tour
 // as stale. A missing or unreadable changelog gives an empty list and false.
+// Highlights older than the window follow the window's items as archive, see
+// onboardingExploreArchiveMinors. If that wider read fails the archive stays empty.
 func onboardingExplore(stateDir string, user auth.User, targets map[string]bool) (string, []onboardingExploreItem, bool) {
 	items := []onboardingExploreItem{}
 	view, err := versions.Releases(stateDir, onboardingExploreMinors)
@@ -131,6 +140,37 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 				Details:          entry.Details,
 				Tour:             onboardingTourFor(user, entry.Tour, targets),
 			})
+		}
+	}
+	if wide, err := versions.Releases(stateDir, onboardingExploreArchiveMinors); err == nil {
+		inWindow := map[string]bool{}
+		for _, release := range view.Releases {
+			inWindow[release.Version] = true
+		}
+		for _, release := range wide.Releases {
+			if inWindow[release.Version] {
+				continue
+			}
+			for _, entry := range release.Entries {
+				if entry.ID == "" || known[entry.ID] {
+					continue
+				}
+				known[entry.ID] = true
+				items = append(items, onboardingExploreItem{
+					ID:               entry.ID,
+					Version:          release.Version,
+					Minor:            versions.MinorOf(release.Version),
+					Archive:          true,
+					Component:        entry.Component,
+					ComponentLabel:   entry.ComponentLabel,
+					ComponentVersion: entry.ComponentVersion,
+					PR:               entry.PR,
+					Text:             entry.Text,
+					I18n:             entry.I18n,
+					Details:          entry.Details,
+					Tour:             onboardingTourFor(user, entry.Tour, targets),
+				})
+			}
 		}
 	}
 	return view.To, items, true

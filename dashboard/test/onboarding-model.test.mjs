@@ -256,6 +256,21 @@ test('explore with all lists every item of the current version, seen or not', ()
   assert.deepEqual(m.buildSteps({ mode: 'explore', explore, seen, ctx: ctx() }).map((s) => s.id), ['b']);
 });
 
+test('explore with from and all plays every tour of the release that holds from', () => {
+  const m = load();
+  const explore = [
+    { version: '0.12.0', current: true, items: [{ id: 'n', title: 'N', text: 'N', steps: [{ title: 'N1', text: 'x', device: 'any' }] }] },
+    { version: '0.11.0', current: false, items: [
+      { id: 'a', title: 'A', text: 'A', steps: [{ title: 'A1', text: 'x', device: 'any' }] },
+      { id: 'b', title: 'B', text: 'B', steps: [{ title: 'B1', text: 'y', device: 'any' }, { title: 'B2', text: 'z', device: 'any' }] },
+      { id: 'c', title: 'C', text: 'C', stale: true, steps: [{ title: 'C1', text: 'z', device: 'any' }] },
+    ] },
+  ];
+  const seen = { a: true, b: true };
+  assert.deepEqual(m.buildSteps({ mode: 'explore', from: 'a', all: true, explore, seen, ctx: ctx() }).map((s) => s.title), ['A1', 'B1', 'B2']);
+  assert.deepEqual(m.buildSteps({ mode: 'explore', from: 'a', explore, seen, ctx: ctx() }).map((s) => s.title), ['A1']);
+});
+
 test('minorOf keeps major.minor of a release version', () => {
   const m = load();
   assert.equal(m.minorOf('0.12.0'), '0.12');

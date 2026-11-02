@@ -1,5 +1,33 @@
 {
   "de": {
     "*": "Das angebotene Update direkt über die Update-Leiste installieren"
+  },
+  "details": {
+    "*": {
+      "de": "Gibt es ein neueres Release, bietet es die Leiste unter der Kopfzeile an. Jetzt installieren fragt noch einmal nach und aktualisiert dann sofort. Installation vorbereiten öffnet die Seite des Installers.",
+      "doc": "dashboard/settings-versions.html#updating-from-the-dashboard",
+      "en": "When a newer release is out, the bar under the header offers it. Install now asks once more and then updates right away. Prepare installation opens the installer page.",
+      "image": "dashboard-update-available.png"
+    }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "install_updates",
+          "page": "versions",
+          "panel": "settings-panel",
+          "target": "updates",
+          "text": {
+            "de": "Für ein Update musst du den Installer nicht mehr öffnen. Jetzt installieren startet ein schnelles Update direkt im Dashboard.",
+            "en": "An update no longer needs the installer. Install now starts a quick update right in the dashboard."
+          },
+          "title": {
+            "de": "Update direkt im Dashboard",
+            "en": "Update right in the dashboard"
+          }
+        }
+      ]
+    }
   }
 }

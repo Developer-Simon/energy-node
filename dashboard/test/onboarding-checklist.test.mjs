@@ -38,11 +38,12 @@ const SAMPLE_EXPLORE = {
 // Loads the page scripts into a jsdom window and returns the store plus a
 // checklist component bound to it. role decides admin or guest, width the device.
 // explore ist der Server-Block explore (Standard: SAMPLE_EXPLORE).
-async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE, setupDone = false, older } = {}) {
+async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE, setupDone = false, older, archive } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><ul id="root"></ul></body></html>', { runScripts: 'outside-only', url, pretendToBeVisual: true });
   const { window } = dom;
   // Die Wahl der Filter-Schaltflaeche steht in der Sitzung, sie gilt schon beim Start.
   if (older !== undefined) window.sessionStorage.setItem('ob-explore-older', older);
+  if (archive !== undefined) window.sessionStorage.setItem('ob-explore-archive', archive);
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
   // Die Schritte des Servers (setup.items), wie steps.go sie in dieser Reihenfolge liefert.
   const progress = { role, setup: { done: setupDone, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] }, explore };
@@ -374,10 +375,10 @@ const TWO_MINORS = {
   ],
 };
 
-test('older versions are hidden unless they still have an unseen tour, the toggle shows the rest', async () => {
+test('the two newest minors stay visible, older minors wait behind the toggle even with an unseen tour', async () => {
   const { store, component: cl, t, window } = await load({ explore: TWO_MINORS });
-  store.seen = { o1: true };
-  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.10.0']);
+  store.seen = {};
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.11.0']);
   assert.equal(cl.olderHidden, 1);
   assert.equal(cl.olderToggleShown, true);
   assert.equal(cl.olderLabel, t('onboarding.checklist.older_show', { n: 1 }));
@@ -390,7 +391,7 @@ test('older versions are hidden unless they still have an unseen tour, the toggl
   assert.equal(window.sessionStorage.getItem('ob-explore-older'), '0');
 });
 
-test('every release of the newest minor stays visible, only older minors are hidden', async () => {
+test('every release of the two newest minors stays visible, only older minors are hidden', async () => {
   const sameMinor = {
     current_version: '0.10.33',
     items: [
@@ -398,16 +399,15 @@ test('every release of the newest minor stays visible, only older minors are hid
       { id: 'b', version: '0.10.8', minor: '0.10', text: 'B', tour: null },
       { id: 'c', version: '0.10.0', minor: '0.10', text: 'C', tour: null },
       { id: 'd', version: '0.9.4', minor: '0.9', text: 'D', tour: null },
+      { id: 'e', version: '0.8.1', minor: '0.8', text: 'E', tour: null },
     ],
   };
-  const { store, component: cl } = await load({ explore: sameMinor });
-  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.10.33', '0.10.8', '0.10.0']);
+  const { component: cl } = await load({ explore: sameMinor });
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.10.33', '0.10.8', '0.10.0', '0.9.4']);
   assert.equal(cl.olderHidden, 1);
-  store.seen = {};
-  assert.equal(cl.cardShown(cl.versions[0]), true);
-  assert.equal(cl.cardShown(cl.versions[3]), false);
+  assert.equal(cl.cardShown(cl.versions[4]), false);
   cl.toggleOlder();
-  assert.equal(cl.cardShown(cl.versions[3]), true);
+  assert.equal(cl.cardShown(cl.versions[4]), true);
 });
 
 test('the choice of the older filter is read from the session at the start', async () => {
@@ -464,7 +464,7 @@ test('the older cards enter and leave with the ob-cl-card classes, staggered and
   // Gestaffelt nach der Reihe der ausgeblendeten Karten, hoechstens fuenf mal 40 ms.
   const many = {
     current_version: '0.12.0',
-    items: [{ id: 'n', version: '0.12.0', minor: '0.12', text: 'N', tour: null }, ...[1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: `o${i}`, version: `0.${10 - i}.0`, minor: `0.${10 - i}`, text: 'O', tour: null }))],
+    items: [{ id: 'n', version: '0.12.0', minor: '0.12', text: 'N', tour: null }, ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ id: `o${i}`, version: `0.${10 - i}.0`, minor: `0.${10 - i}`, text: 'O', tour: null }))],
   };
   const { component: many7 } = await load({ explore: many });
   const hidden = many7.versions.filter((v) => !many7.shownByDefault(v));
@@ -505,4 +505,118 @@ test('the filter and the stale hint have texts in both languages', () => {
   assert.match(catalog('en')['onboarding.checklist.older_show'], /\{n\}/);
   assert.equal(catalog('de')['onboarding.checklist.news_stale'], 'Diese Tour passt nicht mehr zur aktuellen Oberfläche.');
   assert.equal(catalog('en')['onboarding.checklist.news_stale'], 'This tour no longer matches the current interface.');
+});
+
+const WITH_ARCHIVE = {
+  current_version: '0.12.2',
+  items: [
+    { id: 'n1', version: '0.12.2', minor: '0.12', text: 'Now', tour: null },
+    { id: 'o1', version: '0.11.0', minor: '0.11', text: 'Older', tour: { steps: [{ panel: 'settings-panel', target: 'guest', device: '', need: '', title: {}, text: {} }] } },
+    { id: 'a1', version: '0.9.0', minor: '0.9', archive: true, text: 'Archived', tour: { steps: [{ panel: 'settings-panel', target: 'guest', device: '', need: '', title: {}, text: {} }] } },
+  ],
+};
+
+test('archived versions stay hidden even with an unseen tour, their own toggle shows them', async () => {
+  const { store, component: cl, t, window } = await load({ explore: WITH_ARCHIVE });
+  store.seen = {};
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.11.0']);
+  assert.equal(cl.olderHidden, 0);
+  assert.equal(cl.archiveCount, 1);
+  assert.equal(cl.archiveToggleShown, true);
+  assert.equal(cl.archiveLabel, t('onboarding.checklist.archive_show', { n: 1 }));
+  cl.toggleArchive();
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.11.0', '0.9.0']);
+  assert.equal(cl.archiveLabel, t('onboarding.checklist.archive_hide'));
+  assert.equal(window.sessionStorage.getItem('ob-explore-archive'), '1');
+  cl.toggleArchive();
+  assert.equal(window.sessionStorage.getItem('ob-explore-archive'), '0');
+});
+
+test('the archive toggle only appears once the older versions are open, and closing them closes the archive too', async () => {
+  const tiers = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'n', version: '0.12.0', minor: '0.12', text: 'N', tour: null },
+      { id: 'p', version: '0.11.0', minor: '0.11', text: 'P', tour: null },
+      { id: 'o', version: '0.10.0', minor: '0.10', text: 'O', tour: null },
+      { id: 'a', version: '0.9.0', minor: '0.9', archive: true, text: 'A', tour: null },
+    ],
+  };
+  const { component: cl, window } = await load({ explore: tiers });
+  const shown = () => [...cl.shownVersions.map((v) => v.version)];
+  assert.equal(cl.olderToggleShown, true);
+  assert.equal(cl.archiveToggleShown, false);
+  cl.toggleOlder();
+  assert.equal(cl.archiveToggleShown, true);
+  assert.deepEqual(shown(), ['0.12.0', '0.11.0', '0.10.0']);
+  cl.toggleArchive();
+  assert.deepEqual(shown(), ['0.12.0', '0.11.0', '0.10.0', '0.9.0']);
+  cl.toggleOlder();
+  assert.equal(cl.archiveOpen, false);
+  assert.equal(window.sessionStorage.getItem('ob-explore-archive'), '0');
+  assert.deepEqual(shown(), ['0.12.0', '0.11.0']);
+});
+
+test('the archive choice is read from the session at the start', async () => {
+  const { component: cl } = await load({ explore: WITH_ARCHIVE, archive: '1' });
+  assert.equal(cl.archiveOpen, true);
+  assert.equal(cl.cardShown(cl.versions[2]), true);
+});
+
+test('an archived card is labelled as an earlier version, the toggle is hidden without archive', async () => {
+  const { component: cl, t } = await load({ explore: WITH_ARCHIVE });
+  assert.equal(cl.versionEyebrow(cl.versions[2]), t('onboarding.checklist.archive'));
+  const { component: plain } = await load({ explore: TWO_MINORS });
+  assert.equal(plain.archiveToggleShown, false);
+});
+
+test('the checklist template has the archive toggle next to the older toggle', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(html, /x-show="archiveToggleShown"[^>]*x-on:click="toggleArchive\(\)"/);
+});
+
+const STEP = { panel: 'settings-panel', target: 'guest', device: '', need: '', title: { en: 'T' }, text: { en: 'X' } };
+const CATCH_UP = {
+  current_version: '0.12.2',
+  items: [
+    { id: 'n1', version: '0.12.2', minor: '0.12', text: 'Now', tour: { steps: [STEP] } },
+    { id: 'o1', version: '0.11.0', minor: '0.11', text: 'Text only', tour: null },
+    { id: 'o2', version: '0.11.0', minor: '0.11', text: 'First tour', tour: { steps: [STEP] } },
+    { id: 'o3', version: '0.11.0', minor: '0.11', text: 'Second tour', tour: { steps: [STEP, STEP] } },
+    { id: 'p1', version: '0.10.0', minor: '0.10', text: 'Only text', tour: null },
+  ],
+};
+
+test('older cards with a tour offer to catch up on it, the current card and text-only cards do not', async () => {
+  const { component: cl } = await load({ explore: CATCH_UP });
+  const byVersion = Object.fromEntries(cl.versions.map((v) => [v.version, v]));
+  assert.equal(cl.catchUpShown(byVersion['0.12.2']), false);
+  assert.equal(cl.catchUpShown(byVersion['0.11.0']), true);
+  assert.equal(cl.catchUpShown(byVersion['0.10.0']), false);
+});
+
+test('catching up runs every tour of that release from its first tour, seen or not', async () => {
+  const { store, component: cl } = await load({ explore: CATCH_UP });
+  store.seen = { o2: true, o3: true };
+  cl.catchUp(cl.versions.find((v) => v.version === '0.11.0'));
+  assert.equal(store.run.mode, 'explore');
+  assert.equal(store.run.from, 'o2');
+  assert.equal(store.run.all, true);
+  assert.deepEqual([...store.steps.map((s) => s.id)], ['o2', 'o3', 'o3']);
+});
+
+test('the checklist template puts the catch-up button next to the release notes chip', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" data-tour="checklist-catch-up" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
+  assert.match(html, /catch_up/);
+});
+
+test('the toggles for older and earlier versions sit in their own card below the version cards', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  const summary = html.slice(html.indexOf('ob-cl-summary" data-tour="checklist-explore"'), html.indexOf('x-for="version in versions"'));
+  assert.doesNotMatch(summary, /toggleOlder|toggleArchive/);
+  const more = html.slice(html.indexOf('class="setting-card ob-cl-more" data-tour="checklist-more"'));
+  assert.ok(html.indexOf('class="setting-card ob-cl-more" data-tour="checklist-more"') > html.indexOf('x-for="version in versions"'));
+  assert.match(more, /x-show="olderToggleShown \|\| archiveToggleShown"/);
+  assert.match(more, /x-on:click="toggleArchive\(\)"[\s\S]*x-on:click="toggleOlder\(\)"/);
 });

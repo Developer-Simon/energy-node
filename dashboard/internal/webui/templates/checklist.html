@@ -50,7 +50,7 @@
 
     <!-- Neu erkunden: alle, nach Version, oben seit dem letzten Besuch. -->
     <div class="ob-cl-mode" x-show="mode === 'explore'">
-      <div class="setting-card ob-cl-summary">
+      <div class="setting-card ob-cl-summary" data-tour="checklist-explore">
         <div class="ob-cl-summary-head">
           <h3 class="setting-card-title">{{t "onboarding.checklist.explore_summary"}}</h3>
         </div>
@@ -58,7 +58,6 @@
         <div class="ob-cl-summary-actions">
           <button type="button" class="ob-btn ob-btn--primary" x-show="exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.explore_start"}}</button>
           <button type="button" class="ob-btn" x-show="!exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.repeat"}}</button>
-          <button type="button" class="ob-btn ob-cl-older" x-show="olderToggleShown" x-bind:aria-expanded="olderOpen ? 'true' : 'false'" x-on:click="toggleOlder()"><span x-text="olderLabel"></span><svg class="ob-cl-older-chev" x-bind:class="{ 'is-open': olderOpen }" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
         </div>
       </div>
 
@@ -67,7 +66,10 @@
           <div class="ob-cl-summary-head">
             <h3 class="setting-card-title" x-text="versionLabel(version)"></h3>
             <span class="ob-cl-eyebrow" x-text="versionEyebrow(version)"></span>
-            <a class="ob-crosslink ob-crosslink--chip" x-bind:href="releaseHref(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-history"></use></svg><span>{{t "onboarding.checklist.release_notes"}}</span><svg class="ob-crosslink-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></a>
+            <div class="ob-cl-card-links">
+              <button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" data-tour="checklist-catch-up" x-show="catchUpShown(version)" x-on:click="catchUp(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-play"></use></svg><span>{{t "onboarding.checklist.catch_up"}}</span></button>
+              <a class="ob-crosslink ob-crosslink--chip" x-bind:href="releaseHref(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-history"></use></svg><span>{{t "onboarding.checklist.release_notes"}}</span><svg class="ob-crosslink-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></a>
+            </div>
           </div>
           <template x-for="section in version.sections" x-bind:key="section.id">
             <div>
@@ -101,6 +103,14 @@
           </template>
         </div>
       </template>
+
+      <!-- Aeltere und fruehere Versionen: eigene Kachel unter den Versionskarten, sie bleibt auch unter den aufgeklappten Karten stehen. -->
+      <div class="setting-card ob-cl-more" data-tour="checklist-more" x-show="olderToggleShown || archiveToggleShown">
+        <div class="ob-cl-more-actions">
+          <button type="button" class="ob-btn ob-cl-older" x-show="archiveToggleShown" x-bind:aria-expanded="archiveOpen ? 'true' : 'false'" x-on:click="toggleArchive()"><span x-text="archiveLabel"></span><svg class="ob-cl-older-chev" x-bind:class="{ 'is-open': archiveOpen }" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+          <button type="button" class="ob-btn ob-cl-older" x-show="olderToggleShown" x-bind:aria-expanded="olderOpen ? 'true' : 'false'" x-on:click="toggleOlder()"><span x-text="olderLabel"></span><svg class="ob-cl-older-chev" x-bind:class="{ 'is-open': olderOpen }" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+        </div>
+      </div>
     </div>
   </section>
 {{end}}

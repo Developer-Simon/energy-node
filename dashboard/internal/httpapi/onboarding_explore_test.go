@@ -251,3 +251,58 @@ func TestExploreItemsSitUnderTheirDashboardRelease(t *testing.T) {
 		t.Fatalf("items = %+v\nwant %+v", got, want)
 	}
 }
+
+// archiveChangelog has one dashboard highlight in each of four minors. With
+// three minors in the window, v0.9.0 is the archive.
+const archiveChangelog = `{"schema_version":1,"components":[{"id":"dashboard","label":"Dashboard","version":"v0.12.0","releases":[
+  {"version":"v0.12.0","date":"2026-12-01","groups":[{"type":"feat","entries":[{"text":"twelve","pr":120,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.11.0","date":"2026-11-01","groups":[{"type":"feat","entries":[{"text":"eleven","pr":110,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.10.0","date":"2026-10-01","groups":[{"type":"feat","entries":[{"text":"ten","pr":100,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.9.0","date":"2026-09-01","groups":[{"type":"feat","entries":[{"text":"nine","pr":90,"breaking":false,"highlight":true}]}]}]}]}`
+
+func archiveState(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	files := map[string]string{
+		"changelog.json":          archiveChangelog,
+		"installed-manifest.json": `{"version":"v0.12.0","components":{"dashboard":"v0.12.0"}}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+func TestExploreListsOlderMinorsAsArchive(t *testing.T) {
+	router, _ := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), archiveState(t))
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	view := getOnboarding(t, router, cookie)
+	if want := []string{"h120", "h110", "h100", "h90"}; !slices.Equal(exploreIDs(view), want) {
+		t.Fatalf("items = %v, want %v", exploreIDs(view), want)
+	}
+	archive := map[string]bool{}
+	for _, item := range view.Explore.Items {
+		archive[item.ID] = item.Archive
+	}
+	if archive["h120"] || archive["h110"] || archive["h100"] || !archive["h90"] {
+		t.Fatalf("archive = %v, want only h90 archived", archive)
+	}
+}
+
+func TestFreshInstallSeesTheArchiveAsSeen(t *testing.T) {
+	// No previous-manifest.json: a fresh install. The highlights of older minors, the
+	// archive included, start as seen. The current minor stays open to explore.
+	router, _ := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), archiveState(t))
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	view := getOnboarding(t, router, cookie)
+	for _, id := range []string{"h110", "h100", "h90"} {
+		if !slices.Contains(view.User.Seen, id) {
+			t.Fatalf("seen = %v, want %s included", view.User.Seen, id)
+		}
+	}
+	if slices.Contains(view.User.Seen, "h120") {
+		t.Fatalf("seen = %v, want the current minor h120 left open", view.User.Seen)
+	}
+}
