@@ -206,8 +206,8 @@
             "panel": "devices-panel",
             "target": "devices",
             "text": {
-              "de": "Jedes Gerät hat ein eigenes Icon. Öffne ein Gerät und markiere bis zu drei Entitäten mit dem Stern, seine Kachel zeigt sie dann zuerst.",
-              "en": "Every device has its own icon. Open a device and mark up to three entities with the star, its tile then shows them first."
+              "de": "Jedes Gerät hat ein eigenes Icon, und bis zu drei Werte eines Geräts lassen sich als Favoriten an seine Kachel heften.",
+              "en": "Every device has its own icon, and up to three values of a device can be pinned to its tile as favourites."
             },
             "title": {
               "de": "Icons und Favoriten",

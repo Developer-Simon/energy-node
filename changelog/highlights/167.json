@@ -2,6 +2,13 @@
   "de": {
     "*": "Einstellungen, Benutzer: benannte Konten mit einzelnen Berechtigungen, einstellbarer Mindestlänge des Passworts und einer Liste der angemeldeten Sitzungen."
   },
+  "details": {
+    "*": {
+      "de": "Home-Assistant-Benutzer melden sich über die Integration Energy Node Companion an. Ab Version 0.4.0 koppelt sie sich mit einem Kopplungscode aus der Karte Home Assistant auf der Seite Benutzer. Die Anleitung verlinkt die Integration auf GitHub.",
+      "doc": "ha/companion.html",
+      "en": "Home Assistant users sign in through the Energy Node Companion integration. From version 0.4.0 it pairs with the dashboard through a pairing code from the Home Assistant card on the Users page. The guide links to the integration on GitHub."
+    }
+  },
   "tour": {
     "*": {
       "steps": [
@@ -11,12 +18,12 @@
           "panel": "settings-panel",
           "target": "users-tabs",
           "text": {
-            "de": "Benannte Konten bekommen jeweils eigene Berechtigungen. Sitzungen zeigt, wer angemeldet ist.",
-            "en": "Named accounts each get their own permissions. Sessions lists who is signed in."
+            "de": "Es gibt jetzt Benutzer, und jedem gibst du fein aufgeschlüsselte Berechtigungen. Unter Sitzungen siehst du alle, die gerade angemeldet sind.",
+            "en": "There are now users, and you give each one fine-grained permissions. Sessions lists everyone who is signed in right now."
           },
           "title": {
-            "de": "Konten",
-            "en": "Accounts"
+            "de": "Benutzer und Berechtigungen",
+            "en": "Users and permissions"
           }
         },
         {
@@ -25,8 +32,8 @@
           "panel": "settings-panel",
           "target": "users",
           "text": {
-            "de": "Hier legst du ein Konto an und wählst seine Berechtigungen. Gäste dürfen standardmäßig nur ansehen, und die Gastkarte schaltet den Gastzugang ab.",
-            "en": "Create an account here and choose its permissions. Guests may only view by default, and the guest card switches guest access off."
+            "de": "Hier legst du ein neues Konto an. Gäste dürfen standardmäßig nur ansehen, und die Gastkarte schaltet den Gastzugang ab.",
+            "en": "Create a new account here. Guests may only view by default, and the guest card switches guest access off."
           },
           "title": {
             "de": "Benutzer anlegen",
@@ -39,8 +46,8 @@
           "panel": "settings-panel",
           "target": "companion",
           "text": {
-            "de": "Home-Assistant-Benutzer melden sich über den Companion am Dashboard an.",
-            "en": "Home Assistant users sign in to the dashboard through the companion."
+            "de": "Die Benutzerverwaltung unterstützt auch Home-Assistant-Benutzer. Mit einem Kopplungscode verbindest du den Companion einmal, danach bleibt die Verbindung bestehen. Dafür braucht die Integration Energy Node Companion mindestens Version 0.4.0.",
+            "en": "User management also supports Home Assistant users. A pairing code connects the companion once, and the connection then stays. This needs the Energy Node Companion integration at version 0.4.0 or later."
           },
           "title": {
             "de": "Home-Assistant-Benutzer",

@@ -11,8 +11,8 @@
           "panel": "settings-panel",
           "target": "checklist-mode",
           "text": {
-            "de": "Die Checkliste hat zwei Modi. Einrichten führt durch die Ersteinrichtung, Neu erkunden listet die Highlights der letzten Releases.",
-            "en": "The checklist has two modes. Set up walks through the first setup, Explore what is new lists the highlights of the last releases."
+            "de": "Die Checkliste zeigt ab jetzt nach jedem Update, was es Neues zu entdecken gibt. Außerdem bietet sie eine Ersteinrichtung an, die du auch später noch nachholen kannst.",
+            "en": "From now on the checklist shows what there is to discover after every update. It also offers a first setup, which you can still do later."
           },
           "title": {
             "de": "Einrichten und erkunden",
@@ -24,12 +24,12 @@
           "panel": "settings-panel",
           "target": "checklist-explore",
           "text": {
-            "de": "Jedes Highlight mit Tour startet hier. Die Knöpfe darunter zeigen ältere Versionen und, weiter zurück, die früheren.",
-            "en": "Every highlight with a tour starts here. The buttons below show older versions and, further back, the earlier ones."
+            "de": "In einer geführten Tour wie dieser siehst du, wo du die neuen Funktionen findest.",
+            "en": "A guided tour like this one shows you where to find the new features."
           },
           "title": {
-            "de": "Touren zu neuen Funktionen",
-            "en": "Tours of new features"
+            "de": "Geführte Touren",
+            "en": "Guided tours"
           }
         }
       ]

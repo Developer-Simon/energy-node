@@ -18,8 +18,8 @@
           "panel": "automations-panel",
           "target": "automations-tabs",
           "text": {
-            "de": "Szenarien laufen in Phasen, mit Live-Karte, Diagramm und Phasen-Editor. Einzelregeln zeigen ihre letzten vier Auslösungen.",
-            "en": "Scenarios run in phases with a live card, a chart and a phase editor. Single rules show their last four triggers."
+            "de": "Neben den Einzelregeln gibt es jetzt Szenarien. Ein Szenario läuft in Phasen statt nach einer festen Regel, und im Regler-Betrieb zeigt ein Diagramm eine Vorschau. Die Einzelregeln haben eine bessere Live-Anzeige bekommen.",
+            "en": "Next to single rules there are now scenarios. A scenario runs in phases instead of following one fixed rule, and in regulator mode a chart shows a preview. Single rules got a clearer live view."
           },
           "title": {
             "de": "Szenarien und Einzelregeln",
@@ -31,25 +31,12 @@
           "panel": "automations-panel",
           "target": "automations",
           "text": {
-            "de": "Der Assistent legt Szenarien und Regeln über wenige Fragen an. Die Vorlagen reichen von Nulleinspeisung über Überschussladen bis zur Wärmepumpe.",
-            "en": "The assistant creates scenarios and rules from a few questions. The templates range from zero feed-in to surplus charging and the heat pump."
+            "de": "Der Assistent hilft dir, neue Szenarien und Regeln anzulegen. In einem kurzen Dialog passt du die Vorlage an deine Geräte an und stellst Zusatzbedingungen ein. Vorlagen gibt es unter anderem für Nulleinspeisung, Überschussverbrauch und die Überwachung von Geräten.",
+            "en": "The assistant helps you create new scenarios and rules. In a short dialog you fit the template to your devices and set extra conditions. There are templates for zero feed-in, using surplus power and watching devices, among others."
           },
           "title": {
             "de": "Assistent",
             "en": "Assistant"
-          }
-        },
-        {
-          "need": "view_automations",
-          "panel": "automations-panel",
-          "target": "automations-rules",
-          "text": {
-            "de": "Eine Regel kann ihre Aktionen wiederholen, solange ihre Bedingungen gelten, und ihre Fenster lassen sich auf Tage im Monat einschränken.",
-            "en": "A rule can repeat its actions while its conditions hold, and its windows can be limited to days of the month."
-          },
-          "title": {
-            "de": "Wiederholen und Monatstage",
-            "en": "Repeat and days of the month"
           }
         }
       ]

@@ -4,9 +4,9 @@
   },
   "details": {
     "*": {
-      "de": "Gibt es ein neueres Release, zeigt die Kopfzeile neben dem Titel einen Hinweis. Mit dem Recht, Updates zu installieren, installiert der Hinweis das Update direkt.",
+      "de": "Gibt es ein neueres Release, bietet es die Leiste unter der Kopfzeile an. Jetzt installieren fragt noch einmal nach und aktualisiert dann sofort. Installation vorbereiten öffnet die Seite des Installers.",
       "doc": "dashboard/settings-versions.html#updating-from-the-dashboard",
-      "en": "When a newer release is out, the header shows a notice next to the title. With the right to install updates, the notice installs the update directly.",
+      "en": "When a newer release is out, the bar under the header offers it. Install now asks once more and then updates right away. Prepare installation opens the installer page.",
       "image": "dashboard-update-available.png"
     }
   },
@@ -19,12 +19,12 @@
           "panel": "settings-panel",
           "target": "updates",
           "text": {
-            "de": "Wird ein Update angeboten, installiert die Update-Leiste es direkt. Die Karte Updates hier prüft auf neue Releases.",
-            "en": "When an update is offered, the update bar installs it directly. The Updates card here checks for new releases."
+            "de": "Für ein Update musst du den Installer nicht mehr öffnen. Jetzt installieren startet ein schnelles Update direkt im Dashboard.",
+            "en": "An update no longer needs the installer. Install now starts a quick update right in the dashboard."
           },
           "title": {
-            "de": "Aus der Update-Leiste installieren",
-            "en": "Install from the update bar"
+            "de": "Update direkt im Dashboard",
+            "en": "Update right in the dashboard"
           }
         }
       ]
