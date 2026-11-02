@@ -554,6 +554,14 @@
   // einen Lauf aus dem Fortschritt wieder aufnimmt.
   let ready = Promise.resolve(false);
 
+  // Lage des n-ten Punkts im Punktfeld (offsetLeft/offsetTop relativ zu .ob-dots).
+  // Ohne Messung rechnet der Daumen mit dem festen Abstand von 12 px.
+  function dotOffset(cells, index) {
+    const cell = Array.isArray(cells) ? cells[index] : null;
+    if (!cell || !Number.isFinite(cell.left) || !Number.isFinite(cell.top)) return { x: index * 12, y: 0 };
+    return { x: cell.left, y: cell.top };
+  }
+
   const obBar = () => ({
     spot: null,
     sheet: null,
@@ -568,6 +576,9 @@
     cleanup: [],
     // Lauf der Aktionen des aktuellen Schritts (window.obActions), null ohne Tour.
     actions: null,
+    // Gemessene Punkte des Punktfelds und Freigabe der Daumen-Animation.
+    dotCells: [],
+    dotReady: false,
     // Sprachwahl in der Vorstellung, nur solange kein lang-Cookie gesetzt ist.
     langPick: !/(?:^|;\s*)lang=/.test(document.cookie),
 
@@ -579,9 +590,10 @@
         onUpdate: ({ y }) => { this.$refs.bar.style.transform = y ? `translate3d(0, ${y}px, 0)` : ''; },
       });
       this.$watch('$store.onboarding.active', (on) => { if (!on) this.hideAll(); });
-      this.$watch('$store.onboarding.runId', () => { this.direction = 1; this.show(); });
+      this.$watch('$store.onboarding.runId', () => { this.direction = 1; this.show(); this.$nextTick(() => this.measureDots()); });
       this.$watch('$store.onboarding.index', (next, prev) => {
         this.direction = next >= prev ? 1 : -1;
+        this.$nextTick(() => this.measureDots());
         if (this.$store.onboarding.active) {
           this.show();
           this.s.persistRun();
@@ -596,6 +608,11 @@
         this.actions = null;
       });
       window.matchMedia(PHONE).addEventListener('change', () => { this.sheet.set({ y: 0 }); this.collapsed = false; this.left = false; });
+      // Die Fensterbreite aendert den Umbruch der Punkte, deshalb neu messen.
+      window.addEventListener('resize', () => this.measureDots());
+      if (typeof ResizeObserver !== 'undefined' && this.$refs.dots) {
+        new ResizeObserver(() => this.measureDots()).observe(this.$refs.dots);
+      }
       ready.then((loaded) => {
         if (!loaded) return;
         const s = this.$store.onboarding;
@@ -619,7 +636,19 @@
     },
     get checklistLabel() { return this.s.mode === 'explore' ? t('onboarding.bar.checklist_explore') : t('onboarding.bar.checklist_setup'); },
     get closeLabel() { return this.s.mode === 'setup' ? t('onboarding.bar.skip_setup') : t('onboarding.bar.end_tour'); },
-    get dotTransform() { return `translateX(${(this.step?.dot || 0) * 12}px)`; },
+    get dotTransform() {
+      const { x, y } = dotOffset(this.dotCells, this.step?.dot || 0);
+      return `translate(${x}px, ${y}px)`;
+    },
+    // Lage aller Punkte aus dem DOM. Versteckt (x-show) wird nicht gemessen,
+    // der ResizeObserver misst wieder, sobald das Feld sichtbar ist.
+    measureDots() {
+      const el = this.$refs.dots;
+      if (!el || !el.offsetParent) return;
+      this.dotCells = Array.from(el.querySelectorAll('i'), (dot) => ({ left: dot.offsetLeft, top: dot.offsetTop }));
+      // Erste Lage ohne Gleiten: die Animation erst im naechsten Frame freigeben.
+      if (!this.dotReady) requestAnimationFrame(() => { this.dotReady = true; });
+    },
     dotState(i) {
       const step = this.step;
       if (!step || (this.s.mode !== 'setup')) return '';
@@ -882,5 +911,5 @@
     window.Alpine.effect(() => { marker.hidden = !window.Alpine.store('onboarding').unseenCount; });
   });
 
-  window.obOnboarding = { openPlace, waitFor, resolveTarget };
+  window.obOnboarding = { openPlace, waitFor, resolveTarget, dotOffset };
 })();

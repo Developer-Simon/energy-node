@@ -197,13 +197,13 @@
 
 /* Fortschrittspunkte: der aktive Punkt gleitet, die anderen zeigen den
    Zustand ihres Schritts (erledigt gefuellt, spaeter hohl). */
-.ob-dots { position: relative; display: flex; gap: 6px; padding: 2px 0; }
+.ob-dots { position: relative; display: flex; flex: 1 1 0; flex-wrap: wrap; gap: 6px; min-width: 0; padding: 2px 0; }
 .ob-dots i { width: 6px; height: 6px; border-radius: 50%; background: color-mix(in srgb, var(--text-strong) 22%, transparent); transition: background-color .2s ease; }
 .ob-dots i.is-done { background: color-mix(in srgb, var(--ok) 75%, transparent); }
 .ob-dots i.is-later { background: transparent; box-shadow: inset 0 0 0 1px var(--text-muted); }
 .ob-dots-thumb {
   position: absolute;
-  top: 2px;
+  top: 0;
   left: 0;
   width: 6px;
   height: 6px;

@@ -524,11 +524,11 @@
         </div>
 
         <div class="ob-bar-foot">
-          <div class="ob-dots" aria-hidden="true" x-show="!$store.onboarding.finished && (step?.dots || 0) > 1">
+          <div class="ob-dots" x-ref="dots" aria-hidden="true" x-show="!$store.onboarding.finished && (step?.dots || 0) > 1">
             <template x-for="i in (step?.dots || 0)" x-bind:key="i">
               <i x-bind:class="'is-' + dotState(i - 1)"></i>
             </template>
-            <span class="ob-dots-thumb" x-bind:style="'transform:' + dotTransform"></span>
+            <span class="ob-dots-thumb" x-bind:style="'transform:' + dotTransform + (dotReady ? '' : ';transition:none')"></span>
           </div>
           <div class="ob-bar-actions">
             <template x-if="!$store.onboarding.finished">

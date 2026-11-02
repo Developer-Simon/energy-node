@@ -400,6 +400,53 @@ test('a resize mid-run with no step left ends the run as finished', async () => 
   assert.equal(store.index, 0);
 });
 
+// Werte aus dem vm-Kontext haben einen anderen Prototyp, deshalb als JSON vergleichen.
+const plain = (value) => JSON.parse(JSON.stringify(value));
+
+test('dotOffset takes the measured cell of the index and falls back to 12 px per dot', async () => {
+  const { window } = await load({ prepare: false });
+  const { dotOffset } = window.obOnboarding;
+  const cells = [{ left: 0, top: 2 }, { left: 12, top: 2 }, { left: 0, top: 14 }];
+  assert.deepEqual(plain(dotOffset(cells, 2)), { x: 0, y: 14 });
+  assert.deepEqual(plain(dotOffset(cells, 1)), { x: 12, y: 2 });
+  assert.deepEqual(plain(dotOffset([], 3)), { x: 36, y: 0 });
+  assert.deepEqual(plain(dotOffset(undefined, 1)), { x: 12, y: 0 });
+  assert.deepEqual(plain(dotOffset(cells, 7)), { x: 84, y: 0 });
+  assert.deepEqual(plain(dotOffset([{ left: NaN, top: 2 }], 0)), { x: 0, y: 0 });
+});
+
+test('the thumb follows the measured dot after the dots wrapped', async () => {
+  const { store, bar } = await load({ prepare: false });
+  store.steps = [
+    { id: 'a', title: 'A', text: '', dot: 0, dots: 3 },
+    { id: 'b', title: 'B', text: '', dot: 1, dots: 3 },
+    { id: 'c', title: 'C', text: '', dot: 2, dots: 3 },
+  ];
+  store.index = 2;
+  store.active = true;
+  const b = bar();
+  assert.equal(b.dotTransform, 'translate(24px, 0px)');
+  b.dotCells = [{ left: 0, top: 2 }, { left: 12, top: 2 }, { left: 0, top: 14 }];
+  assert.equal(b.dotTransform, 'translate(0px, 14px)');
+});
+
+test('measureDots reads the dot positions and skips a hidden dot row', async () => {
+  const { store, bar, window } = await load({ prepare: false });
+  // JSDOM kennt kein requestAnimationFrame; die Freigabe der Animation ist hier ohne Bedeutung.
+  window.requestAnimationFrame = () => 0;
+  store.steps = [{ id: 'a', title: 'A', text: '', dot: 0, dots: 2 }, { id: 'b', title: 'B', text: '', dot: 1, dots: 2 }];
+  store.index = 0;
+  store.active = true;
+  const dots = [{ offsetLeft: 0, offsetTop: 2 }, { offsetLeft: 12, offsetTop: 2 }];
+  const b = bar();
+  b.$refs = { dots: { offsetParent: null, querySelectorAll: () => dots.map((d) => ({ offsetLeft: d.offsetLeft, offsetTop: d.offsetTop })) } };
+  b.measureDots();
+  assert.deepEqual(plain(b.dotCells), []);
+  b.$refs.dots.offsetParent = {};
+  b.measureDots();
+  assert.deepEqual(plain(b.dotCells), [{ left: 0, top: 2 }, { left: 12, top: 2 }]);
+});
+
 // Alle Einrichtungspunkte erledigt: so sieht die Checkliste den Wiederholen-Knopf.
 const ALL_DONE = {
   ...PROGRESS,
