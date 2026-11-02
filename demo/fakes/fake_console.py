@@ -23,6 +23,7 @@ Unbekannte Tabs oder Pfade antworten mit 404 und JSON.
                             [--broker-control URL] [--updates URL]
                             [--installer-state DIR --installer-fixture DIR]
                             [--system-state FILE --system-events FILE --journal-epoch FILE]
+                            [--highlights-repo DIR]
 
 PORT       Standard aus DASHBOARD_SMOKE_CONSOLE_PORT, sonst 18102.
 --dashboard  Basis-URL des Dashboards (wird in Reitern verwendet).
@@ -33,6 +34,9 @@ PORT       Standard aus DASHBOARD_SMOKE_CONSOLE_PORT, sonst 18102.
              (Reiter Updates, Installer-Teil nur mit beiden Argumenten).
 --system-state, --system-events, --journal-epoch  Zustand, Ereignisse und
              Zeitbasis des System-Helpers (Reiter System, nur mit allen dreien).
+--highlights-repo  Repo-Wurzel, aus deren changelog/ und docs/images der Reiter
+             Highlights die Neuerungen rendert. Mit --installer-state schreibt er
+             den Changelog auch dorthin (Seite Neu erkunden).
 """
 import argparse
 import errno
@@ -69,6 +73,10 @@ class Tab:
 
     def reset(self) -> None:
         pass
+
+    def serve(self, path: str) -> tuple[str, bytes] | None:
+        """Statische Antwort fuer einen Pfad ausserhalb von /api/, None wenn der Reiter ihn nicht kennt."""
+        return None
 
 
 def status_list(tabs: list[Tab]) -> list[dict]:
@@ -148,6 +156,11 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             except (ValueError, OSError) as exc:
                 self._error(400, str(exc))
             return
+        for tab in self.server.tabs:
+            served = tab.serve(url.path)
+            if served is not None:
+                self._send(200, served[0], served[1])
+                return
         self._error(404, "nicht gefunden")
 
     def _reset(self) -> None:
@@ -215,6 +228,10 @@ def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
         from console_system import SystemTab
         tabs.append(SystemTab(log, Path(args.system_state), Path(args.system_events),
                               Path(args.journal_epoch)))
+    if args.highlights_repo:
+        from console_highlights import HighlightsTab
+        installer = Path(args.installer_state) if args.installer_state else None
+        tabs.append(HighlightsTab(log, Path(args.highlights_repo), installer))
     return tabs
 
 
@@ -231,6 +248,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--system-state", default="")
     parser.add_argument("--system-events", default="")
     parser.add_argument("--journal-epoch", default="")
+    parser.add_argument("--highlights-repo", default="")
     args = parser.parse_args(argv)
 
     log = Log()

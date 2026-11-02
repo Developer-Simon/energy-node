@@ -344,6 +344,7 @@ env_start_console() {
     args+=(--system-state "$WORK/fake-system.json" --system-events "$WORK/fake-system-events.jsonl"
            --journal-epoch "$WORK/journal-epoch")
   fi
+  args+=(--highlights-repo "$REPO_DIR")
   python3 "$FAKES/fake_console.py" "${args[@]}" \
     > "$WORK/fake-console.log" 2>&1 &
   local pid=$!

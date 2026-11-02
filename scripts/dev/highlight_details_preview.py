@@ -60,7 +60,7 @@ button, input { font: inherit; }
 .pv-dialog { padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); }
 .pv-editor { display: grid; gap: .5rem; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel-alt); }
 .pv-editor-label { font-size: .72rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
-.pv-full { position: relative; display: block; user-select: none; touch-action: none; cursor: crosshair; }
+.pv-full { position: relative; display: block; overflow: hidden; border-radius: var(--radius-sm); user-select: none; touch-action: none; cursor: crosshair; }
 .pv-full img { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); }
 .pv-frame { position: absolute; border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: 0 0 0 9999px color-mix(in srgb, #000 35%, transparent); pointer-events: none; }
 .pv-crop-line { width: 100%; padding: .4rem .55rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sunken); color: var(--text); font-family: ui-monospace, monospace; font-size: .8rem; }
