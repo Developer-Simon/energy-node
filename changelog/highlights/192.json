@@ -1,5 +1,11 @@
 {
   "de": {
     "*": "Installer überspringt empfohlene apt-Pakete und leert den Paketcache"
+  },
+  "details": {
+    "*": {
+      "de": "Der Installer lädt keine empfohlenen Zusatzpakete mehr. So landen auf dem Gerät keine rund 400 MB Compiler, die es nicht braucht. Nach den apt-Schritten löscht er die geladenen Paketdateien, damit kleine SD-Karten nicht volllaufen.",
+      "en": "The installer no longer loads recommended extra packages. That keeps about 400 MB of compilers the device does not need off it. After the apt steps it deletes the downloaded package files, so small SD cards do not fill up."
+    }
   }
 }

@@ -1,5 +1,11 @@
 {
   "de": {
     "*": "Einzelregeln zeigen ihre letzten vier Auslösungen, mobil öffnet der Assistent als Blatt."
+  },
+  "details": {
+    "*": {
+      "de": "Öffnest du eine Regel auf der Seite Automationen, zeigt ein Streifen ihre letzten vier Auslösungen. Auf dem Handy öffnet der Assistent als Blatt am unteren Rand, das du zum Schließen nach unten ziehst.",
+      "en": "When you open a rule on the Automations page, a strip shows its last four triggers. On a phone the assistant opens as a sheet at the bottom that you drag down to close."
+    }
   }
 }

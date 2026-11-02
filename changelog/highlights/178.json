@@ -1,5 +1,11 @@
 {
   "de": {
     "*": "Toasts neu gestaltet mit Glasoptik, Ablauflinie und Wegwischen"
+  },
+  "details": {
+    "*": {
+      "de": "Die Linie am unteren Rand zeigt, wie lange ein Toast noch stehen bleibt. Solange der Mauszeiger darauf liegt, hält die Zeit an. Nach rechts wischen schließt den Toast. Jede Meldung verschwindet von selbst, Warnungen und kritische Meldungen bleiben länger stehen.",
+      "en": "The line at the bottom shows how long a toast stays. While the pointer rests on it, the time stops. Swiping right closes the toast. Every message disappears on its own, warnings and critical messages stay longer."
+    }
   }
 }

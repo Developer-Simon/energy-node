@@ -1,5 +1,11 @@
 {
   "de": {
     "*": "Automationsregeln können ihre Aktionen wiederholen, solange die Bedingungen gelten."
+  },
+  "details": {
+    "*": {
+      "de": "Im Regeleditor gibt es dafür das Feld „Wiederholen alle (s)“. Solange alle Bedingungen erfüllt sind, sendet die Regel ihre Aktionen in diesem Abstand erneut. 0 heißt einmal pro Auslösung. Mit einer Umschalten-Aktion geht Wiederholen nicht.",
+      "en": "The rule editor has the field “Repeat every (s)” for this. While all conditions hold, the rule sends its actions again at this interval. 0 means once per trigger. Repeat does not work with a toggle action."
+    }
   }
 }
