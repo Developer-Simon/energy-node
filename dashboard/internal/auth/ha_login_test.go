@@ -281,3 +281,22 @@ func TestHAUserChangedAppliesAdminFlagAtOnce(t *testing.T) {
 		t.Fatalf("roles after admin change: got %v, want %v", got.User.Roles, Normalize(admin))
 	}
 }
+
+// TestHAAccountCannotChangeDashboardPasswords: ein HA-Konto hat kein Passwort im
+// Dashboard, beide Änderungen am eigenen Konto liefern ErrHAAccountPassword.
+func TestHAAccountCannotChangeDashboardPasswords(t *testing.T) {
+	m := haLoginManager(t, &fakeHAVerifier{identity: mariaIdentity})
+	session, err := m.CompanionSession(mariaIdentity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.ChangeOwnPassword(session.Token, "egal", "neues-passwort-1"); !errors.Is(err, ErrHAAccountPassword) {
+		t.Fatalf("ChangeOwnPassword: got %v, want ErrHAAccountPassword", err)
+	}
+	if err := m.SetOwnHTTPPassword(session.Token, "neues-passwort-1"); !errors.Is(err, ErrHAAccountPassword) {
+		t.Fatalf("SetOwnHTTPPassword: got %v, want ErrHAAccountPassword", err)
+	}
+	if err := m.ChangeOwnPassword("unbekannt", "egal", "neues-passwort-1"); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("unknown token: got %v, want ErrInvalidCredentials", err)
+	}
+}

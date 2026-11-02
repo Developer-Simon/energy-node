@@ -1,9 +1,13 @@
 package auth
 
 import (
+	"bytes"
 	"errors"
+	"log"
+	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -125,5 +129,29 @@ func TestRestrictedSurvivesRestart(t *testing.T) {
 	}
 	if full.Restricted {
 		t.Fatal("session entry without the restricted field must not be restricted")
+	}
+}
+
+// TestRestrictedLoginIsLogged: eine eingeschränkte Anmeldung schreibt eine
+// Logzeile (Spec Abschnitt 10), eine volle nicht.
+func TestRestrictedLoginIsLogged(t *testing.T) {
+	m, _ := loginManager(t, User{Username: "anna", PasswordHash: mustHash(t, loginMainPassword), Roles: []string{RoleViewOverview, RoleHTTPLogin}})
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+	if _, err := m.Login("anna", loginMainPassword, true); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "restricted") {
+		t.Fatalf("full login was logged as restricted: %q", buf.String())
+	}
+	if _, err := m.Login("anna", loginMainPassword, false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "auth: anna login restricted") {
+		t.Fatalf("restricted login not logged: %q", buf.String())
+	}
+	if strings.Contains(buf.String(), loginMainPassword) {
+		t.Fatal("log line contains the password")
 	}
 }

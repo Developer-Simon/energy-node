@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.37 (2026-11-02)
+## v0.10.38 (2026-11-02)
 
 ### Features
 
@@ -231,6 +231,7 @@
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
 - **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195) (70464ad)
+- **auth:** log restricted logins and reject password changes of HA accounts (#200)
 - **onboarding:** keep GET read-only on a corrupt file and skip guest storage (89aa0c8)
 - **onboarding:** show the title and text of each tour step (4a8d06b)
 - **onboarding:** repeat the whole run and add the tour button to explore (b385f92)

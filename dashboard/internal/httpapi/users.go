@@ -482,6 +482,8 @@ func writeUserError(w http.ResponseWriter, err error) {
 		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.guest_role", nil, "Diese Berechtigung ist für Gäste nicht erlaubt")
 	case errors.Is(err, auth.ErrHARoleNotAllowed):
 		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.ha_role", nil, "Anmeldung über HTTP ist für Home-Assistant-Konten nicht erlaubt.")
+	case errors.Is(err, auth.ErrHAAccountPassword):
+		writeErrorKey(w, http.StatusBadRequest, "invalid_user", "error.invalid_user.ha_password", nil, "Das Passwort eines Home-Assistant-Kontos wird in Home Assistant geändert.")
 	case errors.Is(err, auth.ErrNotPaired):
 		writeErrorKey(w, http.StatusConflict, "not_paired", "error.not_paired", nil, "Es ist kein Companion gekoppelt.")
 	case errors.Is(err, auth.ErrHTTPLoginRequired):

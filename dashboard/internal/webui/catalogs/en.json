@@ -2389,6 +2389,7 @@
   "error.invalid_test_request": "rule_id and action_index are required",
   "error.invalid_user": "The user details are invalid",
   "error.invalid_user.guest_role": "This permission is not allowed for guests",
+  "error.invalid_user.ha_password": "The password of a Home Assistant account is changed in Home Assistant.",
   "error.invalid_user.ha_role": "Sign-in over HTTP is not allowed for Home Assistant accounts.",
   "error.invalid_user.http_login": "An HTTP password needs the http_login permission",
   "error.invalid_user.password": "The password is too short, it needs at least {min_length} characters",
