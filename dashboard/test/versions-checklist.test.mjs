@@ -124,7 +124,7 @@ test('checklistHref opens the checklist in explore mode, on the highlight when g
   assert.equal(component.checklistHref({ id: 'h184' }), '/?panel=settings&page=checklist&mode=explore&item=h184');
 });
 
-test('?all=1 and ?release= both start in the all view, anything else in the highlights view', () => {
+test('?all=1 starts the all view, anything else and a ?release= link start in the highlights view', () => {
   const plain = createPanel();
   plain.component.init();
   assert.equal(plain.component.mode, 'highlights');
@@ -133,7 +133,7 @@ test('?all=1 and ?release= both start in the all view, anything else in the high
   assert.equal(all.component.mode, 'all');
   const release = createPanel({ url: 'https://dashboard.local/?panel=settings&page=versions&release=v0.12.0' });
   release.component.init();
-  assert.equal(release.component.mode, 'all');
+  assert.equal(release.component.mode, 'highlights');
 });
 
 test('a release deep link opens the dashboard changelog and loads its releases', async () => {
@@ -153,7 +153,7 @@ test('a release deep link opens the dashboard changelog and loads its releases',
   await panel.component.load();
   assert.equal(panel.component.open.dashboard, true);
   assert.equal(panel.component.releases.dashboard[0].version, 'v0.12.0');
-  assert.equal(panel.component.mode, 'all');
+  assert.equal(panel.component.mode, 'highlights');
   assert.ok(calls.includes('/api/v1/changelog?component=dashboard&bundles=5'));
 });
 
@@ -215,10 +215,11 @@ test('the catalogs drop the what\'s new key and carry the new texts in both lang
   assert.equal('settings.whatsnew.title' in de, false);
   assert.equal(de['onboarding.checklist.release_notes'], 'Release-Notes');
   assert.equal(en['onboarding.checklist.release_notes'], 'Release notes');
-  assert.equal(de['onboarding.checklist.all_versions'], 'Alle Versionen und Release-Notes');
-  assert.equal(en['onboarding.checklist.all_versions'], 'All versions and release notes');
-  assert.equal(de['onboarding.checklist.all_versions_sub'], 'Jede Änderung im Detail, auch ältere Versionen.');
-  assert.equal(en['onboarding.checklist.all_versions_sub'], 'Every change in detail, including older versions.');
+  // Die Zeile "Alle Versionen" steht nicht mehr in Neu erkunden, ihre Texte sind weg.
+  for (const catalog of [de, en]) {
+    assert.equal('onboarding.checklist.all_versions' in catalog, false);
+    assert.equal('onboarding.checklist.all_versions_sub' in catalog, false);
+  }
   assert.equal(de['settings.versions.explore_sub'], 'Neuerungen mit Tour Schritt für Schritt ansehen.');
   assert.equal(en['settings.versions.explore_sub'], 'Walk through what is new, step by step.');
 });

@@ -96,13 +96,12 @@
     releaseTarget: '',
 
     // ?all=1 starts in the "all" view.
-    // ?release=<version> (Link aus der Checkliste) oeffnet den Dashboard-Changelog
-    // in der Ansicht "Alles" und scrollt zu diesem Release.
+    // ?release=<version> (Chip einer Karte in Neu erkunden) oeffnet den Dashboard-Changelog
+    // in der Ansicht "Highlights" und scrollt zu diesem Release.
     init() {
       const params = new URLSearchParams(window.location.search);
       if (params.get('all') === '1') this.mode = 'all';
       this.releaseTarget = params.get('release') || '';
-      if (this.releaseTarget) this.mode = 'all';
     },
 
     async load() {

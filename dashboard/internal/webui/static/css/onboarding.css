@@ -503,6 +503,44 @@
 .ob-cl-detail p { margin: 0; font-size: .9rem; line-height: 1.5; }
 /* Die Details stehen ohne <details> direkt in der Zeile: der Body ist sonst unter .whatsnew-detail[open] unsichtbar. */
 .ob-cl-detail .whatsnew-body { opacity: 1; transform: none; padding: 0; }
+/* Unterzeile je Komponente in einer Karte, etwa "Bootstrap 0.2.6". Kleiner Text bekommt etwas Laufweite. */
+.ob-cl-subhead {
+  margin: .9rem 0 .25rem;
+  color: var(--text);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .03em;
+}
+/* Schalter der aelteren Versionen: Druck wie die Knoepfe, der Pfeil dreht sich ohne Layoutsprung. */
+.ob-cl-older:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) {
+  .ob-cl-older:hover { background: var(--ob-fill-hover); }
+}
+.ob-cl-older-chev {
+  flex: none;
+  width: .8rem;
+  height: .8rem;
+  margin-left: .35rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform .2s var(--ease-out);
+}
+.ob-cl-older-chev.is-open { transform: rotate(90deg); }
+/* Ältere Karten blenden ein und aus (onboarding-checklist.js, x-transition). Nur Deckkraft und Verschiebung, gestaffelt nach --ob-delay. */
+.ob-cl-card-enter { transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1) var(--ob-delay, 0ms), transform 200ms cubic-bezier(0.23, 1, 0.32, 1) var(--ob-delay, 0ms); }
+.ob-cl-card-enter-start { opacity: 0; transform: translateY(8px); }
+.ob-cl-card-enter-end { opacity: 1; transform: none; }
+.ob-cl-card-leave { transition: opacity 150ms ease-out, transform 150ms ease-out; }
+.ob-cl-card-leave-start { opacity: 1; transform: none; }
+.ob-cl-card-leave-end { opacity: 0; transform: translateY(8px); }
+@media (prefers-reduced-motion: reduce) {
+  .ob-cl-card-enter-start, .ob-cl-card-leave-end { transform: none; }
+  .ob-cl-older-chev { transition: none; }
+  .ob-cl-older:active { transform: none; }
+}
 
 /* --- Barrierefreiheit ------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {

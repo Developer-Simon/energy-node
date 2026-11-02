@@ -101,8 +101,13 @@
     },
     // Tour starten, solange etwas ungesehen ist, sonst alle Touren noch einmal.
     exploreStart() { this.run('explore', null, { all: this.exploreUnseen === 0 }); },
-    // Karte nach Minor (0.12). Ein altes dreiteiliges Format (0.12.0) zeigt ohne die 0.
-    versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/^(\d+\.\d+)\.0$/, '$1') }); },
+    // Karte je Release, ohne das v (v0.10.33 heisst Version 0.10.33, 0.12.0 bleibt 0.12.0).
+    versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/^v/, '') }); },
+    // Unterzeile eines Bereichs: Komponente und Version, etwa "Bootstrap 0.2.6". Ohne Version nur der Name.
+    sectionHead(section) {
+      const version = (section.version || '').replace(/^v/, '');
+      return version ? `${section.label} ${version}` : section.label;
+    },
     versionEyebrow(version) { return t(version.current ? 'onboarding.checklist.since_visit' : 'onboarding.checklist.older'); },
     // Die Versionsseite zeigt den Changelog des neuesten Release der Karte (?release=, siehe versions.page.js).
     releaseHref(version) {
@@ -110,14 +115,23 @@
     },
 
     // Aeltere Karten: ohne ungesehene Tour bleiben sie zu, der Schalter zeigt sie.
+    // Alle Releases des neuesten Minors bleiben sichtbar, nur aeltere Minors fallen weg.
     hasUnseenTour(version) {
       return version.items.some((item) => !item.stale && !this.s.seen[item.id] && this.s.tourSteps(item).length);
     },
-    shownByDefault(version) { return version.current || this.hasUnseenTour(version); },
-    get shownVersions() { return this.olderOpen ? this.versions : this.versions.filter((v) => this.shownByDefault(v)); },
+    shownByDefault(version) { return version.minor === this.versions[0]?.minor || this.hasUnseenTour(version); },
+    // Jede Karte bleibt im DOM und wird mit x-show gezeigt oder ausgeblendet, damit der Wechsel animiert.
+    cardShown(version) { return this.olderOpen || this.shownByDefault(version); },
+    get shownVersions() { return this.versions.filter((v) => this.cardShown(v)); },
     get olderHidden() { return this.versions.filter((v) => !this.shownByDefault(v)).length; },
-    // Der Schalter steht, wenn es aeltere Karten gibt, die er zeigen oder wieder ausblenden kann.
-    get olderToggleShown() { return this.versions.some((v) => !v.current) && (this.olderOpen || this.olderHidden > 0); },
+    // Gestaffelt beim Einblenden: 40 ms je ausgeblendeter Karte, hoechstens 5 mal.
+    // Verglichen wird der Schluessel (release): versions wird bei jedem Zugriff neu gebaut.
+    enterDelay(version) {
+      const rank = Math.max(this.versions.filter((v) => !this.shownByDefault(v)).map((v) => v.release).indexOf(version.release), 0);
+      return `${Math.min(rank, 5) * 40}ms`;
+    },
+    // Der Schalter steht, wenn es Karten aelterer Minors gibt, die er zeigen oder wieder ausblenden kann.
+    get olderToggleShown() { return this.versions.some((v) => v.minor !== this.versions[0]?.minor) && (this.olderOpen || this.olderHidden > 0); },
     get olderLabel() { return t(this.olderOpen ? 'onboarding.checklist.older_hide' : 'onboarding.checklist.older_show', { n: this.olderHidden }); },
     toggleOlder() {
       this.olderOpen = !this.olderOpen;

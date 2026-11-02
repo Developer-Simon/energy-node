@@ -193,6 +193,10 @@ test('eyebrow strings match the draft', () => {
   const exploreSteps = m.buildSteps({ mode: 'explore', from: null, explore, seen: {}, status: {}, ctx: ctx() });
   assert.equal(exploreSteps[0].eyebrow, 'Neu in 0.12 · 1 von 2');
   assert.equal(exploreSteps[1].eyebrow, 'Neu in 0.12 · 2 von 2');
+  // Karten je Release: das v geht weg, eine Patch-Version bleibt vollstaendig.
+  const release = [{ version: 'v0.10.33', current: true, items: [{ id: 'r1', title: 'R', text: '', steps: [{ id: 'r1a', title: 'R', text: '', target: '', check: 'leave' }] }] }];
+  const releaseSteps = m.buildSteps({ mode: 'explore', from: null, explore: release, seen: {}, status: {}, ctx: ctx() });
+  assert.equal(releaseSteps[0].eyebrow, 'Neu in 0.10.33 · 1 von 1');
 
   const welcome = [1, 2, 3, 4].map((i) => ({ id: `w${i}`, title: 'W', text: '', target: '', check: 'leave' }));
   const welcomeSteps = m.buildSteps({ mode: 'welcome', from: null, welcome, seen: {}, status: {}, ctx: ctx() });

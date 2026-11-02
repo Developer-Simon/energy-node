@@ -100,7 +100,8 @@
       if (!version) return [];
       // Eine veraltete Tour laeuft nie, auch nicht aus der Checkliste.
       const items = version.items.filter((item) => !item.stale && (from ? item.id === from : all || !seen[item.id]) && tourSteps(item, ctx).length);
-      const short = version.version.replace(/^(\d+\.\d+)\.0$/, '$1');
+      // Ohne v, und aus 0.12.0 wird 0.12 (Karten je Release, siehe onboarding.js).
+      const short = version.version.replace(/^v/, '').replace(/^(\d+\.\d+)\.0$/, '$1');
       const flat = items.flatMap((item) => tourSteps(item, ctx)
         // Der Schritt zeigt seinen eigenen Titel und Text, nur ohne eigenen faellt er auf das Highlight zurueck.
         .map((s) => ({ ...s, id: item.id, title: s.title || item.title, text: s.text || item.text, check: 'leave' })));

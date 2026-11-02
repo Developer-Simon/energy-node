@@ -272,7 +272,7 @@ test('exploreVersions groups the server highlights in the model shape', async ()
   const { store } = await load();
   const versions = store.exploreVersions;
   // [...] holt die Ergebnisse aus dem VM-Kontext in ein Array dieses Realms.
-  assert.deepEqual([...versions.map((v) => [v.version, v.current])], [['0.12', true], ['0.11', false]]);
+  assert.deepEqual([...versions.map((v) => [v.version, v.current])], [['0.12.0', true], ['0.11.0', false]]);
   const [current] = versions;
   assert.deepEqual([...current.items.map((i) => i.id)], ['h184', 'h181']);
 
@@ -461,7 +461,7 @@ test('finishing a setup run switches the checklist to explore', async () => {
   assert.equal(store.checklistMode, 'explore');
 });
 
-test('exploreVersions groups by minor, the card keeps the newest release for its link', async () => {
+test('exploreVersions makes one card per release, newest first, the first card is current', async () => {
   const explore = {
     current_version: '0.12.2',
     items: [
@@ -473,23 +473,23 @@ test('exploreVersions groups by minor, the card keeps the newest release for its
   };
   const { store } = await load({ progress: { ...PROGRESS, explore } });
   const versions = store.exploreVersions;
-  assert.deepEqual([...versions.map((v) => [v.version, v.release, v.current])], [['0.12', '0.12.2', true], ['0.11', '0.11.1', false], ['0.10', '0.10.0', false]]);
-  assert.deepEqual([...versions[0].items.map((i) => i.id)], ['a', 'b']);
+  assert.deepEqual([...versions.map((v) => [v.version, v.release, v.minor, v.current])], [['0.12.2', '0.12.2', '0.12', true], ['0.12.0', '0.12.0', '0.12', false], ['0.11.1', '0.11.1', '0.11', false], ['0.10.0', '0.10.0', '0.10', false]]);
+  assert.deepEqual([...versions[0].items.map((i) => i.id)], ['a']);
 });
 
-test('exploreVersions matches a v-prefixed current version against the server minor', async () => {
+test('exploreVersions keeps the release string of the server, a v-prefix included', async () => {
   const explore = {
     current_version: 'v0.10.33',
     items: [
-      { id: 'a', version: '0.10.33', minor: '0.10', text: 'A', tour: null },
-      { id: 'b', version: '0.9.4', minor: '0.9', text: 'B', tour: null },
+      { id: 'a', version: 'v0.10.33', minor: '0.10', text: 'A', tour: null },
+      { id: 'b', version: 'v0.9.4', minor: '0.9', text: 'B', tour: null },
     ],
   };
   const { store } = await load({ progress: { ...PROGRESS, explore } });
-  assert.deepEqual([...store.exploreVersions.map((v) => [v.version, v.current])], [['0.10', true], ['0.9', false]]);
+  assert.deepEqual([...store.exploreVersions.map((v) => [v.version, v.current])], [['v0.10.33', true], ['v0.9.4', false]]);
 });
 
-test('exploreVersions marks the newest group current when the installed version matches no minor', async () => {
+test('exploreVersions marks the newest release current whatever the installed version is', async () => {
   const explore = {
     current_version: '9.9.9',
     items: [
@@ -498,7 +498,22 @@ test('exploreVersions marks the newest group current when the installed version 
     ],
   };
   const { store } = await load({ progress: { ...PROGRESS, explore } });
-  assert.deepEqual([...store.exploreVersions.map((v) => [v.version, v.current])], [['0.10', true], ['0.9', false]]);
+  assert.deepEqual([...store.exploreVersions.map((v) => [v.version, v.current])], [['0.10.33', true], ['0.9.4', false]]);
+});
+
+test('exploreVersions splits a card into one section per component, dashboard first, labels and versions from the server', async () => {
+  const explore = {
+    current_version: '0.10.33',
+    items: [
+      { id: 'd1', version: 'v0.10.33', minor: '0.10', component: 'dashboard', component_label: 'Dashboard', text: 'D1', tour: null },
+      { id: 'b1', version: 'v0.10.33', minor: '0.10', component: 'bootstrap', component_label: 'Bootstrap', component_version: 'v0.2.6', text: 'B1', tour: null },
+      { id: 'd2', version: 'v0.10.33', minor: '0.10', component: 'dashboard', component_label: 'Dashboard', text: 'D2', tour: null },
+    ],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const [card] = store.exploreVersions;
+  assert.deepEqual([...card.sections.map((s) => [s.id, s.label, s.version, [...s.items.map((i) => i.id)]])], [['dashboard', 'Dashboard', '', ['d1', 'd2']], ['bootstrap', 'Bootstrap', 'v0.2.6', ['b1']]]);
+  assert.deepEqual([...card.items.map((i) => i.id)], ['d1', 'b1', 'd2']);
 });
 
 test('exploreVersions carries the stale flag of a tour', async () => {

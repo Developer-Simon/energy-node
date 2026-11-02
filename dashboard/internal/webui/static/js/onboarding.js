@@ -257,24 +257,30 @@
       const done = items.filter((item) => ['done', 'installer'].includes(this.stateOf(item.id))).length;
       return { done, total: items.length };
     },
-    // Neu erkunden: die Highlights des Servers, nach Minor gruppiert und im
-    // Format von obModel. Eine Karte heisst nach dem Minor (0.12), release ist
-    // der neueste Release dieser Karte (der Server liefert neueste zuerst) und
-    // fuehrt den Changelog-Link. Titel und Texte in der Seitensprache (sonst der
-    // englische Text). Schritte tragen literal, build() uebersetzt sie nicht mehr.
+    // Neu erkunden: die Highlights des Servers, eine Karte je Release
+    // (item.version, der Server liefert neueste zuerst). Die erste Karte ist die
+    // aktuelle. sections gruppiert die Highlights einer Karte nach Komponente
+    // (Reihenfolge wie empfangen), items ist die flache Liste fuer obModel. Titel
+    // und Texte in der Seitensprache (sonst der englische Text). Schritte tragen
+    // literal, build() uebersetzt sie nicht mehr.
     get exploreVersions() {
       const localized = (map, fallback) => window.I18n.localized(map, fallback);
-      const current = window.obModel.minorOf(this.exploreData.current_version);
       const versions = [];
       for (const item of this.exploreData.items) {
         const minor = item.minor || window.obModel.minorOf(item.version);
-        let version = versions.find((v) => v.version === minor);
+        let version = versions.find((v) => v.release === item.version);
         if (!version) {
-          version = { version: minor, release: item.version, current: minor === current, items: [] };
+          version = { version: item.version, minor, release: item.version, current: versions.length === 0, items: [], sections: [] };
           versions.push(version);
         }
+        const component = item.component || 'dashboard';
+        let section = version.sections.find((s) => s.id === component);
+        if (!section) {
+          section = { id: component, label: item.component_label || '', version: item.component_version || '', items: [] };
+          version.sections.push(section);
+        }
         const text = localized(item.i18n, item.text);
-        version.items.push({
+        const entry = {
           id: item.id,
           pr: item.pr,
           title: text,
@@ -298,11 +304,10 @@
             text: localized(s.text, s.text?.en),
             literal: true,
           })),
-        });
+        };
+        version.items.push(entry);
+        section.items.push(entry);
       }
-      // Die installierte Version passt nicht zu einem Minor (der Bundle-Stand ist
-      // ein anderer als die Komponenten-Minors): dann gilt der neueste Minor.
-      if (versions.length && !versions.some((v) => v.current)) versions[0].current = true;
       return versions;
     },
     get unseenCount() {

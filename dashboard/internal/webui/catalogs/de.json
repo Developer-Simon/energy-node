@@ -2938,8 +2938,6 @@
   "onboarding.checklist.action_later": "Jetzt",
   "onboarding.checklist.action_read": "Lesen",
   "onboarding.checklist.action_show": "Zeig es mir",
-  "onboarding.checklist.all_versions": "Alle Versionen und Release-Notes",
-  "onboarding.checklist.all_versions_sub": "Jede Änderung im Detail, auch ältere Versionen.",
   "onboarding.checklist.continue": "Einrichtung fortsetzen",
   "onboarding.checklist.count": "{done} von {total}",
   "onboarding.checklist.devices_note": "Gibt es nur hier, nicht im Installer.",

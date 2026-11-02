@@ -258,13 +258,11 @@ test('the German doc link hint says the guide is English only', () => {
   assert.equal(catalog('en')['settings.whatsnew.doc_link'], 'Open the guide');
 });
 
-test('the checklist links prominently to all versions and the version cards use the release notes chip', () => {
+test('the explore part has no all-versions row, each card keeps its release notes chip', () => {
   const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
-  assert.match(template, /<a class="ob-crosslink" href="\?panel=settings&page=versions&all=1">/);
-  assert.match(template, /\{\{t "onboarding\.checklist\.all_versions"\}\}/);
-  assert.match(template, /\{\{t "onboarding\.checklist\.all_versions_sub"\}\}/);
+  assert.doesNotMatch(template, /all=1/);
+  assert.doesNotMatch(template, /onboarding\.checklist\.all_versions/);
   assert.match(template, /<a class="ob-crosslink ob-crosslink--chip" x-bind:href="releaseHref\(version\)">/);
-  assert.doesNotMatch(template, /class="ob-link" x-bind:href="releaseHref/);
 });
 
 test('the deep link picks the setup mode for an admin', async () => {
@@ -369,17 +367,37 @@ const TWO_MINORS = {
 test('older versions are hidden unless they still have an unseen tour, the toggle shows the rest', async () => {
   const { store, component: cl, t, window } = await load({ explore: TWO_MINORS });
   store.seen = { o1: true };
-  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12', '0.10']);
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.10.0']);
   assert.equal(cl.olderHidden, 1);
   assert.equal(cl.olderToggleShown, true);
   assert.equal(cl.olderLabel, t('onboarding.checklist.older_show', { n: 1 }));
   cl.toggleOlder();
   assert.equal(cl.olderOpen, true);
-  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12', '0.11', '0.10']);
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.11.0', '0.10.0']);
   assert.equal(cl.olderLabel, t('onboarding.checklist.older_hide'));
   assert.equal(window.sessionStorage.getItem('ob-explore-older'), '1');
   cl.toggleOlder();
   assert.equal(window.sessionStorage.getItem('ob-explore-older'), '0');
+});
+
+test('every release of the newest minor stays visible, only older minors are hidden', async () => {
+  const sameMinor = {
+    current_version: '0.10.33',
+    items: [
+      { id: 'a', version: '0.10.33', minor: '0.10', text: 'A', tour: null },
+      { id: 'b', version: '0.10.8', minor: '0.10', text: 'B', tour: null },
+      { id: 'c', version: '0.10.0', minor: '0.10', text: 'C', tour: null },
+      { id: 'd', version: '0.9.4', minor: '0.9', text: 'D', tour: null },
+    ],
+  };
+  const { store, component: cl } = await load({ explore: sameMinor });
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.10.33', '0.10.8', '0.10.0']);
+  assert.equal(cl.olderHidden, 1);
+  store.seen = {};
+  assert.equal(cl.cardShown(cl.versions[0]), true);
+  assert.equal(cl.cardShown(cl.versions[3]), false);
+  cl.toggleOlder();
+  assert.equal(cl.cardShown(cl.versions[3]), true);
 });
 
 test('the choice of the older filter is read from the session at the start', async () => {
@@ -392,25 +410,80 @@ test('the older filter is hidden without older cards', async () => {
   const onlyCurrent = { current_version: '0.12.0', items: [{ id: 'n1', version: '0.12.0', minor: '0.12', text: 'Now', tour: null }] };
   const { component: cl } = await load({ explore: onlyCurrent });
   assert.equal(cl.olderToggleShown, false);
-  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12']);
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.0']);
 });
 
-test('a card is labelled by its minor and links to its newest release', async () => {
+test('a card is labelled by its release, the v prefix goes, a .0 stays, and it links to that release', async () => {
   const { component: cl, t } = await load();
-  assert.equal(cl.versionLabel({ version: '0.12' }), t('onboarding.checklist.version', { version: '0.12' }));
-  assert.equal(cl.versionLabel({ version: '0.12.0' }), t('onboarding.checklist.version', { version: '0.12' }));
-  assert.equal(cl.versionLabel({ version: '1.0' }), t('onboarding.checklist.version', { version: '1.0' }));
-  assert.equal(cl.releaseHref({ version: '0.12', release: '0.12.2' }), '/?panel=settings&page=versions&release=0.12.2');
+  assert.equal(cl.versionLabel({ version: 'v0.10.33' }), t('onboarding.checklist.version', { version: '0.10.33' }));
+  assert.equal(cl.versionLabel({ version: '0.12.0' }), t('onboarding.checklist.version', { version: '0.12.0' }));
+  assert.equal(cl.versionLabel({ version: '0.12.0' }), 'Version 0.12.0');
+  assert.equal(cl.releaseHref({ version: 'v0.10.33', release: 'v0.10.33' }), '/?panel=settings&page=versions&release=v0.10.33');
 });
 
-test('the explore part filters older cards and greys out stale tour buttons in the template', () => {
+test('a component section gets a subheadline with its label and version, the dashboard section none', async () => {
+  const { component: cl } = await load();
+  assert.equal(cl.sectionHead({ id: 'bootstrap', label: 'Bootstrap', version: 'v0.2.6' }), 'Bootstrap 0.2.6');
+  assert.equal(cl.sectionHead({ id: 'service:automation', label: 'Automation', version: '' }), 'Automation');
+});
+
+test('the explore part keeps every card in the DOM and shows it with x-show, stale tour buttons stay greyed out', () => {
   const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
-  assert.match(template, /x-for="version in shownVersions"/);
+  assert.match(template, /x-for="version in versions"/);
+  assert.match(template, /x-show="cardShown\(version\)"/);
   assert.match(template, /x-on:click="toggleOlder\(\)"/);
   assert.match(template, /x-bind:aria-expanded="olderOpen \? 'true' : 'false'"/);
   assert.match(template, /x-show="olderToggleShown"/);
   assert.match(template, /x-bind:disabled="isStale\(item\)"/);
   assert.match(template, /'is-disabled': isStale\(item\)/);
+});
+
+test('the card has one list per component section and the subheadline is shown for every section but the dashboard', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(template, /<template x-for="section in version\.sections" x-bind:key="section\.id">/);
+  assert.match(template, /<p class="ob-cl-subhead" x-show="section\.id !== 'dashboard'" x-text="sectionHead\(section\)"><\/p>/);
+  assert.doesNotMatch(template, /x-for="item in version\.items"/);
+  assert.doesNotMatch(template, /Version 0\.2/);
+});
+
+test('the older cards enter and leave with the ob-cl-card classes, staggered and capped at five', async () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(template, /x-transition:enter="ob-cl-card-enter" x-transition:enter-start="ob-cl-card-enter-start" x-transition:enter-end="ob-cl-card-enter-end"/);
+  assert.match(template, /x-transition:leave="ob-cl-card-leave" x-transition:leave-start="ob-cl-card-leave-start" x-transition:leave-end="ob-cl-card-leave-end"/);
+  assert.match(template, /x-bind:style="\{ '--ob-delay': enterDelay\(version\) \}"/);
+  // Gestaffelt nach der Reihe der ausgeblendeten Karten, hoechstens fuenf mal 40 ms.
+  const many = {
+    current_version: '0.12.0',
+    items: [{ id: 'n', version: '0.12.0', minor: '0.12', text: 'N', tour: null }, ...[1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: `o${i}`, version: `0.${10 - i}.0`, minor: `0.${10 - i}`, text: 'O', tour: null }))],
+  };
+  const { component: many7 } = await load({ explore: many });
+  const hidden = many7.versions.filter((v) => !many7.shownByDefault(v));
+  assert.equal(hidden.length, 7);
+  assert.equal(many7.enterDelay(many7.versions[0]), '0ms', 'a card shown anyway has no delay');
+  assert.equal(many7.enterDelay(hidden[0]), '0ms');
+  assert.equal(many7.enterDelay(hidden[1]), '40ms');
+  assert.equal(many7.enterDelay(hidden[5]), '200ms');
+  assert.equal(many7.enterDelay(hidden[6]), '200ms', 'capped at five cards');
+});
+
+test('the explore motion is transform and opacity only, reduced motion keeps the fade', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'onboarding.css'), 'utf8');
+  assert.match(css, /\.ob-cl-card-enter\s*\{\s*transition: opacity 200ms cubic-bezier\(0\.23, 1, 0\.32, 1\) var\(--ob-delay, 0ms\), transform 200ms cubic-bezier\(0\.23, 1, 0\.32, 1\) var\(--ob-delay, 0ms\);/);
+  assert.match(css, /\.ob-cl-card-enter-start\s*\{\s*opacity: 0;\s*transform: translateY\(8px\);\s*\}/);
+  assert.match(css, /\.ob-cl-card-leave\s*\{\s*transition: opacity 150ms ease-out, transform 150ms ease-out;\s*\}/);
+  assert.match(css, /\.ob-cl-card-leave-end\s*\{\s*opacity: 0;\s*transform: translateY\(8px\);\s*\}/);
+  assert.doesNotMatch(css, /transition:\s*all\b/);
+  const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce) {', css.indexOf('.ob-cl-card-enter')));
+  assert.match(reduced, /\.ob-cl-card-enter-start, \.ob-cl-card-leave-end \{ transform: none; \}/);
+});
+
+test('the toggle presses to 0.97 and hovers only with a fine pointer, its chevron turns without moving the layout', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'onboarding.css'), 'utf8');
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(css, /\.ob-cl-older:active\s*\{\s*transform: scale\(\.97\);\s*\}/);
+  assert.match(css, /@media \(hover: hover\) and \(pointer: fine\)\s*\{[^}]*\.ob-cl-older:hover/);
+  assert.match(css, /\.ob-cl-older-chev\.is-open\s*\{\s*transform: rotate\(90deg\);\s*\}/);
+  assert.match(template, /<svg class="ob-cl-older-chev" x-bind:class="\{ 'is-open': olderOpen \}" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"><\/use><\/svg>/);
 });
 
 test('the filter and the stale hint have texts in both languages', () => {
