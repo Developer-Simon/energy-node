@@ -21,6 +21,9 @@ Komponente und ersetzt das "*"-Objekt ganz (wie bei highlight_details).
 target ist eine data-tour-ID der Web-UI und Pflicht. panel, page und need
 sind optional, device ist any, phone oder desktop (Standard any). title und
 text brauchen Englisch und jede Sprache aus highlight_i18n.LANGUAGES.
+open ist optional und eine nicht leere Liste aus data-tour-IDs oder @Aktionen,
+die vor dem Schritt geöffnet werden. replaced_by ist optional und nennt als
+{"pr": N, "step": N} den PR und Schritt, die diese Tour ersetzen.
 
     highlight_tours.py check --repo <repo> --pr <N>
 
@@ -30,6 +33,7 @@ Archive v*.json und archive-v*.json prueft niemand.
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -38,8 +42,10 @@ import highlight_i18n as hi
 TOUR_KEY = "tour"
 DEFAULT_KEY = "*"
 DEVICES = ("any", "phone", "desktop")
-STEP_KEYS = {"panel", "page", "target", "device", "need", "title", "text"}
+STEP_KEYS = {"panel", "page", "target", "device", "need", "open", "title", "text"}
 OPTIONAL_KEYS = ("panel", "page", "need")
+OPEN_ENTRY = re.compile(r"^@?[a-z0-9_-]+$")
+REPLACED_BY_PROBLEM = 'replaced_by must be {"pr": <number>, "step": <number from 1>}'
 # Erster PR des Onboardings (#186): aeltere PR-Dateien brauchen keine Tour.
 TOUR_REQUIRED_FROM_PR = 186
 # Komponenten, deren Highlights die Web-UI betreffen.
@@ -87,6 +93,17 @@ def _texts_problems(prefix, name, texts):
     return problems
 
 
+def _open_is_valid(value):
+    return (isinstance(value, list) and len(value) > 0
+            and all(isinstance(item, str) and OPEN_ENTRY.fullmatch(item) for item in value))
+
+
+def _replaced_by_is_valid(value):
+    if not isinstance(value, dict) or set(value) != {"pr", "step"}:
+        return False
+    return all(type(value[key]) is int and value[key] >= 1 for key in ("pr", "step"))
+
+
 def _step_problems(prefix, step):
     if not isinstance(step, dict):
         return [prefix + "step must be an object"]
@@ -99,6 +116,8 @@ def _step_problems(prefix, step):
             problems.append(prefix + f"{key} must be a non-empty string")
     if "device" in step and step["device"] not in DEVICES:
         problems.append(prefix + f"device must be one of {', '.join(DEVICES)}")
+    if "open" in step and not _open_is_valid(step["open"]):
+        problems.append(prefix + "open must be a non-empty list of data-tour ids or @actions")
     problems.extend(_texts_problems(prefix, "title", step.get("title")))
     problems.extend(_texts_problems(prefix, "text", step.get("text")))
     return problems
@@ -115,7 +134,9 @@ def _entry_problems(pr, key, entry):
         if not isinstance(reason, str) or not reason.strip():
             return [prefix + "exempt needs a reason"]
         return []
-    problems = [prefix + f"unknown key {name}" for name in sorted(set(entry) - {"steps"})]
+    problems = [prefix + f"unknown key {name}" for name in sorted(set(entry) - {"steps", "replaced_by"})]
+    if "replaced_by" in entry and not _replaced_by_is_valid(entry["replaced_by"]):
+        problems.append(prefix + REPLACED_BY_PROBLEM)
     steps = entry.get("steps")
     if not isinstance(steps, list) or not steps:
         return problems + [prefix + "steps must be a non-empty list, or set exempt with a reason"]
@@ -163,10 +184,15 @@ def resolve(translations, pr, target):
         for name in OPTIONAL_KEYS:
             if name in step:
                 out[name] = step[name]
+        if "open" in step:
+            out["open"] = step["open"]
         out["title"] = {lang: step["title"][lang] for lang in _text_languages()}
         out["text"] = {lang: step["text"][lang] for lang in _text_languages()}
         steps.append(out)
-    return {"steps": steps}
+    result = {"steps": steps}
+    if "replaced_by" in entry:
+        result["replaced_by"] = entry["replaced_by"]
+    return result
 
 
 def missing(repo, table, pr, translations):

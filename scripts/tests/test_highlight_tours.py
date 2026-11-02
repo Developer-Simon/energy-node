@@ -136,6 +136,35 @@ def test_resolve_raises_on_a_broken_tour():
         ht.resolve(tours({"steps": []}), 190, "dashboard")
 
 
+def test_open_is_valid_with_ids_and_named_actions():
+    step = {**STEP, "open": ["automations-rules", "@time-rule"]}
+    assert ht.validate(tours({"steps": [step]})) == []
+
+
+def test_open_must_be_a_non_empty_list_of_ids():
+    for bad in ([], "users-accounts", ["Users"], ["@"], [""], [3]):
+        step = {**STEP, "open": bad}
+        assert ht.validate(tours({"steps": [step]})) == [
+            "#190 tour *: step 1: open must be a non-empty list of data-tour ids or @actions"], bad
+
+
+def test_replaced_by_is_valid():
+    assert ht.validate(tours({"steps": [STEP], "replaced_by": {"pr": 167, "step": 1}})) == []
+
+
+def test_replaced_by_needs_pr_and_step():
+    for bad in ({"pr": 167}, {"pr": 0, "step": 1}, {"pr": 167, "step": 0}, {"pr": "167", "step": 1}, {"pr": 167, "step": 1, "x": 1}, []):
+        assert ht.validate(tours({"steps": [STEP], "replaced_by": bad})) == [
+            "#190 tour *: replaced_by must be {\"pr\": <number>, \"step\": <number from 1>}"], bad
+
+
+def test_resolve_keeps_open_and_replaced_by():
+    step = {**STEP, "open": ["users-accounts"]}
+    out = ht.resolve(tours({"steps": [step], "replaced_by": {"pr": 167, "step": 2}}), 190, "dashboard")
+    assert out == {"steps": [step], "replaced_by": {"pr": 167, "step": 2}}
+    assert list(out["steps"][0]) == ["target", "device", "panel", "page", "need", "open", "title", "text"]
+
+
 CHANGELOG = """# Changelog
 
 ## v0.12.0 (2026-11-01)
