@@ -11,7 +11,7 @@
   <p class="settings-help" x-show="error" x-text="error"></p>
   <div class="users-tabs" data-tour="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
     <button type="button" role="tab" class="users-tab" data-tab="signin" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
-    <button type="button" role="tab" class="users-tab" data-tab="accounts" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="accounts" data-tour="users-accounts" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
     <button type="button" role="tab" class="users-tab" data-tab="sessions" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
   </div>
 
@@ -162,8 +162,9 @@
 
 {{define "users-card"}}
 <article class="users-card" x-data="{ pwOpen: false, pwNew: '', httpOpen: false, httpNew: '' }"
-  x-bind:class="{ 'is-open': openId === cardId, 'is-disabled': (cardKind(cardId) === 'account' || cardKind(cardId) === 'ha') && savedSnapshot(cardId).disabled, 'is-http': draftOf(cardId).roles.includes('http_login') }">
-  <button type="button" class="users-card-head" x-bind:aria-expanded="openId === cardId ? 'true' : 'false'" x-on:click="toggleCard(cardId)">
+  x-bind:class="{ 'is-open': openId === cardId, 'is-disabled': (cardKind(cardId) === 'account' || cardKind(cardId) === 'ha') && savedSnapshot(cardId).disabled, 'is-http': draftOf(cardId).roles.includes('http_login') }"
+  x-bind:data-tour="isSelf(cardId) ? 'own-account-card' : null">
+  <button type="button" class="users-card-head" x-bind:data-tour="isSelf(cardId) ? 'own-account' : null" x-bind:aria-expanded="openId === cardId ? 'true' : 'false'" x-on:click="toggleCard(cardId)">
     <span class="users-avatar" x-bind:class="{ 'is-preset': cardKind(cardId) === 'preset' }" aria-hidden="true"
       x-text="cardKind(cardId) === 'preset' ? (cardId === 'preset:guest' ? 'G' : 'H') : (cardKind(cardId) === 'new' ? '+' : String((accountFor(cardId) && (accountFor(cardId).display_name || accountFor(cardId).username)) || cardId).charAt(0).toUpperCase())"></span>
     <span class="users-head-main">
