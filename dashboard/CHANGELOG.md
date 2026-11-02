@@ -262,6 +262,7 @@
 - **onboarding:** say a highlight is not available with the user's permissions instead of that it has no tour (64c8a53)
 - **changelog:** call the toast highlight a notification (65d9a11)
 - **onboarding:** the dots of the tour card wrap instead of overflowing it (7235158)
+- **changelog:** the rules tour shows the reworked single rules instead of repeating the flow step (2c7171c)
 - **onboarding:** keep GET read-only on a corrupt file and skip guest storage (89aa0c8)
 - **onboarding:** show the title and text of each tour step (4a8d06b)
 - **onboarding:** repeat the whole run and add the tour button to explore (b385f92)
