@@ -337,6 +337,9 @@ function rulesPage(document, rules) {
       this.discarded.push(rule.id);
       this.editing[rule.id] = false;
     },
+    stopEditing(rule) {
+      this.editing[rule.id] = false;
+    },
     insertEntry(kind, entry) {
       this.document.rules.push(entry);
       this.expanded[entry.id] = true;
@@ -489,6 +492,88 @@ test('balance-rule creates a disabled example rule with a threshold when none ma
   assert.equal(created.enabled, false);
   assert.deepEqual(JSON.parse(JSON.stringify(created.conditions)), [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 }]);
   assert.equal(run.records.length, 1);
+});
+
+test('open-rule expands the first rule with history without the editor and revert collapses it', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const plain = windowRule('a');
+  const withHistory = { ...windowRule('b'), history_enabled: true };
+  ruleItem(document, 'a');
+  const li = ruleItem(document, 'b');
+  const page = rulesPage(document, [plain, withHistory]);
+  const run = runOf(['@open-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.deepEqual(page.started, [], 'startEditing is not called');
+  assert.equal(page.expanded.b, true);
+  assert.equal(page.editing.b, undefined, 'the editor stays off');
+  assert.equal(run.scope, li);
+  assert.equal(run.records[0].el, li.querySelector('.automation-rule-head'));
+  assert.equal(page.document.rules.length, 2, 'no example rule is added');
+  run.records[0].revert();
+  assert.equal(page.expanded.b, false, 'revert collapses the rule it opened');
+  assert.deepEqual(page.discarded, [], 'revert never discards editing');
+  assert.deepEqual(page.started, []);
+});
+
+test('open-rule keeps a rule expanded that was open before', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'b');
+  const page = rulesPage(document, [{ ...windowRule('b'), history_enabled: true }]);
+  page.expanded.b = true;
+  const run = runOf(['@open-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  run.records[0].revert();
+  assert.equal(page.expanded.b, true);
+  assert.deepEqual(page.discarded, []);
+});
+
+test('open-rule creates an expanded example rule with the editor off when no rule has history', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const page = rulesPage(document, [windowRule('a')]);
+  page.undo = 'stale';
+  const run = runOf(['@open-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  const created = page.document.rules.find((r) => r.id.startsWith('regel_'));
+  assert.ok(created, 'an example rule was inserted');
+  assert.equal(created.enabled, false);
+  assert.equal(page.editing[created.id], false, 'the editor is off');
+  assert.equal(page.expanded[created.id], true);
+  assert.equal(page.undo, null);
+  assert.deepEqual(page.started, []);
+  assert.equal(run.records.length, 1);
+  assert.equal(run.scope, document.querySelector(`li[data-rule-id="${created.id}"]`));
+});
+
+test('open-rule revert removes the example rule it created', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const page = rulesPage(document, [{ id: 'a', conditions: [], actions: [] }]);
+  const run = runOf(['@open-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  const id = run.records[0].scope.getAttribute('data-rule-id');
+  run.records[0].revert();
+  assert.deepEqual(page.document.rules.map((r) => r.id), ['a']);
+  assert.equal(Object.hasOwn(page.expanded, id), false);
+  assert.equal(Object.hasOwn(page.editing, id), false);
+  assert.equal(Object.hasOwn(page.newIds, id), false);
+});
+
+test('open-rule keeps a changed rule on revert', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'b');
+  const page = rulesPage(document, [{ ...windowRule('b'), history_enabled: true }]);
+  const run = runOf(['@open-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  page.document.rules[0].repeat_seconds = 60;
+  run.records[0].revert();
+  assert.equal(page.document.rules.length, 1);
+  assert.equal(page.document.rules[0].repeat_seconds, 60);
+  assert.equal(page.expanded.b, true, 'a changed rule is left alone, so it stays open');
+  assert.deepEqual(page.discarded, []);
 });
 
 // Die Konfigurationsseite als Stub: Alpine.$data liefert sie. loadConfig fuellt

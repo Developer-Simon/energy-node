@@ -142,22 +142,25 @@
   // Oeffnet die erste Regel mit einer Bedingung des Typs im Bearbeiten-Modus.
   // Gibt es keine, legt der Lauf eine deaktivierte Beispielregel mit genau
   // dieser Bedingung an. Zuruecknehmen entfernt sie wieder, aber nur, solange
-  // sie unveraendert ist.
+  // sie unveraendert ist. Mit edit: false oeffnet die Aktion die Regel nur in
+  // der Ansicht, ohne den Bearbeiten-Modus. match ersetzt die Typpruefung.
   const rulesPage = () => window.Alpine.$data(document.getElementById('automations-panel'));
   const itemOf = (id) => [...document.querySelectorAll('li[data-rule-id]')]
     .find((li) => li.getAttribute('data-rule-id') === id) || null;
-  const ruleAction = (type, makeCondition) => {
+  const ruleAction = (type, makeCondition, { edit = true, match = null } = {}) => {
     const hasType = (rule) => (rule.conditions || []).some((c) => c.type === type);
+    const test = match || hasType;
     return {
       run: async ({ waitFor }) => {
         const page = rulesPage();
         if (!page) return null;
-        const existing = page.document.rules.find(hasType);
+        const existing = page.document.rules.find(test);
         const created = !existing;
         const id = existing ? existing.id : `regel_${Date.now()}`;
         const before = { expanded: Boolean(page.expanded[id]), editing: Boolean(page.editing[id]) };
         if (existing) {
-          page.startEditing(existing);
+          if (edit) page.startEditing(existing);
+          else page.expanded[id] = true;
         } else {
           page.insertEntry('rule', {
             id,
@@ -168,6 +171,10 @@
             conditions: [makeCondition()],
             actions: [],
           });
+          if (!edit) {
+            page.stopEditing(page.document.rules.find((r) => r.id === id));
+            page.expanded[id] = true;
+          }
           page.undo = null;
         }
         const snapshot = JSON.stringify(page.document.rules.find((r) => r.id === id));
@@ -181,6 +188,10 @@
             delete page.expanded[id];
             delete page.editing[id];
             delete page.newIds[id];
+            return;
+          }
+          if (!edit) {
+            if (!before.expanded && page.expanded[id] === true) page.expanded[id] = false;
             return;
           }
           if (!before.editing) page.discardEditing(rule);
@@ -200,6 +211,7 @@
   action('time-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] })));
   action('sun-rule', ruleAction('sun_window', () => ({ type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, weekdays: [] })));
   action('balance-rule', ruleAction('balance_threshold', () => ({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 })));
+  action('open-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }), { edit: false, match: (rule) => rule.history_enabled }));
 
   // Der Konfigurationsbereich mit dem Dienst Batteriestand. Der Lauf setzt den
   // Dienst in den Daten der Seite (selectedName) und laedt das Formular neu.
