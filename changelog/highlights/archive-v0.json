@@ -197,6 +197,33 @@
   "53": {
     "de": {
       "*": "Geräte-Icons und angeheftete Favoriten-Entitäten"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_devices",
+            "panel": "devices-panel",
+            "target": "devices",
+            "text": {
+              "de": "Jedes Gerät hat ein eigenes Icon. Öffne ein Gerät und markiere bis zu drei Entitäten mit dem Stern, seine Kachel zeigt sie dann zuerst.",
+              "en": "Every device has its own icon. Open a device and mark up to three entities with the star, its tile then shows them first."
+            },
+            "title": {
+              "de": "Icons und Favoriten",
+              "en": "Icons and favourites"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Der Gerätedialog zeigt oben die Favoriten, bis zu drei Entitäten mit ihren Live-Werten. Ein Klick auf das Icon im Kopf öffnet den Katalog für ein anderes Icon.",
+        "doc": "dashboard/device-modal.html#favourites",
+        "en": "The device dialog shows the favourites at the top, up to three entities with their live values. Click the icon in the header to pick another icon from the catalogue.",
+        "image": "dashboard-device-modal.png"
+      }
     }
   },
   "54": {
@@ -212,11 +239,90 @@
   "58": {
     "de": {
       "*": "Reine DC-Systeme im MQTT-Service und bedingte Konfigurationsformulare"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_config",
+            "panel": "config-panel",
+            "target": "config",
+            "text": {
+              "de": "Das Konfigurationsformular zeigt ein Feld nur, wenn es zu deiner Auswahl passt, etwa die Felder eines reinen DC-Systems.",
+              "en": "The configuration form shows a field only when it fits your choices, for example the fields of a DC-only system."
+            },
+            "title": {
+              "de": "Formulare passen sich an",
+              "en": "Forms that adapt"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Das Formular entsteht aus dem Schema des jeweiligen Dienstes. Felder, die von einer anderen Wahl abhängen, erscheinen erst mit dieser Wahl, und Werte werden vor dem Speichern geprüft.",
+        "doc": "dashboard/configuration.html",
+        "en": "The form is generated from the schema of each service. Fields that depend on another choice appear only with that choice, and values are checked before anything is saved.",
+        "image": "dashboard-config.png"
+      }
     }
   },
   "59": {
     "de": {
       "*": "Grundlage für die Lokalisierung mit Sprachumschalter"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "display",
+            "panel": "settings-panel",
+            "target": "language",
+            "text": {
+              "de": "Hier wählst du die Sprache für diesen Browser. Das Dashboard spricht Deutsch und Englisch.",
+              "en": "Choose the language of this browser here. The dashboard speaks English and German."
+            },
+            "title": {
+              "de": "Sprache",
+              "en": "Language"
+            }
+          },
+          {
+            "target": "language-pill",
+            "text": {
+              "de": "Die Pille DE | EN in der Kopfzeile wechselt die Sprache sofort.",
+              "en": "The DE | EN pill in the masthead switches the language at once."
+            },
+            "title": {
+              "de": "Schnell umschalten",
+              "en": "Quick switch"
+            }
+          },
+          {
+            "need": "edit_settings",
+            "page": "display",
+            "panel": "settings-panel",
+            "target": "numberformat",
+            "text": {
+              "de": "Das Zahlenformat legt Dezimal- und Tausendertrennzeichen fest. Datumsangaben folgen der Sprache.",
+              "en": "The number format sets the decimal and thousands separators. Dates follow the language."
+            },
+            "title": {
+              "de": "Zahlenformat",
+              "en": "Number format"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Karte Formatierung auf der Seite Darstellung enthält die Sprache dieses Browsers, den Schalter für die Pille DE | EN und das Zahlenformat. Alle Texte des Dashboards, seine Fehlermeldungen und der Update-Bildschirm folgen der Sprache.",
+        "doc": "dashboard/settings-appearance.html",
+        "en": "The Formatting card on the Appearance page holds the language of this browser, the switch for the DE | EN pill and the number format. Every text of the dashboard, its error messages and the update screen follow the language.",
+        "image": "dashboard-settings-display.png"
+      }
     }
   },
   "60": {
@@ -232,6 +338,33 @@
   "63": {
     "de": {
       "*": "Wochentage im Editor und eine Bedingung sun_window"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_automations",
+            "panel": "automations-panel",
+            "target": "automations-rules",
+            "text": {
+              "de": "Eine Regel kann nur an gewählten Wochentagen gelten, und zwischen Sonnenaufgang und Sonnenuntergang. Beides stellst du in einer Einzelregel ein.",
+              "en": "A rule can apply on chosen weekdays only, and between sunrise and sunset. You set both in a single rule."
+            },
+            "title": {
+              "de": "Wochentage und Sonnenzeiten",
+              "en": "Weekdays and sun times"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Im Regeleditor bekommt ein Zeitfenster Wochentage, und das Sonnenfenster folgt Sonnenaufgang und Sonnenuntergang am Standort aus den Einstellungen.",
+        "doc": "dashboard/automations.html#rule-editor",
+        "en": "In the rule editor a time window takes weekdays, and the sun window follows sunrise and sunset at the location from the settings.",
+        "image": "dashboard-automation.png"
+      }
     }
   },
   "64": {
@@ -262,6 +395,33 @@
   "71": {
     "de": {
       "*": "Installierte Komponentenversionen werden in den Einstellungen angezeigt"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-components",
+            "text": {
+              "de": "Jede Anwendung, jeder Dienst und jede Bibliothek steht hier mit ihrer Version. Änderungen öffnet den Changelog.",
+              "en": "Every application, service and library is listed here with its version. Changes opens its changelog."
+            },
+            "title": {
+              "de": "Installierte Versionen",
+              "en": "Installed versions"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Seite Versionen zeigt das installierte Paket und jede Komponente mit ihrer Version. Ein Dienst, der nicht installiert ist, ist als solcher markiert.",
+        "doc": "dashboard/settings-versions.html",
+        "en": "The Versions page shows the installed package and every component with its version. A service that is not installed is marked as such.",
+        "image": "dashboard-settings-versions.png"
+      }
     }
   },
   "72": {
@@ -302,11 +462,58 @@
   "82": {
     "de": {
       "*": "changelog.json liegt im Bundle und zeigt vor einem Update, was neu ist"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "check_updates",
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "updates",
+            "text": {
+              "de": "Wird ein Update angeboten, zeigt die Update-Seite vor der Installation, was das neue Paket ändert.",
+              "en": "When an update is offered, the update page lists what the new package changes before you install it."
+            },
+            "title": {
+              "de": "Vorher sehen, was neu ist",
+              "en": "See what is new first"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Update-Seite listet die Änderungen des neuen Pakets. Die Vorschau zeigt auch, welche Komponenten sich ändern und welche Dienste neu starten.",
+        "doc": "dashboard/settings-versions.html#updating-from-the-dashboard",
+        "en": "The update page lists the changes of the new package. The preview also shows which components change and which services restart.",
+        "image": "dashboard-update-preview.png"
+      }
     }
   },
   "84": {
     "de": {
       "*": "Die Changelog-Seiten öffnen mit den Highlights, der Schalter oben zeigt alles"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-highlights",
+            "text": {
+              "de": "Der Changelog öffnet mit den Highlights jedes Release. Mit Alles siehst du jede Änderung.",
+              "en": "The changelog opens on the highlights of each release. Switch to Everything to see every change."
+            },
+            "title": {
+              "de": "Zuerst die Highlights",
+              "en": "Highlights first"
+            }
+          }
+        ]
+      }
     }
   },
   "85": {
