@@ -1250,8 +1250,11 @@
         "steps": [
           {
             "need": "view_energy",
+            "open": [
+              "energy-interpretation-toggle"
+            ],
             "panel": "energy-panel",
-            "target": "energy-interpretation",
+            "target": "energy-load-mode",
             "text": {
               "de": "Der Modus Automatisch übernimmt die Aufgabe des früheren Modus Kombiniert. Er bildet den Hausverbrauch aus der Bilanz und zieht gemessene Verbraucher davon ab, der Hauszähler dient als Kontrolle. Über die Statuszeile siehst du die aktuelle Abweichung direkt.",
               "en": "The Automatic mode takes over from the former Combined mode. It builds the house consumption from the balance and subtracts the metered consumers, with the house meter as a cross-check. The status line shows the current deviation right away."
@@ -1332,8 +1335,11 @@
           },
           {
             "need": "edit_energy",
+            "open": [
+              "energy-roles-toggle"
+            ],
             "panel": "energy-panel",
-            "target": "energy-roles-head",
+            "target": "roles",
             "text": {
               "de": "In der Rollentabelle lassen sich nur noch Einträge ausblenden, die noch keine Rolle haben. Ausgeblendete Einträge sind dann auch in der Device-Map nicht mehr sichtbar.",
               "en": "In the role table you can now only hide entries that have no role yet. Hidden entries no longer show in the device map either."

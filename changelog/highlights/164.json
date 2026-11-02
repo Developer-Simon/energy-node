@@ -28,6 +28,41 @@
         },
         {
           "need": "automations",
+          "open": [
+            "automations-rules",
+            "@time-rule"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-flow",
+          "text": {
+            "de": "Unter Ablauf legst du fest, ob eine Regel einmal auslöst oder ihre Aktionen in einem festen Abstand erneut sendet, solange alle Bedingungen erfüllt sind.",
+            "en": "Under Flow you choose whether a rule fires once or sends its actions again at a fixed interval while all conditions hold."
+          },
+          "title": {
+            "de": "Einmal oder wiederholen",
+            "en": "Once or repeat"
+          }
+        },
+        {
+          "need": "automations",
+          "open": [
+            "automations-rules",
+            "@time-rule",
+            "rule-monthdays-toggle"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-monthdays",
+          "text": {
+            "de": "Ein Zeitfenster gilt an den gewählten Wochentagen. Unter Erweitert schränkst du es auf bestimmte Tage im Monat ein, etwa nur auf den 1. und den 15.",
+            "en": "A time window applies on the chosen weekdays. Under Advanced you limit it to certain days of the month, for example only the 1st and the 15th."
+          },
+          "title": {
+            "de": "Tage im Monat",
+            "en": "Days of the month"
+          }
+        },
+        {
+          "need": "automations",
           "panel": "automations-panel",
           "target": "automations",
           "text": {

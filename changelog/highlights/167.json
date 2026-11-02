@@ -14,9 +14,13 @@
       "steps": [
         {
           "need": "user_management",
+          "open": [
+            "users-accounts",
+            "own-account"
+          ],
           "page": "users",
           "panel": "settings-panel",
-          "target": "users-tabs",
+          "target": "own-account-card",
           "text": {
             "de": "In der Benutzerverwaltung gibst du jedem Benutzer fein eingestellte Berechtigungen. Unter Sitzungen siehst du alle, die gerade angemeldet sind.",
             "en": "User management lets you give every user finely tuned permissions. Sessions lists everyone who is signed in right now."
@@ -28,6 +32,9 @@
         },
         {
           "need": "user_management",
+          "open": [
+            "users-accounts"
+          ],
           "page": "users",
           "panel": "settings-panel",
           "target": "users",
@@ -42,6 +49,9 @@
         },
         {
           "need": "user_management",
+          "open": [
+            "users-accounts"
+          ],
           "page": "users",
           "panel": "settings-panel",
           "target": "companion",
