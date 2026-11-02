@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -438,6 +439,10 @@ func (m *Manager) loginLocalLocked(username, password string, secure bool) (Sess
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
+	}
+	if restricted {
+		// Spec Abschnitt 10: je eingeschränkter Anmeldung eine Zeile.
+		log.Printf("auth: %s %s %s", username, "login", "restricted")
 	}
 	return m.newSessionLocked(user, restricted)
 }

@@ -40,6 +40,9 @@ var (
 	// ErrHTTPLoginRequired meldet ein HTTP-Passwort für ein Konto ohne http_login
 	// (wird in Stufe 1b genutzt).
 	ErrHTTPLoginRequired = errors.New("account needs the http_login role")
+	// ErrHAAccountPassword meldet eine Passwortänderung für ein Home-Assistant-Konto.
+	// Das Passwort liegt in Home Assistant, das Dashboard hat keins (Spec Abschnitt 2).
+	ErrHAAccountPassword = errors.New("home assistant accounts have no dashboard password")
 
 	// ErrGuestAccessDisabled meldet einen Gastzugang, solange der Admin ihn abgeschaltet hat.
 	ErrGuestAccessDisabled = errors.New("guest access is disabled")
@@ -461,9 +464,9 @@ func (m *Manager) SetHTTPPassword(actor, username, newPassword string) error {
 func (m *Manager) SetOwnHTTPPassword(token, newPassword string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	session, ok := m.liveSessionLocked(token)
-	if !ok {
-		return ErrInvalidCredentials
+	session, err := m.ownSessionLocked(token)
+	if err != nil {
+		return err
 	}
 	name := session.User.Username
 	changed, err := m.setHTTPPasswordLocked(name, newPassword, tokenHash(token))
@@ -530,9 +533,9 @@ func (m *Manager) ChangeOwnPassword(token, oldPassword, newPassword string) erro
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	key := tokenHash(token)
-	session, ok := m.liveSessionLocked(token)
-	if !ok {
-		return ErrInvalidCredentials
+	session, err := m.ownSessionLocked(token)
+	if err != nil {
+		return err
 	}
 	name := session.User.Username
 	current, ok := m.users[name]
@@ -564,6 +567,20 @@ func (m *Manager) ChangeOwnPassword(token, oldPassword, newPassword string) erro
 	}
 	log.Printf("auth: %s %s %s", name, "password", name)
 	return nil
+}
+
+// ownSessionLocked liefert die Sitzung zu token für eine Änderung am eigenen
+// Konto. Eine Sitzung eines HA-Kontos liefert ErrHAAccountPassword, eine
+// unbekannte oder abgelaufene ErrInvalidCredentials.
+func (m *Manager) ownSessionLocked(token string) (Session, error) {
+	if session, ok := m.sessions[tokenHash(token)]; ok && session.ExpiresAt.After(m.now()) && session.User.Source != "" {
+		return Session{}, ErrHAAccountPassword
+	}
+	session, ok := m.liveSessionLocked(token)
+	if !ok {
+		return Session{}, ErrInvalidCredentials
+	}
+	return session, nil
 }
 
 // liveSessionLocked liefert die nicht abgelaufene Sitzung zu token.

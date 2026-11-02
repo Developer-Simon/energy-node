@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
@@ -224,4 +225,12 @@ func TestUsersListIncludesHAData(t *testing.T) {
 	if listing.HARoles == nil || !containsString(listing.HARoles.Admin, auth.RoleViewDevices) {
 		t.Fatalf("list presets = %+v, want the admin preset", listing.HARoles)
 	}
+}
+
+// TestHAAccountPasswordErrorIsInvalidUser: a password change for a Home
+// Assistant account answers 400 invalid_user (spec section 2).
+func TestHAAccountPasswordErrorIsInvalidUser(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	writeUserError(recorder, auth.ErrHAAccountPassword)
+	wantUsersError(t, recorder, http.StatusBadRequest, "invalid_user")
 }

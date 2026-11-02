@@ -2389,6 +2389,7 @@
   "error.invalid_test_request": "rule_id und action_index sind erforderlich",
   "error.invalid_user": "Die Angaben zum Benutzer sind ungültig",
   "error.invalid_user.guest_role": "Diese Berechtigung ist für Gäste nicht erlaubt",
+  "error.invalid_user.ha_password": "Das Passwort eines Home-Assistant-Kontos wird in Home Assistant geändert.",
   "error.invalid_user.ha_role": "Anmeldung über HTTP ist für Home-Assistant-Konten nicht erlaubt.",
   "error.invalid_user.http_login": "Ein HTTP-Passwort braucht die Berechtigung http_login",
   "error.invalid_user.password": "Das Passwort ist zu kurz, es braucht mindestens {min_length} Zeichen",
