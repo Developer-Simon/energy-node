@@ -383,7 +383,14 @@ The Version bump workflow keeps it when it adds the translations. The bundle
 carries the tour as `tour` on each PR entry of `changelog.json`, and
 `/api/v1/changelog/highlights` passes it on.
 
-## One-time setup: the `BUMP_TOKEN` secret
+Tours of highlights that are already released live in the archive files, next to
+their translations: `archive-v<MAJOR>.json` for older releases and
+`v<X.Y.Z>.json` for the latest one. `validate` checks them, `check` does not.
+The Go test `TestHighlightToursPointAtKnownTargets` in
+`dashboard/internal/webui` checks every tour in `changelog/highlights/` against
+the targets, panels, pages and permissions of the web UI. "Explore what is new"
+lists the last three minor releases. Older releases appear behind the second
+toggle of the checklist.
 
 ## One-time setup: the `BUMP_TOKEN` secret
 
