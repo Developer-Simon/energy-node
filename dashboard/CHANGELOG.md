@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.35 (2026-11-01)
+## v0.10.36 (2026-11-02)
 
 ### Features
 
@@ -25,7 +25,24 @@
 - **installer:** The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device. (#187) (c179354)
 - **onboarding:** A guided first-time setup walks admins through access, display, system and devices, with a welcome step first. (#188) (7dab3e8)
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
-- **battery-soc:** render tuning findings from a shared message catalog (#196)
+- **battery-soc:** render tuning findings from a shared message catalog (#196) (2332ed5)
+- **ci:** require a tour for web UI highlights (2c10e82)
+- **versions:** pass the highlight tour through the API (7983912)
+- **onboarding:** remember when the onboarding started and seed new accounts (51e1c3b)
+- **onboarding:** seed seen state and queue for explore (9905e55)
+- **onboarding:** carry the highlight text in the explore items (7a645a2)
+- **onboarding:** build explore from the server highlights (2fba646)
+- **webui:** show highlight state and actions on the versions page (03090af)
+- **webui:** replace the what's new dialog with the checklist (022857d)
+- **webui:** welcome tour with permission filter, guest state and resize handling (3bba5f9)
+- **onboarding:** list the last three minor releases and flag stale tours (e6f6094)
+- **webui:** group explore by minor, filter older versions and grey out stale tours (b9593ea)
+- **webui:** make the links between checklist and versions page prominent (f0e7c19)
+- **onboarding:** attach explore items to dashboard releases with their component (cbea67c)
+- **webui:** one explore card per release with component subheadlines (a510356)
+- **onboarding:** add a next time button to the welcome card (3fe50ac)
+- **onboarding:** keep the current minor open to explore on a fresh install (5594643)
+- **onboarding:** Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one. (#197)
 - **dashboard:** retry the first MQTT connection in the background (903dc4e)
 - **onboarding:** apply the installer seed file on start (1cad38f)
 - **onboarding:** add the setup step catalog and detection (faaebd9)
@@ -203,6 +220,14 @@
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
 - **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195) (70464ad)
+- **onboarding:** keep GET read-only on a corrupt file and skip guest storage (89aa0c8)
+- **onboarding:** show the title and text of each tour step (4a8d06b)
+- **onboarding:** repeat the whole run and add the tour button to explore (b385f92)
+- **webui:** open the highlight details directly in the checklist (b2be053)
+- **webui:** show the current explore version, white link subtext and the doc link in the checklist (81e2ca5)
+- **webui:** keep the version card head of the checklist on clean lines (314b27b)
+- **onboarding:** address final review findings (bd7125b)
+- **webui:** show the explore subtexts in the normal text colour (b17d031)
 - **battery-soc:** render tuning findings from the dashboard catalog (d8641fc)
 - **dashboard:** let Reconfigure work before the first MQTT connection (5e19e68)
 - **dashboard:** start without an MQTT connection and keep retrying (9b7ac80)
@@ -303,6 +328,8 @@
 
 ### Refactors
 
+- **webui:** share the highlight details between pages (c4aca97)
+- **webui:** show the versions changelog as plain text again (d1e73c4)
 - **battery-soc:** use English finding codes and severities (018296a)
 - **smoke:** turn the fake home assistant companion into a controllable class (00e1fef)
 - **auth:** split tailscale, service logs and installer access out of system_actions (9fb6ee4)
