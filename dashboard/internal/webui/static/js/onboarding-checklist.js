@@ -104,6 +104,14 @@
     },
     // Tour starten, solange etwas ungesehen ist, sonst alle Touren noch einmal.
     exploreStart() { this.run('explore', null, { all: this.exploreUnseen === 0 }); },
+    // Tour nachholen: auf jeder aelteren Karte mit einer Tour fuer dieses Geraet.
+    // Der Lauf startet beim ersten Highlight mit Tour, all nimmt jede Tour des Release mit.
+    catchUpItem(version) { return version.items.find((item) => !item.stale && this.s.tourSteps(item).length) || null; },
+    catchUpShown(version) { return !version.current && Boolean(this.catchUpItem(version)); },
+    catchUp(version) {
+      const item = this.catchUpItem(version);
+      if (item) this.run('explore', item.id, { all: true });
+    },
     // Karte je Release, ohne das v (v0.10.33 heisst Version 0.10.33, 0.12.0 bleibt 0.12.0).
     versionLabel(version) { return t('onboarding.checklist.version', { version: version.version.replace(/^v/, '') }); },
     // Unterzeile eines Bereichs: Komponente und Version, etwa "Bootstrap 0.2.6". Ohne Version nur der Name.

@@ -94,12 +94,13 @@
     if (mode === 'explore') {
       // Ohne from: die ungesehenen der aktuellen Version, mit all alle. Mit from
       // (aus der Checkliste): genau dieses Highlight, auch aus aelteren Versionen.
+      // from und all zusammen (Tour nachholen): jede Tour des Release von from.
       const version = from
         ? explore.find((v) => v.items.some((item) => item.id === from))
         : explore.find((v) => v.current);
       if (!version) return [];
       // Eine veraltete Tour laeuft nie, auch nicht aus der Checkliste.
-      const items = version.items.filter((item) => !item.stale && (from ? item.id === from : all || !seen[item.id]) && tourSteps(item, ctx).length);
+      const items = version.items.filter((item) => !item.stale && (from && !all ? item.id === from : all || !seen[item.id]) && tourSteps(item, ctx).length);
       // Ohne v, und aus 0.12.0 wird 0.12 (Karten je Release, siehe onboarding.js).
       const short = version.version.replace(/^v/, '').replace(/^(\d+\.\d+)\.0$/, '$1');
       const flat = items.flatMap((item) => tourSteps(item, ctx)

@@ -558,3 +558,39 @@ test('the checklist template has the archive toggle next to the older toggle', (
   const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
   assert.match(html, /x-show="archiveToggleShown"[^>]*x-on:click="toggleArchive\(\)"/);
 });
+
+const STEP = { panel: 'settings-panel', target: 'guest', device: '', need: '', title: { en: 'T' }, text: { en: 'X' } };
+const CATCH_UP = {
+  current_version: '0.12.2',
+  items: [
+    { id: 'n1', version: '0.12.2', minor: '0.12', text: 'Now', tour: { steps: [STEP] } },
+    { id: 'o1', version: '0.11.0', minor: '0.11', text: 'Text only', tour: null },
+    { id: 'o2', version: '0.11.0', minor: '0.11', text: 'First tour', tour: { steps: [STEP] } },
+    { id: 'o3', version: '0.11.0', minor: '0.11', text: 'Second tour', tour: { steps: [STEP, STEP] } },
+    { id: 'p1', version: '0.10.0', minor: '0.10', text: 'Only text', tour: null },
+  ],
+};
+
+test('older cards with a tour offer to catch up on it, the current card and text-only cards do not', async () => {
+  const { component: cl } = await load({ explore: CATCH_UP });
+  const byVersion = Object.fromEntries(cl.versions.map((v) => [v.version, v]));
+  assert.equal(cl.catchUpShown(byVersion['0.12.2']), false);
+  assert.equal(cl.catchUpShown(byVersion['0.11.0']), true);
+  assert.equal(cl.catchUpShown(byVersion['0.10.0']), false);
+});
+
+test('catching up runs every tour of that release from its first tour, seen or not', async () => {
+  const { store, component: cl } = await load({ explore: CATCH_UP });
+  store.seen = { o2: true, o3: true };
+  cl.catchUp(cl.versions.find((v) => v.version === '0.11.0'));
+  assert.equal(store.run.mode, 'explore');
+  assert.equal(store.run.from, 'o2');
+  assert.equal(store.run.all, true);
+  assert.deepEqual([...store.steps.map((s) => s.id)], ['o2', 'o3', 'o3']);
+});
+
+test('the checklist template puts the catch-up button next to the release notes chip', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
+  assert.match(html, /catch_up/);
+});

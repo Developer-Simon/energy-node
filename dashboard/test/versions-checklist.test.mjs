@@ -187,5 +187,7 @@ test('the version card head wraps onto clean lines: the chip and title never bre
   const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'onboarding.css'), 'utf8');
   assert.match(css, /\.ob-cl-summary-head\s*\{[^}]*flex-wrap: wrap;[^}]*row-gap: \.35rem;/);
   assert.match(css, /\.ob-cl-summary-head \.setting-card-title\s*\{\s*white-space: nowrap;\s*\}/);
-  assert.match(css, /\.ob-cl-summary-head \.ob-crosslink--chip\s*\{\s*white-space: nowrap;\s*margin-left: auto;\s*\}/);
+  assert.match(css, /\.ob-cl-summary-head \.ob-crosslink--chip\s*\{\s*white-space: nowrap;\s*\}/);
+  // Die Chips einer Karte (Tour nachholen, Release-Notes) stehen als Gruppe rechts.
+  assert.match(css, /\.ob-cl-card-links\s*\{[^}]*flex-wrap: wrap;[^}]*margin-left: auto;[^}]*\}/);
 });
