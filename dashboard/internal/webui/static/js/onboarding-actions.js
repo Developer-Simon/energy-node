@@ -201,20 +201,33 @@
   action('sun-rule', ruleAction('sun_window', () => ({ type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, weekdays: [] })));
   action('balance-rule', ruleAction('balance_threshold', () => ({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 })));
 
-  // Der Konfigurationsbereich mit dem Dienst Batteriestand. Der Lauf waehlt den
-  // Dienst, das Formular laedt sich danach. Zuruecknehmen waehlt den alten Dienst wieder.
+  // Der Konfigurationsbereich mit dem Dienst Batteriestand. Der Lauf setzt den
+  // Dienst in den Daten der Seite (selectedName) und laedt das Formular neu.
+  // Ein DOM-Wechsel am Auswahlfeld reicht nicht, Alpine uebernimmt ihn nicht.
+  // Zuruecknehmen setzt den alten Dienst wieder, aber nur, solange die Seite
+  // noch beim Batteriestand steht.
+  const CONFIG_SOC = 'battery_soc_devices';
+  const configPage = () => {
+    const panel = document.getElementById('config-panel');
+    return panel && window.Alpine ? window.Alpine.$data(panel) : null;
+  };
   action('battery-soc', {
     run: async ({ waitFor }) => {
       const select = document.getElementById('config-name');
-      if (!select || ![...select.options].some((o) => o.value === 'battery_soc')) return null;
-      const old = select.value;
+      if (!select) return null;
+      const page = await waitFor(() => {
+        const data = configPage();
+        return data && (data.configs || []).some((c) => c.name === CONFIG_SOC) ? data : null;
+      }, 3000);
+      if (!page) return null;
+      const old = page.selectedName;
       const revert = () => {
-        if (!select.isConnected || select.value !== 'battery_soc') return;
-        select.value = old;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
+        if (!select.isConnected || page.selectedName !== CONFIG_SOC) return;
+        page.selectedName = old;
+        page.loadConfig();
       };
-      select.value = 'battery_soc';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
+      page.selectedName = CONFIG_SOC;
+      await page.loadConfig();
       const form = await waitFor(() => {
         const el = document.getElementById('schema-form');
         return el && el.children.length > 0 ? el : null;

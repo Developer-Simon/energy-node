@@ -491,64 +491,86 @@ test('balance-rule creates a disabled example rule with a threshold when none ma
   assert.equal(run.records.length, 1);
 });
 
-test('battery-soc selects the battery service and reverts the old one', async () => {
+// Die Konfigurationsseite als Stub: Alpine.$data liefert sie. loadConfig fuellt
+// das Formular, wenn der Batteriedienst gewaehlt ist, und zaehlt die Aufrufe.
+function configPage(document, { configs = ['grid', 'battery_soc_devices'], formFills = true } = {}) {
+  const page = {
+    configs: configs.map((name) => ({ name })),
+    selectedName: 'grid',
+    loads: 0,
+    async loadConfig() {
+      this.loads += 1;
+      const form = document.getElementById('schema-form');
+      form.replaceChildren();
+      if (formFills && this.selectedName === 'battery_soc_devices') form.append(document.createElement('input'));
+    },
+  };
+  document.defaultView.Alpine = { $data: () => page };
+  return page;
+}
+
+test('battery-soc sets the battery service on the page and reverts the old one', async () => {
   const { document, a } = load();
   document.body.innerHTML = `
-    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc">Batterie</option></select>
+    <section id="config-panel"></section>
+    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc_devices">Batterie</option></select>
     <div id="schema-form"></div>`;
   const select = document.getElementById('config-name');
   const form = document.getElementById('schema-form');
-  select.value = 'grid';
-  let changes = 0;
-  select.addEventListener('change', () => {
-    changes += 1;
-    if (select.value === 'battery_soc') form.append(document.createElement('input'));
-    else form.replaceChildren();
-  });
+  const page = configPage(document);
   const rec = await a.named['battery-soc'].run({ waitFor });
   assert.equal(rec.el, select);
   assert.equal(rec.scope, null);
-  assert.equal(select.value, 'battery_soc');
-  assert.equal(changes, 1);
+  assert.equal(page.selectedName, 'battery_soc_devices');
+  assert.equal(page.loads, 1);
   assert.equal(form.children.length, 1);
   rec.revert();
-  assert.equal(select.value, 'grid');
-  assert.equal(changes, 2);
+  assert.equal(page.selectedName, 'grid');
+  assert.equal(page.loads, 2);
   assert.equal(form.children.length, 0);
 });
 
-test('battery-soc leaves the select alone when the user chose another service since', async () => {
+test('battery-soc leaves the page alone when the user chose another service since', async () => {
   const { document, a } = load();
   document.body.innerHTML = `
-    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc">Batterie</option><option value="solar">Solar</option></select>
-    <div id="schema-form"><i></i></div>`;
-  const select = document.getElementById('config-name');
-  let changes = 0;
-  select.addEventListener('change', () => { changes += 1; });
+    <section id="config-panel"></section>
+    <select id="config-name"><option value="grid">Netz</option></select>
+    <div id="schema-form"></div>`;
+  const page = configPage(document);
   const rec = await a.named['battery-soc'].run({ waitFor });
-  select.value = 'solar';
+  page.selectedName = 'solar';
   rec.revert();
-  assert.equal(select.value, 'solar');
-  assert.equal(changes, 1, 'only the run dispatched change');
+  assert.equal(page.selectedName, 'solar');
+  assert.equal(page.loads, 1, 'only the run loaded the form');
 });
 
-test('battery-soc returns null without the battery option or the select', async () => {
+test('battery-soc returns null without the battery service, the panel or the select', async () => {
   const { document, a } = load();
-  document.body.innerHTML = '<select id="config-name"><option value="grid">Netz</option></select>';
+  document.body.innerHTML = `
+    <section id="config-panel"></section>
+    <select id="config-name"><option value="grid">Netz</option></select>
+    <div id="schema-form"></div>`;
+  configPage(document, { configs: ['grid'] });
   assert.equal(await a.named['battery-soc'].run({ waitFor }), null);
   document.body.innerHTML = '<div id="schema-form"></div>';
+  assert.equal(await a.named['battery-soc'].run({ waitFor }), null);
+  document.body.innerHTML = `
+    <select id="config-name"><option value="grid">Netz</option></select>
+    <div id="schema-form"></div>`;
   assert.equal(await a.named['battery-soc'].run({ waitFor }), null);
 });
 
 test('battery-soc gives up and restores the old service when the form does not appear', async () => {
   const { document, a } = load();
   document.body.innerHTML = `
-    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc">Batterie</option></select>`;
-  const select = document.getElementById('config-name');
-  select.value = 'grid';
+    <section id="config-panel"></section>
+    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc_devices">Batterie</option></select>
+    <div id="schema-form"></div>`;
+  const page = configPage(document, { formFills: false });
   const rec = await a.named['battery-soc'].run({ waitFor });
   assert.equal(rec, null);
-  assert.equal(select.value, 'grid');
+  assert.equal(page.selectedName, 'grid');
+  assert.equal(page.loads, 2, 'the revert reloads the old service');
 });
 
 // Das Geraetedetail als Stub: der Dialog oeffnet sich beim Klick auf den Ausloeser,
