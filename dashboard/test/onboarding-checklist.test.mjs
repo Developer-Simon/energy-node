@@ -591,6 +591,6 @@ test('catching up runs every tour of that release from its first tour, seen or n
 
 test('the checklist template puts the catch-up button next to the release notes chip', () => {
   const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
-  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
+  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" data-tour="checklist-catch-up" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
   assert.match(html, /catch_up/);
 });

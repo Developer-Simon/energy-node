@@ -69,7 +69,7 @@
             <h3 class="setting-card-title" x-text="versionLabel(version)"></h3>
             <span class="ob-cl-eyebrow" x-text="versionEyebrow(version)"></span>
             <div class="ob-cl-card-links">
-              <button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" x-show="catchUpShown(version)" x-on:click="catchUp(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-play"></use></svg><span>{{t "onboarding.checklist.catch_up"}}</span></button>
+              <button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" data-tour="checklist-catch-up" x-show="catchUpShown(version)" x-on:click="catchUp(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-play"></use></svg><span>{{t "onboarding.checklist.catch_up"}}</span></button>
               <a class="ob-crosslink ob-crosslink--chip" x-bind:href="releaseHref(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-history"></use></svg><span>{{t "onboarding.checklist.release_notes"}}</span><svg class="ob-crosslink-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></a>
             </div>
           </div>
