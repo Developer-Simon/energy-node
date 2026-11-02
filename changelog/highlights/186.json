@@ -9,7 +9,7 @@
           "need": "user_management",
           "page": "checklist",
           "panel": "settings-panel",
-          "target": "checklist-mode",
+          "target": "explore",
           "text": {
             "de": "Die Checkliste zeigt ab jetzt nach jedem Update, was es Neues zu entdecken gibt. Außerdem bietet sie eine Ersteinrichtung an, die du auch später noch nachholen kannst.",
             "en": "From now on the checklist shows what there is to discover after every update. It also offers a first setup, which you can still do later."
