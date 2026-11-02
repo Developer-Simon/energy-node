@@ -1,5 +1,10 @@
 {
   "de": {
     "*": "Touren öffnen und zeigen, was sie erklären, und bieten sich bei Neuigkeiten selbst an"
+  },
+  "tour": {
+    "*": {
+      "exempt": "The tours themselves are the feature, and the explore card offers itself at the next start."
+    }
   }
 }
