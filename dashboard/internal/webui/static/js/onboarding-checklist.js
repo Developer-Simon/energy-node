@@ -25,6 +25,8 @@
     stale: 'onboarding.checklist.action_show',
   };
   const FOCUS_MS = 1600;
+  // Highlight ohne Tour (wie exploreState): ohne Schritte oder mit tour: false.
+  const noTour = (item) => item.tour === false || !(item.steps || []).length;
   // Schalter der aelteren Versionen und der frueheren Versionen in Neu
   // erkunden, gelten fuer die Sitzung.
   const OLDER_KEY = 'ob-explore-older';
@@ -208,10 +210,12 @@
     newsSub(item) {
       const state = this.newsState(item);
       if (state === 'other-device') return t(this.s.ctx().device === 'phone' ? 'onboarding.checklist.only_desktop' : 'onboarding.checklist.only_phone');
+      // Ohne Tour und ohne Details ist der eine Satz die Unterzeile, in jedem Zustand.
+      if (noTour(item) && !item.details) return t(item.text);
+      if (noTour(item)) return t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights');
       if (state === 'seen') return t('onboarding.checklist.news_seen');
       if (state === 'new') return t('onboarding.checklist.news_new');
-      if (state === 'stale') return t(this.replacementStart(item) ? 'onboarding.checklist.news_replaced' : 'onboarding.checklist.news_stale');
-      return t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights');
+      return t(this.replacementStart(item) ? 'onboarding.checklist.news_replaced' : 'onboarding.checklist.news_stale');
     },
     isStale(item) { return this.newsState(item) === 'stale'; },
     // Ersatzschritt einer veralteten Tour: Highlight und Position des Schritts in
@@ -231,15 +235,27 @@
     // anderen Geraet zu zeigen.
     newsAction(item) {
       if (this.isStale(item) && this.replacementStart(item)) return t('onboarding.checklist.action_replacement');
+      // Ohne Tour: mit Details wird gelesen, ohne Details nur als gelesen markiert, danach gar nichts.
+      if (noTour(item)) {
+        if (item.details) return t('onboarding.checklist.action_read');
+        return this.newsState(item) === 'seen' ? '' : t('onboarding.checklist.action_mark_read');
+      }
       const key = NEWS_ACTION_KEY[this.newsState(item)];
       return key ? t(key) : '';
     },
     isReading(item) { return Boolean(this.reading[item.id]); },
+    // Ohne Tour und ohne Details: kein Aufklappen, nur der Knopf zum Markieren.
+    isMarkOnly(item) { return noTour(item) && !item.details; },
     // Der Knopf des Highlights: Text lesen, eine Tour starten. Veraltet startet nur
     // die Tour an ihrer neuen Stelle, sonst nichts.
     newsAct(item) {
       const state = this.newsState(item);
       if (state === 'other-device') return;
+      if (noTour(item)) {
+        if (item.details) this.toggleReading(item);
+        else if (state === 'text') this.s.save(item.id);
+        return;
+      }
       if (state === 'stale') {
         const start = this.replacementStart(item);
         if (start) this.run('explore', start.id, { index: start.index });

@@ -82,20 +82,19 @@
                       <span class="ob-cl-title" x-text="$t(item.title)"></span>
                       <span class="ob-cl-sub" x-text="newsSub(item)"></span>
                     </span>
-                    <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:class="{ 'is-disabled': isStale(item) && !replacementStart(item) }" x-bind:disabled="isStale(item) && !replacementStart(item)" x-bind:aria-expanded="isStale(item) ? null : (isReading(item) ? 'true' : 'false')" x-on:click="newsAct(item)">
+                    <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:class="{ 'is-disabled': isStale(item) && !replacementStart(item) }" x-bind:disabled="isStale(item) && !replacementStart(item)" x-bind:aria-expanded="isStale(item) || isMarkOnly(item) ? null : (isReading(item) ? 'true' : 'false')" x-on:click="newsAct(item)">
                       <span x-text="newsAction(item)"></span>
-                      <svg viewBox="0 0 24 24" aria-hidden="true" x-show="!isStale(item)" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" x-show="!isStale(item) && !isMarkOnly(item)" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
                     </button>
                     <button type="button" class="ob-cl-action" x-show="isStale(item)" x-bind:aria-expanded="isReading(item) ? 'true' : 'false'" x-on:click="toggleReading(item)">
                       <span>{{t "onboarding.checklist.action_read"}}</span>
                       <svg viewBox="0 0 24 24" aria-hidden="true" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
                     </button>
-                    <div class="ob-cl-detail" x-show="isReading(item)" x-collapse>
-                      <template x-if="item.details">
+                    <template x-if="item.details">
+                      <div class="ob-cl-detail" x-show="isReading(item)" x-collapse>
                         <div class="whatsnew-body" x-data="{ entry: item, showDoc: true, cropped: true, loaded: false }" x-effect="if (isReading(item)) loaded = true">{{template "highlightDetailsBody"}}</div>
-                      </template>
-                      <p x-show="!item.details" x-text="$t(item.text)"></p>
-                    </div>
+                      </div>
+                    </template>
                   </li>
                 </template>
               </ul>

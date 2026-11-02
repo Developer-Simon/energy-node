@@ -143,7 +143,8 @@
   // Zustand eines Highlights fuer die Liste "Neu erkunden".
   function exploreState(item, seen, ctx) {
     const steps = item.tour === false ? [] : (item.steps || []);
-    if (!steps.length) return 'text';
+    // Ohne Tour: gelesen oder nicht, mehr gibt es nicht zu zeigen.
+    if (!steps.length) return seen[item.id] ? 'seen' : 'text';
     const allowedByRights = steps.filter((s) => rightsFit(s, ctx));
     if (!allowedByRights.length) return 'text';
     if (!allowedByRights.some((s) => deviceFits(s, ctx.device))) return 'other-device';

@@ -181,17 +181,60 @@ test('a highlight that fits this device keeps its button', async () => {
   assert.equal(cl.newsAction(item), t('onboarding.checklist.action_show'));
 });
 
-test('a highlight without a tour is read in place and marked seen', async () => {
-  const { store, component: cl, calls } = await load();
+test('a highlight with only one sentence is marked as read, the row has no chevron and no expand', async () => {
+  const { store, component: cl, calls, t } = await load();
   const item = store.exploreVersions[0].items.find((i) => i.id === 'h181');
   assert.ok(item, 'h181 is in the server highlights');
   assert.equal(cl.newsState(item), 'text');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_mark_read'));
+  assert.equal(cl.newsSub(item), 'Text only', 'the one sentence is the row subtitle');
+  assert.equal(cl.isMarkOnly(item), true);
   cl.newsAct(item);
-  assert.equal(cl.isReading(item), true);
+  assert.equal(cl.isReading(item), false, 'clicking does not expand the sentence');
   assert.equal(store.seen.h181, true);
+  assert.equal(store.run, null, 'nothing is started');
   await new Promise((resolve) => setImmediate(resolve));
   const put = calls.find((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me');
   assert.deepEqual(put?.body, { seen_add: ['h181'] });
+});
+
+test('a seen highlight with only one sentence has no action button and no expand', async () => {
+  const { store, component: cl, t } = await load();
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'h181');
+  store.seen = { h181: true };
+  assert.equal(cl.newsState(item), 'seen');
+  assert.equal(cl.newsAction(item), '', 'no action button');
+  assert.equal(cl.isMarkOnly(item), true);
+  assert.equal(cl.newsSub(item), 'Text only');
+  assert.notEqual(cl.newsSub(item), t('onboarding.checklist.news_seen'));
+});
+
+test('a seen highlight without a tour but with details offers Lesen and only toggles the reading', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [{ id: 'dt', version: '0.12.0', text: 'With details', details: { doc: '' }, tour: null }],
+  };
+  const { store, component: cl, calls, t } = await load({ explore });
+  const item = store.exploreVersions[0].items[0];
+  store.seen = { dt: true };
+  assert.equal(cl.newsState(item), 'seen');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_read'), 'Lesen, not Nochmal');
+  assert.equal(cl.isMarkOnly(item), false);
+  assert.equal(cl.newsSub(item), t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights'), 'the subtitle stays as before');
+  cl.newsAct(item);
+  assert.equal(cl.isReading(item), true, 'the details open');
+  assert.equal(store.run, null, 'no tour is started');
+  cl.newsAct(item);
+  assert.equal(cl.isReading(item), false, 'the details close again');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.some((c) => c.method === 'PUT'), false, 'a seen highlight is not saved again');
+});
+
+test('the checklist row hides the chevron and the expand state for a highlight with only one sentence', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(template, /x-bind:aria-expanded="isStale\(item\) \|\| isMarkOnly\(item\) \? null : \(isReading\(item\) \? 'true' : 'false'\)"/);
+  assert.match(template, /<svg viewBox="0 0 24 24" aria-hidden="true" x-show="!isStale\(item\) && !isMarkOnly\(item\)"/);
+  assert.match(template, /<template x-if="item\.details">\s*<div class="ob-cl-detail" x-show="isReading\(item\)" x-collapse>/);
 });
 
 test('the deep link picks the explore mode and scrolls to and marks exactly that item', async () => {
