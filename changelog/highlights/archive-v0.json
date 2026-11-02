@@ -235,8 +235,8 @@
             "panel": "devices-panel",
             "target": "device-favorite",
             "text": {
-              "de": "Mit dem Stern heftest du bis zu drei Werte des Geräts an seine Kachel.",
-              "en": "The star pins up to three values of the device to its tile."
+              "de": "Favoriten markierst du heute mit dem Stern am Wert. Damals gab es dafür eine Auswahl im Tab Analyse.",
+              "en": "Today you mark favourites with the star on a value. Back then there was a selection in the Analysis tab for this."
             },
             "title": {
               "de": "Favoriten",
@@ -383,8 +383,8 @@
             "panel": "automations-panel",
             "target": "rule-weekdays",
             "text": {
-              "de": "Hier wählst du die Wochentage, an denen die Regel gilt. Ohne Auswahl gilt sie an allen Tagen.",
-              "en": "Choose the weekdays on which the rule applies. Without a choice it applies every day."
+              "de": "Du kannst jetzt auch Wochentage bei den Automationen vorgeben. Ohne Auswahl gilt eine Automation an jedem Tag.",
+              "en": "You can now also set weekdays for automations. Without a selection an automation applies every day."
             },
             "title": {
               "de": "Wochentage",

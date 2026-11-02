@@ -4,26 +4,7 @@
   },
   "tour": {
     "*": {
-      "steps": [
-        {
-          "need": "user_management",
-          "open": [
-            "users-accounts",
-            "guest-card"
-          ],
-          "page": "users",
-          "panel": "settings-panel",
-          "target": "guest",
-          "text": {
-            "de": "Gäste dürfen standardmäßig nur ansehen. Mit diesem Schalter schaltest du den Gastzugang ganz ab.",
-            "en": "Guests may only view by default. This switch turns guest access off completely."
-          },
-          "title": {
-            "de": "Gastzugang",
-            "en": "Guest access"
-          }
-        }
-      ]
+      "exempt": "The guest access step is part of the users tour of #167, so the tour stays in one place."
     }
   }
 }
