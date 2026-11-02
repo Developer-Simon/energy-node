@@ -292,13 +292,17 @@ func TestExploreListsOlderMinorsAsArchive(t *testing.T) {
 }
 
 func TestFreshInstallSeesTheArchiveAsSeen(t *testing.T) {
-	// No previous-manifest.json: a fresh install. Every listed id, the archive included, starts as seen.
+	// No previous-manifest.json: a fresh install. The highlights of older minors, the
+	// archive included, start as seen. The current minor stays open to explore.
 	router, _ := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), archiveState(t))
 	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
 	view := getOnboarding(t, router, cookie)
-	for _, id := range []string{"h120", "h110", "h100", "h90"} {
+	for _, id := range []string{"h110", "h100", "h90"} {
 		if !slices.Contains(view.User.Seen, id) {
 			t.Fatalf("seen = %v, want %s included", view.User.Seen, id)
 		}
+	}
+	if slices.Contains(view.User.Seen, "h120") {
+		t.Fatalf("seen = %v, want the current minor h120 left open", view.User.Seen)
 	}
 }
