@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.36 (2026-11-02)
+## v0.10.37 (2026-11-02)
 
 ### Features
 
@@ -26,6 +26,17 @@
 - **onboarding:** A guided first-time setup walks admins through access, display, system and devices, with a welcome step first. (#188) (7dab3e8)
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
 - **battery-soc:** render tuning findings from a shared message catalog (#196) (2332ed5)
+- **onboarding:** Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one. (#197) (00443d4)
+- **webui:** tour targets for settings, versions, users, checklist, MQTT, diagnostics and config (a3c5e39)
+- **webui:** tour targets for the device map, energy, statistics, history and automations (8203a77)
+- **onboarding:** list highlights older than the explore window as archive (ce98e3e)
+- **onboarding:** explore further back with a second toggle in the checklist (7abb45e)
+- **updates:** name the quick install Install now, ask before it starts and call the installer link Prepare installation (1bb2fc5)
+- **onboarding:** catch up on the tour of an older release from its checklist card (7e63ff2)
+- **webui:** tour target for the catch-up chip of the checklist (aae5fd7)
+- **onboarding:** put the toggles for older versions in their own card below the version cards (fa111f5)
+- **webui:** tour target for the card with the version toggles (9b90dde)
+- **onboarding:** Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind "Explore further back", and each older release card can catch up on its tour. (#198)
 - **ci:** require a tour for web UI highlights (2c10e82)
 - **versions:** pass the highlight tour through the API (7983912)
 - **onboarding:** remember when the onboarding started and seed new accounts (51e1c3b)
@@ -42,7 +53,6 @@
 - **webui:** one explore card per release with component subheadlines (a510356)
 - **onboarding:** add a next time button to the welcome card (3fe50ac)
 - **onboarding:** keep the current minor open to explore on a fresh install (5594643)
-- **onboarding:** Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one. (#197)
 - **dashboard:** retry the first MQTT connection in the background (903dc4e)
 - **onboarding:** apply the installer seed file on start (1cad38f)
 - **onboarding:** add the setup step catalog and detection (faaebd9)
@@ -353,6 +363,8 @@
 ### Tests
 
 - **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
+- **webui:** check every highlight tour against the web UI targets and roles (af69642)
+- **onboarding:** expect the current minor open and older minors seen on a fresh install (3b9243a)
 - **smoke:** probe the battery state under the demo bank topic (7e93a90)
 - **webui:** walk all setup steps in the browser (38ea222)
 - **webui:** assert the checklist deep link scroll and highlight (3a4ac10)
@@ -387,6 +399,7 @@
 ### Chores
 
 - **history:** surface leader start errors and add an opt-in diagnostics log (#177) (2947769)
+- **webui:** bump the changed onboarding and update bar assets and point the onboarding tour at the explore switch (ff24d94)
 - **webui:** bump the automations.page.js cache-bust (d448dff)
 - **webui:** bump the cache-bust of the device dialog assets (cb83139)
 - **automations:** order the restart steps last and bump the wizard asset (e7ad540)
