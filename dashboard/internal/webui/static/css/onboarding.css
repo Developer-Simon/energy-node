@@ -62,6 +62,10 @@
   from { opacity: 0; transform: scale(1.06); }
   to { opacity: 1; transform: none; }
 }
+.ob-spot-ring.is-pressing .ob-spot-ring-inner { animation: ob-ring-press .18s var(--ease-out); }
+@keyframes ob-ring-press {
+  50% { transform: scale(.94); }
+}
 .ob-spot.is-done .ob-spot-ring-inner { box-shadow: 0 0 0 2px var(--ok), 0 0 0 7px color-mix(in srgb, var(--ok) 22%, transparent); }
 .ob-spot.is-done .ob-spot-ring-inner::after {
   content: '';
@@ -558,6 +562,7 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   .ob-bar-wrap, .ob-dock.is-shown .ob-bar-wrap { transform: none; transition: opacity .2s ease, visibility 0s linear .2s; }
   .ob-dock.is-shown .ob-bar-wrap { transition: opacity .2s ease, visibility 0s; }
   .ob-spot-ring.is-arriving .ob-spot-ring-inner { animation-name: ob-fade-in; }
+  .ob-spot-ring.is-pressing .ob-spot-ring-inner { animation-name: ob-fade-in; }
   .ob-spot.is-done .ob-spot-ring-inner::after { animation: none; }
   .ob-check { animation-name: ob-fade-in; }
   @keyframes ob-fade-in { from { opacity: 0; } to { opacity: 1; } }

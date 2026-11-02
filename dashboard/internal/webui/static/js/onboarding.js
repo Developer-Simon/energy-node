@@ -304,6 +304,8 @@
             target: `[data-tour="${s.target}"]`,
             device: s.device,
             need: s.need,
+            // Eintraege, die der Schritt oeffnet (Regeln, Zeitfenster), als Strings aus dem Server.
+            open: Array.isArray(s.open) ? s.open : [],
             title: localized(s.title, s.title?.en),
             text: localized(s.text, s.text?.en),
             literal: true,

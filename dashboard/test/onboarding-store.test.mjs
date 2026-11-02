@@ -283,9 +283,9 @@ test('exploreVersions groups the server highlights in the model shape', async ()
   assert.equal(guest.text, 'Gast-Schalter');
   assert.equal(guest.tour, undefined);
   assert.equal(guest.steps.length, 1);
-  assert.deepEqual({ ...guest.steps[0] }, {
+  assert.deepEqual({ ...guest.steps[0], open: [...guest.steps[0].open] }, {
     panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: '', need: 'user_management',
-    title: 'Gast', text: 'Hier', literal: true,
+    title: 'Gast', text: 'Hier', open: [], literal: true,
   });
 
   // tour null: nur Text, keine Schritte.
@@ -459,6 +459,22 @@ test('finishing a setup run switches the checklist to explore', async () => {
   store.finish();
   assert.equal(store.finished.mode, 'setup');
   assert.equal(store.checklistMode, 'explore');
+});
+
+test('exploreVersions passes open through and defaults it to an empty list', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [{
+      id: 'a', version: '0.12.0', minor: '0.12', text: 'A', tour: { steps: [
+        { panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: 'user_management', title: { en: 'Guest' }, text: { en: 'Here' }, open: ['rule-1'] },
+        { panel: 'settings-panel', target: 'title', title: { en: 'Title' }, text: { en: 'There' } },
+      ] },
+    }],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const [first, second] = store.exploreVersions[0].items[0].steps;
+  assert.deepEqual([...first.open], ['rule-1']);
+  assert.deepEqual([...second.open], []);
 });
 
 test('exploreVersions makes one card per release, newest first, the first card is current', async () => {

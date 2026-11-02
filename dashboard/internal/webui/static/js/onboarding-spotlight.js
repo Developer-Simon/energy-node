@@ -42,6 +42,17 @@
     let onLost = null;
     let onFound = null;
     let resolve = null;
+    let pressTimer = 0;
+
+    // Ende des Pulses: mit der Animation des Rings oder nach 400 ms, falls
+    // keine kommt. Der Ring bleibt danach im Ruhezustand stehen.
+    const endPress = (event) => {
+      if (event && event.animationName !== 'ob-ring-press') return;
+      clearTimeout(pressTimer);
+      pressTimer = 0;
+      ring.removeEventListener('animationend', endPress);
+      ring.classList.remove('is-pressing');
+    };
 
     const paint = (box) => {
       dim.style.clipPath = holePath(window.innerWidth, window.innerHeight, box, radius);
@@ -186,6 +197,15 @@
         root.classList.remove('is-done');
         void ring.offsetWidth;
         root.classList.add('is-done');
+      },
+      // Puls auf dem Ring, etwa bei einem Klick der Tour. Ein zweiter Puls
+      // startet die Animation neu: Klasse weg, Reflow, Klasse wieder dran.
+      press() {
+        endPress();
+        void ring.offsetWidth;
+        ring.classList.add('is-pressing');
+        ring.addEventListener('animationend', endPress);
+        pressTimer = setTimeout(endPress, 400);
       },
       // Leiste und Spotlight teilen sich den Bildschirm: liefert das
       // aktuelle Zielrechteck, damit die Leiste ausweichen kann.
