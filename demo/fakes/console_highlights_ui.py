@@ -22,10 +22,10 @@ HIGHLIGHTS_HTML = """<div id="tab-highlights">
   <div class="list">
     <div class="row">Abschnitte neuer als
       <input type="text" data-since placeholder="v0.10.0" autocomplete="off" spellcheck="false" aria-label="Startversion">
-      <span class="end"><button type="button" class="btn btn-primary" data-act="render">Rendern</button></span>
+      <span class="end"><a class="btn" data-explore target="_blank" rel="noopener" hidden>Neues erkunden öffnen</a> <button type="button" class="btn btn-primary" data-act="render">Rendern</button></span>
     </div>
   </div>
-  <p class="note">Liest dashboard/CHANGELOG.md, changelog/highlights und docs/images frisch aus dem Repo. Mit Installer-Zustand (Reiter Updates) steht das Ergebnis danach auch unter Neu erkunden, nach dem nächsten Update-Check des Dashboards.</p>
+  <p class="note">Liest dashboard/CHANGELOG.md, changelog/highlights und docs/images frisch aus dem Repo. Mit Installer-Zustand steht das Ergebnis danach auch im Dashboard unter Neues erkunden. Die Seite lädt es beim Öffnen, ein offener Dashboard-Tab braucht einen Reload.</p>
   <p class="grp-err"></p>
 </div>
 
@@ -45,6 +45,9 @@ HIGHLIGHTS_HTML = """<div id="tab-highlights">
       frame.src = "/highlights/?r=" + state.count;
     }
     frame.hidden = !state.rendered;
+    const link = $("[data-explore]");
+    link.hidden = !(state.rendered && state.explore_url);
+    if (state.explore_url) link.href = state.explore_url;
   }
 
   root.addEventListener("click", (event) => {

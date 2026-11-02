@@ -231,7 +231,7 @@ def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
     if args.highlights_repo:
         from console_highlights import HighlightsTab
         installer = Path(args.installer_state) if args.installer_state else None
-        tabs.append(HighlightsTab(log, Path(args.highlights_repo), installer))
+        tabs.append(HighlightsTab(log, Path(args.highlights_repo), installer, args.dashboard))
     return tabs
 
 

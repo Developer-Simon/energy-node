@@ -32,10 +32,11 @@ class HighlightsTab(Tab):
     title = "Highlights"
     html = HIGHLIGHTS_HTML
 
-    def __init__(self, log: Log, repo: Path, installer_state: Path | None = None) -> None:
+    def __init__(self, log: Log, repo: Path, installer_state: Path | None = None, dashboard: str = "") -> None:
         self.log = log
         self.repo = repo
         self.installer_state = installer_state
+        self.dashboard = dashboard.rstrip("/")
         self.since = self._default_since()
         self.page: str | None = None
         self.count = 0
@@ -60,7 +61,8 @@ class HighlightsTab(Tab):
         return f"v{major}.{minor}.0"
 
     def state(self) -> dict:
-        return {"since": self.since, "rendered": self.page is not None, "count": self.count}
+        return {"since": self.since, "rendered": self.page is not None, "count": self.count,
+                "explore_url": f"{self.dashboard}/?panel=settings&page=checklist&mode=explore" if self.dashboard and self.installer_state else ""}
 
     def act(self, action: str, body: dict) -> dict:
         if action != "render":
