@@ -63,12 +63,14 @@
       run.records.push({ entry, el, scope: run.scope, revert: null });
       return true;
     }
-    await show(el);
-    if (!alive()) return false;
     const tab = el.getAttribute('role') === 'tab';
     const list = tab ? el.closest('[role="tablist"]') : null;
     const before = list?.querySelector('[role="tab"][aria-selected="true"]') || null;
+    await show(el);
+    if (!alive()) return false;
     el.click();
+    // Alpine setzt aria-* asynchron, deshalb erst nach einem Tick den Zustand lesen.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const after = stateOf(el);
     const revert = () => {
       if (!el.isConnected || stateOf(el) !== after) return;
@@ -81,7 +83,8 @@
 
   // Ein benannter Eintrag. Er setzt den Bereich fuer die folgenden Eintraege.
   const namedEntry = async (run, entry, { show, waitFor }) => {
-    const def = named[entry.slice(1)];
+    const name = entry.slice(1);
+    const def = Object.hasOwn(named, name) ? named[name] : null;
     if (!def) return false;
     const rec = await def.run({ waitFor });
     if (!rec) return false;

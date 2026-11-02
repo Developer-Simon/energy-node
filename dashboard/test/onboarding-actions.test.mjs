@@ -237,6 +237,7 @@ test('next reverts in reverse order', async () => {
   assert.equal(run.records.length, 0);
 });
 
+
 test('next waits for a running apply before it reverts', async () => {
   const { document, a } = load();
   document.body.innerHTML = `
@@ -249,27 +250,40 @@ test('next waits for a running apply before it reverts', async () => {
   const show = async (el) => { if (el.id === 'b') await gate; };
   const prev = runOf(['a', 'b']);
   const work = a.apply(prev, { alive: () => true, show, waitFor });
-  const nextRun = a.next(prev, []);
+  let resolved = false;
+  const nextP = a.next(prev, []).then((run) => { resolved = true; return run; });
   await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(resolved, false, 'next has not resolved while apply waits');
   assert.deepEqual(clicks, ['a'], 'nothing is reverted while apply waits');
   release();
+  const run = await nextP;
   await work;
-  await nextRun;
-  const atResolve = clicks.length;
-  assert.deepEqual(clicks, ['a', 'b', 'b', 'a']);
-  assert.equal(clicks.length, atResolve, 'no click after next resolved');
+  assert.equal(resolved, true);
+  assert.deepEqual(clicks, ['a', 'b', 'b', 'a'], 'all entries reverted in reverse order');
+  assert.equal(run.records.length, 0);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(clicks, ['a', 'b', 'b', 'a'], 'no click after next resolved');
 });
+
 
 test('a trusted click outside the dock marks the run as taken over', () => {
   const { document, a } = load();
   document.body.innerHTML = `
     <div class="ob-dock"><button id="d"></button></div>
     <button id="o"></button>`;
+  // Der Ignore-Filter behandelt das Ereignis als vertrauenswuerdig: nur das Dock zaehlt.
   const run = runOf(['a']);
   const stop = a.watchTakeover(run, (e) => e.target.closest('.ob-dock'));
   document.getElementById('o').click();
   stop();
   assert.equal(run.takenOver, true);
+
+  // Ohne Filter zaehlt ein nicht vertrauenswuerdiger Klick nicht.
+  const untrusted = runOf(['a']);
+  const stopDefault = a.watchTakeover(untrusted);
+  document.getElementById('o').click();
+  stopDefault();
+  assert.equal(untrusted.takenOver, false, 'untrusted click with the default ignore does not count');
 });
 
 test('next after a takeover reverts nothing and keeps nothing', async () => {
