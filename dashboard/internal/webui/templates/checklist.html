@@ -82,7 +82,7 @@
                       <span class="ob-cl-title" x-text="$t(item.title)"></span>
                       <span class="ob-cl-sub" x-text="newsSub(item)"></span>
                     </span>
-                    <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:class="{ 'is-disabled': isStale(item) }" x-bind:disabled="isStale(item)" x-bind:aria-expanded="isStale(item) ? null : (isReading(item) ? 'true' : 'false')" x-on:click="newsAct(item)">
+                    <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:class="{ 'is-disabled': isStale(item) && !replacementStart(item) }" x-bind:disabled="isStale(item) && !replacementStart(item)" x-bind:aria-expanded="isStale(item) ? null : (isReading(item) ? 'true' : 'false')" x-on:click="newsAct(item)">
                       <span x-text="newsAction(item)"></span>
                       <svg viewBox="0 0 24 24" aria-hidden="true" x-show="!isStale(item)" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
                     </button>

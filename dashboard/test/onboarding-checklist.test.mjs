@@ -366,6 +366,62 @@ test('a stale tour is no tour for the explore card', async () => {
   assert.equal(cl.exploreNote, t('onboarding.checklist.explore_note_none'));
 });
 
+// Eine veraltete Tour mit Ersatz: h20 zeigt die neue Stelle, der Schritt 1 (zweiter) ist der Start.
+const REPLACED_EXPLORE = {
+  current_version: '0.12.0',
+  items: [
+    { id: 'old', version: '0.12.0', minor: '0.12', text: 'Old', tour: { stale: true, replacement: { id: 'h20', index: 1 }, steps: [{ panel: 'settings-panel', target: 'gone', device: '', need: '', title: {}, text: {} }] } },
+    { id: 'h20', version: '0.12.0', minor: '0.12', text: 'New place', tour: { steps: [
+      { panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: '', title: { en: 'First' }, text: { en: 'One' } },
+      { panel: 'settings-panel', page: 'users', target: 'tailscale', device: '', need: '', title: { en: 'Second' }, text: { en: 'Two' } },
+    ] } },
+  ],
+};
+
+test('a stale highlight with a replacement offers to show the new place', async () => {
+  const { store, component: cl, t } = await load({ explore: REPLACED_EXPLORE });
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'old');
+  assert.equal(cl.newsState(item), 'stale');
+  assert.equal(cl.isStale(item), true);
+  assert.equal(cl.newsAction(item), 'Neue Stelle zeigen');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_replacement'));
+  assert.equal(cl.newsSub(item), t('onboarding.checklist.news_replaced'));
+  assert.equal(cl.isReading(item), false);
+  assert.ok(cl.replacementStart(item), 'the replacement is walkable on this device');
+});
+
+test('the replacement starts the replacing highlight at its step', async () => {
+  const { store, component: cl } = await load({ explore: REPLACED_EXPLORE });
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'old');
+  const started = [];
+  store.start = (...args) => started.push(args);
+  cl.newsAct(item);
+  // Das Optionsobjekt kommt aus dem VM-Realm, daher kopieren wie in den anderen Tests.
+  assert.equal(started.length, 1);
+  assert.deepEqual([started[0][0], started[0][1], { ...started[0][2] }], ['explore', 'h20', { index: 1 }]);
+  assert.equal(cl.isReading(item), false, 'a replacement start does not open the text');
+});
+
+test('a replacement step for another device leaves the stale hint', async () => {
+  const desktopOnly = {
+    current_version: '0.12.0',
+    items: [
+      { id: 'old', version: '0.12.0', minor: '0.12', text: 'Old', tour: { stale: true, replacement: { id: 'hd', index: 0 }, steps: [{ panel: 'settings-panel', target: 'gone', device: '', need: '', title: {}, text: {} }] } },
+      { id: 'hd', version: '0.12.0', minor: '0.12', text: 'Desktop', tour: { steps: [{ panel: 'settings-panel', page: 'users', target: 'guest', device: 'desktop', need: '', title: {}, text: {} }] } },
+    ],
+  };
+  const { store, component: cl, t, calls } = await load({ width: 500, explore: desktopOnly });
+  const item = store.exploreVersions[0].items.find((i) => i.id === 'old');
+  assert.equal(cl.replacementStart(item), null);
+  assert.equal(cl.isStale(item) && !cl.replacementStart(item), true, 'the button stays grey');
+  assert.equal(cl.newsAction(item), t('onboarding.checklist.action_show'));
+  assert.equal(cl.newsSub(item), t('onboarding.checklist.news_stale'));
+  cl.newsAct(item);
+  assert.equal(store.run, null, 'nothing is started');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.some((c) => c.method === 'PUT'), false);
+});
+
 const TWO_MINORS = {
   current_version: '0.12.2',
   items: [
@@ -444,8 +500,8 @@ test('the explore part keeps every card in the DOM and shows it with x-show, sta
   assert.match(template, /x-on:click="toggleOlder\(\)"/);
   assert.match(template, /x-bind:aria-expanded="olderOpen \? 'true' : 'false'"/);
   assert.match(template, /x-show="olderToggleShown"/);
-  assert.match(template, /x-bind:disabled="isStale\(item\)"/);
-  assert.match(template, /'is-disabled': isStale\(item\)/);
+  assert.match(template, /x-bind:disabled="isStale\(item\) && !replacementStart\(item\)"/);
+  assert.match(template, /'is-disabled': isStale\(item\) && !replacementStart\(item\)/);
 });
 
 test('the card has one list per component section and the subheadline is shown for every section but the dashboard', () => {

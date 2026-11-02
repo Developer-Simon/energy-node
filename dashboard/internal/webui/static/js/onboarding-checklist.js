@@ -205,21 +205,41 @@
       if (state === 'other-device') return t(this.s.ctx().device === 'phone' ? 'onboarding.checklist.only_desktop' : 'onboarding.checklist.only_phone');
       if (state === 'seen') return t('onboarding.checklist.news_seen');
       if (state === 'new') return t('onboarding.checklist.news_new');
-      if (state === 'stale') return t('onboarding.checklist.news_stale');
+      if (state === 'stale') return t(this.replacementStart(item) ? 'onboarding.checklist.news_replaced' : 'onboarding.checklist.news_stale');
       return t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights');
     },
     isStale(item) { return this.newsState(item) === 'stale'; },
+    // Ersatzschritt einer veralteten Tour: Highlight und Position des Schritts in
+    // tourSteps (gerätegefiltert). Der Server zaehlt seinen Index unter den Schritten,
+    // die der Nutzer gehen darf, das ist dieselbe Liste wie item.steps. Fehlt das
+    // Ersatz-Item oder der Schritt fuer dieses Geraet, gibt es keinen.
+    replacementStart(item) {
+      const replacement = item.replacement;
+      if (!replacement) return null;
+      const ersatz = this.versions.flatMap((v) => v.items).find((i) => i.id === replacement.id);
+      const step = ersatz?.steps[replacement.index];
+      if (!step) return null;
+      const index = this.s.tourSteps(ersatz).indexOf(step);
+      return index < 0 ? null : { id: ersatz.id, index };
+    },
     // Ohne Eintrag (other-device) gibt es keinen Knopf: die Seite ist am
     // anderen Geraet zu zeigen.
     newsAction(item) {
+      if (this.isStale(item) && this.replacementStart(item)) return t('onboarding.checklist.action_replacement');
       const key = NEWS_ACTION_KEY[this.newsState(item)];
       return key ? t(key) : '';
     },
     isReading(item) { return Boolean(this.reading[item.id]); },
-    // Der Knopf des Highlights: Text lesen, eine Tour starten. Veraltet startet nichts.
+    // Der Knopf des Highlights: Text lesen, eine Tour starten. Veraltet startet nur
+    // die Tour an ihrer neuen Stelle, sonst nichts.
     newsAct(item) {
       const state = this.newsState(item);
-      if (state === 'other-device' || state === 'stale') return;
+      if (state === 'other-device') return;
+      if (state === 'stale') {
+        const start = this.replacementStart(item);
+        if (start) this.run('explore', start.id, { index: start.index });
+        return;
+      }
       if (state === 'text') {
         this.toggleReading(item);
         return;

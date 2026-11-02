@@ -300,6 +300,8 @@
           tour: item.tour ? undefined : false,
           // Veraltet: die Tour passt nicht mehr zur Oberflaeche (Server, Ziele fehlen).
           stale: Boolean(item.tour?.stale),
+          // Ersatz einer veralteten Tour: Highlight und Schritt (Index unter den erlaubten Schritten).
+          replacement: item.tour?.replacement || null,
           archive: Boolean(item.archive),
           steps: (item.tour?.steps || []).map((s) => ({
             panel: s.panel,
