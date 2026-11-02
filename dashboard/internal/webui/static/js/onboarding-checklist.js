@@ -25,22 +25,25 @@
     stale: 'onboarding.checklist.action_show',
   };
   const FOCUS_MS = 1600;
-  // Schalter der aelteren Versionen in Neu erkunden, gilt fuer die Sitzung.
+  // Schalter der aelteren Versionen und der frueheren Versionen in Neu
+  // erkunden, gelten fuer die Sitzung.
   const OLDER_KEY = 'ob-explore-older';
+  const ARCHIVE_KEY = 'ob-explore-archive';
 
   const t = (key, params) => window.I18n.t(key, params);
   const reducedMotion = () => Boolean(window.obMotion?.reducedMotion?.());
   // Ohne Zugriff auf den Sitzungsspeicher bleibt die Wahl bei geschlossen.
-  const olderStored = () => {
-    try { return window.sessionStorage.getItem(OLDER_KEY) === '1'; } catch { return false; }
+  const stored = (key) => {
+    try { return window.sessionStorage.getItem(key) === '1'; } catch { return false; }
   };
-  const rememberOlder = (open) => {
-    try { window.sessionStorage.setItem(OLDER_KEY, open ? '1' : '0'); } catch { /* siehe olderStored */ }
+  const remember = (key, open) => {
+    try { window.sessionStorage.setItem(key, open ? '1' : '0'); } catch { /* siehe stored */ }
   };
 
   const obChecklist = () => ({
     reading: {},
-    olderOpen: olderStored(),
+    olderOpen: stored(OLDER_KEY),
+    archiveOpen: stored(ARCHIVE_KEY),
 
     // Deep Link: Modus aus der Adresse, danach der Punkt.
     init() {
@@ -108,7 +111,10 @@
       const version = (section.version || '').replace(/^v/, '');
       return version ? `${section.label} ${version}` : section.label;
     },
-    versionEyebrow(version) { return t(version.current ? 'onboarding.checklist.since_visit' : 'onboarding.checklist.older'); },
+    versionEyebrow(version) {
+      if (version.archive) return t('onboarding.checklist.archive');
+      return t(version.current ? 'onboarding.checklist.since_visit' : 'onboarding.checklist.older');
+    },
     // Die Versionsseite zeigt den Changelog des neuesten Release der Karte (?release=, siehe versions.page.js).
     releaseHref(version) {
       return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=versions&release=${encodeURIComponent(version.release || version.version)}`;
@@ -119,11 +125,19 @@
     hasUnseenTour(version) {
       return version.items.some((item) => !item.stale && !this.s.seen[item.id] && this.s.tourSteps(item).length);
     },
-    shownByDefault(version) { return version.minor === this.versions[0]?.minor || this.hasUnseenTour(version); },
+    // Archivierte Karten zeigt nur der eigene Schalter, nie der Filter der aelteren.
+    shownByDefault(version) { return !version.archive && (version.minor === this.versions[0]?.minor || this.hasUnseenTour(version)); },
     // Jede Karte bleibt im DOM und wird mit x-show gezeigt oder ausgeblendet, damit der Wechsel animiert.
-    cardShown(version) { return this.olderOpen || this.shownByDefault(version); },
+    cardShown(version) { return version.archive ? this.archiveOpen : (this.olderOpen || this.shownByDefault(version)); },
     get shownVersions() { return this.versions.filter((v) => this.cardShown(v)); },
-    get olderHidden() { return this.versions.filter((v) => !this.shownByDefault(v)).length; },
+    get olderHidden() { return this.versions.filter((v) => !v.archive && !this.shownByDefault(v)).length; },
+    get archiveCount() { return this.versions.filter((v) => v.archive).length; },
+    get archiveToggleShown() { return this.archiveCount > 0; },
+    get archiveLabel() { return t(this.archiveOpen ? 'onboarding.checklist.archive_hide' : 'onboarding.checklist.archive_show', { n: this.archiveCount }); },
+    toggleArchive() {
+      this.archiveOpen = !this.archiveOpen;
+      remember(ARCHIVE_KEY, this.archiveOpen);
+    },
     // Gestaffelt beim Einblenden: 40 ms je ausgeblendeter Karte, hoechstens 5 mal.
     // Verglichen wird der Schluessel (release): versions wird bei jedem Zugriff neu gebaut.
     enterDelay(version) {
@@ -131,11 +145,11 @@
       return `${Math.min(rank, 5) * 40}ms`;
     },
     // Der Schalter steht, wenn es Karten aelterer Minors gibt, die er zeigen oder wieder ausblenden kann.
-    get olderToggleShown() { return this.versions.some((v) => v.minor !== this.versions[0]?.minor) && (this.olderOpen || this.olderHidden > 0); },
+    get olderToggleShown() { return this.versions.some((v) => !v.archive && v.minor !== this.versions[0]?.minor) && (this.olderOpen || this.olderHidden > 0); },
     get olderLabel() { return t(this.olderOpen ? 'onboarding.checklist.older_hide' : 'onboarding.checklist.older_show', { n: this.olderHidden }); },
     toggleOlder() {
       this.olderOpen = !this.olderOpen;
-      rememberOlder(this.olderOpen);
+      remember(OLDER_KEY, this.olderOpen);
     },
 
     isInstallerOnly(item) { return window.obSteps.installerOnly.some((i) => i.id === item.id); },

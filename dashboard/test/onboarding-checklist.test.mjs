@@ -38,11 +38,12 @@ const SAMPLE_EXPLORE = {
 // Loads the page scripts into a jsdom window and returns the store plus a
 // checklist component bound to it. role decides admin or guest, width the device.
 // explore ist der Server-Block explore (Standard: SAMPLE_EXPLORE).
-async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE, setupDone = false, older } = {}) {
+async function load({ url = 'http://localhost/', role = 'admin', width = 1024, explore = SAMPLE_EXPLORE, setupDone = false, older, archive } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><ul id="root"></ul></body></html>', { runScripts: 'outside-only', url, pretendToBeVisual: true });
   const { window } = dom;
   // Die Wahl der Filter-Schaltflaeche steht in der Sitzung, sie gilt schon beim Start.
   if (older !== undefined) window.sessionStorage.setItem('ob-explore-older', older);
+  if (archive !== undefined) window.sessionStorage.setItem('ob-explore-archive', archive);
   Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
   // Die Schritte des Servers (setup.items), wie steps.go sie in dieser Reihenfolge liefert.
   const progress = { role, setup: { done: setupDone, steps: {}, items: SERVER_ITEMS }, user: { seen: [], welcomed: false, run: null, queue: [] }, explore };
@@ -505,4 +506,55 @@ test('the filter and the stale hint have texts in both languages', () => {
   assert.match(catalog('en')['onboarding.checklist.older_show'], /\{n\}/);
   assert.equal(catalog('de')['onboarding.checklist.news_stale'], 'Diese Tour passt nicht mehr zur aktuellen Oberfläche.');
   assert.equal(catalog('en')['onboarding.checklist.news_stale'], 'This tour no longer matches the current interface.');
+});
+
+const WITH_ARCHIVE = {
+  current_version: '0.12.2',
+  items: [
+    { id: 'n1', version: '0.12.2', minor: '0.12', text: 'Now', tour: null },
+    { id: 'o1', version: '0.11.0', minor: '0.11', text: 'Older', tour: { steps: [{ panel: 'settings-panel', target: 'guest', device: '', need: '', title: {}, text: {} }] } },
+    { id: 'a1', version: '0.9.0', minor: '0.9', archive: true, text: 'Archived', tour: { steps: [{ panel: 'settings-panel', target: 'guest', device: '', need: '', title: {}, text: {} }] } },
+  ],
+};
+
+test('archived versions stay hidden even with an unseen tour, their own toggle shows them', async () => {
+  const { store, component: cl, t, window } = await load({ explore: WITH_ARCHIVE });
+  store.seen = {};
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.11.0']);
+  assert.equal(cl.olderHidden, 0);
+  assert.equal(cl.archiveCount, 1);
+  assert.equal(cl.archiveToggleShown, true);
+  assert.equal(cl.archiveLabel, t('onboarding.checklist.archive_show', { n: 1 }));
+  cl.toggleArchive();
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.11.0', '0.9.0']);
+  assert.equal(cl.archiveLabel, t('onboarding.checklist.archive_hide'));
+  assert.equal(window.sessionStorage.getItem('ob-explore-archive'), '1');
+  cl.toggleArchive();
+  assert.equal(window.sessionStorage.getItem('ob-explore-archive'), '0');
+});
+
+test('the older toggle leaves archived versions alone', async () => {
+  const { store, component: cl } = await load({ explore: WITH_ARCHIVE });
+  store.seen = { o1: true };
+  assert.equal(cl.olderHidden, 1);
+  cl.toggleOlder();
+  assert.deepEqual([...cl.shownVersions.map((v) => v.version)], ['0.12.2', '0.11.0']);
+});
+
+test('the archive choice is read from the session at the start', async () => {
+  const { component: cl } = await load({ explore: WITH_ARCHIVE, archive: '1' });
+  assert.equal(cl.archiveOpen, true);
+  assert.equal(cl.cardShown(cl.versions[2]), true);
+});
+
+test('an archived card is labelled as an earlier version, the toggle is hidden without archive', async () => {
+  const { component: cl, t } = await load({ explore: WITH_ARCHIVE });
+  assert.equal(cl.versionEyebrow(cl.versions[2]), t('onboarding.checklist.archive'));
+  const { component: plain } = await load({ explore: TWO_MINORS });
+  assert.equal(plain.archiveToggleShown, false);
+});
+
+test('the checklist template has the archive toggle next to the older toggle', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  assert.match(html, /x-show="archiveToggleShown"[^>]*x-on:click="toggleArchive\(\)"/);
 });
