@@ -151,8 +151,8 @@
             "panel": "diagnostics-panel",
             "target": "service-logs",
             "text": {
-              "de": "Hier liest du die Logs jedes Dienstes, um Fehler zu finden oder auf GitHub zu melden. Die Suche filtert die Zeilen, und die Ansicht aktualisiert sich auf Wunsch live.",
-              "en": "Read the logs of every service here, to find errors or report them on GitHub. The search filters the lines, and the view can refresh live."
+              "de": "Hier liest du die Logs jedes Dienstes, um Fehler zu finden oder auf GitHub zu melden. Mit der Suche filterst du die Zeilen, und auf Wunsch aktualisiert sich die Ansicht im Live-Modus.",
+              "en": "Read the logs of every service here, to find errors or report them on GitHub. The search filters the lines, and the view can refresh in live mode."
             },
             "title": {
               "de": "Service-Logs",
