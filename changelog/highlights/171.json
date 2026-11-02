@@ -1,5 +1,33 @@
 {
   "de": {
     "*": "Das angebotene Update direkt über die Update-Leiste installieren"
+  },
+  "details": {
+    "*": {
+      "de": "Gibt es ein neueres Release, zeigt die Kopfzeile neben dem Titel einen Hinweis. Mit dem Recht, Updates zu installieren, installiert der Hinweis das Update direkt.",
+      "doc": "dashboard/settings-versions.html#updating-from-the-dashboard",
+      "en": "When a newer release is out, the header shows a notice next to the title. With the right to install updates, the notice installs the update directly.",
+      "image": "dashboard-update-available.png"
+    }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "install_updates",
+          "page": "versions",
+          "panel": "settings-panel",
+          "target": "updates",
+          "text": {
+            "de": "Wird ein Update angeboten, installiert die Update-Leiste es direkt. Die Karte Updates hier prüft auf neue Releases.",
+            "en": "When an update is offered, the update bar installs it directly. The Updates card here checks for new releases."
+          },
+          "title": {
+            "de": "Aus der Update-Leiste installieren",
+            "en": "Install from the update bar"
+          }
+        }
+      ]
+    }
   }
 }

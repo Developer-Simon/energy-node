@@ -1,5 +1,33 @@
 {
   "de": {
     "*": "Mobile Ansicht für die Statistikseite"
+  },
+  "details": {
+    "*": {
+      "de": "Auf schmalen Bildschirmen zeigt die Statistikseite eine Tabelle der Abschnitte oder ein Raster, und der Zeitraum steht in einer Pille unten.",
+      "doc": "dashboard/statistics.html",
+      "en": "On narrow screens the statistics page shows a table of intervals or a grid, and the period sits in a pill at the bottom.",
+      "image": "dashboard-statistics.png"
+    }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "phone",
+          "need": "view_stats",
+          "panel": "stats-panel",
+          "target": "stats-table-bar",
+          "text": {
+            "de": "Am Handy wechselt die Tabelle hier zwischen Abschnitten und einem Raster.",
+            "en": "On a phone the table switches here between intervals and a grid."
+          },
+          "title": {
+            "de": "Statistik am Handy",
+            "en": "Statistics on the phone"
+          }
+        }
+      ]
+    }
   }
 }

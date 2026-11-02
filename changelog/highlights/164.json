@@ -1,5 +1,58 @@
 {
   "de": {
     "*": "Die Automationen-Seite zeigt Szenarien mit Live-Karte, Diagramm und Phasen-Editor und hat einen neu gestalteten Regeleditor."
+  },
+  "details": {
+    "*": {
+      "de": "Ein Szenario hat drei Phasen. Start enthält die Bedingungen, die es beginnen, Während beschreibt, was im Szenario passiert, und Ende enthält die Aktionen beim Stoppen. Typisch ist ein Regler, der die Netzbilanz nahe an einem Ziel hält.",
+      "doc": "dashboard/automations.html#scenarios",
+      "en": "A scenario has three phases. Start holds the conditions that begin it, While is what happens during the scenario and End holds the actions when it stops. The usual use is a regulator that keeps the grid balance near a target.",
+      "image": "dashboard-automation.png"
+    }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "view_automations",
+          "panel": "automations-panel",
+          "target": "automations-tabs",
+          "text": {
+            "de": "Szenarien laufen in Phasen, mit Live-Karte, Diagramm und Phasen-Editor. Einzelregeln zeigen ihre letzten vier Auslösungen.",
+            "en": "Scenarios run in phases with a live card, a chart and a phase editor. Single rules show their last four triggers."
+          },
+          "title": {
+            "de": "Szenarien und Einzelregeln",
+            "en": "Scenarios and single rules"
+          }
+        },
+        {
+          "need": "automations",
+          "panel": "automations-panel",
+          "target": "automations",
+          "text": {
+            "de": "Der Assistent legt Szenarien und Regeln über wenige Fragen an. Die Vorlagen reichen von Nulleinspeisung über Überschussladen bis zur Wärmepumpe.",
+            "en": "The assistant creates scenarios and rules from a few questions. The templates range from zero feed-in to surplus charging and the heat pump."
+          },
+          "title": {
+            "de": "Assistent",
+            "en": "Assistant"
+          }
+        },
+        {
+          "need": "view_automations",
+          "panel": "automations-panel",
+          "target": "automations-rules",
+          "text": {
+            "de": "Eine Regel kann ihre Aktionen wiederholen, solange ihre Bedingungen gelten, und ihre Fenster lassen sich auf Tage im Monat einschränken.",
+            "en": "A rule can repeat its actions while its conditions hold, and its windows can be limited to days of the month."
+          },
+          "title": {
+            "de": "Wiederholen und Monatstage",
+            "en": "Repeat and days of the month"
+          }
+        }
+      ]
+    }
   }
 }

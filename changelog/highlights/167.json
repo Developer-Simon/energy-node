@@ -1,5 +1,53 @@
 {
   "de": {
     "*": "Einstellungen, Benutzer: benannte Konten mit einzelnen Berechtigungen, einstellbarer Mindestlänge des Passworts und einer Liste der angemeldeten Sitzungen."
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "user_management",
+          "page": "users",
+          "panel": "settings-panel",
+          "target": "users-tabs",
+          "text": {
+            "de": "Benannte Konten bekommen jeweils eigene Berechtigungen. Sitzungen zeigt, wer angemeldet ist.",
+            "en": "Named accounts each get their own permissions. Sessions lists who is signed in."
+          },
+          "title": {
+            "de": "Konten",
+            "en": "Accounts"
+          }
+        },
+        {
+          "need": "user_management",
+          "page": "users",
+          "panel": "settings-panel",
+          "target": "users",
+          "text": {
+            "de": "Hier legst du ein Konto an und wählst seine Berechtigungen. Gäste dürfen standardmäßig nur ansehen, und die Gastkarte schaltet den Gastzugang ab.",
+            "en": "Create an account here and choose its permissions. Guests may only view by default, and the guest card switches guest access off."
+          },
+          "title": {
+            "de": "Benutzer anlegen",
+            "en": "Create user"
+          }
+        },
+        {
+          "need": "user_management",
+          "page": "users",
+          "panel": "settings-panel",
+          "target": "companion",
+          "text": {
+            "de": "Home-Assistant-Benutzer melden sich über den Companion am Dashboard an.",
+            "en": "Home Assistant users sign in to the dashboard through the companion."
+          },
+          "title": {
+            "de": "Home-Assistant-Benutzer",
+            "en": "Home Assistant users"
+          }
+        }
+      ]
+    }
   }
 }

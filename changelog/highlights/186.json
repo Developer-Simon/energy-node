@@ -1,5 +1,38 @@
 {
   "de": {
     "*": "Onboarding: Leiste, Spotlight und Checkliste"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "user_management",
+          "page": "checklist",
+          "panel": "settings-panel",
+          "target": "checklist-mode",
+          "text": {
+            "de": "Die Checkliste hat zwei Modi. Einrichten führt durch die Ersteinrichtung, Neu erkunden listet die Highlights der letzten Releases.",
+            "en": "The checklist has two modes. Set up walks through the first setup, Explore what is new lists the highlights of the last releases."
+          },
+          "title": {
+            "de": "Einrichten und erkunden",
+            "en": "Set up and explore"
+          }
+        },
+        {
+          "page": "checklist",
+          "panel": "settings-panel",
+          "target": "checklist-explore",
+          "text": {
+            "de": "Jedes Highlight mit Tour startet hier. Die Knöpfe darunter zeigen ältere Versionen und, weiter zurück, die früheren.",
+            "en": "Every highlight with a tour starts here. The buttons below show older versions and, further back, the earlier ones."
+          },
+          "title": {
+            "de": "Touren zu neuen Funktionen",
+            "en": "Tours of new features"
+          }
+        }
+      ]
+    }
   }
 }

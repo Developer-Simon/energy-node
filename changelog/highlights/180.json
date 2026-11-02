@@ -1,5 +1,32 @@
 {
   "de": {
     "*": "Geräte-Dialog mit Stern-Favoriten, Analyse pro Entität und zwei neuen Rechten"
+  },
+  "details": {
+    "*": {
+      "de": "Der Reiter Analyse listet die Warnungen und jede Entität des Geräts mit Topic, letzter Nachricht und den gesendeten Befehlen. Er braucht das Recht für die Geräteanalyse, die Sterne das Recht, Geräte zu gestalten.",
+      "doc": "dashboard/device-modal.html#analysis",
+      "en": "The Analysis tab lists the warnings and every entity of the device with its topic, its last message and the commands sent to it. It needs the right to see the device analysis, and the stars need the right to style devices.",
+      "image": "dashboard-device-modal-manage.png"
+    }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "view_devices",
+          "panel": "devices-panel",
+          "target": "devices",
+          "text": {
+            "de": "Öffne ein Gerät und markiere bis zu drei Entitäten mit dem Stern. Der Reiter Analyse zeigt die Warnungen und jede Entität des Geräts.",
+            "en": "Open a device and mark up to three entities with the star. The Analysis tab shows the warnings and every entity of the device."
+          },
+          "title": {
+            "de": "Favoriten mit Stern",
+            "en": "Star favourites"
+          }
+        }
+      ]
+    }
   }
 }
