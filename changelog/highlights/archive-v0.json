@@ -981,6 +981,51 @@
         "en": "The Statistics tab shows consumption, PV yield, grid import, feed-in and the battery flows for a day, week, month or year. The node records the hours itself, and with the companion the hours from Home Assistant replace them. A tile with the same figures is available for the overview.",
         "image": "dashboard-statistics.png"
       }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_stats",
+            "panel": "stats-panel",
+            "target": "stats-nav",
+            "text": {
+              "de": "Wähle Tag, Woche, Monat oder Jahr und blättere durch die Zeiträume.",
+              "en": "Pick a day, week, month or year and step through the periods."
+            },
+            "title": {
+              "de": "Energiestatistik",
+              "en": "Energy statistics"
+            }
+          },
+          {
+            "need": "view_stats",
+            "panel": "stats-panel",
+            "target": "stats-kpis",
+            "text": {
+              "de": "Verbrauch, PV-Ertrag, Netzbezug, Einspeisung und die Batterieflüsse des gewählten Zeitraums.",
+              "en": "Consumption, PV yield, grid import, feed-in and the battery flows of the chosen period."
+            },
+            "title": {
+              "de": "Kennzahlen",
+              "en": "Key figures"
+            }
+          },
+          {
+            "need": "edit_layout",
+            "panel": "overview-panel",
+            "target": "tiles",
+            "text": {
+              "de": "Im Layout-Editor zeigt die Karte Energiestatistik einen festen Zeitraum, gewählte Kennzahlen und ein Balkendiagramm.",
+              "en": "In the layout editor the Energy statistics card can show a fixed period, chosen key figures and a bar chart."
+            },
+            "title": {
+              "de": "Statistikkarte",
+              "en": "Statistics card"
+            }
+          }
+        ]
+      }
     }
   },
   "133": {
@@ -991,6 +1036,60 @@
   "134": {
     "de": {
       "*": "Release-Highlights haben jetzt einen deutschen Text im Dashboard, im Installer und in den Release Notes."
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-highlights",
+            "text": {
+              "de": "Jedes Highlight eines Release hat jetzt einen deutschen Text, hier, im Installer und in den Release Notes.",
+              "en": "Every release highlight now has a German text, here, in the installer and in the release notes."
+            },
+            "title": {
+              "de": "Highlights auf Deutsch",
+              "en": "Highlights in German"
+            }
+          },
+          {
+            "need": "edit_setup",
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-history",
+            "text": {
+              "de": "Wähle, wie viele Versionen der Changelog zeigt. Das Gerät behält die Historie über Updates hinweg.",
+              "en": "Choose how many versions the changelog shows. The node keeps the history across updates."
+            },
+            "title": {
+              "de": "Versionen im Changelog",
+              "en": "Versions in the changelog"
+            }
+          },
+          {
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "versions-changes",
+            "text": {
+              "de": "Änderungen öffnet den Changelog einer Komponente. Ein Highlight mit Details zeigt seine Erklärung, ein Bild und einen Link zur Anleitung.",
+              "en": "Changes opens the changelog of a component. A highlight with details shows its explanation, an image and a link to the guide."
+            },
+            "title": {
+              "de": "Details eines Highlights",
+              "en": "Details of a highlight"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Highlights eines Release tragen neben dem englischen einen deutschen Text. Das Dashboard zeigt den Text in seiner Sprache, ebenso der Installer und die Release Notes auf GitHub.",
+        "doc": "dashboard/settings-versions.html",
+        "en": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
+        "image": "dashboard-settings-versions.png"
+      }
     }
   },
   "135": {
@@ -1034,6 +1133,54 @@
         "en": "System metrics such as Wi-Fi signal or undervoltage are published as diagnostic entities. Remove a metric from the selection to stop publishing it and add it again to resume. Changes are saved at once and need a login with configuration rights over HTTPS.",
         "image": "dashboard-settings-mqtt-metrics.png"
       }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "mqtt_config",
+            "page": "mqtt",
+            "panel": "settings-panel",
+            "target": "mqtt-bridge",
+            "text": {
+              "de": "Die Schritte über dem Bridge-Formular erklären, was die Mosquitto-Bridge braucht, bevor du sie einrichtest.",
+              "en": "The steps above the bridge form explain what the Mosquitto bridge needs before you set it up."
+            },
+            "title": {
+              "de": "Bridge zum Hauptstandort",
+              "en": "Bridge to the main site"
+            }
+          },
+          {
+            "need": "mqtt_config",
+            "page": "mqtt",
+            "panel": "settings-panel",
+            "target": "metrics",
+            "text": {
+              "de": "Die publizierten Systemmetriken wählst du in einer Mehrfachauswahl.",
+              "en": "Choose the published system metrics in one multiselect."
+            },
+            "title": {
+              "de": "Systemmetriken",
+              "en": "System metrics"
+            }
+          },
+          {
+            "need": "mqtt_config",
+            "page": "mqtt",
+            "panel": "settings-panel",
+            "target": "mqtt-sensors",
+            "text": {
+              "de": "Wallbox, Wärmepumpe und eigene Kategorien bekommen eigene Sensoren in Home Assistant, sobald ihnen etwas zugeordnet ist. Jeder lässt sich hier abwählen.",
+              "en": "Wallbox, heat pump and custom categories get their own sensors in Home Assistant once something is assigned. Each one can be deselected here."
+            },
+            "title": {
+              "de": "Sensoren für Home Assistant",
+              "en": "Sensors for Home Assistant"
+            }
+          }
+        ]
+      }
     }
   },
   "141": {
@@ -1052,6 +1199,25 @@
         "doc": "dashboard/history.html#resolutions",
         "en": "The first pill above the chart lists the resolutions that fit the chosen span and shows how much of it each one covers. The automatic choice is the coarsest resolution that has data. A week or longer shows hourly values from the energy statistics, and there is a quick choice for 3 months.",
         "image": "dashboard-history.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_history",
+            "panel": "history-panel",
+            "target": "history-resolution",
+            "text": {
+              "de": "Die erste Pille listet die zum Zeitraum passenden Auflösungen und wählt die gröbste mit Daten vor.",
+              "en": "The first pill lists the resolutions that fit the span and preselects the coarsest one with data."
+            },
+            "title": {
+              "de": "Auflösung",
+              "en": "Resolution"
+            }
+          }
+        ]
       }
     }
   },
@@ -1091,6 +1257,25 @@
         "en": "House consumption is now always calculated from the balance. A house meter serves as a cross check and replaces the calculation only when no grid role is assigned. A line below the modes shows where the value comes from and how far the meter deviates.",
         "image": "dashboard-energy-interpretation.png"
       }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_energy",
+            "panel": "energy-panel",
+            "target": "energy-interpretation",
+            "text": {
+              "de": "Im Lastmodus Automatisch kommt der Hausverbrauch aus der Bilanz, und ein Hauszähler dient als Kontrolle. Eine Statuszeile zeigt Quelle und Zählerabweichung.",
+              "en": "In the automatic load mode the house consumption comes from the balance, and a house meter serves as a cross-check. A status line shows the source and the meter deviation."
+            },
+            "title": {
+              "de": "Bilanz-Interpretation",
+              "en": "Balance interpretation"
+            }
+          }
+        ]
+      }
     }
   },
   "144": {
@@ -1114,6 +1299,64 @@
         "doc": "dashboard/device-map.html#switchable-devices",
         "en": "The device map marks every device without power as off and fades it out. A switched off output cuts the connection behind it.",
         "image": "dashboard-device-map-switch-channel.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Ein ausgeschalteter Ausgang trennt die Leitung dahinter. Jedes Gerät ohne Strom wird blass und als aus markiert.",
+              "en": "A switched off output cuts the line behind it. Every device without power fades out with an off label."
+            },
+            "title": {
+              "de": "Ausgeschaltete Geräte",
+              "en": "Switched off devices"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-view",
+            "text": {
+              "de": "Das Menü Darstellung enthält die Legende, mit den grünen und roten Kreisen geschalteter Verbindungen.",
+              "en": "The Display menu holds the legend, with the green and red circles of switched connections."
+            },
+            "title": {
+              "de": "Legende",
+              "en": "Legend"
+            }
+          },
+          {
+            "need": "edit_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Benenne einzelne Verbraucher an einem Messgerät als Untergeräte. Sie erscheinen auch im Gerätedialog und auf der Energie-Seite.",
+              "en": "Name single appliances on a meter as sub-devices. They also show in the device dialog and on the energy page."
+            },
+            "title": {
+              "de": "Untergeräte",
+              "en": "Sub-devices"
+            }
+          },
+          {
+            "need": "edit_energy",
+            "panel": "energy-panel",
+            "target": "energy-roles-head",
+            "text": {
+              "de": "In der Rollentabelle betrifft Ausblenden nur Einträge ohne Rolle. Die Device-Map lässt die ausgeblendeten Einträge ebenfalls weg.",
+              "en": "In the role table, hiding applies only to entries without a role. The device map leaves the hidden entries out as well."
+            },
+            "title": {
+              "de": "Ausgeblendete Einträge",
+              "en": "Hidden entries"
+            }
+          }
+        ]
       }
     }
   },
