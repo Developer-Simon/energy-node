@@ -424,7 +424,8 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   transition: transform .3s var(--ease-out);
 }
 .ob-cl-summary-actions { display: flex; gap: .5rem; margin-top: .8rem; }
-.ob-cl-older { margin-left: auto; }
+/* Kachel unter den Versionskarten mit den Schaltern fuer aeltere und fruehere Versionen. */
+.ob-cl-more-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 
 .ob-cl-list { display: grid; margin: .5rem 0 0; padding: 0; list-style: none; }
 .ob-cl-row {

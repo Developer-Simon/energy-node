@@ -268,7 +268,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.10.37 | `js/update-bar.js` (Install now asks first, the installer link reads Prepare installation) · `js/onboarding-model.js` (catch-up runs every tour of a release) · `js/onboarding.js` (archived explore releases) · `js/onboarding-checklist.js` (settings panel, archive toggle and catch-up chip) · `css/onboarding.css` (catch-up chip next to the release notes chip) | `7` · `4` · `4` · `3` · `4` | 2026-11-02 |
+| v0.10.37 | `js/update-bar.js` (Install now asks first, the installer link reads Prepare installation) · `js/onboarding-model.js` (catch-up runs every tour of a release) · `js/onboarding.js` (archived explore releases) · `js/onboarding-checklist.js` (settings panel, archive toggle and catch-up chip) · `css/onboarding.css` (catch-up chip next to the release notes chip, own card for the version toggles) | `7` · `4` · `4` · `3` · `4` | 2026-11-02 |
 | v0.10.35 | `js/config.page.js` (config panel, tuning findings are rendered from the catalog by code and params, with the service text as fallback) | `11` | 2026-11-01 |
 | v0.10.34 | `js/mqtt.page.js` (settings panel, the connection test result is shown as a toast and a failed reconnect shows the broker error instead of a generic failure) | `11` | 2026-11-01 |
 | v0.10.28 | `js/users.page.js` (settings panel, guest preset card with the guest access switch) · `js/dashboard.js` (ignored devices: un-ignore needs the discovery permission) · `js/device-modal.js` (device dialog: ignore needs the discovery permission) | `4` · `42` · `3` | 2026-10-31 |

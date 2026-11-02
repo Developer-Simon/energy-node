@@ -594,3 +594,13 @@ test('the checklist template puts the catch-up button next to the release notes 
   assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" data-tour="checklist-catch-up" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
   assert.match(html, /catch_up/);
 });
+
+test('the toggles for older and earlier versions sit in their own card below the version cards', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  const summary = html.slice(html.indexOf('ob-cl-summary" data-tour="checklist-explore"'), html.indexOf('x-for="version in versions"'));
+  assert.doesNotMatch(summary, /toggleOlder|toggleArchive/);
+  const more = html.slice(html.indexOf('class="setting-card ob-cl-more"'));
+  assert.ok(html.indexOf('class="setting-card ob-cl-more"') > html.indexOf('x-for="version in versions"'));
+  assert.match(more, /x-show="olderToggleShown \|\| archiveToggleShown"/);
+  assert.match(more, /x-on:click="toggleOlder\(\)"[\s\S]*x-on:click="toggleArchive\(\)"/);
+});
