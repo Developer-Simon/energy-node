@@ -128,36 +128,51 @@
       return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=versions&release=${encodeURIComponent(version.release || version.version)}`;
     },
 
-    // Aeltere Karten: ohne ungesehene Tour bleiben sie zu, der Schalter zeigt sie.
-    // Alle Releases des neuesten Minors bleiben sichtbar, nur aeltere Minors fallen weg.
-    hasUnseenTour(version) {
-      return version.items.some((item) => !item.stale && !this.s.seen[item.id] && this.s.tourSteps(item).length);
+    // Drei Stufen, eine baut auf der anderen auf: Die Releases der beiden neuesten
+    // Minors sind immer zu sehen. Weitere zeigt die aelteren Minors des Fensters,
+    // erst danach zeigt Weiter zurueck die archivierten Releases. Weitere einklappen
+    // klappt beide Stufen wieder ein.
+    get visibleMinors() {
+      const minors = [];
+      for (const v of this.versions) {
+        if (!v.archive && !minors.includes(v.minor)) minors.push(v.minor);
+      }
+      return minors.slice(0, 2);
     },
-    // Archivierte Karten zeigt nur der eigene Schalter, nie der Filter der aelteren.
-    shownByDefault(version) { return !version.archive && (version.minor === this.versions[0]?.minor || this.hasUnseenTour(version)); },
+    shownByDefault(version) { return !version.archive && this.visibleMinors.includes(version.minor); },
+    // Ohne aeltere Minors im Fenster gibt es keine erste Stufe, dann ist das Archiv direkt erreichbar.
+    get archiveReachable() { return this.olderOpen || this.olderHidden === 0; },
     // Jede Karte bleibt im DOM und wird mit x-show gezeigt oder ausgeblendet, damit der Wechsel animiert.
-    cardShown(version) { return version.archive ? this.archiveOpen : (this.olderOpen || this.shownByDefault(version)); },
+    cardShown(version) {
+      if (version.archive) return this.archiveOpen && this.archiveReachable;
+      return this.olderOpen || this.shownByDefault(version);
+    },
     get shownVersions() { return this.versions.filter((v) => this.cardShown(v)); },
     get olderHidden() { return this.versions.filter((v) => !v.archive && !this.shownByDefault(v)).length; },
     get archiveCount() { return this.versions.filter((v) => v.archive).length; },
-    get archiveToggleShown() { return this.archiveCount > 0; },
+    get archiveToggleShown() { return this.archiveCount > 0 && this.archiveReachable; },
     get archiveLabel() { return t(this.archiveOpen ? 'onboarding.checklist.archive_hide' : 'onboarding.checklist.archive_show', { n: this.archiveCount }); },
     toggleArchive() {
       this.archiveOpen = !this.archiveOpen;
       remember(ARCHIVE_KEY, this.archiveOpen);
     },
-    // Gestaffelt beim Einblenden: 40 ms je ausgeblendeter Karte, hoechstens 5 mal.
+    // Gestaffelt beim Einblenden: 40 ms je Karte der Stufe, die gerade aufgeht, hoechstens 5 mal.
     // Verglichen wird der Schluessel (release): versions wird bei jedem Zugriff neu gebaut.
     enterDelay(version) {
-      const rank = Math.max(this.versions.filter((v) => !this.shownByDefault(v)).map((v) => v.release).indexOf(version.release), 0);
+      const tier = this.versions.filter((v) => !this.shownByDefault(v) && Boolean(v.archive) === Boolean(version.archive));
+      const rank = Math.max(tier.map((v) => v.release).indexOf(version.release), 0);
       return `${Math.min(rank, 5) * 40}ms`;
     },
-    // Der Schalter steht, wenn es Karten aelterer Minors gibt, die er zeigen oder wieder ausblenden kann.
-    get olderToggleShown() { return this.versions.some((v) => !v.archive && v.minor !== this.versions[0]?.minor) && (this.olderOpen || this.olderHidden > 0); },
+    get olderToggleShown() { return this.olderHidden > 0; },
     get olderLabel() { return t(this.olderOpen ? 'onboarding.checklist.older_hide' : 'onboarding.checklist.older_show', { n: this.olderHidden }); },
+    // Weitere einklappen klappt auch das Archiv wieder ein.
     toggleOlder() {
       this.olderOpen = !this.olderOpen;
       remember(OLDER_KEY, this.olderOpen);
+      if (!this.olderOpen && this.archiveOpen) {
+        this.archiveOpen = false;
+        remember(ARCHIVE_KEY, false);
+      }
     },
 
     isInstallerOnly(item) { return window.obSteps.installerOnly.some((i) => i.id === item.id); },

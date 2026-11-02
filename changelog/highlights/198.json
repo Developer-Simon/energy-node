@@ -10,8 +10,8 @@
           "panel": "settings-panel",
           "target": "checklist-more",
           "text": {
-            "de": "Ältere Versionen stehen jetzt in dieser Kachel unter den Versionskarten. Mit Weiter zurück erkunden siehst du auch die Releases vor den letzten drei Minor-Versionen.",
-            "en": "Older versions now sit in this card below the version cards. Explore further back also shows the releases before the last three minor versions."
+            "de": "Ältere Versionen klappst du in dieser Kachel Schritt für Schritt auf. Zuerst kommen die weiteren Releases, danach zeigt Weiter zurück erkunden auch die frühesten.",
+            "en": "This card opens older versions step by step. First come the further releases, then Explore further back shows the earliest ones too."
           },
           "title": {
             "de": "Weiter zurück erkunden",
