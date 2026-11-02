@@ -25,6 +25,8 @@
   const SESSION = '/api/v1/auth/session';
   // Begruessung eines Gastes gilt fuer die Dauer der Browsersitzung.
   const WELCOME_DONE_KEY = 'ob-welcome-done';
+  // Start-Notiz der Uebersicht: die Zahl ungesehener Neuerungen, bei der sie weggeklickt wurde.
+  const NEWS_NOTE_KEY = 'ob-news-note-dismissed';
 
   const t = (key, params) => window.I18n.t(key, params);
 
@@ -35,6 +37,16 @@
   };
   const rememberWelcomeDone = () => {
     try { window.sessionStorage.setItem(WELCOME_DONE_KEY, '1'); } catch { /* siehe welcomeDoneHere */ }
+  };
+  // null: nicht weggeklickt (oder kein Zugriff auf den Speicher).
+  const newsNoteDismissedHere = () => {
+    try {
+      const raw = window.sessionStorage.getItem(NEWS_NOTE_KEY);
+      return raw === null ? null : Number(raw);
+    } catch { return null; }
+  };
+  const rememberNewsNoteDismissed = (count) => {
+    try { window.sessionStorage.setItem(NEWS_NOTE_KEY, String(count)); } catch { /* ohne Speicher bleibt die Notiz offen */ }
   };
 
   const isPhone = () => window.matchMedia(PHONE).matches;
@@ -186,6 +198,8 @@
     steps: [],
     index: 0,
     finished: null,
+    // Zahl ungesehener Neuerungen beim Wegklicken der Start-Notiz, null solange nicht weggeklickt.
+    newsNoteDismissed: newsNoteDismissedHere(),
 
     // Liest den Fortschritt des angemeldeten Kontos. Gelingt es nicht, bleibt
     // der Store leer und die Leiste startet nichts.
@@ -325,6 +339,28 @@
     },
     get unseenCount() {
       return window.obModel.unseenCount(this.exploreVersions, this.seen, this.ctx());
+    },
+    // Gibt es in der aktuellen Version eine Tour fuer dieses Geraet und Recht (wie die Checkliste).
+    get newsTourAvailable() {
+      const current = this.exploreVersions.find((v) => v.current);
+      return Boolean(current?.items.some((item) => !item.stale && this.tourSteps(item).length));
+    },
+    // Start-Notiz der Uebersicht: ungesehen und eine Tour da, kein Lauf offen und nicht
+    // weggeklickt, bis mehr ungesehen ist als beim Wegklicken.
+    get newsNoteShown() {
+      if (this.active || this.finished) return false;
+      const unseen = this.unseenCount;
+      if (!unseen || !this.newsTourAvailable) return false;
+      return this.newsNoteDismissed === null || unseen > this.newsNoteDismissed;
+    },
+    dismissNewsNote() {
+      this.newsNoteDismissed = this.unseenCount;
+      rememberNewsNoteDismissed(this.newsNoteDismissed);
+    },
+    // Tour starten aus der Notiz, wie exploreStart() der Checkliste (ungesehen ist immer etwas).
+    startNewsNote() {
+      this.queue = [];
+      this.start('explore', null, { all: false });
     },
     // Schritte eines Highlights, die fuer Rolle und Geraet gelten (wie in obModel).
     tourSteps(item) {

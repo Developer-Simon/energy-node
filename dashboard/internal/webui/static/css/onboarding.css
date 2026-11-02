@@ -397,6 +397,30 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   .ob-guest-note { animation: masthead-rise .42s var(--ease-out) both; }
 }
 
+/* --- Start-Notiz: Neues zu entdecken (Uebersicht) ------------------------ */
+.ob-news-note {
+  display: flex;
+  align-items: flex-start;
+  gap: .7rem;
+  margin: 0 0 1rem;
+  padding: .75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--info-line) 70%, transparent);
+  border-radius: 12px;
+  background: var(--info-bg);
+  color: var(--text);
+  font-size: .92rem;
+  line-height: 1.45;
+}
+.ob-news-note-icon { flex: none; width: 1.15rem; height: 1.15rem; margin-top: .1rem; fill: none; stroke: var(--info); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.ob-news-note-body { flex: 1 1 14rem; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .6rem 1rem; }
+.ob-news-note-text { flex: 1 1 14rem; margin: 0; text-wrap: pretty; }
+.ob-news-note strong { color: var(--text-strong); }
+.ob-news-note-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.ob-news-note-later { background: transparent; }
+@media (prefers-reduced-motion: no-preference) {
+  .ob-news-note { animation: masthead-rise .42s var(--ease-out) both; }
+}
+
 /* --- Marker fuer ungesehene Neuerungen ----------------------------------- */
 .ob-marker {
   display: inline-block;
