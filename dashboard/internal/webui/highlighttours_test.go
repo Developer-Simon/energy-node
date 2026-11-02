@@ -23,7 +23,7 @@ func TestCollectTourRefsReadsPRFilesAndArchives(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	write("200.json", `{"de":{"*":"x"},"tour":{"*":{"steps":[{"panel":"settings-panel","page":"users","target":"alpha","need":"view_devices","title":{},"text":{}}]}}}`)
+	write("200.json", `{"de":{"*":"x"},"tour":{"*":{"steps":[{"panel":"settings-panel","page":"users","target":"alpha","need":"view_devices","open":["alpha-tab","@beta"],"title":{},"text":{}}],"replaced_by":{"pr":53,"step":2}}}}`)
 	write("archive-v0.json", `{"53":{"tour":{"dashboard":{"steps":[{"target":"beta","title":{},"text":{}},{"target":"gamma","title":{},"text":{}}]}}},"54":{"de":{"*":"y"}}}`)
 	write("v0.10.8.json", `{"158":{"tour":{"*":{"exempt":"nothing to show"}}}}`)
 	write("README.md", "# not json")
@@ -32,7 +32,8 @@ func TestCollectTourRefsReadsPRFilesAndArchives(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []tourRef{
-		{File: "200.json", PR: "200", Key: "*", Step: 1, Panel: "settings-panel", Page: "users", Target: "alpha", Need: "view_devices"},
+		{File: "200.json", PR: "200", Key: "*", Step: 1, Panel: "settings-panel", Page: "users", Target: "alpha", Need: "view_devices",
+			Open: []string{"alpha-tab", "@beta"}, ReplacedPR: 53, ReplacedStep: 2},
 		{File: "archive-v0.json", PR: "53", Key: "dashboard", Step: 1, Target: "beta"},
 		{File: "archive-v0.json", PR: "53", Key: "dashboard", Step: 2, Target: "gamma"},
 	}
@@ -47,6 +48,9 @@ type tourRef struct {
 	Step          int
 	Panel, Page   string
 	Target, Need  string
+	Open          []string
+	// ReplacedPR and ReplacedStep are set on the first step of a tour with replaced_by.
+	ReplacedPR, ReplacedStep int
 }
 
 // tourFile is the part of a highlight JSON file the tests read.
@@ -54,7 +58,12 @@ type tourFile struct {
 	Tour map[string]struct {
 		Steps []struct {
 			Panel, Page, Target, Need string
+			Open                      []string `json:"open"`
 		}
+		ReplacedBy *struct {
+			PR   int `json:"pr"`
+			Step int `json:"step"`
+		} `json:"replaced_by"`
 	}
 }
 
@@ -119,10 +128,15 @@ func collectTourRefs(dir string) ([]tourRef, error) {
 func appendTourRefs(refs []tourRef, file, pr string, entry tourFile) []tourRef {
 	for key, tour := range entry.Tour {
 		for i, s := range tour.Steps {
-			refs = append(refs, tourRef{
+			ref := tourRef{
 				File: file, PR: pr, Key: key, Step: i + 1,
-				Panel: s.Panel, Page: s.Page, Target: s.Target, Need: s.Need,
-			})
+				Panel: s.Panel, Page: s.Page, Target: s.Target, Need: s.Need, Open: s.Open,
+			}
+			if i == 0 && tour.ReplacedBy != nil {
+				ref.ReplacedPR = tour.ReplacedBy.PR
+				ref.ReplacedStep = tour.ReplacedBy.Step
+			}
+			refs = append(refs, ref)
 		}
 	}
 	return refs
@@ -162,6 +176,27 @@ func TestHighlightToursPointAtKnownTargets(t *testing.T) {
 		}
 		if ref.Page != "" && (ref.Panel != "settings-panel" || !tourPages[ref.Page]) {
 			t.Errorf("%s: page %q needs panel settings-panel and a known settings page", at, ref.Page)
+		}
+		for _, id := range ref.Open {
+			if !targets[id] {
+				t.Errorf("%s: open %q is no data-tour of the web UI and no action of onboarding-actions.js", at, id)
+			}
+		}
+	}
+	// stepsByPR is the number of steps of the longest tour of each PR.
+	stepsByPR := map[string]int{}
+	for _, ref := range refs {
+		if ref.Step > stepsByPR[ref.PR] {
+			stepsByPR[ref.PR] = ref.Step
+		}
+	}
+	for _, ref := range refs {
+		if ref.ReplacedPR == 0 {
+			continue
+		}
+		pr := strconv.Itoa(ref.ReplacedPR)
+		if pr == ref.PR || stepsByPR[pr] < ref.ReplacedStep {
+			t.Errorf("%s #%s %s: replaced_by #%d step %d does not exist", ref.File, ref.PR, ref.Key, ref.ReplacedPR, ref.ReplacedStep)
 		}
 	}
 }

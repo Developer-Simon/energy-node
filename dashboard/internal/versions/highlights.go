@@ -47,21 +47,32 @@ type HighlightDetails struct {
 }
 
 // HighlightTour walks a user through a highlight in the web UI. A highlight
-// with nothing to show carries the reason in Exempt and no steps.
+// with nothing to show carries the reason in Exempt and no steps. ReplacedBy
+// names the step of a newer highlight that takes over once this tour is stale.
 type HighlightTour struct {
-	Steps  []TourStep `json:"steps"`
-	Exempt string     `json:"exempt,omitempty"`
+	Steps      []TourStep       `json:"steps"`
+	Exempt     string           `json:"exempt,omitempty"`
+	ReplacedBy *TourReplacement `json:"replaced_by,omitempty"`
+}
+
+// TourReplacement names the step (1 based) of the highlight of PR that
+// replaces a stale tour.
+type TourReplacement struct {
+	PR   int `json:"pr"`
+	Step int `json:"step"`
 }
 
 // TourStep points at one data-tour target. Panel and Page say where it
 // lives, Device is any, phone or desktop, Need the permission the step
-// requires.
+// requires. Open lists the entries (data-tour ids or @actions) that must
+// exist before the step runs, otherwise the tour is stale.
 type TourStep struct {
 	Panel  string            `json:"panel,omitempty"`
 	Page   string            `json:"page,omitempty"`
 	Target string            `json:"target"`
 	Device string            `json:"device"`
 	Need   string            `json:"need,omitempty"`
+	Open   []string          `json:"open,omitempty"`
 	Title  map[string]string `json:"title"`
 	Text   map[string]string `json:"text"`
 }

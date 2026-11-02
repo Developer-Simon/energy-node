@@ -14,12 +14,21 @@ func TestTourTargetsKnowsTheMarkupAndTheSetupSteps(t *testing.T) {
 		"devicemap-connect", "devicemap-layer-energy", "devicemap-layer-data", "devicemap-layer-balance",
 		"devicemap-view", "devicemap-filter", "energy-plant", "energy-interpretation", "energy-roles-head",
 		"energy-groups", "stats-nav", "stats-kpis", "stats-table-bar", "history-status", "history-resolution",
-		"automations-tabs", "automations-rules"} {
+		"automations-tabs", "automations-rules", "@time-rule"} {
 		if !targets[id] {
 			t.Errorf("target %q missing from %d known targets", id, len(targets))
 		}
 	}
 	if targets["favorites"] || targets["nosuchtarget"] {
 		t.Errorf("unknown target counted as known")
+	}
+}
+
+func TestTourTargetsReadQuotedIDsFromXBind(t *testing.T) {
+	got := tourTargetsIn([]byte(`<b x-bind:data-tour="isSelf(cardId) ? 'own-account' : null"></b><i x-bind:data-tour="a ? 'x-one' : 'x-two'"></i>`))
+	for _, id := range []string{"own-account", "x-one", "x-two"} {
+		if !got[id] {
+			t.Errorf("%q missing in %v", id, got)
+		}
 	}
 }
