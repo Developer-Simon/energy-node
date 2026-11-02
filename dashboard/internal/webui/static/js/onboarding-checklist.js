@@ -210,8 +210,8 @@
     newsSub(item) {
       const state = this.newsState(item);
       if (state === 'other-device') return t(this.s.ctx().device === 'phone' ? 'onboarding.checklist.only_desktop' : 'onboarding.checklist.only_phone');
-      // Ohne Tour und ohne Details ist der eine Satz die Unterzeile, in jedem Zustand.
-      if (noTour(item) && !item.details) return t(item.text);
+      // Ohne Tour und ohne Details steht der eine Satz schon als Titel, die Unterzeile bleibt leer.
+      if (noTour(item) && !item.details) return '';
       if (noTour(item)) return t(item.tour === false ? 'onboarding.checklist.news_no_tour' : 'onboarding.checklist.news_no_tour_rights');
       if (state === 'seen') return t('onboarding.checklist.news_seen');
       if (state === 'new') return t('onboarding.checklist.news_new');

@@ -80,7 +80,7 @@
                     <span class="ob-cl-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-check"></use></svg></span>
                     <span class="ob-cl-text">
                       <span class="ob-cl-title" x-text="$t(item.title)"></span>
-                      <span class="ob-cl-sub" x-text="newsSub(item)"></span>
+                      <span class="ob-cl-sub" x-show="newsSub(item)" x-text="newsSub(item)"></span>
                     </span>
                     <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:class="{ 'is-disabled': isStale(item) && !replacementStart(item) }" x-bind:disabled="isStale(item) && !replacementStart(item)" x-bind:aria-expanded="isStale(item) || isMarkOnly(item) ? null : (isReading(item) ? 'true' : 'false')" x-on:click="newsAct(item)">
                       <span x-text="newsAction(item)"></span>

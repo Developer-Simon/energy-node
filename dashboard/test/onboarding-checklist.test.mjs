@@ -187,7 +187,7 @@ test('a highlight with only one sentence is marked as read, the row has no chevr
   assert.ok(item, 'h181 is in the server highlights');
   assert.equal(cl.newsState(item), 'text');
   assert.equal(cl.newsAction(item), t('onboarding.checklist.action_mark_read'));
-  assert.equal(cl.newsSub(item), 'Text only', 'the one sentence is the row subtitle');
+  assert.equal(cl.newsSub(item), '', 'the sentence is already the title, so the subtitle stays empty');
   assert.equal(cl.isMarkOnly(item), true);
   cl.newsAct(item);
   assert.equal(cl.isReading(item), false, 'clicking does not expand the sentence');
@@ -205,8 +205,7 @@ test('a seen highlight with only one sentence has no action button and no expand
   assert.equal(cl.newsState(item), 'seen');
   assert.equal(cl.newsAction(item), '', 'no action button');
   assert.equal(cl.isMarkOnly(item), true);
-  assert.equal(cl.newsSub(item), 'Text only');
-  assert.notEqual(cl.newsSub(item), t('onboarding.checklist.news_seen'));
+  assert.equal(cl.newsSub(item), '');
 });
 
 test('a seen highlight without a tour but with details offers Lesen and only toggles the reading', async () => {
