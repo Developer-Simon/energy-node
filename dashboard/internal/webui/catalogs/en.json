@@ -2982,6 +2982,7 @@
   "onboarding.checklist.summary": "Initial setup",
   "onboarding.checklist.title": "Checklist",
   "onboarding.checklist.version": "Version {version}",
+  "onboarding.example_rule": "Example rule",
   "onboarding.eyebrow.change": "Setup · Change",
   "onboarding.eyebrow.explore": "New in {version} · {i} of {total}",
   "onboarding.eyebrow.setup": "Setup {n} of {total} · {area}",

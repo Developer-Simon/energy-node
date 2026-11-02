@@ -139,6 +139,59 @@
 
   window.obActions = { action, named, stateOf, find, sharedPrefix, apply, next, watchTakeover };
 
-  // Platzhalter bis Task 4: der Go-Test verlangt @time-rule im Katalog.
-  action('time-rule', { run: async () => { throw new Error('Task 4'); } });
+  // Oeffnet die erste Regel mit einem Zeitfenster im Bearbeiten-Modus. Gibt es
+  // keine, legt der Lauf eine deaktivierte Beispielregel an. Zuruecknehmen
+  // entfernt sie wieder, aber nur, solange sie unveraendert ist.
+  const rulesPage = () => window.Alpine.$data(document.getElementById('automations-panel'));
+  const itemOf = (id) => [...document.querySelectorAll('li[data-rule-id]')]
+    .find((li) => li.getAttribute('data-rule-id') === id) || null;
+  const hasWindow = (rule) => (rule.conditions || []).some((c) => c.type === 'time_window');
+
+  action('time-rule', {
+    run: async ({ waitFor }) => {
+      const page = rulesPage();
+      if (!page) return null;
+      const existing = page.document.rules.find(hasWindow);
+      const created = !existing;
+      const id = existing ? existing.id : `regel_${Date.now()}`;
+      const before = { expanded: Boolean(page.expanded[id]), editing: Boolean(page.editing[id]) };
+      if (existing) {
+        page.startEditing(existing);
+      } else {
+        page.insertEntry('rule', {
+          id,
+          name: window.I18n.t('onboarding.example_rule'),
+          enabled: false,
+          history_enabled: true,
+          cooldown_seconds: 60,
+          conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }],
+          actions: [],
+        });
+        page.undo = null;
+      }
+      const snapshot = JSON.stringify(page.document.rules.find((r) => r.id === id));
+
+      const revert = () => {
+        const rules = page.document.rules;
+        const rule = rules.find((r) => r.id === id);
+        if (!rule || JSON.stringify(rule) !== snapshot) return;
+        if (created) {
+          rules.splice(rules.findIndex((r) => r.id === id), 1);
+          delete page.expanded[id];
+          delete page.editing[id];
+          delete page.newIds[id];
+          return;
+        }
+        if (!before.editing) page.discardEditing(rule);
+        if (!before.expanded) page.expanded[id] = false;
+      };
+
+      const li = await waitFor(() => itemOf(id), 1500);
+      if (!li) {
+        revert();
+        return null;
+      }
+      return { el: li.querySelector('.automation-rule-head') || li, scope: li, revert };
+    },
+  });
 })();

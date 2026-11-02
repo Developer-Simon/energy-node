@@ -316,3 +316,122 @@ test('clicks inside the dock and synthetic clicks do not count', () => {
   stop();
   assert.equal(run.takenOver, false);
 });
+
+// Die Seite der Regeln als Stub: Alpine.$data liefert sie, die Methoden
+// protokollieren, was der Lauf aufruft. Regeln stehen als li im DOM.
+function rulesPage(document, rules) {
+  const page = {
+    document: { rules },
+    expanded: {},
+    editing: {},
+    newIds: {},
+    undo: 'stale',
+    started: [],
+    discarded: [],
+    startEditing(rule) {
+      this.started.push(rule.id);
+      this.editing[rule.id] = true;
+      this.expanded[rule.id] = true;
+    },
+    discardEditing(rule) {
+      this.discarded.push(rule.id);
+      this.editing[rule.id] = false;
+    },
+    insertEntry(kind, entry) {
+      this.document.rules.push(entry);
+      this.expanded[entry.id] = true;
+      this.editing[entry.id] = true;
+      this.newIds[entry.id] = true;
+      ruleItem(document, entry.id);
+    },
+  };
+  document.defaultView.Alpine = { $data: () => page };
+  document.defaultView.I18n = { t: (key) => (key === 'onboarding.example_rule' ? 'Beispielregel' : key) };
+  return page;
+}
+
+function ruleItem(document, id) {
+  const li = document.createElement('li');
+  li.setAttribute('data-rule-id', id);
+  li.innerHTML = '<div class="automation-rule-head"></div>';
+  document.getElementById('rules').append(li);
+  return li;
+}
+
+const windowRule = (id) => ({ id, conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }], actions: [] });
+
+test('time-rule opens the first rule with a time window for editing', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const first = { id: 'a', conditions: [{ type: 'state' }], actions: [] };
+  const second = windowRule('b');
+  ruleItem(document, 'a');
+  const li = ruleItem(document, 'b');
+  const page = rulesPage(document, [first, second]);
+  const run = runOf(['@time-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.deepEqual(page.started, ['b']);
+  assert.equal(run.scope, li, 'the scope is the li of that rule');
+  assert.equal(run.records[0].el, li.querySelector('.automation-rule-head'));
+  assert.equal(page.document.rules.length, 2, 'no example rule is added');
+});
+
+test('time-rule creates a disabled example rule when no rule has a time window', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const page = rulesPage(document, [{ id: 'a', conditions: [{ type: 'state' }], actions: [] }]);
+  page.undo = 'stale';
+  const run = runOf(['@time-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  const created = page.document.rules.find((r) => r.id.startsWith('regel_'));
+  assert.ok(created, 'an example rule was inserted');
+  assert.equal(created.name, 'Beispielregel');
+  assert.equal(created.enabled, false);
+  assert.equal(page.undo, null);
+  assert.equal(run.records.length, 1);
+  assert.equal(run.scope, document.querySelector(`li[data-rule-id="${created.id}"]`));
+});
+
+test('time-rule revert removes the example rule', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const page = rulesPage(document, [{ id: 'a', conditions: [], actions: [] }]);
+  const run = runOf(['@time-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  const id = run.records[0].scope.getAttribute('data-rule-id');
+  run.records[0].revert();
+  assert.deepEqual(page.document.rules.map((r) => r.id), ['a']);
+  assert.equal(Object.hasOwn(page.expanded, id), false);
+  assert.equal(Object.hasOwn(page.editing, id), false);
+  assert.equal(Object.hasOwn(page.newIds, id), false);
+});
+
+test('time-rule revert discards editing and collapses only what it opened', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'b');
+  const page = rulesPage(document, [windowRule('b')]);
+  page.expanded.b = true;
+  page.editing.b = false;
+  const run = runOf(['@time-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.equal(page.editing.b, true);
+  run.records[0].revert();
+  assert.deepEqual(page.discarded, ['b']);
+  assert.equal(page.editing.b, false);
+  assert.equal(page.expanded.b, true, 'a rule that was open stays open');
+});
+
+test('time-rule keeps a changed rule', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'b');
+  const page = rulesPage(document, [windowRule('b')]);
+  const run = runOf(['@time-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  page.document.rules[0].repeat_seconds = 60;
+  run.records[0].revert();
+  assert.equal(page.document.rules.length, 1);
+  assert.equal(page.document.rules[0].repeat_seconds, 60);
+  assert.deepEqual(page.discarded, []);
+});
