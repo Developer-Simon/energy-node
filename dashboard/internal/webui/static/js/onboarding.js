@@ -123,8 +123,11 @@
 
   // Ein Selektor kann mehrfach treffen (versteckte Kopien in anderen
   // Ansichten). Das erste sichtbare Element gewinnt.
-  const resolveTarget = (target) => {
+  // Mit scope werden zuerst die sichtbaren Treffer im Bereich einer Aktion gesucht.
+  const resolveTarget = (target, scope = null) => {
     if (typeof target === 'function') return target();
+    const inScope = scope ? [...scope.querySelectorAll(target)].find((el) => window.obSpotlight.visibleRect(el)) : null;
+    if (inScope) return inScope;
     const all = [...document.querySelectorAll(target)];
     return all.find((el) => window.obSpotlight.visibleRect(el)) || all[0] || null;
   };
@@ -509,6 +512,8 @@
     direction: 1,
     drag: null,
     cleanup: [],
+    // Lauf der Aktionen des aktuellen Schritts (window.obActions), null ohne Tour.
+    actions: null,
     // Sprachwahl in der Vorstellung, nur solange kein lang-Cookie gesetzt ist.
     langPick: !/(?:^|;\s*)lang=/.test(document.cookie),
 
@@ -528,7 +533,14 @@
           this.s.persistRun();
         }
       });
-      this.$watch('$store.onboarding.finished', (fin) => { if (fin) { this.spot.hide(); this.setCollapsed(false); this.swapIn(); } });
+      this.$watch('$store.onboarding.finished', (fin) => {
+        if (!fin) return;
+        this.spot.hide();
+        this.setCollapsed(false);
+        this.swapIn();
+        void window.obActions.next(this.actions, []);
+        this.actions = null;
+      });
       window.matchMedia(PHONE).addEventListener('change', () => { this.sheet.set({ y: 0 }); this.collapsed = false; this.left = false; });
       ready.then((loaded) => {
         if (!loaded) return;
@@ -574,17 +586,30 @@
       this.detach();
       if (step.intro) {
         // Vorstellung ohne Ziel: das Blatt bleibt offen, kein Spotlight, kein Ort.
+        // Die Klicks des vorigen Schritts werden trotzdem zurueckgenommen.
+        this.actions = await window.obActions.next(this.actions, []);
+        if (step !== this.step) return;
         this.target = null;
         this.spot.hide();
         return;
       }
       this.spot.hold();
+      // Vor dem Ort: die Klicks des vorigen Schritts werden in seinem Bereich zurueckgenommen.
+      this.actions = await window.obActions.next(this.actions, step.open || []);
+      if (step !== this.step) return;
       const placed = await openPlace(step);
-      let el = placed ? await waitFor(() => resolveTarget(step.target)) : null;
+      await window.obActions.apply(this.actions, {
+        alive: () => step === this.step,
+        show: (el) => this.pressOn(el),
+        waitFor,
+      });
+      if (step !== this.step) return;
+      this.cleanup.push(window.obActions.watchTakeover(this.actions));
+      let el = placed ? await waitFor(() => resolveTarget(step.target, this.actions?.scope)) : null;
       if (el) await settle(el);
       if (step !== this.step) return;
       // Waehrend des Wartens kann ein Live-Tausch das Element ersetzt haben.
-      if (el && !el.isConnected) el = await waitFor(() => resolveTarget(step.target), 1500);
+      if (el && !el.isConnected) el = await waitFor(() => resolveTarget(step.target, this.actions?.scope), 1500);
       if (step !== this.step) return;
       if (!el) {
         // Ziel fehlt (anderer Dienst, Recht, Layout): Schritt ueberspringen.
@@ -600,7 +625,7 @@
       this.spot.show(el, {
         onLost: () => { this.lost = true; },
         onFound: () => { this.lost = false; },
-        resolve: () => resolveTarget(step.target),
+        resolve: () => resolveTarget(step.target, this.actions?.scope),
       });
       this.watchDone(el, step);
       this.avoidWhenStill(step);
@@ -617,6 +642,17 @@
       el.style.scrollMarginTop = `${top}px`;
       el.style.scrollMarginBottom = isPhone() ? `${bar.height + 36}px` : '24px';
       el.scrollIntoView({ block: rect.height > bottom - top ? 'start' : 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
+    },
+
+    // Zeigt das Ziel einer Aktion und laesst es kurz pulsen, bevor geklickt wird.
+    // Bei reduzierter Bewegung entfaellt die Wartezeit vor dem Puls.
+    async pressOn(el) {
+      const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      this.reveal(el);
+      this.spot.show(el);
+      if (!calm) await new Promise((resolve) => setTimeout(resolve, 280));
+      this.spot.press();
+      await new Promise((resolve) => setTimeout(resolve, calm ? 120 : 140));
     },
 
     // Erst entscheiden, wenn Scrollen und Feder zur Ruhe gekommen sind.
@@ -717,6 +753,8 @@
     hideAll() {
       this.detach();
       this.spot.hide();
+      void window.obActions.next(this.actions, []);
+      this.actions = null;
       this.collapsed = false;
       this.left = false;
       this.sheet.set({ y: 0 });
