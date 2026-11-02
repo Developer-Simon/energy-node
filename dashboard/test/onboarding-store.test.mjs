@@ -590,3 +590,89 @@ test('a broken sessionStorage does not throw on dismissNews', async () => {
   assert.doesNotThrow(() => store.dismissNews());
   assert.equal(store.newsNoteDismissed, 1, 'dismissed for this store even without storage');
 });
+
+// Admin mit abgeschlossener Einrichtung: das Angebot der Neuerungen darf kommen.
+const SETUP_DONE = { ...PROGRESS, setup: { ...PROGRESS.setup, done: true } };
+
+test('newsOfferWanted needs an unseen tour, no run and no dismissal, and an admin only after setup', async () => {
+  const storage = memoryStorage();
+  const admin = await load({ prepare: false, storage });
+  assert.equal(admin.store.unseenCount, 1, 'h184 has a tour and is unseen');
+  assert.equal(admin.store.newsOfferWanted, false, 'admin before setup: the setup welcome comes first');
+
+  const user = await load({ prepare: false, storage: memoryStorage(), progress: { ...PROGRESS, role: 'user' } });
+  assert.equal(user.store.newsOfferWanted, true, 'a user is offered it without setup');
+
+  const done = await load({ prepare: false, storage, progress: SETUP_DONE });
+  assert.equal(done.store.newsOfferWanted, true);
+  done.store.dismissNews();
+  assert.equal(done.store.newsOfferWanted, false, 'dismissed');
+
+  const more = {
+    ...SETUP_DONE,
+    explore: { ...EXPLORE, items: [...EXPLORE.items, { id: 'h185', version: '0.12.0', pr: 185, text: 'Stats', details: null, tour: { steps: [{ panel: 'settings-panel', page: 'users', target: 'guest', device: '', need: 'view_stats', title: { en: 'Stats' }, text: { en: 'Here' } }] } }] },
+  };
+  const later = await load({ prepare: false, storage, progress: more });
+  assert.equal(later.store.unseenCount, 2);
+  assert.equal(later.store.newsOfferWanted, true, 'more unseen than at dismissal: offered again');
+
+  const running = await load({ storage: memoryStorage(), progress: SETUP_DONE });
+  assert.equal(running.store.newsOfferWanted, false, 'a run is active');
+});
+
+test('load() queues news for the session but never sends it to the account', async () => {
+  const { store, calls } = await load({ prepare: false, storage: memoryStorage(), progress: SETUP_DONE });
+  assert.deepEqual([...store.queue], ['news']);
+  assert.equal(calls.some((c) => c.method === 'PUT' && JSON.stringify(c.body ?? {}).includes('news')), false);
+  calls.length = 0;
+  await store.persistQueue();
+  const put = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me');
+  assert.equal(put.length, 1);
+  assert.deepEqual(put[0].body, { queue: [] });
+});
+
+test('start("news") starts the explore run with the intro first', async () => {
+  const { store } = await load({ prepare: false, storage: memoryStorage(), progress: SETUP_DONE });
+  store.queue = [];
+  assert.equal(store.start('news'), true);
+  assert.equal(store.run.mode, 'explore');
+  assert.equal(store.run.from, '@news');
+  assert.equal(store.steps[0].id, 'explore-intro');
+  assert.equal(store.steps[1].id, 'h184');
+});
+
+test('markStep on the news intro writes nothing', async () => {
+  const { store, calls } = await load({ prepare: false, storage: memoryStorage(), progress: SETUP_DONE });
+  store.queue = [];
+  store.start('news');
+  await new Promise((resolve) => setImmediate(resolve));
+  calls.length = 0;
+  assert.equal(await store.markStep('done'), false);
+  assert.equal(calls.length, 0);
+  assert.equal(store.seen['explore-intro'], undefined);
+});
+
+test('skip on the news intro dismisses without the tour ended toast', async () => {
+  const storage = memoryStorage();
+  const { store, window } = await load({ prepare: false, storage, progress: SETUP_DONE });
+  const pushed = [];
+  window.Alpine.store('toasts', { push: (...args) => pushed.push(args) });
+  store.queue = [];
+  store.start('news');
+  store.skip();
+  assert.deepEqual(pushed, []);
+  assert.equal(store.active, false);
+  assert.equal(storage.getItem('ob-news-note-dismissed'), '1');
+});
+
+test('nextTime on the news intro dismisses and closes the run', async () => {
+  const storage = memoryStorage();
+  const { store, bar } = await load({ prepare: false, storage, progress: SETUP_DONE });
+  store.queue = [];
+  store.start('news');
+  bar().nextTime();
+  assert.equal(store.active, false);
+  assert.equal(store.run, null);
+  assert.equal(storage.getItem('ob-news-note-dismissed'), '1');
+  assert.equal(store.newsOfferWanted, false, 'not offered again until more is unseen');
+});

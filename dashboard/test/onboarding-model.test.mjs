@@ -307,3 +307,40 @@ test('a stale tour is never run, not even when repeated or asked for', () => {
   assert.deepEqual(asked, []);
   assert.equal(m.unseenCount(explore, {}, ctx()), 1);
 });
+
+test('the news offer is the explore tour of unseen items with its intro first', () => {
+  const m = load();
+  const explore = [
+    { version: '0.12.0', current: true, items: [{ id: 'a', title: 'A', text: 'A', steps: [{ title: 'A1', text: 'x', device: 'any' }] }] },
+  ];
+  assert.equal(m.NEWS_FROM, '@news');
+  const steps = m.buildSteps({ mode: 'explore', from: m.NEWS_FROM, explore, seen: {}, ctx: ctx() });
+  assert.deepEqual([...steps.map((s) => s.id)], ['explore-intro', 'a']);
+  const [intro] = steps;
+  assert.equal(intro.intro, true);
+  assert.equal(intro.newsIntro, true);
+  assert.equal(intro.target, null);
+  assert.equal(intro.panel, null);
+  assert.equal(intro.dots, 0);
+  assert.equal(intro.title, 'onboarding.explore.intro.title');
+  assert.equal(intro.text, 'onboarding.explore.intro.text');
+  assert.equal(intro.eyebrow, 'Neu in 0.12');
+});
+
+test('the news offer with no unseen tour is empty, without an intro', () => {
+  const m = load();
+  const explore = [
+    { version: '0.12.0', current: true, items: [{ id: 'a', title: 'A', text: 'A', steps: [{ title: 'A1', text: 'x', device: 'any' }] }] },
+  ];
+  assert.deepEqual([...m.buildSteps({ mode: 'explore', from: m.NEWS_FROM, explore, seen: { a: true }, ctx: ctx() })], []);
+});
+
+test('a normal explore run has no intro, from an item or without from', () => {
+  const m = load();
+  const explore = [
+    { version: '0.12.0', current: true, items: [{ id: 'a', title: 'A', text: 'A', steps: [{ title: 'A1', text: 'x', device: 'any' }] }] },
+  ];
+  assert.deepEqual([...m.buildSteps({ mode: 'explore', explore, seen: {}, ctx: ctx() }).map((s) => s.id)], ['a']);
+  assert.deepEqual([...m.buildSteps({ mode: 'explore', from: 'a', explore, seen: {}, ctx: ctx() }).map((s) => s.id)], ['a']);
+  assert.equal(m.buildSteps({ mode: 'explore', explore, seen: {}, ctx: ctx() })[0].newsIntro, undefined);
+});

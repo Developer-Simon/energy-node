@@ -226,15 +226,18 @@
       // Sie wird wie enqueue() ans Konto geschrieben, startet aber erst die Leiste.
       if ((progress.queue || []).includes('setup') && !this.run && !this.queue.includes('setup')) {
         this.queue = [...this.queue, 'setup'];
-        void send('PUT', ME, { queue: this.queue });
+        void this.persistQueue();
       }
       // Ein Gast hat kein Konto, sein Stand kommt nur aus dem Browser. Der Server
       // meldet die Begruessung bei jedem Laden neu, deshalb gilt das Merkmal der Sitzung.
       const guestDone = this.role === 'guest' && welcomeDoneHere();
       if ((progress.queue || []).includes('welcome') && !guestDone && !this.run && !this.queue.includes('welcome')) {
         this.queue = [...this.queue, 'welcome'];
-        void send('PUT', ME, { queue: this.queue });
+        void this.persistQueue();
       }
+      // Das Angebot der Neuerungen startet nach Einrichtung und Begruessung. Es steht
+      // nur in der Sitzung, nie am Konto (persistQueue filtert es heraus).
+      if (!this.queue.length && !this.run && this.newsOfferWanted) this.queue = ['news'];
       this.loaded = true;
       return true;
     },
@@ -345,6 +348,15 @@
       const current = this.exploreVersions.find((v) => v.current);
       return Boolean(current?.items.some((item) => !item.stale && this.tourSteps(item).length));
     },
+    // Bietet die Startseite die Neuerungen an: ungesehen mit Tour, kein Lauf offen und nicht
+    // weggeklickt, bis mehr ungesehen ist als beim Wegklicken. Der Admin erst nach der Einrichtung.
+    get newsOfferWanted() {
+      if (this.active || this.run || this.finished) return false;
+      if (this.role === 'admin' && !this.setupDone) return false;
+      const unseen = this.unseenCount;
+      if (!unseen || !this.newsTourAvailable) return false;
+      return this.newsNoteDismissed === null || unseen > this.newsNoteDismissed;
+    },
     // Merkt die Zahl ungesehener Neuerungen beim Wegklicken. Erst mehr ungesehene zeigen wieder.
     dismissNews() {
       this.newsNoteDismissed = this.unseenCount;
@@ -377,6 +389,8 @@
     },
 
     start(mode, from = null, { index = 0, all = false } = {}) {
+      // Das Angebot der Startseite ist ein Neu-erkunden-Lauf ueber die ungesehenen Neuerungen.
+      if (mode === 'news') return this.start('explore', window.obModel.NEWS_FROM);
       const steps = this.build(mode, from, all);
       if (!steps.length) {
         // Ein Lauf ohne Schritte wird nicht bei jedem Laden wieder versucht.
@@ -398,7 +412,7 @@
     enqueue(...modes) {
       this.queue = [...this.queue, ...modes.filter((m) => !this.queue.includes(m))];
       if (!this.active) this.advanceQueue();
-      void send('PUT', ME, { queue: this.queue });
+      void this.persistQueue();
     },
     advanceQueue() {
       let started = false;
@@ -406,8 +420,12 @@
         const mode = this.queue.shift();
         started = this.start(mode) === true;
       }
-      void send('PUT', ME, { queue: this.queue });
+      void this.persistQueue();
       return started;
+    },
+    // Schreibt die Warteschlange ans Konto, ohne das Angebot der Neuerungen (nur Sitzung).
+    persistQueue() {
+      return send('PUT', ME, { queue: this.queue.filter((m) => m !== 'news') });
     },
 
     // Schreibt den Lauf mit aktuellem Schritt, damit Neuladen oder Login
@@ -427,6 +445,8 @@
     markStep(state) {
       const step = this.step;
       if (!step) return Promise.resolve(false);
+      // Die Vorstellung des Angebots schreibt nichts: die Neuerungen gelten erst mit ihrer Tour als gesehen.
+      if (step.newsIntro) return Promise.resolve(false);
       // Die Vorstellung hat kein Ziel und keinen Status, sie gilt mit Weiter als gesehen.
       if (step.intro) {
         this.seen = { ...this.seen, [step.id]: true };
@@ -499,6 +519,12 @@
     },
     // Weg hinaus, ohne Rueckfrage: alles bleibt in der Checkliste erreichbar.
     skip() {
+      // Weg hinaus aus dem Angebot: gemerkt, ohne Abschlussmeldung.
+      if (this.step?.newsIntro) {
+        this.dismissNews();
+        this.close();
+        return;
+      }
       const mode = this.mode;
       if (mode === 'setup') {
         this.setupDone = true;
@@ -770,7 +796,15 @@
     },
     // Vorstellung auf spaeter legen: die Leiste geht zu, der gespeicherte Lauf bleibt
     // unveraendert (close() wuerde ihn loeschen). Beim naechsten Neuladen startet die Tour.
-    nextTime() { this.s.postpone(); },
+    // Beim Angebot der Neuerungen: gemerkt und zu. Es kommt erst wieder, wenn mehr ungesehen ist.
+    nextTime() {
+      if (this.step?.newsIntro) {
+        this.s.dismissNews();
+        this.s.close();
+        return;
+      }
+      this.s.postpone();
+    },
     back() { if (this.s.index > 0) this.s.index -= 1; },
     again() { this.lost = false; this.show(); },
     checklist() {
