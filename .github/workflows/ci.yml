@@ -19,11 +19,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Decides which of the jobs below need to run for this change. On a PR run
-  # (workflow_dispatch) it diffs the head against the PR base; on the
-  # post-merge `main` run (or if the diff can't be computed) every area is
-  # marked changed so nothing is skipped.
-  # A change to the workflow file itself also forces every job to run.
+  # Decides which of the jobs below need to run for this change. The rules
+  # (which path marks which area, and why) live in scripts/ci/detect_changes.py.
+  # On a PR run (workflow_dispatch) it diffs the head against the PR base; on
+  # the post-merge `main` run (or if the diff can't be computed) every area is
+  # marked changed so nothing is skipped. A change to the workflow file or to
+  # the script forces every job to run.
   changes:
     name: Detect changed areas
     runs-on: ubuntu-latest
@@ -32,13 +33,17 @@ jobs:
       pull-requests: read
       statuses: write
     outputs:
-      dashboard: ${{ steps.filter.outputs.dashboard }}
+      dashboard_go: ${{ steps.filter.outputs.dashboard_go }}
+      dashboard_js: ${{ steps.filter.outputs.dashboard_js }}
+      dashboard_smoke: ${{ steps.filter.outputs.dashboard_smoke }}
+      installer_go: ${{ steps.filter.outputs.installer_go }}
+      installer_cross: ${{ steps.filter.outputs.installer_cross }}
+      installer_webui: ${{ steps.filter.outputs.installer_webui }}
       python: ${{ steps.filter.outputs.python }}
       shell: ${{ steps.filter.outputs.shell }}
+      bootstrap: ${{ steps.filter.outputs.bootstrap }}
       vendored: ${{ steps.filter.outputs.vendored }}
       ha: ${{ steps.filter.outputs.ha }}
-      installer: ${{ steps.filter.outputs.installer }}
-      installer_webui: ${{ steps.filter.outputs.installer_webui }}
       docs_scripts: ${{ steps.filter.outputs.docs_scripts }}
     steps:
       # Runs from workflow_dispatch are not linked to the PR, so their checks
@@ -75,48 +80,12 @@ jobs:
           echo "Changed files:"
           printf '%s\n' "$files"
 
-          all() { for o in dashboard installer_webui installer python shell vendored ha docs_scripts; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
-
-          # No diff (post-merge run, or it could not be computed) or a change to
-          # a workflow: run everything. This check runs against the unfiltered
-          # diff so a docs-only PR does not land here. pages.yml only deploys
-          # the documentation site and is exempt.
-          wf="$(grep -E '^\.github/workflows/' <<<"$files" | grep -vE '/pages\.yml$' || true)"
-          if [ -z "$files" ] || [ -n "$wf" ]; then
-            all
-            exit 0
-          fi
-
-          # Documentation-only changes affect no job. Drop Markdown paths
-          # (this covers every CHANGELOG.md) and the VERSION files the Version
-          # bump workflow rewrites before matching: a PR that only touches those
-          # has a non-empty diff but nothing left here, so every emit below
-          # marks its area false and all jobs skip. The docs site tooling under
-          # scripts/docs/ is split off and only runs its own small job.
-          files="$(printf '%s\n' "$files" | grep -vE '\.md$|(^|/)VERSION$' || true)"
-          echo "Changed files (excluding Markdown and VERSION):"
-          printf '%s\n' "$files"
-
-          emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
-          emit docs_scripts '^scripts/docs/|^docs/_data/nav\.yml$|^scripts/tests/test_docs_pages\.sh$'
-          files="$(printf '%s\n' "$files" | grep -vE '^scripts/docs/' || true)"
-          # installer/webui too: the dashboard module depends on it through a
-          # replace directive (its local Re-Deploy screen implements
-          # hostapi.Backend), so a change there can break the dashboard build
-          # without touching a single file under dashboard/.
-          # changelog/highlights/ too: the Go tests check every tour against the web UI.
-          emit dashboard '^dashboard/|^demo/|^installer/webui/|^services/[^/]+/[^/]+\.schema\.json$|^changelog/highlights/'
-          emit installer_webui '^installer/webui/'
-          emit installer  '^installer/|^scripts/bootstrap/'
-          emit python    '^(services|libs)/|^scripts/tests/|^scripts/version/|^scripts/generate_changelog\.sh$|^scripts/build/(make_changelog_json|highlight_i18n|highlight_translations|highlight_details)\.py$|^scripts/release/release_highlights\.py$|^requirements-dev\.txt$'
-          emit shell     '^scripts/|^dashboard/energy-node-dashboard-system-action(\.sudoers)?$'
-          emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^services/battery_soc/battery_soc_devices\.schema\.json$|^docs/(images/device-icons/|images/ha/icons/|ha/icons-catalogue\.md$)|^scripts/(vendor_(core|card)|render_ha_descriptions|icons/flatten_icons)\.py$|^dashboard/internal/schemaloc/catalogs/|^libs/energy_node_common/src/energy_node_common/messages\.py$'
-          emit ha        '^integrations/homeassistant/|^libs/battery_soc_core/|^dashboard/internal/schemaloc/catalogs/'
+          printf '%s\n' "$files" | python3 scripts/ci/detect_changes.py >> "$GITHUB_OUTPUT"
 
   dashboard-go:
     name: Dashboard (Go)
     needs: changes
-    if: needs.changes.outputs.dashboard == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.dashboard_go == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -133,7 +102,7 @@ jobs:
   installer-go:
     name: Installer (Go)
     needs: changes
-    if: needs.changes.outputs.installer == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.installer_go == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -159,7 +128,7 @@ jobs:
   dashboard-js:
     name: Dashboard (JS)
     needs: changes
-    if: needs.changes.outputs.dashboard == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.dashboard_js == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -169,13 +138,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
       - run: npm test
 
   dashboard-smoke:
     name: Dashboard smoke test
     needs: changes
-    if: needs.changes.outputs.dashboard == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.dashboard_smoke == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -228,6 +199,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: installer/webui/package-lock.json
       - run: npm ci
       - run: npm test
 
@@ -247,14 +220,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: installer/webui/package-lock.json
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Playwright browser (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install Playwright system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npm run test:e2e
 
   installer-cross:
     name: Installer (cross-compile)
     needs: changes
-    if: needs.changes.outputs.installer == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.installer_cross == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -284,6 +272,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
       - run: |
           python -m pip install --upgrade pip
           pip install -e libs/energy_node_common -e libs/battery_soc_core pytest
@@ -373,6 +363,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+          cache: pip
+          cache-dependency-path: integrations/homeassistant/requirements-test.txt
       - run: |
           python -m pip install --upgrade pip
           pip install -e ../../libs/battery_soc_core -r requirements-test.txt
@@ -418,7 +410,7 @@ jobs:
   bootstrap-chain:
     name: Bootstrap chain (double run)
     needs: changes
-    if: needs.changes.outputs.shell == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.bootstrap == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
     # Debian bookworm ist das, worauf der Referenz-Node aufsetzt; bash,
     # python3, openssl und tar kommen dort in denselben Fassungen wie auf
