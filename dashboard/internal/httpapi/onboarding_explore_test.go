@@ -244,7 +244,8 @@ func TestExploreItemsSitUnderTheirDashboardRelease(t *testing.T) {
 		{"h300", "v0.10.33", "0.10", "dashboard", "Dashboard", "v0.10.33"},
 		{"h260", "v0.10.33", "0.10", "bootstrap", "Bootstrap", "v0.2.6"},
 		{"h208", "v0.10.8", "0.10", "dashboard", "Dashboard", "v0.10.8"},
-		{"h250", "v0.10.8", "0.10", "bootstrap", "Bootstrap", "v0.2.5"},
+		// h250 (bootstrap v0.2.5, 2026-10-20) is dated before the oldest window
+		// release v0.10.8 (2026-10-22): it belongs to no card and is left out.
 	}
 	if !slices.Equal(got, want) {
 		t.Fatalf("items = %+v\nwant %+v", got, want)

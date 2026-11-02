@@ -104,12 +104,12 @@ type onboardingTour struct {
 // dashboard minor releases, each ID once: the dashboard releases newest first,
 // inside a release the dashboard entries first, then the other components.
 // targets are the data-tour targets of the web UI, nil or empty marks no tour
-// as stale. A missing or unreadable changelog gives an empty list.
-func onboardingExplore(stateDir string, user auth.User, targets map[string]bool) (string, []onboardingExploreItem) {
+// as stale. A missing or unreadable changelog gives an empty list and false.
+func onboardingExplore(stateDir string, user auth.User, targets map[string]bool) (string, []onboardingExploreItem, bool) {
 	items := []onboardingExploreItem{}
 	view, err := versions.Releases(stateDir, onboardingExploreMinors)
 	if err != nil {
-		return "", items
+		return "", items, false
 	}
 	known := map[string]bool{}
 	for _, release := range view.Releases {
@@ -133,7 +133,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 			})
 		}
 	}
-	return view.To, items
+	return view.To, items, true
 }
 
 // onboardingTourFor keeps the steps whose permission the user holds. An
@@ -271,7 +271,7 @@ func requireOnboardingAdmin(w http.ResponseWriter, r *http.Request, manager *aut
 func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool, user auth.User) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := onboardingRoleOf(user)
-		currentVersion, exploreItems := onboardingExplore(stateDir, user, tourTargets)
+		currentVersion, exploreItems, readable := onboardingExplore(stateDir, user, tourTargets)
 		ids := make([]string, 0, len(exploreItems))
 		for _, item := range exploreItems {
 			ids = append(ids, item.ID)
@@ -285,7 +285,14 @@ func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, setting
 			own = progress.Users[user.Username]
 			own.Seen, own.Welcome, own.Baseline = ids, true, true
 		} else {
-			progress = store.EnsureUser(user.Username, time.Now().UTC(), onboardingSeed(user, role, versions.FreshInstall(stateDir), ids))
+			seed := onboardingSeed(user, role, versions.FreshInstall(stateDir), ids)
+			if readable {
+				progress = store.EnsureUser(user.Username, time.Now().UTC(), seed)
+			} else {
+				// Without the changelog the seed would store the baseline with an
+				// empty list for good. The answer is computed here, nothing is written.
+				progress = store.Preview(user.Username, time.Now().UTC(), seed)
+			}
 			own = progress.Users[user.Username]
 		}
 		seen, queue := own.Seen, own.Queue

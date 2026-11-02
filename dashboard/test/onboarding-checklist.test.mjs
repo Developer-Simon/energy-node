@@ -241,6 +241,16 @@ test('the checklist reads a highlight directly: body only, no details wrapper, d
   assert.match(partial, /<a class="whatsnew-link" x-bind:href="entry\.details\.doc" target="_blank" rel="noopener">\{\{t "settings\.whatsnew\.doc_link"\}\}<\/a>/);
 });
 
+test('the checklist detail has no placeholder doc link, the real doc link comes from the shared body', () => {
+  const template = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
+  const start = template.indexOf('class="ob-cl-detail"');
+  const end = template.indexOf('</li>', start);
+  const detail = template.slice(start, end);
+  assert.doesNotMatch(detail, /x-on:click\.prevent/);
+  assert.doesNotMatch(detail, /href="#"/);
+  assert.equal(template.includes('onboarding.checklist.docs'), false);
+});
+
 test('the shared body shows the doc link only when showDoc is set, the versions page keeps the details wrapper', () => {
   const partial = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'highlight-details.html'), 'utf8');
   const body = partial.slice(partial.indexOf('{{define "highlightDetailsBody"}}'), partial.indexOf('{{define "highlightDetails"}}'));

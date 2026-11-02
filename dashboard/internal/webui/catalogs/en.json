@@ -2941,7 +2941,6 @@
   "onboarding.checklist.continue": "Continue setup",
   "onboarding.checklist.count": "{done} of {total}",
   "onboarding.checklist.devices_note": "Only available here, not in the installer.",
-  "onboarding.checklist.docs": "More in the documentation",
   "onboarding.checklist.explore_note_all_seen": "Everything is seen, you can replay every tour.",
   "onboarding.checklist.explore_note_none": "There is no tour for this device.",
   "onboarding.checklist.explore_note_unseen": "Unseen with a tour: {n}.",

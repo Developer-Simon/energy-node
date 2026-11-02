@@ -92,7 +92,7 @@
                     <p class="release-group" x-text="groupTitle(entryGroup)"></p>
                     <ul class="release-entries">
                       <template x-for="(entry, index) in entryGroup.entries || []" :key="index">
-                        <li x-bind:class="{ 'is-breaking': entry.breaking }" x-bind:data-highlight="entry.id || null">
+                        <li x-bind:class="{ 'is-breaking': entry.breaking }" x-bind:data-highlight="highlightId(entry) || null">
                           <template x-if="entry.details">
                             {{template "highlightDetails"}}
                           </template>

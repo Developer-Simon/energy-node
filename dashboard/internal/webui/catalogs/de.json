@@ -2941,7 +2941,6 @@
   "onboarding.checklist.continue": "Einrichtung fortsetzen",
   "onboarding.checklist.count": "{done} von {total}",
   "onboarding.checklist.devices_note": "Gibt es nur hier, nicht im Installer.",
-  "onboarding.checklist.docs": "Mehr in der Dokumentation",
   "onboarding.checklist.explore_note_all_seen": "Alles gesehen, du kannst jede Tour noch einmal ansehen.",
   "onboarding.checklist.explore_note_none": "Für dieses Gerät gibt es keine Tour.",
   "onboarding.checklist.explore_note_unseen": "Noch ungesehen mit Tour: {n}.",

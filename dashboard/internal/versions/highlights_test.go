@@ -494,6 +494,53 @@ func TestExploreAttachesComponentReleasesToDashboardReleases(t *testing.T) {
 	}
 }
 
+// TestExploreDropsComponentReleasesOlderThanTheWindow: a component release
+// dated before the oldest window release belongs to no card and is dropped,
+// an undated one keeps the oldest card.
+func TestExploreDropsComponentReleasesOlderThanTheWindow(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json": `{"schema_version":1,"components":[
+ {"id":"dashboard","label":"Dashboard","kind":"app","version":"v0.10.33","releases":[
+  {"version":"v0.10.33","date":"2026-10-31","groups":[{"type":"feat","entries":[{"text":"dashboard new","pr":300,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.10.0","date":"2026-10-19","groups":[{"type":"feat","entries":[{"text":"dashboard ten","pr":190,"breaking":false,"highlight":true}]}]}]},
+ {"id":"bootstrap","label":"Bootstrap","kind":"tool","version":"v0.2.6","releases":[
+  {"version":"v0.2.6","date":"2026-10-31","groups":[{"type":"fix","entries":[{"text":"bootstrap six","pr":260,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.2.1","date":"2026-09-29","groups":[{"type":"feat","entries":[{"text":"bootstrap early","pr":210,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.2.0","date":"2026-09-28","groups":[{"type":"feat","entries":[{"text":"bootstrap older","pr":200,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.2.2","date":"","groups":[{"type":"fix","entries":[{"text":"bootstrap undated","pr":220,"breaking":false,"highlight":true}]}]}]}]}`,
+		"installed-manifest.json": `{"version":"v0.10.33","components":{"dashboard":"v0.10.33","bootstrap":"v0.2.6"}}`,
+	})
+	view, err := Releases(dir, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attached := map[string]string{}
+	for _, r := range view.Releases {
+		for _, e := range r.Entries {
+			attached[e.Text] = r.Version
+		}
+	}
+	for _, text := range []string{"bootstrap early", "bootstrap older"} {
+		if got, ok := attached[text]; ok {
+			t.Errorf("%q attached to %s, want dropped (older than the window)", text, got)
+		}
+	}
+	want := map[string]string{
+		"dashboard new":     "v0.10.33",
+		"bootstrap six":     "v0.10.33",
+		"dashboard ten":     "v0.10.0",
+		"bootstrap undated": "v0.10.0",
+	}
+	for text, w := range want {
+		if attached[text] != w {
+			t.Errorf("%q attached to %q, want %q", text, attached[text], w)
+		}
+	}
+	if len(attached) != len(want) {
+		t.Fatalf("attached = %v, want exactly %v", attached, want)
+	}
+}
+
 func TestExploreWithoutDashboardFallsBackPerComponent(t *testing.T) {
 	dir := writeState(t, map[string]string{
 		"changelog.json": `{"schema_version":1,"components":[

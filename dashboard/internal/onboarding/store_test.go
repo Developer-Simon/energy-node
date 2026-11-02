@@ -2,6 +2,7 @@ package onboarding
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -166,5 +167,28 @@ func TestEnsureUserKeepsAnExistingEntry(t *testing.T) {
 	})
 	if !progress.Users["anna"].Welcomed {
 		t.Fatalf("entry changed: %+v", progress.Users["anna"])
+	}
+}
+
+// TestPreviewComputesWithoutWriting: Preview gives the seeded progress of a
+// new user for this answer only, the file stays as it was.
+func TestPreviewComputesWithoutWriting(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	now := time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC)
+	seeded := store.Preview("reader", now, func(since time.Time) UserProgress {
+		return UserProgress{Seen: []string{"h1"}, Baseline: true}
+	})
+	if got := seeded.Users["reader"].Seen; len(got) != 1 || got[0] != "h1" {
+		t.Fatalf("preview seen = %v, want the seed", got)
+	}
+	if !seeded.Since.Equal(now) {
+		t.Fatalf("preview since = %v, want %v", seeded.Since, now)
+	}
+	if _, err := os.Stat(filepath.Join(dir, fileName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Preview wrote the file (stat err %v)", err)
+	}
+	if store.Load().Users["reader"].Baseline {
+		t.Fatal("Preview stored the seed")
 	}
 }

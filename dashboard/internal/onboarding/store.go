@@ -131,6 +131,28 @@ func (s *Store) UpdateUser(user string, mutate func(*UserProgress)) error {
 func (s *Store) EnsureUser(user string, now time.Time, seed func(since time.Time) UserProgress) Progress {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	progress, changed := s.ensureLocked(user, now, seed)
+	if changed {
+		if err := s.saveLocked(progress); err != nil {
+			log.Printf("onboarding: Fortschritt nicht gespeichert: %v", err)
+		}
+	}
+	return progress
+}
+
+// Preview is EnsureUser without the write: the progress for this answer only,
+// used while the seed would be wrong to keep, for example without a readable
+// changelog. The file is never changed.
+func (s *Store) Preview(user string, now time.Time, seed func(since time.Time) UserProgress) Progress {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	progress, _ := s.ensureLocked(user, now, seed)
+	return progress
+}
+
+// ensureLocked computes the progress EnsureUser returns and whether it differs
+// from the file. An unreadable file gives an in-memory seed and no change.
+func (s *Store) ensureLocked(user string, now time.Time, seed func(since time.Time) UserProgress) (Progress, bool) {
 	progress, err := s.readLocked()
 	if err != nil {
 		// Kaputte oder unlesbare Datei: der Stand gilt nur für diese Anfrage.
@@ -139,7 +161,7 @@ func (s *Store) EnsureUser(user string, now time.Time, seed func(since time.Time
 		progress = emptyProgress()
 		progress.Since = now
 		progress.Users[user] = seed(now)
-		return progress
+		return progress, false
 	}
 	changed := false
 	if progress.Since.IsZero() {
@@ -150,12 +172,7 @@ func (s *Store) EnsureUser(user string, now time.Time, seed func(since time.Time
 		progress.Users[user] = seed(progress.Since)
 		changed = true
 	}
-	if changed {
-		if err := s.saveLocked(progress); err != nil {
-			log.Printf("onboarding: Fortschritt nicht gespeichert: %v", err)
-		}
-	}
-	return progress
+	return progress, changed
 }
 
 func emptyProgress() Progress {

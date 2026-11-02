@@ -3,7 +3,9 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -515,6 +517,42 @@ func TestCorruptFileGetStaysReadOnly(t *testing.T) {
 	}
 	if string(after) != corruptOnboardingFile {
 		t.Fatalf("GET rewrote the corrupt file: %q", after)
+	}
+}
+
+// TestFirstGetWithoutChangelogStoresNothing: while the changelog cannot be read
+// the first GET answers with the starting state in memory only, so no
+// baseline with an empty list is stored. The next GET with a readable changelog
+// seeds the real highlights as seen.
+func TestFirstGetWithoutChangelogStoresNothing(t *testing.T) {
+	onboardingDir := t.TempDir()
+	stateDir := t.TempDir()
+	router, manager := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), onboardingDir, t.TempDir(), stateDir)
+	cookie, _ := loginWithRoles(t, router, manager, "reader", []string{auth.RoleViewLogs})
+
+	view := getOnboarding(t, router, cookie)
+	if len(view.Explore.Items) != 0 {
+		t.Fatalf("explore items = %v, want none without a changelog", view.Explore.Items)
+	}
+	if _, err := os.Stat(filepath.Join(onboardingDir, "onboarding.json")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("first GET without changelog wrote onboarding.json (stat err %v)", err)
+	}
+
+	for name, content := range map[string]string{
+		"changelog.json":          exploreChangelog,
+		"installed-manifest.json": `{"version":"v0.10.0","components":{"dashboard":"v0.10.0"}}`,
+	} {
+		if err := os.WriteFile(filepath.Join(stateDir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	view = getOnboarding(t, router, cookie)
+	if len(view.Explore.Items) == 0 {
+		t.Fatal("explore items empty with a readable changelog")
+	}
+	seen := onboarding.NewStore(onboardingDir).Load().Users["reader"].Seen
+	if !slices.Contains(seen, "h190") || !slices.Contains(seen, "h191") {
+		t.Fatalf("stored seen = %v, want the highlights of the readable changelog", seen)
 	}
 }
 

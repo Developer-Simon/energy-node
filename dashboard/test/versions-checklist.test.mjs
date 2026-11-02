@@ -124,6 +124,20 @@ test('checklistHref opens the checklist in explore mode, on the highlight when g
   assert.equal(component.checklistHref({ id: 'h184' }), '/?panel=settings&page=checklist&mode=explore&item=h184');
 });
 
+test('a changelog entry without id, the shape the API really sends, gets the id h<PR>', () => {
+  const { component, store } = createPanel();
+  const real = { pr: 184, text: 'Guest', highlight: true };
+  assert.equal(component.highlightId(real), 'h184');
+  assert.equal(component.highlightId({ id: 'h181', pr: 181 }), 'h181', 'an explicit id wins');
+  assert.equal(component.highlightId({ text: 'no pr' }), '', 'no id and no PR, no id');
+  assert.equal(component.highlightState(real), 'new');
+  assert.equal(component.highlightLabel(real), de['onboarding.checklist.news_new']);
+  assert.deepEqual({ ...component.highlightButtons(real) }, { run: true, runText: de['onboarding.checklist.action_show'], checklist: true });
+  assert.equal(component.checklistHref(real), '/?panel=settings&page=checklist&mode=explore&item=h184');
+  component.showHighlight(real);
+  assert.deepEqual(JSON.parse(JSON.stringify(store.started)), [['explore', 'h184', []]]);
+});
+
 test('?all=1 starts the all view, anything else and a ?release= link start in the highlights view', () => {
   const plain = createPanel();
   plain.component.init();
@@ -173,7 +187,7 @@ test('without ?release= the page loads no changelog on its own', async () => {
 });
 
 test('the release list marks each highlight and each release for the deep link', () => {
-  assert.match(template, /x-bind:data-highlight="entry\.id \|\| null"/);
+  assert.match(template, /x-bind:data-highlight="highlightId\(entry\) \|\| null"/);
   assert.match(template, /x-bind:data-release="release\.version"/);
 });
 

@@ -55,11 +55,20 @@
   // i18n-keys: onboarding.checklist.news_new, onboarding.checklist.news_seen, settings.versions.highlight.text
   const HIGHLIGHT_LABEL_KEY = {new: 'onboarding.checklist.news_new', seen: 'onboarding.checklist.news_seen', stale: 'onboarding.checklist.news_stale', text: 'settings.versions.highlight.text'};
 
+  // Die ID eines Highlights: /api/v1/changelog liefert keine ID, nur die PR-Nummer.
+  // Die Go-Seite nennt dieselben Eintraege "h<PR>" (releaseEntries).
+  const highlightId = (entry) => {
+    if (!entry) return '';
+    if (entry.id) return entry.id;
+    return entry.pr ? `h${entry.pr}` : '';
+  };
+
   // Der Eintrag des Highlights im Neu-erkunden-Stand des Stores, sonst null.
   const highlightItem = (store, entry) => {
-    if (!entry || !entry.id) return null;
+    const id = highlightId(entry);
+    if (!id) return null;
     for (const version of store.exploreVersions || []) {
-      const item = version.items.find((candidate) => candidate.id === entry.id);
+      const item = version.items.find((candidate) => candidate.id === id);
       if (item) return item;
     }
     return null;
@@ -138,6 +147,11 @@
       target.scrollIntoView({block: 'start', behavior: reduced ? 'auto' : 'smooth'});
     },
 
+    // ID eines Highlights fuer data-highlight und die Tour, leer ohne ID und PR.
+    highlightId(entry) {
+      return highlightId(entry);
+    },
+
     // Zustand eines Highlights der Versionsliste (obModel.exploreState), leer ohne Eintrag.
     highlightState(entry) {
       const store = this.$store.onboarding;
@@ -174,13 +188,14 @@
       if (this.highlightState(entry) === 'stale') return;
       const store = this.$store.onboarding;
       store.queue = [];
-      store.start('explore', entry.id);
+      store.start('explore', highlightId(entry));
     },
 
     // Deep Link in die Checkliste, Modus Neu erkunden, optional auf einen Punkt.
     checklistHref(entry) {
       const base = `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=checklist&mode=explore`;
-      return entry && entry.id ? `${base}&item=${encodeURIComponent(entry.id)}` : base;
+      const id = highlightId(entry);
+      return id ? `${base}&item=${encodeURIComponent(id)}` : base;
     },
 
     async loadUpdates() {

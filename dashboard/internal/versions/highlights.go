@@ -265,7 +265,8 @@ func dashboardWindow(c fullComponent, minors int, flagged bool) []ExploreRelease
 }
 
 // attachComponent appends the entries of every release of c to the window
-// release each one belongs to, see attachIndex.
+// release each one belongs to, see attachIndex. Releases older than the window
+// belong to no card and are left out.
 func attachComponent(releases []ExploreRelease, c fullComponent, flagged bool) {
 	for _, r := range c.Releases {
 		if compareVersions(r.Version, c.Version) > 0 {
@@ -276,6 +277,9 @@ func attachComponent(releases []ExploreRelease, c fullComponent, flagged bool) {
 			continue
 		}
 		i := attachIndex(releases, r.Date)
+		if i < 0 {
+			continue
+		}
 		releases[i].Entries = append(releases[i].Entries, tagEntries(c, r.Version, entries)...)
 	}
 }
@@ -283,16 +287,25 @@ func attachComponent(releases []ExploreRelease, c fullComponent, flagged bool) {
 // attachIndex is the index of the release a component release dated date
 // belongs to: the earliest release dated on or after date, the newest one
 // (index 0, releases are newest first) when none is. Dates compare as
-// strings, they are YYYY-MM-DD. Equal dates go to the lower version.
+// strings, they are YYYY-MM-DD. Equal dates go to the lower version. A dated
+// release before the oldest window release is -1, it belongs to no card. An
+// undated one (empty date) keeps the rule above and goes to the oldest card.
 func attachIndex(releases []ExploreRelease, date string) int {
 	best, found := 0, false
+	oldest := ""
 	for i, r := range releases {
+		if i == 0 || r.Date < oldest {
+			oldest = r.Date
+		}
 		if r.Date < date {
 			continue
 		}
 		if !found || r.Date < releases[best].Date || (r.Date == releases[best].Date && compareVersions(r.Version, releases[best].Version) < 0) {
 			best, found = i, true
 		}
+	}
+	if date != "" && date < oldest {
+		return -1
 	}
 	return best
 }
