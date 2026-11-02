@@ -36,6 +36,7 @@
 - **webui:** tour target for the catch-up chip of the checklist (aae5fd7)
 - **onboarding:** put the toggles for older versions in their own card below the version cards (fa111f5)
 - **webui:** tour target for the card with the version toggles (9b90dde)
+- **onboarding:** open older versions step by step, the two newest minors stay visible (15d4f82)
 - **onboarding:** Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind "Explore further back", and each older release card can catch up on its tour. (#198)
 - **ci:** require a tour for web UI highlights (2c10e82)
 - **versions:** pass the highlight tour through the API (7983912)
