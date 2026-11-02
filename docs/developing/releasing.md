@@ -357,6 +357,13 @@ The rules:
 * `device` is `any`, `phone` or `desktop`. Without it the step counts as `any`.
 * `need` is the permission a user needs for the step. Users without it skip the
   step.
+* `open` is optional. It is a list of `data-tour` ids that the tour clicks in
+  order, and `@name` for a named action from `onboarding-actions.js`. The
+  tour takes the clicks back when it moves on, unless the user clicked or typed
+  something meanwhile. An element that is already open is not clicked.
+* A target that exists on one element out of many may use
+  `x-bind:data-tour="<condition> ? '<id>' : null"`. The id must stand in single
+  quotes inside the expression.
 * `title` and `text` need `en` and every language of
   `highlight_i18n.LANGUAGES`. No text may be empty. Unknown keys are an error.
 * `*` and target keys work as for the details. A key with a target replaces the
@@ -372,6 +379,10 @@ exemption with its reason instead of steps:
 An exemption needs the user's consent. The agent that writes the highlight asks
 for it explicitly and adds `exempt` only after the user agreed. A tour has either
 steps or an exemption, never both.
+
+A tour may carry `replaced_by: {"pr": N, "step": S}` next to `steps`. When the
+tour goes stale, the checklist starts step S of the tour of #N instead. The Go
+test checks that the step exists.
 
 `highlight_translations.py validate --repo .` checks the tours of every file as
 well. `highlight_tours.py check --repo . --pr <N>` runs in the CI job "Highlight
