@@ -213,6 +213,35 @@
               "de": "Icons und Favoriten",
               "en": "Icons and favourites"
             }
+          },
+          {
+            "need": "view_devices",
+            "panel": "devices-panel",
+            "target": "device-tile",
+            "text": {
+              "de": "Jedes Gerät hat eine Kachel. Über Details öffnest du das Gerät.",
+              "en": "Every device has a tile. Details opens the device."
+            },
+            "title": {
+              "de": "Eine Kachel wählen",
+              "en": "Pick a tile"
+            }
+          },
+          {
+            "need": "edit_device_appearance",
+            "open": [
+              "@device-modal"
+            ],
+            "panel": "devices-panel",
+            "target": "device-favorite",
+            "text": {
+              "de": "Mit dem Stern heftest du bis zu drei Werte des Geräts an seine Kachel.",
+              "en": "The star pins up to three values of the device to its tile."
+            },
+            "title": {
+              "de": "Favoriten",
+              "en": "Favourites"
+            }
           }
         ]
       }
@@ -245,6 +274,9 @@
         "steps": [
           {
             "need": "view_config",
+            "open": [
+              "@battery-soc"
+            ],
             "panel": "config-panel",
             "target": "config",
             "text": {
@@ -343,16 +375,37 @@
       "*": {
         "steps": [
           {
-            "need": "view_automations",
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@time-rule"
+            ],
             "panel": "automations-panel",
-            "target": "automations-rules",
+            "target": "rule-weekdays",
             "text": {
-              "de": "Eine Regel kann nur an gewählten Wochentagen gelten, und zwischen Sonnenaufgang und Sonnenuntergang. Beides stellst du in einer Einzelregel ein.",
-              "en": "A rule can apply on chosen weekdays only, and between sunrise and sunset. You set both in a single rule."
+              "de": "Hier wählst du die Wochentage, an denen die Regel gilt. Ohne Auswahl gilt sie an allen Tagen.",
+              "en": "Choose the weekdays on which the rule applies. Without a choice it applies every day."
             },
             "title": {
-              "de": "Wochentage und Sonnenzeiten",
-              "en": "Weekdays and sun times"
+              "de": "Wochentage",
+              "en": "Weekdays"
+            }
+          },
+          {
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@sun-rule"
+            ],
+            "panel": "automations-panel",
+            "target": "rule-sun",
+            "text": {
+              "de": "Eine Bedingung kann auch zwischen Sonnenaufgang und Sonnenuntergang gelten, jeweils mit einem Versatz in Minuten.",
+              "en": "A condition can also apply between sunrise and sunset, each with an offset in minutes."
+            },
+            "title": {
+              "de": "Sonnenzeiten",
+              "en": "Sun times"
             }
           }
         ]
@@ -748,6 +801,9 @@
           },
           {
             "need": "edit_energy",
+            "open": [
+              "energy-groups-toggle"
+            ],
             "panel": "energy-panel",
             "target": "energy-groups",
             "text": {
@@ -801,7 +857,24 @@
           {
             "need": "edit_device_appearance",
             "panel": "devices-panel",
-            "target": "devices",
+            "target": "device-tile",
+            "text": {
+              "de": "Jedes Gerät hat eine Kachel. Über Details öffnest du das Gerät und wählst sein Icon.",
+              "en": "Every device has a tile. Details opens the device, and there you choose its icon."
+            },
+            "title": {
+              "de": "Eine Kachel wählen",
+              "en": "Pick a tile"
+            }
+          },
+          {
+            "need": "edit_device_appearance",
+            "open": [
+              "@device-modal",
+              "device-icon-button"
+            ],
+            "panel": "devices-panel",
+            "target": "device-icon-picker",
             "text": {
               "de": "Die Icons, die du für ein Gerät wählen kannst, sind jetzt nach Kategorien geordnet und um weitere Varianten ergänzt.",
               "en": "The icons you can choose for a device are now sorted into categories, and there are more variants."
@@ -823,9 +896,13 @@
       "*": {
         "steps": [
           {
-            "need": "view_automations",
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@balance-rule"
+            ],
             "panel": "automations-panel",
-            "target": "automations-rules",
+            "target": "rule-balance-field",
             "text": {
               "de": "Eine Schwelle kann deine eigenen Kategorien von der Energie-Seite beobachten. Die Feldauswahl listet sie unter Eigene Kategorien.",
               "en": "A threshold can watch your custom categories from the energy page. The field selection lists them under Custom categories."
