@@ -471,6 +471,12 @@
       const key = mode === 'setup' ? 'onboarding.toast.setup_skipped' : 'onboarding.toast.tour_ended';
       window.Alpine.store('toasts')?.push(t(key), 'info');
     },
+    // Leiste schliessen, ohne den Lauf am Server zu loeschen. Er startet beim Neuladen wieder.
+    postpone() {
+      this.active = false;
+      this.finished = null;
+      this.steps = [];
+    },
     close() {
       this.active = false;
       this.run = null;
@@ -690,6 +696,9 @@
       if (this.last) return this.s.finish();
       this.s.index += 1;
     },
+    // Vorstellung auf spaeter legen: die Leiste geht zu, der gespeicherte Lauf bleibt
+    // unveraendert (close() wuerde ihn loeschen). Beim naechsten Neuladen startet die Tour.
+    nextTime() { this.s.postpone(); },
     back() { if (this.s.index > 0) this.s.index -= 1; },
     again() { this.lost = false; this.show(); },
     checklist() {

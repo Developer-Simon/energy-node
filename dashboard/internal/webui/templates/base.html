@@ -531,6 +531,9 @@
             <template x-if="!$store.onboarding.finished">
               <button type="button" class="ob-btn" x-show="!done && !step?.intro" x-on:click="later()">{{t "onboarding.bar.later"}}</button>
             </template>
+            <template x-if="!$store.onboarding.finished">
+              <button type="button" class="ob-btn" x-show="step?.intro" x-on:click="nextTime()">{{t "onboarding.bar.next_time"}}</button>
+            </template>
             <template x-if="$store.onboarding.finished">
               <button type="button" class="ob-btn" x-on:click="checklist()">{{t "onboarding.bar.checklist"}}</button>
             </template>
