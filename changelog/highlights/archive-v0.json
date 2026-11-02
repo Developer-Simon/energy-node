@@ -534,16 +534,97 @@
   "98": {
     "de": {
       "*": "Der Status des Konfigurations-Services erscheint als Pille"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_config",
+            "panel": "config-panel",
+            "target": "config-status",
+            "text": {
+              "de": "Die Pille neben dem Dienst zeigt, ob er läuft und ob er die zuletzt gespeicherte Datei übernommen hat.",
+              "en": "The pill next to the service shows whether it runs and whether it took the last saved file."
+            },
+            "title": {
+              "de": "Dienststatus",
+              "en": "Service status"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Nach dem Speichern lädt der Dienst seine Datei neu. Lehnt er die neue Datei ab, behält er die alte, und die Statuspille meldet das.",
+        "doc": "dashboard/configuration.html",
+        "en": "After saving, the service reloads its file. If it refuses the new file, it keeps the old one and the status pill says so.",
+        "image": "dashboard-config.png"
+      }
     }
   },
   "99": {
     "de": {
       "*": "Verlaufskacheln für das Layout der Übersicht"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "edit_layout",
+            "panel": "overview-panel",
+            "target": "tiles",
+            "text": {
+              "de": "Editieren öffnet den Layout-Editor. Der Baustein Verlauf setzt ein Diagramm der Verlaufsseite auf eine Übersichtsseite.",
+              "en": "Edit opens the layout editor. The History block puts a chart from the history page on an overview page."
+            },
+            "title": {
+              "de": "Verlauf in der Übersicht",
+              "en": "History on the overview"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Karte Verlauf zeigt ein Diagramm der Verlaufsseite. Ihre Optionen wählen Quelle, Zeitraum, Statistik und Serien.",
+        "doc": "dashboard/overview-cards.html#history",
+        "en": "The History card shows a chart from the history page. Its options choose the source, the period, the statistic and the series.",
+        "image": "dashboard-card-history-view.png"
+      }
     }
   },
   "101": {
     "de": {
       "*": "Der Diagnose-Reiter wurde neu gestaltet"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_diagnostics",
+            "panel": "diagnostics-panel",
+            "target": "diagnostics",
+            "text": {
+              "de": "Die Zeile unter dem Titel fasst den Zustand zusammen. Ihr Punkt wird grün, gelb oder rot, je nach dem schwersten Befund.",
+              "en": "The line under the title sums up the state. Its dot turns green, yellow or red with the most severe finding."
+            },
+            "title": {
+              "de": "Diagnose auf einen Blick",
+              "en": "Diagnostics at a glance"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Diagnoseseite fasst den Zustand in einer Zeile zusammen, zählt die Geräte der Discovery und listet die Befunde mit den betroffenen Geräten.",
+        "doc": "dashboard/diagnostics.html",
+        "en": "The diagnostics page sums up the state in one line, counts the discovery devices and lists the findings with the affected devices.",
+        "image": "dashboard-diagnosis.png"
+      }
     }
   },
   "102": {
@@ -554,6 +635,85 @@
   "103": {
     "de": {
       "*": "Ebenen, Rollenringe und Fokus im Gerätediagramm"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Die Device-Map zeigt, wie deine Geräte zusammenhängen. Ein Klick auf ein Gerät stellt es und seine Verbindungen in den Fokus.",
+              "en": "The device map shows how your devices hang together. Click a device to focus on it and its connections."
+            },
+            "title": {
+              "de": "Device-Map",
+              "en": "Device map"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-layer-energy",
+            "text": {
+              "de": "Die Ebene Energie live zeigt Rollen, Werte und den laufenden Fluss.",
+              "en": "The Live energy layer shows the roles, the values and the moving flow."
+            },
+            "title": {
+              "de": "Energie live",
+              "en": "Live energy"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-layer-data",
+            "text": {
+              "de": "Datenfluss zeigt die Topics zwischen Geräten, Diensten und Automationsregeln.",
+              "en": "Data flow shows the topics between devices, services and automation rules."
+            },
+            "title": {
+              "de": "Datenfluss",
+              "en": "Data flow"
+            }
+          },
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-layer-balance",
+            "text": {
+              "de": "Rollen verbindet jedes Gerät mit einer Energierolle mit dem Energy Node, in der Farbe seiner Rolle.",
+              "en": "Roles connects every device with an energy role to the Energy Node, in the colour of its role."
+            },
+            "title": {
+              "de": "Rollen",
+              "en": "Roles"
+            }
+          },
+          {
+            "need": "edit_energy",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Wähle ein Gerät aus, um ihm direkt in der Map eine Energierolle zu geben.",
+              "en": "Select a device to give it an energy role right on the map."
+            },
+            "title": {
+              "de": "Rollen zuweisen",
+              "en": "Assign roles"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Ebenenleiste wechselt zwischen Verdrahtung, Energie live, Datenfluss und Rollen. Die Ansicht gehört zu diesem Browser, und Als Standard speichern schreibt sie für jeden Browser in die Map.",
+        "doc": "dashboard/device-map.html#layers-and-view",
+        "en": "The layer bar switches between Wiring, Live energy, Data flow and Roles. The view belongs to this browser, and Save as default writes it into the map for every browser.",
+        "image": "dashboard-device-map.png"
+      }
     }
   },
   "105": {
@@ -569,6 +729,46 @@
   "108": {
     "de": {
       "*": "Energiegruppen und eigene Kategorien"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_energy",
+            "panel": "energy-panel",
+            "target": "energy-plant",
+            "text": {
+              "de": "Die Anordnung aus der Device-Map mit dem Live-Fluss und der Bilanz. Ein Klick auf ein Gerät hebt seine Zeilen in der Rollentabelle hervor.",
+              "en": "The arrangement from the device map with the live flow and the balance. Click a device to light up its rows in the role table."
+            },
+            "title": {
+              "de": "Anlage live",
+              "en": "Plant live"
+            }
+          },
+          {
+            "need": "edit_energy",
+            "panel": "energy-panel",
+            "target": "energy-groups",
+            "text": {
+              "de": "Eine Gruppe fasst Geräte ohne eigenen Zähler zusammen. Sie kann als Ganzes in einer eigenen Kategorie zählen.",
+              "en": "A group bundles devices without a meter of their own. It can count as a whole in a category of its own."
+            },
+            "title": {
+              "de": "Gruppen",
+              "en": "Groups"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Eine Gruppe fasst Geräte ohne eigenen Zähler zusammen. Ist Als Ganzes zählen an, zählt sie in einer Verbraucherkategorie, die du wählst oder direkt anlegst. Eigene Kategorien ergänzen eigene Verbraucher, Erzeuger oder Speicher.",
+        "doc": "dashboard/energy.html#groups",
+        "en": "A group bundles devices without a meter of their own. With Count as a whole on, it counts in one consumer category, which you pick or create in place. Custom categories add your own consumer, producer or storage types.",
+        "image": "dashboard-energy-groups.png"
+      }
     }
   },
   "109": {
@@ -594,11 +794,49 @@
   "114": {
     "de": {
       "*": "Der Katalog der Geräte-Icons wurde neu geordnet"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "edit_device_appearance",
+            "panel": "devices-panel",
+            "target": "devices",
+            "text": {
+              "de": "Öffne ein Gerät und klicke auf sein Icon. Der Katalog ordnet die Icons nach Kategorien.",
+              "en": "Open a device and click its icon. The catalogue lists the icons by category."
+            },
+            "title": {
+              "de": "Icon-Katalog",
+              "en": "Icon catalogue"
+            }
+          }
+        ]
+      }
     }
   },
   "115": {
     "de": {
       "*": "Eigene Energiekategorien in Automatisierungen und ein überarbeiteter Editor"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_automations",
+            "panel": "automations-panel",
+            "target": "automations-rules",
+            "text": {
+              "de": "Eine Schwelle kann deine eigenen Kategorien von der Energie-Seite beobachten. Die Feldauswahl listet sie unter Eigene Kategorien.",
+              "en": "A threshold can watch your custom categories from the energy page. The field selection lists them under Custom categories."
+            },
+            "title": {
+              "de": "Eigene Kategorien in Regeln",
+              "en": "Your categories in rules"
+            }
+          }
+        ]
+      }
     }
   },
   "119": {
@@ -619,11 +857,91 @@
   "125": {
     "de": {
       "*": "Austausch und Verlaufsstatus erscheinen als Kacheln"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "history",
+            "panel": "settings-panel",
+            "target": "history-exchange",
+            "text": {
+              "de": "Hier wählst du, ob dieser Browser den Verlauf mit anderen Geräten austauscht. Eine Statuskachel zeigt die Verbindung und was ergänzt wurde.",
+              "en": "Here you choose whether this browser exchanges history with other devices. A status tile shows the connection and what was added."
+            },
+            "title": {
+              "de": "Geräteaustausch",
+              "en": "Device exchange"
+            }
+          },
+          {
+            "need": "view_history",
+            "panel": "history-panel",
+            "target": "history-status",
+            "text": {
+              "de": "Die Statuszeile über dem Diagramm zeigt Auflösung, Punkte und Serien des Diagramms.",
+              "en": "The status line above the chart shows the resolution, the points and the series of the chart."
+            },
+            "title": {
+              "de": "Verlaufsstatus",
+              "en": "History status"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Die Seite Verläufe der Einstellungen schaltet den Austausch zwischen Geräten und legt fest, wann dieser Browser austauscht. Unter der Auswahl zeigt eine Statuskachel, ob der Austausch verbunden ist und wie viele Werte er ergänzt hat.",
+        "doc": "dashboard/settings-history.html",
+        "en": "The History page of the settings switches the exchange between devices and chooses when this browser exchanges. Below the choices a status tile shows whether the exchange is connected and how many values it added.",
+        "image": "dashboard-settings-history.png"
+      }
     }
   },
   "126": {
     "de": {
       "*": "Der Bilanzknoten ist im Gerät energy_node aufgegangen"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap",
+            "text": {
+              "de": "Die Bilanz steckt jetzt im Gerät Energy Node. Das Automationsgerät hängt unter dem Node und verlinkt seine Regeln.",
+              "en": "The balance now lives in the Energy Node device. The automation device hangs below the node and links its rules."
+            },
+            "title": {
+              "de": "Gerät Energy Node",
+              "en": "Energy Node device"
+            }
+          },
+          {
+            "need": "edit_device_map",
+            "panel": "devicemap-panel",
+            "target": "devicemap-connect",
+            "text": {
+              "de": "Verbinden zieht eine Kante zwischen zwei Geräten. Jede Kante hat einen Typ mit Flussrichtung, und eine manuelle Kante lässt sich umkehren.",
+              "en": "Connect draws an edge between two devices. Each edge has a type with a flow direction, and a manual edge can be reversed."
+            },
+            "title": {
+              "de": "Verbindungstypen",
+              "en": "Connection types"
+            }
+          }
+        ]
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Der Energy Node ist die Bilanz selbst, das Gerät, das das Dashboard für Home Assistant veröffentlicht. Er zeigt die Netzleistung, und die Ebene Rollen verbindet jedes Gerät mit Energierolle mit ihm.",
+        "doc": "dashboard/device-map.html#roles-layer",
+        "en": "The Energy Node is the balance itself, the device the dashboard publishes for Home Assistant. It shows the net grid power, and the Roles layer connects every device with an energy role to it.",
+        "image": "dashboard-device-map-balance.png"
+      }
     }
   },
   "127": {
