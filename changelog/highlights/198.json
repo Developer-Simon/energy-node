@@ -2,6 +2,12 @@
   "de": {
     "*": "Einstellungen, Checkliste: Jede sichtbare Funktion seit v0.8.0 hat eine Tour, Releases älter als die letzten drei Minor-Versionen stehen hinter „Weiter zurück erkunden“, und jede ältere Release-Karte kann ihre Tour nachholen."
   },
+  "details": {
+    "*": {
+      "de": "Jede sichtbare Funktion seit Version 0.8.0 hat eine Tour. Releases, die älter sind als die letzten drei Minor-Versionen, klappst du unter Weiter zurück erkunden Schritt für Schritt auf. Auf jeder älteren Release-Karte spielt Tour nachholen alle Touren dieses Release ab. Sind alle gesehen, heißt der Knopf Tour wiederholen.",
+      "en": "Every visible feature since version 0.8.0 has a tour. Releases older than the last three minor versions open step by step under Explore further back. On every older release card, Take the tour plays all tours of that release. Once all are seen, the button reads Repeat tour."
+    }
+  },
   "tour": {
     "*": {
       "exempt": "The catch-up button explains itself, and the install step is covered by the tour of #171."

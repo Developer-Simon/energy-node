@@ -2,6 +2,12 @@
   "de": {
     "*": "Gäste dürfen standardmäßig nur ansehen, und ein Admin kann den Gastzugang abschalten."
   },
+  "details": {
+    "*": {
+      "de": "Gäste dürfen standardmäßig nur ansehen. Ein Admin kann den Gastzugang in der Gastkarte der Benutzerverwaltung abschalten. Dann bietet die Anmeldeseite keinen Gastzugang mehr an, und laufende Gastsitzungen werden beendet.",
+      "en": "Guests may only view by default. An admin can switch guest access off in the guest card of user management. The sign-in page then no longer offers guest access, and running guest sessions end."
+    }
+  },
   "tour": {
     "*": {
       "exempt": "The guest access step is part of the users tour of #167, so the tour stays in one place."
