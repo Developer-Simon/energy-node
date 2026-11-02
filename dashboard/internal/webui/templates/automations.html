@@ -26,14 +26,14 @@
         <span class="auto-dirty" x-cloak x-show="unsavedCount() > 0"
               x-text="$tn('automations.unsaved_count', unsavedCount(), {count: unsavedCount()})"></span>
 
-        <div class="auto-segment" role="tablist" aria-label="{{t "automations.tab.group_aria"}}">
+        <div class="auto-segment" data-tour="automations-tabs" role="tablist" aria-label="{{t "automations.tab.group_aria"}}">
           <button class="auto-segment-tab" type="button" role="tab" id="automations-tab-scenarios"
                   x-bind:aria-selected="view === 'scenarios' ? 'true' : 'false'" x-bind:class="{ active: view === 'scenarios' }"
                   x-on:click="view = 'scenarios'">
             <span>{{t "automations.tab.scenarios"}}</span>
             <span class="auto-count" x-text="document.scenarios.length"></span>
           </button>
-          <button class="auto-segment-tab" type="button" role="tab" id="automations-tab-rules"
+          <button class="auto-segment-tab" data-tour="automations-rules" type="button" role="tab" id="automations-tab-rules"
                   x-bind:aria-selected="view === 'rules' ? 'true' : 'false'" x-bind:class="{ active: view === 'rules' }"
                   x-on:click="view = 'rules'">
             <span>{{t "automations.tab.rules"}}</span>

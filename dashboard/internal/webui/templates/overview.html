@@ -8,7 +8,7 @@
 {{define "history"}}
 <section id="history-panel" class="panel" role="tabpanel" aria-labelledby="tab-history" x-bind:class="{ active: activePanel === 'history-panel' }" x-show="activePanel === 'history-panel'" x-data="historyPanel()" x-init="init()">
   <h2>{{t "overview.history.title"}}</h2>
-  <div id="history-state" class="history-status" role="status" x-bind:data-state="statusInfo.state" x-bind:data-refresh="refreshPaused ? 'paused' : 'live'" x-bind:aria-label="statusText" x-show="statusInfo.state !== 'empty'">
+  <div id="history-state" class="history-status" data-tour="history-status" role="status" x-bind:data-state="statusInfo.state" x-bind:data-refresh="refreshPaused ? 'paused' : 'live'" x-bind:aria-label="statusText" x-show="statusInfo.state !== 'empty'">
     <span class="history-status-dot" aria-hidden="true"></span>
     <span class="history-status-text" x-show="!showStatusControls && statusInfo.state !== 'ok'" x-text="statusText">{{t "overview.history.loading"}}</span>
     <template x-if="showStatusControls">
@@ -17,7 +17,7 @@
           <span class="history-status-pill history-status-pill--strong history-status-pill--select">
             <span x-text="tierLabel"></span>
             <span class="history-status-chevron" aria-hidden="true"></span>
-            <select class="history-status-select" aria-label="{{t "history.resolution.label"}}" x-on:change="setResolution($event.target.value)">
+            <select class="history-status-select" data-tour="history-resolution" aria-label="{{t "history.resolution.label"}}" x-on:change="setResolution($event.target.value)">
               <template x-for="option in resolutionOptions" x-bind:key="option.tier">
                 <option x-bind:value="option.tier" x-bind:selected="option.selected" x-text="$t('history.resolution.option', {label: option.label, percent: option.percent})"></option>
               </template>
