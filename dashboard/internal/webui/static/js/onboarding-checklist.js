@@ -108,6 +108,11 @@
     // Der Lauf startet beim ersten Highlight mit Tour, all nimmt jede Tour des Release mit.
     catchUpItem(version) { return version.items.find((item) => !item.stale && this.s.tourSteps(item).length) || null; },
     catchUpShown(version) { return !version.current && Boolean(this.catchUpItem(version)); },
+    // Alle Touren der Karte gesehen: der Knopf wird dann zum neutralen Wiederholen. Gleiche Auswahl wie unseenCount.
+    catchUpDone(version) {
+      const items = version.items.filter((item) => !item.stale && this.s.tourSteps(item).length);
+      return items.length > 0 && items.every((item) => this.newsState(item) === 'seen');
+    },
     catchUp(version) {
       const item = this.catchUpItem(version);
       if (item) this.run('explore', item.id, { all: true });

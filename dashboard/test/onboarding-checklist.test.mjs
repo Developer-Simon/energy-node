@@ -661,9 +661,34 @@ test('catching up runs every tour of that release from its first tour, seen or n
   assert.deepEqual([...store.steps.map((s) => s.id)], ['o2', 'o3', 'o3']);
 });
 
+test('the catch-up button turns into a repeat once every tour of that release is seen', async () => {
+  const { store, component: cl } = await load({ explore: CATCH_UP });
+  const older = cl.versions.find((v) => v.version === '0.11.0');
+  store.seen = { o2: true };
+  assert.equal(cl.catchUpDone(older), false);
+  store.seen = { o2: true, o3: true };
+  assert.equal(cl.catchUpDone(older), true);
+});
+
+test('the catch-up state ignores items without a tour and stale tours', async () => {
+  const explore = {
+    current_version: '0.12.2',
+    items: [
+      { id: 'n1', version: '0.12.2', minor: '0.12', text: 'Now', tour: { steps: [STEP] } },
+      { id: 'o1', version: '0.11.0', minor: '0.11', text: 'Text only', tour: null },
+      { id: 'o2', version: '0.11.0', minor: '0.11', text: 'Seen tour', tour: { steps: [STEP] } },
+      { id: 'o3', version: '0.11.0', minor: '0.11', text: 'Stale tour', tour: { steps: [STEP], stale: true } },
+    ],
+  };
+  const { store, component: cl } = await load({ explore });
+  const older = cl.versions.find((v) => v.version === '0.11.0');
+  store.seen = { o2: true };
+  assert.equal(cl.catchUpDone(older), true);
+});
+
 test('the checklist template puts the catch-up button next to the release notes chip', () => {
   const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
-  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" data-tour="checklist-catch-up" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
+  assert.match(html, /<div class="ob-cl-card-links">\s*<button type="button" class="ob-crosslink ob-crosslink--chip ob-crosslink--tour" x-bind:class="\{ 'is-primary': !catchUpDone\(version\) \}" data-tour="checklist-catch-up" x-show="catchUpShown\(version\)" x-on:click="catchUp\(version\)">/);
   assert.match(html, /catch_up/);
 });
 

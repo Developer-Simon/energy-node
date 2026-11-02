@@ -2945,6 +2945,7 @@
   "onboarding.checklist.archive_hide": "Frühere Versionen ausblenden",
   "onboarding.checklist.archive_show": "Weiter zurück erkunden ({n})",
   "onboarding.checklist.catch_up": "Tour nachholen",
+  "onboarding.checklist.catch_up_again": "Tour wiederholen",
   "onboarding.checklist.continue": "Einrichtung fortsetzen",
   "onboarding.checklist.count": "{done} von {total}",
   "onboarding.checklist.devices_note": "Gibt es nur hier, nicht im Installer.",
