@@ -105,7 +105,7 @@
       </template>
 
       <!-- Aeltere und fruehere Versionen: eigene Kachel unter den Versionskarten, sie bleibt auch unter den aufgeklappten Karten stehen. -->
-      <div class="setting-card ob-cl-more" x-show="olderToggleShown || archiveToggleShown">
+      <div class="setting-card ob-cl-more" data-tour="checklist-more" x-show="olderToggleShown || archiveToggleShown">
         <div class="ob-cl-more-actions">
           <button type="button" class="ob-btn ob-cl-older" x-show="olderToggleShown" x-bind:aria-expanded="olderOpen ? 'true' : 'false'" x-on:click="toggleOlder()"><span x-text="olderLabel"></span><svg class="ob-cl-older-chev" x-bind:class="{ 'is-open': olderOpen }" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
           <button type="button" class="ob-btn ob-cl-older" x-show="archiveToggleShown" x-bind:aria-expanded="archiveOpen ? 'true' : 'false'" x-on:click="toggleArchive()"><span x-text="archiveLabel"></span><svg class="ob-cl-older-chev" x-bind:class="{ 'is-open': archiveOpen }" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>

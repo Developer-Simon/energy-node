@@ -599,8 +599,8 @@ test('the toggles for older and earlier versions sit in their own card below the
   const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'checklist.html'), 'utf8');
   const summary = html.slice(html.indexOf('ob-cl-summary" data-tour="checklist-explore"'), html.indexOf('x-for="version in versions"'));
   assert.doesNotMatch(summary, /toggleOlder|toggleArchive/);
-  const more = html.slice(html.indexOf('class="setting-card ob-cl-more"'));
-  assert.ok(html.indexOf('class="setting-card ob-cl-more"') > html.indexOf('x-for="version in versions"'));
+  const more = html.slice(html.indexOf('class="setting-card ob-cl-more" data-tour="checklist-more"'));
+  assert.ok(html.indexOf('class="setting-card ob-cl-more" data-tour="checklist-more"') > html.indexOf('x-for="version in versions"'));
   assert.match(more, /x-show="olderToggleShown \|\| archiveToggleShown"/);
   assert.match(more, /x-on:click="toggleOlder\(\)"[\s\S]*x-on:click="toggleArchive\(\)"/);
 });
