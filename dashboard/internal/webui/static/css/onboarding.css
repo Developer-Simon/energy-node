@@ -503,6 +503,9 @@
 .ob-cl-detail p { margin: 0; font-size: .9rem; line-height: 1.5; }
 /* Die Details stehen ohne <details> direkt in der Zeile: der Body ist sonst unter .whatsnew-detail[open] unsichtbar. */
 .ob-cl-detail .whatsnew-body { opacity: 1; transform: none; padding: 0; }
+/* Untertexte der Neu-erkunden-Zeilen in der normalen Textfarbe statt grau. */
+.ob-cl-row--news .ob-cl-sub, .ob-cl-detail .whatsnew-text { color: var(--text); }
+.ob-cl-row--news.is-done .ob-cl-sub { color: var(--ok); }
 /* Unterzeile je Komponente in einer Karte, etwa "Bootstrap 0.2.6". Kleiner Text bekommt etwas Laufweite. */
 .ob-cl-subhead {
   margin: .9rem 0 .25rem;
