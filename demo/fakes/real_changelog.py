@@ -10,17 +10,23 @@ und den Vorgaenger-Stand des Dashboards auf die vorletzte Dashboard-Version, dam
 Highlights der neuesten Dashboard-Version bekommen Beispiel-Details (eines mit
 Bild, Ausschnitt und Doku-Link, eines mit unerreichbarem Bild), solange das Repo
 noch keine eigenen Details traegt. Bilder aus docs/images/ werden eingebettet.
+Wie auf dem Node liegt je Bundle-Version eine Datei in changelog/. Der Dashboard-
+Server fuehrt sie zusammen, Neu erkunden sieht so auch aeltere Minor-Versionen.
 """
 import base64
 import json
+import shutil
 import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
 
 repo, state = Path(sys.argv[1]), Path(sys.argv[2])
+history_dir = state / "changelog"
+shutil.rmtree(history_dir, ignore_errors=True)
 subprocess.run([sys.executable, str(repo / "scripts/build/make_changelog_json.py"),
-                "--repo", str(repo), "--out", str(state / "changelog.json")], check=True)
+                "--repo", str(repo), "--out", str(state / "changelog.json"),
+                "--out-dir", str(history_dir)], check=True)
 changelog = json.loads((state / "changelog.json").read_text())
 
 MANIFEST_KEYS = {"dashboard", "bootstrap", "energy_node_common", "battery_soc_core", "services"}
@@ -54,20 +60,29 @@ demo = [
     {"text": {"en": "Second demo row with an unreachable image. Image and toggle must disappear."},
      "image": {"url": "http://127.0.0.1:9/missing.png", "width": 1000, "height": 600, "crop": [0.1, 0.1, 0.5, 0.5]}},
 ]
-dashboard = next(c for c in changelog["components"] if c["id"] == "dashboard")
+latest = history_dir / f"{changelog['bundle_version']}.json"
+for path in (state / "changelog.json", *sorted(history_dir.glob("*.json"))):
+    document = json.loads(path.read_text())
+    dashboard = next((c for c in document["components"] if c["id"] == "dashboard"), None)
+    if dashboard is None:
+        continue
+    if path in (state / "changelog.json", latest):
+        entries = [e for r in dashboard["releases"][:1] for g in r["groups"] for e in g["entries"] if e.get("highlight")]
+        if not any("details" in e for e in entries):
+            for entry, details in zip(entries, demo):
+                entry["details"] = details
+    # Die Bild-URLs zeigen auf den Tag oder Commit bei GitHub, den es lokal noch nicht
+    # gibt. Echte Bilder aus docs/images/ werden deshalb als data-URI eingebettet.
+    for release in dashboard["releases"]:
+        for group in release["groups"]:
+            for entry in group["entries"]:
+                image = (entry.get("details") or {}).get("image")
+                if image and "/docs/images/" in image["url"]:
+                    png = repo / "docs/images" / image["url"].rsplit("/", 1)[1]
+                    image["url"] = "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()
+    path.write_text(json.dumps(document, ensure_ascii=False))
+merged = json.loads(latest.read_text())
+dashboard = next(c for c in merged["components"] if c["id"] == "dashboard")
 entries = [e for r in dashboard["releases"][:1] for g in r["groups"] for e in g["entries"] if e.get("highlight")]
-if not any("details" in e for e in entries):
-    for entry, details in zip(entries, demo):
-        entry["details"] = details
-
-# Die Bild-URLs zeigen auf den Tag oder Commit bei GitHub, den es lokal noch nicht
-# gibt. Echte Bilder aus docs/images/ werden deshalb als data-URI eingebettet.
-for release in dashboard["releases"]:
-    for group in release["groups"]:
-        for entry in group["entries"]:
-            image = (entry.get("details") or {}).get("image")
-            if image and "/docs/images/" in image["url"]:
-                png = repo / "docs/images" / image["url"].rsplit("/", 1)[1]
-                image["url"] = "data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()
-(state / "changelog.json").write_text(json.dumps(changelog, ensure_ascii=False))
-print(f"Echter Changelog {changelog['bundle_version']}: {len(entries)} Highlights, {sum(1 for e in entries if e.get('details'))} mit Details")
+print(f"Echter Changelog {changelog['bundle_version']}: {len(entries)} Highlights, {sum(1 for e in entries if e.get('details'))} mit Details, "
+      f"{len(list(history_dir.glob('*.json')))} Bundle-Versionen in changelog/")
