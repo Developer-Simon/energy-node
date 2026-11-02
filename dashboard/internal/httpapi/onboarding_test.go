@@ -3,7 +3,9 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -32,14 +34,38 @@ type onboardingView struct {
 			State     string `json:"state"`
 		} `json:"items"`
 	} `json:"setup"`
-	Queue []string `json:"queue"`
-	User  struct {
+	Queue   []string `json:"queue"`
+	Explore struct {
+		CurrentVersion string `json:"current_version"`
+		Items          []struct {
+			ID      string            `json:"id"`
+			Version string            `json:"version"`
+			Minor   string            `json:"minor"`
+			PR      int               `json:"pr"`
+			Text    string            `json:"text"`
+			I18n    map[string]string `json:"i18n"`
+			Details *struct {
+				Text map[string]string `json:"text"`
+				Doc  string            `json:"doc"`
+			} `json:"details"`
+			Tour *struct {
+				Steps []struct {
+					Target string `json:"target"`
+					Need   string `json:"need"`
+				} `json:"steps"`
+				Stale bool `json:"stale"`
+			} `json:"tour"`
+		} `json:"items"`
+		BaselineSeen bool `json:"baseline_seen"`
+	} `json:"explore"`
+	User struct {
 		Seen     []string `json:"seen"`
 		Welcomed bool     `json:"welcomed"`
 		Run      *struct {
 			Mode  string `json:"mode"`
 			From  string `json:"from"`
 			Index int    `json:"index"`
+			All   bool   `json:"all"`
 		} `json:"run"`
 		Queue []string `json:"queue"`
 	} `json:"user"`
@@ -56,6 +82,20 @@ func newOnboardingTestRouter(t *testing.T, usersPath, onboardingDir string) (htt
 // of the installation in settingsDir, so a test can prepare them first.
 func newOnboardingRouterWithSettings(t *testing.T, usersPath, onboardingDir, settingsDir string) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return newOnboardingRouterWithState(t, usersPath, onboardingDir, settingsDir, t.TempDir())
+}
+
+// newOnboardingRouterWithState is newOnboardingRouterWithSettings with the
+// installer state (changelog, manifests) in stateDir.
+func newOnboardingRouterWithState(t *testing.T, usersPath, onboardingDir, settingsDir, stateDir string) (http.Handler, *auth.Manager) {
+	t.Helper()
+	return newOnboardingRouterWithTargets(t, usersPath, onboardingDir, settingsDir, stateDir, nil)
+}
+
+// newOnboardingRouterWithTargets is newOnboardingRouterWithState with the
+// data-tour targets of the web UI as the caller names them (nil: none).
+func newOnboardingRouterWithTargets(t *testing.T, usersPath, onboardingDir, settingsDir, stateDir string, targets func() map[string]bool) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(usersPath, "admin", usersAdminPassword)
 	if err != nil {
 		t.Fatal(err)
@@ -63,8 +103,10 @@ func newOnboardingRouterWithSettings(t *testing.T, usersPath, onboardingDir, set
 	hub := companion.NewHub()
 	manager.SetHAVerifier(hub)
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(settingsDir), nil, nil, nil, nil, nil, RouterDependencies{
-		Auth:       manager,
-		Onboarding: onboarding.NewStore(onboardingDir),
+		Auth:              manager,
+		Onboarding:        onboarding.NewStore(onboardingDir),
+		InstallerStateDir: stateDir,
+		TourTargets:       targets,
 	})
 	return router, manager
 }
@@ -201,6 +243,22 @@ func TestMeOnlyTouchesOwnAccount(t *testing.T) {
 	admin = getOnboarding(t, router, adminCookie)
 	if admin.User.Run != nil || !admin.User.Welcomed || len(admin.User.Seen) != 1 {
 		t.Fatalf("after run null: %+v", admin.User)
+	}
+}
+
+// The all flag of a repeat run is stored with the run and comes back after a restart.
+func TestRepeatRunKeepsAllFlag(t *testing.T) {
+	usersPath := filepath.Join(t.TempDir(), "users.json")
+	stateDir := t.TempDir()
+	router, _ := newOnboardingTestRouter(t, usersPath, stateDir)
+	cookie, csrf := sessionFor(t, router, "admin", usersAdminPassword)
+	wantUsersStatus(t, usersCall(router, http.MethodPut, "/api/v1/onboarding/me", `{"run":{"mode":"setup","from":"users","index":0,"all":true}}`, cookie, csrf, true), http.StatusOK)
+
+	restarted, _ := newOnboardingTestRouter(t, usersPath, stateDir)
+	restartedCookie, _ := sessionFor(t, restarted, "admin", usersAdminPassword)
+	view := getOnboarding(t, restarted, restartedCookie)
+	if view.User.Run == nil || !view.User.Run.All || view.User.Run.From != "users" {
+		t.Fatalf("repeat run after restart = %+v, want all flag kept", view.User.Run)
 	}
 }
 
@@ -428,5 +486,155 @@ func TestExistingInstallBehavesLikeFresh(t *testing.T) {
 	}
 	if want := []string{"setup", "explore"}; !slices.Equal(view.Queue, want) {
 		t.Fatalf("admin queue = %v, want %v", view.Queue, want)
+	}
+}
+
+// corruptOnboardingFile is an onboarding.json that is not valid JSON.
+const corruptOnboardingFile = `{"setup_done": tru`
+
+func writeCorruptOnboarding(t *testing.T, dir string) string {
+	t.Helper()
+	path := filepath.Join(dir, "onboarding.json")
+	if err := os.WriteFile(path, []byte(corruptOnboardingFile), 0640); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestCorruptFileGetStaysReadOnly(t *testing.T) {
+	dir := t.TempDir()
+	router, manager := newOnboardingTestRouter(t, filepath.Join(t.TempDir(), "users.json"), dir)
+	cookie, _ := loginWithRoles(t, router, manager, "reader", []string{auth.RoleViewLogs})
+	path := writeCorruptOnboarding(t, dir)
+
+	view := getOnboarding(t, router, cookie)
+	if !slices.Contains(view.Queue, "welcome") {
+		t.Fatalf("queue = %v, want the welcome computed in memory", view.Queue)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != corruptOnboardingFile {
+		t.Fatalf("GET rewrote the corrupt file: %q", after)
+	}
+}
+
+// TestFirstGetWithoutChangelogStoresNothing: while the changelog cannot be read
+// the first GET answers with the starting state in memory only, so no
+// baseline with an empty list is stored. The next GET with a readable changelog
+// seeds the highlights of older minors as seen.
+func TestFirstGetWithoutChangelogStoresNothing(t *testing.T) {
+	onboardingDir := t.TempDir()
+	stateDir := t.TempDir()
+	router, manager := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), onboardingDir, t.TempDir(), stateDir)
+	cookie, _ := loginWithRoles(t, router, manager, "reader", []string{auth.RoleViewLogs})
+
+	view := getOnboarding(t, router, cookie)
+	if len(view.Explore.Items) != 0 {
+		t.Fatalf("explore items = %v, want none without a changelog", view.Explore.Items)
+	}
+	if _, err := os.Stat(filepath.Join(onboardingDir, "onboarding.json")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("first GET without changelog wrote onboarding.json (stat err %v)", err)
+	}
+
+	for name, content := range map[string]string{
+		"changelog.json":          exploreChangelog,
+		"installed-manifest.json": `{"version":"v0.10.0","components":{"dashboard":"v0.10.0"}}`,
+	} {
+		if err := os.WriteFile(filepath.Join(stateDir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	view = getOnboarding(t, router, cookie)
+	if len(view.Explore.Items) == 0 {
+		t.Fatal("explore items empty with a readable changelog")
+	}
+	seen := onboarding.NewStore(onboardingDir).Load().Users["reader"].Seen
+	if !slices.Equal(seen, []string{"h150"}) {
+		t.Fatalf("stored seen = %v, want the highlights of older minors", seen)
+	}
+}
+
+func TestCorruptFileMeWelcomeFinishes(t *testing.T) {
+	dir := t.TempDir()
+	router, manager := newOnboardingTestRouter(t, filepath.Join(t.TempDir(), "users.json"), dir)
+	cookie, csrf := loginWithRoles(t, router, manager, "reader", []string{auth.RoleViewLogs})
+	writeCorruptOnboarding(t, dir)
+
+	wantUsersStatus(t, usersCall(router, http.MethodPut, "/api/v1/onboarding/me", `{"welcomed":true}`, cookie, csrf, true), http.StatusOK)
+
+	view := getOnboarding(t, router, cookie)
+	if !view.User.Welcomed {
+		t.Fatalf("welcomed not stored after PUT on a corrupt file: %+v", view.User)
+	}
+	if slices.Contains(view.Queue, "welcome") {
+		t.Fatalf("welcome still queued after finishing it: %v", view.Queue)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "onboarding.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored onboarding.Progress
+	if err := json.Unmarshal(data, &stored); err != nil {
+		t.Fatalf("file not rewritten as valid JSON: %v", err)
+	}
+	if stored.Since.IsZero() {
+		t.Fatal("since not set when the corrupt file was replaced")
+	}
+}
+
+func TestGuestMeStoresNothing(t *testing.T) {
+	dir := t.TempDir()
+	router, _ := newOnboardingTestRouter(t, filepath.Join(t.TempDir(), "users.json"), dir)
+	cookie, csrf := guestSession(t, router)
+
+	body := `{"seen_add":["intro"],"welcomed":true,"queue":["theme"],"run":{"mode":"full","from":"start","index":1}}`
+	wantUsersStatus(t, usersCall(router, http.MethodPut, "/api/v1/onboarding/me", body, cookie, csrf, true), http.StatusOK)
+
+	data, err := os.ReadFile(filepath.Join(dir, "onboarding.json"))
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "guest-") {
+		t.Fatalf("guest progress stored: %s", data)
+	}
+}
+
+func TestExploreItemCarriesTextAndDetails(t *testing.T) {
+	dir := t.TempDir()
+	changelog := `{"schema_version":1,"components":[{"id":"dashboard","label":"Dashboard","version":"v0.10.0","releases":[
+  {"version":"v0.10.0","groups":[{"type":"feat","entries":[
+    {"text":"Checklist","pr":192,"breaking":false,"highlight":true,
+     "i18n":{"de":"Checkliste"},
+     "details":{"text":{"en":"Longer text","de":"Laengerer Text"},"doc":"docs/checklist.md"},
+     "tour":{"steps":[{"target":"checklist","device":"any","title":{"en":"C"},"text":{"en":"C"}}]}}]}]}]}]}`
+	files := map[string]string{
+		"changelog.json":          changelog,
+		"installed-manifest.json": `{"version":"v0.10.0","components":{"dashboard":"v0.10.0"}}`,
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	router, _ := newOnboardingRouterWithState(t, filepath.Join(t.TempDir(), "users.json"), t.TempDir(), t.TempDir(), dir)
+	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	items := getOnboarding(t, router, cookie).Explore.Items
+	if len(items) != 1 {
+		t.Fatalf("explore items = %+v, want one", items)
+	}
+	item := items[0]
+	if item.ID != "h192" || item.Version != "v0.10.0" || item.PR != 192 || item.Text != "Checklist" {
+		t.Fatalf("item = %+v, want id h192, version v0.10.0, pr 192, text Checklist", item)
+	}
+	if item.I18n["de"] != "Checkliste" {
+		t.Fatalf("i18n = %v, want de Checkliste", item.I18n)
+	}
+	if item.Details == nil || item.Details.Text["en"] != "Longer text" || item.Details.Doc != "docs/checklist.md" {
+		t.Fatalf("details = %+v, want the longer text and doc", item.Details)
+	}
+	if item.Tour == nil || len(item.Tour.Steps) != 1 {
+		t.Fatalf("tour = %+v, want the checklist step", item.Tour)
 	}
 }

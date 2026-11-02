@@ -164,3 +164,17 @@ func TestHandleChangelogHighlights(t *testing.T) {
 		t.Fatalf("missing changelog: got %d %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestHandleChangelogHighlightsCarriesTheTour(t *testing.T) {
+	dir := t.TempDir()
+	writeState(t, dir, "changelog.json", `{"components":[{"id":"dashboard","label":"Dashboard","version":"v0.9.0","releases":[{"version":"v0.9.0","groups":[{"entries":[{"text":"x","pr":180,"highlight":true,"tour":{"steps":[{"target":"favorites","device":"any","title":{"en":"T"},"text":{"en":"X"}}]}}]}]}]}]}`)
+	writeState(t, dir, "installed-manifest.json", `{"version":"v0.9.0","components":{"dashboard":"v0.9.0"}}`)
+
+	rec := httptest.NewRecorder()
+	handleChangelogHighlights(dir)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/changelog/highlights", nil))
+	body := rec.Body.String()
+	want := `"tour":{"steps":[{"target":"favorites","device":"any","title":{"en":"T"},"text":{"en":"X"}}]}`
+	if rec.Code != http.StatusOK || !strings.Contains(body, `"id":"h180"`) || !strings.Contains(body, want) {
+		t.Fatalf("got %d %s", rec.Code, body)
+	}
+}

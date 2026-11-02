@@ -23,8 +23,19 @@
   const ME = '/api/v1/onboarding/me';
   const SETUP_COMPLETE = '/api/v1/onboarding/setup/complete';
   const SESSION = '/api/v1/auth/session';
+  // Begruessung eines Gastes gilt fuer die Dauer der Browsersitzung.
+  const WELCOME_DONE_KEY = 'ob-welcome-done';
 
   const t = (key, params) => window.I18n.t(key, params);
+
+  // Speicher der Browsersitzung. Ohne Zugriff (gesperrt, privates Fenster)
+  // bleibt die Begruessung des Gastes offen, sie kommt beim naechsten Laden wieder.
+  const welcomeDoneHere = () => {
+    try { return window.sessionStorage.getItem(WELCOME_DONE_KEY) === '1'; } catch { return false; }
+  };
+  const rememberWelcomeDone = () => {
+    try { window.sessionStorage.setItem(WELCOME_DONE_KEY, '1'); } catch { /* siehe welcomeDoneHere */ }
+  };
 
   const isPhone = () => window.matchMedia(PHONE).matches;
   const reduced = () => window.obMotion.reducedMotion();
@@ -154,6 +165,8 @@
     status: {},
     // Einrichtungsschritte aus dem Server (setup.items), in Reihenfolge.
     items: [],
+    // Highlights aus dem Server (explore), so wie /api/v1/onboarding sie liefert.
+    exploreData: { current_version: '', items: [] },
     seen: {},
     welcomed: false,
     run: null,
@@ -179,7 +192,12 @@
       if (!progress) return false;
       this.role = progress.role || 'guest';
       this.setupDone = Boolean(progress.setup?.done);
+      // Die Checkliste startet bei Neu erkunden, sobald die Einrichtung erledigt ist.
+      // Ein mode= in der Adresse (Deep Link) gewinnt, auch wenn der Store spaeter laedt.
+      const deepMode = new URLSearchParams(window.location.search).get('mode');
+      if (deepMode !== 'setup' && deepMode !== 'explore') this.checklistMode = this.setupDone ? 'explore' : 'setup';
       this.items = progress.setup?.items || [];
+      this.exploreData = { current_version: progress.explore?.current_version || '', items: progress.explore?.items || [] };
       // Gespeichert und erkannt zusammen. Erkannt steht nur in den Items.
       this.status = { ...(progress.setup?.steps || {}), ...Object.fromEntries(
         this.items.filter((item) => item.state).map((item) => [item.id, item.state])) };
@@ -187,10 +205,17 @@
       this.welcomed = Boolean(progress.user?.welcomed);
       this.run = progress.user?.run || null;
       this.queue = progress.user?.queue || [];
-      // Die Sitzungswarteschlange nennt nur Einrichtung, und nur solange sie offen ist.
+      // Die Sitzungswarteschlange nennt Einrichtung und Begruessung, solange sie offen sind.
       // Sie wird wie enqueue() ans Konto geschrieben, startet aber erst die Leiste.
       if ((progress.queue || []).includes('setup') && !this.run && !this.queue.includes('setup')) {
         this.queue = [...this.queue, 'setup'];
+        void send('PUT', ME, { queue: this.queue });
+      }
+      // Ein Gast hat kein Konto, sein Stand kommt nur aus dem Browser. Der Server
+      // meldet die Begruessung bei jedem Laden neu, deshalb gilt das Merkmal der Sitzung.
+      const guestDone = this.role === 'guest' && welcomeDoneHere();
+      if ((progress.queue || []).includes('welcome') && !guestDone && !this.run && !this.queue.includes('welcome')) {
+        this.queue = [...this.queue, 'welcome'];
         void send('PUT', ME, { queue: this.queue });
       }
       this.loaded = true;
@@ -232,8 +257,61 @@
       const done = items.filter((item) => ['done', 'installer'].includes(this.stateOf(item.id))).length;
       return { done, total: items.length };
     },
+    // Neu erkunden: die Highlights des Servers, eine Karte je Release
+    // (item.version, der Server liefert neueste zuerst). Die erste Karte ist die
+    // aktuelle. sections gruppiert die Highlights einer Karte nach Komponente
+    // (Reihenfolge wie empfangen), items ist die flache Liste fuer obModel. Titel
+    // und Texte in der Seitensprache (sonst der englische Text). Schritte tragen
+    // literal, build() uebersetzt sie nicht mehr.
+    get exploreVersions() {
+      const localized = (map, fallback) => window.I18n.localized(map, fallback);
+      const versions = [];
+      for (const item of this.exploreData.items) {
+        const minor = item.minor || window.obModel.minorOf(item.version);
+        let version = versions.find((v) => v.release === item.version);
+        if (!version) {
+          version = { version: item.version, minor, release: item.version, current: versions.length === 0, items: [], sections: [] };
+          versions.push(version);
+        }
+        const component = item.component || 'dashboard';
+        let section = version.sections.find((s) => s.id === component);
+        if (!section) {
+          section = { id: component, label: item.component_label || '', version: item.component_version || '', items: [] };
+          version.sections.push(section);
+        }
+        const text = localized(item.i18n, item.text);
+        const entry = {
+          id: item.id,
+          pr: item.pr,
+          title: text,
+          text,
+          // i18n und details wie vom Server: die Checkliste zeigt damit das
+          // gemeinsame Template highlight-details.html.
+          i18n: item.i18n,
+          details: item.details || null,
+          detail: item.details ? localized(item.details.text, item.details.text?.en) : '',
+          // tour null heisst: nur Text, keine Tour.
+          tour: item.tour ? undefined : false,
+          // Veraltet: die Tour passt nicht mehr zur Oberflaeche (Server, Ziele fehlen).
+          stale: Boolean(item.tour?.stale),
+          steps: (item.tour?.steps || []).map((s) => ({
+            panel: s.panel,
+            page: s.page,
+            target: `[data-tour="${s.target}"]`,
+            device: s.device,
+            need: s.need,
+            title: localized(s.title, s.title?.en),
+            text: localized(s.text, s.text?.en),
+            literal: true,
+          })),
+        };
+        version.items.push(entry);
+        section.items.push(entry);
+      }
+      return versions;
+    },
     get unseenCount() {
-      return window.obModel.unseenCount(window.obSteps.explore, this.seen, this.ctx());
+      return window.obModel.unseenCount(this.exploreVersions, this.seen, this.ctx());
     },
     // Schritte eines Highlights, die fuer Rolle und Geraet gelten (wie in obModel).
     tourSteps(item) {
@@ -249,17 +327,20 @@
 
     // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. Das
     // Modell liefert Katalogschluessel, hier werden Titel und Texte uebersetzt.
-    build(mode, from) {
-      const { explore, welcome } = window.obSteps;
+    // Schritte mit literal (Neu erkunden) sind schon Text und bleiben so.
+    // all: Wiederholen aus der Checkliste, jeder erlaubte Schritt, auch erledigte.
+    build(mode, from, all = false) {
+      const { welcome } = window.obSteps;
       const areas = window.obSteps.areas.map((a) => ({ ...a, label: t(a.label) }));
       const steps = window.obModel.buildSteps({
-        mode, from, setup: this.setupItems, explore, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
+        mode, from, all: Boolean(all), setup: this.setupItems, explore: this.exploreVersions, welcome, areas, seen: this.seen, status: this.status, ctx: this.ctx(),
       });
-      return steps.map((s) => ({ ...s, title: s.title ? t(s.title) : '', text: s.text ? t(s.text) : '', emptyText: s.emptyText ? t(s.emptyText) : '' }));
+      const translate = (s, value) => (s.literal ? value || '' : (value ? t(value) : ''));
+      return steps.map((s) => ({ ...s, title: translate(s, s.title), text: translate(s, s.text), emptyText: s.emptyText ? t(s.emptyText) : '' }));
     },
 
-    start(mode, from = null, { index = 0 } = {}) {
-      const steps = this.build(mode, from);
+    start(mode, from = null, { index = 0, all = false } = {}) {
+      const steps = this.build(mode, from, all);
       if (!steps.length) {
         // Ein Lauf ohne Schritte wird nicht bei jedem Laden wieder versucht.
         this.run = null;
@@ -268,7 +349,7 @@
       }
       this.steps = steps;
       this.index = Math.min(index, steps.length - 1);
-      this.run = { mode, from, index: this.index };
+      this.run = { mode, from, index: this.index, all: Boolean(all) };
       this.finished = null;
       this.active = true;
       this.runId += 1;
@@ -299,7 +380,8 @@
       // Einrichtung merkt sich den aktuellen Schritt als from. Die Vorstellung
       // zaehlt im Index, nach dem Neuladen ist sie oft schon gesehen.
       const from = this.mode === 'setup' && this.index > 0 ? (this.step?.id || '') : (this.run?.from || '');
-      const run = this.run ? { mode: this.run.mode, from, index: this.index } : null;
+      // all steht nur im Lauf, wenn es gilt: so bleibt der Stand normaler Laeufe unveraendert.
+      const run = this.run ? { mode: this.run.mode, from, index: this.index, ...(this.run.all ? { all: true } : {}) } : null;
       void send('PUT', ME, { run });
     },
 
@@ -327,6 +409,21 @@
       return send('PUT', ME, { seen_add: [step.id] });
     },
 
+    // Begruessung abgeschlossen: das Konto merkt es am Server, der Gast nur in der Sitzung.
+    markWelcomed() {
+      this.welcomed = true;
+      if (this.role === 'guest') rememberWelcomeDone();
+      void send('PUT', ME, { welcomed: true });
+    },
+    // Groessenwechsel mitten im Lauf. Bleibt der Schritt fuer das neue Geraet, geschieht
+    // nichts. Sonst springt der Lauf zum naechsten passenden Schritt, gibt es keinen, endet er.
+    resize(device) {
+      if (!this.active || !this.steps.length) return;
+      const next = window.obModel.nextAfterResize(this.steps, this.index, device);
+      if (next < 0) { this.finish(); return; }
+      if (next !== this.index) this.index = next;
+    },
+
     // Einrichtung beim Server als abgeschlossen melden (nur Admin).
     completeSetup() {
       if (!this.isAdmin) return Promise.resolve(false);
@@ -337,6 +434,8 @@
       const mode = this.mode;
       if (mode === 'setup') {
         this.setupDone = true;
+        // Abgeschlossen: die Checkliste zeigt danach Neu erkunden.
+        this.checklistMode = 'explore';
         void this.completeSetup();
         const items = this.setupItems;
         this.finished = {
@@ -351,6 +450,8 @@
         this.finished = { mode, title: t('onboarding.finish.explore.title'), text: t('onboarding.finish.explore.text') };
       } else if (mode === 'welcome') {
         this.finished = { mode, title: t('onboarding.finish.welcome.title'), text: t('onboarding.finish.welcome.text') };
+        // Nur das vollstaendige Ende zaehlt. Weg hinaus (skip) und Spaeter lassen die Begruessung offen.
+        this.markWelcomed();
       } else {
         this.finished = null;
         this.close();
@@ -369,6 +470,12 @@
       this.close();
       const key = mode === 'setup' ? 'onboarding.toast.setup_skipped' : 'onboarding.toast.tour_ended';
       window.Alpine.store('toasts')?.push(t(key), 'info');
+    },
+    // Leiste schliessen, ohne den Lauf am Server zu loeschen. Er startet beim Neuladen wieder.
+    postpone() {
+      this.active = false;
+      this.finished = null;
+      this.steps = [];
     },
     close() {
       this.active = false;
@@ -421,10 +528,10 @@
         if (!loaded) return;
         const s = this.$store.onboarding;
         if (s.run) {
-          const { mode, from, index } = s.run;
+          const { mode, from, index, all } = s.run;
           // Nach Neuladen oder Login: beim selben Schritt weiter.
           // Einrichtung startet beim gemerkten Schritt, dort ist der Index 0.
-          setTimeout(() => s.start(mode, from || null, { index: mode === 'setup' && from ? 0 : index }), 600);
+          setTimeout(() => s.start(mode, from || null, { index: mode === 'setup' && from ? 0 : index, all: Boolean(all) }), 600);
         } else if (s.queue.length) {
           setTimeout(() => s.advanceQueue(), 600);
         }
@@ -589,6 +696,9 @@
       if (this.last) return this.s.finish();
       this.s.index += 1;
     },
+    // Vorstellung auf spaeter legen: die Leiste geht zu, der gespeicherte Lauf bleibt
+    // unveraendert (close() wuerde ihn loeschen). Beim naechsten Neuladen startet die Tour.
+    nextTime() { this.s.postpone(); },
     back() { if (this.s.index > 0) this.s.index -= 1; },
     again() { this.lost = false; this.show(); },
     checklist() {
@@ -652,6 +762,8 @@
     window.Alpine.store('onboarding', store);
     window.Alpine.data('obBar', obBar);
     ready = window.Alpine.store('onboarding').load();
+    // Groessenwechsel mitten im Lauf. Einmal beim Start registriert, nicht pro Schritt.
+    window.matchMedia?.(PHONE)?.addEventListener('change', (event) => window.Alpine.store('onboarding').resize(event.matches ? 'phone' : 'desktop'));
   });
 
   // Marker am Einstellungs-Tab, solange es ungesehene Neuerungen gibt. Das

@@ -1,0 +1,20 @@
+{{define "highlightDetailsBody"}}
+                        <p class="whatsnew-text" x-text="window.highlightDetails.detailText(entry)"></p>
+                        <template x-if="entry.details.image">
+                          <figure class="whatsnew-figure">
+                            <span class="whatsnew-shot" x-bind:style="{ 'aspect-ratio': window.highlightDetails.imageFrame(entry.details.image, cropped).aspect }"><img x-bind:src="loaded ? entry.details.image.url : null" x-bind:alt="window.highlightDetails.text(entry)" x-bind:style="{ width: window.highlightDetails.imageFrame(entry.details.image, cropped).width, height: window.highlightDetails.imageFrame(entry.details.image, cropped).height, left: window.highlightDetails.imageFrame(entry.details.image, cropped).left, top: window.highlightDetails.imageFrame(entry.details.image, cropped).top }" x-on:load="$el.closest('.whatsnew-shot').classList.add('is-loaded')" x-on:error="$el.closest('.whatsnew-shot').classList.add('is-failed')"></span>
+                            <template x-if="entry.details.image.crop">
+                              <button type="button" class="whatsnew-crop-toggle" x-bind:aria-pressed="cropped ? 'false' : 'true'" x-on:click="cropped = !cropped"><span x-show="cropped">{{t "settings.whatsnew.full_image"}}</span><span x-show="!cropped">{{t "settings.whatsnew.crop"}}</span></button>
+                            </template>
+                          </figure>
+                        </template>
+                        <template x-if="entry.details.doc && showDoc">
+                          <a class="whatsnew-link" x-bind:href="entry.details.doc" target="_blank" rel="noopener">{{t "settings.whatsnew.doc_link"}}</a>
+                        </template>
+{{end}}
+{{define "highlightDetails"}}
+                    <details class="whatsnew-detail" name="whatsnew-detail" x-data="{ loaded: false, cropped: true, showDoc: true }" x-on:toggle="loaded = loaded || $el.open; window.highlightDetails.onToggle($event)">
+                      <summary class="whatsnew-summary"><span><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="window.highlightDetails.text(entry)"></span></span><span class="whatsnew-more"><span class="whatsnew-more-closed">{{t "settings.whatsnew.more"}}</span><span class="whatsnew-more-open">{{t "settings.whatsnew.less"}}</span><svg class="whatsnew-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></span></summary>
+                      <div class="whatsnew-body">{{template "highlightDetailsBody"}}</div>
+                    </details>
+{{end}}

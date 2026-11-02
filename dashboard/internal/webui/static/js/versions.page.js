@@ -77,10 +77,16 @@
     bundlesTotal: 0,
     bundlesShown: 0,
     savingChangelogHistory: false,
+    // Version aus ?release=, bis der Dashboard-Changelog geladen ist.
+    releaseTarget: '',
 
-    // ?all=1 (the link of the what's new dialog) starts in the "all" view.
+    // ?all=1 starts in the "all" view.
+    // ?release=<version> (Chip einer Karte in Neu erkunden) oeffnet den Dashboard-Changelog
+    // in der Ansicht "Highlights" und scrollt zu diesem Release.
     init() {
-      if (new URLSearchParams(window.location.search).get('all') === '1') this.mode = 'all';
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('all') === '1') this.mode = 'all';
+      this.releaseTarget = params.get('release') || '';
     },
 
     async load() {
@@ -98,7 +104,28 @@
       } finally {
         this.loading = false;
       }
+      await this.openRelease();
       await this.loadUpdates();
+    },
+
+    // Oeffnet den Dashboard-Changelog und scrollt zum Release aus ?release=.
+    // Die Eintraege stehen erst im DOM, wenn Alpine die Schleifen gerendert hat.
+    async openRelease() {
+      const version = this.releaseTarget;
+      if (!version || !this.components.some((component) => component.id === 'dashboard')) return;
+      this.releaseTarget = '';
+      this.open = {...this.open, dashboard: true};
+      await this.loadReleases('dashboard');
+      if (this.$nextTick) await this.$nextTick();
+      const target = Array.from(document.querySelectorAll('[data-release]')).find((el) => el.dataset.release === version);
+      if (!target || !target.scrollIntoView) return;
+      const reduced = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      target.scrollIntoView({block: 'start', behavior: reduced ? 'auto' : 'smooth'});
+    },
+
+    // Deep Link in die Checkliste, Modus Neu erkunden.
+    checklistHref() {
+      return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=checklist&mode=explore`;
     },
 
     async loadUpdates() {

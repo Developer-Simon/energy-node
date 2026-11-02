@@ -2,12 +2,14 @@ package onboarding
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestLoadMissingFileIsEmpty(t *testing.T) {
@@ -123,5 +125,70 @@ func TestSetStepDoesNotOverwriteAfterReadError(t *testing.T) {
 	info, err := os.Stat(path)
 	if err != nil || !info.IsDir() {
 		t.Fatalf("path was modified after a read error: info=%v err=%v", info, err)
+	}
+}
+
+func TestEnsureUserSetsSinceOnceAndSeedsOnlyMissingUsers(t *testing.T) {
+	store := NewStore(t.TempDir())
+	first := time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC)
+	calls := 0
+	seed := func(since time.Time) UserProgress {
+		calls++
+		if !since.Equal(first) {
+			t.Fatalf("seed since = %v, want %v", since, first)
+		}
+		return UserProgress{Seen: []string{"h1"}, Baseline: true}
+	}
+	progress := store.EnsureUser("anna", first, seed)
+	if !progress.Since.Equal(first) || !progress.Users["anna"].Baseline {
+		t.Fatalf("first call = %+v", progress)
+	}
+	progress = store.EnsureUser("anna", first.Add(time.Hour), seed)
+	if calls != 1 || !progress.Since.Equal(first) {
+		t.Fatalf("second call seeded again or moved since: calls=%d since=%v", calls, progress.Since)
+	}
+	store.EnsureUser("ben", first.Add(time.Hour), seed)
+	if calls != 2 {
+		t.Fatalf("ben was not seeded, calls=%d", calls)
+	}
+	if got := store.Load(); !got.Since.Equal(first) || len(got.Users) != 2 || got.Users["anna"].Seen[0] != "h1" {
+		t.Fatalf("saved = %+v", got)
+	}
+}
+
+func TestEnsureUserKeepsAnExistingEntry(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.UpdateUser("anna", func(p *UserProgress) { p.Welcomed = true }); err != nil {
+		t.Fatal(err)
+	}
+	progress := store.EnsureUser("anna", time.Now(), func(time.Time) UserProgress {
+		t.Fatal("seed must not run for an existing entry")
+		return UserProgress{}
+	})
+	if !progress.Users["anna"].Welcomed {
+		t.Fatalf("entry changed: %+v", progress.Users["anna"])
+	}
+}
+
+// TestPreviewComputesWithoutWriting: Preview gives the seeded progress of a
+// new user for this answer only, the file stays as it was.
+func TestPreviewComputesWithoutWriting(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	now := time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC)
+	seeded := store.Preview("reader", now, func(since time.Time) UserProgress {
+		return UserProgress{Seen: []string{"h1"}, Baseline: true}
+	})
+	if got := seeded.Users["reader"].Seen; len(got) != 1 || got[0] != "h1" {
+		t.Fatalf("preview seen = %v, want the seed", got)
+	}
+	if !seeded.Since.Equal(now) {
+		t.Fatalf("preview since = %v, want %v", seeded.Since, now)
+	}
+	if _, err := os.Stat(filepath.Join(dir, fileName)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Preview wrote the file (stat err %v)", err)
+	}
+	if store.Load().Users["reader"].Baseline {
+		t.Fatal("Preview stored the seed")
 	}
 }

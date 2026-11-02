@@ -4,7 +4,7 @@
 
 ### Features
 
-- **battery-soc:** render tuning findings from a shared message catalog (#196)
+- **battery-soc:** render tuning findings from a shared message catalog (#196) (2332ed5)
 
 ### Fixes
 

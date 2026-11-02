@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from console_remote import RemoteFake
@@ -19,7 +20,7 @@ from console_updates_ui import updates_html
 from fake_console import Log, Tab
 
 INSTALLER_FILES = ("installed-manifest.json", "previous-manifest.json", "selection.json", "changelog.json")
-ACTIONS = ("release", "download", "installer_version", "installer_none", "installer_previous", "installer_reset")
+ACTIONS = ("release", "download", "installer_version", "installer_none", "installer_previous", "installer_reset", "job_ok", "job_clear")
 VERSION_RE = re.compile(r"v\d+\.\d+\.\d+")
 UNREACHABLE = "GitHub-Fake nicht erreichbar"
 NOT_SET_UP = "Installer-Zustand ist nicht eingerichtet"
@@ -68,6 +69,7 @@ class InstallerState:
         return {
             "version": version,
             "previous": (self.state_dir / "previous-manifest.json").exists(),
+            "job": (self.state_dir / "job" / "status.json").exists(),
             "matches_fixture": self.matches_fixture(),
         }
 
@@ -94,6 +96,26 @@ class InstallerState:
         else:
             target.unlink(missing_ok=True)
 
+    def finish_job(self) -> None:
+        """Legt einen beendeten Updater-Lauf ab (job/), wie ihn die Update-Leiste nach
+        einem erfolgreichen Update zeigt. Jeder Aufruf ist ein neuer Lauf, damit eine
+        quittierte Leiste wieder erscheint."""
+        raw = _read(self.state_dir / "installed-manifest.json")
+        if raw is None:
+            raise ValueError(NOT_SET_UP)
+        version = str(_parse_manifest(raw).get("version", ""))
+        job = self.state_dir / "job"
+        shutil.rmtree(job, ignore_errors=True)
+        job.mkdir(parents=True)
+        run_id = f"demo-{int(time.time() * 1000)}"
+        (job / "current.json").write_text(json.dumps(
+            {"bundle_version": version, "mode": "update", "steps": ["10"], "run_id": run_id}), encoding="utf-8")
+        (job / "log").write_text("", encoding="utf-8")
+        (job / "status.json").write_text(json.dumps({"result": "ok"}), encoding="utf-8")
+
+    def clear_job(self) -> None:
+        shutil.rmtree(self.state_dir / "job", ignore_errors=True)
+
     def remove_installed(self) -> None:
         (self.state_dir / "installed-manifest.json").unlink(missing_ok=True)
 
@@ -101,6 +123,7 @@ class InstallerState:
         self.state_dir.mkdir(parents=True, exist_ok=True)
         for name in INSTALLER_FILES:
             shutil.copyfile(self.fixture_dir / name, self.state_dir / name)
+        self.clear_job()
 
 
 class UpdatesTab(Tab):
@@ -147,6 +170,12 @@ class UpdatesTab(Tab):
                 present = bool(body.get("present"))
                 self._installer.set_previous(present)
                 self._log.add("updates", "Vorherige Version vorhanden" if present else "Vorherige Version entfernt")
+            elif action == "job_ok":
+                self._installer.finish_job()
+                self._log.add("updates", "Update als installiert gemeldet")
+            elif action == "job_clear":
+                self._installer.clear_job()
+                self._log.add("updates", "Update-Lauf entfernt")
             else:
                 self._installer.reset()
                 self._log.add("updates", "Installer-Zustand auf Fixture zurückgesetzt")

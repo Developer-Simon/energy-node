@@ -319,6 +319,70 @@ image loads only when the entry is opened. If it cannot be loaded, for example
 offline or because the pinned file is not on GitHub yet, the image and the
 crop switch disappear, and the text and the link stay.
 
+### Tours for web UI highlights
+
+Every highlight of the `dashboard` component brings a tour. After an update the
+tour walks each user through the new feature in the web UI. It is the key `tour`
+in the same `changelog/highlights/<PR>.json` file, next to the language keys and
+`details`:
+
+```json
+{
+  "de": {
+    "*": "Geräte lassen sich als Favoriten markieren."
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "panel": "devices-panel",
+          "target": "favorites",
+          "device": "any",
+          "need": "view_devices",
+          "title": {"en": "Favourites", "de": "Favoriten"},
+          "text": {"en": "Star a device to keep it at the top.", "de": "Markiere ein Gerät mit dem Stern, dann steht es oben."}
+        }
+      ]
+    }
+  }
+}
+```
+
+The rules:
+
+* `target` is required. It is the `data-tour` attribute of the element the step
+  points at.
+* `panel` and `page` name where the element lives, as in the address
+  `?panel=…&page=…`. Both are optional.
+* `device` is `any`, `phone` or `desktop`. Without it the step counts as `any`.
+* `need` is the permission a user needs for the step. Users without it skip the
+  step.
+* `title` and `text` need `en` and every language of
+  `highlight_i18n.LANGUAGES`. No text may be empty. Unknown keys are an error.
+* `*` and target keys work as for the details. A key with a target replaces the
+  `*` object as a whole.
+
+A highlight with nothing to show in the web UI, such as a backend fix, gets an
+exemption with its reason instead of steps:
+
+```json
+"tour": {"*": {"exempt": "Only the MQTT reconnect changed, nothing to show."}}
+```
+
+An exemption needs the user's consent. The agent that writes the highlight asks
+for it explicitly and adds `exempt` only after the user agreed. A tour has either
+steps or an exemption, never both.
+
+`highlight_translations.py validate --repo .` checks the tours of every file as
+well. `highlight_tours.py check --repo . --pr <N>` runs in the CI job "Highlight
+translations" and fails while a `dashboard` highlight of the PR has neither a
+tour nor an exemption. The check starts at PR #186, the first PR of the
+onboarding. Older PR files and the archives `v*.json` and `archive-v*.json` are
+not checked. Write the tour by hand into the PR file once the PR has its number.
+The Version bump workflow keeps it when it adds the translations. The bundle
+carries the tour as `tour` on each PR entry of `changelog.json`, and
+`/api/v1/changelog/highlights` passes it on.
+
 ## One-time setup: the `BUMP_TOKEN` secret
 
 ## One-time setup: the `BUMP_TOKEN` secret

@@ -17,9 +17,15 @@ INSTALLER_GROUP_HTML = """<div class="grp" data-group="installer">
     <div class="row">Vorherige Version vorhanden
       <label class="switch"><input type="checkbox" data-previous aria-label="Vorherige Version vorhanden"><span></span></label>
     </div>
+    <div class="row">Update fertig installiert <span class="v" data-job-text>nein</span>
+      <span class="end">
+        <button type="button" class="btn" data-act="job_ok">Als installiert melden</button>
+        <button type="button" class="btn" data-act="job_clear">Entfernen</button>
+      </span>
+    </div>
     <div class="row"><button type="button" class="btn btn-danger" data-act="installer_reset">Auf Fixture zurücksetzen</button></div>
   </div>
-  <p class="note">Das Dashboard liest diese Dateien bei jedem Abruf neu.</p>
+  <p class="note">Das Dashboard liest diese Dateien bei jedem Abruf neu. Als installiert melden zeigt in der Update-Leiste „Update installiert“ mit „Neuerungen ansehen“, solange die Seite nicht quittiert ist.</p>
   <p class="grp-err"></p>
 </div>
 """
@@ -108,6 +114,7 @@ __INSTALLER__</div>
     if (group && installer) {
       $("[data-installed-text]").textContent = installer.version || "keine";
       setUnlessFocused($("[data-previous]"), installer.previous);
+      $("[data-job-text]").textContent = installer.job ? "ja" : "nein";
     }
   }
 

@@ -4,8 +4,8 @@
 
 ### Features
 
+- **battery-soc:** render tuning findings from a shared message catalog (#196) (2332ed5)
 - **common:** add message catalog renderer (1dfda5a)
-- **battery-soc:** render tuning findings from a shared message catalog (#196)
 
 ## v0.4.11 (2026-10-21)
 

@@ -1,0 +1,25 @@
+{
+  "de": {
+    "*": "Einstellungen, Checkliste, Neues erkunden listet die Highlights der letzten drei Minor-Versionen, eine Karte je Release, mit Tour für die Highlights, die eine haben."
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "page": "checklist",
+          "panel": "settings-panel",
+          "target": "explore",
+          "text": {
+            "de": "Wechsle zu Neues erkunden, um die Highlights der letzten Versionen zu sehen. Karten mit Tour führen dich auf den echten Seiten durch die Änderung.",
+            "en": "Switch to Explore to see the highlights of the last releases. Cards with a tour walk you through the change on the real screens."
+          },
+          "title": {
+            "de": "Neues erkunden",
+            "en": "Explore what is new"
+          }
+        }
+      ]
+    }
+  }
+}

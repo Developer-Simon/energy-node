@@ -98,7 +98,7 @@ def test_unreachable_fake_is_error_level_and_value_error(installer):
 
 def test_installer_actions_without_installer_are_value_errors(github):
     tab = UpdatesTab(Log(), f"http://127.0.0.1:{github}", None)
-    for action in ("installer_version", "installer_none", "installer_previous", "installer_reset"):
+    for action in ("installer_version", "installer_none", "installer_previous", "installer_reset", "job_ok", "job_clear"):
         with pytest.raises(ValueError, match="Installer-Zustand ist nicht eingerichtet"):
             tab.act(action, {})
     assert tab.state()["installer"] is None
@@ -127,3 +127,24 @@ def test_corrupt_manifest_is_error_summary_and_value_errors(tab, installer):
         tab.state()
     with pytest.raises(ValueError, match="Installer-Zustand nicht lesbar"):
         tab.act("installer_version", {"version": "v0.9.0"})
+
+
+def test_finish_job_writes_a_finished_ok_run_and_reset_removes_it(installer):
+    installer.finish_job()
+    job = installer.state_dir / "job"
+
+    assert json.loads((job / "status.json").read_text()) == {"result": "ok"}
+    current = json.loads((job / "current.json").read_text())
+    assert current["bundle_version"] == installer.state()["version"]
+    assert current["run_id"]
+    assert installer.state()["job"] is True
+
+    installer.reset()
+    assert installer.state()["job"] is False
+
+
+def test_finish_job_without_installation_is_value_error(installer):
+    installer.remove_installed()
+
+    with pytest.raises(ValueError):
+        installer.finish_job()

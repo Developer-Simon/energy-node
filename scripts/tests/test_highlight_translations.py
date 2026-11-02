@@ -157,3 +157,10 @@ def test_validate_checks_every_file_not_only_the_pr(tmp_path, capsys):
     write_translation(repo, 141, {"de": {"*": "Text"}, "details": {"*": details}})
     assert ht.main(["validate", "--repo", str(repo)]) == 1
     assert "#141" in capsys.readouterr().out
+
+
+def test_validate_fails_with_a_broken_tour(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    write_translation(repo, 190, {"de": {"*": "Touren"}, "tour": {"*": {"steps": []}}})
+    assert ht.main(["validate", "--repo", str(repo)]) == 1
+    assert "#190 tour *: steps must be a non-empty list" in capsys.readouterr().out

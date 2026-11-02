@@ -25,6 +25,7 @@ from pathlib import Path
 import changelog_history
 import highlight_details
 import highlight_i18n
+import highlight_tours
 from changelog_history import parse_version  # noqa: F401  (re-exported)
 
 SCHEMA_VERSION = 1
@@ -156,6 +157,21 @@ def attach_details(releases, repo, translations, target, image_ref):
     return releases
 
 
+def attach_tours(releases, translations, target):
+    """Setzt "tour" an jeden PR-Eintrag mit Tour (Schluessel "tour" in
+    changelog/highlights/<PR>.json, siehe highlight_tours.py). Eine kaputte
+    Tour bricht wie die Details mit ValueError ab."""
+    for release in releases:
+        for group in release["groups"]:
+            for entry in group["entries"]:
+                if "pr" not in entry:
+                    continue
+                tour = highlight_tours.resolve(translations, entry["pr"], target)
+                if tour is not None:
+                    entry["tour"] = tour
+    return releases
+
+
 def build_document(repo, table, *, bundle_version, max_releases, generated_at, image_ref=None):
     translations = highlight_i18n.load_translations(repo / highlight_i18n.TRANSLATIONS_DIR)
     components = []
@@ -167,6 +183,7 @@ def build_document(repo, table, *, bundle_version, max_releases, generated_at, i
         target = row.get("target", row["id"])
         attach_translations(releases, translations, target)
         attach_details(releases, repo, translations, target, image_ref)
+        attach_tours(releases, translations, target)
         components.append({
             "id": row["id"],
             "label": row["label"],

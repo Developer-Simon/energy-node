@@ -13,6 +13,11 @@
     return width <= PHONE_MAX ? 'phone' : 'desktop';
   }
 
+  // Minor einer Version: major.minor, aus 0.12.0 wird 0.12, aus v0.12.0 ebenfalls 0.12.
+  function minorOf(version) {
+    return String(version || '').replace(/^v/, '').split('.').slice(0, 2).join('.');
+  }
+
   // Gilt der Schritt fuer das Geraet? Ohne device-Feld oder mit 'any' immer.
   function deviceFits(step, device) {
     return !step.device || step.device === 'any' || step.device === device;
@@ -54,14 +59,16 @@
     };
   }
 
-  // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht.
-  function buildSteps({ mode, from = null, setup = [], explore = [], welcome = [], areas = [], seen = {}, status = {}, ctx }) {
+  // Baut die Schrittliste eines Laufs. from = Id, ab der es losgeht. all = true
+  // (Wiederholen aus der Checkliste): jeder erlaubte Schritt, auch erledigte und
+  // gesehene.
+  function buildSteps({ mode, from = null, all = false, setup = [], explore = [], welcome = [], areas = [], seen = {}, status = {}, ctx }) {
     if (mode === 'setup') {
       if (ctx.role !== 'admin') return [];
       const stateOf = (id) => status[id] || 'open';
       // Schritte ohne bekannten Bereich entfallen, sonst fehlt das Eyebrow.
       const eligible = setup.filter((s) => stepAllowed(s, ctx) && areas.some((a) => a.id === s.area));
-      const open = eligible.filter((s) => !['done', 'installer'].includes(stateOf(s.id)) || s.id === from);
+      const open = eligible.filter((s) => all || !['done', 'installer'].includes(stateOf(s.id)) || s.id === from);
       const start = from ? Math.max(0, open.findIndex((s) => s.id === from)) : 0;
       const steps = open.slice(start).map((s) => {
         const inArea = open.filter((o) => o.area === s.area);
@@ -85,16 +92,19 @@
       return [{ ...step, eyebrow, dot: 0, dots: 1 }];
     }
     if (mode === 'explore') {
-      // Ohne from: die ungesehenen der aktuellen Version. Mit from (aus der
-      // Checkliste): genau dieses Highlight, auch aus aelteren Versionen.
+      // Ohne from: die ungesehenen der aktuellen Version, mit all alle. Mit from
+      // (aus der Checkliste): genau dieses Highlight, auch aus aelteren Versionen.
       const version = from
         ? explore.find((v) => v.items.some((item) => item.id === from))
         : explore.find((v) => v.current);
       if (!version) return [];
-      const items = version.items.filter((item) => (from ? item.id === from : !seen[item.id]) && tourSteps(item, ctx).length);
-      const short = version.version.replace(/\.0$/, '');
+      // Eine veraltete Tour laeuft nie, auch nicht aus der Checkliste.
+      const items = version.items.filter((item) => !item.stale && (from ? item.id === from : all || !seen[item.id]) && tourSteps(item, ctx).length);
+      // Ohne v, und aus 0.12.0 wird 0.12 (Karten je Release, siehe onboarding.js).
+      const short = version.version.replace(/^v/, '').replace(/^(\d+\.\d+)\.0$/, '$1');
       const flat = items.flatMap((item) => tourSteps(item, ctx)
-        .map((s) => ({ ...s, id: item.id, title: item.title, text: item.text, check: 'leave' })));
+        // Der Schritt zeigt seinen eigenen Titel und Text, nur ohne eigenen faellt er auf das Highlight zurueck.
+        .map((s) => ({ ...s, id: item.id, title: s.title || item.title, text: s.text || item.text, check: 'leave' })));
       return flat.map((s, i) => ({
         ...s,
         eyebrow: text(ctx, 'onboarding.eyebrow.explore', { version: short, i: i + 1, total: flat.length }),
@@ -122,10 +132,11 @@
   }
 
   // Wie viele aktuelle Highlights noch ungesehen sind und eine Tour fuer das Geraet haben.
+  // Veraltete Touren zaehlen nicht.
   function unseenCount(explore, seen, ctx) {
     return explore.filter((v) => v.current)
       .flatMap((v) => v.items)
-      .filter((item) => !seen[item.id] && tourSteps(item, ctx).length).length;
+      .filter((item) => !item.stale && !seen[item.id] && tourSteps(item, ctx).length).length;
   }
 
   // Zustand eines Highlights fuer die Liste "Neu erkunden".
@@ -135,6 +146,8 @@
     const allowedByRights = steps.filter((s) => rightsFit(s, ctx));
     if (!allowedByRights.length) return 'text';
     if (!allowedByRights.some((s) => deviceFits(s, ctx.device))) return 'other-device';
+    // Veraltet gewinnt ueber gesehen: die Tour passt nicht mehr zur Oberflaeche.
+    if (item.stale) return 'stale';
     return seen[item.id] ? 'seen' : 'new';
   }
 
@@ -160,6 +173,7 @@
     unseenCount,
     exploreState,
     pickText,
+    minorOf,
     nextAfterResize,
     queueAfter,
   };

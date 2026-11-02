@@ -1,7 +1,7 @@
 {{define "checklist"}}
   <section id="settings-checklist" role="tabpanel" class="settings-cards ob-checklist" x-show="activeSettingsPage === 'checklist'" x-data="obChecklist()">
     <div class="ob-cl-head" x-show="$store.onboarding.isAdmin">
-      <div class="segmented ob-cl-switch" role="radiogroup" aria-label="{{t "onboarding.checklist.title"}}">
+      <div class="segmented ob-cl-switch" data-tour="explore" role="radiogroup" aria-label="{{t "onboarding.checklist.title"}}">
         <span class="segmented-thumb" aria-hidden="true"></span>
         <label class="segmented-option"><input type="radio" name="ob-cl-mode" value="setup" x-model="$store.onboarding.checklistMode"><span>{{t "onboarding.checklist.mode_setup"}}</span></label>
         <label class="segmented-option"><input type="radio" name="ob-cl-mode" value="explore" x-model="$store.onboarding.checklistMode"><span class="ob-cl-switch-label">{{t "onboarding.checklist.mode_explore"}}<span class="ob-marker" aria-hidden="true" x-show="$store.onboarding.unseenCount"></span></span></label>
@@ -21,7 +21,7 @@
         <p class="setting-note" x-text="summaryNote"></p>
         <div class="ob-cl-summary-actions">
           <button type="button" class="ob-btn ob-btn--primary" x-show="openCount" x-on:click="run('setup')" x-text="$store.onboarding.setupDone ? $t('onboarding.checklist.review_open') : $t('onboarding.checklist.continue')"></button>
-          <button type="button" class="ob-btn" x-show="!openCount" x-on:click="run('setup', firstId)">{{t "onboarding.checklist.repeat"}}</button>
+          <button type="button" class="ob-btn" x-show="!openCount" x-on:click="run('setup', firstId, { all: true })">{{t "onboarding.checklist.repeat"}}</button>
         </div>
       </div>
 
@@ -50,32 +50,55 @@
 
     <!-- Neu erkunden: alle, nach Version, oben seit dem letzten Besuch. -->
     <div class="ob-cl-mode" x-show="mode === 'explore'">
+      <div class="setting-card ob-cl-summary">
+        <div class="ob-cl-summary-head">
+          <h3 class="setting-card-title">{{t "onboarding.checklist.explore_summary"}}</h3>
+        </div>
+        <p class="setting-note" x-text="exploreNote"></p>
+        <div class="ob-cl-summary-actions">
+          <button type="button" class="ob-btn ob-btn--primary" x-show="exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.explore_start"}}</button>
+          <button type="button" class="ob-btn" x-show="!exploreUnseen" x-bind:disabled="!exploreHasTour" x-on:click="exploreStart()">{{t "onboarding.checklist.repeat"}}</button>
+          <button type="button" class="ob-btn ob-cl-older" x-show="olderToggleShown" x-bind:aria-expanded="olderOpen ? 'true' : 'false'" x-on:click="toggleOlder()"><span x-text="olderLabel"></span><svg class="ob-cl-older-chev" x-bind:class="{ 'is-open': olderOpen }" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+        </div>
+      </div>
+
       <template x-for="version in versions" x-bind:key="version.version">
-        <div class="setting-card ob-cl-card" x-bind:class="{ 'is-current': version.current }">
+        <div class="setting-card ob-cl-card" x-show="cardShown(version)" x-transition:enter="ob-cl-card-enter" x-transition:enter-start="ob-cl-card-enter-start" x-transition:enter-end="ob-cl-card-enter-end" x-transition:leave="ob-cl-card-leave" x-transition:leave-start="ob-cl-card-leave-start" x-transition:leave-end="ob-cl-card-leave-end" x-bind:style="{ '--ob-delay': enterDelay(version) }" x-bind:class="{ 'is-current': version.current }">
           <div class="ob-cl-summary-head">
             <h3 class="setting-card-title" x-text="versionLabel(version)"></h3>
             <span class="ob-cl-eyebrow" x-text="versionEyebrow(version)"></span>
+            <a class="ob-crosslink ob-crosslink--chip" x-bind:href="releaseHref(version)"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-history"></use></svg><span>{{t "onboarding.checklist.release_notes"}}</span><svg class="ob-crosslink-chev" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></a>
           </div>
-          <ul class="ob-cl-list">
-            <template x-for="item in version.items" x-bind:key="item.id">
-              <li class="ob-cl-row ob-cl-row--news" x-bind:class="'is-' + newsState(item)" x-bind:data-item="item.id">
-                <span class="ob-cl-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-check"></use></svg></span>
-                <span class="ob-cl-text">
-                  <span class="ob-cl-title" x-text="$t(item.title)"></span>
-                  <span class="ob-cl-sub" x-text="newsSub(item)"></span>
-                </span>
-                <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:aria-expanded="isReading(item) ? 'true' : 'false'" x-on:click="newsAct(item)">
-                  <span x-text="newsAction(item)"></span>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
-                </button>
-                <div class="ob-cl-detail" x-show="isReading(item)" x-collapse>
-                  <p x-text="$t(item.text)"></p>
-                  <p class="setting-note" x-text="$t(item.detail)"></p>
-                  <a class="ob-link" href="#" x-on:click.prevent>{{t "onboarding.checklist.docs"}}</a>
-                </div>
-              </li>
-            </template>
-          </ul>
+          <template x-for="section in version.sections" x-bind:key="section.id">
+            <div>
+              <p class="ob-cl-subhead" x-show="section.id !== 'dashboard'" x-text="sectionHead(section)"></p>
+              <ul class="ob-cl-list">
+                <template x-for="item in section.items" x-bind:key="item.id">
+                  <li class="ob-cl-row ob-cl-row--news" x-bind:class="'is-' + newsState(item)" x-bind:data-item="item.id">
+                    <span class="ob-cl-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#ico-check"></use></svg></span>
+                    <span class="ob-cl-text">
+                      <span class="ob-cl-title" x-text="$t(item.title)"></span>
+                      <span class="ob-cl-sub" x-text="newsSub(item)"></span>
+                    </span>
+                    <button type="button" class="ob-cl-action" x-show="newsAction(item)" x-bind:class="{ 'is-disabled': isStale(item) }" x-bind:disabled="isStale(item)" x-bind:aria-expanded="isStale(item) ? null : (isReading(item) ? 'true' : 'false')" x-on:click="newsAct(item)">
+                      <span x-text="newsAction(item)"></span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" x-show="!isStale(item)" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
+                    </button>
+                    <button type="button" class="ob-cl-action" x-show="isStale(item)" x-bind:aria-expanded="isReading(item) ? 'true' : 'false'" x-on:click="toggleReading(item)">
+                      <span>{{t "onboarding.checklist.action_read"}}</span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" x-bind:class="{ 'is-open': isReading(item) }"><use href="#ico-chevron"></use></svg>
+                    </button>
+                    <div class="ob-cl-detail" x-show="isReading(item)" x-collapse>
+                      <template x-if="item.details">
+                        <div class="whatsnew-body" x-data="{ entry: item, showDoc: true, cropped: true, loaded: false }" x-effect="if (isReading(item)) loaded = true">{{template "highlightDetailsBody"}}</div>
+                      </template>
+                      <p x-show="!item.details" x-text="$t(item.text)"></p>
+                    </div>
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </template>
         </div>
       </template>
     </div>

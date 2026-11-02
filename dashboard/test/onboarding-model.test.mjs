@@ -193,6 +193,10 @@ test('eyebrow strings match the draft', () => {
   const exploreSteps = m.buildSteps({ mode: 'explore', from: null, explore, seen: {}, status: {}, ctx: ctx() });
   assert.equal(exploreSteps[0].eyebrow, 'Neu in 0.12 · 1 von 2');
   assert.equal(exploreSteps[1].eyebrow, 'Neu in 0.12 · 2 von 2');
+  // Karten je Release: das v geht weg, eine Patch-Version bleibt vollstaendig.
+  const release = [{ version: 'v0.10.33', current: true, items: [{ id: 'r1', title: 'R', text: '', steps: [{ id: 'r1a', title: 'R', text: '', target: '', check: 'leave' }] }] }];
+  const releaseSteps = m.buildSteps({ mode: 'explore', from: null, explore: release, seen: {}, status: {}, ctx: ctx() });
+  assert.equal(releaseSteps[0].eyebrow, 'Neu in 0.10.33 · 1 von 1');
 
   const welcome = [1, 2, 3, 4].map((i) => ({ id: `w${i}`, title: 'W', text: '', target: '', check: 'leave' }));
   const welcomeSteps = m.buildSteps({ mode: 'welcome', from: null, welcome, seen: {}, status: {}, ctx: ctx() });
@@ -201,10 +205,90 @@ test('eyebrow strings match the draft', () => {
   assert.equal(m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen: {}, status: {}, ctx: ctx({ role: 'user' }) }).length, 0);
 });
 
+test('explore step keeps its own title and text, else the highlight text', () => {
+  const m = load();
+  const explore = [{
+    version: '0.12.0', current: true,
+    items: [{ id: 'h1', title: 'Highlight', text: 'Highlight text', steps: [
+      { id: 'h1a', title: 'Eigener Titel', text: 'Eigener Text', target: '', check: 'leave', literal: true },
+      { id: 'h1b', target: '', check: 'leave' },
+    ] }],
+  }];
+  const steps = m.buildSteps({ mode: 'explore', from: null, explore, seen: {}, status: {}, ctx: ctx() });
+  assert.equal(steps[0].title, 'Eigener Titel');
+  assert.equal(steps[0].text, 'Eigener Text');
+  assert.equal(steps[1].title, 'Highlight');
+  assert.equal(steps[1].text, 'Highlight text');
+});
+
 test('pickText zeigt den Leertext nur, wenn der Bereich leer ist', () => {
   const m = load();
   const step = { text: 'Erklaerung', emptyText: 'Leer' };
   assert.equal(m.pickText(step, true), 'Leer');
   assert.equal(m.pickText(step, false), 'Erklaerung');
   assert.equal(m.pickText({ text: 'Erklaerung' }, true), 'Erklaerung');
+});
+
+test('setup with all repeats every allowed step, also the done and installer ones', () => {
+  const m = load();
+  const setup = [
+    { id: 'theme', area: 'display', title: 'A', text: '', target: '', check: 'change' },
+    { id: 'title', area: 'display', title: 'B', text: '', target: '', check: 'change' },
+    { id: 'devices', area: 'devices', title: 'C', text: '', target: '', check: 'change' },
+  ];
+  const status = { theme: 'done', title: 'done', devices: 'installer' };
+  const seen = { 'setup-intro': true };
+  assert.deepEqual(m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen, status, ctx: ctx(), all: true }).map((s) => s.id), ['theme', 'title', 'devices']);
+  assert.deepEqual(m.buildSteps({ mode: 'setup', setup, areas: AREAS, seen, status, ctx: ctx() }).map((s) => s.id), []);
+});
+
+test('explore with all lists every item of the current version, seen or not', () => {
+  const m = load();
+  const explore = [
+    { version: '0.12.0', current: true, items: [
+      { id: 'a', title: 'A', text: 'A', steps: [{ title: 'A1', text: 'x', device: 'any' }] },
+      { id: 'b', title: 'B', text: 'B', steps: [{ title: 'B1', text: 'y', device: 'any' }] },
+    ] },
+    { version: '0.11.0', current: false, items: [{ id: 'c', title: 'C', text: 'C', steps: [{ title: 'C1', text: 'z' }] }] },
+  ];
+  const seen = { a: true };
+  assert.deepEqual(m.buildSteps({ mode: 'explore', explore, seen, ctx: ctx(), all: true }).map((s) => s.id), ['a', 'b']);
+  assert.deepEqual(m.buildSteps({ mode: 'explore', explore, seen, ctx: ctx() }).map((s) => s.id), ['b']);
+});
+
+test('minorOf keeps major.minor of a release version', () => {
+  const m = load();
+  assert.equal(m.minorOf('0.12.0'), '0.12');
+  assert.equal(m.minorOf('1.0.3'), '1.0');
+  assert.equal(m.minorOf('0.10'), '0.10');
+});
+
+test('minorOf strips a leading v of a tag version', () => {
+  const m = load();
+  assert.equal(m.minorOf('v0.10.33'), '0.10');
+  assert.equal(m.minorOf('v0.12.0'), '0.12');
+});
+
+test('a stale tour is stale and wins over seen', () => {
+  const m = load();
+  const item = { id: 'st', stale: true, steps: [{ id: 'st1', device: '', need: '' }] };
+  assert.equal(m.exploreState(item, {}, ctx()), 'stale');
+  assert.equal(m.exploreState(item, { st: true }, ctx()), 'stale');
+  assert.equal(m.exploreState({ ...item, stale: false }, {}, ctx()), 'new');
+});
+
+test('a stale tour is never run, not even when repeated or asked for', () => {
+  const m = load();
+  const explore = [{
+    version: '0.12', current: true,
+    items: [
+      { id: 'old', title: 'Old', text: 'Old', stale: true, steps: [{ id: 'o1', title: 'O', text: 'o', device: '', need: '', target: 'x' }] },
+      { id: 'ok', title: 'Ok', text: 'Ok', steps: [{ id: 'k1', title: 'K', text: 'k', device: '', need: '', target: 'x' }] },
+    ],
+  }];
+  const all = m.buildSteps({ mode: 'explore', all: true, explore, seen: {}, ctx: ctx() });
+  assert.deepEqual(all.map((s) => s.id), ['ok']);
+  const asked = m.buildSteps({ mode: 'explore', from: 'old', explore, seen: {}, ctx: ctx() });
+  assert.deepEqual(asked, []);
+  assert.equal(m.unseenCount(explore, {}, ctx()), 1);
 });

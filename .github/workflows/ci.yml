@@ -391,7 +391,9 @@ jobs:
 
   # Every highlight of this PR (a feat, fix, perf or breaking squash entry in a
   # CHANGELOG.md) needs a German text in changelog/highlights/<PR>.json. Runs
-  # on every PR, the check reads only Markdown and JSON. CI is dispatched by
+  # on every PR, the check reads only Markdown and JSON. Every dashboard
+  # highlight also needs a tour or an exemption (highlight_tours.py check).
+  # CI is dispatched by
   # the Version bump only after the branch settled, so the changelogs and the
   # translation file are current.
   highlight-translations:
@@ -405,7 +407,11 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pr }}
         run: python3 scripts/build/highlight_translations.py check --repo . --pr "$PR_NUMBER"
-      - name: Highlight details are valid
+      - name: Every web UI highlight of this PR has a tour
+        env:
+          PR_NUMBER: ${{ inputs.pr }}
+        run: python3 scripts/build/highlight_tours.py check --repo . --pr "$PR_NUMBER"
+      - name: Highlight details and tours are valid
         run: python3 scripts/build/highlight_translations.py validate --repo .
 
   bootstrap-chain:
