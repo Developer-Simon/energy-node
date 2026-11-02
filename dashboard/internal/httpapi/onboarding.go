@@ -97,6 +97,9 @@ type onboardingExploreItem struct {
 	I18n             map[string]string          `json:"i18n,omitempty"`
 	Details          *versions.HighlightDetails `json:"details,omitempty"`
 	Tour             *onboardingTour            `json:"tour"`
+	// TourLimited is set when the highlight has a tour that the user's permissions hide
+	// completely. Tour is then null, and the highlight counts as text only.
+	TourLimited bool `json:"tour_limited,omitempty"`
 }
 
 // onboardingTour is the tour of a highlight as the caller may walk it. Stale
@@ -152,6 +155,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 				I18n:             entry.I18n,
 				Details:          entry.Details,
 				Tour:             onboardingTourFor(user, entry.Tour, targets),
+				TourLimited:      tourLimitedFor(user, entry.Tour),
 			})
 		}
 	}
@@ -183,6 +187,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 					I18n:             entry.I18n,
 					Details:          entry.Details,
 					Tour:             onboardingTourFor(user, entry.Tour, targets),
+					TourLimited:      tourLimitedFor(user, entry.Tour),
 				})
 			}
 		}
@@ -223,6 +228,13 @@ func resolveReplacements(items []onboardingExploreItem, sources []*versions.High
 			break
 		}
 	}
+}
+
+// tourLimitedFor reports whether the highlight has steps and the user's
+// permissions allow none of them. An exempt tour has no steps and is not
+// limited, a missing tour is not either.
+func tourLimitedFor(user auth.User, tour *versions.HighlightTour) bool {
+	return tour != nil && len(tour.Steps) > 0 && onboardingTourFor(user, tour, nil) == nil
 }
 
 // onboardingTourFor keeps the steps whose permission the user holds. An

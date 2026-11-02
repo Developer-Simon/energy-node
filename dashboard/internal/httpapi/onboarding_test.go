@@ -658,6 +658,27 @@ func TestTourIsStaleWhenAnOpenEntryIsUnknown(t *testing.T) {
 	}
 }
 
+func TestTourLimitedWhenPermissionsHideEveryStep(t *testing.T) {
+	needsAutomations := &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "known", Device: "any", Need: auth.RoleAutomations},
+	}}
+	without := auth.User{Roles: []string{auth.RoleViewOverview}}
+	with := auth.User{Roles: []string{auth.RoleViewOverview, auth.RoleViewAutomations, auth.RoleAutomations}}
+	if item := (onboardingExploreItem{Tour: onboardingTourFor(without, needsAutomations, nil), TourLimited: tourLimitedFor(without, needsAutomations)}); item.Tour != nil || !item.TourLimited {
+		t.Fatalf("item = %+v, want no tour and limited for a user without the role", item)
+	}
+	if tourLimitedFor(with, needsAutomations) {
+		t.Fatal("limited for a user with the role, want not limited")
+	}
+	if tourLimitedFor(without, nil) {
+		t.Fatal("limited without a tour, want not limited")
+	}
+	exempt := &versions.HighlightTour{Exempt: "Only the backend changed"}
+	if tourLimitedFor(without, exempt) {
+		t.Fatal("limited for an exempt tour, want not limited")
+	}
+}
+
 // replacementEntry builds an explore item and its unfiltered source tour the
 // way onboardingExplore does.
 func replacementEntry(id string, pr int, user auth.User, tour *versions.HighlightTour, targets map[string]bool) (onboardingExploreItem, *versions.HighlightTour) {
