@@ -201,3 +201,104 @@ test('apply stops at an element that is missing', async () => {
   assert.deepEqual(clicks, []);
   assert.equal(run.records.length, 0);
 });
+
+test('next keeps the shared prefix open', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <button id="t" data-tour="t" aria-expanded="false"></button>
+    <button id="x" data-tour="x" aria-expanded="false"></button>
+    <button id="y" data-tour="y" aria-expanded="false"></button>`;
+  const get = (id) => document.getElementById(id);
+  const clicks = [];
+  for (const id of ['t', 'x', 'y']) toggle(get(id), clicks);
+  const prev = runOf(['t', 'x']);
+  await a.apply(prev, { alive: () => true, show: async () => {}, waitFor });
+  const run = await a.next(prev, ['t', 'y']);
+  assert.deepEqual(clicks, ['t', 'x', 'x'], 'only x is reverted');
+  assert.equal(get('t').getAttribute('aria-expanded'), 'true');
+  assert.equal(get('x').getAttribute('aria-expanded'), 'false');
+  assert.deepEqual(run.entries, ['t', 'y']);
+  assert.equal(run.records.length, 1);
+  assert.equal(run.records[0], prev.records[0]);
+});
+
+test('next reverts in reverse order', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <button id="a" data-tour="a" aria-expanded="false"></button>
+    <button id="b" data-tour="b" aria-expanded="false"></button>
+    <button id="c" data-tour="c" aria-expanded="false"></button>`;
+  const clicks = [];
+  for (const id of ['a', 'b', 'c']) toggle(document.getElementById(id), clicks);
+  const prev = runOf(['a', 'b', 'c']);
+  await a.apply(prev, { alive: () => true, show: async () => {}, waitFor });
+  const run = await a.next(prev, []);
+  assert.deepEqual(clicks, ['a', 'b', 'c', 'c', 'b', 'a']);
+  assert.equal(run.records.length, 0);
+});
+
+test('next waits for a running apply before it reverts', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <button id="a" data-tour="a" aria-expanded="false"></button>
+    <button id="b" data-tour="b" aria-expanded="false"></button>`;
+  const clicks = [];
+  for (const id of ['a', 'b']) toggle(document.getElementById(id), clicks);
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  const show = async (el) => { if (el.id === 'b') await gate; };
+  const prev = runOf(['a', 'b']);
+  const work = a.apply(prev, { alive: () => true, show, waitFor });
+  const nextRun = a.next(prev, []);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(clicks, ['a'], 'nothing is reverted while apply waits');
+  release();
+  await work;
+  await nextRun;
+  const atResolve = clicks.length;
+  assert.deepEqual(clicks, ['a', 'b', 'b', 'a']);
+  assert.equal(clicks.length, atResolve, 'no click after next resolved');
+});
+
+test('a trusted click outside the dock marks the run as taken over', () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <div class="ob-dock"><button id="d"></button></div>
+    <button id="o"></button>`;
+  const run = runOf(['a']);
+  const stop = a.watchTakeover(run, (e) => e.target.closest('.ob-dock'));
+  document.getElementById('o').click();
+  stop();
+  assert.equal(run.takenOver, true);
+});
+
+test('next after a takeover reverts nothing and keeps nothing', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<button id="x" data-tour="x" aria-expanded="false"></button>';
+  const x = document.getElementById('x');
+  const clicks = [];
+  toggle(x, clicks);
+  const prev = runOf(['x']);
+  await a.apply(prev, { alive: () => true, show: async () => {}, waitFor });
+  prev.takenOver = true;
+  const run = await a.next(prev, ['x']);
+  assert.deepEqual(clicks, ['x'], 'no revert click');
+  assert.equal(x.getAttribute('aria-expanded'), 'true');
+  assert.equal(run.records.length, 0);
+  assert.equal(run.takenOver, false);
+});
+
+test('clicks inside the dock and synthetic clicks do not count', () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <div class="ob-dock"><button id="d"></button><input id="i"></div>
+    <button id="o"></button>`;
+  const run = runOf(['a']);
+  const stop = a.watchTakeover(run);
+  document.getElementById('d').click();
+  document.getElementById('i').dispatchEvent(new document.defaultView.Event('input', { bubbles: true }));
+  document.getElementById('o').click();
+  document.getElementById('o').dispatchEvent(new document.defaultView.Event('change', { bubbles: true }));
+  stop();
+  assert.equal(run.takenOver, false);
+});

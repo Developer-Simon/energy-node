@@ -111,7 +111,30 @@
     return work.finally(() => { if (run.pending === work) run.pending = null; });
   };
 
-  window.obActions = { action, named, stateOf, find, sharedPrefix, apply };
+  // Merkt sich, ob der Nutzer selbst in der Tour klickt, tippt oder etwas
+  // aendert. Klicks im Dock und nicht vertrauenswuerdige Ereignisse zaehlen
+  // standardmaessig nicht. Gibt die Funktion zum Abmelden zurueck.
+  const watchTakeover = (run, ignore = (event) => !event.isTrusted || event.target.closest?.('.ob-dock')) => {
+    const onEvent = (event) => { if (!ignore(event)) run.takenOver = true; };
+    const types = ['click', 'input', 'change'];
+    for (const type of types) document.addEventListener(type, onEvent, true);
+    return () => { for (const type of types) document.removeEventListener(type, onEvent, true); };
+  };
+
+  // Nimmt prev zurueck, soweit die neuen Eintraege ihn nicht mehr tragen. Der
+  // gemeinsame Anfang bleibt offen. Vorher wird ein laufender apply abgewartet.
+  // Hat der Nutzer eingegriffen, wird nichts zurueckgenommen und nichts behalten.
+  const next = async (prev, entries) => {
+    if (prev?.pending) await prev.pending;
+    if (!prev || prev.takenOver) return { entries, records: [], scope: null, takenOver: false, pending: null };
+    const keep = Math.min(sharedPrefix(prev.entries, entries), prev.records.length);
+    for (let i = prev.records.length - 1; i >= keep; i -= 1) prev.records[i].revert?.();
+    const records = prev.records.slice(0, keep);
+    const scope = keep > 0 ? records[keep - 1].scope : null;
+    return { entries, records, scope, takenOver: false, pending: null };
+  };
+
+  window.obActions = { action, named, stateOf, find, sharedPrefix, apply, next, watchTakeover };
 
   // Platzhalter bis Task 4: der Go-Test verlangt @time-rule im Katalog.
   action('time-rule', { run: async () => { throw new Error('Task 4'); } });
