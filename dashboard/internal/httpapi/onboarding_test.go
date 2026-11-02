@@ -523,7 +523,7 @@ func TestCorruptFileGetStaysReadOnly(t *testing.T) {
 // TestFirstGetWithoutChangelogStoresNothing: while the changelog cannot be read
 // the first GET answers with the starting state in memory only, so no
 // baseline with an empty list is stored. The next GET with a readable changelog
-// seeds the real highlights as seen.
+// seeds the highlights of older minors as seen.
 func TestFirstGetWithoutChangelogStoresNothing(t *testing.T) {
 	onboardingDir := t.TempDir()
 	stateDir := t.TempDir()
@@ -551,8 +551,8 @@ func TestFirstGetWithoutChangelogStoresNothing(t *testing.T) {
 		t.Fatal("explore items empty with a readable changelog")
 	}
 	seen := onboarding.NewStore(onboardingDir).Load().Users["reader"].Seen
-	if !slices.Contains(seen, "h190") || !slices.Contains(seen, "h191") {
-		t.Fatalf("stored seen = %v, want the highlights of the readable changelog", seen)
+	if !slices.Equal(seen, []string{"h150"}) {
+		t.Fatalf("stored seen = %v, want the highlights of older minors", seen)
 	}
 }
 

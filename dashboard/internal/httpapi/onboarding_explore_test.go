@@ -63,14 +63,14 @@ func exploreIDs(view onboardingView) []string {
 	return ids
 }
 
-func TestFreshInstallHasNothingUnseen(t *testing.T) {
+func TestFreshInstallLeavesTheCurrentMinorUnseen(t *testing.T) {
 	router, _ := newExploreRouter(t, false)
 	cookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
 	view := getOnboarding(t, router, cookie)
 	if view.Explore.CurrentVersion != "v0.10.0" || !slices.Equal(exploreIDs(view), []string{"h190", "h191", "h150"}) {
 		t.Fatalf("explore = %+v", view.Explore)
 	}
-	if !view.Explore.BaselineSeen || !slices.Equal(view.User.Seen, []string{"h190", "h191", "h150"}) {
+	if !view.Explore.BaselineSeen || !slices.Equal(view.User.Seen, []string{"h150"}) {
 		t.Fatalf("fresh install: seen = %v, baseline = %v", view.User.Seen, view.Explore.BaselineSeen)
 	}
 	if want := []string{"setup", "explore"}; !slices.Equal(view.Queue, want) {

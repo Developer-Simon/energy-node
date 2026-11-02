@@ -166,17 +166,18 @@ func onboardingTourFor(user auth.User, tour *versions.HighlightTour, targets map
 
 // onboardingSeed is the first progress of an account without an entry.
 // Accounts created after the onboarding started get the welcome and every
-// current highlight as seen. On a fresh install every account starts with
-// every highlight seen, and everyone but admins (they run the setup) gets the
+// current highlight as seen. On a fresh install every account starts with the
+// highlights of older minors seen (olderIDs), the current minor stays open to
+// explore, and everyone but admins (they run the setup) gets the
 // welcome. Older accounts of an updated install start with nothing seen, so
 // "Neu erkunden" begins with this update.
-func onboardingSeed(user auth.User, role string, fresh bool, ids []string) func(time.Time) onboarding.UserProgress {
+func onboardingSeed(user auth.User, role string, fresh bool, ids, olderIDs []string) func(time.Time) onboarding.UserProgress {
 	return func(since time.Time) onboarding.UserProgress {
 		switch {
 		case user.CreatedAt.After(since):
 			return onboarding.UserProgress{Seen: ids, Welcome: true, Baseline: true}
 		case fresh:
-			return onboarding.UserProgress{Seen: ids, Welcome: role != onboardingRoleAdmin, Baseline: true}
+			return onboarding.UserProgress{Seen: olderIDs, Welcome: role != onboardingRoleAdmin, Baseline: true}
 		default:
 			return onboarding.UserProgress{Seen: []string{}}
 		}
@@ -273,8 +274,13 @@ func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, setting
 		role := onboardingRoleOf(user)
 		currentVersion, exploreItems, readable := onboardingExplore(stateDir, user, tourTargets)
 		ids := make([]string, 0, len(exploreItems))
+		olderIDs := []string{}
 		for _, item := range exploreItems {
 			ids = append(ids, item.ID)
+			// The items come newest first, the first one names the current minor.
+			if item.Minor != exploreItems[0].Minor {
+				olderIDs = append(olderIDs, item.ID)
+			}
 		}
 		var progress onboarding.Progress
 		var own onboarding.UserProgress
@@ -285,7 +291,7 @@ func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, setting
 			own = progress.Users[user.Username]
 			own.Seen, own.Welcome, own.Baseline = ids, true, true
 		} else {
-			seed := onboardingSeed(user, role, versions.FreshInstall(stateDir), ids)
+			seed := onboardingSeed(user, role, versions.FreshInstall(stateDir), ids, olderIDs)
 			if readable {
 				progress = store.EnsureUser(user.Username, time.Now().UTC(), seed)
 			} else {
