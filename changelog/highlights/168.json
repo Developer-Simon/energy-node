@@ -15,7 +15,7 @@
           "need": "automations",
           "open": [
             "automations-rules",
-            "@time-rule"
+            "@open-rule"
           ],
           "panel": "automations-panel",
           "target": "rule-fires",
