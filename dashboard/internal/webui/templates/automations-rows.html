@@ -56,7 +56,7 @@
 
                       <template x-if="condition.type === 'balance_threshold'">
                         <div class="auto-fields">
-                          <div class="auto-field auto-field-wide">
+                          <div class="auto-field auto-field-wide" data-tour="rule-balance-field">
                             <span class="auto-field-label auto-label-sr auto-label-always-hidden">{{t "automations.condition.balance.field_label"}}</span>
                             {{template "auto-condition-chip" "field"}}
                           </div>
@@ -175,7 +175,7 @@
                             <span class="auto-field-label">{{t "automations.condition.time_window.to_label"}}</span>
                             <input class="auto-input" type="time" x-model="condition.end" x-bind:aria-label="$t('automations.condition.time_window.end_aria')">
                           </div>
-                          <div class="weekday-chips auto-field-wide" role="group" x-bind:aria-label="$t('automations.condition.time_window.weekdays_aria')">
+                          <div class="weekday-chips auto-field-wide" role="group" data-tour="rule-weekdays" x-bind:aria-label="$t('automations.condition.time_window.weekdays_aria')">
                             <span class="weekday-chips-label" x-text="(condition.weekdays || []).length ? $t('automations.condition.time_window.specific_days') : $t('automations.condition.time_window.any_day')"></span>
                             <template x-for="(label, day) in weekdayLabels()" x-bind:key="day">
                               <button class="weekday-chip" type="button" x-text="label"
@@ -208,7 +208,7 @@
                       </template>
 
                       <template x-if="condition.type === 'sun_window'">
-                        <div class="auto-fields">
+                        <div class="auto-fields" data-tour="rule-sun">
                           <div class="auto-field">
                             <span class="auto-field-label">{{t "automations.condition.sun_window.from_aria"}}</span>
                             <select class="auto-input" x-model="condition.from" x-bind:aria-label="$t('automations.condition.sun_window.from_aria')">

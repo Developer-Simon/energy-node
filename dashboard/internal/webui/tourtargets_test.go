@@ -14,9 +14,10 @@ func TestTourTargetsKnowsTheMarkupAndTheSetupSteps(t *testing.T) {
 		"devicemap-connect", "devicemap-layer-energy", "devicemap-layer-data", "devicemap-layer-balance",
 		"devicemap-view", "devicemap-filter", "energy-plant", "energy-interpretation", "energy-roles-head",
 		"energy-interpretation-toggle", "energy-load-mode", "energy-roles-toggle",
-		"energy-groups", "stats-nav", "stats-kpis", "stats-table-bar", "history-status", "history-resolution",
+		"energy-groups", "energy-groups-toggle", "stats-nav", "stats-kpis", "stats-table-bar", "history-status", "history-resolution",
 		"automations-tabs", "automations-rules", "@time-rule",
-		"rule-flow", "rule-monthdays-toggle", "rule-monthdays"} {
+		"rule-flow", "rule-monthdays-toggle", "rule-monthdays", "rule-weekdays", "rule-sun", "rule-balance-field",
+		"device-tile", "device-favorite", "device-icon-button", "device-icon-picker"} {
 		if !targets[id] {
 			t.Errorf("target %q missing from %d known targets", id, len(targets))
 		}
