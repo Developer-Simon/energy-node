@@ -9,7 +9,7 @@ func TestTourTargetsKnowsTheMarkupAndTheSetupSteps(t *testing.T) {
 	for _, id := range []string{"theme", "users", "guest", "devices",
 		"language", "numberformat", "history-exchange", "settings-nav", "settings-picker",
 		"language-pill", "versions-highlights", "versions-history", "versions-components", "versions-changes",
-		"users-tabs", "users-accounts", "own-account", "own-account-card", "checklist-explore", "checklist-catch-up", "checklist-more", "mqtt-sensors", "mqtt-bridge",
+		"users-tabs", "users-accounts", "users-sessions", "sessions", "guest-card", "own-account", "own-account-card", "checklist-explore", "checklist-catch-up", "checklist-more", "mqtt-sensors", "mqtt-bridge",
 		"diagnostics", "service-logs", "config-status",
 		"devicemap-connect", "devicemap-layer-energy", "devicemap-layer-data", "devicemap-layer-balance",
 		"devicemap-view", "devicemap-filter", "energy-plant", "energy-interpretation", "energy-roles-head",

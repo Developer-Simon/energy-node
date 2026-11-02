@@ -12,7 +12,7 @@
   <div class="users-tabs" data-tour="users-tabs" role="tablist" aria-label="{{t "users.nav"}}">
     <button type="button" role="tab" class="users-tab" data-tab="signin" x-bind:class="{ 'is-active': tab === 'signin' }" x-bind:aria-selected="tab === 'signin' ? 'true' : 'false'" x-on:click="setTab('signin')">{{t "users.tab.signin"}}</button>
     <button type="button" role="tab" class="users-tab" data-tab="accounts" data-tour="users-accounts" x-bind:class="{ 'is-active': tab === 'accounts' }" x-bind:aria-selected="tab === 'accounts' ? 'true' : 'false'" x-on:click="setTab('accounts')">{{t "users.tab.accounts"}}</button>
-    <button type="button" role="tab" class="users-tab" data-tab="sessions" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
+    <button type="button" role="tab" class="users-tab" data-tab="sessions" data-tour="users-sessions" x-bind:class="{ 'is-active': tab === 'sessions' }" x-bind:aria-selected="tab === 'sessions' ? 'true' : 'false'" x-on:click="setTab('sessions')">{{t "users.tab.sessions"}}</button>
   </div>
 
 {{template "users-account-cards" .}}
@@ -128,7 +128,7 @@
     </div>
   </div>
 
-  <div class="setting-card users-section" x-show="tab === 'sessions'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
+  <div class="setting-card users-section" data-tour="sessions" x-show="tab === 'sessions'" x-transition:enter="users-create-enter" x-transition:enter-start="users-create-enter-start" x-transition:enter-end="users-create-enter-end">
     <div class="users-section-head">
       <h3 class="setting-card-title">{{t "users.sessions.title"}}</h3>
     </div>
@@ -164,7 +164,7 @@
 <article class="users-card" x-data="{ pwOpen: false, pwNew: '', httpOpen: false, httpNew: '' }"
   x-bind:class="{ 'is-open': openId === cardId, 'is-disabled': (cardKind(cardId) === 'account' || cardKind(cardId) === 'ha') && savedSnapshot(cardId).disabled, 'is-http': draftOf(cardId).roles.includes('http_login') }"
   x-bind:data-tour="isSelf(cardId) ? 'own-account-card' : null">
-  <button type="button" class="users-card-head" x-bind:data-tour="isSelf(cardId) ? 'own-account' : null" x-bind:aria-expanded="openId === cardId ? 'true' : 'false'" x-on:click="toggleCard(cardId)">
+  <button type="button" class="users-card-head" x-bind:data-tour="isSelf(cardId) ? 'own-account' : (cardId === 'preset:guest' ? 'guest-card' : null)" x-bind:aria-expanded="openId === cardId ? 'true' : 'false'" x-on:click="toggleCard(cardId)">
     <span class="users-avatar" x-bind:class="{ 'is-preset': cardKind(cardId) === 'preset' }" aria-hidden="true"
       x-text="cardKind(cardId) === 'preset' ? (cardId === 'preset:guest' ? 'G' : 'H') : (cardKind(cardId) === 'new' ? '+' : String((accountFor(cardId) && (accountFor(cardId).display_name || accountFor(cardId).username)) || cardId).charAt(0).toUpperCase())"></span>
     <span class="users-head-main">
