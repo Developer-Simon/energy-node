@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.37 (2026-11-02)
+## v0.10.38 (2026-11-02)
 
 ### Features
 
@@ -27,6 +27,7 @@
 - **installer:** The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later. (#190) (f03d069)
 - **battery-soc:** render tuning findings from a shared message catalog (#196) (2332ed5)
 - **onboarding:** Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one. (#197) (00443d4)
+- **onboarding:** Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind "Explore further back", and each older release card can catch up on its tour. (#198) (c79cedf)
 - **webui:** tour targets for settings, versions, users, checklist, MQTT, diagnostics and config (a3c5e39)
 - **webui:** tour targets for the device map, energy, statistics, history and automations (8203a77)
 - **onboarding:** list highlights older than the explore window as archive (ce98e3e)
@@ -37,7 +38,6 @@
 - **onboarding:** put the toggles for older versions in their own card below the version cards (fa111f5)
 - **webui:** tour target for the card with the version toggles (9b90dde)
 - **onboarding:** open older versions step by step, the two newest minors stay visible (15d4f82)
-- **onboarding:** Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind "Explore further back", and each older release card can catch up on its tour. (#198)
 - **ci:** require a tour for web UI highlights (2c10e82)
 - **versions:** pass the highlight tour through the API (7983912)
 - **onboarding:** remember when the onboarding started and seed new accounts (51e1c3b)
@@ -231,6 +231,7 @@
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
 - **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195) (70464ad)
+- **auth:** log restricted logins and reject password changes of HA accounts (#200)
 - **onboarding:** keep GET read-only on a corrupt file and skip guest storage (89aa0c8)
 - **onboarding:** show the title and text of each tour step (4a8d06b)
 - **onboarding:** repeat the whole run and add the tour button to explore (b385f92)
