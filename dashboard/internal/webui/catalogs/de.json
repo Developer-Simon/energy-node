@@ -3001,8 +3001,6 @@
   "onboarding.finish.welcome.title": "Viel Spaß",
   "onboarding.guest_note.text": "Der Admin muss sich einmal anmelden und die Ersteinrichtung durchgehen. Bis dahin fehlen hier Geräte und Energiewerte.",
   "onboarding.guest_note.title": "Noch nicht eingerichtet.",
-  "onboarding.news_note.text": "Starte die Tour und sieh dir an, was sich seit deinem letzten Besuch geändert hat.",
-  "onboarding.news_note.title": "Es gibt Neues zu entdecken.",
   "onboarding.setup.admin.sub": "Name und Passwort des ersten Kontos",
   "onboarding.setup.admin.title": "Admin-Zugang",
   "onboarding.setup.automations.text": "Automationen reagieren auf deine Geräte und Energiewerte. Eine Regel kann zum Beispiel ein Gerät einschalten, sobald genug PV-Überschuss da ist. Starte mit einer Vorlage oder lege eigene Regeln an.",

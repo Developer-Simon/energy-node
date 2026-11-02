@@ -25,7 +25,7 @@
   const SESSION = '/api/v1/auth/session';
   // Begruessung eines Gastes gilt fuer die Dauer der Browsersitzung.
   const WELCOME_DONE_KEY = 'ob-welcome-done';
-  // Start-Notiz der Uebersicht: die Zahl ungesehener Neuerungen, bei der sie weggeklickt wurde.
+  // Neuerungen: die Zahl ungesehener Neuerungen, bei der das Angebot weggeklickt wurde.
   const NEWS_NOTE_KEY = 'ob-news-note-dismissed';
 
   const t = (key, params) => window.I18n.t(key, params);
@@ -345,22 +345,10 @@
       const current = this.exploreVersions.find((v) => v.current);
       return Boolean(current?.items.some((item) => !item.stale && this.tourSteps(item).length));
     },
-    // Start-Notiz der Uebersicht: ungesehen und eine Tour da, kein Lauf offen und nicht
-    // weggeklickt, bis mehr ungesehen ist als beim Wegklicken.
-    get newsNoteShown() {
-      if (this.active || this.finished) return false;
-      const unseen = this.unseenCount;
-      if (!unseen || !this.newsTourAvailable) return false;
-      return this.newsNoteDismissed === null || unseen > this.newsNoteDismissed;
-    },
-    dismissNewsNote() {
+    // Merkt die Zahl ungesehener Neuerungen beim Wegklicken. Erst mehr ungesehene zeigen wieder.
+    dismissNews() {
       this.newsNoteDismissed = this.unseenCount;
       rememberNewsNoteDismissed(this.newsNoteDismissed);
-    },
-    // Tour starten aus der Notiz, wie exploreStart() der Checkliste (ungesehen ist immer etwas).
-    startNewsNote() {
-      this.queue = [];
-      this.start('explore', null, { all: false });
     },
     // Schritte eines Highlights, die fuer Rolle und Geraet gelten (wie in obModel).
     tourSteps(item) {

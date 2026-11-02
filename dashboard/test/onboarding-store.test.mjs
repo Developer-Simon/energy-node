@@ -563,17 +563,16 @@ test('exploreVersions carries the stale flag of a tour', async () => {
   assert.equal(ok.stale, false);
 });
 
-test('the news note shows while something unseen has a tour, hides when dismissed and returns for more', async () => {
+test('dismissNews keeps the unseen count for this browser session and returns for more', async () => {
   const storage = memoryStorage();
   const { store } = await load({ prepare: false, storage });
   assert.equal(store.unseenCount, 1, 'h184 has a tour and is unseen');
-  assert.equal(store.newsNoteShown, true);
-  store.dismissNewsNote();
-  assert.equal(store.newsNoteShown, false);
+  store.dismissNews();
+  assert.equal(store.newsNoteDismissed, 1);
   assert.equal(storage.getItem('ob-news-note-dismissed'), '1');
 
   const again = await load({ prepare: false, storage });
-  assert.equal(again.store.newsNoteShown, false, 'same browser session: still hidden');
+  assert.equal(again.store.newsNoteDismissed, 1, 'same browser session: the dismissal is still there');
 
   const more = {
     ...PROGRESS,
@@ -581,36 +580,13 @@ test('the news note shows while something unseen has a tour, hides when dismisse
   };
   const later = await load({ prepare: false, storage, progress: more });
   assert.equal(later.store.unseenCount, 2);
-  assert.equal(later.store.newsNoteShown, true, 'more unseen than at dismissal: shown again');
+  assert.ok(later.store.unseenCount > later.store.newsNoteDismissed, 'more unseen than at dismissal');
 });
 
-test('the news note is hidden without an unseen tour and while a run is active', async () => {
-  const { store } = await load({ prepare: false, storage: memoryStorage() });
-  assert.equal(store.newsNoteShown, true);
-  store.start('explore', null, { all: false });
-  assert.equal(store.active, true);
-  assert.equal(store.newsNoteShown, false, 'a run is active');
-
-  const noTour = { ...PROGRESS, explore: { ...EXPLORE, items: [EXPLORE.items[1]] } };
-  const none = await load({ prepare: false, storage: memoryStorage(), progress: noTour });
-  assert.equal(none.store.unseenCount, 0);
-  assert.equal(none.store.newsNoteShown, false, 'nothing unseen with a tour');
-});
-
-test('startNewsNote starts the explore run with no queue, like the checklist', async () => {
-  const { store } = await load({ prepare: false, storage: memoryStorage() });
-  store.queue = ['setup'];
-  store.startNewsNote();
-  assert.deepEqual([...store.queue], []);
-  assert.equal(store.active, true);
-  assert.equal(store.run.mode, 'explore');
-  assert.equal(store.run.all, false);
-});
-
-test('a broken sessionStorage keeps the news note open and does not throw on dismiss', async () => {
+test('a broken sessionStorage does not throw on dismissNews', async () => {
   const broken = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
   const { store } = await load({ prepare: false, storage: broken });
-  assert.equal(store.newsNoteShown, true);
-  assert.doesNotThrow(() => store.dismissNewsNote());
-  assert.equal(store.newsNoteShown, false, 'dismissed for this store even without storage');
+  assert.equal(store.newsNoteDismissed, null);
+  assert.doesNotThrow(() => store.dismissNews());
+  assert.equal(store.newsNoteDismissed, 1, 'dismissed for this store even without storage');
 });
