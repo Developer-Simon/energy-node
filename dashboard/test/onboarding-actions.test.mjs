@@ -435,3 +435,196 @@ test('time-rule keeps a changed rule', async () => {
   assert.equal(page.document.rules[0].repeat_seconds, 60);
   assert.deepEqual(page.discarded, []);
 });
+
+test('sun-rule opens the first sun window rule and skips a time window', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const timeOnly = windowRule('a');
+  const sun = { id: 'b', conditions: [{ type: 'sun_window', from: 'sunrise', to: 'sunset' }], actions: [] };
+  ruleItem(document, 'a');
+  const li = ruleItem(document, 'b');
+  const page = rulesPage(document, [timeOnly, sun]);
+  const run = runOf(['@sun-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.deepEqual(page.started, ['b']);
+  assert.equal(run.scope, li);
+  assert.equal(page.document.rules.length, 2, 'no example rule is added');
+});
+
+test('sun-rule creates a disabled example rule with a sun window when none matches', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const page = rulesPage(document, [windowRule('a')]);
+  const run = runOf(['@sun-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  const created = page.document.rules.find((r) => r.id.startsWith('regel_'));
+  assert.ok(created, 'an example rule was inserted');
+  assert.equal(created.enabled, false);
+  assert.deepEqual(JSON.parse(JSON.stringify(created.conditions)), [{ type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, weekdays: [] }]);
+  assert.equal(run.records.length, 1);
+});
+
+test('balance-rule opens the first balance threshold rule', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const balance = { id: 'c', conditions: [{ type: 'balance_threshold', field: 'grid_import', comparison: 'above', threshold: 100 }], actions: [] };
+  const other = { id: 'd', conditions: [{ type: 'time_window' }], actions: [] };
+  ruleItem(document, 'c');
+  ruleItem(document, 'd');
+  const page = rulesPage(document, [balance, other]);
+  const run = runOf(['@balance-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.deepEqual(page.started, ['c']);
+  assert.equal(page.document.rules.length, 2, 'no example rule is added');
+});
+
+test('balance-rule creates a disabled example rule with a threshold when none matches', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  const page = rulesPage(document, [windowRule('a')]);
+  const run = runOf(['@balance-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  const created = page.document.rules.find((r) => r.id.startsWith('regel_'));
+  assert.ok(created, 'an example rule was inserted');
+  assert.equal(created.enabled, false);
+  assert.deepEqual(JSON.parse(JSON.stringify(created.conditions)), [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 }]);
+  assert.equal(run.records.length, 1);
+});
+
+test('battery-soc selects the battery service and reverts the old one', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc">Batterie</option></select>
+    <div id="schema-form"></div>`;
+  const select = document.getElementById('config-name');
+  const form = document.getElementById('schema-form');
+  select.value = 'grid';
+  let changes = 0;
+  select.addEventListener('change', () => {
+    changes += 1;
+    if (select.value === 'battery_soc') form.append(document.createElement('input'));
+    else form.replaceChildren();
+  });
+  const rec = await a.named['battery-soc'].run({ waitFor });
+  assert.equal(rec.el, select);
+  assert.equal(rec.scope, null);
+  assert.equal(select.value, 'battery_soc');
+  assert.equal(changes, 1);
+  assert.equal(form.children.length, 1);
+  rec.revert();
+  assert.equal(select.value, 'grid');
+  assert.equal(changes, 2);
+  assert.equal(form.children.length, 0);
+});
+
+test('battery-soc leaves the select alone when the user chose another service since', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc">Batterie</option><option value="solar">Solar</option></select>
+    <div id="schema-form"><i></i></div>`;
+  const select = document.getElementById('config-name');
+  let changes = 0;
+  select.addEventListener('change', () => { changes += 1; });
+  const rec = await a.named['battery-soc'].run({ waitFor });
+  select.value = 'solar';
+  rec.revert();
+  assert.equal(select.value, 'solar');
+  assert.equal(changes, 1, 'only the run dispatched change');
+});
+
+test('battery-soc returns null without the battery option or the select', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<select id="config-name"><option value="grid">Netz</option></select>';
+  assert.equal(await a.named['battery-soc'].run({ waitFor }), null);
+  document.body.innerHTML = '<div id="schema-form"></div>';
+  assert.equal(await a.named['battery-soc'].run({ waitFor }), null);
+});
+
+test('battery-soc gives up and restores the old service when the form does not appear', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = `
+    <select id="config-name"><option value="grid">Netz</option><option value="battery_soc">Batterie</option></select>`;
+  const select = document.getElementById('config-name');
+  select.value = 'grid';
+  const rec = await a.named['battery-soc'].run({ waitFor });
+  assert.equal(rec, null);
+  assert.equal(select.value, 'grid');
+});
+
+// Das Geraetedetail als Stub: der Dialog oeffnet sich beim Klick auf den Ausloeser,
+// closeDeviceDetail schliesst ihn und zaehlt die Aufrufe.
+function devicePage(document, { opens = true } = {}) {
+  const panel = {
+    closed: 0,
+    closeDeviceDetail() {
+      this.closed += 1;
+      document.getElementById('device-modal').removeAttribute('open');
+    },
+  };
+  document.defaultView.Alpine = { $data: () => panel };
+  document.body.innerHTML = `
+    <button class="device-detail-trigger" id="hidden" data-hidden></button>
+    <button class="device-detail-trigger" id="trig">Geraet</button>
+    <dialog id="device-modal"></dialog>`;
+  if (opens) {
+    document.getElementById('trig').addEventListener('click', () => {
+      document.getElementById('device-modal').setAttribute('open', '');
+    });
+  }
+  return panel;
+}
+
+test('device-modal shows the first visible trigger slowly, opens the dialog and closes it on revert', async () => {
+  const { document, a } = load();
+  const panel = devicePage(document);
+  const shows = [];
+  const show = async (el, opts) => { shows.push([el.id, opts]); };
+  const rec = await a.named['device-modal'].run({ waitFor, show });
+  const dialog = document.getElementById('device-modal');
+  assert.deepEqual(shows.map(([id]) => id), ['trig']);
+  assert.equal(shows[0][1].slow, true);
+  assert.equal(rec.el, dialog);
+  assert.equal(rec.scope, dialog);
+  assert.equal(dialog.hasAttribute('open'), true);
+  rec.revert();
+  assert.equal(panel.closed, 1);
+  assert.equal(dialog.hasAttribute('open'), false);
+});
+
+test('device-modal revert does nothing when the dialog was closed by the user', async () => {
+  const { document, a } = load();
+  const panel = devicePage(document);
+  const rec = await a.named['device-modal'].run({ waitFor, show: async () => {} });
+  document.getElementById('device-modal').removeAttribute('open');
+  rec.revert();
+  assert.equal(panel.closed, 0);
+});
+
+test('device-modal returns null without a visible trigger', async () => {
+  const { document, a } = load();
+  const panel = devicePage(document);
+  document.getElementById('trig').setAttribute('data-hidden', '');
+  const shows = [];
+  const rec = await a.named['device-modal'].run({ waitFor, show: async (el) => { shows.push(el.id); } });
+  assert.equal(rec, null);
+  assert.deepEqual(shows, []);
+  assert.equal(panel.closed, 0);
+});
+
+test('device-modal returns null when the dialog never opens', async () => {
+  const { document, a } = load();
+  const panel = devicePage(document, { opens: false });
+  const rec = await a.named['device-modal'].run({ waitFor, show: async () => {} });
+  assert.equal(rec, null);
+  assert.equal(panel.closed, 0, 'nothing open, nothing to close');
+});
+
+test('device-modal inside apply shows the dialog once more after it opened', async () => {
+  const { document, a } = load();
+  devicePage(document);
+  const shows = [];
+  const run = runOf(['@device-modal']);
+  await a.apply(run, { alive: () => true, show: async (el) => { shows.push(el.id); }, waitFor });
+  assert.deepEqual(shows, ['trig', 'device-modal']);
+  assert.equal(run.scope, document.getElementById('device-modal'));
+});

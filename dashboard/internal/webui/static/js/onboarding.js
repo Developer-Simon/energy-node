@@ -602,7 +602,7 @@
       const placed = await openPlace(step);
       await window.obActions.apply(this.actions, {
         alive: () => step === this.step,
-        show: (el) => this.pressOn(el),
+        show: (el, opts) => this.pressOn(el, opts),
         waitFor,
       });
       if (step !== this.step) return;
@@ -648,13 +648,15 @@
 
     // Zeigt das Ziel einer Aktion und laesst es kurz pulsen, bevor geklickt wird.
     // Bei reduzierter Bewegung entfaellt die Wartezeit vor dem Puls.
-    async pressOn(el) {
+    // opts.slow laesst langsamere Aktionen (Geraetedialog) laenger stehen.
+    async pressOn(el, opts = {}) {
       const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const slow = Boolean(opts.slow) && !calm;
       this.reveal(el);
       this.spot.show(el);
-      if (!calm) await new Promise((resolve) => setTimeout(resolve, 280));
+      if (!calm) await new Promise((resolve) => setTimeout(resolve, slow ? 750 : 280));
       this.spot.press();
-      await new Promise((resolve) => setTimeout(resolve, calm ? 120 : 140));
+      await new Promise((resolve) => setTimeout(resolve, slow ? 320 : (calm ? 120 : 140)));
     },
 
     // Erst entscheiden, wenn Scrollen und Feder zur Ruhe gekommen sind.

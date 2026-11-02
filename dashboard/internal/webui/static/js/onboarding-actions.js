@@ -86,7 +86,7 @@
     const name = entry.slice(1);
     const def = Object.hasOwn(named, name) ? named[name] : null;
     if (!def) return false;
-    const rec = await def.run({ waitFor });
+    const rec = await def.run({ waitFor, show });
     if (!rec) return false;
     run.records.push({ entry, el: rec.el, scope: rec.scope, revert: rec.revert });
     await show(rec.el);
@@ -139,59 +139,114 @@
 
   window.obActions = { action, named, stateOf, find, sharedPrefix, apply, next, watchTakeover };
 
-  // Oeffnet die erste Regel mit einem Zeitfenster im Bearbeiten-Modus. Gibt es
-  // keine, legt der Lauf eine deaktivierte Beispielregel an. Zuruecknehmen
-  // entfernt sie wieder, aber nur, solange sie unveraendert ist.
+  // Oeffnet die erste Regel mit einer Bedingung des Typs im Bearbeiten-Modus.
+  // Gibt es keine, legt der Lauf eine deaktivierte Beispielregel mit genau
+  // dieser Bedingung an. Zuruecknehmen entfernt sie wieder, aber nur, solange
+  // sie unveraendert ist.
   const rulesPage = () => window.Alpine.$data(document.getElementById('automations-panel'));
   const itemOf = (id) => [...document.querySelectorAll('li[data-rule-id]')]
     .find((li) => li.getAttribute('data-rule-id') === id) || null;
-  const hasWindow = (rule) => (rule.conditions || []).some((c) => c.type === 'time_window');
-
-  action('time-rule', {
-    run: async ({ waitFor }) => {
-      const page = rulesPage();
-      if (!page) return null;
-      const existing = page.document.rules.find(hasWindow);
-      const created = !existing;
-      const id = existing ? existing.id : `regel_${Date.now()}`;
-      const before = { expanded: Boolean(page.expanded[id]), editing: Boolean(page.editing[id]) };
-      if (existing) {
-        page.startEditing(existing);
-      } else {
-        page.insertEntry('rule', {
-          id,
-          name: window.I18n.t('onboarding.example_rule'),
-          enabled: false,
-          history_enabled: true,
-          cooldown_seconds: 60,
-          conditions: [{ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }],
-          actions: [],
-        });
-        page.undo = null;
-      }
-      const snapshot = JSON.stringify(page.document.rules.find((r) => r.id === id));
-
-      const revert = () => {
-        const rules = page.document.rules;
-        const rule = rules.find((r) => r.id === id);
-        if (!rule || JSON.stringify(rule) !== snapshot) return;
-        if (created) {
-          rules.splice(rules.findIndex((r) => r.id === id), 1);
-          delete page.expanded[id];
-          delete page.editing[id];
-          delete page.newIds[id];
-          return;
+  const ruleAction = (type, makeCondition) => {
+    const hasType = (rule) => (rule.conditions || []).some((c) => c.type === type);
+    return {
+      run: async ({ waitFor }) => {
+        const page = rulesPage();
+        if (!page) return null;
+        const existing = page.document.rules.find(hasType);
+        const created = !existing;
+        const id = existing ? existing.id : `regel_${Date.now()}`;
+        const before = { expanded: Boolean(page.expanded[id]), editing: Boolean(page.editing[id]) };
+        if (existing) {
+          page.startEditing(existing);
+        } else {
+          page.insertEntry('rule', {
+            id,
+            name: window.I18n.t('onboarding.example_rule'),
+            enabled: false,
+            history_enabled: true,
+            cooldown_seconds: 60,
+            conditions: [makeCondition()],
+            actions: [],
+          });
+          page.undo = null;
         }
-        if (!before.editing) page.discardEditing(rule);
-        if (!before.expanded) page.expanded[id] = false;
-      };
+        const snapshot = JSON.stringify(page.document.rules.find((r) => r.id === id));
 
-      const li = await waitFor(() => itemOf(id), 1500);
-      if (!li) {
+        const revert = () => {
+          const rules = page.document.rules;
+          const rule = rules.find((r) => r.id === id);
+          if (!rule || JSON.stringify(rule) !== snapshot) return;
+          if (created) {
+            rules.splice(rules.findIndex((r) => r.id === id), 1);
+            delete page.expanded[id];
+            delete page.editing[id];
+            delete page.newIds[id];
+            return;
+          }
+          if (!before.editing) page.discardEditing(rule);
+          if (!before.expanded) page.expanded[id] = false;
+        };
+
+        const li = await waitFor(() => itemOf(id), 1500);
+        if (!li) {
+          revert();
+          return null;
+        }
+        return { el: li.querySelector('.automation-rule-head') || li, scope: li, revert };
+      },
+    };
+  };
+
+  action('time-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] })));
+  action('sun-rule', ruleAction('sun_window', () => ({ type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, weekdays: [] })));
+  action('balance-rule', ruleAction('balance_threshold', () => ({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 })));
+
+  // Der Konfigurationsbereich mit dem Dienst Batteriestand. Der Lauf waehlt den
+  // Dienst, das Formular laedt sich danach. Zuruecknehmen waehlt den alten Dienst wieder.
+  action('battery-soc', {
+    run: async ({ waitFor }) => {
+      const select = document.getElementById('config-name');
+      if (!select || ![...select.options].some((o) => o.value === 'battery_soc')) return null;
+      const old = select.value;
+      const revert = () => {
+        if (!select.isConnected || select.value !== 'battery_soc') return;
+        select.value = old;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      select.value = 'battery_soc';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      const form = await waitFor(() => {
+        const el = document.getElementById('schema-form');
+        return el && el.children.length > 0 ? el : null;
+      }, 1500);
+      if (!form) {
         revert();
         return null;
       }
-      return { el: li.querySelector('.automation-rule-head') || li, scope: li, revert };
+      return { el: select, scope: null, revert };
+    },
+  });
+
+  // Oeffnet das erste sichtbare Geraet im Detaildialog. Der Dialog kommt aus
+  // einem nachgeladenen Skript, deshalb wartet der Lauf laenger. Zuruecknehmen
+  // schliesst den Dialog, wenn er noch offen ist.
+  action('device-modal', {
+    run: async ({ waitFor, show }) => {
+      const trigger = [...document.querySelectorAll('.device-detail-trigger')]
+        .find((el) => window.obSpotlight.visibleRect(el)) || null;
+      if (!trigger) return null;
+      const close = () => {
+        if (!document.querySelector('#device-modal[open]')) return;
+        window.Alpine.$data(document.getElementById('devices-panel')).closeDeviceDetail();
+      };
+      await show(trigger, { slow: true });
+      trigger.click();
+      const dialog = await waitFor(() => document.querySelector('#device-modal[open]'), 3000);
+      if (!dialog) {
+        close();
+        return null;
+      }
+      return { el: dialog, scope: dialog, revert: close };
     },
   });
 })();
