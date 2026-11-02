@@ -253,6 +253,21 @@ test('fitNav schiebt die letzten Tabs in die Liste Weitere', () => {
   assert.equal(nav.querySelector('.nav-more').hidden, false);
 });
 
+test('fitNav markiert den Einstellungs-Tab in der Liste Weitere', () => {
+  const html = `${TABS}<button id="tab-settings" class="tab" role="tab" aria-controls="settings-panel">Einstellungen</button><span class="nav-more" hidden></span>`;
+  const { component, window } = createShell(html);
+  const nav = window.document.getElementById('dashboard-tabs');
+  Object.defineProperty(nav, 'clientWidth', { value: 250 });
+  nav.querySelectorAll('button.tab').forEach((tab) => Object.defineProperty(tab, 'offsetWidth', { value: 100 }));
+  Object.defineProperty(nav.querySelector('.nav-more'), 'offsetWidth', { value: 80 });
+  component.navMode = 'more';
+  component.fitNav();
+  const flagged = component.overflowNav.filter((item) => item.settings);
+  assert.equal(flagged.length, 1);
+  assert.equal(flagged[0].key, 'tab-settings');
+  assert.equal(component.overflowNav.find((item) => item.key === 'tab-devices').settings, false);
+});
+
 test('fitNav tut im Modus menu nichts und raeumt vorherige Ausblendungen auf', () => {
   const { component, nav } = createRow({ navWidth: 250 });
   component.fitNav();

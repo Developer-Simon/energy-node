@@ -151,6 +151,8 @@
         label: tab.textContent.trim(),
         el: tab,
         active: tab.classList.contains('active'),
+        // Der Einstellungs-Tab traegt den Marker fuer ungesehene Neuerungen.
+        settings: tab.id === 'tab-settings',
       }));
       more.hidden = rest.length === 0;
       if (rest.length === 0) this.navMoreOpen = false;

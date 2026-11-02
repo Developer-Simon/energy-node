@@ -130,6 +130,7 @@
             x-bind:aria-expanded="navOpen ? 'true' : 'false'"
             x-on:click="navOpen = !navOpen">
       <span x-text="activeTabLabel">{{t "nav.overview"}}</span>
+      <span class="ob-marker" aria-hidden="true" x-show="$store.onboarding.unseenCount"></span>
       <span class="nav-menu-chevron" aria-hidden="true"></span>
     </button>
     <nav id="dashboard-tabs" role="tablist" aria-label="{{t "nav.tabs_label"}}"
@@ -183,12 +184,13 @@
               x-bind:class="{ active: overflowNav.some((item) => item.active) }"
               x-on:click="navMoreOpen = !navMoreOpen">
         <span>{{t "nav.more"}}</span>
+        <span class="ob-marker" aria-hidden="true" x-show="$store.onboarding.unseenCount && overflowNav.some((item) => item.settings)"></span>
         <span class="nav-menu-chevron" aria-hidden="true"></span>
       </button>
       <div id="dashboard-more-list" class="nav-more-list" role="menu" x-show="navMoreOpen" x-cloak>
         <template x-for="item in overflowNav" x-bind:key="item.key">
           <button type="button" role="menuitem" x-bind:class="{ active: item.active }"
-                  x-text="item.label" x-on:click="item.el.click(); navMoreOpen = false"></button>
+                  x-on:click="item.el.click(); navMoreOpen = false"><span x-text="item.label"></span><span class="ob-marker" aria-hidden="true" x-show="item.settings && $store.onboarding.unseenCount"></span></button>
         </template>
       </div>
     </span>
@@ -308,7 +310,7 @@
   <script src="{{.BasePath}}/static/js/history-maintenance.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=13" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/dashboard.js?v=42" defer></script>
+  <script src="{{.BasePath}}/static/js/dashboard.js?v=43" defer></script>
   <script src="{{.BasePath}}/static/js/update-bar.js?v=7" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-motion.js?v=1" defer></script>

@@ -147,8 +147,9 @@ test('the versions page opens with one prominent row to the checklist explore mo
   assert.ok(template.indexOf('ob-crosslink') < template.indexOf('class="setting-card"'), 'the row sits above the first card');
 });
 
-test('the versions tab of the settings nav shows the unseen marker', () => {
-  assert.match(settingsTemplate, /\{\{t "settings\.nav\.versions"\}\}<span class="ob-marker" aria-hidden="true" x-show="\$store\.onboarding\.unseenCount"><\/span>/);
+test('the versions tab of the settings nav carries no marker, the checklist tab does', () => {
+  assert.doesNotMatch(settingsTemplate, /\{\{t "settings\.nav\.versions"\}\}<span class="ob-marker"/);
+  assert.match(settingsTemplate, /\{\{t "onboarding\.checklist\.title"\}\}<span class="ob-marker" aria-hidden="true" x-show="\$store\.onboarding\.unseenCount"><\/span>/);
 });
 
 test('the catalogs drop the what\'s new key and carry the new texts in both languages', () => {

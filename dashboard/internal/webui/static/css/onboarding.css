@@ -409,6 +409,8 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
 }
 .ob-marker[hidden] { display: none; }
 .ob-marker--tab { position: absolute; top: .55rem; right: .3rem; margin: 0; }
+/* Punkt an den Knoepfen der schmalen Navigation: im Text, auf der Mittellinie. */
+.nav-menu-toggle .ob-marker, .nav-more-toggle .ob-marker, .nav-more-list .ob-marker { flex: none; vertical-align: middle; }
 
 /* --- Checkliste ------------------------------------------------------------ */
 .ob-checklist .ob-cl-mode { display: contents; }
