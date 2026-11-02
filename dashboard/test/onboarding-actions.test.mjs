@@ -20,7 +20,7 @@ function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   dom.window.obSpotlight = { visibleRect: (el) => (el.hasAttribute('data-hidden') ? null : {}) };
   vm.runInContext(source, dom.getInternalVMContext());
-  return { document: dom.window.document, a: dom.window.obActions };
+  return { document: dom.window.document, a: dom.window.obActions, win: dom.window };
 }
 
 // Ein Lauf wie next() ihn anlegt, hier von Hand.
@@ -649,4 +649,48 @@ test('device-modal inside apply shows the dialog once more after it opened', asy
   await a.apply(run, { alive: () => true, show: async (el) => { shows.push(el.id); }, waitFor });
   assert.deepEqual(shows, ['trig', 'device-modal']);
   assert.equal(run.scope, document.getElementById('device-modal'));
+});
+
+// Ein Toast-Store, der die Aufrufe mitschreibt. push gibt die gegebene id zurueck.
+function toastStore(calls, pushId = 7) {
+  return {
+    push: (...args) => { calls.push(['push', ...args]); return pushId; },
+    hold: (...args) => { calls.push(['hold', ...args]); },
+    dismiss: (...args) => { calls.push(['dismiss', ...args]); },
+  };
+}
+
+test('demo-toast pushes a held toast and returns its element', async () => {
+  const { document, a, win } = load();
+  const calls = [];
+  const store = toastStore(calls);
+  win.Alpine = { store: (name) => (name === 'toasts' ? store : null) };
+  win.I18n = { t: (key) => key };
+  document.body.innerHTML = '<div class="notification-toast" id="t"></div>';
+  const rec = await a.named['demo-toast'].run({ waitFor, show: async () => {} });
+  assert.deepEqual(calls.slice(0, 2), [['push', 'onboarding.demo_toast', 'info'], ['hold', 7, 'tour']]);
+  assert.equal(rec.el, document.getElementById('t'));
+  assert.equal(rec.scope, null);
+  rec.revert();
+  assert.deepEqual(calls[calls.length - 1], ['dismiss', 7]);
+});
+
+test('demo-toast returns null and does not hold when push gives no id', async () => {
+  const { a, win } = load();
+  const calls = [];
+  win.Alpine = { store: () => toastStore(calls, null) };
+  win.I18n = { t: (key) => key };
+  const rec = await a.named['demo-toast'].run({ waitFor, show: async () => {} });
+  assert.equal(rec, null);
+  assert.deepEqual(calls.map((c) => c[0]), ['push']);
+});
+
+test('demo-toast dismisses the toast when its element never appears', async () => {
+  const { a, win } = load();
+  const calls = [];
+  win.Alpine = { store: () => toastStore(calls) };
+  win.I18n = { t: (key) => key };
+  const rec = await a.named['demo-toast'].run({ waitFor: async () => null, show: async () => {} });
+  assert.equal(rec, null);
+  assert.deepEqual(calls[calls.length - 1], ['dismiss', 7]);
 });

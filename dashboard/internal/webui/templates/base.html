@@ -231,7 +231,7 @@
            :class="{ 'is-leaving': toast.state === 'leaving', 'is-swiped': toast.state === 'swiped' }">
         <div class="notification-toast-clip">
           <div class="notification-toast" :class="`notification-toast-${toast.severity}`"
-               x-toast-gesture="toast">
+               x-toast-gesture="toast" data-tour="toast">
             <svg class="notification-toast-icon" viewBox="0 0 24 24" aria-hidden="true"><use :href="toast.severity === 'info' ? '#ico-check' : '#ico-warning'"></use></svg>
             <span class="notification-toast-message" x-text="toast.message"></span>
             <span class="notification-toast-count" x-show="toast.count > 1"

@@ -2986,6 +2986,7 @@
   "onboarding.checklist.summary": "Initial setup",
   "onboarding.checklist.title": "Checklist",
   "onboarding.checklist.version": "Version {version}",
+  "onboarding.demo_toast": "This is what a toast looks like.",
   "onboarding.example_rule": "Example rule",
   "onboarding.eyebrow.change": "Setup · Change",
   "onboarding.eyebrow.explore": "New in {version} · {i} of {total}",

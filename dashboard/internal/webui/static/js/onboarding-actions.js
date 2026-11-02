@@ -262,4 +262,25 @@
       return { el: dialog, scope: dialog, revert: close };
     },
   });
+
+  // Zeigt einen Demo-Toast, solange der Schritt laeuft. Zuruecknehmen blendet
+  // ihn wieder aus. Erscheint das Element nicht, wird der Toast ebenfalls ausgeblendet.
+  action('demo-toast', {
+    run: async ({ waitFor }) => {
+      const store = window.Alpine.store('toasts');
+      const id = store.push(window.I18n.t('onboarding.demo_toast'), 'info');
+      if (id === null || id === undefined) return null;
+      store.hold(id, 'tour');
+      const revert = () => store.dismiss(id);
+      const el = await waitFor(() => {
+        const all = document.querySelectorAll('.notification-toast');
+        return all.length > 0 ? all[all.length - 1] : null;
+      }, 1500);
+      if (!el) {
+        revert();
+        return null;
+      }
+      return { el, scope: null, revert };
+    },
+  });
 })();
