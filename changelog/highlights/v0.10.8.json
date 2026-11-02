@@ -29,8 +29,8 @@
             "panel": "devicemap-panel",
             "target": "devicemap-filter",
             "text": {
-              "de": "Der Filterknopf blendet Energie-, Daten- oder Info-Verbindungen und die Linien zum Automationsknoten aus. Er ändert nur diesen Browser.",
-              "en": "The filter button hides energy, data or info connections and the lines to the automation node. It only changes this browser."
+              "de": "Mit dem Filterknopf blendest du jetzt Verbindungsarten (Energie-, Daten- oder Info-Verbindungen) und den Automationsknoten zeitweise aus. Die Änderung gilt nicht mehr dauerhaft für alle, sondern nur für dich in diesem Browser.",
+              "en": "With the filter button you can now hide connection types (energy, data or info connections) and the automation node for a while. The change no longer applies to everyone for good, only to you in this browser."
             },
             "title": {
               "de": "Kanten filtern",
@@ -67,8 +67,8 @@
             "panel": "settings-panel",
             "target": "settings-nav",
             "text": {
-              "de": "Die Einstellungsseiten stehen in dieser Seitenleiste, jede mit einer kurzen Beschreibung.",
-              "en": "The settings pages are listed in this sidebar, each with a short description."
+              "de": "Die Einstellungsseiten stehen jetzt in dieser Seitenleiste, jede mit einer kurzen Beschreibung.",
+              "en": "The settings pages now sit in this sidebar, each with a short description."
             },
             "title": {
               "de": "Seitenleiste der Einstellungen",
@@ -80,8 +80,8 @@
             "panel": "settings-panel",
             "target": "settings-picker",
             "text": {
-              "de": "Tippe hier, dann öffnet sich die Liste der Einstellungsseiten in einem Blatt von unten.",
-              "en": "Tap here to open the list of settings pages in a sheet from the bottom."
+              "de": "Die Einstellungsseiten stehen jetzt in einer Liste, jede mit einer kurzen Beschreibung. Tippe hier, um sie zu öffnen.",
+              "en": "The settings pages now sit in a list, each with a short description. Tap here to open it."
             },
             "title": {
               "de": "Einstellungsseiten",
@@ -119,8 +119,8 @@
             "panel": "settings-panel",
             "target": "title",
             "text": {
-              "de": "Die Karte Kopfzeile ändert Titel und Untertitel des Dashboards oder blendet sie aus.",
-              "en": "The Masthead card changes the title and subtitle of the dashboard or hides them."
+              "de": "Die Kopfzeile des Dashboards kannst du jetzt anpassen. Wahlweise blendest du sie auch ganz aus.",
+              "en": "You can now adapt the masthead of the dashboard. You can also hide it completely."
             },
             "title": {
               "de": "Titel und Untertitel",
@@ -151,8 +151,8 @@
             "panel": "diagnostics-panel",
             "target": "service-logs",
             "text": {
-              "de": "Hier liest du das Journal jedes Energy-Node-Dienstes, mit Suche und automatischer Aktualisierung.",
-              "en": "Read the journal of each Energy Node service here, with search and automatic refresh."
+              "de": "Hier liest du die Logs jedes Dienstes, um Fehler zu finden oder auf GitHub zu melden. Die Suche filtert die Zeilen, und die Ansicht aktualisiert sich auf Wunsch live.",
+              "en": "Read the logs of every service here, to find errors or report them on GitHub. The search filters the lines, and the view can refresh live."
             },
             "title": {
               "de": "Service-Logs",

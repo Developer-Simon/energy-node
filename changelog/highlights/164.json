@@ -18,8 +18,8 @@
           "panel": "automations-panel",
           "target": "automations-tabs",
           "text": {
-            "de": "Neben den Einzelregeln gibt es jetzt Szenarien. Ein Szenario läuft in Phasen statt nach einer festen Regel, und im Regler-Betrieb zeigt ein Diagramm eine Vorschau. Die Einzelregeln haben eine bessere Live-Anzeige bekommen.",
-            "en": "Next to single rules there are now scenarios. A scenario runs in phases instead of following one fixed rule, and in regulator mode a chart shows a preview. Single rules got a clearer live view."
+            "de": "Neben den Einzelregeln gibt es jetzt Szenarien. Ein Szenario läuft in Phasen statt nach einer festen Regel. Die Einzelregeln haben eine verbesserte Live-Anzeige bekommen, und Szenarien zeigen im Regelbetrieb auch Diagramme.",
+            "en": "Next to single rules there are now scenarios. A scenario runs in phases instead of following one fixed rule. Single rules got an improved live view, and scenarios can also show charts in control mode."
           },
           "title": {
             "de": "Szenarien und Einzelregeln",

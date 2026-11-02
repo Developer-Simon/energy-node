@@ -990,8 +990,8 @@
             "panel": "stats-panel",
             "target": "stats-nav",
             "text": {
-              "de": "Wähle Tag, Woche, Monat oder Jahr und blättere durch die Zeiträume.",
-              "en": "Pick a day, week, month or year and step through the periods."
+              "de": "Erfahre, was dein Energiesystem langfristig abwirft. Wähle eine Zeitspanne und einen Zeitpunkt, etwa einen Tag, eine Woche, einen Monat oder ein Jahr.",
+              "en": "Find out what your energy system yields over time. Choose a span and a point in time, such as a day, a week, a month or a year."
             },
             "title": {
               "de": "Energiestatistik",
@@ -1003,8 +1003,8 @@
             "panel": "stats-panel",
             "target": "stats-kpis",
             "text": {
-              "de": "Verbrauch, PV-Ertrag, Netzbezug, Einspeisung und die Batterieflüsse des gewählten Zeitraums.",
-              "en": "Consumption, PV yield, grid import, feed-in and the battery flows of the chosen period."
+              "de": "Für den gewählten Zeitraum siehst du Kennzahlen zu Verbrauch, PV-Ertrag, Netzbezug, Einspeisung und den Batterieflüssen.",
+              "en": "For the chosen period you see key figures on consumption, PV yield, grid import, feed-in and the battery flows."
             },
             "title": {
               "de": "Kennzahlen",
@@ -1016,8 +1016,8 @@
             "panel": "overview-panel",
             "target": "tiles",
             "text": {
-              "de": "Im Layout-Editor zeigt die Karte Energiestatistik einen festen Zeitraum, gewählte Kennzahlen und ein Balkendiagramm.",
-              "en": "In the layout editor the Energy statistics card can show a fixed period, chosen key figures and a bar chart."
+              "de": "Die Statistik gibt es auch als Karte für die Übersicht. Kennzahlen und Diagramm lassen sich für einen festen oder einen wählbaren Zeitraum einstellen.",
+              "en": "The statistics are also available as a card for the overview. Its key figures and chart can be set for a fixed or a selectable period."
             },
             "title": {
               "de": "Statistikkarte",
@@ -1045,8 +1045,8 @@
             "panel": "settings-panel",
             "target": "versions-highlights",
             "text": {
-              "de": "Jedes Highlight eines Release hat jetzt einen deutschen Text, hier, im Installer und in den Release Notes.",
-              "en": "Every release highlight now has a German text, here, in the installer and in the release notes."
+              "de": "Die Highlights gibt es jetzt auch auf Deutsch.",
+              "en": "The highlights are now available in German too."
             },
             "title": {
               "de": "Highlights auf Deutsch",
@@ -1059,25 +1059,12 @@
             "panel": "settings-panel",
             "target": "versions-history",
             "text": {
-              "de": "Wähle, wie viele Versionen der Changelog zeigt. Das Gerät behält die Historie über Updates hinweg.",
-              "en": "Choose how many versions the changelog shows. The node keeps the history across updates."
+              "de": "Blende beim Durchstöbern der Änderungen ältere Versionen aus der Ansicht aus.",
+              "en": "Leave older versions out of the view while you browse the changes."
             },
             "title": {
               "de": "Versionen im Changelog",
               "en": "Versions in the changelog"
-            }
-          },
-          {
-            "page": "versions",
-            "panel": "settings-panel",
-            "target": "versions-changes",
-            "text": {
-              "de": "Änderungen öffnet den Changelog einer Komponente. Ein Highlight mit Details zeigt seine Erklärung, ein Bild und einen Link zur Anleitung.",
-              "en": "Changes opens the changelog of a component. A highlight with details shows its explanation, an image and a link to the guide."
-            },
-            "title": {
-              "de": "Details eines Highlights",
-              "en": "Details of a highlight"
             }
           }
         ]
@@ -1143,8 +1130,8 @@
             "panel": "settings-panel",
             "target": "mqtt-bridge",
             "text": {
-              "de": "Die Schritte über dem Bridge-Formular erklären, was die Mosquitto-Bridge braucht, bevor du sie einrichtest.",
-              "en": "The steps above the bridge form explain what the Mosquitto bridge needs before you set it up."
+              "de": "Die Einrichtung der MQTT-Bridge zum Hauptstandort erklärt jetzt eine Schrittliste. Hast du schon eine Verbindung, musst du hier nichts tun.",
+              "en": "A step list now explains how to set up the MQTT bridge to the main site. If you already have a connection, there is nothing to do here."
             },
             "title": {
               "de": "Bridge zum Hauptstandort",
@@ -1157,8 +1144,8 @@
             "panel": "settings-panel",
             "target": "metrics",
             "text": {
-              "de": "Die publizierten Systemmetriken wählst du in einer Mehrfachauswahl.",
-              "en": "Choose the published system metrics in one multiselect."
+              "de": "Die Metriken, die per MQTT veröffentlicht werden, lassen sich jetzt filtern.",
+              "en": "The metrics published over MQTT can now be filtered."
             },
             "title": {
               "de": "Systemmetriken",
@@ -1171,8 +1158,8 @@
             "panel": "settings-panel",
             "target": "mqtt-sensors",
             "text": {
-              "de": "Wallbox, Wärmepumpe und eigene Kategorien bekommen eigene Sensoren in Home Assistant, sobald ihnen etwas zugeordnet ist. Jeder lässt sich hier abwählen.",
-              "en": "Wallbox, heat pump and custom categories get their own sensors in Home Assistant once something is assigned. Each one can be deselected here."
+              "de": "Neben den Energiewerten gehen jetzt auch Sensoren für Wallbox, Wärmepumpe und eigene Kategorien an Home Assistant. Standardmäßig wird jeder übertragen, hier wählst du einzelne ab.",
+              "en": "Next to the energy values, sensors for wallbox, heat pump and your own categories now go to Home Assistant as well. Each one is sent by default, and you can deselect it here."
             },
             "title": {
               "de": "Sensoren für Home Assistant",
@@ -1209,8 +1196,8 @@
             "panel": "history-panel",
             "target": "history-resolution",
             "text": {
-              "de": "Die erste Pille listet die zum Zeitraum passenden Auflösungen und wählt die gröbste mit Daten vor.",
-              "en": "The first pill lists the resolutions that fit the span and preselects the coarsest one with data."
+              "de": "Pro Zeitspanne passt du jetzt die Auflösung an. Vorausgewählt ist die gröbste, weil weniger Datenpunkte flüssiger dargestellt werden.",
+              "en": "You can now adjust the resolution for each span. The coarsest one is preselected, because fewer points draw more smoothly."
             },
             "title": {
               "de": "Auflösung",
@@ -1266,8 +1253,8 @@
             "panel": "energy-panel",
             "target": "energy-interpretation",
             "text": {
-              "de": "Im Lastmodus Automatisch kommt der Hausverbrauch aus der Bilanz, und ein Hauszähler dient als Kontrolle. Eine Statuszeile zeigt Quelle und Zählerabweichung.",
-              "en": "In the automatic load mode the house consumption comes from the balance, and a house meter serves as a cross-check. A status line shows the source and the meter deviation."
+              "de": "Der Modus Automatisch übernimmt die Aufgabe des früheren Modus Kombiniert. Er bildet den Hausverbrauch aus der Bilanz und zieht gemessene Verbraucher davon ab, der Hauszähler dient als Kontrolle. Über die Statuszeile siehst du die aktuelle Abweichung direkt.",
+              "en": "The Automatic mode takes over from the former Combined mode. It builds the house consumption from the balance and subtracts the metered consumers, with the house meter as a cross-check. The status line shows the current deviation right away."
             },
             "title": {
               "de": "Bilanz-Interpretation",
@@ -1309,8 +1296,8 @@
             "panel": "devicemap-panel",
             "target": "devicemap",
             "text": {
-              "de": "Ein ausgeschalteter Ausgang trennt die Leitung dahinter. Jedes Gerät ohne Strom wird blass und als aus markiert.",
-              "en": "A switched off output cuts the line behind it. Every device without power fades out with an off label."
+              "de": "Geräte mit einem Schaltzustand können jetzt die Rolle Schaltet bekommen. Damit lässt sich darstellen und nachvollziehen, wie das Abschalten eine Kette von Geräten trennt. Ausgeschaltete Geräte werden ausgegraut und als aus markiert.",
+              "en": "Devices with a switch state can now get the role Switches. The map then shows how switching off cuts a chain of devices. Switched off devices are greyed out and marked as off."
             },
             "title": {
               "de": "Ausgeschaltete Geräte",
@@ -1322,8 +1309,8 @@
             "panel": "devicemap-panel",
             "target": "devicemap-view",
             "text": {
-              "de": "Das Menü Darstellung enthält die Legende, mit den grünen und roten Kreisen geschalteter Verbindungen.",
-              "en": "The Display menu holds the legend, with the green and red circles of switched connections."
+              "de": "Darstellung und Filter sind jetzt getrennte Menüs. Was du unter Darstellung einstellst, gilt nur für dich in diesem Browser.",
+              "en": "Display and filter are separate menus now. What you set under Display applies only to you in this browser."
             },
             "title": {
               "de": "Legende",
@@ -1335,8 +1322,8 @@
             "panel": "devicemap-panel",
             "target": "devicemap",
             "text": {
-              "de": "Benenne einzelne Verbraucher an einem Messgerät als Untergeräte. Sie erscheinen auch im Gerätedialog und auf der Energie-Seite.",
-              "en": "Name single appliances on a meter as sub-devices. They also show in the device dialog and on the energy page."
+              "de": "Einen Verbraucher an einem Zwischenstecker, etwa eine Waschmaschine, legst du jetzt als Untergerät an. Er bekommt einen eigenen Namen, ein eigenes Icon und in der Device-Map einen eigenen Knoten, und auf der Energie-Seite und im Gerätedialog steht sein Name statt der Messung des Steckers.",
+              "en": "A consumer behind a smart plug, such as a washing machine, can now be added as a sub-device. It gets its own name, its own icon and its own node on the map, and the energy page and the device dialog show its name instead of the plug's measurement."
             },
             "title": {
               "de": "Untergeräte",
@@ -1348,12 +1335,12 @@
             "panel": "energy-panel",
             "target": "energy-roles-head",
             "text": {
-              "de": "In der Rollentabelle betrifft Ausblenden nur Einträge ohne Rolle. Die Device-Map lässt die ausgeblendeten Einträge ebenfalls weg.",
-              "en": "In the role table, hiding applies only to entries without a role. The device map leaves the hidden entries out as well."
+              "de": "In der Rollentabelle lassen sich nur noch Einträge ausblenden, die noch keine Rolle haben. Ausgeblendete Einträge sind dann auch in der Device-Map nicht mehr sichtbar.",
+              "en": "In the role table you can now only hide entries that have no role yet. Hidden entries no longer show in the device map either."
             },
             "title": {
-              "de": "Ausgeblendete Einträge",
-              "en": "Hidden entries"
+              "de": "Ausgeblendete Energierollen",
+              "en": "Hidden energy roles"
             }
           }
         ]

@@ -31,6 +31,19 @@
             "de": "Geführte Touren",
             "en": "Guided tours"
           }
+        },
+        {
+          "page": "checklist",
+          "panel": "settings-panel",
+          "target": "checklist-catch-up",
+          "text": {
+            "de": "Du kannst auch ältere Touren nachholen, falls du entdecken möchtest, was du vielleicht verpasst hast.",
+            "en": "You can also catch up on older tours if you want to discover what you might have missed."
+          },
+          "title": {
+            "de": "Touren nachholen",
+            "en": "Catch up on tours"
+          }
         }
       ]
     }
