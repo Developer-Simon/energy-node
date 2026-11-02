@@ -1,5 +1,11 @@
 {
   "de": {
     "*": "Neu gestaltete Anmeldekarte, Favicon-Fehler behoben"
+  },
+  "details": {
+    "*": {
+      "de": "Die Anmeldekarte ist neu gestaltet. Außerdem ist ein Fehler beim Favicon behoben.",
+      "en": "The sign-in card has a new design. A bug with the favicon is also fixed."
+    }
   }
 }

@@ -7,5 +7,25 @@
       "de": "Die Linie am unteren Rand zeigt, wie lange ein Toast noch stehen bleibt. Solange der Mauszeiger darauf liegt, hält die Zeit an. Nach rechts wischen schließt den Toast. Jede Meldung verschwindet von selbst, Warnungen und kritische Meldungen bleiben länger stehen.",
       "en": "The line at the bottom shows how long a toast stays. While the pointer rests on it, the time stops. Swiping right closes the toast. Every message disappears on its own, warnings and critical messages stay longer."
     }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "open": [
+            "@demo-toast"
+          ],
+          "target": "toast",
+          "text": {
+            "de": "Die Linie am unteren Rand zeigt, wie lange ein Toast noch stehen bleibt. Solange der Mauszeiger darauf liegt, hält die Zeit an. Nach rechts wischen schließt den Toast.",
+            "en": "The line at the bottom shows how long a toast stays. While the pointer is on it, the time stops. Swiping right closes the toast."
+          },
+          "title": {
+            "de": "Neue Toasts",
+            "en": "New toasts"
+          }
+        }
+      ]
+    }
   }
 }

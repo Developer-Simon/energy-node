@@ -7,5 +7,28 @@
       "de": "Im Regeleditor gibt es dafür das Feld „Wiederholen alle (s)“. Solange alle Bedingungen erfüllt sind, sendet die Regel ihre Aktionen in diesem Abstand erneut. 0 heißt einmal pro Auslösung. Mit einer Umschalten-Aktion geht Wiederholen nicht.",
       "en": "The rule editor has the field “Repeat every (s)” for this. While all conditions hold, the rule sends its actions again at this interval. 0 means once per trigger. Repeat does not work with a toggle action."
     }
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "automations",
+          "open": [
+            "automations-rules",
+            "@time-rule"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-flow",
+          "text": {
+            "de": "Im Regeleditor stellst du unter Ablauf ein, in welchem Abstand die Regel ihre Aktionen erneut sendet, solange alle Bedingungen erfüllt sind. 0 heißt einmal pro Auslösung.",
+            "en": "In the rule editor you set under Flow how often the rule sends its actions again while all conditions hold. 0 means once per trigger."
+          },
+          "title": {
+            "de": "Aktionen wiederholen",
+            "en": "Repeat actions"
+          }
+        }
+      ]
+    }
   }
 }
