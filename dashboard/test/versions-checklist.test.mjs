@@ -1,6 +1,5 @@
 // Tests for the highlight part of the versions page (versions.page.js and
-// versions.html): state and buttons per highlight, the checklist link, the
-// release deep link and the catalog keys. Run with `npm test` from dashboard/.
+// versions.html): the checklist link, the release deep link and the catalog keys. Run with `npm test` from dashboard/.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -76,66 +75,9 @@ function createPanel({ url = 'https://dashboard.local/', device = 'desktop', see
   return { component, store, window: dom.window };
 }
 
-test('highlightState is the exploreState of the highlight with the same id, empty without one', () => {
-  const { component, store } = createPanel();
-  assert.equal(component.highlightState({ id: 'h184' }), 'new');
-  assert.equal(component.highlightState({ id: 'h181' }), 'text', 'a highlight without a tour is text only');
-  assert.equal(component.highlightState({ id: 'h190' }), 'other-device', 'a phone-only step on the desktop');
-  assert.equal(component.highlightState({ id: 'h999' }), '', 'no item, no state');
-  assert.equal(component.highlightState({ title: 'no id' }), '');
-  store.seen = { h184: true };
-  assert.equal(component.highlightState({ id: 'h184' }), 'seen', 'the seen map of the store decides between new and seen');
-});
-
-test('highlightLabel names the state, the other-device label follows the device', () => {
-  const { component } = createPanel();
-  assert.equal(component.highlightLabel({ id: 'h184' }), de['onboarding.checklist.news_new']);
-  assert.equal(component.highlightLabel({ id: 'h181' }), de['settings.versions.highlight.text']);
-  assert.equal(component.highlightLabel({ id: 'h190' }), de['onboarding.checklist.only_phone'], 'on the desktop the highlight is for the phone');
-  assert.equal(component.highlightLabel({ id: 'h999' }), '');
-  const seen = createPanel({ seen: { h184: true } });
-  assert.equal(seen.component.highlightLabel({ id: 'h184' }), de['onboarding.checklist.news_seen'], 'the checklist wording');
-  const phone = createPanel({ device: 'phone' });
-  assert.equal(phone.component.highlightLabel({ id: 'h191' }), de['onboarding.checklist.only_desktop'], 'on the phone the highlight is for the desktop');
-  assert.equal(phone.component.highlightLabel({ id: 'h190' }), de['onboarding.checklist.news_new'], 'a phone highlight is new on the phone');
-});
-
-test('highlightButtons: new shows the tour and the checklist, seen repeats, text and other-device only the checklist', () => {
-  const { component, store } = createPanel();
-  assert.deepEqual({ ...component.highlightButtons({ id: 'h184' }) }, { run: true, runText: de['onboarding.checklist.action_show'], checklist: true });
-  store.seen = { h184: true };
-  assert.deepEqual({ ...component.highlightButtons({ id: 'h184' }) }, { run: true, runText: de['onboarding.checklist.action_again'], checklist: true });
-  assert.deepEqual({ ...component.highlightButtons({ id: 'h181' }) }, { run: false, runText: '', checklist: true });
-  assert.deepEqual({ ...component.highlightButtons({ id: 'h190' }) }, { run: false, runText: '', checklist: true });
-  assert.deepEqual({ ...component.highlightButtons({ id: 'h999' }) }, { run: false, runText: '', checklist: false });
-});
-
-test('the highlight button starts the explore tour of that highlight after an empty queue', () => {
-  const { component, store } = createPanel();
-  component.showHighlight({ id: 'h184' });
-  // The queue is an array of the jsdom realm, so compare plain copies.
-  assert.deepEqual(JSON.parse(JSON.stringify(store.started)), [['explore', 'h184', []]]);
-  assert.deepEqual(JSON.parse(JSON.stringify(store.queue)), []);
-});
-
-test('checklistHref opens the checklist in explore mode, on the highlight when given', () => {
+test('checklistHref opens the checklist in explore mode', () => {
   const { component } = createPanel();
   assert.equal(component.checklistHref(), '/?panel=settings&page=checklist&mode=explore');
-  assert.equal(component.checklistHref({ id: 'h184' }), '/?panel=settings&page=checklist&mode=explore&item=h184');
-});
-
-test('a changelog entry without id, the shape the API really sends, gets the id h<PR>', () => {
-  const { component, store } = createPanel();
-  const real = { pr: 184, text: 'Guest', highlight: true };
-  assert.equal(component.highlightId(real), 'h184');
-  assert.equal(component.highlightId({ id: 'h181', pr: 181 }), 'h181', 'an explicit id wins');
-  assert.equal(component.highlightId({ text: 'no pr' }), '', 'no id and no PR, no id');
-  assert.equal(component.highlightState(real), 'new');
-  assert.equal(component.highlightLabel(real), de['onboarding.checklist.news_new']);
-  assert.deepEqual({ ...component.highlightButtons(real) }, { run: true, runText: de['onboarding.checklist.action_show'], checklist: true });
-  assert.equal(component.checklistHref(real), '/?panel=settings&page=checklist&mode=explore&item=h184');
-  component.showHighlight(real);
-  assert.deepEqual(JSON.parse(JSON.stringify(store.started)), [['explore', 'h184', []]]);
 });
 
 test('?all=1 starts the all view, anything else and a ?release= link start in the highlights view', () => {
@@ -186,14 +128,10 @@ test('without ?release= the page loads no changelog on its own', async () => {
   assert.equal(calls.some((url) => url.startsWith('/api/v1/changelog')), false);
 });
 
-test('the release list marks each highlight and each release for the deep link', () => {
-  assert.match(template, /x-bind:data-highlight="highlightId\(entry\) \|\| null"/);
+test('the release list marks each release for the deep link and shows entries as plain text', () => {
   assert.match(template, /x-bind:data-release="release\.version"/);
-});
-
-test('an entry with details renders the shared highlight details, the plain text stays without them', () => {
-  assert.match(template, /<template x-if="entry\.details">\s*\{\{template "highlightDetails"\}\}\s*<\/template>/);
-  assert.match(template, /<span x-show="!entry\.details">/);
+  assert.equal(template.includes('highlightState'), false);
+  assert.equal(template.includes('highlightDetails'), false);
 });
 
 test('the toolbar links to the checklist explore mode instead of the what\'s new dialog', () => {
@@ -214,12 +152,12 @@ test('the versions tab of the settings nav shows the unseen marker', () => {
 });
 
 test('the catalogs drop the what\'s new key and carry the new texts in both languages', () => {
-  const keys = ['settings.versions.explore_link', 'settings.versions.highlight.checklist', 'settings.versions.highlight.text'];
+  const keys = ['settings.versions.explore_link'];
   for (const key of keys) {
     assert.ok(de[key], `de ${key}`);
     assert.ok(en[key], `en ${key}`);
   }
-  assert.equal(de['settings.versions.explore_link'], 'Neu erkunden');
+  assert.equal(de['settings.versions.explore_link'], 'Neues erkunden');
   assert.equal(en['settings.versions.explore_link'], "Explore what's new");
   assert.equal('settings.versions.whatsnew' in de, false);
   assert.equal('settings.versions.whatsnew' in en, false);
@@ -250,12 +188,4 @@ test('the version card head wraps onto clean lines: the chip and title never bre
   assert.match(css, /\.ob-cl-summary-head\s*\{[^}]*flex-wrap: wrap;[^}]*row-gap: \.35rem;/);
   assert.match(css, /\.ob-cl-summary-head \.setting-card-title\s*\{\s*white-space: nowrap;\s*\}/);
   assert.match(css, /\.ob-cl-summary-head \.ob-crosslink--chip\s*\{\s*white-space: nowrap;\s*margin-left: auto;\s*\}/);
-});
-
-test('a stale highlight shows the hint and a disabled tour button, the checklist link stays', () => {
-  const { component } = createPanel();
-  assert.equal(component.highlightState({ id: 'h192' }), 'stale');
-  assert.equal(component.highlightLabel({ id: 'h192' }), de['onboarding.checklist.news_stale']);
-  assert.deepEqual({ ...component.highlightButtons({ id: 'h192' }) }, { run: true, runText: de['onboarding.checklist.action_show'], checklist: true });
-  assert.match(template, /x-bind:disabled="highlightState\(entry\) === 'stale'"/);
 });

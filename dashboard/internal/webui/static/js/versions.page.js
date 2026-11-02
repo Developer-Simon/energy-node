@@ -50,30 +50,6 @@
   const HISTORY_LIMITS = {recent: 5, extended: 20, all: 0};
   const historyValue = (value) => (value in HISTORY_LIMITS ? value : 'recent');
 
-  // Text des Zustands eines Highlights in der Versionsliste. other-device
-  // hat seinen eigenen Text (je nach Geraet, siehe highlightLabel).
-  // i18n-keys: onboarding.checklist.news_new, onboarding.checklist.news_seen, settings.versions.highlight.text
-  const HIGHLIGHT_LABEL_KEY = {new: 'onboarding.checklist.news_new', seen: 'onboarding.checklist.news_seen', stale: 'onboarding.checklist.news_stale', text: 'settings.versions.highlight.text'};
-
-  // Die ID eines Highlights: /api/v1/changelog liefert keine ID, nur die PR-Nummer.
-  // Die Go-Seite nennt dieselben Eintraege "h<PR>" (releaseEntries).
-  const highlightId = (entry) => {
-    if (!entry) return '';
-    if (entry.id) return entry.id;
-    return entry.pr ? `h${entry.pr}` : '';
-  };
-
-  // Der Eintrag des Highlights im Neu-erkunden-Stand des Stores, sonst null.
-  const highlightItem = (store, entry) => {
-    const id = highlightId(entry);
-    if (!id) return null;
-    for (const version of store.exploreVersions || []) {
-      const item = version.items.find((candidate) => candidate.id === id);
-      if (item) return item;
-    }
-    return null;
-  };
-
   const kindTitle = (kind) => t(kind === 'other' ? 'settings.versions.kind_other' : `settings.versions.kind.${kind}`);
 
   const versionsPanel = () => ({
@@ -147,55 +123,9 @@
       target.scrollIntoView({block: 'start', behavior: reduced ? 'auto' : 'smooth'});
     },
 
-    // ID eines Highlights fuer data-highlight und die Tour, leer ohne ID und PR.
-    highlightId(entry) {
-      return highlightId(entry);
-    },
-
-    // Zustand eines Highlights der Versionsliste (obModel.exploreState), leer ohne Eintrag.
-    highlightState(entry) {
-      const store = this.$store.onboarding;
-      const item = highlightItem(store, entry);
-      return item ? window.obModel.exploreState(item, store.seen, store.ctx()) : '';
-    },
-
-    // Der Text neben dem Highlight: Zustand, bei other-device das fehlende Geraet.
-    highlightLabel(entry) {
-      const state = this.highlightState(entry);
-      if (state === 'other-device') {
-        return t(this.$store.onboarding.ctx().device === 'phone' ? 'onboarding.checklist.only_desktop' : 'onboarding.checklist.only_phone');
-      }
-      const key = HIGHLIGHT_LABEL_KEY[state];
-      return key ? t(key) : '';
-    },
-
-    // Neu und gesehen haben eine Tour: der Knopf startet sie. Veraltet zeigt den
-    // Knopf ausgegraut (im Template). Jeder Zustand mit Eintrag hat den Link in
-    // die Checkliste, nur ohne Tour gibt es keinen Knopf.
-    highlightButtons(entry) {
-      const state = this.highlightState(entry);
-      if (!state) return {run: false, runText: '', checklist: false};
-      const run = state === 'new' || state === 'seen' || state === 'stale';
-      return {
-        run,
-        runText: run ? t(state === 'seen' ? 'onboarding.checklist.action_again' : 'onboarding.checklist.action_show') : '',
-        checklist: true,
-      };
-    },
-
-    // Startet die Tour des Highlights, wie die Checkliste: Warteschlange leeren, dann starten.
-    showHighlight(entry) {
-      if (this.highlightState(entry) === 'stale') return;
-      const store = this.$store.onboarding;
-      store.queue = [];
-      store.start('explore', highlightId(entry));
-    },
-
-    // Deep Link in die Checkliste, Modus Neu erkunden, optional auf einen Punkt.
-    checklistHref(entry) {
-      const base = `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=checklist&mode=explore`;
-      const id = highlightId(entry);
-      return id ? `${base}&item=${encodeURIComponent(id)}` : base;
+    // Deep Link in die Checkliste, Modus Neu erkunden.
+    checklistHref() {
+      return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=checklist&mode=explore`;
     },
 
     async loadUpdates() {

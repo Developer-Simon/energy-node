@@ -3393,8 +3393,6 @@
   "settings.versions.changes.show": "Änderungen",
   "settings.versions.explore_link": "Neues erkunden",
   "settings.versions.explore_sub": "Neuerungen mit Tour Schritt für Schritt ansehen.",
-  "settings.versions.highlight.checklist": "In der Checkliste",
-  "settings.versions.highlight.text": "Nur Text",
   "settings.versions.history.all": "Alle",
   "settings.versions.history.extended": "Letzte 20",
   "settings.versions.history.label": "Versionen im Changelog",

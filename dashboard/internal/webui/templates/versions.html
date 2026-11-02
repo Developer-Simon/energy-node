@@ -92,18 +92,7 @@
                     <p class="release-group" x-text="groupTitle(entryGroup)"></p>
                     <ul class="release-entries">
                       <template x-for="(entry, index) in entryGroup.entries || []" :key="index">
-                        <li x-bind:class="{ 'is-breaking': entry.breaking }" x-bind:data-highlight="highlightId(entry) || null">
-                          <template x-if="entry.details">
-                            {{template "highlightDetails"}}
-                          </template>
-                          <span x-show="!entry.details"><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></span>
-                          <div class="ob-cl-sub" x-show="highlightState(entry)">
-                            <span class="ob-marker" aria-hidden="true" x-show="highlightState(entry) === 'new'"></span>
-                            <span x-text="highlightLabel(entry)"></span>
-                            <button type="button" class="ob-btn ob-btn--primary" x-show="highlightButtons(entry).run" x-text="highlightButtons(entry).runText" x-bind:class="{ 'is-disabled': highlightState(entry) === 'stale' }" x-bind:disabled="highlightState(entry) === 'stale'" x-on:click="showHighlight(entry)"></button>
-                            <a class="ob-link" x-show="highlightButtons(entry).checklist" x-bind:href="checklistHref(entry)">{{t "settings.versions.highlight.checklist"}}</a>
-                          </div>
-                        </li>
+                        <li x-bind:class="{ 'is-breaking': entry.breaking }"><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></li>
                       </template>
                     </ul>
                   </div>
