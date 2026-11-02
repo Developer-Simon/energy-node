@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.38 (2026-11-02)
+## v0.10.39 (2026-11-03)
 
 ### Features
 
@@ -28,6 +28,27 @@
 - **battery-soc:** render tuning findings from a shared message catalog (#196) (2332ed5)
 - **onboarding:** Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one. (#197) (00443d4)
 - **onboarding:** Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind "Explore further back", and each older release card can catch up on its tour. (#198) (c79cedf)
+- **onboarding:** tour targets know x-bind ids and named actions, tours carry open and replaced_by (0a1f8d8)
+- **onboarding:** open entries count for stale tours and a stale tour can point at its replacement (dd2ef2f)
+- **onboarding:** apply the open entries of a tour step and know how to take them back (430ab00)
+- **onboarding:** run and revert the open entries of a tour step (e5c45d6)
+- **onboarding:** open a rule with a time window for a tour, with an example rule if none exists (0a1e4ce)
+- **onboarding:** spotlight can pulse on a press and explore steps carry their open entries (6e05d25)
+- **onboarding:** show the clicks of a tour step and take them back when the step is left (201a6ab)
+- **onboarding:** a stale tour in the checklist can show the place it moved to (602395b)
+- **onboarding:** tour targets for the accounts tab, the own account and the energy sections (b2650bb)
+- **changelog:** split the users tour, add a guest tour and drop the duplicate explore and catch-up tours (3364d3e)
+- **onboarding:** the catch-up button turns into a repeat button once the old tours are seen (0984cb0)
+- **onboarding:** tour targets for groups, rule weekdays, sun times and balance fields, the device tile and the modal (a94c64d)
+- **onboarding:** tour actions for sun and balance rules, the battery SoC config and the device modal (fcb8dc9)
+- **changelog:** tours for groups, forms, weekdays, sun times, categories, favourites and icons open what they show (5222220)
+- **onboarding:** a highlight with only one sentence is marked as read instead of expanded (fc7b710)
+- **onboarding:** mark highlights whose tour the user's permissions hide (fe2227c)
+- **onboarding:** the start page offers the explore tour while there is something new (d54290d)
+- **onboarding:** a demo toast action and targets for the rule trigger strip and the toast (66b00ce)
+- **onboarding:** an action that opens a rule without the editor (a08538c)
+- **onboarding:** the explore tour offers itself as the first card of the dock (82b9dd3)
+- **onboarding:** tours with actions, guest and favourite steps, news offer (#201)
 - **webui:** tour targets for settings, versions, users, checklist, MQTT, diagnostics and config (a3c5e39)
 - **webui:** tour targets for the device map, energy, statistics, history and automations (8203a77)
 - **onboarding:** list highlights older than the explore window as archive (ce98e3e)
@@ -231,7 +252,16 @@
 
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
 - **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195) (70464ad)
-- **auth:** log restricted logins and reject password changes of HA accounts (#200)
+- **auth:** log restricted logins and reject password changes of HA accounts (#200) (f867ae6)
+- **onboarding:** make the action engine tests meaningful and read state after the click settled (ac72267)
+- **onboarding:** the filled catch-up chip keeps a visible icon (7bdac2d)
+- **onboarding:** the groups step highlights the whole accordion (9a4414f)
+- **onboarding:** switch the config service through the page data (9a25858)
+- **onboarding:** drop the dot from the versions entry and show it in the narrow navigation (5b29e39)
+- **onboarding:** show the one sentence of a highlight without details only once (a69f1d7)
+- **onboarding:** say a highlight is not available with the user's permissions instead of that it has no tour (64c8a53)
+- **changelog:** call the toast highlight a notification (65d9a11)
+- **onboarding:** the dots of the tour card wrap instead of overflowing it (7235158)
 - **onboarding:** keep GET read-only on a corrupt file and skip guest storage (89aa0c8)
 - **onboarding:** show the title and text of each tour step (4a8d06b)
 - **onboarding:** repeat the whole run and add the tour button to explore (b385f92)
@@ -341,6 +371,7 @@
 
 ### Refactors
 
+- **onboarding:** drop the note card on the start page (5b773d9)
 - **webui:** share the highlight details between pages (c4aca97)
 - **webui:** show the versions changelog as plain text again (d1e73c4)
 - **battery-soc:** use English finding codes and severities (018296a)
