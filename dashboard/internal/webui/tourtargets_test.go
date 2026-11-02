@@ -6,7 +6,11 @@ func TestTourTargetsKnowsTheMarkupAndTheSetupSteps(t *testing.T) {
 	targets := TourTargets()
 	// theme is a literal data-tour in settings.html, guest only exists as a
 	// data('guest') call in onboarding-steps.js and an x-bind in users.html.
-	for _, id := range []string{"theme", "users", "guest", "devices"} {
+	for _, id := range []string{"theme", "users", "guest", "devices",
+		"language", "numberformat", "history-exchange", "settings-nav", "settings-picker",
+		"language-pill", "versions-highlights", "versions-history", "versions-components", "versions-changes",
+		"users-tabs", "checklist-explore", "mqtt-sensors", "mqtt-bridge",
+		"diagnostics", "service-logs", "config-status"} {
 		if !targets[id] {
 			t.Errorf("target %q missing from %d known targets", id, len(targets))
 		}

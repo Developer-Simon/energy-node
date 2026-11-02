@@ -120,7 +120,7 @@ func TestLoginTextsFollowTheLanguage(t *testing.T) {
 func TestLoginOffersTheLanguageSwitcher(t *testing.T) {
 	body := renderLogin(t, func(r *http.Request) { r.Header.Set("Accept-Language", "en") })
 	for _, want := range []string{
-		`<div class="lang-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
+		`<div class="lang-pill" data-tour="language-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
 		`<input type="radio" name="lang" value="de" data-lang-select><span aria-hidden="true">DE</span><span class="visually-hidden">Deutsch</span>`,
 		`<input type="radio" name="lang" value="en" data-lang-select checked><span aria-hidden="true">EN</span>`,
 		`static/js/i18n.js?v=3`,
@@ -183,7 +183,7 @@ func TestMastheadAndStatusBarFollowTheLanguage(t *testing.T) {
 func TestOverviewOffersTheLanguageSwitcherAndRuntime(t *testing.T) {
 	body := renderOverviewWithLang(t, "en")
 	for _, want := range []string{
-		`<div class="lang-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
+		`<div class="lang-pill" data-tour="language-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
 		`<input type="radio" name="lang" value="en" data-lang-select checked>`,
 		`<script src="/static/js/i18n.js?v=4"></script>`,
 	} {

@@ -1,6 +1,6 @@
 {{define "diagnostics"}}
 <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" x-data="diagnosticsPanel()" x-init="load()">
-  <header class="diag-head">
+  <header class="diag-head" data-tour="diagnostics">
     <div class="diag-head-text">
       <h2>{{t "diagnostics.title"}}</h2>
       <p class="diag-headline" x-bind:class="`diag-tone-${headlineTone}`" aria-live="polite">
@@ -164,7 +164,7 @@
   </section>
 
   {{/* i18n-keys: diagnostics.logs.unit.dashboard, diagnostics.logs.unit.updater, diagnostics.logs.unit.automation, diagnostics.logs.unit.battery-soc, diagnostics.logs.unit.shelly, diagnostics.logs.unit.trucki, diagnostics.logs.unit.tuya, diagnostics.logs.unit.apsystems, diagnostics.logs.unit.mosquitto, diagnostics.logs.unit.caddy, diagnostics.logs.unit.tailscale, diagnostics.logs.since.15, diagnostics.logs.since.60, diagnostics.logs.since.360, diagnostics.logs.since.1440, diagnostics.logs.since.10080 */}}
-  <section class="diag-section service-logs" aria-labelledby="service-logs-heading" x-data="serviceLogsPanel()" x-init="init()" x-cloak x-show="canView">
+  <section class="diag-section service-logs" data-tour="service-logs" aria-labelledby="service-logs-heading" x-data="serviceLogsPanel()" x-init="init()" x-cloak x-show="canView">
     <div class="diag-section-head">
       <h3 id="service-logs-heading">{{t "diagnostics.logs.title"}}</h3>
     </div>
