@@ -228,6 +228,7 @@
 - **webui:** keep the version card head of the checklist on clean lines (314b27b)
 - **onboarding:** address final review findings (bd7125b)
 - **webui:** show the explore subtexts in the normal text colour (b17d031)
+- **ci:** add the tour of this PR and check the new asset names in the smoke run (24f362f)
 - **battery-soc:** render tuning findings from the dashboard catalog (d8641fc)
 - **dashboard:** let Reconfigure work before the first MQTT connection (5e19e68)
 - **dashboard:** start without an MQTT connection and keep retrying (9b7ac80)
