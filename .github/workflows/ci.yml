@@ -138,6 +138,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
       - run: npm ci
       - run: npm test
 
@@ -197,6 +199,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: installer/webui/package-lock.json
       - run: npm ci
       - run: npm test
 
@@ -216,8 +220,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: installer/webui/package-lock.json
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Playwright browser (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install Playwright system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npm run test:e2e
 
   installer-cross:
@@ -253,6 +272,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
       - run: |
           python -m pip install --upgrade pip
           pip install -e libs/energy_node_common -e libs/battery_soc_core pytest
@@ -342,6 +363,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
+          cache: pip
+          cache-dependency-path: integrations/homeassistant/requirements-test.txt
       - run: |
           python -m pip install --upgrade pip
           pip install -e ../../libs/battery_soc_core -r requirements-test.txt
