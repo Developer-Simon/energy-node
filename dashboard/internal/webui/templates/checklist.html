@@ -1,7 +1,7 @@
 {{define "checklist"}}
   <section id="settings-checklist" role="tabpanel" class="settings-cards ob-checklist" x-show="activeSettingsPage === 'checklist'" x-data="obChecklist()">
     <div class="ob-cl-head" x-show="$store.onboarding.isAdmin">
-      <div class="segmented ob-cl-switch" role="radiogroup" aria-label="{{t "onboarding.checklist.title"}}">
+      <div class="segmented ob-cl-switch" data-tour="explore" role="radiogroup" aria-label="{{t "onboarding.checklist.title"}}">
         <span class="segmented-thumb" aria-hidden="true"></span>
         <label class="segmented-option"><input type="radio" name="ob-cl-mode" value="setup" x-model="$store.onboarding.checklistMode"><span>{{t "onboarding.checklist.mode_setup"}}</span></label>
         <label class="segmented-option"><input type="radio" name="ob-cl-mode" value="explore" x-model="$store.onboarding.checklistMode"><span class="ob-cl-switch-label">{{t "onboarding.checklist.mode_explore"}}<span class="ob-marker" aria-hidden="true" x-show="$store.onboarding.unseenCount"></span></span></label>
