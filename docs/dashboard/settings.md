@@ -33,7 +33,7 @@ the bottom. Swiping sideways on the button moves to the previous or next page.
 | [Users](settings-users.md) | Me, Accounts, Sessions | sign-in and password, accounts and permissions, presets, guest access, Home Assistant users, signed-in sessions |
 | [Versions & updates](settings-versions.md) | Versions | installed versions, changelogs, update check and the update from the dashboard |
 | [Checklist](onboarding.md) | Checklist | the steps of the first-time setup and the tours of new features |
-| [System](settings-system.md) | System | current user, restart and shutdown, the central configuration file |
+| [System](settings-system.md) | System | system actions (restart and shutdown), the central configuration file |
 
 ## General
 
