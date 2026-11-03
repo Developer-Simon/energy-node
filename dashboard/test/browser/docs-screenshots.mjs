@@ -35,6 +35,7 @@ const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 function parseArgs(argv) {
   const args = {
     url: 'https://localhost:18200',
+    consoleUrl: 'http://127.0.0.1:18202',
     out: path.join(REPO_DIR, 'docs/images'),
     password: 'smoketest1234',
     history: false,
@@ -51,6 +52,7 @@ function parseArgs(argv) {
     if (flag === '--url') args.url = value.replace(/\/$/, '');
     else if (flag === '--out') args.out = path.resolve(value);
     else if (flag === '--password') args.password = value;
+    else if (flag === '--console-url') args.consoleUrl = value.replace(/\/$/, '');
     else if (flag === '--record-minutes') args.recordMinutes = Number(value);
     else throw new Error(`unbekannte Option: ${flag}`);
   }
@@ -384,13 +386,24 @@ async function all() {
 
   // Die Tour ist hier absichtlich sichtbar (nicht hideTour), sie ist der Gegenstand der Bilder.
   if (want('dashboard-onboarding-tour-welcome') || want('dashboard-onboarding-tour-step')) {
+    // Das echte Changelog der Konsole rendern, damit die Demo Touren hat (sonst bleibt der Lauf leer).
+    const render = await fetch(`${args.consoleUrl}/api/highlights/render`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ since: 'v0.10.8' }),
+    });
+    if (!render.ok) throw new Error(`Changelog rendern: HTTP ${render.status}`);
     s = await session(1280, 800);
-    const started = await s.page.evaluate(() => Alpine.store('onboarding').start('explore', null, { all: true }));
-    if (started !== true) throw new Error(`Tour start liefert ${JSON.stringify(started)}`);
+    const started = await s.page.evaluate(() => Alpine.store('onboarding').start('news'));
+    if (started !== true) {
+      const info = await s.page.evaluate(() => ({ versions: Alpine.store('onboarding').exploreVersions.length, firstItems: Alpine.store('onboarding').exploreVersions[0]?.items?.length ?? null }));
+      throw new Error(`Tour start('news') liefert ${JSON.stringify(started)}, exploreVersions: ${JSON.stringify(info)}`);
+    }
     await s.page.waitForTimeout(2000);
     await s.page.getByText('There is something new to discover', { exact: true }).waitFor({ timeout: 5000 });
     await shot(s.page, 'dashboard-onboarding-tour-welcome');
-    await s.page.getByRole('button', { name: 'Next', exact: true }).click();
+    // Der Einfuehrungsschritt hat 'Start' statt 'Next', damit geht es zum ersten Schritt.
+    await s.page.getByRole('button', { name: 'Start', exact: true }).click();
     await s.page.waitForTimeout(2500);
     await shot(s.page, 'dashboard-onboarding-tour-step');
     await s.page.evaluate(() => Alpine.store('onboarding').close());
