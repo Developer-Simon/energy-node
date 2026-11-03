@@ -5,7 +5,8 @@
   "details": {
     "*": {
       "de": "Verbindest du dich mit einer Schlüsseldatei und sudo verlangt auf dem Gerät ein Passwort, öffnet die Vorprüfung den Dialog „sudo-Passwort nötig“. Mit „sudo erlauben“ richtet der Installer passwortloses sudo für deinen Benutzer ein. Das Passwort wird nicht gespeichert und erscheint in keinem Log.",
-      "en": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log."
+      "en": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
+      "doc": "installer.html#sudo-password"
     }
   }
 }

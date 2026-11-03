@@ -5,7 +5,8 @@
   "details": {
     "*": {
       "de": "Passt die Python-Version des Geräts nicht zum Paket, hält die Vorbereitung mit „Vorgang angehalten, Bestätigung erforderlich“ an. Mit „Abhängigkeiten online laden“ lädt der Installer die übrigen Abhängigkeiten aus dem Internet. Das Gerät braucht dafür einen Internetzugang.",
-      "en": "If the device's Python version does not match the package, the preparation stops with “Process paused, confirmation required”. With “Load dependencies online” the installer loads the remaining dependencies from the internet. The device needs internet access for this."
+      "en": "If the device's Python version does not match the package, the preparation stops with “Process paused, confirmation required”. With “Load dependencies online” the installer loads the remaining dependencies from the internet. The device needs internet access for this.",
+      "doc": "installer.html#python-version-of-the-pi"
     }
   }
 }

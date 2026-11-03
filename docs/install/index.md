@@ -79,8 +79,8 @@ x86, so the CPU must support 64-bit (x86-64). The installer stops on such a
 machine because it finds no package for its `uname -m` (`i586` or `i686`).
 Leave the root password empty during the installation, then Debian gives the
 first user `sudo`. The installer needs it without a password, which a Raspberry
-Pi OS user has by default. On Debian, add it yourself with a file in
-`/etc/sudoers.d/`.
+Pi OS user has by default. On Debian the installer asks for the `sudo` password
+once and sets it up, see [sudo password](../installer.md#sudo-password).
 
 The reference node runs Python 3.11.2, which is enough for every service in
 this repository (`requires-python >= 3.9`). An installation package carries
