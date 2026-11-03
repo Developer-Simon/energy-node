@@ -33,7 +33,12 @@
         - { label: "Statistics", url: "dashboard/statistics.md" }
         - { label: "Energy", url: "dashboard/energy.md" }
         - { label: "Device map", url: "dashboard/device-map.md" }
-        - { label: "Automations", url: "dashboard/automations.md" }
+        - label: "Automations"
+          url: "dashboard/automations.md"
+          children:
+            - { label: "Assistant", url: "dashboard/automations-assistant.md" }
+            - { label: "Scenarios", url: "dashboard/automations-scenarios.md" }
+            - { label: "Single rules", url: "dashboard/automations-rules.md" }
         - { label: "Diagnostics", url: "dashboard/diagnostics.md" }
         - { label: "Configuration editor", url: "dashboard/configuration.md" }
         - label: "Settings"

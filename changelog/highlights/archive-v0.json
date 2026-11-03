@@ -414,7 +414,7 @@
     "details": {
       "*": {
         "de": "Im Regeleditor bekommt ein Zeitfenster Wochentage, und das Sonnenfenster folgt Sonnenaufgang und Sonnenuntergang am Standort aus den Einstellungen.",
-        "doc": "dashboard/automations.html#rule-editor",
+        "doc": "dashboard/automations-rules.html#rule-editor",
         "en": "In the rule editor a time window takes weekdays, and the sun window follows sunrise and sunset at the location from the settings.",
         "image": "dashboard-automation.png"
       }

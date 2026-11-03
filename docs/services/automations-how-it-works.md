@@ -31,7 +31,7 @@ this order, and the first one that applies wins:
 the dashboard stops publishing the balance.
 
 The dashboard shows these results as the state between conditions and actions,
-see the [Automations page](../dashboard/automations.md#reading-a-rule).
+see the [Automations page](../dashboard/automations-rules.md#reading-a-rule).
 
 ## 2. When a rule fires
 
