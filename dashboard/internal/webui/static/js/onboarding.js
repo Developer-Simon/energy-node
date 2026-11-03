@@ -135,10 +135,12 @@
 
   // Ein Selektor kann mehrfach treffen (versteckte Kopien in anderen
   // Ansichten). Das erste sichtbare Element gewinnt.
-  // Mit scope werden zuerst die sichtbaren Treffer im Bereich einer Aktion gesucht.
+  // Mit scope werden zuerst die sichtbaren Treffer im Bereich einer Aktion gesucht,
+  // der Bereich selbst eingeschlossen: ist er das Ziel (die aufgeklappte Regel), gilt er
+  // und nicht das erste gleichartige Element der Seite.
   const resolveTarget = (target, scope = null) => {
     if (typeof target === 'function') return target();
-    const inScope = scope ? [...scope.querySelectorAll(target)].find((el) => window.obSpotlight.visibleRect(el)) : null;
+    const inScope = scope ? [scope, ...scope.querySelectorAll(target)].find((el) => el.matches(target) && window.obSpotlight.visibleRect(el)) : null;
     if (inScope) return inScope;
     const all = [...document.querySelectorAll(target)];
     return all.find((el) => window.obSpotlight.visibleRect(el)) || all[0] || null;
