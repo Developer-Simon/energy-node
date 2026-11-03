@@ -69,7 +69,9 @@ a tour can be shown again from there.
 ![The offer after an update](../images/dashboard-onboarding-tour-welcome.png)
 
 After an update the dashboard offers a short tour of what has changed since
-your last visit. A tour works like the setup: the bar at the bottom names the
+your last visit. **Start** begins it. **Next time** closes the offer until
+more new features arrive, and the tours stay in the checklist. A tour works
+like the setup: the bar at the bottom names the
 step, and the spotlight marks the new control. Steps you have no permission
 for are left out.
 
