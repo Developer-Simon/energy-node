@@ -211,7 +211,7 @@
   action('time-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] })));
   action('sun-rule', ruleAction('sun_window', () => ({ type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, weekdays: [] })));
   action('balance-rule', ruleAction('balance_threshold', () => ({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 })));
-  action('open-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }), { edit: false, match: (rule) => rule.history_enabled }));
+  action('open-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }), { edit: false, match: () => true }));
 
   // Der Konfigurationsbereich mit dem Dienst Batteriestand. Der Lauf setzt den
   // Dienst in den Daten der Seite (selectedName) und laedt das Formular neu.
