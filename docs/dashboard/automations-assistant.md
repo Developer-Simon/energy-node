@@ -6,6 +6,8 @@ title: "Automations: Assistant"
 
 ## Assistant
 
+![The assistant with its templates](../images/dashboard-automation-assistant.png)
+
 **Assistant** in the bar above the list opens the assistant. It is the only way to add an entry. It builds a scenario or a rule
 from a few questions, so you do not need to know the fields.
 

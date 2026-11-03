@@ -135,6 +135,8 @@ the Pi has changed yet.
 
 #### sudo password
 
+![The sudo password dialog](images/installer-sudo.png)
+
 If you connected with a key file and `sudo` on the Pi asks for a password, the
 pre-check opens the dialog **sudo password needed**. Enter the password of the
 SSH user and choose **Allow sudo**. The installer uses it once to add
@@ -174,6 +176,8 @@ Pi.
 **Continue** opens the Dashboard step.
 
 ### 4. Dashboard
+
+![The Dashboard step](images/installer-dashboard-step.png)
 
 This step presets the dashboard for its first start. Every setting is
 optional. **Configure later** skips the whole step, and the dashboard's

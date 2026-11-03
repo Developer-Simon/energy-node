@@ -6,6 +6,8 @@ title: "Automations: Scenarios"
 
 ## Scenarios
 
+![A scenario card with its phases](../images/dashboard-automation-scenario.png)
+
 A scenario has three phases. **Start** holds the conditions that begin it,
 **While** is what happens during the scenario, and **End** holds the actions
 that run when it stops. The usual use is a regulator that keeps the grid

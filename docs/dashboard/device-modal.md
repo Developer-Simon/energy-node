@@ -85,6 +85,8 @@ Each tab carries a small counter with the number of entities inside.
 
 ## Analysis
 
+![The Analysis tab of an entity](../images/dashboard-device-modal-analysis.png)
+
 The last tab is labelled **Analysis**. It is only shown to users with the
 [device analysis right](#rights). It has two parts:
 
