@@ -35,8 +35,8 @@ and you enter the address by hand.
 
 Pairing is needed for the sidebar page to sign in with Home Assistant accounts
 (see [Dashboard in the sidebar](companion-sidebar.md#signing-in)). Without
-pairing the integration works as before, and the sidebar page uses a guest
-session. Pairing also gives the Home Assistant accounts their presets, as
+pairing the integration still delivers its values, and the sidebar page uses a
+guest session. Pairing also gives the Home Assistant accounts their presets, as
 described in [Dashboard in the sidebar](companion-sidebar.md#signing-in).
 
 1. In the dashboard open [Settings, Users](../dashboard/settings-users.md#home-assistant-users), section **Home Assistant**,

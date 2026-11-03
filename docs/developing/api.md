@@ -145,7 +145,7 @@ files `mqtt_credentials.json`, `mqtt_bridge_credentials.json`, and
 - The server stores no history. The command history per device (at most 12
   entries) and the ring buffer of the history exchange (24 h) only exist in
   memory. The rolling measurement history lives in each browser's IndexedDB,
-  not on the Pi (see History above). There is no time series and no persistent
+  not on the Pi (see [History](api-data.md#history)). There is no time series and no persistent
   event list on the server.
 - Write endpoints limit the body to 2 MiB, commands to 4 KiB.
 - There is no rate limiting. The dashboard is built for a trusted network and

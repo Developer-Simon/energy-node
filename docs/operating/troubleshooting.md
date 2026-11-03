@@ -8,12 +8,12 @@ title: "Troubleshooting"
 
 | Symptom | Likely cause |
 |---|---|
-| Node cannot ping or route to any other tailnet peer | `--tun=userspace-networking` is set in `/etc/default/tailscaled`. Remove it ([section 3.1](../install/index.md#31-tailscale--install-1620-then-update)) |
-| A client's traffic to the main site's LAN breaks after IP forwarding is enabled, SSH stays up | The node still advertises a subnet route. Clear it with `sudo tailscale up --reset --advertise-routes=` ([section 3.1](../install/index.md#31-tailscale--install-1620-then-update)) |
+| Node cannot ping or route to any other tailnet peer | `--tun=userspace-networking` is set in `/etc/default/tailscaled`. Remove it ([section 3.1](../install/index.md#31-tailscale-install-1620-then-update)) |
+| A client's traffic to the main site's LAN breaks after IP forwarding is enabled, SSH stays up | The node still advertises a subnet route. Clear it with `sudo tailscale up --reset --advertise-routes=` ([section 3.1](../install/index.md#31-tailscale-install-1620-then-update)) |
 | Node drops off the tailnet after months | Key expiry was not disabled in the admin console |
 | `pip` refuses with "externally-managed-environment" | Missing `--break-system-packages` ([section 3.2](../install/index.md#32-python-packages-on-an-externally-managed-system)) |
 | A service starts, then dies immediately | `/etc/energy-node/config.json` or `mqtt.pw` is missing or unreadable for group `energynode`. Services refuse to start without it on purpose |
-| Services run an old version of the shared package | The wheel was installed for a different interpreter than the unit's `/usr/bin/python3`; reinstall and `systemctl restart` the services |
+| Services run an old version of the shared package | The wheel was installed for a different interpreter than the unit's `/usr/bin/python3`. Reinstall it and `systemctl restart` the services |
 | Devices show as unavailable in Home Assistant, no errors in the log | Check that the bridge actually connected to the broker. The bridges only log paho's internal callback exceptions because `enable_logger()` is on |
 | Dashboard reachable but admin login rejected | Admin sessions require HTTPS. Use the Caddy endpoint instead of port 8080 |
 | Dashboard runs, but the MQTT tab shows "Last error" with "not Authorized" | The MQTT username or password does not match the broker. Check `mqtt.username` in `/etc/energy-node/config.json` and the password in `/etc/energy-node/mqtt.pw`, then correct them in the configuration. To use the MQTT tab instead, turn on "Use the settings saved here instead of the installer settings" there and enter the user and password. The dashboard connects on its own once they match |

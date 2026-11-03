@@ -30,7 +30,7 @@ the editor. Changes are not saved to the device until you save the document.
 
 The rule editor has four parts.
 
-- **When all of these apply** (Wenn) lists the conditions. All of them must hold
+- **When all of these apply** lists the conditions. All of them must hold
   for the rule to trigger. **Above** and **below** carry an up and a down arrow.
   A balance condition shows its **Hysteresis** directly in the card, a new one
   starts with 5 in the unit of its field (5 W for power).
@@ -40,14 +40,14 @@ The rule editor has four parts.
   or a topic has the comparison **no new values**. It is met when the last
   message is older than the minutes you set. If no message has arrived since the
   service started, the time counts from the start of the service.
-- **Then** (Dann) lists the actions that run on a trigger.
-- **Flow** (Ablauf) sets the **Cooldown after triggering (s)**, the time a rule
+- **Then** lists the actions that run on a trigger.
+- **Flow** sets the **Cooldown after triggering (s)**, the time a rule
   waits after a trigger before it may trigger again, the **Run mode** and
   **Record history**.
-- **Repeat** (Wiederholen) is the **Repeat** segment of the run mode. It shows
+- **Repeat** is the **Repeat** segment of the run mode. It shows
   **Every (s) while met**, which makes the rule send its actions again while its
   conditions keep holding. **Once** sends them once per trigger. Repeat must be
-  at least the minimum interval for commands (see Settings). The repeat is off
+  at least the minimum interval for commands (see [Settings](automations.md#settings)). The repeat is off
   for a rule with a toggle action, because every repeat would flip the state back.
 
 ### Action cards
@@ -119,7 +119,6 @@ the back tile, the name, the switch and one line with the status and the last
 trigger. The footer with **Discard** and **Done** stays at the bottom. The
 condition cards show their state badge, and the device and value fields take
 the full width of the card.
-
 
 ## Testing an action
 

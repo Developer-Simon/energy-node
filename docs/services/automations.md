@@ -90,7 +90,7 @@ the namespace with rule IDs.
   `repeat_seconds` until it ends.
 - `none`: the scenario only runs `on_start` and `on_end`.
 
-This is the example from the design, without the empty fields:
+An example scenario, with the empty fields left out:
 
 ```json
 {

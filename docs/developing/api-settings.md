@@ -51,7 +51,7 @@ maps each item type to `{min_span, min_width, min_height, fills_height,
 default_span}` from `internal/settings/cardcatalog.go`, the one place that
 defines how much space each card type needs. Instead of coordinates, an item
 carries `span` (size class `"1"`–`"6"` or `"full"`) and optionally `height` (a
-fixed height of 1–12 units of 7 rem). `card_types` is only output, and `PUT`
+fixed height of 1 to 12 units of 7 rem). `card_types` is only output, and `PUT`
 ignores it.
 
 `GET /api/v1/device/icons` returns the full icon catalogue as an array:
@@ -194,11 +194,11 @@ fields contain only the path, never the password itself. Not role-gated.
 
 **`PUT /api/v1/system/config`** (body limit 1 MiB):
 
-1. schema-validates the document against `config.schema.json`;
-2. checks every `*_file` value against the allowlist (only paths under
-   `/etc/energy-node/` and `/etc/energy-node-dashboard/` are accepted);
-3. writes a revision of the *previous* file (kept under
-   `data_dir/revisions/system-config/`, max 20);
+1. validates the document against `config.schema.json`.
+2. checks every `*_file` value against the allowlist. Only paths under
+   `/etc/energy-node/` and `/etc/energy-node-dashboard/` are accepted.
+3. writes a revision of the *previous* file, kept under
+   `data_dir/revisions/system-config/`, at most 20.
 4. writes the new file atomically.
 
 Response: `{"config": {…}, "restart_required": [...], "reloaded": {…}}`.

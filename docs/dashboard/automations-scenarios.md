@@ -93,7 +93,7 @@ grid value is not known yet.
 Under **Fine tuning** you find **Gain**, **Minimum in W**, **Maximum in W**,
 **Step size in W**, **Max. change per step in W**, **Interval in s** and
 **Fallback value**. An empty interval uses the regulator interval from the
-settings (see Settings below).
+settings (see [Settings](automations.md#settings)).
 
 Each fine tuning field shows its default as a grey placeholder. A default is
 not saved, so the field stays empty and keeps following the default. A stepper

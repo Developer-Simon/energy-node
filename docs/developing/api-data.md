@@ -25,7 +25,7 @@ the role or other requirements.
 | POST | `/api/v1/devices/{id}/discovery-delete` | `delete_device_discovery` + CSRF | Delete discovery topics |
 | GET | `/api/v1/devices/ignored` | – | List of hidden devices |
 | GET | `/api/v1/discovery` | – | Devices + parse errors + duplicate IDs |
-| GET | `/api/v1/discovery/summary` | – | `device_count`, `entity_count`, `discovery_errors`, `duplicate_ids`; carries `ETag: "registry-N"` |
+| GET | `/api/v1/discovery/summary` | – | `device_count`, `entity_count`, `discovery_errors`, `duplicate_ids`, with `ETag: "registry-N"` |
 | GET | `/api/v1/topics` | – | All known topics |
 | GET | `/api/v1/topics/samples` | – | Last payload per topic |
 | GET | `/api/v1/automation/notification` | – | Last `{at, message}` event from the automation service's `last_event` topic, parsed. `404` when no automation service, `204` before its first event. Polled by `notifications.js` for toasts. |
@@ -154,7 +154,7 @@ sorted by series and then by time.
 | POST | `/api/v1/history/exchange/buffer` | – | Feed rows into the server's 24 h ring buffer |
 
 The dashboard keeps no history on disk. Samples live in each browser's
-IndexedDB (see [data-flow.md](data-flow.md) §10), and these endpoints only
+IndexedDB (see [Browser history](data-flow-storage.md#10-browser-history-indexeddb-not-on-the-pi)), and these endpoints only
 serve the recorder in the browser.
 
 **`GET /api/v1/history/entities`** returns the current value of the entities

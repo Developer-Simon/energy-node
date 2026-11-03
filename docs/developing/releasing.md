@@ -79,8 +79,8 @@ release.
 ## Components and their version files
 
 Every component carries its own version and its own `CHANGELOG.md`. The list
-lives in [`scripts/version/components.sh`](https://github.com/Developer-Simon/energy-node/blob/main/scripts/version/components.sh);
-the changelog targets are the `<target>` arguments of
+lives in [`scripts/version/components.sh`](https://github.com/Developer-Simon/energy-node/blob/main/scripts/version/components.sh).
+The changelog targets are the `<target>` arguments of
 `scripts/generate_changelog.sh`.
 
 | Component | Version file | Changelog | Target |

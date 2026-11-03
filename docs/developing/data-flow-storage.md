@@ -159,7 +159,7 @@ Hours are stored per UTC month in `<data dir>/energystats/<yyyy-mm>.json`. Each 
 
 `GET /api/v1/energy/stats?period=day|week|month|year&at=<date>` sums the hours into hours, days or months in the local time zone and adds autarky and self consumption for each bucket and for the whole period. Weeks run Monday to Sunday and are summed into days.
 
-`GET /api/v1/energy/stats/hours?from=<ms>&to=<ms>` returns the hourly means that the history page shows for spans of a week or longer (see [api.md](api.md)). Own hours with less than 50 minutes of recording are left out, Home Assistant hours always count.
+`GET /api/v1/energy/stats/hours?from=<ms>&to=<ms>` returns the hourly means that the history page shows for spans of a week or longer (see [Devices and data](api-data.md#energy)). Own hours with less than 50 minutes of recording are left out, Home Assistant hours always count.
 
 ### Hours from Home Assistant
 
