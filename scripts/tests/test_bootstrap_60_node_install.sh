@@ -173,6 +173,30 @@ python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["mqtt"]["u
 grep -q 'mqtt-geheim' "$etc/mqtt.pw" || fail "mqtt.pw nicht ersetzt"
 rm -rf "$tmp/state"
 
+# --- Admin-Name vom Installer: nur ohne vorhandene auth.pw -------------------
+auth_dst="$tmp/root/etc/energy-node-dashboard/auth.pw"
+rm -f "$auth_dst"
+printf '{"mqtt":{"host":"meins"},"dashboard":{"admin_username":"admin","port":8080}}\n' > "$etc/config.json"
+rm -rf "$tmp/state"
+out="$(bash "$script" --admin-password-file "$tmp/admin.pw" --admin-user chef)"
+grep -q '^##STEP 60 ok$' <<<"$out" || fail "Lauf mit --admin-user nicht ok" "$out"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["dashboard"]=={"admin_username":"chef","port":8080} and d["mqtt"]["host"]=="meins", d' \
+  "$etc/config.json" || fail "admin_username nicht gesetzt oder Rest veraendert" "$(cat "$etc/config.json")"
+
+# --- vorhandene auth.pw: der Name bleibt ------------------------------------
+rm -rf "$tmp/state"
+out="$(bash "$script" --admin-password-file "$tmp/admin.pw" --admin-user andere)"
+grep -q '^##STEP 60 ok$' <<<"$out" || fail "zweiter Lauf mit --admin-user nicht ok" "$out"
+grep -q '"admin_username": "chef"' "$etc/config.json" || fail "admin_username trotz auth.pw geaendert" "$(cat "$etc/config.json")"
+
+# --- ohne --admin-user bleibt admin_username unberuehrt ---------------------
+rm -f "$auth_dst"
+printf '{"dashboard":{"admin_username":"admin"}}\n' > "$etc/config.json"
+rm -rf "$tmp/state"
+out="$(bash "$script" --admin-password-file "$tmp/admin.pw")"
+grep -q '"admin_username":"admin"' "$etc/config.json" || fail "admin_username ohne Argument geaendert" "$(cat "$etc/config.json")"
+rm -rf "$tmp/state"
+
 # --- kaputte Sudoers-Regel wird nicht installiert -------------------------
 rm -rf "$tmp/state" "$tmp/root"
 set +e
