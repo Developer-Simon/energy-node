@@ -1,5 +1,10 @@
 {
   "de": {
     "*": "Der Admin-Benutzername aus dem Installer gilt jetzt, und die Einrichtung erkennt mehr Schritte als erledigt"
+  },
+  "tour": {
+    "*": {
+      "exempt": "The admin name is set in the installer and the detection only marks existing checklist steps as done, so there is no new web UI to show. The tour change repairs an existing step."
+    }
   }
 }
