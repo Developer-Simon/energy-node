@@ -8,6 +8,11 @@
 //   node test/e2e/docs-screenshots.mjs --out /tmp/shots   # woanders hin
 //
 // Geschrieben werden installer-update.png (die Vorschau),
+// installer-sudo.png (Anmeldung mit Schluesseldatei, sudo-Dialog offen),
+// installer-dashboard-step.png (Dashboard-Bildschirm vor dem Start),
+// installer-precheck.png (Vorpruefung einer Erstinstallation),
+// installer-configure.png (Konfiguration mit ausgefuellten Passwoertern),
+// installer-diagnose.png (Diagnose mit Live-Log),
 // installer-changelog.png (Was ist neu, Ansicht Highlights) und
 // installer-run.png (die Ausfuehrung einer Erstinstallation, vom zweiten
 // Testwirt im Szenario vorlage angehalten bei Schritt 85). Die uebrigen
@@ -79,7 +84,104 @@ async function run() {
   return { context, page, stop: () => runHost.stop() };
 }
 
+// Erstinstallation mit Passwort bis zur Vorpruefung.
+async function precheck() {
+  const host = await startFakehost(['--lang', 'en', '--trusted']);
+  const context = await browser.newContext({ viewport: { width: 1080, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(host.url);
+  await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
+  await page.locator('.mode-i').nth(0).click();
+  await page.locator('input[aria-labelledby="connect-address"]').fill('energy-node.local');
+  await page.locator('input[aria-labelledby="connect-user"]').fill('pi');
+  await page.locator('input[aria-labelledby="connect-password"]').fill(SECRETS.login);
+  await page.locator('.app[data-screen="connect"] button.primary').click();
+  await page.locator('.app[data-screen="precheck"] .chk-t').first().waitFor({ timeout: 30000 });
+  await page.waitForTimeout(1500);
+  return { context, page, stop: () => host.stop() };
+}
+
+// Die Konfiguration mit ausgefuellten Passwoertern, von der Vorpruefung aus.
+async function configure() {
+  const session = await precheck();
+  await session.page.getByRole('button', { name: en['action.next'], exact: true }).click();
+  await session.page.locator('.app[data-screen="configure"]').waitFor({ timeout: 30000 });
+  await session.page.getByLabel(en['field.mqtt_password'], { exact: true }).fill(SECRETS.mqtt);
+  await session.page.getByLabel(en['field.admin_password'], { exact: true }).fill(SECRETS.admin);
+  await session.page.waitForTimeout(800);
+  return session;
+}
+
+// Anmeldung mit Schluesseldatei: der Testwirt sperrt sudo, der Dialog bleibt offen.
+async function sudo() {
+  const host = await startFakehost(['--lang', 'en', '--trusted']);
+  const context = await browser.newContext({ viewport: { width: 1080, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(host.url);
+  await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
+  await page.locator('.mode-i').nth(0).click();
+  await page.locator('.segmented-option', { hasText: en['field.auth_key'] }).click();
+  await page.locator('input[aria-labelledby="connect-address"]').fill('energy-node.local');
+  await page.locator('input[aria-labelledby="connect-user"]').fill('pi');
+  await page.locator('input[aria-labelledby="connect-keypath"]').fill('/home/pi/.ssh/energy-node');
+  await page.locator('.app[data-screen="connect"] button.primary').click();
+  await page.locator('.sudo-dialog').waitFor({ timeout: 30000 });
+  await page.waitForTimeout(800);
+  return { context, page, stop: () => host.stop() };
+}
+
+// Die Diagnose: Modus-Kachel, Verbindung, Live-Log mit Zeilen.
+async function diagnose() {
+  const host = await startFakehost(['--lang', 'en', '--trusted']);
+  const context = await browser.newContext({ viewport: { width: 1080, height: 1200 } });
+  const page = await context.newPage();
+  await page.goto(host.url);
+  await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
+  await page.locator('.mode-i').nth(2).click();
+  await page.locator('input[aria-labelledby="connect-address"]').fill('energy-node.local');
+  await page.locator('input[aria-labelledby="connect-user"]').fill('pi');
+  await page.locator('input[aria-labelledby="connect-password"]').fill(SECRETS.login);
+  await page.locator('.app[data-screen="connect"] button.primary').click();
+  await page.locator('.app[data-screen="diagnose"] .tally').waitFor({ timeout: 30000 });
+  await page.locator('.app[data-screen="diagnose"] .ll-ln').first().waitFor({ timeout: 15000 });
+  await page.waitForTimeout(800);
+  return { context, page, stop: () => host.stop() };
+}
+
 try {
+  if (want('installer-precheck')) {
+    const { context, page, stop } = await precheck();
+    await shot(page, 'installer-precheck');
+    await context.close();
+    await stop();
+  }
+  if (want('installer-configure')) {
+    const { context, page, stop } = await configure();
+    await shot(page, 'installer-configure');
+    await context.close();
+    await stop();
+  }
+  if (want('installer-sudo')) {
+    const { context, page, stop } = await sudo();
+    await shot(page, 'installer-sudo');
+    await context.close();
+    await stop();
+  }
+  if (want('installer-diagnose')) {
+    const { context, page, stop } = await diagnose();
+    await shot(page, 'installer-diagnose');
+    await context.close();
+    await stop();
+  }
+  if (want('installer-dashboard-step')) {
+    const session = await configure();
+    await session.page.getByRole('button', { name: en['action.next'], exact: true }).click();
+    await session.page.locator('.app[data-screen="dashboard"] .dash-group').first().waitFor({ timeout: 30000 });
+    await session.page.waitForTimeout(1000);
+    await shot(session.page, 'installer-dashboard-step');
+    await session.context.close();
+    await session.stop();
+  }
   if (want('installer-run')) {
     const { context, page, stop } = await run();
     await shot(page, 'installer-run');
