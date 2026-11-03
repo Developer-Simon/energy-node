@@ -19,7 +19,7 @@
 // Verlauf bereits und bewegen sich.
 //
 // Ohne Namen werden alle Bilder ausser dashboard-history,
-// dashboard-settings-versions, dashboard-statistics und dashboard-service-logs geschrieben. Namen als Argumente begrenzen den
+// dashboard-settings-versions, dashboard-statistics, dashboard-statistics-mobile und dashboard-service-logs geschrieben. Namen als Argumente begrenzen den
 // Lauf auf genau diese Bilder.
 //
 // Der Verlauf wird im Browser aufgezeichnet (IndexedDB, history-recorder.js).
@@ -58,7 +58,7 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics', 'dashboard-service-logs'];
+const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics', 'dashboard-statistics-mobile', 'dashboard-service-logs'];
 const want = (name) => (args.names.length ? args.names.includes(name) : !OPT_IN.includes(name));
 
 await mkdir(args.out, { recursive: true });
@@ -89,6 +89,11 @@ async function scrollToTabs(page) {
     window.scrollTo(0, nav.getBoundingClientRect().top + window.scrollY - 12);
   });
   await page.waitForTimeout(600);
+}
+
+// Die Einrichtungsleiste (.ob-layer) erscheint auf frischen Sitzungen und gehoert nicht ins Bild.
+async function hideTour(page) {
+  await page.addStyleTag({ content: ".ob-layer { display: none !important; }" });
 }
 
 async function shot(page, name) {
@@ -206,6 +211,19 @@ async function all() {
     await shot(s.page, 'dashboard-statistics');
     await s.ctx.close();
   }
+  if (want('dashboard-statistics-mobile')) {
+    // Phone width, interval view: the bottom pill must be in the picture, so no scrollToTabs.
+    s = await session(390, 844);
+    await hideTour(s.page);
+    // Auf dem Telefon liegt der Statistik-Tab im Menue "Mehr" (nav-more).
+    await s.page.locator('.nav-more-toggle').click();
+    await s.page.locator('#dashboard-more-list [role="menuitem"]', { hasText: 'Statistics' }).click();
+    await s.page.waitForTimeout(3000);
+    await s.page.locator('.stats-view-toggle button', { hasText: 'Interval' }).click();
+    await s.page.waitForTimeout(1500);
+    await shot(s.page, 'dashboard-statistics-mobile');
+    await s.ctx.close();
+  }
   if (want('dashboard-service-logs')) {
     // Needs the simulated journal (--simulate-journal): it feeds the lines.
     // Its over-long test line comes every 97 s, so reload until the visible
@@ -266,6 +284,35 @@ async function all() {
     await s.page.mouse.move(1, 1);
     await scrollToTabs(s.page);
     await shot(s.page, name);
+    await s.ctx.close();
+  }
+
+  // Benutzer: ein zweites Konto anlegen (409 heisst: gibt es schon), dessen Karte aufklappen.
+  if (want('dashboard-settings-users') || want('dashboard-settings-users-permissions')) {
+    s = await session(1110, 1100);
+    const csrf = (await (await s.ctx.request.get(`${args.url}/api/v1/auth/session`)).json()).csrf_token;
+    const created = await s.ctx.request.post(`${args.url}/api/v1/users`, {
+      data: { username: 'anna', password: 'demo-anna-2026', roles: ['view_overview', 'view_devices', 'view_history', 'view_stats', 'operate_devices'] },
+      headers: { 'X-CSRF-Token': csrf },
+    });
+    if (![200, 201, 409].includes(created.status())) throw new Error(`Konto anna: HTTP ${created.status()}`);
+    await hideTour(s.page);
+    await tab(s.page, 'settings');
+    await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-users"]').click();
+    await s.page.waitForTimeout(2000);
+    await s.page.locator('button.users-tab[data-tab="accounts"]').click();
+    await s.page.waitForTimeout(1000);
+    const anna = s.page.locator('.users-list-item').filter({ has: s.page.locator('.users-card-head', { hasText: 'anna' }) }).first();
+    await anna.locator('.users-card-head').click();
+    await s.page.waitForTimeout(1000);
+    await s.page.mouse.move(1, 1);
+    if (want('dashboard-settings-users')) {
+      await scrollToTabs(s.page);
+      await shot(s.page, 'dashboard-settings-users');
+    }
+    if (want('dashboard-settings-users-permissions')) {
+      await element(anna.locator('.users-groups'), 'dashboard-settings-users-permissions');
+    }
     await s.ctx.close();
   }
 
@@ -378,7 +425,7 @@ async function deviceModalShowcase() {
     await s.page.waitForTimeout(2500);
     await element(s.page.locator('dialog#device-modal'), name);
     if (name === 'dashboard-device-modal' && want('dashboard-device-modal-manage')) {
-      await s.page.locator('.device-modal-trigger').filter({ hasText: 'Management' }).first().click();
+      await s.page.locator('.device-modal-trigger').filter({ hasText: 'Analysis' }).first().click();
       await s.page.waitForTimeout(1200);
       await element(s.page.locator('dialog#device-modal'), 'dashboard-device-modal-manage');
     }
