@@ -83,7 +83,7 @@ func ApplySeed(path string, mgr *auth.Manager, st *settings.Store, ob *Store, lo
 		return nil
 	}
 	if seed.AdminUser != "" && !hasAccount(mgr, seed.AdminUser) {
-		log.Warn("onboarding-seed: admin_user nicht übernommen, das Admin-Konto bestand schon", "name", seed.AdminUser)
+		log.Warn("onboarding-seed: admin_user nicht übernommen, es gibt kein Konto mit diesem Namen", "name", seed.AdminUser)
 	}
 
 	var errs []error
