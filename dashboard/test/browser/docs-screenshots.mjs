@@ -309,7 +309,15 @@ async function all() {
     // Tall enough for the whole connection card, so its save bar does not float over it.
     ['dashboard-settings-mqtt', 'settings-mqtt', 1500],
     ['dashboard-settings-tailscale', 'settings-tailscale', 988],
-    ['dashboard-settings-system', 'settings-system', 997],
+    // Der Standardpfad der Passwortdatei steht im Bild, nicht der Demo-Pfad. Nur die Anzeige, nicht gespeichert.
+    ['dashboard-settings-system', 'settings-system', 997, async (page) => {
+      await page.evaluate(() => {
+        const label = [...document.querySelectorAll('label')].find((l) => l.textContent.trim().startsWith('Admin password file'));
+        const input = label?.control ?? label?.parentElement?.querySelector('input');
+        if (!input) throw new Error('Feld "Admin password file" nicht gefunden');
+        input.value = '/etc/energy-node-dashboard/auth.pw';
+      });
+    }],
     // Die Aenderungen des Dashboards aufgeklappt, damit der Schalter
     // Highlights/Alles etwas zu zeigen hat.
     ['dashboard-settings-versions', 'settings-versions', 1200, async (page) => {
