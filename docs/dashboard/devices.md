@@ -6,7 +6,7 @@ anchor_moves:
   custom-categories: energy.html#custom-categories
   energy-balance-layer: device-map.html#roles-layer
   data-flow-layer: device-map.html#data-flow-layer
-  data-flow-for-service-developers: ../developing/data-flow.html#12-data-flow-on-the-device-map
+  data-flow-for-service-developers: ../developing/data-flow-devices.html#12-data-flow-on-the-device-map
 ---
 
 # Devices

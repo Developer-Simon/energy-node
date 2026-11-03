@@ -99,8 +99,20 @@
 
 - title: Developing
   items:
-    - { label: "Data flows", url: "developing/data-flow.md" }
-    - { label: "HTTP API", url: "developing/api.md" }
+    - label: "Data flows"
+      url: "developing/data-flow.md"
+      children:
+        - { label: "Devices", url: "developing/data-flow-devices.md" }
+        - { label: "Storage", url: "developing/data-flow-storage.md" }
+        - { label: "Energy and automations", url: "developing/data-flow-energy.md" }
+        - { label: "Home Assistant", url: "developing/data-flow-ha.md" }
+    - label: "HTTP API"
+      url: "developing/api.md"
+      children:
+        - { label: "Authentication", url: "developing/api-auth.md" }
+        - { label: "Devices and data", url: "developing/api-data.md" }
+        - { label: "Settings and connections", url: "developing/api-settings.md" }
+        - { label: "System and updates", url: "developing/api-system.md" }
     - label: "Writing a device service"
       url: "developing/new-device-service.md"
       children:
