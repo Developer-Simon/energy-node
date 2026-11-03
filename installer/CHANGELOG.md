@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.9 (2026-11-01)
+## v0.2.10 (2026-11-03)
 
 ### Features
 
@@ -23,6 +23,8 @@
 
 - **installer:** A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects. (#191) (a96bebf)
 - **installer:** The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password. (#194) (ef2d7d6)
+- **installer:** pass the admin username from the dashboard step to step 60 (623ab0a)
+- **onboarding:** apply the installer admin name and detect more setup steps as done (#202)
 - **installer:** force the step on a diagnose repair (fa2a5bc)
 - **installer:** end the journal session when journalctl exits and redact its error (fef88a9)
 - **installer:** run every step in a first setup, skip done steps only on update (5de64f7)

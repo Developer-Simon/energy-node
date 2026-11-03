@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.39 (2026-11-03)
+## v0.10.40 (2026-11-03)
 
 ### Features
 
@@ -28,6 +28,7 @@
 - **battery-soc:** render tuning findings from a shared message catalog (#196) (2332ed5)
 - **onboarding:** Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one. (#197) (00443d4)
 - **onboarding:** Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind "Explore further back", and each older release card can catch up on its tour. (#198) (c79cedf)
+- **onboarding:** tours with actions, guest and favourite steps, news offer (#201) (61004a4)
 - **onboarding:** tour targets know x-bind ids and named actions, tours carry open and replaced_by (0a1f8d8)
 - **onboarding:** open entries count for stale tours and a stale tour can point at its replacement (dd2ef2f)
 - **onboarding:** apply the open entries of a tour step and know how to take them back (430ab00)
@@ -48,7 +49,6 @@
 - **onboarding:** a demo toast action and targets for the rule trigger strip and the toast (66b00ce)
 - **onboarding:** an action that opens a rule without the editor (a08538c)
 - **onboarding:** the explore tour offers itself as the first card of the dock (82b9dd3)
-- **onboarding:** tours with actions, guest and favourite steps, news offer (#201)
 - **webui:** tour targets for settings, versions, users, checklist, MQTT, diagnostics and config (a3c5e39)
 - **webui:** tour targets for the device map, energy, statistics, history and automations (8203a77)
 - **onboarding:** list highlights older than the explore window as archive (ce98e3e)
@@ -253,6 +253,12 @@
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
 - **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195) (70464ad)
 - **auth:** log restricted logins and reject password changes of HA accounts (#200) (f867ae6)
+- **onboarding:** warn about the installer admin name only when the account is missing (9edc3ee)
+- **onboarding:** correct the admin_user warning text (8d3b714)
+- **onboarding:** detect changed metrics, guest access and runtime status as done (4eeafb8)
+- **onboarding:** spotlight the rule a tour step opened, not the first rule (8d0b9ec)
+- **onboarding:** open the first rule in the reworked rules tour step (2cb1013)
+- **onboarding:** apply the installer admin name and detect more setup steps as done (#202)
 - **onboarding:** make the action engine tests meaningful and read state after the click settled (ac72267)
 - **onboarding:** the filled catch-up chip keeps a visible icon (7bdac2d)
 - **onboarding:** the groups step highlights the whole accordion (9a4414f)

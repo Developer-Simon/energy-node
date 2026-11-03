@@ -494,24 +494,25 @@ test('balance-rule creates a disabled example rule with a threshold when none ma
   assert.equal(run.records.length, 1);
 });
 
-test('open-rule expands the first rule with history without the editor and revert collapses it', async () => {
+test('open-rule expands the first rule without the editor and revert collapses it', async () => {
   const { document, a } = load();
   document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
-  const plain = windowRule('a');
-  const withHistory = { ...windowRule('b'), history_enabled: true };
-  ruleItem(document, 'a');
-  const li = ruleItem(document, 'b');
-  const page = rulesPage(document, [plain, withHistory]);
+  const first = windowRule('a');
+  const second = { ...windowRule('b'), history_enabled: true };
+  const li = ruleItem(document, 'a');
+  ruleItem(document, 'b');
+  const page = rulesPage(document, [first, second]);
   const run = runOf(['@open-rule']);
   await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
   assert.deepEqual(page.started, [], 'startEditing is not called');
-  assert.equal(page.expanded.b, true);
-  assert.equal(page.editing.b, undefined, 'the editor stays off');
+  assert.equal(page.expanded.a, true);
+  assert.equal(page.expanded.b, undefined, 'only the first rule opens');
+  assert.equal(page.editing.a, undefined, 'the editor stays off');
   assert.equal(run.scope, li);
   assert.equal(run.records[0].el, li.querySelector('.automation-rule-head'));
   assert.equal(page.document.rules.length, 2, 'no example rule is added');
   run.records[0].revert();
-  assert.equal(page.expanded.b, false, 'revert collapses the rule it opened');
+  assert.equal(page.expanded.a, false, 'revert collapses the rule it opened');
   assert.deepEqual(page.discarded, [], 'revert never discards editing');
   assert.deepEqual(page.started, []);
 });
@@ -529,10 +530,10 @@ test('open-rule keeps a rule expanded that was open before', async () => {
   assert.deepEqual(page.discarded, []);
 });
 
-test('open-rule creates an expanded example rule with the editor off when no rule has history', async () => {
+test('open-rule creates an expanded example rule with the editor off when there is no rule', async () => {
   const { document, a } = load();
   document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
-  const page = rulesPage(document, [windowRule('a')]);
+  const page = rulesPage(document, []);
   page.undo = 'stale';
   const run = runOf(['@open-rule']);
   await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
@@ -550,12 +551,12 @@ test('open-rule creates an expanded example rule with the editor off when no rul
 test('open-rule revert removes the example rule it created', async () => {
   const { document, a } = load();
   document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
-  const page = rulesPage(document, [{ id: 'a', conditions: [], actions: [] }]);
+  const page = rulesPage(document, []);
   const run = runOf(['@open-rule']);
   await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
   const id = run.records[0].scope.getAttribute('data-rule-id');
   run.records[0].revert();
-  assert.deepEqual(page.document.rules.map((r) => r.id), ['a']);
+  assert.deepEqual(page.document.rules.map((r) => r.id), []);
   assert.equal(Object.hasOwn(page.expanded, id), false);
   assert.equal(Object.hasOwn(page.editing, id), false);
   assert.equal(Object.hasOwn(page.newIds, id), false);

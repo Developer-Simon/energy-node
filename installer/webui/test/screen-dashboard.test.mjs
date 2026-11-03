@@ -210,3 +210,29 @@ test('guestOn: Standard (null) und true schalten den Gastzugang an, nur false au
   shell.shared.dashboardPrefs.guest_access = true;
   assert.equal(screen.guestOn, true);
 });
+
+test('Namensregel wie im Dashboard: kein guest- und keine reservierten Namen', () => {
+  const { screen } = mount();
+  assert.equal(screen.nameValid('guest-anna'), false);
+  for (const name of ['password-policy', 'companion', 'ha-roles']) assert.equal(screen.nameValid(name), false);
+  assert.equal(screen.nameValid('guestanna'), true);
+});
+
+test('ein Zusatzbenutzer darf nicht wie der Admin heissen, leer heisst admin', () => {
+  const { screen, shell } = mount();
+  const user = { name: 'admin', template: 'operate', password: 'x'.repeat(10) };
+  shell.shared.dashboardPrefs.users = [user];
+  assert.equal(screen.userValid(user), false);
+  shell.shared.dashboardPrefs.admin_user = 'chef';
+  assert.equal(screen.userValid(user), true);
+  user.name = 'chef';
+  assert.equal(screen.userValid(user), false);
+});
+
+test('zwei Zusatzbenutzer mit gleichem Namen sperren den Start', () => {
+  const { screen, shell } = mount();
+  const a = { name: 'anna', template: 'view', password: 'x'.repeat(10) };
+  const b = { name: 'anna', template: 'operate', password: 'y'.repeat(10) };
+  shell.shared.dashboardPrefs.users = [a, b];
+  assert.equal(screen.usersValid, false);
+});

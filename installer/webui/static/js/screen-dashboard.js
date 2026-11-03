@@ -8,6 +8,8 @@
   window.Screens = window.Screens || {};
 
   var NAME_RE = /^[a-z0-9._-]{3,32}$/;
+  var GUEST_PREFIX = 'guest-';
+  var RESERVED_NAMES = ['password-policy', 'companion', 'ha-roles'];
   var PASSWORD_MIN = 10;
 
   // Die Gruppen-IDs sind zugleich die IDs der Ersteinrichtung (Task 8).
@@ -183,7 +185,11 @@
       },
 
       nameValid(name) {
-        return NAME_RE.test(name);
+        return NAME_RE.test(name) && name.indexOf(GUEST_PREFIX) !== 0 && RESERVED_NAMES.indexOf(name) < 0;
+      },
+
+      get adminName() {
+        return this.prefs.admin_user || 'admin';
       },
 
       passwordValid(password) {
@@ -191,7 +197,10 @@
       },
 
       userValid(user) {
-        return this.nameValid(user.name) && this.passwordValid(user.password);
+        var unique = this.prefs.users.every(function (other) {
+          return other === user || other.name !== user.name;
+        });
+        return this.nameValid(user.name) && user.name !== this.adminName && unique && this.passwordValid(user.password);
       },
 
       get usersValid() {

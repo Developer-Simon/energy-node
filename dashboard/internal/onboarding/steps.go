@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
@@ -49,10 +50,23 @@ func Catalog(installed map[string]bool) []Step {
 	return steps
 }
 
+// DetectInput is everything Detect reads. GuestAccess is the state of the
+// guest access switch, true is the default.
+type DetectInput struct {
+	Settings    settings.Settings
+	Energy      settings.EnergyConfig
+	MQTT        settings.MQTTConfig
+	Users       []auth.User
+	GuestAccess bool
+}
+
 // Detect liefert StepDone für die Schritte, deren Einstellungen vom Standard
 // abweichen. Offene Schritte fehlen in der Karte. Geräte einrichten, Geräte,
-// Gerätekarte und Kacheln werden nie automatisch erledigt.
-func Detect(set settings.Settings, energy settings.EnergyConfig, users []auth.User) map[string]StepState {
+// Gerätekarte und Kacheln werden nie automatisch erledigt. Metriken gelten als
+// erledigt, sobald eine Metrik aus ist, Gastzugang, sobald er abgeschaltet ist,
+// und der Systemstatus, sobald er vom Standard abweicht.
+func Detect(in DetectInput) map[string]StepState {
+	set := in.Settings
 	defaults := settings.Default()
 	detected := make(map[string]StepState)
 	mark := func(id string, done bool) {
@@ -64,12 +78,25 @@ func Detect(set settings.Settings, energy settings.EnergyConfig, users []auth.Us
 	mark("title", strings.TrimSpace(set.DashboardTitle) != "" ||
 		strings.TrimSpace(set.DashboardSubtitle) != "" ||
 		set.DashboardTitleHidden || set.DashboardSubtitleHidden)
-	mark("statusbar", !slices.Equal(set.StatusBarItems, defaults.StatusBarItems))
+	mark("statusbar", !slices.Equal(set.StatusBarItems, defaults.StatusBarItems) ||
+		set.ShowRuntimeStatus != defaults.ShowRuntimeStatus)
 	mark("tabwidth", !slices.Equal(set.WidePanels, defaults.WidePanels))
 	mark("updates", set.UpdateCheckDisabled)
-	mark("roles", hasAssignedRole(energy))
-	mark("users", hasNonAdminAccount(users))
+	mark("roles", hasAssignedRole(in.Energy))
+	mark("users", hasNonAdminAccount(in.Users))
+	mark("metrics", anyMetricOff(in.MQTT))
+	mark("guest", !in.GuestAccess)
 	return detected
+}
+
+// anyMetricOff meldet, ob mindestens eine Metrik ausdrücklich abgeschaltet ist.
+func anyMetricOff(mqtt settings.MQTTConfig) bool {
+	for _, metric := range nodeagent.Metrics {
+		if !mqtt.MetricEnabled(metric) {
+			return true
+		}
+	}
+	return false
 }
 
 // Merge legt die erkannten Zustände unter die gespeicherten. Gespeichert

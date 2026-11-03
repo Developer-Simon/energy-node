@@ -26,12 +26,14 @@ BINARY_NAME="energy-node-dashboard"
 MQTT_PW_FILE=""
 MQTT_USER=""
 ADMIN_PW_FILE=""
+ADMIN_USER=""
 SEED_FILE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mqtt-password-file) MQTT_PW_FILE="${2:-}"; shift 2 ;;
     --mqtt-user) MQTT_USER="${2:-}"; shift 2 ;;
     --admin-password-file) ADMIN_PW_FILE="${2:-}"; shift 2 ;;
+    --admin-user) ADMIN_USER="${2:-}"; shift 2 ;;
     --onboarding-seed-file) SEED_FILE="${2:-}"; shift 2 ;;
     *) shift ;;
   esac
@@ -184,6 +186,28 @@ PY
   install_owned 0664 "${user_cfg}" "${etc}/config.json"
   rm -f "${user_cfg}"
   step_log "mqtt.username in config.json: ${MQTT_USER}."
+fi
+
+# Der Admin-Name des Installers gilt nur fuer ein frisches Dashboard. Gibt es
+# schon eine auth.pw, ist ein Admin-Konto angelegt, und sein Name bleibt.
+# Die Pruefung laeuft vor place_secret, sonst sieht sie die eben angelegte Datei.
+if [[ -n "${ADMIN_USER}" ]]; then
+  if [[ ! -e "${EN_ROOT}/etc/${BINARY_NAME}/auth.pw" ]]; then
+    admin_cfg="$(mktemp)"
+    python3 - "${etc}/config.json" "${ADMIN_USER}" > "${admin_cfg}" <<'PY' || step_fail CONFIG_WRITE_FAILED
+import json, sys
+
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+doc.setdefault("dashboard", {})["admin_username"] = sys.argv[2]
+json.dump(doc, sys.stdout, indent=2, sort_keys=True, ensure_ascii=False)
+sys.stdout.write("\n")
+PY
+    install_owned 0664 "${admin_cfg}" "${etc}/config.json"
+    rm -f "${admin_cfg}"
+    step_log "dashboard.admin_username in config.json: ${ADMIN_USER}."
+  else
+    step_log "Admin-Konto vorhanden, admin_username bleibt."
+  fi
 fi
 
 # Der Manifestsatz wird vollstaendig ersetzt: energy_node_common prueft ihn

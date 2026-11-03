@@ -6,6 +6,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
@@ -83,8 +84,12 @@ func TestCatalogOrderAndAreas(t *testing.T) {
 	}
 }
 
+func defaultInput() DetectInput {
+	return DetectInput{Settings: settings.Default(), GuestAccess: true}
+}
+
 func TestDetectDefaultSettingsAreOpen(t *testing.T) {
-	got := Detect(settings.Default(), settings.EnergyConfig{}, nil)
+	got := Detect(defaultInput())
 	for id, state := range got {
 		if state == StepDone {
 			t.Errorf("%s detected as done on default settings", id)
@@ -93,37 +98,73 @@ func TestDetectDefaultSettingsAreOpen(t *testing.T) {
 }
 
 func TestDetectChangedThemeIsDone(t *testing.T) {
-	set := settings.Default()
-	set.Theme = settings.ThemeStromblau
-	got := Detect(set, settings.EnergyConfig{}, nil)
+	in := defaultInput()
+	in.Settings.Theme = settings.ThemeStromblau
+	got := Detect(in)
 	if got["theme"] != StepDone {
 		t.Fatalf("theme = %q, want %q", got["theme"], StepDone)
 	}
 }
 
 func TestDetectRolesNeedsOneAssignment(t *testing.T) {
-	empty := settings.EnergyConfig{Assignments: map[string]energy.Assignment{"sensor.x": {}}}
-	if got := Detect(settings.Default(), empty, nil); got["roles"] == StepDone {
+	in := defaultInput()
+	in.Energy = settings.EnergyConfig{Assignments: map[string]energy.Assignment{"sensor.x": {}}}
+	if got := Detect(in); got["roles"] == StepDone {
 		t.Fatal("roles done without any assigned role")
 	}
-	one := settings.EnergyConfig{Assignments: map[string]energy.Assignment{
+	in.Energy = settings.EnergyConfig{Assignments: map[string]energy.Assignment{
 		"sensor.x": {}, "sensor.pv": {Role: energy.RolePV},
 	}}
-	if got := Detect(settings.Default(), one, nil); got["roles"] != StepDone {
+	if got := Detect(in); got["roles"] != StepDone {
 		t.Fatalf("roles = %q, want %q", got["roles"], StepDone)
 	}
 }
 
+func TestDetectMetricsOffIsDone(t *testing.T) {
+	in := defaultInput()
+	in.MQTT.Metrics = map[string]bool{nodeagent.Metrics[0]: false}
+	if got := Detect(in); got["metrics"] != StepDone {
+		t.Fatalf("metrics = %q, want %q", got["metrics"], StepDone)
+	}
+}
+
+func TestDetectMetricsAllExplicitlyOnStaysOpen(t *testing.T) {
+	in := defaultInput()
+	in.MQTT.Metrics = map[string]bool{}
+	for _, metric := range nodeagent.Metrics {
+		in.MQTT.Metrics[metric] = true
+	}
+	if got := Detect(in); got["metrics"] == StepDone {
+		t.Fatal("metrics done although every metric is on")
+	}
+}
+
+func TestDetectGuestAccessOffIsDone(t *testing.T) {
+	in := defaultInput()
+	in.GuestAccess = false
+	if got := Detect(in); got["guest"] != StepDone {
+		t.Fatalf("guest = %q, want %q", got["guest"], StepDone)
+	}
+}
+
+func TestDetectRuntimeStatusOffIsDone(t *testing.T) {
+	in := defaultInput()
+	in.Settings.ShowRuntimeStatus = false
+	if got := Detect(in); got["statusbar"] != StepDone {
+		t.Fatalf("statusbar = %q, want %q", got["statusbar"], StepDone)
+	}
+}
+
 func TestDetectPartiallyConfiguredInstall(t *testing.T) {
-	set := settings.Default()
-	set.Theme = settings.ThemeSignalgelb
-	energyCfg := settings.EnergyConfig{Assignments: map[string]energy.Assignment{
+	in := defaultInput()
+	in.Settings.Theme = settings.ThemeSignalgelb
+	in.Energy = settings.EnergyConfig{Assignments: map[string]energy.Assignment{
 		"sensor.pv": {Role: energy.RolePV},
 	}}
-	users := []auth.User{
+	in.Users = []auth.User{
 		{Username: "admin", Roles: []string{auth.RoleUserManagement}},
 	}
-	got := Detect(set, energyCfg, users)
+	got := Detect(in)
 	if got["theme"] != StepDone {
 		t.Errorf("theme = %q, want %q", got["theme"], StepDone)
 	}

@@ -27,7 +27,10 @@ const seedActor = "onboarding-seed"
 // version). Ein Zeiger ist nil, wenn das Feld fehlt oder null ist, und dann
 // bleibt die Einstellung unverändert.
 type seedFile struct {
-	Version           int        `json:"version"`
+	Version int `json:"version"`
+	// AdminUser ist der Name des Admin-Kontos aus dem Installer. Umbenannt wird
+	// hier nichts, der Name kommt über config.json. Der Seed dient nur der
+	// Prüfung, ob das Konto existiert.
 	AdminUser         string     `json:"admin_user"`
 	Users             []seedUser `json:"users"`
 	GuestAccess       *bool      `json:"guest_access"`
@@ -79,8 +82,8 @@ func ApplySeed(path string, mgr *auth.Manager, st *settings.Store, ob *Store, lo
 		log.Warn("onboarding-seed: unbekannte Version, Vorgaben werden ignoriert", "version", seed.Version)
 		return nil
 	}
-	if seed.AdminUser != "" {
-		log.Warn("onboarding-seed: admin_user wird nicht übernommen, das Konto aus auth.pw lässt sich nicht umbenennen")
+	if seed.AdminUser != "" && !hasAccount(mgr, seed.AdminUser) {
+		log.Warn("onboarding-seed: admin_user nicht übernommen, es gibt kein Konto mit diesem Namen", "name", seed.AdminUser)
 	}
 
 	var errs []error
@@ -98,6 +101,13 @@ func ApplySeed(path string, mgr *auth.Manager, st *settings.Store, ob *Store, lo
 	}
 	errs = append(errs, applySeedSteps(seed, ob, log)...)
 	return errors.Join(errs...)
+}
+
+// hasAccount meldet, ob ein Konto mit diesem Namen existiert.
+func hasAccount(mgr *auth.Manager, name string) bool {
+	return slices.ContainsFunc(mgr.Users(), func(user auth.User) bool {
+		return user.Username == name
+	})
 }
 
 // applySeedUsers legt je Eintrag ein Konto an. Ein fehlgeschlagenes Konto

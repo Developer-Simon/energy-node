@@ -466,21 +466,23 @@ func onboardingSessionQueue(role string, setupDone, welcome bool) []string {
 // onboardingDetected reads the current settings and accounts for the steps
 // that are detected rather than marked. Missing settings count as defaults.
 func onboardingDetected(settingsStore *settings.Store, manager *auth.Manager) map[string]onboarding.StepState {
-	set := settings.Default()
-	var energy settings.EnergyConfig
+	in := onboarding.DetectInput{Settings: settings.Default(), GuestAccess: true}
 	if settingsStore != nil {
 		if value, err := settingsStore.LoadSettings(); err == nil {
-			set = value
+			in.Settings = value
 		}
 		if value, err := settingsStore.LoadEnergy(); err == nil {
-			energy = value
+			in.Energy = value
+		}
+		if value, err := settingsStore.LoadMQTT(); err == nil {
+			in.MQTT = value
 		}
 	}
-	var users []auth.User
 	if manager != nil {
-		users = manager.Users()
+		in.Users = manager.Users()
+		in.GuestAccess = manager.GuestAccessEnabled()
 	}
-	return onboarding.Detect(set, energy, users)
+	return onboarding.Detect(in)
 }
 
 func handleOnboardingStep(store *onboarding.Store) http.HandlerFunc {

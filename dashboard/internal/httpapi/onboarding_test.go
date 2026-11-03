@@ -182,6 +182,20 @@ func TestOnboardingGetRoles(t *testing.T) {
 	}
 }
 
+func TestOnboardingGetDetectsGuestAccessOff(t *testing.T) {
+	router, manager := newTestOnboardingRouter(t)
+	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
+	if state := itemState(getOnboarding(t, router, adminCookie), "guest"); state == string(onboarding.StepDone) {
+		t.Fatalf("guest done with guest access on: %q", state)
+	}
+	if err := manager.SetGuestAccess("admin", false); err != nil {
+		t.Fatal(err)
+	}
+	if state := itemState(getOnboarding(t, router, adminCookie), "guest"); state != string(onboarding.StepDone) {
+		t.Fatalf("guest = %q, want %q", state, onboarding.StepDone)
+	}
+}
+
 func TestStepRequiresAdmin(t *testing.T) {
 	router, manager := newTestOnboardingRouter(t)
 	adminCookie, adminCSRF := sessionFor(t, router, "admin", usersAdminPassword)

@@ -3,6 +3,17 @@ package hostapi
 import (
 	"context"
 	"encoding/json"
+	"regexp"
+	"strings"
+)
+
+// adminUserPattern und adminUserReserved spiegeln die Namensregel aus
+// webui/static/js/screen-dashboard.js: Kleinbuchstaben, Ziffern, Punkt,
+// Unterstrich, Bindestrich, 3 bis 32 Zeichen, kein guest- Praefix, und
+// nicht eine der reservierten Kennungen.
+var (
+	adminUserPattern  = regexp.MustCompile(`^[a-z0-9._-]{3,32}$`)
+	adminUserReserved = map[string]bool{"password-policy": true, "companion": true, "ha-roles": true}
 )
 
 // HostKind sagt der Oberflaeche, in welchem Wirt sie laeuft. Sie soll daraus
@@ -292,6 +303,27 @@ func (r RunRequest) DashboardSeed() []byte {
 		return nil
 	}
 	return data
+}
+
+// AdminUser liefert den Benutzernamen des Admin-Kontos aus DashboardPrefs,
+// getrimmt. Leer, wenn das Feld fehlt, unlesbar ist oder gegen die
+// Namensregel verstoesst. Der Name ist kein Geheimnis und fliesst nicht in
+// Secrets() ein.
+func (r RunRequest) AdminUser() string {
+	fields, _ := r.dashboardPrefs()
+	raw, ok := fields["admin_user"]
+	if !ok {
+		return ""
+	}
+	var name string
+	if err := json.Unmarshal(raw, &name); err != nil {
+		return ""
+	}
+	name = strings.TrimSpace(name)
+	if !adminUserPattern.MatchString(name) || strings.HasPrefix(name, "guest-") || adminUserReserved[name] {
+		return ""
+	}
+	return name
 }
 
 // dashboardPrefs zerlegt DashboardPrefs tolerant: ein Rumpf, der nicht
