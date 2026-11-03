@@ -24,11 +24,11 @@ through Home Assistant changes its password in Home Assistant.
 **Create user** adds a local account with a user name and an initial
 password. A user name has 3 to 32 characters: a to z, digits, dot, underscore
 and hyphen. Each account is a card. Open it to change its permissions, reset
-its password, disable it or delete it. Changes are only kept after **Save**,
+its password, switch it off with **Active** or delete it. Changes are only kept after **Save**,
 and an open card with changes is marked *unsaved*.
 
-- **Disable** keeps the account and its permissions. All its sessions end
-  when you save.
+- Switching **Active** off disables the account and keeps its permissions.
+  All its sessions end when you save.
 - **Delete** removes the account and its permissions for good, and its
   sessions end at once.
 - **Reset password** sets a new password and ends all sessions of the
