@@ -96,6 +96,36 @@ async function hideTour(page) {
   await page.addStyleTag({ content: ".ob-layer { display: none !important; }" });
 }
 
+// Legt ueber den Vorlagen-Assistenten das Szenario "Zero feed-in" an und speichert.
+// Vorausgewaehlte Antworten bleiben, sonst wird die erste waehlbare Option genommen.
+async function createZeroFeedInScenario(page) {
+  const dialog = page.locator('dialog.auto-assist');
+  const foot = dialog.locator('.auto-assist-foot');
+  const next = foot.locator('button', { hasText: /^\s*Next\s*$/ });
+  const create = foot.locator('button', { hasText: /^\s*Create\s*$/ });
+  await page.locator('.auto-assist-open', { hasText: 'Assistant' }).click();
+  await page.waitForTimeout(1500);
+  await dialog.locator('.auto-assist-tile', { hasText: 'Zero feed-in' }).click();
+  await page.waitForTimeout(1200);
+  for (let i = 0; i < 12 && !(await create.isVisible()); i++) {
+    if (await next.isEnabled()) {
+      await next.click();
+    } else {
+      const option = dialog.locator('.auto-assist-body label.auto-assist-option:not(:has(input:disabled)), '
+        + '.auto-assist-body button.auto-assist-card:not([disabled]), .auto-assist-body button.auto-assist-pick:not([disabled])').first();
+      if (await option.count() === 0) throw new Error('Assistent: keine waehlbare Option im Schritt');
+      await option.click();
+    }
+    await page.waitForTimeout(900);
+  }
+  if (!(await create.isVisible())) throw new Error('Assistent: Zusammenfassung nicht erreicht');
+  await create.click();
+  await page.waitForTimeout(1500);
+  await page.locator('button[aria-label="Save all rules"]').click();
+  await page.locator('.notification-toasts').getByText(/applied|rejected|Service not responding/i).first().waitFor({ timeout: 15000 });
+  await page.waitForTimeout(800);
+}
+
 async function shot(page, name) {
   await page.screenshot({ path: path.join(args.out, `${name}.png`) });
   console.log('geschrieben:', name);
@@ -313,6 +343,57 @@ async function all() {
     if (want('dashboard-settings-users-permissions')) {
       await element(anna.locator('.users-groups'), 'dashboard-settings-users-permissions');
     }
+    await s.ctx.close();
+  }
+
+  if (want('dashboard-automation-assistant')) {
+    s = await session(1110, 900);
+    await hideTour(s.page);
+    await tab(s.page, 'automations');
+    await s.page.locator('.auto-assist-open', { hasText: 'Assistant' }).click();
+    await s.page.waitForTimeout(2000);
+    await element(s.page.locator('dialog.auto-assist'), 'dashboard-automation-assistant');
+    await s.ctx.close();
+  }
+
+  if (want('dashboard-automation-scenario')) {
+    s = await session(1110, 900);
+    await hideTour(s.page);
+    await tab(s.page, 'automations');
+    await s.page.locator('#automations-tab-scenarios').click();
+    await s.page.waitForTimeout(1500);
+    if (await s.page.locator('li.auto-scenario').count() === 0) {
+      // Die Demo hat kein Szenario: eins ueber den Assistenten anlegen und speichern.
+      await createZeroFeedInScenario(s.page);
+      await s.page.reload({ waitUntil: 'networkidle' });
+      await s.page.waitForTimeout(2500);
+      await hideTour(s.page);
+      await tab(s.page, 'automations');
+      await s.page.locator('#automations-tab-scenarios').click();
+      await s.page.waitForTimeout(1500);
+    }
+    const card = s.page.locator('li.auto-scenario').first();
+    // Ein frisch angelegtes Szenario ist schon aufgeklappt, dann gibt es keine Zeile zum Klicken.
+    const row = card.locator('.auto-scenario-row');
+    if (await row.count() > 0) await row.click();
+    await s.page.waitForTimeout(1200);
+    await s.page.mouse.move(1, 1);
+    await element(card, 'dashboard-automation-scenario');
+    await s.ctx.close();
+  }
+
+  // Die Tour ist hier absichtlich sichtbar (nicht hideTour), sie ist der Gegenstand der Bilder.
+  if (want('dashboard-onboarding-tour-welcome') || want('dashboard-onboarding-tour-step')) {
+    s = await session(1280, 800);
+    const started = await s.page.evaluate(() => Alpine.store('onboarding').start('explore', null, { all: true }));
+    if (started !== true) throw new Error(`Tour start liefert ${JSON.stringify(started)}`);
+    await s.page.waitForTimeout(2000);
+    await s.page.getByText('There is something new to discover', { exact: true }).waitFor({ timeout: 5000 });
+    await shot(s.page, 'dashboard-onboarding-tour-welcome');
+    await s.page.getByRole('button', { name: 'Next', exact: true }).click();
+    await s.page.waitForTimeout(2500);
+    await shot(s.page, 'dashboard-onboarding-tour-step');
+    await s.page.evaluate(() => Alpine.store('onboarding').close());
     await s.ctx.close();
   }
 
