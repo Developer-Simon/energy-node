@@ -1,0 +1,227 @@
+---
+title: "Dashboard API: Devices and data"
+---
+
+# Dashboard API: Devices and data
+
+Part of the [Dashboard API documentation](api.md). The fundamentals there
+(base URL, response format, error codes) apply to every endpoint.
+
+In the *Gate* column, `–` means a session is enough. Otherwise the column names
+the role or other requirements.
+
+## Devices and entities
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/devices` | – | All devices with entities and live values |
+| GET | `/api/v1/devices/{id}` | – | A single device including `warnings`, `command_actions` and `card_refs`. `card_refs` lists the entity IDs of the compact card rows, favourites first, at most three. Without `view_device_analysis` the discovery payloads and last messages are removed, `command_actions` is empty and only the operational warnings are returned |
+| GET | `/api/v1/devices/{id}/diagnostics` | – | The device's diagnostic warnings |
+| GET | `/api/v1/devices/{id}/activity` | `view_devices` | Recent commands (up to 3, `kind` `command`) and the states of the 3 newest messages (`kind` `message`) as `{"entries": [...]}`. Each entry has `key`, `at`, `kind`, `label`, `value` and `ok`, where `ok` marks a published command. Topics are never included, and `entries` is never `null`. The analysis right does not apply here |
+| POST | `/api/v1/devices/{id}/reload` | – | Rebuild the registry completely |
+| POST | `/api/v1/devices/{id}/ignore` | CSRF | Hide device |
+| POST | `/api/v1/devices/{id}/unignore` | CSRF | Undo hiding |
+| GET | `/api/v1/devices/{id}/discovery-delete/preview` | `delete_device_discovery` | What would be deleted? |
+| POST | `/api/v1/devices/{id}/discovery-delete` | `delete_device_discovery` + CSRF | Delete discovery topics |
+| GET | `/api/v1/devices/ignored` | – | List of hidden devices |
+| GET | `/api/v1/discovery` | – | Devices + parse errors + duplicate IDs |
+| GET | `/api/v1/discovery/summary` | – | `device_count`, `entity_count`, `discovery_errors`, `duplicate_ids`; carries `ETag: "registry-N"` |
+| GET | `/api/v1/topics` | – | All known topics |
+| GET | `/api/v1/topics/samples` | – | Last payload per topic |
+| GET | `/api/v1/automation/notification` | – | Last `{at, message}` event from the automation service's `last_event` topic, parsed. `404` when no automation service, `204` before its first event. Polled by `notifications.js` for toasts. |
+| GET | `/api/v1/automation/state` | – | The automation service's full state document (`at`, `online`, `rules`, `events`, counters) from its `state` topic. `404` when no automation service, `204` before the first usable document. Read by the automations page instead of `last_message`, which is capped at 4096 bytes. |
+| GET | `/api/v1/automation/history` | – | The live trigger history `{at, rules, rule_count}` from the `history` topic, also when `history_persist` is off. Same `404` and `204` rules as the state route. |
+| GET | `/api/v1/events` | `topics, devices` | SSE stream with the registry version and the subscribed topics |
+| POST | `/api/v1/entities/{unique_id}/command` | – | Switch an entity or set a value |
+
+**`GET /api/v1/devices`** returns `ETag: "registry-N"`. With a matching
+`If-None-Match` the server answers `304 Not Modified` without a body. Use this
+when you poll repeatedly.
+
+**`GET /api/v1/events`** is a Server-Sent Events stream. Each event carries the
+registry version and one branch per subscribed topic:
+
+```
+event: registry
+data: {"version":42,"energy":{...},"entities":{...},"entities_delta":true}
+```
+
+`topics` is a comma-separated list. Known topics are `energy` (energy
+snapshot), `entities` (entity values, full on connect, then only changes with
+`entities_delta: true`), `diagnostics` (summary), `devices` (see below) and `energy_stats` (`{"rev":N}`, the revision of the
+energy statistics, present when the dashboard has a data directory). An event
+arrives when `rev` changes, even if the registry is idle. Unknown names are ignored. Without the parameter you get all topics except `devices`. With an empty parameter (`?topics=`) you get only
+`{"version":N}` whenever the registry changes, which is enough if you fetch
+`GET /api/v1/devices` yourself.
+
+`devices` (per subscribed device: `structure`, `availability`, `status` and,
+with `:auto`, the automatic compact `rows`). Choose the devices with
+`devices=a,b:auto`, or `*` / `*:auto` for all of them. A delta carries
+`devices_delta: true` and only changed devices, a removed one as `null`. With
+`*` the event also carries `devices_list`, the device IDs in display order.
+`devices` is not part of the default set.
+
+The server builds a topic only while someone subscribes to it, once per change
+for all connections. To change the topics, close the stream and open it again.
+The send interval comes from `settings.json` and takes effect without a
+reconnect.
+
+**`POST /api/v1/entities/{unique_id}/command`**, with `{unique_id}` URL-encoded.
+The body depends on the component:
+
+```jsonc
+// switch / light: without a body the server toggles, otherwise explicit
+{ "payload": "ON" }
+
+// number: the value is checked against min/max/step from discovery
+{ "value": 42 }
+```
+
+Response: `{"entity_id":"…","payload":"ON","status":"published"}`.
+Error codes: `command_not_supported` (404), `invalid_command_value`,
+`command_value_out_of_range`, `invalid_command_step`,
+`invalid_command_payload` (all 400), `command_publish_failed` (502).
+
+The dashboard only publishes to `command_topic`s from discovery. The API cannot
+reach arbitrary topics.
+
+## Energy
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/energy` | – | Current balance including interpretation |
+| GET/PUT | `/api/v1/energy/roles` | – | Role assignment per entity |
+| GET/PUT | `/api/v1/energy/interpretation` | – | Interpretation parameters |
+| GET | `/api/v1/energy/revisions` | – | Revision list for `energy.json` (roles + interpretation) |
+| GET | `/api/v1/energy/revisions/{revision}` | – | A single revision |
+| POST | `/api/v1/energy/restore` | – | Restore a revision, body `{"revision":"…"}` |
+| GET | `/api/v1/energy/stats/hours` | – | Hourly means in W for the history page |
+
+Available roles: `pv`, `battery`, `battery_charge`, `battery_discharge`,
+`battery_soc`, `grid`, `grid_import`, `grid_export`, `load`, `wallbox`,
+`heat_pump`.
+
+`PUT /api/v1/energy/roles` replaces all of `assignments`. If the body has no
+`interpretation`, the stored one is kept, so saving only the roles does not
+reset the interpretation.
+
+The balance is also published every 10 s to
+`outstation/energy_node/energy/balance`, which the automations use.
+
+**`GET /api/v1/energy/stats/hours?from=<ms>&to=<ms>`** returns hourly means for
+the history page. `from` and `to` are Unix times in milliseconds. `from` is
+rounded down to the full hour, `to` must be later than `from`, and the span may
+be at most 400 days.
+
+```json
+{
+  "rows": [
+    { "series": "role:pv", "ts": 1785999600000, "min": 1520.4, "max": 1520.4, "avg": 1520.4, "n": 1, "u": "W" }
+  ]
+}
+```
+
+Each row is one hour. `ts` is the start of the hour in milliseconds. `min`,
+`max` and `avg` are the mean power of that hour in W, so they are equal, and `n`
+is 1. The series are:
+
+- `role:pv`, `role:wallbox`, `role:heat_pump`
+- `role:grid` (import minus export) and `role:battery` (charge minus discharge)
+- `berechnet:hausverbrauch`, the house consumption from `load_total`
+- `role:custom:<base>:<id>` for custom categories, except storage categories
+
+An own hour counts only if the node recorded at least 50 minutes of it. Hours
+from Home Assistant always count. An hour without data is missing from the rows,
+and a series appears only if at least one of its hours is not zero. Rows are
+sorted by series and then by time.
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `energy_stats_invalid_range` | `from` or `to` is missing or not an integer, `to` is not after `from`, or the span is longer than 400 days |
+| 501 | `energy_stats_unavailable` | The node runs without a data directory, so there is no statistics store |
+| 500 | `energy_stats_failed` | Reading the monthly statistics failed |
+
+## History
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/history/entities` | – | Current value of the entities on the history allowlist |
+| GET | `/api/v1/history/exchange` | – | Self-describing announcement: protocol version + limits |
+| GET | `/api/v1/history/exchange/stream` | – | SSE stream: peer join/leave, offers, requests, deliveries |
+| POST | `/api/v1/history/exchange/offer` | – | Broadcast a coverage offer to the other peers |
+| POST | `/api/v1/history/exchange/request` | – | Ask one peer (or the ring buffer) for specific ranges |
+| POST | `/api/v1/history/exchange/deliver` | – | Hand rows to one peer, answering a request |
+| POST | `/api/v1/history/exchange/buffer` | – | Feed rows into the server's 24 h ring buffer |
+
+The dashboard keeps no history on disk. Samples live in each browser's
+IndexedDB (see [data-flow.md](data-flow.md) §10), and these endpoints only
+serve the recorder in the browser.
+
+**`GET /api/v1/history/entities`** returns the current value of the entities
+named in `settings.json` under `history_extra_entities`. That list is an
+allowlist on the server, so the browser cannot poll arbitrary IDs:
+
+```json
+{
+  "at": "2026-09-06T09:00:00Z",
+  "samples": [
+    { "entity_id": "…", "value": 42.0, "unit": "W", "stale": false }
+  ]
+}
+```
+
+`value` is `null` when the entity currently has no numeric value.
+
+**`/api/v1/history/exchange/*`** transfers history between devices. The server
+only relays and stores nothing. Browsers on the same broker exchange their
+recorded `1m` and `5m` tiers (never raw), so a dashboard that was just opened
+can fill its gaps. `GET /api/v1/history/exchange` describes the protocol
+(version 1, 500 rows per delivery, 20 000 per request, 1 MiB per body). The
+`.../stream` SSE carries the messages. A peer answers with the POST endpoints
+`offer`, `request` and `deliver`. `buffer` feeds a 24 h ring buffer in memory
+that takes part as the pseudo-peer `server`. Every POST must carry a `peer`
+field that matches a connected stream, otherwise the answer is `peer_unknown`
+(403). Other codes are `peer_gone` (404, the target left), `tier_unknown`
+(400), `label_too_long` (400) and `body_too_large` / `too_many_rows` (413).
+
+The announcement also lists `series`, the series this dashboard records
+(`[{ "id": "role:pv", "unit": "W" }, …]`: the energy roles that currently have a
+value, plus `history_extra_entities` with their unit). Other peers only offer
+these series. An `offer` can carry an optional `label` of at most 64
+characters (otherwise `label_too_long`, 400). The server relays it, and the
+settings page shows it as the source of added rows. The Home Assistant
+integration `energy_node_companion` (Energy Node Companion) is such a peer. It
+supplies `1m` and `5m` rows from the HA recorder and never requests anything.
+
+## Configurations (device JSONs)
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/configurations` | – | All configuration documents, each with `checksum` |
+| GET/PUT | `/api/v1/configurations/{name}` | PUT for `automation_rules`: `automations` + CSRF | Read/write content |
+| GET | `/api/v1/configurations/{name}/schema` | – | JSON schema |
+| GET | `/api/v1/configurations/{name}/revisions` | – | Revision list |
+| GET | `/api/v1/configurations/{name}/revisions/{revision}` | – | A single revision |
+| POST | `/api/v1/configurations/{name}/restore` | – | Restore a revision |
+| POST | `/api/v1/configurations/{name}/reload` | – | Trigger a reload via MQTT |
+| GET | `/api/v1/configurations/{name}/status` | – | Reload result of the owning service: `runtime_status`, `error`, `error_code`, `config_revision`, `applied_revision` |
+| POST | `/api/v1/automations/test` | `automations` + CSRF | Test a single rule action |
+| GET | `/api/v1/automations/history/{rule_id}` | – | Recorded fire events for one rule, read from `automation_history.json` in the devices directory (empty array if the file or rule is absent) |
+
+`PUT` validates against the schema, creates a revision, writes atomically and
+then sends a reload command over MQTT to the service. If the reload fails, the
+endpoint still answers with the saved document plus `reload_failed` and
+`reload_error`. The file is written in that case, but the service has not
+loaded it yet.
+
+Body limit for `PUT`: 2 MiB.
+
+`POST /api/v1/automations/test`:
+
+```json
+{ "rule_id": "pv-ueberschuss", "action_index": 0 }
+```
+
+The dashboard then publishes to the fixed topic
+`outstation/automation/test/set`. The automation service does all checks
+(rule exists, index valid, topic allowed), not the dashboard.
