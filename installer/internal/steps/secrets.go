@@ -125,6 +125,10 @@ func stageSecretsForStep20(client *transport.Client, user string, secrets *Secre
 type Secrets struct {
 	MQTTPassword  string
 	AdminPassword string
+	// AdminUser is the admin account's username from the dashboard step.
+	// Empty leaves --admin-user out. It is no secret and never reaches the
+	// redactor.
+	AdminUser string
 	// DashboardSeed is the content of onboarding-seed.json (the dashboard
 	// presets plus version). Empty leaves the seed file out.
 	DashboardSeed []byte
@@ -171,8 +175,21 @@ func stageSecretsForStep60(client *transport.Client, mqttUser string, secrets *S
 		cleanup()
 		return "", func() {}, fmt.Errorf("staging the dashboard presets: %w", err)
 	}
-	if secrets.MQTTPassword != "" && mqttUser != "" {
-		extraArgs += " --mqtt-user " + transport.ShellQuote(mqttUser)
-	}
+	extraArgs += step60UserArgs(mqttUser, secrets)
 	return extraArgs, cleanup, nil
+}
+
+// step60UserArgs returns the user flags for 60-node-install.sh: --mqtt-user
+// only together with the MQTT password, --admin-user only together with the
+// admin password. Each value is shell-quoted; the leading space separates it
+// from the arguments before it.
+func step60UserArgs(mqttUser string, secrets *Secrets) string {
+	var args string
+	if secrets.MQTTPassword != "" && mqttUser != "" {
+		args += " --mqtt-user " + transport.ShellQuote(mqttUser)
+	}
+	if secrets.AdminPassword != "" && secrets.AdminUser != "" {
+		args += " --admin-user " + transport.ShellQuote(secrets.AdminUser)
+	}
+	return args
 }

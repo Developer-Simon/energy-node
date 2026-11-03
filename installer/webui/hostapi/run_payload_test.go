@@ -80,3 +80,24 @@ func TestRunRequestDashboardSeedIsThePrefsPlusVersion(t *testing.T) {
 		t.Errorf("users = %v, want the one user row", got["users"])
 	}
 }
+
+func TestRunRequestAdminUser(t *testing.T) {
+	cases := map[string]string{
+		`{"admin_user":"chef"}`:       "chef",
+		`{"admin_user":" chef "}`:     "chef",
+		`{"admin_user":""}`:           "",
+		`{}`:                          "",
+		`{"admin_user":"Chef"}`:       "",
+		`{"admin_user":"companion"}`:  "",
+		`{"admin_user":"guest-x"}`:    "",
+		`{"admin_user":"a b"}`:        "",
+		`{"admin_user":"x'; rm -rf"}`: "",
+		`not json`:                    "",
+	}
+	for body, want := range cases {
+		req := RunRequest{DashboardPrefs: json.RawMessage(body)}
+		if got := req.AdminUser(); got != want {
+			t.Errorf("%s: AdminUser() = %q, want %q", body, got, want)
+		}
+	}
+}

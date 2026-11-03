@@ -553,6 +553,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		Secrets: &steps.Secrets{
 			MQTTPassword:  req.MQTTPassword,
 			AdminPassword: req.AdminPassword,
+			AdminUser:     req.AdminUser(),
 			DashboardSeed: req.DashboardSeed(),
 		},
 		OnMarker: func(marker steps.Marker) {
