@@ -43,6 +43,7 @@
             - { label: "History", url: "dashboard/settings-history.md" }
             - { label: "MQTT", url: "dashboard/settings-mqtt.md" }
             - { label: "Tailscale & TinyTuya", url: "dashboard/settings-wizards.md" }
+            - { label: "Users", url: "dashboard/settings-users.md" }
             - { label: "Versions & updates", url: "dashboard/settings-versions.md" }
             - { label: "System", url: "dashboard/settings-system.md" }
         - { label: "Colour schemes", url: "dashboard/themes.md" }

@@ -39,7 +39,7 @@ pairing the integration works as before, and the sidebar page uses a guest
 session. Pairing also gives the Home Assistant accounts their presets, as
 described in [Dashboard in the sidebar](companion-sidebar.md#signing-in).
 
-1. In the dashboard open **Settings**, **Users**, section **Home Assistant**,
+1. In the dashboard open [Settings, Users](../dashboard/settings-users.md#home-assistant-users), section **Home Assistant**,
    and choose **Create pairing code**. The code has 12 characters and is valid
    for 10 minutes. It works once.
 2. In Home Assistant open the integration and choose **Configure**. Enter the
