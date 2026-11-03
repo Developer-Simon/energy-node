@@ -13,6 +13,19 @@ The **Statistics** tab shows how much energy flowed per role for a day, a week, 
 - **Table:** kWh per role and interval, including your own consumer and producer categories.
 - **Coverage:** for example "From Home Assistant 20 h, own recording 3 h, no data 1 h". Gaps stay gaps, nothing is extrapolated.
 
+## On a phone
+
+![The Statistics tab on a phone](../images/dashboard-statistics-mobile.png)
+
+On narrow screens the table has two views, chosen above it:
+
+- **Interval** shows one hour, day or month at a time. Tap a chip in the row
+  of intervals to see its values per role.
+- **Grid** shows the whole table. Swipe sideways to see all intervals.
+
+The period and the arrows for back and next float in a pill at the bottom of
+the screen, so they stay within reach of your thumb while you scroll.
+
 ## Where the numbers come from
 
 The dashboard records energy per hour on the node itself, whether or not a browser is open. When the Energy Node Companion is installed in Home Assistant, it delivers hourly values from the Home Assistant long term statistics. Those replace the own recording for the same hour and reach back as far as Home Assistant has data.
