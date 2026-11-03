@@ -27,8 +27,14 @@ type seedFixture struct {
 
 func newSeedFixture(t *testing.T) seedFixture {
 	t.Helper()
+	return newSeedFixtureAdmin(t, "admin")
+}
+
+// newSeedFixtureAdmin legt die Fixture mit einem Bootstrap-Konto namens adminName an.
+func newSeedFixtureAdmin(t *testing.T, adminName string) seedFixture {
+	t.Helper()
 	dir := t.TempDir()
-	mgr, err := auth.NewManager(filepath.Join(dir, "users.json"), "admin", "admin-passwort-1")
+	mgr, err := auth.NewManager(filepath.Join(dir, "users.json"), adminName, "admin-passwort-1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,5 +228,31 @@ func TestSeedLaterMarksStepLater(t *testing.T) {
 	set, _ := f.settings.LoadSettings()
 	if set.Theme != settings.Default().Theme {
 		t.Fatalf("later group changed theme to %q", set.Theme)
+	}
+}
+
+func TestApplySeedAdminUserPresentLogsNothing(t *testing.T) {
+	f := newSeedFixtureAdmin(t, "chef")
+	f.write(t, `{"version":1,"admin_user":"chef"}`)
+	if err := f.apply(t); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(f.logs.String(), "admin_user") {
+		t.Fatalf("admin_user logged although the account exists: %s", f.logs.String())
+	}
+}
+
+func TestApplySeedAdminUserMissingWarns(t *testing.T) {
+	f := newSeedFixture(t)
+	f.write(t, `{"version":1,"admin_user":"chef"}`)
+	if err := f.apply(t); err != nil {
+		t.Fatalf("missing admin account returned %v, want nil", err)
+	}
+	logs := f.logs.String()
+	if n := strings.Count(logs, "level=WARN"); n != 1 {
+		t.Fatalf("got %d warnings, want exactly one: %s", n, logs)
+	}
+	if !strings.Contains(logs, "admin_user") || !strings.Contains(logs, "name=chef") {
+		t.Fatalf("warning lacks admin_user or name=chef: %s", logs)
 	}
 }
