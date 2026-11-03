@@ -35,12 +35,22 @@ The **Updates** card checks GitHub for a newer release when you click
 
 ![Update notice in the header](../images/dashboard-update-available.png)
 
-When a newer release is out on GitHub, the header shows a notice next to the
-title (**Update … available**). The same notice appears under
-*Settings → Versions*, next to **Check for updates** and the link
-**Release notes on GitHub**. For a registered user with the `system_actions`
-role the notice opens the update page (`/redeploy/`). Everyone else gets the
-release notes on GitHub in a new tab.
+When a newer release is out on GitHub, a bar under the header offers it
+(**Update to … available**) with the installed version and a link to the
+release on GitHub. The same notice appears under *Settings, Versions*, next to
+**Check for updates** and the link **Release notes on GitHub**.
+
+- **Install now** needs the permission *Install the offered update*
+  (`install_updates`). It asks once more, then installs exactly the offered
+  signed version. The dashboard restarts during the update, and the page
+  reconnects on its own. The bar follows the steps and ends with **See what's
+  new**, or names the failed step.
+- **Prepare installation** needs *Change update settings* (`update_settings`)
+  and opens the update page (`/redeploy/`) described below.
+- Without these permissions the bar asks you to sign in as admin to start
+  the installation. **Dismiss** hides the bar.
+
+The permissions are set under [Settings, Users](settings-users.md#permissions).
 
 ![Update preview](../images/dashboard-update-preview.png)
 
