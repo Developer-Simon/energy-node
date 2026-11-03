@@ -66,9 +66,24 @@ const want = (name) => (args.names.length ? args.names.includes(name) : !OPT_IN.
 await mkdir(args.out, { recursive: true });
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 
-async function session(width, height) {
+// Schliesst das Onboarding fuer die Demo-Sitzung (Setup, Willkommen, Neuerungen-Hinweis),
+// damit keine Leiste und kein Spotlight in die normalen Bilder kommen. Die Tour-Sitzung bekommt das nicht.
+async function closeOnboarding(ctx) {
+  const csrf = (await (await ctx.request.get(`${args.url}/api/v1/auth/session`)).json()).csrf_token;
+  const headers = { 'X-CSRF-Token': csrf };
+  const setup = await ctx.request.post(`${args.url}/api/v1/onboarding/setup/complete`, { headers });
+  if (!setup.ok()) throw new Error(`Onboarding schliessen (setup/complete): HTTP ${setup.status()}`);
+  const me = await ctx.request.put(`${args.url}/api/v1/onboarding/me`, { data: { run: null, queue: [], welcomed: true }, headers });
+  if (!me.ok()) throw new Error(`Onboarding schliessen (me): HTTP ${me.status()}`);
+}
+
+async function session(width, height, { tour = false } = {}) {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height } });
   await ctx.request.post(`${args.url}/api/v1/auth/login`, { data: { username: 'admin', password: args.password } });
+  if (!tour) {
+    await closeOnboarding(ctx);
+    await ctx.addInitScript(() => { try { sessionStorage.setItem('ob-news-note-dismissed', '9999'); sessionStorage.setItem('ob-welcome-done', '1'); } catch {} });
+  }
   await ctx.addCookies([{ name: 'lang', value: 'en', url: args.url }]);
   const page = await ctx.newPage();
   await page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
@@ -91,11 +106,6 @@ async function scrollToTabs(page) {
     window.scrollTo(0, nav.getBoundingClientRect().top + window.scrollY - 12);
   });
   await page.waitForTimeout(600);
-}
-
-// Die Einrichtungsleiste (.ob-layer) erscheint auf frischen Sitzungen und gehoert nicht ins Bild.
-async function hideTour(page) {
-  await page.addStyleTag({ content: ".ob-layer { display: none !important; }" });
 }
 
 // Legt ueber den Vorlagen-Assistenten das Szenario "Zero feed-in" an und speichert.
@@ -222,6 +232,9 @@ async function all() {
   if (want('dashboard-automation')) {
     s = await session(1110, 819);
     await tab(s.page, 'automations');
+    // Seit das Szenario in der Demo liegt, startet die Seite auf den Szenarien: Einzelregeln wählen.
+    await s.page.locator('#automations-tab-rules').click();
+    await s.page.waitForTimeout(1000);
     await s.page.locator('[x-bind\\:aria-expanded^="Boolean(expanded"]').first().click();
     await s.page.waitForTimeout(1500);
     await scrollToTabs(s.page);
@@ -246,7 +259,6 @@ async function all() {
   if (want('dashboard-statistics-mobile')) {
     // Phone width, interval view: the bottom pill must be in the picture, so no scrollToTabs.
     s = await session(390, 844);
-    await hideTour(s.page);
     // Auf dem Telefon liegt der Statistik-Tab im Menue "Mehr" (nav-more).
     await s.page.locator('.nav-more-toggle').click();
     await s.page.locator('#dashboard-more-list [role="menuitem"]', { hasText: 'Statistics' }).click();
@@ -328,7 +340,6 @@ async function all() {
       headers: { 'X-CSRF-Token': csrf },
     });
     if (![200, 201, 409].includes(created.status())) throw new Error(`Konto anna: HTTP ${created.status()}`);
-    await hideTour(s.page);
     await tab(s.page, 'settings');
     await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-users"]').click();
     await s.page.waitForTimeout(2000);
@@ -350,7 +361,6 @@ async function all() {
 
   if (want('dashboard-automation-assistant')) {
     s = await session(1110, 900);
-    await hideTour(s.page);
     await tab(s.page, 'automations');
     await s.page.locator('.auto-assist-open', { hasText: 'Assistant' }).click();
     await s.page.waitForTimeout(2000);
@@ -360,7 +370,6 @@ async function all() {
 
   if (want('dashboard-automation-scenario')) {
     s = await session(1110, 900);
-    await hideTour(s.page);
     await tab(s.page, 'automations');
     await s.page.locator('#automations-tab-scenarios').click();
     await s.page.waitForTimeout(1500);
@@ -369,8 +378,7 @@ async function all() {
       await createZeroFeedInScenario(s.page);
       await s.page.reload({ waitUntil: 'networkidle' });
       await s.page.waitForTimeout(2500);
-      await hideTour(s.page);
-      await tab(s.page, 'automations');
+        await tab(s.page, 'automations');
       await s.page.locator('#automations-tab-scenarios').click();
       await s.page.waitForTimeout(1500);
     }
@@ -384,7 +392,7 @@ async function all() {
     await s.ctx.close();
   }
 
-  // Die Tour ist hier absichtlich sichtbar (nicht hideTour), sie ist der Gegenstand der Bilder.
+  // Die Tour ist hier absichtlich sichtbar, sie ist der Gegenstand der Bilder.
   if (want('dashboard-onboarding-tour-welcome') || want('dashboard-onboarding-tour-step')) {
     // Das echte Changelog der Konsole rendern, damit die Demo Touren hat (sonst bleibt der Lauf leer).
     const render = await fetch(`${args.consoleUrl}/api/highlights/render`, {
@@ -393,7 +401,7 @@ async function all() {
       body: JSON.stringify({ since: 'v0.10.8' }),
     });
     if (!render.ok) throw new Error(`Changelog rendern: HTTP ${render.status}`);
-    s = await session(1280, 800);
+    s = await session(1280, 800, { tour: true });
     const started = await s.page.evaluate(() => Alpine.store('onboarding').start('news'));
     if (started !== true) {
       const info = await s.page.evaluate(() => ({ versions: Alpine.store('onboarding').exploreVersions.length, firstItems: Alpine.store('onboarding').exploreVersions[0]?.items?.length ?? null }));
