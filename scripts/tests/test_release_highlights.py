@@ -34,11 +34,13 @@ def test_rows_cut_the_range_per_component():
     ]
 
 
-def test_render_links_and_folded_german_with_fallback():
+def test_render_links_and_both_languages_folded_with_fallback():
     out = rh.render(rh.highlight_rows(DOC, {"dashboard": "v0.9.1", "bootstrap": "v0.3.0"}), "v0.9.2")
-    top, german = out.split("<details>")
+    top, english, german = out.split("<details>")
     assert top.strip() == rh.links("v0.9.2")
-    assert "statistics page" not in out   # the English text lives on the What's new page
+    assert english.startswith("\n<summary>Highlights in English</summary>\n\n### Dashboard v0.9.2\n\n- statistics page (#132)\n")
+    assert "- **⚠ Breaking** drop legacy (#131)" in english
+    assert english.rstrip().endswith("</details>")
     assert "<summary>Highlights auf Deutsch</summary>" in german
     assert "### Dashboard v0.9.2" in german
     assert "- Statistikseite (#132)" in german
