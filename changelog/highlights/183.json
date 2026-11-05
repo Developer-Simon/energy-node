@@ -5,9 +5,9 @@
   "details": {
     "*": {
       "de": "Auf schmalen Bildschirmen zeigt die Statistikseite eine Tabelle der Abschnitte oder ein Raster, und der Zeitraum steht in einer Pille unten.",
-      "doc": "dashboard/statistics.html",
+      "doc": "dashboard/statistics.html#on-a-phone",
       "en": "On narrow screens the statistics page shows a table of intervals or a grid, and the period sits in a pill at the bottom.",
-      "image": "dashboard-statistics.png"
+      "image": "dashboard-statistics-mobile.png"
     }
   },
   "tour": {
@@ -29,5 +29,8 @@
         }
       ]
     }
+  },
+  "doc_title": {
+    "*": "The statistics page works on a phone, with a table or grid view"
   }
 }

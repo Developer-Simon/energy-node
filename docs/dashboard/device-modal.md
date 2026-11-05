@@ -112,11 +112,11 @@ Three rights shape the dialog. They are set per user on the users page.
 - **Style devices** (`edit_device_appearance`, needs **Devices**) allows the
   stars and the icon. Without it neither is offered, and the server refuses
   such a change.
-- **Arrange the overview** (`edit_layout`) only controls the layout of the
-  overview now. Favourites and icons of a device no longer depend on it.
+- **Arrange the overview** (`edit_layout`) controls the layout of the overview.
+  Favourites and icons of a device do not depend on it.
 
-Without **Device analysis** the server withholds the analysis data, not only the
-tab. The device data leaves out discovery payloads and the last MQTT message of
+Without **Device analysis** the server also withholds the analysis data. The
+device data leaves out discovery payloads and the last MQTT message of
 each entity, which is reduced to its time. The command history is empty, and
 only the operational warnings are returned. The activity list of the side
 column still shows the latest values, but never topics.

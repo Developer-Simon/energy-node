@@ -19,7 +19,7 @@
 // Verlauf bereits und bewegen sich.
 //
 // Ohne Namen werden alle Bilder ausser dashboard-history,
-// dashboard-settings-versions, dashboard-statistics und dashboard-service-logs geschrieben. Namen als Argumente begrenzen den
+// dashboard-settings-versions, dashboard-statistics, dashboard-statistics-mobile und dashboard-service-logs geschrieben. Namen als Argumente begrenzen den
 // Lauf auf genau diese Bilder.
 //
 // Der Verlauf wird im Browser aufgezeichnet (IndexedDB, history-recorder.js).
@@ -35,6 +35,7 @@ const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 function parseArgs(argv) {
   const args = {
     url: 'https://localhost:18200',
+    consoleUrl: 'http://127.0.0.1:18202',
     out: path.join(REPO_DIR, 'docs/images'),
     password: 'smoketest1234',
     history: false,
@@ -51,6 +52,7 @@ function parseArgs(argv) {
     if (flag === '--url') args.url = value.replace(/\/$/, '');
     else if (flag === '--out') args.out = path.resolve(value);
     else if (flag === '--password') args.password = value;
+    else if (flag === '--console-url') args.consoleUrl = value.replace(/\/$/, '');
     else if (flag === '--record-minutes') args.recordMinutes = Number(value);
     else throw new Error(`unbekannte Option: ${flag}`);
   }
@@ -58,15 +60,30 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics', 'dashboard-service-logs'];
+const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics', 'dashboard-statistics-mobile', 'dashboard-service-logs'];
 const want = (name) => (args.names.length ? args.names.includes(name) : !OPT_IN.includes(name));
 
 await mkdir(args.out, { recursive: true });
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 
-async function session(width, height) {
+// Schliesst das Onboarding fuer die Demo-Sitzung (Setup, Willkommen, Neuerungen-Hinweis),
+// damit keine Leiste und kein Spotlight in die normalen Bilder kommen. Die Tour-Sitzung bekommt das nicht.
+async function closeOnboarding(ctx) {
+  const csrf = (await (await ctx.request.get(`${args.url}/api/v1/auth/session`)).json()).csrf_token;
+  const headers = { 'X-CSRF-Token': csrf };
+  const setup = await ctx.request.post(`${args.url}/api/v1/onboarding/setup/complete`, { headers });
+  if (!setup.ok()) throw new Error(`Onboarding schliessen (setup/complete): HTTP ${setup.status()}`);
+  const me = await ctx.request.put(`${args.url}/api/v1/onboarding/me`, { data: { run: null, queue: [], welcomed: true }, headers });
+  if (!me.ok()) throw new Error(`Onboarding schliessen (me): HTTP ${me.status()}`);
+}
+
+async function session(width, height, { tour = false } = {}) {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height } });
   await ctx.request.post(`${args.url}/api/v1/auth/login`, { data: { username: 'admin', password: args.password } });
+  if (!tour) {
+    await closeOnboarding(ctx);
+    await ctx.addInitScript(() => { try { sessionStorage.setItem('ob-news-note-dismissed', '9999'); sessionStorage.setItem('ob-welcome-done', '1'); } catch {} });
+  }
   await ctx.addCookies([{ name: 'lang', value: 'en', url: args.url }]);
   const page = await ctx.newPage();
   await page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
@@ -89,6 +106,36 @@ async function scrollToTabs(page) {
     window.scrollTo(0, nav.getBoundingClientRect().top + window.scrollY - 12);
   });
   await page.waitForTimeout(600);
+}
+
+// Legt ueber den Vorlagen-Assistenten das Szenario "Zero feed-in" an und speichert.
+// Vorausgewaehlte Antworten bleiben, sonst wird die erste waehlbare Option genommen.
+async function createZeroFeedInScenario(page) {
+  const dialog = page.locator('dialog.auto-assist');
+  const foot = dialog.locator('.auto-assist-foot');
+  const next = foot.locator('button', { hasText: /^\s*Next\s*$/ });
+  const create = foot.locator('button', { hasText: /^\s*Create\s*$/ });
+  await page.locator('.auto-assist-open', { hasText: 'Assistant' }).click();
+  await page.waitForTimeout(1500);
+  await dialog.locator('.auto-assist-tile', { hasText: 'Zero feed-in' }).click();
+  await page.waitForTimeout(1200);
+  for (let i = 0; i < 12 && !(await create.isVisible()); i++) {
+    if (await next.isEnabled()) {
+      await next.click();
+    } else {
+      const option = dialog.locator('.auto-assist-body label.auto-assist-option:not(:has(input:disabled)), '
+        + '.auto-assist-body button.auto-assist-card:not([disabled]), .auto-assist-body button.auto-assist-pick:not([disabled])').first();
+      if (await option.count() === 0) throw new Error('Assistent: keine waehlbare Option im Schritt');
+      await option.click();
+    }
+    await page.waitForTimeout(900);
+  }
+  if (!(await create.isVisible())) throw new Error('Assistent: Zusammenfassung nicht erreicht');
+  await create.click();
+  await page.waitForTimeout(1500);
+  await page.locator('button[aria-label="Save all rules"]').click();
+  await page.locator('.notification-toasts').getByText(/applied|rejected|Service not responding/i).first().waitFor({ timeout: 15000 });
+  await page.waitForTimeout(800);
 }
 
 async function shot(page, name) {
@@ -185,6 +232,9 @@ async function all() {
   if (want('dashboard-automation')) {
     s = await session(1110, 819);
     await tab(s.page, 'automations');
+    // Seit das Szenario in der Demo liegt, startet die Seite auf den Szenarien: Einzelregeln wählen.
+    await s.page.locator('#automations-tab-rules').click();
+    await s.page.waitForTimeout(1000);
     await s.page.locator('[x-bind\\:aria-expanded^="Boolean(expanded"]').first().click();
     await s.page.waitForTimeout(1500);
     await scrollToTabs(s.page);
@@ -204,6 +254,18 @@ async function all() {
     await s.page.waitForTimeout(2000);
     await scrollToTabs(s.page);
     await shot(s.page, 'dashboard-statistics');
+    await s.ctx.close();
+  }
+  if (want('dashboard-statistics-mobile')) {
+    // Phone width, interval view: the bottom pill must be in the picture, so no scrollToTabs.
+    s = await session(390, 844);
+    // Auf dem Telefon liegt der Statistik-Tab im Menue "Mehr" (nav-more).
+    await s.page.locator('.nav-more-toggle').click();
+    await s.page.locator('#dashboard-more-list [role="menuitem"]', { hasText: 'Statistics' }).click();
+    await s.page.waitForTimeout(3000);
+    await s.page.locator('.stats-view-toggle button', { hasText: 'Interval' }).click();
+    await s.page.waitForTimeout(1500);
+    await shot(s.page, 'dashboard-statistics-mobile');
     await s.ctx.close();
   }
   if (want('dashboard-service-logs')) {
@@ -247,7 +309,15 @@ async function all() {
     // Tall enough for the whole connection card, so its save bar does not float over it.
     ['dashboard-settings-mqtt', 'settings-mqtt', 1500],
     ['dashboard-settings-tailscale', 'settings-tailscale', 988],
-    ['dashboard-settings-system', 'settings-system', 997],
+    // Der Standardpfad der Passwortdatei steht im Bild, nicht der Demo-Pfad. Nur die Anzeige, nicht gespeichert.
+    ['dashboard-settings-system', 'settings-system', 997, async (page) => {
+      await page.evaluate(() => {
+        const label = [...document.querySelectorAll('label')].find((l) => l.textContent.trim().startsWith('Admin password file'));
+        const input = label?.control ?? label?.parentElement?.querySelector('input');
+        if (!input) throw new Error('Feld "Admin password file" nicht gefunden');
+        input.value = '/etc/energy-node-dashboard/auth.pw';
+      });
+    }],
     // Die Aenderungen des Dashboards aufgeklappt, damit der Schalter
     // Highlights/Alles etwas zu zeigen hat.
     ['dashboard-settings-versions', 'settings-versions', 1200, async (page) => {
@@ -266,6 +336,93 @@ async function all() {
     await s.page.mouse.move(1, 1);
     await scrollToTabs(s.page);
     await shot(s.page, name);
+    await s.ctx.close();
+  }
+
+  // Benutzer: ein zweites Konto anlegen (409 heisst: gibt es schon), dessen Karte aufklappen.
+  if (want('dashboard-settings-users') || want('dashboard-settings-users-permissions')) {
+    s = await session(1110, 1100);
+    const csrf = (await (await s.ctx.request.get(`${args.url}/api/v1/auth/session`)).json()).csrf_token;
+    const created = await s.ctx.request.post(`${args.url}/api/v1/users`, {
+      data: { username: 'anna', password: 'demo-anna-2026', roles: ['view_overview', 'view_devices', 'view_history', 'view_stats', 'operate_devices'] },
+      headers: { 'X-CSRF-Token': csrf },
+    });
+    if (![200, 201, 409].includes(created.status())) throw new Error(`Konto anna: HTTP ${created.status()}`);
+    await tab(s.page, 'settings');
+    await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-users"]').click();
+    await s.page.waitForTimeout(2000);
+    await s.page.locator('button.users-tab[data-tab="accounts"]').click();
+    await s.page.waitForTimeout(1000);
+    const anna = s.page.locator('.users-list-item').filter({ has: s.page.locator('.users-card-head', { hasText: 'anna' }) }).first();
+    await anna.locator('.users-card-head').click();
+    await s.page.waitForTimeout(1000);
+    await s.page.mouse.move(1, 1);
+    if (want('dashboard-settings-users')) {
+      await scrollToTabs(s.page);
+      await shot(s.page, 'dashboard-settings-users');
+    }
+    if (want('dashboard-settings-users-permissions')) {
+      await element(anna.locator('.users-groups'), 'dashboard-settings-users-permissions');
+    }
+    await s.ctx.close();
+  }
+
+  if (want('dashboard-automation-assistant')) {
+    s = await session(1110, 900);
+    await tab(s.page, 'automations');
+    await s.page.locator('.auto-assist-open', { hasText: 'Assistant' }).click();
+    await s.page.waitForTimeout(2000);
+    await element(s.page.locator('dialog.auto-assist'), 'dashboard-automation-assistant');
+    await s.ctx.close();
+  }
+
+  if (want('dashboard-automation-scenario')) {
+    s = await session(1110, 900);
+    await tab(s.page, 'automations');
+    await s.page.locator('#automations-tab-scenarios').click();
+    await s.page.waitForTimeout(1500);
+    if (await s.page.locator('li.auto-scenario').count() === 0) {
+      // Die Demo hat kein Szenario: eins ueber den Assistenten anlegen und speichern.
+      await createZeroFeedInScenario(s.page);
+      await s.page.reload({ waitUntil: 'networkidle' });
+      await s.page.waitForTimeout(2500);
+        await tab(s.page, 'automations');
+      await s.page.locator('#automations-tab-scenarios').click();
+      await s.page.waitForTimeout(1500);
+    }
+    const card = s.page.locator('li.auto-scenario').first();
+    // Ein frisch angelegtes Szenario ist schon aufgeklappt, dann gibt es keine Zeile zum Klicken.
+    const row = card.locator('.auto-scenario-row');
+    if (await row.count() > 0) await row.click();
+    await s.page.waitForTimeout(1200);
+    await s.page.mouse.move(1, 1);
+    await element(card, 'dashboard-automation-scenario');
+    await s.ctx.close();
+  }
+
+  // Die Tour ist hier absichtlich sichtbar, sie ist der Gegenstand der Bilder.
+  if (want('dashboard-onboarding-tour-welcome') || want('dashboard-onboarding-tour-step')) {
+    // Das echte Changelog der Konsole rendern, damit die Demo Touren hat (sonst bleibt der Lauf leer).
+    const render = await fetch(`${args.consoleUrl}/api/highlights/render`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ since: 'v0.10.8' }),
+    });
+    if (!render.ok) throw new Error(`Changelog rendern: HTTP ${render.status}`);
+    s = await session(1280, 800, { tour: true });
+    const started = await s.page.evaluate(() => Alpine.store('onboarding').start('news'));
+    if (started !== true) {
+      const info = await s.page.evaluate(() => ({ versions: Alpine.store('onboarding').exploreVersions.length, firstItems: Alpine.store('onboarding').exploreVersions[0]?.items?.length ?? null }));
+      throw new Error(`Tour start('news') liefert ${JSON.stringify(started)}, exploreVersions: ${JSON.stringify(info)}`);
+    }
+    await s.page.waitForTimeout(2000);
+    await s.page.getByText('There is something new to discover', { exact: true }).waitFor({ timeout: 5000 });
+    await shot(s.page, 'dashboard-onboarding-tour-welcome');
+    // Der Einfuehrungsschritt hat 'Start' statt 'Next', damit geht es zum ersten Schritt.
+    await s.page.getByRole('button', { name: 'Start', exact: true }).click();
+    await s.page.waitForTimeout(2500);
+    await shot(s.page, 'dashboard-onboarding-tour-step');
+    await s.page.evaluate(() => Alpine.store('onboarding').close());
     await s.ctx.close();
   }
 
@@ -378,7 +535,7 @@ async function deviceModalShowcase() {
     await s.page.waitForTimeout(2500);
     await element(s.page.locator('dialog#device-modal'), name);
     if (name === 'dashboard-device-modal' && want('dashboard-device-modal-manage')) {
-      await s.page.locator('.device-modal-trigger').filter({ hasText: 'Management' }).first().click();
+      await s.page.locator('.device-modal-trigger').filter({ hasText: 'Analysis' }).first().click();
       await s.page.waitForTimeout(1200);
       await element(s.page.locator('dialog#device-modal'), 'dashboard-device-modal-manage');
     }

@@ -58,7 +58,7 @@ Open the printed address and connect with any address, user and password.
 `--scenario vorlage-update` serves the update preview, `--hold-step <id>` stops
 a run at that step, and `--fail-step <id>:<CODE>` makes one fail.
 
-The update preview and the changelog page are taken by a script that drives
+All installer screenshots on the installer page are taken by a script that drives
 the demo host itself (it needs Go and Playwright):
 
 ```sh

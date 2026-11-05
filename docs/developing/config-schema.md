@@ -120,7 +120,7 @@ different. The reset button goes back to "not set".
 
 Every field with `format: mqtt-topic` has to say what it means for the
 [device map](../dashboard/device-map.md#data-flow-layer). The annotations are
-in [data flows](data-flow.md#12-data-flow-on-the-device-map). A test fails for
+in [data flows](data-flow-devices.md#12-data-flow-on-the-device-map). A test fails for
 a topic field without one.
 
 ## Adding a field

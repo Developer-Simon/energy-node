@@ -4,8 +4,18 @@
   },
   "details": {
     "*": {
+      "crop": [
+        0,
+        0.61,
+        1,
+        0.33
+      ],
       "de": "Die Karte Live-Log in der Diagnose folgt dem Dashboard und dem Updater, so findest du ohne SSH heraus, warum das Dashboard nicht startet. Unter „Zeilen im Bericht“ wählst du, wie viele Zeilen der Bericht mitnimmt. „Für Issue kopieren“ kopiert ihn für ein GitHub-Issue, Adressen, Namen und Passwörter sind dabei maskiert.",
-      "en": "The Live log card in the diagnostics follows the dashboard and the updater, so you can find out without SSH why the dashboard does not start. Under “Lines in report” you choose how many lines the report takes along. “Copy for issue” copies it for a GitHub issue, with addresses, names and passwords masked."
+      "en": "The Live log card in the diagnostics follows the dashboard and the updater, so you can find out without SSH why the dashboard does not start. Under “Lines in report” you choose how many lines the report takes along. “Copy for issue” copies it for a GitHub issue, with addresses, names and passwords masked.",
+      "image": "installer-diagnose.png"
     }
+  },
+  "doc_title": {
+    "*": "The installer diagnose shows a live log of the dashboard and the updater"
   }
 }

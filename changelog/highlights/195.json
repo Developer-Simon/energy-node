@@ -1,5 +1,8 @@
 {
   "de": {
     "*": "Das Dashboard startet und bleibt erreichbar, wenn die erste MQTT-Verbindung scheitert. Es versucht es im Hintergrund weiter und zeigt den Fehler im MQTT-Tab."
+  },
+  "doc_title": {
+    "*": "The dashboard starts and stays reachable when the first MQTT connection fails"
   }
 }

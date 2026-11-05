@@ -1,6 +1,9 @@
 ---
 title: "Deploying a node"
 component: installer
+anchor_moves:
+  4-run: installer.html#5-run
+  5-result: installer.html#6-result
 ---
 
 # Deploying a node
@@ -28,9 +31,11 @@ notes in the repository explain how to run the demo yourself.
 
 ## Before you start
 
-The Pi needs Raspberry Pi OS (or Debian) with SSH enabled and a user that can
-run `sudo` without a password. The installer's first action is to create a
-working directory under `/var/lib`, which needs root. The Pi also needs
+The Pi needs Raspberry Pi OS (or Debian) with SSH enabled and a user that may
+use `sudo`. The installer's first action is to create a working directory
+under `/var/lib`, which needs root. If `sudo` asks that user for a password,
+the installer sets up passwordless `sudo` once, see
+[sudo password](#sudo-password). The Pi also needs
 internet access for the system packages and for Tailscale, and your computer
 must reach it by name or IP address.
 
@@ -103,6 +108,19 @@ fingerprint.
 Compare it once on the Pi itself, then confirm. The installer remembers the
 key in `~/.energy-node/known_hosts` and warns if it ever changes.
 
+When the package still has to be fetched or checked, a short **Prepare
+package** screen follows. It downloads the newest signed package from GitHub,
+transfers it to the Pi and verifies it there.
+
+#### Python version of the Pi
+
+If the Pi runs a different Python version than the package was built for,
+preparing stops with **Process paused, confirmation required**. **Load
+dependencies online** continues: the Pi then loads its Python dependencies from
+the internet (piwheels or PyPI). This needs internet access on the Pi, and the
+package signature does not cover those files. The pre-check then notes that
+the dependencies come from the internet.
+
 ### 2. Pre-check
 
 ![The pre-check](images/installer-precheck.png)
@@ -114,6 +132,17 @@ the installation or is a note you can ignore. A package built for a different
 architecture or Python version than the Pi's blocks. A Pi still on UTC only
 gets a note. The card on the right lists what will be transferred. Nothing on
 the Pi has changed yet.
+
+#### sudo password
+
+![The sudo password dialog](images/installer-sudo.png)
+
+If you connected with a key file and `sudo` on the Pi asks for a password, the
+pre-check opens the dialog **sudo password needed**. Enter the password of the
+SSH user and choose **Allow sudo**. The installer uses it once to add
+`/etc/sudoers.d/90-energy-node-installer`, which lets this user run `sudo`
+without a password. The password is not stored and appears in no log. A wrong
+password is rejected, and you can try again.
 
 ### 3. Configuration
 
@@ -144,10 +173,33 @@ the diagnose refreshes the lists first.
 Under **Target system** you set the service user and its base directory on the
 Pi.
 
+**Continue** opens the Dashboard step.
+
+### 4. Dashboard
+
+![The Dashboard step](images/installer-dashboard-step.png)
+
+This step presets the dashboard for its first start. Every setting is
+optional. **Configure later** skips the whole step, and the dashboard's
+first-time setup asks for the same things after the first sign-in.
+
+- **Users and access:** the admin user name, more users with the template
+  Admin, Operate or View only and a password of at least 10 characters, and
+  the switch **Allow guest access**. The installer creates these accounts
+  right away, and the passwords stay on the Pi.
+- **Appearance:** colour scheme, title and subtitle of the header, and the
+  tab width. It applies to everyone until someone changes it in the dashboard.
+- **System:** the system status in the header and its items, the published
+  system metrics for Home Assistant, and **Check for updates automatically**.
+
+The dashboard takes the presets over at its first start. Its
+[first-time setup](dashboard/onboarding.md) then shows these steps as *Set in
+the installer*.
+
 **Start installation** starts changing the Pi. There is no way back after
 this point.
 
-### 4. Run
+### 5. Run
 
 ![A running installation](images/installer-run.png)
 
@@ -159,7 +211,7 @@ If a step fails or you cancel, the steps that finished are kept. Starting again
 continues where the run stopped, because every step checks whether its work is
 already done.
 
-### 5. Result
+### 6. Result
 
 ![The result screen](images/installer-result.png)
 

@@ -1,3 +1,10 @@
+---
+title: "Manual installation"
+anchor_moves:
+  31-tailscale--install-1620-then-update: index.html#31-tailscale-install-1620-then-update
+  33-go-and-nodejs--do-not-install-them-on-the-node: index.html#33-go-and-nodejs-do-not-install-them-on-the-node
+---
+
 # Manual installation
 
 This page sets up an Energy Node on a Raspberry Pi and connects it to the main
@@ -79,8 +86,8 @@ x86, so the CPU must support 64-bit (x86-64). The installer stops on such a
 machine because it finds no package for its `uname -m` (`i586` or `i686`).
 Leave the root password empty during the installation, then Debian gives the
 first user `sudo`. The installer needs it without a password, which a Raspberry
-Pi OS user has by default. On Debian, add it yourself with a file in
-`/etc/sudoers.d/`.
+Pi OS user has by default. On Debian the installer asks for the `sudo` password
+once and sets it up, see [sudo password](../installer.md#sudo-password).
 
 The reference node runs Python 3.11.2, which is enough for every service in
 this repository (`requires-python >= 3.9`). An installation package carries
@@ -140,7 +147,7 @@ and `amd64` carry a current Tailscale version, so the installer needs no
 workaround there. The `armv6` package carries 1.62.0 and updates it in place
 when the node is signed in.
 
-### 3.1 Tailscale — install 1.62.0, then update
+### 3.1 Tailscale: install 1.62.0, then update
 
 ```sh
 cd ~
@@ -226,7 +233,7 @@ from the bundle with `--no-index`, so the node never fetches packages from PyPI
 over a possibly unreliable link. The build machine downloaded them from
 piwheels beforehand.
 
-### 3.3 Go and Node.js — do not install them on the node
+### 3.3 Go and Node.js: do not install them on the node
 
 Compiling Go on a Pi 1 takes forever and is not needed. The dashboard is
 cross-compiled on the development machine into one statically linked ARMv6

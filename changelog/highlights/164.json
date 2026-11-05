@@ -5,7 +5,7 @@
   "details": {
     "*": {
       "de": "Ein Szenario hat drei Phasen. Start enthält die Bedingungen, die es beginnen, Während beschreibt, was im Szenario passiert, und Ende enthält die Aktionen beim Stoppen. Typisch ist ein Regler, der die Netzbilanz nahe an einem Ziel hält.",
-      "doc": "dashboard/automations.html#scenarios",
+      "doc": "dashboard/automations-scenarios.html#scenarios",
       "en": "A scenario has three phases. Start holds the conditions that begin it, While is what happens during the scenario and End holds the actions when it stops. The usual use is a regulator that keeps the grid balance near a target.",
       "image": "dashboard-automation.png"
     }
@@ -76,5 +76,8 @@
         }
       ]
     }
+  },
+  "doc_title": {
+    "*": "Scenarios with live cards, charts and a phase editor, plus a new rule editor"
   }
 }

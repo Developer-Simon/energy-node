@@ -36,6 +36,7 @@ BLOCK_HEAD = re.compile(r"^\s*Highlights \((?P<lang>[a-z]{2})\):\s*$")
 BLOCK_LINE = re.compile(r"^\s*-\s+(?P<text>.*\S)\s*$")
 TARGETED = re.compile(r"^(?P<target>[a-z_:-]+):\s+(?P<text>.+)$")
 LANGUAGE_KEY = re.compile(r"^[a-z]{2}$")
+DOC_TITLE_KEY = "doc_title"
 
 
 def targets_from_table(table):
@@ -156,6 +157,37 @@ def load_translations(directory):
 def lookup(translations, pr, target, lang):
     texts = translations.get(pr, {}).get(lang, {})
     return texts.get(target) or texts.get(DEFAULT_KEY) or None
+
+
+def doc_title(translations, pr, target):
+    """Doku-Titel des Highlights fuer das Ziel, sonst der Standard "*", sonst None."""
+    value = translations.get(pr, {}).get(DOC_TITLE_KEY)
+    if not isinstance(value, dict):
+        return None
+    return value.get(target) or value.get(DEFAULT_KEY) or None
+
+
+def validate_doc_titles(translations):
+    """Eine Meldung je Fehler, Form "#<pr> doc_title: <problem>". Leere Liste,
+    wenn alle Doku-Titel stimmen."""
+    problems = []
+    for pr in sorted(translations):
+        value = translations[pr].get(DOC_TITLE_KEY)
+        if value is None:
+            continue
+        if not isinstance(value, dict):
+            problems.append(f"#{pr} {DOC_TITLE_KEY}: must be an object keyed by component")
+            continue
+        for key, text in value.items():
+            if not isinstance(text, str):
+                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} is not a string")
+            elif not text.strip():
+                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} is empty")
+            elif ";" in text:
+                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} contains a semicolon")
+            elif text.rstrip().endswith("."):
+                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} ends with a full stop")
+    return problems
 
 
 def entry_i18n(translations, pr, target):

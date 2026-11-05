@@ -7,5 +7,8 @@
       "de": "Du öffnest ihn auf der Seite Automationen mit „Assistent“. Er zeigt die Vorlagen, die zu deinen Geräten passen, und nennt bei den übrigen das fehlende Gerät. Mit „Ohne Vorlage“ legst du eine leere Regel oder ein leeres Szenario an.",
       "en": "You open it on the Automations page with “Assistant”. It shows the templates that fit your devices and names the missing device for the others. “Without a template” creates an empty rule or scenario."
     }
+  },
+  "doc_title": {
+    "*": "An assistant builds scenarios and rules from five templates like zero feed-in"
   }
 }

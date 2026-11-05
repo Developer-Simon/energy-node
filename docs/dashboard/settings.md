@@ -14,9 +14,9 @@ anchor_moves:
 
 # Settings
 
-Settings has eight pages: General, Appearance, History, MQTT, Tailscale,
-TinyTuya, Versions and System. Tailscale and TinyTuya only appear when the
-matching service is installed.
+Settings has ten pages: General, Appearance, History, MQTT, Tailscale,
+TinyTuya, Users, Versions, Checklist and System. Tailscale and TinyTuya only
+appear when the matching service is installed.
 
 On wide screens the pages are listed in a sidebar next to the content, each
 with an icon and a short description. On narrow screens a button above the
@@ -30,8 +30,10 @@ the bottom. Swiping sideways on the button moves to the previous or next page.
 | [History](settings-history.md) | History | recording and retention in the browser, exchange between devices, recording of the energy statistics |
 | [MQTT](settings-mqtt.md) | MQTT | broker connection, the "Energy Node" device in Home Assistant, the bridge to the main site |
 | [Tailscale & TinyTuya](settings-wizards.md) | Tailscale, TinyTuya | the setup wizards for the tailnet and for Tuya devices |
+| [Users](settings-users.md) | Me, Accounts, Sessions | sign-in and password, accounts and permissions, presets, guest access, Home Assistant users, signed-in sessions |
 | [Versions & updates](settings-versions.md) | Versions | installed versions, changelogs, update check and the update from the dashboard |
-| [System](settings-system.md) | System | current user, restart and shutdown, the central configuration file |
+| [Checklist](onboarding.md) | Checklist | the steps of the first-time setup and the tours of new features |
+| [System](settings-system.md) | System | system actions (restart and shutdown), the central configuration file |
 
 ## General
 

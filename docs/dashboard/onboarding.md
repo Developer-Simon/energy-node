@@ -63,3 +63,21 @@ works without them.
 The checklist is under *Settings*. Use **Go through it again** there to repeat
 the tour. The checklist also lists the new features of each version. Those with
 a tour can be shown again from there.
+
+## Tours of new features
+
+![The offer after an update](../images/dashboard-onboarding-tour-welcome.png)
+
+After an update the dashboard offers a short tour of what has changed since
+your last visit. **Start** begins it. **Next time** closes the offer until
+more new features arrive, and the tours stay in the checklist. A tour works
+like the setup: the bar at the bottom names the
+step, and the spotlight marks the new control. Steps you have no permission
+for are left out.
+
+![The first step of a tour](../images/dashboard-onboarding-tour-step.png)
+
+Under *Settings, Checklist*, **Explore what's new** lists the highlights of the
+last three versions. **Start tour** shows the ones you have not seen yet, and
+every tour can be replayed. **Explore further back** opens the earlier
+versions since v0.8.0.

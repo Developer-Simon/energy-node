@@ -123,7 +123,7 @@ Topics as dashed edges from the producer to the receiver. Automation rules are
 diamonds, services are squares, and a topic nobody publishes is a stub labelled
 Topic without a device. Click an edge or a rule for its details and a link into
 the configuration or the Automations tab. How a service declares its topics is
-described in [Data flows](../developing/data-flow.md#12-data-flow-on-the-device-map).
+described in [Data flows](../developing/data-flow-devices.md#12-data-flow-on-the-device-map).
 The automations device sits under the Energy Node and connects to every rule it runs.
 A rule with an energy value condition gets an edge from the balance, so the
 value a rule compares against is visible here without the Roles layer.

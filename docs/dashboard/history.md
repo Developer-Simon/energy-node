@@ -56,8 +56,8 @@ The hourly resolution is not kept in the browser. The page reads it from the nod
 ### Hourly values
 
 Hourly values come from `GET /api/v1/energy/stats/hours` on the node, see
-[api.md](api.md). An hour that the node recorded itself counts only when it
-holds at least 50 minutes of recording. Hours from Home Assistant always count.
+[Devices and data](../developing/api-data.md#energy). An hour that the node
+recorded itself counts only when it holds at least 50 minutes of recording. Hours from Home Assistant always count.
 A series appears only if at least one of its hours is not zero.
 
 House consumption at the hourly resolution is the node's own `load_total` value.

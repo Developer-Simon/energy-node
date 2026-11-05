@@ -18,6 +18,8 @@ on:
       - "scripts/docs/pages-should-deploy.sh"
       - "scripts/docs/doc-versions.sh"
       - "scripts/docs/release-versions.py"
+      - "scripts/docs/whats-new.py"
+      - "changelog/highlights/**"
   workflow_run:
     workflows: [Release]
     types: [completed]
@@ -90,6 +92,7 @@ jobs:
         run: |
           scripts/docs/doc-versions.sh . > docs/_data/doc_versions.yml
           python3 scripts/docs/release-versions.py . > docs/_data/release_versions.yml
+          python3 scripts/docs/whats-new.py . > docs/_data/whats_new.json
       - uses: actions/configure-pages@v5
       - uses: actions/jekyll-build-pages@v1
         with:

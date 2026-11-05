@@ -12,5 +12,8 @@
     "*": {
       "exempt": "The catch-up button explains itself, and the install step is covered by the tour of #171."
     }
+  },
+  "doc_title": {
+    "*": "Every feature since v0.8.0 has a tour, and older releases can catch up"
   }
 }

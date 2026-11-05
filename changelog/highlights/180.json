@@ -44,5 +44,8 @@
         }
       ]
     }
+  },
+  "doc_title": {
+    "*": "Star favourites and an Analysis tab that lists warnings and every entity"
   }
 }

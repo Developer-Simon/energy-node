@@ -1,5 +1,5 @@
 /* Energy Node docs: theme toggle, table of contents, mobile navigation,
-   search loader and forwarding of anchors that moved to a subpage.
+   search loader, forwarding of anchors that moved to a subpage, the What's new view switch and the image dialog.
    No build step, no dependencies. */
 (function () {
   "use strict";
@@ -42,13 +42,25 @@
 
   // ---- Table of contents -----------------------------------------------------
 
+  var rebuildToc = function () {};
+  var tocObserver = null;
+
   function initToc() {
     var toc = document.getElementById("toc");
     var body = document.querySelector(".doc-body");
     if (!toc || !body) return;
+    rebuildToc = function () { buildToc(toc, body); };
+    buildToc(toc, body);
+  }
+
+  // Headings in a hidden view (What's new) are left out, so the list follows the view on screen.
+  function buildToc(toc, body) {
+    if (tocObserver) { tocObserver.disconnect(); tocObserver = null; }
+    toc.innerHTML = "";
     var heads = Array.prototype.filter.call(body.querySelectorAll("h2[id], h3[id]"), function (h) {
-      return !h.closest(".hero");
+      return !h.closest(".hero") && !h.closest("[hidden]");
     });
+    toc.hidden = heads.length < 2;
     if (heads.length < 2) return;
 
     var title = document.createElement("p");
@@ -61,7 +73,10 @@
       li.className = h.tagName === "H3" ? "toc-h3" : "toc-h2";
       var a = document.createElement("a");
       a.href = "#" + h.id;
-      a.textContent = h.textContent;
+      // The label only: a What's new release heading carries its date in a .wn-date span.
+      var label = h.cloneNode(true);
+      Array.prototype.forEach.call(label.querySelectorAll(".wn-date"), function (d) { d.remove(); });
+      a.textContent = label.textContent.trim();
       li.appendChild(a);
       list.appendChild(li);
       links[h.id] = a;
@@ -73,7 +88,7 @@
     if (!("IntersectionObserver" in window)) return;
     var visible = {};
     var current = null;
-    var obs = new IntersectionObserver(function (entries) {
+    tocObserver = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
       var first = heads.find(function (h) { return visible[h.id]; });
       if (!first) return;
@@ -81,7 +96,53 @@
       current = links[first.id];
       current.classList.add("is-active");
     }, { rootMargin: "-60px 0px -65% 0px" });
-    heads.forEach(function (h) { obs.observe(h); });
+    heads.forEach(function (h) { tocObserver.observe(h); });
+  }
+
+  // ---- What's new: By release / By area --------------------------------------
+
+  var WN_KEY = "en-docs-whats-new";
+
+  function initWhatsNew() {
+    var sw = document.querySelector(".wn-switch");
+    if (!sw) return;
+    var buttons = sw.querySelectorAll("button[data-view]");
+    var views = document.querySelectorAll(".wn-view");
+
+    function show(name) {
+      Array.prototype.forEach.call(buttons, function (b) {
+        b.setAttribute("aria-pressed", String(b.dataset.view === name));
+      });
+      Array.prototype.forEach.call(views, function (v) {
+        v.hidden = v.dataset.view !== name;
+      });
+      rebuildToc();
+    }
+    function choose(name) {
+      show(name);
+      try { localStorage.setItem(WN_KEY, name); } catch (e) { /* private mode */ }
+      if (name === "area") history.replaceState(null, "", "#by-area");
+      else if (location.hash === "#by-area") history.replaceState(null, "", location.pathname + location.search);
+    }
+    // An anchor inside a hidden view opens that view.
+    function fromHash() {
+      var el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      var view = el && el.closest(".wn-view");
+      if (!view) return false;
+      show(view.dataset.view);
+      el.scrollIntoView();
+      return true;
+    }
+
+    Array.prototype.forEach.call(buttons, function (b) {
+      b.addEventListener("click", function () { choose(b.dataset.view); });
+    });
+    window.addEventListener("hashchange", fromHash);
+    if (!fromHash()) {
+      var stored = null;
+      try { stored = localStorage.getItem(WN_KEY); } catch (e) { /* private mode */ }
+      show(stored === "area" ? "area" : "release");
+    }
   }
 
   // ---- Wide tables scroll in their own box -----------------------------------
@@ -94,6 +155,55 @@
       t.parentNode.insertBefore(wrap, t);
       wrap.appendChild(t);
     });
+  }
+
+  // ---- Images open enlarged in a dialog --------------------------------------
+
+  // Content images and the cropped picture tiles of What's new (a div with the
+  // image as background) open the whole image. Images inside a link, SVGs and
+  // the page icon stay as they are.
+  function initLightbox() {
+    var body = document.querySelector(".doc-body");
+    if (!body || typeof HTMLDialogElement === "undefined") return;
+    var items = Array.prototype.filter.call(body.querySelectorAll("img, div.wn-img"), function (el) {
+      if (el.closest("a") || el.classList.contains("page-icon")) return false;
+      return !/\.svg(\?|$)/.test(sourceOf(el));
+    });
+    if (!items.length) return;
+
+    var dialog = document.createElement("dialog");
+    dialog.className = "lightbox";
+    dialog.setAttribute("aria-label", "Enlarged image");
+    dialog.innerHTML = '<button type="button" class="lightbox__close" aria-label="Close">&times;</button><img class="lightbox__img" alt="">';
+    document.body.appendChild(dialog);
+    var big = dialog.querySelector(".lightbox__img");
+    dialog.addEventListener("click", function () { dialog.close(); });
+    dialog.addEventListener("close", function () { big.removeAttribute("src"); });
+
+    items.forEach(function (el) {
+      el.classList.add("zoomable");
+      el.setAttribute("tabindex", "0");
+      el.setAttribute("role", "button");
+      var label = el.getAttribute("alt") || el.getAttribute("aria-label") || "";
+      el.setAttribute("aria-label", "Enlarge image" + (label ? ": " + label : ""));
+      function open(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        big.src = sourceOf(el);
+        big.alt = label;
+        dialog.showModal();
+      }
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") open(e);
+      });
+    });
+  }
+
+  function sourceOf(el) {
+    if (el.tagName === "IMG") return el.currentSrc || el.src;
+    var m = /url\(["']?([^"')]+)["']?\)/.exec(el.style.backgroundImage || "");
+    return m ? m[1] : "";
   }
 
   // ---- Mobile navigation -----------------------------------------------------
@@ -165,6 +275,8 @@
   initTheme();
   wrapTables();
   initToc();
+  initWhatsNew();
+  initLightbox();
   initNav();
   initSearch();
 })();

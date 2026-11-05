@@ -50,6 +50,8 @@ expect true  ".github/workflows/pages.yml"
 expect true  "scripts/docs/doc-versions.sh"
 expect true  "scripts/docs/release-versions.py"
 expect true  "scripts/docs/pages-should-deploy.sh"
+expect true  "scripts/docs/whats-new.py"
+expect true  "changelog/highlights/203.json"
 # Local docs tooling is not part of the Pages build.
 expect false "scripts/docs/build-local.sh"
 expect false "scripts/docs/check_site.py"

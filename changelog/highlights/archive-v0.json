@@ -187,11 +187,17 @@
   "51": {
     "de": {
       "*": "Service-Felder und vorherige Versionen gehen in die Redeploy-Vorschau ein"
+    },
+    "doc_title": {
+      "*": "The redeploy preview shows service fields and previous versions"
     }
   },
   "52": {
     "de": {
       "*": "Ein Lauf wird über den Neustart des Dashboards beim Selbst-Update weiterverfolgt"
+    },
+    "doc_title": {
+      "*": "A running update stays visible when the dashboard restarts itself"
     }
   },
   "53": {
@@ -258,6 +264,11 @@
   "54": {
     "de": {
       "*": "Die Geräte-Icons des Dashboards werden als HA-Icon-Set ausgeliefert"
+    }
+  },
+  "55": {
+    "doc_title": {
+      "*": "The developer CLI replaces the old deploy script"
     }
   },
   "56": {
@@ -360,6 +371,9 @@
   "60": {
     "de": {
       "*": "Einstellung für das Zahlenformat und Datumsangaben nach Sprache (Lokalisierung A2)"
+    },
+    "doc_title": {
+      "*": "A number format setting, with dates that follow the language"
     }
   },
   "62": {
@@ -414,7 +428,7 @@
     "details": {
       "*": {
         "de": "Im Regeleditor bekommt ein Zeitfenster Wochentage, und das Sonnenfenster folgt Sonnenaufgang und Sonnenuntergang am Standort aus den Einstellungen.",
-        "doc": "dashboard/automations.html#rule-editor",
+        "doc": "dashboard/automations-rules.html#rule-editor",
         "en": "In the rule editor a time window takes weekdays, and the sun window follows sunrise and sunset at the location from the settings.",
         "image": "dashboard-automation.png"
       }
@@ -1019,11 +1033,17 @@
         "en": "The Energy Node is the balance itself, the device the dashboard publishes for Home Assistant. It shows the net grid power, and the Roles layer connects every device with an energy role to it.",
         "image": "dashboard-device-map-balance.png"
       }
+    },
+    "doc_title": {
+      "*": "The balance node is merged into the energy_node device"
     }
   },
   "127": {
     "de": {
       "*": "Das Automatisierungsgerät hängt unter dem Node und verlinkt seine Regeln"
+    },
+    "doc_title": {
+      "*": "The automation device sits under the node, with its rules linked to it"
     }
   },
   "128": {
@@ -1034,11 +1054,19 @@
   "129": {
     "de": {
       "*": "Verbindungstypen mit Flussrichtung und umkehrbare manuelle Kanten"
+    },
+    "doc_title": {
+      "*": "Connections show their flow direction and can be reversed by hand"
     }
   },
   "130": {
     "de": {
       "*": "Stündliche Energiestatistik aus Home Assistant über den Companion"
+    }
+  },
+  "131": {
+    "doc_title": {
+      "*": "The update result screen fits the dashboard"
     }
   },
   "132": {
@@ -1108,6 +1136,9 @@
   "133": {
     "de": {
       "*": "Der Ereignisstrom liefert nur noch die abonnierten Themen, und die Statistikkachel lädt die Übersicht nicht mehr komplett neu."
+    },
+    "doc_title": {
+      "*": "The statistics tile updates live in place"
     }
   },
   "134": {
@@ -1154,11 +1185,17 @@
         "en": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
         "image": "dashboard-settings-versions.png"
       }
+    },
+    "doc_title": {
+      "*": "Release highlights also come in German, shown in the dashboard and installer"
     }
   },
   "135": {
     "de": {
       "*": "Gerätekacheln in der Übersicht und im Geräte-Tab werden direkt aus dem Ereignisstrom aktualisiert, ohne die ganze Ansicht neu zu laden."
+    },
+    "doc_title": {
+      "*": "Device tiles update live without reloading"
     }
   },
   "137": {
@@ -1168,16 +1205,19 @@
     "details": {
       "*": {
         "crop": [
-          0.26,
-          0.41,
-          0.355,
-          0.155
+          0.628,
+          0.305,
+          0.342,
+          0.152
         ],
         "de": "Die Einstellung Versionen im Changelog steht im Tab Versionen. Die letzten 5 sind voreingestellt, und die letzten 20 sind das Meiste, was ein Paket mitbringt. Alle zeigt zusätzlich die älteren Versionen, die das Gerät von früheren Updates behalten hat.",
         "doc": "dashboard/settings-versions.html",
         "en": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
         "image": "dashboard-settings-versions.png"
       }
+    },
+    "doc_title": {
+      "*": "Choose how many changelog versions show, kept on the device across updates"
     }
   },
   "138": {
@@ -1245,6 +1285,9 @@
           }
         ]
       }
+    },
+    "doc_title": {
+      "*": "The MQTT tab explains the Mosquitto bridge and picks system metrics in one list"
     }
   },
   "141": {
@@ -1283,6 +1326,9 @@
           }
         ]
       }
+    },
+    "doc_title": {
+      "*": "The history page offers fitting resolutions in a dropdown and a 3 month preset"
     }
   },
   "142": {
@@ -1302,6 +1348,9 @@
         "en": "Additional sensors offers House load measured, House load calculated and one sensor per wallbox, heat pump and custom category. All are on by default. Deselect one and the dashboard removes it from Home Assistant, select it again to bring it back.",
         "image": "dashboard-settings-mqtt-sensors.png"
       }
+    },
+    "doc_title": {
+      "*": "Home Assistant gets sensors for wallbox, heat pump and custom categories"
     }
   },
   "143": {
@@ -1343,11 +1392,17 @@
           }
         ]
       }
+    },
+    "doc_title": {
+      "*": "House load is always calculated, with a house meter as cross-check"
     }
   },
   "144": {
     "de": {
       "*": "Hilfetexte, Device-Map, Energierollen und Statistik passen auf schmale Bildschirme, und in der Statistik sind Einspeisung und Batterieladung schraffiert."
+    },
+    "doc_title": {
+      "*": "Help texts, device map, energy roles and statistics fit narrow screens"
     }
   },
   "145": {
@@ -1428,6 +1483,9 @@
           }
         ]
       }
+    },
+    "doc_title": {
+      "*": "The device map shows switched-off devices, which fade out with an off label"
     }
   },
   "146": {
@@ -1447,6 +1505,9 @@
         "en": "A switch is now an energy role with an optional channel. Every switched connection shows a green or red circle, and only the connection on a switched off channel is cut. The channel of a connection is chosen in its card.",
         "image": "dashboard-device-map-switch-channel.png"
       }
+    },
+    "doc_title": {
+      "*": "Switches are an energy role with an optional channel, shown as green or red"
     }
   },
   "147": {
@@ -1471,6 +1532,9 @@
         "en": "Name single appliances on a meter as sub-devices. They appear in the device map, in the device dialog and on the energy page, so a washing machine behind a plug gets its own place.",
         "image": "dashboard-device-map-sub-device.png"
       }
+    },
+    "doc_title": {
+      "*": "Single appliances on a meter can be named as sub-devices in the device map"
     }
   },
   "149": {

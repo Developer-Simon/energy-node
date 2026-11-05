@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.13 (2026-11-03)
+## v0.3.0 (2026-11-05)
 
 ### Features
 
@@ -29,9 +29,9 @@
 
 - **installer:** skip recommended apt packages and clean the package cache (#192) (bc356b2)
 - **installer:** The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password. (#194) (ef2d7d6)
+- **onboarding:** apply the installer admin name and detect more setup steps as done (#202) (c3a37e8)
 - **installer:** apply the dashboard name rule and unique names in the dashboard step (4d8ba78)
 - **installer:** pass the admin username from the dashboard step to step 60 (623ab0a)
-- **onboarding:** apply the installer admin name and detect more setup steps as done (#202)
 - **installer:** reword the MQTT login failure text (85eb618)
 - **installer:** fit the issue markdown after scrubbing and mask ipv6 after a colon (a17aae8)
 - **installer:** keep the diagnose columns from collapsing under the live log card (4c87895)
@@ -53,6 +53,8 @@
 
 ### Tests
 
+- **docs:** script the connect, fingerprint and result installer screenshots (c230110)
+- **docs:** script the installer screenshots for the new steps (df08a14)
 - **installer:** add a refused MQTT login scenario to the fake host (246dac1)
 - **installer:** cover the MQTT password repair dialog in the browser (ef7eb33)
 - **installer:** fake live logs and cover the issue copy end to end (ce61140)
@@ -61,6 +63,7 @@
 
 ### Chores
 
+- **release:** prepare v0.11.0 (#203)
 - **fakehost:** add --journal-step to show the RAM journal step (49932e3)
 
 ## v0.2.6 (2026-10-20)

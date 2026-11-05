@@ -98,7 +98,8 @@ def check(repo, pr):
 
 def validate(repo):
     translations = highlight_i18n.load_translations(repo / highlight_i18n.TRANSLATIONS_DIR)
-    problems = highlight_details.validate(repo, translations) + highlight_tours.validate(translations)
+    problems = (highlight_details.validate(repo, translations) + highlight_tours.validate(translations)
+                + highlight_i18n.validate_doc_titles(translations))
     for problem in problems:
         print(problem)
     return 1 if problems else 0
