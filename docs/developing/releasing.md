@@ -196,6 +196,39 @@ entry to the open section of every component the PR changes. Editing the title
 or the description runs the workflow again and updates the entry, so a release
 cut right after the merge already lists the PR.
 
+### What's new page
+
+The [What's new](../whats-new.html) page lists the highlights since v0.8.0, one
+section per release, newest first. It shows the bundle components, the installer
+and its web UI, but no Home Assistant component. Highlights newer than the last
+tag sit at the top under "Next release".
+
+Within a release, the highlights come in this order:
+
+* A highlight with an image (`details.image`) comes first as a large card with
+  the image on the right.
+* A highlight with a detail text (`details.*`) follows as a card.
+* A highlight with only a tour (`tour`) follows as a collapsed block that lists
+  the tour steps.
+* A highlight with only a title sits in one collapsed "N more changes" block.
+
+The "By area" view groups the same highlights by area. An area is the navigation
+section of the doc page that the highlight links to (`details.doc`). Without a
+doc link, the changelog scope decides, and without a scope, the component. All
+installer components count as "Installer".
+
+The page shows the PR title. To word a highlight differently there, add
+`doc_title` to its `changelog/highlights/<PR>.json` next to `de`. Its keys are the
+same as in `de`, a component target or `*`. The text is English, without a full
+stop and without a semicolon:
+
+```json
+{"de": {"*": "Die Statistikseite funktioniert auf dem Handy."}, "doc_title": {"*": "The statistics page works on a phone"}}
+```
+
+`doc_title` only changes the What's new page, the changelog keeps the highlight
+text. `highlight_translations.py validate` checks the field.
+
 ### Translations
 
 Every highlight also needs a German text. It lives in

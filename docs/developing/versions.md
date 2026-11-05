@@ -14,7 +14,7 @@ that tag. They are generated during the site build by
 Components marked "Node bundle" ship in the signed bundle that the installer
 and the dashboard updater put on the node. The installer and the Home
 Assistant integrations are released on their own, so their versions at a tag
-only tell you what was on `main` at that point.
+only tell you what was on `main` at that point. The highlights of each release are listed on the [What's new](../whats-new.html) page.
 
 {% assign releases = site.data.release_versions.releases %}
 {% if releases and releases.size > 0 %}
