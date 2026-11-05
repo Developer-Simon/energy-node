@@ -50,7 +50,7 @@ Since layout v3 (Spec F), `GET /api/v1/layout` also returns `card_types`. It
 maps each item type to `{min_span, min_width, min_height, fills_height,
 default_span}` from `internal/settings/cardcatalog.go`, the one place that
 defines how much space each card type needs. Instead of coordinates, an item
-carries `span` (size class `"1"`–`"6"` or `"full"`) and optionally `height` (a
+carries `span` (size class `"1"` to `"6"` or `"full"`) and optionally `height` (a
 fixed height of 1 to 12 units of 7 rem). `card_types` is only output, and `PUT`
 ignores it.
 

@@ -207,7 +207,7 @@ Within a release, the highlights come in this order:
 
 * A highlight with an image (`details.image`) comes first as a large card with
   the image on the right.
-* A highlight with a detail text (`details.*`) follows as a card.
+* A highlight with a detail text (the `en` text in `details`) follows as a card.
 * A highlight with only a tour (`tour`) follows as a collapsed block that lists
   the tour steps.
 * A highlight with only a title sits in one collapsed "N more changes" block.
@@ -217,7 +217,7 @@ section of the doc page that the highlight links to (`details.doc`). Without a
 doc link, the changelog scope decides, and without a scope, the component. All
 installer components count as "Installer".
 
-The page shows the PR title. To word a highlight differently there, add
+The page shows the highlight text from the changelog. To word a highlight differently there, add
 `doc_title` to its `changelog/highlights/<PR>.json` next to `de`. Its keys are the
 same as in `de`, a component target or `*`. The text is English, without a full
 stop and without a semicolon:
