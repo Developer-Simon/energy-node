@@ -1,0 +1,4848 @@
+{
+ "releases": [
+  {
+   "tag": "next",
+   "label": "Next release",
+   "date": "not released yet",
+   "cards": [
+    {
+     "pr": 193,
+     "title": "The installer diagnose shows a live log of the dashboard and the updater service with their state",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "The Live log card in the diagnostics follows the dashboard and the updater, so you can find out without SSH why the dashboard does not start. Under “Lines in report” you choose how many lines the report takes along. “Copy for issue” copies it for a GitHub issue, with addresses, names and passwords masked.",
+     "image": {
+      "name": "installer-diagnose.png",
+      "style": "aspect-ratio:2.727;background-size:100.00% auto;background-position:0.00% 91.04%"
+     },
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 190,
+     "title": "The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Deploying with the installer",
+     "kind": "image",
+     "text": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
+     "image": {
+      "name": "installer-dashboard-step.png",
+      "style": null
+     },
+     "doc": {
+      "url": "installer.html#4-dashboard",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 187,
+     "title": "The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Deploying with the installer",
+     "kind": "image",
+     "text": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
+     "image": {
+      "name": "installer-sudo.png",
+      "style": null
+     },
+     "doc": {
+      "url": "installer.html#sudo-password",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 183,
+     "title": "Mobile view for the statistics page",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Statistics",
+     "kind": "image",
+     "text": "On narrow screens the statistics page shows a table of intervals or a grid, and the period sits in a pill at the bottom.",
+     "image": {
+      "name": "dashboard-statistics-mobile.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/statistics.html#on-a-phone",
+      "title": "Energy statistics"
+     },
+     "tour": [
+      {
+       "title": "Statistics on the phone",
+       "text": "On a phone the table switches here between intervals and a grid."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 180,
+     "title": "Star favourites, a per-entity analysis tab and two device rights",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Devices",
+     "kind": "image",
+     "text": "The Analysis tab lists the warnings and every entity of the device with its topic, its last message and the commands sent to it. It needs the right to see the device analysis, and choosing favourites needs the right to style devices.",
+     "image": {
+      "name": "dashboard-device-modal-manage.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-modal.html#analysis",
+      "title": "Device dialog"
+     },
+     "tour": [
+      {
+       "title": "Favourite values",
+       "text": "Favourites stay on the tile of a device. You choose them in the device details."
+      },
+      {
+       "title": "Set the star",
+       "text": "Mark up to three values as favourites with the star. They then stay on the tile and at the top of the device details."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 171,
+     "title": "Install the offered update from the update bar",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "When a newer release is out, the bar under the header offers it. Install now asks once more and then updates right away. Prepare installation opens the installer page.",
+     "image": {
+      "name": "dashboard-update-available.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html#updating-from-the-dashboard",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Update right in the dashboard",
+       "text": "An update no longer needs the installer. Install now starts a quick update right in the dashboard."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 170,
+     "title": "Permissions are enforced: accounts only see the pages they may view and only change what they may change",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "You set permissions under Settings, Users. The settings permission is now split into “Change the appearance” and “Set up the dashboard”. Existing accounts keep what they were allowed to do. An account without a view permission sees only a notice and its own account.",
+     "image": {
+      "name": "dashboard-settings-users-permissions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-users.html#permissions",
+      "title": "Settings: Users"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 164,
+     "title": "The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "image",
+     "text": "A scenario has three phases. Start holds the conditions that begin it, While is what happens during the scenario and End holds the actions when it stops. The usual use is a regulator that keeps the grid balance near a target.",
+     "image": {
+      "name": "dashboard-automation.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/automations-scenarios.html#scenarios",
+      "title": "Automations: Scenarios"
+     },
+     "tour": [
+      {
+       "title": "Scenarios and single rules",
+       "text": "Next to single rules there are now scenarios. A scenario runs in phases instead of following one fixed rule. Single rules got an improved live view, and scenarios can also show charts in control mode."
+      },
+      {
+       "title": "Reworked single rules",
+       "text": "Single rules have been reworked. A rule opens up and shows its conditions, actions and flow in one card."
+      },
+      {
+       "title": "Days of the month",
+       "text": "A time window applies on the chosen weekdays. Under Advanced you limit it to certain days of the month, for example only the 1st and the 15th."
+      },
+      {
+       "title": "Assistant",
+       "text": "The assistant helps you create new scenarios and rules. In a short dialog you fit the template to your devices and set extra conditions. There are templates for zero feed-in, using surplus power and watching devices, among others."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 198,
+     "title": "Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind \"Explore further back\", and each older release card can catch up on its tour",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "text",
+     "text": "Every visible feature since version 0.8.0 has a tour. Releases older than the last three minor versions open step by step under Explore further back. On every older release card, Take the tour plays all tours of that release. Once all are seen, the button reads Repeat tour.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 197,
+     "title": "Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "text",
+     "text": "Under Settings, Checklist you find the Explore mode. It lists the highlights of the last three minor versions, one card per release. Highlights with a tour walk you through the change on the real pages, the others show their description.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 196,
+     "title": "Render tuning findings from a shared message catalog",
+     "components": [
+      "Dashboard",
+      "energy_node_common",
+      "battery_soc_core"
+     ],
+     "area": "Battery SoC",
+     "kind": "text",
+     "text": "The notes under Calibration and tuning now appear in the language of the dashboard, before they always came in German. Home Assistant shows them in its own language.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 194,
+     "title": "The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "text",
+     "text": "If the broker rejects the password, the diagnostics show the MQTT login check as failed. The repair opens the dialog “Set a new MQTT password”, where you enter a new password or create one with “Random password”. The node and the broker then both receive it.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 192,
+     "title": "Skip recommended apt packages and clean the package cache",
+     "components": [
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "text",
+     "text": "The installer no longer loads recommended extra packages. That keeps about 400 MB of compilers the device does not need off it. After the apt steps it deletes the downloaded package files, so small SD cards do not fill up.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 189,
+     "title": "The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "text",
+     "text": "If the device's Python version does not match the package, the preparation stops with “Process paused, confirmation required”. With “Load dependencies online” the installer loads the remaining dependencies from the internet. The device needs internet access for this.",
+     "image": null,
+     "doc": {
+      "url": "installer.html#python-version-of-the-pi",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 188,
+     "title": "A guided first-time setup walks admins through access, display, system and devices, with a welcome step first",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "text",
+     "text": "As an admin, a bar at the bottom walks you through the real settings pages, and a spotlight marks the setting of each step. What an existing install already has set is checked off, and you can put off any step with “Later”. Anything still open is in the checklist afterwards. Guests see a note until the setup is finished.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 185,
+     "title": "Redesign the login card and link the favicon",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "text",
+     "text": "The sign-in card has a new design. A bug with the favicon is also fixed.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 184,
+     "title": "Guests can only view by default, and an admin can switch guest access off",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "text",
+     "text": "Guests may only view by default. An admin can switch guest access off in the guest card of user management. The sign-in page then no longer offers guest access, and running guest sessions end.",
+     "image": null,
+     "doc": {
+      "url": "dashboard/settings-users.html#guest-access",
+      "title": "Settings: Users"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 178,
+     "title": "Redesign the toast with glass, timer line and swipe to dismiss",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "text",
+     "text": "The line at the bottom shows how long a toast stays. While the pointer rests on it, the time stops. Swiping right closes the toast. Every message disappears on its own, warnings and critical messages stay longer.",
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "New notifications",
+       "text": "The time left on a notification is now shown by a running-down bar. You can also dismiss the message directly by swiping."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 175,
+     "title": "Automation windows can be limited to days of the month",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "In the editor, time and sun windows have the collapsible section “Advanced: days of the month”. There you pick days from 1 to 31. The day the window starts counts, as with the weekdays.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 174,
+     "title": "Sign in home assistant users through the companion",
+     "components": [
+      "Dashboard",
+      "Bootstrap"
+     ],
+     "area": "Settings",
+     "kind": "text",
+     "text": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
+     "image": null,
+     "doc": {
+      "url": "dashboard/settings-users.html#home-assistant-users",
+      "title": "Settings: Users"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 169,
+     "title": "The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "The template asks “How tight should it regulate?”. You move the window by dragging, tapping or with the arrow keys, or you pick one of the cards Tight, Balanced and Careful. With “Adjust tolerance” you also drag the width of the band. The bars show yesterday's spread of the grid power, moved to the new target.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 168,
+     "title": "Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "When you open a rule on the Automations page, a strip shows its last four triggers. On a phone the assistant opens as a sheet at the bottom that you drag down to close.",
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Latest triggers",
+       "text": "When you open a rule, a strip shows its last four triggers."
+      },
+      {
+       "title": "Assistant as a sheet",
+       "text": "On a phone the assistant opens as a sheet at the bottom. Drag it down to close it."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 167,
+     "title": "Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy Node Companion",
+     "kind": "text",
+     "text": "Home Assistant users sign in through the Energy Node Companion integration. From version 0.4.0 it pairs with the dashboard through a pairing code from the Home Assistant card on the Users page. The guide links to the integration on GitHub.",
+     "image": null,
+     "doc": {
+      "url": "ha/companion.html",
+      "title": "Energy Node Companion for Home Assistant"
+     },
+     "tour": [
+      {
+       "title": "Users and permissions",
+       "text": "User management lets you give every user finely tuned permissions."
+      },
+      {
+       "title": "Sessions",
+       "text": "Sessions lists everyone who is signed in right now."
+      },
+      {
+       "title": "Create user",
+       "text": "Create a new account here."
+      },
+      {
+       "title": "Guest access",
+       "text": "Guests may only view by default. This switch turns guest access off completely."
+      },
+      {
+       "title": "Home Assistant users",
+       "text": "User management also supports Home Assistant users. A pairing code connects the companion once. The connection then stays. This needs the Energy Node Companion integration from version 0.4.0 on."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 166,
+     "title": "A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "You open it on the Automations page with “Assistant”. It shows the templates that fit your devices and names the missing device for the others. “Without a template” creates an empty rule or scenario.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 163,
+     "title": "Automation rules can repeat their actions while their conditions hold",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "The rule editor has the field “Repeat every (s)” for this. While all conditions hold, the rule sends its actions again at this interval. 0 means once per trigger. Repeat does not work with a toggle action.",
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Repeat actions",
+       "text": "In the rule editor you set under Flow how often the rule sends its actions again while all conditions hold. 0 means once per trigger."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 186,
+     "title": "Onboarding bar, spotlight and checklist",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Set up and explore",
+       "text": "From now on the checklist shows what there is to discover after every update. It also offers a first setup, which you can still do later."
+      },
+      {
+       "title": "Guided tours",
+       "text": "A guided tour like this one shows you where to find the new features."
+      },
+      {
+       "title": "Catch up on tours",
+       "text": "You can also catch up on older tours if you want to discover what you might have missed."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 202,
+     "title": "Apply the installer admin name and detect more setup steps as done",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "First-time setup",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 201,
+     "title": "Tours with actions, guest and favourite steps, news offer",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 200,
+     "title": "Log restricted logins and reject password changes of HA accounts",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Users and permissions",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 195,
+     "title": "The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 191,
+     "title": "A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects",
+     "components": [
+      "Bootstrap",
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 181,
+     "title": "Stop the main tab \"More\" list from refitting itself in a loop",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 172,
+     "title": "New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 165,
+     "title": "Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    }
+   ]
+  },
+  {
+   "tag": "v0.10.8",
+   "label": "v0.10.8",
+   "date": "22 Oct 2026",
+   "cards": [
+    {
+     "pr": 161,
+     "title": "The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Diagnostics",
+     "kind": "image",
+     "text": "The Service logs section on the diagnostics page shows the journal of one service at a time. Choose the service, the time range and the number of lines, search the loaded lines and turn on Refresh automatically to see new lines every 5 seconds. It needs the system_actions role.",
+     "image": {
+      "name": "dashboard-service-logs.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/diagnostics.html#service-logs",
+      "title": "Diagnostics"
+     },
+     "tour": [
+      {
+       "title": "Service logs",
+       "text": "Read the logs of every service here, to find errors or report them on GitHub. The search filters the lines, and the view can refresh in live mode."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 160,
+     "title": "The dashboard title and subtitle can be changed or hidden",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The Masthead card on the Appearance page sets the title and subtitle at the top of every page. An empty field keeps the default text, and each line can be hidden. The title also names the browser tab and the sign-in page.",
+     "image": {
+      "name": "dashboard-settings-display.png",
+      "style": "aspect-ratio:1.464;background-size:281.69% auto;background-position:96.12% 20.77%"
+     },
+     "doc": {
+      "url": "dashboard/settings-appearance.html",
+      "title": "Settings: Appearance"
+     },
+     "tour": [
+      {
+       "title": "Title and subtitle",
+       "text": "You can now adapt the masthead of the dashboard. You can also hide it completely."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 159,
+     "title": "Settings pages are listed in a sidebar, on phones in a sheet from the bottom",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The settings pages sit in a sidebar, each with an icon and a short description. On a phone a button above the content shows the current page and opens the full list as a sheet from the bottom.",
+     "image": {
+      "name": "dashboard-settings-general.png",
+      "style": "aspect-ratio:1.534;background-size:166.67% auto;background-position:5.00% 25.53%"
+     },
+     "doc": {
+      "url": "dashboard/settings.html",
+      "title": "Settings"
+     },
+     "tour": [
+      {
+       "title": "Settings sidebar",
+       "text": "The settings pages now sit in this sidebar, each with a short description."
+      },
+      {
+       "title": "Settings pages",
+       "text": "The settings pages now sit in a list, each with a short description. Tap here to open it."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 158,
+     "title": "The device map can hide connections by type (energy, data, info) with a new filter button",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The filter button next to the display menu hides energy, data or informational connections and the lines to the automation node, with one switch per type. It only changes what this browser draws.",
+     "image": {
+      "name": "dashboard-device-map-filter-menu.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#connection-types",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Filter connections",
+       "text": "With the filter button you can now hide connection types (energy, data or info connections) and the automation node for a while. The change no longer applies to everyone for good, only to you in this browser."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 157,
+     "title": "Use a working health threshold",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Diagnostics",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 153,
+     "title": "Clearer update notice, firewall station completes, service steps skip unchanged libraries",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.8"
+    }
+   ]
+  },
+  {
+   "tag": "v0.10.0",
+   "label": "v0.10.0",
+   "date": "19 Oct 2026",
+   "cards": [
+    {
+     "pr": 148,
+     "title": "Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "Name single appliances on a meter as sub-devices. They appear in the device map, in the device dialog and on the energy page, so a washing machine behind a plug gets its own place.",
+     "image": {
+      "name": "dashboard-device-map-sub-device.png",
+      "style": "aspect-ratio:2.066;background-size:277.78% auto;background-position:23.44% 52.78%"
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#sub-devices",
+      "title": "Device map"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 146,
+     "title": "Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "A switch is now an energy role with an optional channel. Every switched connection shows a green or red circle, and only the connection on a switched off channel is cut. The channel of a connection is chosen in its card.",
+     "image": {
+      "name": "dashboard-device-map-switch-channel.png",
+      "style": "aspect-ratio:1.637;background-size:181.82% auto;background-position:66.67% 100.00%"
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#switchable-devices",
+      "title": "Device map"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 145,
+     "title": "The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The device map marks every device without power as off and fades it out. A switched off output cuts the connection behind it.",
+     "image": {
+      "name": "dashboard-device-map-switch-channel.png",
+      "style": "aspect-ratio:2.678;background-size:200.00% auto;background-position:100.00% 24.29%"
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#switchable-devices",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Switched off devices",
+       "text": "Devices with a switch state can now get the role Switches. The map then shows how switching off cuts a chain of devices. Switched off devices are greyed out and marked as off."
+      },
+      {
+       "title": "Legend",
+       "text": "Display and filter are separate menus now. What you set under Display applies only to you in this browser."
+      },
+      {
+       "title": "Sub-devices",
+       "text": "A consumer behind a smart plug, such as a washing machine, can now be added as a sub-device. It gets its own name, its own icon and its own node on the map, and the energy page and the device dialog show its name instead of the plug's measurement."
+      },
+      {
+       "title": "Hidden energy roles",
+       "text": "In the role table you can now only hide entries that have no role yet. Hidden entries no longer show in the device map either."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 143,
+     "title": "The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy",
+     "kind": "image",
+     "text": "House consumption is now always calculated from the balance. A house meter serves as a cross check and replaces the calculation only when no grid role is assigned. A line below the modes shows where the value comes from and how far the meter deviates.",
+     "image": {
+      "name": "dashboard-energy-interpretation.png",
+      "style": "aspect-ratio:3.369;background-size:100.00% auto;background-position:0.00% 14.58%"
+     },
+     "doc": {
+      "url": "dashboard/energy.html#balance-interpretation",
+      "title": "Energy"
+     },
+     "tour": [
+      {
+       "title": "Balance interpretation",
+       "text": "The Automatic mode takes over from the former Combined mode. It builds the house consumption from the balance and subtracts the metered consumers, with the house meter as a cross-check. The status line shows the current deviation right away."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 142,
+     "title": "The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "Additional sensors offers House load measured, House load calculated and one sensor per wallbox, heat pump and custom category. All are on by default. Deselect one and the dashboard removes it from Home Assistant, select it again to bring it back.",
+     "image": {
+      "name": "dashboard-settings-mqtt-sensors.png",
+      "style": "aspect-ratio:1.894;background-size:100.00% auto;background-position:0.00% 55.00%"
+     },
+     "doc": {
+      "url": "dashboard/settings-mqtt.html",
+      "title": "Settings: MQTT"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 141,
+     "title": "The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "History",
+     "kind": "image",
+     "text": "The first pill above the chart lists the resolutions that fit the chosen span and shows how much of it each one covers. The automatic choice is the coarsest resolution that has data. A week or longer shows hourly values from the energy statistics, and there is a quick choice for 3 months.",
+     "image": {
+      "name": "dashboard-history.png",
+      "style": "aspect-ratio:4.112;background-size:100.00% auto;background-position:0.00% 14.93%"
+     },
+     "doc": {
+      "url": "dashboard/history.html#resolutions",
+      "title": "History"
+     },
+     "tour": [
+      {
+       "title": "Resolution",
+       "text": "You can now adjust the resolution for each span. The coarsest one is preselected, because fewer points draw more smoothly."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 138,
+     "title": "The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "System metrics such as Wi-Fi signal or undervoltage are published as diagnostic entities. Remove a metric from the selection to stop publishing it and add it again to resume. Changes are saved at once and need a login with configuration rights over HTTPS.",
+     "image": {
+      "name": "dashboard-settings-mqtt-metrics.png",
+      "style": "aspect-ratio:1.975;background-size:100.00% auto;background-position:0.00% 50.00%"
+     },
+     "doc": {
+      "url": "dashboard/settings-mqtt.html",
+      "title": "Settings: MQTT"
+     },
+     "tour": [
+      {
+       "title": "Bridge to the main site",
+       "text": "A step list now explains how to set up the MQTT bridge to the main site. If you already have a connection, there is nothing to do here."
+      },
+      {
+       "title": "System metrics",
+       "text": "The metrics published over MQTT can now be filtered."
+      },
+      {
+       "title": "Sensors for Home Assistant",
+       "text": "Next to the energy values, sensors for wallbox, heat pump and your own categories now go to Home Assistant as well. Each one is sent by default, and you can deselect it here."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 137,
+     "title": "Choose how many versions the changelog shows, with the history kept on the device across updates",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": "aspect-ratio:2.081;background-size:292.40% auto;background-position:95.44% 35.97%"
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 134,
+     "title": "Release highlights now have a German text that shows in the dashboard, the installer and the release notes",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Highlights in German",
+       "text": "The highlights are now available in German too."
+      },
+      {
+       "title": "Versions in the changelog",
+       "text": "Leave older versions out of the view while you browse the changes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 132,
+     "title": "Energy statistics tile, page and recording mode",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Statistics",
+     "kind": "image",
+     "text": "The Statistics tab shows consumption, PV yield, grid import, feed-in and the battery flows for a day, week, month or year. The node records the hours itself, and with the companion the hours from Home Assistant replace them. A tile with the same figures is available for the overview.",
+     "image": {
+      "name": "dashboard-statistics.png",
+      "style": "aspect-ratio:1.941;background-size:100.00% auto;background-position:0.00% 16.67%"
+     },
+     "doc": {
+      "url": "dashboard/statistics.html",
+      "title": "Energy statistics"
+     },
+     "tour": [
+      {
+       "title": "Energy statistics",
+       "text": "Find out what your energy system yields over time. Choose a span and a point in time, such as a day, a week, a month or a year."
+      },
+      {
+       "title": "Key figures",
+       "text": "For the chosen period you see key figures on consumption, PV yield, grid import, feed-in and the battery flows."
+      },
+      {
+       "title": "Statistics card",
+       "text": "The statistics are also available as a card for the overview. Its key figures and chart can be set for a fixed or a selectable period."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 152,
+     "title": "Expandable highlight details in the what's new dialog",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Updates",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 151,
+     "title": "Options for the energy statistics card",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 150,
+     "title": "Settings in card layout and aligned panel headings",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 149,
+     "title": "The device map shows the right edge of its canvas again",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Devices",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 147,
+     "title": "Hide only role-less entries and share the list with the device map",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 144,
+     "title": "Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 135,
+     "title": "Device tiles patched from the devices topic without fragment swaps",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 133,
+     "title": "SSE topic subscriptions and a swap-free statistics tile",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 131,
+     "title": "Fit the update result screen to the dashboard host",
+     "components": [
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 130,
+     "title": "Hourly energy statistics from Home Assistant via the companion",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    }
+   ]
+  },
+  {
+   "tag": "v0.9.8",
+   "label": "v0.9.8",
+   "date": "12 Oct 2026",
+   "cards": [
+    {
+     "pr": 126,
+     "title": "Merge the balance node into the energy_node device",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The Energy Node is the balance itself, the device the dashboard publishes for Home Assistant. It shows the net grid power, and the Roles layer connects every device with an energy role to it.",
+     "image": {
+      "name": "dashboard-device-map-balance.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#roles-layer",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Energy Node device",
+       "text": "The balance now shows as a value of the Energy Node. The automations also appear as a device of their own and link to their rules."
+      },
+      {
+       "title": "Connection types",
+       "text": "Connections now have a type. Every connection you drew between two devices can be turned around."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 125,
+     "title": "Show exchange and history status as tiles",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The History page of the settings switches the exchange between devices and chooses when this browser exchanges. Below the choices a status tile shows whether the exchange is connected and how many values it added.",
+     "image": {
+      "name": "dashboard-settings-history.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-history.html",
+      "title": "Settings: History"
+     },
+     "tour": [
+      {
+       "title": "Device exchange",
+       "text": "In the device exchange you can now fetch only while a history is shown. That keeps the view smoother when you do not need the history right now. The status tile shows the active connections."
+      },
+      {
+       "title": "History status",
+       "text": "The status line now tells you more about the data it has."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.8"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 129,
+     "title": "Connection types with flow direction and reversible manual edges",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 128,
+     "title": "Hourly energy statistics recorded on the server",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 127,
+     "title": "Hang the automation device under the node and link its rules",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Device map",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 124,
+     "title": "Exchange history only on demand",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 123,
+     "title": "Show update progress and what's new after an update",
+     "components": [
+      "Dashboard",
+      "Installer"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 121,
+     "title": "List every step and service as its own run station",
+     "components": [
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 119,
+     "title": "Serve the automation history in full",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    }
+   ]
+  },
+  {
+   "tag": "v0.9.0",
+   "label": "v0.9.0",
+   "date": "10 Oct 2026",
+   "cards": [
+    {
+     "pr": 108,
+     "title": "Energy groups and custom categories",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy",
+     "kind": "image",
+     "text": "A group bundles devices without a meter of their own. With Count as a whole on, it counts in one consumer category, which you pick or create in place. Custom categories add your own consumer, producer or storage types.",
+     "image": {
+      "name": "dashboard-energy-groups.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/energy.html#groups",
+      "title": "Energy"
+     },
+     "tour": [
+      {
+       "title": "Plant live",
+       "text": "The arrangement from the device map with the live flow and the balance is now on the energy page too. Click a device to light up its rows in the role table."
+      },
+      {
+       "title": "Groups",
+       "text": "Groups let you add up several devices in the overview. You can also give the whole group a new consumer category."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 103,
+     "title": "Device map layers, role rings and focus",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The layer bar switches between Wiring, Live energy, Data flow and Roles. The view belongs to this browser, and Save as default writes it into the map for every browser.",
+     "image": {
+      "name": "dashboard-device-map.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#layers-and-view",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Device map",
+       "text": "The device map has been reworked from the ground up. It now shows how your devices hang together in terms of energy. Click a device to highlight its connections to the others."
+      },
+      {
+       "title": "Live energy",
+       "text": "With Live energy you see the energy flows live on the device map."
+      },
+      {
+       "title": "Data flow",
+       "text": "Shows which automation in your system controls or reads what."
+      },
+      {
+       "title": "Roles",
+       "text": "Draws lines to every device that has an energy role."
+      },
+      {
+       "title": "Assign roles",
+       "text": "Select a device to give it an energy role right on the map."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 101,
+     "title": "Redesign the diagnostics tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Diagnostics",
+     "kind": "image",
+     "text": "The diagnostics page sums up the state in one line, counts the discovery devices and lists the findings with the affected devices.",
+     "image": {
+      "name": "dashboard-diagnosis.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/diagnostics.html",
+      "title": "Diagnostics"
+     },
+     "tour": [
+      {
+       "title": "Diagnostics at a glance",
+       "text": "See at a glance how your system is doing. The line under the title sums up its state, and its dot glows green, yellow or red."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 99,
+     "title": "Add history view tiles to the overview layout",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Overview & layout editor",
+     "kind": "image",
+     "text": "The History card shows a chart from the history page. Its options choose the source, the period, the statistic and the series.",
+     "image": {
+      "name": "dashboard-card-history-view.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/overview-cards.html#history",
+      "title": "Overview cards"
+     },
+     "tour": [
+      {
+       "title": "History on the overview",
+       "text": "History charts are now available as an overview tile too. You set it up with a saved view or a new combination."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 98,
+     "title": "Show the config service status as a pill",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Configuration editor",
+     "kind": "image",
+     "text": "After saving, the service reloads its file. If it refuses the new file, it keeps the old one and the status pill says so.",
+     "image": {
+      "name": "dashboard-config.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/configuration.html",
+      "title": "Configuration editor"
+     },
+     "tour": [
+      {
+       "title": "Service status",
+       "text": "Every service now shows whether it runs and whether it took the last saved file."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 115,
+     "title": "Custom energy categories in automations and editor polish",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Your categories in rules",
+       "text": "A threshold can watch your custom categories from the energy page. The field selection lists them under Custom categories."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 114,
+     "title": "Reorganise the device icon catalogue",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Pick a tile",
+       "text": "Every device has a tile. Details opens the device, and there you choose its icon."
+      },
+      {
+       "title": "Icon catalogue",
+       "text": "The icons you can choose for a device are now sorted into categories, and there are more variants."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 112,
+     "title": "Settings polish and local docs serve",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 111,
+     "title": "Polish the device map and the energy tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 110,
+     "title": "Live plant view on the energy tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 109,
+     "title": "Data flow and balance layers on the device map",
+     "components": [
+      "Dashboard",
+      "Automation",
+      "Battery SoC"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 107,
+     "title": "Edit energy roles on the device map",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 105,
+     "title": "Live energy flow on the device map",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 102,
+     "title": "Skip unchanged update steps and keep the session across the restart",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 91,
+     "title": "Make saving the system configuration work and report it properly",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 90,
+     "title": "Check and install system package updates (opt-out)",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    }
+   ]
+  },
+  {
+   "tag": "v0.8.5",
+   "label": "v0.8.5",
+   "date": "4 Oct 2026",
+   "cards": [
+    {
+     "pr": 84,
+     "title": "The changelog pages open on the highlights, the switch at the top shows everything",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Highlights first",
+       "text": "You can now filter the highlights out of the changes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.5"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 85,
+     "title": "Add Energy Node Companion as a history exchange peer",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.5"
+    },
+    {
+     "pr": 83,
+     "title": "Remember the access details in the OS keychain",
+     "components": [
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.5"
+    }
+   ]
+  },
+  {
+   "tag": "v0.8.3",
+   "label": "v0.8.3",
+   "date": "1 Oct 2026",
+   "cards": [
+    {
+     "pr": 82,
+     "title": "Ship changelog.json in the bundle and show what is new before an update",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The update page lists the changes of the new package. The preview also shows which components change and which services restart.",
+     "image": {
+      "name": "dashboard-update-preview.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html#updating-from-the-dashboard",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "See what is new first",
+       "text": "Before you install an update, View changes on the update page lists what the new package changes, breaking changes first."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.3"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 81,
+     "title": "Rest the battery flow icon on its fill level at 0 W",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 80,
+     "title": "Keep the changed service selection in the update preview",
+     "components": [
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 79,
+     "title": "Transfer only changed bundle files to the node",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 78,
+     "title": "Save the state on an interval and recover after a crash",
+     "components": [
+      "Dashboard",
+      "Battery SoC",
+      "energy_node_common"
+     ],
+     "area": "Battery SoC",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 76,
+     "title": "Break down versions per service in preview and diagnostics",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    }
+   ]
+  },
+  {
+   "tag": "v0.8.0",
+   "label": "v0.8.0",
+   "date": "29 Sep 2026",
+   "cards": [
+    {
+     "pr": 71,
+     "title": "Show installed component versions under settings",
+     "components": [
+      "Dashboard",
+      "Shared services",
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The Versions page shows the installed package and every component with its version. A service that is not installed is marked as such.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Installed versions",
+       "text": "The versions page now lists every piece of software with its version. Changes opens its changelog."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 63,
+     "title": "Weekdays in the editor and a sun_window condition",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "image",
+     "text": "In the rule editor a time window takes weekdays, and the sun window follows sunrise and sunset at the location from the settings.",
+     "image": {
+      "name": "dashboard-automation.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/automations-rules.html#rule-editor",
+      "title": "Automations: Single rules"
+     },
+     "tour": [
+      {
+       "title": "Weekdays",
+       "text": "You can now also set weekdays for automations. Without a selection an automation applies every day."
+      },
+      {
+       "title": "Sun times",
+       "text": "A condition can also apply between sunrise and sunset, each with an offset in minutes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 59,
+     "title": "Localization foundation with language switcher",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The Formatting card on the Appearance page holds the language of this browser, the switch for the DE | EN pill and the number format. Every text of the dashboard, its error messages and the update screen follow the language.",
+     "image": {
+      "name": "dashboard-settings-display.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-appearance.html",
+      "title": "Settings: Appearance"
+     },
+     "tour": [
+      {
+       "title": "Language",
+       "text": "The dashboard is now available in English too. The language follows your browser automatically."
+      },
+      {
+       "title": "Quick switch",
+       "text": "The switch in the masthead changes the language quickly."
+      },
+      {
+       "title": "Number format",
+       "text": "Along with the language you can also set the number format yourself."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 58,
+     "title": "DC-only systems in the MQTT service and conditional config forms",
+     "components": [
+      "Dashboard",
+      "APsystems EZ1",
+      "Automation",
+      "Battery SoC",
+      "Shelly",
+      "Trucki",
+      "Tuya",
+      "energy_node_common"
+     ],
+     "area": "Configuration editor",
+     "kind": "image",
+     "text": "The form is generated from the schema of each service. Fields that depend on another choice appear only with that choice, and values are checked before anything is saved.",
+     "image": {
+      "name": "dashboard-config.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/configuration.html",
+      "title": "Configuration editor"
+     },
+     "tour": [
+      {
+       "title": "Forms that adapt",
+       "text": "The configuration form shows a field only when it fits your choices so far, for example the fields of a DC-only system."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 53,
+     "title": "Per-device icons and pinned favourite entities",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Devices",
+     "kind": "image",
+     "text": "The device dialog shows the favourites at the top, up to three entities with their live values. Click the icon in the header to pick another icon from the catalogue.",
+     "image": {
+      "name": "dashboard-device-modal.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-modal.html#favourites",
+      "title": "Device dialog"
+     },
+     "tour": [
+      {
+       "title": "Icons and favourites",
+       "text": "Every device has its own icon, and up to three values of a device can be pinned to its tile as favourites."
+      },
+      {
+       "title": "Pick a tile",
+       "text": "Every device has a tile. Details opens the device."
+      },
+      {
+       "title": "Favourites",
+       "text": "Today you mark favourites with the star on a value. Back then there was a selection in the Analysis tab for this."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    }
+   ],
+   "rest": [
+    {
+     "pr": 74,
+     "title": "Show the redeploy screen in the dashboard language",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 73,
+     "title": "Localize the device configuration forms",
+     "components": [
+      "Dashboard",
+      "Automation",
+      "Battery SoC",
+      "Trucki"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 72,
+     "title": "Localize the system configuration form",
+     "components": [
+      "Dashboard",
+      "APsystems EZ1",
+      "Automation",
+      "Battery SoC",
+      "Shelly",
+      "Trucki",
+      "Tuya",
+      "energy_node_common"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 70,
+     "title": "Localize validation errors and diagnostics",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 69,
+     "title": "Localize API error messages",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 68,
+     "title": "Localize automations and history, guard every UI text",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 67,
+     "title": "Localize configuration and the layout editor",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 64,
+     "title": "Localize energy and settings",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 62,
+     "title": "Localize the shell and the overview",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 60,
+     "title": "Number format setting and locale-aware dates (localization A2)",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 56,
+     "title": "Support DC-only systems and current sensors in HA",
+     "components": [
+      "Battery SoC",
+      "battery_soc_core"
+     ],
+     "area": "Battery SoC",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 55,
+     "title": "Replace scripts/deploy with the developer CLI",
+     "components": [
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": true,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 54,
+     "title": "Ship the dashboard's device icons as an HA icon set",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 52,
+     "title": "Keep following a run across the dashboard's self-update restart",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 51,
+     "title": "Pass service fields and previous versions to the redeploy preview",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": null,
+     "title": "Validate the MQTT service's sources with coded errors",
+     "components": [
+      "Battery SoC"
+     ],
+     "area": "Battery SoC",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": true,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": null,
+     "title": "Remove scripts/deploy in favour of the installer CLI",
+     "components": [
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": true,
+     "since": "v0.8.0"
+    }
+   ]
+  }
+ ],
+ "areas": [
+  {
+   "name": "Automations",
+   "entries": [
+    {
+     "pr": 175,
+     "title": "Automation windows can be limited to days of the month",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "In the editor, time and sun windows have the collapsible section “Advanced: days of the month”. There you pick days from 1 to 31. The day the window starts counts, as with the weekdays.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 172,
+     "title": "New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 169,
+     "title": "The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "The template asks “How tight should it regulate?”. You move the window by dragging, tapping or with the arrow keys, or you pick one of the cards Tight, Balanced and Careful. With “Adjust tolerance” you also drag the width of the band. The bars show yesterday's spread of the grid power, moved to the new target.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 168,
+     "title": "Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "When you open a rule on the Automations page, a strip shows its last four triggers. On a phone the assistant opens as a sheet at the bottom that you drag down to close.",
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Latest triggers",
+       "text": "When you open a rule, a strip shows its last four triggers."
+      },
+      {
+       "title": "Assistant as a sheet",
+       "text": "On a phone the assistant opens as a sheet at the bottom. Drag it down to close it."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 166,
+     "title": "A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "You open it on the Automations page with “Assistant”. It shows the templates that fit your devices and names the missing device for the others. “Without a template” creates an empty rule or scenario.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 165,
+     "title": "Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 164,
+     "title": "The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Automations",
+     "kind": "image",
+     "text": "A scenario has three phases. Start holds the conditions that begin it, While is what happens during the scenario and End holds the actions when it stops. The usual use is a regulator that keeps the grid balance near a target.",
+     "image": {
+      "name": "dashboard-automation.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/automations-scenarios.html#scenarios",
+      "title": "Automations: Scenarios"
+     },
+     "tour": [
+      {
+       "title": "Scenarios and single rules",
+       "text": "Next to single rules there are now scenarios. A scenario runs in phases instead of following one fixed rule. Single rules got an improved live view, and scenarios can also show charts in control mode."
+      },
+      {
+       "title": "Reworked single rules",
+       "text": "Single rules have been reworked. A rule opens up and shows its conditions, actions and flow in one card."
+      },
+      {
+       "title": "Days of the month",
+       "text": "A time window applies on the chosen weekdays. Under Advanced you limit it to certain days of the month, for example only the 1st and the 15th."
+      },
+      {
+       "title": "Assistant",
+       "text": "The assistant helps you create new scenarios and rules. In a short dialog you fit the template to your devices and set extra conditions. There are templates for zero feed-in, using surplus power and watching devices, among others."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 163,
+     "title": "Automation rules can repeat their actions while their conditions hold",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "text",
+     "text": "The rule editor has the field “Repeat every (s)” for this. While all conditions hold, the rule sends its actions again at this interval. 0 means once per trigger. Repeat does not work with a toggle action.",
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Repeat actions",
+       "text": "In the rule editor you set under Flow how often the rule sends its actions again while all conditions hold. 0 means once per trigger."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 63,
+     "title": "Weekdays in the editor and a sun_window condition",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Automations",
+     "kind": "image",
+     "text": "In the rule editor a time window takes weekdays, and the sun window follows sunrise and sunset at the location from the settings.",
+     "image": {
+      "name": "dashboard-automation.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/automations-rules.html#rule-editor",
+      "title": "Automations: Single rules"
+     },
+     "tour": [
+      {
+       "title": "Weekdays",
+       "text": "You can now also set weekdays for automations. Without a selection an automation applies every day."
+      },
+      {
+       "title": "Sun times",
+       "text": "A condition can also apply between sunrise and sunset, each with an offset in minutes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    }
+   ]
+  },
+  {
+   "name": "Battery SoC",
+   "entries": [
+    {
+     "pr": 196,
+     "title": "Render tuning findings from a shared message catalog",
+     "components": [
+      "Dashboard",
+      "energy_node_common",
+      "battery_soc_core"
+     ],
+     "area": "Battery SoC",
+     "kind": "text",
+     "text": "The notes under Calibration and tuning now appear in the language of the dashboard, before they always came in German. Home Assistant shows them in its own language.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 78,
+     "title": "Save the state on an interval and recover after a crash",
+     "components": [
+      "Dashboard",
+      "Battery SoC",
+      "energy_node_common"
+     ],
+     "area": "Battery SoC",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 56,
+     "title": "Support DC-only systems and current sensors in HA",
+     "components": [
+      "Battery SoC",
+      "battery_soc_core"
+     ],
+     "area": "Battery SoC",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": null,
+     "title": "Validate the MQTT service's sources with coded errors",
+     "components": [
+      "Battery SoC"
+     ],
+     "area": "Battery SoC",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": true,
+     "since": "v0.8.0"
+    }
+   ]
+  },
+  {
+   "name": "Configuration editor",
+   "entries": [
+    {
+     "pr": 98,
+     "title": "Show the config service status as a pill",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Configuration editor",
+     "kind": "image",
+     "text": "After saving, the service reloads its file. If it refuses the new file, it keeps the old one and the status pill says so.",
+     "image": {
+      "name": "dashboard-config.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/configuration.html",
+      "title": "Configuration editor"
+     },
+     "tour": [
+      {
+       "title": "Service status",
+       "text": "Every service now shows whether it runs and whether it took the last saved file."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 58,
+     "title": "DC-only systems in the MQTT service and conditional config forms",
+     "components": [
+      "Dashboard",
+      "APsystems EZ1",
+      "Automation",
+      "Battery SoC",
+      "Shelly",
+      "Trucki",
+      "Tuya",
+      "energy_node_common"
+     ],
+     "area": "Configuration editor",
+     "kind": "image",
+     "text": "The form is generated from the schema of each service. Fields that depend on another choice appear only with that choice, and values are checked before anything is saved.",
+     "image": {
+      "name": "dashboard-config.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/configuration.html",
+      "title": "Configuration editor"
+     },
+     "tour": [
+      {
+       "title": "Forms that adapt",
+       "text": "The configuration form shows a field only when it fits your choices so far, for example the fields of a DC-only system."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    }
+   ]
+  },
+  {
+   "name": "Dashboard",
+   "entries": [
+    {
+     "pr": 195,
+     "title": "The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 186,
+     "title": "Onboarding bar, spotlight and checklist",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Set up and explore",
+       "text": "From now on the checklist shows what there is to discover after every update. It also offers a first setup, which you can still do later."
+      },
+      {
+       "title": "Guided tours",
+       "text": "A guided tour like this one shows you where to find the new features."
+      },
+      {
+       "title": "Catch up on tours",
+       "text": "You can also catch up on older tours if you want to discover what you might have missed."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 185,
+     "title": "Redesign the login card and link the favicon",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "text",
+     "text": "The sign-in card has a new design. A bug with the favicon is also fixed.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 181,
+     "title": "Stop the main tab \"More\" list from refitting itself in a loop",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 178,
+     "title": "Redesign the toast with glass, timer line and swipe to dismiss",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "text",
+     "text": "The line at the bottom shows how long a toast stays. While the pointer rests on it, the time stops. Swiping right closes the toast. Every message disappears on its own, warnings and critical messages stay longer.",
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "New notifications",
+       "text": "The time left on a notification is now shown by a running-down bar. You can also dismiss the message directly by swiping."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 153,
+     "title": "Clearer update notice, firewall station completes, service steps skip unchanged libraries",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 151,
+     "title": "Options for the energy statistics card",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 150,
+     "title": "Settings in card layout and aligned panel headings",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 144,
+     "title": "Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 135,
+     "title": "Device tiles patched from the devices topic without fragment swaps",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 133,
+     "title": "SSE topic subscriptions and a swap-free statistics tile",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 130,
+     "title": "Hourly energy statistics from Home Assistant via the companion",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 128,
+     "title": "Hourly energy statistics recorded on the server",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 124,
+     "title": "Exchange history only on demand",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 123,
+     "title": "Show update progress and what's new after an update",
+     "components": [
+      "Dashboard",
+      "Installer"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 119,
+     "title": "Serve the automation history in full",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 115,
+     "title": "Custom energy categories in automations and editor polish",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Your categories in rules",
+       "text": "A threshold can watch your custom categories from the energy page. The field selection lists them under Custom categories."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 114,
+     "title": "Reorganise the device icon catalogue",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Pick a tile",
+       "text": "Every device has a tile. Details opens the device, and there you choose its icon."
+      },
+      {
+       "title": "Icon catalogue",
+       "text": "The icons you can choose for a device are now sorted into categories, and there are more variants."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 112,
+     "title": "Settings polish and local docs serve",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 111,
+     "title": "Polish the device map and the energy tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 110,
+     "title": "Live plant view on the energy tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 109,
+     "title": "Data flow and balance layers on the device map",
+     "components": [
+      "Dashboard",
+      "Automation",
+      "Battery SoC"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 107,
+     "title": "Edit energy roles on the device map",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 105,
+     "title": "Live energy flow on the device map",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 91,
+     "title": "Make saving the system configuration work and report it properly",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 85,
+     "title": "Add Energy Node Companion as a history exchange peer",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.5"
+    },
+    {
+     "pr": 84,
+     "title": "The changelog pages open on the highlights, the switch at the top shows everything",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Highlights first",
+       "text": "You can now filter the highlights out of the changes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.5"
+    },
+    {
+     "pr": 81,
+     "title": "Rest the battery flow icon on its fill level at 0 W",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 74,
+     "title": "Show the redeploy screen in the dashboard language",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 73,
+     "title": "Localize the device configuration forms",
+     "components": [
+      "Dashboard",
+      "Automation",
+      "Battery SoC",
+      "Trucki"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 72,
+     "title": "Localize the system configuration form",
+     "components": [
+      "Dashboard",
+      "APsystems EZ1",
+      "Automation",
+      "Battery SoC",
+      "Shelly",
+      "Trucki",
+      "Tuya",
+      "energy_node_common"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 70,
+     "title": "Localize validation errors and diagnostics",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 69,
+     "title": "Localize API error messages",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 68,
+     "title": "Localize automations and history, guard every UI text",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 67,
+     "title": "Localize configuration and the layout editor",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 64,
+     "title": "Localize energy and settings",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 62,
+     "title": "Localize the shell and the overview",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 60,
+     "title": "Number format setting and locale-aware dates (localization A2)",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 54,
+     "title": "Ship the dashboard's device icons as an HA icon set",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 51,
+     "title": "Pass service fields and previous versions to the redeploy preview",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Dashboard",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    }
+   ]
+  },
+  {
+   "name": "Deploying with the installer",
+   "entries": [
+    {
+     "pr": 190,
+     "title": "The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Deploying with the installer",
+     "kind": "image",
+     "text": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
+     "image": {
+      "name": "installer-dashboard-step.png",
+      "style": null
+     },
+     "doc": {
+      "url": "installer.html#4-dashboard",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 187,
+     "title": "The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Deploying with the installer",
+     "kind": "image",
+     "text": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
+     "image": {
+      "name": "installer-sudo.png",
+      "style": null
+     },
+     "doc": {
+      "url": "installer.html#sudo-password",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    }
+   ]
+  },
+  {
+   "name": "Device map",
+   "entries": [
+    {
+     "pr": 158,
+     "title": "The device map can hide connections by type (energy, data, info) with a new filter button",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The filter button next to the display menu hides energy, data or informational connections and the lines to the automation node, with one switch per type. It only changes what this browser draws.",
+     "image": {
+      "name": "dashboard-device-map-filter-menu.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#connection-types",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Filter connections",
+       "text": "With the filter button you can now hide connection types (energy, data or info connections) and the automation node for a while. The change no longer applies to everyone for good, only to you in this browser."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 148,
+     "title": "Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "Name single appliances on a meter as sub-devices. They appear in the device map, in the device dialog and on the energy page, so a washing machine behind a plug gets its own place.",
+     "image": {
+      "name": "dashboard-device-map-sub-device.png",
+      "style": "aspect-ratio:2.066;background-size:277.78% auto;background-position:23.44% 52.78%"
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#sub-devices",
+      "title": "Device map"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 146,
+     "title": "Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "A switch is now an energy role with an optional channel. Every switched connection shows a green or red circle, and only the connection on a switched off channel is cut. The channel of a connection is chosen in its card.",
+     "image": {
+      "name": "dashboard-device-map-switch-channel.png",
+      "style": "aspect-ratio:1.637;background-size:181.82% auto;background-position:66.67% 100.00%"
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#switchable-devices",
+      "title": "Device map"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 145,
+     "title": "The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The device map marks every device without power as off and fades it out. A switched off output cuts the connection behind it.",
+     "image": {
+      "name": "dashboard-device-map-switch-channel.png",
+      "style": "aspect-ratio:2.678;background-size:200.00% auto;background-position:100.00% 24.29%"
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#switchable-devices",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Switched off devices",
+       "text": "Devices with a switch state can now get the role Switches. The map then shows how switching off cuts a chain of devices. Switched off devices are greyed out and marked as off."
+      },
+      {
+       "title": "Legend",
+       "text": "Display and filter are separate menus now. What you set under Display applies only to you in this browser."
+      },
+      {
+       "title": "Sub-devices",
+       "text": "A consumer behind a smart plug, such as a washing machine, can now be added as a sub-device. It gets its own name, its own icon and its own node on the map, and the energy page and the device dialog show its name instead of the plug's measurement."
+      },
+      {
+       "title": "Hidden energy roles",
+       "text": "In the role table you can now only hide entries that have no role yet. Hidden entries no longer show in the device map either."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 129,
+     "title": "Connection types with flow direction and reversible manual edges",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 127,
+     "title": "Hang the automation device under the node and link its rules",
+     "components": [
+      "Dashboard",
+      "Automation"
+     ],
+     "area": "Device map",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 126,
+     "title": "Merge the balance node into the energy_node device",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The Energy Node is the balance itself, the device the dashboard publishes for Home Assistant. It shows the net grid power, and the Roles layer connects every device with an energy role to it.",
+     "image": {
+      "name": "dashboard-device-map-balance.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#roles-layer",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Energy Node device",
+       "text": "The balance now shows as a value of the Energy Node. The automations also appear as a device of their own and link to their rules."
+      },
+      {
+       "title": "Connection types",
+       "text": "Connections now have a type. Every connection you drew between two devices can be turned around."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 103,
+     "title": "Device map layers, role rings and focus",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Device map",
+     "kind": "image",
+     "text": "The layer bar switches between Wiring, Live energy, Data flow and Roles. The view belongs to this browser, and Save as default writes it into the map for every browser.",
+     "image": {
+      "name": "dashboard-device-map.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-map.html#layers-and-view",
+      "title": "Device map"
+     },
+     "tour": [
+      {
+       "title": "Device map",
+       "text": "The device map has been reworked from the ground up. It now shows how your devices hang together in terms of energy. Click a device to highlight its connections to the others."
+      },
+      {
+       "title": "Live energy",
+       "text": "With Live energy you see the energy flows live on the device map."
+      },
+      {
+       "title": "Data flow",
+       "text": "Shows which automation in your system controls or reads what."
+      },
+      {
+       "title": "Roles",
+       "text": "Draws lines to every device that has an energy role."
+      },
+      {
+       "title": "Assign roles",
+       "text": "Select a device to give it an energy role right on the map."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    }
+   ]
+  },
+  {
+   "name": "Devices",
+   "entries": [
+    {
+     "pr": 180,
+     "title": "Star favourites, a per-entity analysis tab and two device rights",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Devices",
+     "kind": "image",
+     "text": "The Analysis tab lists the warnings and every entity of the device with its topic, its last message and the commands sent to it. It needs the right to see the device analysis, and choosing favourites needs the right to style devices.",
+     "image": {
+      "name": "dashboard-device-modal-manage.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-modal.html#analysis",
+      "title": "Device dialog"
+     },
+     "tour": [
+      {
+       "title": "Favourite values",
+       "text": "Favourites stay on the tile of a device. You choose them in the device details."
+      },
+      {
+       "title": "Set the star",
+       "text": "Mark up to three values as favourites with the star. They then stay on the tile and at the top of the device details."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 149,
+     "title": "The device map shows the right edge of its canvas again",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Devices",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 53,
+     "title": "Per-device icons and pinned favourite entities",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Devices",
+     "kind": "image",
+     "text": "The device dialog shows the favourites at the top, up to three entities with their live values. Click the icon in the header to pick another icon from the catalogue.",
+     "image": {
+      "name": "dashboard-device-modal.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/device-modal.html#favourites",
+      "title": "Device dialog"
+     },
+     "tour": [
+      {
+       "title": "Icons and favourites",
+       "text": "Every device has its own icon, and up to three values of a device can be pinned to its tile as favourites."
+      },
+      {
+       "title": "Pick a tile",
+       "text": "Every device has a tile. Details opens the device."
+      },
+      {
+       "title": "Favourites",
+       "text": "Today you mark favourites with the star on a value. Back then there was a selection in the Analysis tab for this."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    }
+   ]
+  },
+  {
+   "name": "Diagnostics",
+   "entries": [
+    {
+     "pr": 161,
+     "title": "The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Diagnostics",
+     "kind": "image",
+     "text": "The Service logs section on the diagnostics page shows the journal of one service at a time. Choose the service, the time range and the number of lines, search the loaded lines and turn on Refresh automatically to see new lines every 5 seconds. It needs the system_actions role.",
+     "image": {
+      "name": "dashboard-service-logs.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/diagnostics.html#service-logs",
+      "title": "Diagnostics"
+     },
+     "tour": [
+      {
+       "title": "Service logs",
+       "text": "Read the logs of every service here, to find errors or report them on GitHub. The search filters the lines, and the view can refresh in live mode."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 157,
+     "title": "Use a working health threshold",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Diagnostics",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 101,
+     "title": "Redesign the diagnostics tab",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Diagnostics",
+     "kind": "image",
+     "text": "The diagnostics page sums up the state in one line, counts the discovery devices and lists the findings with the affected devices.",
+     "image": {
+      "name": "dashboard-diagnosis.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/diagnostics.html",
+      "title": "Diagnostics"
+     },
+     "tour": [
+      {
+       "title": "Diagnostics at a glance",
+       "text": "See at a glance how your system is doing. The line under the title sums up its state, and its dot glows green, yellow or red."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    }
+   ]
+  },
+  {
+   "name": "Energy",
+   "entries": [
+    {
+     "pr": 147,
+     "title": "Hide only role-less entries and share the list with the device map",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 143,
+     "title": "The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy",
+     "kind": "image",
+     "text": "House consumption is now always calculated from the balance. A house meter serves as a cross check and replaces the calculation only when no grid role is assigned. A line below the modes shows where the value comes from and how far the meter deviates.",
+     "image": {
+      "name": "dashboard-energy-interpretation.png",
+      "style": "aspect-ratio:3.369;background-size:100.00% auto;background-position:0.00% 14.58%"
+     },
+     "doc": {
+      "url": "dashboard/energy.html#balance-interpretation",
+      "title": "Energy"
+     },
+     "tour": [
+      {
+       "title": "Balance interpretation",
+       "text": "The Automatic mode takes over from the former Combined mode. It builds the house consumption from the balance and subtracts the metered consumers, with the house meter as a cross-check. The status line shows the current deviation right away."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 108,
+     "title": "Energy groups and custom categories",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy",
+     "kind": "image",
+     "text": "A group bundles devices without a meter of their own. With Count as a whole on, it counts in one consumer category, which you pick or create in place. Custom categories add your own consumer, producer or storage types.",
+     "image": {
+      "name": "dashboard-energy-groups.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/energy.html#groups",
+      "title": "Energy"
+     },
+     "tour": [
+      {
+       "title": "Plant live",
+       "text": "The arrangement from the device map with the live flow and the balance is now on the energy page too. Click a device to light up its rows in the role table."
+      },
+      {
+       "title": "Groups",
+       "text": "Groups let you add up several devices in the overview. You can also give the whole group a new consumer category."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    }
+   ]
+  },
+  {
+   "name": "Energy Node Companion",
+   "entries": [
+    {
+     "pr": 167,
+     "title": "Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Energy Node Companion",
+     "kind": "text",
+     "text": "Home Assistant users sign in through the Energy Node Companion integration. From version 0.4.0 it pairs with the dashboard through a pairing code from the Home Assistant card on the Users page. The guide links to the integration on GitHub.",
+     "image": null,
+     "doc": {
+      "url": "ha/companion.html",
+      "title": "Energy Node Companion for Home Assistant"
+     },
+     "tour": [
+      {
+       "title": "Users and permissions",
+       "text": "User management lets you give every user finely tuned permissions."
+      },
+      {
+       "title": "Sessions",
+       "text": "Sessions lists everyone who is signed in right now."
+      },
+      {
+       "title": "Create user",
+       "text": "Create a new account here."
+      },
+      {
+       "title": "Guest access",
+       "text": "Guests may only view by default. This switch turns guest access off completely."
+      },
+      {
+       "title": "Home Assistant users",
+       "text": "User management also supports Home Assistant users. A pairing code connects the companion once. The connection then stays. This needs the Energy Node Companion integration from version 0.4.0 on."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    }
+   ]
+  },
+  {
+   "name": "First-time setup",
+   "entries": [
+    {
+     "pr": 202,
+     "title": "Apply the installer admin name and detect more setup steps as done",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "First-time setup",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 201,
+     "title": "Tours with actions, guest and favourite steps, news offer",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 198,
+     "title": "Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind \"Explore further back\", and each older release card can catch up on its tour",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "text",
+     "text": "Every visible feature since version 0.8.0 has a tour. Releases older than the last three minor versions open step by step under Explore further back. On every older release card, Take the tour plays all tours of that release. Once all are seen, the button reads Repeat tour.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 197,
+     "title": "Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "text",
+     "text": "Under Settings, Checklist you find the Explore mode. It lists the highlights of the last three minor versions, one card per release. Highlights with a tour walk you through the change on the real pages, the others show their description.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 188,
+     "title": "A guided first-time setup walks admins through access, display, system and devices, with a welcome step first",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "First-time setup",
+     "kind": "text",
+     "text": "As an admin, a bar at the bottom walks you through the real settings pages, and a spotlight marks the setting of each step. What an existing install already has set is checked off, and you can put off any step with “Later”. Anything still open is in the checklist afterwards. Guests see a note until the setup is finished.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    }
+   ]
+  },
+  {
+   "name": "History",
+   "entries": [
+    {
+     "pr": 141,
+     "title": "The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "History",
+     "kind": "image",
+     "text": "The first pill above the chart lists the resolutions that fit the chosen span and shows how much of it each one covers. The automatic choice is the coarsest resolution that has data. A week or longer shows hourly values from the energy statistics, and there is a quick choice for 3 months.",
+     "image": {
+      "name": "dashboard-history.png",
+      "style": "aspect-ratio:4.112;background-size:100.00% auto;background-position:0.00% 14.93%"
+     },
+     "doc": {
+      "url": "dashboard/history.html#resolutions",
+      "title": "History"
+     },
+     "tour": [
+      {
+       "title": "Resolution",
+       "text": "You can now adjust the resolution for each span. The coarsest one is preselected, because fewer points draw more smoothly."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    }
+   ]
+  },
+  {
+   "name": "Installer",
+   "entries": [
+    {
+     "pr": 194,
+     "title": "The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "text",
+     "text": "If the broker rejects the password, the diagnostics show the MQTT login check as failed. The repair opens the dialog “Set a new MQTT password”, where you enter a new password or create one with “Random password”. The node and the broker then both receive it.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 193,
+     "title": "The installer diagnose shows a live log of the dashboard and the updater service with their state",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "The Live log card in the diagnostics follows the dashboard and the updater, so you can find out without SSH why the dashboard does not start. Under “Lines in report” you choose how many lines the report takes along. “Copy for issue” copies it for a GitHub issue, with addresses, names and passwords masked.",
+     "image": {
+      "name": "installer-diagnose.png",
+      "style": "aspect-ratio:2.727;background-size:100.00% auto;background-position:0.00% 91.04%"
+     },
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 192,
+     "title": "Skip recommended apt packages and clean the package cache",
+     "components": [
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "text",
+     "text": "The installer no longer loads recommended extra packages. That keeps about 400 MB of compilers the device does not need off it. After the apt steps it deletes the downloaded package files, so small SD cards do not fill up.",
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 191,
+     "title": "A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects",
+     "components": [
+      "Bootstrap",
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 189,
+     "title": "The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "text",
+     "text": "If the device's Python version does not match the package, the preparation stops with “Process paused, confirmation required”. With “Load dependencies online” the installer loads the remaining dependencies from the internet. The device needs internet access for this.",
+     "image": null,
+     "doc": {
+      "url": "installer.html#python-version-of-the-pi",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 131,
+     "title": "Fit the update result screen to the dashboard host",
+     "components": [
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 121,
+     "title": "List every step and service as its own run station",
+     "components": [
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 102,
+     "title": "Skip unchanged update steps and keep the session across the restart",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 90,
+     "title": "Check and install system package updates (opt-out)",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.0"
+    },
+    {
+     "pr": 83,
+     "title": "Remember the access details in the OS keychain",
+     "components": [
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.5"
+    },
+    {
+     "pr": 80,
+     "title": "Keep the changed service selection in the update preview",
+     "components": [
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 79,
+     "title": "Transfer only changed bundle files to the node",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 76,
+     "title": "Break down versions per service in preview and diagnostics",
+     "components": [
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 55,
+     "title": "Replace scripts/deploy with the developer CLI",
+     "components": [
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": true,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 52,
+     "title": "Keep following a run across the dashboard's self-update restart",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": null,
+     "title": "Remove scripts/deploy in favour of the installer CLI",
+     "components": [
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": true,
+     "since": "v0.8.0"
+    }
+   ]
+  },
+  {
+   "name": "Overview & layout editor",
+   "entries": [
+    {
+     "pr": 99,
+     "title": "Add history view tiles to the overview layout",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Overview & layout editor",
+     "kind": "image",
+     "text": "The History card shows a chart from the history page. Its options choose the source, the period, the statistic and the series.",
+     "image": {
+      "name": "dashboard-card-history-view.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/overview-cards.html#history",
+      "title": "Overview cards"
+     },
+     "tour": [
+      {
+       "title": "History on the overview",
+       "text": "History charts are now available as an overview tile too. You set it up with a saved view or a new combination."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.0"
+    }
+   ]
+  },
+  {
+   "name": "Settings",
+   "entries": [
+    {
+     "pr": 184,
+     "title": "Guests can only view by default, and an admin can switch guest access off",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "text",
+     "text": "Guests may only view by default. An admin can switch guest access off in the guest card of user management. The sign-in page then no longer offers guest access, and running guest sessions end.",
+     "image": null,
+     "doc": {
+      "url": "dashboard/settings-users.html#guest-access",
+      "title": "Settings: Users"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 174,
+     "title": "Sign in home assistant users through the companion",
+     "components": [
+      "Dashboard",
+      "Bootstrap"
+     ],
+     "area": "Settings",
+     "kind": "text",
+     "text": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
+     "image": null,
+     "doc": {
+      "url": "dashboard/settings-users.html#home-assistant-users",
+      "title": "Settings: Users"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 171,
+     "title": "Install the offered update from the update bar",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "When a newer release is out, the bar under the header offers it. Install now asks once more and then updates right away. Prepare installation opens the installer page.",
+     "image": {
+      "name": "dashboard-update-available.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html#updating-from-the-dashboard",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Update right in the dashboard",
+       "text": "An update no longer needs the installer. Install now starts a quick update right in the dashboard."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 170,
+     "title": "Permissions are enforced: accounts only see the pages they may view and only change what they may change",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "You set permissions under Settings, Users. The settings permission is now split into “Change the appearance” and “Set up the dashboard”. Existing accounts keep what they were allowed to do. An account without a view permission sees only a notice and its own account.",
+     "image": {
+      "name": "dashboard-settings-users-permissions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-users.html#permissions",
+      "title": "Settings: Users"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 160,
+     "title": "The dashboard title and subtitle can be changed or hidden",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The Masthead card on the Appearance page sets the title and subtitle at the top of every page. An empty field keeps the default text, and each line can be hidden. The title also names the browser tab and the sign-in page.",
+     "image": {
+      "name": "dashboard-settings-display.png",
+      "style": "aspect-ratio:1.464;background-size:281.69% auto;background-position:96.12% 20.77%"
+     },
+     "doc": {
+      "url": "dashboard/settings-appearance.html",
+      "title": "Settings: Appearance"
+     },
+     "tour": [
+      {
+       "title": "Title and subtitle",
+       "text": "You can now adapt the masthead of the dashboard. You can also hide it completely."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 159,
+     "title": "Settings pages are listed in a sidebar, on phones in a sheet from the bottom",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The settings pages sit in a sidebar, each with an icon and a short description. On a phone a button above the content shows the current page and opens the full list as a sheet from the bottom.",
+     "image": {
+      "name": "dashboard-settings-general.png",
+      "style": "aspect-ratio:1.534;background-size:166.67% auto;background-position:5.00% 25.53%"
+     },
+     "doc": {
+      "url": "dashboard/settings.html",
+      "title": "Settings"
+     },
+     "tour": [
+      {
+       "title": "Settings sidebar",
+       "text": "The settings pages now sit in this sidebar, each with a short description."
+      },
+      {
+       "title": "Settings pages",
+       "text": "The settings pages now sit in a list, each with a short description. Tap here to open it."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 142,
+     "title": "The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "Additional sensors offers House load measured, House load calculated and one sensor per wallbox, heat pump and custom category. All are on by default. Deselect one and the dashboard removes it from Home Assistant, select it again to bring it back.",
+     "image": {
+      "name": "dashboard-settings-mqtt-sensors.png",
+      "style": "aspect-ratio:1.894;background-size:100.00% auto;background-position:0.00% 55.00%"
+     },
+     "doc": {
+      "url": "dashboard/settings-mqtt.html",
+      "title": "Settings: MQTT"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 138,
+     "title": "The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "System metrics such as Wi-Fi signal or undervoltage are published as diagnostic entities. Remove a metric from the selection to stop publishing it and add it again to resume. Changes are saved at once and need a login with configuration rights over HTTPS.",
+     "image": {
+      "name": "dashboard-settings-mqtt-metrics.png",
+      "style": "aspect-ratio:1.975;background-size:100.00% auto;background-position:0.00% 50.00%"
+     },
+     "doc": {
+      "url": "dashboard/settings-mqtt.html",
+      "title": "Settings: MQTT"
+     },
+     "tour": [
+      {
+       "title": "Bridge to the main site",
+       "text": "A step list now explains how to set up the MQTT bridge to the main site. If you already have a connection, there is nothing to do here."
+      },
+      {
+       "title": "System metrics",
+       "text": "The metrics published over MQTT can now be filtered."
+      },
+      {
+       "title": "Sensors for Home Assistant",
+       "text": "Next to the energy values, sensors for wallbox, heat pump and your own categories now go to Home Assistant as well. Each one is sent by default, and you can deselect it here."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 137,
+     "title": "Choose how many versions the changelog shows, with the history kept on the device across updates",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": "aspect-ratio:2.081;background-size:292.40% auto;background-position:95.44% 35.97%"
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 134,
+     "title": "Release highlights now have a German text that shows in the dashboard, the installer and the release notes",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Highlights in German",
+       "text": "The highlights are now available in German too."
+      },
+      {
+       "title": "Versions in the changelog",
+       "text": "Leave older versions out of the view while you browse the changes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 125,
+     "title": "Show exchange and history status as tiles",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The History page of the settings switches the exchange between devices and chooses when this browser exchanges. Below the choices a status tile shows whether the exchange is connected and how many values it added.",
+     "image": {
+      "name": "dashboard-settings-history.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-history.html",
+      "title": "Settings: History"
+     },
+     "tour": [
+      {
+       "title": "Device exchange",
+       "text": "In the device exchange you can now fetch only while a history is shown. That keeps the view smoother when you do not need the history right now. The status tile shows the active connections."
+      },
+      {
+       "title": "History status",
+       "text": "The status line now tells you more about the data it has."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.9.8"
+    },
+    {
+     "pr": 82,
+     "title": "Ship changelog.json in the bundle and show what is new before an update",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The update page lists the changes of the new package. The preview also shows which components change and which services restart.",
+     "image": {
+      "name": "dashboard-update-preview.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html#updating-from-the-dashboard",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "See what is new first",
+       "text": "Before you install an update, View changes on the update page lists what the new package changes, breaking changes first."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.3"
+    },
+    {
+     "pr": 71,
+     "title": "Show installed component versions under settings",
+     "components": [
+      "Dashboard",
+      "Shared services",
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The Versions page shows the installed package and every component with its version. A service that is not installed is marked as such.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Installed versions",
+       "text": "The versions page now lists every piece of software with its version. Changes opens its changelog."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 59,
+     "title": "Localization foundation with language switcher",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Settings",
+     "kind": "image",
+     "text": "The Formatting card on the Appearance page holds the language of this browser, the switch for the DE | EN pill and the number format. Every text of the dashboard, its error messages and the update screen follow the language.",
+     "image": {
+      "name": "dashboard-settings-display.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-appearance.html",
+      "title": "Settings: Appearance"
+     },
+     "tour": [
+      {
+       "title": "Language",
+       "text": "The dashboard is now available in English too. The language follows your browser automatically."
+      },
+      {
+       "title": "Quick switch",
+       "text": "The switch in the masthead changes the language quickly."
+      },
+      {
+       "title": "Number format",
+       "text": "Along with the language you can also set the number format yourself."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
+    }
+   ]
+  },
+  {
+   "name": "Statistics",
+   "entries": [
+    {
+     "pr": 183,
+     "title": "Mobile view for the statistics page",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Statistics",
+     "kind": "image",
+     "text": "On narrow screens the statistics page shows a table of intervals or a grid, and the period sits in a pill at the bottom.",
+     "image": {
+      "name": "dashboard-statistics-mobile.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/statistics.html#on-a-phone",
+      "title": "Energy statistics"
+     },
+     "tour": [
+      {
+       "title": "Statistics on the phone",
+       "text": "On a phone the table switches here between intervals and a grid."
+      }
+     ],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 132,
+     "title": "Energy statistics tile, page and recording mode",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Statistics",
+     "kind": "image",
+     "text": "The Statistics tab shows consumption, PV yield, grid import, feed-in and the battery flows for a day, week, month or year. The node records the hours itself, and with the companion the hours from Home Assistant replace them. A tile with the same figures is available for the overview.",
+     "image": {
+      "name": "dashboard-statistics.png",
+      "style": "aspect-ratio:1.941;background-size:100.00% auto;background-position:0.00% 16.67%"
+     },
+     "doc": {
+      "url": "dashboard/statistics.html",
+      "title": "Energy statistics"
+     },
+     "tour": [
+      {
+       "title": "Energy statistics",
+       "text": "Find out what your energy system yields over time. Choose a span and a point in time, such as a day, a week, a month or a year."
+      },
+      {
+       "title": "Key figures",
+       "text": "For the chosen period you see key figures on consumption, PV yield, grid import, feed-in and the battery flows."
+      },
+      {
+       "title": "Statistics card",
+       "text": "The statistics are also available as a card for the overview. Its key figures and chart can be set for a fixed or a selectable period."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    }
+   ]
+  },
+  {
+   "name": "Updates",
+   "entries": [
+    {
+     "pr": 152,
+     "title": "Expandable highlight details in the what's new dialog",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Updates",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    }
+   ]
+  },
+  {
+   "name": "Users and permissions",
+   "entries": [
+    {
+     "pr": 200,
+     "title": "Log restricted logins and reject password changes of HA accounts",
+     "components": [
+      "Dashboard"
+     ],
+     "area": "Users and permissions",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    }
+   ]
+  }
+ ]
+}
