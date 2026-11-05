@@ -63,7 +63,7 @@
 
 ### Chores
 
-- **release:** prepare v0.11.0 (#203)
+- **release:** prepare v0.11.0 (#203) (fda100b)
 - **fakehost:** add --journal-step to show the RAM journal step (49932e3)
 
 ## v0.2.6 (2026-10-20)
