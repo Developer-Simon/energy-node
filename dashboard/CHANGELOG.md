@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.40 (2026-11-03)
+## v0.11.0 (2026-11-03)
 
 ### Features
 
@@ -253,12 +253,12 @@
 - **webui:** stop the main tab "More" list from refitting itself in a loop (#181) (a7b0bcc)
 - **dashboard:** The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab. (#195) (70464ad)
 - **auth:** log restricted logins and reject password changes of HA accounts (#200) (f867ae6)
+- **onboarding:** apply the installer admin name and detect more setup steps as done (#202) (c3a37e8)
 - **onboarding:** warn about the installer admin name only when the account is missing (9edc3ee)
 - **onboarding:** correct the admin_user warning text (8d3b714)
 - **onboarding:** detect changed metrics, guest access and runtime status as done (4eeafb8)
 - **onboarding:** spotlight the rule a tour step opened, not the first rule (8d0b9ec)
 - **onboarding:** open the first rule in the reworked rules tour step (2cb1013)
-- **onboarding:** apply the installer admin name and detect more setup steps as done (#202)
 - **onboarding:** make the action engine tests meaningful and read state after the click settled (ac72267)
 - **onboarding:** the filled catch-up chip keeps a visible icon (7bdac2d)
 - **onboarding:** the groups step highlights the whole accordion (9a4414f)
@@ -403,6 +403,11 @@
 ### Tests
 
 - **smoke:** split the smoke test into a local demo and a CI smoke test (#176) (045c85f)
+- **docs:** add screenshots for users and the statistics on a phone (6bc1938)
+- **docs:** add screenshots for the assistant and a scenario (d64b3e8)
+- **docs:** add screenshots for the tours (193a162)
+- **docs:** close the onboarding before taking screenshots (5aa3807)
+- **docs:** show the default password path in the system screenshot (6205cbc)
 - **webui:** check every highlight tour against the web UI targets and roles (af69642)
 - **onboarding:** expect the current minor open and older minors seen on a fresh install (3b9243a)
 - **smoke:** probe the battery state under the demo bank topic (7e93a90)
@@ -439,6 +444,7 @@
 ### Chores
 
 - **history:** surface leader start errors and add an opt-in diagnostics log (#177) (2947769)
+- **release:** prepare v0.11.0 (#203)
 - **webui:** bump the changed onboarding and update bar assets and point the onboarding tour at the explore switch (ff24d94)
 - **webui:** bump the automations.page.js cache-bust (d448dff)
 - **webui:** bump the cache-bust of the device dialog assets (cb83139)
