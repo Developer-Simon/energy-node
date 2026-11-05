@@ -15,8 +15,10 @@
 // installer-diagnose.png (Diagnose mit Live-Log),
 // installer-changelog.png (Was ist neu, Ansicht Highlights) und
 // installer-run.png (die Ausfuehrung einer Erstinstallation, vom zweiten
-// Testwirt im Szenario vorlage angehalten bei Schritt 85). Die uebrigen
-// Installer-Bilder haben noch kein Skript.
+// Testwirt im Szenario vorlage angehalten bei Schritt 85),
+// installer-connect.png (Verbindung mit ausgefuelltem Formular),
+// installer-fingerprint.png (erster Kontakt, Fingerabdruck offen) und
+// installer-result.png (Ergebnis einer fertigen Erstinstallation).
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -130,6 +132,42 @@ async function sudo() {
   return { context, page, stop: () => host.stop() };
 }
 
+// Einrichten bis zum ausgefuellten Verbindungsformular. Ohne trusted fragt der
+// Testwirt beim Verbinden nach dem Fingerabdruck.
+async function connectForm({ trusted }) {
+  const host = await startFakehost(['--lang', 'en', ...(trusted ? ['--trusted'] : [])]);
+  const context = await browser.newContext({ viewport: { width: 1080, height: 760 } });
+  const page = await context.newPage();
+  await page.goto(host.url);
+  await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
+  await page.locator('.mode-i').nth(0).click();
+  await page.locator('input[aria-labelledby="connect-address"]').fill('energy-node.local');
+  await page.locator('input[aria-labelledby="connect-user"]').fill('pi');
+  await page.locator('input[aria-labelledby="connect-password"]').fill(SECRETS.login);
+  await page.waitForTimeout(500);
+  return { context, page, stop: () => host.stop() };
+}
+
+// Eine Erstinstallation ohne Halt bis zum Ergebnis.
+async function result() {
+  const host = await startFakehost(['--lang', 'en', '--trusted']);
+  const context = await browser.newContext({ viewport: { width: 1080, height: 760 } });
+  const page = await context.newPage();
+  await page.goto(host.url);
+  await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
+  await page.getByLabel(en['field.address'], { exact: true }).fill('energy-node.local');
+  await page.getByLabel(en['field.user'], { exact: true }).fill('pi');
+  await page.getByLabel(en['field.password'], { exact: true }).fill(SECRETS.login);
+  await page.getByRole('button', { name: en['action.connect'], exact: true }).click();
+  await page.getByRole('button', { name: en['action.next'], exact: true }).click();
+  await page.getByLabel(en['field.mqtt_password'], { exact: true }).fill(SECRETS.mqtt);
+  await page.getByLabel(en['field.admin_password'], { exact: true }).fill(SECRETS.admin);
+  await startFromDashboard(page, { next: en['action.next'], start: en['action.start_install'] });
+  await page.locator('.app[data-screen="result"] .todo').nth(2).waitFor({ timeout: 120000 });
+  await page.waitForTimeout(1000);
+  return { context, page, stop: () => host.stop() };
+}
+
 // Die Diagnose: Modus-Kachel, Verbindung, Live-Log mit Zeilen.
 async function diagnose() {
   const host = await startFakehost(['--lang', 'en', '--trusted']);
@@ -149,6 +187,27 @@ async function diagnose() {
 }
 
 try {
+  if (want('installer-connect')) {
+    const { context, page, stop } = await connectForm({ trusted: true });
+    await shot(page, 'installer-connect');
+    await context.close();
+    await stop();
+  }
+  if (want('installer-fingerprint')) {
+    const { context, page, stop } = await connectForm({ trusted: false });
+    await page.locator('.app[data-screen="connect"] button.primary').click();
+    await page.locator('.tofu').waitFor({ timeout: 30000 });
+    await page.waitForTimeout(800);
+    await shot(page, 'installer-fingerprint');
+    await context.close();
+    await stop();
+  }
+  if (want('installer-result')) {
+    const { context, page, stop } = await result();
+    await shot(page, 'installer-result');
+    await context.close();
+    await stop();
+  }
   if (want('installer-precheck')) {
     const { context, page, stop } = await precheck();
     await shot(page, 'installer-precheck');
