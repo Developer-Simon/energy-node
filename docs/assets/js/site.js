@@ -1,5 +1,5 @@
 /* Energy Node docs: theme toggle, table of contents, mobile navigation,
-   search loader, forwarding of anchors that moved to a subpage, the What's new view switch and the image dialog.
+   search loader, forwarding of anchors that moved to a subpage, the What's new view switch, opening a linked details block and the image dialog.
    No build step, no dependencies. */
 (function () {
   "use strict";
@@ -145,6 +145,20 @@
     }
   }
 
+  // ---- A link to a collapsed block opens it ----------------------------------
+
+  // The release notes link to one release on the version overview.
+  function initDetailsAnchor() {
+    function open() {
+      var el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      if (!el || el.tagName !== "DETAILS") return;
+      el.open = true;
+      el.scrollIntoView();
+    }
+    window.addEventListener("hashchange", open);
+    open();
+  }
+
   // ---- Wide tables scroll in their own box -----------------------------------
 
   function wrapTables() {
@@ -276,6 +290,7 @@
   wrapTables();
   initToc();
   initWhatsNew();
+  initDetailsAnchor();
   initLightbox();
   initNav();
   initSearch();

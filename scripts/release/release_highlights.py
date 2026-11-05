@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Highlights block of the GitHub release notes, English and German.
+"""Body of the GitHub release notes: links to the docs, German highlights folded.
 
-    release_highlights.py --repo <repo> [--previous-tag vX.Y.Z]
+    release_highlights.py --repo <repo> --tag vX.Y.Z [--previous-tag vX.Y.Z]
 
 Reads the same data as the dashboard and the installer: the CHANGELOG.md
 files with their highlight flag and changelog/highlights/<PR>.json (see
 scripts/build/make_changelog_json.py). Per bundle component it lists the
 highlights of every release newer than the component's version at the previous
 tag, up to its current version. A component the previous tag does not know, and
-every component without a previous tag, shows its current release only. Prints
-nothing when there is no highlight.
+every component without a previous tag, shows its current release only. The
+English highlights are on the What's new page the links lead to. Without a
+highlight the German block is left out.
 """
 import argparse
 import datetime
@@ -22,6 +23,16 @@ from changelog_history import in_range, versions_at  # noqa: E402
 from make_changelog_json import build_document  # noqa: E402
 
 GERMAN_SUMMARY = "Highlights auf Deutsch"
+DOCS_URL = "https://developer-simon.github.io/energy-node"
+REPO_URL = "https://github.com/Developer-Simon/energy-node"
+
+
+def links(tag):
+    return " · ".join([
+        f"[What's new in {tag}]({DOCS_URL}/whats-new.html#{tag})",
+        f"[Component versions]({DOCS_URL}/developing/versions.html#{tag})",
+        f"[Full changelog]({REPO_URL}/blob/{tag}/dashboard/CHANGELOG.md)",
+    ])
 
 
 def highlight_rows(document, previous):
@@ -49,17 +60,17 @@ def _section(rows, lang):
     return lines
 
 
-def render(rows):
-    if not rows:
-        return ""
-    lines = ["## Highlights", ""] + _section(rows, None)
-    lines += ["<details>", f"<summary>{GERMAN_SUMMARY}</summary>", ""] + _section(rows, "de") + ["</details>", ""]
+def render(rows, tag):
+    lines = [links(tag), ""]
+    if rows:
+        lines += ["<details>", f"<summary>{GERMAN_SUMMARY}</summary>", ""] + _section(rows, "de") + ["</details>", ""]
     return "\n".join(lines)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--repo", required=True)
+    parser.add_argument("--tag", required=True)
     parser.add_argument("--previous-tag", default="")
     args = parser.parse_args(argv)
     repo = Path(args.repo)
@@ -67,7 +78,7 @@ def main(argv=None):
     document = build_document(repo, table, bundle_version="", max_releases=50,
                               generated_at=datetime.datetime.now().isoformat(timespec="seconds"))
     previous = versions_at(repo, args.previous_tag, table) if args.previous_tag else {}
-    sys.stdout.write(render(highlight_rows(document, previous)))
+    sys.stdout.write(render(highlight_rows(document, previous), args.tag))
     return 0
 
 

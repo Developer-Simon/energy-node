@@ -34,20 +34,29 @@ def test_rows_cut_the_range_per_component():
     ]
 
 
-def test_render_english_and_german_with_fallback():
-    out = rh.render(rh.highlight_rows(DOC, {"dashboard": "v0.9.1", "bootstrap": "v0.3.0"}))
-    english, german = out.split("<details>")
-    assert english.startswith("## Highlights\n\n### Dashboard v0.9.2\n\n- statistics page (#132)\n")
-    assert "- **⚠ Breaking** drop legacy (#131)" in english
+def test_render_links_and_folded_german_with_fallback():
+    out = rh.render(rh.highlight_rows(DOC, {"dashboard": "v0.9.1", "bootstrap": "v0.3.0"}), "v0.9.2")
+    top, german = out.split("<details>")
+    assert top.strip() == rh.links("v0.9.2")
+    assert "statistics page" not in out   # the English text lives on the What's new page
     assert "<summary>Highlights auf Deutsch</summary>" in german
+    assert "### Dashboard v0.9.2" in german
     assert "- Statistikseite (#132)" in german
     assert "- **⚠ Breaking** drop legacy (#131)" in german   # no translation: English text
     assert out.rstrip().endswith("</details>")
     assert "- detail" not in out
 
 
-def test_render_without_rows_is_empty():
-    assert rh.render([]) == ""
+def test_links_point_at_the_release():
+    assert rh.links("v0.9.2") == (
+        "[What's new in v0.9.2](https://developer-simon.github.io/energy-node/whats-new.html#v0.9.2)"
+        " · [Component versions](https://developer-simon.github.io/energy-node/developing/versions.html#v0.9.2)"
+        " · [Full changelog](https://github.com/Developer-Simon/energy-node/blob/v0.9.2/dashboard/CHANGELOG.md)"
+    )
+
+
+def test_render_without_rows_has_only_the_links():
+    assert rh.render([], "v0.9.2").strip() == rh.links("v0.9.2")
 
 
 def test_versions_at_reads_files_at_a_tag(tmp_path):
