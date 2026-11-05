@@ -2,6 +2,9 @@
   "153": {
     "de": {
       "*": "Klarerer Update-Hinweis, die Firewall wird abgehakt, und Dienste laufen nur bei echten Änderungen."
+    },
+    "doc_title": {
+      "*": "Clearer update notice, firewall step completes, unchanged libraries skipped"
     }
   },
   "157": {
@@ -161,6 +164,9 @@
           }
         ]
       }
+    },
+    "doc_title": {
+      "*": "The diagnostics page shows Energy Node service logs with search and refresh"
     }
   }
 }

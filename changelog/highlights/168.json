@@ -44,5 +44,8 @@
         }
       ]
     }
+  },
+  "doc_title": {
+    "*": "Rules show their last four triggers, and phones open the assistant as a sheet"
   }
 }

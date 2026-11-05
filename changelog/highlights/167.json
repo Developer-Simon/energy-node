@@ -101,5 +101,8 @@
         }
       ]
     }
+  },
+  "doc_title": {
+    "*": "Named accounts with own permissions, a minimum password length and sessions"
   }
 }

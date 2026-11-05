@@ -7,7 +7,7 @@
    "cards": [
     {
      "pr": 193,
-     "title": "The installer diagnose shows a live log of the dashboard and the updater service with their state",
+     "title": "The installer diagnose shows a live log of the dashboard and the updater",
      "components": [
       "Bootstrap",
       "Installer",
@@ -27,7 +27,7 @@
     },
     {
      "pr": 190,
-     "title": "The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later",
+     "title": "The installer's Dashboard step presets users, guest access and the look",
      "components": [
       "Dashboard",
       "Bootstrap",
@@ -51,7 +51,7 @@
     },
     {
      "pr": 187,
-     "title": "The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device",
+     "title": "A dialog asks for the sudo password and sets up passwordless sudo",
      "components": [
       "Dashboard",
       "Installer",
@@ -74,7 +74,7 @@
     },
     {
      "pr": 183,
-     "title": "Mobile view for the statistics page",
+     "title": "The statistics page works on a phone, with a table or grid view",
      "components": [
       "Dashboard"
      ],
@@ -100,7 +100,7 @@
     },
     {
      "pr": 180,
-     "title": "Star favourites, a per-entity analysis tab and two device rights",
+     "title": "Star favourites and an Analysis tab that lists warnings and every entity",
      "components": [
       "Dashboard"
      ],
@@ -156,7 +156,7 @@
     },
     {
      "pr": 170,
-     "title": "Permissions are enforced: accounts only see the pages they may view and only change what they may change",
+     "title": "Users only see and change the pages their permissions allow",
      "components": [
       "Dashboard"
      ],
@@ -177,7 +177,7 @@
     },
     {
      "pr": 164,
-     "title": "The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor",
+     "title": "Scenarios with live cards, charts and a phase editor, plus a new rule editor",
      "components": [
       "Dashboard"
      ],
@@ -215,7 +215,7 @@
     },
     {
      "pr": 198,
-     "title": "Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind \"Explore further back\", and each older release card can catch up on its tour",
+     "title": "Every feature since v0.8.0 has a tour, and older releases can catch up",
      "components": [
       "Dashboard"
      ],
@@ -230,7 +230,7 @@
     },
     {
      "pr": 197,
-     "title": "Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one",
+     "title": "The checklist's Explore mode lists the highlights of the last three releases",
      "components": [
       "Dashboard"
      ],
@@ -245,7 +245,7 @@
     },
     {
      "pr": 196,
-     "title": "Render tuning findings from a shared message catalog",
+     "title": "Calibration and tuning notes follow the dashboard language",
      "components": [
       "Dashboard",
       "energy_node_common",
@@ -262,7 +262,7 @@
     },
     {
      "pr": 194,
-     "title": "The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password",
+     "title": "The installer detects a refused MQTT login and repairs it with a new password",
      "components": [
       "Bootstrap",
       "Installer",
@@ -295,7 +295,7 @@
     },
     {
      "pr": 189,
-     "title": "The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it",
+     "title": "The installer can load Python packages online when the versions do not match",
      "components": [
       "Bootstrap",
       "Installer",
@@ -315,7 +315,7 @@
     },
     {
      "pr": 188,
-     "title": "A guided first-time setup walks admins through access, display, system and devices, with a welcome step first",
+     "title": "A guided first-time setup for admins covers access, display, system and devices",
      "components": [
       "Dashboard"
      ],
@@ -399,7 +399,7 @@
     },
     {
      "pr": 174,
-     "title": "Sign in home assistant users through the companion",
+     "title": "Home Assistant users sign in through the Energy Node Companion",
      "components": [
       "Dashboard",
       "Bootstrap"
@@ -418,7 +418,7 @@
     },
     {
      "pr": 169,
-     "title": "The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide",
+     "title": "The zero feed template sets the regulator target with a draggable band",
      "components": [
       "Dashboard"
      ],
@@ -433,7 +433,7 @@
     },
     {
      "pr": 168,
-     "title": "Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet",
+     "title": "Rules show their last four triggers, and phones open the assistant as a sheet",
      "components": [
       "Dashboard"
      ],
@@ -457,7 +457,7 @@
     },
     {
      "pr": 167,
-     "title": "Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions",
+     "title": "Named accounts with own permissions, a minimum password length and sessions",
      "components": [
       "Dashboard"
      ],
@@ -496,7 +496,7 @@
     },
     {
      "pr": 166,
-     "title": "A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging",
+     "title": "An assistant builds scenarios and rules from five templates like zero feed-in",
      "components": [
       "Dashboard",
       "Automation"
@@ -581,7 +581,7 @@
     },
     {
      "pr": 201,
-     "title": "Tours with actions, guest and favourite steps, news offer",
+     "title": "Tours can run actions, include guest and favourite steps, and offer news",
      "components": [
       "Dashboard"
      ],
@@ -611,7 +611,7 @@
     },
     {
      "pr": 195,
-     "title": "The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab",
+     "title": "The dashboard starts and stays reachable when the first MQTT connection fails",
      "components": [
       "Dashboard"
      ],
@@ -626,7 +626,7 @@
     },
     {
      "pr": 191,
-     "title": "A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects",
+     "title": "A fresh install starts the dashboard despite a missing folder or MQTT login",
      "components": [
       "Bootstrap",
       "Installer"
@@ -642,7 +642,7 @@
     },
     {
      "pr": 181,
-     "title": "Stop the main tab \"More\" list from refitting itself in a loop",
+     "title": "The main tab's More list no longer keeps resizing itself",
      "components": [
       "Dashboard"
      ],
@@ -657,7 +657,7 @@
     },
     {
      "pr": 172,
-     "title": "New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield",
+     "title": "New assistant templates for heat pumps, low tariff charging and §14a control",
      "components": [
       "Dashboard",
       "Automation"
@@ -673,7 +673,7 @@
     },
     {
      "pr": 165,
-     "title": "Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker",
+     "title": "Editors show devices as tiles with live values in one device picker",
      "components": [
       "Dashboard"
      ],
@@ -695,7 +695,7 @@
    "cards": [
     {
      "pr": 161,
-     "title": "The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh",
+     "title": "The diagnostics page shows Energy Node service logs with search and refresh",
      "components": [
       "Dashboard"
      ],
@@ -820,7 +820,7 @@
     },
     {
      "pr": 153,
-     "title": "Clearer update notice, firewall station completes, service steps skip unchanged libraries",
+     "title": "Clearer update notice, firewall step completes, unchanged libraries skipped",
      "components": [
       "Dashboard",
       "Bootstrap",
@@ -844,7 +844,7 @@
    "cards": [
     {
      "pr": 148,
-     "title": "Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page",
+     "title": "Single appliances on a meter can be named as sub-devices in the device map",
      "components": [
       "Dashboard"
      ],
@@ -865,7 +865,7 @@
     },
     {
      "pr": 146,
-     "title": "Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut",
+     "title": "Switches are an energy role with an optional channel, shown as green or red",
      "components": [
       "Dashboard"
      ],
@@ -886,7 +886,7 @@
     },
     {
      "pr": 145,
-     "title": "The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label",
+     "title": "The device map shows switched-off devices, which fade out with an off label",
      "components": [
       "Dashboard"
      ],
@@ -924,7 +924,7 @@
     },
     {
      "pr": 143,
-     "title": "The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors",
+     "title": "House load is always calculated, with a house meter as cross-check",
      "components": [
       "Dashboard"
      ],
@@ -950,7 +950,7 @@
     },
     {
      "pr": 142,
-     "title": "The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics",
+     "title": "Home Assistant gets sensors for wallbox, heat pump and custom categories",
      "components": [
       "Dashboard"
      ],
@@ -971,7 +971,7 @@
     },
     {
      "pr": 141,
-     "title": "The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh",
+     "title": "The history page offers fitting resolutions in a dropdown and a 3 month preset",
      "components": [
       "Dashboard"
      ],
@@ -997,7 +997,7 @@
     },
     {
      "pr": 138,
-     "title": "The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect",
+     "title": "The MQTT tab explains the Mosquitto bridge and picks system metrics in one list",
      "components": [
       "Dashboard"
      ],
@@ -1031,7 +1031,7 @@
     },
     {
      "pr": 137,
-     "title": "Choose how many versions the changelog shows, with the history kept on the device across updates",
+     "title": "Choose how many changelog versions show, kept on the device across updates",
      "components": [
       "Dashboard",
       "Installer",
@@ -1054,7 +1054,7 @@
     },
     {
      "pr": 134,
-     "title": "Release highlights now have a German text that shows in the dashboard, the installer and the release notes",
+     "title": "Release highlights also come in German, shown in the dashboard and installer",
      "components": [
       "Dashboard",
       "Installer web UI"
@@ -1196,7 +1196,7 @@
     },
     {
      "pr": 144,
-     "title": "Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics",
+     "title": "Help texts, device map, energy roles and statistics fit narrow screens",
      "components": [
       "Dashboard",
       "Installer web UI"
@@ -1212,7 +1212,7 @@
     },
     {
      "pr": 135,
-     "title": "Device tiles patched from the devices topic without fragment swaps",
+     "title": "Device tiles update live without reloading",
      "components": [
       "Dashboard"
      ],
@@ -1227,7 +1227,7 @@
     },
     {
      "pr": 133,
-     "title": "SSE topic subscriptions and a swap-free statistics tile",
+     "title": "The statistics tile updates live in place",
      "components": [
       "Dashboard"
      ],
@@ -1242,7 +1242,7 @@
     },
     {
      "pr": 131,
-     "title": "Fit the update result screen to the dashboard host",
+     "title": "The update result screen fits the dashboard",
      "components": [
       "Installer web UI"
      ],
@@ -1279,7 +1279,7 @@
    "cards": [
     {
      "pr": 126,
-     "title": "Merge the balance node into the energy_node device",
+     "title": "The balance node is merged into the energy_node device",
      "components": [
       "Dashboard"
      ],
@@ -1341,7 +1341,7 @@
    "rest": [
     {
      "pr": 129,
-     "title": "Connection types with flow direction and reversible manual edges",
+     "title": "Connections show their flow direction and can be reversed by hand",
      "components": [
       "Dashboard"
      ],
@@ -1371,7 +1371,7 @@
     },
     {
      "pr": 127,
-     "title": "Hang the automation device under the node and link its rules",
+     "title": "The automation device sits under the node, with its rules linked to it",
      "components": [
       "Dashboard",
       "Automation"
@@ -2290,7 +2290,7 @@
     },
     {
      "pr": 60,
-     "title": "Number format setting and locale-aware dates (localization A2)",
+     "title": "A number format setting, with dates that follow the language",
      "components": [
       "Dashboard"
      ],
@@ -2321,7 +2321,7 @@
     },
     {
      "pr": 55,
-     "title": "Replace scripts/deploy with the developer CLI",
+     "title": "The developer CLI replaces the old deploy script",
      "components": [
       "Installer"
      ],
@@ -2351,7 +2351,7 @@
     },
     {
      "pr": 52,
-     "title": "Keep following a run across the dashboard's self-update restart",
+     "title": "A running update stays visible when the dashboard restarts itself",
      "components": [
       "Dashboard",
       "Installer web UI"
@@ -2367,7 +2367,7 @@
     },
     {
      "pr": 51,
-     "title": "Pass service fields and previous versions to the redeploy preview",
+     "title": "The redeploy preview shows service fields and previous versions",
      "components": [
       "Dashboard"
      ],
@@ -2435,7 +2435,7 @@
     },
     {
      "pr": 172,
-     "title": "New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield",
+     "title": "New assistant templates for heat pumps, low tariff charging and §14a control",
      "components": [
       "Dashboard",
       "Automation"
@@ -2451,7 +2451,7 @@
     },
     {
      "pr": 169,
-     "title": "The zero feed template sets the regulator target by dragging a band on the grid axis, with yesterday's grid power as a guide",
+     "title": "The zero feed template sets the regulator target with a draggable band",
      "components": [
       "Dashboard"
      ],
@@ -2466,7 +2466,7 @@
     },
     {
      "pr": 168,
-     "title": "Single rules show their last four triggers, and on phones the assistant opens as a bottom sheet",
+     "title": "Rules show their last four triggers, and phones open the assistant as a sheet",
      "components": [
       "Dashboard"
      ],
@@ -2490,7 +2490,7 @@
     },
     {
      "pr": 166,
-     "title": "A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging",
+     "title": "An assistant builds scenarios and rules from five templates like zero feed-in",
      "components": [
       "Dashboard",
       "Automation"
@@ -2506,7 +2506,7 @@
     },
     {
      "pr": 165,
-     "title": "Scenario and rule editors show devices as tiles with live values and pick them in a shared device picker",
+     "title": "Editors show devices as tiles with live values in one device picker",
      "components": [
       "Dashboard"
      ],
@@ -2521,7 +2521,7 @@
     },
     {
      "pr": 164,
-     "title": "The Automations page shows scenarios with a live card, a chart and a phase editor, and has a redesigned rule editor",
+     "title": "Scenarios with live cards, charts and a phase editor, plus a new rule editor",
      "components": [
       "Dashboard"
      ],
@@ -2616,7 +2616,7 @@
    "entries": [
     {
      "pr": 196,
-     "title": "Render tuning findings from a shared message catalog",
+     "title": "Calibration and tuning notes follow the dashboard language",
      "components": [
       "Dashboard",
       "energy_node_common",
@@ -2750,7 +2750,7 @@
    "entries": [
     {
      "pr": 195,
-     "title": "The dashboard now starts and stays reachable when the first MQTT connection fails, keeps retrying in the background and shows the error in the MQTT tab",
+     "title": "The dashboard starts and stays reachable when the first MQTT connection fails",
      "components": [
       "Dashboard"
      ],
@@ -2808,7 +2808,7 @@
     },
     {
      "pr": 181,
-     "title": "Stop the main tab \"More\" list from refitting itself in a loop",
+     "title": "The main tab's More list no longer keeps resizing itself",
      "components": [
       "Dashboard"
      ],
@@ -2873,7 +2873,7 @@
     },
     {
      "pr": 135,
-     "title": "Device tiles patched from the devices topic without fragment swaps",
+     "title": "Device tiles update live without reloading",
      "components": [
       "Dashboard"
      ],
@@ -2888,7 +2888,7 @@
     },
     {
      "pr": 133,
-     "title": "SSE topic subscriptions and a swap-free statistics tile",
+     "title": "The statistics tile updates live in place",
      "components": [
       "Dashboard"
      ],
@@ -3275,7 +3275,7 @@
     },
     {
      "pr": 60,
-     "title": "Number format setting and locale-aware dates (localization A2)",
+     "title": "A number format setting, with dates that follow the language",
      "components": [
       "Dashboard"
      ],
@@ -3305,7 +3305,7 @@
     },
     {
      "pr": 51,
-     "title": "Pass service fields and previous versions to the redeploy preview",
+     "title": "The redeploy preview shows service fields and previous versions",
      "components": [
       "Dashboard"
      ],
@@ -3351,7 +3351,7 @@
     },
     {
      "pr": 148,
-     "title": "Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page",
+     "title": "Single appliances on a meter can be named as sub-devices in the device map",
      "components": [
       "Dashboard"
      ],
@@ -3372,7 +3372,7 @@
     },
     {
      "pr": 146,
-     "title": "Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut",
+     "title": "Switches are an energy role with an optional channel, shown as green or red",
      "components": [
       "Dashboard"
      ],
@@ -3393,7 +3393,7 @@
     },
     {
      "pr": 145,
-     "title": "The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label",
+     "title": "The device map shows switched-off devices, which fade out with an off label",
      "components": [
       "Dashboard"
      ],
@@ -3431,7 +3431,7 @@
     },
     {
      "pr": 129,
-     "title": "Connection types with flow direction and reversible manual edges",
+     "title": "Connections show their flow direction and can be reversed by hand",
      "components": [
       "Dashboard"
      ],
@@ -3446,7 +3446,7 @@
     },
     {
      "pr": 127,
-     "title": "Hang the automation device under the node and link its rules",
+     "title": "The automation device sits under the node, with its rules linked to it",
      "components": [
       "Dashboard",
       "Automation"
@@ -3462,7 +3462,7 @@
     },
     {
      "pr": 126,
-     "title": "Merge the balance node into the energy_node device",
+     "title": "The balance node is merged into the energy_node device",
      "components": [
       "Dashboard"
      ],
@@ -3539,7 +3539,7 @@
    "entries": [
     {
      "pr": 180,
-     "title": "Star favourites, a per-entity analysis tab and two device rights",
+     "title": "Star favourites and an Analysis tab that lists warnings and every entity",
      "components": [
       "Dashboard"
      ],
@@ -3623,7 +3623,7 @@
    "entries": [
     {
      "pr": 161,
-     "title": "The diagnostics page shows the logs of the Energy Node services, with search and automatic refresh",
+     "title": "The diagnostics page shows Energy Node service logs with search and refresh",
      "components": [
       "Dashboard"
      ],
@@ -3710,7 +3710,7 @@
     },
     {
      "pr": 143,
-     "title": "The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors",
+     "title": "House load is always calculated, with a house meter as cross-check",
      "components": [
       "Dashboard"
      ],
@@ -3771,7 +3771,7 @@
    "entries": [
     {
      "pr": 167,
-     "title": "Settings, Users: named accounts with individual permissions, a configurable minimum password length and a list of logged in sessions",
+     "title": "Named accounts with own permissions, a minimum password length and sessions",
      "components": [
       "Dashboard"
      ],
@@ -3815,7 +3815,7 @@
    "entries": [
     {
      "pr": 201,
-     "title": "Tours with actions, guest and favourite steps, news offer",
+     "title": "Tours can run actions, include guest and favourite steps, and offer news",
      "components": [
       "Dashboard"
      ],
@@ -3830,7 +3830,7 @@
     },
     {
      "pr": 198,
-     "title": "Settings, Checklist: every visible feature since v0.8.0 has a tour, releases older than the last three minors sit behind \"Explore further back\", and each older release card can catch up on its tour",
+     "title": "Every feature since v0.8.0 has a tour, and older releases can catch up",
      "components": [
       "Dashboard"
      ],
@@ -3845,7 +3845,7 @@
     },
     {
      "pr": 197,
-     "title": "Settings, Checklist, Neues erkunden lists the highlights of the last three minor releases, one card per release, with a tour for the ones that have one",
+     "title": "The checklist's Explore mode lists the highlights of the last three releases",
      "components": [
       "Dashboard"
      ],
@@ -3860,7 +3860,7 @@
     },
     {
      "pr": 188,
-     "title": "A guided first-time setup walks admins through access, display, system and devices, with a welcome step first",
+     "title": "A guided first-time setup for admins covers access, display, system and devices",
      "components": [
       "Dashboard"
      ],
@@ -3880,7 +3880,7 @@
    "entries": [
     {
      "pr": 141,
-     "title": "The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh",
+     "title": "The history page offers fitting resolutions in a dropdown and a 3 month preset",
      "components": [
       "Dashboard"
      ],
@@ -3929,7 +3929,7 @@
     },
     {
      "pr": 194,
-     "title": "The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password",
+     "title": "The installer detects a refused MQTT login and repairs it with a new password",
      "components": [
       "Bootstrap",
       "Installer",
@@ -3946,7 +3946,7 @@
     },
     {
      "pr": 193,
-     "title": "The installer diagnose shows a live log of the dashboard and the updater service with their state",
+     "title": "The installer diagnose shows a live log of the dashboard and the updater",
      "components": [
       "Bootstrap",
       "Installer",
@@ -3982,7 +3982,7 @@
     },
     {
      "pr": 191,
-     "title": "A fresh install now starts the dashboard. It no longer fails on a missing data folder or on an MQTT login the broker rejects",
+     "title": "A fresh install starts the dashboard despite a missing folder or MQTT login",
      "components": [
       "Bootstrap",
       "Installer"
@@ -3998,7 +3998,7 @@
     },
     {
      "pr": 190,
-     "title": "The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later",
+     "title": "The installer's Dashboard step presets users, guest access and the look",
      "components": [
       "Dashboard",
       "Bootstrap",
@@ -4022,7 +4022,7 @@
     },
     {
      "pr": 189,
-     "title": "The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it",
+     "title": "The installer can load Python packages online when the versions do not match",
      "components": [
       "Bootstrap",
       "Installer",
@@ -4042,7 +4042,7 @@
     },
     {
      "pr": 187,
-     "title": "The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device",
+     "title": "A dialog asks for the sudo password and sets up passwordless sudo",
      "components": [
       "Dashboard",
       "Installer",
@@ -4065,7 +4065,7 @@
     },
     {
      "pr": 174,
-     "title": "Sign in home assistant users through the companion",
+     "title": "Home Assistant users sign in through the Energy Node Companion",
      "components": [
       "Dashboard",
       "Bootstrap"
@@ -4084,7 +4084,7 @@
     },
     {
      "pr": 153,
-     "title": "Clearer update notice, firewall station completes, service steps skip unchanged libraries",
+     "title": "Clearer update notice, firewall step completes, unchanged libraries skipped",
      "components": [
       "Dashboard",
       "Bootstrap",
@@ -4101,7 +4101,7 @@
     },
     {
      "pr": 144,
-     "title": "Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics",
+     "title": "Help texts, device map, energy roles and statistics fit narrow screens",
      "components": [
       "Dashboard",
       "Installer web UI"
@@ -4117,7 +4117,7 @@
     },
     {
      "pr": 137,
-     "title": "Choose how many versions the changelog shows, with the history kept on the device across updates",
+     "title": "Choose how many changelog versions show, kept on the device across updates",
      "components": [
       "Dashboard",
       "Installer",
@@ -4140,7 +4140,7 @@
     },
     {
      "pr": 134,
-     "title": "Release highlights now have a German text that shows in the dashboard, the installer and the release notes",
+     "title": "Release highlights also come in German, shown in the dashboard and installer",
      "components": [
       "Dashboard",
       "Installer web UI"
@@ -4171,7 +4171,7 @@
     },
     {
      "pr": 131,
-     "title": "Fit the update result screen to the dashboard host",
+     "title": "The update result screen fits the dashboard",
      "components": [
       "Installer web UI"
      ],
@@ -4412,7 +4412,7 @@
     },
     {
      "pr": 55,
-     "title": "Replace scripts/deploy with the developer CLI",
+     "title": "The developer CLI replaces the old deploy script",
      "components": [
       "Installer"
      ],
@@ -4427,7 +4427,7 @@
     },
     {
      "pr": 52,
-     "title": "Keep following a run across the dashboard's self-update restart",
+     "title": "A running update stays visible when the dashboard restarts itself",
      "components": [
       "Dashboard",
       "Installer web UI"
@@ -4538,7 +4538,7 @@
     },
     {
      "pr": 170,
-     "title": "Permissions are enforced: accounts only see the pages they may view and only change what they may change",
+     "title": "Users only see and change the pages their permissions allow",
      "components": [
       "Dashboard"
      ],
@@ -4615,7 +4615,7 @@
     },
     {
      "pr": 142,
-     "title": "The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics",
+     "title": "Home Assistant gets sensors for wallbox, heat pump and custom categories",
      "components": [
       "Dashboard"
      ],
@@ -4636,7 +4636,7 @@
     },
     {
      "pr": 138,
-     "title": "The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect",
+     "title": "The MQTT tab explains the Mosquitto bridge and picks system metrics in one list",
      "components": [
       "Dashboard"
      ],
@@ -4739,7 +4739,7 @@
    "entries": [
     {
      "pr": 183,
-     "title": "Mobile view for the statistics page",
+     "title": "The statistics page works on a phone, with a table or grid view",
      "components": [
       "Dashboard"
      ],

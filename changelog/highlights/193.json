@@ -14,5 +14,8 @@
       "en": "The Live log card in the diagnostics follows the dashboard and the updater, so you can find out without SSH why the dashboard does not start. Under “Lines in report” you choose how many lines the report takes along. “Copy for issue” copies it for a GitHub issue, with addresses, names and passwords masked.",
       "image": "installer-diagnose.png"
     }
+  },
+  "doc_title": {
+    "*": "The installer diagnose shows a live log of the dashboard and the updater"
   }
 }

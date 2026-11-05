@@ -9,5 +9,8 @@
       "en": "You set permissions under Settings, Users. The settings permission is now split into “Change the appearance” and “Set up the dashboard”. Existing accounts keep what they were allowed to do. An account without a view permission sees only a notice and its own account.",
       "image": "dashboard-settings-users-permissions.png"
     }
+  },
+  "doc_title": {
+    "*": "Users only see and change the pages their permissions allow"
   }
 }

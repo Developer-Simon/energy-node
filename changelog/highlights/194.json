@@ -7,5 +7,8 @@
       "de": "Lehnt der Broker das Passwort ab, zeigt die Diagnose die Prüfung MQTT-Anmeldung als Fehler. Beim Reparieren öffnet sich der Dialog „MQTT-Passwort neu setzen“, in dem du ein neues Passwort eingibst oder mit „Zufälliges Passwort“ erzeugst. Node und Broker bekommen es dann beide.",
       "en": "If the broker rejects the password, the diagnostics show the MQTT login check as failed. The repair opens the dialog “Set a new MQTT password”, where you enter a new password or create one with “Random password”. The node and the broker then both receive it."
     }
+  },
+  "doc_title": {
+    "*": "The installer detects a refused MQTT login and repairs it with a new password"
   }
 }

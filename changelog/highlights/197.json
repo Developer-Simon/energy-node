@@ -12,5 +12,8 @@
     "*": {
       "exempt": "The checklist already shows the Explore switch when the tour starts, a step would repeat it."
     }
+  },
+  "doc_title": {
+    "*": "The checklist's Explore mode lists the highlights of the last three releases"
   }
 }

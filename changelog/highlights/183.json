@@ -29,5 +29,8 @@
         }
       ]
     }
+  },
+  "doc_title": {
+    "*": "The statistics page works on a phone, with a table or grid view"
   }
 }

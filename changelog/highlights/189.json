@@ -8,5 +8,8 @@
       "en": "If the device's Python version does not match the package, the preparation stops with “Process paused, confirmation required”. With “Load dependencies online” the installer loads the remaining dependencies from the internet. The device needs internet access for this.",
       "doc": "installer.html#python-version-of-the-pi"
     }
+  },
+  "doc_title": {
+    "*": "The installer can load Python packages online when the versions do not match"
   }
 }

@@ -9,5 +9,8 @@
       "en": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
       "image": "installer-sudo.png"
     }
+  },
+  "doc_title": {
+    "*": "A dialog asks for the sudo password and sets up passwordless sudo"
   }
 }

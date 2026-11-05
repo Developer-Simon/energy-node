@@ -8,5 +8,8 @@
       "en": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
       "doc": "dashboard/settings-users.html#home-assistant-users"
     }
+  },
+  "doc_title": {
+    "*": "Home Assistant users sign in through the Energy Node Companion"
   }
 }

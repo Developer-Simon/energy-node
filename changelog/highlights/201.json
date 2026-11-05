@@ -6,5 +6,8 @@
     "*": {
       "exempt": "The tours themselves are the feature, and the explore card offers itself at the next start."
     }
+  },
+  "doc_title": {
+    "*": "Tours can run actions, include guest and favourite steps, and offer news"
   }
 }

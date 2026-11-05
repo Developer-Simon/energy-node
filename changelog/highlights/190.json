@@ -9,5 +9,8 @@
       "en": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
       "image": "installer-dashboard-step.png"
     }
+  },
+  "doc_title": {
+    "*": "The installer's Dashboard step presets users, guest access and the look"
   }
 }

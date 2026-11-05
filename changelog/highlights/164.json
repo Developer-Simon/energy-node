@@ -76,5 +76,8 @@
         }
       ]
     }
+  },
+  "doc_title": {
+    "*": "Scenarios with live cards, charts and a phase editor, plus a new rule editor"
   }
 }
