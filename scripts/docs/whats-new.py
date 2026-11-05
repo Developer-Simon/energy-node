@@ -230,6 +230,7 @@ def build(document, tags, tag_versions, tag_dates, translations, nav, docs_dir, 
     selected components, each component may carry "target".
     """
     merged = {}
+    ids = {}
     for component in document["components"]:
         component_id = component["id"]
         target = component.get("target", component_id)
@@ -246,9 +247,16 @@ def build(document, tags, tag_versions, tag_dates, translations, nav, docs_dir, 
                     if key in merged:
                         if component["label"] not in merged[key]["components"]:
                             merged[key]["components"].append(component["label"])
+                        ids[key].append(component_id)
                         continue
                     merged[key] = _entry(component, source, since, target, translations,
                                          nav, docs_dir, image_sizes)
+                    ids[key] = [component_id]
+    # An entry with any installer component is an Installer entry (P2 step 1),
+    # even when its first component is not one of them.
+    for key, entry in merged.items():
+        if any(component_id in INSTALLER_IDS for component_id in ids[key]):
+            entry["area"] = "Installer"
     entries = list(merged.values())
 
     releases = []

@@ -159,6 +159,22 @@ def test_doc_title_fallbacks(docs):
     assert find(result, 52)["doc"]["title"] == "dashboard/missing.md"
 
 
+def test_installer_component_beats_nav(docs):
+    nav = [{"title": "Getting started", "items": [
+        {"label": "Deploying with the installer", "url": "installer.md"},
+    ]}]
+    details = {"text": {"en": "Installer step."}, "doc": PAGES + "installer.html#4-dashboard"}
+    document = {"components": [
+        component("dashboard", "Dashboard", "v0.9.0", [rel("v0.9.0", e(80, "step", details=details))]),
+        component("installer-webui", "Installer web UI", "v0.2.0",
+                  [rel("v0.2.0", e(80, "step", details=details))]),
+    ]}
+    result = run(docs, document=document, nav=nav)
+    entry = find(result, 80)
+    assert entry["components"] == ["Dashboard", "Installer web UI"]
+    assert entry["area"] == "Installer"
+
+
 def test_area_from_nav_scope_component(docs):
     result = run(docs, nav=NAV)
     assert find(result, 20)["area"] == "Automations"

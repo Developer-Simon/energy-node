@@ -34,7 +34,7 @@
       "Installer",
       "Installer web UI"
      ],
-     "area": "Deploying with the installer",
+     "area": "Installer",
      "kind": "image",
      "text": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
      "image": {
@@ -57,7 +57,7 @@
       "Installer",
       "Installer web UI"
      ],
-     "area": "Deploying with the installer",
+     "area": "Installer",
      "kind": "image",
      "text": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
      "image": {
@@ -404,7 +404,7 @@
       "Dashboard",
       "Bootstrap"
      ],
-     "area": "Settings",
+     "area": "Installer",
      "kind": "text",
      "text": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
      "image": null,
@@ -570,7 +570,7 @@
       "Installer",
       "Installer web UI"
      ],
-     "area": "First-time setup",
+     "area": "Installer",
      "kind": "title",
      "text": null,
      "image": null,
@@ -826,7 +826,7 @@
       "Bootstrap",
       "Installer web UI"
      ],
-     "area": "Dashboard",
+     "area": "Installer",
      "kind": "title",
      "text": null,
      "image": null,
@@ -1037,7 +1037,7 @@
       "Installer",
       "Installer web UI"
      ],
-     "area": "Settings",
+     "area": "Installer",
      "kind": "image",
      "text": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
      "image": {
@@ -1059,7 +1059,7 @@
       "Dashboard",
       "Installer web UI"
      ],
-     "area": "Settings",
+     "area": "Installer",
      "kind": "image",
      "text": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
      "image": {
@@ -1201,7 +1201,7 @@
       "Dashboard",
       "Installer web UI"
      ],
-     "area": "Dashboard",
+     "area": "Installer",
      "kind": "title",
      "text": null,
      "image": null,
@@ -1407,7 +1407,7 @@
       "Dashboard",
       "Installer"
      ],
-     "area": "Dashboard",
+     "area": "Installer",
      "kind": "title",
      "text": null,
      "image": null,
@@ -1806,7 +1806,7 @@
       "Dashboard",
       "Installer web UI"
      ],
-     "area": "Dashboard",
+     "area": "Installer",
      "kind": "tour",
      "text": null,
      "image": null,
@@ -1868,7 +1868,7 @@
       "Installer",
       "Installer web UI"
      ],
-     "area": "Settings",
+     "area": "Installer",
      "kind": "image",
      "text": "The update page lists the changes of the new package. The preview also shows which components change and which services restart.",
      "image": {
@@ -1988,7 +1988,7 @@
       "Bootstrap",
       "Installer web UI"
      ],
-     "area": "Settings",
+     "area": "Installer",
      "kind": "image",
      "text": "The Versions page shows the installed package and every component with its version. A service that is not installed is marked as such.",
      "image": {
@@ -2149,7 +2149,7 @@
       "Dashboard",
       "Installer web UI"
      ],
-     "area": "Dashboard",
+     "area": "Installer",
      "kind": "title",
      "text": null,
      "image": null,
@@ -2842,23 +2842,6 @@
      "since": "next"
     },
     {
-     "pr": 153,
-     "title": "Clearer update notice, firewall station completes, service steps skip unchanged libraries",
-     "components": [
-      "Dashboard",
-      "Bootstrap",
-      "Installer web UI"
-     ],
-     "area": "Dashboard",
-     "kind": "title",
-     "text": null,
-     "image": null,
-     "doc": null,
-     "tour": [],
-     "breaking": false,
-     "since": "v0.10.8"
-    },
-    {
      "pr": 151,
      "title": "Options for the energy statistics card",
      "components": [
@@ -2878,22 +2861,6 @@
      "title": "Settings in card layout and aligned panel headings",
      "components": [
       "Dashboard"
-     ],
-     "area": "Dashboard",
-     "kind": "title",
-     "text": null,
-     "image": null,
-     "doc": null,
-     "tour": [],
-     "breaking": false,
-     "since": "v0.10.0"
-    },
-    {
-     "pr": 144,
-     "title": "Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics",
-     "components": [
-      "Dashboard",
-      "Installer web UI"
      ],
      "area": "Dashboard",
      "kind": "title",
@@ -2969,22 +2936,6 @@
      "title": "Exchange history only on demand",
      "components": [
       "Dashboard"
-     ],
-     "area": "Dashboard",
-     "kind": "title",
-     "text": null,
-     "image": null,
-     "doc": null,
-     "tour": [],
-     "breaking": false,
-     "since": "v0.9.8"
-    },
-    {
-     "pr": 123,
-     "title": "Show update progress and what's new after an update",
-     "components": [
-      "Dashboard",
-      "Installer"
      ],
      "area": "Dashboard",
      "kind": "title",
@@ -3178,27 +3129,6 @@
      "since": "v0.8.5"
     },
     {
-     "pr": 84,
-     "title": "The changelog pages open on the highlights, the switch at the top shows everything",
-     "components": [
-      "Dashboard",
-      "Installer web UI"
-     ],
-     "area": "Dashboard",
-     "kind": "tour",
-     "text": null,
-     "image": null,
-     "doc": null,
-     "tour": [
-      {
-       "title": "Highlights first",
-       "text": "You can now filter the highlights out of the changes."
-      }
-     ],
-     "breaking": false,
-     "since": "v0.8.5"
-    },
-    {
      "pr": 81,
      "title": "Rest the battery flow icon on its fill level at 0 W",
      "components": [
@@ -3212,22 +3142,6 @@
      "tour": [],
      "breaking": false,
      "since": "v0.8.3"
-    },
-    {
-     "pr": 74,
-     "title": "Show the redeploy screen in the dashboard language",
-     "components": [
-      "Dashboard",
-      "Installer web UI"
-     ],
-     "area": "Dashboard",
-     "kind": "title",
-     "text": null,
-     "image": null,
-     "doc": null,
-     "tour": [],
-     "breaking": false,
-     "since": "v0.8.0"
     },
     {
      "pr": 73,
@@ -3403,58 +3317,6 @@
      "tour": [],
      "breaking": false,
      "since": "v0.8.0"
-    }
-   ]
-  },
-  {
-   "name": "Deploying with the installer",
-   "entries": [
-    {
-     "pr": 190,
-     "title": "The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later",
-     "components": [
-      "Dashboard",
-      "Bootstrap",
-      "Installer",
-      "Installer web UI"
-     ],
-     "area": "Deploying with the installer",
-     "kind": "image",
-     "text": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
-     "image": {
-      "name": "installer-dashboard-step.png",
-      "style": null
-     },
-     "doc": {
-      "url": "installer.html#4-dashboard",
-      "title": "Deploying a node"
-     },
-     "tour": [],
-     "breaking": false,
-     "since": "next"
-    },
-    {
-     "pr": 187,
-     "title": "The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device",
-     "components": [
-      "Dashboard",
-      "Installer",
-      "Installer web UI"
-     ],
-     "area": "Deploying with the installer",
-     "kind": "image",
-     "text": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
-     "image": {
-      "name": "installer-sudo.png",
-      "style": null
-     },
-     "doc": {
-      "url": "installer.html#sudo-password",
-      "title": "Deploying a node"
-     },
-     "tour": [],
-     "breaking": false,
-     "since": "next"
     }
    ]
   },
@@ -3952,24 +3814,6 @@
    "name": "First-time setup",
    "entries": [
     {
-     "pr": 202,
-     "title": "Apply the installer admin name and detect more setup steps as done",
-     "components": [
-      "Dashboard",
-      "Bootstrap",
-      "Installer",
-      "Installer web UI"
-     ],
-     "area": "First-time setup",
-     "kind": "title",
-     "text": null,
-     "image": null,
-     "doc": null,
-     "tour": [],
-     "breaking": false,
-     "since": "next"
-    },
-    {
      "pr": 201,
      "title": "Tours with actions, guest and favourite steps, news offer",
      "components": [
@@ -4066,6 +3910,24 @@
    "name": "Installer",
    "entries": [
     {
+     "pr": 202,
+     "title": "Apply the installer admin name and detect more setup steps as done",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
      "pr": 194,
      "title": "The installer diagnose now detects an MQTT login that the broker refuses and repairs it with a new password",
      "components": [
@@ -4135,6 +3997,30 @@
      "since": "next"
     },
     {
+     "pr": 190,
+     "title": "The installer has a Dashboard step where users, guest access and the look of the dashboard can be preset or left for later",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
+     "image": {
+      "name": "installer-dashboard-step.png",
+      "style": null
+     },
+     "doc": {
+      "url": "installer.html#4-dashboard",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
      "pr": 189,
      "title": "The installer can load the Python dependencies online when the node's Python version differs from the package, after you confirm it",
      "components": [
@@ -4155,6 +4041,135 @@
      "since": "next"
     },
     {
+     "pr": 187,
+     "title": "The installer asks for the sudo password in a dialog and sets up passwordless sudo on the device",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
+     "image": {
+      "name": "installer-sudo.png",
+      "style": null
+     },
+     "doc": {
+      "url": "installer.html#sudo-password",
+      "title": "Deploying a node"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 174,
+     "title": "Sign in home assistant users through the companion",
+     "components": [
+      "Dashboard",
+      "Bootstrap"
+     ],
+     "area": "Installer",
+     "kind": "text",
+     "text": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
+     "image": null,
+     "doc": {
+      "url": "dashboard/settings-users.html#home-assistant-users",
+      "title": "Settings: Users"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "next"
+    },
+    {
+     "pr": 153,
+     "title": "Clearer update notice, firewall station completes, service steps skip unchanged libraries",
+     "components": [
+      "Dashboard",
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.8"
+    },
+    {
+     "pr": 144,
+     "title": "Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 137,
+     "title": "Choose how many versions the changelog shows, with the history kept on the device across updates",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": "aspect-ratio:2.081;background-size:292.40% auto;background-position:95.44% 35.97%"
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
+     "pr": 134,
+     "title": "Release highlights now have a German text that shows in the dashboard, the installer and the release notes",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Highlights in German",
+       "text": "The highlights are now available in German too."
+      },
+      {
+       "title": "Versions in the changelog",
+       "text": "Leave older versions out of the view while you browse the changes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.10.0"
+    },
+    {
      "pr": 131,
      "title": "Fit the update result screen to the dashboard host",
      "components": [
@@ -4168,6 +4183,22 @@
      "tour": [],
      "breaking": false,
      "since": "v0.10.0"
+    },
+    {
+     "pr": 123,
+     "title": "Show update progress and what's new after an update",
+     "components": [
+      "Dashboard",
+      "Installer"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.9.8"
     },
     {
      "pr": 121,
@@ -4220,6 +4251,27 @@
      "since": "v0.9.0"
     },
     {
+     "pr": 84,
+     "title": "The changelog pages open on the highlights, the switch at the top shows everything",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "tour",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [
+      {
+       "title": "Highlights first",
+       "text": "You can now filter the highlights out of the changes."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.5"
+    },
+    {
      "pr": 83,
      "title": "Remember the access details in the OS keychain",
      "components": [
@@ -4234,6 +4286,34 @@
      "tour": [],
      "breaking": false,
      "since": "v0.8.5"
+    },
+    {
+     "pr": 82,
+     "title": "Ship changelog.json in the bundle and show what is new before an update",
+     "components": [
+      "Dashboard",
+      "Installer",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "The update page lists the changes of the new package. The preview also shows which components change and which services restart.",
+     "image": {
+      "name": "dashboard-update-preview.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html#updating-from-the-dashboard",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "See what is new first",
+       "text": "Before you install an update, View changes on the update page lists what the new package changes, breaking changes first."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.3"
     },
     {
      "pr": 80,
@@ -4284,6 +4364,51 @@
      "tour": [],
      "breaking": false,
      "since": "v0.8.3"
+    },
+    {
+     "pr": 74,
+     "title": "Show the redeploy screen in the dashboard language",
+     "components": [
+      "Dashboard",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "title",
+     "text": null,
+     "image": null,
+     "doc": null,
+     "tour": [],
+     "breaking": false,
+     "since": "v0.8.0"
+    },
+    {
+     "pr": 71,
+     "title": "Show installed component versions under settings",
+     "components": [
+      "Dashboard",
+      "Shared services",
+      "Bootstrap",
+      "Installer web UI"
+     ],
+     "area": "Installer",
+     "kind": "image",
+     "text": "The Versions page shows the installed package and every component with its version. A service that is not installed is marked as such.",
+     "image": {
+      "name": "dashboard-settings-versions.png",
+      "style": null
+     },
+     "doc": {
+      "url": "dashboard/settings-versions.html",
+      "title": "Settings: Versions & updates"
+     },
+     "tour": [
+      {
+       "title": "Installed versions",
+       "text": "The versions page now lists every piece of software with its version. Changes opens its changelog."
+      }
+     ],
+     "breaking": false,
+     "since": "v0.8.0"
     },
     {
      "pr": 55,
@@ -4379,25 +4504,6 @@
      "image": null,
      "doc": {
       "url": "dashboard/settings-users.html#guest-access",
-      "title": "Settings: Users"
-     },
-     "tour": [],
-     "breaking": false,
-     "since": "next"
-    },
-    {
-     "pr": 174,
-     "title": "Sign in home assistant users through the companion",
-     "components": [
-      "Dashboard",
-      "Bootstrap"
-     ],
-     "area": "Settings",
-     "kind": "text",
-     "text": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
-     "image": null,
-     "doc": {
-      "url": "dashboard/settings-users.html#home-assistant-users",
       "title": "Settings: Users"
      },
      "tour": [],
@@ -4563,60 +4669,6 @@
      "since": "v0.10.0"
     },
     {
-     "pr": 137,
-     "title": "Choose how many versions the changelog shows, with the history kept on the device across updates",
-     "components": [
-      "Dashboard",
-      "Installer",
-      "Installer web UI"
-     ],
-     "area": "Settings",
-     "kind": "image",
-     "text": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
-     "image": {
-      "name": "dashboard-settings-versions.png",
-      "style": "aspect-ratio:2.081;background-size:292.40% auto;background-position:95.44% 35.97%"
-     },
-     "doc": {
-      "url": "dashboard/settings-versions.html",
-      "title": "Settings: Versions & updates"
-     },
-     "tour": [],
-     "breaking": false,
-     "since": "v0.10.0"
-    },
-    {
-     "pr": 134,
-     "title": "Release highlights now have a German text that shows in the dashboard, the installer and the release notes",
-     "components": [
-      "Dashboard",
-      "Installer web UI"
-     ],
-     "area": "Settings",
-     "kind": "image",
-     "text": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
-     "image": {
-      "name": "dashboard-settings-versions.png",
-      "style": null
-     },
-     "doc": {
-      "url": "dashboard/settings-versions.html",
-      "title": "Settings: Versions & updates"
-     },
-     "tour": [
-      {
-       "title": "Highlights in German",
-       "text": "The highlights are now available in German too."
-      },
-      {
-       "title": "Versions in the changelog",
-       "text": "Leave older versions out of the view while you browse the changes."
-      }
-     ],
-     "breaking": false,
-     "since": "v0.10.0"
-    },
-    {
      "pr": 125,
      "title": "Show exchange and history status as tiles",
      "components": [
@@ -4645,63 +4697,6 @@
      ],
      "breaking": false,
      "since": "v0.9.8"
-    },
-    {
-     "pr": 82,
-     "title": "Ship changelog.json in the bundle and show what is new before an update",
-     "components": [
-      "Dashboard",
-      "Installer",
-      "Installer web UI"
-     ],
-     "area": "Settings",
-     "kind": "image",
-     "text": "The update page lists the changes of the new package. The preview also shows which components change and which services restart.",
-     "image": {
-      "name": "dashboard-update-preview.png",
-      "style": null
-     },
-     "doc": {
-      "url": "dashboard/settings-versions.html#updating-from-the-dashboard",
-      "title": "Settings: Versions & updates"
-     },
-     "tour": [
-      {
-       "title": "See what is new first",
-       "text": "Before you install an update, View changes on the update page lists what the new package changes, breaking changes first."
-      }
-     ],
-     "breaking": false,
-     "since": "v0.8.3"
-    },
-    {
-     "pr": 71,
-     "title": "Show installed component versions under settings",
-     "components": [
-      "Dashboard",
-      "Shared services",
-      "Bootstrap",
-      "Installer web UI"
-     ],
-     "area": "Settings",
-     "kind": "image",
-     "text": "The Versions page shows the installed package and every component with its version. A service that is not installed is marked as such.",
-     "image": {
-      "name": "dashboard-settings-versions.png",
-      "style": null
-     },
-     "doc": {
-      "url": "dashboard/settings-versions.html",
-      "title": "Settings: Versions & updates"
-     },
-     "tour": [
-      {
-       "title": "Installed versions",
-       "text": "The versions page now lists every piece of software with its version. Changes opens its changelog."
-      }
-     ],
-     "breaking": false,
-     "since": "v0.8.0"
     },
     {
      "pr": 59,
