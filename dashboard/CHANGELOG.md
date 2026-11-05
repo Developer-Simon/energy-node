@@ -4,7 +4,7 @@
 
 ### Fixes
 
-- **history:** stop exchange requests for the 1h resolution (#205)
+- **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
 
 ## v0.11.0 (2026-11-05)
 

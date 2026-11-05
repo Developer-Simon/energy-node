@@ -1,8 +1,0 @@
-{
-  "de": {
-    "*": "Die Liste „Weitere“ im Hauptmenü misst sich auf schmalen Bildschirmen nicht mehr ohne Pause neu"
-  },
-  "doc_title": {
-    "*": "The main tab's More list no longer keeps resizing itself"
-  }
-}

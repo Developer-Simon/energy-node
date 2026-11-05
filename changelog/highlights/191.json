@@ -1,8 +1,0 @@
-{
-  "de": {
-    "*": "Eine frische Installation startet jetzt das Dashboard. Es scheitert nicht mehr an einem fehlenden Datenordner oder an einer MQTT-Anmeldung, die der Broker ablehnt."
-  },
-  "doc_title": {
-    "*": "A fresh install starts the dashboard despite a missing folder or MQTT login"
-  }
-}

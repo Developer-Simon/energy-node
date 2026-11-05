@@ -1,8 +1,0 @@
-{
-  "de": {
-    "*": "Die Editoren für Szenarien und Regeln zeigen Geräte als Kacheln mit Live-Werten und wählen sie in einem gemeinsamen Geräte-Picker."
-  },
-  "doc_title": {
-    "*": "Editors show devices as tiles with live values in one device picker"
-  }
-}
