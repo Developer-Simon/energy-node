@@ -28,8 +28,7 @@ versions each release contains.
    ./scripts/generate_changelog.sh dashboard
    ```
 
-   This refreshes `dashboard/CHANGELOG.md`. The section for the released
-   version becomes the GitHub Release notes, so check that it reads well.
+   This refreshes `dashboard/CHANGELOG.md`. The release notes link to it.
 3. **Commit, tag and push:**
 
    ```sh
@@ -37,17 +36,20 @@ versions each release contains.
    git push origin vX.Y.Z
    ```
 
+4. **Add the summary.** Once the release is published, add one or two sentences
+   about its highlights above the links, on GitHub or with `gh release edit`.
+   The workflow cannot write them.
+
 ## What the workflow does
 
 On a `v*` tag push, [`Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/release.yml):
 
 1. Runs `go vet ./...` and `go test ./...` in `dashboard/`.
-2. Builds the release notes. They start with the highlights of every bundle
-   component since the previous final release, in English and in a folded
-   German block, written by `scripts/release/release_highlights.py`. The
-   matching section of `dashboard/CHANGELOG.md`, extracted by
-   `scripts/release/extract-changelog.sh`, follows. If there is no section for
-   the tag, it uses GitHub's generated notes.
+2. Builds the release notes with `scripts/release/release_highlights.py`. They
+   link to the release on the [What's new](../whats-new.html) page and on the
+   [version overview](versions.md), and to `dashboard/CHANGELOG.md` at the tag.
+   A folded block below lists the German highlights of every bundle component
+   since the previous final release.
 3. Creates the GitHub Release as a **draft** with `--verify-tag`.
 4. Calls two reusable workflows in parallel, both attaching to that draft:
    - [`Bundle Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/bundle-release.yml)

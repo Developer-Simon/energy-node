@@ -21,7 +21,7 @@ only tell you what was on `main` at that point. The highlights of each release a
 {% assign latest = releases | first %}
 ## Latest release
 
-<p><a href="https://github.com/Developer-Simon/energy-node/releases/tag/{{ latest.tag }}">{{ latest.tag }}</a>, tagged {{ latest.date }}.</p>
+<p id="{{ latest.tag }}"><a href="https://github.com/Developer-Simon/energy-node/releases/tag/{{ latest.tag }}">{{ latest.tag }}</a>, tagged {{ latest.date }}.</p>
 
 {% include release-versions-table.html release=latest %}
 
@@ -32,7 +32,7 @@ that first appeared in that release, "Changed" a version that differs from
 the release before.
 
 {% for release in releases offset:1 %}
-<details class="release-versions">
+<details class="release-versions" id="{{ release.tag }}">
   <summary><strong>{{ release.tag }}</strong> <span class="release-versions__date">{{ release.date }}</span></summary>
   {% include release-versions-table.html release=release %}
 </details>
