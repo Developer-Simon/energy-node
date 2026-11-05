@@ -134,7 +134,9 @@ requests every gap of the full raster window, as described above. `on-demand`
 is the default. The device keeps its SSE stream open, feeds the ring buffer
 and answers requests, but it sends no offer of its own. It only plans requests
 for the ranges the history page or a history tile currently shows
-(`HistoryExchange.watchRange()`). Tabs that do not lead forward these ranges to
+(`HistoryExchange.watchRange()`), and only in the resolution shown. The raw
+resolution watches the minute tier. The 1h resolution watches nothing, because
+the hourly means come from the server. Tabs that do not lead forward these ranges to
 the leading tab over the recorder's BroadcastChannel and get a message back
 when rows arrive. In `always` mode a device always offers its own coverage. In `on-demand` mode
 it offers it only if the per-device choice `history-exchange-serve` is `on`,

@@ -222,11 +222,16 @@
 
   // Die Rohstufe wird nie getauscht, Rohluecken fuellt der Chart aus 1m
   // (fillRawGaps in history-rollup.js). Deshalb wird sie als 1m angefragt.
-  // Die Stufe 1h wird ueber 5m getauscht, also wird 5m beobachtet.
+  // Die Stufe 1h fragt nichts an: die Stundenmittel liefert der Server
+  // (fetchHourRows in history-chart.js), und 5m ueber den ganzen Zeitraum
+  // holen hiesse, fuer eine Stundenansicht bis zu 30 Tage Saetze zu ziehen.
+  // Eine bestehende Anmeldung derselben Ansicht faellt dabei weg.
   const watchRange = async (id, range) => {
-    let tier = range.tier === 'raw' ? '1m' : range.tier;
-    if (tier === '1h') tier = '5m';
-    if (!window.HistoryCoverage.TIERS.includes(tier)) return;
+    const tier = range.tier === 'raw' ? '1m' : range.tier;
+    if (!window.HistoryCoverage.TIERS.includes(tier)) {
+      watched.delete(id);
+      return;
+    }
     const previous = watched.get(id) || {};
     const entry = {
       tier, from: Number(range.from), to: Number(range.to), at: now(),
