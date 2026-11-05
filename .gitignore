@@ -24,9 +24,11 @@ installer/installer
 installer/fakehost
 installer/bundle/**
 
-# Generated during the Pages build (scripts/docs/doc-versions.sh)
+# Generated during the Pages build (scripts/docs/doc-versions.sh, release-versions.py,
+# whats-new.py), build-local.sh writes whats_new.json itself
 /docs/_data/doc_versions.yml
 /docs/_data/release_versions.yml
+/docs/_data/whats_new.json
 
 /_site/
 /.cache/

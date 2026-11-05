@@ -33,6 +33,9 @@ mkdir -p "$root/.cache/docs-gems" "$root/_site"
 # instead of https://github.com, allowing deep-link tests to work
 local_url="${DOCS_LOCAL_URL:-http://localhost:4000}"
 printf 'url: "%s"\n' "$local_url" > "$root/.cache/docs-local.yml"
+# The What's new data is derived from the changelogs, highlights and tags and
+# not tracked in git, the Pages workflow writes it the same way.
+python3 "$root/scripts/docs/whats-new.py" "$root" > "$root/docs/_data/whats_new.json"
 "$engine" run --rm \
   -v "$root:/repo:Z" \
   -v "$root/.cache/docs-gems:/usr/local/bundle:Z" \
