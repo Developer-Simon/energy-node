@@ -8,6 +8,7 @@
 - title: Getting started
   items:
     - { label: "What is Energy Node?", url: "index.md" }
+    - { label: "What's new", url: "whats-new.md" }
     - { label: "Deploying with the installer", url: "installer.md" }
     - label: "Manual installation"
       url: "install/index.md"
