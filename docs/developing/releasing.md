@@ -172,9 +172,9 @@ commit it.
    git push origin vX.Y.Z
    ```
 
-4. **Add the summary.** Once the release is published, add one or two sentences
-   about its highlights above the links, on GitHub or with `gh release edit`.
-   The workflow cannot write them.
+4. **Add the story.** Once the release is published, add a few short paragraphs
+   above the links that tell what the release brings, like a blog post, on
+   GitHub or with `gh release edit`. The workflow cannot write them.
 
 ## What the workflow does
 
@@ -184,8 +184,8 @@ On a `v*` tag push, [`Release`](https://github.com/Developer-Simon/energy-node/b
 2. Builds the release notes with `scripts/release/release_highlights.py`. They
    link to the release on the [What's new](../whats-new.html) page and on the
    [version overview](versions.md), and to `dashboard/CHANGELOG.md` at the tag.
-   A folded block below lists the German highlights of every bundle component
-   since the previous final release.
+   Two folded blocks below list the highlights of every bundle component since
+   the previous final release, one in English and one in German.
 3. Creates the GitHub Release as a **draft** with `--verify-tag`.
 4. Calls two reusable workflows in parallel, both attaching to that draft:
    - [`Bundle Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/bundle-release.yml)
