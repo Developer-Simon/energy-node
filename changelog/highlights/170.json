@@ -5,8 +5,9 @@
   "details": {
     "*": {
       "de": "Die Berechtigungen setzt du unter Einstellungen, Benutzer. Die Berechtigung für Einstellungen ist jetzt in „Darstellung ändern“ und „Dashboard einrichten“ geteilt. Bestehende Konten behalten, was sie bisher durften. Ein Konto ohne Ansehen-Berechtigung sieht nur einen Hinweis und sein eigenes Konto.",
+      "doc": "dashboard/settings-users.html#permissions",
       "en": "You set permissions under Settings, Users. The settings permission is now split into “Change the appearance” and “Set up the dashboard”. Existing accounts keep what they were allowed to do. An account without a view permission sees only a notice and its own account.",
-      "doc": "dashboard/settings-users.html#permissions"
+      "image": "dashboard-settings-users-permissions.png"
     }
   }
 }
