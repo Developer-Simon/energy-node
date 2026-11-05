@@ -1,5 +1,5 @@
 /* Energy Node docs: theme toggle, table of contents, mobile navigation,
-   search loader, forwarding of anchors that moved to a subpage and the What's new view switch.
+   search loader, forwarding of anchors that moved to a subpage, the What's new view switch and the image dialog.
    No build step, no dependencies. */
 (function () {
   "use strict";
@@ -157,6 +157,55 @@
     });
   }
 
+  // ---- Images open enlarged in a dialog --------------------------------------
+
+  // Content images and the cropped picture tiles of What's new (a div with the
+  // image as background) open the whole image. Images inside a link, SVGs and
+  // the page icon stay as they are.
+  function initLightbox() {
+    var body = document.querySelector(".doc-body");
+    if (!body || typeof HTMLDialogElement === "undefined") return;
+    var items = Array.prototype.filter.call(body.querySelectorAll("img, div.wn-img"), function (el) {
+      if (el.closest("a") || el.classList.contains("page-icon")) return false;
+      return !/\.svg(\?|$)/.test(sourceOf(el));
+    });
+    if (!items.length) return;
+
+    var dialog = document.createElement("dialog");
+    dialog.className = "lightbox";
+    dialog.setAttribute("aria-label", "Enlarged image");
+    dialog.innerHTML = '<button type="button" class="lightbox__close" aria-label="Close">&times;</button><img class="lightbox__img" alt="">';
+    document.body.appendChild(dialog);
+    var big = dialog.querySelector(".lightbox__img");
+    dialog.addEventListener("click", function () { dialog.close(); });
+    dialog.addEventListener("close", function () { big.removeAttribute("src"); });
+
+    items.forEach(function (el) {
+      el.classList.add("zoomable");
+      el.setAttribute("tabindex", "0");
+      el.setAttribute("role", "button");
+      var label = el.getAttribute("alt") || el.getAttribute("aria-label") || "";
+      el.setAttribute("aria-label", "Enlarge image" + (label ? ": " + label : ""));
+      function open(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        big.src = sourceOf(el);
+        big.alt = label;
+        dialog.showModal();
+      }
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") open(e);
+      });
+    });
+  }
+
+  function sourceOf(el) {
+    if (el.tagName === "IMG") return el.currentSrc || el.src;
+    var m = /url\(["']?([^"')]+)["']?\)/.exec(el.style.backgroundImage || "");
+    return m ? m[1] : "";
+  }
+
   // ---- Mobile navigation -----------------------------------------------------
 
   function initNav() {
@@ -227,6 +276,7 @@
   wrapTables();
   initToc();
   initWhatsNew();
+  initLightbox();
   initNav();
   initSearch();
 })();
