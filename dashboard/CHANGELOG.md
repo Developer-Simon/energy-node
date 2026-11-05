@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.11.0 (2026-11-03)
+## v0.11.1 (2026-11-05)
+
+### Fixes
+
+- **history:** stop exchange requests for the 1h resolution (#205)
+
+## v0.11.0 (2026-11-05)
 
 ### Features
 
@@ -443,8 +449,8 @@
 
 ### Chores
 
+- **release:** prepare v0.11.0 (#203) (fda100b)
 - **history:** surface leader start errors and add an opt-in diagnostics log (#177) (2947769)
-- **release:** prepare v0.11.0 (#203)
 - **webui:** bump the changed onboarding and update bar assets and point the onboarding tour at the explore switch (ff24d94)
 - **webui:** bump the automations.page.js cache-bust (d448dff)
 - **webui:** bump the cache-bust of the device dialog assets (cb83139)

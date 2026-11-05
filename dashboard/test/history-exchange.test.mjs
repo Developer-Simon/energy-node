@@ -583,7 +583,7 @@ test('ein storage-Ereignis schaltet die Freigabe um und ein unlesbarer Speicher 
   dom.window.close();
 });
 
-test('watchRange mit Stufe 1h beobachtet die Stufe 5m', async () => {
+test('watchRange mit Stufe 1h fragt nichts an und beendet eine fruehere Anmeldung', async () => {
   const dom = load();
   const {fetcher, source} = await startExchange(dom, {mode: null});
   const stream = source.instances[0];
@@ -592,13 +592,12 @@ test('watchRange mit Stufe 1h beobachtet die Stufe 5m', async () => {
   const span = dom.window.HistoryCoverage.rasterWindow('5m', NOW);
   const n = new Array(span.buckets).fill(0);
   n[1] = 1;
-  stream.emit('offer', {peer: 'p-fremd', coverage: {'5m': {'role:pv': {from: span.from, step: 6 * HOUR, n}}}});
+  const offer = pvOffer(dom, {167: 60});
+  await dom.window.HistoryExchange.watchRange('page', {tier: '5m', from: NOW - 6 * HOUR, to: NOW});
+  await dom.window.HistoryExchange.watchRange('page', {tier: '1h', from: span.from, to: NOW});
+  stream.emit('offer', {peer: 'p-fremd', coverage: {...offer.coverage, '5m': {'role:pv': {from: span.from, step: 6 * HOUR, n}}}});
   await settle();
-  await dom.window.HistoryExchange.watchRange('page', {tier: '1h', from: span.from + 6 * HOUR, to: span.from + 12 * HOUR});
-  const requests = posts(fetcher, '/request');
-  assert.equal(requests.length, 1);
-  assert.equal(requests[0].body.tier, '5m');
-  assert.deepEqual(requests[0].body.ranges, [[span.from + 6 * HOUR, span.from + 12 * HOUR]]);
+  assert.equal(posts(fetcher, '/request').length, 0);
   dom.window.close();
 });
 

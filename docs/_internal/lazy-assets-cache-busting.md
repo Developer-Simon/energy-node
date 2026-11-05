@@ -92,7 +92,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-rollup.js` | `3` |
 | `js/history-store.js` | `5` |
 | `js/history-coverage.js` | `4` |
-| `js/history-exchange.js` | `9` |
+| `js/history-exchange.js` | `10` |
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
@@ -267,6 +267,7 @@ was not brought into this fork, so the mapping is fixed here and not
 recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
+| v0.11.1 | `js/history-exchange.js` (history panel and history tile, the 1h resolution no longer requests 5m and 1m values from other devices) | `10` | 2026-11-05 |
 |---|---|---|---|
 | v0.10.37 | `js/update-bar.js` (Install now asks first, the installer link reads Prepare installation) · `js/onboarding-model.js` (catch-up runs every tour of a release) · `js/onboarding.js` (archived explore releases) · `js/onboarding-checklist.js` (settings panel, archive toggle and catch-up chip) · `css/onboarding.css` (catch-up chip next to the release notes chip, own card for the version toggles) | `7` · `4` · `4` · `3` · `4` | 2026-11-02 |
 | v0.10.35 | `js/config.page.js` (config panel, tuning findings are rendered from the catalog by code and params, with the service text as fallback) | `11` | 2026-11-01 |
