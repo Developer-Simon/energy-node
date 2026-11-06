@@ -16,6 +16,9 @@ const MaxHold = 5 * time.Minute
 type Sample struct {
 	At    time.Time
 	Power map[string]float64
+	// Substituted: die Leistung stammt aus einem Ersatzwert (Messkette).
+	// Die Zeit bis zur naechsten Probe zaehlt dann als Ersatzwert.
+	Substituted bool
 }
 
 // HourRecord ist eine abgeschlossene (oder per Flush angebrochene) Stunde.
@@ -23,16 +26,19 @@ type HourRecord struct {
 	Hour    time.Time
 	KWh     map[string]float64
 	Covered int32
+	// Substituted sind die Sekunden der Covered, die aus Ersatzwerten stammen.
+	Substituted int32
 }
 
 // Integrator rechnet Proben zeitgewichtet zu Stunden-kWh um. Rein, ohne
 // Uhr und ohne Ein-/Ausgabe. Der Nullwert ist benutzbar.
 type Integrator struct {
-	last    Sample
-	hasLast bool
-	hour    time.Time
-	kwh     map[string]float64
-	covered time.Duration
+	last        Sample
+	hasLast     bool
+	hour        time.Time
+	kwh         map[string]float64
+	covered     time.Duration
+	substituted time.Duration
 }
 
 // Add nimmt die naechste Probe und liefert die Stunden, die dadurch
@@ -64,6 +70,9 @@ func (g *Integrator) Add(s Sample) []HourRecord {
 				g.kwh[role] += watts * seconds / 3.6e6
 			}
 			g.covered += until.Sub(from)
+			if g.last.Substituted {
+				g.substituted += until.Sub(from)
+			}
 			from = until
 		}
 	}
@@ -84,6 +93,7 @@ func (g *Integrator) Flush() []HourRecord {
 func (g *Integrator) Reset() {
 	g.kwh = map[string]float64{}
 	g.covered = 0
+	g.substituted = 0
 	g.hasLast = false
 }
 
@@ -100,10 +110,17 @@ func (g *Integrator) take() []HourRecord {
 	if g.covered <= 0 {
 		g.kwh = map[string]float64{}
 		g.covered = 0
+		g.substituted = 0
 		return nil
 	}
-	record := HourRecord{Hour: g.hour, KWh: g.kwh, Covered: int32(math.Round(g.covered.Seconds()))}
+	record := HourRecord{
+		Hour:        g.hour,
+		KWh:         g.kwh,
+		Covered:     int32(math.Round(g.covered.Seconds())),
+		Substituted: int32(math.Round(g.substituted.Seconds())),
+	}
 	g.kwh = map[string]float64{}
 	g.covered = 0
+	g.substituted = 0
 	return []HourRecord{record}
 }

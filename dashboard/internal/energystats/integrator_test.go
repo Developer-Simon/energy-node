@@ -113,3 +113,20 @@ func TestFlushAndResetEmptyTheRunningHour(t *testing.T) {
 		t.Fatalf("Flush nach Reset = %+v", got)
 	}
 }
+
+func TestIntegratorCountsSubstitutedSeconds(t *testing.T) {
+	var g Integrator
+	start := hourAt("2026-10-05T10:00:00Z")
+	var records []HourRecord
+	for at := start; !at.After(start.Add(40 * time.Minute)); at = at.Add(10 * time.Second) {
+		sub := !at.Before(start.Add(30 * time.Minute))
+		records = append(records, g.Add(Sample{At: at, Power: map[string]float64{"pv": 1000}, Substituted: sub})...)
+	}
+	records = append(records, g.Flush()...)
+	if len(records) != 1 {
+		t.Fatalf("%d Saetze, erwartet 1", len(records))
+	}
+	if records[0].Covered != 2400 || records[0].Substituted != 600 {
+		t.Fatalf("Covered=%d Substituted=%d, erwartet 2400 und 600", records[0].Covered, records[0].Substituted)
+	}
+}
