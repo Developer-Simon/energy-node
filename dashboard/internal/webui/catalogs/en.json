@@ -2302,6 +2302,7 @@
   "error.bridge_unavailable.credentials": "Bridge credentials are not available",
   "error.bridge_unavailable.restart": "Restarting Mosquitto is not available",
   "error.category_references_failed": "The automations could not be checked",
+  "error.chain_not_found": "This measurement chain no longer exists.",
   "error.changelog_unreadable": "The changelog could not be read",
   "error.check_updates_forbidden": "You do not have permission to check for updates",
   "error.check_updates_unavailable": "Sign-in is not configured",
