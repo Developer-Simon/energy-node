@@ -1,0 +1,28 @@
+{
+  "de": {
+    "*": "Messketten mit Ersatzwerten"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_energy",
+          "open": [
+            "energy-chains-toggle"
+          ],
+          "panel": "energy-panel",
+          "target": "energy-chains",
+          "text": {
+            "de": "Geräte, die dieselbe Strecke messen, bilden eine Kette. Ein Punkt zählt in der Bilanz, die anderen zeigen die Verluste. Fällt er aus, übernimmt der nächste aktuelle Punkt.",
+            "en": "Devices that measure the same path form a chain. One point counts in the balance, the others show the losses. If it fails, the nearest current point takes over."
+          },
+          "title": {
+            "de": "Messketten",
+            "en": "Measurement chains"
+          }
+        }
+      ]
+    }
+  }
+}

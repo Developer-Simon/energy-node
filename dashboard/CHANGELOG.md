@@ -1,10 +1,25 @@
 # Changelog
 
-## v0.11.4 (2026-11-06)
+## v0.11.5-pre.1 (2026-11-06)
 
 ### Features
 
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
+- **energy:** add the measurement chain model and its validation (a0c0952)
+- **energy:** move roles when a measurement chain changes (16e2953)
+- **energy:** evaluate measurement chain states and substitutes (25814cf)
+- **energy:** count one chain point and substitute it on failure (2eaa81e)
+- **stats:** record substituted seconds per hour (f5a4cd9)
+- **stats:** show substitute hours in the coverage text (b9b4ad6)
+- **api:** add the measurement chain endpoints (3823794)
+- **energy:** mark substitute values in the live views (58e4597)
+- **energy:** add the pure measurement chain helpers (2ee4366)
+- **energy:** drive measurement chains from the energy page (2c86377)
+- **energy:** add the measurement chains section to the energy tab (c000ac1)
+- **devicemap:** show chain reference points as display values (4389568)
+- **devicemap:** build measurement chains from energy connections (598ff94)
+- **devicemap:** mark substitute values on the map (570ed26)
+- **energy:** add measurement chains with substitute values (#215)
 - **automations:** add texts for the rule history axis (4c3094a)
 - **automations:** add history day groups and flight logic (5d3205c)
 - **automations:** show the rule history as an axis in the strip (8993e21)
@@ -15,6 +30,8 @@
 
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
 - **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
+- **energy:** tighten the chain editor after review (b5302ef)
+- **energy:** polish the measurement chain editor and the map link (870d55d)
 - **dashboard:** animate diagnostics refresh and updated values (57967fc)
 - **dashboard:** glide diagnostics device cards to their new place (4a9b331)
 - **automations:** tidy the rule history text and toggle (66b71d2)
@@ -35,6 +52,7 @@
 ### Chores
 
 - remove the shared services component (#209) (28d50a7)
+- **webui:** bump the lazy asset versions for measurement chains (e353e78)
 - **automations:** bump the asset versions of the rule history (6988860)
 - remove the shared services component and its docs (83fe1c1)
 
