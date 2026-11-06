@@ -403,7 +403,9 @@
         if (detail.automationFocus) window.__automationFocusRequest__ = detail.automationFocus;
         if (detail.statsFocus) window.__statsFocusRequest__ = detail.statsFocus;
         if (detail.deviceFocus) window.__deviceFocusRequest__ = detail.deviceFocus;
+        if (detail.chainFocus) window.__energyChainRequest__ = detail.chainFocus;
         await this.setActivePanel(detail.panel);
+        if (detail.chainFocus) window.dispatchEvent(new CustomEvent('energy-focus-chain', {detail: {id: detail.chainFocus}}));
         if (detail.energyFocus) window.dispatchEvent(new CustomEvent('energy-focus-rows', {detail: {ids: detail.energyFocus}}));
         if (detail.configFocus) window.dispatchEvent(new CustomEvent('config-focus-item', {detail: detail.configFocus}));
         if (detail.automationFocus) window.dispatchEvent(new CustomEvent('automation-focus-rule', {detail: {id: detail.automationFocus}}));
@@ -1409,6 +1411,9 @@
   // ("Ja", "-") werden sofort gesetzt. Den Rohwert liest die Direktive aus
   // data-roll-value, weil der sichtbare Text schon im Zahlenformat steht
   // (Tausenderpunkt und Dezimalkomma sind nicht eindeutig rueckwaerts lesbar).
+  // data-roll-format nennt optional einen Eintrag aus window.RollFormats, der
+  // jeden Zwischenwert schreibt, fuer Werte mit eigener Einheit oder eigenem
+  // Vorzeichen. Das Ziel bleibt in jedem Fall der von x-text gesetzte Text.
   const registerRollDirective = Alpine => {
     Alpine.directive('roll', (el, meta, { cleanup }) => {
       const observeOptions = {childList: true, characterData: true, subtree: true};
@@ -1447,7 +1452,8 @@
           if (progress < 1) {
             const value = from + (target - from) * eased;
             displayed = value;
-            write(window.I18n.formatValue(value.toFixed(decimals), unit));
+            const format = (window.RollFormats || {})[el.dataset.rollFormat];
+            write(format ? format(value) : window.I18n.formatValue(value.toFixed(decimals), unit));
             frame = requestAnimationFrame(step);
           } else {
             write(text);

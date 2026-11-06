@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"time"
 )
 
@@ -33,10 +34,14 @@ type Series struct {
 // Month haelt alle Stunden eines UTC-Monats. Covered zaehlt je Stunde die
 // Sekunden, die die eigene Aufzeichnung gedeckt hat, damit eine nach einem
 // Neustart unvollstaendige Stunde erkennbar bleibt.
+//
+// Substituted zaehlt je Stunde die Sekunden, die aus Ersatzwerten einer
+// Messkette stammen. Die Zeit ist in Covered enthalten.
 type Month struct {
-	Start   time.Time
-	Covered []int32
-	Roles   map[string]*Series
+	Start       time.Time
+	Covered     []int32
+	Substituted []int32
+	Roles       map[string]*Series
 }
 
 func monthStart(t time.Time) time.Time {
@@ -48,7 +53,7 @@ func monthStart(t time.Time) time.Time {
 func NewMonth(t time.Time) *Month {
 	start := monthStart(t)
 	hours := int(start.AddDate(0, 1, 0).Sub(start) / time.Hour)
-	return &Month{Start: start, Covered: make([]int32, hours), Roles: map[string]*Series{}}
+	return &Month{Start: start, Covered: make([]int32, hours), Substituted: make([]int32, hours), Roles: map[string]*Series{}}
 }
 
 func (m *Month) Hours() int { return len(m.Covered) }
@@ -103,6 +108,18 @@ func (m *Month) AddOwn(hour time.Time, kwh map[string]float64, covered int32) bo
 	return changed
 }
 
+// AddSubstituted addiert Sekunden aus Ersatzwerten zur Stunde, gedeckelt auf
+// eine Stunde. Meldet, ob sich etwas geaendert hat.
+func (m *Month) AddSubstituted(hour time.Time, seconds int32) bool {
+	i, ok := m.Index(hour)
+	if !ok {
+		return false
+	}
+	before := m.Substituted[i]
+	m.Substituted[i] = min(before+seconds, 3600)
+	return m.Substituted[i] != before
+}
+
 // SetHA setzt den Wert aus Home Assistant und ersetzt dabei eine eigene
 // Messung. Wird in Teil 2 (Companion) beschrieben.
 func (m *Month) SetHA(hour time.Time, role string, kwh float64) bool {
@@ -120,10 +137,13 @@ func (m *Month) SetHA(hour time.Time, role string, kwh float64) bool {
 }
 
 type monthFile struct {
-	Version int                   `json:"version"`
-	Month   string                `json:"month"`
-	Covered []int32               `json:"covered"`
-	Roles   map[string]seriesFile `json:"roles"`
+	Version int     `json:"version"`
+	Month   string  `json:"month"`
+	Covered []int32 `json:"covered"`
+	// Substituted fehlt in Dateien ohne Ersatzwerte, damit deren Format
+	// unveraendert bleibt.
+	Substituted []int32               `json:"substituted,omitempty"`
+	Roles       map[string]seriesFile `json:"roles"`
 }
 
 type seriesFile struct {
@@ -135,6 +155,9 @@ type seriesFile struct {
 // (1 mWh) gerundet, NaN als null.
 func (m *Month) MarshalJSON() ([]byte, error) {
 	file := monthFile{Version: monthFormatVersion, Month: m.Start.Format("2006-01"), Covered: m.Covered, Roles: map[string]seriesFile{}}
+	if slices.ContainsFunc(m.Substituted, func(v int32) bool { return v != 0 }) {
+		file.Substituted = m.Substituted
+	}
 	for role, s := range m.Roles {
 		values := make([]*float64, len(s.KWh))
 		for i, v := range s.KWh {
@@ -166,6 +189,10 @@ func decodeMonth(data []byte) (*Month, error) {
 		return nil, fmt.Errorf("energystats: %d Deckungswerte, erwartet %d", len(file.Covered), m.Hours())
 	}
 	copy(m.Covered, file.Covered)
+	// Eine Liste falscher Laenge ist kein Fehler, die Ersatzwerte fehlen dann.
+	if len(file.Substituted) == m.Hours() {
+		copy(m.Substituted, file.Substituted)
+	}
 	for role, stored := range file.Roles {
 		if len(stored.KWh) != m.Hours() || len(stored.Source) != m.Hours() {
 			return nil, fmt.Errorf("energystats: Rolle %q hat falsche Laenge", role)

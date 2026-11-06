@@ -11,7 +11,7 @@ The **Statistics** tab shows how much energy flowed per role for a day, a week, 
 - **Chart:** stacked bars per hour (day), per day (week and month) or per month (year). Generation sits above the zero line (PV, battery discharge, grid import), consumption is mirrored below it (total consumption, battery charge, grid export).
 - **Key figures:** consumption, PV yield, grid import, grid export, battery charged and discharged, autarky and self consumption for the whole period.
 - **Table:** kWh per role and interval, including your own consumer and producer categories.
-- **Coverage:** for example "From Home Assistant 20 h, own recording 3 h, no data 1 h". Gaps stay gaps, nothing is extrapolated.
+- **Coverage:** for example "From Home Assistant 20 h, own recording 3 h, no data 1 h". Gaps stay gaps, nothing is extrapolated. Hours in which a measurement chain supplied a substitute value are counted in the coverage as "of which N h with substitute values".
 
 ## On a phone
 

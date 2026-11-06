@@ -330,6 +330,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
+	g.HandleFunc("/api/v1/energy/chains", handleEnergyChains(store, resolver, dependencies.Auth, reg))
+	g.HandleFunc("/api/v1/energy/chains/", handleEnergyChains(store, resolver, dependencies.Auth, reg))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
@@ -979,9 +981,24 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 			if _, ok := keys["hidden"]; ok {
 				value.Hidden = nil
 			}
+			// Chains and role_needed are written only by their own endpoints:
+			// a chain moves roles with its points, which a plain roles write
+			// cannot do. Keep the saved ones.
+			// Cleared first: Unmarshal would merge a body's map into the saved one.
+			chains, needed := value.Chains, value.RoleNeeded
+			value.Chains, value.RoleNeeded = nil, nil
 			if err := json.Unmarshal(raw, &value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
+			}
+			value.Chains, value.RoleNeeded = chains, needed
+			// A reference point of a chain does not count, so it keeps no
+			// role: the empty override stays, the aggregate never sees it.
+			for point := range value.Model().ReferencePoints() {
+				if assignment, ok := value.Assignments[point]; ok {
+					assignment.Role = ""
+					value.Assignments[point] = assignment
+				}
 			}
 			if err := checkEnergyModel(reg, value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
@@ -1005,6 +1022,8 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 				Groups      map[string]*energy.Group      `json:"groups"`
 				// true hides an ID, false or null shows it again.
 				Hidden map[string]bool `json:"hidden"`
+				// false dismisses an entry of role_needed, true is ignored.
+				RoleNeeded map[string]bool `json:"role_needed"`
 			}
 			decoder := json.NewDecoder(io.LimitReader(r.Body, 2<<20))
 			decoder.DisallowUnknownFields()
@@ -1056,6 +1075,11 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 					for otherID, other := range current.Groups {
 						other.Members.Groups = slices.DeleteFunc(other.Members.Groups, func(child string) bool { return child == id })
 						current.Groups[otherID] = other
+					}
+				}
+				for id, needed := range patch.RoleNeeded {
+					if !needed {
+						current.RoleNeeded = slices.DeleteFunc(current.RoleNeeded, func(other string) bool { return other == id })
 					}
 				}
 				return checkEnergyModel(reg, *current)

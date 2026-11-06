@@ -15,6 +15,9 @@ type HourCounts struct {
 	HA   int `json:"ha"`
 	Own  int `json:"own"`
 	None int `json:"none"`
+	// Substitute zaehlt die eigenen Stunden, die teils aus Ersatzwerten
+	// stammen. Ohne Ersatzwerte fehlt das Feld.
+	Substitute int `json:"substitute,omitempty"`
 }
 
 // Totals sind die Summen eines Zeitraums. Autarky und SelfConsumption sind
@@ -201,6 +204,9 @@ func addHour(t *Totals, m *Month, i int) {
 		t.Hours.HA++
 	case SourceOwn:
 		t.Hours.Own++
+		if m != nil && m.Substituted[i] > 0 {
+			t.Hours.Substitute++
+		}
 	default:
 		t.Hours.None++
 	}

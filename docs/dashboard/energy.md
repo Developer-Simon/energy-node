@@ -128,6 +128,64 @@ sub-device exists, its name replaces the label of the measurement on this tab,
 in the role table and in the energy flow. The role itself is still set on the
 measurement, as before, and a sub-device changes nothing else.
 
+## Measurement chains
+
+A measurement chain is a row of power meters that measure the same path, for
+example the meter at the inverter, the meter at the sub-distribution and the
+meter at the wallbox. The points run in flow direction, from the source to the
+consumer. Each chain has one counting point and any number of reference points.
+
+- The **counting point** goes into the balance. It carries the role of the
+  chain.
+- The **reference points** are only compared. Their power is already part of
+  the counting point, so the balance skips them. They have no role of their
+  own and show their value as a display value only.
+
+The first point counts at first. You can pick another point as the counting
+point at any time, and the role moves with it.
+
+### Substitute values
+
+A counting point that cannot deliver a current value is replaced by a reference
+point. The balance then uses the value of the nearest reference point that is
+current, and the role shows it as a substitute value. If two points are equally
+close, the earlier point in the chain wins.
+
+A point is not current when it has no value, when it is offline, or when it has
+not updated for 10 minutes. The substitute only applies when a reference point
+is current. If none is, nothing is substituted and the counting point counts as
+missing.
+
+After a restart of the dashboard, all values are retained and marked stale
+until the devices publish again. Nothing is substituted in that time, so old
+values do not count as current ones.
+
+A negative substitute value counts as zero, except for the battery, grid and
+storage roles, which keep their sign.
+
+### Roles when a chain changes
+
+- When a chain is created, its counting point takes the role of the chain from
+  the first point that has one. The other points lose their role.
+- When the counting point changes, the role moves to the new counting point.
+- A point that leaves a chain loses its role. It is listed in the hint at the
+  top of the tab, and you set its role again.
+- When a chain is deleted, its counting point keeps the role. The other points
+  are listed in the same hint.
+
+### Loss per segment
+
+The energy page shows the loss between two neighbouring points live. It is the
+difference of their power. The efficiency is computed when the source delivers
+at least 10 W. A segment is only computed while both of its points have a
+current value.
+
+### Rules
+
+- Only power entities can be points. Entities of the Energy Node itself cannot.
+- An entity belongs to at most one chain.
+- Creating and changing chains needs the permission `edit_energy`.
+
 ## Permissions
 
 Changing roles, groups, categories or the interpretation needs the permission

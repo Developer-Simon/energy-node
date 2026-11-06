@@ -1755,5 +1755,125 @@
         ]
       }
     }
+  },
+  {
+    "topic": "homeassistant/sensor/speicher_plug/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "speicher_plug_power",
+      "state_topic": "plug/speicher/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "plug/speicher/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "speicher_plug"
+        ],
+        "via_device": "energy_node",
+        "name": "Plug Storage"
+      }
+    }
+  },
+  {
+    "topic": "plug/speicher/online",
+    "payload": "true"
+  },
+  {
+    "topic": "plug/speicher/status",
+    "payload": {
+      "id": 0,
+      "apower": 320,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/speicher_umrichter/power/config",
+    "payload": {
+      "name": "AC power",
+      "unique_id": "speicher_umrichter_power",
+      "state_topic": "umrichter/speicher/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "umrichter/speicher/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "speicher_umrichter"
+        ],
+        "name": "Storage Inverter"
+      }
+    }
+  },
+  {
+    "topic": "umrichter/speicher/online",
+    "payload": "true"
+  },
+  {
+    "topic": "umrichter/speicher/status",
+    "payload": {
+      "id": 0,
+      "apower": 307,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/speicher_akku/power/config",
+    "payload": {
+      "name": "Battery DC power",
+      "unique_id": "speicher_akku_power",
+      "state_topic": "speicher/akku/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "speicher/akku/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "speicher_akku"
+        ],
+        "name": "Storage Battery"
+      }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/speicher_akku/soc/config",
+    "payload": {
+      "name": "State of charge",
+      "unique_id": "speicher_akku_soc",
+      "state_topic": "speicher/akku/soc",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "availability_topic": "speicher/akku/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "speicher_akku"
+        ],
+        "name": "Storage Battery"
+      }
+    }
+  },
+  {
+    "topic": "speicher/akku/online",
+    "payload": "true"
+  },
+  {
+    "topic": "speicher/akku/status",
+    "payload": {
+      "id": 0,
+      "apower": 286,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "speicher/akku/soc",
+    "payload": "58"
   }
 ]

@@ -40,6 +40,13 @@
     },
     "plug_entfeuchter_power": {
       "role": "custom:werkstatt"
+    },
+    "speicher_plug_power": {
+      "role": "battery"
+    },
+    "speicher_akku_soc": {
+      "role": "battery_soc",
+      "capacity_kwh": 2
     }
   },
   "categories": {
@@ -60,6 +67,18 @@
         ],
         "groups": []
       }
+    }
+  },
+  "chains": {
+    "balkonspeicher": {
+      "label": "Balkonspeicher",
+      "points": [
+        "speicher_plug_power",
+        "speicher_umrichter_power",
+        "speicher_akku_power"
+      ],
+      "counting": "speicher_plug_power",
+      "direction": "auto"
     }
   }
 }

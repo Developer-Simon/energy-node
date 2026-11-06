@@ -155,6 +155,10 @@
     return (snapshot && snapshot.roles || []).some(state => state.role === role && state.freshness === 'stale');
   }
 
+  function isSubstitute(snapshot, role) {
+    return (snapshot && snapshot.roles || []).some(state => state.role === role && state.quality === 'substitute');
+  }
+
   function batteryChargePower(snapshot) {
     if (hasValue(snapshot, 'battery_charge')) return Math.abs(roleValue(snapshot, 'battery_charge'));
     const battery = roleValue(snapshot, 'battery');
@@ -225,6 +229,12 @@
     return CALCULATED_LOAD_ROLES.some(role => isStale(snapshot, role));
   }
 
+  // Same role lists as loadStale: a substitute value counts where a stale one would.
+  function loadSubstitute(snapshot) {
+    if (loadSource(snapshot) === 'measured') return isSubstitute(snapshot, 'load');
+    return CALCULATED_LOAD_ROLES.some(role => isSubstitute(snapshot, role));
+  }
+
   // Ursprung war ein 1:1-Port von webui.go's flowDuration() mit fest 3000W
   // Referenz. Die Referenz ist inzwischen ein Parameter (Item.
   // SpeedReferenceMode/-Watts pro Kachel, siehe render()), aus demselben
@@ -249,6 +259,17 @@
 
   const formatPower = value => `${Math.round(value)} W`;
 
+  // Substitute marker: a title on the value element, removed again when the
+  // value is no longer a substitute.
+  function setSubstituteTitle(el, substitute) {
+    if (!substitute) {
+      if (el.hasAttribute('title')) el.removeAttribute('title');
+      return;
+    }
+    const title = t('energy.flow.substitute');
+    if (el.getAttribute('title') !== title) el.setAttribute('title', title);
+  }
+
   // Ports overview.html's per-node <output> text/stale-class conditionals.
   //
   // `dir` traegt fuer jeden Knoten den Zustand, den sein Icon anzeigt - genau
@@ -262,11 +283,12 @@
   // der Batterie ins `full`, das step() als aria-label ans <output> haengt.
   function nodeText(id, snapshot) {
     if (id === 'pv') {
-      if (!hasValue(snapshot, 'pv')) return {text: '--', stale: false, dir: 'idle'};
+      if (!hasValue(snapshot, 'pv')) return {text: '--', stale: false, substitute: false, dir: 'idle'};
       const power = roleValue(snapshot, 'pv');
       return {
         text: formatPower(power),
         stale: isStale(snapshot, 'pv'),
+        substitute: isSubstitute(snapshot, 'pv'),
         dir: Math.abs(power) > 0.000001 ? 'producing' : 'idle',
       };
     }
@@ -274,20 +296,21 @@
       const importPower = gridImportPower(snapshot);
       const exportPower = gridExportPower(snapshot);
       const stale = isStale(snapshot, 'grid') || isStale(snapshot, 'grid_import') || isStale(snapshot, 'grid_export');
+      const substitute = isSubstitute(snapshot, 'grid') || isSubstitute(snapshot, 'grid_import') || isSubstitute(snapshot, 'grid_export');
       const dir = importPower > 0 ? 'importing' : exportPower > 0 ? 'exporting' : 'idle';
-      if (importPower > 0) return {text: formatPower(importPower), stale, dir, full: t('energy.grid_import_label', {power: formatPower(importPower)})};
-      if (exportPower > 0) return {text: formatPower(exportPower), stale, dir, full: t('energy.grid_export_label', {power: formatPower(exportPower)})};
-      if (hasValue(snapshot, 'grid')) return {text: formatPower(0), stale, dir};
-      if (hasValue(snapshot, 'grid_import')) return {text: formatPower(0), stale, dir, full: t('energy.grid_import_label', {power: formatPower(0)})};
-      if (hasValue(snapshot, 'grid_export')) return {text: formatPower(0), stale, dir, full: t('energy.grid_export_label', {power: formatPower(0)})};
-      return {text: '--', stale: false, dir: 'idle'};
+      if (importPower > 0) return {text: formatPower(importPower), stale, substitute, dir, full: t('energy.grid_import_label', {power: formatPower(importPower)})};
+      if (exportPower > 0) return {text: formatPower(exportPower), stale, substitute, dir, full: t('energy.grid_export_label', {power: formatPower(exportPower)})};
+      if (hasValue(snapshot, 'grid')) return {text: formatPower(0), stale, substitute, dir};
+      if (hasValue(snapshot, 'grid_import')) return {text: formatPower(0), stale, substitute, dir, full: t('energy.grid_import_label', {power: formatPower(0)})};
+      if (hasValue(snapshot, 'grid_export')) return {text: formatPower(0), stale, substitute, dir, full: t('energy.grid_export_label', {power: formatPower(0)})};
+      return {text: '--', stale: false, substitute: false, dir: 'idle'};
     }
     if (id === 'home') {
       // Die stille Icon-Variante (Umriss steht, gestrichelt) gibt es nur, wenn
       // gar kein Hausverbrauch ableitbar ist. Gemessen, berechnet UND
       // kombiniert lassen den Umriss-Lauf laufen.
-      if (loadSource(snapshot) === 'missing') return {text: '--', stale: false, dir: 'idle'};
-      return {text: formatPower(loadTotal(snapshot)), stale: loadStale(snapshot), dir: 'live'};
+      if (loadSource(snapshot) === 'missing') return {text: '--', stale: false, substitute: false, dir: 'idle'};
+      return {text: formatPower(loadTotal(snapshot)), stale: loadStale(snapshot), substitute: loadSubstitute(snapshot), dir: 'live'};
     }
     if (id === 'battery') {
       // Nets charge/discharge into one signed value first (batteryNetPower),
@@ -296,6 +319,7 @@
       // whichever single arrow is actually animating.
       const net = batteryNetPower(snapshot);
       let stale = isStale(snapshot, 'battery') || isStale(snapshot, 'battery_charge') || isStale(snapshot, 'battery_discharge');
+      let substitute = isSubstitute(snapshot, 'battery') || isSubstitute(snapshot, 'battery_charge') || isSubstitute(snapshot, 'battery_discharge');
       // `dir` drives the battery-flow-icon's fill animation (see render());
       // `word` is what used to be the leading text ("Laden"/"Entladen") and
       // now only survives in `full`, the aria-label for the icon - the word
@@ -319,10 +343,11 @@
       if (hasValue(snapshot, 'battery_soc')) {
         soc = `${Math.round(roleValue(snapshot, 'battery_soc'))} %`;
         stale = stale || isStale(snapshot, 'battery_soc');
+        substitute = substitute || isSubstitute(snapshot, 'battery_soc');
       }
       const label = word ? `${word} ${text}` : text;
       const full = soc ? (text === '--' ? t('energy.flow.battery_fill_level', {soc}) : t('energy.flow.battery_label_with_fill', {label, soc})) : label;
-      return {text, stale, dir, soc, full};
+      return {text, stale, substitute, dir, soc, full};
     }
     // load node ("Lasten")
     // Text UND Icon folgen dem aktiven Verbraucher mit der hoechsten Leistung.
@@ -338,14 +363,14 @@
       const top = named.reduce((a, b) =>
         (Math.abs(roleValue(snapshot, b.role)) > Math.abs(roleValue(snapshot, a.role)) ? b : a));
       const power = roleValue(snapshot, top.role);
-      return {text: formatPower(power), stale: isStale(snapshot, top.role), dir: drawingIf(power), icon: top.icon, full: t('energy.flow.label_with_power', {label: top.label, power: formatPower(power)})};
+      return {text: formatPower(power), stale: isStale(snapshot, top.role), substitute: isSubstitute(snapshot, top.role), dir: drawingIf(power), icon: top.icon, full: t('energy.flow.label_with_power', {label: top.label, power: formatPower(power)})};
     }
     if (hasValue(snapshot, 'load')) {
       // Kein eigener Verbraucher, nur die rohe load-Rolle: hier stand noch nie
       // eine Zahl (die traegt der Haus-Knoten), das Wort bleibt.
-      return {text: t('energy.role.consumption'), stale: isStale(snapshot, 'load'), dir: drawingIf(roleValue(snapshot, 'load')), icon: 'generic'};
+      return {text: t('energy.role.consumption'), stale: isStale(snapshot, 'load'), substitute: isSubstitute(snapshot, 'load'), dir: drawingIf(roleValue(snapshot, 'load')), icon: 'generic'};
     }
-    return {text: '--', stale: false, dir: 'idle', icon: 'generic'};
+    return {text: '--', stale: false, substitute: false, dir: 'idle', icon: 'generic'};
   }
 
   // Die Verbraucher, die die Lasten-Kachel als Liste zeigt: die benannten
@@ -361,7 +386,7 @@
       const power = Math.abs(value);
       const drawing = power > MIN_FLOW_W;
       if (hideInactive && !drawing) return;
-      rows.push({label, icon, power: drawing ? power : 0, dir: drawing ? 'drawing' : 'idle', stale: isStale(snapshot, role)});
+      rows.push({label, icon, power: drawing ? power : 0, dir: drawing ? 'drawing' : 'idle', stale: isStale(snapshot, role), substitute: isSubstitute(snapshot, role)});
     };
     const named = [
       {label: t('energy.role.wallbox'), role: 'wallbox', icon: 'wallbox'},
@@ -378,7 +403,7 @@
       if (rows.length === 0) add(t('energy.role.consumption'), 'load', 'generic', loadTotal(snapshot));
       else if (rest > MIN_FLOW_W) add(t('energy.role.base'), 'load', 'generic', rest);
     }
-    if (rows.length === 0) rows.push({label: t('energy.role.consumption'), icon: 'generic', power: 0, dir: 'idle', stale: false, missing: true});
+    if (rows.length === 0) rows.push({label: t('energy.role.consumption'), icon: 'generic', power: 0, dir: 'idle', stale: false, substitute: false, missing: true});
     rows.sort((a, b) => b.power - a.power);
     return rows;
   }
@@ -407,6 +432,8 @@
       const text = row.missing ? '--' : formatPower(row.power);
       if (textEl.textContent !== text) textEl.textContent = text;
       li.classList.toggle('energy-flow-value-stale', row.stale);
+      li.classList.toggle('is-substitute', row.substitute);
+      setSubstituteTitle(li, row.substitute);
       const label = row.dir === 'drawing' ? t('energy.flow.label_with_power', {label: row.label, power: formatPower(row.power)}) : row.label;
       if (li.getAttribute('aria-label') !== label) li.setAttribute('aria-label', label);
     });
@@ -797,7 +824,7 @@
             renderLoadList(entry.list, loadConsumers(presented, options.hideInactiveConsumers));
             continue;
           }
-          const {text, stale, dir, full, soc, icon: iconVariant} = nodeText(node.id, presented);
+          const {text, stale, substitute, dir, full, soc, icon: iconVariant} = nodeText(node.id, presented);
           if (textEl.textContent !== text) textEl.textContent = text;
           // Batterie-Fuellstand: eigene Zeile unter dem Wert, ausgeblendet
           // solange kein battery_soc bekannt ist (nodeText liefert soc = '').
@@ -807,6 +834,8 @@
             entry.socEl.hidden = socText === '';
           }
           output.classList.toggle('energy-flow-value-stale', stale);
+          output.classList.toggle('is-substitute', substitute);
+          setSubstituteTitle(output, substitute);
           // Separate CSS-class channel rather than appending to `text`
           // itself: nodeText('home', ...) is asserted verbatim elsewhere
           // (formatPower output only) - a text suffix would break that

@@ -28,6 +28,15 @@ flowchart LR
 ```
 {% endraw %}
 
+Measurement chains run first. `Aggregate` calls `evaluateChains` as a pre-pass
+before it walks the entities. Reference points of a chain are skipped, because
+their power is already in the counting point. When the counting point has no
+fresh value, the pre-pass hands the value of the nearest fresh point of its
+chain to the entity loop as a substitute. The entity gets the quality
+`substitute`, and `substituteValue` clamps a negative value to zero except for
+battery, grid and storage roles. The same pre-pass delivers the chain states
+for the energy page.
+
 The payload is `{"at": <unix s>, "balance": {…}, "interpretation": {…}}`.
 `balance.categories` holds one value in watts per custom category, keyed by the
 category ID. Consumers are never negative, while producers and storage keep

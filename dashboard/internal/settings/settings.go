@@ -184,10 +184,14 @@ type EnergyConfig struct {
 	Groups     map[string]energy.Group    `json:"groups,omitempty"`
 	// Hidden is omitempty for the same reason: an empty set is not written.
 	Hidden []string `json:"hidden,omitempty"`
+	// Chains and RoleNeeded are omitempty too: without them the file stays
+	// byte-identical.
+	Chains     map[string]energy.Chain `json:"chains,omitempty"`
+	RoleNeeded []string                `json:"role_needed,omitempty"`
 }
 
 func (c EnergyConfig) Model() energy.Model {
-	return energy.Model{Categories: c.Categories, Groups: c.Groups}
+	return energy.Model{Categories: c.Categories, Groups: c.Groups, Chains: c.Chains}
 }
 
 type Layout struct {
@@ -877,6 +881,15 @@ func cloneEnergyConfig(value EnergyConfig) EnergyConfig {
 	}
 	value.Assignments = assignments
 	value.Hidden = cloneStrings(value.Hidden)
+	value.RoleNeeded = cloneStrings(value.RoleNeeded)
+	if value.Chains != nil {
+		chains := make(map[string]energy.Chain, len(value.Chains))
+		for id, chain := range value.Chains {
+			chain.Points = cloneStrings(chain.Points)
+			chains[id] = chain
+		}
+		value.Chains = chains
+	}
 	if value.Categories != nil {
 		categories := make(map[string]energy.Category, len(value.Categories))
 		for id, category := range value.Categories {
@@ -2058,6 +2071,15 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 		assignments[id] = assignment
 	}
 	value.Assignments = assignments
+	// A reference point of a measurement chain has no role of its own: its
+	// power is already in the counting point. Scale and invert stay. A
+	// reference point without an entry gets one, so the heuristic does not
+	// classify it again.
+	for id := range value.Model().ReferencePoints() {
+		assignment := value.Assignments[id]
+		assignment.Role = ""
+		value.Assignments[id] = assignment
+	}
 	// An entry with a stored role is shown by its role, so it never stays
 	// hidden. Sorted and unique, so the file does not depend on request order.
 	hidden := make([]string, 0, len(value.Hidden))
@@ -2073,6 +2095,27 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 		hidden = nil
 	}
 	value.Hidden = hidden
+	// Only the entities that still need a role: no entry with a role, not
+	// hidden, not a chain point. Sorted and unique, like Hidden.
+	chainPoints := map[string]bool{}
+	for _, chain := range value.Chains {
+		for _, point := range chain.Points {
+			chainPoints[point] = true
+		}
+	}
+	needed := make([]string, 0, len(value.RoleNeeded))
+	for _, id := range value.RoleNeeded {
+		if id == "" || value.Assignments[id].Role != "" || slices.Contains(value.Hidden, id) || chainPoints[id] {
+			continue
+		}
+		needed = append(needed, id)
+	}
+	slices.Sort(needed)
+	needed = slices.Compact(needed)
+	if len(needed) == 0 {
+		needed = nil
+	}
+	value.RoleNeeded = needed
 	if len(value.Categories) == 0 {
 		value.Categories = nil
 	} else {
@@ -2224,7 +2267,7 @@ func energyRejected(name, text string, params map[string]any) error {
 // membership, cycles and nested group roles. Member roles need the
 // registry and are checked in internal/httpapi (energy.ValidateMemberRoles).
 func validateEnergyModel(value EnergyConfig) error {
-	for _, ids := range [][]string{mapKeys(value.Categories), mapKeys(value.Groups)} {
+	for _, ids := range [][]string{mapKeys(value.Categories), mapKeys(value.Groups), mapKeys(value.Chains)} {
 		for _, id := range ids {
 			if !energyIDPattern.MatchString(id) {
 				return energyRejected("id_invalid", fmt.Sprintf("energy: invalid id %q", id), map[string]any{"id": id})
@@ -2248,6 +2291,9 @@ func validateEnergyModel(value EnergyConfig) error {
 		if err := checkRole(assignment.Role); err != nil {
 			return err
 		}
+	}
+	if err := validateChains(value.Chains); err != nil {
+		return err
 	}
 	memberOf := map[string]string{}
 	for _, id := range mapKeys(value.Groups) {
@@ -2306,6 +2352,43 @@ func validateEnergyModel(value EnergyConfig) error {
 					map[string]any{"group": group.Label, "parent": value.Groups[parent].Label})
 			}
 			current = "group:" + parent
+		}
+	}
+	return nil
+}
+
+// validateChains checks each measurement chain: a name, at least two
+// measuring points, no entity in two chains or twice in one, a counting
+// point among the points and a known direction.
+func validateChains(chains map[string]energy.Chain) error {
+	owner := map[string]string{}
+	for _, id := range mapKeys(chains) {
+		chain := chains[id]
+		if strings.TrimSpace(chain.Label) == "" {
+			return energyRejected("chain_label_missing", fmt.Sprintf("energy: chain %q has no label", id), map[string]any{"chain": chain.Label})
+		}
+		if len(chain.Points) < 2 {
+			return energyRejected("chain_too_few_points", fmt.Sprintf("energy: chain %q has fewer than two points", chain.Label), map[string]any{"chain": chain.Label})
+		}
+		for _, point := range chain.Points {
+			if _, taken := owner[point]; taken {
+				return energyRejected("chain_point_taken", fmt.Sprintf("energy: %q is in two chains", point), map[string]any{"chain": chain.Label, "entity": point})
+			}
+			owner[point] = id
+		}
+		counted := false
+		for _, point := range chain.Points {
+			if point == chain.Counting {
+				counted = true
+			}
+		}
+		if !counted {
+			return energyRejected("chain_counting_invalid", fmt.Sprintf("energy: chain %q counts %q, which is no point of it", chain.Label, chain.Counting), map[string]any{"chain": chain.Label})
+		}
+		switch chain.Direction {
+		case "", energy.ChainDirectionAuto, energy.ChainDirectionReversed, energy.ChainDirectionFixedDown, energy.ChainDirectionFixedUp:
+		default:
+			return energyRejected("chain_direction_invalid", fmt.Sprintf("energy: chain %q has direction %q", chain.Label, chain.Direction), map[string]any{"chain": chain.Label})
 		}
 	}
 	return nil

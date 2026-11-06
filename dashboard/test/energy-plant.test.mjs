@@ -257,3 +257,16 @@ test('sub-device role edges start at the sub-device, the meter gets only its rem
   const meterEdge = component.roleEdgeList().find(edge => edge.from === 'plug');
   assert.deepEqual(JSON.parse(JSON.stringify(meterEdge.entities)), ['power_2']);
 });
+
+test('a chain reference point adds its value to the plant device without a role', async () => {
+  const chains = [{ id: 'balkon', label: 'Balkonspeicher', role: 'battery', counting: 'pv1', direction: 'auto', segments: [], points: [
+    { entity_id: 'pv1', device_id: 'pv', label: 'PV', value: 500, has_value: true, freshness: 'fresh', counting: true },
+    { entity_id: 'ac1', device_id: 'wb', label: 'AC', value: 290, has_value: true, freshness: 'fresh', counting: false },
+  ] }];
+  const table = { ...TABLE, '/api/v1/energy': { entities: [{ device_id: 'pv', entity_id: 'pv1', value: 500, unit: 'W', role: { role: 'pv', source: 'override' } }], balance: {}, chains } };
+  const { component } = createPlant(table);
+  await component.load();
+  const energy = component.energyByDevice();
+  assert.equal(energy.get('wb').power, 290);
+  assert.equal(energy.get('wb').primaryRole, null);
+});

@@ -53,7 +53,7 @@
                 <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name" x-text="row.name"></span><span class="devicemap-panel-entity-value" x-text="row.valueText"></span></div>
                 <div class="devicemap-panel-consequence" x-show="row.consequence" x-text="row.consequence"></div>
                 <div class="devicemap-panel-entity-id" x-show="row.unit !== 'switch'" x-text="row.id"></div>
-                <label class="devicemap-panel-field">{{t "devicemap.panel.role"}}
+                <label class="devicemap-panel-field" x-show="!row.chainReference">{{t "devicemap.panel.role"}}
                   <select x-on:change="setDraft(row.id, 'role', $event.target.value)" x-bind:disabled="!canEditEnergy">
                     <optgroup label="{{t "devicemap.panel.optgroup.standard"}}">
                       <option value="" x-bind:selected="!row.assignment.role">{{t "energy.roles.no_role"}}</option>
@@ -70,6 +70,7 @@
                     </template>
                   </select>
                 </label>
+                <div class="devicemap-panel-source" x-show="row.chainReference"><span x-text="$t('energy.chains.reference_hint', {chain: row.chainReference})"></span></div>
                 <template x-if="row.unit === 'switch' && row.assignment.role === 'switch' && row.channels > 1">
                   <label class="devicemap-panel-field">{{t "devicemap.panel.channel"}}
                     <select x-on:change="setDraft(row.id, 'channel', $event.target.value)" x-bind:disabled="!canEditEnergy">
@@ -242,6 +243,32 @@
                   </div>
                 </div>
               </div>
+              <template x-if="popover.edge.chainForm">
+                <div class="category-field">
+                  <span class="category-field-label">{{t "devicemap.edge.chain_label"}}</span>
+                  <template x-if="popover.edge.chainForm.link">
+                    <div class="devicemap-edge-chain-status">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chain"></use></svg>
+                      <span class="devicemap-edge-chain-text"><span x-text="$t('devicemap.edge.chain_linked', {chain: popover.edge.chainForm.link.label})"></span><small x-text="popover.edge.chainForm.link.path"></small></span>
+                      <button type="button" class="pill-button" x-on:click="openEdgeChain()">{{t "devicemap.edge.chain_open"}}</button>
+                    </div>
+                  </template>
+                  <div x-show="canEditEnergy && !popover.edge.chainForm.link" class="devicemap-edge-chain">
+                    <label class="devicemap-panel-field"><span x-text="popover.edge.parentName"></span>
+                      <select x-on:change="popover.edge.chainForm.sourceEntity = $event.target.value">
+                        <template x-for="item in popover.edge.chainForm.source" x-bind:key="item.id"><option x-bind:value="item.id" x-text="item.name" x-bind:selected="item.id === popover.edge.chainForm.sourceEntity"></option></template>
+                      </select>
+                    </label>
+                    <label class="devicemap-panel-field"><span x-text="popover.edge.childName"></span>
+                      <select x-on:change="popover.edge.chainForm.targetEntity = $event.target.value">
+                        <template x-for="item in popover.edge.chainForm.target" x-bind:key="item.id"><option x-bind:value="item.id" x-text="item.name" x-bind:selected="item.id === popover.edge.chainForm.targetEntity"></option></template>
+                      </select>
+                    </label>
+                    <button type="button" class="pill-button" x-on:click="saveEdgeChain()">{{t "devicemap.edge.chain_save"}}</button>
+                  </div>
+                  <div x-show="!canEditEnergy && !popover.edge.chainForm.link"><span x-text="popover.edge.chainForm.chainLabel || $t('devicemap.edge.chain_none')"></span></div>
+                </div>
+              </template>
             </div>
           </template>
           <div class="devicemap-edge-actions" x-show="popover.edge && !popover.edge.membership && !popover.edge.subDevice">

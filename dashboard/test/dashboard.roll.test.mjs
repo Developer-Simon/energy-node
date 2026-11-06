@@ -117,3 +117,26 @@ test('x-fade-text blendet nur bei geaendertem Text, nicht beim ersten Befuellen'
   assert.equal(fades.length, 2);
   assert.equal(fades[0].cancelled, true, 'a new change replaces the running fade');
 });
+
+test('x-roll writes its frames through data-roll-format and ends on the target text', async () => {
+  const { window, roll } = loadRoll({ lang: 'de', format: 'comma' });
+  window.RollFormats = { power: value => `~${Math.round(value)} W` };
+  const el = window.document.getElementById('v');
+  el.dataset.rollValue = '900';
+  el.dataset.rollFormat = 'power';
+  el.textContent = '900 W';
+  roll(el, {}, { cleanup() {} });
+
+  el.dataset.rollValue = '1100';
+  el.textContent = '1,1 kW';
+
+  const seen = new Set();
+  for (let waited = 0; waited < 500; waited += 20) {
+    seen.add(el.textContent);
+    await sleep(20);
+  }
+  const between = [...seen].filter(text => text !== '900 W' && text !== '1,1 kW');
+  assert.ok(between.length > 0, `no animation frames seen: ${[...seen]}`);
+  for (const text of between) assert.match(text, /^~\d+ W$/);
+  assert.equal(el.textContent, '1,1 kW');
+});

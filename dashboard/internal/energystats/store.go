@@ -101,7 +101,11 @@ func (s *Store) AddOwn(r HourRecord) error {
 	if err != nil {
 		return err
 	}
-	if m.AddOwn(r.Hour, r.KWh, r.Covered) {
+	changed := m.AddOwn(r.Hour, r.KWh, r.Covered)
+	if r.Substituted > 0 && m.AddSubstituted(r.Hour, r.Substituted) {
+		changed = true
+	}
+	if changed {
 		s.dirty[monthKey(m.Start)] = true
 		s.bump()
 	}

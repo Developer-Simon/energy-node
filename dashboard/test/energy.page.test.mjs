@@ -26,6 +26,14 @@ const switchSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap-switch.js'),
   'utf8',
 );
+const modelSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap-model.js'),
+  'utf8',
+);
+const chainsSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'energy-chains.js'),
+  'utf8',
+);
 
 function createEnergyPanel({ fetchImpl, basePath, url } = {}) {
   // A real origin gives jsdom a localStorage; the default about:blank has none.
@@ -38,6 +46,8 @@ function createEnergyPanel({ fetchImpl, basePath, url } = {}) {
   installI18n(dom.window);
   vm.runInContext(pickerSource, context);
   vm.runInContext(switchSource, context);
+  vm.runInContext(modelSource, context);
+  vm.runInContext(chainsSource, context);
   vm.runInContext(subDevicesSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.energyRolesPanel();
@@ -967,4 +977,326 @@ test('categories overview is empty without sub-devices', async () => {
   const { component } = createEnergyPanel({ fetchImpl: stubFetch() });
   await component.load();
   assert.deepEqual(plain(component.subDeviceEntries), []);
+});
+
+// Measurement chains: the chain endpoints answer with the saved energy
+// config, the page takes chains, role_needed and the roles of the rows the
+// chain touched from that answer.
+const chainDevices = [{
+  name: 'Wechselrichter',
+  entities: [
+    { unique_id: 'pv_power', name: 'PV Leistung', object_id: 'pv_power', unit_of_measurement: 'W' },
+    { unique_id: 'socket_power', name: 'Steckdose', object_id: 'socket_power', unit_of_measurement: 'W' },
+    { unique_id: 'extra_power', name: 'Zusatz', object_id: 'extra_power', unit_of_measurement: 'W' },
+  ],
+}];
+
+const savedAfterAdd = {
+  assignments: {
+    pv_power: { role: '' },
+    socket_power: { role: 'load' },
+    extra_power: { role: '' },
+  },
+  chains: { neue_messkette: { label: 'Neue Messkette', points: ['socket_power', 'pv_power'], counting: 'socket_power' } },
+  role_needed: [],
+};
+
+function chainFetch({ calls = [], saved = {}, chainOk = true, snapshotChains = [] } = {}) {
+  return async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({ edit_energy: true, csrf_token: 't' });
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(chainDevices);
+    if (url.endsWith('/api/v1/energy/roles') && options.method === 'PATCH') return jsonResponse({});
+    if (url.endsWith('/api/v1/energy/roles')) return jsonResponse(rolesResponse);
+    if (url.startsWith('/api/v1/energy/chains')) {
+      return chainOk ? jsonResponse(saved) : jsonResponse({ message: 'refused' }, false);
+    }
+    if (url.endsWith('/api/v1/energy')) return jsonResponse({ ...energyResponse, chains: snapshotChains });
+    throw new Error(`unexpected fetch ${url}`);
+  };
+}
+
+const chainWriteCalls = calls => calls.filter(call => ['POST', 'PUT', 'DELETE'].includes(call.options.method));
+const plainJSON = value => JSON.parse(JSON.stringify(value));
+
+test('addChain posts the picked points in selection order and takes the saved chains and roles', async () => {
+  const calls = [];
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch({ calls, saved: savedAfterAdd }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.openPicker = async () => ['socket_power', 'pv_power'];
+  await component.addChain();
+  const post = chainWriteCalls(calls)[0];
+  assert.equal(post.options.method, 'POST');
+  assert.equal(post.url, '/api/v1/energy/chains');
+  assert.equal(post.options.headers['X-CSRF-Token'], 't');
+  assert.deepEqual(JSON.parse(post.options.body), {
+    label: window.I18n.t('energy.chains.default_name'),
+    points: ['socket_power', 'pv_power'],
+    counting: 'socket_power',
+  });
+  assert.deepEqual(plainJSON(component.chains), savedAfterAdd.chains);
+  assert.equal(component.assignments.socket_power.role, 'load');
+  assert.equal(component.assignments.pv_power.role, '', 'the old role of a point is replaced by the saved one');
+});
+
+test('addChain keeps an unsaved draft on another row', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch({ saved: savedAfterAdd }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.assignments.extra_power.role = 'load';
+  component.openPicker = async () => ['socket_power', 'pv_power'];
+  await component.addChain();
+  assert.equal(component.assignments.extra_power.role, 'load');
+});
+
+test('a refused chain call changes nothing and shows a toast', async () => {
+  const { component, stores } = createEnergyPanel({ fetchImpl: chainFetch({ chainOk: false }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.openPicker = async () => ['socket_power', 'pv_power'];
+  await component.addChain();
+  assert.deepEqual(plainJSON(component.chains), {});
+  assert.equal(component.assignments.pv_power.role, 'pv');
+  assert.equal(stores.toasts.criticals.length, 1);
+});
+
+test('addChain does nothing without edit rights or with fewer than two points', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch({ calls, saved: savedAfterAdd }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  let pickerOpened = 0;
+  component.openPicker = async () => { pickerOpened += 1; return ['pv_power']; };
+  await component.addChain();
+  assert.equal(chainWriteCalls(calls).length, 0);
+  component.canEdit = false;
+  await component.addChain();
+  assert.equal(pickerOpened, 1, 'without edit rights the picker does not open');
+});
+
+test('sectionMeta counts the measurement chains', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  window.I18n.tn = (key, n, params) => `${key}|${n}|${params.n}`;
+  component.chains = { a: {}, b: {} };
+  assert.equal(component.sectionMeta('chains'), 'energy.section.chains_meta|2|2');
+  component.chains = {};
+  assert.equal(component.sectionMeta('chains'), 'energy.section.chains_meta|0|0');
+});
+
+test('live chain values load only with the chains section open and at least one chain, every five seconds', async () => {
+  const calls = [];
+  const { component, window } = createEnergyPanel({
+    fetchImpl: chainFetch({ calls, snapshotChains: [{ id: 'm', label: 'Balkon', segments: [] }] }),
+  });
+  component.$nextTick = fn => fn();
+  component.init();
+  await component.load();
+  let now = 100000;
+  component._now = () => now;
+  const liveLoads = () => calls.filter(call => call.url === '/api/v1/energy').length;
+  const fireRegistryUpdated = async () => {
+    window.dispatchEvent(new window.CustomEvent('registry-updated', { detail: {} }));
+    await new Promise(resolve => setImmediate(resolve));
+  };
+
+  component.openSection = 'chains';
+  let before = liveLoads();
+  await fireRegistryUpdated();
+  assert.equal(liveLoads(), before, 'no chains, nothing to load');
+
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.openSection = 'roles';
+  before = liveLoads();
+  await fireRegistryUpdated();
+  assert.equal(liveLoads(), before, 'a closed chains section loads nothing');
+
+  component.openSection = 'chains';
+  before = liveLoads();
+  await fireRegistryUpdated();
+  assert.equal(liveLoads(), before + 1);
+  assert.deepEqual(Object.keys(component.chainStates), ['m']);
+
+  now += 1000;
+  before = liveLoads();
+  await fireRegistryUpdated();
+  assert.equal(liveLoads(), before, 'within five seconds nothing loads');
+
+  now += 5000;
+  before = liveLoads();
+  await fireRegistryUpdated();
+  assert.equal(liveLoads(), before + 1);
+});
+
+test('removing the last but one point asks first and then deletes the chain', async () => {
+  const calls = [];
+  const { component, stores } = createEnergyPanel({ fetchImpl: chainFetch({ calls, saved: { assignments: {}, role_needed: [] } }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+
+  stores.modal.answer = false;
+  await component.removeChainPoint('m', 'socket_power');
+  assert.equal(stores.modal.calls.length, 1);
+  assert.equal(chainWriteCalls(calls).length, 0, 'a refused question writes nothing');
+
+  stores.modal.answer = true;
+  await component.removeChainPoint('m', 'socket_power');
+  const del = chainWriteCalls(calls)[0];
+  assert.equal(del.options.method, 'DELETE');
+  assert.equal(del.url, '/api/v1/energy/chains/m');
+  assert.deepEqual(plainJSON(component.chains), {});
+});
+
+test('insert, remove, counting and rename save the changed chain with PUT', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch({ calls, saved: { assignments: {}, chains: {}, role_needed: [] } }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.openPicker = async () => ['extra_power'];
+  await component.insertChainPoint('m', 1);
+
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power', 'extra_power'], counting: 'pv_power' } };
+  await component.removeChainPoint('m', 'pv_power');
+
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  await component.setChainCounting('m', 'socket_power');
+
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'socket_power' } };
+  await component.renameChain('m', 'Neuer Name');
+
+  const puts = chainWriteCalls(calls).filter(call => call.options.method === 'PUT');
+  assert.equal(puts.length, 4);
+  assert.ok(puts.every(call => call.url === '/api/v1/energy/chains/m'));
+  assert.deepEqual(JSON.parse(puts[0].options.body), { label: 'Balkon', points: ['pv_power', 'extra_power', 'socket_power'], counting: 'pv_power', direction: '' });
+  assert.deepEqual(JSON.parse(puts[1].options.body), { label: 'Balkon', points: ['socket_power', 'extra_power'], counting: 'socket_power', direction: '' });
+  assert.equal(JSON.parse(puts[2].options.body).counting, 'socket_power');
+  assert.equal(JSON.parse(puts[3].options.body).label, 'Neuer Name');
+});
+
+test('dismissRoleNeeded clears the entry through PATCH', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch({ calls }) });
+  await component.load();
+  component.roleNeeded = ['socket_power', 'pv_power'];
+  await component.dismissRoleNeeded('socket_power');
+  const patch = calls.find(call => call.options.method === 'PATCH');
+  assert.equal(patch.url, '/api/v1/energy/roles');
+  assert.deepEqual(JSON.parse(patch.options.body), { role_needed: { socket_power: false } });
+  assert.deepEqual(component.roleNeeded, ['pv_power']);
+});
+
+test('chainHintOf names the chain of a point, isChainReference marks the non counting ones, openChain opens the section', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  assert.deepEqual(plainJSON(component.chainHintOf('socket_power')), { id: 'm', label: 'Balkon', counting: 'pv_power' });
+  assert.equal(component.chainHintOf('extra_power'), null);
+  assert.equal(component.isChainReference('socket_power'), true);
+  assert.equal(component.isChainReference('pv_power'), false);
+  component.$nextTick = fn => fn();
+  component.openChain('m');
+  assert.equal(component.openSection, 'chains');
+  assert.equal(component.flashChain, 'm');
+});
+
+test('a chain direction change saves with PUT, one picked point gets a message', async () => {
+  const calls = [];
+  const { component, stores, window } = createEnergyPanel({ fetchImpl: chainFetch({ calls, saved: { assignments: {}, chains: {}, role_needed: [] } }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  await component.setChainDirection('m', 'fixed_up');
+  const put = chainWriteCalls(calls)[0];
+  assert.equal(put.options.method, 'PUT');
+  assert.equal(JSON.parse(put.options.body).direction, 'fixed_up');
+
+  component.openPicker = async () => ['extra_power'];
+  await component.addChain();
+  assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.pick_two'));
+});
+
+test('chain path, point value and loss read the labels and the live state', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = {
+    m: {
+      points: [
+        { entity_id: 'pv_power', has_value: true, value: 1500 },
+        { entity_id: 'socket_power', has_value: false, value: 0 },
+      ],
+      segments: [{ from: 'socket_power', to: 'pv_power', available: true, loss_w: 9, efficiency: 0.97 }],
+    },
+  };
+  assert.equal(component.chainPathOf(component.chains.m), 'Wechselrichter / PV Leistung → Wechselrichter / Steckdose');
+  assert.equal(component.chainLabelOf('pv_power'), 'Wechselrichter / PV Leistung');
+  assert.equal(component.chainPointValue('m', 'pv_power'), '1,5 kW');
+  assert.equal(component.chainPointValue('m', 'socket_power'), '–');
+  assert.equal(component.chainLossText('m', 0), '−9 W · 97 %', 'matched in either flow direction');
+  assert.equal(component.chainLossText('m', 1), '–');
+});
+
+test('applyChainResponse leaves the role rows alone when the answer has no assignments', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  const chain = { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' };
+  component.applyChainResponse({ chains: { m: chain }, role_needed: [] }, ['pv_power']);
+  assert.equal(component.assignments.pv_power.role, 'pv');
+  assert.deepEqual(plainJSON(component.chains), { m: chain });
+});
+
+test('a refused rename puts the saved label back into the name input', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch({ chainOk: false }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  window.document.body.innerHTML = '<div data-chain-id="m"><input class="energy-groups-name" value="Balkon"></div>';
+  const input = window.document.querySelector('.energy-groups-name');
+  input.value = 'Neuer Name';
+  await component.renameChain('m', 'Neuer Name');
+  assert.equal(input.value, 'Balkon');
+  assert.equal(component.chains.m.label, 'Balkon');
+});
+
+test('a refused direction change takes the choice back', async () => {
+  const fetchImpl = async url => {
+    if (String(url).startsWith('/api/v1/energy/chains')) return { ok: false, status: 409, json: async () => ({ error: 'nein' }) };
+    return chainFetch({ calls: [], saved: { assignments: {}, chains: {}, role_needed: [] } })(url);
+  };
+  const { component } = createEnergyPanel({ fetchImpl });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power', direction: 'auto' } };
+  await component.setChainDirection('m', 'fixed_up');
+  assert.equal(component.chains.m.direction, 'auto');
+});
+
+test('the chain value helpers give x-roll the raw numbers and dashes keep them empty', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch({ calls: [], saved: { assignments: {}, chains: {}, role_needed: [] } }) });
+  await component.load();
+  component.chains = { m: { label: 'B', points: ['a', 'b'], counting: 'a' } };
+  component.chainStates = { m: { points: [{ entity_id: 'a', has_value: true, value: 900 }, { entity_id: 'b', has_value: false }], segments: [{ from: 'a', to: 'b', available: true, loss_w: 9, efficiency: 0.97 }] } };
+  assert.equal(component.chainPointRaw('m', 'a'), 900);
+  assert.equal(component.chainPointRaw('m', 'b'), '');
+  assert.equal(component.chainLossRaw('m', 0), 9);
+  assert.equal(component.chainLossPowerText('m', 0), '−9 W');
+  assert.equal(component.chainEfficiencyText('m', 0), '97 %');
+  assert.equal(Math.round(component.chainEfficiencyRaw('m', 0)), 97);
+  component.chainStates = {};
+  assert.equal(component.chainLossRaw('m', 0), '');
+  assert.equal(component.chainEfficiencyText('m', 0), '');
+});
+
+test('a chain request from the map opens the chain once the page has loaded', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch({ calls: [], saved: { assignments: {}, chains: {}, role_needed: [] } }) });
+  component.$nextTick = fn => fn();
+  window.__energyChainRequest__ = 'm';
+  await component.load();
+  assert.equal(component.flashChain, 'm');
+  assert.equal(component.isSectionOpen('chains'), true);
+  assert.equal(window.__energyChainRequest__, null);
 });

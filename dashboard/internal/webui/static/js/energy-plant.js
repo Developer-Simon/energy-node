@@ -212,6 +212,13 @@
         return positions;
       },
 
+      // The note under a node on a substitute value, nothing for all others.
+      substituteLabel(entry) {
+        const nameOf = id => (this.devices.find(device => device.id === id) || {}).name || id;
+        const note = window.DeviceMapModel.substituteNote(entry, nameOf);
+        return note ? {note} : {};
+      },
+
       colorOf() {
         const cache = {};
         return token => {
@@ -260,7 +267,8 @@
         const balanceText = model.balanceValueText(this.energy && this.energy.balance);
         return [
           ...this.devices.map(device => ({id: device.id, name: device.name || device.id,
-            value: device.id === balanceId ? balanceText : model.nodeValueText(device, energy.get(device.id))})),
+            value: device.id === balanceId ? balanceText : model.nodeValueText(device, energy.get(device.id)),
+            ...this.substituteLabel(energy.get(device.id))})),
           ...this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy)})),
           ...Object.entries(this.groups).map(([id, group]) => ({id: model.GROUP_PREFIX + id, name: group.label, value: model.groupValueText(model.edgeFlow(model.GROUP_PREFIX + id, energy, children, {dirOf}))})),
           ...(balanceId === df.BALANCE_ID ? [{id: df.BALANCE_ID, name: t('devicemap.balance.name'), value: balanceText}] : []),

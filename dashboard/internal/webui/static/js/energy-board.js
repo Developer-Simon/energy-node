@@ -37,6 +37,11 @@
     return (STALE_ROLES[rowID] || []).some(role => model.isStale(snapshot, role));
   }
 
+  function isRowSubstitute(snapshot, rowID) {
+    const model = window.EnergyModel;
+    return (STALE_ROLES[rowID] || []).some(role => model.isSubstitute(snapshot, role));
+  }
+
   // Fixed row order: pv, battery, grid, load, wallbox, heat_pump, plus an
   // optional "Nicht zugeordnet" row when sources/sinks don't balance.
   function boardRows(snapshot, balance) {
@@ -80,7 +85,8 @@
     }
     for (const row of rows) {
       row.stale = row.quality === 'gap' || row.quality === 'gap-absorbed' ? false : isRowStale(snapshot, row.staleRole || row.id);
-      row.fresh = row.quality === 'gap' ? 'gap' : row.quality === 'gap-absorbed' ? 'gap-absorbed' : row.stale ? 'stale' : 'fresh';
+      row.substitute = row.quality === 'gap' || row.quality === 'gap-absorbed' ? false : isRowSubstitute(snapshot, row.staleRole || row.id);
+      row.fresh = row.quality === 'gap' ? 'gap' : row.quality === 'gap-absorbed' ? 'gap-absorbed' : row.stale ? 'stale' : row.substitute ? 'substitute' : 'fresh';
     }
     return rows;
   }
@@ -244,6 +250,7 @@
       if (row.fresh === 'gap') return window.DashboardTheme.color('bad');
       if (row.fresh === 'gap-absorbed') return window.DashboardTheme.color('warn');
       if (row.fresh === 'stale') return window.DashboardTheme.color('text-faint');
+      if (row.fresh === 'substitute') return window.DashboardTheme.color('warn');
       return window.DashboardTheme.color('ok');
     },
 
@@ -251,6 +258,7 @@
       if (row.fresh === 'gap') return t('energy.board.fresh.gap');
       if (row.fresh === 'gap-absorbed') return t('energy.board.fresh.gap_absorbed');
       if (row.fresh === 'stale') return t('energy.board.fresh.stale');
+      if (row.fresh === 'substitute') return t('energy.board.fresh.substitute');
       return t('energy.board.fresh.fresh');
     },
 

@@ -65,6 +65,7 @@
     const parts = [];
     if (h.ha) parts.push(t('energy_stats.coverage.ha', {n: h.ha}));
     if (h.own) parts.push(t('energy_stats.coverage.own', {n: h.own}));
+    if (h.substitute) parts.push(t('energy_stats.coverage.substitute', {n: h.substitute}));
     if (!parts.length) return t('energy_stats.coverage.empty');
     if (h.none) parts.push(t('energy_stats.coverage.none', {n: h.none}));
     const text = parts.join(', ');
@@ -72,12 +73,14 @@
   }
 
   // Die Datenlage als einzelne Teile fuer Pillen: {kind, text}. kind ist
-  // ha, own, none oder empty. Ohne jede Stunde bleibt nur "Noch keine Daten".
+  // ha, own, substitute, none oder empty. Ohne jede Stunde bleibt nur "Noch
+  // keine Daten". Der Ersatzwert ist ein Teil der eigenen Stunden.
   function coverageParts(hours) {
     const h = hours || {};
     const parts = [];
     if (h.ha) parts.push({kind: 'ha', text: t('energy_stats.coverage.ha', {n: h.ha})});
     if (h.own) parts.push({kind: 'own', text: t('energy_stats.coverage.own', {n: h.own})});
+    if (h.substitute) parts.push({kind: 'substitute', text: t('energy_stats.coverage.substitute', {n: h.substitute})});
     if (!parts.length) return [{kind: 'empty', text: t('energy_stats.coverage.empty')}];
     if (h.none) parts.push({kind: 'none', text: t('energy_stats.coverage.none', {n: h.none})});
     return parts.map(part => ({...part, text: part.text.charAt(0).toLocaleUpperCase() + part.text.slice(1)}));

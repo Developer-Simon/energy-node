@@ -3,6 +3,7 @@ package energystats
 import (
 	"encoding/json"
 	"math"
+	"strings"
 	"testing"
 	"time"
 )
@@ -148,4 +149,79 @@ func jsonList(n int, item string) string {
 		out += item
 	}
 	return out + "]"
+}
+
+func TestMonthWithoutSubstitutedKeepsFileFormat(t *testing.T) {
+	m := NewMonth(hourAt("2026-10-01T00:00:00Z"))
+	m.AddOwn(hourAt("2026-10-05T10:00:00Z"), map[string]float64{"pv": 1}, 3600)
+	data, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "substituted") {
+		t.Fatalf("Datei enthaelt substituted ohne Ersatzwerte: %s", data)
+	}
+	if !strings.Contains(string(data), `"version":1`) {
+		t.Fatalf("Version nicht 1: %s", data)
+	}
+}
+
+func TestMonthSubstitutedRoundTrip(t *testing.T) {
+	m := NewMonth(hourAt("2026-10-01T00:00:00Z"))
+	h := hourAt("2026-10-05T10:00:00Z")
+	m.AddOwn(h, map[string]float64{"pv": 1}, 3600)
+	if !m.AddSubstituted(h, 600) {
+		t.Fatal("AddSubstituted meldet keine Aenderung")
+	}
+	data, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := decodeMonth(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	i, _ := back.Index(h)
+	if back.Substituted[i] != 600 {
+		t.Fatalf("Substituted = %d, erwartet 600", back.Substituted[i])
+	}
+	if len(back.Substituted) != back.Hours() {
+		t.Fatalf("Laenge %d, erwartet %d", len(back.Substituted), back.Hours())
+	}
+}
+
+func TestMonthSubstitutedCapsAtOneHour(t *testing.T) {
+	m := NewMonth(hourAt("2026-10-01T00:00:00Z"))
+	h := hourAt("2026-10-05T10:00:00Z")
+	m.AddSubstituted(h, 3000)
+	m.AddSubstituted(h, 3000)
+	i, _ := m.Index(h)
+	if m.Substituted[i] != 3600 {
+		t.Fatalf("Substituted = %d, erwartet 3600", m.Substituted[i])
+	}
+	if m.AddSubstituted(h, 60) {
+		t.Fatal("ueber dem Deckel meldet AddSubstituted eine Aenderung")
+	}
+}
+
+func TestMonthFileWithoutSubstitutedLoadsZeros(t *testing.T) {
+	body := `{"version":1,"month":"2026-10","covered":` + zeros(744) + `,"roles":{}}`
+	m, err := decodeMonth([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Substituted) != m.Hours() || m.Substituted[0] != 0 {
+		t.Fatalf("Substituted nicht mit Nullen geladen")
+	}
+}
+
+func TestMonthFileWithWrongSubstitutedLengthLoadsZeros(t *testing.T) {
+	body := `{"version":1,"month":"2026-10","covered":` + zeros(744) + `,"roles":{},"substituted":[5]}`
+	m, err := decodeMonth([]byte(body))
+	if err != nil {
+		t.Fatalf("falsche Laenge darf nicht scheitern: %v", err)
+	}
+	if len(m.Substituted) != m.Hours() || m.Substituted[0] != 0 {
+		t.Fatalf("Substituted nicht mit Nullen geladen")
+	}
 }

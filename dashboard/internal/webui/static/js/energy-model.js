@@ -3,7 +3,7 @@
 // energy-schema.js / energy-status.js). Exposed as window.EnergyModel, same
 // namespacing pattern as window.dashboardHistorizer.
 //
-// The snapshot basics (roleValue/hasValue/hasPower/isStale/battery*Power)
+// The snapshot basics (roleValue/hasValue/hasPower/isStale/isSubstitute/battery*Power)
 // are a deliberate duplicate of the ones energy-flow.js already ports from
 // internal/energy.Snapshot - not factored out of that file, so its existing
 // tests/comments stay untouched. Everything below deriveBalance() is new:
@@ -26,6 +26,17 @@
 
   function isStale(snapshot, role) {
     return (snapshot && snapshot.roles || []).some(state => state.role === role && state.freshness === 'stale');
+  }
+
+  function isSubstitute(snapshot, role) {
+    return (snapshot && snapshot.roles || []).some(state => state.role === role && state.quality === 'substitute');
+  }
+
+  // Labels of the points that stood in for a role's value, empty when the
+  // role's own value counted.
+  function substituteFrom(snapshot, role) {
+    const state = (snapshot && snapshot.roles || []).find(entry => entry.role === role);
+    return state && Array.isArray(state.substitute_from) ? state.substitute_from : [];
   }
 
   function batteryChargePower(snapshot) {
@@ -517,7 +528,7 @@
   }
 
   window.EnergyModel = {
-    roleValue, hasValue, hasPower, isStale,
+    roleValue, hasValue, hasPower, isStale, isSubstitute, substituteFrom,
     batteryChargePower, batteryDischargePower, gridImportPower, gridExportPower,
     formatPower, formatPercent, deriveBalance, deriveBalanceCore, composeBalance, balanceOf, readEmbeddedSnapshot,
     groupRoleSamples, snapshotFromPoint, HISTORY_ROLES,

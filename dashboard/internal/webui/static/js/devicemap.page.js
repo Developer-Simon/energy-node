@@ -109,6 +109,7 @@
       savedHidden: new Set(), // entity ids the role table hides, see DeviceMapModel.panelRows
       savedGroups: {},
       savedCategories: {},
+      savedChains: {},
       iconMarkup: {},
       iconCatalogue: [],
       groupName: '',
@@ -198,6 +199,7 @@
           this.savedHidden = new Set((roles && roles.hidden) || []);
           this.savedGroups = (roles && roles.groups) || {};
           this.savedCategories = (roles && roles.categories) || {};
+          this.savedChains = (roles && roles.chains) || {};
           // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung, dann
           // laesst requireEnergyMutation den Schreibzugriff durch.
           this.csrfToken = (session && session.csrf_token) || '';
@@ -637,8 +639,82 @@
             childName: this.deviceLabel(edge.target),
             membership: Boolean(edge.membership),
             subDevice: Boolean(edge.subDevice),
+            chainForm: this.chainFormFor(edge),
           },
         });
+      },
+
+      // The chain form of a wiring card: the power points of both devices and
+      // the chain that already runs between them. Only energy edges between two
+      // devices have one, the own energy node has no measuring points.
+      chainFormFor(edge) {
+        const model = window.DeviceMapModel;
+        if (edge.membership || edge.subDevice || model.isGroupId(edge.source) || model.isGroupId(edge.target)) return null;
+        if (edge.source === model.OWN_ENERGY_DEVICE_ID || edge.target === model.OWN_ENERGY_DEVICE_ID) return null;
+        if (this.edgePropsFor(edge).type !== 'energy') return null;
+        const source = this.chainPointsOf(edge.source);
+        const target = this.chainPointsOf(edge.target);
+        const sourceIds = new Set(source.map(item => item.id));
+        const targetIds = new Set(target.map(item => item.id));
+        const chains = this.savedChains || {};
+        const between = Object.keys(chains).sort().map(id => chains[id])
+          .find(chain => chain.points.some(id => sourceIds.has(id)) && chain.points.some(id => targetIds.has(id)));
+        // Preselected: a point of the chain between the devices, else a point that
+        // already sits in some chain, else the first one.
+        const pick = (list, preferred) => (list.find(item => preferred && preferred.points.includes(item.id))
+          || list.find(item => window.EnergyChains.chainOf(chains, item.id))
+          || list[0] || {id: ''}).id;
+        const hit = window.EnergyChains.linkBetween(chains, sourceIds, targetIds);
+        const nameOf = id => {
+          const inSource = source.find(item => item.id === id);
+          const item = inSource || target.find(entry => entry.id === id);
+          return `${this.deviceLabel(inSource ? edge.source : edge.target)} · ${item ? item.name : id}`;
+        };
+        const link = hit && {...hit, path: `${nameOf(hit.upstream)} → ${nameOf(hit.downstream)}`};
+        return {source, target, sourceEntity: pick(source, between), targetEntity: pick(target, between),
+          chainLabel: between ? between.label : '', link};
+      },
+
+      // The power entities of a device, the possible measuring points.
+      chainPointsOf(deviceId) {
+        return ((this.devices.find(device => device.id === deviceId) || {}).entities || [])
+          .filter(entity => window.DeviceMapModel.isPowerUnit(entity.unit_of_measurement))
+          .map(entity => ({id: entity.unique_id, name: entity.name || entity.unique_id}));
+      },
+
+      // Opens the chain of the selected edge on the energy page.
+      openEdgeChain() {
+        const form = this.popover && this.popover.edge && this.popover.edge.chainForm;
+        if (!form || !form.link) return;
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'energy-panel', chainFocus: form.link.id}}));
+      },
+
+      // Saves the chain form of the selected edge. edgeChange() decides between a
+      // new chain, a point added to a chain and a conflict, which sends nothing.
+      async saveEdgeChain() {
+        const edge = this.popover && this.popover.edge;
+        const form = edge && edge.chainForm;
+        if (!form || !this.canEditEnergy) return;
+        const change = window.EnergyChains.edgeChange({chains: this.savedChains, upstream: form.sourceEntity, downstream: form.targetEntity, label: edge.childName});
+        if (change.action === 'conflict') {
+          this.$store.toasts.push(t('energy.chains.map_conflict'));
+          return;
+        }
+        if (change.action !== 'create' && change.action !== 'update') return;
+        const create = change.action === 'create';
+        try {
+          await requestJSON(create ? '/api/v1/energy/chains' : `/api/v1/energy/chains/${encodeURIComponent(change.id)}`, {
+            method: create ? 'POST' : 'PUT',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+            body: JSON.stringify(change.body),
+          });
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+          return;
+        }
+        await this.reloadEnergyState();
+        window.dispatchEvent(new CustomEvent('energy-roles-changed', {detail: {source: 'devicemap'}}));
+        if (this.selectedEdge) this.openWiringPopover(this.edgeCardAnchor, true);
       },
 
       // Channel saved for the pair of the edge, whatever its orientation.
@@ -910,7 +986,7 @@
           const status = this.switchStatus();
           const switchInfo = this.switchInfoFor(device.id);
           const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
-          const {rows} = window.DeviceMapModel.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices()});
+          const {rows} = window.DeviceMapModel.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices(), chains: this.energy && this.energy.chains});
           row = rows.find(item => item.id === sub.entity_id) || null;
         }
         return {kind: 'sub', title: sub.label || sub.id, icon: sub.icon, row, orphan, deviceId: sub.device_id, canEdit};
@@ -1245,7 +1321,7 @@
         const status = this.switchStatus();
         const switchInfo = this.switchInfoFor(device.id);
         const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
-        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices()});
+        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices(), chains: this.energy && this.energy.chains});
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
@@ -1385,6 +1461,12 @@
         return window.DeviceMapNodeSvg.dataUri({...spec, quiet, port}, colorOf);
       },
 
+      // The note under a node on a substitute value, nothing for all others.
+      substituteLabel(entry) {
+        const note = window.DeviceMapModel.substituteNote(entry, id => this.deviceLabel(id));
+        return note ? {note} : {};
+      },
+
       labelItems(status = this.switchStatus()) {
         const model = window.DeviceMapModel;
         const {energy, children, dirOf} = this.energyFlowContext();
@@ -1392,6 +1474,7 @@
           id: device.id,
           name: device.name || device.id,
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
+          ...this.substituteLabel(energy.get(device.id)),
           ...this.offLabel(status, device.id),
         }));
         const subs = this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy), ...this.offLabel(status, sub.id)}));
@@ -1519,6 +1602,7 @@
         this.savedHidden = new Set(roles.hidden || []);
         this.savedGroups = roles.groups || {};
         this.savedCategories = roles.categories || {};
+        this.savedChains = roles.chains || {};
         this.energy = energy;
         this.energyUnavailable = energy === null;
         const model = window.DeviceMapModel;

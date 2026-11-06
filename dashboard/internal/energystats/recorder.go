@@ -94,6 +94,16 @@ func PowerOf(s energy.Snapshot) map[string]float64 {
 	return power
 }
 
+// hasSubstitute meldet, ob eine Rolle der Probe aus einem Ersatzwert stammt.
+func hasSubstitute(s energy.Snapshot) bool {
+	for _, state := range s.Roles {
+		if state.Quality == energy.QualitySubstitute {
+			return true
+		}
+	}
+	return false
+}
+
 // ClockReady entscheidet, ob die Systemzeit fuer die Aufzeichnung taugt.
 type ClockReady func(wall time.Time, sinceStart time.Duration) bool
 
@@ -209,7 +219,7 @@ func (r *Recorder) Observe(wall time.Time, sinceStart time.Duration, snapshot en
 	r.lastWall, r.lastMono, r.hasLast = wall, sinceStart, true
 	power := PowerOf(snapshot)
 	r.status.Stale = power == nil && len(snapshot.Values) > 0
-	done := r.integ.Add(Sample{At: wall, Power: power})
+	done := r.integ.Add(Sample{At: wall, Power: power, Substituted: hasSubstitute(snapshot)})
 	if r.status.Mode == RecordingPauseWithCompanion && policy.CompanionCurrent {
 		r.backlog = append(r.backlog, done...)
 		if n := len(r.backlog); n > PauseBacklogHours {

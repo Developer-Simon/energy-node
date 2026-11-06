@@ -2892,3 +2892,109 @@ func TestSchemaBegrenztDieKopfzeilenTexte(t *testing.T) {
 		t.Fatal("ein Untertitel ueber 160 Zeichen muss abgelehnt werden")
 	}
 }
+
+func TestEnergyChainValidation(t *testing.T) {
+	base := func() EnergyConfig {
+		return EnergyConfig{Assignments: map[string]energy.Assignment{}, Chains: map[string]energy.Chain{
+			"speicher": {Label: "Speicher", Points: []string{"plug", "ac"}, Counting: "plug"},
+		}}
+	}
+	cases := map[string]struct {
+		mutate func(*EnergyConfig)
+		key    string
+	}{
+		"valid": {func(*EnergyConfig) {}, ""},
+		"id": {func(c *EnergyConfig) {
+			c.Chains["A-B"] = energy.Chain{Label: "x", Points: []string{"p", "q"}, Counting: "p"}
+		}, "error.energy_roles_rejected.id_invalid"},
+		"no label": {func(c *EnergyConfig) { x := c.Chains["speicher"]; x.Label = " "; c.Chains["speicher"] = x }, "error.energy_roles_rejected.chain_label_missing"},
+		"one point": {func(c *EnergyConfig) {
+			x := c.Chains["speicher"]
+			x.Points = []string{"plug"}
+			c.Chains["speicher"] = x
+		}, "error.energy_roles_rejected.chain_too_few_points"},
+		"dup point": {func(c *EnergyConfig) {
+			x := c.Chains["speicher"]
+			x.Points = []string{"plug", "plug"}
+			c.Chains["speicher"] = x
+		}, "error.energy_roles_rejected.chain_point_taken"},
+		"two chains": {func(c *EnergyConfig) {
+			c.Chains["b"] = energy.Chain{Label: "b", Points: []string{"ac", "dc"}, Counting: "ac"}
+		}, "error.energy_roles_rejected.chain_point_taken"},
+		"bad counting": {func(c *EnergyConfig) { x := c.Chains["speicher"]; x.Counting = "dc"; c.Chains["speicher"] = x }, "error.energy_roles_rejected.chain_counting_invalid"},
+		"bad dir":      {func(c *EnergyConfig) { x := c.Chains["speicher"]; x.Direction = "up"; c.Chains["speicher"] = x }, "error.energy_roles_rejected.chain_direction_invalid"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			value := base()
+			tc.mutate(&value)
+			err := validateEnergy(value)
+			if tc.key == "" {
+				if err != nil {
+					t.Fatalf("err = %v, want nil", err)
+				}
+				return
+			}
+			typed, ok := uierror.From(err)
+			if !ok || typed.Key != tc.key {
+				t.Fatalf("err = %v, want key %s", err, tc.key)
+			}
+		})
+	}
+}
+
+func TestEnergyNormalizeClearsReferenceRolesKeepsScale(t *testing.T) {
+	value := normalizeEnergy(EnergyConfig{
+		Assignments: map[string]energy.Assignment{
+			"plug": {Role: energy.RoleBattery},
+			"ac":   {Role: energy.RoleBattery, Scale: 2, Invert: true},
+		},
+		Chains: map[string]energy.Chain{
+			"speicher": {Label: "Speicher", Points: []string{"plug", "ac"}, Counting: "plug"},
+		},
+	})
+	if value.Assignments["plug"].Role != energy.RoleBattery {
+		t.Fatalf("counting point role = %q, want battery", value.Assignments["plug"].Role)
+	}
+	ac := value.Assignments["ac"]
+	if ac.Role != "" || ac.Scale != 2 || !ac.Invert {
+		t.Fatalf("reference point = %#v, want no role, scale 2, invert", ac)
+	}
+}
+
+func TestEnergyNormalizeAddsOverrideForReferenceWithoutAssignment(t *testing.T) {
+	value := normalizeEnergy(EnergyConfig{
+		Assignments: map[string]energy.Assignment{},
+		Chains: map[string]energy.Chain{
+			"speicher": {Label: "Speicher", Points: []string{"plug", "ac"}, Counting: "plug"},
+		},
+	})
+	assignment, ok := value.Assignments["ac"]
+	if !ok || assignment.Role != "" {
+		t.Fatalf("reference point without assignment: ok=%v assignment=%#v, want an entry without role", ok, assignment)
+	}
+}
+
+func TestEnergyNormalizeRoleNeeded(t *testing.T) {
+	value := normalizeEnergy(EnergyConfig{
+		Assignments: map[string]energy.Assignment{"hat_rolle": {Role: energy.RoleBattery}},
+		Hidden:      []string{"versteckt"},
+		Chains: map[string]energy.Chain{
+			"speicher": {Label: "Speicher", Points: []string{"plug", "in_kette"}, Counting: "plug"},
+		},
+		RoleNeeded: []string{"z", "a", "a", "hat_rolle", "versteckt", "in_kette"},
+	})
+	if !slices.Equal(value.RoleNeeded, []string{"a", "z"}) {
+		t.Fatalf("role_needed = %v, want [a z]", value.RoleNeeded)
+	}
+}
+
+func TestEnergyWithoutChainsStaysByteIdentical(t *testing.T) {
+	data, err := json.Marshal(normalizeEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "chains") || strings.Contains(string(data), "role_needed") {
+		t.Fatalf("energy without chains must not write the new keys: %s", data)
+	}
+}

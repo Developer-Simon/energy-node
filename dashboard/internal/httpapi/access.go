@@ -105,6 +105,8 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/entities/":                  {group: groupAnyView},
 	"/api/v1/energy":                     {group: groupAnyView},
 	"/api/v1/energy/roles":               {group: groupAnyView},
+	"/api/v1/energy/chains":              {group: groupAnyView},
+	"/api/v1/energy/chains/":             {group: groupAnyView},
 	"/api/v1/energy/stats":               {group: groupAnyView},
 	"/api/v1/energy/stats/hours":         {group: groupAnyView},
 	"/api/v1/energy/category-references": {group: groupAnyView},

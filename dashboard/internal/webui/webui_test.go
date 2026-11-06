@@ -56,7 +56,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=14,/static/js/devicemap-subdevices.js?v=1,/static/js/devicemap-graph.js?v=9,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=4,/static/js/energy-plant.js?v=6,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=13\"", "data-panel-css=\"/static/css/manager.css?v=48\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=15,/static/js/devicemap-subdevices.js?v=1,/static/js/energy-chains.js?v=1,/static/js/devicemap-graph.js?v=9,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=5,/static/js/energy-plant.js?v=7,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=14\"", "data-panel-css=\"/static/css/manager.css?v=49\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -152,7 +152,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 		}
 	}
 	for path, script := range map[string]string{
-		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=4,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
+		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=5,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
 		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=30,/static/js/onboarding-checklist.js?v=4,/static/js/mqtt.page.js?v=11,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=10,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -162,7 +162,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=20"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=49,/static/css/settings-controls.css?v=20"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -737,9 +737,9 @@ func TestOverviewRendersSelectedEnergyGraphicCards(t *testing.T) {
 // "overview-live".
 func TestOverviewOnlyLoadsSelectedEnergyGraphicScripts(t *testing.T) {
 	allScripts := []string{
-		"/static/js/energy-model.js?v=4",
-		"/static/js/energy-band.js?v=2", "/static/js/energy-ring.js?v=2", "/static/js/energy-board.js?v=2",
-		"/static/js/energy-day.js?v=3", "/static/js/energy-schema.js?v=2", "/static/js/energy-status.js?v=1",
+		"/static/js/energy-model.js?v=5",
+		"/static/js/energy-band.js?v=2", "/static/js/energy-ring.js?v=2", "/static/js/energy-board.js?v=3",
+		"/static/js/energy-day.js?v=3", "/static/js/energy-schema.js?v=2", "/static/js/energy-status.js?v=2",
 	}
 
 	t.Run("default layout loads none of the six card scripts", func(t *testing.T) {
@@ -759,10 +759,10 @@ func TestOverviewOnlyLoadsSelectedEnergyGraphicScripts(t *testing.T) {
 	}{
 		{"energy_band", "/static/js/energy-band.js?v=2"},
 		{"energy_ring", "/static/js/energy-ring.js?v=2"},
-		{"energy_board", "/static/js/energy-board.js?v=2"},
+		{"energy_board", "/static/js/energy-board.js?v=3"},
 		{"energy_day", "/static/js/energy-day.js?v=3"},
 		{"energy_schema", "/static/js/energy-schema.js?v=2"},
-		{"energy_status", "/static/js/energy-status.js?v=1"},
+		{"energy_status", "/static/js/energy-status.js?v=2"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.itemType, func(t *testing.T) {
@@ -776,14 +776,14 @@ func TestOverviewOnlyLoadsSelectedEnergyGraphicScripts(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			Overview(registry.New(), nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 			body := recorder.Body.String()
-			if !strings.Contains(body, `<script src="/static/js/energy-model.js?v=4"`) {
+			if !strings.Contains(body, `<script src="/static/js/energy-model.js?v=5"`) {
 				t.Fatalf("%s: page does not load the shared energy-model.js", testCase.itemType)
 			}
 			if !strings.Contains(body, `<script src="`+testCase.script+`"`) {
 				t.Fatalf("%s: page does not load %q", testCase.itemType, testCase.script)
 			}
 			for _, script := range allScripts {
-				if script == testCase.script || script == "/static/js/energy-model.js?v=4" {
+				if script == testCase.script || script == "/static/js/energy-model.js?v=5" {
 					continue
 				}
 				if strings.Contains(body, `<script src="`+script+`"`) {
@@ -807,7 +807,7 @@ func TestOverviewOnlyLoadsSelectedEnergyGraphicScripts(t *testing.T) {
 		if strings.Contains(body, `<script src="/static/js/energy-band.js?v=2"`) {
 			t.Fatal("invisible energy_band item still loaded energy-band.js")
 		}
-		if strings.Contains(body, `<script src="/static/js/energy-model.js?v=4"`) {
+		if strings.Contains(body, `<script src="/static/js/energy-model.js?v=5"`) {
 			t.Fatal("invisible energy_band item still loaded energy-model.js")
 		}
 	})
@@ -1131,12 +1131,12 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=46"`,
+		`href="/node/static/css/base.css?v=47"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=20"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=49,/node/static/css/settings-controls.css?v=20"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1771,7 +1771,7 @@ func TestStatsPanelRenders(t *testing.T) {
 	}
 	full := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(full, httptest.NewRequest("GET", "/", nil))
-	if !strings.Contains(full.Body.String(), `id="tab-stats"`) || !strings.Contains(full.Body.String(), `energy-stats-model.js?v=4`) {
+	if !strings.Contains(full.Body.String(), `id="tab-stats"`) || !strings.Contains(full.Body.String(), `energy-stats-model.js?v=5`) {
 		t.Fatal("Tab oder Panel Statistik fehlt")
 	}
 }

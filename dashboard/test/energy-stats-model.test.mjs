@@ -153,3 +153,17 @@ test('KPI_IDS nennt alle acht Kennzahlen in fester Reihenfolge', () => {
   assert.deepEqual([...model.KPI_IDS], ['consumption', 'pv', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge', 'autarky', 'self_consumption']);
   dom.window.close();
 });
+
+test('coverageParts setzt den Ersatzwert direkt hinter die eigene Aufzeichnung', () => {
+  const {model} = loadStatsModel();
+  const parts = JSON.parse(JSON.stringify(model.coverageParts({own: 5, substitute: 2, none: 1})));
+  assert.deepEqual(parts.map(part => part.kind), ['own', 'substitute', 'none']);
+  assert.equal(parts[1].text, 'Davon 2 h mit Ersatzwert');
+});
+
+test('coverageText nennt den Ersatzwert, ohne ihn bleibt die Ausgabe gleich', () => {
+  const {dom, model} = loadStatsModel();
+  assert.equal(model.coverageText({own: 5, substitute: 2, none: 1}), 'Eigene Aufzeichnung 5 h, davon 2 h mit Ersatzwert, keine Daten 1 h');
+  assert.equal(model.coverageText({ha: 20, own: 3, none: 1}), 'Aus Home Assistant 20 h, eigene Aufzeichnung 3 h, keine Daten 1 h');
+  dom.window.close();
+});

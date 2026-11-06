@@ -407,3 +407,92 @@ test('panel rows carry their sub-device, and only power rows offer one', () => {
   assert.equal(byId.soc.subDevice, null);
   assert.equal(byId.soc.canAddSub, false);
 });
+
+// A chain point as the snapshot carries it (ChainPointState), counting false unless set.
+const chainPoint = (entity_id, device_id, value, extra = {}) => ({ entity_id, device_id, label: entity_id, value, has_value: true, freshness: 'fresh', counting: false, ...extra });
+const chainSnapshot = (role, points, extra = {}) => ({ entities: [entity('A', 'plug', 'battery', 300)], chains: [
+  { id: 'balkon', label: 'Balkonspeicher', role, counting: 'plug', direction: 'auto', points, segments: [], ...extra },
+] });
+
+test('deviceEnergy shows a reference point as a display value only', () => {
+  const model = loadModel();
+  const energy = model.deviceEnergy(chainSnapshot('battery', [chainPoint('plug', 'A', 300, { counting: true }), chainPoint('ac', 'B', 290)]));
+  assert.equal(energy.get('B').power, 290);
+  assert.deepEqual(plain(energy.get('B').roles), []);
+  assert.deepEqual(plain(energy.get('B').byRole), {});
+  assert.equal(energy.get('B').primaryRole, null);
+  assert.equal(energy.get('A').power, 300);
+  assert.deepEqual(plain(energy.get('A').roles), ['battery']);
+  assert.deepEqual(plain(energy.get('A').byRole), { battery: 300 });
+});
+
+test('deviceEnergy does not add two points of a chain on one device', () => {
+  const model = loadModel();
+  const twoOnB = model.deviceEnergy(chainSnapshot('battery', [
+    chainPoint('plug', 'A', 300, { counting: true }), chainPoint('ac', 'B', 290), chainPoint('dc', 'B', 260),
+  ]));
+  assert.equal(twoOnB.get('B').power, 290, 'the point nearer to the counting point wins');
+  const sameDevice = model.deviceEnergy(chainSnapshot('battery', [
+    chainPoint('plug', 'A', 300, { counting: true }), chainPoint('other', 'A', 280),
+  ]));
+  assert.equal(sameDevice.get('A').power, 300, 'the counting device keeps the value from the entities');
+});
+
+test('deviceEnergy skips stale or valueless reference points', () => {
+  const model = loadModel();
+  const energy = model.deviceEnergy(chainSnapshot('battery', [
+    chainPoint('plug', 'A', 300, { counting: true }),
+    chainPoint('old', 'B', 290, { freshness: 'stale' }),
+    chainPoint('empty', 'C', 0, { has_value: false, freshness: 'missing' }),
+  ]));
+  assert.equal(energy.has('B'), false);
+  assert.equal(energy.has('C'), false);
+});
+
+test('deviceEnergy keeps a device value when a chain has no role', () => {
+  const model = loadModel();
+  const energy = model.deviceEnergy(chainSnapshot('', [chainPoint('plug', 'A', 300, { counting: true }), chainPoint('ac', 'B', 290)]));
+  assert.equal(energy.get('B').power, 290, 'without a role the value counts as toward the device');
+  assert.deepEqual(plain(energy.get('B').roles), []);
+});
+
+test('panelRows marks a chain reference', () => {
+  const model = loadModel();
+  const device = {id: 'B', entities: [
+    {unique_id: 'ac', name: 'Speicher AC', unit_of_measurement: 'W', value: '290'},
+    {unique_id: 'x', name: 'Sonstiges', unit_of_measurement: 'W', value: '1'},
+  ]};
+  const chains = [{ id: 'balkon', label: 'Balkonspeicher', role: 'battery', counting: 'plug', direction: 'auto', segments: [],
+    points: [chainPoint('plug', 'A', 300, { counting: true }), chainPoint('ac', 'B', 290)] }];
+  const view = model.panelRows({device, snapshot: {entities: []}, saved: {}, drafts: {}, chains});
+  const reference = view.rows.find(row => row.id === 'ac');
+  assert.equal(reference.chainReference, 'Balkonspeicher');
+  assert.equal(reference.name, 'Speicher AC');
+  assert.equal(reference.valueText, '290 W');
+  assert.equal(reference.assignment.role, '');
+  assert.equal(view.rows.find(row => row.id === 'x').chainReference, '');
+});
+
+test('a substituted counting point is marked on the node and on its edge, its reference point stays live', () => {
+  const model = loadModel();
+  const snapshot = {
+    entities: [{ entity_id: 'plug_p', device_id: 'plug', value: 412, unit: 'W', role: { role: 'battery', source: 'override' } }],
+    chains: [{ substitute_from: 'inv_p', role: 'battery', points: [
+      { entity_id: 'plug_p', device_id: 'plug', counting: true, has_value: true, value: 425, freshness: 'stale' },
+      { entity_id: 'inv_p', device_id: 'inv', counting: false, has_value: true, value: 412, freshness: 'fresh' },
+    ] }],
+  };
+  const energy = model.deviceEnergy(snapshot);
+  const plug = energy.get('plug');
+  assert.ok(model.nodeValueText({}, plug).startsWith('≈ '));
+  assert.ok(model.substituteNote(plug, id => `Gerät ${id}`).includes('Gerät inv'));
+  const spec = model.ringSpec(plug, 'down', true);
+  assert.deepEqual([...spec.segments], ['flow-substitute']);
+  assert.equal(spec.dashed, true);
+  const flow = model.edgeFlow('plug', energy, new Map());
+  assert.equal(flow.substitute, true);
+  assert.equal(model.flowLabel(flow).includes('≈'), true);
+  assert.equal(model.flowColorToken(flow, plug), 'flow-substitute');
+  assert.equal(model.nodeValueText({ entities: [{ value: 1, unit_of_measurement: 'W' }] }, energy.get('inv')), model.formatPower(412), 'live, not the device list');
+  assert.equal(model.substituteNote(energy.get('inv'), id => id), '');
+});

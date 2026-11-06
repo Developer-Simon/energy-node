@@ -190,3 +190,34 @@ func TestServiceReportsTheCompanion(t *testing.T) {
 		t.Fatalf("Companion = %+v, err %v", resp.Companion, err)
 	}
 }
+
+func TestQueryCountsSubstitutedOwnHours(t *testing.T) {
+	utc := time.UTC
+	now := time.Date(2026, 10, 6, 0, 0, 0, 0, utc)
+	h := hourAt("2026-10-05T10:00:00Z")
+
+	own := NewStore(t.TempDir())
+	if err := own.AddOwn(HourRecord{Hour: h, KWh: map[string]float64{"pv": 1}, Covered: 3600, Substituted: 600}); err != nil {
+		t.Fatal(err)
+	}
+	res, err := Query(own, "day", "2026-10-05", utc, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Total.Hours.Own != 1 || res.Total.Hours.Substitute != 1 {
+		t.Fatalf("eigene Stunde mit Ersatzwert: %+v", res.Total.Hours)
+	}
+
+	replaced := NewStore(t.TempDir())
+	replaced.AddOwn(HourRecord{Hour: h, KWh: map[string]float64{"pv": 1}, Covered: 3600, Substituted: 600})
+	if err := replaced.SetHA([]HARecord{{Hour: h, Role: "pv", KWh: 2}}); err != nil {
+		t.Fatal(err)
+	}
+	res, err = Query(replaced, "day", "2026-10-05", utc, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Total.Hours.HA != 1 || res.Total.Hours.Substitute != 0 {
+		t.Fatalf("durch HA ersetzte Stunde: %+v", res.Total.Hours)
+	}
+}

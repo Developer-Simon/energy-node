@@ -91,6 +91,9 @@ reach arbitrary topics.
 |---|---|---|---|
 | GET | `/api/v1/energy` | – | Current balance including interpretation |
 | GET/PUT | `/api/v1/energy/roles` | – | Role assignment per entity |
+| POST | `/api/v1/energy/chains` | edit energy | Create a measurement chain |
+| PUT | `/api/v1/energy/chains/{id}` | edit energy | Change a measurement chain |
+| DELETE | `/api/v1/energy/chains/{id}` | edit energy | Delete a measurement chain |
 | GET/PUT | `/api/v1/energy/interpretation` | – | Interpretation parameters |
 | GET | `/api/v1/energy/revisions` | – | Revision list for `energy.json` (roles + interpretation) |
 | GET | `/api/v1/energy/revisions/{revision}` | – | A single revision |
@@ -104,6 +107,23 @@ Available roles: `pv`, `battery`, `battery_charge`, `battery_discharge`,
 `PUT /api/v1/energy/roles` replaces all of `assignments`. If the body has no
 `interpretation`, the stored one is kept, so saving only the roles does not
 reset the interpretation.
+
+**Measurement chains.** `POST /api/v1/energy/chains` takes
+`{"label", "points", "counting", "direction"}` and creates a chain. `points`
+run in the normal flow direction, `counting` is the point that counts and
+defaults to the first point, `direction` is `auto` (default), `reversed`,
+`fixed_down` or `fixed_up`. The ID is a slug of the label, `_2`, `_3` and so on
+for a taken one. `PUT /api/v1/energy/chains/{id}` takes the same body and
+replaces the chain. `DELETE /api/v1/energy/chains/{id}` removes it. Every
+answer is the saved energy config. The role moves to the counting point, the
+other points keep no role, and a point that leaves the chain without a role is
+listed in `role_needed`. An unknown ID gives 404 `chain_not_found`. A point
+that does not measure power, or a point of the energy node itself, gives 400
+`energy_roles_rejected` with the key `chain_point_not_power`.
+
+**`PATCH /api/v1/energy/roles`** also takes `role_needed: {"<id>": false}`,
+which dismisses that entry of `role_needed`. `true` is ignored. A `PUT` on
+roles never changes `chains` or `role_needed`.
 
 The balance is also published every 10 s to
 `outstation/energy_node/energy/balance`, which the automations use.

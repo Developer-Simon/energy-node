@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'devicemap-view-prefs.js', 'automations-view.js']
+const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'energy-chains.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'devicemap-view-prefs.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 // In-memory stand-in for window.localStorage, where the browser's view
@@ -3339,4 +3339,181 @@ test('without edit rights reverseSelectedRelation makes no request', async () =>
   await component.reverseSelectedRelation();
 
   assert.equal(calls.length, 0);
+});
+
+// Chain form of the wiring card: two devices with power points and one
+// point that is not a power unit (a battery percentage).
+const CHAIN_DEVICES = () => [
+  { id: 'plug', name: 'Steckdose', relations: [], entities: [{ unique_id: 'plug_p', name: 'Leistung', unit_of_measurement: 'W', value: '300' }] },
+  { id: 'ac', name: 'Speicher AC', relations: [], entities: [
+    { unique_id: 'ac_old', name: 'Alt', unit_of_measurement: 'W', value: '5' },
+    { unique_id: 'ac_p', name: 'Leistung AC', unit_of_measurement: 'W', value: '290' },
+    { unique_id: 'ac_soc', name: 'Ladestand', unit_of_measurement: '%', value: '50' },
+  ] },
+];
+const okJSON = value => async () => ({ ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(value)) });
+
+function chainPanel({ canEdit = true, savedChains = {}, fetchImpl, edgeProps } = {}) {
+  const { component, window, stores } = createDevicemapPanel({ fetchImpl: fetchImpl || (async () => { throw new Error('fetch should not be called'); }) });
+  component.devices = CHAIN_DEVICES();
+  // Both devices carry a power role, so an unlisted edge between them is an energy edge.
+  component.energy = { entities: [
+    { entity_id: 'plug_p', device_id: 'plug', value: 300, unit: 'W', role: { role: 'load', source: 'override' } },
+    { entity_id: 'ac_p', device_id: 'ac', value: 290, unit: 'W', role: { role: 'load', source: 'override' } },
+  ] };
+  component.deviceMap = { version: 2, nodes: [], edges: [], ...(edgeProps ? { edge_props: edgeProps } : {}) };
+  component.savedDeviceMap = JSON.parse(JSON.stringify(component.deviceMap));
+  component.savedChains = savedChains;
+  component.canEditEnergy = canEdit;
+  component.csrfToken = 'tok';
+  component.selectedEdge = { source: 'plug', target: 'ac' };
+  return { component, window, stores };
+}
+
+test('the chain form lists the power points of both devices and preselects the one in a chain', () => {
+  const { component } = chainPanel({ savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } });
+  component.openWiringPopover({ x: 10, y: 10 });
+  const form = component.popover.edge.chainForm;
+  assert.deepEqual(form.source.map(item => item.id), ['plug_p']);
+  assert.deepEqual(form.target.map(item => item.id), ['ac_old', 'ac_p'], 'the percentage point is no measuring point');
+  assert.equal(form.sourceEntity, 'plug_p');
+  assert.equal(form.targetEntity, 'ac_p', 'the point already in the chain is preselected');
+  assert.equal(form.chainLabel, 'Balkonspeicher');
+  assert.equal(component.popover.edge.parentName, 'Steckdose');
+  assert.equal(component.popover.edge.childName, 'Speicher AC');
+});
+
+test('a free edge gets a chain form without a chain name', () => {
+  const { component } = chainPanel();
+  component.openWiringPopover({ x: 10, y: 10 });
+  const form = component.popover.edge.chainForm;
+  assert.equal(form.chainLabel, '');
+  assert.equal(form.targetEntity, 'ac_old', 'without a chain the first point is preselected');
+});
+
+test('the chain form is absent for data, group, sub-device and balance edges', () => {
+  const cases = [
+    ['data edge', { source: 'plug', target: 'ac' }, [{ parent_id: 'plug', child_id: 'ac', type: 'data' }]],
+    ['membership', { source: 'group:uv', target: 'ac', membership: { group: 'uv', member: 'ac' } }, []],
+    ['sub-device', { source: 'plug', target: 'sub:x', subDevice: true }, []],
+    ['group target', { source: 'plug', target: 'group:uv' }, []],
+    ['balance', { source: 'plug', target: 'energy_node' }, []],
+  ];
+  for (const [name, selected, edgeProps] of cases) {
+    const { component } = chainPanel({ edgeProps });
+    component.selectedEdge = selected;
+    component.openWiringPopover({ x: 10, y: 10 });
+    assert.equal(component.popover.edge.chainForm, null, name);
+  }
+});
+
+test('saveEdgeChain creates a chain with POST when both points are free', async () => {
+  const sent = [];
+  const saved = { assignments: {}, role_needed: [], chains: { speicher_ac: { label: 'Speicher AC', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } };
+  const { component, window } = chainPanel({ fetchImpl: async (url, options) => {
+    if (options && options.method) sent.push({ url: String(url), method: options.method, headers: options.headers, body: JSON.parse(options.body) });
+    if (options && options.method) return okJSON(saved)();
+    if (String(url).endsWith('/api/v1/energy/roles')) return okJSON({ assignments: {}, groups: {}, categories: {}, chains: saved.chains })();
+    return okJSON({ entities: [] })();
+  } });
+  const changes = [];
+  window.addEventListener('energy-roles-changed', event => changes.push(event.detail.source));
+  component.openWiringPopover({ x: 10, y: 10 });
+  component.popover.edge.chainForm.targetEntity = 'ac_p';
+  await component.saveEdgeChain();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].method, 'POST');
+  assert.ok(sent[0].url.endsWith('/api/v1/energy/chains'));
+  assert.equal(sent[0].headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(sent[0].body, { label: 'Speicher AC', points: ['plug_p', 'ac_p'], counting: 'plug_p' });
+  assert.deepEqual(changes, ['devicemap']);
+  assert.deepEqual(Object.keys(component.savedChains), ['speicher_ac']);
+});
+
+test('saveEdgeChain puts the free end next to a point of an existing chain with PUT', async () => {
+  const sent = [];
+  const { component, window } = chainPanel({
+    savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'wr_p'], counting: 'plug_p', direction: '' } },
+    fetchImpl: async (url, options) => {
+      if (options && options.method) { sent.push({ url: String(url), method: options.method, body: JSON.parse(options.body) }); return okJSON({ assignments: {}, role_needed: [], chains: {} })(); }
+      return okJSON({ assignments: {}, groups: {}, categories: {}, chains: {} })();
+    },
+  });
+  const changes = [];
+  window.addEventListener('energy-roles-changed', event => changes.push(event.detail.source));
+  component.openWiringPopover({ x: 10, y: 10 });
+  await component.saveEdgeChain();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].method, 'PUT');
+  assert.ok(sent[0].url.endsWith('/api/v1/energy/chains/balkon'));
+  assert.deepEqual(sent[0].body, { label: 'Balkonspeicher', points: ['plug_p', 'ac_old', 'wr_p'], counting: 'plug_p', direction: '' });
+  assert.deepEqual(changes, ['devicemap']);
+});
+
+test('saveEdgeChain between two chains shows the map conflict toast and sends nothing', async () => {
+  let requests = 0;
+  const { component, stores, window } = chainPanel({
+    savedChains: {
+      balkon: { label: 'Balkonspeicher', points: ['plug_p', 'wr_p'], counting: 'plug_p', direction: '' },
+      anderer: { label: 'Anderer', points: ['ac_p', 'dd_p'], counting: 'ac_p', direction: '' },
+    },
+    fetchImpl: async () => { requests += 1; return okJSON({})(); },
+  });
+  component.openWiringPopover({ x: 10, y: 10 });
+  component.popover.edge.chainForm.sourceEntity = 'plug_p';
+  component.popover.edge.chainForm.targetEntity = 'ac_p';
+  await component.saveEdgeChain();
+  assert.equal(requests, 0);
+  assert.ok(stores.toasts.items.some(item => item.message === window.I18n.t('energy.chains.map_conflict')));
+});
+
+test('saveEdgeChain without edit rights sends nothing', async () => {
+  let requests = 0;
+  const { component } = chainPanel({ canEdit: false, savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } },
+    fetchImpl: async () => { requests += 1; return okJSON({})(); } });
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.chainForm.chainLabel, 'Balkonspeicher', 'the name stays readable');
+  await component.saveEdgeChain();
+  assert.equal(requests, 0);
+});
+
+test('a refused chain save toasts the error and announces nothing', async () => {
+  const changes = [];
+  const { component, window, stores } = chainPanel({ fetchImpl: respondWith(400, { code: 'energy_roles_rejected', message: 'nein' }) });
+  window.addEventListener('energy-roles-changed', event => changes.push(event.detail.source));
+  component.openWiringPopover({ x: 10, y: 10 });
+  await component.saveEdgeChain();
+  assert.equal(stores.toasts.criticals.length, 1);
+  assert.deepEqual(changes, []);
+});
+
+test('an edge between neighbouring chain points says so on its card', () => {
+  const { component, window } = chainPanel({ savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } });
+  component.openWiringPopover({ x: 10, y: 10 });
+  const { link } = component.popover.edge.chainForm;
+  assert.equal(link.id, 'balkon');
+  assert.equal(link.label, 'Balkonspeicher');
+  assert.ok(link.path.includes(' → '));
+
+  const opened = [];
+  window.addEventListener('dashboard-open-panel', event => opened.push(event.detail));
+  component.openEdgeChain();
+  assert.equal(opened[0].panel, 'energy-panel');
+  assert.equal(opened[0].chainFocus, 'balkon');
+});
+
+test('a free edge has no chain link', () => {
+  const { component } = chainPanel();
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.chainForm.link, null);
+});
+
+test('the first load takes the saved chains, so the map knows them without a reload', async () => {
+  const chains = { balkon: { label: 'Balkonspeicher', points: ['bkw_p', 'plug_p'], counting: 'bkw_p', direction: '' } };
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes({
+    '/api/v1/devices': panelDevices(),
+    '/api/v1/energy/roles': { assignments: {}, groups: {}, categories: {}, chains },
+  })) });
+  await component.load();
+  assert.deepEqual(Object.keys(component.savedChains), ['balkon']);
 });

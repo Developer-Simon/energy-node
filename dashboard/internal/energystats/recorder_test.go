@@ -184,3 +184,47 @@ func TestSystemClockReady(t *testing.T) {
 		t.Fatal("synchronisiert: immer bereit")
 	}
 }
+
+func TestRecorderMarksSubstitutedSnapshot(t *testing.T) {
+	store := NewStore(t.TempDir())
+	r := NewRecorder(store, alwaysReady)
+	start := hourAt("2026-10-05T10:00:00Z")
+	sub := snapshotWith(energy.Balance{PV: 1000}, energy.RoleState{Role: energy.RolePV, Quality: energy.QualitySubstitute, Freshness: "fresh"})
+	run(r, start, start.Add(time.Hour), 0, sub)
+	kwh, covered, source := storedPV(t, store, start)
+	if covered != 3600 || source != SourceOwn {
+		t.Fatalf("covered=%d source=%q, Ersatzwert ist keine Luecke", covered, source)
+	}
+	near(t, "pv", kwh, 1.0)
+	if !substitutedAt(t, store, start) {
+		t.Fatal("Stunde nicht als Ersatzwert markiert")
+	}
+	if PowerOf(sub) == nil {
+		t.Fatal("PowerOf liefert bei Ersatzwert nil")
+	}
+}
+
+func TestRecorderStaleSnapshotIsStillAGap(t *testing.T) {
+	store := NewStore(t.TempDir())
+	r := NewRecorder(store, alwaysReady)
+	start := hourAt("2026-10-05T10:00:00Z")
+	stale := snapshotWith(energy.Balance{PV: 1000}, energy.RoleState{Role: energy.RolePV, Quality: "stale", Freshness: "stale"})
+	run(r, start, start.Add(time.Hour), 0, stale)
+	if _, covered, _ := storedPV(t, store, start); covered != 0 {
+		t.Fatalf("covered=%d, veraltet muss Luecke bleiben", covered)
+	}
+	if substitutedAt(t, store, start) {
+		t.Fatal("veraltete Probe darf nicht als Ersatzwert zaehlen")
+	}
+}
+
+func substitutedAt(t *testing.T, store *Store, hour time.Time) bool {
+	t.Helper()
+	var seconds int32
+	store.Each(hour, hour.Add(time.Hour), func(_ time.Time, m *Month, i int) {
+		if m != nil {
+			seconds = m.Substituted[i]
+		}
+	})
+	return seconds > 0
+}

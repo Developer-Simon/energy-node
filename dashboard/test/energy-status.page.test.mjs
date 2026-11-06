@@ -280,3 +280,24 @@ test('die Statuskarte zeigt beim zweiten Schnappschuss zunaechst den alten Wert'
   assert.equal(second.snapshot.values.grid, 1000, 'die neue Instanz startet beim sichtbaren Wert');
   second.destroy();
 });
+
+test('statusTiles reports a substitute role as a Hinweis in the data quality tile', () => {
+  const { factory, model } = load();
+  const snapshot = {values: {pv: 500, load: 500}, roles: [{role: 'pv', quality: 'substitute', freshness: 'fresh'}]};
+  const balance = model.deriveBalance(snapshot);
+  const tiles = factory.statusTiles(balance, snapshot, 0, DEFAULT_THRESHOLDS, 1);
+  const quality = tiles.find(tile => tile.label === 'Datenqualität');
+  assert.equal(quality.value, '1');
+  assert.equal(quality.state, 'Hinweis');
+  assert.equal(quality.note, 'Rollen mit Ersatzwert aus einer Messkette');
+});
+
+test('statusTiles keeps stale ahead of substitute in the data quality tile', () => {
+  const { factory, model } = load();
+  const snapshot = {values: {pv: 500, load: 500}, roles: [{role: 'pv', quality: 'substitute', freshness: 'stale'}]};
+  const balance = model.deriveBalance(snapshot);
+  const tiles = factory.statusTiles(balance, snapshot, 1, DEFAULT_THRESHOLDS, 1);
+  const quality = tiles.find(tile => tile.label === 'Datenqualität');
+  assert.equal(quality.value, '1');
+  assert.equal(quality.note, 'veraltete Rollen');
+});

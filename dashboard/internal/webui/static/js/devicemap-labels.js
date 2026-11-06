@@ -34,6 +34,17 @@
         }
         el.querySelector('.devicemap-node-name').textContent = item.name;
         el.querySelector('.devicemap-node-value').textContent = item.value;
+        let note = el.querySelector('.devicemap-node-note');
+        if (item.note && !note) {
+          note = document.createElement('span');
+          note.className = 'devicemap-node-note';
+          el.appendChild(note);
+        }
+        if (note) {
+          if (item.note) note.textContent = item.note;
+          else note.remove();
+        }
+        el.classList.toggle('is-substitute', Boolean(item.note));
         const reading = el.querySelector('.devicemap-node-reading');
         const off = reading.querySelector('.devicemap-node-off');
         if (item.off) {

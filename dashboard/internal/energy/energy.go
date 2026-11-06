@@ -81,6 +81,9 @@ type RoleState struct {
 	Freshness string   `json:"freshness"`
 	Source    string   `json:"source"`
 	Entities  []string `json:"entities"`
+	// SubstituteFrom lists the labels of the points that stood in for a
+	// counting point this snapshot, see evaluateChains.
+	SubstituteFrom []string `json:"substitute_from,omitempty"`
 }
 
 type Snapshot struct {
@@ -107,6 +110,8 @@ type Snapshot struct {
 	// for the base of every custom:<id> value.
 	Categories map[string]Category `json:"categories"`
 	Groups     []GroupState        `json:"groups"`
+	// Chains holds the state of every measurement chain, sorted by ID.
+	Chains []ChainState `json:"chains,omitempty"`
 }
 
 // UnassignedEntity is a power-unit entity Aggregate found no role for -
@@ -153,6 +158,9 @@ type ResolvedEntity struct {
 	Freshness string             `json:"freshness"`
 	Source    string             `json:"source"`
 	LastSeen  time.Time          `json:"last_seen"`
+	// SubstituteFrom is the label of the point that stood in for this
+	// counting entity, empty when the entity's own value counted.
+	SubstituteFrom string `json:"substitute_from,omitempty"`
 }
 
 func (s Snapshot) Value(role string) float64 {
@@ -319,6 +327,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 	}
 	snapshot := Snapshot{At: at, Values: make(map[Role]float64), Sources: make(map[Role][]string), Entities: []ResolvedEntity{}, Roles: []RoleState{}, Unassigned: []UnassignedEntity{}}
 	model := resolver.Model()
+	chains := evaluateChains(devices, resolver, model, at)
 	roleGroups := model.RoleGroupIndex()
 	snapshot.Categories = model.Categories
 	towardByDevice := map[string]float64{}
@@ -337,6 +346,11 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 			continue
 		}
 		for _, entity := range device.Entities {
+			// Ein Referenzpunkt zaehlt nicht: seine Leistung steckt schon im
+			// Zaehlpunkt seiner Kette.
+			if chains.references[entity.UniqueID] {
+				continue
+			}
 			assignment, ok := resolver.Resolve(entity)
 			if assignment.Role == RoleSwitch {
 				continue
@@ -353,7 +367,13 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				}
 				continue
 			}
-			if !entity.HasValue {
+			// Ein Zaehlpunkt ohne frischen Wert bekommt den Ersatzwert seines
+			// naechsten frischen Kettenpunkts. Der Ersatz gilt nicht fuer SoC.
+			sub, substituted := chains.substitutes[entity.UniqueID]
+			if assignment.Role == RoleBatterySoC {
+				substituted = false
+			}
+			if !entity.HasValue && !substituted {
 				continue
 			}
 			if assignment.Role == RoleBatterySoC {
@@ -395,15 +415,22 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: resolvedLabel(resolver, device, entity), Value: value, Unit: "%", Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
 				continue
 			}
-			value, unit, err := powerValue(entity.Value, entity.UnitOfMeasurement)
-			if err != nil {
-				snapshot.Quality = append(snapshot.Quality, fmt.Sprintf("%s: %v", entity.UniqueID, err))
-				continue
+			var value float64
+			var unit string
+			if substituted {
+				value, unit = substituteValue(assignment.Role, sub.value, model), "W"
+			} else {
+				var err error
+				value, unit, err = powerValue(entity.Value, entity.UnitOfMeasurement)
+				if err != nil {
+					snapshot.Quality = append(snapshot.Quality, fmt.Sprintf("%s: %v", entity.UniqueID, err))
+					continue
+				}
+				if assignment.Invert {
+					value = -value
+				}
+				value *= assignment.Scale
 			}
-			if assignment.Invert {
-				value = -value
-			}
-			value *= assignment.Scale
 			if toward, ok := Toward(assignment.Role, value, model); ok {
 				towardByDevice[device.ID] += toward
 			}
@@ -420,6 +447,11 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				freshness = "stale"
 				quality = "stale"
 			}
+			substituteFrom := ""
+			if substituted {
+				freshness, quality = "fresh", QualitySubstitute
+				substituteFrom = sub.label
+			}
 			source := entity.Source
 			if source == "" {
 				source = "live"
@@ -433,9 +465,12 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				state.Freshness = mergeFreshness(state.Freshness, freshness)
 				state.Source = mergeSource(state.Source, source)
 			}
+			if substituted {
+				state.SubstituteFrom = append(state.SubstituteFrom, sub.label)
+			}
 			state.Value += value
 			state.Entities = append(state.Entities, entity.UniqueID)
-			snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: resolvedLabel(resolver, device, entity), Value: value, Unit: unit, Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
+			snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: resolvedLabel(resolver, device, entity), Value: value, Unit: unit, Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen, SubstituteFrom: substituteFrom})
 		}
 	}
 	if socCapacity > 0 {
@@ -462,6 +497,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 		snapshot.Roles = append(snapshot.Roles, *roleStates[role])
 	}
 	snapshot.Groups = model.GroupStates(towardByDevice)
+	snapshot.Chains = chains.states
 	return snapshot
 }
 
@@ -522,6 +558,9 @@ func mergeQuality(left, right string) string {
 	}
 	if left == "stale" || right == "stale" {
 		return "stale"
+	}
+	if left == QualitySubstitute || right == QualitySubstitute {
+		return QualitySubstitute
 	}
 	return "good"
 }

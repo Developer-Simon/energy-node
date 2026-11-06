@@ -1,0 +1,42 @@
+{
+  "de": {
+    "*": "Messketten mit Ersatzwerten"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_energy",
+          "open": [
+            "energy-chains-toggle"
+          ],
+          "panel": "energy-panel",
+          "target": "energy-chains",
+          "text": {
+            "de": "Mehrere Geräte, die in Reihe geschaltet einen Wert ermitteln, können nun als Messkette zusammengeschaltet werden. Dadurch kann die Messung redundant verwendet werden, falls ein Gerät ausfällt. Außerdem lassen sich Effizienzen zwischen den Messpunkten bestimmen.",
+            "en": "Several devices connected in series that measure a value can now be combined into a measurement chain. The measurement can then be used redundantly if a device fails. Efficiencies between the measuring points can also be determined."
+          },
+          "title": {
+            "de": "Messketten",
+            "en": "Measurement chains"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_device_map",
+          "panel": "devicemap-panel",
+          "target": "devicemap",
+          "text": {
+            "de": "Die Messketten kannst du pro Verbindung direkt in der Device-Map konfigurieren.",
+            "en": "You can configure measurement chains per connection right on the device map."
+          },
+          "title": {
+            "de": "Messketten in der Device-Map",
+            "en": "Chains on the device map"
+          }
+        }
+      ]
+    }
+  }
+}

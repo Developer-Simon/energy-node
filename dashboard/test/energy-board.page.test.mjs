@@ -335,3 +335,29 @@ test('die Datentafel zeigt beim zweiten Schnappschuss zunaechst den alten Wert',
   assert.equal(second.snapshot.values.pv, 1000, 'die neue Instanz startet beim sichtbaren Wert');
   second.destroy();
 });
+
+test('boardRows marks a row as substitute from the role quality', () => {
+  const { factory, model } = load();
+  const snapshot = {values: {pv: 500, load: 500}, roles: [{role: 'pv', quality: 'substitute', freshness: 'fresh'}]};
+  const balance = model.deriveBalance(snapshot);
+  const rows = factory.boardRows(snapshot, balance);
+  assert.equal(rows.find(r => r.id === 'pv').fresh, 'substitute');
+  assert.equal(rows.find(r => r.id === 'load').fresh, 'fresh');
+});
+
+test('boardRows lets stale win over substitute', () => {
+  const { factory, model } = load();
+  const snapshot = {values: {pv: 500, load: 500}, roles: [{role: 'pv', quality: 'substitute', freshness: 'stale'}]};
+  const rows = factory.boardRows(snapshot, model.deriveBalance(snapshot));
+  assert.equal(rows.find(r => r.id === 'pv').fresh, 'stale');
+});
+
+test('boardRows lets a gap win over substitute', () => {
+  const { factory, model } = load();
+  const snapshot = {values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: [{role: 'pv', quality: 'substitute', freshness: 'fresh'}]};
+  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic', load_mode: 'measured'});
+  const rows = factory.boardRows(snapshot, balance);
+  assert.equal(rows.find(r => r.id === 'rest').quality, 'gap');
+  assert.equal(rows.find(r => r.id === 'rest').fresh, 'gap');
+  assert.equal(rows.find(r => r.id === 'pv').fresh, 'substitute');
+});

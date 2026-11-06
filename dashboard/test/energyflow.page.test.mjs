@@ -177,15 +177,15 @@ test('nodeText() prioritizes directional roles and reports staleness of the winn
   // realm's Object prototype - round-trip through JSON before deepEqual,
   // same workaround devicemap.page.test.mjs uses for cross-realm objects.
   const plain = result => JSON.parse(JSON.stringify(result));
-  assert.deepEqual(plain(factory.nodeText('pv', snapshotWith({ pv: 420 }))), { text: '420 W', stale: false, dir: 'producing' });
-  assert.deepEqual(plain(factory.nodeText('pv', snapshotWith({}))), { text: '--', stale: false, dir: 'idle' });
+  assert.deepEqual(plain(factory.nodeText('pv', snapshotWith({ pv: 420 }))), { text: '420 W', stale: false, substitute: false, dir: 'producing' });
+  assert.deepEqual(plain(factory.nodeText('pv', snapshotWith({}))), { text: '--', stale: false, substitute: false, dir: 'idle' });
   assert.deepEqual(
     plain(factory.nodeText('grid', snapshotWith({ grid_import: 1500 }, [{ role: 'grid_import', freshness: 'stale' }]))),
-    { text: '1500 W', stale: true, dir: 'importing', full: 'Bezug 1500 W' },
+    { text: '1500 W', stale: true, substitute: false, dir: 'importing', full: 'Bezug 1500 W' },
   );
-  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid_export: 300 }))), { text: '300 W', stale: false, dir: 'exporting', full: 'Einspeisung 300 W' });
-  assert.deepEqual(plain(factory.nodeText('load', snapshotWith({ load: 900 }))), { text: 'Hausverbrauch', stale: false, dir: 'drawing', icon: 'generic' });
-  assert.deepEqual(plain(factory.nodeText('load', snapshotWith({ wallbox: 1100, load: 900 }))), { text: '1100 W', stale: false, dir: 'drawing', icon: 'wallbox', full: 'Wallbox 1100 W' });
+  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid_export: 300 }))), { text: '300 W', stale: false, substitute: false, dir: 'exporting', full: 'Einspeisung 300 W' });
+  assert.deepEqual(plain(factory.nodeText('load', snapshotWith({ load: 900 }))), { text: 'Hausverbrauch', stale: false, substitute: false, dir: 'drawing', icon: 'generic' });
+  assert.deepEqual(plain(factory.nodeText('load', snapshotWith({ wallbox: 1100, load: 900 }))), { text: '1100 W', stale: false, substitute: false, dir: 'drawing', icon: 'wallbox', full: 'Wallbox 1100 W' });
 });
 
 // Seit das Wort "Laden"/"Entladen" durch das animierte Icon ersetzt wird
@@ -197,32 +197,32 @@ test('nodeText() returns the battery state of charge as its own `soc` field, not
   const plain = result => JSON.parse(JSON.stringify(result));
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_discharge: 500, battery_soc: 62 }))),
-    { text: '500 W', stale: false, dir: 'discharging', soc: '62 %', full: 'Entladen 500 W · Füllstand 62 %' },
+    { text: '500 W', stale: false, substitute: false, dir: 'discharging', soc: '62 %', full: 'Entladen 500 W · Füllstand 62 %' },
   );
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_charge: 500, battery_soc: 8 }))),
-    { text: '500 W', stale: false, dir: 'charging', soc: '8 %', full: 'Laden 500 W · Füllstand 8 %' },
+    { text: '500 W', stale: false, substitute: false, dir: 'charging', soc: '8 %', full: 'Laden 500 W · Füllstand 8 %' },
   );
   // No power role at all, but a state of charge is known - text stays "--",
   // soc carries the value, full names it without a charge/discharge word.
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_soc: 45 }))),
-    { text: '--', stale: false, dir: 'idle', soc: '45 %', full: 'Füllstand 45 %' },
+    { text: '--', stale: false, substitute: false, dir: 'idle', soc: '45 %', full: 'Füllstand 45 %' },
   );
   // No battery_soc role configured (e.g. no capacity_kwh assigned anywhere) - soc is empty.
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_discharge: 500 }))),
-    { text: '500 W', stale: false, dir: 'discharging', soc: '', full: 'Entladen 500 W' },
+    { text: '500 W', stale: false, substitute: false, dir: 'discharging', soc: '', full: 'Entladen 500 W' },
   );
   // A stale battery_soc marks the node stale too, even if the power role itself is fresh.
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_discharge: 500, battery_soc: 62 }, [{ role: 'battery_soc', freshness: 'stale' }]))),
-    { text: '500 W', stale: true, dir: 'discharging', soc: '62 %', full: 'Entladen 500 W · Füllstand 62 %' },
+    { text: '500 W', stale: true, substitute: false, dir: 'discharging', soc: '62 %', full: 'Entladen 500 W · Füllstand 62 %' },
   );
   // Keine Batterie zugeordnet: dir bleibt "idle", full == text == "--".
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({}))),
-    { text: '--', stale: false, dir: 'idle', soc: '', full: '--' },
+    { text: '--', stale: false, substitute: false, dir: 'idle', soc: '', full: '--' },
   );
 });
 
@@ -235,11 +235,11 @@ test('nodeText("battery") picks the actually active role by power, not just by w
   // not win over the role that is actually carrying power.
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_charge: 500, battery_discharge: 0 }))),
-    { text: '500 W', stale: false, dir: 'charging', soc: '', full: 'Laden 500 W' },
+    { text: '500 W', stale: false, substitute: false, dir: 'charging', soc: '', full: 'Laden 500 W' },
   );
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_charge: 0, battery_discharge: 500 }))),
-    { text: '500 W', stale: false, dir: 'discharging', soc: '', full: 'Entladen 500 W' },
+    { text: '500 W', stale: false, substitute: false, dir: 'discharging', soc: '', full: 'Entladen 500 W' },
   );
 });
 
@@ -249,16 +249,16 @@ test('nodeText("battery") stays idle at 0 W and below MIN_FLOW_W, so the icon re
   // Split sensors both reporting 0 W: no direction, the icon must not animate.
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_charge: 0, battery_discharge: 0, battery_soc: 70 }))),
-    { text: '0 W', stale: false, dir: 'idle', soc: '70 %', full: '0 W · Füllstand 70 %' },
+    { text: '0 W', stale: false, substitute: false, dir: 'idle', soc: '70 %', full: '0 W · Füllstand 70 %' },
   );
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_discharge: 0 }))),
-    { text: '0 W', stale: false, dir: 'idle', soc: '', full: '0 W' },
+    { text: '0 W', stale: false, substitute: false, dir: 'idle', soc: '', full: '0 W' },
   );
   // Standby noise below the line threshold keeps the value but not the animation.
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery: -3 }))),
-    { text: '3 W', stale: false, dir: 'idle', soc: '', full: '3 W' },
+    { text: '3 W', stale: false, substitute: false, dir: 'idle', soc: '', full: '3 W' },
   );
 });
 
@@ -267,11 +267,11 @@ test('nodeText("battery") nets simultaneous charge and discharge instead of repo
   const plain = result => JSON.parse(JSON.stringify(result));
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_charge: 800, battery_discharge: 300 }))),
-    { text: '500 W', stale: false, dir: 'charging', soc: '', full: 'Laden 500 W' },
+    { text: '500 W', stale: false, substitute: false, dir: 'charging', soc: '', full: 'Laden 500 W' },
   );
   assert.deepEqual(
     plain(factory.nodeText('battery', snapshotWith({ battery_charge: 300, battery_discharge: 800 }))),
-    { text: '500 W', stale: false, dir: 'discharging', soc: '', full: 'Entladen 500 W' },
+    { text: '500 W', stale: false, substitute: false, dir: 'discharging', soc: '', full: 'Entladen 500 W' },
   );
 });
 
@@ -300,7 +300,7 @@ test('nodeText("home") zeigt den gerechneten Hausverbrauch, wenn keine Rolle "lo
     ...snapshotWith({ pv: 640, grid: 511, battery: -130 }),
     balance: { load_total: 1021, load_source: 'calculated' },
   };
-  assert.deepEqual(plain(factory.nodeText('home', snapshot)), { text: '1021 W', stale: false, dir: 'live' });
+  assert.deepEqual(plain(factory.nodeText('home', snapshot)), { text: '1021 W', stale: false, substitute: false, dir: 'live' });
 });
 
 test('nodeText("home") bevorzugt die Bilanz auch dann, wenn eine Rolle "load" existiert', () => {
@@ -312,14 +312,14 @@ test('nodeText("home") bevorzugt die Bilanz auch dann, wenn eine Rolle "load" ex
     ...snapshotWith({ load: 900 }),
     balance: { load_total: 1150, load_source: 'measured' },
   };
-  assert.deepEqual(plain(factory.nodeText('home', snapshot)), { text: '1150 W', stale: false, dir: 'live' });
+  assert.deepEqual(plain(factory.nodeText('home', snapshot)), { text: '1150 W', stale: false, substitute: false, dir: 'live' });
 });
 
 test('nodeText("home") bleibt leer, wenn load_mode "measured" ohne zugeordnete Rolle gewaehlt ist', () => {
   const { factory } = loadEnergyFlow();
   const plain = result => JSON.parse(JSON.stringify(result));
   const snapshot = { ...snapshotWith({ pv: 640 }), balance: { load_total: 0, load_source: 'missing' } };
-  assert.deepEqual(plain(factory.nodeText('home', snapshot)), { text: '--', stale: false, dir: 'idle' });
+  assert.deepEqual(plain(factory.nodeText('home', snapshot)), { text: '--', stale: false, substitute: false, dir: 'idle' });
 });
 
 test('nodeText("home") meldet Veraltung der beitragenden Rollen, wenn der Wert gerechnet ist', () => {
@@ -362,9 +362,9 @@ test('eine grid-Rolle bei genau 0 W zeichnet die neutrale Verbindung', () => {
 test('nodeText("grid") benennt die Richtung auch bei kombinierter grid-Rolle', () => {
   const { factory } = loadEnergyFlow();
   const plain = result => JSON.parse(JSON.stringify(result));
-  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid: 511 }))), { text: '511 W', stale: false, dir: 'importing', full: 'Bezug 511 W' });
-  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid: -1400 }))), { text: '1400 W', stale: false, dir: 'exporting', full: 'Einspeisung 1400 W' });
-  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid: 0 }))), { text: '0 W', stale: false, dir: 'idle' });
+  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid: 511 }))), { text: '511 W', stale: false, substitute: false, dir: 'importing', full: 'Bezug 511 W' });
+  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid: -1400 }))), { text: '1400 W', stale: false, substitute: false, dir: 'exporting', full: 'Einspeisung 1400 W' });
+  assert.deepEqual(plain(factory.nodeText('grid', snapshotWith({ grid: 0 }))), { text: '0 W', stale: false, substitute: false, dir: 'idle' });
 });
 
 test('der Lastfluss traegt den gesamten Hausverbrauch, nicht den groessten Einzelverbraucher', () => {
