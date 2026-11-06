@@ -105,6 +105,40 @@ for component in "${COMPONENTS[@]}"; do
     continue
   fi
 
+  # Prerelease line (base ref named .../prerelease): the component carries
+  # vX.Y.Z-pre.N, counted per component by prerelease.py. This branch decides
+  # on its own and never falls through to the main-mode rules below.
+  if [[ "${base_ref##*/}" == "prerelease" ]]; then
+    if ! expected="$(python3 "${script_dir}/prerelease.py" next "${base_version}")"; then
+      echo "bump-patch: ${version_file} base version '${base_version}' has unexpected format, skipping" >&2
+      continue
+    fi
+    # Already at the expected pre version: nothing to do.
+    if [[ "${current}" == "${expected}" ]]; then
+      continue
+    fi
+    # Still the base version, or a pre version from a stale base: count on.
+    # A final version that differs from the base was set by hand: leave it.
+    if [[ "${current}" != "${base_version}" && ! "${current}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-pre\.[0-9]+$ ]]; then
+      continue
+    fi
+    needed=1
+
+    if [[ "${check_only}" -eq 1 ]]; then
+      echo "bump-patch: ${version_file} needs a bump -> ${expected}"
+      continue
+    fi
+
+    if [[ "${version_file}" == *.json ]]; then
+      write_json_version "${version_file}" "${expected#v}"
+    else
+      printf '%s\n' "${expected}" > "${version_file}"
+    fi
+    git add "${version_file}"
+    echo "bump-patch: ${version_file} -> ${expected}"
+    continue
+  fi
+
   # Already bumped on this branch: leave it alone (keeps the script idempotent
   # and lets a hand-picked major/minor bump on the branch survive).
   if [[ "${current}" != "${base_version}" ]]; then

@@ -217,4 +217,81 @@ out="$(bump "$r" main)"
   || fail "scripts/bootstrap/VERSION bumped by a scripts/dev change" \
      "$(cat "$r/scripts/bootstrap/VERSION")"
 
+# --- prerelease line: base branch named prerelease -----------------------
+# pre_repo DASHBOARD_VERSION: a base branch `prerelease` carrying that
+# dashboard version, and a feature branch cut from it.
+pre_repo() {
+  local dir="$1" dash="$2"
+  setup_repo "$dir"
+  git -C "$dir" checkout -q main
+  git -C "$dir" checkout -qb prerelease
+  printf '%s\n' "$dash" > "$dir/dashboard/VERSION"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q --allow-empty -m "base: prerelease line"
+  git -C "$dir" checkout -qB feature prerelease
+}
+
+r="$tmp/pre-first"
+pre_repo "$r" v0.5.0
+echo x > "$r/dashboard/app.js"
+commit "$r" "feat: dashboard change"
+bump "$r" prerelease
+[ "$(cat "$r/dashboard/VERSION")" = v0.5.1-pre.1 ] \
+  || fail "first pre bump" "$(cat "$r/dashboard/VERSION")"
+
+r="$tmp/pre-counter"
+pre_repo "$r" v0.5.1-pre.1
+echo x > "$r/dashboard/app.js"
+commit "$r" "feat: dashboard change"
+bump "$r" prerelease
+[ "$(cat "$r/dashboard/VERSION")" = v0.5.1-pre.2 ] \
+  || fail "pre counter" "$(cat "$r/dashboard/VERSION")"
+
+r="$tmp/pre-manifest"
+pre_repo "$r" v0.5.0
+echo x > "$r/services/shelly/shelly_rpc.py"
+commit "$r" "feat(shelly): touch one service"
+bump "$r" prerelease
+[ "$(svc_version "$r" shelly)" = 0.4.1-pre.1 ] \
+  || fail "pre manifest" "$(svc_version "$r" shelly)"
+
+r="$tmp/pre-idempotent"
+pre_repo "$r" v0.5.0
+echo x > "$r/dashboard/app.js"
+commit "$r" "feat: dashboard change"
+bump "$r" prerelease
+commit "$r" "chore: bump"
+out="$(bump "$r" prerelease)"
+[ -z "$out" ] || fail "pre second run bumped again" "$out"
+[ "$(cat "$r/dashboard/VERSION")" = v0.5.1-pre.1 ] \
+  || fail "pre second run moved dashboard/VERSION" "$(cat "$r/dashboard/VERSION")"
+
+r="$tmp/pre-stale"
+pre_repo "$r" v0.5.2-pre.2
+echo v0.5.1-pre.3 > "$r/dashboard/VERSION"
+commit "$r" "chore: stale pre version"
+echo x > "$r/dashboard/app.js"
+commit "$r" "feat: dashboard change"
+bump "$r" prerelease
+[ "$(cat "$r/dashboard/VERSION")" = v0.5.2-pre.3 ] \
+  || fail "stale pre bump" "$(cat "$r/dashboard/VERSION")"
+
+r="$tmp/pre-hand-minor"
+pre_repo "$r" v0.5.0
+echo v0.6.0 > "$r/dashboard/VERSION"
+commit "$r" "chore: hand-set minor"
+echo x > "$r/dashboard/app.js"
+commit "$r" "feat: dashboard change"
+bump "$r" prerelease
+[ "$(cat "$r/dashboard/VERSION")" = v0.6.0 ] \
+  || fail "hand-set minor did not survive" "$(cat "$r/dashboard/VERSION")"
+
+r="$tmp/main-mode"
+setup_repo "$r"
+echo x > "$r/dashboard/app.js"
+commit "$r" "feat: dashboard change"
+bump "$r" main
+[ "$(cat "$r/dashboard/VERSION")" = v0.5.1 ] \
+  || fail "main mode unchanged" "$(cat "$r/dashboard/VERSION")"
+
 echo "PASS: bump-patch.sh"
