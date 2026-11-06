@@ -302,6 +302,7 @@ jobs:
       - run: bash scripts/tests/test_generate_changelog_prerelease.sh
       - run: bash scripts/tests/test_bump_version.sh
       - run: bash scripts/tests/test_pr_message.sh
+      - run: bash scripts/tests/test_check_no_prerelease.sh
       - name: shellcheck
         run: |
           sudo apt-get update -qq
