@@ -499,7 +499,7 @@
     DEFAULT_LAYERS, DEFAULT_WIRING_TYPES, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
     formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
-    POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
+    POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, isPowerUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload, normalizeAssignment,
     roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices, helpTipPosition,
     PLACE_STEP_X, PLACE_STEP_Y,

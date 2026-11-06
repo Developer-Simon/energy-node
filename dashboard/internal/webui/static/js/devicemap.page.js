@@ -109,6 +109,7 @@
       savedHidden: new Set(), // entity ids the role table hides, see DeviceMapModel.panelRows
       savedGroups: {},
       savedCategories: {},
+      savedChains: {},
       iconMarkup: {},
       iconCatalogue: [],
       groupName: '',
@@ -637,8 +638,64 @@
             childName: this.deviceLabel(edge.target),
             membership: Boolean(edge.membership),
             subDevice: Boolean(edge.subDevice),
+            chainForm: this.chainFormFor(edge),
           },
         });
+      },
+
+      // The chain form of a wiring card: the power points of both devices and
+      // the chain that already runs between them. Only energy edges between two
+      // devices have one, the own energy node has no measuring points.
+      chainFormFor(edge) {
+        const model = window.DeviceMapModel;
+        if (edge.membership || edge.subDevice || model.isGroupId(edge.source) || model.isGroupId(edge.target)) return null;
+        if (edge.source === model.OWN_ENERGY_DEVICE_ID || edge.target === model.OWN_ENERGY_DEVICE_ID) return null;
+        if (this.edgePropsFor(edge).type !== 'energy') return null;
+        const points = id => ((this.devices.find(device => device.id === id) || {}).entities || [])
+          .filter(entity => model.isPowerUnit(entity.unit_of_measurement))
+          .map(entity => ({id: entity.unique_id, name: entity.name || entity.unique_id}));
+        const source = points(edge.source);
+        const target = points(edge.target);
+        const sourceIds = new Set(source.map(item => item.id));
+        const targetIds = new Set(target.map(item => item.id));
+        const chains = this.savedChains || {};
+        const between = Object.keys(chains).sort().map(id => chains[id])
+          .find(chain => chain.points.some(id => sourceIds.has(id)) && chain.points.some(id => targetIds.has(id)));
+        // Preselected: a point of the chain between the devices, else a point that
+        // already sits in some chain, else the first one.
+        const pick = (list, preferred) => (list.find(item => preferred && preferred.points.includes(item.id))
+          || list.find(item => window.EnergyChains.chainOf(chains, item.id))
+          || list[0] || {id: ''}).id;
+        return {source, target, sourceEntity: pick(source, between), targetEntity: pick(target, between),
+          chainLabel: between ? between.label : ''};
+      },
+
+      // Saves the chain form of the selected edge. edgeChange() decides between a
+      // new chain, a point added to a chain and a conflict, which sends nothing.
+      async saveEdgeChain() {
+        const edge = this.popover && this.popover.edge;
+        const form = edge && edge.chainForm;
+        if (!form || !this.canEditEnergy) return;
+        const change = window.EnergyChains.edgeChange({chains: this.savedChains, upstream: form.sourceEntity, downstream: form.targetEntity, label: edge.childName});
+        if (change.action === 'conflict') {
+          this.$store.toasts.push(t('energy.chains.map_conflict'));
+          return;
+        }
+        if (change.action !== 'create' && change.action !== 'update') return;
+        const create = change.action === 'create';
+        try {
+          await requestJSON(create ? '/api/v1/energy/chains' : `/api/v1/energy/chains/${encodeURIComponent(change.id)}`, {
+            method: create ? 'POST' : 'PUT',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+            body: JSON.stringify(change.body),
+          });
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+          return;
+        }
+        await this.reloadEnergyState();
+        window.dispatchEvent(new CustomEvent('energy-roles-changed', {detail: {source: 'devicemap'}}));
+        if (this.selectedEdge) this.openWiringPopover(this.edgeCardAnchor, true);
       },
 
       // Channel saved for the pair of the edge, whatever its orientation.
@@ -1519,6 +1576,7 @@
         this.savedHidden = new Set(roles.hidden || []);
         this.savedGroups = roles.groups || {};
         this.savedCategories = roles.categories || {};
+        this.savedChains = roles.chains || {};
         this.energy = energy;
         this.energyUnavailable = energy === null;
         const model = window.DeviceMapModel;

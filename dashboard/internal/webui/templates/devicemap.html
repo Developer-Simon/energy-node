@@ -243,6 +243,25 @@
                   </div>
                 </div>
               </div>
+              <template x-if="popover.edge.chainForm">
+                <div class="category-field">
+                  <span class="category-field-label">{{t "devicemap.edge.chain_label"}}</span>
+                  <div x-show="canEditEnergy" class="devicemap-edge-chain">
+                    <label class="devicemap-panel-field"><span x-text="popover.edge.parentName"></span>
+                      <select x-on:change="popover.edge.chainForm.sourceEntity = $event.target.value">
+                        <template x-for="item in popover.edge.chainForm.source" x-bind:key="item.id"><option x-bind:value="item.id" x-text="item.name" x-bind:selected="item.id === popover.edge.chainForm.sourceEntity"></option></template>
+                      </select>
+                    </label>
+                    <label class="devicemap-panel-field"><span x-text="popover.edge.childName"></span>
+                      <select x-on:change="popover.edge.chainForm.targetEntity = $event.target.value">
+                        <template x-for="item in popover.edge.chainForm.target" x-bind:key="item.id"><option x-bind:value="item.id" x-text="item.name" x-bind:selected="item.id === popover.edge.chainForm.targetEntity"></option></template>
+                      </select>
+                    </label>
+                    <button type="button" class="pill-button" x-on:click="saveEdgeChain()">{{t "devicemap.edge.chain_save"}}</button>
+                  </div>
+                  <div x-show="!canEditEnergy"><span x-text="popover.edge.chainForm.chainLabel || $t('devicemap.edge.chain_none')"></span></div>
+                </div>
+              </template>
             </div>
           </template>
           <div class="devicemap-edge-actions" x-show="popover.edge && !popover.edge.membership && !popover.edge.subDevice">
