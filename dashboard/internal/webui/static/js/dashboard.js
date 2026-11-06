@@ -1076,6 +1076,70 @@
   const DIAGNOSTIC_SEVERITY_RANK = {critical: 3, warning: 2, info: 1};
   const DEVICE_HEALTH_RANK = {critical: 4, unhealthy: 3, degraded: 2, unknown: 1, healthy: 0};
 
+  // Geraetekarten gleiten beim Umsortieren an den neuen Platz, statt dorthin zu
+  // springen (FLIP). Vor dem Datenwechsel aufrufen, die zurueckgegebene Funktion
+  // nach dem Rendern. Positionen zaehlen relativ zum Raster, damit Inhalt
+  // darueber keine Scheinbewegung ausloest. Der Start liegt an der gerade
+  // sichtbaren Stelle, auch mitten in einem laufenden Gleiten. Nur Transform und
+  // Opacity, bei reduzierter Bewegung gar nicht.
+  //
+  // Alpine haengt umsortierte Karten im DOM um, und das bricht ihre
+  // CSS-Transitions ab: Ring und Statusfarben springen sofort zum Zielwert,
+  // waehrend die Karte noch gleitet. Fuer verschobene Karten laufen dieselben
+  // Uebergaenge deshalb hier per WAAPI, mit Dauer und Kurve aus diagnostics.css.
+  const cardGlides = new WeakMap();
+  const prepareCardGlide = grid => {
+    if (!grid || grid.offsetParent === null || prefersReducedMotion()) return null;
+    const easing = 'cubic-bezier(0.23, 1, 0.32, 1)';
+    const cards = () => [...grid.querySelectorAll('.diag-device')];
+    const position = card => {
+      const rect = card.getBoundingClientRect();
+      const origin = grid.getBoundingClientRect();
+      return {x: rect.left - origin.left, y: rect.top - origin.top};
+    };
+    const look = card => {
+      const pill = getComputedStyle(card.querySelector('.diagnostics-health-status'));
+      return {
+        score: getComputedStyle(card.querySelector('.diag-ring')).getPropertyValue('--score').trim(),
+        ring: getComputedStyle(card).getPropertyValue('--ring').trim(),
+        color: pill.color,
+        background: pill.backgroundColor,
+      };
+    };
+    const replayValues = (card, from) => {
+      const to = look(card);
+      const replay = (el, property, start, end, curve) => {
+        if (start !== end) el.animate([{[property]: start}, {[property]: end}], {duration: 300, easing: curve});
+      };
+      const pill = card.querySelector('.diagnostics-health-status');
+      replay(card.querySelector('.diag-ring'), '--score', from.score, to.score, 'cubic-bezier(0.33, 1, 0.68, 1)');
+      replay(card, '--ring', from.ring, to.ring, easing);
+      replay(pill, 'color', from.color, to.color, easing);
+      replay(pill, 'backgroundColor', from.background, to.background, easing);
+    };
+    const before = new Map(cards().map(card => [card, {...position(card), look: look(card)}]));
+    if (before.size === 0) return null;
+    return () => {
+      for (const card of cards()) {
+        cardGlides.get(card)?.cancel();
+        const from = before.get(card);
+        if (!from) {
+          cardGlides.set(card, card.animate([{opacity: 0}, {opacity: 1}], {duration: 240, easing}));
+          continue;
+        }
+        const to = position(card);
+        const dx = from.x - to.x;
+        const dy = from.y - to.y;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+        cardGlides.set(card, card.animate(
+          [{transform: `translate(${dx}px, ${dy}px)`}, {transform: 'none'}],
+          {duration: 240, easing},
+        ));
+        replayValues(card, from.look);
+      }
+    };
+  };
+
   const diagnosticsPanel = () => ({
     warnings: [],
     healthScores: [],
@@ -1116,6 +1180,8 @@
           requestJSON('/api/v1/discovery/summary'),
         ]);
         if (warnings.status === 'rejected') throw warnings.reason;
+        const glideCards = prepareCardGlide(this.$refs?.healthGrid);
+        if (glideCards) this.$nextTick(glideCards);
         this.warnings = Array.isArray(warnings.value) ? warnings.value : [];
         this.healthScores = healthScores.status === 'fulfilled' && Array.isArray(healthScores.value) ? healthScores.value : [];
         if (discovery.status === 'fulfilled') {

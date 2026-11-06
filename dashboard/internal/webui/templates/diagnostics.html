@@ -59,7 +59,7 @@
     <p class="diag-section-note">{{t "diagnostics.health_score.description"}}</p>
     <p class="diag-empty" x-show="loading && healthScores.length === 0">{{t "diagnostics.health_scores.loading"}}</p>
     <p class="diag-empty" x-cloak x-show="!loading && healthScores.length === 0">{{t "diagnostics.health_scores.empty"}}</p>
-    <div class="diag-device-grid" x-show="healthScores.length > 0">
+    <div class="diag-device-grid" x-ref="healthGrid" x-show="healthScores.length > 0">
       <template x-for="item in sortedHealthScores" :key="item.device_id">
         <button type="button" class="diag-device" x-bind:class="{ [`diagnostics-health-status-${item.status}`]: true, 'is-selected': device === item.device_id }" x-on:click="selectDevice(item.device_id)" x-bind:aria-pressed="device === item.device_id" x-bind:aria-label="$t('diagnostics.health_table.show_warnings_aria', {device: item.device_id})">
           <span class="diag-ring" x-bind:style="`--score: ${Math.max(0, Math.min(100, Number(item.score) || 0))}`" aria-hidden="true"><span x-roll x-bind:data-roll-value="item.score" x-text="item.score"></span></span>

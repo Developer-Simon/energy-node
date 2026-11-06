@@ -140,3 +140,42 @@ test('the refresh arrow keeps spinning until its turn ends after loading', () =>
   panel.finishSpin();
   assert.equal(panel.spinning, false);
 });
+
+test('a device card that changes place glides there and replays its value', async () => {
+  const panel = createDiagnosticsPanel();
+  const {window} = {window: panel.testWindow};
+  const document = window.document;
+  document.body.innerHTML = `<div id="grid">
+    <button class="diag-device" id="moved"><span class="diag-ring" style="--score: 30"></span><span class="diagnostics-health-status"></span></button>
+    <button class="diag-device" id="still"><span class="diag-ring" style="--score: 60"></span><span class="diagnostics-health-status"></span></button>
+  </div>`;
+  const grid = document.getElementById('grid');
+  Object.defineProperty(grid, 'offsetParent', {value: document.body});
+  const rect = (left, top) => ({left, top});
+  grid.getBoundingClientRect = () => rect(0, 0);
+  const lefts = {moved: 0, still: 200};
+  const animations = [];
+  for (const card of grid.querySelectorAll('.diag-device')) {
+    card.getBoundingClientRect = () => rect(lefts[card.id], 0);
+    card.animate = frames => { animations.push({el: card, frames}); return {cancel() {}}; };
+    const ring = card.querySelector('.diag-ring');
+    ring.animate = frames => { animations.push({el: ring, frames}); return {cancel() {}}; };
+  }
+  window.fetch = async () => ({ok: true, json: async () => []});
+  const ticks = [];
+  panel.$refs = {healthGrid: grid};
+  panel.$nextTick = fn => ticks.push(fn);
+  await panel.load();
+
+  lefts.moved = 200;
+  grid.querySelector('#moved .diag-ring').style.setProperty('--score', '95');
+  ticks.forEach(fn => fn());
+
+  const moved = document.getElementById('moved');
+  const glide = animations.find(item => item.el === moved);
+  assert.equal(glide.frames[0].transform, 'translate(-200px, 0px)');
+  assert.equal(glide.frames[1].transform, 'none');
+  assert.ok(!animations.some(item => item.el.id === 'still'), 'a card that stays does not move');
+  const ring = animations.find(item => item.el === moved.querySelector('.diag-ring'));
+  assert.deepEqual([ring.frames[0]['--score'], ring.frames[1]['--score']], ['30', '95']);
+});
