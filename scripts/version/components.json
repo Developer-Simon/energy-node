@@ -3,8 +3,6 @@
   "components": [
     {"id": "dashboard", "label": "Dashboard", "kind": "app", "target": "dashboard",
      "version_file": "dashboard/VERSION", "changelog": "dashboard/CHANGELOG.md", "bundle": true, "ci": true},
-    {"id": "services", "label": "Shared services", "kind": "shared", "target": "services",
-     "version_file": "services/VERSION", "changelog": "services/CHANGELOG.md", "bundle": true, "ci": true},
     {"id": "service:apsystems_ez1", "label": "APsystems EZ1", "kind": "service", "target": "service:apsystems_ez1",
      "version_file": "services/apsystems_ez1/manifest.json", "changelog": "services/apsystems_ez1/CHANGELOG.md", "bundle": true, "ci": true},
     {"id": "service:automation", "label": "Automation", "kind": "service", "target": "service:automation",

@@ -11,7 +11,7 @@ import (
 
 const manifest = `{
   "version": "v0.7.5", "built_at": "2026-09-21T10:00:00+02:00", "arch": "armv6",
-  "components": {"dashboard": "v0.7.5", "services": "v0.4.0"},
+  "components": {"dashboard": "v0.7.5"},
   "steps": [
     {"id": "10", "optional": false},
     {"id": "81", "optional": true, "dir": "apsystems_ez1", "version": "v0.4.1"},
@@ -106,7 +106,6 @@ func TestLoadFallsBackToTheManifestWhenTheBundleHasNoChangelog(t *testing.T) {
 		"dashboard=v0.7.5|Dashboard|app",
 		"service:apsystems_ez1=v0.4.1|APsystems EZ1|service",
 		"service:shelly=v0.4.0|Shelly|service",
-		"services=v0.4.0|Shared services|shared",
 	}
 	if len(ids) != len(want) {
 		t.Fatalf("ids = %v, want %v", ids, want)
@@ -116,6 +115,25 @@ func TestLoadFallsBackToTheManifestWhenTheBundleHasNoChangelog(t *testing.T) {
 			t.Fatalf("ids = %v, want %v", ids, want)
 		}
 	}
+}
+
+func TestInstalledManifestKeepsUnknownLegacyComponent(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "installed-manifest.json", `{"version":"v0.7.5","components":{"dashboard":"v0.7.5","services":"v0.4.0"},"steps":[]}`)
+	snap, err := versions.Load(dir, "v0.7.5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range snap.Components {
+		if c.ID != "services" {
+			continue
+		}
+		if c.Version != "v0.4.0" || c.Label != "services" || c.Kind != "" {
+			t.Fatalf("legacy services component = %+v, want label services, empty kind, version v0.4.0", c)
+		}
+		return
+	}
+	t.Fatalf("no services component in %+v", snap.Components)
 }
 
 func TestLoadNamesAnUnknownServiceByItsDirectory(t *testing.T) {
