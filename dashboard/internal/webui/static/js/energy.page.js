@@ -1,8 +1,11 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+  const cssEscape = value => (window.CSS && window.CSS.escape ? window.CSS.escape(value) : value);
 
   const HIDDEN_IDS_STORAGE_KEY = 'energy-roles-hidden-ids';
+  // Live values of the measurement chains are read at most this often.
+  const CHAIN_LIVE_INTERVAL_MS = 5000;
 
   // Das Dashboard veröffentlicht seine eigene Bilanz als HA-MQTT-Gerät und
   // liest die Discovery zurück in die Registry (internal/energydiscovery,
@@ -45,7 +48,7 @@
     return body;
   };
 
-  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories', 'subdevices'];
+  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories', 'subdevices', 'chains'];
   const readOpenSection = () => {
     try {
       const stored = localStorage.getItem('energy-open-section');
@@ -122,6 +125,17 @@
     devicesList: [],
     iconCatalogue: [],
     subDeviceEntries: [],
+    // Measurement chains: the saved chains, their live state, the chains
+    // folded on a phone, the entities still needing a role and the chain
+    // card that was just focused.
+    chains: {},
+    chainStates: {},
+    chainOpen: {},
+    roleNeeded: [],
+    flashChain: '',
+    _chainTimer: null,
+    _chainLiveAt: 0,
+    _now: () => Date.now(),
 
     init() {
       // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
@@ -134,6 +148,7 @@
       window.addEventListener('device-map-changed', () => this.load());
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
+      window.addEventListener('registry-updated', () => this.refreshChainStatesLive());
     },
 
     async loadSession() {
@@ -180,6 +195,10 @@
       if (name === 'groups') return tn('energy.section.groups_meta', Object.keys(this.groups).length, {n: Object.keys(this.groups).length});
       if (name === 'categories') return tn('energy.section.categories_meta', Object.keys(this.categories).length, {n: Object.keys(this.categories).length});
       if (name === 'subdevices') return tn('energy.section.subdevices_meta', this.subDeviceEntries.length, {n: this.subDeviceEntries.length});
+      if (name === 'chains') {
+        const n = Object.keys(this.chains).length;
+        return tn('energy.section.chains_meta', n, {n});
+      }
       return '';
     },
 
@@ -351,6 +370,9 @@
         this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;
         this.liveBalance = snapshot.balance || null;
         this.socWithoutCapacity = snapshot.battery_soc_without_capacity || 0;
+        this.chains = JSON.parse(JSON.stringify(saved.chains || {}));
+        this.roleNeeded = [...(saved.role_needed || [])];
+        this.chainStates = Object.fromEntries((snapshot.chains || []).map(chain => [chain.id, chain]));
         if (window.__energyFocusRequest__) {
           const ids = window.__energyFocusRequest__;
           window.__energyFocusRequest__ = null;
@@ -805,6 +827,191 @@
         this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;
       } catch (error) {
         // Statuszeile ist Zusatzinformation, kein Toast.
+      }
+    },
+
+    // Measurement chains. Every change goes to the chain endpoints, which
+    // answer with the saved energy config. Without edit rights the cards only show.
+    chainBody(chain) {
+      return {label: chain.label, points: chain.points, counting: chain.counting, direction: chain.direction || ''};
+    },
+
+    // Takes chains and role_needed from the answer. The roles come only for
+    // the rows the chain touched (old and new points), unsaved drafts on
+    // other rows stay as they are.
+    applyChainResponse(saved, touched = []) {
+      this.chains = saved.chains || {};
+      this.roleNeeded = [...(saved.role_needed || [])];
+      const roles = saved.assignments || {};
+      for (const id of touched) {
+        if (this.assignments[id]) this.assignments[id].role = (roles[id] && roles[id].role) || '';
+      }
+      this.notifyRolesChanged();
+    },
+
+    // One chain request. A refused call shows its message and changes nothing.
+    async sendChain(method, url, body, touched = []) {
+      try {
+        const saved = await requestJSON(url, {
+          method,
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+        });
+        this.applyChainResponse(saved, touched);
+        await this.loadChainStates();
+        return saved;
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return null;
+      }
+    },
+
+    chainUrl(id) {
+      return `/api/v1/energy/chains/${encodeURIComponent(id)}`;
+    },
+
+    // Power rows only: percent and switch rows are never measuring points.
+    chainPickerItems() {
+      const rows = this.entities.map(entity => ({
+        id: entity.id,
+        name: entity.label,
+        section: '',
+        valueText: '',
+        iconMarkup: '',
+        unit_of_measurement: entity.unit,
+      }));
+      return window.EnergyChains.pickerItems(rows, this.chains);
+    },
+
+    async loadChainStates() {
+      try {
+        const snapshot = await requestJSON('/api/v1/energy');
+        this.chainStates = Object.fromEntries((snapshot.chains || []).map(chain => [chain.id, chain]));
+      } catch (error) {
+        // The live values are extra, the saved chain stays on screen.
+      }
+    },
+
+    // Live values load only with the chains section open and at least one
+    // chain, and at most every CHAIN_LIVE_INTERVAL_MS.
+    refreshChainStatesLive() {
+      if (!this.isSectionOpen('chains') || !Object.keys(this.chains).length) return;
+      const now = this._now();
+      if (now - this._chainLiveAt < CHAIN_LIVE_INTERVAL_MS) return;
+      this._chainLiveAt = now;
+      this.loadChainStates();
+    },
+
+    // Picker first, then the chain with the picked points in selection order.
+    async addChain() {
+      if (!this.canEdit) return;
+      const label = t('energy.chains.default_name');
+      const ids = await this.openPicker({
+        title: t('energy.chains.picker_title', {chain: label}),
+        items: this.chainPickerItems(),
+      });
+      if (!ids || ids.length < 2) return;
+      const before = Object.keys(this.chains);
+      const saved = await this.sendChain('POST', '/api/v1/energy/chains', {label, points: ids, counting: ids[0]}, ids);
+      if (!saved) return;
+      this.setOpenSection('chains');
+      const id = Object.keys(this.chains).find(key => !before.includes(key));
+      if (!id) return;
+      this.$nextTick(() => {
+        const input = document.querySelector(`[data-chain-id="${cssEscape(id)}"] .energy-groups-name`);
+        if (input) input.focus();
+      });
+    },
+
+    // The name is saved on change, an empty or unchanged name does nothing.
+    async renameChain(id, label) {
+      const chain = this.chains[id];
+      const next = String(label || '').trim();
+      if (!this.canEdit || !chain || !next || next === chain.label) return;
+      await this.sendChain('PUT', this.chainUrl(id), this.chainBody({...chain, label: next}), chain.points);
+    },
+
+    async removeChain(id) {
+      const chain = this.chains[id];
+      if (!this.canEdit || !chain) return;
+      await this.sendChain('DELETE', this.chainUrl(id), undefined, chain.points);
+    },
+
+    // The picked points go in at index, one after another in selection order.
+    async insertChainPoint(id, index) {
+      if (!this.canEdit || !this.chains[id]) return;
+      const ids = await this.openPicker({
+        title: t('energy.chains.picker_title', {chain: this.chains[id].label}),
+        items: this.chainPickerItems(),
+      });
+      const chain = this.chains[id];
+      if (!ids || !ids.length || !chain) return;
+      let next = chain;
+      ids.forEach((pointId, offset) => { next = window.EnergyChains.insertPoint(next, index + offset, pointId); });
+      await this.sendChain('PUT', this.chainUrl(id), this.chainBody(next), [...chain.points, ...ids]);
+    },
+
+    // A chain needs two points. Removing one that leaves fewer asks first and
+    // then deletes the chain.
+    async removeChainPoint(id, entityId) {
+      const chain = this.chains[id];
+      if (!this.canEdit || !chain) return;
+      const next = window.EnergyChains.removePoint(chain, entityId);
+      if (next === null) {
+        const confirmed = await this.$store.modal.confirm({
+          title: t('energy.chains.remove'),
+          body: t('energy.chains.remove_last_confirm', {chain: chain.label}),
+          confirmLabel: t('energy.chains.remove'),
+          danger: true,
+        });
+        if (confirmed) await this.removeChain(id);
+        return;
+      }
+      await this.sendChain('PUT', this.chainUrl(id), this.chainBody(next), chain.points);
+    },
+
+    async setChainCounting(id, entityId) {
+      const chain = this.chains[id];
+      if (!this.canEdit || !chain || chain.counting === entityId) return;
+      const next = window.EnergyChains.setCounting(chain, entityId);
+      await this.sendChain('PUT', this.chainUrl(id), this.chainBody(next), chain.points);
+    },
+
+    // The hint on a role row: the chain an entity is a reference of, or null.
+    chainHintOf(entityId) {
+      const hit = window.EnergyChains.chainOf(this.chains, entityId);
+      if (!hit) return null;
+      return {id: hit.id, label: hit.chain.label, counting: hit.chain.counting};
+    },
+
+    isChainReference(entityId) {
+      return window.EnergyChains.isReference(this.chains, entityId);
+    },
+
+    // Opens the chains section and lets the card of the chain flash, like focusGroup.
+    openChain(id) {
+      this.flashChain = id;
+      this.setOpenSection('chains');
+      this.$nextTick(() => {
+        const card = document.querySelector(`[data-chain-id="${cssEscape(id)}"]`);
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (card && card.scrollIntoView) card.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'nearest'});
+      });
+      clearTimeout(this._chainTimer);
+      this._chainTimer = this._setTimeout(() => { this.flashChain = ''; }, 1600);
+    },
+
+    async dismissRoleNeeded(id) {
+      if (!this.canEdit) return;
+      try {
+        await requestJSON('/api/v1/energy/roles', {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          body: JSON.stringify({role_needed: {[id]: false}}),
+        });
+        this.roleNeeded = this.roleNeeded.filter(other => other !== id);
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
       }
     },
   });
