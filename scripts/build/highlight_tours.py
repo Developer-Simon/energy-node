@@ -26,10 +26,15 @@ die vor dem Schritt geöffnet werden. replaced_by ist optional und nennt als
 {"pr": N, "step": N} den PR und Schritt, die diese Tour ersetzen.
 
     highlight_tours.py check --repo <repo> --pr <N>
+    highlight_tours.py validate-body --body-file <datei>
 
-check (CI): jedes Highlight des PRs in einer Komponente aus WEB_UI_TARGETS
-braucht eine Tour oder eine Ausnahme. PRs vor TOUR_REQUIRED_FROM_PR und die
-Archive v*.json und archive-v*.json prueft niemand.
+check: jedes Highlight des PRs in einer Komponente aus WEB_UI_TARGETS braucht
+eine Tour oder eine Ausnahme. PRs vor TOUR_REQUIRED_FROM_PR und die Archive
+v*.json und archive-v*.json prueft niemand. Die CI wartet in diesem Fall auf eine
+Freigabe, siehe tour_gate.py.
+
+validate-body (create-pr.sh): prueft den Abschnitt "## Tour" einer PR-Beschreibung.
+Der Version-bump-Workflow uebertraegt ihn nach changelog/highlights/<PR>.json.
 """
 import argparse
 import json
@@ -51,6 +56,10 @@ TOUR_REQUIRED_FROM_PR = 186
 # Komponenten, deren Highlights die Web-UI betreffen.
 WEB_UI_TARGETS = ("dashboard",)
 
+# Abschnitt der PR-Beschreibung (.github/PULL_REQUEST_TEMPLATE.md).
+BODY_HEADING = "## Tour"
+NO_TOUR = "none"
+
 HINT = """
 Add a tour to changelog/highlights/{pr}.json, next to the language keys:
 
@@ -58,7 +67,8 @@ Add a tour to changelog/highlights/{pr}.json, next to the language keys:
       "title": {{"en": "...", "de": "..."}}, "text": {{"en": "...", "de": "..."}}}}]}}}}
 
 A highlight with nothing to show gets "tour": {{"*": {{"exempt": "<reason>"}}}},
-only after the user agreed to the exemption. See docs/developing/releasing.md.
+only after the user agreed to the exemption. CI asks for that agreement in the
+PR. See docs/developing/releasing.md.
 """
 
 
@@ -161,6 +171,40 @@ def validate(translations):
     return problems
 
 
+def parse_body(body):
+    """Die Tour aus dem Abschnitt "## Tour" einer PR-Beschreibung, das erste
+    Codefeld darin. None, wenn der Abschnitt fehlt oder "none" enthaelt. Kaputte
+    Tour: ValueError mit allen Meldungen."""
+    lines = body.splitlines()
+    try:
+        start = [line.strip() for line in lines].index(BODY_HEADING)
+    except ValueError:
+        return None
+    block = None
+    for line in lines[start + 1:]:
+        stripped = line.strip()
+        if block is None:
+            if stripped.startswith("## "):
+                return None
+            if stripped.startswith("```"):
+                block = []
+        elif stripped.startswith("```"):
+            break
+        else:
+            block.append(line)
+    text = "\n".join(block or []).strip()
+    if text.lower() in ("", NO_TOUR):
+        return None
+    try:
+        tour = json.loads(text)
+    except json.JSONDecodeError as err:
+        raise ValueError(f"the Tour section is no valid JSON: {err}") from err
+    problems = validate({0: {TOUR_KEY: tour}})
+    if problems:
+        raise ValueError("\n".join(problem.replace("#0 ", "", 1) for problem in problems))
+    return tour
+
+
 def resolve(translations, pr, target):
     """Tour fuer ein Highlight und eine Komponente in der Form fuer
     changelog.json, None ohne Tour. device ist immer gesetzt, eine Ausnahme
@@ -241,7 +285,16 @@ def main(argv=None):
     command = sub.add_parser("check")
     command.add_argument("--repo", required=True)
     command.add_argument("--pr", required=True, type=int)
+    body_command = sub.add_parser("validate-body")
+    body_command.add_argument("--body-file", required=True)
     args = parser.parse_args(argv)
+    if args.command == "validate-body":
+        try:
+            parse_body(Path(args.body_file).read_text(encoding="utf-8"))
+        except ValueError as err:
+            print(err, file=sys.stderr)
+            return 1
+        return 0
     return check(Path(args.repo), args.pr)
 
 

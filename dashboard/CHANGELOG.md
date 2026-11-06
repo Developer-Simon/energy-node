@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.3 (2026-11-06)
+## v0.11.4 (2026-11-06)
 
 ### Features
 
@@ -14,6 +14,9 @@
 ### Fixes
 
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
+- **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
+- **dashboard:** animate diagnostics refresh and updated values (57967fc)
+- **dashboard:** glide diagnostics device cards to their new place (4a9b331)
 - **automations:** tidy the rule history text and toggle (66b71d2)
 
 ### Refactors
@@ -34,6 +37,10 @@
 - remove the shared services component (#209) (28d50a7)
 - **automations:** bump the asset versions of the rule history (6988860)
 - remove the shared services component and its docs (83fe1c1)
+
+### CI
+
+- ask for a tour exemption after the build instead of failing (4d92e13)
 
 ## v0.11.0 (2026-11-05)
 

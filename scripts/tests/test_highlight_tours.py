@@ -264,3 +264,59 @@ def test_check_ignores_archived_highlights(tmp_path):
     write_file(repo, "v0.11.0.json", {"190": {"de": {"*": "ohne Tour"}}})
     write_file(repo, "archive-v0.json", {"189": {"de": {"*": "ohne Tour"}}})
     assert ht.main(["check", "--repo", str(repo), "--pr", "192"]) == 0
+
+
+def body_with(block, heading="## Tour"):
+    return f"""## Squash-merge commit message
+
+```text
+Body.
+```
+
+{heading}
+
+<!-- a comment -->
+
+```json
+{block}
+```
+
+## Summary
+
+Text.
+"""
+
+
+def test_body_tour_is_read_from_its_section():
+    tour = {"*": {"steps": [STEP]}}
+    assert ht.parse_body(body_with(json.dumps(tour, indent=2))) == tour
+
+
+def test_body_without_a_tour():
+    assert ht.parse_body(body_with("none")) is None
+    assert ht.parse_body(body_with("")) is None
+
+
+def test_body_without_the_section_ignores_other_blocks():
+    assert ht.parse_body(body_with('{"*": {"steps": []}}', heading="## Other")) is None
+    assert ht.parse_body("## Tour\n\n## Summary\n\n```json\n{}\n```\n") is None
+
+
+def test_body_with_broken_json_is_an_error():
+    with pytest.raises(ValueError, match="no valid JSON"):
+        ht.parse_body(body_with("{oops"))
+
+
+def test_body_with_an_invalid_tour_names_the_problem():
+    with pytest.raises(ValueError, match=r"^tour \*: steps must be a non-empty list"):
+        ht.parse_body(body_with('{"*": {"steps": []}}'))
+
+
+def test_validate_body_command(tmp_path, capsys):
+    good = tmp_path / "good.md"
+    good.write_text(body_with(json.dumps({"*": {"exempt": "Nothing to show"}})), encoding="utf-8")
+    assert ht.main(["validate-body", "--body-file", str(good)]) == 0
+    bad = tmp_path / "bad.md"
+    bad.write_text(body_with("{oops"), encoding="utf-8")
+    assert ht.main(["validate-body", "--body-file", str(bad)]) == 1
+    assert "no valid JSON" in capsys.readouterr().err

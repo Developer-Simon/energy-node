@@ -24,7 +24,7 @@ function createShell() {
     { runScripts: 'outside-only', url: 'http://localhost/' },
   );
   let shell;
-  dom.window.Alpine = { data: (name, factory) => { if (name === 'dashboardShell') shell = factory(); }, store: () => ({}) };
+  dom.window.Alpine = { data: (name, factory) => { if (name === 'dashboardShell') shell = factory(); }, store: () => ({}), directive() {} };
   dom.window.setInterval = () => 0;
   vm.runInContext(source, dom.getInternalVMContext());
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));

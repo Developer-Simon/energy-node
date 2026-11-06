@@ -5,13 +5,13 @@
       <h2>{{t "diagnostics.title"}}</h2>
       <p class="diag-headline" x-bind:class="`diag-tone-${headlineTone}`" aria-live="polite">
         <span class="diag-headline-dot" aria-hidden="true"></span>
-        <span x-text="headline"></span>
+        <span x-fade-text x-text="headline"></span>
       </p>
     </div>
     <div class="diag-head-actions">
-      <span class="diag-checked" x-cloak x-show="checkedAt" x-text="checkedAtLabel"></span>
-      <button type="button" class="diag-refresh" x-on:click="load()" x-bind:disabled="loading" x-bind:aria-busy="loading" x-bind:class="{ 'is-loading': loading }">
-        <svg class="automation-icon" aria-hidden="true"><use href="#ico-history"></use></svg>
+      <span class="diag-checked" x-cloak x-show="checkedAt" x-fade-text x-text="checkedAtLabel"></span>
+      <button type="button" class="diag-refresh" x-on:click="load()" x-bind:disabled="loading" x-bind:aria-busy="loading" x-bind:class="{ 'is-loading': spinning }" x-on:animationiteration="finishSpin()">
+        <svg class="automation-icon diag-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><use class="diag-refresh-arrow" href="#ico-history-arrow"></use><use href="#ico-history-hands"></use></svg>
         <span x-text="loading ? $t('diagnostics.loading') : $t('diagnostics.refresh')"></span>
       </button>
     </div>
@@ -21,7 +21,7 @@
     <span class="diag-chip" x-bind:class="discoveryHasIssues ? 'diag-chip-bad' : 'diag-chip-ok'">
       <svg class="automation-icon" aria-hidden="true"><use x-bind:href="discoveryHasIssues ? '#ico-warning' : '#ico-check'"></use></svg>
       <span>{{t "diagnostics.mqtt_discovery.heading"}}</span>
-      <span class="diag-chip-detail" x-text="`${$tn('diagnostics.mqtt_discovery.device_count', discovery.deviceCount)}, ${$tn('diagnostics.mqtt_discovery.entity_count', discovery.entityCount)}`"></span>
+      <span class="diag-chip-detail" x-fade-text x-text="`${$tn('diagnostics.mqtt_discovery.device_count', discovery.deviceCount)}, ${$tn('diagnostics.mqtt_discovery.entity_count', discovery.entityCount)}`"></span>
     </span>
   </div>
 
@@ -54,21 +54,21 @@
   <section class="diag-section diagnostics-health" aria-labelledby="diagnostics-health-heading">
     <div class="diag-section-head">
       <h3 id="diagnostics-health-heading">{{t "diagnostics.health_score.heading"}}</h3>
-      <span class="diag-section-meta" x-text="$tn('diagnostics.health_score.device_count', healthScores.length)"></span>
+      <span class="diag-section-meta" x-fade-text x-text="$tn('diagnostics.health_score.device_count', healthScores.length)"></span>
     </div>
     <p class="diag-section-note">{{t "diagnostics.health_score.description"}}</p>
     <p class="diag-empty" x-show="loading && healthScores.length === 0">{{t "diagnostics.health_scores.loading"}}</p>
     <p class="diag-empty" x-cloak x-show="!loading && healthScores.length === 0">{{t "diagnostics.health_scores.empty"}}</p>
-    <div class="diag-device-grid" x-show="healthScores.length > 0">
+    <div class="diag-device-grid" x-ref="healthGrid" x-show="healthScores.length > 0">
       <template x-for="item in sortedHealthScores" :key="item.device_id">
         <button type="button" class="diag-device" x-bind:class="{ [`diagnostics-health-status-${item.status}`]: true, 'is-selected': device === item.device_id }" x-on:click="selectDevice(item.device_id)" x-bind:aria-pressed="device === item.device_id" x-bind:aria-label="$t('diagnostics.health_table.show_warnings_aria', {device: item.device_id})">
-          <span class="diag-ring" x-bind:style="`--score: ${Math.max(0, Math.min(100, Number(item.score) || 0))}`" aria-hidden="true"><span x-text="item.score"></span></span>
+          <span class="diag-ring" x-bind:style="`--score: ${Math.max(0, Math.min(100, Number(item.score) || 0))}`" aria-hidden="true"><span x-roll x-bind:data-roll-value="item.score" x-text="item.score"></span></span>
           <span class="diag-device-body">
             <span class="diag-device-name" x-text="item.device_id"></span>
-            <span class="diagnostics-health-status" x-bind:class="`diagnostics-health-status-${item.status}`" x-text="healthStatusLabel(item.status)"></span>
+            <span class="diagnostics-health-status" x-bind:class="`diagnostics-health-status-${item.status}`" x-fade-text x-text="healthStatusLabel(item.status)"></span>
             <span class="diag-device-meta">
-              <span class="diag-device-seen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-clock"></use></svg><span x-text="formatHealthTime(item.last_seen)"></span></span>
-              <span x-show="item.warning_count > 0" x-text="$tn('diagnostics.device.warning_count', item.warning_count)"></span>
+              <span class="diag-device-seen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-clock"></use></svg><span x-fade-text x-text="formatHealthTime(item.last_seen)"></span></span>
+              <span x-show="item.warning_count > 0" x-fade-text x-text="$tn('diagnostics.device.warning_count', item.warning_count)"></span>
             </span>
           </span>
         </button>
@@ -83,9 +83,9 @@
     <div class="diag-toolbar" role="group" aria-label="{{t "diagnostics.filter_label"}}">
       <div class="segmented segmented--3 diag-severity" role="radiogroup" aria-label="{{t "diagnostics.filter.severity_label"}}">
         <span class="segmented-thumb" aria-hidden="true"></span>
-        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="all" x-model="severity"><span>{{t "diagnostics.filter.all"}} <span class="diag-count" x-text="severityCount('all')"></span></span></label>
-        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="critical" x-model="severity"><span>{{t "diagnostics.severity.critical"}} <span class="diag-count" x-text="severityCount('critical')"></span></span></label>
-        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="warning" x-model="severity"><span>{{t "diagnostics.severity.warning"}} <span class="diag-count" x-text="severityCount('warning')"></span></span></label>
+        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="all" x-model="severity"><span>{{t "diagnostics.filter.all"}} <span class="diag-count" x-roll x-bind:data-roll-value="severityCount('all')" x-text="severityCount('all')"></span></span></label>
+        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="critical" x-model="severity"><span>{{t "diagnostics.severity.critical"}} <span class="diag-count" x-roll x-bind:data-roll-value="severityCount('critical')" x-text="severityCount('critical')"></span></span></label>
+        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="warning" x-model="severity"><span>{{t "diagnostics.severity.warning"}} <span class="diag-count" x-roll x-bind:data-roll-value="severityCount('warning')" x-text="severityCount('warning')"></span></span></label>
       </div>
       <button type="button" class="diag-filter-chip" x-cloak x-show="device !== 'all'" x-on:click="device = 'all'" x-bind:aria-label="$t('diagnostics.filter.clear_device_aria', {device})">
         <span x-text="device"></span>
@@ -116,7 +116,7 @@
               </span>
               <span class="diag-group-message" x-text="group.message"></span>
             </span>
-            <span class="diag-group-count" x-text="$tn('diagnostics.group.count', group.count)"></span>
+            <span class="diag-group-count" x-fade-text x-text="$tn('diagnostics.group.count', group.count)"></span>
             <svg class="automation-icon diag-group-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
           </summary>
           <div class="diag-group-body">

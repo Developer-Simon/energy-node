@@ -2,8 +2,7 @@
 // geraete und Discovery-Loeschen. devicesPanel (dashboard.js) laedt diese
 // Datei erst beim ersten Oeffnen eines Geraets und haengt deviceModalMixin()
 // in seine eigenen Daten ein; bis dahin rendert das Modal-Markup nicht.
-// Hier stehen auch die beiden Direktiven, die nur das Modal benutzt
-// (x-roll, x-flip).
+// Hier steht auch die Direktive, die nur das Modal benutzt (x-flip).
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
@@ -925,72 +924,6 @@
   const prefersReducedMotion = () =>
     typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // x-roll: laesst eine per x-text gesetzte Zahl wie ein Zaehler zum neuen
-  // Wert laufen, statt hart umzuspringen (apple-design: sanfter Uebergang
-  // statt Teleport). Reiner Text-Tween ueber requestAnimationFrame - es
-  // gibt keinen CSS-Weg, angezeigten Text zu interpolieren. Waehrend des
-  // eigenen Schreibens wird der MutationObserver getrennt, damit er nicht
-  // rekursiv ausloest. Interruptierbar: ein neuer Zielwert startet von der
-  // zuletzt *gezeigten* Zahl, nicht vom alten Ziel. Nicht-numerische Werte
-  // ("Ja", "-") werden sofort gesetzt. Den Rohwert liest die Direktive aus
-  // data-roll-value, weil der sichtbare Text schon im Zahlenformat steht
-  // (Tausenderpunkt und Dezimalkomma sind nicht eindeutig rueckwaerts lesbar).
-  const registerRollDirective = Alpine => {
-    Alpine.directive('roll', (el, meta, { cleanup }) => {
-      const observeOptions = {childList: true, characterData: true, subtree: true};
-      const parse = raw => {
-        const text = String(raw == null ? '' : raw).trim();
-        if (!/^-?\d*\.?\d+$/.test(text)) return null;
-        const number = Number(text);
-        return Number.isFinite(number) ? number : null;
-      };
-      let committed = parse(el.dataset.rollValue);
-      let displayed = committed;
-      let frame = 0;
-      const observer = new MutationObserver(() => {
-        const text = el.textContent;
-        const raw = el.dataset.rollValue;
-        const target = parse(raw);
-        if (prefersReducedMotion() || committed === null || target === null || target === committed) {
-          committed = target;
-          displayed = target;
-          return;
-        }
-        const from = displayed === null ? committed : displayed;
-        const decimals = (String(raw).split('.')[1] || '').length;
-        const unit = el.dataset.rollUnit || '';
-        const startedAt = performance.now();
-        const duration = 300;
-        cancelAnimationFrame(frame);
-        const write = value => {
-          observer.disconnect();
-          el.textContent = value;
-          observer.observe(el, observeOptions);
-        };
-        const step = now => {
-          const progress = Math.min(1, (now - startedAt) / duration);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          if (progress < 1) {
-            const value = from + (target - from) * eased;
-            displayed = value;
-            write(window.I18n.formatValue(value.toFixed(decimals), unit));
-            frame = requestAnimationFrame(step);
-          } else {
-            write(text);
-            committed = target;
-            displayed = target;
-          }
-        };
-        frame = requestAnimationFrame(step);
-      });
-      observer.observe(el, observeOptions);
-      cleanup(() => {
-        cancelAnimationFrame(frame);
-        observer.disconnect();
-      });
-    });
-  };
-
   // x-flip: laesst die Eintraege einer kurzen Liste an ihre neue Position
   // gleiten (FLIP), statt hart umzuspringen, wenn oben ein Eintrag
   // dazukommt. Positionen zaehlen relativ zur Liste, damit Scrollen und
@@ -1060,7 +993,6 @@
   // Alpine laeuft schon, wenn devicesPanel diese Datei nachlaedt; die
   // Direktiven greifen dann fuer das Modal-Markup, das erst danach rendert.
   const registerDirectives = Alpine => {
-    registerRollDirective(Alpine);
     registerFlipDirective(Alpine);
   };
   if (window.Alpine) registerDirectives(window.Alpine);
