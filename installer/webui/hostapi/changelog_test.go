@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -256,5 +257,70 @@ func TestReadChangelogHistoryFallsBackToSingleFile(t *testing.T) {
 	}
 	if _, err := hostapi.ReadChangelogHistory(t.TempDir(), 0); err == nil {
 		t.Fatal("no changelog at all must be NO_CHANGELOG")
+	}
+}
+
+func TestReadChangelogHistoryReadsPrereleaseFiles(t *testing.T) {
+	doc := func(version, release string) string {
+		return `{"bundle_version":"` + version + `","components":[{"id":"dashboard","version":"` + version + `","releases":[{"version":"` + release + `","groups":[]}]}]}`
+	}
+	dir := writeHistory(t, map[string]string{
+		"changelog/v0.11.0.json":        doc("v0.11.0", "v0.11.0"),
+		"changelog/v0.11.5-pre.1.json":  doc("v0.11.5-pre.1", "v0.11.5-pre.1"),
+		"changelog/v0.11.5-pre.10.json": doc("v0.11.5-pre.10", "v0.11.5-pre.10"),
+		"changelog/v0.11.5-pre.2.json":  doc("v0.11.5-pre.2", "v0.11.5-pre.2"),
+	})
+	history, err := hostapi.ReadChangelogHistory(dir, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if history.Total != 4 {
+		t.Fatalf("Total = %d, want 4", history.Total)
+	}
+	var merged struct {
+		BundleVersion string `json:"bundle_version"`
+		Components    []struct {
+			Version  string `json:"version"`
+			Releases []struct {
+				Version string `json:"version"`
+			} `json:"releases"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(history.Document, &merged); err != nil {
+		t.Fatal(err)
+	}
+	if merged.BundleVersion != "v0.11.5-pre.10" || merged.Components[0].Version != "v0.11.5-pre.10" {
+		t.Fatalf("head = %q / %q, want the highest prerelease", merged.BundleVersion, merged.Components[0].Version)
+	}
+	var got []string
+	for _, release := range merged.Components[0].Releases {
+		got = append(got, release.Version)
+	}
+	want := []string{"v0.11.5-pre.10", "v0.11.5-pre.2", "v0.11.5-pre.1", "v0.11.0"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("releases = %v, want %v", got, want)
+	}
+}
+
+func TestReadChangelogHistoryRanksAFinalReleaseAbovePrereleases(t *testing.T) {
+	doc := func(version string) string {
+		return `{"bundle_version":"` + version + `","components":[]}`
+	}
+	dir := writeHistory(t, map[string]string{
+		"changelog/v0.11.5-pre.9.json": doc("v0.11.5-pre.9"),
+		"changelog/v0.11.5.json":       doc("v0.11.5"),
+	})
+	history, err := hostapi.ReadChangelogHistory(dir, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var merged struct {
+		BundleVersion string `json:"bundle_version"`
+	}
+	if err := json.Unmarshal(history.Document, &merged); err != nil {
+		t.Fatal(err)
+	}
+	if merged.BundleVersion != "v0.11.5" {
+		t.Fatalf("newest = %q, want the final release", merged.BundleVersion)
 	}
 }

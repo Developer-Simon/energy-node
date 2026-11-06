@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,10 +31,15 @@ type ChangelogHistory struct {
 	Shown    int
 }
 
-var historyName = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)\.json$`)
+var historyName = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-pre\.(\d+))?\.json$`)
+
+// historyFinalRank sortiert ein finales Release hinter alle Vorabversionen
+// derselben Version: v0.11.5 ist neuer als v0.11.5-pre.9.
+const historyFinalRank = math.MaxInt
 
 type historyFile struct {
-	parts [3]int
+	// Major, Minor, Patch und die Nummer der Vorabversion.
+	parts [4]int
 	top   map[string]json.RawMessage
 }
 
@@ -67,6 +73,9 @@ func ReadChangelogHistory(dir string, limit int) (*ChangelogHistory, error) {
 		for i := range file.parts {
 			file.parts[i], _ = strconv.Atoi(match[i+1])
 		}
+		if match[4] == "" {
+			file.parts[3] = historyFinalRank
+		}
 		file.top = top
 		files = append(files, file)
 	}
@@ -78,7 +87,7 @@ func ReadChangelogHistory(dir string, limit int) (*ChangelogHistory, error) {
 		return &ChangelogHistory{Document: raw, Total: 1, Shown: 1}, nil
 	}
 	sort.Slice(files, func(i, j int) bool {
-		for k := 0; k < 3; k++ {
+		for k := range files[i].parts {
 			if files[i].parts[k] != files[j].parts[k] {
 				return files[i].parts[k] > files[j].parts[k]
 			}
