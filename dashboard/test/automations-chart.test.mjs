@@ -148,6 +148,25 @@ test('lastTriggers labels clock times and tones the marks', () => {
   assert.equal(r.marks[0].showLabel, true);
 });
 
+test('lastTriggers carries the event time on each mark', () => {
+  const now = 1_000_000;
+  const r = plain(lastTriggers([{ at: now - 600, result: 'fired' }], now));
+  assert.equal(r.marks[0].at, now - 600);
+});
+
+test('historyDays groups newest first by calendar day with a running order', () => {
+  process.env.TZ = 'UTC';
+  const at = (day, hour) => Date.UTC(2026, 10, day, hour) / 1000;
+  const days = plain(load().historyDays([
+    { at: at(5, 21) }, { at: at(6, 9) }, { at: at(6, 11) }, { at: at(4, 8) }, { at: NaN },
+  ], at(6, 12)));
+  assert.deepEqual(days.map((day) => day.label), ['Heute', 'Gestern', '4.11.2026']);
+  assert.deepEqual(days[0].rows.map((row) => row.event.at), [at(6, 11), at(6, 9)]);
+  assert.deepEqual(days.map((day) => day.order), [0, 3, 5]);
+  assert.deepEqual(days[0].rows.map((row) => row.order), [1, 2]);
+  assert.equal(days[2].rows[0].order, 6);
+});
+
 test('triggerTimeline colours fired, blocked and scenario events', () => {
   const chart = load();
   const timeline = plain(chart.triggerTimeline([

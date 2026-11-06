@@ -4,8 +4,8 @@
 
 ### Chores
 
+- **battery-soc-core:** describe what install.sh does (#211) (1524418)
 - remove the shared services component (#209) (28d50a7)
-- **battery-soc-core:** describe what install.sh does (#211)
 - remove the shared services component and its docs (83fe1c1)
 
 ## v0.2.1 (2026-11-01)

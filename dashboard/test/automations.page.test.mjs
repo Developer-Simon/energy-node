@@ -1467,33 +1467,55 @@ test('historyResultInfo maps result codes to tone and German label', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(component.historyResultInfo('error'))), { tone: 'bad', label: 'Fehler' });
 });
 
-test('historyActionText renders publish and notification entries', () => {
+test('historyEventParts splits publish, blocked and notification entries', () => {
   const { component } = createAutomationsPanel();
-  assert.equal(
-    component.historyActionText({ type: 'publish', topic: 'werkstatt/x/set', payload: '1', blocked: false }),
-    'werkstatt/x/set → 1',
-  );
-  assert.equal(
-    component.historyActionText({ type: 'publish', topic: 'werkstatt/x/set', blocked: true, reason: 'kein Präfix erlaubt' }),
-    'kein Präfix erlaubt',
-  );
-  assert.equal(
-    component.historyActionText({ type: 'notification', severity: 'info', title: 'T', message: 'M' }),
-    '„T" — M',
-  );
+  const parts = (event) => JSON.parse(JSON.stringify(component.historyEventParts(event)));
+  assert.deepEqual(parts({ actions: [{ type: 'publish', topic: 'werkstatt/x/set', payload: '1', blocked: false }] }), [
+    { kind: 'topic', title: '', text: 'werkstatt/x/set → 1' },
+  ]);
+  assert.deepEqual(parts({ actions: [{ type: 'publish', topic: 'werkstatt/x/set', blocked: true, reason: 'kein Präfix erlaubt' }] }), [
+    { kind: 'reason', title: '', text: 'kein Präfix erlaubt' },
+  ]);
+  assert.deepEqual(parts({ actions: [{ type: 'notification', severity: 'info', title: 'T', message: 'M' }] }), [
+    { kind: 'notify', title: 'T', text: 'M' },
+  ]);
+  assert.deepEqual(parts({ actions: [], reason: 'Grund' }), [{ kind: 'reason', title: '', text: 'Grund' }]);
+  assert.deepEqual(parts({ reason: null }), []);
 });
 
-test('toggleHistory only flips visibility, it never fetches', () => {
+test('toggleHistory only flips visibility, it never fetches', async () => {
   const { component, window } = createAutomationsPanel();
   let calls = 0;
   window.fetch = async () => { calls += 1; throw new Error('toggleHistory should not fetch anymore'); };
   const rule = { id: 'r1', history_enabled: true };
-  component.toggleHistory(rule);
+  await component.toggleHistory(rule);
   assert.equal(component.historyExpanded.r1, true);
+  assert.equal(component.historyRendered.r1, true);
   assert.equal(calls, 0);
-  component.toggleHistory(rule);
+  await component.toggleHistory(rule);
   assert.equal(component.historyExpanded.r1, false);
+  assert.equal(component.historyRendered.r1, true);
   assert.equal(calls, 0);
+});
+
+test('a mark opens the history and marks its entry, closing clears the mark', async () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', history_enabled: true };
+  await component.selectHistoryMark(rule, 42);
+  assert.equal(component.historyExpanded.r1, true);
+  assert.equal(component.historySelected.r1, 42);
+  await component.toggleHistory(rule);
+  assert.equal(component.historyExpanded.r1, false);
+  assert.equal(component.historySelected.r1, undefined);
+});
+
+test('toggleHistoryEntry marks an entry and a second click clears it', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', history_enabled: true };
+  component.toggleHistoryEntry(rule, 42);
+  assert.equal(component.historySelected.r1, 42);
+  component.toggleHistoryEntry(rule, 42);
+  assert.equal(component.historySelected.r1, undefined);
 });
 
 test('historyEntries reads the live per-rule history set by applyHistoryDocument', () => {

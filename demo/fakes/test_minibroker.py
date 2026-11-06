@@ -1,3 +1,4 @@
+import json
 import struct
 import sys
 from pathlib import Path
@@ -87,3 +88,10 @@ def test_relay_ignores_unknown_switch_payloads_and_other_topics():
     minibroker.relay(messages, {}, "plug/balkon/output/set", b"TOGGLE", False)
     minibroker.relay(messages, {}, "plug/other/set", b"1", False)
     assert messages["plug/balkon/output"] == b"OFF"
+
+
+def test_load_fixture_turns_ages_into_times(tmp_path):
+    fixture = tmp_path / "f.json"
+    fixture.write_text('[{"topic": "a", "payload": {"rules": {"r": [{"at_ago_s": 60, "result": "fired"}]}}}]', encoding="utf-8")
+    messages = minibroker.load_fixture(fixture, now=1000)
+    assert json.loads(messages["a"]) == {"rules": {"r": [{"result": "fired", "at": 940}]}}

@@ -1,7 +1,7 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const view = window.__automationsView;
-  const { canTest, conditionState, describeAction, describeCondition, formatSeconds, gateVerdict, historyActionText, historyResultInfo, meterFraction, meterScale } = view;
+  const { canTest, conditionState, describeAction, describeCondition, formatSeconds, gateVerdict, historyResultInfo, meterFraction, meterScale } = view;
   const { ACTION_TYPES, CONDITION_TYPES, FIELD_HELP, WEEKDAY_LABELS, WINDOW_TYPES, SERVICE_TEST_POLL_MS, SERVICE_TEST_TIMEOUT_MS, isNumber, requestJSON } = view.constants;
   const { ROLE_GROUPS, actuatorCandidates, meterCandidates, switchCandidates, setpointCandidates, chipList, pickerItems, entityChip, balanceFieldCandidates, deviceRoleGroup } = window.__automationDevices;
 
@@ -174,6 +174,10 @@
     lastHistoryMessageAt: undefined,
     lastStateMessageAt: null,
     historyExpanded: {},
+    // Regeln, deren Eintraege schon aufgebaut sind (entstehen beim ersten Oeffnen).
+    historyRendered: {},
+    // Markierter Eintrag je Regel (Regel-ID -> at).
+    historySelected: {},
     editing: {},
     // Vorbelegte Live-Werte im Bearbeiten-Modus (Regel-ID -> Bedingungs-Index -> Wert), wenn der Dienst keinen meldet.
     editLive: {},
@@ -2764,24 +2768,129 @@
       }
     },
 
-    toggleHistory(rule) {
-      this.historyExpanded[rule.id] = !this.historyExpanded[rule.id];
+    toggleHistory(rule, box) {
+      return this.setHistoryOpen(rule, !this.historyExpanded[rule.id], box);
+    },
+
+    // box ist die Flaeche aus Streifen und Achse. Die Eintraege entstehen beim
+    // ersten Oeffnen und bleiben danach bestehen, sonst koennte das Aufklappen
+    // nicht animieren.
+    async setHistoryOpen(rule, open, box) {
+      if (!!this.historyExpanded[rule.id] === open) return;
+      if (open && !this.historyRendered[rule.id]) {
+        this.historyRendered[rule.id] = true;
+        await new Promise((resolve) => this.$nextTick(resolve));
+        if (box) box.getBoundingClientRect();
+      }
+      this.historyExpanded[rule.id] = open;
+      if (!open) delete this.historySelected[rule.id];
+      if (box) this.flyHistoryMarks(box, open);
+    },
+
+    // Die Punkte fliegen zwischen Streifen und Achse, mit Kurve und Dauer der
+    // Flaeche (automations.css), damit sie innerhalb der wachsenden Kante
+    // bleiben. Ein laufender Flug startet vom aktuellen Wert neu, deshalb laesst
+    // sich jede Bewegung mitten drin umkehren.
+    flyHistoryMarks(box, open) {
+      const dots = box.querySelectorAll('.auto-axis-dot');
+      const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced) {
+        dots.forEach((dot) => { dot.style.opacity = ''; });
+        return;
+      }
+      const duration = open ? 280 : 220;
+      const flights = box.historyFlights || (box.historyFlights = new Map());
+      const position = (element) => {
+        let x = 0;
+        let y = 0;
+        for (let node = element; node && node !== box; node = node.offsetParent) {
+          x += node.offsetLeft;
+          y += node.offsetTop;
+        }
+        return `translate(${x}px, ${y}px)`;
+      };
+      box.querySelectorAll('.auto-fires-dot[data-at]').forEach((mark) => {
+        const at = mark.dataset.at;
+        const target = box.querySelector(`.auto-axis-dot[data-at="${at}"]`);
+        if (!target) return;
+        const running = flights.get(at);
+        let from = position(open ? mark : target);
+        if (running) {
+          from = window.getComputedStyle(running.ghost).transform;
+          running.animation.cancel();
+          running.ghost.remove();
+        }
+        const ghost = document.createElement('span');
+        ghost.className = mark.className;
+        ghost.classList.remove('on');
+        ghost.classList.add('is-ghost');
+        box.appendChild(ghost);
+        target.style.opacity = '0';
+        const animation = ghost.animate(
+          [{ transform: from }, { transform: position(open ? target : mark) }],
+          { duration, easing: 'cubic-bezier(.32, .72, 0, 1)', fill: 'forwards' },
+        );
+        flights.set(at, { ghost, animation });
+        animation.onfinish = () => {
+          flights.delete(at);
+          ghost.remove();
+          if (open) target.style.opacity = '';
+        };
+      });
+    },
+
+    // Die Linie laeuft vom ersten bis zum letzten Punkt. Der Beobachter misst
+    // neu, wenn Eintraege dazukommen oder der Text anders umbricht.
+    watchHistoryAxis(axis) {
+      if (!window.ResizeObserver) return;
+      const top = (element) => {
+        let y = 0;
+        for (let node = element; node && node !== axis; node = node.offsetParent) y += node.offsetTop;
+        return y;
+      };
+      new window.ResizeObserver(() => {
+        const dots = axis.querySelectorAll('.auto-axis-dot');
+        const line = axis.querySelector('.auto-axis-line');
+        if (!line || !dots.length) return;
+        line.style.top = `${top(dots[0]) + 7}px`;
+        line.style.height = `${top(dots[dots.length - 1]) - top(dots[0])}px`;
+      }).observe(axis);
+    },
+
+    // Punkt im Streifen: oeffnet den Verlauf und zeigt den Eintrag.
+    async selectHistoryMark(rule, at, box) {
+      this.historySelected[rule.id] = at;
+      await this.setHistoryOpen(rule, true, box);
+      const row = box && box.querySelector(`.auto-axis-row[data-at="${at}"]`);
+      if (!row || !row.scrollIntoView) return;
+      const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.setTimeout(() => row.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' }), 300);
+    },
+
+    // Eintrag auf der Achse: markiert ihn und seinen Punkt, zweiter Klick hebt auf.
+    toggleHistoryEntry(rule, at) {
+      if (this.historySelected[rule.id] === at) delete this.historySelected[rule.id];
+      else this.historySelected[rule.id] = at;
     },
 
     historyEntries(rule) {
       return this.liveHistory[rule.id] || [];
     },
 
+    historyDays(rule) {
+      return window.__automationChart.historyDays(this.historyEntries(rule).slice(), this.nowTick / 1000);
+    },
+
     historyResultInfo(result) {
       return window.__automationsView.historyResultInfo(result);
     },
 
-    historyActionText(action) {
-      return window.__automationsView.historyActionText(action);
+    historyEventParts(event) {
+      return window.__automationsView.historyEventParts(event);
     },
 
     historyTimestamp(event) {
-      return window.I18n.formatDateTime(event.at * 1000);
+      return window.I18n.formatTime(event.at * 1000, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     },
   });
 

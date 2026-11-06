@@ -160,7 +160,7 @@
       const x = (100 - (agoMin[index] / span) * 92 - 4) / 100;
       const showLabel = Math.abs(x - shownX) > 0.12;
       if (showLabel) shownX = x;
-      return { x, label: clockLabel(event.at), showLabel, tone: resultInfo(event.result).tone };
+      return { at: event.at, x, label: clockLabel(event.at), showLabel, tone: resultInfo(event.result).tone, resultLabel: resultInfo(event.result).label };
     });
     return { marks, sinceLabel: clockLabel(newest[newest.length - 1].at), empty: false };
   }
@@ -169,6 +169,39 @@
     const date = new Date(atSec * 1000);
     const pad = (value) => String(value).padStart(2, '0');
     return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  // Gruppiert die Eintraege einer Regel nach Kalendertag, neueste zuerst.
+  // order ist die laufende Position fuer die gestaffelte Einblendung, die
+  // Tagesueberschriften zaehlen mit.
+  function historyDays(events, nowSec) {
+    const dayStart = (sec) => {
+      const date = new Date(sec * 1000);
+      date.setHours(0, 0, 0, 0);
+      return date.getTime();
+    };
+    const today = dayStart(nowSec);
+    const label = (start) => {
+      const daysAgo = Math.round((today - start) / 86400000);
+      if (daysAgo === 0) return window.I18n.t('automations.history.day_today');
+      if (daysAgo === 1) return window.I18n.t('automations.history.day_yesterday');
+      return window.I18n.formatDate(start, { day: 'numeric', month: 'numeric', year: 'numeric' });
+    };
+    const days = [];
+    let order = 0;
+    events
+      .filter((event) => Number.isFinite(event.at))
+      .sort((a, b) => b.at - a.at)
+      .forEach((event) => {
+        const start = dayStart(event.at);
+        let day = days[days.length - 1];
+        if (!day || day.start !== start) {
+          day = { start, label: label(start), order: order++, rows: [] };
+          days.push(day);
+        }
+        day.rows.push({ event, order: order++ });
+      });
+    return days;
   }
 
   // Vorschau des Toleranzbands im Regler-Formular. Die Achse reicht von
@@ -194,5 +227,5 @@
     };
   }
 
-  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, sparkline, triggerTimeline, lastTriggers, bandPreview };
+  window.__automationChart = { CHART_RANGES, rangeBounds, scenarioChart, sparkline, triggerTimeline, lastTriggers, historyDays, bandPreview };
 })();

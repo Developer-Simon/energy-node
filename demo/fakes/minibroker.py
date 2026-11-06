@@ -112,15 +112,28 @@ RELAY_SUM_TOPIC = "relais/keller/status"
 RELAY_SUM_SOURCES = ("waermepumpe/status", "plug/entfeuchter/status")
 
 
-def load_fixture(path):
+def expand_ages(value, now):
+    """Ersetzt at_ago_s durch at: so bleiben Zeiten einer Fixture relativ zum Start."""
+    if isinstance(value, list):
+        return [expand_ages(item, now) for item in value]
+    if not isinstance(value, dict):
+        return value
+    out = {key: expand_ages(item, now) for key, item in value.items() if key != "at_ago_s"}
+    if "at_ago_s" in value:
+        out["at"] = int(now - value["at_ago_s"])
+    return out
+
+
+def load_fixture(path, now=None):
     entries = json.loads(Path(path).read_text(encoding="utf-8"))
+    now = time.time() if now is None else now
     # dict statt Liste: --simulate aktualisiert Eintraege anhand des Topics,
     # und ein neu verbindender Client (z. B. nach einem Dashboard-Neustart)
     # bekommt beim SUBSCRIBE den zuletzt simulierten Stand statt der
     # urspruenglichen Fixture-Werte als Retained-Nachricht zugestellt.
     messages = {}
     for entry in entries:
-        payload = entry["payload"]
+        payload = expand_ages(entry["payload"], now)
         if not isinstance(payload, str):
             payload = json.dumps(payload)
         messages[entry["topic"]] = payload.encode("utf-8")

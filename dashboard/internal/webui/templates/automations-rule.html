@@ -124,42 +124,6 @@
                     </section>
                   </div>
 
-                  <template x-if="rule.history_enabled">
-                    <div class="auto-fires" data-tour="rule-fires">
-                      <div class="auto-fires-head" x-show="ruleTriggers(rule).marks.length">
-                        <span class="auto-block-cap" x-text="ruleTriggers(rule).marks.length === 1 ? $t('automations.rule.timeline.caption_one') : $t('automations.rule.timeline.caption_many', {count: ruleTriggers(rule).marks.length})"></span>
-                        <small x-text="$t('automations.rule.timeline.since', {time: ruleTriggers(rule).sinceLabel})"></small>
-                      </div>
-                      <div class="auto-fires-track" x-bind:class="{ empty: ruleTriggers(rule).empty }">
-                        <template x-if="ruleTriggers(rule).empty">
-                          <span x-text="$t('automations.rule.timeline.empty')"></span>
-                        </template>
-                        <template x-for="(mark, index) in ruleTriggers(rule).marks" x-bind:key="index">
-                          <i x-bind:class="mark.tone" x-bind:style="{ left: (mark.x * 100) + '%' }" x-bind:title="mark.label"></i>
-                        </template>
-                        <template x-for="(mark, index) in ruleTriggers(rule).marks.filter((item) => item.showLabel)" x-bind:key="index">
-                          <em x-bind:style="{ left: (mark.x * 100) + '%' }" x-text="mark.label"></em>
-                        </template>
-                      </div>
-                    </div>
-                  </template>
-                  <template x-if="!rule.history_enabled">
-                    <p class="sub">{{t "automations.history.disabled_message"}}</p>
-                  </template>
-                  <div class="auto-mobile-actions">
-                    <button class="auto-btn-text" type="button" x-show="canEditAutomations" x-on:click="startEditing(rule)">
-                      <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
-                      <span>{{t "automations.rule.edit_button.label"}}</span>
-                    </button>
-                    <button class="auto-btn-text is-ghost" type="button" x-show="canEditAutomations" x-on:click="testRule(rule)">
-                      <svg class="automation-icon"><use href="#ico-play"></use></svg>
-                      <span>{{t "automations.rule.test_button"}}</span>
-                    </button>
-                    <button class="auto-btn-text is-ghost is-danger is-icon" type="button" x-show="canEditAutomations" x-on:click="removeRule(rule.id)"
-                            x-bind:aria-label="$t('automations.rule.footer.delete')" x-bind:title="$t('automations.rule.footer.delete')">
-                      <svg class="automation-icon"><use href="#ico-trash"></use></svg>
-                    </button>
-                  </div>
                 </div>
               </template>
 
@@ -270,36 +234,103 @@
               </template>
 
               </fieldset>
-            </div>
 
-            <div class="history" x-show="expanded[rule.id] && !editing[rule.id] && rule.history_enabled">
-              <div class="history-head">
-                <button type="button" class="history-toggle" x-on:click="toggleHistory(rule)"
-                        x-text="historyExpanded[rule.id] ? $t('automations.history.toggle_hide') : $t('automations.history.toggle_show')"></button>
-              </div>
-              <template x-if="historyExpanded[rule.id]">
-                <div>
+              <template x-if="!editing[rule.id]">
+                <div class="auto-rule-view auto-rule-after">
+                  <template x-if="rule.history_enabled">
+                    <div class="auto-fires" data-tour="rule-fires">
+                      <div class="auto-fires-head" x-show="ruleTriggers(rule).marks.length">
+                        <span class="auto-block-cap" x-text="ruleTriggers(rule).marks.length === 1 ? $t('automations.rule.timeline.caption_one') : $t('automations.rule.timeline.caption_many', {count: ruleTriggers(rule).marks.length})"></span>
+                        <span class="auto-fires-right">
+                          <small x-text="$t('automations.rule.timeline.since', {time: ruleTriggers(rule).sinceLabel})"></small>
+                          <button type="button" class="auto-fires-toggle" data-tour="rule-history-toggle"
+                                  x-bind:aria-expanded="historyExpanded[rule.id] ? 'true' : 'false'"
+                                  x-bind:aria-controls="`history-fold-${rule.id}`"
+                                  x-on:click="toggleHistory(rule, $el.closest('.auto-fires').querySelector('.auto-fires-box'))">
+                            <span class="auto-fires-toggle-label">
+                              <span class="is-show">{{t "automations.history.toggle_show"}}</span>
+                              <span class="is-hide">{{t "automations.history.toggle_hide"}}</span>
+                            </span>
+                            <span class="auto-fires-count" aria-hidden="true" x-text="historyEntries(rule).length"></span>
+                            <svg class="automation-icon auto-fires-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                          </button>
+                        </span>
+                      </div>
+                      <div class="auto-fires-box">
+                        <div class="auto-fires-track" x-bind:class="{ empty: ruleTriggers(rule).empty }">
+                          <template x-if="ruleTriggers(rule).empty">
+                            <span x-text="$t('automations.rule.timeline.empty')"></span>
+                          </template>
+                          <template x-for="mark in ruleTriggers(rule).marks" x-bind:key="mark.at">
+                            <button type="button" class="auto-fires-dot"
+                                    x-bind:class="[mark.tone, historySelected[rule.id] === mark.at ? 'on' : '']"
+                                    x-bind:data-at="mark.at"
+                                    x-bind:style="{ left: (mark.x * 100) + '%' }"
+                                    x-bind:title="mark.label"
+                                    x-bind:aria-label="$t('automations.history.mark_aria_label', {result: mark.resultLabel, time: mark.label})"
+                                    x-on:click="selectHistoryMark(rule, mark.at, $el.closest('.auto-fires-box'))"></button>
+                          </template>
+                          <template x-for="(mark, index) in ruleTriggers(rule).marks.filter((item) => item.showLabel)" x-bind:key="index">
+                            <em x-bind:style="{ left: (mark.x * 100) + '%' }" x-text="mark.label"></em>
+                          </template>
+                        </div>
+                        <div class="auto-fires-fold" x-bind:id="`history-fold-${rule.id}`" x-bind:data-open="historyExpanded[rule.id] ? 'true' : 'false'">
+                          <div class="auto-fires-fold-inner" x-effect="$el.inert = !historyExpanded[rule.id]">
+                            <template x-if="historyRendered[rule.id]">
+                              <div class="auto-axis" x-init="watchHistoryAxis($el)">
+                                <span class="auto-axis-line"></span>
+                                <template x-for="day in historyDays(rule)" x-bind:key="day.start">
+                                  <div>
+                                    <p class="auto-axis-caption" x-bind:style="{ '--i': day.order }" x-text="day.label"></p>
+                                    <ol class="auto-axis-rows">
+                                      <template x-for="row in day.rows" x-bind:key="row.event.at">
+                                        <li>
+                                          <button type="button" class="auto-axis-row"
+                                                  x-bind:class="{ on: historySelected[rule.id] === row.event.at }"
+                                                  x-bind:data-at="row.event.at"
+                                                  x-bind:style="{ '--i': row.order }"
+                                                  x-on:click="toggleHistoryEntry(rule, row.event.at)">
+                                            <span class="auto-axis-dot" x-bind:class="historyResultInfo(row.event.result).tone" x-bind:data-at="row.event.at"></span>
+                                            <span class="auto-axis-time" x-text="historyTimestamp(row.event)"></span>
+                                            <b class="auto-axis-result" x-text="historyResultInfo(row.event.result).label"></b>
+                                            <span class="auto-axis-test" x-show="row.event.test">{{t "automations.history.test_badge"}}</span>
+                                            <template x-for="(part, index) in historyEventParts(row.event)" x-bind:key="index">
+                                              <span class="auto-axis-detail" x-bind:class="part.kind">
+                                                <strong x-show="part.title" x-text="part.title"></strong><span x-text="(part.title && part.text ? ', ' : '') + part.text"></span>
+                                              </span>
+                                            </template>
+                                          </button>
+                                        </li>
+                                      </template>
+                                    </ol>
+                                  </div>
+                                </template>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
                   <template x-if="!rule.history_enabled">
                     <p class="sub">{{t "automations.history.disabled_message"}}</p>
                   </template>
-                  <template x-if="rule.history_enabled && historyEntries(rule).length === 0">
-                    <p class="sub">{{t "automations.history.no_entries"}}</p>
-                  </template>
-                  <ul class="history-list" x-show="rule.history_enabled">
-                    <template x-for="event in historyEntries(rule)" x-bind:key="event.at">
-                      <li class="history-entry" x-bind:class="historyResultInfo(event.result).tone">
-                        <span class="history-time" x-text="historyTimestamp(event)"></span>
-                        <span class="history-badge" x-text="historyResultInfo(event.result).label"></span>
-                        <span class="history-test" x-show="event.test">{{t "automations.history.test_badge"}}</span>
-                        <ul class="history-actions">
-                          <template x-for="(action, index) in event.actions" x-bind:key="index">
-                            <li x-text="historyActionText(action)"></li>
-                          </template>
-                        </ul>
-                      </li>
-                    </template>
-                  </ul>
+                  <div class="auto-mobile-actions">
+                    <button class="auto-btn-text" type="button" x-show="canEditAutomations" x-on:click="startEditing(rule)">
+                      <svg class="automation-icon"><use href="#ico-pencil"></use></svg>
+                      <span>{{t "automations.rule.edit_button.label"}}</span>
+                    </button>
+                    <button class="auto-btn-text is-ghost" type="button" x-show="canEditAutomations" x-on:click="testRule(rule)">
+                      <svg class="automation-icon"><use href="#ico-play"></use></svg>
+                      <span>{{t "automations.rule.test_button"}}</span>
+                    </button>
+                    <button class="auto-btn-text is-ghost is-danger is-icon" type="button" x-show="canEditAutomations" x-on:click="removeRule(rule.id)"
+                            x-bind:aria-label="$t('automations.rule.footer.delete')" x-bind:title="$t('automations.rule.footer.delete')">
+                      <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                    </button>
+                  </div>
                 </div>
               </template>
             </div>
+
 {{end}}

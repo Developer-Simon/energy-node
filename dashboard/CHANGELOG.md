@@ -1,23 +1,38 @@
 # Changelog
 
-## v0.11.2 (2026-11-06)
+## v0.11.3 (2026-11-06)
 
 ### Features
 
+- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
+- **automations:** add texts for the rule history axis (4c3094a)
+- **automations:** add history day groups and flight logic (5d3205c)
+- **automations:** show the rule history as an axis in the strip (8993e21)
+- **automations:** open the history list in the tour and add demo history (382804b)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
 
 ### Fixes
 
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
+- **automations:** tidy the rule history text and toggle (66b71d2)
 
 ### Refactors
 
 - move the config template next to the dashboard appconfig (9ff6776)
 - **versions:** drop the shared services component (a654ecb)
 
+### Tests
+
+- **automations:** expect the new chart asset version (fba2e7c)
+
+### Style
+
+- **automations:** style the rule history axis (0ca4063)
+
 ### Chores
 
 - remove the shared services component (#209) (28d50a7)
+- **automations:** bump the asset versions of the rule history (6988860)
 - remove the shared services component and its docs (83fe1c1)
 
 ## v0.11.0 (2026-11-05)
