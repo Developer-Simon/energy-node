@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.5.1 (2026-11-06)
+
+### Refactors
+
+- point the remaining template readers at the new path (3cc3d01)
+
+### Chores
+
+- remove the shared services component and its docs (83fe1c1)
+- remove the shared services component (#209)
+
 ## v0.5.0 (2026-11-01)
 
 ### Features

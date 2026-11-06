@@ -51,8 +51,8 @@ test('Was sich aendert: je Komponente und je Dienst von/nach, unveraenderte Abha
     ['Bootstrap', '', true, '1.0.4', '1.0.5'],
     ['Tuya', '', true, '1.0.0', '1.0.1'],
     ['Automation', '', false, '1.0.0', '1.0.0'],
-    ['Wheel', 'energy_node_common', true, '1.4.0', '1.4.2'],
-    ['Wheel', 'battery_soc_core', false, '0.9.3', '0.9.3'],
+    ['Service common library', '', true, '1.4.0', '1.4.2'],
+    ['Battery SoC Core', '', false, '0.9.3', '0.9.3'],
     ['Abhängigkeit', 'tinytuya', true, '1.15.1', '1.16.0'],
     ['übrige Abhängigkeiten', '', false, '', 'unverändert'],
   ]);

@@ -72,7 +72,7 @@ func TestParseFetchConfigFlagsDefaultsTheLocalTemplatePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseFetchConfigFlags: %v", err)
 	}
-	want := filepath.Join("/repo", "services", "energy-node.config.json")
+	want := filepath.Join("/repo", "dashboard", "internal", "appconfig", "energy-node.config.json")
 	if cfg.localTemplatePath != want {
 		t.Errorf("got %q, want %q", cfg.localTemplatePath, want)
 	}

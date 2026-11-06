@@ -31,7 +31,7 @@ The first run does the one-time setup:
 2. `/etc/energy-node-dashboard/auth.pw`: the dashboard admin password, same
    treatment.
 3. `/etc/energy-node/config.json`: installed from
-   `services/energy-node.config.json` if missing.
+   `dashboard/internal/appconfig/energy-node.config.json` if missing.
 
 A redeploy never overwrites existing files. The dashboard may edit
 `config.json`, and a deploy must not throw those edits away. Run

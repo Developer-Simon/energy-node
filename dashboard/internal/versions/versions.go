@@ -26,15 +26,14 @@ const DefaultStateDir = "/var/lib/energy-node-installer"
 // TestFallbackComponentsMatchTheComponentTable fails when the two drift.
 var fallbackComponents = map[string]struct{ label, kind string }{
 	"dashboard":             {"Dashboard", "app"},
-	"services":              {"Shared services", "shared"},
 	"service:apsystems_ez1": {"APsystems EZ1", "service"},
 	"service:automation":    {"Automation", "service"},
 	"service:battery_soc":   {"Battery SoC", "service"},
 	"service:shelly":        {"Shelly", "service"},
 	"service:trucki":        {"Trucki", "service"},
 	"service:tuya_mqtt":     {"Tuya", "service"},
-	"energy_node_common":    {"energy_node_common", "library"},
-	"battery_soc_core":      {"battery_soc_core", "library"},
+	"energy_node_common":    {"Service common library", "library"},
+	"battery_soc_core":      {"Battery SoC Core", "library"},
 	"bootstrap":             {"Bootstrap", "tool"},
 }
 

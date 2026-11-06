@@ -149,28 +149,30 @@ grep -q "older frozen fix below the cap" "$dcl"     || fail "S2: below-cap entry
 # ---------------------------------------------------------------------------
 # Scenario 3: the cap follows a component's historical VERSION path.
 #
-# Before the src/ -> services/ split, the services component carried
-# src/VERSION. A repo tag taken back then must still cap the services
-# changelog: read src/VERSION at the tag as the fallback when services/VERSION
-# does not exist yet. (services history_prefixes stays services/ only -- the
-# pre-split commit is not walked, just its VERSION at the tag is read.)
+# Before the src/ -> services/ split, the shelly service carried src/VERSION.
+# A repo tag taken back then must still cap its changelog: read src/VERSION at
+# the tag as the fallback when services/shelly/manifest.json does not exist yet.
+# (history_prefixes stay services/shelly/ only -- the pre-split commit is not
+# walked, just its VERSION at the tag is read.)
 # ---------------------------------------------------------------------------
-scl="$tmp/services/CHANGELOG.md"
+scl="$tmp/services/shelly/CHANGELOG.md"
 mkdir -p "$tmp/src"
 echo v0.2.6 > "$tmp/src/VERSION"
-echo x > "$tmp/src/apsystems.py"
-commit "feat(services): pre-split work"
+echo x > "$tmp/src/shelly_rpc.py"
+commit "feat(shelly): pre-split work"
 git -C "$tmp" tag v0.5.40 "$(git -C "$tmp" rev-parse --short HEAD)"
 git -C "$tmp" rm -q -r src >/dev/null
 
-mkdir -p "$tmp/services"
-echo v0.2.7 > "$tmp/services/VERSION"
-echo x > "$tmp/services/apsystems.py"
-commit "refactor(services): split src/ into services/"
+mkdir -p "$tmp/services/shelly"
+printf '{\n  "service_id": "shelly",\n  "version": "0.2.7",\n  "kind": "device"\n}\n' \
+  > "$tmp/services/shelly/manifest.json"
+echo x > "$tmp/services/shelly/shelly_rpc.py"
+commit "refactor(shelly): split src/ into services/"
 
-echo y >> "$tmp/services/apsystems.py"
-echo v0.3.0 > "$tmp/services/VERSION"
-commit "chore: bump services minor"
+echo y >> "$tmp/services/shelly/shelly_rpc.py"
+printf '{\n  "service_id": "shelly",\n  "version": "0.3.0",\n  "kind": "device"\n}\n' \
+  > "$tmp/services/shelly/manifest.json"
+commit "chore: bump shelly minor"
 
 cat > "$scl" <<EOF
 # Changelog
@@ -185,10 +187,10 @@ cat > "$scl" <<EOF
 
 - stale pre-split feature above the cap (deade0d2)
 EOF
-commit "docs(changelog): services pre-bump state"
+commit "docs(changelog): shelly pre-bump state"
 
-gen services
-[ "$(count '^## v0.3.0 ' "$scl")" -eq 1 ] || fail "S3: expected one open services section"
+gen service:shelly
+[ "$(count '^## v0.3.0 ' "$scl")" -eq 1 ] || fail "S3: expected one open shelly section"
 [ "$(count '^## v0.2.7 ' "$scl")" -eq 0 ] || fail "S3: v0.2.7 kept separate (src/VERSION fallback not applied)"
 grep -q "split src/ into services/" "$scl"       || fail "S3: post-cap refactor entry lost"
 grep -q "stale pre-split feature above the cap" "$scl" || fail "S3: stale post-cap entry lost"

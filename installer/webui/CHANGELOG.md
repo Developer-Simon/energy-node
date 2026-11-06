@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.1 (2026-11-06)
+
+### Features
+
+- **versions:** name the shared libraries in the version overviews (5b9eaba)
+
+### Chores
+
+- remove the shared services component (#209)
+
 ## v0.3.0 (2026-11-05)
 
 ### Features

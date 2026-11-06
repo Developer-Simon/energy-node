@@ -346,7 +346,7 @@ test('die Versionskarte nennt Paket, Bootstrap und Wheels, der Rest ist gezaehlt
   assert.equal(card.heading, 'Installierte Versionen');
   assert.deepEqual(plain(rows(card)), [
     ['Paket', '1.4.2'], ['Bootstrap', '1.0.5'],
-    ['Wheel energy_node_common', '1.4.2'], ['Wheel battery_soc_core', '0.9.3'],
+    ['Service common library', '1.4.2'], ['Battery SoC Core', '0.9.3'],
     ['übrige Abhängigkeiten', '2'],
   ]);
   assert.ok(card.parts.every((part) => part.dot === 'd off'));

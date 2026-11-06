@@ -98,7 +98,7 @@ export EN_ROOT="$tmp/root" EN_SUDO="" EN_PIP="$tmp/bin/fakepip"
 # Updater-Unit die Argumente fuer Schritt 20 - durch den Auftrag fliesst kein
 # Geheimnis.
 mkdir -p "$tmp/root/etc/energy-node"
-cp "$repo/services/energy-node.config.json" "$tmp/root/etc/energy-node/config.json"
+cp "$repo/dashboard/internal/appconfig/energy-node.config.json" "$tmp/root/etc/energy-node/config.json"
 printf 'geheim\n' > "$tmp/root/etc/energy-node/mqtt.pw"
 chmod 600 "$tmp/root/etc/energy-node/mqtt.pw"
 

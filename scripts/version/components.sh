@@ -3,15 +3,11 @@
 # Shared component metadata for the version tooling. Sourced, not executed
 # directly (scripts/version/bump-patch.sh).
 
-# Jeder Dienst unter services/ traegt seine eigene Version im "version"-Feld
-# seiner manifest.json (nackte Semver, wie bei der HA-Integration); das
-# Manifest wandert ohnehin ins Bundle (config/manifests/<id>.json), die
-# Version faehrt also ohne zusaetzliche Datei mit. "services/" selbst bleibt
-# als Dach-Komponente fuer den gemeinsamen Code unter services/ bestehen -
-# component_touched blendet die verschachtelten Dienste dort aus.
+# Jeder Dienst unter services/ traegt seine Version im "version"-Feld seiner
+# manifest.json (nackte Semver, wie bei der HA-Integration). component_touched
+# blendet nichts mehr aus, weil services/ keine Dach-Komponente mehr hat.
 COMPONENTS=(
   "dashboard/:dashboard/VERSION"
-  "services/:services/VERSION"
   "services/apsystems_ez1/:services/apsystems_ez1/manifest.json"
   "services/automation/:services/automation/manifest.json"
   "services/battery_soc/:services/battery_soc/manifest.json"

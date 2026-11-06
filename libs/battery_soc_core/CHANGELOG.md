@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.2 (2026-11-06)
+
+### Chores
+
+- remove the shared services component and its docs (83fe1c1)
+- remove the shared services component (#209)
+
 ## v0.2.1 (2026-11-01)
 
 ### Features

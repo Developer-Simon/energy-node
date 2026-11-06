@@ -1,10 +1,24 @@
 # Changelog
 
-## v0.11.1 (2026-11-05)
+## v0.11.2 (2026-11-06)
+
+### Features
+
+- **versions:** name the shared libraries in the version overviews (5b9eaba)
 
 ### Fixes
 
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
+
+### Refactors
+
+- move the config template next to the dashboard appconfig (9ff6776)
+- **versions:** drop the shared services component (a654ecb)
+
+### Chores
+
+- remove the shared services component and its docs (83fe1c1)
+- remove the shared services component (#209)
 
 ## v0.11.0 (2026-11-05)
 

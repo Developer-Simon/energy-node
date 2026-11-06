@@ -84,7 +84,7 @@ test('die Zeilen "Dashboard" und "Python-Dienste" listen ihre Komponentenversion
   ]);
   assert.deepEqual(plain(services.items.map((item) => [item.label, item.em, item.value])), [
     ['Dienste (Repo)', '', '3.7.1'],
-    ['Wheel', 'energy_node_common', '1.4.2'], ['Wheel', 'battery_soc_core', '0.9.3'],
+    ['Service common library', '', '1.4.2'], ['Battery SoC Core', '', '0.9.3'],
     ['Abhängigkeit', 'tinytuya', '1.16.0'], ['Abhängigkeit', 'paho-mqtt', '2.1.0'],
   ]);
   assert.deepEqual(plain([wheels.items, units.items, templates.items]), [[], [], []]);

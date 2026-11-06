@@ -88,7 +88,7 @@ def test_manifest_set_matches_config_template_services():
     ueberzaehliges Manifest), also faellt der Bridge-Start sonst hart.
     """
     template = json.loads(
-        (REPO_ROOT / "services" / "energy-node.config.json").read_text(encoding="utf-8")
+        (REPO_ROOT / "dashboard" / "internal" / "appconfig" / "energy-node.config.json").read_text(encoding="utf-8")
     )
     config_services = set(template["services"])
     manifest_ids = {

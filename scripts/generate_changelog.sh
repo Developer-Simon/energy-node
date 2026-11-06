@@ -11,7 +11,7 @@
 # Commit selbst getaggt ist; reine Patch-Bumps bleiben im selben Abschnitt.
 #
 # Usage: ./generate_changelog.sh [--freeze-before <version>] [--rebuild] [<target>|all]
-#   <target>: dashboard | services | common | battery_soc_core | ha-integration
+#   <target>: dashboard | common | battery_soc_core | ha-integration
 #             | installer | installer-webui | bootstrap
 #             | service:<dir>  (apsystems_ez1, automation, battery_soc, shelly,
 #                               trucki, tuya_mqtt)
@@ -36,9 +36,7 @@
 #   CHANGELOG.md und eigener Version im "version"-Feld seiner manifest.json
 #   (nackte Semver, wie bei der HA-Integration). Fuer Commits von vor der
 #   Umstellung faellt die Versionssuche auf services/VERSION zurueck, damit
-#   die aelteren Abschnitte ihre Ueberschriften behalten. Das Dach-Target
-#   "services" blendet die Dienste-Verzeichnisse aus und listet nur noch, was
-#   direkt unter services/ liegt.
+#   die aelteren Abschnitte ihre Ueberschriften behalten.
 #
 # Duplikate:
 #   1. Innerhalb eines Abschnitts (dedup_block_entries, laeuft ueber jeden
@@ -120,7 +118,7 @@
 set -euo pipefail
 
 ALL_TARGETS=(
-  dashboard services common battery_soc_core ha-integration ha-icons ha-energy-node-companion
+  dashboard common battery_soc_core ha-integration ha-icons ha-energy-node-companion
   installer installer-webui bootstrap
   service:apsystems_ez1 service:automation service:battery_soc
   service:shelly service:trucki service:tuya_mqtt
@@ -247,7 +245,7 @@ while [[ $# -gt 0 ]]; do
       rebuild=true
       shift
       ;;
-    dashboard|services|common|battery_soc_core|ha-integration|ha-icons|ha-energy-node-companion|installer|installer-webui|bootstrap|all|service:*)
+    dashboard|common|battery_soc_core|ha-integration|ha-icons|ha-energy-node-companion|installer|installer-webui|bootstrap|all|service:*)
       if [[ -n "$target" ]]; then
         usage
         exit 1
@@ -662,7 +660,7 @@ merge_section_blocks() {
   [[ "$any" == true ]] || MERGED_BLOCK+="_No changes yet._"$'\n\n'
 }
 
-# Generiert die CHANGELOG.md einer einzelnen Komponente (dashboard|services|common).
+# Generiert die CHANGELOG.md einer einzelnen Komponente (dashboard|common).
 generate_one() {
   local comp="$1"
   # out_dir_prefix: aktueller Pfad, in den die CHANGELOG.md geschrieben wird.
@@ -687,27 +685,6 @@ generate_one() {
       out_dir_prefix="dashboard/"
       history_prefixes=("dashboard/")
       version_file_candidates=("dashboard/VERSION")
-      ;;
-    services)
-      out_dir_prefix="services/"
-      history_prefixes=("services/")
-      # src/VERSION is the pre-split path (75abe73 moved src/ -> services/); it
-      # never resolves in the history walk (history_prefixes stays services/)
-      # but lets the release-cap lookup read this component's version at a repo
-      # tag taken before the split.
-      version_file_candidates=("services/VERSION" "src/VERSION")
-      # Jeder Dienst hat seit v0.4.0 sein eigenes Target (service:<dir>) und
-      # seinen eigenen Changelog. Das Dach-Target listet nur noch, was direkt
-      # unter services/ liegt (gemeinsamer Code, Konfiguration, Tests).
-      exclude_prefixes=(
-        "libs/energy_node_common/" "src/werkstatt_iot_common/"
-        "services/apsystems_ez1/"
-        "services/automation/"
-        "services/battery_soc/"
-        "services/shelly/"
-        "services/trucki/"
-        "services/tuya_mqtt/"
-      )
       ;;
     common)
       out_dir_prefix="libs/energy_node_common/"

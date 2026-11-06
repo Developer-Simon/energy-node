@@ -29,7 +29,7 @@ func TestValidateNodeDeviceID(t *testing.T) {
 }
 
 func TestNodeAgentOptionsFromConfig(t *testing.T) {
-	cfg, err := appconfig.Load(filepath.Join("..", "..", "..", "services", "energy-node.config.json"))
+	cfg, err := appconfig.Load(filepath.Join("..", "..", "internal", "appconfig", "energy-node.config.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
