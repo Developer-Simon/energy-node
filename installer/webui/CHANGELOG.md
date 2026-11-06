@@ -1,10 +1,15 @@
 # Changelog
 
-## v0.3.1 (2026-11-06)
+## v0.3.2-pre.1 (2026-11-06)
 
 ### Features
 
+- **energy:** add measurement chains with substitute values (#215)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
+
+### Fixes
+
+- **installer:** read the changelog files of prerelease versions (635f0f3)
 
 ### Chores
 
