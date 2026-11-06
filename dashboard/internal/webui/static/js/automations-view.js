@@ -65,11 +65,20 @@
     return { tone: 'off', label: result || t('automations.unknown') };
   }
 
-  function historyActionText(action) {
-    if (!action) return '';
-    if (action.severity !== undefined) return `„${action.title || ''}" — ${action.message || ''}`;
-    if (action.blocked) return action.reason || 'blockiert';
-    return `${action.topic} → ${action.payload}`;
+  // Text einer Aktion im Verlauf. kind waehlt die Darstellung auf der
+  // Zeitachse: notify (Titel und Text), reason (Grund einer Sperre), topic
+  // (technische Ziele bleiben in Festbreitenschrift).
+  function historyActionParts(action) {
+    if (!action) return { kind: 'notify', title: '', text: '' };
+    if (action.severity !== undefined) return { kind: 'notify', title: action.title || '', text: action.message || '' };
+    if (action.blocked) return { kind: 'reason', title: '', text: action.reason || t('automations.history_result.blocked') };
+    return { kind: 'topic', title: '', text: `${action.topic} → ${action.payload}` };
+  }
+
+  function historyEventParts(event) {
+    const actions = Array.isArray(event.actions) ? event.actions : [];
+    if (actions.length) return actions.map(historyActionParts);
+    return event.reason ? [{ kind: 'reason', title: '', text: event.reason }] : [];
   }
 
   // i18n-keys: automations.condition_type.balance.hint, automations.condition_type.balance.label, automations.condition_type.entity.hint, automations.condition_type.entity.label, automations.condition_type.sun.hint, automations.condition_type.sun.label, automations.condition_type.time.hint, automations.condition_type.time.label
@@ -353,7 +362,7 @@
   window.__automationsView = {
     conditionState, meterScale, meterFraction, gateVerdict, isPercentCondition,
     describeCondition, describeAction, formatSeconds, canTest, formatWeekdays, formatMonthDays,
-    historyResultInfo, historyActionText,
+    historyResultInfo, historyActionParts, historyEventParts,
     BALANCE_FIELD_INFO, GATE_VERDICTS, CONDITION_TYPES, ACTION_TYPES, FIELD_HELP,
     WEEKDAY_LABELS, SUN_EVENT_LABELS,
   };
