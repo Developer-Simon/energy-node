@@ -80,16 +80,71 @@
 .auto-cond-state.is-met { background: var(--ok); color: var(--panel); }
 .auto-cond-state.is-pending { background: var(--warn-bg); color: var(--warn); }
 .auto-cond-state.is-open { padding-left: 8px; color: var(--text-faint); border: 1px dashed var(--border); }
-.auto-fires { display: grid; gap: 6px; padding-bottom: 6px; }
-.auto-fires-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.auto-fires-head small { font-size: 0.78rem; color: var(--text-muted); }
-.auto-fires-track { position: relative; height: 46px; border-radius: 10px; background: var(--sunken); }
-.auto-fires-track i { position: absolute; top: 8px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--ok); border: 3px solid var(--panel); box-shadow: 0 0 0 1px var(--ok); }
-.auto-fires-track i.bad { background: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
-.auto-fires-track i.info { background: var(--info); box-shadow: 0 0 0 1px var(--info); }
-.auto-fires-track i.off { background: var(--text-faint); box-shadow: 0 0 0 1px var(--text-faint); }
-.auto-fires-track em { position: absolute; top: 26px; font-style: normal; font-size: 0.72rem; color: var(--text-subtle); transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Verlauf: Streifen und Zeitachse sind eine Flaeche. Dauer und Kurve stimmen
+   mit flyHistoryMarks in automations.page.js ueberein. */
+.auto-rule-after { margin-top: .9rem; }
+.auto-fires { display: grid; gap: 6px; padding-bottom: 6px; --history-open: 280ms; --history-close: 220ms; }
+.auto-fires-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 30px; }
+.auto-fires-right { display: inline-flex; align-items: center; gap: 8px; }
+.auto-fires-right small { font-size: .78rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.auto-fires-toggle { display: inline-flex; align-items: center; gap: 6px; margin-right: -8px; padding: 5px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text-subtle); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; transition: transform 100ms ease-out, background-color 150ms ease; }
+.auto-fires-toggle:active { transform: scale(.97); }
+.auto-fires-toggle:focus-visible, .auto-fires-dot:focus-visible, .auto-axis-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Beide Beschriftungen liegen uebereinander, der Knopf springt beim Wechsel nicht. */
+.auto-fires-toggle-label { display: inline-grid; justify-items: end; }
+.auto-fires-toggle-label > span { grid-area: 1 / 1; transition: opacity 120ms ease, visibility 120ms; }
+.auto-fires-toggle[aria-expanded="true"] .is-show, .auto-fires-toggle[aria-expanded="false"] .is-hide { opacity: 0; visibility: hidden; }
+.auto-fires-count { min-width: 1.35rem; padding: 0 5px; border-radius: 999px; background: var(--sunken); color: var(--text-muted); font-size: .72rem; line-height: 1.35rem; text-align: center; font-variant-numeric: tabular-nums; }
+.auto-fires-chevron { width: .85rem; height: .85rem; transform: rotate(90deg); transition: transform var(--history-close) var(--layout-ease); }
+.auto-fires-toggle[aria-expanded="true"] .auto-fires-chevron { transform: rotate(-90deg); transition-duration: var(--history-open); }
+.auto-fires-box { position: relative; overflow: hidden; border-radius: 10px; background: var(--sunken); }
+.auto-fires-track { position: relative; height: 46px; }
+.auto-fires-track em { position: absolute; top: 26px; font-style: normal; font-size: 0.72rem; color: var(--text-subtle); transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; pointer-events: none; }
 .auto-fires-track.empty { display: grid; place-items: center; font-size: 0.82rem; color: var(--text-muted); height: 38px; }
+.auto-fires-dot, .auto-axis-dot { position: absolute; box-sizing: border-box; width: 14px; height: 14px; padding: 0; border-radius: 50%; background: var(--ok); border: 3px solid var(--panel); box-shadow: 0 0 0 1px var(--ok); }
+.auto-fires-dot.bad, .auto-axis-dot.bad { background: var(--bad); box-shadow: 0 0 0 1px var(--bad); }
+.auto-fires-dot.info, .auto-axis-dot.info { background: var(--info); box-shadow: 0 0 0 1px var(--info); }
+.auto-fires-dot.off, .auto-axis-dot.off { background: var(--text-faint); box-shadow: 0 0 0 1px var(--text-faint); }
+.auto-fires-dot { top: 8px; margin-left: -7px; cursor: pointer; transition: transform 120ms var(--ease-out), box-shadow 150ms ease; }
+/* Groessere Trefferflaeche fuer Finger, der Punkt bleibt klein. */
+.auto-fires-dot::after { content: ""; position: absolute; inset: -12px; border-radius: 50%; }
+.auto-fires-dot:active { transform: scale(.9); }
+.auto-fires-dot.on { box-shadow: 0 0 0 2px var(--accent), 0 0 0 5px var(--accent-bg); }
+.auto-fires-dot.is-ghost { top: 0; left: 0; margin: 0; z-index: 3; pointer-events: none; will-change: transform; }
+.auto-fires-fold { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--history-close) var(--layout-ease); }
+.auto-fires-fold[data-open="true"] { grid-template-rows: 1fr; transition-duration: var(--history-open); }
+.auto-fires-fold-inner { overflow: hidden; min-height: 0; }
+.auto-axis { position: relative; padding: 2px 12px 12px; border-top: 1px solid var(--border-soft); }
+.auto-axis-line { position: absolute; left: 23px; width: 2px; border-radius: 1px; background: var(--border); transform: scaleY(0); transform-origin: top; transition: transform var(--history-close) var(--layout-ease); }
+.auto-fires-fold[data-open="true"] .auto-axis-line { transform: scaleY(1); transition-duration: var(--history-open); }
+.auto-axis-caption { margin: 10px 0 2px; padding-left: 30px; font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.auto-axis-rows { list-style: none; margin: 0; padding: 0; }
+.auto-axis-row { position: relative; display: block; box-sizing: border-box; width: 100%; padding: 6px 8px 7px 30px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: .88rem; text-align: left; cursor: pointer; }
+.auto-axis-row.on { background: var(--accent-bg); }
+.auto-axis-dot { left: 5px; top: 9px; }
+/* Einblendung: gestaffelt beim Oeffnen, gemeinsam beim Schliessen. */
+.auto-axis-caption, .auto-axis-row { opacity: 0; transform: translateY(-6px); transition: opacity 110ms ease-out, transform 110ms ease-out, background-color 150ms ease; }
+.auto-fires-fold[data-open="true"] .auto-axis-caption, .auto-fires-fold[data-open="true"] .auto-axis-row { opacity: 1; transform: none; transition: opacity 180ms ease-out calc(min(var(--i), 5) * 24ms), transform 180ms var(--ease-out) calc(min(var(--i), 5) * 24ms), background-color 150ms ease; }
+.auto-axis-time { margin-right: 8px; font-size: .82rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.auto-axis-result { font-weight: 600; color: var(--text-strong); }
+.auto-axis-test { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--info-bg); color: var(--info); font-size: .7rem; font-weight: 600; vertical-align: 1px; }
+.auto-axis-detail { display: block; margin-top: 1px; font-size: .84rem; color: var(--text-muted); }
+.auto-axis-detail strong { font-weight: 600; color: var(--text-subtle); }
+.auto-axis-detail.reason { color: var(--bad); }
+.auto-axis-detail.topic { font-family: ui-monospace, monospace; font-size: .78rem; overflow-wrap: anywhere; }
+@media (hover: hover) and (pointer: fine) {
+  .auto-fires-toggle:hover { background: var(--panel-alt); }
+  .auto-fires-dot:not(.is-ghost):hover { transform: scale(1.15); }
+  .auto-axis-row:not(.on):hover { background: var(--panel-alt); }
+}
+@media (max-width: 899.98px) { .auto-fires-right small { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .auto-fires-fold, .auto-axis-line, .auto-fires-chevron { transition: none; }
+  .auto-fires-fold[data-open="true"] { transition: none; }
+  .auto-fires-fold[data-open="true"] .auto-axis-line, .auto-fires-toggle[aria-expanded="true"] .auto-fires-chevron { transition: none; }
+  .auto-axis-line { transform: scaleY(1); }
+  .auto-axis-caption, .auto-axis-row, .auto-fires-fold[data-open="true"] .auto-axis-caption, .auto-fires-fold[data-open="true"] .auto-axis-row { transform: none; transition: opacity 150ms ease, background-color 150ms ease; }
+}
 .auto-edit-list { display: grid; gap: .6rem; }
 .auto-flow-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .88rem; color: var(--text-subtle); }
 .auto-flow-label { min-width: 9rem; }
@@ -199,20 +254,6 @@
   .automation-collapse { transition-duration: 0s !important; }
 }
 
-/* --- Verlauf --- */
-.history { margin-top: .6rem; border-top: 1px solid var(--border-soft); padding-top: .6rem; }
-.history-head { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
-.history-toggle { font: inherit; font-size: .78rem; color: var(--accent); background: transparent; border: 1px solid var(--accent-line); padding: .22rem .5rem; cursor: pointer; }
-.history-toggle:hover { background: var(--accent-bg); }
-.history-head .settings-toggle { flex: none; }
-.history-list { list-style: none; padding: 0; margin: .5rem 0 0; display: flex; flex-direction: column; gap: .4rem; }
-.history-entry { border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); background: var(--panel-alt); padding: .4rem .6rem; font-size: .78rem; }
-.history-entry.ok { border-left-color: var(--ok); }
-.history-entry.bad { border-left-color: var(--bad); }
-.history-time { font-family: ui-monospace, monospace; color: var(--text-muted); margin-right: .5rem; }
-.history-badge { font-weight: 600; }
-.history-test { margin-left: .4rem; font-size: .68rem; padding: .05rem .35rem; border: 1px solid var(--border); color: var(--text-subtle); }
-.history-actions { list-style: none; padding: 0; margin: .3rem 0 0; font-family: ui-monospace, monospace; font-size: .74rem; color: var(--text-subtle); }
 
 /* --- Seitenschale: Zaehler, Reiter, Anlegen, Rueckgaengig --- */
 .auto-bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
