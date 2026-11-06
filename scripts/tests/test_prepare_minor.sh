@@ -31,7 +31,7 @@ COMPONENTS=(
   "services/shelly/:services/shelly/manifest.json"
 )
 CHANGELOG_TARGETS=(
-  dashboard services service:shelly
+  dashboard service:shelly
 )
 LIST
 

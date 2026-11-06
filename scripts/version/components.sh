@@ -32,7 +32,7 @@ COMPONENTS=(
 # scripts/tests/test_components_table.py keeps both equal, so change them together.
 # shellcheck disable=SC2034 # read by sourcing scripts, not by this file
 CHANGELOG_TARGETS=(
-  dashboard services common battery_soc_core
+  dashboard common battery_soc_core
   installer installer-webui bootstrap
   service:apsystems_ez1 service:automation service:battery_soc
   service:shelly service:trucki service:tuya_mqtt
