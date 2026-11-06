@@ -1,19 +1,22 @@
 # Changelog
 
-## v0.11.3 (2026-11-06)
+## v0.11.4 (2026-11-06)
 
 ### Features
 
+- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **automations:** add texts for the rule history axis (4c3094a)
 - **automations:** add history day groups and flight logic (5d3205c)
 - **automations:** show the rule history as an axis in the strip (8993e21)
 - **automations:** open the history list in the tour and add demo history (382804b)
-- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
 
 ### Fixes
 
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
+- **dashboard:** animate diagnostics refresh and updated values (57967fc)
+- **dashboard:** glide diagnostics device cards to their new place (4a9b331)
+- **dashboard:** animate updated values on the diagnostics page (#213)
 - **automations:** tidy the rule history text and toggle (66b71d2)
 
 ### Refactors
