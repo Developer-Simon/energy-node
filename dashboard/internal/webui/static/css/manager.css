@@ -1427,7 +1427,7 @@ div.devicemap-view-menu-row { cursor: default; }
 .energy-chain-flowhint{font-size:.8rem;color:var(--text-muted);white-space:nowrap}
 .energy-chain-grid{grid-template-columns:1fr}
 .energy-chain-needed-list{margin:.4rem 0;padding-left:1.1rem;display:grid;gap:.3rem}
-.energy-role-chain-hint{justify-self:start;padding:0;border:0;background:none;font:inherit;font-size:.8rem;color:var(--text-muted);text-align:left;cursor:pointer}
+.energy-chain-role-hint{justify-self:start;padding:0;border:0;background:none;font:inherit;font-size:.8rem;color:var(--text-muted);text-align:left;cursor:pointer}
 .energy-chain-summary{display:none}
 @media (max-width: 720px) {
   .energy-chain{flex-direction:column}

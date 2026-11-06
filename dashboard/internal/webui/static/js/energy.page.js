@@ -842,9 +842,11 @@
     applyChainResponse(saved, touched = []) {
       this.chains = saved.chains || {};
       this.roleNeeded = [...(saved.role_needed || [])];
-      const roles = saved.assignments || {};
-      for (const id of touched) {
-        if (this.assignments[id]) this.assignments[id].role = (roles[id] && roles[id].role) || '';
+      // An answer without assignments carries no roles: the rows keep theirs.
+      if (saved.assignments) {
+        for (const id of touched) {
+          if (this.assignments[id]) this.assignments[id].role = (saved.assignments[id] && saved.assignments[id].role) || '';
+        }
       }
       this.notifyRolesChanged();
     },
@@ -932,7 +934,11 @@
       const chain = this.chains[id];
       const next = String(label || '').trim();
       if (!this.canEdit || !chain || !next || next === chain.label) return;
-      await this.sendChain('PUT', this.chainUrl(id), this.chainBody({...chain, label: next}), chain.points);
+      const saved = await this.sendChain('PUT', this.chainUrl(id), this.chainBody({...chain, label: next}), chain.points);
+      if (saved) return;
+      // Refused: the typed name goes back to the saved label.
+      const input = document.querySelector(`[data-chain-id="${cssEscape(id)}"] .energy-groups-name`);
+      if (input) input.value = chain.label;
     },
 
     async removeChain(id) {

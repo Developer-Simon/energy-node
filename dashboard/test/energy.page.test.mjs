@@ -1239,3 +1239,25 @@ test('chain path, point value and loss read the labels and the live state', asyn
   assert.equal(component.chainLossText('m', 0), '−9 W · 97 %', 'matched in either flow direction');
   assert.equal(component.chainLossText('m', 1), '–');
 });
+
+test('applyChainResponse leaves the role rows alone when the answer has no assignments', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  const chain = { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' };
+  component.applyChainResponse({ chains: { m: chain }, role_needed: [] }, ['pv_power']);
+  assert.equal(component.assignments.pv_power.role, 'pv');
+  assert.deepEqual(plainJSON(component.chains), { m: chain });
+});
+
+test('a refused rename puts the saved label back into the name input', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch({ chainOk: false }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  window.document.body.innerHTML = '<div data-chain-id="m"><input class="energy-groups-name" value="Balkon"></div>';
+  const input = window.document.querySelector('.energy-groups-name');
+  input.value = 'Neuer Name';
+  await component.renameChain('m', 'Neuer Name');
+  assert.equal(input.value, 'Balkon');
+  assert.equal(component.chains.m.label, 'Balkon');
+});
