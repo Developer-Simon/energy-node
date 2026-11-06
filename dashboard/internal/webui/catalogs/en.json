@@ -2217,6 +2217,7 @@
   "energy_stats.coverage.ha": "from Home Assistant {n} h",
   "energy_stats.coverage.none": "no data {n} h",
   "energy_stats.coverage.own": "own recording {n} h",
+  "energy_stats.coverage.substitute": "of which {n} h with substitute values",
   "energy_stats.empty": "There is no data for this period.",
   "energy_stats.kpi.autarky": "Autarky",
   "energy_stats.kpi.battery_charge": "Battery charged",
