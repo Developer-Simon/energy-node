@@ -38,6 +38,10 @@
 - **automations:** bump the asset versions of the rule history (6988860)
 - remove the shared services component and its docs (83fe1c1)
 
+### CI
+
+- ask for a tour exemption after the build instead of failing (4d92e13)
+
 ## v0.11.0 (2026-11-05)
 
 ### Features
