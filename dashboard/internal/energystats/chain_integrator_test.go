@@ -178,7 +178,7 @@ func TestChainIntegratorCountsOnlySharedSeconds(t *testing.T) {
 	pair := ChainPair{Source: "a", Target: "b"}
 	start := hourAt("2026-11-06T10:00:00Z")
 	var records []ChainHour
-	// 30 Minuten mit Paar, dann 30 Minuten ohne Paar.
+	// 30 minutes with the pair, then 30 minutes without it.
 	for i := 0; i < 60; i++ {
 		at := start.Add(time.Duration(i) * time.Minute)
 		s := ChainSample{At: at, Pairs: map[ChainPair]PairPower{}, Standby: map[string]float64{}}
@@ -316,7 +316,7 @@ func TestChainIntegratorAccumulatesStandby(t *testing.T) {
 	standby := func(at time.Time) ChainSample {
 		return ChainSample{At: at, Pairs: map[ChainPair]PairPower{}, Standby: map[string]float64{"plug": 4}}
 	}
-	// Proben alle 5 Minuten (MaxHold), danach eine Probe ohne Standby.
+	// Samples every 5 minutes (MaxHold), then one sample without standby.
 	for i := 0; i < 6; i++ {
 		g.Add(standby(start.Add(time.Duration(i) * 5 * time.Minute)))
 	}
