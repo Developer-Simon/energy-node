@@ -32,12 +32,24 @@ for example `v0.4.6-pre.2`. The version files and manifests hold the same
 string without the `v`, such as `0.4.6-pre.2`. The bump workflow counts per
 component, so each component has its own counter.
 
-### Automatic update of prerelease
+### Updating prerelease from main
 
-After every push to `main`, the workflow `sync-prerelease.yml` merges `main`
-into `prerelease` with `scripts/version/sync_prerelease.py`. The sync also
-renumbers the pre versions. When `main` releases `v0.4.6`, a `v0.4.6-pre.2`
-on `prerelease` becomes `v0.4.7-pre.2`.
+The workflow `sync-prerelease.yml` merges `main` into `prerelease` with
+`scripts/version/sync_prerelease.py`. A push to `main` does not start it. It
+runs in these cases:
+
+- A PR into `prerelease` is opened. Pushing to an open PR does not start it
+  again. GitHub starts no run for a PR that already conflicts with `prerelease`.
+- You start it by hand with `gh workflow run sync-prerelease.yml`.
+- `scripts/dev/prepare-minor.sh` runs the same script itself before a minor
+  release.
+
+So `prerelease` can lag behind `main`, and hotfixes only reach it with the next
+sync. The sync moves the base of an open PR. If the sync renumbers a version the
+PR also changed, the PR conflicts and needs a rebase onto `prerelease`.
+
+The sync also renumbers the pre versions. When `main` releases `v0.4.6`, a
+`v0.4.6-pre.2` on `prerelease` becomes `v0.4.7-pre.2`.
 
 If the merge conflicts in code, the run ends red. The workflow also opens or
 updates a GitHub issue with the label `prerelease-sync`. To fix it:
@@ -74,7 +86,8 @@ The release workflow refuses a final tag while a component still carries a
 ### Pre-tag
 
 You can tag the state of `prerelease` before the final release, for example
-`v0.11.2-pre.5`, with the dashboard version of that state. The `Release`
+`v0.11.2-pre.5`, with the dashboard version of that state. Start the sync by
+hand first, so the tag contains the hotfixes from `main`. The `Release`
 workflow creates a GitHub pre-release for the tag (`--prerelease`). It
 attaches the same bundles and installer as a final release.
 
