@@ -1,10 +1,5 @@
 {
   "de": {
     "*": "Aktualisierte Werte auf der Diagnose-Seite werden animiert."
-  },
-  "tour": {
-    "*": {
-      "exempt": "Only animations changed on the diagnostics page, there is no new feature to show."
-    }
   }
 }
