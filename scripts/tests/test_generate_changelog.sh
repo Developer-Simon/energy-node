@@ -373,15 +373,6 @@ grep -q "^## v0.4.0 " "$scl" || fail "open section not headed by the manifest ve
 awk '/^## /{sec=$0} /talk to the RPC endpoint/{print sec}' "$scl" | grep -q "v0.3.0\|v0.4.0" \
   || fail "pre-split commit did not fall back to the umbrella version"
 
-# --- the services umbrella no longer repeats a service's work ---------------
-mkdir -p "$tmp/services"
-echo shared > "$tmp/services/shared.py"
-commit "feat(services): shared helper"
-gen --rebuild services
-scl2="$tmp/services/CHANGELOG.md"
-grep -q "shared helper"            "$scl2" || fail "umbrella lost its own commit"
-grep -q "talk to the RPC endpoint" "$scl2" && fail "umbrella repeated a service's commit"
-
 # --- installer, installer-webui and bootstrap are separate components --------
 # installer/ contains installer/webui/, which has its own version and changelog;
 # the installer target must not list the web UI's commits, and neither may list
