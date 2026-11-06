@@ -50,6 +50,7 @@ type Group struct {
 type Model struct {
 	Categories map[string]Category
 	Groups     map[string]Group
+	Chains     map[string]Chain
 }
 
 type GroupState struct {
@@ -81,6 +82,13 @@ func (m Model) clone() Model {
 			Groups:  append([]string{}, group.Members.Groups...),
 		}
 		out.Groups[id] = group
+	}
+	if m.Chains != nil {
+		out.Chains = make(map[string]Chain, len(m.Chains))
+		for id, chain := range m.Chains {
+			chain.Points = append([]string{}, chain.Points...)
+			out.Chains[id] = chain
+		}
 	}
 	return out
 }
