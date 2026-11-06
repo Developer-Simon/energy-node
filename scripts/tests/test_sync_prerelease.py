@@ -5,6 +5,7 @@ set in components.sh, a `main` branch and a `prerelease` branch checked out.
 The script runs with `--main main` (local ref), so no remote is needed.
 """
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -50,7 +51,8 @@ def _write(repo, files):
     for rel, text in files.items():
         path = repo / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        # surrogateescape lets a test write a raw non-UTF-8 byte through a str.
+        path.write_bytes(text.encode("utf-8", "surrogateescape"))
 
 
 def _commit(repo, files, message):
@@ -98,13 +100,24 @@ def _setup(tmp_path, ours=None, theirs=None):
     return repo
 
 
-def _run(repo):
+def _run(repo, env=None):
     # Without this, a missing script shows up as exit 2 and passes the refusal tests.
     assert (repo / "scripts/version/sync_prerelease.py").is_file(), "sync_prerelease.py is missing"
     return subprocess.run(
         ["python3", "scripts/version/sync_prerelease.py", "--main", "main"],
-        cwd=repo, capture_output=True, text=True,
+        cwd=repo, capture_output=True, text=True, env=env,
     )
+
+
+def _no_identity_env():
+    """Environment in which `git commit` cannot find an identity for this call only."""
+    env = dict(os.environ)
+    env.update({
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_AUTHOR_NAME": "",
+        "GIT_COMMITTER_NAME": "",
+    })
+    return env
 
 
 def _parents(repo):
@@ -170,7 +183,11 @@ def test_renumbers_collision(tmp_path):
     proc = _run(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert _read(repo, "dashboard/VERSION").strip() == "v0.4.7-pre.2"
-    assert "<<<<<<<" not in _read(repo, "dashboard/CHANGELOG.md")
+    # The CHANGELOG conflict took ours; the generator ran afterwards and kept that entry.
+    changelog = _read(repo, "dashboard/CHANGELOG.md")
+    assert "<<<<<<<" not in changelog
+    assert "- pre" in changelog
+    assert "- main" not in changelog
     assert main_sha in _parents(repo)
     assert _status(repo) == ""
 
@@ -267,3 +284,55 @@ def test_refuses_dirty_tree(tmp_path):
     _write(repo, {"dashboard/VERSION": "v9.9.9\n"})
     proc = _run(repo)
     assert proc.returncode == 2, proc.stdout + proc.stderr
+
+
+def _assert_untouched(repo, head_before):
+    assert _git(repo, "rev-parse", "HEAD") == head_before
+    assert _status(repo) == ""
+    assert not (repo / ".git" / "MERGE_HEAD").exists()
+
+
+def test_missing_identity_refuses_before_merge(tmp_path):
+    # git merge needs an identity already at merge start, so this is a clean refusal.
+    repo = _setup(
+        tmp_path,
+        ours={"dashboard/VERSION": "v0.4.6-pre.2\n"},
+        theirs={"dashboard/VERSION": "v0.4.6\n"},
+    )
+    head_before = _git(repo, "rev-parse", "HEAD")
+    proc = _run(repo, env=_no_identity_env())
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    _assert_untouched(repo, head_before)
+
+
+def test_commit_failure_aborts_merge(tmp_path):
+    # A failing pre-commit hook fails only the final commit, after the versions were written.
+    repo = _setup(
+        tmp_path,
+        ours={"dashboard/VERSION": "v0.4.6-pre.2\n"},
+        theirs={"dashboard/VERSION": "v0.4.6\n"},
+    )
+    hook = repo / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\necho hook refused >&2\nexit 1\n", encoding="utf-8")
+    hook.chmod(0o755)
+    head_before = _git(repo, "rev-parse", "HEAD")
+    proc = _run(repo)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "merge aborted" in proc.stderr
+    _assert_untouched(repo, head_before)
+
+
+def test_unreadable_manifest_aborts_merge(tmp_path):
+    # Both sides change the unit line identically (clean merge), so the raw byte
+    # sits in the merged file. The version line conflicts, so the policy reads the file.
+    raw_unit = "shelly\udcff-rpc.service"
+    repo = _setup(
+        tmp_path,
+        ours={"services/shelly/manifest.json": _manifest("0.4.6-pre.1").replace("shelly-rpc.service", raw_unit)},
+        theirs={"services/shelly/manifest.json": _manifest("0.4.6").replace("shelly-rpc.service", raw_unit)},
+    )
+    head_before = _git(repo, "rev-parse", "HEAD")
+    proc = _run(repo)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "merge aborted" in proc.stderr
+    _assert_untouched(repo, head_before)

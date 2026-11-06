@@ -64,8 +64,11 @@ def parse_version(path, text):
 
 
 def show(root, ref, path):
-    result = git(root, "show", f"{ref}:{path}", check=False)
-    return result.stdout if result.returncode == 0 else None
+    # Lenient decode: planning must not fail on bytes that only matter after the merge starts.
+    result = subprocess.run(["git", "show", f"{ref}:{path}"], cwd=root, capture_output=True)
+    if result.returncode != 0:
+        return None
+    return result.stdout.decode("utf-8", "surrogateescape")
 
 
 def version_key(version):
@@ -204,7 +207,10 @@ def sync(root, main_ref, push):
         print("prerelease already contains main")
         return 0
     if git(root, "merge-base", "--is-ancestor", "HEAD", main_ref, check=False).returncode == 0:
-        git(root, "merge", "--ff-only", main_ref)
+        ff = git(root, "merge", "--ff-only", main_ref, check=False)
+        if ff.returncode != 0:
+            print(ff.stderr.strip() or "fast-forward failed", file=sys.stderr)
+            return 1
         print("fast-forwarded prerelease to main")
         return 0
 
@@ -217,24 +223,47 @@ def sync(root, main_ref, push):
         git(root, "merge", "--abort", check=False)
         raise Refused(merge.stderr.strip() or "merge failed")
 
-    unresolved = resolve_policy(root, conflicts) if conflicts else []
-    if unresolved:
-        git(root, "merge", "--abort")
-        for path in unresolved:
-            print(f"CONFLICT {path}")
-        return 3
+    # From here on the merge is in progress. Any failure must leave HEAD and the worktree as they were.
+    try:
+        unresolved = resolve_policy(root, conflicts) if conflicts else []
+        if unresolved:
+            abort_merge(root)
+            for path in unresolved:
+                print(f"CONFLICT {path}")
+            return 3
 
-    for version_file, version in targets.items():
-        write_version(root, version_file, version)
-    for target in changelog_targets:
-        subprocess.run([str(HERE.parent / "generate_changelog.sh"), target], cwd=root, check=True)
+        for version_file, version in targets.items():
+            write_version(root, version_file, version)
+        for target in changelog_targets:
+            subprocess.run([str(HERE.parent / "generate_changelog.sh"), target], cwd=root, check=True,
+                           capture_output=True, text=True)
 
-    git(root, "add", "-u")
-    git(root, "commit", "-q", "-m", MERGE_MESSAGE)
+        git(root, "add", "-u")
+        git(root, "commit", "-q", "-m", MERGE_MESSAGE)
+    except Exception as exc:
+        abort_merge(root)
+        print(f"error: prerelease sync failed, merge aborted: {describe(exc)}", file=sys.stderr)
+        return 1
+
     print(f"merged {main_ref} into {PRE_BRANCH}")
     if push:
-        git(root, "push", "origin", PRE_BRANCH)
+        pushed = git(root, "push", "origin", PRE_BRANCH, check=False)
+        if pushed.returncode != 0:
+            print(f"error: push failed, commit kept: {pushed.stderr.strip()}", file=sys.stderr)
+            return 1
     return 0
+
+
+def abort_merge(root):
+    """Abort only while a merge is in progress; a finished commit is never reset."""
+    if git(root, "rev-parse", "-q", "--verify", "MERGE_HEAD", check=False).returncode == 0:
+        git(root, "merge", "--abort", check=False)
+
+
+def describe(exc):
+    if isinstance(exc, subprocess.CalledProcessError):
+        return (exc.stderr or "").strip() or f"{exc.cmd[0]} exited {exc.returncode}"
+    return f"{type(exc).__name__}: {exc}"
 
 
 def main(argv):
@@ -248,8 +277,12 @@ def main(argv):
         print(f"refused: {exc}", file=sys.stderr)
         return 2
     except ValueError as exc:
+        # Planning errors (invalid versions) happen before the merge starts.
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    except Exception as exc:
+        print(f"error: {describe(exc)}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
