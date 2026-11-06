@@ -213,6 +213,25 @@
   action('balance-rule', ruleAction('balance_threshold', () => ({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 0, hold_seconds: 300 })));
   action('open-rule', ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }), { edit: false, match: () => true }));
 
+  // Regel fuer die Verlaufs-Tour: am liebsten eine mit Eintraegen, sonst eine
+  // mit eingeschaltetem Verlauf, sonst die Beispielregel. Die Eintraege werden
+  // vorab aufgebaut, damit der Klick auf den Knopf den Verlauf sofort oeffnet
+  // und die Tour ihn wieder schliessen kann.
+  action('history-rule', {
+    run: async (context) => {
+      const page = rulesPage();
+      if (!page) return null;
+      const recorded = page.document.rules.filter((rule) => rule.history_enabled);
+      const chosen = recorded.find((rule) => (page.liveHistory?.[rule.id] || []).length) || recorded[0] || null;
+      if (chosen && page.historyRendered) page.historyRendered[chosen.id] = true;
+      const open = ruleAction('time_window', () => ({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] }), {
+        edit: false,
+        match: (rule) => rule.id === chosen?.id,
+      });
+      return open.run(context);
+    },
+  });
+
   // Der Konfigurationsbereich mit dem Dienst Batteriestand. Der Lauf setzt den
   // Dienst in den Daten der Seite (selectedName) und laedt das Formular neu.
   // Ein DOM-Wechsel am Auswahlfeld reicht nicht, Alpine uebernimmt ihn nicht.

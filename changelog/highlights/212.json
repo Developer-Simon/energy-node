@@ -1,6 +1,6 @@
 {
   "de": {
-    "*": "Der Verlauf einer Regel öffnet sich als Zeitachse direkt im Streifen"
+    "*": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen."
   },
   "tour": {
     "*": {
@@ -9,17 +9,18 @@
           "need": "automations",
           "open": [
             "automations-rules",
-            "@open-rule"
+            "@history-rule",
+            "rule-history-toggle"
           ],
           "panel": "automations-panel",
           "target": "rule-fires",
           "text": {
-            "de": "Der Verlauf einer Regel öffnet sich direkt aus dem Streifen. Ein Punkt zeigt dir seinen Eintrag auf der Zeitachse.",
-            "en": "The history of a rule opens right from the strip. A dot shows you its entry on the timeline."
+            "de": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen.",
+            "en": "The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well."
           },
           "title": {
-            "de": "Verlauf als Zeitachse",
-            "en": "History as a timeline"
+            "de": "Detaillierter Verlauf",
+            "en": "Detailed history"
           }
         }
       ]

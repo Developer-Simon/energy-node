@@ -243,7 +243,7 @@
                         <span class="auto-block-cap" x-text="ruleTriggers(rule).marks.length === 1 ? $t('automations.rule.timeline.caption_one') : $t('automations.rule.timeline.caption_many', {count: ruleTriggers(rule).marks.length})"></span>
                         <span class="auto-fires-right">
                           <small x-text="$t('automations.rule.timeline.since', {time: ruleTriggers(rule).sinceLabel})"></small>
-                          <button type="button" class="auto-fires-toggle"
+                          <button type="button" class="auto-fires-toggle" data-tour="rule-history-toggle"
                                   x-bind:aria-expanded="historyExpanded[rule.id] ? 'true' : 'false'"
                                   x-bind:aria-controls="`history-fold-${rule.id}`"
                                   x-on:click="toggleHistory(rule, $el.closest('.auto-fires').querySelector('.auto-fires-box'))">

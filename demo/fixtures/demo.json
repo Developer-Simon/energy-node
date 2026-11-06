@@ -1616,5 +1616,144 @@
       "at": 1789000000,
       "message": "warning: Netzeinspeisung gedrosselt - PV-Ueberschuss ueber Grenzwert"
     }
+  },
+  {
+    "topic": "homeassistant/sensor/automation/history/config",
+    "payload": {
+      "name": "Auslöser-Verlauf",
+      "unique_id": "automation_history",
+      "state_topic": "outstation/automation/history",
+      "value_template": "{{ value_json.rule_count }}",
+      "json_attributes_topic": "outstation/automation/history",
+      "availability_topic": "outstation/automation/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "entity_category": "diagnostic",
+      "device": {
+        "identifiers": [
+          "automation"
+        ],
+        "name": "Energie-Automationen",
+        "manufacturer": "Energy Node"
+      }
+    }
+  },
+  {
+    "topic": "outstation/automation/history",
+    "payload": {
+      "at_ago_s": 0,
+      "rule_count": 2,
+      "rules": {
+        "regel_ueberschuss_wallbox": [
+          {
+            "at_ago_s": 3600,
+            "result": "fired",
+            "reason": null,
+            "test": false,
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "wallbox/current/set",
+                "payload": "16",
+                "blocked": false
+              }
+            ]
+          },
+          {
+            "at_ago_s": 10800,
+            "result": "blocked",
+            "reason": null,
+            "test": false,
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "wallbox/current/set",
+                "blocked": true,
+                "reason": "Das Topic liegt außerhalb der erlaubten Bereiche."
+              }
+            ]
+          },
+          {
+            "at_ago_s": 18000,
+            "result": "fired",
+            "reason": null,
+            "test": true,
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "wallbox/current/set",
+                "payload": "16",
+                "blocked": false
+              }
+            ]
+          },
+          {
+            "at_ago_s": 93600,
+            "result": "error",
+            "reason": "Der Broker hat nicht geantwortet.",
+            "test": false,
+            "actions": []
+          },
+          {
+            "at_ago_s": 104400,
+            "result": "fired",
+            "reason": null,
+            "test": false,
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "wallbox/current/set",
+                "payload": "16",
+                "blocked": false
+              }
+            ]
+          },
+          {
+            "at_ago_s": 187200,
+            "result": "fired",
+            "reason": null,
+            "test": false,
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "wallbox/current/set",
+                "payload": "16",
+                "blocked": false
+              }
+            ]
+          }
+        ],
+        "regel_werkstatt_last": [
+          {
+            "at_ago_s": 7200,
+            "result": "fired",
+            "reason": null,
+            "test": false,
+            "actions": [
+              {
+                "type": "notification",
+                "severity": "info",
+                "title": "Werkstatt",
+                "message": "Die Werkstatt zieht mehr als 1,5 kW."
+              }
+            ]
+          },
+          {
+            "at_ago_s": 97200,
+            "result": "fired",
+            "reason": null,
+            "test": true,
+            "actions": [
+              {
+                "type": "notification",
+                "severity": "info",
+                "title": "Werkstatt",
+                "message": "Die Werkstatt zieht mehr als 1,5 kW."
+              }
+            ]
+          }
+        ]
+      }
+    }
   }
 ]

@@ -10,6 +10,7 @@
     {
       "id": "regel_ueberschuss_wallbox",
       "name": "Überschuss in Wallbox",
+      "history_enabled": true,
       "enabled": true,
       "cooldown_seconds": 60,
       "conditions": [
@@ -34,6 +35,7 @@
     {
       "id": "regel_werkstatt_last",
       "name": "Werkstatt zieht viel",
+      "history_enabled": true,
       "enabled": true,
       "cooldown_seconds": 300,
       "conditions": [
