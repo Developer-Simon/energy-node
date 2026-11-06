@@ -1,5 +1,28 @@
 {
   "de": {
     "*": "Der Verlauf einer Regel öffnet sich als Zeitachse direkt im Streifen"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "automations",
+          "open": [
+            "automations-rules",
+            "@open-rule"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-fires",
+          "text": {
+            "de": "Der Verlauf einer Regel öffnet sich direkt aus dem Streifen. Ein Punkt zeigt dir seinen Eintrag auf der Zeitachse.",
+            "en": "The history of a rule opens right from the strip. A dot shows you its entry on the timeline."
+          },
+          "title": {
+            "de": "Verlauf als Zeitachse",
+            "en": "History as a timeline"
+          }
+        }
+      ]
+    }
   }
 }
