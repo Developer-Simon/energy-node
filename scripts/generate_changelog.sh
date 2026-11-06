@@ -139,7 +139,7 @@ TYPE_ORDER=(feat fix refactor perf docs test style chore dev build ci other)
 declare -A LABEL_TO_TYPE=()
 for _t in "${TYPE_ORDER[@]}"; do LABEL_TO_TYPE["${LABELS[$_t]}"]="$_t"; done
 unset _t
-VERSION_RE='^v([0-9]+)\.([0-9]+)\.([0-9]+)$'
+VERSION_RE='^v([0-9]+)\.([0-9]+)\.([0-9]+)(-pre\.[0-9]+)?$'
 FREEZE_VERSION_RE='^v?([0-9]+)\.([0-9]+)(\.[0-9]+)?$'
 # The optional "!" before the colon is the Conventional-Commits breaking-change
 # marker (feat!:, fix(scope)!:). It must not defeat type detection - the commit
@@ -206,6 +206,32 @@ except Exception:
     fi
   done
   return 1
+}
+
+# resolve_pre_version <hash>: Version eines Commits, dessen Versionsdatei ein
+# "-pre.N"-Suffix traegt. Ergebnis in RESOLVED_PRE_VERSION: die Version am
+# kleinsten finalen Tag (vX.Y.Z ohne Suffix), der den Commit enthaelt, sonst
+# die Version im Arbeitsverzeichnis. Pro Lauf gecached (Schluessel comp:hash).
+# Liest comp und version_file_candidates per dynamischem Scope aus generate_one.
+declare -A PRE_VERSION_CACHE=()
+RESOLVED_PRE_VERSION=""
+resolve_pre_version() {
+  local hash="$1" key="${comp}:$1"
+  if [[ -n "${PRE_VERSION_CACHE[$key]:-}" ]]; then
+    RESOLVED_PRE_VERSION="${PRE_VERSION_CACHE[$key]}"
+    return 0
+  fi
+  local tag tv=""
+  tag="$(git -C "$repo_root" tag --contains "$hash" 2>/dev/null \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | sed -n 1p || true)"
+  if [[ -n "$tag" ]]; then
+    tv="$(version_at_ref "$tag" "${version_file_candidates[@]}")" || tv=""
+  fi
+  if [[ ! "$tv" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    tv="$(version_in_worktree "${version_file_candidates[@]}")" || tv=""
+  fi
+  RESOLVED_PRE_VERSION="$tv"
+  PRE_VERSION_CACHE[$key]="$tv"
 }
 
 # in_open_span M m p: gehoert die Version (M.m.p) in den einen offenen
@@ -849,13 +875,15 @@ generate_one() {
   local -A TAG_AT=()
   local _vt _vh
   while IFS= read -r _vt; do
-    [[ -z "$_vt" ]] && continue
+    # Pre-Tags (mit "-") trennen keine Abschnitte.
+    [[ -z "$_vt" || "$_vt" == *-* ]] && continue
     _vh="$(git -C "$repo_root" log -1 --no-merges --format=%h \
       --invert-grep --grep='^docs(changelog): ' "$_vt" "${pathspec[@]}")"
     [[ -n "$_vh" && -z "${TAG_AT[$_vh]:-}" ]] && TAG_AT[$_vh]="$_vt"
   done < <(git -C "$repo_root" tag --merged HEAD 2>/dev/null)
 
   local prev_tagged=false
+  local group_pre=false
   local first=true
   local hash subject
   while IFS=$'\t' read -r hash subject; do
@@ -890,6 +918,15 @@ except Exception:
       fi
     done
 
+    # Vorab-Commit (-pre.N in der Versionsdatei): Version am kleinsten finalen
+    # Tag, der ihn enthaelt, sonst die aktuelle Arbeitsversion.
+    local local_is_pre=false
+    if [[ "$local_version" == *-pre.* ]]; then
+      local_is_pre=true
+      resolve_pre_version "$hash"
+      local_version="$RESOLVED_PRE_VERSION"
+    fi
+
     local local_unversioned=""
     local local_major="" local_minor=""
     if [[ "$local_version" =~ $VERSION_RE ]]; then
@@ -907,6 +944,11 @@ except Exception:
       need_new_group=true
     elif $prev_tagged; then
       need_new_group=true
+    elif $local_is_pre || $group_pre; then
+      # Vorab-Commits: jede andere Version (exakt, nicht nur Major.Minor) ist ein
+      # neuer Abschnitt. Die Branches laufen im Walk verschachtelt, sonst landet
+      # ein Hauptlinien-Commit im Vorab-Abschnitt.
+      [[ "$local_version" != "$group_version" ]] && need_new_group=true
     elif [[ -n "$local_unversioned" || -n "$group_unversioned" ]]; then
       [[ "$local_unversioned" != "$group_unversioned" ]] && need_new_group=true
     elif [[ "$local_major" != "$group_major" || "$local_minor" != "$group_minor" ]]; then
@@ -919,6 +961,9 @@ except Exception:
       group_unversioned="$local_unversioned"
       group_major="$local_major"
       group_minor="$local_minor"
+      group_pre=$local_is_pre
+    elif $local_is_pre; then
+      group_pre=true
     fi
 
     # The bump commit only ever moves the open section's heading forward; it
@@ -982,6 +1027,44 @@ except Exception:
 
   flush_group
 
+  # Vorab-Abschnitte mit gleicher Version zu einem zusammenfuehren: der Walk
+  # kann einen Vorab-Abschnitt durch Hauptlinien-Commits zerreissen. Der
+  # Abschnitt steht an der Position seines letzten Auftretens, also dort, wo
+  # der neueste Stand des Vorab-Zweigs im Walk liegt.
+  if (( ${#SECTIONS[@]} > 1 )); then
+    local -A _pre_last=() _pre_block=()
+    local -a _ns=() _nM=() _nm=() _nu=() _nv=()
+    local _i _v _blk
+    for (( _i = 0; _i < ${#SECTIONS[@]}; _i++ )); do
+      _v="${SECTION_VER[$_i]}"
+      [[ "$_v" == *-pre.* ]] && _pre_last[$_v]=$_i
+    done
+    for (( _i = 0; _i < ${#SECTIONS[@]}; _i++ )); do
+      _v="${SECTION_VER[$_i]}"
+      _blk="${SECTIONS[$_i]}"
+      if [[ "$_v" == *-pre.* ]]; then
+        if [[ -z "${_pre_block[$_v]:-}" ]]; then
+          _pre_block[$_v]="$_blk"
+        else
+          merge_section_blocks "${_pre_block[$_v]}" "$_blk"
+          _pre_block[$_v]="$MERGED_BLOCK"
+        fi
+        (( _pre_last[$_v] == _i )) || continue
+        _blk="${_pre_block[$_v]}"
+      fi
+      _ns+=("$_blk")
+      _nM+=("${SECTION_MAJOR[$_i]}")
+      _nm+=("${SECTION_MINOR[$_i]}")
+      _nu+=("${SECTION_UNVER[$_i]}")
+      _nv+=("$_v")
+    done
+    SECTIONS=("${_ns[@]}")
+    SECTION_MAJOR=("${_nM[@]}")
+    SECTION_MINOR=("${_nm[@]}")
+    SECTION_UNVER=("${_nu[@]}")
+    SECTION_VER=("${_nv[@]}")
+  fi
+
   # Release-Cap: die hoechste Version dieser Komponente, die zu einem von HEAD
   # erreichbaren Repo-Tag gehoerte - ihr letzter veroeffentlichter Stand. Alles
   # darueber ist unveroeffentlicht und gehoert in EINEN offenen Abschnitt, auch
@@ -996,7 +1079,8 @@ except Exception:
   # stand ("vX.Y.Z"), fuer Fall 0b der Release-Cap-Zusammenfuehrung.
   local -a tagged_vers=()
   while IFS= read -r _tag; do
-    [[ -z "$_tag" ]] && continue
+    # Pre-Tags (mit "-") zaehlen nicht als veroeffentlicht.
+    [[ -z "$_tag" || "$_tag" == *-* ]] && continue
     _tv="$(version_at_ref "$_tag" "${version_file_candidates[@]}")" || continue
     [[ "$_tv" =~ $VERSION_RE ]] || continue
     tagged_vers+=("$_tv")
@@ -1139,6 +1223,11 @@ except Exception:
         elif in_open_span "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"; then
           target_idx=$open_idx
         fi
+      fi
+      # Vorab-Abschnitte (-pre.N) aus der Datei fallen in den offenen Abschnitt,
+      # damit Umnummerierung und Strip keine Alt-Ueberschriften zuruecklassen.
+      if [[ "$ft_head" =~ ^\#\#\ v[0-9]+\.[0-9]+\.[0-9]+-pre\.[0-9]+\  ]] && $open_ok; then
+        target_idx=$open_idx
       fi
       if [[ -n "$target_idx" ]]; then
         fold_into[$target_idx]+="${ft_block}"$'\0'

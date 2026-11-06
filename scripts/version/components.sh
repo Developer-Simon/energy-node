@@ -27,6 +27,17 @@ COMPONENTS=(
   "installer/webui/:installer/webui/VERSION"
 )
 
+# Targets for scripts/generate_changelog.sh, in the order version-bump.yml
+# runs them. The list lives in version-bump.yml (CHANGELOG_TARGETS); the test
+# scripts/tests/test_components_table.py keeps both equal, so change them together.
+# shellcheck disable=SC2034 # read by sourcing scripts, not by this file
+CHANGELOG_TARGETS=(
+  dashboard common battery_soc_core
+  installer installer-webui bootstrap
+  service:apsystems_ez1 service:automation service:battery_soc
+  service:shelly service:trucki service:tuya_mqtt
+)
+
 # component_touched prueft, ob eine Datei-Liste (staged/changed, eine pro
 # Zeile) eine Komponente betrifft. Dateien einer verschachtelten Komponente
 # (z.B. libs/energy_node_common/ unterhalb eines umschliessenden Praefix)

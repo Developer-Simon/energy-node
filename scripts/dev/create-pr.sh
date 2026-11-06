@@ -25,6 +25,10 @@
 #
 # Environment variables (all optional except PR_AI_MODEL when no commit or
 # message file carries a valid Claude trailer):
+#   PR_BASE=…          Base branch of the PR, default "main". Set it to
+#                      "prerelease" for a change to the prerelease line. Commits
+#                      are counted against origin/<PR_BASE>, and the target
+#                      branch must differ from it.
 #   PR_AI_MODEL=…      Model that did the work, e.g. "Sonnet 5.5" or "Opus 5.5".
 #                      Becomes the trailer and the AI disclosure line.
 #   PR_MESSAGE_FILE=…  Squash-merge body without the title ("-" = stdin). Replaces
@@ -53,6 +57,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/pr-message-lib.sh"
 
 branch="${1:-}"
 title="${2:-${PR_TITLE:-}}"
+base="${PR_BASE:-main}"
 
 if [[ -n "${PR_MESSAGE_FILE:-}" && "${PR_MESSAGE_FILE}" != "-" && ! -f "${PR_MESSAGE_FILE}" ]]; then
   echo "PR_MESSAGE_FILE does not point at a file: ${PR_MESSAGE_FILE}" >&2
@@ -66,7 +71,7 @@ current="$(git branch --show-current)"
 
 # No branch name given: fall back to the current branch, but confirm first.
 if [[ -z "${branch}" ]]; then
-  if [[ -z "${current}" || "${current}" == "main" ]]; then
+  if [[ -z "${current}" || "${current}" == "main" || "${current}" == "${base}" ]]; then
     echo "usage: $0 [<branch-name>] [\"PR title\"]" >&2
     echo "(no branch name given and HEAD is '${current:-detached}')" >&2
     exit 2
@@ -90,7 +95,12 @@ if [[ "${branch}" == "main" ]]; then
   exit 2
 fi
 
-if [[ "${current}" == "main" ]]; then
+if [[ "${branch}" == "${base}" ]]; then
+  echo "Target branch must not be '${base}', the PR base." >&2
+  exit 2
+fi
+
+if [[ "${current}" == "main" || "${current}" == "${base}" ]]; then
   # Uncommitted changes move onto the new branch, commits already on main do
   # too (main is not reset here - the PR merge or a later manual `git reset`
   # takes care of that).
@@ -101,10 +111,10 @@ elif [[ "${current}" != "${branch}" ]]; then
   exit 1
 fi
 
-git fetch origin main --quiet
+git fetch origin "${base}" --quiet
 
-if git diff --quiet "origin/main...HEAD"; then
-  echo "No commits against origin/main on '${branch}'." >&2
+if git diff --quiet "origin/${base}...HEAD"; then
+  echo "No commits against origin/${base} on '${branch}'." >&2
   echo "Commit your work and start the script again." >&2
   exit 1
 fi
@@ -118,7 +128,7 @@ trap 'rm -f "${msg_file}" "${body_file}" "${msg_file}.raw" "${de_file}"' EXIT
 
 # --- Title ---------------------------------------------------------------
 
-[[ -n "${title}" ]] || title="$(git log -1 --format='%s' origin/main..HEAD)"
+[[ -n "${title}" ]] || title="$(git log -1 --format='%s' "origin/${base}..HEAD")"
 
 # --- Squash-merge body (no title, Claude trailer last) ---------------------
 
@@ -133,11 +143,11 @@ if [[ -n "${PR_MESSAGE_FILE:-}" ]]; then
     exit 2
   fi
 else
-  mapfile -t commits < <(git log --reverse --format='%H' "origin/main..HEAD")
+  mapfile -t commits < <(git log --reverse --format='%H' "origin/${base}..HEAD")
   if [[ "${#commits[@]}" -eq 1 ]]; then
     git log -1 --format='%b' "${commits[0]}" > "${msg_file}.raw"
   else
-    git log --reverse --format='- %s' "origin/main..HEAD" > "${msg_file}.raw"
+    git log --reverse --format='- %s' "origin/${base}..HEAD" > "${msg_file}.raw"
   fi
 fi
 
@@ -264,5 +274,5 @@ pr_extract_block "${body_file}" > "${msg_file}"
 pr_validate_message "${title}" "${msg_file}" || exit 2
 
 git push -u origin "${branch}"
-gh pr create --base main --head "${branch}" --title "${title}" --body-file "${body_file}"
+gh pr create --base "${base}" --head "${branch}" --title "${title}" --body-file "${body_file}"
 gh pr view --web

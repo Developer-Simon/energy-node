@@ -38,7 +38,7 @@ TYPE_BY_LABEL = {
     "CI": "ci", "Other": "other",
 }
 
-HEADING = re.compile(r"^## (?P<version>v\d+\.\d+\.\d+)(?: \((?P<date>\d{4}-\d{2}-\d{2})\))?\s*$")
+HEADING = re.compile(r"^## (?P<version>v\d+\.\d+\.\d+(?:-pre\.\d+)?)(?: \((?P<date>\d{4}-\d{2}-\d{2})\))?\s*$")
 ENTRY = re.compile(
     r"^- (?:\*\*⚠ Breaking(?: — (?P<bscope>[^*]+?))?:\*\* |\*\*(?P<scope>[^*]+?):\*\* )?"
     r"(?P<text>.*?)"

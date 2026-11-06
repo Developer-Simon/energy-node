@@ -39,6 +39,16 @@ jobs:
           python3 scripts/release/release_highlights.py --repo . --tag "$TAG" --previous-tag "$previous" > "$notes_file"
           echo "notes-file=$notes_file" >> "$GITHUB_OUTPUT"
 
+      - name: Refuse prerelease versions in a final release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$TAG" in
+            *-*) ;;
+            *) bash scripts/version/check_no_prerelease.sh ;;
+          esac
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

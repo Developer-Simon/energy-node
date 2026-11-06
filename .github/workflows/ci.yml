@@ -1,12 +1,13 @@
 name: CI
 
 on:
-  # `push` is the post-merge run on `main`. A PR branch is never run by its own
-  # pushes: the Version bump workflow dispatches CI once the branch has settled
-  # (bump and changelog commits in place), with the PR number as input. So CI
-  # runs exactly once per settled head and never on the pre-bump state.
+  # `push` is the post-merge run on `main` (and on `prerelease`). A PR branch is
+  # never run by its own pushes: the Version bump workflow dispatches CI once the
+  # branch has settled (bump and changelog commits in place), with the PR number
+  # as input. So CI runs exactly once per settled head and never on the
+  # pre-bump state.
   push:
-    branches: [main]
+    branches: [main, prerelease]
   workflow_dispatch:
     inputs:
       pr:
@@ -299,8 +300,12 @@ jobs:
       - run: bash scripts/tests/test_generate_changelog.sh
       - run: bash scripts/tests/test_generate_changelog_cap.sh
       - run: bash scripts/tests/test_generate_changelog_foreign_tag.sh
+      - run: bash scripts/tests/test_generate_changelog_prerelease.sh
       - run: bash scripts/tests/test_bump_version.sh
       - run: bash scripts/tests/test_pr_message.sh
+      - run: bash scripts/tests/test_check_no_prerelease.sh
+      - run: bash scripts/tests/test_prepare_minor.sh
+      - run: bash scripts/tests/test_merge_prerelease.sh
       - name: shellcheck
         run: |
           sudo apt-get update -qq
@@ -406,6 +411,34 @@ jobs:
       - name: Highlight details and tours are valid
         run: python3 scripts/build/highlight_translations.py validate --repo .
 
+  # A prerelease version (-pre.N) must not reach main. Only PRs into main are
+  # checked; prerelease versions are expected on the prerelease branch.
+  no-prerelease-versions:
+    name: No prerelease versions on main
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the PR base
+        id: base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr }}
+        run: |
+          base_ref="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName)"
+          echo "PR #$PR_NUMBER targets $base_ref"
+          if [ "$base_ref" = "main" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Refuse prerelease versions
+        if: steps.base.outputs.run == 'true'
+        run: bash scripts/version/check_no_prerelease.sh
+
   bootstrap-chain:
     name: Bootstrap chain (double run)
     needs: changes
@@ -448,6 +481,7 @@ jobs:
       - shell-scripts
       - docs-scripts
       - highlight-translations
+      - no-prerelease-versions
       - bootstrap-chain
       - vendored-artefacts
       - home-assistant-integration

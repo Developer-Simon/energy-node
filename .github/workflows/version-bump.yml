@@ -30,7 +30,7 @@ on:
     # edited: a changed PR title or description changes the PR's own changelog
     # entry (see CHANGELOG_PR_* below), so it regenerates too.
     types: [opened, synchronize, reopened, edited]
-    branches: [main]
+    branches: [main, prerelease]
 
 permissions:
   contents: write
@@ -90,12 +90,20 @@ jobs:
 
       # An edit of title or description is no push, so it cannot loop; it must
       # run even when the last push was the bot's own.
+      # The release PR (head = prerelease, base = main) gets no bump and no
+      # changelog entry of its own; the dispatch step below still runs so it
+      # gets CI.
       - name: Skip when HEAD is already a bot commit
         id: guard
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           author="$(git log -1 --format='%an')"
           subject="$(git log -1 --format='%s')"
-          if [ "$EVENT_ACTION" != "edited" ] && [ "$author" = "energy-node-bot" ] && {
+          if [ "$HEAD_REF" = "prerelease" ]; then
+            echo "Release PR from prerelease - no bump, no changelog entry."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT_ACTION" != "edited" ] && [ "$author" = "energy-node-bot" ] && {
                [ "$subject" = "chore(release): bump component versions" ] ||
                [ "$subject" = "docs(changelog): update changelogs" ]; }; then
             echo "HEAD is \"$subject\" by $author - nothing to do."

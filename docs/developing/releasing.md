@@ -13,6 +13,77 @@ GitHub Release and publishes it. Apart from pushing the tag, nothing has to be
 done by hand. The [version overview](versions.md) shows which component
 versions each release contains.
 
+## Release lines
+
+The repository has two release lines. `main` carries the current release and
+its hotfixes. `prerelease` collects the changes for the next release.
+
+### Where a change goes
+
+- A hotfix goes to `main`. Open its PR with `scripts/dev/create-pr.sh`.
+- A feature goes to `prerelease`. Open its PR with
+  `PR_BASE=prerelease scripts/dev/create-pr.sh <branch>`. Merge it with
+  `scripts/dev/merge-pr.sh` as usual. The base stays `prerelease`.
+
+### Versions on prerelease
+
+A component on `prerelease` carries the next patch version plus a counter,
+for example `v0.4.6-pre.2`. The version files and manifests hold the same
+string without the `v`, such as `0.4.6-pre.2`. The bump workflow counts per
+component, so each component has its own counter.
+
+### Automatic update of prerelease
+
+After every push to `main`, the workflow `sync-prerelease.yml` merges `main`
+into `prerelease` with `scripts/version/sync_prerelease.py`. The sync also
+renumbers the pre versions. When `main` releases `v0.4.6`, a `v0.4.6-pre.2`
+on `prerelease` becomes `v0.4.7-pre.2`.
+
+If the merge conflicts in code, the run ends red. The workflow also opens or
+updates a GitHub issue with the label `prerelease-sync`. To fix it:
+
+```sh
+git switch prerelease
+python3 scripts/version/sync_prerelease.py
+```
+
+Resolve the conflicts by hand, commit and push `prerelease`.
+
+### Minor release
+
+On a clean checkout of `prerelease`, run:
+
+```sh
+PR_AI_MODEL="Sonnet 5.5" scripts/dev/prepare-minor.sh vX.Y.0 --push
+```
+
+The script strips the `-pre` suffix from every component version and sets
+`dashboard/VERSION` to `X.Y.0`. It regenerates the changelogs and opens a PR
+into `main`. The CI job refuses `-pre.` versions on PRs into `main`.
+
+Merge that PR with a merge commit, not a squash:
+
+```sh
+scripts/dev/merge-prerelease.sh <pr-number>
+```
+
+Then tag the release as described in [Publishing `vX.Y.Z`](#publishing-vxyz).
+The release workflow refuses a final tag while a component still carries a
+`-pre.` version.
+
+### Pre-tag
+
+You can tag the state of `prerelease` before the final release, for example
+`v0.11.2-pre.5`, with the dashboard version of that state. The `Release`
+workflow creates a GitHub pre-release for the tag (`--prerelease`). It
+attaches the same bundles and installer as a final release.
+
+### Known limit
+
+The dashboard's update check ignores version suffixes. A test device on a
+`v0.11.2-pre.5` bundle is not offered the final `v0.11.2`. It is only offered
+the next higher version.
+
 ## Publishing `vX.Y.Z`
 
 1. **Bump the version if needed.** The
@@ -21,7 +92,8 @@ versions each release contains.
    component a PR touches on the PR branch, so `dashboard/VERSION` is already
    current on `main`. For a release that is not
    a patch, set `MAJOR` or `MINOR` in `dashboard/VERSION` by hand on the PR
-   branch.
+   branch. For a minor release from the prerelease line, use the steps under
+   [Release lines](#minor-release) instead.
 2. **Regenerate the changelog:**
 
    ```sh
@@ -76,7 +148,8 @@ You can also run both reusable workflows by hand (`workflow_dispatch` with a
 A tag with a pre-release suffix such as `vX.Y.Z-rc1` or `vX.Y.Z-beta1` (any `-`
 after the version) is published as a pre-release
 (`gh release create --prerelease`). Everything else works as for a normal
-release.
+release. The pre-releases of the prerelease line are described in
+[Release lines](#release-lines).
 
 ## Components and their version files
 

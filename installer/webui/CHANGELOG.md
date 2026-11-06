@@ -8,7 +8,7 @@
 
 ### Chores
 
-- remove the shared services component (#209)
+- remove the shared services component (#209) (28d50a7)
 
 ## v0.3.0 (2026-11-05)
 
