@@ -81,6 +81,9 @@ type RoleState struct {
 	Freshness string   `json:"freshness"`
 	Source    string   `json:"source"`
 	Entities  []string `json:"entities"`
+	// SubstituteFrom lists the labels of the points that stood in for a
+	// counting point this snapshot, see evaluateChains.
+	SubstituteFrom []string `json:"substitute_from,omitempty"`
 }
 
 type Snapshot struct {
@@ -107,6 +110,8 @@ type Snapshot struct {
 	// for the base of every custom:<id> value.
 	Categories map[string]Category `json:"categories"`
 	Groups     []GroupState        `json:"groups"`
+	// Chains holds the state of every measurement chain, sorted by ID.
+	Chains []ChainState `json:"chains,omitempty"`
 }
 
 // UnassignedEntity is a power-unit entity Aggregate found no role for -
@@ -153,6 +158,9 @@ type ResolvedEntity struct {
 	Freshness string             `json:"freshness"`
 	Source    string             `json:"source"`
 	LastSeen  time.Time          `json:"last_seen"`
+	// SubstituteFrom is the label of the point that stood in for this
+	// counting entity, empty when the entity's own value counted.
+	SubstituteFrom string `json:"substitute_from,omitempty"`
 }
 
 func (s Snapshot) Value(role string) float64 {
