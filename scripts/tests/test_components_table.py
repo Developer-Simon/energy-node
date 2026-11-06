@@ -24,6 +24,14 @@ def _bash_components():
     return [line.split(":", 1) for line in out.splitlines() if line]
 
 
+def _bash_changelog_targets():
+    out = subprocess.run(
+        ["bash", "-c", f'source "{REPO}/scripts/version/components.sh"; printf "%s\\n" "${{CHANGELOG_TARGETS[@]}}"'],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    return {line for line in out.splitlines() if line}
+
+
 def _generator_targets():
     # usage() schreibt nach stderr und endet mit "|all]".
     proc = subprocess.run(
@@ -64,6 +72,10 @@ def test_every_table_target_exists_in_the_generator_and_vice_versa():
 
 def test_ci_flag_matches_the_workflow():
     assert {row["target"] for row in ROWS if row["ci"]} == _workflow_targets()
+
+
+def test_changelog_targets_match_the_workflow():
+    assert _bash_changelog_targets() == _workflow_targets()
 
 
 def test_version_files_match_components_sh():
