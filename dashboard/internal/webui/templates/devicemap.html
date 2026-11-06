@@ -53,7 +53,7 @@
                 <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name" x-text="row.name"></span><span class="devicemap-panel-entity-value" x-text="row.valueText"></span></div>
                 <div class="devicemap-panel-consequence" x-show="row.consequence" x-text="row.consequence"></div>
                 <div class="devicemap-panel-entity-id" x-show="row.unit !== 'switch'" x-text="row.id"></div>
-                <label class="devicemap-panel-field">{{t "devicemap.panel.role"}}
+                <label class="devicemap-panel-field" x-show="!row.chainReference">{{t "devicemap.panel.role"}}
                   <select x-on:change="setDraft(row.id, 'role', $event.target.value)" x-bind:disabled="!canEditEnergy">
                     <optgroup label="{{t "devicemap.panel.optgroup.standard"}}">
                       <option value="" x-bind:selected="!row.assignment.role">{{t "energy.roles.no_role"}}</option>
@@ -70,6 +70,7 @@
                     </template>
                   </select>
                 </label>
+                <div class="devicemap-panel-source" x-show="row.chainReference"><span x-text="$t('energy.chains.reference_hint', {chain: row.chainReference})"></span></div>
                 <template x-if="row.unit === 'switch' && row.assignment.role === 'switch' && row.channels > 1">
                   <label class="devicemap-panel-field">{{t "devicemap.panel.channel"}}
                     <select x-on:change="setDraft(row.id, 'channel', $event.target.value)" x-bind:disabled="!canEditEnergy">

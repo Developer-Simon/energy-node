@@ -129,10 +129,15 @@
   // only while it has no effective role, a draft or detected role shows it.
   // subDevices: the sub-devices of the map. A power row shows the one that
   // measures its entity as subDevice and offers canAddSub, a new one.
-  const panelRows = ({device, snapshot, saved, drafts, switchInfo, consequenceOf, hidden, subDevices}) => {
+  const panelRows = ({device, snapshot, saved, drafts, switchInfo, consequenceOf, hidden, subDevices, chains}) => {
     const rows = [];
     const others = [];
     const shown = row => !(hidden && hidden.has(row.id) && !row.assignment.role);
+    // Reference points of the measurement chains, by entity: their chain's label.
+    const references = new Map();
+    for (const chain of chains || []) {
+      for (const point of chain.points) if (!point.counting) references.set(point.entity_id, chain.label);
+    }
     const subs = new Map(((subDevices) || [])
       .filter(sub => sub && device && sub.device_id === device.id)
       .map(sub => [sub.entity_id, {id: sub.id, label: sub.label, icon: sub.icon}]));
@@ -158,7 +163,7 @@
       else if (!base.role && base.source !== 'override') source = 'none';
       const row = {id, name, unit: entity.unit_of_measurement, valueText: valueText(entity), assignment, source, dirty,
         canPin: !dirty && base.source === 'heuristic' && Boolean(base.role),
-        subDevice: subs.get(id) || null, canAddSub: isPowerUnit(entity.unit_of_measurement)};
+        subDevice: subs.get(id) || null, canAddSub: isPowerUnit(entity.unit_of_measurement), chainReference: references.get(id) || ''};
       if (shown(row)) rows.push(row);
     }
     return {rows, others};
@@ -274,6 +279,28 @@
         entry.byRole[role] = (entry.byRole[role] || 0) + value;
       } else {
         entry.soc = value;
+      }
+    }
+    // Reference points of measurement chains show their value on the device,
+    // but never a role: the roles and byRole above stay the entities' own.
+    for (const chain of (snapshot && snapshot.chains) || []) {
+      const counted = new Set(chain.points.filter(p => p.counting).map(p => p.device_id));
+      const index = chain.points.findIndex(p => p.counting);
+      const near = chain.points
+        .map((point, i) => ({point, distance: Math.abs(i - index)}))
+        .filter(({point}) => !point.counting && point.has_value && point.freshness === 'fresh')
+        .sort((a, b) => a.distance - b.distance);
+      for (const {point} of near) {
+        if (counted.has(point.device_id)) continue;
+        counted.add(point.device_id);
+        let entry = byDevice.get(point.device_id);
+        if (!entry) {
+          entry = {roles: [], heuristic: false, power: null, soc: null, byRole: {}, primaryRole: null, meta: {}};
+          byDevice.set(point.device_id, entry);
+        }
+        const meta = chain.role && roleMeta(chain.role, snapshot.categories);
+        const value = Number(point.value) || 0;
+        entry.power = (entry.power || 0) + (meta && meta.toward ? meta.toward(value) : value);
       }
     }
     for (const entry of byDevice.values()) entry.primaryRole = primaryRole(entry);

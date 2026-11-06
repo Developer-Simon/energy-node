@@ -910,7 +910,7 @@
           const status = this.switchStatus();
           const switchInfo = this.switchInfoFor(device.id);
           const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
-          const {rows} = window.DeviceMapModel.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices()});
+          const {rows} = window.DeviceMapModel.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices(), chains: this.energy && this.energy.chains});
           row = rows.find(item => item.id === sub.entity_id) || null;
         }
         return {kind: 'sub', title: sub.label || sub.id, icon: sub.icon, row, orphan, deviceId: sub.device_id, canEdit};
@@ -1245,7 +1245,7 @@
         const status = this.switchStatus();
         const switchInfo = this.switchInfoFor(device.id);
         const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
-        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices()});
+        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices(), chains: this.energy && this.energy.chains});
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
