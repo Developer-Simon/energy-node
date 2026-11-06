@@ -910,7 +910,11 @@
         title: t('energy.chains.picker_title', {chain: label}),
         items: this.chainPickerItems(),
       });
-      if (!ids || ids.length < 2) return;
+      if (!ids) return;
+      if (ids.length < 2) {
+        this.$store.toasts.push(t('energy.chains.pick_two'), 'info');
+        return;
+      }
       const before = Object.keys(this.chains);
       const saved = await this.sendChain('POST', '/api/v1/energy/chains', {label, points: ids, counting: ids[0]}, ids);
       if (!saved) return;
@@ -975,6 +979,41 @@
       if (!this.canEdit || !chain || chain.counting === entityId) return;
       const next = window.EnergyChains.setCounting(chain, entityId);
       await this.sendChain('PUT', this.chainUrl(id), this.chainBody(next), chain.points);
+    },
+
+    async setChainDirection(id, direction) {
+      const chain = this.chains[id];
+      if (!this.canEdit || !chain || (chain.direction || 'auto') === direction) return;
+      await this.sendChain('PUT', this.chainUrl(id), this.chainBody({...chain, direction}), chain.points);
+    },
+
+    // Name of a measuring point as the rows show it, for the path and the node titles.
+    chainLabelOf(entityId) {
+      const row = this.entities.find(entity => entity.id === entityId);
+      return row ? row.label : entityId;
+    },
+
+    chainPathOf(chain) {
+      return window.EnergyChains.shortPath(chain, entityId => this.chainLabelOf(entityId));
+    },
+
+    // Live value of one point, or a dash while it has none.
+    chainPointValue(chainId, entityId) {
+      const points = (this.chainStates[chainId] || {}).points || [];
+      const point = points.find(item => item.entity_id === entityId);
+      if (!point || !point.has_value) return '–';
+      return window.DeviceMapModel.formatPower(point.value);
+    },
+
+    // Loss between the points at index and index + 1, matched in either flow direction.
+    chainLossText(chainId, index) {
+      const chain = this.chains[chainId];
+      const state = this.chainStates[chainId];
+      if (!chain || !state) return '–';
+      const first = chain.points[index];
+      const second = chain.points[index + 1];
+      const segment = (state.segments || []).find(item => (item.from === first && item.to === second) || (item.from === second && item.to === first));
+      return window.EnergyChains.lossText(segment);
     },
 
     // The hint on a role row: the chain an entity is a reference of, or null.

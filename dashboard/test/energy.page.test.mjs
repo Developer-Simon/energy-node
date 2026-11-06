@@ -1202,3 +1202,40 @@ test('chainHintOf names the chain of a point, isChainReference marks the non cou
   assert.equal(component.openSection, 'chains');
   assert.equal(component.flashChain, 'm');
 });
+
+test('a chain direction change saves with PUT, one picked point gets a message', async () => {
+  const calls = [];
+  const { component, stores, window } = createEnergyPanel({ fetchImpl: chainFetch({ calls, saved: { assignments: {}, chains: {}, role_needed: [] } }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  await component.setChainDirection('m', 'fixed_up');
+  const put = chainWriteCalls(calls)[0];
+  assert.equal(put.options.method, 'PUT');
+  assert.equal(JSON.parse(put.options.body).direction, 'fixed_up');
+
+  component.openPicker = async () => ['extra_power'];
+  await component.addChain();
+  assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.pick_two'));
+});
+
+test('chain path, point value and loss read the labels and the live state', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = {
+    m: {
+      points: [
+        { entity_id: 'pv_power', has_value: true, value: 1500 },
+        { entity_id: 'socket_power', has_value: false, value: 0 },
+      ],
+      segments: [{ from: 'socket_power', to: 'pv_power', available: true, loss_w: 9, efficiency: 0.97 }],
+    },
+  };
+  assert.equal(component.chainPathOf(component.chains.m), 'Wechselrichter / PV Leistung → Wechselrichter / Steckdose');
+  assert.equal(component.chainLabelOf('pv_power'), 'Wechselrichter / PV Leistung');
+  assert.equal(component.chainPointValue('m', 'pv_power'), '1,5 kW');
+  assert.equal(component.chainPointValue('m', 'socket_power'), '–');
+  assert.equal(component.chainLossText('m', 0), '−9 W · 97 %', 'matched in either flow direction');
+  assert.equal(component.chainLossText('m', 1), '–');
+});

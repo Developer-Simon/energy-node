@@ -1402,3 +1402,46 @@ div.devicemap-view-menu-row { cursor: default; }
   .group-role-reveal, .group-role-reveal[data-open="false"] { transition: opacity .15s ease, visibility 0s; }
   .group-role-chip:active { transform: none; }
 }
+
+/* Messketten im Energie-Tab: Kette, Knoten, Verlust und Einfuegen (Entwurf messketten-entwurf.html). */
+.energy-chain{display:flex;align-items:stretch;gap:0;width:100%}
+.energy-chain-step{display:contents}
+.energy-chain-node{flex:1 1 0;min-width:0;display:grid;align-content:start;gap:.1rem;padding:.65rem .85rem;border:1px solid var(--border-soft);border-radius:12px;background:var(--sunken);text-align:left;font:inherit;color:var(--text)}
+.energy-chain-node.is-main{border-color:var(--accent-line);box-shadow:inset 0 0 0 1px var(--accent-line);background:var(--accent-bg)}
+.energy-chain-top{display:flex;justify-content:space-between;gap:.4rem;align-items:center}
+.energy-chain-title{font-weight:600;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.energy-chain-val{font-size:1.25rem;color:var(--text-strong);font-variant-numeric:tabular-nums;margin-top:.15rem}
+.energy-chain-badge{font-size:.68rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+.energy-chain-ctl{display:flex;justify-content:space-between;align-items:center;margin-top:.35rem;padding-top:.35rem;border-top:1px solid var(--border-soft)}
+.energy-chain-radio{display:inline-flex;gap:.35rem;align-items:center;font-size:.8rem;color:var(--text-muted)}
+.energy-chain-x{display:grid;place-items:center;width:1.6rem;height:1.6rem;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text-muted)}
+.energy-chain-x svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.energy-chain-link{flex:0 0 8.5rem;position:relative;display:grid;align-content:center;justify-items:center;padding:0 .3rem}
+.energy-chain-line{position:relative;width:100%;height:2px;background:var(--flow-battery);margin:.35rem 0}
+.energy-chain-line::after{content:"";position:absolute;right:-1px;top:-4px;border:5px solid transparent;border-left:7px solid var(--flow-battery);border-right:0}
+.energy-chain-loss{font-size:.78rem;color:var(--warn);font-variant-numeric:tabular-nums;white-space:nowrap}
+.energy-chain-insert{width:1.5rem;height:1.5rem;padding:0;border-radius:50%;border:1px dashed var(--border);background:var(--panel);color:var(--text-muted);font:inherit;line-height:1}
+.energy-chain-add{flex:0 0 9rem;display:flex;align-items:center;justify-content:center;gap:.4rem;border-style:dashed;background:transparent;color:var(--accent);cursor:pointer}
+.energy-chain-add svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.energy-chain-card{gap:.9rem}
+.energy-chain-flowhint{font-size:.8rem;color:var(--text-muted);white-space:nowrap}
+.energy-chain-grid{grid-template-columns:1fr}
+.energy-chain-needed-list{margin:.4rem 0;padding-left:1.1rem;display:grid;gap:.3rem}
+.energy-role-chain-hint{justify-self:start;padding:0;border:0;background:none;font:inherit;font-size:.8rem;color:var(--text-muted);text-align:left;cursor:pointer}
+.energy-chain-summary{display:none}
+@media (max-width: 720px) {
+  .energy-chain{flex-direction:column}
+  .energy-chain .energy-chain-node{flex:none;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .energy-chain .energy-chain-top{grid-column:1;justify-content:flex-start}
+  .energy-chain .energy-chain-val{grid-column:2;grid-row:1/3;font-size:1.05rem;margin:0}
+  .energy-chain .energy-chain-ctl{grid-column:1/3}
+  .energy-chain .energy-chain-link{flex:none;grid-auto-flow:column;justify-content:start;align-items:center;gap:.6rem;padding:.15rem 0 .15rem 1.4rem;min-height:2.2rem}
+  .energy-chain .energy-chain-line{width:2px;height:1.8rem;margin:0}
+  .energy-chain .energy-chain-line::after{right:-4px;top:auto;bottom:-1px;border:5px solid transparent;border-top:7px solid var(--flow-battery);border-bottom:0}
+  .energy-chain-summary{display:flex;width:100%;gap:.6rem;align-items:center;padding:.6rem .7rem;border:0;background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}
+  .energy-chain-summary-text{display:grid;flex:1;min-width:0}
+  .energy-chain-summary small{color:var(--text-muted);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .energy-chain-chevron{width:16px;height:16px;fill:none;stroke:var(--text-muted);stroke-width:2}
+  .energy-chain-summary[aria-expanded="true"] .energy-chain-chevron{transform:rotate(90deg)}
+  .energy-chain-body:not(.is-open){display:none}
+}
