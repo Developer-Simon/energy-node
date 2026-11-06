@@ -296,8 +296,7 @@
                                             <span class="auto-axis-test" x-show="row.event.test">{{t "automations.history.test_badge"}}</span>
                                             <template x-for="(part, index) in historyEventParts(row.event)" x-bind:key="index">
                                               <span class="auto-axis-detail" x-bind:class="part.kind">
-                                                <strong x-show="part.title" x-text="part.title"></strong>
-                                                <span x-text="(part.title && part.text ? ', ' : '') + part.text"></span>
+                                                <strong x-show="part.title" x-text="part.title"></strong><span x-text="(part.title && part.text ? ', ' : '') + part.text"></span>
                                               </span>
                                             </template>
                                           </button>

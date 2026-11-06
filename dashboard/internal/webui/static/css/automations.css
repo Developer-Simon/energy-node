@@ -91,7 +91,7 @@
 .auto-fires-toggle:active { transform: scale(.97); }
 .auto-fires-toggle:focus-visible, .auto-fires-dot:focus-visible, .auto-axis-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Beide Beschriftungen liegen uebereinander, der Knopf springt beim Wechsel nicht. */
-.auto-fires-toggle-label { display: inline-grid; justify-items: end; }
+.auto-fires-toggle-label { display: inline-grid; justify-items: end; white-space: nowrap; }
 .auto-fires-toggle-label > span { grid-area: 1 / 1; transition: opacity 120ms ease, visibility 120ms; }
 .auto-fires-toggle[aria-expanded="true"] .is-show, .auto-fires-toggle[aria-expanded="false"] .is-hide { opacity: 0; visibility: hidden; }
 .auto-fires-count { min-width: 1.35rem; padding: 0 5px; border-radius: 999px; background: var(--sunken); color: var(--text-muted); font-size: .72rem; line-height: 1.35rem; text-align: center; font-variant-numeric: tabular-nums; }
