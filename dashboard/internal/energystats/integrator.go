@@ -58,23 +58,17 @@ func (g *Integrator) Add(s Sample) []HourRecord {
 		if limit := g.last.At.Add(MaxHold); end.After(limit) {
 			end = limit
 		}
-		for from := g.last.At; from.Before(end); {
-			hour := from.Truncate(time.Hour)
-			until := hour.Add(time.Hour)
-			if until.After(end) {
-				until = end
-			}
+		eachHourPart(g.last.At, end, func(hour time.Time, seconds float64) {
 			done = append(done, g.switchTo(hour)...)
-			seconds := until.Sub(from).Seconds()
 			for role, watts := range g.last.Power {
 				g.kwh[role] += watts * seconds / 3.6e6
 			}
-			g.covered += until.Sub(from)
+			covered := secondsToDuration(seconds)
+			g.covered += covered
 			if g.last.Substituted {
-				g.substituted += until.Sub(from)
+				g.substituted += covered
 			}
-			from = until
-		}
+		})
 	}
 	done = append(done, g.switchTo(s.At.Truncate(time.Hour))...)
 	g.last, g.hasLast = s, true
@@ -123,4 +117,24 @@ func (g *Integrator) take() []HourRecord {
 	g.covered = 0
 	g.substituted = 0
 	return []HourRecord{record}
+}
+
+// eachHourPart zerlegt from..end in Stundenabschnitte und ruft fn je
+// Abschnitt mit der Stunde und der Dauer in Sekunden auf.
+func eachHourPart(from, end time.Time, fn func(hour time.Time, seconds float64)) {
+	for from.Before(end) {
+		hour := from.Truncate(time.Hour)
+		until := hour.Add(time.Hour)
+		if until.After(end) {
+			until = end
+		}
+		fn(hour, until.Sub(from).Seconds())
+		from = until
+	}
+}
+
+// secondsToDuration rundet auf die Nanosekunde, damit die Abschnitte ohne
+// Rundungsdrift aufsummiert werden.
+func secondsToDuration(seconds float64) time.Duration {
+	return time.Duration(math.Round(seconds * float64(time.Second)))
 }
