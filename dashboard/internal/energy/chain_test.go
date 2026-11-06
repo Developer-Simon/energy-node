@@ -319,3 +319,224 @@ func TestSnapshotWithoutChainsOmitsField(t *testing.T) {
 		t.Fatalf("snapshot with chains omits the field: %s", raw)
 	}
 }
+
+// chainLine is one chain "line" over the given points.
+func chainLine(points []string, counting string) Model {
+	return Model{Chains: map[string]Chain{"line": {Label: "Linie", Points: points, Counting: counting}}}
+}
+
+// roleStateFor returns the role state of the snapshot, the test fails when
+// the role is missing.
+func roleStateFor(t *testing.T, snapshot Snapshot, role Role) RoleState {
+	t.Helper()
+	for _, state := range snapshot.Roles {
+		if state.Role == role {
+			return state
+		}
+	}
+	t.Fatalf("role %s missing in %+v", role, snapshot.Roles)
+	return RoleState{}
+}
+
+func TestChainReferenceIsNotCounted(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	ac := liveEntity("ac", "290", at)
+	ac.Name, ac.ObjectID = "battery ac", "battery_ac"
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		liveEntity("plug", "300", at), ac, liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 300 {
+		t.Fatalf("battery = %v, want 300 W from the counting point only", got)
+	}
+	if !reflect.DeepEqual(snapshot.Sources[RoleBattery], []string{"plug"}) {
+		t.Fatalf("sources = %v, want only plug", snapshot.Sources[RoleBattery])
+	}
+	for _, entity := range snapshot.Entities {
+		if entity.EntityID == "ac" {
+			t.Fatalf("reference point ac appears in entities: %+v", entity)
+		}
+	}
+}
+
+func TestChainSubstituteUsesNearestFreshPoint(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at)
+	plug.Available, plug.HasAvailability = false, true
+	devices, resolver := chainWorld(chainLine([]string{"ac", "plug", "dc"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		plug, liveEntity("ac", "200", at), liveEntity("dc", "100", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 200 {
+		t.Fatalf("battery = %v, want 200 W from ac (tie goes to the earlier point)", got)
+	}
+	state := roleStateFor(t, snapshot, RoleBattery)
+	if state.Quality != QualitySubstitute || state.Freshness != "fresh" {
+		t.Fatalf("quality/freshness = %s/%s, want substitute/fresh", state.Quality, state.Freshness)
+	}
+	want := []string{entityLabel(devices[1], devices[1].Entities[0])}
+	if !reflect.DeepEqual(state.SubstituteFrom, want) {
+		t.Fatalf("substitute_from = %v, want %v", state.SubstituteFrom, want)
+	}
+}
+
+func TestChainSubstituteAppliesScaleAndInvertOfThePoint(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at)
+	plug.Available, plug.HasAvailability = false, true
+	ac := liveEntity("ac", "-0.2", at)
+	ac.UnitOfMeasurement = "kW"
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{
+			"plug": {Role: RoleBattery, Scale: 1},
+			"ac":   {Role: RoleBattery, Scale: 1, Invert: true},
+		},
+		plug, ac, liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 200 {
+		t.Fatalf("battery = %v, want 200 W (-0.2 kW inverted)", got)
+	}
+}
+
+func TestChainNoFreshPointBehavesLikeToday(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at)
+	plug.Stale = true
+	ac := liveEntity("ac", "290", at)
+	ac.Stale = true
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		plug, ac, liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 300 {
+		t.Fatalf("battery = %v, want the counting value 300 W", got)
+	}
+	state := roleStateFor(t, snapshot, RoleBattery)
+	if state.Quality != "stale" || len(state.SubstituteFrom) != 0 {
+		t.Fatalf("state = %+v, want stale without substitute", state)
+	}
+	if len(snapshot.Chains) != 1 || !snapshot.Chains[0].NoCurrentValues {
+		t.Fatalf("chains = %+v, want no current values", snapshot.Chains)
+	}
+}
+
+func TestChainCountingWithoutValueUsesSubstitute(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "", at)
+	plug.HasValue = false
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		plug, liveEntity("ac", "200", at), liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 200 {
+		t.Fatalf("battery = %v, want 200 W from ac", got)
+	}
+}
+
+func TestChainOldCountingPointFallsBackAfterAge(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at.Add(-11*time.Minute))
+	ac := liveEntity("ac", "200", at.Add(-time.Minute))
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		plug, ac, liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 200 {
+		t.Fatalf("battery = %v, want 200 W from ac after the counting point aged out", got)
+	}
+	if state := roleStateFor(t, snapshot, RoleBattery); state.Quality != QualitySubstitute {
+		t.Fatalf("quality = %s, want substitute", state.Quality)
+	}
+}
+
+func TestChainAllPointsOldKeepsCountingValue(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at.Add(-11*time.Minute))
+	ac := liveEntity("ac", "200", at.Add(-11*time.Minute))
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		plug, ac, liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 300 {
+		t.Fatalf("battery = %v, want the counting value 300 W", got)
+	}
+	state := roleStateFor(t, snapshot, RoleBattery)
+	if state.Quality != "good" || state.Freshness != "fresh" || len(state.SubstituteFrom) != 0 {
+		t.Fatalf("state = %+v, want good, fresh, no substitute", state)
+	}
+}
+
+func TestChainSubstituteOneWayRoleClampsNegative(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at)
+	plug.Available, plug.HasAvailability = false, true
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBatteryCharge, Scale: 1}},
+		plug, liveEntity("ac", "-200", at), liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBatteryCharge]; got != 0 {
+		t.Fatalf("battery_charge = %v, want 0 for a negative substitute", got)
+	}
+	if got := snapshot.BatteryChargePower(); got != 0 {
+		t.Fatalf("BatteryChargePower = %v, want 0", got)
+	}
+}
+
+func TestChainSubstituteBothWayRoleKeepsSign(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at)
+	plug.Available, plug.HasAvailability = false, true
+	devices, resolver := chainWorld(chainLine([]string{"plug", "ac"}, "plug"),
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		plug, liveEntity("ac", "-200", at), liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != -200 {
+		t.Fatalf("battery = %v, want -200 W kept", got)
+	}
+	if got := snapshot.BatteryDischargePower(); got != 200 {
+		t.Fatalf("BatteryDischargePower = %v, want 200", got)
+	}
+}
+
+func TestChainSubstituteBooksOnCountingDeviceAndGroup(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at)
+	plug.Available, plug.HasAvailability = false, true
+	model := chainLine([]string{"plug", "ac"}, "plug")
+	model.Categories = map[string]Category{"haus": {Label: "Haus", Base: CategoryConsumer}}
+	model.Groups = map[string]Group{"haus": {Label: "Haus", Members: GroupMembers{Devices: []string{"device-a"}}, Role: CustomRole("haus")}}
+	devices, resolver := chainWorld(model,
+		map[string]Assignment{"plug": {Role: RoleWallbox, Scale: 1}},
+		plug, liveEntity("ac", "200", at), liveEntity("dc", "0", at))
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[CustomRole("haus")]; got != 200 {
+		t.Fatalf("custom:haus = %v, want 200 W", got)
+	}
+	found := false
+	for _, entity := range snapshot.Entities {
+		if entity.EntityID == "plug" {
+			found = true
+			if entity.DeviceID != "device-a" {
+				t.Fatalf("device = %s, want device-a", entity.DeviceID)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("counting entity plug missing from entities")
+	}
+	for _, group := range snapshot.Groups {
+		if group.ID == "haus" && (!group.HasValue || group.Value != 200) {
+			t.Fatalf("group haus = %+v, want value 200", group)
+		}
+	}
+}
