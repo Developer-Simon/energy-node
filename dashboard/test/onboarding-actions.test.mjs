@@ -517,6 +517,35 @@ test('open-rule expands the first rule without the editor and revert collapses i
   assert.deepEqual(page.started, []);
 });
 
+test('history-rule prefers a rule with entries and prepares its list', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'a');
+  ruleItem(document, 'b');
+  const li = ruleItem(document, 'c');
+  const page = rulesPage(document, [windowRule('a'), { ...windowRule('b'), history_enabled: true }, { ...windowRule('c'), history_enabled: true }]);
+  page.liveHistory = { c: [{ at: 1 }] };
+  page.historyRendered = {};
+  const run = runOf(['@history-rule']);
+  await a.apply(run, { alive: () => true, show: async () => {}, waitFor });
+  assert.equal(page.expanded.c, true);
+  assert.equal(page.expanded.a, undefined);
+  assert.equal(page.historyRendered.c, true);
+  assert.equal(run.scope, li);
+});
+
+test('history-rule falls back to a recording rule and then to the example rule', async () => {
+  const { document, a } = load();
+  document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';
+  ruleItem(document, 'b');
+  const recording = rulesPage(document, [windowRule('a'), { ...windowRule('b'), history_enabled: true }]);
+  await a.apply(runOf(['@history-rule']), { alive: () => true, show: async () => {}, waitFor });
+  assert.equal(recording.expanded.b, true);
+  const none = rulesPage(document, [windowRule('a')]);
+  await a.apply(runOf(['@history-rule']), { alive: () => true, show: async () => {}, waitFor: async () => null });
+  assert.equal(none.document.rules.length, 1, 'a failed example rule is taken back');
+});
+
 test('open-rule keeps a rule expanded that was open before', async () => {
   const { document, a } = load();
   document.body.innerHTML = '<div id="automations-panel"><ul id="rules"></ul></div>';

@@ -1,0 +1,29 @@
+{
+  "de": {
+    "*": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen."
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "automations",
+          "open": [
+            "automations-rules",
+            "@history-rule",
+            "rule-history-toggle"
+          ],
+          "panel": "automations-panel",
+          "target": "rule-fires",
+          "text": {
+            "de": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen.",
+            "en": "The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well."
+          },
+          "title": {
+            "de": "Detaillierter Verlauf",
+            "en": "Detailed history"
+          }
+        }
+      ]
+    }
+  }
+}
