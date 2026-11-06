@@ -160,7 +160,7 @@
       const x = (100 - (agoMin[index] / span) * 92 - 4) / 100;
       const showLabel = Math.abs(x - shownX) > 0.12;
       if (showLabel) shownX = x;
-      return { at: event.at, x, label: clockLabel(event.at), showLabel, tone: resultInfo(event.result).tone };
+      return { at: event.at, x, label: clockLabel(event.at), showLabel, tone: resultInfo(event.result).tone, resultLabel: resultInfo(event.result).label };
     });
     return { marks, sinceLabel: clockLabel(newest[newest.length - 1].at), empty: false };
   }
