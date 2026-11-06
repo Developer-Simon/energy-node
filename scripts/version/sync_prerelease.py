@@ -217,6 +217,8 @@ def sync(root, main_ref, push):
     components, changelog_targets = read_arrays(root)
     targets = plan_targets(root, components, main_ref)
 
+    before = git(root, "rev-parse", "HEAD").stdout.strip()
+    main_sha = git(root, "rev-parse", main_ref).stdout.strip()
     merge = git(root, "merge", "--no-commit", "--no-ff", main_ref, check=False)
     conflicts = conflicted_paths(root)
     if merge.returncode != 0 and not conflicts:
@@ -234,15 +236,26 @@ def sync(root, main_ref, push):
 
         for version_file, version in targets.items():
             write_version(root, version_file, version)
+        git(root, "add", "-u")
+        git(root, "commit", "-q", "-m", MERGE_MESSAGE)
+
+        # The open changelog heading comes from the committed versions, so the generator
+        # runs after the merge commit and its output is amended into that same commit.
         for target in changelog_targets:
             subprocess.run([str(HERE.parent / "generate_changelog.sh"), target], cwd=root, check=True,
                            capture_output=True, text=True)
-
         git(root, "add", "-u")
-        git(root, "commit", "-q", "-m", MERGE_MESSAGE)
+        if git(root, "diff", "--cached", "--quiet", check=False).returncode != 0:
+            git(root, "commit", "-q", "--amend", "--no-edit")
     except Exception as exc:
-        abort_merge(root)
-        print(f"error: prerelease sync failed, merge aborted: {describe(exc)}", file=sys.stderr)
+        if is_own_merge(root, before, main_sha):
+            # Our own unpushed merge commit: go back to the recorded HEAD.
+            git(root, "reset", "--hard", before)
+            outcome = "merge commit reset"
+        else:
+            abort_merge(root)
+            outcome = "merge aborted"
+        print(f"error: prerelease sync failed, {outcome}: {describe(exc)}", file=sys.stderr)
         return 1
 
     print(f"merged {main_ref} into {PRE_BRANCH}")
@@ -252,6 +265,12 @@ def sync(root, main_ref, push):
             print(f"error: push failed, commit kept: {pushed.stderr.strip()}", file=sys.stderr)
             return 1
     return 0
+
+
+def is_own_merge(root, before, main_sha):
+    """True when HEAD is the merge commit this run created (parents: our old HEAD, then main)."""
+    parents = git(root, "rev-list", "--parents", "-n1", "HEAD").stdout.split()[1:]
+    return parents == [before, main_sha]
 
 
 def abort_merge(root):

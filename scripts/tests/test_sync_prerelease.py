@@ -92,10 +92,10 @@ def _setup(tmp_path, ours=None, theirs=None):
     repo = _base_repo(tmp_path)
     _git(repo, "checkout", "-q", "-b", "prerelease")
     if ours:
-        _commit(repo, ours, "prerelease change")
+        _commit(repo, ours, "feat(dashboard): prerelease change")
     _git(repo, "checkout", "-q", "main")
     if theirs:
-        _commit(repo, theirs, "main change")
+        _commit(repo, theirs, "fix(dashboard): main change")
     _git(repo, "checkout", "-q", "prerelease")
     return repo
 
@@ -126,6 +126,10 @@ def _parents(repo):
 
 def _read(repo, rel):
     return (repo / rel).read_text(encoding="utf-8")
+
+
+def _first_heading(text):
+    return next(line for line in text.splitlines() if line.startswith("## "))
 
 
 def _status(repo):
@@ -173,10 +177,13 @@ def test_renumbers_collision(tmp_path):
         ours={
             "dashboard/VERSION": "v0.4.6-pre.2\n",
             "dashboard/CHANGELOG.md": "# Changelog\n\n## v0.4.6-pre.2\n\n- pre\n",
+            "dashboard/feature.txt": "pre\n",
+            "services/shelly/manifest.json": _manifest("0.4.6-pre.2"),
         },
         theirs={
             "dashboard/VERSION": "v0.4.6\n",
             "dashboard/CHANGELOG.md": "# Changelog\n\n## v0.4.6\n\n- main\n",
+            "services/shelly/manifest.json": _manifest("0.4.6"),
         },
     )
     main_sha = _git(repo, "rev-parse", "main")
@@ -188,6 +195,11 @@ def test_renumbers_collision(tmp_path):
     assert "<<<<<<<" not in changelog
     assert "- pre" in changelog
     assert "- main" not in changelog
+    # The open (first) heading carries the renumbered version. The hand-written
+    # "## v0.4.6-pre.2" block has no commit refs, so the generator keeps it below.
+    assert _first_heading(changelog).startswith("## v0.4.7-pre.2")
+    assert json.loads(_read(repo, "services/shelly/manifest.json"))["version"] == "0.4.7-pre.2"
+    assert _first_heading(_read(repo, "services/shelly/CHANGELOG.md")).startswith("## v0.4.7-pre.2")
     assert main_sha in _parents(repo)
     assert _status(repo) == ""
 
@@ -335,4 +347,18 @@ def test_unreadable_manifest_aborts_merge(tmp_path):
     proc = _run(repo)
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "merge aborted" in proc.stderr
+    _assert_untouched(repo, head_before)
+
+
+def test_generator_failure_after_commit_resets_own_merge(tmp_path):
+    # The prerelease side ships a broken generator, so it only fails after the merge commit exists.
+    repo = _setup(
+        tmp_path,
+        ours={"scripts/generate_changelog.sh": "#!/usr/bin/env bash\necho generator broke >&2\nexit 1\n"},
+        theirs={"dashboard/other.txt": "main\n"},
+    )
+    head_before = _git(repo, "rev-parse", "HEAD")
+    proc = _run(repo)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "merge commit reset" in proc.stderr
     _assert_untouched(repo, head_before)
