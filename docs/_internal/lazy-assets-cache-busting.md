@@ -69,7 +69,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `46` |
+| `css/base.css` | `47` |
 | `css/onboarding.css` | `4` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
@@ -88,7 +88,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/compact-card-values.js` | `1` |
 | `js/device-structure.js` | `1` (new, device tiles) |
 | `js/energy-presentation.js` | `2` |
-| `js/energy-flow.js` | `3` |
+| `js/energy-flow.js` | `4` |
 | `js/history-rollup.js` | `3` |
 | `js/history-store.js` | `5` |
 | `js/history-coverage.js` | `4` |
@@ -114,8 +114,9 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/battery-card-core.js` | `4` |
 | `js/battery-status.js` | `2` |
 | `js/energy-day.js` | `3` |
-| `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js` | `2` |
-| `js/energy-status.js` | `1` |
+| `js/energy-band.js`, `js/energy-ring.js`, `js/energy-schema.js` | `2` |
+| `js/energy-board.js` | `3` |
+| `js/energy-status.js` | `2` |
 | `js/energy-stats-model.js` | `4` |
 | `js/energy-stats-card.js` | `4` |
 | `js/history-chart.js` | `5` |
@@ -140,14 +141,14 @@ on the `device-modal` template in
 
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `5`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | `js/servicelogs.panel.js` `2` | `css/settings-controls.css` `20`, `css/diagnostics.css` `4` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `48` |
-| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `2`, `js/energy.page.js` `13` | `css/manager.css` `48` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `9`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `48` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `11`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4`, `js/onboarding-checklist.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `48`, `css/settings-controls.css` `20` |
-| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `5`, `js/automations-scenario.js` `3`, `js/automations-chart.js` `4`, `js/automations-devices.js` `1`, `js/device-picker.js` `2`, `js/automation-wizard.js` `1` (new), `js/automation-templates.js` `1` (new), `js/automations.page.js` `23` | `css/manager.css` `48`, `css/automations.css` `15` |
-| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `6` | `css/history.css` `7`, `css/stats.css` `4` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `49` |
+| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `15`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `1` (new), `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `2`, `js/energy.page.js` `14` | `css/manager.css` `49` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `15`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `1` (new), `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `9`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `30` | `css/manager.css` `49` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `11`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4`, `js/onboarding-checklist.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `49`, `css/settings-controls.css` `20` |
+| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `5`, `js/automations-scenario.js` `3`, `js/automations-chart.js` `4`, `js/automations-devices.js` `1`, `js/device-picker.js` `2`, `js/automation-wizard.js` `1` (new), `js/automation-templates.js` `1` (new), `js/automations.page.js` `23` | `css/manager.css` `49`, `css/automations.css` `15` |
+| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `5`, `js/energy-stats-model.js` `5`, `js/stats.page.js` `6` | `css/history.css` `7`, `css/stats.css` `4` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -267,6 +268,7 @@ was not brought into this fork, so the mapping is fixed here and not
 recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
+| v0.11.5 | `js/energy-chains.js` (new, energy, device map) · `js/energy.page.js` (energy panel, measurement chains section) · `js/devicemap-model.js` (energy, device map, reference points as display values) · `js/devicemap.page.js` (device map, chain form in the energy connection card) · `js/energy-model.js` (energy cards, history panel, stats panel, substitute value helpers) · `js/energy-flow.js` (energy cards, substitute marker) · `js/energy-board.js` (energy cards, substitute row state) · `js/energy-status.js` (energy cards, data quality tile) · `js/energy-stats-model.js` (stats panel, energy cards, substitute hours in the coverage text) · `css/base.css` (substitute marker in the flow graphic) · `css/manager.css` (5 panels, measurement chain cards) | `1` (new) · `14` · `15` · `30` · `5` · `4` · `3` · `2` · `5` · `47` · `49` | 2026-11-06 |
 | v0.11.4 | `css/diagnostics.css` (diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide) · `js/dashboard.js` (`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn, device cards glide when they change place) · `js/device-modal.js` (`x-roll` moved out) | `4` · `44` · `4` | 2026-11-06 |
 | v0.11.3 | `js/automations-chart.js` (automations panel, history entries grouped by day) · `js/automations-view.js` (automations panel, history text split for the axis) · `js/automations.page.js` (automations panel, rule history opens from the strip as a vertical axis) · `css/automations.css` (automations panel, rule history axis) · `js/onboarding-actions.js` (tour action that opens a rule with history) | `4` · `9` · `23` · `15` · `3` | 2026-11-06 |
 | v0.11.1 | `js/history-exchange.js` (history panel and history tile, the 1h resolution no longer requests 5m and 1m values from other devices) | `10` | 2026-11-05 |
@@ -336,7 +338,7 @@ recomputable.
 | v0.8.5 | `js/history-exchange.js` · `js/settings.page.js` | `3` · `13` | 2026-10-04 |
 | v0.8.4 | `js/versions.page.js` | `2` | 2026-10-04 |
 | v0.8.3 | `js/dashboard.js` | `23` | 2026-10-01 |
-| v0.8.2 | `js/energy-flow.js` | `3` | 2026-10-01 |
+| v0.8.2 | `js/energy-flow.js` | `4` | 2026-10-01 |
 | v0.8.0 | `js/config.page.js` · `js/history.js` | `7` · `13` | 2026-09-28 |
 | v0.7.23 | `js/versions.page.js` (new) · `js/settings.page.js` · `css/settings-controls.css` | `1` · `12` · `8` | 2026-09-28 |
 | v0.7.22 | `js/dashboard.js` · `js/mqtt.page.js` | `22` · `7` | 2026-09-28 |
