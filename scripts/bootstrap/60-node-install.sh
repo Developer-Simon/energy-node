@@ -107,9 +107,8 @@ devices="${EN_ROOT}${EN_TARGET_BASE}/devices"
 # startet.
 mkdir -p "${target}" "${target}/data" "${devices}"
 install -m 0755 "${dash}/${BINARY_NAME}" "${target}/${BINARY_NAME}"
-# Frueher lag hier eine Kopie von services/VERSION fuer die Services-Version
-# in den Einstellungen. Die Versionen stehen jetzt im Installer-Manifest,
-# die alte Datei wird entfernt.
+# Frueher lag hier eine Kopie der Services-Version fuer die Einstellungen.
+# Die Versionen stehen jetzt im Installer-Manifest, die alte Datei wird entfernt.
 rm -f "${devices}/VERSION"
 
 # --- systemd, Helfer, Sudoers --------------------------------------------

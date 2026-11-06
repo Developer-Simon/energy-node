@@ -211,7 +211,7 @@ GitHub only starts a workflow that the default branch knows.
    (**bare** semver, no leading `v`) has its patch bumped on the PR branch by
    the `Version bump` workflow when the PR touches `integrations/homeassistant/`
    (`scripts/version/bump-patch.sh`, same `COMPONENTS` mechanism as
-   `dashboard/VERSION`/`services/VERSION` — see `scripts/version/components.sh`); major/minor stay
+   `dashboard/VERSION` — see `scripts/version/components.sh`); major/minor stay
    hand-edited. `CHANGELOG.md` (in `integrations/homeassistant/CHANGELOG.md`)
    is generated the same way as the other components, grouped by major.minor into
    `## vX.Y.Z (date)` sections. **`publish_mirror.sh --component battery_soc --release` runs

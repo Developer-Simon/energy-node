@@ -356,7 +356,6 @@ head = {
     "components": {
         "bootstrap": os.environ["BOOTSTRAP_VERSION"],
         "dashboard": version_of("dashboard/VERSION"),
-        "services": version_of("services/VERSION"),
         "energy_node_common": version_of("libs/energy_node_common/VERSION"),
         "battery_soc_core": version_of("libs/battery_soc_core/VERSION"),
     },

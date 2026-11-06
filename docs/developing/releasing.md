@@ -18,8 +18,8 @@ versions each release contains.
 1. **Bump the version if needed.** The
    [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
    workflow (`scripts/version/bump-patch.sh`) raises the patch level of every
-   component a PR touches on the PR branch, so `dashboard/VERSION` and
-   `services/VERSION` are already current on `main`. For a release that is not
+   component a PR touches on the PR branch, so `dashboard/VERSION` is already
+   current on `main`. For a release that is not
    a patch, set `MAJOR` or `MINOR` in `dashboard/VERSION` by hand on the PR
    branch.
 2. **Regenerate the changelog:**
@@ -88,7 +88,6 @@ The changelog targets are the `<target>` arguments of
 | Component | Version file | Changelog | Target |
 |---|---|---|---|
 | Dashboard | `dashboard/VERSION` | `dashboard/CHANGELOG.md` | `dashboard` |
-| Services (shared) | `services/VERSION` | `services/CHANGELOG.md` | `services` |
 | APsystems EZ1 | `services/apsystems_ez1/manifest.json` (`version`) | `services/apsystems_ez1/CHANGELOG.md` | `service:apsystems_ez1` |
 | Automation | `services/automation/manifest.json` (`version`) | `services/automation/CHANGELOG.md` | `service:automation` |
 | Battery SoC | `services/battery_soc/manifest.json` (`version`) | `services/battery_soc/CHANGELOG.md` | `service:battery_soc` |
@@ -128,12 +127,7 @@ with the component version from that release. A page whose last change is not
 in any release yet shows the version of that commit and is flagged as
 unreleased.
 
-Versions per service started at v0.4.0, and `services/VERSION` was moved to
-`v0.4.0` at the same time so that no version goes backwards. For older commits
-the changelog generator falls back to `services/VERSION`.
-
-Work inside one service bumps only that service. Work directly under
-`services/` (shared config, shared tests) bumps only `services/VERSION`.
+Work inside one service bumps only that service.
 
 ### `changelog.json`
 
