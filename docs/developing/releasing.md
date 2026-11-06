@@ -505,6 +505,10 @@ all other jobs passed:
 3. Without a reaction the job fails. To continue, react and re-run the failed job
    from the run linked in the comment. A reaction alone starts nothing.
 
+The commit status CI is a required check of the `main` branch protection, also for
+admins. A PR merges only after it turned green. That holds for every PR, because
+CI always reports to this status. A PR from a fork gets no CI run and cannot merge.
+
 Adding a tour to the description instead starts CI again and cancels the waiting
 run. An agent never reacts on this comment, the reaction is the user's decision.
 The exemption stays in the PR comment and does not reach the repository. That is

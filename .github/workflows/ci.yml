@@ -455,9 +455,10 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: bash scripts/tests/bootstrap_container.sh
 
-  # Single required status check. Always runs; passes only when every job above
-  # either succeeded or was legitimately skipped by the path filter. Point the
-  # `main` branch-protection rule at this job instead of the individual ones.
+  # Always runs; passes only when every job above either succeeded or was
+  # legitimately skipped by the path filter. Its commit status CI is the single
+  # required status check of the `main` branch protection, so a missing tour
+  # without an exemption blocks the merge.
   ci-ok:
     name: CI ok
     if: always()
