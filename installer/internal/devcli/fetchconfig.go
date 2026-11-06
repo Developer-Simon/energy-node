@@ -17,7 +17,7 @@ import (
 type FetchConfigArgs struct {
 	Client            *transport.Client
 	RemoteConfigPath  string                            // e.g. /etc/energy-node/config.json
-	LocalTemplatePath string                            // e.g. services/energy-node.config.json
+	LocalTemplatePath string                            // e.g. dashboard/internal/appconfig/energy-node.config.json
 	Confirm           func(prompt string) (bool, error) // nil uses a real terminal prompt
 	Stdout            io.Writer
 

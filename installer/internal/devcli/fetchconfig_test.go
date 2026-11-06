@@ -134,6 +134,10 @@ func TestRunFetchConfigReportsAMissingRemoteFile(t *testing.T) {
 // kinds of JSON a real service directory holds.
 func writeServiceFixture(t *testing.T, repo string) {
 	t.Helper()
+	// The template directory exists in a real checkout; the fetch writes into it.
+	if err := os.MkdirAll(filepath.Join(repo, "dashboard", "internal", "appconfig"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
 	files := map[string]string{
 		"services/shelly/manifest.json":              `{}`,
 		"services/shelly/config.schema.json":         `{}`,
@@ -173,7 +177,7 @@ func TestRunFetchConfigDevicesPullsOnlyOperatorFiles(t *testing.T) {
 	var out bytes.Buffer
 	err := devcli.RunFetchConfig(context.Background(), devcli.FetchConfigArgs{
 		Client: client, RemoteConfigPath: remoteConfig,
-		LocalTemplatePath: filepath.Join(repo, "services", "energy-node.config.json"),
+		LocalTemplatePath: filepath.Join(repo, "dashboard", "internal", "appconfig", "energy-node.config.json"),
 		Confirm:           func(p string) (bool, error) { prompts = append(prompts, p); return true, nil },
 		Stdout:            &out,
 		Devices:           true, RepoRoot: repo, RemoteDevicesDir: devices,
@@ -214,7 +218,7 @@ func TestRunFetchConfigDevicesDeclinedLeavesTheCheckoutUntouched(t *testing.T) {
 
 	err := devcli.RunFetchConfig(context.Background(), devcli.FetchConfigArgs{
 		Client: client, RemoteConfigPath: remoteConfig,
-		LocalTemplatePath: filepath.Join(repo, "services", "energy-node.config.json"),
+		LocalTemplatePath: filepath.Join(repo, "dashboard", "internal", "appconfig", "energy-node.config.json"),
 		Confirm:           func(string) (bool, error) { return false, nil },
 		Stdout:            &bytes.Buffer{},
 		Devices:           true, RepoRoot: repo, RemoteDevicesDir: devices,

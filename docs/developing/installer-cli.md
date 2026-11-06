@@ -216,7 +216,7 @@ same bundle flags as `deploy`, because it may have to build a bundle.
 
 Copies the node's live `/etc/energy-node/config.json` (`--remote-path` changes
 it) to a local template path (`--local`, default
-`services/energy-node.config.json`) so you can inspect or diff it.
+`dashboard/internal/appconfig/energy-node.config.json`) so you can inspect or diff it.
 
 `--devices` also copies the operator's device files from `<base>/devices/` back
 into `services/<dir>/`. These are the JSON files a service ships as a template

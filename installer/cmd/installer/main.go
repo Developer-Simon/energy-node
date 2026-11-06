@@ -291,13 +291,13 @@ func parseFetchConfigFlags(args []string, repoRootDefault string) (fetchConfigCo
 	var cfg fetchConfigConfig
 	addCommonFlags(fs, &cfg.common, repoRootDefault)
 	fs.StringVar(&cfg.remoteConfigPath, "remote-path", "/etc/energy-node/config.json", "config.json path on the node")
-	fs.StringVar(&cfg.localTemplatePath, "local", "", "local template path (default: <repo>/services/energy-node.config.json)")
+	fs.StringVar(&cfg.localTemplatePath, "local", "", "local template path (default: <repo>/dashboard/internal/appconfig/energy-node.config.json)")
 	fs.BoolVar(&cfg.devices, "devices", false, "also pull the node's device files (*_devices.json, automation_rules.json) into services/")
 	if err := fs.Parse(args); err != nil {
 		return fetchConfigConfig{}, err
 	}
 	if cfg.localTemplatePath == "" {
-		cfg.localTemplatePath = filepath.Join(cfg.common.repoRoot, "services", "energy-node.config.json")
+		cfg.localTemplatePath = filepath.Join(cfg.common.repoRoot, "dashboard", "internal", "appconfig", "energy-node.config.json")
 	}
 	return cfg, nil
 }

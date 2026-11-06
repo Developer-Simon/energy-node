@@ -163,7 +163,7 @@ env_write_cert() {
   }
 }
 
-# Schreibt auth.pw und config.json (Vorlage services/energy-node.config.json).
+# Schreibt auth.pw und config.json (Vorlage dashboard/internal/appconfig/energy-node.config.json).
 # MQTT_USERNAME setzt Konto und Passwortdatei (MQTT_PASSWORD) der MQTT-Verbindung.
 env_write_config() {
   printf '%s' "$PASSWORD" > "$WORK/auth.pw" || return 1
@@ -178,7 +178,7 @@ env_write_config() {
   if [[ "${JOURNAL:-0}" == "1" ]]; then
     journal_helper="$FAKES/fake_journal_helper.py"
   fi
-  python3 - "$REPO_DIR/services/energy-node.config.json" "$WORK/config.json" \
+  python3 - "$REPO_DIR/dashboard/internal/appconfig/energy-node.config.json" "$WORK/config.json" \
            "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" \
            "${SERVICES_OFF:-0}" "$WORK/tls.crt" "$WORK/tls.key" "${HTTPS:-0}" \
            "${JOURNAL:-0}" "$journal_helper" "${MQTT_USERNAME:-}" "$mqtt_password_file" <<'PY' || return 1
