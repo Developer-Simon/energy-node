@@ -32,8 +32,8 @@ var fallbackComponents = map[string]struct{ label, kind string }{
 	"service:shelly":        {"Shelly", "service"},
 	"service:trucki":        {"Trucki", "service"},
 	"service:tuya_mqtt":     {"Tuya", "service"},
-	"energy_node_common":    {"energy_node_common", "library"},
-	"battery_soc_core":      {"battery_soc_core", "library"},
+	"energy_node_common":    {"Service common library", "library"},
+	"battery_soc_core":      {"Battery SoC Core", "library"},
 	"bootstrap":             {"Bootstrap", "tool"},
 }
 

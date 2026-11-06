@@ -8,7 +8,7 @@
   // dashboard traegt die Bundle-Version (make_bundle.sh) - sie steht in der
   // Versionsleiste, nicht in der Liste.
   var PACKAGE = 'dashboard';
-  var PLAIN = ['bootstrap', 'services'];
+  var PLAIN = ['bootstrap', 'services', 'energy_node_common', 'battery_soc_core'];
 
   function plain(version) {
     return window.Format.plainVersion(version);

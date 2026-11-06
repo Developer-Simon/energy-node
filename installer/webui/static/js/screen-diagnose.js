@@ -286,9 +286,7 @@
           if (!components[name] || (name === 'services' && Object.keys(serviceVersions).length)) {
             return;
           }
-          var label = wheels.indexOf(name) >= 0
-            ? t('component.wheel') + ' ' + name
-            : t(name === 'dashboard' ? 'diagnose.versions.package' : 'component.' + name);
+          var label = t(name === 'dashboard' ? 'diagnose.versions.package' : 'component.' + name);
           info(parts, 'version-' + name, label, window.Format.plainVersion(components[name]));
         });
         var rest = Object.keys(components).filter(function (name) { return known.indexOf(name) < 0; }).length;
