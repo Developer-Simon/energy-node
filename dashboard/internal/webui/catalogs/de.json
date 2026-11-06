@@ -1704,6 +1704,7 @@
   "devicemap.value.grid_import": "{value} Bezug",
   "devicemap.value.house_load": "{value} Haus",
   "devicemap.value.no_values": "keine Messwerte",
+  "devicemap.value.substitute_from": "Ersatzwert von {source}",
   "devicemap.view.default_restored": "Standardansicht wiederhergestellt",
   "devicemap.view.default_saved": "Standardansicht gespeichert",
   "devicemap.view.differs": "Diese Ansicht gilt nur in diesem Browser.",

@@ -472,3 +472,27 @@ test('panelRows marks a chain reference', () => {
   assert.equal(reference.assignment.role, '');
   assert.equal(view.rows.find(row => row.id === 'x').chainReference, '');
 });
+
+test('a substituted counting point is marked on the node and on its edge, its reference point stays live', () => {
+  const model = loadModel();
+  const snapshot = {
+    entities: [{ entity_id: 'plug_p', device_id: 'plug', value: 412, unit: 'W', role: { role: 'battery', source: 'override' } }],
+    chains: [{ substitute_from: 'inv_p', role: 'battery', points: [
+      { entity_id: 'plug_p', device_id: 'plug', counting: true, has_value: true, value: 425, freshness: 'stale' },
+      { entity_id: 'inv_p', device_id: 'inv', counting: false, has_value: true, value: 412, freshness: 'fresh' },
+    ] }],
+  };
+  const energy = model.deviceEnergy(snapshot);
+  const plug = energy.get('plug');
+  assert.ok(model.nodeValueText({}, plug).startsWith('≈ '));
+  assert.ok(model.substituteNote(plug, id => `Gerät ${id}`).includes('Gerät inv'));
+  const spec = model.ringSpec(plug, 'down', true);
+  assert.deepEqual([...spec.segments], ['flow-substitute']);
+  assert.equal(spec.dashed, true);
+  const flow = model.edgeFlow('plug', energy, new Map());
+  assert.equal(flow.substitute, true);
+  assert.equal(model.flowLabel(flow).includes('≈'), true);
+  assert.equal(model.flowColorToken(flow, plug), 'flow-substitute');
+  assert.equal(model.nodeValueText({ entities: [{ value: 1, unit_of_measurement: 'W' }] }, energy.get('inv')), model.formatPower(412), 'live, not the device list');
+  assert.equal(model.substituteNote(energy.get('inv'), id => id), '');
+});

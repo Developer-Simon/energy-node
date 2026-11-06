@@ -303,6 +303,15 @@
         entry.power = (entry.power || 0) + (meta && meta.toward ? meta.toward(value) : value);
       }
     }
+    // A counting point without a current value counts with the value of another
+    // point. Its device says so, and from which device the value comes.
+    for (const chain of (snapshot && snapshot.chains) || []) {
+      if (!chain.substitute_from) continue;
+      const counting = chain.points.find(point => point.counting);
+      const source = chain.points.find(point => point.entity_id === chain.substitute_from);
+      const entry = counting && byDevice.get(counting.device_id);
+      if (entry && source) entry.substitute = {deviceId: source.device_id};
+    }
     for (const entry of byDevice.values()) entry.primaryRole = primaryRole(entry);
     return byDevice;
   };
@@ -318,6 +327,13 @@
     return 'degraded';
   };
 
+  const SUBSTITUTE_MARK = '≈';
+
+  // The line under a node whose value comes from another chain point, or ''.
+  const substituteNote = (entry, deviceName) => (entry && entry.substitute
+    ? t('devicemap.value.substitute_from', {source: deviceName(entry.substitute.deviceId)})
+    : '');
+
   const firstReading = device => {
     const entity = ((device && device.entities) || []).find(candidate =>
       candidate.unit_of_measurement && candidate.value !== '' && candidate.value != null && Number.isFinite(Number(candidate.value)));
@@ -326,8 +342,16 @@
 
   const nodeValueText = (device, entry) => {
     const role = entry && entry.primaryRole;
+    // A chain's reference point has live power but no role, the reading of the
+    // device list would stand still.
+    if (!role && entry && entry.power != null) return formatPower(entry.power);
     if (!role) return firstReading(device) || t('devicemap.value.no_values');
     if (role === 'battery_soc') return `${num(entry.soc, 0)} %`;
+    const text = powerRoleText(role, entry);
+    return entry.substitute ? `${SUBSTITUTE_MARK} ${text}` : text;
+  };
+
+  const powerRoleText = (role, entry) => {
     const total = entry.byRole[role] || 0;
     const value = formatPower(total);
     if (role === 'grid') return t(total >= 0 ? 'devicemap.value.grid_import' : 'devicemap.value.grid_export', {value});
@@ -337,14 +361,18 @@
     return value;
   };
 
+  // A substitute value is a state, not a role: it takes no role colour.
+  const SUBSTITUTE_TOKEN = 'flow-substitute';
+
   const ringSpec = (entry, health, hasEntities, iconMarkup = {}) => {
     const role = entry && entry.primaryRole;
     const meta = role ? entry.meta[role] : null;
+    const substitute = Boolean(entry && entry.substitute);
     const spec = {
-      segments: entry ? entry.roles.map(r => entry.meta[r].color) : [],
-      dashed: Boolean(entry && entry.heuristic),
+      segments: entry ? entry.roles.map(r => (substitute ? SUBSTITUTE_TOKEN : entry.meta[r].color)) : [],
+      dashed: substitute || Boolean(entry && entry.heuristic),
       icon: meta ? meta.icon : (hasEntities ? 'cat:energy-node:sensor' : 'box'),
-      iconColor: meta ? meta.color : 'text-muted',
+      iconColor: substitute ? SUBSTITUTE_TOKEN : (meta ? meta.color : 'text-muted'),
       health,
     };
     if (spec.icon.startsWith('cat:')) spec.iconMarkup = iconMarkup[spec.icon.slice(4)] || '';
@@ -398,7 +426,7 @@
       // entities plus every sub-device below it.
       const subs = subPower(childId, energy, children);
       const power = entry.power + subs;
-      return Math.abs(power) < MIN_FLOW_W ? null : {value: turn(power), sum: subs !== 0};
+      return Math.abs(power) < MIN_FLOW_W ? null : {value: turn(power), sum: subs !== 0, ...(entry.substitute ? {substitute: true} : {})};
     }
     let total = null;
     for (const next of children.get(childId) || []) {
@@ -410,8 +438,8 @@
 
   const speedBucket = abs => (abs < 300 ? 'slow' : abs < 1200 ? 'mid' : 'fast');
   const flowWidth = (abs, byPower) => (byPower ? Number((1.8 + 3.6 * Math.min(1, abs / 2500)).toFixed(2)) : 2.6);
-  const flowLabel = flow => `${flow.sum ? 'Σ ' : ''}${flow.value < 0 ? '↑' : '↓'} ${formatPower(flow.value)}`;
-  const flowColorToken = (flow, entry) => (flow.sum || !entry || !entry.primaryRole ? 'flow-rest' : entry.meta[entry.primaryRole].color);
+  const flowLabel = flow => `${flow.sum ? 'Σ ' : ''}${flow.value < 0 ? '↑' : '↓'} ${flow.substitute ? `${SUBSTITUTE_MARK} ` : ''}${formatPower(flow.value)}`;
+  const flowColorToken = (flow, entry) => (flow.substitute ? SUBSTITUTE_TOKEN : flow.sum || !entry || !entry.primaryRole ? 'flow-rest' : entry.meta[entry.primaryRole].color);
 
   const GROUP_PREFIX = 'group:';
   const isGroupId = id => typeof id === 'string' && id.startsWith(GROUP_PREFIX);
@@ -497,7 +525,7 @@
 
   window.DeviceMapModel = {
     DEFAULT_LAYERS, DEFAULT_WIRING_TYPES, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
-    formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
+    formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, substituteNote, ringSpec, relatedIds,
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, isPowerUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload, normalizeAssignment,

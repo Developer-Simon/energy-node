@@ -55,6 +55,8 @@
   --flow-heatpump: #cf6c47;
   --flow-measured: #e8748f;
   --flow-rest: #7d8792;
+  /* Ersatzwert auf der Karte: ein Zustand, keine Rolle, darum neutral. */
+  --flow-substitute: var(--text-strong);
 
   --series-1: #9fd;
   --series-2: #f0a36b;

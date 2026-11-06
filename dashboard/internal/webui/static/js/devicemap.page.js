@@ -1461,6 +1461,12 @@
         return window.DeviceMapNodeSvg.dataUri({...spec, quiet, port}, colorOf);
       },
 
+      // The note under a node on a substitute value, nothing for all others.
+      substituteLabel(entry) {
+        const note = window.DeviceMapModel.substituteNote(entry, id => this.deviceLabel(id));
+        return note ? {note} : {};
+      },
+
       labelItems(status = this.switchStatus()) {
         const model = window.DeviceMapModel;
         const {energy, children, dirOf} = this.energyFlowContext();
@@ -1468,6 +1474,7 @@
           id: device.id,
           name: device.name || device.id,
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
+          ...this.substituteLabel(energy.get(device.id)),
           ...this.offLabel(status, device.id),
         }));
         const subs = this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy), ...this.offLabel(status, sub.id)}));
