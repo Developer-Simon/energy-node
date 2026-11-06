@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Installs battery_soc_core into the current Python environment.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
