@@ -164,3 +164,46 @@ def test_validate_fails_with_a_broken_tour(tmp_path, capsys):
     write_translation(repo, 190, {"de": {"*": "Touren"}, "tour": {"*": {"steps": []}}})
     assert ht.main(["validate", "--repo", str(repo)]) == 1
     assert "#190 tour *: steps must be a non-empty list" in capsys.readouterr().out
+
+
+TOUR_BODY = """Highlights (de):
+- Text
+
+## Tour
+
+```json
+{"*": {"exempt": "Nothing to show"}}
+```
+"""
+
+
+def test_sync_copies_the_tour_from_the_body(tmp_path):
+    repo = make_repo(tmp_path)
+    body = tmp_path / "body.txt"
+    body.write_text(TOUR_BODY, encoding="utf-8")
+    assert ht.main(["sync", "--repo", str(repo), "--pr", "140", "--body-file", str(body)]) == 0
+    written = json.loads((repo / "changelog/highlights/140.json").read_text(encoding="utf-8"))
+    assert written["tour"] == {"*": {"exempt": "Nothing to show"}}
+    assert written["de"] == {"*": "Text"}
+
+
+def test_sync_without_a_tour_keeps_the_one_in_the_file(tmp_path):
+    repo = make_repo(tmp_path)
+    path = repo / "changelog/highlights/140.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"tour": {"*": {"exempt": "By hand"}}}), encoding="utf-8")
+    body = tmp_path / "body.txt"
+    body.write_text(TOUR_BODY.replace('{"*": {"exempt": "Nothing to show"}}', "none"), encoding="utf-8")
+    assert ht.main(["sync", "--repo", str(repo), "--pr", "140", "--body-file", str(body)]) == 0
+    written = json.loads(path.read_text(encoding="utf-8"))
+    assert written["tour"] == {"*": {"exempt": "By hand"}}
+    assert written["de"] == {"*": "Text"}
+
+
+def test_sync_stops_on_a_broken_tour(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    body = tmp_path / "body.txt"
+    body.write_text(TOUR_BODY.replace('{"*": {"exempt": "Nothing to show"}}', "{oops"), encoding="utf-8")
+    assert ht.main(["sync", "--repo", str(repo), "--pr", "140", "--body-file", str(body)]) == 1
+    assert "Tour section" in capsys.readouterr().out
+    assert not (repo / "changelog/highlights/140.json").exists()

@@ -71,6 +71,8 @@ CASES = [
     ("scripts/tests/bootstrap_container.sh", {"shell", "bootstrap"}),
     ("scripts/tests/lib/fake_system_commands.sh", {"shell", "bootstrap"}),
     ("scripts/build/highlight_details.py", {"python"}),
+    ("scripts/build/highlight_tours.py", {"python"}),
+    ("scripts/build/tour_gate.py", {"python"}),
     ("scripts/release/release_highlights.py", {"python"}),
     ("scripts/build/make_bundle.sh", {"shell", "bootstrap"}),
     ("scripts/version/bump.py", {"python", "shell"}),

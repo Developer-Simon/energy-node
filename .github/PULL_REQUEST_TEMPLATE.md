@@ -38,6 +38,19 @@
 {{TRANSLATIONS}}
 ```
 
+## Tour
+
+<!--
+  Optional. The tour of a dashboard highlight as JSON, the value of "tour" in
+  changelog/highlights/<PR>.json (see docs/developing/releasing.md). The Version
+  bump workflow copies it there. Without a tour CI asks in a comment and waits
+  for the owner's reaction after the build.
+-->
+
+```json
+{{TOUR}}
+```
+
 ## Summary
 
 {{SUMMARY}}

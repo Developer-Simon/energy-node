@@ -482,17 +482,40 @@ An exemption needs the user's consent. The agent that writes the highlight asks
 for it explicitly and adds `exempt` only after the user agreed. A tour has either
 steps or an exemption, never both.
 
+The tour can travel with the PR. `scripts/dev/create-pr.sh` reads the value of
+`tour` from the optional file `PR_TOUR_FILE`, checks it and puts it into the "Tour"
+section of the description. The Version bump workflow copies it into
+`changelog/highlights/<PR>.json`, where a tour from the description replaces the
+one in the file. A section with broken JSON or an invalid tour fails that workflow.
+
 A tour may carry `replaced_by: {"pr": N, "step": S}` next to `steps`. When the
 tour goes stale, the checklist starts step S of the tour of #N instead. The Go
 test checks that the step exists.
 
 `highlight_translations.py validate --repo .` checks the tours of every file as
-well. `highlight_tours.py check --repo . --pr <N>` runs in the CI job "Highlight
-translations" and fails while a `dashboard` highlight of the PR has neither a
-tour nor an exemption. The check starts at PR #186, the first PR of the
-onboarding. Older PR files and the archives `v*.json` and `archive-v*.json` are
-not checked. Write the tour by hand into the PR file once the PR has its number.
-The Version bump workflow keeps it when it adds the translations. The bundle
+well. A `dashboard` highlight with neither a tour nor an exemption does not fail
+the build. The last job of CI, "CI ok", runs `scripts/build/tour_gate.py` after
+all other jobs passed:
+
+1. It writes a comment in the PR that names the highlights, and the commit status
+   CI stays pending.
+2. It waits up to 10 minutes for a 👍 on that comment. Only the reaction of the
+   repository owner counts. It then counts as the exemption, and the commit status
+   turns green. Later runs of the same PR find the reaction and do not ask again.
+3. Without a reaction the job fails. To continue, react and re-run the failed job
+   from the run linked in the comment. A reaction alone starts nothing.
+
+Adding a tour to the description instead starts CI again and cancels the waiting
+run. An agent never reacts on this comment, the reaction is the user's decision.
+The exemption stays in the PR comment and does not reach the repository. That is
+enough for the web UI, which shows no steps for an exemption and for a missing
+tour alike.
+
+`highlight_tours.py check --repo . --pr <N>` shows the same gaps locally. The check
+starts at PR #186, the first PR of the onboarding. Older PR files and the archives
+`v*.json` and `archive-v*.json` are not checked. A tour may also be written by hand
+into the PR file once the PR has its number. The Version bump workflow keeps it
+when it adds the translations. The bundle
 carries the tour as `tour` on each PR entry of `changelog.json`, and
 `/api/v1/changelog/highlights` passes it on.
 
