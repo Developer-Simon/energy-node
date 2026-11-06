@@ -342,3 +342,9 @@ def test_attach_details_pins_the_image_of_a_target_entry(tmp_path):
     mcj.attach_details(releases, repo, translations, "dashboard", None)
     url = releases[0]["groups"][0]["entries"][0]["details"]["image"]["url"]
     assert f"/{head}/docs/images/shot.png" in url
+
+
+def test_parse_prerelease_heading():
+    releases = mcj.parse_changelog("## v0.4.6-pre.2 (2026-11-06)\n\n### Features\n\n- add a thing (#7)\n")
+    assert [(r["version"], r["date"]) for r in releases] == [("v0.4.6-pre.2", "2026-11-06")]
+    assert releases[0]["groups"][0]["entries"][0]["pr"] == 7
