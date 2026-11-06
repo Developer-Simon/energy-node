@@ -4,11 +4,11 @@
 
 ### Features
 
+- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **automations:** add texts for the rule history axis (4c3094a)
 - **automations:** add history day groups and flight logic (5d3205c)
 - **automations:** show the rule history as an axis in the strip (8993e21)
 - **automations:** open the history list in the tour and add demo history (382804b)
-- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
 
 ### Fixes
