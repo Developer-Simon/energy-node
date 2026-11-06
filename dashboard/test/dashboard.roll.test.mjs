@@ -1,4 +1,4 @@
-// x-roll (device-modal.js) tweens a number in the device modal. Since the number
+// x-roll (dashboard.js) tweens a number in the device modal. Since the number
 // format setting, the visible text is already formatted ("12.345,6"), so the
 // directive reads the raw target from data-roll-value and the unit from
 // data-roll-unit and formats every tween frame itself.
@@ -16,7 +16,7 @@ import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webui = path.join(here, '..', 'internal', 'webui');
-const source = fs.readFileSync(path.join(webui, 'static', 'js', 'device-modal.js'), 'utf8');
+const source = fs.readFileSync(path.join(webui, 'static', 'js', 'dashboard.js'), 'utf8');
 
 function loadRoll(i18nOptions) {
   const dom = new JSDOM('<!doctype html><html><head></head><body><span id="v"></span></body></html>', {
@@ -32,7 +32,7 @@ function loadRoll(i18nOptions) {
   dom.window.setInterval = () => 0;
   vm.runInContext(source, dom.getInternalVMContext());
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
-  return { window: dom.window, roll: directives.roll };
+  return { window: dom.window, roll: directives.roll, fadeText: directives['fade-text'] };
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -87,4 +87,33 @@ test('jedes x-roll im Geraete-Modal bindet Rohwert und Einheit vor dem x-text', 
     assert.ok(valueAt > -1 && unitAt > -1, `missing roll bindings: ${span}`);
     assert.ok(valueAt < textAt && unitAt < textAt, `x-text must come after the roll bindings: ${span}`);
   }
+});
+
+test('x-fade-text blendet nur bei geaendertem Text, nicht beim ersten Befuellen', async () => {
+  const { window, fadeText } = loadRoll({ lang: 'de', format: 'comma' });
+  const el = window.document.getElementById('v');
+  const fades = [];
+  el.animate = () => {
+    const animation = { cancelled: false, cancel() { this.cancelled = true; } };
+    fades.push(animation);
+    return animation;
+  };
+  fadeText(el, {}, { cleanup() {} });
+
+  el.textContent = '3 Geräte';
+  await sleep(0);
+  assert.equal(fades.length, 0, 'first fill does not fade');
+
+  el.textContent = '3 Geräte';
+  await sleep(0);
+  assert.equal(fades.length, 0, 'same text does not fade');
+
+  el.textContent = '4 Geräte';
+  await sleep(0);
+  assert.equal(fades.length, 1);
+
+  el.textContent = '5 Geräte';
+  await sleep(0);
+  assert.equal(fades.length, 2);
+  assert.equal(fades[0].cancelled, true, 'a new change replaces the running fade');
 });

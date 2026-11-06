@@ -1094,12 +1094,20 @@
     sortBy: 'severity',
     sortDirection: 'desc',
     loading: false,
+    // Der Pfeil dreht jede Runde zu Ende, statt beim Ende des Ladens in die
+    // Ausgangsstellung zurueckzuspringen. Deshalb eigener Zustand neben loading.
+    spinning: false,
     loaded: false,
     checkedAt: null,
     discoveryError: '',
 
+    finishSpin() {
+      if (!this.loading) this.spinning = false;
+    },
+
     async load() {
       this.loading = true;
+      this.spinning = true;
       this.discoveryError = '';
       try {
         const [warnings, healthScores, discovery] = await Promise.allSettled([
@@ -1322,7 +1330,107 @@
     },
   });
 
+  const prefersReducedMotion = () =>
+    typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // x-roll: laesst eine per x-text gesetzte Zahl wie ein Zaehler zum neuen
+  // Wert laufen, statt hart umzuspringen (apple-design: sanfter Uebergang
+  // statt Teleport). Reiner Text-Tween ueber requestAnimationFrame - es
+  // gibt keinen CSS-Weg, angezeigten Text zu interpolieren. Waehrend des
+  // eigenen Schreibens wird der MutationObserver getrennt, damit er nicht
+  // rekursiv ausloest. Interruptierbar: ein neuer Zielwert startet von der
+  // zuletzt *gezeigten* Zahl, nicht vom alten Ziel. Nicht-numerische Werte
+  // ("Ja", "-") werden sofort gesetzt. Den Rohwert liest die Direktive aus
+  // data-roll-value, weil der sichtbare Text schon im Zahlenformat steht
+  // (Tausenderpunkt und Dezimalkomma sind nicht eindeutig rueckwaerts lesbar).
+  const registerRollDirective = Alpine => {
+    Alpine.directive('roll', (el, meta, { cleanup }) => {
+      const observeOptions = {childList: true, characterData: true, subtree: true};
+      const parse = raw => {
+        const text = String(raw == null ? '' : raw).trim();
+        if (!/^-?\d*\.?\d+$/.test(text)) return null;
+        const number = Number(text);
+        return Number.isFinite(number) ? number : null;
+      };
+      let committed = parse(el.dataset.rollValue);
+      let displayed = committed;
+      let frame = 0;
+      const observer = new MutationObserver(() => {
+        const text = el.textContent;
+        const raw = el.dataset.rollValue;
+        const target = parse(raw);
+        if (prefersReducedMotion() || committed === null || target === null || target === committed) {
+          committed = target;
+          displayed = target;
+          return;
+        }
+        const from = displayed === null ? committed : displayed;
+        const decimals = (String(raw).split('.')[1] || '').length;
+        const unit = el.dataset.rollUnit || '';
+        const startedAt = performance.now();
+        const duration = 300;
+        cancelAnimationFrame(frame);
+        const write = value => {
+          observer.disconnect();
+          el.textContent = value;
+          observer.observe(el, observeOptions);
+        };
+        const step = now => {
+          const progress = Math.min(1, (now - startedAt) / duration);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          if (progress < 1) {
+            const value = from + (target - from) * eased;
+            displayed = value;
+            write(window.I18n.formatValue(value.toFixed(decimals), unit));
+            frame = requestAnimationFrame(step);
+          } else {
+            write(text);
+            committed = target;
+            displayed = target;
+          }
+        };
+        frame = requestAnimationFrame(step);
+      });
+      observer.observe(el, observeOptions);
+      cleanup(() => {
+        cancelAnimationFrame(frame);
+        observer.disconnect();
+      });
+    });
+  };
+
+  // x-fade-text: blendet einen per x-text gesetzten Text kurz auf, wenn er sich
+  // aendert. Fuer alles, was x-roll nicht zaehlen kann: Uhrzeiten und Saetze
+  // mit Zahl und Pluralform. Nur Opacity, deshalb auch bei reduzierter Bewegung
+  // aktiv. Das erste Befuellen und ein gleich gebliebener Text blenden nicht.
+  // Kommt eine Aenderung in ein laufendes Einblenden, geht es an der gerade
+  // sichtbaren Deckkraft weiter, statt wieder abzudunkeln.
+  const registerFadeTextDirective = Alpine => {
+    Alpine.directive('fade-text', (el, meta, { cleanup }) => {
+      let shown = el.textContent;
+      let animation = null;
+      const observer = new MutationObserver(() => {
+        const text = el.textContent;
+        if (text === shown) return;
+        const first = shown === '';
+        shown = text;
+        if (first || typeof el.animate !== 'function') return;
+        const running = animation && animation.playState === 'running';
+        const from = running ? Number(getComputedStyle(el).opacity) : 0.25;
+        if (animation) animation.cancel();
+        animation = el.animate(
+          [{opacity: from}, {opacity: 1}],
+          {duration: 200, easing: 'cubic-bezier(0.23, 1, 0.32, 1)'},
+        );
+      });
+      observer.observe(el, {childList: true, characterData: true, subtree: true});
+      cleanup(() => observer.disconnect());
+    });
+  };
+
   document.addEventListener('alpine:init', () => {
+    registerRollDirective(Alpine);
+    registerFadeTextDirective(Alpine);
     dashboardShell.liveTopicsFor = liveTopicsFor;
     dashboardShell.liveDevicesFor = liveDevicesFor;
     Alpine.data('dashboardShell', dashboardShell);

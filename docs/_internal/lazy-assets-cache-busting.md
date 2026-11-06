@@ -96,7 +96,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `42` |
+| `js/dashboard.js` | `44` |
 | `js/update-bar.js` | `7` |
 | `js/onboarding-model.js` | `4` |
 | `js/onboarding.js` | `4` |
@@ -132,7 +132,7 @@ skips scripts already present as `<script src>`.
 |---|---|---|
 | `devices-panel` | – | – |
 
-`js/device-modal.js` `3` is lazy on its own trigger: `devicesPanel` loads it on
+`js/device-modal.js` `4` is lazy on its own trigger: `devicesPanel` loads it on
 the first device open (overview and devices tab). Its URL sits in `data-script`
 on the `device-modal` template in
 [devices.html](../../dashboard/internal/webui/templates/devices.html), not in
@@ -141,7 +141,7 @@ on the `device-modal` template in
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
-| `diagnostics-panel` | `js/servicelogs.panel.js` `2` | `css/settings-controls.css` `20`, `css/diagnostics.css` `3` |
+| `diagnostics-panel` | `js/servicelogs.panel.js` `2` | `css/settings-controls.css` `20`, `css/diagnostics.css` `4` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `48` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `2`, `js/energy.page.js` `13` | `css/manager.css` `48` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `14`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `9`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `9`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `29` | `css/manager.css` `48` |
@@ -267,6 +267,7 @@ was not brought into this fork, so the mapping is fixed here and not
 recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
+| v0.11.4 | `css/diagnostics.css` (diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide) · `js/dashboard.js` (`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn) · `js/device-modal.js` (`x-roll` moved out) | `4` · `44` · `4` | 2026-11-06 |
 | v0.11.3 | `js/automations-chart.js` (automations panel, history entries grouped by day) · `js/automations-view.js` (automations panel, history text split for the axis) · `js/automations.page.js` (automations panel, rule history opens from the strip as a vertical axis) · `css/automations.css` (automations panel, rule history axis) · `js/onboarding-actions.js` (tour action that opens a rule with history) | `4` · `9` · `23` · `15` · `3` | 2026-11-06 |
 | v0.11.1 | `js/history-exchange.js` (history panel and history tile, the 1h resolution no longer requests 5m and 1m values from other devices) | `10` | 2026-11-05 |
 |---|---|---|---|

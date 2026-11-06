@@ -45,8 +45,10 @@
 .diag-head-actions { display: flex; align-items: center; gap: .75rem; }
 .diag-checked { color: var(--text-muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
 
-/* Pillenknopf wie .layout-btn. Das Icon dreht sich nur, solange geladen
-   wird, und haelt danach an derselben Stelle an (kein Zuruckspringen). */
+/* Pillenknopf wie .layout-btn. Beim Laden dreht sich nur der Pfeil um die
+   stehenden Zeiger. Er dreht jede Runde zu Ende (finishSpin), damit er beim
+   Anhalten nicht in die Ausgangsstellung zurueckspringt. Die Pfeilspitze ragt
+   beim Drehen minimal ueber die Icon-Flaeche hinaus. */
 .diag-refresh {
   display: inline-flex;
   align-items: center;
@@ -63,7 +65,9 @@
 .diag-refresh:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--accent-line); color: var(--accent-soft); }
 .diag-refresh:active:not(:disabled) { transform: scale(.97); }
 .diag-refresh:disabled { opacity: 1; cursor: progress; }
-.diag-refresh.is-loading .automation-icon { animation: diag-spin .9s linear infinite; }
+.diag-refresh-icon { overflow: visible; }
+.diag-refresh-arrow { transform-origin: 12px 12px; }
+.diag-refresh.is-loading .diag-refresh-arrow { animation: diag-spin .9s linear infinite; }
 @keyframes diag-spin { to { transform: rotate(-360deg); } }
 
 /* --- Status-Chips (Discovery) -------------------------------------------- */
@@ -130,7 +134,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color .2s var(--ease-out), background-color .2s var(--ease-out), transform .12s var(--layout-ease);
+  transition: border-color .2s var(--ease-out), background-color .2s var(--ease-out), transform .12s var(--layout-ease), --ring .3s var(--ease-out);
 }
 .diag-device.diagnostics-health-status-healthy { --ring: var(--ok); }
 .diag-device.diagnostics-health-status-degraded { --ring: var(--warn); }
@@ -143,7 +147,12 @@
 
 /* Score als Ring: conic-gradient fuellt den Anteil, die Maske stanzt die
    Mitte aus. Der Wert selbst steht darin, damit die Zahl nicht nur ueber
-   Farbe lesbar ist. */
+   Farbe lesbar ist. Erst @property macht --score und --ring interpolierbar:
+   Ring und Farbe gleiten beim Neuladen zum neuen Wert. Dauer und Kurve sind
+   die der Zahl in der Mitte (x-roll: 300 ms, 1 - (1 - t)^3), damit Ring und
+   Zahl auf demselben Bild stehen. */
+@property --score { syntax: "<number>"; inherits: true; initial-value: 0; }
+@property --ring { syntax: "<color>"; inherits: true; initial-value: transparent; }
 .diag-ring {
   position: relative;
   flex: none;
@@ -156,6 +165,7 @@
   font-size: .82rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  transition: --score .3s cubic-bezier(.33, 1, .68, 1);
 }
 .diag-ring::before {
   content: "";
@@ -173,7 +183,7 @@
 .diag-device-seen { display: inline-flex; align-items: center; gap: .25rem; }
 .diag-device-seen .automation-icon { width: .8rem; height: .8rem; }
 
-.diagnostics-health-status { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-size: .74rem; font-weight: 600; white-space: nowrap; }
+.diagnostics-health-status { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-size: .74rem; font-weight: 600; white-space: nowrap; transition: color .3s var(--ease-out), background-color .3s var(--ease-out); }
 .diagnostics-health-status.diagnostics-health-status-healthy { color: var(--ok); background: var(--ok-bg); }
 .diagnostics-health-status.diagnostics-health-status-degraded { color: var(--warn); background: var(--warn-bg); }
 .diagnostics-health-status.diagnostics-health-status-unhealthy,
@@ -327,7 +337,8 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--text); }
 
 /* --- Barrierefreiheit ---------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  .diag-refresh.is-loading .automation-icon { animation: none; }
+  .diag-refresh.is-loading .diag-refresh-arrow { animation: none; }
+  .diag-ring, .diag-device, .diagnostics-health-status { transition: none; }
   .diag-group::details-content { transition: none; }
   .diag-group-chevron, .diag-device, .diag-refresh { transition: none; }
   .diag-device:active, .diag-refresh:active:not(:disabled), .diag-filter-chip:active { transform: none; }

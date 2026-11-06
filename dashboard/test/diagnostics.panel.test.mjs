@@ -128,3 +128,15 @@ test('a single group opens by default', () => {
   panel.warnings = sampleWarnings().filter(item => item.key === 'missing_unit');
   assert.equal(panel.isGroupOpen(panel.warningGroups[0]), true);
 });
+
+test('the refresh arrow keeps spinning until its turn ends after loading', () => {
+  const panel = createDiagnosticsPanel();
+  panel.loading = true;
+  panel.spinning = true;
+  panel.finishSpin();
+  assert.equal(panel.spinning, true, 'a turn that ends during loading starts the next one');
+  panel.loading = false;
+  assert.equal(panel.spinning, true, 'the end of loading alone does not stop the arrow');
+  panel.finishSpin();
+  assert.equal(panel.spinning, false);
+});
