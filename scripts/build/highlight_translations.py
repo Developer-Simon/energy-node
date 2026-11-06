@@ -72,6 +72,13 @@ def missing(repo, table, pr, translations):
 def sync(repo, pr, body_file):
     body = Path(body_file).read_text(encoding="utf-8")
     blocks = highlight_i18n.parse_blocks(body, highlight_i18n.targets_from_table(_table(repo)))
+    try:
+        tour = highlight_tours.parse_body(body)
+    except ValueError as err:
+        print(f"::error::Tour section of the PR description: {err}")
+        return 1
+    if tour is not None:
+        blocks[highlight_tours.TOUR_KEY] = tour
     if not blocks:
         print("no translation block in the PR description, file left as it is")
         return 0

@@ -1076,6 +1076,70 @@
   const DIAGNOSTIC_SEVERITY_RANK = {critical: 3, warning: 2, info: 1};
   const DEVICE_HEALTH_RANK = {critical: 4, unhealthy: 3, degraded: 2, unknown: 1, healthy: 0};
 
+  // Geraetekarten gleiten beim Umsortieren an den neuen Platz, statt dorthin zu
+  // springen (FLIP). Vor dem Datenwechsel aufrufen, die zurueckgegebene Funktion
+  // nach dem Rendern. Positionen zaehlen relativ zum Raster, damit Inhalt
+  // darueber keine Scheinbewegung ausloest. Der Start liegt an der gerade
+  // sichtbaren Stelle, auch mitten in einem laufenden Gleiten. Nur Transform und
+  // Opacity, bei reduzierter Bewegung gar nicht.
+  //
+  // Alpine haengt umsortierte Karten im DOM um, und das bricht ihre
+  // CSS-Transitions ab: Ring und Statusfarben springen sofort zum Zielwert,
+  // waehrend die Karte noch gleitet. Fuer verschobene Karten laufen dieselben
+  // Uebergaenge deshalb hier per WAAPI, mit Dauer und Kurve aus diagnostics.css.
+  const cardGlides = new WeakMap();
+  const prepareCardGlide = grid => {
+    if (!grid || grid.offsetParent === null || prefersReducedMotion()) return null;
+    const easing = 'cubic-bezier(0.23, 1, 0.32, 1)';
+    const cards = () => [...grid.querySelectorAll('.diag-device')];
+    const position = card => {
+      const rect = card.getBoundingClientRect();
+      const origin = grid.getBoundingClientRect();
+      return {x: rect.left - origin.left, y: rect.top - origin.top};
+    };
+    const look = card => {
+      const pill = getComputedStyle(card.querySelector('.diagnostics-health-status'));
+      return {
+        score: getComputedStyle(card.querySelector('.diag-ring')).getPropertyValue('--score').trim(),
+        ring: getComputedStyle(card).getPropertyValue('--ring').trim(),
+        color: pill.color,
+        background: pill.backgroundColor,
+      };
+    };
+    const replayValues = (card, from) => {
+      const to = look(card);
+      const replay = (el, property, start, end, curve) => {
+        if (start !== end) el.animate([{[property]: start}, {[property]: end}], {duration: 300, easing: curve});
+      };
+      const pill = card.querySelector('.diagnostics-health-status');
+      replay(card.querySelector('.diag-ring'), '--score', from.score, to.score, 'cubic-bezier(0.33, 1, 0.68, 1)');
+      replay(card, '--ring', from.ring, to.ring, easing);
+      replay(pill, 'color', from.color, to.color, easing);
+      replay(pill, 'backgroundColor', from.background, to.background, easing);
+    };
+    const before = new Map(cards().map(card => [card, {...position(card), look: look(card)}]));
+    if (before.size === 0) return null;
+    return () => {
+      for (const card of cards()) {
+        cardGlides.get(card)?.cancel();
+        const from = before.get(card);
+        if (!from) {
+          cardGlides.set(card, card.animate([{opacity: 0}, {opacity: 1}], {duration: 240, easing}));
+          continue;
+        }
+        const to = position(card);
+        const dx = from.x - to.x;
+        const dy = from.y - to.y;
+        if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+        cardGlides.set(card, card.animate(
+          [{transform: `translate(${dx}px, ${dy}px)`}, {transform: 'none'}],
+          {duration: 240, easing},
+        ));
+        replayValues(card, from.look);
+      }
+    };
+  };
+
   const diagnosticsPanel = () => ({
     warnings: [],
     healthScores: [],
@@ -1094,12 +1158,20 @@
     sortBy: 'severity',
     sortDirection: 'desc',
     loading: false,
+    // Der Pfeil dreht jede Runde zu Ende, statt beim Ende des Ladens in die
+    // Ausgangsstellung zurueckzuspringen. Deshalb eigener Zustand neben loading.
+    spinning: false,
     loaded: false,
     checkedAt: null,
     discoveryError: '',
 
+    finishSpin() {
+      if (!this.loading) this.spinning = false;
+    },
+
     async load() {
       this.loading = true;
+      this.spinning = true;
       this.discoveryError = '';
       try {
         const [warnings, healthScores, discovery] = await Promise.allSettled([
@@ -1108,6 +1180,8 @@
           requestJSON('/api/v1/discovery/summary'),
         ]);
         if (warnings.status === 'rejected') throw warnings.reason;
+        const glideCards = prepareCardGlide(this.$refs?.healthGrid);
+        if (glideCards) this.$nextTick(glideCards);
         this.warnings = Array.isArray(warnings.value) ? warnings.value : [];
         this.healthScores = healthScores.status === 'fulfilled' && Array.isArray(healthScores.value) ? healthScores.value : [];
         if (discovery.status === 'fulfilled') {
@@ -1322,7 +1396,107 @@
     },
   });
 
+  const prefersReducedMotion = () =>
+    typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // x-roll: laesst eine per x-text gesetzte Zahl wie ein Zaehler zum neuen
+  // Wert laufen, statt hart umzuspringen (apple-design: sanfter Uebergang
+  // statt Teleport). Reiner Text-Tween ueber requestAnimationFrame - es
+  // gibt keinen CSS-Weg, angezeigten Text zu interpolieren. Waehrend des
+  // eigenen Schreibens wird der MutationObserver getrennt, damit er nicht
+  // rekursiv ausloest. Interruptierbar: ein neuer Zielwert startet von der
+  // zuletzt *gezeigten* Zahl, nicht vom alten Ziel. Nicht-numerische Werte
+  // ("Ja", "-") werden sofort gesetzt. Den Rohwert liest die Direktive aus
+  // data-roll-value, weil der sichtbare Text schon im Zahlenformat steht
+  // (Tausenderpunkt und Dezimalkomma sind nicht eindeutig rueckwaerts lesbar).
+  const registerRollDirective = Alpine => {
+    Alpine.directive('roll', (el, meta, { cleanup }) => {
+      const observeOptions = {childList: true, characterData: true, subtree: true};
+      const parse = raw => {
+        const text = String(raw == null ? '' : raw).trim();
+        if (!/^-?\d*\.?\d+$/.test(text)) return null;
+        const number = Number(text);
+        return Number.isFinite(number) ? number : null;
+      };
+      let committed = parse(el.dataset.rollValue);
+      let displayed = committed;
+      let frame = 0;
+      const observer = new MutationObserver(() => {
+        const text = el.textContent;
+        const raw = el.dataset.rollValue;
+        const target = parse(raw);
+        if (prefersReducedMotion() || committed === null || target === null || target === committed) {
+          committed = target;
+          displayed = target;
+          return;
+        }
+        const from = displayed === null ? committed : displayed;
+        const decimals = (String(raw).split('.')[1] || '').length;
+        const unit = el.dataset.rollUnit || '';
+        const startedAt = performance.now();
+        const duration = 300;
+        cancelAnimationFrame(frame);
+        const write = value => {
+          observer.disconnect();
+          el.textContent = value;
+          observer.observe(el, observeOptions);
+        };
+        const step = now => {
+          const progress = Math.min(1, (now - startedAt) / duration);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          if (progress < 1) {
+            const value = from + (target - from) * eased;
+            displayed = value;
+            write(window.I18n.formatValue(value.toFixed(decimals), unit));
+            frame = requestAnimationFrame(step);
+          } else {
+            write(text);
+            committed = target;
+            displayed = target;
+          }
+        };
+        frame = requestAnimationFrame(step);
+      });
+      observer.observe(el, observeOptions);
+      cleanup(() => {
+        cancelAnimationFrame(frame);
+        observer.disconnect();
+      });
+    });
+  };
+
+  // x-fade-text: blendet einen per x-text gesetzten Text kurz auf, wenn er sich
+  // aendert. Fuer alles, was x-roll nicht zaehlen kann: Uhrzeiten und Saetze
+  // mit Zahl und Pluralform. Nur Opacity, deshalb auch bei reduzierter Bewegung
+  // aktiv. Das erste Befuellen und ein gleich gebliebener Text blenden nicht.
+  // Kommt eine Aenderung in ein laufendes Einblenden, geht es an der gerade
+  // sichtbaren Deckkraft weiter, statt wieder abzudunkeln.
+  const registerFadeTextDirective = Alpine => {
+    Alpine.directive('fade-text', (el, meta, { cleanup }) => {
+      let shown = el.textContent;
+      let animation = null;
+      const observer = new MutationObserver(() => {
+        const text = el.textContent;
+        if (text === shown) return;
+        const first = shown === '';
+        shown = text;
+        if (first || typeof el.animate !== 'function') return;
+        const running = animation && animation.playState === 'running';
+        const from = running ? Number(getComputedStyle(el).opacity) : 0.25;
+        if (animation) animation.cancel();
+        animation = el.animate(
+          [{opacity: from}, {opacity: 1}],
+          {duration: 200, easing: 'cubic-bezier(0.23, 1, 0.32, 1)'},
+        );
+      });
+      observer.observe(el, {childList: true, characterData: true, subtree: true});
+      cleanup(() => observer.disconnect());
+    });
+  };
+
   document.addEventListener('alpine:init', () => {
+    registerRollDirective(Alpine);
+    registerFadeTextDirective(Alpine);
     dashboardShell.liveTopicsFor = liveTopicsFor;
     dashboardShell.liveDevicesFor = liveDevicesFor;
     Alpine.data('dashboardShell', dashboardShell);

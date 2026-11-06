@@ -130,7 +130,7 @@ RULES: list[tuple[re.Pattern, frozenset[str]]] = [
     # 36
     (re.compile(r"^scripts/tests/(bootstrap_container\.sh$|lib/)"), frozenset({"shell", "bootstrap"})),
     # 37
-    (re.compile(r"^scripts/build/(make_changelog_json|highlight_i18n|highlight_translations|highlight_details)\.py$"
+    (re.compile(r"^scripts/build/(make_changelog_json|highlight_i18n|highlight_translations|highlight_details|highlight_tours|tour_gate)\.py$"
                 r"|^scripts/release/release_highlights\.py$"),
      frozenset({"python"})),
     # 38

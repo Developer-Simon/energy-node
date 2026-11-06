@@ -20,7 +20,7 @@ function createStatusPanel(I18n) {
     url: 'http://localhost/',
   });
   const factories = {};
-  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; }, directive() {} };
   dom.window.setInterval = () => 0;
   if (I18n) dom.window.I18n = I18n;
   vm.runInContext(source, dom.getInternalVMContext());

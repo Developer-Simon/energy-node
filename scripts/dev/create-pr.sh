@@ -45,6 +45,10 @@
 #   PR_HIGHLIGHTS_DE_FILE=…  "- text" / "- <target>: text" lines with the
 #                      German version of the message's own "Highlights:"
 #                      block. Asked line by line on a TTY when missing.
+#   PR_TOUR_FILE=…     Optional JSON file with the tour of a dashboard highlight,
+#                      the value of "tour" in changelog/highlights/<PR>.json. It
+#                      goes into the "Tour" section of the description. Without
+#                      it CI asks for the owner's exemption in a PR comment.
 #   PR_SKIP_EDIT=1     Skip the editor step (non-interactive / CI).
 #   PR_ASSUME_YES=1    Confirm the "use current branch" prompt without a TTY.
 #
@@ -61,6 +65,10 @@ base="${PR_BASE:-main}"
 
 if [[ -n "${PR_MESSAGE_FILE:-}" && "${PR_MESSAGE_FILE}" != "-" && ! -f "${PR_MESSAGE_FILE}" ]]; then
   echo "PR_MESSAGE_FILE does not point at a file: ${PR_MESSAGE_FILE}" >&2
+  exit 2
+fi
+if [[ -n "${PR_TOUR_FILE:-}" && ! -f "${PR_TOUR_FILE}" ]]; then
+  echo "PR_TOUR_FILE does not point at a file: ${PR_TOUR_FILE}" >&2
   exit 2
 fi
 
@@ -214,6 +222,11 @@ if pr_title_is_highlight "${title}"; then
   translations="$(pr_translation_block de "${de_file}")"
 fi
 
+# --- Tour --------------------------------------------------------------------
+
+tour="none"
+[[ -n "${PR_TOUR_FILE:-}" ]] && tour="$(cat "${PR_TOUR_FILE}")"
+
 # --- Derived fields ----------------------------------------------------------
 
 ai_model="$(grep -E "${PR_TRAILER_RE}" "${msg_file}" | sed -E 's/^Co-authored-by: (Claude [^<]+) <.*/\1/')"
@@ -247,7 +260,7 @@ if [[ -n "${suites}" ]]; then check_suites="x"; else suites="not stated"; fi
 if [[ ! -f "${TEMPLATE}" ]]; then
   cp "${msg_file}" "${body_file}"
 else
-  MESSAGE="$(cat "${msg_file}")" TRANSLATIONS="${translations}" SUMMARY="${summary}" SUITES="${suites}" ISSUE="${issue}" \
+  MESSAGE="$(cat "${msg_file}")" TRANSLATIONS="${translations}" TOUR="${tour}" SUMMARY="${summary}" SUITES="${suites}" ISSUE="${issue}" \
   AI_MODEL="${ai_model}" CHECK_TITLE="${check_title}" CHECK_SECRETS="${check_secrets}" \
   CHECK_AI="x" CHECK_SUITES="${check_suites}" \
   awk '
@@ -272,6 +285,13 @@ fi
 # The edited block must still satisfy the rules, otherwise stop before opening.
 pr_extract_block "${body_file}" > "${msg_file}"
 pr_validate_message "${title}" "${msg_file}" || exit 2
+if ! python3 "${REPO_ROOT}/scripts/build/highlight_tours.py" validate-body --body-file "${body_file}"; then
+  echo "Fix the tour (PR_TOUR_FILE or the Tour section) and run again." >&2
+  exit 2
+fi
+if [[ -z "${PR_TOUR_FILE:-}" ]] && pr_title_is_highlight "${title}"; then
+  echo "No tour given. If this is a dashboard highlight, CI waits for the owner's exemption after the build."
+fi
 
 git push -u origin "${branch}"
 gh pr create --base "${base}" --head "${branch}" --title "${title}" --body-file "${body_file}"

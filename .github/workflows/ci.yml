@@ -388,9 +388,9 @@ jobs:
 
   # Every highlight of this PR (a feat, fix, perf or breaking squash entry in a
   # CHANGELOG.md) needs a German text in changelog/highlights/<PR>.json. Runs
-  # on every PR, the check reads only Markdown and JSON. Every dashboard
-  # highlight also needs a tour or an exemption (highlight_tours.py check).
-  # CI is dispatched by
+  # on every PR, the check reads only Markdown and JSON. A dashboard highlight
+  # without a tour does not fail here: the job CI ok asks for an exemption after
+  # the build. CI is dispatched by
   # the Version bump only after the branch settled, so the changelogs and the
   # translation file are current.
   highlight-translations:
@@ -404,10 +404,6 @@ jobs:
         env:
           PR_NUMBER: ${{ inputs.pr }}
         run: python3 scripts/build/highlight_translations.py check --repo . --pr "$PR_NUMBER"
-      - name: Every web UI highlight of this PR has a tour
-        env:
-          PR_NUMBER: ${{ inputs.pr }}
-        run: python3 scripts/build/highlight_tours.py check --repo . --pr "$PR_NUMBER"
       - name: Highlight details and tours are valid
         run: python3 scripts/build/highlight_translations.py validate --repo .
 
@@ -459,14 +455,18 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: bash scripts/tests/bootstrap_container.sh
 
-  # Single required status check. Always runs; passes only when every job above
-  # either succeeded or was legitimately skipped by the path filter. Point the
-  # `main` branch-protection rule at this job instead of the individual ones.
+  # Always runs; passes only when every job above either succeeded or was
+  # legitimately skipped by the path filter. Its commit status CI is the single
+  # required status check of the `main` branch protection, so a missing tour
+  # without an exemption blocks the merge.
   ci-ok:
     name: CI ok
     if: always()
     permissions:
+      contents: read
       statuses: write
+      # The comment of the tour gate.
+      pull-requests: write
     needs:
       - changes
       - dashboard-go
@@ -498,18 +498,40 @@ jobs:
               *) echo "::error::a CI job did not pass (result: $r)"; exit 1 ;;
             esac
           done
+      - uses: actions/checkout@v4
+        if: success() && github.event_name == 'workflow_dispatch'
+      # A dashboard highlight without a tour needs the owner's reaction on a PR
+      # comment. Waits at most 10 minutes (scripts/build/tour_gate.py), and
+      # passes at once when nothing is missing or the exemption already exists.
+      - name: Wait for the tour exemption when a tour is missing
+        id: tour
+        if: success() && github.event_name == 'workflow_dispatch'
+        timeout-minutes: 12
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr }}
+        run: |
+          python3 scripts/build/tour_gate.py --repo . --pr "$PR_NUMBER" \
+            --github-repo "$GITHUB_REPOSITORY" --owner "$GITHUB_REPOSITORY_OWNER" --sha "$GITHUB_SHA" \
+            --run-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
       # The PR's commit status "CI" (see the changes job). A cancelled run
       # leaves it pending, which is fine: it was cancelled for a newer head.
+      # That also holds for a run cancelled while it waits for the exemption.
       - name: Report the result as commit status CI
         if: always() && github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
           OUTCOME: ${{ steps.verify.outcome }}
+          TOUR_OUTCOME: ${{ steps.tour.outcome }}
         run: |
-          if [ "$OUTCOME" = "success" ]; then
-            state=success; description="All needed jobs passed"
-          else
+          if [ "$OUTCOME" != "success" ]; then
             state=failure; description="A CI job did not pass"
+          elif [ "$TOUR_OUTCOME" = "cancelled" ]; then
+            exit 0
+          elif [ "$TOUR_OUTCOME" = "failure" ]; then
+            state=failure; description="Build passed, no tour and no exemption granted"
+          else
+            state=success; description="All needed jobs passed"
           fi
           gh api "repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
             -f state="$state" -f context=CI -f description="$description" \
