@@ -1,0 +1,102 @@
+name: Sync prerelease
+
+# After every push to main, merges main into the prerelease branch and sets the
+# prerelease versions (scripts/version/sync_prerelease.py). A code conflict
+# aborts the merge: the run opens (or comments on) an issue with the conflicting
+# paths and ends red. Resolve it locally with the command in the issue.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+
+# Runs queue up instead of cancelling each other: a cancelled sync could leave a
+# push half done.
+concurrency:
+  group: sync-prerelease
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Merge main into prerelease
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.BUMP_TOKEN }}
+          fetch-depth: 0
+
+      - name: Sync prerelease with main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! git rev-parse --verify --quiet origin/prerelease >/dev/null; then
+            echo "::notice::origin/prerelease does not exist - nothing to sync."
+            exit 0
+          fi
+
+          git config user.name "energy-node-bot"
+          git config user.email "energy-node-bot@users.noreply.github.com"
+          git checkout prerelease
+
+          out_file="$RUNNER_TEMP/sync-prerelease-out.txt"
+          set +e
+          python3 scripts/version/sync_prerelease.py --push > "$out_file"
+          rc=$?
+          set -e
+          cat "$out_file"
+
+          label="prerelease-sync"
+          case "$rc" in
+            0)
+              # Synced: close the open conflict issues, if any.
+              gh issue list --repo "$GITHUB_REPOSITORY" --label "$label" --state open \
+                --json number --jq '.[].number' > "$RUNNER_TEMP/open-issues.txt"
+              while read -r number; do
+                [ -n "$number" ] || continue
+                gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+                  --comment "Prerelease is synced with main again."
+              done < "$RUNNER_TEMP/open-issues.txt"
+              exit 0
+              ;;
+            3)
+              # Conflict: the merge was aborted. The printed CONFLICT lines go
+              # into a file and are read as data, never as shell source.
+              body="$RUNNER_TEMP/conflict-body.md"
+              {
+                echo "The merge of main into prerelease stopped on conflicts in these paths:"
+                echo
+                sed -n 's/^CONFLICT /- `/p' "$out_file" | sed 's/$/`/'
+                echo
+                echo "Resolve it locally and push the result:"
+                echo
+                echo '```'
+                echo "git switch prerelease && python3 scripts/version/sync_prerelease.py"
+                echo '```'
+                echo
+                echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+              } > "$body"
+
+              gh label create "$label" --repo "$GITHUB_REPOSITORY" --force \
+                --description "Prerelease sync needs manual conflict resolution" >/dev/null
+
+              open_number="$(gh issue list --repo "$GITHUB_REPOSITORY" --label "$label" \
+                --state open --json number --jq '.[0].number // empty')"
+              if [ -n "$open_number" ]; then
+                gh issue comment "$open_number" --repo "$GITHUB_REPOSITORY" --body-file "$body"
+              else
+                gh issue create --repo "$GITHUB_REPOSITORY" --label "$label" \
+                  --title "Prerelease sync needs manual conflict resolution" \
+                  --body-file "$body"
+              fi
+              echo "::error::Merging main into prerelease stopped on conflicts."
+              exit 1
+              ;;
+            *)
+              echo "::error::sync_prerelease.py failed with exit code $rc."
+              exit 1
+              ;;
+          esac
