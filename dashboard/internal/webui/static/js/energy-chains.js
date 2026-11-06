@@ -59,16 +59,45 @@
     .map(id => labelOf(id) || id)
     .join(' → ');
 
+  // A loss counts downward: 9 W lost reads "−9 W", a gain reads "+9 W".
+  const lossPowerText = loss => {
+    const sign = Math.round(Math.abs(loss)) === 0 ? '' : (loss > 0 ? MINUS : '+');
+    return `${sign}${model().formatPower(loss)}`;
+  };
+
+  const percentText = percent => `${Math.round(percent)} %`;
+
+  // Efficiency in percent, or null when the segment has none.
+  const efficiencyPercent = segment => {
+    const efficiency = segment && segment.available ? segment.efficiency : null;
+    return typeof efficiency === 'number' && Number.isFinite(efficiency) ? efficiency * 100 : null;
+  };
+
+  // "−9 W", without a value "–".
+  const lossPowerOf = segment => (segment && segment.available ? lossPowerText(Number(segment.loss_w) || 0) : EN_DASH);
+
   // "−9 W · 97 %", without efficiency "−9 W", without a value "–".
   const lossText = segment => {
-    if (!segment || !segment.available) return EN_DASH;
-    const loss = Number(segment.loss_w) || 0;
-    const power = model().formatPower(loss);
-    const sign = Math.round(Math.abs(loss)) === 0 ? '' : (loss > 0 ? MINUS : '+');
-    const text = `${sign}${power}`;
-    const efficiency = segment.efficiency;
-    if (typeof efficiency !== 'number' || !Number.isFinite(efficiency)) return text;
-    return `${text} · ${Math.round(efficiency * 100)} %`;
+    const percent = efficiencyPercent(segment);
+    return percent === null ? lossPowerOf(segment) : `${lossPowerOf(segment)} · ${percentText(percent)}`;
+  };
+
+  // The chain in which one entity of each list are direct neighbours, with the
+  // two points in chain order, or null. Two devices can also share a chain
+  // without being neighbours, that is no connection between them.
+  const linkBetween = (chains, firstIds, secondIds) => {
+    const first = new Set(firstIds);
+    const second = new Set(secondIds);
+    for (const id of idsOf(chains)) {
+      const {points, label} = chains[id];
+      for (let index = 0; index + 1 < points.length; index += 1) {
+        const [upstream, downstream] = [points[index], points[index + 1]];
+        if ((first.has(upstream) && second.has(downstream)) || (first.has(downstream) && second.has(upstream))) {
+          return {id, label, upstream, downstream};
+        }
+      }
+    }
+    return null;
   };
 
   // Power entities that no chain lists, in the item form of the device picker.
@@ -117,6 +146,15 @@
   };
 
   window.EnergyChains = {
-    insertPoint, removePoint, setCounting, chainOf, isReference, shortPath, lossText, pickerItems, edgeChange,
+    insertPoint, removePoint, setCounting, chainOf, isReference, shortPath, lossText, lossPowerOf, efficiencyPercent,
+    percentText, linkBetween, pickerItems, edgeChange,
+  };
+
+  // How x-roll writes the frames of the chain values (data-roll-format).
+  window.RollFormats = {
+    ...window.RollFormats,
+    chainPower: value => model().formatPower(value),
+    chainLoss: lossPowerText,
+    chainEfficiency: percentText,
   };
 })();

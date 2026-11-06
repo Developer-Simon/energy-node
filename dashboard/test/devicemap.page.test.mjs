@@ -3486,3 +3486,34 @@ test('a refused chain save toasts the error and announces nothing', async () => 
   assert.equal(stores.toasts.criticals.length, 1);
   assert.deepEqual(changes, []);
 });
+
+test('an edge between neighbouring chain points says so on its card', () => {
+  const { component, window } = chainPanel({ savedChains: { balkon: { label: 'Balkonspeicher', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } } });
+  component.openWiringPopover({ x: 10, y: 10 });
+  const { link } = component.popover.edge.chainForm;
+  assert.equal(link.id, 'balkon');
+  assert.equal(link.label, 'Balkonspeicher');
+  assert.ok(link.path.includes(' → '));
+
+  const opened = [];
+  window.addEventListener('dashboard-open-panel', event => opened.push(event.detail));
+  component.openEdgeChain();
+  assert.equal(opened[0].panel, 'energy-panel');
+  assert.equal(opened[0].chainFocus, 'balkon');
+});
+
+test('a free edge has no chain link', () => {
+  const { component } = chainPanel();
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.chainForm.link, null);
+});
+
+test('the first load takes the saved chains, so the map knows them without a reload', async () => {
+  const chains = { balkon: { label: 'Balkonspeicher', points: ['bkw_p', 'plug_p'], counting: 'bkw_p', direction: '' } };
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes({
+    '/api/v1/devices': panelDevices(),
+    '/api/v1/energy/roles': { assignments: {}, groups: {}, categories: {}, chains },
+  })) });
+  await component.load();
+  assert.deepEqual(Object.keys(component.savedChains), ['balkon']);
+});

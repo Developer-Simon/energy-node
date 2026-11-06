@@ -1261,3 +1261,42 @@ test('a refused rename puts the saved label back into the name input', async () 
   assert.equal(input.value, 'Balkon');
   assert.equal(component.chains.m.label, 'Balkon');
 });
+
+test('a refused direction change takes the choice back', async () => {
+  const fetchImpl = async url => {
+    if (String(url).startsWith('/api/v1/energy/chains')) return { ok: false, status: 409, json: async () => ({ error: 'nein' }) };
+    return chainFetch({ calls: [], saved: { assignments: {}, chains: {}, role_needed: [] } })(url);
+  };
+  const { component } = createEnergyPanel({ fetchImpl });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power', direction: 'auto' } };
+  await component.setChainDirection('m', 'fixed_up');
+  assert.equal(component.chains.m.direction, 'auto');
+});
+
+test('the chain value helpers give x-roll the raw numbers and dashes keep them empty', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch({ calls: [], saved: { assignments: {}, chains: {}, role_needed: [] } }) });
+  await component.load();
+  component.chains = { m: { label: 'B', points: ['a', 'b'], counting: 'a' } };
+  component.chainStates = { m: { points: [{ entity_id: 'a', has_value: true, value: 900 }, { entity_id: 'b', has_value: false }], segments: [{ from: 'a', to: 'b', available: true, loss_w: 9, efficiency: 0.97 }] } };
+  assert.equal(component.chainPointRaw('m', 'a'), 900);
+  assert.equal(component.chainPointRaw('m', 'b'), '');
+  assert.equal(component.chainLossRaw('m', 0), 9);
+  assert.equal(component.chainLossPowerText('m', 0), '−9 W');
+  assert.equal(component.chainEfficiencyText('m', 0), '97 %');
+  assert.equal(Math.round(component.chainEfficiencyRaw('m', 0)), 97);
+  component.chainStates = {};
+  assert.equal(component.chainLossRaw('m', 0), '');
+  assert.equal(component.chainEfficiencyText('m', 0), '');
+});
+
+test('a chain request from the map opens the chain once the page has loaded', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch({ calls: [], saved: { assignments: {}, chains: {}, role_needed: [] } }) });
+  component.$nextTick = fn => fn();
+  window.__energyChainRequest__ = 'm';
+  await component.load();
+  assert.equal(component.flashChain, 'm');
+  assert.equal(component.isSectionOpen('chains'), true);
+  assert.equal(window.__energyChainRequest__, null);
+});

@@ -199,6 +199,7 @@
           this.savedHidden = new Set((roles && roles.hidden) || []);
           this.savedGroups = (roles && roles.groups) || {};
           this.savedCategories = (roles && roles.categories) || {};
+          this.savedChains = (roles && roles.chains) || {};
           // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung, dann
           // laesst requireEnergyMutation den Schreibzugriff durch.
           this.csrfToken = (session && session.csrf_token) || '';
@@ -651,11 +652,8 @@
         if (edge.membership || edge.subDevice || model.isGroupId(edge.source) || model.isGroupId(edge.target)) return null;
         if (edge.source === model.OWN_ENERGY_DEVICE_ID || edge.target === model.OWN_ENERGY_DEVICE_ID) return null;
         if (this.edgePropsFor(edge).type !== 'energy') return null;
-        const points = id => ((this.devices.find(device => device.id === id) || {}).entities || [])
-          .filter(entity => model.isPowerUnit(entity.unit_of_measurement))
-          .map(entity => ({id: entity.unique_id, name: entity.name || entity.unique_id}));
-        const source = points(edge.source);
-        const target = points(edge.target);
+        const source = this.chainPointsOf(edge.source);
+        const target = this.chainPointsOf(edge.target);
         const sourceIds = new Set(source.map(item => item.id));
         const targetIds = new Set(target.map(item => item.id));
         const chains = this.savedChains || {};
@@ -666,8 +664,29 @@
         const pick = (list, preferred) => (list.find(item => preferred && preferred.points.includes(item.id))
           || list.find(item => window.EnergyChains.chainOf(chains, item.id))
           || list[0] || {id: ''}).id;
+        const hit = window.EnergyChains.linkBetween(chains, sourceIds, targetIds);
+        const nameOf = id => {
+          const inSource = source.find(item => item.id === id);
+          const item = inSource || target.find(entry => entry.id === id);
+          return `${this.deviceLabel(inSource ? edge.source : edge.target)} · ${item ? item.name : id}`;
+        };
+        const link = hit && {...hit, path: `${nameOf(hit.upstream)} → ${nameOf(hit.downstream)}`};
         return {source, target, sourceEntity: pick(source, between), targetEntity: pick(target, between),
-          chainLabel: between ? between.label : ''};
+          chainLabel: between ? between.label : '', link};
+      },
+
+      // The power entities of a device, the possible measuring points.
+      chainPointsOf(deviceId) {
+        return ((this.devices.find(device => device.id === deviceId) || {}).entities || [])
+          .filter(entity => window.DeviceMapModel.isPowerUnit(entity.unit_of_measurement))
+          .map(entity => ({id: entity.unique_id, name: entity.name || entity.unique_id}));
+      },
+
+      // Opens the chain of the selected edge on the energy page.
+      openEdgeChain() {
+        const form = this.popover && this.popover.edge && this.popover.edge.chainForm;
+        if (!form || !form.link) return;
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'energy-panel', chainFocus: form.link.id}}));
       },
 
       // Saves the chain form of the selected edge. edgeChange() decides between a

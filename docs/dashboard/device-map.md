@@ -77,7 +77,7 @@ cannot be reversed, but their flow direction can still be set.
 
 The card of an energy connection can also connect the two devices as a
 measurement chain. The source becomes the upstream point and the target the
-downstream point. Chains are edited on the Energy tab, see
+downstream point. The card of such a connection then names the chain and links to it. Chains are edited on the Energy tab, see
 [Measurement chains](energy.md#measurement-chains). Reference points of a chain
 only show their value here and do not count in the balance. Connecting devices
 as a chain needs the permission `edit_energy`.

@@ -160,3 +160,12 @@ test('edgeChange reports a conflict for different chains or points that are not 
   const apart = {main: {label: 'A', points: ['up', 'x', 'down'], counting: 'up'}};
   assert.deepEqual(plain(ec.edgeChange({chains: apart, upstream: 'up', downstream: 'down', label: 'x'})), {action: 'conflict'});
 });
+
+test('linkBetween finds direct neighbours in either order and ignores points further apart', () => {
+  const chains = {m: {label: 'Speicher', points: ['plug', 'inverter', 'battery'], counting: 'plug'}};
+  const {linkBetween} = load();
+  assert.deepEqual({...linkBetween(chains, ['plug'], ['inverter'])}, {id: 'm', label: 'Speicher', upstream: 'plug', downstream: 'inverter'});
+  assert.deepEqual({...linkBetween(chains, ['battery'], ['inverter'])}, {id: 'm', label: 'Speicher', upstream: 'inverter', downstream: 'battery'});
+  assert.equal(linkBetween(chains, ['plug'], ['battery']), null);
+  assert.equal(linkBetween(chains, ['other'], ['inverter']), null);
+});

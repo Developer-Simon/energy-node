@@ -246,7 +246,14 @@
               <template x-if="popover.edge.chainForm">
                 <div class="category-field">
                   <span class="category-field-label">{{t "devicemap.edge.chain_label"}}</span>
-                  <div x-show="canEditEnergy" class="devicemap-edge-chain">
+                  <template x-if="popover.edge.chainForm.link">
+                    <div class="devicemap-edge-chain-status">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chain"></use></svg>
+                      <span class="devicemap-edge-chain-text"><span x-text="$t('devicemap.edge.chain_linked', {chain: popover.edge.chainForm.link.label})"></span><small x-text="popover.edge.chainForm.link.path"></small></span>
+                      <button type="button" class="pill-button" x-on:click="openEdgeChain()">{{t "devicemap.edge.chain_open"}}</button>
+                    </div>
+                  </template>
+                  <div x-show="canEditEnergy && !popover.edge.chainForm.link" class="devicemap-edge-chain">
                     <label class="devicemap-panel-field"><span x-text="popover.edge.parentName"></span>
                       <select x-on:change="popover.edge.chainForm.sourceEntity = $event.target.value">
                         <template x-for="item in popover.edge.chainForm.source" x-bind:key="item.id"><option x-bind:value="item.id" x-text="item.name" x-bind:selected="item.id === popover.edge.chainForm.sourceEntity"></option></template>
@@ -259,7 +266,7 @@
                     </label>
                     <button type="button" class="pill-button" x-on:click="saveEdgeChain()">{{t "devicemap.edge.chain_save"}}</button>
                   </div>
-                  <div x-show="!canEditEnergy"><span x-text="popover.edge.chainForm.chainLabel || $t('devicemap.edge.chain_none')"></span></div>
+                  <div x-show="!canEditEnergy && !popover.edge.chainForm.link"><span x-text="popover.edge.chainForm.chainLabel || $t('devicemap.edge.chain_none')"></span></div>
                 </div>
               </template>
             </div>

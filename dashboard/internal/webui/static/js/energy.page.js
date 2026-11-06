@@ -6,6 +6,8 @@
   const HIDDEN_IDS_STORAGE_KEY = 'energy-roles-hidden-ids';
   // Live values of the measurement chains are read at most this often.
   const CHAIN_LIVE_INTERVAL_MS = 5000;
+  // Room the sticky action bar takes from a chain menu that opens downward.
+  const CHAIN_MENU_BOTTOM_GAP_PX = 80;
 
   // Das Dashboard veröffentlicht seine eigene Bilanz als HA-MQTT-Gerät und
   // liest die Discovery zurück in die Registry (internal/energydiscovery,
@@ -48,7 +50,7 @@
     return body;
   };
 
-  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories', 'subdevices', 'chains'];
+  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories', 'chains', 'subdevices'];
   const readOpenSection = () => {
     try {
       const stored = localStorage.getItem('energy-open-section');
@@ -133,6 +135,9 @@
     chainOpen: {},
     roleNeeded: [],
     flashChain: '',
+    // The chain whose direction menu is open, and the side it opens to.
+    chainDirectionMenu: '',
+    chainDirectionSide: 'bottom',
     _chainTimer: null,
     _chainLiveAt: 0,
     _now: () => Date.now(),
@@ -148,6 +153,10 @@
       window.addEventListener('device-map-changed', () => this.load());
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
+      window.addEventListener('energy-focus-chain', event => {
+        window.__energyChainRequest__ = null;
+        this.openChain((event.detail && event.detail.id) || '');
+      });
       window.addEventListener('registry-updated', () => this.refreshChainStatesLive());
     },
 
@@ -377,6 +386,11 @@
           const ids = window.__energyFocusRequest__;
           window.__energyFocusRequest__ = null;
           this.focusRows(ids);
+        }
+        if (window.__energyChainRequest__) {
+          const id = window.__energyChainRequest__;
+          window.__energyChainRequest__ = null;
+          this.openChain(id);
         }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -990,7 +1004,89 @@
     async setChainDirection(id, direction) {
       const chain = this.chains[id];
       if (!this.canEdit || !chain || (chain.direction || 'auto') === direction) return;
-      await this.sendChain('PUT', this.chainUrl(id), this.chainBody({...chain, direction}), chain.points);
+      // The menu shows the choice at once, a refused call takes it back.
+      const previous = chain.direction;
+      chain.direction = direction;
+      const saved = await this.sendChain('PUT', this.chainUrl(id), this.chainBody({...chain, direction}), chain.points);
+      if (!saved && this.chains[id]) this.chains[id].direction = previous;
+    },
+
+    chainDirectionOptions() {
+      return [
+        {value: 'auto', title: t('energy.chains.direction.auto'), desc: t('energy.chains.direction.auto_desc')},
+        {value: 'reversed', title: t('energy.chains.direction.reversed'), desc: t('energy.chains.direction.reversed_desc')},
+        {value: 'fixed_down', title: t('energy.chains.direction.fixed_down'), desc: t('energy.chains.direction.fixed_down_desc')},
+        {value: 'fixed_up', title: t('energy.chains.direction.fixed_up'), desc: t('energy.chains.direction.fixed_up_desc')},
+      ];
+    },
+
+    chainDirectionTitle(chain) {
+      const value = chain.direction || 'auto';
+      return (this.chainDirectionOptions().find(option => option.value === value) || {title: value}).title;
+    },
+
+    // Opens below the trigger, or above it when the action bar leaves too
+    // little room. The focus moves to the current choice, so the arrow keys
+    // start there.
+    toggleChainDirectionMenu(id, trigger) {
+      if (this.chainDirectionMenu === id) {
+        this.closeChainDirectionMenu();
+        return;
+      }
+      const root = trigger.closest('.energy-chain-direction');
+      const menu = root.querySelector('[role="listbox"]');
+      const rect = trigger.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - CHAIN_MENU_BOTTOM_GAP_PX;
+      this.chainDirectionSide = below < menu.offsetHeight && rect.top > below ? 'top' : 'bottom';
+      this.chainDirectionMenu = id;
+      this.$nextTick(() => {
+        const current = menu.querySelector('[aria-selected="true"]') || menu.querySelector('[role="option"]');
+        if (current) current.focus({preventScroll: true});
+      });
+    },
+
+    closeChainDirectionMenu(trigger) {
+      this.chainDirectionMenu = '';
+      if (trigger) trigger.focus({preventScroll: true});
+    },
+
+    async chooseChainDirection(id, direction, option) {
+      const root = option.closest('.energy-chain-direction');
+      this.closeChainDirectionMenu(root.querySelector('button'));
+      await this.setChainDirection(id, direction);
+    },
+
+    // Listbox keys: arrows, Home and End move, Enter and Space choose, Escape
+    // closes and Tab leaves. Arrows on the closed trigger open the menu.
+    onChainDirectionKey(event, id) {
+      const root = event.currentTarget;
+      const trigger = root.querySelector('button');
+      if (this.chainDirectionMenu !== id) {
+        if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !trigger.disabled) {
+          event.preventDefault();
+          this.toggleChainDirectionMenu(id, trigger);
+        }
+        return;
+      }
+      const options = [...root.querySelectorAll('[role="option"]')];
+      const at = options.indexOf(document.activeElement);
+      const move = index => {
+        event.preventDefault();
+        options[Math.max(0, Math.min(index, options.length - 1))].focus({preventScroll: true});
+      };
+      if (event.key === 'ArrowDown') move(at + 1);
+      else if (event.key === 'ArrowUp') move(at - 1);
+      else if (event.key === 'Home') move(0);
+      else if (event.key === 'End') move(options.length - 1);
+      else if (event.key === 'Tab') this.closeChainDirectionMenu();
+      else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeChainDirectionMenu(trigger);
+      } else if ((event.key === 'Enter' || event.key === ' ') && at >= 0) {
+        event.preventDefault();
+        this.chooseChainDirection(id, options[at].dataset.value, options[at]);
+      }
     },
 
     // Name of a measuring point as the rows show it, for the path and the node titles.
@@ -1003,23 +1099,55 @@
       return window.EnergyChains.shortPath(chain, entityId => this.chainLabelOf(entityId));
     },
 
-    // Live value of one point, or a dash while it has none.
-    chainPointValue(chainId, entityId) {
+    chainPointState(chainId, entityId) {
       const points = (this.chainStates[chainId] || {}).points || [];
       const point = points.find(item => item.entity_id === entityId);
-      if (!point || !point.has_value) return '–';
-      return window.DeviceMapModel.formatPower(point.value);
+      return point && point.has_value ? point : null;
     },
 
-    // Loss between the points at index and index + 1, matched in either flow direction.
-    chainLossText(chainId, index) {
+    // Live value of one point, or a dash while it has none.
+    chainPointValue(chainId, entityId) {
+      const point = this.chainPointState(chainId, entityId);
+      return point ? window.DeviceMapModel.formatPower(point.value) : '–';
+    },
+
+    // The number behind chainPointValue, for x-roll. Empty sets the text at once.
+    chainPointRaw(chainId, entityId) {
+      const point = this.chainPointState(chainId, entityId);
+      return point ? Number(point.value) : '';
+    },
+
+    // Segment between the points at index and index + 1, matched in either flow direction.
+    chainSegment(chainId, index) {
       const chain = this.chains[chainId];
       const state = this.chainStates[chainId];
-      if (!chain || !state) return '–';
+      if (!chain || !state) return null;
       const first = chain.points[index];
       const second = chain.points[index + 1];
-      const segment = (state.segments || []).find(item => (item.from === first && item.to === second) || (item.from === second && item.to === first));
-      return window.EnergyChains.lossText(segment);
+      return (state.segments || []).find(item => (item.from === first && item.to === second) || (item.from === second && item.to === first)) || null;
+    },
+
+    chainLossText(chainId, index) {
+      return window.EnergyChains.lossText(this.chainSegment(chainId, index));
+    },
+
+    chainLossPowerText(chainId, index) {
+      return window.EnergyChains.lossPowerOf(this.chainSegment(chainId, index));
+    },
+
+    chainLossRaw(chainId, index) {
+      const segment = this.chainSegment(chainId, index);
+      return segment && segment.available ? Number(segment.loss_w) || 0 : '';
+    },
+
+    chainEfficiencyText(chainId, index) {
+      const percent = window.EnergyChains.efficiencyPercent(this.chainSegment(chainId, index));
+      return percent === null ? '' : window.EnergyChains.percentText(percent);
+    },
+
+    chainEfficiencyRaw(chainId, index) {
+      const percent = window.EnergyChains.efficiencyPercent(this.chainSegment(chainId, index));
+      return percent === null ? '' : percent;
     },
 
     // The hint on a role row: the chain an entity is a reference of, or null.

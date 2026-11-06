@@ -96,7 +96,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `44` |
+| `js/dashboard.js` | `45` |
 | `js/update-bar.js` | `7` |
 | `js/onboarding-model.js` | `4` |
 | `js/onboarding.js` | `4` |

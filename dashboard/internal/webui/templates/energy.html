@@ -230,6 +230,60 @@
         <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "energy.categories.add"}}</button>
       </div>
     </section>
+    <section class="energy-acc" data-energy-section="chains" data-tour="energy-chains" x-bind:data-open="isSectionOpen('chains') ? 'true' : 'false'">
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-chains-toggle" data-tour="energy-chains-toggle" aria-controls="energy-acc-chains" x-bind:aria-expanded="isSectionOpen('chains') ? 'true' : 'false'" x-on:click="toggleSection('chains', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-chain"></use></svg></span><span class="energy-acc-title">{{t "energy.chains.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('chains')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
+      <div class="energy-acc-body" id="energy-acc-chains" role="region" aria-labelledby="energy-acc-chains-toggle" x-show="isSectionOpen('chains')" x-cloak>
+        <p class="energy-sub-hint">{{t "energy.chains.intro"}}</p>
+        <p class="energy-groups-empty" x-show="!Object.keys(chains).length">{{t "energy.chains.empty"}}</p>
+        <div class="energy-card-grid energy-chain-grid">
+          <template x-for="(chain, id) in chains" x-bind:key="id">
+            <div class="energy-groups-card energy-chain-card" x-bind:data-chain-id="id" x-bind:class="{ 'is-flash': flashChain === id }">
+              <div class="energy-groups-head">
+                <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-chain"></use></svg></span>
+                <input class="energy-groups-name" type="text" aria-label="{{t "energy.chains.name_label"}}" x-bind:disabled="!canEdit" x-bind:value="chain.label" x-on:change="renameChain(id, $event.target.value)">
+                <div class="energy-chain-direction" x-on:click.outside="chainDirectionMenu === id && closeChainDirectionMenu()" x-on:keydown="onChainDirectionKey($event, id)">
+                  <button type="button" class="energy-chain-direction-trigger" aria-haspopup="listbox" aria-label="{{t "energy.chains.direction_label"}}" x-bind:aria-expanded="chainDirectionMenu === id ? 'true' : 'false'" x-bind:disabled="!canEdit" x-on:click="toggleChainDirectionMenu(id, $event.currentTarget)"><span x-text="chainDirectionTitle(chain)"></span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button>
+                  <ul class="energy-chain-direction-menu" role="listbox" aria-label="{{t "energy.chains.direction_label"}}" x-bind:data-open="chainDirectionMenu === id ? 'true' : 'false'" x-bind:data-side="chainDirectionSide">
+                    <template x-for="option in chainDirectionOptions()" x-bind:key="option.value">
+                      <li role="option" tabindex="-1" x-bind:data-value="option.value" x-bind:aria-selected="(chain.direction || 'auto') === option.value ? 'true' : 'false'" x-on:click="chooseChainDirection(id, option.value, $event.currentTarget)"><span class="energy-chain-direction-text"><span x-text="option.title"></span><small x-text="option.desc"></small></span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-check"></use></svg></li>
+                    </template>
+                  </ul>
+                </div>
+                <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeChain(id)" title="{{t "energy.chains.remove"}}" aria-label="{{t "energy.chains.remove"}}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#ico-trash"></use></svg>
+                </button>
+              </div>
+              <button type="button" class="energy-chain-summary" x-bind:aria-expanded="chainOpen[id] ? 'true' : 'false'" x-on:click="chainOpen[id] = !chainOpen[id]">
+                <span class="energy-chain-summary-text"><span class="energy-chain-summary-name" x-text="chain.label"></span><small x-text="chainPathOf(chain)"></small></span>
+                <svg class="energy-chain-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg>
+              </button>
+              <div class="energy-chain-body" x-bind:class="{ 'is-open': chainOpen[id] }">
+                <div class="energy-chain">
+                  <template x-for="(point, index) in chain.points" x-bind:key="point">
+                    <div class="energy-chain-step">
+                      <div class="energy-chain-node" x-bind:class="{ 'is-main': chain.counting === point }">
+                        <div class="energy-chain-top"><span class="energy-chain-title" x-bind:title="chainLabelOf(point)" x-text="chainLabelOf(point)"></span><span class="energy-chain-badge" x-show="chain.counting === point">{{t "energy.chains.counting"}}</span></div>
+                        <span class="energy-chain-val" x-roll data-roll-format="chainPower" x-bind:data-roll-value="chainPointRaw(id, point)" x-text="chainPointValue(id, point)"></span>
+                        <div class="energy-chain-ctl">
+                          <label class="energy-chain-radio"><input type="radio" x-bind:name="`chain-count-${id}`" x-bind:value="point" x-bind:checked="chain.counting === point" x-bind:disabled="!canEdit" x-on:change="setChainCounting(id, point)"> {{t "energy.chains.counting"}}</label>
+                          <button type="button" class="energy-chain-x" x-show="canEdit" x-on:click="removeChainPoint(id, point)" x-bind:title="$t('energy.chains.remove_point', {name: chainLabelOf(point)})" x-bind:aria-label="$t('energy.chains.remove_point', {name: chainLabelOf(point)})"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg></button>
+                        </div>
+                      </div>
+                      <div class="energy-chain-link" x-bind:class="{ 'is-tail': index === chain.points.length - 1 }" x-show="index < chain.points.length - 1 || canEdit">
+                        <span class="energy-chain-line"></span>
+                        <span class="energy-chain-loss" x-show="index < chain.points.length - 1"><span x-roll data-roll-format="chainLoss" x-bind:data-roll-value="chainLossRaw(id, index)" x-text="chainLossPowerText(id, index)"></span><span x-show="chainEfficiencyText(id, index)"> · <span x-roll data-roll-format="chainEfficiency" x-bind:data-roll-value="chainEfficiencyRaw(id, index)" x-text="chainEfficiencyText(id, index)"></span></span></span>
+                        <button type="button" class="energy-chain-insert" x-show="canEdit" x-on:click="insertChainPoint(id, index + 1)" aria-label="{{t "energy.chains.insert"}}" title="{{t "energy.chains.insert"}}">+</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addChain()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "energy.chains.add"}}</button>
+      </div>
+    </section>
     <section class="energy-acc" data-energy-section="subdevices" x-bind:data-open="isSectionOpen('subdevices') ? 'true' : 'false'">
       <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-subdevices-toggle" aria-controls="energy-acc-subdevices" x-bind:aria-expanded="isSectionOpen('subdevices') ? 'true' : 'false'" x-on:click="toggleSection('subdevices', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-layers"></use></svg></span><span class="energy-acc-title">{{t "energy.subdevices.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('subdevices')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-subdevices" role="region" aria-labelledby="energy-acc-subdevices-toggle" x-show="isSectionOpen('subdevices')" x-cloak>
@@ -245,59 +299,6 @@
     </ul>
     <p class="energy-sub-hint">{{t "energy.subdevices.read_only"}}</p>
         </div>
-      </div>
-    </section>
-    <section class="energy-acc" data-energy-section="chains" data-tour="energy-chains" x-bind:data-open="isSectionOpen('chains') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-chains-toggle" data-tour="energy-chains-toggle" aria-controls="energy-acc-chains" x-bind:aria-expanded="isSectionOpen('chains') ? 'true' : 'false'" x-on:click="toggleSection('chains', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-layers"></use></svg></span><span class="energy-acc-title">{{t "energy.chains.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('chains')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
-      <div class="energy-acc-body" id="energy-acc-chains" role="region" aria-labelledby="energy-acc-chains-toggle" x-show="isSectionOpen('chains')" x-cloak>
-        <p class="energy-sub-hint">{{t "energy.chains.intro"}}</p>
-        <p class="energy-groups-empty" x-show="!Object.keys(chains).length">{{t "energy.chains.empty"}}</p>
-        <div class="energy-card-grid energy-chain-grid">
-          <template x-for="(chain, id) in chains" x-bind:key="id">
-            <div class="energy-groups-card energy-chain-card" x-bind:data-chain-id="id" x-bind:class="{ 'is-flash': flashChain === id }">
-              <div class="energy-groups-head">
-                <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-layers"></use></svg></span>
-                <input class="energy-groups-name" type="text" aria-label="{{t "energy.chains.name_label"}}" x-bind:disabled="!canEdit" x-bind:value="chain.label" x-on:change="renameChain(id, $event.target.value)">
-                <select class="energy-chain-flowhint" aria-label="{{t "energy.chains.direction_label"}}" x-bind:disabled="!canEdit" x-bind:value="chain.direction || 'auto'" x-on:change="setChainDirection(id, $event.target.value)">
-                  <option value="auto">{{t "energy.chains.direction.auto"}}</option>
-                  <option value="reversed">{{t "energy.chains.direction.reversed"}}</option>
-                  <option value="fixed_down">{{t "energy.chains.direction.fixed_down"}}</option>
-                  <option value="fixed_up">{{t "energy.chains.direction.fixed_up"}}</option>
-                </select>
-                <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeChain(id)" title="{{t "energy.chains.remove"}}" aria-label="{{t "energy.chains.remove"}}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#ico-trash"></use></svg>
-                </button>
-              </div>
-              <button type="button" class="energy-chain-summary" x-bind:aria-expanded="chainOpen[id] ? 'true' : 'false'" x-on:click="chainOpen[id] = !chainOpen[id]">
-                <span class="energy-chain-summary-text"><span class="energy-chain-summary-name" x-text="chain.label"></span><small x-text="chainPathOf(chain)"></small></span>
-                <svg class="energy-chain-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg>
-              </button>
-              <div class="energy-chain-body" x-bind:class="{ 'is-open': chainOpen[id] }">
-                <div class="energy-chain">
-                  <template x-for="(point, index) in chain.points" x-bind:key="point">
-                    <div class="energy-chain-step">
-                      <div class="energy-chain-node" x-bind:class="{ 'is-main': chain.counting === point }">
-                        <div class="energy-chain-top"><span class="energy-chain-title" x-text="chainLabelOf(point)"></span><span class="energy-chain-badge" x-show="chain.counting === point">{{t "energy.chains.counting"}}</span></div>
-                        <span class="energy-chain-val" x-text="chainPointValue(id, point)"></span>
-                        <div class="energy-chain-ctl">
-                          <label class="energy-chain-radio"><input type="radio" x-bind:name="`chain-count-${id}`" x-bind:value="point" x-bind:checked="chain.counting === point" x-bind:disabled="!canEdit" x-on:change="setChainCounting(id, point)"> {{t "energy.chains.counting"}}</label>
-                          <button type="button" class="energy-chain-x" x-show="canEdit" x-on:click="removeChainPoint(id, point)" x-bind:title="$t('energy.chains.remove_point', {name: chainLabelOf(point)})" x-bind:aria-label="$t('energy.chains.remove_point', {name: chainLabelOf(point)})"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg></button>
-                        </div>
-                      </div>
-                      <div class="energy-chain-link" x-show="index < chain.points.length - 1">
-                        <span class="energy-chain-line"></span>
-                        <span class="energy-chain-loss" x-text="chainLossText(id, index)"></span>
-                        <button type="button" class="energy-chain-insert" x-show="canEdit" x-on:click="insertChainPoint(id, index + 1)" aria-label="{{t "energy.chains.insert"}}" title="{{t "energy.chains.insert"}}">+</button>
-                      </div>
-                    </div>
-                  </template>
-                  <button type="button" class="energy-chain-add" x-show="canEdit" x-on:click="insertChainPoint(id, chain.points.length)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "energy.chains.add_point"}}</button>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addChain()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "energy.chains.add"}}</button>
       </div>
     </section>
   </div>
