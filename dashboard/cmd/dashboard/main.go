@@ -234,6 +234,10 @@ func main() {
 	energyStatsStore := energystats.NewStore(filepath.Join(dataDir, "energystats"))
 	historySampler := historyexchange.NewSampler()
 	energyRecorder := energystats.NewRecorder(energyStatsStore, energystats.SystemClockReady("/run/systemd/timesync", 15*time.Minute))
+	// Messketten-Stunden in eigenem Verzeichnis. Ein Schreiben hebt die
+	// Revision, damit energy_stats Statistik und Reiter nachladen laesst.
+	energyChainStore := energystats.NewChainStore(filepath.Join(dataDir, "energystats", "chains"), energyStatsStore.Bump)
+	energyRecorder.SetChainStore(energyChainStore)
 	energyCategories := func() map[string]energy.Category { return energyResolver.Model().Categories }
 	energySync := energystats.NewSync(energyStatsStore, time.Now)
 	energySync.SetCategories(energyCategories)
