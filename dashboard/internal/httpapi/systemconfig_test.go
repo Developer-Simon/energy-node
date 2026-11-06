@@ -35,7 +35,7 @@ func newSystemConfigTestRouterWith(t *testing.T, executor SystemActionExecutor) 
 	t.Helper()
 	dataDir := t.TempDir()
 	configPath := filepath.Join(t.TempDir(), "config.json")
-	template, err := os.ReadFile(filepath.Join("..", "..", "..", "services", "energy-node.config.json"))
+	template, err := os.ReadFile(filepath.Join("..", "appconfig", "energy-node.config.json"))
 	if err != nil {
 		t.Fatalf("Vorlage lesen: %v", err)
 	}

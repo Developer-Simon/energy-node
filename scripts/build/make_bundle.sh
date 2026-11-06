@@ -227,7 +227,7 @@ for entry in "${SERVICE_TABLE[@]}"; do
 done
 
 # --- config/ ---------------------------------------------------------------
-cp "${REPO_ROOT}/services/energy-node.config.json" "${STAGE}/config/config.json"
+cp "${REPO_ROOT}/dashboard/internal/appconfig/energy-node.config.json" "${STAGE}/config/config.json"
 
 # --- wheels/ ---------------------------------------------------------------
 mkdir -p "${STAGE}/wheels"
