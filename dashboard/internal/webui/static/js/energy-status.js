@@ -84,7 +84,7 @@
     return {x, mid, fillFrom, fillTo, width: Math.max(fillTo - fillFrom, 2), isImport, label};
   }
 
-  function statusTiles(balance, snapshot, staleCount, thresholds) {
+  function statusTiles(balance, snapshot, staleCount, thresholds, substituteCount) {
     const model = window.EnergyModel;
     const hasGap = balance.unbalanced;
     const batteryNet = balance.charge - balance.discharge;
@@ -114,9 +114,9 @@
       },
       {
         label: t('energy.status.tile.quality_label'),
-        value: hasGap ? model.formatPower(Math.abs(balance.gap)) : staleCount ? String(staleCount) : t('energy.status.tile.complete'),
-        note: hasGap ? t('energy.status.tile.unassigned_note') : staleCount ? t('energy.status.tile.stale_roles_note') : t('energy.status.tile.all_fresh_note'),
-        state: hasGap ? 'kritisch' : staleCount ? 'Hinweis' : 'gut', // i18n-ignore
+        value: hasGap ? model.formatPower(Math.abs(balance.gap)) : staleCount ? String(staleCount) : substituteCount ? String(substituteCount) : t('energy.status.tile.complete'),
+        note: hasGap ? t('energy.status.tile.unassigned_note') : staleCount ? t('energy.status.tile.stale_roles_note') : substituteCount ? t('energy.status.tile.substitute_note') : t('energy.status.tile.all_fresh_note'),
+        state: hasGap ? 'kritisch' : staleCount ? 'Hinweis' : substituteCount ? 'Hinweis' : 'gut', // i18n-ignore
       },
     ];
     // i18n-keys: energy.status.state_label.gut, energy.status.state_label.hinweis, energy.status.state_label.kritisch, energy.status.state_label.veraltet
@@ -187,9 +187,10 @@
         if (!this.snapshot) return;
         const balance = model.balanceOf(this.snapshot);
         const staleCount = (this.snapshot.roles || []).filter(state => state.freshness === 'stale').length;
+        const substituteCount = (this.snapshot.roles || []).filter(state => state.quality === 'substitute').length;
         const thresholds = this.thresholds;
         this.lead = statusLead(balance, staleCount, thresholds, this.options.showAdvice !== 'off');
-        this.tiles = statusTiles(balance, this.snapshot, staleCount, thresholds);
+        this.tiles = statusTiles(balance, this.snapshot, staleCount, thresholds, substituteCount);
         this.renderBeam(balance);
       },
 

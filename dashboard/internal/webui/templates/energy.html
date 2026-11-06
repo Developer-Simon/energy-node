@@ -116,12 +116,13 @@
       <div class="energy-acc-body" id="energy-acc-roles" role="region" aria-labelledby="energy-acc-roles-toggle" x-show="isSectionOpen('roles')" x-cloak>
       {{if .Energy.Roles}}
       <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
-        {{/* i18n-keys: energy.role_label.pv, energy.role_label.battery_charge, energy.role_label.battery_discharge, energy.role_label.grid_import, energy.role_label.grid_export, energy.role_label.load, energy.role_label.wallbox, energy.role_label.heat_pump, energy.role_label.battery_soc, energy.role_sign.generation, energy.role_sign.charging, energy.role_sign.discharging, energy.role_sign.grid_import, energy.role_sign.feed_in, energy.role_sign.consumption, energy.role_sign.state_of_charge, energy.role_sign.raw */}}
+        {{/* i18n-keys: energy.roles.quality.substitute, energy.flow.substitute, energy.role_label.pv, energy.role_label.battery_charge, energy.role_label.battery_discharge, energy.role_label.grid_import, energy.role_label.grid_export, energy.role_label.load, energy.role_label.wallbox, energy.role_label.heat_pump, energy.role_label.battery_soc, energy.role_sign.generation, energy.role_sign.charging, energy.role_sign.discharging, energy.role_sign.grid_import, energy.role_sign.feed_in, energy.role_sign.consumption, energy.role_sign.state_of_charge, energy.role_sign.raw */}}
         <dt title="{{if .SignKey}}{{t .SignKey}}{{else}}{{.Sign}}{{end}}">{{if .LabelKey}}{{t .LabelKey}}{{else}}{{.Label}}{{end}}</dt>
         <dd>{{formatNumber .Value 0}} {{.Unit}}</dd>
         <ul class="energy-state-row">
           {{if eq .Quality "invalid"}}<li class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg>{{t "energy.roles.quality.invalid"}}</li>
           {{else if or (eq .Freshness "stale") (eq .Quality "stale")}}<li class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg>{{t "energy.roles.quality.stale"}}</li>
+          {{else if eq .Quality "substitute"}}<li class="energy-state-chip is-warn"><svg><use href="#ico-info"></use></svg>{{t "energy.roles.quality.substitute"}}</li>
           {{else}}<li class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg>{{t "energy.roles.quality.fresh"}}</li>{{end}}
           {{if eq .Source "live"}}<li class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg>{{t "energy.roles.source.live"}}</li>
           {{else if eq .Source "mixed"}}<li class="energy-state-chip is-muted"><svg><use href="#ico-layers"></use></svg>{{t "energy.roles.source.mixed"}}</li>
@@ -134,6 +135,7 @@
         <div class="energy-legend-grid">
           <span class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg></span><span>{{t "energy.roles.quality.fresh"}}</span><span>{{t "energy.roles.legend.fresh_desc"}}</span>
           <span class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg></span><span>{{t "energy.roles.quality.stale"}}</span><span>{{t "energy.roles.legend.stale_desc"}}</span>
+          <span class="energy-state-chip is-warn"><svg><use href="#ico-info"></use></svg></span><span>{{t "energy.roles.quality.substitute"}}</span><span>{{t "energy.flow.substitute"}}</span>
           <span class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg></span><span>{{t "energy.roles.quality.invalid"}}</span><span>{{t "energy.roles.legend.invalid_desc"}}</span>
           <span class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg></span><span>{{t "energy.roles.source.live"}}</span><span>{{t "energy.roles.legend.live_desc"}}</span>
           <span class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg></span><span>{{t "energy.roles.source.restored"}}</span><span>{{t "energy.roles.legend.restored_desc"}}</span>

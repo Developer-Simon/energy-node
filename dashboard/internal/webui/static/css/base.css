@@ -800,6 +800,8 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
    Bei einem einzelnen Verbraucher sieht es aus wie die anderen Knoten. */
 .energy-flow-load-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; align-items: flex-start; }
 .energy-flow-load-row { display: inline-flex; align-items: center; gap: .35rem; }
+.energy-flow-load-row.is-substitute { color: var(--warn); }
+.energy-flow-node output.is-substitute { color: var(--warn); }
 .energy-flow-load-row.energy-flow-value-stale { color: var(--text-faint); }
 .energy-flow-node output.energy-flow-value-stale { color: var(--text-faint); }
 /* "berechnet"-Hinweis: eine eigene, in der Kachel mittig sitzende Zeile direkt

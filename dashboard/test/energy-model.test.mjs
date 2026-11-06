@@ -380,3 +380,26 @@ test('composeBalance beschriftet base im Standardmodus als berechnet', () => {
   assert.equal(balance.measured, undefined);
   assert.equal(balance.sinks.some(f => String(f.id).startsWith('load_measured')), false);
 });
+
+test('isSubstitute is true only for a role whose quality is substitute', () => {
+  const model = loadEnergyModel();
+  const snapshot = {values: {pv: 100, grid: 50}, roles: [
+    {role: 'pv', quality: 'substitute', substitute_from: ['Zaehler B']},
+    {role: 'grid', quality: 'live', freshness: 'fresh'},
+  ]};
+  assert.equal(model.isSubstitute(snapshot, 'pv'), true);
+  assert.equal(model.isSubstitute(snapshot, 'grid'), false);
+  assert.equal(model.isSubstitute(snapshot, 'load'), false);
+  assert.equal(model.isSubstitute(null, 'pv'), false);
+});
+
+test('substituteFrom returns the labels of the points that stood in for a role', () => {
+  const model = loadEnergyModel();
+  const snapshot = {values: {pv: 100}, roles: [
+    {role: 'pv', quality: 'substitute', substitute_from: ['Zaehler B', 'Zaehler C']},
+    {role: 'grid', quality: 'live'},
+  ]};
+  assert.deepEqual([...model.substituteFrom(snapshot, 'pv')], ['Zaehler B', 'Zaehler C']);
+  assert.deepEqual([...model.substituteFrom(snapshot, 'grid')], []);
+  assert.deepEqual([...model.substituteFrom(null, 'pv')], []);
+});
