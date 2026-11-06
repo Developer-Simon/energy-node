@@ -107,7 +107,15 @@ SIMULATED_TOPICS = {
     # am Relais Keller, dessen Leistung unten als Summe beider berechnet wird.
     "waermepumpe/status": (450, 150, 40, 0.3),
     "plug/entfeuchter/status": (220, 60, 25, 1.7),
+    # Anfang der Messkette der Demo, die Punkte dahinter folgen CHAIN_TOPICS.
+    "plug/speicher/status": (320, 120, 35, 0.8),
 }
+# Messkette Plug > Umrichter > Akku: jeder Punkt misst den vorigen abzueglich
+# eines Verlusts, damit die Kette plausible Wirkungsgrade zeigt.
+CHAIN_TOPICS = (
+    ("umrichter/speicher/status", "plug/speicher/status", 0.96),
+    ("speicher/akku/status", "umrichter/speicher/status", 0.93),
+)
 RELAY_SUM_TOPIC = "relais/keller/status"
 RELAY_SUM_SOURCES = ("waermepumpe/status", "plug/entfeuchter/status")
 
@@ -508,6 +516,16 @@ def simulate_tick(state, t):
         try:
             values = json.loads(messages[topic])
             values["apower"] = round(base + amplitude * math.sin(t / period + phase))
+        except (ValueError, TypeError, KeyError):
+            continue
+        messages[topic] = json.dumps(values).encode("utf-8")
+        broadcast(messages, connections, topic, messages[topic], False)
+    for topic, source, factor in CHAIN_TOPICS:
+        if topic not in messages or source not in messages:
+            continue
+        try:
+            values = json.loads(messages[topic])
+            values["apower"] = round(json.loads(messages[source])["apower"] * factor)
         except (ValueError, TypeError, KeyError):
             continue
         messages[topic] = json.dumps(values).encode("utf-8")

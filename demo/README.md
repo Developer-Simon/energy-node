@@ -139,7 +139,9 @@ places. The proxy uses the standard library only. Its tests are
   consumption 2050 W, so the balance works out exactly. Its seed set is
   `seed/energie-alle-karten`.
 - `demo.json` with `seed/demo` and `devices/demo`: the fixture of the persistent
-  demo, its seed layout and its device configurations.
+  demo, its seed layout and its device configurations. It includes the measurement
+  chain `Balkonspeicher` (plug, inverter, battery), whose points the simulation
+  keeps at plausible losses.
 - `seed/docs-screenshots` with `devices/docs-screenshots`: the seed layout and the
   automation rule for the `--docs` screenshots.
 - `installed-state/`: the simulated installer state (`changelog.json`,

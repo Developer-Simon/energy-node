@@ -221,3 +221,16 @@ def test_simulate_tick_survives_invalid_retained_payloads():
     minibroker.simulate_tick(state, 1.0)
     assert state.messages["pv/wechselrichter/status"] == b"kein json"
     assert state.messages["zaehler/netz/status"] == b"5"
+
+
+def test_simulate_tick_keeps_the_chain_points_below_their_upstream_point():
+    state = make_state({
+        "plug/speicher/status": b'{"apower": 0}',
+        "umrichter/speicher/status": b'{"apower": 0}',
+        "speicher/akku/status": b'{"apower": 0}',
+    }, simulate=True)
+    minibroker.simulate_tick(state, 1.0)
+    plug = json.loads(state.messages["plug/speicher/status"])["apower"]
+    inverter = json.loads(state.messages["umrichter/speicher/status"])["apower"]
+    battery = json.loads(state.messages["speicher/akku/status"])["apower"]
+    assert plug > inverter > battery > 0
