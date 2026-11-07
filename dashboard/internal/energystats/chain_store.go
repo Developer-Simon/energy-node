@@ -199,7 +199,7 @@ func (s *ChainStore) writeLocked(key string, m *ChainMonth) error {
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(s.dir, s.path(key), data)
+	return WriteFileAtomic(s.dir, s.path(key), data)
 }
 
 // Each calls fn for every full hour in [from, to). m is nil for months
