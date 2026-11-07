@@ -243,6 +243,10 @@ type Service struct {
 	// Categories liefert die Verbraucher- und Erzeugerkategorien aus
 	// energy.json, damit die Anzeige custom:<id> beschriften kann.
 	Categories func() map[string]energy.Category
+	// ChainStore holds the measurement chain hours, Chains lists the chains
+	// with their storage flag. Without either, no chain is reported.
+	ChainStore *ChainStore
+	Chains     func() []ChainInfo
 }
 
 type Response struct {
@@ -253,23 +257,20 @@ type Response struct {
 	Status     Status                     `json:"status"`
 	Categories map[string]energy.Category `json:"categories,omitempty"`
 	Companion  *SyncStatus                `json:"companion,omitempty"`
+	// HasChains is set when at least one measurement chain exists, so that
+	// the page can offer the chain views.
+	HasChains bool `json:"has_chains,omitempty"`
 }
 
 func (s *Service) Stats(period, at string) (Response, error) {
-	now := time.Now
-	if s.Now != nil {
-		now = s.Now
-	}
-	loc := s.Location
-	if loc == nil {
-		loc = time.Local
-	}
+	now := s.currentTime()
+	loc := s.location()
 	revision := s.Store.Revision()
-	res, err := Query(s.Store, period, at, loc, now())
+	res, err := Query(s.Store, period, at, loc, now)
 	if err != nil {
 		return Response{}, err
 	}
-	resp := Response{Result: res, Revision: revision}
+	resp := Response{Result: res, Revision: revision, HasChains: len(s.chains()) > 0}
 	if s.Recorder != nil {
 		resp.Status = s.Recorder.Status()
 	}
