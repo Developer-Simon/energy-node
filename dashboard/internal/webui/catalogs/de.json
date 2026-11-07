@@ -1520,6 +1520,8 @@
   "devicemap.flow.kind.publish": "Veröffentlichen",
   "devicemap.flow.kind.topic_value": "Topic-Wert",
   "devicemap.flow.title.balance_threshold": "Bedingung Bilanzschwelle",
+  "devicemap.flow.title.chain_finding": "Bedingung Messketten-Meldung",
+  "devicemap.flow.title.chain_value": "Bedingung Messketten-Wert",
   "devicemap.flow.title.entity_value": "Bedingung Entitätswert",
   "devicemap.flow.title.executes": "Führt aus",
   "devicemap.flow.title.payload_balance": "Wert aus der Bilanz",

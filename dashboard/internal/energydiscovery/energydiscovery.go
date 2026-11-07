@@ -38,6 +38,9 @@ const (
 	// StateTopic ist das geteilte, retained JSON-Topic (identisch mit dem
 	// Broadcast in cmd/dashboard/main.go).
 	StateTopic = "outstation/energy_node/energy/balance"
+	// ChainsTopic trägt die retained Messketten-Signale für die
+	// Automationen, siehe energy.BuildChainSignals.
+	ChainsTopic = "outstation/energy_node/energy/chains"
 	// AvailabilityTopic trägt die retained LWT/Birth "0"/"1" des
 	// Dashboards; jede Config verweist mit availability_topic hierauf.
 	AvailabilityTopic = "outstation/energy_node/status/online"

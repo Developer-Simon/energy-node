@@ -1520,6 +1520,8 @@
   "devicemap.flow.kind.publish": "Publish",
   "devicemap.flow.kind.topic_value": "Topic value",
   "devicemap.flow.title.balance_threshold": "Condition balance threshold",
+  "devicemap.flow.title.chain_finding": "Condition chain finding",
+  "devicemap.flow.title.chain_value": "Condition chain value",
   "devicemap.flow.title.entity_value": "Condition entity value",
   "devicemap.flow.title.executes": "Runs",
   "devicemap.flow.title.payload_balance": "Value from the balance",
