@@ -53,6 +53,7 @@ management page shows them. The source is `internal/auth/roles.go`.
 | `view_device_analysis` | view | `view_devices` | no | yes |
 | `view_history` | view | – | no | yes |
 | `view_stats` | view | – | no | yes |
+| `view_efficiency` | view | – | no | yes |
 | `view_energy` | view | – | no | yes |
 | `view_device_map` | view | – | no | yes |
 | `view_config` | view | – | no | yes |
@@ -165,8 +166,8 @@ publish to MQTT within `publish_allowed_prefixes`. Keep this in mind before you
 open guest access to people you do not trust.
 
 The guest preset is view-only. It gives `view_overview`, `view_devices`,
-`view_history`, `view_stats`, `view_energy` and `view_device_map`, and nothing
-that changes data.
+`view_history`, `view_stats`, `view_efficiency`, `view_energy` and
+`view_device_map`, and nothing that changes data.
 
 ### Guest access
 

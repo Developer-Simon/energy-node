@@ -9,6 +9,13 @@
 .stats-step--prev .stats-step-icon { transform: scaleX(-1); }
 .stats-title { flex: 1 1 auto; text-align: center; color: var(--text-strong); font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
 .stats-error { margin: 0 0 .75rem; color: var(--bad); }
+/* Zeitraum und Verlustschalter in einer Zeile. Der Schalter rutscht nur in
+   die naechste Zeile, wenn die Chips den Platz brauchen. */
+.stats-period-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem 1rem; margin: 0 0 .6rem; }
+.stats-period-row > .history-chip-group { margin: 0; }
+/* Der Schalter braucht Platz fuer seinen Text, die Spur bleibt 3rem breit. */
+label.settings-toggle.stats-losses-toggle { flex: 0 0 auto; width: auto; min-width: max-content; gap: .6rem; margin: 0 0 0 auto; color: var(--text); font-size: .9rem; white-space: nowrap; cursor: pointer; }
+label.settings-toggle.stats-losses-toggle .settings-toggle-track { flex: none; width: 3rem; height: 1.65rem; }
 
 .stats-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 0 0 .9rem; }
 .stats-kpi { padding: .7rem .85rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }

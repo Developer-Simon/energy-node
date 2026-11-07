@@ -99,6 +99,8 @@ reach arbitrary topics.
 | GET | `/api/v1/energy/revisions/{revision}` | – | A single revision |
 | POST | `/api/v1/energy/restore` | – | Restore a revision, body `{"revision":"…"}` |
 | GET | `/api/v1/energy/stats/hours` | – | Hourly means in W for the history page |
+| GET | `/api/v1/energy/stats/chains` | view stats | Measurement chain losses per bucket, `period` and `at` as in `/energy/stats` |
+| GET | `/api/v1/energy/efficiency` | view efficiency | Round trip, standby and losses per measurement chain |
 
 Available roles: `pv`, `battery`, `battery_charge`, `battery_discharge`,
 `battery_soc`, `grid`, `grid_import`, `grid_export`, `load`, `wallbox`,
@@ -160,6 +162,81 @@ sorted by series and then by time.
 | 400 | `energy_stats_invalid_range` | `from` or `to` is missing or not an integer, `to` is not after `from`, or the span is longer than 400 days |
 | 501 | `energy_stats_unavailable` | The node runs without a data directory, so there is no statistics store |
 | 500 | `energy_stats_failed` | Reading the monthly statistics failed |
+
+**`GET /api/v1/energy/stats/chains?period=<period>&at=<date>`** takes the same
+`period` and `at` as `/api/v1/energy/stats` and returns the losses of every
+measurement chain per bucket, plus the total of the period. Hours from the
+current one on do not count.
+
+```json
+{
+  "period": "day",
+  "at": "2026-11-06",
+  "revision": 42,
+  "chains": [
+    {
+      "id": "balkon",
+      "label": "Balkon",
+      "buckets": [
+        { "loss_kwh": 0.012, "standby_kwh": 0.003, "efficiency": 0.91, "source_kwh": 0.4, "has_data": true }
+      ],
+      "total": { "loss_kwh": 0.25, "standby_kwh": 0.05, "efficiency": 0.8, "source_kwh": 1.6, "has_data": true }
+    }
+  ]
+}
+```
+
+- `loss_kwh` is the loss of all segments in both directions, plus the standby
+  energy of the first point.
+- `standby_kwh` is the standby energy of the first point.
+- `efficiency` is the product of the efficiencies of the segments. It is `null`
+  when a segment has less than 0.01 kWh of source energy or has no data.
+- `source_kwh` is the source energy entering the first segment of the chain,
+  both directions summed. It is `0` when `efficiency` is `null`. The statistics
+  weight the efficiencies of several chains by it.
+- `has_data` is `false` when no hour of the bucket holds data for the chain.
+- `revision` is the revision of the energy statistics, as in
+  `/api/v1/energy/stats`.
+
+**`GET /api/v1/energy/efficiency`** returns the figures of every measurement
+chain for the efficiency view, for the rolling last 30 days, the local month and
+the last seven days:
+
+```json
+{
+  "revision": 42,
+  "chains": [
+    {
+      "id": "balkon",
+      "label": "Balkon",
+      "round_trip_30d": 0.8,
+      "standby_w_30d": 1.5,
+      "loss_month_kwh": 0.31,
+      "month": "2026-11",
+      "days": [
+        { "local": "2026-10-31T00:00", "loss_kwh": 0.04, "standby_kwh": 0.001, "efficiency": 0.9, "has_data": true }
+      ]
+    }
+  ]
+}
+```
+
+- `round_trip_30d` is the energy taken out divided by the energy put in at the
+  counting point, over the last 30 days. It is `null` for a counting point
+  without a storage role, for a fixed direction, and below 0.1 kWh charged.
+- `standby_w_30d` is the mean standby power in W over the last 30 days, `null`
+  when no standby was measured.
+- `loss_month_kwh` is the loss of the local month so far. `month` is that month
+  in local time.
+- `days` holds seven days, the oldest first, in the same shape as a bucket of
+  `/api/v1/energy/stats/chains`. `local` is the start of the day in local time.
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `energy_stats_invalid_period` | `/stats/chains` only: the period is unknown or `at` does not match it |
+| 403 | `view_forbidden` | The account lacks `view_stats` (`/stats/chains`) or `view_efficiency` (`/efficiency`) |
+| 500 | `energy_stats_failed` | Reading the measurement chain store failed |
+| 501 | `energy_stats_unavailable` | The node runs without a data directory |
 
 ## History
 

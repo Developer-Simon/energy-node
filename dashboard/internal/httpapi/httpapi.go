@@ -335,6 +335,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/energy/stats/chains", handleEnergyChainStats(dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/energy/efficiency", handleEnergyEfficiency(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store, configs))
 	exchange := newHistoryExchange(recordedExchangeSeries(reg, store, configs, resolver))
 	if dependencies.HistorySampler != nil {

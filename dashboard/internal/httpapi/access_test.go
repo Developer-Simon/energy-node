@@ -99,6 +99,19 @@ func TestViewGateAnyViewNeedsOneViewPermission(t *testing.T) {
 	}
 }
 
+func TestEfficiencyRoutesNeedTheirOwnView(t *testing.T) {
+	cases := map[string]string{
+		"/api/v1/energy/efficiency":   auth.RoleViewEfficiency,
+		"/api/v1/energy/stats/chains": auth.RoleViewStats,
+	}
+	for path, view := range cases {
+		access, ok := routeTable[path]
+		if !ok || access.group != groupPage || access.view != view {
+			t.Errorf("routeTable[%s] = %+v, want a page gate on %s", path, access, view)
+		}
+	}
+}
+
 func TestConfigurationViewFollowsTheName(t *testing.T) {
 	cases := map[string]string{
 		"/api/v1/configurations/automation_rules":        auth.RoleViewAutomations,
@@ -289,7 +302,7 @@ func TestMigratedGuestPassesEveryViewGate(t *testing.T) {
 	// Version 4 with a customised guest list that holds every view role, so
 	// the migration keeps it and the sweep covers all view gates.
 	fixture := `{"version":4,"guest_roles":["view_overview","view_devices","view_device_analysis","view_history","view_stats",` +
-		`"view_energy","view_device_map","view_config","view_automations","view_diagnostics"],` +
+		`"view_energy","view_device_map","view_config","view_automations","view_diagnostics","view_efficiency"],` +
 		`"users":[{"username":"admin","roles":["system_actions","tune_live_updates","automations"]},` +
 		`{"username":"guest-abc","guest":true,"roles":["automations","edit_layout","check_updates","edit_energy","edit_device_map","edit_device_map_view"]}]}`
 	if err := os.WriteFile(path, []byte(fixture), 0600); err != nil {

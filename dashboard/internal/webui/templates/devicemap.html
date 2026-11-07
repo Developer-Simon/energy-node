@@ -332,6 +332,9 @@
         <button class="devicemap-layer-button" data-tour="devicemap-layer-balance" type="button" title="{{t "devicemap.layer.balance"}}" data-layer="balance" x-bind:aria-pressed="view.layers.balance" x-on:click="toggleLayer('balance')" x-bind:disabled="loading">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6l7 4M7 12h6M7 18l7-4"/><circle cx="5" cy="6" r="1.8"/><circle cx="5" cy="12" r="1.8"/><circle cx="5" cy="18" r="1.8"/><circle cx="17" cy="12" r="4"/></g></svg><span class="devicemap-chip-text">{{t "devicemap.layer.balance"}}</span>
         </button>
+        <button class="devicemap-layer-button" data-tour="devicemap-layer-losses" type="button" title="{{t "devicemap.layer.losses"}}" data-layer="losses" x-bind:aria-pressed="view.layers.losses" x-on:click="toggleLayer('losses')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chain"></use></svg><span class="devicemap-chip-text">{{t "devicemap.layer.losses"}}</span>
+        </button>
         </div>
         <span class="devicemap-toolbar-separator" aria-hidden="true"></span>
         <div class="devicemap-view-menu-anchor" x-on:click.outside="viewMenuOpen = false">
@@ -370,6 +373,7 @@
                 <span x-show="view.layers.energy"><i style="border-color: var(--flow-load)"></i>{{t "devicemap.legend.load"}}</span>
                 <span x-show="view.layers.energy"><i style="border-color: var(--flow-rest)"></i>{{t "devicemap.legend.sum"}}</span>
                 <span x-show="view.layers.energy"><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.heuristic"}}</span>
+                <span x-show="view.layers.losses"><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.losses"}}</span>
                 <span x-show="view.layers.energy && Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
                 <span x-show="view.layers.energy && Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
                 <span x-show="view.layers.data"><i class="dashed" style="border-color: var(--info-line)"></i>{{t "devicemap.legend.data"}}</span>

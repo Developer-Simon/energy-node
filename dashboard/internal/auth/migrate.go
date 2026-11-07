@@ -7,7 +7,7 @@ import (
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 5
+const usersFileVersion = 6
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -102,6 +102,29 @@ func migrateV3(roles []string) []string {
 	return out
 }
 
+// migrateV5 bringt die Rollen einer Datei der Version 5 nach Version 6: wer
+// view_stats hat, bekommt view_efficiency. Ein Eintrag, der schon da ist,
+// wird nicht doppelt angehaengt. Die Eingabe sind rohe Rollen, die Aufrufer
+// normalisieren selbst.
+func migrateV5(roles []string) []string {
+	out := append([]string(nil), roles...)
+	if containsRole(roles, RoleViewStats) && !containsRole(roles, RoleViewEfficiency) {
+		out = append(out, RoleViewEfficiency)
+	}
+	return out
+}
+
+// withoutRole liefert eine Kopie ohne den Schluessel.
+func withoutRole(roles []string, role string) []string {
+	out := make([]string, 0, len(roles))
+	for _, key := range roles {
+		if key != role {
+			out = append(out, key)
+		}
+	}
+	return out
+}
+
 // legacyDefaultGuestRoles ist die bisherige Gastvorgabe: die Migration
 // angewandt auf einen Gast mit der alten Rollenliste. Version 5 erkennt daran
 // unveraenderte Vorgaben (migrateV4Locked).
@@ -113,14 +136,14 @@ func legacyDefaultGuestRoles() []string {
 // keine Bearbeitung. Normalisiert, wie die Vorgabe nach einem Neustart aus
 // users.json kommt, damit Migration und Neuinstallation gleich vergleichen.
 func defaultGuestRoles() []string {
-	return Normalize([]string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats})
+	return Normalize([]string{RoleViewDevices, RoleViewDeviceMap, RoleViewEnergy, RoleViewHistory, RoleViewOverview, RoleViewStats, RoleViewEfficiency})
 }
 
 // defaultHAUserRoles ist die Vorgabe fuer HA-Konten ohne HA-Admin: Ansehen und
 // Bedienen, dazu Gestalten, Einstellungen und Update-Pruefung, kein Einrichten.
 func defaultHAUserRoles() []string {
 	return Normalize([]string{
-		RoleViewOverview, RoleViewDevices, RoleViewDeviceAnalysis, RoleViewHistory, RoleViewStats,
+		RoleViewOverview, RoleViewDevices, RoleViewDeviceAnalysis, RoleViewHistory, RoleViewStats, RoleViewEfficiency,
 		RoleViewEnergy, RoleViewDeviceMap, RoleViewConfig, RoleViewAutomations, RoleViewDiagnostics,
 		RoleOperateDevices, RoleOperateAutomations, RoleEditLayout, RoleEditDeviceAppearance,
 		RoleEditDeviceMapView, RoleEditSettings, RoleCheckUpdates,
@@ -141,23 +164,25 @@ func defaultHAAdminRoles() []string {
 
 // migrateV4Locked wendet die Regeln der Version 5 an: eine unveraenderte
 // Gastvorgabe (genau die alte Standardliste) wird durch die neue ersetzt.
+// Der Vergleich ignoriert view_efficiency: die alte Liste kennt das Recht
+// nicht, die Vorlage aber schon, und Version 6 ergaenzt es erst danach.
 // Gastkonten mit genau der alten Liste bekommen die neue Vorgabe, unabhaengig
 // davon, ob die Gastvorgabe ersetzt wurde. Die HA-Vorgaben werden nur
 // gemeinsam ersetzt, wenn beide Seiten unveraendert sind. Eigene HA-Konten
 // bleiben unberuehrt. Liefert, ob die Gastvorgabe ersetzt wurde.
 func (m *Manager) migrateV4Locked() (guestReplaced bool) {
 	legacy := legacyDefaultGuestRoles()
-	if sameRoles(m.guestRoles, legacy) {
+	if sameRoles(withoutRole(m.guestRoles, RoleViewEfficiency), withoutRole(legacy, RoleViewEfficiency)) {
 		m.guestRoles = defaultGuestRoles()
 		guestReplaced = true
 	}
 	for name, user := range m.users {
-		if user.Guest && sameRoles(user.Roles, legacy) {
+		if user.Guest && sameRoles(withoutRole(user.Roles, RoleViewEfficiency), withoutRole(legacy, RoleViewEfficiency)) {
 			user.Roles = defaultGuestRoles()
 			m.users[name] = user
 		}
 	}
-	if m.haRoles != nil && sameRoles(m.haRoles.Admin, legacy) && sameRoles(m.haRoles.User, legacy) {
+	if m.haRoles != nil && sameRoles(withoutRole(m.haRoles.Admin, RoleViewEfficiency), withoutRole(legacy, RoleViewEfficiency)) && sameRoles(withoutRole(m.haRoles.User, RoleViewEfficiency), withoutRole(legacy, RoleViewEfficiency)) {
 		m.haRoles.Admin = defaultHAAdminRoles()
 		m.haRoles.User = defaultHAUserRoles()
 	}

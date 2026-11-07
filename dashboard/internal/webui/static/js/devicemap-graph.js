@@ -115,6 +115,31 @@
     return flows;
   };
 
+  // Loss labels on the energy connections. The line itself is invisible: the
+  // label sits on the wiring edge of the same pair. No cut: a loss exists
+  // whether or not the flow runs.
+  const lossElements = ({pairs, losses, edgeProps, energy = new Map()}) => {
+    const wiring = window.DeviceMapWiring;
+    const index = wiring.propsIndex(edgeProps);
+    const energyPairs = wiring.energyPairs(pairs, index, energy);
+    const elements = [];
+    for (const {parent, child} of energyPairs) {
+      const loss = (losses || []).find(item => (item.a === parent && item.b === child) || (item.a === child && item.b === parent));
+      if (!loss) continue;
+      elements.push({
+        group: 'edges',
+        classes: 'devicemap-loss',
+        data: {
+          id: `loss-${parent}::${child}`,
+          source: parent,
+          target: child,
+          label: window.EnergyChains.lossPowerOf({available: true, loss_w: loss.lossW}),
+        },
+      });
+    }
+    return elements;
+  };
+
   // Balance, rule, service and stub nodes. Positions come from the saved map
   // (or the page's placement), unknown ones are left to the layout.
   const virtualElements = ({kinds, positions, colorOf}) => kinds.map(({id, kind, name}) => {
@@ -224,6 +249,13 @@
       'text-background-color': theme.panel, 'text-background-opacity': 1, 'text-background-shape': 'round-rectangle', 'text-background-padding': '3px',
       'text-border-width': 1.2, 'text-border-opacity': 1, 'text-border-color': edge => color(edge.data('color')),
     }},
+    // Losses: invisible line, the label sits in the middle of the pair's wiring edge.
+    {selector: 'edge.devicemap-loss', style: {
+      'line-opacity': 0, events: 'no', label: 'data(label)',
+      'font-size': '10px', 'font-weight': 600, 'font-family': 'system-ui, sans-serif', color: theme.labelStrong,
+      'text-background-color': theme.panel, 'text-background-opacity': 1, 'text-background-shape': 'round-rectangle', 'text-background-padding': '3px',
+      'text-border-width': 1.2, 'text-border-opacity': 1, 'text-border-color': theme.warn,
+    }},
     {selector: 'edge.devicemap-flow[!reverse]', style: {'target-label': 'data(label)', 'target-text-offset': 32}},
     {selector: 'edge.devicemap-flow[?reverse]', style: {'source-label': 'data(label)', 'source-text-offset': 32}},
     ...(view.edge_style === 'curved' ? [{selector: 'edge.devicemap-flow[?reverse]', style: {'control-point-distances': [-40]}}] : []),
@@ -262,5 +294,5 @@
     return {display: 'none'};
   };
 
-  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, virtualElements, dataEdgeElements, flowOffset, createFlowAnimator, style, wiringEdgeStyle};
+  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, lossElements, virtualElements, dataEdgeElements, flowOffset, createFlowAnimator, style, wiringEdgeStyle};
 })();

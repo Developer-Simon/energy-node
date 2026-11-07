@@ -14,6 +14,7 @@ anchor_moves:
   hours-from-home-assistant: data-flow-storage.html#hours-from-home-assistant
   7-energy-balance: data-flow-energy.html#7-energy-balance
   8-automations: data-flow-energy.html#8-automations
+  15-measurement-chain-losses: data-flow-energy.html#15-measurement-chain-losses
   9-path-to-the-main-site: data-flow-energy.html#9-path-to-the-main-site
   14-home-assistant-and-the-energy-node-companion: data-flow-ha.html#14-home-assistant-and-the-energy-node-companion
   where-the-companions-values-come-from: data-flow-ha.html#where-the-companions-values-come-from
@@ -165,7 +166,7 @@ The chapters after the overview are on four pages:
 - [Storage](data-flow-storage.md): 6. Configuration files, 10. Browser history
   and 13. Energy statistics.
 - [Energy and automations](data-flow-energy.md): 7. Energy balance,
-  8. Automations and 9. Path to the main site.
+  8. Automations, 9. Path to the main site and 15. Measurement chain losses.
 - [Home Assistant](data-flow-ha.md): 14. Home Assistant and the Energy Node
   Companion.
 

@@ -13,6 +13,16 @@
     try { return window.localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'bucket'; } catch (error) { return 'bucket'; }
   };
 
+  // Schalter "Verluste einblenden", im Browser gemerkt. Ohne Speicher gilt
+  // er nur fuer diese Sitzung und ist aus.
+  const LOSSES_KEY = 'stats.show_losses';
+  const readLosses = () => {
+    try { return window.localStorage.getItem(LOSSES_KEY) === 'true'; } catch (error) { return false; }
+  };
+
+  // i18n-keys: energy_stats.losses.failed
+  const t = key => (window.I18n ? window.I18n.t(key) : key);
+
   // Rasterzelle auf schmalen Schirmen: nur die Zahl in kWh, die Einheit
   // steht einmal im Kopf. Ohne MWh-Wechsel, damit die Spalten vergleichbar
   // bleiben.
@@ -48,6 +58,12 @@
     narrow: false,
     chart: null,
     seq: 0,
+    // Verluste: Schalter, ob die Kette sichtbar ist (hasChains kommt erst
+    // mit der ersten Antwort), Fehlertext und die Ketten der letzten Antwort.
+    showLosses: readLosses(),
+    hasChains: false,
+    lossError: '',
+    chainStats: null,
     // Die zuletzt im Ereignis gesehene Revision. Jedes Registry-Ereignis
     // traegt den Zweig energy_stats, auch im Leerlauf.
     seenRevision: null,
@@ -92,13 +108,54 @@
       return this.load();
     },
 
+    // Verluste fuer denselben Zeitraum wie die Statistik. Scheitert die
+    // Anfrage, bleibt die Statistik stehen, nur der Fehlertext kommt dazu.
+    async fetchLosses(period, at) {
+      try {
+        return {chains: await window.EnergyStatsModel.fetchChainStats(period, at)};
+      } catch (error) {
+        return {failed: true};
+      }
+    },
+
+    setShowLosses(show) {
+      this.showLosses = Boolean(show);
+      try { window.localStorage.setItem(LOSSES_KEY, this.showLosses ? 'true' : 'false'); } catch (error) { /* gilt dann nur fuer diesen Aufruf */ }
+      return this.load();
+    },
+
     async load() {
       const model = window.EnergyStatsModel;
       const seq = ++this.seq;
+      // Zeitraum und Datum gelten fuer beide Anfragen, auch wenn der Nutzer
+      // waehrenddessen blaettert. Die Antwort einer alten Runde wird dann
+      // ueber seq verworfen.
+      const {period, at} = this;
       this.loading = true;
       try {
-        const data = await model.fetchStats(this.period, this.at);
+        let data;
+        let losses = null;
+        if (this.showLosses && this.hasChains) {
+          [data, losses] = await Promise.all([model.fetchStats(period, at), this.fetchLosses(period, at)]);
+        } else {
+          data = await model.fetchStats(period, at);
+        }
         if (seq !== this.seq) return;
+        // has_chains kommt erst mit dieser Antwort. Beim ersten Laden holt
+        // der Verlustabruf deshalb erst danach.
+        this.hasChains = Boolean(data.has_chains);
+        if (this.showLosses && this.hasChains && !losses) {
+          losses = await this.fetchLosses(period, at);
+          if (seq !== this.seq) return;
+        }
+        const losing = this.showLosses && this.hasChains;
+        const chains = losing && losses && losses.chains ? losses.chains : null;
+        const chainList = (chains && chains.chains) || [];
+        // Verlustzeilen brauchen dieselben Abschnitte wie die Statistik. Bei
+        // einer anderen Anzahl (Sommerzeitwechsel) fehlen sie in der Tabelle.
+        const aligned = chainList.every(chain => chain.buckets.length === data.buckets.length);
+        this.lossError = losing && losses && losses.failed ? t('energy_stats.losses.failed') : '';
+        this.chainStats = chains;
         // Beim Blaettern im selben Zeitraum bleibt der Abschnitt stehen, so
         // laesst sich dieselbe Stunde ueber mehrere Tage vergleichen.
         const samePeriod = this.data && this.data.period === data.period;
@@ -109,19 +166,32 @@
         this.error = '';
         this.title = model.periodTitle(data);
         this.kpis = model.kpis(data.total, PAGE_KPIS);
+        // Verluste stehen vor den Rollen, in Kennzahlen, Zeilen und Diagramm.
+        if (chains) this.kpis = [...model.lossKpis(chains), ...this.kpis];
         this.coverage = model.coverageText(data.total && data.total.hours);
         this.coverageParts = model.coverageParts(data.total && data.total.hours);
-        this.rows = model.tableRows(data).map(row => ({
+        const roleRows = model.tableRows(data).map(row => ({
           ...row,
           compact: data.buckets.map(bucket => compactKWh(bucket.kwh && bucket.kwh[row.role])),
         }));
+        // Die Rasterzelle des Verlusts zeigt die Zahl in kWh, der
+        // Wirkungsgrad bleibt als Prozent wie in der Tabelle.
+        const lossRows = chains && aligned
+          ? model.lossRows(chains).map(row => ({...row, compact: row.kwh ? row.kwh.map(compactKWh) : row.values}))
+          : [];
+        this.rows = [...lossRows, ...roleRows];
         this.labels = data.buckets.map(bucket => model.bucketLabel(data.period, bucket.local));
         const hours = (data.total && data.total.hours) || {};
         this.empty = !hours.ha && !hours.own;
         this.renderChart();
         this.$nextTick(() => this.revealChip());
       } catch (error) {
-        if (seq === this.seq) this.error = error.message;
+        // Ohne Statistik gibt es keine Verluste dazu, ein Fehler aus einer
+        // frueheren Runde darf also nicht stehen bleiben.
+        if (seq === this.seq) {
+          this.error = error.message;
+          this.lossError = '';
+        }
       } finally {
         if (seq === this.seq) this.loading = false;
       }
@@ -204,7 +274,9 @@
       // Unsichtbar (anderer Reiter) ist clientWidth 0, dann gibt die
       // Fensterbreite die Größenordnung vor.
       const width = this.$refs.chart.clientWidth || window.innerWidth || 0;
-      const options = window.EnergyStatsModel.chartOptions(this.data, width);
+      // withLosses liefert bei fremder Bucket-Anzahl eine Kopie ohne Verluste.
+      const result = this.chainStats ? window.EnergyStatsModel.withLosses(this.data, this.chainStats) : this.data;
+      const options = window.EnergyStatsModel.chartOptions(result, width);
       // Antippen waehlt den Abschnitt fuer die Tabelle, ueberall in seiner
       // Spalte, nicht nur auf dem Balken. Neben einem Balken meldet
       // ApexCharts dataPointIndex null.

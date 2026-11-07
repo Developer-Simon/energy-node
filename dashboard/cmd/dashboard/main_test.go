@@ -11,6 +11,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
 func TestValidateNodeDeviceID(t *testing.T) {
@@ -111,5 +112,37 @@ func TestDesiredOptionalSensorsFollowsSourcesAndCategories(t *testing.T) {
 	}
 	if strings.Join(keys, ",") != "wallbox,custom_sauna" {
 		t.Fatalf("keys = %v", keys)
+	}
+}
+
+func TestChainInfosFollowsTheCountingPointRole(t *testing.T) {
+	cfg := settings.EnergyConfig{
+		Assignments: map[string]energy.Assignment{
+			"plug": {Role: energy.RoleBattery},
+			"ac":   {Role: energy.RoleGrid},
+			"wb":   {Role: energy.RoleWallbox},
+		},
+		Chains: map[string]energy.Chain{
+			"zweig":  {Label: "Zweig", Points: []string{"wb", "ac"}, Counting: "wb"},
+			"akku":   {Label: "Akku", Points: []string{"plug", "ac"}, Counting: "plug"},
+			"ohne":   {Label: "Ohne", Points: []string{"ac", "wb"}},
+			"grid_x": {Label: "Netz", Points: []string{"ac", "wb"}, Counting: "ac"},
+		},
+	}
+	infos := chainInfos(cfg)
+	if len(infos) != 4 {
+		t.Fatalf("got %d chains, want 4", len(infos))
+	}
+	want := []struct {
+		id      string
+		storage bool
+	}{{"akku", true}, {"grid_x", false}, {"ohne", false}, {"zweig", false}}
+	for i, w := range want {
+		if infos[i].ID != w.id || infos[i].Storage != w.storage {
+			t.Errorf("infos[%d] = {%s %v}, want {%s %v}", i, infos[i].ID, infos[i].Storage, w.id, w.storage)
+		}
+	}
+	if infos[2].Chain.Label != "Ohne" {
+		t.Errorf("chain of %s lost its label", infos[2].ID)
 	}
 }
