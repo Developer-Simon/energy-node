@@ -624,3 +624,241 @@ func TestModelIsStorageRole(t *testing.T) {
 		}
 	}
 }
+
+func floatPtr(v float64) *float64 { return &v }
+
+func TestNormalBandLearned(t *testing.T) {
+	cases := []struct {
+		name    string
+		insight ChainSegmentInsight
+		want    ChainNormalRange
+	}{
+		{"loss and deviation", ChainSegmentInsight{Learned: true, LossW: 10, DeviationW: 1}, ChainNormalRange{LowW: 1, HighW: 19}},
+		{"deviation widens the band", ChainSegmentInsight{Learned: true, LossW: 10, DeviationW: 4}, ChainNormalRange{LowW: -2, HighW: 22}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NormalBand(tc.insight, 300, nil); got != tc.want {
+				t.Fatalf("NormalBand() = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalBandTolerance(t *testing.T) {
+	insight := ChainSegmentInsight{Learned: true, LossW: 10}
+	cases := []struct {
+		name      string
+		tolerance ChainTolerance
+		want      ChainNormalRange
+	}{
+		{"absolute watts", ChainTolerance{W: floatPtr(20)}, ChainNormalRange{LowW: -10, HighW: 30, Manual: true}},
+		{"larger of watts and percent", ChainTolerance{W: floatPtr(5), Pct: floatPtr(10)}, ChainNormalRange{LowW: -20, HighW: 40, Manual: true}},
+		{"percent of the source", ChainTolerance{Pct: floatPtr(2)}, ChainNormalRange{LowW: 4, HighW: 16, Manual: true}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NormalBand(insight, 300, &tc.tolerance); got != tc.want {
+				t.Fatalf("NormalBand() = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestKeepAdjacentTolerances(t *testing.T) {
+	tolerances := []ChainTolerance{
+		{A: "a", B: "b", W: floatPtr(10)},
+		{A: "b", B: "c", W: floatPtr(10)},
+	}
+	cases := []struct {
+		name   string
+		points []string
+		want   []ChainTolerance
+	}{
+		{"inserted point breaks the b-c pair", []string{"a", "b", "x", "c"}, tolerances[:1]},
+		{"order of the pair does not matter", []string{"b", "a", "c"}, tolerances[:1]},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := KeepAdjacentTolerances(tolerances, tc.points)
+			if len(got) != len(tc.want) || got[0].A != tc.want[0].A || got[0].B != tc.want[0].B {
+				t.Fatalf("KeepAdjacentTolerances() = %+v, want %+v", got, tc.want)
+			}
+		})
+	}
+}
+
+// chainSwitch is a commandable switch entity with the given state payload.
+func chainSwitch(id, value string) registry.EntityView {
+	return registry.EntityView{
+		UniqueID: id, ObjectID: id, Name: id, Component: "switch", Commandable: true,
+		PayloadOn: "ON", PayloadOff: "OFF", Value: value, HasValue: true, Available: true,
+	}
+}
+
+func TestChainPointSwitchOff(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	model := Model{Chains: map[string]Chain{"line": {Label: "Linie", Points: []string{"plug", "ac"}, Counting: "plug"}}}
+	off := chainSwitch("sw", "OFF")
+	category := chainSwitch("sw", "OFF")
+	category.EntityCategory = "config"
+
+	cases := []struct {
+		name      string
+		switches  []registry.EntityView
+		overrides map[string]Assignment
+		want      bool
+	}{
+		{"one switch that is off", []registry.EntityView{off}, nil, true},
+		{"one switch that is on", []registry.EntityView{chainSwitch("sw", "ON")}, nil, false},
+		{"unknown state", []registry.EntityView{chainSwitch("sw", "unavailable")}, nil, false},
+		{"two switches", []registry.EntityView{off, chainSwitch("sw2", "OFF")}, nil, false},
+		{"switch overridden to an empty role does not count", []registry.EntityView{off, chainSwitch("sw2", "ON")}, map[string]Assignment{"sw2": {}}, true},
+		{"switch overridden to another role does not count", []registry.EntityView{off}, map[string]Assignment{"sw": {Role: RoleLoad}}, false},
+		{"entity category does not count", []registry.EntityView{category}, nil, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			devices, resolver := chainWorld(model, tc.overrides, liveEntity("plug", "300", at), liveEntity("ac", "290", at), liveEntity("dc", "0", at))
+			devices[0].Entities = append(devices[0].Entities, tc.switches...)
+			states := evaluateChains(devices, resolver, resolver.Model(), at).states
+			if got := states[0].Points[0].SwitchOff; got != tc.want {
+				t.Fatalf("SwitchOff = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestChainPointCarriesScaleAndInvert(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	model := Model{Chains: map[string]Chain{"line": {Label: "Linie", Points: []string{"plug", "ac"}, Counting: "plug"}}}
+	devices, resolver := chainWorld(model, map[string]Assignment{"plug": {Role: RoleLoad, Scale: 2, Invert: true}},
+		liveEntity("plug", "300", at), liveEntity("ac", "290", at), liveEntity("dc", "0", at))
+	points := evaluateChains(devices, resolver, resolver.Model(), at).states[0].Points
+
+	if points[0].Scale != 2 || !points[0].Invert || points[0].Value != -600 {
+		t.Fatalf("plug point = %+v, want scale 2, invert, value -600", points[0])
+	}
+	if points[1].Scale != 1 || points[1].Invert {
+		t.Fatalf("ac point = %+v, want scale 1 without invert", points[1])
+	}
+}
+
+func TestChainStateWithoutInsightStaysEmpty(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	model := Model{Chains: map[string]Chain{"line": {Label: "Linie", Points: []string{"plug", "ac"}, Counting: "plug"}}}
+	devices, resolver := chainWorld(model, nil, liveEntity("plug", "300", at), liveEntity("ac", "290", at), liveEntity("dc", "0", at))
+	state := evaluateChains(devices, resolver, resolver.Model(), at).states[0]
+
+	if state.Learning || state.Findings != nil || state.Tolerances != nil || state.Segments[0].Normal != nil {
+		t.Fatalf("state without insight = %+v, want no learning, findings, tolerances or normal band", state)
+	}
+	raw, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{`"learning"`, `"findings"`, `"tolerances"`, `"normal"`, `"switch_off"`} {
+		if strings.Contains(string(raw), key) {
+			t.Fatalf("JSON contains %s: %s", key, raw)
+		}
+	}
+}
+
+// fakeChainInsight answers every question with fixed values.
+type fakeChainInsight struct {
+	segment     ChainSegmentInsight
+	pairLearned bool
+	findings    []ChainFinding
+}
+
+func (f *fakeChainInsight) Segment(source, target string, countingW float64) ChainSegmentInsight {
+	return f.segment
+}
+func (f *fakeChainInsight) PairLearned(a, b string) bool { return f.pairLearned }
+func (f *fakeChainInsight) Findings(chainID string) []ChainFinding {
+	return f.findings
+}
+func (f *fakeChainInsight) Curve(points []string) ChainCurve { return ChainCurve{} }
+
+func TestChainStateReadsInsight(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	model := Model{Chains: map[string]Chain{"line": {Label: "Linie", Points: []string{"plug", "ac"}, Counting: "plug"}}}
+	learned := ChainSegmentInsight{Learned: true, LossW: 10, DeviationW: 1}
+	finding := ChainFinding{Kind: FindingDrift, ChainID: "line", ChainLabel: "Linie"}
+
+	cases := []struct {
+		name        string
+		plug        registry.EntityView
+		insight     fakeChainInsight
+		wantNormal  *ChainNormalRange
+		wantLearn   bool
+		wantFinding int
+	}{
+		{
+			name:       "fresh counting point and learned class give a band",
+			plug:       liveEntity("plug", "300", at),
+			insight:    fakeChainInsight{segment: learned, pairLearned: true, findings: []ChainFinding{finding}},
+			wantNormal: &ChainNormalRange{LowW: 1, HighW: 19},
+
+			wantFinding: 1,
+		},
+		{
+			name:    "source below the minimum gives no band",
+			plug:    liveEntity("plug", "8", at),
+			insight: fakeChainInsight{segment: learned, pairLearned: true},
+		},
+		{
+			name:    "idle chain gives no band",
+			plug:    liveEntity("plug", "0.5", at),
+			insight: fakeChainInsight{segment: learned, pairLearned: true},
+		},
+		{
+			name: "stale counting point gives no band",
+			plug: func() registry.EntityView {
+				e := liveEntity("plug", "300", at.Add(-time.Hour))
+				return e
+			}(),
+			insight: fakeChainInsight{segment: learned, pairLearned: true},
+		},
+		{
+			name:       "unlearned pair sets learning, the band follows the class",
+			plug:       liveEntity("plug", "300", at),
+			insight:    fakeChainInsight{segment: learned, pairLearned: false},
+			wantNormal: &ChainNormalRange{LowW: 1, HighW: 19},
+			wantLearn:  true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			devices, resolver := chainWorld(model, nil, tc.plug, liveEntity("ac", "290", at), liveEntity("dc", "0", at))
+			insight := tc.insight
+			resolver.SetChainInsight(&insight)
+			state := evaluateChains(devices, resolver, resolver.Model(), at).states[0]
+
+			got := state.Segments[0].Normal
+			switch {
+			case tc.wantNormal == nil && got != nil:
+				t.Fatalf("Normal = %+v, want nil", got)
+			case tc.wantNormal != nil && (got == nil || *got != *tc.wantNormal):
+				t.Fatalf("Normal = %+v, want %+v", got, tc.wantNormal)
+			}
+			if state.Learning != tc.wantLearn {
+				t.Fatalf("Learning = %v, want %v", state.Learning, tc.wantLearn)
+			}
+			if len(state.Findings) != tc.wantFinding {
+				t.Fatalf("Findings = %+v, want %d", state.Findings, tc.wantFinding)
+			}
+		})
+	}
+}
+
+func TestResolverKeepsInsightAcrossSetOverrides(t *testing.T) {
+	resolver := NewResolver(nil)
+	insight := &fakeChainInsight{}
+	resolver.SetChainInsight(insight)
+	resolver.SetOverrides(map[string]Assignment{"x": {Role: RoleLoad}})
+
+	if got := resolver.ChainInsight(); got != insight {
+		t.Fatalf("ChainInsight() = %v after SetOverrides, want the insight set before", got)
+	}
+}

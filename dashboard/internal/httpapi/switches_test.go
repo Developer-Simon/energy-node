@@ -59,8 +59,8 @@ func TestSwitchStateTable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := switchState(tt.entity); got != tt.want {
-				t.Fatalf("switchState() = %q, want %q", got, tt.want)
+			if got := tt.entity.SwitchState(); got != tt.want {
+				t.Fatalf("SwitchState() = %q, want %q", got, tt.want)
 			}
 		})
 	}
