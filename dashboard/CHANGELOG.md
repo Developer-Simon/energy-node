@@ -17,6 +17,7 @@
 - **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
 - **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
 - **dashboard:** stop flagging retained discovery as not retained (#219) (65463a6)
+- **dashboard:** keep device modal tabs equally tall with the label on top (2bdf2c4)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221)
 - **dashboard:** animate diagnostics refresh and updated values (57967fc)
 - **dashboard:** glide diagnostics device cards to their new place (4a9b331)
