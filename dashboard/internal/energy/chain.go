@@ -297,11 +297,12 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 		countIdx := slices.Index(chain.Points, chain.Counting)
 		substituteFrom := ""
 		var sub *chainSubstitute
+		srcIdx := -1
 		if countIdx >= 0 && points[countIdx].Freshness != "fresh" {
 			if src := nearestFreshPoint(points, countIdx); src >= 0 {
 				s := chainSubstitute{value: points[src].Value, label: points[src].Label}
-				out.substitutes[chain.Counting] = s
 				sub = &s
+				srcIdx = src
 				substituteFrom = points[src].EntityID
 			}
 		}
@@ -325,6 +326,11 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 			}
 		}
 		flow := chainFlow(direction, flowValue, hasActive)
+		if sub != nil {
+			s := *sub
+			s.value = correctedSubstitute(insight, chain.Points, srcIdx, countIdx, flow, s.value)
+			out.substitutes[chain.Counting] = s
+		}
 
 		var role Role
 		if read, ok := index[chain.Counting]; ok {
@@ -390,6 +396,45 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 		out.states = append(out.states, state)
 	}
 	return out
+}
+
+// correctedSubstitute moves the raw substitute value by the learned loss of the
+// segments between the source point and the counting point. The loss is added
+// when the source lies downstream of the counting point, subtracted when it
+// lies upstream. The magnitude never crosses zero. Without a flow, without a
+// learned model or with one unlearned segment on the way the raw value stays.
+// The learned class is the absolute raw value.
+func correctedSubstitute(insight ChainInsight, points []string, srcIdx, countIdx int, flow string, value float64) float64 {
+	if insight == nil || flow == "idle" || srcIdx < 0 || countIdx < 0 || srcIdx == countIdx {
+		return value
+	}
+	countingW := math.Abs(value)
+	loss := 0.0
+	for k := min(srcIdx, countIdx); k < max(srcIdx, countIdx); k++ {
+		source, target := points[k], points[k+1]
+		if flow == "up" {
+			source, target = target, source
+		}
+		seg := insight.Segment(source, target, countingW)
+		if !seg.Learned {
+			return value
+		}
+		loss += seg.LossW
+	}
+	upstream := (flow == "down" && srcIdx < countIdx) || (flow == "up" && srcIdx > countIdx)
+	magnitude := math.Abs(value)
+	if upstream {
+		magnitude -= loss
+	} else {
+		magnitude += loss
+	}
+	if magnitude < 0 {
+		magnitude = 0
+	}
+	if value < 0 {
+		return -magnitude
+	}
+	return magnitude
 }
 
 // readChainPoint reads one measuring point with its Scale and Invert applied.

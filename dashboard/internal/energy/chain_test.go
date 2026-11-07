@@ -864,3 +864,99 @@ func TestResolverKeepsInsightAcrossSetOverrides(t *testing.T) {
 		t.Fatalf("ChainInsight() = %v after SetOverrides, want the insight set before", got)
 	}
 }
+
+// pairChainInsight knows the learned loss of some pairs, given as
+// "source->target", and records the counting power of every question.
+type pairChainInsight struct {
+	losses   map[string]float64
+	countedW []float64
+}
+
+func (p *pairChainInsight) Segment(source, target string, countingW float64) ChainSegmentInsight {
+	p.countedW = append(p.countedW, countingW)
+	loss, ok := p.losses[source+"->"+target]
+	return ChainSegmentInsight{Learned: ok, LossW: loss}
+}
+func (p *pairChainInsight) PairLearned(a, b string) bool { return true }
+func (p *pairChainInsight) Findings(chainID string) []ChainFinding {
+	return nil
+}
+func (p *pairChainInsight) Curve(points []string) ChainCurve { return ChainCurve{} }
+
+func TestSubstituteAddsLossWhenCountingIsUpstream(t *testing.T) {
+	insight := &pairChainInsight{losses: map[string]float64{"plug->ac": 9}}
+	points := []string{"plug", "ac", "dc"}
+	// ac is downstream of the counting point plug: counting = source + loss.
+	if got := correctedSubstitute(insight, points, 1, 0, "down", 300); got != 309 {
+		t.Fatalf("substitute = %v, want 309", got)
+	}
+}
+
+func TestSubstituteSubtractsLossWhenCountingIsDownstream(t *testing.T) {
+	insight := &pairChainInsight{losses: map[string]float64{"ac->plug": 9}}
+	points := []string{"plug", "ac", "dc"}
+	// Flow up: ac is upstream of plug, so the loss is taken off the magnitude.
+	if got := correctedSubstitute(insight, points, 1, 0, "up", -300); got != -291 {
+		t.Fatalf("substitute = %v, want -291", got)
+	}
+}
+
+func TestSubstituteSumsSegmentsOnTheWay(t *testing.T) {
+	insight := &pairChainInsight{losses: map[string]float64{"plug->ac": 9, "ac->dc": 6}}
+	points := []string{"plug", "ac", "dc"}
+	if got := correctedSubstitute(insight, points, 2, 0, "down", 300); got != 315 {
+		t.Fatalf("substitute = %v, want 315", got)
+	}
+}
+
+func TestSubstituteStaysRawWithoutLearnedSegment(t *testing.T) {
+	insight := &pairChainInsight{losses: map[string]float64{"plug->ac": 9}}
+	points := []string{"plug", "ac", "dc"}
+	if got := correctedSubstitute(insight, points, 2, 0, "down", 300); got != 300 {
+		t.Fatalf("substitute = %v, want the raw 300 W without a partial correction", got)
+	}
+}
+
+func TestSubstituteStaysRawWhenIdleOrWithoutInsight(t *testing.T) {
+	insight := &pairChainInsight{losses: map[string]float64{"plug->ac": 9}}
+	points := []string{"plug", "ac", "dc"}
+	if got := correctedSubstitute(insight, points, 1, 0, "idle", 300); got != 300 {
+		t.Fatalf("idle substitute = %v, want 300", got)
+	}
+	if got := correctedSubstitute(nil, points, 1, 0, "down", 300); got != 300 {
+		t.Fatalf("substitute without insight = %v, want 300", got)
+	}
+}
+
+func TestSubstituteNeverCrossesZero(t *testing.T) {
+	insight := &pairChainInsight{losses: map[string]float64{"ac->plug": 9}}
+	points := []string{"plug", "ac", "dc"}
+	if got := correctedSubstitute(insight, points, 1, 0, "up", -5); got != 0 {
+		t.Fatalf("substitute = %v, want 0, not a sign flip", got)
+	}
+}
+
+func TestSubstituteLooksUpClassByRawValue(t *testing.T) {
+	insight := &pairChainInsight{losses: map[string]float64{"plug->ac": 9}}
+	points := []string{"plug", "ac", "dc"}
+	correctedSubstitute(insight, points, 1, 0, "down", -300)
+	if len(insight.countedW) != 1 || insight.countedW[0] != 300 {
+		t.Fatalf("counting classes = %v, want [300] from the absolute raw value", insight.countedW)
+	}
+}
+
+func TestChainSubstituteCorrectedByLearnedLoss(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	plug := liveEntity("plug", "300", at)
+	plug.Available, plug.HasAvailability = false, true
+	model := Model{Chains: map[string]Chain{"line": {Label: "Linie", Points: []string{"plug", "ac"}, Counting: "plug"}}}
+	devices, resolver := chainWorld(model,
+		map[string]Assignment{"plug": {Role: RoleBattery, Scale: 1}},
+		plug, liveEntity("ac", "300", at), liveEntity("dc", "0", at))
+	resolver.SetChainInsight(&pairChainInsight{losses: map[string]float64{"plug->ac": 9}})
+
+	snapshot := Aggregate(devices, resolver, at)
+	if got := snapshot.Values[RoleBattery]; got != 309 {
+		t.Fatalf("battery = %v, want 309 W (ac plus the learned 9 W loss)", got)
+	}
+}
