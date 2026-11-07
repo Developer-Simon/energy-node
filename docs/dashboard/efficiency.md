@@ -154,3 +154,14 @@ the next reading that contains them.
 
 Hours are stored per month in `energystats/chains` in the data directory. The
 file format is described in [Data flows: Energy and automations](../developing/data-flow-energy.md#15-measurement-chain-losses).
+
+## Use in automations
+
+The chains also feed the automations. A rule or a scenario can start on a finding
+of a chain, or on its loss, efficiency or standby value, see
+[Measurement chain conditions](../services/automations.md#measurement-chain-conditions).
+A regulator scenario can keep its setpoint in the best efficiency range of a
+chain. Switch on **Regulate in the best efficiency range** in the scenario
+editor and pick the chain. The line below the switch shows the learned range in
+W, or why the regulator works without a limit. The assistant also offers two
+templates for chains, see [Chain templates](../services/automations.md#chain-templates).

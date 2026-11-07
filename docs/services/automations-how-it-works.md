@@ -75,6 +75,12 @@ The service keeps no evaluation state across a restart.
 - Scenario phases live in memory as well. After a restart every scenario
   starts `idle`. An `active` scenario from before the restart is not ended,
   so its `on_end` does not run.
+- The findings that a `once` chain condition has used live in memory only. A
+  restart clears them, so a finding that is still active can fire its rule
+  again. See [section 9](#9-measurement-chain-signals).
+- The standby switch off of the dashboard assistant is the case that hurts most.
+  If the service restarts while that scenario is active, its switch on at the
+  end does not run. The plug stays off until you switch it on by hand.
 
 An invalid `automation_rules.json` never stops the process. If the file is
 invalid at start, the service runs with no rules, stays online and reports
@@ -234,6 +240,7 @@ net    = balance.grid_import - balance.grid_export    (W, positive = import)
 error  = net - target_w
 if |error| <= deadband_w: no step
 value  = base + sign * gain * error                   sign = +1 producer, -1 consumer
+value  = shaped into the best efficiency range        (only with efficiency, see the text below)
 value  = last sent value +/- max_change_w            (only when max_change_w is set and a value was sent)
 value  = floor(value / step) * step                  (only when step is set)
 value  = clamp(value, min, max), rounded to decimals
@@ -277,3 +284,31 @@ cleared.
 
 With `history_enabled` on a scenario, the history records `started`, `ended`,
 `fallback`, `recovered` and `jump`, together with the actions that ran.
+
+The shaping step with `efficiency` follows the rules of
+[`automations.md`](automations.md#scenarios): above the best range the value
+becomes its upper end, inside it the value stays, below it the value becomes the
+lower end from half of that, and otherwise `output.min`. Without a usable range
+the value is not shaped at all.
+
+## 9. Measurement chain signals
+
+The dashboard publishes `outstation/energy_node/energy/chains` as a retained
+message. Its `at` is the time of the payload in Unix seconds. Its `chains`
+object is keyed by chain ID, and each chain carries:
+
+- `loss_w`, `efficiency_pct` and `standby_w`, each a number or `null`,
+- `findings`, a list of `kind`, `from`, `to` and `since`, where `from` and `to`
+  are the entity IDs of the two points,
+- `best_down` and `best_up`, each with `from_w` and `to_w` once a range is learned.
+
+The service reads the last payload. A payload whose `at` is more than 60 seconds
+old is stale. Then every chain condition is unmet and every regulator with
+`efficiency` has no range. A chain that is not in the payload is unmet too. A
+`null` value is unmet as well, because nothing can be compared.
+
+Without any payload, or with one that cannot be read, the reason is
+`chains_unknown`. The reasons appear in the condition reports and,
+for the efficiency option, in the scenario state, see section 8.
+
+The used findings of `once` conditions live in RAM only, as section 3 describes.
