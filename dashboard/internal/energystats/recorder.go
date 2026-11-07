@@ -308,6 +308,5 @@ func (r *Recorder) storeChainsLocked(hours []ChainHour) {
 			r.store.logf("energystats: Messketten-Stunde %s nicht gespeichert: %v", hour.Hour.Format(time.RFC3339), err)
 			continue
 		}
-		r.status.WriteError = ""
 	}
 }

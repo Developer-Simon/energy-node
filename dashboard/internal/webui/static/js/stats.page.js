@@ -188,7 +188,12 @@
         this.renderChart();
         this.$nextTick(() => this.revealChip());
       } catch (error) {
-        if (seq === this.seq) this.error = error.message;
+        // Ohne Statistik gibt es keine Verluste dazu, ein Fehler aus einer
+        // frueheren Runde darf also nicht stehen bleiben.
+        if (seq === this.seq) {
+          this.error = error.message;
+          this.lossError = '';
+        }
       } finally {
         if (seq === this.seq) this.loading = false;
       }

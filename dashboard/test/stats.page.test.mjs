@@ -432,3 +432,19 @@ test('Verlustzeilen tragen die kompakte Zahl, Wirkungsgrad als Prozent', async (
   assert.equal(efficiency.compact[0], '80 %');
   dom.window.close();
 });
+
+test('scheitert die normale Statistik beim Blaettern, verschwindet ein alter lossError', async () => {
+  const {dom, make} = load({'day|': WITH_CHAINS}, {chains: 'fail'});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  assert.equal(panel.lossError, 'Die Verluste konnten nicht geladen werden.');
+  const healthy = dom.window.fetch;
+  dom.window.fetch = async url => (isChainCall(url)
+    ? healthy(url)
+    : {ok: false, status: 500, json: async () => ({message: 'Statistik nicht erreichbar'})});
+  await panel.prev();
+  assert.equal(panel.error, 'Statistik nicht erreichbar');
+  assert.equal(panel.lossError, '');
+  dom.window.close();
+});
