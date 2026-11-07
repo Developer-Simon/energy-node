@@ -426,6 +426,8 @@
   "fault.MOSQUITTO_PASSWD_FAILED.remediation": "Der Schritt liest die Passwortdatei als der verbundene Benutzer: sie muss für ihn lesbar sein (Besitzer, Modus 0600), und python3 muss vorhanden sein.",
   "fault.MQTT_CONFIG_UNREADABLE.message": "Vom Node ließen sich weder MQTT-Benutzer noch Passwortdatei lesen.",
   "fault.MQTT_CONFIG_UNREADABLE.remediation": "Prüfe, dass /etc/energy-node/config.json mqtt.username und mqtt.password_file nennt und die Passwortdatei existiert. Bei einer Erstinstallation „Installieren“ wählen, das fragt nach dem Passwort.",
+  "fault.PACKAGE_FILE_INVALID.message": "Die Paketdatei im Bundle passt nicht zur festgelegten Prüfsumme.",
+  "fault.PACKAGE_FILE_INVALID.remediation": "Baue das Bundle erneut, damit Paketfestlegung und Datei zusammenpassen. Bleibt es dabei, ist der Bundle-Bau defekt.",
   "fault.PIP_EXTERNALLY_MANAGED.message": "pip hat die Installation in das System-Python verweigert (PEP 668, extern verwaltete Umgebung).",
   "fault.PIP_EXTERNALLY_MANAGED.remediation": "Der Schritt wiederholt mit --break-system-packages. Fehlt der Schalter auf diesem Image, die Wheels stattdessen in eine virtuelle Umgebung installieren.",
   "fault.PIP_INSTALL_FAILED.message": "pip konnte die Wheels aus dem Bundle nicht installieren.",

@@ -426,6 +426,8 @@
   "fault.MOSQUITTO_PASSWD_FAILED.remediation": "The step reads the password file as the connecting user: it must be readable for that user (owner, mode 0600) and python3 must exist.",
   "fault.MQTT_CONFIG_UNREADABLE.message": "No MQTT user or password file could be read from the node.",
   "fault.MQTT_CONFIG_UNREADABLE.remediation": "Check that /etc/energy-node/config.json names mqtt.username and mqtt.password_file and that the password file exists. On a first install use “Install”, which asks for the password.",
+  "fault.PACKAGE_FILE_INVALID.message": "The package file in the bundle does not match its pinned checksum, or the file is missing its pin.",
+  "fault.PACKAGE_FILE_INVALID.remediation": "Build the bundle again so the package pins and files match. If it stays, the bundle build is broken.",
   "fault.PIP_EXTERNALLY_MANAGED.message": "pip refused to install into the system Python (PEP 668, externally managed environment).",
   "fault.PIP_EXTERNALLY_MANAGED.remediation": "The step retries with --break-system-packages. If that is unavailable on this image, install the wheels into a virtual environment instead.",
   "fault.PIP_INSTALL_FAILED.message": "pip could not install the wheels from the bundle.",
