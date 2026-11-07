@@ -97,11 +97,11 @@ def check(cond, msg):
         sys.exit(1)
 ts_base = "https://pkgs.tailscale.com/stable/debian/"
 gh_base = "https://github.com/caddyserver/caddy/releases/download/v9.9.9/"
-# armv6-Tailscale bleibt fest auf 1.62.0 (Pruefsumme aus dem bookworm-armhf-Index)
+# armv6-Tailscale bleibt fest auf 1.62.0, die url zeigt auf den Projekt-Spiegel
 check(d["armv6"]["tailscale"] == {
     "version": "1.62.0",
     "file": "tailscale_1.62.0_armhf.deb",
-    "url": ts_base + "pool/tailscale_1.62.0_armhf.deb",
+    "url": "https://github.com/Developer-Simon/energy-node/releases/download/pinned-packages/tailscale_1.62.0_armhf.deb",
     "sha256": "b8db12b68f17f707adb4ffe035abb3c6a7347b5bea93894f4c787d3bb1d95125",
     "update": "installer",
 }, "armv6 tailscale")

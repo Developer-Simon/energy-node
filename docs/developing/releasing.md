@@ -133,9 +133,11 @@ SHA-512 in the upstream checksum file, and `packages.json` pins its SHA-256. The
 script writes only when every check passes. Read the diff, then commit
 `packages.json` with the release.
 
-The `armv6` Tailscale pin stays at 1.62.0. The script does not move it, because
-there is no newer ARMv6 build to pin. A new pin reruns steps 40 and 70 on the
-next update of a node.
+The `armv6` Tailscale pin stays at 1.62.0. Its file is a project mirror asset
+under the release tag `pinned-packages`, uploaded once by hand, because the
+upstream pool drops old versions. The script never bumps it, and its checksum
+stays the upstream one. A node installs 1.62.0 and then runs `tailscale update`.
+A new pin reruns steps 40 and 70 on the next update of a node.
 
 The repository keys for Tailscale and Caddy are in `scripts/bootstrap/keyrings/`
 as `tailscale.gpg` and `caddy.gpg`. When an upstream repository changes its
