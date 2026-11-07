@@ -36,12 +36,13 @@ const (
 // diagnoses. Observe feeds it one snapshot at a time, the readers may run at
 // the same time.
 type Monitor struct {
-	table  *Table
-	holds  Holds
-	now    func() time.Time
-	mu     sync.RWMutex
-	tracks map[trackKey]*trackEntry
-	labels map[string]string
+	table   *Table
+	holds   Holds
+	now     func() time.Time
+	mu      sync.RWMutex
+	tracks  map[trackKey]*trackEntry
+	windows map[windowKey]*frozenWindow
+	labels  map[string]string
 }
 
 var _ energy.ChainInsight = (*Monitor)(nil)
@@ -56,11 +57,12 @@ func NewMonitor(table *Table, holds Holds, now func() time.Time) *Monitor {
 		now = time.Now
 	}
 	return &Monitor{
-		table:  table,
-		holds:  holds,
-		now:    now,
-		tracks: map[trackKey]*trackEntry{},
-		labels: map[string]string{},
+		table:   table,
+		holds:   holds,
+		now:     now,
+		tracks:  map[trackKey]*trackEntry{},
+		windows: map[windowKey]*frozenWindow{},
+		labels:  map[string]string{},
 	}
 }
 
@@ -135,6 +137,11 @@ func (m *Monitor) Observe(at time.Time, snapshot energy.Snapshot) {
 			delete(m.tracks, key)
 		}
 	}
+	for key := range m.windows {
+		if !seen[key.chain] {
+			delete(m.windows, key)
+		}
+	}
 	for id := range m.labels {
 		if !seen[id] {
 			delete(m.labels, id)
@@ -169,6 +176,11 @@ func (m *Monitor) Prune(chains map[string]energy.Chain) {
 			delete(m.tracks, key)
 		}
 	}
+	for key := range m.windows {
+		if !slices.Contains(chains[key.chain].Points, key.point) {
+			delete(m.windows, key)
+		}
+	}
 }
 
 // Findings returns the active findings of a chain, sorted by kind, then From.
@@ -193,7 +205,7 @@ func (m *Monitor) findingsLocked(include func(chainID string) bool) []energy.Cha
 			continue
 		}
 		out = append(out, energy.ChainFinding{
-			Kind:       key.kind,
+			Kind:       outputKind(key.kind),
 			ChainID:    key.chain,
 			ChainLabel: m.labels[key.chain],
 			Since:      e.since,
@@ -216,6 +228,15 @@ func (m *Monitor) findingsLocked(include func(chainID string) bool) []energy.Cha
 		return a.To < b.To
 	})
 	return out
+}
+
+// outputKind is the kind a finding shows. The switched-off tracker kind shows
+// as a contradiction.
+func outputKind(kind string) string {
+	if kind == switchOffKind {
+		return energy.FindingContradiction
+	}
+	return kind
 }
 
 // kindRank orders the kinds in the order the findings show them.
@@ -260,6 +281,9 @@ func keepsKey(key trackKey, points []string) bool {
 		return i >= 0
 	}
 	j := slices.Index(points, key.b)
+	if key.kind == switchOffKind {
+		return i >= 0 && j >= 0
+	}
 	return i >= 0 && j >= 0 && (i-j == 1 || j-i == 1)
 }
 
@@ -294,7 +318,7 @@ func (t *Table) syncPair(pair energystats.ChainPair, src, dst energy.ChainPointS
 // agreeing ones. Values below ChainMinInputW and points that are not fresh
 // count nothing. The counters halve at LearnWindow.
 func (t *Table) countSign(pair energystats.ChainPair, a, b energy.ChainPointState) {
-	if a.Freshness != "fresh" || b.Freshness != "fresh" {
+	if a.Freshness != "fresh" || b.Freshness != "fresh" || !finite(a.Value) || !finite(b.Value) {
 		return
 	}
 	if absW(a.Value) < energy.ChainMinInputW || absW(b.Value) < energy.ChainMinInputW {

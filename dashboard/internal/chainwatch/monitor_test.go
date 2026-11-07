@@ -92,6 +92,19 @@ func classN(tb *Table, source, target string, countingW float64) int {
 	return 0
 }
 
+// totalN returns the learned sample count of source-target over all classes.
+func totalN(tb *Table, source, target string) int {
+	entry := tb.pairs[energystats.ChainPair{Source: source, Target: target}]
+	if entry == nil {
+		return 0
+	}
+	n := 0
+	for _, b := range entry.Classes {
+		n += b.N
+	}
+	return n
+}
+
 func TestObserveLearnsOnlyValidSamples(t *testing.T) {
 	stale := func(p energy.ChainPointState) energy.ChainPointState {
 		p.Freshness = "stale"
@@ -260,4 +273,52 @@ func TestObserveIsSafeWithConcurrentReads(t *testing.T) {
 	r.feed(t0, 31*time.Minute, 40*time.Minute, buildChain("down", "a", testPoint("a", 300), testPoint("b", 290)))
 	close(done)
 	wg.Wait()
+}
+
+func TestObserveDoesNotLearnDuringFrozenOrContradiction(t *testing.T) {
+	// Frozen: a stays at 120 W, b swings. Learning stops once frozen shows.
+	r := newRig()
+	r.feedSwing(t0, 14*time.Minute+50*time.Second, 120, 80, 160)
+	if classN(r.tb, "a", "b", 120) == 0 {
+		t.Fatal("nothing learned before frozen")
+	}
+	r.observe(t0.Add(15*time.Minute), buildChain("down", "a", testPoint("a", 120), testPoint("b", 80)))
+	if len(frozenFindings(r)) != 1 {
+		t.Fatal("no frozen finding at 15:00")
+	}
+	atFinding := classN(r.tb, "a", "b", 120)
+	r.feedSwing(t0, 25*time.Minute, 120, 80, 160)
+	if got := classN(r.tb, "a", "b", 120); got != atFinding {
+		t.Fatalf("N grew from %d to %d during frozen", atFinding, got)
+	}
+
+	// Contradiction: a 200 W into b at 0 W, learning stops once it shows.
+	r = newRig()
+	r.feed(t0, 0, 9*time.Minute+50*time.Second, buildChain("down", "a", testPoint("a", 200), testPoint("b", 0)))
+	before := classN(r.tb, "a", "b", 200)
+	r.feed(t0, 10*time.Minute, 10*time.Minute, buildChain("down", "a", testPoint("a", 200), testPoint("b", 0)))
+	if len(r.m.Findings(testChainID)) != 1 {
+		t.Fatal("no contradiction at 10:00")
+	}
+	atFinding = classN(r.tb, "a", "b", 200)
+	if atFinding < before {
+		t.Fatalf("N fell from %d to %d", before, atFinding)
+	}
+	r.feed(t0, 10*time.Minute+sampleEvery, 20*time.Minute, buildChain("down", "a", testPoint("a", 200), testPoint("b", 0)))
+	if got := classN(r.tb, "a", "b", 200); got != atFinding {
+		t.Fatalf("N grew from %d to %d during contradiction", atFinding, got)
+	}
+}
+
+func TestObserveSkipsNonFiniteSamples(t *testing.T) {
+	r := newRig()
+	nan := testPoint("b", math.NaN())
+	r.observe(t0, buildChain("down", "a", testPoint("a", 300), nan))
+	inf := testPoint("b", math.Inf(1))
+	r.observe(t0.Add(sampleEvery), buildChain("down", "a", testPoint("a", 300), inf))
+	// The counting point is c, the source of a-b is finite: only the counting value is bad.
+	r.observe(t0.Add(2*sampleEvery), buildChain("down", "c", testPoint("a", 300), testPoint("b", 290), testPoint("c", math.NaN())))
+	if got := totalN(r.tb, "a", "b"); got != 0 {
+		t.Fatalf("N = %d over all classes for non-finite samples, want 0", got)
+	}
 }

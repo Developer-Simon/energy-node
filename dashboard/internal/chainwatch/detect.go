@@ -1,6 +1,7 @@
 package chainwatch
 
 import (
+	"math"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -16,6 +17,10 @@ const (
 	no
 	yes
 )
+
+// switchOffKind is the tracker kind of a switched-off point against a point
+// that shows power. It is reported as a contradiction.
+const switchOffKind = "contradiction_off"
 
 // segView is one segment in one sample. a and b are its points in chain order,
 // src and dst the same points in flow order.
@@ -85,16 +90,28 @@ func (m *Monitor) observeChain(at time.Time, cs *energy.ChainState) {
 	for i := range v.state.Points {
 		p := &v.state.Points[i]
 		key := trackKey{chain: cs.ID, kind: energy.FindingFrozen, a: p.EntityID}
-		m.feed(at, key, detectFrozen(v, p), m.holds.Frozen, 0, feedInfo{from: p.EntityID})
+		// The frozen window already waits for the hold, so the tracker takes the first yes.
+		m.feed(at, key, m.frozenVerdict(at, v, p), 0, 0, feedInfo{from: p.EntityID})
 	}
 	for _, s := range v.segments {
 		m.feed(at, segKey(cs.ID, energy.FindingContradiction, s), detectContradiction(v, s), m.holds.Contradiction, m.holds.Clear, s.info())
 	}
+	for i := range v.state.Points {
+		off := &v.state.Points[i]
+		if !off.SwitchOff {
+			continue
+		}
+		for j := range v.state.Points {
+			p := &v.state.Points[j]
+			key := trackKey{chain: cs.ID, kind: switchOffKind, a: off.EntityID, b: p.EntityID}
+			m.feed(at, key, detectSwitchOff(p), m.holds.Contradiction, m.holds.Clear, feedInfo{from: p.EntityID, to: off.EntityID})
+		}
+	}
 	for _, s := range v.segments {
+		// Sign has no hold of its own yet, 4c sets it.
 		sv, sugg := detectSign(v, s)
 		info := s.info()
 		info.sugg = sugg
-		// Sign has no hold of its own yet, 4c sets it.
 		m.feed(at, segKey(cs.ID, energy.FindingSign, s), sv, 0, m.holds.Clear, info)
 	}
 	for _, s := range v.segments {
@@ -115,41 +132,55 @@ func (m *Monitor) observeChain(at time.Time, cs *energy.ChainState) {
 			energy.FindingUnit, energy.FindingFrozen, energy.FindingContradiction, energy.FindingDrift) {
 			continue
 		}
-		m.table.Learn(pairOf(s.src, s.dst), absW(v.counting.Value), absW(s.src.Value), absW(s.dst.Value), at)
+		m.table.Learn(pairOf(s.src, s.dst), math.Abs(v.counting.Value), math.Abs(s.src.Value), math.Abs(s.dst.Value), at)
 	}
 }
 
 // learnable reports whether a segment sample may teach the table: a flowing
-// chain without a substitute, a fresh counting point, a fresh segment and a
-// source above ChainMinInputW.
+// chain without a substitute, a fresh counting point, a fresh segment, a source
+// above ChainMinInputW and only finite values.
 func learnable(v chainView, s segView) bool {
-	return v.counting != nil && v.counting.Freshness == "fresh" &&
+	return v.counting != nil && v.counting.Freshness == "fresh" && finite(v.counting.Value) &&
 		v.state.Flow != "idle" && v.state.SubstituteFrom == "" &&
-		s.state.Available && absW(s.src.Value) >= energy.ChainMinInputW
+		s.state.Available && finite(s.src.Value) && finite(s.dst.Value) &&
+		math.Abs(s.src.Value) >= energy.ChainMinInputW
 }
 
-// pruneChain drops the trackers of the chain whose points are no longer in the
-// chain as it is now.
+// pruneChain drops the trackers and frozen windows of the chain whose points
+// are no longer in the chain as it is now.
 func (m *Monitor) pruneChain(chain string, points []string) {
 	for key := range m.tracks {
 		if key.chain == chain && !keepsKey(key, points) {
 			delete(m.tracks, key)
 		}
 	}
+	for key := range m.windows {
+		if key.chain == chain && !containsString(points, key.point) {
+			delete(m.windows, key)
+		}
+	}
 }
 
 // busyOn reports whether an active finding of one of the kinds sits on the
-// segment a-b of chain. Frozen counts when it is on a or b.
+// segment a-b of chain. Frozen counts when it is on a or b, contradiction in
+// either order.
 func (m *Monitor) busyOn(chain, a, b string, kinds ...string) bool {
 	for _, kind := range kinds {
-		if kind == energy.FindingFrozen {
+		switch kind {
+		case energy.FindingFrozen:
 			if m.isActive(trackKey{chain: chain, kind: kind, a: a}) || m.isActive(trackKey{chain: chain, kind: kind, a: b}) {
 				return true
 			}
-			continue
-		}
-		if m.isActive(trackKey{chain: chain, kind: kind, a: a, b: b}) {
-			return true
+		case energy.FindingContradiction:
+			for _, k := range []string{energy.FindingContradiction, switchOffKind} {
+				if m.isActive(trackKey{chain: chain, kind: k, a: a, b: b}) || m.isActive(trackKey{chain: chain, kind: k, a: b, b: a}) {
+					return true
+				}
+			}
+		default:
+			if m.isActive(trackKey{chain: chain, kind: kind, a: a, b: b}) {
+				return true
+			}
 		}
 	}
 	return false
@@ -188,13 +219,138 @@ func pairOf(source, target *energy.ChainPointState) energystats.ChainPair {
 	return energystats.ChainPair{Source: source.EntityID, Target: target.EntityID}
 }
 
+func verdictOf(b bool) verdict {
+	if b {
+		return yes
+	}
+	return no
+}
+
+func finite(v float64) bool {
+	return !math.IsNaN(v) && !math.IsInf(v, 0)
+}
+
+func containsString(list []string, s string) bool {
+	for _, x := range list {
+		if x == s {
+			return true
+		}
+	}
+	return false
+}
+
+// windowKey names the frozen window of one point.
+type windowKey struct {
+	chain, point string
+}
+
+// span is the lowest and highest value a point read in a window.
+type span struct {
+	min, max float64
+}
+
+// frozenWindow is the time since a point last changed, with the spread of every
+// other fresh point of the chain in that time.
+type frozenWindow struct {
+	last  float64
+	since time.Time
+	spans map[string]*span
+}
+
+// observe takes the fresh values of the other points into the spans.
+func (w *frozenWindow) observe(v chainView, p *energy.ChainPointState) {
+	for i := range v.state.Points {
+		q := &v.state.Points[i]
+		if q.EntityID == p.EntityID || q.Freshness != "fresh" || !finite(q.Value) {
+			continue
+		}
+		s := w.spans[q.EntityID]
+		if s == nil {
+			w.spans[q.EntityID] = &span{min: q.Value, max: q.Value}
+			continue
+		}
+		s.min = math.Min(s.min, q.Value)
+		s.max = math.Max(s.max, q.Value)
+	}
+}
+
+// move is the largest spread of the other points since the window started.
+func (w *frozenWindow) move() float64 {
+	out := 0.0
+	for _, s := range w.spans {
+		out = math.Max(out, s.max-s.min)
+	}
+	return out
+}
+
+// frozenVerdict reports whether p is frozen: fresh, not near zero, unchanged for
+// the Frozen hold, while another fresh point moved by at least FrozenMoveW in
+// that time. A change of value ends the window at once.
+func (m *Monitor) frozenVerdict(at time.Time, v chainView, p *energy.ChainPointState) verdict {
+	key := windowKey{chain: v.state.ID, point: p.EntityID}
+	if p.Freshness != "fresh" || !finite(p.Value) || math.Abs(p.Value) < energy.ChainMinInputW {
+		delete(m.windows, key)
+		return no
+	}
+	w := m.windows[key]
+	if w == nil || w.last != p.Value {
+		w = &frozenWindow{last: p.Value, since: at, spans: map[string]*span{}}
+		m.windows[key] = w
+	}
+	w.observe(v, p)
+	if at.Sub(w.since) < m.holds.Frozen || w.move() < FrozenMoveW {
+		return no
+	}
+	return yes
+}
+
+// detectContradiction reports two adjacent points that cannot both be right. One
+// of them reads under 1 W, the other shows power. Without a learned band the
+// other must reach ContradictionW. With a band it must reach
+// ContradictionLearnedW and the loss must lie outside the band.
+func detectContradiction(v chainView, s segView) verdict {
+	if !s.state.Available || !finite(s.src.Value) || !finite(s.dst.Value) {
+		return unknown
+	}
+	srcZero := math.Abs(s.src.Value) < energy.ChainIdleW
+	dstZero := math.Abs(s.dst.Value) < energy.ChainIdleW
+	var other *energy.ChainPointState
+	switch {
+	case dstZero && !srcZero:
+		other = s.src
+	case srcZero && !dstZero:
+		other = s.dst
+	default:
+		return no
+	}
+	otherW := math.Abs(other.Value)
+	band := s.state.Normal
+	if band == nil {
+		return verdictOf(otherW >= ContradictionW)
+	}
+	if otherW < ContradictionLearnedW {
+		return no
+	}
+	return verdictOf(s.state.LossW < band.LowW || s.state.LossW > band.HighW)
+}
+
+// detectSwitchOff reports a point that shows power while the switch of its
+// device is off. The pair is the switched-off point and p.
+func detectSwitchOff(p *energy.ChainPointState) verdict {
+	if p.Freshness != "fresh" || !finite(p.Value) {
+		return unknown
+	}
+	return verdictOf(math.Abs(p.Value) >= ContradictionLearnedW)
+}
+
 // detectDrift reports whether the loss of the segment left its normal band. The
 // band is the learned one or a manual tolerance, it comes with the snapshot.
-// Without a band, without a usable reading or with the flow idle the sample is
-// unknown.
+// Without a band, without a usable reading, with the flow idle or with a
+// non-finite loss the sample is unknown.
 func detectDrift(v chainView, s segView) verdict {
 	band := s.state.Normal
-	if band == nil || !s.state.Available || v.state.Flow == "idle" || v.state.SubstituteFrom != "" {
+	if band == nil || !s.state.Available || v.state.Flow == "idle" ||
+		v.state.SubstituteFrom != "" || !finite(s.state.LossW) {
 		return unknown
 	}
 	if s.state.LossW >= band.LowW && s.state.LossW <= band.HighW {
@@ -206,18 +362,6 @@ func detectDrift(v chainView, s segView) verdict {
 // detectUnit reports a wrong scale or unit on the segment.
 // TODO(4c): not implemented yet, every sample is unknown.
 func detectUnit(v chainView, s segView) verdict {
-	return unknown
-}
-
-// detectFrozen reports a point whose value does not move while the others do.
-// TODO(4b): not implemented yet, every sample is unknown.
-func detectFrozen(v chainView, p *energy.ChainPointState) verdict {
-	return unknown
-}
-
-// detectContradiction reports a segment whose points contradict each other.
-// TODO(4b): not implemented yet, every sample is unknown.
-func detectContradiction(v chainView, s segView) verdict {
 	return unknown
 }
 
