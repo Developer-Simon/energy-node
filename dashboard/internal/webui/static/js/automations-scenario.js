@@ -370,7 +370,10 @@
     const regulator = (scenario.while && scenario.while.regulator) || {};
     if (!regulator.efficiency) return { tone: 'off', text: '' };
     const report = state && state.efficiency;
-    if (!report) return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_stale') };
+    // Ein Bericht fuer eine andere Kette gehoert nicht zu dieser Auswahl.
+    if (!report || report.chain_id !== regulator.efficiency.chain_id) {
+      return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_stale') };
+    }
     if (isNumber(report.from_w) && isNumber(report.to_w)) {
       return { tone: 'ok', text: t('automations.scenario.edit.regulator.efficiency_range', { from: report.from_w, to: report.to_w }) };
     }

@@ -488,6 +488,14 @@ test('efficiencyStatus without a report says the values are missing', () => {
   assert.equal(s.efficiencyStatus(scenario, { efficiency: null }).text, 'Keine aktuellen Kettenwerte, der Regler arbeitet ohne Grenze.');
 });
 
+test('efficiencyStatus treats a report of another chain as no current report', () => {
+  const s = load();
+  const scenario = regulateFor('inverter_power', { chain_id: 'balkon' });
+  const stale = { tone: 'wait', text: 'Keine aktuellen Kettenwerte, der Regler arbeitet ohne Grenze.' };
+  assert.deepEqual(plain(s.efficiencyStatus(scenario, { efficiency: { chain_id: 'keller', from_w: 250, to_w: 500 } })), stale);
+  assert.deepEqual(plain(s.efficiencyStatus(scenario, { efficiency: { chain_id: 'keller', reason: 'no_range' } })), stale);
+});
+
 test('efficiencyStatus is empty when the option is not set', () => {
   const s = load();
   assert.deepEqual(plain(s.efficiencyStatus(regulateFor('inverter_power'), null)), { tone: 'off', text: '' });
