@@ -496,3 +496,29 @@ test('a substituted counting point is marked on the node and on its edge, its re
   assert.equal(model.nodeValueText({ entities: [{ value: 1, unit_of_measurement: 'W' }] }, energy.get('inv')), model.formatPower(412), 'live, not the device list');
   assert.equal(model.substituteNote(energy.get('inv'), id => id), '');
 });
+
+test('segmentLosses adds the segments of one device pair', () => {
+  const model = loadModel();
+  const chains = [
+    { id: 'balkon', label: 'Balkon', points: [chainPoint('pa1', 'A', 0, { counting: true }), chainPoint('pb1', 'B', 0)], segments: [{ from: 'pa1', to: 'pb1', available: true, loss_w: 9 }] },
+    // Direction does not matter: the second chain runs from B to A.
+    { id: 'speicher', label: 'Speicher', points: [chainPoint('pb2', 'B', 0, { counting: true }), chainPoint('pa2', 'A', 0)], segments: [{ from: 'pb2', to: 'pa2', available: true, loss_w: 3 }] },
+  ];
+  assert.deepEqual(plain(model.segmentLosses(chains)), [{ a: 'A', b: 'B', lossW: 12 }]);
+});
+
+test('segmentLosses skips segments inside a device and unavailable ones', () => {
+  const model = loadModel();
+  const chains = [
+    { id: 'x', label: 'X', points: [chainPoint('c1', 'C', 0, { counting: true }), chainPoint('c2', 'C', 0), chainPoint('d1', 'D', 0)], segments: [
+      { from: 'c1', to: 'c2', available: true, loss_w: 5 },
+      { from: 'c2', to: 'd1', available: false, loss_w: 0 },
+    ] },
+  ];
+  assert.deepEqual(plain(model.segmentLosses(chains)), []);
+});
+
+test('segmentLosses tolerates a snapshot without chains', () => {
+  const model = loadModel();
+  assert.deepEqual(plain(model.segmentLosses(undefined)), []);
+});

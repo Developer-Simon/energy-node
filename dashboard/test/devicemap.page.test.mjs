@@ -448,7 +448,7 @@ test('view defaults apply when the loaded device map has no view section (older 
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
 
-  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false }, wiring_types: { energy: true, data: true, info: true } });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false, losses: false }, wiring_types: { energy: true, data: true, info: true } });
 });
 
 test('a device without a saved position is placed below the existing arrangement instead of triggering a full re-layout', () => {
@@ -678,7 +678,7 @@ test('save() includes the current view settings in the PUT body', async () => {
 
   await component.save();
 
-  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false }, wiring_types: { energy: true, data: true, info: true } });
+  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false, losses: false }, wiring_types: { energy: true, data: true, info: true } });
 });
 
 test('discardChanges restores the last loaded/saved snapshot without a network call, and clears unsaved', async () => {
@@ -755,10 +755,10 @@ test('confirmUnsavedUnload only blocks the tab close when there are unsaved posi
   assert.equal(event.returnValue, '');
 });
 
-test('view always carries all four layers, defaulting old maps to wiring and energy', () => {
+test('view always carries all layers, defaulting old maps to wiring and energy', () => {
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [], view: { snap_to_grid: true } };
-  assert.deepEqual(JSON.parse(JSON.stringify(component.view.layers)), { wiring: true, energy: true, balance: false, data: false });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view.layers)), { wiring: true, energy: true, balance: false, data: false, losses: false });
   assert.equal(component.view.width_by_power, false);
 });
 
@@ -941,11 +941,12 @@ test('applyFlows replaces a flow whose direction changed instead of duplicating 
   const store = new Map();
   const fakeCy = {
     batch: fn => fn(),
-    edges: selector => ({ forEach: fn => [...store.values()].forEach(fn) }),
+    edges: selector => ({ forEach: fn => [...store.values()].filter(edge => edge.classes.split(' ').includes(selector.slice(1))).forEach(fn) }),
     getElementById: id => store.get(id) || { empty: () => true },
     add: element => {
       const data = { ...element.data };
       store.set(data.id, {
+        classes: element.classes,
         empty: () => false,
         id: () => data.id,
         data: (key, value) => { if (value !== undefined) data[key] = value; return key ? data[key] : data; },
@@ -961,6 +962,83 @@ test('applyFlows replaces a flow whose direction changed instead of duplicating 
   component.applyFlows();
   assert.equal(store.size, 1);
   assert.equal(store.get('flow-netz::bat').data('target'), 'netz');
+});
+
+// Two chains over the same pair of devices: 9 W and 3 W make one "−12 W" label.
+function lossFixture(component, lossW = [9, 3]) {
+  flowFixture(component);
+  const chain = (id, from, to, loss) => ({ id, label: id, points: [
+    { entity_id: `${id}_a`, device_id: from, counting: true, has_value: true, freshness: 'fresh' },
+    { entity_id: `${id}_b`, device_id: to, counting: false, has_value: true, freshness: 'fresh' },
+  ], segments: [{ from: `${id}_a`, to: `${id}_b`, available: true, loss_w: loss }] });
+  component.energy.chains = [chain('balkon', 'netz', 'bat', lossW[0]), chain('speicher', 'netz', 'bat', lossW[1])];
+}
+
+// Fake Cytoscape graph that filters edges by class, so flow and loss layers can share it.
+function lossGraph() {
+  const store = new Map();
+  const edgesOf = selector => [...store.values()].filter(element => element.classes.split(' ').includes(selector.slice(1)));
+  const wrap = element => ({
+    id: () => element.data.id,
+    data: (key, value) => { if (value !== undefined) element.data[key] = value; return key ? element.data[key] : element.data; },
+    remove: () => store.delete(element.data.id),
+  });
+  return {
+    store,
+    batch: fn => fn(),
+    edges: selector => {
+      const list = edgesOf(selector).map(wrap);
+      return { forEach: fn => list.forEach(fn) };
+    },
+    nodes: () => ({ forEach: () => {} }),
+    add: element => store.set(element.data.id, { ...element, data: { ...element.data } }),
+    style: () => {},
+  };
+}
+
+test('the losses layer is off by default, also with chains in the snapshot', () => {
+  const { component } = createDevicemapPanel();
+  lossFixture(component);
+  assert.equal(component.view.layers.losses, false);
+  assert.equal(component.lossElements().length, 0);
+  assert.equal(component.buildElements().filter(element => (element.classes || '').includes('devicemap-loss')).length, 0);
+});
+
+test('toggleLayer losses adds one loss label to the map and removes it again', () => {
+  const { component } = createDevicemapPanel();
+  lossFixture(component);
+  const graph = lossGraph();
+  component._cyForTest = graph;
+  component.toggleLayer('losses');
+  assert.equal(component.view.layers.losses, true);
+  const losses = [...graph.store.values()].filter(element => element.classes === 'devicemap-loss');
+  assert.equal(losses.length, 1);
+  assert.equal(losses[0].data.label, '−12 W');
+  component.toggleLayer('losses');
+  assert.equal(component.view.layers.losses, false);
+  assert.equal([...graph.store.values()].filter(element => element.classes === 'devicemap-loss').length, 0);
+});
+
+test('a new snapshot changes the loss label without adding a second element', () => {
+  const { component } = createDevicemapPanel();
+  lossFixture(component);
+  const graph = lossGraph();
+  component._cyForTest = graph;
+  component.toggleLayer('losses');
+  component.energy.chains[0].segments[0].loss_w = 5;
+  component.applyFlows();
+  const losses = [...graph.store.values()].filter(element => element.classes === 'devicemap-loss');
+  assert.equal(losses.length, 1);
+  assert.equal(losses[0].data.label, '−8 W');
+});
+
+test('the losses layer button is usable without the edit right, like the other layers', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'devicemap.html'), 'utf8');
+  const button = html.match(/<button[^>]*data-layer="losses"[^>]*>/);
+  assert.ok(button, 'losses layer button missing');
+  assert.match(button[0], /x-on:click="toggleLayer\('losses'\)"/);
+  assert.match(button[0], /x-bind:disabled="loading"/);
+  assert.doesNotMatch(button[0], /canEdit/);
 });
 
 test('flowOffset cycles one dash pattern per speed period, moving toward the target', () => {
