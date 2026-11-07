@@ -542,6 +542,8 @@
       case 'devices':
         return Array.isArray(answer) && answer.length > 0;
       case 'time':
+        // Einzelne Uhrzeit (single): nur der Beginn zählt, das Ende setzt die Vorlage.
+        if (step.single) return !!answer && TIME_PATTERN.test(answer.from);
         return !!answer && TIME_PATTERN.test(answer.from) && TIME_PATTERN.test(answer.to)
           && answer.from !== answer.to;
       default:

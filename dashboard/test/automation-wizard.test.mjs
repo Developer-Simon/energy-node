@@ -701,3 +701,10 @@ test('without snapshot.chains the context lists no chains', () => {
   assert.deepEqual(ctx.chains, []);
   assert.deepEqual(plain(wizard.devicesFor('chain_watchdog', ctx)), []);
 });
+
+test('a single time step is complete with a from time alone', () => {
+  const { wizard } = load();
+  assert.equal(wizard.stepComplete({ type: 'time', single: true }, { from: '07:00', to: '', days: [] }), true);
+  assert.equal(wizard.stepComplete({ type: 'time', single: true }, { from: '', to: '', days: [] }), false);
+  assert.equal(wizard.stepComplete({ type: 'time' }, { from: '07:00', to: '', days: [] }), false);
+});

@@ -1543,7 +1543,8 @@ test('chain_standby builds a rule or a scenario', () => {
   assert.deepEqual(scenario.entry.on_end.actions, [plugOn]);
   assert.deepEqual(scenario.entry.while, { mode: 'none' });
 
-  const late = build({ limit: 5, hours: 4, at: { from: '23:30', to: '00:30', days: [0, 1, 2, 3, 4, 5, 6] } });
+  // Einzelne Uhrzeit: das Ende des Zeitfensters ist eine Stunde später, das Feld 'to' zählt nicht.
+  const late = build({ limit: 5, hours: 4, at: { from: '23:30', to: '09:00', days: [0, 1, 2, 3, 4, 5, 6] } });
   assert.deepEqual(late.entry.until.conditions, [{ type: 'time_window', start: '23:30', end: '00:30', weekdays: [] }]);
   assert.deepEqual(late.entry.when.conditions, [condition(5, 4)]);
 });

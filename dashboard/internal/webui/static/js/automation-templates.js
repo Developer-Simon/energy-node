@@ -1539,6 +1539,14 @@
 
   // ---------------------------------------------------------------- Messkette: Watchdog und Standby
 
+  // Ende des Zeitfensters: eine Stunde nach der Uhrzeit, über Mitternacht hinweg.
+  const hourAfter = (time) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const total = (hours * 60 + minutes + 60) % (24 * 60);
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+  };
+
   // Kette aus ctx.chains und ihr Schalter am ersten Messpunkt, vorgewählt im Schalter-Schritt.
   const chainSwitch = (ctx, answers) => {
     const entry = (ctx.chains || []).find((item) => item.id === answers.chain);
@@ -1657,7 +1665,7 @@
         options: [{ id: 'time' }, { id: 'manual' }],
       },
       {
-        id: 'at', type: 'time', when: (answers) => answers.back === 'time',
+        id: 'at', type: 'time', single: true, when: (answers) => answers.back === 'time',
         default: { from: '07:00', to: '08:00', days: ALL_DAYS },
       },
       { id: 'extras', type: 'multi', options: [{ id: 'history', default: true }] },
@@ -1691,7 +1699,7 @@
         when: { conditions: [condition] },
         until: {
           conditions: [{
-            type: 'time_window', start: answers.at.from, end: answers.at.to,
+            type: 'time_window', start: answers.at.from, end: hourAfter(answers.at.from),
             weekdays: weekdaysOf(answers.at.days),
           }],
         },

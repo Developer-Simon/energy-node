@@ -163,12 +163,12 @@
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
   const ASSIST_DEVICE_ICONS = {
     inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch',
-    grid_target: 'ico-grid', input: 'ico-switch', inverter_measured: 'ico-inverter',
+    grid_target: 'ico-grid', input: 'ico-switch', inverter_measured: 'ico-inverter', chain: 'ico-chain',
   };
   const ASSIST_TILE_ICONS = {
     sun: 'ico-sun', min: 'ico-clock', battery: 'ico-battery', always: 'ico-play', fixed: 'ico-calendar',
     import: 'ico-grid', runtime: 'ico-clock', sunset: 'ico-sun', info: 'ico-info', warning: 'ico-warning', critical: 'ico-bell',
-    calm: 'ico-clock', fast: 'ico-flash',
+    calm: 'ico-clock', fast: 'ico-flash', time: 'ico-clock', manual: 'ico-power-on',
   };
 
   const automationsPanel = () => ({

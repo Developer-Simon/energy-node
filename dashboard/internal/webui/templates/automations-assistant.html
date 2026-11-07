@@ -364,10 +364,10 @@
             <div class="auto-assist-block">
               <div class="auto-assist-time">
                 <label class="auto-assist-field">
-                  <span x-text="$t('automations.assistant.time.from')"></span>
+                  <span x-text="assistantStep().single ? $t('automations.assistant.time.at') : $t('automations.assistant.time.from')"></span>
                   <input class="auto-input" type="time" x-model="assistant.answers[assistantStep().id].from">
                 </label>
-                <label class="auto-assist-field">
+                <label class="auto-assist-field" x-show="!assistantStep().single">
                   <span x-text="$t('automations.assistant.time.to')"></span>
                   <input class="auto-input" type="time" x-model="assistant.answers[assistantStep().id].to">
                 </label>

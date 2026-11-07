@@ -226,6 +226,7 @@
   "automations.assistant.surplus.now_hold": "würde sie jetzt nicht starten",
   "automations.assistant.surplus.now_start": "würde sie jetzt starten",
   "automations.assistant.surplus.start_at": "Start ab {value} W",
+  "automations.assistant.time.at": "Uhrzeit",
   "automations.assistant.time.from": "Von",
   "automations.assistant.time.invalid": "Von und Bis brauchen zwei verschiedene Uhrzeiten.",
   "automations.assistant.time.to": "Bis",
