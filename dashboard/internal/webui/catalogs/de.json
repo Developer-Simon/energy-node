@@ -2425,6 +2425,7 @@
   "error.energy_roles_rejected.chain_label_missing": "Eine Messkette braucht einen Namen.",
   "error.energy_roles_rejected.chain_point_not_power": "{entity} misst keine Leistung und kann kein Messpunkt sein.",
   "error.energy_roles_rejected.chain_point_taken": "{entity} gehört schon zu einer Messkette.",
+  "error.energy_roles_rejected.chain_tolerance_invalid": "Die Toleranz der Messkette „{chain}“ ist ungültig.",
   "error.energy_roles_rejected.chain_too_few_points": "Die Messkette „{chain}“ braucht mindestens zwei Messpunkte.",
   "error.energy_roles_rejected.channel_invalid": "Der Kanal muss zwischen 1 und 16 liegen.",
   "error.energy_roles_rejected.group_cycle": "Die Gruppe „{group}“ würde sich selbst enthalten.",

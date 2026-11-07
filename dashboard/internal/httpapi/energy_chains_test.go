@@ -320,3 +320,41 @@ func TestChainGroupRoleConflictIsRejected(t *testing.T) {
 		t.Fatalf("a rejected chain must not be saved: chains %+v assignments %+v", saved.Chains, saved.Assignments)
 	}
 }
+
+func TestPutChainKeepsAdjacentTolerances(t *testing.T) {
+	_, store, router := chainTestSetup(t)
+	created := doChainRequest(router, http.MethodPost, "/api/v1/energy/chains", `{"label":"Balkon","points":["plug","ac","other"],"counting":"plug"}`)
+	if created.Code != http.StatusOK {
+		t.Fatalf("create status %d: %s", created.Code, created.Body.String())
+	}
+	id := chainIDFromBody(t, created.Body.String())
+
+	saved, err := store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ten, five := 10.0, 5.0
+	chain := saved.Chains[id]
+	chain.Tolerances = []energy.ChainTolerance{
+		{A: "plug", B: "ac", W: &ten},
+		{A: "ac", B: "other", Pct: &five},
+	}
+	saved.Chains[id] = chain
+	if err := store.SaveEnergy(saved); err != nil {
+		t.Fatal(err)
+	}
+
+	// The point "other" moves between plug and ac: plug-ac is no longer adjacent.
+	updated := doChainRequest(router, http.MethodPut, "/api/v1/energy/chains/"+id, `{"label":"Balkon","points":["plug","other","ac"]}`)
+	if updated.Code != http.StatusOK {
+		t.Fatalf("update status %d: %s", updated.Code, updated.Body.String())
+	}
+	var value settings.EnergyConfig
+	if err := json.Unmarshal(updated.Body.Bytes(), &value); err != nil {
+		t.Fatal(err)
+	}
+	got := value.Chains[id].Tolerances
+	if len(got) != 1 || got[0].A != "ac" || got[0].B != "other" {
+		t.Fatalf("tolerances = %+v, want only the adjacent ac-other", got)
+	}
+}

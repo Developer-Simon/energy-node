@@ -140,6 +140,9 @@ func handleEnergyChains(store *settings.Store, resolver *energy.Resolver, manage
 					return err
 				}
 				next = &energy.Chain{Label: body.Label, Points: body.Points, Counting: body.Counting, Direction: body.Direction}
+				if prev != nil {
+					next.Tolerances = energy.KeepAdjacentTolerances(prev.Tolerances, body.Points)
+				}
 			}
 
 			assignments, needed := energy.ApplyChainChange(current.Assignments, effectiveAssignments(reg, current.Assignments), prev, next)

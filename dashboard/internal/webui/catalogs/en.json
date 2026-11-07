@@ -2425,6 +2425,7 @@
   "error.energy_roles_rejected.chain_label_missing": "A measurement chain needs a name.",
   "error.energy_roles_rejected.chain_point_not_power": "{entity} does not measure power and cannot be a measuring point.",
   "error.energy_roles_rejected.chain_point_taken": "{entity} already belongs to a measurement chain.",
+  "error.energy_roles_rejected.chain_tolerance_invalid": "The tolerance of measurement chain “{chain}” is not valid.",
   "error.energy_roles_rejected.chain_too_few_points": "The measurement chain “{chain}” needs at least two measuring points.",
   "error.energy_roles_rejected.channel_invalid": "The channel must be between 1 and 16.",
   "error.energy_roles_rejected.group_cycle": "Group “{group}” would contain itself.",
