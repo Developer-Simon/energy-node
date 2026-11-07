@@ -140,6 +140,20 @@
     return elements;
   };
 
+  // A dashed warning line over each energy connection whose two devices a
+  // chain finding touches. Drawn with the wiring edge of the same pair, no label.
+  const chainWarnElements = ({pairs, findings, edgeProps, energy = new Map()}) => {
+    const wiring = window.DeviceMapWiring;
+    const marked = new Set(((findings && findings.pairs) || []).map(({a, b}) => relationKey(a, b)));
+    return wiring.energyPairs(pairs, wiring.propsIndex(edgeProps), energy)
+      .filter(({parent, child}) => marked.has(relationKey(parent, child)))
+      .map(({parent, child}) => ({
+        group: 'edges',
+        classes: 'devicemap-chain-warn',
+        data: {id: `chain-warn-${parent}::${child}`, source: parent, target: child},
+      }));
+  };
+
   // Balance, rule, service and stub nodes. Positions come from the saved map
   // (or the page's placement), unknown ones are left to the layout.
   const virtualElements = ({kinds, positions, colorOf}) => kinds.map(({id, kind, name}) => {
@@ -256,6 +270,11 @@
       'text-background-color': theme.panel, 'text-background-opacity': 1, 'text-background-shape': 'round-rectangle', 'text-background-padding': '3px',
       'text-border-width': 1.2, 'text-border-opacity': 1, 'text-border-color': theme.warn,
     }},
+    // Chain findings: dashed warning line over the energy connection, no label, no pointer events.
+    {selector: 'edge.devicemap-chain-warn', style: {
+      ...(EDGE_STYLES[view.edge_style] || EDGE_STYLES.straight),
+      'line-color': theme.warn, 'target-arrow-shape': 'none', 'line-style': 'dashed', width: 2, 'line-cap': 'round', events: 'no',
+    }},
     {selector: 'edge.devicemap-flow[!reverse]', style: {'target-label': 'data(label)', 'target-text-offset': 32}},
     {selector: 'edge.devicemap-flow[?reverse]', style: {'source-label': 'data(label)', 'source-text-offset': 32}},
     ...(view.edge_style === 'curved' ? [{selector: 'edge.devicemap-flow[?reverse]', style: {'control-point-distances': [-40]}}] : []),
@@ -294,5 +313,5 @@
     return {display: 'none'};
   };
 
-  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, lossElements, virtualElements, dataEdgeElements, flowOffset, createFlowAnimator, style, wiringEdgeStyle};
+  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, lossElements, chainWarnElements, virtualElements, dataEdgeElements, flowOffset, createFlowAnimator, style, wiringEdgeStyle};
 })();

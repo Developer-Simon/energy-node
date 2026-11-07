@@ -3595,3 +3595,67 @@ test('the first load takes the saved chains, so the map knows them without a rel
   await component.load();
   assert.deepEqual(Object.keys(component.savedChains), ['balkon']);
 });
+
+// A drift finding between netz and bat, found on the balkon chain.
+function findingFixture(component, findings = [{ kind: 'drift', chain_id: 'balkon', chain_label: 'Balkon', since: '2026-11-01T00:00:00Z', from: 'bat_a', to: 'bat_b' }]) {
+  flowFixture(component);
+  component.energy.chains = [{ id: 'balkon', label: 'Balkon', segments: [], findings, points: [
+    { entity_id: 'bat_a', device_id: 'netz', label: 'Netzzähler', counting: true, has_value: true, freshness: 'fresh' },
+    { entity_id: 'bat_b', device_id: 'bat', label: 'Speicher', counting: false, has_value: true, freshness: 'fresh' },
+  ] }];
+}
+
+test('labelItems carries the finding of every device it touches as warning, also with the losses layer off', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  assert.equal(component.view.layers.losses, false);
+  const items = plain(component.labelItems());
+  const warning = id => (items.find(item => item.id === id) || {}).warning;
+  assert.ok(warning('netz'));
+  assert.equal(warning('netz'), warning('bat'));
+  assert.equal(warning('bms'), undefined);
+});
+
+test('a snapshot without the finding drops the warning from the label items', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  component.energy.chains[0].findings = [];
+  const items = plain(component.labelItems());
+  assert.equal(items.find(item => item.id === 'bat').warning, undefined);
+});
+
+test('a finding marks the energy connection between its two devices', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  const warn = component.buildElements().filter(element => (element.classes || '').includes('devicemap-chain-warn'));
+  assert.equal(warn.length, 1);
+  assert.equal(warn[0].data.id, 'chain-warn-netz::bat');
+});
+
+test('the device panel lists the finding text with a link to the efficiency tab when that tab exists', () => {
+  const { component, window } = createDevicemapPanel();
+  findingFixture(component);
+  component.openPanel('bat');
+  assert.equal(component.panelView.findings.length, 1);
+  assert.equal(component.panelView.findings[0].text, window.EnergyChains.findingText(component.energy.chains[0], component.energy.chains[0].findings[0]));
+  assert.equal(component.panelView.findings[0].link, false);
+  window.document.body.insertAdjacentHTML('beforeend', '<div role="tab" aria-controls="efficiency-panel"></div>');
+  assert.equal(component.panelView.findings[0].link, true);
+});
+
+test('the efficiency link asks the shell for the efficiency panel', async () => {
+  const { component, window } = createDevicemapPanel();
+  findingFixture(component);
+  let detail = null;
+  window.addEventListener('dashboard-open-panel', event => { detail = event.detail; });
+  await component.openEfficiencyTab();
+  assert.deepEqual(plain(detail), { panel: 'efficiency-panel' });
+});
+
+test('the chain warning legend shows only with a finding on the map', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  assert.equal(component.chainWarnVisible(), true);
+  component.energy.chains[0].findings = [];
+  assert.equal(component.chainWarnVisible(), false);
+});

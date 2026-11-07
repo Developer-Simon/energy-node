@@ -80,3 +80,23 @@ test('off nodes get the is-off pill with the localized off text, and it goes awa
   assert.equal(el.querySelector('.devicemap-node-off'), null, 'off text removed');
   assert.equal(el.querySelector('.devicemap-node-name').textContent, 'Plug A');
 });
+
+test('a warning label draws the warning icon with its text as title', () => {
+  const { labels, container } = setup();
+  labels.update([{ id: 'a', name: 'A', value: '', warning: 'Drift zwischen A und B.' }]);
+  const warn = container.querySelector('[data-label-id="a"] .devicemap-chain-warning');
+  assert.equal(warn.title, 'Drift zwischen A und B.');
+  assert.equal(warn.querySelector('use').getAttribute('href'), '#ico-warning');
+  labels.update([{ id: 'a', name: 'A', value: '', warning: 'Frozen.' }]);
+  assert.equal(container.querySelectorAll('.devicemap-chain-warning').length, 1);
+  assert.equal(container.querySelector('.devicemap-chain-warning').title, 'Frozen.');
+});
+
+test('a label without warning loses the icon, and a warning never marks the node as substitute', () => {
+  const { labels, container } = setup();
+  labels.update([{ id: 'a', name: 'A', value: '', warning: 'Drift.' }]);
+  const el = container.querySelector('[data-label-id="a"]');
+  assert.equal(el.classList.contains('is-substitute'), false);
+  labels.update([{ id: 'a', name: 'A', value: '' }]);
+  assert.equal(container.querySelector('.devicemap-chain-warning'), null);
+});

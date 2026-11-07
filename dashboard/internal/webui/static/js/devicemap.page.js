@@ -258,15 +258,59 @@
         return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});
       },
 
+      // The chains with every point on its device. A sub-device moves its own
+      // entity to the sub-device, so the chain carries its measurements there.
+      deviceChains() {
+        const subs = window.DeviceMapSubDevices.byEntity(this.deviceMap);
+        return (this.energy.chains || []).map(chain => ({...chain, points: chain.points.map(point => (subs.has(point.entity_id)
+          ? {...point, device_id: subs.get(point.entity_id).id} : point))}));
+      },
+
       // Loss labels of the measurement chains, one per energy connection. Only
       // with the losses layer on and the energy connections shown.
       lossElements() {
         if (!this.view.layers.losses || !this.energy || this.view.wiring_types?.energy === false) return [];
-        // The chains carry the device of their own entity; a sub-device moves that entity to its own device.
-        const subs = window.DeviceMapSubDevices.byEntity(this.deviceMap);
-        const chains = (this.energy.chains || []).map(chain => ({...chain, points: chain.points.map(point => (subs.has(point.entity_id)
-          ? {...point, device_id: subs.get(point.entity_id).id} : point))}));
-        return window.DeviceMapGraph.lossElements({pairs: this.wiringPairs(), losses: window.DeviceMapModel.segmentLosses(chains), edgeProps: this.deviceMap.edge_props, energy: this.energyByDevice()});
+        return window.DeviceMapGraph.lossElements({pairs: this.wiringPairs(), losses: window.DeviceMapModel.segmentLosses(this.deviceChains()), edgeProps: this.deviceMap.edge_props, energy: this.energyByDevice()});
+      },
+
+      // The chain findings by device and by device pair. Shown without the
+      // losses layer, so the map always marks a finding.
+      chainFindings() {
+        return window.DeviceMapModel.chainFindings(this.energy ? this.deviceChains() : []);
+      },
+
+      // Dashed warning line over each energy connection that has a finding.
+      chainWarnElements() {
+        if (!this.energy || this.view.wiring_types?.energy === false) return [];
+        return window.DeviceMapGraph.chainWarnElements({pairs: this.wiringPairs(), findings: this.chainFindings(), edgeProps: this.deviceMap.edge_props, energy: this.energyByDevice()});
+      },
+
+      chainWarnVisible() {
+        return this.chainFindings().byDevice.size > 0;
+      },
+
+      // The finding texts of a device as one title, or {} without findings.
+      warningLabel(byDevice, id) {
+        const items = byDevice.get(id);
+        if (!items || !items.length) return {};
+        return {warning: items.map(({chain, finding}) => window.EnergyChains.findingText(chain, finding)).join(' ')};
+      },
+
+      // The findings of one device for its panel: the text, and whether the
+      // link to the efficiency tab leads anywhere (view_efficiency).
+      panelFindings(id) {
+        const items = this.chainFindings().byDevice.get(id) || [];
+        const link = this.efficiencyTabShown();
+        return items.map(({chain, finding}) => ({text: window.EnergyChains.findingText(chain, finding), link}));
+      },
+
+      efficiencyTabShown() {
+        return Boolean(document.querySelector('[role="tab"][aria-controls="efficiency-panel"]'));
+      },
+
+      async openEfficiencyTab() {
+        if (!(await this.leavePanel())) return;
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'efficiency-panel'}}));
       },
 
       // The switch roles as they stand: the saved energy assignments with the
@@ -465,7 +509,23 @@
           for (const element of wanted.values()) graph.add(element);
         });
         this.applyLosses();
+        this.applyChainWarns();
         if (this.focusId) this.setFocus(this.focusId);
+      },
+
+      // Same update rule as applyLosses(), for the chain warning lines.
+      applyChainWarns() {
+        const graph = cy || this._cyForTest;
+        if (!graph) return;
+        const wanted = new Map(this.chainWarnElements().map(element => [element.data.id, element]));
+        graph.batch(() => {
+          graph.edges('.devicemap-chain-warn').forEach(edge => {
+            const next = wanted.get(edge.id());
+            if (!next || next.data.source !== edge.data('source')) { edge.remove(); return; }
+            wanted.delete(edge.id());
+          });
+          for (const element of wanted.values()) graph.add(element);
+        });
       },
 
       // Same update rule as applyFlows(): a loss whose pair changed is replaced,
@@ -1360,6 +1420,7 @@
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
           canEdit: this.canEditEnergy,
           rows: rows.map(row => ({...row, canAddSub: this.canEditEnergy && row.canAddSub})), others, empty,
+          findings: this.panelFindings(device.id),
           hasSwitches: switchInfo.size > 0,
           flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
@@ -1499,14 +1560,16 @@
       labelItems(status = this.switchStatus()) {
         const model = window.DeviceMapModel;
         const {energy, children, dirOf} = this.energyFlowContext();
+        const findings = this.chainFindings().byDevice;
         const devices = this.devices.map(device => ({
           id: device.id,
           name: device.name || device.id,
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
           ...this.substituteLabel(energy.get(device.id)),
           ...this.offLabel(status, device.id),
+          ...this.warningLabel(findings, device.id),
         }));
-        const subs = this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy), ...this.offLabel(status, sub.id)}));
+        const subs = this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy), ...this.offLabel(status, sub.id), ...this.warningLabel(findings, sub.id)}));
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
           return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children, {dirOf}))};
@@ -1977,7 +2040,7 @@
           ...stubInfo.nodes.map(stub => ({id: stub.id, kind: 'stub', name: t('devicemap.stub.name')})),
         ];
         const virtualNodes = window.DeviceMapGraph.virtualElements({kinds: virtualKinds, positions, colorOf});
-        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...this.lossElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
+        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...this.lossElements(), ...this.chainWarnElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
       },
 
       buildEdgeElements() {

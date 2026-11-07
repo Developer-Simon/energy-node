@@ -227,3 +227,19 @@ test('stacked quiet image resolves to both node images in Cytoscape', () => {
     cy.destroy();
   }
 });
+
+test('chainWarnElements only draws on energy connections', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const pairs = [{ parent: 'A', child: 'B' }, { parent: 'B', child: 'C' }, { parent: 'C', child: 'D' }];
+  const edgeProps = [{ parent_id: 'A', child_id: 'B', type: 'energy' }, { parent_id: 'B', child_id: 'C', type: 'data' }, { parent_id: 'C', child_id: 'D', type: 'info' }];
+  const findings = { byDevice: new Map(), pairs: [{ a: 'A', b: 'B' }, { a: 'B', b: 'C' }, { a: 'C', b: 'D' }, { a: 'E', b: 'F' }] };
+  const elements = plain(DeviceMapGraph.chainWarnElements({ pairs, findings, edgeProps }));
+  assert.deepEqual(elements, [{ group: 'edges', classes: 'devicemap-chain-warn', data: { id: 'chain-warn-A::B', source: 'A', target: 'B' } }]);
+});
+
+test('chainWarnElements is empty without findings', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const pairs = [{ parent: 'A', child: 'B' }];
+  const edgeProps = [{ parent_id: 'A', child_id: 'B', type: 'energy' }];
+  assert.deepEqual(plain(DeviceMapGraph.chainWarnElements({ pairs, findings: { byDevice: new Map(), pairs: [] }, edgeProps })), []);
+});

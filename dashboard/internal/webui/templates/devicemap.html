@@ -365,7 +365,7 @@
                 </button>
               </div>
             </div>
-            <div class="devicemap-view-menu-legend" x-show="view.layers.energy || view.layers.data || switchLegendVisible()" aria-label="{{t "devicemap.legend.aria"}}">
+            <div class="devicemap-view-menu-legend" x-show="view.layers.energy || view.layers.data || switchLegendVisible() || chainWarnVisible()" aria-label="{{t "devicemap.legend.aria"}}">
               <span class="devicemap-panel-eyebrow">{{t "devicemap.view_menu.legend"}}</span>
               <div class="devicemap-legend">
                 <span x-show="view.layers.energy"><i style="border-color: var(--flow-pv)"></i>{{t "devicemap.legend.pv"}}</span>
@@ -374,6 +374,7 @@
                 <span x-show="view.layers.energy"><i style="border-color: var(--flow-rest)"></i>{{t "devicemap.legend.sum"}}</span>
                 <span x-show="view.layers.energy"><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.heuristic"}}</span>
                 <span x-show="view.layers.losses"><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.losses"}}</span>
+                <span x-show="chainWarnVisible()"><span class="devicemap-chain-warning" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-warning"></use></svg></span>{{t "devicemap.legend.chain_warning"}}</span>
                 <span x-show="view.layers.energy && Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
                 <span x-show="view.layers.energy && Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
                 <span x-show="view.layers.data"><i class="dashed" style="border-color: var(--info-line)"></i>{{t "devicemap.legend.data"}}</span>
@@ -426,6 +427,11 @@
               <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.eyebrow"}}</span>
               <h3 id="devicemap-panel-title" x-text="panelView.title"></h3>
               <span class="devicemap-panel-health" x-text="panelView.health"></span>
+              <ul class="devicemap-chain-findings" x-show="panelView.findings && panelView.findings.length">
+                <template x-for="(finding, index) in panelView.findings" x-bind:key="index">
+                  <li class="devicemap-chain-finding"><span x-text="finding.text"></span><template x-if="finding.link"><button type="button" class="devicemap-chain-link" x-on:click="openEfficiencyTab()">{{t "devicemap.panel.chain_link"}}</button></template></li>
+                </template>
+              </ul>
             </div>
             <button type="button" class="icon-button" x-on:click="requestClosePanel()" aria-label="{{t "devicemap.panel.close"}}" title="{{t "devicemap.panel.close"}}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg>
