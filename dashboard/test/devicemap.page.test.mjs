@@ -3733,3 +3733,17 @@ test('the device panel template renders one tile per chain with a title toggle a
   assert.ok(tile.includes('x-on:click="openEfficiencyTab()"'), 'the link still opens the efficiency tab');
   assert.ok(tile.includes('<template x-for="detail in item.items"'), 'the details loop over the findings');
 });
+
+test('the device panel tiles sit in the scrolling body, not in the header', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const panel = html.indexOf('class="devicemap-panel-inner"');
+  const headerStart = html.indexOf('<header>', panel);
+  const headerEnd = html.indexOf('</header>', headerStart);
+  const bodyStart = html.indexOf('class="devicemap-panel-body"', panel);
+  const tiles = html.indexOf('class="devicemap-chain-findings"', panel);
+  assert.ok(tiles > headerEnd, 'the tiles are not inside the header');
+  assert.ok(tiles > bodyStart, 'the tiles are inside the scroll container');
+  assert.ok(tiles < html.indexOf('class="devicemap-panel-empty"', bodyStart), 'the tiles are the first group of the body');
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.ok(/\.devicemap-chain-findings \{[^}]*width: 100%/.test(css), 'the tile list takes the full width');
+});

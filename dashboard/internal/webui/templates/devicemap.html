@@ -427,36 +427,36 @@
               <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.eyebrow"}}</span>
               <h3 id="devicemap-panel-title" x-text="panelView.title"></h3>
               <span class="devicemap-panel-health" x-text="panelView.health"></span>
-              <div class="devicemap-chain-findings" x-show="panelView.findings && panelView.findings.length">
-                <template x-for="item in panelView.findings" x-bind:key="item.key">
-                  <article class="energy-chain-finding devicemap-chain-finding" x-bind:class="{ 'is-open': isFindingOpen(item.key) }">
-                    <div class="energy-chain-finding-head">
-                      <button type="button" class="energy-chain-finding-toggle" x-bind:aria-expanded="isFindingOpen(item.key) ? 'true' : 'false'" x-bind:aria-controls="item.domId" x-on:click="toggleFinding(item.key)">
-                        <svg class="energy-chain-finding-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
-                        <span class="energy-chain-finding-title" x-text="item.title"></span>
-                        <svg class="energy-chain-finding-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
-                      </button>
-                      <template x-if="item.link"><button type="button" class="energy-chain-finding-link" aria-label="{{t "chains.open_efficiency"}}" title="{{t "chains.open_efficiency"}}" x-on:click="openEfficiencyTab()"><svg aria-hidden="true"><use href="#ico-chain"></use></svg></button></template>
-                    </div>
-                    <div class="energy-chain-finding-fold" x-bind:id="item.domId" x-bind:inert="!isFindingOpen(item.key)">
-                      <div class="energy-chain-finding-inner">
-                        <template x-for="detail in item.items" x-bind:key="detail.key">
-                          <div class="energy-chain-finding-item">
-                            <p class="energy-chain-finding-text" x-text="detail.text"></p>
-                            <p class="energy-chain-finding-suggestion" x-show="detail.suggestion" x-text="detail.suggestion"></p>
-                          </div>
-                        </template>
-                      </div>
-                    </div>
-                  </article>
-                </template>
-              </div>
             </div>
             <button type="button" class="icon-button" x-on:click="requestClosePanel()" aria-label="{{t "devicemap.panel.close"}}" title="{{t "devicemap.panel.close"}}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg>
             </button>
           </header>
           <div class="devicemap-panel-body">
+            <div class="devicemap-chain-findings" x-show="panelView.findings && panelView.findings.length">
+              <template x-for="item in panelView.findings" x-bind:key="item.key">
+                <article class="energy-chain-finding devicemap-chain-finding" x-bind:class="{ 'is-open': isFindingOpen(item.key) }">
+                  <div class="energy-chain-finding-head">
+                    <button type="button" class="energy-chain-finding-toggle" x-bind:aria-expanded="isFindingOpen(item.key) ? 'true' : 'false'" x-bind:aria-controls="item.domId" x-on:click="toggleFinding(item.key)">
+                      <svg class="energy-chain-finding-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
+                      <span class="energy-chain-finding-title" x-text="item.title"></span>
+                      <svg class="energy-chain-finding-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                    </button>
+                    <template x-if="item.link"><button type="button" class="energy-chain-finding-link" aria-label="{{t "chains.open_efficiency"}}" title="{{t "chains.open_efficiency"}}" x-on:click="openEfficiencyTab()"><svg aria-hidden="true"><use href="#ico-chain"></use></svg></button></template>
+                  </div>
+                  <div class="energy-chain-finding-fold" x-bind:id="item.domId" x-bind:inert="!isFindingOpen(item.key)">
+                    <div class="energy-chain-finding-inner">
+                      <template x-for="detail in item.items" x-bind:key="detail.key">
+                        <div class="energy-chain-finding-item">
+                          <p class="energy-chain-finding-text" x-text="detail.text"></p>
+                          <p class="energy-chain-finding-suggestion" x-show="detail.suggestion" x-text="detail.suggestion"></p>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </article>
+              </template>
+            </div>
             <p class="devicemap-panel-empty" x-show="panelView.empty === 'no_values'">{{t "devicemap.panel.empty.no_values"}}</p>
             <p class="devicemap-panel-empty" x-show="panelView.empty === 'no_power'">{{t "devicemap.panel.empty.no_power"}}</p>
             <template x-for="row in panelView.rows" x-bind:key="row.id">

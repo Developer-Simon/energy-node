@@ -458,7 +458,10 @@ select.schema-control {
 .devicemap-node-note { font-size: 9.5px; color: var(--text-muted); line-height: 1.25; }
 .devicemap-chain-warning { display: inline-flex; color: var(--warn-line); pointer-events: auto; }
 .devicemap-chain-warning svg { width: .9rem; height: .9rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.devicemap-chain-findings { margin: .5rem 0 0; display: grid; gap: .4rem; }
+/* The tiles sit first in the scrolling body, so they scroll away with the list and the header stays short. */
+.devicemap-chain-findings { margin: 0; display: grid; gap: .4rem; width: 100%; min-width: 0; }
+.devicemap-chain-finding { width: 100%; min-width: 0; }
+.devicemap-chain-finding .energy-chain-finding-text, .devicemap-chain-finding .energy-chain-finding-suggestion { overflow-wrap: anywhere; white-space: normal; }
 /* Inside the device panel the tile head is a little tighter than in the energy tab. */
 .devicemap-chain-finding .energy-chain-finding-toggle { padding: .4rem .3rem .4rem .6rem; gap: .45rem; }
 .devicemap-chain-finding .energy-chain-finding-head { padding-right: .3rem; }
