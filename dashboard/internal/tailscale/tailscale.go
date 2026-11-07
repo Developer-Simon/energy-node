@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -18,6 +19,41 @@ import (
 )
 
 const defaultTimeout = 10 * time.Second
+
+// defaultBinary is the path the static tarball install of older nodes
+// uses and the shipped config still names.
+const defaultBinary = "/usr/sbin/tailscale"
+
+// cliCandidates are the places the CLI lives: the Debian package installs
+// it to /usr/bin, the static tarball install to /usr/sbin.
+var cliCandidates = []string{"/usr/bin/tailscale", "/usr/sbin/tailscale"}
+
+// ResolveBinary returns configured when it is executable, otherwise the
+// first executable candidate. Without any it returns configured (or the
+// default), so the not-installed state still shows up as an exec error.
+func ResolveBinary(configured string) string {
+	return resolveBinary(configured, isExecutable)
+}
+
+func resolveBinary(configured string, executable func(string) bool) string {
+	if configured != "" && executable(configured) {
+		return configured
+	}
+	for _, candidate := range cliCandidates {
+		if executable(candidate) {
+			return candidate
+		}
+	}
+	if configured == "" {
+		return defaultBinary
+	}
+	return configured
+}
+
+func isExecutable(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir() && info.Mode()&0o111 != 0
+}
 
 // Client runs the unprivileged, read-only tailscale CLI commands. It
 // reuses systemactions.OutputRunner rather than its own exec plumbing, the
@@ -30,7 +66,7 @@ type Client struct {
 
 func NewClient(binary string, runner systemactions.OutputRunner, timeout time.Duration) *Client {
 	if binary == "" {
-		binary = "/usr/sbin/tailscale"
+		binary = defaultBinary
 	}
 	if runner == nil {
 		runner = systemactions.ExecOutputRunner{}
@@ -71,16 +107,16 @@ type rawStatus struct {
 
 // Status is the parsed, UI-facing shape of `tailscale status --json`.
 type Status struct {
-	Installed    bool      `json:"installed"`
-	BackendState string    `json:"backend_state"`
-	AuthURL      string    `json:"auth_url,omitempty"`
-	TailscaleIPs []string  `json:"tailscale_ips"`
-	DNSName      string    `json:"dns_name"`
-	Online       bool      `json:"online"`
-	KeyExpiry    time.Time `json:"key_expiry,omitempty"`
-	Tailnet      string    `json:"tailnet"`
-	PeerCount    int       `json:"peer_count"`
-	Health       []string  `json:"health,omitempty"`
+	Installed    bool       `json:"installed"`
+	BackendState string     `json:"backend_state"`
+	AuthURL      string     `json:"auth_url,omitempty"`
+	TailscaleIPs []string   `json:"tailscale_ips"`
+	DNSName      string     `json:"dns_name"`
+	Online       bool       `json:"online"`
+	KeyExpiry    *time.Time `json:"key_expiry,omitempty"`
+	Tailnet      string     `json:"tailnet"`
+	PeerCount    int        `json:"peer_count"`
+	Health       []string   `json:"health,omitempty"`
 }
 
 // Status runs `tailscale status --json`. A failure to execute the binary
@@ -110,7 +146,8 @@ func (c *Client) Status(ctx context.Context) (Status, error) {
 		Health:       raw.Health,
 	}
 	if !raw.Self.KeyExpiry.IsZero() {
-		status.KeyExpiry = raw.Self.KeyExpiry
+		expiry := raw.Self.KeyExpiry
+		status.KeyExpiry = &expiry
 	}
 	return status, nil
 }

@@ -72,22 +72,13 @@ models every megabyte of RAM counts. Pick the image by model:
 | Pi 3, 3+ | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | Pi 4, 400 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | Pi 5, 500 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
-| x86 64-bit (Intel N100, N150) | Debian 13 netinst | `amd64` | ✗ |
+| x86 64-bit (AMD GX-424CC, Intel N100, N150) | Debian 13 netinst | `amd64` | ✓ |
 | x86 32-bit (Intel Quark X1000, Vortex86EX2) | not supported | none | ✗ |
 
 The 64-bit images do not run on ARMv6, so a Pi 1 or the first Zero always needs
 a 32-bit image. The Legacy image is the one the reference node runs on a Pi 1.
 A 32-bit image on a newer Pi works too and gets the `armv6` package. The
 installer picks the package from the node's `uname -m`.
-
-On an x86 machine, keep only **SSH server** and **standard system utilities**
-in the Debian installer's software selection. There is no package for 32-bit
-x86, so the CPU must support 64-bit (x86-64). The installer stops on such a
-machine because it finds no package for its `uname -m` (`i586` or `i686`).
-Leave the root password empty during the installation, then Debian gives the
-first user `sudo`. The installer needs it without a password, which a Raspberry
-Pi OS user has by default. On Debian the installer asks for the `sudo` password
-once and sets it up, see [sudo password](../installer.md#sudo-password).
 
 The reference node runs Python 3.11.2, which is enough for every service in
 this repository (`requires-python >= 3.9`). An installation package carries
@@ -100,19 +91,95 @@ dependencies from the internet instead. You confirm that once, the node then
 needs internet access, and those files are not covered by the package
 signature. Everything else in the package stays verified.
 
-Flash the card with the Raspberry Pi Imager and set hostname, user, SSH and
-WiFi there. On a headless remote site you do not want to find out afterwards
-that SSH is off. The root partition resizes itself on first boot, so leave it
-alone.
+### Raspberry Pi with the Raspberry Pi Imager
 
-```sh
-ssh <user>@<node>.local
-sudo apt update && sudo apt full-upgrade -y
-sudo raspi-config      # timezone
-```
+- Pick the image from the table above.
+- Set hostname, user, SSH, WiFi and timezone in the Imager before it writes
+  the card. On a headless remote site you do not want to find out afterwards
+  that SSH is off.
+- Leave the root partition alone. It resizes itself on first boot.
+- With these settings the card needs nothing else. Boot the Pi and point the
+  energy-node installer at `<hostname>.local`. The installer updates the
+  system packages itself, which takes a long time on a Pi 1.
 
-A full `apt upgrade` on a Pi 1 takes a long time. Let it finish before you go
-on, because a half upgraded system makes every later error harder to read.
+### x86 with Debian
+
+Before you start:
+
+- The CPU must support 64-bit (x86-64). There is no package for 32-bit x86,
+  and the installer stops on such a machine because it finds no package for
+  its `uname -m` (`i586` or `i686`).
+- A minimal Debian 13 takes about 1.5 GB, so 4 GB of internal storage leaves
+  room for the node.
+- The netinst image is about 750 MB and fits on a 2 GB USB stick. Everything
+  else comes from the internet during the installation, so connect the
+  machine by network cable.
+- Used thin clients often have a BIOS password set or USB boot switched off.
+  Clear that first.
+- Installing Debian erases the previous system, including a thin client OS
+  and its licence.
+
+Write the USB stick:
+
+1. Download `debian-13.x.y-amd64-netinst.iso` and `SHA512SUMS` from
+   <https://www.debian.org/CD/netinst/> (amd64). Check the image, the command
+   must print `OK` for it:
+
+   ```sh
+   sha512sum -c SHA512SUMS --ignore-missing
+   ```
+
+2. Plug in the stick and find it. It is the device with `usb` in the `TRAN`
+   column:
+
+   ```sh
+   lsblk -o NAME,SIZE,MODEL,TRAN
+   ```
+
+3. Write the image to the whole device, for example `/dev/sdX`, not to a
+   partition like `/dev/sdX1`. This erases everything on the stick:
+
+   ```sh
+   sudo dd if=debian-13.x.y-amd64-netinst.iso of=/dev/sdX bs=4M status=progress conv=fsync
+   ```
+
+   GNOME Disks (Restore Disk Image) does the same on a Linux desktop, Rufus
+   or balenaEtcher on Windows.
+
+Install Debian:
+
+1. Boot from the stick through the boot menu or the BIOS setup and pick
+   Install. The text installer is enough.
+2. Set language, location and keyboard, then a hostname, for example `node`.
+3. Leave the root password empty and create your user. Debian then gives
+   this user `sudo`.
+4. Partitioning: Guided, use entire disk, then All files in one partition.
+5. Pick a Debian mirror close to you.
+6. Software selection: untick the desktop and keep only SSH server and
+   standard system utilities.
+7. Install the boot loader to the internal disk, remove the stick and reboot.
+
+Partitioning tips:
+
+- If the installer only offers manual partitioning, create a new GPT
+  partition table on the whole disk and two partitions in its free space:
+  256 MB as EFI System Partition at the beginning and the rest as Ext4
+  mounted at `/`.
+- A machine booted in legacy BIOS mode needs no EFI partition.
+- The node needs no swap with 1 GB of RAM or more. On small storage skip it
+  and continue past the installer's warning. `zram-tools` adds a compressed
+  swap in RAM later if you want one, and it does not write to the disk.
+
+After the installation:
+
+- Connect with `ssh <user>@<ip-address>` and point the energy-node installer
+  at that address. The IP address shows in your router, or on the machine
+  with `ip -br addr`.
+- A minimal Debian has no mDNS, so `<hostname>.local` only works once you
+  install `avahi-daemon`.
+- The installer needs `sudo` without a password, which a Raspberry Pi OS user
+  has by default. On Debian it asks for the `sudo` password once and sets
+  it up, see [sudo password](../installer.md#sudo-password).
 
 The installer also updates the node's system packages (`apt-get update`, then
 `apt-get upgrade`) once per installer version. You can switch this off on its

@@ -4,6 +4,7 @@
 
 ### Features
 
+- **installer:** The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller. (#222) (f1344a1)
 - **bootstrap:** add helpers to install pinned Debian packages (be678a4)
 - **bootstrap:** install Tailscale from the pinned package (26e9d5b)
 - **bootstrap:** install Caddy from the pinned package (7ba8a8b)
@@ -13,7 +14,6 @@
 - **installer:** ask when a pinned package is missing on the node (0716b8d)
 - **installer:** ask how to continue when a package could not be downloaded (7702bf1)
 - **installer:** fall back to the upstream pool when the package mirror fails (7aa921e)
-- **installer:** The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller. (#222)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
 
 ### Fixes
