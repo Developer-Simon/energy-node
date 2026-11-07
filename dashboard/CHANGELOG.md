@@ -1,10 +1,25 @@
 # Changelog
 
-## v0.11.5-pre.1 (2026-11-06)
+## v0.11.5-pre.2 (2026-11-07)
 
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
+- **stats:** integrate measurement chain losses per hour (4511d7b)
+- **stats:** record measurement chain losses per hour (4c1fef0)
+- **auth:** add the efficiency view right (96a02a6)
+- **stats:** query measurement chain losses and efficiency (9e30ba4)
+- **api:** serve measurement chain losses (c3f0598)
+- **dashboard:** add the efficiency tab shell (d3ccd05)
+- **dashboard:** add the efficiency model (171a188)
+- **dashboard:** show chain losses on the efficiency tab (494076f)
+- **devicemap:** add a losses layer (a460e93)
+- **stats:** add chain loss helpers to the stats model (2cbb67d)
+- **stats:** add a switch to show chain losses (97a1c02)
+- **stats:** summarise chain losses and tidy the stats switch (4f665b3)
+- **dashboard:** order the efficiency tab, mark it as new and fix the losses icon (4b6fa9b)
+- **dashboard:** add a tour target to the efficiency page (e68966c)
+- **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217)
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **energy:** add the measurement chain model and its validation (a0c0952)
 - **energy:** move roles when a measurement chain changes (16e2953)
@@ -28,6 +43,10 @@
 
 ### Fixes
 
+- **energy:** take the chain flow from a two-way point (9a09646)
+- **dashboard:** show efficiency load errors and clamp day bars (6a6cf71)
+- **stats:** keep role write errors visible and reset the loss error (d9d6a6a)
+- **stats:** align the losses switch to the right of its row (dee4d98)
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
 - **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
 - **energy:** tighten the chain editor after review (b5302ef)
@@ -40,6 +59,10 @@
 
 - move the config template next to the dashboard appconfig (9ff6776)
 - **versions:** drop the shared services component (a654ecb)
+
+### Documentation
+
+- **stats:** use English comments in the chain integrator (941aa8b)
 
 ### Tests
 

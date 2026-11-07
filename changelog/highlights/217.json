@@ -1,0 +1,50 @@
+{
+  "de": {
+    "*": "Messketten zeigen jetzt ihre Verluste. Der neue Reiter Effizienz listet je Kette Wirkungsgrad, Round-Trip über 30 Tage, Standby-Leistung und Verlust je Tag. Die Statistik kann die Summe der Verluste zeigen, und die Gerätekarte hat eine Ebene Verluste."
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "view_efficiency",
+          "panel": "efficiency-panel",
+          "target": "efficiency-page",
+          "text": {
+            "de": "Der neue Reiter Effizienz zeigt jede Messkette mit ihren Live-Werten, dem Wirkungsgrad jetzt, dem Round-Trip über 30 Tage, der Standby-Leistung und dem Verlust je Tag.",
+            "en": "The new Efficiency tab shows each measurement chain with its live values, the efficiency now, the 30 day round trip, the standby power and the loss per day."
+          },
+          "title": {
+            "de": "Effizienz",
+            "en": "Efficiency"
+          }
+        },
+        {
+          "need": "view_device_map",
+          "panel": "devicemap-panel",
+          "target": "devicemap-layer-losses",
+          "text": {
+            "de": "Die Ebene Verluste zeigt den Verlust jedes Kettenabschnitts an der Verbindung zwischen zwei Geräten.",
+            "en": "The Losses layer puts the loss of each chain segment on the connection between two devices."
+          },
+          "title": {
+            "de": "Verluste auf der Karte",
+            "en": "Losses on the map"
+          }
+        },
+        {
+          "need": "view_stats",
+          "panel": "stats-panel",
+          "target": "stats-losses-toggle",
+          "text": {
+            "de": "Mit Verluste einblenden siehst du die Summe der Verluste und den Wirkungsgrad aller Ketten im Diagramm, in den Kennzahlen und in der Tabelle.",
+            "en": "Switch on Show losses to see the summed losses and the efficiency of all chains in the chart, the key figures and the table."
+          },
+          "title": {
+            "de": "Verluste in der Statistik",
+            "en": "Losses in the statistics"
+          }
+        }
+      ]
+    }
+  }
+}
