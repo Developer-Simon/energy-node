@@ -96,7 +96,7 @@ As of **2026-11-07**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `46` |
+| `js/dashboard.js` | `47` |
 | `js/update-bar.js` | `7` |
 | `js/onboarding-model.js` | `4` |
 | `js/onboarding.js` | `4` |
@@ -270,7 +270,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.11.8 | `css/base.css` (merge of main into prerelease, changed on both lines) · `js/dashboard.js` (merge of main into prerelease, changed on both lines) | `49` · `46` | 2026-11-07 |
+| v0.11.8 | `css/base.css` (merge of main into prerelease, changed on both lines) · `js/dashboard.js` (merge of main into prerelease, changed on both lines, chain diagnostics i18n keys) | `49` · `47` | 2026-11-07 |
 | v0.11.8 | `js/stats.page.js` (stats panel, losses switch and chain figures) · `css/stats.css` (stats panel, losses figures) · `js/devicemap-graph.js` (energy, device map, losses layer) · `js/efficiency-model.js` (new, efficiency panel) · `js/efficiency.page.js` (new, efficiency panel) · `css/efficiency.css` (new, efficiency panel) | `7` · `5` · `11` · `2` (new) · `2` (new) · `2` (new) | 2026-11-07 |
 | v0.11.8 | `js/energy-chains.js` (new, energy, device map) · `js/energy.page.js` (energy panel, measurement chains section) · `js/devicemap-model.js` (energy, device map, reference points as display values) · `js/devicemap.page.js` (device map, chain form in the energy connection card) · `js/energy-model.js` (energy cards, history panel, stats panel, substitute value helpers) · `js/energy-flow.js` (energy cards, substitute marker) · `js/energy-board.js` (energy cards, substitute row state) · `js/energy-status.js` (energy cards, data quality tile) · `js/energy-stats-model.js` (stats panel, energy cards, substitute hours in the coverage text) · `js/dashboard.js` (all pages, chain focus request, formatted x-roll frames) · `js/devicemap-labels.js` (device map, energy plant view, note under a node) · `js/energy-plant.js` (energy plant view, substitute note) · `css/base.css` (substitute marker in the flow graphic, substitute colour, merged with the v0.11.5 statistics card change) · `css/manager.css` (5 panels, measurement chain cards, direction menu, map chain status) · `js/device-modal.js` (device dialog, i18n key comment only) | `2` (new) · `15` · `16` · `31` · `5` · `4` · `3` · `2` · `5` · `46` · `6` · `7` · `48` · `50` · `5` | 2026-11-07 |
 | v0.11.7 | `css/base.css` (overview diagnostics card, info column removed) · `js/overview-values.js` (diagnostics card counts critical and warning only) · `js/dashboard.js` (diagnostics panel, info filter, "all" and the headline leave infos out) | `48` · `4` · `45` | 2026-11-07 |
