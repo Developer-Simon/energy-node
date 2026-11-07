@@ -67,6 +67,7 @@
 
 ### Tests
 
+- **webui:** accept the efficiency panel as a tour panel (e826f7f)
 - **automations:** expect the new chart asset version (fba2e7c)
 
 ### Style
