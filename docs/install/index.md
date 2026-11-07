@@ -139,12 +139,13 @@ the software update itself in place.
 
 | Software | Why the normal path fails | What to do instead |
 |---|---|---|
-| Tailscale (ARMv6 only) | The official install script serves no ARMv6 build past 1.62.0 | The installer installs the pinned 1.62.0 package. By hand, unpack the 1.62.0 tarball, then `tailscale update` |
+| Tailscale (ARMv6 only) | The official install script serves no ARMv6 build past 1.62.0 | The installer installs the pinned 1.62.0 package, then runs `tailscale update`. By hand, unpack the 1.62.0 tarball, then `tailscale update` |
 | Python packages | Recent Raspberry Pi OS marks the system Python as externally managed (PEP 668) | Install into the system interpreter with `--break-system-packages` |
 
 The Tailscale limit applies to ARMv6 only. The installation packages for `arm64`
 and `amd64` carry a current Tailscale version, so the installer needs no
-workaround there. The `armv6` package carries 1.62.0.
+workaround there. On `armv6` the installer installs 1.62.0 and then runs
+`tailscale update`.
 
 ### How the installer brings Tailscale and Caddy
 
@@ -157,8 +158,10 @@ needs no internet access for these two packages.
 On `arm64` and `amd64` the node then follows the vendor's apt repository. Later
 updates come with the system update step, like other system packages.
 
-On `armv6` both packages stay on the pinned version and are held in apt, so a
-system update does not change them. Tailscale stays on 1.62.0. A newer version
+On `armv6` the installer installs Tailscale at the pinned 1.62.0 and then
+updates it in place with `tailscale update`, so the node runs the current
+Tailscale version after the installation. Caddy stays on the pinned version and
+is held in apt, so a system update does not change it. A newer Caddy version
 comes only with a new installation package.
 
 If a download fails and the package is not on the node, the installer stops at

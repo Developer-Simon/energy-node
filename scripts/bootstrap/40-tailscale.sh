@@ -2,11 +2,14 @@
 #
 # Schritt 40: Tailscale aus dem gepinnten Debian-Paket (INSTALLATION.md §3.1).
 #
-# Das .deb reist im Bundle mit (manifest.packages.tailscale, Pruefsumme vor
-# dem Installieren geprueft). Es wird nichts vom Netz geladen - ein frisch
-# aufgesetzter Node hat oft noch keinen brauchbaren Egress. Auf amd64 und
-# arm64 (update=apt) folgt der Node danach dem Hersteller-Repo; auf armv6
-# bleibt die Fassung festgehalten (hold).
+# Das .deb liegt in /var/lib/energy-node-installer/packages (EN_STATE_DIR/packages)
+# und ist vom Installer uebertragen worden (manifest.packages.tailscale,
+# Pruefsumme vor dem Installieren geprueft). Es wird nichts vom Netz geladen -
+# ein frisch aufgesetzter Node hat oft noch keinen brauchbaren Egress. Auf amd64
+# und arm64 (update=apt) folgt der Node danach dem Hersteller-Repo. Auf armv6
+# wird die gepinnte Fassung 1.62.0 installiert und danach mit `tailscale update`
+# auf die aktuelle Fassung gehoben; ein fehlgeschlagenes Update laesst die
+# installierte Fassung aktiv und bricht den Schritt nicht ab.
 # Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
 # step-inputs: bootstrap/lib/step.sh bootstrap/lib/packages.sh bootstrap/keyrings/ manifest:packages.tailscale
@@ -89,6 +92,7 @@ if [[ "${present}" == true ]]; then
 fi
 
 install=false
+installed_now=false
 case "${state}" in
   absent)
     [[ "${have_deb}" == true ]] || step_fail TAILSCALE_PACKAGE_MISSING
@@ -129,7 +133,7 @@ if [[ "${install}" == true ]]; then
     "${SUDO[@]}" rm -f "${bin_cli}" "${unit}"
   fi
   # Ein hold aus einem frueheren Lauf (armv6) verweigert die Aenderung durch
-  # apt. Freigeben, installieren, danach wieder festhalten.
+  # apt. Freigeben und installieren; festgehalten wird nicht mehr.
   pkg_unhold tailscale
   pkg_install_deb "${deb}" || step_fail TAILSCALE_INSTALL_FAILED
   "${SUDO[@]}" systemctl daemon-reload
@@ -141,11 +145,19 @@ if [[ "${install}" == true ]]; then
   fi
   if [[ "${update_mode}" == apt ]]; then
     pkg_setup_repo tailscale
-  else
-    pkg_hold tailscale || step_fail TAILSCALE_INSTALL_FAILED
   fi
+  installed_now=true
 fi
 "${SUDO[@]}" systemctl enable --now tailscaled || step_fail TAILSCALE_INSTALL_FAILED
+
+# armv6: das gepinnte 1.62.0 ist installiert, jetzt auf die aktuelle Fassung
+# heben. Nicht fatal: ohne Update bleibt 1.62.0 aktiv.
+if [[ "${installed_now}" == true && "${update_mode}" == installer ]]; then
+  installed_version="$(pkg_installed_version tailscale)"
+  if ! "${SUDO[@]}" tailscale update --yes; then
+    step_log "tailscale update fehlgeschlagen. Fassung ${installed_version} bleibt aktiv."
+  fi
+fi
 
 if "${SUDO[@]}" tailscale status >/dev/null 2>&1; then
   step_log "Node ist angemeldet."

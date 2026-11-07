@@ -16,28 +16,39 @@ mkdir -p "$tmp/bin"
 cat > "$tmp/bin/tailscale" <<'SH'
 #!/usr/bin/env bash
 printf 'tailscale %s\n' "$*" >> "$TS_LOG"
+printf 'tailscale %s\n' "$*" >> "$ORDER_LOG"
 case "$1" in
   status) exit "${TS_STATUS_RC:-0}" ;;
+  update) exit "${TS_UPDATE_RC:-0}" ;;
   up) printf 'To authenticate, visit:\n\nhttps://login.tailscale.com/a/abc123\n' ;;
 esac
 SH
 cat > "$tmp/bin/systemctl" <<'SH'
 #!/usr/bin/env bash
 printf 'systemctl %s\n' "$*" >> "$SYSTEMCTL_LOG"
+printf 'systemctl %s\n' "$*" >> "$ORDER_LOG"
 SH
+# Ein installiertes tailscale-.deb meldet danach seine Version aus dem Dateinamen.
 cat > "$tmp/bin/apt-get" <<'SH'
 #!/usr/bin/env bash
 printf 'apt-get %s\n' "$*" >> "$PKG_LOG"
+last="${*: -1}"
+case "$last" in
+  */tailscale_*.deb)
+    v="$(basename "$last")"; v="${v#tailscale_}"; v="${v%%_*}"
+    printf '%s' "$v" > "$TS_INSTALLED_FILE" ;;
+esac
 SH
 cat > "$tmp/bin/apt-mark" <<'SH'
 #!/usr/bin/env bash
 printf 'apt-mark %s\n' "$*" >> "$PKG_LOG"
 SH
 # dpkg-query: installierte Version aus TS_DPKG_VERSION, leer = nicht installiert.
+# Nach einer Installation durch den apt-get-Stub gilt die dort gemeldete Version.
 cat > "$tmp/bin/dpkg-query" <<'SH'
 #!/usr/bin/env bash
 printf 'dpkg-query %s\n' "$*" >> "$PKG_LOG"
-printf '%s' "${TS_DPKG_VERSION:-}"
+if [ -f "$TS_INSTALLED_FILE" ]; then cat "$TS_INSTALLED_FILE"; else printf '%s' "${TS_DPKG_VERSION:-}"; fi
 exit 0
 SH
 # dpkg: nur --compare-versions A ge B. A ist gleich oder neuer, wenn die
@@ -51,6 +62,7 @@ SH
 chmod +x "$tmp/bin"/*
 export PATH="$tmp/bin:$PATH"
 export TS_LOG="$tmp/ts.log" SYSTEMCTL_LOG="$tmp/systemctl.log" PKG_LOG="$tmp/pkg.log"
+export ORDER_LOG="$tmp/order.log" TS_INSTALLED_FILE="$tmp/installed-version"
 
 bundle="$tmp/bundle"
 export EN_STATE_DIR="$tmp/state" EN_ROOT="$tmp/root" EN_BUNDLE_DIR="$bundle"
@@ -99,7 +111,8 @@ JSON
     chmod +x "$daemon" "$cli"
   fi
   export TS_DPKG_VERSION="$dpkg_ver"
-  : > "$TS_LOG"; : > "$PKG_LOG"; : > "$SYSTEMCTL_LOG"
+  rm -f "$TS_INSTALLED_FILE"
+  : > "$TS_LOG"; : > "$PKG_LOG"; : > "$SYSTEMCTL_LOG"; : > "$ORDER_LOG"
 }
 
 # run <TS_STATUS_RC>: fuehrt den Schritt aus, Ausgabe in $out, Code in $code.
@@ -129,6 +142,7 @@ grep -q 'pkgs.tailscale.com/stable/debian trixie main' "$repo_list" \
 grep -qx 'apt-mark unhold tailscale' "$PKG_LOG" || fail "apt-Modus: kein unhold" "$(cat "$PKG_LOG")"
 grep -q 'apt-mark hold' "$PKG_LOG" && fail "apt-Modus: hold gesetzt"
 grep -q 'daemon-reload' "$SYSTEMCTL_LOG" || fail "kein daemon-reload nach der Installation"
+grep -q 'tailscale update' "$TS_LOG" && fail "apt-Modus: tailscale update aufgerufen" "$(cat "$TS_LOG")"
 [ -f "$tmp/state/steps/40" ] || fail "kein Stempel nach Installation"
 
 # --- Zeile 1, armv6: nicht installiert, .deb da, update=installer ----------
@@ -140,12 +154,19 @@ arch=amd64
 grep -q '^##STEP 40 ok$' <<<"$out" || fail "armv6 nicht installiert: kein ok" "$out"
 grep -q 'apt-get install .*tailscale_1.62.0_armhf.deb' "$PKG_LOG" \
   || fail "armv6: .deb nicht installiert" "$(cat "$PKG_LOG")"
-grep -qx 'apt-mark hold tailscale' "$PKG_LOG" || fail "armv6: kein hold" "$(cat "$PKG_LOG")"
-[ -e "$repo_list" ] && fail "armv6: Repo angelegt statt hold"
+grep -q 'apt-mark hold' "$PKG_LOG" && fail "armv6: hold gesetzt" "$(cat "$PKG_LOG")"
+[ -e "$repo_list" ] && fail "armv6: Repo angelegt"
+[ "$(grep -c '^tailscale update --yes$' "$TS_LOG")" -eq 1 ] \
+  || fail "armv6: tailscale update nicht genau einmal aufgerufen" "$(cat "$TS_LOG")"
+e_line="$(grep -n -x 'systemctl enable --now tailscaled' "$ORDER_LOG" | head -n 1 | cut -d: -f1)"
+t_line="$(grep -n -x 'tailscale update --yes' "$ORDER_LOG" | head -n 1 | cut -d: -f1)"
+if [ -z "$e_line" ] || [ -z "$t_line" ] || [ "$e_line" -ge "$t_line" ]; then
+  fail "armv6: tailscale update nicht nach enable" "$(cat "$ORDER_LOG")"
+fi
 
 # --- armv6 mit hold aus einem frueheren Lauf: unhold, install, hold --------
 # Der apt-mark-Stub fuehrt keinen Zustand; die Reihenfolge der Aufrufe im
-# Protokoll ist der Nachweis, dass der hold vor der Installation fällt.
+# Protokoll ist der Nachweis, dass der hold vor der Installation faellt.
 arch=armhf
 setup 1.62.0 installer ja
 run 0
@@ -153,13 +174,24 @@ arch=amd64
 [ "$code" -eq 0 ] || fail "armv6 mit hold: Code $code" "$out"
 u_line="$(grep -n -x 'apt-mark unhold tailscale' "$PKG_LOG" | head -n 1 | cut -d: -f1)"
 i_line="$(grep -n 'apt-get install .*tailscale_1.62.0_armhf.deb' "$PKG_LOG" | head -n 1 | cut -d: -f1)"
-h_line="$(grep -n -x 'apt-mark hold tailscale' "$PKG_LOG" | head -n 1 | cut -d: -f1)"
-if [ -z "$u_line" ] || [ -z "$i_line" ] || [ -z "$h_line" ]; then
-  fail "armv6 mit hold: unhold/install/hold fehlt" "$(cat "$PKG_LOG")"
+if [ -z "$u_line" ] || [ -z "$i_line" ]; then
+  fail "armv6 mit hold: unhold/install fehlt" "$(cat "$PKG_LOG")"
 fi
-if [ "$u_line" -ge "$i_line" ] || [ "$i_line" -ge "$h_line" ]; then
-  fail "armv6 mit hold: Reihenfolge falsch (unhold $u_line, install $i_line, hold $h_line)" "$(cat "$PKG_LOG")"
+if [ "$u_line" -ge "$i_line" ]; then
+  fail "armv6 mit hold: Reihenfolge falsch (unhold $u_line, install $i_line)" "$(cat "$PKG_LOG")"
 fi
+grep -q 'apt-mark hold' "$PKG_LOG" && fail "armv6 mit hold: wieder festgehalten" "$(cat "$PKG_LOG")"
+
+# armv6, Update schlaegt fehl: der Schritt bleibt ok, 1.62.0 bleibt aktiv
+arch=armhf
+setup 1.62.0 installer ja
+TS_UPDATE_RC=1 run 0
+arch=amd64
+[ "$code" -eq 0 ] || fail "armv6 Update fehlgeschlagen: Code $code" "$out"
+grep -q '^##STEP 40 ok$' <<<"$out" || fail "armv6 Update fehlgeschlagen: kein ok" "$out"
+grep -q 'tailscale update fehlgeschlagen. Fassung 1.62.0 bleibt aktiv.' <<<"$out" \
+  || fail "armv6 Update fehlgeschlagen: Meldung fehlt" "$out"
+[ -f "$tmp/state/steps/40" ] || fail "armv6 Update fehlgeschlagen: kein Stempel"
 
 # --- Zeile 2: nicht installiert, .deb fehlt -------------------------------
 setup 1.104.5 apt nein
@@ -191,6 +223,7 @@ arch=amd64
 grep -q '^##STEP 40 ok$' <<<"$out" || fail "armv6 gleiche Version: kein ok" "$out"
 grep -q 'apt-get install' "$PKG_LOG" && fail "armv6 gleiche Version: Paket angefasst"
 [ -e "$repo_list" ] && fail "armv6 gleiche Version: Repo angelegt"
+grep -q 'tailscale update' "$TS_LOG" && fail "armv6 gleiche Version: tailscale update aufgerufen" "$(cat "$TS_LOG")"
 
 # Zeile 4: vorhanden per Tarball (nicht dpkg), nicht aelter: nur Log
 setup 1.104.5 apt ja "" 1.104.5
@@ -208,6 +241,7 @@ run 0
 grep -q '^##STEP 40 ok$' <<<"$out" || fail "aelter mit .deb: kein ok" "$out"
 grep -q 'apt-get install .*'"$DEB" "$PKG_LOG" || fail "aelter mit .deb: kein Paket" "$(cat "$PKG_LOG")"
 grep -qx 'apt-mark unhold tailscale' "$PKG_LOG" || fail "aelter mit .deb: kein Repo" "$(cat "$PKG_LOG")"
+grep -q 'tailscale update' "$TS_LOG" && fail "aelter mit .deb (apt): tailscale update aufgerufen"
 
 # Zeile 6: aelter, .deb fehlt (apt): unangetastet, Log, ok
 setup 1.104.5 apt nein 1.50.0
@@ -269,7 +303,7 @@ setup 1.104.5 apt ja
 run 0
 grep -q '^##STEP 40 ok$' <<<"$out" || fail "angemeldet: kein ok-Marker" "$out"
 [ -f "$tmp/state/steps/40" ] || fail "angemeldet: kein Stempel"
-grep -q 'tailscale update' "$TS_LOG" && fail "tailscale update wird noch aufgerufen"
+grep -q 'tailscale update' "$TS_LOG" && fail "tailscale update wird aufgerufen (apt-Modus)"
 
 # --- zweiter Lauf ueberspringt --------------------------------------------
 : > "$TS_LOG"
