@@ -889,3 +889,82 @@ def test_standby_scenario_ends_only_at_time():
                          topic_values=chain_topics(at(7, 40), standby_w=None))
     assert payloads(published) == ["off", "on"]
     assert report["standby"]["phase"] == "idle"
+
+
+def chain_efficiency_topics(at, best_down=None, best_up=None, chain_present=True, power=800):
+    chain = {"label": "Balkon", "flow": "down", "loss_w": 3.0, "efficiency_pct": 95.0, "standby_w": 12.0,
+             "findings": [], "best_down": best_down, "best_up": best_up}
+    chains = {"balkon": chain} if chain_present else {"other": chain}
+    return {
+        automation.CHAINS_TOPIC: json.dumps({"at": at, "chains": chains}),
+        "werkstatt/bkw/state": json.dumps({"power": power}),
+    }
+
+
+def test_regulator_best_range_by_direction():
+    now = 10000.0
+    topics = chain_efficiency_topics(now, best_down={"from_w": 250, "to_w": 500},
+                                     best_up={"from_w": 600, "to_w": 800})
+    consumer = {"direction": "consumer", "efficiency": {"chain_id": "balkon"}}
+    producer = {"direction": "producer", "efficiency": {"chain_id": "balkon"}}
+    assert automation.regulator_best_range(consumer, topics, now) == ((250, 500), None)
+    assert automation.regulator_best_range(producer, topics, now) == ((600, 800), None)
+
+    no_up = chain_efficiency_topics(now, best_down={"from_w": 250, "to_w": 500}, best_up=None)
+    assert automation.regulator_best_range(producer, no_up, now) == (None, "no_range")
+    assert automation.regulator_best_range(consumer, no_up, now) == ((250, 500), None)
+
+    stale = chain_efficiency_topics(now - 61, best_down={"from_w": 250, "to_w": 500})
+    assert automation.regulator_best_range(consumer, stale, now) == (None, "chains_stale")
+    missing = chain_efficiency_topics(now, best_down={"from_w": 250, "to_w": 500}, chain_present=False)
+    assert automation.regulator_best_range(consumer, missing, now) == (None, "chain_missing")
+    assert automation.regulator_best_range(consumer, {}, now) == (None, "chains_unknown")
+
+
+def test_validate_regulator_efficiency(tmp_path):
+    ok = zero_feed(**{"while": with_regulator(efficiency={"chain_id": "balkon"})})
+    doc = load(tmp_path, doc_with(scenarios=[ok]))
+    assert doc.scenarios[0]["while"]["regulator"]["efficiency"] == {"chain_id": "balkon"}
+    assert "efficiency" not in load(tmp_path, doc_with(scenarios=[zero_feed()])).scenarios[0]["while"]["regulator"]
+
+    for bad in ({}, {"chain_id": "Balkon"}, {"chain_id": "bal-kon"}, {"chain_id": 3}, "balkon", ["balkon"]):
+        scenario = zero_feed(**{"while": with_regulator(efficiency=bad)})
+        with pytest.raises(automation.RuleValidationError, match="efficiency"):
+            load(tmp_path, doc_with(scenarios=[scenario]))
+
+
+def test_required_topics_include_chains_for_a_regulator_efficiency():
+    service = scenario_service([])
+    with_option = normalized(zero_feed(**{"while": with_regulator(efficiency={"chain_id": "balkon"})}))
+    doc = automation.RulesDocument(version=1, settings=automation.Settings(), rules=[], scenarios=[with_option])
+    assert automation.CHAINS_TOPIC in service.required_topics(doc)
+    plain = automation.RulesDocument(version=1, settings=automation.Settings(), rules=[],
+                                     scenarios=[normalized(zero_feed())])
+    assert automation.CHAINS_TOPIC not in service.required_topics(plain)
+
+
+def test_scenario_regulates_into_range_and_reports():
+    best = {"from_w": 250, "to_w": 500}  # Erzeuger folgen best_up
+    scenario = regulate_scenario(efficiency={"chain_id": "balkon"})
+    doc, engine, published, _ = scenario_engine_with([scenario], settings=regulator_settings())
+    # net -720, base 800, target 30: Formel 200, im Bereich 250 bis 500 gehoben auf 250
+    report = regulate_tick(engine, doc, 1000, grid_export=720,
+                           topic_values=chain_efficiency_topics(1000, best_up=best))
+    assert published == [("werkstatt/bkw/limit/set", "250", False)]
+    assert report["nulleinspeisung"]["efficiency"] == {"chain_id": "balkon", "from_w": 250, "to_w": 500}
+
+
+def test_scenario_with_stale_chain_regulates_as_without_option():
+    best = {"from_w": 250, "to_w": 500}
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario(efficiency={"chain_id": "balkon"})],
+                                                     settings=regulator_settings())
+    report = regulate_tick(engine, doc, 1000, grid_export=720,
+                           topic_values=chain_efficiency_topics(939, best_up=best))
+    assert payloads(published) == ["200"]
+    assert report["nulleinspeisung"]["efficiency"] == {"chain_id": "balkon", "reason": "chains_stale"}
+
+
+def test_scenario_without_option_has_no_efficiency_field():
+    doc, engine, published, _ = scenario_engine_with([regulate_scenario()], settings=regulator_settings())
+    report = regulate_tick(engine, doc, 1000, grid_export=720)
+    assert "efficiency" not in report["nulleinspeisung"]

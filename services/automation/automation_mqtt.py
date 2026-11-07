@@ -469,6 +469,14 @@ def _validate_regulator(raw: dict, prefix: str, errors: list[str]) -> dict:
     elif fallback is not None and not has_payload:
         errors.append(f"{prefix}: fallback.payload must be a non-empty string")
     result["fallback"] = fallback if isinstance(fallback, dict) else None
+    if "efficiency" in raw:
+        efficiency = raw["efficiency"]
+        if not isinstance(efficiency, dict):
+            errors.append(f"{prefix}: efficiency must be an object")
+        elif not isinstance(efficiency.get("chain_id"), str) or not _CHAIN_ID_RE.match(efficiency["chain_id"]):
+            errors.append(f"{prefix}.efficiency: chain_id must match ^[a-z0-9_]+$")
+        else:
+            result["efficiency"] = {"chain_id": efficiency["chain_id"]}
     return result
 
 
@@ -787,6 +795,30 @@ def chains_payload(topic_values: dict, now_ts: float) -> tuple[Optional[dict], s
     if now_ts - at > CHAINS_MAX_AGE_S:
         return None, "chains_stale"
     return chains, ""
+
+
+def regulator_best_range(regulator: dict, topic_values: dict, now_ts: float) -> tuple[Optional[tuple[float, float]], Optional[str]]:
+    """Der beste Wirkungsgradbereich (from, to) der Kette fuer die Regler-Richtung.
+
+    Verbraucher folgen best_down, Erzeuger best_up. Ohne Option ist die Antwort
+    (None, None), sonst (None, Grund) bei fehlender Kette oder fehlendem Bereich.
+    """
+    efficiency = regulator.get("efficiency")
+    if efficiency is None:
+        return None, None
+    chains, reason = chains_payload(topic_values, now_ts)
+    if chains is None:
+        return None, reason
+    chain = chains.get(efficiency["chain_id"])
+    if not isinstance(chain, dict):
+        return None, "chain_missing"
+    key = "best_down" if regulator["direction"] == "consumer" else "best_up"
+    span = chain.get(key)
+    low = _finite_float(span.get("from_w")) if isinstance(span, dict) else None
+    high = _finite_float(span.get("to_w")) if isinstance(span, dict) else None
+    if low is None or high is None or low > high:
+        return None, "no_range"
+    return (low, high), None
 
 
 def matching_findings(cond: dict, chain: dict, now_ts: float) -> list[tuple]:
@@ -1306,6 +1338,7 @@ class ScenarioRuntime:
     error: Optional[float] = None
     base: Optional[float] = None
     reason: Optional[str] = None
+    efficiency: Optional[dict] = None
     rearm: bool = False
     ended_at: Optional[float] = None
     consumed: set = field(default_factory=set)
@@ -1471,6 +1504,7 @@ class ScenarioEngine:
         rt.ended_at = now_ts
         rt.definition = None
         rt.last_value = None
+        rt.efficiency = None
         rt.last_step_at = None
         rt.last_hold_at = None
         rt.when = []
@@ -1524,7 +1558,13 @@ class ScenarioEngine:
             self._record(sid, "recovered", [])
 
         net = (balance_value(balance, "grid_import") or 0) - (balance_value(balance, "grid_export") or 0)
-        step = regulator.compute_step(regulator_def, net=net, base=base, last_value=rt.last_value)
+        best = None
+        if regulator_def.get("efficiency") is not None:
+            best, best_reason = regulator_best_range(regulator_def, topic_values, now_ts)
+            chain_id = regulator_def["efficiency"]["chain_id"]
+            rt.efficiency = ({"chain_id": chain_id, "from_w": best[0], "to_w": best[1]} if best is not None
+                             else {"chain_id": chain_id, "reason": best_reason})
+        step = regulator.compute_step(regulator_def, net=net, base=base, last_value=rt.last_value, best=best)
         rt.net = net
         rt.error = step.error
         rt.base = base
@@ -1563,7 +1603,7 @@ class ScenarioEngine:
 
     @staticmethod
     def _report(rt: ScenarioRuntime, scenario: dict, when_eval, until_eval) -> dict:
-        return {
+        report = {
             "enabled": scenario["enabled"],
             "phase": rt.phase,
             "since": rt.since,
@@ -1576,6 +1616,9 @@ class ScenarioEngine:
             "when": when_eval.reports,
             "until": until_eval.reports if until_eval is not None else [],
         }
+        if (scenario["while"].get("regulator") or {}).get("efficiency") is not None:
+            report["efficiency"] = rt.efficiency
+        return report
 
 
 class EventRing:
@@ -1778,7 +1821,10 @@ def _uses_chains(doc: RulesDocument) -> bool:
         condition_lists.append(scenario["when"]["conditions"])
         if scenario["until"] is not None:
             condition_lists.append(scenario["until"]["conditions"])
-    return any(cond["type"] in ("chain_finding", "chain_value") for conds in condition_lists for cond in conds)
+    if any(cond["type"] in ("chain_finding", "chain_value") for conds in condition_lists for cond in conds):
+        return True
+    return any((scenario["while"].get("regulator") or {}).get("efficiency") is not None
+               for scenario in doc.scenarios)
 
 
 class AutomationService:

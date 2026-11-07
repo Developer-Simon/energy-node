@@ -76,6 +76,12 @@ func TestAutomationSchemaAcceptsTheSpecScenario(t *testing.T) {
 	}
 }
 
+// withRegulatorField adds one key after the fallback of the regulator in
+// specScenario and returns the scenarios array holding it.
+func withRegulatorField(field string) string {
+	return "[" + strings.Replace(specScenario, `"fallback": { "payload": "800" }`, `"fallback": { "payload": "800" }, `+field, 1) + "]"
+}
+
 func TestAutomationSchemaCases(t *testing.T) {
 	nineScenarios := make([]string, 9)
 	for i := range nineScenarios {
@@ -102,6 +108,16 @@ func TestAutomationSchemaCases(t *testing.T) {
 			`{"tick_interval_s":10,"settling_seconds":60,"balance_max_age_s":30,"publish_allowed_prefixes":[],"publish_min_interval_s":4}`,
 			`[]`), false},
 		{"eight scenarios", automationDoc(defaultAutomationSettings, "["+strings.Join(nineScenarios[:8], ",")+"]"), true},
+		{"regulator efficiency with chain_id", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": { "chain_id": "balkon" }`)), true},
+		{"regulator efficiency with upper-case chain_id", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": { "chain_id": "Balkon" }`)), false},
+		{"regulator efficiency without chain_id", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": {}`)), false},
+		{"regulator efficiency with unknown key", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": { "chain_id": "balkon", "x": 1 }`)), false},
+		{"regulator efficiency as string", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": "balkon"`)), false},
 	}
 	for _, tc := range cases {
 		err := ValidateDocument([]byte(tc.doc), automationSchema(t))

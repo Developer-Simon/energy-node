@@ -704,6 +704,20 @@
                       }
                     },
                     "description": "Payload sent while the balance is stale or the reading is missing. Required for a producer."
+                  },
+                  "efficiency": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "chain_id"
+                    ],
+                    "properties": {
+                      "chain_id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9_]+$"
+                      }
+                    },
+                    "description": "Chain whose best efficiency range the setpoint keeps to. Absent turns the option off."
                   }
                 }
               },
