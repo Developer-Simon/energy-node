@@ -15,6 +15,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/bundlesource"
+	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
@@ -30,6 +31,11 @@ var (
 	markVerified = bundle.MarkVerified
 	stageDelta   = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployDelta(ctx, c, bundleDir, changed, removed, remoteDir, onProgress)
+	}
+	// resolveBundle is the resolver seam; tests hand in a Resolved with
+	// missing packages, which needs no network.
+	resolveBundle = func(ctx context.Context, r *bundlesource.Resolver, choice bundlesource.Request) (*bundlesource.Resolved, error) {
+		return r.Resolve(ctx, choice)
 	}
 )
 
@@ -220,7 +226,7 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 	choice.Arch = arch
 	choice.Log = logf
 	choice.Note = notef
-	resolved, err := h.cfg.Resolver.Resolve(ctx, choice)
+	resolved, err := resolveBundle(ctx, h.cfg.Resolver, choice)
 	if err != nil {
 		return err
 	}
@@ -264,12 +270,20 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
 
+	// A pinned package that could not be downloaded and is missing on the
+	// node asks the operator before the bundle counts as verified.
+	sel := h.prepareSelection(resolved.Manifest)
+	if err := h.checkPackages(ctx, client, resolved.Manifest, resolved.MissingPackages, sel); err != nil {
+		return err
+	}
+
 	// After successful verification, record the verified bundle state for future delta calculation
 	if err := markVerified(ctx, client, h.cfg.RemoteBundleDir); err != nil {
 		// Ignore the error; the next prepare falls back to hashing the directory
 	}
 
 	h.adopt(resolved, choice.Kind)
+	h.keepSkippedSteps(sel)
 	adopted = true
 	return nil
 }
@@ -300,6 +314,20 @@ func (h *Host) adopt(resolved *bundlesource.Resolved, kind bundlesource.Kind) {
 	h.mu.Unlock()
 	if previous != nil {
 		previous()
+	}
+}
+
+// keepSkippedSteps keeps a skipped package's deselected step in the pending
+// selection. adopt clears the pending selection, because it belonged to the
+// old bundle, so the skip is put back here for the next run.
+func (h *Host) keepSkippedSteps(sel *selection.Selection) {
+	for _, step := range packageSteps {
+		if !sel.Selected(step) {
+			h.mu.Lock()
+			h.pending = sel
+			h.mu.Unlock()
+			return
+		}
 	}
 }
 

@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/bundlesource"
+	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport/transporttest"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
@@ -154,5 +157,160 @@ func TestStagePackagesRemovesStaleFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(remote, "new-2.0-py3-none-any.whl")); err != nil {
 		t.Errorf("pinned wheel missing: %v", err)
+	}
+}
+
+// packageSeams fakes the node side of the package question: which packages
+// are installed, what the repository install does, and what it recorded.
+type packageSeams struct {
+	installed []string
+	repoErr   error
+	repoCalls []string
+}
+
+// stubMissingPackage prepares a host whose resolver reports the given
+// packages as missing, with the vendor's update mode in update.
+func stubMissingPackage(t *testing.T, missing []string, update string) (*Host, *staged, *packageSeams) {
+	t.Helper()
+	h := hostWithBundled(t)
+	rec := stubSeams(t, "armv6l")
+	seams := &packageSeams{}
+
+	origResolve, origInstalled, origRepo := resolveBundle, packageInstalled, installFromRepo
+	t.Cleanup(func() {
+		resolveBundle, packageInstalled, installFromRepo = origResolve, origInstalled, origRepo
+	})
+	resolveBundle = func(context.Context, *bundlesource.Resolver, bundlesource.Request) (*bundlesource.Resolved, error) {
+		m := &bundle.Manifest{
+			Version: "v1.4.2", Arch: "armv6", PythonABI: "cp311",
+			Packages: map[string]bundle.PackagePin{},
+			Steps: []bundle.StepEntry{
+				{ID: "40", Optional: true, Default: true},
+				{ID: "70", Optional: true, Default: true},
+			},
+		}
+		for _, name := range missing {
+			m.Packages[name] = bundle.PackagePin{Update: update}
+		}
+		return &bundlesource.Resolved{Dir: t.TempDir(), Manifest: m, MissingPackages: missing, Cleanup: func() {}}, nil
+	}
+	packageInstalled = func(_ context.Context, _ *transport.Client, name string) bool {
+		for _, have := range seams.installed {
+			if have == name {
+				return true
+			}
+		}
+		return false
+	}
+	installFromRepo = func(_ context.Context, _ *transport.Client, _, name string) error {
+		seams.repoCalls = append(seams.repoCalls, name)
+		return seams.repoErr
+	}
+	return h, rec, seams
+}
+
+func prepareWithChoices(h *Host, choices map[string]string) error {
+	return h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare, PackageChoices: choices}, &recordingSink{})
+}
+
+func requireUnavailable(t *testing.T, err error, names, repoPossible string) {
+	t.Helper()
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "PACKAGE_UNAVAILABLE" {
+		t.Fatalf("err = %v, want PACKAGE_UNAVAILABLE", err)
+	}
+	if apiErr.Status != 409 {
+		t.Errorf("status = %d, want 409", apiErr.Status)
+	}
+	if apiErr.Args["names"] != names || apiErr.Args["repo_possible"] != repoPossible {
+		t.Errorf("args = %v, want names %q and repo_possible %q", apiErr.Args, names, repoPossible)
+	}
+}
+
+func TestPrepareAsksForAMissingPackage(t *testing.T) {
+	h, rec, _ := stubMissingPackage(t, []string{"caddy"}, "apt")
+	err := prepareWithChoices(h, nil)
+	requireUnavailable(t, err, "caddy", "true")
+	if rec.markCalls != 0 {
+		t.Errorf("markVerified called %d times, want none before the answer", rec.markCalls)
+	}
+}
+
+func TestPrepareDoesNotAskWhenThePackageIsInstalled(t *testing.T) {
+	h, rec, seams := stubMissingPackage(t, []string{"caddy"}, "apt")
+	seams.installed = []string{"caddy"}
+	if err := prepareWithChoices(h, nil); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if rec.markCalls != 1 {
+		t.Errorf("markVerified calls = %d, want 1", rec.markCalls)
+	}
+}
+
+func TestPrepareDoesNotAskWhenTheStepIsDeselected(t *testing.T) {
+	h, rec, _ := stubMissingPackage(t, []string{"caddy"}, "apt")
+	h.pending = &selection.Selection{Steps: map[string]bool{"70": false}}
+	if err := prepareWithChoices(h, nil); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if rec.markCalls != 1 {
+		t.Errorf("markVerified calls = %d, want 1", rec.markCalls)
+	}
+}
+
+func TestSkipDeselectsTheStep(t *testing.T) {
+	h, _, _ := stubMissingPackage(t, []string{"caddy"}, "apt")
+	if err := prepareWithChoices(h, map[string]string{"caddy": "skip"}); err != nil {
+		t.Fatalf("prepare with skip: %v", err)
+	}
+	if h.pending == nil || h.pending.Steps["70"] {
+		t.Fatalf("pending = %+v, want step 70 deselected", h.pending)
+	}
+}
+
+func TestRepoChoiceInstallsOnTheNode(t *testing.T) {
+	h, rec, seams := stubMissingPackage(t, []string{"caddy"}, "apt")
+	if err := prepareWithChoices(h, map[string]string{"caddy": "repo"}); err != nil {
+		t.Fatalf("prepare with repo: %v", err)
+	}
+	if len(seams.repoCalls) != 1 || seams.repoCalls[0] != "caddy" {
+		t.Errorf("repo installs = %v, want [caddy]", seams.repoCalls)
+	}
+	if rec.markCalls != 1 {
+		t.Errorf("markVerified calls = %d, want 1", rec.markCalls)
+	}
+}
+
+func TestRepoChoiceReportsAFailedInstall(t *testing.T) {
+	h, _, seams := stubMissingPackage(t, []string{"caddy"}, "apt")
+	seams.repoErr = errors.New("apt-get exited 100")
+	var apiErr *hostapi.Error
+	if err := prepareWithChoices(h, map[string]string{"caddy": "repo"}); !errors.As(err, &apiErr) || apiErr.Code != "PACKAGE_REPO_FAILED" {
+		t.Fatalf("err = %v, want PACKAGE_REPO_FAILED", err)
+	}
+}
+
+func TestRepoChoiceIsRejectedOnArmv6(t *testing.T) {
+	h, _, seams := stubMissingPackage(t, []string{"caddy"}, "installer")
+	err := prepareWithChoices(h, map[string]string{"caddy": "repo"})
+	requireUnavailable(t, err, "caddy", "false")
+	if len(seams.repoCalls) != 0 {
+		t.Errorf("repo installs = %v, want none for update=installer", seams.repoCalls)
+	}
+}
+
+func TestPackageChoiceIsRememberedForTheSession(t *testing.T) {
+	h, rec, _ := stubMissingPackage(t, []string{"caddy"}, "apt")
+	if err := prepareWithChoices(h, map[string]string{"caddy": "skip"}); err != nil {
+		t.Fatalf("first prepare: %v", err)
+	}
+	if err := prepareWithChoices(h, nil); err != nil {
+		t.Fatalf("second prepare without a choice must not ask again: %v", err)
+	}
+	if rec.markCalls != 2 {
+		t.Errorf("markVerified calls = %d, want 2", rec.markCalls)
+	}
+	if h.packageChoices["caddy"] != "skip" {
+		t.Errorf("remembered choices = %v, want caddy skip", h.packageChoices)
 	}
 }

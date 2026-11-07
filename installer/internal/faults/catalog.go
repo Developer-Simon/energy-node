@@ -32,6 +32,8 @@ const (
 	CodeMQTTConfigUnreadable    Code = "MQTT_CONFIG_UNREADABLE"
 	CodePackageDownloadInvalid  Code = "PACKAGE_DOWNLOAD_INVALID"
 	CodePackageFileInvalid      Code = "PACKAGE_FILE_INVALID"
+	CodePackageRepoFailed       Code = "PACKAGE_REPO_FAILED"
+	CodePackageUnavailable      Code = "PACKAGE_UNAVAILABLE"
 	CodePackageURLRejected      Code = "PACKAGE_URL_REJECTED"
 	CodeUFWMissing              Code = "UFW_MISSING"
 	CodePipExternallyManaged    Code = "PIP_EXTERNALLY_MANAGED"
@@ -114,6 +116,8 @@ var allCodes = []Code{
 	CodeMQTTConfigUnreadable,
 	CodePackageDownloadInvalid,
 	CodePackageFileInvalid,
+	CodePackageRepoFailed,
+	CodePackageUnavailable,
 	CodePackageURLRejected,
 	CodePipExternallyManaged,
 	CodePipInstallFailed,
