@@ -38,6 +38,12 @@ How to read a node:
 | Live energy | roles, values and the moving flow |
 | Data flow | topics between devices, services, automation rules and the balance conditions of automations |
 | Roles | every device with an energy role, connected to the Energy Node |
+| Losses | the loss of each measurement chain between two devices, off by default |
+
+The losses layer adds up the loss of every segment of a measurement chain that
+runs between two different devices. Segments inside one device are left out.
+Two chains over the same pair of devices add up. The figures per chain are on
+the [Efficiency](efficiency.md) tab.
 
 The view menu holds the grid, snap to grid, width by power, the line style and
 the legend. With reduced motion enabled in the system the lines stand still and
