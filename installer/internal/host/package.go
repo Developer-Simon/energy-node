@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -259,6 +260,10 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		return err
 	}
 
+	if err := h.stagePins(ctx, client, resolved, notef); err != nil {
+		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
+	}
+
 	// After successful verification, record the verified bundle state for future delta calculation
 	if err := markVerified(ctx, client, h.cfg.RemoteBundleDir); err != nil {
 		// Ignore the error; the next prepare falls back to hashing the directory
@@ -267,6 +272,20 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 	h.adopt(resolved, choice.Kind)
 	adopted = true
 	return nil
+}
+
+// stagePins legt die gepinnten .deb-Pakete und Wheels auf den Node, damit
+// der Bootstrap sie ohne Netz einspielen kann. Fehlende Wheels fragen nicht
+// nach: der Node holt sie selbst, die Oberflaeche zeigt es nur an.
+func (h *Host) stagePins(ctx context.Context, client *transport.Client, resolved *bundlesource.Resolved, notef func(string, map[string]string)) error {
+	notef("package.log.upload_packages", map[string]string{})
+	if err := stagePackages(ctx, client, path.Join(h.cfg.RemoteStateDir, "packages"), resolved.Packages, uploadProgress(notef)); err != nil {
+		return err
+	}
+	if len(resolved.MissingWheels) > 0 {
+		notef("package.log.wheels_on_node", map[string]string{"names": strings.Join(resolved.MissingWheels, ", ")})
+	}
+	return stagePackages(ctx, client, path.Join(h.cfg.RemoteStateDir, "wheels"), resolved.Wheels, uploadProgress(notef))
 }
 
 // adopt macht das aufgeloeste Paket zum aktuellen und raeumt das vorige weg.
