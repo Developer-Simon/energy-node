@@ -267,6 +267,7 @@ func main() {
 		Store: energyStatsStore, Recorder: energyRecorder, Sync: energySync,
 		Categories: energyCategories,
 		ChainStore: energyChainStore,
+		Insight:    chainMonitor,
 		Chains: func() []energystats.ChainInfo {
 			value, err := settingsStore.LoadEnergy()
 			if err != nil {

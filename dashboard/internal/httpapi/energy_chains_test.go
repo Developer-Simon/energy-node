@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,6 +18,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storagehealth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
@@ -238,7 +241,7 @@ func TestChainRequiresEditEnergyAndCSRF(t *testing.T) {
 	editOnly := httptest.NewRequest(http.MethodPost, "/api/v1/energy/chains", strings.NewReader(`{"label":"X","points":["a","b"]}`))
 	editOnly = editOnly.WithContext(auth.WithUser(editOnly.Context(), auth.User{Username: "tester", Roles: []string{auth.RoleViewEnergy, auth.RoleEditDeviceMap}}))
 	recorder = httptest.NewRecorder()
-	chainsHandler := handleEnergyChains(store, energy.NewResolver(nil), manager, registry.New())
+	chainsHandler := handleEnergyChains(store, energy.NewResolver(nil), manager, registry.New(), nil)
 	chainsHandler(recorder, editOnly)
 	if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"energy_forbidden"`) {
 		t.Fatalf("edit_device_map alone: %d %s", recorder.Code, recorder.Body.String())
@@ -356,5 +359,257 @@ func TestPutChainKeepsAdjacentTolerances(t *testing.T) {
 	got := value.Chains[id].Tolerances
 	if len(got) != 1 || got[0].A != "ac" || got[0].B != "other" {
 		t.Fatalf("tolerances = %+v, want only the adjacent ac-other", got)
+	}
+}
+
+// fakeChainMonitor records what the chain handlers ask of the monitor.
+type fakeChainMonitor struct {
+	relearned [][2]string
+	pruned    []map[string]energy.Chain
+}
+
+func (f *fakeChainMonitor) Relearn(a, b string) { f.relearned = append(f.relearned, [2]string{a, b}) }
+func (f *fakeChainMonitor) Prune(chains map[string]energy.Chain) {
+	f.pruned = append(f.pruned, chains)
+}
+func (f *fakeChainMonitor) AllFindings() []energy.ChainFinding { return nil }
+
+// chainFixture creates the chain "Balkon" with plug, ac and other, counting
+// plug. A nil monitor builds the router without one.
+func chainFixture(t *testing.T, monitor *fakeChainMonitor) (string, *settings.Store, http.Handler, string) {
+	t.Helper()
+	reg := registry.New()
+	addChainEntity(reg, "steckdose", "plug", "Balkon Plug", "W", "100")
+	addChainEntity(reg, "speicher", "ac", "Speicher AC", "W", "40")
+	addChainEntity(reg, "steckdose", "other", "Heizung", "W", "5")
+	dir := t.TempDir()
+	store := settings.NewStore(dir)
+	var router http.Handler = NewRouter(reg, nil, store)
+	if monitor != nil {
+		router = NewRouterWithDependencies(reg, nil, store, nil, nil, nil, storagehealth.New(), nil, RouterDependencies{ChainMonitor: monitor})
+	}
+	created := doChainRequest(router, http.MethodPost, "/api/v1/energy/chains", `{"label":"Balkon","points":["plug","ac","other"],"counting":"plug"}`)
+	if created.Code != http.StatusOK {
+		t.Fatalf("create status %d: %s", created.Code, created.Body.String())
+	}
+	return dir, store, router, chainIDFromBody(t, created.Body.String())
+}
+
+func readEnergyFile(t *testing.T, dir string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(dir, "energy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func TestChainTolerancePutStoresAndClears(t *testing.T) {
+	dir, store, router, id := chainFixture(t, nil)
+	before := readEnergyFile(t, dir)
+
+	ten := 10.0
+	first := doChainRequest(router, http.MethodPut, "/api/v1/energy/chains/"+id+"/tolerance", `{"a":"plug","b":"ac","w":10,"pct":null}`)
+	if first.Code != http.StatusOK {
+		t.Fatalf("put status %d: %s", first.Code, first.Body.String())
+	}
+	saved, _ := store.LoadEnergy()
+	got := saved.Chains[id].Tolerances
+	if len(got) != 1 || got[0].A != "plug" || got[0].B != "ac" || got[0].W == nil || *got[0].W != ten || got[0].Pct != nil {
+		t.Fatalf("tolerances = %+v, want one plug-ac tolerance of 10 W", got)
+	}
+	var value settings.EnergyConfig
+	if err := json.Unmarshal(first.Body.Bytes(), &value); err != nil {
+		t.Fatal(err)
+	}
+	if len(value.Chains[id].Tolerances) != 1 {
+		t.Fatalf("response must be the saved config: %s", first.Body.String())
+	}
+
+	// Other values replace the tolerance, the pair is not stored twice.
+	second := doChainRequest(router, http.MethodPut, "/api/v1/energy/chains/"+id+"/tolerance", `{"a":"ac","b":"plug","w":null,"pct":5}`)
+	if second.Code != http.StatusOK {
+		t.Fatalf("replace status %d: %s", second.Code, second.Body.String())
+	}
+	saved, _ = store.LoadEnergy()
+	got = saved.Chains[id].Tolerances
+	if len(got) != 1 || got[0].W != nil || got[0].Pct == nil || *got[0].Pct != 5 {
+		t.Fatalf("tolerances after replace = %+v, want one 5 percent tolerance", got)
+	}
+
+	cleared := doChainRequest(router, http.MethodPut, "/api/v1/energy/chains/"+id+"/tolerance", `{"a":"plug","b":"ac","w":null,"pct":null}`)
+	if cleared.Code != http.StatusOK {
+		t.Fatalf("clear status %d: %s", cleared.Code, cleared.Body.String())
+	}
+	saved, _ = store.LoadEnergy()
+	if len(saved.Chains[id].Tolerances) != 0 {
+		t.Fatalf("tolerances after clear = %+v, want none", saved.Chains[id].Tolerances)
+	}
+	if !bytes.Equal(readEnergyFile(t, dir), before) {
+		t.Fatalf("energy.json after clearing differs from the file before the tolerance")
+	}
+}
+
+func TestChainToleranceRejectsNonAdjacent(t *testing.T) {
+	dir, _, router, id := chainFixture(t, nil)
+	before := readEnergyFile(t, dir)
+
+	recorder := doChainRequest(router, http.MethodPut, "/api/v1/energy/chains/"+id+"/tolerance", `{"a":"plug","b":"other","w":10,"pct":null}`)
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"energy_roles_rejected"`) {
+		t.Fatalf("non-adjacent status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if !bytes.Equal(readEnergyFile(t, dir), before) {
+		t.Fatalf("energy.json changed by a rejected tolerance")
+	}
+}
+
+func TestChainToleranceUnknownChain(t *testing.T) {
+	_, _, router, _ := chainFixture(t, nil)
+	recorder := doChainRequest(router, http.MethodPut, "/api/v1/energy/chains/nope/tolerance", `{"a":"plug","b":"ac","w":10}`)
+	if recorder.Code != http.StatusNotFound || !strings.Contains(recorder.Body.String(), `"code":"chain_not_found"`) {
+		t.Fatalf("unknown chain status %d: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestChainSubrouteMethods(t *testing.T) {
+	_, _, router, id := chainFixture(t, &fakeChainMonitor{})
+	for _, path := range []string{"/api/v1/energy/chains/" + id + "/tolerance", "/api/v1/energy/chains/" + id + "/relearn"} {
+		for _, method := range []string{http.MethodGet, http.MethodDelete, http.MethodPatch} {
+			recorder := doChainRequest(router, method, path, "")
+			if recorder.Code != http.StatusMethodNotAllowed {
+				t.Fatalf("%s %s status %d, want 405", method, path, recorder.Code)
+			}
+		}
+	}
+	recorder := doChainRequest(router, http.MethodPost, "/api/v1/energy/chains/"+id+"/tolerance", `{"a":"plug","b":"ac","w":10}`)
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST tolerance status %d, want 405", recorder.Code)
+	}
+	recorder = doChainRequest(router, http.MethodGet, "/api/v1/energy/chains/"+id+"/relearn", "")
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET relearn status %d, want 405", recorder.Code)
+	}
+}
+
+func TestChainWriteNeedsEditEnergy(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.SetGuestRoles("admin", []string{auth.RoleViewEnergy, auth.RoleEditEnergy}); err != nil {
+		t.Fatal(err)
+	}
+	reg := registry.New()
+	addChainEntity(reg, "steckdose", "plug", "Balkon Plug", "W", "100")
+	addChainEntity(reg, "speicher", "ac", "Speicher AC", "W", "40")
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Chains: map[string]energy.Chain{"balkon": {Label: "Balkon", Points: []string{"plug", "ac"}, Counting: "plug"}}}); err != nil {
+		t.Fatal(err)
+	}
+	monitor := &fakeChainMonitor{}
+
+	// A user with only edit_device_map must not change tolerances or relearn.
+	editOnly := func(method, path, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(method, path, strings.NewReader(body))
+		request = request.WithContext(auth.WithUser(request.Context(), auth.User{Username: "tester", Roles: []string{auth.RoleViewEnergy, auth.RoleEditDeviceMap}}))
+		recorder := httptest.NewRecorder()
+		handleEnergyChains(store, energy.NewResolver(nil), manager, reg, monitor).ServeHTTP(recorder, request)
+		return recorder
+	}
+	for _, call := range []struct{ method, path, body string }{
+		{http.MethodPut, "/api/v1/energy/chains/balkon/tolerance", `{"a":"plug","b":"ac","w":10}`},
+		{http.MethodPost, "/api/v1/energy/chains/balkon/relearn", `{"a":"plug","b":"ac"}`},
+	} {
+		if recorder := editOnly(call.method, call.path, call.body); recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"energy_forbidden"`) {
+			t.Fatalf("%s %s without edit_energy: %d %s", call.method, call.path, recorder.Code, recorder.Body.String())
+		}
+	}
+	if len(monitor.relearned) != 0 {
+		t.Fatalf("relearn ran without edit_energy: %v", monitor.relearned)
+	}
+
+	// With edit_energy the CSRF token is still required.
+	router := NewAuthenticatedRouter(reg, config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, ChainMonitor: monitor})
+	guest := httptest.NewRecorder()
+	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
+	cookie := guest.Result().Cookies()[0]
+	var session struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.Unmarshal(guest.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/api/v1/energy/chains/balkon/tolerance", "/api/v1/energy/chains/balkon/relearn"} {
+		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"a":"plug","b":"ac","w":10}`))
+		if strings.HasSuffix(path, "tolerance") {
+			request = httptest.NewRequest(http.MethodPut, path, strings.NewReader(`{"a":"plug","b":"ac","w":10}`))
+		}
+		request.AddCookie(cookie)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"csrf_failed"`) {
+			t.Fatalf("%s without CSRF: %d %s", path, recorder.Code, recorder.Body.String())
+		}
+	}
+	if len(monitor.relearned) != 0 {
+		t.Fatalf("relearn ran without CSRF: %v", monitor.relearned)
+	}
+}
+
+func TestChainRelearnCallsMonitor(t *testing.T) {
+	monitor := &fakeChainMonitor{}
+	_, _, router, id := chainFixture(t, monitor)
+
+	recorder := doChainRequest(router, http.MethodPost, "/api/v1/energy/chains/"+id+"/relearn", `{"a":"plug","b":"ac"}`)
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("relearn status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(monitor.relearned) != 1 || monitor.relearned[0] != [2]string{"plug", "ac"} {
+		t.Fatalf("relearned = %v, want plug-ac", monitor.relearned)
+	}
+
+	recorder = doChainRequest(router, http.MethodPost, "/api/v1/energy/chains/"+id+"/relearn", `{"a":"plug","b":"other"}`)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("non-adjacent relearn status %d, want 400: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(monitor.relearned) != 1 {
+		t.Fatalf("non-adjacent pair was relearned: %v", monitor.relearned)
+	}
+
+	_, _, bare, bareID := chainFixture(t, nil)
+	recorder = doChainRequest(bare, http.MethodPost, "/api/v1/energy/chains/"+bareID+"/relearn", `{"a":"plug","b":"ac"}`)
+	if recorder.Code != http.StatusNotImplemented {
+		t.Fatalf("relearn without monitor status %d, want 501: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestChainSavePrunes(t *testing.T) {
+	monitor := &fakeChainMonitor{}
+	_, _, router, id := chainFixture(t, monitor)
+	lastPruned := func() map[string]energy.Chain {
+		t.Helper()
+		if len(monitor.pruned) == 0 {
+			t.Fatal("no prune call")
+		}
+		return monitor.pruned[len(monitor.pruned)-1]
+	}
+	if _, ok := lastPruned()[id]; !ok || len(monitor.pruned) != 1 {
+		t.Fatalf("POST must prune with the saved chains: %d calls", len(monitor.pruned))
+	}
+
+	updated := doChainRequest(router, http.MethodPut, "/api/v1/energy/chains/"+id, `{"label":"Balkon neu","points":["plug","ac"],"counting":"plug"}`)
+	if updated.Code != http.StatusOK {
+		t.Fatalf("update status %d: %s", updated.Code, updated.Body.String())
+	}
+	if got := lastPruned(); len(got) != 1 || got[id].Label != "Balkon neu" {
+		t.Fatalf("PUT prune = %+v, want the updated chain", got)
+	}
+
+	deleted := doChainRequest(router, http.MethodDelete, "/api/v1/energy/chains/"+id, "")
+	if deleted.Code != http.StatusOK {
+		t.Fatalf("delete status %d: %s", deleted.Code, deleted.Body.String())
+	}
+	if got := lastPruned(); len(got) != 0 || len(monitor.pruned) != 3 {
+		t.Fatalf("DELETE of the last chain must prune with no chains, got %+v after %d calls", got, len(monitor.pruned))
 	}
 }

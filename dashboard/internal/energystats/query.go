@@ -247,6 +247,9 @@ type Service struct {
 	// with their storage flag. Without either, no chain is reported.
 	ChainStore *ChainStore
 	Chains     func() []ChainInfo
+	// Insight is the learned chain model, it supplies the efficiency curve.
+	// Nil leaves the curve empty.
+	Insight energy.ChainInsight
 }
 
 type Response struct {

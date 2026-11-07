@@ -54,13 +54,14 @@ type ChainDay struct {
 }
 
 type ChainEfficiency struct {
-	ID           string     `json:"id"`
-	Label        string     `json:"label"`
-	RoundTrip30D *float64   `json:"round_trip_30d"`
-	StandbyW30D  *float64   `json:"standby_w_30d"`
-	LossMonthKWh float64    `json:"loss_month_kwh"`
-	Month        string     `json:"month"` // "2026-11", local time
-	Days         []ChainDay `json:"days"`  // 7 days, oldest first
+	ID           string            `json:"id"`
+	Label        string            `json:"label"`
+	RoundTrip30D *float64          `json:"round_trip_30d"`
+	StandbyW30D  *float64          `json:"standby_w_30d"`
+	LossMonthKWh float64           `json:"loss_month_kwh"`
+	Month        string            `json:"month"` // "2026-11", local time
+	Days         []ChainDay        `json:"days"`  // 7 days, oldest first
+	Curve        energy.ChainCurve `json:"curve"`
 }
 
 type EfficiencyResponse struct {
@@ -289,6 +290,22 @@ func (s *Service) ChainStats(period, at string) (ChainStatsResponse, error) {
 	return res, nil
 }
 
+// curve is the efficiency curve of a chain from the learned model. Without a
+// model both lists are empty but not nil, so the JSON has [] and not null.
+func (s *Service) curve(points []string) energy.ChainCurve {
+	if s.Insight == nil {
+		return energy.ChainCurve{Down: []energy.ChainCurvePoint{}, Up: []energy.ChainCurvePoint{}}
+	}
+	curve := s.Insight.Curve(points)
+	if curve.Down == nil {
+		curve.Down = []energy.ChainCurvePoint{}
+	}
+	if curve.Up == nil {
+		curve.Up = []energy.ChainCurvePoint{}
+	}
+	return curve
+}
+
 // Efficiency reports per chain the round trip and standby of the last 30
 // days, and the loss of the local month and of the last seven days.
 func (s *Service) Efficiency() (EfficiencyResponse, error) {
@@ -325,6 +342,7 @@ func (s *Service) Efficiency() (EfficiencyResponse, error) {
 			LossMonthKWh: month[c][0].totals().LossKWh,
 			Month:        local.Format("2006-01"),
 			Days:         make([]ChainDay, len(dayStarts)),
+			Curve:        s.curve(info.Chain.Points),
 		}
 		for d, start := range dayStarts {
 			e.Days[d] = ChainDay{Local: start.Format("2006-01-02T15:04"), ChainTotals: days[c][d].totals()}
