@@ -181,3 +181,27 @@ func TestScenarioItemSchemasMatchTheRuleItemSchemas(t *testing.T) {
 		}
 	}
 }
+
+// Chain conditions are valid in rules, in scenario when and in scenario until.
+// An unknown key in chain_value is refused by its strict branch.
+func TestAutomationSchemaCoversChainConditions(t *testing.T) {
+	chainFinding := `{"type":"chain_finding","chain_id":"balkon","kind":"frozen","points":["sensor.dc"],"min_age_s":900,"once":true}`
+	chainValue := `{"type":"chain_value","chain_id":"balkon","field":"standby_w","comparison":"above","value":10,"hold_seconds":7200}`
+	ruleDoc := `{"version":1,"settings":` + defaultAutomationSettings + `,"rules":[{"id":"r1","name":"R","enabled":true,"conditions":[` +
+		chainFinding + `,` + chainValue + `],"actions":[{"type":"notification","severity":"info","title":"t","message":"m"}]}],"scenarios":[]}`
+	scenarioDoc := automationDoc(defaultAutomationSettings,
+		`[{"id":"s1","name":"S","enabled":true,"when":{"conditions":[`+chainFinding+`]},"until":{"conditions":[`+chainValue+`]}}]`)
+	unknownKey := `{"type":"chain_value","chain_id":"balkon","field":"standby_w","comparison":"above","value":10,"threshold":1}`
+	unknownKeyDoc := automationDoc(defaultAutomationSettings,
+		`[{"id":"s1","name":"S","enabled":true,"when":{"conditions":[`+unknownKey+`]}}]`)
+
+	if err := ValidateDocument([]byte(ruleDoc), automationSchema(t)); err != nil {
+		t.Errorf("chain conditions in rules: %v", err)
+	}
+	if err := ValidateDocument([]byte(scenarioDoc), automationSchema(t)); err != nil {
+		t.Errorf("chain conditions in when and until: %v", err)
+	}
+	if err := ValidateDocument([]byte(unknownKeyDoc), automationSchema(t)); err == nil {
+		t.Error("unknown field in chain_value: expected rejection")
+	}
+}
