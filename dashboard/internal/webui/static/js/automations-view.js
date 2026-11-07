@@ -95,6 +95,9 @@
       hint: 'automations.condition_type.time.hint', short: 'automations.condition_type.time.short' },
     { key: 'sun', icon: 'ico-sun', label: 'automations.condition_type.sun.label',
       hint: 'automations.condition_type.sun.hint', short: 'automations.condition_type.sun.short' },
+    // Die Kachel erscheint nur mit mindestens einer Messkette, siehe conditionTypes().
+    { key: 'chain', icon: 'ico-chain', label: 'automations.condition_type.chain.label',
+      hint: 'automations.condition_type.chain.hint', short: 'automations.condition_type.chain.short' },
   ];
 
   // i18n-keys: automations.chain.signal.finding, automations.chain.signal.loss_w, automations.chain.signal.efficiency_pct, automations.chain.signal.standby_w, automations.chain.kind.any, automations.chain.once, automations.chain.min_age, automations.chain.missing, automations.summary.chain_finding, automations.summary.chain_value, diagnostics.rule.chain_drift.title, diagnostics.rule.chain_frozen.title, diagnostics.rule.chain_contradiction.title, diagnostics.rule.chain_sign.title, diagnostics.rule.chain_unit.title
@@ -339,7 +342,8 @@
       // ausgewertet; die Karte nennt nur, dass die Kette fehlt.
       const chain = findChain(chains, condition.chain_id);
       const parts = type === 'chain_finding' ? describeChainFinding(condition, chain) : describeChainValue(condition);
-      return { icon: 'ico-chain', title: chain ? chain.label : t('automations.chain.missing'), unit: '', ...parts };
+      const unit = type === 'chain_value' ? (CHAIN_SIGNAL_UNITS[condition.field] || '') : '';
+      return { icon: 'ico-chain', title: chain ? chain.label : t('automations.chain.missing'), unit, ...parts };
     }
     if (type === 'balance_threshold') {
       const isCustom = typeof condition.field === 'string' && condition.field.startsWith('custom:');

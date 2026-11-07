@@ -4476,3 +4476,34 @@ func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
 		}
 	}
 }
+
+// Die Messketten-Bedingung: die Kachel traegt den Tour-Anker, Meldung und
+// Messwert sind je ein x-if-Block mit einem Wurzelelement, und der Schalter
+// "Einmal je Meldung" ist ein settings-toggle-Label.
+func TestChainConditionMarkup(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(tpl)
+	for _, want := range []string{
+		`x-bind:data-tour="type.key === 'chain' ? 'auto-chain-tile' : null"`,
+		`<template x-if="condition.type === 'chain_finding'">`,
+		`<template x-if="condition.type === 'chain_value'">`,
+		`{{define "auto-chain-head"}}`,
+		`<label class="settings-toggle auto-field-wide"`,
+		`x-model="condition.once"`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Fatalf("Messkette: %q fehlt in automations-rows.html", want)
+		}
+	}
+	start := strings.Index(src, `<template x-if="condition.type === 'chain_finding'">`)
+	end := strings.Index(src, `<template x-if="condition.type === 'chain_value'">`)
+	if start < 0 || end < start {
+		t.Fatal("Messkette: Reihenfolge der Meldungs-Karte fehlt")
+	}
+	if !strings.Contains(src[start:end], `<label class="settings-toggle`) {
+		t.Fatal("Messkette: der Schalter Einmal je Meldung ist kein settings-toggle-Label")
+	}
+}

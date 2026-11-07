@@ -4,6 +4,8 @@
                     <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
                     <span class="auto-line-text" x-text="describeCondition(condition).title"></span>
                     <span class="auto-line-note" x-text="conditionTextOf(rowsReport(index), condition)"></span>
+                    <span class="auto-line-note" x-show="describeCondition(condition).detail" x-text="describeCondition(condition).detail"></span>
+                    <span class="auto-line-note" x-show="chainLiveText(condition, rowsReport(index))" x-text="chainLiveText(condition, rowsReport(index))"></span>
                     <span class="auto-cond-state" x-bind:class="condStateClass(rowsReport(index))">
                       <svg class="automation-icon" x-show="conditionStateOf(rowsReport(index)) === 'met'"><use href="#ico-check"></use></svg>
                       <span x-text="$t(condStateKey(rowsReport(index)))"></span>
@@ -123,6 +125,58 @@
                               <span>{{t "automations.condition.entity.adopt_button.label"}}</span>
                             </button>
                           </div>
+                        </div>
+                      </template>
+
+                      <template x-if="condition.type === 'chain_finding'">
+                        <div class="auto-fields">
+                          {{template "auto-chain-head"}}
+                          <div class="auto-field">
+                            <span class="auto-field-label">{{t "automations.chain.kind_label"}}</span>
+                            <select class="auto-input" x-model="condition.kind" x-bind:aria-label="$t('automations.chain.kind_label')">
+                              <template x-for="option in chainKindOptions()" x-bind:key="option.key">
+                                <option x-bind:value="option.key" x-text="option.label"></option>
+                              </template>
+                            </select>
+                          </div>
+                          <div class="weekday-chips auto-field-wide" role="group" x-bind:aria-label="$t('automations.chain.points_label')">
+                            <span class="weekday-chips-label" x-text="$t('automations.chain.points_label')"></span>
+                            <template x-for="point in chainPointChips(condition)" x-bind:key="point.entity_id">
+                              <button class="weekday-chip" type="button" x-text="point.label"
+                                      x-bind:class="{ active: hasChainPoint(condition, point.entity_id) }"
+                                      x-bind:aria-pressed="hasChainPoint(condition, point.entity_id)"
+                                      x-on:click="toggleChainPoint(condition, point.entity_id)"></button>
+                            </template>
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return Math.round((condition.min_age_s || 0) / 60); }, set v(x) { const n = Math.round(Number(x)); condition.min_age_s = (Number.isFinite(n) && String(x).trim() !== '' ? Math.min(1440, Math.max(0, n)) : 0) * 60; } }; }, stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }, stepUnit: 'min', stepLabel: $t('automations.chain.min_age') }">
+                            <span class="auto-field-label">{{t "automations.chain.min_age"}}</span>
+                            {{template "auto-stepper"}}
+                          </div>
+                          <label class="settings-toggle auto-field-wide" x-bind:title="fieldHelp('once')">
+                            <input type="checkbox" x-model="condition.once" x-bind:aria-label="$t('automations.chain.once')">
+                            <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+                            <span class="auto-field-label">{{t "automations.chain.once"}}</span>
+                          </label>
+                          <p class="auto-hint auto-field-wide" x-show="describeCondition(condition).detail" x-text="describeCondition(condition).detail"></p>
+                        </div>
+                      </template>
+
+                      <template x-if="condition.type === 'chain_value'">
+                        <div class="auto-fields">
+                          {{template "auto-chain-head"}}
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.balance.comparison_label"}}</span>
+                            {{template "auto-comparison" "balance"}}
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'value', stepOpts: { step: 1 }, get stepUnit() { return describeCondition(condition).unit }, stepLabel: $t('automations.condition.entity.value_label') }">
+                            <span class="auto-field-label auto-label-sr">{{t "automations.condition.entity.value_label"}}</span>
+                            {{template "auto-stepper"}}
+                          </div>
+                          <div class="auto-field" x-data="{ get stepTarget() { return condition }, stepKey: 'hold_seconds', stepOpts: { min: 0, step: 1 }, stepUnit: $t('automations.condition.unit_seconds'), stepLabel: $t('automations.condition.hold_aria_label') }">
+                            {{template "auto-hold-label"}}
+                            {{template "auto-stepper"}}
+                          </div>
+                          <p class="auto-hint auto-field-wide" x-show="typeof rowsReport === 'function' && chainLiveText(condition, rowsReport(index))" x-text="typeof rowsReport === 'function' ? chainLiveText(condition, rowsReport(index)) : ''"></p>
                         </div>
                       </template>
 
@@ -317,6 +371,28 @@
                                 <span class="auto-compare-glyph" aria-hidden="true">?</span><span>{{t "automations.comparison.stale"}}</span>
                               </button>{{end}}
                             </span>
+{{end}}
+
+{{/* Kopf der Messketten-Bedingung: Kette, Signal und der Hinweis, wenn die
+     gespeicherte Kette fehlt. Meldung und Messwert teilen ihn. */}}
+{{define "auto-chain-head"}}
+                          <div class="auto-field auto-field-wide">
+                            <span class="auto-field-label">{{t "automations.condition_type.chain.label"}}</span>
+                            <select class="auto-input" x-model="condition.chain_id" x-bind:aria-label="$t('automations.condition_type.chain.label')">
+                              <template x-for="option in chainOptions(condition)" x-bind:key="option.id">
+                                <option x-bind:value="option.id" x-text="option.label"></option>
+                              </template>
+                            </select>
+                          </div>
+                          <div class="auto-field" x-data="{ get signal() { return chainSignal(condition); }, set signal(value) { setChainSignal(condition, value); } }">
+                            <span class="auto-field-label">{{t "automations.chain.signal_label"}}</span>
+                            <select class="auto-input" x-model="signal" x-bind:aria-label="$t('automations.chain.signal_label')">
+                              <template x-for="option in chainSignalOptions()" x-bind:key="option.key">
+                                <option x-bind:value="option.key" x-text="option.label"></option>
+                              </template>
+                            </select>
+                          </div>
+                          <div class="edit-card-warning auto-field-wide" x-show="!chainById(condition.chain_id)" x-text="$t('automations.chain.missing')"></div>
 {{end}}
 
 {{define "auto-hold-label"}}
@@ -543,6 +619,7 @@
                     <div class="type-tiles" role="group" x-show="showCondTiles" x-bind:aria-label="$t('automations.condition.add_button_aria')">
                       <template x-for="type in conditionTypes()" x-bind:key="type.key">
                         <button class="type-tile" type="button" x-on:click="addCondition(rowsOwner, type.key); showCondTiles = false"
+                                x-bind:data-tour="type.key === 'chain' ? 'auto-chain-tile' : null"
                                 x-bind:title="type.hint" x-bind:aria-label="$t('automations.condition.add_aria', {type: type.label})">
                           <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
                           <span class="type-tile-label" x-text="type.label"></span>

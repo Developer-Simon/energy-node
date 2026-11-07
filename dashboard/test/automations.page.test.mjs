@@ -3085,3 +3085,107 @@ test('assistantCustom steps a decimal preset by its step', async () => {
   component.assistantCustom(step);
   assert.equal(component.assistant.answers.price, 29);
 });
+
+// --- Messketten-Bedingungen ------------------------------------------------
+
+const testChains = [{
+  id: 'balkon', label: 'Balkon',
+  points: [
+    { entity_id: 'sensor.dc', label: 'DC-Eingang', device_id: 'wr' },
+    { entity_id: 'sensor.ac', label: 'Wechselrichter', device_id: 'wr' },
+  ],
+}];
+
+test('the chain tile is hidden without chains and shows with one', () => {
+  const { component } = createAutomationsPanel();
+  assert.deepEqual([...component.conditionTypes().map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun']);
+  component.chains = [...testChains];
+  const keys = [...component.conditionTypes().map((entry) => entry.key)];
+  assert.deepEqual(keys, ['balance', 'entity', 'time', 'sun', 'chain']);
+  const tile = component.conditionTypes().find((entry) => entry.key === 'chain');
+  assert.equal(tile.icon, 'ico-chain');
+  assert.equal(tile.label, 'Messkette');
+});
+
+test('addChainCondition adds a finding on the first chain', () => {
+  const { component } = createAutomationsPanel();
+  component.chains = [...testChains];
+  const rule = { conditions: [] };
+  component.addCondition(rule, 'chain');
+  assert.deepEqual(JSON.parse(JSON.stringify(rule.conditions)), [
+    { type: 'chain_finding', chain_id: 'balkon', kind: 'any', points: [], min_age_s: 0, once: false },
+  ]);
+});
+
+test('addChainCondition does nothing without chains', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { conditions: [] };
+  component.addChainCondition(rule);
+  assert.equal(rule.conditions.length, 0);
+});
+
+test('setChainSignal turns a finding into a value and back, keeping the chain', () => {
+  const { component } = createAutomationsPanel();
+  component.chains = [...testChains];
+  const condition = { type: 'chain_finding', chain_id: 'balkon', kind: 'drift', points: ['sensor.dc'], min_age_s: 900, once: true };
+  component.setChainSignal(condition, 'standby_w');
+  assert.deepEqual(JSON.parse(JSON.stringify(condition)), {
+    type: 'chain_value', chain_id: 'balkon', field: 'standby_w', comparison: 'above', value: 10, hold_seconds: 0,
+  });
+  assert.equal(component.chainSignal(condition), 'standby_w');
+  component.setChainSignal(condition, 'finding');
+  assert.deepEqual(JSON.parse(JSON.stringify(condition)), {
+    type: 'chain_finding', chain_id: 'balkon', kind: 'any', points: [], min_age_s: 0, once: false,
+  });
+  assert.equal(component.chainSignal(condition), 'finding');
+});
+
+test('setChainSignal ignores an unknown signal', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'chain_finding', chain_id: 'balkon', kind: 'any', points: [], min_age_s: 0, once: false };
+  component.setChainSignal(condition, 'bogus');
+  assert.equal(condition.type, 'chain_finding');
+});
+
+test('chainOptions keeps a saved chain id that is missing from the snapshot', () => {
+  const { component } = createAutomationsPanel();
+  component.chains = [...testChains];
+  const options = component.chainOptions({ type: 'chain_finding', chain_id: 'keller' });
+  assert.deepEqual(JSON.parse(JSON.stringify(options)), [
+    { id: 'balkon', label: 'Balkon' },
+    { id: 'keller', label: 'Messkette fehlt' },
+  ]);
+  assert.equal(component.chainById('keller'), null);
+});
+
+test('describeCondition on the page reads the chain labels and marks a missing chain', () => {
+  const { component } = createAutomationsPanel();
+  component.chains = [...testChains];
+  const found = component.describeCondition({ type: 'chain_finding', chain_id: 'balkon', kind: 'any', points: ['sensor.ac'], min_age_s: 0, once: false });
+  assert.equal(found.title, 'Balkon');
+  assert.equal(found.detail, 'Wechselrichter');
+  const missing = component.describeCondition({ type: 'chain_value', chain_id: 'keller', field: 'loss_w', comparison: 'above', value: 5, hold_seconds: 0 });
+  assert.equal(missing.title, 'Messkette fehlt');
+});
+
+test('chainLiveText shows the live value of a value condition with its unit', () => {
+  const { component } = createAutomationsPanel();
+  component.chains = [...testChains];
+  const value = { type: 'chain_value', chain_id: 'balkon', field: 'efficiency_pct', comparison: 'below', value: 80, hold_seconds: 0 };
+  assert.equal(component.chainLiveText(value, { value: 76.44 }), '76.4 %');
+  assert.equal(component.chainLiveText(value, { value: null }), '');
+  assert.equal(component.chainLiveText(value, null), '');
+  const finding = { type: 'chain_finding', chain_id: 'balkon', kind: 'any', points: [], min_age_s: 0, once: false };
+  assert.equal(component.chainLiveText(finding, { value: 2 }), '');
+});
+
+test('toggleChainPoint adds and removes a point of the chain', () => {
+  const { component } = createAutomationsPanel();
+  component.chains = [...testChains];
+  const condition = { type: 'chain_finding', chain_id: 'balkon', kind: 'any', points: [], min_age_s: 0, once: false };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.chainPointChips(condition))).map((point) => point.label), ['DC-Eingang', 'Wechselrichter']);
+  component.toggleChainPoint(condition, 'sensor.dc');
+  assert.equal(component.hasChainPoint(condition, 'sensor.dc'), true);
+  component.toggleChainPoint(condition, 'sensor.dc');
+  assert.equal(component.hasChainPoint(condition, 'sensor.dc'), false);
+});
