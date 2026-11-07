@@ -220,6 +220,112 @@ func TestResolveRecordsAnUnreachablePackageAsMissing(t *testing.T) {
 	}
 }
 
+// pinWithFallbacks is pin with fallback_urls set.
+func pinWithFallbacks(file, url string, data []byte, fallbacks ...string) map[string]any {
+	p := pin(file, url, data)
+	p["fallback_urls"] = fallbacks
+	return p
+}
+
+func TestResolveFallsBackWhenTheMirrorFails(t *testing.T) {
+	ts := []byte("tailscale-deb-bytes")
+	ps := newPinServer(t, map[string][]byte{"/ts.deb": ts})
+	r := pinnedResolver(t, ps)
+	var notes []string
+	archive := packedBundleWithPins(t, "armv6", map[string]any{
+		"packages": map[string]any{
+			"tailscale": pinWithFallbacks("ts.deb", ps.srv.URL+"/mirror/ts.deb", ts, ps.srv.URL+"/ts.deb"),
+		},
+	}, nil)
+
+	got, err := r.Resolve(context.Background(), Request{
+		Kind: KindFile, Path: archive, Arch: "armv6",
+		Note: func(key string, _ map[string]string) { notes = append(notes, key) },
+	})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if len(got.Packages) != 1 || len(got.MissingPackages) != 0 {
+		t.Fatalf("Packages = %+v, Missing = %v, want the fallback file", got.Packages, got.MissingPackages)
+	}
+	if ps.requests.Load() != 2 {
+		t.Errorf("made %d requests, want 2 (mirror, then fallback)", ps.requests.Load())
+	}
+	if !containsKey(notes, "package.log.download_fallback") {
+		t.Errorf("notes = %v, want package.log.download_fallback", notes)
+	}
+}
+
+func TestResolveDoesNotFallBackOnAWrongChecksum(t *testing.T) {
+	ps := newPinServer(t, map[string][]byte{"/mirror.deb": []byte("tampered"), "/ts.deb": []byte("original")})
+	r := pinnedResolver(t, ps)
+	archive := packedBundleWithPins(t, "armv6", map[string]any{
+		"packages": map[string]any{
+			"tailscale": pinWithFallbacks("ts.deb", ps.srv.URL+"/mirror.deb", []byte("original"), ps.srv.URL+"/ts.deb"),
+		},
+	}, nil)
+
+	_, err := r.Resolve(context.Background(), Request{Kind: KindFile, Path: archive, Arch: "armv6"})
+	if code(err) != CodePackageDownloadInvalid {
+		t.Fatalf("err = %v, want %s", err, CodePackageDownloadInvalid)
+	}
+	if ps.requests.Load() != 1 {
+		t.Errorf("made %d requests, want 1: a wrong checksum must not reach the fallback", ps.requests.Load())
+	}
+	cached := filepath.Join(r.CacheDir, "packages", sha256Hex([]byte("original")), "ts.deb")
+	if _, statErr := os.Stat(cached); !os.IsNotExist(statErr) {
+		t.Errorf("a cache file with the wrong checksum must be deleted (stat err = %v)", statErr)
+	}
+}
+
+func TestResolveRejectsAFallbackFromAnUnknownHost(t *testing.T) {
+	r := newResolver(t, nil)
+	r.CacheDir = t.TempDir()
+	archive := packedBundleWithPins(t, "armv6", map[string]any{
+		"packages": map[string]any{"tailscale": map[string]any{
+			"version": "1.62.0", "file": "tailscale_1.62.0_armhf.deb",
+			"url":           "https://github.com/Developer-Simon/energy-node/releases/download/pinned-packages/tailscale_1.62.0_armhf.deb",
+			"fallback_urls": []string{"https://evil.example/tailscale_1.62.0_armhf.deb"},
+			"sha256":        sha256Hex([]byte("x")), "update": "installer",
+		}},
+	}, nil)
+
+	_, err := r.Resolve(context.Background(), Request{Kind: KindFile, Path: archive, Arch: "armv6"})
+	if code(err) != CodePackageURLRejected {
+		t.Fatalf("err = %v, want %s", err, CodePackageURLRejected)
+	}
+}
+
+func TestResolveRecordsMissingWhenAllSourcesFail(t *testing.T) {
+	ps := newPinServer(t, map[string][]byte{})
+	r := pinnedResolver(t, ps)
+	archive := packedBundleWithPins(t, "armv6", map[string]any{
+		"packages": map[string]any{
+			"tailscale": pinWithFallbacks("ts.deb", ps.srv.URL+"/mirror/ts.deb", []byte("x"), ps.srv.URL+"/ts.deb"),
+		},
+	}, nil)
+
+	got, err := r.Resolve(context.Background(), Request{Kind: KindFile, Path: archive, Arch: "armv6"})
+	if err != nil {
+		t.Fatalf("Resolve: %v, failed transfers are not an error", err)
+	}
+	if len(got.MissingPackages) != 1 || got.MissingPackages[0] != "tailscale" || len(got.Packages) != 0 {
+		t.Errorf("MissingPackages = %v, Packages = %+v", got.MissingPackages, got.Packages)
+	}
+	if ps.requests.Load() != 2 {
+		t.Errorf("made %d requests, want 2 (mirror, then fallback)", ps.requests.Load())
+	}
+}
+
+func containsKey(keys []string, want string) bool {
+	for _, k := range keys {
+		if k == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestResolveWithoutPackagesDoesNothing(t *testing.T) {
 	ps := newPinServer(t, map[string][]byte{})
 	r := pinnedResolver(t, ps)

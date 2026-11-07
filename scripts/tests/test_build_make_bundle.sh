@@ -119,6 +119,10 @@ assert set(got) == {"tailscale", "caddy"}, sorted(got)
 for name in ("tailscale", "caddy"):
     assert got[name]["sha256"] == pins[name]["sha256"], name
     assert got[name]["version"] == pins[name]["version"], name
+    # fallback_urls wandern unveraendert in manifest.packages
+    assert got[name].get("fallback_urls") == pins[name].get("fallback_urls"), name
+assert got["tailscale"]["fallback_urls"] == [
+    "https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.62.0_armhf.deb"], "armv6 tailscale fallback"
 print("yes")
 ' "$packages_json" "$out/manifest.json" 2>&1)" || fail "manifest.packages passt nicht zu packages.json" "$pin_ok"
 [ "$pin_ok" = yes ] || fail "manifest.packages passt nicht zu packages.json" "$pin_ok"

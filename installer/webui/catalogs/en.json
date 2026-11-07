@@ -527,6 +527,7 @@
   "package.log.delta": "Transferring {changed} files, removing {removed}",
   "package.log.detect_arch": "Detecting the device's processor architecture",
   "package.log.download": "Downloading {name}",
+  "package.log.download_fallback": "Download of {name} failed, trying the second source.",
   "package.log.download_package": "Downloading package {name}",
   "package.log.download_progress": "{percent} % downloaded",
   "package.log.extract": "Unpacking the package",

@@ -159,6 +159,39 @@ func TestManifestParsesPackages(t *testing.T) {
 	}
 }
 
+func TestManifestParsesPackageFallbackURLs(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir, `{
+	  "version": "v0.2.0",
+	  "arch": "armv6",
+	  "packages": {
+	    "tailscale": {"version": "1.62.0", "file": "tailscale_1.62.0_armhf.deb", "url": "https://github.com/Developer-Simon/energy-node/releases/download/pinned-packages/tailscale_1.62.0_armhf.deb", "fallback_urls": ["https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.62.0_armhf.deb"], "sha256": "b8db12b68f17f707adb4ffe035abb3c6a7347b5bea93894f4c787d3bb1d95125", "update": "installer"},
+	    "caddy": {"version": "2.11.9", "file": "caddy_2.11.9_linux_armv6.deb", "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_armv6.deb", "sha256": "cba34c8025ee631a538b78652186511e5aafa0d7cf166846c881e1f5a357684f", "update": "installer"}
+	  },
+	  "steps": [],
+	  "files": {}
+	}`)
+
+	m, err := bundle.LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("LoadManifest: %v", err)
+	}
+	ts := m.Packages["tailscale"]
+	if len(ts.FallbackURLs) != 1 || ts.FallbackURLs[0] != "https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.62.0_armhf.deb" {
+		t.Fatalf("tailscale fallback_urls not read: %+v", ts.FallbackURLs)
+	}
+	if caddy := m.Packages["caddy"]; len(caddy.FallbackURLs) != 0 {
+		t.Fatalf("caddy pin without fallback_urls got %+v", caddy.FallbackURLs)
+	}
+	raw, err := json.Marshal(m.Packages["caddy"])
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if strings.Contains(string(raw), "fallback_urls") {
+		t.Fatalf("fallback_urls sollte bei leerem Wert fehlen: %s", raw)
+	}
+}
+
 func TestStepEntryOmitsEmptyDashboardKey(t *testing.T) {
 	raw, err := json.Marshal(bundle.StepEntry{ID: "10", Optional: false})
 	if err != nil {

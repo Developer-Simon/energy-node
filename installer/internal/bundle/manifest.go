@@ -49,12 +49,16 @@ type CaddyInfo struct {
 // PackagePin mirrors one entry of manifest.json's "packages" object: a
 // third-party .deb pinned in scripts/build/packages.json for the bundle's
 // architecture. The node downloads the file from URL and checks SHA256.
+// FallbackURLs lists further sources for the same file, tried in order when
+// the download from URL fails (the node does not fall back on a wrong
+// checksum).
 type PackagePin struct {
-	Version string `json:"version"`
-	File    string `json:"file"`
-	URL     string `json:"url"`
-	SHA256  string `json:"sha256"`
-	Update  string `json:"update"`
+	Version      string   `json:"version"`
+	File         string   `json:"file"`
+	URL          string   `json:"url"`
+	FallbackURLs []string `json:"fallback_urls,omitempty"`
+	SHA256       string   `json:"sha256"`
+	Update       string   `json:"update"`
 }
 
 // WheelPin mirrors one entry of manifest.json's "wheels" list: a third-party

@@ -24,6 +24,9 @@ set -euo pipefail
 # sie stammt aus dem bookworm-armhf-Index (Stand 2026-11-07). Das Skript
 # aktualisiert armv6-Tailscale nicht; die Festlegung 1.62.0 bleibt bestehen.
 TS_ARMV6_MIRROR_BASE="https://github.com/Developer-Simon/energy-node/releases/download/pinned-packages/"
+# Zweite Quelle fuer dasselbe armv6-Tailscale-.deb: der Hersteller-Pool. Der
+# Installer probiert sie, wenn der Spiegel nicht antwortet (fallback_urls).
+TS_ARMV6_UPSTREAM_URL="https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.62.0_armhf.deb"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 out="${EN_PACKAGES_JSON:-$here/packages.json}"
@@ -52,11 +55,11 @@ for a in arm64 amd64 armv6; do
     > "$tmp/caddy-$a.deb"
 done
 
-python3 -I - "$tmp" "$out" "$write" "$cver" "$TS_ARMV6_MIRROR_BASE" <<'PY'
+python3 -I - "$tmp" "$out" "$write" "$cver" "$TS_ARMV6_MIRROR_BASE" "$TS_ARMV6_UPSTREAM_URL" <<'PY'
 import hashlib, json, os, re, sys
 
 tmp, out, write, cver = sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[4]
-ts_armv6_mirror = sys.argv[5]
+ts_armv6_mirror, ts_armv6_upstream = sys.argv[5], sys.argv[6]
 
 TS_BASE = "https://pkgs.tailscale.com/stable/debian/"
 GH_BASE = f"https://github.com/caddyserver/caddy/releases/download/v{cver}/"
@@ -119,6 +122,7 @@ new = {
             "version": "1.62.0",
             "file": "tailscale_1.62.0_armhf.deb",
             "url": ts_armv6_mirror + "tailscale_1.62.0_armhf.deb",
+            "fallback_urls": [ts_armv6_upstream],
             "sha256": "b8db12b68f17f707adb4ffe035abb3c6a7347b5bea93894f4c787d3bb1d95125",
             "update": "installer",
         },

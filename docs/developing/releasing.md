@@ -139,6 +139,10 @@ upstream pool drops old versions. The script never bumps it, and its checksum
 stays the upstream one. A node installs 1.62.0 and then runs `tailscale update`.
 A new pin reruns steps 40 and 70 on the next update of a node.
 
+The `armv6` Tailscale download tries the project mirror first and the upstream
+pool second, from `fallback_urls` in `packages.json`. Both serve the same file
+with the same SHA-256.
+
 The repository keys for Tailscale and Caddy are in `scripts/bootstrap/keyrings/`
 as `tailscale.gpg` and `caddy.gpg`. When an upstream repository changes its
 signing key, replace the matching file and check its fingerprint before you

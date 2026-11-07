@@ -51,17 +51,25 @@ var defaultPackageRules = packageRules{
 	scheme:     "https",
 }
 
+// pinSource is one URL of a pin, with the lower-cased host it names. The
+// host decides the redirect policy of the attempt.
+type pinSource struct {
+	url, origin string
+}
+
 // pinJob is one file to fetch: a .deb or a wheel from the manifest.
+// urls holds the pin's URLs as written, the primary first; sources holds the
+// same URLs once they have passed checkPinURL.
 type pinJob struct {
-	wheel  bool
-	name   string
-	file   string
-	sha    string
-	url    string
-	origin string
-	hosts  []string
-	path   string
-	err    error
+	wheel   bool
+	name    string
+	file    string
+	sha     string
+	urls    []string
+	sources []pinSource
+	hosts   []string
+	path    string
+	err     error
 }
 
 // fetchPins fills res with the pinned .deb packages and wheels of m. Files
@@ -80,6 +88,13 @@ func (r *Resolver) fetchPins(ctx context.Context, req Request, dir string, m *bu
 	note := req.Note
 	if note == nil {
 		note = func(string, map[string]string) {}
+	}
+	// The parallel downloads share the note sink, so their calls are serialised.
+	var noteMu sync.Mutex
+	safeNote := func(key string, args map[string]string) {
+		noteMu.Lock()
+		defer noteMu.Unlock()
+		note(key, args)
 	}
 	cacheRoot := r.CacheDir
 	if cacheRoot == "" {
@@ -116,7 +131,7 @@ func (r *Resolver) fetchPins(ctx context.Context, req Request, dir string, m *bu
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			j.err = downloadPin(ctx, base, rules, j)
+			j.err = downloadPin(ctx, base, rules, j, safeNote)
 		}(j)
 	}
 	wg.Wait()
@@ -158,13 +173,14 @@ func pinJobs(rules packageRules, dir string, m *bundle.Manifest) ([]*pinJob, err
 	sort.Strings(names)
 	for _, name := range names {
 		pin := m.Packages[name]
-		jobs = append(jobs, &pinJob{name: name, file: pin.File, sha: pin.SHA256, url: pin.URL, hosts: rules.debHosts})
+		urls := append([]string{pin.URL}, pin.FallbackURLs...)
+		jobs = append(jobs, &pinJob{name: name, file: pin.File, sha: pin.SHA256, urls: urls, hosts: rules.debHosts})
 	}
 	for _, w := range m.Wheels {
 		if validFileName(w.File) && isFile(filepath.Join(dir, "wheels", w.File)) {
 			continue
 		}
-		jobs = append(jobs, &pinJob{wheel: true, name: w.File, file: w.File, sha: w.SHA256, url: w.URL, hosts: rules.wheelHosts})
+		jobs = append(jobs, &pinJob{wheel: true, name: w.File, file: w.File, sha: w.SHA256, urls: []string{w.URL}, hosts: rules.wheelHosts})
 	}
 	for _, j := range jobs {
 		if !validFileName(j.file) {
@@ -175,11 +191,13 @@ func pinJobs(rules packageRules, dir string, m *bundle.Manifest) ([]*pinJob, err
 			return nil, &Error{Code: CodePackageDownloadInvalid, Detail: j.file}
 		}
 		j.sha = sha
-		u, err := checkPinURL(rules, j.url, j.hosts)
-		if err != nil {
-			return nil, err
+		for _, raw := range j.urls {
+			u, err := checkPinURL(rules, raw, j.hosts)
+			if err != nil {
+				return nil, err
+			}
+			j.sources = append(j.sources, pinSource{url: raw, origin: strings.ToLower(u.Hostname())})
 		}
-		j.origin = strings.ToLower(u.Hostname())
 	}
 	return jobs, nil
 }
@@ -233,19 +251,38 @@ func hostAllowed(allowed []string, host string) bool {
 }
 
 // downloadPin fetches one file into its cache path and checks its SHA-256.
-// A mismatch removes the file and is a PACKAGE_DOWNLOAD_INVALID error.
-func downloadPin(ctx context.Context, base *http.Client, rules packageRules, j *pinJob) error {
-	client := *base
-	client.CheckRedirect = redirectPolicy(rules, j.hosts, j.origin)
-	sum, err := fetchTo(ctx, &client, j.url, j.path, maxPinBytes)
-	if err != nil {
-		return err
+// The sources are tried in order. Only a transfer failure moves on to the
+// next source, and each attempt gets the redirect policy of its own host. A
+// wrong checksum or a refused redirect stops at once. A mismatch removes the
+// file and is a PACKAGE_DOWNLOAD_INVALID error. When every source fails to
+// transfer, the last transfer error is returned.
+func downloadPin(ctx context.Context, base *http.Client, rules packageRules, j *pinJob, note func(string, map[string]string)) error {
+	var transfer error
+	for i, src := range j.sources {
+		if i > 0 {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			note("package.log.download_fallback", map[string]string{"name": j.name})
+		}
+		client := *base
+		client.CheckRedirect = redirectPolicy(rules, j.hosts, src.origin)
+		sum, err := fetchTo(ctx, &client, src.url, j.path, maxPinBytes)
+		var failed *errTransfer
+		if errors.As(err, &failed) {
+			transfer = err
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if sum != j.sha {
+			os.Remove(j.path)
+			return &Error{Code: CodePackageDownloadInvalid, Detail: j.file}
+		}
+		return nil
 	}
-	if sum != j.sha {
-		os.Remove(j.path)
-		return &Error{Code: CodePackageDownloadInvalid, Detail: j.file}
-	}
-	return nil
+	return transfer
 }
 
 func (r *Resolver) pinHTTPClient() *http.Client {

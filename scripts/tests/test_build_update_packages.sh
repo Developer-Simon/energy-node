@@ -102,6 +102,7 @@ check(d["armv6"]["tailscale"] == {
     "version": "1.62.0",
     "file": "tailscale_1.62.0_armhf.deb",
     "url": "https://github.com/Developer-Simon/energy-node/releases/download/pinned-packages/tailscale_1.62.0_armhf.deb",
+    "fallback_urls": ["https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.62.0_armhf.deb"],
     "sha256": "b8db12b68f17f707adb4ffe035abb3c6a7347b5bea93894f4c787d3bb1d95125",
     "update": "installer",
 }, "armv6 tailscale")
@@ -119,6 +120,7 @@ for arch, sha_ts, sha_caddy in (("arm64", "1" * 64, sha_arm64), ("amd64", "2" * 
     check(t["url"] == ts_base + f"pool/tailscale_9.9.9_{arch}.deb", arch + " tailscale url")
     check(t["sha256"] == sha_ts, arch + " tailscale sha")
     check(t["update"] == "apt", arch + " tailscale update")
+    check("fallback_urls" not in t, arch + " tailscale hat keine fallback_urls")
     c = d[arch]["caddy"]
     check(c["version"] == "9.9.9", arch + " caddy version")
     check(c["file"] == f"caddy_9.9.9_linux_{arch}.deb", arch + " caddy file")
@@ -126,6 +128,10 @@ for arch, sha_ts, sha_caddy in (("arm64", "1" * 64, sha_arm64), ("amd64", "2" * 
     check(c["sha256"] == sha_caddy, arch + " caddy sha256 (der geladenen Datei)")
     check(c["update"] == "apt", arch + " caddy update")
 PY
+
+# --- Ohne --write nach dem Schreiben: keine Aenderungen mehr -----------------
+out="$(run 2>&1)" || fail "Lauf ohne --write nach --write schlug fehl" "$out"
+grep -q 'Keine Aenderungen\.' <<<"$out" || fail "Trockenlauf meldet Aenderungen nach --write" "$out"
 
 # --- Fehlende Zeile in checksums.txt: Exit 1, Datei unveraendert -------------
 seed

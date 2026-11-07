@@ -4,6 +4,9 @@
       "version": "1.62.0",
       "file": "tailscale_1.62.0_armhf.deb",
       "url": "https://github.com/Developer-Simon/energy-node/releases/download/pinned-packages/tailscale_1.62.0_armhf.deb",
+      "fallback_urls": [
+        "https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.62.0_armhf.deb"
+      ],
       "sha256": "b8db12b68f17f707adb4ffe035abb3c6a7347b5bea93894f4c787d3bb1d95125",
       "update": "installer"
     },
