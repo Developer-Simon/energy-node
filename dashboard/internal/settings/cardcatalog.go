@@ -74,9 +74,10 @@ var cardVariants = map[string]CardType{
 	// 30rem stehen "jetzt" und die beiden Fensterraender uebereinander -
 	// darum ist ihr Minimum 2 und nicht das der Saeule.
 	"battery_status:trajectory": {MinSpan: 2, MinWidth: "30rem", MinHeight: "15rem", FillsHeight: false, DefaultSpan: "2"},
-	// Mit Balkendiagramm: unter den Kennzahlen stehen 180 px Diagramm, die
-	// Tagesbalken brauchen etwas mehr Breite als die Zahlen allein.
-	"energy_stats:chart": {MinSpan: 1, MinWidth: "18rem", MinHeight: "26rem", FillsHeight: false, DefaultSpan: "1"},
+	// Mit Balkendiagramm: unter den Kennzahlen stehen mindestens 180 px
+	// Diagramm, das jede zusaetzliche Hoehe aufnimmt. Die Tagesbalken brauchen
+	// etwas mehr Breite als die Zahlen allein.
+	"energy_stats:chart": {MinSpan: 1, MinWidth: "18rem", MinHeight: "26rem", FillsHeight: true, DefaultSpan: "1"},
 }
 
 // cardVariantKey bildet ein Item auf seinen Katalogschluessel ab. Das

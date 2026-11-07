@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.5-pre.1 (2026-11-06)
+## v0.11.6-pre.1 (2026-11-06)
 
 ### Features
 
@@ -28,6 +28,7 @@
 
 ### Fixes
 
+- **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
 - **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
 - **energy:** tighten the chain editor after review (b5302ef)

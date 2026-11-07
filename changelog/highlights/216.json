@@ -1,0 +1,10 @@
+{
+  "de": {
+    "*": "Das Balkendiagramm der Statistik-Kachel wächst jetzt mit der Kachelhöhe."
+  },
+  "tour": {
+    "*": {
+      "exempt": "Only the chart height of the statistics card changed, there is no new feature to show."
+    }
+  }
+}

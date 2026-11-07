@@ -9,7 +9,6 @@
   const CACHE_MS = 60 * 1000;
   const CARD_KPIS = ['consumption', 'pv', 'grid_import', 'grid_export', 'autarky'];
   const STORAGE_PREFIX = 'energy-stats-period:';
-  const CHART_HEIGHT = 180;
   // Zeitraum -> {at, promise, revision}. revision ist undefined, solange die
   // Antwort aussteht.
   const cache = new Map();
@@ -82,6 +81,8 @@
     error: '',
     data: null,
     revision: undefined,
+    sizeObserver: null,
+    drawnSize: '',
 
     init() {
       const host = this.$root && this.$root.closest('[data-layout-item-id]');
@@ -98,6 +99,7 @@
       this.period = periodByItem.get(this.itemId) || this.preset || storedPeriod(this.itemId) || 'day';
       if (this.showChart) this.themeOff = window.DashboardTheme.onChange(() => this.renderChart());
       cards.add(this);
+      this.watchSize();
       return this.load();
     },
 
@@ -106,6 +108,24 @@
       if (this.chart) this.chart.destroy();
       this.chart = null;
       if (this.themeOff) this.themeOff();
+      if (this.sizeObserver) this.sizeObserver.disconnect();
+      this.sizeObserver = null;
+    },
+
+    // Die Hoehe kommt aus der Rasterzeile und aendert sich, sobald eine
+    // Nachbarkachel ihre Daten hat. ApexCharts verwirft eine Aenderung, die in
+    // sein Zeichnen faellt, darum beobachtet die Kachel den Host selbst.
+    watchSize() {
+      const host = this.$refs && this.$refs.chart && this.$refs.chart.parentElement;
+      if (this.sizeObserver || !this.showChart || !host || !window.ResizeObserver) return;
+      this.sizeObserver = new window.ResizeObserver(() => {
+        if (this.chart && this.hostSize(host) !== this.drawnSize) this.renderChart();
+      });
+      this.sizeObserver.observe(host);
+    },
+
+    hostSize(host) {
+      return `${host.clientWidth}x${host.clientHeight}`;
     },
 
     async load() {
@@ -120,6 +140,10 @@
         this.kpis = model.kpis(data.total, this.kpiIds);
         this.coverage = model.coverageText(data.total && data.total.hours);
         this.coverageParts = model.coverageParts(data.total && data.total.hours);
+        // Das Diagramm misst die Hoehe, die Kennzahlen und Pills uebrig lassen.
+        // Beide stehen erst nach Alpines naechstem Durchlauf im DOM.
+        await this.$nextTick();
+        if (period !== this.period) return;
         this.renderChart();
       } catch (error) {
         this.error = error.message;
@@ -130,7 +154,12 @@
       const el = this.$refs && this.$refs.chart;
       if (!this.showChart || !this.data || !el || !window.ApexCharts) return;
       if (this.chart) this.chart.destroy();
-      const options = window.EnergyStatsModel.chartOptions(this.data, el.clientWidth || 0, {height: CHART_HEIGHT, legend: false});
+      const options = window.EnergyStatsModel.chartOptions(this.data, el.clientWidth || 0, {height: '100%', legend: false});
+      // Sonst waere das Element 15 px hoeher als sein Host.
+      options.chart.parentHeightOffset = 0;
+      options.chart.redrawOnParentResize = false;
+      options.chart.redrawOnWindowResize = false;
+      this.drawnSize = this.hostSize(el.parentElement);
       this.chart = new window.ApexCharts(el, options);
       this.chart.render();
     },

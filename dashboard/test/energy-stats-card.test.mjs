@@ -40,9 +40,17 @@ function load({ storage, dataset = {}, apex = false } = {}) {
   const make = (id = 'card') => {
     const card = factory();
     card.$root = dom.window.document.getElementById(id);
+    card.$nextTick = async () => {};
     return card;
   };
   return {dom, factory, make, calls, server, charts};
+}
+
+function plotInHost(dom) {
+  const host = dom.window.document.createElement('div');
+  const plot = dom.window.document.createElement('div');
+  host.appendChild(plot);
+  return plot;
 }
 
 test('Kachel zeigt Kennzahlen und Datenlage fuer heute', async () => {
@@ -223,10 +231,11 @@ test('die Kachel zeigt die gewaehlten Kennzahlen in ihrer Reihenfolge', async ()
 test('mit Diagramm zeichnet die Kachel kompakt und ohne Legende', async () => {
   const {dom, make, charts} = load({ dataset: {statsChart: 'on'}, apex: true });
   const card = make();
-  card.$refs = {chart: dom.window.document.createElement('div')};
+  card.$refs = {chart: plotInHost(dom)};
   await card.init();
   assert.equal(charts.length, 1);
-  assert.equal(charts[0].options.chart.height, 180);
+  assert.equal(charts[0].options.chart.height, '100%');
+  assert.equal(charts[0].options.chart.parentHeightOffset, 0);
   assert.equal(charts[0].options.legend.show, false);
   await card.select('week');
   assert.equal(charts.length, 2);
@@ -234,6 +243,48 @@ test('mit Diagramm zeichnet die Kachel kompakt und ohne Legende', async () => {
   card.destroy();
   assert.equal(charts[1].destroyed, true);
   dom.window.close();
+});
+
+test('das Diagramm zeichnet neu, wenn sich die Hoehe seines Hosts aendert', async () => {
+  const {dom, make, charts} = load({ dataset: {statsChart: 'on'}, apex: true });
+  let observed = null;
+  let fire = null;
+  let disconnected = false;
+  dom.window.ResizeObserver = class {
+    constructor(callback) { fire = callback; }
+    observe(element) { observed = element; }
+    disconnect() { disconnected = true; }
+  };
+  const card = make();
+  const plot = plotInHost(dom);
+  let height = 180;
+  Object.defineProperty(plot.parentElement, 'clientHeight', {get: () => height});
+  card.$refs = {chart: plot};
+  await card.init();
+  assert.equal(observed, plot.parentElement);
+  assert.equal(charts.length, 1);
+  assert.equal(charts[0].options.chart.redrawOnParentResize, false);
+  fire();
+  assert.equal(charts.length, 1, 'gleiche Groesse zeichnet nicht neu');
+  height = 420;
+  fire();
+  assert.equal(charts.length, 2);
+  assert.equal(charts[0].destroyed, true);
+  card.destroy();
+  assert.equal(disconnected, true);
+  dom.window.close();
+});
+
+// ApexCharts rechnet Prozent gegen das Elternelement seines Elements und
+// setzt darauf parentHeightOffset als Mindesthoehe. Nur mit eigenem Host
+// bezieht sich 100% auf die freie Hoehe statt auf die ganze Kachel.
+test('das Diagramm fuellt die freie Hoehe der Kachel', () => {
+  const webui = path.join(here, '..', 'internal', 'webui');
+  const template = fs.readFileSync(path.join(webui, 'templates', 'overview.html'), 'utf8');
+  assert.match(template, /<div class="energy-stats-chart" x-show="showChart"><div class="energy-stats-chart-plot" x-ref="chart"><\/div><\/div>/);
+  const css = fs.readFileSync(path.join(webui, 'static', 'css', 'base.css'), 'utf8');
+  assert.match(css, /\.energy-stats-chart \{[^}]*flex: 1 1 180px;[^}]*min-height: 180px;/);
+  assert.match(css, /\.energy-stats-chart-plot \{[^}]*position: absolute;[^}]*inset: 0;/);
 });
 
 test('ohne Diagramm entsteht kein Chart', async () => {
