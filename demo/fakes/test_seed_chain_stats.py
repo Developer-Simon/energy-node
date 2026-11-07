@@ -137,7 +137,15 @@ def test_seed_writes_learned_table_for_every_segment_direction(tmp_path):
     assert run_seed(data).returncode == 0
     pairs = learned_pairs(data)
     plug, inverter, battery = "speicher_plug_power", "speicher_umrichter_power", "speicher_akku_power"
-    assert set(pairs) == {(plug, inverter), (inverter, plug), (inverter, battery), (battery, inverter)}
+    workshop_plug, workshop = "plug_werkstatt_power", "werkstatt_power"
+    # The storage chain learns both directions, the fixed chain only its own.
+    assert set(pairs) == {
+        (plug, inverter),
+        (inverter, plug),
+        (inverter, battery),
+        (battery, inverter),
+        (workshop_plug, workshop),
+    }
     for entry in pairs.values():
         assert entry["first_seen"] == "2026-10-24T12:00:00Z"
         assert entry["scale_source"] == 1 and entry["scale_target"] == 1
@@ -172,3 +180,27 @@ def test_existing_learned_table_is_untouched(tmp_path):
     existing.write_bytes(keep)
     assert run_seed(data).returncode == 0
     assert existing.read_bytes() == keep
+
+
+def test_fixed_chain_flows_one_way_in_the_hours(tmp_path):
+    data = make_data_dir(tmp_path)
+    assert run_seed(data).returncode == 0
+    workshop_plug, workshop = "plug_werkstatt_power", "werkstatt_power"
+    seen = {}
+    for name in ("2026-10.json", "2026-11.json"):
+        month = json.loads((chain_dir(data) / name).read_text(encoding="utf-8"))
+        for entry in month["pairs"]:
+            seen.setdefault((entry["source"], entry["target"]), set()).update(entry["hours"])
+    assert (workshop_plug, workshop) in seen
+    assert (workshop, workshop_plug) not in seen
+    # Consumer hours run in the day and in the evening, not only at night.
+    assert str(5 * 24 + 12) in seen[(workshop_plug, workshop)]
+    assert str(5 * 24 + 20) in seen[(workshop_plug, workshop)]
+
+
+def test_fixed_chain_has_standby_at_its_first_point(tmp_path):
+    data = make_data_dir(tmp_path)
+    assert run_seed(data).returncode == 0
+    month = json.loads((chain_dir(data) / "2026-11.json").read_text(encoding="utf-8"))
+    standby = {e["entity"]: e["hours"] for e in month["standby"]}
+    assert str(5 * 24 + 2) in standby["plug_werkstatt_power"]

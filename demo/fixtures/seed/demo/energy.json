@@ -22,7 +22,7 @@
     "wallbox_power": {
       "role": "wallbox"
     },
-    "werkstatt_power": {
+    "plug_werkstatt_power": {
       "role": "custom:werkstatt"
     },
     "waermepumpe_power": {
@@ -79,6 +79,15 @@
       ],
       "counting": "speicher_plug_power",
       "direction": "auto"
+    },
+    "werkstatt": {
+      "label": "Werkstatt",
+      "points": [
+        "plug_werkstatt_power",
+        "werkstatt_power"
+      ],
+      "counting": "plug_werkstatt_power",
+      "direction": "fixed_down"
     }
   }
 }

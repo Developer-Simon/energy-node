@@ -73,6 +73,8 @@ values are seeded for 14 days, so the diagnoses work from the first start. A
 finding comes from a point that behaves differently than the learned loss
 expects. The demo holds a finding for 30 seconds, so it shows quickly.
 
+The second demo chain *Werkstatt* runs a socket and the consumer behind it, and it flows in one direction only, so its efficiency curve has a single series.
+
 1. Start the demo with `demo/demo.sh` and open the console.
 2. In the *MQTT-Broker* tab, switch the *Simulation* off. Otherwise the simulation
    overwrites the plug value again on its next tick.

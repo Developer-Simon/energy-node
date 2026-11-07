@@ -13,7 +13,8 @@ The learned loss of every segment and direction goes to
 <data_dir>/energystats/chains/learned.json in the format of the Go chainwatch
 table (dashboard/internal/chainwatch/table.go, tableFile). It holds classes 1
 to 12 with 1200 samples each and a curve that peaks in the middle. first_seen
-is 14 days back. An existing file is left untouched.
+is 14 days back. A chain with direction fixed_down only flows one way, so it
+learns its segments in the flow direction only. An existing file is left untouched.
 """
 
 import json
@@ -32,6 +33,7 @@ LEARNED_FILE = "learned.json"
 LEARNED_CLASSES = range(1, 13)
 LEARNED_SAMPLES = 1200
 LEARNED_CLASS_WIDTH_W = 50
+FIXED_DOWN = "fixed_down"
 
 
 def parse_now(text):
@@ -150,7 +152,9 @@ def build_hours(chains, end):
                 continue
             if len(points) < 2:
                 continue
-            for pair, value in chain_pairs(points, mode == "charge", power, rng).items():
+            # A fixed chain flows from its first to its last point in every hour.
+            forward = mode == "charge" or chains[chain_id].get("direction") == FIXED_DOWN
+            for pair, value in chain_pairs(points, forward, power, rng).items():
                 cells = month["pairs"].setdefault(pair, {})
                 cells[index] = value
         hour += timedelta(hours=1)
@@ -174,10 +178,14 @@ def learned_table(chains, end):
     are rounded to 3 decimals as in the Go table.
     """
     forward = set()
+    reverse = set()
     for chain_id in sorted(chains):
         points = chains[chain_id].get("points") or []
-        forward.update(zip(points, points[1:]))
-    both = set(forward) | {(t, s) for s, t in forward}
+        segments = set(zip(points, points[1:]))
+        forward.update(segments)
+        if chains[chain_id].get("direction") != FIXED_DOWN:
+            reverse.update((t, s) for s, t in segments)
+    both = forward | reverse
     first_seen = (end - timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     entries = []
     for source, target in sorted(both):

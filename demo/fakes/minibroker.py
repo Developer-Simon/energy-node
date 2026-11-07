@@ -109,12 +109,17 @@ SIMULATED_TOPICS = {
     "plug/entfeuchter/status": (220, 60, 25, 1.7),
     # Anfang der Messkette der Demo, die Punkte dahinter folgen CHAIN_TOPICS.
     "plug/speicher/status": (320, 120, 35, 0.8),
+    # Steckdose der Werkstatt: der Verbraucher dahinter ist der zweite Messpunkt
+    # der Kette Werkstatt, siehe CHAIN_TOPICS.
+    "plug/werkstatt/status": (600, 400, 40, 2.4),
 }
 # Messkette Plug > Umrichter > Akku: jeder Punkt misst den vorigen abzueglich
 # eines Verlusts, damit die Kette plausible Wirkungsgrade zeigt.
 CHAIN_TOPICS = (
     ("umrichter/speicher/status", "plug/speicher/status", 0.96),
     ("speicher/akku/status", "umrichter/speicher/status", 0.93),
+    # Verbraucher hinter der Steckdose der Werkstatt, nur in Vorwaertsrichtung.
+    ("werkstatt/status", "plug/werkstatt/status", 0.95),
 )
 RELAY_SUM_TOPIC = "relais/keller/status"
 RELAY_SUM_SOURCES = ("waermepumpe/status", "plug/entfeuchter/status")
