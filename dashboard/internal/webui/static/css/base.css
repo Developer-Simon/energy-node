@@ -1938,7 +1938,7 @@ dialog#device-modal { container: device-modal / inline-size; }
   .device-modal-pair[data-tab="configDiag"] .device-modal-panelwrap { order: 102; }
   .device-modal-pair[data-tab="management"] .device-modal-panelwrap { order: 103; }
   .device-modal-underline { display: block; }
-  .device-modal-trigger { width: auto; border-radius: var(--radius-sm) var(--radius-sm) 0 0; border-bottom: 0; background: var(--panel); }
+  .device-modal-trigger { width: auto; align-self: stretch; align-items: flex-start; border-radius: var(--radius-sm) var(--radius-sm) 0 0; border-bottom: 0; background: var(--panel); }
   .device-modal-trigger.active { background: var(--panel-alt); }
   .device-modal-panel { border-top: 1px solid var(--border-soft); padding: 1rem .2rem 0; }
 }
