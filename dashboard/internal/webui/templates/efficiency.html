@@ -59,19 +59,67 @@
                 <div class="stats-kpi"><dt x-text="kpi.label"></dt><dd x-text="kpi.value"></dd></div>
               </template>
             </dl>
-            <section class="efficiency-card">
-              <h3 class="efficiency-card-title">{{t "efficiency.days.title"}}</h3>
-              <p class="efficiency-hint" x-show="noHistory">{{t "efficiency.no_history"}}</p>
-              <ol class="efficiency-days" x-show="!noHistory">
-                <template x-for="row in days" x-bind:key="row.local">
-                  <li class="efficiency-day">
-                    <span class="efficiency-day-label" x-text="row.label"></span>
-                    <span class="efficiency-day-bar"><span class="efficiency-day-fill" x-bind:style="`width: ${row.width}%`"></span></span>
-                    <span class="efficiency-day-loss" x-text="row.lossText"></span>
-                    <span class="efficiency-day-eff" x-text="row.efficiencyText"></span>
+            <div class="efficiency-two">
+              <section class="efficiency-card efficiency-curve-card" data-tour="efficiency-curve">
+                <h3 class="efficiency-card-title">{{t "efficiency.curve.title"}}</h3>
+                <p class="efficiency-hint" x-show="curveNote" x-text="curveNote"></p>
+                <div class="efficiency-curve" x-ref="curve"></div>
+              </section>
+              <section class="efficiency-card">
+                <h3 class="efficiency-card-title">{{t "efficiency.days.title"}}</h3>
+                <p class="efficiency-hint" x-show="noHistory">{{t "efficiency.no_history"}}</p>
+                <ol class="efficiency-days" x-show="!noHistory">
+                  <template x-for="row in days" x-bind:key="row.local">
+                    <li class="efficiency-day">
+                      <span class="efficiency-day-label" x-text="row.label"></span>
+                      <span class="efficiency-day-bar"><span class="efficiency-day-fill" x-bind:style="`width: ${row.width}%`"></span></span>
+                      <span class="efficiency-day-loss" x-text="row.lossText"></span>
+                      <span class="efficiency-day-eff" x-text="row.efficiencyText"></span>
+                    </li>
+                  </template>
+                </ol>
+              </section>
+            </div>
+            <section class="efficiency-card efficiency-diagnosis" data-tour="efficiency-diagnosis">
+              <h3 class="efficiency-card-title">{{t "efficiency.diagnosis.title"}}</h3>
+              <template x-if="diagnosis.quiet">
+                <p class="efficiency-hint efficiency-quiet" x-text="diagnosisLine"></p>
+              </template>
+              <template x-for="item in diagnosis.findings" x-bind:key="item.key">
+                <div class="efficiency-finding">
+                  <p class="efficiency-finding-text" x-text="item.text"></p>
+                  <p class="efficiency-hint" x-show="item.sinceText" x-text="item.sinceText"></p>
+                  <p class="efficiency-hint" x-show="item.suggestion" x-text="item.suggestion"></p>
+                  <template x-if="item.canApply">
+                    <button type="button" class="pill-button efficiency-apply" x-on:click="applySuggestion(item)">{{t "chains.suggestion.apply"}}</button>
+                  </template>
+                </div>
+              </template>
+              <ul class="efficiency-segments">
+                <template x-for="row in segments" x-bind:key="rowKey(row)">
+                  <li class="efficiency-segment">
+                    <div class="efficiency-segment-head">
+                      <span class="efficiency-segment-name" x-text="row.fromLabel + ' → ' + row.toLabel"></span>
+                      <span class="efficiency-segment-normal" x-text="row.normalText"></span>
+                      <span class="efficiency-hint" x-show="row.tolerance">{{t "efficiency.segment.manual"}}</span>
+                      <template x-if="canEdit">
+                        <button type="button" class="pill-button efficiency-edit" x-bind:aria-expanded="isEditing(row) ? 'true' : 'false'" x-on:click="openEdit(row)">{{t "efficiency.segment.adjust"}}</button>
+                      </template>
+                    </div>
+                    <template x-if="canEdit && isEditing(row)">
+                      <form class="efficiency-edit-form" x-on:submit.prevent="saveTolerance(row)">
+                        <label class="efficiency-field"><span>{{t "efficiency.segment.tolerance_w"}}</span><input class="efficiency-input" type="text" inputmode="decimal" x-model="draftW"></label>
+                        <label class="efficiency-field"><span>{{t "efficiency.segment.tolerance_pct"}}</span><input class="efficiency-input" type="text" inputmode="decimal" x-model="draftPct"></label>
+                        <div class="efficiency-edit-actions">
+                          <button type="submit" class="pill-button">{{t "common.save"}}</button>
+                          <button type="button" class="pill-button" x-on:click="clearTolerance(row)">{{t "efficiency.segment.auto"}}</button>
+                          <button type="button" class="pill-button" x-on:click="relearn(row)">{{t "efficiency.segment.relearn"}}</button>
+                        </div>
+                      </form>
+                    </template>
                   </li>
                 </template>
-              </ol>
+              </ul>
             </section>
           </div>
         </div>

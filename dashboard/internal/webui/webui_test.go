@@ -1736,7 +1736,7 @@ func renderIndexForTest(t *testing.T) string {
 	body := recorder.Body.String()
 
 	// Alle Panels hinzufuegen
-	for _, panel := range []string{"config", "energy", "history", "devices", "diagnostics", "settings"} {
+	for _, panel := range []string{"config", "energy", "efficiency", "history", "devices", "diagnostics", "settings"} {
 		panelRecorder := httptest.NewRecorder()
 		handler.ServeHTTP(panelRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel="+panel, nil))
 		if panelRecorder.Code == 200 {
@@ -1750,13 +1750,13 @@ func TestApexChartsIsOnlyLoadedLazily(t *testing.T) {
 	body := renderIndexForTest(t)
 	// Eager geladen waere die Bibliothek auf jedem Seitenaufruf dabei -
 	// auf einem Pi mit ARMv6 ist das genau die Art Ballast, die die
-	// Invariante in AGENTS.md ausschliesst. Erlaubt sind genau zwei
-	// lazy Listen: Verlauf und Statistik, jeweils als erster Eintrag.
-	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 2 {
-		t.Fatalf("apexcharts.min.js must appear exactly twice, once in the history and once in the stats panel's lazy script list")
+	// Invariante in AGENTS.md ausschliesst. Erlaubt sind genau drei
+	// lazy Listen: Verlauf, Statistik und Effizienz, jeweils als erster Eintrag.
+	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 3 {
+		t.Fatalf("apexcharts.min.js must appear exactly three times, once each in the history, stats and efficiency lazy script list")
 	}
-	if strings.Count(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) != 2 {
-		t.Fatal("apexcharts.min.js must be the first lazy script of the history and the stats panel")
+	if strings.Count(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) != 3 {
+		t.Fatal("apexcharts.min.js must be the first lazy script of the history, stats and efficiency panels")
 	}
 	if !strings.Contains(body, `<script src="/static/js-deps/apexcharts.min.js"`) {
 		return // korrekt: es darf kein eager <script>-Tag geben

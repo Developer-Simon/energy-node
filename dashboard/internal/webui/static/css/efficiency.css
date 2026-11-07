@@ -42,9 +42,28 @@
 .efficiency-day-loss { text-align: right; color: var(--text-strong); }
 .efficiency-day-eff { text-align: right; color: var(--text-muted); }
 
+.efficiency-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; align-items: start; min-width: 0; }
+.efficiency-curve { min-width: 0; min-height: 260px; }
+.efficiency-curve-card, .efficiency-two > .efficiency-card { min-width: 0; }
+
+.efficiency-diagnosis { display: grid; gap: .6rem; }
+.efficiency-quiet { color: var(--ok); }
+.efficiency-finding { display: grid; gap: .25rem; justify-items: start; padding: .6rem .7rem; border: 1px solid var(--border-soft); border-radius: 10px; }
+.efficiency-finding-text { margin: 0; font-size: .9rem; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-segments { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.efficiency-segment { display: grid; gap: .45rem; padding: .55rem .7rem; border: 1px solid var(--border-soft); border-radius: 10px; min-width: 0; }
+.efficiency-segment-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .8rem; min-width: 0; }
+.efficiency-segment-name { font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-segment-normal { font-size: .86rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.efficiency-edit-form { display: grid; gap: .5rem; min-width: 0; }
+.efficiency-field { display: grid; gap: .25rem; min-width: 0; font-size: .8rem; color: var(--text-muted); }
+.efficiency-input { box-sizing: border-box; width: 100%; min-width: 0; padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text-strong); font: inherit; }
+.efficiency-edit-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+
 .efficiency-select-wrap { display: none; }
 
 @media (max-width: 720px) {
+  .efficiency-two { grid-template-columns: minmax(0, 1fr); }
   .efficiency-grid { grid-template-columns: minmax(0, 1fr); }
   .efficiency-list { display: none; }
   .efficiency-select-wrap { display: grid; gap: .3rem; }
