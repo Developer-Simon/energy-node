@@ -72,7 +72,7 @@ models every megabyte of RAM counts. Pick the image by model:
 | Pi 3, 3+ | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | Pi 4, 400 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | Pi 5, 500 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
-| x86 64-bit (Intel N100, N150, AMD GX-424CC) | Debian 13 netinst | `amd64` | ✓ |
+| x86 64-bit (AMD GX-424CC, Intel N100, N150) | Debian 13 netinst | `amd64` | ✓ |
 | x86 32-bit (Intel Quark X1000, Vortex86EX2) | not supported | none | ✗ |
 
 The 64-bit images do not run on ARMv6, so a Pi 1 or the first Zero always needs
