@@ -150,6 +150,10 @@ fi
 # Jeder Start: Seed, Installer-Zustand, Paket und Zertifikat sind idempotent,
 # Konfigurationen werden neu geprueft (Schemas immer erneuert).
 env_seed_data || exit 1
+# Messketten-Verlauf der letzten 14 Tage fuer den Reiter Effizienz. Vorhandene Monatsdateien bleiben.
+if [[ "$MODE" == demo ]]; then
+  python3 "$DEMO_DIR/lib/seed_chain_stats.py" "$WORK/data" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || exit 1
+fi
 env_installed_state || exit 1
 env_make_package || exit 1
 env_write_cert || exit 1
