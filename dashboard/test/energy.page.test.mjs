@@ -1483,3 +1483,17 @@ test('the energy template renders one tile per chain with a title toggle and the
   assert.ok(tile.includes('x-on:click="openEfficiency()"'), 'the link still opens the efficiency tab');
   assert.ok(tile.includes('x-for="detail in item.items"'), 'the details loop over the findings');
 });
+
+test('a collapsed finding tile has no vertical padding in its fold, the open tile gets it', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'manager.css'), 'utf8');
+  const rule = selector => {
+    const start = css.indexOf(`${selector} {`);
+    assert.ok(start >= 0, `${selector} exists`);
+    return css.slice(start, css.indexOf('}', start));
+  };
+  const closed = rule('.energy-chain-finding-inner');
+  assert.ok(/padding: 0 1rem 0 2\.5rem/.test(closed), closed);
+  assert.ok(!/padding-(top|bottom)/.test(closed), 'no vertical padding while closed');
+  const open = rule('.energy-chain-finding.is-open .energy-chain-finding-inner');
+  assert.ok(/padding-top: \.25rem/.test(open) && /padding-bottom: 1rem/.test(open), open);
+});

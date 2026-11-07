@@ -221,7 +221,8 @@ select.schema-control {
 .energy-chain-finding-link svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .energy-chain-finding-fold { display: grid; grid-template-rows: 0fr; overflow: hidden; opacity: 0; transition: grid-template-rows 200ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms cubic-bezier(0.23, 1, 0.32, 1); }
 .energy-chain-finding.is-open .energy-chain-finding-fold { grid-template-rows: 1fr; opacity: 1; }
-.energy-chain-finding-inner { display: grid; gap: .75rem; min-height: 0; overflow: hidden; padding: .25rem 1rem 1rem 2.5rem; font-size: .88rem; line-height: 1.45; color: var(--text); }
+.energy-chain-finding-inner { display: grid; gap: .75rem; min-height: 0; overflow: hidden; padding: 0 1rem 0 2.5rem; font-size: .88rem; line-height: 1.45; color: var(--text); transition: padding-block 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.energy-chain-finding.is-open .energy-chain-finding-inner { padding-top: .25rem; padding-bottom: 1rem; }
 .energy-chain-finding-item { min-width: 0; }
 .energy-chain-finding-item + .energy-chain-finding-item { padding-top: .75rem; border-top: 1px solid var(--border-soft); }
 .energy-chain-finding-item p { margin: 0; }
@@ -234,6 +235,7 @@ select.schema-control {
   .energy-chain-finding { animation-name: energy-chain-finding-fade; }
   .energy-chain-finding-fold { transition: opacity 150ms ease; }
   .energy-chain-finding-chevron { transition: none; }
+  .energy-chain-finding-inner { transition: none; }
 }
 
 /* Interpretation: content of the first accordion section (energy-acc). */
@@ -466,7 +468,8 @@ select.schema-control {
 .devicemap-chain-finding .energy-chain-finding-toggle { padding: .4rem .3rem .4rem .6rem; gap: .45rem; }
 .devicemap-chain-finding .energy-chain-finding-head { padding-right: .3rem; }
 .devicemap-chain-finding .energy-chain-finding-title { font-size: .85rem; }
-.devicemap-chain-finding .energy-chain-finding-inner { padding: .25rem .6rem .8rem 2.1rem; }
+.devicemap-chain-finding .energy-chain-finding-inner { padding: 0 .6rem 0 2.1rem; }
+.devicemap-chain-finding.is-open .energy-chain-finding-inner { padding-top: .25rem; padding-bottom: .8rem; }
 @media (max-width: 720px) {
   .devicemap-chain-finding .energy-chain-finding-inner { padding-left: 1.9rem; }
 }
