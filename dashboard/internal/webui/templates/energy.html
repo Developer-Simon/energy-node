@@ -32,18 +32,24 @@
         <button type="button" class="pill-button" x-on:click="focusRows(roleNeeded)">{{t "devicemap.panel.show_in_table"}}</button>
       </div>
     </div>
+  </div>
+  <div class="energy-chain-findings">
     <template x-for="item in findingNotices" x-bind:key="item.key">
-      <div class="energy-notice energy-chain-finding" role="status">
-        <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
-        <div class="energy-notice-body">
-          <p x-text="item.text"></p>
-          <p class="energy-chain-finding-suggestion" x-show="item.suggestion" x-text="item.suggestion"></p>
-          <div class="energy-chain-finding-actions">
-            <template x-if="item.canApply"><button type="button" class="pill-button" x-on:click="applyFinding(item)">{{t "chains.suggestion.apply"}}</button></template>
-            <template x-if="hasEfficiencyTab"><button type="button" class="pill-button" x-on:click="openEfficiency()">{{t "chains.open_efficiency"}}</button></template>
+      <article class="energy-chain-finding" x-bind:class="{ 'is-open': isFindingOpen(item.key) }">
+        <div class="energy-chain-finding-head">
+          <svg class="energy-chain-finding-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
+          <span class="energy-chain-finding-title" x-text="item.title"></span>
+          <template x-if="hasEfficiencyTab"><button type="button" class="energy-chain-finding-link" aria-label="{{t "chains.open_efficiency"}}" title="{{t "chains.open_efficiency"}}" x-on:click="openEfficiency()"><svg aria-hidden="true"><use href="#ico-chain"></use></svg></button></template>
+          <button type="button" class="energy-chain-finding-toggle" aria-label="{{t "energy.chains.finding_details"}}" x-bind:aria-expanded="isFindingOpen(item.key) ? 'true' : 'false'" x-bind:aria-controls="item.domId" x-on:click="toggleFinding(item.key)"><svg class="energy-chain-finding-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+        </div>
+        <div class="energy-chain-finding-fold" x-bind:id="item.domId" x-bind:inert="!isFindingOpen(item.key)">
+          <div class="energy-chain-finding-inner">
+            <p class="energy-chain-finding-text" x-text="item.text"></p>
+            <p class="energy-chain-finding-suggestion" x-show="item.suggestion" x-text="item.suggestion"></p>
+            <template x-if="item.canApply"><div class="energy-chain-finding-actions"><button type="button" class="pill-button" x-on:click="applyFinding(item)">{{t "chains.suggestion.apply"}}</button></div></template>
           </div>
         </div>
-      </div>
+      </article>
     </template>
   </div>
 

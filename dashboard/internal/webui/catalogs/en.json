@@ -2093,6 +2093,7 @@
   "energy.chains.direction_label": "Direction of the measurement chain",
   "energy.chains.draft_applied": "Filled in as a draft. Only saving applies the change.",
   "energy.chains.empty": "No measurement chain yet.",
+  "energy.chains.finding_details": "Show details",
   "energy.chains.insert": "Insert measuring point here",
   "energy.chains.intro": "Several measurements of the same path, in flow direction. The first point counts at first, you can change that. Only the counting point goes into the balance, the others serve for comparison and as a substitute.",
   "energy.chains.map_conflict": "These values already belong to other measurement chains. Edit them on the energy page.",

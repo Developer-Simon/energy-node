@@ -1390,3 +1390,50 @@ test('the efficiency link exists only when the efficiency tab is on the page and
   component.openEfficiency();
   assert.deepEqual(plainJSON(seen), [{ panel: 'efficiency-panel' }]);
 });
+
+test('a finding tile title is the chain label and the short kind title', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  assert.equal(component.findingNotices[0].title, `Balkon · ${window.I18n.t('diagnostics.rule.chain_drift.title')}`);
+});
+
+test('finding details are closed by default and the toggle opens and closes them', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  const key = component.findingNotices[0].key;
+  assert.equal(component.isFindingOpen(key), false, 'closed by default');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), true, 'the toggle opens it');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), false, 'the toggle closes it again');
+});
+
+test('an open finding tile stays open after a live refresh with the same key', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  const key = component.findingNotices[0].key;
+  component.toggleFinding(key);
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [{ ...driftFinding }] } };
+  assert.equal(component.findingNotices[0].key, key);
+  assert.equal(component.isFindingOpen(key), true, 'the refresh keeps the open state');
+});
+
+test('the apply button of a finding tile needs edit rights and a suggestion', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  assert.equal(component.findingNotices[0].canApply, true);
+  component.canEdit = false;
+  assert.equal(component.findingNotices[0].canApply, false, 'without edit rights no apply button');
+});

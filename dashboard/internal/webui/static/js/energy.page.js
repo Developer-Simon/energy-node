@@ -102,6 +102,8 @@
     csrfToken: '',
     flash: {},
     flashGroup: '',
+    // Open chain finding tiles by finding key; a live refresh keeps the key.
+    expandedFindings: {},
     _setTimeout: (fn, ms) => setTimeout(fn, ms),
     _flashTimer: null,
     _groupTimer: null,
@@ -1187,13 +1189,27 @@
     // One notice per finding of the chain states, in the order of the server.
     // The suggestion can be taken over when the editor may write and the row exists.
     get findingNotices() {
-      return window.EnergyChains.allFindings(this.chainStates).map(({chain, finding}) => ({
-        key: `${chain.id || ''}|${finding.kind}|${finding.from || ''}|${finding.to || ''}`,
-        text: window.EnergyChains.findingText(chain, finding),
-        suggestion: window.EnergyChains.suggestionText(chain, finding),
-        canApply: this.canEdit && Boolean(finding.suggestion) && Boolean(this.assignments[finding.suggestion.entity_id]),
-        finding,
-      }));
+      return window.EnergyChains.allFindings(this.chainStates).map(({chain, finding}) => {
+        const key = `${chain.id || ''}|${finding.kind}|${finding.from || ''}|${finding.to || ''}`;
+        const label = chain.label || finding.chain_label || '';
+        return {
+          key,
+          domId: `energy-chain-finding-${key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
+          title: `${label} · ${t(`diagnostics.rule.chain_${finding.kind}.title`)}`,
+          text: window.EnergyChains.findingText(chain, finding),
+          suggestion: window.EnergyChains.suggestionText(chain, finding),
+          canApply: this.canEdit && Boolean(finding.suggestion) && Boolean(this.assignments[finding.suggestion.entity_id]),
+          finding,
+        };
+      });
+    },
+
+    isFindingOpen(key) {
+      return Boolean(this.expandedFindings[key]);
+    },
+
+    toggleFinding(key) {
+      this.expandedFindings = {...this.expandedFindings, [key]: !this.expandedFindings[key]};
     },
 
     // The efficiency link shows only when the tab is on the page (view_efficiency).
