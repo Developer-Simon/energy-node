@@ -178,9 +178,9 @@ current one on do not count.
       "id": "balkon",
       "label": "Balkon",
       "buckets": [
-        { "loss_kwh": 0.012, "standby_kwh": 0.003, "efficiency": 0.91, "has_data": true }
+        { "loss_kwh": 0.012, "standby_kwh": 0.003, "efficiency": 0.91, "source_kwh": 0.4, "has_data": true }
       ],
-      "total": { "loss_kwh": 0.25, "standby_kwh": 0.05, "efficiency": 0.8, "has_data": true }
+      "total": { "loss_kwh": 0.25, "standby_kwh": 0.05, "efficiency": 0.8, "source_kwh": 1.6, "has_data": true }
     }
   ]
 }
@@ -191,6 +191,9 @@ current one on do not count.
 - `standby_kwh` is the standby energy of the first point.
 - `efficiency` is the product of the efficiencies of the segments. It is `null`
   when a segment has less than 0.01 kWh of source energy or has no data.
+- `source_kwh` is the source energy entering the first segment of the chain,
+  both directions summed. It is `0` when `efficiency` is `null`. The statistics
+  weight the efficiencies of several chains by it.
 - `has_data` is `false` when no hour of the bucket holds data for the chain.
 - `revision` is the revision of the energy statistics, as in
   `/api/v1/energy/stats`.

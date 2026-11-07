@@ -174,10 +174,11 @@
     };
     ABOVE.forEach(role => add(role, 1));
     BELOW.forEach(role => add(role, -1));
-    // Verluste liegen unter null, gestapelt unter dem Verbrauch. Nur wenn
-    // withLosses eine Reihe mitgibt. i18n-keys: energy_stats.losses.series
+    // Verluste liegen unter null und kommen vor den Rollen, also auch in
+    // der Legende vorne. Nur wenn withLosses eine Reihe mitgibt.
+    // i18n-keys: energy_stats.losses.series
     if (Array.isArray(result.lossSeries)) {
-      series.push({
+      series.unshift({
         name: t('energy_stats.losses.series'), color: window.DashboardTheme.color('warn'), role: 'chain_loss', hatched: false,
         data: result.lossSeries.map(value => (value == null ? null : -round3(value))),
       });
@@ -221,42 +222,62 @@
     return copy;
   }
 
-  // i18n-keys: energy_stats.losses.kpi_loss, energy_stats.losses.kpi_efficiency
-  // Je Kette Verlust und Wirkungsgrad der Summe. Ohne Daten bleibt der Wert leer.
-  function lossKpis(chainStats) {
-    return chainList(chainStats).flatMap(chain => {
-      const total = chain.total || {};
-      const ok = Boolean(total.has_data);
-      return [
-        {id: `chain:${chain.id}:loss`, label: t('energy_stats.losses.kpi_loss', {chain: chain.label}), value: ok ? formatKWh(total.loss_kwh) : ''},
-        {
-          id: `chain:${chain.id}:efficiency`, label: t('energy_stats.losses.kpi_efficiency', {chain: chain.label}),
-          value: ok && total.efficiency != null ? window.EnergyModel.formatPercent(total.efficiency) : '',
-        },
-      ];
+  // Summe der Verluste und der Wirkungsgrad aller Ketten, je Zelle (ein
+  // Abschnitt oder die Gesamtsumme). Verlust: Summe der Zellen mit Daten,
+  // null ohne Daten. Wirkungsgrad: mit der Quellenergie gewichtet, null
+  // ohne Quellenergie.
+  function sumCells(cells) {
+    let loss = null;
+    let weighted = 0;
+    let source = 0;
+    cells.forEach(cell => {
+      if (cell.has_data) loss = (loss || 0) + cell.loss_kwh;
+      if (cell.efficiency != null) {
+        weighted += (cell.source_kwh || 0) * cell.efficiency;
+        source += cell.source_kwh || 0;
+      }
     });
+    return {loss, efficiency: source > 0 ? weighted / source : null};
   }
 
-  // Zeilen im Aufbau von tableRows, je Kette eine Verlust- und eine
-  // Wirkungsgradzeile. Die Wirkungsgradzeile hat keine kWh-Werte.
+  // i18n-keys: energy_stats.losses.kpi_loss_total, energy_stats.losses.kpi_efficiency_total
+  // Eine Verlust- und eine Wirkungsgradkachel fuer alle Ketten zusammen.
+  function lossKpis(chainStats) {
+    const chains = chainList(chainStats);
+    if (!chains.length) return [];
+    const total = sumCells(chains.map(chain => chain.total || {}));
+    return [
+      {id: 'chains:loss', label: t('energy_stats.losses.kpi_loss_total'), value: total.loss == null ? '' : formatKWh(total.loss)},
+      {
+        id: 'chains:efficiency', label: t('energy_stats.losses.kpi_efficiency_total'),
+        value: total.efficiency == null ? '' : window.EnergyModel.formatPercent(total.efficiency),
+      },
+    ];
+  }
+
+  // Zwei Zeilen im Aufbau von tableRows: Verluste und Wirkungsgrad aller
+  // Ketten je Abschnitt. Die Verlustzeile traegt ihre Zahlen in kwh, fuer die
+  // Rasterzelle auf schmalen Schirmen.
   function lossRows(chainStats) {
-    return chainList(chainStats).flatMap(chain => {
-      const total = chain.total || {};
-      const lossLabel = t('energy_stats.losses.kpi_loss', {chain: chain.label});
-      const efficiencyLabel = t('energy_stats.losses.kpi_efficiency', {chain: chain.label});
-      return [
-        {
-          role: `chain:${chain.id}:loss`, label: lossLabel, color: window.DashboardTheme.color('warn'), hatched: false,
-          values: chain.buckets.map(cell => (cell.has_data ? formatKWh(cell.loss_kwh) : '')),
-          total: total.has_data ? formatKWh(total.loss_kwh) : '',
-        },
-        {
-          role: `chain:${chain.id}:efficiency`, label: efficiencyLabel, color: window.DashboardTheme.color('text-muted'), hatched: false,
-          values: chain.buckets.map(cell => (cell.has_data && cell.efficiency != null ? window.EnergyModel.formatPercent(cell.efficiency) : '')),
-          total: total.has_data && total.efficiency != null ? window.EnergyModel.formatPercent(total.efficiency) : '',
-        },
-      ];
-    });
+    const chains = chainList(chainStats);
+    if (!chains.length) return [];
+    const count = chains[0].buckets.length;
+    const cells = Array.from({length: count}, (_, index) => sumCells(chains.map(chain => chain.buckets[index] || {})));
+    const total = sumCells(chains.map(chain => chain.total || {}));
+    const percent = value => (value == null ? '' : window.EnergyModel.formatPercent(value));
+    return [
+      {
+        role: 'chains:loss', label: t('energy_stats.losses.kpi_loss_total'), color: window.DashboardTheme.color('warn'), hatched: false,
+        values: cells.map(cell => (cell.loss == null ? '' : formatKWh(cell.loss))),
+        total: total.loss == null ? '' : formatKWh(total.loss),
+        kwh: cells.map(cell => cell.loss),
+      },
+      {
+        role: 'chains:efficiency', label: t('energy_stats.losses.kpi_efficiency_total'), color: window.DashboardTheme.color('text-muted'), hatched: false,
+        values: cells.map(cell => percent(cell.efficiency)),
+        total: percent(total.efficiency),
+      },
+    ];
   }
 
   // Wie HistoryChart.themeMode, ohne history-chart.js zu laden.

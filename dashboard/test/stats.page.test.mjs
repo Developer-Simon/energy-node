@@ -27,8 +27,8 @@ const chainsWithLoss = loss => ({
   period: 'day', at: '2026-10-12', revision: 1,
   chains: [{
     id: 'wp', label: 'Wärmepumpe',
-    buckets: [{loss_kwh: loss, standby_kwh: 0, efficiency: 0.8, has_data: true}, {loss_kwh: 0, standby_kwh: 0, efficiency: null, has_data: false}],
-    total: {loss_kwh: loss, standby_kwh: 0, efficiency: 0.8, has_data: true},
+    buckets: [{loss_kwh: loss, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true}, {loss_kwh: 0, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false}],
+    total: {loss_kwh: loss, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true},
   }],
 });
 const CHAINS = chainsWithLoss(0.2);
@@ -321,7 +321,7 @@ test('ohne has_chains gibt es keinen Verlustschalter und keine zweite Anfrage', 
   await panel.init();
   assert.equal(panel.hasChains, false);
   assert.equal(calls.some(isChainCall), false);
-  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chain:')), false);
+  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chains:')), false);
   dom.window.close();
 });
 
@@ -332,7 +332,7 @@ test('Verlustschalter ist standardmaessig aus: keine zweite Anfrage, Kennzahlen 
   assert.equal(panel.hasChains, true);
   assert.equal(panel.showLosses, false);
   assert.equal(calls.some(isChainCall), false);
-  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chain:')), false);
+  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chains:')), false);
   assert.equal(panel.rows.length, 5);
   dom.window.close();
 });
@@ -343,13 +343,16 @@ test('Schalter an ergaenzt Kennzahlen, Zeilen und Diagramm und merkt sich den Zu
   await panel.init();
   await panel.setShowLosses(true);
   assert.equal(calls.at(-1), '/api/v1/energy/stats/chains?period=day');
-  assert.equal(panel.kpis.find(kpi => kpi.id === 'chain:wp:loss').value, '0,20 kWh');
-  assert.equal(panel.kpis.find(kpi => kpi.id === 'chain:wp:efficiency').value, '80 %');
-  assert.deepEqual(JSON.parse(JSON.stringify(panel.rows.slice(5).map(row => row.role))), ['chain:wp:loss', 'chain:wp:efficiency']);
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:loss').value, '0,20 kWh');
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:efficiency').value, '80 %');
+  // Verluste vor den Rollen, Kennzahlen und Zeilen.
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.kpis.slice(0, 2).map(kpi => kpi.id))), ['chains:loss', 'chains:efficiency']);
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.rows.slice(0, 2).map(row => row.role))), ['chains:loss', 'chains:efficiency']);
+  assert.equal(panel.rows.length, 7);
   assert.equal(charts.at(-1).options.series.find(s => s.role === 'chain_loss').data[0], -0.2);
   assert.equal(dom.window.localStorage.getItem('stats.show_losses'), 'true');
   await panel.setShowLosses(false);
-  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chain:')), false);
+  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chains:')), false);
   assert.equal(panel.rows.length, 5);
   assert.equal(dom.window.localStorage.getItem('stats.show_losses'), 'false');
   dom.window.close();
@@ -362,7 +365,7 @@ test('gespeicherter Schalter laedt beim Start Statistik und dann die Verluste na
   await panel.init();
   assert.deepEqual(calls, ['/api/v1/energy/stats?period=day', '/api/v1/energy/stats/chains?period=day']);
   assert.equal(panel.showLosses, true);
-  assert.ok(panel.kpis.some(kpi => kpi.id === 'chain:wp:loss'));
+  assert.ok(panel.kpis.some(kpi => kpi.id === 'chains:loss'));
   dom.window.close();
 });
 
@@ -381,7 +384,7 @@ test('eine alte zweite Antwort nach dem Blaettern wird verworfen', async () => {
   release();
   await toggled;
   assert.equal(panel.at, '2026-10-11');
-  assert.equal(panel.kpis.find(kpi => kpi.id === 'chain:wp:loss').value, '0,50 kWh');
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:loss').value, '0,50 kWh');
   assert.equal(calls.filter(isChainCall).length, 2);
   dom.window.close();
 });
@@ -414,7 +417,7 @@ test('Antwort mit anderer Bucket-Anzahl zeichnet keine Verluste', async () => {
   await panel.init();
   await panel.setShowLosses(true);
   assert.equal(charts.at(-1).options.series.some(s => s.role === 'chain_loss'), false);
-  assert.equal(panel.rows.some(row => row.role.startsWith('chain:')), false);
+  assert.equal(panel.rows.some(row => row.role.startsWith('chains:')), false);
   dom.window.close();
 });
 
@@ -423,13 +426,37 @@ test('Verlustzeilen tragen die kompakte Zahl, Wirkungsgrad als Prozent', async (
   const panel = make();
   await panel.init();
   await panel.setShowLosses(true);
-  const loss = panel.rows.find(row => row.role === 'chain:wp:loss');
+  const loss = panel.rows.find(row => row.role === 'chains:loss');
   assert.equal(loss.values[0], '0,20 kWh');
   assert.equal(loss.compact[0], '0,2');
   assert.equal(loss.compact[1], '');
-  const efficiency = panel.rows.find(row => row.role === 'chain:wp:efficiency');
+  const efficiency = panel.rows.find(row => row.role === 'chains:efficiency');
   assert.equal(efficiency.values[0], '80 %');
   assert.equal(efficiency.compact[0], '80 %');
+  dom.window.close();
+});
+
+test('mehrere Ketten ergeben je eine Verlust- und eine Wirkungsgradzeile', async () => {
+  const two = {
+    period: 'day', at: '2026-10-12', revision: 1,
+    chains: [
+      {id: 'wp', label: 'Wärmepumpe', buckets: [{loss_kwh: 0.2, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true}, {loss_kwh: 0, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false}],
+        total: {loss_kwh: 0.2, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true}},
+      {id: 'ww', label: 'Warmwasser', buckets: [{loss_kwh: 0.1, standby_kwh: 0, efficiency: 0.5, source_kwh: 1, has_data: true}, {loss_kwh: 0, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false}],
+        total: {loss_kwh: 0.1, standby_kwh: 0, efficiency: 0.5, source_kwh: 1, has_data: true}},
+    ],
+  };
+  const {dom, make, charts} = load({'day|': WITH_CHAINS}, {chains: two});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  assert.equal(panel.kpis.filter(kpi => kpi.id.startsWith('chains:')).length, 2);
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:loss').value, '0,30 kWh');
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:efficiency').value, '65 %');
+  assert.equal(panel.rows.filter(row => row.role.startsWith('chains:')).length, 2);
+  assert.equal(panel.rows.find(row => row.role === 'chains:loss').values[0], '0,30 kWh');
+  assert.equal(charts.at(-1).options.series.filter(s => s.role === 'chain_loss').length, 1);
+  assert.equal(charts.at(-1).options.series[0].role, 'chain_loss');
   dom.window.close();
 });
 

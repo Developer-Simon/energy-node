@@ -117,7 +117,10 @@ func TestChainEfficiencyIsProductOfSegments(t *testing.T) {
 	// (0.9 + 0.4) / (1.0 + 0.5) * (0.81 / 0.9) = 0.78.
 	addChainHour(t, svc, "2026-11-02T11:00:00Z", map[ChainPair]PairEnergy{{"b", "a"}: pe(0.5, 0.4)}, nil)
 
-	wantPointer(t, "Efficiency", monthTotals(t, svc, "abc").Efficiency, 0.78)
+	got := monthTotals(t, svc, "abc")
+	wantPointer(t, "Efficiency", got.Efficiency, 0.78)
+	// Source of the first segment in both directions: 1.0 + 0.5.
+	wantFloat(t, "SourceKWh", got.SourceKWh, 1.5)
 }
 
 func TestChainEfficiencyEmptyWhenSegmentHasNoData(t *testing.T) {
@@ -129,6 +132,8 @@ func TestChainEfficiencyEmptyWhenSegmentHasNoData(t *testing.T) {
 	if got.Efficiency != nil {
 		t.Errorf("Efficiency = %v, erwartet nil ohne Daten von b->c", *got.Efficiency)
 	}
+	// Without an efficiency the source does not count for a combined one.
+	wantFloat(t, "SourceKWh ohne Efficiency", got.SourceKWh, 0)
 	wantFloat(t, "LossKWh", got.LossKWh, 0.1)
 
 	tiny := chainTestService(t, chainNow, ChainInfo{ID: "ab", Chain: energy.Chain{Label: "ab", Points: []string{"a", "b"}, Counting: "a"}})
