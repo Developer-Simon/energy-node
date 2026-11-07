@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Der Installer holt Caddy, Tailscale und die Python-Wheels jetzt selbst und prüft jede Datei gegen das signierte Manifest, die Releases werden dadurch kleiner."
+  }
+}

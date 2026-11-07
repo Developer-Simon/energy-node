@@ -1,10 +1,24 @@
 # Changelog
 
-## v0.3.1 (2026-11-06)
+## v0.3.2 (2026-11-07)
 
 ### Features
 
+- **bootstrap:** add helpers to install pinned Debian packages (be678a4)
+- **bootstrap:** install Tailscale from the pinned package (26e9d5b)
+- **bootstrap:** install Caddy from the pinned package (7ba8a8b)
+- **bootstrap:** fetch missing wheels on the node before installing (02b2a5c)
+- **installer:** download and verify pinned packages (07882a8)
+- **installer:** transfer pinned packages and wheels to the node (7b39f8e)
+- **installer:** ask when a pinned package is missing on the node (0716b8d)
+- **installer:** ask how to continue when a package could not be downloaded (7702bf1)
+- **installer:** fall back to the upstream pool when the package mirror fails (7aa921e)
+- **installer:** The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller. (#222)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
+
+### Fixes
+
+- **installer:** pass error arguments through the run-finished event (8d5dc7c)
 
 ### Chores
 
