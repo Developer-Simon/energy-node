@@ -42,7 +42,8 @@
                     x-text="assistant.query.trim() ? $t('automations.assistant.matches') : $t('automations.assistant.fits_devices')"></span>
               <div class="auto-assist-tiles">
                 <template x-for="template in assistantTemplates().fitting" x-bind:key="template.id">
-                  <button type="button" class="auto-assist-tile" x-on:click="startTemplate(template.id)">
+                  <button type="button" class="auto-assist-tile" x-on:click="startTemplate(template.id)"
+                          x-bind:data-tour="template.id === 'chain_watchdog' || template.id === 'chain_standby' ? 'auto-chain-template' : null">
                     <span class="auto-assist-tile-icon">
                       <svg class="automation-icon"><use x-bind:href="'#' + template.icon"></use></svg>
                     </span>

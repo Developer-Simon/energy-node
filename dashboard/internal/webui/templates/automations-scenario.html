@@ -323,7 +323,7 @@
                     <template x-if="efficiencyVisible(scenario)">
                       <div class="auto-field auto-chain-efficiency">
                         <div class="auto-flow-row">
-                          <label class="settings-toggle">
+                          <label class="settings-toggle" data-tour="auto-chain-efficiency">
                             <input type="checkbox" x-bind:checked="Boolean(scenario.while.regulator.efficiency)" x-on:change="toggleEfficiency(scenario, $event.target.checked)"
                                    x-bind:aria-label="$t('automations.scenario.edit.regulator.efficiency_label')">
                             <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>

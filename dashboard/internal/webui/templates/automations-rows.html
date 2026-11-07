@@ -610,7 +610,7 @@
 {{end}}
 
 {{define "automations-condition-tiles"}}
-                    <button class="icon-button labeled auto-btn-add" type="button" x-show="!showCondTiles" x-on:click="showCondTiles = true"
+                    <button class="icon-button labeled auto-btn-add" type="button" data-tour="auto-add-condition" x-show="!showCondTiles" x-on:click="showCondTiles = true"
                             x-bind:title="$t('automations.rule.add_condition')" x-bind:aria-label="$t('automations.rule.add_condition')">
                       <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.rule.add_condition"}}</span>
                     </button>
