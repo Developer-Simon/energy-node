@@ -18,10 +18,12 @@ func (e *Error) Error() string {
 }
 
 const (
-	CodePackageFileInvalid = "PACKAGE_FILE_INVALID"
-	CodeRepoNotACheckout   = "REPO_NOT_A_CHECKOUT"
-	CodeBuildToolsMissing  = "BUILD_TOOLS_MISSING"
-	CodeBuildFailed        = "BUILD_FAILED"
-	CodeGitHubUnreachable  = "GITHUB_UNREACHABLE"
-	CodeGitHubNoRelease    = "GITHUB_NO_RELEASE"
+	CodePackageDownloadInvalid = "PACKAGE_DOWNLOAD_INVALID"
+	CodePackageFileInvalid     = "PACKAGE_FILE_INVALID"
+	CodePackageURLRejected     = "PACKAGE_URL_REJECTED"
+	CodeRepoNotACheckout       = "REPO_NOT_A_CHECKOUT"
+	CodeBuildToolsMissing      = "BUILD_TOOLS_MISSING"
+	CodeBuildFailed            = "BUILD_FAILED"
+	CodeGitHubUnreachable      = "GITHUB_UNREACHABLE"
+	CodeGitHubNoRelease        = "GITHUB_NO_RELEASE"
 )

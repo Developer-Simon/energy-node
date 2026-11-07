@@ -37,15 +37,27 @@ type Resolved struct {
 	Manifest    *bundle.Manifest
 	Signed      bool
 	Cleanup     func()
+	// Packages and Wheels are the pinned files that are in the cache with
+	// the right checksum. Missing* names the ones that could not be
+	// downloaded; the install step fetches those itself.
+	Packages        []LocalPackage
+	MissingPackages []string
+	Wheels          []LocalPackage
+	MissingWheels   []string
 }
 
 // Resolver turns a Request into a Resolved bundle.
 type Resolver struct {
 	BundledDir string
 	WorkDir    string
-	GitHub     *GitHub
-	PublicKey  ed25519.PublicKey
-	Build      func(ctx context.Context, args bundle.BuildArgs) (string, error)
+	// CacheDir holds the pinned packages (<CacheDir>/packages/<sha256>/<file>).
+	// Empty means WorkDir.
+	CacheDir  string
+	GitHub    *GitHub
+	PublicKey ed25519.PublicKey
+	Build     func(ctx context.Context, args bundle.BuildArgs) (string, error)
+	// rules overrides the package host policy; nil means defaultPackageRules.
+	rules *packageRules
 }
 
 func noop() {}
@@ -62,7 +74,7 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Resolved, error) 
 		note = func(string, map[string]string) {}
 	}
 	if req.Kind == KindBundled {
-		return r.finish(req, r.BundledDir, "", false, noop, "")
+		return r.finish(ctx, req, r.BundledDir, "", false, noop, "")
 	}
 
 	if err := os.MkdirAll(r.WorkDir, 0o755); err != nil {
@@ -107,12 +119,12 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Resolved, error) 
 		}
 		return nil, &Error{Code: CodePackageFileInvalid, Detail: err.Error()}
 	}
-	return r.finish(req, dir, archive, req.Kind == KindGitHub, cleanup, cached)
+	return r.finish(ctx, req, dir, archive, req.Kind == KindGitHub, cleanup, cached)
 }
 
-// finish verifies dir and checks its architecture. cleanup and cached are
-// released on failure.
-func (r *Resolver) finish(req Request, dir, archive string, strict bool, cleanup func(), cached string) (*Resolved, error) {
+// finish verifies dir, checks its architecture and fetches the pinned
+// packages. cleanup and cached are released on failure.
+func (r *Resolver) finish(ctx context.Context, req Request, dir, archive string, strict bool, cleanup func(), cached string) (*Resolved, error) {
 	fail := func(err error) (*Resolved, error) {
 		cleanup()
 		if cached != "" {
@@ -139,7 +151,11 @@ func (r *Resolver) finish(req Request, dir, archive string, strict bool, cleanup
 			Message: fmt.Sprintf("bundle is built for %s, the node needs %s", manifest.Arch, req.Arch),
 		})
 	}
-	return &Resolved{Dir: dir, ArchivePath: archive, Manifest: manifest, Signed: signed, Cleanup: cleanup}, nil
+	res := &Resolved{Dir: dir, ArchivePath: archive, Manifest: manifest, Signed: signed, Cleanup: cleanup}
+	if err := r.fetchPins(ctx, req, dir, manifest, res); err != nil {
+		return fail(err)
+	}
+	return res, nil
 }
 
 func (r *Resolver) buildFromRepo(ctx context.Context, req Request, log func(string)) (string, error) {

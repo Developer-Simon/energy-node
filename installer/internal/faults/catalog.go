@@ -30,7 +30,9 @@ const (
 	CodeMosquittoArgsMissing    Code = "MOSQUITTO_ARGS_MISSING"
 	CodeMosquittoConfigInvalid  Code = "MOSQUITTO_CONFIG_INVALID"
 	CodeMQTTConfigUnreadable    Code = "MQTT_CONFIG_UNREADABLE"
+	CodePackageDownloadInvalid  Code = "PACKAGE_DOWNLOAD_INVALID"
 	CodePackageFileInvalid      Code = "PACKAGE_FILE_INVALID"
+	CodePackageURLRejected      Code = "PACKAGE_URL_REJECTED"
 	CodeUFWMissing              Code = "UFW_MISSING"
 	CodePipExternallyManaged    Code = "PIP_EXTERNALLY_MANAGED"
 	CodeWheelFileInvalid        Code = "WHEEL_FILE_INVALID"
@@ -110,7 +112,9 @@ var allCodes = []Code{
 	CodeMosquittoConfForeign,
 	CodeMosquittoPasswdFailed,
 	CodeMQTTConfigUnreadable,
+	CodePackageDownloadInvalid,
 	CodePackageFileInvalid,
+	CodePackageURLRejected,
 	CodePipExternallyManaged,
 	CodePipInstallFailed,
 	CodePythonABIMismatch,

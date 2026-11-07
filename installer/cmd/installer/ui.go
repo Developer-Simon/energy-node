@@ -104,6 +104,7 @@ func runUI(cfg uiConfig) error {
 		Resolver: &bundlesource.Resolver{
 			BundledDir: bundleDir,
 			WorkDir:    dirs.work,
+			CacheDir:   dirs.cache,
 			GitHub:     &bundlesource.GitHub{CacheDir: dirs.cache},
 			PublicKey:  publicKey,
 		},
