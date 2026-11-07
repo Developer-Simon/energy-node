@@ -682,6 +682,7 @@ func main() {
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
+		var chainGate chainSignalsGate
 		for {
 			select {
 			case <-ctx.Done():
@@ -694,6 +695,21 @@ func main() {
 				}
 				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
+				}
+
+				// Messketten-Signale fuer die Automationen. Ohne Ketten
+				// wird einmal ein leeres Signal veroeffentlicht, damit das
+				// alte retained Signal verschwindet.
+				if chainGate.Want(len(snapshot.Chains)) {
+					signals, err := json.Marshal(energy.BuildChainSignals(snapshot.Chains, energyResolver.ChainInsight(), time.Now()))
+					if err == nil {
+						err = client.PublishRetained(energydiscovery.ChainsTopic, string(signals))
+					}
+					if err != nil {
+						log.Printf("energy-node-dashboard: chain signals publish skipped: %v", err)
+					} else {
+						chainGate.published = len(snapshot.Chains) > 0
+					}
 				}
 
 				// Optionale Sensoren nachziehen, die seit dem letzten Connect
@@ -826,6 +842,16 @@ func validateNodeDeviceID(id, configPath string) error {
 
 // buildBalancePayload liefert den State-Payload und den Snapshot, aus dem er
 // gebaut ist, damit der Abgleich der optionalen Sensoren denselben Stand sieht.
+// chainSignalsGate decides whether the chains topic gets a payload. It is
+// wanted while chains exist, and once more after the last chain went away,
+// so the retained payload is cleared.
+type chainSignalsGate struct{ published bool }
+
+// Want reports whether a payload is due for chainCount chains.
+func (g *chainSignalsGate) Want(chainCount int) bool {
+	return chainCount > 0 || g.published
+}
+
 func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now time.Time) ([]byte, energy.Snapshot, error) {
 	snapshot := energy.Aggregate(reg.Snapshot(), resolver, now.UTC())
 	cfg := resolver.Interpretation()

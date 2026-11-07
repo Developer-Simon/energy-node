@@ -50,3 +50,35 @@ def test_unchanged_value_is_not_sent_again():
 def test_quantize_matches_the_old_publish_formatting():
     assert regulator.quantize(12.345, decimals=1) == (12.3, "12.3")
     assert regulator.quantize(1234.0) == (1234.0, "1234.0")
+
+
+def test_shape_to_range():
+    best = (250, 500)
+    assert regulator.shape_to_range(600, best, 0) == 500
+    assert regulator.shape_to_range(500, best, 0) == 500
+    assert regulator.shape_to_range(300, best, 0) == 300
+    assert regulator.shape_to_range(250, best, 0) == 250
+    assert regulator.shape_to_range(200, best, 0) == 250
+    assert regulator.shape_to_range(125, best, 0) == 250  # genau die Hälfte bleibt im Bereich
+    assert regulator.shape_to_range(124, best, 0) == 0
+    assert regulator.shape_to_range(0, best, 0) == 0
+    assert regulator.shape_to_range(100, best, 50) == 50
+    assert regulator.shape_to_range(600, None, 0) == 600
+    assert regulator.shape_to_range(100, None, 50) == 100
+
+
+def test_compute_step_shapes_before_max_change():
+    # producer, target 30, gain 0.8: base 0, net 280 -> error 250 -> Formel 200 -> Bereich 250
+    r = reg(max_change_w=100)
+    assert regulator.compute_step(r, net=280, base=0, last_value=0, best=(250, 500)).payload == "100"
+    assert regulator.compute_step(reg(), net=280, base=0, last_value=None, best=(250, 500)).payload == "250"
+
+
+def test_compute_step_below_the_range_falls_back_to_the_output_minimum():
+    # Formel 100 liegt unter der Hälfte von 250: Aus-Wert ist output.min (50)
+    assert regulator.compute_step(reg(), net=155, base=0, last_value=None, best=(250, 500)).payload == "50"
+
+
+def test_compute_step_without_range_is_unchanged():
+    args = dict(net=-470, base=800, last_value=800)
+    assert regulator.compute_step(reg(), **args) == regulator.compute_step(reg(), **args, best=None)

@@ -40,12 +40,33 @@ class RegulatorStep:
     reason: Optional[str]
 
 
-def compute_step(regulator: dict, *, net: float, base: float, last_value: Optional[float]) -> RegulatorStep:
+def shape_to_range(value: float, best: Optional[tuple[float, float]], off_value: float) -> float:
+    """Hebt einen Sollwert in den besten Wirkungsgradbereich (from, to).
+
+    Oberhalb wird auf das obere Ende gekappt. Unterhalb des Bereichs wird auf das
+    untere Ende gehoben, wenn der Wert mindestens die Hälfte davon erreicht. Darunter
+    geht der Regler auf off_value. Ohne Bereich bleibt der Wert unverändert.
+    """
+    if best is None:
+        return value
+    low, high = best
+    if value > high:
+        return high
+    if value >= low:
+        return value
+    if value >= low / 2:
+        return low
+    return off_value
+
+
+def compute_step(regulator: dict, *, net: float, base: float, last_value: Optional[float],
+                 best: Optional[tuple[float, float]] = None) -> RegulatorStep:
     error = net - regulator["target_w"]
     if abs(error) <= regulator["deadband_w"]:
         return RegulatorStep(error, None, None, "deadband")
     sign = 1 if regulator["direction"] == "producer" else -1
     value = base + sign * regulator["gain"] * error  # producer: Einspeisung (net<0) senkt
+    value = shape_to_range(value, best, regulator["output"]["min"])
     max_change = regulator.get("max_change_w")
     if max_change is not None and last_value is not None:
         value = min(max(value, last_value - max_change), last_value + max_change)

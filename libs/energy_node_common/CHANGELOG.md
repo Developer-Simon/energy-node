@@ -1,10 +1,18 @@
 # Changelog
 
-## v0.5.1 (2026-11-06)
+## v0.5.2-pre.1 (2026-11-07)
+
+### Features
+
+- **automation:** react to measurement chains in automations (#226)
 
 ### Refactors
 
 - point the remaining template readers at the new path (3cc3d01)
+
+### Tests
+
+- **services:** accept pre versions in service manifests (acd3ec4)
 
 ### Chores
 

@@ -76,6 +76,12 @@ func TestAutomationSchemaAcceptsTheSpecScenario(t *testing.T) {
 	}
 }
 
+// withRegulatorField adds one key after the fallback of the regulator in
+// specScenario and returns the scenarios array holding it.
+func withRegulatorField(field string) string {
+	return "[" + strings.Replace(specScenario, `"fallback": { "payload": "800" }`, `"fallback": { "payload": "800" }, `+field, 1) + "]"
+}
+
 func TestAutomationSchemaCases(t *testing.T) {
 	nineScenarios := make([]string, 9)
 	for i := range nineScenarios {
@@ -90,8 +96,10 @@ func TestAutomationSchemaCases(t *testing.T) {
 			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`,
 				`"enabled":true,"while":{"mode":"hold","actions":[],"repeat_seconds":-1},`, 1)+`]`), false},
 		{"nine scenarios", automationDoc(defaultAutomationSettings, "["+strings.Join(nineScenarios, ",")+"]"), false},
-		{"max_duration_s below one minute", automationDoc(defaultAutomationSettings,
-			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":59,`, 1)+`]`), false},
+		{"max_duration_s below ten seconds", automationDoc(defaultAutomationSettings,
+			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":9,`, 1)+`]`), false},
+		{"max_duration_s of ten seconds", automationDoc(defaultAutomationSettings,
+			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":10,`, 1)+`]`), true},
 		{"max_duration_s of ten minutes", automationDoc(defaultAutomationSettings,
 			`[`+strings.Replace(minimalScenario("x"), `"enabled":true,`, `"enabled":true,"max_duration_s":600,`, 1)+`]`), true},
 		{"unknown key in scenario", automationDoc(defaultAutomationSettings,
@@ -100,6 +108,16 @@ func TestAutomationSchemaCases(t *testing.T) {
 			`{"tick_interval_s":10,"settling_seconds":60,"balance_max_age_s":30,"publish_allowed_prefixes":[],"publish_min_interval_s":4}`,
 			`[]`), false},
 		{"eight scenarios", automationDoc(defaultAutomationSettings, "["+strings.Join(nineScenarios[:8], ",")+"]"), true},
+		{"regulator efficiency with chain_id", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": { "chain_id": "balkon" }`)), true},
+		{"regulator efficiency with upper-case chain_id", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": { "chain_id": "Balkon" }`)), false},
+		{"regulator efficiency without chain_id", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": {}`)), false},
+		{"regulator efficiency with unknown key", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": { "chain_id": "balkon", "x": 1 }`)), false},
+		{"regulator efficiency as string", automationDoc(defaultAutomationSettings,
+			withRegulatorField(`"efficiency": "balkon"`)), false},
 	}
 	for _, tc := range cases {
 		err := ValidateDocument([]byte(tc.doc), automationSchema(t))
@@ -179,5 +197,29 @@ func TestScenarioItemSchemasMatchTheRuleItemSchemas(t *testing.T) {
 		if !reflect.DeepEqual(c.got, c.want) {
 			t.Errorf("%s schema differs from the rule item schema", c.name)
 		}
+	}
+}
+
+// Chain conditions are valid in rules, in scenario when and in scenario until.
+// An unknown key in chain_value is refused by its strict branch.
+func TestAutomationSchemaCoversChainConditions(t *testing.T) {
+	chainFinding := `{"type":"chain_finding","chain_id":"balkon","kind":"frozen","points":["sensor.dc"],"min_age_s":900,"once":true}`
+	chainValue := `{"type":"chain_value","chain_id":"balkon","field":"standby_w","comparison":"above","value":10,"hold_seconds":7200}`
+	ruleDoc := `{"version":1,"settings":` + defaultAutomationSettings + `,"rules":[{"id":"r1","name":"R","enabled":true,"conditions":[` +
+		chainFinding + `,` + chainValue + `],"actions":[{"type":"notification","severity":"info","title":"t","message":"m"}]}],"scenarios":[]}`
+	scenarioDoc := automationDoc(defaultAutomationSettings,
+		`[{"id":"s1","name":"S","enabled":true,"when":{"conditions":[`+chainFinding+`]},"until":{"conditions":[`+chainValue+`]}}]`)
+	unknownKey := `{"type":"chain_value","chain_id":"balkon","field":"standby_w","comparison":"above","value":10,"threshold":1}`
+	unknownKeyDoc := automationDoc(defaultAutomationSettings,
+		`[{"id":"s1","name":"S","enabled":true,"when":{"conditions":[`+unknownKey+`]}}]`)
+
+	if err := ValidateDocument([]byte(ruleDoc), automationSchema(t)); err != nil {
+		t.Errorf("chain conditions in rules: %v", err)
+	}
+	if err := ValidateDocument([]byte(scenarioDoc), automationSchema(t)); err != nil {
+		t.Errorf("chain conditions in when and until: %v", err)
+	}
+	if err := ValidateDocument([]byte(unknownKeyDoc), automationSchema(t)); err == nil {
+		t.Error("unknown field in chain_value: expected rejection")
 	}
 }

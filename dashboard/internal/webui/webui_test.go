@@ -1386,11 +1386,11 @@ func TestAutomationsPanelLoadsTheScenarioModules(t *testing.T) {
 	}
 	line := body[panel+start+len(attr):]
 	line = line[:strings.Index(line, `"`)]
-	scenario := strings.Index(line, "automations-scenario.js?v=4")
+	scenario := strings.Index(line, "automations-scenario.js?v=5")
 	chart := strings.Index(line, "automations-chart.js?v=4")
 	page := strings.Index(line, "automations.page.js?v=")
-	wizard := strings.Index(line, "automation-wizard.js?v=4")
-	templates := strings.Index(line, "automation-templates.js?v=4")
+	wizard := strings.Index(line, "automation-wizard.js?v=5")
+	templates := strings.Index(line, "automation-templates.js?v=5")
 	sheet := strings.Index(line, "automation-sheet.js?v=1")
 	if scenario < 0 || chart < 0 || page < 0 || wizard < 0 || templates < 0 || sheet < 0 {
 		t.Fatalf("Szenario- oder Assistenten-Module fehlen in der Skriptliste: %s", line)
@@ -3573,7 +3573,7 @@ func TestScenarioStepperFieldsShareOneRow(t *testing.T) {
 		t.Fatal("Totband fehlt im auto-fields-Container von Ziel")
 	}
 	end := block(
-		"<div class=\"auto-fields\">\n          <div class=\"auto-field\" x-data=\"{ get stepTarget() { return { get v() { return maxDurationMinutes",
+		"<div class=\"auto-fields\">\n          <div class=\"auto-field\" x-data=\"{ get stepTarget() { return { get v() { return maxDurationValue",
 		"<div x-data=\"scenarioRows(scenario, 'on_end', null)\">",
 	)
 	if n := strings.Count(end, `class="auto-field"`); n != 3 {
@@ -3724,7 +3724,7 @@ func TestScenarioNumericFieldsUseSteppers(t *testing.T) {
 	for _, want := range []string{
 		`stepKey: 'target_w'`,
 		`stepKey: 'deadband_w'`,
-		`stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }`,
+		`stepKey: 'v', get stepOpts() { return maxDurationUnit(scenario) === 's' ? { min: 10, max: 86400, step: 10 } : { min: 1, max: 1440, step: 1 } }`,
 		`stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }`,
 	} {
 		if !strings.Contains(source, want) {
@@ -4474,5 +4474,74 @@ func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
 		if n := strings.Count(markup, want); n != 1 {
 			t.Errorf("%s: %d Treffer für %s, erwartet 1", step.ID, n, want)
 		}
+	}
+}
+
+// Die Messketten-Bedingung: die Kachel traegt den Tour-Anker, Meldung und
+// Messwert sind je ein x-if-Block mit einem Wurzelelement, und der Schalter
+// "Einmal je Meldung" ist ein settings-toggle-Label.
+func TestChainConditionMarkup(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(tpl)
+	for _, want := range []string{
+		`x-bind:data-tour="type.key === 'chain' ? 'auto-chain-tile' : null"`,
+		`<template x-if="condition.type === 'chain_finding'">`,
+		`<template x-if="condition.type === 'chain_value'">`,
+		`{{define "auto-chain-head"}}`,
+		`x-model="condition.once"`,
+		// Optionen aus x-for kommen nach x-model: ohne selected zeigt die
+		// Auswahl die erste Option statt des gespeicherten Werts.
+		`x-bind:selected="option.id === condition.chain_id"`,
+		`x-bind:selected="option.key === condition.kind"`,
+		`class="auto-segment auto-chain-signal" role="radiogroup"`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Fatalf("Messkette: %q fehlt in automations-rows.html", want)
+		}
+	}
+	start := strings.Index(src, `<template x-if="condition.type === 'chain_finding'">`)
+	end := strings.Index(src, `<template x-if="condition.type === 'chain_value'">`)
+	if start < 0 || end < start {
+		t.Fatal("Messkette: Reihenfolge der Meldungs-Karte fehlt")
+	}
+	card := src[start:end]
+	at := strings.Index(card, `<label class="settings-toggle">`)
+	if at < 0 {
+		t.Fatal("Messkette: der Schalter Einmal je Meldung ist kein settings-toggle-Label")
+	}
+	// Das Label enthaelt nur Eingabe und Spur, der Text steht daneben. Text im
+	// Label bricht die feste Breite des Schalters.
+	label := card[at : at+strings.Index(card[at:], `</label>`)]
+	if strings.Contains(label, `automations.chain.once"}}`) {
+		t.Fatal("Messkette: der Text des Schalters steht im settings-toggle-Label")
+	}
+}
+
+// Die Vergleichsauswahl der Messwert-Bedingung zeigt nur ueber und unter: der
+// Dienst kennt fuer Messwerte keine Gleichheit. Die Schaltflaechen fuer
+// gleich, ungleich und veraltet stehen im Zweig "all" des gemeinsamen Vergleichs.
+func TestChainValueComparisonOffersOnlyAboveAndBelow(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(tpl)
+	define := strings.Index(src, `{{define "auto-comparison"}}`)
+	allBranch := strings.Index(src[define:], `{{if eq . "all"}}`)
+	for _, extra := range []string{`setComparison(condition, 'equals')`, `setComparison(condition, 'not_equals')`, `setComparison(condition, 'stale')`} {
+		at := strings.Index(src[define:], extra)
+		if at < 0 {
+			t.Fatalf("Vergleich: %q fehlt im gemeinsamen Vergleich", extra)
+		}
+		if at < allBranch {
+			t.Fatalf("Vergleich: %q liegt nicht im Zweig all", extra)
+		}
+	}
+	chainValue := strings.Index(src, `<template x-if="condition.type === 'chain_value'">`)
+	if chainValue < 0 || !strings.Contains(src[chainValue:chainValue+1200], `{{template "auto-comparison" "balance"}}`) {
+		t.Fatal("Vergleich: der Messwert nutzt nicht den Vergleich ohne Gleichheit")
 	}
 }

@@ -130,6 +130,33 @@
               "message": "Der Wechselrichter liefert seit 60 Minuten weniger als 50 W, er hängt vermutlich."
             }
           ]
+        },
+        {
+          "id": "chain_standby_2",
+          "name": "Standby abschalten",
+          "enabled": true,
+          "cooldown_seconds": 3600,
+          "history_enabled": true,
+          "conditions": [
+            {
+              "type": "chain_value",
+              "chain_id": "speicher",
+              "field": "standby_w",
+              "comparison": "above",
+              "value": 5,
+              "hold_seconds": 14400
+            }
+          ],
+          "actions": [
+            {
+              "type": "publish",
+              "topic": "werkstatt/wb/switch",
+              "retain": false,
+              "payload_source": "constant",
+              "payload": "OFF",
+              "entity_id": "wb_switch"
+            }
+          ]
         }
       ],
       "scenarios": [
@@ -533,6 +560,65 @@
               }
             ]
           }
+        },
+        {
+          "id": "chain_watchdog",
+          "name": "Gerät neu starten, wenn sein Wert hängt",
+          "enabled": true,
+          "template": "chain_watchdog",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "chain_finding",
+                "chain_id": "speicher",
+                "kind": "frozen",
+                "points": [
+                  "pv1_power"
+                ],
+                "min_age_s": 900,
+                "once": true
+              },
+              {
+                "type": "entity_value",
+                "topic": "werkstatt/wb/power",
+                "entity_id": "wb_power",
+                "value_template": "",
+                "comparison": "above",
+                "value": 20,
+                "hold_seconds": 0
+              }
+            ]
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "none"
+          },
+          "max_duration_s": 30,
+          "cooldown_s": 21600
         }
       ]
     },
@@ -698,6 +784,183 @@
                 "payload": "1400"
               }
             }
+          }
+        },
+        {
+          "id": "chain_watchdog_2",
+          "name": "Gerät neu starten, wenn sein Wert hängt",
+          "enabled": true,
+          "template": "chain_watchdog",
+          "history_enabled": false,
+          "when": {
+            "conditions": [
+              {
+                "type": "chain_finding",
+                "chain_id": "speicher",
+                "kind": "frozen",
+                "points": [
+                  "pv1_power"
+                ],
+                "min_age_s": 1800,
+                "once": true
+              },
+              {
+                "type": "entity_value",
+                "topic": "werkstatt/wb/power",
+                "entity_id": "wb_power",
+                "value_template": "",
+                "comparison": "above",
+                "value": 50,
+                "hold_seconds": 0
+              }
+            ]
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "notification",
+                "severity": "info",
+                "title": "Gerät wird neu gestartet",
+                "message": "Ein Messwert der Kette hängt, der Plug schaltet kurz aus."
+              },
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "none"
+          },
+          "max_duration_s": 60,
+          "cooldown_s": 43200
+        },
+        {
+          "id": "chain_standby",
+          "name": "Standby abschalten",
+          "enabled": true,
+          "template": "chain_standby",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "chain_value",
+                "chain_id": "speicher",
+                "field": "standby_w",
+                "comparison": "above",
+                "value": 10,
+                "hold_seconds": 7200
+              }
+            ]
+          },
+          "until": {
+            "conditions": [
+              {
+                "type": "time_window",
+                "start": "07:00",
+                "end": "08:00",
+                "weekdays": []
+              }
+            ]
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "none"
+          }
+        },
+        {
+          "id": "chain_standby_3",
+          "name": "Standby abschalten",
+          "enabled": true,
+          "template": "chain_standby",
+          "history_enabled": true,
+          "when": {
+            "conditions": [
+              {
+                "type": "chain_value",
+                "chain_id": "speicher",
+                "field": "standby_w",
+                "comparison": "above",
+                "value": 20,
+                "hold_seconds": 7200
+              }
+            ]
+          },
+          "until": {
+            "conditions": [
+              {
+                "type": "time_window",
+                "start": "23:30",
+                "end": "00:30",
+                "weekdays": []
+              }
+            ]
+          },
+          "on_start": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "OFF",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "on_end": {
+            "actions": [
+              {
+                "type": "publish",
+                "topic": "werkstatt/wb/switch",
+                "retain": false,
+                "payload_source": "constant",
+                "payload": "ON",
+                "entity_id": "wb_switch"
+              }
+            ]
+          },
+          "while": {
+            "mode": "none"
           }
         }
       ]

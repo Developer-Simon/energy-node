@@ -42,7 +42,8 @@
                     x-text="assistant.query.trim() ? $t('automations.assistant.matches') : $t('automations.assistant.fits_devices')"></span>
               <div class="auto-assist-tiles">
                 <template x-for="template in assistantTemplates().fitting" x-bind:key="template.id">
-                  <button type="button" class="auto-assist-tile" x-on:click="startTemplate(template.id)">
+                  <button type="button" class="auto-assist-tile" x-on:click="startTemplate(template.id)"
+                          x-bind:data-tour="template.id === 'chain_watchdog' || template.id === 'chain_standby' ? 'auto-chain-template' : null">
                     <span class="auto-assist-tile-icon">
                       <svg class="automation-icon"><use x-bind:href="'#' + template.icon"></use></svg>
                     </span>
@@ -131,8 +132,8 @@
                   <span class="auto-assist-option-text">
                     <b x-text="device.deviceName"></b>
                     <span class="auto-assist-live" x-text="device.live || ''"></span>
+                    <span class="auto-assist-reason" x-show="device.disabled" x-text="device.disabled || ''"></span>
                   </span>
-                  <span class="auto-assist-reason" x-show="device.disabled" x-text="device.disabled || ''"></span>
                 </label>
               </template>
               <p class="auto-assist-hint" x-text="$t('automations.assistant.device.missing_hint')"></p>
@@ -364,10 +365,10 @@
             <div class="auto-assist-block">
               <div class="auto-assist-time">
                 <label class="auto-assist-field">
-                  <span x-text="$t('automations.assistant.time.from')"></span>
+                  <span x-text="assistantStep().single ? $t('automations.assistant.time.at') : $t('automations.assistant.time.from')"></span>
                   <input class="auto-input" type="time" x-model="assistant.answers[assistantStep().id].from">
                 </label>
-                <label class="auto-assist-field">
+                <label class="auto-assist-field" x-show="!assistantStep().single">
                   <span x-text="$t('automations.assistant.time.to')"></span>
                   <input class="auto-input" type="time" x-model="assistant.answers[assistantStep().id].to">
                 </label>

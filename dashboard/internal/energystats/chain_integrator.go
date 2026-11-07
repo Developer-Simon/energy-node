@@ -52,7 +52,7 @@ func ChainSampleOf(at time.Time, chains []energy.ChainState) ChainSample {
 		if len(chain.Points) == 0 {
 			continue
 		}
-		if w, ok := chainStandby(chain); ok {
+		if w, ok := energy.ChainStandbyW(chain); ok {
 			s.Standby[chain.Points[0].EntityID] = w
 			continue
 		}
@@ -74,26 +74,6 @@ func ChainSampleOf(at time.Time, chains []energy.ChainState) ChainSample {
 		}
 	}
 	return s
-}
-
-// chainStandby reports the power of the first point when the chain is in
-// standby: every point is fresh, the first one reads at least ChainIdleW and
-// every other one stays below ChainMinInputW.
-func chainStandby(chain energy.ChainState) (float64, bool) {
-	source := chain.Points[0]
-	if !source.HasValue || source.Freshness != "fresh" {
-		return 0, false
-	}
-	w := math.Abs(source.Value)
-	if w < energy.ChainIdleW {
-		return 0, false
-	}
-	for _, p := range chain.Points[1:] {
-		if p.Freshness != "fresh" || math.Abs(p.Value) >= energy.ChainMinInputW {
-			return 0, false
-		}
-	}
-	return w, true
 }
 
 // ChainIntegrator time-weights measurement chain samples into hours. Like

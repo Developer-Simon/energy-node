@@ -57,7 +57,7 @@
           },
           "max_duration_s": {
             "type": "number",
-            "minimum": 60,
+            "minimum": 10,
             "maximum": 86400,
             "description": "Ends the scenario after this many seconds. Missing means no limit."
           },
@@ -98,13 +98,9 @@
                         "topic_value",
                         "time_window",
                         "entity_value",
-                        "sun_window"
-                      ]
+                        "sun_window", "chain_finding", "chain_value"]
                     },
-                    "field": {
-                      "type": "string",
-                      "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
-                    },
+                    "field": {"type": "string"},
                     "comparison": {
                       "type": "string",
                       "enum": [
@@ -198,7 +194,7 @@
                       },
                       "description": "0 = Monday … 6 = Sunday. Empty means every day. The day on which the window starts counts, even across midnight."
                     }
-                  }
+                  }, "allOf": [{"if": {"properties": {"type": {"const": "chain_finding"}}, "required": ["type"]}, "then": {"additionalProperties": false, "required": ["type", "chain_id", "kind"], "properties": {"type": {"const": "chain_finding"}, "chain_id": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "kind": {"type": "string", "enum": ["any", "drift", "frozen", "contradiction", "sign", "unit"]}, "points": {"type": "array", "items": {"type": "string"}}, "min_age_s": {"type": "number", "minimum": 0, "maximum": 86400}, "once": {"type": "boolean"}}}}, {"if": {"properties": {"type": {"const": "chain_value"}}, "required": ["type"]}, "then": {"additionalProperties": false, "required": ["type", "chain_id", "field", "comparison", "value"], "properties": {"type": {"const": "chain_value"}, "chain_id": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "field": {"type": "string", "enum": ["loss_w", "efficiency_pct", "standby_w"]}, "comparison": {"type": "string", "enum": ["above", "below"]}, "value": {"type": "number"}, "hold_seconds": {"type": "number", "minimum": 0, "maximum": 86400}}}}, {"if": {"properties": {"type": {"const": "chain_value"}}, "required": ["type"]}, "else": {"properties": {"field": {"type": "string", "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"}}}}]
                 }
               }
             }
@@ -228,13 +224,9 @@
                         "topic_value",
                         "time_window",
                         "entity_value",
-                        "sun_window"
-                      ]
+                        "sun_window", "chain_finding", "chain_value"]
                     },
-                    "field": {
-                      "type": "string",
-                      "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"
-                    },
+                    "field": {"type": "string"},
                     "comparison": {
                       "type": "string",
                       "enum": [
@@ -328,7 +320,7 @@
                       },
                       "description": "0 = Monday … 6 = Sunday. Empty means every day. The day on which the window starts counts, even across midnight."
                     }
-                  }
+                  }, "allOf": [{"if": {"properties": {"type": {"const": "chain_finding"}}, "required": ["type"]}, "then": {"additionalProperties": false, "required": ["type", "chain_id", "kind"], "properties": {"type": {"const": "chain_finding"}, "chain_id": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "kind": {"type": "string", "enum": ["any", "drift", "frozen", "contradiction", "sign", "unit"]}, "points": {"type": "array", "items": {"type": "string"}}, "min_age_s": {"type": "number", "minimum": 0, "maximum": 86400}, "once": {"type": "boolean"}}}}, {"if": {"properties": {"type": {"const": "chain_value"}}, "required": ["type"]}, "then": {"additionalProperties": false, "required": ["type", "chain_id", "field", "comparison", "value"], "properties": {"type": {"const": "chain_value"}, "chain_id": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "field": {"type": "string", "enum": ["loss_w", "efficiency_pct", "standby_w"]}, "comparison": {"type": "string", "enum": ["above", "below"]}, "value": {"type": "number"}, "hold_seconds": {"type": "number", "minimum": 0, "maximum": 86400}}}}, {"if": {"properties": {"type": {"const": "chain_value"}}, "required": ["type"]}, "else": {"properties": {"field": {"type": "string", "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"}}}}]
                 }
               }
             },
@@ -712,6 +704,20 @@
                       }
                     },
                     "description": "Payload sent while the balance is stale or the reading is missing. Required for a producer."
+                  },
+                  "efficiency": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "chain_id"
+                    ],
+                    "properties": {
+                      "chain_id": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9_]+$"
+                      }
+                    },
+                    "description": "Chain whose best efficiency range the setpoint keeps to. Absent turns the option off."
                   }
                 }
               },
@@ -862,8 +868,8 @@
               "additionalProperties": true,
               "required": ["type"],
               "properties": {
-                "type": { "type": "string", "enum": ["balance_threshold", "topic_value", "time_window", "entity_value", "sun_window"] },
-                "field": { "type": "string", "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$" },
+                "type": { "type": "string", "enum": ["balance_threshold", "topic_value", "time_window", "entity_value", "sun_window", "chain_finding", "chain_value"] },
+                "field": {"type": "string"},
                 "comparison": { "type": "string", "enum": ["above", "below", "equals", "not_equals", "stale"] },
                 "threshold": { "type": "number" },
                 "hysteresis": { "type": "number", "minimum": 0, "default": 0 },
@@ -881,7 +887,7 @@
                 "from_offset_min": { "type": "integer", "minimum": -240, "maximum": 240, "default": 0 },
                 "to_offset_min": { "type": "integer", "minimum": -240, "maximum": 240, "default": 0 },
                 "month_days": {"type": "array", "items": {"type": "integer", "minimum": 1, "maximum": 31}, "description": "Day of the month 1 to 31. Empty means every day. The day on which the window starts counts, even across midnight."}, "max_age_s": {"type": "number", "exclusiveMinimum": 0, "description": "Only for comparison stale: seconds since the last message on topic after which the condition is met."}, "weekdays": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 6 }, "description": "0 = Monday … 6 = Sunday. Empty means every day. The day on which the window starts counts, even across midnight." }
-              }
+              }, "allOf": [{"if": {"properties": {"type": {"const": "chain_finding"}}, "required": ["type"]}, "then": {"additionalProperties": false, "required": ["type", "chain_id", "kind"], "properties": {"type": {"const": "chain_finding"}, "chain_id": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "kind": {"type": "string", "enum": ["any", "drift", "frozen", "contradiction", "sign", "unit"]}, "points": {"type": "array", "items": {"type": "string"}}, "min_age_s": {"type": "number", "minimum": 0, "maximum": 86400}, "once": {"type": "boolean"}}}}, {"if": {"properties": {"type": {"const": "chain_value"}}, "required": ["type"]}, "then": {"additionalProperties": false, "required": ["type", "chain_id", "field", "comparison", "value"], "properties": {"type": {"const": "chain_value"}, "chain_id": {"type": "string", "pattern": "^[a-z0-9_]+$"}, "field": {"type": "string", "enum": ["loss_w", "efficiency_pct", "standby_w"]}, "comparison": {"type": "string", "enum": ["above", "below"]}, "value": {"type": "number"}, "hold_seconds": {"type": "number", "minimum": 0, "maximum": 86400}}}}, {"if": {"properties": {"type": {"const": "chain_value"}}, "required": ["type"]}, "else": {"properties": {"field": {"type": "string", "pattern": "^(grid_export|grid_import|pv|load_total|base|wallbox|heat_pump|battery_charge|battery_discharge|gap_applied|autarkie|eigenverbrauch|battery_soc|battery_capacity_kwh|battery_energy_kwh|custom:[a-z0-9_]+)$"}}}}]
             }
           },
           "actions": {

@@ -630,3 +630,81 @@ test('an inverter keeps its own switch, null without one', () => {
   assert.equal(ctx.inverters[1].ownSwitch.unique_id, 'pv2_switch');
   assert.equal(ctx.inverters[0].ownSwitch, null);
 });
+
+// Messkette: der Plug (Gerät mit Schalter und Last) vorn, der Akku mit zwei Messpunkten
+// auf einem anderen Gerät. Ohne Schalter am Plug bleibt die Kette gesperrt.
+const chainDevices = [
+  {
+    id: 'plug', name: 'Steckdose Speicher',
+    entities: [
+      { unique_id: 'plug_power', name: 'Leistung', state_topic: 'werkstatt/plug/power', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '24' },
+      { unique_id: 'plug_switch', name: 'Schalter', command_topic: 'werkstatt/plug/switch', payload_on: 'ON', payload_off: 'OFF', has_value: true, value: 'ON' },
+    ],
+  },
+  {
+    id: 'akku', name: 'Speicher',
+    entities: [
+      { unique_id: 'akku_ac', name: 'AC', state_topic: 'werkstatt/akku/ac', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '20' },
+      { unique_id: 'akku_dc', name: 'DC', state_topic: 'werkstatt/akku/dc', template_supported: true, unit_of_measurement: 'W', has_value: true, value: '18' },
+    ],
+  },
+];
+const chainPoints = [
+  { entity_id: 'plug_power', device_id: 'plug', label: 'Plug' },
+  { entity_id: 'akku_ac', device_id: 'akku', label: 'Speicher AC' },
+  { entity_id: 'akku_dc', device_id: 'akku', label: 'Speicher DC' },
+];
+const chainContext = (wizard, devicesOverride, points = chainPoints) => plain(wizard.buildContext({
+  devices: devicesOverride,
+  snapshot: { values: {}, entities: [], chains: [{ id: 'speicher', label: 'Speicher', points }] },
+  document: { rules: [], scenarios: [] },
+}));
+
+test('chainEntries finds plug switch and watched points', () => {
+  const { wizard } = load();
+  const ctx = chainContext(wizard, chainDevices);
+  assert.equal(ctx.chains.length, 1);
+  const [chain] = ctx.chains;
+  assert.equal(chain.id, 'speicher');
+  assert.equal(chain.deviceName, 'Speicher');
+  assert.equal(chain.plugSwitch, 'plug_switch');
+  assert.equal(chain.plugPower.unique_id, 'plug_power');
+  assert.deepEqual(chain.watchPoints.map((point) => point.entity_id), ['akku_ac', 'akku_dc']);
+  assert.equal(chain.live, 'Plug → Speicher AC → Speicher DC');
+  assert.equal(chain.disabled, '');
+  assert.deepEqual(plain(wizard.devicesFor('chain', ctx)).map((item) => item.id), ['speicher']);
+});
+
+test('a plug without switch blocks the chain with the switch reason', () => {
+  const { wizard, t } = load();
+  const noSwitch = chainDevices.map((device) => (device.id === 'plug'
+    ? { ...device, entities: device.entities.filter((entity) => entity.unique_id !== 'plug_switch') }
+    : device));
+  const ctx = chainContext(wizard, noSwitch);
+  assert.equal(ctx.chains[0].plugSwitch, '');
+  const reason = t('automations.assistant.unavailable.chain_switch');
+  assert.equal(plain(wizard.devicesFor('chain', ctx))[0].disabled, reason);
+  assert.equal(plain(wizard.devicesFor('chain_watchdog', ctx))[0].disabled, reason);
+});
+
+test('all points on one device block the watchdog with the device reason', () => {
+  const { wizard, t } = load();
+  const onePlug = chainContext(wizard, chainDevices, [chainPoints[0]]);
+  assert.deepEqual(onePlug.chains[0].watchPoints, []);
+  assert.equal(plain(wizard.devicesFor('chain', onePlug))[0].disabled, '');
+  assert.equal(plain(wizard.devicesFor('chain_watchdog', onePlug))[0].disabled, t('automations.assistant.unavailable.chain_device'));
+});
+
+test('without snapshot.chains the context lists no chains', () => {
+  const { wizard } = load();
+  const ctx = plain(wizard.buildContext({ devices: chainDevices, snapshot: { values: {}, entities: [] }, document: {} }));
+  assert.deepEqual(ctx.chains, []);
+  assert.deepEqual(plain(wizard.devicesFor('chain_watchdog', ctx)), []);
+});
+
+test('a single time step is complete with a from time alone', () => {
+  const { wizard } = load();
+  assert.equal(wizard.stepComplete({ type: 'time', single: true }, { from: '07:00', to: '', days: [] }), true);
+  assert.equal(wizard.stepComplete({ type: 'time', single: true }, { from: '', to: '', days: [] }), false);
+  assert.equal(wizard.stepComplete({ type: 'time' }, { from: '07:00', to: '', days: [] }), false);
+});

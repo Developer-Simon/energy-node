@@ -69,6 +69,8 @@ var automationTitles = map[string]string{
 	"balance_threshold": "Condition balance threshold",
 	"topic_value":       "Condition topic value",
 	"entity_value":      "Condition entity value",
+	"chain_finding":     "Condition chain finding",
+	"chain_value":       "Condition chain value",
 	"executes":          "Runs the rule",
 	"publish":           "Action",
 	"payload_balance":   "Value from the balance",

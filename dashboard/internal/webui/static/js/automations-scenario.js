@@ -49,22 +49,41 @@
     };
   }
 
-  // Die Oberflaeche rechnet Minuten, gespeichert werden Sekunden. Leer
-  // loescht den Schluessel, dann endet das Szenario nicht nach Zeit.
-  const MAX_DURATION_MIN_S = 60;
+  // Die Hoechstlaufzeit wird in Sekunden gespeichert und wahlweise in
+  // Sekunden oder Minuten angezeigt. Leer loescht den Schluessel, dann endet
+  // das Szenario nicht nach Zeit. Die gewaehlte Einheit gehoert dem
+  // Seitenzustand (reaktiv) und wird nicht gespeichert; sie kommt hier als
+  // Parameter. Ohne Wahl zeigt ganze Minuten ab einer Minute in min.
+  const MAX_DURATION_MIN_S = 10;
   const MAX_DURATION_MAX_S = 86400;
 
-  function maxDurationMinutes(scenario) {
-    return isNumber(scenario.max_duration_s) ? scenario.max_duration_s / 60 : '';
+  const isWholeMinute = (seconds) => isNumber(seconds) && seconds >= 60 && seconds % 60 === 0;
+
+  function maxDurationUnit(scenario, chosen) {
+    if (chosen === 's' || chosen === 'min') return chosen;
+    return isWholeMinute(scenario.max_duration_s) ? 'min' : 's';
   }
 
-  function setMaxDurationMinutes(scenario, minutes) {
-    const value = Number(minutes);
-    if (isEmpty(minutes) || !Number.isFinite(value)) {
+  // Liefert die Einheit, die tatsaechlich gilt. Minuten gehen nur, wenn die
+  // Laufzeit noch leer ist oder ganze Minuten hat; sonst bleibt es bei s,
+  // damit das Feld nie einen Bruchteil einer Minute zeigt.
+  function setMaxDurationUnit(scenario, unit) {
+    if (unit === 'min' && (isEmpty(scenario.max_duration_s) || isWholeMinute(scenario.max_duration_s))) return 'min';
+    return 's';
+  }
+
+  function maxDurationValue(scenario, chosen) {
+    if (!isNumber(scenario.max_duration_s)) return '';
+    return maxDurationUnit(scenario, chosen) === 'min' ? scenario.max_duration_s / 60 : scenario.max_duration_s;
+  }
+
+  function setMaxDurationValue(scenario, value, chosen) {
+    const number = Number(value);
+    if (isEmpty(value) || !Number.isFinite(number)) {
       delete scenario.max_duration_s;
       return;
     }
-    scenario.max_duration_s = Math.round(value * 60);
+    scenario.max_duration_s = Math.round(maxDurationUnit(scenario, chosen) === 'min' ? number * 60 : number);
   }
 
   // Mindestlaufzeit und Pause: wie die Höchstlaufzeit in Minuten angezeigt
@@ -318,9 +337,60 @@
     return out;
   }
 
+  // Regler-Schalter "Im besten Wirkungsgradbereich regeln": die Vorauswahl
+  // ist die Kette mit einem Punkt auf dem Geraet des Stellglieds, sonst die
+  // erste Kette. Leer heisst: kein Treffer.
+  function efficiencyChainFor(scenario, chains, devices) {
+    const regulator = (scenario.while && scenario.while.regulator) || {};
+    const entityId = (regulator.output || {}).entity_id;
+    if (!entityId) return '';
+    const device = (devices || []).find((item) => (item.entities || []).some((entity) => entity.unique_id === entityId));
+    if (!device) return '';
+    const chain = (chains || []).find((item) => (item.points || []).some((point) => point.device_id === device.id));
+    return chain ? chain.id : '';
+  }
+
+  // Einschalten setzt die Vorauswahl, Ausschalten entfernt den Schluessel
+  // ganz, damit das Dokument danach dem ohne Option gleicht.
+  function toggleEfficiency(scenario, on, chains, devices) {
+    const regulator = scenario.while && scenario.while.regulator;
+    if (!regulator) return;
+    if (!on) {
+      delete regulator.efficiency;
+      return;
+    }
+    const chainId = efficiencyChainFor(scenario, chains, devices) || ((chains || [])[0] || {}).id;
+    if (chainId) regulator.efficiency = { chain_id: chainId };
+  }
+
+  // Status unter dem Schalter. Der Bericht kommt aus dem Laufzeitstand des
+  // Szenarios (state.efficiency); fehlt er, gibt es noch keine Kettenwerte.
+  // i18n-keys: automations.scenario.edit.regulator.efficiency_range, automations.scenario.edit.regulator.efficiency_no_range, automations.scenario.edit.regulator.efficiency_stale, automations.scenario.edit.regulator.efficiency_chain_missing
+  function efficiencyStatus(scenario, state) {
+    const regulator = (scenario.while && scenario.while.regulator) || {};
+    if (!regulator.efficiency) return { tone: 'off', text: '' };
+    const report = state && state.efficiency;
+    // Ein Bericht fuer eine andere Kette gehoert nicht zu dieser Auswahl.
+    if (!report || report.chain_id !== regulator.efficiency.chain_id) {
+      return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_stale') };
+    }
+    if (isNumber(report.from_w) && isNumber(report.to_w)) {
+      return { tone: 'ok', text: t('automations.scenario.edit.regulator.efficiency_range', { from: report.from_w, to: report.to_w }) };
+    }
+    if (report.reason === 'no_range') {
+      return { tone: 'info', text: t('automations.scenario.edit.regulator.efficiency_no_range') };
+    }
+    if (report.reason === 'chain_missing') {
+      return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_chain_missing') };
+    }
+    return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_stale') };
+  }
+
   window.__automationScenario = {
-    emptyScenario, setUntil, setWhileMode, setMaxDurationMinutes, maxDurationMinutes, setMinRunMinutes, minRunMinutes,
+    emptyScenario, setUntil, setWhileMode, maxDurationUnit, setMaxDurationUnit, maxDurationValue, setMaxDurationValue,
+    setMinRunMinutes, minRunMinutes,
     setCooldownMinutes, cooldownMinutes, scenarioStatus, activePhase,
     startProgress, phaseSummary, validateScenarioBeforeSave, stripRegulatorDefaults,
+    efficiencyChainFor, toggleEfficiency, efficiencyStatus,
   };
 })();

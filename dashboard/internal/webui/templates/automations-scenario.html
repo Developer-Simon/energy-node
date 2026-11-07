@@ -320,6 +320,35 @@
                       </span>
                       {{template "auto-stepper"}}
                     </div>
+                    <template x-if="efficiencyVisible(scenario)">
+                      <div class="auto-field auto-chain-efficiency">
+                        <div class="auto-flow-row">
+                          <label class="settings-toggle" data-tour="auto-chain-efficiency">
+                            <input type="checkbox" x-bind:checked="Boolean(scenario.while.regulator.efficiency)" x-on:change="toggleEfficiency(scenario, $event.target.checked)"
+                                   x-bind:aria-label="$t('automations.scenario.edit.regulator.efficiency_label')">
+                            <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+                          </label>
+                          <span class="auto-flow-label">{{t "automations.scenario.edit.regulator.efficiency_label"}}</span>
+                          <span class="field-help">
+                            <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.scenario.edit.help_aria', {label: $t('automations.scenario.edit.regulator.efficiency_label')})">
+                              <svg><use href="#ico-help"></use></svg>
+                            </button>
+                            <span class="field-help-text" role="tooltip" x-text="$t('automations.field_help.efficiency')"></span>
+                          </span>
+                        </div>
+                        <template x-if="scenario.while.regulator.efficiency">
+                          <div>
+                            <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-efficiency`">{{t "automations.scenario.edit.regulator.efficiency_chain"}}</label>
+                            <select class="auto-input" x-bind:id="`scn-${scenario.id}-efficiency`" x-model="scenario.while.regulator.efficiency.chain_id">
+                              <template x-for="option in efficiencyOptions(scenario)" x-bind:key="option.id">
+                                <option x-bind:value="option.id" x-bind:selected="option.id === scenario.while.regulator.efficiency.chain_id" x-text="option.label"></option>
+                              </template>
+                            </select>
+                            <span class="auto-pill" x-bind:class="efficiencyStatus(scenario).tone" x-text="efficiencyStatus(scenario).text"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
                     <div class="auto-field">
                       <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-min`">{{t "automations.scenario.edit.regulator.min_label"}}</label>
                       <span class="auto-input-field">
@@ -393,7 +422,7 @@
             <p class="auto-hint">{{t "automations.scenario.end_when_false"}}</p>
           </template>
           <div class="auto-fields">
-          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return maxDurationMinutes(scenario) }, set v(x) { setMaxDurationMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.max_duration.label') }">
+          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return maxDurationValue(scenario) }, set v(x) { setMaxDurationValue(scenario, x) } } }, stepKey: 'v', get stepOpts() { return maxDurationUnit(scenario) === 's' ? { min: 10, max: 86400, step: 10 } : { min: 1, max: 1440, step: 1 } }, stepUnit: '', stepLabel: $t('automations.scenario.edit.max_duration.label') }">
             <span class="auto-field-head">
               <span class="auto-field-label">{{t "automations.scenario.edit.max_duration.label"}}</span>
               <span class="field-help">
@@ -404,6 +433,10 @@
               </span>
             </span>
             {{template "auto-stepper"}}
+            <select class="auto-input" x-bind:aria-label="stepLabel" x-bind:value="maxDurationUnit(scenario)" x-on:change="setMaxDurationUnit(scenario, $event.target.value); $event.target.value = maxDurationUnit(scenario)">
+              <option value="s">{{t "automations.condition.unit_seconds"}}</option>
+              <option value="min">{{t "automations.scenario.edit.max_duration.unit_min"}}</option>
+            </select>
           </div>
           <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return minRunMinutes(scenario) }, set v(x) { setMinRunMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.min_run.label') }">
             <span class="auto-field-head">

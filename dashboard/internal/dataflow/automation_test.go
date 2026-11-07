@@ -70,6 +70,33 @@ func TestAutomationGraphBuildsRuleNodesAndEdges(t *testing.T) {
 	}
 }
 
+func TestAutomationGraphIgnoresChainConditions(t *testing.T) {
+	doc := `{"rules":[{"id":"kette","name":"Kette","enabled":true,
+	 "conditions":[{"type":"chain_finding","chain":"wr"},{"type":"chain_value","chain":"wr","field":"loss_w"},
+	               {"type":"balance_threshold","field":"grid_export","comparison":"above","threshold":1500}],
+	 "actions":[]}]}`
+	graph, err := automationGraph([]byte(doc), NewIndex(automationDevices()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]Edge{}
+	for _, edge := range graph.Edges {
+		byID[edge.ID] = edge
+	}
+	if _, ok := byID["auto:rule:kette/c0"]; ok {
+		t.Error("chain_finding must not get an edge")
+	}
+	if _, ok := byID["auto:rule:kette/c1"]; ok {
+		t.Error("chain_value must not get an edge")
+	}
+	if balance := byID["auto:rule:kette/c2"]; balance.From.VirtualID != BalanceID {
+		t.Errorf("balance edge = %+v", balance)
+	}
+	if len(graph.Unresolved) != 0 {
+		t.Errorf("unresolved = %+v, want none", graph.Unresolved)
+	}
+}
+
 func TestAutomationGraphRejectsBrokenJSON(t *testing.T) {
 	if _, err := automationGraph([]byte(`{"rules":`), NewIndex(nil)); err == nil {
 		t.Fatal("expected an error")

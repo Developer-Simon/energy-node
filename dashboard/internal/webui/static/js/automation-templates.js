@@ -1537,8 +1537,203 @@
     },
   };
 
+  // ---------------------------------------------------------------- Messkette: Watchdog und Standby
+
+  // Ende des Zeitfensters: eine Stunde nach der Uhrzeit, über Mitternacht hinweg.
+  const hourAfter = (time) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const total = (hours * 60 + minutes + 60) % (24 * 60);
+    const pad = (value) => String(value).padStart(2, '0');
+    return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+  };
+
+  // Kette aus ctx.chains und ihr Schalter am ersten Messpunkt, vorgewählt im Schalter-Schritt.
+  const chainSwitch = (ctx, answers) => {
+    const entry = (ctx.chains || []).find((item) => item.id === answers.chain);
+    return entry ? entry.plugSwitch : '';
+  };
+
+  // Messwert der Last am Plug. Fehlt er, kann keine Bedingung gebaut werden.
+  const requirePlugPower = (entry) => {
+    if (!entry.plugPower) throw new Error(`automation template: no plug reading for ${entry.id}`);
+    return entry.plugPower;
+  };
+
+  // Mitteilung vor dem Ausschalten, dieselbe Form wie in den übrigen Vorlagen.
+  // i18n-keys: automations.templates.chain_watchdog.notice.title, automations.templates.chain_watchdog.notice.message
+  const chainNotice = (templateId) => ({
+    type: 'notification',
+    severity: 'info',
+    title: t(`automations.templates.${templateId}.notice.title`),
+    message: t(`automations.templates.${templateId}.notice.message`),
+  });
+
+  // Der Plug hängt an einer Messkette: friert ein Messpunkt auf anderen Geräten ein, während
+  // der Plug Last zieht, schaltet der Plug kurz aus und wieder ein. Einmal je Meldung.
+  const chainWatchdog = {
+    id: 'chain_watchdog',
+    category: 'switching',
+    icon: 'ico-chain',
+    requires: { devices: 'chain_watchdog' },
+    steps: [
+      { id: 'chain', type: 'device', filter: 'chain_watchdog' },
+      { id: 'switch', type: 'device', filter: 'switch', first: chainSwitch, default: chainSwitch },
+      { id: 'minutes', type: 'number', min: 15, max: 120, step: 5, default: 15 },
+      { id: 'load', type: 'number', min: 5, max: 500, step: 5, default: 20 },
+      { id: 'pause', type: 'number', min: 10, max: 300, step: 10, default: 30 },
+      { id: 'again', type: 'number', min: 1, max: 24, step: 1, default: 6 },
+      {
+        id: 'extras', type: 'multi',
+        options: [{ id: 'notify', default: false }, { id: 'history', default: true }],
+      },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.chains, answers.chain);
+      if (!entry.watchPoints.length) throw new Error(`automation template: no watched point for ${entry.id}`);
+      const plug = requirePlugPower(entry);
+      const entity = requireEntity(requireEntry(ctx.switches, answers.switch));
+      const onStart = answers.extras.notify ? [chainNotice('chain_watchdog')] : [];
+      const scenario = {
+        id: uniqueId('chain_watchdog', ctx.usedIds),
+        name: t('automations.templates.chain_watchdog.title'),
+        enabled: true,
+        template: 'chain_watchdog',
+        history_enabled: !!answers.extras.history,
+        when: {
+          conditions: [
+            {
+              type: 'chain_finding', chain_id: entry.id, kind: 'frozen',
+              points: entry.watchPoints.map((point) => point.entity_id),
+              min_age_s: answers.minutes * 60, once: true,
+            },
+            {
+              type: 'entity_value', topic: plug.state_topic, entity_id: plug.unique_id,
+              value_template: plug.value_template || '', comparison: 'above', value: answers.load, hold_seconds: 0,
+            },
+          ],
+        },
+        on_start: { actions: [...onStart, Sw(entity, false)] },
+        on_end: { actions: [Sw(entity, true)] },
+        while: { mode: 'none' },
+        max_duration_s: answers.pause,
+        cooldown_s: answers.again * 3600,
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      requireEntry(ctx.chains, answers.chain);
+      const rows = [{
+        label: phase('when'),
+        text: t('automations.assistant.summary.chain_watchdog.when', { minutes: num(answers.minutes), load: num(answers.load) }),
+        step: 'minutes',
+      }];
+      if (answers.extras.notify) {
+        rows.push({ label: phase('start'), text: t('automations.assistant.summary.chain_watchdog.notify'), step: 'extras' });
+      }
+      rows.push({
+        label: phase('then'),
+        text: t('automations.assistant.summary.chain_watchdog.then', { pause: num(answers.pause) }),
+        step: 'pause',
+      });
+      rows.push({
+        label: phase('end'),
+        text: t('automations.assistant.summary.chain_watchdog.again', { hours: num(answers.again) }),
+        step: 'again',
+      });
+      return rows;
+    },
+  };
+
+  // Die Kette zieht lange nur Standby: der Plug schaltet ab. Zurück ein geht es zu einer
+  // Uhrzeit (Szenario mit Zeitfenster) oder nur von Hand (Regel ohne Rückschaltung).
+  const chainStandby = {
+    id: 'chain_standby',
+    category: 'switching',
+    icon: 'ico-chain',
+    requires: { devices: 'chain' },
+    steps: [
+      { id: 'chain', type: 'device', filter: 'chain' },
+      { id: 'switch', type: 'device', filter: 'switch', first: chainSwitch, default: chainSwitch },
+      {
+        id: 'limit', type: 'presets', step: 5, default: 10,
+        options: [{ id: 5 }, { id: 10 }, { id: 20 }],
+        scale: { min: 0, max: 100, step: 5, ticks: 20, fill: 'above', unit: 'W' },
+      },
+      { id: 'hours', type: 'number', min: 1, max: 24, step: 1, default: 2 },
+      {
+        id: 'back', type: 'tiles', default: 'time',
+        options: [{ id: 'time' }, { id: 'manual' }],
+      },
+      {
+        id: 'at', type: 'time', single: true, when: (answers) => answers.back === 'time',
+        default: { from: '07:00', to: '08:00', days: ALL_DAYS },
+      },
+      { id: 'extras', type: 'multi', options: [{ id: 'history', default: true }] },
+    ],
+    build(answers, ctx) {
+      const entry = requireEntry(ctx.chains, answers.chain);
+      const entity = requireEntity(requireEntry(ctx.switches, answers.switch));
+      const history = !!answers.extras.history;
+      const condition = {
+        type: 'chain_value', chain_id: entry.id, field: 'standby_w', comparison: 'above',
+        value: answers.limit, hold_seconds: answers.hours * 3600,
+      };
+      if (answers.back === 'manual') {
+        const rule = {
+          id: uniqueId('chain_standby', ctx.usedIds),
+          name: t('automations.templates.chain_standby.title'),
+          enabled: true,
+          cooldown_seconds: 3600,
+          history_enabled: history,
+          conditions: [condition],
+          actions: [Sw(entity, false)],
+        };
+        return { kind: 'rule', entry: rule };
+      }
+      const scenario = {
+        id: uniqueId('chain_standby', ctx.usedIds),
+        name: t('automations.templates.chain_standby.title'),
+        enabled: true,
+        template: 'chain_standby',
+        history_enabled: history,
+        when: { conditions: [condition] },
+        until: {
+          conditions: [{
+            type: 'time_window', start: answers.at.from, end: hourAfter(answers.at.from),
+            weekdays: weekdaysOf(answers.at.days),
+          }],
+        },
+        on_start: { actions: [Sw(entity, false)] },
+        on_end: { actions: [Sw(entity, true)] },
+        while: { mode: 'none' },
+      };
+      return { kind: 'scenario', entry: scenario };
+    },
+    summary(answers, ctx) {
+      requireEntry(ctx.chains, answers.chain);
+      const rows = [
+        {
+          label: phase('when'),
+          text: t('automations.assistant.summary.chain_standby.when', { hours: num(answers.hours), value: num(answers.limit) }),
+          step: 'limit',
+        },
+        { label: phase('then'), text: t('automations.assistant.summary.chain_standby.then'), step: 'switch' },
+      ];
+      if (answers.back === 'time') {
+        rows.push({
+          label: phase('end'),
+          text: t('automations.assistant.summary.chain_standby.end', { time: answers.at.from }),
+          step: 'at',
+        });
+      } else {
+        rows.push({ label: phase('end'), text: t('automations.assistant.summary.chain_standby.manual'), step: 'back' });
+      }
+      return rows;
+    },
+  };
+
   window.__automationTemplates = {
-    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod],
+    TEMPLATES: [zeroFeed, surplusWallbox, surplusSwitch, batteryWarn, timeSwitch, heatPump, tariff, batteryFullMonthly, inverterSilent, wallboxLowTariff, gridCap, gridSignal, pvMissing, heatingRod, chainWatchdog, chainStandby],
     chargeFit,
   };
 })();

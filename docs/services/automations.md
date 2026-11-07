@@ -41,6 +41,8 @@ These are the condition types:
 | `entity_value` | An entity, with a Home Assistant style value template |
 | `time_window` | Start/end time and weekdays |
 | `sun_window` | Sunrise or sunset, each with an offset in minutes, and weekdays |
+| `chain_finding` | A finding of a measurement chain, see [Measurement chain conditions](#measurement-chain-conditions) |
+| `chain_value` | The loss, efficiency or standby value of a measurement chain |
 
 A `custom:<id>` field reads `categories.<id>` from the balance, in watts. If the
 category is removed later, the field has no value and the condition stays unmet.
@@ -73,6 +75,57 @@ There are two action types. `publish` sends a constant payload, a balance
 field, a value copied from another topic or a toggle, with scale, offset,
 min/max, step and decimals. `notification` raises an info, warning or critical
 notification.
+
+## Measurement chain conditions
+
+The dashboard publishes the state of every measurement chain on
+`outstation/energy_node/energy/chains`, retained. Two condition types read it:
+`chain_finding` for the findings of a chain and `chain_value` for its loss,
+efficiency and standby values. Both work in rules, in `when` and in `until` of
+a scenario.
+
+The service reads the last payload and does not query the chain itself. A
+payload older than 60 seconds counts as stale. A condition on a stale, missing
+or unknown chain is unmet, so a rule waits instead of acting on an old value.
+
+`chain_finding` fields:
+
+| Field | Meaning |
+|---|---|
+| `chain_id` | The chain, lower case letters, digits and `_`. |
+| `kind` | `any`, `drift`, `frozen`, `contradiction`, `sign` or `unit`. The findings are explained in [Diagnosis](../dashboard/efficiency.md#diagnosis). |
+| `points` | Optional list of entity IDs. The finding matches when its first or its second point is one of them. Empty matches every point. |
+| `min_age_s` | Optional, 0 to 86400. The finding must have been active for this long. Default 0. |
+| `once` | Optional, default `false`. The finding fires the condition only once, see below. |
+
+`chain_value` fields:
+
+| Field | Meaning |
+|---|---|
+| `chain_id` | The chain. |
+| `field` | `loss_w` in W, `efficiency_pct` in percent or `standby_w` in W. |
+| `comparison` | `above` or `below`. |
+| `value` | The number to compare with. |
+| `hold_seconds` | Optional, 0 to 86400. The comparison must hold this long before the condition counts. Default 0. |
+
+A finding that is shown, for example a frozen reading, can start a rule:
+
+```json
+{ "type": "chain_finding", "chain_id": "keller", "kind": "frozen", "points": ["meter_power"], "min_age_s": 900, "once": true }
+```
+
+A chain whose standby stays above 10 W for two hours:
+
+```json
+{ "type": "chain_value", "chain_id": "keller", "field": "standby_w", "comparison": "above", "value": 10, "hold_seconds": 7200 }
+```
+
+With `once` set, the service remembers the findings that have already fired the
+condition. Each finding has its own start time, so a finding fires once and a
+later finding fires again. `repeat_seconds` never repeats a used finding. The
+finding no longer counts as met, the episode ends, and the repeat does not run.
+The memory of used findings lives in RAM only. A restart clears it, so a finding
+that is still active when the service starts can fire the rule once more.
 
 ## Scenarios
 
@@ -126,7 +179,7 @@ Scenario fields:
 | `history_enabled` | Records the start, end, fallback, recovery and large regulator jumps. |
 | `when` | 1 to 8 conditions of the same types as rules. All must hold to start the scenario. |
 | `until` | Optional, 1 to 8 conditions. Without it, the scenario ends when a `when` condition is no longer met. With it, the scenario ends when all `until` conditions hold. |
-| `max_duration_s` | Optional, 60 to 86400 seconds. After this time the scenario ends, even while `when` still holds. It starts again only after `when` has been unmet once. Without `until`, this time is the only end condition. Missing means no time limit. |
+| `max_duration_s` | Optional, 10 to 86400 seconds. After this time the scenario ends, even while `when` still holds. It starts again only after `when` has been unmet once. Without `until`, this time is the only end condition. Missing means no time limit. |
 | `on_start`, `on_end` | 0 to 8 actions each, of the same types as rule actions. |
 | `while.regulator` | Required for `regulate`. See below. |
 | `while.actions`, `while.repeat_seconds` | For `hold`: 1 to 8 actions and a repeat interval above 0. |
@@ -146,6 +199,24 @@ Regulator fields:
 | `base` | Where the regulator reads its current value from: an entity, a balance field or the last sent value. |
 | `interval_s` | Optional, 5 to 3600 s. Without it, `regulator_interval_s` applies. |
 | `fallback.payload` | Required for `producer`, optional for `consumer`. Sent when the balance is stale or the base value is missing. |
+| `efficiency.chain_id` | Optional. The chain whose best efficiency range the setpoint keeps to. Without the key the option is off. |
+
+The efficiency option keeps the setpoint inside the best range of a chain. The
+range is the chain's `best_down` for a `consumer` and its `best_up` for a
+`producer`. The shaping runs on the computed setpoint, before `max_change_w`
+and the rounding to `step`:
+
+- Above the upper end, the setpoint becomes the upper end.
+- Inside the range, the setpoint stays as it is.
+- Below the lower end but at least half of it, the setpoint becomes the lower end.
+- Below half of the lower end, the setpoint becomes `output.min`.
+
+Without a usable range, the regulator works without a limit. This happens when
+the chain has not learned a range yet (`no_range`), is missing from the payload
+(`chain_missing`), its payload is stale (`chains_stale`) or the chains topic has
+never arrived (`chains_unknown`). The scenario state reports the reason in
+`efficiency`. The option is meant for setpoints in W, as the help text of the
+dashboard says. The service does not check the unit.
 
 The regulator and the state machine are described in
 [How it works, section 8](automations-how-it-works.md#8-scenarios-and-the-regulator).
@@ -167,3 +238,44 @@ enforces them.
 Rule history (`history_enabled` per rule, `history_limit`, `history_persist`)
 records the last triggers per rule so the dashboard can show why something
 switched.
+
+## Chain templates
+
+The dashboard assistant has two templates for measurement chains. The browser
+builds the rule or the scenario from the answers, and the service runs it like
+any other. The first point of the chain is the plug. Its switch is preselected,
+and the other points of the chain are the ones the watchdog observes.
+
+### Restart a device when its reading hangs
+
+The scenario starts when a `frozen` finding on one of the other points has
+lasted for the chosen time and the plug draws at least the chosen load. The
+finding is `once`, so it fires the scenario once. The plug switches off at the
+start and on again at the end, after the pause.
+
+| Question | Default | Range | Stored as |
+|---|---|---|---|
+| How long may the reading hang? | 15 min | 15 to 120 min, steps of 5 | `min_age_s` of the finding, in seconds |
+| From which load? | 20 W | 5 to 500 W, steps of 5 | `entity_value` of the plug, above this value |
+| How long off? | 30 s | 10 to 300 s, steps of 10 | `max_duration_s` |
+| How often again? | 6 h | 1 to 24 h | `cooldown_s` |
+
+A notice before the switch off is off by default. The history is on by default.
+
+### Switch off standby
+
+The plug switches off when the chain has drawn more than the chosen standby
+power for the chosen time.
+
+| Question | Default | Range | Stored as |
+|---|---|---|---|
+| From which standby? | 10 W | 5, 10 or 20 W, the slider goes from 0 to 100 W | `standby_w` of a `chain_value`, above this value |
+| How long standby? | 2 h | 1 to 24 h | `hold_seconds` of that condition |
+| When to switch on again? | At a set time | At a set time or by hand | see below |
+
+**At a set time** is the default. It makes a scenario that switches the plug off
+at the start and on again when the time window opens. The time window is one
+hour long, from 07:00 to 08:00 on every day by default, and the days can be
+chosen. **By hand** makes a rule with a cooldown of one hour that only switches
+the plug off. Nothing switches it on again, so the plug stays off until you
+switch it on yourself. The history is on by default.

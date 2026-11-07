@@ -10,6 +10,22 @@
   const STALE_DEFAULT_MAX_AGE_S = 900;
   const COMPARE_VALUE_DEFAULT = 20;
 
+  // Messketten-Bedingungen: Signale der Auswahl, Arten einer Meldung und der
+  // Startwert eines Messwert-Vergleichs beim Wechsel auf ein Messwert-Signal.
+  // i18n-keys: automations.chain.signal.finding, automations.chain.signal.loss_w, automations.chain.signal.efficiency_pct, automations.chain.signal.standby_w, automations.chain.kind.any, automations.chain.signal_label, automations.chain.kind_label, automations.chain.points_label, diagnostics.rule.chain_drift.title, diagnostics.rule.chain_frozen.title, diagnostics.rule.chain_contradiction.title, diagnostics.rule.chain_sign.title, diagnostics.rule.chain_unit.title
+  const CHAIN_SIGNAL_LABEL_KEYS = {
+    finding: 'automations.chain.signal.finding', loss_w: 'automations.chain.signal.loss_w',
+    efficiency_pct: 'automations.chain.signal.efficiency_pct', standby_w: 'automations.chain.signal.standby_w',
+  };
+  const CHAIN_VALUE_SIGNALS = ['loss_w', 'efficiency_pct', 'standby_w'];
+  const CHAIN_KIND_TITLE_KEYS = {
+    drift: 'diagnostics.rule.chain_drift.title', frozen: 'diagnostics.rule.chain_frozen.title',
+    contradiction: 'diagnostics.rule.chain_contradiction.title', sign: 'diagnostics.rule.chain_sign.title',
+    unit: 'diagnostics.rule.chain_unit.title',
+  };
+  const CHAIN_KINDS = ['any', 'drift', 'frozen', 'contradiction', 'sign', 'unit'];
+  const CHAIN_VALUE_DEFAULT = 10;
+
   // Monatstage fuer Zeitfenster und Sonnenfenster, 1 bis 31.
   const MONTH_DAY_NUMBERS = Array.from({ length: 31 }, (_, index) => index + 1);
 
@@ -147,12 +163,12 @@
   // Sprite-Symbole der Bausteine: Geraet je Rolle, Kachel je Option.
   const ASSIST_DEVICE_ICONS = {
     inverter: 'ico-inverter', wallbox: 'ico-wallbox', switch: 'ico-switch',
-    grid_target: 'ico-grid', input: 'ico-switch', inverter_measured: 'ico-inverter',
+    grid_target: 'ico-grid', input: 'ico-switch', inverter_measured: 'ico-inverter', chain: 'ico-chain',
   };
   const ASSIST_TILE_ICONS = {
     sun: 'ico-sun', min: 'ico-clock', battery: 'ico-battery', always: 'ico-play', fixed: 'ico-calendar',
     import: 'ico-grid', runtime: 'ico-clock', sunset: 'ico-sun', info: 'ico-info', warning: 'ico-warning', critical: 'ico-bell',
-    calm: 'ico-clock', fast: 'ico-flash',
+    calm: 'ico-clock', fast: 'ico-flash', time: 'ico-clock', manual: 'ico-power-on',
   };
 
   const automationsPanel = () => ({
@@ -161,6 +177,7 @@
     saving: false,
     document: emptyDocument(),
     categories: {},
+    chains: [],
     entities: [],
     readableEntities: [],
     devices: [],
@@ -209,6 +226,7 @@
     // Rueckgaengig-Balken nach dem Anlegen, verschwindet nach 10 Sekunden.
     undo: null,
     scenarioExpanded: {},
+    durationUnits: {},
     scenarioEditing: {},
     // Diagramm je Szenario: Bereich (Start 30 min), gelesene Punkte, Live-Punkte
     // aus den Zustandsupdates, Zeitpunkt des letzten Ladens, Tagesexport in kWh.
@@ -260,12 +278,15 @@
     async load() {
       this.loading = true;
       try {
-        const [doc, session, , roles] = await Promise.all([
+        const [doc, session, , roles, energy] = await Promise.all([
           requestJSON('/api/v1/configurations/automation_rules'),
           requestJSON('/api/v1/auth/session').catch(() => null),
           this.loadDeviceCatalog(),
           requestJSON('/api/v1/energy/roles').catch(() => null),
+          requestJSON('/api/v1/energy').catch(() => null),
         ]);
+        // Die Messketten aus dem Energie-Snapshot; ohne Antwort gibt es keine Kachel.
+        this.chains = (energy && energy.chains) || [];
         this.categories = (roles && roles.categories) || {};
         this.assignments = (roles && roles.assignments) || {};
         this.storedDocument = JSON.parse(JSON.stringify(doc && doc.rules ? doc : emptyDocument()));
@@ -563,7 +584,7 @@
     },
 
     describeCondition(condition) {
-      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories);
+      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories, this.chains);
     },
 
     describeAction(action) {
@@ -1260,6 +1281,10 @@
         requestJSON('/api/v1/energy').catch(() => null),
       ]);
       const snapshot = energy || { values: {}, entities: [] };
+      // Ketten koennen nach dem Laden der Seite dazukommen, etwa direkt nach
+      // dem Start des Dashboards. Der Assistent und die Editor-Karten sollen
+      // dieselbe Liste sehen.
+      if (energy && Array.isArray(energy.chains)) this.chains = energy.chains;
       this.assistant = {
         ...assistantIdle(),
         open: true,
@@ -1923,7 +1948,13 @@
       if (rule) rule.enabled = !rule.enabled;
     },
 
-    conditionTypes() { return CONDITION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint), short: t(type.short) })); },
+    // Die Messketten-Kachel fehlt ohne Kette, eine Bedingung darauf waere leer.
+    conditionTypes() {
+      const hasChains = (this.chains || []).length > 0;
+      return CONDITION_TYPES
+        .filter((type) => type.key !== 'chain' || hasChains)
+        .map((type) => ({ ...type, label: t(type.label), hint: t(type.hint), short: t(type.short) }));
+    },
     actionTypes() { return ACTION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint), short: t(type.short) })); },
     fieldHelp(key) { return FIELD_HELP[key] ? t(FIELD_HELP[key]) : ''; },
 
@@ -1938,6 +1969,88 @@
     addSunWindowCondition(rule) {
       rule.conditions.push({ type: 'sun_window', from: 'sunrise', from_offset_min: 0,
                              to: 'sunset', to_offset_min: 0, weekdays: [] });
+    },
+
+    // Neue Messketten-Bedingung: Meldung auf der ersten Kette. Ohne Kette legt
+    // sie nichts an, die Kachel fehlt dann ohnehin.
+    addChainCondition(rule) {
+      const first = (this.chains || [])[0];
+      if (!first) return;
+      rule.conditions.push({ type: 'chain_finding', chain_id: first.id, kind: 'any', points: [], min_age_s: 0, once: false });
+    },
+
+    // Holt die Ketten neu, ohne die Seite zu stoeren. Ein Fehler laesst die
+    // bisherige Liste stehen.
+    async refreshChains() {
+      const energy = await requestJSON('/api/v1/energy').catch(() => null);
+      if (energy && Array.isArray(energy.chains)) this.chains = energy.chains;
+    },
+
+    chainById(id) {
+      return (this.chains || []).find((chain) => chain.id === id) || null;
+    },
+
+    // Die Signalwahl baut die Bedingung um, die Kette bleibt. Meldung
+    // bekommt die Felder von chain_finding, ein Messwert die von chain_value.
+    setChainSignal(condition, signal) {
+      if (signal !== 'finding' && !CHAIN_VALUE_SIGNALS.includes(signal)) return;
+      const chainId = condition.chain_id;
+      for (const key of Object.keys(condition)) delete condition[key];
+      if (signal === 'finding') {
+        Object.assign(condition, { type: 'chain_finding', chain_id: chainId, kind: 'any', points: [], min_age_s: 0, once: false });
+      } else {
+        Object.assign(condition, { type: 'chain_value', chain_id: chainId, field: signal, comparison: 'above', value: CHAIN_VALUE_DEFAULT, hold_seconds: 0 });
+      }
+    },
+
+    chainSignal(condition) {
+      return condition.type === 'chain_finding' ? 'finding' : condition.field;
+    },
+
+    chainSignalOptions() {
+      return ['finding', ...CHAIN_VALUE_SIGNALS].map((key) => ({ key, label: t(CHAIN_SIGNAL_LABEL_KEYS[key]) }));
+    },
+
+    chainKindOptions() {
+      return CHAIN_KINDS.map((kind) => ({
+        key: kind,
+        label: kind === 'any' ? t('automations.chain.kind.any') : t(CHAIN_KIND_TITLE_KEYS[kind]),
+      }));
+    },
+
+    // Kettenauswahl: alle bekannten Ketten, dazu die gespeicherte ID, auch wenn
+    // die Kette fehlt, damit Speichern die Bedingung nicht veraendert.
+    chainOptions(condition) {
+      const options = (this.chains || []).map((chain) => ({ id: chain.id, label: chain.label }));
+      if (condition.chain_id && !this.chainById(condition.chain_id)) {
+        options.push({ id: condition.chain_id, label: t('automations.chain.missing') });
+      }
+      return options;
+    },
+
+    chainPointChips(condition) {
+      const chain = this.chainById(condition.chain_id);
+      return chain ? chain.points || [] : [];
+    },
+
+    hasChainPoint(condition, entityId) {
+      return (condition.points || []).includes(entityId);
+    },
+
+    toggleChainPoint(condition, entityId) {
+      const points = new Set(condition.points || []);
+      if (points.has(entityId)) points.delete(entityId);
+      else points.add(entityId);
+      condition.points = [...points];
+    },
+
+    // Live-Wert einer Messwert-Bedingung aus dem Bericht des Dienstes, so wie
+    // der Wert einer Geraetebedingung im Dashboard erscheint. Meldungen haben
+    // keinen Messwert, sie zeigen leer.
+    chainLiveText(condition, report) {
+      if (condition.type !== 'chain_value' || !report || !isNumber(report.value)) return '';
+      const unit = this.describeCondition(condition).unit;
+      return `${Math.round(report.value * 10) / 10}${unit ? ` ${unit}` : ''}`;
     },
 
     weekdayLabels() { return WEEKDAY_LABELS.map((key) => t(key)); },
@@ -2029,6 +2142,7 @@
       if (key === 'entity') result = this.addEntityValueCondition(rule);
       if (key === 'time') result = this.addTimeWindowCondition(rule);
       if (key === 'sun') result = this.addSunWindowCondition(rule);
+      if (key === 'chain') result = this.addChainCondition(rule);
       this.loadEditLive(rule);
       return result;
     },
@@ -2374,7 +2488,9 @@
     // und "stale" (keine neuen Werte seit max_age_s). Wechsel zu stale setzt
     // den Standard von 15 Minuten, der Wechsel zurueck den Vergleichswert.
     setComparison(condition, value) {
-      const allowed = condition.type === 'balance_threshold' ? ['above', 'below'] : ['above', 'below', 'equals', 'not_equals', 'stale'];
+      // Der Dienst kennt fuer Messwerte nur above und below.
+      const numeric = condition.type === 'balance_threshold' || condition.type === 'chain_value';
+      const allowed = numeric ? ['above', 'below'] : ['above', 'below', 'equals', 'not_equals', 'stale'];
       if (!allowed.includes(value)) return;
       const wasStale = condition.comparison === 'stale';
       condition.comparison = value;
@@ -2523,7 +2639,7 @@
     syncCatalogRefresh() {
       const editing = Object.values(this.scenarioEditing).some(Boolean);
       if (editing && !this._catalogTimer) {
-        this._catalogTimer = setInterval(() => { this.loadDeviceCatalog().catch(() => {}); }, CATALOG_REFRESH_MS);
+        this._catalogTimer = setInterval(() => { this.loadDeviceCatalog().catch(() => {}); this.refreshChains(); }, CATALOG_REFRESH_MS);
         if (typeof this._catalogTimer.unref === 'function') this._catalogTimer.unref();
       } else if (!editing && this._catalogTimer) {
         clearInterval(this._catalogTimer);
@@ -2593,12 +2709,28 @@
       window.__automationScenario.setUntil(scenario, on);
     },
 
-    maxDurationMinutes(scenario) {
-      return window.__automationScenario.maxDurationMinutes(scenario);
+    // Einheit der Laufzeit je Szenario. Sie liegt im reaktiven Seitenzustand
+    // (durationUnits), damit der Wechsel Stepper und Auswahl sofort neu
+    // zeichnet. Gespeichert wird nur die Sekundenzahl.
+    maxDurationUnit(scenario) {
+      return window.__automationScenario.maxDurationUnit(scenario, this.durationUnits[scenario.id]);
     },
 
-    setMaxDurationMinutes(scenario, minutes) {
-      window.__automationScenario.setMaxDurationMinutes(scenario, minutes);
+    setMaxDurationUnit(scenario, unit) {
+      const applied = window.__automationScenario.setMaxDurationUnit(scenario, unit);
+      this.durationUnits = { ...this.durationUnits, [scenario.id]: applied };
+    },
+
+    maxDurationValue(scenario) {
+      return window.__automationScenario.maxDurationValue(scenario, this.durationUnits[scenario.id]);
+    },
+
+    setMaxDurationValue(scenario, value) {
+      // Die Einheit festhalten, bevor sich der Wert aendert: ohne Wahl wuerde
+      // ein Bruch wie 1,5 min sonst wieder als Sekunden erkannt.
+      const unit = this.maxDurationUnit(scenario);
+      this.durationUnits = { ...this.durationUnits, [scenario.id]: unit };
+      window.__automationScenario.setMaxDurationValue(scenario, value, unit);
     },
 
     minRunMinutes(scenario) {
@@ -2619,6 +2751,27 @@
 
     changeWhileMode(scenario, mode) {
       window.__automationScenario.setWhileMode(scenario, mode);
+    },
+
+    // Regler-Schalter "Im besten Wirkungsgradbereich regeln": nur im Regler-Modus,
+    // und nur mit Ketten oder mit gesetzter Option.
+    efficiencyVisible(scenario) {
+      if (!scenario.while || scenario.while.mode !== 'regulate') return false;
+      const regulator = scenario.while.regulator || {};
+      return (this.chains || []).length > 0 || Boolean(regulator.efficiency);
+    },
+
+    toggleEfficiency(scenario, on) {
+      window.__automationScenario.toggleEfficiency(scenario, on, this.chains || [], this.devices || []);
+    },
+
+    efficiencyStatus(scenario) {
+      return window.__automationScenario.efficiencyStatus(scenario, this.scenarioState(scenario));
+    },
+
+    // Kettenauswahl des Schalters; die gespeicherte Kette bleibt auch ohne Treffer sichtbar.
+    efficiencyOptions(scenario) {
+      return this.chainOptions(this.regulatorOf(scenario).efficiency || {});
     },
 
     validateDocumentBeforeSave() {

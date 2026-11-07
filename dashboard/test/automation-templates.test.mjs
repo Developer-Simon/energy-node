@@ -86,6 +86,13 @@ const snapshot = {
     { device_id: 'hp', entity_id: 'hp_temp', role: { role: 'heat_pump' } },
     { device_id: 'bat', entity_id: 'bat_soc', role: { role: 'battery_soc' } },
   ],
+  chains: [{
+    id: 'speicher', label: 'Speicher', points: [
+      { entity_id: 'wb_power', device_id: 'wb', label: 'Plug' },
+      { entity_id: 'pv1_power', device_id: 'pv1', label: 'Speicher AC' },
+      { entity_id: 'bat_soc', device_id: 'bat', label: 'Speicher DC' },
+    ],
+  }],
 };
 
 // Ohne Regler-Szenarien, damit der Wechselrichter wählbar bleibt.
@@ -153,6 +160,13 @@ const VARIANTS = {
     { target: 10, max_temp: 55, battery: 'parallel' },
     { extras: { notify: true, history: false } },
   ],
+  chain_watchdog: [
+    { minutes: 30, load: 50, pause: 60, again: 12, extras: { notify: true, history: false } },
+  ],
+  chain_standby: [
+    { back: 'manual', limit: 5, hours: 4 },
+    { back: 'time', at: { from: '23:30', to: '00:30', days: [0, 1, 2, 3, 4, 5, 6] } },
+  ],
 };
 
 // Zusaetzliche Mitteilungstexte, die eine Vorlage im gebauten Eintrag verwendet.
@@ -164,6 +178,7 @@ const NOTICE_KEYS = {
   pv_missing: ['automations.templates.pv_missing.notice.title', 'automations.templates.pv_missing.notice.message'],
   heating_rod: ['automations.templates.heating_rod.notice.title', 'automations.templates.heating_rod.notice.message'],
   inverter_silent: ['automations.templates.inverter_silent.notice.title', 'automations.templates.inverter_silent.notice.message'],
+  chain_watchdog: ['automations.templates.chain_watchdog.notice.title', 'automations.templates.chain_watchdog.notice.message'],
 };
 
 test('zero_feed builds the documented shape with the default answers', () => {
@@ -1269,6 +1284,7 @@ test('every presets step except the band carries its threshold scale', () => {
     'tariff:thr': { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
     'wallbox_low_tariff:thr': { min: 0, max: 40, step: 0.5, ticks: 10, fill: 'below', unit: 'ct' },
     'grid_cap:limit': { min: 0, max: 30000, step: 100, ticks: 5000, grow: true, fill: 'above', unit: 'W' },
+    'chain_standby:limit': { min: 0, max: 100, step: 5, ticks: 20, fill: 'above', unit: 'W' },
   };
   const found = {};
   for (const template of templates) {
@@ -1454,3 +1470,119 @@ for (const id of RESTART_TEMPLATES) {
     assert.equal(on[on.length - 1].step, RESTART_LAST_STEP[id]);
   });
 }
+
+// Messketten-Vorlagen. Die Kette im Kontext hat den Plug (Wallbox, Schalter wb_switch) vorn
+// und Messpunkte auf anderen Geräten: pv1_power und bat_soc.
+const plugOff = {
+  type: 'publish', topic: 'werkstatt/wb/switch', retain: false, payload_source: 'constant', payload: 'OFF', entity_id: 'wb_switch',
+};
+const plugOn = { ...plugOff, payload: 'ON' };
+
+test('chain_watchdog builds the restart scenario', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'chain_watchdog');
+  const ctx = plain(contextFor(wizard));
+  const result = template.build(answersFor(wizard, template, ctx), ctx);
+  const entry = plain(result.entry);
+  assert.equal(result.kind, 'scenario');
+  assert.equal(entry.id, 'chain_watchdog');
+  assert.equal(entry.template, 'chain_watchdog');
+  assert.deepEqual(entry.when.conditions, [
+    { type: 'chain_finding', chain_id: 'speicher', kind: 'frozen', points: ['pv1_power', 'bat_soc'], min_age_s: 900, once: true },
+    { type: 'entity_value', topic: 'werkstatt/wb/power', entity_id: 'wb_power', value_template: '', comparison: 'above', value: 20, hold_seconds: 0 },
+  ]);
+  assert.deepEqual(entry.on_start.actions, [plugOff]);
+  assert.deepEqual(entry.on_end.actions, [plugOn]);
+  assert.deepEqual(entry.while, { mode: 'none' });
+  assert.equal(entry.max_duration_s, 30);
+  assert.equal(entry.cooldown_s, 21600);
+  assert.equal(entry.history_enabled, true);
+
+  const custom = plain(template.build(answersFor(wizard, template, ctx, { minutes: 30, load: 50, pause: 60, again: 12 }), ctx).entry);
+  assert.equal(custom.when.conditions[0].min_age_s, 1800);
+  assert.equal(custom.when.conditions[1].value, 50);
+  assert.equal(custom.max_duration_s, 60);
+  assert.equal(custom.cooldown_s, 43200);
+});
+
+test('chain_watchdog notify adds the notice before switching off, a chosen switch replaces the plug', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'chain_watchdog');
+  const ctx = plain(contextFor(wizard));
+  const notify = plain(template.build(answersFor(wizard, template, ctx, { extras: { notify: true, history: false } }), ctx).entry);
+  assert.equal(notify.on_start.actions[0].type, 'notification');
+  assert.equal(notify.on_start.actions[0].severity, 'info');
+  assert.deepEqual(notify.on_start.actions[1], plugOff);
+  assert.equal(notify.history_enabled, false);
+  const other = plain(template.build(answersFor(wizard, template, ctx, { switch: 'hp_sg' }), ctx).entry);
+  assert.equal(other.on_start.actions[0].entity_id, 'hp_sg');
+  assert.equal(other.on_end.actions[0].entity_id, 'hp_sg');
+});
+
+test('chain_standby builds a rule or a scenario', () => {
+  const { wizard, templates } = load();
+  const template = templateById(templates, 'chain_standby');
+  const ctx = plain(contextFor(wizard));
+  const build = (overrides) => plain(template.build(answersFor(wizard, template, ctx, overrides), ctx));
+  const condition = (limit, hours) => ({
+    type: 'chain_value', chain_id: 'speicher', field: 'standby_w', comparison: 'above', value: limit, hold_seconds: hours * 3600,
+  });
+
+  const rule = build({ back: 'manual' });
+  assert.equal(rule.kind, 'rule');
+  assert.deepEqual(rule.entry.conditions, [condition(10, 2)]);
+  assert.deepEqual(rule.entry.actions, [plugOff]);
+  assert.equal(rule.entry.cooldown_seconds, 3600);
+
+  const scenario = build({});
+  assert.equal(scenario.kind, 'scenario');
+  assert.equal(scenario.entry.template, 'chain_standby');
+  assert.deepEqual(scenario.entry.when.conditions, [condition(10, 2)]);
+  assert.deepEqual(scenario.entry.until.conditions, [{ type: 'time_window', start: '07:00', end: '08:00', weekdays: [] }]);
+  assert.deepEqual(scenario.entry.on_start.actions, [plugOff]);
+  assert.deepEqual(scenario.entry.on_end.actions, [plugOn]);
+  assert.deepEqual(scenario.entry.while, { mode: 'none' });
+
+  // Einzelne Uhrzeit: das Ende des Zeitfensters ist eine Stunde später, das Feld 'to' zählt nicht.
+  const late = build({ limit: 5, hours: 4, at: { from: '23:30', to: '09:00', days: [0, 1, 2, 3, 4, 5, 6] } });
+  assert.deepEqual(late.entry.until.conditions, [{ type: 'time_window', start: '23:30', end: '00:30', weekdays: [] }]);
+  assert.deepEqual(late.entry.when.conditions, [condition(5, 4)]);
+});
+
+test('chain templates summarise in sentences', () => {
+  const { wizard, templates } = load();
+  const ctx = plain(contextFor(wizard));
+  const watchdog = templateById(templates, 'chain_watchdog');
+  const rows = plain(watchdog.summary(answersFor(wizard, watchdog, ctx), ctx));
+  assert.deepEqual(rows.map((row) => row.step), ['minutes', 'pause', 'again']);
+  assert.equal(rows[0].text, 'Wenn ein Messwert der Kette 15 Minuten lang hängt und der Plug mehr als 20 W zieht');
+  assert.equal(rows[1].text, 'Der Plug schaltet für 30 Sekunden aus und wieder ein');
+  assert.equal(rows[2].text, 'Höchstens einmal je Meldung, frühestens nach 6 h wieder');
+  const notified = plain(watchdog.summary(answersFor(wizard, watchdog, ctx, { extras: { notify: true, history: true } }), ctx));
+  assert.deepEqual(notified.map((row) => row.step), ['minutes', 'extras', 'pause', 'again']);
+
+  const standby = templateById(templates, 'chain_standby');
+  const timed = plain(standby.summary(answersFor(wizard, standby, ctx), ctx));
+  assert.deepEqual(timed.map((row) => row.step), ['limit', 'switch', 'at']);
+  assert.equal(timed[0].text, 'Wenn die Kette 2 h lang mehr als 10 W Standby zieht');
+  assert.equal(timed[1].text, 'Der Plug schaltet aus');
+  assert.equal(timed[2].text, 'Um 07:00 Uhr schaltet der Plug wieder ein');
+  const manual = plain(standby.summary(answersFor(wizard, standby, ctx, { back: 'manual' }), ctx));
+  assert.deepEqual(manual.map((row) => row.step), ['limit', 'switch', 'back']);
+  assert.equal(manual[2].text, 'Wieder eingeschaltet wird nur von Hand');
+});
+
+test('chain templates are unavailable without a fitting chain and say why', () => {
+  const { wizard, templates, t } = load();
+  const watchdog = templateById(templates, 'chain_watchdog');
+  const standby = templateById(templates, 'chain_standby');
+  const onlyPlug = plain(contextFor(wizard, {
+    snapshot: { ...snapshot, chains: [{ id: 'speicher', label: 'Speicher', points: [{ entity_id: 'wb_power', device_id: 'wb', label: 'Plug' }] }] },
+  }));
+  const blocked = wizard.templateAvailability(watchdog, onlyPlug);
+  assert.equal(blocked.available, false);
+  assert.equal(blocked.reason, t('automations.assistant.unavailable.chain_watchdog'));
+  assert.equal(wizard.templateAvailability(standby, onlyPlug).available, true);
+  const none = plain(contextFor(wizard, { snapshot: { ...snapshot, chains: [] } }));
+  assert.equal(wizard.templateAvailability(standby, none).reason, t('automations.assistant.unavailable.chain'));
+});

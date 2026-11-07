@@ -286,3 +286,51 @@ its directions, the source energy minus the target energy. The efficiency of a
 period is the product of the target divided by the source energy of each
 segment. A segment whose source energy is below 0.01 kWh leaves the efficiency
 empty.
+
+## 16. Chain signals for automations
+
+The chains have a second retained topic next to the balance. It is meant for
+the automation conditions `chain_finding` and `chain_value`, which read it once
+the automation service supports them. The dashboard publishes it every 10
+seconds, after the balance, from the same snapshot. The code is `energy.BuildChainSignals` in
+`dashboard/internal/energy/chain_signals.go`, the topic is
+`energydiscovery.ChainsTopic`.
+
+```json
+{
+  "at": 1794045600,
+  "chains": {
+    "wechselrichter": {
+      "label": "Wechselrichter",
+      "flow": "down",
+      "loss_w": 15,
+      "efficiency_pct": 95.1,
+      "standby_w": null,
+      "substitute": false,
+      "no_current_values": false,
+      "findings": [
+        {"kind": "frozen", "from": "wr_leistung", "since": 1794045000}
+      ],
+      "best_down": {"from_w": 250, "to_w": 500},
+      "best_up": null
+    }
+  }
+}
+```
+
+- `at` is the time of the payload in Unix seconds. `since` of a finding is the
+  Unix second it was first seen.
+- `loss_w` is the sum of the segment losses, `efficiency_pct` the product of the
+  segment efficiencies in percent. Both are rounded to one decimal and stay
+  `null` when the flow is `idle`, when a segment is not available, or, for the
+  efficiency, when a segment has none.
+- `standby_w` is set while the chain is in standby (see §15), otherwise `null`.
+- `best_down` and `best_up` are the most efficient power spans of the learned
+  curve, `null` without a learned model.
+- The payload lists every chain with its ID as key. The topic is retained. When
+  the last chain goes away, one empty `chains` object is published so the old
+  signal disappears, and nothing is published again until a chain exists.
+
+The balance and the chain signals stay separate topics, so a chain signal never
+changes the balance. The automation conditions are the only planned readers.
+The dashboard's own views keep reading the snapshot, not this topic.
