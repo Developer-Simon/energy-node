@@ -52,14 +52,33 @@ The sync also renumbers the pre versions. When `main` releases `v0.4.6`, a
 `v0.4.6-pre.2` on `prerelease` becomes `v0.4.7-pre.2`.
 
 If the merge conflicts in code, the run ends red. The workflow also opens or
-updates a GitHub issue with the label `prerelease-sync`. To fix it:
+updates a GitHub issue with the label `prerelease-sync`. The same happens when
+both lines changed the same lazy loaded web asset under
+`dashboard/internal/webui/static/js/` or `static/css/`. Git merges such a file
+cleanly, but the merged file is new on both lines and needs a `?v=` above both
+of them. The issue lists these paths as assets.
+
+To fix it, let the script stop with the merge in progress:
 
 ```sh
-git switch prerelease
-python3 scripts/version/sync_prerelease.py
+git switch prerelease && git pull --ff-only
+python3 scripts/version/sync_prerelease.py --keep
 ```
 
-Resolve the conflicts by hand, commit and push `prerelease`.
+The script settles versions and changelogs itself and prints the rest. Resolve
+every `CONFLICT` path. For every `ASSET` path, set its `?v=` one above the higher
+of the two lines and add a history row as described in
+[lazy-assets-cache-busting.md](../_internal/lazy-assets-cache-busting.md). Stage
+the files with `git add`, then finish the merge:
+
+```sh
+python3 scripts/version/sync_prerelease.py --continue --push
+```
+
+`--continue` sets the versions, commits the merge and regenerates the
+changelogs exactly like the automatic run. The next run closes the issue, or
+close it by hand. Changelog hashes are always 7 characters, so a local run
+writes the same text as CI.
 
 ### Minor release
 

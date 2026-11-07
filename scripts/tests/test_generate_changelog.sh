@@ -546,4 +546,13 @@ grep -qxF -- '- **dashboard:** keep `$(touch pwned)` and "quotes" (#10)' "$hcl" 
   || hfail "a title with shell syntax did not land literally"
 rm -rf "$hl"
 
+# --- short hashes are always 7 characters -------------------------------------
+# Git sizes %h by the object count, so a large local clone gets 8 characters and
+# would rewrite every entry CI wrote. The generator pins the length.
+git -C "$tmp" config core.abbrev 12
+gen dashboard >/dev/null
+grep -qE '\([0-9a-f]{12}\)' "$cl" && fail "core.abbrev leaked into the changelog hashes"
+grep -qE '\([0-9a-f]{7}\)' "$cl" || fail "no 7 character hash in the changelog"
+git -C "$tmp" config --unset core.abbrev
+
 echo "OK"

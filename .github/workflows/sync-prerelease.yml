@@ -3,9 +3,9 @@ name: Sync prerelease
 # Merges main into the prerelease branch and sets the prerelease versions
 # (scripts/version/sync_prerelease.py). Runs on demand and when a PR into
 # prerelease is opened, not on every push to main, so a burst of hotfixes causes
-# one merge. A code conflict aborts the merge: the run opens (or comments on) an
-# issue with the conflicting paths and ends red. Resolve it locally with the
-# command in the issue.
+# one merge. A code conflict, or a web asset changed on both lines, aborts the
+# merge: the run opens (or comments on) an issue with the paths and ends red.
+# Resolve it locally with the commands in the issue.
 
 on:
   workflow_dispatch:
@@ -71,19 +71,30 @@ jobs:
               exit 0
               ;;
             3)
-              # Conflict: the merge was aborted. The printed CONFLICT lines go
-              # into a file and are read as data, never as shell source.
+              # Conflict: the merge was aborted. The printed CONFLICT and ASSET
+              # lines go into a file and are read as data, never as shell source.
               body="$RUNNER_TEMP/conflict-body.md"
               {
                 echo "The merge of main into prerelease stopped on conflicts in these paths:"
                 echo
                 sed -n 's/^CONFLICT /- `/p' "$out_file" | sed 's/$/`/'
+                if grep -q '^ASSET ' "$out_file"; then
+                  echo
+                  echo "Both lines changed these web assets, each needs a new ?v= above both:"
+                  echo
+                  sed -n 's/^ASSET /- `/p' "$out_file" | sed 's/$/`/'
+                fi
                 echo
-                echo "Resolve it locally and push the result:"
+                echo "Resolve it locally, stage the files and finish the merge:"
                 echo
                 echo '```'
-                echo "git switch prerelease && python3 scripts/version/sync_prerelease.py"
+                echo "git switch prerelease && git pull --ff-only"
+                echo "python3 scripts/version/sync_prerelease.py --keep"
+                echo "# resolve, bump the ?v= of every asset, git add"
+                echo "python3 scripts/version/sync_prerelease.py --continue --push"
                 echo '```'
+                echo
+                echo "Details: docs/developing/releasing.md, section \"Updating prerelease from main\"."
                 echo
                 echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
               } > "$body"
