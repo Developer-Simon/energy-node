@@ -69,7 +69,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `46` |
+| `css/base.css` | `47` |
 | `css/onboarding.css` | `4` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
@@ -117,7 +117,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js` | `2` |
 | `js/energy-status.js` | `1` |
 | `js/energy-stats-model.js` | `4` |
-| `js/energy-stats-card.js` | `4` |
+| `js/energy-stats-card.js` | `5` |
 | `js/history-chart.js` | `5` |
 | `js/history-view-card.js` | `2` |
 
@@ -267,6 +267,7 @@ was not brought into this fork, so the mapping is fixed here and not
 recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
+| v0.11.5 | `css/base.css` (statistics card, the chart area takes the free card height) · `js/energy-stats-card.js` (energy cards, chart follows the height of its area) | `47` · `5` | 2026-11-07 |
 | v0.11.4 | `css/diagnostics.css` (diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide) · `js/dashboard.js` (`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn, device cards glide when they change place) · `js/device-modal.js` (`x-roll` moved out) | `4` · `44` · `4` | 2026-11-06 |
 | v0.11.3 | `js/automations-chart.js` (automations panel, history entries grouped by day) · `js/automations-view.js` (automations panel, history text split for the axis) · `js/automations.page.js` (automations panel, rule history opens from the strip as a vertical axis) · `css/automations.css` (automations panel, rule history axis) · `js/onboarding-actions.js` (tour action that opens a rule with history) | `4` · `9` · `23` · `15` · `3` | 2026-11-06 |
 | v0.11.1 | `js/history-exchange.js` (history panel and history tile, the 1h resolution no longer requests 5m and 1m values from other devices) | `10` | 2026-11-05 |
