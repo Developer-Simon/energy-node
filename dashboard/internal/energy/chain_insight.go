@@ -7,11 +7,11 @@ import (
 )
 
 // Factors of the learned normal band. The band is centred on the learned loss
-// and as wide as the largest of three terms: a multiple of the deviation, half
-// the loss and a share of the source power.
+// and as wide as the largest of three terms: a multiple of the deviation, a
+// floor in W and a share of the source power.
 const (
 	normalDeviationFactor = 3.0
-	normalLossFactor      = 0.5
+	normalFloorW          = 5.0
 	normalSourcePercent   = 3.0
 )
 
@@ -73,8 +73,9 @@ type ChainSegmentInsight struct {
 
 // NormalBand returns the normal band of a segment. A tolerance replaces the
 // learned band: its width is the wider of W and Pct of sourceW, centred on the
-// learned loss. Without a tolerance the width follows the learned deviation,
-// half the loss and the share of sourceW, whichever is largest.
+// learned loss. Without a tolerance the width is the largest of three times the
+// learned deviation, normalFloorW and the share of sourceW, centred on the
+// learned loss.
 func NormalBand(insight ChainSegmentInsight, sourceW float64, tolerance *ChainTolerance) ChainNormalRange {
 	if tolerance != nil {
 		half := 0.0
@@ -87,7 +88,7 @@ func NormalBand(insight ChainSegmentInsight, sourceW float64, tolerance *ChainTo
 		return ChainNormalRange{LowW: insight.LossW - half, HighW: insight.LossW + half, Manual: true}
 	}
 	half := math.Max(normalDeviationFactor*math.Abs(insight.DeviationW),
-		math.Max(normalLossFactor*math.Abs(insight.LossW), normalSourcePercent*math.Abs(sourceW)/100))
+		math.Max(normalFloorW, normalSourcePercent*math.Abs(sourceW)/100))
 	return ChainNormalRange{LowW: insight.LossW - half, HighW: insight.LossW + half}
 }
 

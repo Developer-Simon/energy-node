@@ -631,14 +631,16 @@ func TestNormalBandLearned(t *testing.T) {
 	cases := []struct {
 		name    string
 		insight ChainSegmentInsight
+		source  float64
 		want    ChainNormalRange
 	}{
-		{"loss and deviation", ChainSegmentInsight{Learned: true, LossW: 10, DeviationW: 1}, ChainNormalRange{LowW: 1, HighW: 19}},
-		{"deviation widens the band", ChainSegmentInsight{Learned: true, LossW: 10, DeviationW: 4}, ChainNormalRange{LowW: -2, HighW: 22}},
+		{"loss and deviation", ChainSegmentInsight{Learned: true, LossW: 10, DeviationW: 1}, 300, ChainNormalRange{LowW: 1, HighW: 19}},
+		{"deviation widens the band", ChainSegmentInsight{Learned: true, LossW: 10, DeviationW: 4}, 300, ChainNormalRange{LowW: -2, HighW: 22}},
+		{"5 W floor, not half the loss", ChainSegmentInsight{Learned: true, LossW: 40, DeviationW: 0}, 100, ChainNormalRange{LowW: 35, HighW: 45}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := NormalBand(tc.insight, 300, nil); got != tc.want {
+			if got := NormalBand(tc.insight, tc.source, nil); got != tc.want {
 				t.Fatalf("NormalBand() = %+v, want %+v", got, tc.want)
 			}
 		})
