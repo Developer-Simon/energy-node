@@ -165,7 +165,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
-	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/users.html", "templates/settings-stepper.html", "templates/checklist.html", "templates/highlight-details.html", "templates/diagnostics.html", "templates/stats.html"))
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/users.html", "templates/settings-stepper.html", "templates/checklist.html", "templates/highlight-details.html", "templates/diagnostics.html", "templates/stats.html", "templates/efficiency.html"))
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
@@ -759,6 +759,7 @@ var panelViewRole = map[string]string{
 	"devices":              auth.RoleViewDevices,
 	"history":              auth.RoleViewHistory,
 	"stats":                auth.RoleViewStats,
+	"efficiency":           auth.RoleViewEfficiency,
 	"diagnostics":          auth.RoleViewDiagnostics,
 	"config":               auth.RoleViewConfig,
 	"energy":               auth.RoleViewEnergy,
@@ -774,8 +775,8 @@ var panelViewRole = map[string]string{
 // initialPanel waehlt den Reiter, der beim Laden aktiv ist: Uebersicht, wenn
 // erlaubt, sonst der erste erlaubte Reiter in fester Reihenfolge, zuletzt die
 // Einstellungen. config, energy und devicemap gibt es nur mit Manager,
-// automations nur mit installiertem Dienst.
-func initialPanel(can map[string]bool, manager, automationsInstalled bool) string {
+// automations nur mit installiertem Dienst, efficiency nur mit Messketten.
+func initialPanel(can map[string]bool, manager, automationsInstalled, hasChains bool) string {
 	if can[auth.RoleViewOverview] {
 		return "overview-panel"
 	}
@@ -786,6 +787,7 @@ func initialPanel(can map[string]bool, manager, automationsInstalled bool) strin
 		{"devices-panel", auth.RoleViewDevices, true},
 		{"history-panel", auth.RoleViewHistory, true},
 		{"stats-panel", auth.RoleViewStats, true},
+		{"efficiency-panel", auth.RoleViewEfficiency, manager && hasChains},
 		{"config-panel", auth.RoleViewConfig, manager},
 		{"energy-panel", auth.RoleViewEnergy, manager},
 		{"devicemap-panel", auth.RoleViewDeviceMap, manager},
@@ -815,7 +817,7 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 		return "device-card-fragment", true
 	case "panel":
 		switch panel := r.URL.Query().Get("panel"); panel {
-		case "devices", "history", "stats", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
+		case "devices", "history", "stats", "efficiency", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
 			return panel, true
 		default:
 			return "", false
@@ -983,7 +985,15 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 			resolvedInstalledServices[key] = value
 		}
 		setNumberSettings(settings.Settings{NumberFormat: numberFormat, NumberGrouping: numberGrouping})
-		initial := initialPanel(can, manager, resolvedInstalledServices["automation"])
+		// Messketten bestimmen, ob der Reiter Effizienz da ist. Ohne Store
+		// (Tests, Instanz ohne Einstellungen) gibt es keine Ketten.
+		hasChains := false
+		if store != nil {
+			if value, err := store.LoadEnergy(); err == nil {
+				hasChains = len(value.Chains) > 0
+			}
+		}
+		initial := initialPanel(can, manager, resolvedInstalledServices["automation"], hasChains)
 		if noViewAccess {
 			initial = "no-access-panel"
 		}
@@ -995,6 +1005,7 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 			"Manager":            manager,
 			"Can":                can,
 			"InitialPanel":       initial,
+			"HasChains":          hasChains,
 			"NoViewAccess":       noViewAccess,
 			"CanEditLayout":      canEditLayout,
 			"CanManageUsers":     canManageUsers,

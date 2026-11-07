@@ -15,6 +15,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -3965,7 +3966,7 @@ func TestInitialPanelFollowsViewPermissions(t *testing.T) {
 		{"nothing allowed falls back", allowed(), true, true, "settings-panel"},
 	}
 	for _, tc := range cases {
-		if got := initialPanel(tc.can, tc.manager, tc.automation); got != tc.want {
+		if got := initialPanel(tc.can, tc.manager, tc.automation, false); got != tc.want {
 			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
 		}
 	}
@@ -3986,6 +3987,83 @@ func TestTabsFollowViewPermissions(t *testing.T) {
 		if strings.Contains(body, gone) {
 			t.Fatalf("view_stats-Nutzer: %s darf nicht erscheinen", gone)
 		}
+	}
+}
+
+func efficiencyUserRequest(t *testing.T, path string, roles ...string) *http.Request {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	return req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: roles}))
+}
+
+// Ein Konto mit Kette, Manager-Deployment: Store mit einer gespeicherten Kette.
+func efficiencyStoreWithChain(t *testing.T) *settings.Store {
+	t.Helper()
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Chains: map[string]energy.Chain{
+		"plug": {Label: "Steckdose", Points: []string{"plug_ac", "plug_dc"}, Counting: "plug_ac"},
+	}}); err != nil {
+		t.Fatalf("save chain: %v", err)
+	}
+	return store
+}
+
+func TestEfficiencyTabRendersForRightAndManager(t *testing.T) {
+	handler := func(store *settings.Store) http.HandlerFunc {
+		return Overview(registry.New(), config.NewManager(t.TempDir()), store)
+	}
+	rec := httptest.NewRecorder()
+	handler(efficiencyStoreWithChain(t)).ServeHTTP(rec, efficiencyUserRequest(t, "/", auth.RoleViewEfficiency, auth.RoleViewOverview))
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-efficiency"`, `id="efficiency-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("view_efficiency + Manager: %s fehlt", want)
+		}
+	}
+
+	without := httptest.NewRecorder()
+	handler(efficiencyStoreWithChain(t)).ServeHTTP(without, efficiencyUserRequest(t, "/", auth.RoleViewOverview))
+	for _, gone := range []string{`id="tab-efficiency"`, `id="efficiency-panel"`} {
+		if strings.Contains(without.Body.String(), gone) {
+			t.Fatalf("ohne view_efficiency darf %s nicht erscheinen", gone)
+		}
+	}
+
+	noManager := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(noManager, efficiencyUserRequest(t, "/", auth.RoleViewEfficiency, auth.RoleViewOverview))
+	for _, gone := range []string{`id="tab-efficiency"`, `id="efficiency-panel"`} {
+		if strings.Contains(noManager.Body.String(), gone) {
+			t.Fatalf("ohne Manager darf %s nicht erscheinen", gone)
+		}
+	}
+
+	denied := httptest.NewRecorder()
+	handler(efficiencyStoreWithChain(t)).ServeHTTP(denied, efficiencyUserRequest(t, "/?fragment=panel&panel=efficiency", auth.RoleViewOverview))
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("Fragment ohne Recht: got status %d, want 403", denied.Code)
+	}
+}
+
+func TestHasChainsAttribute(t *testing.T) {
+	empty := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(empty, httptest.NewRequest(http.MethodGet, "/", nil))
+	if !strings.Contains(empty.Body.String(), `data-has-chains="false"`) {
+		t.Fatal("ohne Ketten muss data-has-chains=\"false\" stehen")
+	}
+	with := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), efficiencyStoreWithChain(t)).ServeHTTP(with, httptest.NewRequest(http.MethodGet, "/", nil))
+	if !strings.Contains(with.Body.String(), `data-has-chains="true"`) {
+		t.Fatal("mit Ketten muss data-has-chains=\"true\" stehen")
+	}
+}
+
+func TestInitialPanelEfficiency(t *testing.T) {
+	can := map[string]bool{auth.RoleViewEfficiency: true}
+	if got := initialPanel(can, true, false, true); got != "efficiency-panel" {
+		t.Fatalf("nur view_efficiency, Manager, Ketten: got %q, want efficiency-panel", got)
+	}
+	if got := initialPanel(can, true, false, false); got != "settings-panel" {
+		t.Fatalf("ohne Ketten: got %q, want settings-panel", got)
 	}
 }
 
