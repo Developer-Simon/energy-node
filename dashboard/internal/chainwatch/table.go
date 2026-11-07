@@ -145,7 +145,10 @@ func (t *Table) PairLearned(a, b string, now time.Time) bool {
 func (t *Table) Reset(pair energystats.ChainPair) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.resetLocked(pair)
+}
 
+func (t *Table) resetLocked(pair energystats.ChainPair) {
 	reverse := energystats.ChainPair{Source: pair.Target, Target: pair.Source}
 	for _, p := range []energystats.ChainPair{pair, reverse} {
 		if _, ok := t.pairs[p]; ok {
