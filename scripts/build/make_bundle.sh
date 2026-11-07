@@ -6,7 +6,7 @@
 # Bau-Rechner (E4): Go-Cross-Compile, Wheel-Beschaffung aus piwheels,
 # Unit-Rendering, Hashes, Signatur. Der Node packt nur noch aus.
 #
-# Die Schalter --dashboard-binary, --tailscale-tarball und --skip-wheels
+# Die Schalter --dashboard-binary und --skip-wheels
 # schleusen fertige Artefakte ein, statt sie zu erzeugen. Sie existieren fuer
 # den Test und den CI-Doppellauf, der weder Netz noch Go-Toolchain braucht.
 set -euo pipefail
@@ -30,17 +30,8 @@ BUNDLE_BASE=""
 OUT_DIR="${REPO_ROOT}/dist"
 SIGN_KEY=""
 DASHBOARD_BINARY=""
-TAILSCALE_TARBALL=""
-CADDY_BINARY=""
 SKIP_WHEELS=false
 DEV_VERSION=false
-# Tailscale im Bundle: armv6 bleibt bei 1.62.0, der letzten Fassung, die dort
-# laeuft (siehe docs/install/index.md, Abschnitt 3). arm64 und amd64 bringen
-# eine aktuelle Fassung mit; die hier festgelegte ist die zum Zeitpunkt der
-# letzten Pflege neueste von https://pkgs.tailscale.com/stable/.
-TAILSCALE_VERSION_ARMV6="1.62.0"
-TAILSCALE_VERSION_64BIT="1.104.4"
-TAILSCALE_VERSION=""
 BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
@@ -77,9 +68,7 @@ usage() {
   --out <pfad>                 Ausgabeverzeichnis (Vorgabe dist/).
   --sign-key <pfad>            ed25519-Schluessel; ohne bleibt die Signatur aus.
   --dashboard-binary <pfad>    Fertiges Binary statt Cross-Compile.
-  --tailscale-tarball <pfad>   Fertiger Tarball statt Download.
-  --caddy-binary <pfad>        Erzeugt das getrennte Caddy-Beipack.
-  --skip-wheels                Keine Wheels beschaffen.
+  --skip-wheels               Keine Wheels beschaffen.
   --dev-version                Version um -dev.<commit> (und .dirty) ergaenzen.
 TXT
 }
@@ -94,8 +83,6 @@ while [[ $# -gt 0 ]]; do
     --out) OUT_DIR="${2:-}"; shift 2 ;;
     --sign-key) SIGN_KEY="${2:-}"; shift 2 ;;
     --dashboard-binary) DASHBOARD_BINARY="${2:-}"; shift 2 ;;
-    --tailscale-tarball) TAILSCALE_TARBALL="${2:-}"; shift 2 ;;
-    --caddy-binary) CADDY_BINARY="${2:-}"; shift 2 ;;
     --skip-wheels) SKIP_WHEELS=true; shift ;;
     --dev-version) DEV_VERSION=true; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -116,12 +103,6 @@ if [[ -z "${PYTHON_MINOR}" ]]; then
   esac
 fi
 ABI="${ABI:-cp${PYTHON_MINOR//./}}"
-if [[ -z "${TAILSCALE_VERSION}" ]]; then
-  case "${ARCH}" in
-    armv6) TAILSCALE_VERSION="${TAILSCALE_VERSION_ARMV6}" ;;
-    *) TAILSCALE_VERSION="${TAILSCALE_VERSION_64BIT}" ;;
-  esac
-fi
 
 # Ohne --user/--base bleibt das Bundle allgemein: Units, Helfer, Sudoers und
 # die Konfigurationsvorlage behalten den Platzhalter "energynode", das
@@ -242,43 +223,13 @@ else
   build_local_wheels "${STAGE}/wheels"
 fi
 
-# --- tailscale/ ------------------------------------------------------------
-mkdir -p "${STAGE}/tailscale"
-if [[ -n "${TAILSCALE_TARBALL}" ]]; then
-  cp "${TAILSCALE_TARBALL}" "${STAGE}/tailscale/$(basename "${TAILSCALE_TARBALL}")"
-else
-  ts_arch="arm"
-  [[ "${ARCH}" == arm64 ]] && ts_arch="arm64"
-  [[ "${ARCH}" == amd64 ]] && ts_arch="amd64"
-  ts_name="tailscale_${TAILSCALE_VERSION}_${ts_arch}.tgz"
-  cache="${OUT_DIR}/cache"
-  mkdir -p "${cache}"
-  if [[ ! -f "${cache}/${ts_name}" ]]; then
-    echo "==> Lade ${ts_name}"
-    curl -fsSL "https://pkgs.tailscale.com/stable/${ts_name}" -o "${cache}/${ts_name}"
-  fi
-  cp "${cache}/${ts_name}" "${STAGE}/tailscale/${ts_name}"
-fi
-
-# --- Caddy-Beipack, getrennt vom Bundle (E13) -----------------------------
-mkdir -p "${OUT_DIR}"
-caddy_version=""
-caddy_file=""
-caddy_sha=""
-if [[ -n "${CADDY_BINARY}" ]]; then
-  caddy_version="$("${CADDY_BINARY}" version 2>/dev/null | head -n 1 | cut -d' ' -f1 || true)"
-  caddy_version="${caddy_version:-unbekannt}"
-  caddy_file="caddy-${caddy_version}-${ARCH}.tar.gz"
-  pack="$(mktemp -d)"
-  install -m 0755 "${CADDY_BINARY}" "${pack}/caddy"
-  tar -czf "${OUT_DIR}/${caddy_file}" -C "${pack}" caddy
-  rm -rf "${pack}"
-  caddy_sha="$(sha256sum "${OUT_DIR}/${caddy_file}" | cut -d' ' -f1)"
-  echo "==> Caddy-Beipack: ${caddy_file}"
-fi
-
 # --- Manifest-Kopf ---------------------------------------------------------
+# Tailscale und Caddy reisen nicht mehr im Bundle mit: manifest.packages
+# traegt nur ihre Festlegungen (Version, Datei, Adresse, SHA-256) aus
+# scripts/build/packages.json fuer diese Architektur.
+mkdir -p "${OUT_DIR}"
 ARCH="${ARCH}" VERSION="${VERSION}" BOOTSTRAP_VERSION="${BOOTSTRAP_VERSION}" PYTHON_MINOR="${PYTHON_MINOR}" ABI="${ABI}" \
+PACKAGES_JSON="${BUILD_DIR}/packages.json" \
 BUNDLE_USER="${BUNDLE_USER}" BUNDLE_BASE="${BUNDLE_BASE}" REPO_ROOT="${REPO_ROOT}" \
 UNAME_MACHINES="$(arch_uname_machines "${ARCH}" | paste -sd, -)" \
 CORE_STEPS="${CORE_STEPS[*]}" OPTIONAL_STEPS="${OPTIONAL_STEPS[*]}" OPT_IN_STEPS="${OPT_IN_STEPS[*]}" \
@@ -286,7 +237,6 @@ SERVICE_ROWS="$(printf '%s\n' "${SERVICE_TABLE[@]}")" \
 SERVICE_STEP_ROWS="$(printf '%s\n' "${SERVICE_STEPS[@]}")" \
 STEP_REQUIRES_ROWS="$(for id in "${!STEP_REQUIRES[@]}"; do printf '%s:%s\n' "$id" "${STEP_REQUIRES[$id]}"; done)" \
 OPTIONAL_STEP_DASHBOARD_KEY_ROWS="$(for id in "${!OPTIONAL_STEP_DASHBOARD_KEYS[@]}"; do printf '%s:%s\n' "$id" "${OPTIONAL_STEP_DASHBOARD_KEYS[$id]}"; done)" \
-CADDY_VERSION="${caddy_version}" CADDY_FILE="${caddy_file}" CADDY_SHA="${caddy_sha}" \
 python3 > "${STAGE}/manifest.head.json" <<'PY'
 import datetime, json, os, pathlib
 
@@ -364,12 +314,8 @@ head = {
 if os.environ.get("BUNDLE_USER"):
     head["target_user"] = os.environ["BUNDLE_USER"]
     head["target_base"] = os.environ["BUNDLE_BASE"]
-if os.environ.get("CADDY_FILE"):
-    head["caddy"] = {
-        "version": os.environ["CADDY_VERSION"],
-        "file": os.environ["CADDY_FILE"],
-        "sha256": os.environ["CADDY_SHA"],
-    }
+with open(os.environ["PACKAGES_JSON"], encoding="utf-8") as handle:
+    head["packages"] = json.load(handle)[os.environ["ARCH"]]
 print(json.dumps(head, indent=2, ensure_ascii=False))
 PY
 

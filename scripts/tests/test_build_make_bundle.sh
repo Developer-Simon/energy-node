@@ -15,28 +15,29 @@ openssl pkey -in "$tmp/key.pem" -pubout -out "$tmp/pub.pem" 2>/dev/null
 
 # Eingeschleuste Artefakte: kein Netz, kein Go-Compiler im Test.
 printf '#!/bin/sh\necho dashboard\n' > "$tmp/fake-dashboard"
-mkdir -p "$tmp/pack/tailscale_1.62.0_arm/systemd"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscale"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscaled"
-printf '[Unit]\n'    > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.service"
-printf 'FLAGS=""\n'  > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.defaults"
-tar -czf "$tmp/ts.tgz" -C "$tmp/pack" tailscale_1.62.0_arm
-printf '#!/bin/sh\n' > "$tmp/fake-caddy"
 
 bash "$script" \
   --arch armv6 --python-minor 3.11 --abi cp311 \
   --user pruef --base /home/pruef \
   --out "$tmp/dist" --sign-key "$tmp/key.pem" \
   --dashboard-binary "$tmp/fake-dashboard" \
-  --tailscale-tarball "$tmp/ts.tgz" \
-  --caddy-binary "$tmp/fake-caddy" \
   --skip-wheels >"$tmp/build.log" 2>&1 \
   || fail "make_bundle.sh scheiterte" "$(cat "$tmp/build.log")"
 
 archive="$(find "$tmp/dist" -maxdepth 1 -name 'energy-node-*-armv6.tar.gz' | head -n 1)"
 [ -n "$archive" ] || fail "kein Archiv gebaut" "$(ls -R "$tmp/dist")"
-[ -n "$(find "$tmp/dist" -maxdepth 1 -name 'caddy-*-armv6.tar.gz')" ] \
-  || fail "kein Caddy-Beipack" "$(ls "$tmp/dist")"
+[ -z "$(find "$tmp/dist" -maxdepth 1 -name 'caddy-*.tar.gz')" ] \
+  || fail "Caddy-Beipack entsteht noch" "$(ls "$tmp/dist")"
+
+# Der Tailscale- und der Caddy-Schalter gehoeren nicht mehr zum Bau.
+for switch in --tailscale-tarball --caddy-binary; do
+  set +e
+  bash "$script" --arch armv6 --out "$tmp/dist-switch" --skip-wheels \
+    "$switch" "$tmp/fake-dashboard" >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "unbekannter Schalter $switch nicht mit Exit 1 abgelehnt" "rc=$rc"
+done
 
 out="$tmp/entpackt"
 mkdir -p "$out"
@@ -45,6 +46,9 @@ tar -xzf "$archive" -C "$out"
 # --- das frisch gebaute Bundle besteht die eigene Pruefung ---------------
 res="$(bash "$verify" --bundle "$out" --pubkey "$tmp/pub.pem")" \
   || fail "verify_bundle lehnt das eigene Bundle ab" "$res"
+
+# --- Tailscale-Tarball und Caddy-Beipack sind nicht mehr im Bundle ----------
+[ -e "$out/tailscale" ] && fail "tailscale/ noch im Bundle" "$(find "$out" -maxdepth 2 | sort)"
 
 # --- Layout nach Vertrag 1 ------------------------------------------------
 for path in \
@@ -55,8 +59,7 @@ for path in \
   services/shelly/devices/shelly_devices.json \
   services/shelly/devices/shelly_devices.schema.json \
   services/shelly/devices/shelly_presets.json \
-  config/config.json config/manifests/shelly.json \
-  tailscale/ts.tgz
+  config/config.json config/manifests/shelly.json
 do
   [ -e "$out/$path" ] || fail "fehlt im Bundle: $path" "$(find "$out" -type f | sort)"
 done
@@ -104,12 +107,25 @@ get() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(
   || fail "Schritt 83 traegt kein kind=device"
 [ "$(get 'next(s["kind"] for s in d["steps"] if s["id"]=="88")')" = service ] \
   || fail "Schritt 88 traegt kein kind=service"
-[ "$(get 'd["caddy"]["version"] != ""')" = True ] || fail "Caddy-Angaben fehlen"
 [ "$(get '"bootstrap" in d["components"]')" = True ] || fail "Bootstrap-Version fehlt"
+
+# --- Festlegungen: manifest.packages ist der Eintrag der Architektur ------
+packages_json="$here/../build/packages.json"
+pin_ok="$(python3 -I -c '
+import json, sys
+pins = json.load(open(sys.argv[1]))["armv6"]
+got = json.load(open(sys.argv[2]))["packages"]
+assert set(got) == {"tailscale", "caddy"}, sorted(got)
+for name in ("tailscale", "caddy"):
+    assert got[name]["sha256"] == pins[name]["sha256"], name
+    assert got[name]["version"] == pins[name]["version"], name
+print("yes")
+' "$packages_json" "$out/manifest.json" 2>&1)" || fail "manifest.packages passt nicht zu packages.json" "$pin_ok"
+[ "$pin_ok" = yes ] || fail "manifest.packages passt nicht zu packages.json" "$pin_ok"
 
 # --- ohne Schluessel entsteht keine Signatur, sonst alles gleich ----------
 bash "$script" --arch amd64 --out "$tmp/dist2" \
-  --dashboard-binary "$tmp/fake-dashboard" --tailscale-tarball "$tmp/ts.tgz" \
+  --dashboard-binary "$tmp/fake-dashboard" \
   --skip-wheels >/dev/null 2>&1 || fail "Bau ohne Schluessel scheiterte"
 a2="$(find "$tmp/dist2" -maxdepth 1 -name '*.tar.gz' | head -n 1)"
 mkdir -p "$tmp/entpackt2"

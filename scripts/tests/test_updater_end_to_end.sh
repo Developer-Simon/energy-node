@@ -46,21 +46,12 @@ pub="$tmp/dev-signing-key.pub.pem"
 openssl pkey -in "$key" -pubout -out "$pub" >/dev/null 2>&1
 
 printf '#!/bin/sh\n' > "$tmp/fake-dashboard"
-mkdir -p "$tmp/pack/tailscale_1.62.0_arm/systemd"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscale"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscaled"
-printf '[Unit]\n'    > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.service"
-printf 'FLAGS=""\n'  > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.defaults"
-tar -czf "$tmp/ts.tgz" -C "$tmp/pack" tailscale_1.62.0_arm
-printf '#!/bin/sh\n' > "$tmp/fake-caddy"
 
 dist="$tmp/dist"
 bash "$repo/scripts/build/make_bundle.sh" \
   --arch "$arch" --python-minor "$minor" \
   --user pruef --base /home/pruef --out "$dist" --sign-key "$key" \
   --dashboard-binary "$tmp/fake-dashboard" \
-  --tailscale-tarball "$tmp/ts.tgz" \
-  --caddy-binary "$tmp/fake-caddy" \
   --skip-wheels >"$tmp/build.log" 2>&1 \
   || fail "make_bundle.sh failed to build a signed bundle" "$(cat "$tmp/build.log")"
 

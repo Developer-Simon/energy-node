@@ -14,17 +14,11 @@ openssl genpkey -algorithm ed25519 -out "$tmp/key.pem" 2>/dev/null
 openssl pkey -in "$tmp/key.pem" -pubout -out "$tmp/pub.pem" 2>/dev/null
 
 printf '#!/bin/sh\necho dashboard\n' > "$tmp/fake-dashboard"
-mkdir -p "$tmp/pack/tailscale_1.62.0_arm/systemd"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscale"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscaled"
-printf '[Unit]\n'    > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.service"
-printf 'FLAGS=""\n'  > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.defaults"
-tar -czf "$tmp/ts.tgz" -C "$tmp/pack" tailscale_1.62.0_arm
 
 build() {
   bash "$script" --arch armv6 --python-minor 3.11 --abi cp311 \
     --out "$1" --sign-key "$tmp/key.pem" \
-    --dashboard-binary "$tmp/fake-dashboard" --tailscale-tarball "$tmp/ts.tgz" \
+    --dashboard-binary "$tmp/fake-dashboard" \
     --skip-wheels "${@:2}" >"$tmp/build.log" 2>&1 \
     || fail "make_bundle.sh scheiterte" "$(cat "$tmp/build.log")"
 }
@@ -83,7 +77,7 @@ fi
 abi_of() {
   local arch="$1" dist="$tmp/default-$1"
   bash "$script" --arch "$arch" --out "$dist" --sign-key "$tmp/key.pem" \
-    --dashboard-binary "$tmp/fake-dashboard" --tailscale-tarball "$tmp/ts.tgz" \
+    --dashboard-binary "$tmp/fake-dashboard" \
     --skip-wheels >"$tmp/build-$arch.log" 2>&1 \
     || fail "make_bundle.sh --arch $arch scheiterte" "$(cat "$tmp/build-$arch.log")"
   local archive
@@ -94,40 +88,28 @@ abi_of() {
 [ "$(abi_of arm64)" = cp313 ] || fail "arm64 sollte cp313 bauen"
 [ "$(abi_of amd64)" = cp313 ] || fail "amd64 sollte cp313 bauen"
 
-# --- Tailscale-Fassung je Architektur ----------------------------------------
-# Ohne --tailscale-tarball holt der Bau den Tarball per curl. Ein Stub merkt
-# sich die Adresse: armv6 bleibt bei 1.62.0 (letzte dort laufende Fassung), die
-# 64-Bit-Architekturen bringen die aktuelle mit.
-mkdir -p "$tmp/curlbin"
-cat > "$tmp/curlbin/curl" <<'SH'
-#!/usr/bin/env bash
-out=""; url=""
-while [ $# -gt 0 ]; do
-  case "$1" in -o) out="$2"; shift 2 ;; http*) url="$1"; shift ;; *) shift ;; esac
-done
-printf '%s\n' "$url" >> "$CURL_LOG"
-cp "$TS_FAKE" "$out"
-SH
-chmod +x "$tmp/curlbin/curl"
-ts_url_of() {
-  local arch="$1"
-  : > "$tmp/curl.log"
-  CURL_LOG="$tmp/curl.log" TS_FAKE="$tmp/ts.tgz" PATH="$tmp/curlbin:$PATH" \
-    bash "$script" --arch "$arch" --out "$tmp/ts-$arch" --sign-key "$tmp/key.pem" \
-    --dashboard-binary "$tmp/fake-dashboard" --skip-wheels >"$tmp/build-ts-$arch.log" 2>&1 \
-    || fail "make_bundle.sh --arch $arch scheiterte" "$(cat "$tmp/build-ts-$arch.log")"
-  grep tailscale "$tmp/curl.log" | head -n 1
+# --- Festlegungen je Architektur: kein Netz, kein Download im Bau ----------
+# manifest.packages ist der Eintrag der Architektur aus packages.json. Der Bau
+# laeuft ohne curl-Attrappe; ein Download waere hier ein Fehler.
+packages_ok() {
+  local arch="$1" archive
+  local build_dir="$tmp/pkg-$arch"
+  bash "$script" --arch "$arch" --out "$build_dir" --sign-key "$tmp/key.pem" \
+    --dashboard-binary "$tmp/fake-dashboard" --skip-wheels >"$tmp/build-pkg-$arch.log" 2>&1 \
+    || fail "make_bundle.sh --arch $arch scheiterte" "$(cat "$tmp/build-pkg-$arch.log")"
+  archive="$(find "$build_dir" -maxdepth 1 -name "energy-node-*-$arch.tar.gz" | head -n 1)"
+  tar -xzOf "$archive" ./manifest.json | python3 -I -c '
+import json, sys
+pins = json.load(open(sys.argv[1]))[sys.argv[2]]
+got = json.load(sys.stdin)["packages"]
+for name in ("tailscale", "caddy"):
+    for key in ("version", "file", "url", "sha256", "update"):
+        assert got[name][key] == pins[name][key], (name, key)
+' "$packages_json" "$arch" && echo ok
 }
-[ "$(ts_url_of armv6)" = "https://pkgs.tailscale.com/stable/tailscale_1.62.0_arm.tgz" ] || fail "armv6 sollte Tailscale 1.62.0 laden" "$(ts_url_of armv6)"
-case "$(ts_url_of arm64)" in
-  https://pkgs.tailscale.com/stable/tailscale_1.62.0_*) fail "arm64 sollte eine neuere Tailscale-Fassung laden" ;;
-  https://pkgs.tailscale.com/stable/tailscale_*_arm64.tgz) ;;
-  *) fail "arm64: unerwartete Tailscale-Adresse" "$(ts_url_of arm64)" ;;
-esac
-case "$(ts_url_of amd64)" in
-  https://pkgs.tailscale.com/stable/tailscale_1.62.0_*) fail "amd64 sollte eine neuere Tailscale-Fassung laden" ;;
-  https://pkgs.tailscale.com/stable/tailscale_*_amd64.tgz) ;;
-  *) fail "amd64: unerwartete Tailscale-Adresse" "$(ts_url_of amd64)" ;;
-esac
+packages_json="$here/../build/packages.json"
+for arch in armv6 arm64 amd64; do
+  [ "$(packages_ok "$arch")" = ok ] || fail "manifest.packages fuer $arch passt nicht zu packages.json"
+done
 
 echo "OK"

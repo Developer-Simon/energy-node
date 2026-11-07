@@ -7,7 +7,7 @@
 # Herunterladen gehoert laut E4 ohnehin auf den Bau-Rechner.
 # Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
-# step-inputs: bootstrap/lib/step.sh tailscale/
+# step-inputs: bootstrap/lib/step.sh manifest:packages.tailscale
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"

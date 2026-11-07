@@ -37,31 +37,44 @@ type StepEntry struct {
 	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
-// CaddyInfo mirrors manifest.json's "caddy" object, present only when the
-// bundle carries an HTTPS side-package (E13).
+// CaddyInfo mirrors the "caddy" object of manifests written before the
+// package pins (E13). Current bundles no longer carry it; it is only read so
+// that old manifests still parse.
 type CaddyInfo struct {
 	Version string `json:"version"`
 	File    string `json:"file"`
 	SHA256  string `json:"sha256"`
 }
 
+// PackagePin mirrors one entry of manifest.json's "packages" object: a
+// third-party .deb pinned in scripts/build/packages.json for the bundle's
+// architecture. The node downloads the file from URL and checks SHA256.
+type PackagePin struct {
+	Version string `json:"version"`
+	File    string `json:"file"`
+	URL     string `json:"url"`
+	SHA256  string `json:"sha256"`
+	Update  string `json:"update"`
+}
+
 // Manifest mirrors manifest.json exactly as Plan A-II's make_bundle.sh
 // writes it (Vertrag 2). Field names and JSON tags are not renamed
 // independently of that contract.
 type Manifest struct {
-	Version      string            `json:"version"`
-	BuiltAt      string            `json:"built_at"`
-	Arch         string            `json:"arch"`
-	UnameMachine []string          `json:"uname_machine"`
-	PythonMinor  string            `json:"python_minor"`
-	PythonABI    string            `json:"python_abi"`
-	TargetUser   string            `json:"target_user"`
-	TargetBase   string            `json:"target_base"`
-	Components   map[string]string `json:"components"`
-	Wheels       map[string]string `json:"wheels"`
-	Caddy        *CaddyInfo        `json:"caddy,omitempty"`
-	Steps        []StepEntry       `json:"steps"`
-	Files        map[string]string `json:"files"`
+	Version      string                `json:"version"`
+	BuiltAt      string                `json:"built_at"`
+	Arch         string                `json:"arch"`
+	UnameMachine []string              `json:"uname_machine"`
+	PythonMinor  string                `json:"python_minor"`
+	PythonABI    string                `json:"python_abi"`
+	TargetUser   string                `json:"target_user"`
+	TargetBase   string                `json:"target_base"`
+	Components   map[string]string     `json:"components"`
+	Wheels       map[string]string     `json:"wheels"`
+	Packages     map[string]PackagePin `json:"packages,omitempty"`
+	Caddy        *CaddyInfo            `json:"caddy,omitempty"`
+	Steps        []StepEntry           `json:"steps"`
+	Files        map[string]string     `json:"files"`
 }
 
 // LoadManifest reads manifest.json from a bundle directory. A missing file

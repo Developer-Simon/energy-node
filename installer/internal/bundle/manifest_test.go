@@ -96,6 +96,39 @@ func TestStepEntryRoundTripsDashboardKey(t *testing.T) {
 	}
 }
 
+func TestManifestParsesPackages(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir, `{
+	  "version": "v0.2.0",
+	  "arch": "arm64",
+	  "packages": {
+	    "tailscale": {"version": "1.104.5", "file": "tailscale_1.104.5_arm64.deb", "url": "https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.104.5_arm64.deb", "sha256": "7ce61e75d15c1269d0aebe3ed59524b83225121cba1b8ea682d04594195f6bc1", "update": "apt"},
+	    "caddy": {"version": "2.11.9", "file": "caddy_2.11.9_linux_arm64.deb", "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_arm64.deb", "sha256": "a226cafaddf2db7f392d232cecccc8b3bfaf8b2919f65d80e5e6aed15a97fe66", "update": "apt"}
+	  },
+	  "steps": [],
+	  "files": {}
+	}`)
+
+	m, err := bundle.LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("LoadManifest: %v", err)
+	}
+	if m.Caddy != nil {
+		t.Fatalf("manifest without caddy object must leave Caddy nil: %+v", m.Caddy)
+	}
+	ts, ok := m.Packages["tailscale"]
+	if !ok || ts.Version != "1.104.5" || ts.File != "tailscale_1.104.5_arm64.deb" || ts.Update != "apt" {
+		t.Fatalf("tailscale pin not read: %+v", ts)
+	}
+	if ts.SHA256 != "7ce61e75d15c1269d0aebe3ed59524b83225121cba1b8ea682d04594195f6bc1" {
+		t.Fatalf("tailscale sha256 not read: %q", ts.SHA256)
+	}
+	caddy, ok := m.Packages["caddy"]
+	if !ok || caddy.URL != "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_arm64.deb" {
+		t.Fatalf("caddy pin not read: %+v", caddy)
+	}
+}
+
 func TestStepEntryOmitsEmptyDashboardKey(t *testing.T) {
 	raw, err := json.Marshal(bundle.StepEntry{ID: "10", Optional: false})
 	if err != nil {

@@ -40,29 +40,17 @@ export PATH="$tmp/bin:$PATH" CMD_LOG="$tmp/cmd.log"
 
 # --- Bundle bauen, ohne Netz und ohne Go ----------------------------------
 printf '#!/bin/sh\n' > "$tmp/fake-dashboard"
-mkdir -p "$tmp/pack/tailscale_1.62.0_arm/systemd"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscale"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscaled"
-printf '[Unit]\n'    > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.service"
-printf 'FLAGS=""\n'  > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.defaults"
-tar -czf "$tmp/ts.tgz" -C "$tmp/pack" tailscale_1.62.0_arm
-printf '#!/bin/sh\n' > "$tmp/fake-caddy"
 
 bash "$scripts/build/make_bundle.sh" \
   --arch "$arch" --python-minor "$minor" \
   --user pruef --base /home/pruef --out "$tmp/dist" \
   --dashboard-binary "$tmp/fake-dashboard" \
-  --tailscale-tarball "$tmp/ts.tgz" \
-  --caddy-binary "$tmp/fake-caddy" \
   --skip-wheels >"$tmp/build.log" 2>&1 \
   || fail "Bundle-Bau scheiterte" "$(cat "$tmp/build.log")"
 
 bundle="$tmp/bundle"
 mkdir -p "$bundle"
 tar -xzf "$(find "$tmp/dist" -maxdepth 1 -name 'energy-node-*.tar.gz' | head -n 1)" -C "$bundle"
-# Das Caddy-Beipack entpackt sonst der Installer; hier von Hand.
-mkdir -p "$bundle/caddy"
-tar -xzf "$(find "$tmp/dist" -maxdepth 1 -name 'caddy-*.tar.gz' | head -n 1)" -C "$bundle/caddy"
 # --skip-wheels laesst wheels/ leer; 50-python-deps.sh verlangt aber
 # mindestens ein Rad. Geprueft wird hier die Verdrahtung, nicht pip - ein
 # Platzhalter genuegt und haelt den Test netzfrei.
