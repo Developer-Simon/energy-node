@@ -285,11 +285,15 @@ func (r *Registry) UpsertEntity(d Discovery) (newTopics, orphanTopics []string) 
 			delete(r.byDiscovery, es.discoveryTopic)
 		}
 	}
+	// A connected subscriber gets retain=0 on every live delivery, and a
+	// non-retained publish leaves the broker's retained copy in place. So only
+	// a removal or another topic ends a confirmation.
+	confirmed := existed && es.discoveryRetained && es.discoveryTopic == d.DiscoveryTopic
 	es.info = d.Entity
 	es.valueTemplate = compileValueTemplate(d.Entity.ValueTemplate)
 	es.discoveryJSON = d.RawJSON
 	es.discoveryTopic = d.DiscoveryTopic
-	es.discoveryRetained = d.DiscoveryRetained
+	es.discoveryRetained = d.DiscoveryRetained || confirmed
 	es.discoveryQoS = d.DiscoveryQoS
 	es.discoverySource = d.DiscoverySource
 	if d.DiscoveryTopic != "" {
@@ -330,6 +334,23 @@ func (r *Registry) UpsertEntity(d Discovery) (newTopics, orphanTopics []string) 
 	}
 	r.version.Add(1)
 	return newTopics, uniqueStrings(filteredOrphans)
+}
+
+// DiscoveryRetained reports whether the broker has confirmed the discovery on
+// topic as retained. Unknown topics are not confirmed.
+func (r *Registry) DiscoveryRetained(topic string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ref, ok := r.byDiscovery[topic]
+	if !ok {
+		return false
+	}
+	dev, ok := r.devices[ref.deviceID]
+	if !ok {
+		return false
+	}
+	es, ok := dev.entities[ref.uniqueID]
+	return ok && es.discoveryRetained
 }
 
 // RemoveEntity removes an entity (HA discovery removal convention: an empty

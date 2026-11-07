@@ -920,3 +920,68 @@ func TestStatePayloadSurvivesAnAvailabilityHeartbeat(t *testing.T) {
 		t.Fatalf("LastMessage should still show the heartbeat, got %#v", entity.LastMessage)
 	}
 }
+
+// A live delivery always carries retain=0 for a subscriber that is already
+// connected, and a non-retained publish leaves the broker's retained copy in
+// place. So it says nothing against a topic the broker has confirmed.
+func TestUpsertKeepsConfirmedDiscoveryRetained(t *testing.T) {
+	reg := New()
+	discovery := Discovery{
+		Device:         DeviceInfo{ID: "node"},
+		Entity:         EntityInfo{UniqueID: "power", StateTopic: "state/power"},
+		DiscoveryTopic: "homeassistant/sensor/node/power/config",
+	}
+	retainedOf := func() bool {
+		t.Helper()
+		view, ok := reg.Get("node")
+		if !ok || len(view.Entities) != 1 {
+			t.Fatalf("device view = %#v", view)
+		}
+		return view.Entities[0].DiscoveryRetained
+	}
+
+	reg.UpsertEntity(discovery)
+	if retainedOf() {
+		t.Fatal("unconfirmed live discovery reported as retained")
+	}
+	if reg.DiscoveryRetained(discovery.DiscoveryTopic) {
+		t.Fatal("DiscoveryRetained = true before any retained delivery")
+	}
+
+	discovery.DiscoveryRetained = true
+	reg.UpsertEntity(discovery)
+	discovery.DiscoveryRetained = false
+	reg.UpsertEntity(discovery)
+	if !retainedOf() {
+		t.Fatal("live discovery reset a confirmed retained flag")
+	}
+	if !reg.DiscoveryRetained(discovery.DiscoveryTopic) {
+		t.Fatal("DiscoveryRetained = false for a confirmed topic")
+	}
+
+	reg.RemoveDiscovery(discovery.DiscoveryTopic)
+	reg.UpsertEntity(discovery)
+	if retainedOf() {
+		t.Fatal("confirmation survived the removal of the retained discovery")
+	}
+}
+
+func TestUpsertDropsRetainedConfirmationOnTopicChange(t *testing.T) {
+	reg := New()
+	discovery := Discovery{
+		Device:            DeviceInfo{ID: "node"},
+		Entity:            EntityInfo{UniqueID: "power", StateTopic: "state/power"},
+		DiscoveryTopic:    "homeassistant/sensor/node/power/config",
+		DiscoveryRetained: true,
+	}
+	reg.UpsertEntity(discovery)
+
+	discovery.DiscoveryTopic = "homeassistant/sensor/node/power2/config"
+	discovery.DiscoveryRetained = false
+	reg.UpsertEntity(discovery)
+
+	view, _ := reg.Get("node")
+	if view.Entities[0].DiscoveryRetained {
+		t.Fatal("confirmation of the old topic carried over to the new one")
+	}
+}
