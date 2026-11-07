@@ -2,7 +2,9 @@ package tailscale
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,7 +76,7 @@ func TestStatusParsesTheFieldsTheUINeeds(t *testing.T) {
 	if len(status.Health) != 1 || status.Health[0] != "some warning" {
 		t.Fatalf("Health = %#v, want one warning", status.Health)
 	}
-	if status.KeyExpiry.IsZero() {
+	if status.KeyExpiry == nil || status.KeyExpiry.IsZero() {
 		t.Fatal("KeyExpiry is zero, want the parsed timestamp")
 	}
 }
@@ -132,5 +134,51 @@ func TestPrereqsReportsNotInstalled(t *testing.T) {
 	prereqs := client.Prereqs(context.Background())
 	if prereqs.Installed {
 		t.Fatal("Installed = true, want false")
+	}
+}
+
+func TestResolveBinaryKeepsAnExecutableConfiguredPath(t *testing.T) {
+	exec := func(p string) bool { return p == "/opt/tailscale" || p == "/usr/bin/tailscale" }
+	if got := resolveBinary("/opt/tailscale", exec); got != "/opt/tailscale" {
+		t.Fatalf("resolveBinary = %q, want the configured path", got)
+	}
+}
+
+func TestResolveBinaryFindsTheDebianPackagePath(t *testing.T) {
+	// The Debian package installs the CLI to /usr/bin, the tarball install
+	// of older nodes to /usr/sbin, which is still the configured default.
+	exec := func(p string) bool { return p == "/usr/bin/tailscale" }
+	if got := resolveBinary("/usr/sbin/tailscale", exec); got != "/usr/bin/tailscale" {
+		t.Fatalf("resolveBinary = %q, want /usr/bin/tailscale", got)
+	}
+	if got := resolveBinary("", exec); got != "/usr/bin/tailscale" {
+		t.Fatalf("resolveBinary(\"\") = %q, want /usr/bin/tailscale", got)
+	}
+}
+
+func TestResolveBinaryKeepsTheConfiguredPathWhenNothingIsInstalled(t *testing.T) {
+	exec := func(string) bool { return false }
+	if got := resolveBinary("/usr/sbin/tailscale", exec); got != "/usr/sbin/tailscale" {
+		t.Fatalf("resolveBinary = %q, want the configured path", got)
+	}
+	if got := resolveBinary("", exec); got != "/usr/sbin/tailscale" {
+		t.Fatalf("resolveBinary(\"\") = %q, want /usr/sbin/tailscale", got)
+	}
+}
+
+func TestStatusOmitsKeyExpiryWhenLoggedOut(t *testing.T) {
+	client := NewClient("/usr/sbin/tailscale", fakeRunner{responses: map[string]fakeResponse{
+		"/usr/sbin/tailscale status --json": {out: `{"BackendState":"NeedsLogin","Self":{"KeyExpiry":"0001-01-01T00:00:00Z"}}`},
+	}}, time.Second)
+	status, err := client.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status() error = %v", err)
+	}
+	raw, err := json.Marshal(status)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "key_expiry") {
+		t.Fatalf("JSON = %s, want no key_expiry for a logged out node", raw)
 	}
 }

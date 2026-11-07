@@ -178,6 +178,19 @@ read_journal() {
     --lines="$lines"
 }
 
+
+# The Debian package installs the CLI to /usr/bin, the static tarball
+# install of older nodes to /usr/sbin.
+tailscale_cli() {
+  for candidate in /usr/bin/tailscale /usr/sbin/tailscale; do
+    if [ -x "${candidate}" ]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+  printf '%s\n' /usr/sbin/tailscale
+}
+
 case "${1:-}" in
   read-journal)
     if [ "$#" -ne 4 ] && [ "$#" -ne 5 ]; then
@@ -214,6 +227,7 @@ case "$1" in
     exec /bin/systemctl restart mosquitto
     ;;
   tailscale-up)
+    cli="$(tailscale_cli)"
     # tailscale up without --authkey starts Tailscale's own interactive
     # browser login and blocks until it completes (or forever, if nobody
     # finishes it) - the CLI invocation only needs to kick the flow off, the
@@ -224,11 +238,11 @@ case "$1" in
     # nohup alone (no `disown`, not POSIX sh) is enough: the backgrounded
     # process ignores SIGHUP and this script exits right after, so no
     # interactive job control is ever in play.
-    nohup /usr/sbin/tailscale up >/dev/null 2>&1 &
+    nohup "${cli}" up >/dev/null 2>&1 &
     exit 0
     ;;
   tailscale-logout)
-    exec /usr/sbin/tailscale logout
+    exec "$(tailscale_cli)" logout
     ;;
   tailscale-restart)
     exec /bin/systemctl restart tailscaled
