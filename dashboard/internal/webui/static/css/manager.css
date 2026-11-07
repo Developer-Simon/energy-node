@@ -1480,6 +1480,7 @@ div.devicemap-view-menu-row { cursor: default; }
   .energy-chain .energy-chain-line{width:2px;height:1.8rem;margin:0}
   .energy-chain .energy-chain-line::after{right:-4px;top:auto;bottom:-1px;border:5px solid transparent;border-top:7px solid var(--flow-battery);border-bottom:0}
   .energy-chain .energy-chain-link.is-tail .energy-chain-line::after{border-top-color:var(--text-faint)}
+  .energy-chain .energy-chain-step:last-child > .energy-chain-link{display:none}
   .energy-chain-summary{display:flex;width:100%;gap:.6rem;align-items:center;padding:.6rem .7rem;border:0;background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}
   .energy-chain-summary-text{display:grid;flex:1;min-width:0}
   .energy-chain-summary small{color:var(--text-muted);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
