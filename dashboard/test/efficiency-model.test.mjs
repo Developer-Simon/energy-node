@@ -167,3 +167,13 @@ test('dayRows without any data divides by nothing', () => {
     assert.equal(Number.isFinite(row.width), true);
   }
 });
+
+test('dayRows clamps a negative loss to width 0', () => {
+  const model = loadModel();
+  const rows = model.dayRows([
+    { local: '2026-11-04', loss_kwh: 2, standby_kwh: 0, efficiency: 0.9, has_data: true },
+    { local: '2026-11-05', loss_kwh: -1, standby_kwh: 0, efficiency: 1.01, has_data: true },
+  ]);
+  assert.equal(rows[0].width, 100);
+  assert.equal(rows[1].width, 0);
+});

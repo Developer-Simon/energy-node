@@ -7,6 +7,7 @@
         <button type="button" class="pill-button" x-on:click="openEnergy()">{{t "efficiency.empty_open"}}</button>
       </div>
     </template>
+    <p class="efficiency-error" role="alert" x-show="error" x-text="error"></p>
     <template x-if="current">
       <div class="efficiency-body">
         <header class="efficiency-top">
@@ -17,7 +18,6 @@
           </div>
           <p class="efficiency-status" role="status" x-bind:data-tone="status.tone"><span class="efficiency-dot" aria-hidden="true"></span><span x-text="status.text"></span></p>
         </header>
-        <p class="efficiency-error" role="alert" x-show="error" x-text="error"></p>
         <template x-if="state">
           <div class="energy-chain efficiency-chain">
             <template x-for="(point, index) in points" x-bind:key="point.entity_id">
