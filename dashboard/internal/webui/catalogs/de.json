@@ -265,6 +265,7 @@
   "automations.chain.min_age": "Mindestens seit",
   "automations.chain.missing": "Messkette fehlt",
   "automations.chain.once": "Einmal je Meldung",
+  "automations.chain.points_all": "Ohne Auswahl zählt jeder Punkt der Kette.",
   "automations.chain.points_label": "Punkte",
   "automations.chain.signal.efficiency_pct": "Wirkungsgrad",
   "automations.chain.signal.finding": "Meldung aktiv",

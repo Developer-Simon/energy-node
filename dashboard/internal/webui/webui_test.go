@@ -4491,8 +4491,12 @@ func TestChainConditionMarkup(t *testing.T) {
 		`<template x-if="condition.type === 'chain_finding'">`,
 		`<template x-if="condition.type === 'chain_value'">`,
 		`{{define "auto-chain-head"}}`,
-		`<label class="settings-toggle auto-field-wide"`,
 		`x-model="condition.once"`,
+		// Optionen aus x-for kommen nach x-model: ohne selected zeigt die
+		// Auswahl die erste Option statt des gespeicherten Werts.
+		`x-bind:selected="option.id === condition.chain_id"`,
+		`x-bind:selected="option.key === condition.kind"`,
+		`class="auto-segment auto-chain-signal" role="radiogroup"`,
 	} {
 		if !strings.Contains(src, want) {
 			t.Fatalf("Messkette: %q fehlt in automations-rows.html", want)
@@ -4503,8 +4507,16 @@ func TestChainConditionMarkup(t *testing.T) {
 	if start < 0 || end < start {
 		t.Fatal("Messkette: Reihenfolge der Meldungs-Karte fehlt")
 	}
-	if !strings.Contains(src[start:end], `<label class="settings-toggle`) {
+	card := src[start:end]
+	at := strings.Index(card, `<label class="settings-toggle">`)
+	if at < 0 {
 		t.Fatal("Messkette: der Schalter Einmal je Meldung ist kein settings-toggle-Label")
+	}
+	// Das Label enthaelt nur Eingabe und Spur, der Text steht daneben. Text im
+	// Label bricht die feste Breite des Schalters.
+	label := card[at : at+strings.Index(card[at:], `</label>`)]
+	if strings.Contains(label, `automations.chain.once"}}`) {
+		t.Fatal("Messkette: der Text des Schalters steht im settings-toggle-Label")
 	}
 }
 

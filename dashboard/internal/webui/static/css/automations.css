@@ -554,7 +554,7 @@ html:has(#automations-panel.active) { scrollbar-gutter: stable; }
 .auto-assist-option.is-selected { border-color: var(--accent-line); }
 .auto-assist-option.is-off { opacity: .55; cursor: not-allowed; }
 .auto-assist-option input { accent-color: var(--accent); }
-.auto-assist-option-text { display: grid; flex: 1 1 auto; min-width: 0; }
+.auto-assist-option-text { display: grid; gap: .15rem; flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
 .auto-assist-option .auto-assist-reason { flex-basis: 100%; }
 .auto-assist-cards { gap: .5rem; }
 .auto-assist-card { display: grid; justify-items: start; gap: .25rem; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-radius: 14px; background: var(--panel-alt); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
@@ -885,3 +885,15 @@ label.settings-toggle.auto-assist-check .settings-toggle-track { flex: none; wid
 }
 .auto-scale-svg:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; border-radius: 8px; }
 .auto-assist-now, .auto-assist-fit { margin: 0; font-size: .86rem; color: var(--text-muted); }
+
+/* Messkette in einer Bedingung: Kette und Signal in einer Zeile, darunter
+   die Felder des Signals wie bei der Bilanzbedingung. */
+.auto-chain-head { display: flex; flex-wrap: wrap; align-items: end; gap: .7rem; min-width: 0; }
+.auto-chain-pick { flex: 0 1 16rem; }
+.auto-chain-signal-field { flex: 1 1 auto; min-width: 0; }
+.auto-chain-signal { flex-wrap: wrap; max-width: 100%; }
+.auto-chain-points { display: flex; flex-wrap: wrap; gap: .3rem; }
+.auto-chain-note { font-size: .78rem; color: var(--text-muted); }
+.auto-chain-once { min-height: 2rem; }
+.auto-chain-once .settings-toggle { flex: none; }
+.auto-chain-once .auto-flow-label { min-width: 0; color: var(--text); }

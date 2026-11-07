@@ -265,6 +265,7 @@
   "automations.chain.min_age": "Active for at least",
   "automations.chain.missing": "Chain missing",
   "automations.chain.once": "Once per finding",
+  "automations.chain.points_all": "Without a selection every point of the chain counts.",
   "automations.chain.points_label": "Points",
   "automations.chain.signal.efficiency_pct": "Efficiency",
   "automations.chain.signal.finding": "Finding active",

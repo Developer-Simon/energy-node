@@ -132,8 +132,8 @@
                   <span class="auto-assist-option-text">
                     <b x-text="device.deviceName"></b>
                     <span class="auto-assist-live" x-text="device.live || ''"></span>
+                    <span class="auto-assist-reason" x-show="device.disabled" x-text="device.disabled || ''"></span>
                   </span>
-                  <span class="auto-assist-reason" x-show="device.disabled" x-text="device.disabled || ''"></span>
                 </label>
               </template>
               <p class="auto-assist-hint" x-text="$t('automations.assistant.device.missing_hint')"></p>

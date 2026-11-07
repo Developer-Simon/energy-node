@@ -341,7 +341,7 @@
                             <label class="auto-field-label" x-bind:for="`scn-${scenario.id}-efficiency`">{{t "automations.scenario.edit.regulator.efficiency_chain"}}</label>
                             <select class="auto-input" x-bind:id="`scn-${scenario.id}-efficiency`" x-model="scenario.while.regulator.efficiency.chain_id">
                               <template x-for="option in efficiencyOptions(scenario)" x-bind:key="option.id">
-                                <option x-bind:value="option.id" x-text="option.label"></option>
+                                <option x-bind:value="option.id" x-bind:selected="option.id === scenario.while.regulator.efficiency.chain_id" x-text="option.label"></option>
                               </template>
                             </select>
                             <span class="auto-pill" x-bind:class="efficiencyStatus(scenario).tone" x-text="efficiencyStatus(scenario).text"></span>

@@ -1281,6 +1281,10 @@
         requestJSON('/api/v1/energy').catch(() => null),
       ]);
       const snapshot = energy || { values: {}, entities: [] };
+      // Ketten koennen nach dem Laden der Seite dazukommen, etwa direkt nach
+      // dem Start des Dashboards. Der Assistent und die Editor-Karten sollen
+      // dieselbe Liste sehen.
+      if (energy && Array.isArray(energy.chains)) this.chains = energy.chains;
       this.assistant = {
         ...assistantIdle(),
         open: true,
@@ -1975,6 +1979,13 @@
       rule.conditions.push({ type: 'chain_finding', chain_id: first.id, kind: 'any', points: [], min_age_s: 0, once: false });
     },
 
+    // Holt die Ketten neu, ohne die Seite zu stoeren. Ein Fehler laesst die
+    // bisherige Liste stehen.
+    async refreshChains() {
+      const energy = await requestJSON('/api/v1/energy').catch(() => null);
+      if (energy && Array.isArray(energy.chains)) this.chains = energy.chains;
+    },
+
     chainById(id) {
       return (this.chains || []).find((chain) => chain.id === id) || null;
     },
@@ -2628,7 +2639,7 @@
     syncCatalogRefresh() {
       const editing = Object.values(this.scenarioEditing).some(Boolean);
       if (editing && !this._catalogTimer) {
-        this._catalogTimer = setInterval(() => { this.loadDeviceCatalog().catch(() => {}); }, CATALOG_REFRESH_MS);
+        this._catalogTimer = setInterval(() => { this.loadDeviceCatalog().catch(() => {}); this.refreshChains(); }, CATALOG_REFRESH_MS);
         if (typeof this._catalogTimer.unref === 'function') this._catalogTimer.unref();
       } else if (!editing && this._catalogTimer) {
         clearInterval(this._catalogTimer);
