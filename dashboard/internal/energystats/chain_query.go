@@ -23,10 +23,14 @@ type ChainInfo struct {
 
 // ChainTotals are the sums of a chain over a period. Efficiency is the
 // product of its segment efficiencies and nil if one segment has no data.
+// SourceKWh is the source energy entering the first segment, both directions
+// summed. It is 0 when Efficiency is nil, so the stats can weight the
+// efficiencies of several chains by it.
 type ChainTotals struct {
 	LossKWh    float64  `json:"loss_kwh"`
 	StandbyKWh float64  `json:"standby_kwh"`
 	Efficiency *float64 `json:"efficiency"`
+	SourceKWh  float64  `json:"source_kwh"`
 	HasData    bool     `json:"has_data"`
 }
 
@@ -121,11 +125,15 @@ func (a *chainAccumulator) totals() ChainTotals {
 	t.LossKWh = a.standby.KWh
 	efficiency := 1.0
 	complete := len(points) >= 2
+	var first float64
 	for i := 0; i+1 < len(points); i++ {
 		forward := ChainPair{Source: points[i], Target: points[i+1]}
 		backward := ChainPair{Source: points[i+1], Target: points[i]}
 		source := a.sums[forward].SourceKWh + a.sums[backward].SourceKWh
 		target := a.sums[forward].TargetKWh + a.sums[backward].TargetKWh
+		if i == 0 {
+			first = source
+		}
 		t.LossKWh += source - target
 		if source < minEfficiencyKWh {
 			complete = false
@@ -135,6 +143,7 @@ func (a *chainAccumulator) totals() ChainTotals {
 	}
 	if complete {
 		t.Efficiency = &efficiency
+		t.SourceKWh = first
 	}
 	return t
 }

@@ -1,6 +1,7 @@
 {{define "stats"}}
 <section id="stats-panel" class="panel" role="tabpanel" aria-labelledby="tab-stats" x-bind:class="{ active: activePanel === 'stats-panel' }" x-show="activePanel === 'stats-panel'" x-data="statsPanel()" x-init="init()">
   <h2>{{t "energy_stats.title"}}</h2>
+  <div class="stats-period-row">
   <div class="history-chip-group" role="group" aria-label="{{t "energy_stats.period.label"}}">
     <span class="history-chip-group-label"><svg class="history-chip-group-icon" aria-hidden="true"><use href="#ico-clock"></use></svg>{{t "energy_stats.period.label"}}</span>
       <button type="button" class="history-chip" x-bind:class="{active: period === 'day'}" x-bind:aria-pressed="period === 'day'" x-on:click="selectPeriod('day')">{{t "energy_stats.period.day"}}</button>
@@ -13,6 +14,7 @@
     <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
     <span class="stats-losses-text">{{t "energy_stats.losses.toggle"}}</span>
   </label>
+  </div>
   <div class="stats-nav" data-tour="stats-nav" role="group" aria-label="{{t "energy_stats.period.label"}}">
     <button type="button" class="history-chip stats-step stats-step--prev" x-bind:class="{ 'is-edge': !hasPrev }" x-on:click="prev()" x-bind:disabled="!hasPrev || loading"><svg class="stats-step-icon" aria-hidden="true"><use href="#ico-chevron"></use></svg><span class="stats-step-text">{{t "energy_stats.prev"}}</span></button>
     <strong class="stats-title" aria-live="polite" x-text="title"></strong>

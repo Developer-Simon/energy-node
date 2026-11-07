@@ -166,22 +166,20 @@
         this.error = '';
         this.title = model.periodTitle(data);
         this.kpis = model.kpis(data.total, PAGE_KPIS);
-        if (chains) this.kpis = [...this.kpis, ...model.lossKpis(chains)];
+        // Verluste stehen vor den Rollen, in Kennzahlen, Zeilen und Diagramm.
+        if (chains) this.kpis = [...model.lossKpis(chains), ...this.kpis];
         this.coverage = model.coverageText(data.total && data.total.hours);
         this.coverageParts = model.coverageParts(data.total && data.total.hours);
         const roleRows = model.tableRows(data).map(row => ({
           ...row,
           compact: data.buckets.map(bucket => compactKWh(bucket.kwh && bucket.kwh[row.role])),
         }));
-        // Die Rasterzelle eines Verlusts zeigt die Zahl in kWh, der
+        // Die Rasterzelle des Verlusts zeigt die Zahl in kWh, der
         // Wirkungsgrad bleibt als Prozent wie in der Tabelle.
-        const lossCompact = new Map(chainList.map(chain => [
-          `chain:${chain.id}:loss`, chain.buckets.map(cell => (cell.has_data ? compactKWh(cell.loss_kwh) : '')),
-        ]));
         const lossRows = chains && aligned
-          ? model.lossRows(chains).map(row => ({...row, compact: lossCompact.get(row.role) || row.values}))
+          ? model.lossRows(chains).map(row => ({...row, compact: row.kwh ? row.kwh.map(compactKWh) : row.values}))
           : [];
-        this.rows = [...roleRows, ...lossRows];
+        this.rows = [...lossRows, ...roleRows];
         this.labels = data.buckets.map(bucket => model.bucketLabel(data.period, bucket.local));
         const hours = (data.total && data.total.hours) || {};
         this.empty = !hours.ha && !hours.own;
