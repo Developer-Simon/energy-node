@@ -151,6 +151,14 @@ point. The balance then uses the value of the nearest reference point that is
 current, and the role shows it as a substitute value. If two points are equally
 close, the earlier point in the chain wins.
 
+The dashboard corrects that value by the learned loss of the segments between
+the reference point and the counting point, see [Learning](efficiency.md#learning).
+The loss is added when the reference point lies downstream of the counting point
+and subtracted when it lies upstream. The corrected value never changes its sign.
+The correction needs a flowing chain and a learned load class for every segment
+on the way. While one of these segments is not learned, the raw value of the
+reference point counts.
+
 A point is not current when it has no value, when it is offline, or when it has
 not updated for 10 minutes. The substitute only applies when a reference point
 is current. If none is, nothing is substituted and the counting point counts as
@@ -173,6 +181,14 @@ storage roles, which keep their sign.
 - When a chain is deleted, its counting point keeps the role. The other points
   are listed in the same hint.
 
+### Findings
+
+When the learned model finds a problem in a chain, the top of the tab shows a
+notice for each finding, with its text and the suggested fix if there is one.
+**Apply suggestion** fills the change into the draft of the entity. Nothing is
+saved until you save. **Open efficiency** leads to the [Efficiency](efficiency.md#diagnosis)
+tab, and the same findings show as a warning on the [device map](device-map.md).
+
 ### Loss per segment
 
 The energy page shows the loss between two neighbouring points live. It is the
@@ -181,7 +197,8 @@ at least 10 W. A segment is only computed while both of its points have a
 current value.
 
 The [Efficiency](efficiency.md) tab shows these losses per day and per month,
-and the round trip of a storage chain over 30 days.
+the round trip of a storage chain over 30 days, the efficiency curve and the
+diagnosis of the segments.
 
 ### Rules
 
