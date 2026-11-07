@@ -34,6 +34,10 @@ import sun
 LOG = logging.getLogger("automation_mqtt")
 
 BALANCE_TOPIC = "outstation/energy_node/energy/balance"
+CHAINS_TOPIC = "outstation/energy_node/energy/chains"
+CHAINS_MAX_AGE_S = 60
+CHAIN_FINDING_KINDS = ("any", "drift", "frozen", "contradiction", "sign", "unit")
+CHAIN_VALUE_FIELDS = ("loss_w", "efficiency_pct", "standby_w")
 
 
 BALANCE_FIELDS = frozenset({
@@ -109,15 +113,18 @@ def validate_publish_topic(topic: str) -> Optional[str]:
         "outstation/energy_node/status/online",
         "outstation/energy_node/state",
         "outstation/energy_node/diagnostics",
+        CHAINS_TOPIC,
     ):
-        return "topic must not forge the dashboard's own topics (energy balance / availability / node telemetry)"
+        return "topic must not forge the dashboard's own topics (energy balance / availability / node telemetry / chain signals)"
     return None
 
 
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
-_CONDITION_TYPES = {"balance_threshold", "topic_value", "time_window", "entity_value", "sun_window"}
+_CONDITION_TYPES = {"balance_threshold", "topic_value", "time_window", "entity_value", "sun_window",
+                    "chain_finding", "chain_value"}
+_CHAIN_ID_RE = re.compile(r"^[a-z0-9_]+$")
 _SUN_EVENTS = ("sunrise", "sunset")
 _SUN_OFFSET_MAX_MIN = 240
 _ACTION_TYPES = {"publish", "notification"}
@@ -220,6 +227,30 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
                               f"-{_SUN_OFFSET_MAX_MIN} and {_SUN_OFFSET_MAX_MIN}")
         _validate_weekdays(result, prefix, errors)
         _validate_month_days(result, prefix, errors)
+    elif ctype == "chain_finding":
+        if not isinstance(result.get("chain_id"), str) or not _CHAIN_ID_RE.match(result["chain_id"]):
+            errors.append(f"{prefix}: chain_id must match ^[a-z0-9_]+$")
+        if result.get("kind") not in CHAIN_FINDING_KINDS:
+            errors.append(f"{prefix}: kind must be one of {list(CHAIN_FINDING_KINDS)}")
+        points = result.setdefault("points", [])
+        if not isinstance(points, list) or not all(isinstance(p, str) for p in points):
+            errors.append(f"{prefix}: points must be a list of strings")
+        min_age = result.setdefault("min_age_s", 0)
+        if not _number(min_age) or not 0 <= min_age <= 86400:
+            errors.append(f"{prefix}: min_age_s must be a number between 0 and 86400")
+        once = result.setdefault("once", False)
+        if not isinstance(once, bool):
+            errors.append(f"{prefix}: once must be a boolean")
+    elif ctype == "chain_value":
+        if not isinstance(result.get("chain_id"), str) or not _CHAIN_ID_RE.match(result["chain_id"]):
+            errors.append(f"{prefix}: chain_id must match ^[a-z0-9_]+$")
+        if result.get("field") not in CHAIN_VALUE_FIELDS:
+            errors.append(f"{prefix}: field must be one of {list(CHAIN_VALUE_FIELDS)}")
+        if result.get("comparison") not in ("above", "below"):
+            errors.append(f"{prefix}: comparison must be 'above' or 'below'")
+        if not _number(result.get("value")):
+            errors.append(f"{prefix}: value must be a number")
+        result.setdefault("hold_seconds", 0)
     return result
 
 
@@ -1615,6 +1646,16 @@ def load_initial_document(config_store: ReloadableConfig) -> tuple:
     return doc, (str(error) if error is not None else None)
 
 
+def _uses_chains(doc: RulesDocument) -> bool:
+    """True when a rule or scenario condition reads the chain signals."""
+    condition_lists = [rule["conditions"] for rule in doc.rules]
+    for scenario in doc.scenarios:
+        condition_lists.append(scenario["when"]["conditions"])
+        if scenario["until"] is not None:
+            condition_lists.append(scenario["until"]["conditions"])
+    return any(cond["type"] in ("chain_finding", "chain_value") for conds in condition_lists for cond in conds)
+
+
 class AutomationService:
     def __init__(self, service_config, mqtt_config, config_store, app_config=None, service_name: str = "automation", history_path: Optional[str] = None, started_at: Optional[float] = None):
         self.service_config = service_config
@@ -1655,6 +1696,8 @@ class AutomationService:
 
     def required_topics(self, doc: RulesDocument) -> set:
         topics = {BALANCE_TOPIC, self.test_command_topic}
+        if _uses_chains(doc):
+            topics.add(CHAINS_TOPIC)
         for rule in doc.rules:
             self._add_condition_topics(topics, rule["conditions"])
             self._add_action_topics(topics, rule["actions"])
