@@ -220,6 +220,27 @@ func TestAFailingDeltaVerifyNeedsTheFullTransfer(t *testing.T) {
 	}
 }
 
+func TestOfflinePackageAsksUntilChosen(t *testing.T) {
+	ctx := context.Background()
+	backend := newScenario("vorlage", options{packageOffline: []string{"caddy", "tailscale"}})
+	err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare}, &countingSink{})
+	typed, _ := err.(*hostapi.Error)
+	if typed == nil || typed.Code != "PACKAGE_UNAVAILABLE" {
+		t.Fatalf("prepare = %v, want PACKAGE_UNAVAILABLE", err)
+	}
+	if typed.Args["names"] != "caddy, tailscale" || typed.Args["repo_possible"] != "true" {
+		t.Fatalf("args = %v, want the names and repo_possible", typed.Args)
+	}
+	err = backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare, PackageChoices: map[string]string{"caddy": "repo"}}, &countingSink{})
+	typed, _ = err.(*hostapi.Error)
+	if typed == nil || typed.Args["names"] != "tailscale" {
+		t.Fatalf("after caddy = %v, want tailscale still asked", err)
+	}
+	if err := backend.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModePrepare, PackageChoices: map[string]string{"tailscale": "skip"}}, &countingSink{}); err != nil {
+		t.Fatalf("after both answers: %v", err)
+	}
+}
+
 func TestTheJournalStepAppearsOnlyOnRequest(t *testing.T) {
 	has := func(b *stagedBackend) bool {
 		view, err := b.Manifest(context.Background())

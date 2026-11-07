@@ -83,8 +83,8 @@ func BuildViaRepo(ctx context.Context, args BuildArgs) (string, error) {
 }
 
 // findBuiltArchive locates make_bundle.sh's output in outDir: exactly one
-// energy-node-*.tar.gz, never the separate caddy-*.tar.gz side-package
-// (E13) it may also produce alongside it.
+// energy-node-*.tar.gz. Tailscale and Caddy are no longer packed beside it;
+// the bundle only pins their packages in manifest.packages.
 func findBuiltArchive(outDir string) (string, error) {
 	entries, err := os.ReadDir(outDir)
 	if err != nil {

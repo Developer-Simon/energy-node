@@ -83,6 +83,9 @@ type Host struct {
 	// Paket ab und wurde mit Freigabe durchgelassen. Schritt 50 laeuft dann
 	// im Installer (steps.RunOptions.OnlineDeps).
 	abiTolerated bool
+	// packageChoices: die Antworten auf PACKAGE_UNAVAILABLE je Paketname
+	// ("repo" oder "skip"). Gelten fuer die laufende Sitzung.
+	packageChoices map[string]string
 }
 
 // onlineDepsNeeded: die Abhaengigkeiten muessen aus dem Netz kommen, weil die
@@ -505,6 +508,9 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 			h.mu.Lock()
 			h.allowOnlineDeps = true
 			h.mu.Unlock()
+		}
+		if err := h.rememberPackageChoices(req.PackageChoices); err != nil {
+			return err
 		}
 		return h.prepare(ctx, sink, req.ForceFullTransfer)
 	}

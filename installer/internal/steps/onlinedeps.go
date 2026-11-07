@@ -61,20 +61,22 @@ func installDepsOnline(ctx context.Context, r remoteRunner, opts RunOptions, ste
 	}
 
 	logLine("Python-Version weicht vom Paket ab: reine Python-Wheels aus dem Bundle, der Rest aus dem Netz (freigegeben).")
-	wheelsDir := path.Join(opts.RemoteBundleDir, "wheels")
+	// Pure wheels come from the bundle and from the node's own wheel
+	// directory, which the host fills with the pinned wheels.
+	wheelsDirs := []string{path.Join(opts.RemoteBundleDir, "wheels"), path.Join(opts.RemoteStateDir, "wheels")}
 
 	var output strings.Builder
 	sink := &lineWriter{onLine: func(line string) {
 		output.WriteString(line + "\n")
 		logLine("    " + line)
 	}}
-	err := r.Run(ctx, pipInstallCommand(wheelsDir, true), sink, sink)
+	err := r.Run(ctx, pipInstallCommand(wheelsDirs, true), sink, sink)
 	sink.flush()
 	if err != nil && strings.Contains(output.String(), "no such option") {
 		// Legacy images ship a pip without --break-system-packages.
 		logLine("Legacy-Image ohne --break-system-packages: zweiter Versuch ohne den Schalter.")
 		output.Reset()
-		err = r.Run(ctx, pipInstallCommand(wheelsDir, false), sink, sink)
+		err = r.Run(ctx, pipInstallCommand(wheelsDirs, false), sink, sink)
 		sink.flush()
 	}
 	if err != nil {
@@ -101,20 +103,25 @@ func onlineDepsFailureCode(err error, output string) string {
 	return "PIP_INSTALL_FAILED"
 }
 
-// pipInstallCommand installs the pure Python wheels of the bundle. Run from
-// the wheels directory with a relative glob, so no file name needs quoting.
+// pipInstallCommand installs the pure Python wheels found in wheelsDirs. The
+// shell collects every *-none-any.whl of those directories and exits with
+// exitNoWheels when there is none, so the caller sees WHEELS_MISSING.
 // --ignore-installed and not --upgrade: Debian ships packages such as urllib3
 // without the RECORD file pip needs to uninstall them ("uninstall-no-record-
 // file"). pip then installs next to them, under /usr/local, which comes first
 // on the module path, and leaves the system's copy alone.
-func pipInstallCommand(wheelsDir string, breakSystemPackages bool) string {
+func pipInstallCommand(wheelsDirs []string, breakSystemPackages bool) string {
 	flag := ""
 	if breakSystemPackages {
 		flag = " --break-system-packages"
 	}
+	quoted := make([]string, 0, len(wheelsDirs))
+	for _, dir := range wheelsDirs {
+		quoted = append(quoted, transport.ShellQuote(dir))
+	}
 	return fmt.Sprintf(
-		`cd %s && set -- ./*-none-any.whl && [ -e "$1" ] || exit %d; sudo python3 -m pip install --ignore-installed%s "$@"`,
-		transport.ShellQuote(wheelsDir), exitNoWheels, flag)
+		`set --; for d in %s; do for w in "$d"/*-none-any.whl; do [ -e "$w" ] && set -- "$@" "$w"; done; done; [ $# -gt 0 ] || exit %d; sudo python3 -m pip install --ignore-installed%s "$@"`,
+		strings.Join(quoted, " "), exitNoWheels, flag)
 }
 
 // stampMatchesCommand succeeds when the stamp says step 50 is done for this

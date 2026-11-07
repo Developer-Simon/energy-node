@@ -17,6 +17,10 @@ THIRDPARTY_PACKAGES=(
 )
 
 read -r -a WHEELS_PIP <<< "${EN_PIP:-python3 -m pip}"
+# Indizes in der Reihenfolge des Downloads: piwheels vor PyPI. Dieselbe
+# Reihenfolge gilt fuer die Festlegungen (wheel_pins.py). EN_WHEEL_INDEXES
+# (Leerzeichen-getrennt) ersetzt sie, damit der Test lokale Indizes nimmt.
+read -r -a WHEEL_INDEXES <<< "${EN_WHEEL_INDEXES:-https://www.piwheels.org/simple https://pypi.org/simple}"
 
 arch_unknown() {
   echo "Unbekannte Zielarchitektur: $1 (bekannt: armv6, arm64, amd64)" >&2
@@ -81,8 +85,8 @@ fetch_thirdparty_wheels() {
   for _ in 1 2 3 4 5 6; do
     if ! "${WHEELS_PIP[@]}" download \
         --only-binary=:all: \
-        --index-url https://www.piwheels.org/simple \
-        --extra-index-url https://pypi.org/simple \
+        --index-url "${WHEEL_INDEXES[0]}" \
+        --extra-index-url "${WHEEL_INDEXES[1]}" \
         "${args[@]}" \
         --python-version "${minor}" \
         --implementation cp \

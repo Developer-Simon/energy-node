@@ -4,7 +4,7 @@
 
 ### Fixes
 
-- **diagnostics:** stop flagging text sensors as missing a unit (#221)
+- **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 
 ## v0.4.4 (2026-10-21)
 

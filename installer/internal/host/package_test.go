@@ -36,13 +36,17 @@ func stubSeams(t *testing.T, machine string) *staged {
 	t.Helper()
 	origDetect, origStage, origVerify, origProvision := detectMachine, stageBundle, verifyStaged, provisionRemoteStateDir
 	origDeltaBase, origMarkVerified := deltaBase, markVerified
-	origStageDelta := stageDelta
+	origStageDelta, origStagePackages := stageDelta, stagePackages
 	t.Cleanup(func() {
 		detectMachine, stageBundle, verifyStaged, provisionRemoteStateDir = origDetect, origStage, origVerify, origProvision
 		deltaBase, markVerified = origDeltaBase, origMarkVerified
 		stageDelta = origStageDelta
+		stagePackages = origStagePackages
 	})
 	rec := &staged{}
+	stagePackages = func(context.Context, *transport.Client, string, []bundlesource.LocalPackage, func(int64, int64)) error {
+		return nil
+	}
 	detectMachine = func(context.Context, *transport.Client) (string, error) { return machine, nil }
 	provisionRemoteStateDir = func(context.Context, *transport.Client, string) error { return nil }
 	stageBundle = func(_ context.Context, _ *transport.Client, archive, remoteDir string, onProgress func(done, total int64)) error {

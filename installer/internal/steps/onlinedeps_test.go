@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -270,7 +273,7 @@ func TestOnlineDepsStampWithoutFingerprint(t *testing.T) {
 }
 
 func TestOnlineDepsQuotesWheelsDir(t *testing.T) {
-	cmd := pipInstallCommand("/pfad mit leerzeichen/wheels", true)
+	cmd := pipInstallCommand([]string{"/pfad mit leerzeichen/wheels"}, true)
 	if !strings.Contains(cmd, "'/pfad mit leerzeichen/wheels'") {
 		t.Errorf("command = %q, want the wheels directory in single quotes", cmd)
 	}
@@ -300,8 +303,57 @@ func TestOnlineDepsLogsVersionMismatch(t *testing.T) {
 func TestOnlineDepsPipIgnoresPackagesTheSystemOwns(t *testing.T) {
 	// Debian ships urllib3 without a RECORD file; --upgrade would try to
 	// uninstall it and fail with uninstall-no-record-file.
-	cmd := pipInstallCommand("/var/lib/energy-node-installer/bundle/wheels", true)
+	cmd := pipInstallCommand([]string{"/var/lib/energy-node-installer/bundle/wheels"}, true)
 	if !strings.Contains(cmd, "--ignore-installed") || strings.Contains(cmd, "--upgrade") {
 		t.Errorf("command = %q, want --ignore-installed and no --upgrade", cmd)
+	}
+}
+
+// TestOnlineDepsFindsPureWheelsInTheNodeWheelDir runs the real install
+// command in a shell with a fake sudo on PATH: the pure wheel that only the
+// node's wheel directory holds must reach pip, and an empty pair of
+// directories must still end in the WHEELS_MISSING exit code.
+func TestOnlineDepsFindsPureWheelsInTheNodeWheelDir(t *testing.T) {
+	bundleWheels := t.TempDir()
+	nodeWheels := filepath.Join(t.TempDir(), "wheels")
+	if err := os.MkdirAll(nodeWheels, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wheel := filepath.Join(nodeWheels, "pinned-1.0-py3-none-any.whl")
+	if err := os.WriteFile(wheel, []byte("wheel"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A compiled wheel next to it must not be picked up.
+	if err := os.WriteFile(filepath.Join(nodeWheels, "crypto-1.0-cp311-cp311-linux_armv6l.whl"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fakeBin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(fakeBin, "sudo"), []byte("#!/bin/sh\necho \"$@\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	run := func(dirs ...string) (string, error) {
+		cmd := exec.Command("sh", "-c", pipInstallCommand(dirs, true))
+		cmd.Env = append(os.Environ(), "PATH="+fakeBin+":"+os.Getenv("PATH"))
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+
+	out, err := run(bundleWheels, nodeWheels)
+	if err != nil {
+		t.Fatalf("install command failed: %v (%s)", err, out)
+	}
+	if !strings.Contains(out, wheel) {
+		t.Errorf("output = %q, want the node wheel %s", out, wheel)
+	}
+	if strings.Contains(out, "crypto-1.0") {
+		t.Errorf("output = %q, must not include the compiled wheel", out)
+	}
+
+	empty := t.TempDir()
+	_, err = run(empty, filepath.Join(empty, "none"))
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != exitNoWheels {
+		t.Errorf("without wheels err = %v, want exit %d", err, exitNoWheels)
 	}
 }

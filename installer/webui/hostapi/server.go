@@ -286,6 +286,10 @@ func writeBackendError(w http.ResponseWriter, err error) {
 		if status == 0 {
 			status = http.StatusInternalServerError
 		}
+		if len(typed.Args) > 0 {
+			writeJSON(w, status, map[string]any{"error": typed.Code, "detail": typed.Detail, "args": typed.Args})
+			return
+		}
 		writeError(w, status, typed.Code, typed.Detail)
 		return
 	}
