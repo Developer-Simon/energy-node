@@ -66,6 +66,25 @@ The log at the bottom shows the messages of all fakes. The filter *Dieser
 Bereich*, *Alle* or *Nur Fehler* chooses which ones are listed, and *Pause*
 stops the list from growing.
 
+### Triggering a chain finding
+
+The demo chain *Balkonspeicher* runs plug, inverter and battery. Its learned
+values are seeded for 14 days, so the diagnoses work from the first start. A
+finding comes from a point that behaves differently than the learned loss
+expects. The demo holds a finding for 30 seconds, so it shows quickly.
+
+1. Start the demo with `demo/demo.sh` and open the console.
+2. In the *MQTT-Broker* tab, switch the *Simulation* off. Otherwise the simulation
+   overwrites the plug value again on its next tick.
+3. To set the plug to 0 W, send the topic `plug/speicher/status` with the payload
+   `{"apower": 0}` in the *Nachricht senden* group. The inverter still shows
+   power, so the chain reports a contradiction.
+4. To hold the plug instead, send its current value and leave it unchanged. A
+   point that does not move while the others do can be reported as frozen.
+5. The finding shows up after the hold time in the tab *Effizienz*, in the
+   energy tab, in the diagnosis and on the device map.
+6. Switch the *Simulation* on again to let the values move.
+
 ## Fakes
 
 Each file in `demo/fakes/` imitates one part of the system:

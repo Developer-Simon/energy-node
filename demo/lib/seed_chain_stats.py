@@ -8,6 +8,12 @@ The chains are read from <data_dir>/energy.json. The hours are written to
 in the day, discharging in the evening, standby at night. The random numbers
 come from a fixed seed. A month file that exists is left untouched, so a
 second run with the same arguments changes nothing.
+
+The learned loss of every segment and direction goes to
+<data_dir>/energystats/chains/learned.json in the format of the Go chainwatch
+table (dashboard/internal/chainwatch/table.go, tableFile). It holds classes 1
+to 12 with 1200 samples each and a curve that peaks in the middle. first_seen
+is 14 days back. An existing file is left untouched.
 """
 
 import json
@@ -22,6 +28,10 @@ SEED = 20261107
 WINDOW_DAYS = 14
 FORMAT_VERSION = 1
 HOUR_SECONDS = 3600
+LEARNED_FILE = "learned.json"
+LEARNED_CLASSES = range(1, 13)
+LEARNED_SAMPLES = 1200
+LEARNED_CLASS_WIDTH_W = 50
 
 
 def parse_now(text):
@@ -147,6 +157,54 @@ def build_hours(chains, end):
     return months
 
 
+def learned_loss(cls, forward):
+    """Returns the loss fraction of a segment in a load class.
+
+    The loss is smallest around class 6 (300 to 350 W), so the efficiency
+    curve peaks in the middle. Segments against the chain order lose a bit more.
+    """
+    base = 0.02 if forward else 0.03
+    return base + 0.004 * (cls - 6.2) ** 2
+
+
+def learned_table(chains, end):
+    """Returns the learned.json content of the chain segments in both directions.
+
+    Every class holds [samples, source W, target W, deviation W], the values
+    are rounded to 3 decimals as in the Go table.
+    """
+    forward = set()
+    for chain_id in sorted(chains):
+        points = chains[chain_id].get("points") or []
+        forward.update(zip(points, points[1:]))
+    both = set(forward) | {(t, s) for s, t in forward}
+    first_seen = (end - timedelta(days=WINDOW_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    entries = []
+    for source, target in sorted(both):
+        classes = []
+        for cls in sorted(LEARNED_CLASSES, key=str):
+            power = cls * LEARNED_CLASS_WIDTH_W + LEARNED_CLASS_WIDTH_W / 2
+            target_w = power * (1 - learned_loss(cls, (source, target) in forward))
+            dev_w = max(0.5, 0.003 * power)
+            classes.append(
+                f'"{cls}":[{LEARNED_SAMPLES},{go_number(round3(power))},'
+                f"{go_number(round3(target_w))},{go_number(round3(dev_w))}]"
+            )
+        entries.append(
+            f'{{"source":{json.dumps(source, ensure_ascii=False)},'
+            f'"target":{json.dumps(target, ensure_ascii=False)},'
+            f'"first_seen":"{first_seen}","scale_source":1,"scale_target":1,'
+            f'"invert_source":false,"invert_target":false,"agree":{LEARNED_SAMPLES},'
+            f'"opposite":0,"classes":{{{",".join(classes)}}}}}'
+        )
+    return f'{{"version":1,"pairs":[{",".join(entries)}]}}'.encode("utf-8")
+
+
+def round3(v):
+    """Rounds to 3 decimals, half away from zero, as the Go table does."""
+    return go_round(v * 1000) / 1000
+
+
 def write_month(path, data):
     tmp = path + ".tmp"
     with open(tmp, "wb") as f:
@@ -165,6 +223,9 @@ def seed(data_dir, now):
         if os.path.exists(path):
             continue
         write_month(path, encode_month(month["start"], month["pairs"], month["standby"]))
+    learned = os.path.join(target, LEARNED_FILE)
+    if not os.path.exists(learned):
+        write_month(learned, learned_table(chains, end))
 
 
 def main(argv):

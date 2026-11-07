@@ -153,6 +153,8 @@ env_seed_data || exit 1
 # Messketten-Verlauf der letzten 14 Tage fuer den Reiter Effizienz. Vorhandene Monatsdateien bleiben.
 if [[ "$MODE" == demo ]]; then
   python3 "$DEMO_DIR/lib/seed_chain_stats.py" "$WORK/data" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || exit 1
+  # Meldungen der Messkette nach 30 s statt nach Minuten, damit man sie in der Sichtpruefung sieht.
+  export ENERGY_NODE_CHAIN_HOLD_SECONDS=30
 fi
 env_installed_state || exit 1
 env_make_package || exit 1
