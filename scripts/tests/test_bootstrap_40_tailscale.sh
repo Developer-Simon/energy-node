@@ -143,6 +143,24 @@ grep -q 'apt-get install .*tailscale_1.62.0_armhf.deb' "$PKG_LOG" \
 grep -qx 'apt-mark hold tailscale' "$PKG_LOG" || fail "armv6: kein hold" "$(cat "$PKG_LOG")"
 [ -e "$repo_list" ] && fail "armv6: Repo angelegt statt hold"
 
+# --- armv6 mit hold aus einem frueheren Lauf: unhold, install, hold --------
+# Der apt-mark-Stub fuehrt keinen Zustand; die Reihenfolge der Aufrufe im
+# Protokoll ist der Nachweis, dass der hold vor der Installation fällt.
+arch=armhf
+setup 1.62.0 installer ja
+run 0
+arch=amd64
+[ "$code" -eq 0 ] || fail "armv6 mit hold: Code $code" "$out"
+u_line="$(grep -n -x 'apt-mark unhold tailscale' "$PKG_LOG" | head -n 1 | cut -d: -f1)"
+i_line="$(grep -n 'apt-get install .*tailscale_1.62.0_armhf.deb' "$PKG_LOG" | head -n 1 | cut -d: -f1)"
+h_line="$(grep -n -x 'apt-mark hold tailscale' "$PKG_LOG" | head -n 1 | cut -d: -f1)"
+if [ -z "$u_line" ] || [ -z "$i_line" ] || [ -z "$h_line" ]; then
+  fail "armv6 mit hold: unhold/install/hold fehlt" "$(cat "$PKG_LOG")"
+fi
+if [ "$u_line" -ge "$i_line" ] || [ "$i_line" -ge "$h_line" ]; then
+  fail "armv6 mit hold: Reihenfolge falsch (unhold $u_line, install $i_line, hold $h_line)" "$(cat "$PKG_LOG")"
+fi
+
 # --- Zeile 2: nicht installiert, .deb fehlt -------------------------------
 setup 1.104.5 apt nein
 run 0

@@ -136,4 +136,9 @@ done
 run pkg_hold caddy || fail "pkg_hold fehlgeschlagen"
 grep -qx 'apt-mark hold caddy' "$PKG_LOG" || fail "apt-mark hold nicht aufgerufen" "$(cat "$PKG_LOG")"
 
+# --- pkg_unhold: ruft unhold auf, Fehler (nicht gehalten) sind harmlos -------
+: > "$PKG_LOG"
+run pkg_unhold tailscale || fail "pkg_unhold fehlgeschlagen"
+grep -qx 'apt-mark unhold tailscale' "$PKG_LOG" || fail "apt-mark unhold nicht aufgerufen" "$(cat "$PKG_LOG")"
+
 echo "OK: test_bootstrap_lib_packages"

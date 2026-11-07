@@ -128,6 +128,9 @@ if [[ "${install}" == true ]]; then
     fi
     "${SUDO[@]}" rm -f "${bin_cli}" "${unit}"
   fi
+  # Ein hold aus einem frueheren Lauf (armv6) verweigert die Aenderung durch
+  # apt. Freigeben, installieren, danach wieder festhalten.
+  pkg_unhold tailscale
   pkg_install_deb "${deb}" || step_fail TAILSCALE_INSTALL_FAILED
   "${SUDO[@]}" systemctl daemon-reload
   # Gegenprobe nach der Installation: auch die Paketvorgabe darf den Schalter

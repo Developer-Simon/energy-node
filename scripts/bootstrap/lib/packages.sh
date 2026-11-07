@@ -109,3 +109,9 @@ pkg_setup_repo() {
 pkg_hold() {
   "${SUDO[@]}" apt-mark hold "$1" >/dev/null
 }
+
+# pkg_unhold <name>: gibt einen etwaigen hold frei, bevor ein neues .deb
+# installiert wird - apt verweigert sonst die Aenderung. Ohne hold harmlos.
+pkg_unhold() {
+  "${SUDO[@]}" apt-mark unhold "$1" >/dev/null 2>&1 || true
+}
