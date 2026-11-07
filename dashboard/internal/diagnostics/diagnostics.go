@@ -15,6 +15,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -145,6 +146,31 @@ func NewEngine(reg *registry.Registry, store *settings.Store) *Engine {
 
 func (e *Engine) SetIgnoredStore(store *devicefilter.Store) {
 	e.Ignored = store
+}
+
+// chainRuleKinds ties each chain finding kind to its rule ID and text key.
+var chainRuleKinds = []chainRuleKind{
+	{Kind: energy.FindingDrift, RuleID: "ChainDrift", Key: "chain_drift"},
+	{Kind: energy.FindingFrozen, RuleID: "ChainFrozen", Key: "chain_frozen"},
+	{Kind: energy.FindingContradiction, RuleID: "ChainContradiction", Key: "chain_contradiction"},
+	{Kind: energy.FindingSign, RuleID: "ChainSign", Key: "chain_sign"},
+	{Kind: energy.FindingUnit, RuleID: "ChainUnit", Key: "chain_unit"},
+}
+
+// SetChainFindings adds one rule per chain finding kind, fed by fn. Without
+// this call the engine has no chain rules. Calling it again replaces the
+// source.
+func (e *Engine) SetChainFindings(fn func() []energy.ChainFinding) {
+	rules := e.SnapshotRules[:0]
+	for _, rule := range e.SnapshotRules {
+		if _, ok := rule.(ChainRule); !ok {
+			rules = append(rules, rule)
+		}
+	}
+	e.SnapshotRules = rules
+	for _, entry := range chainRuleKinds {
+		e.SnapshotRules = append(e.SnapshotRules, ChainRule{Kind: entry.Kind, Findings: fn})
+	}
 }
 
 func (e *Engine) SetConfigManager(configs *config.Manager) {
@@ -357,6 +383,22 @@ func (e *Engine) Device(deviceID string, now time.Time) []Warning {
 		now = time.Now().UTC()
 	}
 	var warnings []Warning
+	var chainRules []ChainRule
+	for _, rule := range e.SnapshotRules {
+		if chain, ok := rule.(ChainRule); ok {
+			chainRules = append(chainRules, chain)
+		}
+	}
+	if len(chainRules) > 0 {
+		snapshot := e.Registry.DiagnosticsSnapshot()
+		for _, chain := range chainRules {
+			for _, item := range chain.Evaluate(snapshot, SnapshotContext{Now: now}) {
+				if item.DeviceID == deviceID {
+					warnings = append(warnings, item)
+				}
+			}
+		}
+	}
 	if dev, ok := e.Registry.Get(deviceID); ok {
 		ctx := Context{
 			Now:                now,

@@ -23,4 +23,9 @@ var ruleTexts = map[string]ruleText{
 	"invalid_discovery_payload":      {"Discovery-Payload ist ungültig.", "Discovery-Payload, JSON-Struktur und Availability-Definition prüfen"},
 	"ignored_device_discovery_stale": {"Ignoriertes Gerät besitzt keine bekannte Discovery mehr.", "Gerät reaktivieren, falls es wieder benötigt wird, oder Discovery endgültig löschen"},
 	"configured_device_missing":      {"Konfiguriertes Gerät ist in der Discovery nicht vorhanden.", "Bridge-Dienst neu starten oder Discovery erneut veröffentlichen lassen"},
+	"chain_drift":                    {"Der Verlust eines Abschnitts einer Messkette liegt seit längerer Zeit außerhalb des gelernten Bereichs.", "Messgeräte und Verkabelung prüfen, nach einem Umbau im Reiter Effizienz neu lernen"},
+	"chain_frozen":                   {"Ein Messpunkt bleibt unverändert, während sich ein anderer Punkt derselben Messkette deutlich bewegt.", "Gerät und Bridge prüfen, gegebenenfalls neu starten"},
+	"chain_contradiction":            {"Ein Messpunkt meldet Leistung, während ein anderer derselben Messkette aus ist oder 0 W meldet.", "Schaltzustand, Gerät und die Zuordnung der Messpunkte prüfen"},
+	"chain_sign":                     {"Zwei benachbarte Messpunkte einer Messkette melden dauerhaft entgegengesetzte Vorzeichen.", "Im Reiter Effizienz den Vorschlag ansehen und übernehmen"},
+	"chain_unit":                     {"Zwei benachbarte Messpunkte einer Messkette liegen um den Faktor 1000 auseinander.", "Im Reiter Effizienz den Vorschlag ansehen und übernehmen"},
 }

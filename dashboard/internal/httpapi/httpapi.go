@@ -313,6 +313,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
 	g.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
+	if dependencies.ChainMonitor != nil {
+		engine.SetChainFindings(dependencies.ChainMonitor.AllFindings)
+	}
 	g.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
 	g.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
 	// /api/v1/discovery ist ohne Schraegstrich registriert, hat also keinen

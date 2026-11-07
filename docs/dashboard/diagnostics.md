@@ -42,6 +42,32 @@ entity or rule.
 The severity switch (All, Critical, Warning) works in both views and shows how
 many findings each choice leaves.
 
+## Measurement chains
+
+Once a measurement chain has learned its normal losses, the findings of the
+learned model appear here too. Each finding names the measuring point it is
+about and the device that point belongs to, so the device filter and the
+device modal list it as well. The five causes are:
+
+- Loss outside the normal range: the loss of a segment has stayed outside the
+  learned range for some time. Check the meters and the wiring. After a rebuild,
+  relearn the segment on the [Efficiency](efficiency.md) tab.
+- Reading frozen: one point stays unchanged while another point of the same
+  chain moves clearly. Check the device and the bridge, and restart them if
+  needed.
+- Measuring points contradict each other: one point reports power while
+  another point of the chain is off or reports 0 W. Check the switch state, the
+  device and the assignment of the points.
+- Sign probably wrong: two neighbouring points keep reporting opposite signs.
+  The [Efficiency](efficiency.md) tab offers a fix that you can review and apply.
+- Unit probably wrong: two neighbouring points differ by a factor of 1000. The
+  [Efficiency](efficiency.md) tab offers a fix that you can review and apply.
+
+These findings are about the setup and the measurement, not about the live
+connection, so they do not count as operational. A chain finding appears as
+soon as the model reports it and disappears once the model no longer reports
+it.
+
 ## Service logs
 
 ![Service logs](../images/dashboard-service-logs.png)
