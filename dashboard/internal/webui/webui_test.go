@@ -15,6 +15,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -56,7 +57,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=15,/static/js/devicemap-subdevices.js?v=1,/static/js/energy-chains.js?v=1,/static/js/devicemap-graph.js?v=9,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=5,/static/js/energy-plant.js?v=7,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=14\"", "data-panel-css=\"/static/css/manager.css?v=49\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=15,/static/js/devicemap-subdevices.js?v=1,/static/js/energy-chains.js?v=1,/static/js/devicemap-graph.js?v=10,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=5,/static/js/energy-plant.js?v=7,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=14\"", "data-panel-css=\"/static/css/manager.css?v=49\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -3965,7 +3966,7 @@ func TestInitialPanelFollowsViewPermissions(t *testing.T) {
 		{"nothing allowed falls back", allowed(), true, true, "settings-panel"},
 	}
 	for _, tc := range cases {
-		if got := initialPanel(tc.can, tc.manager, tc.automation); got != tc.want {
+		if got := initialPanel(tc.can, tc.manager, tc.automation, false); got != tc.want {
 			t.Errorf("%s: got %q, want %q", tc.name, got, tc.want)
 		}
 	}
@@ -3986,6 +3987,111 @@ func TestTabsFollowViewPermissions(t *testing.T) {
 		if strings.Contains(body, gone) {
 			t.Fatalf("view_stats-Nutzer: %s darf nicht erscheinen", gone)
 		}
+	}
+}
+
+func efficiencyUserRequest(t *testing.T, path string, roles ...string) *http.Request {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	return req.WithContext(auth.WithUser(req.Context(), auth.User{Username: "u", Roles: roles}))
+}
+
+// Ein Konto mit Kette, Manager-Deployment: Store mit einer gespeicherten Kette.
+func efficiencyStoreWithChain(t *testing.T) *settings.Store {
+	t.Helper()
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Chains: map[string]energy.Chain{
+		"plug": {Label: "Steckdose", Points: []string{"plug_ac", "plug_dc"}, Counting: "plug_ac"},
+	}}); err != nil {
+		t.Fatalf("save chain: %v", err)
+	}
+	return store
+}
+
+// Die Reihenfolge der Reiter: Statistik, Effizienz, Device-Map, danach der Rest
+// des Manager-Blocks. Die Device-Map sitzt nur mit view_device_map und Manager.
+func TestEfficiencyTabOrderStatsEfficiencyDeviceMap(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), efficiencyStoreWithChain(t)).
+		ServeHTTP(rec, efficiencyUserRequest(t, "/", auth.RoleViewStats, auth.RoleViewEfficiency, auth.RoleViewDeviceMap, auth.RoleViewConfig, auth.RoleViewOverview))
+	body := rec.Body.String()
+	order := []string{`id="tab-stats"`, `id="tab-efficiency"`, `id="tab-devicemap"`, `id="tab-config"`}
+	last := -1
+	for _, marker := range order {
+		at := strings.Index(body, marker)
+		if at < 0 {
+			t.Fatalf("Reihenfolge: %s fehlt", marker)
+		}
+		if at <= last {
+			t.Fatalf("Reihenfolge: %s steht nicht hinter dem Vorgaenger", marker)
+		}
+		last = at
+	}
+
+	without := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), efficiencyStoreWithChain(t)).
+		ServeHTTP(without, efficiencyUserRequest(t, "/", auth.RoleViewEfficiency, auth.RoleViewOverview))
+	if strings.Contains(without.Body.String(), `id="tab-devicemap"`) {
+		t.Fatalf("ohne view_device_map darf tab-devicemap nicht erscheinen")
+	}
+}
+
+func TestEfficiencyTabRendersForRightAndManager(t *testing.T) {
+	handler := func(store *settings.Store) http.HandlerFunc {
+		return Overview(registry.New(), config.NewManager(t.TempDir()), store)
+	}
+	rec := httptest.NewRecorder()
+	handler(efficiencyStoreWithChain(t)).ServeHTTP(rec, efficiencyUserRequest(t, "/", auth.RoleViewEfficiency, auth.RoleViewOverview))
+	body := rec.Body.String()
+	for _, want := range []string{`id="tab-efficiency"`, `id="efficiency-panel"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("view_efficiency + Manager: %s fehlt", want)
+		}
+	}
+
+	without := httptest.NewRecorder()
+	handler(efficiencyStoreWithChain(t)).ServeHTTP(without, efficiencyUserRequest(t, "/", auth.RoleViewOverview))
+	for _, gone := range []string{`id="tab-efficiency"`, `id="efficiency-panel"`} {
+		if strings.Contains(without.Body.String(), gone) {
+			t.Fatalf("ohne view_efficiency darf %s nicht erscheinen", gone)
+		}
+	}
+
+	noManager := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(noManager, efficiencyUserRequest(t, "/", auth.RoleViewEfficiency, auth.RoleViewOverview))
+	for _, gone := range []string{`id="tab-efficiency"`, `id="efficiency-panel"`} {
+		if strings.Contains(noManager.Body.String(), gone) {
+			t.Fatalf("ohne Manager darf %s nicht erscheinen", gone)
+		}
+	}
+
+	denied := httptest.NewRecorder()
+	handler(efficiencyStoreWithChain(t)).ServeHTTP(denied, efficiencyUserRequest(t, "/?fragment=panel&panel=efficiency", auth.RoleViewOverview))
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("Fragment ohne Recht: got status %d, want 403", denied.Code)
+	}
+}
+
+func TestHasChainsAttribute(t *testing.T) {
+	empty := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(empty, httptest.NewRequest(http.MethodGet, "/", nil))
+	if !strings.Contains(empty.Body.String(), `data-has-chains="false"`) {
+		t.Fatal("ohne Ketten muss data-has-chains=\"false\" stehen")
+	}
+	with := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), efficiencyStoreWithChain(t)).ServeHTTP(with, httptest.NewRequest(http.MethodGet, "/", nil))
+	if !strings.Contains(with.Body.String(), `data-has-chains="true"`) {
+		t.Fatal("mit Ketten muss data-has-chains=\"true\" stehen")
+	}
+}
+
+func TestInitialPanelEfficiency(t *testing.T) {
+	can := map[string]bool{auth.RoleViewEfficiency: true}
+	if got := initialPanel(can, true, false, true); got != "efficiency-panel" {
+		t.Fatalf("nur view_efficiency, Manager, Ketten: got %q, want efficiency-panel", got)
+	}
+	if got := initialPanel(can, true, false, false); got != "settings-panel" {
+		t.Fatalf("ohne Ketten: got %q, want settings-panel", got)
 	}
 }
 

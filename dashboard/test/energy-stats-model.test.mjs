@@ -167,3 +167,125 @@ test('coverageText nennt den Ersatzwert, ohne ihn bleibt die Ausgabe gleich', ()
   assert.equal(model.coverageText({ha: 20, own: 3, none: 1}), 'Aus Home Assistant 20 h, eigene Aufzeichnung 3 h, keine Daten 1 h');
   dom.window.close();
 });
+
+const CHAIN_STATS_FIXTURE = {
+  period: 'day',
+  at: '2026-10-12',
+  chains: [
+    {
+      id: 'a', label: 'Akku',
+      buckets: [
+        {loss_kwh: 0.4, standby_kwh: 0, efficiency: 0.9, source_kwh: 1, has_data: true},
+        {loss_kwh: 0, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false},
+      ],
+      total: {loss_kwh: 1.25, standby_kwh: 0, efficiency: 0.93, source_kwh: 2, has_data: true},
+    },
+    {
+      id: 'b', label: 'Wallbox',
+      buckets: [
+        {loss_kwh: 0.1, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: true},
+        {loss_kwh: 0.05, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: true},
+      ],
+      total: {loss_kwh: 0.15, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: true},
+    },
+    {
+      id: 'c', label: 'Pumpe',
+      buckets: [
+        {loss_kwh: 0.2, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false},
+        {loss_kwh: 0.3, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false},
+      ],
+      total: {loss_kwh: 0.5, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false},
+    },
+  ],
+};
+
+test('chartSeries adds losses below zero only with lossSeries', () => {
+  const {dom, model} = loadStatsModel();
+  const plain = model.chartSeries(DAY_FIXTURE);
+  assert.equal(plain.some(s => s.role === 'chain_loss'), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(plain.map(s => s.role))), ['pv', 'grid_import', 'load_total', 'grid_export']);
+  const series = model.chartSeries({...DAY_FIXTURE, lossSeries: [0.2, null]});
+  // Die Verlustreihe kommt vor den Rollen, also auch vor der Legende.
+  assert.equal(series[0].role, 'chain_loss');
+  const loss = series.find(s => s.role === 'chain_loss');
+  assert.equal(loss.name, 'Verluste');
+  assert.deepEqual(JSON.parse(JSON.stringify(loss.data)), [-0.2, null]);
+  assert.equal(loss.color, dom.window.DashboardTheme.color('warn'));
+  dom.window.close();
+});
+
+test('withLosses adds the chains per bucket and leaves result untouched', () => {
+  const {dom, model} = loadStatsModel();
+  const bucket = local => ({local, kwh: {}});
+  const result = {period: 'day', at: '2026-10-12', buckets: [bucket('2026-10-12T00:00'), bucket('2026-10-12T01:00'), bucket('2026-10-12T02:00')], total: {kwh: {}}};
+  const chainStats = {chains: [
+    {id: 'a', label: 'A', buckets: [
+      {loss_kwh: 0.1, has_data: true}, {loss_kwh: 0.07, has_data: false}, {loss_kwh: 0.5, has_data: false},
+    ], total: {loss_kwh: 0.6, has_data: true}},
+    {id: 'b', label: 'B', buckets: [
+      {loss_kwh: 0.2, has_data: true}, {loss_kwh: 0.05, has_data: true}, {loss_kwh: 0, has_data: false},
+    ], total: {loss_kwh: 0.25, has_data: true}},
+  ]};
+  const withLoss = model.withLosses(result, chainStats);
+  assert.notEqual(withLoss, result);
+  assert.deepEqual(JSON.parse(JSON.stringify(withLoss.lossSeries)), [0.3, 0.05, null]);
+  assert.equal(result.lossSeries, undefined);
+  assert.equal(withLoss.buckets, result.buckets);
+  dom.window.close();
+});
+
+test('lossKpis gibt eine Verlust- und eine Wirkungsgradkachel fuer alle Ketten', () => {
+  const {dom, model} = loadStatsModel();
+  const list = model.lossKpis(CHAIN_STATS_FIXTURE);
+  assert.deepEqual(JSON.parse(JSON.stringify(list)), [
+    {id: 'chains:loss', label: 'Verluste', value: '1,40 kWh'},
+    {id: 'chains:efficiency', label: 'Wirkungsgrad der Messketten', value: '93 %'},
+  ]);
+  dom.window.close();
+});
+
+test('lossKpis gewichtet den Wirkungsgrad mit der Quellenergie', () => {
+  const {dom, model} = loadStatsModel();
+  const chain = (id, efficiency, sourceKwh) => ({id, label: id, buckets: [], total: {loss_kwh: 0.1, efficiency, source_kwh: sourceKwh, has_data: true}});
+  // (0,9 * 1 + 0,5 * 3) / 4 = 0,6. Ohne Gewicht waere es 0,7.
+  const list = model.lossKpis({chains: [chain('x', 0.9, 1), chain('y', 0.5, 3)]});
+  assert.equal(list[1].value, '60 %');
+  // Ohne Wirkungsgrad oder ohne Quellenergie bleibt die Kachel leer.
+  assert.equal(model.lossKpis({chains: [chain('x', null, 0)]})[1].value, '');
+  dom.window.close();
+});
+
+test('lossKpis ohne Ketten ist leer', () => {
+  const {dom, model} = loadStatsModel();
+  assert.deepEqual(JSON.parse(JSON.stringify(model.lossKpis({chains: []}))), []);
+  assert.deepEqual(JSON.parse(JSON.stringify(model.lossRows({chains: []}))), []);
+  dom.window.close();
+});
+
+test('lossRows gibt eine Verlust- und eine Wirkungsgradzeile je Abschnitt', () => {
+  const {dom, model} = loadStatsModel();
+  const rows = model.lossRows(CHAIN_STATS_FIXTURE);
+  assert.deepEqual(JSON.parse(JSON.stringify(rows.map(r => r.role))), ['chains:loss', 'chains:efficiency']);
+  const loss = rows[0];
+  assert.equal(loss.label, 'Verluste');
+  // Erster Abschnitt: Akku 0,40 und Wallbox 0,10, die Pumpe hat keine Daten.
+  assert.deepEqual(JSON.parse(JSON.stringify(loss.values)), ['0,50 kWh', '0,05 kWh']);
+  assert.deepEqual(JSON.parse(JSON.stringify(loss.kwh)), [0.5, 0.05]);
+  assert.equal(loss.total, '1,40 kWh');
+  assert.equal(loss.hatched, false);
+  const efficiency = rows[1];
+  assert.equal(efficiency.label, 'Wirkungsgrad der Messketten');
+  assert.deepEqual(JSON.parse(JSON.stringify(efficiency.values)), ['90 %', '']);
+  assert.equal(efficiency.total, '93 %');
+  assert.equal(efficiency.kwh, undefined);
+  dom.window.close();
+});
+
+test('fetchChainStats fragt die Ketten mit period und at ab', async () => {
+  const {dom, model} = loadStatsModel();
+  const urls = [];
+  dom.window.fetch = async url => { urls.push(url); return {ok: true, status: 200, json: async () => CHAIN_STATS_FIXTURE}; };
+  await model.fetchChainStats('month', '2026-09');
+  assert.deepEqual(urls, ['/api/v1/energy/stats/chains?period=month&at=2026-09']);
+  dom.window.close();
+});

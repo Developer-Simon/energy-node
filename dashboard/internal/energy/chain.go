@@ -22,11 +22,11 @@ const (
 	// ChainFreshAge is how old the last update of a counting point may be
 	// before a fresh point further along the chain takes over.
 	ChainFreshAge = 10 * time.Minute
-	// chainMinInputW is the source power below which a segment has no
+	// ChainMinInputW is the source power below which a segment has no
 	// efficiency, the ratio of two small numbers says nothing.
-	chainMinInputW = 10.0
-	// chainIdleW is the power below which a chain counts as idle.
-	chainIdleW = 1.0
+	ChainMinInputW = 10.0
+	// ChainIdleW is the power below which a chain counts as idle.
+	ChainIdleW = 1.0
 )
 
 // ChainPointState is one measuring point of a chain as the energy page shows
@@ -42,7 +42,7 @@ type ChainPointState struct {
 }
 
 // From and To follow the current flow, so LossW is source minus target of the
-// absolute values. Efficiency stays nil below chainMinInputW at the source.
+// absolute values. Efficiency stays nil below ChainMinInputW at the source.
 type ChainSegmentState struct {
 	From       string   `json:"from"`
 	To         string   `json:"to"`
@@ -291,7 +291,13 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 		if direction == "" {
 			direction = ChainDirectionAuto
 		}
-		flow := chainFlow(direction, activeValue, hasActive)
+		flowValue := activeValue
+		if hasActive && activeValue > 0 {
+			if reverse, ok := negativeReference(points, countIdx); ok {
+				flowValue = reverse
+			}
+		}
+		flow := chainFlow(direction, flowValue, hasActive)
 
 		var role Role
 		if read, ok := index[chain.Counting]; ok {
@@ -310,7 +316,7 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 			if src.Freshness == "fresh" && dst.Freshness == "fresh" {
 				seg.Available = true
 				seg.LossW = math.Abs(src.Value) - math.Abs(dst.Value)
-				if math.Abs(src.Value) >= chainMinInputW {
+				if math.Abs(src.Value) >= ChainMinInputW {
 					eff := math.Abs(dst.Value) / math.Abs(src.Value)
 					seg.Efficiency = &eff
 				}
@@ -390,6 +396,21 @@ func nearestFreshPoint(points []ChainPointState, from int) int {
 	return best
 }
 
+// negativeReference returns the value of a fresh point other than the counting
+// point that reads at least ChainMinInputW against the flow. A one-way meter
+// on the consumer side then shows the flow that the counting point hides.
+func negativeReference(points []ChainPointState, countIdx int) (float64, bool) {
+	for i, point := range points {
+		if i == countIdx || point.Freshness != "fresh" {
+			continue
+		}
+		if point.Value <= -ChainMinInputW {
+			return point.Value, true
+		}
+	}
+	return 0, false
+}
+
 func distance(a, b int) int {
 	if a > b {
 		return a - b
@@ -397,11 +418,11 @@ func distance(a, b int) int {
 	return b - a
 }
 
-// chainFlow derives the flow from the active value. Below chainIdleW the chain
+// chainFlow derives the flow from the active value. Below ChainIdleW the chain
 // is idle. Direction fixes the flow for fixed_* and flips the sign for
 // reversed.
 func chainFlow(direction string, value float64, active bool) string {
-	if !active || math.Abs(value) < chainIdleW {
+	if !active || math.Abs(value) < ChainIdleW {
 		return "idle"
 	}
 	positive := value > 0
@@ -421,6 +442,19 @@ func chainFlow(direction string, value float64, active bool) string {
 		}
 		return "up"
 	}
+}
+
+// IsStorageRole reports whether the role stores energy: the battery roles and
+// every custom category with the storage base.
+func (m Model) IsStorageRole(role Role) bool {
+	switch role {
+	case RoleBattery, RoleBatteryCharge, RoleBatteryDischarge:
+		return true
+	}
+	if id, ok := role.CategoryID(); ok {
+		return m.Categories[id].Base == CategoryStorage
+	}
+	return false
 }
 
 // substituteValue applies the role's sign rule to a substitute value. Battery,

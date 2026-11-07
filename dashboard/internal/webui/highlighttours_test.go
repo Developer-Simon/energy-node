@@ -144,7 +144,7 @@ func appendTourRefs(refs []tourRef, file, pr string, entry tourFile) []tourRef {
 
 // Panels mit Reiter und die Seiten der Einstellungen, wie ?panel=&page= sie kennt.
 var tourPanels = map[string]bool{
-	"overview-panel": true, "devices-panel": true, "history-panel": true, "stats-panel": true,
+	"overview-panel": true, "devices-panel": true, "history-panel": true, "stats-panel": true, "efficiency-panel": true,
 	"energy-panel": true, "devicemap-panel": true, "config-panel": true, "automations-panel": true,
 	"diagnostics-panel": true, "settings-panel": true,
 }

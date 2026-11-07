@@ -80,7 +80,8 @@
             "wiring": {"type": "boolean"},
             "energy": {"type": "boolean"},
             "balance": {"type": "boolean"},
-            "data": {"type": "boolean"}
+            "data": {"type": "boolean"},
+            "losses": {"type": "boolean"}
           }
         },
         "wiring_types": {

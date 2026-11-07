@@ -149,3 +149,46 @@ func TestCloseWhilePausedWritesTheBacklog(t *testing.T) {
 	kwh, _, _ := storedPV(t, store, start.Add(time.Hour))
 	near(t, "pv 11:00 angebrochen", kwh, 0.5)
 }
+
+func TestRecorderKeepsRecordingChainsWhilePaused(t *testing.T) {
+	r, store, _ := newPolicyRecorder(t, Policy{Mode: RecordingPauseWithCompanion, CompanionCurrent: true})
+	chains := NewChainStore(t.TempDir(), nil)
+	r.SetChainStore(chains)
+	start := hourAt("2026-10-05T10:00:00Z")
+	run(r, start, start.Add(time.Hour), 0, withChain(snapshotWith(energy.Balance{PV: 1000}), 1000, 900))
+
+	if st := r.Status(); st.State != StatePaused {
+		t.Fatalf("Status = %+v, erwartet paused", st)
+	}
+	if _, _, source := storedPV(t, store, start); source != SourceNone {
+		t.Fatalf("Rolle waehrend der Pause geschrieben: Quelle %q", source)
+	}
+	got, ok := storedChainPair(t, chains, start, chainPair)
+	if !ok || got.Seconds != 3600 || !approx(got.SourceKWh, 1) {
+		t.Fatalf("Kettenstunde waehrend der Pause = %+v, %v", got, ok)
+	}
+}
+
+func TestRecorderStopsChainsWhenOff(t *testing.T) {
+	r, _, box := newPolicyRecorder(t, Policy{Mode: RecordingAlways})
+	chains := NewChainStore(t.TempDir(), nil)
+	r.SetChainStore(chains)
+	s := withChain(snapshotWith(energy.Balance{PV: 1000}), 1000, 900)
+	start := hourAt("2026-10-05T10:00:00Z")
+	mono := run(r, start, hourAt("2026-10-05T10:30:00Z"), 0, s)
+
+	box.p = Policy{Mode: RecordingOff}
+	run(r, hourAt("2026-10-05T10:30:10Z"), hourAt("2026-10-05T11:30:00Z"), mono, s)
+
+	// Die angefangene Stunde wird beim Abschalten geschrieben: 10:00 bis 10:30 sind 1800 s.
+	got, ok := storedChainPair(t, chains, start, chainPair)
+	if !ok || got.Seconds != 1800 || !approx(got.SourceKWh, 0.5) {
+		t.Fatalf("angefangene Kettenstunde = %+v, %v, erwartet 1800 s und 0.5 kWh", got, ok)
+	}
+	if _, ok := storedChainPair(t, chains, hourAt("2026-10-05T11:00:00Z"), chainPair); ok {
+		t.Fatal("Kettenstunde bei abgeschalteter Aufzeichnung geschrieben")
+	}
+	if st := r.Status(); st.State != StateOff {
+		t.Fatalf("Status = %+v", st)
+	}
+}

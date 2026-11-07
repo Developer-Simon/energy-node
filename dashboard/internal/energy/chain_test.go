@@ -267,7 +267,7 @@ func TestChainFlowAndSegments(t *testing.T) {
 			t.Fatalf("loss = %v, want 2 W", seg[0].LossW)
 		}
 		if seg[0].Efficiency != nil {
-			t.Fatalf("efficiency = %v, want nil below %v W", *seg[0].Efficiency, chainMinInputW)
+			t.Fatalf("efficiency = %v, want nil below %v W", *seg[0].Efficiency, ChainMinInputW)
 		}
 	})
 }
@@ -537,6 +537,90 @@ func TestChainSubstituteBooksOnCountingDeviceAndGroup(t *testing.T) {
 	for _, group := range snapshot.Groups {
 		if group.ID == "haus" && (!group.HasValue || group.Value != 200) {
 			t.Fatalf("group haus = %+v, want value 200", group)
+		}
+	}
+}
+
+// flowOfOneWayMeter evaluates the chain plug, ac with plug as counting point
+// and returns the flow and the segments of the chain.
+func flowOfOneWayMeter(t *testing.T, direction string, plug, ac registry.EntityView) ChainState {
+	t.Helper()
+	at := time.Unix(1000, 0).UTC()
+	model := Model{Chains: map[string]Chain{"line": {Label: "Linie", Points: []string{"plug", "ac"}, Counting: "plug", Direction: direction}}}
+	devices, resolver := chainWorld(model, nil, plug, ac, liveEntity("dc", "0", at))
+	states := evaluateChains(devices, resolver, resolver.Model(), at).states
+	if len(states) != 1 {
+		t.Fatalf("states = %+v, want one chain", states)
+	}
+	return states[0]
+}
+
+func TestChainFlowFollowsNegativeReferenceOfOneWayMeter(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+
+	auto := flowOfOneWayMeter(t, "", liveEntity("plug", "290", at), liveEntity("ac", "-300", at))
+	if auto.Flow != "up" {
+		t.Fatalf("auto flow = %q, want up from the negative reference", auto.Flow)
+	}
+	if len(auto.Segments) != 1 || auto.Segments[0].From != "ac" || auto.Segments[0].To != "plug" {
+		t.Fatalf("segments = %+v, want one segment ac to plug", auto.Segments)
+	}
+	if !auto.Segments[0].Available || math.Abs(auto.Segments[0].LossW-10) > 1e-9 {
+		t.Fatalf("segment = %+v, want available with loss 10 W", auto.Segments[0])
+	}
+
+	reversed := flowOfOneWayMeter(t, ChainDirectionReversed, liveEntity("plug", "290", at), liveEntity("ac", "-300", at))
+	if reversed.Flow != "down" {
+		t.Fatalf("reversed flow = %q, want down", reversed.Flow)
+	}
+
+	if got := flowOfOneWayMeter(t, ChainDirectionFixedDown, liveEntity("plug", "290", at), liveEntity("ac", "-300", at)).Flow; got != "down" {
+		t.Fatalf("fixed_down flow = %q, want down", got)
+	}
+	if got := flowOfOneWayMeter(t, ChainDirectionFixedUp, liveEntity("plug", "290", at), liveEntity("ac", "-300", at)).Flow; got != "up" {
+		t.Fatalf("fixed_up flow = %q, want up", got)
+	}
+}
+
+func TestChainFlowIgnoresSmallNegativeReference(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	state := flowOfOneWayMeter(t, "", liveEntity("plug", "290", at), liveEntity("ac", "-5", at))
+	if state.Flow != "down" {
+		t.Fatalf("flow = %q, want down, -5 W is noise", state.Flow)
+	}
+}
+
+func TestChainFlowIgnoresStaleNegativeReference(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	ac := liveEntity("ac", "-300", at)
+	ac.Stale = true
+	state := flowOfOneWayMeter(t, "", liveEntity("plug", "290", at), ac)
+	if state.Flow != "down" {
+		t.Fatalf("flow = %q, want down, a stale reference does not count", state.Flow)
+	}
+}
+
+func TestChainFlowNegativeCountingStaysUp(t *testing.T) {
+	at := time.Unix(1000, 0).UTC()
+	state := flowOfOneWayMeter(t, "", liveEntity("plug", "-290", at), liveEntity("ac", "300", at))
+	if state.Flow != "up" {
+		t.Fatalf("flow = %q, want up, the sign of the counting point wins", state.Flow)
+	}
+}
+
+func TestModelIsStorageRole(t *testing.T) {
+	model := Model{Categories: map[string]Category{
+		"akku": {Label: "Akku", Base: CategoryStorage},
+		"herd": {Label: "Herd", Base: CategoryConsumer},
+	}}
+	for _, role := range []Role{RoleBattery, RoleBatteryCharge, RoleBatteryDischarge, CustomRole("akku")} {
+		if !model.IsStorageRole(role) {
+			t.Fatalf("IsStorageRole(%s) = false, want true", role)
+		}
+	}
+	for _, role := range []Role{CustomRole("herd"), RoleLoad} {
+		if model.IsStorageRole(role) {
+			t.Fatalf("IsStorageRole(%s) = true, want false", role)
 		}
 	}
 }

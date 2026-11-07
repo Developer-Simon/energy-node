@@ -15,7 +15,7 @@ export function loadGraph() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
   const context = dom.getInternalVMContext();
-  for (const name of ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js']) {
+  for (const name of ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'energy-chains.js']) {
     vm.runInContext(fs.readFileSync(path.join(jsDir, name), 'utf8'), context);
   }
   return dom.window;
@@ -141,6 +141,17 @@ test('flowElements skips pairs whose parent is cut', () => {
   ];
   const flows = DeviceMapGraph.flowElements({ pairs, energy, view: { width_by_power: false }, edgeProps, cut: new Set(['P']) });
   assert.deepEqual(plain(flows.map(flow => flow.data.id)), ['flow-grid::P']);
+});
+
+test('lossElements only draws on energy connections', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const losses = [{ a: 'A', b: 'B', lossW: 12 }, { a: 'C', b: 'D', lossW: 4 }];
+  const energyProps = [{ parent_id: 'A', child_id: 'B', type: 'energy', direction: 'auto' }];
+  const elements = DeviceMapGraph.lossElements({ pairs: [{ parent: 'A', child: 'B' }], losses, edgeProps: energyProps, energy: new Map() });
+  assert.deepEqual(plain(elements), [{ group: 'edges', classes: 'devicemap-loss', data: { id: 'loss-A::B', source: 'A', target: 'B', label: '−12 W' } }]);
+  const dataProps = [{ parent_id: 'A', child_id: 'B', type: 'data', direction: 'auto' }];
+  assert.deepEqual(plain(DeviceMapGraph.lossElements({ pairs: [{ parent: 'A', child: 'B' }], losses, edgeProps: dataProps, energy: new Map() })), []);
+  assert.deepEqual(plain(DeviceMapGraph.lossElements({ pairs: [], losses, edgeProps: energyProps, energy: new Map() })), []);
 });
 
 test('style draws dead edges dotted in the rest colour without arrow', () => {

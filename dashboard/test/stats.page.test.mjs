@@ -20,7 +20,21 @@ const EMPTY_YEAR = {
   status: {state: 'recording', mode: 'always'},
 };
 
-function load(responses = {}) {
+// chains: Antwort fuer /stats/chains, eine Funktion (params) bekommt die
+// Suchparameter, 'fail' simuliert einen Fehler des Servers.
+// Antwort von GET /api/v1/energy/stats/chains fuer DAY_FIXTURE, zwei Buckets.
+const chainsWithLoss = loss => ({
+  period: 'day', at: '2026-10-12', revision: 1,
+  chains: [{
+    id: 'wp', label: 'Wärmepumpe',
+    buckets: [{loss_kwh: loss, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true}, {loss_kwh: 0, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false}],
+    total: {loss_kwh: loss, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true},
+  }],
+});
+const CHAINS = chainsWithLoss(0.2);
+const WITH_CHAINS = {...DAY_FIXTURE, has_chains: true};
+
+function load(responses = {}, {chains = CHAINS} = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div id="chart"></div></body></html>', {runScripts: 'outside-only', url: 'http://localhost/'});
   const context = dom.getInternalVMContext();
   let factory;
@@ -30,7 +44,13 @@ function load(responses = {}) {
   const server = {revision: 1};
   dom.window.fetch = async url => {
     calls.push(url);
-    const params = new URL(url, 'http://x').searchParams;
+    const parsed = new URL(url, 'http://x');
+    const params = parsed.searchParams;
+    if (parsed.pathname.endsWith('/stats/chains')) {
+      const body = typeof chains === 'function' ? await chains(params) : chains;
+      if (body === 'fail') return {ok: false, status: 500, json: async () => ({message: 'boom'})};
+      return {ok: true, status: 200, json: async () => body};
+    }
     const body = responses[`${params.get('period')}|${params.get('at') || ''}`] || DAY_FIXTURE;
     return {ok: true, status: 200, json: async () => ({...body, revision: server.revision})};
   };
@@ -289,5 +309,169 @@ test('Rasterzellen tragen eine kompakte Zahl ohne Einheit', async () => {
   assert.equal(pv.values[0], '2,50 kWh');
   assert.equal(pv.compact[0], '2,5');
   assert.equal(pv.compact[1], '');
+  dom.window.close();
+});
+
+const isChainCall = url => url.includes('/stats/chains');
+
+test('ohne has_chains gibt es keinen Verlustschalter und keine zweite Anfrage', async () => {
+  const {dom, make, calls} = load();
+  dom.window.localStorage.setItem('stats.show_losses', 'true');
+  const panel = make();
+  await panel.init();
+  assert.equal(panel.hasChains, false);
+  assert.equal(calls.some(isChainCall), false);
+  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chains:')), false);
+  dom.window.close();
+});
+
+test('Verlustschalter ist standardmaessig aus: keine zweite Anfrage, Kennzahlen und Tabelle wie bisher', async () => {
+  const {dom, make, calls} = load({'day|': WITH_CHAINS});
+  const panel = make();
+  await panel.init();
+  assert.equal(panel.hasChains, true);
+  assert.equal(panel.showLosses, false);
+  assert.equal(calls.some(isChainCall), false);
+  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chains:')), false);
+  assert.equal(panel.rows.length, 5);
+  dom.window.close();
+});
+
+test('Schalter an ergaenzt Kennzahlen, Zeilen und Diagramm und merkt sich den Zustand', async () => {
+  const {dom, make, calls, charts} = load({'day|': WITH_CHAINS});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  assert.equal(calls.at(-1), '/api/v1/energy/stats/chains?period=day');
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:loss').value, '0,20 kWh');
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:efficiency').value, '80 %');
+  // Verluste vor den Rollen, Kennzahlen und Zeilen.
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.kpis.slice(0, 2).map(kpi => kpi.id))), ['chains:loss', 'chains:efficiency']);
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.rows.slice(0, 2).map(row => row.role))), ['chains:loss', 'chains:efficiency']);
+  assert.equal(panel.rows.length, 7);
+  assert.equal(charts.at(-1).options.series.find(s => s.role === 'chain_loss').data[0], -0.2);
+  assert.equal(dom.window.localStorage.getItem('stats.show_losses'), 'true');
+  await panel.setShowLosses(false);
+  assert.equal(panel.kpis.some(kpi => kpi.id.startsWith('chains:')), false);
+  assert.equal(panel.rows.length, 5);
+  assert.equal(dom.window.localStorage.getItem('stats.show_losses'), 'false');
+  dom.window.close();
+});
+
+test('gespeicherter Schalter laedt beim Start Statistik und dann die Verluste nacheinander', async () => {
+  const {dom, make, calls} = load({'day|': WITH_CHAINS});
+  dom.window.localStorage.setItem('stats.show_losses', 'true');
+  const panel = make();
+  await panel.init();
+  assert.deepEqual(calls, ['/api/v1/energy/stats?period=day', '/api/v1/energy/stats/chains?period=day']);
+  assert.equal(panel.showLosses, true);
+  assert.ok(panel.kpis.some(kpi => kpi.id === 'chains:loss'));
+  dom.window.close();
+});
+
+test('eine alte zweite Antwort nach dem Blaettern wird verworfen', async () => {
+  const past = {...WITH_CHAINS, at: '2026-10-11', prev: '2026-10-10', next: '2026-10-12'};
+  let release;
+  const pending = new Promise(resolve => { release = resolve; });
+  const {dom, make, calls} = load(
+    {'day|': WITH_CHAINS, 'day|2026-10-11': past},
+    {chains: params => (params.get('at') === '2026-10-11' ? chainsWithLoss(0.5) : pending.then(() => chainsWithLoss(9)))},
+  );
+  const panel = make();
+  await panel.init();
+  const toggled = panel.setShowLosses(true);
+  await panel.prev();
+  release();
+  await toggled;
+  assert.equal(panel.at, '2026-10-11');
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:loss').value, '0,50 kWh');
+  assert.equal(calls.filter(isChainCall).length, 2);
+  dom.window.close();
+});
+
+test('scheitert die zweite Anfrage, bleibt die normale Statistik stehen und lossError erscheint', async () => {
+  const {dom, make} = load({'day|': WITH_CHAINS}, {chains: 'fail'});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  assert.equal(panel.error, '');
+  assert.equal(panel.kpis.length, 8);
+  assert.equal(panel.rows.length, 5);
+  assert.equal(panel.lossError, 'Die Verluste konnten nicht geladen werden.');
+  await panel.setShowLosses(false);
+  assert.equal(panel.lossError, '');
+  dom.window.close();
+});
+
+test('Antwort mit anderer Bucket-Anzahl zeichnet keine Verluste', async () => {
+  const threeBuckets = {
+    period: 'day', at: '2026-10-12', revision: 1,
+    chains: [{
+      id: 'wp', label: 'Wärmepumpe',
+      buckets: [0, 1, 2].map(() => ({loss_kwh: 0.1, standby_kwh: 0, efficiency: null, has_data: true})),
+      total: {loss_kwh: 0.3, standby_kwh: 0, efficiency: null, has_data: true},
+    }],
+  };
+  const {dom, make, charts} = load({'day|': WITH_CHAINS}, {chains: threeBuckets});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  assert.equal(charts.at(-1).options.series.some(s => s.role === 'chain_loss'), false);
+  assert.equal(panel.rows.some(row => row.role.startsWith('chains:')), false);
+  dom.window.close();
+});
+
+test('Verlustzeilen tragen die kompakte Zahl, Wirkungsgrad als Prozent', async () => {
+  const {dom, make} = load({'day|': WITH_CHAINS});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  const loss = panel.rows.find(row => row.role === 'chains:loss');
+  assert.equal(loss.values[0], '0,20 kWh');
+  assert.equal(loss.compact[0], '0,2');
+  assert.equal(loss.compact[1], '');
+  const efficiency = panel.rows.find(row => row.role === 'chains:efficiency');
+  assert.equal(efficiency.values[0], '80 %');
+  assert.equal(efficiency.compact[0], '80 %');
+  dom.window.close();
+});
+
+test('mehrere Ketten ergeben je eine Verlust- und eine Wirkungsgradzeile', async () => {
+  const two = {
+    period: 'day', at: '2026-10-12', revision: 1,
+    chains: [
+      {id: 'wp', label: 'Wärmepumpe', buckets: [{loss_kwh: 0.2, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true}, {loss_kwh: 0, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false}],
+        total: {loss_kwh: 0.2, standby_kwh: 0, efficiency: 0.8, source_kwh: 1, has_data: true}},
+      {id: 'ww', label: 'Warmwasser', buckets: [{loss_kwh: 0.1, standby_kwh: 0, efficiency: 0.5, source_kwh: 1, has_data: true}, {loss_kwh: 0, standby_kwh: 0, efficiency: null, source_kwh: 0, has_data: false}],
+        total: {loss_kwh: 0.1, standby_kwh: 0, efficiency: 0.5, source_kwh: 1, has_data: true}},
+    ],
+  };
+  const {dom, make, charts} = load({'day|': WITH_CHAINS}, {chains: two});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  assert.equal(panel.kpis.filter(kpi => kpi.id.startsWith('chains:')).length, 2);
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:loss').value, '0,30 kWh');
+  assert.equal(panel.kpis.find(kpi => kpi.id === 'chains:efficiency').value, '65 %');
+  assert.equal(panel.rows.filter(row => row.role.startsWith('chains:')).length, 2);
+  assert.equal(panel.rows.find(row => row.role === 'chains:loss').values[0], '0,30 kWh');
+  assert.equal(charts.at(-1).options.series.filter(s => s.role === 'chain_loss').length, 1);
+  assert.equal(charts.at(-1).options.series[0].role, 'chain_loss');
+  dom.window.close();
+});
+
+test('scheitert die normale Statistik beim Blaettern, verschwindet ein alter lossError', async () => {
+  const {dom, make} = load({'day|': WITH_CHAINS}, {chains: 'fail'});
+  const panel = make();
+  await panel.init();
+  await panel.setShowLosses(true);
+  assert.equal(panel.lossError, 'Die Verluste konnten nicht geladen werden.');
+  const healthy = dom.window.fetch;
+  dom.window.fetch = async url => (isChainCall(url)
+    ? healthy(url)
+    : {ok: false, status: 500, json: async () => ({message: 'Statistik nicht erreichbar'})});
+  await panel.prev();
+  assert.equal(panel.error, 'Statistik nicht erreichbar');
+  assert.equal(panel.lossError, '');
   dom.window.close();
 });

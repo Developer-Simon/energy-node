@@ -395,6 +395,9 @@ type DeviceMapLayers struct {
 	Energy  bool `json:"energy"`
 	Balance bool `json:"balance"`
 	Data    bool `json:"data"`
+	// Losses is optional in the file: omitted while false, so files written
+	// before the layer existed stay byte-identical.
+	Losses bool `json:"losses,omitempty"`
 }
 
 func DefaultDeviceMapLayers() DeviceMapLayers {

@@ -147,10 +147,22 @@ type Recorder struct {
 	policy   func() Policy
 	backlog  []HourRecord
 	off      bool
+	// chains und chainInteg: Messketten-Stunden. Ohne chains bleibt
+	// chainInteg ungenutzt.
+	chains     *ChainStore
+	chainInteg ChainIntegrator
 }
 
 func NewRecorder(store *Store, ready ClockReady) *Recorder {
 	return &Recorder{store: store, ready: ready}
+}
+
+// SetChainStore setzt den Speicher der Messketten-Stunden. Ohne ihn zeichnet
+// der Recorder keine Ketten auf.
+func (r *Recorder) SetChainStore(store *ChainStore) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.chains = store
 }
 
 // SetPolicy setzt die Quelle fuer Modus und Lebenszeichen. Ohne Policy
@@ -197,6 +209,7 @@ func (r *Recorder) Observe(wall time.Time, sinceStart time.Duration, snapshot en
 			// Stunde weiter.
 			r.storeLocked(r.takeBacklogLocked())
 			r.storeLocked(r.integ.Flush())
+			r.storeChainsLocked(r.chainInteg.Flush())
 			r.off = true
 		}
 		r.hasLast = false
@@ -206,6 +219,7 @@ func (r *Recorder) Observe(wall time.Time, sinceStart time.Duration, snapshot en
 	r.off = false
 	if !r.status.ClockReady {
 		r.integ.Reset()
+		r.chainInteg.Reset()
 		r.hasLast = false
 		r.status.State = StateWaitingForClock
 		return
@@ -214,22 +228,33 @@ func (r *Recorder) Observe(wall time.Time, sinceStart time.Duration, snapshot en
 		drift := wall.Sub(r.lastWall) - (sinceStart - r.lastMono)
 		if drift > ClockJumpTolerance || drift < -ClockJumpTolerance {
 			r.integ.Reset()
+			r.chainInteg.Reset()
 		}
 	}
 	r.lastWall, r.lastMono, r.hasLast = wall, sinceStart, true
 	power := PowerOf(snapshot)
 	r.status.Stale = power == nil && len(snapshot.Values) > 0
 	done := r.integ.Add(Sample{At: wall, Power: power, Substituted: hasSubstitute(snapshot)})
+	// Die Ketten laufen auch in der Pause mit und werden ohne Rueckstau
+	// geschrieben.
+	var chainDone []ChainHour
+	if r.chains != nil {
+		chainDone = r.chainInteg.Add(ChainSampleOf(wall, snapshot.Chains))
+	}
 	if r.status.Mode == RecordingPauseWithCompanion && policy.CompanionCurrent {
 		r.backlog = append(r.backlog, done...)
 		if n := len(r.backlog); n > PauseBacklogHours {
 			r.backlog = append([]HourRecord(nil), r.backlog[n-PauseBacklogHours:]...)
 		}
+		r.storeChainsLocked(chainDone)
 		r.status.State = StatePaused
 		return
 	}
 	r.storeLocked(r.takeBacklogLocked())
 	r.storeLocked(done)
+	// Zuletzt, damit ein Fehler der Kette nicht von einem Erfolg der Rolle
+	// im selben Durchlauf verdeckt wird.
+	r.storeChainsLocked(chainDone)
 	r.status.State = StateRecording
 }
 
@@ -247,6 +272,7 @@ func (r *Recorder) Close() {
 	defer r.mu.Unlock()
 	r.storeLocked(r.takeBacklogLocked())
 	r.storeLocked(r.integ.Flush())
+	r.storeChainsLocked(r.chainInteg.Flush())
 	r.hasLast = false
 }
 
@@ -266,5 +292,21 @@ func (r *Recorder) storeLocked(records []HourRecord) {
 		r.status.WriteError = ""
 		hour := record.Hour
 		r.status.LastHour = &hour
+	}
+}
+
+// storeChainsLocked schreibt Messketten-Stunden. Fehler setzen WriteError wie
+// storeLocked, LastHour bleibt den Rollen vorbehalten. Ohne Speicher passiert
+// nichts.
+func (r *Recorder) storeChainsLocked(hours []ChainHour) {
+	if r.chains == nil {
+		return
+	}
+	for _, hour := range hours {
+		if err := r.chains.Add(hour); err != nil {
+			r.status.WriteError = err.Error()
+			r.store.logf("energystats: Messketten-Stunde %s nicht gespeichert: %v", hour.Hour.Format(time.RFC3339), err)
+			continue
+		}
 	}
 }

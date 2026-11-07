@@ -258,6 +258,17 @@
         return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});
       },
 
+      // Loss labels of the measurement chains, one per energy connection. Only
+      // with the losses layer on and the energy connections shown.
+      lossElements() {
+        if (!this.view.layers.losses || !this.energy || this.view.wiring_types?.energy === false) return [];
+        // The chains carry the device of their own entity; a sub-device moves that entity to its own device.
+        const subs = window.DeviceMapSubDevices.byEntity(this.deviceMap);
+        const chains = (this.energy.chains || []).map(chain => ({...chain, points: chain.points.map(point => (subs.has(point.entity_id)
+          ? {...point, device_id: subs.get(point.entity_id).id} : point))}));
+        return window.DeviceMapGraph.lossElements({pairs: this.wiringPairs(), losses: window.DeviceMapModel.segmentLosses(chains), edgeProps: this.deviceMap.edge_props, energy: this.energyByDevice()});
+      },
+
       // The switch roles as they stand: the saved energy assignments with the
       // panel drafts laid over them, so a draft shows its effect before saving.
       effectiveAssignments() {
@@ -453,7 +464,25 @@
           });
           for (const element of wanted.values()) graph.add(element);
         });
+        this.applyLosses();
         if (this.focusId) this.setFocus(this.focusId);
+      },
+
+      // Same update rule as applyFlows(): a loss whose pair changed is replaced,
+      // a new label of the same pair is only restyled.
+      applyLosses() {
+        const graph = cy || this._cyForTest;
+        if (!graph) return;
+        const wanted = new Map(this.lossElements().map(element => [element.data.id, element]));
+        graph.batch(() => {
+          graph.edges('.devicemap-loss').forEach(edge => {
+            const next = wanted.get(edge.id());
+            if (!next || next.data.source !== edge.data('source')) { edge.remove(); return; }
+            edge.data('label', next.data.label);
+            wanted.delete(edge.id());
+          });
+          for (const element of wanted.values()) graph.add(element);
+        });
       },
 
       flowOffset(nowMs, speed) {
@@ -1948,7 +1977,7 @@
           ...stubInfo.nodes.map(stub => ({id: stub.id, kind: 'stub', name: t('devicemap.stub.name')})),
         ];
         const virtualNodes = window.DeviceMapGraph.virtualElements({kinds: virtualKinds, positions, colorOf});
-        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
+        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...this.lossElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
       },
 
       buildEdgeElements() {

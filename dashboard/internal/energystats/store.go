@@ -43,6 +43,10 @@ func (s *Store) Revision() uint64 { return s.rev.Load() }
 
 func (s *Store) bump() { s.rev.Add(1) }
 
+// Bump hebt die Revision von aussen, etwa wenn ein anderer Speicher Teil der
+// Statistik geschrieben hat (Messketten).
+func (s *Store) Bump() { s.bump() }
+
 func monthKey(start time.Time) string { return start.Format("2006-01") }
 
 func (s *Store) path(key string) string { return filepath.Join(s.dir, key+".json") }
@@ -126,17 +130,22 @@ func (s *Store) writeDirtyLocked() error {
 	return firstErr
 }
 
-// writeLocked schreibt ueber Temp-Datei und Rename, damit ein Stromausfall
-// keine halbe Datei hinterlaesst (wie runtimecache).
 func (s *Store) writeLocked(key string, m *Month) error {
-	if err := os.MkdirAll(s.dir, 0o755); err != nil {
-		return err
-	}
 	data, err := json.Marshal(m)
 	if err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(s.dir, ".month-*")
+	return writeFileAtomic(s.dir, s.path(key), data)
+}
+
+// writeFileAtomic schreibt ueber Temp-Datei und Rename, damit ein Stromausfall
+// keine halbe Datei hinterlaesst (wie runtimecache). Die Temp-Datei heisst
+// .month-*, auch fuer die Messketten.
+func writeFileAtomic(dir, path string, data []byte) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, ".month-*")
 	if err != nil {
 		return err
 	}
@@ -149,7 +158,7 @@ func (s *Store) writeLocked(key string, m *Month) error {
 		err = closeErr
 	}
 	if err == nil {
-		err = os.Rename(tmpName, s.path(key))
+		err = os.Rename(tmpName, path)
 	}
 	if err != nil {
 		os.Remove(tmpName)

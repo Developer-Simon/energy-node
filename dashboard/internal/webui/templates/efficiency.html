@@ -1,0 +1,82 @@
+{{define "efficiency"}}
+<section id="efficiency-panel" class="panel" role="tabpanel" aria-labelledby="tab-efficiency" x-bind:class="{ active: activePanel === 'efficiency-panel' }" x-show="activePanel === 'efficiency-panel'">
+  <div class="efficiency-page" data-tour="efficiency-page" x-data="efficiencyPanel()" x-init="init()">
+    <template x-if="empty">
+      <div class="efficiency-empty">
+        <p>{{t "efficiency.empty"}}</p>
+        <button type="button" class="pill-button" x-on:click="openEnergy()">{{t "efficiency.empty_open"}}</button>
+      </div>
+    </template>
+    <p class="efficiency-error" role="alert" x-show="error" x-text="error"></p>
+    <template x-if="current">
+      <div class="efficiency-body">
+        <header class="efficiency-top">
+          <div class="efficiency-heading">
+            <p class="efficiency-kicker">{{t "efficiency.title"}}</p>
+            <h2 class="efficiency-title" x-text="chainName"></h2>
+            <p class="efficiency-state" x-text="stateLabel(state)"></p>
+          </div>
+          <p class="efficiency-status" role="status" x-bind:data-tone="status.tone"><span class="efficiency-dot" aria-hidden="true"></span><span x-text="status.text"></span></p>
+        </header>
+        <template x-if="state">
+          <div class="energy-chain efficiency-chain">
+            <template x-for="(point, index) in points" x-bind:key="point.entity_id">
+              <div class="energy-chain-step">
+                <div class="energy-chain-node" x-bind:class="{ 'is-main': point.counting }">
+                  <div class="energy-chain-top"><span class="energy-chain-title" x-bind:title="point.label" x-text="point.label"></span><span class="energy-chain-badge" x-show="point.counting">{{t "efficiency.counting"}}</span></div>
+                  <span class="energy-chain-val" x-roll data-roll-format="chainPower" x-bind:data-roll-value="pointRaw(point)" x-text="pointText(point)"></span>
+                </div>
+                <div class="energy-chain-link" x-bind:class="{ 'is-tail': index === points.length - 1 }" x-show="index < points.length - 1">
+                  <span class="energy-chain-line"></span>
+                  <span class="energy-chain-loss"><span x-roll data-roll-format="chainLoss" x-bind:data-roll-value="linkLossRaw(index)" x-text="linkLossText(index)"></span><span x-show="linkEfficiencyText(index)"> · <span x-roll data-roll-format="chainEfficiency" x-bind:data-roll-value="linkEfficiencyRaw(index)" x-text="linkEfficiencyText(index)"></span></span></span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+        <div class="efficiency-grid">
+          <div class="efficiency-select-wrap">
+            <label class="efficiency-select-label" for="efficiency-chain-select">{{t "efficiency.chain_select"}}</label>
+            <select class="efficiency-select" id="efficiency-chain-select" x-on:change="selectChain($event.target.value)">
+              <template x-for="chain in chains" x-bind:key="chain.id">
+                <option x-bind:value="chain.id" x-bind:selected="chain.id === currentId" x-text="labelOf(chain)"></option>
+              </template>
+            </select>
+          </div>
+          <ul class="efficiency-list" aria-label="{{t "efficiency.chain_select"}}">
+            <template x-for="chain in chains" x-bind:key="chain.id">
+              <li>
+                <button type="button" class="efficiency-item" x-bind:class="{ 'is-active': chain.id === currentId }" x-bind:aria-pressed="chain.id === currentId ? 'true' : 'false'" x-on:click="selectChain(chain.id)">
+                  <span class="efficiency-item-text"><span class="efficiency-item-name" x-text="labelOf(chain)"></span><small x-text="chainStateText(chain)"></small></span>
+                  <span class="efficiency-dot" x-bind:data-tone="chainTone(chain)" aria-hidden="true"></span>
+                </button>
+              </li>
+            </template>
+          </ul>
+          <div class="efficiency-detail">
+            <dl class="stats-kpis">
+              <template x-for="kpi in kpis" x-bind:key="kpi.id">
+                <div class="stats-kpi"><dt x-text="kpi.label"></dt><dd x-text="kpi.value"></dd></div>
+              </template>
+            </dl>
+            <section class="efficiency-card">
+              <h3 class="efficiency-card-title">{{t "efficiency.days.title"}}</h3>
+              <p class="efficiency-hint" x-show="noHistory">{{t "efficiency.no_history"}}</p>
+              <ol class="efficiency-days" x-show="!noHistory">
+                <template x-for="row in days" x-bind:key="row.local">
+                  <li class="efficiency-day">
+                    <span class="efficiency-day-label" x-text="row.label"></span>
+                    <span class="efficiency-day-bar"><span class="efficiency-day-fill" x-bind:style="`width: ${row.width}%`"></span></span>
+                    <span class="efficiency-day-loss" x-text="row.lossText"></span>
+                    <span class="efficiency-day-eff" x-text="row.efficiencyText"></span>
+                  </li>
+                </template>
+              </ol>
+            </section>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</section>
+{{end}}
