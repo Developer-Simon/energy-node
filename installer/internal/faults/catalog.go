@@ -45,6 +45,7 @@ const (
 	CodeBundleIncomplete        Code = "BUNDLE_INCOMPLETE"
 	CodeCaddyBinaryMissing      Code = "CADDY_BINARY_MISSING"
 	CodeCaddyConfigInvalid      Code = "CADDY_CONFIG_INVALID"
+	CodeCaddyPackageMissing     Code = "CADDY_PACKAGE_MISSING"
 	CodeCaddyStartFailed        Code = "CADDY_START_FAILED"
 	CodeConfigJsonMissing       Code = "CONFIG_JSON_MISSING"
 	CodeConfigTemplateMissing   Code = "CONFIG_TEMPLATE_MISSING"
@@ -87,6 +88,7 @@ var allCodes = []Code{
 	CodeBundleSignatureInvalid,
 	CodeCaddyBinaryMissing,
 	CodeCaddyConfigInvalid,
+	CodeCaddyPackageMissing,
 	CodeCaddyStartFailed,
 	CodeCaddyValidateFailed,
 	CodeConfigExists,

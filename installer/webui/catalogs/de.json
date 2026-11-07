@@ -388,6 +388,8 @@
   "fault.CADDY_BINARY_MISSING.remediation": "Baue das Bundle mit --caddy-binary <Pfad>, oder installiere Caddy auf dem Node (apt install caddy) und starte erneut.",
   "fault.CADDY_CONFIG_INVALID.message": "Caddy hat /etc/caddy/Caddyfile abgelehnt.",
   "fault.CADDY_CONFIG_INVALID.remediation": "Führe auf dem Node „caddy validate --config /etc/caddy/Caddyfile“ aus und korrigiere die genannte Zeile. Der Installer überschreibt eine vorhandene Caddyfile nie.",
+  "fault.CADDY_PACKAGE_MISSING.message": "Das Bundle enthält kein Caddy-Paket für diese Architektur.",
+  "fault.CADDY_PACKAGE_MISSING.remediation": "Bereite das Bundle erneut vor. Bleibt es dabei, ist der Bundle-Bau defekt.",
   "fault.CADDY_START_FAILED.message": "Der Caddy-Dienst ließ sich nicht aktivieren oder starten.",
   "fault.CADDY_START_FAILED.remediation": "Prüfe auf dem Node „systemctl status caddy“ und „journalctl -u caddy“.",
   "fault.CADDY_VALIDATE_FAILED.message": "caddy validate hat das erzeugte Caddyfile abgelehnt.",
