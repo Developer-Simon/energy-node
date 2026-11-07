@@ -757,6 +757,57 @@ def _topic_age(cond: dict, topic_seen_at: Optional[dict], started_at: Optional[f
     return now_ts - seen
 
 
+_chains_cache: dict = {"raw": None, "parsed": None}
+
+
+def _parse_chains(raw: str) -> Optional[tuple]:
+    """(at, chains) aus dem Payload des Chains-Topics, sonst None."""
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(data, dict) or not _number(data.get("at")) or not isinstance(data.get("chains"), dict):
+        return None
+    return data["at"], data["chains"]
+
+
+def chains_payload(topic_values: dict, now_ts: float) -> tuple[Optional[dict], str]:
+    """Die chains-Map des Chains-Topics oder (None, Grund). Das Parsen wird
+    auf den letzten Payload-String gecacht, damit jede Bedingung es nicht neu tut."""
+    raw = topic_values.get(CHAINS_TOPIC)
+    if raw is None:
+        return None, "chains_unknown"
+    if _chains_cache["raw"] != raw:
+        _chains_cache["raw"] = raw
+        _chains_cache["parsed"] = _parse_chains(raw)
+    parsed = _chains_cache["parsed"]
+    if parsed is None:
+        return None, "chains_unknown"
+    at, chains = parsed
+    if now_ts - at > CHAINS_MAX_AGE_S:
+        return None, "chains_stale"
+    return chains, ""
+
+
+def matching_findings(cond: dict, chain: dict, now_ts: float) -> list[tuple]:
+    """Schluessel (kind, from, to, since) der Meldungen, die kind, points und
+    min_age_s der Bedingung erfuellen. Fuer points zaehlt From oder To."""
+    kind = cond["kind"]
+    points = set(cond.get("points") or [])
+    min_age = cond.get("min_age_s", 0)
+    matches = []
+    for finding in chain.get("findings") or []:
+        if kind != "any" and finding.get("kind") != kind:
+            continue
+        if points and not ({finding.get("from"), finding.get("to")} & points):
+            continue
+        since = finding.get("since")
+        if not _number(since) or now_ts - since < min_age:
+            continue
+        matches.append((finding.get("kind"), finding.get("from"), finding.get("to"), since))
+    return matches
+
+
 def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values: dict, now_ts: float,
                            location: Optional[tuple] = None, topic_seen_at: Optional[dict] = None,
                            started_at: Optional[float] = None) -> tuple:
@@ -817,6 +868,20 @@ def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values:
         bounds, reason = _active_window(cond, now_ts, location)
         return bounds is not None, reason
 
+    if ctype in ("chain_finding", "chain_value"):
+        chains, reason = chains_payload(topic_values, now_ts)
+        if chains is None:
+            return False, reason
+        chain = chains.get(cond["chain_id"])
+        if not isinstance(chain, dict):
+            return False, "chain_missing"
+        if ctype == "chain_finding":
+            return bool(matching_findings(cond, chain, now_ts)), ""
+        value = chain.get(cond["field"])
+        if not _number(value):
+            return False, "value_missing"
+        return _compare(value, cond["comparison"], cond["value"]), ""
+
     return False, "unknown_type"
 
 
@@ -875,6 +940,17 @@ def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, 
             return None, None
         start, end = (time.strftime("%H:%M", time.localtime(ts)) for ts in bounds)
         return f"{start} – {end}", None
+
+    if ctype in ("chain_finding", "chain_value"):
+        chains, _ = chains_payload(topic_values, now_ts)
+        chain = chains.get(cond["chain_id"]) if chains is not None else None
+        target = cond["value"] if ctype == "chain_value" else None
+        if not isinstance(chain, dict):
+            return None, target
+        if ctype == "chain_finding":
+            return len(matching_findings(cond, chain, now_ts)), None
+        value = chain.get(cond["field"])
+        return (float(value) if _number(value) else None), target
 
     return None, None
 

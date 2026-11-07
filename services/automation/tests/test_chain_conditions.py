@@ -131,3 +131,120 @@ def test_required_topics_include_chains_only_when_used():
     in_rule = automation.RulesDocument(version=1, settings=automation.Settings(),
                                        rules=[_rule([chain_finding()])])
     assert automation.CHAINS_TOPIC in _service().required_topics(in_rule)
+
+
+def chains_msg(at, chains):
+    return json.dumps({"at": at, "chains": chains})
+
+
+def balkon(**overrides):
+    chain = {"label": "Balkon", "flow": "down", "loss_w": 3.0, "efficiency_pct": 95.0,
+             "standby_w": 12.0, "findings": []}
+    chain.update(overrides)
+    return chain
+
+
+def finding_cond(**overrides):
+    cond = {"type": "chain_finding", "chain_id": "balkon", "kind": "any", "points": [], "min_age_s": 0}
+    cond.update(overrides)
+    return cond
+
+
+def test_chain_finding_matches_kind_and_points():
+    now = 10000.0
+    chain = balkon(findings=[
+        {"kind": "frozen", "from": "sensor.dc", "since": now - 1000},
+        {"kind": "drift", "from": "sensor.plug", "to": "sensor.ac", "since": now - 1000},
+    ])
+    assert len(automation.matching_findings(finding_cond(kind="frozen"), chain, now)) == 1
+    assert automation.matching_findings(finding_cond(kind="drift"), chain, now)[0][:3] == (
+        "drift", "sensor.plug", "sensor.ac")
+    assert automation.matching_findings(finding_cond(kind="drift"), chain, now)
+    assert len(automation.matching_findings(finding_cond(kind="any"), chain, now)) == 2
+    assert len(automation.matching_findings(finding_cond(kind="frozen", points=["sensor.dc"]), chain, now)) == 1
+    assert automation.matching_findings(finding_cond(kind="frozen", points=["sensor.plug"]), chain, now) == []
+    assert len(automation.matching_findings(finding_cond(kind="any", points=["sensor.ac"]), chain, now)) == 1
+
+
+def test_chain_finding_min_age_counts_from_since():
+    now = 10000.0
+    young = balkon(findings=[{"kind": "frozen", "from": "sensor.dc", "since": now - 600}])
+    old = balkon(findings=[{"kind": "frozen", "from": "sensor.dc", "since": now - 900}])
+    cond = finding_cond(kind="frozen", min_age_s=900)
+    assert automation.matching_findings(cond, young, now) == []
+    assert len(automation.matching_findings(cond, old, now)) == 1
+
+
+def test_chain_conditions_unknown_stale_missing():
+    now = 10000.0
+    cond = finding_cond(kind="frozen")
+    value_cond = {"type": "chain_value", "chain_id": "balkon", "field": "standby_w",
+                  "comparison": "above", "value": 10, "hold_seconds": 0}
+
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values={}, now_ts=now) == (False, "chains_unknown")
+
+    stale = {automation.CHAINS_TOPIC: chains_msg(now - 61, {"balkon": balkon()})}
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values=stale, now_ts=now) == (False, "chains_stale")
+
+    fresh = {automation.CHAINS_TOPIC: chains_msg(now - 60, {"balkon": balkon()})}
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values=fresh, now_ts=now) == (False, "")
+
+    broken = {automation.CHAINS_TOPIC: "{nicht json"}
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values=broken, now_ts=now) == (False, "chains_unknown")
+
+    missing = {automation.CHAINS_TOPIC: chains_msg(now, {"other": balkon()})}
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values=missing, now_ts=now) == (False, "chain_missing")
+
+    # Keiner dieser Gruende setzt saw_stale.
+    for topic_values in ({}, stale, broken, missing):
+        result = automation.evaluate_conditions([value_cond], [automation.ConditionRuntime()], balance=None,
+                                                topic_values=topic_values, now_ts=now, location=None)
+        assert result.saw_stale is False
+
+
+def test_chain_value_compares_and_handles_null():
+    now = 10000.0
+    cond = {"type": "chain_value", "chain_id": "balkon", "field": "standby_w",
+            "comparison": "above", "value": 10, "hold_seconds": 0}
+    msg = {automation.CHAINS_TOPIC: chains_msg(now, {"balkon": balkon(standby_w=12)})}
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values=msg, now_ts=now) == (True, "")
+    below = dict(cond, comparison="below")
+    assert automation.evaluate_condition_raw(below, balance=None, topic_values=msg, now_ts=now) == (False, "")
+
+    null_msg = {automation.CHAINS_TOPIC: chains_msg(now, {"balkon": balkon(standby_w=None)})}
+    assert automation.evaluate_condition_raw(cond, balance=None, topic_values=null_msg, now_ts=now) == (False, "value_missing")
+
+
+def test_chain_value_hold_seconds():
+    t0 = 10000.0
+    cond = {"type": "chain_value", "chain_id": "balkon", "field": "standby_w",
+            "comparison": "above", "value": 10, "hold_seconds": 7200}
+    runtime = automation.ConditionRuntime()
+
+    def tick(now, standby):
+        topic_values = {automation.CHAINS_TOPIC: chains_msg(now, {"balkon": balkon(standby_w=standby)})}
+        return automation._evaluate_one(cond, runtime, balance=None, topic_values=topic_values,
+                                        now_ts=now, location=None)
+
+    assert tick(t0, 12) == (True, False, "")
+    assert tick(t0 + 3600, 12) == (True, False, "")
+    assert tick(t0 + 7200, 12) == (True, True, "")
+    # Ein Null-Wert setzt die Haltezeit zurueck.
+    assert tick(t0 + 7300, None)[1] is False
+    assert tick(t0 + 7400, 12) == (True, False, "")
+    assert tick(t0 + 7400 + 7200, 12)[1] is True
+
+
+def test_condition_value_for_chain_conditions():
+    now = 10000.0
+    topic_values = {automation.CHAINS_TOPIC: chains_msg(now, {"balkon": balkon(
+        standby_w=12, findings=[{"kind": "frozen", "from": "sensor.dc", "since": now - 1000}])})}
+    value_cond = {"type": "chain_value", "chain_id": "balkon", "field": "standby_w",
+                  "comparison": "above", "value": 10, "hold_seconds": 0}
+    assert automation.condition_value(value_cond, balance=None, topic_values=topic_values, now_ts=now) == (12.0, 10)
+    assert automation.condition_value(finding_cond(kind="frozen"), balance=None,
+                                      topic_values=topic_values, now_ts=now) == (1, None)
+
+    stale = {automation.CHAINS_TOPIC: chains_msg(now - 61, {"balkon": balkon()})}
+    assert automation.condition_value(finding_cond(kind="frozen"), balance=None,
+                                      topic_values=stale, now_ts=now) == (None, None)
