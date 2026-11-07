@@ -117,7 +117,9 @@ func TestCatalogCoversTheStableCodeInventory(t *testing.T) {
 		"UFW_MISSING",
 		"UNIT_START_FAILED",
 		"UPDATER_PATH_START_FAILED",
+		"WHEELS_DOWNLOAD_FAILED",
 		"WHEELS_MISSING",
+		"WHEEL_FILE_INVALID",
 		"WHEEL_MISSING",
 	}
 	for _, code := range want {

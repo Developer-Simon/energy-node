@@ -132,6 +132,66 @@ if [ -f "$job2/log" ] && grep -q '##STEP' "$job2/log"; then
 fi
 grep -q '"result":"rejected"' "$job2/status.json" || fail "status.json must record the rejection" "$(cat "$job2/status.json" 2>/dev/null)"
 
+# --- Schritt 5: geaenderte Wheel-Festlegung wird auf dem Node geladen --------
+# Ein lokaler http-Server spielt piwheels. EN_WHEEL_HOSTS_TEST erlaubt seinen
+# Host; das Manifest wird neu signiert, weil es sich geaendert hat.
+wheel_srv="$tmp/wheel-srv"
+mkdir -p "$wheel_srv"
+wheel_name="paho_mqtt-2.1.0-py3-none-any.whl"
+printf 'wheel payload\n' > "$wheel_srv/$wheel_name"
+wheel_sha="$(sha256sum "$wheel_srv/$wheel_name" | cut -d' ' -f1)"
+python3 -u -m http.server --bind 127.0.0.1 0 --directory "$wheel_srv" >"$tmp/wheel-srv.log" 2>&1 &
+wheel_srv_pid=$!
+trap 'kill "${wheel_srv_pid}" 2>/dev/null || true; rm -rf "$tmp"' EXIT
+wheel_port=""
+for _ in $(seq 100); do
+  wheel_port="$(grep -o 'port [0-9]*' "$tmp/wheel-srv.log" | head -n 1 | cut -d' ' -f2 || true)"
+  [ -n "$wheel_port" ] && break
+  sleep 0.1
+done
+[ -n "$wheel_port" ] || fail "wheel http server did not start" "$(cat "$tmp/wheel-srv.log")"
+
+job3="$tmp/job3"
+stage_job "$job3"
+python3 - "$job3/bundle/manifest.json" "$wheel_name" "$wheel_port" "$wheel_sha" <<'PY'
+import json, sys
+path, name, port, sha = sys.argv[1:5]
+data = json.load(open(path))
+data["wheels"] = [{"file": name, "url": "http://127.0.0.1:%s/%s" % (port, name), "sha256": sha}]
+json.dump(data, open(path, "w"), indent=2)
+PY
+# Wie der Bundle-Bau: Fingerabdruecke und Datei-Hashes neu berechnen, weil sich
+# manifest.wheels geaendert hat (Schritt 50 haengt davon ab), dann neu signieren.
+python3 - "$job3/bundle" <<'PY'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+head = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+head.pop("files", None)
+for step in head.get("steps") or []:
+    step.pop("fingerprint", None)
+(root / "manifest.head.json").write_text(json.dumps(head, indent=2, ensure_ascii=False), encoding="utf-8")
+PY
+bash -c 'source "$1"; write_bundle_manifest "$2"' _ "$repo/scripts/build/lib/manifest.sh" "$job3/bundle" \
+  || fail "recomputing the bundle manifest failed"
+openssl pkeyutl -sign -inkey "$key" -rawin -in "$job3/bundle/manifest.json" \
+  -out "$job3/bundle/manifest.json.sig" >/dev/null 2>&1 \
+  || fail "re-signing the changed manifest failed"
+
+# Gleicher Zustandsordner wie der erste Lauf: nur Schritt 50 hat einen neuen
+# Fingerabdruck, die anderen Schritte bleiben erledigt.
+EN_WHEEL_HOSTS_TEST=127.0.0.1 EN_UPDATER_JOB_DIR="$job3" \
+  EN_UPDATER_VERIFY="$repo/scripts/bootstrap/verify_bundle.sh" \
+  EN_UPDATER_PUBKEY="$pub" EN_UPDATER_STATE_DIR="$tmp/state" \
+  bash "$repo/dashboard/energy-node-updater.sh" \
+  || fail "updater failed with a changed wheel pin" "$(cat "$job3/log" 2>/dev/null)"
+grep -q '"result":"ok"' "$job3/status.json" 2>/dev/null \
+  || fail "changed wheel pin must run to completion" "$(cat "$job3/status.json" 2>/dev/null)"
+grep -q '##STEP 50 ok' "$job3/log" || fail "step 50 did not run to ok" "$(cat "$job3/log")"
+cmp -s "$wheel_srv/$wheel_name" "$tmp/state/wheels/$wheel_name" \
+  || fail "changed wheel pin was not downloaded to the node"
+grep -q -- "$tmp/state/wheels/$wheel_name" "$CMD_LOG" \
+  || fail "downloaded wheel was not handed to pip" "$(cat "$CMD_LOG")"
+
 echo "OK"
 echo
 echo "Nicht durch diesen Test bewiesen (Handtest an echter Hardware, wie die"

@@ -33,6 +33,7 @@ const (
 	CodePackageFileInvalid      Code = "PACKAGE_FILE_INVALID"
 	CodeUFWMissing              Code = "UFW_MISSING"
 	CodePipExternallyManaged    Code = "PIP_EXTERNALLY_MANAGED"
+	CodeWheelFileInvalid        Code = "WHEEL_FILE_INVALID"
 	CodeWheelMissing            Code = "WHEEL_MISSING"
 	CodeTailscaleFlagInvalid    Code = "TAILSCALE_FLAG_INVALID"
 	CodeCaddyValidateFailed     Code = "CADDY_VALIDATE_FAILED"
@@ -73,6 +74,7 @@ const (
 	CodeTargetInvalid           Code = "TARGET_INVALID"
 	CodeUfwFailed               Code = "UFW_FAILED"
 	CodeUpdaterPathStartFailed  Code = "UPDATER_PATH_START_FAILED"
+	CodeWheelsDownloadFailed    Code = "WHEELS_DOWNLOAD_FAILED"
 	CodeWheelsMissing           Code = "WHEELS_MISSING"
 )
 
@@ -128,7 +130,9 @@ var allCodes = []Code{
 	CodeUFWMissing,
 	CodeUnitStartFailed,
 	CodeUpdaterPathStartFailed,
+	CodeWheelsDownloadFailed,
 	CodeWheelsMissing,
+	CodeWheelFileInvalid,
 	CodeWheelMissing,
 }
 
