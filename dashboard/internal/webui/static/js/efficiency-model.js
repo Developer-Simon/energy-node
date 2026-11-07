@@ -32,18 +32,159 @@
     return 'active';
   };
 
-  // The status line next to the chain title. A substitute names the point that
-  // delivers the value, by its label.
+  // The status line next to the chain title, in this order: no current values,
+  // findings (the text of the first one, or the count), a substitute, still
+  // learning, and otherwise plausible. The text is already translated.
   const statusOf = state => {
+    const findings = state.findings || [];
+    const status = (tone, key, params = {}, text = t(key, params)) => ({ tone, key, params, text });
     if (state.no_current_values) {
-      return { tone: 'warn', key: 'efficiency.status.no_values', params: {} };
+      return status('warn', 'efficiency.status.no_values');
+    }
+    if (findings.length === 1) {
+      const [finding] = findings;
+      return status('warn', `chains.finding.${finding.kind}`, {}, window.EnergyChains.findingText(state, finding));
+    }
+    if (findings.length > 1) {
+      return status('warn', 'efficiency.status.findings', { n: findings.length });
     }
     if (state.substitute_from) {
       const point = (state.points || []).find(item => item.entity_id === state.substitute_from);
       const name = point && point.label ? point.label : state.substitute_from;
-      return { tone: 'warn', key: 'efficiency.status.substitute', params: { name } };
+      return status('warn', 'efficiency.status.substitute', { name });
     }
-    return { tone: 'ok', key: 'efficiency.status.current', params: {} };
+    if (state.learning) {
+      return status('muted', 'efficiency.status.learning');
+    }
+    return status('ok', 'efficiency.status.plausible');
+  };
+
+  // Storage roles keep their sign only when the direction is not fixed. The
+  // custom categories count with their base, as in stateKey.
+  const isStorageState = (state, categories) => isStorage(state.role, categories) && signIsMeaningful(state.direction);
+
+  const round1 = value => Math.round(value * 10) / 10;
+
+  // The points of one curve direction as [W, percent], sorted by power.
+  const curvePoints = list => (list || [])
+    .filter(point => Number.isFinite(point.power_w) && Number.isFinite(point.efficiency))
+    .map(point => [point.power_w, round1(point.efficiency * 100)])
+    .sort((a, b) => a[0] - b[0]);
+
+  // The series of the efficiency curve. A storage with a free sign names the
+  // directions: down is charging, up is discharging, and a reversed chain swaps
+  // them. Any other chain shows each direction that has points as plain efficiency.
+  // Discharging is dashed. Without any points the list is empty.
+  const curveSeries = (curve, state, categories) => {
+    const source = curve || {};
+    const down = curvePoints(source.down);
+    const up = curvePoints(source.up);
+    const series = [];
+    if (isStorageState(state, categories)) {
+      const reversed = state.direction === 'reversed';
+      const charge = reversed ? up : down;
+      const discharge = reversed ? down : up;
+      if (charge.length) series.push({ key: 'charge', name: t('efficiency.curve.charge'), dash: 0, data: charge });
+      if (discharge.length) series.push({ key: 'discharge', name: t('efficiency.curve.discharge'), dash: 5, data: discharge });
+      return series;
+    }
+    if (down.length) series.push({ key: 'down', name: t('efficiency.curve.series'), dash: 0, data: down });
+    if (up.length) series.push({ key: 'up', name: t('efficiency.curve.series'), dash: 0, data: up });
+    return series;
+  };
+
+  // A CSS custom property of the page, '' without a document or a computed style.
+  const cssVar = name => {
+    try {
+      if (typeof document === 'undefined' || !document.documentElement || typeof getComputedStyle !== 'function') return '';
+      return getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+    } catch (error) {
+      return '';
+    }
+  };
+
+  const formatInt = value => window.I18n.formatNumber(Math.round(value), 0);
+
+  // ApexCharts options for the curve, following EnergyStatsModel.chartOptions:
+  // colours from the theme tokens, no animation. The best range is a band on
+  // the x axis. The legend only shows with two series.
+  const curveOptions = (series, best, width = 0) => {
+    const list = series || [];
+    const battery = cssVar('flow-battery');
+    const muted = cssVar('text-muted');
+    const labelStyle = { colors: Array(12).fill(muted), fontSize: '12px' };
+    const xaxisAnnotations = [];
+    if (best && Number.isFinite(best.from_w) && Number.isFinite(best.to_w)) {
+      xaxisAnnotations.push({
+        x: best.from_w,
+        x2: best.to_w,
+        fillColor: cssVar('ok'),
+        opacity: 0.18,
+        label: {
+          text: t('efficiency.curve.best', { from: formatInt(best.from_w), to: formatInt(best.to_w) }),
+          style: { color: muted, background: 'transparent' },
+        },
+      });
+    }
+    const ticks = width > 0 ? Math.max(2, Math.min(8, Math.floor(width / 90))) : undefined;
+    return {
+      chart: { type: 'line', height: 260, toolbar: { show: false }, animations: { enabled: false }, background: 'transparent', fontFamily: 'inherit', zoom: { enabled: false } },
+      series: list.map(item => ({ name: item.name, data: item.data })),
+      colors: list.map(item => (item.dash ? muted : battery)),
+      stroke: { width: 2, curve: 'straight', dashArray: list.map(item => item.dash) },
+      markers: { size: 3 },
+      dataLabels: { enabled: false },
+      legend: { show: list.length > 1, position: 'bottom', fontSize: '12px', labels: { colors: muted } },
+      xaxis: { type: 'numeric', tickAmount: ticks, labels: { style: labelStyle, formatter: value => formatInt(value) }, title: { text: 'W', style: { color: muted, fontWeight: 400 } } },
+      yaxis: { forceNiceScale: true, labels: { style: labelStyle, formatter: value => formatInt(value) }, title: { text: '%', style: { color: muted, fontWeight: 400 } } },
+      annotations: { xaxis: xaxisAnnotations },
+      grid: { borderColor: cssVar('border-soft'), strokeDashArray: 3 },
+      tooltip: {
+        x: { formatter: value => `${formatInt(value)} W` },
+        y: { formatter: value => `${window.I18n.formatNumber(value, 1)} %` },
+      },
+      noData: { text: t('efficiency.curve.learning') },
+    };
+  };
+
+  // One row per segment of the chain, in the order of the points: a is the
+  // upstream point, b the next one, whatever the current flow. A row names the
+  // normal band, or why there is none, and the tolerance of the segment, if any.
+  const segmentRows = state => {
+    const points = state.points || [];
+    const segments = state.segments || [];
+    const tolerances = state.tolerances || [];
+    const labelOf = id => {
+      const point = points.find(item => item.entity_id === id);
+      return point && point.label ? point.label : id;
+    };
+    const pairOf = (item, a, b) => (item.from === a && item.to === b) || (item.from === b && item.to === a);
+    const rows = [];
+    for (let index = 0; index + 1 < points.length; index += 1) {
+      const a = points[index].entity_id;
+      const b = points[index + 1].entity_id;
+      const segment = segments.find(item => pairOf(item, a, b));
+      const normal = segment && segment.normal ? segment.normal : null;
+      const tolerance = tolerances.find(item => (item.a === a && item.b === b) || (item.a === b && item.b === a)) || null;
+      let normalText;
+      if (normal) {
+        normalText = t('efficiency.segment.normal', { low: formatInt(normal.low_w), high: formatInt(normal.high_w) });
+      } else if (!segment || !segment.available || state.no_current_values || state.flow === 'idle') {
+        normalText = t('efficiency.segment.no_compare');
+      } else {
+        normalText = t('efficiency.segment.learning');
+      }
+      rows.push({
+        a,
+        b,
+        fromLabel: labelOf(a),
+        toLabel: labelOf(b),
+        normalText,
+        tolerance,
+        learned: Boolean(normal),
+      });
+    }
+    return rows;
   };
 
   // The efficiency of the whole chain in percent, rounded to two decimals.
@@ -113,9 +254,13 @@
   };
 
   // i18n-keys: efficiency.state.charging, efficiency.state.discharging,
-  // efficiency.state.active, efficiency.state.idle, efficiency.state.no_values
+  // efficiency.state.active, efficiency.state.idle, efficiency.state.no_values,
+  // efficiency.status.plausible, efficiency.status.learning, efficiency.status.findings,
+  // efficiency.curve.charge, efficiency.curve.discharge, efficiency.curve.series,
+  // efficiency.curve.best, efficiency.curve.learning,
+  // efficiency.segment.normal, efficiency.segment.learning, efficiency.segment.no_compare
 
   window.EfficiencyModel = {
-    stateKey, statusOf, overallPercent, kpiTiles, dayRows,
+    stateKey, statusOf, overallPercent, kpiTiles, dayRows, curveSeries, curveOptions, segmentRows,
   };
 })();

@@ -69,21 +69,131 @@ test('stateKey', () => {
   assert.equal(model.stateKey(state({ role: 'battery', direction: 'fixed_down', flow: 'down' })), 'active');
 });
 
-test('statusOf', () => {
+// Plain copies: objects built inside the vm realm fail deepStrictEqual on prototypes.
+const plain = value => JSON.parse(JSON.stringify(value));
+
+const finding = overrides => ({
+  kind: 'drift',
+  chain_id: 'plug',
+  chain_label: 'Steckdose',
+  since: '2026-11-06T10:00:00Z',
+  from: 'plug',
+  to: 'ac',
+  ...overrides,
+});
+
+test('statusOf ranks findings over substitute and learning', () => {
   const model = loadModel();
-  const stale = model.statusOf(state({ no_current_values: true }));
-  assert.equal(stale.tone, 'warn');
-  assert.equal(stale.key, 'efficiency.status.no_values');
-  assert.match(model.statusOf(state({ no_current_values: true })).key, /no_values$/);
+
+  const one = model.statusOf(state({ findings: [finding()], substitute_from: 'ac', learning: true }));
+  assert.equal(one.tone, 'warn');
+  assert.equal(one.key, 'chains.finding.drift');
+  assert.match(one.text, /Steckdose/);
+
+  const two = plain(model.statusOf(state({ findings: [finding(), finding({ kind: 'sign' })] })));
+  assert.equal(two.tone, 'warn');
+  assert.equal(two.key, 'efficiency.status.findings');
+  assert.equal(two.params.n, 2);
+  assert.match(two.text, /2 Auffälligkeiten/);
 
   const substitute = model.statusOf(state({ substitute_from: 'ac' }));
   assert.equal(substitute.tone, 'warn');
   assert.equal(substitute.key, 'efficiency.status.substitute');
   assert.equal(substitute.params.name, 'Speicher AC');
 
-  const current = model.statusOf(state());
-  assert.equal(current.tone, 'ok');
-  assert.equal(current.key, 'efficiency.status.current');
+  const stale = model.statusOf(state({ no_current_values: true }));
+  assert.equal(stale.tone, 'warn');
+  assert.equal(stale.key, 'efficiency.status.no_values');
+
+  const learning = model.statusOf(state({ learning: true }));
+  assert.equal(learning.tone, 'muted');
+  assert.equal(learning.key, 'efficiency.status.learning');
+  assert.equal(learning.text, 'Lernt noch');
+  assert.doesNotMatch(learning.text, /plausibel/i);
+
+  const ok = model.statusOf(state());
+  assert.equal(ok.tone, 'ok');
+  assert.equal(ok.key, 'efficiency.status.plausible');
+  assert.equal(ok.text, 'Plausibel');
+});
+
+test('curveSeries names directions by chain type', () => {
+  const model = loadModel();
+  const curve = {
+    down: [{ power_w: 500, efficiency: 0.96 }, { power_w: 250, efficiency: 0.9612 }],
+    up: [{ power_w: 300, efficiency: 0.92 }],
+  };
+
+  const auto = plain(model.curveSeries(curve, state({ role: 'battery', direction: 'auto' })));
+  assert.deepEqual(auto.map(series => [series.name, series.dash]), [['Laden', 0], ['Entladen', 5]]);
+  assert.deepEqual(auto[0].data, [[250, 96.1], [500, 96]]);
+  assert.deepEqual(auto[1].data, [[300, 92]]);
+
+  const reversed = plain(model.curveSeries(curve, state({ role: 'battery', direction: 'reversed' })));
+  assert.deepEqual(reversed.map(series => [series.name, series.dash]), [['Laden', 0], ['Entladen', 5]]);
+  assert.deepEqual(reversed[0].data, [[300, 92]]);
+  assert.deepEqual(reversed[1].data, [[250, 96.1], [500, 96]]);
+
+  const load = plain(model.curveSeries({ down: curve.down, up: [] }, state({ role: 'load', direction: 'auto' })));
+  assert.equal(load.length, 1);
+  assert.equal(load[0].name, 'Wirkungsgrad');
+  assert.equal(load[0].dash, 0);
+
+  assert.deepEqual(plain(model.curveSeries({ down: [], up: [] }, state())), []);
+});
+
+test('curveOptions marks the best range', () => {
+  const model = loadModel();
+  const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
+
+  const options = plain(model.curveOptions(series, { from_w: 250, to_w: 500 }, 600));
+  assert.equal(options.annotations.xaxis.length, 1);
+  assert.equal(options.annotations.xaxis[0].x, 250);
+  assert.equal(options.annotations.xaxis[0].x2, 500);
+  assert.match(options.annotations.xaxis[0].label.text, /250.*500/);
+  assert.equal(options.legend.show, false);
+  assert.equal(options.chart.animations.enabled, false);
+
+  const none = plain(model.curveOptions(series, null, 600));
+  assert.equal(none.annotations.xaxis.length, 0);
+
+  const two = plain(model.curveOptions([...series, { key: 'discharge', name: 'Entladen', dash: 5, data: [] }], null, 0));
+  assert.equal(two.legend.show, true);
+});
+
+test('segmentRows', () => {
+  const model = loadModel();
+  const chain = state({
+    points: [
+      { entity_id: 'plug', label: 'Steckdose' },
+      { entity_id: 'ac', label: 'Speicher AC' },
+      { entity_id: 'dc', label: 'Speicher DC' },
+    ],
+    // The first segment runs against the point order: the flow is not the order of the rows.
+    segments: [
+      { from: 'ac', to: 'plug', available: true, loss_w: 20, efficiency: 0.96, normal: { low_w: 6, high_w: 14 } },
+      { from: 'ac', to: 'dc', available: true, loss_w: 5, efficiency: 0.9 },
+    ],
+    tolerances: [{ a: 'dc', b: 'ac', w: 3 }],
+  });
+
+  const rows = plain(model.segmentRows(chain));
+  assert.equal(rows.length, 2);
+  assert.deepEqual([rows[0].a, rows[0].b], ['plug', 'ac']);
+  assert.equal(rows[0].fromLabel, 'Steckdose');
+  assert.equal(rows[0].toLabel, 'Speicher AC');
+  assert.equal(rows[0].normalText, 'Normal 6 bis 14 W');
+  assert.equal(rows[0].learned, true);
+  assert.equal(rows[0].tolerance, null);
+
+  assert.deepEqual([rows[1].a, rows[1].b], ['ac', 'dc']);
+  assert.equal(rows[1].normalText, 'lernt noch');
+  assert.equal(rows[1].learned, false);
+  assert.deepEqual(rows[1].tolerance, { a: 'dc', b: 'ac', w: 3 });
+
+  const idle = plain(model.segmentRows({ ...chain, flow: 'idle' }));
+  assert.equal(idle[0].normalText, 'Normal 6 bis 14 W');
+  assert.equal(idle[1].normalText, 'gerade kein Vergleich');
 });
 
 test('overallPercent multiplies all segments', () => {

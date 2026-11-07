@@ -98,7 +98,7 @@ test('Ein registry-updated mit energy.chains aendert die Live-Werte ohne Anfrage
   assert.equal(panel.status.text, 'Keine aktuellen Werte');
   emit({energy: {chains: [akkuState(0.97)]}});
   assert.equal(panel.kpis[0].value, '97 %');
-  assert.equal(panel.status.text, 'Messwerte aktuell');
+  assert.equal(panel.status.text, 'Plausibel');
   assert.equal(panel.stateLabel(panel.state), 'lädt');
   emit({energy: {chains: [akkuState(0.92)]}});
   assert.equal(panel.kpis[0].value, '92 %');
@@ -139,7 +139,7 @@ test('Fehler beim Laden zeigt den Text, der Live-Teil bleibt stehen', async () =
   await panel.load();
   assert.equal(panel.error, 'Netz weg');
   assert.equal(panel.kpis[0].value, '92 %');
-  assert.equal(panel.status.text, 'Messwerte aktuell');
+  assert.equal(panel.status.text, 'Plausibel');
   dom.window.close();
 });
 
