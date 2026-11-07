@@ -37,6 +37,9 @@
       topics.add('devices');
     } else if (panelId === 'stats-panel') {
       topics.add('energy_stats');
+    } else if (panelId === 'efficiency-panel') {
+      topics.add('energy');
+      topics.add('energy_stats');
     }
     return [...topics].sort().join(',');
   };
@@ -85,6 +88,9 @@
 
   const dashboardShell = () => ({
     activePanel: document.body.dataset.initialPanel || 'overview-panel',
+    // Der Reiter Effizienz zeigt sich nur, solange es Messketten gibt. Der
+    // Wert kommt vom Server und folgt danach den Rollenaenderungen.
+    hasChains: document.body.dataset.hasChains === 'true',
     activePage: '',
     // Nur die Mobilansicht liest diesen Zustand: oberhalb 700px greift
     // keine CSS-Regel darauf zu, die Tab-Leiste rendert wie eh und je.
@@ -423,8 +429,23 @@
       // Fallback-Return.
       window.__dashboardShell__ = this;
 
+      // Messketten angelegt oder geloescht: der Reiter folgt. Ohne Reiter
+      // (kein Recht, kein Manager) gibt es keine Anfrage.
+      window.addEventListener('energy-roles-changed', async () => {
+        if (!this.hasTab('efficiency-panel')) return;
+        let roles;
+        try {
+          roles = await requestJSON('/api/v1/energy/roles');
+        } catch (error) {
+          return;
+        }
+        this.hasChains = Object.keys((roles && roles.chains) || {}).length > 0;
+        this.$nextTick(() => this.fitNav());
+        if (!this.hasChains && this.activePanel === 'efficiency-panel') this.setActivePanel('energy-panel');
+      });
+
       const requestedPanel = new URLSearchParams(window.location.search).get('panel');
-      const panelMap = {devices: 'devices-panel', history: 'history-panel', diagnostics: 'diagnostics-panel', config: 'config-panel', energy: 'energy-panel', devicemap: 'devicemap-panel', settings: 'settings-panel', automations: 'automations-panel'};
+      const panelMap = {devices: 'devices-panel', history: 'history-panel', diagnostics: 'diagnostics-panel', config: 'config-panel', energy: 'energy-panel', devicemap: 'devicemap-panel', settings: 'settings-panel', automations: 'automations-panel', efficiency: 'efficiency-panel'};
       if (panelMap[requestedPanel] && this.hasTab(panelMap[requestedPanel])) this.activePanel = panelMap[requestedPanel];
       this.loadPanel(this.activePanel);
       if (!window.EventSource) {

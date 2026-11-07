@@ -144,3 +144,9 @@ test('die Seite Statistik abonniert energy_stats', () => {
   const topicsFor = factories.dashboardShell.liveTopicsFor;
   assert.equal(topicsFor(null, 'stats-panel'), 'energy_stats');
 });
+
+test('die Effizienz-Seite abonniert energy und energy_stats', () => {
+  const { factories } = load('<section id="efficiency-panel"></section>');
+  const topicsFor = factories.dashboardShell.liveTopicsFor;
+  assert.equal(topicsFor(null, 'efficiency-panel'), 'energy,energy_stats');
+});
