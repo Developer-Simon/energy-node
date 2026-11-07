@@ -4,6 +4,7 @@
 
 ### Features
 
+- **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **energy:** add the measurement chain model and its validation (a0c0952)
 - **energy:** move roles when a measurement chain changes (16e2953)
@@ -19,7 +20,6 @@
 - **devicemap:** show chain reference points as display values (4389568)
 - **devicemap:** build measurement chains from energy connections (598ff94)
 - **devicemap:** mark substitute values on the map (570ed26)
-- **energy:** add measurement chains with substitute values (#215)
 - **automations:** add texts for the rule history axis (4c3094a)
 - **automations:** add history day groups and flight logic (5d3205c)
 - **automations:** show the rule history as an axis in the strip (8993e21)

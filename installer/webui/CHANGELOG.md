@@ -4,7 +4,7 @@
 
 ### Features
 
-- **energy:** add measurement chains with substitute values (#215)
+- **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
 
 ### Fixes

@@ -1,13 +1,19 @@
 name: Sync prerelease
 
-# After every push to main, merges main into the prerelease branch and sets the
-# prerelease versions (scripts/version/sync_prerelease.py). A code conflict
-# aborts the merge: the run opens (or comments on) an issue with the conflicting
-# paths and ends red. Resolve it locally with the command in the issue.
+# Merges main into the prerelease branch and sets the prerelease versions
+# (scripts/version/sync_prerelease.py). Runs on demand and when a PR into
+# prerelease is opened, not on every push to main, so a burst of hotfixes causes
+# one merge. A code conflict aborts the merge: the run opens (or comments on) an
+# issue with the conflicting paths and ends red. Resolve it locally with the
+# command in the issue.
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+  # Only opened: pushes to an open PR must not start another sync. GitHub reads
+  # this trigger from the prerelease copy of this file.
+  pull_request:
+    types: [opened]
+    branches: [prerelease]
 
 permissions:
   contents: write
@@ -23,6 +29,8 @@ jobs:
   sync:
     name: Merge main into prerelease
     runs-on: ubuntu-latest
+    # A fork PR gets no secrets, and BUMP_TOKEN is needed for the push.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
     steps:
       - uses: actions/checkout@v4
         with:
