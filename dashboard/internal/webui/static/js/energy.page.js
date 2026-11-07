@@ -1191,11 +1191,10 @@
     get findingNotices() {
       return window.EnergyChains.allFindings(this.chainStates).map(({chain, finding}) => {
         const key = `${chain.id || ''}|${finding.kind}|${finding.from || ''}|${finding.to || ''}`;
-        const label = chain.label || finding.chain_label || '';
         return {
           key,
           domId: `energy-chain-finding-${key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
-          title: `${label} · ${t(`diagnostics.rule.chain_${finding.kind}.title`)}`,
+          title: window.EnergyChains.findingTitle(chain, finding),
           text: window.EnergyChains.findingText(chain, finding),
           suggestion: window.EnergyChains.suggestionText(chain, finding),
           canApply: this.canEdit && Boolean(finding.suggestion) && Boolean(this.assignments[finding.suggestion.entity_id]),

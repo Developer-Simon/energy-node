@@ -104,6 +104,8 @@
       focusId: null,
       focusRelated: new Set(),
       panelId: null,
+    // Open chain finding tiles of the device panel by finding key; a live refresh keeps the key.
+    expandedFindings: {},
       drafts: {},
       savedAssignments: {},
       savedHidden: new Set(), // entity ids the role table hides, see DeviceMapModel.panelRows
@@ -296,12 +298,32 @@
         return {warning: items.map(({chain, finding}) => window.EnergyChains.findingText(chain, finding)).join(' ')};
       },
 
-      // The findings of one device for its panel: the text, and whether the
-      // link to the efficiency tab leads anywhere (view_efficiency).
+      // The findings of one device for its panel as tiles: the title, the
+      // details (text and suggestion) and whether the link to the efficiency
+      // tab leads anywhere (view_efficiency). The key is the energy tab's key,
+      // so an open tile stays open while the snapshot refreshes.
       panelFindings(id) {
         const items = this.chainFindings().byDevice.get(id) || [];
         const link = this.efficiencyTabShown();
-        return items.map(({chain, finding}) => ({text: window.EnergyChains.findingText(chain, finding), link}));
+        return items.map(({chain, finding}) => {
+          const key = `${chain.id || ''}|${finding.kind}|${finding.from || ''}|${finding.to || ''}`;
+          return {
+            key,
+            domId: `devicemap-chain-finding-${key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
+            title: window.EnergyChains.findingTitle(chain, finding),
+            text: window.EnergyChains.findingText(chain, finding),
+            suggestion: window.EnergyChains.suggestionText(chain, finding),
+            link,
+          };
+        });
+      },
+
+      isFindingOpen(key) {
+        return Boolean(this.expandedFindings[key]);
+      },
+
+      toggleFinding(key) {
+        this.expandedFindings = {...this.expandedFindings, [key]: !this.expandedFindings[key]};
       },
 
       efficiencyTabShown() {

@@ -172,6 +172,9 @@
     since: sinceText(finding.since),
   });
 
+  // "Balkon · Verlust außerhalb des Normalbereichs": the chain label and the short kind title of a finding.
+  const findingTitle = (chain, finding) => `${chain.label || finding.chain_label || ''} · ${window.I18n.t(`diagnostics.rule.chain_${finding.kind}.title`)}`;
+
   // The fix the learned model proposes, or '' without one.
   const suggestionText = (chain, finding) => {
     const suggestion = finding.suggestion;
@@ -201,7 +204,7 @@
 
   window.EnergyChains = {
     insertPoint, removePoint, setCounting, chainOf, isReference, shortPath, lossText, lossPowerOf, efficiencyPercent,
-    percentText, linkBetween, pickerItems, edgeChange, findingText, suggestionText, allFindings,
+    percentText, linkBetween, pickerItems, edgeChange, findingText, findingTitle, suggestionText, allFindings,
   };
 
   // How x-roll writes the frames of the chain values (data-roll-format).

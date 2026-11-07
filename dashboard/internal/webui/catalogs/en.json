@@ -1586,7 +1586,6 @@
   "devicemap.legend.sum": "Σ subtree sum",
   "devicemap.node.off": "Off",
   "devicemap.panel.capacity": "Usable capacity in kWh",
-  "devicemap.panel.chain_link": "Show in the Efficiency tab",
   "devicemap.panel.channel": "Channel",
   "devicemap.panel.close": "Close panel",
   "devicemap.panel.consequence.one": "{n} device without power",

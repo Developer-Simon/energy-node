@@ -3643,6 +3643,47 @@ test('the device panel lists the finding text with a link to the efficiency tab 
   assert.equal(component.panelView.findings[0].link, true);
 });
 
+test('a finding is a tile with its title, a closed fold and the text, the suggestion and the link', () => {
+  const { component, window } = createDevicemapPanel();
+  findingFixture(component);
+  component.energy.chains[0].findings[0].suggestion = { entity_id: 'bat_b', invert: true };
+  window.document.body.insertAdjacentHTML('beforeend', '<div role="tab" aria-controls="efficiency-panel"></div>');
+  component.openPanel('bat');
+  const [item] = component.panelView.findings;
+  const chain = component.energy.chains[0];
+  const finding = chain.findings[0];
+  assert.equal(item.title, window.EnergyChains.findingTitle(chain, finding));
+  assert.equal(item.text, window.EnergyChains.findingText(chain, finding));
+  assert.equal(item.suggestion, window.EnergyChains.suggestionText(chain, finding));
+  assert.ok(item.suggestion);
+  assert.equal(item.link, true);
+  assert.ok(item.domId.startsWith('devicemap-chain-finding-'));
+});
+
+test('a finding tile is closed by default, the toggle opens it and an open tile survives a refresh', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  component.openPanel('bat');
+  const key = component.panelView.findings[0].key;
+  assert.equal(component.isFindingOpen(key), false, 'closed by default');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), true, 'the toggle opens it');
+  component.energy.chains[0].findings = [{ ...component.energy.chains[0].findings[0] }];
+  assert.equal(component.panelView.findings[0].key, key);
+  assert.equal(component.isFindingOpen(key), true, 'a live refresh keeps it open');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), false, 'the toggle closes it again');
+});
+
+test('a finding tile without view_efficiency has no link but keeps its details', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  component.openPanel('bat');
+  const [item] = component.panelView.findings;
+  assert.equal(item.link, false);
+  assert.ok(item.text);
+});
+
 test('the efficiency link asks the shell for the efficiency panel', async () => {
   const { component, window } = createDevicemapPanel();
   findingFixture(component);

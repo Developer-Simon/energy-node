@@ -198,6 +198,14 @@ test('findingText names chain and points for every kind', () => {
   assert.equal(ec.findingText(findingChain, unit), 'Balkon: Plug Balkon und Speicher AC liegen um den Faktor 1000 auseinander.');
 });
 
+test('findingTitle joins the chain label and the short kind title', () => {
+  const window = loadWindow();
+  const drift = { kind: 'drift', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(window.EnergyChains.findingTitle(findingChain, drift), `Balkon · ${window.I18n.t('diagnostics.rule.chain_drift.title')}`);
+  const unnamed = { kind: 'sign', chain_id: 'm', chain_label: 'Dach', from: 'a', to: 'b', since };
+  assert.equal(window.EnergyChains.findingTitle({}, unnamed), `Dach · ${window.I18n.t('diagnostics.rule.chain_sign.title')}`);
+});
+
 test('findingText shows the raw ID for an entity the chain does not name', () => {
   const ec = load();
   const finding = { kind: 'sign', chain_id: 'm', from: 'unknown_power', to: 'storage_ac_power', since };
