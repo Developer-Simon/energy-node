@@ -74,6 +74,7 @@ type EntityInfo struct {
 	ValueTemplate       string
 	UnitOfMeasurement   string
 	DeviceClass         string
+	StateClass          string
 	MinValue            *float64
 	MaxValue            *float64
 	Step                *float64
@@ -876,6 +877,7 @@ type EntityView struct {
 	TemplateSupported bool         `json:"template_supported"`
 	UnitOfMeasurement string       `json:"unit_of_measurement,omitempty"`
 	DeviceClass       string       `json:"device_class,omitempty"`
+	StateClass        string       `json:"state_class,omitempty"`
 	MinValue          *float64     `json:"min_value,omitempty"`
 	MaxValue          *float64     `json:"max_value,omitempty"`
 	Step              *float64     `json:"step,omitempty"`
@@ -1528,6 +1530,7 @@ func toView(id string, dev *device) DeviceView {
 			TemplateSupported:   es.info.ValueTemplate == "" || compileValueTemplate(es.info.ValueTemplate) != nil,
 			UnitOfMeasurement:   es.info.UnitOfMeasurement,
 			DeviceClass:         es.info.DeviceClass,
+			StateClass:          es.info.StateClass,
 			MinValue:            es.info.MinValue,
 			MaxValue:            es.info.MaxValue,
 			Step:                es.info.Step,

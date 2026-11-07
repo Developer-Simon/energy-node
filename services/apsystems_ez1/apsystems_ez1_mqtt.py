@@ -214,6 +214,33 @@ def _publish_online_status(
     common_mqtt.publish_online_status(client, device.cfg.base_topic, online, reason)
 
 
+# Einheit, device_class und state_class der Zahlenfelder, die
+# _publish_object_fields aus den Bibliotheksantworten veroeffentlicht. Felder
+# ohne Eintrag (deviceId, ssid, ipAddr, Alarme) sind Text oder Schalter.
+_OBJECT_FIELD_UNITS: dict[tuple[str, str], tuple[str, str, Optional[str]]] = {
+    ("output_detail", "v1"): ("V", "voltage", "measurement"),
+    ("output_detail", "v2"): ("V", "voltage", "measurement"),
+    ("output_detail", "c1"): ("A", "current", "measurement"),
+    ("output_detail", "c2"): ("A", "current", "measurement"),
+    ("output_detail", "gv"): ("V", "voltage", "measurement"),
+    ("output_detail", "gf"): ("Hz", "frequency", "measurement"),
+    ("output_detail", "t"): ("°C", "temperature", "measurement"),
+    ("device_info", "minPower"): ("W", "power", None),
+    ("device_info", "maxPower"): ("W", "power", None),
+}
+
+
+def _object_field_unit_kwargs(subtopic_prefix: str, key: str) -> dict[str, str]:
+    hint = _OBJECT_FIELD_UNITS.get((subtopic_prefix, key))
+    if hint is None:
+        return {}
+    unit, device_class, state_class = hint
+    kwargs = {"unit_of_measurement": unit, "device_class": device_class}
+    if state_class:
+        kwargs["state_class"] = state_class
+    return kwargs
+
+
 def _publish_object_fields(
     client: mqtt.Client, device: APsystemsDevice, subtopic_prefix: str, obj: Any
 ) -> None:
@@ -247,6 +274,7 @@ def _publish_object_fields(
                 f"{device.cfg.base_topic}/{subtopic_prefix}/{key}",
                 entity_category="diagnostic",
                 enabled_by_default=False,
+                **_object_field_unit_kwargs(subtopic_prefix, key),
             ),
         )
 

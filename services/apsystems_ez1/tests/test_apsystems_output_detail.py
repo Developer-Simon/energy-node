@@ -146,3 +146,45 @@ def test_poll_extended_info_simulation_publishes_output_detail_fields():
     topics = [t for t, _ in client.published]
     assert f"{device.cfg.base_topic}/output_detail/gv" in topics
     assert f"{device.cfg.base_topic}/output_detail/t" in topics
+
+
+def _discovery_configs(client: FakeClient) -> dict[str, dict]:
+    import json
+
+    configs = {}
+    for topic, payload in client.published:
+        if topic.startswith("homeassistant/") and topic.endswith("/config") and payload:
+            config = json.loads(payload) if isinstance(payload, (str, bytes)) else payload
+            configs[config["unique_id"]] = config
+    return configs
+
+
+def test_poll_extended_info_publishes_units_for_numeric_fields():
+    device = make_device()
+    device.inverter = FakeInverterDetail(
+        detail_data={"v1": "32.1", "v2": "31.8", "c1": "1.2", "c2": "1.1", "gv": "231.5", "gf": "50.01", "t": "38.2"}
+    )
+    client = FakeClient()
+
+    asyncio.run(aps.poll_extended_info(device, client, simulation_active=False))
+
+    configs = _discovery_configs(client)
+    prefix = device.cfg.id
+    expected = {
+        "output_detail_v1": ("V", "voltage", "measurement"),
+        "output_detail_c2": ("A", "current", "measurement"),
+        "output_detail_gv": ("V", "voltage", "measurement"),
+        "output_detail_gf": ("Hz", "frequency", "measurement"),
+        "output_detail_t": ("°C", "temperature", "measurement"),
+        "device_info_maxPower": ("W", "power", None),
+        "device_info_minPower": ("W", "power", None),
+    }
+    for object_id, (unit, device_class, state_class) in expected.items():
+        config = configs[f"{prefix}_{object_id}"]
+        assert config["unit_of_measurement"] == unit, object_id
+        assert config["device_class"] == device_class, object_id
+        assert config.get("state_class") == state_class, object_id
+
+    ip = configs[f"{prefix}_device_info_ipAddr"]
+    assert "unit_of_measurement" not in ip
+    assert "state_class" not in ip
