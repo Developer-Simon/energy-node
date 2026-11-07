@@ -639,6 +639,7 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
    steht - nicht zum Editor. In layout-editor.css (lazy, erst beim ersten
    "Editieren") blieben Trennstrich und Punkt bis dahin unsichtbar. */
 .tab.is-page > i { display:inline-block; width:.3rem; height:.3rem; border-radius:50%; background:var(--accent-line); margin-right:.35rem; vertical-align:.12em; }
+.efficiency-tab-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-left:.35rem; vertical-align:.12em; }
 .tab.is-fresh { animation:tab-in .3s var(--layout-ease) both; }
 @keyframes tab-in { from { opacity:0; transform:translateY(.3rem) scale(.94); } to { opacity:1; transform:none; } }
 /* Der Trennstrich ist ein leeres <span>: ohne eigene Hoehe bleibt seine

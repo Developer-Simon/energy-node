@@ -4008,6 +4008,34 @@ func efficiencyStoreWithChain(t *testing.T) *settings.Store {
 	return store
 }
 
+// Die Reihenfolge der Reiter: Statistik, Effizienz, Device-Map, danach der Rest
+// des Manager-Blocks. Die Device-Map sitzt nur mit view_device_map und Manager.
+func TestEfficiencyTabOrderStatsEfficiencyDeviceMap(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), efficiencyStoreWithChain(t)).
+		ServeHTTP(rec, efficiencyUserRequest(t, "/", auth.RoleViewStats, auth.RoleViewEfficiency, auth.RoleViewDeviceMap, auth.RoleViewConfig, auth.RoleViewOverview))
+	body := rec.Body.String()
+	order := []string{`id="tab-stats"`, `id="tab-efficiency"`, `id="tab-devicemap"`, `id="tab-config"`}
+	last := -1
+	for _, marker := range order {
+		at := strings.Index(body, marker)
+		if at < 0 {
+			t.Fatalf("Reihenfolge: %s fehlt", marker)
+		}
+		if at <= last {
+			t.Fatalf("Reihenfolge: %s steht nicht hinter dem Vorgaenger", marker)
+		}
+		last = at
+	}
+
+	without := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), efficiencyStoreWithChain(t)).
+		ServeHTTP(without, efficiencyUserRequest(t, "/", auth.RoleViewEfficiency, auth.RoleViewOverview))
+	if strings.Contains(without.Body.String(), `id="tab-devicemap"`) {
+		t.Fatalf("ohne view_device_map darf tab-devicemap nicht erscheinen")
+	}
+}
+
 func TestEfficiencyTabRendersForRightAndManager(t *testing.T) {
 	handler := func(store *settings.Store) http.HandlerFunc {
 		return Overview(registry.New(), config.NewManager(t.TempDir()), store)
