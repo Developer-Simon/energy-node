@@ -170,19 +170,19 @@ const diagnosticsCard = () => `
 test('aus "alles in Ordnung" werden Zaehler, wenn eine Warnung auftaucht', () => {
   const window = load(diagnosticsCard());
   window.overviewValues.applyDiagnostics(window.document.body, {
-    critical: 0, warning: 2, info: 1, status_class: 'warn',
+    critical: 0, warning: 2, status_class: 'warn',
   });
   const card = window.document.querySelector('.diagnostics-summary-card');
   assert.match(card.querySelector('.diagnostics-summary-dot').className, /diagnostics-summary-dot-warn/);
   assert.equal(card.querySelector('.diagnostics-summary-ok'), null);
   const counts = [...card.querySelectorAll('.diagnostics-summary-count strong')].map(el => el.textContent);
-  assert.deepEqual(counts, ['0', '2', '1']);
+  assert.deepEqual(counts, ['0', '2']);
 });
 
 test('und zurueck: ohne Warnungen steht wieder der Satz da', () => {
   const window = load(diagnosticsCard());
-  window.overviewValues.applyDiagnostics(window.document.body, { critical: 0, warning: 1, info: 0, status_class: 'warn' });
-  window.overviewValues.applyDiagnostics(window.document.body, { critical: 0, warning: 0, info: 0, status_class: 'ok' });
+  window.overviewValues.applyDiagnostics(window.document.body, { critical: 0, warning: 1, status_class: 'warn' });
+  window.overviewValues.applyDiagnostics(window.document.body, { critical: 0, warning: 0, status_class: 'ok' });
   const card = window.document.querySelector('.diagnostics-summary-card');
   assert.equal(card.querySelector('.diagnostics-summary-ok').textContent, 'Alles in Ordnung');
   assert.equal(card.querySelector('.diagnostics-summary-counts'), null);
@@ -194,7 +194,7 @@ test('das schlechteste Geraet erscheint und verschwindet mit den Daten', () => {
   const card = window.document.querySelector('.diagnostics-summary-card');
 
   window.overviewValues.applyDiagnostics(window.document.body, {
-    critical: 1, warning: 0, info: 0, status_class: 'bad',
+    critical: 1, warning: 0, status_class: 'bad',
     worst_device: { name: 'Speicher', score: 40, status_class: 'warn' },
   });
   const worst = card.querySelector('.diagnostics-summary-worst');
@@ -202,7 +202,7 @@ test('das schlechteste Geraet erscheint und verschwindet mit den Daten', () => {
   assert.equal(worst.querySelector('.diagnostics-summary-worst-score').textContent, '40');
   assert.match(worst.className, /diagnostics-summary-worst-warn/);
 
-  window.overviewValues.applyDiagnostics(window.document.body, { critical: 1, warning: 0, info: 0, status_class: 'bad' });
+  window.overviewValues.applyDiagnostics(window.document.body, { critical: 1, warning: 0, status_class: 'bad' });
   assert.equal(card.querySelector('.diagnostics-summary-worst'), null);
 });
 

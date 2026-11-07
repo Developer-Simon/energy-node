@@ -179,3 +179,26 @@ test('a device card that changes place glides there and replays its value', asyn
   const ring = animations.find(item => item.el === moved.querySelector('.diag-ring'));
   assert.deepEqual([ring.frames[0]['--score'], ring.frames[1]['--score']], ['30', '95']);
 });
+
+test('infos stay out of "all", the headline and the tone, only the info filter shows them', () => {
+  const panel = createDiagnosticsPanel();
+  panel.loaded = true;
+  panel.warnings = [
+    {rule_id: 'WrongUnit', key: 'unit_unclassified', severity: 'info', device_id: 'plug', entity_id: 'plug_ip'},
+    {rule_id: 'WrongUnit', key: 'unit_unclassified', severity: 'info', device_id: 'plug', entity_id: 'plug_ssid'},
+  ];
+  assert.equal(panel.severityCount('all'), 0);
+  assert.equal(panel.severityCount('info'), 2);
+  assert.equal(panel.filteredWarnings.length, 0);
+  assert.equal(panel.headline, panel.testWindow.I18n.t('diagnostics.headline.ok'));
+  assert.equal(panel.headlineTone, 'ok');
+
+  panel.severity = 'info';
+  assert.deepEqual([...panel.filteredWarnings.map(item => item.entity_id)].sort(), ['plug_ip', 'plug_ssid']);
+
+  panel.warnings = [...panel.warnings, {rule_id: 'WrongUnit', key: 'missing_unit', severity: 'warning', device_id: 'plug', entity_id: 'plug_volt'}];
+  panel.severity = 'all';
+  assert.equal(panel.severityCount('all'), 1);
+  assert.equal(panel.headlineTone, 'warn');
+  assert.deepEqual([...panel.filteredWarnings.map(item => item.entity_id)], ['plug_volt']);
+});

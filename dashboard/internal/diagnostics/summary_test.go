@@ -14,7 +14,7 @@ func TestSummarizeCountsSeveritiesAndPicksStatusClass(t *testing.T) {
 		want     string
 	}{
 		{"leer ist ok", nil, "ok"},
-		{"nur Hinweise", []Warning{{Severity: SeverityInfo}}, "info"},
+		{"nur Hinweise bleiben ok", []Warning{{Severity: SeverityInfo}}, "ok"},
 		{"eine Warnung schlaegt Hinweise", []Warning{{Severity: SeverityInfo}, {Severity: SeverityWarning}}, "warn"},
 		{"kritisch schlaegt alles", []Warning{{Severity: SeverityInfo}, {Severity: SeverityWarning}, {Severity: SeverityCritical}}, "bad"},
 	}
@@ -27,7 +27,7 @@ func TestSummarizeCountsSeveritiesAndPicksStatusClass(t *testing.T) {
 	}
 
 	summary := Summarize([]Warning{{Severity: SeverityInfo}, {Severity: SeverityInfo}, {Severity: SeverityCritical}}, nil, nil)
-	if summary.Info != 2 || summary.Critical != 1 || summary.Warning != 0 {
+	if summary.Critical != 1 || summary.Warning != 0 {
 		t.Errorf("Zaehler falsch: %+v", summary)
 	}
 }
@@ -65,7 +65,7 @@ func TestSummaryJSONOmitsEmptyWorstDevice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal fehlgeschlagen: %v", err)
 	}
-	want := `{"critical":0,"warning":0,"info":0,"status_class":"ok"}`
+	want := `{"critical":0,"warning":0,"status_class":"ok"}`
 	if string(data) != want {
 		t.Errorf("JSON = %s, erwartet %s", data, want)
 	}

@@ -1260,28 +1260,40 @@
       return this.warnings.filter(item => item.device_id === this.device);
     },
 
+    // Infos (etwa ein fremder Sensor ohne Einheit, der auch ein Textwert sein
+    // kann) zeigt nur die eigene Filteroption. "Alle" heisst kritisch und Warnung.
+    matchesSeverity(item, severity) {
+      if (severity === 'all') return item.severity !== 'info';
+      return item.severity === severity;
+    },
+
     severityCount(severity) {
-      if (severity === 'all') return this.deviceWarnings.length;
-      return this.deviceWarnings.filter(item => item.severity === severity).length;
+      return this.deviceWarnings.filter(item => this.matchesSeverity(item, severity)).length;
+    },
+
+    // Kopfzeile und Ton richten sich nur nach kritisch und Warnung.
+    get relevantWarnings() {
+      return this.warnings.filter(item => item.severity !== 'info');
     },
 
     get headline() {
       // i18n-keys: diagnostics.headline.critical.one, diagnostics.headline.critical.other, diagnostics.headline.warnings.one, diagnostics.headline.warnings.other, diagnostics.headline.info.one, diagnostics.headline.info.other
       if (!this.loaded) return t('diagnostics.headline.checking');
-      if (this.warnings.length === 0) return t('diagnostics.headline.ok');
-      const count = severity => this.warnings.filter(item => item.severity === severity).length;
+      const relevant = this.relevantWarnings;
+      if (relevant.length === 0) return t('diagnostics.headline.ok');
+      const count = severity => relevant.filter(item => item.severity === severity).length;
       const parts = [];
-      for (const [severity, key] of [['critical', 'critical'], ['warning', 'warnings'], ['info', 'info']]) {
+      for (const [severity, key] of [['critical', 'critical'], ['warning', 'warnings']]) {
         const n = count(severity);
         if (n > 0) parts.push(tn(`diagnostics.headline.${key}`, n));
       }
-      const devices = new Set(this.warnings.map(item => item.device_id).filter(Boolean)).size;
+      const devices = new Set(relevant.map(item => item.device_id).filter(Boolean)).size;
       return t('diagnostics.headline.summary', {counts: parts.join(', '), devices: tn('diagnostics.headline.devices', devices)});
     },
 
     get headlineTone() {
       if (this.warnings.some(item => item.severity === 'critical')) return 'bad';
-      if (this.warnings.length > 0) return 'warn';
+      if (this.relevantWarnings.length > 0) return 'warn';
       return this.loaded ? 'ok' : 'idle';
     },
 
@@ -1290,7 +1302,7 @@
     },
 
     get filteredWarnings() {
-      const result = this.deviceWarnings.filter(item => this.severity === 'all' || item.severity === this.severity);
+      const result = this.deviceWarnings.filter(item => this.matchesSeverity(item, this.severity));
       result.sort((left, right) => {
         let comparison;
         if (this.sortBy === 'severity') {
@@ -1381,14 +1393,14 @@
     // Kurzer Name der Ursache fuer Gruppenkopf und Listenzeile. Ohne
     // Katalogtext bleibt die rohe rule_id stehen, damit neue Regeln aus dem
     // Backend sichtbar sind, bevor ihr Text nachgezogen ist.
-    // i18n-keys: diagnostics.rule.duplicate_unique_id.title, diagnostics.rule.discovery_invalid_json.title, diagnostics.rule.discovery_mismatch.title, diagnostics.rule.discovery_not_retained.title, diagnostics.rule.missing_topic.title, diagnostics.rule.missing_availability.title, diagnostics.rule.missing_unit.title, diagnostics.rule.no_state_update.title, diagnostics.rule.offline.title, diagnostics.rule.empty_state_payload.title, diagnostics.rule.invalid_discovery_payload.title, diagnostics.rule.ignored_device_discovery_stale.title, diagnostics.rule.configured_device_missing.title
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.title, diagnostics.rule.discovery_invalid_json.title, diagnostics.rule.discovery_mismatch.title, diagnostics.rule.discovery_not_retained.title, diagnostics.rule.missing_topic.title, diagnostics.rule.missing_availability.title, diagnostics.rule.missing_unit.title, diagnostics.rule.unit_unclassified.title, diagnostics.rule.no_state_update.title, diagnostics.rule.offline.title, diagnostics.rule.empty_state_payload.title, diagnostics.rule.invalid_discovery_payload.title, diagnostics.rule.ignored_device_discovery_stale.title, diagnostics.rule.configured_device_missing.title
     ruleTitle(item) {
       const key = item && item.key ? `diagnostics.rule.${item.key}.title` : '';
       if (key && window.I18n && window.I18n.has(key)) return t(key);
       return (item && item.rule_id) || '';
     },
 
-    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.unit_unclassified.message, diagnostics.rule.unit_unclassified.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint
     warningText(item, part) {
       const key = item && item.key ? `diagnostics.rule.${item.key}.${part}` : '';
       if (key && window.I18n && window.I18n.has(key)) return t(key);

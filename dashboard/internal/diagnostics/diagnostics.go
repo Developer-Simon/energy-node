@@ -15,6 +15,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -53,6 +54,28 @@ type Context struct {
 	Now                time.Time
 	NoStateUpdateAfter time.Duration
 	DuplicateUniqueIDs map[string][]string
+	// OwnDevice marks a device published by an Energy Node service: the
+	// node itself or a device that hangs off it via via_device.
+	OwnDevice bool
+}
+
+// isOwnDevice follows the via_device chain from id and reports whether it
+// reaches the node device. Every Energy Node service attaches its devices
+// to the node this way, foreign MQTT devices do not.
+func isOwnDevice(id string, viaOf func(string) (string, bool)) bool {
+	seen := map[string]bool{}
+	for id != "" && !seen[id] {
+		if id == energydiscovery.DeviceID {
+			return true
+		}
+		seen[id] = true
+		via, ok := viaOf(id)
+		if !ok {
+			return false
+		}
+		id = via
+	}
+	return false
 }
 
 type DeviceHealth struct {
@@ -148,11 +171,20 @@ func (e *Engine) evaluate(now time.Time, snapshot registry.DiagnosticsSnapshot, 
 		return []Warning{}
 	}
 	var warnings []Warning
+	viaByID := make(map[string]string, len(snapshot.Devices))
+	for _, device := range snapshot.Devices {
+		viaByID[device.ID] = device.ViaDevice
+	}
+	viaOf := func(id string) (string, bool) {
+		via, ok := viaByID[id]
+		return via, ok
+	}
 	for _, device := range snapshot.Devices {
 		ctx := Context{
 			Now:                now,
 			NoStateUpdateAfter: threshold,
 			DuplicateUniqueIDs: snapshot.DuplicateUniqueIDs,
+			OwnDevice:          isOwnDevice(device.ID, viaOf),
 		}
 		for _, rule := range e.Rules {
 			if rule == nil {
@@ -212,6 +244,11 @@ func (e *Engine) Health(now time.Time) []DeviceHealth {
 	snapshot := e.Registry.DiagnosticsSnapshot()
 	warningCounts := make(map[string]int)
 	for _, item := range e.evaluate(now, snapshot, fallback) {
+		// Infos stehen nur auf der Diagnose-Seite, sie zaehlen nicht als
+		// Warnung des Geraets.
+		if item.Severity == SeverityInfo {
+			continue
+		}
 		warningCounts[item.DeviceID]++
 	}
 	result := make([]DeviceHealth, 0)
@@ -325,12 +362,21 @@ func (e *Engine) Device(deviceID string, now time.Time) []Warning {
 			Now:                now,
 			NoStateUpdateAfter: e.settingsThreshold(),
 			DuplicateUniqueIDs: e.Registry.DuplicateUniqueIDs(),
+			OwnDevice: isOwnDevice(dev.ID, func(id string) (string, bool) {
+				parent, ok := e.Registry.Get(id)
+				return parent.ViaDevice, ok
+			}),
 		}
 		for _, rule := range e.Rules {
 			if rule == nil {
 				continue
 			}
-			warnings = append(warnings, rule.Evaluate(dev, ctx)...)
+			for _, item := range rule.Evaluate(dev, ctx) {
+				// Infos gehoeren nur auf die Diagnose-Seite, nicht ins Geraete-Modal.
+				if item.Severity != SeverityInfo {
+					warnings = append(warnings, item)
+				}
+			}
 		}
 	}
 	if e.Ignored != nil {
@@ -513,11 +559,44 @@ type WrongUnitRule struct{}
 
 func (WrongUnitRule) RuleID() string { return "WrongUnit" }
 
+// unitDeviceClasses are the HA sensor device classes whose values carry a
+// unit. enum, timestamp, date, aqi, ph and power_factor are left out: HA
+// accepts them without one.
+var unitDeviceClasses = map[string]bool{
+	"apparent_power": true, "atmospheric_pressure": true, "battery": true,
+	"blood_glucose_concentration": true, "carbon_dioxide": true, "carbon_monoxide": true,
+	"conductivity": true, "current": true, "data_rate": true, "data_size": true,
+	"distance": true, "duration": true, "energy": true, "energy_distance": true,
+	"energy_storage": true, "frequency": true, "gas": true, "humidity": true,
+	"illuminance": true, "irradiance": true, "moisture": true, "monetary": true,
+	"nitrogen_dioxide": true, "nitrogen_monoxide": true, "nitrous_oxide": true,
+	"ozone": true, "pm1": true, "pm10": true, "pm25": true, "power": true,
+	"precipitation": true, "precipitation_intensity": true, "pressure": true,
+	"reactive_energy": true, "reactive_power": true, "signal_strength": true,
+	"sound_pressure": true, "speed": true, "sulphur_dioxide": true, "temperature": true,
+	"volatile_organic_compounds": true, "volatile_organic_compounds_parts": true,
+	"voltage": true, "volume": true, "volume_flow_rate": true, "volume_storage": true,
+	"water": true, "weight": true, "wind_direction": true, "wind_speed": true,
+}
+
+// Evaluate skips devices of Energy Node services, whose discovery we write
+// ourselves. A foreign sensor without unit is a warning when it says it is a
+// measurement (state_class or a unit-bearing device_class). Without either it
+// may just as well be a text sensor (IP address, SSID), so it only becomes an
+// info that the diagnostics page hides by default.
 func (rule WrongUnitRule) Evaluate(device registry.DeviceView, ctx Context) []Warning {
+	if ctx.OwnDevice {
+		return nil
+	}
 	var result []Warning
 	for _, entity := range device.Entities {
-		if entity.Component == "sensor" && strings.TrimSpace(entity.UnitOfMeasurement) == "" {
+		if entity.Component != "sensor" || strings.TrimSpace(entity.UnitOfMeasurement) != "" {
+			continue
+		}
+		if entity.StateClass != "" || unitDeviceClasses[entity.DeviceClass] {
 			result = append(result, warning(rule.RuleID(), "missing_unit", SeverityWarning, device.ID, entity, ctx.Now))
+		} else {
+			result = append(result, warning(rule.RuleID(), "unit_unclassified", SeverityInfo, device.ID, entity, ctx.Now))
 		}
 	}
 	return result

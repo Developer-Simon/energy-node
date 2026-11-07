@@ -69,7 +69,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `47` |
+| `css/base.css` | `48` |
 | `css/onboarding.css` | `4` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
@@ -83,7 +83,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/layout-fill.js` | – |
 | `js/device-tile.js` | `2` |
 | `js/entity-values.js` | `1` |
-| `js/overview-values.js` | `3` |
+| `js/overview-values.js` | `4` |
 | `js/device-tile-values.js` | `1` |
 | `js/compact-card-values.js` | `1` |
 | `js/device-structure.js` | `1` (new, device tiles) |
@@ -96,7 +96,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `44` |
+| `js/dashboard.js` | `45` |
 | `js/update-bar.js` | `7` |
 | `js/onboarding-model.js` | `4` |
 | `js/onboarding.js` | `4` |
@@ -268,6 +268,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.11.7 | `css/base.css` (overview diagnostics card, info column removed) · `js/overview-values.js` (diagnostics card counts critical and warning only) · `js/dashboard.js` (diagnostics panel, info filter, "all" and the headline leave infos out) | `48` · `4` · `45` | 2026-11-07 |
 | v0.11.5 | `css/base.css` (statistics card, the chart area takes the free card height) · `js/energy-stats-card.js` (energy cards, chart follows the height of its area) | `47` · `5` | 2026-11-07 |
 | v0.11.4 | `css/diagnostics.css` (diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide) · `js/dashboard.js` (`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn, device cards glide when they change place) · `js/device-modal.js` (`x-roll` moved out) | `4` · `44` · `4` | 2026-11-06 |
 | v0.11.3 | `js/automations-chart.js` (automations panel, history entries grouped by day) · `js/automations-view.js` (automations panel, history text split for the axis) · `js/automations.page.js` (automations panel, rule history opens from the strip as a vertical axis) · `css/automations.css` (automations panel, rule history axis) · `js/onboarding-actions.js` (tour action that opens a rule with history) | `4` · `9` · `23` · `15` · `3` | 2026-11-06 |
