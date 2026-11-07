@@ -139,15 +139,45 @@ the software update itself in place.
 
 | Software | Why the normal path fails | What to do instead |
 |---|---|---|
-| Tailscale (ARMv6 only) | The official install script serves no ARMv6 build past 1.62.0 | Unpack the 1.62.0 tarball by hand, then `tailscale update` |
+| Tailscale (ARMv6 only) | The official install script serves no ARMv6 build past 1.62.0 | The installer installs the pinned 1.62.0 package. By hand, unpack the 1.62.0 tarball, then `tailscale update` |
 | Python packages | Recent Raspberry Pi OS marks the system Python as externally managed (PEP 668) | Install into the system interpreter with `--break-system-packages` |
 
 The Tailscale limit applies to ARMv6 only. The installation packages for `arm64`
 and `amd64` carry a current Tailscale version, so the installer needs no
-workaround there. The `armv6` package carries 1.62.0 and updates it in place
-when the node is signed in.
+workaround there. The `armv6` package carries 1.62.0.
+
+### How the installer brings Tailscale and Caddy
+
+The installer installs Tailscale (step 40) and Caddy (step 70) from Debian
+packages. The installation package pins one package per architecture. Your
+computer downloads the official packages and checks each file against the
+checksum in the signed manifest before it copies them to the node. The node
+needs no internet access for these two packages.
+
+On `arm64` and `amd64` the node then follows the vendor's apt repository. Later
+updates come with the system update step, like other system packages.
+
+On `armv6` both packages stay on the pinned version and are held in apt, so a
+system update does not change them. Tailscale stays on 1.62.0. A newer version
+comes only with a new installation package.
+
+If a download fails and the package is not on the node, the installer stops at
+the **Prepare package** screen and asks how to go on. It asks only for a package
+whose step you selected:
+
+- **Install from the package source** installs the package from the vendor's
+  apt repository on the node. It is offered only on `arm64` and `amd64`, and
+  the node needs internet access for it.
+- **Continue without Tailscale** or **Continue without Caddy** deselects that
+  step and the installation goes on without the package. Without Tailscale,
+  the device is only reachable on the local network. Without Caddy, the admin
+  login in the dashboard stays locked.
 
 ### 3.1 Tailscale: install 1.62.0, then update
+
+This is the manual route. The installer does this for you, see above. On a
+node that already runs this tarball, the installer replaces its files with the
+package.
 
 ```sh
 cd ~
@@ -228,10 +258,11 @@ the Shelly and Trucki bridges.
 On an older Legacy image the `--break-system-packages` flag does not exist yet.
 Leave it out there and use plain `sudo python3 -m pip install …`.
 
-The installer's bootstrap step 50 does this for you. It installs every wheel
-from the bundle with `--no-index`, so the node never fetches packages from PyPI
-over a possibly unreliable link. The build machine downloaded them from
-piwheels beforehand.
+The installer's bootstrap step 50 does this for you. It installs the wheels
+from the bundle with `--no-index`. The build machine downloaded them from
+piwheels beforehand. A wheel that the node does not have yet, for example one
+that a new version of the installation package pins, is fetched by the node
+itself from piwheels or PyPI. That needs internet access on the node.
 
 ### 3.3 Go and Node.js: do not install them on the node
 

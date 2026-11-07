@@ -116,6 +116,32 @@ The dashboard's update check ignores version suffixes. A test device on a
 `v0.11.2-pre.5` bundle is not offered the final `v0.11.2`. It is only offered
 the next higher version.
 
+## Pinned packages
+
+The installation package carries Caddy and Tailscale as Debian packages, one
+per architecture. The pins live in `scripts/build/packages.json`. Run the
+script before a release:
+
+```sh
+bash scripts/build/update_packages.sh          # shows the changes, writes nothing
+bash scripts/build/update_packages.sh --write  # writes packages.json
+```
+
+It takes the newest Caddy stable release and the newest Tailscale stable
+release from the Debian index. Every Caddy package is checked against the
+SHA-512 in the upstream checksum file, and `packages.json` pins its SHA-256. The
+script writes only when every check passes. Read the diff, then commit
+`packages.json` with the release.
+
+The `armv6` Tailscale pin stays at 1.62.0. The script does not move it, because
+there is no newer ARMv6 build to pin. A new pin reruns steps 40 and 70 on the
+next update of a node.
+
+The repository keys for Tailscale and Caddy are in `scripts/bootstrap/keyrings/`
+as `tailscale.gpg` and `caddy.gpg`. When an upstream repository changes its
+signing key, replace the matching file and check its fingerprint before you
+commit it.
+
 ## Publishing `vX.Y.Z`
 
 1. **Bump the version if needed.** The
