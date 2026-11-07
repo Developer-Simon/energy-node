@@ -70,6 +70,17 @@
     try { return window.localStorage.getItem(NAV_MODE_KEY) === 'menu' ? 'menu' : 'more'; } catch (error) { return 'more'; }
   };
 
+  // Der Punkt am Reiter Effizienz zeigt sich, bis der Nutzer ihn einmal
+  // geoeffnet hat. Ohne localStorage (privater Modus) bleibt er bei jedem
+  // Laden stehen, die Seite funktioniert trotzdem.
+  const EFFICIENCY_SEEN_KEY = 'efficiency.tab_seen';
+  const efficiencyTabWasSeen = () => {
+    try { return window.localStorage.getItem(EFFICIENCY_SEEN_KEY) === '1'; } catch (error) { return false; }
+  };
+  const rememberEfficiencyTabSeen = () => {
+    try { window.localStorage.setItem(EFFICIENCY_SEEN_KEY, '1'); } catch (error) { /* private mode: the dot comes back on the next visit */ }
+  };
+
   // Wie viele Tabs (Breiten in px) in der Zeile bleiben: alle, wenn sie passen,
   // sonst so viele, wie neben den Knopf "Weitere" passen. Gleiche Logik steht in
   // settings.page.js fuer die Unter-Tabs.
@@ -100,6 +111,8 @@
     // "menu" (Aufklappmenue unter 700px). Gilt pro Browser (localStorage, Schluessel
     // dashboard.navMode), geschaltet wird auf Einstellungen > Darstellung.
     navMode: readNavMode(),
+    // Punkt am Reiter Effizienz, solange er nie geoeffnet wurde (siehe oben).
+    efficiencyTabNew: !efficiencyTabWasSeen(),
     // Tabs, die nicht in die Zeile passen, fuer die Liste "Weitere":
     // {key, label, el, active}.
     overflowNav: [],
@@ -220,6 +233,13 @@
       return Boolean(document.querySelector(`[role="tab"][aria-controls="${panel}"]`));
     },
 
+    // Der Effizienz-Reiter gilt als gesehen, sobald der Nutzer ihn betritt.
+    seeEfficiencyTab() {
+      if (!this.efficiencyTabNew) return;
+      this.efficiencyTabNew = false;
+      rememberEfficiencyTabSeen();
+    },
+
     async setActivePanel(panel) {
       if (!this.hasTab(panel)) return;
       // Verlaesst der Nutzer die Uebersicht mit offenem Bearbeitungsmodus und
@@ -230,6 +250,7 @@
           && editor.unsaved && !(await editor.confirmLeave('tab'))) return;
       this.navOpen = false;
       this.activePanel = panel;
+      if (panel === 'efficiency-panel') this.seeEfficiencyTab();
       this.applyPageWidth();
       this.loadPanel(panel);
       this.syncLiveTopics();
@@ -447,6 +468,8 @@
       const requestedPanel = new URLSearchParams(window.location.search).get('panel');
       const panelMap = {devices: 'devices-panel', history: 'history-panel', diagnostics: 'diagnostics-panel', config: 'config-panel', energy: 'energy-panel', devicemap: 'devicemap-panel', settings: 'settings-panel', automations: 'automations-panel', efficiency: 'efficiency-panel'};
       if (panelMap[requestedPanel] && this.hasTab(panelMap[requestedPanel])) this.activePanel = panelMap[requestedPanel];
+      // Startet die Seite schon im Effizienz-Reiter, zaehlt das ebenso als Betreten.
+      if (this.activePanel === 'efficiency-panel') this.seeEfficiencyTab();
       this.loadPanel(this.activePanel);
       if (!window.EventSource) {
         this.liveFallback = window.setInterval(() => this.publishRegistryUpdate({source: 'fallback'}), 30000);

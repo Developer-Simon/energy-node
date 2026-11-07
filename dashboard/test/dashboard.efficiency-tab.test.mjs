@@ -21,7 +21,7 @@ const TABS = `
   <button id="tab-settings" class="tab" role="tab" aria-controls="settings-panel">Einstellungen</button>
 `;
 
-function createShell({ navHtml = TABS, bodyAttrs = '', roles = null } = {}) {
+function createShell({ navHtml = TABS, bodyAttrs = '', roles = null, beforeLoad = null } = {}) {
   const dom = new JSDOM(
     `<!doctype html><html><body ${bodyAttrs}><div class="nav-shell"><nav id="dashboard-tabs">${navHtml}</nav></div>`
       + '<section id="energy-panel" class="panel"></section><section id="efficiency-panel" class="panel"></section></body></html>',
@@ -37,13 +37,19 @@ function createShell({ navHtml = TABS, bodyAttrs = '', roles = null } = {}) {
     const body = roles ?? {};
     return { ok: true, status: 200, json: async () => body, text: async () => '' };
   };
+  if (beforeLoad) beforeLoad(dom.window);
   vm.runInContext(source, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
-  const component = factories.dashboardShell();
-  component.$nextTick = (fn) => fn();
-  component.loadPanel = () => {};
-  component.syncLiveTopics = () => {};
-  return { component, window: dom.window, requests };
+  // Eine neue Huelle auf demselben Fenster simuliert das Neuladen der Seite.
+  const mount = () => {
+    const shell = factories.dashboardShell();
+    shell.$nextTick = (fn) => fn();
+    shell.loadPanel = () => {};
+    shell.syncLiveTopics = () => {};
+    return shell;
+  };
+  const component = mount();
+  return { component, window: dom.window, requests, mount };
 }
 
 const settle = () => new Promise(resolve => setImmediate(resolve));
@@ -91,4 +97,44 @@ test('ohne den Reiter loest eine Rollenaenderung keine Anfrage aus', async () =>
   window.dispatchEvent(new window.CustomEvent('energy-roles-changed'));
   await settle();
   assert.deepEqual(requests, []);
+});
+
+test('der Punkt am Effizienz-Reiter zeigt sich, solange er nie geoeffnet wurde', () => {
+  const { component } = createShell({ bodyAttrs: 'data-has-chains="true"' });
+  assert.equal(component.efficiencyTabNew, true);
+});
+
+test('der Punkt erlischt beim Betreten und bleibt nach dem Neuladen weg', () => {
+  const { component, window, mount } = createShell({ bodyAttrs: 'data-has-chains="true"' });
+  component.setActivePanel('efficiency-panel');
+  assert.equal(component.efficiencyTabNew, false);
+  assert.equal(window.localStorage.getItem('efficiency.tab_seen'), '1');
+  assert.equal(mount().efficiencyTabNew, false);
+});
+
+test('ein anderer Reiter laesst den Punkt stehen', () => {
+  const { component } = createShell({ bodyAttrs: 'data-has-chains="true"' });
+  component.setActivePanel('energy-panel');
+  assert.equal(component.efficiencyTabNew, true);
+});
+
+test('ein geoeffneter Effizienz-Reiter beim Laden raeumt den Punkt ab', () => {
+  const { component, window } = createShell({
+    bodyAttrs: 'data-has-chains="true" data-initial-panel="efficiency-panel"',
+  });
+  component.init();
+  assert.equal(component.efficiencyTabNew, false);
+  assert.equal(window.localStorage.getItem('efficiency.tab_seen'), '1');
+});
+
+test('ohne funktionierenden localStorage laeuft die Huelle weiter', () => {
+  const broken = (win) => {
+    Object.defineProperty(win, 'localStorage', {
+      get() { throw new Error('denied'); },
+    });
+  };
+  const { component } = createShell({ bodyAttrs: 'data-has-chains="true"', beforeLoad: broken });
+  assert.equal(component.efficiencyTabNew, true);
+  assert.doesNotThrow(() => component.setActivePanel('efficiency-panel'));
+  assert.equal(component.efficiencyTabNew, false);
 });
