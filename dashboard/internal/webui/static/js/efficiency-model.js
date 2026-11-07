@@ -140,11 +140,11 @@
   const operatingX = (power, range) => (Number.isFinite(power) && range && power >= range.min ? power : null);
 
   // The x annotations of the curve and the x axis max. The best band has no label text,
-  // it is explained by the HTML legend. The max covers the operating line.
+  // it is explained by the HTML legend. The operating line is no annotation: the page
+  // draws it as an overlay (operatingOffset). The max still covers it, so it stays on the plot.
   const curveMarks = (series, best, power) => {
     const range = plotRange(series, best);
     const x = operatingX(power, range);
-    const muted = cssVar('text-muted');
     const xaxis = [];
     if (hasBest(best)) {
       xaxis.push({
@@ -152,14 +152,6 @@
         x2: best.to_w,
         fillColor: cssVar('ok'),
         opacity: 0.18,
-        label: { text: '', borderWidth: 0, style: { background: 'transparent' } },
-      });
-    }
-    if (x !== null) {
-      xaxis.push({
-        x,
-        borderColor: muted,
-        strokeDashArray: 4,
         label: { text: '', borderWidth: 0, style: { background: 'transparent' } },
       });
     }
@@ -179,10 +171,34 @@
     return items;
   };
 
+  // The chart animation for a mode: 'draw' is the first draw of a chain (the line
+  // draws in), 'morph' a data update of the same chain (the points move to the new
+  // values), 'still' no motion at all, for theme redraws. Reduced motion is always still.
+  const animationsFor = (mode, reduced) => {
+    if (reduced || mode === 'still') return { enabled: false };
+    return {
+      enabled: true,
+      easing: 'easeout',
+      speed: 500,
+      animateGradually: { enabled: false },
+      dynamicAnimation: { enabled: true, speed: 250 },
+    };
+  };
+
+  // The x position of the operating line inside the plot, in px from the plot's left
+  // edge. Null without a power, without a range or when the power lies outside it.
+  // It is clamped to the plot width, which only absorbs rounding at the ends.
+  const operatingOffset = (power, min, max, width) => {
+    if (![power, min, max, width].every(Number.isFinite) || !(max > min) || width < 0) return null;
+    if (power < min || power > max) return null;
+    return Math.min(width, Math.max(0, ((power - min) / (max - min)) * width));
+  };
+
   // ApexCharts options for the curve, following EnergyStatsModel.chartOptions:
-  // colours from the theme tokens, the theme mode of the page, no animation.
+  // colours from the theme tokens, the theme mode of the page. The mode and the
+  // reduced flag choose the animation (animationsFor); the default is still.
   // The legend only shows with two series.
-  const curveOptions = (series, best, width = 0, power = null) => {
+  const curveOptions = (series, best, width = 0, power = null, mode = 'still', reduced = false) => {
     const list = series || [];
     const battery = cssVar('flow-battery');
     const muted = cssVar('text-muted');
@@ -190,7 +206,7 @@
     const marks = curveMarks(list, best, power);
     const ticks = width > 0 ? Math.max(2, Math.min(8, Math.floor(width / 90))) : undefined;
     return {
-      chart: { type: 'line', height: 260, toolbar: { show: false }, animations: { enabled: false }, background: 'transparent', fontFamily: 'inherit', zoom: { enabled: false } },
+      chart: { type: 'line', height: 260, toolbar: { show: false }, animations: animationsFor(mode, reduced), background: 'transparent', fontFamily: 'inherit', zoom: { enabled: false } },
       theme: { mode: themeMode() },
       series: list.map(item => ({ name: item.name, data: item.data })),
       colors: list.map(item => (item.dash ? muted : battery)),
@@ -266,34 +282,54 @@
 
   // The four KPI tiles in fixed order: live efficiency, round trip, standby
   // and the loss of the month. Without a value a tile shows an en dash.
+  // Each tile carries the number x-roll counts to (raw) and the RollFormats entry
+  // (format) that writes its frames. An empty raw sets the en dash at once.
   const kpiTiles = (state, stats, monthLabel) => {
     const source = stats || {};
     const now = overallPercent(state);
     const roundTrip = source.round_trip_30d;
     const standby = source.standby_w_30d;
     const lossKWh = source.loss_month_kwh;
+    const raw = value => (value == null ? '' : Number(value));
     return [
       {
         id: 'now',
         label: t('efficiency.kpi.now'),
         value: now === null ? EN_DASH : window.EnergyChains.percentText(now),
+        raw: raw(now),
+        format: 'chainEfficiency',
       },
       {
         id: 'round_trip',
         label: t('efficiency.kpi.round_trip'),
         value: roundTrip == null ? EN_DASH : window.EnergyModel.formatPercent(roundTrip),
+        raw: raw(roundTrip),
+        format: 'effRoundTrip',
       },
       {
         id: 'standby',
         label: t('efficiency.kpi.standby'),
         value: standby == null ? EN_DASH : window.EnergyModel.formatPower(standby),
+        raw: raw(standby),
+        format: 'effStandby',
       },
       {
         id: 'loss_month',
         label: t('efficiency.kpi.loss_month', { month: monthLabel }),
         value: lossKWh == null ? EN_DASH : window.EnergyStatsModel.formatKWh(lossKWh),
+        raw: raw(lossKWh),
+        format: 'effKWh',
       },
     ];
+  };
+
+  // How x-roll writes the frames of the KPI tiles and the day losses (data-roll-format).
+  // The chain frames live in energy-chains.js.
+  window.RollFormats = {
+    ...window.RollFormats,
+    effRoundTrip: value => window.EnergyModel.formatPercent(value),
+    effStandby: value => window.EnergyModel.formatPower(value),
+    effKWh: value => window.EnergyStatsModel.formatKWh(value),
   };
 
   // One row per day, oldest first. The width is the loss relative to the
@@ -310,6 +346,8 @@
         local: day.local,
         label: window.EnergyStatsModel.bucketLabel('week', day.local),
         lossText: hasLoss ? window.EnergyStatsModel.formatKWh(day.loss_kwh) : EN_DASH,
+        // The number x-roll counts to; empty sets the en dash at once.
+        lossRaw: hasLoss ? Number(day.loss_kwh) : '',
         efficiencyText: hasLoss && efficiency !== null ? window.EnergyChains.percentText(efficiency) : EN_DASH,
         width,
       };
@@ -325,5 +363,6 @@
 
   window.EfficiencyModel = {
     stateKey, statusOf, overallPercent, kpiTiles, dayRows, curveSeries, curveOptions, curveMarks, curveLegend, livePowerOf, segmentRows,
+    operatingOffset, animationsFor,
   };
 })();

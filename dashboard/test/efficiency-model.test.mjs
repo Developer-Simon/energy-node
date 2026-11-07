@@ -165,35 +165,82 @@ test('curveOptions marks the best range', () => {
   assert.equal(two.legend.show, true);
 });
 
-test('curveOptions draws the operating line inside the plotted range and grows the axis to cover it', () => {
+test('curveOptions grows the axis to cover the live power, the operating line is no annotation', () => {
   const model = loadModel();
   const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
   const best = { from_w: 250, to_w: 500 };
   const dashed = options => options.annotations.xaxis.filter(item => item.strokeDashArray);
 
   const inside = plain(model.curveOptions(series, best, 600, 320));
-  assert.equal(dashed(inside).length, 1);
-  assert.equal(dashed(inside)[0].x, 320);
-  assert.equal(dashed(inside)[0].label.text, '');
+  assert.equal(dashed(inside).length, 0);
+  assert.equal(inside.annotations.xaxis.length, 1);
   assert.equal(inside.xaxis.max, 500);
 
   const above = plain(model.curveOptions(series, best, 600, 800));
-  assert.equal(dashed(above)[0].x, 800);
   assert.equal(above.xaxis.max, 800);
 
   const below = plain(model.curveOptions(series, best, 600, 100));
-  assert.equal(dashed(below).length, 0);
   assert.equal(below.xaxis.max, 500);
+});
 
-  const none = plain(model.curveOptions(series, best, 600, null));
-  assert.equal(dashed(none).length, 0);
+test('operatingOffset places the line in px from the plot edge, null outside the range', () => {
+  const model = loadModel();
+  assert.equal(model.operatingOffset(500, 0, 1000, 400), 200);
+  assert.equal(model.operatingOffset(0, 0, 1000, 400), 0);
+  assert.equal(model.operatingOffset(1000, 0, 1000, 400), 400);
+  assert.equal(model.operatingOffset(-1, 0, 1000, 400), null);
+  assert.equal(model.operatingOffset(1001, 0, 1000, 400), null);
+  assert.equal(model.operatingOffset(null, 0, 1000, 400), null);
+  assert.equal(model.operatingOffset(NaN, 0, 1000, 400), null);
+  assert.equal(model.operatingOffset(500, 1000, 1000, 400), null);
+  assert.equal(model.operatingOffset(500, 0, 1000, 0), 0);
+});
+
+test('animationsFor: draw and morph animate, still and reduced motion do not', () => {
+  const model = loadModel();
+  const draw = plain(model.animationsFor('draw', false));
+  assert.equal(draw.enabled, true);
+  assert.equal(draw.easing, 'easeout');
+  assert.equal(draw.speed, 500);
+  assert.equal(draw.dynamicAnimation.enabled, true);
+  assert.equal(draw.dynamicAnimation.speed, 250);
+  assert.equal(plain(model.animationsFor('morph', false)).enabled, true);
+  assert.equal(plain(model.animationsFor('still', false)).enabled, false);
+  assert.equal(plain(model.animationsFor('draw', true)).enabled, false);
+  assert.equal(plain(model.animationsFor('morph', true)).enabled, false);
+});
+
+test('curveOptions takes the animation of its mode, reduced motion turns it off', () => {
+  const model = loadModel();
+  const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
+  assert.equal(plain(model.curveOptions(series, null, 600, null, 'draw', false)).chart.animations.enabled, true);
+  assert.equal(plain(model.curveOptions(series, null, 600, null, 'draw', true)).chart.animations.enabled, false);
+  assert.equal(plain(model.curveOptions(series, null, 600, null, 'still', false)).chart.animations.enabled, false);
+});
+
+test('the KPI tiles name the number and the RollFormats entry that x-roll writes', () => {
+  const { model, dom } = loadModelDom();
+  const segments = [{ available: true, efficiency: 0.97 }, { available: true, efficiency: 0.92 }];
+  const tiles = model.kpiTiles(state({ segments }), efficiency(), 'November');
+  assert.deepEqual([...tiles.map(tile => tile.format)], ['chainEfficiency', 'effRoundTrip', 'effStandby', 'effKWh']);
+  assert.equal(tiles[0].raw, 89.24);
+  assert.equal(tiles[1].raw, 0.8);
+  assert.equal(tiles[3].raw, 12.5);
+  assert.equal(dom.window.RollFormats.effRoundTrip(0.8), '80 %');
+  assert.equal(dom.window.RollFormats.effKWh(12.5), '12,5 kWh');
+  assert.equal(dom.window.RollFormats.effStandby(3.6), '4 W');
+
+  const empty = model.kpiTiles(state({ segments: [] }), efficiency({ round_trip_30d: null, standby_w_30d: null }), 'November');
+  assert.equal(empty[0].raw, '');
+  assert.equal(empty[1].raw, '');
+  assert.equal(empty[2].raw, '');
 });
 
 test('curveMarks follows the same rule as curveOptions for the live update', () => {
   const model = loadModel();
   const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
   const marks = plain(model.curveMarks(series, { from_w: 250, to_w: 500 }, 980));
-  assert.equal(marks.xaxis.filter(item => item.strokeDashArray).length, 1);
+  assert.equal(marks.xaxis.filter(item => item.strokeDashArray).length, 0);
   assert.equal(marks.max, 980);
   assert.equal(plain(model.curveMarks(series, null, null)).max, 500);
 });
@@ -353,6 +400,8 @@ test('dayRows', () => {
   assert.equal(rows[2].lossText, '–');
   assert.equal(rows[2].efficiencyText, '–');
   assert.equal(rows[2].width, 0);
+  assert.equal(rows[0].lossRaw, 1);
+  assert.equal(rows[2].lossRaw, '');
 });
 
 test('dayRows without any data divides by nothing', () => {

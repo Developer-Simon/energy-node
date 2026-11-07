@@ -267,21 +267,24 @@ test('Die Kurve wird mit dem Laden gezeichnet, nur beim ersten Live-Zustand und 
   assert.equal(charts.made[0].options.series.length, 1);
   assert.equal(charts.made[0].options.annotations.xaxis.length, 1);
 
-  // Der erste Live-Zustand zeichnet einmal neu, danach nicht mehr im Registry-Takt.
+  // Der erste Live-Zustand morpht den Chart in place, er wird nicht neu erzeugt, und danach nicht mehr im Registry-Takt.
   emit({energy: {chains: [akkuState(0.97)]}});
-  assert.equal(charts.made.length, 2);
-  assert.equal(charts.made[0].destroyed, true);
+  assert.equal(charts.made.length, 1);
+  assert.equal(charts.made[0].destroyed, false);
+  assert.equal(charts.made[0].updates.length, 1);
   emit({energy: {chains: [akkuState(0.92)]}});
-  assert.equal(charts.made.length, 2);
+  assert.equal(charts.made.length, 1);
+  assert.equal(charts.made[0].updates.length, 1);
 
+  // Eine neue Revision derselben Kette morpht ebenfalls, ohne Neuaufbau.
   server.revision = 2;
   emit({energy_stats: {rev: 2}});
   await flush();
-  assert.equal(charts.made.length, 3);
-  assert.equal(charts.made[1].destroyed, true);
+  assert.equal(charts.made.length, 1);
+  assert.equal(charts.made[0].updates.length, 2);
 
   panel.destroy();
-  assert.equal(charts.made[2].destroyed, true);
+  assert.equal(charts.made[0].destroyed, true);
   dom.window.close();
 });
 
@@ -303,23 +306,78 @@ test('Der Betriebspunkt wandert als Linie mit, unter 1 W Aenderung bleibt der Ch
   panel.$refs = {curve: dom.window.document.createElement('div')};
   await panel.init();
   emit(liveAt(970));
-  // The first live state draws once, with the line in place.
-  assert.equal(charts.made.length, 2);
-  assert.equal(dashedLines(charts.made[1].options)[0].x, 970);
-  assert.equal(charts.made[1].options.xaxis.max, 970);
+  // The first live state morphs the chart: the axis covers the power, no annotation carries the line.
+  assert.equal(charts.made.length, 1);
+  assert.equal(charts.made[0].updates.length, 1);
+  assert.equal(charts.made[0].updates[0].xaxis.max, 970);
+  assert.equal(dashedLines(charts.made[0].updates[0]).length, 0);
 
   emit(liveAt(970.4));
-  assert.equal(charts.made[1].updates.length, 0);
+  assert.equal(charts.made[0].updates.length, 1);
 
   emit(liveAt(980));
-  assert.equal(charts.made.length, 2);
-  assert.equal(charts.made[1].updates.length, 1);
-  assert.equal(dashedLines({annotations: charts.made[1].updates[0].annotations})[0].x, 980);
-  assert.equal(charts.made[1].updates[0].xaxis.max, 980);
+  assert.equal(charts.made[0].updates.length, 2);
+  assert.equal(charts.made[0].updates[1].xaxis.max, 980);
 
   emit(liveAt(980, {flow: 'idle'}));
-  assert.equal(charts.made[1].updates.length, 2);
-  assert.equal(dashedLines({annotations: charts.made[1].updates[1].annotations}).length, 0);
+  assert.equal(charts.made[0].updates.length, 3);
+  assert.equal(charts.made[0].updates[2].xaxis.max, 500);
+  dom.window.close();
+});
+
+test('Die Betriebspunkt-Linie liegt ueber dem Wert im Plot, gleitet per transform und verschwindet ohne Leistung', async () => {
+  const {dom, panel, emit} = setup({chains: [WITH_CURVE]});
+  const charts = fakeCharts(dom.window);
+  panel.$refs = {curve: dom.window.document.createElement('div'), now: dom.window.document.createElement('span')};
+  await panel.init();
+  charts.made[0].w = {globals: {minX: 0, maxX: 1000, gridWidth: 500, translateX: 40, translateY: 10, gridHeight: 200}};
+  const now = panel.$refs.now;
+
+  emit(liveAt(500));
+  await flush();
+  assert.equal(now.style.transform, 'translateX(290px)');
+  assert.equal(now.style.top, '10px');
+  assert.equal(now.style.height, '200px');
+  assert.equal(now.style.opacity, '1');
+
+  emit(liveAt(250));
+  await flush();
+  assert.equal(now.style.transform, 'translateX(165px)');
+
+  emit(liveAt(1200));
+  await flush();
+  assert.equal(now.style.opacity, '0');
+
+  emit(liveAt(980, {flow: 'idle'}));
+  await flush();
+  assert.equal(now.style.opacity, '0');
+  dom.window.close();
+});
+
+test('Mit prefers-reduced-motion zeichnet die Kurve ohne Animation, die Linie hat keine Bewegung', async () => {
+  const {dom, panel} = setup({chains: [WITH_CURVE]});
+  dom.window.matchMedia = query => ({matches: query.includes('reduce'), media: query});
+  const charts = fakeCharts(dom.window);
+  panel.$refs = {curve: dom.window.document.createElement('div'), now: dom.window.document.createElement('span')};
+  await panel.init();
+  assert.equal(charts.made[0].options.chart.animations.enabled, false);
+  dom.window.close();
+});
+
+test('Ohne reduzierte Bewegung zeichnet der erste Draw die Kurve ein, mit Kettenwechsel blendet der Host ein', async () => {
+  const {dom, panel} = setup({chains: [WITH_CURVE, {...WALLBOX, curve: CURVE}]});
+  dom.window.matchMedia = () => ({matches: false});
+  const charts = fakeCharts(dom.window);
+  panel.$refs = {curve: dom.window.document.createElement('div')};
+  let faded = null;
+  panel.$refs.curve.animate = (frames, options) => { faded = {frames, options}; };
+  await panel.init();
+  assert.equal(charts.made[0].options.chart.animations.enabled, true);
+  assert.equal(charts.made[0].options.chart.animations.easing, 'easeout');
+  assert.equal(faded, null);
+  panel.selectChain('wallbox');
+  assert.equal(faded.options.duration, 160);
+  assert.equal(charts.made[1].options.chart.animations.enabled, true);
   dom.window.close();
 });
 

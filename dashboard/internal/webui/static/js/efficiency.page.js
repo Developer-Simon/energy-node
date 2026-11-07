@@ -13,6 +13,12 @@
 // chains.suggestion.apply
 (() => {
   const CHAIN_KEY = 'efficiency.chain';
+  // Long enough for the card intro (250 ms plus 40 ms per card) and the bar stagger (300 ms plus 20 ms per bar).
+  const INTRO_MS = 700;
+
+  // Reduced motion is read on each use, so a change of the system setting applies at the next draw.
+  const prefersReducedMotion = () => typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const t = (key, params) => window.I18n.t(key, params);
 
@@ -83,6 +89,12 @@
     drawnHost: null,
     // The live power the chart shows its operating line at (null: no line).
     drawnPower: null,
+    // The chain the chart was drawn for, and whether the current-value line sits in place yet.
+    drawnChainId: '',
+    nowPlaced: false,
+    // The intro (cards and bars) plays once per page load, after the first load.
+    introPlayed: false,
+    introTimer: null,
     themeOff: null,
     curveNote: '',
     // The segment whose tolerance form is open ('a|b'), and its two draft fields.
@@ -106,7 +118,18 @@
       if (this.rolesListener) window.removeEventListener('energy-roles-changed', this.rolesListener);
       if (this.themeOff) this.themeOff();
       this.themeOff = null;
+      if (this.introTimer) window.clearTimeout(this.introTimer);
+      this.introTimer = null;
       this.destroyCurve();
+    },
+
+    // The intro starts with the first loaded chains and ends once its longest step is over.
+    startIntro() {
+      if (this.introPlayed || this.introTimer) return;
+      this.introTimer = window.setTimeout(() => {
+        this.introPlayed = true;
+        this.introTimer = null;
+      }, INTRO_MS);
     },
 
     get empty() { return !this.loading && !this.error && this.chains.length === 0; },
@@ -352,8 +375,9 @@
     },
 
     // Draws the curve again only when its key changes, never on every registry tick.
-    // Between two draws only the operating line moves.
-    syncCurve() {
+    // Between two draws only the operating line moves. A new chain draws in, a new
+    // revision of the same chain morphs into its new values, a theme change redraws still.
+    syncCurve(still = false) {
       const host = this.$refs && this.$refs.curve;
       if (!host || !this.current) return;
       const key = this.curveKey();
@@ -361,13 +385,19 @@
         this.syncOperatingLine();
         return;
       }
+      const sameChain = Boolean(this.chart) && this.drawnChainId === this.currentId && host === this.drawnHost;
+      const switched = Boolean(this.chart) && this.drawnChainId !== this.currentId;
       this.drawnKey = key;
       this.drawnHost = host;
-      this.drawCurve(host);
+      this.drawnChainId = this.currentId;
+      let mode = 'draw';
+      if (still) mode = 'still';
+      else if (sameChain) mode = 'morph';
+      this.drawCurve(host, mode, switched);
     },
 
-    // Moves the operating line when the live power changed by at least 1 W. Only the
-    // annotation and the axis max are updated, the chart itself stays as it is.
+    // Moves the operating line when the live power changed by at least 1 W. The axis max
+    // grows to keep the line on the plot. That update has no animation, so the series stays put.
     syncOperatingLine() {
       if (!this.chart) return;
       const power = this.livePower;
@@ -375,34 +405,80 @@
       this.drawnPower = power;
       const series = this.curveSeries;
       const marks = window.EfficiencyModel.curveMarks(series, this.curveBest(series), power);
-      this.chart.updateOptions({annotations: {xaxis: marks.xaxis}, xaxis: {max: marks.max === null ? undefined : marks.max}});
+      Promise.resolve(this.chart.updateOptions({xaxis: {max: marks.max === null ? undefined : marks.max}}, false, false))
+        .then(() => this.positionNow());
     },
 
-    // Draws the curve again with the current theme colours.
+    // Draws the curve again with the current theme colours, without an animation.
     redrawCurve() {
       this.drawnKey = '';
-      this.syncCurve();
+      this.syncCurve(true);
     },
 
-    // Destroys the old chart before the new one is created. Without points there is a note; without ApexCharts a text.
-    drawCurve(host) {
-      this.destroyCurve();
+    // Places the current-value line over the plot. Its x comes from the chart's own x scale,
+    // so a new power glides (a transform transition) and a missing power hides it.
+    positionNow() {
+      const el = this.$refs && this.$refs.now;
+      if (!el) return;
+      const globals = this.chart && this.chart.w ? this.chart.w.globals : null;
+      const offset = globals
+        ? window.EfficiencyModel.operatingOffset(this.livePower, globals.minX, globals.maxX, globals.gridWidth)
+        : null;
+      el.classList.toggle('is-static', prefersReducedMotion());
+      if (offset === null) {
+        el.style.opacity = '0';
+        return;
+      }
+      el.style.top = `${globals.translateY}px`;
+      el.style.height = `${globals.gridHeight}px`;
+      const x = `translateX(${globals.translateX + offset}px)`;
+      if (!this.nowPlaced) {
+        // The first placement of a chart does not glide in from the left edge.
+        el.classList.add('is-initial');
+        el.style.transform = x;
+        void el.offsetWidth;
+        el.classList.remove('is-initial');
+        this.nowPlaced = true;
+      } else {
+        el.style.transform = x;
+      }
+      el.style.opacity = '1';
+    },
+
+    // Draws the chart for a mode (see syncCurve). A morph updates the existing chart in place;
+    // every other mode destroys the old chart first. Without points there is a note; without ApexCharts a text.
+    drawCurve(host, mode, switched) {
       const series = this.curveSeries;
       if (!series.length) {
+        this.destroyCurve();
         this.curveNote = t('efficiency.curve.learning');
         return;
       }
       if (!window.ApexCharts) {
+        this.destroyCurve();
         this.curveNote = t('efficiency.curve.unavailable');
         return;
       }
       this.curveNote = '';
       this.drawnPower = this.livePower;
-      this.chart = new window.ApexCharts(host, window.EfficiencyModel.curveOptions(series, this.curveBest(series), host.clientWidth, this.drawnPower));
-      this.chart.render();
+      const reduced = prefersReducedMotion();
+      const options = window.EfficiencyModel.curveOptions(series, this.curveBest(series), host.clientWidth, this.drawnPower, mode, reduced);
+      options.chart.events = {mounted: () => this.positionNow(), updated: () => this.positionNow()};
+      if (mode === 'morph' && this.chart) {
+        Promise.resolve(this.chart.updateOptions(options, false, true)).then(() => this.positionNow());
+        return;
+      }
+      this.destroyCurve();
+      // A chain switch fades the host in, instead of swapping the chart in one step.
+      if (switched && typeof host.animate === 'function') {
+        host.animate([{opacity: 0}, {opacity: 1}], {duration: reduced ? 120 : 160, easing: 'cubic-bezier(0.23, 1, 0.32, 1)'});
+      }
+      this.chart = new window.ApexCharts(host, options);
+      Promise.resolve(this.chart.render()).then(() => this.positionNow());
     },
 
     destroyCurve() {
+      this.nowPlaced = false;
       if (!this.chart) return;
       try { this.chart.destroy(); } catch (error) { /* the chart is gone with its host */ }
       this.chart = null;
@@ -436,6 +512,7 @@
         this.chains = Array.isArray(body.chains) ? body.chains : [];
         this.dataRevision = typeof body.revision === 'number' ? body.revision : null;
         this.error = '';
+        this.startIntro();
       } catch (error) {
         if (seq === this.seq) this.error = error.message;
       } finally {
