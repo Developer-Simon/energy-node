@@ -800,12 +800,44 @@ def test_once_watchdog_scenario_single_restart():
     doc, engine, published, _ = scenario_engine_with([normalized(watchdog_scenario())])
     now = t0
     while now <= t0 + 7 * 3600:
-        power = 0 if t0 + 10 <= now < t0 + 20 else 150
+        # 0 W direkt nach dem Ende (on_end schaltet ein) und nach der Abkuehlzeit.
+        zero_windows = ((t0 + 30, t0 + 40), (t0 + 21700, t0 + 21710))
+        power = 0 if any(start <= now < stop for start, stop in zero_windows) else 150
         report = engine.tick(doc, balance=None, balance_age=None, now_ts=now,
                              topic_values={**chain_topics(now, findings), PLUG_TOPIC: json.dumps({"power": power})})
         now += 10
     assert payloads(published) == ["off", "on"]
     assert report["watchdog"]["phase"] == "idle"
+    assert len(engine._runtime["watchdog"].consumed) == 1
+
+
+def test_scenario_end_keeps_consumed_keys():
+    t0 = 10000.0
+    findings = [{"kind": "frozen", "from": "sensor.dc", "since": t0 - 1000}]
+    doc, engine, published, _ = scenario_engine_with([normalized(watchdog_scenario())])
+    engine.tick(doc, balance=None, balance_age=None, now_ts=t0,
+                topic_values={**chain_topics(t0, findings), PLUG_TOPIC: json.dumps({"power": 150})})
+    engine.tick(doc, balance=None, balance_age=None, now_ts=t0 + 30,
+                topic_values={**chain_topics(t0 + 30, findings), PLUG_TOPIC: json.dumps({"power": 150})})
+    assert payloads(published) == ["off", "on"]
+    assert engine._runtime["watchdog"].phase == "idle"
+    assert engine._runtime["watchdog"].consumed == {(0, "frozen", "sensor.dc", None, t0 - 1000)}
+
+
+def test_until_once_condition_never_consumes():
+    until = {"conditions": [chain_finding_cond(once=True)]}
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(
+        until=until, on_start={"actions": [publish_action("start")]},
+        on_end={"actions": [publish_action("end")]}))])
+    findings = [{"kind": "frozen", "from": "sensor.dc", "since": 900}]
+    engine.tick(doc, balance={"grid_export": 900}, balance_age=0, now_ts=1000,
+                topic_values=chain_topics(1000))
+    assert payloads(published) == ["start"]
+    report = engine.tick(doc, balance={"grid_export": 900}, balance_age=0, now_ts=1010,
+                         topic_values=chain_topics(1010, findings))
+    assert payloads(published) == ["start", "end"]
+    assert report["x"]["phase"] == "idle"
+    assert engine._runtime["x"].consumed == set()
 
 
 def test_once_false_behaves_like_before():
