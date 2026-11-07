@@ -137,6 +137,35 @@
     return result;
   }
 
+  // Messketten aus dem Snapshot. Der erste Messpunkt ist der Plug: sein Schalter am
+  // selben Gerät schaltet die Last, sein Messwert ist plugPower. Die Punkte auf anderen
+  // Geräten sind watchPoints, die der Watchdog beobachtet.
+  function chainEntries(snapshot, devices, switches) {
+    const result = [];
+    for (const chain of (snapshot && snapshot.chains) || []) {
+      const points = chain.points || [];
+      const first = points[0] || {};
+      const device = devices.find((item) => item.id === first.device_id) || null;
+      const entities = (device && device.entities) || [];
+      const ownSwitch = entities.find((entity) => isSwitch(entity)) || null;
+      const plugSwitch = ownSwitch ? ownSwitch.unique_id : '';
+      const switchEntry = plugSwitch ? switches.find((item) => item.id === plugSwitch) : null;
+      const plugPower = entities.find((entity) => entity.unique_id === first.entity_id) || null;
+      let disabled = t('automations.assistant.unavailable.chain_switch');
+      if (plugSwitch) disabled = (switchEntry && switchEntry.disabled) || '';
+      result.push({
+        id: chain.id,
+        deviceName: chain.label || chain.id,
+        live: points.map((point) => point.label || point.entity_id).join(' → '),
+        disabled,
+        plugSwitch,
+        plugPower,
+        watchPoints: points.filter((point) => point.device_id !== first.device_id),
+      });
+    }
+    return result;
+  }
+
   const deviceHasRole = (index, deviceId, role) => (index.deviceRoles.get(deviceId) || new Set()).has(role);
   const BATTERY_ROLES = ['battery', 'battery_soc'];
   const RESERVED_ROD_ROLES = ['pv', 'wallbox', 'heat_pump', ...BATTERY_ROLES];
@@ -274,6 +303,7 @@
       inverters: inverterEntries(devices, index, regulatedTopics),
       wallboxes,
       switches,
+      chains: chainEntries(snapshot, devices, switches),
       heatPumps,
       gridTargets: gridTargetEntries(heatPumps, wallboxes),
       batteries: batteryEntries(devices, index),
@@ -308,6 +338,14 @@
     if (filter === 'inverter') return ctx.inverters;
     if (filter === 'wallbox') return ctx.wallboxes;
     if (filter === 'switch') return ctx.switches;
+    if (filter === 'chain') return ctx.chains || [];
+    // Der Watchdog braucht Messpunkte auf anderen Geräten als den Plug.
+    if (filter === 'chain_watchdog') {
+      return (ctx.chains || []).map((item) => ({
+        ...item,
+        disabled: item.disabled || (item.watchPoints.length ? '' : t('automations.assistant.unavailable.chain_device')),
+      }));
+    }
     if (filter === 'heat_pump') return ctx.heatPumps;
     if (filter === 'battery') return ctx.batteries;
     if (filter === 'rod') return ctx.rods;
@@ -369,6 +407,7 @@
   }
 
   // Verfuegbarkeit einer Vorlage aus den Geraetelisten und dem Akkusignal.
+  // i18n-keys: automations.assistant.unavailable.chain, automations.assistant.unavailable.chain_watchdog
   function templateAvailability(template, ctx) {
     const requires = template.requires || {};
     let reason = '';

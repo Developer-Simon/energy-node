@@ -46,6 +46,13 @@ const SNAPSHOT = {
     { device_id: 'pv1', entity_id: 'pv1_power', role: { role: 'pv' } },
     { device_id: 'wb', entity_id: 'wb_power', role: { role: 'wallbox' } },
   ],
+  // Messkette: der Plug (Wallbox mit Schalter) vorn, Wechselrichter als Messpunkt auf anderem Gerät.
+  chains: [{
+    id: 'speicher', label: 'Speicher', points: [
+      { entity_id: 'wb_power', device_id: 'wb', label: 'Plug' },
+      { entity_id: 'pv1_power', device_id: 'pv1', label: 'Speicher AC' },
+    ],
+  }],
 };
 
 const SETTINGS = {
@@ -90,6 +97,11 @@ function variants() {
     ['time_switch', DEVICES, { window: { from: '06:00', to: '08:00', days: WORKDAYS } }],
     ['pv_missing', DEVICES, {}],
     ['pv_missing', DEVICES, { limit: 50, minutes: 60, severity: 'critical' }],
+    ['chain_watchdog', DEVICES, {}],
+    ['chain_watchdog', DEVICES, { minutes: 30, load: 50, pause: 60, again: 12, extras: { notify: true, history: false } }],
+    ['chain_standby', DEVICES, {}],
+    ['chain_standby', DEVICES, { back: 'manual', limit: 5, hours: 4 }],
+    ['chain_standby', DEVICES, { back: 'time', limit: 20, at: { from: '23:30', to: '00:30', days: ALL_DAYS } }],
   ];
 }
 
