@@ -7,7 +7,7 @@ import (
 
 func TestRolesCatalogMatchesSpec(t *testing.T) {
 	keys := AllRoles()
-	if len(keys) != 32 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+	if len(keys) != 33 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
 		t.Fatalf("catalog order: %v", keys)
 	}
 	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {
@@ -78,5 +78,17 @@ func TestDeviceRightsInCatalog(t *testing.T) {
 	}
 	if got := Normalize([]string{RoleViewDeviceAnalysis}); len(got) != 0 {
 		t.Fatalf("view_device_analysis without view_devices must be dropped, got %v", got)
+	}
+}
+
+func TestDefaultRolesIncludeEfficiency(t *testing.T) {
+	if !containsRole(defaultGuestRoles(), RoleViewEfficiency) {
+		t.Errorf("defaultGuestRoles lacks view_efficiency: %v", defaultGuestRoles())
+	}
+	if !containsRole(defaultHAUserRoles(), RoleViewEfficiency) {
+		t.Errorf("defaultHAUserRoles lacks view_efficiency: %v", defaultHAUserRoles())
+	}
+	if !containsRole(defaultHAAdminRoles(), RoleViewEfficiency) {
+		t.Errorf("defaultHAAdminRoles lacks view_efficiency: %v", defaultHAAdminRoles())
 	}
 }

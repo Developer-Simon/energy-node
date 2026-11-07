@@ -19,6 +19,7 @@ const (
 	RoleViewDevices     = "view_devices"
 	RoleViewHistory     = "view_history"
 	RoleViewStats       = "view_stats"
+	RoleViewEfficiency  = "view_efficiency"
 	RoleViewEnergy      = "view_energy"
 	RoleViewDeviceMap   = "view_device_map"
 	RoleViewConfig      = "view_config"
@@ -65,6 +66,7 @@ var roleCatalog = []RoleInfo{
 	{Key: RoleViewDeviceAnalysis, Category: CategoryView, Requires: RoleViewDevices, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewHistory, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewStats, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
+	{Key: RoleViewEfficiency, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewEnergy, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewDeviceMap, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleViewConfig, Category: CategoryView, GuestAllowed: true, HAAllowed: true},
