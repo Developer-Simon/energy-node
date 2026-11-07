@@ -2,6 +2,7 @@ package chainwatch
 
 import (
 	"math"
+	"slices"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -80,12 +81,17 @@ func (m *Monitor) observeChain(at time.Time, cs *energy.ChainState) {
 		m.table.syncPair(pairOf(s.a, s.b), *s.a, *s.b, at)
 		m.table.syncPair(pairOf(s.src, s.dst), *s.src, *s.dst, at)
 	}
-	for _, s := range v.segments {
-		m.table.countSign(pairOf(s.a, s.b), *s.a, *s.b)
+	if cs.Flow != "idle" {
+		for _, s := range v.segments {
+			m.table.countSign(pairOf(s.a, s.b), *s.a, *s.b)
+		}
 	}
 
 	for _, s := range v.segments {
-		m.feed(at, segKey(cs.ID, energy.FindingUnit, s), detectUnit(v, s), m.holds.Unit, m.holds.Clear, s.info())
+		uv, sugg := detectUnit(v, s)
+		info := s.info()
+		info.sugg = sugg
+		m.feed(at, segKey(cs.ID, energy.FindingUnit, s), uv, m.holds.Unit, m.holds.Clear, info)
 	}
 	for i := range v.state.Points {
 		p := &v.state.Points[i]
@@ -108,8 +114,8 @@ func (m *Monitor) observeChain(at time.Time, cs *energy.ChainState) {
 		}
 	}
 	for _, s := range v.segments {
-		// Sign has no hold of its own yet, 4c sets it.
-		sv, sugg := detectSign(v, s)
+		// Sign has no hold of its own: the counters carry the condition.
+		sv, sugg := detectSign(m.table, at, v, s)
 		info := s.info()
 		info.sugg = sugg
 		m.feed(at, segKey(cs.ID, energy.FindingSign, s), sv, 0, m.holds.Clear, info)
@@ -252,9 +258,23 @@ type span struct {
 // frozenWindow is the time since a point last changed, with the spread of every
 // other fresh point of the chain in that time.
 type frozenWindow struct {
-	last  float64
-	since time.Time
-	spans map[string]*span
+	last   float64
+	since  time.Time
+	spans  map[string]*span
+	scales map[string]float64 // scale of the other points when the window started
+}
+
+// scaleChanged reports whether another point changed its scale since the window
+// started. A scale correction moves the values without a movement of the
+// process, so the window starts over.
+func (w *frozenWindow) scaleChanged(v chainView, p *energy.ChainPointState) bool {
+	for i := range v.state.Points {
+		q := &v.state.Points[i]
+		if scale, ok := w.scales[q.EntityID]; ok && q.EntityID != p.EntityID && scale != q.Scale {
+			return true
+		}
+	}
+	return false
 }
 
 // observe takes the fresh values of the other points into the spans.
@@ -264,6 +284,7 @@ func (w *frozenWindow) observe(v chainView, p *energy.ChainPointState) {
 		if q.EntityID == p.EntityID || q.Freshness != "fresh" || !finite(q.Value) {
 			continue
 		}
+		w.scales[q.EntityID] = q.Scale
 		s := w.spans[q.EntityID]
 		if s == nil {
 			w.spans[q.EntityID] = &span{min: q.Value, max: q.Value}
@@ -293,8 +314,8 @@ func (m *Monitor) frozenVerdict(at time.Time, v chainView, p *energy.ChainPointS
 		return no
 	}
 	w := m.windows[key]
-	if w == nil || w.last != p.Value {
-		w = &frozenWindow{last: p.Value, since: at, spans: map[string]*span{}}
+	if w == nil || w.last != p.Value || w.scaleChanged(v, p) {
+		w = &frozenWindow{last: p.Value, since: at, spans: map[string]*span{}, scales: map[string]float64{}}
 		m.windows[key] = w
 	}
 	w.observe(v, p)
@@ -359,15 +380,65 @@ func detectDrift(v chainView, s segView) verdict {
 	return yes
 }
 
-// detectUnit reports a wrong scale or unit on the segment.
-// TODO(4c): not implemented yet, every sample is unknown.
-func detectUnit(v chainView, s segView) verdict {
-	return unknown
+// detectUnit reports two points that differ by a factor of 1000 within
+// UnitTolerance of the larger one, the larger at least UnitMinW. The suggestion
+// scales the smaller point by 1000, or the larger one by 0.001 from
+// UnitFlipAboveW on.
+func detectUnit(v chainView, s segView) (verdict, *energy.ChainSuggestion) {
+	a, b := s.a, s.b
+	if a.Freshness != "fresh" || b.Freshness != "fresh" || !finite(a.Value) || !finite(b.Value) {
+		return unknown, nil
+	}
+	small, large := a, b
+	if math.Abs(a.Value) > math.Abs(b.Value) {
+		small, large = b, a
+	}
+	smallW, largeW := math.Abs(small.Value), math.Abs(large.Value)
+	if largeW < UnitMinW || math.Abs(largeW-1000*smallW) > UnitTolerance*largeW {
+		return no, nil
+	}
+	if largeW >= UnitFlipAboveW {
+		return yes, &energy.ChainSuggestion{EntityID: large.EntityID, ScaleFactor: 0.001}
+	}
+	return yes, &energy.ChainSuggestion{EntityID: small.EntityID, ScaleFactor: 1000}
 }
 
-// detectSign reports a meter that counts against the flow. It returns the
-// suggestion that goes with a yes.
-// TODO(4c): not implemented yet, every sample is unknown.
-func detectSign(v chainView, s segView) (verdict, *energy.ChainSuggestion) {
-	return unknown, nil
+// detectSign reports a pair whose meter counts against the flow: the pair is at
+// least SignMinAge old, has SignMinOpposite opposite samples and at most
+// SignMaxAgreeShare agreeing ones. The suggestion inverts the point of the pair
+// farther from the counting point.
+func detectSign(t *Table, at time.Time, v chainView, s segView) (verdict, *energy.ChainSuggestion) {
+	agree, opposite, firstSeen, ok := t.signCounts(pairOf(s.a, s.b))
+	if !ok {
+		return no, nil
+	}
+	total := agree + opposite
+	if at.Sub(firstSeen) < SignMinAge || opposite < SignMinOpposite ||
+		float64(agree) > SignMaxAgreeShare*float64(total) {
+		return no, nil
+	}
+	return yes, &energy.ChainSuggestion{EntityID: signTarget(v, s), Invert: true}
+}
+
+// signTarget is the point of the segment that lies farther from the counting
+// point in chain order. Ties go to the later point, a missing counting point to
+// the later point too.
+func signTarget(v chainView, s segView) string {
+	ia := slices.Index(v.points, s.a.EntityID)
+	ib := slices.Index(v.points, s.b.EntityID)
+	ic := slices.Index(v.points, v.state.Counting)
+	if ic < 0 {
+		return s.b.EntityID
+	}
+	if intAbs(ia-ic) > intAbs(ib-ic) {
+		return s.a.EntityID
+	}
+	return s.b.EntityID
+}
+
+func intAbs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
 }

@@ -2,6 +2,7 @@ package chainwatch
 
 import (
 	"math"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -189,10 +190,12 @@ func TestInvertChangeResetsOnlyCounters(t *testing.T) {
 	n := classN(r.tb, "a", "b", 300)
 	firstSeen := before.FirstSeen
 
-	// Idle, so the sample itself does not learn; the counter sees the new sign.
+	// A substitute value, so the sample itself does not learn; the counter sees the new sign.
 	inverted := testPoint("b", -290)
 	inverted.Invert = true
-	r.observe(t0.Add(10*time.Minute+sampleEvery), buildChain("idle", "a", testPoint("a", 300), inverted))
+	substituted := buildChain("down", "a", testPoint("a", 300), inverted)
+	substituted.SubstituteFrom = "x"
+	r.observe(t0.Add(10*time.Minute+sampleEvery), substituted)
 
 	entry := r.tb.pairs[ab]
 	if entry.Agree != 0 || entry.Opposite != 1 {
@@ -320,5 +323,137 @@ func TestObserveSkipsNonFiniteSamples(t *testing.T) {
 	r.observe(t0.Add(2*sampleEvery), buildChain("down", "c", testPoint("a", 300), testPoint("b", 290), testPoint("c", math.NaN())))
 	if got := totalN(r.tb, "a", "b"); got != 0 {
 		t.Fatalf("N = %d over all classes for non-finite samples, want 0", got)
+	}
+}
+
+func TestAllFindingsOrder(t *testing.T) {
+	m := NewMonitor(NewTable(), DefaultHolds, func() time.Time { return t0 })
+	add := func(chain, kind, a, b, from string) {
+		m.tracks[trackKey{chain: chain, kind: kind, a: a, b: b}] = &trackEntry{
+			tracker: tracker{since: t0, active: true},
+			from:    from,
+			to:      b,
+		}
+	}
+	add("c1", energy.FindingDrift, "r", "s", "b")
+	add("c1", energy.FindingDrift, "p", "q", "a")
+	add("c1", energy.FindingSign, "p", "q", "z")
+	add("c1", energy.FindingUnit, "p", "q", "b")
+	add("c1", energy.FindingFrozen, "c", "", "c")
+	add("c1", energy.FindingContradiction, "p", "q", "a")
+	add("c1", energy.FindingUnit, "x", "y", "x")
+	m.tracks[trackKey{chain: "c1", kind: energy.FindingUnit, a: "x", b: "y"}].active = false
+	add("c2", energy.FindingDrift, "p", "q", "a")
+
+	type row struct{ chain, kind, from string }
+	want := []row{
+		{"c1", energy.FindingUnit, "b"},
+		{"c1", energy.FindingFrozen, "c"},
+		{"c1", energy.FindingContradiction, "a"},
+		{"c1", energy.FindingSign, "z"},
+		{"c1", energy.FindingDrift, "a"},
+		{"c1", energy.FindingDrift, "b"},
+		{"c2", energy.FindingDrift, "a"},
+	}
+	toRows := func(fs []energy.ChainFinding) []row {
+		var out []row
+		for _, f := range fs {
+			out = append(out, row{f.ChainID, f.Kind, f.From})
+		}
+		return out
+	}
+	if got := toRows(m.AllFindings()); !reflect.DeepEqual(got, want) {
+		t.Fatalf("AllFindings = %v, want %v", got, want)
+	}
+	if got := toRows(m.Findings("c1")); !reflect.DeepEqual(got, want[:6]) {
+		t.Fatalf("Findings(c1) = %v, want %v", got, want[:6])
+	}
+}
+
+func TestSignDoesNotStopLearning(t *testing.T) {
+	r := newRig()
+	r.observe(t0, signChain(200))
+	for off := sampleEvery; off <= 24*time.Hour; off += sampleEvery {
+		r.observe(t0.Add(off), signAt(off, -200))
+	}
+	if len(findingsOf(r, energy.FindingSign)) != 1 {
+		t.Fatal("no sign finding at 24:00")
+	}
+	bin := r.tb.pairs[energystats.ChainPair{Source: "a", Target: "b"}].Classes[ClassOf(200)]
+	before := bin.TargetW
+
+	// The reverse flow now reads 230 W on b, the table must follow it while sign is active.
+	for off := 24*time.Hour + sampleEvery; off <= 24*time.Hour+10*time.Minute; off += sampleEvery {
+		r.observe(t0.Add(off), signAt(off, -230))
+	}
+	if bin.TargetW <= before {
+		t.Fatalf("TargetW = %v, want above %v: learning stopped during sign", bin.TargetW, before)
+	}
+}
+
+func TestObserveDoesNotLearnDuringUnit(t *testing.T) {
+	r := newRig()
+	r.feed(t0, 0, 14*time.Minute+50*time.Second, unitChain(300, 300000))
+	if classN(r.tb, "a", "b", 300) == 0 {
+		t.Fatal("nothing learned before the unit finding")
+	}
+	r.feed(t0, 15*time.Minute, 15*time.Minute, unitChain(300, 300000))
+	if len(findingsOf(r, energy.FindingUnit)) != 1 {
+		t.Fatal("no unit finding at 15:00")
+	}
+	atFinding := classN(r.tb, "a", "b", 300)
+	r.feed(t0, 15*time.Minute+sampleEvery, 25*time.Minute, unitChain(300, 300000))
+	if got := classN(r.tb, "a", "b", 300); got != atFinding {
+		t.Fatalf("N grew from %d to %d during the unit finding", atFinding, got)
+	}
+}
+
+func TestScaleChangeResetsUnitLearning(t *testing.T) {
+	r := newRig()
+	r.feed(t0, 0, 15*time.Minute, unitChain(300, 300000))
+	if totalN(r.tb, "a", "b") == 0 {
+		t.Fatal("nothing learned before the scale change")
+	}
+
+	// The scale of a is corrected, the values agree now and the unit finding is
+	// still shown until Clear has passed.
+	fixed := testPoint("a", 300000)
+	fixed.Scale = 1000
+	fixedChain := func() energy.ChainState { return buildChain("down", "a", fixed, testPoint("b", 300000)) }
+	at := t0.Add(15*time.Minute + sampleEvery)
+	r.observe(at, fixedChain())
+	if totalN(r.tb, "a", "b") != 0 {
+		t.Fatalf("N = %d after the scale change, the wrong samples must be gone", totalN(r.tb, "a", "b"))
+	}
+	if len(findingsOf(r, energy.FindingUnit)) != 1 {
+		t.Fatal("unit finding ended before Clear")
+	}
+
+	// The last true reading is at 15:00, Clear is 5 min: the finding ends at 20:00.
+	r.feed(t0, 15*time.Minute+2*sampleEvery, 19*time.Minute+50*time.Second, fixedChain())
+	if len(findingsOf(r, energy.FindingUnit)) != 1 {
+		t.Fatal("unit finding ended before Clear had passed")
+	}
+	r.observe(t0.Add(20*time.Minute), fixedChain())
+	if len(findingsOf(r, energy.FindingUnit)) != 0 {
+		t.Fatal("unit finding still shown after Clear")
+	}
+	before := totalN(r.tb, "a", "b")
+	r.observe(t0.Add(20*time.Minute+sampleEvery), fixedChain())
+	if got := totalN(r.tb, "a", "b"); got <= before {
+		t.Fatalf("N = %d after the unit ended, want the pair to learn anew (was %d)", got, before)
+	}
+}
+
+func TestCountersSkipIdleFlow(t *testing.T) {
+	r := newRig()
+	pair := energystats.ChainPair{Source: "a", Target: "b"}
+	r.observe(t0, buildChain("idle", "a", testPoint("a", 300), testPoint("b", -300)))
+	if e := r.tb.pairs[pair]; e == nil || e.Opposite != 0 || e.Agree != 0 {
+		t.Fatalf("counters moved with the flow idle: %+v", e)
+	}
+	r.observe(t0.Add(sampleEvery), buildChain("down", "a", testPoint("a", 300), testPoint("b", -300)))
+	if e := r.tb.pairs[pair]; e.Opposite != 1 {
+		t.Fatalf("Opposite = %d with the flow running, want 1", e.Opposite)
 	}
 }

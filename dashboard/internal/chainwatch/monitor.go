@@ -344,6 +344,19 @@ func (t *Table) countSign(pair energystats.ChainPair, a, b energy.ChainPointStat
 	t.dirty = true
 }
 
+// signCounts returns the sign counters of pair and the time its entry was first
+// seen. ok is false when the table has no entry.
+func (t *Table) signCounts(pair energystats.ChainPair) (agree, opposite int, firstSeen time.Time, ok bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	entry := t.pairs[pair]
+	if entry == nil {
+		return 0, 0, time.Time{}, false
+	}
+	return entry.Agree, entry.Opposite, entry.FirstSeen, true
+}
+
 func absW(v float64) float64 {
 	if v < 0 {
 		return -v
