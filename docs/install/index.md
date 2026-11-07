@@ -94,20 +94,13 @@ signature. Everything else in the package stays verified.
 ### Raspberry Pi with the Raspberry Pi Imager
 
 - Pick the image from the table above.
-- Set hostname, user, SSH and WiFi in the Imager before it writes the card.
-  On a headless remote site you do not want to find out afterwards that SSH
-  is off.
+- Set hostname, user, SSH, WiFi and timezone in the Imager before it writes
+  the card. On a headless remote site you do not want to find out afterwards
+  that SSH is off.
 - Leave the root partition alone. It resizes itself on first boot.
-- After the first boot, update the system and set the timezone:
-
-  ```sh
-  ssh <user>@<node>.local
-  sudo apt update && sudo apt full-upgrade -y
-  sudo raspi-config      # timezone
-  ```
-
-- A full upgrade on a Pi 1 takes a long time. Let it finish before you go on,
-  because a half upgraded system makes every later error harder to read.
+- With these settings the card needs nothing else. Boot the Pi and point the
+  energy-node installer at `<hostname>.local`. The installer updates the
+  system packages itself, which takes a long time on a Pi 1.
 
 ### x86 with Debian
 
