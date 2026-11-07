@@ -158,6 +158,13 @@ type RouterDependencies struct {
 	// EnergyStats liefert /api/v1/energy/stats. nil heisst "nicht
 	// verfuegbar" (501), etwa in Tests ohne Datenverzeichnis.
 	EnergyStats *energystats.Service
+	// ChainMonitor liefert die Messketten-Diagnose und erlaubt, das Lernen
+	// eines Paares zurueckzusetzen. nil heisst "nicht verfuegbar".
+	ChainMonitor interface {
+		Relearn(a, b string)
+		Prune(map[string]energy.Chain)
+		AllFindings() []energy.ChainFinding
+	}
 	// HistorySampler fuellt den Ringpuffer der Verlaufsvermittlung einmal
 	// pro Minute mit role:grid und den Szenario-Ausgaben. nil heisst: nur
 	// der Browser schreibt in den Puffer.

@@ -1,6 +1,7 @@
 package chainwatch
 
 import (
+	"log"
 	"slices"
 	"sort"
 	"sync"
@@ -43,9 +44,73 @@ type Monitor struct {
 	tracks  map[trackKey]*trackEntry
 	windows map[windowKey]*frozenWindow
 	labels  map[string]string
+	persist *persistence
 }
 
 var _ energy.ChainInsight = (*Monitor)(nil)
+
+// saveEvery is the interval of the saves while the table is dirty, saveRetry
+// the wait after a failed save.
+const (
+	saveEvery = time.Hour
+	saveRetry = 5 * time.Minute
+)
+
+// persistence is where and when the table is saved. next is the time of the
+// next check: a dirty table is saved then, a clean one only moves next on.
+type persistence struct {
+	path string
+	logf func(string, ...any)
+	next time.Time
+}
+
+// SetPersistence saves the table to path once an hour while it is dirty, and
+// on Close. A failed save is logged through logf and retried after saveRetry.
+// The first check comes one hour after the call.
+func (m *Monitor) SetPersistence(path string, logf func(string, ...any)) {
+	if logf == nil {
+		logf = log.Printf
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.persist = &persistence{path: path, logf: logf, next: m.now().Add(saveEvery)}
+}
+
+// Close saves the table when it is dirty. The monitor keeps working afterwards.
+func (m *Monitor) Close() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.persist == nil || !m.table.Dirty() {
+		return
+	}
+	m.saveLocked(m.now())
+}
+
+// saveDueLocked saves at the due check. The checks come every saveEvery, a
+// clean table only moves the check on.
+func (m *Monitor) saveDueLocked(at time.Time) {
+	p := m.persist
+	if p == nil || at.Before(p.next) {
+		return
+	}
+	if !m.table.Dirty() {
+		p.next = at.Add(saveEvery)
+		return
+	}
+	m.saveLocked(at)
+}
+
+// saveLocked writes the table and sets the next check: saveEvery after a
+// success, saveRetry after a failure, which is logged.
+func (m *Monitor) saveLocked(at time.Time) {
+	p := m.persist
+	if err := m.table.Save(p.path); err != nil {
+		p.logf("chainwatch: save %s: %v, retry in %s", p.path, err, saveRetry)
+		p.next = at.Add(saveRetry)
+		return
+	}
+	p.next = at.Add(saveEvery)
+}
 
 // NewMonitor returns a monitor that learns into table. now gives the time for
 // the age of learned pairs.
@@ -147,6 +212,7 @@ func (m *Monitor) Observe(at time.Time, snapshot energy.Snapshot) {
 			delete(m.labels, id)
 		}
 	}
+	m.saveDueLocked(at)
 }
 
 // Relearn drops what is learned about the pair a-b in both directions, and

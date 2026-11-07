@@ -28,6 +28,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/chainwatch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companiontls"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
@@ -239,6 +240,17 @@ func main() {
 	// Revision, damit energy_stats Statistik und Reiter nachladen laesst.
 	energyChainStore := energystats.NewChainStore(filepath.Join(dataDir, "energystats", "chains"), energyStatsStore.Bump)
 	energyRecorder.SetChainStore(energyChainStore)
+	// Gelernte Verlustwerte der Messketten, gespeichert neben den Stunden.
+	// Die Diagnose laeuft in der Energieschleife unten.
+	chainLearnedPath := filepath.Join(dataDir, "energystats", "chains", "learned.json")
+	chainMonitor := chainwatch.NewMonitor(chainwatch.Load(chainLearnedPath, log.Printf), holdsFromEnv(os.Getenv), time.Now)
+	chainMonitor.SetPersistence(chainLearnedPath, log.Printf)
+	energyResolver.SetChainInsight(chainMonitor)
+	// Nur nach einem erfolgreichen Laden von energy.json: sonst wuerden die
+	// gelernten Paare einer unlesbaren Konfiguration verworfen.
+	if value, err := settingsStore.LoadEnergy(); err == nil {
+		chainMonitor.Prune(value.Chains)
+	}
 	energyCategories := func() map[string]energy.Category { return energyResolver.Model().Categories }
 	energySync := energystats.NewSync(energyStatsStore, time.Now)
 	energySync.SetCategories(energyCategories)
@@ -603,6 +615,7 @@ func main() {
 		Tailscale:           tailscaleClient,
 		Resolver:            energyResolver,
 		EnergyStats:         energyStats,
+		ChainMonitor:        chainMonitor,
 		HistorySampler:      historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
@@ -645,11 +658,17 @@ func main() {
 			select {
 			case <-ctx.Done():
 				energyRecorder.Close()
+				chainMonitor.Close()
 				return
 			case <-ticker.C:
 				now := time.Now()
 				snapshot := energy.Aggregate(reg.Snapshot(), energyResolver, now.UTC()).WithInterpretation(energyResolver.Interpretation())
 				energyRecorder.Observe(now, time.Since(monoStart), snapshot)
+				// Ohne gestellte Uhr waere FirstSeen falsch. Der Modus off
+				// haelt die Diagnose nicht an.
+				if energyRecorder.Status().ClockReady {
+					chainMonitor.Observe(now, snapshot)
+				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()
 			}
@@ -875,4 +894,16 @@ func chainInfos(cfg settings.EnergyConfig) []energystats.ChainInfo {
 	}
 	slices.SortFunc(infos, func(a, b energystats.ChainInfo) int { return strings.Compare(a.ID, b.ID) })
 	return infos
+}
+
+// holdsFromEnv returns the hold times of the chain diagnoses. The variable
+// ENERGY_NODE_CHAIN_HOLD_SECONDS sets all five to that many seconds, for a
+// look at the demo. Unset or not a positive whole number: DefaultHolds.
+func holdsFromEnv(getenv func(string) string) chainwatch.Holds {
+	seconds, err := strconv.Atoi(strings.TrimSpace(getenv("ENERGY_NODE_CHAIN_HOLD_SECONDS")))
+	if err != nil || seconds <= 0 {
+		return chainwatch.DefaultHolds
+	}
+	d := time.Duration(seconds) * time.Second
+	return chainwatch.Holds{Drift: d, Frozen: d, Contradiction: d, Unit: d, Clear: d}
 }

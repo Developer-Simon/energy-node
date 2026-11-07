@@ -141,6 +141,13 @@ func (t *Table) PairLearned(a, b string, now time.Time) bool {
 	return false
 }
 
+// Dirty reports whether the table changed since it was loaded or last saved.
+func (t *Table) Dirty() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.dirty
+}
+
 // Reset drops the learned data of a pair in both directions.
 func (t *Table) Reset(pair energystats.ChainPair) {
 	t.mu.Lock()
