@@ -72,7 +72,7 @@ models every megabyte of RAM counts. Pick the image by model:
 | Pi 3, 3+ | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | Pi 4, 400 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | Pi 5, 500 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
-| x86 64-bit (Intel N100, N150) | Debian 13 netinst | `amd64` | ✗ |
+| x86 64-bit (Intel N100, N150, AMD GX-424CC) | Debian 13 netinst | `amd64` | ✓ |
 | x86 32-bit (Intel Quark X1000, Vortex86EX2) | not supported | none | ✗ |
 
 The 64-bit images do not run on ARMv6, so a Pi 1 or the first Zero always needs
@@ -88,6 +88,64 @@ Leave the root password empty during the installation, then Debian gives the
 first user `sudo`. The installer needs it without a password, which a Raspberry
 Pi OS user has by default. On Debian the installer asks for the `sudo` password
 once and sets it up, see [sudo password](../installer.md#sudo-password).
+
+### Debian on an x86 machine
+
+The netinst image is about 750 MB, so a 2 GB USB stick is enough. Everything
+else comes from the internet during the installation, so connect the machine
+by network cable. A minimal Debian 13 takes about 1.5 GB, so 4 GB of internal
+storage leaves room for the node.
+
+Download `debian-13.x.y-amd64-netinst.iso` and `SHA512SUMS` from
+<https://www.debian.org/CD/netinst/> (amd64) and check the image:
+
+```sh
+sha512sum -c SHA512SUMS --ignore-missing
+```
+
+It must print `OK` for the image. Find the stick with `lsblk`, it is the new
+device with `usb` in the `TRAN` column once you plug it in:
+
+```sh
+lsblk -o NAME,SIZE,MODEL,TRAN
+```
+
+Write the image to the whole device, for example `/dev/sdX`, not to a
+partition like `/dev/sdX1`. This erases everything on the stick:
+
+```sh
+sudo dd if=debian-13.x.y-amd64-netinst.iso of=/dev/sdX bs=4M status=progress conv=fsync
+```
+
+On a desktop you can use GNOME Disks instead (**Restore Disk Image**), on
+Windows Rufus or balenaEtcher.
+
+Boot the machine from the stick through its boot menu or BIOS setup. Used thin
+clients often have a BIOS password set or USB boot switched off, which you
+have to clear first. Installing Debian erases the previous system, including a
+thin client OS and its licence. Then work through the installer:
+
+1. Pick **Install** (the text installer is enough).
+2. Set language, location and keyboard, then a hostname, for example `node`.
+3. Leave the root password empty and create your user.
+4. Partitioning: **Guided, use entire disk**, then **All files in one
+   partition**. If the installer only offers manual partitioning, create a
+   new GPT partition table on the whole disk and two partitions in its free
+   space: 256 MB **EFI System Partition** at the beginning and the rest as
+   **Ext4** mounted at `/`. A machine booted in legacy BIOS mode needs no EFI
+   partition. The node needs no swap with 1 GB of RAM or more. Skip it on
+   small storage and continue past the installer's warning. If you want one
+   later, `zram-tools` gives a compressed swap in RAM that does not write to
+   the disk.
+5. Pick a Debian mirror close to you.
+6. Software selection: untick the desktop, keep only **SSH server** and
+   **standard system utilities**.
+7. Install GRUB to the internal disk, remove the stick and reboot.
+
+Afterwards the machine answers on `ssh <user>@<ip-address>`, and you point the
+energy-node installer at it. A minimal Debian has no mDNS, so
+`<hostname>.local` only works once you install `avahi-daemon`. The IP address
+shows in your router or after login with `ip -br addr`.
 
 The reference node runs Python 3.11.2, which is enough for every service in
 this repository (`requires-python >= 3.9`). An installation package carries
