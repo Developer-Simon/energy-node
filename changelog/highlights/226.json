@@ -1,0 +1,46 @@
+{
+  "de": {
+    "*": "Automationen reagieren auf Messketten"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "automations",
+          "open": [
+            "@time-rule",
+            "auto-add-condition"
+          ],
+          "panel": "automations-panel",
+          "target": "auto-chain-tile",
+          "text": {
+            "de": "Eine Regel oder ein Szenario kann jetzt auf eine Messkette reagieren, auf ihre Meldungen, den Verlust, den Wirkungsgrad oder den Standby.",
+            "en": "A rule or scenario can now react to a measurement chain: its findings, loss, efficiency or standby."
+          },
+          "title": {
+            "de": "Bedingung Messkette",
+            "en": "Measurement chain condition"
+          }
+        },
+        {
+          "device": "any",
+          "need": "automations",
+          "open": [
+            "automations"
+          ],
+          "panel": "automations-panel",
+          "target": "auto-chain-template",
+          "text": {
+            "de": "Die Vorlagen Watchdog und Standby richten eine Automation für eine Messkette in wenigen Schritten ein.",
+            "en": "The watchdog and standby templates set up an automation for a measurement chain in a few steps."
+          },
+          "title": {
+            "de": "Vorlagen für Messketten",
+            "en": "Chain templates"
+          }
+        }
+      ]
+    }
+  }
+}

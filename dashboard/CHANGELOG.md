@@ -1,12 +1,21 @@
 # Changelog
 
-## v0.11.9-pre.3 (2026-11-06)
+## v0.11.9-pre.4 (2026-11-06)
 
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217) (bcf1b75)
 - **energy:** Measurement chains now learn their normal loss and efficiency curve. The Efficiency tab shows the curve with the best range and the current power, and a diagnosis lists drift, frozen values, contradicting points and wrong signs or units. Substitute values are corrected by the learned loss, and findings show up on the energy page, in the diagnostics and on the device map. (#223) (4871a1c)
+- **energy:** publish chain signals for automations (0794abe)
+- **automation:** fire once per chain finding and allow short scenarios (2de51bf)
+- **automation:** keep the regulator in the best efficiency range of a chain (c7fc843)
+- **dashboard:** describe chain conditions and edit short scenario durations (e26e678)
+- **dashboard:** edit chain conditions in automations (100e1ee)
+- **dashboard:** switch the regulator to the best efficiency range (b299159)
+- **dashboard:** add watchdog and standby templates for chains (93bfbf4)
+- **dashboard:** add tour targets for chain automations (e0dd681)
+- **automation:** react to measurement chains in automations (#226)
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **energy:** add the chain insight model and segment tolerances (2f4277a)
 - **energy:** validate and keep chain tolerances (e593f21)
@@ -65,6 +74,11 @@
 
 ### Fixes
 
+- **dashboard:** make the duration unit reactive and limit chain value comparisons (152f242)
+- **dashboard:** use a single time for the standby switch-on window (0dd79e7)
+- **dashboard:** ignore a regulator report of another chain (8e4d6e8)
+- **dashboard:** add the German schema text for the regulator efficiency option (13db1b0)
+- **dashboard:** lay out chain conditions like the balance condition (4df12a3)
 - **tailscale:** find the CLI of the Debian package in /usr/bin (#225) (50c65b3)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 - **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
@@ -94,11 +108,13 @@
 
 ### Documentation
 
+- **automation:** describe chain conditions, templates and the efficiency option (633625a)
 - **energy:** describe chain learning and diagnostics (47e2900)
 - **stats:** use English comments in the chain integrator (07b255c)
 
 ### Tests
 
+- **automation:** cover chain conditions in the rules schema (338807e)
 - **webui:** accept the efficiency panel as a tour panel (e826f7f)
 - **automations:** expect the new chart asset version (fba2e7c)
 

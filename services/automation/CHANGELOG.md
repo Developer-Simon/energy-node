@@ -1,9 +1,19 @@
 # Changelog
 
-## v0.7.2 (2026-10-27)
+## v0.7.3-pre.1 (2026-11-07)
 
 ### Features
 
+- **automation:** react to measurement chains in automations (#226)
+
+## v0.7.2 (2026-11-07)
+
+### Features
+
+- **automation:** validate chain finding and chain value conditions (67b3be7)
+- **automation:** evaluate chain finding and chain value conditions (237f531)
+- **automation:** fire once per chain finding and allow short scenarios (2de51bf)
+- **automation:** keep the regulator in the best efficiency range of a chain (c7fc843)
 - **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
 - **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
 - **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
@@ -21,6 +31,7 @@
 
 ### Tests
 
+- **automation:** cover the watchdog restart after switch-on (5b13c66)
 - **automation:** pin stale-balance regulation and scenario removal (17a4855)
 
 ### Chores
