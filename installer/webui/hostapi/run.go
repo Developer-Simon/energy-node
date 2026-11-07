@@ -127,6 +127,9 @@ func runFinishPayload(bus *Bus, id string, err error, redactor *Redactor) map[st
 		payload["code"] = typed.Code
 		payload["step_id"] = lastStepID(bus)
 		detail = typed.Detail
+		if len(typed.Args) > 0 {
+			payload["args"] = typed.Args
+		}
 	case errors.Is(err, context.Canceled):
 		payload["code"] = "RUN_CANCELLED"
 		detail = ""
