@@ -67,6 +67,7 @@ const (
 	CodeServiceUnitFailed       Code = "SERVICE_UNIT_FAILED"
 	CodeSudoersInvalid          Code = "SUDOERS_INVALID"
 	CodeTailscaleInstallFailed  Code = "TAILSCALE_INSTALL_FAILED"
+	CodeTailscalePackageMissing Code = "TAILSCALE_PACKAGE_MISSING"
 	CodeTailscaleTarballMissing Code = "TAILSCALE_TARBALL_MISSING"
 	CodeTargetInvalid           Code = "TARGET_INVALID"
 	CodeUfwFailed               Code = "UFW_FAILED"
@@ -118,6 +119,7 @@ var allCodes = []Code{
 	CodeSudoRequired,
 	CodeTailscaleFlagInvalid,
 	CodeTailscaleInstallFailed,
+	CodeTailscalePackageMissing,
 	CodeTailscaleTarballMissing,
 	CodeTargetInvalid,
 	CodeUfwFailed,

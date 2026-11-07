@@ -65,9 +65,10 @@ run() { bash -c 'set -euo pipefail; source "$1"; shift; "$@"' _ "$lib" "$@"; }
 [ -z "$(run pkg_pin tailscale version)" ] || fail "pkg_pin ohne Eintrag ist nicht leer"
 [ -z "$(run pkg_pin caddy nichtda)" ] || fail "pkg_pin unbekanntes Feld ist nicht leer"
 
-# --- pkg_file: passende Datei gibt den Pfad aus ----------------------------
-out="$(run pkg_file caddy)" || fail "pkg_file bei passender Datei fehlgeschlagen"
-[ "$out" = "$EN_PACKAGES_DIR/$deb_name" ] || fail "pkg_file gibt falschen Pfad aus" "$out"
+# --- pkg_file: passende Datei setzt PKG_FILE_PATH -------------------------
+out="$(bash -c 'set -euo pipefail; source "$1"; pkg_file caddy; printf "%s" "$PKG_FILE_PATH"' _ "$lib")" \
+  || fail "pkg_file bei passender Datei fehlgeschlagen"
+[ "$out" = "$EN_PACKAGES_DIR/$deb_name" ] || fail "pkg_file setzt falschen Pfad" "$out"
 
 # --- pkg_file: fehlende Datei -> Rueckgabe 1, kein Fehlermarker -----------
 rc=0

@@ -11,8 +11,9 @@
 # Die Funktionen sind fuer Schritte gedacht, die bereits step.sh sourcen.
 # ACHTUNG: pkg_file beendet bei falscher Pruefsumme den Prozess ueber
 # step_fail. Der Aufruf darf deshalb nicht in einer Befehlsersetzung stehen,
-# deren Fehlerausgabe verloren ginge - sonst fehlt der Marker. Der
-# Aufrufer liest den Pfad mit deb="$(pkg_file name)" und prueft den Rueckgabewert.
+# deren Fehlerausgabe verloren ginge - sonst fehlt der Marker. Der Pfad kommt
+# deshalb nicht ueber die Ausgabe, sondern in PKG_FILE_PATH:
+#   pkg_file name || ...; deb="${PKG_FILE_PATH}"
 
 PACKAGES_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/bootstrap/lib/step.sh
@@ -36,11 +37,13 @@ print("" if value is None else value)
 PY
 }
 
-# pkg_file <name>: Pfad der .deb ausgeben, wenn sie zur Festlegung passt.
-# Fehlt sie oder fehlt die Festlegung, Rueckgabe 1. Liegt sie mit falscher
-# Pruefsumme vor, ist das ein Fehler des Bundles oder der Datei: step_fail.
+# pkg_file <name>: setzt PKG_FILE_PATH auf die .deb, wenn sie zur Festlegung
+# passt. Fehlt sie oder fehlt die Festlegung, Rueckgabe 1 (PKG_FILE_PATH leer).
+# Liegt sie mit falscher Pruefsumme vor, ist das ein Fehler des Bundles oder
+# der Datei: step_fail.
 pkg_file() {
   local file sha path actual
+  PKG_FILE_PATH=""
   file="$(pkg_pin "$1" file)"
   sha="$(pkg_pin "$1" sha256)"
   [[ -n "${file}" && -n "${sha}" ]] || return 1
@@ -50,7 +53,8 @@ pkg_file() {
   if [[ "${actual}" != "${sha}" ]]; then
     step_fail PACKAGE_FILE_INVALID
   fi
-  printf '%s\n' "${path}"
+  # shellcheck disable=SC2034  # gelesen vom Aufrufer, siehe Kopfkommentar
+  PKG_FILE_PATH="${path}"
 }
 
 # pkg_installed_version <name>: installierte Version, leer wenn nicht installiert.

@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 #
-# Schritt 40: Tailscale aus dem Bundle (INSTALLATION.md §3.1).
+# Schritt 40: Tailscale aus dem gepinnten Debian-Paket (INSTALLATION.md §3.1).
 #
-# Der Tarball reist im Bundle mit, statt vom Node geladen zu werden - ein
-# frisch aufgesetzter Node hat oft noch keinen brauchbaren Egress, und das
-# Herunterladen gehoert laut E4 ohnehin auf den Bau-Rechner.
+# Das .deb reist im Bundle mit (manifest.packages.tailscale, Pruefsumme vor
+# dem Installieren geprueft). Es wird nichts vom Netz geladen - ein frisch
+# aufgesetzter Node hat oft noch keinen brauchbaren Egress. Auf amd64 und
+# arm64 (update=apt) folgt der Node danach dem Hersteller-Repo; auf armv6
+# bleibt die Fassung festgehalten (hold).
 # Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
-# step-inputs: bootstrap/lib/step.sh manifest:packages.tailscale
+# step-inputs: bootstrap/lib/step.sh bootstrap/lib/packages.sh bootstrap/keyrings/ manifest:packages.tailscale
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
+# shellcheck source=scripts/bootstrap/lib/packages.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/packages.sh"
 
 FORBIDDEN_FLAG='--tun=userspace-networking'
 
@@ -18,6 +22,13 @@ FORBIDDEN_FLAG='--tun=userspace-networking'
 # Tarball fuehren das Beispiel auskommentiert (#FLAGS="--tun=...") auf.
 has_forbidden_flag() {
   sed 's/#.*//' "$1" | grep -q -- "${FORBIDDEN_FLAG}"
+}
+
+# ts_version_ge <a> <b>: a gleich oder neuer als b (dpkg-Regeln). Eine leere
+# Version ist unbekannt und nie neuer.
+ts_version_ge() {
+  [[ -n "$1" ]] || return 1
+  dpkg --compare-versions "$1" ge "$2"
 }
 
 step_begin 40
@@ -30,12 +41,10 @@ if step_done 40; then
   exit 0
 fi
 
-shopt -s nullglob
-tarballs=("${EN_BUNDLE_DIR}"/tailscale/*.tgz)
-shopt -u nullglob
-[[ "${#tarballs[@]}" -eq 1 ]] || step_fail TAILSCALE_TARBALL_MISSING
-
 defaults="${EN_ROOT}/etc/default/tailscaled"
+unit="${EN_ROOT}/etc/systemd/system/tailscaled.service"
+bin_cli="${EN_ROOT}/usr/sbin/tailscale"
+bin_daemon="${EN_ROOT}/usr/sbin/tailscaled"
 
 # Vor jeder Aenderung: eine vorhandene Datei mit dem verbotenen Schalter ist
 # ein Abbruchgrund, kein Reparaturfall. Der Schalter verhindert, dass
@@ -45,68 +54,98 @@ if [[ -f "${defaults}" ]] && has_forbidden_flag "${defaults}"; then
   step_fail TAILSCALE_FLAG_INVALID
 fi
 
-# Eine vorhandene Installation, die nicht aelter ist als die im Bundle, bleibt
-# unangetastet. Auf armv6 ist der Tarball auf die letzte dort laufende Fassung
-# (1.62.0) festgelegt, arm64 und amd64 bringen eine aktuelle mit; ein Node,
-# der per "tailscale update" laengst darueber liegt, wuerde sonst bei jedem
-# neuen Bundle zurueckgesetzt - und "tailscale update"
-# startet tailscaled neu und kappt damit die Verbindung, ueber die der
-# Installer selbst laeuft. Die Bundle-Fassung steht im Tarballnamen.
-bundled_version="$(basename "${tarballs[0]}" .tgz)"
-bundled_version="${bundled_version#tailscale_}"
-bundled_version="${bundled_version%%_*}"
+pin_version="$(pkg_pin tailscale version)"
+update_mode="$(pkg_pin tailscale update)"
+have_deb=false
+if pkg_file tailscale; then
+  have_deb=true
+fi
+deb="${PKG_FILE_PATH}"
+
+# Vorhanden ist Tailscale, wenn dpkg es kennt oder ein Tarball-Binary liegt.
+# Ein Tarball-Binary ist nicht per dpkg verwaltet; seine Version steht darin
+# (1.98.9-t4fb758c39-... -> 1.98.9).
+dpkg_version="$(pkg_installed_version tailscale)"
+present=false
+managed=false
 installed_version=""
-if [[ -x "${EN_ROOT}/usr/sbin/tailscaled" ]]; then
-  installed_version="$("${EN_ROOT}/usr/sbin/tailscaled" --version 2>/dev/null | head -n 1 || true)"
+if [[ -n "${dpkg_version}" ]]; then
+  present=true
+  managed=true
+  installed_version="${dpkg_version}"
+elif [[ -x "${bin_daemon}" ]]; then
+  present=true
+  installed_version="$("${bin_daemon}" --version 2>/dev/null | head -n 1 || true)"
+  installed_version="${installed_version%%-*}"
 fi
-keep_installed=false
-if step_version_ge "${installed_version}" "${bundled_version}"; then
-  keep_installed=true
-  step_log "Vorhanden ist Tailscale ${installed_version}, das Bundle bringt ${bundled_version}: die Installation bleibt unangetastet."
-fi
 
-if [[ "${keep_installed}" == false ]]; then
-  work="$(mktemp -d)"
-  trap 'rm -rf "${work}"' EXIT
-  tar -xzf "${tarballs[0]}" -C "${work}" || step_fail TAILSCALE_INSTALL_FAILED
-
-  # Der echte Tarball packt alles unter tailscale_<ver>_<arch>/. Statt den
-  # Namen zu raten, wird die Nutzlast an tailscaled festgemacht.
-  payload="$(find "${work}" -type f -name tailscaled -print -quit)"
-  [[ -n "${payload}" ]] || step_fail TAILSCALE_INSTALL_FAILED
-  payload="$(dirname "${payload}")"
-
-  "${SUDO[@]}" mkdir -p "${EN_ROOT}/usr/sbin" "${EN_ROOT}/etc/systemd/system" \
-    "${EN_ROOT}/etc/default"
-  "${SUDO[@]}" install -m 0755 "${payload}/tailscale" "${payload}/tailscaled" \
-    "${EN_ROOT}/usr/sbin/" || step_fail TAILSCALE_INSTALL_FAILED
-  "${SUDO[@]}" install -m 0644 "${payload}/systemd/tailscaled.service" \
-    "${EN_ROOT}/etc/systemd/system/tailscaled.service" || step_fail TAILSCALE_INSTALL_FAILED
-
-  # Nur anlegen, wenn sie fehlt - eine vorhandene Datei gehoert dem Betreiber.
-  if [[ ! -f "${defaults}" ]]; then
-    "${SUDO[@]}" install -m 0644 "${payload}/systemd/tailscaled.defaults" \
-      "${defaults}" || step_fail TAILSCALE_INSTALL_FAILED
+state=absent
+if [[ "${present}" == true ]]; then
+  if [[ -z "${pin_version}" ]] || ts_version_ge "${installed_version}" "${pin_version}"; then
+    state=current
+  else
+    state=older
   fi
-  # Gegenprobe nach dem Schreiben: auch die mitgelieferte Vorlage darf den
-  # Schalter nicht enthalten.
-  if has_forbidden_flag "${defaults}"; then
+fi
+
+install=false
+case "${state}" in
+  absent)
+    [[ "${have_deb}" == true ]] || step_fail TAILSCALE_PACKAGE_MISSING
+    install=true
+    ;;
+  older)
+    if [[ "${have_deb}" == false ]]; then
+      if [[ "${update_mode}" == apt ]]; then
+        step_log "Tailscale ${installed_version} ist älter als ${pin_version}. Update über apt."
+      else
+        step_log "Tailscale ${installed_version} ist älter als ${pin_version}. Update beim nächsten Installer-Lauf."
+      fi
+      step_ok
+      exit 0
+    fi
+    install=true
+    ;;
+  current)
+    if [[ "${managed}" == true ]]; then
+      step_log "Vorhanden ist Tailscale ${installed_version}, die Festlegung ist ${pin_version:-leer}: die Installation bleibt unangetastet."
+      if [[ "${update_mode}" == apt ]]; then
+        pkg_setup_repo tailscale
+      fi
+    else
+      step_log "Tailscale ${installed_version} ist nicht per dpkg verwaltet: die Installation bleibt unangetastet."
+    fi
+    ;;
+esac
+
+if [[ "${install}" == true ]]; then
+  # Ein Tarball-Node wird umgestellt: die Dateien des Tarballs weg, sonst
+  # verdeckt die alte Unit das Paket. /etc/default/tailscaled bleibt, das
+  # Paket installiert mit --force-confold.
+  if [[ "${managed}" == false ]]; then
+    if [[ "${state}" == older ]]; then
+      step_log "Tarball-Installation ${installed_version} wird durch das Paket ersetzt."
+    fi
+    "${SUDO[@]}" rm -f "${bin_cli}" "${unit}"
+  fi
+  pkg_install_deb "${deb}" || step_fail TAILSCALE_INSTALL_FAILED
+  "${SUDO[@]}" systemctl daemon-reload
+  # Gegenprobe nach der Installation: auch die Paketvorgabe darf den Schalter
+  # nicht enthalten.
+  if [[ -f "${defaults}" ]] && has_forbidden_flag "${defaults}"; then
     step_log "Die installierte ${defaults} enthaelt ${FORBIDDEN_FLAG}."
     step_fail TAILSCALE_FLAG_INVALID
   fi
-
-  "${SUDO[@]}" systemctl daemon-reload
+  if [[ "${update_mode}" == apt ]]; then
+    pkg_setup_repo tailscale
+  else
+    pkg_hold tailscale || step_fail TAILSCALE_INSTALL_FAILED
+  fi
 fi
 "${SUDO[@]}" systemctl enable --now tailscaled || step_fail TAILSCALE_INSTALL_FAILED
 
 if "${SUDO[@]}" tailscale status >/dev/null 2>&1; then
-  if [[ "${keep_installed}" == true ]]; then
-    step_log "Node ist angemeldet."
-  else
-    step_log "Node ist angemeldet; aktualisiere auf die aktuelle Fassung."
-    "${SUDO[@]}" tailscale update --yes \
-      || step_log "tailscale update fehlgeschlagen; Fassung ${bundled_version} bleibt aktiv."
-  fi
+  step_log "Node ist angemeldet."
   step_ok
   exit 0
 fi

@@ -452,6 +452,8 @@
   "fault.TAILSCALE_FLAG_INVALID.remediation": "FLAGS=\"\" in /etc/default/tailscaled setzen. Besonders --tun=userspace-networking nimmt dem Node das Routen zu anderen Peers.",
   "fault.TAILSCALE_INSTALL_FAILED.message": "Tailscale ließ sich nicht aus dem Bundle installieren.",
   "fault.TAILSCALE_INSTALL_FAILED.remediation": "Prüfe das Schrittprotokoll und den freien Platz auf dem Node.",
+  "fault.TAILSCALE_PACKAGE_MISSING.message": "Das Bundle enthält kein Tailscale-Paket für diese Architektur.",
+  "fault.TAILSCALE_PACKAGE_MISSING.remediation": "Bereite das Bundle erneut vor. Bleibt es dabei, ist der Bundle-Bau defekt.",
   "fault.TAILSCALE_TARBALL_MISSING.message": "Das Bundle enthält nicht genau ein Tailscale-Archiv.",
   "fault.TAILSCALE_TARBALL_MISSING.remediation": "Bereite das Paket erneut vor. Bleibt es dabei, ist der Bundle-Bau defekt.",
   "fault.TARGET_INVALID.message": "Der Zielbenutzer oder das Basisverzeichnis ist ungültig.",
