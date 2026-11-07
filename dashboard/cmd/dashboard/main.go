@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -253,6 +254,14 @@ func main() {
 	energyStats := &energystats.Service{
 		Store: energyStatsStore, Recorder: energyRecorder, Sync: energySync,
 		Categories: energyCategories,
+		ChainStore: energyChainStore,
+		Chains: func() []energystats.ChainInfo {
+			value, err := settingsStore.LoadEnergy()
+			if err != nil {
+				return nil
+			}
+			return chainInfos(value)
+		},
 	}
 	energyRecorderDone := make(chan struct{})
 	credentialStore := tinytuya.NewCredentialStore(dataDir)
@@ -848,4 +857,22 @@ func (a nodeSimAdapter) PublishNodeSimulation(active bool) {
 	if err := a.client.PublishRetained(a.topic, payload); err != nil {
 		log.Printf("energy-node-dashboard: node simulation publish skipped: %v", err)
 	}
+}
+
+// chainInfos lists the measurement chains sorted by ID. A chain is a storage
+// chain when its counting point has a storage role. Counting empty means the
+// first point counts, as the chain form saves it.
+func chainInfos(cfg settings.EnergyConfig) []energystats.ChainInfo {
+	model := cfg.Model()
+	infos := make([]energystats.ChainInfo, 0, len(cfg.Chains))
+	for id, chain := range cfg.Chains {
+		counting := chain.Counting
+		if counting == "" && len(chain.Points) > 0 {
+			counting = chain.Points[0]
+		}
+		role := cfg.Assignments[counting].Role
+		infos = append(infos, energystats.ChainInfo{ID: id, Chain: chain, Storage: model.IsStorageRole(role)})
+	}
+	slices.SortFunc(infos, func(a, b energystats.ChainInfo) int { return strings.Compare(a.ID, b.ID) })
+	return infos
 }

@@ -138,6 +138,8 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/automations/test":       {group: groupPage, view: auth.RoleViewAutomations},
 	"/api/v1/automations/history/":   {group: groupPage, view: auth.RoleViewAutomations},
 	"/api/v1/energy/":                {group: groupPage, view: auth.RoleViewEnergy},
+	"/api/v1/energy/stats/chains":    {group: groupPage, view: auth.RoleViewStats},
+	"/api/v1/energy/efficiency":      {group: groupPage, view: auth.RoleViewEfficiency},
 	"/api/v1/layout":                 {group: groupPage, view: auth.RoleViewOverview},
 	"/api/v1/layout/":                {group: groupPage, view: auth.RoleViewOverview},
 }
