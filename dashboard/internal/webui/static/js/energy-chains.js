@@ -5,6 +5,7 @@
 // energy.json: {label, points, counting, direction}. Every function returns
 // new objects, the inputs stay untouched.
 (() => {
+  // i18n-keys: chains.finding.drift, chains.finding.frozen, chains.finding.contradiction, chains.finding.sign, chains.finding.unit
   const EN_DASH = '–';
   const MINUS = '−';
   const POWER_UNITS = Object.freeze(['W', 'kW']);
@@ -145,9 +146,62 @@
     return Math.abs(upIndex - downIndex) === 1 ? {action: 'none'} : {action: 'conflict'};
   };
 
+  // Label of a point of the chain, the raw ID for an entity the chain does not name.
+  const pointLabel = (chain, entityId) => {
+    const point = (chain.points || []).find(item => item.entity_id === entityId);
+    return point && point.label ? point.label : (entityId || '');
+  };
+
+  const sinceText = since => {
+    const date = new Date(since);
+    return Number.isNaN(date.getTime()) ? '' : window.I18n.formatDateTime(date);
+  };
+
+  // A factor as the locale writes numbers: 1000 stays "1000", 0.001 keeps its decimals.
+  const factorText = factor => {
+    const value = Number(Number(factor).toPrecision(6));
+    const decimals = (String(value).split('.')[1] || '').length;
+    return window.I18n.formatNumber(value, decimals);
+  };
+
+  // "Balkon: Plug Balkon und Speicher AC melden entgegengesetzte Vorzeichen."
+  const findingText = (chain, finding) => window.I18n.t(`chains.finding.${finding.kind}`, {
+    chain: chain.label || finding.chain_label || '',
+    from: pointLabel(chain, finding.from),
+    to: pointLabel(chain, finding.to),
+    since: sinceText(finding.since),
+  });
+
+  // The fix the learned model proposes, or '' without one.
+  const suggestionText = (chain, finding) => {
+    const suggestion = finding.suggestion;
+    if (!suggestion) return '';
+    const point = pointLabel(chain, suggestion.entity_id);
+    if (suggestion.invert) return window.I18n.t('chains.suggestion.invert', {point});
+    if (suggestion.scale_factor) {
+      return window.I18n.t('chains.suggestion.scale', {point, factor: factorText(suggestion.scale_factor)});
+    }
+    return '';
+  };
+
+  // The order of the server: unit, frozen, contradiction, sign, drift, then From and To.
+  const KIND_ORDER = ['unit', 'frozen', 'contradiction', 'sign', 'drift'];
+  const kindRank = kind => (KIND_ORDER.includes(kind) ? KIND_ORDER.indexOf(kind) : KIND_ORDER.length);
+  const compareText = (a, b) => (a < b ? -1 : (a > b ? 1 : 0));
+
+  // Every finding of every chain as {chain, finding}, chains by ID.
+  const allFindings = chainStates => idsOf(chainStates).flatMap(id => {
+    const chain = chainStates[id] || {};
+    return [...(chain.findings || [])]
+      .sort((a, b) => kindRank(a.kind) - kindRank(b.kind)
+        || compareText(a.from || '', b.from || '')
+        || compareText(a.to || '', b.to || ''))
+      .map(finding => ({chain, finding}));
+  });
+
   window.EnergyChains = {
     insertPoint, removePoint, setCounting, chainOf, isReference, shortPath, lossText, lossPowerOf, efficiencyPercent,
-    percentText, linkBetween, pickerItems, edgeChange,
+    percentText, linkBetween, pickerItems, edgeChange, findingText, suggestionText, allFindings,
   };
 
   // How x-roll writes the frames of the chain values (data-roll-format).

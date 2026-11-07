@@ -192,6 +192,9 @@ select.schema-control {
 .energy-unassigned .energy-notice-icon { color: var(--text-faint); }
 .energy-unassigned p { margin: 0; }
 .energy-unassigned ul { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--text-subtle); }
+.energy-chain-finding p { margin: 0; }
+.energy-chain-finding .energy-chain-finding-suggestion { margin-top: .2rem; color: var(--text-subtle); }
+.energy-chain-finding-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
 
 /* Interpretation: content of the first accordion section (energy-acc). */
 .energy-interpretation-body { display: grid; gap: 1.1rem; }

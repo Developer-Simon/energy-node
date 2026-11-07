@@ -1085,7 +1085,7 @@ test('sectionMeta counts the measurement chains', async () => {
   assert.equal(component.sectionMeta('chains'), 'energy.section.chains_meta|0|0');
 });
 
-test('live chain values load only with the chains section open and at least one chain, every five seconds', async () => {
+test('live chain values load with at least one chain, even with the chains section closed, every five seconds', async () => {
   const calls = [];
   const { component, window } = createEnergyPanel({
     fetchImpl: chainFetch({ calls, snapshotChains: [{ id: 'm', label: 'Balkon', segments: [] }] }),
@@ -1110,8 +1110,10 @@ test('live chain values load only with the chains section open and at least one 
   component.openSection = 'roles';
   before = liveLoads();
   await fireRegistryUpdated();
-  assert.equal(liveLoads(), before, 'a closed chains section loads nothing');
+  assert.equal(liveLoads(), before + 1, 'a closed chains section still loads, its findings belong to the notices');
+  assert.deepEqual(Object.keys(component.chainStates), ['m']);
 
+  now += 5000;
   component.openSection = 'chains';
   before = liveLoads();
   await fireRegistryUpdated();
@@ -1299,4 +1301,92 @@ test('a chain request from the map opens the chain once the page has loaded', as
   assert.equal(component.flashChain, 'm');
   assert.equal(component.isSectionOpen('chains'), true);
   assert.equal(window.__energyChainRequest__, null);
+});
+
+const findingSince = '2026-11-06T10:00:00Z';
+const driftFinding = {
+  kind: 'drift', chain_id: 'm', chain_label: 'Balkon', since: findingSince, from: 'pv_power', to: 'socket_power',
+  suggestion: { entity_id: 'socket_power', invert: true },
+};
+
+test('a chain finding is listed in the notices and goes away with the next live state', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  assert.equal(component.findingNotices.length, 1);
+  assert.ok(component.findingNotices[0].text.startsWith('Balkon: Der Verlust'), component.findingNotices[0].text);
+  assert.equal(component.findingNotices[0].canApply, true);
+  assert.equal(component.hasEfficiencyTab, false, 'no efficiency tab in this page');
+
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [] } };
+  assert.deepEqual(plainJSON(component.findingNotices), []);
+});
+
+test('applying a suggestion only fills the draft, focuses the row and saves nothing', async () => {
+  const calls = [];
+  const { component, stores, window } = createEnergyPanel({ fetchImpl: chainFetch({ calls }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  const before = calls.length;
+  component.applyFinding(component.findingNotices[0]);
+  assert.equal(component.assignments.socket_power.invert, true, 'the invert flips');
+  assert.equal(component.flash.socket_power, true, 'the row is focused');
+  assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.draft_applied'));
+  assert.deepEqual(chainWriteCalls(calls.slice(before)), [], 'nothing is written');
+  assert.equal(calls.slice(before).filter(call => call.options.method && call.options.method !== 'GET').length, 0);
+});
+
+test('applying a scale suggestion multiplies the scale and only with edit rights', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  const scaleFinding = { kind: 'unit', chain_id: 'm', chain_label: 'Balkon', since: findingSince, from: 'pv_power', to: 'socket_power', suggestion: { entity_id: 'pv_power', scale_factor: 0.001 } };
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [scaleFinding] } };
+  component.assignments.pv_power.scale = 1000;
+  component.applyFinding({ finding: scaleFinding, canApply: true });
+  assert.equal(component.assignments.pv_power.scale, 1);
+
+  component.canEdit = false;
+  component.applyFinding({ finding: scaleFinding, canApply: false });
+  assert.equal(component.assignments.pv_power.scale, 1, 'without edit rights nothing changes');
+});
+
+test('an energy draft from the map is applied once the page has loaded, not saved', async () => {
+  const calls = [];
+  const { component, window, stores } = createEnergyPanel({ fetchImpl: chainFetch({ calls }) });
+  component.$nextTick = fn => fn();
+  window.__energyDraftRequest__ = { entity_id: 'socket_power', invert: true };
+  await component.load();
+  assert.equal(component.assignments.socket_power.invert, true);
+  assert.equal(window.__energyDraftRequest__, null);
+  assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.draft_applied'));
+  assert.deepEqual(chainWriteCalls(calls), []);
+});
+
+test('an energy draft event applies to the loaded rows and ignores a draft for an unknown entity', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  component.init();
+  await component.load();
+  window.dispatchEvent(new window.CustomEvent('energy-apply-draft', { detail: { entity_id: 'socket_power', invert: true } }));
+  assert.equal(component.assignments.socket_power.invert, true);
+  window.dispatchEvent(new window.CustomEvent('energy-apply-draft', { detail: { entity_id: 'missing_power', invert: true } }));
+  assert.equal(component.assignments.missing_power, undefined);
+});
+
+test('the efficiency link exists only when the efficiency tab is on the page and opens it', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  assert.equal(component.hasEfficiencyTab, false);
+  window.document.body.innerHTML = '<button role="tab" aria-controls="efficiency-panel"></button>';
+  assert.equal(component.hasEfficiencyTab, true);
+  const seen = [];
+  window.addEventListener('dashboard-open-panel', event => seen.push(event.detail));
+  component.openEfficiency();
+  assert.deepEqual(plainJSON(seen), [{ panel: 'efficiency-panel' }]);
 });

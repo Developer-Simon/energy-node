@@ -431,8 +431,10 @@
         if (detail.statsFocus) window.__statsFocusRequest__ = detail.statsFocus;
         if (detail.deviceFocus) window.__deviceFocusRequest__ = detail.deviceFocus;
         if (detail.chainFocus) window.__energyChainRequest__ = detail.chainFocus;
+        if (detail.energyDraft) window.__energyDraftRequest__ = detail.energyDraft;
         await this.setActivePanel(detail.panel);
         if (detail.chainFocus) window.dispatchEvent(new CustomEvent('energy-focus-chain', {detail: {id: detail.chainFocus}}));
+        if (detail.energyDraft) window.dispatchEvent(new CustomEvent('energy-apply-draft', {detail: detail.energyDraft}));
         if (detail.energyFocus) window.dispatchEvent(new CustomEvent('energy-focus-rows', {detail: {ids: detail.energyFocus}}));
         if (detail.configFocus) window.dispatchEvent(new CustomEvent('config-focus-item', {detail: detail.configFocus}));
         if (detail.automationFocus) window.dispatchEvent(new CustomEvent('automation-focus-rule', {detail: {id: detail.automationFocus}}));
