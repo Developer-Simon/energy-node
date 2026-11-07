@@ -3890,6 +3890,8 @@
   "users.role.view_devices.label": "Devices",
   "users.role.view_diagnostics.desc": "See the diagnostics.",
   "users.role.view_diagnostics.label": "Diagnostics",
+  "users.role.view_efficiency.desc": "See losses and efficiency of measurement chains.",
+  "users.role.view_efficiency.label": "Efficiency",
   "users.role.view_energy.desc": "See the energy page.",
   "users.role.view_energy.label": "Energy",
   "users.role.view_history.desc": "See the history.",

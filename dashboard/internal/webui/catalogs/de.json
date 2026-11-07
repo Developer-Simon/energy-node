@@ -3890,6 +3890,8 @@
   "users.role.view_devices.label": "Geräte",
   "users.role.view_diagnostics.desc": "Die Diagnose sehen.",
   "users.role.view_diagnostics.label": "Diagnose",
+  "users.role.view_efficiency.desc": "Verluste und Wirkungsgrad der Messketten sehen.",
+  "users.role.view_efficiency.label": "Effizienz",
   "users.role.view_energy.desc": "Die Energieseite sehen.",
   "users.role.view_energy.label": "Energie",
   "users.role.view_history.desc": "Die Verläufe sehen.",

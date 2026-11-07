@@ -302,12 +302,16 @@ func (m *Manager) loadLocked() (bool, error) {
 		// einmal beim Uebergang und nie wieder.
 		upgradeV2 := file.Version < 3
 		upgradeV3 := file.Version < 4
+		upgradeV5 := file.Version < 6
 		guestRoles := file.GuestRoles
 		if upgradeV2 {
 			guestRoles = migrateV2(guestRoles, true)
 		}
 		if upgradeV3 {
 			guestRoles = migrateV3(guestRoles)
+		}
+		if upgradeV5 {
+			guestRoles = migrateV5(guestRoles)
 		}
 		m.guestRoles = Normalize(guestAllowedOnly(guestRoles))
 		m.guestRolesReviewed = file.GuestRolesReviewed
@@ -318,6 +322,9 @@ func (m *Manager) loadLocked() (bool, error) {
 			}
 			if upgradeV3 {
 				roles = migrateV3(roles)
+			}
+			if upgradeV5 {
+				roles = migrateV5(roles)
 			}
 			user.Roles = Normalize(roles)
 			m.users[name] = user
@@ -332,11 +339,26 @@ func (m *Manager) loadLocked() (bool, error) {
 				m.haRoles.User = migrateV3(m.haRoles.User)
 			}
 		}
+		if upgradeV5 {
+			for id, account := range m.haAccounts {
+				account.Roles = migrateV5(account.Roles)
+				m.haAccounts[id] = account
+			}
+			if m.haRoles != nil {
+				m.haRoles.Admin = migrateV5(m.haRoles.Admin)
+				m.haRoles.User = migrateV5(m.haRoles.User)
+			}
+		}
 	}
 	if file.Version < usersFileVersion {
-		// Version 5 ersetzt unveraenderte Vorgaben (migrateV4Locked).
-		replaced := m.migrateV4Locked()
+		// Jede Umschreibung schreibt die Datei auf die neue Version.
 		changed = true
+	}
+	if file.Version < 5 {
+		// Version 5 ersetzt unveraenderte Vorgaben (migrateV4Locked). Nur
+		// Dateien vor Version 5 kommen hierher, eine gespeicherte Gastliste
+		// der Version 5 oder 6 bleibt unberuehrt.
+		replaced := m.migrateV4Locked()
 		if replaced && m.hasNonGuestLocked() {
 			m.guestRolesReviewed = false
 		}
