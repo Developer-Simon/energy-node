@@ -1,11 +1,33 @@
 # Changelog
 
-## v0.11.8-pre.2 (2026-11-06)
+## v0.11.8-pre.3 (2026-11-06)
 
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217) (bcf1b75)
+- **energy:** add the chain insight model and segment tolerances (2f4277a)
+- **energy:** validate and keep chain tolerances (e593f21)
+- **energy:** correct substitute values by the learned loss (fbd6032)
+- **chainwatch:** learn the normal loss per segment and load class (509f7c4)
+- **chainwatch:** derive the efficiency curve from the learned table (125e959)
+- **chainwatch:** add the monitor with learning and drift detection (e4bea9e)
+- **chainwatch:** detect frozen values and contradicting points (3204446)
+- **chainwatch:** detect sign and unit errors (a6ca350)
+- **dashboard:** run the chain monitor in the energy loop (4b5e90e)
+- **api:** override and relearn the normal range of a chain segment (6a8ce50)
+- **diagnostics:** list chain findings (f92b1c9)
+- **dashboard:** show chain findings on the energy page (e5c8af2)
+- **dashboard:** add the efficiency curve and diagnosis model (415357a)
+- **dashboard:** show the curve and diagnosis on the efficiency tab (567aad2)
+- **devicemap:** mark chain findings on nodes and connections (aa86514)
+- **demo:** seed learned chain values for the demo (c5985d7)
+- **demo:** add a chain with one power direction (d513e46)
+- **dashboard:** show chain findings as expandable tiles (0a41fb2)
+- **dashboard:** animate the efficiency page (f950a78)
+- **devicemap:** show chain findings as expandable tiles (10c652c)
+- **dashboard:** group chain findings per chain and open tiles from the title (a883dfd)
+- **energy:** Measurement chains now learn their normal loss and efficiency curve. The Efficiency tab shows the curve with the best range and the current power, and a diagnosis lists drift, frozen values, contradicting points and wrong signs or units. Substitute values are corrected by the learned loss, and findings show up on the energy page, in the diagnostics and on the device map. (#223)
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **stats:** integrate measurement chain losses per hour (63b0153)
 - **stats:** record measurement chain losses per hour (8339b07)
@@ -43,6 +65,12 @@
 
 ### Fixes
 
+- **energy:** use the 5 W floor for the learned normal band (4ae44bc)
+- **dashboard:** hide the chain arrow after the last point on narrow screens (ee29a24)
+- **dashboard:** drop the dead-end arrow after the last chain point on phones (1961b3e)
+- **dashboard:** polish the efficiency curve legend and chain list (b5207b6)
+- **devicemap:** keep the finding tile in the scrolling panel list (da3090b)
+- **dashboard:** collapse the finding tile to its header height (58a6da5)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 - **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
 - **dashboard:** stop flagging retained discovery as not retained (#219) (65463a6)
@@ -65,6 +93,7 @@
 
 ### Documentation
 
+- **energy:** describe chain learning and diagnostics (47e2900)
 - **stats:** use English comments in the chain integrator (07b255c)
 
 ### Tests
@@ -78,6 +107,8 @@
 
 ### Chores
 
+- **dashboard:** bump the lazy asset versions for chain diagnostics (dd15539)
+- **dashboard:** raise dashboard.js above the merged prerelease value (808b2d3)
 - remove the shared services component (#209) (28d50a7)
 - **webui:** bump the lazy asset versions for measurement chains (e353e78)
 - **automations:** bump the asset versions of the rule history (6988860)
