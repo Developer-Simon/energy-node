@@ -58,7 +58,8 @@ def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
     # Jeder Dienst ist seit v0.4.0 eine eigene Versionskomponente; die Version
     # steht hier als nackte Semver (ohne "v"), genau wie in der manifest.json
     # der HA-Integration, und wird von scripts/version/bump-patch.sh gepflegt.
-    assert re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"]), manifest["version"]
+    # Auf der Linie prerelease traegt sie den Zusatz -pre.N.
+    assert re.fullmatch(r"\d+\.\d+\.\d+(?:-pre\.\d+)?", manifest["version"]), manifest["version"]
     assert manifest["kind"] == EXPECTED_KINDS[dir_name]
     assert manifest["bootstrap_step"] == EXPECTED_STEPS[dir_name]
     assert manifest["service_id"] == service_id
