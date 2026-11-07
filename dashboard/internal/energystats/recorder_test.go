@@ -332,3 +332,22 @@ func TestRecorderWithoutChainStoreBehavesAsBefore(t *testing.T) {
 		t.Fatalf("Status = %+v", st)
 	}
 }
+
+func TestRecorderKeepsRoleWriteErrorWhenChainWriteSucceeds(t *testing.T) {
+	roleDir := t.TempDir()
+	// Ein Verzeichnis an Stelle der Monatsdatei: der Rollenspeicher scheitert,
+	// der Kettenspeicher in einem eigenen Verzeichnis schreibt erfolgreich.
+	os.Mkdir(filepath.Join(roleDir, "2026-10.json"), 0o755)
+	recorder := NewRecorder(NewStore(roleDir), alwaysReady)
+	recorder.SetChainStore(NewChainStore(t.TempDir(), nil))
+	start := hourAt("2026-10-05T10:00:00Z")
+	run(recorder, start, start.Add(time.Hour), 0, withChain(snapshotWith(energy.Balance{PV: 1000}), 1000, 900))
+
+	st := recorder.Status()
+	if st.WriteError == "" {
+		t.Fatal("Schreibfehler der Rolle wurde durch den Kettenerfolg verdeckt")
+	}
+	if st.LastHour != nil && st.LastHour.Equal(start) {
+		t.Fatalf("fehlgeschlagene Rollenstunde gilt als gespeichert: %+v", st)
+	}
+}
