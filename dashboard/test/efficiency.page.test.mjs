@@ -69,8 +69,9 @@ function setup({chains = [AKKU], revision = 1, storage = {}, session = {csrf_tok
 function fakeCharts(window) {
   const made = [];
   window.ApexCharts = class {
-    constructor(el, options) { this.el = el; this.options = options; this.rendered = false; this.destroyed = false; made.push(this); }
+    constructor(el, options) { this.el = el; this.options = options; this.rendered = false; this.destroyed = false; this.updates = []; made.push(this); }
     render() { this.rendered = true; }
+    updateOptions(options) { this.updates.push(options); }
     destroy() { this.destroyed = true; }
   };
   return {made};
@@ -281,6 +282,74 @@ test('Die Kurve wird mit dem Laden gezeichnet, nur beim ersten Live-Zustand und 
 
   panel.destroy();
   assert.equal(charts.made[2].destroyed, true);
+  dom.window.close();
+});
+
+// A registry event for the storage chain whose counting point (DC) shows the given power.
+const liveAt = (dc, overrides = {}) => ({energy: {chains: [{
+  ...akkuState(0.97),
+  points: [
+    {entity_id: 'ac', label: 'AC', value: 1000, has_value: true, freshness: 'fresh', counting: false},
+    {entity_id: 'dc', label: 'DC', value: dc, has_value: true, freshness: 'fresh', counting: true},
+  ],
+  ...overrides,
+}]}});
+
+const dashedLines = options => options.annotations.xaxis.filter(item => item.strokeDashArray);
+
+test('Der Betriebspunkt wandert als Linie mit, unter 1 W Aenderung bleibt der Chart unveraendert', async () => {
+  const {dom, panel, emit} = setup({chains: [WITH_CURVE]});
+  const charts = fakeCharts(dom.window);
+  panel.$refs = {curve: dom.window.document.createElement('div')};
+  await panel.init();
+  emit(liveAt(970));
+  // The first live state draws once, with the line in place.
+  assert.equal(charts.made.length, 2);
+  assert.equal(dashedLines(charts.made[1].options)[0].x, 970);
+  assert.equal(charts.made[1].options.xaxis.max, 970);
+
+  emit(liveAt(970.4));
+  assert.equal(charts.made[1].updates.length, 0);
+
+  emit(liveAt(980));
+  assert.equal(charts.made.length, 2);
+  assert.equal(charts.made[1].updates.length, 1);
+  assert.equal(dashedLines({annotations: charts.made[1].updates[0].annotations})[0].x, 980);
+  assert.equal(charts.made[1].updates[0].xaxis.max, 980);
+
+  emit(liveAt(980, {flow: 'idle'}));
+  assert.equal(charts.made[1].updates.length, 2);
+  assert.equal(dashedLines({annotations: charts.made[1].updates[1].annotations}).length, 0);
+  dom.window.close();
+});
+
+test('Die Legende zeigt die Kette nur mit dem Eintrag, den die Kurve auch zeigt', async () => {
+  const {dom, panel, emit} = setup({chains: [WITH_CURVE]});
+  fakeCharts(dom.window);
+  panel.$refs = {curve: dom.window.document.createElement('div')};
+  await panel.init();
+  assert.deepEqual(plain(panel.curveLegend.map(item => item.id)), ['best']);
+  assert.equal(panel.curveLegend[0].text, catalogDe['efficiency.curve.best'].replace('{from}', '250').replace('{to}', '500'));
+
+  emit(liveAt(980));
+  assert.deepEqual(plain(panel.curveLegend.map(item => item.id)), ['best', 'now']);
+  assert.equal(panel.curveLegend[1].text, catalogDe['efficiency.curve.now'].replace('{power}', '980'));
+  dom.window.close();
+});
+
+test('Ein Themenwechsel zeichnet die Kurve neu, auch ohne neue Daten, und meldet sich beim Schliessen ab', async () => {
+  const {dom, panel} = setup({chains: [WITH_CURVE]});
+  const charts = fakeCharts(dom.window);
+  let handler = null;
+  dom.window.DashboardTheme = {onChange: fn => { handler = fn; return () => { handler = null; }; }};
+  panel.$refs = {curve: dom.window.document.createElement('div')};
+  await panel.init();
+  assert.equal(charts.made.length, 1);
+  handler('light');
+  assert.equal(charts.made.length, 2);
+  assert.equal(charts.made[0].destroyed, true);
+  panel.destroy();
+  assert.equal(handler, null);
   dom.window.close();
 });
 

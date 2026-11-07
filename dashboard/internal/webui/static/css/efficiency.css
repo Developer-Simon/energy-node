@@ -24,12 +24,18 @@
 
 .efficiency-grid { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: .9rem; align-items: start; min-width: 0; }
 
-.efficiency-list { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
-.efficiency-item { display: flex; justify-content: space-between; align-items: center; gap: .6rem; width: 100%; padding: .6rem .75rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.efficiency-item.is-active { border-color: var(--accent-line); background: var(--accent-bg); }
+.efficiency-list { display: grid; gap: 2px; align-self: start; margin: 0; padding: 0 .9rem 0 0; border-right: 1px solid var(--border-soft); list-style: none; }
+.efficiency-item { display: flex; justify-content: space-between; align-items: center; gap: .6rem; width: 100%; padding: .45rem .7rem; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color .18s var(--ease-out), transform .1s var(--ease-out); }
+.efficiency-item:active { transform: scale(.98); }
+.efficiency-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .efficiency-item:not(.is-active):hover { background: var(--panel-alt); }
+}
+.efficiency-item.is-active { background: var(--accent-bg); }
 .efficiency-item-text { display: grid; gap: .1rem; min-width: 0; }
-.efficiency-item-name { font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
-.efficiency-item small { font-size: .78rem; color: var(--text-muted); }
+.efficiency-item-name { font-size: .92rem; line-height: 1.3; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-item.is-active .efficiency-item-name { color: var(--accent-soft); font-weight: 600; }
+.efficiency-item small { font-size: .76rem; line-height: 1.3; color: var(--text-muted); }
 
 .efficiency-detail { display: grid; gap: .9rem; min-width: 0; }
 .efficiency-card { margin: 0; padding: 1rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
@@ -44,6 +50,10 @@
 
 .efficiency-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; align-items: start; min-width: 0; }
 .efficiency-curve { min-width: 0; min-height: 260px; }
+.efficiency-curve-key { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin: .5rem 0 0; padding: 0; list-style: none; font-size: .8rem; color: var(--text-muted); }
+.efficiency-curve-key-item { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+.efficiency-curve-key-swatch { display: inline-block; flex: none; width: 1rem; height: .6rem; border-radius: 3px; background: color-mix(in srgb, var(--ok) 35%, transparent); }
+.efficiency-curve-key-swatch[data-kind="now"] { height: 0; border-top: 2px dashed var(--text-muted); background: none; }
 .efficiency-curve-card, .efficiency-two > .efficiency-card { min-width: 0; }
 
 .efficiency-diagnosis { display: grid; gap: .6rem; }

@@ -2002,6 +2002,7 @@
   "efficiency.curve.charge": "Laden",
   "efficiency.curve.discharge": "Entladen",
   "efficiency.curve.learning": "Die Kurve entsteht mit den ersten Messwerten unter Last.",
+  "efficiency.curve.now": "Aktuell {power} W",
   "efficiency.curve.series": "Wirkungsgrad",
   "efficiency.curve.title": "Wirkungsgrad nach Leistung",
   "efficiency.curve.unavailable": "Die Grafik ist gerade nicht verfügbar.",

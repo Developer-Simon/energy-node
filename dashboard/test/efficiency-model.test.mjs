@@ -12,14 +12,18 @@ import { installI18n } from './helpers/i18n.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
 
-function loadModel(lang = 'de') {
+function loadModelDom(lang = 'de') {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   installI18n(dom.window, { lang });
   const context = dom.getInternalVMContext();
   for (const name of ['theme.js', 'energy-model.js', 'energy-stats-model.js', 'devicemap-model.js', 'energy-chains.js', 'efficiency-model.js']) {
     vm.runInContext(read(name), context);
   }
-  return dom.window.EfficiencyModel;
+  return { model: dom.window.EfficiencyModel, dom };
+}
+
+function loadModel(lang = 'de') {
+  return loadModelDom(lang).model;
 }
 
 // A chain state as GET /api/v1/energy/... and registry-updated deliver it.
@@ -150,7 +154,7 @@ test('curveOptions marks the best range', () => {
   assert.equal(options.annotations.xaxis.length, 1);
   assert.equal(options.annotations.xaxis[0].x, 250);
   assert.equal(options.annotations.xaxis[0].x2, 500);
-  assert.match(options.annotations.xaxis[0].label.text, /250.*500/);
+  assert.equal(options.annotations.xaxis[0].label.text, '');
   assert.equal(options.legend.show, false);
   assert.equal(options.chart.animations.enabled, false);
 
@@ -159,6 +163,91 @@ test('curveOptions marks the best range', () => {
 
   const two = plain(model.curveOptions([...series, { key: 'discharge', name: 'Entladen', dash: 5, data: [] }], null, 0));
   assert.equal(two.legend.show, true);
+});
+
+test('curveOptions draws the operating line inside the plotted range and grows the axis to cover it', () => {
+  const model = loadModel();
+  const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
+  const best = { from_w: 250, to_w: 500 };
+  const dashed = options => options.annotations.xaxis.filter(item => item.strokeDashArray);
+
+  const inside = plain(model.curveOptions(series, best, 600, 320));
+  assert.equal(dashed(inside).length, 1);
+  assert.equal(dashed(inside)[0].x, 320);
+  assert.equal(dashed(inside)[0].label.text, '');
+  assert.equal(inside.xaxis.max, 500);
+
+  const above = plain(model.curveOptions(series, best, 600, 800));
+  assert.equal(dashed(above)[0].x, 800);
+  assert.equal(above.xaxis.max, 800);
+
+  const below = plain(model.curveOptions(series, best, 600, 100));
+  assert.equal(dashed(below).length, 0);
+  assert.equal(below.xaxis.max, 500);
+
+  const none = plain(model.curveOptions(series, best, 600, null));
+  assert.equal(dashed(none).length, 0);
+});
+
+test('curveMarks follows the same rule as curveOptions for the live update', () => {
+  const model = loadModel();
+  const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
+  const marks = plain(model.curveMarks(series, { from_w: 250, to_w: 500 }, 980));
+  assert.equal(marks.xaxis.filter(item => item.strokeDashArray).length, 1);
+  assert.equal(marks.max, 980);
+  assert.equal(plain(model.curveMarks(series, null, null)).max, 500);
+});
+
+test('livePowerOf takes the absolute power of the counting point, nothing when idle or without values', () => {
+  const model = loadModel();
+  const live = (overrides = {}) => state({
+    counting: 'dc',
+    points: [
+      { entity_id: 'ac', label: 'AC', value: 1000, has_value: true },
+      { entity_id: 'dc', label: 'DC', value: -970, has_value: true },
+    ],
+    ...overrides,
+  });
+  assert.equal(model.livePowerOf(live()), 970);
+  assert.equal(model.livePowerOf(live({ flow: 'idle' })), null);
+  assert.equal(model.livePowerOf(live({ no_current_values: true })), null);
+  assert.equal(model.livePowerOf(live({ points: [{ entity_id: 'dc', value: null, has_value: false }] })), null);
+  assert.equal(model.livePowerOf(null), null);
+});
+
+test('curveLegend lists the best range and the current power only when they are drawn', () => {
+  const model = loadModel();
+  const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
+  const best = { from_w: 250, to_w: 500 };
+
+  const both = plain(model.curveLegend(series, best, 320));
+  assert.deepEqual(both.map(item => item.id), ['best', 'now']);
+  assert.equal(both[0].text, 'Bester Bereich 250 bis 500 W');
+  assert.equal(both[1].text, 'Aktuell 320 W');
+
+  assert.deepEqual(plain(model.curveLegend(series, null, 320)).map(item => item.id), ['now']);
+  assert.deepEqual(plain(model.curveLegend(series, best, null)).map(item => item.id), ['best']);
+  assert.deepEqual(plain(model.curveLegend(series, best, 100)).map(item => item.id), ['best']);
+  assert.deepEqual(plain(model.curveLegend([], null, null)), []);
+
+  const english = plain(loadModel('en').curveLegend(series, null, 320));
+  assert.equal(english[0].text, 'Now 320 W');
+});
+
+test('curveOptions reads its colours from the CSS variables and takes the theme mode of the page', () => {
+  const { model, dom } = loadModelDom('de');
+  const root = dom.window.document.documentElement;
+  root.style.setProperty('--text-muted', '#123456');
+  root.dataset.theme = 'light';
+  const series = [{ key: 'charge', name: 'Laden', dash: 0, data: [[250, 96], [500, 95]] }];
+
+  const light = plain(model.curveOptions(series, null, 600));
+  assert.equal(light.theme.mode, 'light');
+  assert.equal(light.legend.labels.colors, '#123456');
+  assert.equal(light.yaxis.title.style.color, '#123456');
+
+  root.dataset.theme = 'dark';
+  assert.equal(plain(model.curveOptions(series, null, 600)).theme.mode, 'dark');
 });
 
 test('segmentRows', () => {

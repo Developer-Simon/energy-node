@@ -105,39 +105,102 @@
 
   const formatInt = value => window.I18n.formatNumber(Math.round(value), 0);
 
-  // ApexCharts options for the curve, following EnergyStatsModel.chartOptions:
-  // colours from the theme tokens, no animation. The best range is a band on
-  // the x axis. The legend only shows with two series.
-  const curveOptions = (series, best, width = 0) => {
-    const list = series || [];
-    const battery = cssVar('flow-battery');
+  // The current theme of the page as ApexCharts names it, the rule of the stats chart.
+  const themeMode = () => {
+    if (typeof document === 'undefined' || !document.documentElement) return 'dark';
+    const attr = (document.documentElement.dataset.theme || '').toLowerCase();
+    if (attr === 'light' || attr === 'dark') return attr;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  };
+
+  const hasBest = best => Boolean(best) && Number.isFinite(best.from_w) && Number.isFinite(best.to_w);
+
+  // The x range the curve covers: its points and the best band. Null without any.
+  const plotRange = (series, best) => {
+    const xs = [];
+    for (const item of series || []) {
+      for (const point of item.data) xs.push(point[0]);
+    }
+    if (hasBest(best)) xs.push(best.from_w, best.to_w);
+    return xs.length ? { min: Math.min(...xs), max: Math.max(...xs) } : null;
+  };
+
+  // The live power of the chain in W, the absolute value of its counting point.
+  // Null when the chain is idle, has no current values or the point has no value.
+  const livePowerOf = state => {
+    if (!state || state.no_current_values || state.flow === 'idle') return null;
+    const points = state.points || [];
+    const point = points.find(item => item.entity_id === state.counting) || points.find(item => item.counting);
+    if (!point || !point.has_value) return null;
+    const value = Math.abs(Number(point.value));
+    return Number.isFinite(value) ? value : null;
+  };
+
+  // The operating line sits at the live power when that lies at or right of the plotted curve.
+  const operatingX = (power, range) => (Number.isFinite(power) && range && power >= range.min ? power : null);
+
+  // The x annotations of the curve and the x axis max. The best band has no label text,
+  // it is explained by the HTML legend. The max covers the operating line.
+  const curveMarks = (series, best, power) => {
+    const range = plotRange(series, best);
+    const x = operatingX(power, range);
     const muted = cssVar('text-muted');
-    const labelStyle = { colors: Array(12).fill(muted), fontSize: '12px' };
-    const xaxisAnnotations = [];
-    if (best && Number.isFinite(best.from_w) && Number.isFinite(best.to_w)) {
-      xaxisAnnotations.push({
+    const xaxis = [];
+    if (hasBest(best)) {
+      xaxis.push({
         x: best.from_w,
         x2: best.to_w,
         fillColor: cssVar('ok'),
         opacity: 0.18,
-        label: {
-          text: t('efficiency.curve.best', { from: formatInt(best.from_w), to: formatInt(best.to_w) }),
-          style: { color: muted, background: 'transparent' },
-        },
+        label: { text: '', borderWidth: 0, style: { background: 'transparent' } },
       });
     }
+    if (x !== null) {
+      xaxis.push({
+        x,
+        borderColor: muted,
+        strokeDashArray: 4,
+        label: { text: '', borderWidth: 0, style: { background: 'transparent' } },
+      });
+    }
+    if (!range) return { xaxis, max: null };
+    return { xaxis, max: x !== null ? Math.max(range.max, x) : range.max };
+  };
+
+  // The entries of the HTML legend under the curve. Only what the chart draws:
+  // the best band and the operating line.
+  const curveLegend = (series, best, power) => {
+    const items = [];
+    if (hasBest(best)) {
+      items.push({ id: 'best', text: t('efficiency.curve.best', { from: formatInt(best.from_w), to: formatInt(best.to_w) }) });
+    }
+    const x = operatingX(power, plotRange(series, best));
+    if (x !== null) items.push({ id: 'now', text: t('efficiency.curve.now', { power: formatInt(x) }) });
+    return items;
+  };
+
+  // ApexCharts options for the curve, following EnergyStatsModel.chartOptions:
+  // colours from the theme tokens, the theme mode of the page, no animation.
+  // The legend only shows with two series.
+  const curveOptions = (series, best, width = 0, power = null) => {
+    const list = series || [];
+    const battery = cssVar('flow-battery');
+    const muted = cssVar('text-muted');
+    const labelStyle = { colors: Array(12).fill(muted), fontSize: '12px' };
+    const marks = curveMarks(list, best, power);
     const ticks = width > 0 ? Math.max(2, Math.min(8, Math.floor(width / 90))) : undefined;
     return {
       chart: { type: 'line', height: 260, toolbar: { show: false }, animations: { enabled: false }, background: 'transparent', fontFamily: 'inherit', zoom: { enabled: false } },
+      theme: { mode: themeMode() },
       series: list.map(item => ({ name: item.name, data: item.data })),
       colors: list.map(item => (item.dash ? muted : battery)),
       stroke: { width: 2, curve: 'straight', dashArray: list.map(item => item.dash) },
       markers: { size: 3 },
       dataLabels: { enabled: false },
       legend: { show: list.length > 1, position: 'bottom', fontSize: '12px', labels: { colors: muted } },
-      xaxis: { type: 'numeric', tickAmount: ticks, labels: { style: labelStyle, formatter: value => formatInt(value) }, title: { text: 'W', style: { color: muted, fontWeight: 400 } } },
+      xaxis: { type: 'numeric', max: marks.max === null ? undefined : marks.max, tickAmount: ticks, labels: { style: labelStyle, formatter: value => formatInt(value) }, title: { text: 'W', style: { color: muted, fontWeight: 400 } } },
       yaxis: { forceNiceScale: true, labels: { style: labelStyle, formatter: value => formatInt(value) }, title: { text: '%', style: { color: muted, fontWeight: 400 } } },
-      annotations: { xaxis: xaxisAnnotations },
+      annotations: { xaxis: marks.xaxis },
       grid: { borderColor: cssVar('border-soft'), strokeDashArray: 3 },
       tooltip: {
         x: { formatter: value => `${formatInt(value)} W` },
@@ -257,10 +320,10 @@
   // efficiency.state.active, efficiency.state.idle, efficiency.state.no_values,
   // efficiency.status.plausible, efficiency.status.learning, efficiency.status.findings,
   // efficiency.curve.charge, efficiency.curve.discharge, efficiency.curve.series,
-  // efficiency.curve.best, efficiency.curve.learning,
+  // efficiency.curve.best, efficiency.curve.learning, efficiency.curve.now,
   // efficiency.segment.normal, efficiency.segment.learning, efficiency.segment.no_compare
 
   window.EfficiencyModel = {
-    stateKey, statusOf, overallPercent, kpiTiles, dayRows, curveSeries, curveOptions, segmentRows,
+    stateKey, statusOf, overallPercent, kpiTiles, dayRows, curveSeries, curveOptions, curveMarks, curveLegend, livePowerOf, segmentRows,
   };
 })();

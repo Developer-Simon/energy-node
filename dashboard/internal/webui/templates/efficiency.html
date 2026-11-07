@@ -64,6 +64,11 @@
                 <h3 class="efficiency-card-title">{{t "efficiency.curve.title"}}</h3>
                 <p class="efficiency-hint" x-show="curveNote" x-text="curveNote"></p>
                 <div class="efficiency-curve" x-ref="curve"></div>
+                <ul class="efficiency-curve-key" x-show="curveLegend.length > 0">
+                  <template x-for="item in curveLegend" x-bind:key="item.id">
+                    <li class="efficiency-curve-key-item"><span class="efficiency-curve-key-swatch" x-bind:data-kind="item.id" aria-hidden="true"></span><span x-text="item.text"></span></li>
+                  </template>
+                </ul>
               </section>
               <section class="efficiency-card">
                 <h3 class="efficiency-card-title">{{t "efficiency.days.title"}}</h3>

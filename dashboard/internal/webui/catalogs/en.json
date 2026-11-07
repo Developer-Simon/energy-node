@@ -2002,6 +2002,7 @@
   "efficiency.curve.charge": "Charging",
   "efficiency.curve.discharge": "Discharging",
   "efficiency.curve.learning": "The curve builds up with the first readings under load.",
+  "efficiency.curve.now": "Now {power} W",
   "efficiency.curve.series": "Efficiency",
   "efficiency.curve.title": "Efficiency by power",
   "efficiency.curve.unavailable": "The chart is not available right now.",

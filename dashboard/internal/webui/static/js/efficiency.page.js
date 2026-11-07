@@ -81,6 +81,9 @@
     chart: null,
     drawnKey: '',
     drawnHost: null,
+    // The live power the chart shows its operating line at (null: no line).
+    drawnPower: null,
+    themeOff: null,
     curveNote: '',
     // The segment whose tolerance form is open ('a|b'), and its two draft fields.
     editing: '',
@@ -92,6 +95,8 @@
       window.addEventListener('registry-updated', this.registryListener);
       this.rolesListener = () => this.loadCategories();
       window.addEventListener('energy-roles-changed', this.rolesListener);
+      // The curve takes its colours from the theme, so a theme change draws it again.
+      if (window.DashboardTheme) this.themeOff = window.DashboardTheme.onChange(() => this.redrawCurve());
       this.loadCategories();
       return Promise.all([this.loadSession(), this.load()]);
     },
@@ -99,6 +104,8 @@
     destroy() {
       if (this.registryListener) window.removeEventListener('registry-updated', this.registryListener);
       if (this.rolesListener) window.removeEventListener('energy-roles-changed', this.rolesListener);
+      if (this.themeOff) this.themeOff();
+      this.themeOff = null;
       this.destroyCurve();
     },
 
@@ -314,6 +321,17 @@
       return window.EfficiencyModel.curveSeries(chain.curve || {}, this.state || {}, this.categories);
     },
 
+    // The legend under the curve: the best range and the operating line, when drawn.
+    get curveLegend() {
+      const series = this.curveSeries;
+      return window.EfficiencyModel.curveLegend(series, this.curveBest(series), this.livePower);
+    },
+
+    // The live power of the current chain in W, null when it shows none.
+    get livePower() {
+      return window.EfficiencyModel.livePowerOf(this.state);
+    },
+
     // The best range of the direction the first series shows.
     curveBest(series) {
       const chain = this.current;
@@ -334,14 +352,36 @@
     },
 
     // Draws the curve again only when its key changes, never on every registry tick.
+    // Between two draws only the operating line moves.
     syncCurve() {
       const host = this.$refs && this.$refs.curve;
       if (!host || !this.current) return;
       const key = this.curveKey();
-      if (key === this.drawnKey && host === this.drawnHost) return;
+      if (key === this.drawnKey && host === this.drawnHost) {
+        this.syncOperatingLine();
+        return;
+      }
       this.drawnKey = key;
       this.drawnHost = host;
       this.drawCurve(host);
+    },
+
+    // Moves the operating line when the live power changed by at least 1 W. Only the
+    // annotation and the axis max are updated, the chart itself stays as it is.
+    syncOperatingLine() {
+      if (!this.chart) return;
+      const power = this.livePower;
+      if (samePower(power, this.drawnPower)) return;
+      this.drawnPower = power;
+      const series = this.curveSeries;
+      const marks = window.EfficiencyModel.curveMarks(series, this.curveBest(series), power);
+      this.chart.updateOptions({annotations: {xaxis: marks.xaxis}, xaxis: {max: marks.max === null ? undefined : marks.max}});
+    },
+
+    // Draws the curve again with the current theme colours.
+    redrawCurve() {
+      this.drawnKey = '';
+      this.syncCurve();
     },
 
     // Destroys the old chart before the new one is created. Without points there is a note; without ApexCharts a text.
@@ -357,7 +397,8 @@
         return;
       }
       this.curveNote = '';
-      this.chart = new window.ApexCharts(host, window.EfficiencyModel.curveOptions(series, this.curveBest(series), host.clientWidth));
+      this.drawnPower = this.livePower;
+      this.chart = new window.ApexCharts(host, window.EfficiencyModel.curveOptions(series, this.curveBest(series), host.clientWidth, this.drawnPower));
       this.chart.render();
     },
 
@@ -429,6 +470,12 @@
       }
     },
   });
+
+  // Two power values are the same when both are missing or they differ by less than 1 W.
+  const samePower = (first, second) => {
+    if (first === null || second === null) return first === second;
+    return Math.abs(first - second) < 1;
+  };
 
   const register = () => {
     if (window.Alpine) window.Alpine.data('efficiencyPanel', efficiencyPanel);
