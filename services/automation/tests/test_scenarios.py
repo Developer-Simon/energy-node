@@ -1,5 +1,6 @@
 """Tests fuer die Validierung der Szenarien (Spec 1.3)."""
 
+import datetime
 import json
 
 import pytest
@@ -336,10 +337,10 @@ def test_until_still_ends_before_max_duration():
 
 
 def test_max_duration_out_of_range_is_rejected():
-    for value in (59, 86401):
+    for value in (9, 86401):
         errors = []
         automation._validate_scenario(scenario_def(max_duration_s=value), 0, errors, set(), 30)
-        assert errors == ["scenario[0]: max_duration_s must be between 60 and 86400"]
+        assert errors == ["scenario[0]: max_duration_s must be between 10 and 86400"]
 
 
 def test_scenario_min_run_delays_the_end():
@@ -765,3 +766,126 @@ def test_removing_an_active_regulator_by_reload_ends_once_and_clears_its_topics(
     assert any(t.endswith("scenario_nulleinspeisung_phase/config") and p == "" for t, p, _r in after)
     assert "nulleinspeisung" not in service.scenario_engine._runtime
     assert "nulleinspeisung" not in service.scenario_publishers
+
+
+PLUG_TOPIC = "werkstatt/plug/state"
+
+
+def chain_topics(at, findings=(), standby_w=12.0):
+    chain = {"loss_w": 3.0, "efficiency_pct": 95.0, "standby_w": standby_w, "findings": list(findings)}
+    return {automation.CHAINS_TOPIC: json.dumps({"at": at, "chains": {"balkon": chain}})}
+
+
+def chain_finding_cond(**overrides):
+    cond = {"type": "chain_finding", "chain_id": "balkon", "kind": "frozen", "points": [], "min_age_s": 0,
+            "once": False}
+    cond.update(overrides)
+    return cond
+
+
+def watchdog_scenario():
+    when = {"conditions": [
+        chain_finding_cond(once=True),
+        {"type": "entity_value", "topic": PLUG_TOPIC, "entity_id": "plug_power",
+         "value_template": "{{ value_json.power }}", "comparison": "above", "value": 20},
+    ]}
+    return scenario_def(id="watchdog", when=when, max_duration_s=30, cooldown_s=21600,
+                        on_start={"actions": [publish_action("off")]},
+                        on_end={"actions": [publish_action("on")]})
+
+
+def test_once_watchdog_scenario_single_restart():
+    t0 = 10000.0
+    findings = [{"kind": "frozen", "from": "sensor.dc", "since": t0 - 1000}]
+    doc, engine, published, _ = scenario_engine_with([normalized(watchdog_scenario())])
+    now = t0
+    while now <= t0 + 7 * 3600:
+        power = 0 if t0 + 10 <= now < t0 + 20 else 150
+        report = engine.tick(doc, balance=None, balance_age=None, now_ts=now,
+                             topic_values={**chain_topics(now, findings), PLUG_TOPIC: json.dumps({"power": power})})
+        now += 10
+    assert payloads(published) == ["off", "on"]
+    assert report["watchdog"]["phase"] == "idle"
+
+
+def test_once_false_behaves_like_before():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(
+        when={"conditions": [chain_finding_cond()]}, max_duration_s=30, cooldown_s=100))])
+
+    def run(now, findings):
+        return engine.tick(doc, balance=None, balance_age=None, now_ts=now,
+                           topic_values=chain_topics(now, findings))
+
+    present = [{"kind": "frozen", "from": "sensor.dc", "since": 900}]
+    run(1000, present)
+    assert payloads(published) == ["start"]
+    run(1010, present)
+    run(1020, present)
+    run(1030, present)
+    assert payloads(published) == ["start", "end"]
+    # Meldung weg macht das Szenario wieder scharf; danach gilt nur noch die Abkuehlzeit.
+    run(1040, [])
+    run(1100, present)
+    assert payloads(published) == ["start", "end"]
+    run(1120, present)
+    assert payloads(published) == ["start", "end"]
+    run(1130, present)
+    assert payloads(published) == ["start", "end", "start"]
+
+
+def test_scenario_ends_after_thirty_seconds():
+    doc, engine, published, _ = scenario_engine_with([normalized(scenario_def(max_duration_s=30))])
+    tick(engine, doc, 1000)
+    tick(engine, doc, 1010)
+    tick(engine, doc, 1020)
+    assert payloads(published) == ["start"]
+    report = tick(engine, doc, 1030)
+    assert payloads(published) == ["start", "end"]
+    assert report["x"]["phase"] == "idle"
+
+
+def test_max_duration_accepts_ten_seconds():
+    errors = []
+    automation._validate_scenario(scenario_def(max_duration_s=10), 0, errors, set(), 30)
+    assert errors == []
+
+
+def test_standby_scenario_ends_only_at_time():
+    until = {"conditions": [{"type": "time_window", "start": "07:00", "end": "08:00", "weekdays": []}]}
+
+    def at(hour, minute):
+        return datetime.datetime(2026, 11, 7, hour, minute).timestamp()
+
+    def standby_scenario():
+        when = {"conditions": [{"type": "chain_value", "chain_id": "balkon", "field": "standby_w",
+                                "comparison": "above", "value": 10, "hold_seconds": 7200}]}
+        return normalized(scenario_def(id="standby", when=when, until=until,
+                                       on_start={"actions": [publish_action("off")]},
+                                       on_end={"actions": [publish_action("on")]}))
+
+    # Start um 04:00, danach ist standby_w null: bleibt aktiv bis 07:00.
+    doc, engine, published, _ = scenario_engine_with([standby_scenario()])
+    engine.tick(doc, balance=None, balance_age=None, now_ts=at(2, 0), topic_values=chain_topics(at(2, 0)))
+    report = engine.tick(doc, balance=None, balance_age=None, now_ts=at(4, 0), topic_values=chain_topics(at(4, 0)))
+    assert payloads(published) == ["off"]
+    for hour, minute in ((4, 30), (5, 30), (6, 30), (6, 59)):
+        now = at(hour, minute)
+        report = engine.tick(doc, balance=None, balance_age=None, now_ts=now,
+                             topic_values=chain_topics(now, standby_w=None))
+        assert report["standby"]["phase"] == "active"
+    assert payloads(published) == ["off"]
+    report = engine.tick(doc, balance=None, balance_age=None, now_ts=at(7, 0),
+                         topic_values=chain_topics(at(7, 0), standby_w=None))
+    assert payloads(published) == ["off", "on"]
+    assert report["standby"]["phase"] == "idle"
+
+    # Start um 07:30: Ende im naechsten Tick.
+    doc, engine, published, _ = scenario_engine_with([standby_scenario()])
+    engine.tick(doc, balance=None, balance_age=None, now_ts=at(5, 30), topic_values=chain_topics(at(5, 30)))
+    report = engine.tick(doc, balance=None, balance_age=None, now_ts=at(7, 30), topic_values=chain_topics(at(7, 30)))
+    assert payloads(published) == ["off"]
+    assert report["standby"]["phase"] == "active"
+    report = engine.tick(doc, balance=None, balance_age=None, now_ts=at(7, 40),
+                         topic_values=chain_topics(at(7, 40), standby_w=None))
+    assert payloads(published) == ["off", "on"]
+    assert report["standby"]["phase"] == "idle"

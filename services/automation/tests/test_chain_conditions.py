@@ -248,3 +248,85 @@ def test_condition_value_for_chain_conditions():
     stale = {automation.CHAINS_TOPIC: chains_msg(now - 61, {"balkon": balkon()})}
     assert automation.condition_value(finding_cond(kind="frozen"), balance=None,
                                       topic_values=stale, now_ts=now) == (None, None)
+
+
+PLUG_TOPIC = "werkstatt/plug/state"
+
+
+def _plug_condition():
+    return {"type": "entity_value", "topic": PLUG_TOPIC, "entity_id": "plug_power",
+            "value_template": "{{ value_json.power }}", "comparison": "above", "value": 20}
+
+
+def _once_rule_doc(conditions):
+    raw = {
+        "id": "r1", "name": "Rule 1", "enabled": True, "cooldown_seconds": 300,
+        "conditions": conditions,
+        "actions": [{"type": "publish", "topic": "werkstatt/wallbox/set", "retain": False,
+                     "payload_source": "constant", "payload": "1"}],
+    }
+    errors = []
+    # min_interval 0: this test checks the once logic, not the publish hold minimum.
+    rule = automation._validate_rule(raw, 0, errors, set(), 0)
+    assert errors == []
+    return automation.RulesDocument(version=1, settings=automation.Settings(settling_seconds=0), rules=[rule])
+
+
+def test_once_rule_fires_once_per_finding():
+    published = []
+    executor = automation.ActionExecutor(publish_fn=lambda t, p, r: published.append(p),
+                                         publish_allowed_prefixes=["werkstatt/"])
+    engine = automation.Engine(executor, started_at=0.0, event_sink=lambda message: None)
+    doc = _once_rule_doc([finding_cond(kind="frozen", once=True), _plug_condition()])
+
+    def tick(now, power, findings):
+        topic_values = {
+            automation.CHAINS_TOPIC: chains_msg(now, {"balkon": balkon(findings=findings)}),
+            PLUG_TOPIC: json.dumps({"power": power}),
+        }
+        return engine.tick(doc, balance=None, balance_age=None, topic_values=topic_values, now_ts=now)
+
+    first = {"kind": "frozen", "from": "sensor.dc", "since": 900}
+    second = {"kind": "frozen", "from": "sensor.dc", "since": 1200}
+
+    tick(1000, 50, [first])
+    assert published == ["1"]
+    # Bedingung kurz falsch, Meldung bleibt.
+    tick(1100, 0, [first])
+    # Neue Meldung in der Abkuehlzeit: noch kein Feuern.
+    report = tick(1200, 50, [first, second])
+    assert report["r1"]["result"] == "cooldown"
+    assert published == ["1"]
+    # Nach der Abkuehlzeit feuert sie einmal fuer die neue Meldung.
+    tick(1300, 50, [first, second])
+    assert published == ["1", "1"]
+    # Beide Meldungen sind verbraucht: wieder wahr, aber kein weiteres Feuern.
+    tick(1400, 0, [first, second])
+    tick(1450, 50, [first, second])
+    assert published == ["1", "1"]
+
+
+def test_once_consumed_keys_are_pruned():
+    now = 10000.0
+    cond = validate(finding_cond(kind="frozen", once=True))[0]
+    key = (0, "frozen", "sensor.dc", None, now - 900)
+    runtimes = [automation.ConditionRuntime()]
+    finding = {"kind": "frozen", "from": "sensor.dc", "since": now - 900}
+
+    def run(topic_values, consumed):
+        automation.evaluate_conditions([cond], runtimes, balance=None, topic_values=topic_values,
+                                       now_ts=now, location=None, consumed=consumed)
+
+    # Meldung noch im frischen Payload: Schluessel bleibt.
+    consumed = {key}
+    run({automation.CHAINS_TOPIC: chains_msg(now, {"balkon": balkon(findings=[finding])})}, consumed)
+    assert consumed == {key}
+    # Meldung weg aus dem frischen Payload: Schluessel fliegt raus.
+    consumed = {key}
+    run({automation.CHAINS_TOPIC: chains_msg(now, {"balkon": balkon(findings=[])})}, consumed)
+    assert consumed == set()
+    # Veraltetes Payload: nichts wird aufgeraeumt.
+    consumed = {key}
+    stale = {automation.CHAINS_TOPIC: chains_msg(now - 61, {"balkon": balkon(findings=[])})}
+    run(stale, consumed)
+    assert consumed == {key}

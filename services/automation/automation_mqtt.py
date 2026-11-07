@@ -537,8 +537,8 @@ def _validate_scenario(scenario: dict, index: int, errors: list[str], seen_ids: 
     result["while"] = _validate_while(result.get("while"), prefix, errors, min_interval)
     if "max_duration_s" in result:
         duration = result["max_duration_s"]
-        if not (_number(duration) and 60 <= duration <= 86400):
-            errors.append(f"{prefix}: max_duration_s must be between 60 and 86400")
+        if not (_number(duration) and 10 <= duration <= 86400):
+            errors.append(f"{prefix}: max_duration_s must be between 10 and 86400")
     for key in ("min_run_s", "cooldown_s"):
         if key in result:
             value = result[key]
@@ -1046,6 +1046,7 @@ class RuleRuntime:
     fired_this_episode: bool = False
     last_fired_at: Optional[float] = None
     fire_count: int = 0
+    consumed: set = field(default_factory=set)
 
 
 def _apply_hysteresis(cond: dict, cond_rt: ConditionRuntime, balance: Optional[dict]) -> Optional[bool]:
@@ -1065,11 +1066,43 @@ def _apply_hysteresis(cond: dict, cond_rt: ConditionRuntime, balance: Optional[d
     return cond_rt.latched
 
 
+def _matching_keys(index: int, cond: dict, topic_values: dict, now_ts: float) -> set:
+    """Schluessel (index, kind, from, to, since) aller Meldungen, die gerade passen."""
+    chains, _ = chains_payload(topic_values, now_ts)
+    chain = chains.get(cond["chain_id"]) if chains is not None else None
+    if not isinstance(chain, dict):
+        return set()
+    return {(index,) + key for key in matching_findings(cond, chain, now_ts)}
+
+
+def _prune_consumed(conditions: list, consumed: set, topic_values: dict, now_ts: float) -> None:
+    """Wirft verbrauchte Schluessel weg, deren Meldung im frischen Payload fehlt.
+    Ohne frisches Payload oder ohne Kette bleibt consumed unveraendert."""
+    chains, _ = chains_payload(topic_values, now_ts)
+    if chains is None:
+        return
+    for index, cond in enumerate(conditions):
+        if cond["type"] != "chain_finding" or not cond.get("once"):
+            continue
+        chain = chains.get(cond["chain_id"])
+        if not isinstance(chain, dict):
+            continue
+        present = {(index, f.get("kind"), f.get("from"), f.get("to"), f.get("since"))
+                   for f in chain.get("findings") or [] if _number(f.get("since"))}
+        consumed.difference_update({k for k in consumed if k[0] == index and k not in present})
+
+
 def _evaluate_one(cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location,
-                  topic_seen_at=None, started_at=None):
+                  topic_seen_at=None, started_at=None, index: int = 0, consumed: Optional[set] = None,
+                  matched: Optional[set] = None):
     raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
                                              location=location, topic_seen_at=topic_seen_at,
                                              started_at=started_at)
+    if cond["type"] == "chain_finding" and cond.get("once"):
+        keys = _matching_keys(index, cond, topic_values, now_ts)
+        if matched is not None:
+            matched.update(keys)
+        raw_met = bool(keys - (consumed or set()))
     latched = _apply_hysteresis(cond, cond_rt, balance)
     if latched is not None:
         raw_met = latched
@@ -1091,21 +1124,30 @@ class ConditionsResult:
     all_held: bool
     saw_stale: bool
     reports: list
+    matched: set = field(default_factory=set)
 
 
 def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[dict], topic_values: dict,
                         now_ts: float, location, topic_seen_at: Optional[dict] = None,
-                        started_at: Optional[float] = None) -> ConditionsResult:
+                        started_at: Optional[float] = None,
+                        consumed: Optional[set] = None) -> ConditionsResult:
     """Evaluates all conditions of one rule or scenario against their runtimes
-    and builds the report list shown in the dashboard."""
+    and builds the report list shown in the dashboard. Meldungen, deren
+    Schluessel in consumed liegt, zaehlen bei once-Bedingungen nicht mehr.
+    consumed wird dabei aufgeraeumt, aber nicht erweitert: matched sammelt die
+    Schluessel der gerade passenden once-Bedingungen."""
+    if consumed is None:
+        consumed = set()
+    _prune_consumed(conditions, consumed, topic_values, now_ts)
+    matched: set = set()
     reports = []
     all_raw = True
     all_held = True
     saw_stale = False
-    for cond, cond_rt in zip(conditions, runtimes):
+    for index, (cond, cond_rt) in enumerate(zip(conditions, runtimes)):
         raw_met, held_met, reason = _evaluate_one(
             cond, cond_rt, balance=balance, topic_values=topic_values, now_ts=now_ts, location=location,
-            topic_seen_at=topic_seen_at, started_at=started_at)
+            topic_seen_at=topic_seen_at, started_at=started_at, index=index, consumed=consumed, matched=matched)
         if reason == "balance_stale":
             saw_stale = True
         all_raw = all_raw and raw_met
@@ -1120,7 +1162,8 @@ def evaluate_conditions(conditions: list, runtimes: list, *, balance: Optional[d
         reports.append({"met": held_met, "raw_met": raw_met, "value": value,
                         "target": target, "since": cond_rt.since,
                         "hold_remaining": remaining})
-    return ConditionsResult(all_raw=all_raw, all_held=all_held, saw_stale=saw_stale, reports=reports)
+    return ConditionsResult(all_raw=all_raw, all_held=all_held, saw_stale=saw_stale, reports=reports,
+                            matched=matched)
 
 
 class Engine:
@@ -1160,7 +1203,7 @@ class Engine:
             evaluation = evaluate_conditions(rule["conditions"], rt.conditions, balance=effective_balance,
                                              topic_values=topic_values, now_ts=now_ts,
                                              location=doc.settings.location, topic_seen_at=topic_seen_at,
-                                             started_at=self.started_at)
+                                             started_at=self.started_at, consumed=rt.consumed)
             condition_reports = evaluation.reports
             all_raw = evaluation.all_raw
             all_held = evaluation.all_held
@@ -1202,14 +1245,14 @@ class Engine:
             else:
                 outcome_result, fired_actions = self._fire(rule, rt, balance=effective_balance,
                                                            topic_values=topic_values, now_ts=now_ts,
-                                                           record_history=True)
+                                                           record_history=True, matched=evaluation.matched)
                 cooldown_remaining = max(0.0, rule.get("cooldown_seconds", 0) - (now_ts - rt.last_fired_at))
                 results[rule_id] = self._rule_result(rt, rule, outcome_result, None, condition_reports, fired_actions, cooldown_remaining)
 
         return results
 
     def _fire(self, rule: dict, rt: RuleRuntime, *, balance, topic_values, now_ts: float,
-              record_history: bool) -> tuple[str, list]:
+              record_history: bool, matched: frozenset = frozenset()) -> tuple[str, list]:
         rule_id = rule["id"]
         fired_actions = []
         any_blocked = False
@@ -1226,6 +1269,9 @@ class Engine:
         rt.last_fired_at = now_ts
         rt.fired_this_episode = True
         rt.fire_count += 1
+        if record_history:
+            # Jede Meldung feuert die Regel nur einmal; Wiederholungen ueber repeat_seconds zaehlen nicht.
+            rt.consumed.update(matched)
         outcome_result = "error" if any_error else ("blocked" if any_blocked else "fired")
         if record_history and self.history_sink is not None:
             history_actions = [{**outcome, "type": action["type"]}
@@ -1262,6 +1308,7 @@ class ScenarioRuntime:
     reason: Optional[str] = None
     rearm: bool = False
     ended_at: Optional[float] = None
+    consumed: set = field(default_factory=set)
 
 
 _SCENARIO_ACTIVE_PHASES = ("active", "fallback")
@@ -1353,7 +1400,7 @@ class ScenarioEngine:
             rt.when.append(ConditionRuntime())
         when_eval = evaluate_conditions(when_conditions, rt.when, balance=balance, topic_values=topic_values,
                                         now_ts=now_ts, location=location, topic_seen_at=topic_seen_at,
-                                        started_at=self.started_at)
+                                        started_at=self.started_at, consumed=rt.consumed)
         until_eval = None
         if scenario["until"] is None:
             rt.until = []
@@ -1384,7 +1431,7 @@ class ScenarioEngine:
             elif rt.ended_at is not None and now_ts - rt.ended_at < scenario.get("cooldown_s", 0):
                 rt.reason = "cooldown"
             elif when_eval.all_held:
-                self._start(sid, scenario, rt, now_ts=now_ts, **ctx)
+                self._start(sid, scenario, rt, now_ts=now_ts, matched=when_eval.matched, **ctx)
                 self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
             return
 
@@ -1405,9 +1452,11 @@ class ScenarioEngine:
         rt.reason = None
         self._run_while(scenario, rt, now_ts=now_ts, settings=settings, **ctx)
 
-    def _start(self, sid: str, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values) -> None:
+    def _start(self, sid: str, scenario: dict, rt: ScenarioRuntime, *, now_ts: float, balance, topic_values,
+               matched: frozenset = frozenset()) -> None:
         rt.phase = "active"
         rt.since = now_ts
+        rt.consumed.update(matched)
         rt.last_hold_at = None
         rt.definition = copy.deepcopy(scenario)
         outcomes = self._run_actions(scenario["on_start"]["actions"], balance=balance, topic_values=topic_values)
