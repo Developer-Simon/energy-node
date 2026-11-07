@@ -62,7 +62,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-11-07**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -96,7 +96,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `45` |
+| `js/dashboard.js` | `47` |
 | `js/update-bar.js` | `7` |
 | `js/onboarding-model.js` | `4` |
 | `js/onboarding.js` | `4` |
@@ -133,7 +133,7 @@ skips scripts already present as `<script src>`.
 |---|---|---|
 | `devices-panel` | – | – |
 
-`js/device-modal.js` `4` is lazy on its own trigger: `devicesPanel` loads it on
+`js/device-modal.js` `5` is lazy on its own trigger: `devicesPanel` loads it on
 the first device open (overview and devices tab). Its URL sits in `data-script`
 on the `device-modal` template in
 [devices.html](../../dashboard/internal/webui/templates/devices.html), not in
@@ -143,13 +143,13 @@ on the `device-modal` template in
 |---|---|---|
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `5`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | `js/servicelogs.panel.js` `2` | `css/settings-controls.css` `20`, `css/diagnostics.css` `4` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `49` |
-| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `15`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `1` (new), `js/devicemap-graph.js` `10`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `5`, `js/energy-plant.js` `7`, `js/device-picker.js` `2`, `js/energy.page.js` `14` | `css/manager.css` `49` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `15`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `1` (new), `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `5`, `js/devicemap-graph.js` `10`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `9`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `30` | `css/manager.css` `49` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `11`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4`, `js/onboarding-checklist.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `49`, `css/settings-controls.css` `20` |
-| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `5`, `js/automations-scenario.js` `3`, `js/automations-chart.js` `4`, `js/automations-devices.js` `1`, `js/device-picker.js` `2`, `js/automation-wizard.js` `1` (new), `js/automation-templates.js` `1` (new), `js/automations.page.js` `23` | `css/manager.css` `49`, `css/automations.css` `15` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `50` |
+| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `16`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `2` (new), `js/devicemap-graph.js` `11`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `6`, `js/energy-plant.js` `7`, `js/device-picker.js` `2`, `js/energy.page.js` `15` | `css/manager.css` `50` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `16`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `2` (new), `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `6`, `js/devicemap-graph.js` `11`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `9`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `31` | `css/manager.css` `50` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `29`, `js/mqtt.page.js` `11`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4`, `js/onboarding-checklist.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `50`, `css/settings-controls.css` `20` |
+| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `5`, `js/automations-scenario.js` `3`, `js/automations-chart.js` `4`, `js/automations-devices.js` `1`, `js/device-picker.js` `2`, `js/automation-wizard.js` `1` (new), `js/automation-templates.js` `1` (new), `js/automations.page.js` `23` | `css/manager.css` `50`, `css/automations.css` `15` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `5`, `js/energy-stats-model.js` `5`, `js/stats.page.js` `7` | `css/history.css` `7`, `css/stats.css` `5` |
-| `efficiency-panel` | `js/energy-model.js` `5`, `js/energy-stats-model.js` `5`, `js/devicemap-model.js` `15`, `js/energy-chains.js` `1`, `js/efficiency-model.js` `1` (new), `js/efficiency.page.js` `1` (new) | `css/manager.css` `49`, `css/stats.css` `5`, `css/efficiency.css` `1` (new) |
+| `efficiency-panel` | `js/energy-model.js` `5`, `js/energy-stats-model.js` `5`, `js/devicemap-model.js` `16`, `js/energy-chains.js` `2`, `js/efficiency-model.js` `2` (new), `js/efficiency.page.js` `2` (new) | `css/manager.css` `50`, `css/stats.css` `5`, `css/efficiency.css` `2` (new) |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -270,9 +270,9 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.11.8 | `css/base.css` (merge of main into prerelease, changed on both lines) · `js/dashboard.js` (merge of main into prerelease, changed on both lines) | `49` · `46` | 2026-11-07 |
-| v0.11.8 | `js/stats.page.js` (stats panel, losses switch and chain figures) · `css/stats.css` (stats panel, losses figures) · `js/devicemap-graph.js` (energy, device map, losses layer) · `js/efficiency-model.js` (new, efficiency panel) · `js/efficiency.page.js` (new, efficiency panel) · `css/efficiency.css` (new, efficiency panel) | `7` · `5` · `10` · `1` (new) · `1` (new) · `1` (new) | 2026-11-07 |
-| v0.11.8 | `js/energy-chains.js` (new, energy, device map) · `js/energy.page.js` (energy panel, measurement chains section) · `js/devicemap-model.js` (energy, device map, reference points as display values) · `js/devicemap.page.js` (device map, chain form in the energy connection card) · `js/energy-model.js` (energy cards, history panel, stats panel, substitute value helpers) · `js/energy-flow.js` (energy cards, substitute marker) · `js/energy-board.js` (energy cards, substitute row state) · `js/energy-status.js` (energy cards, data quality tile) · `js/energy-stats-model.js` (stats panel, energy cards, substitute hours in the coverage text) · `js/dashboard.js` (all pages, chain focus request, formatted x-roll frames) · `js/devicemap-labels.js` (device map, energy plant view, note under a node) · `js/energy-plant.js` (energy plant view, substitute note) · `css/base.css` (substitute marker in the flow graphic, substitute colour, merged with the v0.11.5 statistics card change) · `css/manager.css` (5 panels, measurement chain cards, direction menu, map chain status) | `1` (new) · `14` · `15` · `30` · `5` · `4` · `3` · `2` · `5` · `45` · `5` · `7` · `48` · `49` | 2026-11-07 |
+| v0.11.8 | `css/base.css` (merge of main into prerelease, changed on both lines) · `js/dashboard.js` (merge of main into prerelease, changed on both lines, chain diagnostics i18n keys) | `49` · `47` | 2026-11-07 |
+| v0.11.8 | `js/stats.page.js` (stats panel, losses switch and chain figures) · `css/stats.css` (stats panel, losses figures) · `js/devicemap-graph.js` (energy, device map, losses layer) · `js/efficiency-model.js` (new, efficiency panel) · `js/efficiency.page.js` (new, efficiency panel) · `css/efficiency.css` (new, efficiency panel) | `7` · `5` · `11` · `2` (new) · `2` (new) · `2` (new) | 2026-11-07 |
+| v0.11.8 | `js/energy-chains.js` (new, energy, device map) · `js/energy.page.js` (energy panel, measurement chains section) · `js/devicemap-model.js` (energy, device map, reference points as display values) · `js/devicemap.page.js` (device map, chain form in the energy connection card) · `js/energy-model.js` (energy cards, history panel, stats panel, substitute value helpers) · `js/energy-flow.js` (energy cards, substitute marker) · `js/energy-board.js` (energy cards, substitute row state) · `js/energy-status.js` (energy cards, data quality tile) · `js/energy-stats-model.js` (stats panel, energy cards, substitute hours in the coverage text) · `js/dashboard.js` (all pages, chain focus request, formatted x-roll frames) · `js/devicemap-labels.js` (device map, energy plant view, note under a node) · `js/energy-plant.js` (energy plant view, substitute note) · `css/base.css` (substitute marker in the flow graphic, substitute colour, merged with the v0.11.5 statistics card change) · `css/manager.css` (5 panels, measurement chain cards, direction menu, map chain status) · `js/device-modal.js` (device dialog, i18n key comment only) | `2` (new) · `15` · `16` · `31` · `5` · `4` · `3` · `2` · `5` · `46` · `6` · `7` · `48` · `50` · `5` | 2026-11-07 |
 | v0.11.7 | `css/base.css` (overview diagnostics card, info column removed) · `js/overview-values.js` (diagnostics card counts critical and warning only) · `js/dashboard.js` (diagnostics panel, info filter, "all" and the headline leave infos out) | `48` · `4` · `45` | 2026-11-07 |
 | v0.11.5 | `css/base.css` (statistics card, the chart area takes the free card height) · `js/energy-stats-card.js` (energy cards, chart follows the height of its area) | `47` · `5` | 2026-11-07 |
 | v0.11.4 | `css/diagnostics.css` (diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide) · `js/dashboard.js` (`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn, device cards glide when they change place) · `js/device-modal.js` (`x-roll` moved out) | `4` · `44` · `4` | 2026-11-06 |

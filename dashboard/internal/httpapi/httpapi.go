@@ -158,6 +158,13 @@ type RouterDependencies struct {
 	// EnergyStats liefert /api/v1/energy/stats. nil heisst "nicht
 	// verfuegbar" (501), etwa in Tests ohne Datenverzeichnis.
 	EnergyStats *energystats.Service
+	// ChainMonitor liefert die Messketten-Diagnose und erlaubt, das Lernen
+	// eines Paares zurueckzusetzen. nil heisst "nicht verfuegbar".
+	ChainMonitor interface {
+		Relearn(a, b string)
+		Prune(map[string]energy.Chain)
+		AllFindings() []energy.ChainFinding
+	}
 	// HistorySampler fuellt den Ringpuffer der Verlaufsvermittlung einmal
 	// pro Minute mit role:grid und den Szenario-Ausgaben. nil heisst: nur
 	// der Browser schreibt in den Puffer.
@@ -306,6 +313,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
 	g.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
+	if dependencies.ChainMonitor != nil {
+		engine.SetChainFindings(dependencies.ChainMonitor.AllFindings)
+	}
 	g.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
 	g.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
 	// /api/v1/discovery ist ohne Schraegstrich registriert, hat also keinen
@@ -330,8 +340,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
-	g.HandleFunc("/api/v1/energy/chains", handleEnergyChains(store, resolver, dependencies.Auth, reg))
-	g.HandleFunc("/api/v1/energy/chains/", handleEnergyChains(store, resolver, dependencies.Auth, reg))
+	g.HandleFunc("/api/v1/energy/chains", handleEnergyChains(store, resolver, dependencies.Auth, reg, dependencies.ChainMonitor))
+	g.HandleFunc("/api/v1/energy/chains/", handleEnergyChains(store, resolver, dependencies.Auth, reg, dependencies.ChainMonitor))
 	g.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	g.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	g.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))

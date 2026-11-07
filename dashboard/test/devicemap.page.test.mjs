@@ -3595,3 +3595,155 @@ test('the first load takes the saved chains, so the map knows them without a rel
   await component.load();
   assert.deepEqual(Object.keys(component.savedChains), ['balkon']);
 });
+
+// A drift finding between netz and bat, found on the balkon chain.
+function findingFixture(component, findings = [{ kind: 'drift', chain_id: 'balkon', chain_label: 'Balkon', since: '2026-11-01T00:00:00Z', from: 'bat_a', to: 'bat_b' }]) {
+  flowFixture(component);
+  component.energy.chains = [{ id: 'balkon', label: 'Balkon', segments: [], findings, points: [
+    { entity_id: 'bat_a', device_id: 'netz', label: 'Netzzähler', counting: true, has_value: true, freshness: 'fresh' },
+    { entity_id: 'bat_b', device_id: 'bat', label: 'Speicher', counting: false, has_value: true, freshness: 'fresh' },
+  ] }];
+}
+
+test('labelItems carries the finding of every device it touches as warning, also with the losses layer off', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  assert.equal(component.view.layers.losses, false);
+  const items = plain(component.labelItems());
+  const warning = id => (items.find(item => item.id === id) || {}).warning;
+  assert.ok(warning('netz'));
+  assert.equal(warning('netz'), warning('bat'));
+  assert.equal(warning('bms'), undefined);
+});
+
+test('a snapshot without the finding drops the warning from the label items', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  component.energy.chains[0].findings = [];
+  const items = plain(component.labelItems());
+  assert.equal(items.find(item => item.id === 'bat').warning, undefined);
+});
+
+test('a finding marks the energy connection between its two devices', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  const warn = component.buildElements().filter(element => (element.classes || '').includes('devicemap-chain-warn'));
+  assert.equal(warn.length, 1);
+  assert.equal(warn[0].data.id, 'chain-warn-netz::bat');
+});
+
+test('the device panel lists the finding text with a link to the efficiency tab when that tab exists', () => {
+  const { component, window } = createDevicemapPanel();
+  findingFixture(component);
+  component.openPanel('bat');
+  assert.equal(component.panelView.findings.length, 1);
+  assert.equal(component.panelView.findings[0].items[0].text, window.EnergyChains.findingText(component.energy.chains[0], component.energy.chains[0].findings[0]));
+  assert.equal(component.panelView.findings[0].link, false);
+  window.document.body.insertAdjacentHTML('beforeend', '<div role="tab" aria-controls="efficiency-panel"></div>');
+  assert.equal(component.panelView.findings[0].link, true);
+});
+
+test('a finding is a tile with its title, a closed fold and the text, the suggestion and the link', () => {
+  const { component, window } = createDevicemapPanel();
+  findingFixture(component);
+  component.energy.chains[0].findings[0].suggestion = { entity_id: 'bat_b', invert: true };
+  window.document.body.insertAdjacentHTML('beforeend', '<div role="tab" aria-controls="efficiency-panel"></div>');
+  component.openPanel('bat');
+  const [item] = component.panelView.findings;
+  const chain = component.energy.chains[0];
+  const finding = chain.findings[0];
+  assert.equal(item.title, window.EnergyChains.findingTitle(chain, finding));
+  assert.equal(item.items[0].text, window.EnergyChains.findingText(chain, finding));
+  assert.equal(item.items[0].suggestion, window.EnergyChains.suggestionText(chain, finding));
+  assert.ok(item.items[0].suggestion);
+  assert.equal(item.link, true);
+  assert.ok(item.domId.startsWith('devicemap-chain-finding-'));
+});
+
+test('a finding tile is closed by default, the toggle opens it and an open tile survives a refresh', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  component.openPanel('bat');
+  const key = component.panelView.findings[0].key;
+  assert.equal(component.isFindingOpen(key), false, 'closed by default');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), true, 'the toggle opens it');
+  component.energy.chains[0].findings = [{ ...component.energy.chains[0].findings[0] }];
+  assert.equal(component.panelView.findings[0].key, key);
+  assert.equal(component.isFindingOpen(key), true, 'a live refresh keeps it open');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), false, 'the toggle closes it again');
+});
+
+test('a finding tile without view_efficiency has no link but keeps its details', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  component.openPanel('bat');
+  const [item] = component.panelView.findings;
+  assert.equal(item.link, false);
+  assert.ok(item.items[0].text);
+});
+
+test('the efficiency link asks the shell for the efficiency panel', async () => {
+  const { component, window } = createDevicemapPanel();
+  findingFixture(component);
+  let detail = null;
+  window.addEventListener('dashboard-open-panel', event => { detail = event.detail; });
+  await component.openEfficiencyTab();
+  assert.deepEqual(plain(detail), { panel: 'efficiency-panel' });
+});
+
+test('the chain warning legend shows only with a finding on the map', () => {
+  const { component } = createDevicemapPanel();
+  findingFixture(component);
+  assert.equal(component.chainWarnVisible(), true);
+  component.energy.chains[0].findings = [];
+  assert.equal(component.chainWarnVisible(), false);
+});
+
+test('two findings of one chain on a device make one tile with a detail per finding', () => {
+  const { component, window } = createDevicemapPanel();
+  const second = { kind: 'sign', chain_id: 'balkon', chain_label: 'Balkon', since: '2026-11-01T00:00:00Z', from: 'bat_a', to: 'bat_b' };
+  findingFixture(component, [
+    { kind: 'drift', chain_id: 'balkon', chain_label: 'Balkon', since: '2026-11-01T00:00:00Z', from: 'bat_a', to: 'bat_b' },
+    second,
+  ]);
+  component.openPanel('bat');
+  assert.equal(component.panelView.findings.length, 1, 'one tile for the chain');
+  const [item] = component.panelView.findings;
+  assert.equal(item.title, window.I18n.t('chains.finding.group_title', { chain: 'Balkon', n: 2 }));
+  assert.equal(item.items.length, 2);
+  assert.equal(item.items[1].text, window.EnergyChains.findingText(component.energy.chains[0], second));
+  component.toggleFinding(item.key);
+  assert.equal(component.isFindingOpen(item.key), true);
+});
+
+test('the device panel template renders one tile per chain with a title toggle and the efficiency link outside it', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const start = html.indexOf('class="devicemap-chain-findings"');
+  const end = html.indexOf('</article>', start);
+  const tile = html.slice(start, end);
+  assert.ok(tile.includes('<template x-for="item in panelView.findings"'), 'loops over the groups');
+  assert.ok(/<button type="button" class="energy-chain-finding-toggle"[^>]*aria-controls="/.test(tile), 'the toggle carries aria-controls');
+  assert.ok(/aria-expanded="/.test(tile), 'the toggle carries aria-expanded');
+  const toggleStart = tile.indexOf('energy-chain-finding-toggle');
+  const toggle = tile.slice(toggleStart, tile.indexOf('</button>', toggleStart));
+  assert.ok(toggle.includes('x-text="item.title"'), 'the title sits inside the toggle');
+  assert.ok(!toggle.includes('openEfficiencyTab'), 'the efficiency link is not part of the toggle');
+  assert.ok(tile.includes('x-on:click="openEfficiencyTab()"'), 'the link still opens the efficiency tab');
+  assert.ok(tile.includes('<template x-for="detail in item.items"'), 'the details loop over the findings');
+});
+
+test('the device panel tiles sit in the scrolling body, not in the header', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const panel = html.indexOf('class="devicemap-panel-inner"');
+  const headerStart = html.indexOf('<header>', panel);
+  const headerEnd = html.indexOf('</header>', headerStart);
+  const bodyStart = html.indexOf('class="devicemap-panel-body"', panel);
+  const tiles = html.indexOf('class="devicemap-chain-findings"', panel);
+  assert.ok(tiles > headerEnd, 'the tiles are not inside the header');
+  assert.ok(tiles > bodyStart, 'the tiles are inside the scroll container');
+  assert.ok(tiles < html.indexOf('class="devicemap-panel-empty"', bodyStart), 'the tiles are the first group of the body');
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.ok(/\.devicemap-chain-findings \{[^}]*width: 100%/.test(css), 'the tile list takes the full width');
+});

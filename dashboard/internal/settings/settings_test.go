@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -3047,5 +3048,73 @@ func TestEnergyWithoutChainsStaysByteIdentical(t *testing.T) {
 	}
 	if strings.Contains(string(data), "chains") || strings.Contains(string(data), "role_needed") {
 		t.Fatalf("energy without chains must not write the new keys: %s", data)
+	}
+}
+
+func TestValidateChainTolerances(t *testing.T) {
+	w := func(v float64) *float64 { return &v }
+	base := func(points []string, tolerances ...energy.ChainTolerance) EnergyConfig {
+		return EnergyConfig{Assignments: map[string]energy.Assignment{}, Chains: map[string]energy.Chain{
+			"speicher": {Label: "Speicher", Points: points, Counting: "plug", Tolerances: tolerances},
+		}}
+	}
+	cases := map[string]struct {
+		value EnergyConfig
+		key   string
+	}{
+		"adjacent with W":             {base([]string{"plug", "ac"}, energy.ChainTolerance{A: "plug", B: "ac", W: w(10)}), ""},
+		"adjacent with Pct, reversed": {base([]string{"plug", "ac"}, energy.ChainTolerance{A: "ac", B: "plug", Pct: w(5)}), ""},
+		"not adjacent":                {base([]string{"plug", "ac", "dc"}, energy.ChainTolerance{A: "plug", B: "dc", W: w(10)}), "error.energy_roles_rejected.chain_tolerance_invalid"},
+		"unknown point":               {base([]string{"plug", "ac"}, energy.ChainTolerance{A: "plug", B: "x", W: w(10)}), "error.energy_roles_rejected.chain_tolerance_invalid"},
+		"negative W":                  {base([]string{"plug", "ac"}, energy.ChainTolerance{A: "plug", B: "ac", W: w(-1)}), "error.energy_roles_rejected.chain_tolerance_invalid"},
+		"negative Pct":                {base([]string{"plug", "ac"}, energy.ChainTolerance{A: "plug", B: "ac", Pct: w(-1)}), "error.energy_roles_rejected.chain_tolerance_invalid"},
+		"neither W nor Pct":           {base([]string{"plug", "ac"}, energy.ChainTolerance{A: "plug", B: "ac"}), "error.energy_roles_rejected.chain_tolerance_invalid"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			err := validateEnergy(tc.value)
+			if tc.key == "" {
+				if err != nil {
+					t.Fatalf("err = %v, want nil", err)
+				}
+				return
+			}
+			typed, ok := uierror.From(err)
+			if !ok || typed.Key != tc.key {
+				t.Fatalf("err = %v, want key %s", err, tc.key)
+			}
+		})
+	}
+}
+
+func TestEnergyFileWithoutTolerancesStaysByteEqual(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	value := EnergyConfig{Assignments: map[string]energy.Assignment{}, Chains: map[string]energy.Chain{
+		"speicher": {Label: "Speicher", Points: []string{"plug", "ac"}, Counting: "plug"},
+	}}
+	if err := store.SaveEnergy(value); err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(filepath.Join(dir, "energy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(first), "tolerances") {
+		t.Fatalf("energy.json without tolerances mentions the key: %s", first)
+	}
+	loaded, err := store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveEnergy(loaded); err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(filepath.Join(dir, "energy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(first, second) {
+		t.Fatalf("energy.json changed on a round trip:\n%s\n---\n%s", first, second)
 	}
 }

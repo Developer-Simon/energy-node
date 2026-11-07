@@ -6,6 +6,7 @@
 (() => {
   const NODE_RADIUS = 28; // DeviceMapNodeSvg.SIZE / 2
   const LABEL_GAP = 4;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
 
   const create = container => {
     const byId = new Map();
@@ -45,6 +46,26 @@
           else note.remove();
         }
         el.classList.toggle('is-substitute', Boolean(item.note));
+        // A chain finding: the icon carries the text as title. The layer is
+        // aria-hidden, the panel lists the same text for screen readers.
+        let warn = el.querySelector('.devicemap-chain-warning');
+        if (item.warning && !warn) {
+          warn = document.createElement('span');
+          warn.className = 'devicemap-chain-warning';
+          const icon = document.createElementNS(SVG_NS, 'svg');
+          icon.setAttribute('viewBox', '0 0 24 24');
+          icon.setAttribute('aria-hidden', 'true');
+          icon.setAttribute('focusable', 'false');
+          const use = document.createElementNS(SVG_NS, 'use');
+          use.setAttribute('href', '#ico-warning');
+          icon.appendChild(use);
+          warn.appendChild(icon);
+          el.appendChild(warn);
+        }
+        if (warn) {
+          if (item.warning) warn.title = item.warning;
+          else warn.remove();
+        }
         const reading = el.querySelector('.devicemap-node-reading');
         const off = reading.querySelector('.devicemap-node-off');
         if (item.off) {

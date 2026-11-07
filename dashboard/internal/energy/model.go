@@ -87,6 +87,9 @@ func (m Model) clone() Model {
 		out.Chains = make(map[string]Chain, len(m.Chains))
 		for id, chain := range m.Chains {
 			chain.Points = append([]string{}, chain.Points...)
+			if chain.Tolerances != nil {
+				chain.Tolerances = append([]ChainTolerance{}, chain.Tolerances...)
+			}
 			out.Chains[id] = chain
 		}
 	}

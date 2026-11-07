@@ -27,6 +27,8 @@ How to read a node:
 - **Σ in a dashed circle**: a group, its value is the sum of its members.
 - **Moving dashes**: the live flow, faster for more power, with the value at
   the child end.
+- **Warning sign** on a device or sub-device: a finding in one of its
+  measurement chains. Its text shows when you hover over the sign.
 
 ## Layers and view
 
@@ -44,6 +46,12 @@ The losses layer adds up the loss of every segment of a measurement chain that
 runs between two different devices. Segments inside one device are left out.
 Two chains over the same pair of devices add up. The figures per chain are on
 the [Efficiency](efficiency.md) tab.
+
+A finding in a measurement chain is also drawn as a dashed warning line over the
+energy connection between the two devices of the affected segment. The line only
+appears on energy connections, and neither the layer nor the filter buttons switch
+it. The legend lists the warning line while a finding exists. The sign on the
+device stays when the Losses layer is off.
 
 The view menu holds the grid, snap to grid, width by power, the line style and
 the legend. With reduced motion enabled in the system the lines stand still and
@@ -109,6 +117,10 @@ role comes from: detected, assigned or no role. Changes are drafts until you
 save, and the map already follows them. Show in the role table jumps to the
 Energy tab.
 Entities you hid in the role table on the Energy tab are not listed.
+
+Below the health line the panel lists the findings of the device's measurement
+chains with their text. With the permission `view_efficiency` each finding links
+to the [Efficiency](efficiency.md#diagnosis) tab.
 
 ## Group panel
 

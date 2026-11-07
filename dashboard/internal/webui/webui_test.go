@@ -57,7 +57,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=15,/static/js/devicemap-subdevices.js?v=1,/static/js/energy-chains.js?v=1,/static/js/devicemap-graph.js?v=10,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=5,/static/js/energy-plant.js?v=7,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=14\"", "data-panel-css=\"/static/css/manager.css?v=49\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=4,/static/js/config.page.js?v=11\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=16,/static/js/devicemap-subdevices.js?v=1,/static/js/energy-chains.js?v=2,/static/js/devicemap-graph.js?v=11,/static/js/devicemap-wiring.js?v=3,/static/js/devicemap-dataflow.js?v=5,/static/js/devicemap-node-svg.js?v=7,/static/js/devicemap-labels.js?v=6,/static/js/energy-plant.js?v=7,/static/js/device-picker.js?v=2,/static/js/devicemap-switch.js?v=2,/static/js/energy.page.js?v=15\"", "data-panel-css=\"/static/css/manager.css?v=50\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -163,7 +163,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=49,/static/css/settings-controls.css?v=20"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=50,/static/css/settings-controls.css?v=20"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1137,7 +1137,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=49,/node/static/css/settings-controls.css?v=20"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=50,/node/static/css/settings-controls.css?v=20"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1736,7 +1736,7 @@ func renderIndexForTest(t *testing.T) string {
 	body := recorder.Body.String()
 
 	// Alle Panels hinzufuegen
-	for _, panel := range []string{"config", "energy", "history", "devices", "diagnostics", "settings"} {
+	for _, panel := range []string{"config", "energy", "efficiency", "history", "devices", "diagnostics", "settings"} {
 		panelRecorder := httptest.NewRecorder()
 		handler.ServeHTTP(panelRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel="+panel, nil))
 		if panelRecorder.Code == 200 {
@@ -1750,13 +1750,13 @@ func TestApexChartsIsOnlyLoadedLazily(t *testing.T) {
 	body := renderIndexForTest(t)
 	// Eager geladen waere die Bibliothek auf jedem Seitenaufruf dabei -
 	// auf einem Pi mit ARMv6 ist das genau die Art Ballast, die die
-	// Invariante in AGENTS.md ausschliesst. Erlaubt sind genau zwei
-	// lazy Listen: Verlauf und Statistik, jeweils als erster Eintrag.
-	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 2 {
-		t.Fatalf("apexcharts.min.js must appear exactly twice, once in the history and once in the stats panel's lazy script list")
+	// Invariante in AGENTS.md ausschliesst. Erlaubt sind genau drei
+	// lazy Listen: Verlauf, Statistik und Effizienz, jeweils als erster Eintrag.
+	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 3 {
+		t.Fatalf("apexcharts.min.js must appear exactly three times, once each in the history, stats and efficiency lazy script list")
 	}
-	if strings.Count(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) != 2 {
-		t.Fatal("apexcharts.min.js must be the first lazy script of the history and the stats panel")
+	if strings.Count(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) != 3 {
+		t.Fatal("apexcharts.min.js must be the first lazy script of the history, stats and efficiency panels")
 	}
 	if !strings.Contains(body, `<script src="/static/js-deps/apexcharts.min.js"`) {
 		return // korrekt: es darf kein eager <script>-Tag geben

@@ -542,10 +542,33 @@
     return [...sums.values()];
   };
 
+  // Findings of the measurement chains on the devices they touch. A finding
+  // between two devices marks both and makes one pair (a < b). A frozen value
+  // or a section inside one device marks that device only, no pair.
+  const chainFindings = chains => {
+    const byDevice = new Map();
+    const pairs = new Map();
+    for (const chain of chains || []) {
+      const deviceOf = new Map((chain.points || []).map(point => [point.entity_id, point.device_id]));
+      for (const finding of chain.findings || []) {
+        const from = deviceOf.get(finding.from);
+        if (!from) continue;
+        const to = finding.to ? deviceOf.get(finding.to) : from;
+        const item = {chain, finding};
+        for (const id of new Set([from, to].filter(Boolean))) byDevice.set(id, [...(byDevice.get(id) || []), item]);
+        if (to && to !== from) {
+          const [a, b] = from < to ? [from, to] : [to, from];
+          pairs.set(`${a}::${b}`, {a, b});
+        }
+      }
+    }
+    return {byDevice, pairs: [...pairs.values()]};
+  };
+
   window.DeviceMapModel = {
     DEFAULT_LAYERS, DEFAULT_WIRING_TYPES, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
     formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, substituteNote, ringSpec, relatedIds,
-    childrenIndex, segmentLosses, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
+    childrenIndex, segmentLosses, chainFindings, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, isPowerUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload, normalizeAssignment,
     roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices, helpTipPosition,

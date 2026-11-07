@@ -19,7 +19,8 @@ type switchView struct {
 // handleDeviceSwitches serves GET /api/v1/devices/switches. Only switches that
 // can be commanded and are not diagnostic or config entities are listed. The
 // state follows the rules in the device map spec, section "state"; see
-// switchState for the details. Pending commands do not change the state.
+// registry.EntityView.SwitchState for the details. Pending commands do not
+// change the state.
 func handleDeviceSwitches(reg *registry.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -36,7 +37,7 @@ func handleDeviceSwitches(reg *registry.Registry) http.HandlerFunc {
 					DeviceID: device.ID,
 					EntityID: entity.UniqueID,
 					Name:     entity.Name,
-					State:    switchState(entity),
+					State:    entity.SwitchState(),
 				})
 			}
 		}
@@ -48,29 +49,4 @@ func handleDeviceSwitches(reg *registry.Registry) http.HandlerFunc {
 		})
 		writeJSON(w, switches)
 	}
-}
-
-// switchState returns "on", "off" or "unknown" for a switch entity. The
-// comparison uses the exact payloads of the entity. Value is the last
-// confirmed state, so Pending is ignored, and a stale retained value still
-// counts, because for a switch the retained state is the real one.
-//
-// The state_on / state_off fields of Home Assistant discovery are not kept in
-// EntityInfo yet. Until they are, an entity that uses other payloads reports
-// "unknown" here. When such a device shows up, add those fields to the
-// registry and compare against them.
-func switchState(entity registry.EntityView) string {
-	if entity.HasAvailability && !entity.Available {
-		return "unknown"
-	}
-	if !entity.HasValue {
-		return "unknown"
-	}
-	if entity.PayloadOn != "" && entity.Value == entity.PayloadOn {
-		return "on"
-	}
-	if entity.PayloadOff != "" && entity.Value == entity.PayloadOff {
-		return "off"
-	}
-	return "unknown"
 }

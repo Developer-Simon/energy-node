@@ -32,7 +32,9 @@ Measurement chains run first. `Aggregate` calls `evaluateChains` as a pre-pass
 before it walks the entities. Reference points of a chain are skipped, because
 their power is already in the counting point. When the counting point has no
 fresh value, the pre-pass hands the value of the nearest fresh point of its
-chain to the entity loop as a substitute. The entity gets the quality
+chain to the entity loop as a substitute. Before that, `correctedSubstitute` moves the
+value by the learned loss of the segments on the way, or keeps the raw value while
+one of them is not learned. The entity gets the quality
 `substitute`, and `substituteValue` clamps a negative value to zero except for
 battery, grid and storage roles. The same pre-pass delivers the chain states
 for the energy page.
@@ -197,6 +199,71 @@ On reading, the file is rejected when the version is not 1, when `start` is not
 the first of a month, when an hour key lies outside the month, when a value list
 has the wrong length, or when the seconds are not an integer from 0 to 3600.
 A rejected file is moved aside as described above.
+
+### Learned loss and diagnosis
+
+The learned loss lives in `<data dir>/energystats/chains/learned.json`, next to
+the hours. It is separate from the hours and is not a month file. The path is
+the main loop of `cmd/dashboard` drives it:
+
+1. Every 10 seconds `energy.Aggregate` builds the snapshot of the balance.
+2. If the clock is ready, `Monitor.Observe` takes the same snapshot. It runs the
+   detectors (unit, frozen, contradiction, sign, drift) and learns the samples
+   of the segments.
+3. The next `Aggregate` reads the model back through the `energy.ChainInsight`
+   interface: `Segment` for the substitute correction and the normal range,
+   `PairLearned` for the learning state, `Findings` for the notices and `Curve`
+   for the efficiency curve. The model is therefore one pass behind the readings.
+
+`ChainInsight` is the only way from the model to the energy package. The energy
+package does not know the table.
+
+The detector thresholds and the learning rules are described for users in
+[Efficiency](../dashboard/efficiency.md). The hold times are `chainwatch.DefaultHolds`.
+For a look at the demo, `ENERGY_NODE_CHAIN_HOLD_SECONDS` sets all five to one
+number of seconds.
+
+`learned.json` is version 1 and holds one entry per directed pair of neighbouring
+points:
+
+```json
+{
+  "version": 1,
+  "pairs": [
+    {
+      "source": "inverter",
+      "target": "meter",
+      "first_seen": "2026-10-30T08:00:00Z",
+      "scale_source": 1,
+      "scale_target": 1,
+      "invert_source": false,
+      "invert_target": false,
+      "agree": 12,
+      "opposite": 0,
+      "classes": {"10": [1080, 512, 481, 4]}
+    }
+  ]
+}
+```
+
+- `classes` is keyed by the load class of the counting power. Class 10 covers
+  500 to 550 W. Each value is `[N, source W, target W, deviation W]`, where N
+  counts the samples up to 4320.
+- `scale_*` and `invert_*` are the values the points had when the pair was
+  learned. `agree` and `opposite` are the sign counts of the sign detector.
+- Pairs are sorted by source and target, and values are rounded to three
+  decimals, so an unchanged table gives the same bytes.
+
+A changed scale of one of the points drops the pair in both directions. A changed
+invert resets only the sign counts. Pairs are dropped only when the chain
+configuration changes: at startup, after `energy.json` has loaded, and when a
+chain is saved. Pairs that are no longer adjacent in any chain go then. A
+snapshot that lacks a chain for a moment only drops the active findings of that
+chain, not the learned data.
+
+The table is saved atomically once an hour while it has changed, and on shutdown.
+A failed save is logged and retried after 5 minutes. A damaged file or an unknown
+version is moved to `learned.json.corrupt`, and the table starts empty.
 
 ### Queries
 

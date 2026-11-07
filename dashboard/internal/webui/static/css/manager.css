@@ -193,6 +193,51 @@ select.schema-control {
 .energy-unassigned p { margin: 0; }
 .energy-unassigned ul { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--text-subtle); }
 
+/* Chain findings as tiles below the notice list: one tile per chain, the title
+   opens the details, the details list every finding of the chain. The fold is a
+   grid row 0fr to 1fr and clips the padding of its inner box while closed; the
+   padding sits on that inner box, so an open fold shows it in full. */
+.energy-chain-findings { display: grid; gap: .5rem; margin: 0 0 var(--energy-section-gap); }
+.energy-chain-findings:not(:has(.energy-chain-finding)) { display: none; }
+.energy-chain-finding {
+  min-width: 0; border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+  background: var(--panel-alt); animation: energy-chain-finding-in 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+@keyframes energy-chain-finding-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes energy-chain-finding-fade { from { opacity: 0; } to { opacity: 1; } }
+.energy-chain-finding-head { display: flex; align-items: center; gap: .2rem; padding-right: .45rem; }
+.energy-chain-finding-toggle { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: .55rem; padding: .5rem .3rem .5rem .8rem; border: 0; border-radius: var(--radius-md); background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.energy-chain-finding-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (hover: hover) and (pointer: fine) {
+  .energy-chain-finding-toggle:hover .energy-chain-finding-title { color: var(--accent); }
+  .energy-chain-finding-toggle:hover .energy-chain-finding-chevron { color: var(--text-strong); }
+}
+.energy-chain-finding-icon { flex: none; width: 1rem; height: 1rem; color: var(--warn-line); fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.energy-chain-finding-title { flex: 1 1 auto; min-width: 0; font-size: .9rem; color: var(--text-strong); overflow-wrap: anywhere; }
+.energy-chain-finding-chevron { flex: none; width: 16px; height: 16px; color: var(--text-muted); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 160ms ease, color 160ms ease; }
+.energy-chain-finding.is-open .energy-chain-finding-chevron { transform: rotate(90deg); }
+.energy-chain-finding-link { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); cursor: pointer; }
+.energy-chain-finding-link:hover { background: var(--sunken); color: var(--text-strong); }
+.energy-chain-finding-link svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.energy-chain-finding-fold { display: grid; grid-template-rows: 0fr; overflow: hidden; opacity: 0; transition: grid-template-rows 200ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.energy-chain-finding.is-open .energy-chain-finding-fold { grid-template-rows: 1fr; opacity: 1; }
+.energy-chain-finding-inner { display: grid; gap: .75rem; min-height: 0; overflow: hidden; padding: 0 1rem 0 2.5rem; font-size: .88rem; line-height: 1.45; color: var(--text); transition: padding-block 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.energy-chain-finding.is-open .energy-chain-finding-inner { padding-top: .25rem; padding-bottom: 1rem; }
+.energy-chain-finding-item { min-width: 0; }
+.energy-chain-finding-item + .energy-chain-finding-item { padding-top: .75rem; border-top: 1px solid var(--border-soft); }
+.energy-chain-finding-item p { margin: 0; }
+.energy-chain-finding-suggestion { color: var(--text-subtle); }
+.energy-chain-finding-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+@media (max-width: 720px) {
+  .energy-chain-finding-inner { padding-left: 1.9rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .energy-chain-finding { animation-name: energy-chain-finding-fade; }
+  .energy-chain-finding-fold { transition: opacity 150ms ease; }
+  .energy-chain-finding-chevron { transition: none; }
+  .energy-chain-finding-inner { transition: none; }
+}
+
 /* Interpretation: content of the first accordion section (energy-acc). */
 .energy-interpretation-body { display: grid; gap: 1.1rem; }
 
@@ -413,6 +458,21 @@ select.schema-control {
 .devicemap-node-label.is-off .devicemap-node-reading { background-color: var(--panel-alt); }
 .devicemap-node-label.is-substitute .devicemap-node-value { color: var(--flow-substitute); font-weight: 600; }
 .devicemap-node-note { font-size: 9.5px; color: var(--text-muted); line-height: 1.25; }
+.devicemap-chain-warning { display: inline-flex; color: var(--warn-line); pointer-events: auto; }
+.devicemap-chain-warning svg { width: .9rem; height: .9rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+/* The tiles sit first in the scrolling body, so they scroll away with the list and the header stays short. */
+.devicemap-chain-findings { margin: 0; display: grid; gap: .4rem; width: 100%; min-width: 0; }
+.devicemap-chain-finding { width: 100%; min-width: 0; }
+.devicemap-chain-finding .energy-chain-finding-text, .devicemap-chain-finding .energy-chain-finding-suggestion { overflow-wrap: anywhere; white-space: normal; }
+/* Inside the device panel the tile head is a little tighter than in the energy tab. */
+.devicemap-chain-finding .energy-chain-finding-toggle { padding: .4rem .3rem .4rem .6rem; gap: .45rem; }
+.devicemap-chain-finding .energy-chain-finding-head { padding-right: .3rem; }
+.devicemap-chain-finding .energy-chain-finding-title { font-size: .85rem; }
+.devicemap-chain-finding .energy-chain-finding-inner { padding: 0 .6rem 0 2.1rem; }
+.devicemap-chain-finding.is-open .energy-chain-finding-inner { padding-top: .25rem; padding-bottom: .8rem; }
+@media (max-width: 720px) {
+  .devicemap-chain-finding .energy-chain-finding-inner { padding-left: 1.9rem; }
+}
 .devicemap-node-off { font-size: 10.5px; font-weight: 600; color: var(--text-muted); line-height: 1.25; }
 @media (prefers-reduced-motion: reduce) { .devicemap-node-reading { transition-duration: 150ms; } }
 .devicemap-node-name { font-size: 11px; font-weight: 600; color: var(--text-strong); line-height: 1.25; }
@@ -1471,7 +1531,7 @@ div.devicemap-view-menu-row { cursor: default; }
   .energy-chain .energy-chain-link{flex:none;grid-auto-flow:column;justify-content:start;align-items:center;gap:.6rem;padding:.15rem 0 .15rem 1.4rem;min-height:2.2rem}
   .energy-chain .energy-chain-line{width:2px;height:1.8rem;margin:0}
   .energy-chain .energy-chain-line::after{right:-4px;top:auto;bottom:-1px;border:5px solid transparent;border-top:7px solid var(--flow-battery);border-bottom:0}
-  .energy-chain .energy-chain-link.is-tail .energy-chain-line::after{border-top-color:var(--text-faint)}
+  .energy-chain .energy-chain-link.is-tail .energy-chain-line{display:none}
   .energy-chain-summary{display:flex;width:100%;gap:.6rem;align-items:center;padding:.6rem .7rem;border:0;background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer}
   .energy-chain-summary-text{display:grid;flex:1;min-width:0}
   .energy-chain-summary small{color:var(--text-muted);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

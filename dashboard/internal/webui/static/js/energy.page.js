@@ -102,6 +102,8 @@
     csrfToken: '',
     flash: {},
     flashGroup: '',
+    // Open chain finding tiles by finding key; a live refresh keeps the key.
+    expandedFindings: {},
     _setTimeout: (fn, ms) => setTimeout(fn, ms),
     _flashTimer: null,
     _groupTimer: null,
@@ -153,6 +155,10 @@
       window.addEventListener('device-map-changed', () => this.load());
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
+      // A draft from the efficiency tab or the device map. While the page loads, load() applies the request instead.
+      window.addEventListener('energy-apply-draft', event => {
+        if (!this.loading) this.applyDraft((event.detail) || {});
+      });
       window.addEventListener('energy-focus-chain', event => {
         window.__energyChainRequest__ = null;
         this.openChain((event.detail && event.detail.id) || '');
@@ -391,6 +397,11 @@
           const id = window.__energyChainRequest__;
           window.__energyChainRequest__ = null;
           this.openChain(id);
+        }
+        if (window.__energyDraftRequest__) {
+          const draft = window.__energyDraftRequest__;
+          window.__energyDraftRequest__ = null;
+          this.applyDraft(draft);
         }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -908,10 +919,11 @@
       }
     },
 
-    // Live values load only with the chains section open and at least one
-    // chain, and at most every CHAIN_LIVE_INTERVAL_MS.
+    // Live values load with at least one chain, also while the chains section
+    // is closed, because the notices read the findings from them. At most
+    // every CHAIN_LIVE_INTERVAL_MS.
     refreshChainStatesLive() {
-      if (!this.isSectionOpen('chains') || !Object.keys(this.chains).length) return;
+      if (!Object.keys(this.chains).length) return;
       const now = this._now();
       if (now - this._chainLiveAt < CHAIN_LIVE_INTERVAL_MS) return;
       this._chainLiveAt = now;
@@ -1172,6 +1184,62 @@
       });
       clearTimeout(this._chainTimer);
       this._chainTimer = this._setTimeout(() => { this.flashChain = ''; }, 1600);
+    },
+
+    // One tile per chain with findings, in the order of the server. Each tile
+    // lists its findings; the suggestion of a finding can be taken over when
+    // the editor may write and the row exists. The open state keys by chain.
+    get findingNotices() {
+      const EC = window.EnergyChains;
+      return EC.groupFindings(EC.allFindings(this.chainStates)).map(group => ({
+        key: group.key,
+        domId: `energy-chain-finding-${group.key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
+        title: EC.groupTitle(group),
+        items: group.findings.map(finding => ({
+          key: `${finding.kind}|${finding.from || ''}|${finding.to || ''}`,
+          text: EC.findingText(group.chain, finding),
+          suggestion: EC.suggestionText(group.chain, finding),
+          canApply: this.canEdit && Boolean(finding.suggestion) && Boolean(this.assignments[finding.suggestion.entity_id]),
+          finding,
+        })),
+      }));
+    },
+
+    isFindingOpen(key) {
+      return Boolean(this.expandedFindings[key]);
+    },
+
+    toggleFinding(key) {
+      this.expandedFindings = {...this.expandedFindings, [key]: !this.expandedFindings[key]};
+    },
+
+    // The efficiency link shows only when the tab is on the page (view_efficiency).
+    get hasEfficiencyTab() {
+      return Boolean(document.querySelector('[role="tab"][aria-controls="efficiency-panel"]'));
+    },
+
+    openEfficiency() {
+      window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'efficiency-panel'}}));
+    },
+
+    applyFinding(item) {
+      if (!item || !item.canApply) return;
+      this.applyDraft(item.finding.suggestion);
+    },
+
+    // Fills the draft of a row: invert flips, scale_factor multiplies the scale.
+    // Nothing is saved, the user saves the page as usual. Returns false when
+    // the row does not exist or the editor may not write; then the request stays.
+    applyDraft(draft) {
+      if (!this.canEdit || !draft || !draft.entity_id) return false;
+      const row = this.assignments[draft.entity_id];
+      if (!row) return false;
+      if (draft.invert) row.invert = !row.invert;
+      if (draft.scale_factor) row.scale = Number((Number(row.scale || 1) * draft.scale_factor).toPrecision(12));
+      window.__energyDraftRequest__ = null;
+      this.focusRows([draft.entity_id]);
+      this.$store.toasts.push(t('energy.chains.draft_applied'), 'info');
+      return true;
     },
 
     async dismissRoleNeeded(id) {

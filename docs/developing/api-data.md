@@ -94,6 +94,8 @@ reach arbitrary topics.
 | POST | `/api/v1/energy/chains` | edit energy | Create a measurement chain |
 | PUT | `/api/v1/energy/chains/{id}` | edit energy | Change a measurement chain |
 | DELETE | `/api/v1/energy/chains/{id}` | edit energy | Delete a measurement chain |
+| PUT | `/api/v1/energy/chains/{id}/tolerance` | edit energy | Set or clear the fixed normal range of one segment |
+| POST | `/api/v1/energy/chains/{id}/relearn` | edit energy | Forget the learned values of one segment |
 | GET/PUT | `/api/v1/energy/interpretation` | – | Interpretation parameters |
 | GET | `/api/v1/energy/revisions` | – | Revision list for `energy.json` (roles + interpretation) |
 | GET | `/api/v1/energy/revisions/{revision}` | – | A single revision |
@@ -121,7 +123,25 @@ answer is the saved energy config. The role moves to the counting point, the
 other points keep no role, and a point that leaves the chain without a role is
 listed in `role_needed`. An unknown ID gives 404 `chain_not_found`. A point
 that does not measure power, or a point of the energy node itself, gives 400
-`energy_roles_rejected` with the key `chain_point_not_power`.
+`energy_roles_rejected` with the key `chain_point_not_power`. After every save
+of a chain, the learned values of pairs that no chain uses any more are dropped.
+
+**Tolerances and relearning.** `PUT /api/v1/energy/chains/{id}/tolerance` takes
+`{"a", "b", "w", "pct"}` and sets a fixed normal range for the segment between
+the neighbouring points `a` and `b`, instead of the learned one. `w` is an
+absolute width in W, `pct` a width in percent of the source power, and the
+wider of the two applies. A new tolerance for a pair replaces the old one. When
+`w` and `pct` are both `null`, the tolerance of the pair is removed. The answer
+is the saved energy config. Points that are not neighbours give 400
+`energy_roles_rejected`. The tolerances of a chain are listed as `tolerances` in
+`chains[]` of `GET /api/v1/energy`, and a segment with a tolerance has
+`normal.manual` set to `true`.
+
+`POST /api/v1/energy/chains/{id}/relearn` takes `{"a", "b"}`. It forgets
+everything the diagnosis learned about the segment in both directions, and every
+finding on it, and answers 204. The segment then learns again from new hours.
+Points that are not neighbours give 400 `energy_roles_rejected`. Without the
+diagnosis, the node answers 501 `energy_chain_monitor_unavailable`.
 
 **`PATCH /api/v1/energy/roles`** also takes `role_needed: {"<id>": false}`,
 which dismisses that entry of `role_needed`. `true` is ignored. A `PUT` on
@@ -215,7 +235,8 @@ the last seven days:
       "month": "2026-11",
       "days": [
         { "local": "2026-10-31T00:00", "loss_kwh": 0.04, "standby_kwh": 0.001, "efficiency": 0.9, "has_data": true }
-      ]
+      ],
+      "curve": { "down": [{ "power_w": 100, "efficiency": 0.88 }], "up": [], "best_down": { "from_w": 80, "to_w": 160 } }
     }
   ]
 }
@@ -230,6 +251,11 @@ the last seven days:
   in local time.
 - `days` holds seven days, the oldest first, in the same shape as a bucket of
   `/api/v1/energy/stats/chains`. `local` is the start of the day in local time.
+- `curve` is the efficiency curve of the chain from the learned model. `down`
+  and `up` list the points `{"power_w", "efficiency"}` of each direction. The
+  best span of a direction, the power range with the highest efficiency, is
+  `best_down` or `best_up` as `{"from_w", "to_w"}`, and is left out when there is
+  none. Without learned values, both lists are empty.
 
 | Status | Code | When |
 |---|---|---|

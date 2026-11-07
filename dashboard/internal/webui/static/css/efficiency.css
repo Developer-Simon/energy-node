@@ -10,9 +10,9 @@
 .efficiency-title { margin: 0; font-size: 1.25rem; color: var(--text-strong); overflow-wrap: anywhere; }
 .efficiency-state { margin: 0; font-size: .86rem; color: var(--text-muted); }
 
-.efficiency-status { display: inline-flex; align-items: center; gap: .45rem; margin: 0; font-size: .84rem; color: var(--text-muted); }
+.efficiency-status { display: inline-flex; align-items: center; gap: .45rem; margin: 0; font-size: .84rem; color: var(--text-muted); transition: color 200ms var(--ease-out); }
 .efficiency-status[data-tone="warn"] { color: var(--warn); }
-.efficiency-dot { display: inline-block; flex: none; width: .55rem; height: .55rem; border-radius: 50%; background: var(--text-faint); }
+.efficiency-dot { display: inline-block; flex: none; width: .55rem; height: .55rem; border-radius: 50%; background-color: var(--text-faint); transition: background-color 200ms var(--ease-out); }
 .efficiency-dot[data-tone="ok"], .efficiency-status[data-tone="ok"] .efficiency-dot { background: var(--ok); }
 .efficiency-dot[data-tone="warn"], .efficiency-status[data-tone="warn"] .efficiency-dot { background: var(--warn); }
 
@@ -24,12 +24,20 @@
 
 .efficiency-grid { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: .9rem; align-items: start; min-width: 0; }
 
-.efficiency-list { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
-.efficiency-item { display: flex; justify-content: space-between; align-items: center; gap: .6rem; width: 100%; padding: .6rem .75rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.efficiency-item.is-active { border-color: var(--accent-line); background: var(--accent-bg); }
+.efficiency-list { display: grid; gap: 2px; align-self: start; margin: 0; padding: 0 .9rem 0 0; border-right: 1px solid var(--border-soft); list-style: none; }
+.efficiency-item { position: relative; display: flex; justify-content: space-between; align-items: center; gap: .6rem; width: 100%; padding: .45rem .7rem; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color 150ms, color 150ms, transform 100ms var(--ease-out); }
+.efficiency-item:active { transform: scale(.985); }
+.efficiency-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.efficiency-item-marker { position: absolute; left: 0; top: .35rem; bottom: .35rem; width: 3px; border-radius: 2px; background: var(--accent); transform: scaleY(0); transition: transform 150ms var(--ease-out); }
+.efficiency-item.is-active .efficiency-item-marker { transform: scaleY(1); }
+@media (hover: hover) and (pointer: fine) {
+  .efficiency-item:not(.is-active):hover { background: var(--panel-alt); }
+}
+.efficiency-item.is-active { background: var(--accent-bg); }
 .efficiency-item-text { display: grid; gap: .1rem; min-width: 0; }
-.efficiency-item-name { font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
-.efficiency-item small { font-size: .78rem; color: var(--text-muted); }
+.efficiency-item-name { font-size: .92rem; line-height: 1.3; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-item.is-active .efficiency-item-name { color: var(--accent-soft); font-weight: 600; }
+.efficiency-item small { font-size: .76rem; line-height: 1.3; color: var(--text-muted); }
 
 .efficiency-detail { display: grid; gap: .9rem; min-width: 0; }
 .efficiency-card { margin: 0; padding: 1rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
@@ -38,16 +46,81 @@
 .efficiency-day { display: grid; grid-template-columns: minmax(4rem, 5.5rem) minmax(0, 1fr) minmax(4.5rem, 6.5rem) minmax(3rem, 3.5rem); align-items: center; gap: .6rem; font-size: .84rem; font-variant-numeric: tabular-nums; }
 .efficiency-day-label { color: var(--text-muted); }
 .efficiency-day-bar { display: block; height: .6rem; border-radius: 999px; background: var(--sunken); overflow: hidden; }
-.efficiency-day-fill { display: block; height: 100%; border-radius: 999px; background: var(--warn); }
+/* The bars are horizontal, so they grow from the left baseline. A new width is a
+   transform change, which morphs; the first draw grows from 0 (see is-intro below). */
+.efficiency-day-fill { display: block; width: 100%; height: 100%; border-radius: 999px; background: var(--warn); transform-origin: left center; transform: scaleX(var(--scale, 0)); transition: transform 300ms var(--ease-out); }
 .efficiency-day-loss { text-align: right; color: var(--text-strong); }
 .efficiency-day-eff { text-align: right; color: var(--text-muted); }
+
+.efficiency-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .9rem; align-items: start; min-width: 0; }
+.efficiency-curve-wrap { position: relative; min-width: 0; }
+.efficiency-curve { min-width: 0; min-height: 260px; }
+/* The current-value line: a 1px dashed rule over the plot, moved by transform only.
+   JS sets its height and its translateX from the chart's x scale. */
+.efficiency-curve-now { position: absolute; left: 0; top: 0; display: block; width: 0; height: 0; border-left: 1px dashed var(--text-muted); opacity: 0; pointer-events: none; transition: transform 300ms var(--ease-out), opacity 150ms var(--ease-out); }
+.efficiency-curve-now.is-initial { transition: opacity 150ms var(--ease-out); }
+.efficiency-curve-now.is-static { transition: opacity 120ms linear; }
+.efficiency-curve-key { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin: .5rem 0 0; padding: 0; list-style: none; font-size: .8rem; color: var(--text-muted); }
+.efficiency-curve-key-item { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+.efficiency-curve-key-swatch { display: inline-block; flex: none; width: 1rem; height: .6rem; border-radius: 3px; background: color-mix(in srgb, var(--ok) 35%, transparent); }
+.efficiency-curve-key-swatch[data-kind="now"] { height: 0; border-top: 2px dashed var(--text-muted); background: none; }
+.efficiency-curve-card, .efficiency-two > .efficiency-card { min-width: 0; }
+
+.efficiency-diagnosis { display: grid; gap: .6rem; }
+.efficiency-quiet { color: var(--ok); }
+.efficiency-finding { display: grid; grid-template-rows: 1fr; animation: efficiency-expand 200ms var(--ease-out) both; }
+.efficiency-finding-body { display: grid; gap: .25rem; justify-items: start; min-height: 0; overflow: hidden; padding: .6rem .7rem; border: 1px solid var(--border-soft); border-radius: 10px; }
+.efficiency-finding-text { margin: 0; font-size: .9rem; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-segments { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.efficiency-segment { display: grid; gap: .45rem; padding: .55rem .7rem; border: 1px solid var(--border-soft); border-radius: 10px; min-width: 0; }
+.efficiency-segment-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .8rem; min-width: 0; }
+.efficiency-segment-name { font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-segment-normal { font-size: .86rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.efficiency-expand { display: grid; grid-template-rows: 1fr; min-width: 0; animation: efficiency-expand 200ms var(--ease-out) both; }
+.efficiency-expand > .efficiency-edit-form { min-height: 0; overflow: hidden; }
+.efficiency-edit-form { display: grid; gap: .5rem; min-width: 0; }
+.efficiency-field { display: grid; gap: .25rem; min-width: 0; font-size: .8rem; color: var(--text-muted); }
+.efficiency-input { box-sizing: border-box; width: 100%; min-width: 0; padding: .45rem .6rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text-strong); font: inherit; }
+.efficiency-edit-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
 
 .efficiency-select-wrap { display: none; }
 
 @media (max-width: 720px) {
+  .efficiency-two { grid-template-columns: minmax(0, 1fr); }
   .efficiency-grid { grid-template-columns: minmax(0, 1fr); }
   .efficiency-list { display: none; }
   .efficiency-select-wrap { display: grid; gap: .3rem; }
   .efficiency-select-label { font-size: .8rem; color: var(--text-muted); }
   .efficiency-select { min-width: 0; padding: .55rem .7rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text-strong); font: inherit; }
+}
+
+/* Motion. Only transform, opacity and colours move. The intro runs once per page
+   load (is-intro is set on the body and removed after the first load), so live
+   updates and chain switches never replay it. */
+.efficiency-body.is-intro .efficiency-card { animation: efficiency-enter 250ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.efficiency-body.is-intro .efficiency-day-fill { animation: efficiency-grow 300ms var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 12) * 20ms); }
+
+@keyframes efficiency-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes efficiency-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(var(--scale, 0)); }
+}
+@keyframes efficiency-expand {
+  from { grid-template-rows: 0fr; opacity: 0; }
+  to { grid-template-rows: 1fr; opacity: 1; }
+}
+@keyframes efficiency-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .efficiency-item, .efficiency-item:active { transform: none; }
+  .efficiency-item-marker, .efficiency-day-fill { transition: none; }
+  .efficiency-body.is-intro .efficiency-card, .efficiency-finding, .efficiency-expand { animation: efficiency-fade 120ms linear both; animation-delay: 0s; }
+  .efficiency-body.is-intro .efficiency-day-fill { animation: none; transform: scaleX(var(--scale, 0)); }
+  .efficiency-curve-now, .efficiency-curve-now.is-initial { transition: opacity 120ms linear; }
 }

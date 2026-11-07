@@ -82,9 +82,62 @@ func effectiveAssignments(reg *registry.Registry, assignments map[string]energy.
 	return out
 }
 
-// handleEnergyChains serves POST /api/v1/energy/chains and PUT or DELETE
-// /api/v1/energy/chains/{id}. Every answer is the saved energy config.
-func handleEnergyChains(store *settings.Store, resolver *energy.Resolver, manager *auth.Manager, reg *registry.Registry) http.HandlerFunc {
+// chainMonitor is the part of the chain diagnosis the chain handlers use:
+// Relearn forgets a learned pair, Prune drops the pairs no chain uses.
+type chainMonitor interface {
+	Relearn(a, b string)
+	Prune(map[string]energy.Chain)
+}
+
+// chainToleranceBody is the body of PUT /api/v1/energy/chains/{id}/tolerance.
+// Both W and Pct null removes the tolerance of the pair.
+type chainToleranceBody struct {
+	A   string   `json:"a"`
+	B   string   `json:"b"`
+	W   *float64 `json:"w"`
+	Pct *float64 `json:"pct"`
+}
+
+// chainRelearnBody is the body of POST /api/v1/energy/chains/{id}/relearn.
+type chainRelearnBody struct {
+	A string `json:"a"`
+	B string `json:"b"`
+}
+
+// sameChainPair reports whether the tolerance is on the segment a-b, in
+// either order.
+func sameChainPair(t energy.ChainTolerance, a, b string) bool {
+	return (t.A == a && t.B == b) || (t.A == b && t.B == a)
+}
+
+// withChainTolerance sets the tolerance of the pair a-b in place of the old
+// one, or appends it. Empty W and Pct remove the pair instead.
+func withChainTolerance(tolerances []energy.ChainTolerance, next energy.ChainTolerance) []energy.ChainTolerance {
+	clear := next.W == nil && next.Pct == nil
+	var out []energy.ChainTolerance
+	replaced := false
+	for _, existing := range tolerances {
+		if !sameChainPair(existing, next.A, next.B) {
+			out = append(out, existing)
+			continue
+		}
+		if !clear && !replaced {
+			out = append(out, next)
+			replaced = true
+		}
+	}
+	if !clear && !replaced {
+		out = append(out, next)
+	}
+	return out
+}
+
+// handleEnergyChains serves POST /api/v1/energy/chains, PUT or DELETE
+// /api/v1/energy/chains/{id}, and the sub routes tolerance and relearn of one
+// chain. Every answer of the chain itself is the saved energy config. The
+// monitor may be nil, then relearn is unavailable and the saved chains are
+// not pruned.
+func handleEnergyChains(store *settings.Store, resolver *energy.Resolver, manager *auth.Manager, reg *registry.Registry, monitor chainMonitor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, http.StatusNotImplemented, "energy_roles_unavailable", "Energie-Rollen sind ohne Datenverzeichnis nicht verfügbar")
@@ -93,6 +146,16 @@ func handleEnergyChains(store *settings.Store, resolver *energy.Resolver, manage
 		id, hasID := strings.CutPrefix(r.URL.Path, energyChainsItemPrefix)
 		if !hasID {
 			id = ""
+		}
+		if chainID, sub, found := strings.Cut(id, "/"); found {
+			switch sub {
+			case "tolerance":
+				handleChainTolerance(w, r, store, resolver, manager, chainID)
+				return
+			case "relearn":
+				handleChainRelearn(w, r, store, manager, monitor, chainID)
+				return
+			}
 		}
 		switch {
 		case r.URL.Path == energyChainsPath && r.Method == http.MethodPost:
@@ -140,6 +203,9 @@ func handleEnergyChains(store *settings.Store, resolver *energy.Resolver, manage
 					return err
 				}
 				next = &energy.Chain{Label: body.Label, Points: body.Points, Counting: body.Counting, Direction: body.Direction}
+				if prev != nil {
+					next.Tolerances = energy.KeepAdjacentTolerances(prev.Tolerances, body.Points)
+				}
 			}
 
 			assignments, needed := energy.ApplyChainChange(current.Assignments, effectiveAssignments(reg, current.Assignments), prev, next)
@@ -164,7 +230,88 @@ func handleEnergyChains(store *settings.Store, resolver *energy.Resolver, manage
 			writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 			return
 		}
+		if monitor != nil {
+			monitor.Prune(value.Chains)
+		}
 		applyEnergyConfig(resolver, value)
 		writeJSON(w, value)
 	}
+}
+
+// handleChainTolerance serves PUT /api/v1/energy/chains/{id}/tolerance.
+func handleChainTolerance(w http.ResponseWriter, r *http.Request, store *settings.Store, resolver *energy.Resolver, manager *auth.Manager, chainID string) {
+	if r.Method != http.MethodPut {
+		methodNotAllowed(w, http.MethodPut)
+		return
+	}
+	if !requireEnergyMutation(w, r, manager) {
+		return
+	}
+	defer r.Body.Close()
+	var body chainToleranceBody
+	if err := decodeBody(r, &body); err != nil {
+		writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+		return
+	}
+	notFound := false
+	value, err := store.PatchEnergy(func(current *settings.EnergyConfig) error {
+		chain, ok := current.Chains[chainID]
+		if !ok {
+			notFound = true
+			return uierror.New("error.chain_not_found", "energy: measurement chain not found", nil)
+		}
+		chain.Tolerances = withChainTolerance(chain.Tolerances, energy.ChainTolerance{A: body.A, B: body.B, W: body.W, Pct: body.Pct})
+		current.Chains[chainID] = chain
+		return nil
+	})
+	if notFound {
+		writeErrorKey(w, http.StatusNotFound, "chain_not_found", "error.chain_not_found", nil, "Diese Messkette gibt es nicht mehr.")
+		return
+	}
+	if err != nil {
+		writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+		return
+	}
+	applyEnergyConfig(resolver, value)
+	writeJSON(w, value)
+}
+
+// handleChainRelearn serves POST /api/v1/energy/chains/{id}/relearn. The two
+// points must be neighbours in the chain, the monitor then forgets what it
+// learned about that segment.
+func handleChainRelearn(w http.ResponseWriter, r *http.Request, store *settings.Store, manager *auth.Manager, monitor chainMonitor, chainID string) {
+	if r.Method != http.MethodPost {
+		methodNotAllowed(w, http.MethodPost)
+		return
+	}
+	if !requireEnergyMutation(w, r, manager) {
+		return
+	}
+	if monitor == nil {
+		writeError(w, http.StatusNotImplemented, "energy_chain_monitor_unavailable", "Die Messketten-Diagnose ist nicht verfügbar")
+		return
+	}
+	defer r.Body.Close()
+	var body chainRelearnBody
+	if err := decodeBody(r, &body); err != nil {
+		writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+		return
+	}
+	value, err := store.LoadEnergy()
+	if err != nil {
+		writeErrorDetail(w, http.StatusInternalServerError, "energy_roles_failed", err)
+		return
+	}
+	chain, ok := value.Chains[chainID]
+	if !ok {
+		writeErrorKey(w, http.StatusNotFound, "chain_not_found", "error.chain_not_found", nil, "Diese Messkette gibt es nicht mehr.")
+		return
+	}
+	i, j := slices.Index(chain.Points, body.A), slices.Index(chain.Points, body.B)
+	if i < 0 || j < 0 || (i-j != 1 && j-i != 1) {
+		writeError(w, http.StatusBadRequest, "energy_roles_rejected", "Nur zwei benachbarte Punkte der Messkette können neu lernen")
+		return
+	}
+	monitor.Relearn(body.A, body.B)
+	w.WriteHeader(http.StatusNoContent)
 }

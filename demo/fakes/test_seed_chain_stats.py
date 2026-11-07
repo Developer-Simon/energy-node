@@ -12,6 +12,10 @@ import seed_chain_stats  # noqa: E402
 
 SEED_SCRIPT = str(Path(__file__).resolve().parents[1] / "lib" / "seed_chain_stats.py")
 DEMO_ENERGY = Path(__file__).resolve().parents[1] / "fixtures" / "seed" / "demo" / "energy.json"
+# Shared with the Go test dashboard/internal/chainwatch/learned_fixture_test.go.
+LEARNED_FIXTURE = (
+    Path(__file__).resolve().parents[2] / "dashboard" / "internal" / "chainwatch" / "testdata" / "demo_learned.json"
+)
 NOW = "2026-11-07T12:00:00Z"
 
 # Golden strings written by encodeChainMonth in dashboard/internal/energystats
@@ -66,7 +70,7 @@ def test_seed_writes_fourteen_days_of_both_months(tmp_path):
     data = make_data_dir(tmp_path)
     result = run_seed(data)
     assert result.returncode == 0, result.stderr
-    files = sorted(p.name for p in chain_dir(data).iterdir())
+    files = sorted(p.name for p in chain_dir(data).iterdir() if p.name != "learned.json")
     assert files == ["2026-10.json", "2026-11.json"]
     hours = 0
     for name in files:
@@ -120,3 +124,83 @@ def test_second_run_changes_nothing(tmp_path):
     assert run_seed(data).returncode == 0
     after = {p.name: p.read_bytes() for p in chain_dir(data).iterdir()}
     assert after == before
+
+
+def learned_pairs(data):
+    table = json.loads((chain_dir(data) / "learned.json").read_text(encoding="utf-8"))
+    assert table["version"] == 1
+    return {(e["source"], e["target"]): e for e in table["pairs"]}
+
+
+def test_seed_writes_learned_table_for_every_segment_direction(tmp_path):
+    data = make_data_dir(tmp_path)
+    assert run_seed(data).returncode == 0
+    pairs = learned_pairs(data)
+    plug, inverter, battery = "speicher_plug_power", "speicher_umrichter_power", "speicher_akku_power"
+    workshop_plug, workshop = "plug_werkstatt_power", "werkstatt_power"
+    # The storage chain learns both directions, the fixed chain only its own.
+    assert set(pairs) == {
+        (plug, inverter),
+        (inverter, plug),
+        (inverter, battery),
+        (battery, inverter),
+        (workshop_plug, workshop),
+    }
+    for entry in pairs.values():
+        assert entry["first_seen"] == "2026-10-24T12:00:00Z"
+        assert entry["scale_source"] == 1 and entry["scale_target"] == 1
+        assert entry["invert_source"] is False and entry["invert_target"] is False
+        assert sorted(entry["classes"], key=int) == [str(c) for c in range(1, 13)]
+        for n, source_w, target_w, dev_w in entry["classes"].values():
+            assert n == 1200
+            assert 0 < target_w < source_w
+            assert dev_w > 0
+
+
+def test_learned_curve_peaks_in_the_middle_classes(tmp_path):
+    data = make_data_dir(tmp_path)
+    assert run_seed(data).returncode == 0
+    for entry in learned_pairs(data).values():
+        ratio = {int(c): v[2] / v[1] for c, v in entry["classes"].items()}
+        peak = max(ratio, key=ratio.get)
+        assert 4 <= peak <= 9
+
+
+def test_learned_table_matches_shared_fixture(tmp_path):
+    data = make_data_dir(tmp_path)
+    assert run_seed(data).returncode == 0
+    assert (chain_dir(data) / "learned.json").read_bytes() == LEARNED_FIXTURE.read_bytes()
+
+
+def test_existing_learned_table_is_untouched(tmp_path):
+    data = make_data_dir(tmp_path)
+    chain_dir(data).mkdir(parents=True)
+    existing = chain_dir(data) / "learned.json"
+    keep = b'{"version":1,"pairs":[]}'
+    existing.write_bytes(keep)
+    assert run_seed(data).returncode == 0
+    assert existing.read_bytes() == keep
+
+
+def test_fixed_chain_flows_one_way_in_the_hours(tmp_path):
+    data = make_data_dir(tmp_path)
+    assert run_seed(data).returncode == 0
+    workshop_plug, workshop = "plug_werkstatt_power", "werkstatt_power"
+    seen = {}
+    for name in ("2026-10.json", "2026-11.json"):
+        month = json.loads((chain_dir(data) / name).read_text(encoding="utf-8"))
+        for entry in month["pairs"]:
+            seen.setdefault((entry["source"], entry["target"]), set()).update(entry["hours"])
+    assert (workshop_plug, workshop) in seen
+    assert (workshop, workshop_plug) not in seen
+    # Consumer hours run in the day and in the evening, not only at night.
+    assert str(5 * 24 + 12) in seen[(workshop_plug, workshop)]
+    assert str(5 * 24 + 20) in seen[(workshop_plug, workshop)]
+
+
+def test_fixed_chain_has_standby_at_its_first_point(tmp_path):
+    data = make_data_dir(tmp_path)
+    assert run_seed(data).returncode == 0
+    month = json.loads((chain_dir(data) / "2026-11.json").read_text(encoding="utf-8"))
+    standby = {e["entity"]: e["hours"] for e in month["standby"]}
+    assert str(5 * 24 + 2) in standby["plug_werkstatt_power"]

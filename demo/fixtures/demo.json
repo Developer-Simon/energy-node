@@ -792,6 +792,39 @@
     }
   },
   {
+    "topic": "homeassistant/sensor/plug_werkstatt/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "plug_werkstatt_power",
+      "state_topic": "plug/werkstatt/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "plug/werkstatt/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "plug_werkstatt"
+        ],
+        "via_device": "energy_node",
+        "name": "Plug Workshop"
+      }
+    }
+  },
+  {
+    "topic": "plug/werkstatt/online",
+    "payload": "true"
+  },
+  {
+    "topic": "plug/werkstatt/status",
+    "payload": {
+      "id": 0,
+      "apower": 400,
+      "source": "smoke"
+    }
+  },
+  {
     "topic": "plug/entfeuchter/online",
     "payload": "true"
   },

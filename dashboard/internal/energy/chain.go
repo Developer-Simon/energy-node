@@ -39,6 +39,13 @@ type ChainPointState struct {
 	HasValue  bool    `json:"has_value"`
 	Freshness string  `json:"freshness"` // fresh, stale, missing
 	Counting  bool    `json:"counting"`
+	// Scale and Invert are the effective values of the point, Scale 1 when
+	// the point has none.
+	Scale  float64 `json:"scale"`
+	Invert bool    `json:"invert,omitempty"`
+	// SwitchOff is true when the device of the point has exactly one switch
+	// and that switch is off.
+	SwitchOff bool `json:"switch_off,omitempty"`
 }
 
 // From and To follow the current flow, so LossW is source minus target of the
@@ -49,6 +56,9 @@ type ChainSegmentState struct {
 	Available  bool     `json:"available"`
 	LossW      float64  `json:"loss_w"`
 	Efficiency *float64 `json:"efficiency,omitempty"`
+	// Normal is the band in which the loss counts as normal, nil when the
+	// segment is not learned or has no usable reading.
+	Normal *ChainNormalRange `json:"normal,omitempty"`
 }
 
 type ChainState struct {
@@ -62,15 +72,19 @@ type ChainState struct {
 	Segments        []ChainSegmentState `json:"segments"`
 	SubstituteFrom  string              `json:"substitute_from,omitempty"` // Entitäts-ID
 	NoCurrentValues bool                `json:"no_current_values,omitempty"`
+	Learning        bool                `json:"learning,omitempty"`
+	Findings        []ChainFinding      `json:"findings,omitempty"`
+	Tolerances      []ChainTolerance    `json:"tolerances,omitempty"`
 }
 
 // Chain is a measurement chain from energy.json ("chains"). Points run in the
 // normal flow direction. Direction empty means auto.
 type Chain struct {
-	Label     string   `json:"label"`
-	Points    []string `json:"points"`
-	Counting  string   `json:"counting"`
-	Direction string   `json:"direction,omitempty"`
+	Label      string           `json:"label"`
+	Points     []string         `json:"points"`
+	Counting   string           `json:"counting"`
+	Direction  string           `json:"direction,omitempty"`
+	Tolerances []ChainTolerance `json:"tolerances,omitempty"`
 }
 
 // IsReference reports whether the entity is a measuring point of the chain
@@ -236,6 +250,16 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 	if len(model.Chains) == 0 {
 		return out
 	}
+	insight := resolver.ChainInsight()
+	switchOff := map[string]bool{}
+	deviceSwitchOff := func(device registry.DeviceView) bool {
+		if v, ok := switchOff[device.ID]; ok {
+			return v
+		}
+		v := switchOffDevice(device, resolver)
+		switchOff[device.ID] = v
+		return v
+	}
 
 	index := map[string]chainRead{}
 	for _, device := range devices {
@@ -262,6 +286,9 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 		for i, point := range chain.Points {
 			points[i] = readChainPoint(index, resolver, point, at)
 			points[i].Counting = point == chain.Counting
+			if read, ok := index[point]; ok {
+				points[i].SwitchOff = deviceSwitchOff(read.device)
+			}
 			if points[i].Freshness == "fresh" {
 				anyFresh = true
 			}
@@ -270,11 +297,12 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 		countIdx := slices.Index(chain.Points, chain.Counting)
 		substituteFrom := ""
 		var sub *chainSubstitute
+		srcIdx := -1
 		if countIdx >= 0 && points[countIdx].Freshness != "fresh" {
 			if src := nearestFreshPoint(points, countIdx); src >= 0 {
 				s := chainSubstitute{value: points[src].Value, label: points[src].Label}
-				out.substitutes[chain.Counting] = s
 				sub = &s
+				srcIdx = src
 				substituteFrom = points[src].EntityID
 			}
 		}
@@ -298,6 +326,11 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 			}
 		}
 		flow := chainFlow(direction, flowValue, hasActive)
+		if sub != nil {
+			s := *sub
+			s.value = correctedSubstitute(insight, chain.Points, srcIdx, countIdx, flow, s.value)
+			out.substitutes[chain.Counting] = s
+		}
 
 		var role Role
 		if read, ok := index[chain.Counting]; ok {
@@ -321,7 +354,28 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 					seg.Efficiency = &eff
 				}
 			}
+			// The band needs a live flow, a fresh counting point without a
+			// substitute and a learned class. The class is the counting power.
+			if seg.Available && insight != nil && flow != "idle" && countIdx >= 0 &&
+				points[countIdx].Freshness == "fresh" && substituteFrom == "" && math.Abs(src.Value) >= ChainMinInputW {
+				learned := insight.Segment(src.EntityID, dst.EntityID, math.Abs(points[countIdx].Value))
+				if learned.Learned {
+					band := NormalBand(learned, math.Abs(src.Value), chain.ToleranceFor(src.EntityID, dst.EntityID))
+					seg.Normal = &band
+				}
+			}
 			segments = append(segments, seg)
+		}
+
+		learning := false
+		var findings []ChainFinding
+		if insight != nil {
+			for i := 0; i+1 < len(chain.Points); i++ {
+				if !insight.PairLearned(chain.Points[i], chain.Points[i+1]) {
+					learning = true
+				}
+			}
+			findings = insight.Findings(id)
 		}
 
 		state := ChainState{
@@ -335,23 +389,70 @@ func evaluateChains(devices []registry.DeviceView, resolver *Resolver, model Mod
 			Segments:        segments,
 			SubstituteFrom:  substituteFrom,
 			NoCurrentValues: !anyFresh,
+			Learning:        learning,
+			Findings:        findings,
+			Tolerances:      chain.Tolerances,
 		}
 		out.states = append(out.states, state)
 	}
 	return out
 }
 
+// correctedSubstitute moves the raw substitute value by the learned loss of the
+// segments between the source point and the counting point. The loss is added
+// when the source lies downstream of the counting point, subtracted when it
+// lies upstream. The magnitude never crosses zero. Without a flow, without a
+// learned model or with one unlearned segment on the way the raw value stays.
+// The learned class is the absolute raw value.
+func correctedSubstitute(insight ChainInsight, points []string, srcIdx, countIdx int, flow string, value float64) float64 {
+	if insight == nil || flow == "idle" || srcIdx < 0 || countIdx < 0 || srcIdx == countIdx {
+		return value
+	}
+	countingW := math.Abs(value)
+	loss := 0.0
+	for k := min(srcIdx, countIdx); k < max(srcIdx, countIdx); k++ {
+		source, target := points[k], points[k+1]
+		if flow == "up" {
+			source, target = target, source
+		}
+		seg := insight.Segment(source, target, countingW)
+		if !seg.Learned {
+			return value
+		}
+		loss += seg.LossW
+	}
+	upstream := (flow == "down" && srcIdx < countIdx) || (flow == "up" && srcIdx > countIdx)
+	magnitude := math.Abs(value)
+	if upstream {
+		magnitude -= loss
+	} else {
+		magnitude += loss
+	}
+	if magnitude < 0 {
+		magnitude = 0
+	}
+	if value < 0 {
+		return -magnitude
+	}
+	return magnitude
+}
+
 // readChainPoint reads one measuring point with its Scale and Invert applied.
 // A point missing from the registry, without a value or with an unreadable one
 // is missing.
 func readChainPoint(index map[string]chainRead, resolver *Resolver, entityID string, at time.Time) ChainPointState {
-	state := ChainPointState{EntityID: entityID, Label: entityID, Freshness: "missing"}
+	state := ChainPointState{EntityID: entityID, Label: entityID, Freshness: "missing", Scale: 1}
 	read, ok := index[entityID]
 	if !ok {
 		return state
 	}
 	state.DeviceID = read.device.ID
 	state.Label = resolvedLabel(resolver, read.device, read.entity)
+	assignment, _ := resolver.Resolve(read.entity)
+	state.Invert = assignment.Invert
+	if assignment.Scale != 0 {
+		state.Scale = assignment.Scale
+	}
 	if !read.entity.HasValue {
 		return state
 	}
@@ -359,15 +460,10 @@ func readChainPoint(index map[string]chainRead, resolver *Resolver, entityID str
 	if err != nil {
 		return state
 	}
-	assignment, _ := resolver.Resolve(read.entity)
 	if assignment.Invert {
 		value = -value
 	}
-	scale := assignment.Scale
-	if scale == 0 {
-		scale = 1
-	}
-	state.Value = value * scale
+	state.Value = value * state.Scale
 	state.HasValue = true
 
 	switch {
@@ -379,6 +475,24 @@ func readChainPoint(index map[string]chainRead, resolver *Resolver, entityID str
 		state.Freshness = "fresh"
 	}
 	return state
+}
+
+// switchOffDevice reports whether the device has exactly one switch that can be
+// commanded and that is off. A switch whose override gives it another role, or
+// no role, does not count, the same as in the device map. Diagnostic and config
+// entities do not count either.
+func switchOffDevice(device registry.DeviceView, resolver *Resolver) bool {
+	var candidates []registry.EntityView
+	for _, entity := range device.Entities {
+		if entity.Component != "switch" || !entity.Commandable || entity.EntityCategory != "" {
+			continue
+		}
+		if assignment, _ := resolver.Resolve(entity); assignment.Source == "override" && assignment.Role != RoleSwitch {
+			continue
+		}
+		candidates = append(candidates, entity)
+	}
+	return len(candidates) == 1 && candidates[0].SwitchState() == "off"
 }
 
 // nearestFreshPoint returns the index of the fresh point closest to from, or

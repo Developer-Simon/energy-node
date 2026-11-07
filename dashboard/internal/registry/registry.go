@@ -926,6 +926,31 @@ type EntityView struct {
 	LastCommandAt     time.Time `json:"last_command_at,omitempty"`
 }
 
+// SwitchState returns "on", "off" or "unknown" for a switch entity. The
+// comparison uses the exact payloads of the entity. Value is the last
+// confirmed state, so Pending is ignored, and a stale retained value still
+// counts, because for a switch the retained state is the real one.
+//
+// The state_on / state_off fields of Home Assistant discovery are not kept in
+// EntityInfo yet. Until they are, an entity that uses other payloads reports
+// "unknown" here. When such a device shows up, add those fields to the
+// registry and compare against them.
+func (e EntityView) SwitchState() string {
+	if e.HasAvailability && !e.Available {
+		return "unknown"
+	}
+	if !e.HasValue {
+		return "unknown"
+	}
+	if e.PayloadOn != "" && e.Value == e.PayloadOn {
+		return "on"
+	}
+	if e.PayloadOff != "" && e.Value == e.PayloadOff {
+		return "off"
+	}
+	return "unknown"
+}
+
 // ValueView ist die kleine, schnell wechselnde Haelfte von EntityView: genau
 // die Felder, die sich zwischen zwei Layoutwechseln aendern koennen. Der
 // Rest - Name, Einheit, device_class, Icon - haengt an der Discovery und

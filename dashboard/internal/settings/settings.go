@@ -889,6 +889,9 @@ func cloneEnergyConfig(value EnergyConfig) EnergyConfig {
 		chains := make(map[string]energy.Chain, len(value.Chains))
 		for id, chain := range value.Chains {
 			chain.Points = cloneStrings(chain.Points)
+			if chain.Tolerances != nil {
+				chain.Tolerances = append([]energy.ChainTolerance{}, chain.Tolerances...)
+			}
 			chains[id] = chain
 		}
 		value.Chains = chains
@@ -2362,7 +2365,7 @@ func validateEnergyModel(value EnergyConfig) error {
 
 // validateChains checks each measurement chain: a name, at least two
 // measuring points, no entity in two chains or twice in one, a counting
-// point among the points and a known direction.
+// point among the points, a known direction and valid tolerances.
 func validateChains(chains map[string]energy.Chain) error {
 	owner := map[string]string{}
 	for _, id := range mapKeys(chains) {
@@ -2393,8 +2396,26 @@ func validateChains(chains map[string]energy.Chain) error {
 		default:
 			return energyRejected("chain_direction_invalid", fmt.Sprintf("energy: chain %q has direction %q", chain.Label, chain.Direction), map[string]any{"chain": chain.Label})
 		}
+		for _, tolerance := range chain.Tolerances {
+			if !validChainTolerance(chain.Points, tolerance) {
+				return energyRejected("chain_tolerance_invalid", fmt.Sprintf("energy: chain %q has an invalid tolerance between %q and %q", chain.Label, tolerance.A, tolerance.B), map[string]any{"chain": chain.Label})
+			}
+		}
 	}
 	return nil
+}
+
+// validChainTolerance reports whether a tolerance names two adjacent points of
+// the chain, sets W or Pct and sets no negative value.
+func validChainTolerance(points []string, t energy.ChainTolerance) bool {
+	i, j := slices.Index(points, t.A), slices.Index(points, t.B)
+	if i < 0 || j < 0 || (i-j != 1 && j-i != 1) {
+		return false
+	}
+	if t.W == nil && t.Pct == nil {
+		return false
+	}
+	return (t.W == nil || *t.W >= 0) && (t.Pct == nil || *t.Pct >= 0)
 }
 
 // mapKeys returns the keys sorted, so the first reported error does not

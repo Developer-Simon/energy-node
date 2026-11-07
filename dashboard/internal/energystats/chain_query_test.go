@@ -3,6 +3,7 @@ package energystats
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -363,5 +364,69 @@ func TestStatsHasChains(t *testing.T) {
 	}
 	if len(withChains["buckets"].([]any)) != len(plain["buckets"].([]any)) {
 		t.Errorf("Buckets veraendert durch has_chains")
+	}
+}
+
+// fakeCurveInsight answers only the curve, the rest of the learned model is
+// not part of these tests.
+type fakeCurveInsight struct {
+	curve  energy.ChainCurve
+	points []string
+}
+
+func (f *fakeCurveInsight) Segment(source, target string, countingW float64) energy.ChainSegmentInsight {
+	return energy.ChainSegmentInsight{}
+}
+func (f *fakeCurveInsight) PairLearned(a, b string) bool                  { return false }
+func (f *fakeCurveInsight) Findings(chainID string) []energy.ChainFinding { return nil }
+func (f *fakeCurveInsight) Curve(points []string) energy.ChainCurve {
+	f.points = points
+	return f.curve
+}
+
+func TestEfficiencyCarriesCurve(t *testing.T) {
+	abc := energy.Chain{Label: "abc", Points: []string{"a", "b", "c"}, Counting: "a"}
+	svc := chainTestService(t, chainNow, ChainInfo{ID: "abc", Chain: abc})
+	insight := &fakeCurveInsight{curve: energy.ChainCurve{
+		Down:     []energy.ChainCurvePoint{{PowerW: 100, Efficiency: 0.9}},
+		Up:       []energy.ChainCurvePoint{{PowerW: 200, Efficiency: 0.8}},
+		BestDown: &energy.ChainPowerRange{FromW: 50, ToW: 150},
+	}}
+	svc.Insight = insight
+
+	res, err := svc.Efficiency()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := efficiencyOf(t, res, "abc")
+	if len(got.Curve.Down) != 1 || got.Curve.Down[0].PowerW != 100 || len(got.Curve.Up) != 1 || got.Curve.Up[0].Efficiency != 0.8 {
+		t.Fatalf("curve = %+v, want the insight curve", got.Curve)
+	}
+	if got.Curve.BestDown == nil || got.Curve.BestDown.ToW != 150 {
+		t.Fatalf("best_down = %+v, want 50 to 150", got.Curve.BestDown)
+	}
+	if len(insight.points) != 3 || insight.points[1] != "b" {
+		t.Fatalf("curve asked for points %v, want the chain points", insight.points)
+	}
+}
+
+func TestEfficiencyCurveEmptyListsWithoutInsight(t *testing.T) {
+	abc := energy.Chain{Label: "abc", Points: []string{"a", "b", "c"}, Counting: "a"}
+	svc := chainTestService(t, chainNow, ChainInfo{ID: "abc", Chain: abc})
+
+	res, err := svc.Efficiency()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := efficiencyOf(t, res, "abc")
+	if got.Curve.Down == nil || got.Curve.Up == nil || len(got.Curve.Down) != 0 || len(got.Curve.Up) != 0 {
+		t.Fatalf("curve = %+v, want empty non-nil lists", got.Curve)
+	}
+	body, err := json.Marshal(res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), `"curve":{"down":[],"up":[]}`) {
+		t.Fatalf("curve in JSON = %s, want empty lists, not null", body)
 	}
 }

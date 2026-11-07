@@ -10,14 +10,17 @@ import { installI18n } from './helpers/i18n.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 
-function load() {
+function loadWindow() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
   const context = dom.getInternalVMContext();
   for (const name of ['devicemap-model.js', 'energy-chains.js']) {
     vm.runInContext(fs.readFileSync(path.join(jsDir, name), 'utf8'), context);
   }
-  return dom.window.EnergyChains;
+  return dom.window;
+}
+function load() {
+  return loadWindow().EnergyChains;
 }
 const plain = value => JSON.parse(JSON.stringify(value));
 
@@ -168,4 +171,116 @@ test('linkBetween finds direct neighbours in either order and ignores points fur
   assert.deepEqual({...linkBetween(chains, ['battery'], ['inverter'])}, {id: 'm', label: 'Speicher', upstream: 'inverter', downstream: 'battery'});
   assert.equal(linkBetween(chains, ['plug'], ['battery']), null);
   assert.equal(linkBetween(chains, ['other'], ['inverter']), null);
+});
+
+const findingChain = {
+  label: 'Balkon',
+  points: [
+    { entity_id: 'plug_balkon_power', label: 'Plug Balkon', has_value: true, value: 12 },
+    { entity_id: 'storage_ac_power', label: 'Speicher AC', has_value: true, value: 40 },
+  ],
+};
+const since = '2026-11-06T10:00:00Z';
+
+test('findingText names chain and points for every kind', () => {
+  const window = loadWindow();
+  const ec = window.EnergyChains;
+  const when = window.I18n.formatDateTime(new Date(since));
+  const drift = { kind: 'drift', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(ec.findingText(findingChain, drift), `Balkon: Der Verlust zwischen Plug Balkon und Speicher AC liegt seit ${when} außerhalb des Normalbereichs.`);
+  const frozen = { kind: 'frozen', chain_id: 'm', from: 'plug_balkon_power', since };
+  assert.equal(ec.findingText(findingChain, frozen), `Balkon: Plug Balkon bleibt seit ${when} unverändert, obwohl sich andere Messpunkte bewegen.`);
+  const contradiction = { kind: 'contradiction', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(ec.findingText(findingChain, contradiction), 'Balkon: Plug Balkon meldet Leistung, Speicher AC meldet 0 W oder ist aus.');
+  const sign = { kind: 'sign', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(ec.findingText(findingChain, sign), 'Balkon: Plug Balkon und Speicher AC melden entgegengesetzte Vorzeichen.');
+  const unit = { kind: 'unit', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(ec.findingText(findingChain, unit), 'Balkon: Plug Balkon und Speicher AC liegen um den Faktor 1000 auseinander.');
+});
+
+test('findingTitle joins the chain label and the short kind title', () => {
+  const window = loadWindow();
+  const drift = { kind: 'drift', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(window.EnergyChains.findingTitle(findingChain, drift), `Balkon · ${window.I18n.t('diagnostics.rule.chain_drift.title')}`);
+  const unnamed = { kind: 'sign', chain_id: 'm', chain_label: 'Dach', from: 'a', to: 'b', since };
+  assert.equal(window.EnergyChains.findingTitle({}, unnamed), `Dach · ${window.I18n.t('diagnostics.rule.chain_sign.title')}`);
+});
+
+test('findingText shows the raw ID for an entity the chain does not name', () => {
+  const ec = load();
+  const finding = { kind: 'sign', chain_id: 'm', from: 'unknown_power', to: 'storage_ac_power', since };
+  const text = ec.findingText(findingChain, finding);
+  assert.ok(text.includes('unknown_power und Speicher AC'), text);
+  assert.ok(!text.includes('undefined'), text);
+});
+
+test('suggestionText names the point for an inversion and formats the factor locally', () => {
+  const ec = load();
+  const invert = { kind: 'sign', from: 'a', to: 'b', since, suggestion: { entity_id: 'storage_ac_power', invert: true } };
+  assert.equal(ec.suggestionText(findingChain, invert), 'Vorschlag: bei Speicher AC das Vorzeichen umkehren.');
+  const big = { kind: 'unit', from: 'a', to: 'b', since, suggestion: { entity_id: 'plug_balkon_power', scale_factor: 1000 } };
+  assert.equal(ec.suggestionText(findingChain, big), 'Vorschlag: bei Plug Balkon den Faktor mit 1000 multiplizieren.');
+  const small = { kind: 'unit', from: 'a', to: 'b', since, suggestion: { entity_id: 'plug_balkon_power', scale_factor: 0.001 } };
+  assert.equal(ec.suggestionText(findingChain, small), 'Vorschlag: bei Plug Balkon den Faktor mit 0,001 multiplizieren.');
+});
+
+test('suggestionText is empty without a suggestion', () => {
+  const ec = load();
+  assert.equal(ec.suggestionText(findingChain, { kind: 'frozen', from: 'a', since }), '');
+});
+
+test('allFindings flattens the findings in the server order', () => {
+  const ec = load();
+  const chainStates = {
+    b: { id: 'b', label: 'B', findings: [{ kind: 'sign', from: 'x', to: 'y' }] },
+    a: {
+      id: 'a',
+      label: 'A',
+      findings: [
+        { kind: 'drift', from: 'p', to: 'q' },
+        { kind: 'drift', from: 'c', to: 'd' },
+        { kind: 'unit', from: 'z', to: 'w' },
+        { kind: 'frozen', from: 'p' },
+      ],
+    },
+    c: { id: 'c', label: 'C' },
+  };
+  const got = plain(ec.allFindings(chainStates).map(({ chain, finding }) => [chain.id, finding.kind, finding.from]));
+  assert.deepEqual(got, [
+    ['a', 'unit', 'z'],
+    ['a', 'frozen', 'p'],
+    ['a', 'drift', 'c'],
+    ['a', 'drift', 'p'],
+    ['b', 'sign', 'x'],
+  ]);
+  assert.deepEqual(plain(ec.allFindings({})), []);
+  assert.deepEqual(plain(ec.allFindings(null)), []);
+});
+
+test('groupFindings puts the findings of one chain into one group in the order of first appearance', () => {
+  const ec = load();
+  const items = [
+    { chain: { id: 'b', label: 'B' }, finding: { kind: 'sign', from: 'x', to: 'y' } },
+    { chain: { id: 'a', label: 'A' }, finding: { kind: 'unit', from: 'z', to: 'w' } },
+    { chain: { id: 'b', label: 'B' }, finding: { kind: 'drift', from: 'p', to: 'q' } },
+  ];
+  const groups = ec.groupFindings(items);
+  assert.deepEqual(plain(groups.map(group => group.key)), ['b', 'a']);
+  assert.equal(groups[0].chain.label, 'B');
+  assert.deepEqual(plain(groups[0].findings.map(finding => finding.kind)), ['sign', 'drift']);
+  assert.deepEqual(plain(groups[1].findings.map(finding => finding.kind)), ['unit']);
+  assert.deepEqual(plain(ec.groupFindings([])), []);
+  assert.deepEqual(plain(ec.groupFindings(null)), []);
+});
+
+test('groupTitle is the finding title for one finding and the chain with the count for several', () => {
+  const window = loadWindow();
+  const ec = window.EnergyChains;
+  const drift = { kind: 'drift', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  const sign = { kind: 'sign', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(ec.groupTitle({ key: 'm', chain: findingChain, findings: [drift] }), `Balkon · ${window.I18n.t('diagnostics.rule.chain_drift.title')}`);
+  const several = ec.groupTitle({ key: 'm', chain: findingChain, findings: [drift, sign] });
+  assert.equal(several, window.I18n.t('chains.finding.group_title', { chain: 'Balkon', n: 2 }));
+  assert.ok(several.startsWith('Balkon · '), several);
+  assert.ok(several.includes('2'), several);
 });

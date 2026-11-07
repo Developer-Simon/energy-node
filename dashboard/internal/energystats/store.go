@@ -135,13 +135,13 @@ func (s *Store) writeLocked(key string, m *Month) error {
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(s.dir, s.path(key), data)
+	return WriteFileAtomic(s.dir, s.path(key), data)
 }
 
-// writeFileAtomic schreibt ueber Temp-Datei und Rename, damit ein Stromausfall
+// WriteFileAtomic schreibt ueber Temp-Datei und Rename, damit ein Stromausfall
 // keine halbe Datei hinterlaesst (wie runtimecache). Die Temp-Datei heisst
 // .month-*, auch fuer die Messketten.
-func writeFileAtomic(dir, path string, data []byte) error {
+func WriteFileAtomic(dir, path string, data []byte) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}

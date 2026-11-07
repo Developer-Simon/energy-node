@@ -1,0 +1,37 @@
+{
+  "de": {
+    "*": "Messketten lernen jetzt ihren normalen Verlust und die Wirkungsgradkurve. Der Reiter Effizienz zeigt die Kurve mit bestem Bereich und aktueller Leistung, und eine Diagnose meldet Drift, eingefrorene Werte, widersprüchliche Messpunkte sowie falsche Vorzeichen oder Einheiten. Ersatzwerte werden um den gelernten Verlust korrigiert, und Meldungen erscheinen auf der Energieseite, in der Diagnose und auf der Gerätekarte."
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "view_efficiency",
+          "panel": "efficiency-panel",
+          "target": "efficiency-curve",
+          "text": {
+            "de": "Die Kurve zeigt den Wirkungsgrad einer Kette nach Leistung. Der grüne Bereich markiert, wo sie am besten arbeitet.",
+            "en": "The curve shows the efficiency of a chain by power. The green band marks where it works best."
+          },
+          "title": {
+            "de": "Wirkungsgradkurve",
+            "en": "Efficiency curve"
+          }
+        },
+        {
+          "need": "view_efficiency",
+          "panel": "efficiency-panel",
+          "target": "efficiency-diagnosis",
+          "text": {
+            "de": "Die Diagnose meldet Verlust außerhalb des Normalbereichs, eingefrorene Werte, Widersprüche sowie falsche Vorzeichen oder Einheiten. Den Normalbereich je Abschnitt kannst du anpassen oder neu lernen lassen.",
+            "en": "The diagnosis reports loss outside the normal range, frozen values, contradictions and wrong signs or units. You can adjust the normal range of each segment or let it relearn."
+          },
+          "title": {
+            "de": "Diagnose",
+            "en": "Diagnosis"
+          }
+        }
+      ]
+    }
+  }
+}

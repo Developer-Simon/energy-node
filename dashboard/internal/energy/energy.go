@@ -237,6 +237,7 @@ type Resolver struct {
 	labels         map[string]string
 	interpretation Interpretation
 	model          Model
+	insight        ChainInsight
 }
 
 func NewResolver(overrides map[string]Assignment) *Resolver {

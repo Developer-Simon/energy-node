@@ -522,3 +522,43 @@ test('segmentLosses tolerates a snapshot without chains', () => {
   const model = loadModel();
   assert.deepEqual(plain(model.segmentLosses(undefined)), []);
 });
+
+const finding = (kind, from, to) => ({ kind, chain_id: 'c', chain_label: 'C', since: '2026-11-01T00:00:00Z', from, ...(to ? { to } : {}) });
+
+test('chainFindings marks all involved devices once', () => {
+  const model = loadModel();
+  const drift = { id: 'balkon', label: 'Balkon', segments: [], points: [chainPoint('pa', 'A', 0), chainPoint('pb', 'B', 0)], findings: [finding('drift', 'pa', 'pb')] };
+  const result = model.chainFindings([drift]);
+  assert.deepEqual([...result.byDevice.keys()].sort(), ['A', 'B']);
+  assert.equal(result.byDevice.get('A')[0].finding.kind, 'drift');
+  assert.equal(result.byDevice.get('B')[0].chain.id, 'balkon');
+  assert.deepEqual(plain(result.pairs), [{ a: 'A', b: 'B' }]);
+});
+
+test('chainFindings names one device and no pair for a frozen value or a section inside a device', () => {
+  const model = loadModel();
+  const frozen = { id: 'pv', label: 'PV', segments: [], points: [chainPoint('p1', 'A', 0)], findings: [finding('frozen', 'p1')] };
+  const inside = { id: 'x', label: 'X', segments: [], points: [chainPoint('c1', 'C', 0), chainPoint('c2', 'C', 0)], findings: [finding('drift', 'c1', 'c2')] };
+  const result = model.chainFindings([frozen, inside]);
+  assert.deepEqual([...result.byDevice.keys()], ['A', 'C']);
+  assert.deepEqual(plain(result.pairs), []);
+});
+
+test('chainFindings keeps every finding of one device and one pair once', () => {
+  const model = loadModel();
+  const chain = { id: 'b', label: 'B', segments: [], points: [chainPoint('pa', 'A', 0), chainPoint('pb', 'B', 0)], findings: [finding('drift', 'pa', 'pb'), finding('sign', 'pb', 'pa')] };
+  const other = { id: 'o', label: 'O', segments: [], points: [chainPoint('qa', 'B', 0), chainPoint('qb', 'A', 0)], findings: [finding('frozen', 'qa')] };
+  const result = model.chainFindings([chain, other]);
+  assert.equal(result.byDevice.get('A').length, 2);
+  assert.equal(result.byDevice.get('B').length, 3);
+  assert.deepEqual(plain(result.pairs), [{ a: 'A', b: 'B' }]);
+});
+
+test('chainFindings is empty without chains or findings', () => {
+  const model = loadModel();
+  for (const chains of [undefined, [], [{ id: 'x', points: [chainPoint('p', 'A', 0)] }]]) {
+    const result = model.chainFindings(chains);
+    assert.equal(result.byDevice.size, 0);
+    assert.deepEqual(plain(result.pairs), []);
+  }
+});

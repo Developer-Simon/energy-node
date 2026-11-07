@@ -1085,7 +1085,7 @@ test('sectionMeta counts the measurement chains', async () => {
   assert.equal(component.sectionMeta('chains'), 'energy.section.chains_meta|0|0');
 });
 
-test('live chain values load only with the chains section open and at least one chain, every five seconds', async () => {
+test('live chain values load with at least one chain, even with the chains section closed, every five seconds', async () => {
   const calls = [];
   const { component, window } = createEnergyPanel({
     fetchImpl: chainFetch({ calls, snapshotChains: [{ id: 'm', label: 'Balkon', segments: [] }] }),
@@ -1110,8 +1110,10 @@ test('live chain values load only with the chains section open and at least one 
   component.openSection = 'roles';
   before = liveLoads();
   await fireRegistryUpdated();
-  assert.equal(liveLoads(), before, 'a closed chains section loads nothing');
+  assert.equal(liveLoads(), before + 1, 'a closed chains section still loads, its findings belong to the notices');
+  assert.deepEqual(Object.keys(component.chainStates), ['m']);
 
+  now += 5000;
   component.openSection = 'chains';
   before = liveLoads();
   await fireRegistryUpdated();
@@ -1299,4 +1301,199 @@ test('a chain request from the map opens the chain once the page has loaded', as
   assert.equal(component.flashChain, 'm');
   assert.equal(component.isSectionOpen('chains'), true);
   assert.equal(window.__energyChainRequest__, null);
+});
+
+const findingSince = '2026-11-06T10:00:00Z';
+const driftFinding = {
+  kind: 'drift', chain_id: 'm', chain_label: 'Balkon', since: findingSince, from: 'pv_power', to: 'socket_power',
+  suggestion: { entity_id: 'socket_power', invert: true },
+};
+
+test('a chain finding is listed in the notices and goes away with the next live state', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  assert.equal(component.findingNotices.length, 1);
+  assert.ok(component.findingNotices[0].items[0].text.startsWith('Balkon: Der Verlust'), component.findingNotices[0].text);
+  assert.equal(component.findingNotices[0].items[0].canApply, true);
+  assert.equal(component.hasEfficiencyTab, false, 'no efficiency tab in this page');
+
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [] } };
+  assert.deepEqual(plainJSON(component.findingNotices), []);
+});
+
+test('applying a suggestion only fills the draft, focuses the row and saves nothing', async () => {
+  const calls = [];
+  const { component, stores, window } = createEnergyPanel({ fetchImpl: chainFetch({ calls }) });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  const before = calls.length;
+  component.applyFinding(component.findingNotices[0].items[0]);
+  assert.equal(component.assignments.socket_power.invert, true, 'the invert flips');
+  assert.equal(component.flash.socket_power, true, 'the row is focused');
+  assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.draft_applied'));
+  assert.deepEqual(chainWriteCalls(calls.slice(before)), [], 'nothing is written');
+  assert.equal(calls.slice(before).filter(call => call.options.method && call.options.method !== 'GET').length, 0);
+});
+
+test('applying a scale suggestion multiplies the scale and only with edit rights', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  const scaleFinding = { kind: 'unit', chain_id: 'm', chain_label: 'Balkon', since: findingSince, from: 'pv_power', to: 'socket_power', suggestion: { entity_id: 'pv_power', scale_factor: 0.001 } };
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [scaleFinding] } };
+  component.assignments.pv_power.scale = 1000;
+  component.applyFinding({ finding: scaleFinding, canApply: true });
+  assert.equal(component.assignments.pv_power.scale, 1);
+
+  component.canEdit = false;
+  component.applyFinding({ finding: scaleFinding, canApply: false });
+  assert.equal(component.assignments.pv_power.scale, 1, 'without edit rights nothing changes');
+});
+
+test('an energy draft from the map is applied once the page has loaded, not saved', async () => {
+  const calls = [];
+  const { component, window, stores } = createEnergyPanel({ fetchImpl: chainFetch({ calls }) });
+  component.$nextTick = fn => fn();
+  window.__energyDraftRequest__ = { entity_id: 'socket_power', invert: true };
+  await component.load();
+  assert.equal(component.assignments.socket_power.invert, true);
+  assert.equal(window.__energyDraftRequest__, null);
+  assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.draft_applied'));
+  assert.deepEqual(chainWriteCalls(calls), []);
+});
+
+test('an energy draft event applies to the loaded rows and ignores a draft for an unknown entity', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  component.init();
+  await component.load();
+  window.dispatchEvent(new window.CustomEvent('energy-apply-draft', { detail: { entity_id: 'socket_power', invert: true } }));
+  assert.equal(component.assignments.socket_power.invert, true);
+  window.dispatchEvent(new window.CustomEvent('energy-apply-draft', { detail: { entity_id: 'missing_power', invert: true } }));
+  assert.equal(component.assignments.missing_power, undefined);
+});
+
+test('the efficiency link exists only when the efficiency tab is on the page and opens it', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  await component.load();
+  assert.equal(component.hasEfficiencyTab, false);
+  window.document.body.innerHTML = '<button role="tab" aria-controls="efficiency-panel"></button>';
+  assert.equal(component.hasEfficiencyTab, true);
+  const seen = [];
+  window.addEventListener('dashboard-open-panel', event => seen.push(event.detail));
+  component.openEfficiency();
+  assert.deepEqual(plainJSON(seen), [{ panel: 'efficiency-panel' }]);
+});
+
+test('a finding tile title is the chain label and the short kind title', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  assert.equal(component.findingNotices[0].title, `Balkon · ${window.I18n.t('diagnostics.rule.chain_drift.title')}`);
+});
+
+test('finding details are closed by default and the toggle opens and closes them', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  const key = component.findingNotices[0].key;
+  assert.equal(component.isFindingOpen(key), false, 'closed by default');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), true, 'the toggle opens it');
+  component.toggleFinding(key);
+  assert.equal(component.isFindingOpen(key), false, 'the toggle closes it again');
+});
+
+test('an open finding tile stays open after a live refresh with the same key', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  const key = component.findingNotices[0].key;
+  component.toggleFinding(key);
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [{ ...driftFinding }] } };
+  assert.equal(component.findingNotices[0].key, key);
+  assert.equal(component.isFindingOpen(key), true, 'the refresh keeps the open state');
+});
+
+test('the apply button of a finding tile needs edit rights and a suggestion', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
+  assert.equal(component.findingNotices[0].items[0].canApply, true);
+  component.canEdit = false;
+  assert.equal(component.findingNotices[0].items[0].canApply, false, 'without edit rights no apply button');
+});
+
+test('several findings of one chain share one tile whose details list each finding with its own apply button', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  const sign = { kind: 'sign', chain_id: 'm', chain_label: 'Balkon', since: findingSince, from: 'pv_power', to: 'socket_power', suggestion: null };
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding, sign] } };
+  assert.equal(component.findingNotices.length, 1, 'one tile for the chain');
+  const [group] = component.findingNotices;
+  assert.equal(group.title, window.I18n.t('chains.finding.group_title', { chain: 'Balkon', n: 2 }));
+  assert.equal(group.items.length, 2);
+  assert.deepEqual(plainJSON(group.items.map(item => item.finding.kind)), ['sign', 'drift'], 'the server order of the kinds');
+  assert.equal(group.items[0].canApply, false, 'no suggestion, no apply button');
+  assert.equal(group.items[1].canApply, true, 'the drift suggestion has its own apply button');
+  component.toggleFinding(group.key);
+  assert.equal(component.isFindingOpen(group.key), true);
+});
+
+test('findings of two chains give two tiles', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chainStates = {
+    m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] },
+    n: { id: 'n', label: 'Dach', points: [], segments: [], findings: [{ ...driftFinding, chain_id: 'n', chain_label: 'Dach' }] },
+  };
+  assert.deepEqual(plainJSON(component.findingNotices.map(group => group.key)), ['m', 'n']);
+});
+
+test('the energy template renders one tile per chain with a title toggle and the efficiency link outside it', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'energy.html'), 'utf8');
+  const start = html.indexOf('class="energy-chain-findings"');
+  const end = html.indexOf('</article>', start);
+  const tile = html.slice(start, end);
+  assert.ok(tile.includes('<template x-for="item in findingNotices"'), 'loops over the groups');
+  assert.ok(/<button type="button" class="energy-chain-finding-toggle"[^>]*aria-controls="/.test(tile), 'the toggle carries aria-controls');
+  assert.ok(/aria-expanded="/.test(tile), 'the toggle carries aria-expanded');
+  const toggleStart = tile.indexOf('energy-chain-finding-toggle');
+  const toggleEnd = tile.indexOf('</button>', toggleStart);
+  const toggle = tile.slice(toggleStart, toggleEnd);
+  assert.ok(toggle.includes('x-text="item.title"'), 'the title sits inside the toggle');
+  assert.ok(!toggle.includes('openEfficiency'), 'the efficiency link is not part of the toggle');
+  assert.ok(tile.includes('x-on:click="openEfficiency()"'), 'the link still opens the efficiency tab');
+  assert.ok(tile.includes('x-for="detail in item.items"'), 'the details loop over the findings');
+});
+
+test('a collapsed finding tile has no vertical padding in its fold, the open tile gets it', () => {
+  const css = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'manager.css'), 'utf8');
+  const rule = selector => {
+    const start = css.indexOf(`${selector} {`);
+    assert.ok(start >= 0, `${selector} exists`);
+    return css.slice(start, css.indexOf('}', start));
+  };
+  const closed = rule('.energy-chain-finding-inner');
+  assert.ok(/padding: 0 1rem 0 2\.5rem/.test(closed), closed);
+  assert.ok(!/padding-(top|bottom)/.test(closed), 'no vertical padding while closed');
+  const open = rule('.energy-chain-finding.is-open .energy-chain-finding-inner');
+  assert.ok(/padding-top: \.25rem/.test(open) && /padding-bottom: 1rem/.test(open), open);
 });

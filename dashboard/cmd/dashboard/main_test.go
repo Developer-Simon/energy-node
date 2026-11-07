@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/chainwatch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -144,5 +145,22 @@ func TestChainInfosFollowsTheCountingPointRole(t *testing.T) {
 	}
 	if infos[2].Chain.Label != "Ohne" {
 		t.Errorf("chain of %s lost its label", infos[2].ID)
+	}
+}
+
+func TestHoldsFromEnv(t *testing.T) {
+	env := func(values map[string]string) func(string) string {
+		return func(key string) string { return values[key] }
+	}
+	if got := holdsFromEnv(env(nil)); got != chainwatch.DefaultHolds {
+		t.Fatalf("unset: got %+v, want DefaultHolds", got)
+	}
+	if got := holdsFromEnv(env(map[string]string{"ENERGY_NODE_CHAIN_HOLD_SECONDS": "kaputt"})); got != chainwatch.DefaultHolds {
+		t.Fatalf("unreadable: got %+v, want DefaultHolds", got)
+	}
+	want := 30 * time.Second
+	got := holdsFromEnv(env(map[string]string{"ENERGY_NODE_CHAIN_HOLD_SECONDS": "30"}))
+	if got != (chainwatch.Holds{Drift: want, Frozen: want, Contradiction: want, Unit: want, Clear: want}) {
+		t.Fatalf("30 s: got %+v, want all five at 30 s", got)
 	}
 }
