@@ -1,6 +1,6 @@
 {{define "efficiency"}}
 <section id="efficiency-panel" class="panel" role="tabpanel" aria-labelledby="tab-efficiency" x-bind:class="{ active: activePanel === 'efficiency-panel' }" x-show="activePanel === 'efficiency-panel'">
-  <div class="efficiency-page" x-data="efficiencyPanel()" x-init="init()">
+  <div class="efficiency-page" data-tour="efficiency-page" x-data="efficiencyPanel()" x-init="init()">
     <template x-if="empty">
       <div class="efficiency-empty">
         <p>{{t "efficiency.empty"}}</p>
