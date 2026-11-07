@@ -2731,6 +2731,27 @@
       window.__automationScenario.setWhileMode(scenario, mode);
     },
 
+    // Regler-Schalter "Im besten Wirkungsgradbereich regeln": nur im Regler-Modus,
+    // und nur mit Ketten oder mit gesetzter Option.
+    efficiencyVisible(scenario) {
+      if (!scenario.while || scenario.while.mode !== 'regulate') return false;
+      const regulator = scenario.while.regulator || {};
+      return (this.chains || []).length > 0 || Boolean(regulator.efficiency);
+    },
+
+    toggleEfficiency(scenario, on) {
+      window.__automationScenario.toggleEfficiency(scenario, on, this.chains || [], this.devices || []);
+    },
+
+    efficiencyStatus(scenario) {
+      return window.__automationScenario.efficiencyStatus(scenario, this.scenarioState(scenario));
+    },
+
+    // Kettenauswahl des Schalters; die gespeicherte Kette bleibt auch ohne Treffer sichtbar.
+    efficiencyOptions(scenario) {
+      return this.chainOptions(this.regulatorOf(scenario).efficiency || {});
+    },
+
     validateDocumentBeforeSave() {
       const errors = (this.document.rules || []).flatMap((rule) => this.validateRuleBeforeSave(rule));
       const scenarios = this.document.scenarios || [];

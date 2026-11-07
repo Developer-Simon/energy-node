@@ -333,10 +333,57 @@
     return out;
   }
 
+  // Regler-Schalter "Im besten Wirkungsgradbereich regeln": die Vorauswahl
+  // ist die Kette mit einem Punkt auf dem Geraet des Stellglieds, sonst die
+  // erste Kette. Leer heisst: kein Treffer.
+  function efficiencyChainFor(scenario, chains, devices) {
+    const regulator = (scenario.while && scenario.while.regulator) || {};
+    const entityId = (regulator.output || {}).entity_id;
+    if (!entityId) return '';
+    const device = (devices || []).find((item) => (item.entities || []).some((entity) => entity.unique_id === entityId));
+    if (!device) return '';
+    const chain = (chains || []).find((item) => (item.points || []).some((point) => point.device_id === device.id));
+    return chain ? chain.id : '';
+  }
+
+  // Einschalten setzt die Vorauswahl, Ausschalten entfernt den Schluessel
+  // ganz, damit das Dokument danach dem ohne Option gleicht.
+  function toggleEfficiency(scenario, on, chains, devices) {
+    const regulator = scenario.while && scenario.while.regulator;
+    if (!regulator) return;
+    if (!on) {
+      delete regulator.efficiency;
+      return;
+    }
+    const chainId = efficiencyChainFor(scenario, chains, devices) || ((chains || [])[0] || {}).id;
+    if (chainId) regulator.efficiency = { chain_id: chainId };
+  }
+
+  // Status unter dem Schalter. Der Bericht kommt aus dem Laufzeitstand des
+  // Szenarios (state.efficiency); fehlt er, gibt es noch keine Kettenwerte.
+  // i18n-keys: automations.scenario.edit.regulator.efficiency_range, automations.scenario.edit.regulator.efficiency_no_range, automations.scenario.edit.regulator.efficiency_stale, automations.scenario.edit.regulator.efficiency_chain_missing
+  function efficiencyStatus(scenario, state) {
+    const regulator = (scenario.while && scenario.while.regulator) || {};
+    if (!regulator.efficiency) return { tone: 'off', text: '' };
+    const report = state && state.efficiency;
+    if (!report) return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_stale') };
+    if (isNumber(report.from_w) && isNumber(report.to_w)) {
+      return { tone: 'ok', text: t('automations.scenario.edit.regulator.efficiency_range', { from: report.from_w, to: report.to_w }) };
+    }
+    if (report.reason === 'no_range') {
+      return { tone: 'info', text: t('automations.scenario.edit.regulator.efficiency_no_range') };
+    }
+    if (report.reason === 'chain_missing') {
+      return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_chain_missing') };
+    }
+    return { tone: 'wait', text: t('automations.scenario.edit.regulator.efficiency_stale') };
+  }
+
   window.__automationScenario = {
     emptyScenario, setUntil, setWhileMode, maxDurationUnit, setMaxDurationUnit, maxDurationValue, setMaxDurationValue,
     setMinRunMinutes, minRunMinutes,
     setCooldownMinutes, cooldownMinutes, scenarioStatus, activePhase,
     startProgress, phaseSummary, validateScenarioBeforeSave, stripRegulatorDefaults,
+    efficiencyChainFor, toggleEfficiency, efficiencyStatus,
   };
 })();

@@ -404,3 +404,87 @@ test('the value is stored in seconds for the chosen unit and removed when empty'
   assert.equal('max_duration_s' in scenario, false);
   assert.equal(s.maxDurationValue(scenario), '');
 });
+
+// --- Regler-Schalter: bester Wirkungsgradbereich einer Messkette -------------
+
+const efficiencyChains = [
+  { id: 'balkon', label: 'Balkon', points: [{ entity_id: 'sensor.ac', label: 'AC', device_id: 'wr' }] },
+  { id: 'keller', label: 'Keller', points: [{ entity_id: 'sensor.keller', label: 'Keller', device_id: 'keller_wr' }] },
+];
+const efficiencyDevices = [
+  { id: 'wr', name: 'Wechselrichter', entities: [{ unique_id: 'inverter_power' }] },
+  { id: 'keller_wr', name: 'Keller-Wechselrichter', entities: [{ unique_id: 'keller_power' }] },
+  { id: 'wb', name: 'Wallbox', entities: [{ unique_id: 'wallbox_power' }] },
+];
+const regulateFor = (entityId, efficiency) => scenarioWith({
+  while: {
+    mode: 'regulate',
+    regulator: {
+      output: { topic: 'werkstatt/out', entity_id: entityId, min: 0, max: 800 },
+      direction: 'producer', target_w: 0, fallback: { payload: '800' },
+      ...(efficiency ? { efficiency } : {}),
+    },
+  },
+});
+
+test('efficiencyChainFor picks the chain with a point on the device of the output', () => {
+  const s = load();
+  assert.equal(s.efficiencyChainFor(regulateFor('inverter_power'), efficiencyChains, efficiencyDevices), 'balkon');
+  assert.equal(s.efficiencyChainFor(regulateFor('keller_power'), efficiencyChains, efficiencyDevices), 'keller');
+});
+
+test('efficiencyChainFor returns an empty string without a matching chain or output', () => {
+  const s = load();
+  assert.equal(s.efficiencyChainFor(regulateFor('wallbox_power'), efficiencyChains, efficiencyDevices), '');
+  assert.equal(s.efficiencyChainFor(regulateFor('unknown_power'), efficiencyChains, efficiencyDevices), '');
+  assert.equal(s.efficiencyChainFor(regulateFor(''), efficiencyChains, efficiencyDevices), '');
+});
+
+test('toggleEfficiency on preselects the matching chain, else the first one', () => {
+  const s = load();
+  const matching = regulateFor('keller_power');
+  s.toggleEfficiency(matching, true, efficiencyChains, efficiencyDevices);
+  assert.deepEqual(plain(matching.while.regulator.efficiency), { chain_id: 'keller' });
+  const fallback = regulateFor('wallbox_power');
+  s.toggleEfficiency(fallback, true, efficiencyChains, efficiencyDevices);
+  assert.deepEqual(plain(fallback.while.regulator.efficiency), { chain_id: 'balkon' });
+});
+
+test('toggleEfficiency off deletes the option so the document equals one without it', () => {
+  const s = load();
+  const scenario = regulateFor('inverter_power');
+  s.toggleEfficiency(scenario, true, efficiencyChains, efficiencyDevices);
+  s.toggleEfficiency(scenario, false, efficiencyChains, efficiencyDevices);
+  assert.equal('efficiency' in scenario.while.regulator, false);
+  assert.deepEqual(plain(scenario), plain(regulateFor('inverter_power')));
+});
+
+test('efficiencyStatus shows the learned range from the report', () => {
+  const s = load();
+  const scenario = regulateFor('inverter_power', { chain_id: 'balkon' });
+  const status = s.efficiencyStatus(scenario, { efficiency: { chain_id: 'balkon', from_w: 250, to_w: 500 } });
+  assert.deepEqual(plain(status), { tone: 'ok', text: 'Bester Bereich 250 bis 500 W' });
+});
+
+test('efficiencyStatus explains a missing range, a stale chain and a missing chain', () => {
+  const s = load();
+  const scenario = regulateFor('inverter_power', { chain_id: 'balkon' });
+  assert.equal(s.efficiencyStatus(scenario, { efficiency: { chain_id: 'balkon', reason: 'no_range' } }).text,
+    'Noch kein Bereich gelernt, der Regler arbeitet ohne Grenze.');
+  assert.equal(s.efficiencyStatus(scenario, { efficiency: { chain_id: 'balkon', reason: 'chains_stale' } }).text,
+    'Keine aktuellen Kettenwerte, der Regler arbeitet ohne Grenze.');
+  assert.equal(s.efficiencyStatus(scenario, { efficiency: { chain_id: 'balkon', reason: 'chain_missing' } }).text,
+    'Die Messkette fehlt, der Regler arbeitet ohne Grenze.');
+});
+
+test('efficiencyStatus without a report says the values are missing', () => {
+  const s = load();
+  const scenario = regulateFor('inverter_power', { chain_id: 'balkon' });
+  assert.equal(s.efficiencyStatus(scenario, null).text, 'Keine aktuellen Kettenwerte, der Regler arbeitet ohne Grenze.');
+  assert.equal(s.efficiencyStatus(scenario, { efficiency: null }).text, 'Keine aktuellen Kettenwerte, der Regler arbeitet ohne Grenze.');
+});
+
+test('efficiencyStatus is empty when the option is not set', () => {
+  const s = load();
+  assert.deepEqual(plain(s.efficiencyStatus(regulateFor('inverter_power'), null)), { tone: 'off', text: '' });
+});

@@ -3189,3 +3189,40 @@ test('toggleChainPoint adds and removes a point of the chain', () => {
   component.toggleChainPoint(condition, 'sensor.dc');
   assert.equal(component.hasChainPoint(condition, 'sensor.dc'), false);
 });
+
+// --- Regler-Schalter Wirkungsgradbereich -----------------------------------
+
+const efficiencyPageDevices = [
+  { id: 'wr', name: 'Wechselrichter', entities: [{ unique_id: 'inverter_power', command_topic: 'werkstatt/inv/set', min_value: 0, max_value: 800 }] },
+];
+
+test('the efficiency switch shows only in regulate mode with chains or a set option', () => {
+  const { component } = createAutomationsPanel();
+  const regulate = (efficiency) => ({
+    while: { mode: 'regulate', regulator: { output: { entity_id: 'inverter_power' }, direction: 'producer', ...(efficiency ? { efficiency } : {}) } },
+  });
+  assert.equal(component.efficiencyVisible(regulate(null)), false, 'no chains and no option');
+  component.chains = [...testChains];
+  assert.equal(component.efficiencyVisible(regulate(null)), true, 'chains exist');
+  assert.equal(component.efficiencyVisible({ while: { mode: 'hold', actions: [] } }), false, 'hold mode');
+  component.chains = [];
+  assert.equal(component.efficiencyVisible(regulate({ chain_id: 'keller' })), true, 'option set without chains');
+});
+
+test('toggleEfficiency on the page preselects the chain of the output device', () => {
+  const { component } = createAutomationsPanel();
+  component.devices = [...efficiencyPageDevices];
+  component.chains = [{ id: 'wr_chain', label: 'Wechselrichter', points: [{ entity_id: 'sensor.ac', label: 'AC', device_id: 'wr' }] }];
+  const scenario = { while: { mode: 'regulate', regulator: { output: { entity_id: 'inverter_power' }, direction: 'producer' } } };
+  component.toggleEfficiency(scenario, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(scenario.while.regulator.efficiency)), { chain_id: 'wr_chain' });
+  component.toggleEfficiency(scenario, false);
+  assert.equal('efficiency' in scenario.while.regulator, false);
+});
+
+test('efficiencyStatus on the page reads the report from the scenario state', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { id: 'wr_scenario', while: { mode: 'regulate', regulator: { output: {}, efficiency: { chain_id: 'balkon' } } } };
+  component.runtimeState = { rules: {}, scenarios: { wr_scenario: { phase: 'active', efficiency: { chain_id: 'balkon', from_w: 250, to_w: 500 } } } };
+  assert.equal(component.efficiencyStatus(scenario).text, 'Bester Bereich 250 bis 500 W');
+});
