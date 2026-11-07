@@ -231,7 +231,10 @@ func main() {
 			}
 		}
 	}
-	tailscaleClient := tailscale.NewClient(cfg.Tailscale.Bin, systemactions.ExecOutputRunner{}, time.Duration(cfg.Tailscale.StatusTimeoutS)*time.Second)
+	// The Debian package puts the CLI in /usr/bin, the config still names
+	// the /usr/sbin path of the tarball install.
+	tailscaleBin := tailscale.ResolveBinary(cfg.Tailscale.Bin)
+	tailscaleClient := tailscale.NewClient(tailscaleBin, systemactions.ExecOutputRunner{}, time.Duration(cfg.Tailscale.StatusTimeoutS)*time.Second)
 	runtimeStore := runtimecache.NewStore(dataDir)
 	energyStatsStore := energystats.NewStore(filepath.Join(dataDir, "energystats"))
 	historySampler := historyexchange.NewSampler()
@@ -333,7 +336,7 @@ func main() {
 		DiscoveryPrefix:          client.DiscoveryPrefix(),
 		PollIntervalS:            cfg.Dashboard.NodePollIntervalS,
 		DiagnosticPollMultiplier: cfg.Dashboard.NodeDiagnosticPollMultiplier,
-		TailscaleBin:             cfg.Tailscale.Bin,
+		TailscaleBin:             tailscaleBin,
 	})
 
 	// Bridge-Liveness: aus den deployten Dienst-Manifesten den Dienstkatalog
