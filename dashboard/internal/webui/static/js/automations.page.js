@@ -2593,12 +2593,20 @@
       window.__automationScenario.setUntil(scenario, on);
     },
 
-    maxDurationMinutes(scenario) {
-      return window.__automationScenario.maxDurationMinutes(scenario);
+    maxDurationUnit(scenario) {
+      return window.__automationScenario.maxDurationUnit(scenario);
     },
 
-    setMaxDurationMinutes(scenario, minutes) {
-      window.__automationScenario.setMaxDurationMinutes(scenario, minutes);
+    setMaxDurationUnit(scenario, unit) {
+      window.__automationScenario.setMaxDurationUnit(scenario, unit);
+    },
+
+    maxDurationValue(scenario) {
+      return window.__automationScenario.maxDurationValue(scenario);
+    },
+
+    setMaxDurationValue(scenario, value) {
+      window.__automationScenario.setMaxDurationValue(scenario, value);
     },
 
     minRunMinutes(scenario) {

@@ -3573,7 +3573,7 @@ func TestScenarioStepperFieldsShareOneRow(t *testing.T) {
 		t.Fatal("Totband fehlt im auto-fields-Container von Ziel")
 	}
 	end := block(
-		"<div class=\"auto-fields\">\n          <div class=\"auto-field\" x-data=\"{ get stepTarget() { return { get v() { return maxDurationMinutes",
+		"<div class=\"auto-fields\">\n          <div class=\"auto-field\" x-data=\"{ get stepTarget() { return { get v() { return maxDurationValue",
 		"<div x-data=\"scenarioRows(scenario, 'on_end', null)\">",
 	)
 	if n := strings.Count(end, `class="auto-field"`); n != 3 {
@@ -3724,7 +3724,7 @@ func TestScenarioNumericFieldsUseSteppers(t *testing.T) {
 	for _, want := range []string{
 		`stepKey: 'target_w'`,
 		`stepKey: 'deadband_w'`,
-		`stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }`,
+		`stepKey: 'v', get stepOpts() { return maxDurationUnit(scenario) === 's' ? { min: 10, max: 86400, step: 10 } : { min: 1, max: 1440, step: 1 } }`,
 		`stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }`,
 	} {
 		if !strings.Contains(source, want) {

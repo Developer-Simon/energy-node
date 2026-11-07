@@ -324,11 +324,12 @@ function validRegulated() {
   });
 }
 
-test('validation rejects max_duration_s below one minute', () => {
+test('validation rejects max_duration_s below ten seconds', () => {
   const s = load();
-  const tooShort = s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 59 }), { minInterval: 10, otherOutputs: [] });
+  const tooShort = s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 9 }), { minInterval: 10, otherOutputs: [] });
   assert.equal(tooShort.length, 1);
   assert.ok(tooShort[0].includes('Minute'));
+  assert.deepEqual(plain(s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 10 }), { minInterval: 10, otherOutputs: [] })), []);
   const tooLong = s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 86401 }), { minInterval: 10, otherOutputs: [] });
   assert.equal(tooLong.length, 1);
   assert.deepEqual(plain(s.validateScenarioBeforeSave(scenarioWith({ max_duration_s: 600 }), { minInterval: 10, otherOutputs: [] })), []);
@@ -368,13 +369,38 @@ test('validation accepts 0 and 3600 seconds for the minimum run and the pause, r
   }
 });
 
-test('the end block writes minutes as seconds and removes the key when empty', () => {
+test('the end block shows a stored duration in seconds or minutes', () => {
+  const s = load();
+  const short = scenarioWith({ max_duration_s: 30 });
+  assert.equal(s.maxDurationUnit(short), 's');
+  assert.equal(s.maxDurationValue(short), 30);
+  const whole = scenarioWith({ max_duration_s: 120 });
+  assert.equal(s.maxDurationUnit(whole), 'min');
+  assert.equal(s.maxDurationValue(whole), 2);
+});
+
+test('switching the unit keeps the seconds and the value follows the unit', () => {
+  const s = load();
+  const scenario = scenarioWith({ max_duration_s: 120 });
+  s.setMaxDurationUnit(scenario, 's');
+  assert.equal(s.maxDurationUnit(scenario), 's');
+  assert.equal(scenario.max_duration_s, 120);
+  assert.equal(s.maxDurationValue(scenario), 120);
+  s.setMaxDurationUnit(scenario, 'min');
+  assert.equal(s.maxDurationValue(scenario), 2);
+});
+
+test('the value is stored in seconds for the chosen unit and removed when empty', () => {
   const s = load();
   const scenario = scenarioWith();
-  s.setMaxDurationMinutes(scenario, 10);
+  s.setMaxDurationUnit(scenario, 'min');
+  s.setMaxDurationValue(scenario, 10);
   assert.equal(scenario.max_duration_s, 600);
-  assert.equal(s.maxDurationMinutes(scenario), 10);
-  s.setMaxDurationMinutes(scenario, '');
+  assert.equal(s.maxDurationUnit(scenario), 'min');
+  s.setMaxDurationUnit(scenario, 's');
+  s.setMaxDurationValue(scenario, 30);
+  assert.equal(scenario.max_duration_s, 30);
+  s.setMaxDurationValue(scenario, '');
   assert.equal('max_duration_s' in scenario, false);
-  assert.equal(s.maxDurationMinutes(scenario), '');
+  assert.equal(s.maxDurationValue(scenario), '');
 });

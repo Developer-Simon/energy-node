@@ -393,7 +393,7 @@
             <p class="auto-hint">{{t "automations.scenario.end_when_false"}}</p>
           </template>
           <div class="auto-fields">
-          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return maxDurationMinutes(scenario) }, set v(x) { setMaxDurationMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 1, max: 1440, step: 1 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.max_duration.label') }">
+          <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return maxDurationValue(scenario) }, set v(x) { setMaxDurationValue(scenario, x) } } }, stepKey: 'v', get stepOpts() { return maxDurationUnit(scenario) === 's' ? { min: 10, max: 86400, step: 10 } : { min: 1, max: 1440, step: 1 } }, stepUnit: '', stepLabel: $t('automations.scenario.edit.max_duration.label') }">
             <span class="auto-field-head">
               <span class="auto-field-label">{{t "automations.scenario.edit.max_duration.label"}}</span>
               <span class="field-help">
@@ -404,6 +404,10 @@
               </span>
             </span>
             {{template "auto-stepper"}}
+            <select class="auto-input" x-bind:aria-label="stepLabel" x-bind:value="maxDurationUnit(scenario)" x-on:change="setMaxDurationUnit(scenario, $event.target.value)">
+              <option value="s">{{t "automations.condition.unit_seconds"}}</option>
+              <option value="min">{{t "automations.scenario.edit.max_duration.unit_min"}}</option>
+            </select>
           </div>
           <div class="auto-field" x-data="{ get stepTarget() { return { get v() { return minRunMinutes(scenario) }, set v(x) { setMinRunMinutes(scenario, x) } } }, stepKey: 'v', stepOpts: { min: 0, max: 1440, step: 1, fallback: 0 }, stepUnit: 'min', stepLabel: $t('automations.scenario.edit.min_run.label') }">
             <span class="auto-field-head">

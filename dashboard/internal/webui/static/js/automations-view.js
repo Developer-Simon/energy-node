@@ -97,6 +97,20 @@
       hint: 'automations.condition_type.sun.hint', short: 'automations.condition_type.sun.short' },
   ];
 
+  // i18n-keys: automations.chain.signal.finding, automations.chain.signal.loss_w, automations.chain.signal.efficiency_pct, automations.chain.signal.standby_w, automations.chain.kind.any, automations.chain.once, automations.chain.min_age, automations.chain.missing, automations.summary.chain_finding, automations.summary.chain_value, diagnostics.rule.chain_drift.title, diagnostics.rule.chain_frozen.title, diagnostics.rule.chain_contradiction.title, diagnostics.rule.chain_sign.title, diagnostics.rule.chain_unit.title
+  // Signale einer Messketten-Bedingung. Die Arten einer Meldung (kind) nutzen
+  // die Titel aus der Diagnose, damit beide Seiten dieselbe Wortwahl haben.
+  const CHAIN_SIGNAL_LABELS = {
+    finding: 'automations.chain.signal.finding', loss_w: 'automations.chain.signal.loss_w',
+    efficiency_pct: 'automations.chain.signal.efficiency_pct', standby_w: 'automations.chain.signal.standby_w',
+  };
+  const CHAIN_SIGNAL_UNITS = { loss_w: 'W', efficiency_pct: '%', standby_w: 'W' };
+  const CHAIN_KIND_TITLES = {
+    drift: 'diagnostics.rule.chain_drift.title', frozen: 'diagnostics.rule.chain_frozen.title',
+    contradiction: 'diagnostics.rule.chain_contradiction.title', sign: 'diagnostics.rule.chain_sign.title',
+    unit: 'diagnostics.rule.chain_unit.title',
+  };
+
   // i18n-keys: automations.sun_event.sunrise, automations.sun_event.sunset
   // Reihenfolge wie im Dienst: 0 = Montag ... 6 = Sonntag.
   const WEEKDAY_LABELS = ['automations.weekday.0', 'automations.weekday.1', 'automations.weekday.2', 'automations.weekday.3', 'automations.weekday.4', 'automations.weekday.5', 'automations.weekday.6'];
@@ -162,7 +176,7 @@
       hint: 'automations.action_type.mqtt.hint', short: 'automations.action_type.mqtt.short' },
   ];
 
-  // i18n-keys: automations.field_help.balance_max_age_s, automations.field_help.cooldown_seconds, automations.field_help.history_enabled, automations.field_help.history_limit, automations.field_help.history_persist, automations.field_help.hold_seconds, automations.field_help.hysteresis, automations.field_help.json_key, automations.field_help.location, automations.field_help.offset, automations.field_help.payload, automations.field_help.publish_allowed_prefixes, automations.field_help.publish_min_interval_s, automations.field_help.regulator_interval_s, automations.field_help.repeat_seconds, automations.field_help.max_duration_s, automations.field_help.min_run_s, automations.field_help.cooldown_s,automations.field_help.retain, automations.field_help.scale, automations.field_help.settling_seconds, automations.field_help.tick_interval_s, automations.field_help.topic, automations.field_help.target_w, automations.field_help.deadband_w, automations.field_help.gain, automations.field_help.max_change_w, automations.field_help.interval_s, automations.field_help.fallback, automations.field_help.base
+  // i18n-keys: automations.field_help.balance_max_age_s, automations.field_help.cooldown_seconds, automations.field_help.history_enabled, automations.field_help.history_limit, automations.field_help.history_persist, automations.field_help.hold_seconds, automations.field_help.hysteresis, automations.field_help.json_key, automations.field_help.location, automations.field_help.offset, automations.field_help.payload, automations.field_help.publish_allowed_prefixes, automations.field_help.publish_min_interval_s, automations.field_help.regulator_interval_s, automations.field_help.repeat_seconds, automations.field_help.max_duration_s, automations.field_help.min_run_s, automations.field_help.cooldown_s,automations.field_help.retain, automations.field_help.scale, automations.field_help.settling_seconds, automations.field_help.tick_interval_s, automations.field_help.topic, automations.field_help.target_w, automations.field_help.deadband_w, automations.field_help.gain, automations.field_help.max_change_w, automations.field_help.interval_s, automations.field_help.fallback, automations.field_help.base, automations.field_help.once, automations.field_help.min_age_s
   // Die Erklaerungen zu den Fachbegriffen. Die Begriffe selbst bleiben in der
   // Oberflaeche stehen, damit sie in der Doku und in der rules.json
   // wiederzufinden sind - erklaert wird daneben.
@@ -173,6 +187,8 @@
     tick_interval_s: 'automations.field_help.tick_interval_s',
     settling_seconds: 'automations.field_help.settling_seconds',
     balance_max_age_s: 'automations.field_help.balance_max_age_s',
+    once: 'automations.field_help.once',
+    min_age_s: 'automations.field_help.min_age_s',
     publish_allowed_prefixes: 'automations.field_help.publish_allowed_prefixes',
     publish_min_interval_s: 'automations.field_help.publish_min_interval_s',
     regulator_interval_s: 'automations.field_help.regulator_interval_s',
@@ -283,8 +299,48 @@
     return { label: category.label, icon: CUSTOM_BASE_ICONS[category.base] || 'ico-flash', unit: 'W' };
   }
 
-  function describeCondition(condition, entity, categories) {
+  function findChain(chains, id) {
+    return (Array.isArray(chains) ? chains : []).find((chain) => chain && chain.id === id) || null;
+  }
+
+  // Ein Punkt der Kette zeigt seinen Namen, ein unbekannter die Entitaet.
+  function chainPointLabel(chain, entityId) {
+    const point = chain && (chain.points || []).find((candidate) => candidate.entity_id === entityId);
+    return (point && point.label) || entityId;
+  }
+
+  function describeChainFinding(condition, chain) {
+    const kind = condition.kind && condition.kind !== 'any' && CHAIN_KIND_TITLES[condition.kind]
+      ? t(CHAIN_KIND_TITLES[condition.kind]) : t('automations.chain.kind.any');
+    const minAge = isNumber(condition.min_age_s) ? condition.min_age_s : 0;
+    let summary = minAge > 0
+      ? t('automations.summary.chain_finding', { kind, minutes: Math.ceil(minAge / 60) })
+      : kind;
+    if (condition.once) summary = `${summary}. ${t('automations.chain.once')}`;
+    const points = Array.isArray(condition.points) ? condition.points : [];
+    return { summary, detail: points.map((id) => chainPointLabel(chain, id)).join(', ') };
+  }
+
+  function describeChainValue(condition) {
+    const field = t(CHAIN_SIGNAL_LABELS[condition.field] || condition.field);
+    const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
+    const unit = CHAIN_SIGNAL_UNITS[condition.field] || '';
+    let summary = t('automations.summary.chain_value', { field, comparison, value: condition.value, unit });
+    if (isNumber(condition.hold_seconds) && condition.hold_seconds > 0) {
+      summary = `${summary}, ${t('automations.condition.hold_short')} ${formatSeconds(condition.hold_seconds)}`;
+    }
+    return { summary, detail: '' };
+  }
+
+  function describeCondition(condition, entity, categories, chains) {
     const type = condition && condition.type;
+    if (type === 'chain_finding' || type === 'chain_value') {
+      // Fehlt die Kette, bleibt die Bedingung gespeichert und wird unveraendert
+      // ausgewertet; die Karte nennt nur, dass die Kette fehlt.
+      const chain = findChain(chains, condition.chain_id);
+      const parts = type === 'chain_finding' ? describeChainFinding(condition, chain) : describeChainValue(condition);
+      return { icon: 'ico-chain', title: chain ? chain.label : t('automations.chain.missing'), unit: '', ...parts };
+    }
     if (type === 'balance_threshold') {
       const isCustom = typeof condition.field === 'string' && condition.field.startsWith('custom:');
       const info = isCustom ? customBalanceInfo(condition.field, categories)

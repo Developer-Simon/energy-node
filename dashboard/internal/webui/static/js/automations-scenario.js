@@ -49,22 +49,37 @@
     };
   }
 
-  // Die Oberflaeche rechnet Minuten, gespeichert werden Sekunden. Leer
-  // loescht den Schluessel, dann endet das Szenario nicht nach Zeit.
-  const MAX_DURATION_MIN_S = 60;
+  // Die Hoechstlaufzeit wird in Sekunden gespeichert und wahlweise in
+  // Sekunden oder Minuten angezeigt. Leer loescht den Schluessel, dann endet
+  // das Szenario nicht nach Zeit. Die gewaehlte Einheit merkt sich die Karte
+  // je Szenario; ohne Wahl zeigt ganze Minuten ab einer Minute in min.
+  const MAX_DURATION_MIN_S = 10;
   const MAX_DURATION_MAX_S = 86400;
+  const durationUnits = new WeakMap();
 
-  function maxDurationMinutes(scenario) {
-    return isNumber(scenario.max_duration_s) ? scenario.max_duration_s / 60 : '';
+  function maxDurationUnit(scenario) {
+    if (durationUnits.has(scenario)) return durationUnits.get(scenario);
+    const seconds = scenario.max_duration_s;
+    return isNumber(seconds) && seconds >= 60 && seconds % 60 === 0 ? 'min' : 's';
   }
 
-  function setMaxDurationMinutes(scenario, minutes) {
-    const value = Number(minutes);
-    if (isEmpty(minutes) || !Number.isFinite(value)) {
+  // Der Wechsel der Einheit aendert die Sekunden nicht, nur die Anzeige.
+  function setMaxDurationUnit(scenario, unit) {
+    durationUnits.set(scenario, unit === 'min' ? 'min' : 's');
+  }
+
+  function maxDurationValue(scenario) {
+    if (!isNumber(scenario.max_duration_s)) return '';
+    return maxDurationUnit(scenario) === 'min' ? scenario.max_duration_s / 60 : scenario.max_duration_s;
+  }
+
+  function setMaxDurationValue(scenario, value) {
+    const number = Number(value);
+    if (isEmpty(value) || !Number.isFinite(number)) {
       delete scenario.max_duration_s;
       return;
     }
-    scenario.max_duration_s = Math.round(value * 60);
+    scenario.max_duration_s = Math.round(maxDurationUnit(scenario) === 'min' ? number * 60 : number);
   }
 
   // Mindestlaufzeit und Pause: wie die Höchstlaufzeit in Minuten angezeigt
@@ -319,7 +334,8 @@
   }
 
   window.__automationScenario = {
-    emptyScenario, setUntil, setWhileMode, setMaxDurationMinutes, maxDurationMinutes, setMinRunMinutes, minRunMinutes,
+    emptyScenario, setUntil, setWhileMode, maxDurationUnit, setMaxDurationUnit, maxDurationValue, setMaxDurationValue,
+    setMinRunMinutes, minRunMinutes,
     setCooldownMinutes, cooldownMinutes, scenarioStatus, activePhase,
     startProgress, phaseSummary, validateScenarioBeforeSave, stripRegulatorDefaults,
   };
