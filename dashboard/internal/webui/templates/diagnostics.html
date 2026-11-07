@@ -81,11 +81,12 @@
       <h3 id="diagnostics-warnings-heading">{{t "diagnostics.warnings.heading"}}</h3>
     </div>
     <div class="diag-toolbar" role="group" aria-label="{{t "diagnostics.filter_label"}}">
-      <div class="segmented segmented--3 diag-severity" role="radiogroup" aria-label="{{t "diagnostics.filter.severity_label"}}">
+      <div class="segmented segmented--4 diag-severity" role="radiogroup" aria-label="{{t "diagnostics.filter.severity_label"}}">
         <span class="segmented-thumb" aria-hidden="true"></span>
         <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="all" x-model="severity"><span>{{t "diagnostics.filter.all"}} <span class="diag-count" x-roll x-bind:data-roll-value="severityCount('all')" x-text="severityCount('all')"></span></span></label>
         <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="critical" x-model="severity"><span>{{t "diagnostics.severity.critical"}} <span class="diag-count" x-roll x-bind:data-roll-value="severityCount('critical')" x-text="severityCount('critical')"></span></span></label>
         <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="warning" x-model="severity"><span>{{t "diagnostics.severity.warning"}} <span class="diag-count" x-roll x-bind:data-roll-value="severityCount('warning')" x-text="severityCount('warning')"></span></span></label>
+        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="info" x-model="severity"><span>{{t "diagnostics.severity.info"}} <span class="diag-count" x-roll x-bind:data-roll-value="severityCount('info')" x-text="severityCount('info')"></span></span></label>
       </div>
       <button type="button" class="diag-filter-chip" x-cloak x-show="device !== 'all'" x-on:click="device = 'all'" x-bind:aria-label="$t('diagnostics.filter.clear_device_aria', {device})">
         <span x-text="device"></span>

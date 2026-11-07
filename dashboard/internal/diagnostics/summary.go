@@ -21,12 +21,12 @@ type WorstDevice struct {
 type Summary struct {
 	Critical    int          `json:"critical"`
 	Warning     int          `json:"warning"`
-	Info        int          `json:"info"`
-	StatusClass string       `json:"status_class"` // Kopfpunkt: "bad"/"warn"/"info"/"ok"
+	StatusClass string       `json:"status_class"` // Kopfpunkt: "bad"/"warn"/"ok"
 	WorstDevice *WorstDevice `json:"worst_device,omitempty"`
 }
 
-// Summarize zaehlt Schweregrade, leitet daraus die Farbe des Kopfpunkts ab
+// Summarize zaehlt Schweregrade (Infos nicht, die stehen nur auf der
+// Diagnose-Seite), leitet daraus die Farbe des Kopfpunkts ab
 // und sucht das schlechteste Geraet. Warnungen und Health kommen aus
 // derselben Engine wie /api/v1/diagnostics und /api/v1/diagnostics/health -
 // die Kachel kann deshalb nicht von der Diagnose-Ansicht abweichen.
@@ -38,8 +38,6 @@ func Summarize(warnings []Warning, health []DeviceHealth, devices []registry.Dev
 			summary.Critical++
 		case SeverityWarning:
 			summary.Warning++
-		case SeverityInfo:
-			summary.Info++
 		}
 	}
 	switch {
@@ -47,8 +45,6 @@ func Summarize(warnings []Warning, health []DeviceHealth, devices []registry.Dev
 		summary.StatusClass = "bad"
 	case summary.Warning > 0:
 		summary.StatusClass = "warn"
-	case summary.Info > 0:
-		summary.StatusClass = "info"
 	default:
 		summary.StatusClass = "ok"
 	}

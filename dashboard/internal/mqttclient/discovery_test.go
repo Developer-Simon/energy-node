@@ -187,3 +187,17 @@ func TestParseDiscoveryMessageRejectsAvailabilityWithoutTopic(t *testing.T) {
 		t.Fatalf("expected invalid availability error, removed = %v", removed)
 	}
 }
+
+func TestParseDiscoveryMessagePreservesStateClass(t *testing.T) {
+	disc, _, err := parseDiscoveryMessage(
+		"homeassistant",
+		"homeassistant/sensor/inverter/grid_voltage/config",
+		[]byte(`{"name":"Grid voltage","unique_id":"inverter_gv","state_class":"measurement","device":{"identifiers":"inverter","name":"Inverter"}}`),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if disc.Entity.StateClass != "measurement" {
+		t.Fatalf("state_class = %q, want %q", disc.Entity.StateClass, "measurement")
+	}
+}

@@ -36,38 +36,57 @@ printf 'pip %s\n' "$*" >> "$CMD_LOG"
 exit 0
 SH
 chmod +x "$tmp/bin/fakepip"
+# apt-mark gehoert zu den Schritten 40 und 70 (hold, unhold); ohne Attrappe
+# wuerde das echte Programm auf dem Testrechner laufen.
+cat > "$tmp/bin/apt-mark" <<'SH'
+#!/usr/bin/env bash
+printf 'apt-mark %s\n' "$*" >> "$CMD_LOG"
+exit 0
+SH
+chmod +x "$tmp/bin/apt-mark"
 export PATH="$tmp/bin:$PATH" CMD_LOG="$tmp/cmd.log"
 
 # --- Bundle bauen, ohne Netz und ohne Go ----------------------------------
 printf '#!/bin/sh\n' > "$tmp/fake-dashboard"
-mkdir -p "$tmp/pack/tailscale_1.62.0_arm/systemd"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscale"
-printf '#!/bin/sh\n' > "$tmp/pack/tailscale_1.62.0_arm/tailscaled"
-printf '[Unit]\n'    > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.service"
-printf 'FLAGS=""\n'  > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.defaults"
-tar -czf "$tmp/ts.tgz" -C "$tmp/pack" tailscale_1.62.0_arm
-printf '#!/bin/sh\n' > "$tmp/fake-caddy"
 
 bash "$scripts/build/make_bundle.sh" \
   --arch "$arch" --python-minor "$minor" \
   --user pruef --base /home/pruef --out "$tmp/dist" \
   --dashboard-binary "$tmp/fake-dashboard" \
-  --tailscale-tarball "$tmp/ts.tgz" \
-  --caddy-binary "$tmp/fake-caddy" \
   --skip-wheels >"$tmp/build.log" 2>&1 \
   || fail "Bundle-Bau scheiterte" "$(cat "$tmp/build.log")"
 
 bundle="$tmp/bundle"
 mkdir -p "$bundle"
 tar -xzf "$(find "$tmp/dist" -maxdepth 1 -name 'energy-node-*.tar.gz' | head -n 1)" -C "$bundle"
-# Das Caddy-Beipack entpackt sonst der Installer; hier von Hand.
-mkdir -p "$bundle/caddy"
-tar -xzf "$(find "$tmp/dist" -maxdepth 1 -name 'caddy-*.tar.gz' | head -n 1)" -C "$bundle/caddy"
 # --skip-wheels laesst wheels/ leer; 50-python-deps.sh verlangt aber
 # mindestens ein Rad. Geprueft wird hier die Verdrahtung, nicht pip - ein
 # Platzhalter genuegt und haelt den Test netzfrei.
 rm -f "$bundle/wheels/LEER"
 printf 'platzhalter\n' > "$bundle/wheels/energy_node_common-0.0.0-py3-none-any.whl"
+
+# Schritte 40 und 70 installieren die gepinnten .deb aus EN_STATE_DIR/packages.
+# Echte Pakete sind zu gross fuer den Test; also bekommt jedes Paket eine kleine
+# Attrappe, und die Pruefsumme im Test-Manifest (manifest.packages) passt zu ihr.
+# Das Manifest ist eine Kopie aus dem eigenen Test-Bundle, die Signatur wird
+# hier nicht geprueft (Schritte nutzen --target-only).
+python3 - "$bundle/manifest.json" "$tmp/state/packages" <<'PY'
+import hashlib, json, pathlib, sys
+manifest_path = pathlib.Path(sys.argv[1])
+packages_dir = pathlib.Path(sys.argv[2])
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+packages_dir.mkdir(parents=True, exist_ok=True)
+for name, entry in sorted(manifest["packages"].items()):
+    payload = ("Attrappe fuer das Paket %s\n" % name).encode("utf-8")
+    (packages_dir / entry["file"]).write_bytes(payload)
+    entry["sha256"] = hashlib.sha256(payload).hexdigest()
+manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+PY
+
+# Schritt 40 richtet den apt-Quelleintrag nach VERSION_CODENAME aus der
+# os-release unterhalb von EN_ROOT ein (die des Testrechners bleibt aussen vor).
+mkdir -p "$tmp/root/etc"
+printf 'VERSION_CODENAME=bookworm\n' > "$tmp/root/etc/os-release"
 
 printf 'geheim\n' > "$tmp/mqtt.pw"; chmod 600 "$tmp/mqtt.pw"
 printf 'geheim\n' > "$tmp/admin.pw"; chmod 600 "$tmp/admin.pw"
@@ -109,17 +128,20 @@ script_for() {
 }
 
 run_chain() {
-  local id script out
+  local id script out rc
   : > "$1"
   for id in "${STEP_IDS[@]}"; do
     script="$(script_for "$id")"
+    rc=0
     case "$id" in
-      20) out="$(bash "$script" --user knoten --password-file "$tmp/mqtt.pw")" ;;
+      20) out="$(bash "$script" --user knoten --password-file "$tmp/mqtt.pw")" || rc=$? ;;
       60) out="$(bash "$script" --mqtt-password-file "$tmp/mqtt.pw" \
-                                --admin-password-file "$tmp/admin.pw")" ;;
-      *)  out="$(bash "$script")" ;;
+                                --admin-password-file "$tmp/admin.pw")" || rc=$? ;;
+      *)  out="$(bash "$script")" || rc=$? ;;
     esac
     printf '%s\n' "$out" >> "$1"
+    # Ein Schritt, der mit Fehler endet, bricht sonst lautlos den Test ab.
+    [ "$rc" -eq 0 ] || fail "Schritt $id beendete sich mit Code $rc" "$out"
   done
 }
 

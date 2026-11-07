@@ -226,3 +226,47 @@ test('die Prüfsummenfehler eines Pakets stehen übersetzt im Log', async () => 
     '… und 2 weitere.',
   ]);
 });
+
+test('PACKAGE_UNAVAILABLE bleibt im Bildschirm und bietet beide Antworten, wenn das Gerät selbst installieren kann', async () => {
+  const { screen, shell } = mount();
+  await screen.init();
+  let shellFailCalled = false;
+  shell.fail = () => { shellFailCalled = true; };
+  screen.finish({ ok: false, code: 'PACKAGE_UNAVAILABLE', detail: 'caddy', args: { names: 'caddy', repo_possible: 'true' } });
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canChoosePackages, true);
+  assert.equal(screen.packageRepoOffered, true);
+  assert.equal(shellFailCalled, false);
+  assert.equal(screen.canAllowOnline, false);
+  assert.equal(screen.canForceFull, false);
+});
+
+test('mit repo_possible false wird nur "ohne … weitermachen" angeboten', async () => {
+  const { screen } = mount();
+  await screen.init();
+  screen.finish({ ok: false, code: 'PACKAGE_UNAVAILABLE', detail: 'tailscale', args: { names: 'tailscale', repo_possible: 'false' } });
+  assert.equal(screen.canChoosePackages, true);
+  assert.equal(screen.packageRepoOffered, false);
+});
+
+test('der Hinweis nennt das Paket und seine Folgen, Tailscale ohne den Caddy-Satz', async () => {
+  const { screen } = mount();
+  await screen.init();
+  screen.finish({ ok: false, code: 'PACKAGE_UNAVAILABLE', detail: 'caddy', args: { names: 'caddy', repo_possible: 'true' } });
+  assert.equal(screen.packageNotice, 'Caddy konnte nicht heruntergeladen werden und ist auf dem Gerät nicht installiert. Das Gerät kann die Pakete selbst aus der offiziellen Paketquelle installieren, es braucht dafür Internetzugang. Ohne Caddy bleibt die Admin-Anmeldung im Dashboard gesperrt.');
+  screen.finish({ ok: false, code: 'PACKAGE_UNAVAILABLE', detail: 'tailscale', args: { names: 'tailscale', repo_possible: 'false' } });
+  assert.equal(screen.packageNotice, 'Tailscale konnte nicht heruntergeladen werden und ist auf dem Gerät nicht installiert. Ohne Tailscale ist das Gerät nur im lokalen Netz erreichbar.');
+});
+
+test('choosePackages("repo") postet die Antwort je Paket und startet das Vorbereiten neu', async () => {
+  const { screen, calls } = mount();
+  screen.state = 'failed';
+  screen.lines = ['alt'];
+  screen.lastErrorCode = 'PACKAGE_UNAVAILABLE';
+  screen.packageArgs = { names: 'tailscale,caddy', repo_possible: 'true' };
+  await screen.choosePackages('repo');
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: false, package_choices: { tailscale: 'repo', caddy: 'repo' } } });
+  assert.equal(screen.state, 'working');
+  assert.equal(screen.lastErrorCode, null);
+  assert.equal(screen.canChoosePackages, false);
+});

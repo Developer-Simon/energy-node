@@ -1,10 +1,12 @@
 # Changelog
 
-## v0.11.6-pre.2 (2026-11-06)
+## v0.11.8-pre.2 (2026-11-06)
 
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
+- **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217) (bcf1b75)
+- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **stats:** integrate measurement chain losses per hour (63b0153)
 - **stats:** record measurement chain losses per hour (8339b07)
 - **auth:** add the efficiency view right (981a305)
@@ -19,8 +21,6 @@
 - **stats:** summarise chain losses and tidy the stats switch (26b13f0)
 - **dashboard:** order the efficiency tab, mark it as new and fix the losses icon (7e43775)
 - **dashboard:** add a tour target to the efficiency page (ee43dd3)
-- **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217)
-- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **energy:** add the measurement chain model and its validation (a0c0952)
 - **energy:** move roles when a measurement chain changes (16e2953)
 - **energy:** evaluate measurement chain states and substitutes (25814cf)
@@ -43,13 +43,15 @@
 
 ### Fixes
 
+- **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
+- **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
+- **dashboard:** stop flagging retained discovery as not retained (#219) (65463a6)
+- **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
+- **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
 - **energy:** take the chain flow from a two-way point (c7e5876)
 - **dashboard:** show efficiency load errors and clamp day bars (34123f1)
 - **stats:** keep role write errors visible and reset the loss error (90094d9)
 - **stats:** align the losses switch to the right of its row (02d42fc)
-- **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
-- **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
-- **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
 - **energy:** tighten the chain editor after review (b5302ef)
 - **energy:** polish the measurement chain editor and the map link (870d55d)
 - **dashboard:** animate diagnostics refresh and updated values (57967fc)

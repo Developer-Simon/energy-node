@@ -22,6 +22,9 @@
       // HOSTKEY_UNKNOWN: a dedicated inline recovery UI, not the generic
       // error banner).
       lastErrorCode: null,
+      // packageArgs: die Argumente von PACKAGE_UNAVAILABLE (names und
+      // repo_possible), nach dem Fehler gesetzt.
+      packageArgs: null,
       // armed: erst ab unserem eigenen run-started zaehlen Ereignisse. Der
       // Strom beginnt bei seq 0 und traegt auch Aelteres.
       armed: false,
@@ -78,7 +81,10 @@
         if (!data.ok) {
           this.state = 'failed';
           this.lastErrorCode = data.code || null;
-          if (data.code === 'PACKAGE_VERIFY_FAILED_DELTA' || data.code === 'PYTHON_ABI_MISMATCH') {
+          if (data.code === 'PACKAGE_UNAVAILABLE') {
+            // Der Betreiber entscheidet im Bildschirm, wie es weitergeht.
+            this.packageArgs = data.args || {};
+          } else if (data.code === 'PACKAGE_VERIFY_FAILED_DELTA' || data.code === 'PYTHON_ABI_MISMATCH') {
             if (data.detail) {
               this.lines.push(window.Format.verifyDetail(data.detail, function (key, args) { return window.I18n.t(key, args); }));
             }
@@ -122,6 +128,62 @@
       // not covered by the package signature.
       get canAllowOnline() {
         return this.state === 'failed' && this.lastErrorCode === 'PYTHON_ABI_MISMATCH';
+      },
+
+      // canChoosePackages: ein Paket, das das Gerät braucht, fehlt und ließ
+      // sich nicht laden. Der Betreiber antwortet je Paket mit "repo" oder
+      // "skip", der Lauf fragt so lange, bis alle beantwortet sind.
+      get canChoosePackages() {
+        return this.state === 'failed' && this.lastErrorCode === 'PACKAGE_UNAVAILABLE';
+      },
+
+      // packageRepoOffered: die Paketquelle des Geräts kann die Pakete
+      // installieren, sonst bleibt nur das Weitermachen ohne sie.
+      get packageRepoOffered() {
+        return !!(this.packageArgs && this.packageArgs.repo_possible === 'true');
+      },
+
+      // packageNames: die fehlenden Pakete in Anzeigeform, "Caddy, Tailscale".
+      get packageNames() {
+        return this.packageKeys().map(function (name) {
+          return name.charAt(0).toUpperCase() + name.slice(1);
+        }).join(', ');
+      },
+
+      packageKeys() {
+        var names = this.packageArgs && this.packageArgs.names;
+        return names ? names.split(',').map(function (name) { return name.trim(); }) : [];
+      },
+
+      // packageNotice: der Text im Hinweis, je fehlendem Paket ein Satz mit
+      // seinen Folgen, dazu der Hinweis auf die Paketquelle, wenn sie geht.
+      get packageNotice() {
+        var t = function (key, args) { return window.I18n.t(key, args); };
+        var parts = [t('prepare.packageUnavailable', { names: this.packageNames })];
+        if (this.packageRepoOffered) {
+          parts.push(t('prepare.packageRepoHint'));
+        }
+        this.packageKeys().forEach(function (name) {
+          parts.push(t('prepare.packageConsequence.' + name));
+        });
+        return parts.join(' ');
+      },
+
+      // choosePackages: die Antwort gilt für alle fehlenden Pakete. "repo"
+      // installiert sie aus der Paketquelle des Geräts, "skip" lässt sie weg.
+      async choosePackages(choice) {
+        var choices = {};
+        this.packageKeys().forEach(function (name) { choices[name] = choice; });
+        this.state = 'working';
+        this.lines = [];
+        this.lastErrorCode = null;
+        this.packageArgs = null;
+        this.shell.error = null;
+        await this.start({
+          mode: 'prepare',
+          force_full_transfer: !!this.shell.shared.forceFullTransfer,
+          package_choices: choices,
+        });
       },
 
       async allowOnline() {

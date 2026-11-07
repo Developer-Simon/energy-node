@@ -49,6 +49,7 @@ func main() {
 	abiMismatch := flag.Bool("abi-mismatch", false, "das Gerät hat Python 3.13, das Paket 3.11: Vorbereiten scheitert, bis die Online-Installation freigegeben ist")
 	deltaFails := flag.Bool("delta-verify-fails", false, "die Teilübertragung besteht die Prüfung nicht: Vorbereiten scheitert, bis das ganze Paket neu übertragen wird")
 	journalStep := flag.Bool("journal-step", false, "das Manifest enthält den optionalen Schritt 17 (Journal nur im Arbeitsspeicher)")
+	packageOffline := flag.String("package-offline", "", "diese Pakete lassen sich nicht herunterladen, Format caddy[,tailscale]: Vorbereiten fragt, bis je Paket geantwortet ist")
 	flag.Parse()
 	// Den Updater gibt es nur im Dashboard: das Szenario bringt den Wirt mit.
 	if *scenario == "updater" {
@@ -59,7 +60,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates, abiMismatch: *abiMismatch, deltaVerifyFails: *deltaFails, journalStep: *journalStep, english: *language == "en"}
+	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates, abiMismatch: *abiMismatch, deltaVerifyFails: *deltaFails, journalStep: *journalStep, packageOffline: splitPackageList(*packageOffline), english: *language == "en"}
 	if *failStep != "" {
 		opts.failStep, opts.failCode = splitFailSpec(*failStep)
 	}
@@ -77,6 +78,14 @@ func main() {
 	fmt.Printf("http://%s/\n", addr)
 	handler := debugHandler(server.Handler(), stagedBackend.FakeBackend)
 	log.Fatal(http.ListenAndServe(addr, handler))
+}
+
+// splitPackageList zerlegt "caddy,tailscale" in die Paketnamen, leer gibt nil.
+func splitPackageList(spec string) []string {
+	if spec == "" {
+		return nil
+	}
+	return strings.Split(spec, ",")
 }
 
 // splitFailSpec zerlegt "50:PIP_EXTERNALLY_MANAGED".

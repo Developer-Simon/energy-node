@@ -25,6 +25,21 @@ func TestRunFinishPayloadCarriesTheDetailOfEveryFailure(t *testing.T) {
 	}
 }
 
+func TestRunFinishPayloadCarriesTheArgsOfATypedError(t *testing.T) {
+	err := &Error{Code: "PACKAGE_UNAVAILABLE", Detail: "caddy", Args: map[string]string{"names": "caddy", "repo_possible": "true"}}
+	payload := runFinishPayload(NewBus(10), "run-1", err, nil)
+	args, ok := payload["args"].(map[string]string)
+	if !ok {
+		t.Fatalf("payload args = %v (%T), want a map", payload["args"], payload["args"])
+	}
+	if args["names"] != "caddy" || args["repo_possible"] != "true" {
+		t.Errorf("args = %v, want names caddy and repo_possible true", args)
+	}
+	if plain := runFinishPayload(NewBus(10), "run-1", &Error{Code: "GITHUB_NO_RELEASE"}, nil); plain["args"] != nil {
+		t.Errorf("a plain error carries args %v, want none", plain["args"])
+	}
+}
+
 func TestRunRequestSecretsCoverEveryUserPassword(t *testing.T) {
 	req := RunRequest{
 		MQTTPassword:  "mqtt-geheim",

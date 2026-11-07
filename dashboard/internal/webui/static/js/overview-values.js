@@ -129,7 +129,6 @@
     const columns = [
       ['bad', summary.critical, 'overview.diagnostics.critical_label'],
       ['warn', summary.warning, 'overview.diagnostics.warning_label'],
-      ['info', summary.info, 'overview.diagnostics.info_label'],
     ];
     for (const [kind, count, labelKey] of columns) {
       const column = document.createElement('div');

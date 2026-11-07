@@ -117,6 +117,14 @@
 
 set -euo pipefail
 
+# Short hashes are always 7 characters. Git sizes %h by the object count, so a
+# large local clone would otherwise rewrite every entry CI wrote. Appended as an
+# environment config entry, so it wins over repo config and keeps the caller's.
+_abbrev_n="${GIT_CONFIG_COUNT:-0}"
+export "GIT_CONFIG_KEY_${_abbrev_n}=core.abbrev" "GIT_CONFIG_VALUE_${_abbrev_n}=7"
+export GIT_CONFIG_COUNT=$((_abbrev_n + 1))
+unset _abbrev_n
+
 ALL_TARGETS=(
   dashboard common battery_soc_core ha-integration ha-icons ha-energy-node-companion
   installer installer-webui bootstrap

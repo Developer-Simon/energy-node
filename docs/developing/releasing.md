@@ -52,14 +52,33 @@ The sync also renumbers the pre versions. When `main` releases `v0.4.6`, a
 `v0.4.6-pre.2` on `prerelease` becomes `v0.4.7-pre.2`.
 
 If the merge conflicts in code, the run ends red. The workflow also opens or
-updates a GitHub issue with the label `prerelease-sync`. To fix it:
+updates a GitHub issue with the label `prerelease-sync`. The same happens when
+both lines changed the same lazy loaded web asset under
+`dashboard/internal/webui/static/js/` or `static/css/`. Git merges such a file
+cleanly, but the merged file is new on both lines and needs a `?v=` above both
+of them. The issue lists these paths as assets.
+
+To fix it, let the script stop with the merge in progress:
 
 ```sh
-git switch prerelease
-python3 scripts/version/sync_prerelease.py
+git switch prerelease && git pull --ff-only
+python3 scripts/version/sync_prerelease.py --keep
 ```
 
-Resolve the conflicts by hand, commit and push `prerelease`.
+The script settles versions and changelogs itself and prints the rest. Resolve
+every `CONFLICT` path. For every `ASSET` path, set its `?v=` one above the higher
+of the two lines and add a history row as described in
+[lazy-assets-cache-busting.md](../_internal/lazy-assets-cache-busting.md). Stage
+the files with `git add`, then finish the merge:
+
+```sh
+python3 scripts/version/sync_prerelease.py --continue --push
+```
+
+`--continue` sets the versions, commits the merge and regenerates the
+changelogs exactly like the automatic run. The next run closes the issue, or
+close it by hand. Changelog hashes are always 7 characters, so a local run
+writes the same text as CI.
 
 ### Minor release
 
@@ -96,6 +115,38 @@ attaches the same bundles and installer as a final release.
 The dashboard's update check ignores version suffixes. A test device on a
 `v0.11.2-pre.5` bundle is not offered the final `v0.11.2`. It is only offered
 the next higher version.
+
+## Pinned packages
+
+The installation package carries Caddy and Tailscale as Debian packages, one
+per architecture. The pins live in `scripts/build/packages.json`. Run the
+script before a release:
+
+```sh
+bash scripts/build/update_packages.sh          # shows the changes, writes nothing
+bash scripts/build/update_packages.sh --write  # writes packages.json
+```
+
+It takes the newest Caddy stable release and the newest Tailscale stable
+release from the Debian index. Every Caddy package is checked against the
+SHA-512 in the upstream checksum file, and `packages.json` pins its SHA-256. The
+script writes only when every check passes. Read the diff, then commit
+`packages.json` with the release.
+
+The `armv6` Tailscale pin stays at 1.62.0. Its file is a project mirror asset
+under the release tag `pinned-packages`, uploaded once by hand, because the
+upstream pool drops old versions. The script never bumps it, and its checksum
+stays the upstream one. A node installs 1.62.0 and then runs `tailscale update`.
+A new pin reruns steps 40 and 70 on the next update of a node.
+
+The `armv6` Tailscale download tries the project mirror first and the upstream
+pool second, from `fallback_urls` in `packages.json`. Both serve the same file
+with the same SHA-256.
+
+The repository keys for Tailscale and Caddy are in `scripts/bootstrap/keyrings/`
+as `tailscale.gpg` and `caddy.gpg`. When an upstream repository changes its
+signing key, replace the matching file and check its fingerprint before you
+commit it.
 
 ## Publishing `vX.Y.Z`
 

@@ -261,6 +261,10 @@ type RunRequest struct {
 	// passt. Der Betreiber gibt das im Dialog des Vorbereiten-Bildschirms
 	// frei, nachdem PYTHON_ABI_MISMATCH gemeldet wurde.
 	AllowOnlineDeps bool `json:"allow_online_deps,omitempty"`
+	// PackageChoices beantwortet die Rueckfrage PACKAGE_UNAVAILABLE je
+	// Paketname: "repo" installiert es vom Hersteller auf dem Node, "skip"
+	// schaltet den Schritt ab, der es braucht. Gilt fuer die Sitzung.
+	PackageChoices map[string]string `json:"package_choices,omitempty"`
 	// Secrets gehen hinein und nie wieder hinaus.
 	MQTTPassword  string `json:"mqtt_password,omitempty"`
 	AdminPassword string `json:"admin_password,omitempty"`
@@ -435,6 +439,9 @@ type Error struct {
 	Code   string
 	Detail string
 	Status int
+	// Args sind strukturierte Zusatzwerte fuer die Oberflaeche, etwa die
+	// Paketnamen bei PACKAGE_UNAVAILABLE. Sie landen als "args" im Fehler.
+	Args map[string]string
 }
 
 func (e *Error) Error() string {

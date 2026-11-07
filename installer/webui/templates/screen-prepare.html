@@ -8,12 +8,12 @@
       <template x-if="state === 'done' && unsigned">
         <p class="card-p" x-text="t('prepare.unsigned')"></p>
       </template>
-      <template x-if="canForceFull || canAllowOnline">
+      <template x-if="canForceFull || canAllowOnline || canChoosePackages">
         <div class="prep-action" role="alert">
           <span class="prep-action-ic">{{template "icon-warn"}}</span>
           <span class="prep-action-b">
             <span class="prep-action-t" x-text="t('prepare.actionNeeded')"></span>
-            <span class="prep-action-s" x-text="canForceFull ? t('prepare.verifyFailedDelta') : t('prepare.abiMismatch')"></span>
+            <span class="prep-action-s" x-text="canForceFull ? t('prepare.verifyFailedDelta') : canAllowOnline ? t('prepare.abiMismatch') : packageNotice"></span>
           </span>
         </div>
       </template>
@@ -36,6 +36,12 @@
     </template>
     <template x-if="canForceFull">
       <button type="button" class="primary" @click="forceFull()" x-text="t('prepare.forceFull')"></button>
+    </template>
+    <template x-if="canChoosePackages && packageRepoOffered">
+      <button type="button" class="primary" @click="choosePackages('repo')" x-text="t('prepare.packageRepo')"></button>
+    </template>
+    <template x-if="canChoosePackages">
+      <button type="button" class="ghost" @click="choosePackages('skip')" x-text="t('prepare.packageSkip', { names: packageNames })"></button>
     </template>
     <span class="foot-spacer"></span>
     <template x-if="state === 'done' && unsigned">

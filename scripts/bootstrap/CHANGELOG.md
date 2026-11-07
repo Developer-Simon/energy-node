@@ -1,6 +1,21 @@
 # Changelog
 
-## v0.3.1 (2026-11-06)
+## v0.3.2 (2026-11-07)
+
+### Features
+
+- **installer:** The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller. (#222) (f1344a1)
+- **bundle:** pin the Caddy and Tailscale packages per architecture (009bba1)
+- **bundle:** ship package pins instead of the Tailscale tarball (0a32dd8)
+- **bootstrap:** add helpers to install pinned Debian packages (be678a4)
+- **bootstrap:** install Tailscale from the pinned package (26e9d5b)
+- **bootstrap:** install Caddy from the pinned package (7ba8a8b)
+- **bootstrap:** fetch missing wheels on the node before installing (02b2a5c)
+
+### Fixes
+
+- **bootstrap:** release the Tailscale hold before installing a new package (2b25a62)
+- **bootstrap:** update Tailscale after installing 1.62.0 on armv6 (888d0c9)
 
 ### Chores
 

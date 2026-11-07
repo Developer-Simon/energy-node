@@ -2,14 +2,81 @@ package bundlesource
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+const (
+	// downloadTimeout bounds one download, a bundle archive or a pinned file.
+	downloadTimeout = 15 * time.Minute
+	// maxBundleBytes caps a bundle archive, maxPinBytes a pinned .deb or wheel.
+	maxBundleBytes = 1 << 30
+	maxPinBytes    = 256 << 20
+)
+
+// errTransfer marks a download that did not produce a complete file: a
+// network error, a status other than 200 or a body over the size cap. It is
+// a failure to fetch, not a verdict on the file.
+type errTransfer struct{ detail string }
+
+func (e *errTransfer) Error() string { return e.detail }
+
+// fetchTo streams url into dest through dest.part and returns the hex
+// SHA-256 of what was written. A redirect refused by client's CheckRedirect
+// surfaces as *Error; every other failure to get the file is an *errTransfer.
+func fetchTo(ctx context.Context, client *http.Client, url, dest string, maxBytes int64) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", &errTransfer{err.Error()}
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		var refused *Error
+		if errors.As(err, &refused) {
+			return "", refused
+		}
+		return "", &errTransfer{err.Error()}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", &errTransfer{fmt.Sprintf("HTTP %d", resp.StatusCode)}
+	}
+	part := dest + ".part"
+	out, err := os.Create(part)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.New()
+	n, copyErr := io.Copy(io.MultiWriter(out, hash), io.LimitReader(resp.Body, maxBytes+1))
+	closeErr := out.Close()
+	if copyErr != nil {
+		os.Remove(part)
+		return "", &errTransfer{copyErr.Error()}
+	}
+	if n > maxBytes {
+		os.Remove(part)
+		return "", &errTransfer{fmt.Sprintf("body larger than %d bytes", maxBytes)}
+	}
+	if closeErr != nil {
+		os.Remove(part)
+		return "", closeErr
+	}
+	if err := os.Rename(part, dest); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
 
 const (
 	defaultAPIBase = "https://api.github.com"
@@ -118,33 +185,11 @@ func (g *GitHub) Fetch(ctx context.Context, arch string, note func(key string, a
 		return "", err
 	}
 	note("package.log.download", map[string]string{"name": asset.Name})
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
-	if err != nil {
-		return "", unreachable(err.Error())
-	}
-	resp, err := g.client().Do(req)
-	if err != nil {
-		return "", unreachable(err.Error())
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", unreachable(fmt.Sprintf("HTTP %d", resp.StatusCode))
-	}
-	part := dest + ".part"
-	out, err := os.Create(part)
-	if err != nil {
-		return "", err
-	}
-	if _, err := io.Copy(out, resp.Body); err != nil {
-		out.Close()
-		os.Remove(part)
-		return "", unreachable(err.Error())
-	}
-	if err := out.Close(); err != nil {
-		os.Remove(part)
-		return "", err
-	}
-	if err := os.Rename(part, dest); err != nil {
+	if _, err := fetchTo(ctx, g.client(), asset.URL, dest, maxBundleBytes); err != nil {
+		var transfer *errTransfer
+		if errors.As(err, &transfer) {
+			return "", unreachable(transfer.detail)
+		}
 		return "", err
 	}
 	return dest, nil

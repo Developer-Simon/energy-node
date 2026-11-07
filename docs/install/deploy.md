@@ -135,9 +135,12 @@ is not reloaded while the service runs.
 Plain HTTP on port 8080 works right away. Admin sessions are blocked over plain
 HTTP, so for HTTPS and the admin login put Caddy in front.
 
-Install Caddy on the node first. On ARMv6, take the `armv6` or `armhf` build
-from the Caddy project, since your distribution may not ship one. Then install
-the repository's `Caddyfile`:
+The installer sets up Caddy as step 70 from the pinned package in the
+installation package, see [Packages you must install outdated
+first](index.md#3-packages-you-must-install-outdated-first). By hand, install
+Caddy on the node first. On ARMv6, take the `armv6` or `armhf` build from the
+Caddy project, since your distribution may not ship one. Then install the
+repository's `Caddyfile`:
 
 ```sh
 scp dashboard/Caddyfile <user>@<node>:/tmp/Caddyfile
@@ -150,7 +153,8 @@ ssh <user>@<node> "
 `tls internal` issues a certificate from Caddy's local CA. The CA is not
 trusted system wide automatically, because the Caddy service user has no sudo
 rights, so browsers warn until you trust it yourself. Deploying the dashboard
-does not touch the Caddy configuration.
+does not touch the Caddy configuration, and the installer never overwrites an
+existing `Caddyfile`.
 
 To serve the dashboard under a sub-path behind another reverse proxy, set
 `X-Forwarded-Prefix` (or `X-Ingress-Path` for Home Assistant ingress). See

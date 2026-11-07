@@ -7,10 +7,15 @@
 # wird, hat der Bau-Rechner aus piwheels geholt und liegt unter wheels/.
 # Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
-# step-inputs: bootstrap/lib/step.sh bootstrap/verify_bundle.sh wheels/
+# Hat das Manifest Festlegungen (manifest.wheels), holt lib/wheels.sh die
+# Wheels, die fehlen, vom Node selbst. Ein altes Bundle ohne das Feld
+# installiert wie bisher nur die Wheels aus dem Bundle.
+# step-inputs: bootstrap/lib/step.sh bootstrap/lib/wheels.sh bootstrap/verify_bundle.sh wheels/ manifest:wheels
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
+# shellcheck source=scripts/bootstrap/lib/wheels.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/wheels.sh"
 
 # EN_PIP existiert der Testbarkeit wegen. python3 selbst zu ueberschatten
 # ginge nicht - step_selected braucht denselben Interpreter.
@@ -35,9 +40,38 @@ fi
 shopt -s nullglob
 wheels=("${EN_BUNDLE_DIR}"/wheels/*.whl)
 shopt -u nullglob
+find_links=(--find-links "${EN_BUNDLE_DIR}/wheels")
+WHEELS_DOWNLOADED=0
+
+if wheels_declared; then
+  # Festlegungen: fehlende Wheels holen, dann pip nur die gelisteten Dateien
+  # aus dem Node-Verzeichnis geben, dazu die eigenen Wheels aus dem Bundle.
+  # Eine Bundle-Kopie derselben Festlegung entfaellt, sonst bekaeme pip zwei.
+  wheels_sync
+  find_links+=(--find-links "${EN_WHEELS_DIR}")
+  pinned_files=()
+  mapfile -t pinned_files < <(wheel_pins | cut -f1)
+  declare -A listed=()
+  for file in "${pinned_files[@]}"; do
+    listed["${file}"]=1
+  done
+  own=()
+  for wheel in "${wheels[@]}"; do
+    name="$(basename -- "${wheel}")"
+    [[ -n "${listed[${name}]+x}" ]] || own+=("${wheel}")
+  done
+  wheels=("${own[@]}")
+  for file in "${pinned_files[@]}"; do
+    wheels+=("${EN_WHEELS_DIR}/${file}")
+  done
+fi
 [[ "${#wheels[@]}" -gt 0 ]] || step_fail WHEELS_MISSING
 
-step_log "Installiere ${#wheels[@]} Wheels aus dem Bundle, ohne Netz."
+if [[ "${WHEELS_DOWNLOADED}" -gt 0 ]]; then
+  step_log "Installiere ${#wheels[@]} Wheels, ${WHEELS_DOWNLOADED} davon eben vom Node geladen."
+else
+  step_log "Installiere ${#wheels[@]} Wheels aus dem Bundle, ohne Netz."
+fi
 
 log="$(mktemp)"
 trap 'rm -f "${log}"' EXIT
@@ -45,7 +79,7 @@ trap 'rm -f "${log}"' EXIT
 pip_install() {
   "${SUDO[@]}" "${PIP[@]}" install \
     --no-index \
-    --find-links "${EN_BUNDLE_DIR}/wheels" \
+    "${find_links[@]}" \
     --ignore-installed \
     "$@" \
     "${wheels[@]}"

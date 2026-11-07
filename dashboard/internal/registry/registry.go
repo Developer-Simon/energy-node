@@ -74,6 +74,7 @@ type EntityInfo struct {
 	ValueTemplate       string
 	UnitOfMeasurement   string
 	DeviceClass         string
+	StateClass          string
 	MinValue            *float64
 	MaxValue            *float64
 	Step                *float64
@@ -285,11 +286,15 @@ func (r *Registry) UpsertEntity(d Discovery) (newTopics, orphanTopics []string) 
 			delete(r.byDiscovery, es.discoveryTopic)
 		}
 	}
+	// A connected subscriber gets retain=0 on every live delivery, and a
+	// non-retained publish leaves the broker's retained copy in place. So only
+	// a removal or another topic ends a confirmation.
+	confirmed := existed && es.discoveryRetained && es.discoveryTopic == d.DiscoveryTopic
 	es.info = d.Entity
 	es.valueTemplate = compileValueTemplate(d.Entity.ValueTemplate)
 	es.discoveryJSON = d.RawJSON
 	es.discoveryTopic = d.DiscoveryTopic
-	es.discoveryRetained = d.DiscoveryRetained
+	es.discoveryRetained = d.DiscoveryRetained || confirmed
 	es.discoveryQoS = d.DiscoveryQoS
 	es.discoverySource = d.DiscoverySource
 	if d.DiscoveryTopic != "" {
@@ -330,6 +335,23 @@ func (r *Registry) UpsertEntity(d Discovery) (newTopics, orphanTopics []string) 
 	}
 	r.version.Add(1)
 	return newTopics, uniqueStrings(filteredOrphans)
+}
+
+// DiscoveryRetained reports whether the broker has confirmed the discovery on
+// topic as retained. Unknown topics are not confirmed.
+func (r *Registry) DiscoveryRetained(topic string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	ref, ok := r.byDiscovery[topic]
+	if !ok {
+		return false
+	}
+	dev, ok := r.devices[ref.deviceID]
+	if !ok {
+		return false
+	}
+	es, ok := dev.entities[ref.uniqueID]
+	return ok && es.discoveryRetained
 }
 
 // RemoveEntity removes an entity (HA discovery removal convention: an empty
@@ -855,6 +877,7 @@ type EntityView struct {
 	TemplateSupported bool         `json:"template_supported"`
 	UnitOfMeasurement string       `json:"unit_of_measurement,omitempty"`
 	DeviceClass       string       `json:"device_class,omitempty"`
+	StateClass        string       `json:"state_class,omitempty"`
 	MinValue          *float64     `json:"min_value,omitempty"`
 	MaxValue          *float64     `json:"max_value,omitempty"`
 	Step              *float64     `json:"step,omitempty"`
@@ -1507,6 +1530,7 @@ func toView(id string, dev *device) DeviceView {
 			TemplateSupported:   es.info.ValueTemplate == "" || compileValueTemplate(es.info.ValueTemplate) != nil,
 			UnitOfMeasurement:   es.info.UnitOfMeasurement,
 			DeviceClass:         es.info.DeviceClass,
+			StateClass:          es.info.StateClass,
 			MinValue:            es.info.MinValue,
 			MaxValue:            es.info.MaxValue,
 			Step:                es.info.Step,

@@ -69,7 +69,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `48` |
+| `css/base.css` | `49` |
 | `css/onboarding.css` | `4` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
@@ -83,7 +83,7 @@ As of **2026-11-02**, read from `base.html` and `overview.html`. "–" means: no
 | `js/layout-fill.js` | – |
 | `js/device-tile.js` | `2` |
 | `js/entity-values.js` | `1` |
-| `js/overview-values.js` | `3` |
+| `js/overview-values.js` | `4` |
 | `js/device-tile-values.js` | `1` |
 | `js/compact-card-values.js` | `1` |
 | `js/device-structure.js` | `1` (new, device tiles) |
@@ -269,13 +269,15 @@ was not brought into this fork, so the mapping is fixed here and not
 recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
-| v0.11.6 | `js/stats.page.js` (stats panel, losses switch and chain figures) · `css/stats.css` (stats panel, losses figures) · `js/devicemap-graph.js` (energy, device map, losses layer) · `js/efficiency-model.js` (new, efficiency panel) · `js/efficiency.page.js` (new, efficiency panel) · `css/efficiency.css` (new, efficiency panel) | `7` · `5` · `10` · `1` (new) · `1` (new) · `1` (new) | 2026-11-07 |
-| v0.11.6 | `js/energy-chains.js` (new, energy, device map) · `js/energy.page.js` (energy panel, measurement chains section) · `js/devicemap-model.js` (energy, device map, reference points as display values) · `js/devicemap.page.js` (device map, chain form in the energy connection card) · `js/energy-model.js` (energy cards, history panel, stats panel, substitute value helpers) · `js/energy-flow.js` (energy cards, substitute marker) · `js/energy-board.js` (energy cards, substitute row state) · `js/energy-status.js` (energy cards, data quality tile) · `js/energy-stats-model.js` (stats panel, energy cards, substitute hours in the coverage text) · `js/dashboard.js` (all pages, chain focus request, formatted x-roll frames) · `js/devicemap-labels.js` (device map, energy plant view, note under a node) · `js/energy-plant.js` (energy plant view, substitute note) · `css/base.css` (substitute marker in the flow graphic, substitute colour, merged with the v0.11.5 statistics card change) · `css/manager.css` (5 panels, measurement chain cards, direction menu, map chain status) | `1` (new) · `14` · `15` · `30` · `5` · `4` · `3` · `2` · `5` · `45` · `5` · `7` · `48` · `49` | 2026-11-07 |
+|---|---|---|---|
+| v0.11.8 | `css/base.css` (merge of main into prerelease, changed on both lines) · `js/dashboard.js` (merge of main into prerelease, changed on both lines) | `49` · `46` | 2026-11-07 |
+| v0.11.8 | `js/stats.page.js` (stats panel, losses switch and chain figures) · `css/stats.css` (stats panel, losses figures) · `js/devicemap-graph.js` (energy, device map, losses layer) · `js/efficiency-model.js` (new, efficiency panel) · `js/efficiency.page.js` (new, efficiency panel) · `css/efficiency.css` (new, efficiency panel) | `7` · `5` · `10` · `1` (new) · `1` (new) · `1` (new) | 2026-11-07 |
+| v0.11.8 | `js/energy-chains.js` (new, energy, device map) · `js/energy.page.js` (energy panel, measurement chains section) · `js/devicemap-model.js` (energy, device map, reference points as display values) · `js/devicemap.page.js` (device map, chain form in the energy connection card) · `js/energy-model.js` (energy cards, history panel, stats panel, substitute value helpers) · `js/energy-flow.js` (energy cards, substitute marker) · `js/energy-board.js` (energy cards, substitute row state) · `js/energy-status.js` (energy cards, data quality tile) · `js/energy-stats-model.js` (stats panel, energy cards, substitute hours in the coverage text) · `js/dashboard.js` (all pages, chain focus request, formatted x-roll frames) · `js/devicemap-labels.js` (device map, energy plant view, note under a node) · `js/energy-plant.js` (energy plant view, substitute note) · `css/base.css` (substitute marker in the flow graphic, substitute colour, merged with the v0.11.5 statistics card change) · `css/manager.css` (5 panels, measurement chain cards, direction menu, map chain status) | `1` (new) · `14` · `15` · `30` · `5` · `4` · `3` · `2` · `5` · `45` · `5` · `7` · `48` · `49` | 2026-11-07 |
+| v0.11.7 | `css/base.css` (overview diagnostics card, info column removed) · `js/overview-values.js` (diagnostics card counts critical and warning only) · `js/dashboard.js` (diagnostics panel, info filter, "all" and the headline leave infos out) | `48` · `4` · `45` | 2026-11-07 |
 | v0.11.5 | `css/base.css` (statistics card, the chart area takes the free card height) · `js/energy-stats-card.js` (energy cards, chart follows the height of its area) | `47` · `5` | 2026-11-07 |
 | v0.11.4 | `css/diagnostics.css` (diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide) · `js/dashboard.js` (`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn, device cards glide when they change place) · `js/device-modal.js` (`x-roll` moved out) | `4` · `44` · `4` | 2026-11-06 |
 | v0.11.3 | `js/automations-chart.js` (automations panel, history entries grouped by day) · `js/automations-view.js` (automations panel, history text split for the axis) · `js/automations.page.js` (automations panel, rule history opens from the strip as a vertical axis) · `css/automations.css` (automations panel, rule history axis) · `js/onboarding-actions.js` (tour action that opens a rule with history) | `4` · `9` · `23` · `15` · `3` | 2026-11-06 |
 | v0.11.1 | `js/history-exchange.js` (history panel and history tile, the 1h resolution no longer requests 5m and 1m values from other devices) | `10` | 2026-11-05 |
-|---|---|---|---|
 | v0.10.37 | `js/update-bar.js` (Install now asks first, the installer link reads Prepare installation) · `js/onboarding-model.js` (catch-up runs every tour of a release) · `js/onboarding.js` (archived explore releases) · `js/onboarding-checklist.js` (settings panel, archive toggle and catch-up chip) · `css/onboarding.css` (catch-up chip next to the release notes chip, own card for the version toggles) | `7` · `4` · `4` · `3` · `4` | 2026-11-02 |
 | v0.10.35 | `js/config.page.js` (config panel, tuning findings are rendered from the catalog by code and params, with the service text as fallback) | `11` | 2026-11-01 |
 | v0.10.34 | `js/mqtt.page.js` (settings panel, the connection test result is shown as a toast and a failed reconnect shows the broker error instead of a generic failure) | `11` | 2026-11-01 |

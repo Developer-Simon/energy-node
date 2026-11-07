@@ -105,6 +105,33 @@ grep -q '^##STEP 50 fail ARCH_MISMATCH$' <<<"$out" || fail "falscher Code" "$out
 [ -s "$PIP_LOG" ] && fail "pip lief trotz falscher Architektur" "$(cat "$PIP_LOG")"
 write_manifest "[\"$(uname -m)\"]" "$abi"
 
+# --- Festlegungen: fehlendes kommt vom Node, pip bekommt nur gelistete Dateien --
+# paho liegt im Bundle und in der Festlegung: pip bekommt die geprueften Kopie
+# aus dem Node-Verzeichnis, nicht die Bundle-Kopie. Die untergeschobene
+# evil-Datei ohne Festlegung darf nicht an pip.
+rm -rf "$tmp/state"; : > "$PIP_LOG"
+mkdir -p "$tmp/state/wheels"
+cp "$bundle/wheels/paho_mqtt-2.1.0-py3-none-any.whl" "$tmp/state/wheels/"
+printf 'untergeschoben\n' > "$tmp/state/wheels/evil-1.0-py3-none-any.whl"
+paho_sha="$(sha256sum "$bundle/wheels/paho_mqtt-2.1.0-py3-none-any.whl" | cut -d' ' -f1)"
+python3 - "$bundle/manifest.json" "$paho_sha" <<'PY'
+import json, sys
+path, sha = sys.argv[1], sys.argv[2]
+data = json.load(open(path, encoding="utf-8"))
+data["wheels"] = [{"file": "paho_mqtt-2.1.0-py3-none-any.whl",
+                   "url": "https://files.pythonhosted.org/paho_mqtt-2.1.0-py3-none-any.whl",
+                   "sha256": sha}]
+json.dump(data, open(path, "w", encoding="utf-8"))
+PY
+out="$(bash "$script")"
+grep -q '^##STEP 50 ok$' <<<"$out" || fail "Festlegungen: kein ok" "$out"
+grep -q -- "--find-links $tmp/state/wheels" "$PIP_LOG" || fail "Node-Verzeichnis nicht als find-links" "$(cat "$PIP_LOG")"
+grep -q -- "$tmp/state/wheels/paho_mqtt-2.1.0" "$PIP_LOG" || fail "gelistetes Wheel nicht an pip" "$(cat "$PIP_LOG")"
+grep -q -- "$bundle/wheels/paho_mqtt" "$PIP_LOG" && fail "Bundle-Kopie zusaetzlich an pip" "$(cat "$PIP_LOG")"
+grep -q 'evil' "$PIP_LOG" && fail "untergeschobene .whl an pip" "$(cat "$PIP_LOG")"
+grep -q 'energy_node_common' "$PIP_LOG" || fail "eigenes Wheel fehlt" "$(cat "$PIP_LOG")"
+write_manifest "[\"$(uname -m)\"]" "$abi"
+
 # --- keine Wheels ----------------------------------------------------------
 rm -rf "$tmp/state" "$bundle/wheels"
 set +e

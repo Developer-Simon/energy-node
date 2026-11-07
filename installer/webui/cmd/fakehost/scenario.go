@@ -41,6 +41,10 @@ type options struct {
 	// journalStep: das Manifest enthält den optionalen Schritt 17 (Journal nur
 	// im Arbeitsspeicher). Die Vorlage kennt ihn nicht, darum nur auf Wunsch.
 	journalStep bool
+	// packageOffline: diese Pakete lassen sich nicht herunterladen und sind auf
+	// dem Gerät nicht installiert. Vorbereiten fragt, bis je Paket "repo" oder
+	// "skip" geantwortet ist.
+	packageOffline []string
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -58,6 +62,9 @@ type stagedBackend struct {
 	sudoLocked bool
 	// onlineDeps: die Online-Installation der Abhaengigkeiten ist freigegeben.
 	onlineDeps bool
+	// packageChoices: die Antworten auf PACKAGE_UNAVAILABLE je Paketname, wie
+	// der echte Wirt sie sich fuer die Sitzung merkt.
+	packageChoices map[string]string
 	// mqttDenied: das Szenario "mqtt-denied" lehnt den MQTT-Login ab, bis
 	// ein Reparaturlauf von Schritt 20 mit einem Passwort ihn freigibt.
 	mqttDenied bool
@@ -90,6 +97,37 @@ func (b *stagedBackend) Precheck(ctx context.Context) (*hostapi.Precheck, error)
 		return &changed, nil
 	}
 	return view, nil
+}
+
+// askForOfflinePackages spiegelt checkPackages des echten Wirts: Antworten
+// werden gemerkt, und solange ein Paket ohne Antwort fehlt, kommt
+// PACKAGE_UNAVAILABLE mit den Namen als Argumente. Die Paketquelle des
+// Geräts (apt) liefert beide Pakete, darum ist "repo" immer moeglich.
+func (b *stagedBackend) askForOfflinePackages(choices map[string]string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.packageChoices == nil {
+		b.packageChoices = map[string]string{}
+	}
+	for name, choice := range choices {
+		b.packageChoices[name] = choice
+	}
+	var ask []string
+	for _, name := range b.opts.packageOffline {
+		if _, answered := b.packageChoices[name]; !answered {
+			ask = append(ask, name)
+		}
+	}
+	if len(ask) == 0 {
+		return nil
+	}
+	names := strings.Join(ask, ", ")
+	return &hostapi.Error{
+		Code:   "PACKAGE_UNAVAILABLE",
+		Detail: names,
+		Status: http.StatusConflict,
+		Args:   map[string]string{"names": names, "repo_possible": "true"},
+	}
 }
 
 func (b *stagedBackend) EnableSudo(ctx context.Context, password string) error {
@@ -129,6 +167,9 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 				sink.Log("package", b.say("Prüfe das Paket auf dem Gerät", "Checking the package on the device"))
 				return &hostapi.Error{Code: "PYTHON_ABI_MISMATCH", Detail: "abi=cp313 expected=cp311", Status: http.StatusConflict}
 			}
+		}
+		if err := b.askForOfflinePackages(req.PackageChoices); err != nil {
+			return err
 		}
 		if b.opts.deltaVerifyFails && !req.ForceFullTransfer {
 			sink.Marker("package", "begin", "")

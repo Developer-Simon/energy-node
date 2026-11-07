@@ -299,25 +299,25 @@ func TestMissingAvailabilityRuleExemptsConnectivityEntity(t *testing.T) {
 	}
 }
 
-func TestWrongUnitRuleWarnsOnlyForSensorsWithoutUnit(t *testing.T) {
+func TestWrongUnitRuleWarnsForMeasurementsWithoutUnit(t *testing.T) {
 	ctx := Context{Now: time.Now().UTC(), NoStateUpdateAfter: time.Minute}
 
-	missing := registry.DeviceView{ID: "node", Entities: []registry.EntityView{{
-		UniqueID: "temp", Component: "sensor", UnitOfMeasurement: "",
-	}}}
-	warnings := WrongUnitRule{}.Evaluate(missing, ctx)
-	if len(warnings) != 1 {
-		t.Fatalf("got %d warnings for a sensor without unit, want 1: %#v", len(warnings), warnings)
-	}
-	if warnings[0].RuleID != "WrongUnit" {
-		t.Fatalf("rule ID %q, want WrongUnit", warnings[0].RuleID)
-	}
-	if warnings[0].Severity != SeverityWarning {
-		t.Fatalf("severity %v, want %v", warnings[0].Severity, SeverityWarning)
+	for _, entity := range []registry.EntityView{
+		{UniqueID: "temp", Component: "sensor", StateClass: "measurement"},
+		{UniqueID: "volt", Component: "sensor", DeviceClass: "voltage"},
+	} {
+		device := registry.DeviceView{ID: "zigbee_plug", Entities: []registry.EntityView{entity}}
+		warnings := WrongUnitRule{}.Evaluate(device, ctx)
+		if len(warnings) != 1 {
+			t.Fatalf("%s: got %d warnings, want 1: %#v", entity.UniqueID, len(warnings), warnings)
+		}
+		if warnings[0].RuleID != "WrongUnit" || warnings[0].Key != "missing_unit" || warnings[0].Severity != SeverityWarning {
+			t.Fatalf("%s: got %+v, want a missing_unit warning", entity.UniqueID, warnings[0])
+		}
 	}
 
-	present := registry.DeviceView{ID: "node", Entities: []registry.EntityView{{
-		UniqueID: "temp", Component: "sensor", UnitOfMeasurement: "°C",
+	present := registry.DeviceView{ID: "zigbee_plug", Entities: []registry.EntityView{{
+		UniqueID: "temp", Component: "sensor", StateClass: "measurement", UnitOfMeasurement: "°C",
 	}}}
 	if warnings := (WrongUnitRule{}).Evaluate(present, ctx); len(warnings) != 0 {
 		t.Fatalf("got %d warnings for a sensor with unit, want 0: %#v", len(warnings), warnings)
@@ -327,11 +327,115 @@ func TestWrongUnitRuleWarnsOnlyForSensorsWithoutUnit(t *testing.T) {
 	//
 	// Blank statt "" fuer UnitOfMeasurement: die Regel trimmt, ein reiner
 	// Leerraum-Wert zaehlt also ebenfalls als fehlend.
-	switchEntity := registry.DeviceView{ID: "node", Entities: []registry.EntityView{{
+	switchEntity := registry.DeviceView{ID: "zigbee_plug", Entities: []registry.EntityView{{
 		UniqueID: "relay", Component: "switch", UnitOfMeasurement: "  ",
 	}}}
 	if warnings := (WrongUnitRule{}).Evaluate(switchEntity, ctx); len(warnings) != 0 {
 		t.Fatalf("got %d warnings for a non-sensor, want 0: %#v", len(warnings), warnings)
+	}
+}
+
+// Ein Sensor ohne Einheit, state_class und Einheiten-device_class kann ein
+// Textwert sein (IP-Adresse, SSID). Er wird nur eine Info.
+func TestWrongUnitRuleMakesUnclassifiedSensorsAnInfo(t *testing.T) {
+	ctx := Context{Now: time.Now().UTC(), NoStateUpdateAfter: time.Minute}
+	for _, entity := range []registry.EntityView{
+		{UniqueID: "ip", Component: "sensor"},
+		{UniqueID: "mode", Component: "sensor", DeviceClass: "enum"},
+		{UniqueID: "boot", Component: "sensor", DeviceClass: "timestamp", UnitOfMeasurement: " "},
+	} {
+		device := registry.DeviceView{ID: "zigbee_plug", Entities: []registry.EntityView{entity}}
+		warnings := WrongUnitRule{}.Evaluate(device, ctx)
+		if len(warnings) != 1 || warnings[0].Key != "unit_unclassified" || warnings[0].Severity != SeverityInfo {
+			t.Fatalf("%s: got %#v, want one unit_unclassified info", entity.UniqueID, warnings)
+		}
+	}
+}
+
+func TestWrongUnitRuleSkipsOwnDevices(t *testing.T) {
+	ctx := Context{Now: time.Now().UTC(), NoStateUpdateAfter: time.Minute, OwnDevice: true}
+	device := registry.DeviceView{ID: "apsystems_ez1_1", Entities: []registry.EntityView{
+		{UniqueID: "ip", Component: "sensor"},
+		{UniqueID: "volt", Component: "sensor", StateClass: "measurement"},
+	}}
+	if warnings := (WrongUnitRule{}).Evaluate(device, ctx); len(warnings) != 0 {
+		t.Fatalf("got %d warnings for an own device, want 0: %#v", len(warnings), warnings)
+	}
+}
+
+func TestIsOwnDeviceFollowsTheViaDeviceChain(t *testing.T) {
+	via := map[string]string{
+		"energy_node":   "",
+		"battery_soc":   "energy_node",
+		"t2sga55a69":    "battery_soc",
+		"zigbee_plug":   "zigbee_bridge",
+		"zigbee_bridge": "",
+		"loop_a":        "loop_b",
+		"loop_b":        "loop_a",
+		"orphan":        "missing_parent",
+	}
+	viaOf := func(id string) (string, bool) {
+		parent, ok := via[id]
+		return parent, ok
+	}
+	for id, want := range map[string]bool{
+		"energy_node": true,
+		"battery_soc": true,
+		"t2sga55a69":  true,
+		"zigbee_plug": false,
+		"loop_a":      false,
+		"orphan":      false,
+	} {
+		if got := isOwnDevice(id, viaOf); got != want {
+			t.Errorf("isOwnDevice(%q) = %v, want %v", id, got, want)
+		}
+	}
+}
+
+// Die Engine erkennt eigene Geraete ueber via_device. Infos landen in
+// Evaluate, aber weder im Geraete-Modal (Device) noch im Health-Zaehler.
+func TestEngineKeepsUnitInfosOnTheDiagnosticsPageOnly(t *testing.T) {
+	now := time.Now().UTC()
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "energy_node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "energy_node_ip", Component: "sensor", StateTopic: "node/ip"},
+	})
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "apsystems_ez1_1", Name: "EZ1", ViaDevice: "energy_node"},
+		Entity: registry.EntityInfo{UniqueID: "apsystems_ez1_1_ip", Component: "sensor", StateTopic: "ez1/ip"},
+	})
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "zigbee_plug", Name: "Plug"},
+		Entity: registry.EntityInfo{UniqueID: "zigbee_plug_ip", Component: "sensor", StateTopic: "plug/ip"},
+	})
+	engine := NewEngine(reg, settings.NewStore(t.TempDir()))
+
+	var unitWarnings []Warning
+	for _, item := range engine.Evaluate(now) {
+		if item.RuleID == "WrongUnit" {
+			unitWarnings = append(unitWarnings, item)
+		}
+	}
+	if len(unitWarnings) != 1 || unitWarnings[0].DeviceID != "zigbee_plug" || unitWarnings[0].Severity != SeverityInfo {
+		t.Fatalf("got %#v, want one info for zigbee_plug only", unitWarnings)
+	}
+
+	for _, item := range engine.Device("zigbee_plug", now) {
+		if item.Severity == SeverityInfo {
+			t.Fatalf("Device() returned an info: %#v", item)
+		}
+	}
+	all := 0
+	for _, item := range engine.Evaluate(now) {
+		if item.DeviceID == "zigbee_plug" && item.Severity != SeverityInfo {
+			all++
+		}
+	}
+	for _, health := range engine.Health(now) {
+		if health.DeviceID == "zigbee_plug" && health.WarningCount != all {
+			t.Fatalf("WarningCount = %d, want %d (infos excluded)", health.WarningCount, all)
+		}
 	}
 }
 
@@ -367,7 +471,7 @@ func TestIsOperationalRule(t *testing.T) {
 	}
 
 	wrongUnit := WrongUnitRule{}.Evaluate(registry.DeviceView{ID: "node", Entities: []registry.EntityView{{
-		UniqueID: "temp", Component: "sensor",
+		UniqueID: "temp", Component: "sensor", StateClass: "measurement",
 	}}}, ctx)
 	if len(wrongUnit) != 1 {
 		t.Fatalf("got %d wrong-unit warnings, want 1: %#v", len(wrongUnit), wrongUnit)

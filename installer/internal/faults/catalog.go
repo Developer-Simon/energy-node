@@ -30,8 +30,14 @@ const (
 	CodeMosquittoArgsMissing    Code = "MOSQUITTO_ARGS_MISSING"
 	CodeMosquittoConfigInvalid  Code = "MOSQUITTO_CONFIG_INVALID"
 	CodeMQTTConfigUnreadable    Code = "MQTT_CONFIG_UNREADABLE"
+	CodePackageDownloadInvalid  Code = "PACKAGE_DOWNLOAD_INVALID"
+	CodePackageFileInvalid      Code = "PACKAGE_FILE_INVALID"
+	CodePackageRepoFailed       Code = "PACKAGE_REPO_FAILED"
+	CodePackageUnavailable      Code = "PACKAGE_UNAVAILABLE"
+	CodePackageURLRejected      Code = "PACKAGE_URL_REJECTED"
 	CodeUFWMissing              Code = "UFW_MISSING"
 	CodePipExternallyManaged    Code = "PIP_EXTERNALLY_MANAGED"
+	CodeWheelFileInvalid        Code = "WHEEL_FILE_INVALID"
 	CodeWheelMissing            Code = "WHEEL_MISSING"
 	CodeTailscaleFlagInvalid    Code = "TAILSCALE_FLAG_INVALID"
 	CodeCaddyValidateFailed     Code = "CADDY_VALIDATE_FAILED"
@@ -44,6 +50,7 @@ const (
 	CodeBundleIncomplete        Code = "BUNDLE_INCOMPLETE"
 	CodeCaddyBinaryMissing      Code = "CADDY_BINARY_MISSING"
 	CodeCaddyConfigInvalid      Code = "CADDY_CONFIG_INVALID"
+	CodeCaddyPackageMissing     Code = "CADDY_PACKAGE_MISSING"
 	CodeCaddyStartFailed        Code = "CADDY_START_FAILED"
 	CodeConfigJsonMissing       Code = "CONFIG_JSON_MISSING"
 	CodeConfigTemplateMissing   Code = "CONFIG_TEMPLATE_MISSING"
@@ -66,10 +73,12 @@ const (
 	CodeServiceUnitFailed       Code = "SERVICE_UNIT_FAILED"
 	CodeSudoersInvalid          Code = "SUDOERS_INVALID"
 	CodeTailscaleInstallFailed  Code = "TAILSCALE_INSTALL_FAILED"
+	CodeTailscalePackageMissing Code = "TAILSCALE_PACKAGE_MISSING"
 	CodeTailscaleTarballMissing Code = "TAILSCALE_TARBALL_MISSING"
 	CodeTargetInvalid           Code = "TARGET_INVALID"
 	CodeUfwFailed               Code = "UFW_FAILED"
 	CodeUpdaterPathStartFailed  Code = "UPDATER_PATH_START_FAILED"
+	CodeWheelsDownloadFailed    Code = "WHEELS_DOWNLOAD_FAILED"
 	CodeWheelsMissing           Code = "WHEELS_MISSING"
 )
 
@@ -85,6 +94,7 @@ var allCodes = []Code{
 	CodeBundleSignatureInvalid,
 	CodeCaddyBinaryMissing,
 	CodeCaddyConfigInvalid,
+	CodeCaddyPackageMissing,
 	CodeCaddyStartFailed,
 	CodeCaddyValidateFailed,
 	CodeConfigExists,
@@ -104,6 +114,11 @@ var allCodes = []Code{
 	CodeMosquittoConfForeign,
 	CodeMosquittoPasswdFailed,
 	CodeMQTTConfigUnreadable,
+	CodePackageDownloadInvalid,
+	CodePackageFileInvalid,
+	CodePackageRepoFailed,
+	CodePackageUnavailable,
+	CodePackageURLRejected,
 	CodePipExternallyManaged,
 	CodePipInstallFailed,
 	CodePythonABIMismatch,
@@ -116,13 +131,16 @@ var allCodes = []Code{
 	CodeSudoRequired,
 	CodeTailscaleFlagInvalid,
 	CodeTailscaleInstallFailed,
+	CodeTailscalePackageMissing,
 	CodeTailscaleTarballMissing,
 	CodeTargetInvalid,
 	CodeUfwFailed,
 	CodeUFWMissing,
 	CodeUnitStartFailed,
 	CodeUpdaterPathStartFailed,
+	CodeWheelsDownloadFailed,
 	CodeWheelsMissing,
+	CodeWheelFileInvalid,
 	CodeWheelMissing,
 }
 

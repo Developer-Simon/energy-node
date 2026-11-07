@@ -100,11 +100,11 @@ def _setup(tmp_path, ours=None, theirs=None):
     return repo
 
 
-def _run(repo, env=None):
+def _run(repo, *extra, env=None):
     # Without this, a missing script shows up as exit 2 and passes the refusal tests.
     assert (repo / "scripts/version/sync_prerelease.py").is_file(), "sync_prerelease.py is missing"
     return subprocess.run(
-        ["python3", "scripts/version/sync_prerelease.py", "--main", "main"],
+        ["python3", "scripts/version/sync_prerelease.py", "--main", "main", *extra],
         cwd=repo, capture_output=True, text=True, env=env,
     )
 
@@ -362,3 +362,122 @@ def test_generator_failure_after_commit_resets_own_merge(tmp_path):
     assert proc.returncode == 1, proc.stdout + proc.stderr
     assert "merge commit reset" in proc.stderr
     _assert_untouched(repo, head_before)
+
+
+# --- Manual resolution: --keep and --continue ---------------------------------
+
+def _conflicting_repo(tmp_path):
+    return _setup(
+        tmp_path,
+        ours={
+            "dashboard/VERSION": "v0.4.6-pre.1\n",
+            "dashboard/CHANGELOG.md": "# Changelog\n\n## v0.4.6-pre.1\n\n- pre\n",
+            "dashboard/feature.txt": "pre\n",
+            "services/shelly/driver.py": "STATE = 2\n",
+        },
+        theirs={
+            "dashboard/VERSION": "v0.4.6\n",
+            "dashboard/CHANGELOG.md": "# Changelog\n\n## v0.4.6\n\n- main\n",
+            "services/shelly/driver.py": "STATE = 3\n",
+        },
+    )
+
+
+def test_keep_leaves_the_merge_in_progress(tmp_path):
+    repo = _conflicting_repo(tmp_path)
+    proc = _run(repo, "--keep")
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert "CONFLICT services/shelly/driver.py" in proc.stdout.splitlines()
+    assert (repo / ".git" / "MERGE_HEAD").exists()
+    assert "<<<<<<<" in _read(repo, "services/shelly/driver.py")
+    # The policy paths are already settled, only the code conflict is left.
+    assert _git(repo, "diff", "--name-only", "--diff-filter=U") == "services/shelly/driver.py"
+
+
+def test_continue_finishes_a_resolved_merge(tmp_path):
+    repo = _conflicting_repo(tmp_path)
+    head_before = _git(repo, "rev-parse", "HEAD")
+    main_sha = _git(repo, "rev-parse", "main")
+    assert _run(repo, "--keep").returncode == 3
+    _write(repo, {"services/shelly/driver.py": "STATE = 4\n"})
+    _git(repo, "add", "services/shelly/driver.py")
+
+    proc = _run(repo, "--continue")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _parents(repo) == [head_before, main_sha]
+    assert _git(repo, "log", "-1", "--format=%s") == "chore(prerelease): merge main into prerelease"
+    assert _read(repo, "services/shelly/driver.py") == "STATE = 4\n"
+    assert _read(repo, "dashboard/VERSION").strip() == "v0.4.7-pre.1"
+    changelog = _read(repo, "dashboard/CHANGELOG.md")
+    assert "<<<<<<<" not in changelog
+    assert _first_heading(changelog).startswith("## v0.4.7-pre.1")
+    assert _status(repo) == ""
+
+
+def test_continue_refuses_unresolved_paths(tmp_path):
+    repo = _conflicting_repo(tmp_path)
+    assert _run(repo, "--keep").returncode == 3
+    proc = _run(repo, "--continue")
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "services/shelly/driver.py" in proc.stderr
+    assert (repo / ".git" / "MERGE_HEAD").exists()
+
+
+def test_continue_refuses_without_a_merge(tmp_path):
+    repo = _conflicting_repo(tmp_path)
+    head_before = _git(repo, "rev-parse", "HEAD")
+    proc = _run(repo, "--continue")
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "no merge" in proc.stderr
+    _assert_untouched(repo, head_before)
+
+
+def test_continue_refuses_a_merge_of_another_ref(tmp_path):
+    repo = _conflicting_repo(tmp_path)
+    head_before = _git(repo, "rev-parse", "HEAD")
+    _git(repo, "checkout", "-q", "-b", "other", "main")
+    _commit(repo, {"dashboard/other.txt": "other\n"}, "fix(dashboard): other change")
+    _git(repo, "checkout", "-q", "prerelease")
+    subprocess.run(["git", "merge", "--no-commit", "--no-ff", "other"], cwd=repo, capture_output=True)
+    _write(repo, {"services/shelly/driver.py": "STATE = 4\n", "dashboard/VERSION": "v0.4.6-pre.1\n"})
+    _git(repo, "add", "-A")
+    proc = _run(repo, "--continue")
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "not main" in proc.stderr
+    assert _git(repo, "rev-parse", "HEAD") == head_before
+
+
+ASSET = "dashboard/internal/webui/static/css/base.css"
+ASSET_BASE = "a { color: red; }\n\n\n\n\nb { color: red; }\n"
+
+
+def _asset_repo(tmp_path):
+    repo = _base_repo(tmp_path)
+    _commit(repo, {ASSET: ASSET_BASE}, "chore: add the asset")
+    _git(repo, "checkout", "-q", "-b", "prerelease")
+    _commit(repo, {ASSET: ASSET_BASE.replace("a { color: red; }", "a { color: blue; }")}, "feat: pre")
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, {ASSET: ASSET_BASE.replace("b { color: red; }", "b { color: blue; }")}, "fix: main")
+    _git(repo, "checkout", "-q", "prerelease")
+    return repo
+
+
+def test_asset_changed_on_both_lines_stops_the_sync(tmp_path):
+    # Both edits merge cleanly, but the merged file is new on both lines and needs its own ?v=.
+    repo = _asset_repo(tmp_path)
+    head_before = _git(repo, "rev-parse", "HEAD")
+    proc = _run(repo)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert f"ASSET {ASSET}" in proc.stdout.splitlines()
+    _assert_untouched(repo, head_before)
+
+
+def test_asset_changed_on_both_lines_with_keep_then_continue(tmp_path):
+    repo = _asset_repo(tmp_path)
+    assert _run(repo, "--keep").returncode == 3
+    assert (repo / ".git" / "MERGE_HEAD").exists()
+    proc = _run(repo, "--continue")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "a { color: blue; }" in _read(repo, ASSET)
+    assert "b { color: blue; }" in _read(repo, ASSET)
+    assert _status(repo) == ""

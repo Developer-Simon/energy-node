@@ -1703,15 +1703,13 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .diagnostics-summary-dot { flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: var(--text-faint); }
 .diagnostics-summary-dot-bad { background: var(--bad); }
 .diagnostics-summary-dot-warn { background: var(--warn); }
-.diagnostics-summary-dot-info { background: var(--info); }
 .diagnostics-summary-dot-ok { background: var(--ok); }
 .diagnostics-summary-ok { margin: .5rem 0 0; color: var(--text-muted); }
-.diagnostics-summary-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; text-align: center; }
+.diagnostics-summary-counts { display: grid; grid-template-columns: repeat(2, 1fr); gap: .5rem; text-align: center; }
 .diagnostics-summary-count strong { display: block; font-size: 1.5rem; font-weight: 660; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .diagnostics-summary-count span { display: block; font-size: .68rem; color: var(--text-muted); }
 .diagnostics-summary-count-bad strong { color: var(--bad); }
 .diagnostics-summary-count-warn strong { color: var(--warn); }
-.diagnostics-summary-count-info strong { color: var(--info); }
 .diagnostics-summary-worst { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-top: .7rem; padding: .5rem 0 0 .5rem; border-top: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); }
 .diagnostics-summary-worst-bad { border-left-color: var(--bad); }
 .diagnostics-summary-worst-warn { border-left-color: var(--warn); }
@@ -1945,7 +1943,7 @@ dialog#device-modal { container: device-modal / inline-size; }
   .device-modal-pair[data-tab="configDiag"] .device-modal-panelwrap { order: 102; }
   .device-modal-pair[data-tab="management"] .device-modal-panelwrap { order: 103; }
   .device-modal-underline { display: block; }
-  .device-modal-trigger { width: auto; border-radius: var(--radius-sm) var(--radius-sm) 0 0; border-bottom: 0; background: var(--panel); }
+  .device-modal-trigger { width: auto; align-self: stretch; align-items: flex-start; border-radius: var(--radius-sm) var(--radius-sm) 0 0; border-bottom: 0; background: var(--panel); }
   .device-modal-trigger.active { background: var(--panel-alt); }
   .device-modal-panel { border-top: 1px solid var(--border-soft); padding: 1rem .2rem 0; }
 }

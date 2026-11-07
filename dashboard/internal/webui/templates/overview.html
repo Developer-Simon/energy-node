@@ -231,7 +231,6 @@
   <div class="diagnostics-summary-counts">
     <div class="diagnostics-summary-count diagnostics-summary-count-bad"><strong>{{$d.Critical}}</strong><span>{{t "overview.diagnostics.critical_label"}}</span></div>
     <div class="diagnostics-summary-count diagnostics-summary-count-warn"><strong>{{$d.Warning}}</strong><span>{{t "overview.diagnostics.warning_label"}}</span></div>
-    <div class="diagnostics-summary-count diagnostics-summary-count-info"><strong>{{$d.Info}}</strong><span>{{t "overview.diagnostics.info_label"}}</span></div>
   </div>
   {{if $d.WorstDevice}}
   <div class="diagnostics-summary-worst diagnostics-summary-worst-{{$d.WorstDevice.StatusClass}}">

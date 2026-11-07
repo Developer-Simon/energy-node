@@ -29,6 +29,7 @@ type discoveryPayload struct {
 	ValueTemplate       string          `json:"value_template"`
 	UnitOfMeasurement   string          `json:"unit_of_measurement"`
 	DeviceClass         string          `json:"device_class"`
+	StateClass          string          `json:"state_class"`
 	MinValue            *float64        `json:"min"`
 	MaxValue            *float64        `json:"max"`
 	Step                *float64        `json:"step"`
@@ -153,6 +154,7 @@ func parseDiscoveryMessage(prefix, topic string, payload []byte) (disc registry.
 			ValueTemplate:       p.ValueTemplate,
 			UnitOfMeasurement:   p.UnitOfMeasurement,
 			DeviceClass:         p.DeviceClass,
+			StateClass:          p.StateClass,
 			MinValue:            p.MinValue,
 			MaxValue:            p.MaxValue,
 			Step:                p.Step,
