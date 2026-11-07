@@ -2135,6 +2135,57 @@ func TestDeviceMapLayersRoundTrip(t *testing.T) {
 	}
 }
 
+func TestDeviceMapLossesLayerStaysOutOfOldFiles(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"version":1,"nodes":[],"view":{"grid_size":40,"edge_style":"straight","layers":{"wiring":true,"energy":true,"balance":false,"data":false}}}`
+	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(dir)
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.Layers.Losses {
+		t.Fatal("losses must default to false for a file with four layers")
+	}
+	if err := store.SaveDeviceMap(got); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := os.ReadFile(filepath.Join(dir, "device-map.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(saved), "losses") {
+		t.Fatalf("saved file must not contain losses while it is false: %s", saved)
+	}
+}
+
+func TestDeviceMapLossesLayerSchemaAndRoundTrip(t *testing.T) {
+	withLosses := []byte(`{"version":1,"nodes":[],"view":{"grid_size":40,"edge_style":"straight","layers":{"wiring":true,"energy":true,"balance":false,"data":false,"losses":true}}}`)
+	if err := config.ValidateDocument(withLosses, deviceMapSchema); err != nil {
+		t.Fatalf("schema must accept layers.losses: %v", err)
+	}
+	old := []byte(`{"version":1,"nodes":[],"view":{"grid_size":40,"edge_style":"straight","layers":{"wiring":true,"energy":true,"balance":false,"data":false}}}`)
+	if err := config.ValidateDocument(old, deviceMapSchema); err != nil {
+		t.Fatalf("schema must accept a file without layers.losses: %v", err)
+	}
+
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.View.Layers.Losses = true
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.View.Layers.Losses {
+		t.Fatal("losses = false after round trip, want true")
+	}
+}
+
 func TestDeviceMapHideAutomationLinksRoundTrip(t *testing.T) {
 	store := NewStore(t.TempDir())
 	value := NewDeviceMap()

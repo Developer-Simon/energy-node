@@ -6,7 +6,7 @@
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const num = (value, decimals) => window.I18n.formatNumber(value, decimals);
 
-  const DEFAULT_LAYERS = Object.freeze({wiring: true, energy: true, balance: false, data: false});
+  const DEFAULT_LAYERS = Object.freeze({wiring: true, energy: true, balance: false, data: false, losses: false});
   const DEFAULT_WIRING_TYPES = Object.freeze({energy: true, data: true, info: true});
   // No layer is pending any more. Kept as an empty list so the page's
   // isLayerPending() still works for a future layer.
@@ -523,10 +523,29 @@
     return {left: Math.round(left), top: Math.round(top)};
   };
 
+  // Loss per device pair from the measurement chains, one entry per pair with
+  // a < b. Two chains over the same pair add up. Segments inside one device
+  // and unavailable segments carry no loss on the map.
+  const segmentLosses = chains => {
+    const sums = new Map();
+    for (const chain of chains || []) {
+      const deviceOf = new Map((chain.points || []).map(point => [point.entity_id, point.device_id]));
+      for (const segment of chain.segments || []) {
+        const from = deviceOf.get(segment.from);
+        const to = deviceOf.get(segment.to);
+        if (!segment.available || !from || !to || from === to) continue;
+        const [a, b] = from < to ? [from, to] : [to, from];
+        const key = `${a}::${b}`;
+        sums.set(key, {a, b, lossW: (sums.get(key) ? sums.get(key).lossW : 0) + (Number(segment.loss_w) || 0)});
+      }
+    }
+    return [...sums.values()];
+  };
+
   window.DeviceMapModel = {
     DEFAULT_LAYERS, DEFAULT_WIRING_TYPES, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
     formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, substituteNote, ringSpec, relatedIds,
-    childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
+    childrenIndex, segmentLosses, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, isPowerUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload, normalizeAssignment,
     roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices, helpTipPosition,
