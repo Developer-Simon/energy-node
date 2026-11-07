@@ -57,6 +57,15 @@ type PackagePin struct {
 	Update  string `json:"update"`
 }
 
+// WheelPin mirrors one entry of manifest.json's "wheels" list: a third-party
+// wheel the bundle does not ship. The node downloads it from URL and checks
+// SHA256 (scripts/build/lib/wheel_pins.py).
+type WheelPin struct {
+	File   string `json:"file"`
+	URL    string `json:"url"`
+	SHA256 string `json:"sha256"`
+}
+
 // Manifest mirrors manifest.json exactly as Plan A-II's make_bundle.sh
 // writes it (Vertrag 2). Field names and JSON tags are not renamed
 // independently of that contract.
@@ -70,7 +79,7 @@ type Manifest struct {
 	TargetUser   string                `json:"target_user"`
 	TargetBase   string                `json:"target_base"`
 	Components   map[string]string     `json:"components"`
-	Wheels       map[string]string     `json:"wheels"`
+	Wheels       []WheelPin            `json:"wheels"`
 	Packages     map[string]PackagePin `json:"packages,omitempty"`
 	Caddy        *CaddyInfo            `json:"caddy,omitempty"`
 	Steps        []StepEntry           `json:"steps"`

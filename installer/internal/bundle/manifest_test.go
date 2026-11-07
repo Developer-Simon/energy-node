@@ -27,7 +27,7 @@ func TestLoadManifestReadsAllFields(t *testing.T) {
 	  "python_minor": "3.11",
 	  "python_abi": "cp311",
 	  "components": {"dashboard": "v0.6.1"},
-	  "wheels": {"paho_mqtt": "2.1.0"},
+	  "wheels": [{"file": "paho_mqtt-2.1.0-py3-none-any.whl", "url": "https://www.piwheels.org/simple/paho-mqtt/x.whl", "sha256": "def"}],
 	  "caddy": {"version": "2.8.4", "file": "caddy-2.8.4-armv6.tar.gz", "sha256": "abc"},
 	  "steps": [
 	    {"id": "10", "optional": false},
@@ -55,6 +55,36 @@ func TestLoadManifestReadsAllFields(t *testing.T) {
 	}
 	if _, ok := m.StepByID("99"); ok {
 		t.Fatalf("StepByID(99) should not be found")
+	}
+}
+
+func TestManifestParsesWheels(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir, `{
+	  "version": "v0.5.1",
+	  "wheels": [
+	    {"file": "paho_mqtt-2.1.0-py3-none-any.whl", "url": "https://www.piwheels.org/simple/paho-mqtt/a.whl", "sha256": "aaa"},
+	    {"file": "requests-2.32.0-py3-none-any.whl", "url": "https://pypi.org/simple/requests/b.whl", "sha256": "bbb"}
+	  ],
+	  "steps": [],
+	  "files": {}
+	}`)
+
+	m, err := bundle.LoadManifest(dir)
+	if err != nil {
+		t.Fatalf("LoadManifest: %v", err)
+	}
+	want := []bundle.WheelPin{
+		{File: "paho_mqtt-2.1.0-py3-none-any.whl", URL: "https://www.piwheels.org/simple/paho-mqtt/a.whl", SHA256: "aaa"},
+		{File: "requests-2.32.0-py3-none-any.whl", URL: "https://pypi.org/simple/requests/b.whl", SHA256: "bbb"},
+	}
+	if len(m.Wheels) != len(want) {
+		t.Fatalf("wheels = %+v, want %+v", m.Wheels, want)
+	}
+	for i := range want {
+		if m.Wheels[i] != want[i] {
+			t.Fatalf("wheels[%d] = %+v, want %+v", i, m.Wheels[i], want[i])
+		}
 	}
 }
 

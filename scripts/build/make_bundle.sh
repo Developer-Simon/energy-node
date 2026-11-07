@@ -31,7 +31,9 @@ OUT_DIR="${REPO_ROOT}/dist"
 SIGN_KEY=""
 DASHBOARD_BINARY=""
 SKIP_WHEELS=false
+EMBED_WHEELS=false
 DEV_VERSION=false
+WHEEL_WORK=""
 BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
@@ -68,7 +70,8 @@ usage() {
   --out <pfad>                 Ausgabeverzeichnis (Vorgabe dist/).
   --sign-key <pfad>            ed25519-Schluessel; ohne bleibt die Signatur aus.
   --dashboard-binary <pfad>    Fertiges Binary statt Cross-Compile.
-  --skip-wheels               Keine Wheels beschaffen.
+  --skip-wheels               Keine Wheels beschaffen (manifest.wheels bleibt leer).
+  --embed-wheels              Fremd-Wheels zusaetzlich ins Archiv legen.
   --dev-version                Version um -dev.<commit> (und .dirty) ergaenzen.
 TXT
 }
@@ -84,6 +87,7 @@ while [[ $# -gt 0 ]]; do
     --sign-key) SIGN_KEY="${2:-}"; shift 2 ;;
     --dashboard-binary) DASHBOARD_BINARY="${2:-}"; shift 2 ;;
     --skip-wheels) SKIP_WHEELS=true; shift ;;
+    --embed-wheels) EMBED_WHEELS=true; shift ;;
     --dev-version) DEV_VERSION=true; shift ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unbekannter Schalter: $1" >&2; usage >&2; exit 1 ;;
@@ -91,6 +95,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "${ARCH}" ]] || { echo "--arch fehlt." >&2; exit 1; }
+if [[ "${EMBED_WHEELS}" == true && "${SKIP_WHEELS}" == true ]]; then
+  echo "--embed-wheels und --skip-wheels schliessen sich aus." >&2
+  exit 1
+fi
 # Prueft die Architektur, bevor irgendetwas gebaut wird.
 arch_platform_tags "${ARCH}" >/dev/null
 # Vorgabe je Architektur: das Legacy-Image fuer Pi 1 (armv6) ist Debian 12 mit
@@ -142,7 +150,7 @@ if [[ "${DEV_VERSION}" == true ]]; then
 fi
 BOOTSTRAP_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/scripts/bootstrap/VERSION")"
 STAGE="$(mktemp -d)"
-trap 'rm -rf "${STAGE}"' EXIT
+trap 'rm -rf "${STAGE}" "${WHEEL_WORK}"' EXIT
 
 echo "==> Bundle ${VERSION} fuer ${ARCH} (Python ${PYTHON_MINOR}, ${ABI})"
 
@@ -211,15 +219,27 @@ done
 cp "${REPO_ROOT}/dashboard/internal/appconfig/energy-node.config.json" "${STAGE}/config/config.json"
 
 # --- wheels/ ---------------------------------------------------------------
+# Fremd-Wheels laden wir in ein Arbeitsverzeichnis ausserhalb von STAGE. Ins
+# Archiv kommen nur die eigenen Wheels; die Fremd-Wheels stehen als Festlegung
+# (Adresse, SHA-256) in manifest.wheels. --embed-wheels legt sie zusaetzlich
+# nach wheels/.
 mkdir -p "${STAGE}/wheels"
+WHEEL_WORK="$(mktemp -d)"
+mkdir -p "${WHEEL_WORK}/download"
 if [[ "${SKIP_WHEELS}" == true ]]; then
   echo "==> --skip-wheels: keine Wheels im Bundle"
   # Ein leeres Verzeichnis ueberlebt tar nicht und wuerde auf dem Node
   # fehlen; eine Merkdatei haelt es am Leben.
   printf 'ohne Wheels gebaut (--skip-wheels)\n' > "${STAGE}/wheels/LEER"
+  echo '[]' > "${WHEEL_WORK}/pins.json"
 else
   echo "==> Wheels aus piwheels fuer ${ARCH}/${ABI}"
-  fetch_thirdparty_wheels "${STAGE}/wheels" "${ARCH}" "${PYTHON_MINOR}" "${ABI}"
+  fetch_thirdparty_wheels "${WHEEL_WORK}/download" "${ARCH}" "${PYTHON_MINOR}" "${ABI}"
+  python3 "${BUILD_DIR}/lib/wheel_pins.py" "${WHEEL_WORK}/download" "${WHEEL_INDEXES[@]}" \
+    > "${WHEEL_WORK}/pins.json"
+  if [[ "${EMBED_WHEELS}" == true ]]; then
+    cp "${WHEEL_WORK}/download/"*.whl "${STAGE}/wheels/"
+  fi
   build_local_wheels "${STAGE}/wheels"
 fi
 
@@ -229,7 +249,7 @@ fi
 # scripts/build/packages.json fuer diese Architektur.
 mkdir -p "${OUT_DIR}"
 ARCH="${ARCH}" VERSION="${VERSION}" BOOTSTRAP_VERSION="${BOOTSTRAP_VERSION}" PYTHON_MINOR="${PYTHON_MINOR}" ABI="${ABI}" \
-PACKAGES_JSON="${BUILD_DIR}/packages.json" \
+PACKAGES_JSON="${BUILD_DIR}/packages.json" WHEEL_PINS_JSON="${WHEEL_WORK}/pins.json" \
 BUNDLE_USER="${BUNDLE_USER}" BUNDLE_BASE="${BUNDLE_BASE}" REPO_ROOT="${REPO_ROOT}" \
 UNAME_MACHINES="$(arch_uname_machines "${ARCH}" | paste -sd, -)" \
 CORE_STEPS="${CORE_STEPS[*]}" OPTIONAL_STEPS="${OPTIONAL_STEPS[*]}" OPT_IN_STEPS="${OPT_IN_STEPS[*]}" \
@@ -316,6 +336,8 @@ if os.environ.get("BUNDLE_USER"):
     head["target_base"] = os.environ["BUNDLE_BASE"]
 with open(os.environ["PACKAGES_JSON"], encoding="utf-8") as handle:
     head["packages"] = json.load(handle)[os.environ["ARCH"]]
+with open(os.environ["WHEEL_PINS_JSON"], encoding="utf-8") as handle:
+    head["wheels"] = json.load(handle)
 print(json.dumps(head, indent=2, ensure_ascii=False))
 PY
 
