@@ -180,6 +180,9 @@ difference of their power. The efficiency is computed when the source delivers
 at least 10 W. A segment is only computed while both of its points have a
 current value.
 
+The [Efficiency](efficiency.md) tab shows these losses per day and per month,
+and the round trip of a storage chain over 30 days.
+
 ### Rules
 
 - Only power entities can be points. Entities of the Energy Node itself cannot.

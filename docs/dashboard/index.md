@@ -81,6 +81,7 @@ Raspberry Pi 1.
 - [Devices](devices.md)
 - [History](history.md)
 - [Energy](energy.md)
+- [Efficiency](efficiency.md)
 - [Device map](device-map.md)
 - [Automations](automations.md)
 - [Diagnostics](diagnostics.md)

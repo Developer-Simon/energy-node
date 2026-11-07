@@ -53,12 +53,16 @@ the whole group on or off.
 
 | Category | What it allows |
 |---|---|
-| View | which pages are visible: Overview, Devices, Device analysis, History, Statistics, Energy, Device map, Configuration, Automations, Diagnostics |
+| View | which pages are visible: Overview, Devices, Device analysis, History, Statistics, Energy, Efficiency, Device map, Configuration, Automations, Diagnostics |
 | Operate | switch devices and set values, turn rules and scenarios on and off |
 | Design | arrange the overview, style devices (icon and favourites), default view of the device map, change the appearance |
 | Setup | edit automations, energy assignment, edit device map, edit device configuration, ignore and remove devices from discovery, MQTT connection, set up the dashboard, set up TinyTuya, set up Tailscale |
 | Updates | check for updates, install the offered update, change update settings |
 | System | read service logs, services and bridge, user management, sign in over HTTP |
+
+*Efficiency* (`view_efficiency`) shows the losses and efficiency of the
+measurement chains on the [Efficiency](efficiency.md) tab. The tab stays hidden
+until a chain exists, and it needs the manager rights of the Energy tab as well.
 
 Many permissions need a view permission first. *Switch devices* needs the
 page Devices, *Edit automations* needs the page Automations. Without the

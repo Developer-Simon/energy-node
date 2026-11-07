@@ -122,3 +122,100 @@ cannot slip in `log_dest`, a new listener or any other directive. The helper kee
 the previous file as a backup and restores it if Mosquitto does not restart. The status combines three
 sources: the systemd service state, the `$SYS` connection state and a checksum
 comparison between the stored and the installed configuration.
+
+## 15. Measurement chain losses
+
+The recorder keeps the losses of the measurement chains next to the energy
+hours. The code is in `dashboard/internal/energystats/chain_*.go`. A probe
+turns the chain states into samples, the integrator turns the samples into
+hours, and the store keeps the hours on disk.
+
+### Probe
+
+The dashboard's main loop calls `Recorder.Observe` every 10 seconds with a
+snapshot of the energy balance. The snapshot carries the state of every chain.
+`ChainSampleOf` turns the chains into one sample:
+
+- A chain in standby yields only a standby entry for its first point. It is in
+  standby when the first point is fresh and reads at least 1 W, and every other
+  point is fresh and reads below 10 W.
+- A chain with the flow `idle` yields nothing.
+- Any other chain yields, for each available segment that has an efficiency,
+  the absolute power at its source and at its target in W. A segment without
+  efficiency, because its source reads below 10 W, yields nothing.
+
+### Integrator
+
+`ChainIntegrator` weights the samples in time, like the energy integrator. A
+sample counts until the next one, for at most `MaxHold`, which is 5 minutes.
+Hours split at the UTC hour boundary. Each closed hour holds, per directed pair
+of neighbouring points, the source and target energy in kWh and the covered
+seconds, and, per standby entity, the energy in kWh and the covered seconds.
+A sample that is not after the previous one is dropped.
+
+The recorder resets the integrator when the clock is not ready, and when wall
+clock and monotonic clock differ by more than 30 seconds (`ClockJumpTolerance`).
+A reset drops the unfinished hour. When recording is switched off or the
+dashboard shuts down, the unfinished hour is flushed and written. In the pause
+mode while the companion delivers, the chains keep running and are written
+without a backlog.
+
+### ChainStore
+
+`ChainStore` keeps the hours in `<data dir>/energystats/chains/<jjjj-mm>.json`,
+one file per UTC month. `Add` sums an hour into the stored cell. Energy is
+added, and the covered seconds are added and capped at 3600 per hour. The
+changed file is written atomically at once, and `onChange` tells the energy
+statistics to reload. A month file is read on first access and cached only
+while it has a file or a pending write. A damaged file is renamed to
+`.corrupt`, and that month starts empty.
+
+### File format
+
+Each `<jjjj-mm>.json` is version 1 and holds only the hours that have data:
+
+```json
+{
+  "version": 1,
+  "start": "2026-11-01T00:00:00Z",
+  "pairs": [
+    {"source": "inverter", "target": "meter", "hours": {"10": [0.512, 0.481, 1800]}}
+  ],
+  "standby": [
+    {"entity": "plug", "hours": {"10": [0.004, 1800]}}
+  ]
+}
+```
+
+- `start` is the first instant of the month in UTC.
+- The keys of `hours` are the hour indexes within the month, counted from 0.
+  Index 10 in the example is 10:00 UTC on 1 November.
+- A pair holds `[source kWh, target kWh, seconds]`, a standby entry holds
+  `[kWh, seconds]`. Energy is rounded to 1 mWh.
+
+On reading, the file is rejected when the version is not 1, when `start` is not
+the first of a month, when an hour key lies outside the month, when a value list
+has the wrong length, or when the seconds are not an integer from 0 to 3600.
+A rejected file is moved aside as described above.
+
+### Queries
+
+`Service.ChainStats` serves `GET /api/v1/energy/stats/chains` (permission
+`view_stats`). It sums the hours of each chain per bucket of the requested
+period and for the whole period. Hours from the current one on are not counted.
+
+`Service.Efficiency` serves `GET /api/v1/energy/efficiency` (permission
+`view_efficiency`). Per chain it reports:
+
+- `round_trip_30d`: the discharged energy divided by the charged energy at the
+  counting point over the 30 days up to the current hour. It needs a counting
+  point with the storage role and at least 0.1 kWh of charge.
+- `standby_w_30d`: the standby energy divided by the standby seconds, in W.
+- `loss_month_kwh`: the loss of the local calendar month.
+- `days`: seven local days, oldest first, each with the loss and the efficiency.
+
+The loss of a period is the standby energy plus, for each segment and both of
+its directions, the source energy minus the target energy. The efficiency of a
+period is the product of the target divided by the source energy of each
+segment. A segment whose source energy is below 0.01 kWh leaves the efficiency
+empty.

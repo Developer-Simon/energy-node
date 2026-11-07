@@ -36,6 +36,15 @@ Days and months follow the time zone of the node.
 
 The **Energy statistics** tile shows consumption, PV yield, grid import, grid export and autarky for today, this week, this month or this year. **Open statistics** opens the tab with the same period. Add it in the layout editor.
 
+## Measurement chain losses
+
+When at least one [measurement chain](energy.md#measurement-chains) exists, the
+Statistics tab shows a **Show losses** switch. It adds a *Losses* series to the
+chart and an efficiency and a loss figure per chain to the key figures. The
+losses follow the period you browse. The switch is remembered in each browser,
+and it is only shown with chains. The figures are explained on the
+[Efficiency](efficiency.md) tab.
+
 ## Own recording
 
 Settings, History, Energy statistics:
