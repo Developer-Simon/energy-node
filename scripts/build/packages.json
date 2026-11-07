@@ -1,0 +1,50 @@
+{
+  "armv6": {
+    "tailscale": {
+      "version": "1.62.0",
+      "file": "tailscale_1.62.0_armhf.deb",
+      "url": "https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.62.0_armhf.deb",
+      "sha256": "b8db12b68f17f707adb4ffe035abb3c6a7347b5bea93894f4c787d3bb1d95125",
+      "update": "installer"
+    },
+    "caddy": {
+      "version": "2.11.9",
+      "file": "caddy_2.11.9_linux_armv6.deb",
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_armv6.deb",
+      "sha256": "cba34c8025ee631a538b78652186511e5aafa0d7cf166846c881e1f5a357684f",
+      "update": "installer"
+    }
+  },
+  "arm64": {
+    "tailscale": {
+      "version": "1.104.5",
+      "file": "tailscale_1.104.5_arm64.deb",
+      "url": "https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.104.5_arm64.deb",
+      "sha256": "7ce61e75d15c1269d0aebe3ed59524b83225121cba1b8ea682d04594195f6bc1",
+      "update": "apt"
+    },
+    "caddy": {
+      "version": "2.11.9",
+      "file": "caddy_2.11.9_linux_arm64.deb",
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_arm64.deb",
+      "sha256": "a226cafaddf2db7f392d232cecccc8b3bfaf8b2919f65d80e5e6aed15a97fe66",
+      "update": "apt"
+    }
+  },
+  "amd64": {
+    "tailscale": {
+      "version": "1.104.5",
+      "file": "tailscale_1.104.5_amd64.deb",
+      "url": "https://pkgs.tailscale.com/stable/debian/pool/tailscale_1.104.5_amd64.deb",
+      "sha256": "1f972f2c3e1343042e62eb203310d12970014d7823a081ef16550a4553b5f876",
+      "update": "apt"
+    },
+    "caddy": {
+      "version": "2.11.9",
+      "file": "caddy_2.11.9_linux_amd64.deb",
+      "url": "https://github.com/caddyserver/caddy/releases/download/v2.11.9/caddy_2.11.9_linux_amd64.deb",
+      "sha256": "bbea4aeaadc86b233c168cc33bad9daa1cbce756dc08949b783b45398f8e65cb",
+      "update": "apt"
+    }
+  }
+}
