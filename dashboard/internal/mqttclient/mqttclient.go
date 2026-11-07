@@ -118,6 +118,10 @@ type presenceEpoch interface {
 
 const discoveryEpochGrace = 500 * time.Millisecond
 
+// discoveryRecheckDelay lets a restarting service finish publishing before the
+// broker is asked what it retained, see scheduleDiscoveryRecheck.
+const discoveryRecheckDelay = 60 * time.Second
+
 // subscriptionOp is one queued subscribe/unsubscribe request - see
 // subscriptionWorker's doc comment for why both must go through this queue
 // rather than being called directly from the Paho router goroutine.
@@ -160,6 +164,11 @@ type Client struct {
 	watchHandler func(string, []byte)
 
 	connectPublisher func() []OutboundMessage
+
+	// See scheduleDiscoveryRecheck. Guarded by mu.
+	discoveryRecheckDelay time.Duration
+	discoveryRecheckTimer *time.Timer
+	discoveryRechecked    map[string]bool
 
 	// retryDelay returns the wait before retry round n (1-based). attempt
 	// is one connection try. Tests replace both; see StartConnecting.
@@ -347,6 +356,8 @@ func NewWithContextAndFilter(parent context.Context, cfg Config, reg *registry.R
 		subscribeQueue: make(chan subscriptionOp, 256),
 		filter:         filter,
 		retryDelay:     defaultRetryDelay,
+
+		discoveryRecheckDelay: discoveryRecheckDelay,
 	}
 	c.attempt = func() error { return c.connectWithTimeout(c.connectTimeout()) }
 	go c.subscriptionWorker()
@@ -877,6 +888,59 @@ func (c *Client) PublishRetained(topic, payload string) error {
 	return token.Error()
 }
 
+// scheduleDiscoveryRecheck asks the broker whether a discovery topic is really
+// retained. A connected subscriber gets retain=0 on a live delivery even when
+// the publisher set retain=true, so the flag of such a message proves nothing.
+// A new subscribe makes the broker send its retained messages again, this time
+// with retain=1. Topics share one delayed re-subscribe, because a restarting
+// service publishes all of its discovery at once. Each topic triggers it once
+// per connection, so a publisher that really does not retain cannot cause one
+// full replay per message.
+func (c *Client) scheduleDiscoveryRecheck(topic string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.discoveryRechecked[topic] {
+		return
+	}
+	if c.discoveryRechecked == nil {
+		c.discoveryRechecked = make(map[string]bool)
+	}
+	c.discoveryRechecked[topic] = true
+	if c.discoveryRecheckTimer == nil {
+		c.discoveryRecheckTimer = time.AfterFunc(c.discoveryRecheckDelay, c.recheckDiscoveryRetained)
+	}
+}
+
+func (c *Client) recheckDiscoveryRetained() {
+	c.mu.Lock()
+	c.discoveryRecheckTimer = nil
+	c.mu.Unlock()
+	if c.ctx.Err() != nil {
+		return
+	}
+	// While disconnected there is nothing to do, onConnect subscribes anyway.
+	paho := c.pahoClient()
+	if paho == nil || !paho.IsConnected() {
+		return
+	}
+	token := paho.Subscribe(c.discoveryTopicFilter(), 0, c.handleDiscovery)
+	if !token.WaitTimeout(5 * time.Second) {
+		c.logger.Printf("discovery retain recheck timed out")
+		return
+	}
+	if err := token.Error(); err != nil {
+		c.logger.Printf("discovery retain recheck failed: %v", err)
+	}
+}
+
+// resetDiscoveryRecheck forgets the checked topics. A new connection replays
+// all retained discovery, so every topic is confirmed afresh.
+func (c *Client) resetDiscoveryRecheck() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.discoveryRechecked = nil
+}
+
 // onConnect (re-)subscribes to the discovery wildcard and to every
 // state/availability topic already known from before this (re)connect.
 func (c *Client) onConnect(client mqtt.Client) {
@@ -888,6 +952,7 @@ func (c *Client) onConnect(client mqtt.Client) {
 	c.status.BrokerAddress = cfg.Host + ":" + cfg.Port
 	c.status.Source = cfg.Source
 	c.mu.Unlock()
+	c.resetDiscoveryRecheck()
 	filter := c.discoveryTopicFilter()
 	c.logger.Printf("connected, subscribing to %s", filter)
 	epochID := c.beginDiscoveryEpoch()
@@ -1037,6 +1102,9 @@ func (c *Client) handleDiscovery(_ mqtt.Client, msg mqtt.Message) {
 	}
 
 	newTopics, orphanTopics := c.reg.UpsertEntity(disc)
+	if !c.reg.DiscoveryRetained(msg.Topic()) {
+		c.scheduleDiscoveryRecheck(msg.Topic())
+	}
 	c.mu.Lock()
 	discoveryObserver := c.discoveryObserver
 	c.mu.Unlock()
