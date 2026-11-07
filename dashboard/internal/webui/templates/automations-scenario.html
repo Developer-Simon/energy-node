@@ -433,7 +433,7 @@
               </span>
             </span>
             {{template "auto-stepper"}}
-            <select class="auto-input" x-bind:aria-label="stepLabel" x-bind:value="maxDurationUnit(scenario)" x-on:change="setMaxDurationUnit(scenario, $event.target.value)">
+            <select class="auto-input" x-bind:aria-label="stepLabel" x-bind:value="maxDurationUnit(scenario)" x-on:change="setMaxDurationUnit(scenario, $event.target.value); $event.target.value = maxDurationUnit(scenario)">
               <option value="s">{{t "automations.condition.unit_seconds"}}</option>
               <option value="min">{{t "automations.scenario.edit.max_duration.unit_min"}}</option>
             </select>

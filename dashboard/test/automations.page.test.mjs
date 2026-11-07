@@ -3226,3 +3226,34 @@ test('efficiencyStatus on the page reads the report from the scenario state', ()
   component.runtimeState = { rules: {}, scenarios: { wr_scenario: { phase: 'active', efficiency: { chain_id: 'balkon', from_w: 250, to_w: 500 } } } };
   assert.equal(component.efficiencyStatus(scenario).text, 'Bester Bereich 250 bis 500 W');
 });
+
+// --- Laufzeit-Einheit im Seitenzustand --------------------------------------
+
+test('switching the duration unit on the page updates the shown value and keeps the seconds', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { id: 'wallbox', max_duration_s: 120 };
+  assert.equal(component.maxDurationUnit(scenario), 'min');
+  assert.equal(component.maxDurationValue(scenario), 2);
+  component.setMaxDurationUnit(scenario, 's');
+  assert.equal(component.durationUnits.wallbox, 's');
+  assert.equal(component.maxDurationUnit(scenario), 's');
+  assert.equal(component.maxDurationValue(scenario), 120);
+  assert.equal(scenario.max_duration_s, 120);
+});
+
+test('the page refuses minutes for a value that is not a whole minute', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { id: 'pumpe', max_duration_s: 30 };
+  component.setMaxDurationUnit(scenario, 'min');
+  assert.equal(component.maxDurationUnit(scenario), 's');
+  assert.equal(component.maxDurationValue(scenario), 30);
+});
+
+test('typing a fraction of a minute keeps the minute unit it was entered in', () => {
+  const { component } = createAutomationsPanel();
+  const scenario = { id: 'wallbox', max_duration_s: 120 };
+  component.setMaxDurationValue(scenario, 1.5);
+  assert.equal(scenario.max_duration_s, 90);
+  assert.equal(component.maxDurationUnit(scenario), 'min');
+  assert.equal(component.maxDurationValue(scenario), 1.5);
+});

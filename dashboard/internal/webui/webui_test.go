@@ -4507,3 +4507,29 @@ func TestChainConditionMarkup(t *testing.T) {
 		t.Fatal("Messkette: der Schalter Einmal je Meldung ist kein settings-toggle-Label")
 	}
 }
+
+// Die Vergleichsauswahl der Messwert-Bedingung zeigt nur ueber und unter: der
+// Dienst kennt fuer Messwerte keine Gleichheit. Die Schaltflaechen fuer
+// gleich, ungleich und veraltet stehen im Zweig "all" des gemeinsamen Vergleichs.
+func TestChainValueComparisonOffersOnlyAboveAndBelow(t *testing.T) {
+	tpl, err := os.ReadFile("templates/automations-rows.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(tpl)
+	define := strings.Index(src, `{{define "auto-comparison"}}`)
+	allBranch := strings.Index(src[define:], `{{if eq . "all"}}`)
+	for _, extra := range []string{`setComparison(condition, 'equals')`, `setComparison(condition, 'not_equals')`, `setComparison(condition, 'stale')`} {
+		at := strings.Index(src[define:], extra)
+		if at < 0 {
+			t.Fatalf("Vergleich: %q fehlt im gemeinsamen Vergleich", extra)
+		}
+		if at < allBranch {
+			t.Fatalf("Vergleich: %q liegt nicht im Zweig all", extra)
+		}
+	}
+	chainValue := strings.Index(src, `<template x-if="condition.type === 'chain_value'">`)
+	if chainValue < 0 || !strings.Contains(src[chainValue:chainValue+1200], `{{template "auto-comparison" "balance"}}`) {
+		t.Fatal("Vergleich: der Messwert nutzt nicht den Vergleich ohne Gleichheit")
+	}
+}

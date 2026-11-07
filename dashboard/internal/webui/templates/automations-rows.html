@@ -4,9 +4,7 @@
                     <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
                     <span class="auto-line-text" x-text="describeCondition(condition).title"></span>
                     <span class="auto-line-note" x-text="conditionTextOf(rowsReport(index), condition)"></span>
-                    <span class="auto-line-note" x-show="describeCondition(condition).detail" x-text="describeCondition(condition).detail"></span>
-                    <span class="auto-line-note" x-show="chainLiveText(condition, rowsReport(index))" x-text="chainLiveText(condition, rowsReport(index))"></span>
-                    <span class="auto-cond-state" x-bind:class="condStateClass(rowsReport(index))">
+                    <span class="auto-line-note" x-show="describeCondition(condition).detail" x-text="describeCondition(condition).detail"></span>                    <span class="auto-cond-state" x-bind:class="condStateClass(rowsReport(index))">
                       <svg class="automation-icon" x-show="conditionStateOf(rowsReport(index)) === 'met'"><use href="#ico-check"></use></svg>
                       <span x-text="$t(condStateKey(rowsReport(index)))"></span>
                     </span>

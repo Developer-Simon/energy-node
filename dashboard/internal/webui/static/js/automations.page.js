@@ -226,6 +226,7 @@
     // Rueckgaengig-Balken nach dem Anlegen, verschwindet nach 10 Sekunden.
     undo: null,
     scenarioExpanded: {},
+    durationUnits: {},
     scenarioEditing: {},
     // Diagramm je Szenario: Bereich (Start 30 min), gelesene Punkte, Live-Punkte
     // aus den Zustandsupdates, Zeitpunkt des letzten Ladens, Tagesexport in kWh.
@@ -2476,7 +2477,9 @@
     // und "stale" (keine neuen Werte seit max_age_s). Wechsel zu stale setzt
     // den Standard von 15 Minuten, der Wechsel zurueck den Vergleichswert.
     setComparison(condition, value) {
-      const allowed = condition.type === 'balance_threshold' ? ['above', 'below'] : ['above', 'below', 'equals', 'not_equals', 'stale'];
+      // Der Dienst kennt fuer Messwerte nur above und below.
+      const numeric = condition.type === 'balance_threshold' || condition.type === 'chain_value';
+      const allowed = numeric ? ['above', 'below'] : ['above', 'below', 'equals', 'not_equals', 'stale'];
       if (!allowed.includes(value)) return;
       const wasStale = condition.comparison === 'stale';
       condition.comparison = value;
@@ -2695,20 +2698,28 @@
       window.__automationScenario.setUntil(scenario, on);
     },
 
+    // Einheit der Laufzeit je Szenario. Sie liegt im reaktiven Seitenzustand
+    // (durationUnits), damit der Wechsel Stepper und Auswahl sofort neu
+    // zeichnet. Gespeichert wird nur die Sekundenzahl.
     maxDurationUnit(scenario) {
-      return window.__automationScenario.maxDurationUnit(scenario);
+      return window.__automationScenario.maxDurationUnit(scenario, this.durationUnits[scenario.id]);
     },
 
     setMaxDurationUnit(scenario, unit) {
-      window.__automationScenario.setMaxDurationUnit(scenario, unit);
+      const applied = window.__automationScenario.setMaxDurationUnit(scenario, unit);
+      this.durationUnits = { ...this.durationUnits, [scenario.id]: applied };
     },
 
     maxDurationValue(scenario) {
-      return window.__automationScenario.maxDurationValue(scenario);
+      return window.__automationScenario.maxDurationValue(scenario, this.durationUnits[scenario.id]);
     },
 
     setMaxDurationValue(scenario, value) {
-      window.__automationScenario.setMaxDurationValue(scenario, value);
+      // Die Einheit festhalten, bevor sich der Wert aendert: ohne Wahl wuerde
+      // ein Bruch wie 1,5 min sonst wieder als Sekunden erkannt.
+      const unit = this.maxDurationUnit(scenario);
+      this.durationUnits = { ...this.durationUnits, [scenario.id]: unit };
+      window.__automationScenario.setMaxDurationValue(scenario, value, unit);
     },
 
     minRunMinutes(scenario) {

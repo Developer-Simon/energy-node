@@ -51,35 +51,39 @@
 
   // Die Hoechstlaufzeit wird in Sekunden gespeichert und wahlweise in
   // Sekunden oder Minuten angezeigt. Leer loescht den Schluessel, dann endet
-  // das Szenario nicht nach Zeit. Die gewaehlte Einheit merkt sich die Karte
-  // je Szenario; ohne Wahl zeigt ganze Minuten ab einer Minute in min.
+  // das Szenario nicht nach Zeit. Die gewaehlte Einheit gehoert dem
+  // Seitenzustand (reaktiv) und wird nicht gespeichert; sie kommt hier als
+  // Parameter. Ohne Wahl zeigt ganze Minuten ab einer Minute in min.
   const MAX_DURATION_MIN_S = 10;
   const MAX_DURATION_MAX_S = 86400;
-  const durationUnits = new WeakMap();
 
-  function maxDurationUnit(scenario) {
-    if (durationUnits.has(scenario)) return durationUnits.get(scenario);
-    const seconds = scenario.max_duration_s;
-    return isNumber(seconds) && seconds >= 60 && seconds % 60 === 0 ? 'min' : 's';
+  const isWholeMinute = (seconds) => isNumber(seconds) && seconds >= 60 && seconds % 60 === 0;
+
+  function maxDurationUnit(scenario, chosen) {
+    if (chosen === 's' || chosen === 'min') return chosen;
+    return isWholeMinute(scenario.max_duration_s) ? 'min' : 's';
   }
 
-  // Der Wechsel der Einheit aendert die Sekunden nicht, nur die Anzeige.
+  // Liefert die Einheit, die tatsaechlich gilt. Minuten gehen nur, wenn die
+  // Laufzeit noch leer ist oder ganze Minuten hat; sonst bleibt es bei s,
+  // damit das Feld nie einen Bruchteil einer Minute zeigt.
   function setMaxDurationUnit(scenario, unit) {
-    durationUnits.set(scenario, unit === 'min' ? 'min' : 's');
+    if (unit === 'min' && (isEmpty(scenario.max_duration_s) || isWholeMinute(scenario.max_duration_s))) return 'min';
+    return 's';
   }
 
-  function maxDurationValue(scenario) {
+  function maxDurationValue(scenario, chosen) {
     if (!isNumber(scenario.max_duration_s)) return '';
-    return maxDurationUnit(scenario) === 'min' ? scenario.max_duration_s / 60 : scenario.max_duration_s;
+    return maxDurationUnit(scenario, chosen) === 'min' ? scenario.max_duration_s / 60 : scenario.max_duration_s;
   }
 
-  function setMaxDurationValue(scenario, value) {
+  function setMaxDurationValue(scenario, value, chosen) {
     const number = Number(value);
     if (isEmpty(value) || !Number.isFinite(number)) {
       delete scenario.max_duration_s;
       return;
     }
-    scenario.max_duration_s = Math.round(maxDurationUnit(scenario) === 'min' ? number * 60 : number);
+    scenario.max_duration_s = Math.round(maxDurationUnit(scenario, chosen) === 'min' ? number * 60 : number);
   }
 
   // Mindestlaufzeit und Pause: wie die Höchstlaufzeit in Minuten angezeigt

@@ -379,30 +379,34 @@ test('the end block shows a stored duration in seconds or minutes', () => {
   assert.equal(s.maxDurationValue(whole), 2);
 });
 
-test('switching the unit keeps the seconds and the value follows the unit', () => {
+test('the chosen unit overrides the derived one and the seconds stay', () => {
   const s = load();
   const scenario = scenarioWith({ max_duration_s: 120 });
-  s.setMaxDurationUnit(scenario, 's');
-  assert.equal(s.maxDurationUnit(scenario), 's');
+  assert.equal(s.maxDurationUnit(scenario, 's'), 's');
   assert.equal(scenario.max_duration_s, 120);
-  assert.equal(s.maxDurationValue(scenario), 120);
-  s.setMaxDurationUnit(scenario, 'min');
-  assert.equal(s.maxDurationValue(scenario), 2);
+  assert.equal(s.maxDurationValue(scenario, 's'), 120);
+  assert.equal(s.maxDurationValue(scenario, 'min'), 2);
+});
+
+test('switching to min is refused while the stored value is not a whole minute', () => {
+  const s = load();
+  assert.equal(s.setMaxDurationUnit(scenarioWith({ max_duration_s: 30 }), 'min'), 's');
+  assert.equal(s.setMaxDurationUnit(scenarioWith({ max_duration_s: 120 }), 'min'), 'min');
+  assert.equal(s.setMaxDurationUnit(scenarioWith(), 'min'), 'min');
+  assert.equal(s.setMaxDurationUnit(scenarioWith({ max_duration_s: 120 }), 's'), 's');
 });
 
 test('the value is stored in seconds for the chosen unit and removed when empty', () => {
   const s = load();
   const scenario = scenarioWith();
-  s.setMaxDurationUnit(scenario, 'min');
-  s.setMaxDurationValue(scenario, 10);
+  s.setMaxDurationValue(scenario, 10, 'min');
   assert.equal(scenario.max_duration_s, 600);
-  assert.equal(s.maxDurationUnit(scenario), 'min');
-  s.setMaxDurationUnit(scenario, 's');
-  s.setMaxDurationValue(scenario, 30);
+  assert.equal(s.maxDurationUnit(scenario, 'min'), 'min');
+  s.setMaxDurationValue(scenario, 30, 's');
   assert.equal(scenario.max_duration_s, 30);
-  s.setMaxDurationValue(scenario, '');
+  s.setMaxDurationValue(scenario, '', 's');
   assert.equal('max_duration_s' in scenario, false);
-  assert.equal(s.maxDurationValue(scenario), '');
+  assert.equal(s.maxDurationValue(scenario, 's'), '');
 });
 
 // --- Regler-Schalter: bester Wirkungsgradbereich einer Messkette -------------
