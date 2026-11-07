@@ -1,1 +1,53 @@
-/* Styles for the efficiency tab. Filled in with the tab content. */
+/* Styles for the efficiency tab. The chain itself is styled by manager.css
+   (.energy-chain*), the KPI tiles by stats.css (.stats-kpi*). */
+
+.efficiency-page { display: grid; min-width: 0; }
+.efficiency-body { display: grid; gap: .9rem; min-width: 0; }
+
+.efficiency-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: .6rem 1rem; }
+.efficiency-heading { display: grid; gap: .1rem; min-width: 0; }
+.efficiency-kicker { margin: 0; font-size: .72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+.efficiency-title { margin: 0; font-size: 1.25rem; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-state { margin: 0; font-size: .86rem; color: var(--text-muted); }
+
+.efficiency-status { display: inline-flex; align-items: center; gap: .45rem; margin: 0; font-size: .84rem; color: var(--text-muted); }
+.efficiency-status[data-tone="warn"] { color: var(--warn); }
+.efficiency-dot { display: inline-block; flex: none; width: .55rem; height: .55rem; border-radius: 50%; background: var(--text-faint); }
+.efficiency-dot[data-tone="ok"], .efficiency-status[data-tone="ok"] .efficiency-dot { background: var(--ok); }
+.efficiency-dot[data-tone="warn"], .efficiency-status[data-tone="warn"] .efficiency-dot { background: var(--warn); }
+
+.efficiency-error { margin: 0; font-size: .86rem; color: var(--bad-ink); }
+.efficiency-hint { margin: 0; font-size: .86rem; color: var(--text-muted); }
+
+.efficiency-empty { display: grid; justify-items: start; gap: .7rem; padding: 1.1rem 1.1rem 1.2rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
+.efficiency-empty p { margin: 0; color: var(--text-muted); }
+
+.efficiency-grid { display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: .9rem; align-items: start; min-width: 0; }
+
+.efficiency-list { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.efficiency-item { display: flex; justify-content: space-between; align-items: center; gap: .6rem; width: 100%; padding: .6rem .75rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.efficiency-item.is-active { border-color: var(--accent-line); background: var(--accent-bg); }
+.efficiency-item-text { display: grid; gap: .1rem; min-width: 0; }
+.efficiency-item-name { font-weight: 600; color: var(--text-strong); overflow-wrap: anywhere; }
+.efficiency-item small { font-size: .78rem; color: var(--text-muted); }
+
+.efficiency-detail { display: grid; gap: .9rem; min-width: 0; }
+.efficiency-card { margin: 0; padding: 1rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
+.efficiency-card-title { margin: 0 0 .6rem; font-size: .95rem; color: var(--text-strong); }
+.efficiency-days { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.efficiency-day { display: grid; grid-template-columns: minmax(4rem, 5.5rem) minmax(0, 1fr) minmax(4.5rem, 6.5rem) minmax(3rem, 3.5rem); align-items: center; gap: .6rem; font-size: .84rem; font-variant-numeric: tabular-nums; }
+.efficiency-day-label { color: var(--text-muted); }
+.efficiency-day-bar { display: block; height: .6rem; border-radius: 999px; background: var(--sunken); overflow: hidden; }
+.efficiency-day-fill { display: block; height: 100%; border-radius: 999px; background: var(--warn); }
+.efficiency-day-loss { text-align: right; color: var(--text-strong); }
+.efficiency-day-eff { text-align: right; color: var(--text-muted); }
+
+.efficiency-select-wrap { display: none; }
+
+@media (max-width: 720px) {
+  .efficiency-grid { grid-template-columns: minmax(0, 1fr); }
+  .efficiency-list { display: none; }
+  .efficiency-select-wrap { display: grid; gap: .3rem; }
+  .efficiency-select-label { font-size: .8rem; color: var(--text-muted); }
+  .efficiency-select { min-width: 0; padding: .55rem .7rem; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text-strong); font: inherit; }
+}
