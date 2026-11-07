@@ -8,12 +8,18 @@
       <button type="button" class="history-chip" x-bind:class="{active: period === 'month'}" x-bind:aria-pressed="period === 'month'" x-on:click="selectPeriod('month')">{{t "energy_stats.period.month"}}</button>
       <button type="button" class="history-chip" x-bind:class="{active: period === 'year'}" x-bind:aria-pressed="period === 'year'" x-on:click="selectPeriod('year')">{{t "energy_stats.period.year"}}</button>
   </div>
+  <label class="settings-toggle stats-losses-toggle" data-tour="stats-losses-toggle" x-show="hasChains">
+    <input type="checkbox" role="switch" x-bind:checked="showLosses" x-on:change="setShowLosses($event.target.checked)">
+    <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+    <span class="stats-losses-text">{{t "energy_stats.losses.toggle"}}</span>
+  </label>
   <div class="stats-nav" data-tour="stats-nav" role="group" aria-label="{{t "energy_stats.period.label"}}">
     <button type="button" class="history-chip stats-step stats-step--prev" x-bind:class="{ 'is-edge': !hasPrev }" x-on:click="prev()" x-bind:disabled="!hasPrev || loading"><svg class="stats-step-icon" aria-hidden="true"><use href="#ico-chevron"></use></svg><span class="stats-step-text">{{t "energy_stats.prev"}}</span></button>
     <strong class="stats-title" aria-live="polite" x-text="title"></strong>
     <button type="button" class="history-chip stats-step" x-bind:class="{ 'is-edge': !hasNext }" x-on:click="next()" x-bind:disabled="!hasNext || loading"><span class="stats-step-text">{{t "energy_stats.next"}}</span><svg class="stats-step-icon" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
   </div>
   <p class="stats-error" role="alert" x-show="error" x-text="error"></p>
+  <p class="stats-error" role="alert" x-show="lossError" x-text="lossError"></p>
   <dl class="stats-kpis" data-tour="stats-kpis">
     <template x-for="kpi in kpis" x-bind:key="kpi.id">
       <div class="stats-kpi"><dt x-text="kpi.label"></dt><dd x-text="kpi.value"></dd></div>
