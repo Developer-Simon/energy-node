@@ -17,10 +17,18 @@
     return body;
   };
 
-  function fetchStats(period, at) {
+  function fetchPeriod(path, period, at) {
     const params = new URLSearchParams({period});
     if (at) params.set('at', at);
-    return requestJSON(`/api/v1/energy/stats?${params}`);
+    return requestJSON(`${path}?${params}`);
+  }
+
+  function fetchStats(period, at) {
+    return fetchPeriod('/api/v1/energy/stats', period, at);
+  }
+
+  function fetchChainStats(period, at) {
+    return fetchPeriod('/api/v1/energy/stats/chains', period, at);
   }
 
   function formatKWh(kwh) {
@@ -166,6 +174,14 @@
     };
     ABOVE.forEach(role => add(role, 1));
     BELOW.forEach(role => add(role, -1));
+    // Verluste liegen unter null, gestapelt unter dem Verbrauch. Nur wenn
+    // withLosses eine Reihe mitgibt. i18n-keys: energy_stats.losses.series
+    if (Array.isArray(result.lossSeries)) {
+      series.push({
+        name: t('energy_stats.losses.series'), color: window.DashboardTheme.color('warn'), role: 'chain_loss', hatched: false,
+        data: result.lossSeries.map(value => (value == null ? null : -round3(value))),
+      });
+    }
     return series;
   }
 
@@ -180,6 +196,66 @@
         values: result.buckets.map(bucket => (bucket.kwh && role in bucket.kwh ? formatKWh(bucket.kwh[role]) : '')),
         total: formatKWh(total[role]),
       };
+    });
+  }
+
+  // Ketten aus GET /api/v1/energy/stats/chains, ohne Antwort keine Ketten.
+  const chainList = chainStats => (chainStats && chainStats.chains) || [];
+
+  // Kopie von result mit lossSeries: je Bucket die Summe der Verluste aller
+  // Ketten mit Daten, null wenn keine Kette Daten hat. Hat eine Antwort eine
+  // andere Bucket-Anzahl als result (Sommerzeitwechsel zwischen den
+  // Anfragen), bleibt die Kopie ohne lossSeries.
+  function withLosses(result, chainStats) {
+    const copy = {...result};
+    const chains = chainList(chainStats);
+    if (chains.some(chain => chain.buckets.length !== result.buckets.length)) return copy;
+    copy.lossSeries = result.buckets.map((bucket, index) => {
+      let sum = null;
+      chains.forEach(chain => {
+        const cell = chain.buckets[index];
+        if (cell && cell.has_data) sum = (sum || 0) + cell.loss_kwh;
+      });
+      return sum == null ? null : round3(sum);
+    });
+    return copy;
+  }
+
+  // i18n-keys: energy_stats.losses.kpi_loss, energy_stats.losses.kpi_efficiency
+  // Je Kette Verlust und Wirkungsgrad der Summe. Ohne Daten bleibt der Wert leer.
+  function lossKpis(chainStats) {
+    return chainList(chainStats).flatMap(chain => {
+      const total = chain.total || {};
+      const ok = Boolean(total.has_data);
+      return [
+        {id: `chain:${chain.id}:loss`, label: t('energy_stats.losses.kpi_loss', {chain: chain.label}), value: ok ? formatKWh(total.loss_kwh) : ''},
+        {
+          id: `chain:${chain.id}:efficiency`, label: t('energy_stats.losses.kpi_efficiency', {chain: chain.label}),
+          value: ok && total.efficiency != null ? window.EnergyModel.formatPercent(total.efficiency) : '',
+        },
+      ];
+    });
+  }
+
+  // Zeilen im Aufbau von tableRows, je Kette eine Verlust- und eine
+  // Wirkungsgradzeile. Die Wirkungsgradzeile hat keine kWh-Werte.
+  function lossRows(chainStats) {
+    return chainList(chainStats).flatMap(chain => {
+      const total = chain.total || {};
+      const lossLabel = t('energy_stats.losses.kpi_loss', {chain: chain.label});
+      const efficiencyLabel = t('energy_stats.losses.kpi_efficiency', {chain: chain.label});
+      return [
+        {
+          role: `chain:${chain.id}:loss`, label: lossLabel, color: window.DashboardTheme.color('warn'), hatched: false,
+          values: chain.buckets.map(cell => (cell.has_data ? formatKWh(cell.loss_kwh) : '')),
+          total: total.has_data ? formatKWh(total.loss_kwh) : '',
+        },
+        {
+          role: `chain:${chain.id}:efficiency`, label: efficiencyLabel, color: window.DashboardTheme.color('text-muted'), hatched: false,
+          values: chain.buckets.map(cell => (cell.has_data && cell.efficiency != null ? window.EnergyModel.formatPercent(cell.efficiency) : '')),
+          total: total.has_data && total.efficiency != null ? window.EnergyModel.formatPercent(total.efficiency) : '',
+        },
+      ];
     });
   }
 
@@ -249,6 +325,7 @@
   }
 
   window.EnergyStatsModel = {
-    PERIODS, KPI_IDS, fetchStats, formatKWh, kpis, coverageText, coverageParts, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, chartOptions, thinLabels, tableRows, HATCHED_ROLES,
+    PERIODS, KPI_IDS, fetchStats, fetchChainStats, formatKWh, kpis, coverageText, coverageParts, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, chartOptions, thinLabels, tableRows, HATCHED_ROLES,
+    withLosses, lossKpis, lossRows,
   };
 })();
