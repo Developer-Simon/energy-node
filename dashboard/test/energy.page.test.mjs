@@ -1316,8 +1316,8 @@ test('a chain finding is listed in the notices and goes away with the next live 
   component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
   component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
   assert.equal(component.findingNotices.length, 1);
-  assert.ok(component.findingNotices[0].text.startsWith('Balkon: Der Verlust'), component.findingNotices[0].text);
-  assert.equal(component.findingNotices[0].canApply, true);
+  assert.ok(component.findingNotices[0].items[0].text.startsWith('Balkon: Der Verlust'), component.findingNotices[0].text);
+  assert.equal(component.findingNotices[0].items[0].canApply, true);
   assert.equal(component.hasEfficiencyTab, false, 'no efficiency tab in this page');
 
   component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [] } };
@@ -1332,7 +1332,7 @@ test('applying a suggestion only fills the draft, focuses the row and saves noth
   component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
   component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
   const before = calls.length;
-  component.applyFinding(component.findingNotices[0]);
+  component.applyFinding(component.findingNotices[0].items[0]);
   assert.equal(component.assignments.socket_power.invert, true, 'the invert flips');
   assert.equal(component.flash.socket_power, true, 'the row is focused');
   assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.draft_applied'));
@@ -1433,7 +1433,53 @@ test('the apply button of a finding tile needs edit rights and a suggestion', as
   await component.load();
   component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
   component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] } };
-  assert.equal(component.findingNotices[0].canApply, true);
+  assert.equal(component.findingNotices[0].items[0].canApply, true);
   component.canEdit = false;
-  assert.equal(component.findingNotices[0].canApply, false, 'without edit rights no apply button');
+  assert.equal(component.findingNotices[0].items[0].canApply, false, 'without edit rights no apply button');
+});
+
+test('several findings of one chain share one tile whose details list each finding with its own apply button', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  const sign = { kind: 'sign', chain_id: 'm', chain_label: 'Balkon', since: findingSince, from: 'pv_power', to: 'socket_power', suggestion: null };
+  component.chains = { m: { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' } };
+  component.chainStates = { m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding, sign] } };
+  assert.equal(component.findingNotices.length, 1, 'one tile for the chain');
+  const [group] = component.findingNotices;
+  assert.equal(group.title, window.I18n.t('chains.finding.group_title', { chain: 'Balkon', n: 2 }));
+  assert.equal(group.items.length, 2);
+  assert.deepEqual(plainJSON(group.items.map(item => item.finding.kind)), ['sign', 'drift'], 'the server order of the kinds');
+  assert.equal(group.items[0].canApply, false, 'no suggestion, no apply button');
+  assert.equal(group.items[1].canApply, true, 'the drift suggestion has its own apply button');
+  component.toggleFinding(group.key);
+  assert.equal(component.isFindingOpen(group.key), true);
+});
+
+test('findings of two chains give two tiles', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: chainFetch() });
+  component.$nextTick = fn => fn();
+  await component.load();
+  component.chainStates = {
+    m: { id: 'm', label: 'Balkon', points: [], segments: [], findings: [driftFinding] },
+    n: { id: 'n', label: 'Dach', points: [], segments: [], findings: [{ ...driftFinding, chain_id: 'n', chain_label: 'Dach' }] },
+  };
+  assert.deepEqual(plainJSON(component.findingNotices.map(group => group.key)), ['m', 'n']);
+});
+
+test('the energy template renders one tile per chain with a title toggle and the efficiency link outside it', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'energy.html'), 'utf8');
+  const start = html.indexOf('class="energy-chain-findings"');
+  const end = html.indexOf('</article>', start);
+  const tile = html.slice(start, end);
+  assert.ok(tile.includes('<template x-for="item in findingNotices"'), 'loops over the groups');
+  assert.ok(/<button type="button" class="energy-chain-finding-toggle"[^>]*aria-controls="/.test(tile), 'the toggle carries aria-controls');
+  assert.ok(/aria-expanded="/.test(tile), 'the toggle carries aria-expanded');
+  const toggleStart = tile.indexOf('energy-chain-finding-toggle');
+  const toggleEnd = tile.indexOf('</button>', toggleStart);
+  const toggle = tile.slice(toggleStart, toggleEnd);
+  assert.ok(toggle.includes('x-text="item.title"'), 'the title sits inside the toggle');
+  assert.ok(!toggle.includes('openEfficiency'), 'the efficiency link is not part of the toggle');
+  assert.ok(tile.includes('x-on:click="openEfficiency()"'), 'the link still opens the efficiency tab');
+  assert.ok(tile.includes('x-for="detail in item.items"'), 'the details loop over the findings');
 });

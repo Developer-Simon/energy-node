@@ -298,24 +298,25 @@
         return {warning: items.map(({chain, finding}) => window.EnergyChains.findingText(chain, finding)).join(' ')};
       },
 
-      // The findings of one device for its panel as tiles: the title, the
-      // details (text and suggestion) and whether the link to the efficiency
-      // tab leads anywhere (view_efficiency). The key is the energy tab's key,
-      // so an open tile stays open while the snapshot refreshes.
+      // The findings of one device for its panel as tiles, one tile per chain:
+      // the title, the details of every finding (text and suggestion) and
+      // whether the link to the efficiency tab leads anywhere (view_efficiency).
+      // The key is the chain ID, so an open tile stays open while the snapshot refreshes.
       panelFindings(id) {
+        const EC = window.EnergyChains;
         const items = this.chainFindings().byDevice.get(id) || [];
         const link = this.efficiencyTabShown();
-        return items.map(({chain, finding}) => {
-          const key = `${chain.id || ''}|${finding.kind}|${finding.from || ''}|${finding.to || ''}`;
-          return {
-            key,
-            domId: `devicemap-chain-finding-${key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
-            title: window.EnergyChains.findingTitle(chain, finding),
-            text: window.EnergyChains.findingText(chain, finding),
-            suggestion: window.EnergyChains.suggestionText(chain, finding),
-            link,
-          };
-        });
+        return EC.groupFindings(items).map(group => ({
+          key: group.key,
+          domId: `devicemap-chain-finding-${group.key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
+          title: EC.groupTitle(group),
+          items: group.findings.map(finding => ({
+            key: `${finding.kind}|${finding.from || ''}|${finding.to || ''}`,
+            text: EC.findingText(group.chain, finding),
+            suggestion: EC.suggestionText(group.chain, finding),
+          })),
+          link,
+        }));
       },
 
       isFindingOpen(key) {

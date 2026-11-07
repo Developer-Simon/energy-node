@@ -3637,7 +3637,7 @@ test('the device panel lists the finding text with a link to the efficiency tab 
   findingFixture(component);
   component.openPanel('bat');
   assert.equal(component.panelView.findings.length, 1);
-  assert.equal(component.panelView.findings[0].text, window.EnergyChains.findingText(component.energy.chains[0], component.energy.chains[0].findings[0]));
+  assert.equal(component.panelView.findings[0].items[0].text, window.EnergyChains.findingText(component.energy.chains[0], component.energy.chains[0].findings[0]));
   assert.equal(component.panelView.findings[0].link, false);
   window.document.body.insertAdjacentHTML('beforeend', '<div role="tab" aria-controls="efficiency-panel"></div>');
   assert.equal(component.panelView.findings[0].link, true);
@@ -3653,9 +3653,9 @@ test('a finding is a tile with its title, a closed fold and the text, the sugges
   const chain = component.energy.chains[0];
   const finding = chain.findings[0];
   assert.equal(item.title, window.EnergyChains.findingTitle(chain, finding));
-  assert.equal(item.text, window.EnergyChains.findingText(chain, finding));
-  assert.equal(item.suggestion, window.EnergyChains.suggestionText(chain, finding));
-  assert.ok(item.suggestion);
+  assert.equal(item.items[0].text, window.EnergyChains.findingText(chain, finding));
+  assert.equal(item.items[0].suggestion, window.EnergyChains.suggestionText(chain, finding));
+  assert.ok(item.items[0].suggestion);
   assert.equal(item.link, true);
   assert.ok(item.domId.startsWith('devicemap-chain-finding-'));
 });
@@ -3681,7 +3681,7 @@ test('a finding tile without view_efficiency has no link but keeps its details',
   component.openPanel('bat');
   const [item] = component.panelView.findings;
   assert.equal(item.link, false);
-  assert.ok(item.text);
+  assert.ok(item.items[0].text);
 });
 
 test('the efficiency link asks the shell for the efficiency panel', async () => {
@@ -3699,4 +3699,37 @@ test('the chain warning legend shows only with a finding on the map', () => {
   assert.equal(component.chainWarnVisible(), true);
   component.energy.chains[0].findings = [];
   assert.equal(component.chainWarnVisible(), false);
+});
+
+test('two findings of one chain on a device make one tile with a detail per finding', () => {
+  const { component, window } = createDevicemapPanel();
+  const second = { kind: 'sign', chain_id: 'balkon', chain_label: 'Balkon', since: '2026-11-01T00:00:00Z', from: 'bat_a', to: 'bat_b' };
+  findingFixture(component, [
+    { kind: 'drift', chain_id: 'balkon', chain_label: 'Balkon', since: '2026-11-01T00:00:00Z', from: 'bat_a', to: 'bat_b' },
+    second,
+  ]);
+  component.openPanel('bat');
+  assert.equal(component.panelView.findings.length, 1, 'one tile for the chain');
+  const [item] = component.panelView.findings;
+  assert.equal(item.title, window.I18n.t('chains.finding.group_title', { chain: 'Balkon', n: 2 }));
+  assert.equal(item.items.length, 2);
+  assert.equal(item.items[1].text, window.EnergyChains.findingText(component.energy.chains[0], second));
+  component.toggleFinding(item.key);
+  assert.equal(component.isFindingOpen(item.key), true);
+});
+
+test('the device panel template renders one tile per chain with a title toggle and the efficiency link outside it', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const start = html.indexOf('class="devicemap-chain-findings"');
+  const end = html.indexOf('</article>', start);
+  const tile = html.slice(start, end);
+  assert.ok(tile.includes('<template x-for="item in panelView.findings"'), 'loops over the groups');
+  assert.ok(/<button type="button" class="energy-chain-finding-toggle"[^>]*aria-controls="/.test(tile), 'the toggle carries aria-controls');
+  assert.ok(/aria-expanded="/.test(tile), 'the toggle carries aria-expanded');
+  const toggleStart = tile.indexOf('energy-chain-finding-toggle');
+  const toggle = tile.slice(toggleStart, tile.indexOf('</button>', toggleStart));
+  assert.ok(toggle.includes('x-text="item.title"'), 'the title sits inside the toggle');
+  assert.ok(!toggle.includes('openEfficiencyTab'), 'the efficiency link is not part of the toggle');
+  assert.ok(tile.includes('x-on:click="openEfficiencyTab()"'), 'the link still opens the efficiency tab');
+  assert.ok(tile.includes('<template x-for="detail in item.items"'), 'the details loop over the findings');
 });

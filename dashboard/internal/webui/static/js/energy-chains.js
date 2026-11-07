@@ -5,7 +5,7 @@
 // energy.json: {label, points, counting, direction}. Every function returns
 // new objects, the inputs stay untouched.
 (() => {
-  // i18n-keys: chains.finding.drift, chains.finding.frozen, chains.finding.contradiction, chains.finding.sign, chains.finding.unit
+  // i18n-keys: chains.finding.drift, chains.finding.frozen, chains.finding.contradiction, chains.finding.sign, chains.finding.unit, chains.finding.group_title
   const EN_DASH = '–';
   const MINUS = '−';
   const POWER_UNITS = Object.freeze(['W', 'kW']);
@@ -202,9 +202,29 @@
       .map(finding => ({chain, finding}));
   });
 
+  // The findings of one chain in one tile: {key: chain ID, chain, findings}, the
+  // groups in the order of their first finding, the findings in their order.
+  const groupFindings = items => {
+    const groups = new Map();
+    for (const {chain, finding} of items || []) {
+      const key = chain.id || '';
+      if (!groups.has(key)) groups.set(key, {key, chain, findings: []});
+      groups.get(key).findings.push(finding);
+    }
+    return [...groups.values()];
+  };
+
+  // The finding title for one finding, "Balkon · 2 Meldungen" for several.
+  const groupTitle = group => {
+    if (group.findings.length === 1) return findingTitle(group.chain, group.findings[0]);
+    const label = group.chain.label || (group.findings[0] || {}).chain_label || '';
+    return window.I18n.t('chains.finding.group_title', {chain: label, n: group.findings.length});
+  };
+
   window.EnergyChains = {
     insertPoint, removePoint, setCounting, chainOf, isReference, shortPath, lossText, lossPowerOf, efficiencyPercent,
     percentText, linkBetween, pickerItems, edgeChange, findingText, findingTitle, suggestionText, allFindings,
+    groupFindings, groupTitle,
   };
 
   // How x-roll writes the frames of the chain values (data-roll-format).

@@ -431,15 +431,21 @@
                 <template x-for="item in panelView.findings" x-bind:key="item.key">
                   <article class="energy-chain-finding devicemap-chain-finding" x-bind:class="{ 'is-open': isFindingOpen(item.key) }">
                     <div class="energy-chain-finding-head">
-                      <svg class="energy-chain-finding-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
-                      <span class="energy-chain-finding-title" x-text="item.title"></span>
+                      <button type="button" class="energy-chain-finding-toggle" x-bind:aria-expanded="isFindingOpen(item.key) ? 'true' : 'false'" x-bind:aria-controls="item.domId" x-on:click="toggleFinding(item.key)">
+                        <svg class="energy-chain-finding-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
+                        <span class="energy-chain-finding-title" x-text="item.title"></span>
+                        <svg class="energy-chain-finding-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                      </button>
                       <template x-if="item.link"><button type="button" class="energy-chain-finding-link" aria-label="{{t "chains.open_efficiency"}}" title="{{t "chains.open_efficiency"}}" x-on:click="openEfficiencyTab()"><svg aria-hidden="true"><use href="#ico-chain"></use></svg></button></template>
-                      <button type="button" class="energy-chain-finding-toggle" aria-label="{{t "energy.chains.finding_details"}}" x-bind:aria-expanded="isFindingOpen(item.key) ? 'true' : 'false'" x-bind:aria-controls="item.domId" x-on:click="toggleFinding(item.key)"><svg class="energy-chain-finding-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
                     </div>
                     <div class="energy-chain-finding-fold" x-bind:id="item.domId" x-bind:inert="!isFindingOpen(item.key)">
                       <div class="energy-chain-finding-inner">
-                        <p class="energy-chain-finding-text" x-text="item.text"></p>
-                        <p class="energy-chain-finding-suggestion" x-show="item.suggestion" x-text="item.suggestion"></p>
+                        <template x-for="detail in item.items" x-bind:key="detail.key">
+                          <div class="energy-chain-finding-item">
+                            <p class="energy-chain-finding-text" x-text="detail.text"></p>
+                            <p class="energy-chain-finding-suggestion" x-show="detail.suggestion" x-text="detail.suggestion"></p>
+                          </div>
+                        </template>
                       </div>
                     </div>
                   </article>

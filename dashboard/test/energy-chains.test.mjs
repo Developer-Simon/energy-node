@@ -256,3 +256,31 @@ test('allFindings flattens the findings in the server order', () => {
   assert.deepEqual(plain(ec.allFindings({})), []);
   assert.deepEqual(plain(ec.allFindings(null)), []);
 });
+
+test('groupFindings puts the findings of one chain into one group in the order of first appearance', () => {
+  const ec = load();
+  const items = [
+    { chain: { id: 'b', label: 'B' }, finding: { kind: 'sign', from: 'x', to: 'y' } },
+    { chain: { id: 'a', label: 'A' }, finding: { kind: 'unit', from: 'z', to: 'w' } },
+    { chain: { id: 'b', label: 'B' }, finding: { kind: 'drift', from: 'p', to: 'q' } },
+  ];
+  const groups = ec.groupFindings(items);
+  assert.deepEqual(plain(groups.map(group => group.key)), ['b', 'a']);
+  assert.equal(groups[0].chain.label, 'B');
+  assert.deepEqual(plain(groups[0].findings.map(finding => finding.kind)), ['sign', 'drift']);
+  assert.deepEqual(plain(groups[1].findings.map(finding => finding.kind)), ['unit']);
+  assert.deepEqual(plain(ec.groupFindings([])), []);
+  assert.deepEqual(plain(ec.groupFindings(null)), []);
+});
+
+test('groupTitle is the finding title for one finding and the chain with the count for several', () => {
+  const window = loadWindow();
+  const ec = window.EnergyChains;
+  const drift = { kind: 'drift', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  const sign = { kind: 'sign', chain_id: 'm', from: 'plug_balkon_power', to: 'storage_ac_power', since };
+  assert.equal(ec.groupTitle({ key: 'm', chain: findingChain, findings: [drift] }), `Balkon · ${window.I18n.t('diagnostics.rule.chain_drift.title')}`);
+  const several = ec.groupTitle({ key: 'm', chain: findingChain, findings: [drift, sign] });
+  assert.equal(several, window.I18n.t('chains.finding.group_title', { chain: 'Balkon', n: 2 }));
+  assert.ok(several.startsWith('Balkon · '), several);
+  assert.ok(several.includes('2'), several);
+});

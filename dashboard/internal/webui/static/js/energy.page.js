@@ -1186,21 +1186,23 @@
       this._chainTimer = this._setTimeout(() => { this.flashChain = ''; }, 1600);
     },
 
-    // One notice per finding of the chain states, in the order of the server.
-    // The suggestion can be taken over when the editor may write and the row exists.
+    // One tile per chain with findings, in the order of the server. Each tile
+    // lists its findings; the suggestion of a finding can be taken over when
+    // the editor may write and the row exists. The open state keys by chain.
     get findingNotices() {
-      return window.EnergyChains.allFindings(this.chainStates).map(({chain, finding}) => {
-        const key = `${chain.id || ''}|${finding.kind}|${finding.from || ''}|${finding.to || ''}`;
-        return {
-          key,
-          domId: `energy-chain-finding-${key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
-          title: window.EnergyChains.findingTitle(chain, finding),
-          text: window.EnergyChains.findingText(chain, finding),
-          suggestion: window.EnergyChains.suggestionText(chain, finding),
+      const EC = window.EnergyChains;
+      return EC.groupFindings(EC.allFindings(this.chainStates)).map(group => ({
+        key: group.key,
+        domId: `energy-chain-finding-${group.key.replace(/[^A-Za-z0-9_-]/g, '-')}`,
+        title: EC.groupTitle(group),
+        items: group.findings.map(finding => ({
+          key: `${finding.kind}|${finding.from || ''}|${finding.to || ''}`,
+          text: EC.findingText(group.chain, finding),
+          suggestion: EC.suggestionText(group.chain, finding),
           canApply: this.canEdit && Boolean(finding.suggestion) && Boolean(this.assignments[finding.suggestion.entity_id]),
           finding,
-        };
-      });
+        })),
+      }));
     },
 
     isFindingOpen(key) {
