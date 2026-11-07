@@ -3,7 +3,13 @@
 Runs on the checked-out `prerelease` branch. Exit codes:
   0  already current, fast-forwarded, or merged and committed
   2  wrong branch, dirty tree, or an invalid version on one side
-  3  code conflict: merge aborted, unresolved paths printed as `CONFLICT <path>`
+  3  the merge needs a hand: unresolved paths printed as `CONFLICT <path>`, web
+     assets changed on both lines (they need a new ?v=) as `ASSET <path>`.
+     The merge is aborted, or with --keep left in progress for --continue.
+
+By hand: `--keep` stops with the merge in progress. Resolve the paths, bump the
+?v= of every ASSET path, `git add` them, then `--continue` sets the versions,
+commits the merge and regenerates the changelogs the same way the automatic run does.
 """
 import argparse
 import fnmatch
@@ -22,6 +28,9 @@ PRE_BRANCH = "prerelease"
 MERGE_MESSAGE = "chore(prerelease): merge main into prerelease"
 VERSION_LINE = re.compile(r'^\s*"version"\s*:')
 MANIFEST_VERSION = re.compile(r'("version"\s*:\s*")[^"]*(")')
+# Lazy-loaded web assets carry a ?v= cache-bust. A file changed on both lines is new
+# on both after the merge, even when git merges it cleanly, so it needs a fresh ?v=.
+ASSET_PATTERNS = ("dashboard/internal/webui/static/js/*", "dashboard/internal/webui/static/css/*")
 
 
 class Refused(Exception):
@@ -174,6 +183,18 @@ def resolve_policy(root, conflicts):
     return unresolved
 
 
+def changed_paths(root, base, ref):
+    out = git(root, "diff", "--name-only", base, ref).stdout
+    return {line for line in out.splitlines() if line}
+
+
+def shared_assets(root, ours, theirs):
+    """Web assets both lines changed since they split, sorted."""
+    base = git(root, "merge-base", ours, theirs).stdout.strip()
+    both = changed_paths(root, base, ours) & changed_paths(root, base, theirs)
+    return sorted(p for p in both if any(fnmatch.fnmatch(p, pat) for pat in ASSET_PATTERNS))
+
+
 def resolve_ours(root, path, unresolved):
     result = git(root, "checkout", "--ours", "--", path, check=False)
     if result.returncode != 0:
@@ -197,9 +218,38 @@ def write_version(root, version_file, version):
             file.write_text(version + "\n", encoding="utf-8")
 
 
-def sync(root, main_ref, push):
+def require_branch(root):
     if git(root, "branch", "--show-current").stdout.strip() != PRE_BRANCH:
         raise Refused(f"not on branch {PRE_BRANCH}")
+
+
+def commit_merge(root, targets, changelog_targets):
+    """Write the planned versions, commit the merge, amend the regenerated changelogs."""
+    for version_file, version in targets.items():
+        write_version(root, version_file, version)
+    git(root, "add", "-u")
+    git(root, "commit", "-q", "-m", MERGE_MESSAGE)
+
+    # The open changelog heading comes from the committed versions, so the generator
+    # runs after the merge commit and its output is amended into that same commit.
+    for target in changelog_targets:
+        subprocess.run([str(HERE.parent / "generate_changelog.sh"), target], cwd=root, check=True,
+                       capture_output=True, text=True)
+    git(root, "add", "-u")
+    if git(root, "diff", "--cached", "--quiet", check=False).returncode != 0:
+        git(root, "commit", "-q", "--amend", "--no-edit")
+
+
+def push_branch(root):
+    pushed = git(root, "push", "origin", PRE_BRANCH, check=False)
+    if pushed.returncode != 0:
+        print(f"error: push failed, commit kept: {pushed.stderr.strip()}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def sync(root, main_ref, push, keep=False):
+    require_branch(root)
     if git(root, "status", "--porcelain", "--untracked-files=no").stdout.strip():
         raise Refused("working tree is dirty")
 
@@ -228,25 +278,19 @@ def sync(root, main_ref, push):
     # From here on the merge is in progress. Any failure must leave HEAD and the worktree as they were.
     try:
         unresolved = resolve_policy(root, conflicts) if conflicts else []
-        if unresolved:
-            abort_merge(root)
+        assets = [p for p in shared_assets(root, before, main_sha) if p not in unresolved]
+        if unresolved or assets:
+            if keep:
+                print("merge kept in progress, resolve and run again with --continue", file=sys.stderr)
+            else:
+                abort_merge(root)
             for path in unresolved:
                 print(f"CONFLICT {path}")
+            for path in assets:
+                print(f"ASSET {path}")
             return 3
 
-        for version_file, version in targets.items():
-            write_version(root, version_file, version)
-        git(root, "add", "-u")
-        git(root, "commit", "-q", "-m", MERGE_MESSAGE)
-
-        # The open changelog heading comes from the committed versions, so the generator
-        # runs after the merge commit and its output is amended into that same commit.
-        for target in changelog_targets:
-            subprocess.run([str(HERE.parent / "generate_changelog.sh"), target], cwd=root, check=True,
-                           capture_output=True, text=True)
-        git(root, "add", "-u")
-        if git(root, "diff", "--cached", "--quiet", check=False).returncode != 0:
-            git(root, "commit", "-q", "--amend", "--no-edit")
+        commit_merge(root, targets, changelog_targets)
     except Exception as exc:
         if is_own_merge(root, before, main_sha):
             # Our own unpushed merge commit: go back to the recorded HEAD.
@@ -259,12 +303,27 @@ def sync(root, main_ref, push):
         return 1
 
     print(f"merged {main_ref} into {PRE_BRANCH}")
-    if push:
-        pushed = git(root, "push", "origin", PRE_BRANCH, check=False)
-        if pushed.returncode != 0:
-            print(f"error: push failed, commit kept: {pushed.stderr.strip()}", file=sys.stderr)
-            return 1
-    return 0
+    return push_branch(root) if push else 0
+
+
+def continue_sync(root, main_ref, push):
+    """Finish a merge of main that was resolved by hand."""
+    require_branch(root)
+    merge_head = git(root, "rev-parse", "-q", "--verify", "MERGE_HEAD", check=False).stdout.strip()
+    if not merge_head:
+        raise Refused("no merge in progress, start one with --keep")
+    if merge_head != git(root, "rev-parse", main_ref).stdout.strip():
+        raise Refused(f"the merge in progress is not {main_ref}")
+    unresolved = conflicted_paths(root)
+    if unresolved:
+        raise Refused("unresolved paths: " + ", ".join(unresolved))
+
+    components, changelog_targets = read_arrays(root)
+    # HEAD is still the prerelease side, MERGE_HEAD the main side, as in sync().
+    targets = plan_targets(root, components, "MERGE_HEAD")
+    commit_merge(root, targets, changelog_targets)
+    print(f"merged {main_ref} into {PRE_BRANCH}")
+    return push_branch(root) if push else 0
 
 
 def is_own_merge(root, before, main_sha):
@@ -289,9 +348,16 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--main", default="origin/main", dest="main_ref")
     parser.add_argument("--push", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--keep", action="store_true",
+                      help="leave the merge in progress when it needs a hand")
+    mode.add_argument("--continue", action="store_true", dest="cont",
+                      help="finish a merge resolved by hand")
     args = parser.parse_args(argv)
     try:
-        return sync(repo_root(), args.main_ref, args.push)
+        if args.cont:
+            return continue_sync(repo_root(), args.main_ref, args.push)
+        return sync(repo_root(), args.main_ref, args.push, keep=args.keep)
     except Refused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return 2

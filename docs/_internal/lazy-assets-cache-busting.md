@@ -267,11 +267,11 @@ was not brought into this fork, so the mapping is fixed here and not
 recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
+|---|---|---|---|
 | v0.11.5 | `css/base.css` (statistics card, the chart area takes the free card height) · `js/energy-stats-card.js` (energy cards, chart follows the height of its area) | `47` · `5` | 2026-11-07 |
 | v0.11.4 | `css/diagnostics.css` (diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide) · `js/dashboard.js` (`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn, device cards glide when they change place) · `js/device-modal.js` (`x-roll` moved out) | `4` · `44` · `4` | 2026-11-06 |
 | v0.11.3 | `js/automations-chart.js` (automations panel, history entries grouped by day) · `js/automations-view.js` (automations panel, history text split for the axis) · `js/automations.page.js` (automations panel, rule history opens from the strip as a vertical axis) · `css/automations.css` (automations panel, rule history axis) · `js/onboarding-actions.js` (tour action that opens a rule with history) | `4` · `9` · `23` · `15` · `3` | 2026-11-06 |
 | v0.11.1 | `js/history-exchange.js` (history panel and history tile, the 1h resolution no longer requests 5m and 1m values from other devices) | `10` | 2026-11-05 |
-|---|---|---|---|
 | v0.10.37 | `js/update-bar.js` (Install now asks first, the installer link reads Prepare installation) · `js/onboarding-model.js` (catch-up runs every tour of a release) · `js/onboarding.js` (archived explore releases) · `js/onboarding-checklist.js` (settings panel, archive toggle and catch-up chip) · `css/onboarding.css` (catch-up chip next to the release notes chip, own card for the version toggles) | `7` · `4` · `4` · `3` · `4` | 2026-11-02 |
 | v0.10.35 | `js/config.page.js` (config panel, tuning findings are rendered from the catalog by code and params, with the service text as fallback) | `11` | 2026-11-01 |
 | v0.10.34 | `js/mqtt.page.js` (settings panel, the connection test result is shown as a toast and a failed reconnect shows the broker error instead of a generic failure) | `11` | 2026-11-01 |
