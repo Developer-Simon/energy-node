@@ -46,10 +46,10 @@ function setup({chains = [AKKU], revision = 1, storage = {}} = {}) {
   installI18n(dom.window);
   for (const [key, value] of Object.entries(storage)) dom.window.localStorage.setItem(key, value);
   const calls = [];
-  const server = {chains, revision, pending: null};
+  const server = {chains, revision, pending: null, rolesPending: null};
   dom.window.fetch = url => {
     calls.push(url);
-    if (url.endsWith('/api/v1/energy/roles')) return Promise.resolve(reply({categories: {}}));
+    if (url.endsWith('/api/v1/energy/roles')) return server.rolesPending ? server.rolesPending(url) : Promise.resolve(reply({categories: {}}));
     if (server.pending) return server.pending(url);
     return Promise.resolve(reply({revision: server.revision, chains: server.chains}));
   };
@@ -152,5 +152,46 @@ test('Kette ohne aufgezeichnete Stunde zeigt den Hinweis statt Nullen', async ()
   assert.equal(standby.value, '–');
   assert.equal(loss.value, '–');
   assert.match(loss.label, /November/);
+  dom.window.close();
+});
+
+test('Ein fehlgeschlagenes erstes Laden zeigt den Fehlertext ausserhalb des Kettenblocks', async () => {
+  const {dom, panel, server} = setup();
+  server.pending = () => Promise.reject(new Error('Netz weg'));
+  await panel.init();
+  assert.equal(panel.current, null);
+  assert.equal(panel.error, 'Netz weg');
+  assert.equal(panel.empty, false);
+  // Der Fehlertext darf nicht im x-if="current"-Block liegen, sonst ist er ohne Kette unsichtbar.
+  const markup = new JSDOM(fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'efficiency.html'), 'utf8')).window.document;
+  const error = markup.querySelector('.efficiency-error');
+  assert.ok(error, 'Fehlerabsatz fehlt');
+  assert.equal(error.closest('template[x-if="current"]'), null);
+  dom.window.close();
+});
+
+test('Eine Kette mit Verlust im Monat, aber ohne Tageswerte, gilt als aufgezeichnet', async () => {
+  const earlier = {
+    id: 'akku', label: 'Speicher', round_trip_30d: null, standby_w_30d: null, loss_month_kwh: 3, month: '2026-11',
+    days: DAYS.map(day => ({...day, has_data: false, loss_kwh: 0, efficiency: null})),
+  };
+  const {dom, panel} = setup({chains: [earlier]});
+  await panel.init();
+  assert.equal(panel.noHistory, false);
+  assert.notEqual(panel.kpis[3].value, '–');
+  dom.window.close();
+});
+
+test('Ein veraltetes Rollen-Ergebnis gewinnt nicht gegen ein neues', async () => {
+  const {dom, panel, server} = setup();
+  const slow = [];
+  server.rolesPending = () => new Promise(resolve => slow.push(resolve));
+  const older = panel.loadCategories();
+  server.rolesPending = null;
+  await panel.loadCategories();
+  assert.deepEqual(panel.categories, {});
+  slow[0](reply({categories: {old: {base: 'load'}}}));
+  await older;
+  assert.deepEqual(panel.categories, {});
   dom.window.close();
 });

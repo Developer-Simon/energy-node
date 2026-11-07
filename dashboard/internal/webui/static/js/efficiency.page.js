@@ -27,7 +27,8 @@
 
   // A chain without any recorded hour has no 30 day figures and no day rows.
   const hasHistory = chain => Boolean(chain)
-    && (chain.round_trip_30d != null || chain.standby_w_30d != null || (chain.days || []).some(day => day.has_data));
+    && (chain.round_trip_30d != null || chain.standby_w_30d != null || chain.loss_month_kwh > 0
+      || (chain.days || []).some(day => day.has_data));
 
   // The segment between two neighbouring points, in either flow direction.
   const segmentBetween = (state, first, second) => (state.segments || []).find(item => (item.from === first && item.to === second)
@@ -47,6 +48,7 @@
     error: '',
     seq: 0,
     seenRevision: null,
+    rolesSeq: 0,
     registryListener: null,
     rolesListener: null,
 
@@ -197,9 +199,10 @@
 
     // Categories only name the storage roles. Without them custom storage counts as active.
     async loadCategories() {
+      const seq = ++this.rolesSeq;
       try {
         const roles = await requestJSON('/api/v1/energy/roles');
-        this.categories = roles.categories || {};
+        if (seq === this.rolesSeq) this.categories = roles.categories || {};
       } catch (error) {
         // Keep the last known categories.
       }

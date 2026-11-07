@@ -100,7 +100,7 @@
     const largest = Math.max(0, ...list.map(day => (day.has_data ? day.loss_kwh : 0)));
     return list.map(day => {
       const hasLoss = Boolean(day.has_data);
-      const width = hasLoss && largest > 0 ? (day.loss_kwh / largest) * 100 : 0;
+      const width = hasLoss && largest > 0 ? Math.max(0, (day.loss_kwh / largest) * 100) : 0;
       const efficiency = typeof day.efficiency === 'number' && Number.isFinite(day.efficiency) ? day.efficiency * 100 : null;
       return {
         local: day.local,
