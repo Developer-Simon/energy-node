@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.5 (2026-11-07)
+
+### Fixes
+
+- **diagnostics:** stop flagging text sensors as missing a unit (#221)
+
 ## v0.4.4 (2026-10-21)
 
 ### Refactors
