@@ -16,7 +16,7 @@
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
 - **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
 - **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
-- **dashboard:** stop flagging retained discovery as not retained (#219)
+- **dashboard:** stop flagging retained discovery as not retained (#219) (65463a6)
 - **dashboard:** animate diagnostics refresh and updated values (57967fc)
 - **dashboard:** glide diagnostics device cards to their new place (4a9b331)
 - **automations:** tidy the rule history text and toggle (66b71d2)
