@@ -168,7 +168,7 @@ func (c *Collector) participants(devices []registry.DeviceView) map[string]parti
 				continue
 			}
 			w, ok := energy.PowerW(e.Value, e.UnitOfMeasurement)
-			if !ok {
+			if !ok || math.IsNaN(w) || math.IsInf(w, 0) {
 				continue
 			}
 			if _, seen := found[e.UniqueID]; seen {

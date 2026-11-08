@@ -166,3 +166,27 @@ func sortedKeys(m map[string]string) []string {
 	sort.Strings(keys)
 	return keys
 }
+
+func TestCollectorSkipsNonFinite(t *testing.T) {
+	start := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
+	c := NewCollector(DefaultThresholds, time.UTC)
+	devices := []registry.DeviceView{
+		{ID: "dev-a", Entities: []registry.EntityView{entity("a", "100", "W")}},
+		{ID: "dev-nan", Entities: []registry.EntityView{entity("nan", "NaN", "W")}},
+		{ID: "dev-inf", Entities: []registry.EntityView{entity("inf", "Inf", "W")}},
+		{ID: "dev-ninf", Entities: []registry.EntityView{entity("ninf", "-Inf", "kW")}},
+	}
+	for s := 0; s < 6; s++ {
+		c.Observe(start.Add(time.Duration(s)*10*time.Second), devices)
+	}
+	flush(c, start.Add(time.Minute))
+
+	if got := sortedKeys(c.owner); fmt.Sprint(got) != "[a]" {
+		t.Errorf("participants = %v, want [a]", got)
+	}
+	for key := range c.sums {
+		if key.a == "nan" || key.b == "nan" || key.a == "inf" || key.b == "inf" || key.a == "ninf" || key.b == "ninf" {
+			t.Errorf("non-finite entity in sums: %+v", key)
+		}
+	}
+}

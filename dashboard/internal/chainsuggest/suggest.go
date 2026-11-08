@@ -23,6 +23,13 @@ type Suggestion struct {
 	ChainID string  `json:"chain_id,omitempty"`
 }
 
+// candidate ist ein Vorschlag mit seinem Paarschluessel, dessen IDs die
+// Sortierung nach Entitaets-ID tragen (lo kleiner als hi).
+type candidate struct {
+	s      Suggestion
+	lo, hi string
+}
+
 // pairTotals fasst die Tagessummen eines Paares ueber das Fenster zusammen.
 type pairTotals struct {
 	days int
@@ -58,7 +65,7 @@ func (c *Collector) Suggestions(model energy.Model, edge func(deviceA, deviceB s
 		t.add(s)
 	}
 
-	var cands []Suggestion
+	var cands []candidate
 	for pk, t := range totals {
 		if c.dismissed[pk] {
 			continue
@@ -109,7 +116,7 @@ func (c *Collector) Suggestions(model energy.Model, edge func(deviceA, deviceB s
 			continue
 		}
 		r := (n*t.sab - t.sa*t.sb) / math.Sqrt(den)
-		if r < minR {
+		if math.IsNaN(r) || math.IsInf(r, 0) || r < minR {
 			continue
 		}
 
@@ -124,27 +131,30 @@ func (c *Collector) Suggestions(model energy.Model, edge func(deviceA, deviceB s
 			s.DeviceA, s.DeviceB = s.DeviceB, s.DeviceA
 			s.MeanAW, s.MeanBW = s.MeanBW, s.MeanAW
 		}
-		cands = append(cands, s)
+		cands = append(cands, candidate{s: s, lo: pk.a, hi: pk.b})
 	}
 
+	// Sortierung: Kante zuerst, dann r absteigend, dann die Entitaets-IDs als
+	// Zeichenketten aufsteigend (vor dem Tausch nach Mittelwert).
 	sort.Slice(cands, func(i, j int) bool {
 		x, y := cands[i], cands[j]
-		if x.Edge != y.Edge {
-			return x.Edge
+		if x.s.Edge != y.s.Edge {
+			return x.s.Edge
 		}
-		if x.R != y.R {
-			return x.R > y.R
+		if x.s.R != y.s.R {
+			return x.s.R > y.s.R
 		}
-		if x.A != y.A {
-			return x.A < y.A
+		if x.lo != y.lo {
+			return x.lo < y.lo
 		}
-		return x.B < y.B
+		return x.hi < y.hi
 	})
 
 	// Der beste Vorschlag gewinnt, eine Entitaet erscheint hoechstens einmal.
 	used := map[string]bool{}
 	out := []Suggestion{}
-	for _, s := range cands {
+	for _, cd := range cands {
+		s := cd.s
 		if len(out) >= c.th.MaxSuggestions {
 			break
 		}
