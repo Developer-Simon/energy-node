@@ -184,6 +184,12 @@
             </button>
           </div>
           <p class="devicemap-popover-text" x-show="popover.text" x-text="popover.text"></p>
+          <template x-if="popover.suggest && canEdit">
+            <div class="devicemap-chain-suggest-actions">
+              <button type="button" class="primary" x-on:click="acceptChainSuggest()">{{t "energy.chains.suggest.accept"}}</button>
+              <button type="button" x-on:click="dismissChainSuggest()">{{t "energy.chains.suggest.dismiss"}}</button>
+            </div>
+          </template>
           <dl x-show="popover.rows.length">
             <template x-for="(row, index) in popover.rows" x-bind:key="index">
               <div class="devicemap-popover-row"><dt x-text="row[0]"></dt>
@@ -626,6 +632,7 @@
       </form>
     </template>
   </dialog>
+  {{template "chain-suggest-dialog"}}
   {{template "device-picker"}}
   {{template "revisions" .}}
 </section>

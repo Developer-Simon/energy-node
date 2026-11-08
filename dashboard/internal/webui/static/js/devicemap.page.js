@@ -112,6 +112,10 @@
       savedGroups: {},
       savedCategories: {},
       savedChains: {},
+      // Chain suggestions of the server, the dialog of an accepted one and its saving flag.
+      chainSuggestions: [],
+      chainSuggest: null,
+      chainSuggestSaving: false,
       iconMarkup: {},
       iconCatalogue: [],
       groupName: '',
@@ -157,6 +161,7 @@
           const listener = event => {
             if ((event.detail || {}).source === 'devicemap') return;
             this.reloadEnergyState();
+            this.loadChainSuggestions();
           };
           window.addEventListener('energy-roles-changed', listener);
           this.energyRolesOff = () => window.removeEventListener('energy-roles-changed', listener);
@@ -218,6 +223,7 @@
           this.savedDeviceMap = JSON.parse(JSON.stringify(this.deviceMap));
           this.initLocalView();
           this.renderGraph();
+          this.loadChainSuggestions();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
         } finally {
@@ -533,6 +539,7 @@
         });
         this.applyLosses();
         this.applyChainWarns();
+        this.applyChainSuggests();
         if (this.focusId) this.setFocus(this.focusId);
       },
 
@@ -827,6 +834,153 @@
         await this.reloadEnergyState();
         window.dispatchEvent(new CustomEvent('energy-roles-changed', {detail: {source: 'devicemap'}}));
         if (this.selectedEdge) this.openWiringPopover(this.edgeCardAnchor, true);
+      },
+
+      // Chain suggestions: one dashed edge per suggestion between two devices
+      // of the map. Only with the energy layer on, the same condition as the
+      // energy connections.
+      chainSuggestElements() {
+        if (!this.view.layers.energy || !this.energy || this.view.wiring_types?.energy === false) return [];
+        return window.DeviceMapGraph.chainSuggestElements({suggestions: this.chainSuggestions, visible: new Set(this.devices.map(device => device.id))});
+      },
+
+      // Same update rule as applyLosses(): an edge with the same ID stays, only
+      // its suggestion index is refreshed, a changed pair is replaced.
+      applyChainSuggests() {
+        const graph = cy || this._cyForTest;
+        if (!graph) return;
+        const wanted = new Map(this.chainSuggestElements().map(element => [element.data.id, element]));
+        graph.batch(() => {
+          graph.edges('.devicemap-chain-suggest').forEach(edge => {
+            const next = wanted.get(edge.id());
+            if (!next || next.data.source !== edge.data('source')) { edge.remove(); return; }
+            edge.data('suggestion', next.data.suggestion);
+            wanted.delete(edge.id());
+          });
+          for (const element of wanted.values()) graph.add(element);
+        });
+      },
+
+      // A refused read shows no suggestions and no error, the map stays usable.
+      async loadChainSuggestions() {
+        try {
+          const body = await requestJSON('/api/v1/energy/chain-suggestions');
+          this.chainSuggestions = body.suggestions || [];
+        } catch (error) {
+          this.chainSuggestions = [];
+        }
+        this.applyChainSuggests();
+      },
+
+      // Device name of a device, or of the device that owns the entity. The
+      // suggestion names entities, the card and the dialog show the devices.
+      chainSuggestName(id) {
+        const device = this.devices.find(item => item.id === id)
+          || this.devices.find(item => (item.entities || []).some(entity => entity.unique_id === id));
+        return device ? (device.name || device.id) : id;
+      },
+
+      chainSuggestionText(suggestion) {
+        return window.EnergyChainSuggest.suggestionText(suggestion, id => this.chainSuggestName(id), this.savedChains);
+      },
+
+      // A tap on a suggestion edge opens its card: the text and the evidence, and
+      // with edit_energy the buttons Übernehmen and Verwerfen.
+      onChainSuggestTap(event) {
+        const suggestion = this.chainSuggestions[event.target.data('suggestion')];
+        if (!suggestion) return;
+        this.viewMenuOpen = false;
+        this.filterMenuOpen = false;
+        this.clearEdgeSelection();
+        this.placePopover(event.renderedPosition, {eyebrow: t('energy.chains.suggest.title'), title: this.chainSuggestionText(suggestion), rows: [], lists: [],
+          text: window.EnergyChainSuggest.evidenceText(suggestion), linkText: '', link: null, action: null, suggest: suggestion});
+      },
+
+      // Opens the dialog of the card's suggestion. Nothing is saved before the confirm.
+      acceptChainSuggest() {
+        const suggestion = this.popover && this.popover.suggest;
+        if (!suggestion || !this.canEditEnergy) return;
+        this.closePopover();
+        this.chainSuggest = window.EnergyChainSuggest.dialogFor(suggestion, id => this.chainSuggestName(id));
+        if (this.$refs.chainSuggestDialog && this.$refs.chainSuggestDialog.showModal) this.$refs.chainSuggestDialog.showModal();
+      },
+
+      // The template of the dialog needs canEdit, the map calls it edit_energy.
+      get canEdit() {
+        return this.canEditEnergy;
+      },
+
+      chainSuggestSwap() {
+        if (this.chainSuggest) this.chainSuggest = window.EnergyChainSuggest.swap(this.chainSuggest);
+      },
+
+      chainSuggestCancel() {
+        if (this.$refs.chainSuggestDialog && this.$refs.chainSuggestDialog.open) this.$refs.chainSuggestDialog.close();
+        this.chainSuggest = null;
+      },
+
+      // A second confirm while a save runs is ignored.
+      async chainSuggestSave() {
+        const dialog = this.chainSuggest;
+        if (!this.canEditEnergy || !dialog || this.chainSuggestSaving) return;
+        this.chainSuggestSaving = true;
+        try {
+          await this.saveChainSuggestOnce(dialog);
+        } finally {
+          this.chainSuggestSaving = false;
+        }
+      },
+
+      // The dialog order goes through EnergyChains.edgeChange, the same rule as
+      // the edge card. A conflict saves nothing. A refused request keeps the
+      // dialog open so the order can be changed.
+      async saveChainSuggestOnce(dialog) {
+        const label = (dialog.label || '').trim() || t('energy.chains.default_name');
+        const change = window.EnergyChainSuggest.changeFor({...dialog, label}, this.savedChains);
+        if (change.action === 'conflict') {
+          this.$store.toasts.push(t('energy.chains.map_conflict'), 'critical');
+          this.chainSuggestCancel();
+          return;
+        }
+        if (change.action === 'create' || change.action === 'update') {
+          const create = change.action === 'create';
+          // The update body is the chain as the energy page sends it.
+          const body = create ? change.body : {label: change.body.label, points: change.body.points, counting: change.body.counting, direction: change.body.direction || ''};
+          try {
+            await requestJSON(create ? '/api/v1/energy/chains' : `/api/v1/energy/chains/${encodeURIComponent(change.id)}`, {
+              method: create ? 'POST' : 'PUT',
+              headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+              body: JSON.stringify(body),
+            });
+          } catch (error) {
+            this.$store.toasts.push(error.message, 'critical');
+            return;
+          }
+          await this.reloadEnergyState();
+          window.dispatchEvent(new CustomEvent('energy-roles-changed', {detail: {source: 'devicemap'}}));
+        }
+        // Already neighbours in one chain (action none) saves nothing, only the list is stale.
+        await this.loadChainSuggestions();
+        this.chainSuggestCancel();
+      },
+
+      // Verwerfen is stored at once for the pair and changes no chain.
+      async dismissChainSuggest() {
+        const suggestion = this.popover && this.popover.suggest;
+        if (!suggestion || !this.canEditEnergy) return;
+        try {
+          await requestJSON('/api/v1/energy/chain-suggestions/dismiss', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+            body: JSON.stringify({a: suggestion.a, b: suggestion.b}),
+          });
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+          return;
+        }
+        this.chainSuggestions = this.chainSuggestions.filter(item => !(item.a === suggestion.a && item.b === suggestion.b));
+        this.closePopover();
+        this.applyChainSuggests();
       },
 
       // Channel saved for the pair of the edge, whatever its orientation.
@@ -2063,7 +2217,7 @@
           ...stubInfo.nodes.map(stub => ({id: stub.id, kind: 'stub', name: t('devicemap.stub.name')})),
         ];
         const virtualNodes = window.DeviceMapGraph.virtualElements({kinds: virtualKinds, positions, colorOf});
-        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...this.lossElements(), ...this.chainWarnElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
+        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...this.lossElements(), ...this.chainWarnElements(), ...this.chainSuggestElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
       },
 
       buildEdgeElements() {
@@ -2139,6 +2293,7 @@
         cy.on('tap', 'node', event => this.onNodeTap(event));
         cy.on('tap', 'edge', event => {
           if (this.connectMode) return;
+          if (event.target.hasClass('devicemap-chain-suggest')) { this.onChainSuggestTap(event); return; }
           this.viewMenuOpen = false;
           this.filterMenuOpen = false;
           if (event.target.hasClass('devicemap-data')) { this.clearEdgeSelection(); this.openEdgePopover(event.target.data('flowId'), event.renderedPosition); }

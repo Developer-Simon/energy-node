@@ -1566,3 +1566,11 @@ div.devicemap-view-menu-row { cursor: default; }
   .energy-chain-summary[aria-expanded="true"] .energy-chain-chevron{transform:rotate(90deg)}
   .energy-chain-body:not(.is-open){display:none}
 }
+
+/* Buttons of a chain suggestion card on the device map. */
+.devicemap-chain-suggest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
