@@ -646,3 +646,98 @@ test('a repeated load() with new energy sensor options destroys and rebuilds Cho
   assert.equal(instances[1].destroyed, false);
   assert.deepEqual([...instances[1].selected], ['wallbox', 'custom_sauna']);
 });
+
+const chainSensorOptions = [
+  {key: 'chain_balkon_efficiency', kind: 'chain_efficiency', chain: 'balkon', label: 'Balkon'},
+  {key: 'chain_balkon_loss', kind: 'chain_loss', chain: 'balkon', label: 'Balkon'},
+  {key: 'chain_balkon_loss_energy', kind: 'chain_loss_energy', chain: 'balkon', label: 'Balkon'},
+];
+
+test('chain sensor switch saves and reloads the sensor options', async () => {
+  const calls = [];
+  const bodies = [];
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async (url, options) => {
+      calls.push(`${options && options.method || 'GET'} ${url}`);
+      if (url === '/api/v1/mqtt' && options && options.method === 'PUT') {
+        bodies.push(JSON.parse(options.body));
+        return jsonResponse({ ...configResponse, publish_chain_sensors: true });
+      }
+      if (url === '/api/v1/mqtt') {
+        return jsonResponse({ ...configResponse, publish_chain_sensors: true, energy_sensor_options: chainSensorOptions });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.applyConfig({ ...configResponse, publish_chain_sensors: false });
+  component.form.publish_chain_sensors = true;
+
+  const saved = await component.saveChainSensors();
+
+  assert.equal(saved, true);
+  assert.deepEqual(calls, ['PUT /api/v1/mqtt', 'GET /api/v1/mqtt']);
+  assert.equal(bodies[0].publish_chain_sensors, true);
+  assert.deepEqual(component.energySensorOptions, chainSensorOptions);
+  assert.equal(stores.toasts.criticals.length, 0);
+});
+
+test('save() always sends publish_chain_sensors, so other switches do not turn it off', async () => {
+  const bodies = [];
+  const { component } = createMqttPanel({
+    fetchImpl: async (url, options) => {
+      if (url === '/api/v1/mqtt' && options.method === 'PUT') {
+        bodies.push(JSON.parse(options.body));
+        return jsonResponse(configResponse);
+      }
+      if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: true });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.applyConfig({ ...configResponse, publish_chain_sensors: true });
+
+  await component.save(false);
+
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].publish_chain_sensors, true);
+});
+
+test('saveChainSensors() reverts the switch when the PUT fails', async () => {
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async () => { throw new Error('boom'); },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.form = { ...component.form, publish_chain_sensors: true };
+
+  const saved = await component.saveChainSensors();
+
+  assert.equal(saved, false);
+  assert.equal(component.form.publish_chain_sensors, false);
+  assert.equal(stores.toasts.criticals.at(-1), 'boom');
+});
+
+test('chain sensor options get chain labels', () => {
+  const catalogDe = catalog('de');
+  const catalogEn = catalog('en');
+  const { component } = createMqttPanel();
+  assert.equal(component.energySensorLabel({kind: 'chain_loss', chain: 'balkon', label: 'Balkon'}), 'Balkon: Verlust');
+  assert.equal(component.energySensorLabel({kind: 'chain_loss_energy', chain: 'balkon', label: 'Balkon'}), 'Balkon: Verlustenergie');
+  assert.equal(component.energySensorLabel({kind: 'chain_efficiency', chain: 'balkon'}), 'balkon: Wirkungsgrad');
+  assert.equal(catalogDe['mqtt.energy_sensors.chain_loss'], '{chain}: Verlust');
+  assert.equal(catalogEn['mqtt.energy_sensors.chain_loss_energy'], '{chain}: Loss energy');
+});
+
+test('chain sensor switch hides while the energy device is off', () => {
+  // The switch lives in the template, so check its markup directly.
+  const template = fs.readFileSync(
+    path.join(here, '..', 'internal', 'webui', 'templates', 'mqtt.html'),
+    'utf8',
+  );
+  const match = template.match(/<label class="switch-row" for="mqtt-publish-chain-sensors"[^>]*>/);
+  assert.ok(match, 'chain sensor switch is missing');
+  assert.match(match[0], /x-show="form\.publish_energy_device"/);
+});

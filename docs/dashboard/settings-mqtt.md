@@ -20,6 +20,13 @@ announce itself over MQTT Discovery as the device "Energy Node" with PV, grid,
 battery and house load sensors. The computed balance then reaches Home
 Assistant without an extra service.
 
+**Measurement chain sensors** appear under the energy device switch while it is
+on. They add three sensors per measurement chain: the efficiency in percent, the
+loss in W and the loss energy in kWh. The loss energy is a total that starts at 0
+when the switch is first turned on, earlier values are not filled in, and standby
+is not included. The sensors then show up in the additional sensors below, where
+each one can be deselected.
+
 **Additional sensors** under *Home Assistant & simulation* offers one sensor per
 wallbox, heat pump and custom category. A sensor appears in Home Assistant only
 once something is assigned to its role or category, so the list stays empty
