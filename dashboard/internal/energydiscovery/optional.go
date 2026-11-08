@@ -18,16 +18,36 @@ type CategoryInput struct {
 	Storage bool
 }
 
+// ChainInput beschreibt eine Messkette, die drei Sensoren bekommt. Eine
+// leere Bezeichnung nimmt die ID als Namen.
+type ChainInput struct {
+	ID    string
+	Label string
+}
+
 // OptionalSensor ist ein Sensor, der nur angeboten wird, wenn die Rolle
-// vorhanden ist (Wallbox, Waermepumpe) oder eine Kategorie existiert. Key
-// ist die object_id und zugleich der Teil nach "energy_node_" in der
-// unique_id. Name ist der Entitaetsname, template das value_template.
+// vorhanden ist (Wallbox, Waermepumpe), eine Kategorie existiert oder eine
+// Messkette angelegt ist. Key ist die object_id und zugleich der Teil nach
+// "energy_node_" in der unique_id. Name ist der Entitaetsname, template das
+// value_template. Kind und Chain kennzeichnen Messketten-Sensoren, Label
+// traegt die Kettenbezeichnung.
+//
+// deviceClass und unit setzen die Constructoren immer selbst. Ein leeres
+// deviceClass wird nicht veroeffentlicht (Wirkungsgrad). Leeres stateClass
+// heisst "measurement", leeres stateTopic heisst StateTopic.
 type OptionalSensor struct {
-	Key      string `json:"key"`
-	Role     string `json:"role,omitempty"`
-	Label    string `json:"label,omitempty"`
-	Name     string `json:"-"`
-	template string
+	Key   string `json:"key"`
+	Role  string `json:"role,omitempty"`
+	Label string `json:"label,omitempty"`
+	Kind  string `json:"kind,omitempty"`  // "chain_efficiency" | "chain_loss" | "chain_loss_energy"
+	Chain string `json:"chain,omitempty"` // Ketten-ID
+	Name  string `json:"-"`
+
+	template    string
+	deviceClass string
+	unit        string
+	stateClass  string
+	stateTopic  string
 }
 
 // OptionalSensors liefert die gewuenschten optionalen Sensoren in fester
@@ -40,33 +60,41 @@ func OptionalSensors(houseMeter, wallbox, heatPump bool, categories []CategoryIn
 	if houseMeter {
 		out = append(out,
 			OptionalSensor{
-				Key:      "house_load_measured",
-				Role:     "house_load_measured",
-				Name:     "Hauslast gemessen",
-				template: "{{ value_json.balance['load_meter'] }}",
+				Key:         "house_load_measured",
+				Role:        "house_load_measured",
+				Name:        "Hauslast gemessen",
+				template:    "{{ value_json.balance['load_meter'] }}",
+				deviceClass: "power",
+				unit:        "W",
 			},
 			OptionalSensor{
-				Key:      "house_load_calculated",
-				Role:     "house_load_calculated",
-				Name:     "Hauslast berechnet",
-				template: "{{ value_json.balance['load_calculated'] }}",
+				Key:         "house_load_calculated",
+				Role:        "house_load_calculated",
+				Name:        "Hauslast berechnet",
+				template:    "{{ value_json.balance['load_calculated'] }}",
+				deviceClass: "power",
+				unit:        "W",
 			},
 		)
 	}
 	if wallbox {
 		out = append(out, OptionalSensor{
-			Key:      "wallbox",
-			Role:     "wallbox",
-			Name:     "Wallbox-Leistung",
-			template: "{{ value_json.balance['wallbox'] }}",
+			Key:         "wallbox",
+			Role:        "wallbox",
+			Name:        "Wallbox-Leistung",
+			template:    "{{ value_json.balance['wallbox'] }}",
+			deviceClass: "power",
+			unit:        "W",
 		})
 	}
 	if heatPump {
 		out = append(out, OptionalSensor{
-			Key:      "heat_pump",
-			Role:     "heat_pump",
-			Name:     "Wärmepumpen-Leistung",
-			template: "{{ value_json.balance['heat_pump'] }}",
+			Key:         "heat_pump",
+			Role:        "heat_pump",
+			Name:        "Wärmepumpen-Leistung",
+			template:    "{{ value_json.balance['heat_pump'] }}",
+			deviceClass: "power",
+			unit:        "W",
 		})
 	}
 	sorted := make([]CategoryInput, len(categories))
@@ -78,11 +106,71 @@ func OptionalSensors(houseMeter, wallbox, heatPump bool, categories []CategoryIn
 			name = c.ID
 		}
 		out = append(out, OptionalSensor{
-			Key:      "custom_" + c.ID,
-			Label:    c.Label,
-			Name:     name,
-			template: "{{ value_json.categories['" + c.ID + "'] }}",
+			Key:         "custom_" + c.ID,
+			Label:       c.Label,
+			Name:        name,
+			template:    "{{ value_json.categories['" + c.ID + "'] }}",
+			deviceClass: "power",
+			unit:        "W",
 		})
+	}
+	return out
+}
+
+// ChainSensors liefert je Messkette den Wirkungsgrad, den Verlust in W und
+// die Verlustenergie in kWh. Die Ketten sind nach ID sortiert, je Kette
+// kommen die drei Sensoren in dieser Reihenfolge. Sie lesen aus dem
+// ChainsTopic, nicht aus StateTopic.
+func ChainSensors(chains []ChainInput) []OptionalSensor {
+	sorted := make([]ChainInput, len(chains))
+	copy(sorted, chains)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].ID < sorted[j].ID })
+	var out []OptionalSensor
+	for _, c := range sorted {
+		name := c.Label
+		if name == "" {
+			name = c.ID
+		}
+		tmpl := func(field string) string {
+			return "{{ value_json.chains['" + c.ID + "']['" + field + "'] }}"
+		}
+		out = append(out,
+			OptionalSensor{
+				Key:        "chain_" + c.ID + "_efficiency",
+				Kind:       "chain_efficiency",
+				Chain:      c.ID,
+				Label:      c.Label,
+				Name:       name + " Wirkungsgrad",
+				template:   tmpl("efficiency_pct"),
+				unit:       "%",
+				stateClass: "measurement",
+				stateTopic: ChainsTopic,
+			},
+			OptionalSensor{
+				Key:         "chain_" + c.ID + "_loss",
+				Kind:        "chain_loss",
+				Chain:       c.ID,
+				Label:       c.Label,
+				Name:        name + " Verlust",
+				template:    tmpl("loss_w"),
+				deviceClass: "power",
+				unit:        "W",
+				stateClass:  "measurement",
+				stateTopic:  ChainsTopic,
+			},
+			OptionalSensor{
+				Key:         "chain_" + c.ID + "_loss_energy",
+				Kind:        "chain_loss_energy",
+				Chain:       c.ID,
+				Label:       c.Label,
+				Name:        name + " Verlustenergie",
+				template:    tmpl("loss_kwh_total"),
+				deviceClass: "energy",
+				unit:        "kWh",
+				stateClass:  "total_increasing",
+				stateTopic:  ChainsTopic,
+			},
+		)
 	}
 	return out
 }
@@ -151,9 +239,16 @@ func (a *Announced) Plan(prefix, swVersion, configurationURL string, desired []O
 		if !force && known[s.Key] == s.Name {
 			continue
 		}
+		stateClass, stateTopic := s.stateClass, s.stateTopic
+		if stateClass == "" {
+			stateClass = "measurement"
+		}
+		if stateTopic == "" {
+			stateTopic = StateTopic
+		}
 		msgs = append(msgs, Message{
 			Topic:   DiscoveryTopic(prefix, s.Key),
-			Payload: sensorPayload(s.Name, DeviceID+"_"+s.Key, s.template, "power", "W", device),
+			Payload: sensorPayload(s.Name, DeviceID+"_"+s.Key, s.template, s.deviceClass, s.unit, stateClass, stateTopic, device),
 		})
 	}
 
