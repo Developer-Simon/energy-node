@@ -3860,9 +3860,65 @@ test('dismissing a suggestion stores the pair, closes the card and removes the e
   assert.equal([...graph.store.values()].filter(element => element.classes === 'devicemap-chain-suggest').length, 0);
 });
 
-test('a refused suggestion read leaves the map without suggestions', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: respondWith(500, { code: 'x', message: 'nein' }) });
+test('a refused suggestion read leaves the map without suggestions and pushes no toast', async () => {
+  const { component, stores } = createDevicemapPanel({ fetchImpl: respondWith(500, { code: 'x', message: 'nein' }) });
   suggestFixture(component);
   await component.loadChainSuggestions();
   assert.equal(component.chainSuggestions.length, 0);
+  assert.equal(stores.toasts.items.length, 0, 'the failed read stays silent');
+});
+
+// Without edit_energy the card has no buttons, and the functions behind them
+// must do nothing either: no request, no dialog, no state change.
+test('without edit_energy accept, dismiss and save send nothing and open no dialog', async () => {
+  const calls = [];
+  const { component } = createDevicemapPanel({ fetchImpl: async url => { calls.push(String(url)); return okJSON({})(); } });
+  suggestFixture(component);
+  let opened = 0;
+  component.$refs.chainSuggestDialog = { showModal: () => { opened += 1; }, close: () => {}, open: false };
+  component.canEditEnergy = false;
+  component.onChainSuggestTap({ target: { data: key => ({ suggestion: 0 })[key] }, renderedPosition: { x: 10, y: 10 } });
+  component.acceptChainSuggest();
+  assert.equal(opened, 0, 'no dialog opened');
+  assert.equal(component.chainSuggest, null);
+  component.chainSuggest = { upstream: 'plug_p', downstream: 'ac_p', label: 'Speicher AC', chainId: '' };
+  await component.chainSuggestSave();
+  assert.deepEqual(calls, [], 'save sends nothing');
+  assert.ok(component.chainSuggest, 'save leaves the dialog state alone');
+  component.popover = { ...component.popover, suggest: SUGGEST };
+  await component.dismissChainSuggest();
+  assert.deepEqual(calls, [], 'dismiss sends nothing');
+  assert.equal(component.chainSuggestions.length, 1, 'dismiss keeps the suggestion');
+});
+
+// The energy-roles-changed event from another page reloads the suggestions.
+test('an energy-roles-changed event from the energy page reloads the suggestions', async () => {
+  const suggestionReads = [];
+  let suggestions = [];
+  const { component, window } = createDevicemapPanel({ fetchImpl: async url => {
+    const path = String(url);
+    if (path.endsWith('/api/v1/energy/chain-suggestions')) { suggestionReads.push(path); return okJSON({ suggestions })(); }
+    if (path.endsWith('/api/v1/devices')) return okJSON([])();
+    if (path.endsWith('/api/v1/device/map')) return okJSON({ version: 2, nodes: [], edges: [] })();
+    if (path.endsWith('/api/v1/energy/roles')) return okJSON({ assignments: {}, groups: {}, categories: {}, chains: {} })();
+    if (path.endsWith('/api/v1/energy')) return okJSON({ entities: [] })();
+    if (path.endsWith('/api/v1/device/icons')) return okJSON([])();
+    if (path.endsWith('/api/v1/devices/switches')) return okJSON([])();
+    return okJSON({})();
+  } });
+  await component.load();
+  assert.equal(suggestionReads.length, 1, 'the map reads the suggestions on open');
+  suggestions = [SUGGEST];
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed', { detail: { source: 'energy-panel' } }));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(suggestionReads.length, 2, 'the event reads the suggestions again');
+  assert.equal(component.chainSuggestions.length, 1);
+});
+
+test('the wiring layer types gate also hides the suggestion edges', () => {
+  const { component } = createDevicemapPanel();
+  suggestFixture(component);
+  assert.equal(component.chainSuggestElements().length, 1);
+  component.setView({ wiring_types: { ...component.view.wiring_types, energy: false } });
+  assert.equal(component.chainSuggestElements().length, 0);
 });
