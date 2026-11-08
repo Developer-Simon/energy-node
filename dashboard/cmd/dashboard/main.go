@@ -687,7 +687,11 @@ func main() {
 				// haelt die Diagnose nicht an.
 				if energyRecorder.Status().ClockReady {
 					chainMonitor.Observe(now, snapshot)
-					lossTotals.Observe(now, snapshot.Chains)
+					// Wie das Pruning oben: ohne lesbare energy.json fehlen
+					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
+					if _, err := settingsStore.LoadEnergy(); err == nil {
+						lossTotals.Observe(now, snapshot.Chains)
+					}
 					chainSuggest.Observe(now, reg.Snapshot())
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
