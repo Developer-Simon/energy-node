@@ -40,7 +40,8 @@ var notNodeData = map[string]bool{
 	"icons.source.json":  true,
 	"cases.json":         true,
 	"balance-cases.json": true,
-	// config.json hat einen eigenen Weg ueber die Konfiguration (Task 2).
+	// config.json ist die App-Konfiguration unter /etc/energy-node, nicht Teil
+	// des Datenverzeichnisses. Das Archiv nimmt sie unter config/config.json auf (Task 2).
 	"config.json": true,
 }
 
