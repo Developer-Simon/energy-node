@@ -168,3 +168,52 @@ func TestBuildChainSignalsRoundsValues(t *testing.T) {
 		t.Errorf("StandbyW = %v, want 12.3", got)
 	}
 }
+
+func TestChainLossWMatchesPublishedLoss(t *testing.T) {
+	cases := map[string]ChainState{
+		"sums": signalChain("down",
+			ChainSegmentState{From: "a", To: "b", Available: true, LossW: 9, Efficiency: f64(0.97)},
+			ChainSegmentState{From: "b", To: "c", Available: true, LossW: 6, Efficiency: f64(0.98)},
+		),
+		"unavailable": signalChain("down",
+			ChainSegmentState{From: "a", To: "b", Available: true, LossW: 9, Efficiency: f64(0.97)},
+			ChainSegmentState{From: "b", To: "c", Available: false},
+		),
+		"idle": signalChain("idle",
+			ChainSegmentState{From: "a", To: "b", Available: true, LossW: 9, Efficiency: f64(0.97)},
+		),
+		"no efficiency": signalChain("down",
+			ChainSegmentState{From: "a", To: "b", Available: true, LossW: 9},
+		),
+		"no segments": signalChain("down"),
+	}
+	for name, chain := range cases {
+		loss, ok := ChainLossW(chain)
+		published := BuildChainSignals([]ChainState{chain}, nil, time.Unix(0, 0)).Chains["kette"].LossW
+		if ok != (published != nil) {
+			t.Errorf("%s: ok = %v, published LossW = %v", name, ok, published)
+			continue
+		}
+		if ok && loss != *published {
+			t.Errorf("%s: loss = %v, published LossW = %v", name, loss, *published)
+		}
+	}
+}
+
+func TestChainSignalsLossTotals(t *testing.T) {
+	signals := ChainSignals{Chains: map[string]ChainSignal{"a": {}, "b": {}}}
+	signals.SetLossTotals(map[string]float64{"a": 1.23456})
+	if got := signals.Chains["a"].LossKWhTotal; got != 1.235 {
+		t.Errorf("a LossKWhTotal = %v, want 1.235", got)
+	}
+	if got := signals.Chains["b"].LossKWhTotal; got != 0 {
+		t.Errorf("b LossKWhTotal = %v, want 0", got)
+	}
+	data, err := json.Marshal(signals.Chains["b"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"loss_kwh_total":0`) {
+		t.Errorf("JSON = %s, want loss_kwh_total", data)
+	}
+}
