@@ -384,7 +384,7 @@
 {{end}}
 
 {{define "chain-suggest-dialog"}}{{/*
-  Dialog of a chain suggestion, shared with the device map (Task 8). The host
+  Dialog of a chain suggestion, also used by the device map. The host
   Alpine component must provide:
   - x-ref "chainSuggestDialog" is set here, the host does not need its own
   - state chainSuggest: {upstream, downstream, label, chainId} or null
@@ -406,8 +406,8 @@
       <label class="energy-chain-suggest-name" x-show="!chainSuggest.chainId">{{t "energy.chains.name_label"}}<input class="energy-groups-name" type="text" x-bind:disabled="!canEdit" x-model="chainSuggest.label"></label>
       <div class="energy-actionbar">
         <button type="button" x-on:click="chainSuggestCancel()">{{t "common.cancel"}}</button>
-        <button type="button" class="primary" x-bind:disabled="!canEdit" x-show="!chainSuggest.chainId" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.create"}}</button>
-        <button type="button" class="primary" x-bind:disabled="!canEdit" x-show="chainSuggest.chainId" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.extend"}}</button>
+        <button type="button" class="primary" x-bind:disabled="!canEdit || chainSuggestSaving" x-show="!chainSuggest.chainId" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.create"}}</button>
+        <button type="button" class="primary" x-bind:disabled="!canEdit || chainSuggestSaving" x-show="chainSuggest.chainId" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.extend"}}</button>
       </div>
     </div>
   </template>

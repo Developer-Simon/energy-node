@@ -5,7 +5,7 @@
 // mean_a_w, mean_b_w, edge, chain_id}. A is the upstream point (higher mean).
 // The functions return new objects, the inputs stay untouched.
 (() => {
-  // i18n-keys: energy.chains.suggest.measures, energy.chains.suggest.extends
+  // i18n-keys: energy.chains.suggest.measures, energy.chains.suggest.extends, energy.chains.suggest.evidence.one, energy.chains.suggest.evidence.other
   const percentText = r => `${Math.round(r * 100)} %`;
 
   // "Plug Balkon misst vermutlich Speicher AC", or for a point that joins a

@@ -149,6 +149,7 @@
     // the timer that reads the suggestions again while the section is open.
     chainSuggestions: [],
     chainSuggest: null,
+    chainSuggestSaving: false,
     _chainSuggestTimer: null,
     _setInterval: (fn, ms) => setInterval(fn, ms),
     _clearInterval: id => clearInterval(id),
@@ -224,6 +225,7 @@
         const n = Object.keys(this.chains).length;
         const meta = tn('energy.section.chains_meta', n, {n});
         const suggestions = this.chainSuggestions.length;
+        // i18n-keys: energy.chains.meta_suggestions.one, energy.chains.meta_suggestions.other
         return suggestions ? `${meta} · ${tn('energy.chains.meta_suggestions', suggestions, {n: suggestions})}` : meta;
       }
       return '';
@@ -919,7 +921,24 @@
       this._chainSuggestTimer = null;
       if (!this.isSectionOpen('chains')) return;
       this.loadChainSuggestions();
-      this._chainSuggestTimer = this._setInterval(() => this.loadChainSuggestions(), CHAIN_SUGGEST_INTERVAL_MS);
+      this._chainSuggestTimer = this._setInterval(() => this.refreshChainSuggestionsTick(), CHAIN_SUGGEST_INTERVAL_MS);
+    },
+
+    // The timer reads only while the chains section and the energy tab are shown.
+    refreshChainSuggestionsTick() {
+      if (this.isSectionOpen('chains') && this.isEnergyTabShown()) this.loadChainSuggestions();
+    },
+
+    // The panel stays in the DOM when another tab is shown, its root then lacks the active class.
+    isEnergyTabShown() {
+      return !this.$el || this.$el.classList.contains('active');
+    },
+
+    // Stops the suggestion timer. The shell does not call destroy() on panels yet,
+    // the panel lives for the page's lifetime, so the tab check above is what stops the polling then.
+    destroy() {
+      this._clearInterval(this._chainSuggestTimer);
+      this._chainSuggestTimer = null;
     },
 
     async loadChainSuggestions() {
@@ -965,9 +984,19 @@
     // The dialog order goes through EnergyChains.edgeChange, the same rule as
     // the map card. A conflict saves nothing. A refused request keeps the
     // dialog open so the order can be changed.
+    // A second confirm while a save runs is ignored, the button is disabled meanwhile.
     async chainSuggestSave() {
       const dialog = this.chainSuggest;
-      if (!this.canEdit || !dialog) return;
+      if (!this.canEdit || !dialog || this.chainSuggestSaving) return;
+      this.chainSuggestSaving = true;
+      try {
+        await this.saveChainSuggestOnce(dialog);
+      } finally {
+        this.chainSuggestSaving = false;
+      }
+    },
+
+    async saveChainSuggestOnce(dialog) {
       const label = (dialog.label || '').trim() || t('energy.chains.default_name');
       const change = window.EnergyChainSuggest.changeFor({...dialog, label}, this.chains);
       if (change.action === 'conflict') {

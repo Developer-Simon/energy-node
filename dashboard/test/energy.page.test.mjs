@@ -1673,4 +1673,47 @@ test('the template shows the suggestions only with a list, the buttons only with
   assert.ok(html.includes('{{template "chain-suggest-dialog"}}'));
   assert.ok(html.includes('{{define "chain-suggest-dialog"}}'));
   assert.ok(html.includes('x-ref="chainSuggestDialog"'));
+  assert.ok(html.includes('chainSuggestSaving'), 'the confirm buttons are disabled while a save runs');
+});
+
+test('destroy clears the suggestion timer', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  const cleared = [];
+  component._setInterval = () => 9;
+  component._clearInterval = id => cleared.push(id);
+  component.setOpenSection('chains');
+  component.destroy();
+  assert.deepEqual(cleared.slice(-1), [9]);
+  assert.equal(component._chainSuggestTimer, null);
+});
+
+test('the suggestion timer reads only while the energy tab is shown', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  let tick = null;
+  component._setInterval = (fn) => { tick = fn; return 3; };
+  component.setOpenSection('chains');
+  await flush();
+  const readsBefore = calls.filter(call => call.url.startsWith('/api/v1/energy/chain-suggestions')).length;
+  component.$el = { classList: { contains: () => false } };
+  tick();
+  await flush();
+  assert.equal(calls.filter(call => call.url.startsWith('/api/v1/energy/chain-suggestions')).length, readsBefore, 'hidden tab: no read');
+  component.$el = { classList: { contains: name => name === 'active' } };
+  tick();
+  await flush();
+  assert.equal(calls.filter(call => call.url.startsWith('/api/v1/energy/chain-suggestions')).length, readsBefore + 1, 'shown tab: one read');
+});
+
+test('a second confirm while a save runs sends one request only', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  component.acceptChainSuggestion(suggestion);
+  component.chainSuggest.label = 'Balkon';
+  await Promise.all([component.chainSuggestSave(), component.chainSuggestSave()]);
+  assert.equal(chainWriteCalls(calls).length, 1);
+  assert.equal(component.chainSuggestSaving, false);
 });
