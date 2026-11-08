@@ -626,3 +626,36 @@ func TestMQTTConfigGetListsEnergySensorOptions(t *testing.T) {
 		t.Fatalf("energy_sensor_options = %+v", response.Options)
 	}
 }
+
+func TestMQTTConfigPublishChainSensorsGetAndPut(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router, _ := newMQTTTestRouter(t, store, nil, nil, nil)
+	adminCookie, csrfToken := loginAsAdmin(t, router)
+
+	guestCookie := loginAsGuest(t, router)
+	get := httptest.NewRequest(http.MethodGet, "/api/v1/mqtt", nil)
+	get.AddCookie(guestCookie)
+	getRecorder := httptest.NewRecorder()
+	router.ServeHTTP(getRecorder, get)
+	var before map[string]any
+	if err := json.Unmarshal(getRecorder.Body.Bytes(), &before); err != nil {
+		t.Fatal(err)
+	}
+	if before["publish_chain_sensors"] != false {
+		t.Fatalf("publish_chain_sensors = %v, want false by default", before["publish_chain_sensors"])
+	}
+
+	body := `{"enabled":false,"host":"broker","port":1883,"client_id":"dashboard","tls":false,"tls_insecure":false,"keepalive_seconds":30,"clean_session":true,"discovery_prefix":"homeassistant","connect_timeout_seconds":10,"publish_chain_sensors":true}`
+	put := httptest.NewRequest(http.MethodPut, "/api/v1/mqtt", strings.NewReader(body))
+	put.AddCookie(adminCookie)
+	put.Header.Set("X-Forwarded-Proto", "https")
+	put.Header.Set("X-CSRF-Token", csrfToken)
+	putRecorder := httptest.NewRecorder()
+	router.ServeHTTP(putRecorder, put)
+	if putRecorder.Code != http.StatusOK {
+		t.Fatalf("PUT publish_chain_sensors status %d: %s", putRecorder.Code, putRecorder.Body.String())
+	}
+	if stored, err := store.LoadMQTT(); err != nil || !stored.PublishChainSensors {
+		t.Fatalf("publish_chain_sensors not stored: %#v (err=%v)", stored, err)
+	}
+}

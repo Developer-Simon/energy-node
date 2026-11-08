@@ -497,6 +497,10 @@ type MQTTConfig struct {
 	// "custom_sauna") das Anbieten per HA-Discovery ab. Ein fehlender
 	// Schluessel bedeutet an.
 	EnergySensors map[string]bool `json:"energy_sensors,omitempty"`
+	// PublishChainSensors schaltet die Messketten-Sensoren (Wirkungsgrad,
+	// Verlust, Verlustenergie je Kette) bei der HA-Discovery an. Default aus,
+	// ein fehlender Schluessel bedeutet aus.
+	PublishChainSensors bool `json:"publish_chain_sensors,omitempty"`
 	// SimulationActive ist der Sollzustand des globalen simulation_active-
 	// Broadcasts, den das Dashboard retained an
 	// outstation/<node>/settings/simulation_active/set schickt. Default false.

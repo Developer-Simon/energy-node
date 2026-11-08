@@ -100,6 +100,7 @@ type mqttConfigResponse struct {
 	DiscoveryPrefix     string                           `json:"discovery_prefix"`
 	ConnectTimeoutSec   int                              `json:"connect_timeout_seconds"`
 	PublishEnergyDevice bool                             `json:"publish_energy_device"`
+	PublishChainSensors bool                             `json:"publish_chain_sensors"`
 	SimulationActive    bool                             `json:"simulation_active"`
 	Metrics             map[string]bool                  `json:"metrics"`
 	EnergySensors       map[string]bool                  `json:"energy_sensors"`
@@ -146,6 +147,7 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 				DiscoveryPrefix:     cfg.DiscoveryPrefix,
 				ConnectTimeoutSec:   cfg.ConnectTimeoutSec,
 				PublishEnergyDevice: stored.PublishEnergyDevice,
+				PublishChainSensors: stored.PublishChainSensors,
 				SimulationActive:    stored.SimulationActive,
 				Metrics:             stored.Metrics,
 				EnergySensors:       stored.EnergySensors,

@@ -108,10 +108,30 @@ func TestDesiredOptionalSensorsFollowsSourcesAndCategories(t *testing.T) {
 		},
 	}
 	var keys []string
-	for _, s := range desiredOptionalSensors(snapshot) {
+	for _, s := range desiredOptionalSensors(snapshot, false) {
 		keys = append(keys, s.Key)
 	}
 	if strings.Join(keys, ",") != "wallbox,custom_sauna" {
+		t.Fatalf("keys = %v", keys)
+	}
+}
+
+func TestDesiredOptionalSensorsAddsChainSensorsWhenWanted(t *testing.T) {
+	snapshot := energy.Snapshot{
+		Chains: []energy.ChainState{{ID: "a", Label: "Balkon"}, {ID: "b"}},
+	}
+	var keys []string
+	for _, s := range desiredOptionalSensors(snapshot, false) {
+		keys = append(keys, s.Key)
+	}
+	if len(keys) != 0 {
+		t.Fatalf("keys without chain sensors = %v", keys)
+	}
+	keys = nil
+	for _, s := range desiredOptionalSensors(snapshot, true) {
+		keys = append(keys, s.Key)
+	}
+	if strings.Join(keys, ",") != "chain_a_efficiency,chain_a_loss,chain_a_loss_energy,chain_b_efficiency,chain_b_loss,chain_b_loss_energy" {
 		t.Fatalf("keys = %v", keys)
 	}
 }

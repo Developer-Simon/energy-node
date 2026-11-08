@@ -415,7 +415,7 @@ func main() {
 		if !stored.PublishEnergyDevice {
 			return nil, true
 		}
-		return energydiscovery.Filter(desiredOptionalSensors(snapshot), stored.EnergySensors), true
+		return energydiscovery.Filter(desiredOptionalSensors(snapshot, stored.PublishChainSensors), stored.EnergySensors), true
 	}
 
 	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
@@ -634,7 +634,11 @@ func main() {
 		// Die API zeigt alle passenden Sensoren, ungefiltert, damit der
 		// MQTT-Tab sie abwaehlen kann.
 		EnergySensorOptions: func() []energydiscovery.OptionalSensor {
-			return desiredOptionalSensors(currentSnapshot())
+			chainSensors := false
+			if stored, err := settingsStore.LoadMQTT(); err == nil {
+				chainSensors = stored.PublishChainSensors
+			}
+			return desiredOptionalSensors(currentSnapshot(), chainSensors)
 		},
 		Redeploy:             redeployHandler,
 		UpdatesChecker:       updatesChecker,
@@ -874,7 +878,7 @@ func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now 
 // desiredOptionalSensors nennt die optionalen Sensoren, die zur Anlage
 // passen: Hauszaehler (beide Hauslasten), Wallbox und Waermepumpe, sobald
 // eine Quelle zugeordnet ist, und jede Kategorie mit zugeordneter Quelle.
-func desiredOptionalSensors(snapshot energy.Snapshot) []energydiscovery.OptionalSensor {
+func desiredOptionalSensors(snapshot energy.Snapshot, chainSensors bool) []energydiscovery.OptionalSensor {
 	var categories []energydiscovery.CategoryInput
 	for id, category := range snapshot.Categories {
 		if len(snapshot.Sources[energy.Role("custom:"+id)]) == 0 {
@@ -886,12 +890,20 @@ func desiredOptionalSensors(snapshot energy.Snapshot) []energydiscovery.Optional
 			Storage: category.Base == energy.CategoryStorage,
 		})
 	}
-	return energydiscovery.OptionalSensors(
+	sensors := energydiscovery.OptionalSensors(
 		len(snapshot.Sources[energy.RoleLoad]) > 0,
 		len(snapshot.Sources[energy.RoleWallbox]) > 0,
 		len(snapshot.Sources[energy.RoleHeatPump]) > 0,
 		categories,
 	)
+	if chainSensors {
+		var chains []energydiscovery.ChainInput
+		for _, chain := range snapshot.Chains {
+			chains = append(chains, energydiscovery.ChainInput{ID: chain.ID, Label: chain.Label})
+		}
+		sensors = append(sensors, energydiscovery.ChainSensors(chains)...)
+	}
+	return sensors
 }
 
 // nodeSimAdapter turns the MQTT tab's simulation_active switch into a
