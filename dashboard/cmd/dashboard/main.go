@@ -249,6 +249,8 @@ func main() {
 	chainMonitor := chainwatch.NewMonitor(chainwatch.Load(chainLearnedPath, log.Printf), holdsFromEnv(os.Getenv), time.Now)
 	chainMonitor.SetPersistence(chainLearnedPath, log.Printf)
 	energyResolver.SetChainInsight(chainMonitor)
+	// Verlustenergie je Kette, integriert aus dem Verlust des Kettentopics.
+	lossTotals := energystats.NewLossTotals(filepath.Join(dataDir, "energystats", "chains", "loss_totals.json"), log.Printf)
 	// Nur nach einem erfolgreichen Laden von energy.json: sonst wuerden die
 	// gelernten Paare einer unlesbaren Konfiguration verworfen.
 	if value, err := settingsStore.LoadEnergy(); err == nil {
@@ -663,6 +665,7 @@ func main() {
 			case <-ctx.Done():
 				energyRecorder.Close()
 				chainMonitor.Close()
+				lossTotals.Close()
 				return
 			case <-ticker.C:
 				now := time.Now()
@@ -672,6 +675,7 @@ func main() {
 				// haelt die Diagnose nicht an.
 				if energyRecorder.Status().ClockReady {
 					chainMonitor.Observe(now, snapshot)
+					lossTotals.Observe(now, snapshot.Chains)
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()
@@ -701,7 +705,9 @@ func main() {
 				// wird einmal ein leeres Signal veroeffentlicht, damit das
 				// alte retained Signal verschwindet.
 				if chainGate.Want(len(snapshot.Chains)) {
-					signals, err := json.Marshal(energy.BuildChainSignals(snapshot.Chains, energyResolver.ChainInsight(), time.Now()))
+					chainSignals := energy.BuildChainSignals(snapshot.Chains, energyResolver.ChainInsight(), time.Now())
+					chainSignals.SetLossTotals(lossTotals.Totals())
+					signals, err := json.Marshal(chainSignals)
 					if err == nil {
 						err = client.PublishRetained(energydiscovery.ChainsTopic, string(signals))
 					}

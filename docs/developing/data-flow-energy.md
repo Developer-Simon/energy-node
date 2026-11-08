@@ -304,6 +304,7 @@ seconds, after the balance, from the same snapshot. The code is `energy.BuildCha
       "label": "Wechselrichter",
       "flow": "down",
       "loss_w": 15,
+      "loss_kwh_total": 1.234,
       "efficiency_pct": 95.1,
       "standby_w": null,
       "substitute": false,
@@ -324,6 +325,11 @@ seconds, after the balance, from the same snapshot. The code is `energy.BuildCha
   segment efficiencies in percent. Both are rounded to one decimal and stay
   `null` when the flow is `idle`, when a segment is not available, or, for the
   efficiency, when a segment has none.
+- `loss_kwh_total` is the loss energy of the chain in kWh, counted since the
+  chain was first seen. It integrates `loss_w` over time, skips gaps longer
+  than 60 seconds and `null` values, and counts negative losses as 0. It
+  does not include standby. The totals are stored hourly in
+  `energystats/chains/loss_totals.json`, and a deleted chain loses its total.
 - `standby_w` is set while the chain is in standby (see §15), otherwise `null`.
 - `best_down` and `best_up` are the most efficient power spans of the learned
   curve, `null` without a learned model.
