@@ -28,6 +28,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/chainsuggest"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/chainwatch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companiontls"
@@ -251,6 +252,11 @@ func main() {
 	energyResolver.SetChainInsight(chainMonitor)
 	// Verlustenergie je Kette, integriert aus dem Verlust des Kettentopics.
 	lossTotals := energystats.NewLossTotals(filepath.Join(dataDir, "energystats", "chains", "loss_totals.json"), log.Printf)
+	// Messketten-Vorschlaege aus Minutenmitteln. Die Summen und verworfenen
+	// Paare liegen getrennt von energy.json, Verwerfen aendert keine Konfiguration.
+	chainSuggestPath := filepath.Join(dataDir, "energystats", "chains", "suggest.json")
+	chainSuggest := chainsuggest.Load(chainSuggestPath, chainsuggest.ThresholdsFromEnv(os.Getenv), time.Local, log.Printf)
+	chainSuggest.SetPersistence(chainSuggestPath, log.Printf)
 	// Nur nach einem erfolgreichen Laden von energy.json: sonst wuerden die
 	// gelernten Paare einer unlesbaren Konfiguration verworfen.
 	if value, err := settingsStore.LoadEnergy(); err == nil {
@@ -622,6 +628,7 @@ func main() {
 		Resolver:            energyResolver,
 		EnergyStats:         energyStats,
 		ChainMonitor:        chainMonitor,
+		ChainSuggest:        chainSuggest,
 		HistorySampler:      historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
@@ -670,6 +677,7 @@ func main() {
 				energyRecorder.Close()
 				chainMonitor.Close()
 				lossTotals.Close()
+				chainSuggest.Close()
 				return
 			case <-ticker.C:
 				now := time.Now()
@@ -680,6 +688,7 @@ func main() {
 				if energyRecorder.Status().ClockReady {
 					chainMonitor.Observe(now, snapshot)
 					lossTotals.Observe(now, snapshot.Chains)
+					chainSuggest.Observe(now, reg.Snapshot())
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()

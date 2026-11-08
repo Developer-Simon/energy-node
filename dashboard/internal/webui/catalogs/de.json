@@ -2532,6 +2532,8 @@
   "error.bridge_unavailable.restart": "Mosquitto-Neustart ist nicht verfügbar",
   "error.category_references_failed": "Die Automationen konnten nicht geprüft werden",
   "error.chain_not_found": "Diese Messkette gibt es nicht mehr.",
+  "error.chain_suggestion_failed": "Der Messketten-Vorschlag konnte nicht gespeichert werden.",
+  "error.chain_suggestion_invalid": "Das Paar des Messketten-Vorschlags ist ungültig.",
   "error.changelog_unreadable": "Changelog konnte nicht gelesen werden",
   "error.check_updates_forbidden": "Für die Update-Prüfung fehlt die Berechtigung",
   "error.check_updates_unavailable": "Anmeldung ist nicht konfiguriert",

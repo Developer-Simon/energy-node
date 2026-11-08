@@ -2532,6 +2532,8 @@
   "error.bridge_unavailable.restart": "Restarting Mosquitto is not available",
   "error.category_references_failed": "The automations could not be checked",
   "error.chain_not_found": "This measurement chain no longer exists.",
+  "error.chain_suggestion_failed": "The chain suggestion could not be saved.",
+  "error.chain_suggestion_invalid": "The pair of the chain suggestion is invalid.",
   "error.changelog_unreadable": "The changelog could not be read",
   "error.check_updates_forbidden": "You do not have permission to check for updates",
   "error.check_updates_unavailable": "Sign-in is not configured",
