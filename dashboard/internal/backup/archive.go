@@ -2,6 +2,7 @@ package backup
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -74,12 +75,6 @@ type CreateOptions struct {
 // Create schreibt ein Archiv nach w. Die Dateien werden nacheinander gestreamt,
 // das Manifest mit den Prüfsummen steht zuletzt im Tar.
 func Create(ctx context.Context, src Sources, opts CreateOptions, w io.Writer) (Manifest, error) {
-	if opts.Password != "" {
-		// Die Verschlüsselung kommt mit dem Passwortschutz. Bis dahin entsteht
-		// kein Archiv, das ein Passwort verspricht und unverschlüsselt ist.
-		return Manifest{}, errors.New("Passwortschutz ist noch nicht verfügbar")
-	}
-
 	allowed := make(map[string]bool)
 	for _, e := range ArchiveEntries(opts.Areas) {
 		allowed[string(e.Root)+"/"+e.Pattern] = true
@@ -91,7 +86,19 @@ func Create(ctx context.Context, src Sources, opts CreateOptions, w io.Writer) (
 		return e.Class != ClassSecret || opts.Secrets
 	}
 
-	gz := gzip.NewWriter(w)
+	// Mit Passwort wandert das ganze tar.gz durch den verschlüsselten Strom.
+	out := w
+	var enc io.WriteCloser
+	if opts.Password != "" {
+		var err error
+		enc, err = NewEncryptWriter(w, opts.Password)
+		if err != nil {
+			return Manifest{}, err
+		}
+		out = enc
+	}
+
+	gz := gzip.NewWriter(out)
 	tw := tar.NewWriter(gz)
 	aw := &archiveWriter{
 		ctx:     ctx,
@@ -154,6 +161,11 @@ func Create(ctx context.Context, src Sources, opts CreateOptions, w io.Writer) (
 	}
 	if err := gz.Close(); err != nil {
 		return Manifest{}, err
+	}
+	if enc != nil {
+		if err := enc.Close(); err != nil {
+			return Manifest{}, err
+		}
 	}
 	return m, nil
 }
@@ -285,12 +297,25 @@ func (aw *archiveWriter) writeEntry(name string, size int64, mod time.Time, r io
 // ExtractToStaging liest ein Archiv und legt die Dateien unter stagingDir ab,
 // mit Modus 0600. Schlägt die Prüfung fehl, bleibt das Staging für den Aufrufer
 // zum Entfernen. Außerhalb von stagingDir wird nichts angelegt.
-// Die Passwort-Verschlüsselung kommt mit dem Passwortschutz, bis dahin wird password nicht gelesen.
+// Ist das Archiv verschlüsselt, braucht es password. Bei einem unverschlüsselten
+// Archiv wird password ignoriert.
 func ExtractToStaging(ctx context.Context, r io.Reader, password, stagingDir string) (Manifest, error) {
-	_ = password
-	gz, err := gzip.NewReader(r)
+	br := bufio.NewReader(r)
+	var src io.Reader = br
+	head, _ := br.Peek(len(cryptMagic))
+	if IsEncrypted(head) {
+		if password == "" {
+			return Manifest{}, ErrPasswordRequired
+		}
+		dec, err := NewDecryptReader(br, password)
+		if err != nil {
+			return Manifest{}, err
+		}
+		src = dec
+	}
+	gz, err := gzip.NewReader(src)
 	if err != nil {
-		return Manifest{}, fmt.Errorf("%w: %v", ErrIncompatible, err)
+		return Manifest{}, streamError(err, ErrIncompatible)
 	}
 	defer gz.Close()
 	if err := os.MkdirAll(stagingDir, 0o700); err != nil {
@@ -313,9 +338,9 @@ func ExtractToStaging(ctx context.Context, r io.Reader, password, stagingDir str
 		}
 		if err != nil {
 			if first {
-				return Manifest{}, fmt.Errorf("%w: %v", ErrIncompatible, err)
+				return Manifest{}, streamError(err, ErrIncompatible)
 			}
-			return Manifest{}, fmt.Errorf("%w: %v", ErrCorrupt, err)
+			return Manifest{}, streamError(err, ErrCorrupt)
 		}
 		name := hdr.Name
 		if unsafeName(name) {
@@ -365,7 +390,7 @@ func ExtractToStaging(ctx context.Context, r io.Reader, password, stagingDir str
 
 	// Das Ende des gzip-Stroms prüft die Prüfsumme des Stroms, die der Tar-Leser nicht liest.
 	if _, err := io.Copy(io.Discard, gz); err != nil {
-		return Manifest{}, fmt.Errorf("%w: %v", ErrCorrupt, err)
+		return Manifest{}, streamError(err, ErrCorrupt)
 	}
 	if !haveManifest {
 		return Manifest{}, fmt.Errorf("%w: kein manifest.json", ErrIncompatible)
@@ -400,6 +425,15 @@ func ExtractToStaging(ctx context.Context, r io.Reader, password, stagingDir str
 		}
 	}
 	return m, nil
+}
+
+// streamError ordnet einen Lesefehler des Stroms sentinel zu. Ein falsches
+// Passwort oder ein beschädigter Strom bleibt, wie er ist.
+func streamError(err error, sentinel error) error {
+	if errors.Is(err, ErrWrongPassword) || errors.Is(err, ErrCorrupt) {
+		return err
+	}
+	return fmt.Errorf("%w: %v", sentinel, err)
 }
 
 // extractFile schreibt genau size Bytes aus tr nach stagingDir/name und liefert die sha256-Summe.
