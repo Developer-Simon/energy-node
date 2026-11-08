@@ -154,6 +154,25 @@
       }));
   };
 
+  // Dashed suggestion edge per chain suggestion whose two devices are both
+  // visible and different. Drawn between the devices, no label. Same-device
+  // suggestions (storage AC and DC) get no line.
+  const chainSuggestElements = ({suggestions, visible}) => {
+    const seen = new Set();
+    const elements = [];
+    (suggestions || []).forEach((suggestion, index) => {
+      const a = suggestion.device_a;
+      const b = suggestion.device_b;
+      if (!a || !b || a === b || !visible.has(a) || !visible.has(b)) return;
+      const [source, target] = [a, b].sort();
+      const id = `chain-suggest-${source}::${target}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+      elements.push({group: 'edges', classes: 'devicemap-chain-suggest', data: {id, source, target, suggestion: index}});
+    });
+    return elements;
+  };
+
   // Balance, rule, service and stub nodes. Positions come from the saved map
   // (or the page's placement), unknown ones are left to the layout.
   const virtualElements = ({kinds, positions, colorOf}) => kinds.map(({id, kind, name}) => {
@@ -275,6 +294,11 @@
       ...(EDGE_STYLES[view.edge_style] || EDGE_STYLES.straight),
       'line-color': theme.warn, 'target-arrow-shape': 'none', 'line-style': 'dashed', width: 2, 'line-cap': 'round', events: 'no',
     }},
+    // Chain suggestions: dashed line in the energy colour at half opacity, no arrow, no label.
+    {selector: 'edge.devicemap-chain-suggest', style: {
+      ...(EDGE_STYLES[view.edge_style] || EDGE_STYLES.straight),
+      'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'line-color': theme.line, 'line-opacity': 0.5, width: 2, 'target-arrow-shape': 'none',
+    }},
     {selector: 'edge.devicemap-flow[!reverse]', style: {'target-label': 'data(label)', 'target-text-offset': 32}},
     {selector: 'edge.devicemap-flow[?reverse]', style: {'source-label': 'data(label)', 'source-text-offset': 32}},
     ...(view.edge_style === 'curved' ? [{selector: 'edge.devicemap-flow[?reverse]', style: {'control-point-distances': [-40]}}] : []),
@@ -313,5 +337,5 @@
     return {display: 'none'};
   };
 
-  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, lossElements, chainWarnElements, virtualElements, dataEdgeElements, flowOffset, createFlowAnimator, style, wiringEdgeStyle};
+  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, lossElements, chainWarnElements, chainSuggestElements, virtualElements, dataEdgeElements, flowOffset, createFlowAnimator, style, wiringEdgeStyle};
 })();
