@@ -653,15 +653,15 @@ const chainSensorOptions = [
   {key: 'chain_balkon_loss_energy', kind: 'chain_loss_energy', chain: 'balkon', label: 'Balkon'},
 ];
 
-test('chain sensor switch saves and reloads the sensor options', async () => {
+test('chain sensor switch saves through the energy device endpoint and reloads the sensor options', async () => {
   const calls = [];
   const bodies = [];
   const { component, stores } = createMqttPanel({
     fetchImpl: async (url, options) => {
       calls.push(`${options && options.method || 'GET'} ${url}`);
-      if (url === '/api/v1/mqtt' && options && options.method === 'PUT') {
+      if (url === '/api/v1/mqtt/energy-device') {
         bodies.push(JSON.parse(options.body));
-        return jsonResponse({ ...configResponse, publish_chain_sensors: true });
+        return jsonResponse({ publish_energy_device: true, publish_chain_sensors: true });
       }
       if (url === '/api/v1/mqtt') {
         return jsonResponse({ ...configResponse, publish_chain_sensors: true, energy_sensor_options: chainSensorOptions });
@@ -671,16 +671,38 @@ test('chain sensor switch saves and reloads the sensor options', async () => {
   });
   component.canConfigure = true;
   component.csrfToken = 'tok';
-  component.applyConfig({ ...configResponse, publish_chain_sensors: false });
+  component.applyConfig({ ...configResponse, publish_energy_device: true, publish_chain_sensors: false });
   component.form.publish_chain_sensors = true;
 
   const saved = await component.saveChainSensors();
 
   assert.equal(saved, true);
-  assert.deepEqual(calls, ['PUT /api/v1/mqtt', 'GET /api/v1/mqtt']);
-  assert.equal(bodies[0].publish_chain_sensors, true);
+  assert.deepEqual(calls, ['PUT /api/v1/mqtt/energy-device', 'GET /api/v1/mqtt']);
+  assert.deepEqual(bodies[0], { publish_energy_device: true, publish_chain_sensors: true });
   assert.deepEqual(component.energySensorOptions, chainSensorOptions);
   assert.equal(stores.toasts.criticals.length, 0);
+});
+
+test('chain sensor switch keeps publish_energy_device as stored, even when it is off', async () => {
+  const bodies = [];
+  const { component } = createMqttPanel({
+    fetchImpl: async (url, options) => {
+      if (url === '/api/v1/mqtt/energy-device') {
+        bodies.push(JSON.parse(options.body));
+        return jsonResponse({});
+      }
+      if (url === '/api/v1/mqtt') return jsonResponse({ ...configResponse, energy_sensor_options: [] });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.form = { ...component.form, publish_energy_device: false, publish_chain_sensors: false };
+  component.form.publish_chain_sensors = true;
+
+  await component.saveChainSensors();
+
+  assert.deepEqual(bodies[0], { publish_energy_device: false, publish_chain_sensors: true });
 });
 
 test('save() always sends publish_chain_sensors, so other switches do not turn it off', async () => {
@@ -706,8 +728,9 @@ test('save() always sends publish_chain_sensors, so other switches do not turn i
 });
 
 test('saveChainSensors() reverts the switch when the PUT fails', async () => {
+  const urls = [];
   const { component, stores } = createMqttPanel({
-    fetchImpl: async () => { throw new Error('boom'); },
+    fetchImpl: async (url) => { urls.push(url); throw new Error('boom'); },
   });
   component.canConfigure = true;
   component.csrfToken = 'tok';
@@ -716,6 +739,7 @@ test('saveChainSensors() reverts the switch when the PUT fails', async () => {
   const saved = await component.saveChainSensors();
 
   assert.equal(saved, false);
+  assert.deepEqual(urls, ['/api/v1/mqtt/energy-device']);
   assert.equal(component.form.publish_chain_sensors, false);
   assert.equal(stores.toasts.criticals.at(-1), 'boom');
 });

@@ -593,6 +593,52 @@ func TestMQTTEnergyDeviceStoresEnergySensorsAndKeepsThemWhenOmitted(t *testing.T
 	}
 }
 
+func TestMQTTEnergyDeviceSetsAndKeepsChainSensorFlag(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router, _ := newMQTTTestRouter(t, store, nil, nil, nil)
+	adminCookie, csrfToken := loginAsAdmin(t, router)
+
+	put := func(body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPut, "/api/v1/mqtt/energy-device", strings.NewReader(body))
+		request.AddCookie(adminCookie)
+		request.Header.Set("X-Forwarded-Proto", "https")
+		request.Header.Set("X-CSRF-Token", csrfToken)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	if recorder := put(`{"publish_energy_device":true,"publish_chain_sensors":true}`); recorder.Code != http.StatusOK {
+		t.Fatalf("PUT chain true status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if stored, err := store.LoadMQTT(); err != nil || !stored.PublishChainSensors {
+		t.Fatalf("PublishChainSensors not set to true (err=%v)", err)
+	}
+
+	// Absent field: the stored value stays.
+	recorder := put(`{"publish_energy_device":true}`)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("PUT without chain flag status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if stored, err := store.LoadMQTT(); err != nil || !stored.PublishChainSensors {
+		t.Fatalf("absent publish_chain_sensors must keep the stored true (err=%v)", err)
+	}
+	var response map[string]any
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if response["publish_chain_sensors"] != true {
+		t.Fatalf("response publish_chain_sensors = %v, want true", response["publish_chain_sensors"])
+	}
+
+	if recorder := put(`{"publish_energy_device":true,"publish_chain_sensors":false}`); recorder.Code != http.StatusOK {
+		t.Fatalf("PUT chain false status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if stored, err := store.LoadMQTT(); err != nil || stored.PublishChainSensors {
+		t.Fatalf("PublishChainSensors not set to false (err=%v)", err)
+	}
+}
+
 func TestMQTTConfigGetListsEnergySensorOptions(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")

@@ -248,19 +248,23 @@
       return option.key.startsWith('custom_') ? option.key.slice('custom_'.length) : option.key;
     },
 
-    // saveChainSensors persists form.publish_chain_sensors with a full PUT of
-    // /api/v1/mqtt, because the energy-device endpoint does not know the field.
-    // The PUT replaces the whole config, so the form always goes along. Then
-    // the energy sensor options are loaded again, so the chain sensors show up
-    // in the list. Failure rolls the switch back.
+    // saveChainSensors persists form.publish_chain_sensors through the energy
+    // device endpoint, which works without a full, valid broker config. That
+    // endpoint needs publish_energy_device in every request, so the current
+    // value goes along, or it would be switched off. Then the energy sensor
+    // options are loaded again, so the chain sensors show up in the list.
+    // Failure rolls the switch back.
     async saveChainSensors() {
       if (!this.canConfigure) return false;
       const desired = this.form.publish_chain_sensors;
       try {
-        await requestJSON('/api/v1/mqtt', {
+        await requestJSON('/api/v1/mqtt/energy-device', {
           method: 'PUT',
           headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
-          body: JSON.stringify(this.form),
+          body: JSON.stringify({
+            publish_energy_device: this.form.publish_energy_device,
+            publish_chain_sensors: desired,
+          }),
         });
         const config = await requestJSON('/api/v1/mqtt');
         this.energySensorOptions = config.energy_sensor_options || [];
