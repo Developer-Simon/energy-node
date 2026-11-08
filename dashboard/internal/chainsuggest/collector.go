@@ -4,6 +4,7 @@
 package chainsuggest
 
 import (
+	"log"
 	"math"
 	"sort"
 	"sync"
@@ -100,8 +101,16 @@ type Collector struct {
 	sums    map[pairDay]*sums
 	lastDay int
 
-	// dismissed haelt verworfene Paare. Es ist in dieser Stufe noch leer.
+	// dismissed haelt verworfene Paare.
 	dismissed map[pairKey]bool
+
+	// path ist die Datei fuer Summen und verworfene Paare, leer ohne Speichern.
+	path string
+	logf func(string, ...any)
+	// dirty ist gesetzt, solange sich seit dem letzten Speichern etwas geaendert hat.
+	dirty bool
+	// next ist der Zeitpunkt der naechsten Speicherung, wenn dirty.
+	next time.Time
 }
 
 // NewCollector legt einen leeren Sammler an. loc bestimmt die lokalen Tage.
@@ -117,6 +126,7 @@ func NewCollector(th Thresholds, loc *time.Location) *Collector {
 		owner:     map[string]string{},
 		sums:      map[pairDay]*sums{},
 		dismissed: map[pairKey]bool{},
+		logf:      log.Printf,
 	}
 }
 
@@ -142,7 +152,10 @@ func (c *Collector) Observe(at time.Time, devices []registry.DeviceView) {
 	c.devices = make(map[string]string, len(participants))
 	for id, p := range participants {
 		c.devices[id] = p.device
-		c.owner[id] = p.device
+		if c.owner[id] != p.device {
+			c.owner[id] = p.device
+			c.dirty = true
+		}
 		s := c.buf[id]
 		if s == nil {
 			s = &minuteSample{}
@@ -151,6 +164,7 @@ func (c *Collector) Observe(at time.Time, devices []registry.DeviceView) {
 		s.sum += p.w
 		s.n++
 	}
+	c.saveDueLocked(at)
 }
 
 // participants waehlt die Entitaeten aus, die in diese Beobachtung eingehen.
@@ -230,6 +244,7 @@ func (c *Collector) closeMinuteLocked() {
 				s = &sums{}
 				c.sums[key] = s
 			}
+			c.dirty = true
 			s.n++
 			s.sa += ma
 			s.sb += mb
@@ -247,6 +262,7 @@ func (c *Collector) pruneLocked(day int) {
 	for key := range c.sums {
 		if key.day <= day-c.th.WindowDays {
 			delete(c.sums, key)
+			c.dirty = true
 		}
 	}
 }
