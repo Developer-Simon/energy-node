@@ -6,6 +6,8 @@
   const HIDDEN_IDS_STORAGE_KEY = 'energy-roles-hidden-ids';
   // Live values of the measurement chains are read at most this often.
   const CHAIN_LIVE_INTERVAL_MS = 5000;
+  // Chain suggestions are read again this often while the chains section is open.
+  const CHAIN_SUGGEST_INTERVAL_MS = 5 * 60 * 1000;
   // Room the sticky action bar takes from a chain menu that opens downward.
   const CHAIN_MENU_BOTTOM_GAP_PX = 80;
 
@@ -143,6 +145,13 @@
     _chainTimer: null,
     _chainLiveAt: 0,
     _now: () => Date.now(),
+    // Suggested chains from the server, the pair in the confirm dialog and
+    // the timer that reads the suggestions again while the section is open.
+    chainSuggestions: [],
+    chainSuggest: null,
+    _chainSuggestTimer: null,
+    _setInterval: (fn, ms) => setInterval(fn, ms),
+    _clearInterval: id => clearInterval(id),
 
     init() {
       // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
@@ -195,6 +204,7 @@
       const before = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect().top : null;
       this.openSection = name;
       try { localStorage.setItem('energy-open-section', name); } catch (error) { /* private mode: not remembered */ }
+      this.syncChainSuggestions();
       if (before === null) return;
       this.$nextTick(() => {
         const shift = anchor.getBoundingClientRect().top - before;
@@ -212,7 +222,9 @@
       if (name === 'subdevices') return tn('energy.section.subdevices_meta', this.subDeviceEntries.length, {n: this.subDeviceEntries.length});
       if (name === 'chains') {
         const n = Object.keys(this.chains).length;
-        return tn('energy.section.chains_meta', n, {n});
+        const meta = tn('energy.section.chains_meta', n, {n});
+        const suggestions = this.chainSuggestions.length;
+        return suggestions ? `${meta} · ${tn('energy.chains.meta_suggestions', suggestions, {n: suggestions})}` : meta;
       }
       return '';
     },
@@ -403,6 +415,7 @@
           window.__energyDraftRequest__ = null;
           this.applyDraft(draft);
         }
+        this.syncChainSuggestions();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -886,6 +899,7 @@
         });
         this.applyChainResponse(saved, touched);
         await this.loadChainStates();
+        await this.loadChainSuggestions();
         return saved;
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -895,6 +909,98 @@
 
     chainUrl(id) {
       return `/api/v1/energy/chains/${encodeURIComponent(id)}`;
+    },
+
+    // Suggested chains. Read while the chains section is open: on opening,
+    // after every chain change and every CHAIN_SUGGEST_INTERVAL_MS. A refused
+    // read (no data directory) shows no suggestions.
+    syncChainSuggestions() {
+      this._clearInterval(this._chainSuggestTimer);
+      this._chainSuggestTimer = null;
+      if (!this.isSectionOpen('chains')) return;
+      this.loadChainSuggestions();
+      this._chainSuggestTimer = this._setInterval(() => this.loadChainSuggestions(), CHAIN_SUGGEST_INTERVAL_MS);
+    },
+
+    async loadChainSuggestions() {
+      try {
+        const body = await requestJSON('/api/v1/energy/chain-suggestions');
+        this.chainSuggestions = body.suggestions || [];
+      } catch (error) {
+        this.chainSuggestions = [];
+      }
+    },
+
+    // Device name first (the dialog labels the chain with the device of B),
+    // then the entity label. Unknown IDs show as they are.
+    chainSuggestName(id) {
+      const device = this.devicesList.find(item => item.id === id);
+      return device ? device.name : this.chainLabelOf(id);
+    },
+
+    chainSuggestionText(suggestion) {
+      return window.EnergyChainSuggest.suggestionText(suggestion, id => this.chainSuggestName(id), this.chains);
+    },
+
+    chainSuggestionEvidence(suggestion) {
+      return window.EnergyChainSuggest.evidenceText(suggestion);
+    },
+
+    // Opens the confirm dialog. Nothing is saved before the dialog is confirmed.
+    acceptChainSuggestion(suggestion) {
+      if (!this.canEdit || !suggestion) return;
+      this.chainSuggest = window.EnergyChainSuggest.dialogFor(suggestion, id => this.chainSuggestName(id));
+      if (this.$refs.chainSuggestDialog && this.$refs.chainSuggestDialog.showModal) this.$refs.chainSuggestDialog.showModal();
+    },
+
+    chainSuggestSwap() {
+      if (this.chainSuggest) this.chainSuggest = window.EnergyChainSuggest.swap(this.chainSuggest);
+    },
+
+    chainSuggestCancel() {
+      if (this.$refs.chainSuggestDialog && this.$refs.chainSuggestDialog.open) this.$refs.chainSuggestDialog.close();
+      this.chainSuggest = null;
+    },
+
+    // The dialog order goes through EnergyChains.edgeChange, the same rule as
+    // the map card. A conflict saves nothing. A refused request keeps the
+    // dialog open so the order can be changed.
+    async chainSuggestSave() {
+      const dialog = this.chainSuggest;
+      if (!this.canEdit || !dialog) return;
+      const label = (dialog.label || '').trim() || t('energy.chains.default_name');
+      const change = window.EnergyChainSuggest.changeFor({...dialog, label}, this.chains);
+      if (change.action === 'conflict') {
+        this.$store.toasts.push(t('energy.chains.map_conflict'), 'critical');
+        this.chainSuggestCancel();
+        return;
+      }
+      let saved = {};
+      if (change.action === 'create') {
+        saved = await this.sendChain('POST', '/api/v1/energy/chains', change.body, change.body.points);
+      } else if (change.action === 'update') {
+        saved = await this.sendChain('PUT', this.chainUrl(change.id), this.chainBody(change.body), change.body.points);
+      } else {
+        // Already neighbours in one chain: nothing to save, only the list is stale.
+        await this.loadChainSuggestions();
+      }
+      if (!saved) return;
+      this.chainSuggestCancel();
+    },
+
+    // Dismissal is stored at once and survives a reload, no chain changes.
+    async dismissChainSuggestion(suggestion) {
+      if (!this.canEdit || !suggestion) return;
+      try {
+        await requestJSON('/api/v1/energy/chain-suggestions/dismiss', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          body: JSON.stringify({a: suggestion.a, b: suggestion.b}),
+        });
+        this.chainSuggestions = this.chainSuggestions.filter(item => !(item.a === suggestion.a && item.b === suggestion.b));
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      }
     },
 
     // Power rows only: percent and switch rows are never measuring points.

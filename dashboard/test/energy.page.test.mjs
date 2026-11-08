@@ -30,6 +30,10 @@ const modelSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap-model.js'),
   'utf8',
 );
+const chainSuggestSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'energy-chain-suggest.js'),
+  'utf8',
+);
 const chainsSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'energy-chains.js'),
   'utf8',
@@ -48,10 +52,16 @@ function createEnergyPanel({ fetchImpl, basePath, url } = {}) {
   vm.runInContext(switchSource, context);
   vm.runInContext(modelSource, context);
   vm.runInContext(chainsSource, context);
+  vm.runInContext(chainSuggestSource, context);
   vm.runInContext(subDevicesSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.energyRolesPanel();
   const stores = attachStores(component);
+  // No real timers in the tests: the suggestion timer is stubbed, a test that
+  // checks it replaces the stubs itself.
+  component._setInterval = () => 0;
+  component._clearInterval = () => {};
+  component.$refs = {};
   return { component, window: dom.window, stores };
 }
 
@@ -1496,4 +1506,171 @@ test('a collapsed finding tile has no vertical padding in its fold, the open til
   assert.ok(!/padding-(top|bottom)/.test(closed), 'no vertical padding while closed');
   const open = rule('.energy-chain-finding.is-open .energy-chain-finding-inner');
   assert.ok(/padding-top: \.25rem/.test(open) && /padding-bottom: 1rem/.test(open), open);
+});
+
+// Chain suggestions: the server lists pairs of metering points that look like
+// one measurement chain. The page shows them above the chain cards, a dismiss
+// is stored at once, an accept opens the dialog and saves through the chain
+// endpoints only after it is confirmed.
+const suggestion = {
+  a: 'pv_power', b: 'socket_power', device_a: 'inverter', device_b: 'inverter',
+  r: 0.976, days: 5, minutes: 900, mean_a_w: 400, mean_b_w: 380, edge: false,
+};
+const suggestDevices = chainDevices.map(device => ({ ...device, id: 'inverter' }));
+const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
+function suggestFetch({ calls = [], suggestions = [suggestion], dismissOk = true, saved = { assignments: {}, chains: {}, role_needed: [] } } = {}) {
+  const base = chainFetch({ calls, saved });
+  return async (url, options = {}) => {
+    if (url.startsWith('/api/v1/energy/chain-suggestions')) {
+      calls.push({ url, options });
+      if (url.endsWith('/dismiss')) return dismissOk ? { ok: true, status: 204, json: async () => ({}) } : jsonResponse({ message: 'refused' }, false);
+      return jsonResponse({ suggestions });
+    }
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(suggestDevices);
+    return base(url, options);
+  };
+}
+
+test('the chains section loads the suggestions on open and the meta counts them', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  component.setOpenSection('chains');
+  await flush();
+  assert.equal(component.chainSuggestions.length, 1);
+  assert.match(component.sectionMeta('chains'), /· 1 Vorschlag$/);
+});
+
+test('a suggestion text names the two points and the evidence rounds the correlation', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  assert.match(component.chainSuggestionText(suggestion), /misst vermutlich/);
+  assert.equal(component.chainSuggestionEvidence(suggestion), '98 % Übereinstimmung an 5 Tagen');
+});
+
+test('dismiss posts the pair, removes the suggestion and changes no chain', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  component.setOpenSection('chains');
+  await flush();
+  await component.dismissChainSuggestion(component.chainSuggestions[0]);
+  const post = calls.find(call => call.url === '/api/v1/energy/chain-suggestions/dismiss');
+  assert.equal(post.options.method, 'POST');
+  assert.deepEqual(JSON.parse(post.options.body), { a: 'pv_power', b: 'socket_power' });
+  assert.deepEqual(component.chainSuggestions, []);
+  assert.deepEqual(chainWriteCalls(calls).filter(call => call.url.startsWith('/api/v1/energy/chains')), []);
+});
+
+test('a refused dismiss keeps the suggestion and shows the message', async () => {
+  const { component, stores } = createEnergyPanel({ fetchImpl: suggestFetch({ dismissOk: false }) });
+  await component.load();
+  component.setOpenSection('chains');
+  await flush();
+  await component.dismissChainSuggestion(component.chainSuggestions[0]);
+  assert.equal(component.chainSuggestions.length, 1);
+  assert.equal(stores.toasts.last(), 'refused');
+});
+
+test('without edit rights a suggestion only shows, dismiss and accept do nothing', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  component.setOpenSection('chains');
+  await flush();
+  component.canEdit = false;
+  await component.dismissChainSuggestion(component.chainSuggestions[0]);
+  component.acceptChainSuggestion(component.chainSuggestions[0]);
+  assert.equal(calls.filter(call => call.url.includes('/dismiss')).length, 0);
+  assert.equal(component.chainSuggest, null);
+  assert.equal(component.chainSuggestions.length, 1);
+});
+
+test('accept opens the dialog with A upstream, the swap flips it and cancel closes it', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  component.acceptChainSuggestion(suggestion);
+  assert.equal(component.chainSuggest.upstream, 'pv_power');
+  assert.equal(component.chainSuggest.downstream, 'socket_power');
+  assert.equal(component.chainSuggest.label, 'Wechselrichter', 'label is the device name of B');
+  component.chainSuggestSwap();
+  assert.equal(component.chainSuggest.upstream, 'socket_power');
+  component.chainSuggestCancel();
+  assert.equal(component.chainSuggest, null);
+});
+
+test('confirming a pair of free points posts a new chain and closes the dialog', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  component.acceptChainSuggestion(suggestion);
+  component.chainSuggest.label = 'Balkon';
+  await component.chainSuggestSave();
+  const post = chainWriteCalls(calls)[0];
+  assert.equal(post.url, '/api/v1/energy/chains');
+  assert.equal(post.options.method, 'POST');
+  assert.deepEqual(JSON.parse(post.options.body), { label: 'Balkon', points: ['pv_power', 'socket_power'], counting: 'pv_power' });
+  assert.equal(component.chainSuggest, null);
+});
+
+test('an empty name falls back to the default chain name', async () => {
+  const calls = [];
+  const { component, window } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  component.acceptChainSuggestion(suggestion);
+  component.chainSuggest.label = '  ';
+  await component.chainSuggestSave();
+  assert.equal(JSON.parse(chainWriteCalls(calls)[0].options.body).label, window.I18n.t('energy.chains.default_name'));
+});
+
+test('a suggestion for a point of a chain extends that chain with a PUT', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  component.chains = { k1: { label: 'Balkon', points: ['pv_power', 'extra_power'], counting: 'pv_power' } };
+  component.acceptChainSuggestion({ ...suggestion, chain_id: 'k1' });
+  assert.equal(component.chainSuggest.chainId, 'k1');
+  await component.chainSuggestSave();
+  const put = chainWriteCalls(calls)[0];
+  assert.equal(put.options.method, 'PUT');
+  assert.equal(put.url, '/api/v1/energy/chains/k1');
+  assert.deepEqual(JSON.parse(put.options.body).points, ['pv_power', 'socket_power', 'extra_power']);
+});
+
+test('two points in different chains give the conflict toast and send nothing', async () => {
+  const calls = [];
+  const { component, stores, window } = createEnergyPanel({ fetchImpl: suggestFetch({ calls }) });
+  await component.load();
+  component.chains = {
+    k1: { label: 'A', points: ['pv_power', 'extra_power'], counting: 'pv_power' },
+    k2: { label: 'B', points: ['socket_power', 'extra_power'], counting: 'socket_power' },
+  };
+  component.acceptChainSuggestion(suggestion);
+  await component.chainSuggestSave();
+  assert.equal(chainWriteCalls(calls).length, 0);
+  assert.equal(stores.toasts.last(), window.I18n.t('energy.chains.map_conflict'));
+  assert.equal(component.chainSuggest, null);
+});
+
+test('the suggestions refresh every five minutes while the chains section is open', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  const timers = [];
+  const cleared = [];
+  component._setInterval = (fn, ms) => { timers.push(ms); return 7; };
+  component._clearInterval = id => cleared.push(id);
+  component.setOpenSection('chains');
+  assert.deepEqual(timers, [5 * 60 * 1000]);
+  component.setOpenSection('roles');
+  assert.ok(cleared.includes(7), 'closing the section stops the timer');
+});
+
+test('the template shows the suggestions only with a list, the buttons only with edit rights, and mounts the shared dialog', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'energy.html'), 'utf8');
+  assert.ok(html.includes('<template x-if="chainSuggestions.length">'));
+  assert.ok(html.includes('data-tour="energy-chain-suggest"'));
+  assert.ok(html.includes('<template x-if="canEdit">'), 'accept and dismiss need edit rights');
+  assert.ok(html.includes('{{template "chain-suggest-dialog"}}'));
+  assert.ok(html.includes('{{define "chain-suggest-dialog"}}'));
+  assert.ok(html.includes('x-ref="chainSuggestDialog"'));
 });
