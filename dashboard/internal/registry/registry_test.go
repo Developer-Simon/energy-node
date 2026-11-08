@@ -236,6 +236,58 @@ func TestExtractValueJSONNull(t *testing.T) {
 	}
 }
 
+func TestParseValueTemplateTwoSubscripts(t *testing.T) {
+	tests := []struct {
+		name, template  string
+		wantPath        []string
+		wantDefaultZero bool
+	}{
+		{name: "single quotes", template: "{{ value_json.chains['balkon']['loss_w'] }}", wantPath: []string{"chains", "balkon", "loss_w"}},
+		{name: "double quotes", template: `{{ value_json.chains["balkon"]["loss_w"] }}`, wantPath: []string{"chains", "balkon", "loss_w"}},
+		{name: "default zero", template: "{{ value_json.a['b']['c'] | default(0) }}", wantPath: []string{"a", "b", "c"}, wantDefaultZero: true},
+		{name: "one subscript unchanged", template: "{{ value_json.balance['pv'] }}", wantPath: []string{"balance", "pv"}},
+		{name: "plain field unchanged", template: "{{ value_json.x }}", wantPath: []string{"x"}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parsed, ok := parseValueTemplate(test.template)
+			if !ok {
+				t.Fatalf("parseValueTemplate(%q) ok = false", test.template)
+			}
+			if strings.Join(parsed.path, "/") != strings.Join(test.wantPath, "/") {
+				t.Fatalf("path = %v, want %v", parsed.path, test.wantPath)
+			}
+			if parsed.defaultZero != test.wantDefaultZero {
+				t.Fatalf("defaultZero = %v, want %v", parsed.defaultZero, test.wantDefaultZero)
+			}
+		})
+	}
+}
+
+func TestExtractValueTwoSubscripts(t *testing.T) {
+	payload := []byte(`{"chains":{"balkon":{"loss_w":9.5,"efficiency_pct":null}}}`)
+	tests := []struct {
+		name, template, want string
+	}{
+		{name: "number", template: "{{ value_json.chains['balkon']['loss_w'] }}", want: "9.5"},
+		{name: "null", template: "{{ value_json.chains['balkon']['efficiency_pct'] }}", want: ""},
+		{name: "missing chain", template: "{{ value_json.chains['keller']['loss_w'] }}", want: ""},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := extractValue(payload, test.template); got != test.want {
+				t.Fatalf("extractValue() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestTemplateJSONKeyRejectsNestedSubscripts(t *testing.T) {
+	if key, ok := TemplateJSONKey("{{ value_json.chains['balkon']['loss_w'] }}"); ok {
+		t.Fatalf("TemplateJSONKey() = %q, true; want ok false for two subscripts", key)
+	}
+}
+
 func TestRestoreStateExposesRuntimeCacheUntilFreshStateArrives(t *testing.T) {
 	reg := New()
 	reg.UpsertEntity(Discovery{Device: DeviceInfo{ID: "node"}, Entity: EntityInfo{UniqueID: "power", StateTopic: "state/power"}})
