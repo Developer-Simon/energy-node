@@ -93,6 +93,10 @@ type Collector struct {
 	buf    map[string]*minuteSample
 	// devices sind die Teilnehmer der letzten Beobachtung: Entitaet -> Geraete-ID.
 	devices map[string]string
+	// owner ordnet jeder Entitaet das Geraet zu, das sie zuletzt hatte. Anders als
+	// devices wird es nie geleert, damit Suggestions auch nach einem leeren Abschluss
+	// der Minute die Geraete kennt.
+	owner   map[string]string
 	sums    map[pairDay]*sums
 	lastDay int
 
@@ -110,6 +114,7 @@ func NewCollector(th Thresholds, loc *time.Location) *Collector {
 		loc:       loc,
 		buf:       map[string]*minuteSample{},
 		devices:   map[string]string{},
+		owner:     map[string]string{},
 		sums:      map[pairDay]*sums{},
 		dismissed: map[pairKey]bool{},
 	}
@@ -137,6 +142,7 @@ func (c *Collector) Observe(at time.Time, devices []registry.DeviceView) {
 	c.devices = make(map[string]string, len(participants))
 	for id, p := range participants {
 		c.devices[id] = p.device
+		c.owner[id] = p.device
 		s := c.buf[id]
 		if s == nil {
 			s = &minuteSample{}
