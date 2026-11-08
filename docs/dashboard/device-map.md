@@ -98,6 +98,17 @@ value with ≈ and the device the value comes from. Chains are edited on the Ene
 only show their value here and do not count in the balance. Connecting devices
 as a chain needs the permission `edit_energy`.
 
+### Suggested chains
+
+When the node suggests a [measurement chain](energy.md#suggestions) between two
+devices, the map draws a dashed line between them. The line also appears when no
+energy connection exists yet. Entities of the same device get no line. A click on
+the line opens a popover with **Accept** and **Dismiss**. Accept opens the same
+dialog as on the Energy tab, where you check the order and give the chain a name.
+Dismiss hides the suggestion for this pair for good and changes no configuration.
+Without the permission `edit_energy` the popover only shows the suggestion, and the
+buttons stay hidden.
+
 ![Filter menu with one switch per connection type](../images/dashboard-device-map-filter-menu.png)
 
 The filter button next to the view menu hides connection types in this
@@ -231,6 +242,7 @@ positions, the connections, the connection settings such as the type, the flow
 direction and the channel, and restoring a revision. Saving the default view
 needs `edit_device_map_view`. Changing the view in this browser needs no
 permission. Sub-devices and groups still need `edit_energy`, the same permission
-as changing roles. Restoring a revision keeps the saved default view. Until
+as changing roles. Accepting or dismissing a suggested chain needs `edit_energy` as
+well. Restoring a revision keeps the saved default view. Until
 there is a user management every account has these permissions, guests
 included.

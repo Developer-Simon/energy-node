@@ -198,7 +198,45 @@ current value.
 
 The [Efficiency](efficiency.md) tab shows these losses per day and per month,
 the round trip of a storage chain over 30 days, the efficiency curve and the
-diagnosis of the segments.
+diagnosis of the segments. The chains also feed sensors into Home Assistant, see
+[Home Assistant](efficiency.md#home-assistant).
+
+### Suggestions
+
+The node suggests measurement chains by itself. It compares the power entities
+over time. For each pair it takes the mean of the absolute power per minute and
+keeps the last seven days. A minute counts when both entities have a value and
+at least one of them is above 20 W. Stale or unavailable values are skipped, and
+so are the entities of the Energy Node itself. On small devices at most 64
+entities take part, the first 64 by their ID.
+
+A pair becomes a suggestion when all of these hold:
+
+- There are at least 3 days with data and 12 active hours, which is 720 minutes.
+- The correlation of the two series is at least 0.95. With an energy connection
+  between the two devices on the [device map](device-map.md) it is enough to
+  reach 0.90.
+- The mean of the smaller value divided by the mean of the larger one is at least
+  0.7.
+- Both sides vary by at least 10 W.
+- The two series are not duplicates. Two entities that only repeat the same
+  value are not suggested.
+
+Pairs that already stand next to each other in a chain are skipped. When exactly
+one of the two entities is in a chain, the suggestion extends that chain. An
+entity appears in at most one suggestion, and at most 20 suggestions are shown.
+Suggestions with an energy connection come first, then the strongest correlation.
+
+The entity with the higher mean comes first, which is the grid side for a
+consumer or a charger. For a producer the order is the other way round, so the
+dialog has a swap button.
+
+**Accept** opens a short dialog with the order, the swap button and a name for
+the chain. Confirming creates the chain or extends the existing one, the same way
+as a change on this tab. **Dismiss** removes the suggestion for good for this
+pair. It changes no configuration, and the pair does not come back. Accepting and
+dismissing need the permission `edit_energy`. Everyone who may see the Energy tab
+sees the suggestions.
 
 ### Rules
 
