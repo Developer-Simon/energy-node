@@ -66,13 +66,10 @@ const updatesRepo = "Developer-Simon/energy-node"
 // `go run`/`go test` and any build that skips ldflags.
 var buildVersion = "dev"
 
-// startServices nimmt die Dienste nach einem Einspielen wieder auf. Die
-// Verdrahtung mit systemactions.StartServices folgt in einer späteren Aufgabe.
-var startServices = func() error { return nil }
-
 // runBackupApply spielt einen vorgemerkten Import ein und startet danach die
-// Dienste neu. Fehler werden nur protokolliert, der Start läuft weiter.
-func runBackupApply(src backup.Sources) {
+// Dienste über startServices neu. Fehler werden nur protokolliert, der Start
+// läuft weiter.
+func runBackupApply(src backup.Sources, startServices func() error) {
 	res, err := backup.ApplyPending(src)
 	if err != nil {
 		log.Printf("energy-node-dashboard: backup apply: %v", err)
@@ -132,12 +129,13 @@ func main() {
 	devicesDir := cfg.Paths.DevicesDir
 	configManager := config.NewManager(devicesDir)
 	dataDir := cfg.Paths.DataDir
+	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	runBackupApply(backup.Sources{
 		DataDir:       dataDir,
 		DevicesDir:    devicesDir,
 		AppConfigPath: *configPath,
 		BatteryStates: batteryStateFiles(devicesDir),
-	})
+	}, systemExecutor.StartServices)
 	shellyPresetsPath := cfg.ShellyPresets()
 	shellyPresetsStore := shellypresets.NewStore(shellyPresetsPath)
 	configManager.ExcludeName(strings.TrimSuffix(filepath.Base(shellyPresetsPath), ".json"))
@@ -173,7 +171,6 @@ func main() {
 			log.Printf("energy-node-dashboard: Vorgaben aus %s nicht vollständig übernommen: %v", onboarding.SeedFileName, err)
 		}
 	}
-	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	// Nur ein echter Reader im Interface, sonst waere ServiceLogs nie nil.
 	var serviceLogs httpapi.ServiceLogReader
 	if cfg.Dashboard.SystemActionHelper != "" {

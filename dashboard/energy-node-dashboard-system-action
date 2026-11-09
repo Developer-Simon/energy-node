@@ -23,6 +23,11 @@ APP_CONFIG_OWNER="energynode"
 # replaces this line with a stub, so keep the assignment on one line.
 JOURNALCTL="/usr/bin/journalctl"
 
+# systemctl binary for stop-services and start-services. The test
+# scripts/tests/test_system_action_services.sh replaces this line with a
+# stub, so keep the assignment on one line.
+SYSTEMCTL="/bin/systemctl"
+
 # apply_bridge_config installs BRIDGE_STAGED as BRIDGE_TARGET and restarts
 # mosquitto, with two independent defenses against a compromised dashboard
 # process and one rollback path against a working-but-wrong configuration:
@@ -179,6 +184,27 @@ read_journal() {
 }
 
 
+# service_units prints the units that stop-services and start-services act on.
+# Keep the names in step with the units of the read_journal case statement.
+service_units() {
+  printf '%s\n' automation.service battery-soc.service shelly-rpc.service \
+    trucki-http.service tuya.service apsystems-ez1.service
+}
+
+# service_loop VERB runs "systemctl VERB UNIT" for every enabled unit of
+# service_units. A failing unit does not stop the loop; the exit status is 1
+# if any unit failed.
+service_loop() {
+  verb="$1"
+  failed=0
+  for unit in $(service_units); do
+    if "$SYSTEMCTL" is-enabled --quiet "$unit"; then
+      "$SYSTEMCTL" "$verb" "$unit" || failed=1
+    fi
+  done
+  return "$failed"
+}
+
 # The Debian package installs the CLI to /usr/bin, the static tarball
 # install of older nodes to /usr/sbin.
 tailscale_cli() {
@@ -225,6 +251,12 @@ case "$1" in
     ;;
   restart-mosquitto)
     exec /bin/systemctl restart mosquitto
+    ;;
+  stop-services)
+    service_loop stop || exit 1
+    ;;
+  start-services)
+    service_loop start || exit 1
     ;;
   tailscale-up)
     cli="$(tailscale_cli)"
