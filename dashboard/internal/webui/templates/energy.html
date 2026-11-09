@@ -256,7 +256,7 @@
       </div>
     </section>
     <section class="energy-acc" data-energy-section="chains" data-tour="energy-chains" x-bind:data-open="isSectionOpen('chains') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-chains-toggle" data-tour="energy-chains-toggle" aria-controls="energy-acc-chains" x-bind:aria-expanded="isSectionOpen('chains') ? 'true' : 'false'" x-on:click="toggleSection('chains', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-chain"></use></svg></span><span class="energy-acc-title">{{t "energy.chains.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('chains')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-chains-toggle" data-tour="energy-chains-toggle" aria-controls="energy-acc-chains" x-bind:aria-expanded="isSectionOpen('chains') ? 'true' : 'false'" x-on:click="toggleSection('chains', $event)"><span class="energy-acc-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-chain"></use></svg></span><span class="energy-acc-title">{{t "energy.chains.title"}}</span><span class="efficiency-tab-dot" aria-hidden="true" x-show="chainSuggestions.length > 0"></span><span class="visually-hidden" x-show="chainSuggestions.length > 0">{{t "nav.suggestions_open"}}</span><span class="energy-acc-meta" x-text="sectionMeta('chains')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-chains" role="region" aria-labelledby="energy-acc-chains-toggle" x-show="isSectionOpen('chains')" x-cloak>
         <p class="energy-sub-hint">{{t "energy.chains.intro"}}</p>
         <template x-if="chainSuggestions.length">
@@ -403,7 +403,7 @@
       </div>
       <p class="energy-chain-suggest-hint">{{t "energy.chains.suggest.hint"}}</p>
       <button type="button" class="energy-chain-suggest-swap" x-bind:disabled="!canEdit" x-on:click="chainSuggestSwap()">{{t "energy.chains.suggest.swap"}}</button>
-      <label class="energy-chain-suggest-name" x-show="!chainSuggest.chainId">{{t "energy.chains.name_label"}}<input class="energy-groups-name" type="text" x-bind:disabled="!canEdit" x-model="chainSuggest.label"></label>
+      <label class="energy-chain-suggest-name" x-show="!chainSuggest.chainId">{{t "energy.chains.name_label"}}<input class="energy-chain-suggest-name-input" type="text" x-bind:disabled="!canEdit" x-model="chainSuggest.label"></label>
       <div class="energy-actionbar">
         <button type="button" x-on:click="chainSuggestCancel()">{{t "common.cancel"}}</button>
         <button type="button" class="primary" x-bind:disabled="!canEdit || chainSuggestSaving" x-show="!chainSuggest.chainId" x-on:click="chainSuggestSave()">{{t "energy.chains.suggest.create"}}</button>

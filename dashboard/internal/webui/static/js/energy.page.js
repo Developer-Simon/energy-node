@@ -174,6 +174,10 @@
         this.openChain((event.detail && event.detail.id) || '');
       });
       window.addEventListener('registry-updated', () => this.refreshChainStatesLive());
+      // The chains heading shows a dot for open suggestions while the section is closed,
+      // so the suggestions load on init. Changes from the dialog or the dismiss reload them.
+      this.loadChainSuggestions();
+      window.addEventListener('energy-chain-suggestions-changed', () => this.loadChainSuggestions());
     },
 
     async loadSession() {

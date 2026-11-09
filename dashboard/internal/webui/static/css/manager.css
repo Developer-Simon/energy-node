@@ -1508,6 +1508,7 @@ div.devicemap-view-menu-row { cursor: default; }
 .energy-chain-suggest-hint{margin:0;font-size:.85rem;color:var(--text-subtle)}
 .energy-chain-suggest-swap{justify-self:start}
 .energy-chain-suggest-name{display:grid;gap:.3rem;font-size:.85rem;color:var(--text-muted)}
+.energy-chain-suggest-name-input{width:100%;box-sizing:border-box;font:inherit;font-size:1rem;color:var(--text)}
 @media (max-width:640px){
   .energy-chain-suggest-card{grid-template-columns:minmax(0,1fr)}
   .energy-chain-suggest-glyph{display:none}
