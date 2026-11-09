@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,13 +24,15 @@ const backupApplyPath = "/api/v1/backup/import/apply"
 type recordingExec struct {
 	mu      sync.Mutex
 	actions []systemactions.Action
+	// fail liefert den Fehler, den eine Aktion zurückgibt.
+	fail map[systemactions.Action]error
 }
 
 func (e *recordingExec) Execute(_ context.Context, action systemactions.Action) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.actions = append(e.actions, action)
-	return nil
+	return e.fail[action]
 }
 
 func (e *recordingExec) recorded() []systemactions.Action {
@@ -89,6 +92,99 @@ func TestApplyStopsServicesThenRestarts(t *testing.T) {
 	}
 	if job := f.jobs.Status(); job.Error != "" || job.Result == "" {
 		t.Fatalf("job %+v, want result and no error", job)
+	}
+}
+
+// envTestConfig ist eine vollständige Konfiguration mit dem MQTT-Host host, wie sie das Einspielen zusammenführt.
+func envTestConfig(host string) string {
+	return strings.Replace(`{
+  "schema_version": 2,
+  "mqtt": {"host": "127.0.0.1", "port": 1883, "username": "energynode_client", "password_file": "/etc/energy-node/mqtt.pw"},
+  "paths": {"devices_dir": "/home/energynode/devices", "data_dir": "/home/energynode/dashboard/data"},
+  "logging": {"level": "INFO"},
+  "services": {
+    "apsystems": {"service_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10},
+    "shelly": {"service_id": "shelly", "poll_interval_s": 20, "diagnostic_poll_multiplier": 15, "http_timeout_s": 5},
+    "trucki": {"service_id": "trucki", "poll_interval_s": 30, "diagnostic_poll_multiplier": 10, "http_timeout_s": 5},
+    "tuya": {"service_id": "tuya", "poll_interval_s": 30, "diagnostic_poll_multiplier": 1},
+    "battery_soc": {"service_id": "battery_soc", "poll_interval_s": 10, "diagnostic_poll_multiplier": 1},
+    "automation": {"service_id": "automation"}
+  },
+  "dashboard": {
+    "bind_address": "0.0.0.0", "port": 8080, "client_id": "energy-node-dashboard",
+    "device_identifier": "energy-node-dashboard", "log_level": "info", "sweep_interval_seconds": 300,
+    "admin_username": "admin", "admin_password_file": "/etc/energy-node-dashboard/auth.pw",
+    "tls": {"cert_file": "", "key_file": ""},
+    "system_action_helper": "/usr/local/sbin/energy-node-dashboard-system-action",
+    "mosquitto_bridge_target": "/etc/mosquitto/conf.d/bridge.conf",
+    "node_device_id": "energy_node", "node_device_name": "Energy Node",
+    "node_poll_interval_s": 60, "node_diagnostic_poll_multiplier": 10
+  },
+  "tailscale": {"bin": "/usr/sbin/tailscale", "status_timeout_s": 10},
+  "tinytuya": {"probe_python": "/usr/bin/python3", "probe_script": "/home/energynode/tuya_mqtt/tinytuya_probe.py", "probe_timeout_s": 30}
+}`, `"host": "127.0.0.1"`, `"host": "`+host+`"`, 1)
+}
+
+func TestApplyStagesEnvironmentBetweenStopAndRestart(t *testing.T) {
+	f := newBackupFixture(t)
+	importer := f.user("importer", auth.RoleBackupImport)
+	exec := &recordingExec{}
+	f.deps.Exec = exec
+
+	dir := t.TempDir()
+	archiveCfg := filepath.Join(dir, "archive.json")
+	liveCfg := filepath.Join(dir, "live.json")
+	if err := os.WriteFile(archiveCfg, []byte(envTestConfig("10.0.0.5")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(liveCfg, []byte(envTestConfig("127.0.0.1")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f.deps.Sources.AppConfigPath = liveCfg
+	var buf bytes.Buffer
+	opts := backup.CreateOptions{Areas: map[backup.Area]bool{backup.AreaSettings: true}, Trigger: "manual", NodeVersion: "1.0.0"}
+	sources := backup.Sources{DataDir: f.dataDir, DevicesDir: t.TempDir(), AppConfigPath: archiveCfg}
+	if _, err := backup.Create(context.Background(), sources, opts, &buf); err != nil {
+		t.Fatal(err)
+	}
+	f.uploadArchive(buf.Bytes(), importer)
+
+	rec := f.importRequest(backupApplyPath, "application/json", "", []byte(`{"areas":{"settings":true},"use_archive":{"broker":true}}`), importer)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("apply status %d: %s", rec.Code, rec.Body.String())
+	}
+	f.waitIdle()
+	if job := f.jobs.Status(); job.Error != "" {
+		t.Fatalf("job error %q", job.Error)
+	}
+	want := []systemactions.Action{systemactions.StopServices, systemactions.ApplyAppConfig, systemactions.RestartDashboard}
+	if got := exec.recorded(); !slices.Equal(got, want) {
+		t.Fatalf("actions %v, want %v", got, want)
+	}
+}
+
+func TestApplyRestartFailureRestartsServices(t *testing.T) {
+	f := newBackupFixture(t)
+	importer := f.user("importer", auth.RoleBackupImport)
+	exec := &recordingExec{fail: map[systemactions.Action]error{systemactions.RestartDashboard: errors.New("systemd busy")}}
+	f.deps.Exec = exec
+	f.uploadArchive(importArchive(t, f, "1.0.0", ""), importer)
+
+	rec := f.importRequest(backupApplyPath, "application/json", "", []byte(`{"areas":{"settings":true}}`), importer)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("apply status %d: %s", rec.Code, rec.Body.String())
+	}
+	f.waitIdle()
+
+	if job := f.jobs.Status(); job.Error == "" {
+		t.Fatal("job error empty after failed restart")
+	}
+	want := []systemactions.Action{systemactions.StopServices, systemactions.RestartDashboard, systemactions.StartServices}
+	if got := exec.recorded(); !slices.Equal(got, want) {
+		t.Fatalf("actions %v, want %v", got, want)
+	}
+	if _, err := os.Stat(filepath.Join(f.dataDir, "backup-pending")); err == nil {
+		t.Fatal("backup-pending left behind after failed restart")
 	}
 }
 

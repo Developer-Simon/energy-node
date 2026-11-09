@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -140,22 +141,29 @@ func (d *BackupDeps) runApply(ctx context.Context, phase func(int), session *bac
 	if err := backup.WritePending(d.DataDir, session.staging, pending); err != nil {
 		return "", d.abortApply(ctx, err)
 	}
-	if merged != nil {
-		if err := systemactions.StageAndApplyAppConfig(ctx, d.Exec, d.DataDir, merged); err != nil {
-			return "", d.abortApply(ctx, err)
-		}
-	}
 
+	// Stoppen kommt vor der Konfiguration in /etc: scheitert es, bleibt /etc unverändert.
 	phase(2)
 	if err := d.Exec.Execute(ctx, systemactions.StopServices); err != nil {
 		return "", d.abortApply(ctx, err)
 	}
+	if merged != nil {
+		if err := systemactions.StageAndApplyAppConfig(ctx, d.Exec, d.DataDir, merged); err != nil {
+			return "", d.abortApply(ctx, fmt.Errorf("Die Konfiguration konnte nicht übernommen werden: %w", err))
+		}
+	}
 
 	phase(3)
-	// Ab hier startet der Neustart das Einspielen. Ein Fehler lässt pending.json stehen.
-	err = d.Exec.Execute(ctx, systemactions.RestartDashboard)
+	if err := d.Exec.Execute(ctx, systemactions.RestartDashboard); err != nil {
+		cause := fmt.Errorf("Der Neustart ist fehlgeschlagen: %w", err)
+		if merged != nil {
+			cause = fmt.Errorf("Der Neustart ist fehlgeschlagen, die Konfiguration in /etc/energy-node/config.json ist bereits geändert: %w", err)
+		}
+		return safetyID, d.abortApply(ctx, cause)
+	}
+	// Ab hier startet der Neustart das Einspielen.
 	d.dropImport()
-	return safetyID, err
+	return safetyID, nil
 }
 
 // preImportArchive legt die Sicherung des aktuellen Stands vor dem Einspielen an.
