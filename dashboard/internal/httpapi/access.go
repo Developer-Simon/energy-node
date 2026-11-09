@@ -100,6 +100,8 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/backup/archives":          {group: groupOpen},
 	"/api/v1/backup/archives/":         {group: groupOpen},
 	"/api/v1/backup/job":               {group: groupOpen},
+	"/api/v1/backup/import":            {group: groupOpen},
+	"/api/v1/backup/import/unlock":     {group: groupOpen},
 
 	// anyView
 	"/api/v1/events":                     {group: groupAnyView},

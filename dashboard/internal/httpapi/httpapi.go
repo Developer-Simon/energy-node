@@ -385,6 +385,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/backup/archives", backupDeps.handleArchives(dependencies.Auth))
 		g.HandleFunc("/api/v1/backup/archives/", backupDeps.handleArchive(dependencies.Auth))
 		g.HandleFunc("/api/v1/backup/job", backupDeps.handleJob(dependencies.Auth))
+		g.HandleFunc("/api/v1/backup/import", backupDeps.handleImport(dependencies.Auth))
+		g.HandleFunc("/api/v1/backup/import/unlock", backupDeps.handleImportUnlock(dependencies.Auth))
 	}
 	if dependencies.AppConfigPath != "" {
 		g.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))

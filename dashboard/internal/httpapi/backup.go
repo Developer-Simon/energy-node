@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -59,6 +60,12 @@ type BackupDeps struct {
 	Scheduler *backup.Scheduler
 	// Now liefert die Uhrzeit, Standard time.Now.
 	Now func() time.Time
+	// importMu schützt die Importsitzung und den Upload eines wartenden Imports.
+	importMu sync.Mutex
+	// importSession ist das zuletzt entpackte Archiv, nil ohne Sitzung.
+	importSession *backupImportSession
+	// importPending meldet, dass ein Upload auf das Passwort wartet.
+	importPending bool
 }
 
 // backupStatus ist die Antwort von GET /api/v1/backup/status.
@@ -212,7 +219,7 @@ func (d *BackupDeps) handleStatus(manager *auth.Manager) http.HandlerFunc {
 		if _, ok := backupAccess(w, r, manager, auth.RoleBackupExport, auth.RoleBackupImport); !ok {
 			return
 		}
-		d.cleanupDownloads(d.now())
+		d.cleanupStaging(d.now())
 
 		status := backupStatus{Settings: d.settings(), Archives: []backup.Info{}, Areas: d.areaSizes()}
 		store, place, err := d.archiveStore()
@@ -294,6 +301,7 @@ func (d *BackupDeps) handleSettings(manager *auth.Manager) http.HandlerFunc {
 		if !ok {
 			return
 		}
+		d.cleanupStaging(d.now())
 		// Der Körper legt sich über die gespeicherten Einstellungen. Fehlende
 		// Felder behalten ihren Wert. Ein mitgeschicktes Content-Objekt ersetzt
 		// das gespeicherte ganz.
@@ -391,7 +399,7 @@ func (d *BackupDeps) handleArchives(manager *auth.Manager) http.HandlerFunc {
 				return
 			}
 		} else {
-			d.cleanupDownloads(d.now())
+			d.cleanupStaging(d.now())
 			id = d.newDownloadID()
 		}
 
@@ -566,6 +574,7 @@ func (d *BackupDeps) handleJob(manager *auth.Manager) http.HandlerFunc {
 		if _, ok := backupAccess(w, r, manager, auth.RoleBackupExport, auth.RoleBackupImport); !ok {
 			return
 		}
+		d.cleanupStaging(d.now())
 		var status backup.JobStatus
 		if d.Jobs != nil {
 			status = d.Jobs.Status()
