@@ -7,6 +7,7 @@
 #   demo/demo.sh --reset             # Zustand loeschen, dann neu einrichten
 #   demo/demo.sh --docs              # Fixture fuer die Doku-Bilder, Zustand in demo/.run/docs
 #   demo/demo.sh --no-simulate       # PV, Netz, Batterie und Last bleiben stehen
+#   demo/demo.sh --new-cert          # TLS-Zertifikat neu erzeugen, Zustand bleibt
 #   demo/demo.sh --devices DIR       # zusaetzliche Konfigurationen, spaetere Quelle gewinnt
 #   demo/demo.sh --stop              # laufende Demo beenden (mit --docs: die Docs-Instanz)
 #
@@ -19,17 +20,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/env.sh"
 
 usage() {
-  echo "Aufruf: demo/demo.sh [--reset] [--docs] [--no-simulate] [--devices DIR]... | --stop [--docs]" >&2
+  echo "Aufruf: demo/demo.sh [--reset] [--new-cert] [--docs] [--no-simulate] [--devices DIR]... | --stop [--docs]" >&2
 }
 
 MODE=demo
 RESET=0
+NEW_CERT=0
 STOP=0
 SIMULATE=1
 EXTRA_DEVICES=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --reset) RESET=1; shift ;;
+    --new-cert) NEW_CERT=1; shift ;;
     --stop) STOP=1; shift ;;
     --docs) MODE=docs; shift ;;
     --no-simulate) SIMULATE=0; shift ;;
@@ -160,6 +163,11 @@ if [[ "$MODE" == demo ]]; then
 fi
 env_installed_state || exit 1
 env_make_package || exit 1
+# --new-cert verwirft das vorhandene Zertifikat, env_write_cert legt dann ein
+# neues an. Mit --reset ist das ohnehin der Fall, weil WORK geleert wird.
+if [[ "$NEW_CERT" == "1" ]]; then
+  rm -f "$WORK/tls.crt" "$WORK/tls.key"
+fi
 env_write_cert || exit 1
 env_prepare_devices || exit 1
 env_write_config || exit 1
