@@ -1256,6 +1256,7 @@
   "backup.preview.forbidden": "Needs the permission for access data",
   "backup.preview.note.battery": "An old state can differ from the real charge level. The battery may need to be calibrated again afterwards.",
   "backup.preview.note.stats": "Is merged with the existing hours.",
+  "backup.preview.passwords_kept": "Passwords are not in the archive. The existing passwords are kept.",
   "backup.preview.same": "Unchanged",
   "backup.preview.secrets_users_only": "No MQTT, bridge or TinyTuya credentials in the archive. The user passwords are included.",
   "backup.run.failed": "The backup could not be created.",

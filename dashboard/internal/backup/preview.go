@@ -32,6 +32,9 @@ type AreaPreview struct {
 	Changes   []Change
 	Size      int64
 	Count     int
+	// PasswordsKept ist true, wenn die users.json im Archiv ohne Zugangsdaten ist.
+	// Die vorhandenen Passwörter bleiben beim Wiederherstellen erhalten.
+	PasswordsKept bool
 }
 
 // previewAreas legt die Reihenfolge der Bereiche in der Vorschau fest.
@@ -104,6 +107,15 @@ func Preview(stagingDir string, src Sources) ([]AreaPreview, error) {
 					return nil, err
 				}
 				p.Changes = append(p.Changes, changes...)
+			}
+		}
+		if area == AreaUsers {
+			if s, ok := staged[usersArchiveName]; ok {
+				data, err := os.ReadFile(s.path)
+				if err != nil {
+					return nil, err
+				}
+				p.PasswordsKept = usersWithoutSecrets(data)
 			}
 		}
 		out = append(out, p)
@@ -264,6 +276,12 @@ func fileChanges(name string, s, l archiveFile, inArchive, inLive bool) ([]Chang
 		if bytes.Equal(sData, lData) {
 			return nil, nil
 		}
+		if name == usersArchiveName && usersWithoutSecrets(sData) {
+			// Ohne Zugangsdaten im Archiv zählen die Hashes des aktuellen Stands nicht als Änderung.
+			if stripped, err := StripUserSecrets(lData); err == nil {
+				lData = stripped
+			}
+		}
 		if specs := entrySpecs(name); len(specs) > 0 {
 			if changes, ok := entryChanges(specs, sData, lData); ok {
 				return changes, nil
@@ -283,6 +301,16 @@ func fileChanges(name string, s, l archiveFile, inArchive, inLive bool) ([]Chang
 		return []Change{{Kind: "new", Label: name}}, nil
 	}
 	return []Change{{Kind: "del", Label: name}}, nil
+}
+
+// usersWithoutSecrets meldet, ob users.json keine Passwort-Hashes und keine
+// Companion-Kopplung enthält, also so aussieht, wie StripUserSecrets es erzeugt.
+func usersWithoutSecrets(data []byte) bool {
+	stripped, err := StripUserSecrets(data)
+	if err != nil {
+		return false
+	}
+	return sameJSON(data, stripped)
 }
 
 // sameFileStreamed vergleicht zwei Dateien über Größe und sha256, ohne sie ganz in den Speicher zu lesen.

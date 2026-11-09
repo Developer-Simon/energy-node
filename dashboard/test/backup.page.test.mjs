@@ -588,3 +588,32 @@ test('the preview keeps the absent text when the manifest has no secrets', async
   const secrets = page.previewAreas.find((area) => area.key === 'secrets');
   assert.equal(secrets.summary, de['backup.preview.absent']);
 });
+
+test('the users area names the kept passwords when the archive has none', async () => {
+  const answer = previewAnswer();
+  answer.areas[2] = { ...answer.areas[2], passwords_kept: true };
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, answer),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openImport();
+  await page.readFile({ name: 'archiv.tar.gz' });
+  const users = page.previewAreas.find((area) => area.key === 'users');
+  assert.equal(users.note, de['backup.preview.passwords_kept']);
+  assert.equal(users.summary, de['backup.preview.same'], 'no other user changes leave the unchanged text');
+});
+
+test('the users area has no kept-passwords note when the archive carries passwords', async () => {
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, previewAnswer()),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openImport();
+  await page.readFile({ name: 'archiv.tar.gz' });
+  const users = page.previewAreas.find((area) => area.key === 'users');
+  assert.equal(users.note, '');
+});

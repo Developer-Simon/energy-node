@@ -409,8 +409,13 @@
           kindLabel: t(CHANGE_KINDS[change.kind] || CHANGE_KINDS.mod),
           text: this.changeText(change),
         })),
-        note: AREA_NOTES[key] ? t(AREA_NOTES[key]) : '',
+        note: this.areaNote(item),
       };
+    },
+    // The users note says that the existing passwords stay when the archive has none.
+    areaNote(item) {
+      if (item.passwords_kept) return t('backup.preview.passwords_kept');
+      return AREA_NOTES[item.area] ? t(AREA_NOTES[item.area]) : '';
     },
     areaSummary(item, forbidden, secretsInArchive) {
       if (forbidden) return t('backup.preview.forbidden');

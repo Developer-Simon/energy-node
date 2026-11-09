@@ -199,3 +199,67 @@ func TestPreviewLargeFileComparesBytesNotJSON(t *testing.T) {
 		t.Fatalf("Changes = %+v, want %+v", got.Changes, want)
 	}
 }
+
+// usersStrippedArchive ist eine users.json ohne Zugangsdaten, so wie ein Archiv ohne Passwörter sie enthält.
+const usersStrippedArchive = `{"version":1,"users":[{"username":"simon","roles":["user_management"],"disabled":false},{"username":"anna","roles":["view"],"disabled":false}]}`
+
+// usersLiveWithSecrets ist der aktuelle Stand mit Hashes und Companion-Kopplung für dieselben Benutzer.
+const usersLiveWithSecrets = `{"version":1,"users":[{"username":"simon","password_hash":"pw-simon","http_password_hash":"http-simon","roles":["user_management"],"disabled":false},{"username":"anna","password_hash":"pw-anna","roles":["view"],"disabled":false}],"companion":{"label":"Home Assistant","token_hash":"companion-hash"}}`
+
+func TestPreviewUsersWithoutPasswordsShowNoChange(t *testing.T) {
+	staging, src := previewFixture(t)
+	writeFile(t, staging, "data/users.json", usersStrippedArchive)
+	writeFile(t, src.DataDir, "users.json", usersLiveWithSecrets)
+
+	previews, err := Preview(staging, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := findPreview(t, previews, AreaUsers)
+	if len(got.Changes) != 0 {
+		t.Fatalf("Changes = %+v, want none", got.Changes)
+	}
+	if !got.PasswordsKept {
+		t.Fatal("PasswordsKept = false, want true for a stripped users file")
+	}
+}
+
+func TestPreviewUsersWithoutPasswordsStillShowsRealChange(t *testing.T) {
+	staging, src := previewFixture(t)
+	changed := `{"version":1,"users":[{"username":"simon","roles":["view"],"disabled":false},{"username":"anna","roles":["view"],"disabled":false}]}`
+	writeFile(t, staging, "data/users.json", changed)
+	writeFile(t, src.DataDir, "users.json", usersLiveWithSecrets)
+
+	previews, err := Preview(staging, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := findPreview(t, previews, AreaUsers)
+	want := []Change{{Kind: "mod", Label: "data/users.json"}}
+	if !reflect.DeepEqual(got.Changes, want) {
+		t.Fatalf("Changes = %+v, want %+v", got.Changes, want)
+	}
+	if !got.PasswordsKept {
+		t.Fatal("PasswordsKept = false, want true for a stripped users file")
+	}
+}
+
+func TestPreviewUsersWithPasswordsComparesRaw(t *testing.T) {
+	staging, src := previewFixture(t)
+	archive := strings.Replace(usersLiveWithSecrets, "pw-anna", "pw-anna-neu", 1)
+	writeFile(t, staging, "data/users.json", archive)
+	writeFile(t, src.DataDir, "users.json", usersLiveWithSecrets)
+
+	previews, err := Preview(staging, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := findPreview(t, previews, AreaUsers)
+	want := []Change{{Kind: "mod", Label: "data/users.json"}}
+	if !reflect.DeepEqual(got.Changes, want) {
+		t.Fatalf("Changes = %+v, want %+v", got.Changes, want)
+	}
+	if got.PasswordsKept {
+		t.Fatal("PasswordsKept = true, want false when the archive carries passwords")
+	}
+}

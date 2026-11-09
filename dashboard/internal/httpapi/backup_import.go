@@ -56,6 +56,8 @@ type backupImportArea struct {
 	Count     int                  `json:"count"`
 	Size      int64                `json:"size"`
 	Changes   []backupImportChange `json:"changes"`
+	// PasswordsKept meldet users.json ohne Zugangsdaten im Archiv.
+	PasswordsKept bool `json:"passwords_kept"`
 }
 
 type backupImportChange struct {
@@ -291,7 +293,7 @@ func (d *BackupDeps) importResponse(m backup.Manifest) (backupImportResponse, er
 		DifferentDevice: m.Hostname != host,
 	}
 	for _, a := range areas {
-		item := backupImportArea{Area: a.Area, Available: a.Available, Count: a.Count, Size: a.Size, Changes: []backupImportChange{}}
+		item := backupImportArea{Area: a.Area, Available: a.Available, Count: a.Count, Size: a.Size, Changes: []backupImportChange{}, PasswordsKept: a.PasswordsKept}
 		for _, c := range a.Changes {
 			item.Changes = append(item.Changes, backupImportChange{Kind: c.Kind, Label: c.Label, Name: c.Name})
 		}

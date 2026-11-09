@@ -1256,6 +1256,7 @@
   "backup.preview.forbidden": "Braucht die Berechtigung für Zugangsdaten",
   "backup.preview.note.battery": "Ein alter Stand kann vom echten Füllstand abweichen. Die Batterie muss danach eventuell neu kalibriert werden.",
   "backup.preview.note.stats": "Wird mit den vorhandenen Stunden zusammengeführt.",
+  "backup.preview.passwords_kept": "Passwörter sind nicht im Archiv. Die vorhandenen Passwörter bleiben erhalten.",
   "backup.preview.same": "Unverändert",
   "backup.preview.secrets_users_only": "Keine MQTT-, Bridge- oder TinyTuya-Zugangsdaten im Archiv. Die Passwörter der Benutzer sind enthalten.",
   "backup.run.failed": "Das Backup konnte nicht erstellt werden.",
