@@ -200,6 +200,8 @@
     steps: [],
     index: 0,
     finished: null,
+    // Die Begruessung fragt vor dem Schliessen, ob sie spaeter wiederkommen soll.
+    askWelcome: false,
     // Zahl ungesehener Neuerungen beim Wegklicken der Start-Notiz, null solange nicht weggeklickt.
     newsNoteDismissed: newsNoteDismissedHere(),
 
@@ -404,6 +406,7 @@
       this.index = Math.min(index, steps.length - 1);
       this.run = { mode, from, index: this.index, all: Boolean(all) };
       this.finished = null;
+      this.askWelcome = false;
       this.active = true;
       this.runId += 1;
       this.persistRun();
@@ -528,6 +531,13 @@
         return;
       }
       const mode = this.mode;
+      // Die Begruessung laesst sich nirgends wiederholen. Vor dem Schliessen fragt die
+      // Leiste, ob sie wiederkommen soll. Ein zweites Schliessen gilt als spaeter.
+      if (mode === 'welcome') {
+        if (this.askWelcome) this.welcomeLater();
+        else this.askWelcome = true;
+        return;
+      }
       if (mode === 'setup') {
         this.setupDone = true;
         void this.completeSetup();
@@ -536,14 +546,25 @@
       const key = mode === 'setup' ? 'onboarding.toast.setup_skipped' : 'onboarding.toast.tour_ended';
       window.Alpine.store('toasts')?.push(t(key), 'info');
     },
+    // Antworten auf die Frage der Begruessung. Spaeter: nichts gemerkt, sie beginnt beim
+    // naechsten Laden von vorn. Nicht mehr: gilt wie das vollstaendige Ende.
+    welcomeLater() {
+      this.close();
+    },
+    welcomeNever() {
+      this.markWelcomed();
+      this.close();
+    },
     // Leiste schliessen, ohne den Lauf am Server zu loeschen. Er startet beim Neuladen wieder.
     postpone() {
       this.active = false;
+      this.askWelcome = false;
       this.finished = null;
       this.steps = [];
     },
     close() {
       this.active = false;
+      this.askWelcome = false;
       this.run = null;
       this.finished = null;
       this.steps = [];
@@ -608,6 +629,13 @@
         this.swapIn();
         void window.obActions.next(this.actions, []);
         this.actions = null;
+      });
+      // Die Frage der Begruessung steht ohne Ziel: Spotlight weg, Leiste offen.
+      this.$watch('$store.onboarding.askWelcome', (asking) => {
+        if (!asking) return;
+        this.spot.hide();
+        this.setCollapsed(false);
+        this.swapIn();
       });
       window.matchMedia(PHONE).addEventListener('change', () => { this.sheet.set({ y: 0 }); this.collapsed = false; this.left = false; });
       // Die Fensterbreite aendert den Umbruch der Punkte, deshalb neu messen.

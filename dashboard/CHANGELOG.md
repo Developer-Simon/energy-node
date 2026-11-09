@@ -1,12 +1,14 @@
 # Changelog
 
-## v0.11.9-pre.4 (2026-11-06)
+## v0.11.10-pre.4 (2026-11-06)
 
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217) (bcf1b75)
 - **energy:** Measurement chains now learn their normal loss and efficiency curve. The Efficiency tab shows the curve with the best range and the current power, and a diagnosis lists drift, frozen values, contradicting points and wrong signs or units. Substitute values are corrected by the learned loss, and findings show up on the energy page, in the diagnostics and on the device map. (#223) (4871a1c)
+- **automation:** react to measurement chains in automations (#226) (0066f15)
+- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **energy:** publish chain signals for automations (0794abe)
 - **automation:** fire once per chain finding and allow short scenarios (2de51bf)
 - **automation:** keep the regulator in the best efficiency range of a chain (c7fc843)
@@ -15,8 +17,6 @@
 - **dashboard:** switch the regulator to the best efficiency range (b299159)
 - **dashboard:** add watchdog and standby templates for chains (93bfbf4)
 - **dashboard:** add tour targets for chain automations (e0dd681)
-- **automation:** react to measurement chains in automations (#226)
-- **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **energy:** add the chain insight model and segment tolerances (2f4277a)
 - **energy:** validate and keep chain tolerances (e593f21)
 - **energy:** correct substitute values by the learned loss (fbd6032)
@@ -74,17 +74,18 @@
 
 ### Fixes
 
-- **dashboard:** make the duration unit reactive and limit chain value comparisons (152f242)
-- **dashboard:** use a single time for the standby switch-on window (0dd79e7)
-- **dashboard:** ignore a regulator report of another chain (8e4d6e8)
-- **dashboard:** add the German schema text for the regulator efficiency option (13db1b0)
-- **dashboard:** lay out chain conditions like the balance condition (4df12a3)
+- **onboarding:** ask before closing the welcome tour (#227) (9f42972)
 - **tailscale:** find the CLI of the Debian package in /usr/bin (#225) (50c65b3)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 - **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
 - **dashboard:** stop flagging retained discovery as not retained (#219) (65463a6)
 - **history:** stop exchange requests for the 1h resolution (#205) (81aa4a5)
 - **dashboard:** animate updated values on the diagnostics page (#213) (8ba52c1)
+- **dashboard:** make the duration unit reactive and limit chain value comparisons (152f242)
+- **dashboard:** use a single time for the standby switch-on window (0dd79e7)
+- **dashboard:** ignore a regulator report of another chain (8e4d6e8)
+- **dashboard:** add the German schema text for the regulator efficiency option (13db1b0)
+- **dashboard:** lay out chain conditions like the balance condition (4df12a3)
 - **energy:** use the 5 W floor for the learned normal band (4ae44bc)
 - **dashboard:** hide the chain arrow after the last point on narrow screens (ee29a24)
 - **dashboard:** drop the dead-end arrow after the last chain point on phones (1961b3e)

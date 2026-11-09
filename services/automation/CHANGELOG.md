@@ -4,19 +4,19 @@
 
 ### Features
 
-- **automation:** react to measurement chains in automations (#226)
+- **automation:** react to measurement chains in automations (#226) (0066f15)
 
-## v0.7.2 (2026-11-07)
+## v0.7.2 (2026-10-27)
 
 ### Features
 
+- **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
+- **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
+- **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
 - **automation:** validate chain finding and chain value conditions (67b3be7)
 - **automation:** evaluate chain finding and chain value conditions (237f531)
 - **automation:** fire once per chain finding and allow short scenarios (2de51bf)
 - **automation:** keep the regulator in the best efficiency range of a chain (c7fc843)
-- **automations:** A template assistant creates scenarios and rules from a few questions, with five templates such as zero feed-in and surplus charging. (#166) (2011db4)
-- **automations:** New assistant templates for heat pump, low tariff charging, grid cap, §14a control signal, heating rod and missing PV yield. (#172) (b9759f5)
-- **automation:** Automation windows can be limited to days of the month. (#175) (c658804)
 - **automation:** Automation rules can repeat their actions while their conditions hold. (#163) (1f30b74)
 - **automation:** month days for windows and a stale comparison (9de52d4)
 - **automation:** minimum run time and pause for scenarios (16bade7)

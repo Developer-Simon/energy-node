@@ -4,7 +4,7 @@
 
 ### Features
 
-- **automation:** react to measurement chains in automations (#226)
+- **automation:** react to measurement chains in automations (#226) (0066f15)
 
 ### Refactors
 

@@ -322,7 +322,7 @@
   <script src="{{.BasePath}}/static/js/onboarding-model.js?v=5" defer></script>
   <script src="{{.BasePath}}/static/js/highlight-details.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/onboarding-steps.js?v=3" defer></script>
-  <script src="{{.BasePath}}/static/js/onboarding.js?v=6" defer></script>
+  <script src="{{.BasePath}}/static/js/onboarding.js?v=7" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine.min.js" defer></script>
@@ -484,7 +484,7 @@
           <span class="ob-bar-grab" aria-hidden="true"></span>
           <span class="ob-bar-eyebrow" x-text="$store.onboarding.finished ? $t('onboarding.bar.checklist') : step?.eyebrow"></span>
         </div>
-        <button type="button" class="ob-btn ob-btn--primary ob-bar-peek" x-show="collapsed && !$store.onboarding.finished"
+        <button type="button" class="ob-btn ob-btn--primary ob-bar-peek" x-show="collapsed && !$store.onboarding.finished && !$store.onboarding.askWelcome"
                 x-on:click="next()" x-text="primaryLabel"></button>
         <button type="button" class="ob-bar-close" x-bind:aria-label="closeLabel" x-bind:title="closeLabel"
                 x-show="!$store.onboarding.finished" x-on:click="$store.onboarding.skip()">
@@ -492,7 +492,7 @@
         </button>
 
         <div class="ob-bar-body" x-ref="body">
-          <template x-if="!$store.onboarding.finished">
+          <template x-if="!$store.onboarding.finished && !$store.onboarding.askWelcome">
             <div class="ob-bar-copy">
               <h2 class="ob-bar-title" id="ob-bar-title" x-text="step?.title"></h2>
               <p class="ob-bar-text" x-text="step?.text"></p>
@@ -524,30 +524,42 @@
               <p class="ob-bar-text" x-text="$store.onboarding.finished.text"></p>
             </div>
           </template>
+          <template x-if="$store.onboarding.askWelcome">
+            <div class="ob-bar-copy">
+              <h2 class="ob-bar-title" id="ob-bar-title">{{t "onboarding.welcome_close.title"}}</h2>
+              <p class="ob-bar-text">{{t "onboarding.welcome_close.text"}}</p>
+            </div>
+          </template>
         </div>
 
         <div class="ob-bar-foot">
-          <div class="ob-dots" x-ref="dots" aria-hidden="true" x-show="!$store.onboarding.finished && (step?.dots || 0) > 1">
+          <div class="ob-dots" x-ref="dots" aria-hidden="true" x-show="!$store.onboarding.finished && !$store.onboarding.askWelcome && (step?.dots || 0) > 1">
             <template x-for="i in (step?.dots || 0)" x-bind:key="i">
               <i x-bind:class="'is-' + dotState(i - 1)"></i>
             </template>
             <span class="ob-dots-thumb" x-bind:style="'transform:' + dotTransform + (dotReady ? '' : ';transition:none')"></span>
           </div>
           <div class="ob-bar-actions">
-            <template x-if="!$store.onboarding.finished">
+            <template x-if="!$store.onboarding.finished && !$store.onboarding.askWelcome">
               <button type="button" class="ob-btn" x-show="!done && !step?.intro" x-on:click="later()">{{t "onboarding.bar.later"}}</button>
             </template>
-            <template x-if="!$store.onboarding.finished">
+            <template x-if="!$store.onboarding.finished && !$store.onboarding.askWelcome">
               <button type="button" class="ob-btn" x-show="step?.intro" x-on:click="nextTime()">{{t "onboarding.bar.next_time"}}</button>
             </template>
             <template x-if="$store.onboarding.finished">
               <button type="button" class="ob-btn" x-on:click="checklist()">{{t "onboarding.bar.checklist"}}</button>
             </template>
-            <button type="button" class="ob-btn ob-btn--primary" x-on:click="next()"
+            <template x-if="$store.onboarding.askWelcome">
+              <button type="button" class="ob-btn" x-on:click="$store.onboarding.welcomeNever()">{{t "onboarding.welcome_close.never"}}</button>
+            </template>
+            <template x-if="$store.onboarding.askWelcome">
+              <button type="button" class="ob-btn ob-btn--primary" x-on:click="$store.onboarding.welcomeLater()">{{t "onboarding.welcome_close.later"}}</button>
+            </template>
+            <button type="button" class="ob-btn ob-btn--primary" x-show="!$store.onboarding.askWelcome" x-on:click="next()"
                     x-text="$store.onboarding.finished ? ($store.onboarding.queue.length ? $t('onboarding.bar.next_whatsnew') : $t('onboarding.bar.close')) : primaryLabel"></button>
           </div>
         </div>
-        <button type="button" class="ob-link ob-bar-more" x-show="!$store.onboarding.finished" x-on:click="checklist()">
+        <button type="button" class="ob-link ob-bar-more" x-show="!$store.onboarding.finished && !$store.onboarding.askWelcome" x-on:click="checklist()">
           <span x-text="checklistLabel"></span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg>
         </button>
