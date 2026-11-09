@@ -538,7 +538,7 @@
               </div>
               <div class="bs-archive-actions">
                 {{if index .Can "backup_export"}}
-                <button type="button" class="icon-button" title="{{t "backup.archives.download"}}" aria-label="{{t "backup.archives.download"}}"><svg class="automation-icon"><use href="#ico-download"></use></svg></button>
+                <button type="button" class="icon-button" title="{{t "backup.archives.download"}}" aria-label="{{t "backup.archives.download"}}" x-on:click="downloadArchive(item)"><svg class="automation-icon"><use href="#ico-download"></use></svg></button>
                 {{end}}
                 {{if index .Can "backup_import"}}
                 <button type="button" class="icon-button labeled" x-on:click="openImport(item)"><span>{{t "backup.archives.restore"}}</span></button>
@@ -553,6 +553,7 @@
       </section>
 
       <!-- Automatik: gaengiger Weg zuerst, Details erst, wenn eingeschaltet -->
+      {{if index .Can "backup_export"}}
       <section class="setting-card setting-card--wide bs-auto" aria-labelledby="bs-auto-title">
         <h3 class="setting-card-title" id="bs-auto-title">{{t "backup.auto.title"}}</h3>
         <div class="bs-auto-grid">
@@ -604,6 +605,7 @@
           <button type="button" class="icon-button labeled bs-primary" x-bind:disabled="!autoDirty()" x-on:click="saveAuto()"><svg class="automation-icon" aria-hidden="true"><use href="#ico-save"></use></svg><span>{{t "backup.auto.save"}}</span></button>
         </div>
       </section>
+      {{end}}
     </section>
 
     <!-- Ablauf: Mitte am Rechner, Blatt von unten am Handy -->
@@ -660,6 +662,7 @@
                 </div>
               </div>
               <p class="setting-note bs-target-note" x-show="exp.target === 'node'">{{t "backup.export.target_note"}}</p>
+              <p class="bs-inline-error" x-show="flowError" x-text="flowError"></p>
             </div>
             {{end}}
 
