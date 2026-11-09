@@ -148,6 +148,16 @@
       "default": false,
       "description": "Schaltet den Verlauf-Austausch zwischen gleichzeitig geöffneten Geräten ab. Nicht gesetzt bedeutet: Austausch ist an."
     },
+    "chain_suggestions_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Schaltet die Messketten-Vorschlaege ab. Nicht gesetzt bedeutet: Vorschlaege sind an."
+    },
+    "chain_learning_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Schaltet das Lernen der Messketten ab. Gelernte Werte bleiben erhalten und werden weiter genutzt. Nicht gesetzt bedeutet: Lernen ist an."
+    },
     "history_views": {
       "type": "array",
       "default": [],

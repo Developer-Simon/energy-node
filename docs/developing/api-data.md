@@ -96,6 +96,8 @@ reach arbitrary topics.
 | DELETE | `/api/v1/energy/chains/{id}` | edit energy | Delete a measurement chain |
 | PUT | `/api/v1/energy/chains/{id}/tolerance` | edit energy | Set or clear the fixed normal range of one segment |
 | POST | `/api/v1/energy/chains/{id}/relearn` | edit energy | Forget the learned values of one segment |
+| GET | `/api/v1/energy/chain-suggestions` | – | Suggested measurement chains `{"suggestions"}` from the correlated power of two devices, an empty list when there are none |
+| POST | `/api/v1/energy/chain-suggestions/dismiss` | edit energy | Dismiss a suggested pair `{"a", "b"}` for good, answers 204 |
 | GET/PUT | `/api/v1/energy/interpretation` | – | Interpretation parameters |
 | GET | `/api/v1/energy/revisions` | – | Revision list for `energy.json` (roles + interpretation) |
 | GET | `/api/v1/energy/revisions/{revision}` | – | A single revision |

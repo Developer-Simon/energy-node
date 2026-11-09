@@ -28,6 +28,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/chainsuggest"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/chainwatch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companiontls"
@@ -249,6 +250,13 @@ func main() {
 	chainMonitor := chainwatch.NewMonitor(chainwatch.Load(chainLearnedPath, log.Printf), holdsFromEnv(os.Getenv), time.Now)
 	chainMonitor.SetPersistence(chainLearnedPath, log.Printf)
 	energyResolver.SetChainInsight(chainMonitor)
+	// Verlustenergie je Kette, integriert aus dem Verlust des Kettentopics.
+	lossTotals := energystats.NewLossTotals(filepath.Join(dataDir, "energystats", "chains", "loss_totals.json"), log.Printf)
+	// Messketten-Vorschlaege aus Minutenmitteln. Die Summen und verworfenen
+	// Paare liegen getrennt von energy.json, Verwerfen aendert keine Konfiguration.
+	chainSuggestPath := filepath.Join(dataDir, "energystats", "chains", "suggest.json")
+	chainSuggest := chainsuggest.Load(chainSuggestPath, chainsuggest.ThresholdsFromEnv(os.Getenv), time.Local, log.Printf)
+	chainSuggest.SetPersistence(chainSuggestPath, log.Printf)
 	// Nur nach einem erfolgreichen Laden von energy.json: sonst wuerden die
 	// gelernten Paare einer unlesbaren Konfiguration verworfen.
 	if value, err := settingsStore.LoadEnergy(); err == nil {
@@ -413,7 +421,7 @@ func main() {
 		if !stored.PublishEnergyDevice {
 			return nil, true
 		}
-		return energydiscovery.Filter(desiredOptionalSensors(snapshot), stored.EnergySensors), true
+		return energydiscovery.Filter(desiredOptionalSensors(snapshot, stored.PublishChainSensors), stored.EnergySensors), true
 	}
 
 	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
@@ -620,6 +628,7 @@ func main() {
 		Resolver:            energyResolver,
 		EnergyStats:         energyStats,
 		ChainMonitor:        chainMonitor,
+		ChainSuggest:        chainSuggest,
 		HistorySampler:      historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
@@ -632,7 +641,11 @@ func main() {
 		// Die API zeigt alle passenden Sensoren, ungefiltert, damit der
 		// MQTT-Tab sie abwaehlen kann.
 		EnergySensorOptions: func() []energydiscovery.OptionalSensor {
-			return desiredOptionalSensors(currentSnapshot())
+			chainSensors := false
+			if stored, err := settingsStore.LoadMQTT(); err == nil {
+				chainSensors = stored.PublishChainSensors
+			}
+			return desiredOptionalSensors(currentSnapshot(), chainSensors)
 		},
 		Redeploy:             redeployHandler,
 		UpdatesChecker:       updatesChecker,
@@ -663,6 +676,8 @@ func main() {
 			case <-ctx.Done():
 				energyRecorder.Close()
 				chainMonitor.Close()
+				lossTotals.Close()
+				chainSuggest.Close()
 				return
 			case <-ticker.C:
 				now := time.Now()
@@ -671,7 +686,24 @@ func main() {
 				// Ohne gestellte Uhr waere FirstSeen falsch. Der Modus off
 				// haelt die Diagnose nicht an.
 				if energyRecorder.Status().ClockReady {
+					// Die Schalter aus den Einstellungen gelten ohne Neustart. Ohne
+					// lesbare Einstellungen bleibt alles an.
+					learningOn, suggestionsOn := true, true
+					if value, err := settingsStore.LoadSettings(); err == nil {
+						learningOn = !value.ChainLearningDisabled
+						suggestionsOn = !value.ChainSuggestionsDisabled
+					}
+					chainMonitor.SetLearning(learningOn)
+					chainSuggest.SetEnabled(suggestionsOn)
 					chainMonitor.Observe(now, snapshot)
+					// Wie das Pruning oben: ohne lesbare energy.json fehlen
+					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
+					if _, err := settingsStore.LoadEnergy(); err == nil {
+						lossTotals.Observe(now, snapshot.Chains)
+					}
+					if suggestionsOn {
+						chainSuggest.Observe(now, reg.Snapshot())
+					}
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()
@@ -701,7 +733,9 @@ func main() {
 				// wird einmal ein leeres Signal veroeffentlicht, damit das
 				// alte retained Signal verschwindet.
 				if chainGate.Want(len(snapshot.Chains)) {
-					signals, err := json.Marshal(energy.BuildChainSignals(snapshot.Chains, energyResolver.ChainInsight(), time.Now()))
+					chainSignals := energy.BuildChainSignals(snapshot.Chains, energyResolver.ChainInsight(), time.Now())
+					chainSignals.SetLossTotals(lossTotals.Totals())
+					signals, err := json.Marshal(chainSignals)
 					if err == nil {
 						err = client.PublishRetained(energydiscovery.ChainsTopic, string(signals))
 					}
@@ -868,7 +902,7 @@ func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now 
 // desiredOptionalSensors nennt die optionalen Sensoren, die zur Anlage
 // passen: Hauszaehler (beide Hauslasten), Wallbox und Waermepumpe, sobald
 // eine Quelle zugeordnet ist, und jede Kategorie mit zugeordneter Quelle.
-func desiredOptionalSensors(snapshot energy.Snapshot) []energydiscovery.OptionalSensor {
+func desiredOptionalSensors(snapshot energy.Snapshot, chainSensors bool) []energydiscovery.OptionalSensor {
 	var categories []energydiscovery.CategoryInput
 	for id, category := range snapshot.Categories {
 		if len(snapshot.Sources[energy.Role("custom:"+id)]) == 0 {
@@ -880,12 +914,20 @@ func desiredOptionalSensors(snapshot energy.Snapshot) []energydiscovery.Optional
 			Storage: category.Base == energy.CategoryStorage,
 		})
 	}
-	return energydiscovery.OptionalSensors(
+	sensors := energydiscovery.OptionalSensors(
 		len(snapshot.Sources[energy.RoleLoad]) > 0,
 		len(snapshot.Sources[energy.RoleWallbox]) > 0,
 		len(snapshot.Sources[energy.RoleHeatPump]) > 0,
 		categories,
 	)
+	if chainSensors {
+		var chains []energydiscovery.ChainInput
+		for _, chain := range snapshot.Chains {
+			chains = append(chains, energydiscovery.ChainInput{ID: chain.ID, Label: chain.Label})
+		}
+		sensors = append(sensors, energydiscovery.ChainSensors(chains)...)
+	}
+	return sensors
 }
 
 // nodeSimAdapter turns the MQTT tab's simulation_active switch into a

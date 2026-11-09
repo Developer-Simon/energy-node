@@ -2,6 +2,7 @@ package energydiscovery
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -104,5 +105,111 @@ func TestOptionalSensorsOfferBothHouseLoadsWithAMeter(t *testing.T) {
 	if calculated["unique_id"] != "energy_node_house_load_calculated" || calculated["name"] != "Hauslast berechnet" ||
 		calculated["value_template"] != "{{ value_json.balance['load_calculated'] }}" {
 		t.Fatalf("calculated %+v", calculated)
+	}
+}
+
+func TestChainSensors(t *testing.T) {
+	got := ChainSensors([]ChainInput{{ID: "b", Label: "Balkon"}, {ID: "a"}})
+	keys := []string{}
+	for _, s := range got {
+		keys = append(keys, s.Key)
+	}
+	want := []string{"chain_a_efficiency", "chain_a_loss", "chain_a_loss_energy", "chain_b_efficiency", "chain_b_loss", "chain_b_loss_energy"}
+	if !equal(keys, want) {
+		t.Fatalf("keys %v", keys)
+	}
+	names := []string{}
+	for _, s := range got {
+		names = append(names, s.Name)
+	}
+	wantNames := []string{"a Wirkungsgrad", "a Verlust", "a Verlustenergie", "Balkon Wirkungsgrad", "Balkon Verlust", "Balkon Verlustenergie"}
+	if !equal(names, wantNames) {
+		t.Fatalf("names %v", names)
+	}
+	if got[3].Kind != "chain_efficiency" || got[3].Chain != "b" || got[3].Label != "Balkon" {
+		t.Fatalf("balkon efficiency %+v", got[3])
+	}
+}
+
+func TestPlanChainSensorPayloads(t *testing.T) {
+	msgs, _ := LoadAnnounced(filepath.Join(t.TempDir(), "a.json")).Plan("homeassistant", "1.0", "", ChainSensors([]ChainInput{{ID: "a", Label: "Balkon"}}), false)
+	if len(msgs) != 3 {
+		t.Fatalf("%+v", msgs)
+	}
+	decode := func(m Message) map[string]any {
+		var p map[string]any
+		if err := json.Unmarshal(m.Payload, &p); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	eff, loss, energy := decode(msgs[0]), decode(msgs[1]), decode(msgs[2])
+	if _, ok := eff["device_class"]; ok {
+		t.Fatalf("efficiency has device_class: %v", eff)
+	}
+	if eff["unit_of_measurement"] != "%" || eff["state_class"] != "measurement" || eff["state_topic"] != ChainsTopic ||
+		eff["value_template"] != "{{ value_json.chains['a']['efficiency_pct'] }}" {
+		t.Fatalf("efficiency %v", eff)
+	}
+	if loss["device_class"] != "power" || loss["unit_of_measurement"] != "W" || loss["state_class"] != "measurement" ||
+		loss["state_topic"] != ChainsTopic || loss["value_template"] != "{{ value_json.chains['a']['loss_w'] }}" {
+		t.Fatalf("loss %v", loss)
+	}
+	if energy["device_class"] != "energy" || energy["unit_of_measurement"] != "kWh" || energy["state_class"] != "total_increasing" ||
+		energy["state_topic"] != ChainsTopic || energy["value_template"] != "{{ value_json.chains['a']['loss_kwh_total'] }}" {
+		t.Fatalf("loss energy %v", energy)
+	}
+	if msgs[2].Topic != "homeassistant/sensor/energy_node/chain_a_loss_energy/config" || energy["unique_id"] != "energy_node_chain_a_loss_energy" {
+		t.Fatalf("%s %v", msgs[2].Topic, energy)
+	}
+}
+
+// Die optionalen Sensoren, die es schon vor den Messketten gab, muessen
+// byte-gleich zu den Golden-Dateien bleiben.
+func TestOptionalSensorPayloadsMatchGolden(t *testing.T) {
+	sensors := OptionalSensors(true, true, false, []CategoryInput{{ID: "sauna", Label: "Sauna"}})
+	msgs, _ := LoadAnnounced(filepath.Join(t.TempDir(), "a.json")).Plan("homeassistant", "1.2.3-test", "", sensors, true)
+	golden := map[string]string{
+		"homeassistant/sensor/energy_node/wallbox/config":             "optional_wallbox.config.json",
+		"homeassistant/sensor/energy_node/custom_sauna/config":        "optional_custom_sauna.config.json",
+		"homeassistant/sensor/energy_node/house_load_measured/config": "optional_house_load_measured.config.json",
+	}
+	seen := 0
+	for _, m := range msgs {
+		file, ok := golden[m.Topic]
+		if !ok {
+			continue
+		}
+		seen++
+		want, err := os.ReadFile(filepath.Join("testdata", file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(m.Payload) != string(want) {
+			t.Fatalf("%s:\n got: %s\nwant: %s", m.Topic, m.Payload, want)
+		}
+	}
+	if seen != len(golden) {
+		t.Fatalf("saw %d of %d golden topics: %+v", seen, len(golden), msgs)
+	}
+}
+
+func TestPlanRemovesChainSensorsOfDeletedChain(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "announced.json")
+	_, commit := LoadAnnounced(path).Plan("homeassistant", "1.0", "", ChainSensors([]ChainInput{{ID: "a", Label: "Balkon"}}), false)
+	commit()
+	msgs, _ := LoadAnnounced(path).Plan("homeassistant", "1.0", "", nil, false)
+	want := []string{
+		"homeassistant/sensor/energy_node/chain_a_efficiency/config",
+		"homeassistant/sensor/energy_node/chain_a_loss/config",
+		"homeassistant/sensor/energy_node/chain_a_loss_energy/config",
+	}
+	if len(msgs) != len(want) {
+		t.Fatalf("%+v", msgs)
+	}
+	for i, m := range msgs {
+		if m.Topic != want[i] || len(m.Payload) != 0 {
+			t.Fatalf("%d: %s %q", i, m.Topic, m.Payload)
+		}
 	}
 }

@@ -96,6 +96,12 @@ type Settings struct {
 	// oder "off". Leer heisst "always", siehe normalizeSettings.
 	EnergyStatsRecording string `json:"energy_stats_recording"`
 
+	// ChainSuggestionsDisabled und ChainLearningDisabled schalten die
+	// lernenden Messketten-Funktionen ab (Kachel Lernfunktionen). Invertiert
+	// benannt wie HistoryExchangeDisabled: der Nullwert heisst an.
+	ChainSuggestionsDisabled bool `json:"chain_suggestions_disabled"`
+	ChainLearningDisabled    bool `json:"chain_learning_disabled"`
+
 	// ChangelogHistory sagt, wie viele Bundle-Versionen die Versionsseite
 	// aus dem Changelog laedt: "recent" (5), "extended" (20) oder "all".
 	// Leer heisst "recent", siehe normalizeSettings.
@@ -497,6 +503,10 @@ type MQTTConfig struct {
 	// "custom_sauna") das Anbieten per HA-Discovery ab. Ein fehlender
 	// Schluessel bedeutet an.
 	EnergySensors map[string]bool `json:"energy_sensors,omitempty"`
+	// PublishChainSensors schaltet die Messketten-Sensoren (Wirkungsgrad,
+	// Verlust, Verlustenergie je Kette) bei der HA-Discovery an. Default aus,
+	// ein fehlender Schluessel bedeutet aus.
+	PublishChainSensors bool `json:"publish_chain_sensors,omitempty"`
 	// SimulationActive ist der Sollzustand des globalen simulation_active-
 	// Broadcasts, den das Dashboard retained an
 	// outstation/<node>/settings/simulation_active/set schickt. Default false.

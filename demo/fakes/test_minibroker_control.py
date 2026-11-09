@@ -234,3 +234,15 @@ def test_simulate_tick_keeps_the_chain_points_below_their_upstream_point():
     inverter = json.loads(state.messages["umrichter/speicher/status"])["apower"]
     battery = json.loads(state.messages["speicher/akku/status"])["apower"]
     assert plug > inverter > battery > 0
+
+
+def test_simulate_tick_moves_the_free_garage_pair_together_without_a_chain():
+    state = make_state({
+        "plug/garage/status": b'{"apower": 0}',
+        "garage/status": b'{"apower": 0}',
+    }, simulate=True)
+    minibroker.simulate_tick(state, 1.0)
+    plug = json.loads(state.messages["plug/garage/status"])["apower"]
+    consumer = json.loads(state.messages["garage/status"])["apower"]
+    assert 400 <= plug <= 1000
+    assert consumer == round(plug * 0.97)

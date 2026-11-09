@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'energy-chains.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'devicemap-view-prefs.js', 'automations-view.js']
+const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'energy-chains.js', 'energy-chain-suggest.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'devicemap-view-prefs.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 // In-memory stand-in for window.localStorage, where the browser's view
@@ -3746,4 +3746,210 @@ test('the device panel tiles sit in the scrolling body, not in the header', () =
   assert.ok(tiles < html.indexOf('class="devicemap-panel-empty"', bodyStart), 'the tiles are the first group of the body');
   const css = readWebui('static', 'css', 'manager.css');
   assert.ok(/\.devicemap-chain-findings \{[^}]*width: 100%/.test(css), 'the tile list takes the full width');
+});
+
+// Chain suggestions on the map: a dashed edge per suggestion between two
+// devices, a card on tap, accept through the dialog, dismiss, and the energy
+// layer gate. The suggestion names entities, the map shows their devices.
+const SUGGEST = { a: 'plug_p', b: 'ac_p', device_a: 'plug', device_b: 'ac', r: 0.98, days: 5, minutes: 900, mean_a_w: 300, mean_b_w: 290, chain_id: '' };
+
+function suggestFixture(component, suggestions = [SUGGEST]) {
+  component.devices = CHAIN_DEVICES();
+  component.energy = { entities: [], chains: [] };
+  component.deviceMap = { version: 2, nodes: [], edges: [] };
+  component.chainSuggestions = suggestions;
+}
+
+test('a chain suggestion draws one dashed edge between its two devices, only with the energy layer on', () => {
+  const { component } = createDevicemapPanel();
+  suggestFixture(component);
+  const edges = component.chainSuggestElements();
+  assert.equal(edges.length, 1);
+  assert.equal(edges[0].data.id, 'chain-suggest-ac::plug');
+  assert.equal(edges[0].data.suggestion, 0);
+  assert.ok(component.buildElements().some(element => (element.classes || '').includes('devicemap-chain-suggest')), 'the edge is part of the built graph');
+  component.setView({ layers: { ...component.view.layers, energy: false } });
+  assert.equal(component.chainSuggestElements().length, 0);
+});
+
+test('a tap on a suggestion edge opens its card with the text and the evidence, the buttons only with edit_energy', () => {
+  const { component, window } = createDevicemapPanel();
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.onChainSuggestTap({ target: { data: key => ({ suggestion: 0 })[key] }, renderedPosition: { x: 10, y: 10 } });
+  assert.equal(component.popover.title, window.I18n.t('energy.chains.suggest.measures', { upstream: 'Steckdose', downstream: 'Speicher AC' }));
+  assert.equal(component.popover.text, window.EnergyChainSuggest.evidenceText(SUGGEST));
+  assert.equal(component.popover.suggest, SUGGEST);
+  const html = readWebui('templates', 'devicemap.html');
+  assert.ok(html.includes('<template x-if="popover.suggest && canEdit">'), 'the buttons are only rendered with edit_energy');
+  assert.ok(html.includes('x-on:click="acceptChainSuggest()"') && html.includes('x-on:click="dismissChainSuggest()"'));
+});
+
+test('accepting a suggestion opens the dialog with the grid side first, and the confirm creates the chain and drops the edge', async () => {
+  const sent = [];
+  let suggestions = [SUGGEST];
+  const chains = { speicher_ac: { label: 'Speicher AC', points: ['plug_p', 'ac_p'], counting: 'plug_p', direction: '' } };
+  const { component } = createDevicemapPanel({ fetchImpl: async (url, options) => {
+    if (options && options.method) { sent.push({ url: String(url), method: options.method, body: JSON.parse(options.body) }); suggestions = []; return okJSON({ assignments: {}, role_needed: [], chains })(); }
+    if (String(url).endsWith('/api/v1/energy/roles')) return okJSON({ assignments: {}, groups: {}, categories: {}, chains })();
+    if (String(url).endsWith('/api/v1/energy')) return okJSON({ entities: [] })();
+    return okJSON({ suggestions })();
+  } });
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.csrfToken = 'tok';
+  component.chainSuggestions = [SUGGEST];
+  const graph = lossGraph();
+  component._cyForTest = graph;
+  component.applyChainSuggests();
+  assert.equal([...graph.store.values()].filter(element => element.classes === 'devicemap-chain-suggest').length, 1);
+  component.onChainSuggestTap({ target: { data: key => ({ suggestion: 0 })[key] }, renderedPosition: { x: 10, y: 10 } });
+  component.acceptChainSuggest();
+  assert.equal(component.popover, null);
+  assert.equal(component.chainSuggest.upstream, 'plug_p');
+  assert.equal(component.chainSuggest.downstream, 'ac_p');
+  assert.equal(component.chainSuggest.label, 'Speicher AC');
+  await component.chainSuggestSave();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].method, 'POST');
+  assert.ok(sent[0].url.endsWith('/api/v1/energy/chains'));
+  assert.deepEqual(sent[0].body, { label: 'Speicher AC', points: ['plug_p', 'ac_p'], counting: 'plug_p' });
+  assert.equal(component.chainSuggest, null, 'the dialog closes after the save');
+  assert.equal([...graph.store.values()].filter(element => element.classes === 'devicemap-chain-suggest').length, 0, 'the edge is gone');
+});
+
+test('a conflicting suggestion shows the map conflict toast and sends nothing', async () => {
+  const sent = [];
+  const { component, stores, window } = createDevicemapPanel({ fetchImpl: async (url, options) => {
+    if (options && options.method) sent.push(String(url));
+    return okJSON({ suggestions: [] })();
+  } });
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.savedChains = {
+    x: { label: 'X', points: ['plug_p', 'other'], counting: 'plug_p', direction: '' },
+    y: { label: 'Y', points: ['ac_p', 'third'], counting: 'ac_p', direction: '' },
+  };
+  component.chainSuggest = window.EnergyChainSuggest.dialogFor(SUGGEST, id => component.chainSuggestName(id));
+  await component.chainSuggestSave();
+  assert.deepEqual(sent, []);
+  assert.ok(stores.toasts.items.some(item => item.message === window.I18n.t('energy.chains.map_conflict')));
+  assert.equal(component.chainSuggest, null);
+});
+
+test('dismissing a suggestion stores the pair, closes the card and removes the edge', async () => {
+  const sent = [];
+  const { component } = createDevicemapPanel({ fetchImpl: async (url, options) => {
+    sent.push({ url: String(url), method: options && options.method, body: options && options.body });
+    return okJSON({})();
+  } });
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.csrfToken = 'tok';
+  const graph = lossGraph();
+  component._cyForTest = graph;
+  component.applyChainSuggests();
+  component.onChainSuggestTap({ target: { data: key => ({ suggestion: 0 })[key] }, renderedPosition: { x: 10, y: 10 } });
+  await component.dismissChainSuggest();
+  assert.equal(sent.length, 1);
+  assert.ok(sent[0].url.endsWith('/api/v1/energy/chain-suggestions/dismiss'));
+  assert.equal(sent[0].method, 'POST');
+  assert.deepEqual(JSON.parse(sent[0].body), { a: 'plug_p', b: 'ac_p' });
+  assert.equal(component.chainSuggestions.length, 0);
+  assert.equal(component.popover, null);
+  assert.equal([...graph.store.values()].filter(element => element.classes === 'devicemap-chain-suggest').length, 0);
+});
+
+test('a refused suggestion read leaves the map without suggestions and pushes no toast', async () => {
+  const { component, stores } = createDevicemapPanel({ fetchImpl: respondWith(500, { code: 'x', message: 'nein' }) });
+  suggestFixture(component);
+  await component.loadChainSuggestions();
+  assert.equal(component.chainSuggestions.length, 0);
+  assert.equal(stores.toasts.items.length, 0, 'the failed read stays silent');
+});
+
+// Without edit_energy the card has no buttons, and the functions behind them
+// must do nothing either: no request, no dialog, no state change.
+test('without edit_energy accept, dismiss and save send nothing and open no dialog', async () => {
+  const calls = [];
+  const { component } = createDevicemapPanel({ fetchImpl: async url => { calls.push(String(url)); return okJSON({})(); } });
+  suggestFixture(component);
+  let opened = 0;
+  component.$refs.chainSuggestDialog = { showModal: () => { opened += 1; }, close: () => {}, open: false };
+  component.canEditEnergy = false;
+  component.onChainSuggestTap({ target: { data: key => ({ suggestion: 0 })[key] }, renderedPosition: { x: 10, y: 10 } });
+  component.acceptChainSuggest();
+  assert.equal(opened, 0, 'no dialog opened');
+  assert.equal(component.chainSuggest, null);
+  component.chainSuggest = { upstream: 'plug_p', downstream: 'ac_p', label: 'Speicher AC', chainId: '' };
+  await component.chainSuggestSave();
+  assert.deepEqual(calls, [], 'save sends nothing');
+  assert.ok(component.chainSuggest, 'save leaves the dialog state alone');
+  component.popover = { ...component.popover, suggest: SUGGEST };
+  await component.dismissChainSuggest();
+  assert.deepEqual(calls, [], 'dismiss sends nothing');
+  assert.equal(component.chainSuggestions.length, 1, 'dismiss keeps the suggestion');
+});
+
+// The energy-roles-changed event from another page reloads the suggestions.
+test('an energy-roles-changed event from the energy page reloads the suggestions', async () => {
+  const suggestionReads = [];
+  let suggestions = [];
+  const { component, window } = createDevicemapPanel({ fetchImpl: async url => {
+    const path = String(url);
+    if (path.endsWith('/api/v1/energy/chain-suggestions')) { suggestionReads.push(path); return okJSON({ suggestions })(); }
+    if (path.endsWith('/api/v1/devices')) return okJSON([])();
+    if (path.endsWith('/api/v1/device/map')) return okJSON({ version: 2, nodes: [], edges: [] })();
+    if (path.endsWith('/api/v1/energy/roles')) return okJSON({ assignments: {}, groups: {}, categories: {}, chains: {} })();
+    if (path.endsWith('/api/v1/energy')) return okJSON({ entities: [] })();
+    if (path.endsWith('/api/v1/device/icons')) return okJSON([])();
+    if (path.endsWith('/api/v1/devices/switches')) return okJSON([])();
+    return okJSON({})();
+  } });
+  await component.load();
+  assert.equal(suggestionReads.length, 1, 'the map reads the suggestions on open');
+  suggestions = [SUGGEST];
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed', { detail: { source: 'energy-panel' } }));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(suggestionReads.length, 2, 'the event reads the suggestions again');
+  assert.equal(component.chainSuggestions.length, 1);
+});
+
+test('the wiring layer types gate also hides the suggestion edges', () => {
+  const { component } = createDevicemapPanel();
+  suggestFixture(component);
+  assert.equal(component.chainSuggestElements().length, 1);
+  component.setView({ wiring_types: { ...component.view.wiring_types, energy: false } });
+  assert.equal(component.chainSuggestElements().length, 0);
+});
+
+// The Energie tab dot follows the open suggestions: accept and dismiss announce it.
+test('dismissing a suggestion on the map announces the change to the energy tab dot', async () => {
+  const { component, window } = createDevicemapPanel({ fetchImpl: async () => okJSON({})() });
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.csrfToken = 'tok';
+  component.onChainSuggestTap({ target: { data: key => ({ suggestion: 0 })[key] }, renderedPosition: { x: 10, y: 10 } });
+  let announced = 0;
+  window.addEventListener('energy-chain-suggestions-changed', () => { announced += 1; });
+  await component.dismissChainSuggest();
+  assert.equal(announced, 1);
+});
+
+test('confirming an accepted suggestion on the map announces the change to the energy tab dot', async () => {
+  let suggestions = [SUGGEST];
+  const { component, window } = createDevicemapPanel({ fetchImpl: async (url, options) => {
+    if (options && options.method) { suggestions = []; return okJSON({assignments: {}, role_needed: [], chains: {}})(); }
+    if (String(url).endsWith('/api/v1/energy/roles')) return okJSON({ assignments: {}, groups: {}, categories: {}, chains: {} })();
+    if (String(url).endsWith('/api/v1/energy')) return okJSON({ entities: [] })();
+    return okJSON({ suggestions })();
+  } });
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.csrfToken = 'tok';
+  component.chainSuggest = window.EnergyChainSuggest.dialogFor(SUGGEST, id => component.chainSuggestName(id));
+  let announced = 0;
+  window.addEventListener('energy-chain-suggestions-changed', () => { announced += 1; });
+  await component.chainSuggestSave();
+  assert.equal(announced, 1);
 });

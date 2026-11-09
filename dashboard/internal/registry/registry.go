@@ -1738,7 +1738,7 @@ type parsedValueTemplate struct {
 }
 
 var booleanValueJSONFieldPattern = regexp.MustCompile(`^\{\{\s*'([^']*)'\s+if\s+value_json\.([A-Za-z0-9_]+)\s+else\s+'([^']*)'\s*\}\}$`)
-var valueJSONPathPattern = regexp.MustCompile(`^\{\{\s*value_json\.([A-Za-z0-9_]+)(?:\[['"]([^'"]+)['"]\])?(?:\s*\|\s*default\(0\))?(?:\s*\|\s*int)?(?:\s*\|\s*timestamp_local)?\s*\}\}$`)
+var valueJSONPathPattern = regexp.MustCompile(`^\{\{\s*value_json\.([A-Za-z0-9_]+)(?:\[['"]([^'"]+)['"]\])?(?:\[['"]([^'"]+)['"]\])?(?:\s*\|\s*default\(0\))?(?:\s*\|\s*int)?(?:\s*\|\s*timestamp_local)?\s*\}\}$`)
 
 func parseValueTemplate(valueTemplate string) (parsedValueTemplate, bool) {
 	if valueTemplate == "" {
@@ -1750,8 +1750,10 @@ func parseValueTemplate(valueTemplate string) (parsedValueTemplate, bool) {
 	}
 	if m := valueJSONPathPattern.FindStringSubmatch(trimmed); m != nil {
 		path := []string{m[1]}
-		if m[2] != "" {
-			path = append(path, m[2])
+		for _, segment := range m[2:] {
+			if segment != "" {
+				path = append(path, segment)
+			}
 		}
 		return parsedValueTemplate{
 			path:           path,

@@ -580,6 +580,13 @@ func mergeSource(left, right string) string {
 	return "mixed"
 }
 
+// PowerW rechnet einen Leistungswert in Watt um. ok ist false, wenn der Wert
+// nicht lesbar ist oder die Einheit keine Leistungseinheit ist.
+func PowerW(raw, unit string) (float64, bool) {
+	value, _, err := powerValue(raw, unit)
+	return value, err == nil
+}
+
 func powerValue(raw, unit string) (float64, string, error) {
 	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
 	if err != nil {

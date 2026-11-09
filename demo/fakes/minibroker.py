@@ -112,6 +112,9 @@ SIMULATED_TOPICS = {
     # Steckdose der Werkstatt: der Verbraucher dahinter ist der zweite Messpunkt
     # der Kette Werkstatt, siehe CHAIN_TOPICS.
     "plug/werkstatt/status": (600, 400, 40, 2.4),
+    # Frei stehendes Steckdosen-Paar Garage (nicht in einer Kette, nicht in der
+    # Geraetekarte): die Demo schlaegt dafuer nach wenigen Minuten eine Kette vor.
+    "plug/garage/status": (700, 300, 50, 4.1),
 }
 # Messkette Plug > Umrichter > Akku: jeder Punkt misst den vorigen abzueglich
 # eines Verlusts, damit die Kette plausible Wirkungsgrade zeigt.
@@ -120,6 +123,8 @@ CHAIN_TOPICS = (
     ("speicher/akku/status", "umrichter/speicher/status", 0.93),
     # Verbraucher hinter der Steckdose der Werkstatt, nur in Vorwaertsrichtung.
     ("werkstatt/status", "plug/werkstatt/status", 0.95),
+    # Frei stehendes Paar, bewusst ohne Kette in der Demo, siehe SIMULATED_TOPICS.
+    ("garage/status", "plug/garage/status", 0.97),
 )
 RELAY_SUM_TOPIC = "relais/keller/status"
 RELAY_SUM_SOURCES = ("waermepumpe/status", "plug/entfeuchter/status")

@@ -165,3 +165,12 @@ chain. Switch on **Regulate in the best efficiency range** in the scenario
 editor and pick the chain. The line below the switch shows the learned range in
 W, or why the regulator works without a limit. The assistant also offers two
 templates for chains, see [Chain templates](../services/automations.md#chain-templates).
+
+## Home Assistant
+
+With **Measurement chain sensors** on in the [MQTT settings](settings-mqtt.md),
+Home Assistant gets three sensors per chain: the efficiency in percent, the loss
+in W and the loss energy in kWh. The loss energy is a total that the node adds up
+itself from the live loss. It starts at 0 when the sensor is first offered and is
+not filled in afterwards. Standby is not part of it, although the figures above
+count it as loss. A deleted chain takes its counter with it.

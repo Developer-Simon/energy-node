@@ -100,6 +100,7 @@ type mqttConfigResponse struct {
 	DiscoveryPrefix     string                           `json:"discovery_prefix"`
 	ConnectTimeoutSec   int                              `json:"connect_timeout_seconds"`
 	PublishEnergyDevice bool                             `json:"publish_energy_device"`
+	PublishChainSensors bool                             `json:"publish_chain_sensors"`
 	SimulationActive    bool                             `json:"simulation_active"`
 	Metrics             map[string]bool                  `json:"metrics"`
 	EnergySensors       map[string]bool                  `json:"energy_sensors"`
@@ -146,6 +147,7 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 				DiscoveryPrefix:     cfg.DiscoveryPrefix,
 				ConnectTimeoutSec:   cfg.ConnectTimeoutSec,
 				PublishEnergyDevice: stored.PublishEnergyDevice,
+				PublishChainSensors: stored.PublishChainSensors,
 				SimulationActive:    stored.SimulationActive,
 				Metrics:             stored.Metrics,
 				EnergySensors:       stored.EnergySensors,
@@ -179,12 +181,14 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 	}
 }
 
-// handleMQTTEnergyDevice flips just MQTTConfig.publish_energy_device in
-// mqtt.json. It is deliberately separate from PUT /api/v1/mqtt: the HA
-// energy device is (un)published on every broker connect regardless of
-// whether the dashboard-managed connection is enabled at all (see
-// cmd/dashboard/main.go), so this switch must be usable without supplying
-// a full, valid broker configuration.
+// handleMQTTEnergyDevice flips MQTTConfig.publish_energy_device in
+// mqtt.json, and MQTTConfig.publish_chain_sensors when the body carries it.
+// It is deliberately separate from PUT /api/v1/mqtt: the HA energy device is
+// (un)published on every broker connect regardless of whether the
+// dashboard-managed connection is enabled at all (see cmd/dashboard/main.go),
+// so these switches must be usable without supplying a full, valid broker
+// configuration. publish_energy_device is always required here; an absent
+// publish_chain_sensors leaves the stored value unchanged.
 func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPut {
@@ -203,6 +207,7 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 		// energy_sensors fehlt im Body: die gespeicherte Map bleibt stehen.
 		var body struct {
 			PublishEnergyDevice bool            `json:"publish_energy_device"`
+			PublishChainSensors *bool           `json:"publish_chain_sensors"`
 			EnergySensors       map[string]bool `json:"energy_sensors"`
 		}
 		if err := decodeBody(r, &body); err != nil {
@@ -215,6 +220,9 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 			return
 		}
 		stored.PublishEnergyDevice = body.PublishEnergyDevice
+		if body.PublishChainSensors != nil {
+			stored.PublishChainSensors = *body.PublishChainSensors
+		}
 		if body.EnergySensors != nil {
 			stored.EnergySensors = body.EnergySensors
 		}
@@ -224,6 +232,7 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 		}
 		writeJSON(w, map[string]any{
 			"publish_energy_device": body.PublishEnergyDevice,
+			"publish_chain_sensors": stored.PublishChainSensors,
 			"energy_sensors":        stored.EnergySensors,
 		})
 	}

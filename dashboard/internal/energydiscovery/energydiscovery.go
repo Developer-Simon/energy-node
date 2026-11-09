@@ -1,11 +1,12 @@
 // Package energydiscovery baut die Home-Assistant-MQTT-Discovery-Configs,
 // mit denen sich das Dashboard selbst als ein HA-Gerät ("Energy
-// Node") mit read-only Energie-Sensoren anbietet. Alle Sensoren lesen
-// aus demselben retained State-Topic (StateTopic), das cmd/dashboard alle
-// 10 s als {"at":…,"balance":energy.Balance,…} veröffentlicht; jeder Sensor
-// wählt sein Feld per value_template. Zusaetzlich bietet optional.go
-// Sensoren fuer Wallbox, Waermepumpe und Kategorien an, die nur bei Bedarf
-// angekuendigt werden. Siehe
+// Node") mit read-only Energie-Sensoren anbietet. Die festen und die
+// optionalen Sensoren lesen aus demselben retained State-Topic (StateTopic),
+// das cmd/dashboard alle 10 s als {"at":…,"balance":energy.Balance,…}
+// veröffentlicht; jeder Sensor wählt sein Feld per value_template. Die
+// Messketten-Sensoren lesen aus dem zweiten retained Topic ChainsTopic.
+// Zusaetzlich bietet optional.go Sensoren fuer Wallbox, Waermepumpe,
+// Kategorien und Messketten an, die nur bei Bedarf angekuendigt werden. Siehe
 // dashboard/mqtt-topics-und-discovery-format.md, Abschnitt "Dashboard als
 // Discovery-Publisher".
 package energydiscovery
@@ -105,20 +106,23 @@ func deviceBlock(swVersion, configurationURL string) map[string]any {
 
 // sensorPayload baut das JSON einer Sensor-Config. Sie wird von den festen
 // Configs und von den optionalen Sensoren (optional.go) gemeinsam genutzt.
-// Bei einem (theoretischen) Marshal-Fehler liefert sie nil, also ein Removal.
-func sensorPayload(name, uniqueID, template, deviceClass, unit string, device map[string]any) []byte {
+// Ein leeres deviceClass fehlt im JSON. Bei einem (theoretischen)
+// Marshal-Fehler liefert sie nil, also ein Removal.
+func sensorPayload(name, uniqueID, template, deviceClass, unit, stateClass, stateTopic string, device map[string]any) []byte {
 	payload := map[string]any{
 		"name":                  name,
 		"unique_id":             uniqueID,
 		"device":                device,
-		"state_topic":           StateTopic,
+		"state_topic":           stateTopic,
 		"value_template":        template,
-		"device_class":          deviceClass,
 		"unit_of_measurement":   unit,
-		"state_class":           "measurement",
+		"state_class":           stateClass,
 		"availability_topic":    AvailabilityTopic,
 		"payload_available":     "1",
 		"payload_not_available": "0",
+	}
+	if deviceClass != "" {
+		payload["device_class"] = deviceClass
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -147,6 +151,8 @@ func Configs(prefix, swVersion, configurationURL string, enabled bool) []Message
 				"{{ value_json.balance['"+s.field+"'] }}",
 				s.deviceClass,
 				s.unit,
+				"measurement",
+				StateTopic,
 				device,
 			)
 		}

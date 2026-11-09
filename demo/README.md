@@ -17,6 +17,7 @@ demo/demo.sh --reset            # delete the state, then set up again
 demo/demo.sh --stop             # stop the running demo (with --docs: the docs instance)
 demo/demo.sh --docs             # fixture for the documentation screenshots
 demo/demo.sh --no-simulate      # PV, grid, battery and load stay still
+demo/demo.sh --new-cert         # create a new TLS certificate, the state stays
 demo/demo.sh --devices DIR      # extra device configurations, the later source wins
 ```
 

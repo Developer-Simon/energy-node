@@ -69,7 +69,8 @@ test('der Reiter folgt den Ketten nach einer Rollenaenderung', async () => {
   component.init();
   window.dispatchEvent(new window.CustomEvent('energy-roles-changed'));
   await settle();
-  assert.deepEqual(requests, ['/api/v1/energy/roles']);
+  // Der Energie-Punkt fragt die Vorschlaege beim Start ab, hier zaehlt nur die Rollen-Anfrage.
+  assert.deepEqual(requests.filter(url => url === '/api/v1/energy/roles'), ['/api/v1/energy/roles']);
   assert.equal(component.hasChains, true);
   assert.equal(fitCalls, 1);
 });
@@ -96,7 +97,7 @@ test('ohne den Reiter loest eine Rollenaenderung keine Anfrage aus', async () =>
   component.init();
   window.dispatchEvent(new window.CustomEvent('energy-roles-changed'));
   await settle();
-  assert.deepEqual(requests, []);
+  assert.deepEqual(requests.filter(url => url === '/api/v1/energy/roles'), []);
 });
 
 test('der Punkt am Effizienz-Reiter zeigt sich, solange er nie geoeffnet wurde', () => {

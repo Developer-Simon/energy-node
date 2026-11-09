@@ -549,3 +549,37 @@ func TestMonitorSaveErrorIsLoggedAndRetried(t *testing.T) {
 		t.Fatalf("retry did not save the learned sample")
 	}
 }
+
+func TestMonitorLearningOff(t *testing.T) {
+	r := newRig()
+	chain := buildChain("down", "a", testPoint("a", 300), testPoint("b", 290), testPoint("c", 280))
+	r.feed(t0, 0, time.Minute, chain)
+	before := classN(r.tb, "a", "b", 300)
+	if before == 0 {
+		t.Fatal("nothing learned before SetLearning(false)")
+	}
+
+	r.m.SetLearning(false)
+	if r.m.LearningOn() {
+		t.Fatal("LearningOn after SetLearning(false) = true")
+	}
+	r.feed(t0, 2*time.Minute, 10*time.Minute, chain)
+	if got := classN(r.tb, "a", "b", 300); got != before {
+		t.Fatalf("N grew from %d to %d with learning off", before, got)
+	}
+
+	r.m.SetLearning(true)
+	r.feed(t0, 11*time.Minute, 12*time.Minute, chain)
+	if got := classN(r.tb, "a", "b", 300); got <= before {
+		t.Fatalf("N = %d after SetLearning(true), want more than %d", got, before)
+	}
+}
+
+func TestMonitorLearningOffKeepsDetectors(t *testing.T) {
+	r := newRig()
+	r.m.SetLearning(false)
+	r.feed(t0, 0, 15*time.Minute, unitChain(0.3, 300))
+	if got := findingsOf(r, energy.FindingUnit); len(got) != 1 {
+		t.Fatalf("unit findings with learning off = %d, want 1", len(got))
+	}
+}

@@ -619,3 +619,23 @@ func TestAggregateSkipsSwitchRole(t *testing.T) {
 		t.Fatalf("unassigned_count = %d, want %d (the switch entity must not count)", snapshot.UnassignedCount, baseline.UnassignedCount)
 	}
 }
+
+func TestPowerW(t *testing.T) {
+	cases := []struct {
+		raw, unit string
+		want      float64
+		ok        bool
+	}{
+		{"100", "W", 100, true},
+		{" 0.1 ", "kW", 100, true},
+		{"-20", "watt", -20, true},
+		{"50", "%", 0, false},
+		{"abc", "W", 0, false},
+	}
+	for _, tc := range cases {
+		got, ok := PowerW(tc.raw, tc.unit)
+		if ok != tc.ok || got != tc.want {
+			t.Errorf("PowerW(%q, %q) = %v, %v; want %v, %v", tc.raw, tc.unit, got, ok, tc.want, tc.ok)
+		}
+	}
+}

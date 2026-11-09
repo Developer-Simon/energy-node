@@ -243,3 +243,31 @@ test('chainWarnElements is empty without findings', () => {
   const edgeProps = [{ parent_id: 'A', child_id: 'B', type: 'energy' }];
   assert.deepEqual(plain(DeviceMapGraph.chainWarnElements({ pairs, findings: { byDevice: new Map(), pairs: [] }, edgeProps })), []);
 });
+
+test('chain suggestion edges skip same-device and hidden devices', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const suggestions = [
+    { a: 'e1', b: 'e2', device_a: 'Q', device_b: 'P' },
+    { a: 'e3', b: 'e4', device_a: 'R', device_b: 'R' },
+    { a: 'e5', b: 'e6', device_a: 'S', device_b: 'H' },
+  ];
+  const visible = new Set(['P', 'Q', 'R', 'S']);
+  const elements = DeviceMapGraph.chainSuggestElements({ suggestions, visible });
+  assert.deepEqual(plain(elements), [{ group: 'edges', classes: 'devicemap-chain-suggest', data: { id: 'chain-suggest-P::Q', source: 'P', target: 'Q', suggestion: 0 } }]);
+  assert.deepEqual(plain(DeviceMapGraph.chainSuggestElements({ suggestions: [], visible })), []);
+});
+
+test('chain suggestion edges are dashed and carry no label', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555', warn: '#666' };
+  const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: false, energy: true } }, theme, color: () => '#000', reducedMotion: false });
+  const rule = style.find(entry => entry.selector === 'edge.devicemap-chain-suggest');
+  assert.ok(rule, 'chain suggestion rule exists');
+  assert.equal(rule.style['line-style'], 'dashed');
+  assert.equal(rule.style['line-color'], '#111');
+  assert.equal(rule.style['line-opacity'], 0.5);
+  assert.equal(rule.style['target-arrow-shape'], 'none');
+  assert.equal('label' in rule.style, false);
+  const [element] = DeviceMapGraph.chainSuggestElements({ suggestions: [{ device_a: 'P', device_b: 'Q' }], visible: new Set(['P', 'Q']) });
+  assert.equal('label' in element.data, false);
+});

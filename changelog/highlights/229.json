@@ -1,0 +1,69 @@
+{
+  "de": {
+    "*": "Messketten-Vorschläge und Messketten-Sensoren für Home Assistant"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_energy",
+          "panel": "energy-panel",
+          "target": "energy-chains",
+          "text": {
+            "de": "Das Dashboard erkennt Geräte, die dieselbe Leistung messen, und schlägt hier eine Messkette vor. Ein Punkt am Energie-Tab zeigt offene Vorschläge. Du kannst jeden übernehmen oder verwerfen.",
+            "en": "The dashboard finds devices that measure the same power and suggests a measurement chain here. A dot on the Energy tab shows open suggestions. Accept or dismiss each one."
+          },
+          "title": {
+            "de": "Messketten-Vorschläge",
+            "en": "Chain suggestions"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_device_map",
+          "panel": "devicemap-panel",
+          "target": "devicemap-layer-energy",
+          "text": {
+            "de": "Mit der Energie-Ebene verbindet eine gestrichelte Linie die beiden Geräte eines Vorschlags. Ein Klick darauf öffnet Übernehmen und Verwerfen.",
+            "en": "With the energy layer on, a dashed line links the two devices of a suggestion. Click it to accept or dismiss."
+          },
+          "title": {
+            "de": "Vorschläge in der Karte",
+            "en": "Suggestions on the map"
+          }
+        },
+        {
+          "device": "any",
+          "need": "edit_setup",
+          "page": "general",
+          "panel": "settings-panel",
+          "target": "settings-learning",
+          "text": {
+            "de": "Messketten-Vorschläge und das Lernen der Messketten-Werte rechnen laufend mit. Auf schwacher Hardware schaltest du sie hier ab.",
+            "en": "Chain suggestions and the learning of chain values compute all the time. On weak hardware you can switch them off here."
+          },
+          "title": {
+            "de": "Lernfunktionen",
+            "en": "Learning"
+          }
+        },
+        {
+          "device": "any",
+          "need": "mqtt_config",
+          "page": "mqtt",
+          "panel": "settings-panel",
+          "target": "mqtt-chain-sensors",
+          "text": {
+            "de": "Dieser Schalter sendet Wirkungsgrad, Verlust und Verlustenergie jeder Messkette an Home Assistant.",
+            "en": "This switch sends efficiency, loss and loss energy of every measurement chain to Home Assistant."
+          },
+          "title": {
+            "de": "Messketten-Sensoren für Home Assistant",
+            "en": "Chain sensors for Home Assistant"
+          }
+        }
+      ]
+    }
+  }
+}

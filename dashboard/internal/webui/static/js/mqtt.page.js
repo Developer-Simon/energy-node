@@ -43,6 +43,7 @@
     discovery_prefix: 'homeassistant',
     connect_timeout_seconds: 10,
     publish_energy_device: true,
+    publish_chain_sensors: false,
     simulation_active: false,
     metrics: {},
     energy_sensors: {},
@@ -100,6 +101,7 @@
         discovery_prefix: config.discovery_prefix || 'homeassistant',
         connect_timeout_seconds: config.connect_timeout_seconds || 10,
         publish_energy_device: config.publish_energy_device !== false,
+        publish_chain_sensors: Boolean(config.publish_chain_sensors),
         simulation_active: Boolean(config.simulation_active),
         metrics: config.metrics || {},
         energy_sensors: config.energy_sensors || {},
@@ -234,9 +236,46 @@
       if (option.role === 'house_load_calculated') return t('mqtt.energy_sensors.house_load_calculated');
       if (option.role === 'wallbox') return t('energy.role_label.wallbox');
       if (option.role === 'heat_pump') return t('energy.role_label.heat_pump');
+      // Messkette: der Name der Kette, sonst ihre ID.
+      if (option.kind) {
+        const chain = option.label || option.chain;
+        if (option.kind === 'chain_efficiency') return t('mqtt.energy_sensors.chain_efficiency', {chain});
+        if (option.kind === 'chain_loss') return t('mqtt.energy_sensors.chain_loss', {chain});
+        if (option.kind === 'chain_loss_energy') return t('mqtt.energy_sensors.chain_loss_energy', {chain});
+      }
       // Eigene Kategorie ohne Label: die ID nach dem Praefix custom_ zeigen.
       if (option.label) return option.label;
       return option.key.startsWith('custom_') ? option.key.slice('custom_'.length) : option.key;
+    },
+
+    // saveChainSensors persists form.publish_chain_sensors through the energy
+    // device endpoint, which works without a full, valid broker config. That
+    // endpoint needs publish_energy_device in every request, so the current
+    // value goes along, or it would be switched off. Then the energy sensor
+    // options are loaded again, so the chain sensors show up in the list.
+    // Failure rolls the switch back.
+    async saveChainSensors() {
+      if (!this.canConfigure) return false;
+      const desired = this.form.publish_chain_sensors;
+      try {
+        await requestJSON('/api/v1/mqtt/energy-device', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          body: JSON.stringify({
+            publish_energy_device: this.form.publish_energy_device,
+            publish_chain_sensors: desired,
+          }),
+        });
+        const config = await requestJSON('/api/v1/mqtt');
+        this.energySensorOptions = config.energy_sensor_options || [];
+        this.initEnergySensorChoices();
+        this.$store.toasts.push(t('common.saved') + '.');
+        return true;
+      } catch (error) {
+        this.form.publish_chain_sensors = !desired;
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
+        return false;
+      }
     },
 
     // Ein fehlender Schluessel bedeutet an, wie in der Node-Konfiguration.

@@ -78,6 +78,8 @@
     historyMinuteWindowDays: 7,
     historyExtraEntities: [],
     historyExchangeDisabled: false,
+    chainSuggestionsDisabled: false,
+    chainLearningDisabled: false,
     energyStatsRecording: 'always',
     energyStats: null,
     energyStatsError: '',
@@ -202,6 +204,8 @@
         this.historyMinuteWindowDays = value.history_minute_window_days || 7;
         this.historyExtraEntities = Array.isArray(value.history_extra_entities) ? [...value.history_extra_entities] : [];
         this.historyExchangeDisabled = Boolean(value.history_exchange_disabled);
+        this.chainSuggestionsDisabled = Boolean(value.chain_suggestions_disabled);
+        this.chainLearningDisabled = Boolean(value.chain_learning_disabled);
         this.energyStatsRecording = ['always', 'pause_with_companion', 'off'].includes(value.energy_stats_recording) ? value.energy_stats_recording : 'always';
         this.historyViews = Array.isArray(value.history_views) ? [...value.history_views] : [];
         this.updateCheckDisabled = Boolean(value.update_check_disabled);
@@ -627,6 +631,8 @@
         history_minute_window_days: Number(this.historyMinuteWindowDays),
         history_extra_entities: [...this.historyExtraEntities],
         history_exchange_disabled: Boolean(this.historyExchangeDisabled),
+        chain_suggestions_disabled: Boolean(this.chainSuggestionsDisabled),
+        chain_learning_disabled: Boolean(this.chainLearningDisabled),
         history_views: [...this.historyViews],
         energy_stats_recording: this.energyStatsRecording,
         update_check_disabled: Boolean(this.updateCheckDisabled),
@@ -709,6 +715,7 @@
           exchangeDisabled: Boolean(this.historyExchangeDisabled),
         }}));
         document.dispatchEvent(new CustomEvent('language-switch-setting-changed', {detail: {visible: !this.languageSwitchHidden}}));
+        window.dispatchEvent(new CustomEvent('energy-chain-suggestions-changed'));
         this.applyMasthead();
         this.$store.toasts.push(t('settings.saved'));
         this.loadEnergyStatsStatus();

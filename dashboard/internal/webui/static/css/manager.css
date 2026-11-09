@@ -1488,6 +1488,34 @@ div.devicemap-view-menu-row { cursor: default; }
 .energy-chain-loss{font-size:.78rem;color:var(--warn);font-variant-numeric:tabular-nums;white-space:nowrap}
 .energy-chain-insert{width:1.5rem;height:1.5rem;padding:0;border-radius:50%;border:1px dashed var(--border);background:var(--panel);color:var(--text-muted);font:inherit;line-height:1}
 .energy-chain-card{gap:.9rem}
+.energy-chain-suggest{display:grid;gap:.5rem;margin:0 0 var(--energy-section-gap)}
+.energy-chain-suggest-title{margin:0;font-size:.9rem;color:var(--text-strong)}
+.energy-chain-suggest-list{display:grid;gap:.5rem}
+.energy-chain-suggest-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:.6rem;align-items:center;padding:.6rem .8rem;border:1px dashed var(--accent-line);border-radius:var(--radius-md);background:var(--panel-alt)}
+.energy-chain-suggest-glyph{display:grid;place-items:center;width:2rem;height:2rem;border-radius:50%;background:var(--accent-bg);color:var(--accent)}
+.energy-chain-suggest-glyph svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.energy-chain-suggest-text{min-width:0;display:grid;gap:.1rem}
+.energy-chain-suggest-line{margin:0;font-size:.9rem;color:var(--text-strong);overflow-wrap:anywhere}
+.energy-chain-suggest-evidence{color:var(--text-muted);font-size:.78rem}
+.energy-chain-suggest-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.4rem}
+.energy-chain-suggest-dialog{width:min(32rem,calc(100vw - 2rem))}
+.energy-chain-suggest-form{display:grid;gap:.75rem}
+.energy-chain-suggest-order{display:grid;gap:.35rem}
+.energy-chain-suggest-point{display:grid;gap:.1rem;min-width:0;padding:.55rem .8rem;border:1px solid var(--border-soft);border-radius:var(--radius-md);background:var(--sunken);color:var(--text-strong);overflow-wrap:anywhere}
+.energy-chain-suggest-point small{color:var(--text-muted);font-size:.74rem}
+.energy-chain-suggest-arrow{display:grid;place-items:center;height:1rem}
+.energy-chain-suggest-arrow svg{width:16px;height:16px;transform:rotate(90deg);fill:none;stroke:var(--text-muted);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.energy-chain-suggest-hint{margin:0;font-size:.85rem;color:var(--text-subtle)}
+.energy-chain-suggest-swap{justify-self:start}
+.energy-chain-suggest-name{display:grid;gap:.3rem;font-size:.85rem;color:var(--text-muted)}
+.energy-chain-suggest-name-input{width:100%;box-sizing:border-box;font:inherit;font-size:1rem;color:var(--text)}
+@media (max-width:640px){
+  .energy-chain-suggest-card{grid-template-columns:minmax(0,1fr)}
+  .energy-chain-suggest-glyph{display:none}
+  .energy-chain-suggest-actions{justify-content:stretch}
+  .energy-chain-suggest-actions button{flex:1 1 auto}
+  .energy-chain-suggest-dialog{width:100%;max-width:none;margin:0}
+}
 .energy-chain-direction{position:relative;flex:none;min-width:0;max-width:100%}
 .energy-chain-direction-trigger{display:inline-flex;align-items:center;gap:.35rem;max-width:100%;padding:.35rem .55rem .35rem .7rem;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--text-muted);font:inherit;font-size:.8rem;line-height:1.2;cursor:pointer;transition:background-color 120ms ease,color 120ms ease,transform 100ms var(--ease-out)}
 .energy-chain-direction-trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1538,4 +1566,12 @@ div.devicemap-view-menu-row { cursor: default; }
   .energy-chain-chevron{width:16px;height:16px;fill:none;stroke:var(--text-muted);stroke-width:2}
   .energy-chain-summary[aria-expanded="true"] .energy-chain-chevron{transform:rotate(90deg)}
   .energy-chain-body:not(.is-open){display:none}
+}
+
+/* Buttons of a chain suggestion card on the device map. */
+.devicemap-chain-suggest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }

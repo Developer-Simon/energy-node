@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -197,5 +198,44 @@ func TestMQTTConfigPublishEnergyDeviceDefaultsTrue(t *testing.T) {
 		t.Fatal(err)
 	} else if roundTripped.PublishEnergyDevice {
 		t.Fatal("PublishEnergyDevice = true after saving false, want false")
+	}
+}
+
+func TestMQTTConfigPublishChainSensorsOmitempty(t *testing.T) {
+	dir := t.TempDir()
+	// Alte mqtt.json ohne das Feld -> false.
+	partial := []byte(`{"enabled": true, "host": "broker", "client_id": "id"}`)
+	if err := os.WriteFile(filepath.Join(dir, "mqtt.json"), partial, 0600); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(dir)
+	got, err := store.LoadMQTT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.PublishChainSensors {
+		t.Fatal("PublishChainSensors = true for a file without the key, want false")
+	}
+
+	// Unveraendert gespeichert: das Feld taucht nicht auf.
+	if err := store.SaveMQTT(got); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := os.ReadFile(filepath.Join(dir, "mqtt.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(saved), "publish_chain_sensors") {
+		t.Fatalf("mqtt.json gained publish_chain_sensors while off: %s", saved)
+	}
+
+	// Eingeschaltet -> wird gespeichert und geladen.
+	on := got
+	on.PublishChainSensors = true
+	if err := store.SaveMQTT(on); err != nil {
+		t.Fatal(err)
+	}
+	if reloaded, err := NewStore(dir).LoadMQTT(); err != nil || !reloaded.PublishChainSensors {
+		t.Fatalf("PublishChainSensors after reload = %v, err %v; want true", reloaded.PublishChainSensors, err)
 	}
 }

@@ -37,14 +37,16 @@ const (
 // diagnoses. Observe feeds it one snapshot at a time, the readers may run at
 // the same time.
 type Monitor struct {
-	table   *Table
-	holds   Holds
-	now     func() time.Time
-	mu      sync.RWMutex
-	tracks  map[trackKey]*trackEntry
-	windows map[windowKey]*frozenWindow
-	labels  map[string]string
-	persist *persistence
+	table *Table
+	holds Holds
+	now   func() time.Time
+	mu    sync.RWMutex
+	// learning ist der Schalter des Lernens, siehe SetLearning.
+	learning bool
+	tracks   map[trackKey]*trackEntry
+	windows  map[windowKey]*frozenWindow
+	labels   map[string]string
+	persist  *persistence
 }
 
 var _ energy.ChainInsight = (*Monitor)(nil)
@@ -122,12 +124,13 @@ func NewMonitor(table *Table, holds Holds, now func() time.Time) *Monitor {
 		now = time.Now
 	}
 	return &Monitor{
-		table:   table,
-		holds:   holds,
-		now:     now,
-		tracks:  map[trackKey]*trackEntry{},
-		windows: map[windowKey]*frozenWindow{},
-		labels:  map[string]string{},
+		table:    table,
+		holds:    holds,
+		now:      now,
+		learning: true,
+		tracks:   map[trackKey]*trackEntry{},
+		windows:  map[windowKey]*frozenWindow{},
+		labels:   map[string]string{},
 	}
 }
 
@@ -213,6 +216,22 @@ func (m *Monitor) Observe(at time.Time, snapshot energy.Snapshot) {
 		}
 	}
 	m.saveDueLocked(at)
+}
+
+// SetLearning switches learning on or off. Off keeps the table as it is: no
+// Learn, no sign counting. syncPair still drops pairs whose scale or invert
+// changed, and the detectors keep running on what is learned.
+func (m *Monitor) SetLearning(on bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.learning = on
+}
+
+// LearningOn reports the switch, true for a new monitor.
+func (m *Monitor) LearningOn() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.learning
 }
 
 // Relearn drops what is learned about the pair a-b in both directions, and

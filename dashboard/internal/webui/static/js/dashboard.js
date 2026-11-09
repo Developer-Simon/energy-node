@@ -97,6 +97,15 @@
     return count;
   };
 
+  // Text eines Reiters ohne versteckte Zusaetze (Punkt, "Neu", "Offene
+  // Vorschlaege"): die stehen fuer Screenreader im Reiter, gehoeren aber
+  // nicht in das Menue "Weitere" oder die Titelzeile.
+  const tabLabel = (tab) => {
+    const copy = tab.cloneNode(true);
+    copy.querySelectorAll('.visually-hidden, [aria-hidden="true"]').forEach((node) => node.remove());
+    return copy.textContent.trim();
+  };
+
   const dashboardShell = () => ({
     activePanel: document.body.dataset.initialPanel || 'overview-panel',
     // Der Reiter Effizienz zeigt sich nur, solange es Messketten gibt. Der
@@ -113,6 +122,8 @@
     navMode: readNavMode(),
     // Punkt am Reiter Effizienz, solange er nie geoeffnet wurde (siehe oben).
     efficiencyTabNew: !efficiencyTabWasSeen(),
+    // Punkt am Reiter Energie, solange Messketten-Vorschlaege offen sind.
+    energySuggestionsOpen: false,
     // Tabs, die nicht in die Zeile passen, fuer die Liste "Weitere":
     // {key, label, el, active}.
     overflowNav: [],
@@ -167,7 +178,7 @@
       rest.forEach((tab) => tab.classList.add('is-overflow'));
       this.overflowNav = rest.map((tab, index) => ({
         key: tab.id || tab.dataset.pageId || `tab-${index}`,
-        label: tab.textContent.trim(),
+        label: tabLabel(tab),
         el: tab,
         active: tab.classList.contains('active'),
         // Der Einstellungs-Tab traegt den Marker fuer ungesehene Neuerungen.
@@ -187,7 +198,7 @@
     // muesste bei jeder Tab-Umbenennung in base.html nachgezogen werden.
     get activeTabLabel() {
       const tab = document.querySelector(`[role="tab"][aria-controls="${this.activePanel}"]`);
-      return tab ? tab.textContent.trim() : '';
+      return tab ? tabLabel(tab) : '';
     },
     expandedEntities: {},
     panelRequests: {},
@@ -238,6 +249,19 @@
       if (!this.efficiencyTabNew) return;
       this.efficiencyTabNew = false;
       rememberEfficiencyTabSeen();
+    },
+
+    // Punkt am Energie-Reiter, solange Messketten-Vorschlaege offen sind.
+    // Fehler lassen den Punkt, wie er ist.
+    async refreshEnergySuggestions() {
+      if (!this.hasTab('energy-panel')) return;
+      let body;
+      try {
+        body = await requestJSON('/api/v1/energy/chain-suggestions');
+      } catch (error) {
+        return;
+      }
+      this.energySuggestionsOpen = !(body && body.disabled) && Array.isArray(body && body.suggestions) && body.suggestions.length > 0;
     },
 
     async setActivePanel(panel) {
@@ -466,6 +490,16 @@
         this.$nextTick(() => this.fitNav());
         if (!this.hasChains && this.activePanel === 'efficiency-panel') this.setActivePanel('energy-panel');
       });
+
+      // Der Punkt am Energie-Reiter folgt den vorgeschlagenen Ketten: beim Start,
+      // alle fuenf Minuten, nach Rollenaenderungen (eine Kette kann Vorschlaege
+      // verdraengen) und nach Uebernehmen oder Verwerfen.
+      if (this.hasTab('energy-panel')) {
+        this.refreshEnergySuggestions();
+        window.setInterval(() => this.refreshEnergySuggestions(), 5 * 60 * 1000);
+      }
+      window.addEventListener('energy-roles-changed', () => this.refreshEnergySuggestions());
+      window.addEventListener('energy-chain-suggestions-changed', () => this.refreshEnergySuggestions());
 
       const requestedPanel = new URLSearchParams(window.location.search).get('panel');
       const panelMap = {devices: 'devices-panel', history: 'history-panel', diagnostics: 'diagnostics-panel', config: 'config-panel', energy: 'energy-panel', devicemap: 'devicemap-panel', settings: 'settings-panel', automations: 'automations-panel', efficiency: 'efficiency-panel'};

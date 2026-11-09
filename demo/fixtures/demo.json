@@ -508,6 +508,39 @@
     }
   },
   {
+    "topic": "homeassistant/sensor/garage/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "garage_power",
+      "state_topic": "garage/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "garage/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "garage"
+        ],
+        "via_device": "energy_node",
+        "name": "Garage Socket"
+      }
+    }
+  },
+  {
+    "topic": "garage/online",
+    "payload": "true"
+  },
+  {
+    "topic": "garage/status",
+    "payload": {
+      "id": 0,
+      "apower": 680,
+      "source": "smoke"
+    }
+  },
+  {
     "topic": "waermepumpe/status",
     "payload": {
       "id": 0,
@@ -821,6 +854,39 @@
     "payload": {
       "id": 0,
       "apower": 400,
+      "source": "smoke"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/plug_garage/power/config",
+    "payload": {
+      "name": "Power",
+      "unique_id": "plug_garage_power",
+      "state_topic": "plug/garage/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "availability_topic": "plug/garage/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
+      "device": {
+        "identifiers": [
+          "plug_garage"
+        ],
+        "via_device": "energy_node",
+        "name": "Plug Garage"
+      }
+    }
+  },
+  {
+    "topic": "plug/garage/online",
+    "payload": "true"
+  },
+  {
+    "topic": "plug/garage/status",
+    "payload": {
+      "id": 0,
+      "apower": 700,
       "source": "smoke"
     }
   },

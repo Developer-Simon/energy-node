@@ -25,6 +25,7 @@ type ChainSignal struct {
 	Findings        []ChainSignalFinding `json:"findings"`
 	BestDown        *ChainPowerRange     `json:"best_down"`
 	BestUp          *ChainPowerRange     `json:"best_up"`
+	LossKWhTotal    float64              `json:"loss_kwh_total"`
 }
 
 // ChainSignals is the retained payload on the chains topic, keyed by chain ID.
@@ -70,20 +71,37 @@ func BuildChainSignals(chains []ChainState, insight ChainInsight, at time.Time) 
 	return out
 }
 
-// chainLossAndEfficiency sums the loss of the segments and multiplies their
-// efficiencies. Both stay nil when the flow is idle, when there are no
-// segments, when one segment is not available, and the efficiency also when
-// one segment has none.
+// ChainLossW is the loss the chains topic publishes as loss_w, ok false where
+// it publishes null.
+func ChainLossW(chain ChainState) (float64, bool) {
+	loss, _, ok := chainLoss(chain)
+	return loss, ok
+}
+
+// chainLossAndEfficiency is the loss and the efficiency of the chain as the
+// chains topic publishes them, both nil where ChainLossW is not ok.
 func chainLossAndEfficiency(chain ChainState) (*float64, *float64) {
-	if chain.Flow == "idle" || len(chain.Segments) == 0 {
+	loss, eff, ok := chainLoss(chain)
+	if !ok {
 		return nil, nil
+	}
+	return f64Ptr(loss), eff
+}
+
+// chainLoss sums the loss of the segments and multiplies their efficiencies.
+// The loss is rounded as published, the efficiency is nil when one segment
+// has none. ok is false when the flow is idle, when there are no segments and
+// when one segment is not available.
+func chainLoss(chain ChainState) (float64, *float64, bool) {
+	if chain.Flow == "idle" || len(chain.Segments) == 0 {
+		return 0, nil, false
 	}
 	loss := 0.0
 	eff := 1.0
 	effKnown := true
 	for _, seg := range chain.Segments {
 		if !seg.Available {
-			return nil, nil
+			return 0, nil, false
 		}
 		loss += seg.LossW
 		if seg.Efficiency == nil {
@@ -96,7 +114,16 @@ func chainLossAndEfficiency(chain ChainState) (*float64, *float64) {
 	if effKnown {
 		effPct = f64Ptr(roundOneDecimal(eff * 100))
 	}
-	return f64Ptr(roundOneDecimal(loss)), effPct
+	return roundOneDecimal(loss), effPct, true
+}
+
+// SetLossTotals sets LossKWhTotal of every chain, rounded to three decimals,
+// 0 for chains without an entry.
+func (s *ChainSignals) SetLossTotals(totals map[string]float64) {
+	for id, signal := range s.Chains {
+		signal.LossKWhTotal = math.Round(totals[id]*1000) / 1000
+		s.Chains[id] = signal
+	}
 }
 
 // ChainStandbyW reports the power of the first point when the chain is in
