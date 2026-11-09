@@ -3288,6 +3288,8 @@
   "settings.masthead.title": "Kopfzeile",
   "settings.masthead.title_help_button": "Hinweis zum Titel",
   "settings.masthead.title_label": "Titel",
+  "settings.nav.backup": "Backup",
+  "settings.nav.backup_desc": "Sichern und einspielen",
   "settings.nav.display": "Darstellung",
   "settings.nav.display_desc": "Anzeige, Sprache und Kacheln",
   "settings.nav.general": "Allgemein",

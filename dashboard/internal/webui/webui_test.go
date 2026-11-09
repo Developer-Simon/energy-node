@@ -153,7 +153,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=4,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=30,/static/js/onboarding-checklist.js?v=4,/static/js/mqtt.page.js?v=11,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=10,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=31,/static/js/onboarding-checklist.js?v=4,/static/js/mqtt.page.js?v=11,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=10,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -162,7 +162,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=20"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=48,/static/css/settings-controls.css?v=20,/static/css/backup.css?v=1"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1136,7 +1136,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=20"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=48,/node/static/css/settings-controls.css?v=20,/node/static/css/backup.css?v=1"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -4368,5 +4368,76 @@ func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
 		if n := strings.Count(markup, want); n != 1 {
 			t.Errorf("%s: %d Treffer für %s, erwartet 1", step.ID, n, want)
 		}
+	}
+}
+
+// Der Backup-Eintrag der Einstellungen: Sprite-Symbol, Navigation vor den
+// Versionen, Stylesheet und Seitenliste. Speicher und Laufwerke folgen erst
+// mit dem zweiten Teilauftrag, darum fehlen sie hier absichtlich.
+func TestBackupNavEntryIsWiredBeforeVersions(t *testing.T) {
+	body := renderPanel(t, "settings")
+	backup := strings.Index(body, `aria-controls="settings-backup"`)
+	versions := strings.Index(body, `aria-controls="settings-versions"`)
+	if backup < 0 {
+		t.Fatal("der Backup-Eintrag fehlt in der Navigation der Einstellungen")
+	}
+	if versions < 0 || backup > versions {
+		t.Fatalf("der Backup-Eintrag steht nicht vor Versionen (Backup bei %d, Versionen bei %d)", backup, versions)
+	}
+	if !strings.Contains(body, `<span class="settings-nav-title">Backup</span>`) {
+		t.Fatal("der Backup-Eintrag hat nicht den Titel aus dem Katalog")
+	}
+	if !strings.Contains(body, `<use href="#ico-backup"></use>`) {
+		t.Fatal("der Backup-Eintrag nutzt nicht das Sprite-Symbol ico-backup")
+	}
+}
+
+func TestBackupAssetsAreRegisteredOnTheShell(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	page := recorder.Body.String()
+	if !strings.Contains(page, `id="ico-backup"`) {
+		t.Fatal("das Sprite der Shell enthaelt ico-backup nicht")
+	}
+	if strings.Contains(page, `id="ico-drive"`) {
+		t.Fatal("das Sprite enthaelt ico-drive, Laufwerke gehoeren zum zweiten Teilauftrag")
+	}
+	if !strings.Contains(page, "static/css/backup.css?v=1") {
+		t.Fatal("backup.css ist nicht als Panel-Stylesheet der Einstellungen eingetragen")
+	}
+	if !strings.Contains(page, "static/js/settings.page.js?v=31") {
+		t.Fatal("settings.page.js ist nicht auf v=31 hochgezaehlt")
+	}
+}
+
+func TestSettingsPageListKnowsBackupButNotStorage(t *testing.T) {
+	data, err := os.ReadFile("static/js/settings.page.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "'checklist', 'backup'];") {
+		t.Fatal("SETTINGS_PAGES enthaelt backup nicht")
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.Contains(line, "const SETTINGS_PAGES") && strings.Contains(line, "'storage'") {
+			t.Fatal("SETTINGS_PAGES enthaelt storage, das gehoert zum zweiten Teilauftrag")
+		}
+	}
+}
+
+func TestBackupStylesheetLeavesOutDraftAndStorageRules(t *testing.T) {
+	data, err := os.ReadFile("static/css/backup.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(data)
+	for _, banned := range []string{"NUR ENTWURF", "bs-draft", "bs-drive", "bs-storage", "bs-meter", "bs-status", "bs-erase"} {
+		if strings.Contains(css, banned) {
+			t.Fatalf("backup.css enthaelt %q, das gehoert nicht in den ersten Teilauftrag", banned)
+		}
+	}
+	if !strings.Contains(css, ".bs-flow {") {
+		t.Fatal("backup.css enthaelt den Ablauf-Dialog nicht")
 	}
 }

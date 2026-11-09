@@ -3288,6 +3288,8 @@
   "settings.masthead.title": "Masthead",
   "settings.masthead.title_help_button": "About the title",
   "settings.masthead.title_label": "Title",
+  "settings.nav.backup": "Backup",
+  "settings.nav.backup_desc": "Back up and restore",
   "settings.nav.display": "Appearance",
   "settings.nav.display_desc": "Display, language and tiles",
   "settings.nav.general": "General",
