@@ -334,13 +334,18 @@ func (m *Manager) loadLocked() (bool, error) {
 			}
 		}
 	}
-	if file.Version < usersFileVersion {
+	if file.Version < 5 {
 		// Version 5 ersetzt unveraenderte Vorgaben (migrateV4Locked).
 		replaced := m.migrateV4Locked()
 		changed = true
 		if replaced && m.hasNonGuestLocked() {
 			m.guestRolesReviewed = false
 		}
+	}
+	if file.Version < 6 {
+		// Version 6 gibt bestehenden Admins die Backup-Rechte (migrateV5).
+		migrateV5(m.users)
+		changed = true
 	}
 	if m.cleanupGuestsLocked() {
 		changed = true

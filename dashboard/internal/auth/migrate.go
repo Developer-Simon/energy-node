@@ -7,7 +7,7 @@ import (
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 5
+const usersFileVersion = 6
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -162,6 +162,22 @@ func (m *Manager) migrateV4Locked() (guestReplaced bool) {
 		m.haRoles.User = defaultHAUserRoles()
 	}
 	return guestReplaced
+}
+
+// backupRoleKeys sind die Backup-Rechte, die Version 6 bestehenden Admins gibt.
+var backupRoleKeys = []string{RoleBackupExport, RoleBackupImport, RoleBackupSecrets}
+
+// migrateV5 gibt jedem bestehenden Admin die Backup-Rechte. Admin ist ein
+// Nicht-Gast mit system_actions, wie in migrateV1. Die erhoehten Rechte stehen
+// nicht in den HA-Vorgaben, die bleiben unberuehrt.
+func migrateV5(users map[string]User) {
+	for name, user := range users {
+		if user.Guest || !containsRole(user.Roles, RoleSystemActions) {
+			continue
+		}
+		user.Roles = Normalize(append(append([]string(nil), user.Roles...), backupRoleKeys...))
+		users[name] = user
+	}
 }
 
 // sameRoles vergleicht zwei Rollenlisten nach Normalize, die Reihenfolge und
