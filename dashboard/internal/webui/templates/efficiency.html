@@ -106,6 +106,7 @@
                   </div>
                 </div>
               </template>
+              <p class="efficiency-hint" x-show="learningDisabled">{{t "efficiency.learning_disabled"}}</p>
               <ul class="efficiency-segments">
                 <template x-for="row in segments" x-bind:key="rowKey(row)">
                   <li class="efficiency-segment">

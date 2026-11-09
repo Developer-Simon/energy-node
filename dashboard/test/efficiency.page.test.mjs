@@ -588,3 +588,17 @@ test('Markup: Tour-Marken, Bearbeiten nur unter x-if canEdit, Normalbereich auss
     }
   }
 });
+
+test('learning_disabled aus der Antwort steuert hinweis, fehlend heisst aus', async () => {
+  const {dom, panel, server} = setup({chains: [AKKU]});
+  server.pending = () => Promise.resolve(reply({revision: 1, chains: [AKKU], learning_disabled: true}));
+  await panel.load();
+  assert.equal(panel.learningDisabled, true);
+  server.pending = () => Promise.resolve(reply({revision: 2, chains: [AKKU], learning_disabled: false}));
+  await panel.load();
+  assert.equal(panel.learningDisabled, false);
+  server.pending = () => Promise.resolve(reply({revision: 3, chains: [AKKU]}));
+  await panel.load();
+  assert.equal(panel.learningDisabled, false);
+  dom.window.close();
+});

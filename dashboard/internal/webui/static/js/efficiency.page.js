@@ -68,6 +68,8 @@
     chains: [],
     // Revision of the statistics the loaded chains were computed from.
     dataRevision: null,
+    // Learning is switched off in the general settings, the page shows the last learned state.
+    learningDisabled: false,
     // Live ChainState per chain id, from the last registry-updated event.
     live: {},
     // Roles with their categories, needed to tell custom storage apart.
@@ -511,6 +513,7 @@
         if (seq !== this.seq) return;
         this.chains = Array.isArray(body.chains) ? body.chains : [];
         this.dataRevision = typeof body.revision === 'number' ? body.revision : null;
+        this.learningDisabled = Boolean(body.learning_disabled);
         this.error = '';
         this.startIntro();
       } catch (error) {
