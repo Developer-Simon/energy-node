@@ -3118,3 +3118,55 @@ func TestEnergyFileWithoutTolerancesStaysByteEqual(t *testing.T) {
 		t.Fatalf("energy.json changed on a round trip:\n%s\n---\n%s", first, second)
 	}
 }
+
+func TestChainSwitchesDefaultOn(t *testing.T) {
+	if Default().ChainSuggestionsDisabled || Default().ChainLearningDisabled {
+		t.Fatal("die Messketten-Funktionen muessen in der Vorgabe an sein")
+	}
+	// Ein nicht gesetzter Nullwert muss "an" bedeuten, sonst liesse sich
+	// der Schalter nicht abschalten, weil normalizeSettings ihn zurueckdreht.
+	normalized := normalizeSettings(Settings{})
+	if normalized.ChainSuggestionsDisabled || normalized.ChainLearningDisabled {
+		t.Fatal("nicht gesetzt muss 'an' bedeuten")
+	}
+}
+
+func TestChainSwitchesPersistAndStayOff(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := Default()
+	value.ChainSuggestionsDisabled, value.ChainLearningDisabled = true, true
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.ChainSuggestionsDisabled || !got.ChainLearningDisabled {
+		t.Fatalf("switches after save and load = %+v, want both true", got)
+	}
+	if normalized := normalizeSettings(Settings{ChainLearningDisabled: true}); !normalized.ChainLearningDisabled {
+		t.Fatal("ein bewusstes Abschalten darf nicht zurueckgedreht werden")
+	}
+}
+
+func TestSchemaKenntDieChainSchalter(t *testing.T) {
+	var schema struct {
+		Properties map[string]struct {
+			Type    string `json:"type"`
+			Default any    `json:"default"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(settingsSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"chain_suggestions_disabled", "chain_learning_disabled"} {
+		property, ok := schema.Properties[key]
+		if !ok {
+			t.Fatalf("%s fehlt im Schema", key)
+		}
+		if property.Type != "boolean" || property.Default != false {
+			t.Fatalf("%s = %+v, want boolean/false", key, property)
+		}
+	}
+}

@@ -111,7 +111,7 @@ func TestChainStatsEndpointNeedsViewStats(t *testing.T) {
 
 func TestEfficiencyEndpointWithoutServiceReturns501(t *testing.T) {
 	cases := map[string]http.HandlerFunc{
-		"efficiency": handleEnergyEfficiency(nil),
+		"efficiency": handleEnergyEfficiency(nil, nil),
 		"chains":     handleEnergyChainStats(nil),
 	}
 	for name, handler := range cases {
@@ -131,5 +131,34 @@ func TestChainStatsRejectsInvalidPeriod(t *testing.T) {
 	handleEnergyChainStats(efficiencyTestService(t))(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/energy/stats/chains?period=quarter", nil))
 	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"energy_stats_invalid_period"`) {
 		t.Fatalf("status %d, body %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestEfficiencyReportsLearningDisabled(t *testing.T) {
+	service := efficiencyTestService(t)
+	cases := map[string]struct {
+		learningOn func() bool
+		want       string
+	}{
+		"learning off": {func() bool { return false }, "true"},
+		"learning on":  {func() bool { return true }, "false"},
+		"no monitor":   {nil, "false"},
+	}
+	for name, tc := range cases {
+		recorder := httptest.NewRecorder()
+		handleEnergyEfficiency(service, tc.learningOn)(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/energy/efficiency", nil))
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s: status %d: %s", name, recorder.Code, recorder.Body.String())
+		}
+		var body map[string]json.RawMessage
+		if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if string(body["learning_disabled"]) != tc.want {
+			t.Errorf("%s: learning_disabled = %s, want %s", name, body["learning_disabled"], tc.want)
+		}
+		if _, ok := body["chains"]; !ok {
+			t.Errorf("%s: chains missing from %s", name, recorder.Body.String())
+		}
 	}
 }

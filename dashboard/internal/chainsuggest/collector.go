@@ -107,6 +107,8 @@ type Collector struct {
 	// path ist die Datei fuer Summen und verworfene Paare, leer ohne Speichern.
 	path string
 	logf func(string, ...any)
+	// disabled schaltet das Sammeln ab, siehe SetEnabled. Der Nullwert sammelt.
+	disabled bool
 	// dirty ist gesetzt, solange sich seit dem letzten Speichern etwas geaendert hat.
 	dirty bool
 	// next ist der Zeitpunkt der naechsten Speicherung, wenn dirty.
@@ -139,6 +141,9 @@ func (c *Collector) Observe(at time.Time, devices []registry.DeviceView) {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if c.disabled {
+		return
+	}
 
 	local := at.In(c.loc)
 	y, mo, d := local.Date()
@@ -271,4 +276,22 @@ func (c *Collector) pruneLocked(day int) {
 func dayIndex(t time.Time) int {
 	y, m, d := t.Date()
 	return int(time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Unix() / 86400)
+}
+
+// SetEnabled switches collecting on or off. Off drops the open minute buffer
+// and makes Observe a no-op. Stored sums and dismissed pairs stay.
+func (c *Collector) SetEnabled(on bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.disabled = !on
+	if !on {
+		c.buf = map[string]*minuteSample{}
+	}
+}
+
+// Enabled reports the switch, true for a new collector.
+func (c *Collector) Enabled() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return !c.disabled
 }

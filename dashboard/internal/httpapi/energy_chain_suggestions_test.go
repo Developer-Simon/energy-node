@@ -24,9 +24,14 @@ type fakeChainSuggester struct {
 	suggestions []chainsuggest.Suggestion
 	dismissed   [][2]string
 	dismissErr  error
+	disabled    bool
+	calls       int
 }
 
+func (f *fakeChainSuggester) Enabled() bool { return !f.disabled }
+
 func (f *fakeChainSuggester) Suggestions(energy.Model, func(string, string) bool) []chainsuggest.Suggestion {
+	f.calls++
 	return f.suggestions
 }
 
@@ -59,6 +64,9 @@ func TestChainSuggestionsGet(t *testing.T) {
 	}
 	if len(body.Suggestions) != 1 || body.Suggestions[0].A != "plug" || !body.Suggestions[0].Edge {
 		t.Fatalf("suggestions = %+v", body.Suggestions)
+	}
+	if !strings.Contains(recorder.Body.String(), `"disabled":false`) {
+		t.Fatalf("answer = %s, want disabled false", recorder.Body.String())
 	}
 
 	// An empty collector answers an empty list, never null.
@@ -153,5 +161,22 @@ func TestChainSuggestionsDismissSaveFailureIsServerError(t *testing.T) {
 	recorder := doChainRequest(router, http.MethodPost, energyChainSuggestionsDismissPath, `{"a":"plug","b":"ac"}`)
 	if recorder.Code != http.StatusInternalServerError || !strings.Contains(recorder.Body.String(), `"code":"chain_suggestion_failed"`) {
 		t.Fatalf("save failure: %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestChainSuggestionsGetDisabled(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	suggester := &fakeChainSuggester{disabled: true, suggestions: []chainsuggest.Suggestion{{A: "plug", B: "ac"}}}
+	router := NewRouterWithDependencies(registry.New(), config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, RouterDependencies{ChainSuggest: suggester})
+
+	recorder := doChainRequest(router, http.MethodGet, energyChainSuggestionsPath, "")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if got := strings.TrimSpace(recorder.Body.String()); got != `{"suggestions":[],"disabled":true}` {
+		t.Fatalf("body = %s, want the disabled answer", got)
+	}
+	if suggester.calls != 0 {
+		t.Fatalf("Suggestions called %d times while disabled, want 0", suggester.calls)
 	}
 }

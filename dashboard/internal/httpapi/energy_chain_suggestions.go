@@ -17,6 +17,7 @@ const (
 // chainSuggester is the part of the chain suggestions the handlers use. The
 // collector of package chainsuggest implements it.
 type chainSuggester interface {
+	Enabled() bool
 	Suggestions(model energy.Model, edge func(deviceA, deviceB string) bool) []chainsuggest.Suggestion
 	Dismiss(a, b string) error
 }
@@ -25,6 +26,9 @@ type chainSuggester interface {
 // Suggestions is never null.
 type chainSuggestionsBody struct {
 	Suggestions []chainsuggest.Suggestion `json:"suggestions"`
+	// Disabled ist true, wenn die Vorschlaege abgeschaltet sind. Dann
+	// kommt keine Liste.
+	Disabled bool `json:"disabled"`
 }
 
 // chainSuggestionDismissBody is the body of POST
@@ -65,6 +69,10 @@ func handleEnergyChainSuggestions(store *settings.Store, resolver *energy.Resolv
 		}
 		if suggester == nil {
 			writeError(w, http.StatusNotImplemented, "energy_roles_unavailable", "Energie-Rollen sind ohne Datenverzeichnis nicht verfügbar")
+			return
+		}
+		if !suggester.Enabled() {
+			writeJSON(w, chainSuggestionsBody{Suggestions: []chainsuggest.Suggestion{}, Disabled: true})
 			return
 		}
 		suggestions := suggester.Suggestions(resolver.Model(), energyEdgeFunc(store))

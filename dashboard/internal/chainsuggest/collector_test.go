@@ -190,3 +190,46 @@ func TestCollectorSkipsNonFinite(t *testing.T) {
 		}
 	}
 }
+
+func TestCollectorDisabled(t *testing.T) {
+	start := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
+	c := NewCollector(DefaultThresholds, time.UTC)
+	both := func() []registry.DeviceView {
+		return devicesFor(map[string]float64{"a": 100, "b": 90})
+	}
+	// Minute 0 und die ersten drei Beobachtungen von Minute 1 vor dem Abschalten.
+	for s := 0; s < 6; s++ {
+		c.Observe(start.Add(time.Duration(s)*10*time.Second), both())
+	}
+	for s := 0; s < 3; s++ {
+		c.Observe(start.Add(time.Minute+time.Duration(s)*10*time.Second), both())
+	}
+	c.dirty = false
+
+	c.SetEnabled(false)
+	if c.Enabled() {
+		t.Fatal("Enabled after SetEnabled(false) = true")
+	}
+	if len(c.buf) != 0 {
+		t.Fatalf("minute buffer after SetEnabled(false) has %d entries, want none", len(c.buf))
+	}
+	if c.dirty {
+		t.Fatal("SetEnabled(false) set dirty")
+	}
+	for s := 3; s < 6; s++ {
+		c.Observe(start.Add(time.Minute+time.Duration(s)*10*time.Second), both())
+	}
+	if c.dirty || len(c.buf) != 0 {
+		t.Fatalf("observes while disabled: dirty %v, buffer %d, want clean and empty", c.dirty, len(c.buf))
+	}
+
+	c.SetEnabled(true)
+	feed(c, start.Add(4*time.Minute), 2, func(int) map[string]float64 { return map[string]float64{"a": 100, "b": 90} })
+	flush(c, start.Add(6*time.Minute))
+
+	// Minute 0 zaehlt, die unterbrochene Minute 1 nicht, Minuten 4 und 5 zaehlen.
+	s := c.sums[pairDay{a: "a", b: "b", day: dayIndex(start)}]
+	if s == nil || s.n != 3 {
+		t.Fatalf("sums = %+v, want n 3 (minute 0, minutes 4 and 5)", s)
+	}
+}

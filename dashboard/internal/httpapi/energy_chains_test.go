@@ -373,6 +373,7 @@ func (f *fakeChainMonitor) Prune(chains map[string]energy.Chain) {
 	f.pruned = append(f.pruned, chains)
 }
 func (f *fakeChainMonitor) AllFindings() []energy.ChainFinding { return nil }
+func (f *fakeChainMonitor) LearningOn() bool                   { return true }
 
 // chainFixture creates the chain "Balkon" with plug, ac and other, counting
 // plug. A nil monitor builds the router without one.

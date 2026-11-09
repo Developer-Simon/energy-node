@@ -81,7 +81,7 @@ func (m *Monitor) observeChain(at time.Time, cs *energy.ChainState) {
 		m.table.syncPair(pairOf(s.a, s.b), *s.a, *s.b, at)
 		m.table.syncPair(pairOf(s.src, s.dst), *s.src, *s.dst, at)
 	}
-	if cs.Flow != "idle" {
+	if cs.Flow != "idle" && m.learning {
 		for _, s := range v.segments {
 			m.table.countSign(pairOf(s.a, s.b), *s.a, *s.b)
 		}
@@ -130,6 +130,9 @@ func (m *Monitor) observeChain(at time.Time, cs *energy.ChainState) {
 		m.feed(at, key, detectDrift(v, s), m.holds.Drift, m.holds.Clear, s.info())
 	}
 
+	if !m.learning {
+		return
+	}
 	for _, s := range v.segments {
 		if !learnable(v, s) {
 			continue

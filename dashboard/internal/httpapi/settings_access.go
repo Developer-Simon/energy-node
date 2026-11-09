@@ -25,6 +25,8 @@ var settingsFieldRoles = map[string]string{
 	"history_minute_window_days":      auth.RoleEditSetup,
 	"history_extra_entities":          auth.RoleEditSetup,
 	"history_exchange_disabled":       auth.RoleEditSetup,
+	"chain_suggestions_disabled":      auth.RoleEditSetup,
+	"chain_learning_disabled":         auth.RoleEditSetup,
 	"energy_stats_recording":          auth.RoleEditSetup,
 	"changelog_history":               auth.RoleEditSetup,
 	"update_check_disabled":           auth.RoleEditSetup,

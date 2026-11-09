@@ -686,13 +686,24 @@ func main() {
 				// Ohne gestellte Uhr waere FirstSeen falsch. Der Modus off
 				// haelt die Diagnose nicht an.
 				if energyRecorder.Status().ClockReady {
+					// Die Schalter aus den Einstellungen gelten ohne Neustart. Ohne
+					// lesbare Einstellungen bleibt alles an.
+					learningOn, suggestionsOn := true, true
+					if value, err := settingsStore.LoadSettings(); err == nil {
+						learningOn = !value.ChainLearningDisabled
+						suggestionsOn = !value.ChainSuggestionsDisabled
+					}
+					chainMonitor.SetLearning(learningOn)
+					chainSuggest.SetEnabled(suggestionsOn)
 					chainMonitor.Observe(now, snapshot)
 					// Wie das Pruning oben: ohne lesbare energy.json fehlen
 					// Ketten im Snapshot, und Observe wuerde ihre Summen loeschen.
 					if _, err := settingsStore.LoadEnergy(); err == nil {
 						lossTotals.Observe(now, snapshot.Chains)
 					}
-					chainSuggest.Observe(now, reg.Snapshot())
+					if suggestionsOn {
+						chainSuggest.Observe(now, reg.Snapshot())
+					}
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()

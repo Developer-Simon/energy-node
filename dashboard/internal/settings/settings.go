@@ -96,6 +96,12 @@ type Settings struct {
 	// oder "off". Leer heisst "always", siehe normalizeSettings.
 	EnergyStatsRecording string `json:"energy_stats_recording"`
 
+	// ChainSuggestionsDisabled und ChainLearningDisabled schalten die
+	// lernenden Messketten-Funktionen ab (Kachel Lernfunktionen). Invertiert
+	// benannt wie HistoryExchangeDisabled: der Nullwert heisst an.
+	ChainSuggestionsDisabled bool `json:"chain_suggestions_disabled"`
+	ChainLearningDisabled    bool `json:"chain_learning_disabled"`
+
 	// ChangelogHistory sagt, wie viele Bundle-Versionen die Versionsseite
 	// aus dem Changelog laedt: "recent" (5), "extended" (20) oder "all".
 	// Leer heisst "recent", siehe normalizeSettings.
