@@ -176,3 +176,24 @@ The setting `energy_stats_recording` (`always`, `pause_with_companion`, `off`) c
 The response also carries `at`, `prev` and `next` for navigation, `local` per bucket (start in the node's local time, used for labels so a browser in another time zone shows the node's hours), `categories` for custom role labels, `status.state` (`recording`, `paused`, `off`, `waiting_for_clock`), `status.corrupt_months` and `companion.backfill_from`.
 
 `revision` is the statistics revision at the time of the query. Compare it with `energy_stats.rev` from the event stream to decide whether to reload.
+
+## 16. Backups and restores
+
+The backup feature writes the files below. Its user side is described in
+[Settings: Backup](../dashboard/settings-backup.md). Only `backup.json` belongs
+to an archive. The other paths are never archived.
+
+| Path | Written by | Lifetime |
+|---|---|---|
+| `backup.json` | `PUT /api/v1/backup/settings`, atomically with mode 0600 | Until the settings change. It is part of the Settings area of an archive |
+| `backups/<id>.tar.gz` or `.tar.gz.enc`, with `backups/<id>.json` as sidecar | Manual backups (`store`), the scheduler (`auto`), the updater through `backup create` (`update`) and the restore (`pre_import`) | Until deleted by hand or by the keep count of its trigger. Manual archives are never pruned. A temporary file left by an interrupted write is removed after an hour |
+| `backup-staging/download-<id>.tar.gz` or `.enc` | A manual backup with target `download` | Removed when it is fetched, and after one hour at the next backup request |
+| `backup-staging/import-upload` | An uploaded archive, or a copy of a stored archive | Replaced by the next import. Removed once the preview is taken, unless the archive waits for its password, and after one hour |
+| `backup-staging/import/` | The archive extracted for the preview | The import session. Kept for one hour, or until the next import. A restore moves it to `backup-pending/` |
+| `backup-pending/staging/` and `pending.json` | The restore request. The extracted archive is moved here, `pending.json` is written last | Read at the next start of the dashboard. Removed when the restore ends, and when it fails before the restart |
+| `backup-pending/journal.json` and `backup-pending/old/` | The restore at start, before it writes any target. `journal.json` comes first, `old/` holds copies of the files it replaces | Used to roll back an interrupted restore at the next start. Removed with the folder when the restore ends |
+| `backup-result.json` | The dashboard at start, after a restore | Kept until the next restore replaces it. Read by `GET /api/v1/backup/import/result` |
+
+The folder `backup-pending/` is written by the restore only. Between two
+restores it normally does not exist, and it stays only when a rollback after an
+interrupted restore failed.

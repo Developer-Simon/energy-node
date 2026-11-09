@@ -14,8 +14,8 @@ anchor_moves:
 
 # Settings
 
-Settings has ten pages: General, Appearance, History, MQTT, Tailscale,
-TinyTuya, Users, Versions, Checklist and System. Tailscale and TinyTuya only
+Settings has eleven pages: General, Appearance, History, MQTT, Tailscale,
+TinyTuya, Users, Backup, Versions, Checklist and System. Tailscale and TinyTuya only
 appear when the matching service is installed.
 
 On wide screens the pages are listed in a sidebar next to the content, each
@@ -31,6 +31,7 @@ the bottom. Swiping sideways on the button moves to the previous or next page.
 | [MQTT](settings-mqtt.md) | MQTT | broker connection, the "Energy Node" device in Home Assistant, the bridge to the main site |
 | [Tailscale & TinyTuya](settings-wizards.md) | Tailscale, TinyTuya | the setup wizards for the tailnet and for Tuya devices |
 | [Users](settings-users.md) | Me, Accounts, Sessions | sign-in and password, accounts and permissions, presets, guest access, Home Assistant users, signed-in sessions |
+| [Backup](settings-backup.md) | Backup | backup archives of the settings, devices, users, statistics and history, automatic backups before updates and on a schedule, restore |
 | [Versions & updates](settings-versions.md) | Versions | installed versions, changelogs, update check and the update from the dashboard |
 | [Checklist](onboarding.md) | Checklist | the steps of the first-time setup and the tours of new features |
 | [System](settings-system.md) | System | system actions (restart and shutdown), the central configuration file |
