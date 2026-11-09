@@ -376,3 +376,53 @@ func TestRejectsMissingManifest(t *testing.T) {
 		t.Fatalf("kein gzip: err = %v, want ErrIncompatible", err)
 	}
 }
+
+func TestManifestSecretsReflectsWhatWasWritten(t *testing.T) {
+	cases := []struct {
+		name        string
+		areas       map[Area]bool
+		secrets     bool
+		noCreds     bool
+		noUsers     bool
+		want        bool
+		wantCredIn  bool
+		wantUsersIn bool
+	}{
+		{name: "a secrets area with credential files", areas: allAreas(), secrets: true, want: true, wantCredIn: true, wantUsersIn: true},
+		{name: "no credential files but users with hashes", areas: allAreas(), secrets: true, noCreds: true, want: true, wantUsersIn: true},
+		{name: "no credential files and no users file", areas: allAreas(), secrets: true, noCreds: true, noUsers: true, want: false},
+		{name: "secrets off with credential files", areas: allAreas(), secrets: false, want: false, wantUsersIn: true},
+		{name: "users area only keeps hashes", areas: map[Area]bool{AreaUsers: true}, secrets: true, want: true, wantUsersIn: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			src := testSources(t)
+			if tc.noCreds {
+				for _, f := range []string{"mqtt_credentials.json", "mqtt_bridge_credentials.json", "tinytuya_credentials.json"} {
+					_ = os.Remove(filepath.Join(src.DataDir, f))
+				}
+			}
+			if tc.noUsers {
+				if err := os.Remove(filepath.Join(src.DataDir, "users.json")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var buf bytes.Buffer
+			m, err := Create(context.Background(), src, CreateOptions{Areas: tc.areas, Secrets: tc.secrets, NodeVersion: "dev"}, &buf)
+			if err != nil {
+				t.Fatalf("Create: %v", err)
+			}
+			if m.Secrets != tc.want {
+				t.Errorf("Manifest.Secrets = %v, want %v", m.Secrets, tc.want)
+			}
+			_, credIn := m.Files["data/mqtt_credentials.json"]
+			if credIn != tc.wantCredIn {
+				t.Errorf("credential file in archive = %v, want %v", credIn, tc.wantCredIn)
+			}
+			_, usersIn := m.Files[usersArchiveName]
+			if usersIn != tc.wantUsersIn {
+				t.Errorf("users file in archive = %v, want %v", usersIn, tc.wantUsersIn)
+			}
+		})
+	}
+}

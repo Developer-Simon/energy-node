@@ -89,6 +89,8 @@
     auto: { beforeUpdate: true, schedule: true, every: 'week', keep: 5, secrets: false, content: { stats: true, history: true, battery: false } },
     autoSaved: '',
     canSecrets: false,
+    // Note under the Zugangsdaten switches when the node holds no credentials.
+    secretsNote: '',
     csrfToken: '',
 
     flow: null,
@@ -145,6 +147,8 @@
       this.settings = settings;
       this.place = status.place || '';
       this.lastSkipped = status.last_skipped || { at: null, reason: '' };
+      const secretsArea = (status.areas || []).find((area) => area.key === 'secrets');
+      this.secretsNote = secretsArea && secretsArea.size === 0 ? t('backup.secrets.none') : '';
       this.archives = (status.archives || []).map((item) => this.archiveView(item));
       this.dataAreas = (status.areas || [])
         .filter((area) => DATA_AREAS.includes(area.key))
@@ -399,7 +403,7 @@
         available,
         on: available && !DEFAULT_OFF_AREAS.includes(key),
         open: false,
-        summary: this.areaSummary(item, forbidden),
+        summary: this.areaSummary(item, forbidden, secretsInArchive),
         changes: (item.changes || []).map((change) => ({
           kind: change.kind,
           kindLabel: t(CHANGE_KINDS[change.kind] || CHANGE_KINDS.mod),
@@ -408,8 +412,9 @@
         note: AREA_NOTES[key] ? t(AREA_NOTES[key]) : '',
       };
     },
-    areaSummary(item, forbidden) {
+    areaSummary(item, forbidden, secretsInArchive) {
       if (forbidden) return t('backup.preview.forbidden');
+      if (!item.available && item.area === 'secrets' && secretsInArchive) return t('backup.preview.secrets_users_only');
       if (!item.available) return t('backup.preview.absent');
       if (DATA_AREAS.includes(item.area)) return formatSize(item.size);
       const changes = (item.changes || []).length;

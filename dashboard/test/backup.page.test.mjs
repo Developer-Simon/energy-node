@@ -543,3 +543,48 @@ test('an apply answered with backup_no_import goes back to the pick step with it
   assert.equal(page.importError.text, de['error.backup_no_import']);
   assert.equal(page.previewAreas.length, 0);
 });
+
+test('the secrets note appears only when the node holds no credentials', async () => {
+  const empty = createBackupPage({ fetchImpl: router({
+    '/api/v1/auth/session': session(),
+    '/api/v1/backup/status': reply(200, statusBody()),
+  }).fetchImpl });
+  await empty.page.init();
+  assert.equal(empty.page.secretsNote, de['backup.secrets.none']);
+
+  const filled = statusBody({ areas: statusBody().areas.map((area) => (area.key === 'secrets' ? { ...area, size: 812 } : area)) });
+  const withCredentials = createBackupPage({ fetchImpl: router({
+    '/api/v1/auth/session': session(),
+    '/api/v1/backup/status': reply(200, filled),
+  }).fetchImpl });
+  await withCredentials.page.init();
+  assert.equal(withCredentials.page.secretsNote, '');
+});
+
+test('the preview names users-only secrets when the manifest keeps the password hashes', async () => {
+  const answer = previewAnswer();
+  answer.manifest.secrets = true;
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, answer),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openImport();
+  await page.readFile({ name: 'archiv.tar.gz' });
+  const secrets = page.previewAreas.find((area) => area.key === 'secrets');
+  assert.equal(secrets.summary, de['backup.preview.secrets_users_only']);
+});
+
+test('the preview keeps the absent text when the manifest has no secrets', async () => {
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, previewAnswer()),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openImport();
+  await page.readFile({ name: 'archiv.tar.gz' });
+  const secrets = page.previewAreas.find((area) => area.key === 'secrets');
+  assert.equal(secrets.summary, de['backup.preview.absent']);
+});

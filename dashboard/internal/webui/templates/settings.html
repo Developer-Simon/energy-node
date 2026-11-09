@@ -593,6 +593,7 @@
               <label class="bs-check"><input type="checkbox" x-model="auto.content[area.key]"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.size"></small></span></label>
             </template>
             <label class="bs-check"><input type="checkbox" x-model="auto.secrets" x-bind:disabled="!canSecrets"><span class="bs-check-text"><span>{{t "backup.secrets.label"}}</span><small>{{t "backup.secrets.note"}}</small></span></label>
+            <p class="bs-area-note" x-show="secretsNote" x-text="secretsNote"></p>
             <div class="bs-reveal" x-bind:data-open="auto.secrets ? 'true' : 'false'">
               <div class="bs-reveal-inner">
                 <p class="bs-warning">{{t "backup.auto.secrets_warning"}}</p>
@@ -632,6 +633,7 @@
                 <label class="bs-check"><input type="checkbox" x-model="exp.content[area.key]"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.size"></small></span></label>
               </template>
               <label class="bs-check"><input type="checkbox" x-model="exp.secrets" x-bind:disabled="!canSecrets"><span class="bs-check-text"><span>{{t "backup.secrets.label"}}</span><small>{{t "backup.secrets.note"}}</small></span></label>
+              <p class="bs-area-note" x-show="secretsNote" x-text="secretsNote"></p>
 
               <div class="setting-row bs-flow-row">
                 <span class="setting-row-label">{{t "backup.export.protect"}}</span>

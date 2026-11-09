@@ -146,7 +146,7 @@ func Create(ctx context.Context, src Sources, opts CreateOptions, w io.Writer) (
 		Trigger:     opts.Trigger,
 		CreatedAt:   time.Now().UTC(),
 		Areas:       ChosenAreas(opts.Areas),
-		Secrets:     opts.Secrets && opts.Areas[AreaSecrets],
+		Secrets:     opts.Secrets && (aw.secretFiles > 0 || aw.hasFile(usersArchiveName)),
 		Files:       aw.files,
 	}
 	data, err := json.MarshalIndent(m, "", "  ")
@@ -177,6 +177,14 @@ type archiveWriter struct {
 	files   map[string]string
 	total   int64
 	secrets bool
+	// secretFiles zählt die ClassSecret-Dateien, die ins Archiv kamen.
+	secretFiles int
+}
+
+// hasFile meldet, ob unter name ein Eintrag geschrieben wurde.
+func (aw *archiveWriter) hasFile(name string) bool {
+	_, ok := aw.files[name]
+	return ok
 }
 
 // addTree nimmt alle Dateien unter dir auf, die der Katalog der Wurzel zuordnet
@@ -204,7 +212,13 @@ func (aw *archiveWriter) addTree(root Root, dir string, keep func(Entry) bool) e
 		if !ok || !keep(e) {
 			return nil
 		}
-		return aw.addFile(string(root)+"/"+rel, p)
+		if err := aw.addFile(string(root)+"/"+rel, p); err != nil {
+			return err
+		}
+		if e.Class == ClassSecret {
+			aw.secretFiles++
+		}
+		return nil
 	})
 }
 
