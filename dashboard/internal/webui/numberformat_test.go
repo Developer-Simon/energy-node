@@ -92,7 +92,7 @@ func TestHistoryPanelLoadsTheFlatpickrLocaleOfTheLanguage(t *testing.T) {
 
 func TestSettingsPageOffersTheNumberFormat(t *testing.T) {
 	var out bytes.Buffer
-	if err := overviewSets.get("en").ExecuteTemplate(&out, "settings", map[string]any{"InstalledServices": map[string]bool{}}); err != nil {
+	if err := overviewSets.get("en").ExecuteTemplate(&out, "settings", map[string]any{"InstalledServices": map[string]bool{}, "Can": map[string]bool{}}); err != nil {
 		t.Fatal(err)
 	}
 	body := out.String()

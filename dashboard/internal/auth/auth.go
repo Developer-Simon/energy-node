@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -333,13 +334,18 @@ func (m *Manager) loadLocked() (bool, error) {
 			}
 		}
 	}
-	if file.Version < usersFileVersion {
+	if file.Version < 5 {
 		// Version 5 ersetzt unveraenderte Vorgaben (migrateV4Locked).
 		replaced := m.migrateV4Locked()
 		changed = true
 		if replaced && m.hasNonGuestLocked() {
 			m.guestRolesReviewed = false
 		}
+	}
+	if file.Version < 6 {
+		// Version 6 gibt bestehenden Admins die Backup-Rechte (migrateV5).
+		migrateV5(m.users)
+		changed = true
 	}
 	if m.cleanupGuestsLocked() {
 		changed = true
@@ -667,7 +673,7 @@ func hashPassword(password string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	derived := deriveKey([]byte(password), salt, passwordRounds)
+	derived := DeriveKey(password, salt, passwordRounds, 32)
 	return strings.Join([]string{
 		"pbkdf2-sha256",
 		strconv.Itoa(passwordRounds),
@@ -693,28 +699,35 @@ func verifyPassword(encoded, password string) bool {
 	if err != nil {
 		return false
 	}
-	actual := deriveKey([]byte(password), salt, rounds)
+	actual := DeriveKey(password, salt, rounds, 32)
 	return subtle.ConstantTimeCompare(actual, expected) == 1
 }
 
-func deriveKey(password, salt []byte, rounds int) []byte {
-	const keyLength = 32
-	block := make([]byte, 4)
-	block[3] = 1
-	mac := hmac.New(sha256.New, password)
-	mac.Write(salt)
-	mac.Write(block)
-	u := mac.Sum(nil)
-	result := append([]byte(nil), u...)
-	for round := 1; round < rounds; round++ {
-		mac = hmac.New(sha256.New, password)
-		mac.Write(u)
-		u = mac.Sum(nil)
-		for index := range result {
-			result[index] ^= u[index]
+// DeriveKey leitet length Byte aus password und salt mit PBKDF2-HMAC-SHA256 ab.
+// Die Anmeldung und das Backup-Passwort nutzen dieselbe Funktion.
+func DeriveKey(password string, salt []byte, iterations, length int) []byte {
+	const hashLength = sha256.Size
+	mac := hmac.New(sha256.New, []byte(password))
+	out := make([]byte, 0, (length+hashLength-1)/hashLength*hashLength)
+	for blockIndex := uint32(1); len(out) < length; blockIndex++ {
+		var counter [4]byte
+		binary.BigEndian.PutUint32(counter[:], blockIndex)
+		mac.Reset()
+		mac.Write(salt)
+		mac.Write(counter[:])
+		u := mac.Sum(nil)
+		block := append([]byte(nil), u...)
+		for round := 1; round < iterations; round++ {
+			mac.Reset()
+			mac.Write(u)
+			u = mac.Sum(nil)
+			for index := range block {
+				block[index] ^= u[index]
+			}
 		}
+		out = append(out, block...)
 	}
-	return result[:keyLength]
+	return out[:length]
 }
 
 func tokenHash(token string) string {

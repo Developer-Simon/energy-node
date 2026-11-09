@@ -39,6 +39,8 @@ source "$SMOKE_DIR/checks/updates.sh"
 source "$SMOKE_DIR/checks/onboarding.sh"
 # shellcheck source=dashboard/test/smoke/checks/mqtt.sh
 source "$SMOKE_DIR/checks/mqtt.sh"
+# shellcheck source=dashboard/test/smoke/checks/backup.sh
+source "$SMOKE_DIR/checks/backup.sh"
 
 # Smoke-Ports. Die Demo nutzt 182xx, der Smoke-Test 181xx.
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
@@ -148,6 +150,7 @@ gruppe() {
     history_exchange) checks_history_exchange ;;
     services_off) checks_services_off ;;
     energy_balance) checks_energy_balance ;;
+    backup) checks_backup ;;
     *)
       echo "FEHLER: unbekannte Gruppe $1" >&2
       return 1
@@ -269,7 +272,7 @@ for name in haupt ohne-dienste bilanz seed falsches-passwort; do
       konfiguriere_haupt
       fuehre_lauf haupt topics battery_config shelly seed dataflow live_push \
         update_offer package installed journal users onboarding update_install companion \
-        history_exchange || RESULT=1
+        history_exchange backup || RESULT=1
       ;;
     ohne-dienste)
       konfiguriere_ohne_dienste

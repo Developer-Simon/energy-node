@@ -162,8 +162,8 @@ The chapters after the overview are on four pages:
 
 - [Devices](data-flow-devices.md): 3. Discovery, 4. Live values, 5. Commands
   and 12. Data flow on the device map.
-- [Storage](data-flow-storage.md): 6. Configuration files, 10. Browser history
-  and 13. Energy statistics.
+- [Storage](data-flow-storage.md): 6. Configuration files, 10. Browser history,
+  13. Energy statistics and 16. Backups and restores.
 - [Energy and automations](data-flow-energy.md): 7. Energy balance,
   8. Automations and 9. Path to the main site.
 - [Home Assistant](data-flow-ha.md): 14. Home Assistant and the Energy Node

@@ -1,0 +1,67 @@
+{
+  "de": {
+    "*": "Backup und Wiederherstellung der Node auf der Einstellungsseite"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "backup_export",
+          "page": "backup",
+          "panel": "settings-panel",
+          "target": "backup-create",
+          "text": {
+            "de": "Hier erstellst du ein Backup der Node. Archive lassen sich mit einem Passwort schützen.",
+            "en": "Create a backup of the node here. Archives can be protected with a password."
+          },
+          "title": {
+            "de": "Backup erstellen",
+            "en": "Create a backup"
+          }
+        },
+        {
+          "need": "backup_import",
+          "page": "backup",
+          "panel": "settings-panel",
+          "target": "backup-restore",
+          "text": {
+            "de": "Hier spielst du ein Archiv zurück, von deinem Rechner oder von der Node. Vorher siehst du eine Vorschau, was sich ändert.",
+            "en": "Restore an archive here, from your computer or from the node. Before anything changes you see a preview."
+          },
+          "title": {
+            "de": "Backup wiederherstellen",
+            "en": "Restore a backup"
+          }
+        },
+        {
+          "need": "backup_export",
+          "page": "backup",
+          "panel": "settings-panel",
+          "target": "backup-archives",
+          "text": {
+            "de": "Alle Archive, die auf der Node liegen, stehen hier. Von dort lassen sie sich wiederherstellen oder herunterladen.",
+            "en": "All archives stored on the node are listed here. From there you can restore or download them."
+          },
+          "title": {
+            "de": "Archive auf der Node",
+            "en": "Archives on the node"
+          }
+        },
+        {
+          "need": "backup_export",
+          "page": "backup",
+          "panel": "settings-panel",
+          "target": "backup-auto",
+          "text": {
+            "de": "Lege fest, ob vor jedem Update und nach einem Zeitplan automatisch ein Backup entsteht.",
+            "en": "Choose whether a backup is created automatically before each update and on a schedule."
+          },
+          "title": {
+            "de": "Automatische Backups",
+            "en": "Automatic backups"
+          }
+        }
+      ]
+    }
+  }
+}

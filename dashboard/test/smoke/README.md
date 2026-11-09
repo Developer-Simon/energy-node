@@ -30,7 +30,7 @@ use makes the run fail, and the script leaves the process that holds it alone.
 
 | Run | Configuration | Check groups |
 |---|---|---|
-| `haupt` | Sources, fixture and seed data of the demo (`demo/demo.sh`), HTTPS, simulated power values, service logs, installed state, package and update fake | `topics`, `battery_config`, `shelly`, `seed`, `dataflow`, `live_push`, `update_offer`, `package`, `installed`, `journal`, `users`, `onboarding`, `update_install`, `companion`, `history_exchange` |
+| `haupt` | Sources, fixture and seed data of the demo (`demo/demo.sh`), HTTPS, simulated power values, service logs, installed state, package and update fake | `topics`, `battery_config`, `shelly`, `seed`, `dataflow`, `live_push`, `update_offer`, `package`, `installed`, `journal`, `users`, `onboarding`, `update_install`, `companion`, `history_exchange`, `backup` |
 | `ohne-dienste` | The demo sources, but all seven services switched off | `services_off` |
 | `bilanz` | `energie-ueberschuss.json` with the seed set `energie-alle-karten`, only the battery service, no simulation | `seed`, `energy_balance`, `companion` |
 | `seed` | The demo sources, plus an installer `onboarding-seed.json` next to `auth.pw` before the start | `onboarding_seed` |
@@ -90,6 +90,12 @@ truth for the details.
   (PV 4200 W, feed-in 1250 W, battery 900 W, "Übriger Verbrauch" 1000 W,
   `gap_applied == 0`), the exact values that the simulation deliberately
   violates, which is why the two never run together
+- the backup API end to end: a store archive is created as a job and listed in
+  the status, the download is gzip with an attachment header, a flipped byte is
+  refused with `backup_corrupt` and changes nothing, the untouched archive gives a
+  preview (never applied), the password path answers `password_required`,
+  `wrong_password` and a preview on the right password, an account without backup
+  rights gets 403, no session 401, and deleted archives leave the status
 - with the simulation on, the PV power under `/api/v1/topics/samples` changes
   within ten seconds, proof that the simulated values arrive as MQTT `PUBLISH`
   on the open connection and not only that the broker process is alive

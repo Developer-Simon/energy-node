@@ -159,3 +159,25 @@ func TestServiceIsEnabledReturnsTheStateWordEvenOnNonZeroExit(t *testing.T) {
 		t.Fatalf("ServiceIsEnabled = %q, want %q", got, "unknown")
 	}
 }
+
+func TestStopStartServicesAreSupportedActions(t *testing.T) {
+	for _, action := range []Action{StopServices, StartServices} {
+		if !IsSupported(action) {
+			t.Fatalf("IsSupported(%s) = false, want true", action)
+		}
+	}
+	runner := &recordingRunner{}
+	executor := NewExecutor(runner, "/usr/local/sbin/energy-node-dashboard-system-action")
+	if err := executor.StopServices(); err != nil {
+		t.Fatalf("StopServices() = %v, want nil", err)
+	}
+	if runner.args[len(runner.args)-1] != "stop-services" {
+		t.Fatalf("runner args = %#v, want last arg %q", runner.args, "stop-services")
+	}
+	if err := executor.StartServices(); err != nil {
+		t.Fatalf("StartServices() = %v, want nil", err)
+	}
+	if runner.args[len(runner.args)-1] != "start-services" {
+		t.Fatalf("runner args = %#v, want last arg %q", runner.args, "start-services")
+	}
+}
