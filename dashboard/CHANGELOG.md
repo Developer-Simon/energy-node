@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.8 (2026-11-07)
+## v0.11.9 (2026-11-09)
 
 ### Features
 
@@ -18,7 +18,8 @@
 - **dashboard:** scale the statistics card chart with the card height (#216) (41902ed)
 - **dashboard:** stop flagging retained discovery as not retained (#219) (65463a6)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
-- **tailscale:** find the CLI of the Debian package in /usr/bin (#225)
+- **tailscale:** find the CLI of the Debian package in /usr/bin (#225) (50c65b3)
+- **onboarding:** ask before closing the welcome tour (#227)
 - **dashboard:** keep device modal tabs equally tall with the label on top (2bdf2c4)
 - **dashboard:** animate diagnostics refresh and updated values (57967fc)
 - **dashboard:** glide diagnostics device cards to their new place (4a9b331)
