@@ -18,7 +18,7 @@ import (
 // A month file in src that does not decode is skipped; its name is collected and returned
 // in the error as a MergeSkipped (see below), all other months are still merged.
 // A month that does not exist in dst is copied as is (after validating via decodeMonth).
-// Files that are not YYYY-MM.json are ignored.
+// Files whose name is not a month (year-month plus .json) are ignored.
 func MergeDir(dstDir, srcDir string) error {
 	entries, err := os.ReadDir(srcDir)
 	if err != nil {

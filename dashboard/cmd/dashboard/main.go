@@ -25,6 +25,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/backup"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
@@ -64,6 +65,49 @@ const updatesRepo = "Developer-Simon/energy-node"
 // `go run`/`go test` and any build that skips ldflags.
 var buildVersion = "dev"
 
+// startServices nimmt die Dienste nach einem Einspielen wieder auf. Die
+// Verdrahtung mit systemactions.StartServices folgt in einer späteren Aufgabe.
+var startServices = func() error { return nil }
+
+// runBackupApply spielt einen vorgemerkten Import ein und startet danach die
+// Dienste neu. Fehler werden nur protokolliert, der Start läuft weiter.
+func runBackupApply(src backup.Sources) {
+	res, err := backup.ApplyPending(src)
+	if err != nil {
+		log.Printf("energy-node-dashboard: backup apply: %v", err)
+	}
+	if res == nil {
+		return
+	}
+	log.Printf("energy-node-dashboard: backup apply: ok=%t code=%q", res.OK, res.Code)
+	if err := startServices(); err != nil {
+		log.Printf("energy-node-dashboard: backup apply: Dienste starten: %v", err)
+	}
+}
+
+// batteryStateFiles liest id -> state_file aus battery_soc_devices.json. Fehlt
+// die Datei oder ist sie nicht lesbar, ist das Ergebnis leer.
+func batteryStateFiles(devicesDir string) map[string]string {
+	out := map[string]string{}
+	data, err := os.ReadFile(filepath.Join(devicesDir, "battery_soc_devices.json"))
+	if err != nil {
+		return out
+	}
+	var devices []struct {
+		ID        string `json:"id"`
+		StateFile string `json:"state_file"`
+	}
+	if json.Unmarshal(data, &devices) != nil {
+		return out
+	}
+	for _, d := range devices {
+		if d.ID != "" && d.StateFile != "" {
+			out[d.ID] = d.StateFile
+		}
+	}
+	return out
+}
+
 func main() {
 	configPath := flag.String("config", appconfig.DefaultPath, "Pfad zur zentralen Konfigurationsdatei")
 	flag.Parse()
@@ -87,6 +131,12 @@ func main() {
 	devicesDir := cfg.Paths.DevicesDir
 	configManager := config.NewManager(devicesDir)
 	dataDir := cfg.Paths.DataDir
+	runBackupApply(backup.Sources{
+		DataDir:       dataDir,
+		DevicesDir:    devicesDir,
+		AppConfigPath: *configPath,
+		BatteryStates: batteryStateFiles(devicesDir),
+	})
 	shellyPresetsPath := cfg.ShellyPresets()
 	shellyPresetsStore := shellypresets.NewStore(shellyPresetsPath)
 	configManager.ExcludeName(strings.TrimSuffix(filepath.Base(shellyPresetsPath), ".json"))

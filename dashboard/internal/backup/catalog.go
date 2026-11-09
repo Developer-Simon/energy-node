@@ -87,6 +87,8 @@ var catalog = []Entry{
 	{RootData, "revisions/*", ClassDisposable, ""},
 	{RootData, "backups/*", ClassDisposable, ""},
 	{RootData, "backup-pending/*", ClassDisposable, ""},
+	{RootData, "backup-result.json", ClassDisposable, ""},
+	{RootData, "journal.json", ClassDisposable, ""},
 	// Die Staging-Datei fuer apply-app-config, die nach dem Einspielen entfernt wird.
 	{RootData, "energy-node.config.staged.json", ClassDisposable, ""},
 	{RootDevices, "*.schema.json", ClassDisposable, ""},
