@@ -463,3 +463,44 @@ test('a failed apply shows its code and offers the rollback to the safety archiv
   assert.deepEqual(post.body, { archive: safety });
   assert.equal(page.step, 'preview');
 });
+
+test('an apply job that fails before the restart goes back to the pick step with the error', async () => {
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, previewAnswer()),
+    'POST /api/v1/backup/import/apply': reply(202, { job: 'job-5' }),
+    '/api/v1/backup/job': reply(200, { id: 'job-5', kind: 'import', running: false, current: 0, error: 'Platz voll', result: '', phases: [{ key: 'safety', done: false }, { key: 'stage', done: false }, { key: 'stop', done: false }, { key: 'restart', done: false }] }),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  await page.openImport({ id: '20261102-214000-manual', locked: false });
+  assert.equal(page.step, 'preview');
+  page.flowPrimary();
+  await settle();
+  await page.pollJob();
+  page.stopPolling();
+
+  assert.equal(page.step, 'pick');
+  assert.equal(page.importError.title, de['backup.import.failed']);
+  assert.equal(page.importError.text, 'Platz voll');
+  assert.equal(page.previewAreas.length, 0);
+  assert.equal(page.checking, false);
+});
+
+test('an apply answered with backup_no_import goes back to the pick step with its text', async () => {
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, previewAnswer()),
+    'POST /api/v1/backup/import/apply': reply(409, { code: 'backup_no_import', message: 'kein Backup' }),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  await page.openImport({ id: '20261102-214000-manual', locked: false });
+  page.flowPrimary();
+  await settle();
+  page.stopPolling();
+
+  assert.equal(page.step, 'pick');
+  assert.equal(page.importError.text, de['error.backup_no_import']);
+  assert.equal(page.previewAreas.length, 0);
+});

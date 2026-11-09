@@ -434,9 +434,22 @@
           this.unlockFailed = true;
           return;
         }
-        this.importError = this.importErrorFor(error);
-        this.go('pick', -1);
+        this.backToPick(this.importErrorFor(error));
       }
+    },
+    // Leaves the import with an error on the pick step. The server has dropped
+    // the session, so no preview or password state is kept.
+    backToPick(importError) {
+      this.checking = false;
+      this.locked = false;
+      this.unlockPw = '';
+      this.unlockFailed = false;
+      this.flowError = '';
+      this.previewAreas = [];
+      this.envRows = [];
+      this.source = null;
+      this.importError = importError;
+      this.go('pick', -1);
     },
 
     primaryLabel() {
@@ -493,6 +506,10 @@
       try {
         started = await this.send('POST', '/api/v1/backup/import/apply', { areas, use_archive: useArchive });
       } catch (error) {
+        if (error.code === 'backup_no_import') {
+          this.backToPick(this.importErrorFor(error));
+          return;
+        }
         this.flowError = error.message;
         return;
       }
@@ -568,9 +585,13 @@
       if (job.running) return;
       this.stopPolling();
       if (job.error) {
-        const failed = this.doneKind === 'import' ? 'backup.import.failed' : 'backup.run.failed';
-        this.flowError = t('error.with_detail', { message: t(failed), detail: job.error });
-        this.go(this.doneKind === 'import' ? 'preview' : 'export', -1);
+        // The server has consumed the import session, so the file has to be picked again.
+        if (this.doneKind === 'import') {
+          this.backToPick({ title: t('backup.import.failed'), text: job.error });
+          return;
+        }
+        this.flowError = t('error.with_detail', { message: t('backup.run.failed'), detail: job.error });
+        this.go('export', -1);
         return;
       }
       // An import ends with the restart, so its result is read after the restart.
