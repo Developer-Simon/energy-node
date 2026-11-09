@@ -538,17 +538,31 @@ func main() {
 		}
 	}()
 
-	backupSettings, err := backup.LoadSettings(dataDir)
-	if err != nil {
-		log.Printf("backup settings: %v, using defaults", err)
-		backupSettings = backup.DefaultSettings()
+	// Die Einstellungen werden bei jedem Aufruf neu gelesen, damit ein Speichern
+	// in der Oberfläche sofort auch für den Zeitplan gilt.
+	backupSettingsFn := func() backup.Settings {
+		s, err := backup.LoadSettings(dataDir)
+		if err != nil {
+			log.Printf("backup settings: %v, using defaults", err)
+			return backup.DefaultSettings()
+		}
+		return s
 	}
-	backupSettingsFn := func() backup.Settings { return backupSettings }
+	backupLocation := &backup.SystemLocation{DataDir: dataDir, Settings: backupSettingsFn}
 	sched := &backup.Scheduler{
 		Settings: backupSettingsFn,
-		Location: &backup.SystemLocation{DataDir: dataDir, Settings: backupSettingsFn},
+		Location: backupLocation,
 		Version:  buildVersion,
 		Create:   newArchiveCreator(backupSources, buildVersion, "auto"),
+	}
+	backupDeps := &httpapi.BackupDeps{
+		DataDir:   dataDir,
+		Sources:   backupSources,
+		Version:   buildVersion,
+		Settings:  backupSettingsFn,
+		Location:  backupLocation,
+		Jobs:      &backup.Jobs{},
+		Scheduler: sched,
 	}
 	go func() {
 		ticker := time.NewTicker(time.Minute)
@@ -658,6 +672,7 @@ func main() {
 		DataDir:             dataDir,
 		Onboarding:          onboardingStore,
 		TourTargets:         dashwebui.TourTargets,
+		Backup:              backupDeps,
 		InstallerStateDir:   installerStateDir,
 		AppConfigPath:       *configPath,
 		BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,

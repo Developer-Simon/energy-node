@@ -232,6 +232,8 @@ type RouterDependencies struct {
 	// TourTargets liefert die data-tour-Ziele der eingebetteten Web-UI (siehe
 	// webui.TourTargets). Nil heisst: keine Tour gilt als veraltet.
 	TourTargets func() map[string]bool
+	// Backup liefert die Routen unter /api/v1/backup/. Nil heisst: die Routen fehlen.
+	Backup *BackupDeps
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -376,6 +378,13 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.ServiceLogs != nil {
 		g.HandleFunc("/api/v1/system/logs", handleServiceLogs(dependencies.Auth, dependencies.ServiceLogs))
 		g.HandleFunc("/api/v1/system/logs/units", handleServiceLogUnits(dependencies.Auth))
+	}
+	if backupDeps := dependencies.Backup; backupDeps != nil {
+		g.HandleFunc("/api/v1/backup/status", backupDeps.handleStatus(dependencies.Auth))
+		g.HandleFunc("/api/v1/backup/settings", backupDeps.handleSettings(dependencies.Auth))
+		g.HandleFunc("/api/v1/backup/archives", backupDeps.handleArchives(dependencies.Auth))
+		g.HandleFunc("/api/v1/backup/archives/", backupDeps.handleArchive(dependencies.Auth))
+		g.HandleFunc("/api/v1/backup/job", backupDeps.handleJob(dependencies.Auth))
 	}
 	if dependencies.AppConfigPath != "" {
 		g.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))

@@ -95,6 +95,11 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/history/exchange/request": {group: groupOpen},
 	"/api/v1/history/exchange/deliver": {group: groupOpen},
 	"/api/v1/history/exchange/buffer":  {group: groupOpen},
+	"/api/v1/backup/status":            {group: groupOpen},
+	"/api/v1/backup/settings":          {group: groupOpen},
+	"/api/v1/backup/archives":          {group: groupOpen},
+	"/api/v1/backup/archives/":         {group: groupOpen},
+	"/api/v1/backup/job":               {group: groupOpen},
 
 	// anyView
 	"/api/v1/events":                     {group: groupAnyView},
