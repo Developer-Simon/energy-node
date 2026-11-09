@@ -510,7 +510,7 @@
           </button>
           {{end}}
           {{if index .Can "backup_import"}}
-          <button type="button" class="icon-button labeled" x-on:click="openImport()">
+          <button type="button" class="icon-button labeled" x-on:click="openImport()" data-tour="backup-restore">
             <svg class="automation-icon bs-flip" aria-hidden="true"><use href="#ico-download"></use></svg><span>{{t "backup.hero.import"}}</span>
           </button>
           {{end}}
@@ -518,7 +518,7 @@
       </section>
 
       <!-- Archive auf der Node -->
-      <section class="setting-card setting-card--wide" aria-labelledby="bs-archives-title">
+      <section data-tour="backup-archives" class="setting-card setting-card--wide" aria-labelledby="bs-archives-title">
         <div class="bs-card-head">
           <h3 class="setting-card-title" id="bs-archives-title">{{t "backup.archives.title"}}</h3>
           <span class="bs-card-count" x-show="archives.length" x-text="archiveSummary()"></span>
@@ -554,7 +554,7 @@
 
       <!-- Automatik: gaengiger Weg zuerst, Details erst, wenn eingeschaltet -->
       {{if index .Can "backup_export"}}
-      <section class="setting-card setting-card--wide bs-auto" aria-labelledby="bs-auto-title">
+      <section data-tour="backup-auto" class="setting-card setting-card--wide bs-auto" aria-labelledby="bs-auto-title">
         <h3 class="setting-card-title" id="bs-auto-title">{{t "backup.auto.title"}}</h3>
         <div class="bs-auto-grid">
           <div>

@@ -18,6 +18,48 @@
             "de": "Backup erstellen",
             "en": "Create a backup"
           }
+        },
+        {
+          "page": "backup",
+          "panel": "settings-panel",
+          "need": "backup_import",
+          "target": "backup-restore",
+          "text": {
+            "de": "Hier spielst du ein Archiv zurück, von deinem Rechner oder von der Node. Vorher siehst du eine Vorschau, was sich ändert.",
+            "en": "Restore an archive here, from your computer or from the node. Before anything changes you see a preview."
+          },
+          "title": {
+            "de": "Backup wiederherstellen",
+            "en": "Restore a backup"
+          }
+        },
+        {
+          "page": "backup",
+          "panel": "settings-panel",
+          "need": "backup_export",
+          "target": "backup-archives",
+          "text": {
+            "de": "Alle Archive, die auf der Node liegen, stehen hier. Von dort lassen sie sich wiederherstellen oder herunterladen.",
+            "en": "All archives stored on the node are listed here. From there you can restore or download them."
+          },
+          "title": {
+            "de": "Archive auf der Node",
+            "en": "Archives on the node"
+          }
+        },
+        {
+          "page": "backup",
+          "panel": "settings-panel",
+          "need": "backup_export",
+          "target": "backup-auto",
+          "text": {
+            "de": "Lege fest, ob vor jedem Update und nach einem Zeitplan automatisch ein Backup entsteht.",
+            "en": "Choose whether a backup is created automatically before each update and on a schedule."
+          },
+          "title": {
+            "de": "Automatische Backups",
+            "en": "Automatic backups"
+          }
         }
       ]
     }
