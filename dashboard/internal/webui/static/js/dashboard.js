@@ -97,6 +97,15 @@
     return count;
   };
 
+  // Text eines Reiters ohne versteckte Zusaetze (Punkt, "Neu", "Offene
+  // Vorschlaege"): die stehen fuer Screenreader im Reiter, gehoeren aber
+  // nicht in das Menue "Weitere" oder die Titelzeile.
+  const tabLabel = (tab) => {
+    const copy = tab.cloneNode(true);
+    copy.querySelectorAll('.visually-hidden, [aria-hidden="true"]').forEach((node) => node.remove());
+    return copy.textContent.trim();
+  };
+
   const dashboardShell = () => ({
     activePanel: document.body.dataset.initialPanel || 'overview-panel',
     // Der Reiter Effizienz zeigt sich nur, solange es Messketten gibt. Der
@@ -169,7 +178,7 @@
       rest.forEach((tab) => tab.classList.add('is-overflow'));
       this.overflowNav = rest.map((tab, index) => ({
         key: tab.id || tab.dataset.pageId || `tab-${index}`,
-        label: tab.textContent.trim(),
+        label: tabLabel(tab),
         el: tab,
         active: tab.classList.contains('active'),
         // Der Einstellungs-Tab traegt den Marker fuer ungesehene Neuerungen.
@@ -189,7 +198,7 @@
     // muesste bei jeder Tab-Umbenennung in base.html nachgezogen werden.
     get activeTabLabel() {
       const tab = document.querySelector(`[role="tab"][aria-controls="${this.activePanel}"]`);
-      return tab ? tab.textContent.trim() : '';
+      return tab ? tabLabel(tab) : '';
     },
     expandedEntities: {},
     panelRequests: {},

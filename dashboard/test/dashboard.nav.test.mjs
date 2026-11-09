@@ -409,3 +409,26 @@ test('dashboard-open-panel fuer einen ausgeblendeten Tab laesst den Bereich unve
   assert.equal(component.activePanel, 'overview-panel');
   assert.equal(loads, 0, 'loadPanel bleibt ungerufen');
 });
+
+// Versteckte Zusaetze (Punkt, "Neu", "Offene Vorschlaege") gehoeren nicht in
+// Beschriftung der Liste Weitere oder der Titelzeile.
+test('die Beschriftung im Menue Weitere laesst versteckte Zusaetze weg', () => {
+  const html = `<button id="tab-energy" class="tab" role="tab" aria-controls="energy-panel">Energie<span class="efficiency-tab-dot" aria-hidden="true"></span><span class="visually-hidden">Offene Vorschläge</span></button>`
+    + '<button id="tab-efficiency" class="tab" role="tab" aria-controls="efficiency-panel">Effizienz<span class="efficiency-tab-dot" aria-hidden="true"></span><span class="visually-hidden">Neu</span></button>'
+    + '<span class="nav-more" hidden></span>';
+  const { component, window } = createShell(html);
+  const nav = window.document.getElementById('dashboard-tabs');
+  Object.defineProperty(nav, 'clientWidth', { value: 150 });
+  nav.querySelectorAll('button.tab').forEach((tab) => Object.defineProperty(tab, 'offsetWidth', { value: 100 }));
+  Object.defineProperty(nav.querySelector('.nav-more'), 'offsetWidth', { value: 80 });
+  component.navMode = 'more';
+  component.fitNav();
+  assert.deepEqual([...component.overflowNav.map((item) => item.label)], ['Energie', 'Effizienz']);
+});
+
+test('activeTabLabel laesst versteckte Zusaetze weg', () => {
+  const html = '<button id="tab-energy" class="tab" role="tab" aria-controls="energy-panel" aria-selected="true">Energie<span class="visually-hidden">Offene Vorschläge</span></button>';
+  const { component } = createShell(html, { bodyAttrs: 'data-initial-panel="energy-panel"' });
+  component.activePanel = 'energy-panel';
+  assert.equal(component.activeTabLabel, 'Energie');
+});
