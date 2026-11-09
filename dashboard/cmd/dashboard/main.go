@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"net"
@@ -538,6 +539,33 @@ func main() {
 					}
 					lastSweep = time.Now()
 				}
+			}
+		}
+	}()
+
+	backupSettings, err := backup.LoadSettings(dataDir)
+	if err != nil {
+		log.Printf("backup settings: %v, using defaults", err)
+		backupSettings = backup.DefaultSettings()
+	}
+	backupSettingsFn := func() backup.Settings { return backupSettings }
+	sched := &backup.Scheduler{
+		Settings: backupSettingsFn,
+		Location: &backup.SystemLocation{DataDir: dataDir, Settings: backupSettingsFn},
+		Version:  buildVersion,
+		Create: func(ctx context.Context, s backup.Settings, w io.Writer) error {
+			return fmt.Errorf("backup: not wired yet")
+		},
+	}
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sched.Tick(ctx)
 			}
 		}
 	}()
