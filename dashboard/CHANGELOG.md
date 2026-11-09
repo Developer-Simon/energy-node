@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.10 (2026-11-09)
+## v0.11.10 (2026-11-10)
 
 ### Features
 
@@ -63,6 +63,7 @@
 ### Documentation
 
 - **backup:** add the highlight and tour for the backup page (86435fb)
+- **backup:** add tour steps for restore, archives and automatic backups (eb9d5a6)
 
 ### Tests
 

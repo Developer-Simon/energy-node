@@ -20,9 +20,9 @@
           }
         },
         {
+          "need": "backup_import",
           "page": "backup",
           "panel": "settings-panel",
-          "need": "backup_import",
           "target": "backup-restore",
           "text": {
             "de": "Hier spielst du ein Archiv zurück, von deinem Rechner oder von der Node. Vorher siehst du eine Vorschau, was sich ändert.",
@@ -34,9 +34,9 @@
           }
         },
         {
+          "need": "backup_export",
           "page": "backup",
           "panel": "settings-panel",
-          "need": "backup_export",
           "target": "backup-archives",
           "text": {
             "de": "Alle Archive, die auf der Node liegen, stehen hier. Von dort lassen sie sich wiederherstellen oder herunterladen.",
@@ -48,9 +48,9 @@
           }
         },
         {
+          "need": "backup_export",
           "page": "backup",
           "panel": "settings-panel",
-          "need": "backup_export",
           "target": "backup-auto",
           "text": {
             "de": "Lege fest, ob vor jedem Update und nach einem Zeitplan automatisch ein Backup entsteht.",
