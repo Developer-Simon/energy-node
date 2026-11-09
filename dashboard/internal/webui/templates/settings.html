@@ -709,6 +709,7 @@
                   </li>
                 </template>
               </ul>
+              <p class="bs-inline-error" x-show="flowError" x-text="flowError"></p>
             </div>
 
             <!-- Einspielen: Umgebung -->
@@ -728,6 +729,7 @@
                   </li>
                 </template>
               </ul>
+              <p class="bs-inline-error" x-show="flowError" x-text="flowError"></p>
             </div>
             {{end}}
 
@@ -750,11 +752,14 @@
               <span class="bs-done-mark" x-bind:class="{ drawn: step === 'done' }" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><path d="m14 25 7 7 13-15"/></svg></span>
               <h4 x-text="doneTitle()"></h4>
               <p class="setting-note" x-text="doneNote()"></p>
+              <ul class="setting-note" x-show="disabledUsers.length">
+                <template x-for="name in disabledUsers" x-bind:key="name"><li x-text="name"></li></template>
+              </ul>
             </div>
           </div>
           <footer class="bs-flow-foot" x-show="step !== 'run'">
             <button type="button" class="icon-button labeled" x-show="canBack()" x-on:click="flowBack()"><span>{{t "backup.flow.back"}}</span></button>
-            <button type="button" class="icon-button labeled bs-danger-ghost" x-show="step === 'done' && flow === 'import'" x-on:click="closeFlow()"><span>{{t "backup.flow.rollback"}}</span></button>
+            <button type="button" class="icon-button labeled bs-danger-ghost" x-show="step === 'done' && flow === 'import' && importFailed && rollbackId" x-on:click="rollbackImport()"><span>{{t "backup.flow.rollback"}}</span></button>
             <span class="bs-flow-spacer"></span>
             <button type="button" class="icon-button labeled bs-primary" x-bind:class="{ 'bs-primary-danger': step === 'format' }" x-show="primaryLabel()" x-bind:disabled="!primaryEnabled()" x-on:click="flowPrimary()"><span x-text="primaryLabel()"></span></button>
           </footer>

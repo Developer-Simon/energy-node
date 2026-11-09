@@ -70,7 +70,8 @@ function session(roles = ['backup_export', 'backup_import', 'backup_secrets']) {
 function router(routes, calls = []) {
   const fetchImpl = async (url, options = {}) => {
     const method = options.method || 'GET';
-    calls.push({ url, method, headers: options.headers || {}, body: options.body ? JSON.parse(options.body) : undefined });
+    const body = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+    calls.push({ url, method, headers: options.headers || {}, body });
     const handler = routes[`${method} ${url}`] || routes[url];
     if (!handler) throw new Error(`unexpected fetch ${method} ${url}`);
     const result = typeof handler === 'function' ? handler() : handler;
@@ -311,4 +312,154 @@ test('downloadArchive() points the download route at the archive', async () => {
   window.HTMLAnchorElement.prototype.click = function click() { clicked.push({ href: this.getAttribute('href'), download: this.hasAttribute('download') }); };
   page.downloadArchive(page.archives[0]);
   assert.deepEqual(clicked, [{ href: '/node/api/v1/backup/archives/20261106-030000-auto', download: true }]);
+});
+
+// ---- Einspielen -----------------------------------------------------------
+
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+function previewAnswer(environment = [], differentDevice = false) {
+  const area = (key, available, size = 0, changes = []) => ({ area: key, available, count: 0, size, changes });
+  return {
+    manifest: { node_version: '0.11.7', hostname: 'energy-node', trigger: 'manual', created_at: '2026-11-06T03:00:00Z', areas: [], secrets: false },
+    areas: [
+      area('settings', true, 1200, [{ kind: 'mod', label: 'Seite', name: 'Übersicht' }]),
+      area('devices', true),
+      area('users', true),
+      area('secrets', false),
+      area('stats', true, 2202009),
+      area('history', true, 184320),
+      area('battery', false),
+    ],
+    environment,
+    different_device: differentDevice,
+  };
+}
+
+test('a corrupt archive keeps the pick step and shows its text', async () => {
+  const { fetchImpl, calls } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(422, { code: 'backup_corrupt', message: 'Das Backup-Archiv ist beschädigt' }),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openImport();
+  await page.readFile({ name: 'archiv.tar.gz' });
+
+  const post = calls.find((call) => call.method === 'POST');
+  assert.equal(post.headers['Content-Type'], 'application/octet-stream');
+  assert.equal(page.step, 'pick');
+  assert.equal(page.checking, false);
+  assert.equal(page.importError.title, de['backup.import.corrupt.title']);
+  assert.equal(page.importError.text, de['backup.import.corrupt.text']);
+});
+
+test('a wrong password keeps the unlock step and marks the field', async () => {
+  const { fetchImpl, calls } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(409, { code: 'password_required', message: 'verschlüsselt' }),
+    'POST /api/v1/backup/import/unlock': reply(422, { code: 'wrong_password', message: 'falsch' }),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  await page.openImport({ id: '20261102-214000-manual', locked: true });
+  assert.equal(page.step, 'unlock');
+
+  page.unlockPw = 'falsch123';
+  page.flowPrimary();
+  await settle();
+  assert.equal(page.step, 'unlock');
+  assert.equal(page.unlockFailed, true);
+  const unlock = calls.find((call) => call.url === '/api/v1/backup/import/unlock');
+  assert.deepEqual(unlock.body, { password: 'falsch123' });
+  assert.equal(unlock.headers['X-CSRF-Token'], 'tok');
+});
+
+test('the environment step is skipped without rows and shown with rows', async () => {
+  const calls = [];
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, previewAnswer([], true)),
+    'POST /api/v1/backup/import/apply': reply(202, { job: 'job-7' }),
+  }, calls);
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openImport();
+  await page.readFile({ name: 'archiv.tar.gz' });
+  assert.deepEqual([...page.stepList()], ['pick', 'preview']);
+  assert.equal(page.primaryLabel(), de['backup.button.apply']);
+  page.flowPrimary();
+  await settle();
+  page.stopPolling();
+  const apply = calls.find((call) => call.url === '/api/v1/backup/import/apply');
+  assert.deepEqual(apply.body, { areas: page.previewAreas.reduce((acc, area) => ({ ...acc, [area.key]: area.on }), {}), use_archive: {} });
+  assert.equal(page.jobId, 'job-7');
+  assert.equal(page.step, 'run');
+
+  const withRows = createBackupPage({ fetchImpl: router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, previewAnswer([
+      { key: 'broker', here: 'localhost:1883', archive: '192.168.1.20:1883' },
+      { key: 'bridge', off: 'bridge' },
+    ], true)),
+  }).fetchImpl });
+  await withRows.page.init();
+  withRows.page.openImport();
+  await withRows.page.readFile({ name: 'archiv.tar.gz' });
+  assert.deepEqual([...withRows.page.stepList()], ['pick', 'preview', 'env']);
+  assert.equal(withRows.page.primaryLabel(), de['backup.button.next']);
+  assert.equal(withRows.page.envRows[0].label, de['backup.env.row.broker']);
+  assert.equal(withRows.page.envRows[0].use, 'here');
+  assert.equal(withRows.page.envRows[1].off, de['backup.env.off.bridge']);
+  withRows.page.flowPrimary();
+  assert.equal(withRows.page.step, 'env');
+});
+
+test('the password step is skipped for an unprotected archive and shown for a locked one', async () => {
+  const plain = createBackupPage({ fetchImpl: router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(200, previewAnswer()),
+  }).fetchImpl });
+  await plain.page.init();
+  plain.page.openImport();
+  await plain.page.readFile({ name: 'archiv.tar.gz' });
+  assert.deepEqual([...plain.page.stepList()], ['pick', 'preview']);
+  assert.equal(plain.page.step, 'preview');
+
+  const locked = createBackupPage({ fetchImpl: router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/import': reply(409, { code: 'password_required', message: 'verschlüsselt' }),
+  }).fetchImpl });
+  await locked.page.init();
+  locked.page.openImport();
+  await locked.page.readFile({ name: 'archiv.tar.gz' });
+  assert.equal(locked.page.step, 'unlock');
+  assert.deepEqual([...locked.page.stepList()], ['pick', 'unlock', 'preview']);
+});
+
+test('a failed apply shows its code and offers the rollback to the safety archive', async () => {
+  const calls = [];
+  const safety = '20261109-120000-pre_import';
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    '/api/v1/backup/status': reply(200, statusBody({
+      archives: [{ id: safety, trigger: 'pre_import', version: '0.11.7', place: 'system', size: 1024, created_at: '2026-11-09T12:00:00Z', areas: ['settings'], secrets: false, locked: false }, ...statusBody().archives],
+    })),
+    'POST /api/v1/backup/import': reply(200, previewAnswer()),
+  }, calls);
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.flow = 'import';
+  page.doneKind = 'import';
+  await page.finishImport({ ok: false, code: 'interrupted', finished_at: '2026-11-09T12:01:00Z' });
+
+  assert.equal(page.step, 'done');
+  assert.equal(page.doneTitle(), de['backup.done.import.failed']);
+  assert.equal(page.doneNote(), de['backup.import.code.interrupted']);
+  assert.equal(page.rollbackId, safety);
+
+  await page.rollbackImport();
+  const post = calls.find((call) => call.method === 'POST' && call.url === '/api/v1/backup/import');
+  assert.deepEqual(post.body, { archive: safety });
+  assert.equal(page.step, 'preview');
 });

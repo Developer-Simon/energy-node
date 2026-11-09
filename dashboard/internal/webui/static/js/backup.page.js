@@ -38,7 +38,28 @@
   };
   const PLACE_LABELS = { system: 'backup.place.system' };
   const JOB_POLL_MS = 1000;
+  const RESTART_MAX_MS = 120 * 1000;
   const MIN_PASSWORD = 8;
+
+  // Import: the job phases map to the four tasks of the run screen. The
+  // health wait after the restart is the last task.
+  const IMPORT_TASKS = ['backup.run.task.safety', 'backup.run.task.replace', 'backup.run.task.restart', 'backup.run.task.check'];
+  const IMPORT_PHASE_TASK = { safety: 0, stage: 1, stop: 1, restart: 2 };
+  // Areas that stay off by default: an old history or battery state is a choice.
+  const DEFAULT_OFF_AREAS = ['history', 'battery'];
+  const IMPORT_ERRORS = {
+    backup_corrupt: ['backup.import.corrupt.title', 'backup.import.corrupt.text'],
+    backup_incompatible: ['backup.import.incompatible.title', 'backup.import.incompatible.text'],
+    backup_too_new: ['backup.import.too_new.title', 'backup.import.too_new.text'],
+    backup_no_space: ['backup.import.no_space.title', 'backup.import.no_space.text'],
+  };
+  const CHANGE_KINDS = { new: 'backup.change.new', mod: 'backup.change.mod', del: 'backup.change.del' };
+  // The backend names list entries in German, these keys translate them.
+  const ENTRY_LABELS = { Seite: 'backup.entry.page', Regel: 'backup.entry.rule', Szenario: 'backup.entry.scenario', 'Gerät': 'backup.entry.device' }; // i18n-ignore
+  const AREA_NOTES = { stats: 'backup.preview.note.stats', battery: 'backup.preview.note.battery' };
+  const ENV_LABELS = { broker: 'backup.env.row.broker', port: 'backup.env.row.port', bridge: 'backup.env.row.bridge', tailscale: 'backup.env.row.tailscale' };
+  const ENV_OFF = { bridge: 'backup.env.off.bridge', tailscale: 'backup.env.off.tailscale' };
+  const IMPORT_CODES = { interrupted: 'backup.import.code.interrupted', apply_failed: 'backup.import.code.apply_failed' };
 
   // Bytes as KB, MB or GB with the language's decimal separator.
   const formatSize = (bytes) => {
@@ -83,17 +104,22 @@
     drag: null,
     fitTimer: 0,
 
-    // Import steps follow in the next part of this page (10c2). The fields
-    // stay so the markup renders.
+    // Import flow: the archive being checked, its password step and preview.
     dropOver: false,
     checking: false,
     importError: null,
     source: null,
-    sourceKind: 'ok',
+    locked: false,
     unlockPw: '',
     unlockFailed: false,
     previewAreas: [],
     envRows: [],
+    importFailed: false,
+    importCode: '',
+    disabledUsers: [],
+    rollbackId: '',
+    restarting: false,
+    awaiting: false,
 
     async init() {
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
@@ -245,9 +271,12 @@
       return { export: t('backup.flow.title.export'), import: t('backup.flow.title.import') }[this.flow] || '';
     },
     stepList() {
-      // 10c2: the import steps (pick, unlock, preview, env) come with openImport.
-      if (this.flow === 'import') return ['pick'];
-      return [];
+      if (this.flow !== 'import') return [];
+      const list = ['pick'];
+      if (this.locked) list.push('unlock');
+      list.push('preview');
+      if (this.envRows.length) list.push('env');
+      return list;
     },
     stepCount() { return this.stepList().length; },
     stepIndex() { return this.stepList().indexOf(this.step); },
@@ -278,12 +307,143 @@
       this.exp = { content: { ...this.auto.content }, secrets: false, protect: false, pw: '', pw2: '', target: 'download' };
       this.open('export', 'export');
     },
-    // 10c2: the import flow (file, unlock, preview, environment, apply).
-    openImport() {},
-    readFile() {},
+    // Opens the import flow. Without an item the file step comes first, with a
+    // stored archive the archive is checked right away.
+    async openImport(item) {
+      this.resetImport();
+      this.open('import', 'pick');
+      if (!item) return;
+      await this.sendArchive({ 'Content-Type': 'application/json' }, JSON.stringify({ archive: item.id })); // i18n-ignore
+    },
+    resetImport() {
+      this.importError = null;
+      this.checking = false;
+      this.locked = false;
+      this.unlockPw = '';
+      this.unlockFailed = false;
+      this.flowError = '';
+      this.previewAreas = [];
+      this.envRows = [];
+      this.source = null;
+      this.importFailed = false;
+      this.importCode = '';
+      this.disabledUsers = [];
+      this.rollbackId = '';
+      this.restarting = false;
+      this.awaiting = false;
+      this.dropOver = false;
+    },
+    async readFile(file) {
+      if (!file) return;
+      this.importError = null;
+      await this.sendArchive({ 'Content-Type': 'application/octet-stream' }, file); // i18n-ignore
+    },
+    // Sends the archive, as an upload or as a stored id. A password answer
+    // opens the unlock step, errors stay on the pick step.
+    async sendArchive(headers, body) {
+      this.checking = true;
+      let answer;
+      try {
+        answer = await requestJSON('/api/v1/backup/import', {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': this.csrfToken, ...headers }, // i18n-ignore
+          body,
+        });
+      } catch (error) {
+        this.checking = false;
+        if (error.code === 'password_required') {
+          this.locked = true;
+          this.go('unlock', 1);
+        } else {
+          this.importError = this.importErrorFor(error);
+        }
+        return;
+      }
+      this.checking = false;
+      this.showPreview(answer);
+      this.go('preview', 1);
+    },
+    importErrorFor(error) {
+      const keys = IMPORT_ERRORS[error.code];
+      if (!keys) return { title: t('backup.import.generic.title'), text: error.message };
+      return { title: t(keys[0]), text: t(keys[1]) };
+    },
+    // Maps the preview answer to the preview areas and the environment rows.
+    // The environment step only exists when the archive comes from another device.
+    showPreview(answer) {
+      const manifest = answer.manifest || {};
+      this.source = {
+        host: manifest.hostname || '',
+        when: formatWhen(manifest.created_at),
+        version: manifest.node_version || '',
+      };
+      const secretsInArchive = Boolean(manifest.secrets);
+      this.previewAreas = (answer.areas || []).map((item) => this.previewArea(item, secretsInArchive));
+      this.envRows = answer.different_device ? (answer.environment || []).map((row) => this.envRow(row)) : [];
+    },
+    previewArea(item, secretsInArchive) {
+      const key = item.area;
+      // Secrets, and users with password hashes, need the backup_secrets role.
+      const forbidden = !this.canSecrets && (key === 'secrets' || (key === 'users' && secretsInArchive));
+      const available = Boolean(item.available) && !forbidden;
+      return {
+        key,
+        label: t(AREA_LABELS[key]),
+        available,
+        on: available && !DEFAULT_OFF_AREAS.includes(key),
+        open: false,
+        summary: this.areaSummary(item, forbidden),
+        changes: (item.changes || []).map((change) => ({
+          kind: change.kind,
+          kindLabel: t(CHANGE_KINDS[change.kind] || CHANGE_KINDS.mod),
+          text: this.changeText(change),
+        })),
+        note: AREA_NOTES[key] ? t(AREA_NOTES[key]) : '',
+      };
+    },
+    areaSummary(item, forbidden) {
+      if (forbidden) return t('backup.preview.forbidden');
+      if (!item.available) return t('backup.preview.absent');
+      if (DATA_AREAS.includes(item.area)) return formatSize(item.size);
+      const changes = (item.changes || []).length;
+      return changes ? window.I18n.tn('backup.preview.count', changes) : t('backup.preview.same');
+    },
+    changeText(change) {
+      const label = ENTRY_LABELS[change.label] ? t(ENTRY_LABELS[change.label]) : change.label;
+      return change.name ? `${label}: ${change.name}` : label;
+    },
+    envRow(row) {
+      return {
+        key: row.key,
+        label: ENV_LABELS[row.key] ? t(ENV_LABELS[row.key]) : row.key,
+        here: row.here || '',
+        archive: row.archive || '',
+        use: 'here',
+        off: row.off ? (ENV_OFF[row.off] ? t(ENV_OFF[row.off]) : row.off) : '',
+      };
+    },
+    async unlock() {
+      this.unlockFailed = false;
+      try {
+        const answer = await this.send('POST', '/api/v1/backup/import/unlock', { password: this.unlockPw });
+        this.unlockPw = '';
+        this.showPreview(answer);
+        this.go('preview', 1);
+      } catch (error) {
+        if (error.code === 'wrong_password') {
+          this.unlockFailed = true;
+          return;
+        }
+        this.importError = this.importErrorFor(error);
+        this.go('pick', -1);
+      }
+    },
 
     primaryLabel() {
       if (this.step === 'export') return t('backup.hero.create');
+      if (this.step === 'unlock') return t('backup.button.unlock');
+      if (this.step === 'preview') return this.envRows.length ? t('backup.button.next') : t('backup.button.apply');
+      if (this.step === 'env') return t('backup.button.apply');
       if (this.step === 'done') {
         if (this.flow === 'export' && this.exp.target === 'download') return t('backup.archives.download');
         return t('backup.button.done');
@@ -294,6 +454,8 @@
       if (this.step === 'export') {
         return !this.exp.protect || ([...this.exp.pw].length >= MIN_PASSWORD && this.exp.pw === this.exp.pw2);
       }
+      if (this.step === 'unlock') return this.unlockPw.length > 0;
+      if (this.step === 'preview') return this.previewAreas.some((area) => area.on);
       return true;
     },
     flowBack() {
@@ -308,7 +470,34 @@
         this.closeFlow();
       } else if (this.step === 'export') {
         this.startExport();
+      } else if (this.step === 'unlock') {
+        this.unlock();
+      } else if (this.step === 'preview' && this.envRows.length) {
+        this.go('env', 1);
+      } else if (this.step === 'preview' || this.step === 'env') {
+        this.applyImport();
       }
+    },
+    // Rolls back to the safety archive of the last import, from the done step.
+    rollbackImport() {
+      if (!this.rollbackId) return Promise.resolve();
+      return this.openImport({ id: this.rollbackId, locked: false });
+    },
+
+    // Sends the choices. The server answers with a job, the run screen follows it.
+    async applyImport() {
+      this.flowError = '';
+      const areas = Object.fromEntries(this.previewAreas.map((area) => [area.key, Boolean(area.on)]));
+      const useArchive = Object.fromEntries(this.envRows.map((row) => [row.key, row.use === 'archive']));
+      let started;
+      try {
+        started = await this.send('POST', '/api/v1/backup/import/apply', { areas, use_archive: useArchive });
+      } catch (error) {
+        this.flowError = error.message;
+        return;
+      }
+      this.jobId = started.job;
+      this.run(IMPORT_TASKS.map((key) => t(key)), 'import');
     },
 
     // Sends the export. The server answers with a job, whose phases the
@@ -344,6 +533,8 @@
       this.taskIndex = 0;
       this.progress = 0;
       this.doneKind = kind;
+      this.restarting = false;
+      this.awaiting = false;
       this.go('run', 1);
       this.timer = setInterval(() => this.pollJob(), JOB_POLL_MS);
     },
@@ -356,23 +547,87 @@
       try {
         job = await requestJSON('/api/v1/backup/job');
       } catch (error) {
+        // The dashboard restarts with the import, the job is gone meanwhile.
+        if (this.doneKind === 'import' && this.restarting) await this.awaitRestart();
         return; // the next tick asks again
       }
-      if (job.id !== this.jobId) return;
+      if (job.id !== this.jobId) {
+        if (this.doneKind === 'import' && this.restarting) await this.awaitRestart();
+        return;
+      }
       const phases = job.phases || [];
       const done = phases.filter((phase) => phase.done).length;
-      this.taskIndex = Math.min(job.current || 0, Math.max(this.tasks.length - 1, 0));
+      const phaseKey = (phases[job.current] || {}).key;
+      if (this.doneKind === 'import') {
+        this.restarting = phaseKey === 'restart';
+        this.taskIndex = IMPORT_PHASE_TASK[phaseKey] || 0;
+      } else {
+        this.taskIndex = Math.min(job.current || 0, Math.max(this.tasks.length - 1, 0));
+      }
       this.progress = phases.length ? done / phases.length : 0;
       if (job.running) return;
       this.stopPolling();
       if (job.error) {
-        this.flowError = t('error.with_detail', { message: t('backup.run.failed'), detail: job.error });
-        this.go('export', -1);
+        const failed = this.doneKind === 'import' ? 'backup.import.failed' : 'backup.run.failed';
+        this.flowError = t('error.with_detail', { message: t(failed), detail: job.error });
+        this.go(this.doneKind === 'import' ? 'preview' : 'export', -1);
+        return;
+      }
+      // An import ends with the restart, so its result is read after the restart.
+      if (this.doneKind === 'import') {
+        await this.awaitRestart();
         return;
       }
       this.taskIndex = this.tasks.length;
       this.progress = 1;
       await this.finish(job);
+    },
+    // The dashboard is gone while it restarts. Polls the health endpoint until it
+    // answers again, then reads the result the restarted process wrote. Gives up
+    // after RESTART_MAX_MS.
+    async awaitRestart() {
+      if (this.awaiting) return;
+      this.awaiting = true;
+      this.stopPolling();
+      this.taskIndex = this.tasks.length - 1;
+      const deadline = Date.now() + RESTART_MAX_MS;
+      let down = false;
+      while (Date.now() < deadline) {
+        const up = await requestJSON('/api/v1/health').then(() => true, () => false); // i18n-ignore
+        if (!up) {
+          down = true;
+        } else if (down) {
+          const result = await requestJSON('/api/v1/backup/import/result').catch(() => null); // i18n-ignore
+          // An empty answer is {}, a written result always carries finished_at.
+          if (result && result.finished_at) {
+            await this.finishImport(result);
+            return;
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
+      }
+      await this.finishImport({ ok: false, code: 'interrupted' });
+    },
+    // Shows the result of an import on the done step. A failure offers the
+    // rollback to the newest safety archive, which the restarted process no
+    // longer knows by id.
+    async finishImport(result) {
+      this.stopPolling();
+      this.importFailed = !result.ok;
+      this.importCode = result.code || '';
+      this.disabledUsers = result.disabled_users || [];
+      this.rollbackId = '';
+      this.taskIndex = this.tasks.length;
+      this.progress = 1;
+      try {
+        const status = await requestJSON('/api/v1/backup/status');
+        this.apply(status);
+        const safety = (status.archives || []).find((item) => item.trigger === 'pre_import');
+        if (!result.ok && safety) this.rollbackId = safety.id;
+      } catch (error) {
+        // The list keeps what it had, the done step still shows the result.
+      }
+      this.go('done', 1);
     },
     async finish(job) {
       if (this.doneKind === 'export' && this.exp.target === 'download') {
@@ -385,12 +640,19 @@
       this.go('done', 1);
     },
     runNote() {
+      if (this.doneKind === 'import') return t('backup.run.note.import');
       return this.doneKind === 'export' ? t('backup.run.note.export') : '';
     },
     doneTitle() {
+      if (this.doneKind === 'import') return t(this.importFailed ? 'backup.done.import.failed' : 'backup.done.import.title');
       return this.doneKind === 'export' ? t('backup.done.export.title') : '';
     },
     doneNote() {
+      if (this.doneKind === 'import') {
+        if (this.importFailed) return t(IMPORT_CODES[this.importCode] || IMPORT_CODES.apply_failed);
+        if (this.disabledUsers.length) return t('backup.done.import.users');
+        return t('backup.done.import.note');
+      }
       if (this.doneKind !== 'export') return '';
       return this.exp.target === 'download' ? t('backup.done.export.download') : t('backup.done.export.node');
     },
@@ -419,9 +681,6 @@
         this.fitTimer = setTimeout(() => { stage.style.height = ''; }, 320);
       });
     },
-    // Inhalt im selben Schritt hat sich geaendert (Fehlermeldung, Pruefen).
-    refit() {},
-
     // Blatt am Griff ziehen. Folgt dem Finger 1:1, oben Gummiband, beim
     // Loslassen entscheidet die Projektion des Schwungs, nicht die Position.
     dragStart(event) {
