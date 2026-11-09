@@ -1015,6 +1015,7 @@
       }
       if (!saved) return;
       this.chainSuggestCancel();
+      window.dispatchEvent(new CustomEvent('energy-chain-suggestions-changed'));
     },
 
     // Dismissal is stored at once and survives a reload, no chain changes.
@@ -1027,6 +1028,7 @@
           body: JSON.stringify({a: suggestion.a, b: suggestion.b}),
         });
         this.chainSuggestions = this.chainSuggestions.filter(item => !(item.a === suggestion.a && item.b === suggestion.b));
+        window.dispatchEvent(new CustomEvent('energy-chain-suggestions-changed'));
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       }

@@ -962,6 +962,7 @@
         // Already neighbours in one chain (action none) saves nothing, only the list is stale.
         await this.loadChainSuggestions();
         this.chainSuggestCancel();
+        window.dispatchEvent(new CustomEvent('energy-chain-suggestions-changed'));
       },
 
       // Verwerfen is stored at once for the pair and changes no chain.
@@ -981,6 +982,7 @@
         this.chainSuggestions = this.chainSuggestions.filter(item => !(item.a === suggestion.a && item.b === suggestion.b));
         this.closePopover();
         this.applyChainSuggests();
+        window.dispatchEvent(new CustomEvent('energy-chain-suggestions-changed'));
       },
 
       // Channel saved for the pair of the edge, whatever its orientation.

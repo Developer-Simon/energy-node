@@ -1717,3 +1717,39 @@ test('a second confirm while a save runs sends one request only', async () => {
   assert.equal(chainWriteCalls(calls).length, 1);
   assert.equal(component.chainSuggestSaving, false);
 });
+
+// The Energie tab dot follows the open suggestions: accept and dismiss announce it.
+test('dismissing a suggestion announces the change to the energy tab dot', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  component.setOpenSection('chains');
+  await flush();
+  let announced = 0;
+  window.addEventListener('energy-chain-suggestions-changed', () => { announced += 1; });
+  await component.dismissChainSuggestion(component.chainSuggestions[0]);
+  assert.equal(announced, 1);
+});
+
+test('a refused dismiss does not announce a change', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: suggestFetch({ dismissOk: false }) });
+  await component.load();
+  component.setOpenSection('chains');
+  await flush();
+  let announced = 0;
+  window.addEventListener('energy-chain-suggestions-changed', () => { announced += 1; });
+  await component.dismissChainSuggestion(component.chainSuggestions[0]);
+  assert.equal(announced, 0);
+});
+
+test('confirming an accepted suggestion announces the change to the energy tab dot', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: suggestFetch() });
+  await component.load();
+  component.setOpenSection('chains');
+  await flush();
+  let announced = 0;
+  window.addEventListener('energy-chain-suggestions-changed', () => { announced += 1; });
+  component.acceptChainSuggestion(suggestion);
+  component.chainSuggest.label = 'Balkon';
+  await component.chainSuggestSave();
+  assert.equal(announced, 1);
+});

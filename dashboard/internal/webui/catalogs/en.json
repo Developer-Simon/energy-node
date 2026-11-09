@@ -3180,6 +3180,7 @@
   "nav.overview": "Overview",
   "nav.settings": "Settings",
   "nav.stats": "Statistics",
+  "nav.suggestions_open": "Open suggestions",
   "nav.tabs_label": "Dashboard sections",
   "no_access.body": "An administrator can grant you view permissions under Settings, Users. Until then you can only manage your account here.",
   "no_access.open_account": "Go to my account",

@@ -3922,3 +3922,34 @@ test('the wiring layer types gate also hides the suggestion edges', () => {
   component.setView({ wiring_types: { ...component.view.wiring_types, energy: false } });
   assert.equal(component.chainSuggestElements().length, 0);
 });
+
+// The Energie tab dot follows the open suggestions: accept and dismiss announce it.
+test('dismissing a suggestion on the map announces the change to the energy tab dot', async () => {
+  const { component, window } = createDevicemapPanel({ fetchImpl: async () => okJSON({})() });
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.csrfToken = 'tok';
+  component.onChainSuggestTap({ target: { data: key => ({ suggestion: 0 })[key] }, renderedPosition: { x: 10, y: 10 } });
+  let announced = 0;
+  window.addEventListener('energy-chain-suggestions-changed', () => { announced += 1; });
+  await component.dismissChainSuggest();
+  assert.equal(announced, 1);
+});
+
+test('confirming an accepted suggestion on the map announces the change to the energy tab dot', async () => {
+  let suggestions = [SUGGEST];
+  const { component, window } = createDevicemapPanel({ fetchImpl: async (url, options) => {
+    if (options && options.method) { suggestions = []; return okJSON({assignments: {}, role_needed: [], chains: {}})(); }
+    if (String(url).endsWith('/api/v1/energy/roles')) return okJSON({ assignments: {}, groups: {}, categories: {}, chains: {} })();
+    if (String(url).endsWith('/api/v1/energy')) return okJSON({ entities: [] })();
+    return okJSON({ suggestions })();
+  } });
+  suggestFixture(component);
+  component.canEditEnergy = true;
+  component.csrfToken = 'tok';
+  component.chainSuggest = window.EnergyChainSuggest.dialogFor(SUGGEST, id => component.chainSuggestName(id));
+  let announced = 0;
+  window.addEventListener('energy-chain-suggestions-changed', () => { announced += 1; });
+  await component.chainSuggestSave();
+  assert.equal(announced, 1);
+});
