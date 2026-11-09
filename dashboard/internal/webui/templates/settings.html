@@ -489,6 +489,278 @@
   </section>
   {{end}}
   {{template "checklist" .}}
+  {{if or (index .Can "backup_export") (index .Can "backup_import")}}
+  <div class="bs-page" x-data="backupPage()" x-init="init()">
+
+    <section id="settings-backup" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'backup'">
+
+      <!-- Status zuerst: Was ist der letzte Stand, und die zwei Hauptwege. -->
+      <section class="setting-card setting-card--wide bs-hero" aria-labelledby="bs-hero-title">
+        <div class="bs-hero-state" x-bind:data-tone="heroTone()">
+          <span class="bs-hero-mark" aria-hidden="true"><svg class="automation-icon"><use x-bind:href="heroTone() === 'ok' ? '#ico-check' : '#ico-warning'"></use></svg></span>
+          <div>
+            <h3 class="bs-hero-title" id="bs-hero-title" x-text="heroTitle()"></h3>
+            <p class="setting-note" x-text="heroNote()"></p>
+          </div>
+        </div>
+        <div class="bs-hero-actions">
+          {{if index .Can "backup_export"}}
+          <button type="button" class="icon-button labeled bs-primary" x-on:click="openExport()" data-tour="backup-create">
+            <svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg><span>{{t "backup.hero.create"}}</span>
+          </button>
+          {{end}}
+          {{if index .Can "backup_import"}}
+          <button type="button" class="icon-button labeled" x-on:click="openImport()">
+            <svg class="automation-icon bs-flip" aria-hidden="true"><use href="#ico-download"></use></svg><span>{{t "backup.hero.import"}}</span>
+          </button>
+          {{end}}
+        </div>
+      </section>
+
+      <!-- Archive auf der Node -->
+      <section class="setting-card setting-card--wide" aria-labelledby="bs-archives-title">
+        <div class="bs-card-head">
+          <h3 class="setting-card-title" id="bs-archives-title">{{t "backup.archives.title"}}</h3>
+          <span class="bs-card-count" x-show="archives.length" x-text="archiveSummary()"></span>
+        </div>
+        <p class="bs-empty" x-show="!archives.length">{{t "backup.archives.empty"}}</p>
+        <ul class="bs-archives" x-show="archives.length">
+          <template x-for="item in archives" x-bind:key="item.id">
+            <li class="bs-archive" x-bind:class="{ 'bs-archive-new': item.fresh }">
+              <div class="bs-archive-main">
+                <span class="bs-archive-title" x-text="item.when"></span>
+                <span class="bs-archive-meta"><span x-text="item.trigger"></span> · <span x-text="item.size"></span> · {{t "backup.archives.version"}} <span x-text="item.version"></span> · <span x-text="item.place"></span></span>
+                <span class="bs-tags">
+                  <template x-for="tag in item.tags" x-bind:key="tag"><span class="bs-tag" x-text="tag"></span></template>
+                  <span class="bs-tag bs-tag-warn" x-show="item.secrets && !item.locked">{{t "backup.archives.tag_secrets"}}</span>
+                  <span class="bs-tag bs-tag-ok" x-show="item.locked">{{t "backup.archives.tag_locked"}}</span>
+                </span>
+              </div>
+              <div class="bs-archive-actions">
+                {{if index .Can "backup_export"}}
+                <button type="button" class="icon-button" title="{{t "backup.archives.download"}}" aria-label="{{t "backup.archives.download"}}"><svg class="automation-icon"><use href="#ico-download"></use></svg></button>
+                {{end}}
+                {{if index .Can "backup_import"}}
+                <button type="button" class="icon-button labeled" x-on:click="openImport(item)"><span>{{t "backup.archives.restore"}}</span></button>
+                {{end}}
+                {{if index .Can "backup_export"}}
+                <button type="button" class="icon-button bs-danger-ghost" title="{{t "backup.archives.delete"}}" aria-label="{{t "backup.archives.delete"}}" x-on:click="removeArchive(item)"><svg class="automation-icon"><use href="#ico-trash"></use></svg></button>
+                {{end}}
+              </div>
+            </li>
+          </template>
+        </ul>
+      </section>
+
+      <!-- Automatik: gaengiger Weg zuerst, Details erst, wenn eingeschaltet -->
+      <section class="setting-card setting-card--wide bs-auto" aria-labelledby="bs-auto-title">
+        <h3 class="setting-card-title" id="bs-auto-title">{{t "backup.auto.title"}}</h3>
+        <div class="bs-auto-grid">
+          <div>
+            <div class="setting-row">
+              <span class="setting-row-label">{{t "backup.auto.before_update"}}<span class="setting-row-unit">{{t "backup.auto.before_update_note"}}</span></span>
+              <label class="settings-toggle"><input type="checkbox" x-model="auto.beforeUpdate"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+            </div>
+            <div class="setting-row">
+              <span class="setting-row-label">{{t "backup.auto.schedule"}}</span>
+              <label class="settings-toggle"><input type="checkbox" x-model="auto.schedule"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+            </div>
+            <div class="bs-reveal" x-bind:data-open="auto.schedule ? 'true' : 'false'">
+              <div class="bs-reveal-inner">
+                <div class="setting-row">
+                  <span class="setting-row-label">{{t "backup.auto.every"}}</span>
+                  <div class="bs-segment" role="radiogroup" aria-label="{{t "backup.auto.every"}}">
+                    <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="auto.every === 'day' ? 'true' : 'false'" x-on:click="auto.every = 'day'">{{t "backup.auto.every_day"}}</button>
+                    <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="auto.every === 'week' ? 'true' : 'false'" x-on:click="auto.every = 'week'">{{t "backup.auto.every_week"}}</button>
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <span class="setting-row-label">{{t "backup.auto.keep"}}</span>
+                  <span class="stepper" role="group" aria-label="{{t "backup.auto.keep"}}">
+                    <button type="button" class="stepper-btn" aria-label="{{t "backup.auto.keep_less"}}" x-on:click="auto.keep = Math.max(1, auto.keep - 1)">&minus;</button>
+                    <input class="stepper-input" type="number" min="1" max="30" x-model.number="auto.keep" aria-label="{{t "backup.auto.keep"}}">
+                    <button type="button" class="stepper-btn" aria-label="{{t "backup.auto.keep_more"}}" x-on:click="auto.keep = Math.min(30, auto.keep + 1)">+</button>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <span class="bs-group-label">{{t "backup.content.label"}}</span>
+            <label class="bs-check bs-check-locked"><input type="checkbox" checked disabled><span class="bs-check-text"><span>{{t "backup.content.config"}}</span><small>{{t "backup.content.config_always"}}</small></span></label>
+            <template x-for="area in dataAreas" x-bind:key="area.key">
+              <label class="bs-check"><input type="checkbox" x-model="auto.content[area.key]"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.size"></small></span></label>
+            </template>
+            <label class="bs-check"><input type="checkbox" x-model="auto.secrets" x-bind:disabled="!canSecrets"><span class="bs-check-text"><span>{{t "backup.secrets.label"}}</span><small>{{t "backup.secrets.note"}}</small></span></label>
+            <div class="bs-reveal" x-bind:data-open="auto.secrets ? 'true' : 'false'">
+              <div class="bs-reveal-inner">
+                <p class="bs-warning">{{t "backup.auto.secrets_warning"}}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bs-card-foot">
+          <span class="bs-next" x-show="auto.schedule" x-text="auto.every === 'day' ? $t('backup.auto.next_day') : $t('backup.auto.next_week')"></span>
+          <button type="button" class="icon-button labeled bs-primary" x-bind:disabled="!autoDirty()" x-on:click="saveAuto()"><svg class="automation-icon" aria-hidden="true"><use href="#ico-save"></use></svg><span>{{t "backup.auto.save"}}</span></button>
+        </div>
+      </section>
+    </section>
+
+    <!-- Ablauf: Mitte am Rechner, Blatt von unten am Handy -->
+    <template x-teleport="body">
+      <div class="bs-flow-layer" x-bind:class="{ open: flow }" x-bind:inert="!flow" x-on:keydown.escape.window="flow && closeFlow()">
+        <div class="bs-flow-scrim" x-on:click="closeFlow()"></div>
+        <div class="bs-flow" tabindex="-1" role="dialog" aria-modal="true" x-bind:aria-labelledby="'bs-flow-title'" x-ref="sheet">
+          <span class="bs-flow-grab" aria-hidden="true" x-on:pointerdown="dragStart($event)" x-on:pointermove="dragMove($event)" x-on:pointerup="dragEnd($event)" x-on:pointercancel="dragEnd($event)"></span>
+          <header class="bs-flow-head">
+            <div>
+              <h3 id="bs-flow-title" x-text="flowTitle()"></h3>
+              <p class="bs-flow-progress" x-show="stepCount() > 1" x-text="$t('backup.flow.step', { current: stepIndex() + 1, total: stepCount() })"></p>
+            </div>
+            <button type="button" class="icon-button" aria-label="{{t "backup.flow.close"}}" x-on:click="closeFlow()"><svg class="automation-icon"><use href="#ico-close"></use></svg></button>
+          </header>
+          <div class="bs-flow-stage" x-ref="stage">
+
+            {{if index .Can "backup_export"}}
+            <!-- Backup erstellen -->
+            <div class="bs-step" data-step="export" x-show="step === 'export'">
+              <span class="bs-group-label">{{t "backup.content.label"}}</span>
+              <label class="bs-check bs-check-locked"><input type="checkbox" checked disabled><span class="bs-check-text"><span>{{t "backup.content.config"}}</span><small>{{t "backup.content.config_always"}}</small></span></label>
+              <template x-for="area in dataAreas" x-bind:key="area.key">
+                <label class="bs-check"><input type="checkbox" x-model="exp.content[area.key]"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.size"></small></span></label>
+              </template>
+              <label class="bs-check"><input type="checkbox" x-model="exp.secrets" x-bind:disabled="!canSecrets"><span class="bs-check-text"><span>{{t "backup.secrets.label"}}</span><small>{{t "backup.secrets.note"}}</small></span></label>
+
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "backup.export.protect"}}</span>
+                <label class="settings-toggle"><input type="checkbox" x-model="exp.protect"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+              </div>
+              <div class="bs-reveal" x-bind:data-open="exp.protect ? 'true' : 'false'">
+                <div class="bs-reveal-inner bs-fields">
+                  <label class="bs-field"><span>{{t "backup.export.password"}}</span><input type="password" autocomplete="new-password" x-model="exp.pw"></label>
+                  <label class="bs-field"><span>{{t "backup.export.password_repeat"}}</span><input type="password" autocomplete="new-password" x-model="exp.pw2"></label>
+                  <p class="setting-note">{{t "backup.export.password_note"}}</p>
+                  <p class="bs-inline-error" x-show="exp.pw2 && exp.pw !== exp.pw2">{{t "backup.export.password_mismatch"}}</p>
+                </div>
+              </div>
+              <div class="bs-reveal" x-bind:data-open="!exp.protect && exp.secrets ? 'true' : 'false'">
+                <div class="bs-reveal-inner">
+                  <div class="bs-warning bs-warn-action">
+                    <p>{{t "backup.export.secrets_warning"}}</p>
+                    <button type="button" class="icon-button labeled" x-on:click="exp.secrets = false"><span>{{t "backup.export.secrets_exclude"}}</span></button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "backup.export.target"}}</span>
+                <div class="bs-segment" role="radiogroup" aria-label="{{t "backup.export.target"}}">
+                  <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="exp.target === 'download' ? 'true' : 'false'" x-on:click="exp.target = 'download'">{{t "backup.export.target_download"}}</button>
+                  <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="exp.target === 'node' ? 'true' : 'false'" x-on:click="exp.target = 'node'">{{t "backup.export.target_node"}}</button>
+                </div>
+              </div>
+              <p class="setting-note bs-target-note" x-show="exp.target === 'node'">{{t "backup.export.target_note"}}</p>
+            </div>
+            {{end}}
+
+            {{if index .Can "backup_import"}}
+            <!-- Einspielen 1: Datei -->
+            <div class="bs-step" data-step="pick" x-show="step === 'pick'">
+              <label class="bs-drop" x-bind:class="{ 'bs-drop-over': dropOver }" x-on:dragover.prevent="dropOver = true" x-on:dragleave="dropOver = false" x-on:drop.prevent="dropOver = false; readFile($event.dataTransfer.files[0])">
+                <input type="file" class="visually-hidden" accept=".tar.gz,.enc" x-on:change="readFile($event.target.files[0])">
+                <svg class="automation-icon bs-flip" aria-hidden="true"><use href="#ico-download"></use></svg>
+                <strong>{{t "backup.pick.choose"}}</strong>
+                <span>{{t "backup.pick.drop"}}</span>
+              </label>
+              <div class="bs-check-run" x-show="checking" role="status"><span class="bs-spinner" aria-hidden="true"></span>{{t "backup.pick.checking"}}</div>
+              <div class="bs-reveal" x-bind:data-open="importError ? 'true' : 'false'">
+                <div class="bs-reveal-inner">
+                  <div class="message error bs-import-error" role="alert"><strong x-text="importError?.title"></strong><p x-text="importError?.text"></p></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Einspielen: Passwort -->
+            <div class="bs-step" data-step="unlock" x-show="step === 'unlock'">
+              <p class="setting-note bs-step-lead">{{t "backup.unlock.lead"}}</p>
+              <label class="bs-field"><span>{{t "backup.unlock.password"}}</span><input type="password" autocomplete="off" x-model="unlockPw" x-on:keydown.enter="flowPrimary()"></label>
+              <p class="bs-inline-error" x-show="unlockFailed">{{t "backup.unlock.wrong"}}</p>
+            </div>
+
+            <!-- Einspielen: Vorschau -->
+            <div class="bs-step" data-step="preview" x-show="step === 'preview'">
+              <p class="setting-note bs-step-lead"><strong x-text="source?.host"></strong>, <span x-text="source?.when"></span>, {{t "backup.archives.version"}} <span x-text="source?.version"></span></p>
+              <ul class="bs-areas">
+                <template x-for="area in previewAreas" x-bind:key="area.key">
+                  <li class="bs-area" x-bind:class="{ 'bs-area-same': !area.changes.length && !area.note }">
+                    <div class="bs-area-row">
+                      <label class="bs-check"><input type="checkbox" x-model="area.on" x-bind:disabled="!area.available"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.summary"></small></span></label>
+                      <button type="button" class="bs-area-more" x-show="area.changes.length" x-bind:aria-expanded="area.open ? 'true' : 'false'" x-on:click="area.open = !area.open" aria-label="{{t "backup.preview.changes"}}"><span class="nav-menu-chevron" aria-hidden="true"></span></button>
+                    </div>
+                    <div class="bs-reveal" x-bind:data-open="area.open ? 'true' : 'false'">
+                      <ul class="bs-reveal-inner bs-changes">
+                        <template x-for="change in area.changes" x-bind:key="change.text"><li><span class="bs-change-kind" x-bind:data-kind="change.kind" x-text="change.kindLabel"></span><span x-text="change.text"></span></li></template>
+                      </ul>
+                    </div>
+                    <p class="bs-area-note" x-show="area.note && area.on" x-text="area.note"></p>
+                  </li>
+                </template>
+              </ul>
+            </div>
+
+            <!-- Einspielen: Umgebung -->
+            <div class="bs-step" data-step="env" x-show="step === 'env'">
+              <p class="setting-note bs-step-lead">{{t "backup.env.lead"}}</p>
+              <ul class="bs-env">
+                <template x-for="row in envRows" x-bind:key="row.key">
+                  <li class="bs-env-row">
+                    <span class="bs-env-label" x-text="row.label"></span>
+                    <template x-if="!row.off">
+                      <div class="bs-segment bs-env-choice" role="radiogroup" x-bind:aria-label="row.label">
+                        <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="row.use === 'here' ? 'true' : 'false'" x-on:click="row.use = 'here'"><small>{{t "backup.env.here"}}</small><span x-text="row.here"></span></button>
+                        <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="row.use === 'archive' ? 'true' : 'false'" x-on:click="row.use = 'archive'"><small>{{t "backup.env.archive"}}</small><span x-text="row.archive"></span></button>
+                      </div>
+                    </template>
+                    <template x-if="row.off"><p class="bs-env-off" x-text="row.off"></p></template>
+                  </li>
+                </template>
+              </ul>
+            </div>
+            {{end}}
+
+            <!-- Laeuft -->
+            <div class="bs-step" data-step="run" x-show="step === 'run'" role="status" aria-live="polite">
+              <ol class="bs-run">
+                <template x-for="(task, i) in tasks" x-bind:key="task">
+                  <li class="bs-run-item" x-bind:data-state="i < taskIndex ? 'done' : (i === taskIndex ? 'now' : 'wait')">
+                    <span class="bs-run-mark" aria-hidden="true"><span class="bs-spinner"></span><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+                    <span x-text="task"></span>
+                  </li>
+                </template>
+              </ol>
+              <div class="bs-bar" role="progressbar" aria-label="{{t "backup.run.progress"}}" x-bind:aria-valuenow="Math.round(progress * 100)" aria-valuemin="0" aria-valuemax="100"><span x-bind:style="`transform: scaleX(${progress})`"></span></div>
+              <p class="setting-note" x-text="runNote()"></p>
+            </div>
+
+            <!-- Fertig -->
+            <div class="bs-step bs-done" data-step="done" x-show="step === 'done'">
+              <span class="bs-done-mark" x-bind:class="{ drawn: step === 'done' }" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><path d="m14 25 7 7 13-15"/></svg></span>
+              <h4 x-text="doneTitle()"></h4>
+              <p class="setting-note" x-text="doneNote()"></p>
+            </div>
+          </div>
+          <footer class="bs-flow-foot" x-show="step !== 'run'">
+            <button type="button" class="icon-button labeled" x-show="canBack()" x-on:click="flowBack()"><span>{{t "backup.flow.back"}}</span></button>
+            <button type="button" class="icon-button labeled bs-danger-ghost" x-show="step === 'done' && flow === 'import'" x-on:click="closeFlow()"><span>{{t "backup.flow.rollback"}}</span></button>
+            <span class="bs-flow-spacer"></span>
+            <button type="button" class="icon-button labeled bs-primary" x-bind:class="{ 'bs-primary-danger': step === 'format' }" x-show="primaryLabel()" x-bind:disabled="!primaryEnabled()" x-on:click="flowPrimary()"><span x-text="primaryLabel()"></span></button>
+          </footer>
+        </div>
+      </div>
+    </template>
+  </div>
+  {{end}}
+
   <section id="settings-system" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
     <section class="setting-card system-access-card" aria-labelledby="system-access-heading">
       <h3 class="setting-card-title" id="system-access-heading">{{t "settings.system.title"}}</h3>
