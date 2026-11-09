@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.10-pre.4 (2026-11-06)
+## v0.11.10-pre.5 (2026-11-06)
 
 ### Features
 
@@ -8,6 +8,25 @@
 - **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217) (bcf1b75)
 - **energy:** Measurement chains now learn their normal loss and efficiency curve. The Efficiency tab shows the curve with the best range and the current power, and a diagnosis lists drift, frozen values, contradicting points and wrong signs or units. Substitute values are corrected by the learned loss, and findings show up on the energy page, in the diagnostics and on the device map. (#223) (4871a1c)
 - **automation:** react to measurement chains in automations (#226) (0066f15)
+- **registry:** read value templates with two subscripts (4dad5ed)
+- **energy:** count the loss energy of every chain (b428809)
+- **energy:** publish the loss energy counter of chains (d88ead2)
+- **energy:** offer chain efficiency and loss sensors to Home Assistant (d1cdee0)
+- **energy:** switch chain sensors for Home Assistant in settings (c5bb39b)
+- **dashboard:** switch chain sensors for Home Assistant in the MQTT tab (654e8e1)
+- **energy:** collect minute means of power entities for chain suggestions (6b5f8c5)
+- **energy:** find measurement chain candidates by correlation (cde2faa)
+- **energy:** remember chain suggestion sums and dismissed pairs (7bff9ca)
+- **energy:** serve chain suggestions and remember dismissed pairs (b14126e)
+- **dashboard:** model for chain suggestions on the energy page (df47507)
+- **dashboard:** suggest measurement chains on the energy page (2b897c7)
+- **dashboard:** draw chain suggestions as dashed edges in the device map graph (da1c8c9)
+- **dashboard:** show chain suggestions on the device map (f8a4cf7)
+- **dashboard:** mark the chain sensor switch as a tour target (0614d04)
+- **energy:** let chain learning and chain suggestions be switched off (f4d5286)
+- **dashboard:** add a learning card to the general settings (c322c92)
+- **dashboard:** mark the energy tab while chain suggestions are open (5a93ba9)
+- **energy:** suggest measurement chains and offer chain sensors to Home Assistant (#229)
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
 - **energy:** publish chain signals for automations (0794abe)
 - **automation:** fire once per chain finding and allow short scenarios (2de51bf)
@@ -74,6 +93,13 @@
 
 ### Fixes
 
+- **dashboard:** save the chain sensor switch through the energy device endpoint (e82a00d)
+- **energy:** ignore non-finite power values when suggesting chains (9f83e83)
+- **dashboard:** clean up the chain suggestion timer and double submits (696a9f6)
+- **energy:** keep the loss totals while energy.json is unreadable (9484feb)
+- **dashboard:** keep hidden tab hints out of the tab labels (853fd39)
+- **dashboard:** keep the learning card tooltips inside the page (dbaf12f)
+- **dashboard:** mark open suggestions on the chains section and show the name field (b677bce)
 - **onboarding:** ask before closing the welcome tour (#227) (9f42972)
 - **tailscale:** find the CLI of the Debian package in /usr/bin (#225) (50c65b3)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
@@ -115,6 +141,7 @@
 
 ### Tests
 
+- **dashboard:** cover the rights and reload paths of device map chain suggestions (e78502e)
 - **automation:** cover chain conditions in the rules schema (338807e)
 - **webui:** accept the efficiency panel as a tour panel (e826f7f)
 - **automations:** expect the new chart asset version (fba2e7c)
@@ -125,6 +152,8 @@
 
 ### Chores
 
+- **dashboard:** bump asset versions for chain suggestions (cache-bust) (a02d6ee)
+- **dashboard:** bump asset versions for the learning card and the energy tab dot (cache-bust) (681face)
 - remove the shared services component (#209) (28d50a7)
 - **dashboard:** bump the lazy asset versions for chain diagnostics (dd15539)
 - **dashboard:** raise dashboard.js above the merged prerelease value (808b2d3)
