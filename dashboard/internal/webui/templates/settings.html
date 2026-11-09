@@ -538,7 +538,7 @@
               </div>
               <div class="bs-archive-actions">
                 {{if index .Can "backup_export"}}
-                <button type="button" class="icon-button" title="{{t "backup.archives.download"}}" aria-label="{{t "backup.archives.download"}}" x-on:click="downloadArchive(item)"><svg class="automation-icon"><use href="#ico-download"></use></svg></button>
+                <button type="button" class="icon-button" x-bind:title="downloadTitle(item)" aria-label="{{t "backup.archives.download"}}" x-bind:disabled="!canDownload(item)" x-on:click="downloadArchive(item)"><svg class="automation-icon"><use href="#ico-download"></use></svg></button>
                 {{end}}
                 {{if index .Can "backup_import"}}
                 <button type="button" class="icon-button labeled" x-on:click="openImport(item)"><span>{{t "backup.archives.restore"}}</span></button>

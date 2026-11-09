@@ -455,3 +455,50 @@ func TestSettingsPutSecretsOnlyChecksNewlyEnabled(t *testing.T) {
 		t.Fatalf("enabling secrets with backup_secrets status %d, want 200: %s", allowed.Code, allowed.Body.String())
 	}
 }
+
+// storeArchiveWith legt ein Archiv im Ablageort an, mit den Angaben aus info.
+func (f *backupFixture) storeArchiveWith(info backup.Info) string {
+	f.t.Helper()
+	store, err := backup.NewStore(f.backupDir)
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	info.Trigger = "manual"
+	info.Place = "system"
+	info.Areas = []backup.Area{backup.AreaSettings}
+	created, err := store.Add(info, 0, func(w io.Writer) error {
+		_, err := w.Write([]byte("archiv"))
+		return err
+	})
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return created.ID
+}
+
+// TestDownloadOfOpenSecretsArchiveNeedsSecretsRole prüft, dass ein offenes Archiv mit
+// Zugangsdaten nur mit der Rolle backup_secrets herunterlädt. Gesperrte Archive und
+// Archive ohne Zugangsdaten bleiben mit backup_export erreichbar.
+func TestDownloadOfOpenSecretsArchiveNeedsSecretsRole(t *testing.T) {
+	f := newBackupFixture(t)
+	exporter := f.user("exporter", auth.RoleBackupExport)
+	secretsUser := f.user("keeper", auth.RoleBackupExport, auth.RoleBackupSecrets)
+
+	openSecrets := f.storeArchiveWith(backup.Info{Secrets: true})
+	lockedSecrets := f.storeArchiveWith(backup.Info{Secrets: true, Locked: true})
+	noSecrets := f.storeArchiveWith(backup.Info{})
+
+	rec := f.call(http.MethodGet, "/api/v1/backup/archives/"+openSecrets, "", exporter, "")
+	if rec.Code != http.StatusForbidden || backupErrorCode(t, rec) != "backup_forbidden" {
+		t.Fatalf("export-only, open secrets: status %d body %s, want 403 backup_forbidden", rec.Code, rec.Body.String())
+	}
+	if rec := f.call(http.MethodGet, "/api/v1/backup/archives/"+lockedSecrets, "", exporter, ""); rec.Code != http.StatusOK {
+		t.Fatalf("export-only, locked secrets: status %d, want 200", rec.Code)
+	}
+	if rec := f.call(http.MethodGet, "/api/v1/backup/archives/"+noSecrets, "", exporter, ""); rec.Code != http.StatusOK {
+		t.Fatalf("export-only, no secrets: status %d, want 200", rec.Code)
+	}
+	if rec := f.call(http.MethodGet, "/api/v1/backup/archives/"+openSecrets, "", secretsUser, ""); rec.Code != http.StatusOK {
+		t.Fatalf("secrets role, open secrets: status %d, want 200", rec.Code)
+	}
+}

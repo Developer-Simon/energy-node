@@ -245,7 +245,11 @@
         return false;
       }
     },
+    // An open archive with secrets downloads only with backup_secrets, the server checks it too.
+    canDownload(item) { return this.canSecrets || !item.secrets || Boolean(item.locked); },
+    downloadTitle(item) { return this.canDownload(item) ? t('backup.archives.download') : t('backup.preview.forbidden'); },
     downloadArchive(item) {
+      if (!this.canDownload(item)) return;
       this.download(item.id);
     },
     // An anchor with the download attribute: the browser saves the file the

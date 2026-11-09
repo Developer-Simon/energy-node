@@ -477,14 +477,15 @@ func (d *BackupDeps) handleArchive(manager *auth.Manager) http.HandlerFunc {
 		id := strings.TrimPrefix(r.URL.Path, "/api/v1/backup/archives/")
 		switch r.Method {
 		case http.MethodGet:
-			if _, ok := backupAccess(w, r, manager, auth.RoleBackupExport); !ok {
+			user, ok := backupAccess(w, r, manager, auth.RoleBackupExport)
+			if !ok {
 				return
 			}
 			if !backupIDPattern.MatchString(id) {
 				writeErrorKey(w, http.StatusBadRequest, "backup_bad_request", "error.backup_bad_request", nil, "Die Anfrage zum Backup ist ungültig")
 				return
 			}
-			d.serveArchive(w, id)
+			d.serveArchive(w, id, user)
 		case http.MethodDelete:
 			if _, ok := backupWrite(w, r, manager, auth.RoleBackupExport); !ok {
 				return
@@ -517,8 +518,9 @@ func (d *BackupDeps) handleArchive(manager *auth.Manager) http.HandlerFunc {
 }
 
 // serveArchive streamt ein Archiv als Anhang. Ein Download aus dem Staging-Ordner
-// wird danach gelöscht.
-func (d *BackupDeps) serveArchive(w http.ResponseWriter, id string) {
+// wird danach gelöscht. Ein offenes Archiv mit Zugangsdaten braucht die Rolle
+// backup_secrets, das prüft vor dem ersten Byte.
+func (d *BackupDeps) serveArchive(w http.ResponseWriter, id string, user auth.User) {
 	if path, locked := d.downloadPath(id); path != "" {
 		f, err := os.Open(path)
 		if err != nil {
@@ -553,6 +555,10 @@ func (d *BackupDeps) serveArchive(w http.ResponseWriter, id string) {
 		return
 	}
 	defer f.Close()
+	if info.Secrets && !info.Locked && !auth.HasRole(user, auth.RoleBackupSecrets) {
+		writeErrorKey(w, http.StatusForbidden, "backup_forbidden", "error.backup_forbidden", nil, "Für das Backup fehlt die Berechtigung")
+		return
+	}
 	name := info.ID + archiveSuffixPlain
 	if info.Locked {
 		name = info.ID + archiveSuffixLocked
