@@ -194,7 +194,7 @@ func runApply(src Sources, pendingDir string, p Pending) (*Result, error) {
 	}
 	res := &Result{
 		OK:            true,
-		Applied:       chosenAreas(p.Areas),
+		Applied:       ChosenAreas(p.Areas),
 		DisabledUsers: pl.disabled,
 		FinishedAt:    time.Now().UTC(),
 	}

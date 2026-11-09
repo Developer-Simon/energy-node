@@ -145,7 +145,7 @@ func Create(ctx context.Context, src Sources, opts CreateOptions, w io.Writer) (
 		Hostname:    hostname(),
 		Trigger:     opts.Trigger,
 		CreatedAt:   time.Now().UTC(),
-		Areas:       chosenAreas(opts.Areas),
+		Areas:       ChosenAreas(opts.Areas),
 		Secrets:     opts.Secrets && opts.Areas[AreaSecrets],
 		Files:       aw.files,
 	}
@@ -520,8 +520,8 @@ func safeJoin(root, name string) (string, error) {
 	return target, nil
 }
 
-// chosenAreas liefert die gewählten Bereiche sortiert.
-func chosenAreas(areas map[Area]bool) []Area {
+// ChosenAreas liefert die gewählten Bereiche sortiert.
+func ChosenAreas(areas map[Area]bool) []Area {
 	out := make([]Area, 0, len(areas))
 	for a, on := range areas {
 		if on {

@@ -85,7 +85,7 @@ func (s *Scheduler) run(ctx context.Context, set Settings, now time.Time) {
 		Trigger:   "auto",
 		Place:     place,
 		Version:   s.Version,
-		Areas:     chosenAreas(set.Content),
+		Areas:     ChosenAreas(set.Content),
 		Secrets:   set.Secrets,
 		Locked:    false,
 		CreatedAt: now,

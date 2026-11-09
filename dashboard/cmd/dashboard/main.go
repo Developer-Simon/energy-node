@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"log/slog"
 	"net"
@@ -107,6 +106,9 @@ func batteryStateFiles(devicesDir string) map[string]string {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "backup" {
+		os.Exit(runBackupCLI(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	configPath := flag.String("config", appconfig.DefaultPath, "Pfad zur zentralen Konfigurationsdatei")
 	flag.Parse()
 	rawConfig, _ := os.ReadFile(*configPath)
@@ -130,12 +132,8 @@ func main() {
 	configManager := config.NewManager(devicesDir)
 	dataDir := cfg.Paths.DataDir
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
-	runBackupApply(backup.Sources{
-		DataDir:       dataDir,
-		DevicesDir:    devicesDir,
-		AppConfigPath: *configPath,
-		BatteryStates: batteryStateFiles(devicesDir),
-	}, systemExecutor.StartServices)
+	backupSources := buildSources(cfg, *configPath)
+	runBackupApply(backupSources, systemExecutor.StartServices)
 	shellyPresetsPath := cfg.ShellyPresets()
 	shellyPresetsStore := shellypresets.NewStore(shellyPresetsPath)
 	configManager.ExcludeName(strings.TrimSuffix(filepath.Base(shellyPresetsPath), ".json"))
@@ -550,9 +548,7 @@ func main() {
 		Settings: backupSettingsFn,
 		Location: &backup.SystemLocation{DataDir: dataDir, Settings: backupSettingsFn},
 		Version:  buildVersion,
-		Create: func(ctx context.Context, s backup.Settings, w io.Writer) error {
-			return fmt.Errorf("backup: not wired yet")
-		},
+		Create:   newArchiveCreator(backupSources, buildVersion, "auto"),
 	}
 	go func() {
 		ticker := time.NewTicker(time.Minute)
