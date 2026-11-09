@@ -1,10 +1,31 @@
 # Changelog
 
-## v0.11.9 (2026-11-09)
+## v0.11.10 (2026-11-09)
 
 ### Features
 
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
+- **backup:** add data catalogue (18a4e7b)
+- **backup:** add archive format with checksums (ef4ed92)
+- **backup:** add optional archive password (a1b28c2)
+- **backup:** handle user secrets when exporting and importing (3432038)
+- **backup:** preview an archive and merge environment values (0779ffd)
+- **backup:** merge archived energy statistics into the live ones (2a0669d)
+- **backup:** apply a pending import at startup (2319784)
+- **backup:** store and prune archives (1547bc1)
+- **backup:** schedule automatic backups (4c46048)
+- **backup:** helper verbs to stop and start the services (e63481f)
+- **backup:** back up before updating (c81ef1c)
+- **backup:** create a backup from the command line (1075b10)
+- **backup:** add the backup permissions (dabb991)
+- **backup:** add the backup API for archives and settings (e72c43f)
+- **backup:** upload, unlock and preview an archive (76d064e)
+- **backup:** apply an imported archive (5417184)
+- **backup:** add the backup nav entry and styles (f3d1aa1)
+- **backup:** add the backup page markup (ab8961e)
+- **backup:** load, save and export from the backup page (e242e72)
+- **backup:** import archives from the backup page (e463725)
+- **backup:** back up and restore the node from the settings page (#228)
 - **automations:** add texts for the rule history axis (4c3094a)
 - **automations:** add history day groups and flight logic (5d3205c)
 - **automations:** show the rule history as an axis in the strip (8993e21)
@@ -19,7 +40,15 @@
 - **dashboard:** stop flagging retained discovery as not retained (#219) (65463a6)
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 - **tailscale:** find the CLI of the Debian package in /usr/bin (#225) (50c65b3)
-- **onboarding:** ask before closing the welcome tour (#227)
+- **onboarding:** ask before closing the welcome tour (#227) (9f42972)
+- **backup:** keep omitted settings when saving (103dbee)
+- **backup:** keep the services running when an import cannot restart (3bd1f73)
+- **backup:** return to the file step when an import job fails (6629e79)
+- **backup:** close the gaps found in the final review (529a01f)
+- **backup:** require backup_secrets to download unprotected archives with secrets (a70c7ce)
+- **backup:** record secrets in the manifest only when they were written (917570a)
+- **backup:** do not show missing passwords as user changes in the preview (0ac0fc3)
+- **backup:** let the demo helper handle the restore verbs (2c333f1)
 - **dashboard:** keep device modal tabs equally tall with the label on top (2bdf2c4)
 - **dashboard:** animate diagnostics refresh and updated values (57967fc)
 - **dashboard:** glide diagnostics device cards to their new place (4a9b331)
@@ -27,11 +56,17 @@
 
 ### Refactors
 
+- **backup:** say wiederherstellen instead of einspielen in German texts (503c476)
 - move the config template next to the dashboard appconfig (9ff6776)
 - **versions:** drop the shared services component (a654ecb)
 
+### Documentation
+
+- **backup:** add the highlight and tour for the backup page (86435fb)
+
 ### Tests
 
+- **backup:** smoke the backup API end to end (9576177)
 - **automations:** expect the new chart asset version (fba2e7c)
 
 ### Style

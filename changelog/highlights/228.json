@@ -1,14 +1,14 @@
 {
   "de": {
-    "*": "Backup und Wiederherstellung der Node auf der Einstellungsseite. Archive lassen sich erstellen, mit Passwort schützen, vor Updates und nach Zeitplan anlegen und mit Vorschau wiederherstellen."
+    "*": "Backup und Wiederherstellung der Node auf der Einstellungsseite"
   },
   "tour": {
     "*": {
       "steps": [
         {
+          "need": "backup_export",
           "page": "backup",
           "panel": "settings-panel",
-          "need": "backup_export",
           "target": "backup-create",
           "text": {
             "de": "Hier erstellst du ein Backup der Node. Archive lassen sich mit einem Passwort schützen.",
