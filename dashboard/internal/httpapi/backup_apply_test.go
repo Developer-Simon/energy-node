@@ -461,3 +461,51 @@ func TestImportResultRoute(t *testing.T) {
 		t.Fatalf("result: status %d body %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestApplyStopFailureNamesStepAndStartsServices(t *testing.T) {
+	f := newBackupFixture(t)
+	importer := f.user("importer", auth.RoleBackupImport)
+	exec := &recordingExec{fail: map[systemactions.Action]error{systemactions.StopServices: errors.New("systemd busy")}}
+	f.deps.Exec = exec
+	f.uploadArchive(importArchive(t, f, "1.0.0", ""), importer)
+
+	rec := f.importRequest(backupApplyPath, "application/json", "", []byte(`{"areas":{"settings":true}}`), importer)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("apply status %d: %s", rec.Code, rec.Body.String())
+	}
+	f.waitIdle()
+
+	job := f.jobs.Status()
+	if !strings.Contains(job.Error, "Die Dienste konnten nicht gestoppt werden") {
+		t.Fatalf("job error %q, want the failing step named", job.Error)
+	}
+	want := []systemactions.Action{systemactions.StopServices, systemactions.StartServices}
+	if got := exec.recorded(); !slices.Equal(got, want) {
+		t.Fatalf("actions %v, want %v", got, want)
+	}
+}
+
+func TestApplyRestartAndStartFailureNamesBothSteps(t *testing.T) {
+	f := newBackupFixture(t)
+	importer := f.user("importer", auth.RoleBackupImport)
+	exec := &recordingExec{fail: map[systemactions.Action]error{
+		systemactions.RestartDashboard: errors.New("systemd busy"),
+		systemactions.StartServices:    errors.New("unit masked"),
+	}}
+	f.deps.Exec = exec
+	f.uploadArchive(importArchive(t, f, "1.0.0", ""), importer)
+
+	rec := f.importRequest(backupApplyPath, "application/json", "", []byte(`{"areas":{"settings":true}}`), importer)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("apply status %d: %s", rec.Code, rec.Body.String())
+	}
+	f.waitIdle()
+
+	job := f.jobs.Status()
+	if !strings.Contains(job.Error, "Der Neustart ist fehlgeschlagen") {
+		t.Fatalf("job error %q, want the restart failure", job.Error)
+	}
+	if !strings.Contains(job.Error, ". Die Dienste konnten nicht wieder gestartet werden: unit masked") {
+		t.Fatalf("job error %q, want the start failure after a dot", job.Error)
+	}
+}

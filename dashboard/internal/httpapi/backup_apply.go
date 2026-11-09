@@ -149,7 +149,7 @@ func (d *BackupDeps) runApply(ctx context.Context, phase func(int), session *bac
 	// Stoppen kommt vor der Konfiguration in /etc: scheitert es, bleibt /etc unverändert.
 	phase(2)
 	if err := d.Exec.Execute(ctx, systemactions.StopServices); err != nil {
-		return "", d.abortApply(ctx, err)
+		return "", d.abortApply(ctx, fmt.Errorf("Die Dienste konnten nicht gestoppt werden: %w", err))
 	}
 	var original []byte
 	if merged != nil {
@@ -242,7 +242,7 @@ func (d *BackupDeps) abortApply(ctx context.Context, cause error) error {
 	_ = os.RemoveAll(filepath.Join(d.DataDir, backupPendingDirName))
 	d.dropImport()
 	if err := d.Exec.Execute(ctx, systemactions.StartServices); err != nil {
-		return errors.Join(cause, err)
+		return fmt.Errorf("%w. Die Dienste konnten nicht wieder gestartet werden: %w", cause, err)
 	}
 	return cause
 }

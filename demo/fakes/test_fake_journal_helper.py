@@ -161,3 +161,38 @@ def test_hang_mode_records_event_and_continues(tmp_path, epoch_env, monkeypatch,
 def test_system_action_without_state_file_still_exits_64(epoch_env):
     result = run_helper(epoch_env, "reboot")
     assert result.returncode == 64
+
+
+@pytest.mark.parametrize("action", ["stop-services", "start-services", "restart-dashboard"])
+def test_restore_verbs_succeed_without_state_and_are_recorded(tmp_path, epoch_env, action):
+    events = str(tmp_path / "events.jsonl")
+    env = dict(epoch_env, FAKE_SYSTEM_EVENTS=events)
+    result = run_helper(env, action)
+    assert result.returncode == 0
+    assert read_events(events)[-1]["action"] == action
+    assert read_events(events)[-1]["result"] == "ok"
+
+
+@pytest.mark.parametrize("action", [
+    "reboot", "poweroff", "apply-bridge-config", "apply-app-config",
+    "restart-mosquitto", "tailscale-up", "tailscale-logout", "tailscale-restart",
+])
+def test_other_system_actions_still_exit_64_without_state(epoch_env, action):
+    result = run_helper(epoch_env, action)
+    assert result.returncode == 64
+
+
+def test_restore_verbs_follow_actions_fail_with_state(tmp_path, epoch_env):
+    state = write_state(tmp_path, {"actions": "fail"})
+    events = str(tmp_path / "events.jsonl")
+    for action in ("stop-services", "start-services", "restart-dashboard"):
+        result = run_helper(with_state(epoch_env, state, events), action)
+        assert result.returncode == 1
+        assert read_events(events)[-1]["result"] == "fail"
+
+
+def test_restore_verbs_denied_with_state(tmp_path, epoch_env):
+    state = write_state(tmp_path, {"helper": "denied"})
+    result = run_helper(with_state(epoch_env, state), "stop-services")
+    assert result.returncode == 1
+    assert result.stderr.startswith("sudo:")
