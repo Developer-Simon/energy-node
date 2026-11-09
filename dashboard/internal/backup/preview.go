@@ -2,9 +2,11 @@ package backup
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -228,9 +230,24 @@ func entrySpecs(name string) []entrySpec {
 	return nil
 }
 
+// largeFileSize ist die Grenze, ab der eine Datei nicht mehr geparst wird. Der Pi hat
+// wenig Speicher, und ein geparster Baum braucht ein Vielfaches der Dateigröße.
+const largeFileSize = 4 << 20
+
 // fileChanges bewertet eine Datei. Fehlt sie auf einer Seite, ist sie neu oder
-// entfällt. Dateien mit Einträgen werden je Eintrag verglichen.
+// entfällt. Dateien mit Einträgen werden je Eintrag verglichen. Große Dateien
+// auf beiden Seiten vergleicht nur ihr Inhalt über Größe und sha256.
 func fileChanges(name string, s, l archiveFile, inArchive, inLive bool) ([]Change, error) {
+	if inArchive && inLive && (s.size > largeFileSize || l.size > largeFileSize) {
+		same, err := sameFileStreamed(s.path, l.path)
+		if err != nil {
+			return nil, err
+		}
+		if same {
+			return nil, nil
+		}
+		return []Change{{Kind: "mod", Label: name}}, nil
+	}
 	var sData, lData []byte
 	var err error
 	if inArchive {
@@ -266,6 +283,44 @@ func fileChanges(name string, s, l archiveFile, inArchive, inLive bool) ([]Chang
 		return []Change{{Kind: "new", Label: name}}, nil
 	}
 	return []Change{{Kind: "del", Label: name}}, nil
+}
+
+// sameFileStreamed vergleicht zwei Dateien über Größe und sha256, ohne sie ganz in den Speicher zu lesen.
+func sameFileStreamed(a, b string) (bool, error) {
+	ai, err := os.Stat(a)
+	if err != nil {
+		return false, err
+	}
+	bi, err := os.Stat(b)
+	if err != nil {
+		return false, err
+	}
+	if ai.Size() != bi.Size() {
+		return false, nil
+	}
+	ha, err := fileSHA256(a)
+	if err != nil {
+		return false, err
+	}
+	hb, err := fileSHA256(b)
+	if err != nil {
+		return false, err
+	}
+	return bytes.Equal(ha, hb), nil
+}
+
+// fileSHA256 liefert den sha256 einer Datei, gelesen in Teilen.
+func fileSHA256(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
 }
 
 // entryChanges vergleicht die Listen je Eintrag über id. Ist eine Seite kein

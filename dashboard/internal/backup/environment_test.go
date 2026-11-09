@@ -228,3 +228,29 @@ func TestMergeMigratesOldArchive(t *testing.T) {
 		t.Fatal("der Block node bleibt nach der Migration")
 	}
 }
+
+// TestMergeConfigNeverTakesExecutablePathsFromArchive prüft, dass ein Archiv
+// keine Programm- oder Skriptpfade in die Konfiguration des Ziels schreibt.
+func TestMergeConfigNeverTakesExecutablePathsFromArchive(t *testing.T) {
+	archive := envConfig(t, func(doc map[string]any) {
+		tt := section(doc, "tinytuya")
+		tt["probe_python"] = "/tmp/archiv/evil-python"
+		tt["probe_script"] = "/tmp/archiv/evil-probe.py"
+		section(doc, "dashboard")["system_action_helper"] = "/tmp/archiv/evil-helper"
+	})
+	here := envConfig(t, nil)
+
+	doc := mergedDoc(t, archive, here, map[string]bool{"broker": true, "port": true})
+	var want map[string]any
+	if err := json.Unmarshal([]byte(envBase), &want); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"probe_python", "probe_script"} {
+		if got, w := section(doc, "tinytuya")[key], section(want, "tinytuya")[key]; got != w {
+			t.Fatalf("tinytuya.%s = %v, want das Ziel %v", key, got, w)
+		}
+	}
+	if got, w := section(doc, "dashboard")["system_action_helper"], section(want, "dashboard")["system_action_helper"]; got != w {
+		t.Fatalf("dashboard.system_action_helper = %v, want das Ziel %v", got, w)
+	}
+}

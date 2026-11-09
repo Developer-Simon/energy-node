@@ -163,6 +163,111 @@ func TestApplyStagesEnvironmentBetweenStopAndRestart(t *testing.T) {
 	}
 }
 
+// stagingExec zeichnet wie recordingExec auf und merkt sich den Inhalt der
+// Konfiguration, die ApplyAppConfig übernimmt. failFirstApply lässt nur die
+// erste Übernahme scheitern.
+type stagingExec struct {
+	recordingExec
+	dataDir        string
+	failFirstApply bool
+	applied        [][]byte
+}
+
+func (e *stagingExec) Execute(ctx context.Context, action systemactions.Action) error {
+	if action == systemactions.ApplyAppConfig {
+		data, _ := os.ReadFile(filepath.Join(e.dataDir, systemactions.StagedAppConfigName))
+		e.mu.Lock()
+		e.applied = append(e.applied, data)
+		first := len(e.applied) == 1
+		e.mu.Unlock()
+		if first && e.failFirstApply {
+			return errors.New("Helfer nicht erreichbar")
+		}
+	}
+	return e.recordingExec.Execute(ctx, action)
+}
+
+// setupMergedConfigApply legt eine Konfiguration fest, die das Einspielen mit dem
+// Broker aus dem Archiv zusammenführt. Es liefert die ursprünglichen Bytes der Konfiguration.
+func setupMergedConfigApply(t *testing.T, f *backupFixture, importer backupUser) []byte {
+	t.Helper()
+	dir := t.TempDir()
+	archiveCfg := filepath.Join(dir, "archive.json")
+	liveCfg := filepath.Join(dir, "live.json")
+	if err := os.WriteFile(archiveCfg, []byte(envTestConfig("10.0.0.5")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte(envTestConfig("127.0.0.1"))
+	if err := os.WriteFile(liveCfg, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f.deps.Sources.AppConfigPath = liveCfg
+	var buf bytes.Buffer
+	opts := backup.CreateOptions{Areas: map[backup.Area]bool{backup.AreaSettings: true}, Trigger: "manual", NodeVersion: "1.0.0"}
+	sources := backup.Sources{DataDir: f.dataDir, DevicesDir: t.TempDir(), AppConfigPath: archiveCfg}
+	if _, err := backup.Create(context.Background(), sources, opts, &buf); err != nil {
+		t.Fatal(err)
+	}
+	f.uploadArchive(buf.Bytes(), importer)
+	return original
+}
+
+// TestApplyRestoresConfigWhenRestartFails prüft, dass ein fehlgeschlagener Neustart
+// die alte Konfiguration zurückschreibt und die Fehlermeldung das sagt.
+func TestApplyRestoresConfigWhenRestartFails(t *testing.T) {
+	f := newBackupFixture(t)
+	importer := f.user("importer", auth.RoleBackupImport)
+	exec := &stagingExec{dataDir: f.dataDir}
+	exec.fail = map[systemactions.Action]error{systemactions.RestartDashboard: errors.New("systemd busy")}
+	f.deps.Exec = exec
+	original := setupMergedConfigApply(t, f, importer)
+
+	rec := f.importRequest(backupApplyPath, "application/json", "", []byte(`{"areas":{"settings":true},"use_archive":{"broker":true}}`), importer)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("apply status %d: %s", rec.Code, rec.Body.String())
+	}
+	f.waitIdle()
+
+	exec.mu.Lock()
+	applied := exec.applied
+	exec.mu.Unlock()
+	if len(applied) != 2 {
+		t.Fatalf("config applied %d times, want merged and restored", len(applied))
+	}
+	if !bytes.Equal(applied[1], original) {
+		t.Fatalf("restored config differs from the original")
+	}
+	if job := f.jobs.Status(); !strings.Contains(job.Error, "wiederhergestellt") {
+		t.Fatalf("job error %q, want the restore mentioned", job.Error)
+	}
+}
+
+// TestApplyRestoresConfigWhenApplyFails prüft, dass ein fehlgeschlagenes Übernehmen
+// der Konfiguration den alten Stand zurückschreibt.
+func TestApplyRestoresConfigWhenApplyFails(t *testing.T) {
+	f := newBackupFixture(t)
+	importer := f.user("importer", auth.RoleBackupImport)
+	exec := &stagingExec{dataDir: f.dataDir, failFirstApply: true}
+	f.deps.Exec = exec
+	original := setupMergedConfigApply(t, f, importer)
+
+	rec := f.importRequest(backupApplyPath, "application/json", "", []byte(`{"areas":{"settings":true},"use_archive":{"broker":true}}`), importer)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("apply status %d: %s", rec.Code, rec.Body.String())
+	}
+	f.waitIdle()
+
+	exec.mu.Lock()
+	applied := exec.applied
+	exec.mu.Unlock()
+	if len(applied) != 2 || !bytes.Equal(applied[1], original) {
+		t.Fatalf("applied %d times, want the original restored second", len(applied))
+	}
+	if job := f.jobs.Status(); !strings.Contains(job.Error, "wiederhergestellt") {
+		t.Fatalf("job error %q, want the restore mentioned", job.Error)
+	}
+}
+
 func TestApplyRestartFailureRestartsServices(t *testing.T) {
 	f := newBackupFixture(t)
 	importer := f.user("importer", auth.RoleBackupImport)
@@ -262,6 +367,30 @@ func TestPreImportKeepsSecretsOnlyWhenReplaced(t *testing.T) {
 	archives = f.preImportArchives()
 	if len(archives) != 2 || !archives[0].Secrets {
 		t.Fatalf("secrets replaced: pre-import archives %+v, want newest with secrets", archives)
+	}
+
+	// Konten werden eingespielt: die Sicherung trägt die Hashes auch ohne Zugangsdaten.
+	if err := os.WriteFile(filepath.Join(f.dataDir, "users.json"), []byte(`{"users":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var usersBuf bytes.Buffer
+	usersOpts := backup.CreateOptions{
+		Areas:       map[backup.Area]bool{backup.AreaUsers: true},
+		Trigger:     "manual",
+		NodeVersion: "1.0.0",
+	}
+	if _, err := backup.Create(context.Background(), backup.Sources{DataDir: f.dataDir, DevicesDir: t.TempDir()}, usersOpts, &usersBuf); err != nil {
+		t.Fatal(err)
+	}
+	f.uploadArchive(usersBuf.Bytes(), keeper)
+	rec = f.importRequest(backupApplyPath, "application/json", "", []byte(`{"areas":{"users":true}}`), keeper)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("users apply status %d: %s", rec.Code, rec.Body.String())
+	}
+	f.waitIdle()
+	archives = f.preImportArchives()
+	if len(archives) != 3 || !archives[0].Secrets {
+		t.Fatalf("users replaced: pre-import archives %+v, want newest with secrets", archives)
 	}
 }
 

@@ -126,8 +126,12 @@ func (d *BackupDeps) runApply(ctx context.Context, phase func(int), session *bac
 		return "", errBackupNoImport
 	}
 
+	// Die Sicherung trägt die Hashes auch dann, wenn Konten eingespielt werden:
+	// das Einspielen kann lokale Konten entfernen, und ihre Anmeldung soll ein Zurückrollen erhalten.
+	safetySecrets := secrets || body.Areas[backup.AreaUsers]
+
 	phase(0)
-	safetyID, err := d.preImportArchive(ctx, secrets)
+	safetyID, err := d.preImportArchive(ctx, safetySecrets)
 	if err != nil {
 		return "", d.abortApply(ctx, err)
 	}
@@ -147,9 +151,15 @@ func (d *BackupDeps) runApply(ctx context.Context, phase func(int), session *bac
 	if err := d.Exec.Execute(ctx, systemactions.StopServices); err != nil {
 		return "", d.abortApply(ctx, err)
 	}
+	var original []byte
 	if merged != nil {
+		original, err = os.ReadFile(d.Sources.AppConfigPath)
+		if err != nil {
+			return "", d.abortApply(ctx, fmt.Errorf("Die Konfiguration konnte nicht gelesen werden: %w", err))
+		}
 		if err := systemactions.StageAndApplyAppConfig(ctx, d.Exec, d.DataDir, merged); err != nil {
-			return "", d.abortApply(ctx, fmt.Errorf("Die Konfiguration konnte nicht übernommen werden: %w", err))
+			cause := fmt.Errorf("Die Konfiguration konnte nicht übernommen werden: %w", err)
+			return "", d.abortApply(ctx, d.restoreAppConfig(ctx, original, cause))
 		}
 	}
 
@@ -157,7 +167,7 @@ func (d *BackupDeps) runApply(ctx context.Context, phase func(int), session *bac
 	if err := d.Exec.Execute(ctx, systemactions.RestartDashboard); err != nil {
 		cause := fmt.Errorf("Der Neustart ist fehlgeschlagen: %w", err)
 		if merged != nil {
-			cause = fmt.Errorf("Der Neustart ist fehlgeschlagen, die Konfiguration in /etc/energy-node/config.json ist bereits geändert: %w", err)
+			cause = d.restoreAppConfig(ctx, original, cause)
 		}
 		return safetyID, d.abortApply(ctx, cause)
 	}
@@ -167,7 +177,7 @@ func (d *BackupDeps) runApply(ctx context.Context, phase func(int), session *bac
 }
 
 // preImportArchive legt die Sicherung des aktuellen Stands vor dem Einspielen an.
-// Sie enthält alle Bereiche und Zugangsdaten nur, wenn das Einspielen sie ersetzt.
+// Sie enthält alle Bereiche, Zugangsdaten und Konten mit Hashes nur, wenn das Einspielen sie ersetzt.
 func (d *BackupDeps) preImportArchive(ctx context.Context, secrets bool) (string, error) {
 	store, place, err := d.archiveStore()
 	if errors.Is(err, backup.ErrNoLocation) {
@@ -215,6 +225,15 @@ func (d *BackupDeps) mergedEnvironment(session *backupImportSession, useArchive 
 		return nil, err
 	}
 	return backup.MergeConfig(archiveConfig, hereConfig, useArchive)
+}
+
+// restoreAppConfig schreibt die Konfiguration vor dem Einspielen zurück, wenn das Einspielen
+// sie schon geändert hat. Die Fehlermeldung sagt, ob das gelungen ist.
+func (d *BackupDeps) restoreAppConfig(ctx context.Context, original []byte, cause error) error {
+	if err := systemactions.StageAndApplyAppConfig(ctx, d.Exec, d.DataDir, original); err != nil {
+		return fmt.Errorf("%w. Die alte Konfiguration in /etc/energy-node/config.json konnte nicht wiederhergestellt werden: %v", cause, err)
+	}
+	return fmt.Errorf("%w. Die alte Konfiguration in /etc/energy-node/config.json ist wiederhergestellt", cause)
 }
 
 // abortApply macht einen Einspielauftrag vor dem Neustart rückgängig: das vorgemerkte

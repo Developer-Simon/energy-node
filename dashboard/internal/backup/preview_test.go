@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -146,5 +147,55 @@ func TestPreviewMarksMissingAreasUnavailable(t *testing.T) {
 	}
 	if !findPreview(t, previews, AreaSettings).Available {
 		t.Fatal("Einstellungen sind im Archiv und müssen verfügbar sein")
+	}
+}
+
+// TestPreviewLargeFileDoesNotParse prüft, dass eine große Datei nicht geparst wird:
+// ungültiges JSON mit 5 MiB ergibt keinen Fehler, sondern eine geänderte Datei.
+func TestPreviewLargeFileDoesNotParse(t *testing.T) {
+	staging, src := previewFixture(t)
+	large := make([]byte, 5<<20)
+	for i := range large {
+		large[i] = 'x'
+	}
+	if err := os.MkdirAll(filepath.Join(staging, "data"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(staging, "data", "settings.json"), large, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, src.DataDir, "settings.json", `{"theme":"dark"}`)
+
+	previews, err := Preview(staging, src)
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	got := findPreview(t, previews, AreaSettings)
+	want := []Change{{Kind: "mod", Label: "data/settings.json"}}
+	if !reflect.DeepEqual(got.Changes, want) {
+		t.Fatalf("Changes = %+v, want %+v", got.Changes, want)
+	}
+}
+
+// TestPreviewLargeFileComparesBytesNotJSON prüft, dass eine große Datei nur
+// über Größe und Hash verglichen wird. Dieselben Werte mit anderer Schlüssel-
+// reihenfolge gelten dann als geändert, weil nichts geparst wird.
+func TestPreviewLargeFileComparesBytesNotJSON(t *testing.T) {
+	staging, src := previewFixture(t)
+	pad := strings.Repeat("x", 5<<20)
+	if err := os.MkdirAll(filepath.Join(staging, "data"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, staging, "data/settings.json", `{"pad":"`+pad+`","theme":"dark"}`)
+	writeFile(t, src.DataDir, "settings.json", `{"theme":"dark","pad":"`+pad+`"}`)
+
+	previews, err := Preview(staging, src)
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	got := findPreview(t, previews, AreaSettings)
+	want := []Change{{Kind: "mod", Label: "data/settings.json"}}
+	if !reflect.DeepEqual(got.Changes, want) {
+		t.Fatalf("Changes = %+v, want %+v", got.Changes, want)
 	}
 }

@@ -94,7 +94,9 @@ func (s *Scheduler) run(ctx context.Context, set Settings, now time.Time) {
 	})
 	if err != nil {
 		s.skip(now, "error: "+err.Error())
+		return
 	}
+	s.clearSkipped()
 }
 
 func (s *Scheduler) skip(at time.Time, reason string) {
@@ -102,4 +104,12 @@ func (s *Scheduler) skip(at time.Time, reason string) {
 	defer s.mu.Unlock()
 	s.skippedAt = at
 	s.skippedReason = reason
+}
+
+// clearSkipped löscht den Hinweis, nachdem ein Lauf gelungen ist.
+func (s *Scheduler) clearSkipped() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.skippedAt = time.Time{}
+	s.skippedReason = ""
 }

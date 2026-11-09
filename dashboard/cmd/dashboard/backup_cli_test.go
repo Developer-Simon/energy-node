@@ -108,3 +108,37 @@ func TestCLIRejectsUnknownTrigger(t *testing.T) {
 		t.Fatalf("exit %d, erwartet 2; stderr: %q", code, stderr.String())
 	}
 }
+
+// TestRunBackupApplyStartsServicesAfterBrokenPending prüft, dass ein beschädigtes
+// vorgemerktes Einspielen die Dienste trotzdem wieder startet.
+func TestRunBackupApplyStartsServicesAfterBrokenPending(t *testing.T) {
+	dataDir := t.TempDir()
+	pendingDir := filepath.Join(dataDir, "backup-pending")
+	if err := os.MkdirAll(pendingDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pendingDir, "pending.json"), []byte("{kaputt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	started := 0
+	runBackupApply(backup.Sources{DataDir: dataDir}, func() error {
+		started++
+		return nil
+	})
+	if started != 1 {
+		t.Fatalf("startServices ran %d times, want 1", started)
+	}
+}
+
+// TestRunBackupApplyWithoutPendingDirKeepsServices prüft, dass ohne vorgemerktes
+// Einspielen nichts gestartet wird, weil die Dienste dann nie angehalten wurden.
+func TestRunBackupApplyWithoutPendingDirKeepsServices(t *testing.T) {
+	started := 0
+	runBackupApply(backup.Sources{DataDir: t.TempDir()}, func() error {
+		started++
+		return nil
+	})
+	if started != 0 {
+		t.Fatalf("startServices ran %d times, want 0", started)
+	}
+}

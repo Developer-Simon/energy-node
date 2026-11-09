@@ -38,6 +38,8 @@
   };
   const PLACE_LABELS = { system: 'backup.place.system' };
   const JOB_POLL_MS = 1000;
+  // Polls without the job in a row before the run step gives up (about a minute).
+  const JOB_MISS_MAX = 60;
   const RESTART_MAX_MS = 120 * 1000;
   const MIN_PASSWORD = 8;
 
@@ -101,6 +103,7 @@
     taskIndex: 0,
     progress: 0,
     timer: 0,
+    missed: 0,
     drag: null,
     fitTimer: 0,
 
@@ -552,6 +555,7 @@
       this.doneKind = kind;
       this.restarting = false;
       this.awaiting = false;
+      this.missed = 0;
       this.go('run', 1);
       this.timer = setInterval(() => this.pollJob(), JOB_POLL_MS);
     },
@@ -564,14 +568,19 @@
       try {
         job = await requestJSON('/api/v1/backup/job');
       } catch (error) {
-        // The dashboard restarts with the import, the job is gone meanwhile.
-        if (this.doneKind === 'import' && this.restarting) await this.awaitRestart();
+        await this.missedJob();
         return; // the next tick asks again
       }
       if (job.id !== this.jobId) {
-        if (this.doneKind === 'import' && this.restarting) await this.awaitRestart();
+        // An export job does not come back once it is gone, the dashboard has restarted.
+        if (this.doneKind === 'export') {
+          this.giveUpExport();
+          return;
+        }
+        await this.missedJob();
         return;
       }
+      this.missed = 0;
       const phases = job.phases || [];
       const done = phases.filter((phase) => phase.done).length;
       const phaseKey = (phases[job.current] || {}).key;
@@ -602,6 +611,21 @@
       this.taskIndex = this.tasks.length;
       this.progress = 1;
       await this.finish(job);
+    },
+    // Counts a poll without the job. An import waits for the restart, an export
+    // gives up after JOB_MISS_MAX polls in a row, so the run step can always close.
+    async missedJob() {
+      this.missed += 1;
+      if (this.doneKind === 'import') {
+        if (this.restarting || this.missed >= JOB_MISS_MAX) await this.awaitRestart();
+        return;
+      }
+      if (this.missed >= JOB_MISS_MAX) this.giveUpExport();
+    },
+    giveUpExport() {
+      this.stopPolling();
+      this.flowError = t('backup.export.interrupted');
+      this.go('export', -1);
     },
     // The dashboard is gone while it restarts. Polls the health endpoint until it
     // answers again, then reads the result the restarted process wrote. Gives up

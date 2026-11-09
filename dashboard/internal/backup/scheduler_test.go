@@ -87,3 +87,31 @@ func TestSchedulerSkipsWithoutLocation(t *testing.T) {
 		t.Fatalf("LastSkipped = (%v, %q), want (%v, \"no_location\")", at, reason, f.now)
 	}
 }
+
+// TestSchedulerClearsSkippedOnSuccess prüft, dass ein erfolgreicher Lauf den
+// Hinweis auf den letzten übersprungenen Lauf löscht.
+func TestSchedulerClearsSkippedOnSuccess(t *testing.T) {
+	f := newSchedFixture(t, autoSettings("day"), false)
+	ctx := context.Background()
+
+	f.now = time.Date(2026, 11, 9, 3, 0, 0, 0, time.Local)
+	f.sched.Tick(ctx)
+	if at, reason := f.sched.LastSkipped(); at.IsZero() || reason != "no_location" {
+		t.Fatalf("LastSkipped = (%v, %q), want skipped without location", at, reason)
+	}
+
+	// Der Speicherort ist jetzt da, der nächste Lauf gelingt.
+	f.sched.Location = SystemLocation{DataDir: f.dataDir, Settings: func() Settings {
+		s := autoSettings("day")
+		s.SystemFallback = true
+		return s
+	}}
+	f.now = time.Date(2026, 11, 10, 3, 0, 0, 0, time.Local)
+	f.sched.Tick(ctx)
+	if f.creates != 1 {
+		t.Fatalf("Create called %d times, want 1", f.creates)
+	}
+	if at, reason := f.sched.LastSkipped(); !at.IsZero() || reason != "" {
+		t.Fatalf("LastSkipped = (%v, %q), want cleared after success", at, reason)
+	}
+}

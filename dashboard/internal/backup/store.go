@@ -47,7 +47,10 @@ type Store struct {
 	Dir string
 }
 
-// NewStore legt das Verzeichnis an und entfernt Reste abgebrochener Schreibvorgaenge.
+// staleTmpAge ist das Alter, ab dem ein tmp-Archiv als Rest eines abgebrochenen Schreibvorgangs gilt.
+const staleTmpAge = time.Hour
+
+// NewStore legt das Verzeichnis an und entfernt alte Reste abgebrochener Schreibvorgaenge.
 func NewStore(dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
@@ -58,6 +61,18 @@ func NewStore(dir string) (*Store, error) {
 	}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), tmpSuffix) {
+			continue
+		}
+		// Ein frisches tmp-Archiv kann ein laufender Schreibvorgang sein, den ein
+		// anderer Aufrufer des Speichers gerade anlegt. Nur alte Reste fallen weg.
+		info, err := e.Info()
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if time.Since(info.ModTime()) < staleTmpAge {
 			continue
 		}
 		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil && !errors.Is(err, fs.ErrNotExist) {

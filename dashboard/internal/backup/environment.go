@@ -43,6 +43,11 @@ var envFromTarget = []string{
 	"tailscale",
 	"mqtt.username",
 	"mqtt.password_file",
+	// Programme und Skripte, die der Dashboard-Prozess startet. Ein Archiv
+	// darf dort keinen Pfad setzen.
+	"tinytuya.probe_python",
+	"tinytuya.probe_script",
+	"dashboard.system_action_helper",
 }
 
 // EnvironmentRows liefert die Umgebungswerte, die sich zwischen Archiv und Ziel

@@ -230,11 +230,31 @@ func TestStaleTmpRemovedOnOpen(t *testing.T) {
 	if err := os.WriteFile(stale, []byte("kaputt"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	old := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(stale, old, old); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := NewStore(dir); err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
 	if _, err := os.Stat(stale); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("stale tmp existiert noch: err = %v", err)
+	}
+}
+
+// TestFreshTmpSurvivesOpen prüft, dass ein frisch geschriebenes tmp-Archiv
+// (ein laufender Schreibvorgang anderer Aufrufer) beim Öffnen des Speichers bleibt.
+func TestFreshTmpSurvivesOpen(t *testing.T) {
+	dir := t.TempDir()
+	fresh := filepath.Join(dir, "20260101-000000-update.tar.gz.tmp")
+	if err := os.WriteFile(fresh, []byte("in Arbeit"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewStore(dir); err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	if _, err := os.Stat(fresh); err != nil {
+		t.Fatalf("frisches tmp wurde entfernt: %v", err)
 	}
 }
 

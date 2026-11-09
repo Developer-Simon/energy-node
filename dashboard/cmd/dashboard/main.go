@@ -74,6 +74,13 @@ func runBackupApply(src backup.Sources, startServices func() error) {
 		log.Printf("energy-node-dashboard: backup apply: %v", err)
 	}
 	if res == nil {
+		// Ein Fehler ohne Ergebnis tritt nur mit einem vorgemerkten Einspielen oder Journal
+		// auf. Dessen Lauf kann die Dienste angehalten haben, sie müssen wieder laufen.
+		if err != nil {
+			if serr := startServices(); serr != nil {
+				log.Printf("energy-node-dashboard: backup apply: Dienste starten: %v", serr)
+			}
+		}
 		return
 	}
 	log.Printf("energy-node-dashboard: backup apply: ok=%t code=%q", res.OK, res.Code)

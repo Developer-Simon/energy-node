@@ -269,6 +269,45 @@ test('a failed job returns to the export step with the reason', async () => {
   assert.ok(page.flowError.includes('Platz voll'), page.flowError);
 });
 
+test('an export whose job vanishes leaves the run step with the interrupted text', async () => {
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/archives': reply(202, { job: 'job-6' }),
+    '/api/v1/backup/job': reply(200, { id: '', kind: '', phases: [], current: 0, error: '', result: '', running: false }),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openExport();
+  page.flowPrimary();
+  await settle();
+  assert.equal(page.step, 'run');
+  await page.pollJob();
+  page.stopPolling();
+  assert.equal(page.step, 'export');
+  assert.equal(page.flowError, de['backup.export.interrupted']);
+  page.closeFlow();
+  assert.equal(page.flow, null);
+});
+
+test('an export whose job cannot be read gives up after 60 failed polls', async () => {
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    'POST /api/v1/backup/archives': reply(202, { job: 'job-7' }),
+    '/api/v1/backup/job': reply(500, { code: 'backup_failed', message: 'nicht erreichbar' }),
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  page.openExport();
+  page.flowPrimary();
+  await settle();
+  for (let i = 0; i < 59; i += 1) await page.pollJob();
+  assert.equal(page.step, 'run');
+  await page.pollJob();
+  page.stopPolling();
+  assert.equal(page.step, 'export');
+  assert.equal(page.flowError, de['backup.export.interrupted']);
+});
+
 test('removeArchive() confirms, then deletes and reloads the list', async () => {
   const calls = [];
   let statusReads = 0;
