@@ -18,6 +18,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/backup"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 )
 
 const (
@@ -58,6 +59,8 @@ type BackupDeps struct {
 	Jobs *backup.Jobs
 	// Scheduler liefert den letzten übersprungenen automatischen Lauf. Nil ist erlaubt.
 	Scheduler *backup.Scheduler
+	// Exec führt die Systemaktionen aus, die ein Einspielen braucht: Dienste stoppen und starten, Neustart.
+	Exec systemactions.ActionExecutor
 	// Now liefert die Uhrzeit, Standard time.Now.
 	Now func() time.Time
 	// importMu schützt die Importsitzung und den Upload eines wartenden Imports.

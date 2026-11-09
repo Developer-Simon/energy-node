@@ -2264,6 +2264,7 @@
   "error.automations_forbidden": "Für diese Automations-Aktion fehlt die Berechtigung",
   "error.automations_forbidden.rules": "Für Automations-Regeln fehlt die Berechtigung",
   "error.automations_forbidden.tests": "Für Automations-Tests fehlt die Berechtigung",
+  "error.backup_area_unavailable": "Ein gewählter Bereich ist im Archiv nicht enthalten",
   "error.backup_bad_request": "Die Anfrage zum Backup ist ungültig",
   "error.backup_busy": "Ein Backup läuft bereits",
   "error.backup_corrupt": "Das Backup-Archiv ist beschädigt",

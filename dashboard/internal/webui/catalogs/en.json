@@ -2264,6 +2264,7 @@
   "error.automations_forbidden": "You do not have permission for this automation action",
   "error.automations_forbidden.rules": "You do not have permission for automation rules",
   "error.automations_forbidden.tests": "You do not have permission for automation tests",
+  "error.backup_area_unavailable": "A selected area is not in the archive",
   "error.backup_bad_request": "The backup request is invalid",
   "error.backup_busy": "A backup is already running",
   "error.backup_corrupt": "The backup archive is damaged",

@@ -37,6 +37,7 @@ type backupFixture struct {
 	dataDir   string
 	backupDir string
 	jobs      *backup.Jobs
+	deps      *BackupDeps
 }
 
 func newBackupFixture(t *testing.T) *backupFixture {
@@ -76,6 +77,7 @@ func newBackupFixture(t *testing.T) *backupFixture {
 		dataDir:   dataDir,
 		backupDir: filepath.Join(dataDir, "backups"),
 		jobs:      jobs,
+		deps:      deps,
 	}
 	// Registered after the TempDir cleanups, so it runs first: no archive
 	// write may still be running when the directories are removed.

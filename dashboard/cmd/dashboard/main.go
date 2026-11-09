@@ -563,6 +563,7 @@ func main() {
 		Location:  backupLocation,
 		Jobs:      &backup.Jobs{},
 		Scheduler: sched,
+		Exec:      systemExecutor,
 	}
 	go func() {
 		ticker := time.NewTicker(time.Minute)
