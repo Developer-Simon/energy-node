@@ -392,3 +392,64 @@ func TestArchiveIDsAreValidated(t *testing.T) {
 		t.Fatalf("file outside the archive directory changed: %q (err=%v)", raw, err)
 	}
 }
+
+func TestSettingsPutKeepsOmittedFields(t *testing.T) {
+	f := newBackupFixture(t)
+	exporter := f.user("exporter", auth.RoleBackupExport)
+	stored := backup.DefaultSettings()
+	stored.Schedule = true
+	stored.SystemFallback = true
+	if err := backup.SaveSettings(f.dataDir, stored); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := f.call(http.MethodPut, "/api/v1/backup/settings", `{"keep":7}`, exporter, exporter.csrf)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("PUT status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	saved, err := backup.LoadSettings(f.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Keep != 7 {
+		t.Fatalf("keep = %d, want 7", saved.Keep)
+	}
+	if !saved.SystemFallback || !saved.Schedule || saved.Every != "week" || !saved.Content[backup.AreaSettings] {
+		t.Fatalf("omitted fields were not kept: %+v", saved)
+	}
+}
+
+func TestSettingsPutSecretsOnlyChecksNewlyEnabled(t *testing.T) {
+	f := newBackupFixture(t)
+	exporter := f.user("exporter", auth.RoleBackupExport)
+	secrets := f.user("secrets", auth.RoleBackupExport, auth.RoleBackupSecrets)
+
+	on := backup.DefaultSettings()
+	on.SystemFallback = true
+	on.Secrets = true
+	on.Content[backup.AreaSecrets] = true
+	if err := backup.SaveSettings(f.dataDir, on); err != nil {
+		t.Fatal(err)
+	}
+	// Andere Felder speichern, während Zugangsdaten schon eingeschaltet sind.
+	kept := f.call(http.MethodPut, "/api/v1/backup/settings", `{"keep":6,"secrets":true,"content":{"settings":true,"secrets":true}}`, exporter, exporter.csrf)
+	if kept.Code != http.StatusOK {
+		t.Fatalf("export-only save with secrets already on status %d, want 200: %s", kept.Code, kept.Body.String())
+	}
+
+	off := backup.DefaultSettings()
+	off.SystemFallback = true
+	if err := backup.SaveSettings(f.dataDir, off); err != nil {
+		t.Fatal(err)
+	}
+	for _, body := range []string{`{"secrets":true}`, `{"content":{"secrets":true}}`} {
+		recorder := f.call(http.MethodPut, "/api/v1/backup/settings", body, exporter, exporter.csrf)
+		if recorder.Code != http.StatusForbidden {
+			t.Fatalf("export-only enabling secrets with %s status %d, want 403: %s", body, recorder.Code, recorder.Body.String())
+		}
+	}
+	allowed := f.call(http.MethodPut, "/api/v1/backup/settings", `{"secrets":true,"content":{"settings":true,"secrets":true}}`, secrets, secrets.csrf)
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("enabling secrets with backup_secrets status %d, want 200: %s", allowed.Code, allowed.Body.String())
+	}
+}

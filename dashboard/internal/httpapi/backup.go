@@ -294,12 +294,26 @@ func (d *BackupDeps) handleSettings(manager *auth.Manager) http.HandlerFunc {
 		if !ok {
 			return
 		}
-		var body backup.Settings
+		// Der Körper legt sich über die gespeicherten Einstellungen. Fehlende
+		// Felder behalten ihren Wert. Ein mitgeschicktes Content-Objekt ersetzt
+		// das gespeicherte ganz.
+		current, err := backup.LoadSettings(d.DataDir)
+		if err != nil {
+			writeErrorDetail(w, http.StatusInternalServerError, "backup_failed", err)
+			return
+		}
+		body := current
+		body.Content = nil
 		if err := decodeBody(r, &body); err != nil {
 			writeErrorDetail(w, http.StatusBadRequest, "backup_bad_request", err)
 			return
 		}
-		if (body.Secrets || body.Content[backup.AreaSecrets]) && !auth.HasRole(user, auth.RoleBackupSecrets) {
+		if body.Content == nil {
+			body.Content = current.Content
+		}
+		// Zugangsdaten braucht die Rolle nur, wenn die Anfrage sie neu einschaltet.
+		enablesSecrets := (body.Secrets && !current.Secrets) || (body.Content[backup.AreaSecrets] && !current.Content[backup.AreaSecrets])
+		if enablesSecrets && !auth.HasRole(user, auth.RoleBackupSecrets) {
 			writeErrorKey(w, http.StatusForbidden, "backup_forbidden", "error.backup_forbidden", nil, "Für das Backup fehlt die Berechtigung")
 			return
 		}
