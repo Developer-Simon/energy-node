@@ -412,7 +412,7 @@ func (d *BackupDeps) handleImportUnlock(manager *auth.Manager) http.HandlerFunc 
 			return
 		}
 		if !d.importPending {
-			writeErrorKey(w, http.StatusConflict, "backup_no_import", "error.backup_no_import", nil, "Es liegt kein Backup zum Einspielen bereit")
+			writeErrorKey(w, http.StatusConflict, "backup_no_import", "error.backup_no_import", nil, "Es liegt kein Backup zum Wiederherstellen bereit")
 			return
 		}
 		d.finishImport(r.Context(), w, body.Password)

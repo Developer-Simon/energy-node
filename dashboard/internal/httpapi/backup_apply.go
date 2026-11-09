@@ -67,7 +67,7 @@ func (d *BackupDeps) handleImportApply(manager *auth.Manager) http.HandlerFunc {
 		}
 		session := d.importSession
 		if session == nil {
-			writeErrorKey(w, http.StatusConflict, "backup_no_import", "error.backup_no_import", nil, "Es liegt kein Backup zum Einspielen bereit")
+			writeErrorKey(w, http.StatusConflict, "backup_no_import", "error.backup_no_import", nil, "Es liegt kein Backup zum Wiederherstellen bereit")
 			return
 		}
 		if d.Exec == nil {

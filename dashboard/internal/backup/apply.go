@@ -158,7 +158,7 @@ func ReadResult(dataDir string) (*Result, error) {
 // recoverInterrupted rollt ein unfertiges Einspielen zurück.
 func recoverInterrupted(dataDir, pendingDir string, j journal) (*Result, error) {
 	if err := rollback(pendingDir, j); err != nil {
-		return nil, fmt.Errorf("Zurückrollen nach unterbrochenem Einspielen: %w", err)
+		return nil, fmt.Errorf("Zurückrollen nach unterbrochener Wiederherstellung: %w", err)
 	}
 	res := &Result{OK: false, Code: "interrupted", FinishedAt: time.Now().UTC()}
 	if err := writeResult(dataDir, res); err != nil {
@@ -394,7 +394,7 @@ func readJournal(pendingDir string) (*journal, error) {
 	}
 	var j journal
 	if err := json.Unmarshal(data, &j); err != nil {
-		return nil, fmt.Errorf("Journal des Einspielens: %w", err)
+		return nil, fmt.Errorf("Journal des Wiederherstellens: %w", err)
 	}
 	return &j, nil
 }
