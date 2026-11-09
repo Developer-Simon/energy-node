@@ -295,6 +295,41 @@ prepare_mqtt_args() {
   mqtt_args=(--user "${user}" --password-file "${password_file}")
 }
 
+installed="${STATE_DIR}/installed-manifest.json"
+
+# installed_version: die Version des bisher installierten Manifests, leer wenn
+# es keines gibt (Erstinstallation). Dieselbe Bedingung wie beim Vorgaenger-
+# Manifest weiter unten.
+installed_version() {
+  [[ -f "${installed}" ]] || return 0
+  python3 - "${installed}" <<'PY' 2>/dev/null
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8")).get("version", ""))
+PY
+}
+
+# backup_before_update: Vollsicherung vor einem Versionswechsel, damit ein
+# fehlgeschlagenes Update sich zurueckholen laesst. Ein Fehler bricht das
+# Update nicht ab, er wird nur als Warnung protokolliert.
+backup_before_update() {
+  local binary="${target_base}/dashboard/energy-node-dashboard"
+  [[ -x "${binary}" ]] || return 0
+  if runuser -u "${target_user}" -- "${binary}" backup create \
+       --config "${ROOT_PREFIX}/etc/energy-node/config.json" --trigger update; then
+    log_line "##BACKUP ok"
+  else
+    case "$?" in
+      3) log_line "##BACKUP skipped" ;;
+      *) log_line "WARN BACKUP_FAILED" ;;
+    esac
+  fi
+}
+
+old_version="$(installed_version)"
+if [[ -n "${old_version}" && "${old_version}" != "${bundle_version}" ]]; then
+  backup_before_update
+fi
+
 for id in "${step_ids[@]}"; do
   if [[ ! "${id}" =~ ^[0-9]+$ ]] || ! step_known "${id}"; then
     log_line "##STEP ${id} fail STEP_NOT_IN_MANIFEST"
@@ -347,34 +382,25 @@ for id in "${step_ids[@]}"; do
   fi
 done
 
+# previous-manifest.json: der Stand vor diesem Update, die "von"-Seite der
+# Neuerungen im Dashboard (versions.Highlights). Nur bei einem Versionswechsel:
+# ein Reparatur-Lauf derselben Version soll den echten Vorgaenger nicht
+# ueberschreiben. Wie beim Changelog nur eine Warnung, wenn es scheitert.
+previous="${STATE_DIR}/previous-manifest.json"
+if [[ -n "${old_version}" && "${old_version}" != "${bundle_version}" ]]; then
+  if ! { install -m 0644 "${installed}" "${previous}.tmp" \
+         && mv -f "${previous}.tmp" "${previous}"; }; then
+    rm -f "${previous}.tmp"
+    log_line "WARN PREVIOUS_MANIFEST_FAILED"
+  fi
+fi
+
 # Erst jetzt gilt das Bundle als vollstaendig angewandt: plan.sh liest diese
 # Kopie als "von" der Komponenten, und ein halb angewandtes Bundle darf dort
 # nicht als Ausgangsstand stehen. Atomar (.tmp + mv), damit ein Abbruch
 # mitten im Schreiben nie eine halbe Datei hinterlaesst. Scheitert nur das
 # Ablegen, laufen die Schritte trotzdem als erledigt (sie sind idempotent);
 # der Auftrag soll deshalb nicht als fehlgeschlagen gelten.
-installed="${STATE_DIR}/installed-manifest.json"
-
-# previous-manifest.json: der Stand vor diesem Update, die "von"-Seite der
-# Neuerungen im Dashboard (versions.Highlights). Nur bei einem Versionswechsel:
-# ein Reparatur-Lauf derselben Version soll den echten Vorgaenger nicht
-# ueberschreiben. Wie beim Changelog nur eine Warnung, wenn es scheitert.
-previous="${STATE_DIR}/previous-manifest.json"
-if [[ -f "${installed}" ]]; then
-  old_version="$(python3 - "${installed}" <<'PY' 2>/dev/null
-import json, sys
-print(json.load(open(sys.argv[1], encoding="utf-8")).get("version", ""))
-PY
-)"
-  if [[ -n "${old_version}" && "${old_version}" != "${bundle_version}" ]]; then
-    if ! { install -m 0644 "${installed}" "${previous}.tmp" \
-           && mv -f "${previous}.tmp" "${previous}"; }; then
-      rm -f "${previous}.tmp"
-      log_line "WARN PREVIOUS_MANIFEST_FAILED"
-    fi
-  fi
-fi
-
 if ! { install -m 0644 "${BUNDLE}/manifest.json" "${installed}.tmp" \
        && mv -f "${installed}.tmp" "${installed}"; }; then
   rm -f "${installed}.tmp"
