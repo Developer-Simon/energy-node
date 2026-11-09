@@ -109,3 +109,17 @@ test('Beide Messketten-Schalter sind an canEditSetup gebunden', () => {
     assert.equal(input.getAttribute('x-bind:disabled'), '!canEditSetup');
   }
 });
+
+test('Die drei Zeilen haben den Hilfe-Anker am Ende wie die Versions-Karte, ohne field-help-align-start', () => {
+  const doc = new JSDOM(templateSource).window.document;
+  const ids = ['learning-chain-suggestions', 'learning-chain-learning', 'learning-automation-suggestions'];
+  for (const id of ids) {
+    const label = doc.querySelector(`label[for="${id}"]`);
+    assert.ok(label, `Label fuer ${id} fehlt`);
+    const anchor = label.querySelector('.version-help-anchor');
+    assert.ok(anchor, `${id}: Anker fehlt`);
+    const help = anchor.querySelector('.field-help.version-help');
+    assert.ok(help, `${id}: Hilfe fehlt im Anker`);
+    assert.equal(label.querySelector('.field-help-align-start'), null, `${id}: field-help-align-start noch da`);
+  }
+});
