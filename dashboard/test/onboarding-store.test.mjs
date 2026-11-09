@@ -336,14 +336,82 @@ test('finishing the welcome run sends welcomed:true once', async () => {
   assert.equal(store.finished.mode, 'welcome');
 });
 
-test('later on the last welcome step ends the tour without welcomed', async () => {
+test('later on the last welcome step asks before it ends the tour', async () => {
   const { store, calls, bar } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
   store.start('welcome', null, { index: 0 });
   store.index = store.steps.length - 1;
   calls.length = 0;
   bar().later();
+  assert.equal(store.askWelcome, true);
+  assert.equal(store.active, true, 'the bar stays open for the question');
+  assert.equal(calls.length, 0, 'asking writes nothing');
+});
+
+test('closing the welcome asks first and writes nothing yet', async () => {
+  const { store, calls } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('welcome', null, { index: 0 });
+  calls.length = 0;
+  store.skip();
+  assert.equal(store.askWelcome, true);
+  assert.equal(store.active, true);
+  assert.equal(store.run.mode, 'welcome');
+  assert.equal(calls.length, 0);
+});
+
+test('show again later closes the welcome without welcomed', async () => {
+  const { store, calls } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('welcome', null, { index: 0 });
+  store.skip();
+  calls.length = 0;
+  store.welcomeLater();
+  assert.equal(store.active, false);
+  assert.equal(store.askWelcome, false);
+  assert.equal(store.run, null);
   assert.equal(calls.some((c) => c.body && 'welcomed' in c.body), false);
   assert.equal(store.welcomed, false);
+});
+
+test('closing again while asking counts as later', async () => {
+  const { store, calls } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('welcome', null, { index: 0 });
+  store.skip();
+  calls.length = 0;
+  store.skip();
+  assert.equal(store.active, false);
+  assert.equal(calls.some((c) => c.body && 'welcomed' in c.body), false);
+});
+
+test('do not show again sends welcomed:true and closes', async () => {
+  const { store, calls } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('welcome', null, { index: 0 });
+  store.skip();
+  calls.length = 0;
+  store.welcomeNever();
+  const writes = calls.filter((c) => c.method === 'PUT' && c.url === '/api/v1/onboarding/me' && c.body && 'welcomed' in c.body);
+  assert.deepEqual(writes.map((c) => c.body), [{ welcomed: true }]);
+  assert.equal(store.welcomed, true);
+  assert.equal(store.active, false);
+  assert.equal(store.askWelcome, false);
+});
+
+test('a guest who chose do not show again keeps it for the browser session', async () => {
+  const storage = memoryStorage();
+  const guest = { ...PROGRESS, role: 'guest', queue: ['welcome'] };
+  const first = await load({ prepare: false, storage, progress: guest, session: SESSION });
+  first.store.start('welcome', null, { index: 0 });
+  first.store.skip();
+  first.store.welcomeNever();
+  assert.equal(storage.getItem('ob-welcome-done'), '1');
+  const again = await load({ prepare: false, storage, progress: guest, session: SESSION });
+  assert.equal(again.store.queue.includes('welcome'), false);
+});
+
+test('a new run clears an open welcome question', async () => {
+  const { store } = await load({ prepare: false, progress: { ...PROGRESS, role: 'user' }, session: SESSION });
+  store.start('welcome', null, { index: 0 });
+  store.skip();
+  store.start('explore', null);
+  assert.equal(store.askWelcome, false);
 });
 
 test('a user with a pending welcome in the session queue gets it queued', async () => {
