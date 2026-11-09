@@ -65,6 +65,7 @@ var catalog = []Entry{
 	{RootData, "ignored_devices.json", ClassConfig, AreaSettings},
 	{RootData, "mqtt.json", ClassConfig, AreaSettings},
 	{RootData, "bridge.json", ClassConfig, AreaSettings},
+	{RootData, "backup.json", ClassConfig, AreaSettings},
 	// users.json enthaelt auch Hashes, die Task 4 als Secret behandelt.
 	{RootData, "users.json", ClassConfig, AreaUsers},
 
