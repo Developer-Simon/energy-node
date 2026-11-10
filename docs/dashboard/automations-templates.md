@@ -156,7 +156,7 @@ When feed-in stays above the chosen power for 5 minutes, and the battery is abov
 
 ### Requirements
 
-needs a device with the heat pump role on the energy page. Assign the role there if the device is not listed. The device needs an SG Ready switch, either its own switch or another switch you choose, or a writable setpoint. The control step decides which one is used. With the SG Ready contact, a contact step follows, and the device's own switch comes first and is preselected. The minimum run time and the pause of the heat pump are the **Run at least** and **Pause after the end** fields of its scenario. The start step shows yesterday's surplus with the start threshold.
+Needs a device with the heat pump role on the energy page. Assign the role there if the device is not listed. The device needs an SG Ready switch, either its own switch or another switch you choose, or a writable setpoint. The control step decides which one is used. With the SG Ready contact, a contact step follows, and the device's own switch comes first and is preselected. The minimum run time and the pause of the heat pump are the **Run at least** and **Pause after the end** fields of its scenario. The start step shows yesterday's surplus with the start threshold.
 
 ### Options
 
@@ -183,7 +183,7 @@ When the window starts or the price falls below the threshold. Running: the batt
 
 ### Requirements
 
-needs a battery with a writable charging power. The price comes either from fixed times or from a measured price in ct/kWh. A price in €/kWh is converted to ct/kWh. The block option needs a discharge limit on the battery. The charge step shows the energy and the duration from the capacity of the battery.
+Needs a battery with a writable charging power. The price comes either from fixed times or from a measured price in ct/kWh. A price in €/kWh is converted to ct/kWh. The block option needs a discharge limit on the battery. The charge step shows the energy and the duration from the capacity of the battery.
 
 ### Options
 
@@ -211,7 +211,7 @@ When the import stays above the limit minus 500 W for 10 seconds. Running: the w
 
 ### Requirements
 
-needs a wallbox with a writable power. The speed step sets the largest change per step, 1000 W for calm and 3000 W for fast.
+Needs a wallbox with a writable power. The speed step sets the largest change per step, 1000 W for calm and 3000 W for fast.
 
 ### Options
 
@@ -237,7 +237,7 @@ When the input of the control box shows its on value. Running: each chosen devic
 
 ### Requirements
 
-needs an input of the control box with a payload that means on, and at least one heat pump with a setpoint or one wallbox with a writable power. Devices with another unit than W or A are locked with the reason. A current setpoint is calculated for three phases at 230 V, so amps are the power in kW times 1000 divided by 690, rounded.
+Needs an input of the control box with a payload that means on, and at least one heat pump with a setpoint or one wallbox with a writable power. Devices with another unit than W or A are locked with the reason. A current setpoint is calculated for three phases at 230 V, so amps are the power in kW times 1000 divided by 690, rounded.
 
 ### Options
 
@@ -263,7 +263,7 @@ When the export stays above 100 W for one minute and the temperature is below th
 
 ### Requirements
 
-needs a device with a writable power in W or % and a temperature sensor. The maximum temperature is checked only at the start of a run. During the run the thermostat of the heating rod limits the temperature, the dashboard does not. Battery priority needs a state of charge.
+Needs a device with a writable power in W or % and a temperature sensor. The maximum temperature is checked only at the start of a run. During the run the thermostat of the heating rod limits the temperature, the dashboard does not. Battery priority needs a state of charge.
 
 ### Options
 
@@ -289,7 +289,7 @@ When the reading stays below a limit of 5 to 200 W for 10 to 120 minutes, betwee
 
 ### Requirements
 
-needs an inverter with its own power reading. The sun window needs a location in the settings.
+Needs an inverter with its own power reading. The sun window needs a location in the settings.
 
 ### Options
 
@@ -315,7 +315,7 @@ When the chosen day of the month starts, the charge level is below 100 %, and wi
 
 ### Requirements
 
-needs a battery with a writable charging power and a charge level. The day is limited to 1 to 28, so every month has it.
+Needs a battery with a writable charging power and a charge level. The day is limited to 1 to 28, so every month has it.
 
 ### Options
 
@@ -342,7 +342,7 @@ When no new reading of the inverter arrives within the chosen minutes. Then a no
 
 ### Requirements
 
-needs an inverter with its own reading. The rule uses the age of the last message, not its value, so it also warns when the value stays the same.
+Needs an inverter with its own reading. The rule uses the age of the last message, not its value, so it also warns when the value stays the same.
 
 ### Options
 
@@ -369,7 +369,7 @@ When the window starts or the price falls below the threshold. Running: the wall
 
 ### Requirements
 
-needs a wallbox with a writable power. The price and the fixed window work as in **Charge battery on low tariff**.
+Needs a wallbox with a writable power. The price and the fixed window work as in **Charge battery on low tariff**.
 
 ### Options
 
