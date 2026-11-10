@@ -355,7 +355,7 @@ async function all() {
     ['dashboard-settings-general', 'settings-general', 819],
     ['dashboard-settings-backup', 'settings-backup', 1300],
     ['dashboard-settings-checklist', 'settings-checklist', 1100, async (page) => {
-      await page.locator('#settings-checklist').getByRole('button', { name: 'Set up', exact: true }).click();
+      await page.locator('#settings-checklist .ob-cl-switch').getByText('Set up', { exact: true }).click();
       await page.waitForTimeout(1500);
     }],
     ['dashboard-settings-display', 'settings-display', 769],
