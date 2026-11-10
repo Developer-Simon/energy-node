@@ -1396,7 +1396,7 @@
   },
   "133": {
     "de": {
-      "*": "Der Ereignisstrom liefert nur abonnierte Themen"
+      "*": "Statistikkachel aktualisiert sich live, nur abonnierte Themen kommen an"
     },
     "en": {
       "*": "The statistics tile updates live in place"

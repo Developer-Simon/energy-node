@@ -689,7 +689,7 @@
   },
   "191": {
     "de": {
-      "*": "Eine frische Installation startet das Dashboard zuverlässig"
+      "*": "Eine frische Installation startet das Dashboard trotz fehlendem Datenordner"
     },
     "en": {
       "*": "A fresh install starts the dashboard despite a missing folder or MQTT login"

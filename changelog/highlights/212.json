@@ -1,6 +1,6 @@
 {
   "de": {
-    "*": "Verlauf zeigt sich als detaillierter Verlauf unter der Zeitleiste"
+    "*": "Der Verlauf lässt sich detailliert unter der Zeitleiste anzeigen"
   },
   "details": {
     "*": {
@@ -9,7 +9,7 @@
     }
   },
   "en": {
-    "*": "The history can be shown as a detailed history below the timeline"
+    "*": "The history can be shown as a detailed view below the timeline"
   },
   "tour": {
     "*": {
