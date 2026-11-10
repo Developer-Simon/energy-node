@@ -306,3 +306,33 @@ def test_english_form_capitalises_and_drops_the_full_stop():
     assert hi.english_form("show the translated highlights") == "Show the translated highlights"
     assert hi.english_form("Rules can repeat. Even twice.") == "Rules can repeat. Even twice"
     assert hi.english_form("§14a control") == "§14a control"
+
+
+def test_validate_texts_accepts_english_and_german():
+    translations = {5: {"de": {"*": "x."}, "en": {"*": "E", "dashboard": "D"}}, 6: {"details": {}}}
+    assert hi.validate_texts(translations, TARGETS) == []
+
+
+def test_validate_texts_needs_english_next_to_german():
+    assert hi.validate_texts({5: {"de": {"*": "x"}}}, TARGETS) == [
+        "#5 en: missing, every highlight needs an English text next to de"]
+
+
+def test_validate_texts_reports_broken_texts():
+    translations = {
+        5: {"de": {"*": "x"}, "en": {"*": " ", "nope": "Y", "dashboard": "A\nb", "installer": "Text (#5)"}},
+        6: {"de": [], "en": {"*": "E"}},
+        7: {"de": {"*": "x"}, "en": {"*": "lower case", "dashboard": "Ends.", "installer": "A; B"}},
+        8: {"de": {"*": "x"}, "en": {"*": "E"}, "doc_title": {"*": "Old"}},
+    }
+    assert hi.validate_texts(translations, TARGETS) == [
+        "#5 en *: text is empty",
+        "#5 en dashboard: text must be one line",
+        "#5 en installer: drop the PR number, the changelog adds it",
+        "#5 en nope: unknown component",
+        "#6 de: must be an object of texts keyed by component",
+        "#7 en *: start with a capital letter",
+        "#7 en dashboard: drop the full stop at the end",
+        "#7 en installer: no semicolon",
+        "#8 doc_title: replaced by en, move the text there",
+    ]

@@ -40,6 +40,7 @@ BLOCK_HEAD = re.compile(r"^\s*Highlights \((?P<lang>[a-z]{2})\):\s*$")
 BLOCK_LINE = re.compile(r"^\s*-\s+(?P<text>.*\S)\s*$")
 TARGETED = re.compile(r"^(?P<target>[a-z_:-]+):\s+(?P<text>.+)$")
 LANGUAGE_KEY = re.compile(r"^[a-z]{2}$")
+PR_REF = re.compile(r"\(#\d+\)\s*$")
 DOC_TITLE_KEY = "doc_title"
 
 
@@ -218,6 +219,47 @@ def entry_i18n(translations, pr, target):
         if text:
             out[lang] = text
     return out
+
+
+def _text_problems(prefix, lang, key, text, targets):
+    if key != DEFAULT_KEY and not _is_target(key, targets):
+        return [prefix + "unknown component"]
+    if not isinstance(text, str) or not text.strip():
+        return [prefix + "text is empty"]
+    if "\n" in text:
+        return [prefix + "text must be one line"]
+    if PR_REF.search(text):
+        return [prefix + "drop the PR number, the changelog adds it"]
+    if lang != ENGLISH:
+        return []
+    if text[:1].islower():
+        return [prefix + "start with a capital letter"]
+    if text.rstrip().endswith("."):
+        return [prefix + "drop the full stop at the end"]
+    if ";" in text:
+        return [prefix + "no semicolon"]
+    return []
+
+
+def validate_texts(translations, targets):
+    """Eine Meldung je Fehler in den Highlight-Texten aller Sprachen. Hat ein PR
+    einen Text in irgendeiner Sprache, braucht er auch "en"."""
+    problems = []
+    for pr in sorted(translations):
+        entry = translations[pr]
+        languages = sorted(key for key in entry if LANGUAGE_KEY.match(key))
+        if languages and ENGLISH not in languages:
+            problems.append(f"#{pr} en: missing, every highlight needs an English text next to {', '.join(languages)}")
+        for lang in languages:
+            texts = entry[lang]
+            if not isinstance(texts, dict) or not texts:
+                problems.append(f"#{pr} {lang}: must be an object of texts keyed by component")
+                continue
+            for key in sorted(texts):
+                problems.extend(_text_problems(f"#{pr} {lang} {key}: ", lang, key, texts[key], targets))
+        if DOC_TITLE_KEY in entry:
+            problems.append(f"#{pr} {DOC_TITLE_KEY}: replaced by en, move the text there")
+    return problems
 
 
 def write_pr_file(directory, pr, blocks):

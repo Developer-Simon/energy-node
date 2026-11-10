@@ -21,10 +21,10 @@ archive --tag (Release-Workflow): faltet alle changelog/highlights/<N>.json in
 changelog/highlights/<vX.Y.Z>.json, die Datei des vorigen Releases in
 archive-v<MAJOR>.json, und loescht die gefalteten Dateien.
 
-validate (CI): prueft die Details und Touren aller Dateien in
-changelog/highlights, nicht nur die des PRs (siehe highlight_details.validate
-und highlight_tours.validate). Eine Zeile je Meldung,
-Exit 1 bei mindestens einer.
+validate (CI): prueft die Texte (highlight_i18n.validate_texts), ihre Abdeckung je
+Komponente, die Details und Touren aller Dateien in changelog/highlights, nicht nur
+die des PRs (siehe highlight_details.validate und highlight_tours.validate). Eine
+Zeile je Meldung, Exit 1 bei mindestens einer.
 """
 import argparse
 import json
@@ -120,6 +120,16 @@ def english_texts(highlights, pr):
     return out
 
 
+def coverage(repo, table, translations):
+    """Wie check, fuer jeden PR mit Eintrag in changelog/highlights."""
+    highlights = _highlights(repo, table)
+    problems = []
+    for pr in sorted(translations):
+        for gap in _gaps(highlights, pr, translations):
+            problems.append(f"#{pr} {gap['lang']}: no text for {gap['component']} {gap['version']} \"{gap['text']}\"")
+    return problems
+
+
 def sync(repo, pr, body_file):
     table = _table(repo)
     body = Path(body_file).read_text(encoding="utf-8")
@@ -171,9 +181,12 @@ def check(repo, pr):
 
 
 def validate(repo):
+    table = _table(repo)
     translations = highlight_i18n.load_translations(repo / highlight_i18n.TRANSLATIONS_DIR)
-    problems = (highlight_details.validate(repo, translations) + highlight_tours.validate(translations)
-                + highlight_i18n.validate_doc_titles(translations))
+    problems = (highlight_i18n.validate_texts(translations, highlight_i18n.targets_from_table(table))
+                + coverage(repo, table, translations)
+                + highlight_details.validate(repo, translations)
+                + highlight_tours.validate(translations))
     for problem in problems:
         print(problem)
     return 1 if problems else 0
