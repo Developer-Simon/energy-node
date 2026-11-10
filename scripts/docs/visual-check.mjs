@@ -32,6 +32,26 @@ async function checkGallery(ctx, page, path, width, scheme) {
   const tiles = await page.locator(".gallery-tile").count();
   const items = await page.locator("section.gallery-item").count();
   if (!tiles || tiles !== items) fail(`${tag}: ${tiles} tiles for ${items} items`);
+  // Each tile shows the first image of its own section, or the placeholder.
+  // Counts are the images before each item's first field in the Markdown.
+  const thumbs = await page.evaluate(() => [...document.querySelectorAll("section.gallery-item")].map((sec) => {
+    const h3 = [...sec.children].find((el) => el.tagName === "H3");
+    const own = [...sec.querySelectorAll("img")].find((img) => !h3 || (img.compareDocumentPosition(h3) & Node.DOCUMENT_POSITION_FOLLOWING));
+    const tile = document.querySelector(`.gallery-tile[data-item="${sec.dataset.item}"]`);
+    const tileImg = tile.querySelector("img");
+    return {
+      item: sec.dataset.item,
+      ownSrc: own ? own.getAttribute("src") : null,
+      tileSrc: tileImg ? tileImg.getAttribute("src") : null,
+      placeholder: !!tile.querySelector(".gallery-tile__ph"),
+    };
+  }));
+  const wrongThumb = thumbs.filter((t) => t.ownSrc !== t.tileSrc || (t.tileSrc === null) !== t.placeholder);
+  if (wrongThumb.length) fail(`${tag}: thumbnails differ from their own section: ${wrongThumb.map((t) => t.item).join(", ")}`);
+  const tileImgs = thumbs.filter((t) => t.tileSrc !== null).length;
+  const placeholders = thumbs.length - tileImgs;
+  const expected = path.includes("automations-templates") ? { imgs: 14, ph: 0 } : { imgs: 13, ph: 1 };
+  if (tileImgs !== expected.imgs || placeholders !== expected.ph) fail(`${tag}: ${tileImgs} tile images and ${placeholders} placeholders, expected ${expected.imgs} and ${expected.ph}`);
   const tocCategory = await page.evaluate(() => [...document.querySelectorAll("#toc a")].some((a) => a.textContent.trim() === "Category"));
   if (tocCategory) fail(`${tag}: the table of contents lists a Category field`);
 

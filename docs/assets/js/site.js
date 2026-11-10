@@ -366,6 +366,9 @@
     });
     document.addEventListener("keydown", function (e) {
       if (!sheet.open || document.querySelector("dialog.lightbox[open]")) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      var t = e.target;
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable) return;
       if (e.key === "ArrowLeft") show(neighbour(-1));
       else if (e.key === "ArrowRight") show(neighbour(1));
     });

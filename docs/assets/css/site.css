@@ -506,6 +506,8 @@ dialog.lightbox::backdrop { background: rgba(0, 0, 0, .82); }
   @starting-style { .gallery-sheet[open] { transform: translateY(100%); } }
 }
 @media (prefers-reduced-motion: reduce) {
+  .gallery-tile { transition: none; }
+  .gallery-tile:active { transform: none; }
   .gallery-sheet[open] { transition: opacity 250ms ease-out; transform: none; }
   @starting-style { .gallery-sheet[open] { transform: none; } }
 }
