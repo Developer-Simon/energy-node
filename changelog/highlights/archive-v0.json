@@ -2,193 +2,304 @@
   "2": {
     "de": {
       "*": "Kalibrierung gehärtet und geführte Abstimmungsvorschläge"
+    },
+    "en": {
+      "*": "Calibration hardening and guided tuning suggestions"
     }
   },
   "3": {
     "de": {
       "*": "Die Topic-Samples bleiben nach dem Verfügbarkeits-Heartbeat erhalten"
+    },
+    "en": {
+      "*": "Keep topic samples payload after availability heartbeat"
     }
   },
   "4": {
     "de": {
       "*": "Konfigurierbare kompakte Gerätekarte"
+    },
+    "en": {
+      "*": "Configurable compact device card"
     }
   },
   "5": {
     "de": {
       "*": "Die Übersichtskacheln ohne Energiedaten wurden modernisiert"
+    },
+    "en": {
+      "*": "Modernise the non-energy overview tiles"
     }
   },
   "6": {
     "de": {
       "*": "Automatisierungs-Benachrichtigungen kommen von einem eigenen Endpunkt"
+    },
+    "en": {
+      "*": "Serve automation notifications from a dedicated endpoint"
     }
   },
   "7": {
     "de": {
       "*": "Revisionen der Systemkonfiguration als schreibgeschützte Liste"
+    },
+    "en": {
+      "*": "Show system-config revisions as a read-only list"
     }
   },
   "12": {
     "de": {
       "*": "Geräte-Services beschreiben sich selbst, jeder mit einem eigenen Manifest"
+    },
+    "en": {
+      "*": "Make device services self-describing with per-service manifests"
     }
   },
   "14": {
     "de": {
       "*": "Der node-Block der config.json wandert nach dashboard.node_* (schema_version 2)"
+    },
+    "en": {
+      "*": "Fold the config.json node block into dashboard.node_* (schema_version 2)"
     }
   },
   "16": {
     "de": {
       "*": "Der Reiter für den Verlauf in den Einstellungen wurde neu aufgebaut"
+    },
+    "en": {
+      "*": "Rebuild the history settings tab"
     }
   },
   "18": {
     "de": {
       "*": "Die Einstellungs-Reiter wurden als responsive Material-Karten neu aufgebaut"
+    },
+    "en": {
+      "*": "Rebuild the settings tabs as responsive material cards"
     }
   },
   "19": {
     "de": {
       "*": "Die Node-Telemetrie läuft jetzt im Nodeagent des Dashboards"
+    },
+    "en": {
+      "*": "Move node telemetry into the dashboard nodeagent"
     }
   },
   "20": {
     "de": {
       "*": "Die config.json wird beim Laden von schema_version 1 auf 2 migriert"
+    },
+    "en": {
+      "*": "Migrate config.json schema_version 1 to 2 on load"
     }
   },
   "21": {
     "de": {
       "*": "Die Migration der config.json von Version 1 auf 2 ist abgeschlossen"
+    },
+    "en": {
+      "*": "Finish the config.json v1 -> v2 migration path"
     }
   },
   "22": {
     "de": {
       "*": "Service-Manifeste werden mitgeliefert und die Reihenfolge der Changelog-Erhöhung ist korrigiert"
+    },
+    "en": {
+      "*": "Deliver service manifests, fix changelog bump ordering"
     }
   },
   "23": {
     "de": {
       "*": "Die Themenauswahl ist jetzt ein Schieberegler mit vier Stufen"
+    },
+    "en": {
+      "*": "Replace theme select with a four-way segmented slider"
     }
   },
   "24": {
     "de": {
       "*": "Der MQTT-Reiter in den Einstellungen wurde neu gestaltet"
+    },
+    "en": {
+      "*": "Redesign the MQTT settings tab"
     }
   },
   "25": {
     "de": {
       "*": "Bootstrap-Kette für die Node-Seite und signierte Bundle-Pipeline"
+    },
+    "en": {
+      "*": "Build the node-half bootstrap chain and signed bundle pipeline"
     }
   },
   "26": {
     "de": {
       "*": "Transport-Engine der Entwickler-CLI"
+    },
+    "en": {
+      "*": "Add the developer CLI's transport engine"
     }
   },
   "27": {
     "de": {
       "*": "Die Stepper der MQTT-Einstellungen laufen in schmalen Karten nicht mehr über"
+    },
+    "en": {
+      "*": "Keep MQTT settings steppers from overflowing narrow cards"
     }
   },
   "28": {
     "de": {
       "*": "Die Weboberfläche des Installers (Ebene 3) mit Browsertests und CI"
+    },
+    "en": {
+      "*": "Add the installer's layer-3 web UI, browser tests and CI"
     }
   },
   "31": {
     "de": {
       "*": "Dashboard-Reiter abgewählter optionaler Services werden ausgeblendet"
+    },
+    "en": {
+      "*": "Hide dashboard tabs for deselected optional services"
     }
   },
   "32": {
     "de": {
       "*": "Leistungsgrenzen nur im RAM und erweiterte Diagnose"
+    },
+    "en": {
+      "*": "RAM-only power limits and extended diagnostics"
     }
   },
   "33": {
     "de": {
       "*": "Lokaler Selbst-Update-Pfad des Dashboards (Plan D)"
+    },
+    "en": {
+      "*": "Add the dashboard's local self-update path (Plan D)"
     }
   },
   "34": {
     "de": {
       "*": "Update-Prüfung auf GitHub mit Hinweis in der Kopfzeile"
+    },
+    "en": {
+      "*": "Add a GitHub update check with a masthead notification"
     }
   },
   "36": {
     "de": {
       "*": "Der alte Sensor power_status wird nicht mehr veröffentlicht"
+    },
+    "en": {
+      "*": "Stop publishing the legacy power_status sensor removal"
     }
   },
   "37": {
     "de": {
       "*": "Die Schritte 20, 40, 65, 70 und die Diagnose funktionieren auf einem echten Node"
+    },
+    "en": {
+      "*": "Make steps 20, 40, 65, 70 and the diagnosis work on a real node"
     }
   },
   "38": {
     "de": {
       "*": "RoleCheckUpdates wird für einen bereits eingerichteten Admin nachgetragen"
+    },
+    "en": {
+      "*": "Backfill RoleCheckUpdates for an already-bootstrapped admin"
     }
   },
   "40": {
     "de": {
       "*": "Das Download-Symbol erscheint im Update-Hinweis der Kopfzeile"
+    },
+    "en": {
+      "*": "Show the download icon in the masthead update badge"
     }
   },
   "41": {
     "de": {
       "*": "Doppelt eingehängte Energiekarten stören sich nicht mehr gegenseitig"
+    },
+    "en": {
+      "*": "Stop duplicate energy card mounts from fighting over springs"
     }
   },
   "42": {
     "de": {
       "*": "Paketquellen: Datei, Repository-Build und GitHub"
+    },
+    "en": {
+      "*": "Add package sources (file, repo build, GitHub)"
     }
   },
   "43": {
     "de": {
       "*": "Service-Units starten beim Update neu und das installierte Manifest wird festgehalten"
+    },
+    "en": {
+      "*": "Restart service units on update and record the installed manifest"
     }
   },
   "44": {
     "de": {
       "*": "Das neueste Release-Bundle kann von der Redeploy-Seite geladen werden"
+    },
+    "en": {
+      "*": "Download the newest release bundle from the redeploy page"
     }
   },
   "45": {
     "de": {
       "*": "Jeder Service hat eine eigene Version und ein eigenes Changelog"
+    },
+    "en": {
+      "*": "Give every service its own version and changelog"
     }
   },
   "46": {
     "de": {
       "*": "Redeploy, Reparatur und im Repository gebaute Bundles lassen sich sauber installieren"
+    },
+    "en": {
+      "*": "Make redeploy, repair and repo-built bundles install cleanly"
     }
   },
   "47": {
     "de": {
       "*": "Bei einem veralteten dauerhaften Socket wird einmal neu versucht, bevor offline gemeldet wird"
+    },
+    "en": {
+      "*": "Retry once on a stale persistent socket before reporting offline"
     }
   },
   "48": {
     "de": {
       "*": "Nur Service-Units mit geänderter Version werden neu gestartet"
+    },
+    "en": {
+      "*": "Restart only the service units whose version changed"
     }
   },
   "49": {
     "de": {
       "*": "Unterstützung für schlafende H&T-Geräte mit optionalem Wake-Webhook"
+    },
+    "en": {
+      "*": "Support sleepy H&T devices with an opt-in wake webhook"
     }
   },
   "51": {
     "de": {
       "*": "Service-Felder und vorherige Versionen gehen in die Redeploy-Vorschau ein"
     },
-    "doc_title": {
+    "en": {
       "*": "The redeploy preview shows service fields and previous versions"
     }
   },
@@ -196,13 +307,16 @@
     "de": {
       "*": "Ein Lauf wird über den Neustart des Dashboards beim Selbst-Update weiterverfolgt"
     },
-    "doc_title": {
+    "en": {
       "*": "A running update stays visible when the dashboard restarts itself"
     }
   },
   "53": {
     "de": {
       "*": "Geräte-Icons und angeheftete Favoriten-Entitäten"
+    },
+    "en": {
+      "*": "Per-device icons and pinned favourite entities"
     },
     "tour": {
       "*": {
@@ -264,21 +378,33 @@
   "54": {
     "de": {
       "*": "Die Geräte-Icons des Dashboards werden als HA-Icon-Set ausgeliefert"
+    },
+    "en": {
+      "*": "Ship the dashboard's device icons as an HA icon set"
     }
   },
   "55": {
-    "doc_title": {
+    "de": {
+      "*": "Die Entwickler-CLI ersetzt das alte Deploy-Skript."
+    },
+    "en": {
       "*": "The developer CLI replaces the old deploy script"
     }
   },
   "56": {
     "de": {
       "*": "Unterstützung für reine DC-Systeme und Stromsensoren in HA"
+    },
+    "en": {
+      "*": "Support DC-only systems and current sensors in HA"
     }
   },
   "58": {
     "de": {
       "*": "Reine DC-Systeme im MQTT-Service und bedingte Konfigurationsformulare"
+    },
+    "en": {
+      "*": "DC-only systems in the MQTT service and conditional config forms"
     },
     "tour": {
       "*": {
@@ -314,6 +440,9 @@
   "59": {
     "de": {
       "*": "Grundlage für die Lokalisierung mit Sprachumschalter"
+    },
+    "en": {
+      "*": "Localization foundation with language switcher"
     },
     "tour": {
       "*": {
@@ -372,18 +501,24 @@
     "de": {
       "*": "Einstellung für das Zahlenformat und Datumsangaben nach Sprache (Lokalisierung A2)"
     },
-    "doc_title": {
+    "en": {
       "*": "A number format setting, with dates that follow the language"
     }
   },
   "62": {
     "de": {
       "*": "Die Oberfläche und die Übersicht sind lokalisiert"
+    },
+    "en": {
+      "*": "Localize the shell and the overview"
     }
   },
   "63": {
     "de": {
       "*": "Wochentage im Editor und eine Bedingung sun_window"
+    },
+    "en": {
+      "*": "Weekdays in the editor and a sun_window condition"
     },
     "tour": {
       "*": {
@@ -437,31 +572,49 @@
   "64": {
     "de": {
       "*": "Energie und Einstellungen sind lokalisiert"
+    },
+    "en": {
+      "*": "Localize energy and settings"
     }
   },
   "67": {
     "de": {
       "*": "Konfiguration und Layout-Editor sind lokalisiert"
+    },
+    "en": {
+      "*": "Localize configuration and the layout editor"
     }
   },
   "68": {
     "de": {
       "*": "Automatisierungen und Verlauf sind lokalisiert, jeder UI-Text ist abgesichert"
+    },
+    "en": {
+      "*": "Localize automations and history, guard every UI text"
     }
   },
   "69": {
     "de": {
       "*": "API-Fehlermeldungen sind lokalisiert"
+    },
+    "en": {
+      "*": "Localize API error messages"
     }
   },
   "70": {
     "de": {
       "*": "Validierungsfehler und Diagnose sind lokalisiert"
+    },
+    "en": {
+      "*": "Localize validation errors and diagnostics"
     }
   },
   "71": {
     "de": {
       "*": "Installierte Komponentenversionen werden in den Einstellungen angezeigt"
+    },
+    "en": {
+      "*": "Show installed component versions under settings"
     },
     "tour": {
       "*": {
@@ -494,41 +647,65 @@
   "72": {
     "de": {
       "*": "Das Formular der Systemkonfiguration ist lokalisiert"
+    },
+    "en": {
+      "*": "Localize the system configuration form"
     }
   },
   "73": {
     "de": {
       "*": "Die Formulare der Gerätekonfiguration sind lokalisiert"
+    },
+    "en": {
+      "*": "Localize the device configuration forms"
     }
   },
   "74": {
     "de": {
       "*": "Der Redeploy-Bildschirm erscheint in der Sprache des Dashboards"
+    },
+    "en": {
+      "*": "Show the redeploy screen in the dashboard language"
     }
   },
   "76": {
     "de": {
       "*": "Versionen je Service in der Vorschau und der Diagnose"
+    },
+    "en": {
+      "*": "Break down versions per service in preview and diagnostics"
     }
   },
   "78": {
     "de": {
       "*": "Der Zustand wird in einem Intervall gespeichert und nach einem Absturz wiederhergestellt"
+    },
+    "en": {
+      "*": "Save the state on an interval and recover after a crash"
     }
   },
   "79": {
     "de": {
       "*": "Nur geänderte Bundle-Dateien werden auf den Node übertragen"
+    },
+    "en": {
+      "*": "Transfer only changed bundle files to the node"
     }
   },
   "81": {
     "de": {
       "*": "Das Akku-Flusssymbol zeigt bei 0 W den Füllstand an"
+    },
+    "en": {
+      "*": "Rest the battery flow icon on its fill level at 0 W"
     }
   },
   "82": {
     "de": {
       "*": "changelog.json liegt im Bundle und zeigt vor einem Update, was neu ist"
+    },
+    "en": {
+      "*": "Ship changelog.json in the bundle and show what is new before an update"
     },
     "tour": {
       "*": {
@@ -563,6 +740,9 @@
     "de": {
       "*": "Die Changelog-Seiten öffnen mit den Highlights, der Schalter oben zeigt alles"
     },
+    "en": {
+      "*": "The changelog pages open on the highlights, the switch at the top shows everything"
+    },
     "tour": {
       "*": {
         "steps": [
@@ -586,21 +766,33 @@
   "85": {
     "de": {
       "*": "Energy Node Companion als Partner für den Austausch des Verlaufs"
+    },
+    "en": {
+      "*": "Add Energy Node Companion as a history exchange peer"
     }
   },
   "90": {
     "de": {
       "*": "Systempaket-Updates prüfen und installieren (abschaltbar)"
+    },
+    "en": {
+      "*": "Check and install system package updates (opt-out)"
     }
   },
   "91": {
     "de": {
       "*": "Das Speichern der Systemkonfiguration funktioniert und meldet sein Ergebnis"
+    },
+    "en": {
+      "*": "Make saving the system configuration work and report it properly"
     }
   },
   "98": {
     "de": {
       "*": "Der Status des Konfigurations-Services erscheint als Pille"
+    },
+    "en": {
+      "*": "Show the config service status as a pill"
     },
     "tour": {
       "*": {
@@ -634,6 +826,9 @@
     "de": {
       "*": "Verlaufskacheln für das Layout der Übersicht"
     },
+    "en": {
+      "*": "Add history view tiles to the overview layout"
+    },
     "tour": {
       "*": {
         "steps": [
@@ -666,6 +861,9 @@
     "de": {
       "*": "Der Diagnose-Reiter wurde neu gestaltet"
     },
+    "en": {
+      "*": "Redesign the diagnostics tab"
+    },
     "tour": {
       "*": {
         "steps": [
@@ -697,11 +895,17 @@
   "102": {
     "de": {
       "*": "Unveränderte Update-Schritte werden übersprungen und die Sitzung bleibt über den Neustart erhalten"
+    },
+    "en": {
+      "*": "Skip unchanged update steps and keep the session across the restart"
     }
   },
   "103": {
     "de": {
       "*": "Ebenen, Rollenringe und Fokus im Gerätediagramm"
+    },
+    "en": {
+      "*": "Device map layers, role rings and focus"
     },
     "tour": {
       "*": {
@@ -786,16 +990,25 @@
   "105": {
     "de": {
       "*": "Live-Energiefluss im Gerätediagramm"
+    },
+    "en": {
+      "*": "Live energy flow on the device map"
     }
   },
   "107": {
     "de": {
       "*": "Energierollen lassen sich im Gerätediagramm bearbeiten"
+    },
+    "en": {
+      "*": "Edit energy roles on the device map"
     }
   },
   "108": {
     "de": {
       "*": "Energiegruppen und eigene Kategorien"
+    },
+    "en": {
+      "*": "Energy groups and custom categories"
     },
     "tour": {
       "*": {
@@ -844,26 +1057,41 @@
   "109": {
     "de": {
       "*": "Ebenen für Datenfluss und Bilanz im Gerätediagramm"
+    },
+    "en": {
+      "*": "Data flow and balance layers on the device map"
     }
   },
   "110": {
     "de": {
       "*": "Live-Anlagenansicht im Energie-Reiter"
+    },
+    "en": {
+      "*": "Live plant view on the energy tab"
     }
   },
   "111": {
     "de": {
       "*": "Gerätediagramm und Energie-Reiter wurden überarbeitet"
+    },
+    "en": {
+      "*": "Polish the device map and the energy tab"
     }
   },
   "112": {
     "de": {
       "*": "Überarbeitete Einstellungen und lokales Ausliefern der Dokumentation"
+    },
+    "en": {
+      "*": "Settings polish and local docs serve"
     }
   },
   "114": {
     "de": {
       "*": "Der Katalog der Geräte-Icons wurde neu geordnet"
+    },
+    "en": {
+      "*": "Reorganise the device icon catalogue"
     },
     "tour": {
       "*": {
@@ -906,6 +1134,9 @@
     "de": {
       "*": "Eigene Energiekategorien in Automatisierungen und ein überarbeiteter Editor"
     },
+    "en": {
+      "*": "Custom energy categories in automations and editor polish"
+    },
     "tour": {
       "*": {
         "steps": [
@@ -933,21 +1164,33 @@
   "119": {
     "de": {
       "*": "Der Verlauf der Automatisierung wird vollständig ausgeliefert"
+    },
+    "en": {
+      "*": "Serve the automation history in full"
     }
   },
   "123": {
     "de": {
       "*": "Update-Fortschritt und Neuerungen nach einem Update werden angezeigt"
+    },
+    "en": {
+      "*": "Show update progress and what's new after an update"
     }
   },
   "124": {
     "de": {
       "*": "Der Verlauf wird nur auf Anfrage ausgetauscht"
+    },
+    "en": {
+      "*": "Exchange history only on demand"
     }
   },
   "125": {
     "de": {
       "*": "Austausch und Verlaufsstatus erscheinen als Kacheln"
+    },
+    "en": {
+      "*": "Show exchange and history status as tiles"
     },
     "tour": {
       "*": {
@@ -994,6 +1237,9 @@
     "de": {
       "*": "Der Bilanzknoten ist im Gerät energy_node aufgegangen"
     },
+    "en": {
+      "*": "The balance node is merged into the energy_node device"
+    },
     "tour": {
       "*": {
         "steps": [
@@ -1033,45 +1279,54 @@
         "en": "The Energy Node is the balance itself, the device the dashboard publishes for Home Assistant. It shows the net grid power, and the Roles layer connects every device with an energy role to it.",
         "image": "dashboard-device-map-balance.png"
       }
-    },
-    "doc_title": {
-      "*": "The balance node is merged into the energy_node device"
     }
   },
   "127": {
     "de": {
       "*": "Das Automatisierungsgerät hängt unter dem Node und verlinkt seine Regeln"
     },
-    "doc_title": {
+    "en": {
       "*": "The automation device sits under the node, with its rules linked to it"
     }
   },
   "128": {
     "de": {
       "*": "Stündliche Energiestatistik wird auf dem Server aufgezeichnet"
+    },
+    "en": {
+      "*": "Hourly energy statistics recorded on the server"
     }
   },
   "129": {
     "de": {
       "*": "Verbindungstypen mit Flussrichtung und umkehrbare manuelle Kanten"
     },
-    "doc_title": {
+    "en": {
       "*": "Connections show their flow direction and can be reversed by hand"
     }
   },
   "130": {
     "de": {
       "*": "Stündliche Energiestatistik aus Home Assistant über den Companion"
+    },
+    "en": {
+      "*": "Hourly energy statistics from Home Assistant via the companion"
     }
   },
   "131": {
-    "doc_title": {
+    "de": {
+      "*": "Der Ergebnisbildschirm des Updates passt zum Dashboard."
+    },
+    "en": {
       "*": "The update result screen fits the dashboard"
     }
   },
   "132": {
     "de": {
       "*": "Energiestatistik mit Kachel, eigener Seite und Aufzeichnungsmodus."
+    },
+    "en": {
+      "*": "Energy statistics tile, page and recording mode"
     },
     "details": {
       "*": {
@@ -1137,13 +1392,16 @@
     "de": {
       "*": "Der Ereignisstrom liefert nur noch die abonnierten Themen, und die Statistikkachel lädt die Übersicht nicht mehr komplett neu."
     },
-    "doc_title": {
+    "en": {
       "*": "The statistics tile updates live in place"
     }
   },
   "134": {
     "de": {
       "*": "Release-Highlights haben jetzt einen deutschen Text im Dashboard, im Installer und in den Release Notes."
+    },
+    "en": {
+      "*": "Release highlights also come in German, shown in the dashboard and installer"
     },
     "tour": {
       "*": {
@@ -1185,22 +1443,22 @@
         "en": "Release highlights carry a German text next to the English one. The dashboard shows the text in its language, and so do the installer and the release notes on GitHub.",
         "image": "dashboard-settings-versions.png"
       }
-    },
-    "doc_title": {
-      "*": "Release highlights also come in German, shown in the dashboard and installer"
     }
   },
   "135": {
     "de": {
       "*": "Gerätekacheln in der Übersicht und im Geräte-Tab werden direkt aus dem Ereignisstrom aktualisiert, ohne die ganze Ansicht neu zu laden."
     },
-    "doc_title": {
+    "en": {
       "*": "Device tiles update live without reloading"
     }
   },
   "137": {
     "de": {
       "*": "Wähle, wie viele Versionen der Changelog zeigt. Die Historie bleibt über Updates hinweg auf dem Gerät."
+    },
+    "en": {
+      "*": "Choose how many changelog versions show, kept on the device across updates"
     },
     "details": {
       "*": {
@@ -1215,14 +1473,14 @@
         "en": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
         "image": "dashboard-settings-versions.png"
       }
-    },
-    "doc_title": {
-      "*": "Choose how many changelog versions show, kept on the device across updates"
     }
   },
   "138": {
     "de": {
       "*": "Der MQTT-Tab erklärt die Einrichtung der Mosquitto-Bridge, und die veröffentlichten Systemmetriken lassen sich in einer Mehrfachauswahl festlegen."
+    },
+    "en": {
+      "*": "The MQTT tab explains the Mosquitto bridge and picks system metrics in one list"
     },
     "details": {
       "*": {
@@ -1285,14 +1543,14 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "The MQTT tab explains the Mosquitto bridge and picks system metrics in one list"
     }
   },
   "141": {
     "de": {
       "*": "Die Verlaufsseite bietet die zum Zeitraum passenden Auflösungen an und wählt die gröbste vor, zeigt ab einer Woche Stundenwerte aus der Energiestatistik und hat eine Schnellwahl für 3 Monate."
+    },
+    "en": {
+      "*": "The history page offers fitting resolutions in a dropdown and a 3 month preset"
     },
     "details": {
       "*": {
@@ -1326,14 +1584,14 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "The history page offers fitting resolutions in a dropdown and a 3 month preset"
     }
   },
   "142": {
     "de": {
       "*": "Das Dashboard meldet Sensoren für Wallbox, Wärmepumpe und eigene Kategorien in Home Assistant an, sobald ihnen etwas zugeordnet ist, und jeder lässt sich im MQTT-Tab abwählen. Der Companion liefert diese Rollen für Verlauf und Energiestatistik."
+    },
+    "en": {
+      "*": "Home Assistant gets sensors for wallbox, heat pump and custom categories"
     },
     "details": {
       "*": {
@@ -1348,14 +1606,14 @@
         "en": "Additional sensors offers House load measured, House load calculated and one sensor per wallbox, heat pump and custom category. All are on by default. Deselect one and the dashboard removes it from Home Assistant, select it again to bring it back.",
         "image": "dashboard-settings-mqtt-sensors.png"
       }
-    },
-    "doc_title": {
-      "*": "Home Assistant gets sensors for wallbox, heat pump and custom categories"
     }
   },
   "143": {
     "de": {
       "*": "Der Lastmodus Automatisch rechnet den Hausverbrauch jetzt immer aus der Bilanz, ein Hauszähler dient als Kontrolle. Eine Statuszeile auf der Energie-Seite zeigt Quelle, Rückfall und Zählerabweichung, und Home Assistant erhält gemessene und berechnete Hauslast als eigene Sensoren."
+    },
+    "en": {
+      "*": "House load is always calculated, with a house meter as cross-check"
     },
     "details": {
       "*": {
@@ -1392,22 +1650,22 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "House load is always calculated, with a house meter as cross-check"
     }
   },
   "144": {
     "de": {
       "*": "Hilfetexte, Device-Map, Energierollen und Statistik passen auf schmale Bildschirme, und in der Statistik sind Einspeisung und Batterieladung schraffiert."
     },
-    "doc_title": {
+    "en": {
       "*": "Help texts, device map, energy roles and statistics fit narrow screens"
     }
   },
   "145": {
     "de": {
       "*": "Die Device-Map zeigt, welche Geräte ausgeschaltet sind. Ein ausgeschalteter Ausgang trennt die Leitung dahinter, und jedes Gerät ohne Strom wird blass dargestellt und als aus markiert."
+    },
+    "en": {
+      "*": "The device map shows switched-off devices, which fade out with an off label"
     },
     "details": {
       "*": {
@@ -1483,14 +1741,14 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "The device map shows switched-off devices, which fade out with an off label"
     }
   },
   "146": {
     "de": {
       "*": "Schalter sind jetzt eine Energie-Rolle mit optionalem Kanal. Die Device-Map zeigt an jeder geschalteten Verbindung einen grünen oder roten Kreis, und nur die Verbindung eines ausgeschalteten Kanals wird getrennt."
+    },
+    "en": {
+      "*": "Switches are an energy role with an optional channel, shown as green or red"
     },
     "details": {
       "*": {
@@ -1505,19 +1763,22 @@
         "en": "A switch is now an energy role with an optional channel. Every switched connection shows a green or red circle, and only the connection on a switched off channel is cut. The channel of a connection is chosen in its card.",
         "image": "dashboard-device-map-switch-channel.png"
       }
-    },
-    "doc_title": {
-      "*": "Switches are an energy role with an optional channel, shown as green or red"
     }
   },
   "147": {
     "de": {
       "*": "Ausblenden betrifft nur noch Einträge ohne Rolle, und die ausgeblendeten Einträge gelten auch in der Device-Map."
+    },
+    "en": {
+      "*": "Hide only role-less entries and share the list with the device map"
     }
   },
   "148": {
     "de": {
       "*": "Einzelne Verbraucher an einem Messgerät lassen sich als Untergeräte benennen, in der Device-Map, im Geräte-Dialog und auf der Energie-Seite."
+    },
+    "en": {
+      "*": "Single appliances on a meter can be named as sub-devices in the device map"
     },
     "details": {
       "*": {
@@ -1532,47 +1793,62 @@
         "en": "Name single appliances on a meter as sub-devices. They appear in the device map, in the device dialog and on the energy page, so a washing machine behind a plug gets its own place.",
         "image": "dashboard-device-map-sub-device.png"
       }
-    },
-    "doc_title": {
-      "*": "Single appliances on a meter can be named as sub-devices in the device map"
     }
   },
   "149": {
     "de": {
       "*": "Die Device-Map zeigt den rechten Rand ihrer Zeichenfläche wieder vollständig."
+    },
+    "en": {
+      "*": "The device map shows the right edge of its canvas again"
     }
   },
   "150": {
     "de": {
       "*": "Einstellungen im Kartenlayout und Panel-Überschriften auf gleicher Höhe"
+    },
+    "en": {
+      "*": "Settings in card layout and aligned panel headings"
     }
   },
   "151": {
     "de": {
       "*": "Statistikkachel mit festem Zeitraum, wählbaren Kennzahlen und Balkendiagramm"
+    },
+    "en": {
+      "*": "Options for the energy statistics card"
     }
   },
   "152": {
     "de": {
       "*": "Highlights lassen sich im Neuerungen-Dialog aufklappen und zeigen Erklärung, Bild und Link zur Anleitung."
+    },
+    "en": {
+      "*": "Expandable highlight details in the what's new dialog"
     }
   },
   "153": {
     "de": {
       "*": "Klarerer Update-Hinweis, die Firewall wird abgehakt, und Dienste laufen nur bei echten Änderungen."
     },
-    "doc_title": {
+    "en": {
       "*": "Clearer update notice, firewall step completes, unchanged libraries skipped"
     }
   },
   "157": {
     "de": {
       "*": "Die Health-Schwelle gilt in Sekunden und hat einen sinnvollen Standard."
+    },
+    "en": {
+      "*": "Use a working health threshold"
     }
   },
   "158": {
     "de": {
       "*": "Die Device Map kann Verbindungen nach Typ (Energie, Daten, Info) ausblenden, über einen neuen Filterknopf."
+    },
+    "en": {
+      "*": "The device map can hide connections by type (energy, data, info) with a new filter button"
     },
     "details": {
       "*": {
@@ -1605,6 +1881,9 @@
   "159": {
     "de": {
       "*": "Die Einstellungsseiten stehen in einer Seitenleiste, auf dem Handy in einem Blatt von unten."
+    },
+    "en": {
+      "*": "Settings pages are listed in a sidebar, on phones in a sheet from the bottom"
     },
     "details": {
       "*": {
@@ -1657,6 +1936,9 @@
     "de": {
       "*": "Titel und Untertitel des Dashboards lassen sich ändern oder ausblenden."
     },
+    "en": {
+      "*": "The dashboard title and subtitle can be changed or hidden"
+    },
     "details": {
       "*": {
         "crop": [
@@ -1696,6 +1978,9 @@
     "de": {
       "*": "Die Diagnoseseite zeigt die Protokolle der Energy-Node-Dienste, mit Suche und automatischer Aktualisierung."
     },
+    "en": {
+      "*": "The diagnostics page shows Energy Node service logs with search and refresh"
+    },
     "details": {
       "*": {
         "de": "Der Abschnitt Service-Logs auf der Diagnoseseite zeigt das Journal jeweils eines Dienstes. Wähle Dienst, Zeitraum und Zahl der Zeilen, durchsuche die geladenen Zeilen und schalte Automatisch aktualisieren ein, um neue Zeilen alle 5 Sekunden zu sehen. Dafür braucht es die Rolle system_actions.",
@@ -1722,9 +2007,6 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "The diagnostics page shows Energy Node service logs with search and refresh"
     }
   }
 }

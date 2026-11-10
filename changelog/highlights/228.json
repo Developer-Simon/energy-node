@@ -2,6 +2,9 @@
   "de": {
     "*": "Backup und Wiederherstellung der Node auf der Einstellungsseite"
   },
+  "en": {
+    "*": "Back up and restore the node from the settings page"
+  },
   "tour": {
     "*": {
       "steps": [

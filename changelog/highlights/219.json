@@ -1,5 +1,8 @@
 {
   "de": {
     "*": "Korrekt retained veröffentlichte Discovery nicht mehr als nicht retained melden"
+  },
+  "en": {
+    "*": "Stop flagging retained discovery as not retained"
   }
 }

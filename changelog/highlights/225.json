@@ -1,5 +1,8 @@
 {
   "de": {
     "*": "Tailscale wird auch als Debian-Paket erkannt"
+  },
+  "en": {
+    "*": "Find the CLI of the Debian package in /usr/bin"
   }
 }
