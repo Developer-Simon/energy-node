@@ -1,5 +1,6 @@
 ---
 title: "Overview cards"
+gallery: true
 ---
 
 # Overview cards
@@ -7,25 +8,6 @@ title: "Overview cards"
 This page lists every block you can put on an overview page and the options it
 has in the layout editor. How the editor itself works is described in
 [Overview and layout editor](overview.md).
-
-## All blocks
-
-| Block | Layout type | What it shows | Min. columns | Default width |
-|---|---|---|---|---|
-| Energy: status card | `energy_status` | Situation, thresholds, data quality | 1 | 1 |
-| Energy: energy flow | `energy_flow` | Animated flow graph | 2 | 2 |
-| Energy: self-sufficiency ring | `energy_ring` | Coverage/use ring | 2 | 2 |
-| Energy: system diagram | `energy_schema` | Plant diagram | 2 | 2 |
-| Energy: balance band | `energy_band` | Sources and consumers as proportional bands | 2 | 2 |
-| Energy: day band | `energy_day` | The recorded curve of supply and use | 2 | 2 |
-| Energy: data board | `energy_board` | The balance as a plain number board | 2 | 3 |
-| Energy statistics | `energy_stats` | Totals for today, this week, month or year | 1 | 1 |
-| Battery: status card | `battery_status` | Charge column or trajectory | 1 (trajectory 2) | 1 (trajectory 2) |
-| History | `history_view` | Chart of a saved history view | 1 | 2 |
-| Diagnostics | `diagnostics` | Health summary of all devices | 1 | 1 |
-| Value card | `entity_value` | One entity as a large value | 1 | 1 |
-| Entity list | `entity_group` | Several entities in one card | 1 | 1 |
-| (Devices tab) | `device` | A full device tile with its controls | 1 | 1 |
 
 The editor does not let a card get narrower than its minimum, because the
 drawing would no longer fit. The pictures on this page show each card at its
@@ -45,10 +27,22 @@ import thresholds of the status card, and the battery reserve.
 Sums up the situation in one sentence, with a scale between grid import and
 feed-in and tiles for surplus, grid draw, battery and data quality.
 
+### Category
+
+Energy
+
+### Size
+
+Layout type `energy_status`. At least 1 column, default width 1.
+
+### Options
+
 | Option | Values | Default |
 |---|---|---|
 | Scale range | ± 3 kW, ± 6 kW, ± 11 kW | ± 6 kW |
 | Recommendation | on, off | on |
+
+### Notes
 
 The thresholds for surplus (default 800 W) and grid import (default 1500 W) are
 set on the Energy tab.
@@ -62,6 +56,16 @@ between them. The battery node adds the state of charge when one is known.
 When the direction of a flow is unknown, for example a grid meter without a
 sign, the line is drawn but not animated.
 
+### Category
+
+Energy
+
+### Size
+
+Layout type `energy_flow`. At least 2 columns, default width 2.
+
+### Options
+
 | Option | Values | Default |
 |---|---|---|
 | Power display | Line width, Animation speed | Line width |
@@ -74,6 +78,8 @@ The two reference options only appear with **Animation speed**. With
 less than the reference power. With **fixed** the reference power alone sets
 the scale.
 
+### Notes
+
 If the browser asks for reduced motion, the card always uses line width,
 because the animation stands still.
 
@@ -83,6 +89,16 @@ because the animation stands still.
 
 Shows how much of the use is covered by own production, split by source and by
 consumer.
+
+### Category
+
+Energy
+
+### Size
+
+Layout type `energy_ring`. At least 2 columns, default width 2.
+
+### Options
 
 | Option | Values | Default |
 |---|---|---|
@@ -98,6 +114,16 @@ consumer.
 A wiring style diagram of the site (titled *Installation* on the card) with the
 live power on each branch. The battery box shows the state of charge on a
 second line.
+
+### Category
+
+Energy
+
+### Size
+
+Layout type `energy_schema`. At least 2 columns, default width 2.
+
+### Options
 
 | Option | Values | Default |
 |---|---|---|
@@ -119,6 +145,16 @@ A cut through the current moment: sources stack on the left, consumers on the
 right and the building sits in the middle. The height of each band follows its
 power, so you see at a glance which source covers which consumer.
 
+### Category
+
+Energy
+
+### Size
+
+Layout type `energy_band`. At least 2 columns, default width 2.
+
+### Options
+
 | Option | Values | Default |
 |---|---|---|
 | Height reference | proportional (fills the height), absolute (10 kW reference) | proportional |
@@ -137,6 +173,16 @@ restart, or on a device that has not recorded yet, the band is narrow until
 enough history has built up. The time axis names the first and last recorded
 point.
 
+### Category
+
+Energy
+
+### Size
+
+Layout type `energy_day`. At least 2 columns, default width 2.
+
+### Options
+
 | Option | Values | Default |
 |---|---|---|
 | Display | mirrored (supply / use), supply only, use only | mirrored |
@@ -148,6 +194,16 @@ point.
 
 The balance as a table of numbers, one row per role, each with a small history
 line.
+
+### Category
+
+Energy
+
+### Size
+
+Layout type `energy_board`. At least 2 columns, default width 3.
+
+### Options
 
 | Option | Values | Default |
 |---|---|---|
@@ -164,6 +220,12 @@ The history lines come from the browser's recording, like the day band.
 When the Energy tab adds up several metered loads into one position,
 **Measured consumers** decides how three cards show that sum:
 
+### Category
+
+Energy
+
+### Options
+
 - **Balance band** and **self-sufficiency ring** draw one segment per entity
   with **one per entity**.
 - **Data board** shows one row per entity, but without a history line, because
@@ -179,6 +241,16 @@ part on the load node.
 
 Key figures for today, this week, this month or this year. **Open statistics**
 opens the [Statistics](statistics.md) tab for the same period.
+
+### Category
+
+Statistics
+
+### Size
+
+Layout type `energy_stats`. At least 1 column, default width 1.
+
+### Options
 
 | Option | Values | Default |
 |---|---|---|
@@ -204,10 +276,22 @@ The card has two displays:
 - **Trajectory (history and projection)** shows a ring with the recorded state
   of charge and a projection. It needs at least two columns.
 
+### Category
+
+Battery
+
+### Size
+
+Layout type `battery_status`. At least 1 column, 2 with the trajectory. Default width 1, 2 with the trajectory.
+
+### Options
+
 | Option | Values | Default |
 |---|---|---|
 | Time window (trajectory only) | 3 h, 6 h, 12 h, 24 h | 6 h |
 | Projection (trajectory only) | same as time window, 3 h, 6 h, 12 h, 24 h | same as time window |
+
+### Notes
 
 The reserve held back for a grid outage is set on the Energy tab (default
 10 %, 0 switches it off). Without a reserve the card counts down to empty.
@@ -224,12 +308,28 @@ Puts a chart from the history page on an overview page.
 [Overview and layout editor](overview.md#history-tile) explains the options
 **Source**, **Own settings**, **Period**, **Statistic** and **Series**.
 
+### Category
+
+History
+
+### Size
+
+Layout type `history_view`. At least 1 column, default width 2.
+
 ## Diagnostics
 
 ![Diagnostics card](../images/dashboard-card-diagnostics.png)
 
 A health summary of all devices. Tapping it opens the
 [Diagnostics](diagnostics.md) tab. No options.
+
+### Category
+
+Diagnostics
+
+### Size
+
+Layout type `diagnostics`. At least 1 column, default width 1.
 
 ## Value card and entity list
 
@@ -240,12 +340,30 @@ The **value card** shows one entity as a large value. The **entity list**
 shows several entities with a title of its own. Both are picked under
 **Entities** in the block picker.
 
+### Category
+
+Entities
+
+### Size
+
+Layout types `entity_value` and `entity_group`. At least 1 column, default width 1.
+
 ## Device tile
 
 ![Device tile, detail](../images/dashboard-card-device.png)
 ![Device tile, compact](../images/dashboard-card-device-compact.png)
 
 A device from the **Devices** tab of the picker, with its controls.
+
+### Category
+
+Devices
+
+### Size
+
+Layout type `device`, added from the Devices tab. At least 1 column, default width 1.
+
+### Options
 
 | Option | Values | Default |
 |---|---|---|
