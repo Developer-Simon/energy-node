@@ -1,5 +1,5 @@
 /* Energy Node docs: theme toggle, table of contents, mobile navigation,
-   search loader, forwarding of anchors that moved to a subpage, the What's new view switch, opening a linked details block and the image dialog.
+   search loader, forwarding of anchors that moved to a subpage, the What's new view switch, opening a linked details block, the image dialog and the gallery of pages with gallery: true.
    No build step, no dependencies. */
 (function () {
   "use strict";
@@ -220,6 +220,196 @@
     return m ? m[1] : "";
   }
 
+  // ---- Gallery: pages with `gallery: true` ----------------------------------
+
+  // Each `## Title` with a `### Category` field is one item. The item's nodes
+  // move into a dialog when its tile opens, so the lightbox handlers on its
+  // images stay attached. Runs after initLightbox: the tile thumbnails are new
+  // images and must not become zoomable.
+  function initGallery() {
+    var body = document.querySelector("article.doc-body[data-gallery]");
+    if (!body) return;
+
+    var items = [];
+    Array.prototype.slice.call(body.children).forEach(function (h2) {
+      if (h2.tagName !== "H2" || !h2.id) return;
+      var nodes = [h2];
+      for (var n = h2.nextSibling; n && n.nodeName !== "H2"; n = n.nextSibling) nodes.push(n);
+      var isItem = nodes.some(function (x) { return x.nodeName === "H3" && x.textContent.trim() === "Category"; });
+      if (!isItem) return;
+      var section = document.createElement("section");
+      section.className = "gallery-item";
+      section.setAttribute("data-item", h2.id);
+      section.hidden = true;
+      body.insertBefore(section, h2);
+      nodes.forEach(function (x) { section.appendChild(x); });
+      items.push(itemOf(section, h2));
+    });
+    if (!items.length) { rebuildToc(); return; }
+
+    var current = null;   // item shown in the sheet
+    var opener = null;    // tile that opened it
+
+    var gallery = document.createElement("div");
+    gallery.className = "gallery";
+
+    var categories = [];
+    items.forEach(function (it) { if (categories.indexOf(it.category) < 0) categories.push(it.category); });
+    var filter = document.createElement("div");
+    filter.className = "gallery-filter";
+    filter.setAttribute("role", "group");
+    filter.setAttribute("aria-label", "Filter");
+    function applyFilter(label) {
+      Array.prototype.forEach.call(filter.querySelectorAll("button"), function (b) {
+        b.setAttribute("aria-pressed", String(b.textContent === label));
+      });
+      items.forEach(function (it) { it.tile.hidden = label !== "All" && it.category !== label; });
+    }
+    if (categories.length >= 2) {
+      ["All"].concat(categories).forEach(function (label) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.setAttribute("aria-pressed", String(label === "All"));
+        b.addEventListener("click", function () { applyFilter(label); });
+        filter.appendChild(b);
+      });
+      gallery.appendChild(filter);
+    }
+
+    var grid = document.createElement("div");
+    grid.className = "gallery-grid";
+    items.forEach(function (it) {
+      var tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "gallery-tile";
+      tile.setAttribute("aria-haspopup", "dialog");
+      tile.setAttribute("data-item", it.id);
+      if (it.img) {
+        var pic = document.createElement("img");
+        pic.src = it.img.getAttribute("src");
+        pic.alt = it.img.getAttribute("alt") || "";
+        pic.loading = "lazy";
+        tile.appendChild(pic);
+      } else {
+        var ph = document.createElement("span");
+        ph.className = "gallery-tile__ph";
+        ph.textContent = it.category;
+        tile.appendChild(ph);
+      }
+      var title = document.createElement("b");
+      title.textContent = it.title;
+      var meta = document.createElement("span");
+      meta.className = "gallery-tile__meta";
+      meta.textContent = it.creates ? it.category + " \u00b7 " + it.creates : it.category;
+      tile.appendChild(title);
+      tile.appendChild(meta);
+      tile.addEventListener("click", function () { opener = tile; show(it); });
+      it.tile = tile;
+      grid.appendChild(tile);
+    });
+    gallery.appendChild(grid);
+    body.insertBefore(gallery, items[0].section);
+
+    var sheet = document.createElement("dialog");
+    sheet.className = "gallery-sheet doc-body";
+    sheet.innerHTML =
+      '<div class="gallery-sheet__head"><button type="button" class="gallery-sheet__close" aria-label="Close">\u2715</button></div>' +
+      '<div class="gallery-sheet__content"></div>' +
+      '<div class="gallery-sheet__foot"><button type="button" class="gallery-sheet__prev"></button><button type="button" class="gallery-sheet__next"></button></div>';
+    document.body.appendChild(sheet);
+    var content = sheet.querySelector(".gallery-sheet__content");
+    var prevBtn = sheet.querySelector(".gallery-sheet__prev");
+    var nextBtn = sheet.querySelector(".gallery-sheet__next");
+
+    // The neighbour in the visible tiles, cyclic. Works from the page order.
+    function neighbour(dir) {
+      var pos = items.indexOf(current);
+      var visible = items.filter(function (it) { return !it.tile.hidden; });
+      if (dir > 0) {
+        return visible.find(function (it) { return items.indexOf(it) > pos; }) || visible[0];
+      }
+      return visible.slice().reverse().find(function (it) { return items.indexOf(it) < pos; }) || visible[visible.length - 1];
+    }
+    // Moves the shown item's nodes back into its section.
+    function putBack() {
+      if (!current) return;
+      while (content.firstChild) current.section.appendChild(content.firstChild);
+      current = null;
+    }
+    function show(it) {
+      putBack();
+      current = it;
+      while (it.section.firstChild) content.appendChild(it.section.firstChild);
+      content.scrollTop = 0;
+      sheet.setAttribute("aria-labelledby", it.id);
+      prevBtn.textContent = "\u2190 " + neighbour(-1).title;
+      nextBtn.textContent = neighbour(1).title + " \u2192";
+      if (!sheet.open) sheet.showModal();
+      history.replaceState(null, "", "#" + it.id);
+    }
+
+    sheet.addEventListener("close", function () {
+      putBack();
+      history.replaceState(null, "", location.pathname + location.search);
+      if (opener) opener.focus();
+      opener = null;
+    });
+    sheet.querySelector(".gallery-sheet__close").addEventListener("click", function () { sheet.close(); });
+    prevBtn.addEventListener("click", function () { show(neighbour(-1)); });
+    nextBtn.addEventListener("click", function () { show(neighbour(1)); });
+    // A click on the backdrop is a click on the dialog outside its box.
+    sheet.addEventListener("click", function (e) {
+      if (e.target !== sheet) return;
+      var r = sheet.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) sheet.close();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (!sheet.open || document.querySelector("dialog.lightbox[open]")) return;
+      if (e.key === "ArrowLeft") show(neighbour(-1));
+      else if (e.key === "ArrowRight") show(neighbour(1));
+    });
+
+    // A link to an item, or to an element inside it, opens that item.
+    function fromHash() {
+      var el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+      if (!el) return;
+      var sec = el.closest(".gallery-item");
+      var owner = null;
+      if (sec) owner = items.find(function (it) { return it.section === sec; });
+      else if (current && sheet.contains(el)) owner = current;
+      if (!owner || (owner === current && sheet.open)) return;
+      show(owner);
+    }
+    window.addEventListener("hashchange", fromHash);
+    fromHash();
+    rebuildToc();
+  }
+
+  function itemOf(section, h2) {
+    var fields = Array.prototype.filter.call(section.children, function (el) { return el.tagName === "H3"; });
+    fields.forEach(function (h) { h.classList.add("gallery-field"); });
+    var firstField = fields[0];
+    var img = section.querySelector("img");
+    // The picture is the first image before the first field.
+    if (img && firstField && !(img.compareDocumentPosition(firstField) & Node.DOCUMENT_POSITION_FOLLOWING)) img = null;
+    function field(name) {
+      var h = fields.find(function (f) { return f.textContent.trim() === name; });
+      if (!h) return "";
+      var parts = [];
+      for (var el = h.nextElementSibling; el && el.tagName !== "H3"; el = el.nextElementSibling) parts.push(el.textContent.trim());
+      return parts.join(" ").trim();
+    }
+    return {
+      section: section,
+      id: h2.id,
+      title: h2.textContent.trim(),
+      img: img,
+      category: field("Category"),
+      creates: field("Creates")
+    };
+  }
+
   // ---- Mobile navigation -----------------------------------------------------
 
   function initNav() {
@@ -292,6 +482,7 @@
   initWhatsNew();
   initDetailsAnchor();
   initLightbox();
+  initGallery();
   initNav();
   initSearch();
 })();
