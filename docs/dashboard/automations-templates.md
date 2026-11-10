@@ -68,8 +68,6 @@ When feed-in stays above the chosen power. Running: the charging power follows t
 
 ## Switch a device on surplus
 
-![Switch a device on surplus, a step of the assistant](../images/dashboard-automation-assistant-step.png)
-
 Switches a device on when feed-in is high enough. It can stay on by repeating the switch command, and it can apply only on chosen weekdays.
 
 ### Category
@@ -92,8 +90,6 @@ When feed-in is high enough. Running: the device stays on while the condition ho
 
 ## Battery warning
 
-![Battery warning, a step of the assistant](../images/dashboard-automation-assistant-step.png)
-
 Sends a notification when the charge level of the battery falls below the limit. It fires at most once an hour.
 
 ### Category
@@ -115,8 +111,6 @@ When the charge level falls below the limit. Then: a notification with the chose
 
 ## Switch by time
 
-![Switch by time, a step of the assistant](../images/dashboard-automation-assistant-step.png)
-
 Switches a device on for a daily time window. The window can be limited to chosen weekdays.
 
 ### Category
@@ -137,8 +131,6 @@ When the window starts. Ends: when the window ends, the device turns off.
 - Weekdays: chosen weekdays, optional
 
 ## Lift heat pump
-
-![Lift heat pump, a step of the assistant](../images/dashboard-automation-assistant-step.png)
 
 Lifts a heat pump when feed-in stays high. It switches the SG Ready contact or raises the setpoint, and it restores the old setpoint at the end. The minimum run time and the pause protect the compressor.
 
@@ -193,8 +185,6 @@ Needs a battery with a writable charging power. The price comes either from fixe
 
 ## Cap grid import
 
-![Cap grid import, a step of the assistant](../images/dashboard-automation-assistant-step.png)
-
 Keeps the grid import just below a limit by throttling a wallbox.
 
 ### Category
@@ -218,8 +208,6 @@ Needs a wallbox with a writable power. The speed step sets the largest change pe
 - Limit: 11, 16 or 25 kW
 
 ## Control signal per §14a
-
-![Control signal per §14a, a step of the assistant](../images/dashboard-automation-assistant-step.png)
 
 Answers a control signal of the grid operator. Heat pumps and wallboxes go to a chosen power and return afterwards.
 
@@ -245,8 +233,6 @@ Needs an input of the control box with a payload that means on, and at least one
 
 ## Heating rod with surplus
 
-![Heating rod with surplus, a step of the assistant](../images/dashboard-automation-assistant-step.png)
-
 Uses the surplus for a stepless heating rod. The rod takes the surplus and holds the grid export in a chosen band.
 
 ### Category
@@ -271,8 +257,6 @@ Needs a device with a writable power in W or % and a temperature sensor. The max
 
 ## PV yield missing
 
-![PV yield missing, a step of the assistant](../images/dashboard-automation-assistant-step.png)
-
 Warns when an inverter reports too little power during the day.
 
 ### Category
@@ -296,8 +280,6 @@ Needs an inverter with its own power reading. The sun window needs a location in
 - Restart option: the switch goes off, then on again after a pause of 1 to 30 minutes, greyed out when no switch exists. The inverter's own switch comes first.
 
 ## Charge battery to full once a month
-
-![Charge battery to full once a month, a step of the assistant](../images/dashboard-automation-assistant-step.png)
 
 Charges the battery to 100 % on one day of the month. The day runs from midnight to midnight.
 
@@ -324,8 +306,6 @@ Needs a battery with a writable charging power and a charge level. The day is li
 
 ## Inverter stops reporting
 
-![Inverter stops reporting, a step of the assistant](../images/dashboard-automation-assistant-step.png)
-
 Warns when an inverter sends no new reading for a while. It also applies at night.
 
 ### Category
@@ -350,8 +330,6 @@ Needs an inverter with its own reading. The rule uses the age of the last messag
 - Restart option: the switch goes off, then on again after a pause of 1 to 30 minutes, greyed out when no switch exists. The inverter's own switch comes first.
 
 ## Wallbox at low tariff
-
-![Wallbox at low tariff, a step of the assistant](../images/dashboard-automation-assistant-step.png)
 
 Charges a wallbox at its maximum power in a fixed window or while the price is low.
 
