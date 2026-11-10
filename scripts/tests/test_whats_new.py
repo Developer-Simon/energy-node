@@ -115,9 +115,7 @@ def test_cards_order_and_rest(docs):
     assert all(e["kind"] == "title" for e in release["rest"])
 
 
-def test_title_from_doc_title_or_capitalised(docs):
-    translations = {15: {"doc_title": {"*": "Statistics on the phone"}}}
-    assert find(run(docs, translations=translations), 15)["title"] == "Statistics on the phone"
+def test_title_is_the_capitalised_highlight_text(docs):
     assert find(run(docs), 15)["title"] == "Mobile view for the statistics page"
 
 

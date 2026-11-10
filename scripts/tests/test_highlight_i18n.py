@@ -262,26 +262,10 @@ def test_load_rejects_non_object_archive_file(tmp_path):
         hi.load_translations(tmp_path)
 
 
-def test_doc_title_prefers_target_then_default():
-    tr = {164: {"doc_title": {"*": "Scenarios", "dashboard": "Scenarios in the dashboard"}}}
-    assert hi.doc_title(tr, 164, "dashboard") == "Scenarios in the dashboard"
-    assert hi.doc_title(tr, 164, "installer") == "Scenarios"
-    assert hi.doc_title(tr, 165, "dashboard") is None
-
-def test_validate_doc_titles_reports_bad_values():
-    tr = {1: {"doc_title": "x"}, 2: {"doc_title": {"*": ""}}, 3: {"doc_title": {"*": "A; B"}},
-          4: {"doc_title": {"*": "Ends with a dot."}}, 5: {"doc_title": {"*": "Fine title"}}}
-    assert hi.validate_doc_titles(tr) == [
-        "#1 doc_title: must be an object keyed by component",
-        "#2 doc_title: text for * is empty",
-        "#3 doc_title: text for * contains a semicolon",
-        "#4 doc_title: text for * ends with a full stop",
-    ]
-
-def test_write_pr_file_keeps_doc_title(tmp_path):
-    (tmp_path / "7.json").write_text('{"doc_title": {"*": "Kept"}}\n', encoding="utf-8")
+def test_write_pr_file_keeps_english(tmp_path):
+    (tmp_path / "7.json").write_text('{"en": {"*": "Kept"}}\n', encoding="utf-8")
     hi.write_pr_file(tmp_path, 7, {"de": {"*": "Neu"}})
-    assert json.loads((tmp_path / "7.json").read_text())["doc_title"] == {"*": "Kept"}
+    assert json.loads((tmp_path / "7.json").read_text())["en"] == {"*": "Kept"}
 
 
 def test_entry_i18n_leaves_english_out():
