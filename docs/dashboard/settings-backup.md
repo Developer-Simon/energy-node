@@ -10,6 +10,8 @@ account has the permission *Create backup* (`backup_export`) or *Restore
 backup* (`backup_import`). Creating and restoring work only over HTTPS. The
 permissions are set under [Settings, Users](settings-users.md#permissions).
 
+![The backup page](../images/dashboard-settings-backup.png)
+
 | Permission | Key | Allows |
 |---|---|---|
 | Create backup | `backup_export` | Change the backup settings, create, download and delete archives |

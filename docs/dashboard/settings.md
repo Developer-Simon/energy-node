@@ -23,19 +23,6 @@ with an icon and a short description. On narrow screens a button above the
 content shows the current page. Tapping it opens the full list as a sheet from
 the bottom. Swiping sideways on the button moves to the previous or next page.
 
-| Page | Tabs | What you set there |
-|---|---|---|
-| [General](#general) | General | health threshold, sweep and live update interval, storage check, settings revisions |
-| [Appearance](settings-appearance.md) | Appearance | default view, colour scheme, language and number format |
-| [History](settings-history.md) | History | recording and retention in the browser, exchange between devices, recording of the energy statistics |
-| [MQTT](settings-mqtt.md) | MQTT | broker connection, the "Energy Node" device in Home Assistant, the bridge to the main site |
-| [Tailscale & TinyTuya](settings-wizards.md) | Tailscale, TinyTuya | the setup wizards for the tailnet and for Tuya devices |
-| [Users](settings-users.md) | Me, Accounts, Sessions | sign-in and password, accounts and permissions, presets, guest access, Home Assistant users, signed-in sessions |
-| [Backup](settings-backup.md) | Backup | backup archives of the settings, devices, users, statistics and history, automatic backups before updates and on a schedule, restore |
-| [Versions & updates](settings-versions.md) | Versions | installed versions, changelogs, update check and the update from the dashboard |
-| [Checklist](onboarding.md) | Checklist | the steps of the first-time setup and the tours of new features |
-| [System](settings-system.md) | System | system actions (restart and shutdown), the central configuration file |
-
 ## General
 
 ![General settings](../images/dashboard-settings-general.png)
@@ -48,3 +35,17 @@ wear counters. When the root filesystem is not a readable MMC medium, the page
 says so. Settings are versioned, and **Settings revisions** restores an earlier
 state. The footer lists every bundled JavaScript library with its version,
 license and license link.
+
+## Other pages
+
+| Page | Tabs | What you set there |
+|---|---|---|
+| [Appearance](settings-appearance.md) | Appearance | default view, colour scheme, language and number format |
+| [History](settings-history.md) | History | recording and retention in the browser, exchange between devices, recording of the energy statistics |
+| [MQTT](settings-mqtt.md) | MQTT | broker connection, the "Energy Node" device in Home Assistant, the bridge to the main site |
+| [Tailscale & TinyTuya](settings-wizards.md) | Tailscale, TinyTuya | the setup wizards for the tailnet and for Tuya devices |
+| [Users](settings-users.md) | Me, Accounts, Sessions | sign-in and password, accounts and permissions, presets, guest access, Home Assistant users, signed-in sessions |
+| [Backup](settings-backup.md) | Backup | backup archives of the settings, devices, users, statistics and history, automatic backups before updates and on a schedule, restore |
+| [Versions & updates](settings-versions.md) | Versions | installed versions, changelogs, update check and the update from the dashboard |
+| [Checklist](settings-checklist.md) | Checklist | the steps of the first-time setup and the tours of new features |
+| [System](settings-system.md) | System | system actions (restart and shutdown), the central configuration file |

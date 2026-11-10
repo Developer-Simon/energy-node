@@ -20,7 +20,7 @@
     - label: "Dashboard"
       url: "dashboard/index.md"
       children:
-        - { label: "First-time setup", url: "dashboard/onboarding.md" }
+        - { label: "Onboarding", url: "dashboard/onboarding.md" }
         - label: "Overview & layout editor"
           url: "dashboard/overview.md"
           children:
@@ -52,6 +52,7 @@
             - { label: "Tailscale & TinyTuya", url: "dashboard/settings-wizards.md" }
             - { label: "Users", url: "dashboard/settings-users.md" }
             - { label: "Backup", url: "dashboard/settings-backup.md" }
+            - { label: "Checklist", url: "dashboard/settings-checklist.md" }
             - { label: "Versions & updates", url: "dashboard/settings-versions.md" }
             - { label: "System", url: "dashboard/settings-system.md" }
         - { label: "Colour schemes", url: "dashboard/themes.md" }

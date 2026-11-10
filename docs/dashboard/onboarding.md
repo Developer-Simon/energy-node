@@ -1,14 +1,16 @@
 ---
-title: "First-time setup"
+title: "Onboarding"
 ---
 
-# First-time setup
+# Onboarding
 
 The first time an admin signs in, the dashboard starts a guided setup. It goes
 through the settings that matter most in four areas: Access, Display, System
 and Devices. You can finish it in one go or leave any step for later.
 
 ## How the setup works
+
+![The setup at its first step](../images/dashboard-onboarding-setup-start.png)
 
 The setup runs in the dashboard itself. A bar at the bottom of the screen names
 the current step. A spotlight marks the control that the step is about, so you
@@ -28,6 +30,8 @@ The spotlight follows the control when the layout around it shifts.
 | Display | Colour scheme, Title and subtitle, System status, Tab width, Overview tiles |
 | System | Check for updates, System metrics |
 | Devices and energy roles | Choose a service, Set up devices, Check devices, Assign energy roles, Device map, Automations (only when the automation service is installed) |
+
+![A setup step with the spotlight on the colour scheme](../images/dashboard-onboarding-setup-step.png)
 
 The Tailscale step only appears when the Tailscale service is installed on the
 node.
@@ -63,6 +67,10 @@ works without them.
 The checklist is under *Settings*. Use **Go through it again** there to repeat
 the tour. The checklist also lists the new features of each version. Those with
 a tour can be shown again from there.
+
+![The checklist in the settings](../images/dashboard-settings-checklist.png)
+
+See [Settings, Checklist](settings-checklist.md).
 
 ## Tours of new features
 
