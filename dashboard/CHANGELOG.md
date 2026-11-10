@@ -5,6 +5,7 @@
 ### Features
 
 - **automations:** The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well. (#212) (98cb85b)
+- **backup:** back up and restore the node from the settings page (#228) (925767b)
 - **backup:** add data catalogue (18a4e7b)
 - **backup:** add archive format with checksums (ef4ed92)
 - **backup:** add optional archive password (a1b28c2)
@@ -25,7 +26,6 @@
 - **backup:** add the backup page markup (ab8961e)
 - **backup:** load, save and export from the backup page (e242e72)
 - **backup:** import archives from the backup page (e463725)
-- **backup:** back up and restore the node from the settings page (#228)
 - **automations:** add texts for the rule history axis (4c3094a)
 - **automations:** add history day groups and flight logic (5d3205c)
 - **automations:** show the rule history as an axis in the strip (8993e21)
