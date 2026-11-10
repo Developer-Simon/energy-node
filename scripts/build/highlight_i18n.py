@@ -3,7 +3,8 @@
 
 Je PR eine Datei changelog/highlights/<PR>.json:
 
-    {"de": {"*": "Text fuer jede Komponente", "dashboard": "nur fuer das Dashboard"}}
+    {"de": {"*": "Text fuer jede Komponente", "dashboard": "nur fuer das Dashboard"},
+     "en": {"*": "Text for every component"}}
 
 Nach einem Release wandern die Texte aus den PR-Dateien in zwei Arten von Dateien:
 changelog/highlights/v<MAJOR>.<MINOR>.<PATCH>.json enthaelt die Texte eines Releases,
@@ -16,9 +17,15 @@ Block "Highlights:" der Squash-Nachricht (scripts/generate_changelog.sh). Jeder
 andere Schluessel ist ein Ziel von generate_changelog.sh (Spalte "target" in
 scripts/version/components.json).
 
+en ist Pflicht, beginnt gross und endet ohne Punkt (english_form). Es ersetzt im
+Build den Text aus der CHANGELOG.md (make_changelog_json.attach_translations).
+Die CHANGELOG.md bleibt, wie die CI sie schreibt.
+
 Solange der PR offen ist, ist seine Beschreibung die Quelle: ein Block
 "Highlights (de):" mit "- "-Zeilen, den der Version-bump-Workflow hierher
-uebertraegt (scripts/build/highlight_translations.py sync). Nach dem Merge darf
+uebertraegt (scripts/build/highlight_translations.py sync). Fehlt en, kopiert
+sync den Text der CHANGELOG-Eintraege des PRs, ein Block "Highlights (en):"
+ersetzt ihn. Nach dem Merge darf
 man die Datei von Hand pflegen.
 """
 import json

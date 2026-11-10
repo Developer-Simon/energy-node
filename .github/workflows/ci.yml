@@ -387,7 +387,7 @@ jobs:
       - run: bash scripts/tests/test_docs_pages.sh
 
   # Every highlight of this PR (a feat, fix, perf or breaking squash entry in a
-  # CHANGELOG.md) needs a German text in changelog/highlights/<PR>.json. Runs
+  # CHANGELOG.md) needs an English and a German text in changelog/highlights/<PR>.json. Runs
   # on every PR, the check reads only Markdown and JSON. A dashboard highlight
   # without a tour does not fail here: the job CI ok asks for an exemption after
   # the build. CI is dispatched by
@@ -400,7 +400,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Every highlight of this PR has a German text
+      - name: Every highlight of this PR has an English and a German text
         env:
           PR_NUMBER: ${{ inputs.pr }}
         run: python3 scripts/build/highlight_translations.py check --repo . --pr "$PR_NUMBER"

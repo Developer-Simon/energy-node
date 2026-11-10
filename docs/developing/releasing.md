@@ -185,7 +185,8 @@ On a `v*` tag push, [`Release`](https://github.com/Developer-Simon/energy-node/b
    link to the release on the [What's new](../whats-new.html) page and on the
    [version overview](versions.md), and to `dashboard/CHANGELOG.md` at the tag.
    Two folded blocks below list the highlights of every bundle component since
-   the previous final release, one in English and one in German.
+   the previous final release, one in English and one in German. The English
+   block shows the `en` texts of `changelog/highlights`.
 3. Creates the GitHub Release as a **draft** with `--verify-tag`.
 4. Calls two reusable workflows in parallel, both attaching to that draft:
    - [`Bundle Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/bundle-release.yml)
@@ -320,6 +321,11 @@ other component the PR touches. The paragraph ends at the first line that
 does not start with `- `. The text replaces the PR title in the entry, the
 PR number stays.
 
+The `CHANGELOG.md` files keep this text. `changelog.json`, the dashboard, the
+installer, the What's new page and the release notes take the English text from
+`changelog/highlights/<PR>.json` instead, see [Translations](#translations).
+That is where a highlight is shortened.
+
 While a PR is open, its squash commit does not exist yet. The
 [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
 workflow therefore passes the PR number, title and description to the
@@ -350,45 +356,58 @@ section of the doc page that the highlight links to (`details.doc`). Without a
 doc link, the changelog scope decides, and without a scope, the component. All
 installer components count as "Installer".
 
-The page shows the highlight text from the changelog. To word a highlight differently there, add
-`doc_title` to its `changelog/highlights/<PR>.json` next to `de`. Its keys are the
-same as in `de`, a component target or `*`. The text is English, without a full
-stop and without a semicolon:
-
-```json
-{"de": {"*": "Die Statistikseite funktioniert auf dem Handy."}, "doc_title": {"*": "The statistics page works on a phone"}}
-```
-
-`doc_title` only changes the What's new page, the changelog keeps the highlight
-text. `highlight_translations.py validate` checks the field.
+The page shows the English highlight text (`en`) from
+`changelog/highlights`, see [Translations](#translations).
 
 ### Translations
 
-Every highlight also needs a German text. It lives in
+Every highlight needs an English and a German text. Both live in
 `changelog/highlights/<PR>.json`, one file per pull request:
 
 ```json
-{"de": {"*": "Die Versionsseite öffnet mit den Highlights.", "dashboard": "Text nur für das Dashboard"}}
+{
+  "de": {"*": "Die Statistikseite funktioniert auf dem Handy.", "dashboard": "Text nur für das Dashboard"},
+  "en": {"*": "The statistics page works on a phone"}
+}
 ```
 
 `*` applies to every component without its own line, every other key is a
-target of `scripts/generate_changelog.sh`. While the PR is open, the source is
-the "Highlight translations" section of its description:
+target of `scripts/generate_changelog.sh`. The English text starts with a
+capital letter and has no full stop at the end and no semicolon.
+
+While the PR is open, its description is the source. When the file has no
+English text yet, the Version bump workflow copies the text of the PR's
+changelog entries (the PR title or the `Highlights:` lines), with a capital
+first letter and without the full stop. Later runs keep it. To set it yourself,
+add a block to the "Highlight translations" section, it replaces the English
+text on every run. The German text comes from the same section:
 
 ```text
+Highlights (en):
+- The statistics page works on a phone
 Highlights (de):
-- Die Versionsseite öffnet mit den Highlights.
+- Die Statistikseite funktioniert auf dem Handy.
 - dashboard: Text nur für das Dashboard
 ```
 
-`scripts/dev/create-pr.sh` asks for these lines (or reads `PR_TITLE_DE` and
-`PR_HIGHLIGHTS_DE_FILE`). The Version bump workflow writes the file in its
+`scripts/dev/create-pr.sh` asks for the German lines (or reads `PR_TITLE_DE`
+and `PR_HIGHLIGHTS_DE_FILE`). The Version bump workflow writes the file in its
 changelog commit, and the CI check "Highlight translations" fails while a
-highlight of the PR has no German text. Entries of single commits without a PR
-number are never checked. After the merge the file may be edited by hand, for
-example to fix a word or to translate an older release. `changelog.json`
-carries the texts as `"i18n": {"de": "…"}`, the dashboard, the installer and
-the release notes show them and fall back to English.
+highlight of the PR has no English or German text. Entries of single commits
+without a PR number are never checked. After the merge the file may be edited,
+for example to fix a word, to translate an older release or to shorten the
+English text. `changelog.json` carries the English text as `text` and the other
+languages as `"i18n": {"de": "…"}`. The dashboard, the installer, the What's new
+page and the release notes show them and fall back to English. The
+`CHANGELOG.md` files keep the text of the merge.
+
+To shorten a highlight after the merge, change `en` (and `de` with it, so both
+say the same) in the file that holds the PR: `<PR>.json`, `v<X.Y.Z>.json` or
+`archive-v<MAJOR>.json`. Keep the format of the file. `validate` checks every
+file: a PR with a text needs `en`, every key is `*` or a target, every text is
+one line without the PR number, the English one also follows the form above,
+and every component of a highlight finds a text in every language. The next
+bundle carries the change.
 
 The directory has three kinds of translation files:
 
@@ -398,7 +417,7 @@ The directory has three kinds of translation files:
 * `archive-v<MAJOR>.json`, for example `archive-v0.json`, holds the texts of all
   releases of one major version.
 
-The release and archive files have the form `{"<PR>": {"de": {...}}}`. A per-PR
+The release and archive files have the form `{"<PR>": {"de": {...}, "en": {...}}}`. A per-PR
 file overrides them for the languages it has. The per-version changelog files
 are regenerated from the current changelogs and translations on every release.
 A correction in a release file or in an archive therefore reaches the node with

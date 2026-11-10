@@ -9,7 +9,8 @@ scripts/build/make_changelog_json.py). Per bundle component it lists the
 highlights of every release newer than the component's version at the previous
 tag, up to its current version. A component the previous tag does not know, and
 every component without a previous tag, shows its current release only. Without a
-highlight the two folded blocks are left out.
+highlight the two folded blocks are left out. The English block shows the entry
+text, which is the en text of changelog/highlights.
 """
 import argparse
 import datetime

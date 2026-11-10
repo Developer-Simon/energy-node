@@ -62,7 +62,7 @@ jobs:
           branch="chore/archive-highlight-translations-${TAG}"
           body="$RUNNER_TEMP/body.md"
           cat > "$body" <<EOF
-          This PR moves the German highlight texts up to ${TAG} out of the per-PR
+          This PR moves the highlight texts up to ${TAG} out of the per-PR
           files. The directory then has three kinds of files: one per PR that is not
           released yet, one per release (v<MAJOR>.<MINOR>.<PATCH>.json, with ${TAG}
           as the newest), and one archive per major version (archive-v<MAJOR>.json)
