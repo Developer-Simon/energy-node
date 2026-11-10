@@ -1,9 +1,17 @@
 {
   "de": {
-    "*": "Backup und Wiederherstellung der Node auf der Einstellungsseite"
+    "*": "Die Node lässt sich in den Einstellungen sichern und wiederherstellen"
+  },
+  "details": {
+    "*": {
+      "de": "Unter Einstellungen, Backup erstellst du ein Archiv mit Einstellungen, Geräten, Benutzern, Statistik und Automations-Verlauf, auf Wunsch mit Passwort. Vor jedem Update und nach Zeitplan entsteht automatisch eines. Beim Wiederherstellen zeigt eine Vorschau, was sich ändert.",
+      "doc": "dashboard/settings-backup.html",
+      "en": "Under Settings, Backup you create an archive with settings, devices, users, statistics and automation history, optionally with a password. One is created automatically before every update and on a schedule. Before a restore, a preview shows what changes.",
+      "image": "dashboard-settings-backup.png"
+    }
   },
   "en": {
-    "*": "Back up and restore the node from the settings page"
+    "*": "Back up and restore the node in the settings"
   },
   "tour": {
     "*": {
