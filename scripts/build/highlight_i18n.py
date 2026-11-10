@@ -3,7 +3,8 @@
 
 Je PR eine Datei changelog/highlights/<PR>.json:
 
-    {"de": {"*": "Text fuer jede Komponente", "dashboard": "nur fuer das Dashboard"}}
+    {"de": {"*": "Text fuer jede Komponente", "dashboard": "nur fuer das Dashboard"},
+     "en": {"*": "Text for every component"}}
 
 Nach einem Release wandern die Texte aus den PR-Dateien in zwei Arten von Dateien:
 changelog/highlights/v<MAJOR>.<MINOR>.<PATCH>.json enthaelt die Texte eines Releases,
@@ -16,9 +17,15 @@ Block "Highlights:" der Squash-Nachricht (scripts/generate_changelog.sh). Jeder
 andere Schluessel ist ein Ziel von generate_changelog.sh (Spalte "target" in
 scripts/version/components.json).
 
+en ist Pflicht, beginnt gross und endet ohne Punkt (english_form). Es ersetzt im
+Build den Text aus der CHANGELOG.md (make_changelog_json.attach_translations).
+Die CHANGELOG.md bleibt, wie die CI sie schreibt.
+
 Solange der PR offen ist, ist seine Beschreibung die Quelle: ein Block
 "Highlights (de):" mit "- "-Zeilen, den der Version-bump-Workflow hierher
-uebertraegt (scripts/build/highlight_translations.py sync). Nach dem Merge darf
+uebertraegt (scripts/build/highlight_translations.py sync). Fehlt en, kopiert
+sync den Text der CHANGELOG-Eintraege des PRs, ein Block "Highlights (en):"
+ersetzt ihn. Nach dem Merge darf
 man die Datei von Hand pflegen.
 """
 import json
@@ -27,6 +34,11 @@ from pathlib import Path
 
 # Sprachen ausser Englisch, die jedes Highlight braucht (CI-Pruefung).
 LANGUAGES = ("de",)
+# Englisch steht als "en" neben den anderen Sprachen. Es ersetzt im Build den
+# Text aus dem CHANGELOG (make_changelog_json.attach_translations) und gehoert
+# nicht in "i18n".
+ENGLISH = "en"
+MAX_TEXT_LENGTH = 100
 TRANSLATIONS_DIR = Path("changelog/highlights")
 RELEASE_FILE = re.compile(r"^v(?P<major>\d+)\.\d+\.\d+$")
 ARCHIVE_FILE = re.compile(r"^archive-v(?P<major>\d+)$")
@@ -36,7 +48,7 @@ BLOCK_HEAD = re.compile(r"^\s*Highlights \((?P<lang>[a-z]{2})\):\s*$")
 BLOCK_LINE = re.compile(r"^\s*-\s+(?P<text>.*\S)\s*$")
 TARGETED = re.compile(r"^(?P<target>[a-z_:-]+):\s+(?P<text>.+)$")
 LANGUAGE_KEY = re.compile(r"^[a-z]{2}$")
-DOC_TITLE_KEY = "doc_title"
+PR_REF = re.compile(r"\(#\d+\)\s*$")
 
 
 def targets_from_table(table):
@@ -159,44 +171,71 @@ def lookup(translations, pr, target, lang):
     return texts.get(target) or texts.get(DEFAULT_KEY) or None
 
 
-def doc_title(translations, pr, target):
-    """Doku-Titel des Highlights fuer das Ziel, sonst der Standard "*", sonst None."""
-    value = translations.get(pr, {}).get(DOC_TITLE_KEY)
-    if not isinstance(value, dict):
-        return None
-    return value.get(target) or value.get(DEFAULT_KEY) or None
+def english_form(text):
+    """Form eines "en"-Texts: grosser Anfangsbuchstabe, kein Punkt am Ende."""
+    text = text.strip()
+    text = text[:1].upper() + text[1:]
+    return text[:-1].rstrip() if text.endswith(".") else text
 
 
-def validate_doc_titles(translations):
-    """Eine Meldung je Fehler, Form "#<pr> doc_title: <problem>". Leere Liste,
-    wenn alle Doku-Titel stimmen."""
-    problems = []
-    for pr in sorted(translations):
-        value = translations[pr].get(DOC_TITLE_KEY)
-        if value is None:
-            continue
-        if not isinstance(value, dict):
-            problems.append(f"#{pr} {DOC_TITLE_KEY}: must be an object keyed by component")
-            continue
-        for key, text in value.items():
-            if not isinstance(text, str):
-                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} is not a string")
-            elif not text.strip():
-                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} is empty")
-            elif ";" in text:
-                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} contains a semicolon")
-            elif text.rstrip().endswith("."):
-                problems.append(f"#{pr} {DOC_TITLE_KEY}: text for {key} ends with a full stop")
-    return problems
+def text_languages():
+    """Englisch plus die Sprachen aus LANGUAGES, zur Laufzeit gelesen."""
+    return (ENGLISH, *LANGUAGES)
+
+
+def english(translations, pr, target):
+    """Der englische Highlight-Text fuer das Ziel, None ohne "en"."""
+    return lookup(translations, pr, target, ENGLISH)
 
 
 def entry_i18n(translations, pr, target):
     out = {}
-    for lang in sorted(k for k in translations.get(pr, {}) if LANGUAGE_KEY.match(k)):
+    for lang in sorted(k for k in translations.get(pr, {}) if LANGUAGE_KEY.match(k) and k != ENGLISH):
         text = lookup(translations, pr, target, lang)
         if text:
             out[lang] = text
     return out
+
+
+def _text_problems(prefix, lang, key, text, targets):
+    if key != DEFAULT_KEY and not _is_target(key, targets):
+        return [prefix + "unknown component"]
+    if not isinstance(text, str) or not text.strip():
+        return [prefix + "text is empty"]
+    if "\n" in text:
+        return [prefix + "text must be one line"]
+    if PR_REF.search(text):
+        return [prefix + "drop the PR number, the changelog adds it"]
+    if text[:1].islower():
+        return [prefix + "start with a capital letter"]
+    if text.rstrip().endswith("."):
+        return [prefix + "drop the full stop at the end"]
+    if ";" in text:
+        return [prefix + "no semicolon"]
+    if len(text) > MAX_TEXT_LENGTH:
+        return [prefix + f"longer than {MAX_TEXT_LENGTH} characters, move the rest into details"]
+    return []
+
+
+def validate_texts(translations, targets):
+    """Eine Meldung je Fehler in den Highlight-Texten aller Sprachen. Hat ein PR
+    einen Text in irgendeiner Sprache, braucht er auch "en"."""
+    problems = []
+    for pr in sorted(translations):
+        entry = translations[pr]
+        languages = sorted(key for key in entry if LANGUAGE_KEY.match(key))
+        if languages and ENGLISH not in languages:
+            problems.append(f"#{pr} en: missing, every highlight needs an English text next to {', '.join(languages)}")
+        for lang in languages:
+            texts = entry[lang]
+            if not isinstance(texts, dict) or not texts:
+                problems.append(f"#{pr} {lang}: must be an object of texts keyed by component")
+                continue
+            for key in sorted(texts):
+                problems.extend(_text_problems(f"#{pr} {lang} {key}: ", lang, key, texts[key], targets))
+        if "doc_title" in entry:
+            problems.append(f"#{pr} doc_title: replaced by en, move the text there")
+    return problems
 
 
 def write_pr_file(directory, pr, blocks):

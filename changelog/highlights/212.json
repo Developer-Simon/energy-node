@@ -1,6 +1,15 @@
 {
   "de": {
-    "*": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen."
+    "*": "Der Verlauf lässt sich detailliert unter der Zeitleiste anzeigen"
+  },
+  "details": {
+    "*": {
+      "de": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen.",
+      "en": "The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well."
+    }
+  },
+  "en": {
+    "*": "The history can be shown as a detailed view below the timeline"
   },
   "tour": {
     "*": {

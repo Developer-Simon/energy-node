@@ -118,13 +118,18 @@ def read_version(path):
 
 
 def attach_translations(releases, translations, target):
-    """Setzt "i18n": {lang: text} an jeden PR-Eintrag mit Uebersetzung
-    (changelog/highlights/<PR>.json, siehe highlight_i18n.py)."""
+    """Setzt "i18n": {lang: text} an jeden PR-Eintrag mit Uebersetzung und
+    ersetzt "text" durch den englischen Text "en" aus changelog/highlights,
+    falls es ihn gibt (siehe highlight_i18n.py). Die CHANGELOG.md bleibt die
+    Quelle fuer alles andere am Eintrag (Scope, PR, Hash, Typ)."""
     for release in releases:
         for group in release["groups"]:
             for entry in group["entries"]:
                 if "pr" not in entry:
                     continue
+                english = highlight_i18n.english(translations, entry["pr"], target)
+                if english:
+                    entry["text"] = english
                 texts = highlight_i18n.entry_i18n(translations, entry["pr"], target)
                 if texts:
                     entry["i18n"] = texts

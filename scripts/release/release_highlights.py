@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Body of the GitHub release notes: links to the docs, German highlights folded.
+"""Body of the GitHub release notes: links to the docs, highlights folded per language.
 
     release_highlights.py --repo <repo> --tag vX.Y.Z [--previous-tag vX.Y.Z]
 
@@ -8,9 +8,9 @@ files with their highlight flag and changelog/highlights/<PR>.json (see
 scripts/build/make_changelog_json.py). Per bundle component it lists the
 highlights of every release newer than the component's version at the previous
 tag, up to its current version. A component the previous tag does not know, and
-every component without a previous tag, shows its current release only. The
-English highlights are on the What's new page the links lead to. Without a
-highlight the German block is left out.
+every component without a previous tag, shows its current release only. Without a
+highlight the two folded blocks are left out. The English block shows the entry
+text, which is the en text of changelog/highlights.
 """
 import argparse
 import datetime
@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build"))
 from changelog_history import in_range, versions_at  # noqa: E402
 from make_changelog_json import build_document  # noqa: E402
 
+ENGLISH_SUMMARY = "Highlights in English"
 GERMAN_SUMMARY = "Highlights auf Deutsch"
 DOCS_URL = "https://developer-simon.github.io/energy-node"
 REPO_URL = "https://github.com/Developer-Simon/energy-node"
@@ -60,10 +61,14 @@ def _section(rows, lang):
     return lines
 
 
+def _fold(summary, rows, lang):
+    return ["<details>", f"<summary>{summary}</summary>", ""] + _section(rows, lang) + ["</details>", ""]
+
+
 def render(rows, tag):
     lines = [links(tag), ""]
     if rows:
-        lines += ["<details>", f"<summary>{GERMAN_SUMMARY}</summary>", ""] + _section(rows, "de") + ["</details>", ""]
+        lines += _fold(ENGLISH_SUMMARY, rows, None) + _fold(GERMAN_SUMMARY, rows, "de")
     return "\n".join(lines)
 
 

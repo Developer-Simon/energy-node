@@ -1,5 +1,8 @@
 {
   "de": {
     "*": "Textsensoren gelten in der Diagnose nicht mehr als Sensoren ohne Einheit"
+  },
+  "en": {
+    "*": "Stop flagging text sensors as missing a unit"
   }
 }

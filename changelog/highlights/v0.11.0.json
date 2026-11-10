@@ -1,7 +1,10 @@
 {
   "163": {
     "de": {
-      "*": "Automationsregeln können ihre Aktionen wiederholen, solange die Bedingungen gelten."
+      "*": "Automationsregeln können Aktionen wiederholen, solange Bedingungen gelten"
+    },
+    "en": {
+      "*": "Automation rules can repeat their actions while their conditions hold"
     },
     "details": {
       "*": {
@@ -35,7 +38,10 @@
   },
   "164": {
     "de": {
-      "*": "Die Automationen-Seite zeigt Szenarien mit Live-Karte, Diagramm und Phasen-Editor und hat einen neu gestalteten Regeleditor."
+      "*": "Szenarien mit Live-Karte, Diagramm und Phasen-Editor, neuer Regeleditor"
+    },
+    "en": {
+      "*": "Scenarios with live cards, charts and a phase editor, plus a new rule editor"
     },
     "details": {
       "*": {
@@ -111,36 +117,36 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "Scenarios with live cards, charts and a phase editor, plus a new rule editor"
     }
   },
   "165": {
     "de": {
-      "*": "Die Editoren für Szenarien und Regeln zeigen Geräte als Kacheln mit Live-Werten und wählen sie in einem gemeinsamen Geräte-Picker."
+      "*": "Editoren zeigen Geräte als Kacheln mit Live-Werten in einem Geräte-Picker"
     },
-    "doc_title": {
+    "en": {
       "*": "Editors show devices as tiles with live values in one device picker"
     }
   },
   "166": {
     "de": {
-      "*": "Ein Vorlagen-Assistent legt Szenarien und Regeln über wenige Fragen an, mit fünf Vorlagen wie Nulleinspeisung und Überschussladen."
+      "*": "Vorlagen-Assistent legt Szenarien und Regeln über wenige Fragen an"
+    },
+    "en": {
+      "*": "An assistant builds scenarios and rules from five templates like zero feed-in"
     },
     "details": {
       "*": {
         "de": "Du öffnest ihn auf der Seite Automationen mit „Assistent“. Er zeigt die Vorlagen, die zu deinen Geräten passen, und nennt bei den übrigen das fehlende Gerät. Mit „Ohne Vorlage“ legst du eine leere Regel oder ein leeres Szenario an.",
         "en": "You open it on the Automations page with “Assistant”. It shows the templates that fit your devices and names the missing device for the others. “Without a template” creates an empty rule or scenario."
       }
-    },
-    "doc_title": {
-      "*": "An assistant builds scenarios and rules from five templates like zero feed-in"
     }
   },
   "167": {
     "de": {
-      "*": "Einstellungen, Benutzer: benannte Konten mit einzelnen Berechtigungen, einstellbarer Mindestlänge des Passworts und einer Liste der angemeldeten Sitzungen."
+      "*": "Benannte Konten mit eigenen Berechtigungen und Sitzungsliste"
+    },
+    "en": {
+      "*": "Named accounts with own permissions, a minimum password length and sessions"
     },
     "details": {
       "*": {
@@ -241,14 +247,14 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "Named accounts with own permissions, a minimum password length and sessions"
     }
   },
   "168": {
     "de": {
-      "*": "Einzelregeln zeigen ihre letzten vier Auslösungen, mobil öffnet der Assistent als Blatt."
+      "*": "Regeln zeigen die letzten vier Auslösungen, Assistent mobil als Blatt"
+    },
+    "en": {
+      "*": "Rules show their last four triggers, and phones open the assistant as a sheet"
     },
     "details": {
       "*": {
@@ -292,28 +298,28 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "Rules show their last four triggers, and phones open the assistant as a sheet"
     }
   },
   "169": {
     "de": {
-      "*": "Die Vorlage Nulleinspeisung stellt das Regelziel durch Ziehen eines Bandes auf der Netzachse ein, mit der Netzleistung von gestern als Orientierung."
+      "*": "Nulleinspeisung stellt das Regelziel durch Ziehen eines Bandes ein"
+    },
+    "en": {
+      "*": "The zero feed template sets the regulator target with a draggable band"
     },
     "details": {
       "*": {
         "de": "Die Vorlage fragt „Wie knapp soll geregelt werden?“. Du verschiebst das Fenster durch Ziehen, Tippen oder mit den Pfeiltasten, oder du wählst eine der Karten Knapp, Ausgewogen und Vorsichtig. Mit „Toleranz anpassen“ ziehst du auch die Breite des Bandes. Die Balken zeigen die Verteilung der Netzleistung von gestern, auf das neue Ziel verschoben.",
         "en": "The template asks “How tight should it regulate?”. You move the window by dragging, tapping or with the arrow keys, or you pick one of the cards Tight, Balanced and Careful. With “Adjust tolerance” you also drag the width of the band. The bars show yesterday's spread of the grid power, moved to the new target."
       }
-    },
-    "doc_title": {
-      "*": "The zero feed template sets the regulator target with a draggable band"
     }
   },
   "170": {
     "de": {
-      "*": "Berechtigungen werden durchgesetzt: Konten sehen nur die Seiten, die sie ansehen dürfen, und ändern nur, was sie ändern dürfen."
+      "*": "Konten sehen und ändern nur, was ihre Berechtigungen erlauben"
+    },
+    "en": {
+      "*": "Users only see and change the pages their permissions allow"
     },
     "details": {
       "*": {
@@ -322,14 +328,14 @@
         "en": "You set permissions under Settings, Users. The settings permission is now split into “Change the appearance” and “Set up the dashboard”. Existing accounts keep what they were allowed to do. An account without a view permission sees only a notice and its own account.",
         "image": "dashboard-settings-users-permissions.png"
       }
-    },
-    "doc_title": {
-      "*": "Users only see and change the pages their permissions allow"
     }
   },
   "171": {
     "de": {
       "*": "Das angebotene Update direkt über die Update-Leiste installieren"
+    },
+    "en": {
+      "*": "Install the offered update from the update bar"
     },
     "details": {
       "*": {
@@ -362,15 +368,24 @@
   },
   "172": {
     "de": {
-      "*": "Neue Vorlagen im Assistenten für Wärmepumpe, Laden bei Niedrigtarif, Netzbezug deckeln, Steuersignal nach §14a, Heizstab und fehlenden PV-Ertrag."
+      "*": "Neue Assistenten-Vorlagen für Wärmepumpe, Niedrigtarif und §14a"
     },
-    "doc_title": {
+    "en": {
       "*": "New assistant templates for heat pumps, low tariff charging and §14a control"
+    },
+    "details": {
+      "*": {
+        "de": "Neue Vorlagen im Assistenten für Wärmepumpe, Laden bei Niedrigtarif, Netzbezug deckeln, Steuersignal nach §14a, Heizstab und fehlenden PV-Ertrag.",
+        "en": "New assistant templates for heat pump, charging at a low tariff, capping grid import, the §14a control signal, heating element and missing PV yield."
+      }
     }
   },
   "174": {
     "de": {
       "*": "Home-Assistant-Benutzer melden sich über den Companion am Dashboard an"
+    },
+    "en": {
+      "*": "Home Assistant users sign in through the Energy Node Companion"
     },
     "details": {
       "*": {
@@ -378,14 +393,14 @@
         "en": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
         "doc": "dashboard/settings-users.html#home-assistant-users"
       }
-    },
-    "doc_title": {
-      "*": "Home Assistant users sign in through the Energy Node Companion"
     }
   },
   "175": {
     "de": {
-      "*": "Automationsfenster lassen sich auf Tage im Monat einschränken."
+      "*": "Automationsfenster lassen sich auf Tage im Monat einschränken"
+    },
+    "en": {
+      "*": "Automation windows can be limited to days of the month"
     },
     "details": {
       "*": {
@@ -397,6 +412,9 @@
   "178": {
     "de": {
       "*": "Toasts neu gestaltet mit Glasoptik, Ablauflinie und Wegwischen"
+    },
+    "en": {
+      "*": "Redesign the toast with glass, timer line and swipe to dismiss"
     },
     "details": {
       "*": {
@@ -428,6 +446,9 @@
   "180": {
     "de": {
       "*": "Geräte-Dialog mit Stern-Favoriten, Analyse pro Entität und zwei neuen Rechten"
+    },
+    "en": {
+      "*": "Star favourites and an Analysis tab that lists warnings and every entity"
     },
     "details": {
       "*": {
@@ -471,22 +492,22 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "Star favourites and an Analysis tab that lists warnings and every entity"
     }
   },
   "181": {
     "de": {
-      "*": "Die Liste „Weitere“ im Hauptmenü misst sich auf schmalen Bildschirmen nicht mehr ohne Pause neu"
+      "*": "Die Liste „Weitere“ im Hauptmenü misst sich nicht mehr ständig neu"
     },
-    "doc_title": {
+    "en": {
       "*": "The main tab's More list no longer keeps resizing itself"
     }
   },
   "183": {
     "de": {
       "*": "Mobile Ansicht für die Statistikseite"
+    },
+    "en": {
+      "*": "The statistics page works on a phone, with a table or grid view"
     },
     "details": {
       "*": {
@@ -515,14 +536,14 @@
           }
         ]
       }
-    },
-    "doc_title": {
-      "*": "The statistics page works on a phone, with a table or grid view"
     }
   },
   "184": {
     "de": {
-      "*": "Gäste dürfen standardmäßig nur ansehen, und ein Admin kann den Gastzugang abschalten."
+      "*": "Gäste dürfen standardmäßig nur ansehen, Gastzugang abschaltbar"
+    },
+    "en": {
+      "*": "Guests can only view by default, and an admin can switch guest access off"
     },
     "details": {
       "*": {
@@ -541,6 +562,9 @@
     "de": {
       "*": "Neu gestaltete Anmeldekarte, Favicon-Fehler behoben"
     },
+    "en": {
+      "*": "Redesign the login card and link the favicon"
+    },
     "details": {
       "*": {
         "de": "Die Anmeldekarte ist neu gestaltet. Außerdem ist ein Fehler beim Favicon behoben.",
@@ -551,6 +575,9 @@
   "186": {
     "de": {
       "*": "Onboarding: Leiste, Spotlight und Checkliste"
+    },
+    "en": {
+      "*": "Onboarding bar, spotlight and checklist"
     },
     "tour": {
       "*": {
@@ -601,7 +628,10 @@
   },
   "187": {
     "de": {
-      "*": "Der Installer fragt das sudo-Passwort in einem Dialog ab und richtet passwortloses sudo auf dem Gerät ein."
+      "*": "Installer fragt das sudo-Passwort ab und richtet passwortloses sudo ein"
+    },
+    "en": {
+      "*": "A dialog asks for the sudo password and sets up passwordless sudo"
     },
     "details": {
       "*": {
@@ -610,28 +640,28 @@
         "en": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
         "image": "installer-sudo.png"
       }
-    },
-    "doc_title": {
-      "*": "A dialog asks for the sudo password and sets up passwordless sudo"
     }
   },
   "188": {
     "de": {
-      "*": "Eine geführte Ersteinrichtung führt Admins durch Zugang, Darstellung, System und Geräte, zuerst mit einem Willkommensschritt."
+      "*": "Geführte Ersteinrichtung für Admins mit Willkommensschritt"
+    },
+    "en": {
+      "*": "A guided first-time setup for admins covers access, display, system and devices"
     },
     "details": {
       "*": {
         "de": "Als Admin führt dich eine Leiste am unteren Rand über die echten Einstellungsseiten, ein Spotlight markiert jeweils die Einstellung. Was auf einer bestehenden Installation schon eingestellt ist, ist abgehakt, und jeden Schritt kannst du mit „Später“ aufschieben. Offenes findest du danach in der Checkliste. Gäste sehen einen Hinweis, bis die Einrichtung abgeschlossen ist.",
         "en": "As an admin, a bar at the bottom walks you through the real settings pages, and a spotlight marks the setting of each step. What an existing install already has set is checked off, and you can put off any step with “Later”. Anything still open is in the checklist afterwards. Guests see a note until the setup is finished."
       }
-    },
-    "doc_title": {
-      "*": "A guided first-time setup for admins covers access, display, system and devices"
     }
   },
   "189": {
     "de": {
-      "*": "Der Installer kann die Python-Abhängigkeiten online laden, wenn die Python-Version des Geräts vom Paket abweicht, sobald du das bestätigst."
+      "*": "Installer lädt Python-Abhängigkeiten online, wenn die Version abweicht"
+    },
+    "en": {
+      "*": "The installer can load Python packages online when the versions do not match"
     },
     "details": {
       "*": {
@@ -639,14 +669,14 @@
         "en": "If the device's Python version does not match the package, the preparation stops with “Process paused, confirmation required”. With “Load dependencies online” the installer loads the remaining dependencies from the internet. The device needs internet access for this.",
         "doc": "installer.html#python-version-of-the-pi"
       }
-    },
-    "doc_title": {
-      "*": "The installer can load Python packages online when the versions do not match"
     }
   },
   "190": {
     "de": {
-      "*": "Der Installer hat einen Dashboard-Schritt, in dem Benutzer, Gastzugang und das Aussehen des Dashboards vorgegeben oder auf später gestellt werden können."
+      "*": "Installer-Schritt Dashboard gibt Benutzer, Gastzugang und Aussehen vor"
+    },
+    "en": {
+      "*": "The installer's Dashboard step presets users, guest access and the look"
     },
     "details": {
       "*": {
@@ -655,22 +685,28 @@
         "en": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
         "image": "installer-dashboard-step.png"
       }
-    },
-    "doc_title": {
-      "*": "The installer's Dashboard step presets users, guest access and the look"
     }
   },
   "191": {
     "de": {
-      "*": "Eine frische Installation startet jetzt das Dashboard. Es scheitert nicht mehr an einem fehlenden Datenordner oder an einer MQTT-Anmeldung, die der Broker ablehnt."
+      "*": "Eine frische Installation startet das Dashboard trotz fehlendem Datenordner"
     },
-    "doc_title": {
+    "en": {
       "*": "A fresh install starts the dashboard despite a missing folder or MQTT login"
+    },
+    "details": {
+      "*": {
+        "de": "Eine frische Installation startet jetzt das Dashboard. Es scheitert nicht mehr an einem fehlenden Datenordner oder an einer MQTT-Anmeldung, die der Broker ablehnt.",
+        "en": "A fresh install now starts the dashboard. It no longer fails on a missing data folder or an MQTT login the broker refuses."
+      }
     }
   },
   "192": {
     "de": {
       "*": "Installer überspringt empfohlene apt-Pakete und leert den Paketcache"
+    },
+    "en": {
+      "*": "Skip recommended apt packages and clean the package cache"
     },
     "details": {
       "*": {
@@ -681,7 +717,10 @@
   },
   "193": {
     "de": {
-      "*": "Die Diagnose des Installers zeigt ein Live-Log von Dashboard und Updater mit ihrem Zustand."
+      "*": "Installer-Diagnose zeigt Live-Log von Dashboard und Updater"
+    },
+    "en": {
+      "*": "The installer diagnose shows a live log of the dashboard and the updater"
     },
     "details": {
       "*": {
@@ -695,50 +734,56 @@
         "en": "The Live log card in the diagnostics follows the dashboard and the updater, so you can find out without SSH why the dashboard does not start. Under “Lines in report” you choose how many lines the report takes along. “Copy for issue” copies it for a GitHub issue, with addresses, names and passwords masked.",
         "image": "installer-diagnose.png"
       }
-    },
-    "doc_title": {
-      "*": "The installer diagnose shows a live log of the dashboard and the updater"
     }
   },
   "194": {
     "de": {
-      "*": "Die Installer-Diagnose erkennt eine MQTT-Anmeldung, die der Broker ablehnt, und repariert sie mit einem neuen Passwort."
+      "*": "Installer-Diagnose erkennt abgelehnte MQTT-Anmeldung und repariert sie"
+    },
+    "en": {
+      "*": "The installer detects a refused MQTT login and repairs it with a new password"
     },
     "details": {
       "*": {
         "de": "Lehnt der Broker das Passwort ab, zeigt die Diagnose die Prüfung MQTT-Anmeldung als Fehler. Beim Reparieren öffnet sich der Dialog „MQTT-Passwort neu setzen“, in dem du ein neues Passwort eingibst oder mit „Zufälliges Passwort“ erzeugst. Node und Broker bekommen es dann beide.",
         "en": "If the broker rejects the password, the diagnostics show the MQTT login check as failed. The repair opens the dialog “Set a new MQTT password”, where you enter a new password or create one with “Random password”. The node and the broker then both receive it."
       }
-    },
-    "doc_title": {
-      "*": "The installer detects a refused MQTT login and repairs it with a new password"
     }
   },
   "195": {
     "de": {
-      "*": "Das Dashboard startet und bleibt erreichbar, wenn die erste MQTT-Verbindung scheitert. Es versucht es im Hintergrund weiter und zeigt den Fehler im MQTT-Tab."
+      "*": "Dashboard startet auch, wenn die erste MQTT-Verbindung scheitert"
     },
-    "doc_title": {
+    "en": {
       "*": "The dashboard starts and stays reachable when the first MQTT connection fails"
+    },
+    "details": {
+      "*": {
+        "de": "Das Dashboard startet und bleibt erreichbar, wenn die erste MQTT-Verbindung scheitert. Es versucht es im Hintergrund weiter und zeigt den Fehler im MQTT-Tab.",
+        "en": "The dashboard starts and stays reachable when the first MQTT connection fails. It keeps trying in the background and shows the error in the MQTT tab."
+      }
     }
   },
   "196": {
     "de": {
       "*": "Meldungen der Batterie-Abstimmung kommen aus einem Textkatalog"
     },
+    "en": {
+      "*": "Calibration and tuning notes follow the dashboard language"
+    },
     "details": {
       "*": {
         "de": "Die Hinweise unter Kalibrierung und Abstimmung erscheinen jetzt in der Sprache des Dashboards, vorher kamen sie immer auf Deutsch. Home Assistant zeigt sie in seiner eigenen Sprache.",
         "en": "The notes under Calibration and tuning now appear in the language of the dashboard, before they always came in German. Home Assistant shows them in its own language."
       }
-    },
-    "doc_title": {
-      "*": "Calibration and tuning notes follow the dashboard language"
     }
   },
   "197": {
     "de": {
-      "*": "Einstellungen, Checkliste, Neues erkunden listet die Highlights der letzten drei Minor-Versionen, eine Karte je Release, mit Tour für die Highlights, die eine haben."
+      "*": "Neues erkunden listet die Highlights der letzten drei Minor-Versionen"
+    },
+    "en": {
+      "*": "The checklist's Explore mode lists the highlights of the last three releases"
     },
     "details": {
       "*": {
@@ -750,14 +795,14 @@
       "*": {
         "exempt": "The checklist already shows the Explore switch when the tour starts, a step would repeat it."
       }
-    },
-    "doc_title": {
-      "*": "The checklist's Explore mode lists the highlights of the last three releases"
     }
   },
   "198": {
     "de": {
-      "*": "Einstellungen, Checkliste: Jede sichtbare Funktion seit v0.8.0 hat eine Tour, Releases älter als die letzten drei Minor-Versionen stehen hinter „Weiter zurück erkunden“, und jede ältere Release-Karte kann ihre Tour nachholen."
+      "*": "Jede Funktion seit v0.8.0 hat eine Tour, ältere lassen sich nachholen"
+    },
+    "en": {
+      "*": "Every feature since v0.8.0 has a tour, and older releases can catch up"
     },
     "details": {
       "*": {
@@ -769,37 +814,52 @@
       "*": {
         "exempt": "The catch-up button explains itself, and the install step is covered by the tour of #171."
       }
-    },
-    "doc_title": {
-      "*": "Every feature since v0.8.0 has a tour, and older releases can catch up"
     }
   },
   "200": {
     "de": {
-      "*": "Eingeschränkte Anmeldungen werden protokolliert, HA-Konten melden bei Passwortänderung einen klaren Fehler"
+      "*": "Eingeschränkte Anmeldungen werden protokolliert"
+    },
+    "en": {
+      "*": "Log restricted logins and reject password changes of HA accounts"
     },
     "tour": {
       "*": {
         "exempt": "Only a log line and an error message, there is nothing on screen to show."
       }
+    },
+    "details": {
+      "*": {
+        "de": "Eingeschränkte Anmeldungen werden protokolliert, HA-Konten melden bei Passwortänderung einen klaren Fehler.",
+        "en": "Restricted logins are logged, and HA accounts report a clear error on a password change."
+      }
     }
   },
   "201": {
     "de": {
-      "*": "Touren öffnen und zeigen, was sie erklären, und bieten sich bei Neuigkeiten selbst an"
+      "*": "Touren öffnen und zeigen, was sie erklären"
+    },
+    "en": {
+      "*": "Tours can run actions, include guest and favourite steps, and offer news"
     },
     "tour": {
       "*": {
         "exempt": "The tours themselves are the feature, and the explore card offers itself at the next start."
       }
     },
-    "doc_title": {
-      "*": "Tours can run actions, include guest and favourite steps, and offer news"
+    "details": {
+      "*": {
+        "de": "Touren öffnen und zeigen, was sie erklären, und bieten sich bei Neuigkeiten selbst an.",
+        "en": "Tours open and show what they explain, and offer themselves when there is news."
+      }
     }
   },
   "202": {
     "de": {
-      "*": "Der Admin-Benutzername aus dem Installer gilt jetzt, und die Einrichtung erkennt mehr Schritte als erledigt"
+      "*": "Der Admin-Name aus dem Installer gilt, die Einrichtung erkennt mehr Schritte"
+    },
+    "en": {
+      "*": "Apply the installer admin name and detect more setup steps as done"
     },
     "tour": {
       "*": {

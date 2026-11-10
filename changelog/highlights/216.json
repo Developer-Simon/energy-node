@@ -1,6 +1,9 @@
 {
   "de": {
-    "*": "Das Balkendiagramm der Statistik-Kachel wächst jetzt mit der Kachelhöhe."
+    "*": "Balkendiagramm der Statistik-Kachel wächst mit der Kachelhöhe"
+  },
+  "en": {
+    "*": "Scale the statistics card chart with the card height"
   },
   "tour": {
     "*": {

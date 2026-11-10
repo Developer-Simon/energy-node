@@ -198,8 +198,9 @@ def _entry(component, source, since, target, translations, nav, docs_dir, image_
         kind = "tour"
     else:
         kind = "title"
-    title = (highlight_i18n.doc_title(translations, pr, target) if pr is not None else None)
-    title = title or _capitalised(source["text"])
+    # Der Text ist "en" aus changelog/highlights (build_document), sonst der
+    # CHANGELOG-Text.
+    title = _capitalised(source["text"])
     return {
         "pr": pr,
         "title": title,
