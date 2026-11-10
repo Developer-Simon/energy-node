@@ -354,7 +354,10 @@ async function all() {
   const subpages = [
     ['dashboard-settings-general', 'settings-general', 819],
     ['dashboard-settings-backup', 'settings-backup', 1300],
-    ['dashboard-settings-checklist', 'settings-checklist', 1100],
+    ['dashboard-settings-checklist', 'settings-checklist', 1100, async (page) => {
+      await page.locator('#settings-checklist').getByRole('button', { name: 'Set up', exact: true }).click();
+      await page.waitForTimeout(1500);
+    }],
     ['dashboard-settings-display', 'settings-display', 769],
     ['dashboard-settings-history', 'settings-history', 1235],
     ['dashboard-settings-tinytuya', 'settings-tiny-tuya', 691],
@@ -428,6 +431,22 @@ async function all() {
     await s.ctx.close();
   }
 
+  // Der Assistent in drei Stellungen, vor den Szenario-Blocken: die Vorlage "Zero feed-in" fehlt danach.
+  for (const [name, template, heading] of [
+    ['dashboard-automation-assistant-step', 'Zero feed-in', 'How tight should it regulate?'],
+    ['dashboard-template-surplus-charging', 'Surplus charging', 'Start power'],
+    ['dashboard-template-battery-tariff', 'Charge battery on low tariff', null],
+  ]) {
+    if (!want(name)) continue;
+    s = await session(1110, 900);
+    await tab(s.page, 'automations');
+    if (await assistantStep(s.page, template, heading)) {
+      await s.page.mouse.move(1, 1);
+      await element(s.page.locator('dialog.auto-assist'), name);
+    }
+    await s.ctx.close();
+  }
+
   if (want('dashboard-automation-scenario')) {
     s = await session(1110, 900);
     await tab(s.page, 'automations');
@@ -477,21 +496,6 @@ async function all() {
     await s.ctx.close();
   }
 
-  // Der Assistent in drei Stellungen: ein Schritt mit Auswahl, und zwei Vorlagen direkt nach dem Kachelklick.
-  for (const [name, template, heading] of [
-    ['dashboard-automation-assistant-step', 'Zero feed-in', 'How tight should it regulate?'],
-    ['dashboard-template-surplus-charging', 'Surplus charging', null],
-    ['dashboard-template-battery-tariff', 'Charge battery on low tariff', null],
-  ]) {
-    if (!want(name)) continue;
-    s = await session(1110, 900);
-    await tab(s.page, 'automations');
-    if (await assistantStep(s.page, template, heading)) {
-      await s.page.mouse.move(1, 1);
-      await element(s.page.locator('dialog.auto-assist'), name);
-    }
-    await s.ctx.close();
-  }
 
   // Die Tour ist hier absichtlich sichtbar, sie ist der Gegenstand der Bilder.
   if (want('dashboard-onboarding-tour-welcome') || want('dashboard-onboarding-tour-step')) {
