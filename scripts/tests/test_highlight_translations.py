@@ -56,7 +56,7 @@ def write_translation(repo, pr, data):
 
 def test_check_passes_with_default_text(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}, "en": EN})
+    write_translation(repo, 140, {"de": {"*": "Zeigt die übersetzten Highlights"}, "en": EN})
     assert ht.main(["check", "--repo", str(repo), "--pr", "140"]) == 0
     assert "every highlight has a text in en, de" in capsys.readouterr().out
 
@@ -125,7 +125,7 @@ def test_archive_command_needs_the_tag(tmp_path):
 
 def test_archive_command_folds_into_the_tag_file(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}})
+    write_translation(repo, 140, {"de": {"*": "Zeigt die übersetzten Highlights"}})
     assert ht.main(["archive", "--repo", str(repo), "--tag", "v0.11.0"]) == 0
     assert "archived 1 files" in capsys.readouterr().out
     assert not (repo / "changelog/highlights/140.json").exists()
@@ -141,7 +141,7 @@ def test_archive_command_with_nothing_to_do(tmp_path, capsys):
 
 def test_validate_passes_without_details(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}, "en": EN})
+    write_translation(repo, 140, {"de": {"*": "Zeigt die übersetzten Highlights"}, "en": EN})
     assert ht.main(["validate", "--repo", str(repo)]) == 0
     assert capsys.readouterr().out == ""
 
@@ -218,7 +218,7 @@ def test_sync_stops_on_a_broken_tour(tmp_path, capsys):
 
 def test_check_fails_without_english_and_explains_the_copy(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}})
+    write_translation(repo, 140, {"de": {"*": "Zeigt die übersetzten Highlights"}})
     assert ht.main(["check", "--repo", str(repo), "--pr", "140"]) == 1
     out = capsys.readouterr().out
     assert "no 'en' text" in out
@@ -280,7 +280,7 @@ def test_sync_without_highlight_and_block_writes_nothing(tmp_path, capsys):
 
 def test_validate_needs_english_in_every_file(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}})
+    write_translation(repo, 140, {"de": {"*": "Zeigt die übersetzten Highlights"}})
     assert ht.main(["validate", "--repo", str(repo)]) == 1
     out = capsys.readouterr().out
     assert "#140 en: missing, every highlight needs an English text next to de" in out
@@ -289,6 +289,6 @@ def test_validate_needs_english_in_every_file(tmp_path, capsys):
 
 def test_validate_reports_a_component_without_english(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    write_translation(repo, 140, {"de": {"*": "zeigt"}, "en": {"dashboard": "Shows"}})
+    write_translation(repo, 140, {"de": {"*": "Zeigt"}, "en": {"dashboard": "Shows"}})
     assert ht.main(["validate", "--repo", str(repo)]) == 1
     assert capsys.readouterr().out == '#140 en: no text for Installer v0.4.1 "show the translated highlights"\n'

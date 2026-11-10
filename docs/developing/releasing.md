@@ -366,14 +366,15 @@ Every highlight needs an English and a German text. Both live in
 
 ```json
 {
-  "de": {"*": "Die Statistikseite funktioniert auf dem Handy.", "dashboard": "Text nur für das Dashboard"},
+  "de": {"*": "Die Statistikseite funktioniert auf dem Handy", "dashboard": "Text nur für das Dashboard"},
   "en": {"*": "The statistics page works on a phone"}
 }
 ```
 
 `*` applies to every component without its own line, every other key is a
-target of `scripts/generate_changelog.sh`. The English text starts with a
-capital letter and has no full stop at the end and no semicolon.
+target of `scripts/generate_changelog.sh`. Both texts start with a capital
+letter, have no full stop at the end, no semicolon and at most 100 characters.
+Put the rest into details.
 
 While the PR is open, its description is the source. When the file has no
 English text yet, the Version bump workflow copies the text of the PR's
@@ -386,7 +387,7 @@ text on every run. The German text comes from the same section:
 Highlights (en):
 - The statistics page works on a phone
 Highlights (de):
-- Die Statistikseite funktioniert auf dem Handy.
+- Die Statistikseite funktioniert auf dem Handy
 - dashboard: Text nur für das Dashboard
 ```
 

@@ -9,6 +9,6 @@
     }
   },
   "en": {
-    "*": "The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller"
+    "*": "The installer fetches Caddy, Tailscale and the Python wheels itself"
   }
 }

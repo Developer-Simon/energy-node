@@ -708,7 +708,7 @@
   },
   "82": {
     "de": {
-      "*": "changelog.json liegt im Bundle und zeigt vor einem Update, was neu ist"
+      "*": "Die changelog.json liegt im Bundle und zeigt vor einem Update, was neu ist"
     },
     "en": {
       "*": "Ship changelog.json in the bundle and show what is new before an update"

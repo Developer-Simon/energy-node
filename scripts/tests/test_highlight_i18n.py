@@ -293,21 +293,32 @@ def test_english_form_capitalises_and_drops_the_full_stop():
 
 
 def test_validate_texts_accepts_english_and_german():
-    translations = {5: {"de": {"*": "x."}, "en": {"*": "E", "dashboard": "D"}}, 6: {"details": {}}}
+    translations = {5: {"de": {"*": "X"}, "en": {"*": "E", "dashboard": "D"}}, 6: {"details": {}}}
     assert hi.validate_texts(translations, TARGETS) == []
 
 
+def test_validate_texts_applies_the_form_to_german():
+    assert hi.validate_texts({5: {"de": {"*": "klein."}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: start with a capital letter"]
+    assert hi.validate_texts({5: {"de": {"*": "Text."}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: drop the full stop at the end"]
+    assert hi.validate_texts({5: {"de": {"*": "A; B"}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: no semicolon"]
+    assert hi.validate_texts({5: {"de": {"*": "A" * 101}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: longer than 100 characters, move the rest into details"]
+
+
 def test_validate_texts_needs_english_next_to_german():
-    assert hi.validate_texts({5: {"de": {"*": "x"}}}, TARGETS) == [
+    assert hi.validate_texts({5: {"de": {"*": "X"}}}, TARGETS) == [
         "#5 en: missing, every highlight needs an English text next to de"]
 
 
 def test_validate_texts_reports_broken_texts():
     translations = {
-        5: {"de": {"*": "x"}, "en": {"*": " ", "nope": "Y", "dashboard": "A\nb", "installer": "Text (#5)"}},
+        5: {"de": {"*": "X"}, "en": {"*": " ", "nope": "Y", "dashboard": "A\nb", "installer": "Text (#5)"}},
         6: {"de": [], "en": {"*": "E"}},
-        7: {"de": {"*": "x"}, "en": {"*": "lower case", "dashboard": "Ends.", "installer": "A; B"}},
-        8: {"de": {"*": "x"}, "en": {"*": "E"}, "doc_title": {"*": "Old"}},
+        7: {"de": {"*": "X"}, "en": {"*": "lower case", "dashboard": "Ends.", "installer": "A; B"}},
+        8: {"de": {"*": "X"}, "en": {"*": "E"}, "doc_title": {"*": "Old"}},
     }
     assert hi.validate_texts(translations, TARGETS) == [
         "#5 en *: text is empty",

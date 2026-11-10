@@ -7,7 +7,9 @@ German text of its release highlights:
      "en": {"*": "Text for every component"}}
 
 `*` applies to every component without its own line. Every other key is a
-target of `scripts/generate_changelog.sh`. A PR file can also hold `details`
+target of `scripts/generate_changelog.sh`. Both texts start with a capital
+letter, have no full stop at the end, no semicolon and at most 100 characters.
+Put the rest into details. A PR file can also hold `details`
 for a larger highlight, see
 [details for bigger highlights](../../docs/developing/releasing.md#details-for-bigger-highlights).
 Every highlight of the dashboard also needs a `tour`, see

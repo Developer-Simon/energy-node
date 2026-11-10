@@ -38,6 +38,7 @@ LANGUAGES = ("de",)
 # Text aus dem CHANGELOG (make_changelog_json.attach_translations) und gehoert
 # nicht in "i18n".
 ENGLISH = "en"
+MAX_TEXT_LENGTH = 100
 TRANSLATIONS_DIR = Path("changelog/highlights")
 RELEASE_FILE = re.compile(r"^v(?P<major>\d+)\.\d+\.\d+$")
 ARCHIVE_FILE = re.compile(r"^archive-v(?P<major>\d+)$")
@@ -205,14 +206,14 @@ def _text_problems(prefix, lang, key, text, targets):
         return [prefix + "text must be one line"]
     if PR_REF.search(text):
         return [prefix + "drop the PR number, the changelog adds it"]
-    if lang != ENGLISH:
-        return []
     if text[:1].islower():
         return [prefix + "start with a capital letter"]
     if text.rstrip().endswith("."):
         return [prefix + "drop the full stop at the end"]
     if ";" in text:
         return [prefix + "no semicolon"]
+    if len(text) > MAX_TEXT_LENGTH:
+        return [prefix + f"longer than {MAX_TEXT_LENGTH} characters, move the rest into details"]
     return []
 
 
