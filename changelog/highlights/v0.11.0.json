@@ -1,7 +1,7 @@
 {
   "163": {
     "de": {
-      "*": "Automationsregeln können ihre Aktionen wiederholen, solange die Bedingungen gelten."
+      "*": "Automationsregeln können Aktionen wiederholen, solange Bedingungen gelten"
     },
     "en": {
       "*": "Automation rules can repeat their actions while their conditions hold"
@@ -38,7 +38,7 @@
   },
   "164": {
     "de": {
-      "*": "Die Automationen-Seite zeigt Szenarien mit Live-Karte, Diagramm und Phasen-Editor und hat einen neu gestalteten Regeleditor."
+      "*": "Szenarien mit Live-Karte, Diagramm und Phasen-Editor, neuer Regeleditor"
     },
     "en": {
       "*": "Scenarios with live cards, charts and a phase editor, plus a new rule editor"
@@ -121,7 +121,7 @@
   },
   "165": {
     "de": {
-      "*": "Die Editoren für Szenarien und Regeln zeigen Geräte als Kacheln mit Live-Werten und wählen sie in einem gemeinsamen Geräte-Picker."
+      "*": "Editoren zeigen Geräte als Kacheln mit Live-Werten in einem Geräte-Picker"
     },
     "en": {
       "*": "Editors show devices as tiles with live values in one device picker"
@@ -129,7 +129,7 @@
   },
   "166": {
     "de": {
-      "*": "Ein Vorlagen-Assistent legt Szenarien und Regeln über wenige Fragen an, mit fünf Vorlagen wie Nulleinspeisung und Überschussladen."
+      "*": "Vorlagen-Assistent legt Szenarien und Regeln über wenige Fragen an"
     },
     "en": {
       "*": "An assistant builds scenarios and rules from five templates like zero feed-in"
@@ -143,7 +143,7 @@
   },
   "167": {
     "de": {
-      "*": "Einstellungen, Benutzer: benannte Konten mit einzelnen Berechtigungen, einstellbarer Mindestlänge des Passworts und einer Liste der angemeldeten Sitzungen."
+      "*": "Benannte Konten mit eigenen Berechtigungen und Sitzungsliste"
     },
     "en": {
       "*": "Named accounts with own permissions, a minimum password length and sessions"
@@ -251,7 +251,7 @@
   },
   "168": {
     "de": {
-      "*": "Einzelregeln zeigen ihre letzten vier Auslösungen, mobil öffnet der Assistent als Blatt."
+      "*": "Regeln zeigen die letzten vier Auslösungen, Assistent mobil als Blatt"
     },
     "en": {
       "*": "Rules show their last four triggers, and phones open the assistant as a sheet"
@@ -302,7 +302,7 @@
   },
   "169": {
     "de": {
-      "*": "Die Vorlage Nulleinspeisung stellt das Regelziel durch Ziehen eines Bandes auf der Netzachse ein, mit der Netzleistung von gestern als Orientierung."
+      "*": "Nulleinspeisung stellt das Regelziel durch Ziehen eines Bandes ein"
     },
     "en": {
       "*": "The zero feed template sets the regulator target with a draggable band"
@@ -316,7 +316,7 @@
   },
   "170": {
     "de": {
-      "*": "Berechtigungen werden durchgesetzt: Konten sehen nur die Seiten, die sie ansehen dürfen, und ändern nur, was sie ändern dürfen."
+      "*": "Konten sehen und ändern nur, was ihre Berechtigungen erlauben"
     },
     "en": {
       "*": "Users only see and change the pages their permissions allow"
@@ -368,10 +368,16 @@
   },
   "172": {
     "de": {
-      "*": "Neue Vorlagen im Assistenten für Wärmepumpe, Laden bei Niedrigtarif, Netzbezug deckeln, Steuersignal nach §14a, Heizstab und fehlenden PV-Ertrag."
+      "*": "Neue Assistenten-Vorlagen für Wärmepumpe, Niedrigtarif und §14a"
     },
     "en": {
       "*": "New assistant templates for heat pumps, low tariff charging and §14a control"
+    },
+    "details": {
+      "*": {
+        "de": "Neue Vorlagen im Assistenten für Wärmepumpe, Laden bei Niedrigtarif, Netzbezug deckeln, Steuersignal nach §14a, Heizstab und fehlenden PV-Ertrag.",
+        "en": "New assistant templates for heat pump, charging at a low tariff, capping grid import, the §14a control signal, heating element and missing PV yield."
+      }
     }
   },
   "174": {
@@ -391,7 +397,7 @@
   },
   "175": {
     "de": {
-      "*": "Automationsfenster lassen sich auf Tage im Monat einschränken."
+      "*": "Automationsfenster lassen sich auf Tage im Monat einschränken"
     },
     "en": {
       "*": "Automation windows can be limited to days of the month"
@@ -490,7 +496,7 @@
   },
   "181": {
     "de": {
-      "*": "Die Liste „Weitere“ im Hauptmenü misst sich auf schmalen Bildschirmen nicht mehr ohne Pause neu"
+      "*": "Die Liste „Weitere“ im Hauptmenü misst sich nicht mehr ständig neu"
     },
     "en": {
       "*": "The main tab's More list no longer keeps resizing itself"
@@ -534,7 +540,7 @@
   },
   "184": {
     "de": {
-      "*": "Gäste dürfen standardmäßig nur ansehen, und ein Admin kann den Gastzugang abschalten."
+      "*": "Gäste dürfen standardmäßig nur ansehen, Gastzugang abschaltbar"
     },
     "en": {
       "*": "Guests can only view by default, and an admin can switch guest access off"
@@ -622,7 +628,7 @@
   },
   "187": {
     "de": {
-      "*": "Der Installer fragt das sudo-Passwort in einem Dialog ab und richtet passwortloses sudo auf dem Gerät ein."
+      "*": "Installer fragt das sudo-Passwort ab und richtet passwortloses sudo ein"
     },
     "en": {
       "*": "A dialog asks for the sudo password and sets up passwordless sudo"
@@ -638,7 +644,7 @@
   },
   "188": {
     "de": {
-      "*": "Eine geführte Ersteinrichtung führt Admins durch Zugang, Darstellung, System und Geräte, zuerst mit einem Willkommensschritt."
+      "*": "Geführte Ersteinrichtung für Admins mit Willkommensschritt"
     },
     "en": {
       "*": "A guided first-time setup for admins covers access, display, system and devices"
@@ -652,7 +658,7 @@
   },
   "189": {
     "de": {
-      "*": "Der Installer kann die Python-Abhängigkeiten online laden, wenn die Python-Version des Geräts vom Paket abweicht, sobald du das bestätigst."
+      "*": "Installer lädt Python-Abhängigkeiten online, wenn die Version abweicht"
     },
     "en": {
       "*": "The installer can load Python packages online when the versions do not match"
@@ -667,7 +673,7 @@
   },
   "190": {
     "de": {
-      "*": "Der Installer hat einen Dashboard-Schritt, in dem Benutzer, Gastzugang und das Aussehen des Dashboards vorgegeben oder auf später gestellt werden können."
+      "*": "Installer-Schritt Dashboard gibt Benutzer, Gastzugang und Aussehen vor"
     },
     "en": {
       "*": "The installer's Dashboard step presets users, guest access and the look"
@@ -683,10 +689,16 @@
   },
   "191": {
     "de": {
-      "*": "Eine frische Installation startet jetzt das Dashboard. Es scheitert nicht mehr an einem fehlenden Datenordner oder an einer MQTT-Anmeldung, die der Broker ablehnt."
+      "*": "Eine frische Installation startet das Dashboard zuverlässig"
     },
     "en": {
       "*": "A fresh install starts the dashboard despite a missing folder or MQTT login"
+    },
+    "details": {
+      "*": {
+        "de": "Eine frische Installation startet jetzt das Dashboard. Es scheitert nicht mehr an einem fehlenden Datenordner oder an einer MQTT-Anmeldung, die der Broker ablehnt.",
+        "en": "A fresh install now starts the dashboard. It no longer fails on a missing data folder or an MQTT login the broker refuses."
+      }
     }
   },
   "192": {
@@ -705,7 +717,7 @@
   },
   "193": {
     "de": {
-      "*": "Die Diagnose des Installers zeigt ein Live-Log von Dashboard und Updater mit ihrem Zustand."
+      "*": "Installer-Diagnose zeigt Live-Log von Dashboard und Updater"
     },
     "en": {
       "*": "The installer diagnose shows a live log of the dashboard and the updater"
@@ -726,7 +738,7 @@
   },
   "194": {
     "de": {
-      "*": "Die Installer-Diagnose erkennt eine MQTT-Anmeldung, die der Broker ablehnt, und repariert sie mit einem neuen Passwort."
+      "*": "Installer-Diagnose erkennt abgelehnte MQTT-Anmeldung und repariert sie"
     },
     "en": {
       "*": "The installer detects a refused MQTT login and repairs it with a new password"
@@ -740,10 +752,16 @@
   },
   "195": {
     "de": {
-      "*": "Das Dashboard startet und bleibt erreichbar, wenn die erste MQTT-Verbindung scheitert. Es versucht es im Hintergrund weiter und zeigt den Fehler im MQTT-Tab."
+      "*": "Dashboard startet auch, wenn die erste MQTT-Verbindung scheitert"
     },
     "en": {
       "*": "The dashboard starts and stays reachable when the first MQTT connection fails"
+    },
+    "details": {
+      "*": {
+        "de": "Das Dashboard startet und bleibt erreichbar, wenn die erste MQTT-Verbindung scheitert. Es versucht es im Hintergrund weiter und zeigt den Fehler im MQTT-Tab.",
+        "en": "The dashboard starts and stays reachable when the first MQTT connection fails. It keeps trying in the background and shows the error in the MQTT tab."
+      }
     }
   },
   "196": {
@@ -762,7 +780,7 @@
   },
   "197": {
     "de": {
-      "*": "Einstellungen, Checkliste, Neues erkunden listet die Highlights der letzten drei Minor-Versionen, eine Karte je Release, mit Tour für die Highlights, die eine haben."
+      "*": "Neues erkunden listet die Highlights der letzten drei Minor-Versionen"
     },
     "en": {
       "*": "The checklist's Explore mode lists the highlights of the last three releases"
@@ -781,7 +799,7 @@
   },
   "198": {
     "de": {
-      "*": "Einstellungen, Checkliste: Jede sichtbare Funktion seit v0.8.0 hat eine Tour, Releases älter als die letzten drei Minor-Versionen stehen hinter „Weiter zurück erkunden“, und jede ältere Release-Karte kann ihre Tour nachholen."
+      "*": "Jede Funktion seit v0.8.0 hat eine Tour, ältere lassen sich nachholen"
     },
     "en": {
       "*": "Every feature since v0.8.0 has a tour, and older releases can catch up"
@@ -800,7 +818,7 @@
   },
   "200": {
     "de": {
-      "*": "Eingeschränkte Anmeldungen werden protokolliert, HA-Konten melden bei Passwortänderung einen klaren Fehler"
+      "*": "Eingeschränkte Anmeldungen werden protokolliert"
     },
     "en": {
       "*": "Log restricted logins and reject password changes of HA accounts"
@@ -809,11 +827,17 @@
       "*": {
         "exempt": "Only a log line and an error message, there is nothing on screen to show."
       }
+    },
+    "details": {
+      "*": {
+        "de": "Eingeschränkte Anmeldungen werden protokolliert, HA-Konten melden bei Passwortänderung einen klaren Fehler.",
+        "en": "Restricted logins are logged, and HA accounts report a clear error on a password change."
+      }
     }
   },
   "201": {
     "de": {
-      "*": "Touren öffnen und zeigen, was sie erklären, und bieten sich bei Neuigkeiten selbst an"
+      "*": "Touren öffnen und zeigen, was sie erklären"
     },
     "en": {
       "*": "Tours can run actions, include guest and favourite steps, and offer news"
@@ -822,11 +846,17 @@
       "*": {
         "exempt": "The tours themselves are the feature, and the explore card offers itself at the next start."
       }
+    },
+    "details": {
+      "*": {
+        "de": "Touren öffnen und zeigen, was sie erklären, und bieten sich bei Neuigkeiten selbst an.",
+        "en": "Tours open and show what they explain, and offer themselves when there is news."
+      }
     }
   },
   "202": {
     "de": {
-      "*": "Der Admin-Benutzername aus dem Installer gilt jetzt, und die Einrichtung erkennt mehr Schritte als erledigt"
+      "*": "Der Admin-Name aus dem Installer gilt, die Einrichtung erkennt mehr Schritte"
     },
     "en": {
       "*": "Apply the installer admin name and detect more setup steps as done"

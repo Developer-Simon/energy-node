@@ -1,6 +1,12 @@
 {
   "de": {
-    "*": "Der Installer holt Caddy, Tailscale und die Python-Wheels jetzt selbst und prüft jede Datei gegen das signierte Manifest, die Releases werden dadurch kleiner."
+    "*": "Installer holt Caddy, Tailscale und Wheels selbst, Releases werden kleiner"
+  },
+  "details": {
+    "*": {
+      "de": "Der Installer holt Caddy, Tailscale und die Python-Wheels jetzt selbst und prüft jede Datei gegen das signierte Manifest, die Releases werden dadurch kleiner.",
+      "en": "The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller."
+    }
   },
   "en": {
     "*": "The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller"

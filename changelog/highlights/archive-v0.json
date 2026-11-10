@@ -105,7 +105,7 @@
   },
   "22": {
     "de": {
-      "*": "Service-Manifeste werden mitgeliefert und die Reihenfolge der Changelog-Erhöhung ist korrigiert"
+      "*": "Service-Manifeste werden mitgeliefert, Changelog-Reihenfolge korrigiert"
     },
     "en": {
       "*": "Deliver service manifests, fix changelog bump ordering"
@@ -241,10 +241,16 @@
   },
   "43": {
     "de": {
-      "*": "Service-Units starten beim Update neu und das installierte Manifest wird festgehalten"
+      "*": "Service-Units starten beim Update neu"
     },
     "en": {
       "*": "Restart service units on update and record the installed manifest"
+    },
+    "details": {
+      "*": {
+        "de": "Service-Units starten beim Update neu, und das installierte Manifest wird festgehalten.",
+        "en": "Service units restart on update and the installed manifest is recorded."
+      }
     }
   },
   "44": {
@@ -265,7 +271,7 @@
   },
   "46": {
     "de": {
-      "*": "Redeploy, Reparatur und im Repository gebaute Bundles lassen sich sauber installieren"
+      "*": "Redeploy, Reparatur und Repo-Bundles installieren sauber"
     },
     "en": {
       "*": "Make redeploy, repair and repo-built bundles install cleanly"
@@ -273,7 +279,7 @@
   },
   "47": {
     "de": {
-      "*": "Bei einem veralteten dauerhaften Socket wird einmal neu versucht, bevor offline gemeldet wird"
+      "*": "Veralteter Socket wird einmal neu versucht, bevor offline gemeldet wird"
     },
     "en": {
       "*": "Retry once on a stale persistent socket before reporting offline"
@@ -385,7 +391,7 @@
   },
   "55": {
     "de": {
-      "*": "Die Entwickler-CLI ersetzt das alte Deploy-Skript."
+      "*": "Die Entwickler-CLI ersetzt das alte Deploy-Skript"
     },
     "en": {
       "*": "The developer CLI replaces the old deploy script"
@@ -499,7 +505,7 @@
   },
   "60": {
     "de": {
-      "*": "Einstellung für das Zahlenformat und Datumsangaben nach Sprache (Lokalisierung A2)"
+      "*": "Zahlenformat einstellbar, Datumsangaben folgen der Sprache"
     },
     "en": {
       "*": "A number format setting, with dates that follow the language"
@@ -678,7 +684,7 @@
   },
   "78": {
     "de": {
-      "*": "Der Zustand wird in einem Intervall gespeichert und nach einem Absturz wiederhergestellt"
+      "*": "Zustand wird regelmäßig gespeichert und nach Absturz wiederhergestellt"
     },
     "en": {
       "*": "Save the state on an interval and recover after a crash"
@@ -894,7 +900,7 @@
   },
   "102": {
     "de": {
-      "*": "Unveränderte Update-Schritte werden übersprungen und die Sitzung bleibt über den Neustart erhalten"
+      "*": "Unveränderte Update-Schritte entfallen, die Sitzung bleibt erhalten"
     },
     "en": {
       "*": "Skip unchanged update steps and keep the session across the restart"
@@ -1315,7 +1321,7 @@
   },
   "131": {
     "de": {
-      "*": "Der Ergebnisbildschirm des Updates passt zum Dashboard."
+      "*": "Der Update-Ergebnisbildschirm passt zum Dashboard"
     },
     "en": {
       "*": "The update result screen fits the dashboard"
@@ -1323,7 +1329,7 @@
   },
   "132": {
     "de": {
-      "*": "Energiestatistik mit Kachel, eigener Seite und Aufzeichnungsmodus."
+      "*": "Energiestatistik mit Kachel, eigener Seite und Aufzeichnungsmodus"
     },
     "en": {
       "*": "Energy statistics tile, page and recording mode"
@@ -1390,15 +1396,21 @@
   },
   "133": {
     "de": {
-      "*": "Der Ereignisstrom liefert nur noch die abonnierten Themen, und die Statistikkachel lädt die Übersicht nicht mehr komplett neu."
+      "*": "Der Ereignisstrom liefert nur abonnierte Themen"
     },
     "en": {
       "*": "The statistics tile updates live in place"
+    },
+    "details": {
+      "*": {
+        "de": "Der Ereignisstrom liefert nur noch die abonnierten Themen, und die Statistikkachel lädt die Übersicht nicht mehr komplett neu.",
+        "en": "The event stream delivers only the subscribed topics, and the statistics tile no longer reloads the whole overview."
+      }
     }
   },
   "134": {
     "de": {
-      "*": "Release-Highlights haben jetzt einen deutschen Text im Dashboard, im Installer und in den Release Notes."
+      "*": "Highlights gibt es auch auf Deutsch"
     },
     "en": {
       "*": "Release highlights also come in German, shown in the dashboard and installer"
@@ -1447,15 +1459,21 @@
   },
   "135": {
     "de": {
-      "*": "Gerätekacheln in der Übersicht und im Geräte-Tab werden direkt aus dem Ereignisstrom aktualisiert, ohne die ganze Ansicht neu zu laden."
+      "*": "Gerätekacheln aktualisieren sich live ohne Neuladen"
     },
     "en": {
       "*": "Device tiles update live without reloading"
+    },
+    "details": {
+      "*": {
+        "de": "Gerätekacheln in der Übersicht und im Geräte-Tab werden direkt aus dem Ereignisstrom aktualisiert, ohne die ganze Ansicht neu zu laden.",
+        "en": "Device tiles in the overview and the devices tab update straight from the event stream without reloading the whole view."
+      }
     }
   },
   "137": {
     "de": {
-      "*": "Wähle, wie viele Versionen der Changelog zeigt. Die Historie bleibt über Updates hinweg auf dem Gerät."
+      "*": "Anzahl der Changelog-Versionen wählbar, Historie bleibt über Updates"
     },
     "en": {
       "*": "Choose how many changelog versions show, kept on the device across updates"
@@ -1477,7 +1495,7 @@
   },
   "138": {
     "de": {
-      "*": "Der MQTT-Tab erklärt die Einrichtung der Mosquitto-Bridge, und die veröffentlichten Systemmetriken lassen sich in einer Mehrfachauswahl festlegen."
+      "*": "MQTT-Tab erklärt die Mosquitto-Bridge, Systemmetriken per Mehrfachauswahl"
     },
     "en": {
       "*": "The MQTT tab explains the Mosquitto bridge and picks system metrics in one list"
@@ -1547,7 +1565,7 @@
   },
   "141": {
     "de": {
-      "*": "Die Verlaufsseite bietet die zum Zeitraum passenden Auflösungen an und wählt die gröbste vor, zeigt ab einer Woche Stundenwerte aus der Energiestatistik und hat eine Schnellwahl für 3 Monate."
+      "*": "Verlaufsseite bietet passende Auflösungen und Schnellwahl für 3 Monate"
     },
     "en": {
       "*": "The history page offers fitting resolutions in a dropdown and a 3 month preset"
@@ -1588,7 +1606,7 @@
   },
   "142": {
     "de": {
-      "*": "Das Dashboard meldet Sensoren für Wallbox, Wärmepumpe und eigene Kategorien in Home Assistant an, sobald ihnen etwas zugeordnet ist, und jeder lässt sich im MQTT-Tab abwählen. Der Companion liefert diese Rollen für Verlauf und Energiestatistik."
+      "*": "Home Assistant erhält Sensoren für Wallbox, Wärmepumpe und eigene Kategorien"
     },
     "en": {
       "*": "Home Assistant gets sensors for wallbox, heat pump and custom categories"
@@ -1610,7 +1628,7 @@
   },
   "143": {
     "de": {
-      "*": "Der Lastmodus Automatisch rechnet den Hausverbrauch jetzt immer aus der Bilanz, ein Hauszähler dient als Kontrolle. Eine Statuszeile auf der Energie-Seite zeigt Quelle, Rückfall und Zählerabweichung, und Home Assistant erhält gemessene und berechnete Hauslast als eigene Sensoren."
+      "*": "Hauslast wird immer aus der Bilanz berechnet, Hauszähler dient als Kontrolle"
     },
     "en": {
       "*": "House load is always calculated, with a house meter as cross-check"
@@ -1654,15 +1672,21 @@
   },
   "144": {
     "de": {
-      "*": "Hilfetexte, Device-Map, Energierollen und Statistik passen auf schmale Bildschirme, und in der Statistik sind Einspeisung und Batterieladung schraffiert."
+      "*": "Mobile Ansicht für Hilfe, Device-Map, Energierollen und Statistik"
     },
     "en": {
       "*": "Help texts, device map, energy roles and statistics fit narrow screens"
+    },
+    "details": {
+      "*": {
+        "de": "Hilfetexte, Device-Map, Energierollen und Statistik passen auf schmale Bildschirme, und in der Statistik sind Einspeisung und Batterieladung schraffiert.",
+        "en": "Help texts, device map, energy roles and statistics fit narrow screens, and feed-in and battery charging are hatched in the statistics."
+      }
     }
   },
   "145": {
     "de": {
-      "*": "Die Device-Map zeigt, welche Geräte ausgeschaltet sind. Ein ausgeschalteter Ausgang trennt die Leitung dahinter, und jedes Gerät ohne Strom wird blass dargestellt und als aus markiert."
+      "*": "Die Device-Map zeigt ausgeschaltete Geräte blass und als aus markiert"
     },
     "en": {
       "*": "The device map shows switched-off devices, which fade out with an off label"
@@ -1745,7 +1769,7 @@
   },
   "146": {
     "de": {
-      "*": "Schalter sind jetzt eine Energie-Rolle mit optionalem Kanal. Die Device-Map zeigt an jeder geschalteten Verbindung einen grünen oder roten Kreis, und nur die Verbindung eines ausgeschalteten Kanals wird getrennt."
+      "*": "Schalter als Energie-Rolle mit optionalem Kanal und grünem oder rotem Kreis"
     },
     "en": {
       "*": "Switches are an energy role with an optional channel, shown as green or red"
@@ -1767,7 +1791,7 @@
   },
   "147": {
     "de": {
-      "*": "Ausblenden betrifft nur noch Einträge ohne Rolle, und die ausgeblendeten Einträge gelten auch in der Device-Map."
+      "*": "Ausblenden betrifft nur Einträge ohne Rolle und gilt auch in der Device-Map"
     },
     "en": {
       "*": "Hide only role-less entries and share the list with the device map"
@@ -1775,7 +1799,7 @@
   },
   "148": {
     "de": {
-      "*": "Einzelne Verbraucher an einem Messgerät lassen sich als Untergeräte benennen, in der Device-Map, im Geräte-Dialog und auf der Energie-Seite."
+      "*": "Verbraucher an einem Messgerät lassen sich als Untergeräte benennen"
     },
     "en": {
       "*": "Single appliances on a meter can be named as sub-devices in the device map"
@@ -1797,7 +1821,7 @@
   },
   "149": {
     "de": {
-      "*": "Die Device-Map zeigt den rechten Rand ihrer Zeichenfläche wieder vollständig."
+      "*": "Die Device-Map zeigt ihren rechten Rand wieder vollständig"
     },
     "en": {
       "*": "The device map shows the right edge of its canvas again"
@@ -1821,23 +1845,35 @@
   },
   "152": {
     "de": {
-      "*": "Highlights lassen sich im Neuerungen-Dialog aufklappen und zeigen Erklärung, Bild und Link zur Anleitung."
+      "*": "Highlights lassen sich im Neuerungen-Dialog aufklappen"
     },
     "en": {
       "*": "Expandable highlight details in the what's new dialog"
+    },
+    "details": {
+      "*": {
+        "de": "Highlights lassen sich im Neuerungen-Dialog aufklappen und zeigen Erklärung, Bild und Link zur Anleitung.",
+        "en": "Highlights expand in the what's new dialog and show an explanation, an image and a link to the guide."
+      }
     }
   },
   "153": {
     "de": {
-      "*": "Klarerer Update-Hinweis, die Firewall wird abgehakt, und Dienste laufen nur bei echten Änderungen."
+      "*": "Klarerer Update-Hinweis, weniger unnötige Neustarts von Diensten"
     },
     "en": {
       "*": "Clearer update notice, firewall step completes, unchanged libraries skipped"
+    },
+    "details": {
+      "*": {
+        "de": "Klarerer Update-Hinweis, die Firewall wird abgehakt, und Dienste laufen nur bei echten Änderungen.",
+        "en": "A clearer update notice, the firewall step is ticked off, and services only restart on real changes."
+      }
     }
   },
   "157": {
     "de": {
-      "*": "Die Health-Schwelle gilt in Sekunden und hat einen sinnvollen Standard."
+      "*": "Die Health-Schwelle gilt in Sekunden mit sinnvollem Standard"
     },
     "en": {
       "*": "Use a working health threshold"
@@ -1845,7 +1881,7 @@
   },
   "158": {
     "de": {
-      "*": "Die Device Map kann Verbindungen nach Typ (Energie, Daten, Info) ausblenden, über einen neuen Filterknopf."
+      "*": "Device-Map blendet Verbindungen nach Typ über einen Filterknopf aus"
     },
     "en": {
       "*": "The device map can hide connections by type (energy, data, info) with a new filter button"
@@ -1880,7 +1916,7 @@
   },
   "159": {
     "de": {
-      "*": "Die Einstellungsseiten stehen in einer Seitenleiste, auf dem Handy in einem Blatt von unten."
+      "*": "Einstellungen in einer Seitenleiste, auf dem Handy als Blatt von unten"
     },
     "en": {
       "*": "Settings pages are listed in a sidebar, on phones in a sheet from the bottom"
@@ -1934,7 +1970,7 @@
   },
   "160": {
     "de": {
-      "*": "Titel und Untertitel des Dashboards lassen sich ändern oder ausblenden."
+      "*": "Titel und Untertitel des Dashboards änderbar oder ausblendbar"
     },
     "en": {
       "*": "The dashboard title and subtitle can be changed or hidden"
@@ -1976,7 +2012,7 @@
   },
   "161": {
     "de": {
-      "*": "Die Diagnoseseite zeigt die Protokolle der Energy-Node-Dienste, mit Suche und automatischer Aktualisierung."
+      "*": "Diagnoseseite zeigt die Protokolle der Energy-Node-Dienste"
     },
     "en": {
       "*": "The diagnostics page shows Energy Node service logs with search and refresh"
