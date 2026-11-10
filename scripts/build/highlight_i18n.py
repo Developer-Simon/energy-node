@@ -27,6 +27,10 @@ from pathlib import Path
 
 # Sprachen ausser Englisch, die jedes Highlight braucht (CI-Pruefung).
 LANGUAGES = ("de",)
+# Englisch steht als "en" neben den anderen Sprachen. Es ersetzt im Build den
+# Text aus dem CHANGELOG (make_changelog_json.attach_translations) und gehoert
+# nicht in "i18n".
+ENGLISH = "en"
 TRANSLATIONS_DIR = Path("changelog/highlights")
 RELEASE_FILE = re.compile(r"^v(?P<major>\d+)\.\d+\.\d+$")
 ARCHIVE_FILE = re.compile(r"^archive-v(?P<major>\d+)$")
@@ -159,6 +163,23 @@ def lookup(translations, pr, target, lang):
     return texts.get(target) or texts.get(DEFAULT_KEY) or None
 
 
+def english_form(text):
+    """Form eines "en"-Texts: grosser Anfangsbuchstabe, kein Punkt am Ende."""
+    text = text.strip()
+    text = text[:1].upper() + text[1:]
+    return text[:-1].rstrip() if text.endswith(".") else text
+
+
+def text_languages():
+    """Englisch plus die Sprachen aus LANGUAGES, zur Laufzeit gelesen."""
+    return (ENGLISH, *LANGUAGES)
+
+
+def english(translations, pr, target):
+    """Der englische Highlight-Text fuer das Ziel, None ohne "en"."""
+    return lookup(translations, pr, target, ENGLISH)
+
+
 def doc_title(translations, pr, target):
     """Doku-Titel des Highlights fuer das Ziel, sonst der Standard "*", sonst None."""
     value = translations.get(pr, {}).get(DOC_TITLE_KEY)
@@ -192,7 +213,7 @@ def validate_doc_titles(translations):
 
 def entry_i18n(translations, pr, target):
     out = {}
-    for lang in sorted(k for k in translations.get(pr, {}) if LANGUAGE_KEY.match(k)):
+    for lang in sorted(k for k in translations.get(pr, {}) if LANGUAGE_KEY.match(k) and k != ENGLISH):
         text = lookup(translations, pr, target, lang)
         if text:
             out[lang] = text

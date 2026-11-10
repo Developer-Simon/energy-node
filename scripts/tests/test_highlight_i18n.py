@@ -282,3 +282,27 @@ def test_write_pr_file_keeps_doc_title(tmp_path):
     (tmp_path / "7.json").write_text('{"doc_title": {"*": "Kept"}}\n', encoding="utf-8")
     hi.write_pr_file(tmp_path, 7, {"de": {"*": "Neu"}})
     assert json.loads((tmp_path / "7.json").read_text())["doc_title"] == {"*": "Kept"}
+
+
+def test_entry_i18n_leaves_english_out():
+    translations = {5: {"de": {"*": "x"}, "en": {"*": "E"}}}
+    assert hi.entry_i18n(translations, 5, "installer") == {"de": "x"}
+
+
+def test_english_falls_back_to_the_default_key():
+    translations = {5: {"en": {"*": "All", "dashboard": "Dashboard only"}}}
+    assert hi.english(translations, 5, "dashboard") == "Dashboard only"
+    assert hi.english(translations, 5, "installer") == "All"
+    assert hi.english(translations, 6, "installer") is None
+
+
+def test_text_languages_put_english_first(monkeypatch):
+    assert hi.text_languages() == ("en", "de")
+    monkeypatch.setattr(hi, "LANGUAGES", ("de", "fr"))
+    assert hi.text_languages() == ("en", "de", "fr")
+
+
+def test_english_form_capitalises_and_drops_the_full_stop():
+    assert hi.english_form("show the translated highlights") == "Show the translated highlights"
+    assert hi.english_form("Rules can repeat. Even twice.") == "Rules can repeat. Even twice"
+    assert hi.english_form("§14a control") == "§14a control"
