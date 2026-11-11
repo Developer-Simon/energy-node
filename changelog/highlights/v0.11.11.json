@@ -1,0 +1,222 @@
+{
+  "205": {
+    "de": {
+      "*": "Die 1h-Auflösung im Verlauf fragt keine Werte mehr bei anderen Geräten ab"
+    },
+    "en": {
+      "*": "Stop exchange requests for the 1h resolution"
+    },
+    "tour": {
+      "*": {
+        "exempt": "The change only removes background requests to other devices, nothing visible changes in the interface."
+      }
+    }
+  },
+  "212": {
+    "de": {
+      "*": "Unter der Zeitleiste einer Regel lässt sich der ganze Verlauf mit Details und Testläufen öffnen"
+    },
+    "details": {
+      "*": {
+        "de": "Zeitleiste und Liste teilen sich eine Fläche. Die Auslösungen stehen nach Tagen gruppiert auf einer senkrechten Achse, jede als Ausgelöst, Blockiert oder Fehler, Testläufe mit eigenem Abzeichen. Ein Punkt in der Zeitleiste öffnet den Verlauf und markiert seinen Eintrag.",
+        "doc": "dashboard/automations-rules.html#reading-a-rule",
+        "en": "Strip and list share one surface. The triggers sit on a vertical axis grouped by day, each marked as Triggered, Blocked or Error, test runs with their own badge. A dot in the strip opens the history and marks its entry."
+      }
+    },
+    "en": {
+      "*": "A rule opens its full history with details and test runs below the timeline"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@history-rule",
+              "rule-history-toggle"
+            ],
+            "panel": "automations-panel",
+            "target": "rule-fires",
+            "text": {
+              "de": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen.",
+              "en": "The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well."
+            },
+            "title": {
+              "de": "Detaillierter Verlauf",
+              "en": "Detailed history"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "213": {
+    "de": {
+      "*": "Aktualisierte Werte auf der Diagnose-Seite werden animiert"
+    },
+    "en": {
+      "*": "Animate updated values on the diagnostics page"
+    },
+    "tour": {
+      "*": {
+        "exempt": "Only animations changed on the diagnostics page, there is no new feature to show."
+      }
+    }
+  },
+  "216": {
+    "de": {
+      "*": "Das Balkendiagramm der Statistik-Kachel wächst mit der Kachelhöhe"
+    },
+    "en": {
+      "*": "Scale the statistics card chart with the card height"
+    },
+    "tour": {
+      "*": {
+        "exempt": "Only the chart height of the statistics card changed, there is no new feature to show."
+      }
+    }
+  },
+  "219": {
+    "de": {
+      "*": "Die Diagnose meldet korrekt gespeicherte Discovery-Meldungen nicht mehr als fehlerhaft"
+    },
+    "en": {
+      "*": "Diagnostics no longer flag correctly retained discovery messages"
+    }
+  },
+  "221": {
+    "de": {
+      "*": "Textsensoren gelten in der Diagnose nicht mehr als Sensoren ohne Einheit"
+    },
+    "en": {
+      "*": "Stop flagging text sensors as missing a unit"
+    }
+  },
+  "222": {
+    "de": {
+      "*": "Der Installer lädt Caddy, Tailscale und die Python-Pakete selbst"
+    },
+    "details": {
+      "*": {
+        "de": "Er prüft jede Datei gegen das signierte Manifest.",
+        "en": "It checks every file against the signed manifest."
+      }
+    },
+    "en": {
+      "*": "The installer downloads Caddy, Tailscale and the Python packages itself"
+    }
+  },
+  "225": {
+    "de": {
+      "*": "Tailscale wird auch als Debian-Paket erkannt"
+    },
+    "en": {
+      "*": "Find the CLI of the Debian package in /usr/bin"
+    }
+  },
+  "227": {
+    "de": {
+      "*": "Beim Schließen der Begrüßung fragt die Leiste, ob sie später wiederkommen soll"
+    },
+    "en": {
+      "*": "Ask before closing the welcome tour"
+    },
+    "tour": {
+      "*": {
+        "exempt": "The question only appears when the welcome tour is closed, there is no page element a tour could point at."
+      }
+    }
+  },
+  "228": {
+    "de": {
+      "*": "Die Node lässt sich in den Einstellungen sichern und wiederherstellen"
+    },
+    "details": {
+      "*": {
+        "de": "Unter Einstellungen, Backup erstellst du ein Archiv mit Einstellungen, Geräten, Benutzern, Statistik und Automations-Verlauf, auf Wunsch mit Passwort. Vor jedem Update und nach Zeitplan entsteht automatisch eines. Beim Wiederherstellen zeigt eine Vorschau, was sich ändert.",
+        "doc": "dashboard/settings-backup.html",
+        "en": "Under Settings, Backup you create an archive with settings, devices, users, statistics and automation history, optionally with a password. One is created automatically before every update and on a schedule. Before a restore, a preview shows what changes.",
+        "image": "dashboard-settings-backup.png"
+      }
+    },
+    "en": {
+      "*": "Back up and restore the node in the settings"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "page": "backup",
+            "panel": "settings-panel",
+            "target": "backup-overview",
+            "text": {
+              "de": "Mit der Backup-Funktion lassen sich die Daten und Einstellungen dieses Systems exportieren. So kannst du sie auf ein neues Gerät übertragen und dich gegen einen Ausfall des Systems absichern.",
+              "en": "The backup function exports the data and settings of this system. Use it to move to a new device and to protect yourself against a failure of the system."
+            },
+            "title": {
+              "de": "Backup",
+              "en": "Backup"
+            }
+          },
+          {
+            "need": "backup_export",
+            "page": "backup",
+            "panel": "settings-panel",
+            "target": "backup-create",
+            "text": {
+              "de": "Hier erstellst du das Backup. In der Auswahl legst du fest, welche Bestandteile enthalten sind und ob es lokal auf der Node abgelegt oder im Browser heruntergeladen wird. Archive lassen sich mit einem Passwort schützen.",
+              "en": "Create the backup here. In the selection you choose which parts it contains and whether it is stored locally on the node or downloaded in the browser. Archives can be protected with a password."
+            },
+            "title": {
+              "de": "Backup erstellen",
+              "en": "Create a backup"
+            }
+          },
+          {
+            "need": "backup_import",
+            "page": "backup",
+            "panel": "settings-panel",
+            "target": "backup-restore",
+            "text": {
+              "de": "Hier überträgst du ein Archiv von einem anderen System auf dieses oder stellst einen älteren Stand wieder her. In einer Vorschau siehst du vor dem Ausführen genau, was sich gegenüber der aktuellen Installation ändert.",
+              "en": "Transfer an archive from another system to this one or restore an earlier state here. A preview shows exactly what changes compared with the current installation before anything is done."
+            },
+            "title": {
+              "de": "Backup wiederherstellen",
+              "en": "Restore a backup"
+            }
+          },
+          {
+            "need": "backup_export",
+            "page": "backup",
+            "panel": "settings-panel",
+            "target": "backup-archives",
+            "text": {
+              "de": "Alle Archive, die auf der Node liegen, stehen hier. In der Liste finden sich auch automatisch erzeugte Archive. Von dort lassen sie sich wiederherstellen oder herunterladen.",
+              "en": "All archives stored on the node are listed here, including the ones created automatically. From there you can restore or download them."
+            },
+            "title": {
+              "de": "Archive auf der Node",
+              "en": "Archives on the node"
+            }
+          },
+          {
+            "need": "backup_export",
+            "page": "backup",
+            "panel": "settings-panel",
+            "target": "backup-auto",
+            "text": {
+              "de": "Hier legst du fest, wann automatisch ein Backup erstellt werden soll, vor jedem Update und nach einem Zeitplan.",
+              "en": "Choose when a backup is created automatically, before each update and on a schedule."
+            },
+            "title": {
+              "de": "Automatische Backups",
+              "en": "Automatic backups"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
