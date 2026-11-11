@@ -1,0 +1,92 @@
+{
+  "blockdevices": [
+    {
+      "name": "nvme0n1", "path": "/dev/nvme0n1", "size": 500107862016,
+      "model": "WD_BLACK SN850X", "tran": "nvme", "rm": false, "hotplug": false,
+      "type": "disk", "fstype": null, "label": null, "fsused": null,
+      "mountpoints": [null],
+      "children": [
+        {
+          "name": "nvme0n1p1", "path": "/dev/nvme0n1p1", "size": 536870912,
+          "model": null, "tran": null, "rm": false, "hotplug": false,
+          "type": "part", "fstype": "vfat", "label": null, "fsused": 41943040,
+          "mountpoints": ["/boot/efi"]
+        },
+        {
+          "name": "nvme0n1p2", "path": "/dev/nvme0n1p2", "size": 499570000000,
+          "model": null, "tran": null, "rm": false, "hotplug": false,
+          "type": "part", "fstype": "btrfs", "label": "fedora", "fsused": 21474836480,
+          "mountpoints": ["/", "/home"]
+        }
+      ]
+    },
+    {
+      "name": "sda", "path": "/dev/sda", "size": 250059350016,
+      "model": "Samsung SSD 870 ", "tran": "sata", "rm": false, "hotplug": false,
+      "type": "disk", "fstype": null, "label": null, "fsused": null,
+      "mountpoints": [null],
+      "children": [
+        {
+          "name": "sda1", "path": "/dev/sda1", "size": 249000000000,
+          "model": null, "tran": null, "rm": false, "hotplug": false,
+          "type": "part", "fstype": "ntfs", "label": "Windows", "fsused": 98000000000,
+          "mountpoints": [null]
+        }
+      ]
+    },
+    {
+      "name": "sdb", "path": "/dev/sdb", "size": 31914983424,
+      "model": "SD/MMC Reader", "tran": "usb", "rm": true, "hotplug": true,
+      "type": "disk", "fstype": null, "label": null, "fsused": null,
+      "mountpoints": [null],
+      "children": [
+        {
+          "name": "sdb1", "path": "/dev/sdb1", "size": 268435456,
+          "model": null, "tran": null, "rm": true, "hotplug": true,
+          "type": "part", "fstype": "vfat", "label": "bootfs", "fsused": 33554432,
+          "mountpoints": [null]
+        },
+        {
+          "name": "sdb2", "path": "/dev/sdb2", "size": 31645000000,
+          "model": null, "tran": null, "rm": true, "hotplug": true,
+          "type": "part", "fstype": "ext4", "label": "rootfs", "fsused": 1200000000,
+          "mountpoints": [null]
+        }
+      ]
+    },
+    {
+      "name": "sdc", "path": "/dev/sdc", "size": 512110190592,
+      "model": "Intenso", "tran": "usb", "rm": false, "hotplug": false,
+      "type": "disk", "fstype": null, "label": null, "fsused": null,
+      "mountpoints": [null],
+      "children": [
+        {
+          "name": "sdc1", "path": "/dev/sdc1", "size": 512000000000,
+          "model": null, "tran": null, "rm": false, "hotplug": false,
+          "type": "part", "fstype": "crypto_LUKS", "label": null, "fsused": null,
+          "mountpoints": [null],
+          "children": [
+            {
+              "name": "luks-x", "path": "/dev/mapper/luks-x", "size": 511000000000,
+              "model": null, "tran": null, "rm": false, "hotplug": false,
+              "type": "crypt", "fstype": "ext4", "label": null, "fsused": 20000000000,
+              "mountpoints": ["/var"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "zram0", "path": "/dev/zram0", "size": 8589934592,
+      "model": null, "tran": null, "rm": false, "hotplug": false,
+      "type": "disk", "fstype": "swap", "label": null, "fsused": null,
+      "mountpoints": ["[SWAP]"]
+    },
+    {
+      "name": "loop0", "path": "/dev/loop0", "size": 73400320,
+      "model": null, "tran": null, "rm": false, "hotplug": false,
+      "type": "loop", "fstype": "squashfs", "label": null, "fsused": 73400320,
+      "mountpoints": ["/snap/core/1"]
+    }
+  ]
+}

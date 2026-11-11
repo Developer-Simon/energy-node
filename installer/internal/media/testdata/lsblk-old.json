@@ -1,0 +1,38 @@
+{
+  "blockdevices": [
+    {
+      "name": "sda", "path": "/dev/sda", "size": "250059350016",
+      "model": "Samsung SSD 870 ", "tran": "sata", "rm": "0", "hotplug": "0",
+      "type": "disk", "fstype": null, "label": null,
+      "mountpoint": null,
+      "children": [
+        {
+          "name": "sda1", "path": "/dev/sda1", "size": "249000000000",
+          "model": null, "tran": null, "rm": "0", "hotplug": "0",
+          "type": "part", "fstype": "ntfs", "label": "Windows",
+          "mountpoint": null
+        }
+      ]
+    },
+    {
+      "name": "sdb", "path": "/dev/sdb", "size": "31914983424",
+      "model": "SD/MMC Reader", "tran": "usb", "rm": "1", "hotplug": "1",
+      "type": "disk", "fstype": null, "label": null,
+      "mountpoint": null,
+      "children": [
+        {
+          "name": "sdb1", "path": "/dev/sdb1", "size": "268435456",
+          "model": null, "tran": null, "rm": "1", "hotplug": "1",
+          "type": "part", "fstype": "vfat", "label": "bootfs",
+          "mountpoint": null
+        },
+        {
+          "name": "sdb2", "path": "/dev/sdb2", "size": "31645000000",
+          "model": null, "tran": null, "rm": "1", "hotplug": "1",
+          "type": "part", "fstype": "ext4", "label": "rootfs",
+          "mountpoint": null
+        }
+      ]
+    }
+  ]
+}
