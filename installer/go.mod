@@ -4,6 +4,7 @@ go 1.27.1
 
 require (
 	github.com/Developer-Simon/energy-node-webui v0.0.0
+	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5
 	github.com/crgimenes/glaze v0.0.55-0.20260915115259-5b7e914573e6
 	github.com/jchv/go-webview2 v0.0.0-20260205173254-56598839c808
 	github.com/pkg/sftp v1.13.11
