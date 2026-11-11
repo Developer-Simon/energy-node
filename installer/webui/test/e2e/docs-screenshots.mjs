@@ -93,7 +93,7 @@ async function precheck() {
   const page = await context.newPage();
   await page.goto(host.url);
   await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
-  await page.locator('.mode-i').nth(0).click();
+  await page.locator('.mode-i', { hasText: en['entry.install'] }).click();
   await page.locator('input[aria-labelledby="connect-address"]').fill('energy-node.local');
   await page.locator('input[aria-labelledby="connect-user"]').fill('pi');
   await page.locator('input[aria-labelledby="connect-password"]').fill(SECRETS.login);
@@ -121,7 +121,7 @@ async function sudo() {
   const page = await context.newPage();
   await page.goto(host.url);
   await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
-  await page.locator('.mode-i').nth(0).click();
+  await page.locator('.mode-i', { hasText: en['entry.install'] }).click();
   await page.locator('.segmented-option', { hasText: en['field.auth_key'] }).click();
   await page.locator('input[aria-labelledby="connect-address"]').fill('energy-node.local');
   await page.locator('input[aria-labelledby="connect-user"]').fill('pi');
@@ -140,7 +140,7 @@ async function connectForm({ trusted }) {
   const page = await context.newPage();
   await page.goto(host.url);
   await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
-  await page.locator('.mode-i').nth(0).click();
+  await page.locator('.mode-i', { hasText: en['entry.install'] }).click();
   await page.locator('input[aria-labelledby="connect-address"]').fill('energy-node.local');
   await page.locator('input[aria-labelledby="connect-user"]').fill('pi');
   await page.locator('input[aria-labelledby="connect-password"]').fill(SECRETS.login);
