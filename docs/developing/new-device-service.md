@@ -122,7 +122,7 @@ ID of an existing service, for example `trucki`.
 | Device map | a `x-dataflow` annotation for every `mqtt-topic` field, see [data flows](data-flow-devices.md#12-data-flow-on-the-device-map). A manufacturer to icon rule in `dashboard/internal/webui/deviceicons.go` if the devices should get an icon |
 | Installer | the name `service.<service_id>` in `installer/webui/catalogs/en.json` and `de.json`, and the plan test data in `installer/internal/steps` if you add a step to a test scenario |
 | Tests | the service in `EXPECTED`, `EXPECTED_STEPS` and `EXPECTED_KINDS` of `libs/energy_node_common/tests/test_service_manifests.py`, and in the `conftest.py` copies that list all services |
-| Docs | a page `docs/services/<name>.md`, a row in the table of [Device services](../services/index.md), the entry in `docs/_data/nav.yml`, the versions and step lists in [installation](../install/deploy.md) |
+| Docs | a page `docs/services/<name>.md`, a row in the table of [Device services](../services/index.md), the entry in `docs/_data/nav.yml`, the versions and step lists in [installation](manual-installation-deploy.md) |
 
 ## Checks
 

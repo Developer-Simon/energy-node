@@ -1,9 +1,13 @@
 # Changelog
 
-## v0.11.10-pre.5 (2026-11-06)
+## v0.11.12-pre.5 (2026-11-06)
+
+
+## v0.11.11 (2026-11-11)
 
 ### Features
 
+- **backup:** back up and restore the node from the settings page (#228) (925767b)
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **energy:** Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer. (#217) (bcf1b75)
 - **energy:** Measurement chains now learn their normal loss and efficiency curve. The Efficiency tab shows the curve with the best range and the current power, and a diagnosis lists drift, frozen values, contradicting points and wrong signs or units. Substitute values are corrected by the learned loss, and findings show up on the energy page, in the diagnostics and on the device map. (#223) (4871a1c)
@@ -135,6 +139,7 @@
 
 ### Documentation
 
+- add gallery pages and restructure the installer guide (#230) (b6d6498)
 - **automation:** describe chain conditions, templates and the efficiency option (633625a)
 - **energy:** describe chain learning and diagnostics (47e2900)
 - **stats:** use English comments in the chain integrator (07b255c)

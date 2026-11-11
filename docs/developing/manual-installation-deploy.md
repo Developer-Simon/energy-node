@@ -1,6 +1,6 @@
 # Deploying and verifying
 
-Continues [Manual installation](index.md) from section 6.
+Continues [Manual installation](manual-installation.md) from section 6.
 
 ## 6. Deploy from the development machine
 
@@ -20,7 +20,7 @@ scripts/dev/run-installer.sh deploy --dev-unsigned
 The CLI reads the target host and user from the gitignored
 `secrets/deploy-target.env` (`TARGET_USER`, `TARGET_HOST`) and uses
 `/home/<TARGET_USER>` as the base unless you pass `--host`, `--user` or
-`--base`. [Installer developer CLI](../developing/installer-cli.md) covers SSH
+`--base`. [Installer developer CLI](installer-cli.md) covers SSH
 authentication and every flag.
 
 The first run does the one-time setup:
@@ -137,7 +137,7 @@ HTTP, so for HTTPS and the admin login put Caddy in front.
 
 The installer sets up Caddy as step 70 from the pinned package in the
 installation package, see [Packages you must install outdated
-first](index.md#3-packages-you-must-install-outdated-first). By hand, install
+first](manual-installation.md#3-packages-you-must-install-outdated-first). By hand, install
 Caddy on the node first. On ARMv6, take the `armv6` or `armhf` build from the
 Caddy project, since your distribution may not ship one. Then install the
 repository's `Caddyfile`:

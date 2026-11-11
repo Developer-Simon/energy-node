@@ -108,6 +108,8 @@ Each file in `demo/fakes/` imitates one part of the system:
 - `fake_journal_helper.py` and `fake_sudo.sh`: the system action helper and the sudo shim that feed the *Service logs* section.
 - `real_changelog.py`: copies the changelog of this repository into a simulated installer state.
 
+Restoring a backup in the demo stops at the restart, because the fake helper answers that restart with a no-op. Restart the demo by hand and the archive is applied at start.
+
 The tests for the fakes are pytest tests in `demo/fakes`. Run them from
 `demo/fakes` with the project's `.venv`: `.venv/bin/python3 -m pytest -q`.
 

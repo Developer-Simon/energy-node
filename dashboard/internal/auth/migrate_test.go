@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 )
@@ -88,7 +89,7 @@ func TestMigrationKeepsBehaviorOfFieldFile(t *testing.T) {
 		t.Errorf("guest roles %v, want the new view-only default", guest.Roles)
 	}
 	file := readUsersFile(t, path)
-	if file.Version != 6 || !reflect.DeepEqual(file.GuestRoles, guest.Roles) {
+	if file.Version != 7 || !reflect.DeepEqual(file.GuestRoles, guest.Roles) {
 		t.Fatalf("file not migrated: version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 	if !manager.MigrationNotice() {
@@ -145,7 +146,7 @@ func TestBootstrapOnlyWithoutNonGuestUser(t *testing.T) {
 		t.Fatal("bootstrap admin must not get http_login")
 	}
 	file := readUsersFile(t, path)
-	if file.Version != 6 || !reflect.DeepEqual(file.GuestRoles, defaultGuestRoles()) {
+	if file.Version != 7 || !reflect.DeepEqual(file.GuestRoles, defaultGuestRoles()) {
 		t.Fatalf("bootstrap file version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 	if manager.MigrationNotice() {
@@ -173,7 +174,7 @@ func TestStartNoLongerBackfillsRoles(t *testing.T) {
 		t.Fatalf("admin roles changed on start: %v", manager.users["admin"].Roles)
 	}
 	// Die Version 2 wird nur auf Version 3 gehoben, die Rollen bleiben gleich.
-	if file := readUsersFile(t, path); file.Version != 6 || !reflect.DeepEqual(file.GuestRoles, []string{"view_overview"}) {
+	if file := readUsersFile(t, path); file.Version != 7 || !reflect.DeepEqual(file.GuestRoles, []string{"view_overview"}) {
 		t.Fatalf("version 2 file after start: version %d guest_roles %v", file.Version, file.GuestRoles)
 	}
 }
@@ -293,8 +294,8 @@ func TestMigrationFromVersion2KeepsEveryRight(t *testing.T) {
 	}
 
 	file := readUsersFile(t, path)
-	if file.Version != 6 {
-		t.Fatalf("file version %d, want 6", file.Version)
+	if file.Version != 7 {
+		t.Fatalf("file version %d, want 7", file.Version)
 	}
 	if manager.MigrationNotice() || !file.GuestRolesReviewed {
 		t.Fatal("version 2 review state must be kept, no new guest notice")
@@ -330,8 +331,8 @@ func TestMigrationFromVersion1GivesSetupPermissions(t *testing.T) {
 	if !reflect.DeepEqual(manager.GuestRoles(), defaultGuestRoles()) {
 		t.Fatalf("default guest roles: %v", manager.GuestRoles())
 	}
-	if file := readUsersFile(t, path); file.Version != 6 {
-		t.Fatalf("file version %d, want 6", file.Version)
+	if file := readUsersFile(t, path); file.Version != 7 {
+		t.Fatalf("file version %d, want 7", file.Version)
 	}
 }
 
@@ -380,8 +381,8 @@ func TestMigrationFromVersion3GivesDeviceRights(t *testing.T) {
 	}
 
 	file := readUsersFile(t, path)
-	if file.Version != 6 {
-		t.Fatalf("file version %d, want 6", file.Version)
+	if file.Version != 7 {
+		t.Fatalf("file version %d, want 7", file.Version)
 	}
 	if manager.MigrationNotice() {
 		t.Fatal("version 3 migration must not raise the guest notice")
@@ -453,8 +454,8 @@ func TestMigrationFromVersion4ReplacesUntouchedPresets(t *testing.T) {
 	if !manager.MigrationNotice() {
 		t.Error("replacing the guest preset must raise the notice")
 	}
-	if file := readUsersFile(t, path); file.Version != 6 {
-		t.Fatalf("file version %d, want 6", file.Version)
+	if file := readUsersFile(t, path); file.Version != 7 {
+		t.Fatalf("file version %d, want 7", file.Version)
 	}
 	before, _ := os.ReadFile(path)
 	mustManager(t, path, "admin", "")
@@ -539,10 +540,10 @@ func TestMigrationFromVersion4LegacyGuestAccountGetsNewDefaultWithCustomPreset(t
 	}
 }
 
-func TestMigrateV5GrantsEfficiencyToStatsViewers(t *testing.T) {
+func TestMigrateV6GrantsEfficiencyToStatsViewers(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "users.json")
 	writeJSON(t, path, map[string]any{
-		"version":              5,
+		"version":              6,
 		"guest_roles":          []string{RoleViewOverview, RoleViewStats},
 		"guest_roles_reviewed": true,
 		"users": []map[string]any{
@@ -577,15 +578,39 @@ func TestMigrateV5GrantsEfficiencyToStatsViewers(t *testing.T) {
 	if len(accounts) != 1 || !containsRole(accounts[0].Roles, RoleViewEfficiency) {
 		t.Errorf("ha account roles: %v", accounts)
 	}
-	if file := readUsersFile(t, path); file.Version != 6 {
-		t.Fatalf("file version %d, want 6", file.Version)
+	if file := readUsersFile(t, path); file.Version != 7 {
+		t.Fatalf("file version %d, want 7", file.Version)
+	}
+}
+
+func TestAdminPresetsGetBackupRolesHAPresetsDoNot(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "users.json")
+	writeJSON(t, path, userFile{Version: 5, GuestRoles: defaultGuestRoles(), GuestRolesReviewed: true, Users: []User{
+		{Username: "admin", PasswordHash: mustHash(t, "secret-pass"), Roles: []string{RoleSystemActions, RoleUserManagement, RoleViewOverview}},
+		{Username: "guest-abc", Guest: true, PasswordHash: mustHash(t, "guest-pass"), Roles: defaultGuestRoles(), LastLoginAt: now},
+	}})
+	manager := mustManager(t, path, "admin", "")
+	admin := manager.users["admin"]
+	for _, key := range []string{RoleBackupExport, RoleBackupImport, RoleBackupSecrets} {
+		if !HasRole(admin, key) {
+			t.Errorf("existing admin lacks %s", key)
+		}
+		if slices.Contains(defaultHAAdminRoles(), key) || slices.Contains(defaultHAUserRoles(), key) {
+			t.Errorf("HA presets contain %s", key)
+		}
+		if HasRole(manager.users["guest-abc"], key) {
+			t.Errorf("guest got %s", key)
+		}
+	}
+	if file := readUsersFile(t, path); file.Version != 7 {
+		t.Fatalf("file version %d, want 7", file.Version)
 	}
 }
 
 func TestMigrateV5KeepsReviewedGuestRolesEqualToLegacy(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "users.json")
 	// Eine bewusst gespeicherte Gastliste, die exakt der alten Vorgabe ohne
-	// view_efficiency entspricht. Die Version 6 darf sie nicht ersetzen.
+	// view_efficiency entspricht. Die Version 7 darf sie nicht ersetzen.
 	writeJSON(t, path, map[string]any{
 		"version":              5,
 		"guest_roles":          withoutRole(legacyDefaultGuestRoles(), RoleViewEfficiency),
@@ -601,7 +626,7 @@ func TestMigrateV5KeepsReviewedGuestRolesEqualToLegacy(t *testing.T) {
 	if manager.MigrationNotice() {
 		t.Error("a reviewed guest list must not raise the notice again")
 	}
-	if file := readUsersFile(t, path); !file.GuestRolesReviewed || file.Version != 6 {
+	if file := readUsersFile(t, path); !file.GuestRolesReviewed || file.Version != 7 {
 		t.Fatalf("file after start: reviewed %v version %d", file.GuestRolesReviewed, file.Version)
 	}
 }
@@ -641,11 +666,11 @@ func TestMigrateV1StillReplacesDefaults(t *testing.T) {
 	}
 }
 
-func TestUsersFileVersion6IsNotMigratedAgain(t *testing.T) {
+func TestUsersFileVersion7IsNotMigratedAgain(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "users.json")
-	// Version 6, bewusst ohne view_efficiency: der Start darf nichts ergaenzen.
+	// Version 7, bewusst ohne view_efficiency: der Start darf nichts ergaenzen.
 	writeJSON(t, path, map[string]any{
-		"version":              6,
+		"version":              7,
 		"guest_roles":          []string{RoleViewOverview, RoleViewStats},
 		"guest_roles_reviewed": true,
 		"users": []map[string]any{
@@ -654,10 +679,10 @@ func TestUsersFileVersion6IsNotMigratedAgain(t *testing.T) {
 	})
 	manager := mustManager(t, path, "admin", "")
 	if HasRole(manager.users["admin"], RoleViewEfficiency) {
-		t.Errorf("version 6 account got view_efficiency again: %v", manager.users["admin"].Roles)
+		t.Errorf("version 7 account got view_efficiency again: %v", manager.users["admin"].Roles)
 	}
 	if containsRole(manager.GuestRoles(), RoleViewEfficiency) {
-		t.Errorf("version 6 guest preset got view_efficiency: %v", manager.GuestRoles())
+		t.Errorf("version 7 guest preset got view_efficiency: %v", manager.GuestRoles())
 	}
 	before, err := os.ReadFile(path)
 	if err != nil {
@@ -669,6 +694,6 @@ func TestUsersFileVersion6IsNotMigratedAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(before, after) {
-		t.Fatal("start of a version 6 file changed users.json")
+		t.Fatal("start of a version 7 file changed users.json")
 	}
 }

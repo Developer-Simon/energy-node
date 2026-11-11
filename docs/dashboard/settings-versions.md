@@ -57,6 +57,6 @@ The permissions are set under [Settings, Users](settings-users.md#permissions).
 The update page first downloads the newest signed release package for the
 node's architecture. **View changes** lists what the new package changes. The
 page shows the same preview as the
-[desktop installer](../installer.md#updating-a-node): which components change,
+[desktop installer](../installer-update.md): which components change,
 which services restart and which services the node runs. **Update** runs the
 pending steps on the node itself, without the installer and without SSH.

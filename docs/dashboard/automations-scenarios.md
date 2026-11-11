@@ -57,6 +57,8 @@ for one minute after it has stopped.
 
 ### Editing a scenario
 
+![The scenario editor](../images/dashboard-automation-scenario-editor.png)
+
 The pencil button on an expanded card opens the editor. It has three phases.
 
 - **Start** lists the start conditions and the actions that run at the start.

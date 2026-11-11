@@ -46,6 +46,10 @@ of `edit_config` get `setup_tiny_tuya`. Guests do not get `setup_tiny_tuya`.
 Version 5 of `users.json` replaces untouched old default presets with the
 current ones. Presets that an admin has changed stay as they are.
 
+Version 6 gives every existing admin the backup rights `backup_export`,
+`backup_import` and `backup_secrets`. Version 7 gives `view_efficiency` to every
+account and preset that has `view_stats`.
+
 Since layout v3 (Spec F), `GET /api/v1/layout` also returns `card_types`. It
 maps each item type to `{min_span, min_width, min_height, fills_height,
 default_span}` from `internal/settings/cardcatalog.go`, the one place that

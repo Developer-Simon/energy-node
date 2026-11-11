@@ -40,6 +40,9 @@ const (
 	RoleViewLogs           = "view_logs"
 	RoleTailscale          = "tailscale"
 	RoleUserManagement     = "user_management"
+	RoleBackupExport       = "backup_export"
+	RoleBackupImport       = "backup_import"
+	RoleBackupSecrets      = "backup_secrets"
 	RoleHTTPLogin          = "http_login"
 )
 
@@ -93,6 +96,9 @@ var roleCatalog = []RoleInfo{
 	{Key: RoleViewLogs, Category: CategorySystem, Requires: RoleViewDiagnostics, HTTPSOnly: true, HAAllowed: true},
 	{Key: "system_actions", Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleUserManagement, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleBackupExport, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleBackupImport, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleBackupSecrets, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleHTTPLogin, Category: CategorySystem},
 }
 

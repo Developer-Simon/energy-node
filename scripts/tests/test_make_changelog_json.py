@@ -195,6 +195,36 @@ def test_attach_translations_sets_i18n_on_pr_entries_only():
     assert "i18n" not in fixes[0]            # PR 9 only for target installer
 
 
+def test_attach_translations_takes_the_english_text_from_the_highlights_file():
+    releases = mcj.mark_highlights(mcj.parse_changelog(CHANGELOG))
+    translations = {34: {"de": {"*": "füge etwas hinzu"}, "en": {"*": "Add a thing, short"}},
+                    9: {"de": {"*": "älterer Fix"}, "en": {"installer": "Older fix, short"}}}
+    mcj.attach_translations(releases, translations, "dashboard")
+    entries = releases[0]["groups"][0]["entries"]
+    assert entries[0]["text"] == "Add a thing, short"
+    assert entries[0]["i18n"] == {"de": "füge etwas hinzu"}
+    assert entries[0]["scope"] == "dashboard"
+    assert entries[1]["text"] == "drop the legacy block"   # PR 14 has no file
+    fixes = releases[1]["groups"][0]["entries"]
+    assert fixes[0]["text"] == "older fix"                  # en only for target installer
+
+
+def test_build_document_takes_english_from_the_translation_files(tmp_path):
+    (tmp_path / "scripts/version").mkdir(parents=True)
+    (tmp_path / "dashboard").mkdir()
+    (tmp_path / "dashboard/VERSION").write_text("v0.7.0\n", encoding="utf-8")
+    (tmp_path / "dashboard/CHANGELOG.md").write_text(CHANGELOG, encoding="utf-8")
+    (tmp_path / "changelog/highlights").mkdir(parents=True)
+    (tmp_path / "changelog/highlights/34.json").write_text(
+        '{"de": {"*": "Ding"}, "en": {"*": "A thing"}}', encoding="utf-8")
+    table = {"components": [{"id": "dashboard", "label": "Dashboard", "kind": "app", "target": "dashboard",
+                             "version_file": "dashboard/VERSION", "changelog": "dashboard/CHANGELOG.md", "bundle": True}]}
+    doc = mcj.build_document(tmp_path, table, bundle_version="v0.7.0", max_releases=5, generated_at="x")
+    entry = doc["components"][0]["releases"][0]["groups"][0]["entries"][0]
+    assert entry["text"] == "A thing"
+    assert entry["i18n"] == {"de": "Ding"}
+
+
 def test_build_document_reads_translation_files(tmp_path):
     (tmp_path / "scripts/version").mkdir(parents=True)
     (tmp_path / "dashboard").mkdir()

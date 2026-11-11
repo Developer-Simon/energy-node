@@ -4,6 +4,8 @@ component: installer
 anchor_moves:
   4-run: installer.html#5-run
   5-result: installer.html#6-result
+  updating-a-node: installer-update.html
+  diagnosing-a-node: installer-diagnose.html
 ---
 
 # Deploying a node
@@ -21,7 +23,7 @@ failing part.
 
 > The installer is in beta. It already sets up, updates and diagnoses real
 > nodes, but 1.0 is not released yet. Until then, screens and steps can change
-> between versions. [Manual installation](install/index.md) documents what the
+> between versions. [Manual installation](developing/manual-installation.md) documents what the
 > installer automates and why.
 
 The screenshots on this page come from the installer's demo host and not from
@@ -40,7 +42,7 @@ internet access for the system packages and for Tailscale, and your computer
 must reach it by name or IP address.
 
 Which image fits which Pi is listed under
-[Operating system](install/index.md#2-operating-system).
+[Operating system](installer-operating-system.md).
 
 Your computer can run Windows, macOS or Linux. On Windows the window uses the
 Edge WebView2 runtime, which current Windows 10 and 11 installations include.
@@ -220,71 +222,11 @@ the admin login requires, and plain HTTP on port 8080. It also lists what the
 installer cannot do for you, such as turning off Tailscale key expiry and
 trusting Caddy's local certificate. **Save log** writes the full log to a file.
 
-## Updating a node
+## Updating and diagnosing
 
-![The update preview](images/installer-update.png)
-
-Choose **Update** and connect. The preview compares each component's version
-with the stamp on the Pi. It lists what changes, which services restart and
-which steps are skipped because their work is already done. Every selected
-service shows its own version, and every unit that restarts names the reason:
-a new version, a changed shared library, a first install or an unknown
-installed version.
-
-A step counts as done while nothing it uses has changed since its last
-successful run: its own script, the helpers it loads and the files it takes
-from the package. An update with a new dashboard therefore skips Mosquitto,
-the firewall, Tailscale and every unchanged service. Three steps still run
-once per package version. System updates bring in new packages, the Shelly
-webhook rule follows the port set in the dashboard, and the dashboard
-configuration is written on every run. The first update after this rule was
-introduced still runs every step once, because older stamps carry no record
-of the inputs.
-
-By default only a service whose own version changed restarts. A change to
-`energy_node_common` restarts every service, and a change to
-`battery_soc_core` restarts only `battery_soc`. **Restart all services**
-restarts every service unit anyway. A unit that is not running always starts,
-and a node whose last run predates per-service versions restarts every service
-once. The scope card shows the services as last selected. A service that is new
-in the package stays off until you tick it under **Change services**.
-**Update** runs the pending steps through the same code as a fresh install, so
-there is no separate partial update path that could break.
-
-When the package carries a changelog, the first card adds a line such as
-"3 new features · 2 fixes · 1 breaking change" and a **View changes** button.
-The page behind it lists, per component, only what is newer than the version on
-the Pi. Breaking changes come first, then one card per component. The page
-opens on the **Highlights**, one line per merged change that matters to an
-operator. The switch at the top shows **Everything**, down to each commit. The
-counts in the first card are based on the highlights too. You can filter by
-kind (applications, services, libraries and so on) or by area, and search the
-text. The page works offline and changes nothing. A package without a
-changelog shows no such line.
-
-![What's new](images/installer-changelog.png)
-
-The dashboard serves the same page under `/redeploy/`, behind its login, and
-runs the same steps on the node itself, without this program and without SSH.
-It can download the newest signed release package from GitHub, and its header
-shows a notice when a newer release is out.
-
-## Diagnosing a node
-
-![The diagnostics screen](images/installer-diagnose.png)
-
-**Diagnose** reads the installed package version from the Pi and runs a
-checklist: every systemd unit, the open ports, the Tailscale login and whether
-`config.json` exists. A failing check has a button that repeats only the step
-responsible for it. Next to the checks the screen shows what is installed:
-each service with its version and its configured devices, services that were
-never chosen marked as not installed, and a card with the package, bootstrap
-and wheel versions. This part is for information and does not count as checks.
-**Save report** writes the result to a file. Attach that file to a bug report.
-
-A repair always runs its step again, even if the step is already marked as done. The checklist also tries the MQTT login from the node's `config.json` against the broker. If the broker refuses the password or the password file is missing, the repair button asks for a new password, or generates a random one, and then runs the broker step and the dashboard step together so that both use it. The user name stays as it is in `config.json`.
-
-The live log card under the checks follows the journal of the dashboard and the updater service from the moment the screen opens, with their state, exit code and restart count above the lines. The report includes the number of buffered lines per service that you choose in the card footer. **Copy for issue** puts the report on the clipboard as Markdown and opens a new GitHub issue, with addresses, names and passwords masked, but read the text once more before you post it.
+Once a node runs, the installer also updates it and checks it. Both have a
+page of their own: [Updating a node](installer-update.md) and
+[Diagnosing a node](installer-diagnose.md).
 
 ## The window
 
@@ -316,3 +258,7 @@ You can also switch the interface language in the top bar.
 The installer also has a command line mode that builds a bundle from your
 checkout and deploys it to a Pi over SSH. See
 [Installer developer CLI](developing/installer-cli.md).
+
+To set up a node without the installer, follow the
+[Manual installation](developing/manual-installation.md). It documents what
+the installer does step by step.

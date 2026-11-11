@@ -2,12 +2,13 @@ package auth
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 )
 
 func TestRolesCatalogMatchesSpec(t *testing.T) {
 	keys := AllRoles()
-	if len(keys) != 33 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+	if len(keys) != 36 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
 		t.Fatalf("catalog order: %v", keys)
 	}
 	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {
@@ -58,6 +59,23 @@ func TestHasRoleRequiresTheViewPermission(t *testing.T) {
 	user.Roles = append(user.Roles, RoleViewAutomations)
 	if !HasRole(user, RoleAutomations) {
 		t.Fatal("automations with view_automations must count")
+	}
+}
+
+func TestBackupRolesInCatalog(t *testing.T) {
+	keys := AllRoles()
+	httpLogin := len(keys) - 1
+	for _, key := range []string{RoleBackupExport, RoleBackupImport, RoleBackupSecrets} {
+		info, ok := RoleByKey(key)
+		if !ok {
+			t.Fatalf("%s missing from the catalog", key)
+		}
+		if info.Category != CategorySystem || !info.HTTPSOnly || !info.HAAllowed || !info.Elevated || info.GuestAllowed || info.Requires != "" {
+			t.Fatalf("%s: %+v", key, info)
+		}
+		if idx := slices.Index(keys, key); idx < 0 || idx >= httpLogin {
+			t.Fatalf("%s must sit before http_login, index %d of %d", key, idx, len(keys))
+		}
 	}
 }
 

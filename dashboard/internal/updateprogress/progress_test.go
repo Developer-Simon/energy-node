@@ -54,6 +54,22 @@ func TestReadRunningInsideAStep(t *testing.T) {
 	}
 }
 
+// The backup lines written by energy-node-updater.sh are plain log lines for
+// this package: they neither count as steps nor change the progress.
+func TestReadIgnoresBackupLines(t *testing.T) {
+	dir := t.TempDir()
+	write(t, dir, "current.json", job)
+	write(t, dir, "log", logOf(
+		"1000 ##BACKUP ok",
+		"1001 ##STEP 10 begin", "1002 ##STEP 10 ok",
+		"1003 WARN BACKUP_FAILED",
+		"1004 ##STEP 20 begin"))
+	p, err := Read(dir)
+	if err != nil || p.State != "running" || p.Done != 1 || p.Step == nil || p.Step.ID != "20" {
+		t.Fatalf("p = %+v (step %+v), err = %v", p, p.Step, err)
+	}
+}
+
 func TestReadRunningBetweenStepsNamesTheNextOne(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "current.json", job)

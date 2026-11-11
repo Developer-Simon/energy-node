@@ -2,10 +2,13 @@
 
 ## v0.3.3-pre.1 (2026-11-06)
 
+
+## v0.3.2 (2026-11-07)
+
 ### Features
 
-- **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **installer:** The installer now fetches Caddy, Tailscale and the Python wheels itself and checks each file against the signed manifest, so releases are smaller. (#222) (f1344a1)
+- **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **versions:** name the shared libraries in the version overviews (5b9eaba)
 
 ### Fixes

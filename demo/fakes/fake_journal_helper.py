@@ -3,7 +3,10 @@
 
 Without any state file it behaves like before: read-journal with the argument
 checks of the real helper, every other action exits 64, so reboot and poweroff
-stay harmless locally.
+stay harmless locally. The restore verbs stop-services, start-services and
+restart-dashboard are the exception: they succeed as no-ops even without a state
+file, so a backup restore in the demo runs up to the restart. The restart stays
+manual, the next start of the demo applies the pending restore.
 
 With FAKE_SYSTEM_STATE set, the file decides how the helper answers: journal
 mode per key, injected lines, helper-wide denied/hang/fail, and the result of
@@ -49,8 +52,11 @@ ERROR_MESSAGES = [
 JOURNAL_MODES = ("normal", "errors", "empty")
 HELPER_MODES = ("normal", "denied", "hang", "fail")
 ACTION_RESULTS = ("ok", "fail")
-SYSTEM_ACTIONS = ("restart-dashboard", "reboot", "poweroff", "apply-bridge-config", "apply-app-config",
-                  "restart-mosquitto", "tailscale-up", "tailscale-logout", "tailscale-restart")
+SYSTEM_ACTIONS = ("restart-dashboard", "stop-services", "start-services", "reboot", "poweroff",
+                  "apply-bridge-config", "apply-app-config", "restart-mosquitto", "tailscale-up",
+                  "tailscale-logout", "tailscale-restart")
+# Harmless no-ops that succeed even without a state file.
+NOOP_ACTIONS = ("stop-services", "start-services", "restart-dashboard")
 HANG_SECONDS = 15
 DENIED_MESSAGE = "sudo: a password is required"
 DEFAULT_STATE = {"journal": {}, "inject": [], "helper": "normal", "actions": "ok"}
@@ -173,7 +179,7 @@ def main(argv=None):
             return 64
         if not valid_journal_args(args):
             return 65
-    elif action not in SYSTEM_ACTIONS or not has_state:
+    elif action not in SYSTEM_ACTIONS or (not has_state and action not in NOOP_ACTIONS):
         return 64
 
     if state["helper"] == "hang":

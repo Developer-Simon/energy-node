@@ -262,23 +262,72 @@ def test_load_rejects_non_object_archive_file(tmp_path):
         hi.load_translations(tmp_path)
 
 
-def test_doc_title_prefers_target_then_default():
-    tr = {164: {"doc_title": {"*": "Scenarios", "dashboard": "Scenarios in the dashboard"}}}
-    assert hi.doc_title(tr, 164, "dashboard") == "Scenarios in the dashboard"
-    assert hi.doc_title(tr, 164, "installer") == "Scenarios"
-    assert hi.doc_title(tr, 165, "dashboard") is None
-
-def test_validate_doc_titles_reports_bad_values():
-    tr = {1: {"doc_title": "x"}, 2: {"doc_title": {"*": ""}}, 3: {"doc_title": {"*": "A; B"}},
-          4: {"doc_title": {"*": "Ends with a dot."}}, 5: {"doc_title": {"*": "Fine title"}}}
-    assert hi.validate_doc_titles(tr) == [
-        "#1 doc_title: must be an object keyed by component",
-        "#2 doc_title: text for * is empty",
-        "#3 doc_title: text for * contains a semicolon",
-        "#4 doc_title: text for * ends with a full stop",
-    ]
-
-def test_write_pr_file_keeps_doc_title(tmp_path):
-    (tmp_path / "7.json").write_text('{"doc_title": {"*": "Kept"}}\n', encoding="utf-8")
+def test_write_pr_file_keeps_english(tmp_path):
+    (tmp_path / "7.json").write_text('{"en": {"*": "Kept"}}\n', encoding="utf-8")
     hi.write_pr_file(tmp_path, 7, {"de": {"*": "Neu"}})
-    assert json.loads((tmp_path / "7.json").read_text())["doc_title"] == {"*": "Kept"}
+    assert json.loads((tmp_path / "7.json").read_text())["en"] == {"*": "Kept"}
+
+
+def test_entry_i18n_leaves_english_out():
+    translations = {5: {"de": {"*": "x"}, "en": {"*": "E"}}}
+    assert hi.entry_i18n(translations, 5, "installer") == {"de": "x"}
+
+
+def test_english_falls_back_to_the_default_key():
+    translations = {5: {"en": {"*": "All", "dashboard": "Dashboard only"}}}
+    assert hi.english(translations, 5, "dashboard") == "Dashboard only"
+    assert hi.english(translations, 5, "installer") == "All"
+    assert hi.english(translations, 6, "installer") is None
+
+
+def test_text_languages_put_english_first(monkeypatch):
+    assert hi.text_languages() == ("en", "de")
+    monkeypatch.setattr(hi, "LANGUAGES", ("de", "fr"))
+    assert hi.text_languages() == ("en", "de", "fr")
+
+
+def test_english_form_capitalises_and_drops_the_full_stop():
+    assert hi.english_form("show the translated highlights") == "Show the translated highlights"
+    assert hi.english_form("Rules can repeat. Even twice.") == "Rules can repeat. Even twice"
+    assert hi.english_form("§14a control") == "§14a control"
+
+
+def test_validate_texts_accepts_english_and_german():
+    translations = {5: {"de": {"*": "X"}, "en": {"*": "E", "dashboard": "D"}}, 6: {"details": {}}}
+    assert hi.validate_texts(translations, TARGETS) == []
+
+
+def test_validate_texts_applies_the_form_to_german():
+    assert hi.validate_texts({5: {"de": {"*": "klein."}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: start with a capital letter"]
+    assert hi.validate_texts({5: {"de": {"*": "Text."}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: drop the full stop at the end"]
+    assert hi.validate_texts({5: {"de": {"*": "A; B"}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: no semicolon"]
+    assert hi.validate_texts({5: {"de": {"*": "A" * 101}, "en": {"*": "E"}}}, TARGETS) == [
+        "#5 de *: longer than 100 characters, move the rest into details"]
+
+
+def test_validate_texts_needs_english_next_to_german():
+    assert hi.validate_texts({5: {"de": {"*": "X"}}}, TARGETS) == [
+        "#5 en: missing, every highlight needs an English text next to de"]
+
+
+def test_validate_texts_reports_broken_texts():
+    translations = {
+        5: {"de": {"*": "X"}, "en": {"*": " ", "nope": "Y", "dashboard": "A\nb", "installer": "Text (#5)"}},
+        6: {"de": [], "en": {"*": "E"}},
+        7: {"de": {"*": "X"}, "en": {"*": "lower case", "dashboard": "Ends.", "installer": "A; B"}},
+        8: {"de": {"*": "X"}, "en": {"*": "E"}, "doc_title": {"*": "Old"}},
+    }
+    assert hi.validate_texts(translations, TARGETS) == [
+        "#5 en *: text is empty",
+        "#5 en dashboard: text must be one line",
+        "#5 en installer: drop the PR number, the changelog adds it",
+        "#5 en nope: unknown component",
+        "#6 de: must be an object of texts keyed by component",
+        "#7 en *: start with a capital letter",
+        "#7 en dashboard: drop the full stop at the end",
+        "#7 en installer: no semicolon",
+        "#8 doc_title: replaced by en, move the text there",
+    ]

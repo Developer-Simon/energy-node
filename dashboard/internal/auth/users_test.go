@@ -672,6 +672,7 @@ func TestRoleElevatedFlags(t *testing.T) {
 	elevated := map[string]bool{
 		RoleUserManagement: true, "system_actions": true, RoleUpdateSettings: true,
 		RoleTailscale: true, "mqtt_config": true, RoleSetupTinyTuya: true,
+		RoleBackupExport: true, RoleBackupImport: true, RoleBackupSecrets: true,
 	}
 	for _, info := range Roles() {
 		if info.Elevated != elevated[info.Key] {

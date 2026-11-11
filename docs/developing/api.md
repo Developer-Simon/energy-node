@@ -110,7 +110,7 @@ The endpoints are described on four pages:
   card, MQTT connection, Mosquitto bridge, system configuration, Tailscale and
   TinyTuya.
 - [System and updates](api-system.md): diagnostics and health, system actions,
-  updates, versions and changelog.
+  updates, versions and changelog, and the backup routes.
 
 ## Not under `/api/v1/`
 

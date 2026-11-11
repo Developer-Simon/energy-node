@@ -391,13 +391,14 @@ func TestPasswordPolicyRoute(t *testing.T) {
 }
 
 // TestUsersCatalogMarksElevatedRoles: GET liefert elevated für jede
-// Berechtigung, genau die sechs erhöhten sind true.
+// Berechtigung, genau die neun erhöhten sind true.
 func TestUsersCatalogMarksElevatedRoles(t *testing.T) {
 	router, _ := newRestrictedTestRouter(t, nil)
 	adminCookie, _ := sessionFor(t, router, "admin", usersAdminPassword)
 	want := map[string]bool{
 		auth.RoleUserManagement: true, "system_actions": true, auth.RoleUpdateSettings: true,
 		auth.RoleTailscale: true, "mqtt_config": true, auth.RoleSetupTinyTuya: true,
+		auth.RoleBackupExport: true, auth.RoleBackupImport: true, auth.RoleBackupSecrets: true,
 	}
 	listing := listUsers(t, router, adminCookie)
 	if len(listing.Catalog) == 0 {

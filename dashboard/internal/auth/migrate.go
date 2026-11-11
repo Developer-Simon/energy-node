@@ -7,7 +7,7 @@ import (
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 6
+const usersFileVersion = 7
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -102,11 +102,11 @@ func migrateV3(roles []string) []string {
 	return out
 }
 
-// migrateV5 bringt die Rollen einer Datei der Version 5 nach Version 6: wer
+// migrateV6 bringt die Rollen einer Datei der Version 6 nach Version 7: wer
 // view_stats hat, bekommt view_efficiency. Ein Eintrag, der schon da ist,
 // wird nicht doppelt angehaengt. Die Eingabe sind rohe Rollen, die Aufrufer
 // normalisieren selbst.
-func migrateV5(roles []string) []string {
+func migrateV6(roles []string) []string {
 	out := append([]string(nil), roles...)
 	if containsRole(roles, RoleViewStats) && !containsRole(roles, RoleViewEfficiency) {
 		out = append(out, RoleViewEfficiency)
@@ -165,7 +165,7 @@ func defaultHAAdminRoles() []string {
 // migrateV4Locked wendet die Regeln der Version 5 an: eine unveraenderte
 // Gastvorgabe (genau die alte Standardliste) wird durch die neue ersetzt.
 // Der Vergleich ignoriert view_efficiency: die alte Liste kennt das Recht
-// nicht, die Vorlage aber schon, und Version 6 ergaenzt es erst danach.
+// nicht, die Vorlage aber schon, und Version 7 ergaenzt es erst danach.
 // Gastkonten mit genau der alten Liste bekommen die neue Vorgabe, unabhaengig
 // davon, ob die Gastvorgabe ersetzt wurde. Die HA-Vorgaben werden nur
 // gemeinsam ersetzt, wenn beide Seiten unveraendert sind. Eigene HA-Konten
@@ -187,6 +187,22 @@ func (m *Manager) migrateV4Locked() (guestReplaced bool) {
 		m.haRoles.User = defaultHAUserRoles()
 	}
 	return guestReplaced
+}
+
+// backupRoleKeys sind die Backup-Rechte, die Version 6 bestehenden Admins gibt.
+var backupRoleKeys = []string{RoleBackupExport, RoleBackupImport, RoleBackupSecrets}
+
+// migrateV5 gibt jedem bestehenden Admin die Backup-Rechte. Admin ist ein
+// Nicht-Gast mit system_actions, wie in migrateV1. Die erhoehten Rechte stehen
+// nicht in den HA-Vorgaben, die bleiben unberuehrt.
+func migrateV5(users map[string]User) {
+	for name, user := range users {
+		if user.Guest || !containsRole(user.Roles, RoleSystemActions) {
+			continue
+		}
+		user.Roles = Normalize(append(append([]string(nil), user.Roles...), backupRoleKeys...))
+		users[name] = user
+	}
 }
 
 // sameRoles vergleicht zwei Rollenlisten nach Normalize, die Reihenfolge und

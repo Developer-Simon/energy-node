@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -298,11 +299,13 @@ func (m *Manager) loadLocked() (bool, error) {
 	} else {
 		// Version 2 kennt tune_live_updates, Version 3 nicht mehr (migrateV2),
 		// Version 4 ergaenzt die Geraete-Rechte (migrateV3), Version 5 ersetzt
-		// unveraenderte Vorgaben (migrateV4Locked). Jede Umschreibung laeuft
+		// unveraenderte Vorgaben (migrateV4Locked), Version 6 gibt Admins die
+		// Backup-Rechte (migrateV5), Version 7 ergaenzt view_efficiency
+		// (migrateV6). Jede Umschreibung laeuft
 		// einmal beim Uebergang und nie wieder.
 		upgradeV2 := file.Version < 3
 		upgradeV3 := file.Version < 4
-		upgradeV5 := file.Version < 6
+		upgradeV6 := file.Version < 7
 		guestRoles := file.GuestRoles
 		if upgradeV2 {
 			guestRoles = migrateV2(guestRoles, true)
@@ -310,8 +313,8 @@ func (m *Manager) loadLocked() (bool, error) {
 		if upgradeV3 {
 			guestRoles = migrateV3(guestRoles)
 		}
-		if upgradeV5 {
-			guestRoles = migrateV5(guestRoles)
+		if upgradeV6 {
+			guestRoles = migrateV6(guestRoles)
 		}
 		m.guestRoles = Normalize(guestAllowedOnly(guestRoles))
 		m.guestRolesReviewed = file.GuestRolesReviewed
@@ -323,8 +326,8 @@ func (m *Manager) loadLocked() (bool, error) {
 			if upgradeV3 {
 				roles = migrateV3(roles)
 			}
-			if upgradeV5 {
-				roles = migrateV5(roles)
+			if upgradeV6 {
+				roles = migrateV6(roles)
 			}
 			user.Roles = Normalize(roles)
 			m.users[name] = user
@@ -339,14 +342,14 @@ func (m *Manager) loadLocked() (bool, error) {
 				m.haRoles.User = migrateV3(m.haRoles.User)
 			}
 		}
-		if upgradeV5 {
+		if upgradeV6 {
 			for id, account := range m.haAccounts {
-				account.Roles = migrateV5(account.Roles)
+				account.Roles = migrateV6(account.Roles)
 				m.haAccounts[id] = account
 			}
 			if m.haRoles != nil {
-				m.haRoles.Admin = migrateV5(m.haRoles.Admin)
-				m.haRoles.User = migrateV5(m.haRoles.User)
+				m.haRoles.Admin = migrateV6(m.haRoles.Admin)
+				m.haRoles.User = migrateV6(m.haRoles.User)
 			}
 		}
 	}
@@ -357,11 +360,16 @@ func (m *Manager) loadLocked() (bool, error) {
 	if file.Version < 5 {
 		// Version 5 ersetzt unveraenderte Vorgaben (migrateV4Locked). Nur
 		// Dateien vor Version 5 kommen hierher, eine gespeicherte Gastliste
-		// der Version 5 oder 6 bleibt unberuehrt.
+		// der Version 5, 6 oder 7 bleibt unberuehrt.
 		replaced := m.migrateV4Locked()
 		if replaced && m.hasNonGuestLocked() {
 			m.guestRolesReviewed = false
 		}
+	}
+	if file.Version < 6 {
+		// Version 6 gibt bestehenden Admins die Backup-Rechte (migrateV5).
+		migrateV5(m.users)
+		changed = true
 	}
 	if m.cleanupGuestsLocked() {
 		changed = true
@@ -689,7 +697,7 @@ func hashPassword(password string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	derived := deriveKey([]byte(password), salt, passwordRounds)
+	derived := DeriveKey(password, salt, passwordRounds, 32)
 	return strings.Join([]string{
 		"pbkdf2-sha256",
 		strconv.Itoa(passwordRounds),
@@ -715,28 +723,35 @@ func verifyPassword(encoded, password string) bool {
 	if err != nil {
 		return false
 	}
-	actual := deriveKey([]byte(password), salt, rounds)
+	actual := DeriveKey(password, salt, rounds, 32)
 	return subtle.ConstantTimeCompare(actual, expected) == 1
 }
 
-func deriveKey(password, salt []byte, rounds int) []byte {
-	const keyLength = 32
-	block := make([]byte, 4)
-	block[3] = 1
-	mac := hmac.New(sha256.New, password)
-	mac.Write(salt)
-	mac.Write(block)
-	u := mac.Sum(nil)
-	result := append([]byte(nil), u...)
-	for round := 1; round < rounds; round++ {
-		mac = hmac.New(sha256.New, password)
-		mac.Write(u)
-		u = mac.Sum(nil)
-		for index := range result {
-			result[index] ^= u[index]
+// DeriveKey leitet length Byte aus password und salt mit PBKDF2-HMAC-SHA256 ab.
+// Die Anmeldung und das Backup-Passwort nutzen dieselbe Funktion.
+func DeriveKey(password string, salt []byte, iterations, length int) []byte {
+	const hashLength = sha256.Size
+	mac := hmac.New(sha256.New, []byte(password))
+	out := make([]byte, 0, (length+hashLength-1)/hashLength*hashLength)
+	for blockIndex := uint32(1); len(out) < length; blockIndex++ {
+		var counter [4]byte
+		binary.BigEndian.PutUint32(counter[:], blockIndex)
+		mac.Reset()
+		mac.Write(salt)
+		mac.Write(counter[:])
+		u := mac.Sum(nil)
+		block := append([]byte(nil), u...)
+		for round := 1; round < iterations; round++ {
+			mac.Reset()
+			mac.Write(u)
+			u = mac.Sum(nil)
+			for index := range block {
+				block[index] ^= u[index]
+			}
 		}
+		out = append(out, block...)
 	}
-	return result[:keyLength]
+	return out[:length]
 }
 
 func tokenHash(token string) string {

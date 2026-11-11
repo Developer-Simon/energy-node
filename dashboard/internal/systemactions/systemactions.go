@@ -19,6 +19,8 @@ const (
 	TailscaleUp       Action = "tailscale-up"
 	TailscaleLogout   Action = "tailscale-logout"
 	TailscaleRestart  Action = "tailscale-restart"
+	StopServices      Action = "stop-services"
+	StartServices     Action = "start-services"
 )
 
 var ErrBusy = errors.New("a system action is already running")
@@ -33,6 +35,8 @@ var actions = map[Action]struct{}{
 	TailscaleUp:       {},
 	TailscaleLogout:   {},
 	TailscaleRestart:  {},
+	StopServices:      {},
+	StartServices:     {},
 }
 
 type Runner interface {
@@ -79,6 +83,18 @@ func (e *Executor) Execute(ctx context.Context, action Action) error {
 		e.mu.Unlock()
 	}()
 	return e.runner.Run(ctx, "sudo", "-n", e.helper, string(action))
+}
+
+// StopServices stops the enabled services that the backup restore touches,
+// through the helper's stop-services verb.
+func (e *Executor) StopServices() error {
+	return e.Execute(context.Background(), StopServices)
+}
+
+// StartServices starts the enabled services again after a restore, through
+// the helper's start-services verb.
+func (e *Executor) StartServices() error {
+	return e.Execute(context.Background(), StartServices)
 }
 
 func IsSupported(action Action) bool {

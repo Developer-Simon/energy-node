@@ -10,7 +10,7 @@ redirect_from:
 This page explains what `services/battery_soc/battery_soc_mqtt.py` does, why it
 computes the way it does and which setting affects what. It adds to the
 general description in [`battery-soc.md`](battery-soc.md) and the installation
-steps in [install/index.md](../install/index.md).
+steps in [developing/manual-installation.md](../developing/manual-installation.md).
 
 The result is an estimate for monitoring and diagnostics, not a BMS function.
 Do not use it for automatic shutdowns without additional safeguards.

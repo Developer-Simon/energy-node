@@ -26,6 +26,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/backup"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/chainsuggest"
@@ -67,7 +68,57 @@ const updatesRepo = "Developer-Simon/energy-node"
 // `go run`/`go test` and any build that skips ldflags.
 var buildVersion = "dev"
 
+// runBackupApply spielt einen vorgemerkten Import ein und startet danach die
+// Dienste über startServices neu. Fehler werden nur protokolliert, der Start
+// läuft weiter.
+func runBackupApply(src backup.Sources, startServices func() error) {
+	res, err := backup.ApplyPending(src)
+	if err != nil {
+		log.Printf("energy-node-dashboard: backup apply: %v", err)
+	}
+	if res == nil {
+		// Ein Fehler ohne Ergebnis tritt nur mit einem vorgemerkten Einspielen oder Journal
+		// auf. Dessen Lauf kann die Dienste angehalten haben, sie müssen wieder laufen.
+		if err != nil {
+			if serr := startServices(); serr != nil {
+				log.Printf("energy-node-dashboard: backup apply: Dienste starten: %v", serr)
+			}
+		}
+		return
+	}
+	log.Printf("energy-node-dashboard: backup apply: ok=%t code=%q", res.OK, res.Code)
+	if err := startServices(); err != nil {
+		log.Printf("energy-node-dashboard: backup apply: Dienste starten: %v", err)
+	}
+}
+
+// batteryStateFiles liest id -> state_file aus battery_soc_devices.json. Fehlt
+// die Datei oder ist sie nicht lesbar, ist das Ergebnis leer.
+func batteryStateFiles(devicesDir string) map[string]string {
+	out := map[string]string{}
+	data, err := os.ReadFile(filepath.Join(devicesDir, "battery_soc_devices.json"))
+	if err != nil {
+		return out
+	}
+	var devices []struct {
+		ID        string `json:"id"`
+		StateFile string `json:"state_file"`
+	}
+	if json.Unmarshal(data, &devices) != nil {
+		return out
+	}
+	for _, d := range devices {
+		if d.ID != "" && d.StateFile != "" {
+			out[d.ID] = d.StateFile
+		}
+	}
+	return out
+}
+
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "backup" {
+		os.Exit(runBackupCLI(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	configPath := flag.String("config", appconfig.DefaultPath, "Pfad zur zentralen Konfigurationsdatei")
 	flag.Parse()
 	rawConfig, _ := os.ReadFile(*configPath)
@@ -90,6 +141,9 @@ func main() {
 	devicesDir := cfg.Paths.DevicesDir
 	configManager := config.NewManager(devicesDir)
 	dataDir := cfg.Paths.DataDir
+	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
+	backupSources := buildSources(cfg, *configPath)
+	runBackupApply(backupSources, systemExecutor.StartServices)
 	shellyPresetsPath := cfg.ShellyPresets()
 	shellyPresetsStore := shellypresets.NewStore(shellyPresetsPath)
 	configManager.ExcludeName(strings.TrimSuffix(filepath.Base(shellyPresetsPath), ".json"))
@@ -125,7 +179,6 @@ func main() {
 			log.Printf("energy-node-dashboard: Vorgaben aus %s nicht vollständig übernommen: %v", onboarding.SeedFileName, err)
 		}
 	}
-	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 	// Nur ein echter Reader im Interface, sonst waere ServiceLogs nie nil.
 	var serviceLogs httpapi.ServiceLogReader
 	if cfg.Dashboard.SystemActionHelper != "" {
@@ -526,6 +579,46 @@ func main() {
 		}
 	}()
 
+	// Die Einstellungen werden bei jedem Aufruf neu gelesen, damit ein Speichern
+	// in der Oberfläche sofort auch für den Zeitplan gilt.
+	backupSettingsFn := func() backup.Settings {
+		s, err := backup.LoadSettings(dataDir)
+		if err != nil {
+			log.Printf("backup settings: %v, using defaults", err)
+			return backup.DefaultSettings()
+		}
+		return s
+	}
+	backupLocation := &backup.SystemLocation{DataDir: dataDir, Settings: backupSettingsFn}
+	sched := &backup.Scheduler{
+		Settings: backupSettingsFn,
+		Location: backupLocation,
+		Version:  buildVersion,
+		Create:   newArchiveCreator(backupSources, buildVersion, "auto"),
+	}
+	backupDeps := &httpapi.BackupDeps{
+		DataDir:   dataDir,
+		Sources:   backupSources,
+		Version:   buildVersion,
+		Settings:  backupSettingsFn,
+		Location:  backupLocation,
+		Jobs:      &backup.Jobs{},
+		Scheduler: sched,
+		Exec:      systemExecutor,
+	}
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				sched.Tick(ctx)
+			}
+		}
+	}()
+
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
@@ -621,6 +714,7 @@ func main() {
 		DataDir:             dataDir,
 		Onboarding:          onboardingStore,
 		TourTargets:         dashwebui.TourTargets,
+		Backup:              backupDeps,
 		InstallerStateDir:   installerStateDir,
 		AppConfigPath:       *configPath,
 		BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,
