@@ -9,11 +9,12 @@
   items:
     - { label: "What is Energy Node?", url: "index.md" }
     - { label: "What's new", url: "whats-new.md" }
-    - { label: "Deploying with the installer", url: "installer.md" }
-    - label: "Manual installation"
-      url: "install/index.md"
+    - label: "Deploying with the installer"
+      url: "installer.md"
       children:
-        - { label: "Deploying & verifying", url: "install/deploy.md" }
+        - { label: "Operating system", url: "installer-operating-system.md" }
+        - { label: "Updating a node", url: "installer-update.md" }
+        - { label: "Diagnosing a node", url: "installer-diagnose.md" }
 
 - title: Using
   items:
@@ -123,6 +124,10 @@
         - { label: "Configuration schemas", url: "developing/config-schema.md" }
         - { label: "Service library", url: "developing/service-library.md" }
     - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
+    - label: "Manual installation"
+      url: "developing/manual-installation.md"
+      children:
+        - { label: "Deploying & verifying", url: "developing/manual-installation-deploy.md" }
     - { label: "Cutting a release", url: "developing/releasing.md" }
     - { label: "Version overview", url: "developing/versions.md" }
     - { label: "Third-party sources", url: "developing/dependencies.md" }

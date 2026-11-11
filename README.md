@@ -137,7 +137,7 @@ Point it at a Raspberry Pi with SSH enabled, choose your services and let it
 run. It fetches the right installation package for the Pi itself.
 [Deploying a node](https://developer-simon.github.io/energy-node/installer.html) walks through every screen.
 
-**By hand.** [Manual installation](https://developer-simon.github.io/energy-node/install/) describes every step the
+**By hand.** [Manual installation](https://developer-simon.github.io/energy-node/developing/manual-installation.html) describes every step the
 installer automates, including the ARMv6 quirks: packages that have to be
 installed in an old version first (Tailscale), and the pip flags a current
 Raspberry Pi OS needs.
