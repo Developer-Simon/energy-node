@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func fakePublicKey(t *testing.T) ssh.PublicKey {
@@ -127,5 +128,49 @@ func TestCallbackRejectsChangedKeyWithoutPrompting(t *testing.T) {
 	}
 	if prompted != 0 {
 		t.Fatalf("a changed host key must never reach the prompt, got %d calls", prompted)
+	}
+}
+
+func TestPinHostKeyReplacesAnEarlierKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "known_hosts")
+	old := fakePublicKey(t)
+	fresh := fakePublicKey(t)
+	other := fakePublicKey(t)
+	seed := knownhosts.Line([]string{"energy-node.local"}, old) + "\n" +
+		knownhosts.Line([]string{"other.local"}, other) + "\n"
+	if err := os.WriteFile(path, []byte(seed), 0o600); err != nil {
+		t.Fatalf("seed known_hosts: %v", err)
+	}
+
+	if err := PinHostKey(path, "energy-node.local:22", fresh); err != nil {
+		t.Fatalf("PinHostKey: %v", err)
+	}
+
+	check, err := knownhosts.New(path)
+	if err != nil {
+		t.Fatalf("knownhosts.New: %v", err)
+	}
+	if err := check("energy-node.local:22", fakeAddr(), fresh); err != nil {
+		t.Fatalf("new key must be trusted: %v", err)
+	}
+	if err := check("energy-node.local:22", fakeAddr(), old); err == nil {
+		t.Fatalf("old key must no longer be trusted")
+	}
+	if err := check("other.local:22", fakeAddr(), other); err != nil {
+		t.Fatalf("unrelated host must stay unchanged: %v", err)
+	}
+}
+
+func TestPinHostKeyCreatesTheFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing", "dir", "known_hosts")
+	if err := PinHostKey(path, "energy-node.local", fakePublicKey(t)); err != nil {
+		t.Fatalf("PinHostKey: %v", err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o600 {
+		t.Fatalf("mode = %o, want 0600", mode)
 	}
 }

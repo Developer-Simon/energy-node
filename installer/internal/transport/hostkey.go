@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -88,4 +89,68 @@ func appendHostKey(path, hostname string, key ssh.PublicKey) error {
 	defer f.Close()
 	_, err = fmt.Fprintln(f, knownhosts.Line([]string{hostname}, key))
 	return err
+}
+
+// PinHostKey stores key as the only trusted key for host in the known_hosts
+// file at path. Unhashed lines that name the same host are removed first, so
+// an earlier key cannot stay trusted next to the new one. Hashed lines and
+// lines for other hosts are kept. The file and its directory are created when
+// missing, with modes 0600 and 0700.
+func PinHostKey(path, host string, key ssh.PublicKey) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("host key store %s: %w", path, err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("reading host key store %s: %w", path, err)
+	}
+	want := knownhosts.Normalize(host)
+	var kept []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if line != "" && !linesHost(line, want) {
+			kept = append(kept, line)
+		}
+	}
+	kept = append(kept, knownhosts.Line([]string{host}, key))
+	return writeFileAtomic(path, []byte(strings.Join(kept, "\n")+"\n"))
+}
+
+// linesHost reports whether an unhashed known_hosts line lists want among its
+// hosts. Hashed entries ("|1|...") never match, because they cannot be read
+// back to a name.
+func linesHost(line, want string) bool {
+	fields := strings.Fields(line)
+	if len(fields) > 0 && strings.HasPrefix(fields[0], "@") {
+		fields = fields[1:]
+	}
+	if len(fields) < 2 || strings.HasPrefix(fields[0], "|1|") {
+		return false
+	}
+	for _, h := range strings.Split(fields[0], ",") {
+		if knownhosts.Normalize(h) == want {
+			return true
+		}
+	}
+	return false
+}
+
+// writeFileAtomic replaces path through a temporary file in the same directory,
+// so a crash never leaves a half-written key store behind.
+func writeFileAtomic(path string, data []byte) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
