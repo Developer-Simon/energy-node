@@ -42,7 +42,8 @@ internet access for the system packages and for Tailscale, and your computer
 must reach it by name or IP address.
 
 Which image fits which Pi is listed under
-[Operating system](installer-operating-system.md).
+[Operating system](installer-operating-system.md). The **Media** tab can write
+the card for you, see [Preparing a storage medium](#preparing-a-storage-medium).
 
 Your computer can run Windows, macOS or Linux. On Windows the window uses the
 Edge WebView2 runtime, which current Windows 10 and 11 installations include.
@@ -79,6 +80,36 @@ target), otherwise `arm64` or `amd64`. `run-installer.sh` builds the program
 and starts it (`--no-build` skips the build). The
 [Installer developer CLI](developing/installer-cli.md) page has the details,
 such as a quicker package build for a first try.
+
+## Preparing a storage medium
+
+The **Media** tab writes an SD card for a Raspberry Pi so that you do not need a
+second tool for the image. It needs the Raspberry Pi Imager 2.0 or newer, as the
+Flatpak or as a package. If it is missing, the tab links to Discover and to the
+download page. For now the tab works on Linux only. Windows and macOS follow.
+
+1. **Device.** Pick the Pi model. The box below the list shows the image, the
+   installation package and the download size. Models that have not been tested
+   yet carry an experimental label.
+2. **Settings.** Choose a device name, which the installer checks on the
+   network, and a user. The installer fills in the rest: user `node`, login with
+   a key only, passwordless `sudo`, and the time zone and keyboard layout of this
+   computer. An emergency password for a screen and keyboard on the Pi is off by
+   default. You can add Wi-Fi here. Its password only goes onto the medium and
+   the installer does not store it.
+3. **Drive.** Plug in the card. Removable drives appear in the list as soon as
+   they are connected. Internal drives only show up with the **Also show internal
+   drives** switch, and the drive this computer runs from never does. For a card
+   you tick a box, for an internal drive you type the drive's name.
+4. **Write.** The installer downloads the image, checks its checksum, writes the
+   card with the Imager and ejects it. The Imager asks for administrator rights
+   through the system's own dialog.
+5. **Done.** Put the card into the Pi, connect it and switch it on. The installer
+   waits for the Pi and then offers **Continue to setup**.
+
+The installer creates the Pi's SSH host key itself and remembers it, so
+[Setting up a node](#setting-up-a-node) connects without the fingerprint
+question.
 
 ## Setting up a node
 
