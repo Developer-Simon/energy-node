@@ -438,3 +438,16 @@ test('eine gemerkte Wahl, die es nicht mehr gibt, faellt auf die Vorgabe zurueck
   again.init();
   assert.equal(again.packageKind, 'bundled');
 });
+
+test('Uebergabe aus Medium belegt Schluessel-Anmeldung vor', () => {
+  const { screen, shell } = mountScreen('screen-connect.js', 'screenConnect', { catalog: realCatalog('de') });
+  shell.shared.handover = { host: 'werkstatt.local', user: 'node', keyPath: '/home/dev/.energy-node/id_ed25519' };
+  screen.init();
+
+  assert.equal(screen.host, 'werkstatt.local');
+  assert.equal(screen.user, 'node');
+  assert.equal(screen.kind, 'key');
+  assert.equal(screen.keyPath, '/home/dev/.energy-node/id_ed25519');
+  assert.equal(screen.makeKey, false);
+  assert.equal(shell.shared.handover, null);
+});

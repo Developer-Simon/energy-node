@@ -26,6 +26,8 @@
       remember: false,
       // prefilled: der Bootstrap hat das Formular schon einmal vorbelegt.
       prefilled: false,
+      // handedOver: ein Medium hat den Zielrechner schon vorgegeben.
+      handedOver: false,
 
       get shell() {
         return window.Installer.shell;
@@ -78,11 +80,23 @@
             }
           });
         }
+        // Ein fertiges Medium uebergibt seinen Rechner: die Anmeldung mit dem
+        // Schluessel ist dann vorbelegt, auch wenn der Bootstrap erst spaeter kommt.
+        var handover = this.shell.shared.handover;
+        if (handover) {
+          this.host = handover.host;
+          this.user = handover.user;
+          this.kind = 'key';
+          this.keyPath = handover.keyPath || '';
+          this.makeKey = false;
+          this.handedOver = true;
+          this.shell.shared.handover = null;
+        }
       },
 
       applyBootstrap() {
         var saved = this.saved;
-        if (saved && !this.prefilled) {
+        if (saved && !this.prefilled && !this.handedOver) {
           this.host = saved.host;
           this.user = saved.user;
           this.kind = saved.kind || 'password';

@@ -7,6 +7,11 @@
   var DOCS_URL = 'https://developer-simon.github.io/energy-node/installer.html';
   var NAME_DELAY = 400;
   var DRIVE_POLL = 2000;
+  var WRITE_POLL = 500;
+  var DONE_CLOCK = 1000;
+  var DONE_POLL = 5000;
+  var SLOW_AFTER = 10 * 60 * 1000;
+  var STEP_IDS = ['download', 'checksum', 'rights', 'write', 'verify', 'customize', 'eject'];
 
   window.Screens = window.Screens || {};
 
@@ -451,6 +456,262 @@
         if (this.timer) {
           window.clearInterval(this.timer);
           this.timer = null;
+        }
+      },
+    };
+  };
+
+  // screenMediaWrite: Schritt 4. Startet den Auftrag beim Eintritt und fragt
+  // ihn alle 500 ms ab. Ende: Fertig. Fehler oder Abbruch: Banner, dann
+  // Wiederholen oder Zurueck.
+  window.Screens.screenMediaWrite = function screenMediaWrite() {
+    return {
+      job: null,
+      running: false,
+      failed: false,
+      timer: null,
+
+      get shell() {
+        return window.Installer.shell;
+      },
+
+      init() {
+        var media = this.shell.shared.media || {};
+        if (!media.drive || !media.settings) {
+          this.shell.go('media-device');
+          return;
+        }
+        return this.start();
+      },
+
+      // rows: die Schritte des Auftrags, bis er antwortet alle wartend.
+      get rows() {
+        var rows = window.MediaModel.stepRows(this.job);
+        if (rows.length) {
+          return rows;
+        }
+        return STEP_IDS.map(function (id) {
+          return { id: id, state: 'pending', labelKey: 'media.step.' + id };
+        });
+      },
+
+      get percent() {
+        return this.job ? Math.max(0, Math.min(100, this.job.percent || 0)) : 0;
+      },
+
+      get remainingText() {
+        var seconds = window.MediaModel.remaining(this.job);
+        if (seconds === null) {
+          return '';
+        }
+        return this.shell.t('media.write.remaining', {
+          time: window.Format.elapsed(seconds * 1000),
+          rate: window.Format.megabytes(this.job.rate, this.shell.lang),
+        });
+      },
+
+      get log() {
+        return this.job && this.job.log ? this.job.log : [];
+      },
+
+      // start: POST /api/media/write. Erst nach der Annahme gilt der Lauf als
+      // laufend und die Jobabfrage beginnt.
+      async start() {
+        var media = this.shell.shared.media;
+        this.failed = false;
+        this.job = null;
+        try {
+          await window.Api.post('/api/media/write', {
+            device: media.device,
+            drive: media.drive.path,
+            confirm: window.MediaModel.confirmationFor(media.drive),
+            settings: window.MediaModel.toRequest(media.settings),
+          });
+        } catch (err) {
+          this.failed = true;
+          this.shell.fail(err);
+          return;
+        }
+        this.shell.mutating = true;
+        this.running = true;
+        this.timer = window.setInterval(() => this.poll(), WRITE_POLL);
+        return this.poll();
+      },
+
+      async poll() {
+        var job;
+        try {
+          job = await window.Api.get('/api/media/job');
+        } catch (err) {
+          if (this.running) {
+            this.finish();
+            this.failed = true;
+            this.shell.fail(err);
+          }
+          return;
+        }
+        if (!this.running) {
+          return;
+        }
+        this.job = job;
+        if (job.state === 'idle' || job.state === 'running') {
+          return;
+        }
+        this.finish();
+        if (job.state === 'done') {
+          this.shell.shared.media.target = job.target;
+          this.shell.go('media-done');
+          return;
+        }
+        this.failed = true;
+        var error = job.error || { code: job.state === 'cancelled' ? 'MEDIA_CANCELLED' : 'MEDIA_WRITE_FAILED', detail: '' };
+        this.shell.fail({ code: error.code, detail: error.detail });
+      },
+
+      // finish beendet Abfrage und Sperre. Jeder Ausgang geht hier durch.
+      finish() {
+        this.stop();
+        this.shell.mutating = false;
+      },
+
+      stop() {
+        this.running = false;
+        if (this.timer) {
+          window.clearInterval(this.timer);
+          this.timer = null;
+        }
+      },
+
+      cancel() {
+        return window.Api.post('/api/media/cancel', {}).catch((err) => {
+          this.shell.fail(err);
+        });
+      },
+
+      retry() {
+        this.shell.error = null;
+        return this.start();
+      },
+
+      back() {
+        this.destroy();
+        this.shell.back('media-drive');
+      },
+
+      save() {
+        this.shell.saveFile('energy-node-media.log', this.log.join('\n'));
+      },
+
+      destroy() {
+        this.stop();
+      },
+    };
+  };
+
+  // screenMediaDone: Schritt 5. Wartet, bis der fertige Rechner antwortet,
+  // zeigt nach zehn Minuten die Karte mit der Adresseingabe und uebergibt an
+  // die Einrichtung.
+  window.Screens.screenMediaDone = function screenMediaDone() {
+    return {
+      host: '',
+      user: '',
+      keyPath: '',
+      ip: '',
+      reachable: false,
+      keyMatches: false,
+      startedAt: 0,
+      now: 0,
+      slow: false,
+      clockTimer: null,
+      pollTimer: null,
+      seq: 0,
+
+      get shell() {
+        return window.Installer.shell;
+      },
+
+      init() {
+        var target = this.shell.shared.media.target;
+        if (!target) {
+          this.shell.go('media-device');
+          return;
+        }
+        this.host = target.host || '';
+        this.user = target.user || '';
+        this.keyPath = target.key_path || '';
+        this.startedAt = Date.now();
+        this.now = this.startedAt;
+        this.clockTimer = window.setInterval(() => this.tick(), DONE_CLOCK);
+        this.pollTimer = window.setInterval(() => this.check(), DONE_POLL);
+        return this.check();
+      },
+
+      // address: nach der Karte zaehlt die eingetippte IP-Adresse, sonst der Name.
+      get address() {
+        return this.ip.trim() || this.host;
+      },
+
+      get found() {
+        return this.reachable && this.keyMatches;
+      },
+
+      get foreign() {
+        return this.reachable && !this.keyMatches;
+      },
+
+      get waiting() {
+        return !this.reachable;
+      },
+
+      get elapsed() {
+        return window.Format.elapsed(this.now - this.startedAt);
+      },
+
+      tick() {
+        this.now = Date.now();
+        this.slow = this.now - this.startedAt >= SLOW_AFTER;
+      },
+
+      // check: fragt den Rechner ab. Eine Antwort zu einer alten Adresse zaehlt nicht.
+      async check() {
+        var seq = ++this.seq;
+        var address = this.address;
+        var result;
+        try {
+          result = await window.Api.get('/api/media/reachable?host=' + encodeURIComponent(address));
+        } catch (err) {
+          return;
+        }
+        if (seq !== this.seq) {
+          return;
+        }
+        this.reachable = !!result.reachable;
+        this.keyMatches = !!result.key_matches;
+      },
+
+      toSetup() {
+        var address = this.address;
+        this.destroy();
+        this.shell.openSetup({ host: address, user: this.user, keyPath: this.keyPath });
+      },
+
+      another() {
+        this.destroy();
+        var media = this.shell.shared.media;
+        media.drive = null;
+        media.confirm = '';
+        media.target = null;
+        this.shell.go('media-device');
+      },
+
+      destroy() {
+        if (this.clockTimer) {
+          window.clearInterval(this.clockTimer);
+          this.clockTimer = null;
+        }
+        if (this.pollTimer) {
+          window.clearInterval(this.pollTimer);
+          this.pollTimer = null;
         }
       },
     };

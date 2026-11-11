@@ -357,3 +357,225 @@ test('die Einstiegsschalter sind auf allen Medium-Bildschirmen gestaltet', async
     assert.ok(css.includes(`.app[data-screen^="media-"] ${rule}`), `Regel fehlt: ${rule}`);
   }
 });
+
+// Schreiben und Fertig. Die Zeitgeber fuellt ein Test selbst: der Bildschirm
+// startet sie in init(), fire() ruft sie auf, und destroy() muss sie alle
+// wieder entfernen (timers.active() bleibt dann bei 0).
+function fakeTimers(window) {
+  const timers = new Map();
+  let next = 1;
+  window.setInterval = (fn, ms) => {
+    const id = next++;
+    timers.set(id, { fn, ms });
+    return id;
+  };
+  window.clearInterval = (id) => {
+    timers.delete(id);
+  };
+  return {
+    active: () => timers.size,
+    intervals: () => [...timers.values()].map((item) => item.ms),
+    fire: (ms) => {
+      for (const item of [...timers.values()]) {
+        if (item.ms === ms) {
+          item.fn();
+        }
+      }
+    },
+  };
+}
+
+const TARGET = { host: 'werkstatt.local', user: 'node', key_path: '/home/dev/.energy-node/id_ed25519' };
+const SETTINGS = { hostname: 'werkstatt', user: 'node', emergency: false, password: '', password2: '', timezone: 'Europe/Berlin', keyboard: 'de', wifiOn: false, ssid: '', wifiPassword: '', country: 'DE' };
+const CARD = { path: '/dev/sdb', model: 'SanDisk Ultra', size: 32 * 1024 * 1024 * 1024, transport: 'usb', removable: true, partitions: [] };
+
+function job(overrides = {}) {
+  return Object.assign({
+    state: 'running',
+    steps: [{ id: 'download', state: 'done' }, { id: 'write', state: 'active' }, { id: 'verify', state: 'pending' }],
+    percent: 40, bytes_done: 40, bytes_total: 100, rate: 20, error: null, log: ['Lade Image'], target: null,
+  }, overrides);
+}
+
+function writer(responses = {}) {
+  const saved = [];
+  const mounted = mountMedia('screen-media.js', 'screenMediaWrite', {
+    screen: 'media-write',
+    responses: Object.assign({ 'POST /api/media/write': {}, 'GET /api/media/job': job(), 'POST /api/media/cancel': {} }, responses),
+  });
+  mounted.shell.shared.media.device = 'pi3';
+  mounted.shell.shared.media.drive = Object.assign({}, CARD);
+  mounted.shell.shared.media.settings = Object.assign({}, SETTINGS);
+  mounted.shell.shared.media.confirm = 'yes';
+  mounted.shell.saveFile = (name, content) => saved.push({ name, content });
+  return Object.assign(mounted, { timers: fakeTimers(mounted.window), saved });
+}
+
+function done(responses = {}) {
+  const setups = [];
+  const mounted = mountMedia('screen-media.js', 'screenMediaDone', {
+    screen: 'media-done',
+    responses: Object.assign({ 'GET /api/media/reachable': { reachable: false, key_matches: false } }, responses),
+  });
+  mounted.shell.shared.media.target = Object.assign({}, TARGET);
+  mounted.shell.shared.media.settings = Object.assign({}, SETTINGS);
+  mounted.shell.shared.media.drive = Object.assign({}, CARD);
+  mounted.shell.openSetup = (target) => setups.push(target);
+  return Object.assign(mounted, { timers: fakeTimers(mounted.window), setups });
+}
+
+test('Schreiben schickt die Bestaetigung und sperrt den Umschalter', async (t) => {
+  const { screen, shell, calls, timers } = writer();
+  t.after(() => screen.destroy());
+  await screen.init();
+
+  assert.equal(calls[0].key, 'POST /api/media/write');
+  assert.equal(calls[0].body.confirm, 'yes');
+  assert.equal(calls[0].body.drive, '/dev/sdb');
+  assert.equal(calls[0].body.settings.wifi, null);
+  assert.equal(shell.mutating, true);
+  assert.deepEqual(timers.intervals(), [500], 'die Jobabfrage laeuft alle 500 ms');
+});
+
+test('Fehler beim Schreiben landet im Banner', async (t) => {
+  const failed = job({ state: 'failed', error: { code: 'MEDIA_WRITE_FAILED', detail: '' } });
+  const { screen, shell, timers } = writer({ 'GET /api/media/job': failed });
+  t.after(() => screen.destroy());
+  await screen.init();
+  await screen.poll();
+
+  assert.equal(shell.error.code, 'MEDIA_WRITE_FAILED');
+  assert.equal(shell.mutating, false);
+  assert.equal(screen.failed, true);
+  assert.equal(timers.active(), 0);
+});
+
+test('Restzeit und Schritte kommen aus dem Auftrag', async (t) => {
+  const { screen } = writer();
+  t.after(() => screen.destroy());
+  await screen.init();
+
+  assert.match(screen.remainingText, /00:03/, 'noch 60 Byte bei 20 Byte je Sekunde');
+  assert.equal(screen.percent, 40);
+  assert.deepEqual(plain(screen.rows.map((row) => row.state)), ['done', 'active', 'pending']);
+});
+
+test('ein Erfolg uebergibt das Ziel und geht zu Fertig', async (t) => {
+  const { screen, shell, timers } = writer({ 'GET /api/media/job': job({ state: 'done', target: TARGET }) });
+  t.after(() => screen.destroy());
+  await screen.init();
+  await screen.poll();
+
+  assert.equal(shell.screen, 'media-done');
+  assert.deepEqual(plain(shell.shared.media.target), TARGET);
+  assert.equal(shell.mutating, false);
+  assert.equal(timers.active(), 0);
+});
+
+test('Abbrechen schickt POST /api/media/cancel', async (t) => {
+  const { screen, calls } = writer();
+  t.after(() => screen.destroy());
+  await screen.init();
+  await screen.cancel();
+  assert.equal(calls.at(-1).key, 'POST /api/media/cancel');
+});
+
+test('Protokoll speichern gibt die Zeilen an saveFile', async (t) => {
+  const { screen, saved } = writer({ 'GET /api/media/job': job({ log: ['eins', 'zwei'] }) });
+  t.after(() => screen.destroy());
+  await screen.init();
+  screen.save();
+  assert.deepEqual(saved, [{ name: 'energy-node-media.log', content: 'eins\nzwei' }]);
+});
+
+test('Wiederholen startet neu und raeumt den Banner', async (t) => {
+  const { screen, shell, calls, state } = writer({ 'GET /api/media/job': job({ state: 'failed', error: { code: 'MEDIA_WRITE_FAILED', detail: '' } }) });
+  t.after(() => screen.destroy());
+  await screen.init();
+  await screen.poll();
+  assert.equal(shell.error.code, 'MEDIA_WRITE_FAILED');
+
+  state.responses['GET /api/media/job'] = job();
+  await screen.retry();
+  assert.equal(shell.error, null);
+  assert.equal(calls.filter((call) => call.key === 'POST /api/media/write').length, 2);
+});
+
+test('Zurueck nach einem Fehler geht zum Laufwerk', async (t) => {
+  const { screen, shell, timers } = writer({ 'GET /api/media/job': job({ state: 'failed', error: { code: 'MEDIA_WRITE_FAILED', detail: '' } }) });
+  t.after(() => screen.destroy());
+  await screen.init();
+  await screen.poll();
+  screen.back();
+  assert.equal(shell.screen, 'media-drive');
+  assert.equal(shell.dir, 'back');
+  assert.equal(timers.active(), 0);
+});
+
+test('Fertig: der Fund bei passendem Schluessel, die Warnung bei fremdem', async (t) => {
+  const { screen, state, setups } = done({ 'GET /api/media/reachable': { reachable: true, key_matches: false } });
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.equal(screen.foreign, true);
+  assert.equal(screen.found, false);
+
+  state.responses['GET /api/media/reachable'] = { reachable: true, key_matches: true };
+  await screen.check();
+  assert.equal(screen.found, true);
+  assert.equal(screen.foreign, false);
+
+  screen.toSetup();
+  assert.deepEqual(plain(setups[0]), { host: 'werkstatt.local', user: 'node', keyPath: '/home/dev/.energy-node/id_ed25519' });
+});
+
+test('Weiter zum Einrichten ist auch vor dem Fund klickbar', async (t) => {
+  const { screen, setups } = done();
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.equal(screen.found, false);
+  screen.toSetup();
+  assert.equal(setups.length, 1);
+});
+
+test('nach zehn Minuten erscheint die Karte, und die IP-Adresse ersetzt den Namen', async (t) => {
+  const { screen, window } = done();
+  t.after(() => screen.destroy());
+  await screen.init();
+  const urls = urlsOf(window);
+
+  screen.tick();
+  assert.equal(screen.slow, false, 'vor zehn Minuten keine Karte');
+  screen.startedAt -= 10 * 60 * 1000;
+  screen.tick();
+  assert.equal(screen.slow, true);
+
+  screen.ip = '192.168.1.50';
+  await screen.check();
+  assert.ok(urls.at(-1).endsWith('/api/media/reachable?host=192.168.1.50'), urls.at(-1));
+});
+
+test('Weiteres Medium geht zur Geraeteauswahl und behaelt die Einstellungen', async (t) => {
+  const { screen, shell } = done();
+  t.after(() => screen.destroy());
+  await screen.init();
+  screen.another();
+  assert.equal(shell.screen, 'media-device');
+  assert.deepEqual(plain(shell.shared.media.settings), SETTINGS);
+  assert.equal(shell.shared.media.drive, null);
+});
+
+test('Fertig hat Uhr und Abfrage und gibt beides beim Verlassen frei', async (t) => {
+  const { screen, state, timers, calls } = done();
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.deepEqual(timers.intervals(), [1000, 5000]);
+
+  const before = calls.filter((call) => call.key === 'GET /api/media/reachable').length;
+  timers.fire(5000);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.filter((call) => call.key === 'GET /api/media/reachable').length, before + 1);
+
+  screen.toSetup();
+  assert.equal(timers.active(), 0);
+  assert.ok(state);
+});

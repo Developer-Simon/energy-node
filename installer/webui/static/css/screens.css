@@ -543,3 +543,26 @@
 .media-warn-check input[type="checkbox"]{flex:none;width:1.05rem;height:1.05rem;margin:0;accent-color:var(--accent)}
 button.media-erase{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad-line);font-weight:600}
 button.media-erase:hover:not(:disabled){background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+/* Schreiben (Schritt 4) und Fertig (Schritt 5). */
+.media-steps{list-style:none;margin:.6rem 0 0;padding:0}
+.media-step{display:flex;align-items:center;gap:.6rem;padding:.35rem 0;font-size:.84rem;color:var(--text-muted)}
+.media-step--done{color:var(--text)}
+.media-step--active{color:var(--text-strong);font-weight:600}
+.media-step--failed{color:var(--bad)}
+.media-step-ic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1.1rem;height:1.1rem}
+.media-step-ic svg{width:1rem;height:1rem}
+.media-step--done .media-step-ic{color:var(--ok)}
+.media-step--active .media-step-ic svg,.media-spin svg{animation:media-spin 1s linear infinite}
+@keyframes media-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.media-step--active .media-step-ic svg,.media-spin svg{animation:none}}
+.media-bar{height:.5rem;margin-top:.9rem;border-radius:999px;background:var(--track);overflow:hidden}
+.media-bar-fill{display:block;height:100%;background:var(--accent);transition:width .4s var(--ease)}
+@media (prefers-reduced-motion:reduce){.media-bar-fill{transition:none}}
+.media-log{margin-top:.9rem}
+.media-log summary{cursor:pointer;font-size:.8rem;color:var(--text-subtle)}
+.media-log-body{max-height:14rem;overflow:auto;margin:.5rem 0;padding:.5rem .6rem;border-radius:var(--radius-sm);background:var(--sunken);font-size:.72rem;line-height:1.45;white-space:pre-wrap;color:var(--text-muted)}
+.media-list{margin:.4rem 0 0;padding-left:1.2rem;font-size:.84rem;line-height:1.5;color:var(--text)}
+.media-status{display:flex;align-items:center;gap:.5rem;margin-top:.9rem;font-size:.84rem;color:var(--text)}
+.media-status-ic{flex:none;display:inline-flex;width:1rem;height:1rem}
+.media-status-ic svg{width:1rem;height:1rem}
+.media-clock{margin-left:auto;font-family:ui-monospace,monospace;font-size:.8rem;color:var(--text-muted)}

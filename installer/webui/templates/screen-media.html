@@ -296,4 +296,105 @@
   </footer>
 </div>
 </template>
+
+<template x-if="screen === 'media-write'">
+<div class="screen" x-data="screenMediaWrite">
+  <div class="body">
+    {{template "stepper"}}
+
+    <section class="card">
+      <h2 class="card-h" x-text="t('media.write.title')"></h2>
+      <ol class="media-steps">
+        <template x-for="row in rows" :key="row.id">
+          <li class="media-step" :class="'media-step--' + row.state">
+            <span class="media-step-ic">
+              <template x-if="row.state === 'done'">{{template "icon-step-done"}}</template>
+              <template x-if="row.state === 'active'">{{template "icon-spin"}}</template>
+              <template x-if="row.state === 'failed'">{{template "icon-bad"}}</template>
+            </span>
+            <span x-text="t(row.labelKey)"></span>
+          </li>
+        </template>
+      </ol>
+
+      <div class="media-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="percent" :aria-label="t('media.write.title')">
+        <span class="media-bar-fill" :style="{ width: percent + '%' }"></span>
+      </div>
+      <div class="media-hint" x-text="remainingText"></div>
+      <template x-if="running">
+        <div class="media-hint" x-text="t('media.write.cancel_hint')"></div>
+      </template>
+
+      <details class="media-log">
+        <summary x-text="t('media.write.log')"></summary>
+        <pre class="media-log-body" x-text="log.join('\n')"></pre>
+        <button type="button" class="small" @click="save()" x-text="t('media.write.save_log')"></button>
+      </details>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <span class="foot-spacer"></span>
+    <template x-if="running"><button type="button" class="ghost" @click="cancel()" x-text="t('action.cancel')"></button></template>
+    <template x-if="failed"><button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button></template>
+    <template x-if="failed"><button type="button" class="primary" @click="retry()" x-text="t('action.retry')"></button></template>
+  </footer>
+</div>
+</template>
+
+<template x-if="screen === 'media-done'">
+<div class="screen" x-data="screenMediaDone">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="media-cards">
+      <section class="card">
+        <h2 class="card-h" x-text="t('media.done.title')"></h2>
+        <ol class="media-list">
+          <li x-text="t('media.done.pi.1')"></li>
+          <li x-text="t('media.done.pi.2')"></li>
+          <li x-text="t('media.done.pi.3', { host: address })"></li>
+        </ol>
+
+        <template x-if="waiting">
+          <div class="media-status" role="status">
+            <span class="media-status-ic media-spin">{{template "icon-spin"}}</span>
+            <span x-text="t('media.done.waiting', { host: address })"></span>
+            <span class="media-clock" x-text="elapsed"></span>
+          </div>
+        </template>
+        <template x-if="found">
+          <div class="media-check media-check--ok" role="status" x-text="t('media.done.found', { host: address })"></div>
+        </template>
+        <template x-if="foreign">
+          <div class="media-check media-check--warn" role="status" x-text="t('media.done.foreign', { host: address })"></div>
+        </template>
+      </section>
+
+      <template x-if="slow && !found">
+        <section class="card">
+          <div class="media-warn">
+            <div class="media-warn-t" x-text="t('media.done.slow.title')"></div>
+            <ul class="media-parts">
+              <li x-text="t('media.done.slow.network')"></li>
+              <li x-text="t('media.done.slow.mdns')"></li>
+              <li x-text="t('media.done.slow.boot')"></li>
+            </ul>
+            <div class="media-field">
+              <span class="lbl" id="media-done-ip" x-text="t('media.done.ip')"></span>
+              <input type="text" x-model.trim="ip" @change="check()" aria-labelledby="media-done-ip" autocomplete="off" spellcheck="false">
+            </div>
+          </div>
+        </section>
+      </template>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="another()" x-text="t('media.action.another')"></button>
+    <span class="foot-spacer"></span>
+    <button type="button" class="primary" @click="toSetup()" x-text="t('media.action.to_setup')"></button>
+  </footer>
+</div>
+</template>
 {{end}}
