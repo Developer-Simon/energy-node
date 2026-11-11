@@ -442,7 +442,9 @@ async function all() {
     await tab(s.page, 'automations');
     if (await assistantStep(s.page, template, heading)) {
       await s.page.mouse.move(1, 1);
-      await element(s.page.locator('dialog.auto-assist'), name);
+      // Das Sheet statt des Dialogs: der Dialog ist ein transparenter Rahmen und
+      // laesst unter kurzen Schritten leere Flaeche mit der Seite dahinter stehen.
+      await element(s.page.locator('dialog.auto-assist .auto-assist-sheet'), name);
     }
     await s.ctx.close();
   }
