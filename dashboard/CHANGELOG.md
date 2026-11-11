@@ -41,6 +41,7 @@
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 - **tailscale:** find the CLI of the Debian package in /usr/bin (#225) (50c65b3)
 - **onboarding:** ask before closing the welcome tour (#227) (9f42972)
+- **onboarding:** add an overview step and rework the texts of the backup tour (e4c63e9)
 - **backup:** keep omitted settings when saving (103dbee)
 - **backup:** keep the services running when an import cannot restart (3bd1f73)
 - **backup:** return to the file step when an import job fails (6629e79)
