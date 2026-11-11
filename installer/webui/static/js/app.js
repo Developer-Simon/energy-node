@@ -9,14 +9,16 @@
   window.Installer = window.Installer || {};
 
   // Plan C-II, Vertrag 5, als Tabellen.
-  var FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose' };
+  var FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose', media: 'media-device' };
   var FLOW = {
     install: ['connect', 'prepare', 'precheck', 'configure', 'dashboard', 'run', 'result'],
     redeploy: ['connect', 'prepare', 'preview', 'run', 'result'],
+    media: ['media-device', 'media-settings', 'media-drive', 'media-write', 'media-done'],
   };
   // Auf diesen Bildschirmen ist noch nichts veraendert - nur dort steht der
-  // Einstiegs-Umschalter.
-  var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose', 'changelog'];
+  // Einstiegs-Umschalter. media-write fehlt absichtlich: dort laeuft das Schreiben.
+  var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose', 'changelog',
+    'media-device', 'media-settings', 'media-drive', 'media-done'];
 
   // Die Ausgangsversion eines Updates kennt nur der Plan der Vorschau. Lädt
   // das Fenster während des Dashboard-Neustarts neu, ist shared.plan leer,
@@ -89,6 +91,11 @@
         // per-session default, not something a screen ever needs to
         // persist across a reload.
         forceFullTransfer: false,
+        // media: the medium entry's picks (device, settings, drive, confirm).
+        media: { device: null, settings: null, drive: null, confirm: '' },
+        // handover: a target a finished medium hands to the setup (openSetup),
+        // read by the connect screen. null otherwise.
+        handover: null,
       },
 
       async init() {
@@ -112,7 +119,9 @@
           this.ready = true;
           return;
         }
-        this.entry = this.bootstrap.entry_points[0] || 'install';
+        // Einrichten ist die Vorgabe, auch wenn Medium vorne in der Liste steht.
+        var entries = this.bootstrap.entry_points || [];
+        this.entry = entries.indexOf('install') >= 0 ? 'install' : (entries[0] || 'install');
         this.connected = !this.bootstrap.needs_connection;
         var hello = window.Events ? await window.Events.hello() : null;
         if (hello && hello.running) {
@@ -150,7 +159,7 @@
       },
 
       get chip() {
-        if (this.screen === 'connect' || this.screen === 'diagnose' || !this.shared.target.host) {
+        if (this.screen === 'connect' || this.screen === 'diagnose' || this.screen.indexOf('media-') === 0 || !this.shared.target.host) {
           return '';
         }
         return this.shared.target.user + '@' + this.shared.target.host;
@@ -289,7 +298,17 @@
         }
         this.entry = name;
         this.shared.servicesOnly = false;
-        this.go(this.connected ? FIRST_SCREEN[name] : 'connect');
+        // Medium braucht keine Verbindung zum Node.
+        this.go(this.connected || name === 'media' ? FIRST_SCREEN[name] : 'connect');
+      },
+
+      // openSetup: ein fertiges Medium uebergibt seinen Zielrechner an die
+      // Einrichtung. Die Verbindung wird neu aufgebaut, mit dem Ziel vorausgefuellt.
+      openSetup(target) {
+        this.shared.handover = target;
+        this.connected = false;
+        this.entry = 'install';
+        this.go('connect');
       },
 
       openDiagnose() {
