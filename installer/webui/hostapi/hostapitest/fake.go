@@ -101,6 +101,20 @@ type FakeBackend struct {
 	LastPackage   hostapi.PackageSelection
 	UploadedName  string
 	UploadedBytes int
+
+	// Medien: die Views liefern die Vorgaben, MediaTaken markiert belegte
+	// Rechnernamen, MediaWriteErr laesst den Start scheitern und
+	// LastMediaWrite haelt den letzten Auftrag. Den Verlauf des Auftrags
+	// steuern die unexportierten Felder (siehe fake_media.go).
+	MediaStatusView  hostapi.MediaStatus
+	MediaCatalogView hostapi.MediaCatalog
+	MediaDriveList   []hostapi.MediaDrive
+	MediaTaken       map[string]bool
+	MediaWriteErr    error
+	LastMediaWrite   hostapi.MediaWriteRequest
+	mediaWriting     bool
+	mediaCancelled   bool
+	mediaPos         int
 }
 
 // NewFake liefert eine Attrappe mit brauchbaren Vorgaben: ein Installer-Wirt
@@ -155,6 +169,10 @@ func NewFake() *FakeBackend {
 			{ID: "10", State: "ok", Log: []string{"apt: nothing to do"}},
 			{ID: "40", State: "skip", Detail: "nicht ausgewaehlt"},
 		},
+		MediaStatusView:  mediaStatusFixture(),
+		MediaCatalogView: mediaCatalogFixture(),
+		MediaDriveList:   mediaDriveFixture(),
+		MediaTaken:       map[string]bool{},
 	}
 }
 

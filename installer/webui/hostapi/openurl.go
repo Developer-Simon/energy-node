@@ -9,6 +9,11 @@ import (
 // maxOpenURL bounds the address a page may ask the host to open.
 const maxOpenURL = 2048
 
+// imagerStoreURL oeffnet den Raspberry Pi Imager im App-Store des Rechners.
+// Die einzige Ausnahme von http und https; andere appstream-Adressen bleiben
+// gesperrt.
+const imagerStoreURL = "appstream://org.raspberrypi.rpi-imager"
+
 type openURLRequest struct {
 	URL string `json:"url"`
 }
@@ -30,12 +35,16 @@ func (s *Server) handleOpenURL(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
 	}
-	parsed, err := url.Parse(req.URL)
-	if err != nil || len(req.URL) > maxOpenURL || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "only http and https addresses can be opened")
-		return
+	target := req.URL
+	if req.URL != imagerStoreURL {
+		parsed, err := url.Parse(req.URL)
+		if err != nil || len(req.URL) > maxOpenURL || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			writeError(w, http.StatusBadRequest, "BAD_REQUEST", "only http and https addresses can be opened")
+			return
+		}
+		target = parsed.String()
 	}
-	if err := s.opts.OpenURL(parsed.String()); err != nil {
+	if err := s.opts.OpenURL(target); err != nil {
 		writeError(w, http.StatusInternalServerError, "BACKEND_ERROR", err.Error())
 		return
 	}

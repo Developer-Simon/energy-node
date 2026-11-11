@@ -160,6 +160,14 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/unit-logs", s.handleUnitLogs)
 	s.mux.HandleFunc("/api/package", s.handlePackage)
 	s.mux.HandleFunc("/api/package/upload", s.handlePackageUpload)
+	s.mux.HandleFunc("/api/media/status", s.handleMediaStatus)
+	s.mux.HandleFunc("/api/media/catalog", s.handleMediaCatalog)
+	s.mux.HandleFunc("/api/media/drives", s.handleMediaDrives)
+	s.mux.HandleFunc("/api/media/name", s.handleMediaName)
+	s.mux.HandleFunc("/api/media/write", s.handleMediaWrite)
+	s.mux.HandleFunc("/api/media/job", s.handleMediaJob)
+	s.mux.HandleFunc("/api/media/cancel", s.handleMediaCancel)
+	s.mux.HandleFunc("/api/media/reachable", s.handleMediaReachable)
 }
 
 func (s *Server) trimBase(path string) string {

@@ -68,3 +68,33 @@ func TestOpenURLReportsAHostError(t *testing.T) {
 		t.Errorf("bootstrap does not advertise the opener: %s", boot.Body.String())
 	}
 }
+
+func TestOpenURLAllowsTheImagerStoreLink(t *testing.T) {
+	var opened []string
+	server, _ := newTestServer(t, func(o *hostapi.Options) {
+		o.OpenURL = func(u string) error { opened = append(opened, u); return nil }
+	})
+	rec := do(t, server, http.MethodPost, "/api/open-url", `{"url":"appstream://org.raspberrypi.rpi-imager"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	if len(opened) != 1 || opened[0] != "appstream://org.raspberrypi.rpi-imager" {
+		t.Errorf("opened = %v", opened)
+	}
+}
+
+func TestOpenURLRejectsOtherAppstreamLinks(t *testing.T) {
+	called := false
+	server, _ := newTestServer(t, func(o *hostapi.Options) {
+		o.OpenURL = func(string) error { called = true; return nil }
+	})
+	for _, bad := range []string{`appstream://evil`, `appstream://org.raspberrypi.rpi-imager/x`} {
+		rec := do(t, server, http.MethodPost, "/api/open-url", `{"url":"`+bad+`"}`)
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%q: status = %d, want 400", bad, rec.Code)
+		}
+	}
+	if called {
+		t.Errorf("the host was asked to open a refused address")
+	}
+}
