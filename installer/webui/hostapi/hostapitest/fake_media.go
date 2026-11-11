@@ -104,6 +104,7 @@ func mediaCatalogFixture() hostapi.MediaCatalog {
 			Timezone:    "Europe/Berlin",
 			Keyboard:    "de",
 			WifiCountry: "DE",
+			WifiSSID:    "Werkstatt",
 			Timezones:   []string{"Europe/Berlin", "Europe/Vienna", "Europe/Zurich", "UTC"},
 			Keyboards:   []string{"de", "us", "gb", "fr", "ch"},
 		},

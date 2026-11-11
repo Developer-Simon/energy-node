@@ -130,3 +130,22 @@ func TestMediaRejectsWrongMethods(t *testing.T) {
 type plainBackend struct {
 	hostapi.Backend
 }
+
+func TestMediaCatalogCarriesTheDetectedWifiName(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	rec := do(t, server, http.MethodGet, "/api/media/catalog", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var catalog struct {
+		Defaults struct {
+			WifiSSID string `json:"wifi_ssid"`
+		} `json:"defaults"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &catalog); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if catalog.Defaults.WifiSSID != "Werkstatt" {
+		t.Errorf("defaults.wifi_ssid = %q, want Werkstatt", catalog.Defaults.WifiSSID)
+	}
+}

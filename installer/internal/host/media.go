@@ -164,6 +164,7 @@ func mediaDefaults(d media.Defaults) hostapi.MediaDefaults {
 		Timezone:    d.Timezone,
 		Keyboard:    d.Keyboard,
 		WifiCountry: d.WifiCountry,
+		WifiSSID:    d.WifiSSID,
 		Timezones:   d.Timezones,
 		Keyboards:   d.Keyboards,
 	}

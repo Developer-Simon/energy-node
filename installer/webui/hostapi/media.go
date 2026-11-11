@@ -77,6 +77,7 @@ type MediaDefaults struct {
 	Timezone    string   `json:"timezone"`
 	Keyboard    string   `json:"keyboard"`
 	WifiCountry string   `json:"wifi_country"`
+	WifiSSID    string   `json:"wifi_ssid"`
 	Timezones   []string `json:"timezones"`
 	Keyboards   []string `json:"keyboards"`
 }

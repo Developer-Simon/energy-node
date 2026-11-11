@@ -37,7 +37,8 @@
     },
 
     // defaultSettings: die Vorgaben des Rechners und des Installers. Die
-    // Passwoerter beginnen leer und der Notfall-Zugang ist aus. group ist fuer
+    // Passwoerter beginnen leer, der Notfall-Zugang und das WLAN sind aus. Der
+    // erkannte WLAN-Name steht vor, das Passwort nie. group ist fuer
     // gruppenspezifische Vorgaben reserviert und hat heute keine Wirkung.
     defaultSettings: function (defaults, group) {
       var d = defaults || {};
@@ -50,7 +51,7 @@
         timezone: d.timezone || '',
         keyboard: d.keyboard || '',
         wifiOn: false,
-        ssid: '',
+        ssid: d.wifi_ssid || '',
         wifiPassword: '',
         country: d.wifi_country || '',
       };

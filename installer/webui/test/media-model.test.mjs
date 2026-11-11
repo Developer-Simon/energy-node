@@ -141,3 +141,10 @@ test('stepRows nennt jeden Schritt mit seinem Textschluessel', () => {
   ]);
   assert.deepEqual(plain(M.stepRows({})), []);
 });
+
+test('defaultSettings gibt den erkannten WLAN-Namen vor, der Schalter bleibt aus', () => {
+  const settings = plain(M.defaultSettings(Object.assign({}, DEFAULTS, { wifi_ssid: 'Werkstatt' }), 'pi'));
+  assert.equal(settings.ssid, 'Werkstatt');
+  assert.equal(settings.wifiOn, false);
+  assert.equal(settings.wifiPassword, '');
+});

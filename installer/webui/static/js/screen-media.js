@@ -170,6 +170,10 @@
         var self = this;
         Object.keys(window.MediaModel.remembered(form)).forEach(function (key) {
           if (remembered && Object.prototype.hasOwnProperty.call(remembered, key)) {
+            // Ein leerer gemerkter WLAN-Name ersetzt nicht den erkannten.
+            if (key === 'ssid' && remembered[key] === '') {
+              return;
+            }
             form[key] = remembered[key];
           }
         });

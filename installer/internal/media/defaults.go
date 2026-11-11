@@ -5,6 +5,7 @@ type Defaults struct {
 	Timezone    string
 	Keyboard    string
 	WifiCountry string
+	WifiSSID    string
 	Timezones   []string
 	Keyboards   []string
 }

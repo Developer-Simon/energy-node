@@ -579,3 +579,37 @@ test('Fertig hat Uhr und Abfrage und gibt beides beim Verlassen frei', async (t)
   assert.equal(timers.active(), 0);
   assert.ok(state);
 });
+
+const DETECTED = Object.assign({}, DEFAULTS, { wifi_ssid: 'Werkstatt' });
+
+test('das WLAN des Rechners wird vorgeschlagen, Schalter und Passwort bleiben leer', async () => {
+  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: DETECTED }) });
+  await screen.init();
+  assert.equal(screen.form.ssid, 'Werkstatt');
+  assert.equal(screen.form.wifiOn, false);
+  assert.equal(screen.form.wifiPassword, '');
+});
+
+test('ein gemerkter WLAN-Name gewinnt vor dem erkannten', async () => {
+  const { screen, window } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: DETECTED }) });
+  window.localStorage.setItem(KEY, JSON.stringify({ ssid: 'Haus' }));
+  await screen.init();
+  assert.equal(screen.form.ssid, 'Haus');
+});
+
+test('ein leerer gemerkter WLAN-Name laesst den erkannten stehen', async () => {
+  const { screen, window } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: DETECTED }) });
+  window.localStorage.setItem(KEY, JSON.stringify({ ssid: '' }));
+  await screen.init();
+  assert.equal(screen.form.ssid, 'Werkstatt');
+});
+
+test('die Erkennung speichert kein WLAN-Passwort', async () => {
+  const { screen, window } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: DETECTED }) });
+  await screen.init();
+  fill(screen);
+  screen.next();
+  const stored = window.localStorage.getItem(KEY);
+  assert.ok(!stored.includes('wifiPassword'));
+  assert.equal(JSON.parse(stored).ssid, 'Werkstatt');
+});

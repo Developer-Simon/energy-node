@@ -28,7 +28,48 @@ func HostDefaults() Defaults {
 	}
 	d.Keyboards = keyboardChoices(d.Keyboard)
 	d.WifiCountry = countryFromLocale(localeFromEnv())
+	d.WifiSSID = activeSSID(context.Background())
 	return d
+}
+
+// activeSSID returns the name of the Wi-Fi network this computer is connected to, or "".
+func activeSSID(parent context.Context) string {
+	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi").Output()
+	if err != nil {
+		return ""
+	}
+	return parseActiveSSID(out)
+}
+
+// parseActiveSSID returns the SSID of the first active line of `nmcli -t -f ACTIVE,SSID dev wifi`.
+// Terse mode escapes ":" as "\:" and "\" as "\\", so both are unescaped.
+func parseActiveSSID(data []byte) string {
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	for sc.Scan() {
+		rest, ok := strings.CutPrefix(strings.TrimRight(sc.Text(), "\r"), "yes:")
+		if !ok {
+			continue
+		}
+		return unescapeTerse(rest)
+	}
+	return ""
+}
+
+// unescapeTerse reverses the backslash escaping of nmcli terse output.
+func unescapeTerse(s string) string {
+	var b strings.Builder
+	escaped := false
+	for _, r := range s {
+		if !escaped && r == '\\' {
+			escaped = true
+			continue
+		}
+		escaped = false
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // localTimezone returns the zone named by the /etc/localtime symlink, or "".
