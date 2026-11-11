@@ -492,7 +492,7 @@
   {{if or (index .Can "backup_export") (index .Can "backup_import")}}
   <div class="bs-page" x-data="backupPage()" x-init="init()">
 
-    <section id="settings-backup" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'backup'">
+    <section id="settings-backup" role="tabpanel" class="settings-cards" data-tour="backup-overview" x-show="activeSettingsPage === 'backup'">
 
       <!-- Status zuerst: Was ist der letzte Stand, und die zwei Hauptwege. -->
       <section class="setting-card setting-card--wide bs-hero" aria-labelledby="bs-hero-title">
