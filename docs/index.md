@@ -107,7 +107,7 @@ Home Assistant:
 - [energy-node Icons](ha/icons.md): the dashboard's device symbols as a Home
   Assistant icon set.
 
-[Manual installation](install/index.md) covers the ARMv6 specifics, including
+[Manual installation](developing/manual-installation.md) covers the ARMv6 specifics, including
 the packages that have to be installed in an older version first and updated
 afterwards.
 

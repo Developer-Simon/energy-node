@@ -15,11 +15,117 @@ const out = new URL("../../.cache/docs-visual/", import.meta.url).pathname;
 mkdirSync(out, { recursive: true });
 
 const pages = ["", "dashboard/settings.html", "developing/data-flow.html", "operating/configuration.html"];
+const galleryPages = ["dashboard/overview-cards.html", "dashboard/automations-templates.html"];
+pages.push(...galleryPages);
 const widths = [390, 1024, 1440];
 const failures = [];
 const fail = (msg) => { failures.push(msg); console.error("FAIL:", msg); };
 
 const browser = await chromium.launch();
+
+// The gallery of a page with gallery: true: tiles, the detail sheet, the
+// lightbox inside it, the filter and the next button.
+async function checkGallery(ctx, page, path, width, scheme) {
+  const tag = `${path} @${width} ${scheme}`;
+  const sheetOpen = "dialog.gallery-sheet[open]";
+  await page.goto(base + path, { waitUntil: "networkidle" });
+  const tiles = await page.locator(".gallery-tile").count();
+  const items = await page.locator("section.gallery-item").count();
+  if (!tiles || tiles !== items) fail(`${tag}: ${tiles} tiles for ${items} items`);
+  // Each tile shows the first image of its own section, or the placeholder.
+  // Counts are the images before each item's first field in the Markdown.
+  const thumbs = await page.evaluate(() => [...document.querySelectorAll("section.gallery-item")].map((sec) => {
+    const h3 = [...sec.children].find((el) => el.tagName === "H3");
+    const own = [...sec.querySelectorAll("img")].find((img) => !h3 || (img.compareDocumentPosition(h3) & Node.DOCUMENT_POSITION_FOLLOWING));
+    const tile = document.querySelector(`.gallery-tile[data-item="${sec.dataset.item}"]`);
+    const tileImg = tile.querySelector("img");
+    return {
+      item: sec.dataset.item,
+      ownSrc: own ? own.getAttribute("src") : null,
+      tileSrc: tileImg ? tileImg.getAttribute("src") : null,
+      placeholder: !!tile.querySelector(".gallery-tile__ph"),
+    };
+  }));
+  const wrongThumb = thumbs.filter((t) => t.ownSrc !== t.tileSrc || (t.tileSrc === null) !== t.placeholder);
+  if (wrongThumb.length) fail(`${tag}: thumbnails differ from their own section: ${wrongThumb.map((t) => t.item).join(", ")}`);
+  const tileImgs = thumbs.filter((t) => t.tileSrc !== null).length;
+  const placeholders = thumbs.length - tileImgs;
+  const expected = path.includes("automations-templates") ? { imgs: 3, ph: 11 } : { imgs: 13, ph: 0 };
+  if (tileImgs !== expected.imgs || placeholders !== expected.ph) fail(`${tag}: ${tileImgs} tile images and ${placeholders} placeholders, expected ${expected.imgs} and ${expected.ph}`);
+  const tocCategory = await page.evaluate(() => [...document.querySelectorAll("#toc a")].some((a) => a.textContent.trim() === "Category"));
+  if (tocCategory) fail(`${tag}: the table of contents lists a Category field`);
+
+  // Open the first tile, check the sheet, close with Escape.
+  await page.locator(".gallery-tile").first().click();
+  await page.waitForSelector(sheetOpen);
+  const id = await page.evaluate((s) => document.querySelector(s + " h2")?.id ?? null, sheetOpen);
+  if (!id) fail(`${tag}: the sheet has no h2`);
+  const hash = await page.evaluate(() => location.hash);
+  if (id && hash !== "#" + id) fail(`${tag}: hash is ${hash} after opening, expected #${id}`);
+  if (width === 390) {
+    // The sheet slides up from the bottom, so measure after the transition.
+    await page.evaluate((s) => Promise.all(document.querySelector(s).getAnimations().map((a) => a.finished)), sheetOpen);
+    const box = await page.evaluate((s) => {
+      const r = document.querySelector(s).getBoundingClientRect();
+      return { bottom: r.bottom, height: innerHeight, scroll: document.documentElement.scrollWidth, width: innerWidth };
+    }, sheetOpen);
+    if (Math.abs(box.bottom - box.height) > 1) fail(`${tag}: sheet bottom ${box.bottom} is not at the window bottom ${box.height}`);
+    if (box.scroll > box.width) fail(`${tag}: page scrolls horizontally with the sheet open`);
+  }
+  await page.keyboard.press("Escape");
+  const closed = await page.waitForFunction((s) => !document.querySelector(s), sheetOpen, { timeout: 3000 }).then(() => true, () => false);
+  if (!closed) fail(`${tag}: Escape did not close the sheet`);
+  // The close handler runs in a task after the open attribute is gone.
+  const cleared = await page.waitForFunction(() => location.hash === "", null, { timeout: 3000 }).then(() => true, () => false);
+  if (!cleared) fail(`${tag}: hash is ${await page.evaluate(() => location.hash)} after closing`);
+  const focusedTile = await page.evaluate(() => document.activeElement.classList.contains("gallery-tile"));
+  if (!focusedTile) fail(`${tag}: focus did not return to the tile`);
+
+  // An image in the sheet opens the lightbox, the sheet stays open.
+  await page.locator(".gallery-tile").first().click();
+  await page.waitForSelector(sheetOpen);
+  await page.locator(sheetOpen + " img").first().click();
+  const lightbox = await page.waitForSelector("dialog.lightbox[open]", { timeout: 3000 }).then(() => true, () => false);
+  if (!lightbox) fail(`${tag}: image in the sheet did not open the lightbox`);
+  const stillOpen = await page.evaluate((s) => !!document.querySelector(s), sheetOpen);
+  if (!stillOpen) fail(`${tag}: the lightbox closed the sheet`);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction((s) => !document.querySelector(s), sheetOpen, { timeout: 3000 }).catch(() => fail(`${tag}: second Escape did not close the sheet`));
+
+  // Filter: a second filter button, the first visible tile, next goes to the same category.
+  const filterButtons = page.locator(".gallery-filter button");
+  const nFilter = await filterButtons.count();
+  if (nFilter < 3) {
+    fail(`${tag}: ${nFilter} filter buttons, expected All plus at least two categories`);
+  } else {
+    const category = (await filterButtons.nth(1).textContent()).trim();
+    await filterButtons.nth(1).click();
+    const pressed = await filterButtons.nth(1).getAttribute("aria-pressed");
+    if (pressed !== "true") fail(`${tag}: filter ${category} is not aria-pressed after the click`);
+    const wrongTiles = await page.locator(".gallery-tile:not([hidden]) .gallery-tile__meta").evaluateAll(
+      (els, c) => els.filter((e) => !e.textContent.trim().startsWith(c)).length, category);
+    if (wrongTiles) fail(`${tag}: ${wrongTiles} visible tiles outside the ${category} filter`);
+    await page.locator(".gallery-tile:not([hidden])").first().click();
+    await page.waitForSelector(sheetOpen);
+    await page.locator(".gallery-sheet__next").click();
+    const opened = await page.evaluate((s) => {
+      const h = [...document.querySelectorAll(s + " h3")].find((x) => x.textContent.trim() === "Category");
+      return h && h.nextElementSibling ? h.nextElementSibling.textContent.trim() : null;
+    }, sheetOpen);
+    if (opened !== category) fail(`${tag}: next under the ${category} filter opened a ${opened} item`);
+    await page.keyboard.press("Escape");
+  }
+
+  // Deep link: a fresh page opens the item named in the hash.
+  if (path.startsWith("dashboard/overview-cards")) {
+    const fresh = await ctx.newPage();
+    await fresh.goto(base + path + "#energy-energy-flow", { waitUntil: "networkidle" });
+    const heading = await fresh.evaluate((s) => document.querySelector(s + " h2")?.textContent.trim() ?? null, sheetOpen);
+    if (heading !== "Energy: energy flow") fail(`${tag}: #energy-energy-flow opened ${heading}`);
+    await fresh.close();
+  }
+}
 
 for (const scheme of ["light", "dark"]) {
   for (const width of widths) {
@@ -34,6 +140,7 @@ for (const scheme of ["light", "dark"]) {
       const name = `${(path || "index").replace(/\W+/g, "_")}-${width}-${scheme}.png`;
       await page.screenshot({ path: out + name, fullPage: false });
     }
+    for (const path of galleryPages) await checkGallery(ctx, page, path, width, scheme);
     if (errors.length) fail(`@${width} ${scheme}: page errors: ${errors.join(" | ")}`);
     await ctx.close();
   }

@@ -138,6 +138,39 @@ async function createZeroFeedInScenario(page) {
   await page.waitForTimeout(800);
 }
 
+// Oeffnet den Vorlagen-Assistenten und klickt die Kachel `template`. Ohne headingText
+// bleibt der Dialog direkt nach dem Kachelklick stehen. Mit headingText laeuft er
+// Schritt fuer Schritt wie createZeroFeedInScenario, bis der Text sichtbar ist.
+// Liegt die Kachel in "More templates" (deaktiviert) oder fehlt sie, gibt es false zurueck.
+async function assistantStep(page, template, headingText) {
+  const dialog = page.locator('dialog.auto-assist');
+  const foot = dialog.locator('.auto-assist-foot');
+  const next = foot.locator('button', { hasText: /^\s*Next\s*$/ });
+  await page.locator('.auto-assist-open', { hasText: 'Assistant' }).click();
+  await page.waitForTimeout(1500);
+  const tile = dialog.locator('.auto-assist-tile', { hasText: template });
+  if (await tile.count() === 0 || await tile.first().isDisabled()) {
+    console.warn('übersprungen:', template);
+    return false;
+  }
+  await tile.first().click();
+  await page.waitForTimeout(1200);
+  if (headingText === null) return true;
+  for (let i = 0; i < 12 && !(await dialog.getByText(headingText).first().isVisible()); i++) {
+    if (await next.isEnabled()) {
+      await next.click();
+    } else {
+      const option = dialog.locator('.auto-assist-body label.auto-assist-option:not(:has(input:disabled)), '
+        + '.auto-assist-body button.auto-assist-card:not([disabled]), .auto-assist-body button.auto-assist-pick:not([disabled])').first();
+      if (await option.count() === 0) throw new Error('Assistent: keine waehlbare Option im Schritt');
+      await option.click();
+    }
+    await page.waitForTimeout(900);
+  }
+  if (!(await dialog.getByText(headingText).first().isVisible())) throw new Error(`Assistent: "${headingText}" nicht erreicht`);
+  return true;
+}
+
 async function shot(page, name) {
   await page.screenshot({ path: path.join(args.out, `${name}.png`) });
   console.log('geschrieben:', name);
@@ -242,6 +275,23 @@ async function all() {
     await s.ctx.close();
   }
 
+  if (want('dashboard-automation-rule-editor')) {
+    // Die erste Regel aufklappen und in den Bearbeiten-Modus schalten. Gespeichert wird nicht.
+    s = await session(1110, 1100);
+    await tab(s.page, 'automations');
+    await s.page.locator('#automations-tab-rules').click();
+    await s.page.waitForTimeout(1000);
+    await s.page.locator('.automation-rule-head').first().click();
+    await s.page.waitForTimeout(1200);
+    await s.page.locator('.automation-rule-head button[aria-pressed]').first().click();
+    await s.page.waitForTimeout(1200);
+    await s.page.mouse.move(1, 1);
+    let ruleItem = s.page.locator('li:has(> .automation-rule-head)').first();
+    if (await ruleItem.count() === 0) ruleItem = s.page.locator('.automation-rule-head').first().locator('xpath=ancestor::li[1]');
+    await element(ruleItem, 'dashboard-automation-rule-editor');
+    await s.ctx.close();
+  }
+
   await energyShowcase();
   await deviceMapShowcase();
   await deviceModalShowcase();
@@ -303,6 +353,11 @@ async function all() {
 
   const subpages = [
     ['dashboard-settings-general', 'settings-general', 819],
+    ['dashboard-settings-backup', 'settings-backup', 1300],
+    ['dashboard-settings-checklist', 'settings-checklist', 1100, async (page) => {
+      await page.locator('#settings-checklist .ob-cl-switch').getByText('Set up', { exact: true }).click();
+      await page.waitForTimeout(1500);
+    }],
     ['dashboard-settings-display', 'settings-display', 769],
     ['dashboard-settings-history', 'settings-history', 1235],
     ['dashboard-settings-tinytuya', 'settings-tiny-tuya', 691],
@@ -376,6 +431,24 @@ async function all() {
     await s.ctx.close();
   }
 
+  // Der Assistent in drei Stellungen, vor den Szenario-Blocken: die Vorlage "Zero feed-in" fehlt danach.
+  for (const [name, template, heading] of [
+    ['dashboard-automation-assistant-step', 'Zero feed-in', 'How tight should it regulate?'],
+    ['dashboard-template-surplus-charging', 'Surplus charging', 'Start power'],
+    ['dashboard-template-battery-tariff', 'Charge battery on low tariff', null],
+  ]) {
+    if (!want(name)) continue;
+    s = await session(1110, 900);
+    await tab(s.page, 'automations');
+    if (await assistantStep(s.page, template, heading)) {
+      await s.page.mouse.move(1, 1);
+      // Das Sheet statt des Dialogs: der Dialog ist ein transparenter Rahmen und
+      // laesst unter kurzen Schritten leere Flaeche mit der Seite dahinter stehen.
+      await element(s.page.locator('dialog.auto-assist .auto-assist-sheet'), name);
+    }
+    await s.ctx.close();
+  }
+
   if (want('dashboard-automation-scenario')) {
     s = await session(1110, 900);
     await tab(s.page, 'automations');
@@ -400,6 +473,32 @@ async function all() {
     await s.ctx.close();
   }
 
+  if (want('dashboard-automation-scenario-editor')) {
+    // Dasselbe Szenario wie oben, diesmal im Bearbeiten-Modus der Karte. Gespeichert wird nicht.
+    s = await session(1110, 900);
+    await tab(s.page, 'automations');
+    await s.page.locator('#automations-tab-scenarios').click();
+    await s.page.waitForTimeout(1500);
+    if (await s.page.locator('li.auto-scenario').count() === 0) {
+      await createZeroFeedInScenario(s.page);
+      await s.page.reload({ waitUntil: 'networkidle' });
+      await s.page.waitForTimeout(2500);
+      await tab(s.page, 'automations');
+      await s.page.locator('#automations-tab-scenarios').click();
+      await s.page.waitForTimeout(1500);
+    }
+    const card = s.page.locator('li.auto-scenario').first();
+    const row = card.locator('.auto-scenario-row');
+    if (await row.count() > 0) await row.click();
+    await s.page.waitForTimeout(1200);
+    await card.locator('button.auto-btn-ghost').first().click();
+    await s.page.waitForTimeout(1200);
+    await s.page.mouse.move(1, 1);
+    await element(card, 'dashboard-automation-scenario-editor');
+    await s.ctx.close();
+  }
+
+
   // Die Tour ist hier absichtlich sichtbar, sie ist der Gegenstand der Bilder.
   if (want('dashboard-onboarding-tour-welcome') || want('dashboard-onboarding-tour-step')) {
     // Das echte Changelog der Konsole rendern, damit die Demo Touren hat (sonst bleibt der Lauf leer).
@@ -422,6 +521,21 @@ async function all() {
     await s.page.getByRole('button', { name: 'Start', exact: true }).click();
     await s.page.waitForTimeout(2500);
     await shot(s.page, 'dashboard-onboarding-tour-step');
+    await s.page.evaluate(() => Alpine.store('onboarding').close());
+    await s.ctx.close();
+  }
+
+  // Setup-Tour: der Startschritt, dann ein Schritt mitten drin (Theme).
+  if (want('dashboard-onboarding-setup-start') || want('dashboard-onboarding-setup-step')) {
+    s = await session(1280, 800, { tour: true });
+    const started = await s.page.evaluate(() => Alpine.store('onboarding').start('setup', null, { all: true }));
+    if (started !== true) throw new Error(`Tour start('setup') liefert ${JSON.stringify(started)}`);
+    await s.page.waitForTimeout(2500);
+    if (want('dashboard-onboarding-setup-start')) await shot(s.page, 'dashboard-onboarding-setup-start');
+    const step = await s.page.evaluate(() => Alpine.store('onboarding').start('setup', 'theme', { all: true }));
+    if (step !== true) throw new Error(`Tour start('setup', 'theme') liefert ${JSON.stringify(step)}`);
+    await s.page.waitForTimeout(2500);
+    if (want('dashboard-onboarding-setup-step')) await shot(s.page, 'dashboard-onboarding-setup-step');
     await s.page.evaluate(() => Alpine.store('onboarding').close());
     await s.ctx.close();
   }

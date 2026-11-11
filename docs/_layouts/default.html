@@ -22,7 +22,7 @@
       </aside>
 
       <main class="content" id="content">
-        <article class="doc-body" data-pagefind-body>
+        <article class="doc-body" data-pagefind-body{% if page.gallery %} data-gallery{% endif %}>
           {{ content }}
         </article>
 

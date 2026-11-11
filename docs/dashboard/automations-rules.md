@@ -19,6 +19,8 @@ editor. A rule that is being edited shows neither button.
 
 ### Rule editor
 
+![The rule editor](../images/dashboard-automation-rule-editor.png)
+
 **Edit** opens the rule as sentence rows on desktop. Each condition and each
 action is one row, with its field labels, and the **Flow** column holds the
 cooldown, the run mode and **Record history**.

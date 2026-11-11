@@ -1,21 +1,42 @@
 {
   "de": {
-    "*": "Backup und Wiederherstellung der Node auf der Einstellungsseite"
+    "*": "Die Node lässt sich in den Einstellungen sichern und wiederherstellen"
+  },
+  "details": {
+    "*": {
+      "de": "Unter Einstellungen, Backup erstellst du ein Archiv mit Einstellungen, Geräten, Benutzern, Statistik und Automations-Verlauf, auf Wunsch mit Passwort. Vor jedem Update und nach Zeitplan entsteht automatisch eines. Beim Wiederherstellen zeigt eine Vorschau, was sich ändert.",
+      "doc": "dashboard/settings-backup.html",
+      "en": "Under Settings, Backup you create an archive with settings, devices, users, statistics and automation history, optionally with a password. One is created automatically before every update and on a schedule. Before a restore, a preview shows what changes.",
+      "image": "dashboard-settings-backup.png"
+    }
   },
   "en": {
-    "*": "Back up and restore the node from the settings page"
+    "*": "Back up and restore the node in the settings"
   },
   "tour": {
     "*": {
       "steps": [
+        {
+          "page": "backup",
+          "panel": "settings-panel",
+          "target": "backup-overview",
+          "text": {
+            "de": "Mit der Backup-Funktion lassen sich die Daten und Einstellungen dieses Systems exportieren. So kannst du sie auf ein neues Gerät übertragen und dich gegen einen Ausfall des Systems absichern.",
+            "en": "The backup function exports the data and settings of this system. Use it to move to a new device and to protect yourself against a failure of the system."
+          },
+          "title": {
+            "de": "Backup",
+            "en": "Backup"
+          }
+        },
         {
           "need": "backup_export",
           "page": "backup",
           "panel": "settings-panel",
           "target": "backup-create",
           "text": {
-            "de": "Hier erstellst du ein Backup der Node. Archive lassen sich mit einem Passwort schützen.",
-            "en": "Create a backup of the node here. Archives can be protected with a password."
+            "de": "Hier erstellst du das Backup. In der Auswahl legst du fest, welche Bestandteile enthalten sind und ob es lokal auf der Node abgelegt oder im Browser heruntergeladen wird. Archive lassen sich mit einem Passwort schützen.",
+            "en": "Create the backup here. In the selection you choose which parts it contains and whether it is stored locally on the node or downloaded in the browser. Archives can be protected with a password."
           },
           "title": {
             "de": "Backup erstellen",
@@ -28,8 +49,8 @@
           "panel": "settings-panel",
           "target": "backup-restore",
           "text": {
-            "de": "Hier spielst du ein Archiv zurück, von deinem Rechner oder von der Node. Vorher siehst du eine Vorschau, was sich ändert.",
-            "en": "Restore an archive here, from your computer or from the node. Before anything changes you see a preview."
+            "de": "Hier überträgst du ein Archiv von einem anderen System auf dieses oder stellst einen älteren Stand wieder her. In einer Vorschau siehst du vor dem Ausführen genau, was sich gegenüber der aktuellen Installation ändert.",
+            "en": "Transfer an archive from another system to this one or restore an earlier state here. A preview shows exactly what changes compared with the current installation before anything is done."
           },
           "title": {
             "de": "Backup wiederherstellen",
@@ -42,8 +63,8 @@
           "panel": "settings-panel",
           "target": "backup-archives",
           "text": {
-            "de": "Alle Archive, die auf der Node liegen, stehen hier. Von dort lassen sie sich wiederherstellen oder herunterladen.",
-            "en": "All archives stored on the node are listed here. From there you can restore or download them."
+            "de": "Alle Archive, die auf der Node liegen, stehen hier. In der Liste finden sich auch automatisch erzeugte Archive. Von dort lassen sie sich wiederherstellen oder herunterladen.",
+            "en": "All archives stored on the node are listed here, including the ones created automatically. From there you can restore or download them."
           },
           "title": {
             "de": "Archive auf der Node",
@@ -56,8 +77,8 @@
           "panel": "settings-panel",
           "target": "backup-auto",
           "text": {
-            "de": "Lege fest, ob vor jedem Update und nach einem Zeitplan automatisch ein Backup entsteht.",
-            "en": "Choose whether a backup is created automatically before each update and on a schedule."
+            "de": "Hier legst du fest, wann automatisch ein Backup erstellt werden soll, vor jedem Update und nach einem Zeitplan.",
+            "en": "Choose when a backup is created automatically, before each update and on a schedule."
           },
           "title": {
             "de": "Automatische Backups",

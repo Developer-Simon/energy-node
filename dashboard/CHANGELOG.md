@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.10 (2026-11-10)
+## v0.11.11 (2026-11-11)
 
 ### Features
 
@@ -41,6 +41,7 @@
 - **diagnostics:** stop flagging text sensors as missing a unit (#221) (0aedfa2)
 - **tailscale:** find the CLI of the Debian package in /usr/bin (#225) (50c65b3)
 - **onboarding:** ask before closing the welcome tour (#227) (9f42972)
+- **onboarding:** add an overview step and rework the texts of the backup tour (e4c63e9)
 - **backup:** keep omitted settings when saving (103dbee)
 - **backup:** keep the services running when an import cannot restart (3bd1f73)
 - **backup:** return to the file step when an import job fails (6629e79)
@@ -62,6 +63,12 @@
 
 ### Documentation
 
+- **screenshots:** add setup, editor, backup and template shots (fc7ad4a)
+- **screenshots:** fix checklist tab, assistant order and surplus step (fbdbc6b)
+- **screenshots:** pick the checklist set-up switch by text (4016711)
+- move manual installation under developing, split installer pages (2c9776e)
+- **images:** crop the assistant step screenshots to the sheet (dfeda9e)
+- add gallery pages and restructure the installer guide (#230)
 - **backup:** add the highlight and tour for the backup page (86435fb)
 - **backup:** add tour steps for restore, archives and automatic backups (eb9d5a6)
 

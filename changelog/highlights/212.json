@@ -1,15 +1,16 @@
 {
   "de": {
-    "*": "Der Verlauf lässt sich detailliert unter der Zeitleiste anzeigen"
+    "*": "Unter der Zeitleiste einer Regel lässt sich der ganze Verlauf mit Details und Testläufen öffnen"
   },
   "details": {
     "*": {
-      "de": "Der Verlauf kann jetzt unter der Zeitleiste als detaillierter Verlauf dargestellt werden. Dabei lassen sich auch Details und Testläufe nachvollziehen.",
-      "en": "The history can now be shown below the timeline as a detailed history. Details and test runs can be traced there as well."
+      "de": "Zeitleiste und Liste teilen sich eine Fläche. Die Auslösungen stehen nach Tagen gruppiert auf einer senkrechten Achse, jede als Ausgelöst, Blockiert oder Fehler, Testläufe mit eigenem Abzeichen. Ein Punkt in der Zeitleiste öffnet den Verlauf und markiert seinen Eintrag.",
+      "doc": "dashboard/automations-rules.html#reading-a-rule",
+      "en": "Strip and list share one surface. The triggers sit on a vertical axis grouped by day, each marked as Triggered, Blocked or Error, test runs with their own badge. A dot in the strip opens the history and marks its entry."
     }
   },
   "en": {
-    "*": "The history can be shown as a detailed view below the timeline"
+    "*": "A rule opens its full history with details and test runs below the timeline"
   },
   "tour": {
     "*": {

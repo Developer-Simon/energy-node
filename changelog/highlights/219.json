@@ -1,8 +1,8 @@
 {
   "de": {
-    "*": "Korrekt retained veröffentlichte Discovery nicht mehr als nicht retained melden"
+    "*": "Die Diagnose meldet korrekt gespeicherte Discovery-Meldungen nicht mehr als fehlerhaft"
   },
   "en": {
-    "*": "Stop flagging retained discovery as not retained"
+    "*": "Diagnostics no longer flag correctly retained discovery messages"
   }
 }
