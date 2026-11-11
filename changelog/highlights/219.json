@@ -1,8 +1,0 @@
-{
-  "de": {
-    "*": "Die Diagnose meldet korrekt gespeicherte Discovery-Meldungen nicht mehr als fehlerhaft"
-  },
-  "en": {
-    "*": "Diagnostics no longer flag correctly retained discovery messages"
-  }
-}

@@ -2044,5 +2044,873 @@
         ]
       }
     }
+  },
+  "163": {
+    "de": {
+      "*": "Automationsregeln können Aktionen wiederholen, solange Bedingungen gelten"
+    },
+    "en": {
+      "*": "Automation rules can repeat their actions while their conditions hold"
+    },
+    "details": {
+      "*": {
+        "de": "Im Regeleditor gibt es dafür das Feld „Wiederholen alle (s)“. Solange alle Bedingungen erfüllt sind, sendet die Regel ihre Aktionen in diesem Abstand erneut. 0 heißt einmal pro Auslösung. Mit einer Umschalten-Aktion geht Wiederholen nicht.",
+        "en": "The rule editor has the field “Repeat every (s)” for this. While all conditions hold, the rule sends its actions again at this interval. 0 means once per trigger. Repeat does not work with a toggle action."
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@time-rule"
+            ],
+            "panel": "automations-panel",
+            "target": "rule-flow",
+            "text": {
+              "de": "Im Regeleditor stellst du unter Ablauf ein, in welchem Abstand die Regel ihre Aktionen erneut sendet, solange alle Bedingungen erfüllt sind. 0 heißt einmal pro Auslösung.",
+              "en": "In the rule editor you set under Flow how often the rule sends its actions again while all conditions hold. 0 means once per trigger."
+            },
+            "title": {
+              "de": "Aktionen wiederholen",
+              "en": "Repeat actions"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "164": {
+    "de": {
+      "*": "Szenarien mit Live-Karte, Diagramm und Phasen-Editor, neuer Regeleditor"
+    },
+    "en": {
+      "*": "Scenarios with live cards, charts and a phase editor, plus a new rule editor"
+    },
+    "details": {
+      "*": {
+        "de": "Ein Szenario hat drei Phasen. Start enthält die Bedingungen, die es beginnen, Während beschreibt, was im Szenario passiert, und Ende enthält die Aktionen beim Stoppen. Typisch ist ein Regler, der die Netzbilanz nahe an einem Ziel hält.",
+        "doc": "dashboard/automations-scenarios.html#scenarios",
+        "en": "A scenario has three phases. Start holds the conditions that begin it, While is what happens during the scenario and End holds the actions when it stops. The usual use is a regulator that keeps the grid balance near a target.",
+        "image": "dashboard-automation.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_automations",
+            "panel": "automations-panel",
+            "target": "automations-tabs",
+            "text": {
+              "de": "Neben den Einzelregeln gibt es jetzt Szenarien. Ein Szenario läuft in Phasen statt nach einer festen Regel. Die Einzelregeln haben eine verbesserte Live-Anzeige bekommen, und Szenarien zeigen im Regelbetrieb auch Diagramme.",
+              "en": "Next to single rules there are now scenarios. A scenario runs in phases instead of following one fixed rule. Single rules got an improved live view, and scenarios can also show charts in control mode."
+            },
+            "title": {
+              "de": "Szenarien und Einzelregeln",
+              "en": "Scenarios and single rules"
+            }
+          },
+          {
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@open-rule"
+            ],
+            "panel": "automations-panel",
+            "target": "rule-item",
+            "text": {
+              "de": "Die Einzelregeln sind überarbeitet. Eine Regel klappt auf und zeigt Bedingungen, Aktionen und Ablauf in einer Karte.",
+              "en": "Single rules have been reworked. A rule opens up and shows its conditions, actions and flow in one card."
+            },
+            "title": {
+              "de": "Überarbeitete Einzelregeln",
+              "en": "Reworked single rules"
+            }
+          },
+          {
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@time-rule",
+              "rule-monthdays-toggle"
+            ],
+            "panel": "automations-panel",
+            "target": "rule-monthdays",
+            "text": {
+              "de": "Ein Zeitfenster gilt an den gewählten Wochentagen. Unter Erweitert schränkst du es auf bestimmte Tage im Monat ein, etwa nur auf den 1. und den 15.",
+              "en": "A time window applies on the chosen weekdays. Under Advanced you limit it to certain days of the month, for example only the 1st and the 15th."
+            },
+            "title": {
+              "de": "Tage im Monat",
+              "en": "Days of the month"
+            }
+          },
+          {
+            "need": "automations",
+            "panel": "automations-panel",
+            "target": "automations",
+            "text": {
+              "de": "Der Assistent hilft dir, neue Szenarien und Regeln anzulegen. In einem kurzen Dialog passt du die Vorlage an deine Geräte an und stellst Zusatzbedingungen ein. Vorlagen gibt es unter anderem für Nulleinspeisung, Überschussverbrauch und die Überwachung von Geräten.",
+              "en": "The assistant helps you create new scenarios and rules. In a short dialog you fit the template to your devices and set extra conditions. There are templates for zero feed-in, using surplus power and watching devices, among others."
+            },
+            "title": {
+              "de": "Assistent",
+              "en": "Assistant"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "165": {
+    "de": {
+      "*": "Editoren zeigen Geräte als Kacheln mit Live-Werten in einem Geräte-Picker"
+    },
+    "en": {
+      "*": "Editors show devices as tiles with live values in one device picker"
+    }
+  },
+  "166": {
+    "de": {
+      "*": "Vorlagen-Assistent legt Szenarien und Regeln über wenige Fragen an"
+    },
+    "en": {
+      "*": "An assistant builds scenarios and rules from five templates like zero feed-in"
+    },
+    "details": {
+      "*": {
+        "de": "Du öffnest ihn auf der Seite Automationen mit „Assistent“. Er zeigt die Vorlagen, die zu deinen Geräten passen, und nennt bei den übrigen das fehlende Gerät. Mit „Ohne Vorlage“ legst du eine leere Regel oder ein leeres Szenario an.",
+        "en": "You open it on the Automations page with “Assistant”. It shows the templates that fit your devices and names the missing device for the others. “Without a template” creates an empty rule or scenario."
+      }
+    }
+  },
+  "167": {
+    "de": {
+      "*": "Benannte Konten mit eigenen Berechtigungen und Sitzungsliste"
+    },
+    "en": {
+      "*": "Named accounts with own permissions, a minimum password length and sessions"
+    },
+    "details": {
+      "*": {
+        "de": "Home-Assistant-Benutzer melden sich über die Integration Energy Node Companion an. Ab Version 0.4.0 koppelt sie sich mit einem Kopplungscode aus der Karte Home Assistant auf der Seite Benutzer. Die Anleitung verlinkt die Integration auf GitHub.",
+        "doc": "ha/companion.html",
+        "en": "Home Assistant users sign in through the Energy Node Companion integration. From version 0.4.0 it pairs with the dashboard through a pairing code from the Home Assistant card on the Users page. The guide links to the integration on GitHub."
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "user_management",
+            "open": [
+              "users-accounts",
+              "own-account"
+            ],
+            "page": "users",
+            "panel": "settings-panel",
+            "target": "own-account-card",
+            "text": {
+              "de": "In der Benutzerverwaltung gibst du jedem Benutzer fein eingestellte Berechtigungen.",
+              "en": "User management lets you give every user finely tuned permissions."
+            },
+            "title": {
+              "de": "Benutzer und Berechtigungen",
+              "en": "Users and permissions"
+            }
+          },
+          {
+            "need": "user_management",
+            "open": [
+              "users-sessions"
+            ],
+            "page": "users",
+            "panel": "settings-panel",
+            "target": "sessions",
+            "text": {
+              "de": "Unter Sitzungen siehst du alle, die gerade angemeldet sind.",
+              "en": "Sessions lists everyone who is signed in right now."
+            },
+            "title": {
+              "de": "Sitzungen",
+              "en": "Sessions"
+            }
+          },
+          {
+            "need": "user_management",
+            "open": [
+              "users-accounts"
+            ],
+            "page": "users",
+            "panel": "settings-panel",
+            "target": "users",
+            "text": {
+              "de": "Hier legst du ein neues Konto an.",
+              "en": "Create a new account here."
+            },
+            "title": {
+              "de": "Benutzer anlegen",
+              "en": "Create user"
+            }
+          },
+          {
+            "need": "user_management",
+            "open": [
+              "users-accounts",
+              "guest-card"
+            ],
+            "page": "users",
+            "panel": "settings-panel",
+            "target": "guest",
+            "text": {
+              "de": "Gäste dürfen standardmäßig nur ansehen. Mit diesem Schalter schaltest du den Gastzugang ganz ab.",
+              "en": "Guests may only view by default. This switch turns guest access off completely."
+            },
+            "title": {
+              "de": "Gastzugang",
+              "en": "Guest access"
+            }
+          },
+          {
+            "need": "user_management",
+            "open": [
+              "users-accounts"
+            ],
+            "page": "users",
+            "panel": "settings-panel",
+            "target": "companion",
+            "text": {
+              "de": "Die Benutzerverwaltung unterstützt auch Home-Assistant-Benutzer. Mit einem Kopplungscode verbindest du den Companion einmalig. Danach bleibt die Verbindung bestehen. Dafür brauchst du die Integration Energy Node Companion ab Version 0.4.0.",
+              "en": "User management also supports Home Assistant users. A pairing code connects the companion once. The connection then stays. This needs the Energy Node Companion integration from version 0.4.0 on."
+            },
+            "title": {
+              "de": "Home-Assistant-Benutzer",
+              "en": "Home Assistant users"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "168": {
+    "de": {
+      "*": "Regeln zeigen die letzten vier Auslösungen, Assistent mobil als Blatt"
+    },
+    "en": {
+      "*": "Rules show their last four triggers, and phones open the assistant as a sheet"
+    },
+    "details": {
+      "*": {
+        "de": "Öffnest du eine Regel auf der Seite Automationen, zeigt ein Streifen ihre letzten vier Auslösungen. Auf dem Handy öffnet der Assistent als Blatt am unteren Rand, das du zum Schließen nach unten ziehst.",
+        "en": "When you open a rule on the Automations page, a strip shows its last four triggers. On a phone the assistant opens as a sheet at the bottom that you drag down to close."
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "automations",
+            "open": [
+              "automations-rules",
+              "@open-rule"
+            ],
+            "panel": "automations-panel",
+            "target": "rule-fires",
+            "text": {
+              "de": "Öffnest du eine Regel, zeigt ein Streifen ihre letzten vier Auslösungen.",
+              "en": "When you open a rule, a strip shows its last four triggers."
+            },
+            "title": {
+              "de": "Letzte Auslösungen",
+              "en": "Latest triggers"
+            }
+          },
+          {
+            "device": "phone",
+            "need": "automations",
+            "panel": "automations-panel",
+            "target": "automations",
+            "text": {
+              "de": "Auf dem Handy öffnet der Assistent als Blatt am unteren Rand. Zum Schließen ziehst du es nach unten.",
+              "en": "On a phone the assistant opens as a sheet at the bottom. Drag it down to close it."
+            },
+            "title": {
+              "de": "Assistent als Blatt",
+              "en": "Assistant as a sheet"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "169": {
+    "de": {
+      "*": "Nulleinspeisung stellt das Regelziel durch Ziehen eines Bandes ein"
+    },
+    "en": {
+      "*": "The zero feed template sets the regulator target with a draggable band"
+    },
+    "details": {
+      "*": {
+        "de": "Die Vorlage fragt „Wie knapp soll geregelt werden?“. Du verschiebst das Fenster durch Ziehen, Tippen oder mit den Pfeiltasten, oder du wählst eine der Karten Knapp, Ausgewogen und Vorsichtig. Mit „Toleranz anpassen“ ziehst du auch die Breite des Bandes. Die Balken zeigen die Verteilung der Netzleistung von gestern, auf das neue Ziel verschoben.",
+        "en": "The template asks “How tight should it regulate?”. You move the window by dragging, tapping or with the arrow keys, or you pick one of the cards Tight, Balanced and Careful. With “Adjust tolerance” you also drag the width of the band. The bars show yesterday's spread of the grid power, moved to the new target."
+      }
+    }
+  },
+  "170": {
+    "de": {
+      "*": "Konten sehen und ändern nur, was ihre Berechtigungen erlauben"
+    },
+    "en": {
+      "*": "Users only see and change the pages their permissions allow"
+    },
+    "details": {
+      "*": {
+        "de": "Die Berechtigungen setzt du unter Einstellungen, Benutzer. Die Berechtigung für Einstellungen ist jetzt in „Darstellung ändern“ und „Dashboard einrichten“ geteilt. Bestehende Konten behalten, was sie bisher durften. Ein Konto ohne Ansehen-Berechtigung sieht nur einen Hinweis und sein eigenes Konto.",
+        "doc": "dashboard/settings-users.html#permissions",
+        "en": "You set permissions under Settings, Users. The settings permission is now split into “Change the appearance” and “Set up the dashboard”. Existing accounts keep what they were allowed to do. An account without a view permission sees only a notice and its own account.",
+        "image": "dashboard-settings-users-permissions.png"
+      }
+    }
+  },
+  "171": {
+    "de": {
+      "*": "Das angebotene Update direkt über die Update-Leiste installieren"
+    },
+    "en": {
+      "*": "Install the offered update from the update bar"
+    },
+    "details": {
+      "*": {
+        "de": "Gibt es ein neueres Release, bietet es die Leiste unter der Kopfzeile an. Jetzt installieren fragt noch einmal nach und aktualisiert dann sofort. Installation vorbereiten öffnet die Seite des Installers.",
+        "doc": "dashboard/settings-versions.html#updating-from-the-dashboard",
+        "en": "When a newer release is out, the bar under the header offers it. Install now asks once more and then updates right away. Prepare installation opens the installer page.",
+        "image": "dashboard-update-available.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "install_updates",
+            "page": "versions",
+            "panel": "settings-panel",
+            "target": "updates",
+            "text": {
+              "de": "Für ein Update musst du den Installer nicht mehr öffnen. Jetzt installieren startet ein schnelles Update direkt im Dashboard.",
+              "en": "An update no longer needs the installer. Install now starts a quick update right in the dashboard."
+            },
+            "title": {
+              "de": "Update direkt im Dashboard",
+              "en": "Update right in the dashboard"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "172": {
+    "de": {
+      "*": "Neue Assistenten-Vorlagen für Wärmepumpe, Niedrigtarif und §14a"
+    },
+    "en": {
+      "*": "New assistant templates for heat pumps, low tariff charging and §14a control"
+    },
+    "details": {
+      "*": {
+        "de": "Neue Vorlagen im Assistenten für Wärmepumpe, Laden bei Niedrigtarif, Netzbezug deckeln, Steuersignal nach §14a, Heizstab und fehlenden PV-Ertrag.",
+        "en": "New assistant templates for heat pump, charging at a low tariff, capping grid import, the §14a control signal, heating element and missing PV yield."
+      }
+    }
+  },
+  "174": {
+    "de": {
+      "*": "Home-Assistant-Benutzer melden sich über den Companion am Dashboard an"
+    },
+    "en": {
+      "*": "Home Assistant users sign in through the Energy Node Companion"
+    },
+    "details": {
+      "*": {
+        "de": "Unter Einstellungen, Benutzer erzeugst du im Bereich Home Assistant einen Kopplungscode. Den trägst du in Home Assistant unter Einstellungen, Geräte und Dienste, Energy Node Companion, Konfigurieren ein. Danach zeigt das Panel in Home Assistant das Dashboard mit dem angemeldeten Home-Assistant-Benutzer. Ihre Rechte legst du über die Vorgaben HA-Administratoren und HA-Benutzer fest.",
+        "en": "Under Settings, Users you create a pairing code in the Home Assistant section. You enter it in Home Assistant under Settings, Devices and services, Energy Node Companion, Configure. After that the panel in Home Assistant shows the dashboard as the signed-in Home Assistant user. You set their rights through the presets HA administrators and HA users.",
+        "doc": "dashboard/settings-users.html#home-assistant-users"
+      }
+    }
+  },
+  "175": {
+    "de": {
+      "*": "Automationsfenster lassen sich auf Tage im Monat einschränken"
+    },
+    "en": {
+      "*": "Automation windows can be limited to days of the month"
+    },
+    "details": {
+      "*": {
+        "de": "Im Editor haben Zeit- und Sonnenfenster den aufklappbaren Bereich „Erweitert: Tage im Monat“. Dort wählst du Tage von 1 bis 31. Es zählt der Tag, an dem das Fenster beginnt, wie bei den Wochentagen.",
+        "en": "In the editor, time and sun windows have the collapsible section “Advanced: days of the month”. There you pick days from 1 to 31. The day the window starts counts, as with the weekdays."
+      }
+    }
+  },
+  "178": {
+    "de": {
+      "*": "Toasts neu gestaltet mit Glasoptik, Ablauflinie und Wegwischen"
+    },
+    "en": {
+      "*": "Redesign the toast with glass, timer line and swipe to dismiss"
+    },
+    "details": {
+      "*": {
+        "de": "Die Linie am unteren Rand zeigt, wie lange ein Toast noch stehen bleibt. Solange der Mauszeiger darauf liegt, hält die Zeit an. Nach rechts wischen schließt den Toast. Jede Meldung verschwindet von selbst, Warnungen und kritische Meldungen bleiben länger stehen.",
+        "en": "The line at the bottom shows how long a toast stays. While the pointer rests on it, the time stops. Swiping right closes the toast. Every message disappears on its own, warnings and critical messages stay longer."
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "open": [
+              "@demo-toast"
+            ],
+            "target": "toast",
+            "text": {
+              "de": "Der Ablauf der Benachrichtigung wird jetzt über eine ablaufende Leiste angezeigt. Die Nachricht kann auch durch Wischen direkt entfernt werden.",
+              "en": "The time left on a notification is now shown by a running-down bar. You can also dismiss the message directly by swiping."
+            },
+            "title": {
+              "de": "Neue Benachrichtigungen",
+              "en": "New notifications"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "180": {
+    "de": {
+      "*": "Geräte-Dialog mit Stern-Favoriten, Analyse pro Entität und zwei neuen Rechten"
+    },
+    "en": {
+      "*": "Star favourites and an Analysis tab that lists warnings and every entity"
+    },
+    "details": {
+      "*": {
+        "de": "Der Reiter Analyse listet die Warnungen und jede Entität des Geräts mit Topic, letzter Nachricht und den gesendeten Befehlen. Er braucht das Recht für die Geräteanalyse, das Wählen von Favoriten das Recht, Geräte zu gestalten.",
+        "doc": "dashboard/device-modal.html#analysis",
+        "en": "The Analysis tab lists the warnings and every entity of the device with its topic, its last message and the commands sent to it. It needs the right to see the device analysis, and choosing favourites needs the right to style devices.",
+        "image": "dashboard-device-modal-manage.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "view_devices",
+            "panel": "devices-panel",
+            "target": "device-tile",
+            "text": {
+              "de": "Favoriten stehen dauerhaft auf der Kachel eines Geräts. Du wählst sie in den Gerätedetails.",
+              "en": "Favourites stay on the tile of a device. You choose them in the device details."
+            },
+            "title": {
+              "de": "Favoriten-Werte",
+              "en": "Favourite values"
+            }
+          },
+          {
+            "need": "edit_device_appearance",
+            "open": [
+              "@device-modal"
+            ],
+            "panel": "devices-panel",
+            "target": "device-favorite",
+            "text": {
+              "de": "Markiere bis zu drei Werte mit dem Stern als Favoriten. Sie stehen dann dauerhaft auf der Kachel und oben in den Gerätedetails.",
+              "en": "Mark up to three values as favourites with the star. They then stay on the tile and at the top of the device details."
+            },
+            "title": {
+              "de": "Stern setzen",
+              "en": "Set the star"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "181": {
+    "de": {
+      "*": "Die Liste „Weitere“ im Hauptmenü misst sich nicht mehr ständig neu"
+    },
+    "en": {
+      "*": "The main tab's More list no longer keeps resizing itself"
+    }
+  },
+  "183": {
+    "de": {
+      "*": "Mobile Ansicht für die Statistikseite"
+    },
+    "en": {
+      "*": "The statistics page works on a phone, with a table or grid view"
+    },
+    "details": {
+      "*": {
+        "de": "Auf schmalen Bildschirmen zeigt die Statistikseite eine Tabelle der Abschnitte oder ein Raster, und der Zeitraum steht in einer Pille unten.",
+        "doc": "dashboard/statistics.html#on-a-phone",
+        "en": "On narrow screens the statistics page shows a table of intervals or a grid, and the period sits in a pill at the bottom.",
+        "image": "dashboard-statistics-mobile.png"
+      }
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "device": "phone",
+            "need": "view_stats",
+            "panel": "stats-panel",
+            "target": "stats-table-bar",
+            "text": {
+              "de": "Am Handy wechselt die Tabelle hier zwischen Abschnitten und einem Raster.",
+              "en": "On a phone the table switches here between intervals and a grid."
+            },
+            "title": {
+              "de": "Statistik am Handy",
+              "en": "Statistics on the phone"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "184": {
+    "de": {
+      "*": "Gäste dürfen standardmäßig nur ansehen, Gastzugang abschaltbar"
+    },
+    "en": {
+      "*": "Guests can only view by default, and an admin can switch guest access off"
+    },
+    "details": {
+      "*": {
+        "de": "Gäste dürfen standardmäßig nur ansehen. Ein Admin kann den Gastzugang in der Gastkarte der Benutzerverwaltung abschalten. Dann bietet die Anmeldeseite keinen Gastzugang mehr an, und laufende Gastsitzungen werden beendet.",
+        "en": "Guests may only view by default. An admin can switch guest access off in the guest card of user management. The sign-in page then no longer offers guest access, and running guest sessions end.",
+        "doc": "dashboard/settings-users.html#guest-access"
+      }
+    },
+    "tour": {
+      "*": {
+        "exempt": "The guest access step is part of the users tour of #167, so the tour stays in one place."
+      }
+    }
+  },
+  "185": {
+    "de": {
+      "*": "Neu gestaltete Anmeldekarte, Favicon-Fehler behoben"
+    },
+    "en": {
+      "*": "Redesign the login card and link the favicon"
+    },
+    "details": {
+      "*": {
+        "de": "Die Anmeldekarte ist neu gestaltet. Außerdem ist ein Fehler beim Favicon behoben.",
+        "en": "The sign-in card has a new design. A bug with the favicon is also fixed."
+      }
+    }
+  },
+  "186": {
+    "de": {
+      "*": "Onboarding: Leiste, Spotlight und Checkliste"
+    },
+    "en": {
+      "*": "Onboarding bar, spotlight and checklist"
+    },
+    "tour": {
+      "*": {
+        "steps": [
+          {
+            "need": "user_management",
+            "page": "checklist",
+            "panel": "settings-panel",
+            "target": "explore",
+            "text": {
+              "de": "Die Checkliste zeigt ab jetzt nach jedem Update, was es Neues zu entdecken gibt. Außerdem bietet sie eine Ersteinrichtung an, die du auch später noch nachholen kannst.",
+              "en": "From now on the checklist shows what there is to discover after every update. It also offers a first setup, which you can still do later."
+            },
+            "title": {
+              "de": "Einrichten und erkunden",
+              "en": "Set up and explore"
+            }
+          },
+          {
+            "page": "checklist",
+            "panel": "settings-panel",
+            "target": "checklist-explore",
+            "text": {
+              "de": "In einer geführten Tour wie dieser siehst du, wo du die neuen Funktionen findest.",
+              "en": "A guided tour like this one shows you where to find the new features."
+            },
+            "title": {
+              "de": "Geführte Touren",
+              "en": "Guided tours"
+            }
+          },
+          {
+            "page": "checklist",
+            "panel": "settings-panel",
+            "target": "checklist-catch-up",
+            "text": {
+              "de": "Du kannst auch ältere Touren nachholen, falls du entdecken möchtest, was du vielleicht verpasst hast.",
+              "en": "You can also catch up on older tours if you want to discover what you might have missed."
+            },
+            "title": {
+              "de": "Touren nachholen",
+              "en": "Catch up on tours"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "187": {
+    "de": {
+      "*": "Installer fragt das sudo-Passwort ab und richtet passwortloses sudo ein"
+    },
+    "en": {
+      "*": "A dialog asks for the sudo password and sets up passwordless sudo"
+    },
+    "details": {
+      "*": {
+        "de": "Verbindest du dich mit einer Schlüsseldatei und sudo verlangt auf dem Gerät ein Passwort, öffnet die Vorprüfung den Dialog „sudo-Passwort nötig“. Mit „sudo erlauben“ richtet der Installer passwortloses sudo für deinen Benutzer ein. Das Passwort wird nicht gespeichert und erscheint in keinem Log.",
+        "doc": "installer.html#sudo-password",
+        "en": "If you connect with a key file and sudo on the device asks for a password, the pre-check opens the dialog “sudo password needed”. With “Allow sudo” the installer sets up passwordless sudo for your user. The password is not stored and appears in no log.",
+        "image": "installer-sudo.png"
+      }
+    }
+  },
+  "188": {
+    "de": {
+      "*": "Geführte Ersteinrichtung für Admins mit Willkommensschritt"
+    },
+    "en": {
+      "*": "A guided first-time setup for admins covers access, display, system and devices"
+    },
+    "details": {
+      "*": {
+        "de": "Als Admin führt dich eine Leiste am unteren Rand über die echten Einstellungsseiten, ein Spotlight markiert jeweils die Einstellung. Was auf einer bestehenden Installation schon eingestellt ist, ist abgehakt, und jeden Schritt kannst du mit „Später“ aufschieben. Offenes findest du danach in der Checkliste. Gäste sehen einen Hinweis, bis die Einrichtung abgeschlossen ist.",
+        "en": "As an admin, a bar at the bottom walks you through the real settings pages, and a spotlight marks the setting of each step. What an existing install already has set is checked off, and you can put off any step with “Later”. Anything still open is in the checklist afterwards. Guests see a note until the setup is finished."
+      }
+    }
+  },
+  "189": {
+    "de": {
+      "*": "Installer lädt Python-Abhängigkeiten online, wenn die Version abweicht"
+    },
+    "en": {
+      "*": "The installer can load Python packages online when the versions do not match"
+    },
+    "details": {
+      "*": {
+        "de": "Passt die Python-Version des Geräts nicht zum Paket, hält die Vorbereitung mit „Vorgang angehalten, Bestätigung erforderlich“ an. Mit „Abhängigkeiten online laden“ lädt der Installer die übrigen Abhängigkeiten aus dem Internet. Das Gerät braucht dafür einen Internetzugang.",
+        "en": "If the device's Python version does not match the package, the preparation stops with “Process paused, confirmation required”. With “Load dependencies online” the installer loads the remaining dependencies from the internet. The device needs internet access for this.",
+        "doc": "installer.html#python-version-of-the-pi"
+      }
+    }
+  },
+  "190": {
+    "de": {
+      "*": "Installer-Schritt Dashboard gibt Benutzer, Gastzugang und Aussehen vor"
+    },
+    "en": {
+      "*": "The installer's Dashboard step presets users, guest access and the look"
+    },
+    "details": {
+      "*": {
+        "de": "Der Schritt Dashboard steht zwischen Konfiguration und Ausführung. Dort legst du Benutzer, Gastzugang und Aussehen fest oder wählst „Später konfigurieren“. Das Dashboard übernimmt die Vorgaben beim ersten Start, in der Checkliste der Einrichtung stehen sie dann als „Im Installer gesetzt“.",
+        "doc": "installer.html#4-dashboard",
+        "en": "The Dashboard step sits between Configuration and Run. There you preset users, guest access and the look, or choose “Configure later”. The dashboard takes the presets over at its first start, and the setup checklist then shows them as “Set in the installer”.",
+        "image": "installer-dashboard-step.png"
+      }
+    }
+  },
+  "191": {
+    "de": {
+      "*": "Eine frische Installation startet das Dashboard trotz fehlendem Datenordner"
+    },
+    "en": {
+      "*": "A fresh install starts the dashboard despite a missing folder or MQTT login"
+    },
+    "details": {
+      "*": {
+        "de": "Eine frische Installation startet jetzt das Dashboard. Es scheitert nicht mehr an einem fehlenden Datenordner oder an einer MQTT-Anmeldung, die der Broker ablehnt.",
+        "en": "A fresh install now starts the dashboard. It no longer fails on a missing data folder or an MQTT login the broker refuses."
+      }
+    }
+  },
+  "192": {
+    "de": {
+      "*": "Installer überspringt empfohlene apt-Pakete und leert den Paketcache"
+    },
+    "en": {
+      "*": "Skip recommended apt packages and clean the package cache"
+    },
+    "details": {
+      "*": {
+        "de": "Der Installer lädt keine empfohlenen Zusatzpakete mehr. So landen auf dem Gerät keine rund 400 MB Compiler, die es nicht braucht. Nach den apt-Schritten löscht er die geladenen Paketdateien, damit kleine SD-Karten nicht volllaufen.",
+        "en": "The installer no longer loads recommended extra packages. That keeps about 400 MB of compilers the device does not need off it. After the apt steps it deletes the downloaded package files, so small SD cards do not fill up."
+      }
+    }
+  },
+  "193": {
+    "de": {
+      "*": "Installer-Diagnose zeigt Live-Log von Dashboard und Updater"
+    },
+    "en": {
+      "*": "The installer diagnose shows a live log of the dashboard and the updater"
+    },
+    "details": {
+      "*": {
+        "crop": [
+          0,
+          0.61,
+          1,
+          0.33
+        ],
+        "de": "Die Karte Live-Log in der Diagnose folgt dem Dashboard und dem Updater, so findest du ohne SSH heraus, warum das Dashboard nicht startet. Unter „Zeilen im Bericht“ wählst du, wie viele Zeilen der Bericht mitnimmt. „Für Issue kopieren“ kopiert ihn für ein GitHub-Issue, Adressen, Namen und Passwörter sind dabei maskiert.",
+        "en": "The Live log card in the diagnostics follows the dashboard and the updater, so you can find out without SSH why the dashboard does not start. Under “Lines in report” you choose how many lines the report takes along. “Copy for issue” copies it for a GitHub issue, with addresses, names and passwords masked.",
+        "image": "installer-diagnose.png"
+      }
+    }
+  },
+  "194": {
+    "de": {
+      "*": "Installer-Diagnose erkennt abgelehnte MQTT-Anmeldung und repariert sie"
+    },
+    "en": {
+      "*": "The installer detects a refused MQTT login and repairs it with a new password"
+    },
+    "details": {
+      "*": {
+        "de": "Lehnt der Broker das Passwort ab, zeigt die Diagnose die Prüfung MQTT-Anmeldung als Fehler. Beim Reparieren öffnet sich der Dialog „MQTT-Passwort neu setzen“, in dem du ein neues Passwort eingibst oder mit „Zufälliges Passwort“ erzeugst. Node und Broker bekommen es dann beide.",
+        "en": "If the broker rejects the password, the diagnostics show the MQTT login check as failed. The repair opens the dialog “Set a new MQTT password”, where you enter a new password or create one with “Random password”. The node and the broker then both receive it."
+      }
+    }
+  },
+  "195": {
+    "de": {
+      "*": "Dashboard startet auch, wenn die erste MQTT-Verbindung scheitert"
+    },
+    "en": {
+      "*": "The dashboard starts and stays reachable when the first MQTT connection fails"
+    },
+    "details": {
+      "*": {
+        "de": "Das Dashboard startet und bleibt erreichbar, wenn die erste MQTT-Verbindung scheitert. Es versucht es im Hintergrund weiter und zeigt den Fehler im MQTT-Tab.",
+        "en": "The dashboard starts and stays reachable when the first MQTT connection fails. It keeps trying in the background and shows the error in the MQTT tab."
+      }
+    }
+  },
+  "196": {
+    "de": {
+      "*": "Meldungen der Batterie-Abstimmung kommen aus einem Textkatalog"
+    },
+    "en": {
+      "*": "Calibration and tuning notes follow the dashboard language"
+    },
+    "details": {
+      "*": {
+        "de": "Die Hinweise unter Kalibrierung und Abstimmung erscheinen jetzt in der Sprache des Dashboards, vorher kamen sie immer auf Deutsch. Home Assistant zeigt sie in seiner eigenen Sprache.",
+        "en": "The notes under Calibration and tuning now appear in the language of the dashboard, before they always came in German. Home Assistant shows them in its own language."
+      }
+    }
+  },
+  "197": {
+    "de": {
+      "*": "Neues erkunden listet die Highlights der letzten drei Minor-Versionen"
+    },
+    "en": {
+      "*": "The checklist's Explore mode lists the highlights of the last three releases"
+    },
+    "details": {
+      "*": {
+        "de": "Unter Einstellungen, Checkliste findest du den Modus Neues erkunden. Er listet die Highlights der letzten drei Minor-Versionen, eine Karte je Release. Highlights mit Tour führen dich auf den echten Seiten durch die Änderung, die übrigen zeigen ihre Beschreibung.",
+        "en": "Under Settings, Checklist you find the Explore mode. It lists the highlights of the last three minor versions, one card per release. Highlights with a tour walk you through the change on the real pages, the others show their description."
+      }
+    },
+    "tour": {
+      "*": {
+        "exempt": "The checklist already shows the Explore switch when the tour starts, a step would repeat it."
+      }
+    }
+  },
+  "198": {
+    "de": {
+      "*": "Jede Funktion seit v0.8.0 hat eine Tour, ältere lassen sich nachholen"
+    },
+    "en": {
+      "*": "Every feature since v0.8.0 has a tour, and older releases can catch up"
+    },
+    "details": {
+      "*": {
+        "de": "Jede sichtbare Funktion seit Version 0.8.0 hat eine Tour. Releases, die älter sind als die letzten drei Minor-Versionen, klappst du unter Weiter zurück erkunden Schritt für Schritt auf. Auf jeder älteren Release-Karte spielt Tour nachholen alle Touren dieses Release ab. Sind alle gesehen, heißt der Knopf Tour wiederholen.",
+        "en": "Every visible feature since version 0.8.0 has a tour. Releases older than the last three minor versions open step by step under Explore further back. On every older release card, Take the tour plays all tours of that release. Once all are seen, the button reads Repeat tour."
+      }
+    },
+    "tour": {
+      "*": {
+        "exempt": "The catch-up button explains itself, and the install step is covered by the tour of #171."
+      }
+    }
+  },
+  "200": {
+    "de": {
+      "*": "Eingeschränkte Anmeldungen werden protokolliert"
+    },
+    "en": {
+      "*": "Log restricted logins and reject password changes of HA accounts"
+    },
+    "tour": {
+      "*": {
+        "exempt": "Only a log line and an error message, there is nothing on screen to show."
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Eingeschränkte Anmeldungen werden protokolliert, HA-Konten melden bei Passwortänderung einen klaren Fehler.",
+        "en": "Restricted logins are logged, and HA accounts report a clear error on a password change."
+      }
+    }
+  },
+  "201": {
+    "de": {
+      "*": "Touren öffnen und zeigen, was sie erklären"
+    },
+    "en": {
+      "*": "Tours can run actions, include guest and favourite steps, and offer news"
+    },
+    "tour": {
+      "*": {
+        "exempt": "The tours themselves are the feature, and the explore card offers itself at the next start."
+      }
+    },
+    "details": {
+      "*": {
+        "de": "Touren öffnen und zeigen, was sie erklären, und bieten sich bei Neuigkeiten selbst an.",
+        "en": "Tours open and show what they explain, and offer themselves when there is news."
+      }
+    }
+  },
+  "202": {
+    "de": {
+      "*": "Der Admin-Name aus dem Installer gilt, die Einrichtung erkennt mehr Schritte"
+    },
+    "en": {
+      "*": "Apply the installer admin name and detect more setup steps as done"
+    },
+    "tour": {
+      "*": {
+        "exempt": "The admin name is set in the installer and the detection only marks existing checklist steps as done, so there is no new web UI to show. The tour change repairs an existing step."
+      }
+    }
   }
 }
