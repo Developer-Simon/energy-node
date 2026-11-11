@@ -206,4 +206,94 @@
     <button type="button" class="primary" :disabled="!canContinue" @click="next()" x-text="t('action.next')"></button>
   </footer>
 </div>
-</template>{{end}}
+</template>
+<template x-if="screen === 'media-drive'">
+<div class="screen" x-data="screenMediaDrive">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="media-cards">
+      <section class="card">
+        <h2 class="card-h" x-text="t('media.drive.title')"></h2>
+        <template x-if="visible.length === 0">
+          <div class="media-hint" role="status" x-text="t('media.drive.empty')"></div>
+        </template>
+        <div role="radiogroup" :aria-label="t('media.drive.title')">
+          <template x-for="item in visible" :key="item.path">
+            <div class="media-opt media-drive" :class="{ on: selected === item.path, 'media-opt--off': !fits(item) }" role="radio" tabindex="0"
+                 :aria-checked="selected === item.path" :aria-disabled="!fits(item)"
+                 @click="pick(item.path)" @keydown.enter.prevent="pick(item.path)" @keydown.space.prevent="pick(item.path)">
+              <span class="media-radio" aria-hidden="true"></span>
+              <span class="media-drive-b">
+                <span class="media-opt-t" x-text="driveName(item)"></span>
+                <span class="media-drive-s" x-text="sizeText(item) + ', ' + item.transport"></span>
+              </span>
+              <span class="media-tag" :class="{ 'media-tag--warn': !item.removable }" x-text="labelFor(item)"></span>
+              <template x-if="!fits(item)"><span class="media-tag" x-text="t('media.drive.too_small')"></span></template>
+            </div>
+          </template>
+        </div>
+
+        <label class="media-toggle">
+          <span class="settings-toggle">
+            <input type="checkbox" role="switch" :checked="showInternal" @change="setInternal($event.target.checked)" :aria-label="t('media.drive.show_internal')">
+            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          </span>
+          <span>
+            <span class="media-check-t" x-text="t('media.drive.show_internal')"></span>
+            <span class="media-check-s" x-text="t('media.drive.show_internal_hint')"></span>
+          </span>
+        </label>
+      </section>
+
+      <template x-if="selectedDrive">
+        <section class="card">
+          <template x-if="showLayout">
+            <div class="media-layout">
+              <div class="media-layout-t" x-text="t('media.layout.title')"></div>
+              <div class="media-layout-bar" aria-hidden="true">
+                <span class="media-layout-boot" x-text="t('media.layout.boot')"></span>
+                <span class="media-layout-system" x-text="t('media.layout.system')"></span>
+              </div>
+              <div class="media-hint" x-text="t('media.layout.pi')"></div>
+            </div>
+          </template>
+
+          <div class="media-warn">
+            <div class="media-warn-t" x-text="t('media.warn.erase', { drive: driveName(selectedDrive) })"></div>
+            <template x-if="selectedDrive.partitions.length">
+              <div>
+                <div class="media-warn-s" x-text="partitionsText(selectedDrive)"></div>
+                <ul class="media-parts">
+                  <template x-for="part in selectedDrive.partitions" :key="part.name">
+                    <li x-text="partitionText(part)"></li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+            <template x-if="selectedDrive.removable">
+              <label class="media-toggle media-warn-check">
+                <input type="checkbox" x-model="checked">
+                <span class="media-check-t" x-text="t('media.warn.confirm_card')"></span>
+              </label>
+            </template>
+            <template x-if="!selectedDrive.removable">
+              <div class="media-field">
+                <span class="lbl" id="media-type-name" x-text="t('media.warn.type_name')"></span>
+                <input type="text" x-model="typed" :placeholder="selectedDrive.model" aria-labelledby="media-type-name" autocomplete="off" spellcheck="false">
+              </div>
+            </template>
+          </div>
+        </section>
+      </template>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    <span class="foot-spacer"></span>
+    <button type="button" class="media-erase" :disabled="!canErase" @click="erase()" x-text="t('media.action.erase_write')"></button>
+  </footer>
+</div>
+</template>
+{{end}}

@@ -102,3 +102,42 @@ test('remembered enthaelt keine Passwoerter', () => {
   });
   assert.ok(!JSON.stringify(remembered).includes('geheim'));
 });
+
+const CARD = { path: '/dev/sdb', model: 'SanDisk Ultra', removable: true };
+const SSD = { path: '/dev/sda', model: 'Samsung SSD 870', removable: false };
+
+test('confirmationFor verlangt beim Wechselmedium ein Ja, bei internen den Namen', () => {
+  assert.equal(M.confirmationFor(CARD), 'yes');
+  assert.equal(M.confirmationFor(SSD), 'Samsung SSD 870');
+});
+
+test('confirmed prueft beim Wechselmedium das Haekchen', () => {
+  assert.equal(M.confirmed(CARD, true, ''), true);
+  assert.equal(M.confirmed(CARD, false, ''), false);
+});
+
+test('confirmed verlangt bei internen Laufwerken den genauen Namen', () => {
+  assert.equal(M.confirmed(SSD, true, 'samsung ssd 870'), false);
+  assert.equal(M.confirmed(SSD, true, ''), false, 'ein Haekchen allein reicht nicht');
+  assert.equal(M.confirmed(SSD, false, 'Samsung SSD 870'), true);
+  assert.equal(M.confirmed(SSD, false, ' Samsung SSD 870 '), true, 'Leerzeichen am Rand zaehlen nicht');
+  assert.equal(M.confirmed({ path: '/dev/sdc', model: '', removable: false }, false, ''), false, 'ohne Modellname gibt es keine Bestaetigung');
+  assert.equal(M.confirmed(null, true, 'x'), false);
+});
+
+test('remaining rechnet die Restzeit aus Rest und Rate', () => {
+  assert.equal(M.remaining({ bytes_total: 100, bytes_done: 40, rate: 20 }), 3);
+  assert.equal(M.remaining({ bytes_total: 100, bytes_done: 100, rate: 20 }), 0);
+  assert.equal(M.remaining({ bytes_total: 100, bytes_done: 120, rate: 20 }), 0, 'nie negativ');
+  assert.equal(M.remaining({ bytes_total: 100, bytes_done: 40, rate: 0 }), null, 'ohne Rate keine Zeit');
+  assert.equal(M.remaining(null), null);
+});
+
+test('stepRows nennt jeden Schritt mit seinem Textschluessel', () => {
+  const job = { steps: [{ id: 'download', state: 'done' }, { id: 'write', state: 'running' }] };
+  assert.deepEqual(plain(M.stepRows(job)), [
+    { id: 'download', state: 'done', labelKey: 'media.step.download' },
+    { id: 'write', state: 'running', labelKey: 'media.step.write' },
+  ]);
+  assert.deepEqual(plain(M.stepRows({})), []);
+});

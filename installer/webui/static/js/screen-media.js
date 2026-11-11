@@ -6,6 +6,7 @@
   var MEDIA_KEY = 'energy-node-installer.media';
   var DOCS_URL = 'https://developer-simon.github.io/energy-node/installer.html';
   var NAME_DELAY = 400;
+  var DRIVE_POLL = 2000;
 
   window.Screens = window.Screens || {};
 
@@ -272,6 +273,185 @@
         }
         this.shell.shared.media.settings = Object.assign({}, this.form);
         this.shell.go('media-drive');
+      },
+    };
+  };
+
+  // screenMediaDrive: Schritt 3. Holt die Laufwerke, solange der Bildschirm
+  // offen ist, und hebt eine Auswahl auf, sobald ihr Laufwerk verschwindet.
+  window.Screens.screenMediaDrive = function screenMediaDrive() {
+    return {
+      drives: [],
+      showInternal: false,
+      // limit: die Groesse, die das Image beim Entpacken braucht; kleinere
+      // Laufwerke sind ausgegraut. isPi steuert den Kasten zur Aufteilung.
+      limit: 0,
+      isPi: false,
+      selected: null,
+      checked: false,
+      typed: '',
+      timer: null,
+      seq: 0,
+
+      get shell() {
+        return window.Installer.shell;
+      },
+
+      async init() {
+        var media = this.shell.shared.media || {};
+        this.selected = media.drive ? media.drive.path : null;
+        var catalog;
+        try {
+          catalog = await window.Api.get('/api/media/catalog');
+        } catch (err) {
+          this.shell.fail(err);
+          return;
+        }
+        var device = (catalog.devices || []).find(function (item) {
+          return item.id === media.device;
+        });
+        this.limit = device && device.image ? device.image.extract_size : 0;
+        this.isPi = !!device && device.group === 'pi';
+        this.timer = window.setInterval(() => this.load(), DRIVE_POLL);
+        return this.load();
+      },
+
+      // load: holt die Liste. Antwortet eine altere Anfrage nach einer neueren,
+      // zaehlt nur die neuere.
+      async load() {
+        if (this.shell.screen !== 'media-drive') {
+          this.destroy();
+          return;
+        }
+        var seq = ++this.seq;
+        var drives;
+        try {
+          drives = await window.Api.get('/api/media/drives' + (this.showInternal ? '?internal=1' : ''));
+        } catch (err) {
+          if (seq === this.seq) {
+            this.shell.fail(err);
+          }
+          return;
+        }
+        if (seq !== this.seq) {
+          return;
+        }
+        this.drives = drives || [];
+        if (this.selected && !this.selectedDrive) {
+          this.clearSelection();
+        } else {
+          this.syncShared();
+        }
+      },
+
+      // setInternal: der Schalter fuer interne Laufwerke. Die Liste wird gleich
+      // neu geholt, mit oder ohne internal=1.
+      setInternal(on) {
+        this.showInternal = !!on;
+        return this.load();
+      },
+
+      get visible() {
+        var showInternal = this.showInternal;
+        return this.drives.filter(function (item) {
+          return showInternal || item.removable;
+        });
+      },
+
+      get selectedDrive() {
+        var path = this.selected;
+        return this.visible.find(function (item) {
+          return item.path === path;
+        }) || null;
+      },
+
+      get canErase() {
+        var drive = this.selectedDrive;
+        return !!drive && this.fits(drive) && window.MediaModel.confirmed(drive, this.checked, this.typed);
+      },
+
+      get showLayout() {
+        return this.isPi && !!this.selectedDrive;
+      },
+
+      fits(drive) {
+        return !this.limit || drive.size >= this.limit;
+      },
+
+      labelFor(drive) {
+        return drive.removable ? this.shell.t('media.drive.removable') : this.shell.t('media.drive.internal');
+      },
+
+      sizeText(drive) {
+        return window.Format.gigabytes(drive.size / (1024 * 1024), this.shell.lang);
+      },
+
+      driveName(drive) {
+        return drive.model || drive.path;
+      },
+
+      partitionsText(drive) {
+        return this.shell.tn('media.warn.partitions', drive.partitions.length, { n: drive.partitions.length });
+      },
+
+      partitionText(part) {
+        var used = window.Format.megabytes(part.used, this.shell.lang);
+        return [part.label || part.name, part.fstype, this.shell.t('media.warn.used', { size: used })].filter(Boolean).join(', ');
+      },
+
+      pick(path) {
+        var drive = this.visible.find(function (item) {
+          return item.path === path;
+        });
+        if (!drive || !this.fits(drive)) {
+          return;
+        }
+        if (this.selected !== path) {
+          this.selected = path;
+          this.checked = false;
+          this.typed = '';
+        }
+        this.syncShared();
+      },
+
+      clearSelection() {
+        this.selected = null;
+        this.checked = false;
+        this.typed = '';
+        this.shell.shared.media.drive = null;
+        this.shell.shared.media.confirm = '';
+      },
+
+      // syncShared: die Auswahl steht im Gedaechtnis der Sitzung, damit das
+      // Schreiben das Laufwerk kennt. Die Bestaetigung kommt erst mit erase().
+      syncShared() {
+        var drive = this.selectedDrive;
+        this.shell.shared.media.drive = drive ? Object.assign({}, drive) : null;
+      },
+
+      back() {
+        this.destroy();
+        this.shell.back('media-settings');
+      },
+
+      erase() {
+        if (!this.canErase) {
+          return;
+        }
+        var drive = this.selectedDrive;
+        this.shell.shared.media.drive = Object.assign({}, drive);
+        this.shell.shared.media.confirm = window.MediaModel.confirmationFor(drive);
+        // Platzhalter fuer P3.4: heute nur die Karte, spaeter Stick oder Platte.
+        this.shell.shared.media.target = 'card';
+        this.destroy();
+        this.shell.go('media-write');
+      },
+
+      destroy() {
+        if (this.timer) {
+          window.clearInterval(this.timer);
+          this.timer = null;
+        }
       },
     };
   };

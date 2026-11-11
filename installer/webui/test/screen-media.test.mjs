@@ -225,3 +225,135 @@ test('die Vorgaben fuer Zeitzone und Tastatur stammen aus dem Katalog', async ()
   assert.deepEqual(plain(screen.timezones), ['Europe/Berlin', 'Europe/Wien']);
   assert.deepEqual(plain(screen.keyboards), ['de', 'us']);
 });
+
+// Laufwerke: die Antworten je Abruf, Stand der Vorgaben aus dem Katalog.
+const SD = { path: '/dev/sdb', model: 'SanDisk Ultra', size: 32 * 1024 * 1024 * 1024, transport: 'usb', removable: true, partitions: [{ name: 'bootfs', label: 'bootfs', fstype: 'vfat', used: 100 * 1024 * 1024 }] };
+const SSD_DRIVE = { path: '/dev/sda', model: 'Samsung SSD 870', size: 500 * 1024 * 1024 * 1024, transport: 'sata', removable: false, partitions: [] };
+const TINY = { path: '/dev/sdd', model: 'Winzig', size: 1024 * 1024 * 1024, transport: 'usb', removable: true, partitions: [] };
+
+function drive(drives, responses = {}, options = {}) {
+  const mounted = mountMedia('screen-media.js', 'screenMediaDrive', {
+    screen: 'media-drive',
+    responses: Object.assign({ 'GET /api/media/catalog': CATALOG, 'GET /api/media/drives': drives }, responses),
+    ...options,
+  });
+  mounted.shell.shared.media.device = 'pi3';
+  return mounted;
+}
+
+// urlsOf zeichnet die vollen Adressen der Abrufe auf, mit Query.
+function urlsOf(window) {
+  const urls = [];
+  const original = window.fetch;
+  window.fetch = (url, init) => {
+    urls.push(String(url));
+    return original(url, init);
+  };
+  return urls;
+}
+
+test('interne Laufwerke erst mit dem Schalter', async (t) => {
+  const { screen, window } = drive([SD]);
+  t.after(() => screen.destroy());
+  const urls = urlsOf(window);
+  await screen.init();
+  assert.ok(urls.some((url) => url.endsWith('/api/media/drives')), 'der erste Abruf ohne internal');
+  assert.ok(!urls.some((url) => url.includes('internal=1')));
+
+  await screen.setInternal(true);
+  assert.ok(urls.some((url) => url.endsWith('/api/media/drives?internal=1')));
+});
+
+test('ohne Schalter bleiben interne Laufwerke aus der Liste', async (t) => {
+  const { screen } = drive([SD, SSD_DRIVE]);
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.deepEqual(plain(screen.visible.map((item) => item.path)), ['/dev/sdb']);
+  await screen.setInternal(true);
+  assert.deepEqual(plain(screen.visible.map((item) => item.path)), ['/dev/sdb', '/dev/sda']);
+});
+
+test('ein internes Laufwerk braucht den abgetippten Namen', async (t) => {
+  const { screen, shell } = drive([SSD_DRIVE]);
+  t.after(() => screen.destroy());
+  await screen.init();
+  await screen.setInternal(true);
+  screen.pick('/dev/sda');
+  assert.equal(screen.selected, '/dev/sda');
+
+  screen.checked = true;
+  assert.equal(screen.canErase, false, 'das Haekchen allein reicht nicht');
+  screen.typed = 'Samsung SSD 870';
+  assert.equal(screen.canErase, true);
+
+  screen.typed = 'samsung ssd 870';
+  assert.equal(screen.canErase, false);
+  assert.equal(shell.shared.media.drive.path, '/dev/sda');
+});
+
+test('ein Wechselmedium braucht nur das Haekchen', async (t) => {
+  const { screen, shell } = drive([SD]);
+  t.after(() => screen.destroy());
+  await screen.init();
+  screen.pick('/dev/sdb');
+  assert.equal(screen.canErase, false);
+  screen.checked = true;
+  assert.equal(screen.canErase, true);
+  assert.equal(shell.shared.media.drive.path, '/dev/sdb');
+});
+
+test('ein zu kleines Laufwerk laesst sich nicht waehlen', async (t) => {
+  const { screen } = drive([TINY, SD]);
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.equal(screen.fits(TINY), false);
+  screen.pick('/dev/sdd');
+  assert.equal(screen.selected, null);
+});
+
+test('ein abgezogenes Laufwerk hebt die Auswahl auf', async (t) => {
+  const mounted = drive([SD, TINY]);
+  const { screen, state } = mounted;
+  t.after(() => screen.destroy());
+  await screen.init();
+  screen.pick('/dev/sdb');
+  screen.checked = true;
+
+  state.responses['GET /api/media/drives'] = [TINY];
+  await screen.load();
+  assert.equal(screen.selected, null);
+  assert.equal(screen.checked, false);
+  assert.equal(mounted.shell.shared.media.drive, null);
+});
+
+test('Weiter schreibt das Laufwerk in den Schritt und geht zum Schreiben', async (t) => {
+  const { screen, shell } = drive([SD]);
+  t.after(() => screen.destroy());
+  await screen.init();
+  screen.pick('/dev/sdb');
+  screen.checked = true;
+  screen.erase();
+  assert.equal(shell.shared.media.confirm, 'yes');
+  assert.equal(shell.shared.media.target, 'card');
+  assert.equal(shell.screen, 'media-write');
+});
+
+test('jedes Laufwerk traegt seine Etikette', async (t) => {
+  const { screen } = drive([SD, SSD_DRIVE]);
+  t.after(() => screen.destroy());
+  await screen.init();
+  await screen.setInternal(true);
+  assert.equal(screen.labelFor(SD), 'Wechselmedium');
+  assert.equal(screen.labelFor(SSD_DRIVE), 'intern');
+});
+
+test('die Einstiegsschalter sind auf allen Medium-Bildschirmen gestaltet', async () => {
+  const { default: fs } = await import('node:fs');
+  const { default: path } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const css = fs.readFileSync(path.join(here, '..', 'static', 'css', 'screens.css'), 'utf8');
+  for (const rule of ['.mode{', '.mode-i{', '.mode-i.on{']) {
+    assert.ok(css.includes(`.app[data-screen^="media-"] ${rule}`), `Regel fehlt: ${rule}`);
+  }
+});

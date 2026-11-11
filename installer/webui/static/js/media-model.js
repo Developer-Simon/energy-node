@@ -84,6 +84,39 @@
       };
     },
 
+    // confirmationFor: was POST /api/media/write als confirm schickt. Ein
+    // Wechselmedium bestaetigt mit "yes", ein internes Laufwerk mit seinem Namen.
+    confirmationFor: function (drive) {
+      return drive.removable ? 'yes' : drive.model;
+    },
+
+    // confirmed: ob das Loeschen freigegeben ist. Wechselmedium: das Haekchen.
+    // Internes Laufwerk: der abgetippte Name, ohne Modellnamen nie.
+    confirmed: function (drive, checkbox, typed) {
+      if (!drive) {
+        return false;
+      }
+      if (drive.removable) {
+        return checkbox === true;
+      }
+      return !!drive.model && String(typed || '').trim() === drive.model;
+    },
+
+    // stepRows: die Schritte des Auftrags mit ihren Textschluesseln.
+    stepRows: function (job) {
+      return ((job && job.steps) || []).map(function (step) {
+        return { id: step.id, state: step.state, labelKey: 'media.step.' + step.id };
+      });
+    },
+
+    // remaining: Sekunden bis zum Ende, null ohne Rate.
+    remaining: function (job) {
+      if (!job || !(job.rate > 0)) {
+        return null;
+      }
+      return Math.max(0, Math.round((job.bytes_total - job.bytes_done) / job.rate));
+    },
+
     // remembered: was der Rechner fuer das naechste Medium behaelt. Keine
     // Passwoerter, weder das Notfall- noch das WLAN-Passwort.
     remembered: function (s) {
