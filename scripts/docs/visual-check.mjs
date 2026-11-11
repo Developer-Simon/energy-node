@@ -50,7 +50,7 @@ async function checkGallery(ctx, page, path, width, scheme) {
   if (wrongThumb.length) fail(`${tag}: thumbnails differ from their own section: ${wrongThumb.map((t) => t.item).join(", ")}`);
   const tileImgs = thumbs.filter((t) => t.tileSrc !== null).length;
   const placeholders = thumbs.length - tileImgs;
-  const expected = path.includes("automations-templates") ? { imgs: 3, ph: 11 } : { imgs: 13, ph: 1 };
+  const expected = path.includes("automations-templates") ? { imgs: 3, ph: 11 } : { imgs: 13, ph: 0 };
   if (tileImgs !== expected.imgs || placeholders !== expected.ph) fail(`${tag}: ${tileImgs} tile images and ${placeholders} placeholders, expected ${expected.imgs} and ${expected.ph}`);
   const tocCategory = await page.evaluate(() => [...document.querySelectorAll("#toc a")].some((a) => a.textContent.trim() === "Category"));
   if (tocCategory) fail(`${tag}: the table of contents lists a Category field`);

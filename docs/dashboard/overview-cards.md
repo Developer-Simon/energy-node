@@ -220,12 +220,6 @@ The history lines come from the browser's recording, like the day band.
 When the Energy tab adds up several metered loads into one position,
 **Measured consumers** decides how three cards show that sum:
 
-### Category
-
-Energy
-
-### Options
-
 - **Balance band** and **self-sufficiency ring** draw one segment per entity
   with **one per entity**.
 - **Data board** shows one row per entity, but without a history line, because

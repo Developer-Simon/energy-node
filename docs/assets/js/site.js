@@ -316,7 +316,7 @@
     sheet.innerHTML =
       '<div class="gallery-sheet__head"><button type="button" class="gallery-sheet__close" aria-label="Close">\u2715</button></div>' +
       '<div class="gallery-sheet__content"></div>' +
-      '<div class="gallery-sheet__foot"><button type="button" class="gallery-sheet__prev"></button><button type="button" class="gallery-sheet__next"></button></div>';
+      '<div class="gallery-sheet__foot"><button type="button" class="gallery-sheet__prev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="gallery-sheet__next"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button></div>';
     document.body.appendChild(sheet);
     var content = sheet.querySelector(".gallery-sheet__content");
     var prevBtn = sheet.querySelector(".gallery-sheet__prev");
@@ -343,8 +343,11 @@
       while (it.section.firstChild) content.appendChild(it.section.firstChild);
       content.scrollTop = 0;
       sheet.setAttribute("aria-labelledby", it.id);
-      prevBtn.textContent = "\u2190 " + neighbour(-1).title;
-      nextBtn.textContent = neighbour(1).title + " \u2192";
+      // Icon-only buttons: the neighbour's title is the tooltip and the accessible name.
+      [[prevBtn, "Previous: " + neighbour(-1).title], [nextBtn, "Next: " + neighbour(1).title]].forEach(function (b) {
+        b[0].title = b[1];
+        b[0].setAttribute("aria-label", b[1]);
+      });
       if (!sheet.open) sheet.showModal();
       history.replaceState(null, "", "#" + it.id);
     }
