@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.10 (2026-11-10)
+## v0.11.11 (2026-11-11)
 
 ### Features
 
@@ -62,6 +62,12 @@
 
 ### Documentation
 
+- **screenshots:** add setup, editor, backup and template shots (fc7ad4a)
+- **screenshots:** fix checklist tab, assistant order and surplus step (fbdbc6b)
+- **screenshots:** pick the checklist set-up switch by text (4016711)
+- move manual installation under developing, split installer pages (2c9776e)
+- **images:** crop the assistant step screenshots to the sheet (dfeda9e)
+- add gallery pages and restructure the installer guide (#230)
 - **backup:** add the highlight and tour for the backup page (86435fb)
 - **backup:** add tour steps for restore, archives and automatic backups (eb9d5a6)
 
