@@ -134,6 +134,38 @@ func TestEnsureUsesTheCacheButRehashes(t *testing.T) {
 	}
 }
 
+func TestCachedDoesNotHash(t *testing.T) {
+	body := testBody()
+	srv := serveImage(t, body, "", nil)
+	cache := &Cache{Dir: t.TempDir()}
+	img := testImage(srv, int64(len(body)))
+	ctx := context.Background()
+
+	p, err := cache.Ensure(ctx, img, nil, nil)
+	if err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if !cache.Cached(img) {
+		t.Fatal("Cached false after a verified download")
+	}
+
+	f, err := os.OpenFile(p, os.O_RDWR, 0)
+	if err != nil {
+		t.Fatalf("open cached image: %v", err)
+	}
+	if _, err := f.WriteAt([]byte{body[0] ^ 0xff}, 0); err != nil {
+		t.Fatalf("tamper: %v", err)
+	}
+	f.Close()
+
+	if !cache.Cached(img) {
+		t.Error("Cached hashed the image: a same-size tampered file must still be reported cached")
+	}
+	if _, err := cache.Ensure(ctx, img, nil, nil); !errors.Is(err, ErrChecksum) {
+		t.Fatalf("Ensure err = %v, want ErrChecksum", err)
+	}
+}
+
 func TestEnsureDropsOlderReleasesOfTheSameImage(t *testing.T) {
 	dir := t.TempDir()
 	images := filepath.Join(dir, "images")

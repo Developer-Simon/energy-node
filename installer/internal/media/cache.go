@@ -78,20 +78,25 @@ func (c *Cache) OSList(ctx context.Context) (*OSList, bool, error) {
 	return list, true, nil
 }
 
-// Cached reports whether the image is stored completely and still matches the
-// checksum that was stored with it.
+// Cached is a cheap check that the image and its .sha256 file exist as regular
+// files and that the image size equals img.DownloadSize when that is known. It
+// does not hash the image, because the catalog calls it once per device. Ensure
+// verifies the content on every call.
 func (c *Cache) Cached(img Image) bool {
 	name, err := imageName(img)
 	if err != nil {
 		return false
 	}
 	file := filepath.Join(c.Dir, imagesDir, name)
-	want, err := readSum(file + ".sha256")
-	if err != nil {
+	fi, err := os.Stat(file)
+	if err != nil || !fi.Mode().IsRegular() {
 		return false
 	}
-	got, err := hashFile(file, nil)
-	return err == nil && got == want
+	si, err := os.Stat(file + ".sha256")
+	if err != nil || !si.Mode().IsRegular() {
+		return false
+	}
+	return img.DownloadSize <= 0 || fi.Size() == img.DownloadSize
 }
 
 // Ensure returns the local path of the image. It downloads the image when it is
