@@ -1,0 +1,101 @@
+// Reine Hilfen des Mediums: die Namensregeln des Go-Codes (internal/media),
+// die Gruppen der Geraeteliste, die Vorgaben des Formulars und das, was sich
+// der Rechner merkt. Ohne DOM und ohne fetch, darum einzeln pruefbar.
+(function () {
+  'use strict';
+
+  // Dieselben Muster wie hostnamePattern und userPattern in internal/media.
+  var HOSTNAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+  var USER = /^[a-z_][a-z0-9_-]{0,31}$/;
+  var COUNTRY = /^[A-Z]{2}$/;
+
+  function validHostname(name) {
+    return typeof name === 'string' && HOSTNAME.test(name);
+  }
+
+  function validUser(name) {
+    return typeof name === 'string' && name !== 'root' && USER.test(name);
+  }
+
+  window.MediaModel = {
+    validHostname: validHostname,
+    validUser: validUser,
+
+    // groups: die Geraete nach ihrer Gruppe, in der Reihenfolge, in der die
+    // Gruppen zum ersten Mal vorkommen.
+    groups: function (devices) {
+      var order = [];
+      var byId = Object.create(null);
+      (devices || []).forEach(function (device) {
+        if (!byId[device.group]) {
+          byId[device.group] = { id: device.group, devices: [] };
+          order.push(byId[device.group]);
+        }
+        byId[device.group].devices.push(device);
+      });
+      return order;
+    },
+
+    // defaultSettings: die Vorgaben des Rechners und des Installers. Die
+    // Passwoerter beginnen leer und der Notfall-Zugang ist aus. group ist fuer
+    // gruppenspezifische Vorgaben reserviert und hat heute keine Wirkung.
+    defaultSettings: function (defaults, group) {
+      var d = defaults || {};
+      return {
+        hostname: d.hostname || '',
+        user: d.user || '',
+        emergency: false,
+        password: '',
+        password2: '',
+        timezone: d.timezone || '',
+        keyboard: d.keyboard || '',
+        wifiOn: false,
+        ssid: '',
+        wifiPassword: '',
+        country: d.wifi_country || '',
+      };
+    },
+
+    // settingsComplete: ob das Formular abgeschickt werden kann. Das Passwort
+    // zaehlt nur, wenn der Notfall-Zugang an ist, das WLAN nur, wenn es an ist.
+    settingsComplete: function (s) {
+      if (!validHostname(s.hostname) || !validUser(s.user)) {
+        return false;
+      }
+      if (s.emergency && !(s.password.length >= 8 && s.password === s.password2)) {
+        return false;
+      }
+      if (s.wifiOn && (!s.ssid || !COUNTRY.test(s.country))) {
+        return false;
+      }
+      return true;
+    },
+
+    // toRequest: der Rumpf von POST /api/media/write. Ohne Schalter geht kein
+    // Passwort und kein WLAN mit.
+    toRequest: function (s) {
+      return {
+        hostname: s.hostname,
+        user: s.user,
+        password: s.emergency ? s.password : '',
+        timezone: s.timezone,
+        keyboard: s.keyboard,
+        wifi: s.wifiOn ? { ssid: s.ssid, password: s.wifiPassword, country: s.country } : null,
+      };
+    },
+
+    // remembered: was der Rechner fuer das naechste Medium behaelt. Keine
+    // Passwoerter, weder das Notfall- noch das WLAN-Passwort.
+    remembered: function (s) {
+      return {
+        hostname: s.hostname,
+        user: s.user,
+        timezone: s.timezone,
+        keyboard: s.keyboard,
+        wifiOn: s.wifiOn,
+        ssid: s.ssid,
+        country: s.country,
+      };
+    },
+  };
+})();
