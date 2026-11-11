@@ -1,0 +1,209 @@
+{{define "screen-media"}}<template x-if="screen === 'media-device'">
+<div class="screen" x-data="screenMediaDevice">
+  <div class="body">
+    {{template "stepper"}}
+
+    <template x-if="state === 'unsupported'">
+      <div class="media-notice" role="status">
+        <span class="media-notice-ic">{{template "icon-warn"}}</span>
+        <span class="media-notice-b">
+          <span class="media-notice-t" x-text="t('media.unsupported.title')"></span>
+          <span class="media-notice-s" x-text="t('media.unsupported.text')"></span>
+          <span class="media-notice-actions">
+            <button type="button" class="small" @click="openDocs()" x-text="t('action.open')"></button>
+          </span>
+        </span>
+      </div>
+    </template>
+
+    <template x-if="state === 'missing'">
+      <div class="media-notice" role="status">
+        <span class="media-notice-ic">{{template "icon-warn"}}</span>
+        <span class="media-notice-b">
+          <span class="media-notice-t" x-text="t('media.imager.' + imagerKey + '.title')"></span>
+          <span class="media-notice-s" x-text="t('media.imager.' + imagerKey + '.text')"></span>
+          <span class="media-notice-actions">
+            <template x-for="link in links" :key="link.kind">
+              <button type="button" class="small" @click="openLink(link)" x-text="t('media.link.' + link.kind)"></button>
+            </template>
+            <button type="button" class="small" @click="recheck()" x-text="t('action.recheck')"></button>
+          </span>
+        </span>
+      </div>
+    </template>
+
+    <template x-if="state === 'failed'">
+      <div class="media-notice" role="status">
+        <span class="media-notice-b">
+          <span class="media-notice-actions">
+            <button type="button" class="small" @click="recheck()" x-text="t('action.retry')"></button>
+          </span>
+        </span>
+      </div>
+    </template>
+
+    <template x-if="state === 'ready'">
+      <section class="card">
+        <h2 class="card-h" x-text="t('media.device.title')"></h2>
+        <div role="radiogroup" :aria-label="t('media.device.title')">
+          <template x-for="group in groups" :key="group.id">
+            <div>
+              <div class="media-group" x-text="t('media.group.' + group.id)"></div>
+              <template x-for="item in group.devices" :key="item.id">
+                <div class="media-opt" :class="{ on: picked === item.id }" role="radio" tabindex="0" :aria-checked="picked === item.id"
+                     @click="pick(item.id)" @keydown.enter.prevent="pick(item.id)" @keydown.space.prevent="pick(item.id)">
+                  <span class="media-radio" aria-hidden="true"></span>
+                  <span class="media-opt-t" x-text="t('media.device.' + item.id)"></span>
+                  <template x-if="item.experimental"><span class="media-tag" x-text="tagFor(item)"></span></template>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <template x-if="summary && summary.offline">
+          <div class="media-res media-res--warn" role="status">
+            <span x-text="t('media.result.offline')"></span>
+          </div>
+        </template>
+        <template x-if="summary && !summary.offline">
+          <div class="media-res">
+            <div class="media-res-t" x-text="summary.name"></div>
+            <div class="media-res-s" x-text="summary.pkg + ', ' + summary.size"></div>
+            <div class="media-res-s" x-text="summary.cached ? t('media.result.cached') : t('media.result.download')"></div>
+          </div>
+        </template>
+      </section>
+    </template>
+  </div>
+
+  <footer class="foot">
+    <span class="foot-spacer"></span>
+    <button type="button" class="primary" :disabled="!canContinue" @click="next()" x-text="t('action.next')"></button>
+  </footer>
+</div>
+</template>
+
+<template x-if="screen === 'media-settings'">
+<div class="screen" x-data="screenMediaSettings">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="media-cards" :aria-label="t('media.settings.title')">
+      <section class="card">
+        <h2 class="card-h" x-text="t('media.settings.system')"></h2>
+        <div class="media-row2">
+          <div class="media-field">
+            <span class="lbl" id="media-hostname" x-text="t('media.settings.hostname')"></span>
+            <input type="text" x-model.trim="form.hostname" aria-labelledby="media-hostname" autocomplete="off" spellcheck="false">
+            <template x-if="nameState === 'ok'"><div class="media-check media-check--ok" x-text="t('media.name.ok')"></div></template>
+            <template x-if="nameState === 'invalid'"><div class="media-check media-check--bad" x-text="t('media.name.invalid')"></div></template>
+            <template x-if="nameState === 'taken'">
+              <div class="media-check media-check--warn">
+                <span x-text="t('media.name.taken', { name: suggestion })"></span>
+                <button type="button" class="small" @click="useSuggestion()" x-text="t('media.name.use')"></button>
+              </div>
+            </template>
+          </div>
+          <div class="media-field">
+            <span class="lbl" id="media-user" x-text="t('media.settings.user')"></span>
+            <input type="text" x-model.trim="form.user" aria-labelledby="media-user" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+
+        <div class="media-static">
+          <span class="media-static-t" x-text="t('media.settings.key_only')"></span>
+          <span class="media-static-s" x-text="t('media.settings.key_only_hint')"></span>
+        </div>
+
+        <label class="media-toggle">
+          <span class="settings-toggle">
+            <input type="checkbox" role="switch" x-model="form.emergency" :aria-label="t('media.settings.emergency')">
+            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          </span>
+          <span>
+            <span class="media-check-t" x-text="t('media.settings.emergency')"></span>
+            <span class="media-check-s" x-text="t('media.settings.emergency_hint')"></span>
+          </span>
+        </label>
+
+        <template x-if="form.emergency">
+          <div class="media-row2">
+            <div class="media-field">
+              <span class="lbl" id="media-password" x-text="t('media.settings.password')"></span>
+              <input type="password" x-model="form.password" aria-labelledby="media-password" autocomplete="new-password">
+              <template x-if="passwordShort"><div class="media-hint media-hint--bad" x-text="t('media.settings.password_short')"></div></template>
+            </div>
+            <div class="media-field">
+              <span class="lbl" id="media-password2" x-text="t('media.settings.password2')"></span>
+              <input type="password" x-model="form.password2" aria-labelledby="media-password2" autocomplete="new-password">
+              <template x-if="passwordMismatch"><div class="media-hint media-hint--bad" x-text="t('media.settings.password_mismatch')"></div></template>
+            </div>
+          </div>
+        </template>
+      </section>
+
+      <section class="card">
+        <h2 class="card-h" x-text="t('media.settings.region')"></h2>
+        <div class="media-row2">
+          <div class="media-field">
+            <span class="lbl" id="media-timezone" x-text="t('media.settings.timezone')"></span>
+            <select x-model="form.timezone" aria-labelledby="media-timezone">
+              <template x-for="zone in timezones" :key="zone">
+                <option :value="zone" :selected="zone === form.timezone" x-text="zone"></option>
+              </template>
+            </select>
+          </div>
+          <div class="media-field">
+            <span class="lbl" id="media-keyboard" x-text="t('media.settings.keyboard')"></span>
+            <select x-model="form.keyboard" aria-labelledby="media-keyboard">
+              <template x-for="layout in keyboards" :key="layout">
+                <option :value="layout" :selected="layout === form.keyboard" x-text="layout"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+        <div class="media-hint" x-text="t('media.settings.from_computer')"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-h" x-text="t('media.settings.network')"></h2>
+        <label class="media-toggle">
+          <span class="settings-toggle">
+            <input type="checkbox" role="switch" x-model="form.wifiOn" :aria-label="t('media.settings.wifi')">
+            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+          </span>
+          <span><span class="media-check-t" x-text="t('media.settings.wifi')"></span></span>
+        </label>
+
+        <template x-if="form.wifiOn">
+          <div>
+            <div class="media-row2">
+              <div class="media-field">
+                <span class="lbl" id="media-ssid" x-text="t('media.settings.ssid')"></span>
+                <input type="text" x-model.trim="form.ssid" aria-labelledby="media-ssid" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="media-field">
+                <span class="lbl" id="media-wifi-password" x-text="t('media.settings.wifi_password')"></span>
+                <input type="password" x-model="form.wifiPassword" aria-labelledby="media-wifi-password" autocomplete="off">
+              </div>
+            </div>
+            <div class="media-field">
+              <span class="lbl" id="media-country" x-text="t('media.settings.country')"></span>
+              <input type="text" maxlength="2" :value="form.country" @input="$event.target.value = $event.target.value.toUpperCase(); form.country = $event.target.value"
+                     aria-labelledby="media-country" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="media-hint" x-text="t('media.settings.wifi_hint')"></div>
+          </div>
+        </template>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    <span class="foot-spacer"></span>
+    <button type="button" class="primary" :disabled="!canContinue" @click="next()" x-text="t('action.next')"></button>
+  </footer>
+</div>
+</template>{{end}}
