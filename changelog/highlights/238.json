@@ -2,6 +2,13 @@
   "de": {
     "*": "LAN prüfen und die Node in den Einstellungen mit einem WLAN verbinden"
   },
+  "details": {
+    "*": {
+      "de": "Unter Einstellungen, Netzwerk siehst du, ob die Node über LAN oder WLAN verbunden ist. Du kannst nach WLAN-Netzen suchen, dich mit einem verbinden und gespeicherte Netze vergessen. Schlägt eine Verbindung fehl, bleibt oder kehrt die Node zur bisherigen Verbindung zurück.",
+      "doc": "dashboard/settings-network.html",
+      "en": "Under Settings, Network you see whether the node is connected over LAN or Wi-Fi. You can scan for Wi-Fi networks, connect to one and forget saved networks. If a new connection fails, the node keeps or returns to the previous connection."
+    }
+  },
   "en": {
     "*": "Check LAN and connect the node to Wi-Fi in the settings"
   },
@@ -14,8 +21,8 @@
           "panel": "settings-panel",
           "target": "network-overview",
           "text": {
-            "de": "Hier siehst du die Verbindung der Node über LAN und WLAN. Die Schnittstelle mit dem Hinweis Wird primär genutzt ist die aktive.",
-            "en": "The connection of the node is shown here for LAN and Wi-Fi. The link marked Used primarily is the one in use."
+            "de": "Hier siehst du die Verbindung der Node über LAN und WLAN. Die Schnittstelle mit dem Hinweis Trägt den Verkehr ist die aktive.",
+            "en": "The connection of the node is shown here for LAN and Wi-Fi. The link marked Carries the traffic is the one in use."
           },
           "title": {
             "de": "Netzwerk",
@@ -23,13 +30,6 @@
           }
         }
       ]
-    }
-  },
-  "details": {
-    "*": {
-      "de": "Unter Einstellungen, Netzwerk siehst du, ob die Node über LAN oder WLAN verbunden ist. Du kannst nach WLAN-Netzen suchen, dich mit einem verbinden und gespeicherte Netze vergessen. Schlägt eine Verbindung fehl, bleibt oder kehrt die Node zur bisherigen Verbindung zurück.",
-      "doc": "dashboard/settings-network.html",
-      "en": "Under Settings, Network you see whether the node is connected over LAN or Wi-Fi. You can scan for Wi-Fi networks, connect to one and forget saved networks. If a new connection fails, the node keeps or returns to the previous connection."
     }
   }
 }
