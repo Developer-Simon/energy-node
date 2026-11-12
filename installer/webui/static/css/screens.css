@@ -624,8 +624,9 @@ button.media-erase:hover:not(:disabled){background:var(--bad-bg);border-color:va
    Vorlage. Sie waechst aus ihrer Spitze unter "Medium" heraus (transform-origin),
    kurz verzoegert, ohne Ueberschwingen. Auf schmalen Schirmen spannt sie sich
    ueber die Breite der Leiste und verliert die Spitze. */
+.app .bar{position:relative;z-index:30}
 .mode-wrap{position:relative;flex:none}
-.mode-tip{position:absolute;top:calc(100% + .65rem);left:0;z-index:20;width:17rem;display:flex;flex-direction:column;gap:.55rem;padding:.75rem .85rem;border-radius:var(--radius-md);border:1px solid var(--accent-line);background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.28);transform-origin:1.45rem 0;animation:mode-tip-in .24s cubic-bezier(.2,.8,.2,1) .5s both}
+.mode-tip{position:absolute;top:calc(100% + .65rem);left:0;z-index:20;width:18.5rem;display:flex;flex-direction:column;gap:.55rem;padding:.75rem .85rem;border-radius:var(--radius-md);border:1px solid var(--accent-line);background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.28);transform-origin:1.45rem 0;animation:mode-tip-in .24s cubic-bezier(.2,.8,.2,1) .5s both}
 .mode-tip::before{content:'';position:absolute;top:-.38rem;left:1.1rem;width:.7rem;height:.7rem;background:var(--panel);border-left:1px solid var(--accent-line);border-top:1px solid var(--accent-line);transform:rotate(45deg)}
 .mode-tip-t{font-size:.8rem;line-height:1.45;color:var(--text)}
 .mode-tip-actions{display:flex;align-items:center;gap:.5rem}
