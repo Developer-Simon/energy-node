@@ -1,0 +1,30 @@
+##managed
+yes
+##country
+##wifidev
+wlan0
+##rfkill
+0 0
+##devices
+eth0:ethernet:connected:Kabel
+wlan0:wifi:connected:Haus
+##addr
+[{"ifname":"eth0","addr_info":[{"family":"inet","local":"192.168.1.20"}]},{"ifname":"wlan0","addr_info":[{"family":"inet","local":"192.168.1.31"}]}]
+##route
+[{"dst":"default","gateway":"192.168.1.1","dev":"eth0","metric":100}]
+##dns
+192.168.1.1
+1.1.1.1
+##speed
+eth0 1000
+##wifi
+*:Haus:74:2437:1:WPA2
+##profiles
+uuid-1	yes	Haus
+##hotspot
+active no
+clients 0
+##settings
+{"fallback":"parallel","hotspot":true}
+##switch
+{}

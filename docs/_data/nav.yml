@@ -51,6 +51,7 @@
             - { label: "History", url: "dashboard/settings-history.md" }
             - { label: "MQTT", url: "dashboard/settings-mqtt.md" }
             - { label: "Tailscale & TinyTuya", url: "dashboard/settings-wizards.md" }
+            - { label: "Network", url: "dashboard/settings-network.md" }
             - { label: "Users", url: "dashboard/settings-users.md" }
             - { label: "Backup", url: "dashboard/settings-backup.md" }
             - { label: "Checklist", url: "dashboard/settings-checklist.md" }

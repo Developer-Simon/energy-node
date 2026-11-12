@@ -8,6 +8,7 @@ laufen ueber window.konsole.post.
 import json
 
 from fake_journal_helper import KEYS
+from fake_network import SCENARIO_IDS, SCENARIOS
 
 JOURNAL_BUTTONS = (("normal", "Normal"), ("errors", "Viele Fehler"), ("empty", "Leer"))
 
@@ -52,6 +53,17 @@ __JOURNAL_ROWS__
   <p class="grp-err"></p>
 </div>
 
+<div class="grp" data-group="network">
+  <h3>Netzwerk</h3>
+  <div class="list">
+    <div class="row">Netzwerk-Szenario
+      <span class="end"><select data-network aria-label="Netzwerk-Szenario">__NETWORK_OPTIONS__</select></span>
+    </div>
+  </div>
+  <p class="note" data-network-note></p>
+  <p class="grp-err"></p>
+</div>
+
 <div class="grp" data-group="actions">
   <h3>Systemaktionen</h3>
   <div class="list">
@@ -72,6 +84,7 @@ __JOURNAL_ROWS__
   if (!root) return;
 
   const RESULT_LABELS = __RESULT_LABELS__;
+  const NETWORK_NOTES = __NETWORK_NOTES__;
   const $ = (sel) => root.querySelector(sel);
 
   function setPressed(container, value) {
@@ -115,8 +128,18 @@ __JOURNAL_ROWS__
     });
     setPressed($("[data-helper]"), state.helper);
     setPressed($("[data-actions]"), state.actions);
+    if (state.network) {
+      $("[data-network]").value = state.network;
+      $("[data-network-note]").textContent = NETWORK_NOTES[state.network] || "";
+    }
     renderRecent(state.recent);
   }
+
+  root.addEventListener("change", (event) => {
+    const select = event.target.closest("[data-network]");
+    if (!select || !root.contains(select)) return;
+    window.konsole.post("system", "network", { scenario: select.value }, select);
+  });
 
   root.addEventListener("click", (event) => {
     const btn = event.target.closest("[data-act]");
@@ -162,9 +185,13 @@ def _journal_row(key: str) -> str:
 
 
 def system_html(result_labels: dict) -> str:
-    """Fragment fuer den Reiter: je Dienst eine Zeile, Auswahl fuer Inject, Ergebnisbezeichnungen."""
+    """Fragment fuer den Reiter: je Dienst eine Zeile, Auswahl fuer Inject, Netz-Szenarien, Ergebnisbezeichnungen."""
     services = sorted(KEYS)
     rows = "\n".join(_journal_row(key) for key in services)
     options = "".join(f'<option value="{key}">{key}</option>' for key in services)
-    html = SYSTEM_HTML.replace("__JOURNAL_ROWS__", rows).replace("__KEY_OPTIONS__", options)
+    network_options = "".join(f'<option value="{key}">{SCENARIOS[key].label}</option>' for key in SCENARIO_IDS)
+    notes = {key: SCENARIOS[key].note for key in SCENARIO_IDS}
+    html = (SYSTEM_HTML.replace("__JOURNAL_ROWS__", rows).replace("__KEY_OPTIONS__", options)
+            .replace("__NETWORK_OPTIONS__", network_options))
+    html = html.replace("__NETWORK_NOTES__", json.dumps(notes, ensure_ascii=False))
     return html.replace("__RESULT_LABELS__", json.dumps(result_labels, ensure_ascii=False))

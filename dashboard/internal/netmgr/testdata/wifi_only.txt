@@ -1,0 +1,31 @@
+##managed
+yes
+##country
+DE
+##wifidev
+wlan0
+##rfkill
+0 0
+##devices
+eth0:ethernet:unavailable:--
+wlan0:wifi:connected:Haus
+##addr
+[{"ifname":"wlan0","addr_info":[{"family":"inet","local":"192.168.1.31"}]}]
+##route
+[{"dst":"default","gateway":"192.168.1.1","dev":"wlan0","metric":600}]
+##dns
+192.168.1.1
+1.1.1.1
+##speed
+##wifi
+*:Haus\:Netz:74:5180:36:WPA2 WPA3
+:Nachbar:45:2412:1:WPA2
+##profiles
+uuid-1	yes	Haus\:Netz
+##hotspot
+active no
+clients 0
+##settings
+{"fallback":"parallel","hotspot":true}
+##switch
+{}

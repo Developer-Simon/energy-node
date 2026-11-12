@@ -56,7 +56,7 @@ the whole group on or off.
 | View | which pages are visible: Overview, Devices, Device analysis, History, Statistics, Energy, Efficiency, Device map, Configuration, Automations, Diagnostics |
 | Operate | switch devices and set values, turn rules and scenarios on and off |
 | Design | arrange the overview, style devices (icon and favourites), default view of the device map, change the appearance |
-| Setup | edit automations, energy assignment, edit device map, edit device configuration, ignore and remove devices from discovery, MQTT connection, set up the dashboard, set up TinyTuya, set up Tailscale |
+| Setup | edit automations, energy assignment, edit device map, edit device configuration, ignore and remove devices from discovery, MQTT connection, set up the dashboard, set up TinyTuya, set up Tailscale, set up the network |
 | Updates | check for updates, install the offered update, change update settings |
 | System | read service logs, services and bridge, user management, sign in over HTTP |
 
@@ -79,10 +79,10 @@ account.
 ### Elevated rights
 
 Some permissions are tagged *Elevated*: MQTT connection, set up TinyTuya, set
-up Tailscale, change update settings, services and bridge, and user
-management. They allow restarting or updating the system, managing users and
-changing the MQTT connection or Tailscale. Saving an account that gets one of
-them asks for confirmation first.
+up Tailscale, set up the network, change update settings, services and bridge,
+and user management. They allow restarting or updating the system, managing
+users and changing the MQTT connection, Tailscale or the network. Saving an
+account that gets one of them asks for confirmation first.
 
 The elevated rights and *Read service logs* are tagged *HTTPS only*. They
 apply only in a session that signed in over HTTPS.

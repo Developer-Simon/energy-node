@@ -74,6 +74,7 @@ management page shows them. The source is `internal/auth/roles.go`.
 | `edit_setup` | setup | – | no | yes |
 | `setup_tiny_tuya` | setup | – | yes | no |
 | `tailscale` | setup | – | yes | no |
+| `network` | setup | – | yes | no |
 | `check_updates` | updates | – | no | yes |
 | `install_updates` | updates | – | no | no |
 | `update_settings` | updates | – | yes | no |

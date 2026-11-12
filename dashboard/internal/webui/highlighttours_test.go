@@ -150,7 +150,7 @@ var tourPanels = map[string]bool{
 }
 var tourPages = map[string]bool{
 	"general": true, "display": true, "history": true, "mqtt": true, "system": true,
-	"tailscale": true, "tiny-tuya": true, "users": true, "versions": true, "checklist": true, "backup": true, "storage": true,
+	"tailscale": true, "tiny-tuya": true, "network": true, "users": true, "versions": true, "checklist": true, "backup": true, "storage": true,
 }
 
 func TestHighlightToursPointAtKnownTargets(t *testing.T) {

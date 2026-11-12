@@ -8,10 +8,10 @@ import (
 
 func TestRolesCatalogMatchesSpec(t *testing.T) {
 	keys := AllRoles()
-	if len(keys) != 37 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+	if len(keys) != 38 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
 		t.Fatalf("catalog order: %v", keys)
 	}
-	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {
+	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleNetwork, RoleUserManagement} {
 		info, _ := RoleByKey(key)
 		if !info.HTTPSOnly || info.GuestAllowed {
 			t.Fatalf("%s must be HTTPS-only and not guest-allowed: %+v", key, info)
@@ -118,5 +118,22 @@ func TestStorageManageInCatalog(t *testing.T) {
 	}
 	if info.Category != CategorySystem || !info.HTTPSOnly || !info.HAAllowed || !info.Elevated || info.GuestAllowed || info.Requires != "" {
 		t.Fatalf("storage_manage: %+v", info)
+	}
+}
+
+func TestNetworkRoleInCatalog(t *testing.T) {
+	info, ok := RoleByKey(RoleNetwork)
+	if !ok {
+		t.Fatal("network missing from the catalog")
+	}
+	if info.Key != "network" || info.Category != CategorySetup || info.Requires != "" {
+		t.Fatalf("network: %+v", info)
+	}
+	if !info.HTTPSOnly || !info.HAAllowed || !info.Elevated || info.GuestAllowed {
+		t.Fatalf("network must be HTTPS-only, HA-allowed and elevated, never guest-allowed: %+v", info)
+	}
+	keys := AllRoles()
+	if idx, tail := slices.Index(keys, RoleNetwork), slices.Index(keys, RoleTailscale); idx != tail+1 {
+		t.Fatalf("network must sit right after tailscale, got index %d after %d", idx, tail)
 	}
 }

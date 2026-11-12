@@ -667,11 +667,11 @@ func TestSetMinPasswordLengthRestoresOnSaveFailure(t *testing.T) {
 	}
 }
 
-// TestRoleElevatedFlags: genau die sieben erhöhten Berechtigungen sind markiert.
+// TestRoleElevatedFlags: genau die zehn erhöhten Berechtigungen sind markiert.
 func TestRoleElevatedFlags(t *testing.T) {
 	elevated := map[string]bool{
 		RoleUserManagement: true, "system_actions": true, RoleUpdateSettings: true,
-		RoleTailscale: true, "mqtt_config": true, RoleSetupTinyTuya: true,
+		RoleTailscale: true, RoleNetwork: true, "mqtt_config": true, RoleSetupTinyTuya: true,
 		RoleBackupExport: true, RoleBackupImport: true, RoleBackupSecrets: true, RoleStorageManage: true,
 	}
 	for _, info := range Roles() {

@@ -38,6 +38,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -160,7 +161,10 @@ type RouterDependencies struct {
 	AppConfigPath        string
 	BridgeTargetPath     string
 	Tailscale            *tailscale.Client
-	Resolver             *energy.Resolver
+	// Network liefert die Routen unter /api/v1/network. nil heisst "nicht
+	// verfuegbar": die Routen fehlen dann ganz (404), etwa ohne System-Action-Helper.
+	Network  *netmgr.Client
+	Resolver *energy.Resolver
 	// EnergyStats liefert /api/v1/energy/stats. nil heisst "nicht
 	// verfuegbar" (501), etwa in Tests ohne Datenverzeichnis.
 	EnergyStats *energystats.Service
@@ -491,6 +495,12 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/tailscale/login", handleTailscaleLogin(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 		g.HandleFunc("/api/v1/tailscale/logout", handleTailscaleLogout(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 		g.HandleFunc("/api/v1/tailscale/restart", handleTailscaleRestart(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
+	}
+	if dependencies.Network != nil {
+		g.HandleFunc("/api/v1/network/status", handleNetworkStatus(dependencies.Auth, dependencies.Network))
+		g.HandleFunc("/api/v1/network/wifi/scan", handleNetworkScan(dependencies.Auth, dependencies.Network))
+		g.HandleFunc("/api/v1/network/wifi/connect", handleNetworkConnect(dependencies.Auth, dependencies.Network))
+		g.HandleFunc("/api/v1/network/wifi/forget", handleNetworkForget(dependencies.Auth, dependencies.Network))
 	}
 	var setupPending func() bool
 	if dependencies.Onboarding != nil {
@@ -851,6 +861,7 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, 
 		"install_updates":         auth.HasRole(user, auth.RoleInstallUpdates),
 		"update_settings":         auth.HasRole(user, auth.RoleUpdateSettings),
 		"tailscale":               auth.HasRole(user, auth.RoleTailscale),
+		"network":                 auth.HasRole(user, auth.RoleNetwork),
 		"view_logs":               auth.HasRole(user, auth.RoleViewLogs),
 		"password_min_length":     minPasswordLength,
 		"csrf_token":              session.CSRFToken,

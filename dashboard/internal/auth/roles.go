@@ -39,6 +39,7 @@ const (
 	RoleUpdateSettings     = "update_settings"
 	RoleViewLogs           = "view_logs"
 	RoleTailscale          = "tailscale"
+	RoleNetwork            = "network"
 	RoleUserManagement     = "user_management"
 	RoleBackupExport       = "backup_export"
 	RoleBackupImport       = "backup_import"
@@ -91,6 +92,7 @@ var roleCatalog = []RoleInfo{
 	{Key: RoleEditSetup, Category: CategorySetup, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleSetupTinyTuya, Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleTailscale, Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleNetwork, Category: CategorySetup, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: "check_updates", Category: CategoryUpdates, GuestAllowed: true, HAAllowed: true},
 	{Key: RoleInstallUpdates, Category: CategoryUpdates, HAAllowed: true},
 	{Key: RoleUpdateSettings, Category: CategoryUpdates, HTTPSOnly: true, HAAllowed: true, Elevated: true},

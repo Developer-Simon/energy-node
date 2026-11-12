@@ -1,0 +1,35 @@
+##managed
+yes
+##country
+DE
+##wifidev
+wlan0
+##rfkill
+0 0
+##devices
+eth0:ethernet:connected:Kabel
+wlan0:wifi:disconnected:--
+##addr
+[{"ifname":"lo","addr_info":[{"family":"inet","local":"127.0.0.1"}]},{"ifname":"eth0","addr_info":[{"family":"inet","local":"192.168.178.40"}]},{"ifname":"wlan0","addr_info":[]}]
+##route
+[{"dst":"default","gateway":"192.168.178.1","dev":"eth0","metric":100}]
+##dns
+192.168.178.1
+##speed
+eth0 1000
+##wifi
+ :FritzBox Werkstatt:92:5180 MHz:36:WPA2
+ :FritzBox Werkstatt 2.4:78:2437 MHz:6:WPA2
+ :Gäste:66:2412 MHz:1:WPA2
+ :Halle Süd:44:2462 MHz:11:WPA3
+ :Nachbar_EG:28:2437 MHz:6:WPA2
+ :Drucker-Setup:56:2412 MHz:1:--
+##profiles
+5b0c4e9a-7d1f-4a2e-9c3b-1f2e3d4c5b6a	yes	FritzBox Werkstatt
+##hotspot
+active no
+clients 0
+##settings
+{"fallback":"parallel","hotspot":true}
+##switch
+{"ssid":"FritzBox Werkstatt","started_at":"2026-11-12T13:02:40Z","steps":[{"key":"associate","state":"fail","detail":"Passwort abgelehnt"},{"key":"address","state":"wait"},{"key":"gateway","state":"wait"}],"internet":"unknown","result":"fail","error":"auth","address":"","rolled_back":true,"finished_at":"2026-11-12T13:02:42Z"}

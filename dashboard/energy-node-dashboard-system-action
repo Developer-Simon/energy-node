@@ -33,6 +33,44 @@ SYSTEMCTL="/bin/systemctl"
 # so keep the assignment on one line.
 SYSTEMD_RUN="/usr/bin/systemd-run"
 
+# Run directory of the WLAN switch: the checked request and the progress file.
+# The test scripts/tests/test_system_action_wifi_switch.sh replaces this line
+# with a temp dir, so keep the assignment on one line.
+RUN_DIR="/run/energy-node"
+
+# Paths for network-status and wifi-scan. The test
+# scripts/tests/test_system_action_network.sh replaces these lines with stubs
+# and fake files, so keep each assignment on one line.
+NMCLI="/usr/bin/nmcli"
+IP="/usr/sbin/ip"
+IW="/usr/sbin/iw"
+SYSFS="/sys"
+RESOLV="/etc/resolv.conf"
+NETWORK_JSON="/etc/energy-node/network.json"
+SWITCH_JSON="$RUN_DIR/wifi-switch.json"
+
+# Paths for wifi-connect and wifi-forget. WIFI_STAGED is written by the
+# dashboard, which runs as WIFI_STAGE_OWNER. The test
+# scripts/tests/test_system_action_wifi_switch.sh replaces these lines with
+# stubs and temp files, so keep each assignment on one line.
+WIFI_STAGED="/home/energynode/dashboard/data/network-connect.staged.json"
+WIFI_STAGE_OWNER="energynode"
+PYTHON3="/usr/bin/python3"
+WIFI_SWITCH_HELPER="/usr/local/sbin/energy-node-dashboard-system-action"
+
+# Paths and timing for wifi-switch-run. The test
+# scripts/tests/test_system_action_wifi_switch.sh replaces these lines with
+# stubs, a temp dir and short timings, so keep each assignment on one line.
+# WIFI_DEADLINE_S is the time limit of one switch from its start, WIFI_POLL_S
+# the pause between two checks of the address and the gateway.
+NM_CONN_DIR="/etc/NetworkManager/system-connections"
+WIFI_DEV="wlan0"
+WIFI_DEADLINE_S="90"
+WIFI_POLL_S="2"
+PING="/usr/bin/ping"
+GETENT="/usr/bin/getent"
+CURL="/usr/bin/curl"
+
 # apply_bridge_config installs BRIDGE_STAGED as BRIDGE_TARGET and restarts
 # mosquitto, with two independent defenses against a compromised dashboard
 # process and one rollback path against a working-but-wrong configuration:
@@ -252,6 +290,514 @@ tailscale_cli() {
   printf '%s\n' /usr/sbin/tailscale
 }
 
+# nmcli_managed prints yes when nmcli is installed and NetworkManager runs.
+nmcli_managed() {
+  if [ -x "$NMCLI" ] && [ "$("$NMCLI" -t -f RUNNING general 2>/dev/null)" = running ]; then
+    echo yes
+  else
+    echo no
+  fi
+}
+
+# country_code prints the regulatory country from `iw reg get`, nothing for 00.
+country_code() {
+  code="$("$IW" reg get 2>/dev/null | sed -n 's/^country \([A-Za-z0-9][A-Za-z0-9]\):.*/\1/p' | head -n 1)"
+  if [ -n "$code" ] && [ "$code" != 00 ]; then
+    printf '%s\n' "$code"
+  fi
+}
+
+# wifi_devices prints the names of the wireless network devices.
+wifi_devices() {
+  for wdir in "$SYSFS"/class/net/*/wireless; do
+    [ -e "$wdir" ] || continue
+    wpath="${wdir%/wireless}"
+    printf '%s\n' "${wpath##*/}"
+  done
+}
+
+# bit prints 1 for a sysfs value of 1, 0 for anything else.
+bit() {
+  if [ "$1" = 1 ]; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+# rfkill_wlan prints "soft hard" as 0/1 for each WLAN rfkill entry.
+rfkill_wlan() {
+  for type in "$SYSFS"/class/rfkill/*/type; do
+    [ -f "$type" ] || continue
+    [ "$(cat "$type" 2>/dev/null)" = wlan ] || continue
+    dir="${type%/type}"
+    soft="$(cat "$dir/soft" 2>/dev/null || true)"
+    hard="$(cat "$dir/hard" 2>/dev/null || true)"
+    printf '%s %s\n' "$(bit "$soft")" "$(bit "$hard")"
+  done
+}
+
+# eth_speed prints "eth0 SPEED" while eth0 has a link, nothing otherwise.
+eth_speed() {
+  speed="$(cat "$SYSFS/class/net/eth0/speed" 2>/dev/null || true)"
+  case "$speed" in
+    ''|*[!0-9]*) return 0 ;;
+  esac
+  printf 'eth0 %s\n' "$speed"
+}
+
+# dns_servers prints the nameserver addresses from RESOLV.
+dns_servers() {
+  awk '$1 == "nameserver" { print $2 }' "$RESOLV" 2>/dev/null || true
+}
+
+# wifi_profiles prints "UUID<TAB>AUTOCONNECT<TAB>SSID" for each WLAN profile.
+wifi_profiles() {
+  "$NMCLI" -t -f UUID,TYPE,AUTOCONNECT connection show 2>/dev/null | while IFS=: read -r uuid type autoconnect; do
+    [ "$type" = 802-11-wireless ] || continue
+    ssid="$("$NMCLI" -t -g 802-11-wireless.ssid connection show uuid "$uuid" 2>/dev/null </dev/null | tr -d '\000-\037' || true)"
+    printf '%s\t%s\t%s\n' "$uuid" "$autoconnect" "$ssid"
+  done
+}
+
+# hotspot_state prints whether the energy-node-hotspot profile is active and
+# how many stations the WLAN device sees. Arguments: WLAN device (may be
+# empty) and managed (yes|no).
+hotspot_state() {
+  dev="$1"
+  managed="$2"
+  active=no
+  if [ "$managed" = yes ] && "$NMCLI" -t -f NAME connection show --active 2>/dev/null | grep -qx energy-node-hotspot; then
+    active=yes
+  fi
+  clients=0
+  if [ -n "$dev" ]; then
+    clients="$("$IW" dev "$dev" station dump 2>/dev/null | grep -c '^Station' || true)"
+  fi
+  printf 'active %s\nclients %s\n' "$active" "$clients"
+}
+
+# network_status prints the sections of the network state, one ## marker each,
+# in a fixed order. nmcli-based sections stay empty without NetworkManager.
+network_status() {
+  managed="$(nmcli_managed)"
+  dev="$(wifi_devices | head -n 1)"
+  printf '##managed\n%s\n' "$managed"
+  printf '##country\n'
+  country_code
+  printf '##wifidev\n'
+  wifi_devices
+  printf '##rfkill\n'
+  rfkill_wlan
+  printf '##devices\n'
+  if [ "$managed" = yes ]; then
+    "$NMCLI" -t -f DEVICE,TYPE,STATE,CONNECTION device 2>/dev/null || true
+  fi
+  printf '##addr\n'
+  "$IP" -j -4 addr 2>/dev/null || true
+  printf '##route\n'
+  "$IP" -j -4 route show default 2>/dev/null || true
+  printf '##dns\n'
+  dns_servers
+  printf '##speed\n'
+  eth_speed
+  printf '##wifi\n'
+  if [ "$managed" = yes ]; then
+    # Control characters go, and only lines that start like an nmcli record
+    # (IN-USE field, "*" or a space, then a colon) pass. An SSID with an embedded newline
+    # leaves continuation lines behind, which must not start a section.
+    "$NMCLI" -t -f IN-USE,SSID,SIGNAL,FREQ,CHAN,SECURITY device wifi list --rescan no 2>/dev/null | tr -d '\000-\010\013-\037' | awk '/^[* ]?:/' || true
+  fi
+  printf '##profiles\n'
+  if [ "$managed" = yes ]; then
+    wifi_profiles
+  fi
+  printf '##hotspot\n'
+  hotspot_state "$dev" "$managed"
+  printf '##settings\n'
+  cat "$NETWORK_JSON" 2>/dev/null || printf '{}\n'
+  printf '##switch\n'
+  cat "$SWITCH_JSON" 2>/dev/null || printf '{}\n'
+}
+
+# wifi_scan asks NetworkManager for a fresh WLAN scan. "Scanning not allowed"
+# means a scan ran only moments ago, which still leaves usable results, so it
+# counts as success. Exit 69 without a managed NetworkManager.
+wifi_scan() {
+  if [ "$(nmcli_managed)" != yes ]; then
+    exit 69
+  fi
+  if ! scan_out="$("$NMCLI" device wifi rescan 2>&1)"; then
+    case "$scan_out" in
+      *"Scanning not allowed"*) : ;;
+      *) exit 1 ;;
+    esac
+  fi
+  exit 0
+}
+
+# WIFI_CHECK_PY is run by python3 -I with the copied request and the progress
+# file path. It exits 65 unless the request follows the wifi-connect rules, and
+# on success it writes the initial progress file with every step waiting.
+# The password is never written to the progress file.
+WIFI_CHECK_PY='
+import datetime, json, os, re, sys
+src, progress = sys.argv[1], sys.argv[2]
+
+def bad():
+    sys.exit(65)
+
+try:
+    with open(src, "rb") as f:
+        raw = f.read(1025)
+    if len(raw) > 1024:
+        bad()
+    data = json.loads(raw.decode("utf-8"))
+except Exception:
+    bad()
+if not isinstance(data, dict):
+    bad()
+ssid = data.get("ssid")
+password = data.get("password")
+uuid = data.get("profile_uuid", "")
+hidden = data.get("hidden", False)
+security = data.get("security", "")
+if not all(isinstance(v, str) for v in (ssid, password, uuid, security)):
+    bad()
+if not isinstance(hidden, bool):
+    bad()
+if not 1 <= len(ssid.encode("utf-8")) <= 32:
+    bad()
+if any(ord(c) < 0x20 or ord(c) == 0x7f for c in ssid):
+    bad()
+if password and not (re.fullmatch(r"[\x20-\x7e]{8,63}", password) or re.fullmatch(r"[0-9a-fA-F]{64}", password)):
+    bad()
+if uuid and not re.fullmatch(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", uuid):
+    bad()
+
+now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+doc = {
+    "ssid": ssid,
+    "started_at": now,
+    "steps": [{"key": k, "state": "wait"} for k in ("associate", "address", "gateway")],
+    "internet": "unknown",
+    "result": "",
+    "error": "",
+    "address": "",
+    "rolled_back": False,
+    "finished_at": "",
+}
+tmp = progress + ".tmp"
+fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    json.dump(doc, f, separators=(",", ":"), ensure_ascii=False)
+os.chmod(tmp, 0o644)
+os.replace(tmp, progress)
+'
+
+# wifi_connect checks the staged WLAN request and hands it to the
+# energy-node-wifi-switch unit, which runs wifi-switch-run. Exit 75 while that
+# unit is active, 65 for a request that breaks the rules.
+wifi_connect() {
+  if "$SYSTEMCTL" is-active --quiet energy-node-wifi-switch.service; then
+    exit 75
+  fi
+  if [ ! -f "$WIFI_STAGED" ] || [ -L "$WIFI_STAGED" ]; then
+    exit 65
+  fi
+  owner="$(/usr/bin/stat -c %U "$WIFI_STAGED" 2>/dev/null || echo '')"
+  [ "$owner" = "$WIFI_STAGE_OWNER" ] || exit 65
+  size="$(/usr/bin/stat -c %s "$WIFI_STAGED" 2>/dev/null || echo 999999999)"
+  [ "$size" -le 1024 ] || exit 65
+
+  mkdir -p "$RUN_DIR"
+  # The request is copied as root and the copy is checked, so the dashboard
+  # cannot change the file between the check and the move.
+  copy="$RUN_DIR/wifi-connect.json.tmp"
+  /usr/bin/install -m 0600 "$WIFI_STAGED" "$copy"
+  if ! "$PYTHON3" -I -c "$WIFI_CHECK_PY" "$copy" "$SWITCH_JSON"; then
+    rm -f "$copy"
+    exit 65
+  fi
+  mv -f "$copy" "$RUN_DIR/wifi-connect.json"
+  rm -f "$WIFI_STAGED"
+  if ! "$SYSTEMD_RUN" --unit=energy-node-wifi-switch --collect "$WIFI_SWITCH_HELPER" wifi-switch-run; then
+    rm -f "$RUN_DIR/wifi-connect.json"
+    exit 1
+  fi
+  exit 0
+}
+
+# wifi_forget deletes a saved WLAN profile by UUID. Only profiles of type
+# 802-11-wireless pass, anything else exits 65.
+wifi_forget() {
+  uuid="$1"
+  if ! printf '%s' "$uuid" | grep -Eq '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'; then
+    exit 65
+  fi
+  ctype="$("$NMCLI" -t -g connection.type connection show uuid "$uuid" 2>/dev/null || true)"
+  [ "$ctype" = 802-11-wireless ] || exit 65
+  exec "$NMCLI" connection delete uuid "$uuid"
+}
+
+# WIFI_HELPER_PY is run by python3 -I. It reads and writes the WLAN switch
+# files so the shell never handles JSON or the password:
+#   field NAME REQ          prints a string field of the request
+#   keyfile REQ DIR         writes the 0600 keyfile of a new profile, prints "UUID PATH"
+#   route-gw DEV            reads `ip -j route` on stdin, prints the gateway of DEV
+#   step PROGRESS KEY STATE [DETAIL]   sets one step of the progress file
+#   set PROGRESS NAME VALUE sets one top-level field (rolled_back is a bool)
+#   finish PROGRESS         sets finished_at
+WIFI_HELPER_PY='
+import datetime, json, os, secrets, sys, uuid as uuid_mod
+
+def stamp():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def read_json(path):
+    with open(path, "rb") as f:
+        return json.loads(f.read().decode("utf-8"))
+
+def save_progress(path, doc):
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(doc, f, separators=(",", ":"), ensure_ascii=False)
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+
+op = sys.argv[1]
+if op == "field":
+    value = read_json(sys.argv[3]).get(sys.argv[2], "")
+    print(value if isinstance(value, str) else "")
+elif op == "keyfile":
+    req = read_json(sys.argv[2])
+    directory = sys.argv[3]
+    while True:
+        name = "energy-node-" + secrets.token_hex(4)
+        path = os.path.join(directory, name + ".nmconnection")
+        if not os.path.exists(path):
+            break
+    new_uuid = str(uuid_mod.uuid4())
+    password = req.get("password", "")
+    lines = [
+        "[connection]",
+        "id=" + name,
+        "uuid=" + new_uuid,
+        "type=wifi",
+        "autoconnect=false",
+        "",
+        "[wifi]",
+        "mode=infrastructure",
+        "ssid=" + "".join(str(b) + ";" for b in req["ssid"].encode("utf-8")),
+    ]
+    if req.get("hidden") is True:
+        lines.append("hidden=true")
+    if password:
+        lines += [
+            "",
+            "[wifi-security]",
+            "key-mgmt=" + ("sae" if req.get("security") == "WPA3" else "wpa-psk"),
+            "psk=" + password.replace("\\", "\\\\"),
+        ]
+    lines += ["", "[ipv4]", "method=auto"]
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    os.chmod(path, 0o600)
+    print(new_uuid + " " + path)
+elif op == "route-gw":
+    for route in json.load(sys.stdin):
+        if route.get("dev") == sys.argv[2] and route.get("gateway"):
+            print(route["gateway"])
+            break
+elif op == "step":
+    path, key, state = sys.argv[2], sys.argv[3], sys.argv[4]
+    doc = read_json(path)
+    for step in doc["steps"]:
+        if step["key"] == key:
+            step["state"] = state
+            if len(sys.argv) > 5:
+                step["detail"] = sys.argv[5]
+    save_progress(path, doc)
+elif op == "set":
+    path, name, value = sys.argv[2], sys.argv[3], sys.argv[4]
+    doc = read_json(path)
+    doc[name] = (value == "true") if name == "rolled_back" else value
+    save_progress(path, doc)
+elif op == "finish":
+    doc = read_json(sys.argv[2])
+    doc["finished_at"] = stamp()
+    save_progress(sys.argv[2], doc)
+'
+
+# wifi_py runs WIFI_HELPER_PY with the given arguments.
+wifi_py() {
+  "$PYTHON3" -I -c "$WIFI_HELPER_PY" "$@"
+}
+
+# wait_address prints the IPv4 address of WIFI_DEV once it has one, and fails
+# at the deadline.
+wait_address() {
+  while :; do
+    addr="$("$IP" -4 -o addr show dev "$WIFI_DEV" 2>/dev/null | awk '{ print $4 }' | cut -d/ -f1 | head -n 1)"
+    if [ -n "$addr" ]; then
+      printf '%s\n' "$addr"
+      return 0
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      return 1
+    fi
+    sleep "$WIFI_POLL_S"
+  done
+}
+
+# wait_gateway checks the default gateway on WIFI_DEV with one ping, or with a
+# REACHABLE neighbour entry. It sets gw_detail and fails at the deadline.
+wait_gateway() {
+  while :; do
+    gw="$("$IP" -j -4 route show default 2>/dev/null | wifi_py route-gw "$WIFI_DEV" 2>/dev/null || true)"
+    if [ -n "$gw" ]; then
+      if out="$("$PING" -c1 -W2 "$gw" 2>/dev/null)"; then
+        gw_detail="$(printf '%s\n' "$out" | sed -n 's/.*time=\([0-9.]*\) ms.*/\1 ms/p' | head -n 1)"
+        return 0
+      fi
+      if "$IP" neigh show "$gw" dev "$WIFI_DEV" 2>/dev/null | grep -q REACHABLE; then
+        gw_detail="neighbor"
+        return 0
+      fi
+    fi
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      return 1
+    fi
+    sleep "$WIFI_POLL_S"
+  done
+}
+
+# wifi_rollback takes the new connection down, deletes the profile this run
+# created (never a saved one), and brings back the hotspot if it was active,
+# otherwise the previous WLAN connection.
+wifi_rollback() {
+  if [ -n "$uuid" ]; then
+    "$NMCLI" connection down uuid "$uuid" >/dev/null 2>&1 || true
+  fi
+  if [ "$new_profile" = yes ]; then
+    "$NMCLI" connection delete uuid "$uuid" >/dev/null 2>&1 || true
+    rm -f "$keyfile"
+  fi
+  if [ "$hotspot_was_active" = yes ]; then
+    "$NMCLI" connection up id energy-node-hotspot >/dev/null 2>&1 || true
+  elif [ -n "$prev_uuid" ]; then
+    "$NMCLI" --wait 30 connection up uuid "$prev_uuid" >/dev/null 2>&1 || true
+  fi
+  wifi_py set "$SWITCH_JSON" rolled_back true
+}
+
+# wifi_fail marks STEP as failed with ERROR, rolls back and records the result.
+wifi_fail() {
+  wifi_py step "$SWITCH_JSON" "$1" fail
+  wifi_rollback
+  wifi_py set "$SWITCH_JSON" result fail
+  wifi_py set "$SWITCH_JSON" error "$2"
+  wifi_py finish "$SWITCH_JSON"
+}
+
+# wifi_switch_run runs one WLAN switch requested by wifi-connect, as root from
+# systemd-run. It connects the requested network (a new keyfile, or a saved
+# profile by UUID), checks address, gateway and internet, and either keeps the
+# new connection or rolls back. The progress file always ends with a result.
+wifi_switch_run() {
+  req="$RUN_DIR/wifi-connect.json"
+  if [ ! -f "$req" ]; then
+    exit 65
+  fi
+  deadline=$(( $(date +%s) + WIFI_DEADLINE_S ))
+  uuid=""
+  keyfile=""
+  new_profile=no
+  gw_detail=""
+
+  active="$("$NMCLI" -t -f UUID,TYPE,NAME connection show --active 2>/dev/null || true)"
+  prev_uuid="$(printf '%s\n' "$active" | awk -F: '$2 == "802-11-wireless" && $3 != "energy-node-hotspot" { print $1; exit }')"
+  hotspot_was_active=no
+  if printf '%s\n' "$active" | awk -F: '$3 == "energy-node-hotspot" { f = 1 } END { exit f ? 0 : 1 }'; then
+    hotspot_was_active=yes
+  fi
+
+  uuid="$(wifi_py field profile_uuid "$req")"
+  if [ -z "$uuid" ]; then
+    if ! created="$(wifi_py keyfile "$req" "$NM_CONN_DIR")"; then
+      rm -f "$req"
+      wifi_fail associate failed
+      exit 0
+    fi
+    uuid="${created%% *}"
+    keyfile="${created#* }"
+    new_profile=yes
+  fi
+  # The request is consumed: a new profile holds the password now, a saved
+  # profile needs none.
+  rm -f "$req"
+
+  if [ "$new_profile" = yes ] && ! "$NMCLI" connection load "$keyfile" >/dev/null 2>&1; then
+    wifi_fail associate failed
+    exit 0
+  fi
+
+  wifi_py step "$SWITCH_JSON" associate run
+  left=$(( deadline - $(date +%s) ))
+  if [ "$left" -lt 1 ]; then
+    left=1
+  fi
+  if ! out="$("$NMCLI" --wait "$left" connection up uuid "$uuid" 2>&1 </dev/null)"; then
+    case "$out" in
+      *"Secrets were required"*|*802-1x*|*psk*) err=auth ;;
+      *"No network with SSID"*) err=not_found ;;
+      *) err=failed ;;
+    esac
+    wifi_fail associate "$err"
+    exit 0
+  fi
+  wifi_py step "$SWITCH_JSON" associate "done"
+
+  wifi_py step "$SWITCH_JSON" address run
+  if ! addr="$(wait_address)"; then
+    wifi_fail address no_address
+    exit 0
+  fi
+  wifi_py step "$SWITCH_JSON" address "done" "$addr"
+  wifi_py set "$SWITCH_JSON" address "$addr"
+
+  wifi_py step "$SWITCH_JSON" gateway run
+  if ! wait_gateway; then
+    wifi_fail gateway no_gateway
+    exit 0
+  fi
+  wifi_py step "$SWITCH_JSON" gateway "done" "$gw_detail"
+
+  # The internet check only reports; it never causes a rollback.
+  internet=fail
+  if "$GETENT" hosts github.com >/dev/null 2>&1; then
+    internet=ok
+    if [ -x "$CURL" ] && ! "$CURL" -sI -m5 https://github.com >/dev/null 2>&1; then
+      internet=fail
+    fi
+  fi
+  wifi_py set "$SWITCH_JSON" internet "$internet"
+
+  if ! "$NMCLI" connection modify uuid "$uuid" connection.autoconnect yes; then
+    wifi_rollback
+    wifi_py set "$SWITCH_JSON" result fail
+    wifi_py set "$SWITCH_JSON" error failed
+    wifi_py finish "$SWITCH_JSON"
+    exit 0
+  fi
+  wifi_py set "$SWITCH_JSON" result ok
+  wifi_py set "$SWITCH_JSON" error ""
+  wifi_py finish "$SWITCH_JSON"
+  exit 0
+}
+
 case "${1:-}" in
   read-journal)
     if [ "$#" -ne 4 ] && [ "$#" -ne 5 ]; then
@@ -260,6 +806,11 @@ case "${1:-}" in
     ;;
   storage)
     if [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
+      exit 64
+    fi
+    ;;
+  wifi-forget)
+    if [ "$#" -ne 2 ]; then
       exit 64
     fi
     ;;
@@ -321,6 +872,21 @@ case "$1" in
     ;;
   tailscale-restart)
     exec /bin/systemctl restart tailscaled
+    ;;
+  network-status)
+    network_status
+    ;;
+  wifi-scan)
+    wifi_scan
+    ;;
+  wifi-connect)
+    wifi_connect
+    ;;
+  wifi-forget)
+    wifi_forget "$2"
+    ;;
+  wifi-switch-run)
+    wifi_switch_run
     ;;
   *)
     exit 64

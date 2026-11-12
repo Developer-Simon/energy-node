@@ -21,8 +21,9 @@ from console_system_ui import system_html
 from fake_console import Log, Tab
 from fake_journal_helper import (ACTION_RESULTS, DEFAULT_STATE, EMPTY_KEYS, HELPER_MODES, JOURNAL_MODES,
                                  KEYS, journal_mode, load_state)
+from fake_network import SCENARIO_IDS, SCENARIOS, paths_for
 
-ACTIONS = ("journal", "inject", "helper", "actions")
+ACTIONS = ("journal", "inject", "helper", "actions", "network")
 ACTION_LABELS = {"read-journal": "Log lesen", "restart-dashboard": "Dashboard-Neustart", "reboot": "Neustart",
                  "poweroff": "Ausschalten", "apply-bridge-config": "Bridge-Konfiguration anwenden",
                  "apply-app-config": "App-Konfiguration anwenden", "restart-mosquitto": "Mosquitto-Neustart",
@@ -128,13 +129,28 @@ class SystemTab(Tab):
                 mode = _choice(body, "mode", HELPER_MODES)
                 state["helper"] = mode
                 text = f"Helper-Antwort {mode}"
+            elif action == "network":
+                scenario = _choice(body, "scenario", SCENARIO_IDS)
+                state["network"] = scenario
+                text = f"Netzwerk-Szenario: {SCENARIOS[scenario].label}"
             else:
                 result = _choice(body, "result", ACTION_RESULTS)
                 state["actions"] = result
                 text = f"Antwort auf Systemaktionen {result}"
             self._write(state)
+            if action == "network":
+                self._forget_switch()
             self._log.add("system", text)
         return self.state()
+
+    def _forget_switch(self) -> None:
+        """Drops the last simulated WLAN switch and the saved links, so a new scenario starts clean."""
+        _, progress, links = paths_for(self._state_path)
+        for path in (progress, links):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def pump_events(self) -> None:
         """Liest neue vollstaendige Zeilen der Ereignisdatei und protokolliert sie."""
@@ -181,6 +197,7 @@ class SystemTab(Tab):
             "journal": {key: journal_mode(state, key) for key in sorted(KEYS)},
             "helper": state["helper"],
             "actions": state["actions"],
+            "network": state["network"],
             "injected": len(state["inject"]),
             "recent": recent,
         }
@@ -188,6 +205,7 @@ class SystemTab(Tab):
     def reset(self) -> None:
         with self._lock:
             self._write(copy.deepcopy(DEFAULT_STATE))
+            self._forget_switch()
 
     def summary(self) -> dict:
         state = load_state(self._state_path)

@@ -22,10 +22,12 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fake_storage  # noqa: E402
+import fake_network
 
 KEYS = {"dashboard", "updater", "automation", "battery-soc", "shelly", "trucki",
         "tuya", "apsystems", "mosquitto", "caddy", "tailscale"}
@@ -66,7 +68,8 @@ HANG_SECONDS = 15
 STORAGE_DRIVE_UUID = "6f1c2a4e-8b3d-4c5a-9e7f-2d4b6a8c0e1f"
 UUID_PATTERN = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 DENIED_MESSAGE = "sudo: a password is required"
-DEFAULT_STATE = {"journal": {}, "inject": [], "helper": "normal", "actions": "ok"}
+DEFAULT_STATE = {"journal": {}, "inject": [], "helper": "normal", "actions": "ok",
+                 "network": fake_network.DEFAULT_SCENARIO}
 
 
 def load_state(path):
@@ -85,6 +88,31 @@ def load_state(path):
         if name in DEFAULT_STATE and isinstance(value, type(DEFAULT_STATE[name])):
             state[name] = value
     return state
+
+
+def store_network(path, scenario):
+    """Writes the network scenario into the state file and keeps the other keys, atomically."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            doc = json.load(handle)
+    except (OSError, ValueError):
+        doc = {}
+    if not isinstance(doc, dict):
+        doc = {}
+    doc["network"] = scenario
+    tmp = None
+    try:
+        handle, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
+                                       prefix=".system-state-", suffix=".tmp")
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            json.dump(doc, out, ensure_ascii=False)
+        os.replace(tmp, path)
+    except OSError:
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 
 def journal_mode(state, key):
@@ -251,12 +279,13 @@ def main(argv=None):
     if action == "storage":
         return storage_verb(args, events)
 
+    network = action in fake_network.VERBS
     if action == "read-journal":
         if len(argv) not in (4, 5):
             return 64
         if not valid_journal_args(args):
             return 65
-    elif action not in SYSTEM_ACTIONS or (not has_state and action not in NOOP_ACTIONS):
+    elif not network and (action not in SYSTEM_ACTIONS or (not has_state and action not in NOOP_ACTIONS)):
         return 64
 
     if state["helper"] == "hang":
@@ -274,6 +303,15 @@ def main(argv=None):
     if action == "read-journal":
         print_journal(state, args)
         return 0
+
+    if network:
+        staged, progress, links = fake_network.paths_for(os.environ.get("FAKE_SYSTEM_STATE"))
+        state_path = os.environ.get("FAKE_SYSTEM_STATE")
+        code, out, scenario = fake_network.run(action, args, state["network"], staged, progress, links)
+        if scenario != state["network"]:
+            store_network(state_path, scenario)
+        sys.stdout.write(out)
+        return code
 
     if state["actions"] == "fail":
         sys.stderr.write("simulated failure\n")

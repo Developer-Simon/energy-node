@@ -106,6 +106,8 @@ var catalog = []Entry{
 	{RootData, "journal.json", ClassDisposable, ""},
 	// Die Staging-Datei fuer apply-app-config, die nach dem Einspielen entfernt wird.
 	{RootData, "energy-node.config.staged.json", ClassDisposable, ""},
+	// Die Staging-Datei fuer wifi-connect mit dem WLAN-Passwort, die der Helper nach dem Lesen entfernt.
+	{RootData, "network-connect.staged.json", ClassDisposable, ""},
 	{RootDevices, "*.schema.json", ClassDisposable, ""},
 	{RootDevices, "revisions/*", ClassDisposable, ""},
 }
