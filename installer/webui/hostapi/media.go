@@ -209,6 +209,7 @@ type MediaProvider interface {
 	MediaDrives(ctx context.Context, internal bool) ([]MediaDrive, error)
 	MediaCheckName(ctx context.Context, name string) (MediaNameCheck, error)
 	MediaCheckWifi(ctx context.Context, req MediaWifiCheck) (MediaWifiCheckResult, error)
+	MediaWifiNetworks(ctx context.Context) ([]MediaWifiNetwork, error)
 	MediaWrite(ctx context.Context, req MediaWriteRequest) error
 	MediaJob(ctx context.Context) (MediaJob, error)
 	MediaCancel(ctx context.Context) error
@@ -305,6 +306,24 @@ func (s *Server) handleMediaWifi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, view)
+}
+
+// handleMediaWifiNetworks sucht die Netze in Reichweite neu. Das dauert einige
+// Sekunden, darum fragt die Oberflaeche es nach dem Katalog ab.
+func (s *Server) handleMediaWifiNetworks(w http.ResponseWriter, r *http.Request) {
+	provider, ok := s.mediaProvider(w, r, http.MethodGet)
+	if !ok {
+		return
+	}
+	nets, err := provider.MediaWifiNetworks(r.Context())
+	if err != nil {
+		writeBackendError(w, err)
+		return
+	}
+	if nets == nil {
+		nets = []MediaWifiNetwork{}
+	}
+	writeJSON(w, http.StatusOK, nets)
 }
 
 // handleMediaWrite startet den Schreibauftrag. 202, weil er im Hintergrund

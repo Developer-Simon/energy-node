@@ -165,6 +165,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/media/drives", s.handleMediaDrives)
 	s.mux.HandleFunc("/api/media/name", s.handleMediaName)
 	s.mux.HandleFunc("/api/media/wifi-check", s.handleMediaWifi)
+	s.mux.HandleFunc("/api/media/wifi-networks", s.handleMediaWifiNetworks)
 	s.mux.HandleFunc("/api/media/write", s.handleMediaWrite)
 	s.mux.HandleFunc("/api/media/job", s.handleMediaJob)
 	s.mux.HandleFunc("/api/media/cancel", s.handleMediaCancel)

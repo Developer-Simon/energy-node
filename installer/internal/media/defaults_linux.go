@@ -38,12 +38,25 @@ func HostDefaults() Defaults {
 }
 
 // scanWifi returns the connected network, its frequency and the networks in
-// range. --rescan no answers from the cached scan list; a rescan takes several
-// seconds and runs past the timeout.
+// range from the cached scan list. --rescan no answers at once; a rescan takes
+// several seconds and runs past the timeout.
 func scanWifi(parent context.Context) (string, int, []WifiNetwork) {
-	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
+	return nmcliWifiList(parent, "no", 2*time.Second)
+}
+
+// WifiInRange scans again when the cached list is old (--rescan auto) and
+// returns the networks in range. While connected, NetworkManager rarely scans
+// on its own, so the cached list often holds only the own network.
+func WifiInRange(parent context.Context) []WifiNetwork {
+	_, _, nets := nmcliWifiList(parent, "auto", 15*time.Second)
+	return nets
+}
+
+// nmcliWifiList runs `nmcli dev wifi list` with the given rescan mode.
+func nmcliWifiList(parent context.Context, rescan string, timeout time.Duration) (string, int, []WifiNetwork) {
+	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "nmcli", "-t", "-f", "ACTIVE,SSID,FREQ,SIGNAL", "dev", "wifi", "list", "--rescan", "no").Output()
+	out, err := exec.CommandContext(ctx, "nmcli", "-t", "-f", "ACTIVE,SSID,FREQ,SIGNAL", "dev", "wifi", "list", "--rescan", rescan).Output()
 	if err != nil {
 		return "", 0, nil
 	}

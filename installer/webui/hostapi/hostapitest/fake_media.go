@@ -192,6 +192,15 @@ func (f *FakeBackend) MediaCheckWifi(ctx context.Context, req hostapi.MediaWifiC
 	}
 }
 
+// MediaWifiNetworks liefert die Netze des Katalogs und dazu eines, das erst
+// der neue Suchlauf findet.
+func (f *FakeBackend) MediaWifiNetworks(ctx context.Context) ([]hostapi.MediaWifiNetwork, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	nets := append([]hostapi.MediaWifiNetwork{}, f.MediaCatalogView.Defaults.WifiNetworks...)
+	return append(nets, hostapi.MediaWifiNetwork{SSID: "Garten", Signal: 20, Band24: true}), nil
+}
+
 // MediaWrite nimmt den Auftrag an und startet den festen Verlauf. Ein
 // Fehler aus MediaWriteErr lehnt ihn ab, ohne etwas zu starten.
 func (f *FakeBackend) MediaWrite(ctx context.Context, req hostapi.MediaWriteRequest) error {

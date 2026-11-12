@@ -223,6 +223,14 @@ func (h *Host) MediaCheckWifi(ctx context.Context, req hostapi.MediaWifiCheck) (
 	return hostapi.MediaWifiCheckResult{Result: media.CheckWifiKey(ctx, req.SSID, req.Password)}, nil
 }
 
+// MediaWifiNetworks sucht die Netze in Reichweite neu.
+func (h *Host) MediaWifiNetworks(ctx context.Context) ([]hostapi.MediaWifiNetwork, error) {
+	if err := h.mediaSupported(); err != nil {
+		return nil, err
+	}
+	return mediaWifiNetworks(media.WifiInRange(ctx)), nil
+}
+
 func (h *Host) MediaWrite(ctx context.Context, req hostapi.MediaWriteRequest) error {
 	if err := h.mediaSupported(); err != nil {
 		return err

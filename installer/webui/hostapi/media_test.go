@@ -174,3 +174,18 @@ func TestMediaWifiCheck(t *testing.T) {
 		t.Errorf("GET status = %d, want 405", rec.Code)
 	}
 }
+
+func TestMediaWifiNetworksScansAgain(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	rec := do(t, server, http.MethodGet, "/api/media/wifi-networks", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	var nets []hostapi.MediaWifiNetwork
+	if err := json.Unmarshal(rec.Body.Bytes(), &nets); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(nets) != 4 || nets[3].SSID != "Garten" {
+		t.Errorf("nets = %+v, want the 3 catalog networks plus Garten", nets)
+	}
+}
