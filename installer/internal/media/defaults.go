@@ -2,12 +2,14 @@ package media
 
 // Defaults are the host values the installer form starts with.
 type Defaults struct {
-	Timezone    string
-	Keyboard    string
-	WifiCountry string
-	WifiSSID    string
-	Timezones   []string
-	Keyboards   []string
+	Timezone      string
+	Keyboard      string
+	WifiCountry   string
+	WifiSSID      string
+	WifiFreqMHz   int               // Frequenz des erkannten WLANs, 0 = unbekannt
+	ZoneCountries map[string]string // Zeitzone -> Laendercode aus zone1970.tab
+	Timezones     []string
+	Keyboards     []string
 }
 
 // fixedKeyboards are the layouts offered in the form, in display order.

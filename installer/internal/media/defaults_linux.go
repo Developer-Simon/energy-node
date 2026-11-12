@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,33 +29,75 @@ func HostDefaults() Defaults {
 	}
 	d.Keyboards = keyboardChoices(d.Keyboard)
 	d.WifiCountry = countryFromLocale(localeFromEnv())
-	d.WifiSSID = activeSSID(context.Background())
+	d.WifiSSID, d.WifiFreqMHz = activeWifi(context.Background())
+	d.ZoneCountries = zoneCountries()
 	return d
 }
 
-// activeSSID returns the name of the Wi-Fi network this computer is connected to, or "".
-func activeSSID(parent context.Context) string {
+// activeWifi returns name and frequency of the Wi-Fi network this computer is
+// connected to, or "" and 0. --rescan no answers from the cached scan list; a
+// rescan takes several seconds and runs past the timeout.
+func activeWifi(parent context.Context) (string, int) {
 	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi").Output()
+	out, err := exec.CommandContext(ctx, "nmcli", "-t", "-f", "ACTIVE,SSID,FREQ", "dev", "wifi", "list", "--rescan", "no").Output()
 	if err != nil {
-		return ""
+		return "", 0
 	}
-	return parseActiveSSID(out)
+	return parseActiveWifi(out)
 }
 
-// parseActiveSSID returns the SSID of the first active line of `nmcli -t -f ACTIVE,SSID dev wifi`.
-// Terse mode escapes ":" as "\:" and "\" as "\\", so both are unescaped.
-func parseActiveSSID(data []byte) string {
+// parseActiveWifi reads the first active line of
+// `nmcli -t -f ACTIVE,SSID,FREQ dev wifi list`, e.g. "yes:Werkstatt:5500 MHz".
+// FREQ never contains a colon, so the last colon separates it from the SSID.
+// Terse mode escapes ":" as "\:" and "\" as "\\" in the SSID.
+func parseActiveWifi(data []byte) (string, int) {
 	sc := bufio.NewScanner(bytes.NewReader(data))
 	for sc.Scan() {
 		rest, ok := strings.CutPrefix(strings.TrimRight(sc.Text(), "\r"), "yes:")
 		if !ok {
 			continue
 		}
-		return unescapeTerse(rest)
+		i := strings.LastIndex(rest, ":")
+		if i < 0 {
+			return unescapeTerse(rest), 0
+		}
+		freqField, _, _ := strings.Cut(strings.TrimSpace(rest[i+1:]), " ")
+		freq, err := strconv.Atoi(freqField)
+		if err != nil {
+			freq = 0
+		}
+		return unescapeTerse(rest[:i]), freq
 	}
-	return ""
+	return "", 0
+}
+
+// zoneCountries maps each zone of zone1970.tab to its first country code.
+func zoneCountries() map[string]string {
+	data, err := os.ReadFile(zone1970Path)
+	if err != nil {
+		return map[string]string{}
+	}
+	return parseZoneCountries(data)
+}
+
+// parseZoneCountries returns zone -> first country code (first column, comma separated) of zone1970.tab.
+func parseZoneCountries(data []byte) map[string]string {
+	out := map[string]string{}
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Split(line, "\t")
+		if len(fields) < 3 {
+			continue
+		}
+		code, _, _ := strings.Cut(strings.TrimSpace(fields[0]), ",")
+		out[strings.TrimSpace(fields[2])] = code
+	}
+	return out
 }
 
 // unescapeTerse reverses the backslash escaping of nmcli terse output.
