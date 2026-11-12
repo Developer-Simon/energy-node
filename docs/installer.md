@@ -42,7 +42,8 @@ internet access for the system packages and for Tailscale, and your computer
 must reach it by name or IP address.
 
 Which image fits which Pi is listed under
-[Operating system](installer-operating-system.md).
+[Operating system](installer-operating-system.md). The **Media** tab can write
+the card for you, see [Preparing a storage medium](#preparing-a-storage-medium).
 
 Your computer can run Windows, macOS or Linux. On Windows the window uses the
 Edge WebView2 runtime, which current Windows 10 and 11 installations include.
@@ -79,6 +80,47 @@ target), otherwise `arm64` or `amd64`. `run-installer.sh` builds the program
 and starts it (`--no-build` skips the build). The
 [Installer developer CLI](developing/installer-cli.md) page has the details,
 such as a quicker package build for a first try.
+
+## Preparing a storage medium
+
+The **Media** tab writes an SD card for a Raspberry Pi so that you do not need a
+second tool for the image. It needs the Raspberry Pi Imager 2.0 or newer, as the
+Flatpak or as a package. If it is missing, the tab links to Discover and to the
+download page. For now the tab works on Linux only. Windows and macOS follow.
+
+1. **Device.** Pick the Pi model. The box below the list shows the image, the
+   installation package and the download size. Models that have not been tested
+   yet carry an experimental label.
+2. **Settings.** Choose a device name, which the installer checks on the
+   network, and a user. The Pi gets user `node`, login with a key only,
+   passwordless `sudo`, and the time zone and keyboard layout of this computer,
+   which you can change under **Region**. An emergency password for a screen
+   and keyboard on the Pi is off by default. If you set one, you can also allow
+   SSH login with it, which helps with debugging.
+
+   With **Connect to Wi-Fi** switched on, pick a network from the list of
+   networks in range or choose **Other network** and type its name. The network
+   this computer is connected to is selected first. If this computer knows the
+   password of that network, or of the same network on the other band, the
+   installer tells you whether yours matches, and otherwise says that it cannot
+   check it. The Wi-Fi password only goes onto the card and the installer does
+   not store it. The Wi-Fi country follows the time zone. A Raspberry Pi 3B or
+   Zero W only reaches 2.4 GHz networks, so the installer warns about a network
+   that only uses 5 GHz and offers the 2.4 GHz network of the same name when
+   there is one.
+3. **Drive.** Plug in the card. Removable drives appear in the list as soon as
+   they are connected. Internal drives only show up with the **Also show internal
+   drives** switch, and the drive this computer runs from never does. For a card
+   you tick a box, for an internal drive you type the drive's name.
+4. **Write.** The installer downloads the image, checks its checksum, writes the
+   card with the Imager and ejects it. The Imager asks for administrator rights
+   through the system's own dialog.
+5. **Done.** Put the card into the Pi, connect it and switch it on. The installer
+   waits for the Pi and then offers **Continue to setup**.
+
+The installer creates the Pi's SSH host key itself and remembers it, so
+[Setting up a node](#setting-up-a-node) connects without the fingerprint
+question.
 
 ## Setting up a node
 

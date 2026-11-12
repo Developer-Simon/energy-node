@@ -99,6 +99,7 @@ func runUI(cfg uiConfig) error {
 		BundleDir:      bundleDir,
 		KnownHostsPath: filepath.Join(stateHome, ".energy-node", "known_hosts"),
 		IdentityDir:    filepath.Join(stateHome, ".energy-node"),
+		MediaDir:       filepath.Join(dirs.cache, "media"),
 		RepoPath:       bundlesource.DetectRepo(cwd, exeDir),
 		Credentials:    credstore.Keyring{Service: "energy-node-installer", Account: "last"},
 		Resolver: &bundlesource.Resolver{

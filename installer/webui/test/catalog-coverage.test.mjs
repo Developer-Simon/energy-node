@@ -20,7 +20,7 @@ const catalogs = Object.fromEntries(
 
 // Die Praefixe aus Vertrag 6.
 const PREFIXES = ['app', 'entry', 'language', 'stepper', 'connect', 'prepare', 'precheck', 'configure', 'run', 'result', 'preview',
-  'diagnose', 'dashboard', 'field', 'action', 'step', 'service', 'component', 'unit', 'number', 'warning', 'fault', 'error', 'changelog'];
+  'diagnose', 'dashboard', 'field', 'action', 'step', 'service', 'component', 'unit', 'number', 'warning', 'fault', 'error', 'changelog', 'media'];
 const KEY = new RegExp(`^(?:${PREFIXES.join('|')})(?:\\.[A-Za-z0-9_-]+)+$`);
 
 function present(catalog, key) {
@@ -88,7 +88,7 @@ function errorCodes() {
 
 function composedKeys() {
   const keys = [];
-  for (const entry of ['install', 'redeploy', 'diagnose']) {
+  for (const entry of ['install', 'redeploy', 'diagnose', 'media']) {
     keys.push(`entry.${entry}`, `app.title.${entry}`);
   }
   for (const lang of Object.keys(catalogs)) {
@@ -96,6 +96,9 @@ function composedKeys() {
   }
   for (const screen of ['connect', 'precheck', 'configure', 'dashboard', 'preview', 'run', 'result']) {
     keys.push(`stepper.${screen}`);
+  }
+  for (const station of ['media-device', 'media-settings', 'media-drive', 'media-write', 'media-done']) {
+    keys.push(`stepper.${station}`);
   }
   for (let n = 1; n <= 12; n++) {
     keys.push(`number.${n}`);

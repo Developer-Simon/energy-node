@@ -474,3 +474,170 @@
 }
 /* Ergaenzung Dashboard: Farbschema-Uebergang am ganzen Fenster, nicht am Bildschirm. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .28s; }
+
+/* == Medium (ohne Vorlage) == */
+/* Bildschirme Geraet und Einstellungen des Mediums. Werte aus den Entwuerfen
+   review-v4 (Geraet, Variante B der Einstellungen) und review-v3 (Karten
+   System, Region, Netzwerk); Farben nur ueber die Tokens aus installer.css. */
+.media-group{margin:.85rem 0 .4rem;font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.media-opt{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;padding:.6rem .7rem;border-radius:var(--radius-sm);border:1px solid var(--border-soft);background:var(--sunken);cursor:pointer;transition:border-color .15s var(--ease),background-color .15s var(--ease)}
+.media-opt:last-child{margin-bottom:0}
+.media-opt.on{border-color:var(--accent-line);background:var(--accent-bg)}
+.media-radio{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;border-radius:50%;border:1px solid var(--border)}
+.media-opt.on .media-radio{border-color:var(--accent)}
+.media-opt.on .media-radio::after{content:'';width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
+.media-opt-t{flex:1 1 auto;min-width:0;font-size:.84rem;font-weight:600;color:var(--text-strong)}
+.media-tag{flex:none;padding:.05rem .5rem;border-radius:999px;border:1px solid var(--border);font-size:.68rem;color:var(--text-muted);white-space:nowrap}
+.media-res{margin-top:.85rem;padding:.6rem .8rem;border-left:3px solid var(--accent);border-radius:0 var(--radius-sm) var(--radius-sm) 0;background:var(--accent-bg)}
+.media-res-t{font-size:.84rem;font-weight:600;color:var(--text-strong)}
+.media-res-s{margin-top:.15rem;font-size:.76rem;line-height:1.4;color:var(--text-muted)}
+.media-res--warn{border-left-color:var(--warn-line);background:var(--warn-bg);font-size:.78rem;color:var(--warn)}
+.media-notice{flex:none;display:flex;gap:.8rem;align-items:flex-start;margin-bottom:1rem;padding:.8rem 1rem;border-radius:var(--radius-md);border:1px solid var(--warn-line);background:var(--warn-bg)}
+.media-notice-ic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1.5rem;height:1.5rem;color:var(--warn)}
+.media-notice-ic svg{width:1.15rem;height:1.15rem}
+.media-notice-b{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:.2rem}
+.media-notice-t{font-size:.84rem;font-weight:600;color:var(--text-strong)}
+.media-notice-s{font-size:.78rem;line-height:1.45;color:var(--text-muted)}
+.media-notice-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem}
+.media-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:1rem;align-items:start}
+.media-row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.media-field{margin-bottom:.8rem}
+.media-field:last-child{margin-bottom:0}
+.media-static{display:flex;flex-direction:column;gap:.15rem;margin-bottom:.8rem;padding:.55rem .7rem;border-radius:var(--radius-sm);border:1px solid var(--border-soft);background:var(--sunken)}
+.media-static-t{font-size:.83rem;color:var(--text)}
+.media-static-s{font-size:.74rem;line-height:1.4;color:var(--text-muted)}
+.media-toggle{display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.8rem;cursor:pointer}
+.media-toggle--sub{margin-top:.8rem;margin-bottom:0}
+.media-check-t{display:block;font-size:.83rem;color:var(--text)}
+.media-check-s{display:block;margin-top:.1rem;font-size:.74rem;line-height:1.4;color:var(--text-muted)}
+.media-check{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin-top:.3rem;font-size:.74rem;line-height:1.4;color:var(--text-muted)}
+.media-check--ok{color:var(--ok)}
+.media-check--bad{color:var(--bad)}
+.media-check--warn{color:var(--warn)}
+.media-hint{margin-top:.3rem;font-size:.74rem;line-height:1.4;color:var(--text-muted)}
+.media-hint--bad{color:var(--bad)}
+/* Region: Zeilen mit dem aktuellen Wert, darunter klappt eine Liste auf. Der
+   Pfeil dreht sich in Richtung der Liste. Die Zeitzone hat eine Suche und
+   klebende Kontinent-Ueberschriften, die Wahl traegt einen Haken. */
+.media-pick{border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--sunken);overflow:hidden}
+.media-pick-row{display:flex;align-items:center;gap:.6rem;width:100%;margin:0;padding:.65rem .75rem;border:0;border-radius:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.media-pick-row+.media-pick-row,.media-pick-panel+.media-pick-row{border-top:1px solid var(--border-soft)}
+.media-pick-row:hover{background:var(--panel-alt)}
+.media-pick-l{flex:none;font-size:.83rem;color:var(--text)}
+.media-pick-v{flex:1 1 auto;min-width:0;text-align:right;font-size:.83rem;font-weight:600;color:var(--text-strong);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.media-pick-chev{flex:none;display:inline-flex;width:.85rem;height:.85rem;color:var(--text-muted);transition:transform .2s var(--ease)}
+.media-pick-chev svg{width:100%;height:100%}
+.media-pick-row.open .media-pick-chev{transform:rotate(90deg)}
+.media-pick-panel{border-top:1px solid var(--border-soft);padding:.5rem;animation:media-drive-in .15s ease-out}
+.media-pick-search{width:100%;margin-bottom:.4rem;background:var(--panel)}
+.media-pick-list{max-height:16rem;overflow:auto;overscroll-behavior:contain}
+.media-pick-list .media-group{position:sticky;top:0;z-index:1;margin:0;padding:.45rem .4rem .25rem;background:var(--sunken)}
+.media-pick-opt{display:flex;align-items:baseline;gap:.5rem;padding:.42rem .5rem;border-radius:var(--radius-sm);cursor:pointer}
+.media-pick-opt:hover{background:var(--panel-alt)}
+.media-pick-opt.on{background:var(--accent-bg)}
+.media-pick-opt-t{font-size:.83rem;color:var(--text-strong)}
+.media-pick-opt-s{flex:1 1 auto;min-width:0;font-size:.74rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.media-pick-check{flex:none;align-self:center;display:inline-flex;width:.9rem;height:.9rem;margin-left:auto;color:var(--accent)}
+.media-pick-check svg{width:100%;height:100%}
+@media (prefers-reduced-motion:reduce){.media-pick-chev{transition:none}.media-pick-panel{animation:none}}
+/* WLAN-Auswahl: die Netze in Reichweite als Liste wie die Geraete. Die
+   Reihenfolge bleibt beim Nachladen stehen, neue Zeilen blenden nur ein.
+   Signal als drei Balken ohne Icon. */
+.media-net-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.media-net-scan{display:inline-flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--text-muted)}
+.media-net-scan .spin{width:.8rem;height:.8rem;animation:sp 1s linear infinite}
+.media-net-scan .spin circle{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:34 62}
+.media-net-row{padding:.5rem .7rem;animation:media-drive-in .15s ease-out}
+.media-net-input{margin-top:.45rem}
+.media-sig{flex:none;display:inline-flex;align-items:flex-end;gap:2px;height:.75rem}
+.media-sig i{display:block;width:3px;border-radius:1px;background:var(--border)}
+.media-sig i:nth-child(1){height:40%}
+.media-sig i:nth-child(2){height:70%}
+.media-sig i:nth-child(3){height:100%}
+.media-sig[data-level="1"] i:nth-child(1),
+.media-sig[data-level="2"] i:nth-child(-n+2),
+.media-sig[data-level="3"] i{background:var(--text-muted)}
+.media-opt.on .media-sig[data-level="1"] i:nth-child(1),
+.media-opt.on .media-sig[data-level="2"] i:nth-child(-n+2),
+.media-opt.on .media-sig[data-level="3"] i{background:var(--accent)}
+@media (prefers-reduced-motion:reduce){.media-net-row{animation:none}.media-net-scan .spin{animation:none}}
+@media (max-width:760px){
+  .media-row2{grid-template-columns:1fr}
+}
+/* Einstiegs-Umschalter auf den Medium-Bildschirmen (dieselben Werte wie bei connect). */
+.app[data-screen^="media-"] .mode{flex:none;display:flex;gap:.2rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
+.app[data-screen^="media-"] .mode-i{padding:.26rem .62rem;text-align:center;font-size:.74rem;color:var(--text-muted);border-radius:999px;white-space:nowrap}
+.app[data-screen^="media-"] .mode-i.on{background:var(--accent-bg);color:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);font-weight:600}
+/* Sprachumschalter auf den Medium-Bildschirmen (dieselben Werte wie bei connect). */
+.app[data-screen^="media-"] .lang{flex:none;display:flex;gap:.15rem;margin-left:.6rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
+.app[data-screen^="media-"] .lang-i{padding:.26rem .5rem;font-size:.72rem;font-weight:600;color:var(--text-faint);border-radius:999px}
+.app[data-screen^="media-"] .lang-i.on{background:var(--panel-alt);color:var(--text-subtle)}
+/* Laufwerk (Schritt 3). */
+.media-drive{animation:media-drive-in .15s ease-out}
+@keyframes media-drive-in{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.media-drive{animation:none}}
+.media-opt--off{opacity:.5;cursor:not-allowed}
+.media-drives{margin-bottom:1rem}
+.media-drive-b{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:.1rem}
+.media-drive-s{font-size:.74rem;color:var(--text-muted)}
+.media-tag--warn{color:var(--warn);border-color:var(--warn-line)}
+.media-layout{display:flex;flex-direction:column;gap:.45rem;margin-bottom:.9rem;padding:.7rem .85rem;border-radius:var(--radius-sm);border:1px solid var(--border-soft);background:var(--sunken)}
+.media-layout-t{font-size:.84rem;font-weight:600;color:var(--text-strong)}
+.media-layout-bar{display:flex;height:1.6rem;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border-soft)}
+.media-layout-boot{flex:0 0 22%;display:flex;align-items:center;justify-content:center;background:var(--accent-bg);color:var(--accent-soft);font-size:.72rem;font-weight:600}
+.media-layout-system{flex:1 1 auto;display:flex;align-items:center;justify-content:center;background:var(--panel-alt);color:var(--text-subtle);font-size:.72rem}
+.media-warn{display:flex;flex-direction:column;gap:.5rem;padding:.7rem .85rem;border-radius:var(--radius-sm);border:1px solid var(--warn-line);background:var(--warn-bg)}
+.media-warn-t{font-size:.84rem;font-weight:600;color:var(--text-strong)}
+.media-warn-s{font-size:.76rem;color:var(--text-muted)}
+.media-parts{margin:.25rem 0 0;padding-left:1.1rem;font-size:.76rem;line-height:1.5;color:var(--text-muted)}
+.media-warn-check{margin:0}
+.media-warn-check input[type="checkbox"]{flex:none;width:1.05rem;height:1.05rem;margin:0;accent-color:var(--accent)}
+button.media-erase{background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad-line);font-weight:600}
+button.media-erase:hover:not(:disabled){background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+/* Schreiben (Schritt 4) und Fertig (Schritt 5). */
+.media-steps{list-style:none;margin:.6rem 0 0;padding:0}
+.media-step{display:flex;align-items:center;gap:.6rem;padding:.35rem 0;font-size:.84rem;color:var(--text-muted)}
+.media-step--done{color:var(--text)}
+.media-step--active{color:var(--text-strong);font-weight:600}
+.media-step--failed{color:var(--bad)}
+.media-step-ic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1.1rem;height:1.1rem}
+.media-step-ic svg{width:1rem;height:1rem}
+.media-step--done .media-step-ic{color:var(--ok)}
+.media-step--active .media-step-ic svg,.media-spin svg{animation:media-spin 1s linear infinite}
+/* Das Lade-Icon hat nur auf dem Ausfuehrungs-Bildschirm Strich und Farbe. Ohne
+   diese Regel fuellt der Browser den Kreis schwarz. */
+.media-step-ic .spin circle,.media-spin .spin circle{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:34 62}
+@keyframes media-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.media-step--active .media-step-ic svg,.media-spin svg{animation:none}}
+.media-bar{height:.5rem;margin-top:.9rem;border-radius:999px;background:var(--track);overflow:hidden}
+.media-bar-fill{display:block;height:100%;background:var(--accent);transition:width .4s var(--ease)}
+@media (prefers-reduced-motion:reduce){.media-bar-fill{transition:none}}
+.media-log{margin-top:.9rem}
+.media-log summary{cursor:pointer;font-size:.8rem;color:var(--text-subtle)}
+.media-log-body{max-height:14rem;overflow:auto;margin:.5rem 0;padding:.5rem .6rem;border-radius:var(--radius-sm);background:var(--sunken);font-size:.72rem;line-height:1.45;white-space:pre-wrap;color:var(--text-muted)}
+.media-list{margin:.4rem 0 0;padding-left:1.2rem;font-size:.84rem;line-height:1.5;color:var(--text)}
+.media-status{display:flex;align-items:center;gap:.5rem;margin-top:.9rem;font-size:.84rem;color:var(--text)}
+.media-status-ic{flex:none;display:inline-flex;width:1rem;height:1rem}
+.media-status-ic svg{width:1rem;height:1rem}
+.media-clock{margin-left:auto;font-family:ui-monospace,monospace;font-size:.8rem;color:var(--text-muted)}
+/* Ergaenzung Startbildschirm: Sprechblase am Umschalter "Medium", nicht in der
+   Vorlage. Sie waechst aus ihrer Spitze unter "Medium" heraus (transform-origin),
+   kurz verzoegert, ohne Ueberschwingen. Auf schmalen Schirmen spannt sie sich
+   ueber die Breite der Leiste und verliert die Spitze. */
+.app .bar{position:relative;z-index:30}
+.mode-wrap{position:relative;flex:none}
+.mode-tip{position:absolute;top:calc(100% + .65rem);left:0;z-index:20;width:18.5rem;display:flex;flex-direction:column;gap:.55rem;padding:.75rem .85rem;border-radius:var(--radius-md);border:1px solid var(--accent-line);background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.28);transform-origin:1.45rem 0;animation:mode-tip-in .24s cubic-bezier(.2,.8,.2,1) .5s both}
+.mode-tip::before{content:'';position:absolute;top:-.38rem;left:1.1rem;width:.7rem;height:.7rem;background:var(--panel);border-left:1px solid var(--accent-line);border-top:1px solid var(--accent-line);transform:rotate(45deg)}
+.mode-tip-t{font-size:.8rem;line-height:1.45;color:var(--text)}
+.mode-tip-actions{display:flex;align-items:center;gap:.5rem}
+.mode-tip-x{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:1.6rem;height:1.6rem;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer}
+.mode-tip-x:hover{background:var(--sunken);color:var(--text)}
+.mode-tip-x svg{width:.8rem;height:.8rem}
+@keyframes mode-tip-in{from{opacity:0;transform:translateY(-.25rem) scale(.96)}to{opacity:1;transform:none}}
+@keyframes mode-tip-fade{from{opacity:0}to{opacity:1}}
+@media (max-width:640px){
+  .mode-wrap{position:static}
+  .mode-tip{top:3.9rem;left:1rem;right:1rem;width:auto}
+  .mode-tip::before{display:none}
+}
+@media (prefers-reduced-motion:reduce){.mode-tip{animation:mode-tip-fade .2s ease .5s both}}

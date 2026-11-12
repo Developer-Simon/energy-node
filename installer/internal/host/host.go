@@ -20,6 +20,7 @@ import (
 	"github.com/Developer-Simon/energy-node-installer/internal/bundlesource"
 	"github.com/Developer-Simon/energy-node-installer/internal/credstore"
 	"github.com/Developer-Simon/energy-node-installer/internal/diag"
+	"github.com/Developer-Simon/energy-node-installer/internal/media"
 	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/steps"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
@@ -52,6 +53,9 @@ type Config struct {
 	// Credentials ist die Ablage fuer "Zugangsdaten merken". nil schaltet die
 	// Funktion ab.
 	Credentials credstore.Store
+	// MediaDir ist der Cache der Medienvorbereitung (OS-Liste, Images, Auftragsordner).
+	// Leer heisst: der Modus "media" wird nicht angeboten.
+	MediaDir string
 }
 
 // Host erfuellt hostapi.Backend ueber SSH.
@@ -86,6 +90,12 @@ type Host struct {
 	// packageChoices: die Antworten auf PACKAGE_UNAVAILABLE je Paketname
 	// ("repo" oder "skip"). Gelten fuer die laufende Sitzung.
 	packageChoices map[string]string
+
+	// mediaMu schuetzt mediaW. mediaStart ist der Schreibstart; nil heisst
+	// der echte Schreiber, Tests ersetzen ihn.
+	mediaMu    sync.Mutex
+	mediaW     *media.Writer
+	mediaStart func(context.Context, media.WriteRequest) error
 }
 
 // onlineDepsNeeded: die Abhaengigkeiten muessen aus dem Netz kommen, weil die
@@ -134,9 +144,13 @@ func (h *Host) Describe() hostapi.Description {
 	h.mu.Lock()
 	manifest, resolved, creds := h.manifest, h.resolved, h.creds.view()
 	h.mu.Unlock()
+	entryPoints := []string{"install", "redeploy", "diagnose"}
+	if h.cfg.MediaDir != "" {
+		entryPoints = append([]string{"media"}, entryPoints...)
+	}
 	description := hostapi.Description{
 		Host:            hostapi.HostInstaller,
-		EntryPoints:     []string{"install", "redeploy", "diagnose"},
+		EntryPoints:     entryPoints,
 		NeedsConnection: true,
 		Credentials:     creds,
 	}

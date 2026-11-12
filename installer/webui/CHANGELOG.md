@@ -1,10 +1,50 @@
 # Changelog
 
-## v0.3.3-pre.1 (2026-11-06)
+## v0.3.3-pre.2 (2026-11-06)
 
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
+- **webui:** add the media API and its fake (5a7025d)
+- **webui:** add the media entry to the shell (c6b1e3e)
+- **webui:** add the pure helpers of the media mode (d7295e0)
+- **webui:** add the device and settings screens of the media mode (47a79e0)
+- **webui:** add the drive screen of the media mode (cca1afa)
+- **webui:** write the medium and hand over to setup (d2e0f1f)
+- **installer:** prefill the Wi-Fi name from this computer (cf30615)
+- **installer:** check the Wi-Fi password against this computer and pass the band (2128fcf)
+- **webui:** take the Wi-Fi country from the time zone (5d648e5)
+- **webui:** check the Wi-Fi password and warn about 5 GHz (2925948)
+- **installer:** list the Wi-Fi networks in range (8810f50)
+- **webui:** offer the Wi-Fi networks in range (6e4253d)
+- **installer:** scan for Wi-Fi networks on request (c936754)
+- **webui:** load the Wi-Fi networks in range after the screen opens (35f8ec7)
+- **webui:** pick the Wi-Fi from a list and offer the 2.4 GHz twin (6c38fa0)
+- **installer:** check the Wi-Fi password against the twin on the other band (650b726)
+- **webui:** name the twin network and say when the password cannot be checked (97c6d6b)
+- **installer:** count the Pi 3 as tested and put the Pi Zero with the Pi 1 (2c5dc68)
+- **installer:** allow SSH login with the emergency password on request (b07a90a)
+- **webui:** add a switch for SSH login with the emergency password (72eee4a)
+- **webui:** point first-time users to the media mode (d8d59c1)
+- **webui:** pick time zone and keyboard from rows instead of drop-downs (05d9951)
+- **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236)
+
+### Fixes
+
+- **webui:** bust the asset cache on every asset change (90fcdf8)
+- **webui:** keep the language switch on the media screens (040d376)
+- **webui:** center the radio dot and color the spinners of the media mode (dbf5347)
+- **webui:** leave space below the drive list and say SD-Karte (96e292e)
+- **webui:** keep the media hint above the page and the SD card name in one piece (d038b46)
+
+### Documentation
+
+- **installer:** tighten the media texts and describe the Wi-Fi list (553f296)
+
+### Tests
+
+- **webui:** cover the media mode end to end (69364e7)
+- **webui:** pick the device list, not the language switch, in the media e2e (6087dff)
 
 ## v0.3.2 (2026-11-07)
 

@@ -8,7 +8,7 @@ import { loadScripts } from './load.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const BASE = ['i18n.js', 'format.js', 'api.js'];
-const FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose' };
+const FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose', media: 'media-device' };
 
 export const BOOTSTRAP = {
   host: 'installer', entry_points: ['install', 'redeploy', 'diagnose'], needs_connection: true,

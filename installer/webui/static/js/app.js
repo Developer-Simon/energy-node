@@ -9,14 +9,28 @@
   window.Installer = window.Installer || {};
 
   // Plan C-II, Vertrag 5, als Tabellen.
-  var FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose' };
+  var FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose', media: 'media-device' };
   var FLOW = {
     install: ['connect', 'prepare', 'precheck', 'configure', 'dashboard', 'run', 'result'],
     redeploy: ['connect', 'prepare', 'preview', 'run', 'result'],
+    media: ['media-device', 'media-settings', 'media-drive', 'media-write', 'media-done'],
   };
   // Auf diesen Bildschirmen ist noch nichts veraendert - nur dort steht der
-  // Einstiegs-Umschalter.
-  var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose', 'changelog'];
+  // Einstiegs-Umschalter. media-write fehlt absichtlich: dort laeuft das Schreiben.
+  var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose', 'changelog',
+    'media-device', 'media-settings', 'media-drive', 'media-done'];
+
+  // Die Sprechblase am Umschalter "Medium" verschwindet fuer immer, sobald
+  // sie einmal erledigt ist.
+  var TIP_KEY = 'energy-node-installer.media-tip';
+
+  function tipDone() {
+    try {
+      return window.localStorage.getItem(TIP_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
 
   // Die Ausgangsversion eines Updates kennt nur der Plan der Vorschau. Lädt
   // das Fenster während des Dashboard-Neustarts neu, ist shared.plan leer,
@@ -57,6 +71,8 @@
       // dem Ergebnis wieder falsch. Es ist die eine Sperre fuer den Umschalter.
       mutating: false,
       connected: false,
+      // tipDismissed: die Sprechblase am Umschalter "Medium" ist erledigt.
+      tipDismissed: tipDone(),
       error: null,
       // progress ist der Uebersetzungsschluessel einer Zeile, waehrend ein
       // Bildschirm ohne sichtbare Rueckmeldung wartet (Verbindungsaufbau,
@@ -89,6 +105,11 @@
         // per-session default, not something a screen ever needs to
         // persist across a reload.
         forceFullTransfer: false,
+        // media: the medium entry's picks (device, settings, drive, confirm).
+        media: { device: null, settings: null, drive: null, confirm: '' },
+        // handover: a target a finished medium hands to the setup (openSetup),
+        // read by the connect screen. null otherwise.
+        handover: null,
       },
 
       async init() {
@@ -112,7 +133,9 @@
           this.ready = true;
           return;
         }
-        this.entry = this.bootstrap.entry_points[0] || 'install';
+        // Einrichten ist die Vorgabe, auch wenn Medium vorne in der Liste steht.
+        var entries = this.bootstrap.entry_points || [];
+        this.entry = entries.indexOf('install') >= 0 ? 'install' : (entries[0] || 'install');
         this.connected = !this.bootstrap.needs_connection;
         var hello = window.Events ? await window.Events.hello() : null;
         if (hello && hello.running) {
@@ -150,7 +173,7 @@
       },
 
       get chip() {
-        if (this.screen === 'connect' || this.screen === 'diagnose' || !this.shared.target.host) {
+        if (this.screen === 'connect' || this.screen === 'diagnose' || this.screen.indexOf('media-') === 0 || !this.shared.target.host) {
           return '';
         }
         return this.shared.target.user + '@' + this.shared.target.host;
@@ -178,8 +201,34 @@
           HARMLESS.indexOf(this.screen) >= 0;
       },
 
+      // showMediaTip: auf dem Startbildschirm, solange kein Zugang gemerkt
+      // ist und niemand verbunden ist. Wer noch keinen Pi hat, braucht zuerst
+      // ein Medium.
+      get showMediaTip() {
+        var b = this.bootstrap;
+        if (!this.ready || !b || this.tipDismissed || this.connected || this.screen !== 'connect' || this.entry === 'media') {
+          return false;
+        }
+        if ((b.entry_points || []).indexOf('media') < 0 || !this.showEntrySwitch || this.shared.handover) {
+          return false;
+        }
+        return !(b.credentials && b.credentials.host);
+      },
+
+      dismissMediaTip() {
+        this.tipDismissed = true;
+        try {
+          window.localStorage.setItem(TIP_KEY, '1');
+        } catch (err) {
+          // ohne Speicher erscheint sie beim naechsten Start wieder
+        }
+      },
+
+      // showLanguageSwitch: auf dem Startbildschirm und auf den Medium-
+      // Bildschirmen, dort wo auch der Einstiegs-Umschalter steht.
       get showLanguageSwitch() {
-        return this.screen === 'connect' && !!this.bootstrap && !this.bootstrap.language_fixed &&
+        var here = this.screen === 'connect' || (this.showEntrySwitch && this.screen.indexOf('media-') === 0);
+        return here && !!this.bootstrap && !this.bootstrap.language_fixed &&
           (this.bootstrap.languages || []).length > 1;
       },
 
@@ -288,8 +337,21 @@
           return;
         }
         this.entry = name;
+        if (name === 'media') {
+          this.dismissMediaTip();
+        }
         this.shared.servicesOnly = false;
-        this.go(this.connected ? FIRST_SCREEN[name] : 'connect');
+        // Medium braucht keine Verbindung zum Node.
+        this.go(this.connected || name === 'media' ? FIRST_SCREEN[name] : 'connect');
+      },
+
+      // openSetup: ein fertiges Medium uebergibt seinen Zielrechner an die
+      // Einrichtung. Die Verbindung wird neu aufgebaut, mit dem Ziel vorausgefuellt.
+      openSetup(target) {
+        this.shared.handover = target;
+        this.connected = false;
+        this.entry = 'install';
+        this.go('connect');
       },
 
       openDiagnose() {
@@ -317,6 +379,7 @@
       // steht - die Shell entscheidet, wohin es dann geht.
       afterConnect(target) {
         this.connected = true;
+        this.dismissMediaTip();
         this.shared.target = { host: target.host || '', user: target.user || '' };
         this.go(this.bootstrap && this.bootstrap.package ? 'prepare' : FIRST_SCREEN[this.entry]);
       },

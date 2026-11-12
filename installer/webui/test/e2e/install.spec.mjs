@@ -74,7 +74,7 @@ test('der Sprachumschalter wechselt jeden Text samt Fehlerklartext und bleibt ge
   await page.locator('.lang-i', { hasText: 'EN' }).click();
   await page.locator('.card-h', { hasText: en['connect.access.heading'] }).waitFor();
   assert.equal(await page.locator('.bar-title').textContent(), en['app.title.install']);
-  assert.equal(await page.locator('.mode-i').first().textContent(), en['entry.install']);
+  assert.equal(await page.locator('.mode-i', { hasText: en['entry.install'] }).textContent(), en['entry.install']);
 
   await page.getByLabel(en['field.address'], { exact: true }).fill('energy-node.local');
   await page.getByLabel(en['field.user'], { exact: true }).fill('pi');

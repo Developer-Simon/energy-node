@@ -312,7 +312,7 @@ func newScenario(name string, opts options) *stagedBackend {
 	update := name == "vorlage-update" || updater
 
 	fake.Description = hostapi.Description{
-		Host: hostapi.HostInstaller, EntryPoints: []string{"install", "redeploy", "diagnose"},
+		Host: hostapi.HostInstaller, EntryPoints: []string{"media", "install", "redeploy", "diagnose"},
 		NeedsConnection: true, BundleVersion: "v1.4.2", BundleArch: "armv6",
 		Package: &hostapi.PackageInfo{
 			Bundled: &hostapi.BundledInfo{Version: "v1.4.2", Arch: "armv6"},

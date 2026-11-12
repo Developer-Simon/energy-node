@@ -8,10 +8,13 @@
 package webui
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"io/fs"
 	"net/http"
 	"strings"
+	"sync"
 )
 
 //go:embed VERSION
@@ -20,12 +23,35 @@ var versionFile string
 //go:embed templates/*.html catalogs/*.json static
 var files embed.FS
 
-// AssetVersion ist die zentrale Cache-Bust-Marke aller JS- und CSS-URLs. Sie
-// kommt aus webui/VERSION, das die CI bei jedem PR patch-bumpt, der das Modul
-// anfasst - jede Asset-Aenderung bustet damit von selbst. Handgepflegte ?v=N
-// je Datei gibt es in diesem Modul deshalb nicht.
+var (
+	assetOnce    sync.Once
+	assetVersion string
+)
+
+// AssetVersion ist die zentrale Cache-Bust-Marke aller JS- und CSS-URLs: die
+// Version aus webui/VERSION, die die CI bei jedem PR patch-bumpt, und dazu ein
+// kurzer Hash ueber die eingebetteten Assets. Der Hash bustet auch lokale
+// Builds ohne neue VERSION, sonst haelt der Browser alte Skripte einen Tag lang
+// neben einer frischen Vorlage. Handgepflegte ?v=N je Datei gibt es nicht.
 func AssetVersion() string {
-	return strings.TrimSpace(versionFile)
+	assetOnce.Do(func() {
+		h := sha256.New()
+		_ = fs.WalkDir(files, "static", func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			data, err := files.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			h.Write([]byte(path))
+			h.Write([]byte{0})
+			h.Write(data)
+			return nil
+		})
+		assetVersion = strings.TrimSpace(versionFile) + "-" + hex.EncodeToString(h.Sum(nil))[:8]
+	})
+	return assetVersion
 }
 
 // Templates liefert die eingebetteten HTML-Vorlagen als eigenes FS-Wurzelwerk,

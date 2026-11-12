@@ -377,3 +377,87 @@ test('Download.text lässt den Wirt speichern, wenn er das kann, sonst bleibt es
   plain.window.Download.text('b.txt', 'y');
   assert.deepEqual(clicked, ['b.txt']);
 });
+
+const MEDIA = Object.assign({}, BOOT, { entry_points: ['media', 'install', 'redeploy', 'diagnose'] });
+
+test('media steht vorne, Vorgabe bleibt Einrichten', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  assert.equal(shell.entry, 'install');
+});
+
+test('Medium braucht keine Verbindung', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  assert.equal(shell.connected, false);
+  shell.switchEntry('media');
+  assert.equal(shell.entry, 'media');
+  assert.equal(shell.screen, 'media-device');
+});
+
+test('Stepper zeigt fünf Medium-Stationen', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  shell.entry = 'media';
+  shell.screen = 'media-drive';
+  const items = shell.stepperParts.filter((part) => part.item);
+  assert.deepEqual(plain(items.map((item) => item.key)), ['media-device', 'media-settings', 'media-drive', 'media-write', 'media-done']);
+  assert.equal(items[2].cls, 'st-item active');
+  assert.equal(items[0].done, true);
+});
+
+test('der Einstiegs-Umschalter bleibt auf den Medium-Bildschirmen außer beim Schreiben', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  for (const [screen, visible] of [['media-device', true], ['media-settings', true], ['media-drive', true], ['media-write', false], ['media-done', true]]) {
+    shell.screen = screen;
+    assert.equal(shell.showEntrySwitch, visible, screen);
+  }
+});
+
+test('der Sprachumschalter bleibt auf den Medium-Bildschirmen außer beim Schreiben', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  for (const [screen, visible] of [['connect', true], ['media-device', true], ['media-settings', true], ['media-drive', true], ['media-write', false], ['media-done', true], ['precheck', false]]) {
+    shell.screen = screen;
+    assert.equal(shell.showLanguageSwitch, visible, screen);
+  }
+});
+
+test('der Chip bleibt auf Medium-Bildschirmen leer', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  shell.shared.target = { host: 'energy-node.local', user: 'node' };
+  shell.connected = true;
+  shell.screen = 'media-drive';
+  assert.equal(shell.chip, '');
+});
+
+test('openSetup wechselt nach Einrichten mit Übergabe', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  shell.entry = 'media';
+  shell.screen = 'media-done';
+  shell.connected = true;
+  shell.openSetup({ host: 'energy-node.local', user: 'node', keyPath: '/k' });
+  assert.equal(shell.entry, 'install');
+  assert.equal(shell.screen, 'connect');
+  assert.equal(shell.connected, false);
+  assert.deepEqual(plain(shell.shared.handover), { host: 'energy-node.local', user: 'node', keyPath: '/k' });
+});
+
+test('die Sprechblase zeigt auf Medium, solange kein Zugang gemerkt ist', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  assert.equal(shell.screen, 'connect');
+  assert.equal(shell.showMediaTip, true);
+  shell.switchEntry('media');
+  assert.equal(shell.showMediaTip, false);
+  assert.equal(shell.tipDismissed, true);
+});
+
+test('mit gemerktem Zugang oder ohne Medium bleibt die Sprechblase weg', async () => {
+  const saved = await createShell({ bootstrap: Object.assign({}, MEDIA, { credentials: { host: 'pi.local', user: 'pi' } }) });
+  assert.equal(saved.shell.showMediaTip, false);
+  const plainBoot = await createShell({ bootstrap: BOOT });
+  assert.equal(plainBoot.shell.showMediaTip, false);
+});
+
+test('X schliesst die Sprechblase fuer immer', async () => {
+  const first = await createShell({ bootstrap: MEDIA });
+  first.shell.dismissMediaTip();
+  assert.equal(first.shell.showMediaTip, false);
+  assert.equal(first.window.localStorage.getItem('energy-node-installer.media-tip'), '1');
+});
