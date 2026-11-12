@@ -187,8 +187,11 @@
           HARMLESS.indexOf(this.screen) >= 0;
       },
 
+      // showLanguageSwitch: auf dem Startbildschirm und auf den Medium-
+      // Bildschirmen, dort wo auch der Einstiegs-Umschalter steht.
       get showLanguageSwitch() {
-        return this.screen === 'connect' && !!this.bootstrap && !this.bootstrap.language_fixed &&
+        var here = this.screen === 'connect' || (this.showEntrySwitch && this.screen.indexOf('media-') === 0);
+        return here && !!this.bootstrap && !this.bootstrap.language_fixed &&
           (this.bootstrap.languages || []).length > 1;
       },
 

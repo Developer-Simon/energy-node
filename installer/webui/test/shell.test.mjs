@@ -411,6 +411,14 @@ test('der Einstiegs-Umschalter bleibt auf den Medium-Bildschirmen außer beim Sc
   }
 });
 
+test('der Sprachumschalter bleibt auf den Medium-Bildschirmen außer beim Schreiben', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  for (const [screen, visible] of [['connect', true], ['media-device', true], ['media-settings', true], ['media-drive', true], ['media-write', false], ['media-done', true], ['precheck', false]]) {
+    shell.screen = screen;
+    assert.equal(shell.showLanguageSwitch, visible, screen);
+  }
+});
+
 test('der Chip bleibt auf Medium-Bildschirmen leer', async () => {
   const { shell } = await createShell({ bootstrap: MEDIA });
   shell.shared.target = { host: 'energy-node.local', user: 'node' };
