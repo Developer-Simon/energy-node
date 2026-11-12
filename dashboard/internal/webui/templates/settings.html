@@ -805,7 +805,7 @@
         <div class="bs-drive bs-drive-missing" x-show="scenario() === 'missing'" x-cloak role="status">
           <div class="bs-drive-head"><strong x-text="driveName()"></strong><span class="bs-status bs-status-warn">{{t "storage.status.missing"}}</span></div>
           <p class="setting-note" x-text="missingNote()"></p>
-          <button type="button" class="icon-button labeled" x-on:click="retry()"><span>{{t "storage.retry"}}</span></button>
+          <button type="button" class="icon-button labeled" x-on:click="retry()" x-bind:disabled="checking"><span>{{t "storage.retry"}}</span></button>
         </div>
 
         <div class="bs-drive" x-show="scenario() === 'pending'" x-cloak role="status">

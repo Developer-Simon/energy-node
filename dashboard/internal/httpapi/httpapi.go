@@ -412,6 +412,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	}
 	if storageDeps := dependencies.Storage; storageDeps != nil {
 		g.HandleFunc("/api/v1/storage/status", storageDeps.handleStatus(dependencies.Auth))
+		g.HandleFunc("/api/v1/storage/recheck", storageDeps.handleRecheck(dependencies.Auth))
 		g.HandleFunc("/api/v1/storage/drives", storageDeps.handleDrives(dependencies.Auth))
 		g.HandleFunc("/api/v1/storage/setup", storageDeps.handleSetup(dependencies.Auth))
 		g.HandleFunc("/api/v1/storage/fallback", storageDeps.handleFallback(dependencies.Auth))

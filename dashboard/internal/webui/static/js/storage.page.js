@@ -75,6 +75,7 @@
     job: {},
     fallback: 'system',
     fallbackPending: false,
+    checking: false,
 
     // Setup and remove flow.
     flow: null,
@@ -99,6 +100,20 @@
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
       this.csrfToken = (session && session.csrf_token) || '';
       await this.load();
+      // The page shows fresh data every time it is opened, not only on the first visit.
+      this.$watch('activeSettingsPage', (page) => {
+        if (page === 'storage' && !this.flow) this.recheck();
+      });
+    },
+
+    // Asks the watcher to check the drive right now, then shows the result. Falls
+    // back to a plain read when the check cannot run.
+    async recheck() {
+      try {
+        this.apply(await this.send('POST', '/api/v1/storage/recheck'));
+      } catch (error) {
+        await this.load();
+      }
     },
 
     async load() {
@@ -207,7 +222,13 @@
       }
     },
     async retry() {
-      await this.load();
+      if (this.checking) return;
+      this.checking = true;
+      try {
+        await this.recheck();
+      } finally {
+        this.checking = false;
+      }
     },
     async removeDrive() {
       const confirmed = await this.$store.modal.confirm({

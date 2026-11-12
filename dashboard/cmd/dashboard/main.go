@@ -394,6 +394,12 @@ func main() {
 		}
 		return storageWatcher.Status()
 	}
+	storageRecheck := func(ctx context.Context) storage.Status {
+		if storageWatcher == nil {
+			return storage.Status{Mode: storage.ModeNone}
+		}
+		return storageWatcher.Tick(ctx)
+	}
 	go runStorageResume(ctx, storageService)
 	storageFallback := func() string {
 		if storageWatcher == nil {
@@ -813,6 +819,7 @@ func main() {
 			Service:   storageService,
 			Lister:    storageLister,
 			Status:    storageStatus,
+			Recheck:   storageRecheck,
 			DemoSpace: os.Getenv(storageDemoEnv) != "",
 		},
 		InstallerStateDir: installerStateDir,

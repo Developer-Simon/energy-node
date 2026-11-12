@@ -78,6 +78,8 @@ function createStoragePage({ fetchImpl } = {}) {
   const page = factories.storagePage();
   const stores = attachStores(page, { modal: fakeModalStore({ answer: true }) });
   page.$nextTick = (fn) => fn();
+  // The settings shell owns activeSettingsPage, the tests switch it by hand.
+  page.$watch = (key, fn) => { page.watchers = { ...page.watchers, [key]: fn }; };
   created.push(page);
   return { page, stores, window: dom.window };
 }
@@ -297,4 +299,37 @@ test('zeigt die Warnung zu verlorenen Backups im Ablauf', async () => {
   assert.equal(page.step, 'run');
   assert.equal(page.warnText(), de['error.storage_backups_lost']);
   page.closeFlow(true);
+});
+
+test('Erneut prüfen stößt die Prüfung an und zeigt den neuen Zustand', async () => {
+  const calls = [];
+  const { fetchImpl } = router({
+    ...baseRoutes(statusBody({ mode: 'fallback_system', uuid: 'abc-123', since: null })),
+    'POST /api/v1/storage/recheck': reply(200, statusBody({ mode: 'drive', uuid: 'abc-123' })),
+  }, calls);
+  const { page } = createStoragePage({ fetchImpl });
+  await page.init();
+  assert.equal(page.scenario(), 'missing');
+
+  await page.retry();
+  assert.deepEqual(calls.filter((c) => c.method === 'POST').map((c) => c.url), ['/api/v1/storage/recheck']);
+  assert.equal(page.scenario(), 'active');
+  assert.equal(page.checking, false);
+});
+
+test('beim Öffnen der Speicherseite wird der Zustand neu geprüft', async () => {
+  const calls = [];
+  const { fetchImpl } = router({
+    ...baseRoutes(statusBody({ mode: 'drive', uuid: 'abc-123' })),
+    'POST /api/v1/storage/recheck': reply(200, statusBody({ mode: 'fallback_ram', uuid: 'abc-123', fallback: 'ram', since: null })),
+  }, calls);
+  const { page } = createStoragePage({ fetchImpl });
+  await page.init();
+  assert.equal(page.scenario(), 'active');
+
+  page.watchers.activeSettingsPage('general');
+  assert.equal(calls.filter((c) => c.method === 'POST').length, 0, 'other pages do not trigger it');
+  page.watchers.activeSettingsPage('storage');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(page.scenario(), 'missing');
 });

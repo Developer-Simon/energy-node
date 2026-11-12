@@ -23,6 +23,9 @@ type StorageDeps struct {
 	Lister storage.Lister
 	// Status liefert den Zustand des Laufwerkswaechters. Nil heisst: kein Waechter.
 	Status func() storage.Status
+	// Recheck lässt den Waechter sofort prüfen, statt auf den nächsten Takt zu
+	// warten, und liefert den neuen Zustand. Nil heisst: nur lesen.
+	Recheck func(ctx context.Context) storage.Status
 	// DemoSpace ist die Demo: der Einhängepunkt ist ein Ordner auf der
 	// Systemplatte. Größe und Belegung kommen dann vom gelisteten Stick mit
 	// der uuid aus der Konfiguration.
@@ -114,26 +117,48 @@ func (d *StorageDeps) handleStatus(manager *auth.Manager) http.HandlerFunc {
 		if _, ok := storageAccess(w, r, manager, false); !ok {
 			return
 		}
-		cfg, err := storage.LoadConfig(d.DataDir)
-		if err != nil {
-			writeErrorDetail(w, http.StatusInternalServerError, "storage_failed", err)
+		d.writeStatus(w)
+	}
+}
+
+// handleRecheck prüft das Laufwerk sofort und antwortet wie handleStatus.
+func (d *StorageDeps) handleRecheck(manager *auth.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		body := storageStatusBody{Config: cfg, Job: d.Service.Job()}
-		body.Status = storageModeBody{Mode: string(storage.ModeNone)}
-		if d.Status != nil {
-			st := d.Status()
-			body.Status.Mode = string(st.Mode)
-			body.Status.Reason = st.Reason
-			if !st.Since.IsZero() {
-				since := st.Since
-				body.Status.Since = &since
-			}
+		if _, ok := storageAccess(w, r, manager, true); !ok {
+			return
 		}
-		body.System = d.spaceOf(d.DataDir)
-		body.Drive = d.driveSpace(cfg)
-		writeJSON(w, body)
+		if d.Recheck != nil {
+			d.Recheck(r.Context())
+		}
+		d.writeStatus(w)
 	}
+}
+
+// writeStatus schreibt die Antwort von GET /api/v1/storage/status.
+func (d *StorageDeps) writeStatus(w http.ResponseWriter) {
+	cfg, err := storage.LoadConfig(d.DataDir)
+	if err != nil {
+		writeErrorDetail(w, http.StatusInternalServerError, "storage_failed", err)
+		return
+	}
+	body := storageStatusBody{Config: cfg, Job: d.Service.Job()}
+	body.Status = storageModeBody{Mode: string(storage.ModeNone)}
+	if d.Status != nil {
+		st := d.Status()
+		body.Status.Mode = string(st.Mode)
+		body.Status.Reason = st.Reason
+		if !st.Since.IsZero() {
+			since := st.Since
+			body.Status.Since = &since
+		}
+	}
+	body.System = d.spaceOf(d.DataDir)
+	body.Drive = d.driveSpace(cfg)
+	writeJSON(w, body)
 }
 
 // spaceOf liest Größe und Belegung des Dateisystems, in dem dir liegt. Ein

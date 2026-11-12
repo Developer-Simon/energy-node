@@ -134,6 +134,7 @@ var storageRoutes = []struct {
 	write              bool
 }{
 	{http.MethodGet, "/api/v1/storage/status", "", false},
+	{http.MethodPost, "/api/v1/storage/recheck", "", true},
 	{http.MethodGet, "/api/v1/storage/drives", "", false},
 	{http.MethodPost, "/api/v1/storage/setup", `{"kname":"sdz","use_data":true,"fallback":"system"}`, true},
 	{http.MethodPut, "/api/v1/storage/fallback", `{"fallback":"ram"}`, true},
@@ -374,5 +375,29 @@ func TestStorageReplaceWithoutSetupIsRefused(t *testing.T) {
 	}
 	if helperCalls != 0 {
 		t.Fatalf("replace without setup called the helper %d times", helperCalls)
+	}
+}
+
+func TestStorageRecheckAsksTheWatcherAndAnswersLikeStatus(t *testing.T) {
+	f := newStorageFixture(t)
+	cookie, csrf := f.login("keeper", auth.RoleStorageManage)
+	calls := 0
+	f.deps.Recheck = func(context.Context) storage.Status {
+		calls++
+		return storage.Status{Mode: storage.ModeDrive}
+	}
+	f.deps.Status = func() storage.Status { return storage.Status{Mode: storage.ModeDrive} }
+
+	response := f.call(http.MethodPost, "/api/v1/storage/recheck", "", cookie, csrf, true)
+	if response.Code != http.StatusOK || calls != 1 {
+		t.Fatalf("recheck status %d, watcher asked %d times: %s", response.Code, calls, response.Body.String())
+	}
+	var body struct {
+		Status struct {
+			Mode string `json:"mode"`
+		} `json:"status"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || body.Status.Mode != string(storage.ModeDrive) {
+		t.Fatalf("recheck body: %v (%s)", err, response.Body.String())
 	}
 }

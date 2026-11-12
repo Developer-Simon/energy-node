@@ -105,6 +105,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/backup/import/apply":      {group: groupOpen},
 	"/api/v1/backup/import/result":     {group: groupOpen},
 	"/api/v1/storage/status":           {group: groupOpen},
+	"/api/v1/storage/recheck":          {group: groupOpen},
 	"/api/v1/storage/drives":           {group: groupOpen},
 	"/api/v1/storage/setup":            {group: groupOpen},
 	"/api/v1/storage/fallback":         {group: groupOpen},

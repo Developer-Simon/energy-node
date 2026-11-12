@@ -131,6 +131,10 @@
       this.csrfToken = (session && session.csrf_token) || '';
       this.canSecrets = Boolean(session && Array.isArray(session.roles) && session.roles.includes('backup_secrets'));
       await this.load();
+      // The page shows fresh data every time it is opened. Unsaved edits and an open flow stay.
+      this.$watch('activeSettingsPage', (page) => {
+        if (page === 'backup' && !this.flow && !this.autoDirty()) this.load();
+      });
     },
 
     async load() {
