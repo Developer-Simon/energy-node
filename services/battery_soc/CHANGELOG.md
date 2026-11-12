@@ -4,13 +4,13 @@
 
 ### Features
 
-- **storage:** Add an additional drive for running data and backups (#233)
+- **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 
 ### Refactors
 
 - **common:** keep battery paths out of the common library (0e615bc)
 
-## v0.4.8 (2026-11-12)
+## v0.4.8 (2026-10-21)
 
 ### Features
 

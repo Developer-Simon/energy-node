@@ -5,7 +5,7 @@
 ### Features
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
-- **storage:** Add an additional drive for running data and backups (#233)
+- **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 
 ## v0.7.2 (2026-10-27)
 

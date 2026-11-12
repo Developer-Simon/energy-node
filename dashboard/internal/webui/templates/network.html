@@ -1,0 +1,186 @@
+{{define "network"}}
+<section id="settings-network" role="tabpanel" class="settings-cards nw-page" x-data="networkPage()" x-init="init()" x-show="activeSettingsPage === 'network'" x-bind:data-locked="locked() ? 'true' : 'false'">
+
+    <!-- Verbindung: zwei Schnittstellen nebeneinander, die aktive Route ist hervorgehoben -->
+    <section class="setting-card setting-card--wide nw-status" data-tour="network-overview" aria-labelledby="nw-status-title">
+      <div class="nw-card-head">
+        <h3 class="setting-card-title" id="nw-status-title">{{t "network.status.title"}}</h3>
+        <span class="nw-online" x-bind:data-tone="online() ? 'ok' : 'bad'"><span class="nw-dot"></span><span x-show="online()">{{t "network.online"}}</span><span x-show="!online()">{{t "network.offline"}}</span></span>
+      </div>
+      <p class="nw-hint" x-show="unmanaged()">{{t "network.unmanaged"}}</p>
+      <p class="nw-hint" x-show="statusError" x-text="statusError"></p>
+      <p class="nw-hint" x-show="hasWifi() && countryMissing()">{{t "network.country_missing"}}</p>
+      <div class="nw-links">
+        <template x-for="link in links()" x-bind:key="link.id">
+          <article class="nw-link" x-bind:data-state="link.state" x-bind:data-route="link.route ? 'true' : 'false'">
+            <div class="nw-link-head">
+              <span class="nw-link-mark" aria-hidden="true"><svg class="automation-icon"><use x-bind:href="linkIcon(link)"></use></svg></span>
+              <div class="nw-link-name">
+                <span class="nw-link-title"><span x-show="link.id === 'lan'">{{t "network.link.lan"}}</span><span x-show="link.id === 'wifi'">{{t "network.link.wifi"}}</span></span>
+                <span class="nw-link-sub" x-text="link.device || $t('network.link.no_device')"></span>
+              </div>
+              <span class="nw-pill" x-bind:data-tone="linkTone(link)" x-text="linkStateLabel(link)"></span>
+            </div>
+            <p class="nw-link-error" x-show="linkError(link)" x-text="linkError(link)"></p>
+            <p class="setting-note nw-link-note" x-show="link.id === 'wifi' && !hasWifi()">{{t "network.nowifi_note"}}</p>
+            <p class="setting-note nw-link-note" x-show="link.state === 'blocked'">{{t "network.blocked_hint"}}</p>
+            <dl class="nw-facts" x-show="linkFacts(link).length">
+              <template x-for="fact in linkFacts(link)" x-bind:key="fact[0]">
+                <div class="nw-fact"><dt x-text="fact[0]"></dt><dd x-text="fact[1]"></dd></div>
+              </template>
+            </dl>
+            <span class="nw-route" x-show="link.route"><svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>{{t "network.route"}}</span>
+          </article>
+        </template>
+      </div>
+    </section>
+
+    <!-- Netze: Liste mit Aufklappen, verbunden wird direkt in der Zeile -->
+    <section class="setting-card setting-card--wide" aria-labelledby="nw-nets-title">
+      <div class="nw-card-head">
+        <h3 class="setting-card-title" id="nw-nets-title">{{t "network.nets.title"}}</h3>
+        <button type="button" class="icon-button labeled nw-scan" x-show="hasWifi()" x-on:click="scan()" x-bind:disabled="scanning || locked()" x-bind:data-busy="scanning ? 'true' : 'false'">
+          <svg class="automation-icon" aria-hidden="true"><use href="#ico-refresh"></use></svg><span x-show="!scanning">{{t "network.scan"}}</span><span x-show="scanning">{{t "network.scanning"}}</span>
+        </button>
+      </div>
+      <div class="nw-empty" x-show="!hasWifi()">
+        <span class="nw-empty-mark" aria-hidden="true"><svg class="automation-icon"><use href="#ico-wifi-off"></use></svg></span>
+        <strong>{{t "network.nowifi.title"}}</strong>
+        <span>{{t "network.nowifi.text"}}</span>
+      </div>
+      <p class="setting-note" x-show="hasWifi()" x-text="scanNote()"></p>
+      <p class="nw-hint" x-show="actionError" x-text="actionError"></p>
+      <ul class="nw-nets" x-show="hasWifi()" x-bind:data-busy="scanning ? 'true' : 'false'">
+        <template x-for="net in sortedNets()" x-bind:key="net.ssid">
+          <li class="nw-net" x-bind:data-open="openSsid === net.ssid ? 'true' : 'false'" x-bind:data-current="net.current ? 'true' : 'false'">
+            <button type="button" class="nw-net-row" x-on:click="toggle(net)" x-bind:aria-expanded="openSsid === net.ssid ? 'true' : 'false'">
+              <span class="nw-bars" x-bind:data-level="net.level" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+              <span class="nw-net-name">
+                <span class="nw-net-ssid" x-text="net.ssid"></span>
+                <span class="nw-net-meta"><span class="nw-net-state" x-text="netState(net)"></span><span x-text="bandLabel(net.band)"></span><span x-show="net.security"> · </span><span x-text="net.security"></span><span> · </span><span x-text="net.signal_dbm + ' dBm'"></span></span>
+              </span>
+              <span class="nw-tag nw-tag-ok" x-show="net.current">{{t "network.net.connected"}}</span>
+              <span class="nw-tag" x-show="net.saved && !net.current">{{t "network.net.saved"}}</span>
+              <svg class="automation-icon nw-lock" x-show="net.security" aria-label="{{t "network.net.encrypted"}}"><use href="#ico-lock"></use></svg>
+              <svg class="automation-icon nw-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+            </button>
+            <div class="nw-reveal" x-bind:data-open="openSsid === net.ssid ? 'true' : 'false'">
+              <div class="nw-reveal-inner">
+                <div class="nw-net-body">
+
+                  <!-- Bereits verbunden -->
+                  <template x-if="net.current">
+                    <div class="nw-net-actions">
+                      <p class="setting-note" x-text="levelNote(net)"></p>
+                      <div class="nw-btns">
+                        <button type="button" class="icon-button labeled nw-danger-ghost" x-bind:disabled="locked()" x-on:click="forget(net)"><svg class="automation-icon" aria-hidden="true"><use href="#ico-trash"></use></svg><span>{{t "network.forget"}}</span></button>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Verbinden -->
+                  <template x-if="!net.current && flow().ssid !== net.ssid">
+                    <form class="nw-connect" x-on:submit.prevent="connect(net)">
+                      <label class="nw-field" x-show="net.security && !net.saved"><span>{{t "network.pw.label"}}</span>
+                        <span class="nw-pw"><input x-bind:type="showPw ? 'text' : 'password'" autocomplete="off" x-model="password" x-bind:disabled="locked()" placeholder="{{t "network.pw.placeholder"}}"><button type="button" class="nw-pw-eye" x-bind:disabled="locked()" x-on:click="showPw = !showPw"><span x-show="!showPw">{{t "network.pw.show"}}</span><span x-show="showPw">{{t "network.pw.hide"}}</span></button></span>
+                      </label>
+                      <p class="setting-note" x-show="net.saved">{{t "network.net.saved_note"}}</p>
+                      <p class="nw-hint" x-show="viaWifi()">{{t "network.net.via_wifi"}}</p>
+                      <div class="nw-btns">
+                        <button type="button" class="icon-button labeled nw-danger-ghost" x-show="net.saved" x-bind:disabled="locked()" x-on:click="forget(net)"><svg class="automation-icon" aria-hidden="true"><use href="#ico-trash"></use></svg><span>{{t "network.forget"}}</span></button>
+                        <button type="submit" class="icon-button labeled nw-primary" x-bind:disabled="locked() || (net.security && !net.saved && password.length < 8)"><span>{{t "network.connect"}}</span></button>
+                      </div>
+                    </form>
+                  </template>
+
+                  <!-- Umstellen läuft -->
+                  <template x-if="flow().ssid === net.ssid">
+                    <div class="nw-flow">
+                      <ol class="nw-steps">
+                        <template x-for="(step, i) in flow().steps" x-bind:key="i">
+                          <li class="nw-step" x-bind:data-state="step.state">
+                            <span class="nw-step-mark" aria-hidden="true">
+                              <svg class="automation-icon" x-show="step.state === 'done'"><use href="#ico-check"></use></svg>
+                              <svg class="automation-icon" x-show="step.state === 'fail'"><use href="#ico-close"></use></svg>
+                            </span>
+                            <span class="nw-step-text"><span x-show="step.key === 'associate'" x-text="$t('network.step.associate', { ssid: net.ssid })"></span><span x-show="step.key === 'address'">{{t "network.step.address"}}</span><span x-show="step.key === 'gateway'">{{t "network.step.gateway"}}</span><small x-text="step.note" x-show="step.note"></small></span>
+                          </li>
+                        </template>
+                      </ol>
+                      <div class="nw-flow-result" x-show="flow().result" x-bind:data-tone="flow().result === 'ok' ? 'ok' : 'bad'">
+                        <strong x-show="flow().result === 'ok'">{{t "network.flow.connected"}}</strong>
+                        <strong x-show="flow().result !== 'ok'">{{t "network.flow.rolled_back"}}</strong>
+                        <span x-text="flow().message"></span>
+                      </div>
+                      <div class="nw-btns" x-show="flow().result">
+                        <button type="button" class="icon-button labeled" x-on:click="finish()"><span>{{t "network.done"}}</span></button>
+                      </div>
+                    </div>
+                  </template>
+
+                </div>
+              </div>
+            </div>
+          </li>
+        </template>
+        <li class="nw-net nw-net-hidden" x-bind:data-open="openSsid === '__hidden' ? 'true' : 'false'">
+          <button type="button" class="nw-net-row" x-on:click="openSsid = openSsid === '__hidden' ? null : '__hidden'">
+            <span class="nw-plus" aria-hidden="true"><svg class="automation-icon"><use href="#ico-plus"></use></svg></span>
+            <span class="nw-net-name"><span class="nw-net-ssid">{{t "network.hidden.title"}}</span><span class="nw-net-meta">{{t "network.hidden.meta"}}</span></span>
+            <svg class="automation-icon nw-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+          </button>
+          <div class="nw-reveal" x-bind:data-open="openSsid === '__hidden' ? 'true' : 'false'">
+            <div class="nw-reveal-inner">
+              <form class="nw-connect nw-net-body" x-on:submit.prevent="connectHidden()">
+                <div class="nw-field-row">
+                  <label class="nw-field"><span>{{t "network.hidden.ssid_label"}}</span><input type="text" autocomplete="off" x-model="hidden.ssid" x-bind:disabled="locked()" placeholder="{{t "network.hidden.ssid_placeholder"}}"></label>
+                  <label class="nw-field"><span>{{t "network.pw.label"}}</span><input type="password" autocomplete="off" x-model="hidden.password" x-bind:disabled="locked()" placeholder="{{t "network.pw.placeholder"}}"></label>
+                </div>
+                <div class="nw-btns"><button type="submit" class="icon-button labeled nw-primary" x-bind:disabled="locked()"><span>{{t "network.connect"}}</span></button></div>
+              </form>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Ausfallsicherheit: Ersatz für LAN und Notfall-Hotspot -->
+    <section class="setting-card" aria-labelledby="nw-fallback-title">
+      <h3 class="setting-card-title" id="nw-fallback-title">{{t "network.fallback.title"}}</h3>
+      <p class="setting-note" x-show="!hasWifi()">{{t "network.fallback.unavailable"}}</p>
+      <div x-show="hasWifi()">
+        <div class="nw-segment" role="radiogroup" aria-label="{{t "network.fallback.aria"}}">
+          <button type="button" role="radio" class="nw-segment-tab" x-bind:disabled="locked() || !canChange()" x-bind:aria-checked="fallbackMode() === 'parallel' ? 'true' : 'false'">{{t "network.fallback.parallel"}}</button>
+          <button type="button" role="radio" class="nw-segment-tab" x-bind:disabled="locked() || !canChange()" x-bind:aria-checked="fallbackMode() === 'standby' ? 'true' : 'false'">{{t "network.fallback.standby"}}</button>
+        </div>
+        <p class="setting-note" x-show="fallbackMode() === 'parallel'">{{t "network.fallback.parallel_note"}}</p>
+        <p class="setting-note" x-show="fallbackMode() === 'standby'">{{t "network.fallback.standby_note"}}</p>
+        <p class="nw-hint" x-show="savedCount() === 0">{{t "network.fallback.none_saved"}}</p>
+      </div>
+    </section>
+
+    <section class="setting-card" aria-labelledby="nw-hotspot-title" x-show="hasWifi()">
+      <h3 class="setting-card-title" id="nw-hotspot-title">{{t "network.hotspot.title"}}</h3>
+      <div class="setting-row">
+        <span class="setting-row-label">{{t "network.hotspot.toggle"}}<span class="setting-row-unit">{{t "network.hotspot.toggle_unit"}}</span></span>
+        <label class="settings-toggle"><input type="checkbox" x-bind:checked="hotspotOn()" x-bind:disabled="locked() || !canChange() || !hasWifi()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+      </div>
+      <p class="setting-note" x-show="!hasWifi()">{{t "network.fallback.unavailable"}}</p>
+      <div class="nw-reveal" x-bind:data-open="hotspotOn() ? 'true' : 'false'">
+        <div class="nw-reveal-inner">
+          <div class="nw-hotspot" x-bind:data-live="hotspotActive() ? 'true' : 'false'">
+            <span class="nw-hotspot-mark" aria-hidden="true"><svg class="automation-icon"><use href="#ico-access-point"></use></svg></span>
+            <dl class="nw-facts nw-facts-tight">
+              <div class="nw-fact" x-show="hotspotInfo().ssid"><dt>{{t "network.hotspot.name"}}</dt><dd x-text="hotspotInfo().ssid"></dd></div>
+              <div class="nw-fact" x-show="hotspotInfo().password"><dt>{{t "network.hotspot.password"}}</dt><dd class="nw-mono"><span x-show="hotspotPwShown" x-text="hotspotInfo().password"></span><span x-show="!hotspotPwShown">••••••••••••</span> <button type="button" class="nw-pw-eye nw-inline-eye" x-on:click="hotspotPwShown = !hotspotPwShown"><span x-show="!hotspotPwShown">{{t "network.pw.show"}}</span><span x-show="hotspotPwShown">{{t "network.pw.hide"}}</span></button></dd></div>
+              <div class="nw-fact"><dt>{{t "network.hotspot.address"}}</dt><dd class="nw-mono" x-text="hotspotInfo().address"></dd></div>
+            </dl>
+          </div>
+          <p class="setting-note" x-show="!hotspotActive()">{{t "network.hotspot.intro"}}</p>
+          <p class="nw-hint" x-show="hotspotActive()">{{t "network.hotspot.live"}}</p>
+        </div>
+      </div>
+    </section>
+
+</section>
+{{end}}

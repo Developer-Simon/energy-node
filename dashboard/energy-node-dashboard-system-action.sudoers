@@ -13,3 +13,7 @@ energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-act
 energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action storage format *
 energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action storage mount *
 energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action storage unmount
+energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action network-status
+energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action wifi-scan
+energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action wifi-connect
+energynode ALL=(root) NOPASSWD: /usr/local/sbin/energy-node-dashboard-system-action wifi-forget *

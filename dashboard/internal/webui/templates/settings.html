@@ -36,6 +36,13 @@
         <span class="settings-nav-title">{{t "settings.nav.history"}}</span>
         <span class="settings-nav-desc">{{t "settings.nav.history_desc"}}</span>
       </button>
+      {{if index .Can "network"}}
+      <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-network" x-bind:class="{ active: activeSettingsPage === 'network' }" x-bind:aria-selected="activeSettingsPage === 'network'" x-on:click="activeSettingsPage = 'network'">
+        <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-network"></use></svg>
+        <span class="settings-nav-title">{{t "settings.nav.network"}}</span>
+        <span class="settings-nav-desc">{{t "settings.nav.network_desc"}}</span>
+      </button>
+      {{end}}
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-mqtt" x-bind:class="{ active: activeSettingsPage === 'mqtt' }" x-bind:aria-selected="activeSettingsPage === 'mqtt'" x-on:click="activeSettingsPage = 'mqtt'">
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-mqtt"></use></svg>
         <span class="settings-nav-title">MQTT</span>
@@ -1038,6 +1045,7 @@
     </section>
   </section>
   {{template "mqtt" .}}
+  {{if index .Can "network"}}{{template "network" .}}{{end}}
   {{template "tailscale" .}}
   {{template "tiny-tuya" .}}
   {{template "versions" .}}

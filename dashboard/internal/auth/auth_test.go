@@ -242,7 +242,7 @@ func TestHADefaultRoles(t *testing.T) {
 			t.Errorf("ha admin preset lacks %s", key)
 		}
 	}
-	for _, key := range []string{RoleMQTTConfig, RoleSetupTinyTuya, RoleTailscale, RoleUpdateSettings, RoleSystemActions, RoleUserManagement, RoleHTTPLogin} {
+	for _, key := range []string{RoleMQTTConfig, RoleSetupTinyTuya, RoleTailscale, RoleNetwork, RoleUpdateSettings, RoleSystemActions, RoleUserManagement, RoleHTTPLogin} {
 		if containsRole(admin, key) {
 			t.Errorf("ha admin preset has %s", key)
 		}

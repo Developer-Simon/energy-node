@@ -41,6 +41,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -331,6 +332,11 @@ func main() {
 	// the /usr/sbin path of the tarball install.
 	tailscaleBin := tailscale.ResolveBinary(cfg.Tailscale.Bin)
 	tailscaleClient := tailscale.NewClient(tailscaleBin, systemactions.ExecOutputRunner{}, time.Duration(cfg.Tailscale.StatusTimeoutS)*time.Second)
+	// WLAN and LAN page: nur mit System-Action-Helper, sonst fehlen die Routen.
+	var networkClient *netmgr.Client
+	if cfg.Dashboard.SystemActionHelper != "" {
+		networkClient = netmgr.NewClient(nil, cfg.Dashboard.SystemActionHelper, dataDir)
+	}
 	runtimeStore := runtimecache.NewStore(cfg.RuntimePath(dataDir, ""))
 	energyStatsStore := energystats.NewStore(cfg.RuntimePath(dataDir, "energystats"))
 	historySampler := historyexchange.NewSampler()
@@ -826,6 +832,7 @@ func main() {
 		AppConfigPath:     *configPath,
 		BridgeTargetPath:  cfg.Dashboard.MosquittoBridgeTarget,
 		Tailscale:         tailscaleClient,
+		Network:           networkClient,
 		Resolver:          energyResolver,
 		EnergyStats:       energyStats,
 		ChainMonitor:      chainMonitor,

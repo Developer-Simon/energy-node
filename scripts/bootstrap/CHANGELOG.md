@@ -4,7 +4,7 @@
 
 ### Features
 
-- **storage:** Add an additional drive for running data and backups (#233)
+- **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 
 ## v0.3.2 (2026-11-07)
 
