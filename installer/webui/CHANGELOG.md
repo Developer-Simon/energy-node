@@ -5,6 +5,7 @@
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
+- **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236) (6d169d7)
 - **webui:** add the media API and its fake (5a7025d)
 - **webui:** add the media entry to the shell (c6b1e3e)
 - **webui:** add the pure helpers of the media mode (d7295e0)
@@ -27,7 +28,6 @@
 - **webui:** add a switch for SSH login with the emergency password (72eee4a)
 - **webui:** point first-time users to the media mode (d8d59c1)
 - **webui:** pick time zone and keyboard from rows instead of drop-downs (05d9951)
-- **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236)
 
 ### Fixes
 

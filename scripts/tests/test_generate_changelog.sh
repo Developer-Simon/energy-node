@@ -110,7 +110,7 @@ cat > "$cl" <<'EOF'
 
 ### Fixes
 
-- **dashboard:** another change (deadaaa3)
+- **dashboard:** Another change (deadaaa3)
 
 ## v0.3.0 (2026-07-01)
 
@@ -134,8 +134,9 @@ commit "docs(changelog): simulate post-squash state"
 gen dashboard
 [ "$(grep -c "^## v0.5.15 " "$cl")" -eq 1 ] || fail "stale same-minor section stacked instead of merging"
 grep -q "ghost entry from a squashed pr" "$cl" || fail "dangling-hash entry dropped in merge"
-grep -q "another change"                 "$cl" || fail "reachable entry lost in merge"
-[ "$(grep -c "another change" "$cl")" -eq 1 ]  || fail "entry duplicated across merged section"
+grep -qi "another change"                "$cl" || fail "reachable entry lost in merge"
+# The stale line differs from the commit subject only in the case of the first letter.
+[ "$(grep -ci "another change" "$cl")" -eq 1 ] || fail "entry duplicated across merged section (case)"
 grep -q "stale wording"                  "$cl" && fail "PR-number dup not deduplicated (#7)"
 [ "$(grep -c "^## v0.3.0 " "$cl")" -eq 1 ] || fail "older minor wrongly folded into open minor"
 grep -q "older-minor feature that stays frozen" "$cl" || fail "frozen older-minor entry lost"
