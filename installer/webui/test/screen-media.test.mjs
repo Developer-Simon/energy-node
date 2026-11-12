@@ -728,3 +728,25 @@ test('beim 5-GHz-Netz und einem Pi 3 bietet die Warnung das 2,4-GHz-Netz an', as
   assert.equal(screen.form.ssid, 'Haus');
   assert.equal(screen.sibling, '');
 });
+
+test('der Abgleich nennt das Netz auf dem anderen Band', async () => {
+  const { screen } = settings({ 'POST /api/media/wifi-check': { result: 'match', via: 'Haus' } });
+  await screen.init();
+  screen.form.wifiOn = true;
+  screen.form.ssid = 'Haus 5 GHz';
+  screen.form.wifiPassword = 'richtig-123';
+  await screen.checkWifi();
+  assert.equal(screen.wifiState, 'match');
+  assert.equal(screen.wifiVia, 'Haus');
+});
+
+test('kennt der Rechner kein Passwort, sagt der Abgleich das', async () => {
+  const { screen } = settings({ 'POST /api/media/wifi-check': { result: 'unknown', via: '' } });
+  await screen.init();
+  screen.form.wifiOn = true;
+  screen.form.ssid = 'Fremd';
+  screen.form.wifiPassword = 'egal-1234';
+  await screen.checkWifi();
+  assert.equal(screen.wifiState, 'unknown');
+  assert.equal(screen.wifiVia, '');
+});

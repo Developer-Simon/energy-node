@@ -215,8 +215,10 @@
             <div class="media-field">
               <span class="lbl" id="media-wifi-password" x-text="t('media.settings.wifi_password')"></span>
               <input type="password" x-model="form.wifiPassword" aria-labelledby="media-wifi-password" autocomplete="off">
-              <template x-if="wifiState === 'match'"><div class="media-check media-check--ok" x-text="t('media.wifi.match')"></div></template>
-              <template x-if="wifiState === 'mismatch'"><div class="media-check media-check--warn" x-text="t('media.wifi.mismatch')"></div></template>
+              <template x-if="wifiState === 'match'"><div class="media-check media-check--ok" x-text="wifiVia ? t('media.wifi.match_via', { name: wifiVia }) : t('media.wifi.match')"></div></template>
+              <template x-if="wifiState === 'mismatch'"><div class="media-check media-check--warn" x-text="wifiVia ? t('media.wifi.mismatch_via', { name: wifiVia }) : t('media.wifi.mismatch')"></div></template>
+              <template x-if="wifiState === 'unknown'"><div class="media-check" x-text="t('media.wifi.unknown')"></div></template>
+              <template x-if="wifiState === 'failed'"><div class="media-check" x-text="t('media.wifi.failed')"></div></template>
             </div>
             <template x-if="!countryKnown">
               <div class="media-field">

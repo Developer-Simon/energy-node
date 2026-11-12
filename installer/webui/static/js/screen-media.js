@@ -147,6 +147,8 @@
       // wifiState: '' ohne Pruefung, 'checking', 'match', 'mismatch', 'unknown'
       // oder 'failed'. Nur match und mismatch zeigen etwas an.
       wifiState: '',
+      // wifiVia: das Netz auf dem anderen Band, gegen das geprueft wurde.
+      wifiVia: '',
       wifiTimer: null,
       wifiSeq: 0,
       // manual: "Anderes Netz" ist gewaehlt, der Name wird getippt.
@@ -349,6 +351,7 @@
         clearTimeout(this.wifiTimer);
         this.wifiSeq++;
         this.wifiState = '';
+        this.wifiVia = '';
         var self = this;
         this.wifiTimer = setTimeout(function () {
           self.checkWifi();
@@ -362,6 +365,7 @@
         var seq = ++this.wifiSeq;
         if (!this.form.wifiOn || !this.form.ssid || !this.form.wifiPassword) {
           this.wifiState = '';
+          this.wifiVia = '';
           return;
         }
         this.wifiState = 'checking';
@@ -378,6 +382,7 @@
           return;
         }
         this.wifiState = result.result || 'unknown';
+        this.wifiVia = result.via || '';
       },
 
       get passwordShort() {

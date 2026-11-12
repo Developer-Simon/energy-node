@@ -99,9 +99,10 @@ download page. For now the tab works on Linux only. Windows and macOS follow.
    medium and the installer does not store it. The installer fills in the name
    of the network this computer is connected to, when it can find it, and offers
    the other networks in range to pick from. If this computer knows the password
-   of that network, the installer tells you whether yours matches. The Wi-Fi
-   country follows the time zone. On a 5 GHz network the installer warns that a
-   Raspberry Pi 3B or Zero W only reaches 2.4 GHz.
+   of that network, or of the same network on the other band, the installer
+   tells you whether yours matches. Otherwise it says that it cannot check the
+   password. The Wi-Fi country follows the time zone. On a 5 GHz network the
+   installer warns that a Raspberry Pi 3B or Zero W only reaches 2.4 GHz.
 3. **Drive.** Plug in the card. Removable drives appear in the list as soon as
    they are connected. Internal drives only show up with the **Also show internal
    drives** switch, and the drive this computer runs from never does. For a card
