@@ -105,8 +105,12 @@ func mediaCatalogFixture() hostapi.MediaCatalog {
 			Keyboard:    "de",
 			WifiCountry: "DE",
 			WifiSSID:    "Werkstatt",
-			Timezones:   []string{"Europe/Berlin", "Europe/Vienna", "Europe/Zurich", "UTC"},
-			Keyboards:   []string{"de", "us", "gb", "fr", "ch"},
+			WifiFreqMHz: 2437,
+			ZoneCountries: map[string]string{
+				"Europe/Berlin": "DE", "Europe/Vienna": "AT", "Europe/Zurich": "CH",
+			},
+			Timezones: []string{"Europe/Berlin", "Europe/Vienna", "Europe/Zurich", "UTC"},
+			Keyboards: []string{"de", "us", "gb", "fr", "ch"},
 		},
 	}
 }
@@ -166,6 +170,21 @@ func (f *FakeBackend) MediaCheckName(ctx context.Context, name string) (hostapi.
 		check.Suggestion = name + "-2"
 	}
 	return check, nil
+}
+
+// mediaWifiPassword ist das Passwort, das der Fake fuer "Werkstatt" kennt.
+const mediaWifiPassword = "werkstatt-wlan"
+
+// MediaCheckWifi kennt nur das Netz "Werkstatt" mit mediaWifiPassword.
+func (f *FakeBackend) MediaCheckWifi(ctx context.Context, req hostapi.MediaWifiCheck) (hostapi.MediaWifiCheckResult, error) {
+	switch {
+	case req.SSID != "Werkstatt" || req.Password == "":
+		return hostapi.MediaWifiCheckResult{Result: "unknown"}, nil
+	case req.Password == mediaWifiPassword:
+		return hostapi.MediaWifiCheckResult{Result: "match"}, nil
+	default:
+		return hostapi.MediaWifiCheckResult{Result: "mismatch"}, nil
+	}
 }
 
 // MediaWrite nimmt den Auftrag an und startet den festen Verlauf. Ein

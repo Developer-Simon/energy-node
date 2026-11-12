@@ -149,3 +149,28 @@ func TestMediaCatalogCarriesTheDetectedWifiName(t *testing.T) {
 		t.Errorf("defaults.wifi_ssid = %q, want Werkstatt", catalog.Defaults.WifiSSID)
 	}
 }
+
+func TestMediaWifiCheck(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	cases := map[string]string{
+		`{"ssid":"Werkstatt","password":"werkstatt-wlan"}`: "match",
+		`{"ssid":"Werkstatt","password":"falsch-falsch"}`:  "mismatch",
+		`{"ssid":"Nachbar","password":"werkstatt-wlan"}`:   "unknown",
+	}
+	for body, want := range cases {
+		rec := do(t, server, http.MethodPost, "/api/media/wifi-check", body)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d: %s", body, rec.Code, rec.Body.String())
+		}
+		var view hostapi.MediaWifiCheckResult
+		if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if view.Result != want {
+			t.Errorf("%s: result = %q, want %q", body, view.Result, want)
+		}
+	}
+	if rec := do(t, server, http.MethodGet, "/api/media/wifi-check", ""); rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET status = %d, want 405", rec.Code)
+	}
+}

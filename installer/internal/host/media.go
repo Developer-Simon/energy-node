@@ -159,14 +159,16 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 
 func mediaDefaults(d media.Defaults) hostapi.MediaDefaults {
 	return hostapi.MediaDefaults{
-		Hostname:    defaultMediaHostname,
-		User:        defaultMediaUser,
-		Timezone:    d.Timezone,
-		Keyboard:    d.Keyboard,
-		WifiCountry: d.WifiCountry,
-		WifiSSID:    d.WifiSSID,
-		Timezones:   d.Timezones,
-		Keyboards:   d.Keyboards,
+		Hostname:      defaultMediaHostname,
+		User:          defaultMediaUser,
+		Timezone:      d.Timezone,
+		Keyboard:      d.Keyboard,
+		WifiCountry:   d.WifiCountry,
+		WifiSSID:      d.WifiSSID,
+		WifiFreqMHz:   d.WifiFreqMHz,
+		ZoneCountries: d.ZoneCountries,
+		Timezones:     d.Timezones,
+		Keyboards:     d.Keyboards,
 	}
 }
 
@@ -202,6 +204,14 @@ func (h *Host) MediaCheckName(ctx context.Context, name string) (hostapi.MediaNa
 	}
 	c := media.CheckName(ctx, net.DefaultResolver, name)
 	return hostapi.MediaNameCheck{Valid: c.Valid, Taken: c.Taken, Suggestion: c.Suggestion}, nil
+}
+
+// MediaCheckWifi vergleicht das WLAN-Passwort mit den Profilen dieses Rechners.
+func (h *Host) MediaCheckWifi(ctx context.Context, req hostapi.MediaWifiCheck) (hostapi.MediaWifiCheckResult, error) {
+	if err := h.mediaSupported(); err != nil {
+		return hostapi.MediaWifiCheckResult{}, err
+	}
+	return hostapi.MediaWifiCheckResult{Result: media.CheckWifiKey(ctx, req.SSID, req.Password)}, nil
 }
 
 func (h *Host) MediaWrite(ctx context.Context, req hostapi.MediaWriteRequest) error {

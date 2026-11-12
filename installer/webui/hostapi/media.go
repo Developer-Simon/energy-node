@@ -72,14 +72,16 @@ type MediaDevice struct {
 
 // MediaDefaults sind die Vorgaben des Formulars.
 type MediaDefaults struct {
-	Hostname    string   `json:"hostname"`
-	User        string   `json:"user"`
-	Timezone    string   `json:"timezone"`
-	Keyboard    string   `json:"keyboard"`
-	WifiCountry string   `json:"wifi_country"`
-	WifiSSID    string   `json:"wifi_ssid"`
-	Timezones   []string `json:"timezones"`
-	Keyboards   []string `json:"keyboards"`
+	Hostname      string            `json:"hostname"`
+	User          string            `json:"user"`
+	Timezone      string            `json:"timezone"`
+	Keyboard      string            `json:"keyboard"`
+	WifiCountry   string            `json:"wifi_country"`
+	WifiSSID      string            `json:"wifi_ssid"`
+	WifiFreqMHz   int               `json:"wifi_freq_mhz"`  // 0 = unbekannt
+	ZoneCountries map[string]string `json:"zone_countries"` // Zeitzone -> Laendercode
+	Timezones     []string          `json:"timezones"`
+	Keyboards     []string          `json:"keyboards"`
 }
 
 // MediaCatalog ist die Geraeteliste mit Images und die Vorgaben.
@@ -112,6 +114,18 @@ type MediaNameCheck struct {
 	Valid      bool   `json:"valid"`
 	Taken      bool   `json:"taken"`
 	Suggestion string `json:"suggestion"`
+}
+
+// MediaWifiCheck ist der Rumpf von POST /api/media/wifi-check.
+type MediaWifiCheck struct {
+	SSID     string `json:"ssid"`
+	Password string `json:"password"`
+}
+
+// MediaWifiCheckResult sagt, ob dieser Rechner das Netz mit genau diesem
+// Passwort kennt: "match", "mismatch" oder "unknown".
+type MediaWifiCheckResult struct {
+	Result string `json:"result"`
 }
 
 // MediaWifi sind die WLAN-Zugangsdaten fuers Geraet.
@@ -185,6 +199,7 @@ type MediaProvider interface {
 	MediaCatalog(ctx context.Context) (MediaCatalog, error)
 	MediaDrives(ctx context.Context, internal bool) ([]MediaDrive, error)
 	MediaCheckName(ctx context.Context, name string) (MediaNameCheck, error)
+	MediaCheckWifi(ctx context.Context, req MediaWifiCheck) (MediaWifiCheckResult, error)
 	MediaWrite(ctx context.Context, req MediaWriteRequest) error
 	MediaJob(ctx context.Context) (MediaJob, error)
 	MediaCancel(ctx context.Context) error
@@ -256,6 +271,26 @@ func (s *Server) handleMediaName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view, err := provider.MediaCheckName(r.Context(), r.URL.Query().Get("name"))
+	if err != nil {
+		writeBackendError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+// handleMediaWifi prueft das WLAN-Passwort gegen die Profile des Rechners.
+// POST, damit das Passwort nicht in der Adresse steht.
+func (s *Server) handleMediaWifi(w http.ResponseWriter, r *http.Request) {
+	provider, ok := s.mediaProvider(w, r, http.MethodPost)
+	if !ok {
+		return
+	}
+	var req MediaWifiCheck
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxMediaBody)).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		return
+	}
+	view, err := provider.MediaCheckWifi(r.Context(), req)
 	if err != nil {
 		writeBackendError(w, err)
 		return
