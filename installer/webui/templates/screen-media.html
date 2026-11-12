@@ -252,7 +252,7 @@
         <template x-if="visible.length === 0">
           <div class="media-hint" role="status" x-text="t('media.drive.empty')"></div>
         </template>
-        <div role="radiogroup" :aria-label="t('media.drive.title')">
+        <div class="media-drives" role="radiogroup" :aria-label="t('media.drive.title')">
           <template x-for="item in visible" :key="item.path">
             <div class="media-opt media-drive" :class="{ on: selected === item.path, 'media-opt--off': !fits(item) }" role="radio" tabindex="0"
                  :aria-checked="selected === item.path" :aria-disabled="!fits(item)"
