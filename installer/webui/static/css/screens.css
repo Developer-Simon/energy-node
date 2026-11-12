@@ -483,7 +483,7 @@
 .media-opt{display:flex;align-items:center;gap:.6rem;margin-bottom:.45rem;padding:.6rem .7rem;border-radius:var(--radius-sm);border:1px solid var(--border-soft);background:var(--sunken);cursor:pointer;transition:border-color .15s var(--ease),background-color .15s var(--ease)}
 .media-opt:last-child{margin-bottom:0}
 .media-opt.on{border-color:var(--accent-line);background:var(--accent-bg)}
-.media-radio{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1.05rem;height:1.05rem;border-radius:50%;border:1px solid var(--border)}
+.media-radio{flex:none;display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;border-radius:50%;border:1px solid var(--border)}
 .media-opt.on .media-radio{border-color:var(--accent)}
 .media-opt.on .media-radio::after{content:'';width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
 .media-opt-t{flex:1 1 auto;min-width:0;font-size:.84rem;font-weight:600;color:var(--text-strong)}
@@ -578,6 +578,9 @@ button.media-erase:hover:not(:disabled){background:var(--bad-bg);border-color:va
 .media-step-ic svg{width:1rem;height:1rem}
 .media-step--done .media-step-ic{color:var(--ok)}
 .media-step--active .media-step-ic svg,.media-spin svg{animation:media-spin 1s linear infinite}
+/* Das Lade-Icon hat nur auf dem Ausfuehrungs-Bildschirm Strich und Farbe. Ohne
+   diese Regel fuellt der Browser den Kreis schwarz. */
+.media-step-ic .spin circle,.media-spin .spin circle{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:34 62}
 @keyframes media-spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.media-step--active .media-step-ic svg,.media-spin svg{animation:none}}
 .media-bar{height:.5rem;margin-top:.9rem;border-radius:999px;background:var(--track);overflow:hidden}
