@@ -17,28 +17,34 @@ var nmcliOutput = func(ctx context.Context, args ...string) ([]byte, error) {
 }
 
 // CheckWifiKey vergleicht ssid und password mit den WLAN-Profilen des
-// NetworkManager. Das gespeicherte Passwort verlaesst diese Funktion nie.
-func CheckWifiKey(parent context.Context, ssid, password string) string {
+// NetworkManager, auch mit dem Gegenstueck auf dem anderen Band. via nennt
+// das Profil, wenn es nicht genau ssid ist. Das gespeicherte Passwort
+// verlaesst diese Funktion nie.
+func CheckWifiKey(parent context.Context, ssid, password string) (result, via string) {
 	if ssid == "" || password == "" {
-		return WifiKeyUnknown
+		return WifiKeyUnknown, ""
 	}
 	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
 	out, err := nmcliOutput(ctx, "-t", "-f", "NAME,TYPE", "connection", "show")
 	if err != nil {
-		return WifiKeyUnknown
+		return WifiKeyUnknown, ""
 	}
 	var stored []storedWifi
 	for _, name := range wifiConnectionNames(out) {
 		ssidOut, err := nmcliOutput(ctx, "-g", "802-11-wireless.ssid", "connection", "show", "id", name)
-		if err != nil || unescapeTerse(strings.TrimRight(string(ssidOut), "\r\n")) != ssid {
+		if err != nil {
+			continue
+		}
+		profile := unescapeTerse(strings.TrimRight(string(ssidOut), "\r\n"))
+		if profile != ssid && !twins(ssid, profile) {
 			continue
 		}
 		pskOut, err := nmcliOutput(ctx, "-s", "-g", "802-11-wireless-security.psk", "connection", "show", "id", name)
 		if err != nil {
 			continue
 		}
-		stored = append(stored, storedWifi{SSID: ssid, PSK: unescapeTerse(strings.TrimRight(string(pskOut), "\r\n"))})
+		stored = append(stored, storedWifi{SSID: profile, PSK: unescapeTerse(strings.TrimRight(string(pskOut), "\r\n"))})
 	}
 	return matchWifiKey(stored, ssid, password)
 }

@@ -220,7 +220,8 @@ func (h *Host) MediaCheckWifi(ctx context.Context, req hostapi.MediaWifiCheck) (
 	if err := h.mediaSupported(); err != nil {
 		return hostapi.MediaWifiCheckResult{}, err
 	}
-	return hostapi.MediaWifiCheckResult{Result: media.CheckWifiKey(ctx, req.SSID, req.Password)}, nil
+	result, via := media.CheckWifiKey(ctx, req.SSID, req.Password)
+	return hostapi.MediaWifiCheckResult{Result: result, Via: via}, nil
 }
 
 // MediaWifiNetworks sucht die Netze in Reichweite neu.

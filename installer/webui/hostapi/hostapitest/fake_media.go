@@ -180,15 +180,21 @@ func (f *FakeBackend) MediaCheckName(ctx context.Context, name string) (hostapi.
 // mediaWifiPassword ist das Passwort, das der Fake fuer "Werkstatt" kennt.
 const mediaWifiPassword = "werkstatt-wlan"
 
-// MediaCheckWifi kennt nur das Netz "Werkstatt" mit mediaWifiPassword.
+// MediaCheckWifi kennt nur das Netz "Werkstatt" mit mediaWifiPassword. Fuer
+// "Werkstatt 5G" vergleicht es mit "Werkstatt", wie der echte Host mit dem
+// Gegenstueck auf dem anderen Band.
 func (f *FakeBackend) MediaCheckWifi(ctx context.Context, req hostapi.MediaWifiCheck) (hostapi.MediaWifiCheckResult, error) {
+	ssid, via := req.SSID, ""
+	if ssid == "Werkstatt 5G" {
+		ssid, via = "Werkstatt", "Werkstatt"
+	}
 	switch {
-	case req.SSID != "Werkstatt" || req.Password == "":
+	case ssid != "Werkstatt" || req.Password == "":
 		return hostapi.MediaWifiCheckResult{Result: "unknown"}, nil
 	case req.Password == mediaWifiPassword:
-		return hostapi.MediaWifiCheckResult{Result: "match"}, nil
+		return hostapi.MediaWifiCheckResult{Result: "match", Via: via}, nil
 	default:
-		return hostapi.MediaWifiCheckResult{Result: "mismatch"}, nil
+		return hostapi.MediaWifiCheckResult{Result: "mismatch", Via: via}, nil
 	}
 }
 

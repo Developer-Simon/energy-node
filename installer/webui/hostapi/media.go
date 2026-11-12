@@ -132,9 +132,11 @@ type MediaWifiCheck struct {
 }
 
 // MediaWifiCheckResult sagt, ob dieser Rechner das Netz mit genau diesem
-// Passwort kennt: "match", "mismatch" oder "unknown".
+// Passwort kennt: "match", "mismatch" oder "unknown". Via nennt das Profil,
+// wenn der Vergleich ueber das Gegenstueck auf dem anderen Band lief.
 type MediaWifiCheckResult struct {
 	Result string `json:"result"`
+	Via    string `json:"via"`
 }
 
 // MediaWifi sind die WLAN-Zugangsdaten fuers Geraet.

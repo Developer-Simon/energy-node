@@ -10,19 +10,36 @@ import (
 )
 
 func TestMatchWifiKey(t *testing.T) {
-	stored := []storedWifi{{SSID: "Haus", PSK: "geheim123"}, {SSID: "Offen", PSK: ""}}
-	cases := map[string]struct{ ssid, pw, want string }{
-		"same password":  {"Haus", "geheim123", WifiKeyMatch},
-		"other password": {"Haus", "falsch123", WifiKeyMismatch},
-		"unknown net":    {"Fremd", "egal1234", WifiKeyUnknown},
-		"no stored key":  {"Offen", "egal1234", WifiKeyUnknown},
+	stored := []storedWifi{
+		{SSID: "Haus", PSK: "geheim123"},
+		{SSID: "Offen", PSK: ""},
+		{SSID: "Garten 5G", PSK: "blume123"},
+	}
+	cases := map[string]struct{ ssid, pw, want, via string }{
+		"same password":          {"Haus", "geheim123", WifiKeyMatch, ""},
+		"other password":         {"Haus", "falsch123", WifiKeyMismatch, ""},
+		"unknown net":            {"Fremd", "egal1234", WifiKeyUnknown, ""},
+		"no stored key":          {"Offen", "egal1234", WifiKeyUnknown, ""},
+		"twin 5 GHz, same":       {"Haus 5 GHz", "geheim123", WifiKeyMatch, "Haus"},
+		"twin 5 GHz, other":      {"Haus_5G", "falsch123", WifiKeyMismatch, "Haus"},
+		"twin 2.4 GHz, same":     {"Garten", "blume123", WifiKeyMatch, "Garten 5G"},
+		"twin 2.4 suffix, other": {"Garten-2.4GHz", "falsch123", WifiKeyMismatch, "Garten 5G"},
+		"no twin by prefix":      {"Hausboot", "geheim123", WifiKeyUnknown, ""},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			if got := matchWifiKey(stored, tc.ssid, tc.pw); got != tc.want {
-				t.Errorf("matchWifiKey(%q, %q) = %q, want %q", tc.ssid, tc.pw, got, tc.want)
+			got, via := matchWifiKey(stored, tc.ssid, tc.pw)
+			if got != tc.want || via != tc.via {
+				t.Errorf("matchWifiKey(%q, %q) = %q, %q, want %q, %q", tc.ssid, tc.pw, got, via, tc.want, tc.via)
 			}
 		})
+	}
+}
+
+func TestExactProfileWinsOverTwin(t *testing.T) {
+	stored := []storedWifi{{SSID: "Haus", PSK: "alt12345"}, {SSID: "Haus 5 GHz", PSK: "neu12345"}}
+	if got, via := matchWifiKey(stored, "Haus 5 GHz", "alt12345"); got != WifiKeyMismatch || via != "" {
+		t.Errorf("got %q, %q, want mismatch against the exact profile", got, via)
 	}
 }
 
@@ -51,13 +68,16 @@ func TestCheckWifiKeyAsksNetworkManager(t *testing.T) {
 		}
 		return nil, errors.New("unexpected: " + joined)
 	}
-	if got := CheckWifiKey(context.Background(), "Haus", "geheim123"); got != WifiKeyMatch {
-		t.Errorf("match case = %q", got)
+	if got, via := CheckWifiKey(context.Background(), "Haus", "geheim123"); got != WifiKeyMatch || via != "" {
+		t.Errorf("match case = %q, %q", got, via)
 	}
-	if got := CheckWifiKey(context.Background(), "Haus", "falsch123"); got != WifiKeyMismatch {
+	if got, _ := CheckWifiKey(context.Background(), "Haus", "falsch123"); got != WifiKeyMismatch {
 		t.Errorf("mismatch case = %q", got)
 	}
-	if got := CheckWifiKey(context.Background(), "", "x"); got != WifiKeyUnknown {
+	if got, via := CheckWifiKey(context.Background(), "Haus 5 GHz", "geheim123"); got != WifiKeyMatch || via != "Haus" {
+		t.Errorf("twin case = %q, %q", got, via)
+	}
+	if got, _ := CheckWifiKey(context.Background(), "", "x"); got != WifiKeyUnknown {
 		t.Errorf("empty ssid = %q", got)
 	}
 }

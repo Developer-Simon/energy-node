@@ -189,3 +189,15 @@ func TestMediaWifiNetworksScansAgain(t *testing.T) {
 		t.Errorf("nets = %+v, want the 3 catalog networks plus Garten", nets)
 	}
 }
+
+func TestMediaWifiCheckNamesTheTwin(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	rec := do(t, server, http.MethodPost, "/api/media/wifi-check", `{"ssid":"Werkstatt 5G","password":"werkstatt-wlan"}`)
+	var view hostapi.MediaWifiCheckResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if view.Result != "match" || view.Via != "Werkstatt" {
+		t.Errorf("view = %+v, want match via Werkstatt", view)
+	}
+}
