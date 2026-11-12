@@ -48,6 +48,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/servicelogs"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/shellypresets"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storagehealth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
@@ -113,6 +114,47 @@ func batteryStateFiles(devicesDir string) map[string]string {
 		}
 	}
 	return out
+}
+
+// Fester Einhaengepunkt des Datenlaufwerks, wie es der Speicherhelfer anlegt,
+// und der RAM-Ausweich aus der Unit (RuntimeDirectory=energy-node).
+var (
+	storageMountPoint  = storagePath(os.Getenv(storageDemoEnv), "mount", "/mnt/energy-node-data")
+	storageRAMFallback = storagePath(os.Getenv(storageDemoEnv), "ram", "/run/energy-node/runtime")
+)
+
+// storageDriveWatcher baut den Laufwerkswaechter, wenn storage.json ein
+// Datenlaufwerk waehlt. Fehlt die Auswahl, bleibt alles beim bisherigen Ort,
+// und die Funktion liefert nil.
+func storageDriveWatcher(cfg appconfig.Config, dataDir string, reload func() error) *storage.Watcher {
+	choice, err := storage.LoadConfig(dataDir)
+	if err != nil {
+		log.Printf("energy-node-dashboard: storage config ignored: %v", err)
+		return nil
+	}
+	if !choice.UseData {
+		return nil
+	}
+	if cfg.Paths.RuntimeDir == "" {
+		log.Printf("energy-node-dashboard: data drive selected, but runtime_dir is not set, runtime data stays where it is")
+		return nil
+	}
+	nodeID, err := storage.MachineID()
+	if err != nil {
+		log.Printf("energy-node-dashboard: data drive watcher off: %v", err)
+		return nil
+	}
+	return &storage.Watcher{
+		Config: choice,
+		Paths: storage.Paths{
+			Runtime:        cfg.Paths.RuntimeDir,
+			Mount:          storageMountPoint,
+			SystemFallback: filepath.Join(dataDir, "runtime-fallback"),
+			RAMFallback:    storageRAMFallback,
+		},
+		NodeID: nodeID,
+		Reload: reload,
+	}
 }
 
 func main() {
@@ -289,8 +331,8 @@ func main() {
 	// the /usr/sbin path of the tarball install.
 	tailscaleBin := tailscale.ResolveBinary(cfg.Tailscale.Bin)
 	tailscaleClient := tailscale.NewClient(tailscaleBin, systemactions.ExecOutputRunner{}, time.Duration(cfg.Tailscale.StatusTimeoutS)*time.Second)
-	runtimeStore := runtimecache.NewStore(dataDir)
-	energyStatsStore := energystats.NewStore(filepath.Join(dataDir, "energystats"))
+	runtimeStore := runtimecache.NewStore(cfg.RuntimePath(dataDir, ""))
+	energyStatsStore := energystats.NewStore(cfg.RuntimePath(dataDir, "energystats"))
 	historySampler := historyexchange.NewSampler()
 	energyRecorder := energystats.NewRecorder(energyStatsStore, energystats.SystemClockReady("/run/systemd/timesync", 15*time.Minute))
 	// Messketten-Stunden in eigenem Verzeichnis. Ein Schreiben hebt die
@@ -341,6 +383,59 @@ func main() {
 		},
 	}
 	energyRecorderDone := make(chan struct{})
+	// Der Laufwerkswaechter laeuft vor den Recordern und vor dem Laden des
+	// Laufzeitcaches, damit beide den richtigen Ort sehen.
+	storageWatcher := storageDriveWatcher(cfg, dataDir, energyStatsStore.Reload)
+	storageLister := storageDriveLister()
+	storageService := newStorageService(cfg, dataDir, *configPath, systemExecutor, storageLister)
+	storageStatus := func() storage.Status {
+		if storageWatcher == nil {
+			return storage.Status{Mode: storage.ModeNone}
+		}
+		return storageWatcher.Status()
+	}
+	storageRecheck := func(ctx context.Context) storage.Status {
+		if storageWatcher == nil {
+			return storage.Status{Mode: storage.ModeNone}
+		}
+		return storageWatcher.Tick(ctx)
+	}
+	go runStorageResume(ctx, storageService)
+	storageFallback := func() string {
+		if storageWatcher == nil {
+			return ""
+		}
+		switch mode := storageWatcher.Status().Mode; mode {
+		case storage.ModeFallbackSystem, storage.ModeFallbackRAM:
+			return string(mode)
+		}
+		return ""
+	}
+	if storageWatcher != nil {
+		lastReason := ""
+		tickStorage := func() {
+			st := storageWatcher.Tick(ctx)
+			if st.Reason != lastReason {
+				lastReason = st.Reason
+				if st.Reason != "" {
+					log.Printf("energy-node-dashboard: data drive: %s", st.Reason)
+				}
+			}
+		}
+		tickStorage()
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					tickStorage()
+				}
+			}
+		}()
+	}
 	credentialStore := tinytuya.NewCredentialStore(dataDir)
 	if err := runtimeStore.Load(); err != nil {
 		log.Printf("energy-node-dashboard: runtime cache ignored: %v", err)
@@ -589,7 +684,10 @@ func main() {
 		}
 		return s
 	}
-	backupLocation := &backup.SystemLocation{DataDir: dataDir, Settings: backupSettingsFn}
+	backupLocation := backup.DriveLocation{
+		Drive:  storageBackupDrive(dataDir),
+		System: backup.SystemLocation{DataDir: dataDir, Settings: backupSettingsFn},
+	}
 	sched := &backup.Scheduler{
 		Settings: backupSettingsFn,
 		Location: backupLocation,
@@ -696,34 +794,44 @@ func main() {
 		cfg.TinyTuya.ProbeScript,
 		probeTimeout,
 	), credentialStore, client, storageProvider, runtimeStore, httpapi.RouterDependencies{
-		MQTT:                client,
-		MQTTReconfigure:     client,
-		MQTTCredentials:     mqttCredentialStore,
-		Reloader:            client,
-		Auth:                authManager,
-		AdminAuthWarningKey: adminAuthWarningKey,
-		SystemActions:       systemExecutor,
-		ServiceLogs:         serviceLogs,
-		StartedAt:           startedAt,
-		DeviceFilter:        deviceFilterStore,
-		DeviceActions:       client,
-		ShellyPresets:       shellyPresetsStore,
-		Version:             buildVersion,
-		BridgeCredentials:   bridgeCredentialStore,
-		MQTTBridgeWatcher:   client,
-		DataDir:             dataDir,
-		Onboarding:          onboardingStore,
-		TourTargets:         dashwebui.TourTargets,
-		Backup:              backupDeps,
-		InstallerStateDir:   installerStateDir,
-		AppConfigPath:       *configPath,
-		BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,
-		Tailscale:           tailscaleClient,
-		Resolver:            energyResolver,
-		EnergyStats:         energyStats,
-		ChainMonitor:        chainMonitor,
-		ChainSuggest:        chainSuggest,
-		HistorySampler:      historySampler,
+		MQTT:                 client,
+		MQTTReconfigure:      client,
+		MQTTCredentials:      mqttCredentialStore,
+		Reloader:             client,
+		Auth:                 authManager,
+		AdminAuthWarningKey:  adminAuthWarningKey,
+		SystemActions:        systemExecutor,
+		ServiceLogs:          serviceLogs,
+		StartedAt:            startedAt,
+		DeviceFilter:         deviceFilterStore,
+		DeviceActions:        client,
+		ShellyPresets:        shellyPresetsStore,
+		Version:              buildVersion,
+		BridgeCredentials:    bridgeCredentialStore,
+		MQTTBridgeWatcher:    client,
+		DataDir:              dataDir,
+		AutomationHistoryDir: cfg.RuntimePath(devicesDir, ""),
+		Onboarding:           onboardingStore,
+		TourTargets:          dashwebui.TourTargets,
+		Backup:               backupDeps,
+		Storage: &httpapi.StorageDeps{
+			DataDir:   dataDir,
+			Service:   storageService,
+			Lister:    storageLister,
+			Status:    storageStatus,
+			Recheck:   storageRecheck,
+			DemoSpace: os.Getenv(storageDemoEnv) != "",
+		},
+		InstallerStateDir: installerStateDir,
+		AppConfigPath:     *configPath,
+		BridgeTargetPath:  cfg.Dashboard.MosquittoBridgeTarget,
+		Tailscale:         tailscaleClient,
+		Resolver:          energyResolver,
+		EnergyStats:       energyStats,
+		ChainMonitor:      chainMonitor,
+		ChainSuggest:      chainSuggest,
+		StorageFallback:   storageFallback,
+		HistorySampler:    historySampler,
 		InstalledServices: map[string]bool{
 			"automation": cfg.ServiceInstalled("automation"),
 			"tailscale":  cfg.ServiceInstalled("tailscale"),

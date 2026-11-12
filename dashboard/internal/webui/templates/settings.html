@@ -69,6 +69,13 @@
         <span class="settings-nav-desc">{{t "settings.nav.backup_desc"}}</span>
       </button>
       {{end}}
+      {{if index .Can "storage_manage"}}
+      <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-storage" x-bind:class="{ active: activeSettingsPage === 'storage' }" x-bind:aria-selected="activeSettingsPage === 'storage'" x-on:click="activeSettingsPage = 'storage'">
+        <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-drive"></use></svg>
+        <span class="settings-nav-title">{{t "settings.nav.storage"}}</span>
+        <span class="settings-nav-desc">{{t "settings.nav.storage_desc"}}</span>
+      </button>
+      {{end}}
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-versions" x-bind:class="{ active: activeSettingsPage === 'versions' }" x-bind:aria-selected="activeSettingsPage === 'versions'" x-on:click="activeSettingsPage = 'versions'">
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
         <span class="settings-nav-title">{{t "settings.nav.versions"}}</span>
@@ -179,45 +186,6 @@
         </span>
       </label>
     </div>
-    <section class="setting-card storage-health-panel" aria-labelledby="storage-health-heading" aria-live="polite">
-      <div class="storage-health-header">
-        <div>
-          <h3 id="storage-health-heading">{{t "storage_health.title"}}
-            <span class="field-help field-help-align-start">
-              <button class="field-help-trigger" type="button" aria-label="{{t "storage_health.help_button"}}"><svg><use href="#ico-help"></use></svg></button>
-              <span class="field-help-text" role="tooltip">{{t "storage_health.help_text"}}</span>
-            </span>
-          </h3>
-        </div>
-        <span class="storage-health-badge storage-health-badge-unavailable" x-bind:class="storageHealthBadgeClass" x-text="storageHealthBadgeLabel">{{t "storage_health.checking"}}</span>
-      </div>
-      <div class="toolbar"><button type="button" x-on:click="loadStorageHealth()" x-bind:disabled="storageHealthLoading" x-text="storageHealthLoading ? $t('storage_health.checking_progress') : $t('storage_health.refresh')"></button></div>
-      <p x-show="storageHealthLoading">{{t "storage_health.reading"}}</p>
-      <div class="table-scroll">
-        {{/* i18n-keys: storage_health.life_time.range, storage_health.life_time.exceeded, storage_health.pre_eol.normal, storage_health.pre_eol.warning, storage_health.pre_eol.critical, storage_health.remaining.days, storage_health.remaining.years, storage_health.consumed, storage_health.reason.no_mmc */}}
-        <table class="storage-health-table" x-cloak x-show="storageHealth && storageHealth.available">
-        <tbody>
-          <tr><th scope="row">{{t "storage_health.medium"}}</th><td x-text="(storageHealth && storageHealth.medium) || '-'">-</td></tr>
-          <tr><th scope="row">{{t "storage_health.device"}}</th><td x-text="(storageHealth && storageHealth.device) || '-'">-</td></tr>
-          <tr><th scope="row">{{t "storage_health.source"}}</th><td x-text="(storageHealth && storageHealth.source) || '-'">-</td></tr>
-          <template x-if="storageHealth && storageHealth.mode === 'measured'"><tr><th scope="row">{{t "storage_health.vendor_status"}}</th><td>{{t "storage_health.vendor_status_measured"}}</td></tr></template>
-          <template x-if="storageHealth && storageHealth.life_time_a"><tr><th scope="row">{{t "storage_health.life_time_a"}}</th><td x-text="storageHealth.life_time_a.label_key ? $t(storageHealth.life_time_a.label_key, storageHealth.life_time_a.label_params) : storageHealth.life_time_a.label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.life_time_b"><tr><th scope="row">{{t "storage_health.life_time_b"}}</th><td x-text="storageHealth.life_time_b.label_key ? $t(storageHealth.life_time_b.label_key, storageHealth.life_time_b.label_params) : storageHealth.life_time_b.label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.pre_eol"><tr><th scope="row">{{t "storage_health.pre_eol"}}</th><td x-text="storageHealth.pre_eol.label_key ? $t(storageHealth.pre_eol.label_key, storageHealth.pre_eol.label_params) : storageHealth.pre_eol.label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.remaining"}}</th><td x-text="storageHealth.estimate.remaining_key ? storageText(storageHealth.estimate.remaining_key, storageHealth.estimate.remaining_params) : storageHealth.estimate.remaining_label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.consumed_label"}}</th><td x-text="storageHealth.estimate.consumed_key ? storageText(storageHealth.estimate.consumed_key, storageHealth.estimate.consumed_params) : (storageHealth.estimate.consumed_label || $t('storage_health.consumed_fallback', {min: Math.round(storageHealth.estimate.consumed_percent_min || 0), max: Math.round(storageHealth.estimate.consumed_percent_max || 0)}))"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_bytes)"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes_per_day"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_per_day_bytes)"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.observation_period"}}</th><td x-text="formatStorageDays(storageHealth.estimate.observation_days)"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.assumption"}}</th><td x-text="`${storageHealth.estimate.assumed_endurance_tbw_min}-${storageHealth.estimate.assumed_endurance_tbw_max} TBW`"></td></tr></template>
-          <tr><th scope="row">{{t "storage_health.last_read"}}</th><td x-text="formatStorageHealthTime(storageHealth && storageHealth.read_at)">-</td></tr>
-        </tbody>
-        </table>
-      </div>
-      <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="storageHealth && storageHealth.reason_key ? $t(storageHealth.reason_key) : ((storageHealth && storageHealth.reason) || $t('storage_health.unavailable'))"></p>
-      <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
-      <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
-    </section>
   </section>
   <section id="settings-display" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'display'" x-effect="syncChoicesEnabled(canEditSettings)">
     <div class="setting-card">
@@ -703,7 +671,7 @@
                   <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="exp.target === 'node' ? 'true' : 'false'" x-on:click="exp.target = 'node'">{{t "backup.export.target_node"}}</button>
                 </div>
               </div>
-              <p class="setting-note bs-target-note" x-show="exp.target === 'node'">{{t "backup.export.target_note"}}</p>
+              <p class="setting-note bs-target-note" x-show="exp.target === 'node'" x-text="targetNote()">{{t "backup.export.target_note"}}</p>
               <p class="bs-inline-error" x-show="flowError" x-text="flowError"></p>
             </div>
             {{end}}
@@ -802,6 +770,196 @@
           <footer class="bs-flow-foot" x-show="step !== 'run'">
             <button type="button" class="icon-button labeled" x-show="canBack()" x-on:click="flowBack()"><span>{{t "backup.flow.back"}}</span></button>
             <button type="button" class="icon-button labeled bs-danger-ghost" x-show="step === 'done' && flow === 'import' && importFailed && rollbackId" x-on:click="rollbackImport()"><span>{{t "backup.flow.rollback"}}</span></button>
+            <span class="bs-flow-spacer"></span>
+            <button type="button" class="icon-button labeled bs-primary" x-bind:class="{ 'bs-primary-danger': step === 'format' }" x-show="primaryLabel()" x-bind:disabled="!primaryEnabled()" x-on:click="flowPrimary()"><span x-text="primaryLabel()"></span></button>
+          </footer>
+        </div>
+      </div>
+    </template>
+  </div>
+  {{end}}
+
+  {{if index .Can "storage_manage"}}
+  <div class="bs-page" x-data="storagePage()" x-init="init()">
+    <section id="settings-storage" role="tabpanel" class="settings-cards bs-storage" data-tour="storage-overview" x-show="activeSettingsPage === 'storage'">
+      <section class="setting-card bs-drives" aria-labelledby="bs-drives-title">
+        <h3 class="setting-card-title" id="bs-drives-title">{{t "storage.title"}}</h3>
+
+        <div class="bs-drive">
+          <div class="bs-drive-head"><strong>{{t "storage.system.title"}}</strong><span x-text="sizeText(system.size)"></span></div>
+          <div class="bs-meter" role="img" x-bind:aria-label="systemMeterLabel()" x-bind:title="systemMeterTip()">
+            <span class="bs-meter-part bs-part-system" x-bind:style="meterStyle(systemUsedPercent())"></span>
+          </div>
+          <div class="bs-legend"><span><i class="bs-part-system"></i>{{t "storage.legend.system"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: systemFree() })"></span></div>
+        </div>
+
+        <div class="bs-drive" x-show="scenario() === 'active'" x-cloak>
+          <div class="bs-drive-head"><strong x-text="driveName()"></strong><span x-text="sizeText(space.size)"></span><span class="bs-status bs-status-ok">{{t "storage.status.active"}}</span></div>
+          <div class="bs-meter" role="img" x-bind:aria-label="driveMeterLabel()" x-bind:title="driveMeterTip()">
+            <span class="bs-meter-part bs-part-data" x-bind:style="meterStyle(drivePart('runtime'))"></span>
+            <span class="bs-meter-part bs-part-backup" x-bind:style="meterStyle(drivePart('backups'))"></span>
+          </div>
+          <div class="bs-legend"><span><i class="bs-part-data"></i>{{t "storage.legend.data"}}</span><span><i class="bs-part-backup"></i>{{t "storage.legend.backups"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: driveFree() })"></span></div>
+        </div>
+
+        <div class="bs-drive bs-drive-missing" x-show="scenario() === 'missing'" x-cloak role="status">
+          <div class="bs-drive-head"><strong x-text="driveName()"></strong><span class="bs-status bs-status-warn">{{t "storage.status.missing"}}</span></div>
+          <p class="setting-note" x-text="missingNote()"></p>
+          <button type="button" class="icon-button labeled" x-on:click="retry()" x-bind:disabled="checking"><span>{{t "storage.retry"}}</span></button>
+        </div>
+
+        <div class="bs-drive" x-show="scenario() === 'pending'" x-cloak role="status">
+          <div class="bs-drive-head"><strong x-text="driveName()"></strong><span class="bs-status" x-text="statusLabel()"></span></div>
+          <p class="setting-note" x-text="pendingNote()"></p>
+        </div>
+
+        <div class="bs-drive-empty" x-show="scenario() === 'none'" x-cloak>
+          <p class="setting-note">{{t "storage.none.note"}}</p>
+          <button type="button" class="icon-button labeled bs-primary" data-tour="storage-setup" x-on:click="openSetup()"><svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg><span>{{t "storage.setup.button"}}</span></button>
+        </div>
+
+        <div class="bs-fallback" x-show="scenario() !== 'none'" x-cloak>
+          <span class="bs-group-label" id="bs-fallback-label">{{t "storage.fallback.label"}}</span>
+          <div class="bs-segment" role="radiogroup" aria-labelledby="bs-fallback-label">
+            <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'system' ? 'true' : 'false'" x-on:click="setFallback('system')">{{t "storage.fallback.system"}}</button>
+            <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'ram' ? 'true' : 'false'" x-on:click="setFallback('ram')">{{t "storage.fallback.ram"}}</button>
+          </div>
+          <p class="setting-note" x-text="fallbackNote()"></p>
+          <p class="setting-note" x-show="fallbackPending">{{t "storage.fallback.restart"}}</p>
+        </div>
+
+        <div class="bs-card-foot" x-show="scenario() === 'active' || scenario() === 'missing'" x-cloak>
+          <button type="button" class="icon-button labeled" x-show="replaceFlow() === 'switch'" x-on:click="openReplace()"><span>{{t "storage.switch.button"}}</span></button>
+          <button type="button" class="icon-button labeled bs-primary" x-show="replaceFlow() === 'replace'" x-on:click="openReplace()"><span>{{t "storage.replace.button"}}</span></button>
+          <button type="button" class="icon-button labeled bs-danger-ghost" x-show="scenario() === 'active'" x-on:click="removeDrive()"><span>{{t "storage.remove.button"}}</span></button>
+        </div>
+      </section>
+
+      <section class="setting-card storage-health-panel" aria-labelledby="storage-health-heading" aria-live="polite">
+        <div class="storage-health-header">
+          <div>
+            <h3 id="storage-health-heading">{{t "storage_health.title"}}
+              <span class="field-help field-help-align-start">
+                <button class="field-help-trigger" type="button" aria-label="{{t "storage_health.help_button"}}"><svg><use href="#ico-help"></use></svg></button>
+                <span class="field-help-text" role="tooltip">{{t "storage_health.help_text"}}</span>
+              </span>
+            </h3>
+          </div>
+          <span class="storage-health-badge storage-health-badge-unavailable" x-bind:class="storageHealthBadgeClass" x-text="storageHealthBadgeLabel">{{t "storage_health.checking"}}</span>
+        </div>
+        <div class="toolbar"><button type="button" x-on:click="loadStorageHealth()" x-bind:disabled="storageHealthLoading" x-text="storageHealthLoading ? $t('storage_health.checking_progress') : $t('storage_health.refresh')"></button></div>
+        <p x-show="storageHealthLoading">{{t "storage_health.reading"}}</p>
+        <div class="table-scroll">
+          {{/* i18n-keys: storage_health.life_time.range, storage_health.life_time.exceeded, storage_health.pre_eol.normal, storage_health.pre_eol.warning, storage_health.pre_eol.critical, storage_health.remaining.days, storage_health.remaining.years, storage_health.consumed, storage_health.reason.no_mmc */}}
+          <table class="storage-health-table" x-cloak x-show="storageHealth && storageHealth.available">
+          <tbody>
+            <tr><th scope="row">{{t "storage_health.medium"}}</th><td x-text="(storageHealth && storageHealth.medium) || '-'">-</td></tr>
+            <tr><th scope="row">{{t "storage_health.device"}}</th><td x-text="(storageHealth && storageHealth.device) || '-'">-</td></tr>
+            <tr><th scope="row">{{t "storage_health.source"}}</th><td x-text="(storageHealth && storageHealth.source) || '-'">-</td></tr>
+            <template x-if="storageHealth && storageHealth.mode === 'measured'"><tr><th scope="row">{{t "storage_health.vendor_status"}}</th><td>{{t "storage_health.vendor_status_measured"}}</td></tr></template>
+            <template x-if="storageHealth && storageHealth.life_time_a"><tr><th scope="row">{{t "storage_health.life_time_a"}}</th><td x-text="storageHealth.life_time_a.label_key ? $t(storageHealth.life_time_a.label_key, storageHealth.life_time_a.label_params) : storageHealth.life_time_a.label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.life_time_b"><tr><th scope="row">{{t "storage_health.life_time_b"}}</th><td x-text="storageHealth.life_time_b.label_key ? $t(storageHealth.life_time_b.label_key, storageHealth.life_time_b.label_params) : storageHealth.life_time_b.label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.pre_eol"><tr><th scope="row">{{t "storage_health.pre_eol"}}</th><td x-text="storageHealth.pre_eol.label_key ? $t(storageHealth.pre_eol.label_key, storageHealth.pre_eol.label_params) : storageHealth.pre_eol.label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.remaining"}}</th><td x-text="storageHealth.estimate.remaining_key ? storageText(storageHealth.estimate.remaining_key, storageHealth.estimate.remaining_params) : storageHealth.estimate.remaining_label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.consumed_label"}}</th><td x-text="storageHealth.estimate.consumed_key ? storageText(storageHealth.estimate.consumed_key, storageHealth.estimate.consumed_params) : (storageHealth.estimate.consumed_label || $t('storage_health.consumed_fallback', {min: Math.round(storageHealth.estimate.consumed_percent_min || 0), max: Math.round(storageHealth.estimate.consumed_percent_max || 0)}))"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_bytes)"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes_per_day"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_per_day_bytes)"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.observation_period"}}</th><td x-text="formatStorageDays(storageHealth.estimate.observation_days)"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.assumption"}}</th><td x-text="`${storageHealth.estimate.assumed_endurance_tbw_min}-${storageHealth.estimate.assumed_endurance_tbw_max} TBW`"></td></tr></template>
+            <tr><th scope="row">{{t "storage_health.last_read"}}</th><td x-text="formatStorageHealthTime(storageHealth && storageHealth.read_at)">-</td></tr>
+          </tbody>
+          </table>
+        </div>
+        <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="storageHealth && storageHealth.reason_key ? $t(storageHealth.reason_key) : ((storageHealth && storageHealth.reason) || $t('storage_health.unavailable'))"></p>
+        <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
+        <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
+      </section>
+    </section>
+
+    <!-- Ablauf Laufwerk einrichten: Mitte am Rechner, Blatt von unten am Handy -->
+    <template x-teleport="body">
+      <div class="bs-flow-layer" data-flow="storage" x-bind:class="{ open: flow }" x-bind:inert="!flow" x-on:keydown.escape.window="flow && closeFlow()">
+        <div class="bs-flow-scrim" x-on:click="closeFlow()"></div>
+        <div class="bs-flow" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="bs-storage-flow-title">
+          <span class="bs-flow-grab" aria-hidden="true" x-on:pointerdown="dragStart($event)" x-on:pointermove="dragMove($event)" x-on:pointerup="dragEnd($event)" x-on:pointercancel="dragEnd($event)"></span>
+          <header class="bs-flow-head">
+            <div>
+              <h3 id="bs-storage-flow-title" x-text="flowTitle()"></h3>
+              <p class="bs-flow-progress" x-show="stepCount() > 1" x-text="stepText()"></p>
+            </div>
+            <button type="button" class="icon-button" aria-label="{{t "backup.flow.close"}}" x-on:click="closeFlow()"><svg class="automation-icon"><use href="#ico-close"></use></svg></button>
+          </header>
+          <div class="bs-flow-stage">
+
+            <!-- Laufwerk 1: Auswahl -->
+            <div class="bs-step" data-step="drives" x-show="step === 'drives'">
+              <ul class="bs-drive-pick" role="radiogroup" aria-label="{{t "storage.drives.label"}}">
+                <template x-for="d in drives" x-bind:key="d.kname">
+                  <li><button type="button" class="bs-pick" role="radio" x-bind:aria-checked="drive && drive.kname === d.kname ? 'true' : 'false'" x-on:click="drive = d">
+                    <span class="bs-pick-text"><strong x-text="d.name"></strong><small x-text="d.detail"></small></span>
+                    <span class="bs-status" x-bind:class="d.needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="d.needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
+                  </button></li>
+                </template>
+              </ul>
+              <p class="setting-note" x-show="!drives.length">{{t "storage.drives.empty"}}</p>
+              <p class="setting-note">{{t "storage.drives.note"}}</p>
+              <p class="message error" role="alert" x-show="flowError" x-text="flowError"></p>
+            </div>
+
+            <!-- Laufwerk 2: Formatieren -->
+            <div class="bs-step" data-step="format" x-show="step === 'format'">
+              <div class="bs-erase">
+                <strong x-text="$t('storage.format.title', { name: drive ? drive.name : '' })"></strong>
+                <p x-text="drive ? drive.contents : ''"></p>
+                <label class="bs-check bs-check-danger"><input type="checkbox" x-model="eraseOk"><span class="bs-check-text"><span>{{t "storage.format.confirm"}}</span></span></label>
+              </div>
+            </div>
+
+            <!-- Laufwerk 3: Inhalt -->
+            <div class="bs-step" data-step="driveuse" x-show="step === 'driveuse'">
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "storage.use.data"}}<span class="setting-row-unit">{{t "storage.use.data_note"}}</span></span>
+                <label class="settings-toggle"><input type="checkbox" x-model="use.data"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+              </div>
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "storage.use.backups"}}<span class="setting-row-unit">{{t "storage.use.backups_note"}}</span></span>
+                <label class="settings-toggle"><input type="checkbox" x-model="use.backups"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+              </div>
+              <p class="setting-note bs-target-note" x-show="!use.data && !use.backups">{{t "storage.use.none"}}</p>
+              <p class="setting-note" x-show="driveUseNote()" x-text="driveUseNote()"></p>
+              <span class="bs-group-label bs-gap" id="bs-setup-fallback-label">{{t "storage.fallback.label"}}</span>
+              <div class="bs-segment" role="radiogroup" aria-labelledby="bs-setup-fallback-label">
+                <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'system' ? 'true' : 'false'" x-on:click="fallback = 'system'">{{t "storage.fallback.system"}}</button>
+                <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'ram' ? 'true' : 'false'" x-on:click="fallback = 'ram'">{{t "storage.fallback.ram"}}</button>
+              </div>
+              <p class="setting-note" x-text="fallbackNote()"></p>
+              <p class="message error" role="alert" x-show="flowError" x-text="flowError"></p>
+            </div>
+
+            <!-- Laeuft: Aufgaben des Auftrags, der Neustart am Ende trennt die Verbindung kurz -->
+            <div class="bs-step" data-step="run" x-show="step === 'run'" role="status" aria-live="polite">
+              <ol class="bs-run">
+                <template x-for="(task, i) in tasks" x-bind:key="task.phase">
+                  <li class="bs-run-item" x-bind:data-state="i < taskIndex ? 'done' : (i === taskIndex ? 'now' : 'wait')">
+                    <span class="bs-run-mark" aria-hidden="true"><span class="bs-spinner"></span><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+                    <span x-text="task.label"></span>
+                  </li>
+                </template>
+              </ol>
+              <div class="bs-bar" role="progressbar" aria-label="{{t "backup.run.progress"}}" x-bind:aria-valuenow="Math.round(progress * 100)" aria-valuemin="0" aria-valuemax="100"><span x-bind:style="`transform: scaleX(${progress})`"></span></div>
+              <p class="setting-note" x-text="runNote()"></p>
+              <p class="setting-note" x-show="warnText()" x-text="warnText()"></p>
+            </div>
+
+            <!-- Fertig -->
+            <div class="bs-step bs-done" data-step="done" x-show="step === 'done'">
+              <span class="bs-done-mark" x-bind:class="{ drawn: step === 'done' }" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><path d="m14 25 7 7 13-15"/></svg></span>
+              <h4 x-text="doneTitle()"></h4>
+              <p class="setting-note" x-text="doneNote()"></p>
+            </div>
+          </div>
+          <footer class="bs-flow-foot" x-show="step !== 'run'">
+            <button type="button" class="icon-button labeled" x-show="canBack()" x-on:click="flowBack()"><span>{{t "backup.flow.back"}}</span></button>
             <span class="bs-flow-spacer"></span>
             <button type="button" class="icon-button labeled bs-primary" x-bind:class="{ 'bs-primary-danger': step === 'format' }" x-show="primaryLabel()" x-bind:disabled="!primaryEnabled()" x-on:click="flowPrimary()"><span x-text="primaryLabel()"></span></button>
           </footer>

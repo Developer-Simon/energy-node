@@ -116,6 +116,21 @@ func (s *Store) AddOwn(r HourRecord) error {
 	return s.writeDirtyLocked()
 }
 
+// Reload schreibt offene Aenderungen und leert danach den Cache, damit die
+// naechste Abfrage aus dem Verzeichnis liest. Scheitert das Schreiben, bleibt
+// der Cache stehen: die offenen Monate duerfen nicht verloren gehen.
+func (s *Store) Reload() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.writeDirtyLocked(); err != nil {
+		return err
+	}
+	s.months = map[string]*Month{}
+	s.missing = map[string]bool{}
+	s.bump()
+	return nil
+}
+
 func (s *Store) writeDirtyLocked() error {
 	var firstErr error
 	for key := range s.dirty {

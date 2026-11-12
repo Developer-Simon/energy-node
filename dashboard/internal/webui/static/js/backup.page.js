@@ -36,7 +36,7 @@
     update: 'backup.trigger.update',
     pre_import: 'backup.trigger.pre_import',
   };
-  const PLACE_LABELS = { system: 'backup.place.system' };
+  const PLACE_LABELS = { system: 'backup.place.system', drive: 'backup.place.drive' };
   const JOB_POLL_MS = 1000;
   // Polls without the job in a row before the run step gives up (about a minute).
   const JOB_MISS_MAX = 60;
@@ -131,6 +131,10 @@
       this.csrfToken = (session && session.csrf_token) || '';
       this.canSecrets = Boolean(session && Array.isArray(session.roles) && session.roles.includes('backup_secrets'));
       await this.load();
+      // The page shows fresh data every time it is opened. Unsaved edits and an open flow stay.
+      this.$watch('activeSettingsPage', (page) => {
+        if (page === 'backup' && !this.flow && !this.autoDirty()) this.load();
+      });
     },
 
     async load() {
@@ -203,6 +207,10 @@
       const saved = JSON.parse(this.autoSaved || '{}');
       if (!saved.schedule) return t('backup.hero.no_schedule');
       return saved.every === 'day' ? t('backup.auto.next_day') : t('backup.auto.next_week');
+    },
+    // Where an archive kept on the node lands, from the place the status names.
+    targetNote() {
+      return t(this.place === 'drive' ? 'backup.export.target_note_drive' : 'backup.export.target_note');
     },
     archiveSummary() {
       const place = PLACE_LABELS[this.place] ? t(PLACE_LABELS[this.place]) : this.place;

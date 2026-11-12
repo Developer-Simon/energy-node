@@ -1,0 +1,41 @@
+/* Speicher: Laufwerke, Zustand und Einrichtung. Die Ablauf-Regeln (bs-flow,
+   bs-step, bs-run, bs-segment, bs-check ...) stehen in backup.css und gelten
+   auf beiden Seiten. Hier nur, was nur die Speicherseite braucht. Klassen mit
+   bs-Praefix, weil manager.css auch auf den Einstellungen laedt. Kein globales
+   box-sizing: Felder setzen es selbst. */
+.bs-storage { align-items: start; }
+.bs-drive { display: grid; gap: .4rem; margin-top: .85rem; }
+.bs-drive-head { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .55rem; color: var(--text-muted); font-size: .82rem; }
+.bs-drive-head strong { color: var(--text-strong); font-size: .92rem; font-weight: 600; }
+.bs-status { padding: .08rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.bs-drive-head .bs-status { margin-left: auto; }
+.bs-status-ok { background: var(--ok-bg); color: var(--ok); }
+.bs-status-warn { background: var(--warn-bg); color: var(--warn); }
+.bs-meter { display: flex; gap: 2px; height: .55rem; overflow: hidden; border-radius: 999px; background: var(--track); }
+.bs-meter-part { flex: 0 0 0; transition: flex-basis .45s cubic-bezier(.32, .72, 0, 1); }
+@media (prefers-reduced-motion: reduce) { .bs-meter-part { transition: none; } }
+.bs-part-system { background: var(--text-muted); }
+.bs-part-data { background: var(--accent-line); }
+.bs-part-backup { background: var(--info-line, var(--accent-soft)); }
+.bs-legend { display: flex; flex-wrap: wrap; gap: .1rem .8rem; color: var(--text-muted); font-size: .75rem; }
+.bs-legend i { display: inline-block; width: .55rem; height: .55rem; margin-right: .3rem; border-radius: 50%; }
+.bs-legend-free { margin-left: auto; }
+.bs-drive-missing { padding: .7rem .8rem; border: 1px solid var(--warn-line); border-radius: 12px; background: color-mix(in srgb, var(--warn-bg) 55%, transparent); }
+.bs-drive-missing .icon-button { justify-self: start; }
+.bs-drive-missing .setting-note { margin: 0; }
+.bs-drive-empty { display: grid; gap: .7rem; justify-items: start; margin-top: .9rem; padding: .85rem .9rem; border: 1px dashed var(--border); border-radius: 12px; }
+.bs-drive-empty .setting-note { margin: 0; }
+.bs-fallback { margin-top: 1rem; padding-top: .85rem; border-top: 1px solid var(--border-soft); }
+.bs-drive-pick { display: grid; gap: .4rem; margin: 0 0 .6rem; padding: 0; list-style: none; }
+.bs-pick { display: flex; box-sizing: border-box; align-items: center; justify-content: space-between; gap: .75rem; width: 100%; padding: .65rem .75rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel-alt); color: var(--text); text-align: left; transition: border-color .14s ease, background-color .14s ease, transform .1s ease; }
+.bs-pick:active { transform: scale(.985); }
+.bs-pick[aria-checked="true"], .bs-pick[aria-checked="true"]:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-bg); color: var(--text); }
+.bs-pick-text { display: grid; gap: .05rem; min-width: 0; }
+.bs-pick-text strong { color: var(--text-strong); font-weight: 600; }
+.bs-pick-text small { color: var(--text-muted); font-size: .78rem; }
+.bs-erase { display: grid; gap: .4rem; padding: .85rem .9rem; border: 1px solid var(--bad-line); border-radius: 12px; background: color-mix(in srgb, var(--bad-bg) 60%, transparent); }
+.bs-erase strong { color: var(--text-strong); font-size: .98rem; font-weight: 600; }
+.bs-erase p { margin: 0; color: var(--text-subtle); font-size: .86rem; line-height: 1.45; }
+@media (max-width: 40rem) {
+  .settings-cards.bs-storage { grid-template-columns: minmax(0, 1fr); }
+}

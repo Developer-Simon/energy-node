@@ -464,6 +464,14 @@ def on_message(client, userdata, msg):
             return
 
 
+def battery_config_loader(runtime_dir):
+    """Loader fuer ReloadableConfig: Startup und config/reload nehmen beide
+    denselben Pfad fuer den Batteriezustand (paths.runtime_dir)."""
+    def load(path):
+        return load_configs(path, runtime_dir=runtime_dir)
+    return load
+
+
 def main() -> None:
     global configs, runtimes, slave, app_config, service_name, state_save_interval_s
     try:
@@ -477,7 +485,8 @@ def main() -> None:
     service_config = app_config.service(service_name)
     state_save_interval_s = save_interval(service_config)
     devices_path = app_config.devices_config("battery_soc")
-    config_store = common_config.ReloadableConfig(devices_path, load_configs)
+    config_store = common_config.ReloadableConfig(
+        devices_path, battery_config_loader(app_config.paths.runtime_dir))
     configs, load_error = config_store.load_or([])
     if load_error is not None:
         logging.error("Batterie-Konfiguration abgelehnt, warte auf config/reload: %s", load_error)

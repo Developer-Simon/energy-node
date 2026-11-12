@@ -2000,3 +2000,11 @@ def test_service_records_when_a_topic_last_arrived():
     service.on_message(None, None, msg)
     assert "outstation/battery_soc/state" in service.topic_seen_at
     assert service.topic_seen_at["outstation/battery_soc/state"] >= before
+
+
+def test_rule_history_survives_write_error(tmp_path):
+    blocker = tmp_path / "datei"
+    blocker.write_text("")  # the history directory can never be created
+    history = automation.RuleHistory(str(blocker / "automation_history.json"))
+    history.record("r1", {"at": 1.0}, limit=10)  # must not raise
+    assert history.as_list("r1") == [{"at": 1.0}]

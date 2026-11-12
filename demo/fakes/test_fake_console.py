@@ -226,7 +226,7 @@ def _namespace(**kwargs):
         "port": 0, "dashboard": "", "companion": "", "broker_control": "",
         "updates": "", "installer_state": "", "installer_fixture": "",
         "system_state": "", "system_events": "", "journal_epoch": "",
-        "highlights_repo": "",
+        "storage_dir": "", "highlights_repo": "",
     }
     base.update(kwargs)
     return argparse.Namespace(**base)
@@ -235,6 +235,7 @@ def _namespace(**kwargs):
 def test_build_tabs_order_and_conditions(tmp_path, monkeypatch):
     import console_companion
     import console_mqtt
+    import console_storage
     import console_system
     import console_updates
 
@@ -242,6 +243,7 @@ def test_build_tabs_order_and_conditions(tmp_path, monkeypatch):
     monkeypatch.setattr(console_mqtt, "MqttTab", _fake_tab("mqtt"))
     monkeypatch.setattr(console_updates, "UpdatesTab", _fake_tab("updates"))
     monkeypatch.setattr(console_system, "SystemTab", _fake_tab("system"))
+    monkeypatch.setattr(console_storage, "StorageTab", _fake_tab("storage"))
     args = _namespace(
         broker_control="http://127.0.0.1:18285",
         updates="http://127.0.0.1:18284",
@@ -250,9 +252,10 @@ def test_build_tabs_order_and_conditions(tmp_path, monkeypatch):
         system_state=str(tmp_path / "fake-system.json"),
         system_events=str(tmp_path / "fake-system-events.jsonl"),
         journal_epoch=str(tmp_path / "journal-epoch"),
+        storage_dir=str(tmp_path / "storage"),
     )
     tabs = fake_console.build_tabs(args, Log())
-    assert [t.name for t in tabs] == ["mqtt", "updates", "system"]
+    assert [t.name for t in tabs] == ["mqtt", "updates", "system", "storage"]
 
 
 def test_build_tabs_without_args_is_empty():

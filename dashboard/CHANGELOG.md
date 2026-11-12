@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.12-pre.5 (2026-11-06)
+## v0.11.12-pre.6 (2026-11-06)
 
 ### Features
 
@@ -9,6 +9,12 @@
 - **energy:** Measurement chains now learn their normal loss and efficiency curve. The Efficiency tab shows the curve with the best range and the current power, and a diagnosis lists drift, frozen values, contradicting points and wrong signs or units. Substitute values are corrected by the learned loss, and findings show up on the energy page, in the diagnostics and on the device map. (#223) (4871a1c)
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **energy:** suggest measurement chains and offer chain sensors to Home Assistant (#229) (8e5d0a6)
+- **storage:** check the drive on demand and refresh the pages when they open (7358e23)
+- **storage:** Add an additional drive for running data and backups (#233)
+
+### Tests
+
+- **webui:** know the storage page in the tour target test (8c10d07)
 
 ## v0.11.11 (2026-11-11)
 

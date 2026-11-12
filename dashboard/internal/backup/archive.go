@@ -60,7 +60,55 @@ type Sources struct {
 	DataDir       string
 	DevicesDir    string
 	AppConfigPath string
+	// RuntimeDir ist runtime_dir aus der Konfiguration. Leer heisst: die
+	// Laufzeitdaten liegen in DataDir und DevicesDir.
+	RuntimeDir    string
 	BatteryStates map[string]string // id -> state_file
+}
+
+// Tree ist ein Verzeichnis des Knotens, dessen Dateien der Katalog ordnet.
+// Runtime markiert das Laufzeitverzeichnis.
+type Tree struct {
+	Root    Root
+	Dir     string
+	Prefix  string
+	Runtime bool
+}
+
+// Trees liefert die Verzeichnisse, aus denen Archiv, Vorschau und Groessen lesen.
+func (s Sources) Trees() []Tree {
+	trees := []Tree{
+		{RootData, s.DataDir, "data/", false},
+		{RootDevices, s.DevicesDir, "devices/", false},
+	}
+	if s.RuntimeDir != "" {
+		trees = append(trees,
+			Tree{RootData, s.RuntimeDir, "data/", true},
+			Tree{RootDevices, s.RuntimeDir, "devices/", true},
+		)
+	}
+	return trees
+}
+
+// Accepts meldet, ob der Eintrag e aus dem Verzeichnis t gelesen werden soll.
+// Bei gesetztem RuntimeDir kommen Laufzeitdaten nur aus dem Laufzeitverzeichnis.
+func (s Sources) Accepts(t Tree, e Entry) bool {
+	if s.RuntimeDir == "" {
+		return true
+	}
+	return RuntimeName(e.Root, e.Pattern) == t.Runtime
+}
+
+// liveDir liefert das Verzeichnis, in das die Datei rel der Wurzel root beim
+// Einspielen gehoert.
+func (s Sources) liveDir(root Root, rel string) string {
+	if s.RuntimeDir != "" && RuntimeName(root, rel) {
+		return s.RuntimeDir
+	}
+	if root == RootDevices {
+		return s.DevicesDir
+	}
+	return s.DataDir
 }
 
 // CreateOptions legt fest, was in das Archiv kommt.
@@ -107,11 +155,11 @@ func Create(ctx context.Context, src Sources, opts CreateOptions, w io.Writer) (
 		secrets: opts.Secrets,
 	}
 
-	if err := aw.addTree(RootData, src.DataDir, keep); err != nil {
-		return Manifest{}, err
-	}
-	if err := aw.addTree(RootDevices, src.DevicesDir, keep); err != nil {
-		return Manifest{}, err
+	for _, t := range src.Trees() {
+		t := t
+		if err := aw.addTree(t.Root, t.Dir, func(e Entry) bool { return src.Accepts(t, e) && keep(e) }); err != nil {
+			return Manifest{}, err
+		}
 	}
 	if src.AppConfigPath != "" {
 		if err := aw.addFile(configArchiveName, src.AppConfigPath); err != nil {

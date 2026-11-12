@@ -52,6 +52,10 @@ archive has credentials or a password. The archive ID combines the UTC time and
 the trigger, for example `20261108-030000-auto`. An unprotected archive is
 stored as `<id>.tar.gz`, an encrypted one as `<id>.tar.gz.enc`.
 
+When a second drive is set up, the archives go to its `backups` folder
+instead, see [Additional drive](../operating/storage.md). When the drive is
+removed, the archives move back to the system drive.
+
 The system drive can be switched off in the backup settings. Then the node has
 no location for archives, manual backups stop with the error
 `backup_no_location`, and scheduled runs are skipped.

@@ -24,6 +24,9 @@ import re
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fake_storage  # noqa: E402
+
 KEYS = {"dashboard", "updater", "automation", "battery-soc", "shelly", "trucki",
         "tuya", "apsystems", "mosquitto", "caddy", "tailscale"}
 SINCE = {15, 60, 360, 1440, 10080}
@@ -58,6 +61,10 @@ SYSTEM_ACTIONS = ("restart-dashboard", "stop-services", "start-services", "reboo
 # Harmless no-ops that succeed even without a state file.
 NOOP_ACTIONS = ("stop-services", "start-services", "restart-dashboard")
 HANG_SECONDS = 15
+# Laufwerke der Demo stehen in fake_storage (demo/fixtures/storage-catalog.json).
+# STORAGE_DRIVE_UUID ist die Uuid des Demo-Sticks sdb, der beim Start steckt.
+STORAGE_DRIVE_UUID = "6f1c2a4e-8b3d-4c5a-9e7f-2d4b6a8c0e1f"
+UUID_PATTERN = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 DENIED_MESSAGE = "sudo: a password is required"
 DEFAULT_STATE = {"journal": {}, "inject": [], "helper": "normal", "actions": "ok"}
 
@@ -160,6 +167,73 @@ def print_journal(state, args):
         print(json.dumps(row))
 
 
+def storage_verb(args, events):
+    """The storage verbs of the drive helper, on a directory instead of a disk.
+
+    The sticks, their plugged state and the mount are in fake_storage. The mount
+    directory is FAKE_STORAGE_MOUNT, the storage folder is its parent.
+    """
+    mount = os.environ.get("FAKE_STORAGE_MOUNT", "")
+    verb, rest = (args[0] if args else ""), args[1:]
+    if not mount or (verb == "format" and (len(rest) != 1 or not re.fullmatch(r"[a-z0-9]+", rest[0]))) \
+            or (verb == "mount" and (len(rest) != 1 or not re.fullmatch(UUID_PATTERN, rest[0]))) \
+            or (verb == "unmount" and rest not in ([], [""])) or verb not in ("format", "mount", "unmount"):
+        record(events, "storage", args, "refused")
+        return 64
+    storage = os.path.dirname(os.path.normpath(mount))
+    catalog = fake_storage.load_catalog()
+    try:
+        if verb == "format":
+            print(fake_storage.format_drive(storage, mount, catalog, rest[0]))
+        elif verb == "mount":
+            fake_storage.mount_drive(storage, mount, catalog, rest[0], machine_id())
+        else:
+            fake_storage.unmount_drive(storage, mount)
+    except fake_storage.StorageRefused:
+        record(events, "storage", args, "refused")
+        return 64
+    except fake_storage.StorageError as exc:
+        sys.stderr.write(f"{exc}\n")
+        record(events, "storage", args, "fail")
+        return 1
+    record(events, "storage", args, "ok")
+    return 0
+
+
+def machine_id():
+    with open("/etc/machine-id", encoding="utf-8") as handle:
+        return handle.read().strip()
+
+
+def apply_app_config(events):
+    """Copies the staged configuration over the dashboard's config file (FAKE_APP_CONFIG_TARGET).
+
+    The dashboard reads the file at its next start, so the change applies then.
+    """
+    staged = os.environ.get("FAKE_STAGED_CONFIG", "")
+    target = os.environ.get("FAKE_APP_CONFIG_TARGET", "")
+    if not staged or not target or not os.path.isfile(staged):
+        record(events, "apply-app-config", [], "fail")
+        return 1
+    with open(staged, "rb") as source, open(target, "wb") as sink:
+        sink.write(source.read())
+    record(events, "apply-app-config", [], "ok")
+    return 0
+
+
+def request_restart(events):
+    """Leaves a request file (FAKE_RESTART_REQUEST) that the demo supervisor answers by restarting the dashboard.
+
+    Without a path nothing happens, as before: the restart stays a no-op for the smoke test,
+    which restarts the dashboard itself.
+    """
+    path = os.environ.get("FAKE_RESTART_REQUEST", "")
+    if path:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("restart\n")
+    record(events, "restart-dashboard", [], "ok")
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
@@ -173,6 +247,9 @@ def main(argv=None):
         sys.stderr.write(DENIED_MESSAGE + "\n")
         record(events, action, args, "denied")
         return 1
+
+    if action == "storage":
+        return storage_verb(args, events)
 
     if action == "read-journal":
         if len(argv) not in (4, 5):
@@ -202,6 +279,11 @@ def main(argv=None):
         sys.stderr.write("simulated failure\n")
         record(events, action, args, "fail")
         return 1
+    if action == "apply-app-config" and has_state and state["actions"] == "ok":
+        return apply_app_config(events)
+    if action == "restart-dashboard":
+        request_restart(events)
+        return 0
     record(events, action, args, "ok")
     return 0
 

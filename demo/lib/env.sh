@@ -122,6 +122,16 @@ env_seed_data() {
   echo "Seed-Daten: $(find "$WORK/data" -maxdepth 1 -type f -printf '%f\n' | sort | tr '\n' ' ')"
 }
 
+# Laufwerke fuer Demo und Smoke-Test: die Liste der Fixture statt lsblk, ein
+# Verzeichnis statt /mnt. Der Speicherhelfer ist der Fake (JOURNAL=1), echte
+# Datentraeger sieht die Node in diesen Laeufen nicht.
+env_prepare_storage() {
+  mkdir -p "$WORK/storage/mount" || return 1
+  cp "$FIXTURES/storage-drives.json" "$WORK/storage/drives.json" || return 1
+  # Jeder Start beginnt mit dem Demo-Stick sdb am Helfer, ohne Fehler im Reiter Speicher.
+  rm -rf "$WORK/storage/plugged.json" "$WORK/storage/disks" || return 1
+}
+
 # Installer-Zustand aus der Fixture, wenn INSTALLED=1 und noch keiner da ist.
 env_installed_state() {
   [[ "${INSTALLED:-0}" == "1" ]] || return 0
@@ -288,6 +298,14 @@ env_start_dashboard() {
     if [[ "${INSTALLED:-0}" == "1" || "${PACKAGE:-0}" == "1" ]]; then
       export ENERGY_NODE_INSTALLER_STATE_DIR="$WORK/installer-state"
     fi
+    # Laufwerke: Liste und Einhängepunkt im Demo-Verzeichnis, der Fake des Helfers
+    # schreibt dorthin und legt die gestagte Konfiguration in die Konfigdatei.
+    export ENERGY_NODE_STORAGE_DEMO="$WORK/storage"
+    export FAKE_STORAGE_MOUNT="$WORK/storage/mount"
+    export FAKE_STAGED_CONFIG="$WORK/data/energy-node.config.staged.json"
+    export FAKE_APP_CONFIG_TARGET="$WORK/config.json"
+    # Der Helfer legt bei einem Neustart diese Datei ab, demo/demo.sh startet dann das Dashboard neu.
+    export FAKE_RESTART_REQUEST="$WORK/restart-request"
     exec "$bin" --config "$WORK/config.json"
   ) > "$WORK/dashboard.log" 2>&1 &
   DASHBOARD_PID=$!
@@ -344,7 +362,7 @@ env_start_console() {
     args+=(--system-state "$WORK/fake-system.json" --system-events "$WORK/fake-system-events.jsonl"
            --journal-epoch "$WORK/journal-epoch")
   fi
-  args+=(--highlights-repo "$REPO_DIR")
+  args+=(--storage-dir "$WORK/storage" --highlights-repo "$REPO_DIR")
   python3 "$FAKES/fake_console.py" "${args[@]}" \
     > "$WORK/fake-console.log" 2>&1 &
   local pid=$!

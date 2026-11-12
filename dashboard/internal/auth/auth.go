@@ -371,6 +371,11 @@ func (m *Manager) loadLocked() (bool, error) {
 		migrateV5(m.users)
 		changed = true
 	}
+	if file.Version < 8 {
+		// Version 8 gibt bestehenden Admins das Recht storage_manage (migrateV7).
+		migrateV7(m.users)
+		changed = true
+	}
 	if m.cleanupGuestsLocked() {
 		changed = true
 	}

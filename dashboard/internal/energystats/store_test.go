@@ -145,3 +145,40 @@ func (s *Store) monthForTest(t time.Time) (*Month, error) {
 	defer s.mu.Unlock()
 	return s.monthLocked(t, true)
 }
+
+func TestStoreReloadReadsMergedMonths(t *testing.T) {
+	dir := t.TempDir()
+	h := hourAt("2026-10-05T10:00:00Z")
+	writeMonthFile(t, dir, "2026-10.json", map[string]float64{"2026-10-05T10:00:00Z": 1.0}, nil)
+
+	store := NewStore(dir)
+	read := func() float64 {
+		var got float64
+		if err := store.Each(h, h.Add(time.Hour), func(_ time.Time, m *Month, i int) {
+			got = m.Roles["pv"].KWh[i]
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	if got := read(); got != 1.0 {
+		t.Fatalf("vor dem Neuladen = %v, want 1.0", got)
+	}
+
+	// Eine Zusammenfuehrung schreibt die Datei, der Cache kennt sie noch nicht.
+	writeMonthFile(t, dir, "2026-10.json", nil, map[string]float64{"2026-10-05T10:00:00Z": 7.0})
+	if got := read(); got != 1.0 {
+		t.Fatalf("Cache liest die Datei ohne Neuladen neu: %v", got)
+	}
+
+	rev := store.Revision()
+	if err := store.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if got := read(); got != 7.0 {
+		t.Fatalf("nach Reload = %v, want 7.0 aus der zusammengefuehrten Datei", got)
+	}
+	if store.Revision() == rev {
+		t.Fatal("Reload hat die Revision nicht erhoeht")
+	}
+}

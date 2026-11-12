@@ -278,6 +278,8 @@
   "schema.system.paths.data_dir.title": "Dashboard-Daten",
   "schema.system.paths.devices_dir.description": "Verzeichnis mit den Gerätekonfigurationen aller Dienste, zum Beispiel shelly_devices.json.",
   "schema.system.paths.devices_dir.title": "Gerätekonfigurationen",
+  "schema.system.paths.runtime_dir.description": "Optionales Verzeichnis für Laufzeitdaten wie Energiestatistik, Automationsverlauf und Batteriezustand. Leer lassen, um sie in den Verzeichnissen oben zu behalten.",
+  "schema.system.paths.runtime_dir.title": "Laufzeitdaten",
   "schema.system.paths.services_version_file.description": "Wird nicht mehr verwendet und ignoriert. Die Versionen stehen unter Einstellungen > Versionen.",
   "schema.system.paths.services_version_file.title": "Services-Versionsdatei (veraltet)",
   "schema.system.paths.title": "Pfade",

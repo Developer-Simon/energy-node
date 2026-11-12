@@ -347,3 +347,36 @@ func TestServiceInstalledRespectsBlock(t *testing.T) {
 		t.Fatal("tuya (nicht im Block genannt) sollte true sein")
 	}
 }
+
+func TestRuntimePathFallsBackToLegacyDir(t *testing.T) {
+	cfg, err := appconfig.Load(writeConfig(t, validDocument()))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got, want := cfg.RuntimePath(cfg.Paths.DataDir, "runtime.json"), filepath.Join(cfg.Paths.DataDir, "runtime.json"); got != want {
+		t.Fatalf("RuntimePath = %q, erwartet %q", got, want)
+	}
+}
+
+func TestRuntimePathUsesRuntimeDir(t *testing.T) {
+	document := validDocument()
+	document["paths"].(map[string]any)["runtime_dir"] = "/mnt/ssd/energy-node/runtime"
+	cfg, err := appconfig.Load(writeConfig(t, document))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Paths.RuntimeDir != "/mnt/ssd/energy-node/runtime" {
+		t.Fatalf("RuntimeDir = %q", cfg.Paths.RuntimeDir)
+	}
+	if got, want := cfg.RuntimePath(cfg.Paths.DataDir, "energystats"), filepath.Join("/mnt/ssd/energy-node/runtime", "energystats"); got != want {
+		t.Fatalf("RuntimePath = %q, erwartet %q", got, want)
+	}
+}
+
+func TestSchemaAcceptsConfigWithoutRuntimeDir(t *testing.T) {
+	document := validDocument()
+	delete(document["paths"].(map[string]any), "runtime_dir")
+	if _, err := appconfig.Load(writeConfig(t, document)); err != nil {
+		t.Fatalf("Load ohne runtime_dir: %v", err)
+	}
+}

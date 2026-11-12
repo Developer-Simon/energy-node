@@ -8,7 +8,7 @@ import (
 
 func TestRolesCatalogMatchesSpec(t *testing.T) {
 	keys := AllRoles()
-	if len(keys) != 36 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
+	if len(keys) != 37 || keys[0] != RoleViewOverview || keys[len(keys)-1] != RoleHTTPLogin {
 		t.Fatalf("catalog order: %v", keys)
 	}
 	for _, key := range []string{RoleMQTTConfig, RoleUpdateSettings, RoleViewLogs, RoleSystemActions, RoleTailscale, RoleUserManagement} {
@@ -108,5 +108,15 @@ func TestDefaultRolesIncludeEfficiency(t *testing.T) {
 	}
 	if !containsRole(defaultHAAdminRoles(), RoleViewEfficiency) {
 		t.Errorf("defaultHAAdminRoles lacks view_efficiency: %v", defaultHAAdminRoles())
+	}
+}
+
+func TestStorageManageInCatalog(t *testing.T) {
+	info, ok := RoleByKey(RoleStorageManage)
+	if !ok {
+		t.Fatal("storage_manage missing from the catalog")
+	}
+	if info.Category != CategorySystem || !info.HTTPSOnly || !info.HAAllowed || !info.Elevated || info.GuestAllowed || info.Requires != "" {
+		t.Fatalf("storage_manage: %+v", info)
 	}
 }

@@ -58,6 +58,7 @@ companion as they are.
 - *MQTT-Broker*: takes a device offline, lets a service refuse or stay silent, switches the simulation, requires a login (wrong MQTT password), publishes a message and disconnects clients.
 - *Updates*: answers the release check and the download, and sets the installer state to installed, none, previous or reset.
 - *System*: feeds the service logs with journal lines or injected errors, sets how the system helper answers, and sets which system actions succeed.
+- *Speicher*: plugs the demo sticks in and out and sets whether formatting or mounting fails. Pulling out the drive in use empties the mount point, and plugging it back in restores its content and volume marker. Plugging in the foreign stick mounts it with its own marker, so the storage page shows that it does not belong to this node. The status lines show what is plugged and what is mounted.
 
 A factor only affects periods the dashboard has not fetched yet. The automatic
 run of the smoke test removes the pairing at its end, so create a new pairing
@@ -108,7 +109,17 @@ Each file in `demo/fakes/` imitates one part of the system:
 - `fake_journal_helper.py` and `fake_sudo.sh`: the system action helper and the sudo shim that feed the *Service logs* section.
 - `real_changelog.py`: copies the changelog of this repository into a simulated installer state.
 
-Restoring a backup in the demo stops at the restart, because the fake helper answers that restart with a no-op. Restart the demo by hand and the archive is applied at start.
+Restarts that the node asks the helper for, such as after a backup restore or a drive setup, leave a request file for the fake. `demo/demo.sh` then restarts the dashboard itself, so a restored archive and a set up drive take effect at once.
+
+The storage page has three demo sticks, listed in `demo/fixtures/storage-catalog.json`:
+`sdb`, an exFAT stick that needs formatting, `sdc`, an empty ext4 stick that is ready,
+and `sdd`, a stick whose volume marker belongs to another node. Only `sdb` is
+plugged in at the start, as in `demo/fixtures/storage-drives.json`. The dashboard
+reads the plugged sticks from `drives.json` in the demo's storage folder instead of
+`lsblk`, so the demo never sees real disks. The fake helper formats and mounts into
+the mount point of that folder and writes the volume marker there. Setting up the
+restart at the end of the setup leaves a request file, so `demo/demo.sh` restarts
+the dashboard and the drive becomes active by itself.
 
 The tests for the fakes are pytest tests in `demo/fakes`. Run them from
 `demo/fakes` with the project's `.venv`: `.venv/bin/python3 -m pytest -q`.

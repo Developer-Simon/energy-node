@@ -1,0 +1,9 @@
+{
+  "blockdevices": [
+    {"name": "sda", "kname": "sda", "path": "/dev/sda", "uuid": null, "fstype": null, "size": 32017047552, "fsused": null, "model": "USB Stick", "tran": "usb", "type": "disk", "mountpoint": null, "pkname": null,
+      "children": [
+        {"name": "sda1", "kname": "sda1", "path": "/dev/sda1", "uuid": "1234-ABCD", "fstype": "exfat", "size": 32016000000, "fsused": 512000000, "model": null, "tran": null, "type": "part", "mountpoint": null, "pkname": "sda"}
+      ]
+    }
+  ]
+}

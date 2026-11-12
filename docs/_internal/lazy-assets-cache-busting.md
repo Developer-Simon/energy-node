@@ -96,7 +96,7 @@ As of **2026-11-08**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `13` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `47` |
+| `js/dashboard.js` | `49` |
 | `js/update-bar.js` | `7` |
 | `js/onboarding-model.js` | `4` |
 | `js/onboarding.js` | `4` |
@@ -146,7 +146,7 @@ on the `device-modal` template in
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `11` | `css/manager.css` `51` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `16`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `2` (new), `js/energy-chain-suggest.js` `1` (new), `js/devicemap-graph.js` `12`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `6`, `js/energy-plant.js` `7`, `js/device-picker.js` `2`, `js/energy.page.js` `16` | `css/manager.css` `51` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `16`, `js/devicemap-subdevices.js` `1`, `js/energy-chains.js` `2` (new), `js/energy-chain-suggest.js` `1` (new), `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `6`, `js/devicemap-graph.js` `12`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `10`, `js/device-picker.js` `2`, `js/devicemap-view-prefs.js` `1` (new), `js/devicemap.page.js` `32` | `css/manager.css` `51` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `32`, `js/mqtt.page.js` `12`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4`, `js/onboarding-checklist.js` `3`, `js/backup.page.js` `1` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `51`, `css/settings-controls.css` `20`, `css/backup.css` `1` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings-masonry.js` `2`, `js/settings.page.js` `33`, `js/mqtt.page.js` `12`, `js/tailscale.page.js` `5`, `js/versions.page.js` `9`, `js/systemconfig.page.js` `5`, `js/users-model.js` `2`, `js/users.page.js` `4`, `js/onboarding-checklist.js` `3`, `js/backup.page.js` `2`, `js/storage.page.js` `1` (new) | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `51`, `css/settings-controls.css` `20`, `css/backup.css` `1`, `css/storage.css` `1` (new) |
 | `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `10`, `js/automations-scenario.js` `5`, `js/automations-chart.js` `4`, `js/automations-devices.js` `2`, `js/device-picker.js` `2`, `js/automation-wizard.js` `5`, `js/automation-templates.js` `5`, `js/automation-sheet.js` `1`, `js/automation-band.js` `2`, `js/automations.page.js` `24` | `css/manager.css` `51`, `css/automations.css` `15` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `5`, `js/energy-stats-model.js` `5`, `js/stats.page.js` `7` | `css/history.css` `7`, `css/stats.css` `5` |
 | `efficiency-panel` | `js/energy-model.js` `5`, `js/energy-stats-model.js` `5`, `js/devicemap-model.js` `16`, `js/energy-chains.js` `2`, `js/efficiency-model.js` `2` (new), `js/efficiency.page.js` `2` (new) | `css/manager.css` `51`, `css/stats.css` `5`, `css/efficiency.css` `2` (new) |
@@ -271,6 +271,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.11.12 | `js/settings.page.js` (settings panel, Storage page in the sidebar) · `js/storage.page.js` (new, settings panel, storage page: drives, fallback, setup, switch and replace flow) · `css/storage.css` (new, settings panel, storage page styles) · `js/backup.page.js` (settings panel, archive place and export hint name the additional drive) · `js/dashboard.js` (diagnostics i18n key for the missing drive) | `33` · `1` (new) · `1` (new) · `2` · `49` | 2026-11-12 |
 | v0.11.12 | `js/settings.page.js` (merge of main into prerelease, changed on both lines) | `32` | 2026-11-11 |
 | v0.11.9 | `js/energy.page.js` (energy panel, chain suggestions and their dialog) · `js/energy-chain-suggest.js` (new, energy and device map, suggestion dialog and timer) · `js/devicemap.page.js` (device map, popover with accept and dismiss) · `js/devicemap-graph.js` (energy and device map, dashed suggestion line) · `js/mqtt.page.js` (settings panel, chain sensors switch) · `css/manager.css` (manager panels, suggestion classes) · `js/settings.page.js` (settings panel, learning card) · `js/efficiency.page.js` (efficiency panel, learning off hint) · `js/dashboard.js` (shell, energy tab dot and tab labels) | `16` · `1` (new) · `32` · `12` · `12` · `51` · `31` · `3` · `48` | 2026-11-09 |
 | v0.11.9 | `js/backup.page.js` (new, settings panel, backup page) · `css/backup.css` (new, settings panel, backup page styles) · `js/settings.page.js` (settings panel, Backup page in the sidebar) | `1` (new) · `1` (new) · `31` | 2026-11-09 |

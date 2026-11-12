@@ -258,3 +258,18 @@ def test_state_save_interval_is_read_when_present(tmp_path):
     document["services"]["battery_soc"]["state_save_interval_s"] = 120
     config = appconfig.load(write_config(tmp_path, document))
     assert config.service("battery_soc").state_save_interval_s == 120.0
+
+
+def test_history_file_uses_runtime_dir(tmp_path):
+    document = valid_document()
+    document["paths"]["runtime_dir"] = "/home/energynode/runtime"
+    config = appconfig.load(write_config(tmp_path, document))
+    assert config.history_file() == Path("/home/energynode/runtime/automation_history.json")
+    assert config.paths.runtime_path("/unused", "battery_soc/b1.json") == Path("/home/energynode/runtime/battery_soc/b1.json")
+
+
+def test_history_file_legacy_without_runtime_dir(tmp_path):
+    config = appconfig.load(write_config(tmp_path))
+    assert config.paths.runtime_dir is None
+    assert config.paths.runtime_path("/home/energynode/devices", "x.json") == Path("/home/energynode/devices/x.json")
+    assert config.history_file() == Path("/home/energynode/devices/automation_history.json")

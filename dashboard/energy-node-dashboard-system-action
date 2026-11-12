@@ -28,6 +28,11 @@ JOURNALCTL="/usr/bin/journalctl"
 # stub, so keep the assignment on one line.
 SYSTEMCTL="/bin/systemctl"
 
+# systemd-run binary for the storage verb. The test
+# scripts/tests/test_system_action_storage.sh replaces this line with a stub,
+# so keep the assignment on one line.
+SYSTEMD_RUN="/usr/bin/systemd-run"
+
 # apply_bridge_config installs BRIDGE_STAGED as BRIDGE_TARGET and restarts
 # mosquitto, with two independent defenses against a compromised dashboard
 # process and one rollback path against a working-but-wrong configuration:
@@ -184,6 +189,36 @@ read_journal() {
 }
 
 
+# storage_helper starts the drive helper as its own transient unit. The unit
+# runs outside the dashboard's sandbox, so the mount it creates is visible to
+# the system. Only the three verbs of the drive helper pass, unmount takes no
+# argument. The disk name and the UUID are checked here too, before systemd-run
+# starts anything; the drive helper checks them again against lsblk.
+storage_helper() {
+  verb="$1"
+  arg="$2"
+  case "$verb" in
+    format)
+      case "$arg" in
+        ''|*[!a-z0-9]*) exit 65 ;;
+      esac
+      exec "$SYSTEMD_RUN" --wait --collect --pipe /usr/local/sbin/energy-node-storage-helper format "$arg"
+      ;;
+    mount)
+      printf '%s\n' "$arg" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
+        || exit 65
+      exec "$SYSTEMD_RUN" --wait --collect --pipe /usr/local/sbin/energy-node-storage-helper mount "$arg"
+      ;;
+    unmount)
+      [ -z "$arg" ] || exit 65
+      exec "$SYSTEMD_RUN" --wait --collect --pipe /usr/local/sbin/energy-node-storage-helper unmount
+      ;;
+    *)
+      exit 65
+      ;;
+  esac
+}
+
 # service_units prints the units that stop-services and start-services act on.
 # Keep the names in step with the units of the read_journal case statement.
 service_units() {
@@ -223,6 +258,11 @@ case "${1:-}" in
       exit 64
     fi
     ;;
+  storage)
+    if [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
+      exit 64
+    fi
+    ;;
   *)
     if [ "$#" -ne 1 ]; then
       exit 64
@@ -251,6 +291,9 @@ case "$1" in
     ;;
   restart-mosquitto)
     exec /bin/systemctl restart mosquitto
+    ;;
+  storage)
+    storage_helper "$2" "${3:-}"
     ;;
   stop-services)
     service_loop stop || exit 1

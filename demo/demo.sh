@@ -20,7 +20,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/env.sh"
 
 usage() {
-  echo "Aufruf: demo/demo.sh [--reset] [--new-cert] [--docs] [--no-simulate] [--devices DIR]... | --stop [--docs]" >&2
+  cat >&2 <<'EOT'
+Aufruf: demo/demo.sh [--reset] [--new-cert] [--docs] [--no-simulate] [--devices DIR]...
+        demo/demo.sh --stop [--docs]
+        demo/demo.sh -h | --help
+
+Optionen:
+  --reset          Zustand unter demo/.state loeschen, dann neu einrichten
+  --new-cert       TLS-Zertifikat neu erzeugen, Zustand bleibt
+  --docs           Fixture fuer die Doku-Bilder, Zustand in demo/.run/docs
+  --no-simulate    PV, Netz, Batterie und Last bleiben stehen
+  --devices DIR    zusaetzliche Konfigurationen, mehrfach moeglich, spaetere Quelle gewinnt
+  --stop           laufende Demo beenden (mit --docs: die Docs-Instanz)
+  -h, --help       diese Hilfe
+
+Umgebungsvariablen (Ports, Standard in Klammern):
+  DASHBOARD_DEMO_PORT               Dashboard (18200)
+  DASHBOARD_DEMO_COMPANION_PORT     Companion (18201)
+  DASHBOARD_DEMO_CONSOLE_PORT       Fake-Konsole (18202)
+  DASHBOARD_DEMO_MQTT_PORT          MQTT-Broker (18283)
+  DASHBOARD_DEMO_UPDATES_API_PORT   GitHub-Releases-Fake (18284)
+  DASHBOARD_DEMO_BROKER_CONTROL_PORT  Steuerport des Brokers (18285)
+EOT
 }
 
 MODE=demo
@@ -170,6 +191,7 @@ if [[ "$NEW_CERT" == "1" ]]; then
 fi
 env_write_cert || exit 1
 env_prepare_devices || exit 1
+env_prepare_storage || exit 1
 env_write_config || exit 1
 
 echo "Baue Dashboard"
@@ -239,4 +261,31 @@ echo "Selbstsigniertes Zertifikat im Browser bestaetigen."
 echo "Nach Codeaenderung neu starten."
 echo "Abbruch mit Strg-C."
 
-wait "$DASHBOARD_PID"
+# Der Fake des Systemhelfers legt bei einem Neustart eine Anfrage ab. Dann startet
+# die Schleife das Dashboard neu, damit gestagte Konfiguration und Laufwerke greifen.
+# Ohne Anfrage endet die Demo mit dem Dashboard.
+supervise_dashboard() {
+  local request="$WORK/restart-request" pid
+  while true; do
+    while kill -0 "$DASHBOARD_PID" 2>/dev/null && [[ ! -f "$request" ]]; do
+      sleep 1
+    done
+    if [[ ! -f "$request" ]]; then
+      wait "$DASHBOARD_PID" 2>/dev/null
+      return 0
+    fi
+    rm -f "$request"
+    echo "Dashboard wird neu gestartet"
+    pid="$DASHBOARD_PID"
+    kill "$pid" 2>/dev/null
+    for _ in $(seq 1 50); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.2
+    done
+    kill -9 "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    env_start_dashboard "$WORK/bin/dashboard"
+    env_wait_dashboard || return 1
+  done
+}
+supervise_dashboard || exit 1

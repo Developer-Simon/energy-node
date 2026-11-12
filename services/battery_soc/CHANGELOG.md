@@ -1,6 +1,20 @@
 # Changelog
 
-## v0.4.8 (2026-10-21)
+## v0.4.9-pre.1 (2026-11-12)
+
+### Features
+
+- **storage:** Add an additional drive for running data and backups (#233)
+
+### Refactors
+
+- **common:** keep battery paths out of the common library (0e615bc)
+
+## v0.4.8 (2026-11-12)
+
+### Features
+
+- **storage:** add an additional drive for running data and backups (197bec2)
 
 ### Refactors
 

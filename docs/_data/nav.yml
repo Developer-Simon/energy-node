@@ -78,6 +78,7 @@
     - { label: "Configuration file", url: "operating/configuration.md" }
     - { label: "Reverse proxy", url: "operating/reverse-proxy.md" }
     - { label: "Secrets & credentials", url: "operating/secrets.md" }
+    - { label: "Additional drive", url: "operating/storage.md" }
     - { label: "Troubleshooting", url: "operating/troubleshooting.md" }
     - { label: "Resources on a Pi 1", url: "operating/performance.md" }
 

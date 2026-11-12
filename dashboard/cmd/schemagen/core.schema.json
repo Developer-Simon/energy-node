@@ -26,6 +26,7 @@
       "properties": {
         "devices_dir": {"type": "string", "minLength": 1, "title": "Device configurations", "description": "Directory with the device configurations of all services, for example shelly_devices.json."},
         "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard data", "description": "Directory where the dashboard keeps its own state, such as settings, layout and revisions."},
+        "runtime_dir": {"type": "string", "minLength": 1, "title": "Runtime data", "description": "Optional directory for runtime data such as energy statistics, the automation history and the battery state. Leave empty to keep them in the directories above."},
         "services_version_file": {"type": "string", "title": "Services version file (deprecated)", "description": "No longer used and ignored. The versions are shown under Settings > Versions."}
       }
     },

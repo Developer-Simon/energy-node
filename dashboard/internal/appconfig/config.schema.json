@@ -242,6 +242,12 @@
           "title": "Device configurations",
           "type": "string"
         },
+        "runtime_dir": {
+          "description": "Optional directory for runtime data such as energy statistics, the automation history and the battery state. Leave empty to keep them in the directories above.",
+          "minLength": 1,
+          "title": "Runtime data",
+          "type": "string"
+        },
         "services_version_file": {
           "description": "No longer used and ignored. The versions are shown under Settings \u003e Versions.",
           "title": "Services version file (deprecated)",

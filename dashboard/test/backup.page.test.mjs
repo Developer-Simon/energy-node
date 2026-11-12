@@ -96,6 +96,8 @@ function createBackupPage({ fetchImpl, url } = {}) {
   const page = factories.backupPage();
   const stores = attachStores(page, { modal: fakeModalStore({ answer: true }) });
   page.$nextTick = (fn) => fn();
+  // The settings shell owns activeSettingsPage, the tests switch it by hand.
+  page.$watch = (key, fn) => { page.watchers = { ...page.watchers, [key]: fn }; };
   return { page, stores, window: dom.window };
 }
 
@@ -616,4 +618,26 @@ test('the users area has no kept-passwords note when the archive carries passwor
   await page.readFile({ name: 'archiv.tar.gz' });
   const users = page.previewAreas.find((area) => area.key === 'users');
   assert.equal(users.note, '');
+});
+
+test('opening the backup page reloads the status, unless a flow or unsaved edits are open', async () => {
+  let reads = 0;
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(['backup_export']),
+    '/api/v1/backup/status': () => { reads += 1; return reply(200, statusBody()); },
+  });
+  const { page } = createBackupPage({ fetchImpl });
+  await page.init();
+  const base = reads;
+
+  page.watchers.activeSettingsPage('general');
+  assert.equal(reads, base, 'other pages do not reload');
+  page.watchers.activeSettingsPage('backup');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(reads, base + 1);
+
+  page.auto.keep = 9;
+  page.watchers.activeSettingsPage('backup');
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(reads, base + 1, 'unsaved edits are kept');
 });

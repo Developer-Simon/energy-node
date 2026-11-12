@@ -1,0 +1,44 @@
+{
+  "de": {
+    "*": "Zusätzliches Laufwerk für laufende Daten und Backups"
+  },
+  "en": {
+    "*": "Add an additional drive for running data and backups"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "storage_manage",
+          "page": "storage",
+          "panel": "settings-panel",
+          "target": "storage-overview",
+          "text": {
+            "de": "Ein zweites Laufwerk nimmt laufende Daten und Backups von der SD-Karte. Die Leisten zeigen, wie voll das Systemlaufwerk und das zusätzliche Laufwerk sind, ein Hover über die Leiste nennt die genauen Mengen.",
+            "en": "A second drive takes the running data and the backups off the SD card. The bars show how full the system drive and the additional drive are, hover over a bar for the exact amounts."
+          },
+          "title": {
+            "de": "Zusätzliches Laufwerk",
+            "en": "Additional drive"
+          }
+        },
+        {
+          "device": "any",
+          "need": "storage_manage",
+          "page": "storage",
+          "panel": "settings-panel",
+          "target": "storage-setup",
+          "text": {
+            "de": "Stecke das Laufwerk an und richte es hier ein. Später kannst du auch auf ein anderes Laufwerk wechseln oder ein fehlendes ersetzen.",
+            "en": "Plug in the drive and set it up here. You can also switch to another drive or replace a missing one later."
+          },
+          "title": {
+            "de": "Laufwerk einrichten",
+            "en": "Set up the drive"
+          }
+        }
+      ]
+    }
+  }
+}

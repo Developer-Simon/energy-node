@@ -258,7 +258,8 @@ func (d *BackupDeps) handleStatus(manager *auth.Manager) http.HandlerFunc {
 // areaSizes summiert die Größe der live vorhandenen Dateien je Bereich.
 func (d *BackupDeps) areaSizes() []backupAreaSize {
 	sizes := map[backup.Area]int64{}
-	walk := func(dir string, root backup.Root) {
+	walk := func(t backup.Tree) {
+		dir, root := t.Dir, t.Root
 		if dir == "" {
 			return
 		}
@@ -271,7 +272,7 @@ func (d *BackupDeps) areaSizes() []backupAreaSize {
 				return nil
 			}
 			entry, ok := backup.Lookup(root, filepath.ToSlash(rel))
-			if !ok || entry.Area == "" {
+			if !ok || entry.Area == "" || !d.Sources.Accepts(t, entry) {
 				return nil
 			}
 			if info, err := e.Info(); err == nil {
@@ -280,8 +281,9 @@ func (d *BackupDeps) areaSizes() []backupAreaSize {
 			return nil
 		})
 	}
-	walk(d.Sources.DataDir, backup.RootData)
-	walk(d.Sources.DevicesDir, backup.RootDevices)
+	for _, t := range d.Sources.Trees() {
+		walk(t)
+	}
 	for _, state := range d.Sources.BatteryStates {
 		if info, err := os.Stat(state); err == nil {
 			sizes[backup.AreaBattery] += info.Size()

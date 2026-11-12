@@ -8,6 +8,9 @@ Type=simple
 User=energynode
 Group=energynode
 WorkingDirectory=/home/energynode/dashboard
+# /run/energy-node is created for the service and removed when it stops. The
+# RAM fallback for the runtime data lives in /run/energy-node/runtime.
+RuntimeDirectory=energy-node
 # Konfiguration und MQTT-Zugangsdaten liegen zentral in
 # /etc/energy-node/config.json bzw. der dort referenzierten
 # Passwortdatei. Fehlt die Datei, bricht der Dienst mit einer Meldung ab,

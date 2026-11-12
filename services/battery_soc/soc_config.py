@@ -16,6 +16,12 @@ from battery_soc_core.sources import (
 )
 
 SOC_PARAM_FIELDS = frozenset(SocParams.field_names())
+LEGACY_STATE_FILE = "/home/energynode/battery_soc/state.json"
+
+
+def battery_state_path(runtime_dir, battery_id):
+    """Zustandsdatei einer Batterieanlage unter dem Laufzeitverzeichnis."""
+    return Path(runtime_dir) / "battery_soc" / f"{battery_id}.json"
 
 
 @dataclass(frozen=True)
@@ -160,7 +166,10 @@ def input_topics(config):
     return list(dict.fromkeys(topics))
 
 
-def load_configs(path):
+def load_configs(path, runtime_dir=None):
+    """Batterie-Konfiguration laden. Mit runtime_dir liegt der Zustand im
+    Laufzeitverzeichnis, sofern state_file fehlt oder der alte Standard ist.
+    Ein abweichender state_file bleibt unveraendert."""
     raw = common_config.load_json(path)
     if not isinstance(raw, list) or not raw:
         raise ValueError(f"Batterie-Konfiguration {path} muss eine nichtleere JSON-Liste sein")
@@ -177,7 +186,11 @@ def load_configs(path):
         values["name"] = str(values["name"]).strip()
         if not values["id"] or not values["name"]:
             raise ValueError(f"Eintrag {index} in {path} braucht nichtleere id und name")
-        values["state_file"] = Path(values.get("state_file", "/home/energynode/battery_soc/state.json"))
+        state_file = values.get("state_file", LEGACY_STATE_FILE)
+        if runtime_dir and state_file == LEGACY_STATE_FILE:
+            values["state_file"] = battery_state_path(runtime_dir, values["id"])
+        else:
+            values["state_file"] = Path(state_file)
         try:
             config = BatteryConfig(**values)
         except (TypeError, ValueError) as exc:

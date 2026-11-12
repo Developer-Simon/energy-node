@@ -1,0 +1,39 @@
+[
+  {
+    "kname": "sdb",
+    "name": "SanDisk Ultra",
+    "uuid": "6f1c2a4e-8b3d-4c5a-9e7f-2d4b6a8c0e1f",
+    "fstype": "exfat",
+    "transport": "usb",
+    "size": 64424509440,
+    "used": 12884901888,
+    "ready": false,
+    "needs_format": true,
+    "contents": "storage.contents.foreign"
+  },
+  {
+    "kname": "sdc",
+    "name": "Kingston DataTraveler",
+    "uuid": "2b7e9d10-4f3a-4c6e-8a51-9d0f7e3b2c48",
+    "fstype": "ext4",
+    "transport": "usb",
+    "size": 31914983424,
+    "used": 0,
+    "ready": true,
+    "needs_format": false,
+    "contents": ""
+  },
+  {
+    "kname": "sdd",
+    "name": "Verbatim Store",
+    "uuid": "c85a0e3f-61d2-4b8e-9f04-7a3c2e1d5b96",
+    "fstype": "ext4",
+    "transport": "usb",
+    "size": 15931539456,
+    "used": 2097152,
+    "ready": true,
+    "needs_format": false,
+    "contents": "",
+    "marker": "fremde-kennung-4711"
+  }
+]

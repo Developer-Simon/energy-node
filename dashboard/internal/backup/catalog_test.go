@@ -20,6 +20,14 @@ var jsonLiteral = regexp.MustCompile(`[A-Za-z0-9_./-]+\.json\b`)
 // (liegt nicht in Data oder Devices), eine eingebettete Ressource, eine
 // Testdaten-Referenz in einem Kommentar oder ein Pfad aus Task 2.
 var notNodeData = map[string]bool{
+	// Altes Zustandsbild des Batteriedienstes ausserhalb von Data und Devices.
+	// Der Speicherauftrag holt es beim Einrichten auf das Laufwerk, das Archiv
+	// erfasst es nicht. Der volle Pfad steht hier, damit kein anderes state.json passt.
+	"/home/energynode/battery_soc/state.json": true,
+	// Demo-Liste der Laufwerke (cmd/dashboard/storage_demo.go). Sie liegt im
+	// Demo-Verzeichnis unter demo/, nie in Data oder Devices, und ersetzt lsblk nur
+	// bei gesetztem ENERGY_NODE_STORAGE_DEMO.
+	"drives.json": true,
 	// Updater- und Installer-Artefakte im Staging- und Statusverzeichnis.
 	"announced.json":          true,
 	"current.json":            true,

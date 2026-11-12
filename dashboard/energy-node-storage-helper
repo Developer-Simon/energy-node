@@ -1,0 +1,163 @@
+#!/bin/sh
+set -eu
+
+# Privileged helper for the data drive. It runs as root, started by
+# systemd-run from energy-node-dashboard-system-action (verb "storage"), so
+# its environment is systemd's clean one, not the dashboard's. The
+# EN_STORAGE_* overrides exist for scripts/tests/test_storage_helper.sh only.
+#
+#   format <kname>  GPT with one partition on a disk that is not the system
+#                   disk and has no mounted partition, mkfs.ext4 with the
+#                   label energy-node-data, prints the new UUID.
+#   mount <uuid>    own mount unit (its own unit, because the dashboard's
+#                   ProtectSystem=full namespace would hide a mount made
+#                   there), first use creates runtime/ and backups/ and the
+#                   marker file .energy-node-volume.
+#   unmount         stops and removes that unit.
+#
+# Refusals print an error code on stdout and exit 65 (64 for wrong arguments).
+
+UNIT_DIR="${EN_STORAGE_UNIT_DIR:-/etc/systemd/system}"
+MOUNT_POINT="${EN_STORAGE_MOUNT_POINT:-/mnt/energy-node-data}"
+MACHINE_ID_FILE="${EN_STORAGE_MACHINE_ID_FILE:-/etc/machine-id}"
+OWNER="${EN_STORAGE_OWNER:-energynode}"
+LSBLK="${EN_STORAGE_LSBLK:-/usr/bin/lsblk}"
+FINDMNT="${EN_STORAGE_FINDMNT:-/usr/bin/findmnt}"
+SFDISK="${EN_STORAGE_SFDISK:-/usr/sbin/sfdisk}"
+UDEVADM="${EN_STORAGE_UDEVADM:-/usr/bin/udevadm}"
+MKFS="${EN_STORAGE_MKFS:-/usr/sbin/mkfs.ext4}"
+SYSTEMCTL="${EN_STORAGE_SYSTEMCTL:-/bin/systemctl}"
+
+UNIT_NAME='mnt-energy\x2dnode\x2ddata.mount'
+UNIT_FILE="$UNIT_DIR/$UNIT_NAME"
+
+fail() {
+  printf '%s\n' "$1"
+  exit "${2:-65}"
+}
+
+# root_disk prints the kname of the disk under /. Any failure is an error,
+# so an unknown system disk never lets a disk through.
+root_disk() {
+  src="$("$FINDMNT" -no SOURCE /)" || return 1
+  [ -n "$src" ] || return 1
+  disk="$("$LSBLK" -no PKNAME "$src")" || return 1
+  [ -n "$disk" ] || return 1
+  printf '%s\n' "$disk"
+}
+
+# check_disk KNAME refuses anything but a known disk that is not the system
+# disk and has no mounted partition.
+check_disk() {
+  case "$1" in
+    ''|*[!a-z0-9]*) fail INVALID_DEVICE ;;
+  esac
+  listing="$("$LSBLK" -lnpo NAME,TYPE,MOUNTPOINT "/dev/$1" 2>/dev/null)" || fail DEVICE_UNKNOWN
+  type="$(printf '%s\n' "$listing" | awk -v d="/dev/$1" '$1 == d { print $2; exit }')"
+  [ "$type" = disk ] || fail DEVICE_UNKNOWN
+  root="$(root_disk)" || fail ROOT_UNKNOWN 1
+  [ "$1" != "$root" ] || fail DEVICE_IS_SYSTEM_DISK
+  mounted="$(printf '%s\n' "$listing" | awk 'NF >= 3 { print $1; exit }')"
+  [ -z "$mounted" ] || fail DEVICE_MOUNTED
+}
+
+# partition_of KNAME prints the first partition of a disk.
+partition_of() {
+  "$LSBLK" -lnpo NAME,TYPE,MOUNTPOINT "/dev/$1" | awk '$2 == "part" { print $1; exit }'
+}
+
+format_disk() {
+  kname="$1"
+  check_disk "$kname"
+  printf 'label: gpt\n,\n' | "$SFDISK" "/dev/$kname" >/dev/null || fail FORMAT_FAILED 1
+  # Let udev create the partition node before lsblk looks for it; a failing
+  # settle is not an error, the lookup below fails on its own if needed.
+  if [ -x "$UDEVADM" ]; then
+    "$UDEVADM" settle >/dev/null 2>&1 || true
+  fi
+  part="$(partition_of "$kname")" || fail FORMAT_FAILED 1
+  [ -n "$part" ] || fail FORMAT_FAILED 1
+  "$MKFS" -L energy-node-data "$part" >/dev/null || fail FORMAT_FAILED 1
+  uuid="$("$LSBLK" -no UUID "$part")" || fail FORMAT_FAILED 1
+  printf '%s\n' "$uuid" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
+    || fail FORMAT_FAILED 1
+  printf '%s\n' "$uuid"
+}
+
+mount_volume() {
+  uuid="$1"
+  printf '%s\n' "$uuid" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
+    || fail INVALID_UUID
+
+  # The UUID must belong to a device that is not on the system disk.
+  dev="$("$LSBLK" -lnpo NAME,UUID | awk -v u="$uuid" '$2 == u { print $1; exit }')"
+  [ -n "$dev" ] || fail UNKNOWN_UUID
+  pkname="$("$LSBLK" -no PKNAME "$dev")" || fail UNKNOWN_UUID
+  root="$(root_disk)" || fail ROOT_UNKNOWN 1
+  [ "$pkname" != "$root" ] || fail DEVICE_IS_SYSTEM_DISK
+
+  # The marker carries the machine id, trimmed of whitespace.
+  [ -r "$MACHINE_ID_FILE" ] || fail NODE_ID_MISSING
+  node_id="$(tr -d ' \t\r\n' < "$MACHINE_ID_FILE")"
+  [ -n "$node_id" ] || fail NODE_ID_MISSING
+
+  mkdir -p "$MOUNT_POINT"
+  chmod 0755 "$MOUNT_POINT"
+  # Root owns the mount point; only the volume's own directories belong to OWNER.
+  if [ "$(id -u)" -eq 0 ]; then
+    chown root:root "$MOUNT_POINT"
+  fi
+
+  cat > "$UNIT_FILE" <<UNIT
+[Unit]
+Description=Energy-Node data drive
+
+[Mount]
+What=/dev/disk/by-uuid/$uuid
+Where=$MOUNT_POINT
+Options=nofail,noatime
+TimeoutSec=20s
+
+[Install]
+WantedBy=local-fs.target
+UNIT
+  "$SYSTEMCTL" daemon-reload || fail MOUNT_FAILED 1
+  if ! "$SYSTEMCTL" start "$UNIT_NAME"; then
+    rm -f "$UNIT_FILE"
+    "$SYSTEMCTL" daemon-reload || true
+    fail MOUNT_FAILED 1
+  fi
+
+  marker="$MOUNT_POINT/.energy-node-volume"
+  if [ ! -e "$marker" ]; then
+    for dir in runtime backups; do
+      mkdir -p "$MOUNT_POINT/$dir"
+      chown "$OWNER" "$MOUNT_POINT/$dir"
+    done
+    printf '%s\n' "$node_id" > "$marker"
+  fi
+}
+
+unmount_volume() {
+  "$SYSTEMCTL" stop "$UNIT_NAME" || fail UNMOUNT_FAILED 1
+  rm -f "$UNIT_FILE"
+  "$SYSTEMCTL" daemon-reload || fail UNMOUNT_FAILED 1
+}
+
+case "${1:-}" in
+  format)
+    [ "$#" -eq 2 ] || fail INVALID_ARGUMENT 64
+    format_disk "$2"
+    ;;
+  mount)
+    [ "$#" -eq 2 ] || fail INVALID_ARGUMENT 64
+    mount_volume "$2"
+    ;;
+  unmount)
+    [ "$#" -eq 1 ] || fail INVALID_ARGUMENT 64
+    unmount_volume
+    ;;
+  *)
+    fail INVALID_VERB 64
+    ;;
+esac

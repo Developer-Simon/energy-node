@@ -7,7 +7,7 @@ import (
 
 // usersFileVersion ist die Version, die users.json heute schreibt. Eine
 // Datei mit hoeherer Version wird nicht angefasst, siehe Spec Abschnitt 2.
-const usersFileVersion = 7
+const usersFileVersion = 8
 
 // ErrUnsupportedUsersVersion meldet eine users.json aus einer neueren Version
 // des Dashboards. Der Start bricht ab, die Datei bleibt unveraendert.
@@ -196,11 +196,25 @@ var backupRoleKeys = []string{RoleBackupExport, RoleBackupImport, RoleBackupSecr
 // Nicht-Gast mit system_actions, wie in migrateV1. Die erhoehten Rechte stehen
 // nicht in den HA-Vorgaben, die bleiben unberuehrt.
 func migrateV5(users map[string]User) {
+	grantToAdmins(users, backupRoleKeys)
+}
+
+// storageRoleKeys sind die Speicher-Rechte, die Version 8 bestehenden Admins gibt.
+var storageRoleKeys = []string{RoleStorageManage}
+
+// migrateV7 gibt bestehenden Admins das Recht storage_manage, nach derselben
+// Regel wie migrateV5.
+func migrateV7(users map[string]User) {
+	grantToAdmins(users, storageRoleKeys)
+}
+
+// grantToAdmins fuegt keys den Konten hinzu, die Admin sind.
+func grantToAdmins(users map[string]User, keys []string) {
 	for name, user := range users {
 		if user.Guest || !containsRole(user.Roles, RoleSystemActions) {
 			continue
 		}
-		user.Roles = Normalize(append(append([]string(nil), user.Roles...), backupRoleKeys...))
+		user.Roles = Normalize(append(append([]string(nil), user.Roles...), keys...))
 		users[name] = user
 	}
 }

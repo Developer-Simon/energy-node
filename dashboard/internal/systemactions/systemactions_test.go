@@ -181,3 +181,132 @@ func TestStopStartServicesAreSupportedActions(t *testing.T) {
 		t.Fatalf("runner args = %#v, want last arg %q", runner.args, "start-services")
 	}
 }
+
+const testStorageHelper = "/usr/local/sbin/energy-node-dashboard-system-action"
+
+// recordingOutputRunner records the last call and returns canned stdout.
+type recordingOutputRunner struct {
+	recordingRunner
+	out   string
+	err   error
+	calls int
+}
+
+func (runner *recordingOutputRunner) Output(_ context.Context, name string, args ...string) (string, error) {
+	runner.calls++
+	runner.name = name
+	runner.args = append([]string(nil), args...)
+	return runner.out, runner.err
+}
+
+func assertCommand(t *testing.T, runner *recordingOutputRunner, name string, args ...string) {
+	t.Helper()
+	if runner.name != name {
+		t.Fatalf("command = %q, want %q", runner.name, name)
+	}
+	if len(runner.args) != len(args) {
+		t.Fatalf("args = %#v, want %#v", runner.args, args)
+	}
+	for index := range args {
+		if runner.args[index] != args[index] {
+			t.Fatalf("args = %#v, want %#v", runner.args, args)
+		}
+	}
+}
+
+func TestStorageRunsTheStorageVerbThroughSudoAndReturnsStdout(t *testing.T) {
+	runner := &recordingOutputRunner{out: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d\n"}
+	executor := NewExecutor(runner, testStorageHelper)
+	out, err := executor.Storage(context.Background(), "format", "sda")
+	if err != nil {
+		t.Fatalf("Storage(format, sda) = %v, want nil", err)
+	}
+	if out != "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d" {
+		t.Fatalf("Storage stdout = %q, want the trimmed UUID", out)
+	}
+	assertCommand(t, runner, "sudo", "-n", testStorageHelper, "storage", "format", "sda")
+
+	uuid := "3f9c2e1a-8b7d-4c6e-9f10-2a3b4c5d6e7f"
+	if _, err := executor.Storage(context.Background(), "mount", uuid); err != nil {
+		t.Fatalf("Storage(mount) = %v, want nil", err)
+	}
+	assertCommand(t, runner, "sudo", "-n", testStorageHelper, "storage", "mount", uuid)
+
+	if _, err := executor.Storage(context.Background(), "unmount", ""); err != nil {
+		t.Fatalf("Storage(unmount) = %v, want nil", err)
+	}
+	assertCommand(t, runner, "sudo", "-n", testStorageHelper, "storage", "unmount")
+}
+
+func TestStorageRejectsInvalidRequestsBeforeAnyCommand(t *testing.T) {
+	cases := []struct{ verb, arg string }{
+		{"format", "../sda"},
+		{"format", "sda;reboot"},
+		{"format", ""},
+		{"format", "SDA"},
+		{"mount", "not-a-uuid"},
+		{"mount", ""},
+		{"unmount", "sda"},
+		{"rm", "sda"},
+		{"", ""},
+	}
+	for _, tc := range cases {
+		runner := &recordingOutputRunner{}
+		executor := NewExecutor(runner, testStorageHelper)
+		if _, err := executor.Storage(context.Background(), tc.verb, tc.arg); err == nil {
+			t.Fatalf("Storage(%q, %q) was accepted", tc.verb, tc.arg)
+		}
+		if runner.calls != 0 {
+			t.Fatalf("Storage(%q, %q) ran a command", tc.verb, tc.arg)
+		}
+	}
+}
+
+func TestStorageReturnsStdoutAndErrorOfAFailedHelperRun(t *testing.T) {
+	runner := &recordingOutputRunner{out: "DEVICE_MOUNTED\n", err: errors.New("exit status 65")}
+	executor := NewExecutor(runner, testStorageHelper)
+	out, err := executor.Storage(context.Background(), "format", "sda")
+	if err == nil {
+		t.Fatal("Storage with failed helper run = nil error, want error")
+	}
+	if out != "DEVICE_MOUNTED" {
+		t.Fatalf("Storage stdout = %q, want the helper's error code", out)
+	}
+}
+
+// blockingOutputRunner holds Output open until release is closed.
+type blockingOutputRunner struct {
+	release chan struct{}
+	started chan struct{}
+}
+
+func (r *blockingOutputRunner) Run(context.Context, string, ...string) error { return nil }
+
+func (r *blockingOutputRunner) Output(context.Context, string, ...string) (string, error) {
+	close(r.started)
+	<-r.release
+	return "", nil
+}
+
+func TestStorageSharesTheBusyLockWithExecute(t *testing.T) {
+	runner := &blockingOutputRunner{release: make(chan struct{}), started: make(chan struct{})}
+	executor := NewExecutor(runner, testStorageHelper)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, _ = executor.Storage(context.Background(), "format", "sda")
+	}()
+	<-runner.started
+
+	if err := executor.Execute(context.Background(), Reboot); !errors.Is(err, ErrBusy) {
+		t.Fatalf("Execute(Reboot) while storage runs = %v, want ErrBusy", err)
+	}
+	if _, err := executor.Storage(context.Background(), "unmount", ""); !errors.Is(err, ErrBusy) {
+		t.Fatalf("Storage(unmount) while storage runs = %v, want ErrBusy", err)
+	}
+
+	close(runner.release)
+	wg.Wait()
+}

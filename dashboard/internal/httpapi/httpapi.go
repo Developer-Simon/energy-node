@@ -136,6 +136,9 @@ const (
 )
 
 type RouterDependencies struct {
+	// StorageFallback liefert den Ausweichmodus der Laufzeitdaten, "" solange
+	// das Datenlaufwerk genutzt wird. Der Befund storage_drive_missing haengt daran.
+	StorageFallback    func() string
 	MQTT               mqttclient.StatusProvider
 	MQTTReconfigure    MQTTReconfigurer
 	MQTTCredentials    *mqttclient.CredentialStore
@@ -151,10 +154,13 @@ type RouterDependencies struct {
 	MQTTBridgeWatcher  BridgeWatcher
 	SystemStatusRunner systemactions.OutputRunner
 	DataDir            string
-	AppConfigPath      string
-	BridgeTargetPath   string
-	Tailscale          *tailscale.Client
-	Resolver           *energy.Resolver
+	// AutomationHistoryDir ist der Ort des Automations-Verlaufs (runtime_dir oder devices_dir).
+	// Leer heisst: das Geraeteverzeichnis des Konfigurationsmanagers.
+	AutomationHistoryDir string
+	AppConfigPath        string
+	BridgeTargetPath     string
+	Tailscale            *tailscale.Client
+	Resolver             *energy.Resolver
 	// EnergyStats liefert /api/v1/energy/stats. nil heisst "nicht
 	// verfuegbar" (501), etwa in Tests ohne Datenverzeichnis.
 	EnergyStats *energystats.Service
@@ -245,6 +251,8 @@ type RouterDependencies struct {
 	TourTargets func() map[string]bool
 	// Backup liefert die Routen unter /api/v1/backup/. Nil heisst: die Routen fehlen.
 	Backup *BackupDeps
+	// Storage liefert die Routen unter /api/v1/storage/. Nil heisst: die Routen fehlen.
+	Storage *StorageDeps
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -287,6 +295,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	engine := diagnostics.NewEngine(reg, store)
 	engine.SetConfigManager(configs)
 	engine.SetStartedAt(dependencies.StartedAt)
+	if dependencies.StorageFallback != nil {
+		engine.SetStorageFallback(dependencies.StorageFallback)
+	}
 	now := dependencies.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -399,6 +410,15 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/system/logs", handleServiceLogs(dependencies.Auth, dependencies.ServiceLogs))
 		g.HandleFunc("/api/v1/system/logs/units", handleServiceLogUnits(dependencies.Auth))
 	}
+	if storageDeps := dependencies.Storage; storageDeps != nil {
+		g.HandleFunc("/api/v1/storage/status", storageDeps.handleStatus(dependencies.Auth))
+		g.HandleFunc("/api/v1/storage/recheck", storageDeps.handleRecheck(dependencies.Auth))
+		g.HandleFunc("/api/v1/storage/drives", storageDeps.handleDrives(dependencies.Auth))
+		g.HandleFunc("/api/v1/storage/setup", storageDeps.handleSetup(dependencies.Auth))
+		g.HandleFunc("/api/v1/storage/fallback", storageDeps.handleFallback(dependencies.Auth))
+		g.HandleFunc("/api/v1/storage/remove", storageDeps.handleRemove(dependencies.Auth))
+		g.HandleFunc("/api/v1/storage/replace", storageDeps.handleReplace(dependencies.Auth))
+	}
 	if backupDeps := dependencies.Backup; backupDeps != nil {
 		g.HandleFunc("/api/v1/backup/status", backupDeps.handleStatus(dependencies.Auth))
 		g.HandleFunc("/api/v1/backup/settings", backupDeps.handleSettings(dependencies.Auth))
@@ -418,7 +438,11 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/configurations", handleConfigurations(configs))
 		g.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth, dependencies.NodeAgent))
 		g.HandleFunc("/api/v1/automations/test", handleAutomationTest(publisher, dependencies.Auth))
-		g.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(configs))
+		historyDir := dependencies.AutomationHistoryDir
+		if historyDir == "" {
+			historyDir = configs.Dir()
+		}
+		g.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(historyDir))
 		g.HandleFunc("/api/v1/energy/category-references", handleCategoryReferences(configs))
 	}
 	if store != nil {
@@ -2271,7 +2295,7 @@ func handleCategoryReferences(configs *config.Manager) http.HandlerFunc {
 // Lesen - keine neue Schreib-Ausnahme von der read-only-Regel.
 const automationHistoryFileName = "automation_history.json"
 
-func handleAutomationHistory(configs *config.Manager) http.HandlerFunc {
+func handleAutomationHistory(dir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w, http.MethodGet)
@@ -2282,7 +2306,7 @@ func handleAutomationHistory(configs *config.Manager) http.HandlerFunc {
 			http.NotFound(w, r)
 			return
 		}
-		data, err := os.ReadFile(filepath.Join(configs.Dir(), automationHistoryFileName))
+		data, err := os.ReadFile(filepath.Join(dir, automationHistoryFileName))
 		if errors.Is(err, fs.ErrNotExist) {
 			writeJSON(w, []json.RawMessage{})
 			return

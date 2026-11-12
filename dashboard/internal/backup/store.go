@@ -304,3 +304,27 @@ func archiveID(name string) (string, bool) {
 	}
 	return id, idPattern.MatchString(id)
 }
+
+// DriveLocation legt Archive auf dem zweiten Laufwerk ab, solange es bereit ist.
+// Fehlt es, gilt SystemLocation mit der SystemFallback-Einstellung. Ohne beides
+// liefert es ErrNoLocation.
+type DriveLocation struct {
+	// Drive liefert das Archivverzeichnis auf dem Laufwerk und ob das Laufwerk
+	// gerade eingehaengt und eingerichtet ist. Nil oder false heisst: nicht bereit.
+	Drive  func() (dir string, ready bool)
+	System SystemLocation
+}
+
+// ArchiveDir liefert das Laufwerksverzeichnis mit dem Ort "drive", sonst den
+// Ort aus System.
+func (l DriveLocation) ArchiveDir() (string, string, error) {
+	if l.Drive != nil {
+		if dir, ready := l.Drive(); ready {
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				return "", "", err
+			}
+			return dir, "drive", nil
+		}
+	}
+	return l.System.ArchiveDir()
+}

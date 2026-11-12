@@ -426,3 +426,41 @@ func TestManifestSecretsReflectsWhatWasWritten(t *testing.T) {
 		})
 	}
 }
+
+func TestRuntimeDataComesFromRuntimeDir(t *testing.T) {
+	src := testSources(t)
+	runtimeDir := t.TempDir()
+	write := func(p, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(runtimeDir, "energystats", "2026-12.json"), `{"kwh":3}`)
+	write(filepath.Join(runtimeDir, "automation_history.json"), `[]`)
+	// Ein Rest im alten Ort darf bei gesetztem runtime_dir nicht mehr ins Archiv.
+	src.RuntimeDir = runtimeDir
+
+	m, err := Create(context.Background(), src, CreateOptions{Areas: map[Area]bool{AreaSettings: true, AreaStats: true, AreaHistory: true}}, io.Discard)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, ok := m.Files["data/energystats/2026-12.json"]; !ok {
+		t.Fatalf("Statistik aus runtime_dir fehlt, Dateien: %v", m.Files)
+	}
+	if _, ok := m.Files["devices/automation_history.json"]; !ok {
+		t.Fatalf("Verlauf aus runtime_dir fehlt, Dateien: %v", m.Files)
+	}
+	if _, ok := m.Files["data/energystats/2026-11.json"]; ok {
+		t.Fatal("Statistik aus dem alten Ort wurde trotz runtime_dir archiviert")
+	}
+	if got := src.liveDir(RootData, "energystats/2026-12.json"); got != runtimeDir {
+		t.Fatalf("liveDir(Statistik) = %q, erwartet %q", got, runtimeDir)
+	}
+	if got := src.liveDir(RootData, "settings.json"); got != src.DataDir {
+		t.Fatalf("liveDir(Einstellungen) = %q, erwartet %q", got, src.DataDir)
+	}
+}

@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.7.3-pre.1 (2026-11-07)
+## v0.7.3-pre.2 (2026-11-12)
 
 ### Features
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
+- **storage:** Add an additional drive for running data and backups (#233)
 
 ## v0.7.2 (2026-10-27)
 
