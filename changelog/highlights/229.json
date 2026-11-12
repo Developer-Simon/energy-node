@@ -2,6 +2,9 @@
   "de": {
     "*": "Messketten-Vorschläge und Messketten-Sensoren für Home Assistant"
   },
+  "en": {
+    "*": "Suggest measurement chains and offer chain sensors to Home Assistant"
+  },
   "tour": {
     "*": {
       "steps": [

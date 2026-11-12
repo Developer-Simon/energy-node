@@ -1,6 +1,15 @@
 {
   "de": {
-    "*": "Messketten lernen jetzt ihren normalen Verlust und die Wirkungsgradkurve. Der Reiter Effizienz zeigt die Kurve mit bestem Bereich und aktueller Leistung, und eine Diagnose meldet Drift, eingefrorene Werte, widersprüchliche Messpunkte sowie falsche Vorzeichen oder Einheiten. Ersatzwerte werden um den gelernten Verlust korrigiert, und Meldungen erscheinen auf der Energieseite, in der Diagnose und auf der Gerätekarte."
+    "*": "Messketten lernen ihren normalen Verlust und melden Fehler"
+  },
+  "en": {
+    "*": "Learn the normal loss of chains and report faults"
+  },
+  "details": {
+    "*": {
+      "de": "Messketten lernen jetzt ihren normalen Verlust und die Wirkungsgradkurve. Der Reiter Effizienz zeigt die Kurve mit bestem Bereich und aktueller Leistung, und eine Diagnose meldet Drift, eingefrorene Werte, widersprüchliche Messpunkte sowie falsche Vorzeichen oder Einheiten. Ersatzwerte werden um den gelernten Verlust korrigiert, und Meldungen erscheinen auf der Energieseite, in der Diagnose und auf der Gerätekarte.",
+      "en": "Measurement chains now learn their normal loss and efficiency curve. The Efficiency tab shows the curve with the best range and the current power, and a diagnosis lists drift, frozen values, contradicting points and wrong signs or units. Substitute values are corrected by the learned loss, and findings show up on the energy page, in the diagnostics and on the device map."
+    }
   },
   "tour": {
     "*": {

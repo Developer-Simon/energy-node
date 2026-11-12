@@ -2,6 +2,9 @@
   "de": {
     "*": "Messketten mit Ersatzwerten"
   },
+  "en": {
+    "*": "Add measurement chains with substitute values"
+  },
   "tour": {
     "*": {
       "steps": [

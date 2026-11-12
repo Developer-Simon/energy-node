@@ -108,11 +108,16 @@ build() { # <out> [schalter...]
   tar -xzf "$archive" -C "$out.x"
 }
 
+# Die Wheel-Versionen kommen aus den VERSION-Dateien, auf der Prerelease-Linie
+# tragen sie ein -pre.N.
+soc_whl="battery_soc_core-$(sed 's/^v//' "$repo/libs/battery_soc_core/VERSION")-py3-none-any.whl"
+common_whl="energy_node_common-$(sed 's/^v//' "$repo/libs/energy_node_common/VERSION")-py3-none-any.whl"
+
 # --- Standard: Archiv nur mit eigenen Wheels, Manifest mit Festlegungen ----
 build "$tmp/dist1"
 find "$tmp/dist1.x/wheels" -maxdepth 1 -type f -printf '%f\n' | sort > "$tmp/own.txt"
-[ "$(cat "$tmp/own.txt")" = "battery_soc_core-0.2.2-py3-none-any.whl
-energy_node_common-0.5.1-py3-none-any.whl" ] \
+[ "$(cat "$tmp/own.txt")" = "$soc_whl
+$common_whl" ] \
   || fail "Archiv enthaelt nicht nur die eigenen Wheels" "$(cat "$tmp/own.txt")"
 
 python3 -I -c '
@@ -139,7 +144,7 @@ assert req == {"file": "requests-2.32.0-py3-none-any.whl",
 build "$tmp/dist2" --embed-wheels
 find "$tmp/dist2.x/wheels" -maxdepth 1 -type f -printf '%f\n' | sort > "$tmp/all.txt"
 for f in paho_mqtt-2.1.0-py3-none-any.whl requests-2.32.0-py3-none-any.whl \
-         energy_node_common-0.5.1-py3-none-any.whl battery_soc_core-0.2.2-py3-none-any.whl; do
+         "$common_whl" "$soc_whl"; do
   grep -qx "$f" "$tmp/all.txt" || fail "--embed-wheels legt $f nicht ins Archiv" "$(cat "$tmp/all.txt")"
 done
 python3 -I -c '
