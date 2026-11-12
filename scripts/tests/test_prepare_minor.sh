@@ -24,6 +24,8 @@ setup() {
   cp -r "$repo/scripts" "$tmp/scripts"
   rm -rf "$tmp/scripts/tests"
   find "$tmp/scripts" -name __pycache__ -prune -exec rm -rf {} +
+  # The component changelogs of the real tree may mention pre-releases.
+  find "$tmp/scripts" -name CHANGELOG.md -delete
   cat >> "$tmp/scripts/version/components.sh" <<'LIST'
 COMPONENTS=(
   "dashboard/:dashboard/VERSION"

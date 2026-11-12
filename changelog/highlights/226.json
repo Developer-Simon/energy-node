@@ -2,6 +2,9 @@
   "de": {
     "*": "Automationen reagieren auf Messketten"
   },
+  "en": {
+    "*": "React to measurement chains in automations"
+  },
   "tour": {
     "*": {
       "steps": [

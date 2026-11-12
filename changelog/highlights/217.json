@@ -1,6 +1,15 @@
 {
   "de": {
-    "*": "Messketten zeigen jetzt ihre Verluste. Der neue Reiter Effizienz listet je Kette Wirkungsgrad, Round-Trip über 30 Tage, Standby-Leistung und Verlust je Tag. Die Statistik kann die Summe der Verluste zeigen, und die Gerätekarte hat eine Ebene Verluste."
+    "*": "Messketten zeigen ihre Verluste und den Wirkungsgrad"
+  },
+  "en": {
+    "*": "Show chain losses and efficiency"
+  },
+  "details": {
+    "*": {
+      "de": "Messketten zeigen jetzt ihre Verluste. Der neue Reiter Effizienz listet je Kette Wirkungsgrad, Round-Trip über 30 Tage, Standby-Leistung und Verlust je Tag. Die Statistik kann die Summe der Verluste zeigen, und die Gerätekarte hat eine Ebene Verluste.",
+      "en": "Measurement chains now show their losses. The new Efficiency tab lists the efficiency, the 30 day round trip, the standby power and the loss per day of each chain. The statistics can show the summed losses, and the device map has a Losses layer."
+    }
   },
   "tour": {
     "*": {
