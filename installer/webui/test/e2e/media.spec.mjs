@@ -48,7 +48,7 @@ function assertModeStyled(layout, screen) {
 test('ein Medium laeuft vom Geraet bis zur fertigen Karte und geht an die Einrichtung', () => withHost([], async (host) => {
   const { page, context } = await openPage(browser, host.url);
   await page.locator('.mode-i', { hasText: 'Medium' }).click();
-  await page.locator('.app[data-screen="media-device"] [role="radiogroup"]').waitFor();
+  await page.locator('.app[data-screen="media-device"] .body [role="radiogroup"]').waitFor();
 
   await page.locator('.media-opt', { hasText: 'Pi 3, 3+, Zero 2 W' }).click();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
@@ -75,7 +75,7 @@ test('auf 390 px scrollt keiner der Medium-Bildschirme waagerecht und der Umscha
   const { page, context } = await openPage(browser, host.url);
   await page.setViewportSize({ width: 390, height: 800 });
   await page.locator('.mode-i', { hasText: 'Medium' }).click();
-  await page.locator('.app[data-screen="media-device"] [role="radiogroup"]').waitFor();
+  await page.locator('.app[data-screen="media-device"] .body [role="radiogroup"]').waitFor();
   assertModeStyled(await layoutAt(page), 'media-device');
   assertNoOverflow(await layoutAt(page), 'media-device');
 
