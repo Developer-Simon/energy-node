@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Der Installer bereitet die SD-Karte für einen Raspberry Pi selbst vor, mit WLAN und SSH-Zugang"
+  },
+  "en": {
+    "*": "The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up"
+  }
+}

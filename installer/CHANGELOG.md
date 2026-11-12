@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.3.3-pre.1 (2026-11-12)
+
+### Features
+
+- **installer:** add the device table for the media mode (656ba7b)
+- **installer:** read the Raspberry Pi OS list (ed78124)
+- **installer:** download and verify images for the media mode (8880f68)
+- **installer:** list drives for the media mode and hide system disks (c9a93e5)
+- **installer:** generate cloud-init and firstrun files with a fixed host key (b33a361)
+- **installer:** find the Raspberry Pi Imager and read its progress (a0b3dcc)
+- **installer:** pin pre-generated host keys and probe new devices (cee0e34)
+- **installer:** validate media write requests (88acb34)
+- **installer:** run media writes through the Raspberry Pi Imager (f0083e2)
+- **installer:** read timezone, keyboard and region from this computer (5244654)
+- **installer:** offer the media mode on Linux (678ae64)
+- **installer:** prefill the Wi-Fi name from this computer (cf30615)
+- **installer:** compare the Wi-Fi password with the one this computer knows (a7168b6)
+- **installer:** check the Wi-Fi password against this computer and pass the band (2128fcf)
+- **installer:** list the Wi-Fi networks in range (8810f50)
+- **installer:** scan for Wi-Fi networks on request (c936754)
+- **installer:** check the Wi-Fi password against the twin on the other band (650b726)
+- **installer:** count the Pi 3 as tested and put the Pi Zero with the Pi 1 (2c5dc68)
+- **installer:** allow SSH login with the emergency password on request (b07a90a)
+- **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236)
+
+### Fixes
+
+- **installer:** keep the media cache check cheap (5553171)
+- **installer:** read the Wi-Fi name without a rescan and keep its band (092e503)
+- **installer:** unblock Wi-Fi on Raspberry Pi OS by setting its country (ffb360a)
+
 ## v0.3.2 (2026-11-07)
 
 ### Features
