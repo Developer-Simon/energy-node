@@ -16,11 +16,22 @@
       <span class="bar-spacer"></span>
       <template x-if="bar.sub"><span class="bar-sub" x-text="bar.sub"></span></template>
       <template x-if="ready && showEntrySwitch">
-        <div class="mode" role="radiogroup" :aria-label="t('entry.label')">
-          <template x-for="name in bootstrap.entry_points" :key="name">
-            <div class="mode-i" :class="{ on: entry === name }" role="radio" tabindex="0" :aria-checked="entry === name"
-                 @click="switchEntry(name)" @keydown.enter.prevent="switchEntry(name)" @keydown.space.prevent="switchEntry(name)"
-                 x-text="t('entry.' + name)"></div>
+        <div class="mode-wrap">
+          <div class="mode" role="radiogroup" :aria-label="t('entry.label')">
+            <template x-for="name in bootstrap.entry_points" :key="name">
+              <div class="mode-i" :class="{ on: entry === name }" role="radio" tabindex="0" :aria-checked="entry === name"
+                   @click="switchEntry(name)" @keydown.enter.prevent="switchEntry(name)" @keydown.space.prevent="switchEntry(name)"
+                   x-text="t('entry.' + name)"></div>
+            </template>
+          </div>
+          <template x-if="showMediaTip">
+            <div class="mode-tip" role="note">
+              <span class="mode-tip-t" x-text="t('entry.media_tip')"></span>
+              <span class="mode-tip-actions">
+                <button type="button" class="small" @click="switchEntry('media')" x-text="t('entry.media_tip_open')"></button>
+                <button type="button" class="mode-tip-x" @click="dismissMediaTip()" :aria-label="t('entry.media_tip_close')">{{template "icon-bad"}}</button>
+              </span>
+            </div>
           </template>
         </div>
       </template>

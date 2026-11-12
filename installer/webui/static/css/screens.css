@@ -596,3 +596,23 @@ button.media-erase:hover:not(:disabled){background:var(--bad-bg);border-color:va
 .media-status-ic{flex:none;display:inline-flex;width:1rem;height:1rem}
 .media-status-ic svg{width:1rem;height:1rem}
 .media-clock{margin-left:auto;font-family:ui-monospace,monospace;font-size:.8rem;color:var(--text-muted)}
+/* Ergaenzung Startbildschirm: Sprechblase am Umschalter "Medium", nicht in der
+   Vorlage. Sie waechst aus ihrer Spitze unter "Medium" heraus (transform-origin),
+   kurz verzoegert, ohne Ueberschwingen. Auf schmalen Schirmen spannt sie sich
+   ueber die Breite der Leiste und verliert die Spitze. */
+.mode-wrap{position:relative;flex:none}
+.mode-tip{position:absolute;top:calc(100% + .65rem);left:0;z-index:20;width:17rem;display:flex;flex-direction:column;gap:.55rem;padding:.75rem .85rem;border-radius:var(--radius-md);border:1px solid var(--accent-line);background:var(--panel);box-shadow:0 10px 30px rgba(0,0,0,.28);transform-origin:1.45rem 0;animation:mode-tip-in .24s cubic-bezier(.2,.8,.2,1) .5s both}
+.mode-tip::before{content:'';position:absolute;top:-.38rem;left:1.1rem;width:.7rem;height:.7rem;background:var(--panel);border-left:1px solid var(--accent-line);border-top:1px solid var(--accent-line);transform:rotate(45deg)}
+.mode-tip-t{font-size:.8rem;line-height:1.45;color:var(--text)}
+.mode-tip-actions{display:flex;align-items:center;gap:.5rem}
+.mode-tip-x{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:1.6rem;height:1.6rem;padding:0;border:0;border-radius:50%;background:transparent;color:var(--text-muted);cursor:pointer}
+.mode-tip-x:hover{background:var(--sunken);color:var(--text)}
+.mode-tip-x svg{width:.8rem;height:.8rem}
+@keyframes mode-tip-in{from{opacity:0;transform:translateY(-.25rem) scale(.96)}to{opacity:1;transform:none}}
+@keyframes mode-tip-fade{from{opacity:0}to{opacity:1}}
+@media (max-width:640px){
+  .mode-wrap{position:static}
+  .mode-tip{top:3.9rem;left:1rem;right:1rem;width:auto}
+  .mode-tip::before{display:none}
+}
+@media (prefers-reduced-motion:reduce){.mode-tip{animation:mode-tip-fade .2s ease .5s both}}

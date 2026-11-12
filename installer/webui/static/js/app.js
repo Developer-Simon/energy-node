@@ -20,6 +20,18 @@
   var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose', 'changelog',
     'media-device', 'media-settings', 'media-drive', 'media-done'];
 
+  // Die Sprechblase am Umschalter "Medium" verschwindet fuer immer, sobald
+  // sie einmal erledigt ist.
+  var TIP_KEY = 'energy-node-installer.media-tip';
+
+  function tipDone() {
+    try {
+      return window.localStorage.getItem(TIP_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
   // Die Ausgangsversion eines Updates kennt nur der Plan der Vorschau. Lädt
   // das Fenster während des Dashboard-Neustarts neu, ist shared.plan leer,
   // darum merkt sich der Tab die Version für den Ergebnisbildschirm
@@ -59,6 +71,8 @@
       // dem Ergebnis wieder falsch. Es ist die eine Sperre fuer den Umschalter.
       mutating: false,
       connected: false,
+      // tipDismissed: die Sprechblase am Umschalter "Medium" ist erledigt.
+      tipDismissed: tipDone(),
       error: null,
       // progress ist der Uebersetzungsschluessel einer Zeile, waehrend ein
       // Bildschirm ohne sichtbare Rueckmeldung wartet (Verbindungsaufbau,
@@ -187,6 +201,29 @@
           HARMLESS.indexOf(this.screen) >= 0;
       },
 
+      // showMediaTip: auf dem Startbildschirm, solange kein Zugang gemerkt
+      // ist und niemand verbunden ist. Wer noch keinen Pi hat, braucht zuerst
+      // ein Medium.
+      get showMediaTip() {
+        var b = this.bootstrap;
+        if (!this.ready || !b || this.tipDismissed || this.connected || this.screen !== 'connect' || this.entry === 'media') {
+          return false;
+        }
+        if ((b.entry_points || []).indexOf('media') < 0 || !this.showEntrySwitch || this.shared.handover) {
+          return false;
+        }
+        return !(b.credentials && b.credentials.host);
+      },
+
+      dismissMediaTip() {
+        this.tipDismissed = true;
+        try {
+          window.localStorage.setItem(TIP_KEY, '1');
+        } catch (err) {
+          // ohne Speicher erscheint sie beim naechsten Start wieder
+        }
+      },
+
       // showLanguageSwitch: auf dem Startbildschirm und auf den Medium-
       // Bildschirmen, dort wo auch der Einstiegs-Umschalter steht.
       get showLanguageSwitch() {
@@ -300,6 +337,9 @@
           return;
         }
         this.entry = name;
+        if (name === 'media') {
+          this.dismissMediaTip();
+        }
         this.shared.servicesOnly = false;
         // Medium braucht keine Verbindung zum Node.
         this.go(this.connected || name === 'media' ? FIRST_SCREEN[name] : 'connect');
@@ -339,6 +379,7 @@
       // steht - die Shell entscheidet, wohin es dann geht.
       afterConnect(target) {
         this.connected = true;
+        this.dismissMediaTip();
         this.shared.target = { host: target.host || '', user: target.user || '' };
         this.go(this.bootstrap && this.bootstrap.package ? 'prepare' : FIRST_SCREEN[this.entry]);
       },

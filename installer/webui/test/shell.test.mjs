@@ -438,3 +438,26 @@ test('openSetup wechselt nach Einrichten mit Übergabe', async () => {
   assert.equal(shell.connected, false);
   assert.deepEqual(plain(shell.shared.handover), { host: 'energy-node.local', user: 'node', keyPath: '/k' });
 });
+
+test('die Sprechblase zeigt auf Medium, solange kein Zugang gemerkt ist', async () => {
+  const { shell } = await createShell({ bootstrap: MEDIA });
+  assert.equal(shell.screen, 'connect');
+  assert.equal(shell.showMediaTip, true);
+  shell.switchEntry('media');
+  assert.equal(shell.showMediaTip, false);
+  assert.equal(shell.tipDismissed, true);
+});
+
+test('mit gemerktem Zugang oder ohne Medium bleibt die Sprechblase weg', async () => {
+  const saved = await createShell({ bootstrap: Object.assign({}, MEDIA, { credentials: { host: 'pi.local', user: 'pi' } }) });
+  assert.equal(saved.shell.showMediaTip, false);
+  const plainBoot = await createShell({ bootstrap: BOOT });
+  assert.equal(plainBoot.shell.showMediaTip, false);
+});
+
+test('X schliesst die Sprechblase fuer immer', async () => {
+  const first = await createShell({ bootstrap: MEDIA });
+  first.shell.dismissMediaTip();
+  assert.equal(first.shell.showMediaTip, false);
+  assert.equal(first.window.localStorage.getItem('energy-node-installer.media-tip'), '1');
+});
