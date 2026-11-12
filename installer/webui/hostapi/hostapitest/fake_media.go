@@ -93,9 +93,8 @@ func mediaCatalogFixture() hostapi.MediaCatalog {
 		Devices: []hostapi.MediaDevice{
 			{ID: "pi5", Group: "pi", Experimental: true, Image: lite64()},
 			{ID: "pi4", Group: "pi", Experimental: true, Image: lite64()},
-			{ID: "pi3", Group: "pi", Experimental: true, Image: lite64()},
+			{ID: "pi3", Group: "pi", Experimental: false, Image: lite64()},
 			{ID: "pi2", Group: "pi", Experimental: true, Image: lite32()},
-			{ID: "pizero", Group: "pi", Experimental: true, Image: legacy()},
 			{ID: "pi1", Group: "pi", Experimental: false, Image: legacy()},
 		},
 		Defaults: hostapi.MediaDefaults{

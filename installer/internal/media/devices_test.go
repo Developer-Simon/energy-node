@@ -8,7 +8,7 @@ import (
 )
 
 func TestDevicesAreInDisplayOrder(t *testing.T) {
-	want := []string{"pi5", "pi4", "pi3", "pi2", "pizero", "pi1"}
+	want := []string{"pi5", "pi4", "pi3", "pi2", "pi1"}
 	got := Devices()
 	if len(got) != len(want) {
 		t.Fatalf("got %d devices, want %d", len(got), len(want))
@@ -37,7 +37,7 @@ var docTableLabels = map[string]string{
 	"Pi 3, 3+":            "pi3",
 	"Pi Zero 2 W":         "pi3",
 	"Pi 2":                "pi2",
-	"Pi Zero, Zero W":     "pizero",
+	"Pi Zero, Zero W":     "pi1",
 	"Pi 1 (A, A+, B, B+)": "pi1",
 }
 
@@ -76,6 +76,7 @@ func readDocTable(t *testing.T) []string {
 
 func TestDevicesMatchTheHardwareTableInTheDocs(t *testing.T) {
 	seen := map[string]bool{}
+	tested := map[string]bool{}
 	for _, row := range readDocTable(t) {
 		cells := strings.Split(strings.Trim(row, "|"), "|")
 		for i := range cells {
@@ -102,8 +103,14 @@ func TestDevicesMatchTheHardwareTableInTheDocs(t *testing.T) {
 		if arch := strings.Trim(cells[2], "`"); dev.Arch != arch {
 			t.Errorf("%s: Arch %q, docs say %q", id, dev.Arch, arch)
 		}
-		if exp := cells[3] == "✗"; dev.Experimental != exp {
-			t.Errorf("%s: Experimental %v, docs row %q says %v", id, dev.Experimental, row, exp)
+		if cells[3] == "✓" {
+			tested[id] = true
+		}
+	}
+	for id := range seen {
+		dev, _ := DeviceByID(id)
+		if dev.Experimental == tested[id] {
+			t.Errorf("%s: Experimental %v, but the docs mark tested=%v (a group is tested when any row is)", id, dev.Experimental, tested[id])
 		}
 	}
 	for label, id := range docTableLabels {

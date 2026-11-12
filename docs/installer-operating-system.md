@@ -14,7 +14,7 @@ models every megabyte of RAM counts. Pick the image by model:
 | Pi Zero, Zero W | Raspberry Pi OS (Legacy, 32-bit) Lite | `armv6` | ✗ |
 | Pi 2 | Raspberry Pi OS Lite (32-bit) | `armv6` | ✗ |
 | Pi Zero 2 W | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
-| Pi 3, 3+ | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
+| Pi 3, 3+ | Raspberry Pi OS Lite (64-bit) | `arm64` | ✓ |
 | Pi 4, 400 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | Pi 5, 500 | Raspberry Pi OS Lite (64-bit) | `arm64` | ✗ |
 | x86 64-bit (AMD GX-424CC, Intel N100, N150) | Debian 13 netinst | `amd64` | ✓ |
