@@ -92,18 +92,22 @@ download page. For now the tab works on Linux only. Windows and macOS follow.
    installation package and the download size. Models that have not been tested
    yet carry an experimental label.
 2. **Settings.** Choose a device name, which the installer checks on the
-   network, and a user. The installer fills in the rest: user `node`, login with
-   a key only, passwordless `sudo`, and the time zone and keyboard layout of
-   this computer. An emergency password for a screen and keyboard on the Pi is
-   off by default. With it you can also allow SSH login with that password,
-   which helps with debugging. You can add Wi-Fi here. Its password only goes onto the
-   medium and the installer does not store it. The installer fills in the name
-   of the network this computer is connected to, when it can find it, and offers
-   the other networks in range to pick from. If this computer knows the password
-   of that network, or of the same network on the other band, the installer
-   tells you whether yours matches. Otherwise it says that it cannot check the
-   password. The Wi-Fi country follows the time zone. On a 5 GHz network the
-   installer warns that a Raspberry Pi 3B or Zero W only reaches 2.4 GHz.
+   network, and a user. The Pi gets user `node`, login with a key only,
+   passwordless `sudo`, and the time zone and keyboard layout of this computer,
+   which you can change under **Region**. An emergency password for a screen
+   and keyboard on the Pi is off by default. If you set one, you can also allow
+   SSH login with it, which helps with debugging.
+
+   With **Connect to Wi-Fi** switched on, pick a network from the list of
+   networks in range or choose **Other network** and type its name. The network
+   this computer is connected to is selected first. If this computer knows the
+   password of that network, or of the same network on the other band, the
+   installer tells you whether yours matches, and otherwise says that it cannot
+   check it. The Wi-Fi password only goes onto the card and the installer does
+   not store it. The Wi-Fi country follows the time zone. A Raspberry Pi 3B or
+   Zero W only reaches 2.4 GHz networks, so the installer warns about a network
+   that only uses 5 GHz and offers the 2.4 GHz network of the same name when
+   there is one.
 3. **Drive.** Plug in the card. Removable drives appear in the list as soon as
    they are connected. Internal drives only show up with the **Also show internal
    drives** switch, and the drive this computer runs from never does. For a card
