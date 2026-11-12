@@ -1990,7 +1990,7 @@ func TestAutomationHistoryReturnsRuleEvents(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "automation_history.json"), []byte(body), 0600); err != nil {
 		t.Fatal(err)
 	}
-	handler := handleAutomationHistory(config.NewManager(dir))
+	handler := handleAutomationHistory(dir)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automations/history/r1", nil))
 	if recorder.Code != http.StatusOK {
@@ -2006,7 +2006,7 @@ func TestAutomationHistoryReturnsRuleEvents(t *testing.T) {
 }
 
 func TestAutomationHistoryReturnsEmptyForMissingFile(t *testing.T) {
-	handler := handleAutomationHistory(config.NewManager(t.TempDir()))
+	handler := handleAutomationHistory(t.TempDir())
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automations/history/r1", nil))
 	if recorder.Code != http.StatusOK {
@@ -2022,7 +2022,7 @@ func TestAutomationHistoryReturnsEmptyForUnknownRule(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "automation_history.json"), []byte(`{"other":[]}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	handler := handleAutomationHistory(config.NewManager(dir))
+	handler := handleAutomationHistory(dir)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automations/history/r1", nil))
 	if strings.TrimSpace(recorder.Body.String()) != "[]" {
@@ -2035,7 +2035,7 @@ func TestAutomationHistoryRejectsCorruptFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "automation_history.json"), []byte("not json"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	handler := handleAutomationHistory(config.NewManager(dir))
+	handler := handleAutomationHistory(dir)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automations/history/r1", nil))
 	if recorder.Code != http.StatusBadGateway {
@@ -2044,7 +2044,7 @@ func TestAutomationHistoryRejectsCorruptFile(t *testing.T) {
 }
 
 func TestAutomationHistoryRejectsPost(t *testing.T) {
-	handler := handleAutomationHistory(config.NewManager(t.TempDir()))
+	handler := handleAutomationHistory(t.TempDir())
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/automations/history/r1", nil))
 	if recorder.Code != http.StatusMethodNotAllowed {

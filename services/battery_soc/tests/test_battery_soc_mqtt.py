@@ -583,3 +583,16 @@ def test_schema_branches_match_the_system_type_and_bank_layout():
     assert set(series["then"]["properties"]) == {
         "bank_b_voltage_topic", "bank_b_voltage_json_key", "bank_b_voltage_scale", "bank_a_voltage_measures",
         "imbalance_warn_v"}
+
+
+def test_service_loader_puts_battery_state_into_runtime_dir(tmp_path):
+    """Startup-Pfad des Dienstes: ReloadableConfig mit dem Loader aus main()
+    legt den Zustand unter paths.runtime_dir ab, nicht am alten Ort."""
+    from energy_node_common.config import ReloadableConfig
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{"id": "b1", "name": "B1", "charger_power_topic": "b1/c",
+                                 "inverter_power_topic": "b1/i", "bank_a_voltage_topic": "b1/v"}]))
+    runtime = tmp_path / "runtime"
+    store = ReloadableConfig(path, battery_soc.battery_config_loader(str(runtime)))
+    [config] = store.load()
+    assert config.state_file == runtime / "battery_soc" / "b1.json"

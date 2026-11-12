@@ -398,7 +398,7 @@ func TestUsersCatalogMarksElevatedRoles(t *testing.T) {
 	want := map[string]bool{
 		auth.RoleUserManagement: true, "system_actions": true, auth.RoleUpdateSettings: true,
 		auth.RoleTailscale: true, "mqtt_config": true, auth.RoleSetupTinyTuya: true,
-		auth.RoleBackupExport: true, auth.RoleBackupImport: true, auth.RoleBackupSecrets: true,
+		auth.RoleBackupExport: true, auth.RoleBackupImport: true, auth.RoleBackupSecrets: true, auth.RoleStorageManage: true,
 	}
 	listing := listUsers(t, router, adminCookie)
 	if len(listing.Catalog) == 0 {

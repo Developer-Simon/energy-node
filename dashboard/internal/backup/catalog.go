@@ -3,7 +3,10 @@
 // zu. Config- und Secret-Dateien gehoeren ins Backup, Disposable-Dateien nie.
 package backup
 
-import "path"
+import (
+	"path"
+	"strings"
+)
 
 // Class bestimmt, wie eine Datei gesichert oder verworfen wird.
 type Class string
@@ -90,6 +93,10 @@ var catalog = []Entry{
 	{RootData, "energydiscovery/*", ClassDisposable, ""},
 	{RootData, "runtime.json", ClassDisposable, ""},
 	{RootData, "storage-health.json", ClassDisposable, ""},
+	// Die Laufwerkswahl gehoert zur Umgebung des Knotens und wird nie archiviert.
+	{RootData, "storage.json", ClassEnvironment, ""},
+	// Merkt sich einen laufenden Laufwerksauftrag bis zum Neustart, gehoert ebenfalls zur Umgebung.
+	{RootData, "storage-pending.json", ClassEnvironment, ""},
 	{RootData, "sessions.json", ClassDisposable, ""},
 	{RootData, "redeploy-candidate/*", ClassDisposable, ""},
 	{RootData, "revisions/*", ClassDisposable, ""},
@@ -101,6 +108,19 @@ var catalog = []Entry{
 	{RootData, "energy-node.config.staged.json", ClassDisposable, ""},
 	{RootDevices, "*.schema.json", ClassDisposable, ""},
 	{RootDevices, "revisions/*", ClassDisposable, ""},
+}
+
+// RuntimeName meldet, ob die Datei rel der Wurzel root zu den Laufzeitdaten
+// gehoert. Sie liegen bei gesetztem runtime_dir im Laufzeitverzeichnis statt
+// im Datenverzeichnis oder Geraeteverzeichnis. Archivnamen bleiben gleich.
+func RuntimeName(root Root, rel string) bool {
+	switch root {
+	case RootData:
+		return rel == "runtime.json" || strings.HasPrefix(rel, "energystats/")
+	case RootDevices:
+		return rel == "automation_history.json"
+	}
+	return false
 }
 
 // Catalog liefert alle Katalogeintraege in ihrer Reihenfolge.

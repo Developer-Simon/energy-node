@@ -575,3 +575,26 @@ func TestConfiguredDeviceMissingSkipsNonArrayConfig(t *testing.T) {
 		t.Fatalf("warnings = %#v, want none for a top-level object config", warnings)
 	}
 }
+
+func TestStorageDriveMissingWarningWhileOnFallback(t *testing.T) {
+	engine := &Engine{}
+	mode := "fallback_system"
+	engine.SetStorageFallback(func() string { return mode })
+
+	warnings := engine.Evaluate(time.Date(2026, 11, 11, 10, 0, 0, 0, time.UTC))
+	if len(warnings) != 1 {
+		t.Fatalf("got %d warnings, want 1: %+v", len(warnings), warnings)
+	}
+	got := warnings[0]
+	if got.Key != "storage_drive_missing" || got.Severity != SeverityWarning || got.Details["mode"] != "fallback_system" {
+		t.Fatalf("warning = %+v", got)
+	}
+	if got.Message != ruleTexts["storage_drive_missing"].Message {
+		t.Fatalf("Message = %q, want the catalog text", got.Message)
+	}
+
+	mode = ""
+	if warnings := engine.Evaluate(time.Now()); len(warnings) != 0 {
+		t.Fatalf("drive in use still raises %d warnings", len(warnings))
+	}
+}

@@ -66,6 +66,16 @@ def _number(section: dict, key: str, path: str, prefix: str) -> float:
     return float(value)
 
 
+def _optional_text(section: dict, key: str, path: str, prefix: str) -> Optional[str]:
+    """Fehlendes oder leeres Feld ergibt None."""
+    if key not in section:
+        return None
+    value = section[key]
+    if not isinstance(value, str):
+        raise ConfigError(f"{path}: {prefix}.{key}: erwartet Zeichenkette, gefunden {_found(value)}")
+    return value or None
+
+
 def _bool(section: dict, key: str, path: str, prefix: str) -> bool:
     if key not in section:
         raise ConfigError(f"{path}: {prefix}.{key}: Feld fehlt")
@@ -119,10 +129,28 @@ class DashboardConfig:
     node_diagnostic_poll_multiplier: float
 
 
+def battery_state_path(runtime_dir: str, battery_id: str) -> Path:
+    """Zustandsdatei einer Batterieanlage unter dem Laufzeitverzeichnis."""
+    return Path(runtime_dir) / "battery_soc" / f"{battery_id}.json"
+
+
 @dataclass(frozen=True)
 class PathsConfig:
     devices_dir: str
     data_dir: str
+    # Optional: Laufzeitdaten (Statistik, Cache, Verlauf, Batteriezustand) auf
+    # einem anderen Laufwerk. Leer oder fehlend heisst: alter Ort.
+    runtime_dir: Optional[str] = None
+
+    def runtime_path(self, legacy_dir: str, rel: str) -> Path:
+        """runtime_dir/rel, ohne runtime_dir legacy_dir/rel."""
+        return Path(self.runtime_dir or legacy_dir) / rel
+
+    def battery_state_file(self, battery_id: str) -> Optional[Path]:
+        """Zustand einer Batterieanlage im runtime_dir, None ohne runtime_dir."""
+        if not self.runtime_dir:
+            return None
+        return battery_state_path(self.runtime_dir, battery_id)
 
 
 @dataclass(frozen=True)
@@ -152,7 +180,7 @@ class AppConfig:
         return Path(self.paths.devices_dir) / "automation_rules.json"
 
     def history_file(self) -> Path:
-        return Path(self.paths.devices_dir) / "automation_history.json"
+        return self.paths.runtime_path(self.paths.devices_dir, "automation_history.json")
 
 
 def config_path_from_argv(argv: Optional[Sequence[str]] = None) -> str:
@@ -308,6 +336,7 @@ def load(path: Optional[str] = None) -> AppConfig:
         paths=PathsConfig(
             devices_dir=_text(paths_section, "devices_dir", path, "paths"),
             data_dir=_text(paths_section, "data_dir", path, "paths"),
+            runtime_dir=_optional_text(paths_section, "runtime_dir", path, "paths"),
         ),
         log_level=_text(logging_section, "level", path, "logging"),
         dashboard=_load_dashboard(data, path),

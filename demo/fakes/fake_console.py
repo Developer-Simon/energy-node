@@ -23,9 +23,10 @@ Unbekannte Tabs oder Pfade antworten mit 404 und JSON.
                             [--broker-control URL] [--updates URL]
                             [--installer-state DIR --installer-fixture DIR]
                             [--system-state FILE --system-events FILE --journal-epoch FILE]
-                            [--highlights-repo DIR]
+                            [--storage-dir DIR] [--highlights-repo DIR]
 
 PORT       Standard aus DASHBOARD_SMOKE_CONSOLE_PORT, sonst 18102.
+--storage-dir  Speicherordner der Demo (Reiter Speicher, plugged.json, mount/).
 --dashboard  Basis-URL des Dashboards (wird in Reitern verwendet).
 --companion  Basis-URL des Companions, z. B. https://127.0.0.1:8081.
 --broker-control  Steuer-URL des Fake-Brokers (Reiter MQTT).
@@ -228,6 +229,9 @@ def build_tabs(args: argparse.Namespace, log: Log) -> list[Tab]:
         from console_system import SystemTab
         tabs.append(SystemTab(log, Path(args.system_state), Path(args.system_events),
                               Path(args.journal_epoch)))
+    if args.storage_dir:
+        from console_storage import StorageTab
+        tabs.append(StorageTab(log, Path(args.storage_dir)))
     if args.highlights_repo:
         from console_highlights import HighlightsTab
         installer = Path(args.installer_state) if args.installer_state else None
@@ -248,6 +252,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--system-state", default="")
     parser.add_argument("--system-events", default="")
     parser.add_argument("--journal-epoch", default="")
+    parser.add_argument("--storage-dir", default="")
     parser.add_argument("--highlights-repo", default="")
     args = parser.parse_args(argv)
 

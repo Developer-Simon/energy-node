@@ -269,16 +269,19 @@ func buildPlan(src Sources, staging string, p Pending) (applyPlan, error) {
 			// Monatsdateien laufen über MergeDir, siehe unten.
 			continue
 		case strings.HasPrefix(name, "data/"):
-			target, err := safeJoin(src.DataDir, strings.TrimPrefix(name, "data/"))
+			rel := strings.TrimPrefix(name, "data/")
+			target, err := safeJoin(src.liveDir(RootData, rel), rel)
 			if err != nil {
 				return pl, err
 			}
 			pl.writes = append(pl.writes, fileWrite{target: target, data: data})
 		case strings.HasPrefix(name, "devices/"):
-			if src.DevicesDir == "" {
+			rel := strings.TrimPrefix(name, "devices/")
+			dir := src.liveDir(RootDevices, rel)
+			if dir == "" {
 				return pl, errors.New("Geräteverzeichnis fehlt")
 			}
-			target, err := safeJoin(src.DevicesDir, strings.TrimPrefix(name, "devices/"))
+			target, err := safeJoin(dir, rel)
 			if err != nil {
 				return pl, err
 			}
@@ -290,7 +293,8 @@ func buildPlan(src Sources, staging string, p Pending) (applyPlan, error) {
 		srcDir := filepath.Join(staging, "data", energystatsName)
 		if info, err := os.Stat(srcDir); err == nil && info.IsDir() {
 			pl.statsSrc = srcDir
-			pl.statsDst = filepath.Join(src.DataDir, energystatsName)
+			// Statistik liegt bei gesetztem runtime_dir im Laufzeitverzeichnis.
+			pl.statsDst = filepath.Join(src.liveDir(RootData, energystatsName+"/"), energystatsName)
 		}
 	}
 	return pl, nil

@@ -1,0 +1,17 @@
+{
+  "blockdevices": [
+    {"name": "mmcblk0", "kname": "mmcblk0", "path": "/dev/mmcblk0", "uuid": null, "fstype": null, "size": 31914983424, "fsused": null, "model": "SD64G", "tran": null, "type": "disk", "mountpoint": null, "pkname": null,
+      "children": [
+        {"name": "mmcblk0p1", "kname": "mmcblk0p1", "path": "/dev/mmcblk0p1", "uuid": "2B1D-4A7E", "fstype": "vfat", "size": 268435456, "fsused": null, "model": null, "tran": null, "type": "part", "mountpoint": "/boot/firmware", "pkname": "mmcblk0"},
+        {"name": "mmcblk0p2", "kname": "mmcblk0p2", "path": "/dev/mmcblk0p2", "uuid": "5f1c9e0a-3b2d-4c7e-9a1f-0d2e3f4a5b6c", "fstype": "ext4", "size": 31645000000, "fsused": 4000000000, "model": null, "tran": null, "type": "part", "mountpoint": "/", "pkname": "mmcblk0"}
+      ]
+    },
+    {"name": "sda", "kname": "sda", "path": "/dev/sda", "uuid": null, "fstype": null, "size": 32017047552, "fsused": null, "model": "USB Stick  ", "tran": "usb", "type": "disk", "mountpoint": null, "pkname": null,
+      "children": [
+        {"name": "sda1", "kname": "sda1", "path": "/dev/sda1", "uuid": "1234-ABCD", "fstype": "exfat", "size": 32016000000, "fsused": null, "model": null, "tran": null, "type": "part", "mountpoint": null, "pkname": "sda"}
+      ]
+    },
+    {"name": "loop0", "kname": "loop0", "path": "/dev/loop0", "uuid": null, "fstype": "squashfs", "size": 67108864, "fsused": 67108864, "model": null, "tran": null, "type": "loop", "mountpoint": "/snap/core", "pkname": null},
+    {"name": "zram0", "kname": "zram0", "path": "/dev/zram0", "uuid": null, "fstype": "swap", "size": 1073741824, "fsused": null, "model": null, "tran": null, "type": "disk", "mountpoint": "[SWAP]", "pkname": null}
+  ]
+}

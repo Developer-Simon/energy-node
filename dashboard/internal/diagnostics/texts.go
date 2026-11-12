@@ -28,4 +28,5 @@ var ruleTexts = map[string]ruleText{
 	"chain_contradiction":            {"Ein Messpunkt meldet Leistung, während ein anderer derselben Messkette aus ist oder 0 W meldet.", "Schaltzustand, Gerät und die Zuordnung der Messpunkte prüfen"},
 	"chain_sign":                     {"Zwei benachbarte Messpunkte einer Messkette melden dauerhaft entgegengesetzte Vorzeichen.", "Im Reiter Effizienz den Vorschlag ansehen und übernehmen"},
 	"chain_unit":                     {"Zwei benachbarte Messpunkte einer Messkette liegen um den Faktor 1000 auseinander.", "Im Reiter Effizienz den Vorschlag ansehen und übernehmen"},
+	"storage_drive_missing":          {"Das Datenlaufwerk ist nicht verfügbar. Die Laufzeitdaten liegen im Ausweichspeicher.", "Zusätzliches Laufwerk anschließen, danach wechselt der Dienst selbst zurück"},
 }

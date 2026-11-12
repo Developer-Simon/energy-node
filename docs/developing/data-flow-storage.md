@@ -197,3 +197,40 @@ to an archive. The other paths are never archived.
 The folder `backup-pending/` is written by the restore only. Between two
 restores it normally does not exist, and it stays only when a rollback after an
 interrupted restore failed.
+
+## 17. Second drive: layout, setup and fallback
+
+The second drive is a single USB drive or SSD. The user side is described in
+[Storage](../operating/storage.md). The drive helper mounts it at a fixed
+place and the dashboard reads and writes the paths below.
+
+| Path | Written by | Lifetime |
+|---|---|---|
+| `/mnt/energy-node-data/.energy-node-volume` | The format step of the setup, with the machine id of the node. The mount is refused when the content differs | As long as the drive is set up for this node |
+| `/mnt/energy-node-data/runtime/` | The copy step of the setup and the watcher, which merges the running data back when the drive returns | Target of `paths.runtime_dir` while the drive is used |
+| `/mnt/energy-node-data/backups/` | The backup feature, when backups are on the drive | Kept on the drive. Remove does not delete it |
+| `data_dir/storage.json` | The end of a setup or removal, and the fallback choice. Holds the drive UUID, the name, the fallback, the data and backup choice and the legacy list | Until the drive is removed |
+| `data_dir/storage-pending.json` | Written right before the dashboard restart of a setup or removal, removed after the follow-up step | Read by the resume check every 30 seconds until the drive state is green |
+| `data_dir/runtime-fallback/` | The watcher, when the drive is missing and the fallback is the system drive | Merged back when the drive returns |
+| `/run/energy-node/runtime/` | The watcher, when the fallback is memory | Lost at a restart, as the path lives in `/run` |
+| `data_dir/runtime.old`, legacy `*.old` files | The setup, which moves the old running data aside | Deleted by the follow-up step after a green restart |
+
+The setup works as one job with the phases `format`, `mount`, `copy`,
+`verify`, `switch` and `cleanup`. The job state is kept in memory, so after a
+restart it is gone. The page then reads the outcome from `storage.json` and the
+watcher mode. Every copy is checked with size and SHA-256 before the next step.
+The switch stops the services, copies the running data again, sets
+`paths.runtime_dir` through the staged configuration, moves the old running data
+aside and writes `storage.json` last. A failure before the restart undoes these
+steps in reverse order.
+
+Running data without `paths.runtime_dir` lives in four legacy places: the
+`runtime.json` and the `energystats/` folder in the data directory, the
+`automation_history.json` in the devices directory, and the battery state files.
+The setup moves them to the drive and renames the old copies to `*.old`.
+
+The demo and the smoke test replace the drive list with a file
+(`ENERGY_NODE_STORAGE_DEMO`), so the node never sees real disks there. The
+helper stub writes the marker into a folder of the demo instead of formatting a
+disk, and the restart of the dashboard is a no-op in the stub. The smoke check
+restarts the dashboard itself.

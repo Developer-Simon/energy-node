@@ -181,6 +181,8 @@ done
 cp "${REPO_ROOT}/dashboard/Caddyfile" "${STAGE}/dashboard/Caddyfile"
 install -m 0755 "${REPO_ROOT}/dashboard/energy-node-updater.sh" \
   "${STAGE}/dashboard/energy-node-updater"
+install -m 0755 "${REPO_ROOT}/dashboard/energy-node-storage-helper" \
+  "${STAGE}/dashboard/energy-node-storage-helper"
 cp "${REPO_ROOT}/installer/internal/bundle/signing_key.pub.pem" \
   "${STAGE}/dashboard/signing_key.pub.pem"
 

@@ -36,7 +36,7 @@
     update: 'backup.trigger.update',
     pre_import: 'backup.trigger.pre_import',
   };
-  const PLACE_LABELS = { system: 'backup.place.system' };
+  const PLACE_LABELS = { system: 'backup.place.system', drive: 'backup.place.drive' };
   const JOB_POLL_MS = 1000;
   // Polls without the job in a row before the run step gives up (about a minute).
   const JOB_MISS_MAX = 60;
@@ -203,6 +203,10 @@
       const saved = JSON.parse(this.autoSaved || '{}');
       if (!saved.schedule) return t('backup.hero.no_schedule');
       return saved.every === 'day' ? t('backup.auto.next_day') : t('backup.auto.next_week');
+    },
+    // Where an archive kept on the node lands, from the place the status names.
+    targetNote() {
+      return t(this.place === 'drive' ? 'backup.export.target_note_drive' : 'backup.export.target_note');
     },
     archiveSummary() {
       const place = PLACE_LABELS[this.place] ? t(PLACE_LABELS[this.place]) : this.place;

@@ -76,3 +76,24 @@ def test_save_reports_failure_instead_of_raising(tmp_path):
     blocker.write_text("")
     cfg = soc_config.BatteryConfig(id="b", name="B", state_file=blocker / "s.json")
     assert state_store.save_state(cfg, SocState(cfg.soc_params(), last_tick=0.0)) is False
+
+
+def test_save_state_returns_false_when_directory_is_gone(tmp_path):
+    parent = tmp_path / "gone"
+    parent.write_text("")  # an ordinary file where the directory should be
+    cfg = soc_config.BatteryConfig(id="b", name="B", state_file=parent / "s.json")
+    assert state_store.save_state(cfg, SocState(cfg.soc_params(), last_tick=0.0)) is False
+
+
+def test_fresh_start_flag_set_without_stored_state(tmp_path):
+    cfg = _cfg(tmp_path)
+    assert state_store.save_state(cfg, SocState(cfg.soc_params(), last_tick=0.0), now=1.0)
+    assert json.loads((tmp_path / "s.json").read_text())["fresh_start"] is True
+
+
+def test_fresh_start_flag_cleared_after_loading_state(tmp_path):
+    cfg = _cfg(tmp_path)
+    (tmp_path / "s.json").write_text(json.dumps({"units": {}, "saved_at": 1.0, "clean": True}))
+    state_store.load_state(cfg, SocState(cfg.soc_params(), last_tick=0.0))
+    assert state_store.save_state(cfg, SocState(cfg.soc_params(), last_tick=0.0), now=2.0)
+    assert json.loads((tmp_path / "s.json").read_text())["fresh_start"] is False

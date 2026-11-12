@@ -279,3 +279,62 @@ func TestDeleteRejectsPathsOutsideDir(t *testing.T) {
 		t.Fatalf("Datei ausserhalb wurde angefasst: %v", err)
 	}
 }
+
+func TestDriveLocationPrefersDriveThenSettings(t *testing.T) {
+	dataDir := t.TempDir()
+	driveDir := filepath.Join(t.TempDir(), "backups")
+	present := func() (string, bool) { return driveDir, true }
+	missing := func() (string, bool) { return driveDir, false }
+	fallbackOn := SystemLocation{DataDir: dataDir, Settings: func() Settings { return DefaultSettings() }}
+	fallbackOff := SystemLocation{DataDir: dataDir, Settings: func() Settings { return Settings{SystemFallback: false} }}
+
+	dir, place, err := DriveLocation{Drive: present, System: fallbackOn}.ArchiveDir()
+	if err != nil || dir != driveDir || place != "drive" {
+		t.Fatalf("drive present: ArchiveDir = %q, %q, %v", dir, place, err)
+	}
+
+	dir, place, err = DriveLocation{Drive: missing, System: fallbackOn}.ArchiveDir()
+	if err != nil || dir != filepath.Join(dataDir, "backups") || place != "system" {
+		t.Fatalf("drive missing with fallback: ArchiveDir = %q, %q, %v", dir, place, err)
+	}
+
+	_, _, err = DriveLocation{Drive: missing, System: fallbackOff}.ArchiveDir()
+	if !errors.Is(err, ErrNoLocation) {
+		t.Fatalf("drive missing without fallback: err = %v, want ErrNoLocation", err)
+	}
+
+	_, _, err = DriveLocation{System: fallbackOff}.ArchiveDir()
+	if !errors.Is(err, ErrNoLocation) {
+		t.Fatalf("no drive func without fallback: err = %v, want ErrNoLocation", err)
+	}
+}
+
+func TestBackupOnDriveSkipsWhenDriveMissing(t *testing.T) {
+	dataDir := t.TempDir()
+	driveDir := filepath.Join(t.TempDir(), "mnt", "energy-node-data", "backups")
+	loc := DriveLocation{
+		Drive:  func() (string, bool) { return driveDir, false },
+		System: SystemLocation{DataDir: dataDir, Settings: func() Settings { return DefaultSettings() }},
+	}
+
+	dir, place, err := loc.ArchiveDir()
+	if err != nil {
+		t.Fatalf("ArchiveDir: %v", err)
+	}
+	if place != "system" {
+		t.Fatalf("place = %q, want system", place)
+	}
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Add(Info{Trigger: "manual"}, 0, writeBytes("archive")); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if _, err := os.Stat(driveDir); !os.IsNotExist(err) {
+		t.Fatalf("backup wrote into the missing drive directory: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "backups")); err != nil {
+		t.Fatalf("archive not on the system disk: %v", err)
+	}
+}

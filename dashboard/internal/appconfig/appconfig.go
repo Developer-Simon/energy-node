@@ -65,6 +65,10 @@ type MQTTSection struct {
 type PathsSection struct {
 	DevicesDir string `json:"devices_dir"`
 	DataDir    string `json:"data_dir"`
+	// RuntimeDir ist optional. Ist er gesetzt, liegen Laufzeitdaten (Statistik,
+	// Laufzeit-Cache, Automations-Verlauf, Batteriezustand) dort statt in
+	// data_dir bzw. devices_dir. Leer heisst: der bisherige Ort.
+	RuntimeDir string `json:"runtime_dir,omitempty"`
 	// ServicesVersionFile ist veraltet und wird ignoriert. Das Feld bleibt,
 	// weil bestehende config.json-Dateien den Schluessel noch tragen und das
 	// Schema zusaetzliche Schluessel in "paths" ablehnt.
@@ -174,6 +178,15 @@ func (c Config) DevicesConfig(name string) string {
 // ShellyPresets loest devices_dir/shelly_presets.json auf.
 func (c Config) ShellyPresets() string {
 	return filepath.Join(c.Paths.DevicesDir, "shelly_presets.json")
+}
+
+// RuntimePath loest eine Laufzeitdatei auf. Ohne runtime_dir gilt der bisherige
+// Ort legacyDir/rel, sonst runtime_dir/rel.
+func (c Config) RuntimePath(legacyDir, rel string) string {
+	if c.Paths.RuntimeDir == "" {
+		return filepath.Join(legacyDir, rel)
+	}
+	return filepath.Join(c.Paths.RuntimeDir, rel)
 }
 
 // ServiceInstalled berichtet, ob der optionale Dienst mit diesem

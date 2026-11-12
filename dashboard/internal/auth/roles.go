@@ -43,6 +43,7 @@ const (
 	RoleBackupExport       = "backup_export"
 	RoleBackupImport       = "backup_import"
 	RoleBackupSecrets      = "backup_secrets"
+	RoleStorageManage      = "storage_manage"
 	RoleHTTPLogin          = "http_login"
 )
 
@@ -99,6 +100,7 @@ var roleCatalog = []RoleInfo{
 	{Key: RoleBackupExport, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleBackupImport, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleBackupSecrets, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
+	{Key: RoleStorageManage, Category: CategorySystem, HTTPSOnly: true, HAAllowed: true, Elevated: true},
 	{Key: RoleHTTPLogin, Category: CategorySystem},
 }
 

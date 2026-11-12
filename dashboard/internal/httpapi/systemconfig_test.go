@@ -437,3 +437,12 @@ func TestSystemConfigPutDoesNotCallHelperForNonPermissionErrors(t *testing.T) {
 		t.Fatalf("Helper darf bei Nicht-Rechtefehler nicht laufen, calls = %v", executor.calls)
 	}
 }
+
+func TestRuntimeDirChangeRequiresRestart(t *testing.T) {
+	previous := []byte(`{"paths":{"devices_dir":"/d","data_dir":"/e"}}`)
+	next := []byte(`{"paths":{"devices_dir":"/d","data_dir":"/e","runtime_dir":"/mnt/ssd/runtime"}}`)
+	changed := changedRestartFields(previous, next)
+	if !reflect.DeepEqual(changed, []string{"paths"}) {
+		t.Fatalf("changedRestartFields = %v, erwartet [paths]", changed)
+	}
+}

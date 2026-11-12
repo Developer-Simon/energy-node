@@ -1,0 +1,10 @@
+{
+  "blockdevices": [
+    {"name": "sdb", "kname": "sdb", "path": "/dev/sdb", "uuid": null, "fstype": null, "size": null, "fsused": null, "model": "", "tran": null, "type": "disk", "mountpoint": null, "pkname": null},
+    {"name": "sdc", "kname": "sdc", "path": "/dev/sdc", "uuid": null, "fstype": null, "size": "2000000000", "fsused": null, "model": "   ", "tran": "usb", "type": "disk", "mountpoint": null, "pkname": null,
+      "children": [
+        {"name": "sdc1", "kname": "sdc1", "path": "/dev/sdc1", "uuid": null, "fstype": "ext4", "size": "2000000000", "fsused": null, "model": null, "tran": null, "type": "part", "mountpoint": null, "pkname": "sdc"}
+      ]
+    }
+  ]
+}

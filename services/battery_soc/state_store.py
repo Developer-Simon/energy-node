@@ -4,6 +4,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
+# state_file-Pfade, aus denen dieser Prozess gespeicherten Zustand geladen hat.
+# Ohne Eintrag schreibt save_state fresh_start=true: der Zaehler startete neu.
+_RESTORED = set()
+
 
 @dataclass(frozen=True)
 class StoredMeta:
@@ -34,6 +38,7 @@ def load_state(config, state):
         return None  # Keine/kaputte Datei -> Start mit Defaults
     if not isinstance(data, dict):
         return None
+    _RESTORED.add(str(config.state_file))
 
     stored = data.get("units")
     if isinstance(stored, dict):
@@ -57,6 +62,7 @@ def save_state(config, state, *, now=None, clean=False, last_current_a=None):
     data["saved_at"] = time.time() if now is None else now
     data["clean"] = clean
     data["last_current_a"] = dict(last_current_a or {})
+    data["fresh_start"] = str(config.state_file) not in _RESTORED
     path = config.state_file
     tmp = path.with_name(path.name + ".tmp")
     try:

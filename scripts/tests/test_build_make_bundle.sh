@@ -75,6 +75,8 @@ done
   || fail "energy-node-updater.service not staged"
 [[ -f "${out}/dashboard/energy-node-updater.path" ]] \
   || fail "energy-node-updater.path not staged"
+[[ -x "${out}/dashboard/energy-node-storage-helper" ]] \
+  || fail "energy-node-storage-helper not staged executable"
 [[ -f "${out}/dashboard/signing_key.pub.pem" ]] \
   || fail "signing public key not staged into the bundle"
 

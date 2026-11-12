@@ -1,0 +1,14 @@
+{
+  "blockdevices": [
+    {"name": "loop0", "kname": "loop0", "path": "/dev/loop0", "uuid": null, "fstype": "squashfs", "size": 67108864, "fsused": 67108864, "model": null, "tran": null, "type": "loop", "mountpoint": null, "pkname": null},
+    {"name": "ram0", "kname": "ram0", "path": "/dev/ram0", "uuid": null, "fstype": null, "size": 65536, "fsused": null, "model": null, "tran": null, "type": "disk", "mountpoint": null, "pkname": null},
+    {"name": "zram0", "kname": "zram0", "path": "/dev/zram0", "uuid": null, "fstype": "swap", "size": 1073741824, "fsused": null, "model": null, "tran": null, "type": "disk", "mountpoint": "[SWAP]", "pkname": null},
+    {"name": "sdc", "kname": "sdc", "path": "/dev/sdc", "uuid": null, "fstype": null, "size": 128035676160, "fsused": null, "model": "Backup Disk", "tran": "usb", "type": "disk", "mountpoint": null, "pkname": null,
+      "children": [
+        {"name": "sdc1", "kname": "sdc1", "path": "/dev/sdc1", "uuid": "11111111-2222-4333-8444-555555555555", "fstype": "ext4", "size": 64000000000, "fsused": 1200000000, "model": null, "tran": null, "type": "part", "mountpoint": "/media/backup", "pkname": "sdc"},
+        {"name": "sdc2", "kname": "sdc2", "path": "/dev/sdc2", "uuid": "66666666-7777-4888-8999-aaaaaaaaaaaa", "fstype": "ext4", "size": 64000000000, "fsused": 28672, "model": null, "tran": null, "type": "part", "mountpoint": null, "pkname": "sdc"}
+      ]
+    },
+    {"name": "sdd", "kname": "sdd", "path": "/dev/sdd", "uuid": "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff", "fstype": "ext4", "size": 32000000000, "fsused": 28672, "model": "Spare Stick", "tran": "usb", "type": "disk", "mountpoint": null, "pkname": null}
+  ]
+}

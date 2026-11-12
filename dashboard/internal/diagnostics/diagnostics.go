@@ -48,7 +48,7 @@ type Warning struct {
 // IsOperationalRule reports whether warnings of the given rule describe the
 // device's live operation (connectivity and freshness) instead of its setup.
 func IsOperationalRule(ruleID string) bool {
-	return ruleID == "Offline" || ruleID == "NoStateUpdate"
+	return ruleID == "Offline" || ruleID == "NoStateUpdate" || ruleID == "StorageDriveMissing"
 }
 
 type Context struct {
@@ -119,6 +119,8 @@ type Engine struct {
 	Ignored       *devicefilter.Store
 	Configs       *config.Manager
 	StartedAt     time.Time
+
+	storageFallback func() string
 }
 
 func NewEngine(reg *registry.Registry, store *settings.Store) *Engine {
@@ -182,14 +184,38 @@ func (e *Engine) SetStartedAt(startedAt time.Time) {
 }
 
 func (e *Engine) Evaluate(now time.Time) []Warning {
-	if e.Registry == nil {
-		return []Warning{}
-	}
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
+	storage := e.storageWarnings(now)
+	if e.Registry == nil {
+		return storage
+	}
 	snapshot := e.Registry.DiagnosticsSnapshot()
-	return e.evaluate(now, snapshot, e.settingsThreshold())
+	return append(e.evaluate(now, snapshot, e.settingsThreshold()), storage...)
+}
+
+// SetStorageFallback sets the source of the storage state. It returns the
+// fallback mode ("fallback_system" or "fallback_ram") while the data drive is
+// not in use, and "" otherwise.
+func (e *Engine) SetStorageFallback(fn func() string) {
+	e.storageFallback = fn
+}
+
+// storageWarnings raises storage_drive_missing while the runtime data runs
+// on a fallback. The mode is passed as detail.
+func (e *Engine) storageWarnings(now time.Time) []Warning {
+	out := []Warning{}
+	if e.storageFallback == nil {
+		return out
+	}
+	mode := e.storageFallback()
+	if mode == "" {
+		return out
+	}
+	w := warning("StorageDriveMissing", "storage_drive_missing", SeverityWarning, "", registry.EntityView{}, now)
+	w.Details = map[string]any{"mode": mode}
+	return append(out, w)
 }
 
 func (e *Engine) evaluate(now time.Time, snapshot registry.DiagnosticsSnapshot, threshold time.Duration) []Warning {

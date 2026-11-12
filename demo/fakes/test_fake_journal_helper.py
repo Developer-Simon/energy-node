@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import fake_journal_helper  # noqa: E402
+import fake_storage  # noqa: E402
 
 HELPER = str(Path(__file__).resolve().parent / "fake_journal_helper.py")
 
@@ -196,3 +197,100 @@ def test_restore_verbs_denied_with_state(tmp_path, epoch_env):
     result = run_helper(with_state(epoch_env, state), "stop-services")
     assert result.returncode == 1
     assert result.stderr.startswith("sudo:")
+
+
+def test_storage_format_prints_the_uuid_and_mount_writes_the_marker(tmp_path, epoch_env):
+    env = {**epoch_env, "FAKE_STORAGE_MOUNT": str(tmp_path / "mount")}
+    result = run_helper(env, "storage", "format", "sdb")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == fake_journal_helper.STORAGE_DRIVE_UUID
+    assert not (tmp_path / "mount" / ".energy-node-volume").exists()
+
+    result = run_helper(env, "storage", "mount", fake_journal_helper.STORAGE_DRIVE_UUID)
+    assert result.returncode == 0, result.stderr
+    marker = tmp_path / "mount" / ".energy-node-volume"
+    assert marker.read_text().strip() == fake_journal_helper.machine_id()
+    assert (tmp_path / "mount" / "runtime").is_dir()
+    assert (tmp_path / "mount" / "backups").is_dir()
+
+
+def test_storage_refuses_bad_disk_names_and_unknown_uuids(tmp_path, epoch_env):
+    env = {**epoch_env, "FAKE_STORAGE_MOUNT": str(tmp_path / "mount")}
+    assert run_helper(env, "storage", "format", "../sdb").returncode == 64
+    assert run_helper(env, "storage", "mount", "00000000-0000-0000-0000-000000000000").returncode == 64
+    assert run_helper(env, "storage", "bogus").returncode == 64
+    assert not (tmp_path / "mount").exists()
+
+
+def test_storage_mount_and_unmount_work_on_the_demo_drive(tmp_path, epoch_env):
+    env = {**epoch_env, "FAKE_STORAGE_MOUNT": str(tmp_path / "mount")}
+    uuid = fake_journal_helper.STORAGE_DRIVE_UUID
+    assert run_helper(env, "storage", "format", "sdb").returncode == 0
+    assert run_helper(env, "storage", "mount", uuid).returncode == 0
+    assert run_helper(env, "storage", "unmount").returncode == 0
+    assert (tmp_path / "mount" / ".energy-node-volume").exists()
+
+
+def test_storage_mount_refuses_an_unformatted_drive_and_a_failing_fault(tmp_path, epoch_env):
+    env = {**epoch_env, "FAKE_STORAGE_MOUNT": str(tmp_path / "mount")}
+    uuid = fake_journal_helper.STORAGE_DRIVE_UUID
+    assert run_helper(env, "storage", "mount", uuid).returncode == 1
+    assert run_helper(env, "storage", "format", "sdb").returncode == 0
+    fake_storage.set_fault(tmp_path, "mount", True)
+    result = run_helper(env, "storage", "mount", uuid)
+    assert result.returncode == 1
+    assert "Einhängen" in result.stderr
+    fake_storage.set_fault(tmp_path, "mount", False)
+    fake_storage.set_fault(tmp_path, "format", True)
+    assert run_helper(env, "storage", "format", "sdb").returncode == 1
+
+
+def test_apply_app_config_copies_the_staged_file_to_the_config(tmp_path, epoch_env):
+    staged = tmp_path / "staged.json"
+    target = tmp_path / "config.json"
+    staged.write_text('{"paths": {"runtime_dir": "/x"}}\n')
+    target.write_text("{}\n")
+    state = write_state(tmp_path, {"actions": "ok"})
+    events = tmp_path / "events.jsonl"
+    env = {**epoch_env, "FAKE_SYSTEM_STATE": state, "FAKE_SYSTEM_EVENTS": str(events),
+           "FAKE_STAGED_CONFIG": str(staged), "FAKE_APP_CONFIG_TARGET": str(target)}
+    result = run_helper(env, "apply-app-config")
+    assert result.returncode == 0, result.stderr
+    assert target.read_text() == staged.read_text()
+    assert read_events(events)[-1]["result"] == "ok"
+
+
+def test_restart_dashboard_leaves_the_request_file_for_the_supervisor(tmp_path, epoch_env):
+    request = tmp_path / "restart-request"
+    state = write_state(tmp_path, {"actions": "ok"})
+    env = {**epoch_env, "FAKE_SYSTEM_STATE": state, "FAKE_RESTART_REQUEST": str(request)}
+    result = run_helper(env, "restart-dashboard")
+    assert result.returncode == 0, result.stderr
+    assert request.read_text() == "restart\n"
+
+
+def test_restart_dashboard_without_request_path_stays_a_noop(tmp_path, epoch_env):
+    result = run_helper(epoch_env, "restart-dashboard")
+    assert result.returncode == 0, result.stderr
+    assert not (tmp_path / "restart-request").exists()
+
+
+def test_storage_unmount_then_mount_another_uuid_swaps_the_drive(tmp_path, epoch_env):
+    # What a replace sends to the helper: unmount, then mount the new uuid on the same point.
+    env = {**epoch_env, "FAKE_STORAGE_MOUNT": str(tmp_path / "mount")}
+    sdb = fake_journal_helper.STORAGE_DRIVE_UUID
+    sdc = "2b7e9d10-4f3a-4c6e-8a51-9d0f7e3b2c48"
+    assert run_helper(env, "storage", "format", "sdb").returncode == 0
+    assert run_helper(env, "storage", "mount", sdb).returncode == 0
+    (tmp_path / "mount" / "runtime" / "state.json").write_text("sdb-data")
+    fake_storage.plug(tmp_path, tmp_path / "mount", fake_storage.load_catalog(), "sdc", fake_journal_helper.machine_id())
+
+    assert run_helper(env, "storage", "unmount").returncode == 0
+    result = run_helper(env, "storage", "mount", sdc)
+    assert result.returncode == 0, result.stderr
+
+    assert list((tmp_path / "mount" / "runtime").iterdir()) == []
+    assert (tmp_path / "disks" / "sdb" / "runtime" / "state.json").read_text() == "sdb-data"
+    assert run_helper(env, "storage", "unmount").returncode == 0
+    assert run_helper(env, "storage", "mount", sdb).returncode == 0
+    assert (tmp_path / "mount" / "runtime" / "state.json").read_text() == "sdb-data"

@@ -89,6 +89,7 @@ func buildSources(cfg appconfig.Config, configPath string) backup.Sources {
 		DataDir:       cfg.Paths.DataDir,
 		DevicesDir:    cfg.Paths.DevicesDir,
 		AppConfigPath: configPath,
+		RuntimeDir:    cfg.Paths.RuntimeDir,
 		BatteryStates: batteryStateFiles(cfg.Paths.DevicesDir),
 	}
 }

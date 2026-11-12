@@ -154,41 +154,33 @@ func stagedFiles(dir string) (map[string]archiveFile, error) {
 // Bereich zuordnet, unter demselben Archivnamen wie stagedFiles.
 func liveFiles(src Sources) (map[string]archiveFile, error) {
 	out := map[string]archiveFile{}
-	trees := []struct {
-		root   Root
-		dir    string
-		prefix string
-	}{
-		{RootData, src.DataDir, "data/"},
-		{RootDevices, src.DevicesDir, "devices/"},
-	}
-	for _, tree := range trees {
-		if tree.dir == "" {
+	for _, tree := range src.Trees() {
+		if tree.Dir == "" {
 			continue
 		}
-		if _, err := os.Stat(tree.dir); errors.Is(err, fs.ErrNotExist) {
+		if _, err := os.Stat(tree.Dir); errors.Is(err, fs.ErrNotExist) {
 			continue
 		}
-		err := filepath.WalkDir(tree.dir, func(p string, d fs.DirEntry, err error) error {
+		err := filepath.WalkDir(tree.Dir, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
 			if !d.Type().IsRegular() {
 				return nil
 			}
-			rel, err := filepath.Rel(tree.dir, p)
+			rel, err := filepath.Rel(tree.Dir, p)
 			if err != nil {
 				return err
 			}
 			rel = filepath.ToSlash(rel)
-			if e, ok := Lookup(tree.root, rel); !ok || e.Area == "" {
+			if e, ok := Lookup(tree.Root, rel); !ok || e.Area == "" || !src.Accepts(tree, e) {
 				return nil
 			}
 			info, err := d.Info()
 			if err != nil {
 				return err
 			}
-			out[tree.prefix+rel] = archiveFile{path: p, size: info.Size()}
+			out[tree.Prefix+rel] = archiveFile{path: p, size: info.Size()}
 			return nil
 		})
 		if err != nil {
