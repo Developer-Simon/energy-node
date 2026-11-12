@@ -7,6 +7,7 @@ type Defaults struct {
 	WifiCountry   string
 	WifiSSID      string
 	WifiFreqMHz   int               // Frequenz des erkannten WLANs, 0 = unbekannt
+	WifiNetworks  []WifiNetwork     // Netze in Reichweite, staerkstes zuerst
 	ZoneCountries map[string]string // Zeitzone -> Laendercode aus zone1970.tab
 	Timezones     []string
 	Keyboards     []string
@@ -23,4 +24,12 @@ func keyboardChoices(detected string) []string {
 		}
 	}
 	return append([]string{detected}, fixedKeyboards...)
+}
+
+// WifiNetwork ist ein Netz in Reichweite. Ein Name kann auf beiden Baendern funken.
+type WifiNetwork struct {
+	SSID   string
+	Signal int // 0..100, das staerkste des Namens
+	Band24 bool
+	Band5  bool
 }

@@ -3,7 +3,9 @@
 package media
 
 import (
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -30,28 +32,46 @@ func TestZone1970Parsing(t *testing.T) {
 	}
 }
 
-func TestParseActiveWifi(t *testing.T) {
-	cases := map[string]struct {
-		in   string
-		ssid string
-		freq int
-	}{
-		"no active line":    {in: "no:Other:2412 MHz\n", ssid: "", freq: 0},
-		"active line":       {in: "no:Other:2412 MHz\nyes:Werkstatt:5500 MHz\n", ssid: "Werkstatt", freq: 5500},
-		"spaces in name":    {in: "yes:WelcomeHome 5 GHz:5500 MHz\n", ssid: "WelcomeHome 5 GHz", freq: 5500},
-		"escaped colon":     {in: "yes:My\\:Net:2437 MHz\n", ssid: "My:Net", freq: 2437},
-		"escaped slash":     {in: "yes:Back\\\\slash:2412 MHz\n", ssid: "Back\\slash", freq: 2412},
-		"empty input":       {in: "", ssid: "", freq: 0},
-		"bad frequency":     {in: "yes:Werkstatt:?\n", ssid: "Werkstatt", freq: 0},
-		"first active wins": {in: "yes:First:2412 MHz\nyes:Second:5180 MHz\n", ssid: "First", freq: 2412},
+func TestParseWifiList(t *testing.T) {
+	data := []byte(strings.Join([]string{
+		"no::2412 MHz:90",
+		"yes:WelcomeHome 5 GHz:5500 MHz:64",
+		"no:WelcomeHome:2437 MHz:70",
+		"no:WelcomeHome:5180 MHz:50",
+		"no:My\\:Net:2462 MHz:30",
+		"no:Back\\\\slash:2412 MHz:30",
+		"broken",
+	}, "\n") + "\n")
+	ssid, freq, nets := parseWifiList(data)
+	if ssid != "WelcomeHome 5 GHz" || freq != 5500 {
+		t.Errorf("active = %q, %d", ssid, freq)
 	}
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			ssid, freq := parseActiveWifi([]byte(tc.in))
-			if ssid != tc.ssid || freq != tc.freq {
-				t.Errorf("parseActiveWifi(%q) = %q, %d, want %q, %d", tc.in, ssid, freq, tc.ssid, tc.freq)
-			}
-		})
+	want := []WifiNetwork{
+		{SSID: "WelcomeHome", Signal: 70, Band24: true, Band5: true},
+		{SSID: "WelcomeHome 5 GHz", Signal: 64, Band5: true},
+		{SSID: "Back\\slash", Signal: 30, Band24: true},
+		{SSID: "My:Net", Signal: 30, Band24: true},
+	}
+	if !reflect.DeepEqual(nets, want) {
+		t.Errorf("nets = %+v\nwant %+v", nets, want)
+	}
+}
+
+func TestParseWifiListLimitsTheList(t *testing.T) {
+	var lines []string
+	for i := 0; i < maxWifiNetworks+5; i++ {
+		lines = append(lines, fmt.Sprintf("no:Netz%02d:2412 MHz:%d", i, i))
+	}
+	_, _, nets := parseWifiList([]byte(strings.Join(lines, "\n")))
+	if len(nets) != maxWifiNetworks || nets[0].SSID != fmt.Sprintf("Netz%02d", maxWifiNetworks+4) {
+		t.Errorf("got %d nets, first %+v", len(nets), nets[0])
+	}
+}
+
+func TestParseWifiListWithoutActive(t *testing.T) {
+	ssid, freq, nets := parseWifiList([]byte(""))
+	if ssid != "" || freq != 0 || len(nets) != 0 {
+		t.Errorf("empty input = %q, %d, %v", ssid, freq, nets)
 	}
 }
 

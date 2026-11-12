@@ -106,6 +106,11 @@ func mediaCatalogFixture() hostapi.MediaCatalog {
 			WifiCountry: "DE",
 			WifiSSID:    "Werkstatt",
 			WifiFreqMHz: 2437,
+			WifiNetworks: []hostapi.MediaWifiNetwork{
+				{SSID: "Werkstatt", Signal: 82, Band24: true, Band5: true},
+				{SSID: "Keller 5G", Signal: 55, Band5: true},
+				{SSID: "Nachbar", Signal: 40, Band24: true},
+			},
 			ZoneCountries: map[string]string{
 				"Europe/Berlin": "DE", "Europe/Vienna": "AT", "Europe/Zurich": "CH",
 			},

@@ -166,10 +166,19 @@ func mediaDefaults(d media.Defaults) hostapi.MediaDefaults {
 		WifiCountry:   d.WifiCountry,
 		WifiSSID:      d.WifiSSID,
 		WifiFreqMHz:   d.WifiFreqMHz,
+		WifiNetworks:  mediaWifiNetworks(d.WifiNetworks),
 		ZoneCountries: d.ZoneCountries,
 		Timezones:     d.Timezones,
 		Keyboards:     d.Keyboards,
 	}
+}
+
+func mediaWifiNetworks(nets []media.WifiNetwork) []hostapi.MediaWifiNetwork {
+	out := []hostapi.MediaWifiNetwork{}
+	for _, n := range nets {
+		out = append(out, hostapi.MediaWifiNetwork{SSID: n.SSID, Signal: n.Signal, Band24: n.Band24, Band5: n.Band5})
+	}
+	return out
 }
 
 func (h *Host) MediaDrives(ctx context.Context, internal bool) ([]hostapi.MediaDrive, error) {

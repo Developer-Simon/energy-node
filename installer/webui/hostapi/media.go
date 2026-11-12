@@ -72,16 +72,25 @@ type MediaDevice struct {
 
 // MediaDefaults sind die Vorgaben des Formulars.
 type MediaDefaults struct {
-	Hostname      string            `json:"hostname"`
-	User          string            `json:"user"`
-	Timezone      string            `json:"timezone"`
-	Keyboard      string            `json:"keyboard"`
-	WifiCountry   string            `json:"wifi_country"`
-	WifiSSID      string            `json:"wifi_ssid"`
-	WifiFreqMHz   int               `json:"wifi_freq_mhz"`  // 0 = unbekannt
-	ZoneCountries map[string]string `json:"zone_countries"` // Zeitzone -> Laendercode
-	Timezones     []string          `json:"timezones"`
-	Keyboards     []string          `json:"keyboards"`
+	Hostname      string             `json:"hostname"`
+	User          string             `json:"user"`
+	Timezone      string             `json:"timezone"`
+	Keyboard      string             `json:"keyboard"`
+	WifiCountry   string             `json:"wifi_country"`
+	WifiSSID      string             `json:"wifi_ssid"`
+	WifiFreqMHz   int                `json:"wifi_freq_mhz"`  // 0 = unbekannt
+	WifiNetworks  []MediaWifiNetwork `json:"wifi_networks"`  // staerkstes zuerst
+	ZoneCountries map[string]string  `json:"zone_countries"` // Zeitzone -> Laendercode
+	Timezones     []string           `json:"timezones"`
+	Keyboards     []string           `json:"keyboards"`
+}
+
+// MediaWifiNetwork ist ein Netz in Reichweite des Rechners.
+type MediaWifiNetwork struct {
+	SSID   string `json:"ssid"`
+	Signal int    `json:"signal"`
+	Band24 bool   `json:"band_24"`
+	Band5  bool   `json:"band_5"`
 }
 
 // MediaCatalog ist die Geraeteliste mit Images und die Vorgaben.

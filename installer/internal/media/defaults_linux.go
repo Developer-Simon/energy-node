@@ -17,6 +17,9 @@ import (
 
 const zone1970Path = "/usr/share/zoneinfo/zone1970.tab"
 
+// maxWifiNetworks begrenzt die Netze in Reichweite.
+const maxWifiNetworks = 10
+
 // HostDefaults reads timezone, keyboard, and WLAN country from this computer.
 func HostDefaults() Defaults {
 	d := Defaults{Timezone: "UTC", Keyboard: "us"}
@@ -29,47 +32,90 @@ func HostDefaults() Defaults {
 	}
 	d.Keyboards = keyboardChoices(d.Keyboard)
 	d.WifiCountry = countryFromLocale(localeFromEnv())
-	d.WifiSSID, d.WifiFreqMHz = activeWifi(context.Background())
+	d.WifiSSID, d.WifiFreqMHz, d.WifiNetworks = scanWifi(context.Background())
 	d.ZoneCountries = zoneCountries()
 	return d
 }
 
-// activeWifi returns name and frequency of the Wi-Fi network this computer is
-// connected to, or "" and 0. --rescan no answers from the cached scan list; a
-// rescan takes several seconds and runs past the timeout.
-func activeWifi(parent context.Context) (string, int) {
+// scanWifi returns the connected network, its frequency and the networks in
+// range. --rescan no answers from the cached scan list; a rescan takes several
+// seconds and runs past the timeout.
+func scanWifi(parent context.Context) (string, int, []WifiNetwork) {
 	ctx, cancel := context.WithTimeout(parent, 2*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "nmcli", "-t", "-f", "ACTIVE,SSID,FREQ", "dev", "wifi", "list", "--rescan", "no").Output()
+	out, err := exec.CommandContext(ctx, "nmcli", "-t", "-f", "ACTIVE,SSID,FREQ,SIGNAL", "dev", "wifi", "list", "--rescan", "no").Output()
 	if err != nil {
-		return "", 0
+		return "", 0, nil
 	}
-	return parseActiveWifi(out)
+	return parseWifiList(out)
 }
 
-// parseActiveWifi reads the first active line of
-// `nmcli -t -f ACTIVE,SSID,FREQ dev wifi list`, e.g. "yes:Werkstatt:5500 MHz".
-// FREQ never contains a colon, so the last colon separates it from the SSID.
-// Terse mode escapes ":" as "\:" and "\" as "\\" in the SSID.
-func parseActiveWifi(data []byte) (string, int) {
+// parseWifiList reads `nmcli -t -f ACTIVE,SSID,FREQ,SIGNAL dev wifi list`, e.g.
+// "yes:Werkstatt:5500 MHz:82". FREQ and SIGNAL never contain a colon, so the
+// last two colons separate them from the SSID. Terse mode escapes ":" as "\:"
+// and "\" as "\\" in the SSID. Hidden networks (empty SSID) are skipped, access
+// points with the same name are merged.
+func parseWifiList(data []byte) (string, int, []WifiNetwork) {
+	var active string
+	var activeFreq int
+	byName := map[string]*WifiNetwork{}
+	var order []*WifiNetwork
 	sc := bufio.NewScanner(bytes.NewReader(data))
 	for sc.Scan() {
-		rest, ok := strings.CutPrefix(strings.TrimRight(sc.Text(), "\r"), "yes:")
+		line := strings.TrimRight(sc.Text(), "\r")
+		activeField, rest, ok := strings.Cut(line, ":")
 		if !ok {
 			continue
 		}
 		i := strings.LastIndex(rest, ":")
 		if i < 0 {
-			return unescapeTerse(rest), 0
+			continue
 		}
-		freqField, _, _ := strings.Cut(strings.TrimSpace(rest[i+1:]), " ")
-		freq, err := strconv.Atoi(freqField)
-		if err != nil {
-			freq = 0
+		signal, _ := strconv.Atoi(strings.TrimSpace(rest[i+1:]))
+		rest = rest[:i]
+		j := strings.LastIndex(rest, ":")
+		if j < 0 {
+			continue
 		}
-		return unescapeTerse(rest[:i]), freq
+		freqField, _, _ := strings.Cut(strings.TrimSpace(rest[j+1:]), " ")
+		freq, _ := strconv.Atoi(freqField)
+		ssid := unescapeTerse(rest[:j])
+		if ssid == "" {
+			continue
+		}
+		if activeField == "yes" && active == "" {
+			active, activeFreq = ssid, freq
+		}
+		n := byName[ssid]
+		if n == nil {
+			n = &WifiNetwork{SSID: ssid}
+			byName[ssid] = n
+			order = append(order, n)
+		}
+		if signal > n.Signal {
+			n.Signal = signal
+		}
+		switch {
+		case freq >= 5000:
+			n.Band5 = true
+		case freq > 0:
+			n.Band24 = true
+		}
 	}
-	return "", 0
+	sort.SliceStable(order, func(a, b int) bool {
+		if order[a].Signal != order[b].Signal {
+			return order[a].Signal > order[b].Signal
+		}
+		return order[a].SSID < order[b].SSID
+	})
+	if len(order) > maxWifiNetworks {
+		order = order[:maxWifiNetworks]
+	}
+	nets := make([]WifiNetwork, len(order))
+	for k, n := range order {
+		nets[k] = *n
+	}
+	return active, activeFreq, nets
 }
 
 // zoneCountries maps each zone of zone1970.tab to its first country code.
