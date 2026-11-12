@@ -50,7 +50,7 @@ test('groups fasst die Geraete je Gruppe zusammen, in Eingabereihenfolge', () =>
 
 test('defaultSettings uebernimmt die Vorgaben und lässt Passwoerter und Schalter aus', () => {
   assert.deepEqual(plain(M.defaultSettings(DEFAULTS, 'pi')), {
-    hostname: 'energy-node', user: 'node', emergency: false, password: '', password2: '',
+    hostname: 'energy-node', user: 'node', emergency: false, password: '', password2: '', sshPassword: false,
     timezone: 'Europe/Berlin', keyboard: 'de', wifiOn: false, ssid: '', wifiPassword: '', country: 'DE',
   });
 });
@@ -80,7 +80,7 @@ test('toRequest liefert wifi null ohne WLAN und ein leeres Passwort ohne Notfall
   assert.equal(plainRequest.wifi, null);
   assert.equal(plainRequest.password, '', 'ohne Schalter geht kein Passwort mit');
   assert.deepEqual(plainRequest, {
-    hostname: 'energy-node', user: 'node', password: '', timezone: 'Europe/Berlin', keyboard: 'de', wifi: null,
+    hostname: 'energy-node', user: 'node', password: '', ssh_password: false, timezone: 'Europe/Berlin', keyboard: 'de', wifi: null,
   });
 
   const withAll = plain(M.toRequest(valid({
@@ -217,4 +217,12 @@ test('siblingFor findet dasselbe Netz auf 2,4 GHz', () => {
   assert.equal(M.siblingFor('Haus_5G', d), 'Haus-2.4GHz');
   assert.equal(M.siblingFor('Nur5 5G', d), '');
   assert.equal(M.siblingFor('', d), '');
+});
+
+test('SSH mit Passwort geht nur mit Notfall-Passwort mit und wird nicht gemerkt', () => {
+  const on = valid({ emergency: true, password: 'geheim-geheim', password2: 'geheim-geheim', sshPassword: true });
+  assert.equal(M.toRequest(on).ssh_password, true);
+  assert.equal(M.toRequest(Object.assign({}, on, { emergency: false })).ssh_password, false);
+  assert.equal('sshPassword' in M.remembered(on), false);
+  assert.equal(M.defaultSettings(DEFAULTS, 'pi').sshPassword, false);
 });

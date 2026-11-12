@@ -507,6 +507,7 @@
 .media-static-t{font-size:.83rem;color:var(--text)}
 .media-static-s{font-size:.74rem;line-height:1.4;color:var(--text-muted)}
 .media-toggle{display:flex;gap:.6rem;align-items:flex-start;margin-bottom:.8rem;cursor:pointer}
+.media-toggle--sub{margin-top:.8rem;margin-bottom:0}
 .media-check-t{display:block;font-size:.83rem;color:var(--text)}
 .media-check-s{display:block;margin-top:.1rem;font-size:.74rem;line-height:1.4;color:var(--text-muted)}
 .media-check{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin-top:.3rem;font-size:.74rem;line-height:1.4;color:var(--text-muted)}

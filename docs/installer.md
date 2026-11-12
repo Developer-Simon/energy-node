@@ -95,7 +95,8 @@ download page. For now the tab works on Linux only. Windows and macOS follow.
    network, and a user. The installer fills in the rest: user `node`, login with
    a key only, passwordless `sudo`, and the time zone and keyboard layout of
    this computer. An emergency password for a screen and keyboard on the Pi is
-   off by default. You can add Wi-Fi here. Its password only goes onto the
+   off by default. With it you can also allow SSH login with that password,
+   which helps with debugging. You can add Wi-Fi here. Its password only goes onto the
    medium and the installer does not store it. The installer fills in the name
    of the network this computer is connected to, when it can find it, and offers
    the other networks in range to pick from. If this computer knows the password

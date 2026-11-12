@@ -112,7 +112,7 @@
         </div>
 
         <div class="media-static">
-          <span class="media-static-t" x-text="t('media.settings.key_only')"></span>
+          <span class="media-static-t" x-text="form.emergency && form.sshPassword ? t('media.settings.key_and_password') : t('media.settings.key_only')"></span>
           <span class="media-static-s" x-text="t('media.settings.key_only_hint')"></span>
         </div>
 
@@ -128,17 +128,29 @@
         </label>
 
         <template x-if="form.emergency">
-          <div class="media-row2">
-            <div class="media-field">
-              <span class="lbl" id="media-password" x-text="t('media.settings.password')"></span>
-              <input type="password" x-model="form.password" aria-labelledby="media-password" autocomplete="new-password">
-              <template x-if="passwordShort"><div class="media-hint media-hint--bad" x-text="t('media.settings.password_short')"></div></template>
+          <div>
+            <div class="media-row2">
+              <div class="media-field">
+                <span class="lbl" id="media-password" x-text="t('media.settings.password')"></span>
+                <input type="password" x-model="form.password" aria-labelledby="media-password" autocomplete="new-password">
+                <template x-if="passwordShort"><div class="media-hint media-hint--bad" x-text="t('media.settings.password_short')"></div></template>
+              </div>
+              <div class="media-field">
+                <span class="lbl" id="media-password2" x-text="t('media.settings.password2')"></span>
+                <input type="password" x-model="form.password2" aria-labelledby="media-password2" autocomplete="new-password">
+                <template x-if="passwordMismatch"><div class="media-hint media-hint--bad" x-text="t('media.settings.password_mismatch')"></div></template>
+              </div>
             </div>
-            <div class="media-field">
-              <span class="lbl" id="media-password2" x-text="t('media.settings.password2')"></span>
-              <input type="password" x-model="form.password2" aria-labelledby="media-password2" autocomplete="new-password">
-              <template x-if="passwordMismatch"><div class="media-hint media-hint--bad" x-text="t('media.settings.password_mismatch')"></div></template>
-            </div>
+            <label class="media-toggle media-toggle--sub">
+              <span class="settings-toggle">
+                <input type="checkbox" role="switch" x-model="form.sshPassword" :aria-label="t('media.settings.ssh_password')">
+                <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+              </span>
+              <span>
+                <span class="media-check-t" x-text="t('media.settings.ssh_password')"></span>
+                <span class="media-check-s" x-text="t('media.settings.ssh_password_hint')"></span>
+              </span>
+            </label>
           </div>
         </template>
       </section>
