@@ -44,6 +44,13 @@
       return (Object.prototype.hasOwnProperty.call(zones, timezone) && zones[timezone]) || d.wifi_country || '';
     },
 
+    // fiveGhzOnly: das erkannte Netz funkt mit 5 GHz und das Geraet ist kein
+    // Pi 4 oder 5. Pi 3B und Zero W erreichen nur 2,4 GHz.
+    fiveGhzOnly: function (device, ssid, defaults) {
+      var d = defaults || {};
+      return !!ssid && ssid === d.wifi_ssid && d.wifi_freq_mhz >= 5000 && device !== 'pi4' && device !== 'pi5';
+    },
+
     // defaultSettings: die Vorgaben des Rechners und des Installers. Die
     // Passwoerter beginnen leer, der Notfall-Zugang und das WLAN sind aus. Der
     // erkannte WLAN-Name steht vor, das Passwort nie. group ist fuer

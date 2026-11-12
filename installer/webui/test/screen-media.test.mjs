@@ -630,3 +630,42 @@ test('ohne Land aus Zeitzone und Sprache fragt das Formular danach', async () =>
   await screen.init();
   assert.equal(screen.countryKnown, false);
 });
+
+test('das WLAN-Passwort wird mit dem des Rechners verglichen', async () => {
+  const answers = { 'POST /api/media/wifi-check': (body) => ({ result: body.password === 'richtig-123' ? 'match' : 'mismatch' }) };
+  const { screen, calls } = settings(answers);
+  await screen.init();
+  screen.form.wifiOn = true;
+  screen.form.ssid = 'Werkstatt';
+  screen.form.wifiPassword = 'richtig-123';
+  await screen.checkWifi();
+  assert.equal(screen.wifiState, 'match');
+  screen.form.wifiPassword = 'falsch-123';
+  await screen.checkWifi();
+  assert.equal(screen.wifiState, 'mismatch');
+  const call = calls.find((c) => c.key === 'POST /api/media/wifi-check');
+  assert.deepEqual(call.body, { ssid: 'Werkstatt', password: 'richtig-123' });
+});
+
+test('ohne WLAN-Schalter oder Passwort fragt der Abgleich nicht', async () => {
+  const { screen, calls } = settings({ 'POST /api/media/wifi-check': { result: 'match' } });
+  await screen.init();
+  screen.form.ssid = 'Werkstatt';
+  screen.form.wifiPassword = 'richtig-123';
+  await screen.checkWifi();
+  screen.form.wifiOn = true;
+  screen.form.wifiPassword = '';
+  await screen.checkWifi();
+  assert.equal(screen.wifiState, '');
+  assert.equal(calls.filter((c) => c.key === 'POST /api/media/wifi-check').length, 0);
+});
+
+test('beim erkannten 5-GHz-Netz und einem Pi 3 erscheint die Warnung', async () => {
+  const five = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_freq_mhz: 5500 });
+  const { screen, shell } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: five }) });
+  shell.shared.media.device = 'pi3';
+  await screen.init();
+  assert.equal(screen.fiveGhzOnly, true);
+  shell.shared.media.device = 'pi5';
+  assert.equal(screen.fiveGhzOnly, false);
+});

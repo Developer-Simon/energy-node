@@ -160,3 +160,11 @@ test('countryFor nimmt das Land der Zeitzone, sonst das der Sprache', () => {
 test('remembered merkt sich kein WLAN-Land', () => {
   assert.equal('country' in M.remembered(valid()), false);
 });
+
+test('fiveGhzOnly warnt nur beim erkannten 5-GHz-Netz und alten Geraeten', () => {
+  const d = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_freq_mhz: 5500 });
+  assert.equal(M.fiveGhzOnly('pi3', 'Haus', d), true);
+  assert.equal(M.fiveGhzOnly('pi4', 'Haus', d), false);
+  assert.equal(M.fiveGhzOnly('pi3', 'Anderes', d), false);
+  assert.equal(M.fiveGhzOnly('pi3', 'Haus', Object.assign({}, d, { wifi_freq_mhz: 2437 })), false);
+});

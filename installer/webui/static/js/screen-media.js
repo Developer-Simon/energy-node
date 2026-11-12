@@ -144,6 +144,11 @@
       suggestion: '',
       nameTimer: null,
       nameSeq: 0,
+      // wifiState: '' ohne Pruefung, 'checking', 'match', 'mismatch', 'unknown'
+      // oder 'failed'. Nur match und mismatch zeigen etwas an.
+      wifiState: '',
+      wifiTimer: null,
+      wifiSeq: 0,
 
       get shell() {
         return window.Installer.shell;
@@ -199,6 +204,15 @@
             if (country) {
               self.form.country = country;
             }
+          });
+          this.$watch('form.ssid', function () {
+            self.onWifiInput();
+          });
+          this.$watch('form.wifiPassword', function () {
+            self.onWifiInput();
+          });
+          this.$watch('form.wifiOn', function () {
+            self.onWifiInput();
           });
         }
         await this.checkName();
@@ -268,6 +282,42 @@
         await this.checkName();
       },
 
+      // onWifiInput: die Pruefung erst nach einer Pause, wie beim Namen.
+      onWifiInput() {
+        clearTimeout(this.wifiTimer);
+        this.wifiSeq++;
+        this.wifiState = '';
+        var self = this;
+        this.wifiTimer = setTimeout(function () {
+          self.checkWifi();
+        }, NAME_DELAY);
+      },
+
+      // checkWifi: fragt, ob dieser Rechner das Netz mit genau diesem Passwort
+      // kennt. Das gespeicherte Passwort bleibt auf dem Rechner, zurueck kommt
+      // nur das Ergebnis. Eine Antwort zu alten Eingaben wird verworfen.
+      async checkWifi() {
+        var seq = ++this.wifiSeq;
+        if (!this.form.wifiOn || !this.form.ssid || !this.form.wifiPassword) {
+          this.wifiState = '';
+          return;
+        }
+        this.wifiState = 'checking';
+        var result;
+        try {
+          result = await window.Api.post('/api/media/wifi-check', { ssid: this.form.ssid, password: this.form.wifiPassword });
+        } catch (err) {
+          if (seq === this.wifiSeq) {
+            this.wifiState = 'failed';
+          }
+          return;
+        }
+        if (seq !== this.wifiSeq) {
+          return;
+        }
+        this.wifiState = result.result || 'unknown';
+      },
+
       get passwordShort() {
         return this.form.emergency && this.form.password !== '' && this.form.password.length < 8;
       },
@@ -280,6 +330,11 @@
       // ohne beides fragt das Formular danach.
       get countryKnown() {
         return window.MediaModel.countryFor(this.form.timezone, this.defaults) !== '';
+      },
+
+      get fiveGhzOnly() {
+        var media = this.shell.shared.media || {};
+        return window.MediaModel.fiveGhzOnly(media.device, this.form.ssid, this.defaults);
       },
 
       get canContinue() {

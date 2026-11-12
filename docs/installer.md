@@ -97,7 +97,11 @@ download page. For now the tab works on Linux only. Windows and macOS follow.
    computer. An emergency password for a screen and keyboard on the Pi is off by
    default. You can add Wi-Fi here. Its password only goes onto the medium and
    the installer does not store it. The installer fills in the name of the
-   network this computer is connected to, when it can find it.
+   network this computer is connected to, when it can find it. If this
+   computer knows the password of that network, the installer tells you
+   whether yours matches. The Wi-Fi country follows the time zone. On a
+   5 GHz network the installer warns that a Raspberry Pi 3B or Zero W only
+   reaches 2.4 GHz.
 3. **Drive.** Plug in the card. Removable drives appear in the list as soon as
    they are connected. Internal drives only show up with the **Also show internal
    drives** switch, and the drive this computer runs from never does. For a card
