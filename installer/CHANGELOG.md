@@ -4,6 +4,7 @@
 
 ### Features
 
+- **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236) (6d169d7)
 - **installer:** add the device table for the media mode (656ba7b)
 - **installer:** read the Raspberry Pi OS list (ed78124)
 - **installer:** download and verify images for the media mode (8880f68)
@@ -23,7 +24,6 @@
 - **installer:** check the Wi-Fi password against the twin on the other band (650b726)
 - **installer:** count the Pi 3 as tested and put the Pi Zero with the Pi 1 (2c5dc68)
 - **installer:** allow SSH login with the emergency password on request (b07a90a)
-- **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236)
 
 ### Fixes
 
