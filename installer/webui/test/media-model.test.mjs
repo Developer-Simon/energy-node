@@ -183,11 +183,38 @@ test('fiveGhzOnly nutzt die Baender der Netze in Reichweite', () => {
   assert.equal(M.fiveGhzOnly('pi3', '', d), false);
 });
 
-test('nearbyNetworks laesst das gewaehlte weg und nennt reine 5-GHz-Netze', () => {
-  const d = Object.assign({}, DEFAULTS, { wifi_networks: NETS });
-  assert.deepEqual(plain(M.nearbyNetworks(d, 'Haus')), [
-    { ssid: 'Haus 5G', label: 'Haus 5G (5 GHz)' },
-    { ssid: 'Nachbar', label: 'Nachbar' },
+test('networkRows zeigt sechs Netze, das gewaehlte immer, mit Balken und 5-GHz-Kennung', () => {
+  const nets = [];
+  for (let i = 0; i < 8; i++) {
+    nets.push({ ssid: 'N' + i, signal: 90 - i * 10, band_24: i !== 1, band_5: i === 1 });
+  }
+  const d = Object.assign({}, DEFAULTS, { wifi_networks: nets });
+  const rows = plain(M.networkRows(d, 'N7'));
+  assert.deepEqual(rows.map((r) => r.ssid), ['N0', 'N1', 'N2', 'N3', 'N4', 'N7']);
+  assert.equal(rows[1].only5, true);
+  assert.equal(rows[0].level, 3);
+  assert.equal(rows[5].level, 1);
+  assert.deepEqual(plain(M.networkRows({}, 'x')), []);
+});
+
+test('mergeNetworks laesst bekannte Netze an ihrem Platz', () => {
+  const old = [{ ssid: 'A', signal: 10 }, { ssid: 'B', signal: 20 }, { ssid: 'Weg', signal: 30 }];
+  const fresh = [{ ssid: 'C', signal: 90 }, { ssid: 'B', signal: 80 }, { ssid: 'A', signal: 70 }];
+  assert.deepEqual(plain(M.mergeNetworks(old, fresh)), [
+    { ssid: 'A', signal: 70 }, { ssid: 'B', signal: 80 }, { ssid: 'C', signal: 90 },
   ]);
-  assert.deepEqual(plain(M.nearbyNetworks({}, 'Haus')), []);
+});
+
+test('siblingFor findet dasselbe Netz auf 2,4 GHz', () => {
+  const d = Object.assign({}, DEFAULTS, { wifi_networks: [
+    { ssid: 'WelcomeHome 5 GHz', signal: 70, band_24: false, band_5: true },
+    { ssid: 'WelcomeHome', signal: 60, band_24: true, band_5: false },
+    { ssid: 'Haus_5G', signal: 50, band_24: false, band_5: true },
+    { ssid: 'Haus-2.4GHz', signal: 40, band_24: true, band_5: false },
+    { ssid: 'Nur5 5G', signal: 30, band_24: false, band_5: true },
+  ] });
+  assert.equal(M.siblingFor('WelcomeHome 5 GHz', d), 'WelcomeHome');
+  assert.equal(M.siblingFor('Haus_5G', d), 'Haus-2.4GHz');
+  assert.equal(M.siblingFor('Nur5 5G', d), '');
+  assert.equal(M.siblingFor('', d), '');
 });

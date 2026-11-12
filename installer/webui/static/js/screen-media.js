@@ -149,6 +149,10 @@
       wifiState: '',
       wifiTimer: null,
       wifiSeq: 0,
+      // manual: "Anderes Netz" ist gewaehlt, der Name wird getippt.
+      manual: false,
+      // scanning: der Suchlauf nach Netzen laeuft noch.
+      scanning: false,
 
       get shell() {
         return window.Installer.shell;
@@ -194,6 +198,10 @@
         if (country) {
           form.country = country;
         }
+        // Ein Name, der nicht in der Liste steht, ist ein getipptes Netz.
+        this.manual = !!form.ssid && !(defaults.wifi_networks || []).some(function (n) {
+          return n.ssid === form.ssid;
+        });
 
         if (this.$watch) {
           this.$watch('form.hostname', function () {
@@ -287,19 +295,52 @@
 
       pickNetwork(ssid) {
         this.form.ssid = ssid;
+        this.manual = false;
       },
 
-      // loadNetworks: ersetzt die Netze des Katalogs durch einen neuen
-      // Suchlauf. Bleibt er leer oder scheitert, gilt die Liste des Katalogs.
+      // pickOther: "Anderes Netz". Ein Name aus der Liste wird geleert, ein
+      // getippter bleibt stehen. Das Feld bekommt den Fokus.
+      pickOther() {
+        if (!this.manual) {
+          var ssid = this.form.ssid;
+          if (this.rows.some(function (row) {
+            return row.ssid === ssid;
+          })) {
+            this.form.ssid = '';
+          }
+          this.manual = true;
+        }
+        var self = this;
+        if (this.$nextTick) {
+          this.$nextTick(function () {
+            if (self.$refs && self.$refs.ssidInput) {
+              self.$refs.ssidInput.focus();
+            }
+          });
+        }
+      },
+
+      // loadNetworks: ein neuer Suchlauf. Bekannte Zeilen bleiben an ihrem
+      // Platz. Bleibt er leer oder scheitert, gilt die Liste des Katalogs.
       async loadNetworks() {
+        this.scanning = true;
         var nets;
         try {
           nets = await window.Api.get('/api/media/wifi-networks');
         } catch (err) {
+          nets = null;
+        }
+        this.scanning = false;
+        if (!Array.isArray(nets) || !nets.length) {
           return;
         }
-        if (Array.isArray(nets) && nets.length) {
-          this.defaults = Object.assign({}, this.defaults, { wifi_networks: nets });
+        var merged = window.MediaModel.mergeNetworks(this.defaults.wifi_networks, nets);
+        this.defaults = Object.assign({}, this.defaults, { wifi_networks: merged });
+        var ssid = this.form.ssid;
+        if (this.manual && ssid && merged.some(function (n) {
+          return n.ssid === ssid;
+        })) {
+          this.manual = false;
         }
       },
 
@@ -358,8 +399,24 @@
         return window.MediaModel.fiveGhzOnly(media.device, this.form.ssid, this.defaults);
       },
 
-      get nearby() {
-        return window.MediaModel.nearbyNetworks(this.defaults, this.form.ssid);
+      get rows() {
+        return window.MediaModel.networkRows(this.defaults, this.form.ssid);
+      },
+
+      // showInput: das Namensfeld bei "Anderes Netz" oder ohne Netze in Reichweite.
+      get showInput() {
+        return this.manual || this.rows.length === 0;
+      },
+
+      // lacks5: das Geraet erreicht keine 5-GHz-Netze sicher (alles vor Pi 4).
+      get lacks5() {
+        var device = (this.shell.shared.media || {}).device;
+        return device !== 'pi4' && device !== 'pi5';
+      },
+
+      // sibling: dasselbe Netz auf 2,4 GHz, nur wenn das gewaehlte zu weit oben funkt.
+      get sibling() {
+        return this.fiveGhzOnly ? window.MediaModel.siblingFor(this.form.ssid, this.defaults) : '';
       },
 
       get canContinue() {

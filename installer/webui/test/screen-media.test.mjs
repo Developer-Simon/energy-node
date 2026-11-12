@@ -670,35 +670,61 @@ test('beim erkannten 5-GHz-Netz und einem Pi 3 erscheint die Warnung', async () 
   assert.equal(screen.fiveGhzOnly, false);
 });
 
-test('ein Netz in Reichweite wird per Klick der Netzwerkname', async () => {
-  const nets = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_networks: [
-    { ssid: 'Haus', signal: 80, band_24: true, band_5: false },
-    { ssid: 'Nachbar', signal: 30, band_24: true, band_5: false },
-  ] });
-  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: nets }) });
+const NEAR = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus 5 GHz', wifi_freq_mhz: 5500, wifi_networks: [
+  { ssid: 'Haus 5 GHz', signal: 80, band_24: false, band_5: true },
+  { ssid: 'Nachbar', signal: 30, band_24: true, band_5: false },
+] });
+
+test('ein Netz aus der Liste wird per Klick gewaehlt, die Reihenfolge bleibt', async () => {
+  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: NEAR }) });
   await screen.init();
-  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Nachbar']);
+  assert.equal(screen.manual, false);
   screen.pickNetwork('Nachbar');
   assert.equal(screen.form.ssid, 'Nachbar');
-  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Haus']);
+  assert.deepEqual(screen.rows.map((r) => r.ssid), ['Haus 5 GHz', 'Nachbar']);
 });
 
-test('ein neuer Suchlauf ersetzt die Netze des Katalogs', async () => {
-  const nets = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_networks: [{ ssid: 'Haus', signal: 80, band_24: true, band_5: false }] });
+test('Anderes Netz leert einen Namen aus der Liste und zeigt das Feld', async () => {
+  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: NEAR }) });
+  await screen.init();
+  assert.equal(screen.showInput, false);
+  screen.pickOther();
+  assert.equal(screen.manual, true);
+  assert.equal(screen.form.ssid, '');
+  assert.equal(screen.showInput, true);
+});
+
+test('ein gemerkter Name ausserhalb der Liste ist ein getipptes Netz', async () => {
+  const { screen, window } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: NEAR }) });
+  window.localStorage.setItem(KEY, JSON.stringify({ ssid: 'Versteckt' }));
+  await screen.init();
+  assert.equal(screen.manual, true);
+  assert.equal(screen.form.ssid, 'Versteckt');
+});
+
+test('der Suchlauf haengt neue Netze hinten an und waehlt ein getipptes aus der Liste', async () => {
   const scanned = [
-    { ssid: 'Haus', signal: 80, band_24: true, band_5: false },
-    { ssid: 'Garten', signal: 20, band_24: true, band_5: false },
+    { ssid: 'Versteckt', signal: 90, band_24: true, band_5: false },
+    { ssid: 'Haus 5 GHz', signal: 80, band_24: false, band_5: true },
+    { ssid: 'Haus', signal: 75, band_24: true, band_5: false },
   ];
-  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: nets }), 'GET /api/media/wifi-networks': scanned });
+  const { screen, window } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: NEAR }), 'GET /api/media/wifi-networks': scanned });
+  window.localStorage.setItem(KEY, JSON.stringify({ ssid: 'Versteckt' }));
   await screen.init();
   await screen.loadNetworks();
-  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Garten']);
+  assert.equal(screen.scanning, false);
+  assert.deepEqual(screen.rows.map((r) => r.ssid), ['Haus 5 GHz', 'Versteckt', 'Haus']);
+  assert.equal(screen.manual, false);
 });
 
-test('ein leerer Suchlauf laesst die Netze des Katalogs stehen', async () => {
-  const nets = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_networks: [{ ssid: 'Nachbar', signal: 30, band_24: true, band_5: false }] });
-  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: nets }) });
+test('beim 5-GHz-Netz und einem Pi 3 bietet die Warnung das 2,4-GHz-Netz an', async () => {
+  const twin = Object.assign({}, NEAR, { wifi_networks: NEAR.wifi_networks.concat([{ ssid: 'Haus', signal: 75, band_24: true, band_5: false }]) });
+  const { screen, shell } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: twin }) });
+  shell.shared.media.device = 'pi3';
   await screen.init();
-  await screen.loadNetworks();
-  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Nachbar']);
+  screen.form.ssid = 'Haus 5 GHz';
+  assert.equal(screen.sibling, 'Haus');
+  screen.pickNetwork(screen.sibling);
+  assert.equal(screen.form.ssid, 'Haus');
+  assert.equal(screen.sibling, '');
 });

@@ -515,6 +515,27 @@
 .media-check--warn{color:var(--warn)}
 .media-hint{margin-top:.3rem;font-size:.74rem;line-height:1.4;color:var(--text-muted)}
 .media-hint--bad{color:var(--bad)}
+/* WLAN-Auswahl: die Netze in Reichweite als Liste wie die Geraete. Die
+   Reihenfolge bleibt beim Nachladen stehen, neue Zeilen blenden nur ein.
+   Signal als drei Balken ohne Icon. */
+.media-net-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.media-net-scan{display:inline-flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--text-muted)}
+.media-net-scan .spin{width:.8rem;height:.8rem;animation:sp 1s linear infinite}
+.media-net-scan .spin circle{fill:none;stroke:var(--accent);stroke-width:2.6;stroke-linecap:round;stroke-dasharray:34 62}
+.media-net-row{padding:.5rem .7rem;animation:media-drive-in .15s ease-out}
+.media-net-input{margin-top:.45rem}
+.media-sig{flex:none;display:inline-flex;align-items:flex-end;gap:2px;height:.75rem}
+.media-sig i{display:block;width:3px;border-radius:1px;background:var(--border)}
+.media-sig i:nth-child(1){height:40%}
+.media-sig i:nth-child(2){height:70%}
+.media-sig i:nth-child(3){height:100%}
+.media-sig[data-level="1"] i:nth-child(1),
+.media-sig[data-level="2"] i:nth-child(-n+2),
+.media-sig[data-level="3"] i{background:var(--text-muted)}
+.media-opt.on .media-sig[data-level="1"] i:nth-child(1),
+.media-opt.on .media-sig[data-level="2"] i:nth-child(-n+2),
+.media-opt.on .media-sig[data-level="3"] i{background:var(--accent)}
+@media (prefers-reduced-motion:reduce){.media-net-row{animation:none}.media-net-scan .spin{animation:none}}
 @media (max-width:760px){
   .media-row2{grid-template-columns:1fr}
 }

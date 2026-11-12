@@ -178,25 +178,45 @@
 
         <template x-if="form.wifiOn">
           <div>
-            <div class="media-row2">
-              <div class="media-field">
+            <div class="media-field">
+              <div class="media-net-head">
                 <span class="lbl" id="media-ssid" x-text="t('media.settings.ssid')"></span>
-                <input type="text" x-model.trim="form.ssid" aria-labelledby="media-ssid" autocomplete="off" spellcheck="false">
-                <template x-if="nearby.length">
-                  <div class="media-check">
-                    <span x-text="t('media.wifi.nearby')"></span>
-                    <template x-for="net in nearby" :key="net.ssid">
-                      <button type="button" class="small" @click="pickNetwork(net.ssid)" x-text="net.label"></button>
-                    </template>
+                <template x-if="scanning"><span class="media-net-scan" role="status">{{template "icon-spin"}}<span x-text="t('media.wifi.scanning')"></span></span></template>
+              </div>
+              <template x-if="rows.length">
+                <div class="media-net" role="radiogroup" aria-labelledby="media-ssid">
+                  <template x-for="net in rows" :key="net.ssid">
+                    <div class="media-opt media-net-row" :class="{ on: !manual && net.ssid === form.ssid }" role="radio" tabindex="0"
+                         :aria-checked="!manual && net.ssid === form.ssid"
+                         @click="pickNetwork(net.ssid)" @keydown.enter.prevent="pickNetwork(net.ssid)" @keydown.space.prevent="pickNetwork(net.ssid)">
+                      <span class="media-radio" aria-hidden="true"></span>
+                      <span class="media-opt-t" x-text="net.ssid"></span>
+                      <template x-if="net.only5"><span class="media-tag" :class="{ 'media-tag--warn': lacks5 }" x-text="t('media.wifi.only5')"></span></template>
+                      <span class="media-sig" :data-level="net.level" role="img" :aria-label="t('media.wifi.signal', { n: net.level })"><i></i><i></i><i></i></span>
+                    </div>
+                  </template>
+                  <div class="media-opt media-net-row" :class="{ on: manual }" role="radio" tabindex="0" :aria-checked="manual"
+                       @click="pickOther()" @keydown.enter.prevent="pickOther()" @keydown.space.prevent="pickOther()">
+                    <span class="media-radio" aria-hidden="true"></span>
+                    <span class="media-opt-t" x-text="t('media.wifi.other')"></span>
                   </div>
-                </template>
-              </div>
-              <div class="media-field">
-                <span class="lbl" id="media-wifi-password" x-text="t('media.settings.wifi_password')"></span>
-                <input type="password" x-model="form.wifiPassword" aria-labelledby="media-wifi-password" autocomplete="off">
-                <template x-if="wifiState === 'match'"><div class="media-check media-check--ok" x-text="t('media.wifi.match')"></div></template>
-                <template x-if="wifiState === 'mismatch'"><div class="media-check media-check--warn" x-text="t('media.wifi.mismatch')"></div></template>
-              </div>
+                </div>
+              </template>
+              <template x-if="showInput">
+                <input type="text" class="media-net-input" x-ref="ssidInput" x-model.trim="form.ssid" :aria-label="t('media.settings.ssid')" autocomplete="off" spellcheck="false">
+              </template>
+              <template x-if="fiveGhzOnly">
+                <div class="media-check media-check--warn">
+                  <span x-text="sibling ? t('media.wifi.five_ghz_sibling', { name: sibling }) : t('media.wifi.five_ghz')"></span>
+                  <template x-if="sibling"><button type="button" class="small" @click="pickNetwork(sibling)" x-text="t('media.name.use')"></button></template>
+                </div>
+              </template>
+            </div>
+            <div class="media-field">
+              <span class="lbl" id="media-wifi-password" x-text="t('media.settings.wifi_password')"></span>
+              <input type="password" x-model="form.wifiPassword" aria-labelledby="media-wifi-password" autocomplete="off">
+              <template x-if="wifiState === 'match'"><div class="media-check media-check--ok" x-text="t('media.wifi.match')"></div></template>
+              <template x-if="wifiState === 'mismatch'"><div class="media-check media-check--warn" x-text="t('media.wifi.mismatch')"></div></template>
             </div>
             <template x-if="!countryKnown">
               <div class="media-field">
@@ -205,7 +225,6 @@
                        aria-labelledby="media-country" autocomplete="off" spellcheck="false">
               </div>
             </template>
-            <template x-if="fiveGhzOnly"><div class="media-check media-check--warn" x-text="t('media.wifi.five_ghz')"></div></template>
             <div class="media-hint" x-text="t('media.settings.wifi_hint')"></div>
           </div>
         </template>

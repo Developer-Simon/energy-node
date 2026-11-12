@@ -8,6 +8,24 @@
   var HOSTNAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
   var USER = /^[a-z_][a-z0-9_-]{0,31}$/;
   var COUNTRY = /^[A-Z]{2}$/;
+  // Bandzusatz am Ende eines WLAN-Namens: "5 GHz", "5G", "_5G", "2.4GHz", "2,4 G".
+  var BAND_SUFFIX = /[\s_.-]*(5|2[.,]?4)\s*g(hz)?$/i;
+
+  // bandless: der Name ohne Bandzusatz, klein geschrieben, zum Vergleichen.
+  function bandless(name) {
+    return String(name || '').replace(BAND_SUFFIX, '').trim().toLowerCase();
+  }
+
+  // signalLevel: drei Balken wie bei WLAN-Anzeigen, aus 0 bis 100.
+  function signalLevel(signal) {
+    if (signal >= 67) {
+      return 3;
+    }
+    if (signal >= 34) {
+      return 2;
+    }
+    return 1;
+  }
 
   function validHostname(name) {
     return typeof name === 'string' && HOSTNAME.test(name);
@@ -61,18 +79,63 @@
       return ssid === d.wifi_ssid && d.wifi_freq_mhz >= 5000;
     },
 
-    // nearbyNetworks: die Netze in Reichweite ohne das gewaehlte, hoechstens
-    // sechs, staerkstes zuerst. label nennt 5 GHz, wenn es nur dort funkt.
-    nearbyNetworks: function (defaults, ssid) {
-      var d = defaults || {};
-      return (d.wifi_networks || [])
-        .filter(function (n) {
-          return n.ssid !== ssid;
-        })
-        .slice(0, 6)
-        .map(function (n) {
-          return { ssid: n.ssid, label: n.band_5 && !n.band_24 ? n.ssid + ' (5 GHz)' : n.ssid };
+    signalLevel: signalLevel,
+
+    // networkRows: die Netze in Reichweite als Zeilen der Auswahl, hoechstens
+    // sechs, das gewaehlte immer dabei. only5: nur auf 5 GHz zu sehen.
+    networkRows: function (defaults, ssid) {
+      var nets = (defaults || {}).wifi_networks || [];
+      var rows = nets.slice(0, 6);
+      var listed = rows.some(function (n) {
+        return n.ssid === ssid;
+      });
+      if (ssid && !listed) {
+        var chosen = nets.find(function (n) {
+          return n.ssid === ssid;
         });
+        if (chosen) {
+          rows = rows.slice(0, 5).concat([chosen]);
+        }
+      }
+      return rows.map(function (n) {
+        return { ssid: n.ssid, only5: !!n.band_5 && !n.band_24, level: signalLevel(n.signal) };
+      });
+    },
+
+    // mergeNetworks: ein neuer Suchlauf ersetzt die Werte, nicht die
+    // Reihenfolge. Bekannte Netze bleiben an ihrem Platz, neue kommen dahinter,
+    // verschwundene fallen weg. So springt keine Zeile unter dem Zeiger.
+    mergeNetworks: function (old, fresh) {
+      var byName = Object.create(null);
+      (fresh || []).forEach(function (n) {
+        byName[n.ssid] = n;
+      });
+      var known = Object.create(null);
+      var kept = (old || [])
+        .filter(function (n) {
+          return byName[n.ssid];
+        })
+        .map(function (n) {
+          known[n.ssid] = true;
+          return byName[n.ssid];
+        });
+      return kept.concat((fresh || []).filter(function (n) {
+        return !known[n.ssid];
+      }));
+    },
+
+    // siblingFor: dasselbe Netz auf 2,4 GHz. Viele Router senden zwei Namen,
+    // etwa "Haus 5 GHz" und "Haus". Gesucht wird ein anderes Netz mit 2,4 GHz,
+    // dessen Name ohne Bandzusatz gleich ist. '' ohne Treffer.
+    siblingFor: function (ssid, defaults) {
+      var base = bandless(ssid);
+      if (!ssid || !base) {
+        return '';
+      }
+      var hit = ((defaults || {}).wifi_networks || []).find(function (n) {
+        return n.ssid !== ssid && n.band_24 && bandless(n.ssid) === base;
+      });
+      return hit ? hit.ssid : '';
     },
 
     // defaultSettings: die Vorgaben des Rechners und des Installers. Die
