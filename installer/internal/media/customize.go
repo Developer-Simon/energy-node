@@ -76,6 +76,13 @@ func UserData(s Settings, hk HostKey) []byte {
 		b.WriteString("    " + line + "\n")
 	}
 	b.WriteString("  ed25519_public: " + yamlQuote(hk.PublicLine) + "\n")
+	if s.Wifi != nil {
+		// Der Imager setzt das Land nur ueber die Oberflaeche in cmdline.txt.
+		// Ohne Land haelt Raspberry Pi OS das WLAN per rfkill gesperrt.
+		b.WriteString("bootcmd:\n")
+		b.WriteString("  - [ cloud-init-per, once, en-wifi-country, sh, -c, " +
+			yamlQuote("raspi-config nonint do_wifi_country "+s.Wifi.Country+"; rfkill unblock wifi") + " ]\n")
+	}
 	b.WriteString("runcmd:\n  - [ systemctl, enable, --now, ssh ]\n")
 	return []byte(b.String())
 }

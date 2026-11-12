@@ -131,3 +131,16 @@ func TestFirstRunScriptIncludesWifiWhenSet(t *testing.T) {
 		t.Error("set_wlan line with quoted values missing")
 	}
 }
+
+func TestUserDataSetsTheWifiCountry(t *testing.T) {
+	s := testSettings()
+	if strings.Contains(string(UserData(s, testHostKey(t))), "bootcmd:") {
+		t.Error("bootcmd present without Wifi")
+	}
+	s.Wifi = &Wifi{SSID: "Werkstatt", Password: "pw", Country: "DE"}
+	out := string(UserData(s, testHostKey(t)))
+	want := "bootcmd:\n  - [ cloud-init-per, once, en-wifi-country, sh, -c, \"raspi-config nonint do_wifi_country DE; rfkill unblock wifi\" ]\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("user-data lacks the country bootcmd:\n%s", out)
+	}
+}
