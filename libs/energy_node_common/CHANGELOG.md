@@ -1,10 +1,15 @@
 # Changelog
 
-## v0.5.2-pre.1 (2026-11-07)
+## v0.5.2-pre.2 (2026-11-12)
 
 ### Features
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
+- **storage:** Add an additional drive for running data and backups (#233)
+
+### Refactors
+
+- **common:** keep battery paths out of the common library (0e615bc)
 
 ## v0.5.1 (2026-11-06)
 

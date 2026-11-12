@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.3-pre.1 (2026-11-12)
+
+### Features
+
+- **storage:** Add an additional drive for running data and backups (#233)
+
 ## v0.3.2 (2026-11-07)
 
 ### Features
