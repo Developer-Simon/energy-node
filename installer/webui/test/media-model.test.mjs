@@ -98,7 +98,7 @@ test('remembered enthaelt keine Passwoerter', () => {
   })));
   assert.deepEqual(remembered, {
     hostname: 'energy-node', user: 'node', timezone: 'Europe/Berlin', keyboard: 'de',
-    wifiOn: true, ssid: 'Haus', country: 'DE',
+    wifiOn: true, ssid: 'Haus',
   });
   assert.ok(!JSON.stringify(remembered).includes('geheim'));
 });
@@ -147,4 +147,16 @@ test('defaultSettings gibt den erkannten WLAN-Namen vor, der Schalter bleibt aus
   assert.equal(settings.ssid, 'Werkstatt');
   assert.equal(settings.wifiOn, false);
   assert.equal(settings.wifiPassword, '');
+});
+
+test('countryFor nimmt das Land der Zeitzone, sonst das der Sprache', () => {
+  const d = Object.assign({}, DEFAULTS, { wifi_country: 'GB', zone_countries: { 'Europe/Berlin': 'DE', 'Europe/Zurich': 'CH' } });
+  assert.equal(M.countryFor('Europe/Zurich', d), 'CH');
+  assert.equal(M.countryFor('UTC', d), 'GB');
+  assert.equal(M.countryFor('UTC', {}), '');
+  assert.equal(M.defaultSettings(d, 'pi').country, 'DE');
+});
+
+test('remembered merkt sich kein WLAN-Land', () => {
+  assert.equal('country' in M.remembered(valid()), false);
 });

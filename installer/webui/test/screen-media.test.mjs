@@ -613,3 +613,20 @@ test('die Erkennung speichert kein WLAN-Passwort', async () => {
   assert.ok(!stored.includes('wifiPassword'));
   assert.equal(JSON.parse(stored).ssid, 'Werkstatt');
 });
+
+const ZONED = Object.assign({}, DEFAULTS, { wifi_country: 'GB', zone_countries: { 'Europe/Berlin': 'DE', 'Europe/Wien': 'AT' } });
+
+test('das WLAN-Land kommt aus der Zeitzone, nicht aus einem gemerkten Wert', async () => {
+  const { screen, window } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: ZONED }) });
+  window.localStorage.setItem(KEY, JSON.stringify({ timezone: 'Europe/Wien', country: 'GB' }));
+  await screen.init();
+  assert.equal(screen.form.country, 'AT');
+  assert.equal(screen.countryKnown, true);
+});
+
+test('ohne Land aus Zeitzone und Sprache fragt das Formular danach', async () => {
+  const bare = Object.assign({}, DEFAULTS, { wifi_country: '', zone_countries: {} });
+  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: bare }) });
+  await screen.init();
+  assert.equal(screen.countryKnown, false);
+});

@@ -188,11 +188,13 @@
                 <input type="password" x-model="form.wifiPassword" aria-labelledby="media-wifi-password" autocomplete="off">
               </div>
             </div>
-            <div class="media-field">
-              <span class="lbl" id="media-country" x-text="t('media.settings.country')"></span>
-              <input type="text" maxlength="2" :value="form.country" @input="$event.target.value = $event.target.value.toUpperCase(); form.country = $event.target.value"
-                     aria-labelledby="media-country" autocomplete="off" spellcheck="false">
-            </div>
+            <template x-if="!countryKnown">
+              <div class="media-field">
+                <span class="lbl" id="media-country" x-text="t('media.settings.country')"></span>
+                <input type="text" maxlength="2" :value="form.country" @input="$event.target.value = $event.target.value.toUpperCase(); form.country = $event.target.value"
+                       aria-labelledby="media-country" autocomplete="off" spellcheck="false">
+              </div>
+            </template>
             <div class="media-hint" x-text="t('media.settings.wifi_hint')"></div>
           </div>
         </template>

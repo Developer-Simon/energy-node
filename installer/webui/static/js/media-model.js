@@ -36,6 +36,14 @@
       return order;
     },
 
+    // countryFor: das WLAN-Land zur Zeitzone, wie der Imager es aus der
+    // Hauptstadt ableitet. Ohne Treffer das Land aus der Sprache des Rechners.
+    countryFor: function (timezone, defaults) {
+      var d = defaults || {};
+      var zones = d.zone_countries || {};
+      return (Object.prototype.hasOwnProperty.call(zones, timezone) && zones[timezone]) || d.wifi_country || '';
+    },
+
     // defaultSettings: die Vorgaben des Rechners und des Installers. Die
     // Passwoerter beginnen leer, der Notfall-Zugang und das WLAN sind aus. Der
     // erkannte WLAN-Name steht vor, das Passwort nie. group ist fuer
@@ -53,7 +61,7 @@
         wifiOn: false,
         ssid: d.wifi_ssid || '',
         wifiPassword: '',
-        country: d.wifi_country || '',
+        country: window.MediaModel.countryFor(d.timezone || '', d),
       };
     },
 
@@ -119,7 +127,7 @@
     },
 
     // remembered: was der Rechner fuer das naechste Medium behaelt. Keine
-    // Passwoerter, weder das Notfall- noch das WLAN-Passwort.
+    // Passwoerter und kein WLAN-Land, das folgt der Zeitzone.
     remembered: function (s) {
       return {
         hostname: s.hostname,
@@ -128,7 +136,6 @@
         keyboard: s.keyboard,
         wifiOn: s.wifiOn,
         ssid: s.ssid,
-        country: s.country,
       };
     },
   };

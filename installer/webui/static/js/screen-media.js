@@ -137,6 +137,7 @@
       form: window.MediaModel.defaultSettings({}, ''),
       timezones: [],
       keyboards: [],
+      defaults: {},
       // nameState: '' vor der Pruefung, 'invalid', 'checking', 'ok', 'taken'
       // oder 'failed' (die Anfrage ist gescheitert, der Name bleibt erlaubt).
       nameState: '',
@@ -155,6 +156,7 @@
         try {
           var catalog = await window.Api.get('/api/media/catalog');
           defaults = catalog.defaults || {};
+          this.defaults = defaults;
           this.timezones = defaults.timezones || [];
           this.keyboards = defaults.keyboards || [];
           var device = (catalog.devices || []).find(function (item) {
@@ -182,10 +184,21 @@
           Object.assign(form, media.settings);
         }
         this.form = form;
+        // Das Land folgt immer der Zeitzone, auch nach gemerkten Werten.
+        var country = window.MediaModel.countryFor(form.timezone, defaults);
+        if (country) {
+          form.country = country;
+        }
 
         if (this.$watch) {
           this.$watch('form.hostname', function () {
             self.onNameInput();
+          });
+          this.$watch('form.timezone', function (timezone) {
+            var country = window.MediaModel.countryFor(timezone, self.defaults);
+            if (country) {
+              self.form.country = country;
+            }
           });
         }
         await this.checkName();
@@ -261,6 +274,12 @@
 
       get passwordMismatch() {
         return this.form.emergency && this.form.password2 !== '' && this.form.password !== this.form.password2;
+      },
+
+      // countryKnown: das Land kommt aus der Zeitzone oder der Sprache. Nur
+      // ohne beides fragt das Formular danach.
+      get countryKnown() {
+        return window.MediaModel.countryFor(this.form.timezone, this.defaults) !== '';
       },
 
       get canContinue() {
