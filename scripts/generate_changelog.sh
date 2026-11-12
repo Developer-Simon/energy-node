@@ -481,11 +481,13 @@ section_covered_by() {
 }
 
 # Text eines Eintrags ($1, ohne das fuehrende "- ") ohne den angehaengten
-# " (hash)" und - falls dann noch am Ende - ohne ein angehaengtes " (#NN)".
-# Gemeinsamer Normalisierer fuer die beiden Dedup-Stufen in
-# merge_section_blocks.
+# " (hash)" und - falls dann noch am Ende - ohne ein angehaengtes " (#NN)",
+# in Kleinbuchstaben: der PR-Titel und der Commit-Betreff desselben Eintrags
+# unterscheiden sich oft nur in der Gross-/Kleinschreibung des ersten
+# Buchstabens. Nur ein Schluessel, nie die Ausgabe. Gemeinsamer Normalisierer
+# fuer die beiden Dedup-Stufen in merge_section_blocks.
 entry_norm_text() {
-  sed -E 's/ \([0-9a-f]{7,40}\)$//; s/ \(#[0-9]+\)$//' <<< "$1"
+  sed -E 's/ \([0-9a-f]{7,40}\)$//; s/ \(#[0-9]+\)$//' <<< "$1" | tr '[:upper:]' '[:lower:]'
 }
 
 # Entfernt Duplikate INNERHALB eines einzelnen Abschnitts ("## ..."-Block).
