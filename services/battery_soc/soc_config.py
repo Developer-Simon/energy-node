@@ -11,13 +11,17 @@ from typing import Optional
 from energy_node_common import config as common_config
 from energy_node_common.config import ConfigRejected
 from battery_soc_core.params import SocParams
-from energy_node_common.appconfig import battery_state_path
 from battery_soc_core.sources import (
     DC_POWER_SLOTS, POWER_SLOTS, SYSTEM_TYPES, VOLTAGE_SLOTS, SourceConfig, validate_sources,
 )
 
 SOC_PARAM_FIELDS = frozenset(SocParams.field_names())
 LEGACY_STATE_FILE = "/home/energynode/battery_soc/state.json"
+
+
+def battery_state_path(runtime_dir, battery_id):
+    """Zustandsdatei einer Batterieanlage unter dem Laufzeitverzeichnis."""
+    return Path(runtime_dir) / "battery_soc" / f"{battery_id}.json"
 
 
 @dataclass(frozen=True)

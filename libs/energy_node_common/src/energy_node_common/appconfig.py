@@ -129,28 +129,17 @@ class DashboardConfig:
     node_diagnostic_poll_multiplier: float
 
 
-def battery_state_path(runtime_dir: str, battery_id: str) -> Path:
-    """Zustandsdatei einer Batterieanlage unter dem Laufzeitverzeichnis."""
-    return Path(runtime_dir) / "battery_soc" / f"{battery_id}.json"
-
-
 @dataclass(frozen=True)
 class PathsConfig:
     devices_dir: str
     data_dir: str
-    # Optional: Laufzeitdaten (Statistik, Cache, Verlauf, Batteriezustand) auf
+    # Optional: Laufzeitdaten (Statistik, Cache, Verlauf, Zustand der Dienste) auf
     # einem anderen Laufwerk. Leer oder fehlend heisst: alter Ort.
     runtime_dir: Optional[str] = None
 
     def runtime_path(self, legacy_dir: str, rel: str) -> Path:
         """runtime_dir/rel, ohne runtime_dir legacy_dir/rel."""
         return Path(self.runtime_dir or legacy_dir) / rel
-
-    def battery_state_file(self, battery_id: str) -> Optional[Path]:
-        """Zustand einer Batterieanlage im runtime_dir, None ohne runtime_dir."""
-        if not self.runtime_dir:
-            return None
-        return battery_state_path(self.runtime_dir, battery_id)
 
 
 @dataclass(frozen=True)
