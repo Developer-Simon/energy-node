@@ -1163,6 +1163,22 @@ except Exception:
   # unberuehrt.
   local nsec=${#SECTIONS[@]}
   local open_idx=$((nsec - 1))
+  # The open section is the one with the highest version, not the last one the
+  # walk produced. On the prerelease line the walk ends in main's commits of
+  # a tagged release, which come after the prerelease commits in time but have
+  # a lower version than the open -pre section.
+  local _oi _ov
+  for (( _oi = 0; _oi < nsec; _oi++ )); do
+    [[ "${SECTION_UNVER[$_oi]}" == "1" ]] && continue
+    [[ "${SECTION_VER[$_oi]}" =~ $VERSION_RE ]] || continue
+    if [[ "${SECTION_UNVER[$open_idx]}" == "1" ]] || [[ ! "${SECTION_VER[$open_idx]}" =~ $VERSION_RE ]]; then
+      open_idx=$_oi; continue
+    fi
+    _ov=("${BASH_REMATCH[@]:1:3}")
+    [[ "${SECTION_VER[$_oi]}" =~ $VERSION_RE ]]
+    # Equal versions keep the later section.
+    ver_gt "${_ov[0]}" "${_ov[1]}" "${_ov[2]}" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" || open_idx=$_oi
+  done
   local open_major="" open_minor="" open_patch="" open_ok=false
   if (( nsec > 0 )) && [[ "${SECTION_UNVER[$open_idx]}" != "1" && -n "${SECTION_MAJOR[$open_idx]}" ]]; then
     open_major="${SECTION_MAJOR[$open_idx]}"
@@ -1181,6 +1197,15 @@ except Exception:
         break
       fi
     done
+    # A tagged section of the same minor may stand after the open one in the
+    # walk (see open_idx above), it still is a lower bound.
+    for (( k = open_idx + 1; k < nsec; k++ )); do
+      if [[ "${SECTION_MAJOR[$k]}" == "$open_major" && "${SECTION_MINOR[$k]}" == "$open_minor" \
+            && "${SECTION_VER[$k]}" =~ $VERSION_RE ]] && (( 10#${BASH_REMATCH[3]} > lb_patch )) \
+            && (( 10#${BASH_REMATCH[3]} < 10#${open_patch:-0} )); then
+        lb_patch=$((10#${BASH_REMATCH[3]}))
+      fi
+    done
   fi
 
   # Fall 0: gebaute Nachbarabschnitte oberhalb des Caps in den offenen ziehen.
@@ -1188,7 +1213,8 @@ except Exception:
   local -A SECTION_FOLDED=()
   if $open_ok && (( nsec > 1 )); then
     local -a _built_extra=()
-    for (( k = open_idx - 1; k >= 0; k-- )); do
+    for (( k = nsec - 1; k >= 0; k-- )); do
+      (( k == open_idx )) && continue
       [[ "${SECTION_UNVER[$k]}" == "1" ]] && continue
       [[ "${SECTION_VER[$k]}" =~ $VERSION_RE ]] || continue
       if in_open_span "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"; then
