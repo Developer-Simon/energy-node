@@ -612,6 +612,7 @@
   "media.wifi.five_ghz": "This network uses 5 GHz. A Raspberry Pi 3B or Zero W only reaches 2.4 GHz networks.",
   "media.wifi.match": "Matches the password this computer knows for the network.",
   "media.wifi.mismatch": "Differs from the password this computer knows for the network.",
+  "media.wifi.nearby": "In range:",
   "media.write.cancel_hint": "After cancelling, the medium has to be written again.",
   "media.write.log": "Log",
   "media.write.remaining": "about {time} left, {rate}/s",

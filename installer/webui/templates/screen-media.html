@@ -182,6 +182,14 @@
               <div class="media-field">
                 <span class="lbl" id="media-ssid" x-text="t('media.settings.ssid')"></span>
                 <input type="text" x-model.trim="form.ssid" aria-labelledby="media-ssid" autocomplete="off" spellcheck="false">
+                <template x-if="nearby.length">
+                  <div class="media-check">
+                    <span x-text="t('media.wifi.nearby')"></span>
+                    <template x-for="net in nearby" :key="net.ssid">
+                      <button type="button" class="small" @click="pickNetwork(net.ssid)" x-text="net.label"></button>
+                    </template>
+                  </div>
+                </template>
               </div>
               <div class="media-field">
                 <span class="lbl" id="media-wifi-password" x-text="t('media.settings.wifi_password')"></span>

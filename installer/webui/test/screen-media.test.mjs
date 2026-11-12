@@ -669,3 +669,16 @@ test('beim erkannten 5-GHz-Netz und einem Pi 3 erscheint die Warnung', async () 
   shell.shared.media.device = 'pi5';
   assert.equal(screen.fiveGhzOnly, false);
 });
+
+test('ein Netz in Reichweite wird per Klick der Netzwerkname', async () => {
+  const nets = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_networks: [
+    { ssid: 'Haus', signal: 80, band_24: true, band_5: false },
+    { ssid: 'Nachbar', signal: 30, band_24: true, band_5: false },
+  ] });
+  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: nets }) });
+  await screen.init();
+  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Nachbar']);
+  screen.pickNetwork('Nachbar');
+  assert.equal(screen.form.ssid, 'Nachbar');
+  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Haus']);
+});

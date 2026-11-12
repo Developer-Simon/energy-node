@@ -282,6 +282,10 @@
         await this.checkName();
       },
 
+      pickNetwork(ssid) {
+        this.form.ssid = ssid;
+      },
+
       // onWifiInput: die Pruefung erst nach einer Pause, wie beim Namen.
       onWifiInput() {
         clearTimeout(this.wifiTimer);
@@ -335,6 +339,10 @@
       get fiveGhzOnly() {
         var media = this.shell.shared.media || {};
         return window.MediaModel.fiveGhzOnly(media.device, this.form.ssid, this.defaults);
+      },
+
+      get nearby() {
+        return window.MediaModel.nearbyNetworks(this.defaults, this.form.ssid);
       },
 
       get canContinue() {

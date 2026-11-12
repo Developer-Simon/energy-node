@@ -612,6 +612,7 @@
   "media.wifi.five_ghz": "Dieses Netz funkt mit 5 GHz. Ein Raspberry Pi 3B oder Zero W erreicht nur 2,4-GHz-Netze.",
   "media.wifi.match": "Stimmt mit dem Passwort überein, das dieser Rechner für das Netz kennt.",
   "media.wifi.mismatch": "Weicht von dem Passwort ab, das dieser Rechner für das Netz kennt.",
+  "media.wifi.nearby": "In Reichweite:",
   "media.write.cancel_hint": "Nach einem Abbruch muss das Medium neu geschrieben werden.",
   "media.write.log": "Protokoll",
   "media.write.remaining": "noch etwa {time}, {rate}/s",

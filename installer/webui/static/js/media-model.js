@@ -44,11 +44,35 @@
       return (Object.prototype.hasOwnProperty.call(zones, timezone) && zones[timezone]) || d.wifi_country || '';
     },
 
-    // fiveGhzOnly: das erkannte Netz funkt mit 5 GHz und das Geraet ist kein
-    // Pi 4 oder 5. Pi 3B und Zero W erreichen nur 2,4 GHz.
+    // fiveGhzOnly: das gewaehlte Netz ist nur auf 5 GHz zu sehen und das
+    // Geraet ist kein Pi 4 oder 5. Pi 3B und Zero W erreichen nur 2,4 GHz.
+    // Steht das Netz nicht in der Liste, zaehlt die Frequenz des erkannten.
     fiveGhzOnly: function (device, ssid, defaults) {
       var d = defaults || {};
-      return !!ssid && ssid === d.wifi_ssid && d.wifi_freq_mhz >= 5000 && device !== 'pi4' && device !== 'pi5';
+      if (!ssid || device === 'pi4' || device === 'pi5') {
+        return false;
+      }
+      var net = (d.wifi_networks || []).find(function (n) {
+        return n.ssid === ssid;
+      });
+      if (net) {
+        return !!net.band_5 && !net.band_24;
+      }
+      return ssid === d.wifi_ssid && d.wifi_freq_mhz >= 5000;
+    },
+
+    // nearbyNetworks: die Netze in Reichweite ohne das gewaehlte, hoechstens
+    // sechs, staerkstes zuerst. label nennt 5 GHz, wenn es nur dort funkt.
+    nearbyNetworks: function (defaults, ssid) {
+      var d = defaults || {};
+      return (d.wifi_networks || [])
+        .filter(function (n) {
+          return n.ssid !== ssid;
+        })
+        .slice(0, 6)
+        .map(function (n) {
+          return { ssid: n.ssid, label: n.band_5 && !n.band_24 ? n.ssid + ' (5 GHz)' : n.ssid };
+        });
     },
 
     // defaultSettings: die Vorgaben des Rechners und des Installers. Die

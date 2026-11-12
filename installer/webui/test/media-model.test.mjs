@@ -168,3 +168,26 @@ test('fiveGhzOnly warnt nur beim erkannten 5-GHz-Netz und alten Geraeten', () =>
   assert.equal(M.fiveGhzOnly('pi3', 'Anderes', d), false);
   assert.equal(M.fiveGhzOnly('pi3', 'Haus', Object.assign({}, d, { wifi_freq_mhz: 2437 })), false);
 });
+
+const NETS = [
+  { ssid: 'Haus', signal: 80, band_24: true, band_5: true },
+  { ssid: 'Haus 5G', signal: 60, band_24: false, band_5: true },
+  { ssid: 'Nachbar', signal: 30, band_24: true, band_5: false },
+];
+
+test('fiveGhzOnly nutzt die Baender der Netze in Reichweite', () => {
+  const d = Object.assign({}, DEFAULTS, { wifi_networks: NETS });
+  assert.equal(M.fiveGhzOnly('pi3', 'Haus 5G', d), true);
+  assert.equal(M.fiveGhzOnly('pi3', 'Haus', d), false);
+  assert.equal(M.fiveGhzOnly('pi5', 'Haus 5G', d), false);
+  assert.equal(M.fiveGhzOnly('pi3', '', d), false);
+});
+
+test('nearbyNetworks laesst das gewaehlte weg und nennt reine 5-GHz-Netze', () => {
+  const d = Object.assign({}, DEFAULTS, { wifi_networks: NETS });
+  assert.deepEqual(plain(M.nearbyNetworks(d, 'Haus')), [
+    { ssid: 'Haus 5G', label: 'Haus 5G (5 GHz)' },
+    { ssid: 'Nachbar', label: 'Nachbar' },
+  ]);
+  assert.deepEqual(plain(M.nearbyNetworks({}, 'Haus')), []);
+});
