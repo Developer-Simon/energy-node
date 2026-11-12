@@ -226,3 +226,28 @@ test('SSH mit Passwort geht nur mit Notfall-Passwort mit und wird nicht gemerkt'
   assert.equal('sshPassword' in M.remembered(on), false);
   assert.equal(M.defaultSettings(DEFAULTS, 'pi').sshPassword, false);
 });
+
+const ZONES = ['Africa/Abidjan', 'America/Argentina/Buenos_Aires', 'Europe/Berlin', 'Europe/Vienna', 'Europe/Zurich', 'UTC'];
+const ZD = Object.assign({}, DEFAULTS, { zone_countries: { 'Europe/Berlin': 'DE', 'Europe/Vienna': 'AT', 'Europe/Zurich': 'CH', 'America/Argentina/Buenos_Aires': 'AR' } });
+
+test('zoneGroups gruppiert nach Kontinent und zeigt Stadt und Land', () => {
+  const groups = plain(M.zoneGroups(ZONES, ZD, 'de', ''));
+  assert.deepEqual(groups.map((g) => g.id), ['africa', 'america', 'europe', 'other']);
+  const europe = groups.find((g) => g.id === 'europe');
+  assert.deepEqual(europe.rows.map((r) => r.city), ['Berlin', 'Vienna', 'Zurich']);
+  assert.equal(europe.rows[0].country, 'Deutschland');
+  assert.equal(groups[1].rows[0].city, 'Buenos Aires');
+});
+
+test('zoneGroups sucht nach Stadt, Land und ohne Akzente', () => {
+  assert.deepEqual(plain(M.zoneGroups(ZONES, ZD, 'de', 'österreich')).flatMap((g) => g.rows.map((r) => r.zone)), ['Europe/Vienna']);
+  assert.deepEqual(plain(M.zoneGroups(ZONES, ZD, 'de', 'ZURI')).flatMap((g) => g.rows.map((r) => r.zone)), ['Europe/Zurich']);
+  assert.deepEqual(plain(M.zoneGroups(ZONES, ZD, 'de', 'gibtsnicht')), []);
+});
+
+test('zoneSummary und keyboardLabel lesen sich wie Namen', () => {
+  assert.equal(M.zoneSummary('Europe/Berlin', ZD, 'de'), 'Berlin, Deutschland');
+  assert.equal(M.zoneSummary('UTC', ZD, 'de'), 'UTC');
+  assert.equal(M.keyboardLabel('de', 'de'), 'Deutschland (de)');
+  assert.equal(M.keyboardLabel('ch', 'en'), 'Switzerland (ch)');
+});

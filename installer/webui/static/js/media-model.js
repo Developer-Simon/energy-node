@@ -27,6 +27,36 @@
     return 1;
   }
 
+  // regionName: der Name eines Landes in der Sprache der Oberflaeche, '' ohne
+  // Treffer oder ohne Intl.DisplayNames.
+  function regionName(code, lang) {
+    if (!code) {
+      return '';
+    }
+    try {
+      return new Intl.DisplayNames([lang || 'de'], { type: 'region' }).of(String(code).toUpperCase()) || '';
+    } catch (err) {
+      return '';
+    }
+  }
+
+  // fold: klein und ohne Akzente, zum Suchen ("Zürich" findet "zurich").
+  function fold(text) {
+    return String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
+  // zoneRow: Gruppe (erster Teil, klein), Stadt (letzter Teil ohne
+  // Unterstriche) und Land einer Zeitzone. UTC und Co. landen in "other".
+  function zoneRow(zone, countries, lang) {
+    var parts = String(zone).split('/');
+    return {
+      zone: zone,
+      group: parts.length > 1 ? parts[0].toLowerCase() : 'other',
+      city: parts[parts.length - 1].replace(/_/g, ' '),
+      country: regionName((countries || {})[zone], lang),
+    };
+  }
+
   function validHostname(name) {
     return typeof name === 'string' && HOSTNAME.test(name);
   }
@@ -60,6 +90,48 @@
       var d = defaults || {};
       var zones = d.zone_countries || {};
       return (Object.prototype.hasOwnProperty.call(zones, timezone) && zones[timezone]) || d.wifi_country || '';
+    },
+
+    // zoneGroups: die Zeitzonen gefiltert nach query (Stadt, Land oder
+    // Zonenname, ohne Akzente), nach Kontinent gruppiert in der Reihenfolge
+    // der Liste, innerhalb einer Gruppe nach Stadt sortiert.
+    zoneGroups: function (zones, defaults, lang, query) {
+      var countries = (defaults || {}).zone_countries || {};
+      var q = fold(query).trim();
+      var order = [];
+      var byId = Object.create(null);
+      (zones || []).forEach(function (zone) {
+        var row = zoneRow(zone, countries, lang);
+        if (q && fold(row.city + ' ' + row.country + ' ' + row.zone).indexOf(q) < 0) {
+          return;
+        }
+        if (!byId[row.group]) {
+          byId[row.group] = { id: row.group, rows: [] };
+          order.push(byId[row.group]);
+        }
+        byId[row.group].rows.push(row);
+      });
+      order.forEach(function (group) {
+        group.rows.sort(function (a, b) {
+          return a.city.localeCompare(b.city);
+        });
+      });
+      return order;
+    },
+
+    // zoneSummary: "Berlin, Deutschland" fuer die Zeile der Region.
+    zoneSummary: function (zone, defaults, lang) {
+      if (!zone) {
+        return '';
+      }
+      var row = zoneRow(zone, (defaults || {}).zone_countries, lang);
+      return row.country ? row.city + ', ' + row.country : row.city;
+    },
+
+    // keyboardLabel: "Deutschland (de)". Die Belegungen heissen wie Laender.
+    keyboardLabel: function (code, lang) {
+      var name = regionName(code, lang);
+      return name ? name + ' (' + code + ')' : String(code || '');
     },
 
     // fiveGhzOnly: das gewaehlte Netz ist nur auf 5 GHz zu sehen und das

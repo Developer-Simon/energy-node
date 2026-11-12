@@ -750,3 +750,21 @@ test('kennt der Rechner kein Passwort, sagt der Abgleich das', async () => {
   assert.equal(screen.wifiState, 'unknown');
   assert.equal(screen.wifiVia, '');
 });
+
+test('die Region oeffnet eine Liste zur Zeit und schliesst sie bei der Wahl', async () => {
+  const { screen } = settings();
+  await screen.init();
+  screen.togglePicker('zone');
+  assert.equal(screen.picker, 'zone');
+  screen.togglePicker('keyboard');
+  assert.equal(screen.picker, 'keyboard');
+  screen.pickKeyboard('us');
+  assert.equal(screen.form.keyboard, 'us');
+  assert.equal(screen.picker, '');
+  screen.togglePicker('zone');
+  screen.zoneQuery = 'wien';
+  screen.pickZone('Europe/Wien');
+  assert.equal(screen.form.timezone, 'Europe/Wien');
+  assert.equal(screen.picker, '');
+  assert.equal(screen.zoneSummary.startsWith('Wien'), true);
+});

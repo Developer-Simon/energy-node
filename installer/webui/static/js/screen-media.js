@@ -137,6 +137,9 @@
       form: window.MediaModel.defaultSettings({}, ''),
       timezones: [],
       keyboards: [],
+      // picker: die offene Liste der Region, 'zone', 'keyboard' oder ''.
+      picker: '',
+      zoneQuery: '',
       defaults: {},
       // nameState: '' vor der Pruefung, 'invalid', 'checking', 'ok', 'taken'
       // oder 'failed' (die Anfrage ist gescheitert, der Name bleibt erlaubt).
@@ -295,6 +298,40 @@
         await this.checkName();
       },
 
+      // togglePicker: oeffnet eine Liste der Region und schliesst die andere.
+      // Die Zeitzone bekommt den Fokus im Suchfeld, die gewaehlte Zeile steht
+      // sichtbar in der Liste.
+      togglePicker(name) {
+        this.picker = this.picker === name ? '' : name;
+        this.zoneQuery = '';
+        if (this.picker !== 'zone' || !this.$nextTick) {
+          return;
+        }
+        var self = this;
+        this.$nextTick(function () {
+          var refs = self.$refs || {};
+          if (refs.zoneSearch) {
+            refs.zoneSearch.focus();
+          }
+          if (refs.zoneList) {
+            var on = refs.zoneList.querySelector('.media-pick-opt.on');
+            if (on && on.scrollIntoView) {
+              on.scrollIntoView({ block: 'center' });
+            }
+          }
+        });
+      },
+
+      pickZone(zone) {
+        this.form.timezone = zone;
+        this.picker = '';
+      },
+
+      pickKeyboard(code) {
+        this.form.keyboard = code;
+        this.picker = '';
+      },
+
       pickNetwork(ssid) {
         this.form.ssid = ssid;
         this.manual = false;
@@ -397,6 +434,29 @@
       // ohne beides fragt das Formular danach.
       get countryKnown() {
         return window.MediaModel.countryFor(this.form.timezone, this.defaults) !== '';
+      },
+
+      get uiLang() {
+        return (this.shell && this.shell.lang) || (window.I18n && window.I18n.lang) || 'de';
+      },
+
+      get zoneGroups() {
+        return window.MediaModel.zoneGroups(this.timezones, this.defaults, this.uiLang, this.zoneQuery);
+      },
+
+      get zoneSummary() {
+        return window.MediaModel.zoneSummary(this.form.timezone, this.defaults, this.uiLang);
+      },
+
+      get keyboardSummary() {
+        return window.MediaModel.keyboardLabel(this.form.keyboard, this.uiLang);
+      },
+
+      get keyboardRows() {
+        var lang = this.uiLang;
+        return this.keyboards.map(function (code) {
+          return { code: code, label: window.MediaModel.keyboardLabel(code, lang) };
+        });
       },
 
       get fiveGhzOnly() {

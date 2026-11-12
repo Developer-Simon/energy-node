@@ -157,23 +157,52 @@
 
       <section class="card">
         <h2 class="card-h" x-text="t('media.settings.region')"></h2>
-        <div class="media-row2">
-          <div class="media-field">
-            <span class="lbl" id="media-timezone" x-text="t('media.settings.timezone')"></span>
-            <select x-model="form.timezone" aria-labelledby="media-timezone">
-              <template x-for="zone in timezones" :key="zone">
-                <option :value="zone" :selected="zone === form.timezone" x-text="zone"></option>
-              </template>
-            </select>
-          </div>
-          <div class="media-field">
-            <span class="lbl" id="media-keyboard" x-text="t('media.settings.keyboard')"></span>
-            <select x-model="form.keyboard" aria-labelledby="media-keyboard">
-              <template x-for="layout in keyboards" :key="layout">
-                <option :value="layout" :selected="layout === form.keyboard" x-text="layout"></option>
-              </template>
-            </select>
-          </div>
+        <div class="media-pick">
+          <button type="button" class="media-pick-row" :class="{ open: picker === 'zone' }" :aria-expanded="picker === 'zone'" @click="togglePicker('zone')">
+            <span class="media-pick-l" x-text="t('media.settings.timezone')"></span>
+            <span class="media-pick-v" x-text="zoneSummary"></span>
+            <span class="media-pick-chev" aria-hidden="true">{{template "icon-arrow"}}</span>
+          </button>
+          <template x-if="picker === 'zone'">
+            <div class="media-pick-panel">
+              <input type="search" class="media-pick-search" x-ref="zoneSearch" x-model="zoneQuery" :placeholder="t('media.region.search')" :aria-label="t('media.region.search')"
+                     autocomplete="off" spellcheck="false" @keydown.escape.prevent="picker = ''">
+              <div class="media-pick-list" x-ref="zoneList" role="listbox" :aria-label="t('media.settings.timezone')">
+                <template x-for="group in zoneGroups" :key="group.id">
+                  <div>
+                    <div class="media-group" x-text="t('media.region.' + group.id)"></div>
+                    <template x-for="row in group.rows" :key="row.zone">
+                      <div class="media-pick-opt" :class="{ on: row.zone === form.timezone }" role="option" tabindex="0" :aria-selected="row.zone === form.timezone"
+                           @click="pickZone(row.zone)" @keydown.enter.prevent="pickZone(row.zone)" @keydown.space.prevent="pickZone(row.zone)" @keydown.escape.prevent="picker = ''">
+                        <span class="media-pick-opt-t" x-text="row.city"></span>
+                        <span class="media-pick-opt-s" x-text="row.country"></span>
+                        <template x-if="row.zone === form.timezone"><span class="media-pick-check" aria-hidden="true">{{template "icon-ok"}}</span></template>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+                <template x-if="zoneGroups.length === 0"><div class="media-hint" x-text="t('media.region.none')"></div></template>
+              </div>
+            </div>
+          </template>
+          <button type="button" class="media-pick-row" :class="{ open: picker === 'keyboard' }" :aria-expanded="picker === 'keyboard'" @click="togglePicker('keyboard')">
+            <span class="media-pick-l" x-text="t('media.settings.keyboard')"></span>
+            <span class="media-pick-v" x-text="keyboardSummary"></span>
+            <span class="media-pick-chev" aria-hidden="true">{{template "icon-arrow"}}</span>
+          </button>
+          <template x-if="picker === 'keyboard'">
+            <div class="media-pick-panel">
+              <div class="media-pick-list" role="listbox" :aria-label="t('media.settings.keyboard')">
+                <template x-for="row in keyboardRows" :key="row.code">
+                  <div class="media-pick-opt" :class="{ on: row.code === form.keyboard }" role="option" tabindex="0" :aria-selected="row.code === form.keyboard"
+                       @click="pickKeyboard(row.code)" @keydown.enter.prevent="pickKeyboard(row.code)" @keydown.space.prevent="pickKeyboard(row.code)" @keydown.escape.prevent="picker = ''">
+                    <span class="media-pick-opt-t" x-text="row.label"></span>
+                    <template x-if="row.code === form.keyboard"><span class="media-pick-check" aria-hidden="true">{{template "icon-ok"}}</span></template>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
         </div>
         <div class="media-hint" x-text="t('media.settings.from_computer')"></div>
       </section>
