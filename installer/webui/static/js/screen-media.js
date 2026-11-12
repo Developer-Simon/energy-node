@@ -215,6 +215,9 @@
             self.onWifiInput();
           });
         }
+        // Die Netze in Reichweite brauchen einen Suchlauf von einigen
+        // Sekunden. Der Bildschirm wartet nicht darauf.
+        this.loadNetworks();
         await this.checkName();
       },
 
@@ -284,6 +287,20 @@
 
       pickNetwork(ssid) {
         this.form.ssid = ssid;
+      },
+
+      // loadNetworks: ersetzt die Netze des Katalogs durch einen neuen
+      // Suchlauf. Bleibt er leer oder scheitert, gilt die Liste des Katalogs.
+      async loadNetworks() {
+        var nets;
+        try {
+          nets = await window.Api.get('/api/media/wifi-networks');
+        } catch (err) {
+          return;
+        }
+        if (Array.isArray(nets) && nets.length) {
+          this.defaults = Object.assign({}, this.defaults, { wifi_networks: nets });
+        }
       },
 
       // onWifiInput: die Pruefung erst nach einer Pause, wie beim Namen.

@@ -45,7 +45,7 @@ function device(responses = {}, options = {}) {
 function settings(responses = {}, options = {}) {
   return mountMedia('screen-media.js', 'screenMediaSettings', {
     screen: 'media-settings',
-    responses: Object.assign({ 'GET /api/media/catalog': CATALOG, 'GET /api/media/name': NAME_FREE }, responses),
+    responses: Object.assign({ 'GET /api/media/catalog': CATALOG, 'GET /api/media/name': NAME_FREE, 'GET /api/media/wifi-networks': [] }, responses),
     ...options,
   });
 }
@@ -681,4 +681,24 @@ test('ein Netz in Reichweite wird per Klick der Netzwerkname', async () => {
   screen.pickNetwork('Nachbar');
   assert.equal(screen.form.ssid, 'Nachbar');
   assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Haus']);
+});
+
+test('ein neuer Suchlauf ersetzt die Netze des Katalogs', async () => {
+  const nets = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_networks: [{ ssid: 'Haus', signal: 80, band_24: true, band_5: false }] });
+  const scanned = [
+    { ssid: 'Haus', signal: 80, band_24: true, band_5: false },
+    { ssid: 'Garten', signal: 20, band_24: true, band_5: false },
+  ];
+  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: nets }), 'GET /api/media/wifi-networks': scanned });
+  await screen.init();
+  await screen.loadNetworks();
+  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Garten']);
+});
+
+test('ein leerer Suchlauf laesst die Netze des Katalogs stehen', async () => {
+  const nets = Object.assign({}, DEFAULTS, { wifi_ssid: 'Haus', wifi_networks: [{ ssid: 'Nachbar', signal: 30, band_24: true, band_5: false }] });
+  const { screen } = settings({ 'GET /api/media/catalog': Object.assign({}, CATALOG, { defaults: nets }) });
+  await screen.init();
+  await screen.loadNetworks();
+  assert.deepEqual(screen.nearby.map((n) => n.ssid), ['Nachbar']);
 });
