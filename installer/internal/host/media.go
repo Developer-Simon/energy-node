@@ -254,6 +254,7 @@ func (h *Host) MediaWrite(ctx context.Context, req hostapi.MediaWriteRequest) er
 			AuthorizedKey: authorizedKey,
 			Timezone:      req.Settings.Timezone,
 			Keyboard:      req.Settings.Keyboard,
+			SSHPassword:   req.Settings.SSHPassword,
 		},
 		Password: req.Settings.Password,
 	}

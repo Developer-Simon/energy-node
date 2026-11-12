@@ -177,7 +177,7 @@ func (w *Writer) Start(ctx context.Context, req WriteRequest) error {
 
 // check performs the synchronous validation of req and returns the resolved plan.
 func (w *Writer) check(ctx context.Context, req WriteRequest) (*plan, error) {
-	if !validSettings(req.Settings) {
+	if !validSettings(req.Settings) || (req.Settings.SSHPassword && req.Password == "") {
 		return nil, ErrSettings
 	}
 	dev, ok := DeviceByID(req.Device)

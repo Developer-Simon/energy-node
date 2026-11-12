@@ -329,3 +329,14 @@ func TestTheEmergencyPasswordIsNeverInTheView(t *testing.T) {
 		t.Fatal("view contains the emergency password")
 	}
 }
+
+func TestSSHPasswordWithoutAPasswordIsRefused(t *testing.T) {
+	fr := &fakeRun{}
+	w := newTestWriter(t, []Drive{sdb}, fr)
+	req := okWrite
+	req.Settings.SSHPassword = true
+	req.Password = ""
+	if err := w.Start(context.Background(), req); err != ErrSettings {
+		t.Fatalf("Start error = %v, want ErrSettings", err)
+	}
+}

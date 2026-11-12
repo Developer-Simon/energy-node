@@ -148,12 +148,13 @@ type MediaWifi struct {
 
 // MediaSettings sind die Einstellungen, die das Geraet beim ersten Start hat.
 type MediaSettings struct {
-	Hostname string     `json:"hostname"`
-	User     string     `json:"user"`
-	Password string     `json:"password"`
-	Timezone string     `json:"timezone"`
-	Keyboard string     `json:"keyboard"`
-	Wifi     *MediaWifi `json:"wifi"`
+	Hostname    string     `json:"hostname"`
+	User        string     `json:"user"`
+	Password    string     `json:"password"`
+	SSHPassword bool       `json:"ssh_password"` // Passwort auch fuer SSH
+	Timezone    string     `json:"timezone"`
+	Keyboard    string     `json:"keyboard"`
+	Wifi        *MediaWifi `json:"wifi"`
 }
 
 // MediaWriteRequest ist der Rumpf von POST /api/media/write.

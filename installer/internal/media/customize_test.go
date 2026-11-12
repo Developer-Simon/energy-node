@@ -144,3 +144,22 @@ func TestUserDataSetsTheWifiCountry(t *testing.T) {
 		t.Errorf("user-data lacks the country bootcmd:\n%s", out)
 	}
 }
+
+func TestSSHPasswordNeedsTheSwitchAndAPassword(t *testing.T) {
+	s := testSettings()
+	s.SSHPassword = true
+	if out := string(UserData(s, testHostKey(t))); !strings.Contains(out, "ssh_pwauth: false") {
+		t.Error("ssh_pwauth without a password hash is not false")
+	}
+	s.PasswordHash = "$6$salt$hash"
+	if out := string(UserData(s, testHostKey(t))); !strings.Contains(out, "ssh_pwauth: true") {
+		t.Error("ssh_pwauth with switch and password is not true")
+	}
+	if out := string(FirstRunScript(s, testHostKey(t))); !strings.Contains(out, "PasswordAuthentication yes' >/etc/ssh/sshd_config.d/10-energy-node-password.conf") {
+		t.Error("firstrun.sh lacks the sshd drop-in")
+	}
+	s.SSHPassword = false
+	if out := string(FirstRunScript(s, testHostKey(t))); strings.Contains(out, "PasswordAuthentication yes") {
+		t.Error("firstrun.sh enables passwords without the switch")
+	}
+}

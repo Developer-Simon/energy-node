@@ -14,6 +14,7 @@ type Settings struct {
 	User          string
 	AuthorizedKey string // one authorized_keys line (installer key)
 	PasswordHash  string // "" = account locked for password login; otherwise sha512-crypt
+	SSHPassword   bool   // das Notfall-Passwort gilt auch fuer SSH; nur mit Passwort
 	Timezone      string // "Europe/Berlin"
 	Keyboard      string // "de"
 	Wifi          *Wifi  // nil = no WLAN
@@ -67,7 +68,11 @@ func UserData(s Settings, hk HostKey) []byte {
 	b.WriteString("  ssh_authorized_keys:\n")
 	b.WriteString("    - " + yamlQuote(s.AuthorizedKey) + "\n")
 	b.WriteString("  sudo: ALL=(ALL) NOPASSWD:ALL\n")
-	b.WriteString("ssh_pwauth: false\n")
+	if s.SSHPassword && s.PasswordHash != "" {
+		b.WriteString("ssh_pwauth: true\n")
+	} else {
+		b.WriteString("ssh_pwauth: false\n")
+	}
 	b.WriteString("ssh_deletekeys: true\n")
 	b.WriteString("ssh_genkeytypes: []\n")
 	b.WriteString("ssh_keys:\n")
@@ -130,6 +135,12 @@ func FirstRunScript(s Settings, hk HostKey) []byte {
 	b.WriteString(`FIRSTUSER=$(getent passwd 1000 | cut -d: -f1)` + "\n")
 	b.WriteString(`FIRSTUSERHOME=$(getent passwd 1000 | cut -d: -f6)` + "\n")
 	b.WriteString("/usr/lib/raspberrypi-sys-mods/imager_custom enable_ssh -k " + shellQuote(s.AuthorizedKey) + "\n")
+	if s.SSHPassword && s.PasswordHash != "" {
+		// enable_ssh -k schaltet die Passwort-Anmeldung in sshd_config ab. Die
+		// Dateien in sshd_config.d stehen vorne und der erste Wert gilt.
+		b.WriteString("mkdir -p /etc/ssh/sshd_config.d\n")
+		b.WriteString("echo 'PasswordAuthentication yes' >/etc/ssh/sshd_config.d/10-energy-node-password.conf\n")
+	}
 	b.WriteString("/usr/lib/userconf-pi/userconf " + user + " " + shellQuote(s.PasswordHash) + "\n")
 	b.WriteString("echo " + shellQuote(s.User+" ALL=(ALL) NOPASSWD:ALL") + " >" + sudoers + "\n")
 	b.WriteString("chmod 0440 " + sudoers + "\n")
