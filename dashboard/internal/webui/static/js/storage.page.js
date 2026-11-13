@@ -288,7 +288,11 @@
     },
 
     driveView(item) {
-      const detail = [(item.transport || '').toUpperCase(), formatSize(item.size)].filter(Boolean).join(', ');
+      const transport = (item.transport || '').toUpperCase();
+      const label = item.whole ? '' : (item.label || '');
+      const detail = label
+        ? `${label}, ${formatSize(item.size)}`
+        : [transport, formatSize(item.size)].filter(Boolean).join(', ');
       return {
         kname: item.kname,
         uuid: item.uuid || '',
@@ -296,12 +300,24 @@
         detail,
         needsFormat: Boolean(item.needs_format),
         contents: item.contents ? t(item.contents) : '',
+        // The top-level disk this entry belongs to, and its title line.
+        disk: item.disk || item.kname,
+        diskDetail: [transport, formatSize(item.disk_size)].filter(Boolean).join(', '),
+        label,
+        whole: Boolean(item.whole),
+        lost: [],
       };
     },
     async loadDrives() {
       try {
         const list = await requestJSON('/api/v1/storage/drives');
-        this.drives = list.map((item) => this.driveView(item));
+        const views = list.map((item) => this.driveView(item));
+        // Formatting the whole disk wipes every partition of it, the set up
+        // one included, so the list is built before the filter below.
+        for (const view of views) {
+          if (view.whole) view.lost = views.filter((p) => !p.whole && p.disk === view.disk).map((p) => p.label || p.kname);
+        }
+        this.drives = views;
         // The set up drive is not a choice for switching or replacing it.
         if (this.config.uuid) this.drives = this.drives.filter((item) => item.uuid !== this.config.uuid);
         // A selected drive that was unplugged is no longer a choice.
@@ -309,6 +325,20 @@
       } catch (error) {
         this.flowError = error.message;
       }
+    },
+    // The drives in list order, one group per disk. A group with one entry
+    // renders without a header.
+    get driveGroups() {
+      const groups = [];
+      for (const view of this.drives) {
+        let group = groups.find((g) => g.key === view.disk);
+        if (!group) {
+          group = { key: view.disk, title: view.name, detail: view.diskDetail, items: [] };
+          groups.push(group);
+        }
+        group.items.push(view);
+      }
+      return groups;
     },
     async openSetup() {
       this.flowError = '';
