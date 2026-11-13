@@ -146,7 +146,7 @@
     </section>
 
     <!-- Ausfallsicherheit: Ersatz für LAN und Notfall-Hotspot -->
-    <section class="setting-card" aria-labelledby="nw-fallback-title">
+    <section class="setting-card" data-tour="network-fallback" aria-labelledby="nw-fallback-title">
       <h3 class="setting-card-title" id="nw-fallback-title">{{t "network.fallback.title"}}</h3>
       <p class="setting-note" x-show="!hasWifi()">{{t "network.fallback.unavailable"}}</p>
       <div x-show="hasWifi()">
@@ -160,7 +160,7 @@
       </div>
     </section>
 
-    <section class="setting-card" aria-labelledby="nw-hotspot-title" x-show="hasWifi()">
+    <section class="setting-card" data-tour="network-hotspot" aria-labelledby="nw-hotspot-title" x-show="hasWifi()">
       <h3 class="setting-card-title" id="nw-hotspot-title">{{t "network.hotspot.title"}}</h3>
       <div class="setting-row">
         <span class="setting-row-label">{{t "network.hotspot.toggle"}}<span class="setting-row-unit">{{t "network.hotspot.toggle_unit"}}</span></span>
