@@ -159,4 +159,78 @@ out="$(EN_BUNDLE_DIR="$empty" EN_ROOT="$tmp/root3" run || true)"
 grep -q '^##STEP 67 fail NETWORK_WATCH_MISSING$' <<<"$out" \
   || fail "fehlender Waechter nicht gemeldet" "$out"
 
+# --- Passwort-Vorgabe per Datei (--hotspot-password-file) -------------------
+run_args() { bash "$script" "$@" 2>&1; }
+hs_field() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1], encoding="utf-8"))[sys.argv[2]])' "$1" "$2"; }
+
+# Vorgabe, keine hotspot.json: das Passwort kommt aus der Datei.
+r4="$tmp/root4"
+mkdir -p "$r4/etc"
+cp "$root/etc/machine-id" "$r4/etc/machine-id"
+hs4="$r4/etc/energy-node/hotspot.json"
+prof4="$r4/etc/NetworkManager/system-connections/energy-node-hotspot.nmconnection"
+printf '%s\n' 'Mein Pass#1' > "$tmp/pw1"
+out="$(EN_ROOT="$r4" run_args --hotspot-password-file "$tmp/pw1")" || fail "Lauf mit Vorgabe scheitert" "$out"
+grep -q '^##STEP 67 ok$' <<<"$out" || fail "Vorgabe: kein ok-Marker" "$out"
+[ "$(hs_field "$hs4" ssid)" = EnergyNode-445A ] || fail "Vorgabe: ssid falsch"
+[ "$(hs_field "$hs4" password)" = 'Mein Pass#1' ] || fail "Vorgabe: Passwort nicht uebernommen"
+[ "$(stat -c %a "$hs4")" = 640 ] || fail "Vorgabe: hotspot.json nicht 0640"
+grep -qxF 'psk=Mein Pass#1' "$prof4" || fail "Vorgabe: psk im Profil falsch" "$(cat "$prof4")"
+if grep -qF 'Mein Pass#1' <<<"$out"; then fail "Passwort steht in der Ausgabe" "$out"; fi
+
+# Vorgabe ueberschreibt eine vorhandene hotspot.json, die SSID bleibt.
+r5="$tmp/root5"
+mkdir -p "$r5/etc"
+cp "$root/etc/machine-id" "$r5/etc/machine-id"
+hs5="$r5/etc/energy-node/hotspot.json"
+prof5="$r5/etc/NetworkManager/system-connections/energy-node-hotspot.nmconnection"
+out="$(EN_ROOT="$r5" run_args)" || fail "Erstlauf fuer Ueberschreiben scheitert" "$out"
+printf '%s\n' 'anderes-passwort' > "$tmp/pw2"
+out="$(EN_ROOT="$r5" run_args --hotspot-password-file "$tmp/pw2")" || fail "Vorgabe bei vorhandener Datei scheitert" "$out"
+grep -q '^##STEP 67 ok$' <<<"$out" || fail "Ueberschreiben: kein ok-Marker" "$out"
+[ "$(hs_field "$hs5" ssid)" = EnergyNode-445A ] || fail "Ueberschreiben: ssid geaendert"
+[ "$(hs_field "$hs5" password)" = anderes-passwort ] || fail "Vorgabe ueberschreibt das Passwort nicht"
+[ "$(stat -c %a "$hs5")" = 640 ] || fail "Ueberschreiben: hotspot.json nicht 0640"
+grep -qxF 'psk=anderes-passwort' "$prof5" || fail "Ueberschreiben: psk im Profil falsch" "$(cat "$prof5")"
+
+# Ohne Vorgabe bleibt das Passwort aus dem vorherigen Lauf.
+out="$(EN_ROOT="$r5" run_args)" || fail "Lauf ohne Vorgabe scheitert" "$out"
+[ "$(hs_field "$hs5" password)" = anderes-passwort ] || fail "Lauf ohne Vorgabe aendert das Passwort"
+
+# Ungueltige Vorgaben: Schritt scheitert, das Passwort steht in keiner
+# Ausgabe, hotspot.json bleibt unveraendert.
+before="$tmp/hs5.before"
+cp "$hs5" "$before"
+expect_invalid() {  # expect_invalid <printf-Format des Dateiinhalts> <Passwort fuer Ausgabeprüfung>
+  local f="$tmp/bad.pw" out
+  printf '%b' "$1" > "$f"
+  if out="$(EN_ROOT="$r5" run_args --hotspot-password-file "$f")"; then
+    fail "ungueltige Vorgabe akzeptiert" "$1"
+  fi
+  grep -qxF '##STEP 67 fail HOTSPOT_PASSWORD_INVALID' <<<"$out" \
+    || fail "kein HOTSPOT_PASSWORD_INVALID-Marker" "$out"
+  if [ -n "$2" ] && grep -qF -- "$2" <<<"$out"; then fail "Passwort steht in der Ausgabe" "$out"; fi
+  cmp -s "$before" "$hs5" || fail "hotspot.json bei ungueltiger Vorgabe geaendert"
+}
+expect_invalid 'abc1234\n' 'abc1234'                                  # 7 Zeichen
+expect_invalid 'Passwört123\n' 'Passwört123'                          # Umlaut
+expect_invalid "$(printf 'g%.0s' {1..64})\n" "$(printf 'g%.0s' {1..64})"  # 64 Zeichen, keine Hex
+expect_invalid '' ''                                                  # leere Datei
+expect_invalid 'abcdefgh\n\n' 'abcdefgh'                              # nur ein Zeilenende darf weg
+
+# Fehlende Datei: ebenfalls HOTSPOT_PASSWORD_INVALID.
+if out="$(EN_ROOT="$r5" run_args --hotspot-password-file "$tmp/gibt-es-nicht")"; then
+  fail "fehlende Datei akzeptiert" "$out"
+fi
+grep -qxF '##STEP 67 fail HOTSPOT_PASSWORD_INVALID' <<<"$out" \
+  || fail "fehlende Datei: kein HOTSPOT_PASSWORD_INVALID-Marker" "$out"
+cmp -s "$before" "$hs5" || fail "hotspot.json bei fehlender Datei geaendert"
+
+# 64 Hex-Ziffern sind gueltig.
+hex="$(printf '1f%.0s' {1..32})"
+printf '%s\n' "$hex" > "$tmp/pw-hex"
+out="$(EN_ROOT="$r5" run_args --hotspot-password-file "$tmp/pw-hex")" || fail "64 Hex-Ziffern abgelehnt" "$out"
+grep -q '^##STEP 67 ok$' <<<"$out" || fail "64 Hex-Ziffern: kein ok-Marker" "$out"
+[ "$(hs_field "$hs5" password)" = "$hex" ] || fail "64 Hex-Ziffern nicht uebernommen"
+
 echo "PASS: 67-network.sh"

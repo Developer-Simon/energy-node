@@ -11,9 +11,21 @@
 # dann nichts.
 #
 # Kein Skip-Schritt (wie 65): er schreibt bei jedem Lauf.
+#
+# Mit --hotspot-password-file <pfad> ersetzt eine Vorgabe das Passwort in
+# hotspot.json und im Profil, auch wenn die Datei schon da ist. Die SSID
+# bleibt dabei. Ohne Vorgabe bleiben die Zugangsdaten wie gehabt.
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
+
+PW_FILE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --hotspot-password-file) PW_FILE="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
 
 step_begin 67
 
@@ -113,6 +125,29 @@ country_code() {
     | head -n 1 || true
 }
 
+# Passwort-Vorgabe aus einer Datei. Genau ein abschliessendes Zeilenende faellt
+# weg, dann gilt die WLAN-Regel: 8 bis 63 druckbare ASCII-Zeichen oder genau 64
+# Hex-Ziffern. Nur bei Erfolg wird etwas ausgegeben. Fehlertexte gibt es keine,
+# damit das Passwort nie in einer Meldung landet.
+read_password_file() {
+  python3 - "$1" 2>/dev/null <<'PY'
+import re, sys
+try:
+    raw = open(sys.argv[1], "rb").read()
+except OSError:
+    sys.exit(1)
+if raw.endswith(b"\n"):
+    raw = raw[:-1]
+try:
+    pw = raw.decode("ascii")
+except UnicodeDecodeError:
+    sys.exit(1)
+if not (re.fullmatch(r"[\x20-\x7e]{8,63}", pw) or re.fullmatch(r"[0-9a-fA-F]{64}", pw)):
+    sys.exit(1)
+sys.stdout.write(pw)
+PY
+}
+
 # install_owned wie in 60-node-install.sh: Gruppe des Zielbenutzers, aber nur
 # dort, wo root oder sudo zur Verfuegung steht.
 install_owned() {
@@ -130,28 +165,51 @@ for file in "${WATCH_NAME}" "${WATCH_NAME}.service" "${WATCH_TIMER}"; do
   [[ -f "${bundle_dash}/${file}" ]] || step_fail NETWORK_WATCH_MISSING
 done
 
-# --- Zugangsdaten: einmal anlegen, nie ueberschreiben ---------------------
+# --- Zugangsdaten: einmal anlegen, mit Vorgabe ersetzen --------------------
+# Die Vorgabe wird vor jedem Schreibzugriff geprueft: ungueltig heisst, dass
+# hotspot.json unveraendert bleibt.
 etc="${EN_ROOT}/etc/energy-node"
 hotspot_json="${etc}/hotspot.json"
 "${SUDO[@]}" mkdir -p "${etc}"
-if [[ -e "${hotspot_json}" ]]; then
+if [[ -n "${PW_FILE}" ]]; then
+  given_pw="$(read_password_file "${PW_FILE}")" || step_fail HOTSPOT_PASSWORD_INVALID
+fi
+if [[ -e "${hotspot_json}" && -z "${PW_FILE}" ]]; then
   step_log "hotspot.json vorhanden, bleibt unangetastet."
 else
-  device_suffix
-  ssid="EnergyNode-${SUFFIX}"
-  password="$(hotspot_password)"
-  new_json="$(mktemp)"
-  python3 -c '
+  if [[ -e "${hotspot_json}" ]]; then
+    # Vorhandene SSID behalten, nur das Passwort wird ersetzt.
+    ssid="$("${SUDO[@]}" cat "${hotspot_json}" | python3 -c '
 import json, sys
-json.dump({"ssid": sys.argv[1], "password": sys.argv[2]}, sys.stdout)
+print(json.load(sys.stdin)["ssid"])
+')" || step_fail HOTSPOT_JSON_INVALID
+  else
+    device_suffix
+    ssid="EnergyNode-${SUFFIX}"
+  fi
+  if [[ -n "${PW_FILE}" ]]; then
+    password="${given_pw}"
+  else
+    password="$(hotspot_password)"
+  fi
+  new_json="$(mktemp)"
+  # Das Passwort geht ueber stdin, nie ueber die Argumentliste.
+  printf '%s\n%s\n' "${ssid}" "${password}" | python3 -c '
+import json, sys
+ssid, password = sys.stdin.read().split("\n")[:2]
+json.dump({"ssid": ssid, "password": password}, sys.stdout)
 sys.stdout.write("\n")
-' "${ssid}" "${password}" > "${new_json}"
+' > "${new_json}"
   if ! install_owned 0640 "${new_json}" "${hotspot_json}"; then
     rm -f "${new_json}"
     step_fail HOTSPOT_JSON_WRITE_FAILED
   fi
   rm -f "${new_json}"
-  step_log "hotspot.json angelegt: ${ssid}."
+  if [[ -n "${PW_FILE}" ]]; then
+    step_log "hotspot.json mit Passwort-Vorgabe geschrieben: ${ssid}."
+  else
+    step_log "hotspot.json angelegt: ${ssid}."
+  fi
 fi
 
 # Ssid und Passwort aus der Datei lesen, auch wenn sie schon da war. Die
