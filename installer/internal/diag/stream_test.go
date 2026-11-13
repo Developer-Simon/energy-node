@@ -264,3 +264,48 @@ func TestRunStreamFailsWhenTheStreamIsCut(t *testing.T) {
 		t.Errorf("onSection must have been called once, got %d", calls)
 	}
 }
+
+// fakeOldDiagnoseScript ist diagnose.sh aus einem Paket vor dem Stream: es
+// kennt --stream nicht und gibt den ganzen Bericht als JSON aus.
+var fakeOldDiagnoseScript = "#!/bin/sh\ncat <<'JSON'\n" + streamJSONReport + "\nJSON\n"
+
+func TestRunStreamReadsTheJSONReportOfAnOldPackage(t *testing.T) {
+	streamSFTPServer(t)
+	sshd := transporttest.Start(t)
+	client := dialStreamTest(t, sshd)
+	bundleDir := uploadStreamScript(t, client, fakeOldDiagnoseScript)
+
+	want, err := parseReport([]byte(streamJSONReport))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reports []*Report
+	var pendings [][]string
+	err = RunStream(context.Background(), client, bundleDir, "/var/lib/energy-node-installer", "v0.2.0", func(report *Report, pending []string) {
+		reports = append(reports, report)
+		pendings = append(pendings, pending)
+	})
+	if err != nil {
+		t.Fatalf("an old package without --stream must still give a report, got %v", err)
+	}
+	if len(reports) != 1 || len(pendings[0]) != 0 {
+		t.Fatalf("the JSON report must arrive as one finished state, got %d calls, pending %v", len(reports), pendings)
+	}
+	if !reflect.DeepEqual(reports[0], want) {
+		t.Errorf("report = %+v, want %+v", reports[0], want)
+	}
+}
+
+func TestRunStreamFailsOnOutputThatIsNeitherStreamNorJSON(t *testing.T) {
+	streamSFTPServer(t)
+	sshd := transporttest.Start(t)
+	client := dialStreamTest(t, sshd)
+	bundleDir := uploadStreamScript(t, client, "#!/bin/sh\necho kaputt\n")
+
+	err := RunStream(context.Background(), client, bundleDir, "/var/lib/energy-node-installer", "v0.2.0", func(*Report, []string) {
+		t.Errorf("no state may be reported for garbage output")
+	})
+	if err == nil {
+		t.Fatalf("garbage output must be an error")
+	}
+}

@@ -227,13 +227,26 @@ func RunStream(ctx context.Context, client *transport.Client, remoteBundleDir, r
 	assembler := NewAssembler()
 	readDone := make(chan error, 1)
 
+	// raw sammelt die Ausgabe, solange keine Marke kam: ein Paket vor dem
+	// Stream kennt --stream nicht und gibt den ganzen Bericht als JSON aus.
+	var raw bytes.Buffer
+	marked := false
+
 	go func() {
 		// Der Puffer ist 1 MiB groß, weil die apt-Zeile lang werden kann.
 		scanner := bufio.NewScanner(pipeReader)
 		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		for scanner.Scan() {
-			if section := assembler.Line(scanner.Text()); section != "" && onSection != nil {
-				onSection(assembler.Report(), assembler.Pending())
+			if !marked {
+				raw.Write(scanner.Bytes())
+				raw.WriteByte('\n')
+			}
+			if section := assembler.Line(scanner.Text()); section != "" {
+				marked = true
+				raw.Reset()
+				if onSection != nil {
+					onSection(assembler.Report(), assembler.Pending())
+				}
 			}
 		}
 		err := scanner.Err()
@@ -252,6 +265,18 @@ func RunStream(ctx context.Context, client *transport.Client, remoteBundleDir, r
 	}
 	if scanErr != nil {
 		return fmt.Errorf("reading diagnose.sh --stream output: %w", scanErr)
+	}
+	// Ein Paket vor dem Stream ignoriert --stream und gibt den Bericht als
+	// JSON aus. Er kommt dann als ein fertiger Stand.
+	if !marked {
+		report, err := parseReport(raw.Bytes())
+		if err != nil {
+			return fmt.Errorf("diagnose.sh --stream gave neither stream lines nor a JSON report: %w (stdout: %q, stderr: %s)", err, raw.String(), stderr.String())
+		}
+		if onSection != nil {
+			onSection(report, []string{})
+		}
+		return nil
 	}
 	if pending := assembler.Pending(); len(pending) > 0 {
 		return fmt.Errorf("diagnose.sh --stream ended before all sections were reported (missing %s, stderr: %s)", strings.Join(pending, ", "), stderr.String())
