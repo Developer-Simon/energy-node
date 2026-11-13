@@ -123,7 +123,8 @@ no network is reachable** turns this on or off. It is on by default.
 
 - The network is called `EnergyNode-` followed by four characters, for example
   `EnergyNode-4F2A`. The password has three short words and two digits, for
-  example `sonne-wolke-42`. Both are created once per node.
+  example `sonne-wolke-42`. Both are created once per node, unless you set your
+  own password in the installer, see [Configuration](../installer.md#3-configuration).
 - The installer shows name and password on its [result screen](../installer.md#6-result).
   Write them down. The page shows them in plain text to everyone who may use
   the network page, even while the hotspot switch is off. The node is asked when

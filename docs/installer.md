@@ -192,12 +192,20 @@ password is rejected, and you can try again.
 
 ![The configuration screen](images/installer-configure.png)
 
-This screen asks for two passwords and the services you want.
+This screen asks for two passwords, the services you want, and an optional
+hotspot password.
 
 The credentials are a password for the MQTT broker and one for the dashboard's
 admin login. They are only written to the Pi (`/etc/energy-node/mqtt.pw` and
 `/etc/energy-node-dashboard/auth.pw`, mode `0640`). The installer does not
 store them on your computer and keeps them out of its log.
+
+The field **Hotspot password (optional)** is only on this screen. Leave it empty
+and the node creates the password of its emergency hotspot, as described in
+[Settings: Network](dashboard/settings-network.md#emergency-hotspot). Otherwise
+enter 8 to 63 printable ASCII characters or 64 hex digits. A password you enter
+replaces the one the node already has, and the [result screen](#6-result) shows
+it afterwards.
 
 The core always runs: broker, firewall, MQTT bridge and dashboard. On top of
 that you choose Automation, the individual device services (APsystems,
