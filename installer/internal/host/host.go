@@ -681,6 +681,23 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	return view, nil
 }
 
+// Hotspot reads the emergency hotspot's credentials from the node. A missing
+// hotspot.json gives nil and no error; a broken one is HOTSPOT_UNREADABLE.
+func (h *Host) Hotspot(ctx context.Context) (*hostapi.HotspotView, error) {
+	client, err := h.connected()
+	if err != nil {
+		return nil, err
+	}
+	hotspot, err := steps.ReadHotspot(ctx, steps.RunOptions{Client: client})
+	if err != nil {
+		return nil, &hostapi.Error{Code: "HOTSPOT_UNREADABLE", Status: http.StatusInternalServerError}
+	}
+	if hotspot == nil {
+		return nil, nil
+	}
+	return &hostapi.HotspotView{SSID: hotspot.SSID, Password: hotspot.Password}, nil
+}
+
 // installedInfo carries diagnose.sh's information parts into the view:
 // Versions stays nil without an installed manifest, and a device list stays
 // nil (JSON null) when its device file was unreadable, so the UI can tell

@@ -372,6 +372,14 @@ type Check struct {
 	Needs string `json:"needs,omitempty"`
 }
 
+// HotspotView ist die Antwort von GET /api/hotspot: Name und Passwort des
+// Notfall-Hotspots, nur fuer den Ergebnisbildschirm nach einer Installation.
+// Das Passwort ist das eigene Hotspot-Passwort des Nodes, kein Kundenpasswort.
+type HotspotView struct {
+	SSID     string `json:"ssid"`
+	Password string `json:"password"`
+}
+
 // DiagnoseView ist die Antwort von GET /api/diagnose.
 type DiagnoseView struct {
 	BundleVersion string            `json:"bundle_version"`
@@ -431,6 +439,8 @@ type Backend interface {
 	Plan(ctx context.Context) (*PlanView, error)
 	Run(ctx context.Context, req RunRequest, sink Sink) error
 	Diagnose(ctx context.Context) (*DiagnoseView, error)
+	// Hotspot liefert den Notfall-Hotspot; nil ohne hotspot.json.
+	Hotspot(ctx context.Context) (*HotspotView, error)
 }
 
 // Error ist ein Backend-Fehler mit sprachneutralem Code. Der Server bildet ihn

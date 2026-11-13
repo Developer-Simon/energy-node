@@ -56,6 +56,38 @@ test('ohne Diagnose steht die kurze Zusammenfassung', async () => {
   assert.equal(screen.summary, '8:12 gebraucht · Paket 1.4.2 (armv6)');
 });
 
+const HOTSPOT = { ssid: 'EnergyNode-4F2A', password: 'sonne-wolke-42' };
+
+test('nach einer Installation steht Name und Passwort des Notfall-Hotspots auf dem Ergebnis', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/hotspot': HOTSPOT } });
+  assert.equal(screen.showHotspot, true);
+  assert.deepEqual(plain(screen.hotspot), HOTSPOT);
+  assert.equal(catalog['result.hotspot.text'], 'Schreib dir das auf. Findet der Node kein Netz, öffnet er nach 5 Minuten diesen Hotspot.');
+});
+
+test('ohne hotspot.json gibt es keinen Block und keinen Fehler', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/hotspot': null } });
+  assert.equal(screen.showHotspot, false);
+  assert.equal(screen.heading, 'Der Node läuft');
+});
+
+test('ein unlesbarer Hotspot laesst das Ergebnis stehen, ohne Block', async () => {
+  const { screen } = await mount({ errors: { 'GET /api/hotspot': { code: 'HOTSPOT_UNREADABLE', status: 500 } } });
+  assert.equal(screen.showHotspot, false);
+  assert.equal(screen.heading, 'Der Node läuft');
+});
+
+test('ein Update und ein Fehlschlag holen den Hotspot nicht', async () => {
+  const redeploy = await mount({
+    shell: { entry: 'redeploy' }, outcome: { mode: 'redeploy', finishedAt: T0 + 41000 }, responses: { 'GET /api/hotspot': HOTSPOT },
+  });
+  assert.equal(redeploy.screen.showHotspot, false);
+  assert.deepEqual(plain(redeploy.calls), []);
+  const failed = await mount({ outcome: { ok: false, code: 'UFW_MISSING', stepId: '30' }, responses: { 'GET /api/hotspot': HOTSPOT } });
+  assert.equal(failed.screen.showHotspot, false);
+  assert.deepEqual(plain(failed.calls), []);
+});
+
 test('ein ausgefallener Dienst zaehlt nicht als aktiv', async () => {
   const units = Object.assign({}, ACTIVE, { 'shelly-rpc.service': 'failed' });
   const { screen } = await mount({ responses: { 'GET /api/diagnose': { units, ports: {}, checks: [] } } });

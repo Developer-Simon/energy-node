@@ -232,6 +232,24 @@ func (s *Server) handleDiagnose(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, view)
 }
 
+// handleHotspot antwortet mit dem Notfall-Hotspot oder mit null, wenn der Node
+// keine hotspot.json hat.
+func (s *Server) handleHotspot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", r.Method)
+		return
+	}
+	if !s.requireConnection(w) {
+		return
+	}
+	view, err := s.opts.Backend.Hotspot(r.Context())
+	if err != nil {
+		writeBackendError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", r.Method)

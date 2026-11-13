@@ -280,6 +280,32 @@ func TestDiagnoseReturnsTheChecklist(t *testing.T) {
 	}
 }
 
+func TestHotspotReturnsTheCredentials(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	connectFirst(t, server)
+	fake.HotspotView = &hostapi.HotspotView{SSID: "EnergyNode-4F2A", Password: "sonne-wolke-42"}
+	rec := do(t, server, http.MethodGet, "/api/hotspot", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var got hostapi.HotspotView
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	if got.SSID != "EnergyNode-4F2A" || got.Password != "sonne-wolke-42" {
+		t.Errorf("HotspotView = %+v", got)
+	}
+}
+
+func TestHotspotWithoutACredentialFileIsNull(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	connectFirst(t, server)
+	rec := do(t, server, http.MethodGet, "/api/hotspot", "")
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "null" {
+		t.Fatalf("status = %d, body = %q, want 200 null", rec.Code, rec.Body.String())
+	}
+}
+
 func TestRepairRunsExactlyOneStep(t *testing.T) {
 	server, fake := newTestServer(t, nil)
 	connectFirst(t, server)

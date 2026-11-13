@@ -31,6 +31,21 @@
         </section>
       </template>
 
+      <template x-if="showHotspot">
+        <section class="card">
+          <h2 class="card-h" x-text="t('result.hotspot.heading')"></h2>
+          <p class="card-p" x-text="t('result.hotspot.text')"></p>
+          <div class="url">
+            <span class="url-b">
+              <div class="url-s" x-text="t('result.hotspot.name')"></div>
+              <div class="url-a nw-hotspot-value" x-text="hotspot.ssid"></div>
+              <div class="url-s" x-text="t('result.hotspot.password')"></div>
+              <div class="url-a nw-hotspot-value" x-text="hotspot.password"></div>
+            </span>
+          </div>
+        </section>
+      </template>
+
       <template x-if="ok && todos.length">
         <section class="card">
           <h2 class="card-h" x-text="t('result.todo.heading')"></h2>

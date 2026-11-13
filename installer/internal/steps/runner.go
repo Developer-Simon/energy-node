@@ -30,6 +30,7 @@ type RunOptions struct {
 	Selection       *selection.Selection // optional; uploaded before the first step
 	Secrets         *Secrets             // optional; only step 60 ever receives it
 	NodeConfigPath  string               // optional; where step 20 finds the MQTT user without credentials, default DefaultNodeConfigPath
+	HotspotPath     string               // optional; where ReadHotspot finds the emergency hotspot's credentials, default DefaultHotspotPath
 	RestartAll      bool                 // optional; steps see EN_RESTART=all and restart every service unit
 	Force           bool                 // optional; first setup: steps see EN_FORCE=1 and ignore their stamps, nothing is skipped as already done
 	OnlineDeps      bool                 // optional; the node's Python differs from the bundle's and the operator allowed loading dependencies online: the installer runs step 50 itself

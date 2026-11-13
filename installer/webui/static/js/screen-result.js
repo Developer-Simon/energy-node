@@ -24,6 +24,8 @@
   window.Screens.screenResult = function screenResult() {
     return {
       diagnose: null,
+      // Zugangsdaten des Notfall-Hotspots, nur nach einer Installation.
+      hotspot: null,
 
       get shell() {
         return window.Installer.shell;
@@ -45,6 +47,16 @@
           // Ergebnis trotzdem.
           this.diagnose = null;
         }
+        try {
+          this.hotspot = await window.Api.get('/api/hotspot');
+        } catch (err) {
+          // Ohne lesbare hotspot.json fehlt nur der Block, das Ergebnis bleibt.
+          this.hotspot = null;
+        }
+      },
+
+      get showHotspot() {
+        return !!(this.ok && this.outcome.mode === 'install' && this.hotspot && this.hotspot.ssid && this.hotspot.password);
       },
 
       get ok() {
