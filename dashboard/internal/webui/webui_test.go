@@ -4635,3 +4635,51 @@ func TestNetworkAssetsAreRegisteredAndLeaveOutTheDraft(t *testing.T) {
 		}
 	}
 }
+
+func TestPanelPlaceholdersCarrySkeletons(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d", recorder.Code)
+	}
+	body := recorder.Body.String()
+	panels := []struct {
+		id      string
+		markers []string
+	}{
+		{"history-panel", []string{"sk-chart", "sk-chips"}},
+		{"stats-panel", []string{"sk-bars", "sk-list"}},
+		{"diagnostics-panel", []string{"sk-seg", "sk-list"}},
+		{"config-panel", []string{"sk-list", "sk-form"}},
+		{"energy-panel", []string{"sk-acc"}},
+		{"devicemap-panel", []string{"sk-graph"}},
+		{"automations-panel", []string{"sk-entry sk-spark", "sk-acc"}},
+		{"settings-panel", []string{"sk-form", "sk-line"}},
+	}
+	for _, panel := range panels {
+		marker := `id="` + panel.id + `"`
+		sections := 0
+		for offset := 0; ; {
+			start := strings.Index(body[offset:], marker)
+			if start < 0 {
+				break
+			}
+			start += offset
+			end := strings.Index(body[start:], "</section>")
+			if end < 0 {
+				t.Fatalf("%s hat kein schliessendes </section>", panel.id)
+			}
+			section := body[start : start+end]
+			sections++
+			for _, want := range append(panel.markers, `aria-busy="true"`, `class="sk-layer" aria-hidden="true"`, `panel-loading visually-hidden`) {
+				if !strings.Contains(section, want) {
+					t.Errorf("%s (Vorkommen %d) enthaelt %q nicht", panel.id, sections, want)
+				}
+			}
+			offset = start + end
+		}
+		if sections == 0 {
+			t.Errorf("%s fehlt in der Startseite", panel.id)
+		}
+	}
+}

@@ -2216,4 +2216,7 @@ small { color: var(--text-muted); }
 /* Freie Pille (Ueberschrift, Statuszeile) */
 .sk-line { height: var(--sk-h, 12px); width: var(--sk-w, 40%); border-radius: 999px; --sk-shape: none; }
 .sk-seg { height: 34px; width: var(--sk-w, 280px); border-radius: 999px; }
+/* Zwei Spalten (Seitenleiste plus Inhalt), am Handy einspaltig */
+.sk-split { display: grid; grid-template-columns: 220px 1fr; gap: 1rem; }
+@media (max-width: 720px) { .sk-split { grid-template-columns: 1fr; } }
 
