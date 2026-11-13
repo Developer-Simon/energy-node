@@ -571,10 +571,11 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		Steps:           list,
 		Selection:       h.selectionForRun(),
 		Secrets: &steps.Secrets{
-			MQTTPassword:  req.MQTTPassword,
-			AdminPassword: req.AdminPassword,
-			AdminUser:     req.AdminUser(),
-			DashboardSeed: req.DashboardSeed(),
+			MQTTPassword:    req.MQTTPassword,
+			AdminPassword:   req.AdminPassword,
+			AdminUser:       req.AdminUser(),
+			DashboardSeed:   req.DashboardSeed(),
+			HotspotPassword: hotspotPasswordFor(req),
 		},
 		OnMarker: func(marker steps.Marker) {
 			sink.Marker(marker.StepID, markerState(marker.Kind), marker.Detail)
@@ -611,6 +612,15 @@ func repairList(manifest bundle.Manifest, req hostapi.RunRequest) []bundle.StepE
 		return nil
 	}
 	return []bundle.StepEntry{entry}
+}
+
+// hotspotPasswordFor is the hotspot password step 67 may take. Only a first
+// install carries it; redeploy, repair and prepare never pass it on.
+func hotspotPasswordFor(req hostapi.RunRequest) string {
+	if req.Mode != hostapi.ModeInstall {
+		return ""
+	}
+	return req.HotspotPassword
 }
 
 // repairsPair reports whether a repair of step 20 or 60 carries a new MQTT
