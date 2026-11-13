@@ -23,6 +23,7 @@
             </div>
             <p class="nw-link-error" x-show="linkError(link)" x-text="linkError(link)"></p>
             <p class="setting-note nw-link-note" x-show="link.id === 'wifi' && !hasWifi()">{{t "network.nowifi_note"}}</p>
+            <p class="setting-note nw-link-note" x-show="standbyWait(link)">{{t "network.link.standby_note"}}</p>
             <p class="setting-note nw-link-note" x-show="link.state === 'blocked'">{{t "network.blocked_hint"}}</p>
             <dl class="nw-facts" x-show="linkFacts(link).length">
               <template x-for="fact in linkFacts(link)" x-bind:key="fact[0]">
@@ -172,7 +173,7 @@
             <span class="nw-hotspot-mark" aria-hidden="true"><svg class="automation-icon"><use href="#ico-access-point"></use></svg></span>
             <dl class="nw-facts nw-facts-tight">
               <div class="nw-fact" x-show="hotspotInfo().ssid"><dt>{{t "network.hotspot.name"}}</dt><dd x-text="hotspotInfo().ssid"></dd></div>
-              <div class="nw-fact"><dt>{{t "network.hotspot.password"}}</dt><dd class="nw-mono"><span x-show="hotspotPwShown" x-text="hotspotInfo().password"></span><span x-show="!hotspotPwShown">••••••••••••</span> <button type="button" class="nw-pw-eye nw-inline-eye" x-on:click="toggleHotspotPw()"><span x-show="!hotspotPwShown">{{t "network.pw.show"}}</span><span x-show="hotspotPwShown">{{t "network.pw.hide"}}</span></button></dd></div>
+              <div class="nw-fact"><dt>{{t "network.hotspot.password"}}</dt><dd class="nw-mono" x-text="hotspotInfo().password || hotspotSecretError"></dd></div>
               <div class="nw-fact"><dt>{{t "network.hotspot.address"}}</dt><dd class="nw-mono" x-text="hotspotInfo().address"></dd></div>
             </dl>
           </div>

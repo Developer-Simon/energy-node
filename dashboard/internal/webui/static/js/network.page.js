@@ -46,10 +46,10 @@
     openSsid: null,
     password: '',
     showPw: false,
-    hotspotPwShown: false,
-    // Kept in memory only, filled on "Zeigen" and dropped again on "Verbergen",
-    // when the hotspot goes off and when the page is left.
+    // Kept in memory only, filled once when the page opens and dropped when the
+    // page is left. The endpoint answers only with the network right.
     hotspotSecret: {ssid: '', password: ''},
+    hotspotSecretError: '',
     hidden: {ssid: '', password: ''},
     csrfToken: '',
     loadedAt: 0,
@@ -60,6 +60,7 @@
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
       this.csrfToken = (session && session.csrf_token) || '';
       await this.load();
+      await this.loadHotspotSecret();
       if (!this.timer) this.timer = window.setInterval(() => this.tick(), TICK_MS);
     },
 
@@ -123,29 +124,26 @@
     },
 
     setHotspot(on) {
-      if (!on) this.dropHotspotSecret();
       this.saveSettings({fallback: this.fallbackMode(), hotspot: Boolean(on)});
     },
 
-    // The password is only fetched on "Zeigen". A failed fetch leaves the
-    // password hidden and shows the error.
-    async toggleHotspotPw() {
-      if (this.hotspotPwShown) {
-        this.dropHotspotSecret();
-        return;
-      }
+    // Name and password of the emergency hotspot are shown in plain text to
+    // everyone who may use the network page, whatever the switches say. A failed
+    // fetch (no HTTPS, no helper) leaves them empty and shows the reason in the
+    // password field instead of a toast.
+    async loadHotspotSecret() {
+      if (!this.hasWifi()) return;
       try {
         const secret = await requestJSON('/api/v1/network/hotspot-secret', {cache: 'no-store'});
         this.hotspotSecret = {ssid: secret.ssid || '', password: secret.password || ''};
-        this.hotspotPwShown = true;
+        this.hotspotSecretError = '';
       } catch (error) {
         this.dropHotspotSecret();
-        this.$store.toasts.push(error.message, 'critical');
+        this.hotspotSecretError = error.message;
       }
     },
 
     dropHotspotSecret() {
-      this.hotspotPwShown = false;
       this.hotspotSecret = {ssid: '', password: ''};
     },
 
@@ -237,11 +235,11 @@
     fallbackMode() { return (this.status && this.status.settings && this.status.settings.fallback) || 'parallel'; },
     hotspotOn() { return Boolean(this.status && this.status.settings && this.status.settings.hotspot); },
     hotspotActive() { return Boolean(this.status && this.status.hotspot && this.status.hotspot.active); },
-    // The address is fixed. Name and password come from the secret endpoint and are only set while shown.
+    // The address is fixed. Name and password come from the secret endpoint.
     hotspotInfo() {
       return {
-        ssid: this.hotspotPwShown ? this.hotspotSecret.ssid : '',
-        password: this.hotspotPwShown ? this.hotspotSecret.password : '',
+        ssid: this.hotspotSecret.ssid,
+        password: this.hotspotSecret.password,
         address: '10.42.0.1',
       };
     },
@@ -279,7 +277,17 @@
       return link.state === 'none' ? '#ico-wifi-off' : '#ico-wifi';
     },
 
+    // Wi-Fi in the standby mode: unconnected beside a working cable, with a saved
+    // network to fall back to. It is ready, not unset.
+    standbyWait(link) {
+      // An unconnected Wi-Fi arrives as state off, which alone reads "not set up".
+      if (link.id !== 'wifi' || link.state !== 'off' || this.fallbackMode() !== 'standby') return false;
+      const lan = this.links().find((l) => l.id === 'lan');
+      return Boolean(lan) && lan.state === 'up' && this.savedCount() > 0;
+    },
+
     linkTone(link) {
+      if (this.standbyWait(link)) return 'info';
       if (link.state === 'hotspot') return 'warn';
       if (link.state === 'error') return 'bad';
       if (link.state === 'up') return link.route || link.id === 'lan' ? 'ok' : 'info';
@@ -287,6 +295,7 @@
     },
 
     linkStateLabel(link) {
+      if (this.standbyWait(link)) return t('network.state.standby_wait');
       switch (link.state) {
         case 'up': return link.id === 'wifi' && !link.route ? t('network.state.standby') : t('network.state.connected');
         case 'down': return link.id === 'lan' ? t('network.state.no_cable') : t('network.state.down');

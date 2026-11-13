@@ -125,8 +125,9 @@ no network is reachable** turns this on or off. It is on by default.
   `EnergyNode-4F2A`. The password has three short words and two digits, for
   example `sonne-wolke-42`. Both are created once per node.
 - The installer shows name and password on its [result screen](../installer.md#6-result).
-  Write them down. The page shows them under **Show**, which asks the node
-  for the password only at that moment. It is not kept after you leave the page.
+  Write them down. The page shows them in plain text to everyone who may use
+  the network page, even while the hotspot switch is off. The node is asked when
+  the page opens, and the password is not kept after you leave the page.
 - The hotspot closes as soon as the cable has a network again. While nobody is
   connected to it, the node checks every 5 minutes whether a known Wi-Fi network is
   back, and closes the hotspot if one is.
