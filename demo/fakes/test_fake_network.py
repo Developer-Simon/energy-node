@@ -377,3 +377,71 @@ def test_helper_writes_the_switched_scenario_into_the_state_and_console_shows_it
     tab = SystemTab(Log(), state, tmp_path / "events.jsonl", epoch)
     assert tab.state()["network"] == "both"
     assert "wlan0:wifi:connected:Gäste" in body_of(capsys.readouterr().out, "devices")
+
+
+# ---- network-settings and hotspot-secret ------------------------------------
+
+def settings_of(text):
+    return json.loads(body_of(text, "settings"))
+
+
+def test_default_settings_are_parallel_and_hotspot_on(paths):
+    assert settings_of(status("lan", paths)) == {"fallback": "parallel", "hotspot": True}
+
+
+def test_network_settings_standby_off_shows_in_status(paths):
+    assert run("network-settings", ["standby", "off"], "lan", paths)[:2] == (0, "")
+    assert settings_of(status("lan", paths)) == {"fallback": "standby", "hotspot": False}
+    stored = json.loads(paths["links"].with_name("network-settings.json").read_text(encoding="utf-8"))
+    assert stored == {"fallback": "standby", "hotspot": False}
+
+
+def test_network_settings_keeps_the_scenario(paths):
+    assert run("network-settings", ["parallel", "on"], "both", paths)[2] == "both"
+
+
+def test_network_settings_rejects_unknown_values_and_keeps_the_stored_ones(paths):
+    run("network-settings", ["standby", "off"], "lan", paths)
+    for args in (["fast", "on"], ["parallel", "maybe"], ["Standby", "off"], ["parallel"],
+                 ["parallel", "on", "extra"], []):
+        assert run("network-settings", args, "lan", paths)[0] == 64, args
+    assert settings_of(status("lan", paths)) == {"fallback": "standby", "hotspot": False}
+
+
+def test_network_settings_without_state_file_exits_1(paths):
+    assert run_without_state("network-settings", ["parallel", "on"]) == 1
+
+
+def test_hotspot_secret_prints_ssid_and_password_on_two_lines(paths):
+    code, out, scenario = run("hotspot-secret", [], "lan", paths)
+    assert (code, scenario) == (0, "lan")
+    assert out == "EnergyNode-4F2A\nNotfall2026Demo\n"
+
+
+def test_hotspot_secret_with_arguments_exits_64(paths):
+    assert run("hotspot-secret", ["x"], "lan", paths)[0] == 64
+
+
+def test_hotspot_secret_without_state_file_exits_66():
+    assert run_without_state("hotspot-secret", []) == 66
+
+
+def test_status_never_contains_the_hotspot_password(paths):
+    run("hotspot-secret", [], "hotspot", paths)
+    for scenario in SCENARIOS:
+        assert "Notfall2026Demo" not in status(scenario, paths)
+
+
+def test_hotspot_scenario_reports_an_active_hotspot():
+    assert body_of(fake_network.status_text("hotspot", None, NOW), "hotspot").splitlines()[0] == "active yes"
+
+
+def run_without_state(verb, args):
+    return fake_network.run(verb, args, "lan", None, None, None, now=NOW)[0]
+
+
+def test_helper_answers_hotspot_secret_with_66_without_state(tmp_path):
+    env = {"PATH": ""}
+    result = subprocess.run([sys.executable, HELPER, "hotspot-secret"], env=env, capture_output=True, text=True)
+    assert result.returncode == 66
+    assert result.stdout == ""

@@ -1,14 +1,17 @@
 """Simulierte Netz-Verben von energy-node-dashboard-system-action fuer die Demo.
 
-fake_journal_helper.py reicht network-status, wifi-scan, wifi-connect und
-wifi-forget an run() weiter. Der Szenario-Schluessel "network" im Zustand
-bestimmt den Ausgangszustand. Ausgabe und Fortschritt folgen dem Format des
-echten Helpers, damit der Go-Parser in dashboard/internal/netmgr sie liest.
+fake_journal_helper.py reicht network-status, wifi-scan, wifi-connect,
+wifi-forget, network-settings und hotspot-secret an run() weiter. Der
+Szenario-Schluessel "network" im Zustand bestimmt den Ausgangszustand. Ausgabe
+und Fortschritt folgen dem Format des echten Helpers, damit der Go-Parser in
+dashboard/internal/netmgr sie liest.
 
-Zwei Dateien neben dem Demo-Zustand halten, was sich im Lauf aendert:
+Drei Dateien neben dem Demo-Zustand halten, was sich im Lauf aendert:
 - network-links.json: gespeicherte WLAN-Profile und das verbundene Netz. Fehlt
   sie, gilt der Ausgangszustand des Szenarios. Ein erfolgreicher Connect fuegt
   sein Profil hinzu und verbindet, wifi-forget entfernt das Profil.
+- network-settings.json: Ersatzmodus und Hotspot-Schalter aus network-settings.
+  Fehlt sie, gelten parallel und an. Der Abruf network-status zeigt sie.
 - network-switch.json: der letzte Connect. Ein Connect legt sie an, jeder
   Abruf von network-status rechnet den Ablauf aus started_at neu aus: Schritte
   je 1,3 s, bei Erfolg nach 3,9 s, bei Fehlschlag nach 2,2 s mit
@@ -28,12 +31,20 @@ import uuid as uuid_mod
 from dataclasses import dataclass
 from pathlib import Path
 
-VERBS = ("network-status", "wifi-scan", "wifi-connect", "wifi-forget")
+VERBS = ("network-status", "wifi-scan", "wifi-connect", "wifi-forget", "network-settings",
+         "hotspot-secret")
 SECTIONS = ("managed", "country", "wifidev", "rfkill", "devices", "addr", "route", "dns",
             "speed", "wifi", "profiles", "hotspot", "settings", "switch")
 STAGED_NAME = "network-connect.staged.json"
 PROGRESS_NAME = "network-switch.json"
 LINKS_NAME = "network-links.json"
+SETTINGS_NAME = "network-settings.json"
+FALLBACK_MODES = ("parallel", "standby")
+DEFAULT_SETTINGS = {"fallback": "parallel", "hotspot": True}
+# The emergency hotspot of the demo node. The real helper reads hotspot.json,
+# which bootstrap 67 writes once. Without a state file there is no node, so 66.
+HOTSPOT_SSID = "EnergyNode-4F2A"
+HOTSPOT_PASSWORD = "Notfall2026Demo"
 STEPS = ("associate", "address", "gateway")
 STEP_SECONDS = 1.3
 REQUEST_LIMIT = 1024
@@ -46,7 +57,6 @@ LAN_ADDRESS = "192.168.178.40"
 WIFI_ADDRESS = "192.168.178.52"
 HOTSPOT_ADDRESS = "10.42.0.1"
 GATEWAY = "192.168.178.1"
-SETTINGS_JSON = '{"fallback":"parallel","hotspot":true}'
 UUID_RE = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 PASSWORD_RE = re.compile(r"[\x20-\x7e]{8,63}|[0-9a-fA-F]{64}")
 
@@ -118,6 +128,24 @@ def paths_for(state_path):
         return None, None, None
     base = Path(state_path).parent
     return base / "data" / STAGED_NAME, base / PROGRESS_NAME, base / LINKS_NAME
+
+
+def settings_path_for(links):
+    """Return the settings file next to the links file, or None without a state file."""
+    return None if links is None else Path(links).with_name(SETTINGS_NAME)
+
+
+def load_settings(links):
+    """Return the stored fallback and hotspot settings, or the defaults if missing or broken."""
+    doc = _read_json(settings_path_for(links))
+    if (isinstance(doc, dict) and doc.get("fallback") in FALLBACK_MODES
+            and isinstance(doc.get("hotspot"), bool)):
+        return {"fallback": doc["fallback"], "hotspot": doc["hotspot"]}
+    return dict(DEFAULT_SETTINGS)
+
+
+def _settings_text(settings):
+    return json.dumps(settings, separators=(",", ":"), ensure_ascii=False)
 
 
 def _stamp(ts):
@@ -366,11 +394,13 @@ def _switch_text(spec, progress, now):
     return json.dumps(view, separators=(",", ":"), ensure_ascii=False) if view else "{}"
 
 
-def status_text(scenario, progress, now, links=None):
-    """Return the network-status output for a scenario, the stored progress and the links."""
+def status_text(scenario, progress, now, links=None, settings=None):
+    """Return the network-status output for a scenario, the stored progress, links and settings."""
     spec = spec_of(scenario)
     if links is None:
         links = default_links(spec)
+    if settings is None:
+        settings = dict(DEFAULT_SETTINGS)
     connected = links["connected"] if spec.managed and spec.wifi_dev else None
     profiles = [tuple(p) for p in links["profiles"]] if spec.managed else []
     bodies = {
@@ -386,7 +416,7 @@ def status_text(scenario, progress, now, links=None):
         "wifi": _wifi_list(spec, connected),
         "profiles": _profile_text(profiles),
         "hotspot": _hotspot(connected),
-        "settings": SETTINGS_JSON,
+        "settings": _settings_text(settings),
         "switch": _switch_text(spec, progress, now),
     }
     out = []
@@ -442,6 +472,29 @@ def _forget(scenario, uuid, links):
     return 0, "", scenario
 
 
+def _settings_write(args, scenario, links):
+    """Return (exit code, output, scenario) for network-settings <fallback> <on|off>."""
+    if len(args) != 2:
+        return 64, "", scenario
+    fallback, hotspot = args
+    if fallback not in FALLBACK_MODES or hotspot not in ("on", "off"):
+        return 64, "", scenario
+    path = settings_path_for(links)
+    if path is None:
+        return 1, "", scenario
+    _write_json(path, {"fallback": fallback, "hotspot": hotspot == "on"})
+    return 0, "", scenario
+
+
+def _hotspot_secret(args, scenario, links):
+    """Return (exit code, output, scenario) for hotspot-secret, which prints ssid and password."""
+    if args:
+        return 64, "", scenario
+    if links is None:
+        return 66, "", scenario
+    return 0, "%s\n%s\n" % (HOTSPOT_SSID, HOTSPOT_PASSWORD), scenario
+
+
 def run(verb, args, scenario, staged, progress, links, now=None):
     """Answer one network verb. Return (exit code, stdout text, scenario after the call).
 
@@ -454,7 +507,13 @@ def run(verb, args, scenario, staged, progress, links, now=None):
             return 64, "", scenario
         scenario = _settle(scenario, progress, links, now)
         spec = spec_of(scenario)
-        return 0, status_text(scenario, load_progress(progress), now, load_links(links, spec)), scenario
+        text = status_text(scenario, load_progress(progress), now, load_links(links, spec),
+                           load_settings(links))
+        return 0, text, scenario
+    if verb == "network-settings":
+        return _settings_write(args, scenario, links)
+    if verb == "hotspot-secret":
+        return _hotspot_secret(args, scenario, links)
     if verb == "wifi-scan":
         if args:
             return 64, "", scenario
