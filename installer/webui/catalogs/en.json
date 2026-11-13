@@ -830,6 +830,7 @@
   "step.50": "Python packages",
   "step.60": "Dashboard and MQTT bridge",
   "step.65": "Dashboard configuration",
+  "step.67": "Network and emergency hotspot",
   "step.70": "HTTPS via Caddy",
   "stepper.configure": "Configuration",
   "stepper.connect": "Connection",

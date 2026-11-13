@@ -87,6 +87,9 @@ PY
 # os-release unterhalb von EN_ROOT ein (die des Testrechners bleibt aussen vor).
 mkdir -p "$tmp/root/etc"
 printf 'VERSION_CODENAME=bookworm\n' > "$tmp/root/etc/os-release"
+# Schritt 67 braucht eine Kennung fuer den Hotspot-Namen, wenn kein WLAN-Geraet
+# da ist (der Testrechner hat keins unter EN_SYSFS).
+printf 'a1b2c3d4e5f60718a9b0c1d2e3f40516\n' > "$tmp/root/etc/machine-id"
 
 printf 'geheim\n' > "$tmp/mqtt.pw"; chmod 600 "$tmp/mqtt.pw"
 printf 'geheim\n' > "$tmp/admin.pw"; chmod 600 "$tmp/admin.pw"
@@ -157,24 +160,31 @@ grep -q '^##STEP .* fail ' "$tmp/lauf1.log" \
 # --- Zustand einfrieren ----------------------------------------------------
 before="$(find "$tmp/root" -type f -exec sha256sum {} + | sort)"
 
-# --- zweiter Lauf: jeder Schritt meldet skip, ausser 65 -------------------
+# --- zweiter Lauf: jeder Schritt meldet skip, ausser 65 und 67 -----------
 # 65-dashboard-config.sh ist bewusst kein Skip-Schritt (siehe die Datei
 # selbst): die Dienstauswahl kann sich per Re-Deploy aendern, ohne dass die
 # Bundle-Version steigt, also schreibt er bei jedem Lauf neu und stoesst am
 # Ende einen (hier per Attrappe abgefangenen) systemctl try-restart an.
+# 67-network.sh schreibt das Hotspot-Profil ebenfalls bei jedem Lauf neu, damit
+# ein spaeter gesetzter Laendercode greift.
 : > "$CMD_LOG"
 run_chain "$tmp/lauf2.log"
 for id in "${STEP_IDS[@]}"; do
-  [ "$id" = "65" ] && continue
+  if [ "$id" = "65" ] || [ "$id" = "67" ]; then continue; fi
   grep -q "^##STEP $id skip bereits erledigt\$" "$tmp/lauf2.log" \
     || fail "Schritt $id im zweiten Lauf nicht uebersprungen" "$(cat "$tmp/lauf2.log")"
 done
 grep -q '^##STEP 65 ok$' "$tmp/lauf2.log" \
   || fail "Schritt 65 im zweiten Lauf nicht erneut ok" "$(cat "$tmp/lauf2.log")"
-grep -v '^##STEP 65 ' "$tmp/lauf2.log" | grep -q '^##STEP .* ok$' \
-  && fail "ein anderer Schritt als 65 lief im zweiten Lauf erneut" "$(cat "$tmp/lauf2.log")"
+grep -q '^##STEP 67 ok$' "$tmp/lauf2.log" \
+  || fail "Schritt 67 im zweiten Lauf nicht erneut ok" "$(cat "$tmp/lauf2.log")"
+grep -vE '^##STEP (65|67) ' "$tmp/lauf2.log" | grep -q '^##STEP .* ok$' \
+  && fail "ein anderer Schritt als 65 und 67 lief im zweiten Lauf erneut" "$(cat "$tmp/lauf2.log")"
 if [ -s "$CMD_LOG" ]; then
-  [ "$(cat "$CMD_LOG")" = "systemctl try-restart energy-node-dashboard.service" ] \
+  # Schritt 67 ruft daemon-reload und den Timer-Start auf; alles andere darf
+  # nur den try-restart des Dashboards anstossen.
+  rest="$(grep -vE '^systemctl (daemon-reload|enable --now energy-node-network-watch.timer)$' "$CMD_LOG" || true)"
+  [ "$rest" = "systemctl try-restart energy-node-dashboard.service" ] \
     || fail "zweiter Lauf hat unerwartete Systemkommandos aufgerufen" "$(cat "$CMD_LOG")"
 fi
 

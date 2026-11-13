@@ -114,12 +114,13 @@ PY
 
 # Fingerabdruecke: jeder Schritt hat einen, nur die, die bewusst je
 # Bundle-Version laufen, nicht (15 Systemupdates, 17 Journal, das auch eine
-# Abwahl zuruecknimmt, 35 haengt am Port aus config.json, 65 schreibt immer).
+# Abwahl zuruecknimmt, 35 haengt am Port aus config.json, 65 und 67 schreiben
+# immer).
 python3 - "$extract" <<'PY'
 import json, pathlib, sys
 
 manifest = json.loads((pathlib.Path(sys.argv[1]) / "manifest.json").read_text(encoding="utf-8"))
-per_version = {"15", "17", "35", "65"}
+per_version = {"15", "17", "35", "65", "67"}
 for step in manifest["steps"]:
     has = bool(step.get("fingerprint"))
     if has == (step["id"] in per_version):
