@@ -1,11 +1,14 @@
 # Changelog
 
-## v0.3.3-pre.2 (2026-11-06)
+## v0.3.3-pre.3 (2026-11-06)
 
 ### Features
 
 - **energy:** add measurement chains with substitute values (#215) (0457bcc)
 - **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236) (6d169d7)
+- **network:** add the emergency hotspot bootstrap step (d30f816)
+- **installer:** show the emergency hotspot credentials after install (df40283)
+- **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239)
 - **webui:** add the media API and its fake (5a7025d)
 - **webui:** add the media entry to the shell (c6b1e3e)
 - **webui:** add the pure helpers of the media mode (d7295e0)
@@ -31,6 +34,7 @@
 
 ### Fixes
 
+- **installer:** show the hotspot credentials after every successful run (bbeac07)
 - **webui:** bust the asset cache on every asset change (90fcdf8)
 - **webui:** keep the language switch on the media screens (040d376)
 - **webui:** center the radio dot and color the spinners of the media mode (dbf5347)

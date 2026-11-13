@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.12-pre.7 (2026-11-06)
+## v0.11.12-pre.8 (2026-11-06)
 
 ### Features
 
@@ -10,11 +10,25 @@
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **energy:** suggest measurement chains and offer chain sensors to Home Assistant (#229) (8e5d0a6)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
-- **network:** check LAN and connect the node to Wi-Fi in the settings (#238)
+- **network:** check LAN and connect the node to Wi-Fi in the settings (#238) (d6dc893)
+- **network:** add the network watcher (09683dd)
+- **network:** add the emergency hotspot bootstrap step (d30f816)
+- **network:** store fallback and hotspot settings in the helper (331b6df)
+- **network:** add settings and hotspot secret to the network API (8ae08ea)
+- **network:** choose wifi fallback and manage the hotspot from the page (ae5be87)
+- **network:** show the hotspot password and the Wi-Fi standby on the page (fcb3859)
+- **demo:** switch cable, Wi-Fi module, login and network in the fake console (0fe91fb)
+- **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239)
 - **storage:** check the drive on demand and refresh the pages when they open (7358e23)
+
+### Fixes
+
+- **updaterhost:** implement the hotspot lookup of the installer backend (ccfb570)
+- **netmgr:** read the hotspot secret without a trailing newline (74376f1)
 
 ### Tests
 
+- **network:** smoke the fallback settings and the hotspot secret (e3c2f4b)
 - **webui:** know the storage page in the tour target test (8c10d07)
 
 ## v0.11.11 (2026-11-11)

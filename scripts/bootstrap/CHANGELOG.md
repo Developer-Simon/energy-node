@@ -1,10 +1,12 @@
 # Changelog
 
-## v0.3.3-pre.1 (2026-11-12)
+## v0.3.3-pre.2 (2026-11-13)
 
 ### Features
 
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
+- **network:** add the emergency hotspot bootstrap step (d30f816)
+- **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239)
 
 ## v0.3.2 (2026-11-07)
 
