@@ -1132,7 +1132,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=49"`,
+		`href="/node/static/css/base.css?v=50"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -4655,6 +4655,8 @@ func TestPanelPlaceholdersCarrySkeletons(t *testing.T) {
 		{"devicemap-panel", []string{"sk-graph"}},
 		{"automations-panel", []string{"sk-entry sk-spark", "sk-acc"}},
 		{"settings-panel", []string{"sk-form", "sk-line"}},
+		{"devices-panel", []string{"sk-chips", "sk-shell"}},
+		{"efficiency-panel", []string{"sk-chart", "sk-list"}},
 	}
 	for _, panel := range panels {
 		marker := `id="` + panel.id + `"`
