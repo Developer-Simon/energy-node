@@ -144,6 +144,14 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 		defer cleanupSecrets()
 		scriptCommand += extraArgs
 	}
+	if step.ID == hotspotStepID && opts.Secrets != nil {
+		extraArgs, cleanupHotspot, err := stageSecretForStep67(opts.Client, opts.Secrets)
+		if err != nil {
+			return Marker{}, err
+		}
+		defer cleanupHotspot()
+		scriptCommand += extraArgs
+	}
 	command := transport.BuildCommand(env, scriptCommand)
 
 	var terminal Marker
