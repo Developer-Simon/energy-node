@@ -204,8 +204,6 @@
     panelRequests: {},
     editorAssetsPromise: null,
     panelErrors: {},
-    loadedScripts: new Set(),
-    loadedStyles: new Set(),
     liveSource: null,
     liveFallback: null,
     // Die Themen, mit denen liveSource geoeffnet ist. null heisst: noch nie
@@ -326,67 +324,35 @@
       this.panelRequests[panel] = request;
       delete this.panelErrors[panel];
       try {
-        // No dashboardPath() here: source comes from data-panel-src, which the
-        // template already emitted with the base prefix. Rule of thumb -
-        // template URLs arrive prefixed, JS literals prefix themselves.
-        const response = await fetch(source, {headers: {'X-Requested-With': 'XMLHttpRequest'}, signal: request.signal});
-        if (!response.ok) throw new Error(t('panel.load_failed', {code: response.status}));
-        const html = await response.text();
-        if (this.activePanel !== panel) return;
-        await this.loadAsset(container.dataset.panelCss, 'style');
-        await this.loadAsset(container.dataset.panelScript, 'script');
-        container.outerHTML = html;
-        const loaded = document.getElementById(panel);
+        // data-panel-src is already prefixed by the template, so the loader
+        // gets it verbatim (no dashboardPath() here).
+        const loaded = await window.dashboardFragments.load(container, {
+          src: source,
+          css: container.dataset.panelCss,
+          script: container.dataset.panelScript,
+          swap: 'outer',
+          signal: request.signal,
+          isCurrent: () => this.activePanel === panel,
+        });
         if (loaded) {
           loaded.dataset.panelLoaded = 'true';
           this.syncLiveTopics();
         }
       } catch (error) {
-        if (error.name !== 'AbortError') {
-          this.panelErrors[panel] = error.message;
-          const message = container.querySelector('[data-panel-loading]');
-          if (message) message.textContent = error.message;
-        }
+        if (error.name !== 'AbortError') this.panelErrors[panel] = error.message;
       } finally {
         delete this.panelRequests[panel];
       }
     },
 
-    // Accepts a comma-separated list so dependent scripts (e.g. flatpickr
-    // before its German locale, which registers itself on window.flatpickr)
-    // load one after another instead of racing.
+    // Thin forwarders: the loader state lives at module level (see
+    // dashboardFragments below), tests and the editor still call these here.
     loadAsset(source, type) {
-      const sources = (source || '').split(',').map(part => part.trim()).filter(Boolean);
-      return sources.reduce((chain, url) => chain.then(() => this.loadSingleAsset(url, type)), Promise.resolve());
+      return loadAssetList(source, type);
     },
 
-    // No withBase() here either: source is a data-panel-script/-css entry and
-    // therefore already prefixed by the template.
     loadSingleAsset(source, type) {
-      if ((type === 'style' ? this.loadedStyles : this.loadedScripts).has(source)) return Promise.resolve();
-      // Kartenskripte (EnergyCardScripts) stehen als feste <script src> in
-      // base.html und kennt loadedScripts nicht. Gleiche URL heisst gleiche
-      // Datei - ein zweites Ausfuehren von ApexCharts waere nur teuer.
-      if (type === 'script' && [...document.scripts].some(script => script.getAttribute('src') === source)) {
-        this.loadedScripts.add(source);
-        return Promise.resolve();
-      }
-      return new Promise((resolve, reject) => {
-        const asset = document.createElement(type === 'style' ? 'link' : 'script');
-        if (type === 'style') {
-          asset.rel = 'stylesheet';
-          asset.href = source;
-        } else {
-          asset.src = source;
-          asset.defer = true;
-        }
-        asset.onload = () => {
-          (type === 'style' ? this.loadedStyles : this.loadedScripts).add(source);
-          resolve();
-        };
-        asset.onerror = () => reject(new Error(t('panel.asset_load_failed', {url: source})));
-        document.head.append(asset);
-      });
+      return loadOneAsset(source, type);
     },
 
     // Die Editor-Abhaengigkeiten kommen erst beim ersten Druck auf Editieren.
@@ -1590,6 +1556,94 @@
       observer.observe(el, {childList: true, characterData: true, subtree: true});
       cleanup(() => observer.disconnect());
     });
+  };
+
+  // Gemeinsamer Lader fuer nachgeladene Fragmente (Panels, Settings-Unterseiten).
+  // Auf Modulebene, damit settings.page.js und onboarding.js ihn schon
+  // vorfinden, bevor Alpine startet. Jede Skript- und Style-URL laeuft pro
+  // Seite nur einmal.
+  const loadedScripts = new Set();
+  const loadedStyles = new Set();
+  const ARRIVAL_MS = 400;
+
+  // No withBase() here: source is a data-panel-script/-css entry and therefore
+  // already prefixed by the template.
+  function loadOneAsset(source, type) {
+    if ((type === 'style' ? loadedStyles : loadedScripts).has(source)) return Promise.resolve();
+    // Kartenskripte (EnergyCardScripts) stehen als feste <script src> in
+    // base.html und kennt loadedScripts nicht. Gleiche URL heisst gleiche
+    // Datei - ein zweites Ausfuehren von ApexCharts waere nur teuer.
+    if (type === 'script' && [...document.scripts].some(script => script.getAttribute('src') === source)) {
+      loadedScripts.add(source);
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      const asset = document.createElement(type === 'style' ? 'link' : 'script');
+      if (type === 'style') {
+        asset.rel = 'stylesheet';
+        asset.href = source;
+      } else {
+        asset.src = source;
+        asset.defer = true;
+      }
+      asset.onload = () => {
+        (type === 'style' ? loadedStyles : loadedScripts).add(source);
+        resolve();
+      };
+      asset.onerror = () => reject(new Error(t('panel.asset_load_failed', {url: source})));
+      document.head.append(asset);
+    });
+  }
+
+  // Accepts a comma-separated list so dependent scripts (e.g. flatpickr
+  // before its German locale, which registers itself on window.flatpickr)
+  // load one after another instead of racing.
+  function loadAssetList(source, type) {
+    const sources = (source || '').split(',').map(part => part.trim()).filter(Boolean);
+    return sources.reduce((chain, url) => chain.then(() => loadOneAsset(url, type)), Promise.resolve());
+  }
+
+  window.dashboardFragments = {
+    // swap 'outer' ersetzt das Element durch das Fragment und liefert das neue
+    // Element mit derselben id; 'inner' tauscht nur den Inhalt und liefert den
+    // Container. isCurrent() false nach dem Fetch: nichts einhaengen, null.
+    // Fehler werfen und in [data-panel-loading] anzeigen, ausser AbortError.
+    async load(container, {src, css = '', script = '', swap = 'outer', signal, isCurrent = () => true} = {}) {
+      const id = container.id;
+      try {
+        const response = await fetch(src, {headers: {'X-Requested-With': 'XMLHttpRequest'}, signal});
+        if (!response.ok) throw new Error(t('panel.load_failed', {code: response.status}));
+        const html = await response.text();
+        if (!isCurrent()) return null;
+        await loadAssetList(css, 'style');
+        await loadAssetList(script, 'script');
+        let result = container;
+        if (swap === 'inner') {
+          container.innerHTML = html;
+        } else {
+          container.outerHTML = html;
+          result = id ? document.getElementById(id) : null;
+        }
+        if (!result) return null;
+        result.removeAttribute('aria-busy');
+        // Timer statt animationend: bei reduzierter Bewegung laeuft kein
+        // Transform, und dann kaeme kein Ereignis.
+        result.classList.add('is-arriving');
+        setTimeout(() => result.classList.remove('is-arriving'), ARRIVAL_MS);
+        return result;
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          const message = container.querySelector('[data-panel-loading]');
+          if (message) message.textContent = error.message;
+          container.querySelector('.sk-layer')?.remove();
+        }
+        throw error;
+      }
+    },
+
+    loadAsset(source, type) {
+      return loadAssetList(source, type);
+    },
   };
 
   document.addEventListener('alpine:init', () => {

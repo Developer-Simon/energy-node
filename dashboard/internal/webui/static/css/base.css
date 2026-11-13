@@ -2123,3 +2123,100 @@ small { color: var(--text-muted); }
 .no-access-icon { width: 28px; height: 28px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .no-access-title { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
 .no-access-body { margin: 0; color: var(--text-muted); line-height: 1.5; }
+
+/* ================= Das Skeleton-Vokabular (eine Datei, base.css) ================= */
+:root {
+  --sk-fill: color-mix(in srgb, var(--text) 9%, transparent);
+  --sk-glow: color-mix(in srgb, var(--text) 13%, transparent);
+  --sk-row: 46px;
+  /* abgerundete Formen als winzige Inline-SVGs, gecacht mit dem CSS */
+  --sk-pill: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='6'/%3E%3C/svg%3E");
+  --sk-label: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect y='17' width='100%25' height='11' rx='5.5'/%3E%3C/svg%3E");
+  --sk-ctrl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect y='12' width='100%25' height='22' rx='11'/%3E%3C/svg%3E");
+  --sk-dot: radial-gradient(circle at 14px 23px, #000 12px, transparent 12.5px);
+}
+/* Jede Form zeichnet ihre Flaeche ueber ::before, alle teilen Fuellung + Bewegung */
+.sk { position: relative; }
+.sk::before, .sk-form::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit;
+  -webkit-mask: var(--sk-shape, none); mask: var(--sk-shape, none);
+  background: linear-gradient(100deg, var(--sk-fill) 40%, var(--sk-glow) 50%, var(--sk-fill) 60%) fixed;
+  background-size: 200vw 100%;
+  /* E: leiser Saum + flaches Atmen. Der Saum startet sofort links im Bild
+     (negative Verzoegerung), laeuft in ~1,7 s durch und pausiert kurz. */
+  animation: sk-sweep 2.4s linear -.25s infinite, sk-breathe 1.8s ease-in-out infinite alternate;
+}
+@keyframes sk-sweep {
+  0%   { background-position: -120vw 0; }
+  70%  { background-position: 20vw 0; }
+  100% { background-position: 20vw 0; }
+}
+@keyframes sk-breathe { from { opacity: .72; } to { opacity: 1; } }
+
+/* Erscheint erst nach 160 ms, damit schnelle Ladungen nicht blitzen */
+.sk-layer { animation: sk-in .2s var(--ease-out) .16s both; }
+@keyframes sk-in { from { opacity: 0; } to { opacity: 1; } }
+.is-arriving > *, .is-arriving .settings-cards > * { animation: card-in .26s var(--ease-out) both; }
+.is-arriving > *:nth-child(2), .is-arriving .settings-cards > *:nth-child(2) { animation-delay: .04s; }
+.is-arriving > *:nth-child(3), .is-arriving .settings-cards > *:nth-child(3) { animation-delay: .08s; }
+@keyframes card-in { from { opacity: 0; transform: translateY(6px) scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .sk::before, .sk-form::after { animation: none; }
+  .is-arriving > *, .is-arriving .settings-cards > * { animation: sk-in .2s ease both; }
+}
+
+/* Bausteine */
+.sk-shell { padding: 1rem 1.1rem 1.1rem; border: 1px solid var(--border-soft); border-top-color: rgba(255,255,255,.13); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--panel) 68%, transparent); box-shadow: 0 .3rem 1rem rgba(0,0,0,.12); }
+/* Einstellungskachel: Kopf (Titel, Notiz) im ::before, Zeilen im ::after,
+   damit sich wiederholende Zeilen nicht in den Kopf ragen */
+.sk-form { height: calc(3.2rem + var(--sk-rows, 3) * var(--sk-row)); }
+.sk-form::before { bottom: auto; height: 3.2rem; --sk-shape:
+  var(--sk-pill) 0 0 / 42% 14px no-repeat,
+  var(--sk-pill) 0 24px / 72% 9px no-repeat; }
+.sk-form::after { top: 3.2rem; --sk-shape:
+  var(--sk-label) 0 0 / 38% var(--sk-row) repeat-y,
+  var(--sk-ctrl) 100% 0 / 26% var(--sk-row) repeat-y; }
+/* Liste: Symbol, zwei Zeilen, Pille rechts */
+.sk-list { height: calc(var(--sk-rows, 4) * var(--sk-row)); --sk-shape:
+  var(--sk-dot) 0 0 / 100% var(--sk-row) repeat-y,
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect y='11' width='100%25' height='10' rx='5'/%3E%3C/svg%3E") 40px 0 / 34% var(--sk-row) repeat-y,
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect y='27' width='100%25' height='8' rx='4'/%3E%3C/svg%3E") 40px 0 / 52% var(--sk-row) repeat-y,
+  var(--sk-ctrl) 100% 0 / 72px var(--sk-row) repeat-y; }
+/* Chip-Leiste */
+.sk-chips { height: 30px; width: min(100%, calc(var(--sk-n, 4) * 88px - 12px)); --sk-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='76' height='30' rx='15'/%3E%3C/svg%3E") 0 0 / 88px 30px repeat-x; }
+/* Diagramm: Flaeche mit Gitterlinien und einer weichen Kurve */
+.sk-chart { height: var(--sk-h, 280px); border-radius: var(--radius-md); --sk-shape:
+  linear-gradient(#000 0 1px, transparent 0) 0 0 / 100% 25% repeat-y,
+  url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%2040'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0%2030C10%2026%2018%2012%2030%2016S48%2034%2060%2024S82%206%20100%2014L100%2040L0%2040Z'/%3E%3C/svg%3E") 0 100% / 100% 70% no-repeat; }
+/* Balkendiagramm */
+.sk-bars { height: var(--sk-h, 220px); --sk-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 60' preserveAspectRatio='none'%3E%3Cg%3E%3Crect x='2' y='30' width='11' height='30' rx='1.5'/%3E%3Crect x='17' y='18' width='11' height='42' rx='1.5'/%3E%3Crect x='32' y='36' width='11' height='24' rx='1.5'/%3E%3Crect x='47' y='12' width='11' height='48' rx='1.5'/%3E%3Crect x='62' y='26' width='11' height='34' rx='1.5'/%3E%3Crect x='77' y='8' width='11' height='52' rx='1.5'/%3E%3Crect x='92' y='22' width='11' height='38' rx='1.5'/%3E%3Crect x='107' y='34' width='11' height='26' rx='1.5'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 100% no-repeat; }
+/* Akkordeon-Zeile: Symbol, Titel, Chip, Pfeil */
+.sk-acc { height: 54px; --sk-shape:
+  radial-gradient(circle at 16px 27px, #000 13px, transparent 13.5px),
+  var(--sk-pill) 44px 21px / 30% 12px no-repeat,
+  var(--sk-pill) calc(100% - 40px) 18px / 70px 18px no-repeat,
+  var(--sk-pill) 100% 22px / 14px 10px no-repeat; }
+/* Geraetekarte: Knoten und Kanten */
+.sk-graph { height: var(--sk-h, 380px); --sk-shape: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 240' preserveAspectRatio='xMidYMid meet'%3E%3Cg stroke='%23000' stroke-width='2' fill='none'%3E%3Cpath d='M200 120 L90 60 M200 120 L310 60 M200 120 L90 185 M200 120 L310 185 M200 120 L200 32'/%3E%3C/g%3E%3Crect x='170' y='96' width='60' height='48' rx='12'/%3E%3Crect x='62' y='40' width='56' height='40' rx='10'/%3E%3Crect x='282' y='40' width='56' height='40' rx='10'/%3E%3Crect x='62' y='165' width='56' height='40' rx='10'/%3E%3Crect x='282' y='165' width='56' height='40' rx='10'/%3E%3Ccircle cx='200' cy='26' r='14'/%3E%3C/svg%3E") center / contain no-repeat; }
+/* Automationen-Eintrag: Kachel-Symbol, Name, Vorschauzeile, Pille, Schalter.
+   Mit --sk-spark:1 (Szenario) kommt darunter eine Verlaufsspur dazu. */
+.sk-entry { height: 64px; --sk-shape:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' rx='11'/%3E%3C/svg%3E") 0 12px / 40px 40px no-repeat,
+  var(--sk-pill) 54px 16px / 28% 12px no-repeat,
+  var(--sk-pill) 54px 36px / 46% 9px no-repeat,
+  var(--sk-pill) calc(100% - 62px) 22px / 64px 20px no-repeat,
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='24' rx='12'/%3E%3C/svg%3E") 100% 20px / 40px 24px no-repeat; }
+.sk-entry.sk-spark { height: 104px; --sk-shape:
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' rx='11'/%3E%3C/svg%3E") 0 12px / 40px 40px no-repeat,
+  var(--sk-pill) 54px 16px / 28% 12px no-repeat,
+  var(--sk-pill) 54px 36px / 46% 9px no-repeat,
+  var(--sk-pill) calc(100% - 62px) 22px / 64px 20px no-repeat,
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='24' rx='12'/%3E%3C/svg%3E") 100% 20px / 40px 24px no-repeat,
+  url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%2010'%20preserveAspectRatio='none'%3E%3Cpath%20d='M0%208C12%208%2016%203%2028%204S44%209%2056%207S78%201%20100%205L100%2010L0%2010Z'/%3E%3C/svg%3E") 54px 100% / calc(100% - 54px) 28px no-repeat; }
+/* Freie Pille (Ueberschrift, Statuszeile) */
+.sk-line { height: var(--sk-h, 12px); width: var(--sk-w, 40%); border-radius: 999px; --sk-shape: none; }
+.sk-seg { height: 34px; width: var(--sk-w, 280px); border-radius: 999px; }
+/* Zwei Spalten (Seitenleiste plus Inhalt), am Handy einspaltig */
+.sk-split { display: grid; grid-template-columns: 220px 1fr; gap: 1rem; }
+@media (max-width: 720px) { .sk-split { grid-template-columns: 1fr; } }
+
