@@ -18,6 +18,7 @@
 - **network:** choose wifi fallback and manage the hotspot from the page (ae5be87)
 - **network:** show the hotspot password and the Wi-Fi standby on the page (fcb3859)
 - **demo:** switch cable, Wi-Fi module, login and network in the fake console (0fe91fb)
+- **network:** mark the fallback and hotspot cards as tour targets (da22e87)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239)
 - **storage:** check the drive on demand and refresh the pages when they open (7358e23)
 
