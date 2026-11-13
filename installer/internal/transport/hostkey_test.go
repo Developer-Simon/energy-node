@@ -174,3 +174,22 @@ func TestPinHostKeyCreatesTheFile(t *testing.T) {
 		t.Fatalf("mode = %o, want 0600", mode)
 	}
 }
+
+func TestAlgorithmsFollowThePinnedKeyType(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "known_hosts")
+	if err := PinHostKey(path, "energy-node.local", fakePublicKey(t)); err != nil {
+		t.Fatalf("PinHostKey: %v", err)
+	}
+	store := NewHostKeyStore(path)
+
+	got := store.Algorithms("energy-node.local")
+	if len(got) != 1 || got[0] != ssh.KeyAlgoED25519 {
+		t.Fatalf("Algorithms(pinned host) = %v, want [%s]", got, ssh.KeyAlgoED25519)
+	}
+	if got := store.Algorithms("energy-node.local:22"); len(got) != 1 {
+		t.Fatalf("Algorithms with port = %v, want one entry", got)
+	}
+	if got := store.Algorithms("unknown.local"); got != nil {
+		t.Fatalf("Algorithms(unknown host) = %v, want nil", got)
+	}
+}

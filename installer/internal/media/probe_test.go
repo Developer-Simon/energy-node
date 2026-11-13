@@ -2,7 +2,9 @@ package media
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"errors"
 	"net"
@@ -65,9 +67,9 @@ func testSigner(t *testing.T) (ssh.Signer, ssh.PublicKey) {
 	return signer, sshPub
 }
 
-// startSSHServer runs a minimal SSH server that offers hostKey and refuses
+// startSSHServer runs a minimal SSH server that offers hostKeys and refuses
 // every login, so Probe sees the key and the handshake ends there.
-func startSSHServer(t *testing.T, hostKey ssh.Signer) string {
+func startSSHServer(t *testing.T, hostKeys ...ssh.Signer) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -79,7 +81,9 @@ func startSSHServer(t *testing.T, hostKey ssh.Signer) string {
 			return nil, errors.New("login refused")
 		},
 	}
-	cfg.AddHostKey(hostKey)
+	for _, k := range hostKeys {
+		cfg.AddHostKey(k)
+	}
 	go func() {
 		for {
 			conn, err := ln.Accept()
@@ -105,6 +109,26 @@ func TestProbeComparesTheHostKey(t *testing.T) {
 	}
 	if got := Probe(context.Background(), addr, keyB); got != (Reachability{Reachable: true, KeyMatches: false}) {
 		t.Fatalf("Probe(want=B) = %+v, want {true false}", got)
+	}
+}
+
+// A Pi's sshd usually offers several host keys. The installer pins only the
+// ed25519 one, so Probe must ask for that key type and not take whatever the
+// client prefers (Go prefers ECDSA and RSA over ed25519).
+func TestProbeMatchesThePinnedKeyAmongSeveralHostKeys(t *testing.T) {
+	edSigner, edPub := testSigner(t)
+	ecKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("ecdsa key: %v", err)
+	}
+	ecSigner, err := ssh.NewSignerFromKey(ecKey)
+	if err != nil {
+		t.Fatalf("ecdsa signer: %v", err)
+	}
+	addr := startSSHServer(t, ecSigner, edSigner)
+
+	if got := Probe(context.Background(), addr, edPub); got != (Reachability{Reachable: true, KeyMatches: true}) {
+		t.Fatalf("Probe(pinned ed25519) = %+v, want {true true}", got)
 	}
 }
 

@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Installer: Hostschlüssel beim Prüfen und Anmelden passend zum gepinnten Typ anfordern"
+  },
+  "en": {
+    "*": "Ask for the pinned host key type when probing and signing in"
+  }
+}

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.3-pre.2 (2026-11-13)
+## v0.3.3-pre.3 (2026-11-13)
 
 ### Features
 
@@ -31,6 +31,7 @@
 
 ### Fixes
 
+- **installer:** ask for the pinned host key type when probing and signing in (#241)
 - **installer:** keep the media cache check cheap (5553171)
 - **installer:** read the Wi-Fi name without a rescan and keep its band (092e503)
 - **installer:** unblock Wi-Fi on Raspberry Pi OS by setting its country (ffb360a)
