@@ -1,0 +1,174 @@
+#!/bin/sh
+# energy-node-network-watch: keeps the WLAN fallback and the emergency hotspot
+# in line with the LAN. Runs every 15 s from energy-node-network-watch.timer.
+#
+# Settings come from /etc/energy-node/network.json: fallback "parallel" (the
+# default) or "standby", hotspot true (the default) or false. The state is kept
+# as epoch timestamps under /run/energy-node/network-watch/.
+#
+# Test hooks: NOW (epoch seconds, default date +%s), NETWORK_JSON, STATE_DIR and
+# SYSFS (default /sys). nmcli, ip, iw, systemctl and python3 are looked up on
+# PATH, so a test can stub them.
+set -u
+
+NETWORK_JSON="${NETWORK_JSON:-/etc/energy-node/network.json}"
+STATE_DIR="${STATE_DIR:-/run/energy-node/network-watch}"
+SYSFS="${SYSFS:-/sys}"
+WLAN_DEV=wlan0
+LAN_DEV=eth0
+HOTSPOT=energy-node-hotspot
+SWITCH_UNIT=energy-node-wifi-switch.service
+LAN_GRACE_S=30
+HOTSPOT_AFTER_S=300
+CONNECT_WAIT_S=60
+
+# While the helper runs a WLAN switch, the watcher leaves the network alone.
+if systemctl is-active --quiet "$SWITCH_UNIT"; then
+  exit 0
+fi
+
+# Without NetworkManager there is nothing to steer.
+if ! command -v nmcli >/dev/null 2>&1; then
+  exit 0
+fi
+
+now="${NOW:-$(date +%s)}"
+mkdir -p "$STATE_DIR" || exit 0
+
+settings="$(python3 -c '
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as f:
+        doc = json.load(f)
+except (OSError, ValueError):
+    doc = {}
+if not isinstance(doc, dict):
+    doc = {}
+fallback = doc.get("fallback")
+if fallback not in ("parallel", "standby"):
+    fallback = "parallel"
+hotspot = "false" if doc.get("hotspot") is False else "true"
+print(fallback, hotspot)
+' "$NETWORK_JSON" 2>/dev/null)" || settings="parallel true"
+fallback="${settings% *}"
+hotspot="${settings#* }"
+
+lan_up=no
+if [ "$(cat "$SYSFS/class/net/$LAN_DEV/carrier" 2>/dev/null)" = 1 ] &&
+  ip -4 -o addr show dev "$LAN_DEV" 2>/dev/null | grep -q inet; then
+  lan_up=yes
+fi
+
+wlan_dev=no
+if [ -e "$SYSFS/class/net/$WLAN_DEV/wireless" ]; then
+  wlan_dev=yes
+fi
+
+wlan_up=no
+if nmcli -t -f DEVICE,STATE device 2>/dev/null | grep -qx "$WLAN_DEV:connected"; then
+  wlan_up=yes
+fi
+
+hotspot_active=no
+if nmcli -t -f NAME connection show --active 2>/dev/null | grep -qx "$HOTSPOT"; then
+  hotspot_active=yes
+fi
+
+# since NAME prints the seconds since the timestamp NAME was set. It fails when
+# the timestamp is missing or broken.
+since() {
+  value="$(cat "$STATE_DIR/$1" 2>/dev/null)"
+  case "$value" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  echo $((now - value))
+}
+
+# stamp_start NAME sets the timestamp to now, unless it is already there.
+stamp_start() {
+  if ! since "$1" >/dev/null; then
+    echo "$now" > "$STATE_DIR/$1"
+  fi
+}
+
+stamp_clear() {
+  rm -f "$STATE_DIR/$1"
+}
+
+hotspot_down() {
+  nmcli connection down id "$HOTSPOT" >/dev/null 2>&1 || true
+}
+
+hotspot_up() {
+  nmcli connection up id "$HOTSPOT" >/dev/null 2>&1 || true
+  echo "$now" > "$STATE_DIR/hotspot_since"
+}
+
+wlan_connected() {
+  nmcli -t -f DEVICE,STATE device 2>/dev/null | grep -qx "$WLAN_DEV:connected"
+}
+
+# WLAN as a replacement for a lost LAN, or always on in parallel mode.
+if [ "$fallback" = standby ]; then
+  if [ "$lan_up" = yes ]; then
+    stamp_clear lan_lost_at
+    if [ "$wlan_dev" = yes ]; then
+      nmcli device set "$WLAN_DEV" autoconnect no >/dev/null 2>&1 || true
+      nmcli device disconnect "$WLAN_DEV" >/dev/null 2>&1 || true
+    fi
+  else
+    stamp_start lan_lost_at
+    lost="$(since lan_lost_at)"
+    if [ "$lost" -ge "$LAN_GRACE_S" ] && [ "$wlan_dev" = yes ]; then
+      nmcli device set "$WLAN_DEV" autoconnect yes >/dev/null 2>&1 || true
+      nmcli device connect "$WLAN_DEV" >/dev/null 2>&1 || true
+    fi
+  fi
+else
+  stamp_clear lan_lost_at
+  if [ "$wlan_dev" = yes ]; then
+    nmcli device set "$WLAN_DEV" autoconnect yes >/dev/null 2>&1 || true
+  fi
+fi
+
+# Emergency hotspot. offline_since counts the time without LAN and without WLAN.
+if [ "$lan_up" = yes ] || [ "$wlan_up" = yes ]; then
+  stamp_clear offline_since
+else
+  stamp_start offline_since
+fi
+
+if [ "$hotspot_active" = yes ]; then
+  if [ "$lan_up" = yes ] || [ "$hotspot" = false ]; then
+    hotspot_down
+    stamp_clear hotspot_since
+  else
+    stamp_start hotspot_since
+    # Without a readable station list the state is unknown: leave the hotspot alone.
+    if clients_out="$(iw dev "$WLAN_DEV" station dump 2>/dev/null)"; then
+      clients="$(printf '%s\n' "$clients_out" | grep -c '^Station')"
+      opened="$(since hotspot_since)"
+      if [ "$clients" -eq 0 ] && [ "$opened" -ge "$HOTSPOT_AFTER_S" ]; then
+        # Nobody is connected: try the saved WLAN networks once more.
+        hotspot_down
+        nmcli --wait "$CONNECT_WAIT_S" device connect "$WLAN_DEV" >/dev/null 2>&1 || true
+        if wlan_connected; then
+          stamp_clear hotspot_since
+        else
+          hotspot_up
+        fi
+      fi
+    fi
+  fi
+else
+  if [ "$hotspot" = true ] && [ "$wlan_dev" = yes ] && [ "$lan_up" = no ] && [ "$wlan_up" = no ]; then
+    offline="$(since offline_since)"
+    retry=yes
+    last="$(since hotspot_since)" && [ "$last" -lt "$HOTSPOT_AFTER_S" ] && retry=no
+    if [ "$offline" -ge "$HOTSPOT_AFTER_S" ] && [ "$retry" = yes ]; then
+      hotspot_up
+    fi
+  fi
+fi
+
+exit 0
