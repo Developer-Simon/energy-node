@@ -14,6 +14,8 @@
       adminPassword: '',
       showMqtt: false,
       showAdmin: false,
+      hotspotPassword: '',
+      showHotspot: false,
       targetUser: '',
       targetBase: '',
       busy: false,
@@ -51,6 +53,7 @@
             this.steps = Object.assign({}, kept.steps);
             this.mqttPassword = kept.mqttPassword;
             this.adminPassword = kept.adminPassword;
+            this.hotspotPassword = kept.hotspotPassword || '';
           }
         } catch (err) {
           this.shell.fail(err);
@@ -75,9 +78,19 @@
         window.Services.dropUnmet(this.manifest, this.steps);
       },
 
+      // Leer heisst "der Node erzeugt eins". Sonst gilt die Regel des Helpers:
+      // 8 bis 63 druckbare ASCII-Zeichen oder genau 64 Hex-Ziffern.
+      get hotspotPasswordValid() {
+        var value = this.hotspotPassword;
+        if (value === '' || /^[0-9a-fA-F]{64}$/.test(value)) {
+          return true;
+        }
+        return value.length >= 8 && value.length <= 63 && /^[\x20-\x7e]+$/.test(value);
+      },
+
       get canStart() {
         return !this.busy && !!this.manifest && !!this.mqttUser && !!this.mqttPassword &&
-          !!this.adminPassword && !!this.targetUser && !!this.targetBase;
+          !!this.adminPassword && !!this.targetUser && !!this.targetBase && this.hotspotPasswordValid;
       },
 
       get canApply() {
@@ -96,6 +109,7 @@
           mqttUser: this.mqttUser,
           mqttPassword: this.mqttPassword,
           adminPassword: this.adminPassword,
+          hotspotPassword: this.hotspotPassword,
           targetUser: this.targetUser,
           targetBase: this.targetBase,
         };

@@ -234,6 +234,8 @@
             mqtt_user: input.mqttUser,
             mqtt_password: input.mqttPassword,
             admin_password: input.adminPassword,
+            // Ohne Eingabe fehlt der Schluessel: Schritt 67 erzeugt dann eins.
+            hotspot_password: input.hotspotPassword || undefined,
             target_user: input.targetUser,
             target_base: input.targetBase,
             // Die Vorgaben reisen als Seed-Datei auf den Node; die Passwoerter
@@ -242,6 +244,7 @@
           });
           // Die Passwoerter gingen genau einmal hinaus und bleiben nirgends.
           this.prefs.users.forEach(function (user) { user.password = ''; });
+          input.hotspotPassword = '';
           shell.installInput = null;
           shell.startRun(response, { mode: 'install' });
         } catch (err) {
