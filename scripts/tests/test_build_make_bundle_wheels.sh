@@ -83,6 +83,7 @@ case "$1" in
     done
     name="$(basename "$src")"
     version="$(tr -d '[:space:]' < "$src/VERSION")"; version="${version#v}"
+    version="$(sed -E 's/-pre\.([0-9]+)$/rc\1/' <<< "$version")"
     : > "$dir/${name}-${version}-py3-none-any.whl"
     ;;
 esac
@@ -109,9 +110,9 @@ build() { # <out> [schalter...]
 }
 
 # Die Wheel-Versionen kommen aus den VERSION-Dateien, auf der Prerelease-Linie
-# tragen sie ein -pre.N.
-soc_whl="battery_soc_core-$(sed 's/^v//' "$repo/libs/battery_soc_core/VERSION")-py3-none-any.whl"
-common_whl="energy_node_common-$(sed 's/^v//' "$repo/libs/energy_node_common/VERSION")-py3-none-any.whl"
+# tragen sie ein -pre.N, das Rad heisst dann rcN (PEP 440).
+soc_whl="battery_soc_core-$(sed -E 's/^v//; s/-pre\.([0-9]+)$/rc\1/' "$repo/libs/battery_soc_core/VERSION")-py3-none-any.whl"
+common_whl="energy_node_common-$(sed -E 's/^v//; s/-pre\.([0-9]+)$/rc\1/' "$repo/libs/energy_node_common/VERSION")-py3-none-any.whl"
 
 # --- Standard: Archiv nur mit eigenen Wheels, Manifest mit Festlegungen ----
 build "$tmp/dist1"

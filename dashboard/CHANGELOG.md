@@ -11,6 +11,7 @@
 - **energy:** suggest measurement chains and offer chain sensors to Home Assistant (#229) (8e5d0a6)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **network:** check LAN and connect the node to Wi-Fi in the settings (#238) (d6dc893)
+- **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **network:** add the network watcher (09683dd)
 - **network:** add the emergency hotspot bootstrap step (d30f816)
 - **network:** store fallback and hotspot settings in the helper (331b6df)
@@ -19,7 +20,6 @@
 - **network:** show the hotspot password and the Wi-Fi standby on the page (fcb3859)
 - **demo:** switch cable, Wi-Fi module, login and network in the fake console (0fe91fb)
 - **network:** mark the fallback and hotspot cards as tour targets (da22e87)
-- **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239)
 - **storage:** check the drive on demand and refresh the pages when they open (7358e23)
 
 ### Fixes

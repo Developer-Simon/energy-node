@@ -135,6 +135,8 @@ build_local_wheels() {
     dist="${repo_root}/libs/${lib}/dist"
     version="$(tr -d '[:space:]' < "${repo_root}/libs/${lib}/VERSION")"
     version="${version#v}"
+    # The wheel carries the PEP 440 form: 0.5.2-pre.2 becomes 0.5.2rc2.
+    version="$(sed -E 's/-pre\.([0-9]+)$/rc\1/' <<< "${version}")"
 
     # dist/ may not exist yet on a checkout that has never built a wheel
     # locally before -- find on a missing directory fails, and pipefail
