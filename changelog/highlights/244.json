@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Die Diagnose im Installer baut sich Zeile für Zeile auf"
+  },
+  "en": {
+    "*": "Stream the diagnose and show skeleton rows while it loads"
+  }
+}
