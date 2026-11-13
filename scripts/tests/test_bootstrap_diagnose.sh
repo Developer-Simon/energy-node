@@ -304,6 +304,35 @@ printf '{kaputt' > "$tmp/root/home/en/devices/shelly_devices.json"
 out="$(bash "$script")"
 [ "$(get 'd["devices"]["shelly-rpc.service"]')" = None ] || fail "kaputte Geraetedatei nicht als null gemeldet" "$out"
 
+# --- Stream-Modus: Rohzeilen mit Abschnittsmarken in fester Reihenfolge ----
+out="$(ACTIVE="mosquitto.service" LISTENING="1883" bash "$script" --stream)"
+marks="$(awk -F'\t' '$1=="section"{print $2}' <<<"$out" | paste -sd' ')"
+[ "$marks" = "bundle units ports mqtt webhook config info tailscale reboot apt" ] \
+  || fail "Abschnittsmarken falsch: $marks" "$out"
+grep -qP '^unit\tmosquitto\.service\tactive$' <<<"$out" || fail "Stream ohne Unit-Zeile" "$out"
+grep -qP '^apt\tpending\t' <<<"$out" || fail "Stream ohne apt-Zeile" "$out"
+[ "$(tail -n1 <<<"$out")" = "$(printf 'section\tapt\tdone')" ] || fail "apt ist nicht der letzte Abschnitt" "$out"
+grep -q '^{' <<<"$out" && fail "Stream enthaelt JSON" "$out"
+
+# Ohne --stream bleibt es ein JSON ohne Marken.
+out="$(bash "$script")"
+python3 -c 'import json,sys; json.load(sys.stdin)' <<<"$out" || fail "JSON-Modus kaputt" "$out"
+grep -q 'section' <<<"$out" && fail "JSON-Modus enthaelt Marken" "$out"
+
+# apt laeuft parallel: eine apt-get-Attrappe mit 2 s Pause verlaengert den
+# Lauf nicht um die Summe. Die Pruefung: die units-Marke kommt, bevor apt fertig ist.
+cat > "$tmp/bin/apt-get-slow" <<'SH'
+#!/usr/bin/env bash
+sleep 2
+SH
+chmod +x "$tmp/bin/apt-get-slow"
+start=$(date +%s%N)
+first=""
+while IFS= read -r l; do
+  if [ -z "$first" ] && [ "$l" = "$(printf 'section\tunits\tdone')" ]; then first=$(date +%s%N); fi
+done < <(EN_APT_GET="$tmp/bin/apt-get-slow" bash "$script" --stream)
+if [ -z "$first" ] || [ $(( (first - start) / 1000000 )) -ge 1500 ]; then fail "units kommt erst nach apt"; fi
+
 # --- kaputter Node: trotzdem Exit 0 und vollstaendiges JSON --------------
 rm -rf "$tmp/root" "$tmp/state"
 set +e

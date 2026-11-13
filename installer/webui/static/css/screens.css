@@ -274,6 +274,19 @@
 .app[data-screen="diagnose"] .warnbox{margin:.4rem 0 .15rem;padding:.6rem .7rem;border-radius:var(--radius-sm); border:1px solid var(--warn-line);background:var(--warn-bg)}
 .app[data-screen="diagnose"] .warnbox p{margin:0;font-size:.775rem;line-height:1.45;color:var(--text-subtle)}
 /* == Ende Vorlage == */
+/* Diagnose: Skeleton-Zeilen, solange ein Abschnitt aussteht (Version E). */
+.app[data-screen="diagnose"]{--sk-fill:color-mix(in srgb,var(--text) 9%,transparent);--sk-glow:color-mix(in srgb,var(--text) 13%,transparent)}
+.app[data-screen="diagnose"] .sk-row{animation:dg-sk-in .2s var(--ease) .16s both}
+.app[data-screen="diagnose"] .sk{display:block;height:.7rem;border-radius:999px;background:linear-gradient(100deg,var(--sk-fill) 40%,var(--sk-glow) 50%,var(--sk-fill) 60%) fixed;background-size:200vw 100%;animation:dg-sk-sweep 2.4s linear -.25s infinite,dg-sk-breathe 1.8s ease-in-out infinite alternate}
+.app[data-screen="diagnose"] .sk-n{flex:0 1 45%}
+.app[data-screen="diagnose"] .sk-v{flex:none;width:3.5rem;margin-left:auto}
+.app[data-screen="diagnose"] .r:not(.sk-row){animation:dg-row-in .26s var(--ease) both}
+.app[data-screen="diagnose"] .tally.pending .tl-n{opacity:.45}
+@keyframes dg-sk-sweep{0%{background-position:-120vw 0}70%,100%{background-position:20vw 0}}
+@keyframes dg-sk-breathe{from{opacity:.72}to{opacity:1}}
+@keyframes dg-sk-in{from{opacity:0}to{opacity:1}}
+@keyframes dg-row-in{from{opacity:0;transform:translateY(6px) scale(.985)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.app[data-screen="diagnose"] .sk{animation:none}.app[data-screen="diagnose"] .r:not(.sk-row){animation:dg-sk-in .2s ease both}}
 /* Ergaenzung Diagnose: Information ohne Pruefung (installierte Versionen,
    nicht installierte Dienste) bekommt einen neutralen Punkt, die Geraete
    eines Dienstes stehen eingerueckt unter seiner Zeile. */

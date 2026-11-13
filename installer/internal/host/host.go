@@ -674,6 +674,32 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	if err != nil {
 		return nil, &hostapi.Error{Code: "DIAGNOSE_FAILED", Detail: err.Error()}
 	}
+	return diagnoseView(report, manifest.Steps), nil
+}
+
+// DiagnoseStream startet diagnose.sh --stream und meldet nach jedem fertigen
+// Abschnitt den Stand mit den noch offenen Abschnitten.
+func (h *Host) DiagnoseStream(ctx context.Context, emit func(hostapi.DiagnoseProgress)) error {
+	client, err := h.connected()
+	if err != nil {
+		return err
+	}
+	manifest, _, err := h.loaded()
+	if err != nil {
+		return err
+	}
+	err = diag.RunStream(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version, func(report *diag.Report, pending []string) {
+		emit(hostapi.DiagnoseProgress{View: hostapi.PartialView(diagnoseView(report, manifest.Steps), pending), Pending: pending})
+	})
+	if err != nil {
+		return &hostapi.Error{Code: "DIAGNOSE_FAILED", Detail: err.Error()}
+	}
+	return nil
+}
+
+// diagnoseView baut die Ansicht aus einem Bericht. Diagnose und der Strom
+// nutzen dieselbe Abbildung, damit beide dieselben Felder setzen.
+func diagnoseView(report *diag.Report, steps []bundle.StepEntry) *hostapi.DiagnoseView {
 	view := &hostapi.DiagnoseView{
 		BundleVersion:  report.BundleVersion,
 		Units:          report.Units,
@@ -682,13 +708,13 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		SystemUpdates:  systemUpdatesView(report.SystemUpdates),
 	}
 	view.Versions, view.Devices = installedInfo(report)
-	for _, check := range report.Checklist(manifest.Steps) {
+	for _, check := range report.Checklist(steps) {
 		view.Checks = append(view.Checks, hostapi.Check{
 			Name: check.Name, OK: check.OK, Detail: check.Detail, RetryStepID: check.RetryStepID,
 			Group: check.Group, Subject: check.Subject, Severity: check.Severity, Needs: check.Needs,
 		})
 	}
-	return view, nil
+	return view
 }
 
 // Hotspot reads the emergency hotspot's credentials from the node. A missing

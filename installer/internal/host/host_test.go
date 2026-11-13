@@ -6,10 +6,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/credstore"
+	"github.com/Developer-Simon/energy-node-installer/internal/diag"
 	"github.com/Developer-Simon/energy-node-installer/internal/host"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
@@ -18,6 +20,7 @@ import (
 // Vertrag erfuellen, sonst laesst sich die Oberflaeche gar nicht an ihn binden.
 var _ hostapi.Backend = (*host.Host)(nil)
 var _ hostapi.PackageBackend = (*host.Host)(nil)
+var _ hostapi.DiagnoseStreamer = (*host.Host)(nil)
 
 // The changelog endpoint finds this capability by type assertion: a wrong
 // signature would not fail to compile, it would silently answer 501.
@@ -103,8 +106,20 @@ func TestEveryConnectedCallFailsBeforeConnect(t *testing.T) {
 	if _, err := h.Diagnose(ctx); err == nil {
 		t.Errorf("Diagnose without a connection must fail")
 	}
+	if err := h.DiagnoseStream(ctx, func(hostapi.DiagnoseProgress) {}); err == nil {
+		t.Errorf("DiagnoseStream without a connection must fail")
+	}
 	if err := h.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModeInstall}, nopSink{}); err == nil {
 		t.Errorf("Run without a connection must fail")
+	}
+}
+
+// Die Abschnittsliste liegt zweimal vor: in diag fuer den Strom und in
+// hostapi fuer die Oberflaeche. Weichen sie ab, meldet die Oberflaeche einen
+// Abschnitt nie als fertig.
+func TestDiagnoseSectionsMatch(t *testing.T) {
+	if !reflect.DeepEqual(diag.Sections, hostapi.DiagnoseSections) {
+		t.Fatalf("diag.Sections = %v, hostapi.DiagnoseSections = %v", diag.Sections, hostapi.DiagnoseSections)
 	}
 }
 

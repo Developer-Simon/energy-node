@@ -45,6 +45,9 @@ type options struct {
 	// dem Gerät nicht installiert. Vorbereiten fragt, bis je Paket "repo" oder
 	// "skip" geantwortet ist.
 	packageOffline []string
+	// diagnoseDelay: Pause zwischen den Abschnitten der Diagnose im Strom.
+	// 0 meldet die ganze Diagnose auf einmal.
+	diagnoseDelay time.Duration
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -286,6 +289,33 @@ func (b *stagedBackend) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, er
 		out.Checks = append(out.Checks, mqttCheck)
 	}
 	return &out, nil
+}
+
+// DiagnoseStream meldet die Diagnose abschnittsweise. Die vollen Ansichten
+// kommen aus Diagnose, damit Webhook und MQTT mitgezaehlt sind. Ohne Pause
+// gibt es genau einen Stand.
+func (b *stagedBackend) DiagnoseStream(ctx context.Context, emit func(hostapi.DiagnoseProgress)) error {
+	full, err := b.Diagnose(ctx)
+	if err != nil {
+		return err
+	}
+	if b.opts.diagnoseDelay <= 0 {
+		emit(hostapi.DiagnoseProgress{View: full, Pending: []string{}})
+		return nil
+	}
+	for i, section := range hostapi.DiagnoseSections {
+		wait := b.opts.diagnoseDelay
+		if section == "apt" {
+			// apt läuft auf dem Node im Hintergrund und ist der langsame Abschnitt.
+			wait *= 8
+		}
+		if err := pause(ctx, wait); err != nil {
+			return err
+		}
+		pending := append([]string{}, hostapi.DiagnoseSections[i+1:]...)
+		emit(hostapi.DiagnoseProgress{View: hostapi.PartialView(full, pending), Pending: pending})
+	}
+	return nil
 }
 
 func pause(ctx context.Context, d time.Duration) error {
