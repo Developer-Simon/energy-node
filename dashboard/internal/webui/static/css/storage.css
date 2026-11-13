@@ -33,6 +33,12 @@
 .bs-pick-text { display: grid; gap: .05rem; min-width: 0; }
 .bs-pick-text strong { color: var(--text-strong); font-weight: 600; }
 .bs-pick-text small { color: var(--text-muted); font-size: .78rem; }
+.bs-drive-group { display: grid; gap: .4rem; min-width: 0; }
+.bs-drive-group-head { display: grid; gap: .05rem; min-width: 0; padding: .2rem .2rem 0; overflow-wrap: anywhere; }
+.bs-drive-group-head strong { color: var(--text-strong); font-weight: 600; }
+.bs-drive-group-head small { color: var(--text-muted); font-size: .78rem; }
+.bs-drive-group > ul { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.bs-pick-sub { width: auto; margin-left: 1.1rem; }
 .bs-erase { display: grid; gap: .4rem; padding: .85rem .9rem; border: 1px solid var(--bad-line); border-radius: 12px; background: color-mix(in srgb, var(--bad-bg) 60%, transparent); }
 .bs-erase strong { color: var(--text-strong); font-size: .98rem; font-weight: 600; }
 .bs-erase p { margin: 0; color: var(--text-subtle); font-size: .86rem; line-height: 1.45; }

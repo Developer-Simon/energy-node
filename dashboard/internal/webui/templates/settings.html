@@ -901,13 +901,31 @@
             <!-- Laufwerk 1: Auswahl -->
             <div class="bs-step" data-step="drives" x-show="step === 'drives'">
               <ul class="bs-drive-pick" role="radiogroup" aria-label="{{t "storage.drives.label"}}">
-                <template x-for="d in drives" x-bind:key="d.kname">
-                  <li><button type="button" class="bs-pick" role="radio" x-bind:aria-checked="drive && drive.kname === d.kname ? 'true' : 'false'" x-on:click="drive = d">
-                    <span class="bs-pick-text"><strong x-text="d.name"></strong><small x-text="d.detail"></small></span>
-                    <span class="bs-status" x-bind:class="d.needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="d.needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
-                  </button></li>
+                <template x-for="group in driveGroups" x-bind:key="group.key">
+                  <li>
+                    <template x-if="group.items.length === 1">
+                      <button type="button" class="bs-pick" role="radio" x-bind:aria-checked="drive && drive.kname === group.items[0].kname ? 'true' : 'false'" x-on:click="drive = group.items[0]">
+                        <span class="bs-pick-text"><strong x-text="group.items[0].name"></strong><small x-text="group.items[0].detail"></small></span>
+                        <span class="bs-status" x-bind:class="group.items[0].needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="group.items[0].needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
+                      </button>
+                    </template>
+                    <template x-if="group.items.length > 1">
+                      <div class="bs-drive-group">
+                        <div class="bs-drive-group-head"><strong x-text="group.title"></strong><small x-text="group.detail"></small></div>
+                        <ul>
+                          <template x-for="d in group.items" x-bind:key="d.kname">
+                            <li><button type="button" class="bs-pick" x-bind:class="{ 'bs-pick-sub': !d.whole }" role="radio" x-bind:aria-checked="drive && drive.kname === d.kname ? 'true' : 'false'" x-on:click="drive = d">
+                              <span class="bs-pick-text"><strong x-text="d.whole ? $t('storage.drives.whole') : d.name"></strong><small x-text="d.detail"></small></span>
+                              <span class="bs-status" x-bind:class="d.needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="d.needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
+                            </button></li>
+                          </template>
+                        </ul>
+                      </div>
+                    </template>
+                  </li>
                 </template>
               </ul>
+              <p class="setting-note" x-show="driveGroups.some((g) => g.items.length > 1)">{{t "storage.drives.partition_note"}}</p>
               <p class="setting-note" x-show="!drives.length">{{t "storage.drives.empty"}}</p>
               <p class="setting-note">{{t "storage.drives.note"}}</p>
               <p class="message error" role="alert" x-show="flowError" x-text="flowError"></p>
@@ -918,6 +936,7 @@
               <div class="bs-erase">
                 <strong x-text="$t('storage.format.title', { name: drive ? drive.name : '' })"></strong>
                 <p x-text="drive ? drive.contents : ''"></p>
+                <p x-show="drive && drive.whole && drive.lost.length" x-text="drive && drive.whole ? $t('storage.format.whole_lost', { list: drive.lost.join(', ') }) : ''"></p>
                 <label class="bs-check bs-check-danger"><input type="checkbox" x-model="eraseOk"><span class="bs-check-text"><span>{{t "storage.format.confirm"}}</span></span></label>
               </div>
             </div>
