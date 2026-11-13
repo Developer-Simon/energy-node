@@ -167,8 +167,9 @@ func (c *Client) HotspotSecret(ctx context.Context) (ssid, password string, err 
 	if err != nil {
 		return "", "", fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
-	lines := strings.Split(out, "\n")
-	if len(lines) != 3 || lines[2] != "" || lines[0] == "" || lines[1] == "" {
+	// The runner may or may not have trimmed the trailing newline.
+	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
+	if len(lines) != 2 || lines[0] == "" || lines[1] == "" {
 		return "", "", fmt.Errorf("%w: hotspot-secret output has an unexpected shape", ErrUnavailable)
 	}
 	return lines[0], lines[1], nil

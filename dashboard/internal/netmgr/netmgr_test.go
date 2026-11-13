@@ -148,6 +148,19 @@ func TestHotspotSecretReadsSSIDAndPassword(t *testing.T) {
 	}
 }
 
+// ExecOutputRunner trims the output, so the trailing newline is not there.
+func TestHotspotSecretReadsTrimmedOutput(t *testing.T) {
+	runner := &fakeRunner{out: "energy-node-hotspot\ns3cret-pass"}
+	c := NewClient(runner, "/helper", "/data")
+	ssid, password, err := c.HotspotSecret(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ssid != "energy-node-hotspot" || password != "s3cret-pass" {
+		t.Errorf("secret = %q, %q", ssid, password)
+	}
+}
+
 func TestHotspotSecretBrokenOutputIsUnavailable(t *testing.T) {
 	for _, out := range []string{"", "only-the-ssid\n", "ssid\n\n", "ssid\npass\nextra\n"} {
 		runner := &fakeRunner{out: out}
