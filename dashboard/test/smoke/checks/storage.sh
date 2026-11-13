@@ -49,11 +49,14 @@ checks_storage() {
   if printf '%s' "$body" | python3 -c '
 import json, sys
 drives = json.load(sys.stdin)
-sys.exit(0 if [d["kname"] for d in drives] == ["sdb"] and drives[0]["needs_format"] else 1)
+d = drives[0] if drives else {}
+ok = [x["kname"] for x in drives] == ["sdb"] and drives[0]["needs_format"] \
+    and d.get("disk") == "sdb" and d.get("whole") is False and d.get("label") == ""
+sys.exit(0 if ok else 1)
 '; then
-    echo "  OK   Laufwerksliste zeigt das Demo-Laufwerk sdb zum Formatieren"
+    echo "  OK   Laufwerksliste zeigt das Demo-Laufwerk sdb als ganzen Stick zum Formatieren"
   else
-    echo "  FEHL Laufwerksliste ist nicht das Demo-Laufwerk: $body"; FAILED=1; return
+    echo "  FEHL Laufwerksliste ist nicht das Demo-Laufwerk als ganzer Stick: $body"; FAILED=1; return
   fi
 
   # Einrichten: formatieren, Daten und Backups umziehen, Ausweichort Systemlaufwerk.
