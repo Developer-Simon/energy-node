@@ -35,5 +35,53 @@
     "needs_format": false,
     "contents": "",
     "marker": "fremde-kennung-4711"
+  },
+  {
+    "kname": "sde",
+    "name": "Intenso Installer",
+    "uuid": "9c4e7a12-3b58-4d06-a1f9-6e2d8b0c5a37",
+    "fstype": "",
+    "transport": "usb",
+    "size": 34359738368,
+    "used": 0,
+    "ready": false,
+    "needs_format": true,
+    "contents": "storage.contents.disk",
+    "whole": true,
+    "disk": "sde",
+    "disk_size": 34359738368,
+    "members": ["sde1", "sde2"]
+  },
+  {
+    "kname": "sde1",
+    "name": "Intenso Installer",
+    "uuid": "1d6b3f84-7a20-4e95-8c13-b5f0a92e4d68",
+    "fstype": "iso9660",
+    "transport": "usb",
+    "size": 4500000000,
+    "used": 4500000000,
+    "ready": false,
+    "needs_format": true,
+    "contents": "storage.contents.foreign",
+    "whole": false,
+    "disk": "sde",
+    "disk_size": 34359738368,
+    "label": "INSTALL"
+  },
+  {
+    "kname": "sde2",
+    "name": "Intenso Installer",
+    "uuid": "e3a85c07-92fd-4b41-b6d8-0a7c1f3e9b52",
+    "fstype": "vfat",
+    "transport": "usb",
+    "size": 8388608,
+    "used": 1048576,
+    "ready": false,
+    "needs_format": true,
+    "contents": "storage.contents.foreign",
+    "whole": false,
+    "disk": "sde",
+    "disk_size": 34359738368,
+    "label": "EFI"
   }
 ]

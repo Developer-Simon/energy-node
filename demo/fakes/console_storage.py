@@ -80,7 +80,7 @@ class StorageTab(Tab):
                 "active": state["active"] == stick["kname"],
                 "foreign": "marker" in stick,
                 "formatted": fake_storage.is_formatted(stick, state),
-            } for stick in self._catalog]
+            } for stick in self._catalog if stick.get("disk", stick["kname"]) == stick["kname"]]
             return {
                 "sticks": sticks,
                 "format_fails": state["format_fails"],

@@ -9,6 +9,10 @@
     "used": 12884901888,
     "ready": false,
     "needs_format": true,
-    "contents": "storage.contents.foreign"
+    "contents": "storage.contents.foreign",
+    "disk": "sdb",
+    "disk_size": 64424509440,
+    "label": "",
+    "whole": false
   }
 ]
