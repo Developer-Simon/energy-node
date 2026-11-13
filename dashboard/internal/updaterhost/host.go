@@ -57,7 +57,18 @@ type Config struct {
 	// cannot fetch: Describe does not advertise AutoPrepare and ModePrepare
 	// answers NOT_SUPPORTED. Errors of type *hostapi.Error keep their code.
 	Prepare func(ctx context.Context, note func(key string, args map[string]string)) error
+	// HotspotPath is the emergency hotspot's credentials file (written once by
+	// step 67). Empty means DefaultHotspotPath.
+	HotspotPath string
 }
+
+// DefaultHotspotPath matches installer/internal/steps.DefaultHotspotPath. The
+// installer package is not imported here, it would pull in the SSH stack.
+const DefaultHotspotPath = "/etc/energy-node/hotspot.json"
+
+// errHotspotUnreadable mirrors steps.ErrHotspotUnreadable: the file exists but
+// is not the expected shape. Its text never carries the file's content.
+var errHotspotUnreadable = errors.New("the emergency hotspot credentials are unreadable")
 
 // candidateManifest is the handful of manifest.json fields this package
 // needs. It deliberately does not import installer/internal/bundle.Manifest
@@ -327,6 +338,32 @@ func (h *Host) Changelog(context.Context) (*hostapi.ChangelogView, error) {
 		}
 	}
 	return view, nil
+}
+
+// Hotspot implements hostapi.Backend: the emergency hotspot's name and password
+// from the local hotspot.json. The dashboard runs on the node, so no SSH is
+// needed. A missing file is no error and no credentials (nil, nil), the same
+// as the installer's answer for a node without a WLAN module.
+func (h *Host) Hotspot(context.Context) (*hostapi.HotspotView, error) {
+	path := h.cfg.HotspotPath
+	if path == "" {
+		path = DefaultHotspotPath
+	}
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errHotspotUnreadable
+	}
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var view hostapi.HotspotView
+	if err := json.Unmarshal(raw, &view); err != nil || view.SSID == "" || view.Password == "" {
+		return nil, errHotspotUnreadable
+	}
+	return &view, nil
 }
 
 // Run stages a job for exactly the selected steps and follows it to
