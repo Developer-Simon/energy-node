@@ -74,4 +74,52 @@ print(sw.get("result", ""))
   else
     echo "  OK   Passwort steht nicht im Status"
   fi
+
+  # 4. Ersatzmodus umstellen: standby, im Status sichtbar, danach zurueck auf parallel.
+  local mode put_code
+  for mode in standby parallel; do
+    put_code="$(curl -s "${CURL_INSECURE[@]}" -m 10 -o "$WORK/network-settings.json" -w '%{http_code}' -X PUT \
+      -b "$COOKIES" -H "$SECURE_HEADER" -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' \
+      -d "{\"fallback\":\"$mode\",\"hotspot\":true}" "$BASE/api/v1/network/settings")" || put_code=""
+    if [[ "$put_code" != "200" ]]; then
+      echo "  FEHL Ersatzmodus $mode kam mit HTTP $put_code, erwartet 200"; FAILED=1
+      return
+    fi
+    curl -s "${CURL_INSECURE[@]}" -m 10 -o "$status_file" -b "$COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/network/status" || true
+    if python3 -c '
+import json, sys
+s = json.load(open(sys.argv[1]))
+sys.exit(0 if (s.get("settings") or {}).get("fallback") == sys.argv[2] else 1)
+' "$status_file" "$mode"; then
+      echo "  OK   Ersatzmodus $mode steht im Status"
+    else
+      echo "  FEHL Status zeigt nicht den Ersatzmodus $mode"; FAILED=1
+      return
+    fi
+  done
+
+  # 5. Hotspot-Zugang: ssid und Passwort kommen, das Passwort steht nicht im Status.
+  local secret_code password
+  secret_code="$(curl -s "${CURL_INSECURE[@]}" -m 10 -o "$WORK/hotspot-secret.json" -w '%{http_code}' \
+    -b "$COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/network/hotspot-secret")" || secret_code=""
+  if [[ "$secret_code" == "200" ]] && python3 -c '
+import json, sys
+s = json.load(open(sys.argv[1]))
+sys.exit(0 if s.get("ssid") and s.get("password") else 1)
+' "$WORK/hotspot-secret.json"; then
+    echo "  OK   Hotspot-Zugang liefert ssid und Passwort"
+  else
+    echo "  FEHL Hotspot-Zugang kam mit HTTP $secret_code oder ohne ssid und Passwort"; FAILED=1
+    return
+  fi
+  password="$(python3 -c '
+import json, sys
+print(json.load(open(sys.argv[1]))["password"])
+' "$WORK/hotspot-secret.json")" || password=""
+  curl -s "${CURL_INSECURE[@]}" -m 10 -o "$status_file" -b "$COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/network/status" || true
+  if [[ -n "$password" ]] && grep -qF -- "$password" "$status_file"; then
+    echo "  FEHL das Hotspot-Passwort steht im Status"; FAILED=1
+  else
+    echo "  OK   Hotspot-Passwort steht nicht im Status"
+  fi
 }
