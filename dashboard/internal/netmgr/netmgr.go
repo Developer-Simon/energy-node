@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 )
@@ -21,6 +22,10 @@ var ErrUnmanaged = errors.New("network not managed by NetworkManager")
 
 // helperExitUnmanaged is the exit code of wifi-scan without a managed NetworkManager.
 const helperExitUnmanaged = 69
+
+// helperExitSettingsInvalid is the exit code of network-settings for a mode
+// or switch value it does not know.
+const helperExitSettingsInvalid = 64
 
 type Link struct {
 	ID            string   `json:"id"`     // "lan" | "wifi"
@@ -129,4 +134,42 @@ func (c *Client) Scan(ctx context.Context) error {
 		return ErrUnmanaged
 	}
 	return fmt.Errorf("%w: %v", ErrUnavailable, err)
+}
+
+// SaveSettings stores the WLAN fallback mode and the hotspot switch through
+// network-settings. Only "parallel" and "standby" are modes; anything else
+// is ErrInvalidRequest and the helper does not run.
+func (c *Client) SaveSettings(ctx context.Context, settings Settings) error {
+	if settings.Fallback != "parallel" && settings.Fallback != "standby" {
+		return fmt.Errorf("%w: fallback must be parallel or standby", ErrInvalidRequest)
+	}
+	hotspot := "off"
+	if settings.Hotspot {
+		hotspot = "on"
+	}
+	_, err := c.runner.Output(ctx, "sudo", "-n", c.helper, "network-settings", settings.Fallback, hotspot)
+	if err == nil {
+		return nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == helperExitSettingsInvalid {
+		return fmt.Errorf("%w: helper rejected the settings", ErrInvalidRequest)
+	}
+	return fmt.Errorf("%w: %v", ErrUnavailable, err)
+}
+
+// HotspotSecret reads the SSID and password of the emergency hotspot through
+// hotspot-secret. The helper prints the SSID and the password on two lines.
+// A missing (exit 66) or broken (exit 65) hotspot file is ErrUnavailable. The
+// output is never part of an error message, so the password cannot leak there.
+func (c *Client) HotspotSecret(ctx context.Context) (ssid, password string, err error) {
+	out, err := c.runner.Output(ctx, "sudo", "-n", c.helper, "hotspot-secret")
+	if err != nil {
+		return "", "", fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	lines := strings.Split(out, "\n")
+	if len(lines) != 3 || lines[2] != "" || lines[0] == "" || lines[1] == "" {
+		return "", "", fmt.Errorf("%w: hotspot-secret output has an unexpected shape", ErrUnavailable)
+	}
+	return lines[0], lines[1], nil
 }
