@@ -235,7 +235,7 @@ func (s *Service) runReplace(ctx context.Context, p replacePlan) (err error) {
 		}
 		out, ferr := s.Deps.Storage(ctx, "format", p.drive.Kname)
 		if ferr != nil {
-			return fail(CodeFormatFailed, ferr)
+			return fail(CodeFormatFailed, withHelperOutput(out, ferr))
 		}
 		if !uuidPattern.MatchString(out) || out == prev.UUID {
 			return fail(CodeFormatFailed, errors.New("helper printed no new uuid"))
