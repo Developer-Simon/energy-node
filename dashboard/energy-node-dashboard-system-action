@@ -49,6 +49,12 @@ RESOLV="/etc/resolv.conf"
 NETWORK_JSON="/etc/energy-node/network.json"
 SWITCH_JSON="$RUN_DIR/wifi-switch.json"
 
+# Paths for network-settings and hotspot-secret. HOTSPOT_JSON is written once
+# by the bootstrap step 67-network.sh. The test
+# scripts/tests/test_system_action_network.sh replaces these lines and SYSTEMCTL
+# with stubs and temp files, so keep each assignment on one line.
+HOTSPOT_JSON="/etc/energy-node/hotspot.json"
+
 # Paths for wifi-connect and wifi-forget. WIFI_STAGED is written by the
 # dashboard, which runs as WIFI_STAGE_OWNER. The test
 # scripts/tests/test_system_action_wifi_switch.sh replaces these lines with
@@ -418,6 +424,64 @@ network_status() {
   cat "$NETWORK_JSON" 2>/dev/null || printf '{}\n'
   printf '##switch\n'
   cat "$SWITCH_JSON" 2>/dev/null || printf '{}\n'
+}
+
+# network_settings stores the WLAN fallback mode and the emergency hotspot
+# switch in NETWORK_JSON, the file the watcher reads. Arguments: parallel or
+# standby, then on or off. Any other value exits 64. The file is replaced
+# with a temp file and mv, so the watcher never reads half of it. The watcher
+# then starts once, so the change applies without waiting for its timer.
+network_settings() {
+  fallback="$1"
+  hotspot="$2"
+  case "$fallback" in
+    parallel|standby) : ;;
+    *) exit 64 ;;
+  esac
+  case "$hotspot" in
+    on) hotspot_value=true ;;
+    off) hotspot_value=false ;;
+    *) exit 64 ;;
+  esac
+  tmp="$NETWORK_JSON.tmp"
+  printf '{"fallback":"%s","hotspot":%s}\n' "$fallback" "$hotspot_value" > "$tmp"
+  chmod 0644 "$tmp"
+  mv -f "$tmp" "$NETWORK_JSON"
+  "$SYSTEMCTL" start --no-block energy-node-network-watch.service || true
+  exit 0
+}
+
+# HOTSPOT_SECRET_PY is run by python3 -I with the path of hotspot.json. It
+# prints the SSID and the password on two lines, and exits 65 unless both are
+# non-empty strings without control characters.
+HOTSPOT_SECRET_PY='
+import json, sys
+try:
+    with open(sys.argv[1], "rb") as f:
+        raw = f.read(4097)
+    if len(raw) > 4096:
+        sys.exit(65)
+    data = json.loads(raw.decode("utf-8"))
+except Exception:
+    sys.exit(65)
+if not isinstance(data, dict):
+    sys.exit(65)
+ssid = data.get("ssid")
+password = data.get("password")
+if not isinstance(ssid, str) or not isinstance(password, str):
+    sys.exit(65)
+if not ssid or not password:
+    sys.exit(65)
+if any(ord(c) < 0x20 or ord(c) == 0x7f for c in ssid + password):
+    sys.exit(65)
+sys.stdout.write(ssid + "\n" + password + "\n")
+'
+
+# hotspot_secret prints the emergency hotspot SSID and password for the
+# dashboard. Exit 66 when hotspot.json does not exist.
+hotspot_secret() {
+  [ -f "$HOTSPOT_JSON" ] || exit 66
+  exec "$PYTHON3" -I -c "$HOTSPOT_SECRET_PY" "$HOTSPOT_JSON"
 }
 
 # wifi_scan asks NetworkManager for a fresh WLAN scan. "Scanning not allowed"
@@ -814,6 +878,11 @@ case "${1:-}" in
       exit 64
     fi
     ;;
+  network-settings)
+    if [ "$#" -ne 3 ]; then
+      exit 64
+    fi
+    ;;
   *)
     if [ "$#" -ne 1 ]; then
       exit 64
@@ -887,6 +956,12 @@ case "$1" in
     ;;
   wifi-switch-run)
     wifi_switch_run
+    ;;
+  network-settings)
+    network_settings "$2" "$3"
+    ;;
+  hotspot-secret)
+    hotspot_secret
     ;;
   *)
     exit 64

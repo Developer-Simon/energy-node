@@ -12,6 +12,7 @@ fail() { echo "FAIL: $1"; [ -n "${2:-}" ] && printf '%s\n' "$2"; exit 1; }
 fx="$tmp/fx"
 export FX="$fx"
 export NET_LOG="$tmp/net.log"
+export SYSCTL_LOG="$tmp/systemctl.log"
 mkdir -p "$tmp/bin"
 
 # Stub nmcli. Every call is logged to NET_LOG. NM_RUNNING sets the answer to
@@ -59,6 +60,13 @@ esac
 SH
 chmod +x "$tmp/bin/iw"
 
+# Stub systemctl: every call is logged to SYSCTL_LOG and nothing runs.
+cat > "$tmp/bin/systemctl" <<'SH'
+#!/bin/sh
+echo "$*" >> "$SYSCTL_LOG"
+SH
+chmod +x "$tmp/bin/systemctl"
+
 # build_helper copies the helper and points its path lines at the stubs and
 # the fake files. Uses NMCLI_BIN, SYSFS_DIR and the fixed test files.
 build_helper() {
@@ -72,10 +80,14 @@ build_helper() {
     -e "s|^RESOLV=.*|RESOLV=\"$tmp/resolv.conf\"|" \
     -e "s|^NETWORK_JSON=.*|NETWORK_JSON=\"$tmp/network.json\"|" \
     -e "s|^SWITCH_JSON=.*|SWITCH_JSON=\"$tmp/switch.json\"|" \
+    -e "s|^HOTSPOT_JSON=.*|HOTSPOT_JSON=\"$tmp/hotspot.json\"|" \
+    -e "s|^SYSTEMCTL=.*|SYSTEMCTL=\"$tmp/bin/systemctl\"|" \
     "$tmp/helper"
   grep -q "^NMCLI=\"$NMCLI_BIN\"" "$tmp/helper" || fail "test setup: NMCLI was not replaced"
   grep -q "^SYSFS=\"$SYSFS_DIR\"" "$tmp/helper" || fail "test setup: SYSFS was not replaced"
   grep -q "^SWITCH_JSON=\"$tmp/switch.json\"" "$tmp/helper" || fail "test setup: SWITCH_JSON was not replaced"
+  grep -q "^HOTSPOT_JSON=\"$tmp/hotspot.json\"" "$tmp/helper" || fail "test setup: HOTSPOT_JSON was not replaced"
+  grep -q "^SYSTEMCTL=\"$tmp/bin/systemctl\"" "$tmp/helper" || fail "test setup: SYSTEMCTL was not replaced"
 }
 
 # reset_fixtures writes the default managed node: LAN and WLAN up, two
@@ -95,10 +107,10 @@ reset_fixtures() {
   printf 'Station aa:bb:cc:00:00:01 (on wlan0)\nStation aa:bb:cc:00:00:02 (on wlan0)\n' > "$fx/station"
   printf 'nameserver 192.168.1.1\nnameserver 1.1.1.1\n' > "$tmp/resolv.conf"
   printf '{"fallback":"parallel","hotspot":true}\n' > "$tmp/network.json"
-  rm -f "$tmp/switch.json"
+  rm -f "$tmp/switch.json" "$tmp/hotspot.json"
   export NM_RUNNING=running
   unset RESCAN_ERR || true
-  rm -f "$NET_LOG"
+  rm -f "$NET_LOG" "$SYSCTL_LOG"
 }
 
 # make_sys SPEED WIFI(yes|no) writes the fake sysfs: eth0 with the given speed
@@ -301,5 +313,88 @@ run_helper wifi-scan extra
 [ "$rc" -eq 64 ] || fail "wifi-scan with extra argument: exit $rc, want 64"
 run_helper network-status
 [ "$rc" -eq 0 ] || fail "network-status without extra argument: exit $rc, want 0"
+
+# Case 7: network-settings stores fallback and hotspot switch, then starts the watcher once.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+run_helper network-settings standby off
+[ "$rc" -eq 0 ] || fail "network-settings standby off: exit $rc, want 0" "$(cat "$tmp/err")"
+[ "$(cat "$tmp/network.json")" = '{"fallback":"standby","hotspot":false}' ] \
+  || fail "network-settings standby off: content" "$(cat "$tmp/network.json")"
+[ ! -e "$tmp/network.json.tmp" ] || fail "network-settings: temp file left behind"
+[ "$(cat "$SYSCTL_LOG")" = 'start --no-block energy-node-network-watch.service' ] \
+  || fail "network-settings: watcher not started once" "$(cat "$SYSCTL_LOG" 2>/dev/null || true)"
+
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+run_helper network-settings parallel on
+[ "$rc" -eq 0 ] || fail "network-settings parallel on: exit $rc, want 0" "$(cat "$tmp/err")"
+[ "$(cat "$tmp/network.json")" = '{"fallback":"parallel","hotspot":true}' ] \
+  || fail "network-settings parallel on: content" "$(cat "$tmp/network.json")"
+
+# Case 7b: invalid arguments exit 64 and leave the file and the watcher alone.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+before="$(cat "$tmp/network.json")"
+run_helper network-settings fast on
+[ "$rc" -eq 64 ] || fail "network-settings fast on: exit $rc, want 64"
+run_helper network-settings parallel maybe
+[ "$rc" -eq 64 ] || fail "network-settings parallel maybe: exit $rc, want 64"
+run_helper network-settings Standby off
+[ "$rc" -eq 64 ] || fail "network-settings Standby off: exit $rc, want 64"
+run_helper network-settings parallel
+[ "$rc" -eq 64 ] || fail "network-settings with one value: exit $rc, want 64"
+run_helper network-settings parallel on extra
+[ "$rc" -eq 64 ] || fail "network-settings with extra argument: exit $rc, want 64"
+run_helper network-settings
+[ "$rc" -eq 64 ] || fail "network-settings without arguments: exit $rc, want 64"
+[ "$(cat "$tmp/network.json")" = "$before" ] || fail "invalid network-settings changed the file"
+[ ! -s "$SYSCTL_LOG" ] || fail "invalid network-settings started the watcher" "$(cat "$SYSCTL_LOG")"
+
+# Case 8: hotspot-secret prints ssid and password on two lines.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+printf '{"ssid":"EnergyNode-4F2A","password":"sonne-wolke-42"}\n' > "$tmp/hotspot.json"
+run_helper hotspot-secret
+[ "$rc" -eq 0 ] || fail "hotspot-secret: exit $rc, want 0" "$(cat "$tmp/err")"
+[ "$(cat "$tmp/out")" = "$(printf 'EnergyNode-4F2A\nsonne-wolke-42')" ] \
+  || fail "hotspot-secret: output" "$(cat "$tmp/out")"
+[ "$(wc -l < "$tmp/out")" -eq 2 ] || fail "hotspot-secret: want exactly two lines" "$(cat "$tmp/out")"
+
+# Case 8b: hotspot-secret without hotspot.json exits 66.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+run_helper hotspot-secret
+[ "$rc" -eq 66 ] || fail "hotspot-secret without file: exit $rc, want 66"
+
+# Case 8c: broken content exits 65, and so does a password with a control character.
+for content in 'not json' '{"ssid":"EnergyNode-4F2A"}' '{"ssid":"EnergyNode-4F2A","password":"x\ny"}'; do
+  reset_fixtures
+  make_sys 1000 yes
+  NMCLI_BIN="$tmp/bin/nmcli"
+  build_helper
+  printf '%s\n' "$content" > "$tmp/hotspot.json"
+  run_helper hotspot-secret
+  [ "$rc" -eq 65 ] || fail "hotspot-secret with [$content]: exit $rc, want 65" "$(cat "$tmp/out")"
+  [ ! -s "$tmp/out" ] || fail "hotspot-secret with [$content]: printed output" "$(cat "$tmp/out")"
+done
+
+# Case 8d: hotspot-secret takes no argument.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+run_helper hotspot-secret extra
+[ "$rc" -eq 64 ] || fail "hotspot-secret with extra argument: exit $rc, want 64"
 
 echo "PASS: test_system_action_network"
