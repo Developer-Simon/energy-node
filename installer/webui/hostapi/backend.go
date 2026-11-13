@@ -268,6 +268,9 @@ type RunRequest struct {
 	// Secrets gehen hinein und nie wieder hinaus.
 	MQTTPassword  string `json:"mqtt_password,omitempty"`
 	AdminPassword string `json:"admin_password,omitempty"`
+	// HotspotPassword ist das Passwort des Notfall-Hotspots (Schritt 67). Nur
+	// mode "install" nutzt es; leer heisst: ein Passwort wird erzeugt.
+	HotspotPassword string `json:"hotspot_password,omitempty"`
 	// DashboardPrefs sind die Vorgaben des Dashboard-Schritts (Schema wie
 	// der Zustand der Oberflaeche). Die Passwoerter darin sind Geheimnisse;
 	// Secrets() meldet sie an den Redactor, DashboardSeed() reicht sie als
@@ -288,10 +291,47 @@ type RunRequest struct {
 }
 
 // Secrets liefert die Werte, die aus jeder Ausgabe gefiltert werden muessen:
-// die beiden Passwoerter und die Benutzerpasswoerter aus DashboardPrefs.
+// die Passwoerter (MQTT, Admin, Hotspot) und die Benutzerpasswoerter aus
+// DashboardPrefs.
 func (r RunRequest) Secrets() []string {
 	_, passwords := r.dashboardPrefs()
-	return append([]string{r.MQTTPassword, r.AdminPassword}, passwords...)
+	secrets := []string{r.MQTTPassword, r.AdminPassword}
+	if r.HotspotPassword != "" {
+		secrets = append(secrets, r.HotspotPassword)
+	}
+	return append(secrets, passwords...)
+}
+
+// ValidHotspotPassword prueft das Hotspot-Passwort nach derselben Regel wie
+// der Helper: 8 bis 63 druckbare ASCII-Zeichen (0x20 bis 0x7e) oder genau 64
+// Hex-Ziffern. Leer ist gueltig und heisst "nicht vorgegeben".
+func ValidHotspotPassword(s string) bool {
+	if s == "" {
+		return true
+	}
+	if len(s) == 64 && isHexString(s) {
+		return true
+	}
+	if len(s) < 8 || len(s) > 63 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+// isHexString meldet, ob s nur aus Hex-Ziffern besteht.
+func isHexString(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // DashboardSeed liefert den Inhalt von onboarding-seed.json: die Vorgaben

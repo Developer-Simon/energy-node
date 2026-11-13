@@ -183,6 +183,11 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
 	}
+	// Der Wert selbst bleibt aus der Antwort heraus.
+	if !ValidHotspotPassword(req.HotspotPassword) {
+		writeError(w, http.StatusBadRequest, "HOTSPOT_PASSWORD_INVALID", "hotspot_password: 8 bis 63 druckbare ASCII-Zeichen oder 64 Hex-Ziffern")
+		return
+	}
 	switch req.Mode {
 	case ModeInstall, ModeRedeploy, ModeRepair, ModePrepare:
 	default:

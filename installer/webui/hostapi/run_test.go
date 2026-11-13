@@ -264,6 +264,30 @@ func TestRunRejectsAnUnknownMode(t *testing.T) {
 	}
 }
 
+func TestRunRejectsInvalidHotspotPassword(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	connectFirst(t, server)
+	const secret = "kurz"
+	for _, mode := range []string{"install", "redeploy"} {
+		body := `{"mode":"` + mode + `","hotspot_password":"` + secret + `"}`
+		rec := do(t, server, http.MethodPost, "/api/run", body)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("%s: status = %d, want 400", mode, rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "HOTSPOT_PASSWORD_INVALID") {
+			t.Errorf("%s: body = %s, want the code HOTSPOT_PASSWORD_INVALID", mode, rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), secret) {
+			t.Errorf("%s: body leaks the password: %s", mode, rec.Body.String())
+		}
+	}
+	for _, event := range server.Bus().Since(0) {
+		if event.Type == "run-started" {
+			t.Errorf("a refused request still started a run")
+		}
+	}
+}
+
 func TestDiagnoseReturnsTheChecklist(t *testing.T) {
 	server, _ := newTestServer(t, nil)
 	connectFirst(t, server)
