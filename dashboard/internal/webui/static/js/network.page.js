@@ -47,6 +47,9 @@
     password: '',
     showPw: false,
     hotspotPwShown: false,
+    // Kept in memory only, filled on "Zeigen" and dropped again on "Verbergen",
+    // when the hotspot goes off and when the page is left.
+    hotspotSecret: {ssid: '', password: ''},
     hidden: {ssid: '', password: ''},
     csrfToken: '',
     loadedAt: 0,
@@ -86,6 +89,64 @@
         headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
         body: JSON.stringify(body),
       });
+    },
+
+    // Stops the poll and drops the hotspot password when the page is left.
+    destroy() {
+      if (this.timer) window.clearInterval(this.timer);
+      this.timer = null;
+      this.dropHotspotSecret();
+    },
+
+    // Saves the fallback mode and the hotspot switch at once. The shown value
+    // changes first and goes back to the previous one with an error toast when
+    // the request fails.
+    async saveSettings(next) {
+      if (this.locked() || !this.canChange()) return;
+      const previous = {fallback: this.fallbackMode(), hotspot: this.hotspotOn()};
+      if (previous.fallback === next.fallback && previous.hotspot === next.hotspot) return;
+      this.status.settings = {...next};
+      try {
+        await requestJSON('/api/v1/network/settings', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          body: JSON.stringify(next),
+        });
+      } catch (error) {
+        this.status.settings = previous;
+        this.$store.toasts.push(error.message, 'critical');
+      }
+    },
+
+    setFallback(mode) {
+      this.saveSettings({fallback: mode, hotspot: this.hotspotOn()});
+    },
+
+    setHotspot(on) {
+      if (!on) this.dropHotspotSecret();
+      this.saveSettings({fallback: this.fallbackMode(), hotspot: Boolean(on)});
+    },
+
+    // The password is only fetched on "Zeigen". A failed fetch leaves the
+    // password hidden and shows the error.
+    async toggleHotspotPw() {
+      if (this.hotspotPwShown) {
+        this.dropHotspotSecret();
+        return;
+      }
+      try {
+        const secret = await requestJSON('/api/v1/network/hotspot-secret', {cache: 'no-store'});
+        this.hotspotSecret = {ssid: secret.ssid || '', password: secret.password || ''};
+        this.hotspotPwShown = true;
+      } catch (error) {
+        this.dropHotspotSecret();
+        this.$store.toasts.push(error.message, 'critical');
+      }
+    },
+
+    dropHotspotSecret() {
+      this.hotspotPwShown = false;
+      this.hotspotSecret = {ssid: '', password: ''};
     },
 
     async scan() {
@@ -162,7 +223,12 @@
     },
 
     locked() { return this.unmanaged(); },
-    canChange() { return false; },
+    // Settings can change once the status is loaded and no switch is running.
+    canChange() {
+      if (!this.status) return false;
+      const sw = this.status.switch;
+      return !(sw && !sw.result);
+    },
     unmanaged() { return Boolean(this.status) && !this.status.managed; },
     hasWifi() { return this.status ? Boolean(this.status.has_wifi) : true; },
     countryMissing() { return Boolean(this.status) && Boolean(this.status.has_wifi) && !this.status.country; },
@@ -171,8 +237,14 @@
     fallbackMode() { return (this.status && this.status.settings && this.status.settings.fallback) || 'parallel'; },
     hotspotOn() { return Boolean(this.status && this.status.settings && this.status.settings.hotspot); },
     hotspotActive() { return Boolean(this.status && this.status.hotspot && this.status.hotspot.active); },
-    // PR 1: only the fixed address. Name and password arrive with the secret endpoint (Task 12).
-    hotspotInfo() { return {ssid: '', password: '', address: '10.42.0.1'}; },
+    // The address is fixed. Name and password come from the secret endpoint and are only set while shown.
+    hotspotInfo() {
+      return {
+        ssid: this.hotspotPwShown ? this.hotspotSecret.ssid : '',
+        password: this.hotspotPwShown ? this.hotspotSecret.password : '',
+        address: '10.42.0.1',
+      };
+    },
 
     wifiLink() { return this.links().find((l) => l.id === 'wifi') || null; },
     viaWifi() { const w = this.wifiLink(); return Boolean(w && w.route); },
