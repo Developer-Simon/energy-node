@@ -420,3 +420,102 @@ test('leert die Auswahl, wenn das gewählte Laufwerk abgesteckt wird', async () 
   assert.equal(page.drive, null, 'an unplugged partition is no longer chosen');
   page.closeFlow(true);
 });
+
+test('eine Gruppe kennt ihre ganze Platte und ihre Partitionen', async () => {
+  const { fetchImpl } = router(baseRoutes(statusBody({ mode: 'none' }), GROUPED));
+  const { page } = createStoragePage({ fetchImpl });
+  await page.init();
+  await page.openSetup();
+
+  const [stick, single] = page.driveGroups;
+  assert.equal(stick.whole.kname, 'sda');
+  assert.deepEqual([...stick.parts.map((p) => p.kname)], ['sda1', 'sda2']);
+  assert.equal(stick.count, 2);
+  assert.equal(single.whole, null, 'a single drive has no switch');
+  assert.equal(single.count, 1);
+  page.closeFlow(true);
+});
+
+test('Gruppenmodus: ganze Platte wählen und wieder auf Partition zurückschalten', async () => {
+  const { fetchImpl } = router(baseRoutes(statusBody({ mode: 'none' }), GROUPED));
+  const { page } = createStoragePage({ fetchImpl });
+  await page.init();
+  await page.openSetup();
+  const [stick] = page.driveGroups;
+
+  assert.equal(page.isWhole(stick), false);
+  page.setGroupMode(stick, 'whole');
+  assert.equal(page.isWhole(stick), true);
+  assert.equal(page.drive.kname, 'sda');
+  assert.equal(page.drive.needsFormat, true);
+
+  page.setGroupMode(stick, 'part');
+  assert.equal(page.isWhole(stick), false);
+  assert.equal(page.drive, null, 'leaving the whole disk clears its choice');
+  page.closeFlow(true);
+});
+
+test('pickPart wirkt nur im Partitionsmodus', async () => {
+  const { fetchImpl } = router(baseRoutes(statusBody({ mode: 'none' }), GROUPED));
+  const { page } = createStoragePage({ fetchImpl });
+  await page.init();
+  await page.openSetup();
+  const [stick] = page.driveGroups;
+  const efi = stick.parts.find((p) => p.kname === 'sda2');
+
+  page.setGroupMode(stick, 'whole');
+  page.pickPart(stick, efi);
+  assert.equal(page.drive.kname, 'sda', 'pickPart does nothing while the whole disk is chosen');
+
+  page.setGroupMode(stick, 'part');
+  assert.equal(page.drive, null);
+  page.pickPart(stick, efi);
+  assert.equal(page.drive.kname, 'sda2');
+
+  page.setGroupMode(stick, 'whole');
+  assert.equal(page.drive.kname, 'sda');
+  page.setGroupMode(stick, 'part');
+  assert.equal(page.drive, null, 'whole to part clears the whole disk choice, not the partition');
+  page.closeFlow(true);
+});
+
+test('chooseDrive setzt den Ganze-Stick-Modus einer anderen Gruppe zurück', async () => {
+  const { fetchImpl } = router(baseRoutes(statusBody({ mode: 'none' }), GROUPED));
+  const { page } = createStoragePage({ fetchImpl });
+  await page.init();
+  await page.openSetup();
+  const [stick, single] = page.driveGroups;
+
+  page.setGroupMode(stick, 'whole');
+  assert.equal(page.isWhole(stick), true);
+  page.chooseDrive(single.items[0]);
+  assert.equal(page.isWhole(stick), false, 'the other group is back to part');
+  assert.equal(page.drive.kname, 'sdb');
+  page.closeFlow(true);
+});
+
+test('Gruppenmodus wird beim Öffnen und beim Abstecken zurückgesetzt', async () => {
+  let current = GROUPED;
+  const { fetchImpl } = router({
+    '/api/v1/auth/session': session(),
+    '/api/v1/storage/status': reply(200, statusBody({ mode: 'none' })),
+    '/api/v1/storage/drives': () => reply(200, current),
+  });
+  const { page } = createStoragePage({ fetchImpl });
+  await page.init();
+  await page.openSetup();
+  const [stick] = page.driveGroups;
+
+  page.setGroupMode(stick, 'whole');
+  await page.openSetup();
+  assert.deepEqual({ ...page.groupMode }, {}, 'opening the flow resets the mode');
+  assert.equal(page.drive, null);
+
+  await page.loadDrives();
+  page.setGroupMode(page.driveGroups[0], 'whole');
+  current = GROUPED.filter((d) => d.kname !== 'sda');
+  await page.loadDrives();
+  assert.equal(page.drive, null, 'the unplugged whole disk is no longer chosen');
+  assert.deepEqual({ ...page.groupMode }, {}, 'unplugging clears the mode');
+  page.closeFlow(true);
+});
