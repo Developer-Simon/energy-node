@@ -262,7 +262,11 @@ already done.
 The result page lists the dashboard's addresses: HTTPS through Caddy, which
 the admin login requires, and plain HTTP on port 8080. It also lists what the
 installer cannot do for you, such as turning off Tailscale key expiry and
-trusting Caddy's local certificate. **Save log** writes the full log to a file.
+trusting Caddy's local certificate. A block
+shows the name and password of its emergency hotspot. Write them down. When the
+node finds no network, it opens this hotspot after 5 minutes, see
+[Settings: Network](dashboard/settings-network.md#emergency-hotspot). **Save log**
+writes the full log to a file.
 
 ## Updating and diagnosing
 

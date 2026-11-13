@@ -97,7 +97,40 @@ stays in the list while it is in range, but it is no longer marked as saved.
 The entry **Other network** at the end of the list connects to a network that
 is hidden or not in the list. Enter the network name and its password.
 
-## Wi-Fi as backup and emergency hotspot
+## Wi-Fi as backup
 
-The cards **Wi-Fi as backup** and **Emergency hotspot** show their current
-state. You cannot change them yet.
+The card **Wi-Fi as backup** decides what Wi-Fi does while the LAN cable has a
+network. The choice is saved as soon as you tap it, there is no save button.
+
+| Choice | Behavior |
+|---|---|
+| Always ready | Wi-Fi stays connected alongside the cable, and the cable has priority. If the cable fails, everything continues over Wi-Fi without a pause. This is the default. |
+| Only on failure | Wi-Fi stays off as long as the cable has an address. If the cable or its address is missing for 30 seconds, the node connects to a saved Wi-Fi network. It disconnects again as soon as the cable is back. |
+
+In *Only on failure* the node also disconnects a Wi-Fi network you connected
+by hand, within 15 seconds, as long as the cable has a network. To test a
+Wi-Fi network, pull the cable first or choose *Always ready*.
+
+Without a saved Wi-Fi network the card says so, because the node then has
+nothing to fall back to. A device without a Wi-Fi module shows the card as not available.
+
+## Emergency hotspot
+
+If the node has neither LAN nor Wi-Fi for 5 minutes, it opens a Wi-Fi network of
+its own. Connect a phone or laptop to it, open `https://10.42.0.1`
+and set up the Wi-Fi network of the building. The switch **Open a hotspot when
+no network is reachable** turns this on or off. It is on by default.
+
+- The network is called `EnergyNode-` followed by four characters, for example
+  `EnergyNode-4F2A`. The password has three short words and two digits, for
+  example `sonne-wolke-42`. Both are created once per node.
+- The installer shows name and password on its [result screen](../installer.md#6-result).
+  Write them down. The page shows them under **Show**, which asks the node
+  for the password only at that moment. It is not kept after you leave the page.
+- The hotspot closes as soon as the cable has a network again. While nobody is
+  connected to it, the node checks every 5 minutes whether a known Wi-Fi network is
+  back, and closes the hotspot if one is.
+- The hotspot uses the 2.4 GHz band. Without a country code for Wi-Fi it uses
+  channel 1, and the page shows a note.
+- The WLAN profiles and the hotspot password are not part of a
+  [backup](settings-backup.md).
