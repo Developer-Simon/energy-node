@@ -1,0 +1,7 @@
+[Unit]
+Description=Energy Node WLAN fallback and emergency hotspot
+After=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/energy-node-network-watch

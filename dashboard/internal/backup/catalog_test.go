@@ -42,6 +42,9 @@ var notNodeData = map[string]bool{
 	"changelog.json":          true,
 	"components.json":         true,
 	"job.json":                true,
+	// Installer-Artefakt unter /etc/energy-node (Schritt 67), nicht in Data oder Devices.
+	// Das Backup nimmt es bewusst nicht auf (Idee P2.28).
+	"hotspot.json": true,
 	// Eingebettete Ressourcen und Testdaten, keine Dateien im Datenverzeichnis.
 	"de.json":            true,
 	"en.json":            true,

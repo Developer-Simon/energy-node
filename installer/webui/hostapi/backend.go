@@ -268,6 +268,9 @@ type RunRequest struct {
 	// Secrets gehen hinein und nie wieder hinaus.
 	MQTTPassword  string `json:"mqtt_password,omitempty"`
 	AdminPassword string `json:"admin_password,omitempty"`
+	// HotspotPassword ist das Passwort des Notfall-Hotspots (Schritt 67). Nur
+	// mode "install" nutzt es; leer heisst: ein Passwort wird erzeugt.
+	HotspotPassword string `json:"hotspot_password,omitempty"`
 	// DashboardPrefs sind die Vorgaben des Dashboard-Schritts (Schema wie
 	// der Zustand der Oberflaeche). Die Passwoerter darin sind Geheimnisse;
 	// Secrets() meldet sie an den Redactor, DashboardSeed() reicht sie als
@@ -288,10 +291,47 @@ type RunRequest struct {
 }
 
 // Secrets liefert die Werte, die aus jeder Ausgabe gefiltert werden muessen:
-// die beiden Passwoerter und die Benutzerpasswoerter aus DashboardPrefs.
+// die Passwoerter (MQTT, Admin, Hotspot) und die Benutzerpasswoerter aus
+// DashboardPrefs.
 func (r RunRequest) Secrets() []string {
 	_, passwords := r.dashboardPrefs()
-	return append([]string{r.MQTTPassword, r.AdminPassword}, passwords...)
+	secrets := []string{r.MQTTPassword, r.AdminPassword}
+	if r.HotspotPassword != "" {
+		secrets = append(secrets, r.HotspotPassword)
+	}
+	return append(secrets, passwords...)
+}
+
+// ValidHotspotPassword prueft das Hotspot-Passwort nach derselben Regel wie
+// der Helper: 8 bis 63 druckbare ASCII-Zeichen (0x20 bis 0x7e) oder genau 64
+// Hex-Ziffern. Leer ist gueltig und heisst "nicht vorgegeben".
+func ValidHotspotPassword(s string) bool {
+	if s == "" {
+		return true
+	}
+	if len(s) == 64 && isHexString(s) {
+		return true
+	}
+	if len(s) < 8 || len(s) > 63 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+// isHexString meldet, ob s nur aus Hex-Ziffern besteht.
+func isHexString(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // DashboardSeed liefert den Inhalt von onboarding-seed.json: die Vorgaben
@@ -372,6 +412,14 @@ type Check struct {
 	Needs string `json:"needs,omitempty"`
 }
 
+// HotspotView ist die Antwort von GET /api/hotspot: Name und Passwort des
+// Notfall-Hotspots, nur fuer den Ergebnisbildschirm nach einer Installation.
+// Das Passwort ist das eigene Hotspot-Passwort des Nodes, kein Kundenpasswort.
+type HotspotView struct {
+	SSID     string `json:"ssid"`
+	Password string `json:"password"`
+}
+
 // DiagnoseView ist die Antwort von GET /api/diagnose.
 type DiagnoseView struct {
 	BundleVersion string            `json:"bundle_version"`
@@ -431,6 +479,8 @@ type Backend interface {
 	Plan(ctx context.Context) (*PlanView, error)
 	Run(ctx context.Context, req RunRequest, sink Sink) error
 	Diagnose(ctx context.Context) (*DiagnoseView, error)
+	// Hotspot liefert den Notfall-Hotspot; nil ohne hotspot.json.
+	Hotspot(ctx context.Context) (*HotspotView, error)
 }
 
 // Error ist ein Backend-Fehler mit sprachneutralem Code. Der Server bildet ihn

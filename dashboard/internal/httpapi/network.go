@@ -179,3 +179,63 @@ func handleNetworkForget(manager *auth.Manager, client *netmgr.Client) http.Hand
 		writeJSON(w, map[string]string{"profile_uuid": body.ProfileUUID})
 	}
 }
+
+// handleNetworkSettings saves the WLAN fallback mode and the hotspot switch.
+// The mode is checked in netmgr, so an unknown mode answers 400 network_rejected
+// without the helper running.
+func handleNetworkSettings(manager *auth.Manager, client *netmgr.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			methodNotAllowed(w, http.MethodPut)
+			return
+		}
+		if !networkWriteGate(w, r, manager) {
+			return
+		}
+		if client == nil {
+			writeError(w, http.StatusNotImplemented, "network_unavailable", "Netzwerkaktionen sind nicht verfügbar")
+			return
+		}
+		var settings netmgr.Settings
+		if err := decodeBody(r, &settings); err != nil {
+			writeError(w, http.StatusBadRequest, "network_rejected", "Die Einstellungen sind ungültig")
+			return
+		}
+		if _, ok := requireManaged(w, r, client); !ok {
+			return
+		}
+		if err := client.SaveSettings(r.Context(), settings); err != nil {
+			writeNetworkError(w, err)
+			return
+		}
+		writeJSON(w, settings)
+	}
+}
+
+// handleHotspotSecret answers the SSID and password of the emergency hotspot.
+// It is a read, so it needs the network role and HTTPS but no CSRF token, and
+// the response is no-store like every network route.
+func handleHotspotSecret(manager *auth.Manager, client *netmgr.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		if !networkGate(w, r, manager) {
+			return
+		}
+		if !requireHTTPS(w, r) {
+			return
+		}
+		if client == nil {
+			writeError(w, http.StatusNotImplemented, "network_unavailable", "Netzwerkaktionen sind nicht verfügbar")
+			return
+		}
+		ssid, password, err := client.HotspotSecret(r.Context())
+		if err != nil {
+			writeNetworkError(w, err)
+			return
+		}
+		writeJSON(w, map[string]string{"ssid": ssid, "password": password})
+	}
+}

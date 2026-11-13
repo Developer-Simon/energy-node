@@ -172,6 +172,19 @@ test('Start schickt die Vorgaben mit den Benutzerzeilen und deren Passwoertern m
   assert.deepEqual(prefs.later, []);
 });
 
+test('POST /api/run enthaelt hotspot_password nur wenn gesetzt, und der Wert wird danach geleert', async () => {
+  const without = mount();
+  await without.screen.start();
+  assert.equal('hotspot_password' in without.calls[1].body, false);
+
+  const withPassword = mount({ shell: { installInput: Object.assign({}, INPUT, { hotspotPassword: 'hotspot-geheim' }) } });
+  const input = withPassword.shell.installInput;
+  await withPassword.screen.start();
+  assert.equal(withPassword.calls[1].body.hotspot_password, 'hotspot-geheim');
+  assert.equal(withPassword.calls[1].body.mode, 'install');
+  assert.equal(input.hotspotPassword, '');
+});
+
 test('ohne Eingaben aus dem Konfigurationsschritt startet nichts', async () => {
   const { screen, calls } = mount({ shell: { installInput: null } });
   assert.equal(screen.canStart, false);

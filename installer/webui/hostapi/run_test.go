@@ -264,6 +264,30 @@ func TestRunRejectsAnUnknownMode(t *testing.T) {
 	}
 }
 
+func TestRunRejectsInvalidHotspotPassword(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	connectFirst(t, server)
+	const secret = "kurz"
+	for _, mode := range []string{"install", "redeploy"} {
+		body := `{"mode":"` + mode + `","hotspot_password":"` + secret + `"}`
+		rec := do(t, server, http.MethodPost, "/api/run", body)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("%s: status = %d, want 400", mode, rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), "HOTSPOT_PASSWORD_INVALID") {
+			t.Errorf("%s: body = %s, want the code HOTSPOT_PASSWORD_INVALID", mode, rec.Body.String())
+		}
+		if strings.Contains(rec.Body.String(), secret) {
+			t.Errorf("%s: body leaks the password: %s", mode, rec.Body.String())
+		}
+	}
+	for _, event := range server.Bus().Since(0) {
+		if event.Type == "run-started" {
+			t.Errorf("a refused request still started a run")
+		}
+	}
+}
+
 func TestDiagnoseReturnsTheChecklist(t *testing.T) {
 	server, _ := newTestServer(t, nil)
 	connectFirst(t, server)
@@ -277,6 +301,32 @@ func TestDiagnoseReturnsTheChecklist(t *testing.T) {
 	}
 	if len(got.Checks) == 0 || got.Units["energy-node-dashboard.service"] == "" {
 		t.Errorf("DiagnoseView = %+v", got)
+	}
+}
+
+func TestHotspotReturnsTheCredentials(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	connectFirst(t, server)
+	fake.HotspotView = &hostapi.HotspotView{SSID: "EnergyNode-4F2A", Password: "sonne-wolke-42"}
+	rec := do(t, server, http.MethodGet, "/api/hotspot", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	var got hostapi.HotspotView
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	if got.SSID != "EnergyNode-4F2A" || got.Password != "sonne-wolke-42" {
+		t.Errorf("HotspotView = %+v", got)
+	}
+}
+
+func TestHotspotWithoutACredentialFileIsNull(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	connectFirst(t, server)
+	rec := do(t, server, http.MethodGet, "/api/hotspot", "")
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != "null" {
+		t.Fatalf("status = %d, body = %q, want 200 null", rec.Code, rec.Body.String())
 	}
 }
 

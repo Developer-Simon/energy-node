@@ -57,6 +57,7 @@ const (
 	CodeConfigWriteFailed       Code = "CONFIG_WRITE_FAILED"
 	CodeDashboardBinaryMissing  Code = "DASHBOARD_BINARY_MISSING"
 	CodeDashboardStartFailed    Code = "DASHBOARD_START_FAILED"
+	CodeHotspotPasswordInvalid  Code = "HOTSPOT_PASSWORD_INVALID"
 	CodeJournaldRestartFailed   Code = "JOURNALD_RESTART_FAILED"
 	CodeJournalConfForeign      Code = "JOURNAL_CONF_FOREIGN"
 	CodeJournalFailed           Code = "JOURNAL_FAILED"
@@ -103,6 +104,7 @@ var allCodes = []Code{
 	CodeConfigWriteFailed,
 	CodeDashboardBinaryMissing,
 	CodeDashboardStartFailed,
+	CodeHotspotPasswordInvalid,
 	CodeJournaldRestartFailed,
 	CodeJournalConfForeign,
 	CodeJournalFailed,

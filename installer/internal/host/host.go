@@ -571,10 +571,11 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		Steps:           list,
 		Selection:       h.selectionForRun(),
 		Secrets: &steps.Secrets{
-			MQTTPassword:  req.MQTTPassword,
-			AdminPassword: req.AdminPassword,
-			AdminUser:     req.AdminUser(),
-			DashboardSeed: req.DashboardSeed(),
+			MQTTPassword:    req.MQTTPassword,
+			AdminPassword:   req.AdminPassword,
+			AdminUser:       req.AdminUser(),
+			DashboardSeed:   req.DashboardSeed(),
+			HotspotPassword: hotspotPasswordFor(req),
 		},
 		OnMarker: func(marker steps.Marker) {
 			sink.Marker(marker.StepID, markerState(marker.Kind), marker.Detail)
@@ -611,6 +612,15 @@ func repairList(manifest bundle.Manifest, req hostapi.RunRequest) []bundle.StepE
 		return nil
 	}
 	return []bundle.StepEntry{entry}
+}
+
+// hotspotPasswordFor is the hotspot password step 67 may take. Only a first
+// install carries it; redeploy, repair and prepare never pass it on.
+func hotspotPasswordFor(req hostapi.RunRequest) string {
+	if req.Mode != hostapi.ModeInstall {
+		return ""
+	}
+	return req.HotspotPassword
 }
 
 // repairsPair reports whether a repair of step 20 or 60 carries a new MQTT
@@ -679,6 +689,23 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		})
 	}
 	return view, nil
+}
+
+// Hotspot reads the emergency hotspot's credentials from the node. A missing
+// hotspot.json gives nil and no error; a broken one is HOTSPOT_UNREADABLE.
+func (h *Host) Hotspot(ctx context.Context) (*hostapi.HotspotView, error) {
+	client, err := h.connected()
+	if err != nil {
+		return nil, err
+	}
+	hotspot, err := steps.ReadHotspot(ctx, steps.RunOptions{Client: client})
+	if err != nil {
+		return nil, &hostapi.Error{Code: "HOTSPOT_UNREADABLE", Status: http.StatusInternalServerError}
+	}
+	if hotspot == nil {
+		return nil, nil
+	}
+	return &hostapi.HotspotView{SSID: hotspot.SSID, Password: hotspot.Password}, nil
 }
 
 // installedInfo carries diagnose.sh's information parts into the view:

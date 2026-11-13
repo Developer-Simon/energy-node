@@ -501,6 +501,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/network/wifi/scan", handleNetworkScan(dependencies.Auth, dependencies.Network))
 		g.HandleFunc("/api/v1/network/wifi/connect", handleNetworkConnect(dependencies.Auth, dependencies.Network))
 		g.HandleFunc("/api/v1/network/wifi/forget", handleNetworkForget(dependencies.Auth, dependencies.Network))
+		g.HandleFunc("/api/v1/network/settings", handleNetworkSettings(dependencies.Auth, dependencies.Network))
+		g.HandleFunc("/api/v1/network/hotspot-secret", handleHotspotSecret(dependencies.Auth, dependencies.Network))
 	}
 	var setupPending func() bool
 	if dependencies.Onboarding != nil {

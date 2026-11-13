@@ -177,3 +177,167 @@ func TestRunStagesDashboardSeedForStep60AndCleansUpAfterwards(t *testing.T) {
 		t.Fatalf("staged seed file was not cleaned up: %q", stagedPath)
 	}
 }
+
+// checkHotspotScript stands in for 67-network.sh. It accepts only
+// --hotspot-password-file, checks the file's content (no line ending, 16
+// bytes), its mode 0600, and that the password never shows up as the path.
+const checkHotspotScript = `#!/bin/sh
+printf '##STEP 67 begin\n'
+pw_file=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --hotspot-password-file) pw_file="$2"; shift 2 ;;
+    *) printf '##STEP 67 fail UNEXPECTED_ARGS\n'; exit 0 ;;
+  esac
+done
+if [ -z "$pw_file" ]; then
+  printf '##STEP 67 fail MISSING_FLAG\n'
+  exit 0
+fi
+case "$pw_file" in
+  *hotspot-geheim*) printf '##STEP 67 fail PATH_LEAKS_SECRET\n'; exit 0 ;;
+esac
+if [ "$(cat "$pw_file")" != "hotspot-geheim-1" ] || [ "$(wc -c < "$pw_file" | tr -d ' ')" != "16" ]; then
+  printf '##STEP 67 fail WRONG_CONTENT\n'
+  exit 0
+fi
+if [ "$(stat -c %a "$pw_file")" != "600" ]; then
+  printf '##STEP 67 fail WRONG_MODE\n'
+  exit 0
+fi
+echo "$pw_file" > /tmp/energy-node-installer-hotspot-test-path
+printf '##STEP 67 ok\n'
+`
+
+// rejectAnyArgHotspotScript fails when step 67 receives any argument.
+const rejectAnyArgHotspotScript = `#!/bin/sh
+printf '##STEP 67 begin\n'
+if [ $# -gt 0 ]; then
+  printf '##STEP 67 fail UNEXPECTED_ARGS\n'
+  exit 0
+fi
+printf '##STEP 67 ok\n'
+`
+
+// rejectAnyArgStep10Script fails when step 10 receives any argument.
+const rejectAnyArgStep10Script = `#!/bin/sh
+printf '##STEP 10 begin\n'
+if [ $# -gt 0 ]; then
+  printf '##STEP 10 fail UNEXPECTED_ARGS\n'
+  exit 0
+fi
+printf '##STEP 10 ok\n'
+`
+
+func TestStageSecretForStep67SkipsEmpty(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"67-network.sh": rejectAnyArgHotspotScript,
+	})
+
+	err := steps.Run(context.Background(), steps.RunOptions{
+		Client:          client,
+		RemoteBundleDir: bundleDir,
+		RemoteStateDir:  stateDir,
+		BundleVersion:   "v0.1.0",
+		Steps:           []bundle.StepEntry{{ID: "67", Optional: false}},
+		Secrets:         &steps.Secrets{HotspotPassword: ""},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+}
+
+func TestStageSecretForStep67UploadsFileAndReturnsFlag(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"67-network.sh": checkHotspotScript,
+	})
+	t.Cleanup(func() {
+		_ = client.RemoveRemote("/tmp/energy-node-installer-hotspot-test-path")
+	})
+
+	err := steps.Run(context.Background(), steps.RunOptions{
+		Client:          client,
+		RemoteBundleDir: bundleDir,
+		RemoteStateDir:  stateDir,
+		BundleVersion:   "v0.1.0",
+		Steps:           []bundle.StepEntry{{ID: "67", Optional: false}},
+		Secrets:         &steps.Secrets{HotspotPassword: "hotspot-geheim-1"},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+}
+
+func TestStageSecretForStep67CleanupRemovesFile(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"67-network.sh": checkHotspotScript,
+	})
+	t.Cleanup(func() {
+		_ = client.RemoveRemote("/tmp/energy-node-installer-hotspot-test-path")
+	})
+
+	err := steps.Run(context.Background(), steps.RunOptions{
+		Client:          client,
+		RemoteBundleDir: bundleDir,
+		RemoteStateDir:  stateDir,
+		BundleVersion:   "v0.1.0",
+		Steps:           []bundle.StepEntry{{ID: "67", Optional: false}},
+		Secrets:         &steps.Secrets{HotspotPassword: "hotspot-geheim-1"},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	var pathOut bytes.Buffer
+	if err := client.Run(context.Background(), "cat /tmp/energy-node-installer-hotspot-test-path", &pathOut, &bytes.Buffer{}); err != nil {
+		t.Fatalf("reading recorded hotspot path: %v", err)
+	}
+	stagedPath := trimNewlineForSteps(pathOut.String())
+
+	var stateOut bytes.Buffer
+	_ = client.Run(context.Background(), "test -e "+stagedPath+" && echo present || echo gone", &stateOut, &bytes.Buffer{})
+	if trimNewlineForSteps(stateOut.String()) != "gone" {
+		t.Fatalf("staged hotspot file was not cleaned up: %q", stagedPath)
+	}
+}
+
+func TestRunPassesFlagOnlyToStep67(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"10-apt.sh":     rejectAnyArgStep10Script,
+		"67-network.sh": checkHotspotScript,
+	})
+	t.Cleanup(func() {
+		_ = client.RemoveRemote("/tmp/energy-node-installer-hotspot-test-path")
+	})
+
+	err := steps.Run(context.Background(), steps.RunOptions{
+		Client:          client,
+		RemoteBundleDir: bundleDir,
+		RemoteStateDir:  stateDir,
+		BundleVersion:   "v0.1.0",
+		Steps: []bundle.StepEntry{
+			{ID: "10", Optional: false},
+			{ID: "67", Optional: false},
+		},
+		Secrets: &steps.Secrets{HotspotPassword: "hotspot-geheim-1"},
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+}

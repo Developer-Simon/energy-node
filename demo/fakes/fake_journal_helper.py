@@ -69,7 +69,7 @@ STORAGE_DRIVE_UUID = "6f1c2a4e-8b3d-4c5a-9e7f-2d4b6a8c0e1f"
 UUID_PATTERN = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
 DENIED_MESSAGE = "sudo: a password is required"
 DEFAULT_STATE = {"journal": {}, "inject": [], "helper": "normal", "actions": "ok",
-                 "network": fake_network.DEFAULT_SCENARIO}
+                 "network": dict(fake_network.DEFAULT_ENV)}
 
 
 def load_state(path):
@@ -88,31 +88,6 @@ def load_state(path):
         if name in DEFAULT_STATE and isinstance(value, type(DEFAULT_STATE[name])):
             state[name] = value
     return state
-
-
-def store_network(path, scenario):
-    """Writes the network scenario into the state file and keeps the other keys, atomically."""
-    try:
-        with open(path, encoding="utf-8") as handle:
-            doc = json.load(handle)
-    except (OSError, ValueError):
-        doc = {}
-    if not isinstance(doc, dict):
-        doc = {}
-    doc["network"] = scenario
-    tmp = None
-    try:
-        handle, tmp = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(path)),
-                                       prefix=".system-state-", suffix=".tmp")
-        with os.fdopen(handle, "w", encoding="utf-8") as out:
-            json.dump(doc, out, ensure_ascii=False)
-        os.replace(tmp, path)
-    except OSError:
-        if tmp is not None:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
 
 
 def journal_mode(state, key):
@@ -306,10 +281,7 @@ def main(argv=None):
 
     if network:
         staged, progress, links = fake_network.paths_for(os.environ.get("FAKE_SYSTEM_STATE"))
-        state_path = os.environ.get("FAKE_SYSTEM_STATE")
-        code, out, scenario = fake_network.run(action, args, state["network"], staged, progress, links)
-        if scenario != state["network"]:
-            store_network(state_path, scenario)
+        code, out = fake_network.run(action, args, fake_network.env_of(state["network"]), staged, progress, links)
         sys.stdout.write(out)
         return code
 

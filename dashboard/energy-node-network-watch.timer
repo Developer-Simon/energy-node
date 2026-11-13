@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Energy Node network watcher every 15 seconds
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=15
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

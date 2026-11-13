@@ -1,12 +1,12 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154,SC2034 # Globals kommen vom Aufrufer, FAILED wird dort gelesen
 # Pruefgruppe fuer die Netzwerk-API: Status mit den zwei Verbindungen, Verbinden
-# im Demo-Szenario lan bis zum Ergebnis ok. Das Passwort darf in keiner Antwort
+# im Demo mit Kabel bis zum Ergebnis ok. Das Passwort darf in keiner Antwort
 # des Status stehen. Jede Funktion setzt bei einem Fehler FAILED=1.
 # Globals wie BASE, COOKIES, CURL_INSECURE, SECURE_HEADER, WORK kommen vom Aufrufer.
 
 checks_network() {
-  echo "==> Netzwerk: Status mit zwei Verbindungen, Verbinden im Szenario lan"
+  echo "==> Netzwerk: Status mit zwei Verbindungen, Verbinden mit gestecktem Kabel"
   local csrf status_file code ssid body switch_result i
   csrf="$(api "$BASE/api/v1/auth/session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["csrf_token"])')" || csrf=""
   if [[ -z "$csrf" ]]; then
@@ -36,7 +36,7 @@ nets = json.load(open(sys.argv[1])).get("networks", [])
 print(nets[0]["ssid"] if nets else "")
 ' "$status_file")" || ssid=""
   if [[ -z "$ssid" ]]; then
-    echo "  FEHL im Szenario lan kein WLAN-Netz gefunden"; FAILED=1
+    echo "  FEHL bei gestecktem Kabel kein WLAN-Netz gefunden"; FAILED=1
     return
   fi
 
@@ -65,7 +65,7 @@ print(sw.get("result", ""))
     sleep 1
   done
   if [[ "$switch_result" == "ok" ]]; then
-    echo "  OK   Verbinden im Szenario lan endet mit ok"
+    echo "  OK   Verbinden mit gestecktem Kabel endet mit ok"
   else
     echo "  FEHL Verbinden endete mit \"${switch_result:-keinem Ergebnis}\", erwartet ok"; FAILED=1
   fi
@@ -73,5 +73,53 @@ print(sw.get("result", ""))
     echo "  FEHL das Passwort steht im Status"; FAILED=1
   else
     echo "  OK   Passwort steht nicht im Status"
+  fi
+
+  # 4. Ersatzmodus umstellen: standby, im Status sichtbar, danach zurueck auf parallel.
+  local mode put_code
+  for mode in standby parallel; do
+    put_code="$(curl -s "${CURL_INSECURE[@]}" -m 10 -o "$WORK/network-settings.json" -w '%{http_code}' -X PUT \
+      -b "$COOKIES" -H "$SECURE_HEADER" -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' \
+      -d "{\"fallback\":\"$mode\",\"hotspot\":true}" "$BASE/api/v1/network/settings")" || put_code=""
+    if [[ "$put_code" != "200" ]]; then
+      echo "  FEHL Ersatzmodus $mode kam mit HTTP $put_code, erwartet 200"; FAILED=1
+      return
+    fi
+    curl -s "${CURL_INSECURE[@]}" -m 10 -o "$status_file" -b "$COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/network/status" || true
+    if python3 -c '
+import json, sys
+s = json.load(open(sys.argv[1]))
+sys.exit(0 if (s.get("settings") or {}).get("fallback") == sys.argv[2] else 1)
+' "$status_file" "$mode"; then
+      echo "  OK   Ersatzmodus $mode steht im Status"
+    else
+      echo "  FEHL Status zeigt nicht den Ersatzmodus $mode"; FAILED=1
+      return
+    fi
+  done
+
+  # 5. Hotspot-Zugang: ssid und Passwort kommen, das Passwort steht nicht im Status.
+  local secret_code password
+  secret_code="$(curl -s "${CURL_INSECURE[@]}" -m 10 -o "$WORK/hotspot-secret.json" -w '%{http_code}' \
+    -b "$COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/network/hotspot-secret")" || secret_code=""
+  if [[ "$secret_code" == "200" ]] && python3 -c '
+import json, sys
+s = json.load(open(sys.argv[1]))
+sys.exit(0 if s.get("ssid") and s.get("password") else 1)
+' "$WORK/hotspot-secret.json"; then
+    echo "  OK   Hotspot-Zugang liefert ssid und Passwort"
+  else
+    echo "  FEHL Hotspot-Zugang kam mit HTTP $secret_code oder ohne ssid und Passwort"; FAILED=1
+    return
+  fi
+  password="$(python3 -c '
+import json, sys
+print(json.load(open(sys.argv[1]))["password"])
+' "$WORK/hotspot-secret.json")" || password=""
+  curl -s "${CURL_INSECURE[@]}" -m 10 -o "$status_file" -b "$COOKIES" -H "$SECURE_HEADER" "$BASE/api/v1/network/status" || true
+  if [[ -n "$password" ]] && grep -qF -- "$password" "$status_file"; then
+    echo "  FEHL das Hotspot-Passwort steht im Status"; FAILED=1
+  else
+    echo "  OK   Hotspot-Passwort steht nicht im Status"
   fi
 }

@@ -37,7 +37,7 @@ WHEEL_WORK=""
 BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
-CORE_STEPS=(10 20 30 50 60 65)
+CORE_STEPS=(10 20 30 50 60 65 67)
 OPTIONAL_STEPS=(15 17 35 40 70)
 # 15 (Systempakete aktualisieren) ist optional mit Vorgabe an: abwaehlen
 # laesst nur die Pruefung uebrig (scripts/bootstrap/15-system-upgrade.sh).
@@ -183,6 +183,12 @@ install -m 0755 "${REPO_ROOT}/dashboard/energy-node-updater.sh" \
   "${STAGE}/dashboard/energy-node-updater"
 install -m 0755 "${REPO_ROOT}/dashboard/energy-node-storage-helper" \
   "${STAGE}/dashboard/energy-node-storage-helper"
+# Notfall-Hotspot und WLAN-Waechter (Schritt 67): der Waechter und seine
+# Units liegen wie der Speicher-Helfer unveraendert im Bundle.
+install -m 0755 "${REPO_ROOT}/dashboard/energy-node-network-watch" \
+  "${STAGE}/dashboard/energy-node-network-watch"
+cp "${REPO_ROOT}/dashboard/energy-node-network-watch.service" \
+  "${REPO_ROOT}/dashboard/energy-node-network-watch.timer" "${STAGE}/dashboard/"
 cp "${REPO_ROOT}/installer/internal/bundle/signing_key.pub.pem" \
   "${STAGE}/dashboard/signing_key.pub.pem"
 

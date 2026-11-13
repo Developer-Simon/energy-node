@@ -8,7 +8,6 @@ laufen ueber window.konsole.post.
 import json
 
 from fake_journal_helper import KEYS
-from fake_network import SCENARIO_IDS, SCENARIOS
 
 JOURNAL_BUTTONS = (("normal", "Normal"), ("errors", "Viele Fehler"), ("empty", "Leer"))
 
@@ -56,11 +55,32 @@ __JOURNAL_ROWS__
 <div class="grp" data-group="network">
   <h3>Netzwerk</h3>
   <div class="list">
-    <div class="row">Netzwerk-Szenario
-      <span class="end"><select data-network aria-label="Netzwerk-Szenario">__NETWORK_OPTIONS__</select></span>
+    <div class="row">Netzwerkkabel
+      <span class="end"><span class="seg" data-network-lan>
+        <button type="button" data-act="network" data-name="lan" data-value="true" aria-pressed="false">Steckt</button>
+        <button type="button" data-act="network" data-name="lan" data-value="false" aria-pressed="false">Gezogen</button>
+      </span></span>
+    </div>
+    <div class="row">WLAN-Modul
+      <span class="end"><span class="seg" data-network-wifi>
+        <button type="button" data-act="network" data-name="wifi" data-value="true" aria-pressed="false">Vorhanden</button>
+        <button type="button" data-act="network" data-name="wifi" data-value="false" aria-pressed="false">Fehlt</button>
+      </span></span>
+    </div>
+    <div class="row">WLAN-Login
+      <span class="end"><span class="seg" data-network-password_ok>
+        <button type="button" data-act="network" data-name="password_ok" data-value="true" aria-pressed="false">Nimmt an</button>
+        <button type="button" data-act="network" data-name="password_ok" data-value="false" aria-pressed="false">Lehnt ab</button>
+      </span></span>
+    </div>
+    <div class="row">FritzBox Werkstatt
+      <span class="end"><span class="seg" data-network-werkstatt>
+        <button type="button" data-act="network" data-name="werkstatt" data-value="true" aria-pressed="false">Erreichbar</button>
+        <button type="button" data-act="network" data-name="werkstatt" data-value="false" aria-pressed="false">Weg</button>
+      </span></span>
     </div>
   </div>
-  <p class="note" data-network-note></p>
+  <p class="note">Das Dashboard folgt den Schaltern. Lehnt das WLAN-Login ab, scheitert jedes Verbinden mit "Passwort abgelehnt". Ist FritzBox Werkstatt weg, verschwindet das Netz aus der Liste, eine bestehende Verbindung reißt ab und Verbinden meldet "Netz nicht gefunden". Ohne Kabel und ohne WLAN-Verbindung öffnet der Node seinen Notfall-Hotspot, sofern er in den Netzwerkeinstellungen an ist.</p>
   <p class="grp-err"></p>
 </div>
 
@@ -84,7 +104,6 @@ __JOURNAL_ROWS__
   if (!root) return;
 
   const RESULT_LABELS = __RESULT_LABELS__;
-  const NETWORK_NOTES = __NETWORK_NOTES__;
   const $ = (sel) => root.querySelector(sel);
 
   function setPressed(container, value) {
@@ -129,17 +148,13 @@ __JOURNAL_ROWS__
     setPressed($("[data-helper]"), state.helper);
     setPressed($("[data-actions]"), state.actions);
     if (state.network) {
-      $("[data-network]").value = state.network;
-      $("[data-network-note]").textContent = NETWORK_NOTES[state.network] || "";
+      setPressed($("[data-network-lan]"), String(state.network.lan));
+      setPressed($("[data-network-wifi]"), String(state.network.wifi));
+      setPressed($("[data-network-password_ok]"), String(state.network.password_ok));
+      setPressed($("[data-network-werkstatt]"), String(state.network.werkstatt));
     }
     renderRecent(state.recent);
   }
-
-  root.addEventListener("change", (event) => {
-    const select = event.target.closest("[data-network]");
-    if (!select || !root.contains(select)) return;
-    window.konsole.post("system", "network", { scenario: select.value }, select);
-  });
 
   root.addEventListener("click", (event) => {
     const btn = event.target.closest("[data-act]");
@@ -151,6 +166,9 @@ __JOURNAL_ROWS__
         break;
       case "helper":
         window.konsole.post("system", "helper", { mode: btn.dataset.value }, btn);
+        break;
+      case "network":
+        window.konsole.post("system", "network", { [btn.dataset.name]: btn.dataset.value === "true" }, btn);
         break;
       case "actions":
         window.konsole.post("system", "actions", { result: btn.dataset.value }, btn);
@@ -185,13 +203,9 @@ def _journal_row(key: str) -> str:
 
 
 def system_html(result_labels: dict) -> str:
-    """Fragment fuer den Reiter: je Dienst eine Zeile, Auswahl fuer Inject, Netz-Szenarien, Ergebnisbezeichnungen."""
+    """Fragment fuer den Reiter: je Dienst eine Zeile, Auswahl fuer Inject, Netzschalter, Ergebnisbezeichnungen."""
     services = sorted(KEYS)
     rows = "\n".join(_journal_row(key) for key in services)
     options = "".join(f'<option value="{key}">{key}</option>' for key in services)
-    network_options = "".join(f'<option value="{key}">{SCENARIOS[key].label}</option>' for key in SCENARIO_IDS)
-    notes = {key: SCENARIOS[key].note for key in SCENARIO_IDS}
-    html = (SYSTEM_HTML.replace("__JOURNAL_ROWS__", rows).replace("__KEY_OPTIONS__", options)
-            .replace("__NETWORK_OPTIONS__", network_options))
-    html = html.replace("__NETWORK_NOTES__", json.dumps(notes, ensure_ascii=False))
+    html = (SYSTEM_HTML.replace("__JOURNAL_ROWS__", rows).replace("__KEY_OPTIONS__", options))
     return html.replace("__RESULT_LABELS__", json.dumps(result_labels, ensure_ascii=False))

@@ -92,6 +92,9 @@ mkdir -p "$tmp/root/etc/energy-node"
 cp "$repo/dashboard/internal/appconfig/energy-node.config.json" "$tmp/root/etc/energy-node/config.json"
 printf 'geheim\n' > "$tmp/root/etc/energy-node/mqtt.pw"
 chmod 600 "$tmp/root/etc/energy-node/mqtt.pw"
+# Schritt 67 leitet den Hotspot-Namen aus einer Kennung ab. Ohne WLAN-Geraet
+# im Test-Sysfs ist das die machine-id.
+printf 'a1b2c3d4e5f60718a9b0c1d2e3f40516\n' > "$tmp/root/etc/machine-id"
 
 # --- AC 15 (Form): unangetastetes, korrekt signiertes Bundle laeuft durch ---
 job="$tmp/job"

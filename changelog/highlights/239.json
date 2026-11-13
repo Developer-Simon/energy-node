@@ -1,0 +1,42 @@
+{
+  "de": {
+    "*": "WLAN als Ersatz wählen und den Notfall-Hotspot verwalten"
+  },
+  "en": {
+    "*": "Choose the Wi-Fi fallback and manage the emergency hotspot"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "network",
+          "page": "network",
+          "panel": "settings-panel",
+          "target": "network-fallback",
+          "text": {
+            "de": "Hier legst du fest, wie das WLAN neben dem Kabel arbeitet. Immer bereit hält es verbunden, nur bei Ausfall schaltet es sich erst zu, wenn das Kabel kein Netz mehr hat.",
+            "en": "Here you choose how Wi-Fi works beside the cable. Always ready keeps it connected, only on failure connects it once the cable has no network."
+          },
+          "title": {
+            "de": "WLAN als Ersatz",
+            "en": "Wi-Fi as backup"
+          }
+        },
+        {
+          "need": "network",
+          "page": "network",
+          "panel": "settings-panel",
+          "target": "network-hotspot",
+          "text": {
+            "de": "Fallen Kabel und WLAN aus, öffnet die Node ein eigenes WLAN. Netzname und Passwort stehen hier, damit du dich mit dem Handy verbinden und ein neues Netz einrichten kannst.",
+            "en": "If cable and Wi-Fi are both gone, the node opens a Wi-Fi of its own. The network name and password are shown here, so you can connect with a phone and set up a new network."
+          },
+          "title": {
+            "de": "Notfall-Hotspot",
+            "en": "Emergency hotspot"
+          }
+        }
+      ]
+    }
+  }
+}

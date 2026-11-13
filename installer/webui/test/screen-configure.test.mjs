@@ -73,6 +73,44 @@ test('Weiter reicht die Eingaben an das Dashboard weiter, ohne etwas zu schicken
   assert.equal(JSON.stringify(shell.shared).includes('geheim'), false, 'kein Passwort in shared');
 });
 
+test('canStart bleibt wahr bei leerem Hotspot-Passwort', async () => {
+  const { screen } = await mount();
+  fillSecrets(screen);
+  screen.hotspotPassword = '';
+  assert.equal(screen.canStart, true);
+});
+
+test('canStart ist falsch bei 7 Zeichen im Hotspot-Passwort', async () => {
+  const { screen } = await mount();
+  fillSecrets(screen);
+  screen.hotspotPassword = 'abcdefg';
+  assert.equal(screen.canStart, false);
+});
+
+test('canStart ist wahr bei 8 Zeichen mit Leerzeichen im Hotspot-Passwort', async () => {
+  const { screen } = await mount();
+  fillSecrets(screen);
+  screen.hotspotPassword = 'ab cd ef';
+  assert.equal(screen.canStart, true);
+});
+
+test('canStart ist wahr bei 64 Hex-Ziffern und falsch bei 64 Nicht-Hex-Zeichen', async () => {
+  const { screen } = await mount();
+  fillSecrets(screen);
+  screen.hotspotPassword = 'a'.repeat(64);
+  assert.equal(screen.canStart, true);
+  screen.hotspotPassword = 'z'.repeat(64);
+  assert.equal(screen.canStart, false);
+});
+
+test('start gibt hotspotPassword in installInput weiter', async () => {
+  const { screen, shell } = await mount();
+  fillSecrets(screen);
+  screen.hotspotPassword = 'hotspot-geheim';
+  screen.start();
+  assert.equal(shell.installInput.hotspotPassword, 'hotspot-geheim');
+});
+
 test('ohne beide Passwoerter geht Weiter nicht weiter', async () => {
   const { screen, shell } = await mount();
   screen.mqttPassword = 'x';
@@ -87,6 +125,12 @@ test('Zurueck vom Dashboard stellt Auswahl und Passwoerter wieder her', async ()
   assert.equal(screen.steps['40'], false);
   assert.equal(screen.mqttPassword, 'mqtt-geheim');
   assert.equal(screen.adminPassword, 'admin-geheim');
+});
+
+test('Zurueck vom Dashboard stellt das Hotspot-Passwort wieder her', async () => {
+  const kept = { steps: Object.assign({}, SELECTION.steps), mqttPassword: 'mqtt-geheim', adminPassword: 'admin-geheim', hotspotPassword: 'hotspot-geheim' };
+  const { screen } = await mount({ shell: { installInput: kept } });
+  assert.equal(screen.hotspotPassword, 'hotspot-geheim');
 });
 
 test('Zurueck aus der Konfiguration verwirft die gemerkten Eingaben', async () => {

@@ -83,6 +83,8 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/network/wifi/scan":        {group: groupOpen},
 	"/api/v1/network/wifi/connect":     {group: groupOpen},
 	"/api/v1/network/wifi/forget":      {group: groupOpen},
+	"/api/v1/network/settings":         {group: groupOpen},
+	"/api/v1/network/hotspot-secret":   {group: groupOpen},
 	"/api/v1/tiny-tuya/devices":        {group: groupOpen},
 	"/api/v1/tiny-tuya/status":         {group: groupOpen},
 	"/api/v1/tiny-tuya/configure":      {group: groupOpen},

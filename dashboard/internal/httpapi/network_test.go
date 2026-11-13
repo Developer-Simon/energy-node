@@ -22,11 +22,15 @@ import (
 // networkRunner answers the helper verbs of the netmgr client. Each verb has
 // its own output or error; calls records every helper invocation.
 type networkRunner struct {
-	status  string
-	scan    error
-	connect error
-	forget  error
-	calls   []string
+	status      string
+	scan        error
+	connect     error
+	forget      error
+	settings    error
+	secret      string
+	secretErr   error
+	calls       []string
+	settingArgs []string
 }
 
 func (r *networkRunner) Output(_ context.Context, _ string, args ...string) (string, error) {
@@ -41,6 +45,11 @@ func (r *networkRunner) Output(_ context.Context, _ string, args ...string) (str
 		return "", r.connect
 	case "wifi-forget":
 		return "", r.forget
+	case "network-settings":
+		r.settingArgs = args[3:]
+		return "", r.settings
+	case "hotspot-secret":
+		return r.secret, r.secretErr
 	}
 	return "", os.ErrInvalid
 }
@@ -183,16 +192,21 @@ func TestNetworkWriteRoutesRequireHTTPS(t *testing.T) {
 		}
 	}
 	cases := []struct {
+		method  string
 		path    string
 		body    string
 		handler http.HandlerFunc
 	}{
-		{"scan", "", handleNetworkScan(manager, client)},
-		{"connect", `{"ssid":"Nachbar","password":"geheimes-wlan"}`, handleNetworkConnect(manager, client)},
-		{"forget", `{"profile_uuid":"6f0d6b6e-3c1a-4c4e-9a52-1d2f3e4a5b6c"}`, handleNetworkForget(manager, client)},
+		{http.MethodPost, "scan", "", handleNetworkScan(manager, client)},
+		{http.MethodPost, "connect", `{"ssid":"Nachbar","password":"geheimes-wlan"}`, handleNetworkConnect(manager, client)},
+		{http.MethodPost, "forget", `{"profile_uuid":"6f0d6b6e-3c1a-4c4e-9a52-1d2f3e4a5b6c"}`, handleNetworkForget(manager, client)},
+		{http.MethodPut, "settings", `{"fallback":"standby","hotspot":true}`, handleNetworkSettings(manager, client)},
 	}
 	for _, tc := range cases {
-		request := httptest.NewRequest(http.MethodPost, "/api/v1/network/wifi/"+tc.path, strings.NewReader(tc.body))
+		request := httptest.NewRequest(tc.method, "/api/v1/network/"+tc.path, strings.NewReader(tc.body))
+		if tc.path != "settings" {
+			request = httptest.NewRequest(tc.method, "/api/v1/network/wifi/"+tc.path, strings.NewReader(tc.body))
+		}
 		request = request.WithContext(auth.WithUser(request.Context(), admin))
 		recorder := httptest.NewRecorder()
 		tc.handler(recorder, request)
@@ -205,19 +219,21 @@ func TestNetworkWriteRoutesRequireHTTPS(t *testing.T) {
 
 func TestNetworkWriteRoutesRequireCSRF(t *testing.T) {
 	cases := []struct {
-		path string
-		body string
+		method string
+		path   string
+		body   string
 	}{
-		{"/api/v1/network/wifi/scan", ""},
-		{"/api/v1/network/wifi/connect", `{"ssid":"Nachbar","password":"geheimes-wlan"}`},
-		{"/api/v1/network/wifi/forget", `{"profile_uuid":"6f0d6b6e-3c1a-4c4e-9a52-1d2f3e4a5b6c"}`},
+		{http.MethodPost, "/api/v1/network/wifi/scan", ""},
+		{http.MethodPost, "/api/v1/network/wifi/connect", `{"ssid":"Nachbar","password":"geheimes-wlan"}`},
+		{http.MethodPost, "/api/v1/network/wifi/forget", `{"profile_uuid":"6f0d6b6e-3c1a-4c4e-9a52-1d2f3e4a5b6c"}`},
+		{http.MethodPut, "/api/v1/network/settings", `{"fallback":"standby","hotspot":true}`},
 	}
 	for _, tc := range cases {
 		runner := &networkRunner{status: networkFixture(t, "both.txt")}
 		router, _ := newNetworkTestRouter(t, runner, t.TempDir())
 		adminCookie, _ := loginAsAdmin(t, router)
 
-		recorder := networkRequest(router, http.MethodPost, tc.path, tc.body, adminCookie, "", true)
+		recorder := networkRequest(router, tc.method, tc.path, tc.body, adminCookie, "", true)
 		expectNetworkStatus(t, recorder, http.StatusForbidden, "csrf_failed")
 		if len(runner.calls) != 0 {
 			t.Fatalf("%s: helper ran without CSRF token: %v", tc.path, runner.calls)
@@ -345,5 +361,128 @@ func TestNetworkForgetRejectsNonUUID(t *testing.T) {
 	expectNetworkStatus(t, recorder, http.StatusBadRequest, "network_rejected")
 	if runner.called("wifi-forget") {
 		t.Fatal("wifi-forget ran for a non-UUID")
+	}
+}
+
+func TestNetworkSettingsSavesModeAndHotspot(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "both.txt")}
+	router, _ := newNetworkTestRouter(t, runner, t.TempDir())
+	adminCookie, csrf := loginAsAdmin(t, router)
+
+	recorder := networkRequest(router, http.MethodPut, "/api/v1/network/settings", `{"fallback":"standby","hotspot":false}`, adminCookie, csrf, true)
+	expectNetworkStatus(t, recorder, http.StatusOK, "")
+	if want := []string{"standby", "off"}; strings.Join(runner.settingArgs, " ") != strings.Join(want, " ") {
+		t.Fatalf("network-settings args = %v, want %v", runner.settingArgs, want)
+	}
+}
+
+func TestNetworkSettingsRejectsUnknownMode(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "both.txt")}
+	router, _ := newNetworkTestRouter(t, runner, t.TempDir())
+	adminCookie, csrf := loginAsAdmin(t, router)
+
+	recorder := networkRequest(router, http.MethodPut, "/api/v1/network/settings", `{"fallback":"fast","hotspot":true}`, adminCookie, csrf, true)
+	expectNetworkStatus(t, recorder, http.StatusBadRequest, "network_rejected")
+	if runner.settingArgs != nil {
+		t.Fatalf("network-settings ran for an unknown mode: %v", runner.settingArgs)
+	}
+}
+
+func TestNetworkSettingsUnmanagedReturnsConflict(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "unmanaged.txt")}
+	router, _ := newNetworkTestRouter(t, runner, t.TempDir())
+	adminCookie, csrf := loginAsAdmin(t, router)
+
+	recorder := networkRequest(router, http.MethodPut, "/api/v1/network/settings", `{"fallback":"standby","hotspot":true}`, adminCookie, csrf, true)
+	expectNetworkStatus(t, recorder, http.StatusConflict, "network_unmanaged")
+	if runner.settingArgs != nil {
+		t.Fatal("network-settings ran on an unmanaged network")
+	}
+}
+
+func TestNetworkSettingsRequiresNetworkRole(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "both.txt")}
+	router, _ := newNetworkTestRouter(t, runner, t.TempDir())
+	guestCookie := loginAsGuest(t, router)
+
+	recorder := networkRequest(router, http.MethodPut, "/api/v1/network/settings", `{"fallback":"standby","hotspot":true}`, guestCookie, "", true)
+	expectNetworkStatus(t, recorder, http.StatusForbidden, "network_forbidden")
+	if runner.settingArgs != nil {
+		t.Fatal("network-settings ran for a guest")
+	}
+}
+
+// TestHotspotSecretNeedsHTTPS calls the handler with the admin in the context,
+// as TestNetworkWriteRoutesRequireHTTPS does: a plain HTTP admin session never
+// authenticates, so the router would answer network_forbidden first.
+func TestHotspotSecretNeedsHTTPS(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "both.txt"), secret: "energy-node-hotspot\ns3cret-pass\n"}
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := netmgr.NewClient(runner, "/usr/local/bin/energy-node-dashboard-system-action", t.TempDir())
+	var admin auth.User
+	for _, user := range manager.Users() {
+		if user.Username == "admin" {
+			admin = user
+		}
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/network/hotspot-secret", nil)
+	request = request.WithContext(auth.WithUser(request.Context(), admin))
+	recorder := httptest.NewRecorder()
+	handleHotspotSecret(manager, client)(recorder, request)
+	expectNetworkStatus(t, recorder, http.StatusForbidden, "secure_connection_required")
+	if recorder.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", recorder.Header().Get("Cache-Control"))
+	}
+	if runner.called("hotspot-secret") {
+		t.Fatal("hotspot-secret ran over plain HTTP")
+	}
+}
+
+func TestHotspotSecretRequiresNetworkRole(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "both.txt"), secret: "energy-node-hotspot\ns3cret-pass\n"}
+	router, _ := newNetworkTestRouter(t, runner, t.TempDir())
+	guestCookie := loginAsGuest(t, router)
+
+	recorder := networkRequest(router, http.MethodGet, "/api/v1/network/hotspot-secret", "", guestCookie, "", true)
+	expectNetworkStatus(t, recorder, http.StatusForbidden, "network_forbidden")
+	if runner.called("hotspot-secret") {
+		t.Fatal("hotspot-secret ran for a guest")
+	}
+}
+
+func TestHotspotSecretReturnsSecretNoStore(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "both.txt"), secret: "energy-node-hotspot\ns3cret-pass\n"}
+	router, _ := newNetworkTestRouter(t, runner, t.TempDir())
+	adminCookie, _ := loginAsAdmin(t, router)
+
+	recorder := networkRequest(router, http.MethodGet, "/api/v1/network/hotspot-secret", "", adminCookie, "", true)
+	expectNetworkStatus(t, recorder, http.StatusOK, "")
+	if recorder.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", recorder.Header().Get("Cache-Control"))
+	}
+	var body struct {
+		SSID     string `json:"ssid"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body.SSID != "energy-node-hotspot" || body.Password != "s3cret-pass" {
+		t.Fatalf("secret = %+v", body)
+	}
+}
+
+func TestHotspotSecretHelperFailureIsBadGateway(t *testing.T) {
+	runner := &networkRunner{status: networkFixture(t, "both.txt"), secretErr: networkExitError(t, 66)}
+	router, _ := newNetworkTestRouter(t, runner, t.TempDir())
+	adminCookie, _ := loginAsAdmin(t, router)
+
+	recorder := networkRequest(router, http.MethodGet, "/api/v1/network/hotspot-secret", "", adminCookie, "", true)
+	expectNetworkStatus(t, recorder, http.StatusBadGateway, "network_failed")
+	if strings.Contains(recorder.Body.String(), "password") {
+		t.Fatalf("error names a password: %s", recorder.Body.String())
 	}
 }

@@ -587,3 +587,46 @@ func TestPlanReportsStepsWhoseStampStillHoldsAsDone(t *testing.T) {
 		}
 	}
 }
+
+func TestHotspotReadsTheLocalCredentialFile(t *testing.T) {
+	cfg := setupNode(t)
+	path := filepath.Join(t.TempDir(), "hotspot.json")
+	os.WriteFile(path, []byte(`{"ssid":"EnergyNode-4F2A","password":"sonne-wolke-42"}`), 0o640)
+	cfg.HotspotPath = path
+	host, err := updaterhost.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	view, err := host.Hotspot(context.Background())
+	if err != nil {
+		t.Fatalf("Hotspot: %v", err)
+	}
+	if view == nil || view.SSID != "EnergyNode-4F2A" || view.Password != "sonne-wolke-42" {
+		t.Fatalf("Hotspot = %+v", view)
+	}
+}
+
+func TestHotspotWithoutACredentialFileIsNoBlock(t *testing.T) {
+	cfg := setupNode(t)
+	cfg.HotspotPath = filepath.Join(t.TempDir(), "missing.json")
+	host, _ := updaterhost.New(cfg)
+	view, err := host.Hotspot(context.Background())
+	if err != nil || view != nil {
+		t.Fatalf("Hotspot = %+v, %v; want nil, nil", view, err)
+	}
+}
+
+func TestHotspotWithAMalformedFileIsAnErrorWithoutItsContent(t *testing.T) {
+	cfg := setupNode(t)
+	path := filepath.Join(t.TempDir(), "hotspot.json")
+	os.WriteFile(path, []byte(`{"ssid":"EnergyNode-4F2A","password":""}`), 0o640)
+	cfg.HotspotPath = path
+	host, _ := updaterhost.New(cfg)
+	view, err := host.Hotspot(context.Background())
+	if err == nil || view != nil {
+		t.Fatalf("Hotspot = %+v, %v; want an error", view, err)
+	}
+	if strings.Contains(err.Error(), "EnergyNode") {
+		t.Fatalf("error leaks file content: %v", err)
+	}
+}

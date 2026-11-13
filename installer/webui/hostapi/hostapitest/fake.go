@@ -50,6 +50,8 @@ type FakeBackend struct {
 	PlanErr       error
 	DiagnoseView  *hostapi.DiagnoseView
 	DiagnoseErr   error
+	HotspotView   *hostapi.HotspotView
+	HotspotErr    error
 
 	// SudoErr laesst EnableSudo scheitern, LastSudoPassword haelt fest, was
 	// zuletzt ankam.
@@ -370,6 +372,10 @@ func (f *FakeBackend) Run(ctx context.Context, req hostapi.RunRequest, sink host
 
 func (f *FakeBackend) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	return f.DiagnoseView, f.DiagnoseErr
+}
+
+func (f *FakeBackend) Hotspot(ctx context.Context) (*hostapi.HotspotView, error) {
+	return f.HotspotView, f.HotspotErr
 }
 
 func (f *FakeBackend) SelectPackage(ctx context.Context, sel hostapi.PackageSelection) error {

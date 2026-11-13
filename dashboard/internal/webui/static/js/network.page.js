@@ -46,7 +46,10 @@
     openSsid: null,
     password: '',
     showPw: false,
-    hotspotPwShown: false,
+    // Kept in memory only, filled once when the page opens and dropped when the
+    // page is left. The endpoint answers only with the network right.
+    hotspotSecret: {ssid: '', password: ''},
+    hotspotSecretError: '',
     hidden: {ssid: '', password: ''},
     csrfToken: '',
     loadedAt: 0,
@@ -57,6 +60,7 @@
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
       this.csrfToken = (session && session.csrf_token) || '';
       await this.load();
+      await this.loadHotspotSecret();
       if (!this.timer) this.timer = window.setInterval(() => this.tick(), TICK_MS);
     },
 
@@ -86,6 +90,61 @@
         headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
         body: JSON.stringify(body),
       });
+    },
+
+    // Stops the poll and drops the hotspot password when the page is left.
+    destroy() {
+      if (this.timer) window.clearInterval(this.timer);
+      this.timer = null;
+      this.dropHotspotSecret();
+    },
+
+    // Saves the fallback mode and the hotspot switch at once. The shown value
+    // changes first and goes back to the previous one with an error toast when
+    // the request fails.
+    async saveSettings(next) {
+      if (this.locked() || !this.canChange()) return;
+      const previous = {fallback: this.fallbackMode(), hotspot: this.hotspotOn()};
+      if (previous.fallback === next.fallback && previous.hotspot === next.hotspot) return;
+      this.status.settings = {...next};
+      try {
+        await requestJSON('/api/v1/network/settings', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          body: JSON.stringify(next),
+        });
+      } catch (error) {
+        this.status.settings = previous;
+        this.$store.toasts.push(error.message, 'critical');
+      }
+    },
+
+    setFallback(mode) {
+      this.saveSettings({fallback: mode, hotspot: this.hotspotOn()});
+    },
+
+    setHotspot(on) {
+      this.saveSettings({fallback: this.fallbackMode(), hotspot: Boolean(on)});
+    },
+
+    // Name and password of the emergency hotspot are shown in plain text to
+    // everyone who may use the network page, whatever the switches say. A failed
+    // fetch (no HTTPS, no helper) leaves them empty and shows the reason in the
+    // password field instead of a toast.
+    async loadHotspotSecret() {
+      if (!this.hasWifi()) return;
+      try {
+        const secret = await requestJSON('/api/v1/network/hotspot-secret', {cache: 'no-store'});
+        this.hotspotSecret = {ssid: secret.ssid || '', password: secret.password || ''};
+        this.hotspotSecretError = '';
+      } catch (error) {
+        this.dropHotspotSecret();
+        this.hotspotSecretError = error.message;
+      }
+    },
+
+    dropHotspotSecret() {
+      this.hotspotSecret = {ssid: '', password: ''};
     },
 
     async scan() {
@@ -162,7 +221,12 @@
     },
 
     locked() { return this.unmanaged(); },
-    canChange() { return false; },
+    // Settings can change once the status is loaded and no switch is running.
+    canChange() {
+      if (!this.status) return false;
+      const sw = this.status.switch;
+      return !(sw && !sw.result);
+    },
     unmanaged() { return Boolean(this.status) && !this.status.managed; },
     hasWifi() { return this.status ? Boolean(this.status.has_wifi) : true; },
     countryMissing() { return Boolean(this.status) && Boolean(this.status.has_wifi) && !this.status.country; },
@@ -171,8 +235,14 @@
     fallbackMode() { return (this.status && this.status.settings && this.status.settings.fallback) || 'parallel'; },
     hotspotOn() { return Boolean(this.status && this.status.settings && this.status.settings.hotspot); },
     hotspotActive() { return Boolean(this.status && this.status.hotspot && this.status.hotspot.active); },
-    // PR 1: only the fixed address. Name and password arrive with the secret endpoint (Task 12).
-    hotspotInfo() { return {ssid: '', password: '', address: '10.42.0.1'}; },
+    // The address is fixed. Name and password come from the secret endpoint.
+    hotspotInfo() {
+      return {
+        ssid: this.hotspotSecret.ssid,
+        password: this.hotspotSecret.password,
+        address: '10.42.0.1',
+      };
+    },
 
     wifiLink() { return this.links().find((l) => l.id === 'wifi') || null; },
     viaWifi() { const w = this.wifiLink(); return Boolean(w && w.route); },
@@ -207,7 +277,17 @@
       return link.state === 'none' ? '#ico-wifi-off' : '#ico-wifi';
     },
 
+    // Wi-Fi in the standby mode: unconnected beside a working cable, with a saved
+    // network to fall back to. It is ready, not unset.
+    standbyWait(link) {
+      // An unconnected Wi-Fi arrives as state off, which alone reads "not set up".
+      if (link.id !== 'wifi' || link.state !== 'off' || this.fallbackMode() !== 'standby') return false;
+      const lan = this.links().find((l) => l.id === 'lan');
+      return Boolean(lan) && lan.state === 'up' && this.savedCount() > 0;
+    },
+
     linkTone(link) {
+      if (this.standbyWait(link)) return 'info';
       if (link.state === 'hotspot') return 'warn';
       if (link.state === 'error') return 'bad';
       if (link.state === 'up') return link.route || link.id === 'lan' ? 'ok' : 'info';
@@ -215,6 +295,7 @@
     },
 
     linkStateLabel(link) {
+      if (this.standbyWait(link)) return t('network.state.standby_wait');
       switch (link.state) {
         case 'up': return link.id === 'wifi' && !link.route ? t('network.state.standby') : t('network.state.connected');
         case 'down': return link.id === 'lan' ? t('network.state.no_cable') : t('network.state.down');

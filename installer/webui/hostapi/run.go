@@ -183,6 +183,11 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
 		return
 	}
+	// Der Wert selbst bleibt aus der Antwort heraus.
+	if !ValidHotspotPassword(req.HotspotPassword) {
+		writeError(w, http.StatusBadRequest, "HOTSPOT_PASSWORD_INVALID", "hotspot_password: 8 bis 63 druckbare ASCII-Zeichen oder 64 Hex-Ziffern")
+		return
+	}
 	switch req.Mode {
 	case ModeInstall, ModeRedeploy, ModeRepair, ModePrepare:
 	default:
@@ -225,6 +230,24 @@ func (s *Server) handleDiagnose(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view, err := s.opts.Backend.Diagnose(r.Context())
+	if err != nil {
+		writeBackendError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
+}
+
+// handleHotspot antwortet mit dem Notfall-Hotspot oder mit null, wenn der Node
+// keine hotspot.json hat.
+func (s *Server) handleHotspot(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", r.Method)
+		return
+	}
+	if !s.requireConnection(w) {
+		return
+	}
+	view, err := s.opts.Backend.Hotspot(r.Context())
 	if err != nil {
 		writeBackendError(w, err)
 		return

@@ -23,6 +23,7 @@
             </div>
             <p class="nw-link-error" x-show="linkError(link)" x-text="linkError(link)"></p>
             <p class="setting-note nw-link-note" x-show="link.id === 'wifi' && !hasWifi()">{{t "network.nowifi_note"}}</p>
+            <p class="setting-note nw-link-note" x-show="standbyWait(link)">{{t "network.link.standby_note"}}</p>
             <p class="setting-note nw-link-note" x-show="link.state === 'blocked'">{{t "network.blocked_hint"}}</p>
             <dl class="nw-facts" x-show="linkFacts(link).length">
               <template x-for="fact in linkFacts(link)" x-bind:key="fact[0]">
@@ -145,13 +146,13 @@
     </section>
 
     <!-- Ausfallsicherheit: Ersatz für LAN und Notfall-Hotspot -->
-    <section class="setting-card" aria-labelledby="nw-fallback-title">
+    <section class="setting-card" data-tour="network-fallback" aria-labelledby="nw-fallback-title">
       <h3 class="setting-card-title" id="nw-fallback-title">{{t "network.fallback.title"}}</h3>
       <p class="setting-note" x-show="!hasWifi()">{{t "network.fallback.unavailable"}}</p>
       <div x-show="hasWifi()">
         <div class="nw-segment" role="radiogroup" aria-label="{{t "network.fallback.aria"}}">
-          <button type="button" role="radio" class="nw-segment-tab" x-bind:disabled="locked() || !canChange()" x-bind:aria-checked="fallbackMode() === 'parallel' ? 'true' : 'false'">{{t "network.fallback.parallel"}}</button>
-          <button type="button" role="radio" class="nw-segment-tab" x-bind:disabled="locked() || !canChange()" x-bind:aria-checked="fallbackMode() === 'standby' ? 'true' : 'false'">{{t "network.fallback.standby"}}</button>
+          <button type="button" role="radio" class="nw-segment-tab" x-on:click="setFallback('parallel')" x-bind:disabled="locked() || !canChange()" x-bind:aria-checked="fallbackMode() === 'parallel' ? 'true' : 'false'">{{t "network.fallback.parallel"}}</button>
+          <button type="button" role="radio" class="nw-segment-tab" x-on:click="setFallback('standby')" x-bind:disabled="locked() || !canChange()" x-bind:aria-checked="fallbackMode() === 'standby' ? 'true' : 'false'">{{t "network.fallback.standby"}}</button>
         </div>
         <p class="setting-note" x-show="fallbackMode() === 'parallel'">{{t "network.fallback.parallel_note"}}</p>
         <p class="setting-note" x-show="fallbackMode() === 'standby'">{{t "network.fallback.standby_note"}}</p>
@@ -159,11 +160,11 @@
       </div>
     </section>
 
-    <section class="setting-card" aria-labelledby="nw-hotspot-title" x-show="hasWifi()">
+    <section class="setting-card" data-tour="network-hotspot" aria-labelledby="nw-hotspot-title" x-show="hasWifi()">
       <h3 class="setting-card-title" id="nw-hotspot-title">{{t "network.hotspot.title"}}</h3>
       <div class="setting-row">
         <span class="setting-row-label">{{t "network.hotspot.toggle"}}<span class="setting-row-unit">{{t "network.hotspot.toggle_unit"}}</span></span>
-        <label class="settings-toggle"><input type="checkbox" x-bind:checked="hotspotOn()" x-bind:disabled="locked() || !canChange() || !hasWifi()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+        <label class="settings-toggle"><input type="checkbox" x-bind:checked="hotspotOn()" x-on:change="setHotspot($event.target.checked)" x-bind:disabled="locked() || !canChange() || !hasWifi()"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
       </div>
       <p class="setting-note" x-show="!hasWifi()">{{t "network.fallback.unavailable"}}</p>
       <div class="nw-reveal" x-bind:data-open="hotspotOn() ? 'true' : 'false'">
@@ -172,7 +173,7 @@
             <span class="nw-hotspot-mark" aria-hidden="true"><svg class="automation-icon"><use href="#ico-access-point"></use></svg></span>
             <dl class="nw-facts nw-facts-tight">
               <div class="nw-fact" x-show="hotspotInfo().ssid"><dt>{{t "network.hotspot.name"}}</dt><dd x-text="hotspotInfo().ssid"></dd></div>
-              <div class="nw-fact" x-show="hotspotInfo().password"><dt>{{t "network.hotspot.password"}}</dt><dd class="nw-mono"><span x-show="hotspotPwShown" x-text="hotspotInfo().password"></span><span x-show="!hotspotPwShown">••••••••••••</span> <button type="button" class="nw-pw-eye nw-inline-eye" x-on:click="hotspotPwShown = !hotspotPwShown"><span x-show="!hotspotPwShown">{{t "network.pw.show"}}</span><span x-show="hotspotPwShown">{{t "network.pw.hide"}}</span></button></dd></div>
+              <div class="nw-fact"><dt>{{t "network.hotspot.password"}}</dt><dd class="nw-mono" x-text="hotspotInfo().password || hotspotSecretError"></dd></div>
               <div class="nw-fact"><dt>{{t "network.hotspot.address"}}</dt><dd class="nw-mono" x-text="hotspotInfo().address"></dd></div>
             </dl>
           </div>

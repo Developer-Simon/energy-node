@@ -3,6 +3,7 @@ package hostapi
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -114,5 +115,40 @@ func TestRunRequestAdminUser(t *testing.T) {
 		if got := req.AdminUser(); got != want {
 			t.Errorf("%s: AdminUser() = %q, want %q", body, got, want)
 		}
+	}
+}
+
+func TestValidHotspotPassword(t *testing.T) {
+	cases := map[string]struct {
+		password string
+		want     bool
+	}{
+		"empty means not set":       {"", true},
+		"seven characters":          {"1234567", false},
+		"eight characters":          {"12345678", true},
+		"sixty-three characters":    {strings.Repeat("a", 63), true},
+		"sixty-four non-hex":        {strings.Repeat("g", 64), false},
+		"sixty-four hex digits":     {strings.Repeat("0123456789abcdef", 4), true},
+		"umlaut":                    {"pässwort12", false},
+		"control character":         {"pass\tword1", false},
+		"del character":             {"pass\x7fword1", false},
+		"space inside is printable": {"pass word", true},
+	}
+	for name, tc := range cases {
+		if got := ValidHotspotPassword(tc.password); got != tc.want {
+			t.Errorf("%s: ValidHotspotPassword(%q) = %v, want %v", name, tc.password, got, tc.want)
+		}
+	}
+}
+
+func TestRunRequestSecretsIncludeHotspotPassword(t *testing.T) {
+	req := RunRequest{MQTTPassword: "mqtt-geheim", AdminPassword: "admin-geheim", HotspotPassword: "hotspot-geheim"}
+	got := req.Secrets()
+	found := false
+	for _, s := range got {
+		found = found || s == "hotspot-geheim"
+	}
+	if !found {
+		t.Errorf("Secrets() = %q, misses the hotspot password", got)
 	}
 }

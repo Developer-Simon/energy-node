@@ -89,3 +89,94 @@ func TestClientScanOtherFailureIsUnavailable(t *testing.T) {
 		t.Fatalf("err = %v, want ErrUnavailable", err)
 	}
 }
+
+func TestSaveSettingsRunsNetworkSettings(t *testing.T) {
+	runner := &fakeRunner{}
+	c := NewClient(runner, "/helper", "/data")
+	if err := c.SaveSettings(context.Background(), Settings{Fallback: "standby", Hotspot: true}); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-n", "/helper", "network-settings", "standby", "on"}
+	if runner.name != "sudo" || !reflect.DeepEqual(runner.args, want) {
+		t.Errorf("call = %s %v, want sudo %v", runner.name, runner.args, want)
+	}
+}
+
+func TestSaveSettingsRejectsUnknownMode(t *testing.T) {
+	runner := &fakeRunner{}
+	c := NewClient(runner, "/helper", "/data")
+	err := c.SaveSettings(context.Background(), Settings{Fallback: "fast", Hotspot: false})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("err = %v, want ErrInvalidRequest", err)
+	}
+	if runner.calls != 0 {
+		t.Errorf("helper ran for an unknown mode: %d calls", runner.calls)
+	}
+}
+
+func TestSaveSettingsExit64IsInvalid(t *testing.T) {
+	runner := &fakeRunner{err: exitWith(t, 64)}
+	c := NewClient(runner, "/helper", "/data")
+	err := c.SaveSettings(context.Background(), Settings{Fallback: "parallel"})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("err = %v, want ErrInvalidRequest", err)
+	}
+}
+
+func TestSaveSettingsOtherFailureIsUnavailable(t *testing.T) {
+	runner := &fakeRunner{err: exitWith(t, 1)}
+	c := NewClient(runner, "/helper", "/data")
+	err := c.SaveSettings(context.Background(), Settings{Fallback: "parallel"})
+	if !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+}
+
+func TestHotspotSecretReadsSSIDAndPassword(t *testing.T) {
+	runner := &fakeRunner{out: "energy-node-hotspot\ns3cret-pass\n"}
+	c := NewClient(runner, "/helper", "/data")
+	ssid, password, err := c.HotspotSecret(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"-n", "/helper", "hotspot-secret"}
+	if runner.name != "sudo" || !reflect.DeepEqual(runner.args, want) {
+		t.Errorf("call = %s %v, want sudo %v", runner.name, runner.args, want)
+	}
+	if ssid != "energy-node-hotspot" || password != "s3cret-pass" {
+		t.Errorf("secret = %q, %q", ssid, password)
+	}
+}
+
+// ExecOutputRunner trims the output, so the trailing newline is not there.
+func TestHotspotSecretReadsTrimmedOutput(t *testing.T) {
+	runner := &fakeRunner{out: "energy-node-hotspot\ns3cret-pass"}
+	c := NewClient(runner, "/helper", "/data")
+	ssid, password, err := c.HotspotSecret(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ssid != "energy-node-hotspot" || password != "s3cret-pass" {
+		t.Errorf("secret = %q, %q", ssid, password)
+	}
+}
+
+func TestHotspotSecretBrokenOutputIsUnavailable(t *testing.T) {
+	for _, out := range []string{"", "only-the-ssid\n", "ssid\n\n", "ssid\npass\nextra\n"} {
+		runner := &fakeRunner{out: out}
+		c := NewClient(runner, "/helper", "/data")
+		_, _, err := c.HotspotSecret(context.Background())
+		if !errors.Is(err, ErrUnavailable) {
+			t.Errorf("output %q: err = %v, want ErrUnavailable", out, err)
+		}
+	}
+}
+
+func TestHotspotSecretMissingFileIsUnavailable(t *testing.T) {
+	runner := &fakeRunner{err: exitWith(t, 66)}
+	c := NewClient(runner, "/helper", "/data")
+	_, _, err := c.HotspotSecret(context.Background())
+	if !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("err = %v, want ErrUnavailable", err)
+	}
+}

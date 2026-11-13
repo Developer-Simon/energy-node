@@ -31,6 +31,11 @@ func randomSuffix() string {
 // [--admin-password-file <pfad>]").
 const dashboardStepID = "60"
 
+// hotspotStepID is the step that writes hotspot.json and the NetworkManager
+// profile. It takes the hotspot password as a file path (see Task 1 in
+// scripts/bootstrap/67-network.sh).
+const hotspotStepID = "67"
+
 // mosquittoStepID is the step that creates the broker user
 // ("20-mosquitto.sh --user <name> --password-file <pfad>").
 const mosquittoStepID = "20"
@@ -132,6 +137,9 @@ type Secrets struct {
 	// DashboardSeed is the content of onboarding-seed.json (the dashboard
 	// presets plus version). Empty leaves the seed file out.
 	DashboardSeed []byte
+	// HotspotPassword is the hotspot's Wi-Fi password for step 67. Empty
+	// keeps the password that is already set. Only install mode fills it.
+	HotspotPassword string
 }
 
 // stageSecretsForStep60 uploads whichever passwords are set to 0600 temp
@@ -192,4 +200,19 @@ func step60UserArgs(mqttUser string, secrets *Secrets) string {
 		args += " --admin-user " + transport.ShellQuote(secrets.AdminUser)
 	}
 	return args
+}
+
+// stageSecretForStep67 uploads the hotspot password to a 0600 temp file on
+// the node and returns the "--hotspot-password-file path" argument plus a
+// cleanup that removes the file again. The password never appears in an
+// argument list: only the path does.
+func stageSecretForStep67(client *transport.Client, secrets *Secrets) (extraArgs string, cleanup func(), err error) {
+	if secrets == nil || secrets.HotspotPassword == "" {
+		return "", func() {}, nil
+	}
+	remotePath := fmt.Sprintf("/tmp/energy-node-installer-hotspot-%s.pw", randomSuffix())
+	if err := client.UploadBytes([]byte(secrets.HotspotPassword), remotePath, 0o600); err != nil {
+		return "", func() {}, fmt.Errorf("staging the hotspot password for step 67: %w", err)
+	}
+	return " --hotspot-password-file " + transport.ShellQuote(remotePath), func() { _ = client.RemoveRemote(remotePath) }, nil
 }
