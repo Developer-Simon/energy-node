@@ -910,22 +910,43 @@
                       </button>
                     </template>
                     <template x-if="group.items.length > 1">
-                      <div class="bs-drive-group">
-                        <div class="bs-drive-group-head"><strong x-text="group.title"></strong><small x-text="group.detail"></small></div>
-                        <ul>
-                          <template x-for="d in group.items" x-bind:key="d.kname">
-                            <li><button type="button" class="bs-pick" x-bind:class="{ 'bs-pick-sub': !d.whole }" role="radio" x-bind:aria-checked="drive && drive.kname === d.kname ? 'true' : 'false'" x-on:click="drive = d">
-                              <span class="bs-pick-text"><strong x-text="d.whole ? $t('storage.drives.whole') : d.name"></strong><small x-text="d.detail"></small></span>
+                      <div class="bs-stick" x-bind:data-mode="isWhole(group) ? 'whole' : 'part'">
+                        <div class="bs-stick-head">
+                          <span class="bs-stick-ico" aria-hidden="true"><svg class="automation-icon"><use href="#ico-drive"></use></svg></span>
+                          <div class="bs-pick-text"><strong x-text="group.title"></strong><small x-text="group.detail"></small></div>
+                        </div>
+                        <template x-if="group.whole">
+                          <div class="bs-mode" role="tablist" x-bind:aria-label="group.title">
+                            <span class="bs-mode-thumb" aria-hidden="true"></span>
+                            <button type="button" class="bs-mode-tab" role="tab" x-bind:aria-selected="isWhole(group) ? 'false' : 'true'" x-on:click="setGroupMode(group, 'part')">{{t "storage.drives.mode.part"}}</button>
+                            <button type="button" class="bs-mode-tab" role="tab" x-bind:aria-selected="isWhole(group) ? 'true' : 'false'" x-on:click="setGroupMode(group, 'whole')">{{t "storage.drives.mode.whole"}}</button>
+                          </div>
+                        </template>
+                        <div class="bs-parts" role="radiogroup" x-bind:aria-label="group.title">
+                          <template x-for="d in group.parts" x-bind:key="d.kname">
+                            <button type="button" class="bs-part" role="radio" x-bind:disabled="isWhole(group)" x-bind:aria-checked="drive && drive.kname === d.kname && !isWhole(group) ? 'true' : 'false'" x-on:click="pickPart(group, d)">
+                              <span class="bs-radio" x-bind:class="{ on: drive && drive.kname === d.kname && !isWhole(group) }" aria-hidden="true"></span>
+                              <span class="bs-pick-text"><strong x-text="d.name"></strong><small x-text="d.detail"></small></span>
                               <span class="bs-status" x-bind:class="d.needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="d.needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
-                            </button></li>
+                            </button>
                           </template>
-                        </ul>
+                        </div>
+                        <template x-if="group.whole">
+                          <div class="bs-part-new" x-bind:inert="!isWhole(group)">
+                            <div>
+                              <div class="bs-part">
+                                <span class="bs-radio on" aria-hidden="true"></span>
+                                <span class="bs-pick-text"><strong>{{t "storage.drives.new_partition"}}</strong><small x-text="$t('storage.drives.new_partition_detail', { size: group.size, count: group.count })"></small></span>
+                                <span class="bs-status bs-status-bad">{{t "storage.status.erase"}}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </template>
                       </div>
                     </template>
                   </li>
                 </template>
               </ul>
-              <p class="setting-note" x-show="driveGroups.some((g) => g.items.length > 1)">{{t "storage.drives.partition_note"}}</p>
               <p class="setting-note" x-show="!drives.length">{{t "storage.drives.empty"}}</p>
               <p class="setting-note">{{t "storage.drives.note"}}</p>
               <p class="message error" role="alert" x-show="flowError" x-text="flowError"></p>
