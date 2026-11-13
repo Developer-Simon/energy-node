@@ -31,7 +31,7 @@
 
 ### Fixes
 
-- **installer:** ask for the pinned host key type when probing and signing in (#241)
+- **installer:** ask for the pinned host key type when probing and signing in (#241) (a5e2b38)
 - **installer:** keep the media cache check cheap (5553171)
 - **installer:** read the Wi-Fi name without a rescan and keep its band (092e503)
 - **installer:** unblock Wi-Fi on Raspberry Pi OS by setting its country (ffb360a)

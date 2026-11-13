@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Beim Laden zeigen die Bereiche Kachel-Platzhalter statt einer Textzeile"
+  },
+  "en": {
+    "*": "Show tile skeletons while panels load"
+  }
+}

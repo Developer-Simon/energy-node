@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.12-pre.8 (2026-11-06)
+## v0.11.12-pre.9 (2026-11-06)
 
 ### Features
 
@@ -12,6 +12,9 @@
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **network:** check LAN and connect the node to Wi-Fi in the settings (#238) (d6dc893)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
+- **webui:** add skeleton building blocks to base.css (46aa464)
+- **webui:** add skeletons for the devices and efficiency panels (79708d0)
+- **webui:** show tile skeletons while panels load (#242)
 - **network:** add the network watcher (09683dd)
 - **network:** add the emergency hotspot bootstrap step (d30f816)
 - **network:** store fallback and hotspot settings in the helper (331b6df)
@@ -26,6 +29,10 @@
 
 - **updaterhost:** implement the hotspot lookup of the installer backend (ccfb570)
 - **netmgr:** read the hotspot secret without a trailing newline (74376f1)
+
+### Refactors
+
+- **webui:** share the fragment loader between panels and subpages (4cf7f1a)
 
 ### Tests
 
