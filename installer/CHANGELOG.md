@@ -6,6 +6,8 @@
 
 - **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236) (6d169d7)
 - **installer:** show the emergency hotspot credentials after install (df40283)
+- **installer:** stage the hotspot password for step 67 (adca255)
+- **installer:** pass the hotspot password to the host only on install (c04ec74)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239)
 - **installer:** add the device table for the media mode (656ba7b)
 - **installer:** read the Raspberry Pi OS list (ed78124)
