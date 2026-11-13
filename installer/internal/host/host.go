@@ -207,7 +207,7 @@ func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi
 		secret = saved
 	}
 
-	cfg := transport.Config{Host: req.Host, User: req.User, HostKeyCallback: callback}
+	cfg := transport.Config{Host: req.Host, User: req.User, HostKeyCallback: callback, HostKeyAlgorithms: store.Algorithms(req.Host)}
 	switch req.Kind {
 	case hostapi.AuthKey:
 		key, err := readKeyFile(req.KeyPath)

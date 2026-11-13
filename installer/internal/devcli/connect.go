@@ -61,6 +61,7 @@ func Connect(ctx context.Context, target Target, opts ConnectOptions) (*transpor
 		return nil, fmt.Errorf("setting up host key store %s: %w", opts.KnownHostsPath, err)
 	}
 	cfg.HostKeyCallback = callback
+	cfg.HostKeyAlgorithms = store.Algorithms(cfg.Host)
 
 	return transport.Dial(ctx, cfg)
 }

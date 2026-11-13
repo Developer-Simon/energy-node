@@ -20,7 +20,10 @@ type Config struct {
 	Password        string
 	PrivateKeyPEM   []byte
 	HostKeyCallback ssh.HostKeyCallback
-	Timeout         time.Duration // zero means 10s
+	// HostKeyAlgorithms limits the host key types the client asks for. Empty
+	// means the client default. See HostKeyStore.Algorithms.
+	HostKeyAlgorithms []string
+	Timeout           time.Duration // zero means 10s
 }
 
 // Client holds one SSH connection that Run and the SFTP helpers in
@@ -51,10 +54,11 @@ func Dial(ctx context.Context, cfg Config) (*Client, error) {
 	}
 
 	clientConfig := &ssh.ClientConfig{
-		User:            cfg.User,
-		Auth:            []ssh.AuthMethod{auth},
-		HostKeyCallback: cfg.HostKeyCallback,
-		Timeout:         timeout,
+		User:              cfg.User,
+		Auth:              []ssh.AuthMethod{auth},
+		HostKeyCallback:   cfg.HostKeyCallback,
+		HostKeyAlgorithms: cfg.HostKeyAlgorithms,
+		Timeout:           timeout,
 	}
 	sshConn, chans, reqs, err := ssh.NewClientConn(rawConn, addr, clientConfig)
 	if err != nil {

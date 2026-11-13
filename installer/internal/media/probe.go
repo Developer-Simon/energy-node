@@ -87,6 +87,10 @@ func Probe(ctx context.Context, host string, want ssh.PublicKey) Reachability {
 	var seen ssh.PublicKey
 	config := &ssh.ClientConfig{
 		User: "probe",
+		// A server with several host keys signs with the first type both sides
+		// list, and Go prefers RSA and ECDSA over ed25519. Ask for the type of
+		// the pinned key, or the probe sees another key of the same device.
+		HostKeyAlgorithms: hostKeyAlgorithms(want),
 		HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
 			seen = key
 			return errProbeDone
@@ -100,4 +104,17 @@ func Probe(ctx context.Context, host string, want ssh.PublicKey) Reachability {
 		Reachable:  true,
 		KeyMatches: want != nil && bytes.Equal(seen.Marshal(), want.Marshal()),
 	}
+}
+
+// hostKeyAlgorithms lists the signature algorithms to request for want. An
+// RSA key can be signed as rsa-sha2-256 or rsa-sha2-512. Without a pinned key
+// the client default applies.
+func hostKeyAlgorithms(want ssh.PublicKey) []string {
+	if want == nil {
+		return nil
+	}
+	if want.Type() == ssh.KeyAlgoRSA {
+		return []string{ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256}
+	}
+	return []string{want.Type()}
 }

@@ -5,6 +5,8 @@
 package transport
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net"
@@ -68,6 +70,54 @@ func (s *HostKeyStore) Callback(prompt Prompt) (ssh.HostKeyCallback, error) {
 		}
 		return appendHostKey(s.path, hostname, key)
 	}, nil
+}
+
+// Algorithms lists the host key algorithms to request for host, taken from the
+// keys pinned for it. A server with several host keys signs with the first
+// algorithm both sides list, and Go prefers RSA and ECDSA over ed25519, so
+// without this the client sees another key of the same device and reports it
+// as changed. It returns nil when no key is pinned or the store is unreadable,
+// which leaves the client default in place.
+func (s *HostKeyStore) Algorithms(host string) []string {
+	if !strings.Contains(host, ":") {
+		host += ":22"
+	}
+	check, err := knownhosts.New(s.path)
+	if err != nil {
+		return nil
+	}
+	probe, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil
+	}
+	probeKey, err := ssh.NewPublicKey(probe)
+	if err != nil {
+		return nil
+	}
+	var keyErr *knownhosts.KeyError
+	if err := check(host, &net.TCPAddr{IP: net.IPv4zero}, probeKey); !errors.As(err, &keyErr) {
+		return nil
+	}
+	var algos []string
+	seen := map[string]bool{}
+	for _, k := range keyErr.Want {
+		for _, a := range algorithmsFor(k.Key) {
+			if !seen[a] {
+				seen[a] = true
+				algos = append(algos, a)
+			}
+		}
+	}
+	return algos
+}
+
+// algorithmsFor names the signature algorithms a server can use for key. An
+// RSA key is signed as rsa-sha2-256 or rsa-sha2-512.
+func algorithmsFor(key ssh.PublicKey) []string {
+	if key.Type() == ssh.KeyAlgoRSA {
+		return []string{ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256}
+	}
+	return []string{key.Type()}
 }
 
 func ensureFileExists(path string) error {
