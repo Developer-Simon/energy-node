@@ -24,7 +24,7 @@
   window.Screens.screenResult = function screenResult() {
     return {
       diagnose: null,
-      // Zugangsdaten des Notfall-Hotspots, nur nach einer Installation.
+      // Zugangsdaten des Notfall-Hotspots, nach jedem gelungenen Lauf.
       hotspot: null,
 
       get shell() {
@@ -37,15 +37,17 @@
       },
 
       async init() {
-        if (!this.outcome.ok || this.outcome.mode !== 'install') {
+        if (!this.outcome.ok) {
           return;
         }
-        try {
-          this.diagnose = await window.Api.get('/api/diagnose');
-        } catch (err) {
-          // Die Zahl der aktiven Dienste ist eine Zugabe; ohne sie steht das
-          // Ergebnis trotzdem.
-          this.diagnose = null;
+        if (this.outcome.mode === 'install') {
+          try {
+            this.diagnose = await window.Api.get('/api/diagnose');
+          } catch (err) {
+            // Die Zahl der aktiven Dienste ist eine Zugabe; ohne sie steht das
+            // Ergebnis trotzdem.
+            this.diagnose = null;
+          }
         }
         try {
           this.hotspot = await window.Api.get('/api/hotspot');
@@ -56,7 +58,7 @@
       },
 
       get showHotspot() {
-        return !!(this.ok && this.outcome.mode === 'install' && this.hotspot && this.hotspot.ssid && this.hotspot.password);
+        return !!(this.ok && this.hotspot && this.hotspot.ssid && this.hotspot.password);
       },
 
       get ok() {

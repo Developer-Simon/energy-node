@@ -77,12 +77,19 @@ test('ein unlesbarer Hotspot laesst das Ergebnis stehen, ohne Block', async () =
   assert.equal(screen.heading, 'Der Node läuft');
 });
 
-test('ein Update und ein Fehlschlag holen den Hotspot nicht', async () => {
+test('nach jedem gelungenen Lauf steht der Block, auch nach einem Update und einer Reparatur', async () => {
   const redeploy = await mount({
     shell: { entry: 'redeploy' }, outcome: { mode: 'redeploy', finishedAt: T0 + 41000 }, responses: { 'GET /api/hotspot': HOTSPOT },
   });
-  assert.equal(redeploy.screen.showHotspot, false);
-  assert.deepEqual(plain(redeploy.calls), []);
+  assert.equal(redeploy.screen.showHotspot, true);
+  assert.deepEqual(plain(redeploy.screen.hotspot), HOTSPOT);
+  const repair = await mount({
+    shell: { entry: 'diagnose' }, outcome: { mode: 'repair', only: '83', finishedAt: T0 + 12000 }, responses: { 'GET /api/hotspot': HOTSPOT },
+  });
+  assert.equal(repair.screen.showHotspot, true);
+});
+
+test('ein Fehlschlag holt den Hotspot nicht', async () => {
   const failed = await mount({ outcome: { ok: false, code: 'UFW_MISSING', stepId: '30' }, responses: { 'GET /api/hotspot': HOTSPOT } });
   assert.equal(failed.screen.showHotspot, false);
   assert.deepEqual(plain(failed.calls), []);
@@ -118,7 +125,7 @@ test('ein Update nennt von/nach und die neu gestarteten Dienste, ohne Diagnose z
     },
   });
   assert.equal(screen.summary, 'Paket 1.4.1 → 1.4.2 · 3 Dienste neu gestartet · 0:41 gebraucht');
-  assert.deepEqual(plain(calls), []);
+  assert.deepEqual(plain(calls.filter((call) => call.key === 'GET /api/diagnose')), []);
 });
 
 test('eine Reparatur nennt den Dienst und fuehrt zurueck in die Diagnose', async () => {
