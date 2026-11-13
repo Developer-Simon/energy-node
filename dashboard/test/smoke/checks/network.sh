@@ -1,12 +1,12 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2154,SC2034 # Globals kommen vom Aufrufer, FAILED wird dort gelesen
 # Pruefgruppe fuer die Netzwerk-API: Status mit den zwei Verbindungen, Verbinden
-# im Demo-Szenario lan bis zum Ergebnis ok. Das Passwort darf in keiner Antwort
+# im Demo mit Kabel bis zum Ergebnis ok. Das Passwort darf in keiner Antwort
 # des Status stehen. Jede Funktion setzt bei einem Fehler FAILED=1.
 # Globals wie BASE, COOKIES, CURL_INSECURE, SECURE_HEADER, WORK kommen vom Aufrufer.
 
 checks_network() {
-  echo "==> Netzwerk: Status mit zwei Verbindungen, Verbinden im Szenario lan"
+  echo "==> Netzwerk: Status mit zwei Verbindungen, Verbinden mit gestecktem Kabel"
   local csrf status_file code ssid body switch_result i
   csrf="$(api "$BASE/api/v1/auth/session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["csrf_token"])')" || csrf=""
   if [[ -z "$csrf" ]]; then
@@ -36,7 +36,7 @@ nets = json.load(open(sys.argv[1])).get("networks", [])
 print(nets[0]["ssid"] if nets else "")
 ' "$status_file")" || ssid=""
   if [[ -z "$ssid" ]]; then
-    echo "  FEHL im Szenario lan kein WLAN-Netz gefunden"; FAILED=1
+    echo "  FEHL bei gestecktem Kabel kein WLAN-Netz gefunden"; FAILED=1
     return
   fi
 
@@ -65,7 +65,7 @@ print(sw.get("result", ""))
     sleep 1
   done
   if [[ "$switch_result" == "ok" ]]; then
-    echo "  OK   Verbinden im Szenario lan endet mit ok"
+    echo "  OK   Verbinden mit gestecktem Kabel endet mit ok"
   else
     echo "  FEHL Verbinden endete mit \"${switch_result:-keinem Ergebnis}\", erwartet ok"; FAILED=1
   fi

@@ -21,7 +21,7 @@ from console_system_ui import system_html
 from fake_console import Log, Tab
 from fake_journal_helper import (ACTION_RESULTS, DEFAULT_STATE, EMPTY_KEYS, HELPER_MODES, JOURNAL_MODES,
                                  KEYS, journal_mode, load_state)
-from fake_network import SCENARIO_IDS, SCENARIOS, paths_for
+from fake_network import env_of, paths_for
 
 ACTIONS = ("journal", "inject", "helper", "actions", "network")
 ACTION_LABELS = {"read-journal": "Log lesen", "restart-dashboard": "Dashboard-Neustart", "reboot": "Neustart",
@@ -34,6 +34,10 @@ MAX_MESSAGE = 500
 PRIORITIES = {"error": 3, "info": 6}
 HELPER_TEXT = {"denied": "Helper verweigert", "hang": "Helper hängt", "fail": "Helper fehlerhaft"}
 RECENT_SIZE = 5
+NETWORK_SWITCHES = (("lan", "Netzwerkkabel gesteckt", "Netzwerkkabel gezogen"),
+                    ("wifi", "WLAN-Modul vorhanden", "WLAN-Modul entfernt"),
+                    ("password_ok", "WLAN nimmt Passwörter an", "WLAN lehnt Passwörter ab"),
+                    ("werkstatt", "FritzBox Werkstatt erreichbar", "FritzBox Werkstatt nicht mehr erreichbar"))
 
 
 def _choice(body: dict, name: str, options) -> str:
@@ -130,21 +134,28 @@ class SystemTab(Tab):
                 state["helper"] = mode
                 text = f"Helper-Antwort {mode}"
             elif action == "network":
-                scenario = _choice(body, "scenario", SCENARIO_IDS)
-                state["network"] = scenario
-                text = f"Netzwerk-Szenario: {SCENARIOS[scenario].label}"
+                env = env_of(state["network"])
+                texts = []
+                for name, on_text, off_text in NETWORK_SWITCHES:
+                    if name in body:
+                        if not isinstance(body[name], bool):
+                            raise ValueError(f"{name} ist ungültig")
+                        env[name] = body[name]
+                        texts.append(on_text if body[name] else off_text)
+                if not texts:
+                    raise ValueError("Schalter fehlt")
+                state["network"] = env
+                text = ", ".join(texts)
             else:
                 result = _choice(body, "result", ACTION_RESULTS)
                 state["actions"] = result
                 text = f"Antwort auf Systemaktionen {result}"
             self._write(state)
-            if action == "network":
-                self._forget_switch()
             self._log.add("system", text)
         return self.state()
 
     def _forget_switch(self) -> None:
-        """Drops the last simulated WLAN switch and the saved links, so a new scenario starts clean."""
+        """Drops the last simulated WLAN switch and the saved links, so a reset starts clean."""
         _, progress, links = paths_for(self._state_path)
         for path in (progress, links):
             try:
@@ -197,7 +208,7 @@ class SystemTab(Tab):
             "journal": {key: journal_mode(state, key) for key in sorted(KEYS)},
             "helper": state["helper"],
             "actions": state["actions"],
-            "network": state["network"],
+            "network": env_of(state["network"]),
             "injected": len(state["inject"]),
             "recent": recent,
         }
