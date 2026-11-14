@@ -97,6 +97,9 @@
     drivesTimer: 0,
     drag: null,
     fitTimer: 0,
+    // The system disk parts arrive a little later than the rest, measured in the background.
+    partsRetries: 0,
+    partsTimer: 0,
 
     async init() {
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
@@ -135,6 +138,22 @@
       this.space = body.drive || { size: 0, used: 0, parts: [] };
       this.job = body.job || {};
       this.fallback = config.fallback === 'ram' ? 'ram' : 'system';
+      this.retryParts();
+    },
+
+    // The first answer after a start may lack the system disk parts. Asks again
+    // a few times, while the settings storage page is open.
+    retryParts() {
+      if (this.systemHasParts()) {
+        this.partsRetries = 0;
+        return;
+      }
+      if (!(this.system.size > 0) || this.partsRetries >= 10 || this.partsTimer) return;
+      this.partsRetries++;
+      this.partsTimer = setTimeout(() => {
+        this.partsTimer = 0;
+        if (this.activeSettingsPage === 'storage') this.load();
+      }, 3000);
     },
 
     // ---- Zustand ------------------------------------------------------
@@ -179,6 +198,12 @@
       return t('storage.meter.label', { used: formatSize(this.system.used), size: formatSize(this.system.size) });
     },
     systemFree() { return formatSize(Math.max(0, this.system.size - this.system.used)); },
+    systemHasParts() { return Array.isArray(this.system.parts) && this.system.parts.length > 0; },
+    systemPartSize(key) {
+      const part = (this.system.parts || []).find((item) => item.key === key);
+      return part ? part.size : 0;
+    },
+    systemPart(key) { return percent(this.systemPartSize(key), this.system.size); },
     drivePart(key) {
       const part = (this.space.parts || []).find((item) => item.key === key);
       return percent(part ? part.size : 0, this.space.size);
@@ -189,6 +214,16 @@
     driveFree() { return formatSize(Math.max(0, this.space.size - this.space.used)); },
     systemMeterTip() {
       const { size, used } = this.system;
+      if (this.systemHasParts()) {
+        return t('storage.meter.tip.system_parts', {
+          os: formatExact(this.systemPartSize('os')),
+          install: formatExact(this.systemPartSize('install')),
+          data: formatExact(this.systemPartSize('runtime')),
+          backups: formatExact(this.systemPartSize('backups')),
+          free: formatExact(Math.max(0, size - used)),
+          size: formatExact(size),
+        });
+      }
       return t('storage.meter.tip.system', { used: formatExact(used), free: formatExact(Math.max(0, size - used)), size: formatExact(size) });
     },
     driveMeterTip() {

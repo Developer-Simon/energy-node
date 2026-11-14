@@ -15,6 +15,7 @@
 .bs-meter-part { flex: 0 0 0; transition: flex-basis .45s cubic-bezier(.32, .72, 0, 1); }
 @media (prefers-reduced-motion: reduce) { .bs-meter-part { transition: none; } }
 .bs-part-system { background: var(--text-muted); }
+.bs-part-install { background: var(--warn-line, var(--accent-soft)); }
 .bs-part-data { background: var(--accent-line); }
 .bs-part-backup { background: var(--info-line, var(--accent-soft)); }
 .bs-legend { display: flex; flex-wrap: wrap; gap: .1rem .8rem; color: var(--text-muted); font-size: .75rem; }

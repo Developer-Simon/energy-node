@@ -389,9 +389,13 @@
         <div class="bs-drive">
           <div class="bs-drive-head"><strong>{{t "storage.system.title"}}</strong><span x-text="sizeText(system.size)"></span></div>
           <div class="bs-meter" role="img" x-bind:aria-label="systemMeterLabel()" x-bind:title="systemMeterTip()">
-            <span class="bs-meter-part bs-part-system" x-bind:style="meterStyle(systemUsedPercent())"></span>
+            <span class="bs-meter-part bs-part-system" x-show="!systemHasParts()" x-bind:style="meterStyle(systemUsedPercent())"></span>
+            <span class="bs-meter-part bs-part-system" x-show="systemHasParts()" x-bind:style="meterStyle(systemPart('os'))"></span>
+            <span class="bs-meter-part bs-part-install" x-show="systemHasParts()" x-bind:style="meterStyle(systemPart('install'))"></span>
+            <span class="bs-meter-part bs-part-data" x-show="systemHasParts()" x-bind:style="meterStyle(systemPart('runtime'))"></span>
+            <span class="bs-meter-part bs-part-backup" x-show="systemHasParts()" x-bind:style="meterStyle(systemPart('backups'))"></span>
           </div>
-          <div class="bs-legend"><span><i class="bs-part-system"></i>{{t "storage.legend.system"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: systemFree() })"></span></div>
+          <div class="bs-legend"><span x-show="!systemHasParts()"><i class="bs-part-system"></i>{{t "storage.legend.system"}}</span><span x-show="systemPartSize('os') > 0"><i class="bs-part-system"></i>{{t "storage.legend.os"}}</span><span x-show="systemPartSize('install') > 0"><i class="bs-part-install"></i>{{t "storage.legend.install"}}</span><span x-show="systemPartSize('runtime') > 0"><i class="bs-part-data"></i>{{t "storage.legend.data"}}</span><span x-show="systemPartSize('backups') > 0"><i class="bs-part-backup"></i>{{t "storage.legend.backups"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: systemFree() })"></span></div>
         </div>
 
         <div class="bs-drive" x-show="scenario() === 'active'" x-cloak>
