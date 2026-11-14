@@ -2,6 +2,7 @@ package hostapitest_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
@@ -84,5 +85,41 @@ func TestRunStopsOnACancelledContext(t *testing.T) {
 	cancel()
 	if err := fake.Run(ctx, hostapi.RunRequest{Mode: hostapi.ModeInstall}, &recordingSink{}); err == nil {
 		t.Fatalf("Run ignored a cancelled context")
+	}
+}
+
+// jobStepIDs schreibt einen Auftrag auf das Geraet und liest den ersten
+// Zustand des Verlaufs, der die Schrittfolge zeigt.
+func jobStepIDs(t *testing.T, device string) []string {
+	t.Helper()
+	fake := hostapitest.NewFake()
+	if err := fake.MediaWrite(context.Background(), hostapi.MediaWriteRequest{Device: device, Drive: "/dev/sdb"}); err != nil {
+		t.Fatalf("MediaWrite(%s): %v", device, err)
+	}
+	job, err := fake.MediaJob(context.Background())
+	if err != nil {
+		t.Fatalf("MediaJob(%s): %v", device, err)
+	}
+	ids := make([]string, 0, len(job.Steps))
+	for _, s := range job.Steps {
+		ids = append(ids, s.ID)
+	}
+	return ids
+}
+
+func TestFakeDebianJobHasPatchAndNoCustomize(t *testing.T) {
+	got := jobStepIDs(t, "deb-amd64")
+	want := []string{"download", "checksum", "patch", "rights", "write", "verify", "eject"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("debian steps = %v, want %v", got, want)
+	}
+	pi := jobStepIDs(t, "pi4")
+	for _, id := range pi {
+		if id == "patch" {
+			t.Errorf("pi steps = %v, must not have patch", pi)
+		}
+	}
+	if pi[5] != "customize" {
+		t.Errorf("pi steps = %v, want customize at index 5", pi)
 	}
 }

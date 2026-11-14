@@ -201,3 +201,52 @@ func TestMediaWifiCheckNamesTheTwin(t *testing.T) {
 		t.Errorf("view = %+v, want match via Werkstatt", view)
 	}
 }
+
+func TestMediaWriteRequestRoundTripsTheDebianFields(t *testing.T) {
+	ask := false
+	req := hostapi.MediaWriteRequest{
+		Device:  "deb-amd64",
+		Drive:   "/dev/sdb",
+		Confirm: "yes",
+		Settings: hostapi.MediaSettings{
+			Hostname:       "energy-node",
+			User:           "node",
+			Password:       "x",
+			Timezone:       "Europe/Berlin",
+			Keyboard:       "de",
+			AskBeforeErase: &ask,
+			InstallLang:    "de",
+			SystemLang:     "en",
+		},
+	}
+	raw, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	for _, want := range []string{`"ask_before_erase":false`, `"install_lang":"de"`, `"system_lang":"en"`} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("json %s lacks %s", raw, want)
+		}
+	}
+	var back hostapi.MediaWriteRequest
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if back.Settings.AskBeforeErase == nil || *back.Settings.AskBeforeErase != false {
+		t.Errorf("ask_before_erase = %v, want false", back.Settings.AskBeforeErase)
+	}
+	if back.Settings.InstallLang != "de" || back.Settings.SystemLang != "en" {
+		t.Errorf("langs = %q/%q, want de/en", back.Settings.InstallLang, back.Settings.SystemLang)
+	}
+}
+
+func TestMediaWriteMissingAskBeforeEraseDecodesToNil(t *testing.T) {
+	var req hostapi.MediaWriteRequest
+	body := `{"device":"deb-amd64","drive":"/dev/sdb","settings":{"hostname":"energy-node","install_lang":"de"}}`
+	if err := json.Unmarshal([]byte(body), &req); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if req.Settings.AskBeforeErase != nil {
+		t.Errorf("ask_before_erase = %v, want nil when missing", *req.Settings.AskBeforeErase)
+	}
+}
