@@ -157,6 +157,7 @@ gruppe() {
     backup) checks_backup ;;
     storage) checks_storage ;;
     network) checks_network ;;
+    settings_subpages) checks_settings_subpages ;;
     *)
       echo "FEHLER: unbekannte Gruppe $1" >&2
       return 1
@@ -279,7 +280,7 @@ for name in haupt ohne-dienste bilanz seed falsches-passwort; do
       konfiguriere_haupt
       fuehre_lauf haupt topics battery_config shelly seed dataflow live_push \
         update_offer package installed journal users onboarding update_install companion \
-        history_exchange backup storage network || RESULT=1
+        history_exchange backup storage network settings_subpages || RESULT=1
       ;;
     ohne-dienste)
       konfiguriere_ohne_dienste

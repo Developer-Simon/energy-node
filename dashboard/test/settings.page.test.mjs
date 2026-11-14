@@ -289,6 +289,7 @@ function createSettingsPage(search) {
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   const page = factories.settingsPage();
   page.$nextTick = () => {};
+  page.$watch = () => {};
   return page;
 }
 
@@ -616,4 +617,90 @@ test('settings without a roles list in the session stay editable', async () => {
   const { component } = createSettingsPanel({ fetchImpl: stubbedLoadFetch({}) });
   await component.load();
   assert.equal(component.canEditSettings, true);
+});
+
+// Lazy sub pages: each placeholder wrapper carries its fragment source, and
+// dashboardFragments.load is a spy whose promises the test settles itself.
+function createSubpageHarness({ search = '' } = {}) {
+  const wrapper = (page) => `<div id="settings-sub-${page}" data-subpage-src="/?fragment=settings-page&page=${page}"
+    data-subpage-script="/static/js/${page}.page.js?v=1" data-subpage-css=""></div>`;
+  const dom = new JSDOM(`<!doctype html><html><body>
+    <div id="settings-general"></div>
+    ${wrapper('mqtt')}${wrapper('tailscale')}${wrapper('versions')}
+    </body></html>`, { runScripts: 'outside-only', url: `https://dashboard.local/${search}` });
+  const loads = [];
+  dom.window.dashboardFragments = {
+    load(container, options) {
+      const call = { container, options };
+      loads.push(call);
+      return new Promise((resolve, reject) => { call.resolve = resolve; call.reject = reject; });
+    },
+  };
+  const factories = {};
+  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  installI18n(dom.window);
+  vm.runInContext(scriptSource, dom.getInternalVMContext());
+  const page = factories.settingsPage();
+  page.$nextTick = () => {};
+  page.$watch = () => {};
+  const element = (id) => dom.window.document.getElementById(id);
+  return { dom, page, loads, element };
+}
+
+test('ensureSubpage loads a placeholder once', async () => {
+  const { page, loads } = createSubpageHarness();
+  const first = page.ensureSubpage('mqtt');
+  const second = page.ensureSubpage('mqtt');
+  assert.equal(loads.length, 1);
+  assert.equal(loads[0].container.id, 'settings-sub-mqtt');
+  assert.deepEqual(plain(loads[0].options), { src: '/?fragment=settings-page&page=mqtt', css: '', script: '/static/js/mqtt.page.js?v=1', swap: 'inner' });
+  loads[0].resolve(loads[0].container);
+  await Promise.all([first, second]);
+});
+
+test('ensureSubpage resolves without request for core or missing pages', async () => {
+  const { page, loads } = createSubpageHarness();
+  await page.ensureSubpage('general');
+  await page.ensureSubpage('backup');
+  assert.equal(loads.length, 0);
+});
+
+test('switching away during load still inserts the page', async () => {
+  const { dom, page, loads, element } = createSubpageHarness();
+  const events = [];
+  dom.window.addEventListener('settings-subpage-loaded', (event) => events.push(event.detail));
+  const done = page.ensureSubpage('mqtt');
+  page.activeSettingsPage = 'versions';
+  loads[0].resolve(loads[0].container);
+  await done;
+  assert.equal(element('settings-sub-mqtt').hasAttribute('data-subpage-src'), false);
+  assert.deepEqual(plain(events), [{ page: 'mqtt' }]);
+});
+
+test('a failed load retries on the next call', async () => {
+  const { page, loads } = createSubpageHarness();
+  const first = page.ensureSubpage('mqtt');
+  loads[0].reject(new Error('network down'));
+  await assert.rejects(first, /network down/);
+  page.ensureSubpage('mqtt');
+  assert.equal(loads.length, 2);
+});
+
+test('masonry attaches to the loaded wrapper', async () => {
+  const { dom, page, loads, element } = createSubpageHarness();
+  const attached = [];
+  dom.window.dashboardSettingsMasonry = { attach: (el) => attached.push(el) };
+  const done = page.ensureSubpage('mqtt');
+  loads[0].resolve(loads[0].container);
+  await done;
+  assert.equal(attached.length, 1);
+  assert.equal(attached[0], element('settings-sub-mqtt'));
+});
+
+test('deep link loads its subpage', () => {
+  const { page, loads } = createSubpageHarness({ search: '?page=tailscale' });
+  page.init();
+  assert.equal(loads.length, 1);
+  assert.equal(loads[0].container.id, 'settings-sub-tailscale');
+  assert.equal(loads[0].options.swap, 'inner');
 });

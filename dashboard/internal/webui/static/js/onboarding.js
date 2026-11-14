@@ -162,7 +162,14 @@
     if (step.page) {
       const panel = await waitFor(() => document.querySelector('#settings-panel .settings-side-list')?.closest('#settings-panel'));
       if (!panel) return false;
-      window.Alpine.$data(panel).activeSettingsPage = step.page;
+      const data = window.Alpine.$data(panel);
+      data.activeSettingsPage = step.page;
+      // Eine nachladbare Unterseite muss da sein, bevor prepare() das Ziel sucht.
+      try {
+        await data.ensureSubpage?.(step.page);
+      } catch {
+        return false;
+      }
     }
     // prepare oeffnet, was das Ziel verdeckt (Reiter, Karte, Akkordeon).
     if (step.prepare) await step.prepare();
@@ -871,7 +878,7 @@
       this.s.checklistMode = this.s.isAdmin ? mode : 'explore';
       if (this.s.finished) this.s.close();
       this.setCollapsed(true);
-      openPlace({ panel: 'settings-panel', page: 'checklist' });
+      void openPlace({ panel: 'settings-panel', page: 'checklist' });
     },
     hideAll() {
       this.detach();

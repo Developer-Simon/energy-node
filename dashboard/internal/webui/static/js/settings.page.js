@@ -751,6 +751,9 @@
 
   const settingsPage = () => ({
     activeSettingsPage: 'general',
+    // Pro nachladbarer Unterseite die Ladezusage, damit ein laufendes oder
+    // fertiges Laden wiederverwendet und ein Fehler erneut versucht wird.
+    _subpageLoads: {},
     // The sub pages as the sidebar lists them: {page, icon, label, desc}. Read
     // once from the server-rendered sidebar, so the picker and the sheet show
     // exactly the same entries (installed services only, translated texts).
@@ -763,10 +766,36 @@
     init() {
       const requested = new URLSearchParams(window.location.search).get('page');
       if (SETTINGS_PAGES.includes(requested)) this.activeSettingsPage = requested;
+      this.$watch('activeSettingsPage', (page) => this.ensureSubpage(page).catch(() => {}));
+      this.ensureSubpage(this.activeSettingsPage).catch(() => {});
       this.$nextTick(() => {
         window.dashboardSettingsMasonry?.attach(this.$el);
         this.collectPages();
       });
+    },
+
+    // Laedt die Unterseite, deren Platzhalter noch data-subpage-src traegt, in
+    // den Platzhalter. Ohne Platzhalter (Kernseiten, schon geladen) ist nichts
+    // zu tun.
+    ensureSubpage(page) {
+      const wrapper = document.getElementById(`settings-sub-${page}`);
+      if (!wrapper?.dataset.subpageSrc) return Promise.resolve();
+      if (!this._subpageLoads[page]) {
+        this._subpageLoads[page] = window.dashboardFragments.load(wrapper, {
+          src: wrapper.dataset.subpageSrc,
+          css: wrapper.dataset.subpageCss,
+          script: wrapper.dataset.subpageScript,
+          swap: 'inner',
+        }).then(() => {
+          wrapper.removeAttribute('data-subpage-src');
+          window.dashboardSettingsMasonry?.attach(wrapper);
+          window.dispatchEvent(new CustomEvent('settings-subpage-loaded', {detail: {page}}));
+        }).catch((error) => {
+          delete this._subpageLoads[page];
+          throw error;
+        });
+      }
+      return this._subpageLoads[page];
     },
 
     collectPages() {

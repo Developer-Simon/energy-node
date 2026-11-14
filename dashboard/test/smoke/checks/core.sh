@@ -30,6 +30,18 @@ check_status() { # Name, erwarteter Code, Cookie-Datei, URL
   fi
 }
 
+html_has() { # name, erwarteter-string, url
+  local name="$1" erwartet="$2" url="$3" html
+  # Erst einlesen, dann suchen: grep -q beendet die Pipe frueh, curl bekommt
+  # SIGPIPE und pipefail macht daraus einen Fehlschlag.
+  html="$(api "$url")" || html=""
+  if grep -qF -- "$erwartet" <<<"$html"; then
+    echo "  OK   $name"
+  else
+    echo "  FEHL $name (\"$erwartet\" fehlt im HTML)"; FAILED=1
+  fi
+}
+
 html_lacks() { # name, verbotener-string, url
   local name="$1" verboten="$2" url="$3"
   if api "$url" | grep -qF -- "$verboten"; then
