@@ -1,0 +1,611 @@
+{{define "settings-sub-mqtt"}}{{template "mqtt" .}}{{end}}
+{{define "settings-sub-tailscale"}}{{template "tailscale" .}}{{end}}
+{{define "settings-sub-tiny-tuya"}}{{template "tiny-tuya" .}}{{end}}
+{{define "settings-sub-versions"}}{{template "versions" .}}{{end}}
+{{define "settings-sub-checklist"}}{{template "checklist" .}}{{end}}
+{{define "settings-sub-users"}}
+{{if and .HasUser (not .CanManageUsers)}}
+  <section id="settings-users-account" role="tabpanel" class="settings-cards users-account-cards" x-show="activeSettingsPage === 'users'" aria-labelledby="settings-session-heading">
+    <div class="users-signin-group" x-data="{ signinShown: true }">
+{{template "users-account-cards" .}}
+    </div>
+  </section>
+{{end}}
+{{if or .CanManageUsers .HasOwnAccount}}{{template "users" .}}{{end}}
+{{end}}
+{{define "settings-sub-backup"}}{{template "settings-backup" .}}{{end}}
+{{define "settings-sub-system"}}{{template "settings-system" .}}{{end}}
+{{define "settings-sub-storage"}}{{template "settings-storage" .}}{{end}}
+{{define "settings-sub-network"}}{{template "network" .}}{{end}}
+{{define "settings-backup"}}
+  <div class="bs-page" x-data="backupPage()" x-init="init()" data-blocked="{{if .BackupBlocked}}1{{end}}">
+
+    <section id="settings-backup" role="tabpanel" class="settings-cards" data-tour="backup-overview" x-show="activeSettingsPage === 'backup'">
+
+      <!-- Status zuerst: Was ist der letzte Stand, und die zwei Hauptwege. -->
+      <section class="setting-card setting-card--wide bs-hero" aria-labelledby="bs-hero-title">
+        {{if .BackupBlocked}}
+        <div class="bs-hero-state" data-tone="warn" data-testid="backup-https-hint">
+          <span class="bs-hero-mark" aria-hidden="true"><svg class="automation-icon"><use href="#ico-warning"></use></svg></span>
+          <div>
+            <h3 class="bs-hero-title" id="bs-hero-title">{{t "backup.https_only.title"}}</h3>
+            <p class="setting-note">{{t "backup.https_only.note"}}</p>
+          </div>
+        </div>
+        {{else}}
+        <div class="bs-hero-state" x-bind:data-tone="heroTone()">
+          <span class="bs-hero-mark" aria-hidden="true"><svg class="automation-icon"><use x-bind:href="heroTone() === 'ok' ? '#ico-check' : '#ico-warning'"></use></svg></span>
+          <div>
+            <h3 class="bs-hero-title" id="bs-hero-title" x-text="heroTitle()"></h3>
+            <p class="setting-note" x-text="heroNote()"></p>
+          </div>
+        </div>
+        {{end}}
+        <div class="bs-hero-actions">
+          {{if index .BackupSee "backup_export"}}
+          <button type="button" class="icon-button labeled bs-primary" x-on:click="openExport()" {{if .BackupBlocked}}disabled{{end}} data-tour="backup-create">
+            <svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg><span>{{t "backup.hero.create"}}</span>
+          </button>
+          {{end}}
+          {{if index .BackupSee "backup_import"}}
+          <button type="button" class="icon-button labeled" x-on:click="openImport()" {{if .BackupBlocked}}disabled{{end}} data-tour="backup-restore">
+            <svg class="automation-icon bs-flip" aria-hidden="true"><use href="#ico-download"></use></svg><span>{{t "backup.hero.import"}}</span>
+          </button>
+          {{end}}
+        </div>
+      </section>
+
+      {{if not .BackupBlocked}}
+      <!-- Archive auf der Node -->
+      <section data-tour="backup-archives" class="setting-card setting-card--wide" aria-labelledby="bs-archives-title">
+        <div class="bs-card-head">
+          <h3 class="setting-card-title" id="bs-archives-title">{{t "backup.archives.title"}}</h3>
+          <span class="bs-card-count" x-show="archives.length" x-text="archiveSummary()"></span>
+        </div>
+        <p class="bs-empty" x-show="!archives.length">{{t "backup.archives.empty"}}</p>
+        <ul class="bs-archives" x-show="archives.length">
+          <template x-for="item in archives" x-bind:key="item.id">
+            <li class="bs-archive" x-bind:class="{ 'bs-archive-new': item.fresh }">
+              <div class="bs-archive-main">
+                <span class="bs-archive-title" x-text="item.when"></span>
+                <span class="bs-archive-meta"><span x-text="item.trigger"></span> · <span x-text="item.size"></span> · {{t "backup.archives.version"}} <span x-text="item.version"></span> · <span x-text="item.place"></span></span>
+                <span class="bs-tags">
+                  <template x-for="tag in item.tags" x-bind:key="tag"><span class="bs-tag" x-text="tag"></span></template>
+                  <span class="bs-tag bs-tag-warn" x-show="item.secrets && !item.locked">{{t "backup.archives.tag_secrets"}}</span>
+                  <span class="bs-tag bs-tag-ok" x-show="item.locked">{{t "backup.archives.tag_locked"}}</span>
+                </span>
+              </div>
+              <div class="bs-archive-actions">
+                {{if index .BackupSee "backup_export"}}
+                <button type="button" class="icon-button" x-bind:title="downloadTitle(item)" aria-label="{{t "backup.archives.download"}}" x-bind:disabled="!canDownload(item)" x-on:click="downloadArchive(item)"><svg class="automation-icon"><use href="#ico-download"></use></svg></button>
+                {{end}}
+                {{if index .BackupSee "backup_import"}}
+                <button type="button" class="icon-button labeled" x-on:click="openImport(item)"><span>{{t "backup.archives.restore"}}</span></button>
+                {{end}}
+                {{if index .BackupSee "backup_export"}}
+                <button type="button" class="icon-button bs-danger-ghost" title="{{t "backup.archives.delete"}}" aria-label="{{t "backup.archives.delete"}}" x-on:click="removeArchive(item)"><svg class="automation-icon"><use href="#ico-trash"></use></svg></button>
+                {{end}}
+              </div>
+            </li>
+          </template>
+        </ul>
+      </section>
+
+      <!-- Automatik: gaengiger Weg zuerst, Details erst, wenn eingeschaltet -->
+      {{if index .BackupSee "backup_export"}}
+      <section data-tour="backup-auto" class="setting-card setting-card--wide bs-auto" aria-labelledby="bs-auto-title">
+        <h3 class="setting-card-title" id="bs-auto-title">{{t "backup.auto.title"}}</h3>
+        <div class="bs-auto-grid">
+          <div>
+            <div class="setting-row">
+              <span class="setting-row-label">{{t "backup.auto.before_update"}}<span class="setting-row-unit">{{t "backup.auto.before_update_note"}}</span></span>
+              <label class="settings-toggle"><input type="checkbox" x-model="auto.beforeUpdate"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+            </div>
+            <div class="setting-row">
+              <span class="setting-row-label">{{t "backup.auto.schedule"}}</span>
+              <label class="settings-toggle"><input type="checkbox" x-model="auto.schedule"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+            </div>
+            <div class="bs-reveal" x-bind:data-open="auto.schedule ? 'true' : 'false'">
+              <div class="bs-reveal-inner">
+                <div class="setting-row">
+                  <span class="setting-row-label">{{t "backup.auto.every"}}</span>
+                  <div class="bs-segment" role="radiogroup" aria-label="{{t "backup.auto.every"}}">
+                    <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="auto.every === 'day' ? 'true' : 'false'" x-on:click="auto.every = 'day'">{{t "backup.auto.every_day"}}</button>
+                    <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="auto.every === 'week' ? 'true' : 'false'" x-on:click="auto.every = 'week'">{{t "backup.auto.every_week"}}</button>
+                  </div>
+                </div>
+                <div class="setting-row">
+                  <span class="setting-row-label">{{t "backup.auto.keep"}}</span>
+                  <span class="stepper" role="group" aria-label="{{t "backup.auto.keep"}}">
+                    <button type="button" class="stepper-btn" aria-label="{{t "backup.auto.keep_less"}}" x-on:click="auto.keep = Math.max(1, auto.keep - 1)">&minus;</button>
+                    <input class="stepper-input" type="number" min="1" max="30" x-model.number="auto.keep" aria-label="{{t "backup.auto.keep"}}">
+                    <button type="button" class="stepper-btn" aria-label="{{t "backup.auto.keep_more"}}" x-on:click="auto.keep = Math.min(30, auto.keep + 1)">+</button>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <span class="bs-group-label">{{t "backup.content.label"}}</span>
+            <label class="bs-check bs-check-locked"><input type="checkbox" checked disabled><span class="bs-check-text"><span>{{t "backup.content.config"}}</span><small>{{t "backup.content.config_always"}}</small></span></label>
+            <template x-for="area in dataAreas" x-bind:key="area.key">
+              <label class="bs-check"><input type="checkbox" x-model="auto.content[area.key]"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.size"></small></span></label>
+            </template>
+            <label class="bs-check"><input type="checkbox" x-model="auto.secrets" x-bind:disabled="!canSecrets"><span class="bs-check-text"><span>{{t "backup.secrets.label"}}</span><small>{{t "backup.secrets.note"}}</small></span></label>
+            <p class="bs-area-note" x-show="secretsNote" x-text="secretsNote"></p>
+            <div class="bs-reveal" x-bind:data-open="auto.secrets ? 'true' : 'false'">
+              <div class="bs-reveal-inner">
+                <p class="bs-warning">{{t "backup.auto.secrets_warning"}}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bs-card-foot">
+          <span class="bs-next" x-show="auto.schedule" x-text="auto.every === 'day' ? $t('backup.auto.next_day') : $t('backup.auto.next_week')"></span>
+          <button type="button" class="icon-button labeled bs-primary" x-bind:disabled="!autoDirty()" x-on:click="saveAuto()"><svg class="automation-icon" aria-hidden="true"><use href="#ico-save"></use></svg><span>{{t "backup.auto.save"}}</span></button>
+        </div>
+      </section>
+      {{end}}
+      {{end}}
+    </section>
+
+    <!-- Ablauf: Mitte am Rechner, Blatt von unten am Handy -->
+    <template x-teleport="body">
+      <div class="bs-flow-layer" x-bind:class="{ open: flow }" x-bind:inert="!flow" x-on:keydown.escape.window="flow && closeFlow()">
+        <div class="bs-flow-scrim" x-on:click="closeFlow()"></div>
+        <div class="bs-flow" tabindex="-1" role="dialog" aria-modal="true" x-bind:aria-labelledby="'bs-flow-title'" x-ref="sheet">
+          <span class="bs-flow-grab" aria-hidden="true" x-on:pointerdown="dragStart($event)" x-on:pointermove="dragMove($event)" x-on:pointerup="dragEnd($event)" x-on:pointercancel="dragEnd($event)"></span>
+          <header class="bs-flow-head">
+            <div>
+              <h3 id="bs-flow-title" x-text="flowTitle()"></h3>
+              <p class="bs-flow-progress" x-show="stepCount() > 1" x-text="$t('backup.flow.step', { current: stepIndex() + 1, total: stepCount() })"></p>
+            </div>
+            <button type="button" class="icon-button" aria-label="{{t "backup.flow.close"}}" x-on:click="closeFlow()"><svg class="automation-icon"><use href="#ico-close"></use></svg></button>
+          </header>
+          <div class="bs-flow-stage" x-ref="stage">
+
+            {{if index .BackupSee "backup_export"}}
+            <!-- Backup erstellen -->
+            <div class="bs-step" data-step="export" x-show="step === 'export'">
+              <span class="bs-group-label">{{t "backup.content.label"}}</span>
+              <label class="bs-check bs-check-locked"><input type="checkbox" checked disabled><span class="bs-check-text"><span>{{t "backup.content.config"}}</span><small>{{t "backup.content.config_always"}}</small></span></label>
+              <template x-for="area in dataAreas" x-bind:key="area.key">
+                <label class="bs-check"><input type="checkbox" x-model="exp.content[area.key]"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.size"></small></span></label>
+              </template>
+              <label class="bs-check"><input type="checkbox" x-model="exp.secrets" x-bind:disabled="!canSecrets"><span class="bs-check-text"><span>{{t "backup.secrets.label"}}</span><small>{{t "backup.secrets.note"}}</small></span></label>
+              <p class="bs-area-note" x-show="secretsNote" x-text="secretsNote"></p>
+
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "backup.export.protect"}}</span>
+                <label class="settings-toggle"><input type="checkbox" x-model="exp.protect"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+              </div>
+              <div class="bs-reveal" x-bind:data-open="exp.protect ? 'true' : 'false'">
+                <div class="bs-reveal-inner bs-fields">
+                  <label class="bs-field"><span>{{t "backup.export.password"}}</span><input type="password" autocomplete="new-password" x-model="exp.pw"></label>
+                  <label class="bs-field"><span>{{t "backup.export.password_repeat"}}</span><input type="password" autocomplete="new-password" x-model="exp.pw2"></label>
+                  <p class="setting-note">{{t "backup.export.password_note"}}</p>
+                  <p class="bs-inline-error" x-show="exp.pw2 && exp.pw !== exp.pw2">{{t "backup.export.password_mismatch"}}</p>
+                </div>
+              </div>
+              <div class="bs-reveal" x-bind:data-open="!exp.protect && exp.secrets ? 'true' : 'false'">
+                <div class="bs-reveal-inner">
+                  <div class="bs-warning bs-warn-action">
+                    <p>{{t "backup.export.secrets_warning"}}</p>
+                    <button type="button" class="icon-button labeled" x-on:click="exp.secrets = false"><span>{{t "backup.export.secrets_exclude"}}</span></button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "backup.export.target"}}</span>
+                <div class="bs-segment" role="radiogroup" aria-label="{{t "backup.export.target"}}">
+                  <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="exp.target === 'download' ? 'true' : 'false'" x-on:click="exp.target = 'download'">{{t "backup.export.target_download"}}</button>
+                  <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="exp.target === 'node' ? 'true' : 'false'" x-on:click="exp.target = 'node'">{{t "backup.export.target_node"}}</button>
+                </div>
+              </div>
+              <p class="setting-note bs-target-note" x-show="exp.target === 'node'" x-text="targetNote()">{{t "backup.export.target_note"}}</p>
+              <p class="bs-inline-error" x-show="flowError" x-text="flowError"></p>
+            </div>
+            {{end}}
+
+            {{if index .BackupSee "backup_import"}}
+            <!-- Einspielen 1: Datei -->
+            <div class="bs-step" data-step="pick" x-show="step === 'pick'">
+              <label class="bs-drop" x-bind:class="{ 'bs-drop-over': dropOver }" x-on:dragover.prevent="dropOver = true" x-on:dragleave="dropOver = false" x-on:drop.prevent="dropOver = false; readFile($event.dataTransfer.files[0])">
+                <input type="file" class="visually-hidden" accept=".tar.gz,.enc" x-on:change="readFile($event.target.files[0])">
+                <svg class="automation-icon bs-flip" aria-hidden="true"><use href="#ico-download"></use></svg>
+                <strong>{{t "backup.pick.choose"}}</strong>
+                <span>{{t "backup.pick.drop"}}</span>
+              </label>
+              <div class="bs-check-run" x-show="checking" role="status"><span class="bs-spinner" aria-hidden="true"></span>{{t "backup.pick.checking"}}</div>
+              <div class="bs-reveal" x-bind:data-open="importError ? 'true' : 'false'">
+                <div class="bs-reveal-inner">
+                  <div class="message error bs-import-error" role="alert"><strong x-text="importError?.title"></strong><p x-text="importError?.text"></p></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Einspielen: Passwort -->
+            <div class="bs-step" data-step="unlock" x-show="step === 'unlock'">
+              <p class="setting-note bs-step-lead">{{t "backup.unlock.lead"}}</p>
+              <label class="bs-field"><span>{{t "backup.unlock.password"}}</span><input type="password" autocomplete="off" x-model="unlockPw" x-on:keydown.enter="flowPrimary()"></label>
+              <p class="bs-inline-error" x-show="unlockFailed">{{t "backup.unlock.wrong"}}</p>
+            </div>
+
+            <!-- Einspielen: Vorschau -->
+            <div class="bs-step" data-step="preview" x-show="step === 'preview'">
+              <p class="setting-note bs-step-lead"><strong x-text="source?.host"></strong>, <span x-text="source?.when"></span>, {{t "backup.archives.version"}} <span x-text="source?.version"></span></p>
+              <ul class="bs-areas">
+                <template x-for="area in previewAreas" x-bind:key="area.key">
+                  <li class="bs-area" x-bind:class="{ 'bs-area-same': !area.changes.length && !area.note }">
+                    <div class="bs-area-row">
+                      <label class="bs-check"><input type="checkbox" x-model="area.on" x-bind:disabled="!area.available"><span class="bs-check-text"><span x-text="area.label"></span><small x-text="area.summary"></small></span></label>
+                      <button type="button" class="bs-area-more" x-show="area.changes.length" x-bind:aria-expanded="area.open ? 'true' : 'false'" x-on:click="area.open = !area.open" aria-label="{{t "backup.preview.changes"}}"><span class="nav-menu-chevron" aria-hidden="true"></span></button>
+                    </div>
+                    <div class="bs-reveal" x-bind:data-open="area.open ? 'true' : 'false'">
+                      <ul class="bs-reveal-inner bs-changes">
+                        <template x-for="change in area.changes" x-bind:key="change.text"><li><span class="bs-change-kind" x-bind:data-kind="change.kind" x-text="change.kindLabel"></span><span x-text="change.text"></span></li></template>
+                      </ul>
+                    </div>
+                    <p class="bs-area-note" x-show="area.note && area.on" x-text="area.note"></p>
+                  </li>
+                </template>
+              </ul>
+              <p class="bs-inline-error" x-show="flowError" x-text="flowError"></p>
+            </div>
+
+            <!-- Einspielen: Umgebung -->
+            <div class="bs-step" data-step="env" x-show="step === 'env'">
+              <p class="setting-note bs-step-lead">{{t "backup.env.lead"}}</p>
+              <ul class="bs-env">
+                <template x-for="row in envRows" x-bind:key="row.key">
+                  <li class="bs-env-row">
+                    <span class="bs-env-label" x-text="row.label"></span>
+                    <template x-if="!row.off">
+                      <div class="bs-segment bs-env-choice" role="radiogroup" x-bind:aria-label="row.label">
+                        <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="row.use === 'here' ? 'true' : 'false'" x-on:click="row.use = 'here'"><small>{{t "backup.env.here"}}</small><span x-text="row.here"></span></button>
+                        <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="row.use === 'archive' ? 'true' : 'false'" x-on:click="row.use = 'archive'"><small>{{t "backup.env.archive"}}</small><span x-text="row.archive"></span></button>
+                      </div>
+                    </template>
+                    <template x-if="row.off"><p class="bs-env-off" x-text="row.off"></p></template>
+                  </li>
+                </template>
+              </ul>
+              <p class="bs-inline-error" x-show="flowError" x-text="flowError"></p>
+            </div>
+            {{end}}
+
+            <!-- Laeuft -->
+            <div class="bs-step" data-step="run" x-show="step === 'run'" role="status" aria-live="polite">
+              <ol class="bs-run">
+                <template x-for="(task, i) in tasks" x-bind:key="task">
+                  <li class="bs-run-item" x-bind:data-state="i < taskIndex ? 'done' : (i === taskIndex ? 'now' : 'wait')">
+                    <span class="bs-run-mark" aria-hidden="true"><span class="bs-spinner"></span><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+                    <span x-text="task"></span>
+                  </li>
+                </template>
+              </ol>
+              <div class="bs-bar" role="progressbar" aria-label="{{t "backup.run.progress"}}" x-bind:aria-valuenow="Math.round(progress * 100)" aria-valuemin="0" aria-valuemax="100"><span x-bind:style="`transform: scaleX(${progress})`"></span></div>
+              <p class="setting-note" x-text="runNote()"></p>
+            </div>
+
+            <!-- Fertig -->
+            <div class="bs-step bs-done" data-step="done" x-show="step === 'done'">
+              <span class="bs-done-mark" x-bind:class="{ drawn: step === 'done' }" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><path d="m14 25 7 7 13-15"/></svg></span>
+              <h4 x-text="doneTitle()"></h4>
+              <p class="setting-note" x-text="doneNote()"></p>
+              <ul class="setting-note" x-show="disabledUsers.length">
+                <template x-for="name in disabledUsers" x-bind:key="name"><li x-text="name"></li></template>
+              </ul>
+            </div>
+          </div>
+          <footer class="bs-flow-foot" x-show="step !== 'run'">
+            <button type="button" class="icon-button labeled" x-show="canBack()" x-on:click="flowBack()"><span>{{t "backup.flow.back"}}</span></button>
+            <button type="button" class="icon-button labeled bs-danger-ghost" x-show="step === 'done' && flow === 'import' && importFailed && rollbackId" x-on:click="rollbackImport()"><span>{{t "backup.flow.rollback"}}</span></button>
+            <span class="bs-flow-spacer"></span>
+            <button type="button" class="icon-button labeled bs-primary" x-bind:class="{ 'bs-primary-danger': step === 'format' }" x-show="primaryLabel()" x-bind:disabled="!primaryEnabled()" x-on:click="flowPrimary()"><span x-text="primaryLabel()"></span></button>
+          </footer>
+        </div>
+      </div>
+    </template>
+  </div>
+{{end}}
+{{define "settings-system"}}
+  <section id="settings-system" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
+    <section class="setting-card system-access-card" aria-labelledby="system-access-heading">
+      <h3 class="setting-card-title" id="system-access-heading">{{t "settings.system.title"}}</h3>
+      <div class="setting-row">
+        <span class="setting-row-label">{{t "settings.system.access.rights"}}</span>
+        <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? $t('settings.system.access_badge.granted') : $t('settings.system.access_badge.guest')">{{t "settings.system.access_badge.checking"}}</span>
+      </div>
+      <p class="setting-note">{{t "settings.system.access.note"}}</p>
+    </section>
+    <section class="setting-card system-actions-card" aria-labelledby="system-actions-heading">
+      <h3 class="setting-card-title" id="system-actions-heading">{{t "settings.system.actions.title"}}</h3>
+      <p class="setting-note">{{t "settings.system.actions.warning"}}</p>
+      <div class="system-action-list">
+        <button class="system-action-danger" type="button" x-on:click="run('restart-dashboard', $t('settings.system.actions.restart_dashboard'))" x-bind:disabled="!canSystemActions || busy">
+          <svg class="automation-icon"><use href="#ico-history"></use></svg>
+          <span>{{t "settings.system.actions.restart_dashboard"}}</span>
+        </button>
+        <button class="system-action-danger" type="button" x-on:click="run('reboot', $t('settings.system.actions.reboot'))" x-bind:disabled="!canSystemActions || busy">
+          <svg class="automation-icon"><use href="#ico-power-on"></use></svg>
+          <span>{{t "settings.system.actions.reboot"}}</span>
+        </button>
+        <button class="system-action-danger" type="button" x-on:click="run('poweroff', $t('settings.system.actions.poweroff'))" x-bind:disabled="!canSystemActions || busy">
+          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
+          <span>{{t "settings.system.actions.poweroff"}}</span>
+        </button>
+      </div>
+    </section>
+    <section class="setting-card setting-card--wide system-config-card" aria-labelledby="system-config-heading" x-data="systemConfigPanel()" x-init="load()">
+      <h3 class="setting-card-title" id="system-config-heading">{{t "settings.system.config.title"}}</h3>
+      <p class="setting-note">{{t "settings.system.config.file_info"}} {{t "settings.system.config.file_note"}}</p>
+      <div class="settings-warning" x-cloak x-show="recoverMode && unknownKeys.length">
+        {{t "settings.system.config.unknown_fields_warning"}}
+        (<span x-text="unknownKeys.join(', ')"></span>). {{t "settings.system.config.unknown_fields_help"}}
+      </div>
+      <p class="setting-note" x-cloak x-show="recoverMode && !unknownKeys.length">{{t "settings.system.config.schema_error"}}</p>
+      <textarea class="system-config-editor" rows="24" spellcheck="false" x-model="text" x-bind:disabled="busy" x-cloak x-show="recoverMode"></textarea>
+      <form x-ref="form" class="schema-form" novalidate x-show="!recoverMode" x-on:input="dirtyTick++" x-on:change="dirtyTick++" x-on:submit.prevent="save()"></form>
+      <div class="system-config-actions">
+        <button class="icon-button labeled primary" type="button" x-on:click="save()" x-bind:disabled="!dirty || busy" title="{{t "common.save"}}" aria-label="{{t "common.save"}}">
+          <svg class="automation-icon"><use href="#ico-save"></use></svg>
+          <span>{{t "common.save"}}</span>
+        </button>
+        <button class="icon-button labeled" type="button" x-on:click="discard()" x-bind:disabled="busy" title="{{t "settings.system.config.discard_button"}}" aria-label="{{t "settings.system.config.discard_button"}}">
+          <svg class="automation-icon"><use href="#ico-close"></use></svg>
+          <span>{{t "settings.system.config.discard_button"}}</span>
+        </button>
+      </div>
+      <!-- Nur-Lese-Liste: die Systemkonfiguration hat serverseitig keine
+           /revisions-, /revisions/{name}- und /restore-Routen wie die anderen
+           Konfigurationsabschnitte, nur die inline in GET /api/v1/system/config
+           mitgelieferte Namensliste. Vergleichen und Wiederherstellen bleiben
+           zurueckgestellt - siehe P1.8 der Dashboard-Ideenliste. -->
+      <details class="revision-panel">
+        <summary>{{t "settings.system.config.revisions.title"}}</summary>
+        <div class="revision-panel-body">
+          <p class="settings-help">
+            {{t "settings.system.config.revisions.note"}}
+          </p>
+          <ul class="revision-list" x-show="revisions.length">
+            <template x-for="name in revisions" x-bind:key="name">
+              <li x-text="revisionLabel(name)"></li>
+            </template>
+          </ul>
+          <span class="revision-panel-empty" x-show="revisions.length === 0" x-cloak>{{t "settings.system.config.revisions.empty"}}</span>
+        </div>
+      </details>
+    </section>
+  </section>
+{{end}}
+{{define "settings-storage"}}
+  <div class="bs-page" x-data="storagePage()" x-init="init()">
+    <section id="settings-storage" role="tabpanel" class="settings-cards bs-storage" data-tour="storage-overview" x-show="activeSettingsPage === 'storage'">
+      <section class="setting-card bs-drives" aria-labelledby="bs-drives-title">
+        <h3 class="setting-card-title" id="bs-drives-title">{{t "storage.title"}}</h3>
+
+        <div class="bs-drive">
+          <div class="bs-drive-head"><strong>{{t "storage.system.title"}}</strong><span x-text="sizeText(system.size)"></span></div>
+          <div class="bs-meter" role="img" x-bind:aria-label="systemMeterLabel()" x-bind:title="systemMeterTip()">
+            <span class="bs-meter-part bs-part-system" x-bind:style="meterStyle(systemUsedPercent())"></span>
+          </div>
+          <div class="bs-legend"><span><i class="bs-part-system"></i>{{t "storage.legend.system"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: systemFree() })"></span></div>
+        </div>
+
+        <div class="bs-drive" x-show="scenario() === 'active'" x-cloak>
+          <div class="bs-drive-head"><strong x-text="driveName()"></strong><span x-text="sizeText(space.size)"></span><span class="bs-status bs-status-ok">{{t "storage.status.active"}}</span></div>
+          <div class="bs-meter" role="img" x-bind:aria-label="driveMeterLabel()" x-bind:title="driveMeterTip()">
+            <span class="bs-meter-part bs-part-data" x-bind:style="meterStyle(drivePart('runtime'))"></span>
+            <span class="bs-meter-part bs-part-backup" x-bind:style="meterStyle(drivePart('backups'))"></span>
+          </div>
+          <div class="bs-legend"><span><i class="bs-part-data"></i>{{t "storage.legend.data"}}</span><span><i class="bs-part-backup"></i>{{t "storage.legend.backups"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: driveFree() })"></span></div>
+        </div>
+
+        <div class="bs-drive bs-drive-missing" x-show="scenario() === 'missing'" x-cloak role="status">
+          <div class="bs-drive-head"><strong x-text="driveName()"></strong><span class="bs-status bs-status-warn">{{t "storage.status.missing"}}</span></div>
+          <p class="setting-note" x-text="missingNote()"></p>
+          <button type="button" class="icon-button labeled" x-on:click="retry()" x-bind:disabled="checking"><span>{{t "storage.retry"}}</span></button>
+        </div>
+
+        <div class="bs-drive" x-show="scenario() === 'pending'" x-cloak role="status">
+          <div class="bs-drive-head"><strong x-text="driveName()"></strong><span class="bs-status" x-text="statusLabel()"></span></div>
+          <p class="setting-note" x-text="pendingNote()"></p>
+        </div>
+
+        <div class="bs-drive-empty" x-show="scenario() === 'none'" x-cloak>
+          <p class="setting-note">{{t "storage.none.note"}}</p>
+          <button type="button" class="icon-button labeled bs-primary" data-tour="storage-setup" x-on:click="openSetup()"><svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg><span>{{t "storage.setup.button"}}</span></button>
+        </div>
+
+        <div class="bs-fallback" x-show="scenario() !== 'none'" x-cloak>
+          <span class="bs-group-label" id="bs-fallback-label">{{t "storage.fallback.label"}}</span>
+          <div class="bs-segment" role="radiogroup" aria-labelledby="bs-fallback-label">
+            <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'system' ? 'true' : 'false'" x-on:click="setFallback('system')">{{t "storage.fallback.system"}}</button>
+            <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'ram' ? 'true' : 'false'" x-on:click="setFallback('ram')">{{t "storage.fallback.ram"}}</button>
+          </div>
+          <p class="setting-note" x-text="fallbackNote()"></p>
+          <p class="setting-note" x-show="fallbackPending">{{t "storage.fallback.restart"}}</p>
+        </div>
+
+        <div class="bs-card-foot" x-show="scenario() === 'active' || scenario() === 'missing'" x-cloak>
+          <button type="button" class="icon-button labeled" x-show="replaceFlow() === 'switch'" x-on:click="openReplace()"><span>{{t "storage.switch.button"}}</span></button>
+          <button type="button" class="icon-button labeled bs-primary" x-show="replaceFlow() === 'replace'" x-on:click="openReplace()"><span>{{t "storage.replace.button"}}</span></button>
+          <button type="button" class="icon-button labeled bs-danger-ghost" x-show="scenario() === 'active'" x-on:click="removeDrive()"><span>{{t "storage.remove.button"}}</span></button>
+        </div>
+      </section>
+
+      <section class="setting-card storage-health-panel" aria-labelledby="storage-health-heading" aria-live="polite">
+        <div class="storage-health-header">
+          <div>
+            <h3 id="storage-health-heading">{{t "storage_health.title"}}
+              <span class="field-help field-help-align-start">
+                <button class="field-help-trigger" type="button" aria-label="{{t "storage_health.help_button"}}"><svg><use href="#ico-help"></use></svg></button>
+                <span class="field-help-text" role="tooltip">{{t "storage_health.help_text"}}</span>
+              </span>
+            </h3>
+          </div>
+          <span class="storage-health-badge storage-health-badge-unavailable" x-bind:class="storageHealthBadgeClass" x-text="storageHealthBadgeLabel">{{t "storage_health.checking"}}</span>
+        </div>
+        <div class="toolbar"><button type="button" x-on:click="loadStorageHealth()" x-bind:disabled="storageHealthLoading" x-text="storageHealthLoading ? $t('storage_health.checking_progress') : $t('storage_health.refresh')"></button></div>
+        <p x-show="storageHealthLoading">{{t "storage_health.reading"}}</p>
+        <div class="table-scroll">
+          {{/* i18n-keys: storage_health.life_time.range, storage_health.life_time.exceeded, storage_health.pre_eol.normal, storage_health.pre_eol.warning, storage_health.pre_eol.critical, storage_health.remaining.days, storage_health.remaining.years, storage_health.consumed, storage_health.reason.no_mmc */}}
+          <table class="storage-health-table" x-cloak x-show="storageHealth && storageHealth.available">
+          <tbody>
+            <tr><th scope="row">{{t "storage_health.medium"}}</th><td x-text="(storageHealth && storageHealth.medium) || '-'">-</td></tr>
+            <tr><th scope="row">{{t "storage_health.device"}}</th><td x-text="(storageHealth && storageHealth.device) || '-'">-</td></tr>
+            <tr><th scope="row">{{t "storage_health.source"}}</th><td x-text="(storageHealth && storageHealth.source) || '-'">-</td></tr>
+            <template x-if="storageHealth && storageHealth.mode === 'measured'"><tr><th scope="row">{{t "storage_health.vendor_status"}}</th><td>{{t "storage_health.vendor_status_measured"}}</td></tr></template>
+            <template x-if="storageHealth && storageHealth.life_time_a"><tr><th scope="row">{{t "storage_health.life_time_a"}}</th><td x-text="storageHealth.life_time_a.label_key ? $t(storageHealth.life_time_a.label_key, storageHealth.life_time_a.label_params) : storageHealth.life_time_a.label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.life_time_b"><tr><th scope="row">{{t "storage_health.life_time_b"}}</th><td x-text="storageHealth.life_time_b.label_key ? $t(storageHealth.life_time_b.label_key, storageHealth.life_time_b.label_params) : storageHealth.life_time_b.label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.pre_eol"><tr><th scope="row">{{t "storage_health.pre_eol"}}</th><td x-text="storageHealth.pre_eol.label_key ? $t(storageHealth.pre_eol.label_key, storageHealth.pre_eol.label_params) : storageHealth.pre_eol.label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.remaining"}}</th><td x-text="storageHealth.estimate.remaining_key ? storageText(storageHealth.estimate.remaining_key, storageHealth.estimate.remaining_params) : storageHealth.estimate.remaining_label"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.consumed_label"}}</th><td x-text="storageHealth.estimate.consumed_key ? storageText(storageHealth.estimate.consumed_key, storageHealth.estimate.consumed_params) : (storageHealth.estimate.consumed_label || $t('storage_health.consumed_fallback', {min: Math.round(storageHealth.estimate.consumed_percent_min || 0), max: Math.round(storageHealth.estimate.consumed_percent_max || 0)}))"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_bytes)"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes_per_day"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_per_day_bytes)"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.observation_period"}}</th><td x-text="formatStorageDays(storageHealth.estimate.observation_days)"></td></tr></template>
+            <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.assumption"}}</th><td x-text="`${storageHealth.estimate.assumed_endurance_tbw_min}-${storageHealth.estimate.assumed_endurance_tbw_max} TBW`"></td></tr></template>
+            <tr><th scope="row">{{t "storage_health.last_read"}}</th><td x-text="formatStorageHealthTime(storageHealth && storageHealth.read_at)">-</td></tr>
+          </tbody>
+          </table>
+        </div>
+        <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="storageHealth && storageHealth.reason_key ? $t(storageHealth.reason_key) : ((storageHealth && storageHealth.reason) || $t('storage_health.unavailable'))"></p>
+        <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
+        <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
+      </section>
+    </section>
+
+    <!-- Ablauf Laufwerk einrichten: Mitte am Rechner, Blatt von unten am Handy -->
+    <template x-teleport="body">
+      <div class="bs-flow-layer" data-flow="storage" x-bind:class="{ open: flow }" x-bind:inert="!flow" x-on:keydown.escape.window="flow && closeFlow()">
+        <div class="bs-flow-scrim" x-on:click="closeFlow()"></div>
+        <div class="bs-flow" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="bs-storage-flow-title">
+          <span class="bs-flow-grab" aria-hidden="true" x-on:pointerdown="dragStart($event)" x-on:pointermove="dragMove($event)" x-on:pointerup="dragEnd($event)" x-on:pointercancel="dragEnd($event)"></span>
+          <header class="bs-flow-head">
+            <div>
+              <h3 id="bs-storage-flow-title" x-text="flowTitle()"></h3>
+              <p class="bs-flow-progress" x-show="stepCount() > 1" x-text="stepText()"></p>
+            </div>
+            <button type="button" class="icon-button" aria-label="{{t "backup.flow.close"}}" x-on:click="closeFlow()"><svg class="automation-icon"><use href="#ico-close"></use></svg></button>
+          </header>
+          <div class="bs-flow-stage">
+
+            <!-- Laufwerk 1: Auswahl -->
+            <div class="bs-step" data-step="drives" x-show="step === 'drives'">
+              <ul class="bs-drive-pick" role="radiogroup" aria-label="{{t "storage.drives.label"}}">
+                <template x-for="group in driveGroups" x-bind:key="group.key">
+                  <li>
+                    <template x-if="group.items.length === 1">
+                      <button type="button" class="bs-pick" role="radio" x-bind:aria-checked="drive && drive.kname === group.items[0].kname ? 'true' : 'false'" x-on:click="chooseDrive(group.items[0])">
+                        <span class="bs-pick-text"><strong x-text="group.items[0].name"></strong><small x-text="group.items[0].detail"></small></span>
+                        <span class="bs-status" x-bind:class="group.items[0].needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="group.items[0].needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
+                      </button>
+                    </template>
+                    <template x-if="group.items.length > 1">
+                      <div class="bs-stick" x-bind:data-mode="isWhole(group) ? 'whole' : 'part'">
+                        <div class="bs-stick-head">
+                          <span class="bs-stick-ico" aria-hidden="true"><svg class="automation-icon"><use href="#ico-drive"></use></svg></span>
+                          <div class="bs-pick-text"><strong x-text="group.title"></strong><small x-text="group.detail"></small></div>
+                        </div>
+                        <template x-if="group.whole">
+                          <div class="bs-mode" role="tablist" x-bind:aria-label="group.title">
+                            <span class="bs-mode-thumb" aria-hidden="true"></span>
+                            <button type="button" class="bs-mode-tab" role="tab" x-bind:aria-selected="isWhole(group) ? 'false' : 'true'" x-on:click="setGroupMode(group, 'part')">{{t "storage.drives.mode.part"}}</button>
+                            <button type="button" class="bs-mode-tab" role="tab" x-bind:aria-selected="isWhole(group) ? 'true' : 'false'" x-on:click="setGroupMode(group, 'whole')">{{t "storage.drives.mode.whole"}}</button>
+                          </div>
+                        </template>
+                        <div class="bs-parts" role="radiogroup" x-bind:aria-label="group.title">
+                          <template x-for="d in group.parts" x-bind:key="d.kname">
+                            <button type="button" class="bs-part" role="radio" x-bind:disabled="isWhole(group)" x-bind:aria-checked="drive && drive.kname === d.kname && !isWhole(group) ? 'true' : 'false'" x-on:click="pickPart(group, d)">
+                              <span class="bs-radio" x-bind:class="{ on: drive && drive.kname === d.kname && !isWhole(group) }" aria-hidden="true"></span>
+                              <span class="bs-pick-text"><strong x-text="d.name"></strong><small x-text="d.detail"></small></span>
+                              <span class="bs-status" x-bind:class="d.needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="d.needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
+                            </button>
+                          </template>
+                        </div>
+                        <template x-if="group.whole">
+                          <div class="bs-part-new" x-bind:inert="!isWhole(group)">
+                            <div>
+                              <div class="bs-part">
+                                <span class="bs-radio on" aria-hidden="true"></span>
+                                <span class="bs-pick-text"><strong>{{t "storage.drives.new_partition"}}</strong><small x-text="$t('storage.drives.new_partition_detail', { size: group.size, count: group.count })"></small></span>
+                                <span class="bs-status bs-status-bad">{{t "storage.status.erase"}}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                  </li>
+                </template>
+              </ul>
+              <p class="setting-note" x-show="!drives.length">{{t "storage.drives.empty"}}</p>
+              <p class="setting-note">{{t "storage.drives.note"}}</p>
+              <p class="message error" role="alert" x-show="flowError" x-text="flowError"></p>
+            </div>
+
+            <!-- Laufwerk 2: Formatieren -->
+            <div class="bs-step" data-step="format" x-show="step === 'format'">
+              <div class="bs-erase">
+                <strong x-text="$t('storage.format.title', { name: drive ? drive.name : '' })"></strong>
+                <p x-text="drive ? drive.contents : ''"></p>
+                <p x-show="drive && drive.whole && drive.lost.length" x-text="drive && drive.whole ? $t('storage.format.whole_lost', { list: drive.lost.join(', ') }) : ''"></p>
+                <label class="bs-check bs-check-danger"><input type="checkbox" x-model="eraseOk"><span class="bs-check-text"><span>{{t "storage.format.confirm"}}</span></span></label>
+              </div>
+            </div>
+
+            <!-- Laufwerk 3: Inhalt -->
+            <div class="bs-step" data-step="driveuse" x-show="step === 'driveuse'">
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "storage.use.data"}}<span class="setting-row-unit">{{t "storage.use.data_note"}}</span></span>
+                <label class="settings-toggle"><input type="checkbox" x-model="use.data"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+              </div>
+              <div class="setting-row bs-flow-row">
+                <span class="setting-row-label">{{t "storage.use.backups"}}<span class="setting-row-unit">{{t "storage.use.backups_note"}}</span></span>
+                <label class="settings-toggle"><input type="checkbox" x-model="use.backups"><span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span></label>
+              </div>
+              <p class="setting-note bs-target-note" x-show="!use.data && !use.backups">{{t "storage.use.none"}}</p>
+              <p class="setting-note" x-show="driveUseNote()" x-text="driveUseNote()"></p>
+              <span class="bs-group-label bs-gap" id="bs-setup-fallback-label">{{t "storage.fallback.label"}}</span>
+              <div class="bs-segment" role="radiogroup" aria-labelledby="bs-setup-fallback-label">
+                <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'system' ? 'true' : 'false'" x-on:click="fallback = 'system'">{{t "storage.fallback.system"}}</button>
+                <button type="button" class="bs-segment-tab" role="radio" x-bind:aria-checked="fallback === 'ram' ? 'true' : 'false'" x-on:click="fallback = 'ram'">{{t "storage.fallback.ram"}}</button>
+              </div>
+              <p class="setting-note" x-text="fallbackNote()"></p>
+              <p class="message error" role="alert" x-show="flowError" x-text="flowError"></p>
+            </div>
+
+            <!-- Laeuft: Aufgaben des Auftrags, der Neustart am Ende trennt die Verbindung kurz -->
+            <div class="bs-step" data-step="run" x-show="step === 'run'" role="status" aria-live="polite">
+              <ol class="bs-run">
+                <template x-for="(task, i) in tasks" x-bind:key="task.phase">
+                  <li class="bs-run-item" x-bind:data-state="i < taskIndex ? 'done' : (i === taskIndex ? 'now' : 'wait')">
+                    <span class="bs-run-mark" aria-hidden="true"><span class="bs-spinner"></span><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>
+                    <span x-text="task.label"></span>
+                  </li>
+                </template>
+              </ol>
+              <div class="bs-bar" role="progressbar" aria-label="{{t "backup.run.progress"}}" x-bind:aria-valuenow="Math.round(progress * 100)" aria-valuemin="0" aria-valuemax="100"><span x-bind:style="`transform: scaleX(${progress})`"></span></div>
+              <p class="setting-note" x-text="runNote()"></p>
+              <p class="setting-note" x-show="warnText()" x-text="warnText()"></p>
+            </div>
+
+            <!-- Fertig -->
+            <div class="bs-step bs-done" data-step="done" x-show="step === 'done'">
+              <span class="bs-done-mark" x-bind:class="{ drawn: step === 'done' }" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><path d="m14 25 7 7 13-15"/></svg></span>
+              <h4 x-text="doneTitle()"></h4>
+              <p class="setting-note" x-text="doneNote()"></p>
+            </div>
+          </div>
+          <footer class="bs-flow-foot" x-show="step !== 'run'">
+            <button type="button" class="icon-button labeled" x-show="canBack()" x-on:click="flowBack()"><span>{{t "backup.flow.back"}}</span></button>
+            <span class="bs-flow-spacer"></span>
+            <button type="button" class="icon-button labeled bs-primary" x-bind:class="{ 'bs-primary-danger': step === 'format' }" x-show="primaryLabel()" x-bind:disabled="!primaryEnabled()" x-on:click="flowPrimary()"><span x-text="primaryLabel()"></span></button>
+          </footer>
+        </div>
+      </div>
+    </template>
+  </div>
+{{end}}

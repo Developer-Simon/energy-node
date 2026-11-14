@@ -49,6 +49,9 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 	settingsRecorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(settingsRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
 	body += settingsRecorder.Body.String()
+	storageRecorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(storageRecorder, httptest.NewRequest("GET", "/?fragment=settings-page&page=storage", nil))
+	body += storageRecorder.Body.String()
 	markers := []string{
 		"Energie", "Aktualität", "Quelle", "energy-panel", "energy-roles", "dashboard.js",
 		"Energie-Verläufe", "history-state", "history-series-picker", "historyPanel", "tab-history", "history-panel", "energy-history-chart", "history-aggregate", "history-range", "toggleSeries", "/static/js/history.js", "/static/js-deps/htmx.min.js", "/static/js-deps/alpine.min.js", "/static/js/dashboard.js",
@@ -154,7 +157,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=5,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=34,/static/js/onboarding-checklist.js?v=4,/static/js/mqtt.page.js?v=12,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=10,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4,/static/js/backup.page.js?v=3,/static/js/storage.page.js?v=1,/static/js/network.page.js?v=1",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=35",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -163,7 +166,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=51,/static/css/settings-controls.css?v=20,/static/css/backup.css?v=1,/static/css/storage.css?v=1,/static/css/network.css?v=1"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=51,/static/css/settings-controls.css?v=20"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -234,7 +237,7 @@ func TestOverviewRendersTinyTuyaSettingsWorkflow(t *testing.T) {
 	body := recorder.Body.String()
 	settingsRecorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(settingsRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
-	body += settingsRecorder.Body.String()
+	body += settingsRecorder.Body.String() + settingsSubpageHTML(t, nil)
 	for _, marker := range []string{
 		"/static/js/settings.page.js", "tinyTuyaPanel", "https://iot.tuya.com", "https://github.com/jasonacox/tinytuya", "https://pypi.org/project/tinytuya/", "Create Cloud Project", "Link Devices by App Account", "Access Secret", "Local Key", "Rohe Statusantwort", "Technische Toolausgabe", "saveCredentials",
 	} {
@@ -260,7 +263,7 @@ func TestOverviewRendersTailscaleSettingsWorkflow(t *testing.T) {
 	body := recorder.Body.String()
 	settingsRecorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(settingsRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
-	body += settingsRecorder.Body.String()
+	body += settingsRecorder.Body.String() + settingsSubpageHTML(t, nil)
 	for _, marker := range []string{
 		"/static/js/tailscale.page.js", "tailscalePanel", "Voraussetzungen prüfen", "Anmeldung starten", "Ergebnis prüfen", "Aktiv ist reiner Gerätezugang", "knowhow/tailscale-setup.md", "Kein Auth-Key nötig",
 	} {
@@ -1137,7 +1140,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=51,/node/static/css/settings-controls.css?v=20,/node/static/css/backup.css?v=1,/node/static/css/storage.css?v=1,/node/static/css/network.css?v=1"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=51,/node/static/css/settings-controls.css?v=20"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1666,7 +1669,7 @@ func TestDeviceMapPanelRendersTheRolePanel(t *testing.T) {
 }
 
 func TestSettingsPanelEmbedsRevisionPartial(t *testing.T) {
-	body := renderPanel(t, "settings")
+	body := renderPanel(t, "settings") + settingsSubpageHTML(t, nil)
 	// Nur der allgemeine Einstellungsbereich nutzt die geteilte Revisions-
 	// komponente. MQTT und Bridge bekommen bewusst keine; die Systemkonfiguration
 	// (config.json) hat serverseitig keine /revisions-, /revisions/{name}- und
@@ -3047,7 +3050,7 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 	}
 	panel := httptest.NewRecorder()
 	newHandler().ServeHTTP(panel, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
-	body := panel.Body.String()
+	body := panel.Body.String() + settingsSubpageHTML(t, nil)
 	for _, marker := range []string{
 		`aria-controls="settings-versions"`, `versionsPanel()`, "Installiertes Paket",
 		"checkForUpdates()", "Nach Updates suchen",
@@ -3060,10 +3063,9 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 		t.Fatal("the System panel shows no versions any more: they live on the Versionen page")
 	}
 
-	page := httptest.NewRecorder()
-	newHandler().ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
-	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=10") {
-		t.Fatal("base.html must lazy-load versions.page.js with the settings panel")
+	// versions.page.js laedt die Unterseite Versionen, nicht mehr die Panel-Liste.
+	if !strings.Contains(body, `data-subpage-script="/static/js/versions.page.js?v=10"`) {
+		t.Fatal("die Unterseite Versionen muss versions.page.js lazy laden")
 	}
 }
 
@@ -3806,7 +3808,7 @@ func TestSettingsUsersPageForOwnAccountAndManagers(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil)
 		req = req.WithContext(auth.WithUser(req.Context(), user))
 		Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req)
-		return rec.Body.String()
+		return rec.Body.String() + settingsSubpageHTML(t, &user)
 	}
 
 	// Ohne user_management: Reiter und Kontokarte, aber keine Verwaltung.
@@ -4374,7 +4376,7 @@ func TestSettingsChecklistRendersForGuestAndAdmin(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("settings panel for %q got status %d", user.Username, rec.Code)
 		}
-		return rec.Body.String()
+		return rec.Body.String() + settingsSubpageHTML(t, &user)
 	}
 	for _, user := range []auth.User{
 		{Username: "g", Guest: true, Roles: []string{auth.RoleViewOverview}},
@@ -4456,6 +4458,7 @@ func TestSetupStepTargetsCarryDataTourOnce(t *testing.T) {
 		}
 		body.WriteString(recorder.Body.String())
 	}
+	body.WriteString(settingsSubpageHTML(t, &admin))
 	markup := body.String()
 
 	for _, step := range onboarding.Catalog(installed) {
@@ -4578,13 +4581,13 @@ func TestBackupAssetsAreRegisteredOnTheShell(t *testing.T) {
 	if !strings.Contains(page, `id="ico-drive"`) {
 		t.Fatal("das Sprite der Shell enthaelt ico-drive nicht")
 	}
-	if !strings.Contains(page, "static/css/storage.css?v=1") {
-		t.Fatal("storage.css ist nicht als Panel-Stylesheet der Einstellungen eingetragen")
+	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/storage.css?v=1"`) {
+		t.Fatal("storage.css ist nicht als Stylesheet der Unterseite Speicher eingetragen")
 	}
-	if !strings.Contains(page, "static/css/backup.css?v=1") {
-		t.Fatal("backup.css ist nicht als Panel-Stylesheet der Einstellungen eingetragen")
+	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/backup.css?v=1"`) {
+		t.Fatal("backup.css ist nicht als Stylesheet der Unterseite Backup eingetragen")
 	}
-	if !strings.Contains(page, "static/js/settings.page.js?v=34") {
+	if !strings.Contains(page, "static/js/settings.page.js?v=35") {
 		t.Fatal("settings.page.js ist nicht auf v=34 hochgezaehlt")
 	}
 }
@@ -4620,9 +4623,13 @@ func TestNetworkAssetsAreRegisteredAndLeaveOutTheDraft(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	page := recorder.Body.String()
-	for _, want := range []string{"static/css/network.css?v=1", "static/js/network.page.js?v=1", `id="ico-wifi-off"`} {
-		if !strings.Contains(page, want) {
-			t.Fatalf("die Shell enthaelt %q nicht", want)
+	if !strings.Contains(page, `id="ico-wifi-off"`) {
+		t.Fatal("die Shell enthaelt ico-wifi-off nicht")
+	}
+	settingsPanel := renderPanel(t, "settings")
+	for _, want := range []string{`data-subpage-css="/static/css/network.css?v=1"`, `data-subpage-script="/static/js/network.page.js?v=1"`} {
+		if !strings.Contains(settingsPanel, want) {
+			t.Fatalf("die Einstellungen enthalten %q nicht", want)
 		}
 	}
 	for _, file := range []string{"static/css/network.css", "static/js/network.page.js"} {
@@ -4690,7 +4697,7 @@ func TestSettingsBackupPageIsShownWithHintWhenWithheld(t *testing.T) {
 	body := func(user auth.User, withheld []string) string {
 		t.Helper()
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil)
+		req := httptest.NewRequest(http.MethodGet, "/?fragment=settings-page&page=backup", nil)
 		ctx := auth.WithUser(req.Context(), user)
 		if withheld != nil {
 			ctx = auth.WithWithheld(ctx, withheld)
@@ -4725,5 +4732,156 @@ func TestSettingsBackupPageIsShownWithHintWhenWithheld(t *testing.T) {
 	none := body(auth.User{Username: "u", Roles: []string{auth.RoleViewOverview}}, nil)
 	if strings.Contains(none, `id="settings-backup"`) {
 		t.Fatal("Backup ohne Recht darf nicht erscheinen")
+	}
+}
+
+func TestTemplateNameForSettingsSubpage(t *testing.T) {
+	tests := []struct {
+		target string
+		want   string
+		ok     bool
+	}{
+		{"/?fragment=settings-page&page=mqtt", "settings-sub-mqtt", true},
+		{"/?fragment=settings-page&page=backup", "settings-sub-backup", true},
+		{"/?fragment=settings-page&page=storage", "settings-sub-storage", true},
+		{"/?fragment=settings-page&page=network", "settings-sub-network", true},
+		{"/?fragment=settings-page&page=evil", "", false},
+		{"/?fragment=settings-page&page=", "", false},
+		{"/?fragment=settings-page", "", false},
+	}
+	for _, tc := range tests {
+		got, ok := templateNameForRequest(httptest.NewRequest(http.MethodGet, tc.target, nil))
+		if ok != tc.ok || got != tc.want {
+			t.Errorf("%s: got (%q, %v), want (%q, %v)", tc.target, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+func TestSettingsSubpageAllowed(t *testing.T) {
+	roles := func(keys ...string) map[string]bool {
+		m := map[string]bool{}
+		for _, key := range keys {
+			m[key] = true
+		}
+		return m
+	}
+	installedAll := roles("tailscale", "tuya")
+	none := map[string]bool{}
+	tests := []struct {
+		name           string
+		page           string
+		installed      map[string]bool
+		can            map[string]bool
+		canManageUsers bool
+		hasUser        bool
+		hasOwnAccount  bool
+		want           bool
+	}{
+		{"mqtt always allowed", "mqtt", none, none, false, false, false, true},
+		{"versions always allowed", "versions", none, none, false, false, false, true},
+		{"checklist always allowed", "checklist", none, none, false, false, false, true},
+		{"system always allowed", "system", none, none, false, false, false, true},
+		{"tailscale installed", "tailscale", installedAll, none, false, false, false, true},
+		{"tailscale not installed", "tailscale", roles("tuya"), none, false, false, false, false},
+		{"tiny-tuya installed", "tiny-tuya", installedAll, none, false, false, false, true},
+		{"tiny-tuya not installed", "tiny-tuya", roles("tailscale"), none, false, false, false, false},
+		{"users with user management", "users", none, none, true, false, false, true},
+		{"users with a user", "users", none, none, false, true, false, true},
+		{"users without user", "users", none, none, false, false, false, false},
+		{"backup with export", "backup", none, roles("backup_export"), false, true, false, true},
+		{"backup with import", "backup", none, roles("backup_import"), false, true, false, true},
+		{"backup without right", "backup", none, roles("backup_secrets"), false, true, false, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := settingsSubpageAllowed(tc.page, tc.installed, tc.can, tc.can, tc.canManageUsers, tc.hasUser, tc.hasOwnAccount)
+			if got != tc.want {
+				t.Fatalf("settingsSubpageAllowed(%q) = %v, want %v", tc.page, got, tc.want)
+			}
+		})
+	}
+}
+
+// settingsSubpageHTML rendert alle Unterseiten der Einstellungen, die der Abruf
+// fuer diesen Nutzer erlaubt (404 heisst: nicht erlaubt), und gibt sie
+// hintereinander zurueck. user nil heisst: kein Konto im Context.
+func settingsSubpageHTML(t *testing.T, user *auth.User) string {
+	t.Helper()
+	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+	var out strings.Builder
+	for _, page := range []string{"mqtt", "tailscale", "tiny-tuya", "versions", "users", "checklist", "backup", "system", "storage", "network"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/?fragment=settings-page&page="+page, nil)
+		if user != nil {
+			req = req.WithContext(auth.WithUser(req.Context(), *user))
+		}
+		handler.ServeHTTP(rec, req)
+		switch rec.Code {
+		case http.StatusOK:
+			out.WriteString(rec.Body.String())
+		case http.StatusNotFound:
+		default:
+			t.Fatalf("settings page %s got status %d", page, rec.Code)
+		}
+	}
+	return out.String()
+}
+
+func TestSettingsSubpageFragmentRenders(t *testing.T) {
+	for _, page := range []string{"mqtt", "versions", "checklist", "system"} {
+		rec := httptest.NewRecorder()
+		Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest("GET", "/?fragment=settings-page&page="+page, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("settings-page %s got status %d", page, rec.Code)
+		}
+		switch page {
+		case "mqtt":
+			if !strings.Contains(rec.Body.String(), `id="settings-mqtt"`) {
+				t.Fatal("settings-page mqtt lacks id=settings-mqtt")
+			}
+		case "system":
+			if !strings.Contains(rec.Body.String(), `id="settings-system"`) {
+				t.Fatal("settings-page system lacks id=settings-system")
+			}
+		}
+	}
+}
+
+func TestSettingsPanelHasSubpagePlaceholders(t *testing.T) {
+	body := renderPanel(t, "settings")
+	// Ohne Konto sind users nicht erlaubt, alle anderen Seiten schon (Dienste
+	// sind standardmaessig installiert).
+	for _, page := range []string{"mqtt", "tailscale", "tiny-tuya", "versions", "checklist", "backup", "system", "storage", "network"} {
+		if !strings.Contains(body, `id="settings-sub-`+page+`"`) {
+			t.Fatalf("settings panel lacks the placeholder settings-sub-%s", page)
+		}
+		if !strings.Contains(body, `data-subpage-src="/?fragment=settings-page&page=`+page+`"`) {
+			t.Fatalf("placeholder settings-sub-%s lacks data-subpage-src", page)
+		}
+	}
+	if strings.Count(body, "sk-form") < 7 {
+		t.Fatal("placeholders carry too few sk-form skeleton cards")
+	}
+	if strings.Contains(body, `id="settings-sub-users"`) {
+		t.Fatal("ohne Konto darf kein Benutzer-Platzhalter stehen")
+	}
+	if strings.Contains(body, `x-data="mqttPanel()"`) || strings.Contains(body, `x-data="backupPage()"`) {
+		t.Fatal("das Einstellungs-Fragment rendert die Unterseiten noch selbst")
+	}
+}
+
+func TestSettingsSubpageBackupForbiddenWithoutRight(t *testing.T) {
+	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=settings-page&page=backup", auth.RoleViewStats))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("settings-page backup ohne Exportrecht muss 404 liefern, war %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=settings-page&page=backup", auth.RoleBackupExport))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("settings-page backup mit backup_export muss rendern, war %d", rec.Code)
 	}
 }

@@ -165,7 +165,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
-	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/users.html", "templates/settings-stepper.html", "templates/checklist.html", "templates/highlight-details.html", "templates/diagnostics.html", "templates/network.html", "templates/stats.html", "templates/efficiency.html"))
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/settings-subpages.html", "templates/automations.html", "templates/automations-rule.html", "templates/automations-rows.html", "templates/automations-scenario.html", "templates/automations-assistant.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/users.html", "templates/settings-stepper.html", "templates/checklist.html", "templates/highlight-details.html", "templates/diagnostics.html", "templates/network.html", "templates/stats.html", "templates/efficiency.html"))
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
@@ -822,9 +822,45 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 		default:
 			return "", false
 		}
+	case "settings-page":
+		page := r.URL.Query().Get("page")
+		if !settingsSubpagePages[page] {
+			return "", false
+		}
+		return "settings-sub-" + page, true
 	default:
 		return "base", true
 	}
+}
+
+// settingsSubpagePages nennt die Unterseiten der Einstellungen, die als eigene
+// Fragmente (fragment=settings-page&page=...) geladen werden.
+var settingsSubpagePages = map[string]bool{
+	"mqtt": true, "tailscale": true, "tiny-tuya": true, "versions": true,
+	"users": true, "checklist": true, "backup": true, "system": true,
+	"storage": true, "network": true,
+}
+
+// settingsSubpageAllowed sagt, ob eine Unterseite der Einstellungen für diesen
+// Abruf existiert. Ein Dienst muss installiert sein, Benutzer braucht ein
+// Konto mit Benutzerverwaltung oder ein eigenes, Sicherung ein Export- oder
+// Importrecht. Alle übrigen Seiten sind immer erlaubt.
+func settingsSubpageAllowed(page string, installed map[string]bool, can map[string]bool, backupSee map[string]bool, canManageUsers, hasUser, hasOwnAccount bool) bool {
+	switch page {
+	case "tailscale":
+		return installed["tailscale"]
+	case "tiny-tuya":
+		return installed["tuya"]
+	case "users":
+		return canManageUsers || hasUser
+	case "backup":
+		return backupSee[auth.RoleBackupExport] || backupSee[auth.RoleBackupImport]
+	case "storage":
+		return can[auth.RoleStorageManage]
+	case "network":
+		return can[auth.RoleNetwork]
+	}
+	return true
 }
 
 func OverviewWithDeviceFilter(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store) http.HandlerFunc {
@@ -997,6 +1033,12 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 		}
 		for key, value := range installedServices {
 			resolvedInstalledServices[key] = value
+		}
+		// Eine Unterseite der Einstellungen ohne ihr Recht oder ihren Dienst
+		// gibt es nicht. Ihr Abruf braucht keine Daten (wie "settings").
+		if page, isSubpage := strings.CutPrefix(templateName, "settings-sub-"); isSubpage && !settingsSubpageAllowed(page, resolvedInstalledServices, can, backupSee, canManageUsers, hasUser, hasOwnAccount) {
+			http.NotFound(w, r)
+			return
 		}
 		setNumberSettings(settings.Settings{NumberFormat: numberFormat, NumberGrouping: numberGrouping})
 		// Messketten bestimmen, ob der Reiter Effizienz da ist. Ohne Store

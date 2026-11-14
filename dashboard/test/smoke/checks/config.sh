@@ -227,3 +227,23 @@ checks_services_off() {
   html_lacks "TinyTuya-Unterseite fehlt bei installed_services=aus" \
     'aria-controls="settings-tiny-tuya"' "$BASE/?fragment=panel&panel=settings"
 }
+
+checks_settings_subpages() {
+  # Unterseiten der Einstellungen kommen als eigene Fragmente: das Panel traegt
+  # nur den Platzhalter, das Fragment die Seite.
+  html_has "Settings-Panel traegt den MQTT-Platzhalter" \
+    'data-subpage-src' "$BASE/?fragment=panel&panel=settings"
+  html_lacks "Settings-Panel enthaelt das MQTT-Formular nicht mehr" \
+    'mqttPanel()' "$BASE/?fragment=panel&panel=settings"
+  html_has "MQTT-Unterseite liefert das Formular" \
+    'x-data="mqttPanel()"' "$BASE/?fragment=settings-page&page=mqtt"
+  html_lacks "Settings-Panel enthaelt die Speicherseite nicht mehr" \
+    'storagePage()' "$BASE/?fragment=panel&panel=settings"
+  html_lacks "Settings-Panel enthaelt die Netzwerkseite nicht mehr" \
+    'networkPage()' "$BASE/?fragment=panel&panel=settings"
+  html_has "Speicher-Unterseite liefert die Seite" \
+    'x-data="storagePage()"' "$BASE/?fragment=settings-page&page=storage"
+  html_has "Netzwerk-Unterseite liefert die Seite" \
+    'x-data="networkPage()"' "$BASE/?fragment=settings-page&page=network"
+  check_status "Unbekannte Unterseite ist 404" 404 "$COOKIES" "$BASE/?fragment=settings-page&page=evil"
+}
