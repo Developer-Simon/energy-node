@@ -10,6 +10,11 @@ room for backups. The drive is set up under *Settings, Storage*. The tab is only
 shown when your account has the permission *Manage storage*
 (`storage_manage`). Setting up and removing the drive work only over HTTPS.
 
+The card for the system drive splits its usage into Operating system,
+energy-node installation, Running data, Backups and free. The node measures the
+parts in the background and refreshes them every 10 minutes. Right after the
+start the card may show only the total usage for a short time.
+
 ## What moves to the drive
 
 - **Running data**: statistics, the automation history and the battery state.
