@@ -1,12 +1,12 @@
 # Changelog
 
-## v0.3.3-pre.3 (2026-11-13)
+## v0.3.3-pre.3 (2026-11-14)
 
 ### Features
 
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
-- **installer:** stream the diagnose and show skeleton rows while it loads (#244)
+- **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
 - **network:** add the emergency hotspot bootstrap step (d30f816)
 - **bootstrap:** let step 67 take the hotspot password from a file (312cdbd)
 
