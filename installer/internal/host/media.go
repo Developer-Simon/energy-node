@@ -139,7 +139,7 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 	}
 	view := hostapi.MediaCatalog{Offline: offline, Defaults: mediaDefaults(media.HostDefaults())}
 	for _, d := range media.Devices() {
-		device := hostapi.MediaDevice{ID: d.ID, Group: d.Group, Experimental: d.Experimental}
+		device := hostapi.MediaDevice{ID: d.ID, Group: d.Group, Experimental: d.Experimental, Unsupported: d.Unsupported}
 		if list != nil {
 			if img, ok := list.Find(d.ImageName, d.Tag); ok {
 				device.Image = &hostapi.MediaImage{

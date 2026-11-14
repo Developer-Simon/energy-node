@@ -67,6 +67,7 @@ type MediaDevice struct {
 	ID           string      `json:"id"`
 	Group        string      `json:"group"`
 	Experimental bool        `json:"experimental"`
+	Unsupported  bool        `json:"unsupported"`
 	Image        *MediaImage `json:"image"`
 }
 

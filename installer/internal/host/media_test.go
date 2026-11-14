@@ -76,6 +76,25 @@ func TestMediaUnsupportedWithoutLinux(t *testing.T) {
 	assertAPIError(t, err, hostapi.MediaErrUnsupported, http.StatusNotImplemented)
 }
 
+func TestMediaCatalogListsTheDebianDevicesAndMarksI386Unsupported(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("media mode is Linux only")
+	}
+	h := newMediaHost(t, t.TempDir())
+	catalog, err := h.MediaCatalog(context.Background())
+	if err != nil {
+		t.Fatalf("MediaCatalog: %v", err)
+	}
+	if len(catalog.Devices) != 8 {
+		t.Fatalf("catalog has %d devices, want 8", len(catalog.Devices))
+	}
+	for _, d := range catalog.Devices {
+		if d.ID == "deb-i386" && !d.Unsupported {
+			t.Errorf("deb-i386.unsupported = false, want true")
+		}
+	}
+}
+
 func TestMediaReachableRejectsBadHosts(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("media mode is Linux only")

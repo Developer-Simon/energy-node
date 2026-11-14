@@ -1,22 +1,27 @@
 // Package media holds the device table for the installer media mode.
 package media
 
-// Device describes one Raspberry Pi model the installer can prepare media for.
+// Device describes one device the installer can prepare media for.
 type Device struct {
-	ID           string // "pi5", "pi4", "pi3", "pi2", "pi1"
-	Group        string // "pi"
+	ID           string // "pi5", "pi4", "pi3", "pi2", "pi1", "deb-amd64", "deb-arm64", "deb-i386"
+	Group        string // "pi" | "debian"
+	Kind         string // "pi" | "debian"
 	ImageName    string // exakter "name" in der OS-Liste
 	Tag          string // Gerätekennung der OS-Liste, z. B. "pi4-64bit"
-	Arch         string // Installationspaket: "arm64" | "armv6"
+	Arch         string // Installationspaket: "arm64" | "armv6" | "amd64" | "i386"
 	Experimental bool
+	Unsupported  bool // kein Medium moeglich, nur Anzeige
 }
 
 var devices = []Device{
-	{ID: "pi5", Group: "pi", ImageName: "Raspberry Pi OS Lite (64-bit)", Tag: "pi5-64bit", Arch: "arm64", Experimental: true},
-	{ID: "pi4", Group: "pi", ImageName: "Raspberry Pi OS Lite (64-bit)", Tag: "pi4-64bit", Arch: "arm64", Experimental: true},
-	{ID: "pi3", Group: "pi", ImageName: "Raspberry Pi OS Lite (64-bit)", Tag: "pi3-64bit", Arch: "arm64", Experimental: false},
-	{ID: "pi2", Group: "pi", ImageName: "Raspberry Pi OS Lite (32-bit)", Tag: "pi2-32bit", Arch: "armv6", Experimental: true},
-	{ID: "pi1", Group: "pi", ImageName: "Raspberry Pi OS (Legacy, 32-bit) Lite", Tag: "pi1-32bit", Arch: "armv6", Experimental: false},
+	{ID: "pi5", Group: "pi", Kind: "pi", ImageName: "Raspberry Pi OS Lite (64-bit)", Tag: "pi5-64bit", Arch: "arm64", Experimental: true},
+	{ID: "pi4", Group: "pi", Kind: "pi", ImageName: "Raspberry Pi OS Lite (64-bit)", Tag: "pi4-64bit", Arch: "arm64", Experimental: true},
+	{ID: "pi3", Group: "pi", Kind: "pi", ImageName: "Raspberry Pi OS Lite (64-bit)", Tag: "pi3-64bit", Arch: "arm64", Experimental: false},
+	{ID: "pi2", Group: "pi", Kind: "pi", ImageName: "Raspberry Pi OS Lite (32-bit)", Tag: "pi2-32bit", Arch: "armv6", Experimental: true},
+	{ID: "pi1", Group: "pi", Kind: "pi", ImageName: "Raspberry Pi OS (Legacy, 32-bit) Lite", Tag: "pi1-32bit", Arch: "armv6", Experimental: false},
+	{ID: "deb-amd64", Group: "debian", Kind: "debian", Arch: "amd64"},
+	{ID: "deb-arm64", Group: "debian", Kind: "debian", Arch: "arm64", Experimental: true},
+	{ID: "deb-i386", Group: "debian", Kind: "debian", Arch: "i386", Unsupported: true},
 }
 
 // Devices returns the device table in display order.
