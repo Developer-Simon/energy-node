@@ -2,8 +2,8 @@
 # verify.sh <run> <port>: boot the installed disk(s) of a finished run without the stick and check it over SSH.
 # Needs the run directory from run.sh and the installer test keys in $EN_QEMU_KEY_DIR.
 set -u
-: "${EN_QEMU_KEY_DIR:?set EN_QEMU_KEY_DIR to the directory with installer.pub, hostkey and hostkey.pub}"
 work=${EN_QEMU_WORK_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/energy-node-qemu}
+EN_QEMU_KEY_DIR=${EN_QEMU_KEY_DIR:-$work/keys}
 R=$work/runs/$1
 port=$2
 cmd=$(cat "$R/cmd.txt")

@@ -126,6 +126,7 @@
         - { label: "Configuration schemas", url: "developing/config-schema.md" }
         - { label: "Service library", url: "developing/service-library.md" }
     - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
+    - { label: "Debian install stick in QEMU", url: "developing/installer-qemu.md" }
     - label: "Manual installation"
       url: "developing/manual-installation.md"
       children:

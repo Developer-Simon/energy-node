@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -22,7 +23,8 @@ const (
 )
 
 func main() {
-	in := flag.String("in", "", "original Debian netinst ISO (required)")
+	in := flag.String("in", "", "original Debian netinst ISO (or use -fetch)")
+	fetch := flag.String("fetch", "", "cache directory: download the current signed netinst ISO into it instead of -in")
 	out := flag.String("out", "", "patched stick image to write (required)")
 	arch := flag.String("arch", "amd64", "amd64 or arm64")
 	ask := flag.Bool("ask", false, "ask before erasing the disk")
@@ -33,15 +35,40 @@ func main() {
 	sshpassword := flag.Bool("sshpassword", false, "also allow the emergency password for SSH (needs -passhash)")
 	flag.Parse()
 
+	if *in == "" && *fetch != "" {
+		path, err := fetchISO(*fetch, *arch)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "mediastick:", err)
+			os.Exit(1)
+		}
+		*in = path
+	}
 	if err := run(*in, *out, *arch, *ask, *lang, *pubkey, *hostkey, *passhash, *sshpassword); err != nil {
 		fmt.Fprintln(os.Stderr, "mediastick:", err)
 		os.Exit(1)
 	}
 }
 
+// fetchISO returns the current Debian netinst ISO of arch from the cache in dir.
+// It downloads the ISO when needed and verifies it against the signed SHA512SUMS,
+// exactly as the installer does.
+func fetchISO(dir, arch string) (string, error) {
+	ctx := context.Background()
+	c := &media.Cache{Dir: dir}
+	r, offline, err := c.DebianRelease(ctx, arch)
+	if err != nil {
+		return "", fmt.Errorf("debian release: %w", err)
+	}
+	if offline {
+		fmt.Fprintln(os.Stderr, "mediastick: offline, using the cached release list")
+	}
+	fmt.Fprintf(os.Stderr, "mediastick: %s\n", r.Name)
+	return c.EnsureISO(ctx, r, nil, nil)
+}
+
 func run(in, out, arch string, ask bool, lang, pubkey, hostkey, passhash string, sshpassword bool) error {
 	if in == "" || out == "" || pubkey == "" || hostkey == "" {
-		return fmt.Errorf("-in, -out, -pubkey and -hostkey are required")
+		return fmt.Errorf("-in (or -fetch), -out, -pubkey and -hostkey are required")
 	}
 	authKey, err := readLine(pubkey)
 	if err != nil {
