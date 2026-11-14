@@ -1,5 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
 import { mountScreen, realCatalog } from './helpers/mount.mjs';
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -767,4 +771,186 @@ test('die Region oeffnet eine Liste zur Zeit und schliesst sie bei der Wahl', as
   assert.equal(screen.form.timezone, 'Europe/Wien');
   assert.equal(screen.picker, '');
   assert.equal(screen.zoneSummary.startsWith('Wien'), true);
+});
+
+// Debian: Geraete der Gruppe debian neben den Pi. deb-i386 ist nicht unterstuetzt.
+const DEBIAN_CATALOG = Object.assign({}, CATALOG, {
+  devices: [
+    { id: 'pi3', group: 'pi', experimental: false, image: IMAGE },
+    { id: 'deb-amd64', group: 'debian', experimental: false, image: IMAGE },
+    { id: 'deb-arm64', group: 'debian', experimental: true, image: IMAGE },
+    { id: 'deb-i386', group: 'debian', experimental: false, unsupported: true, image: null },
+  ],
+});
+
+// mediaTemplate: die Vorlage screen-media.html als DOM, ohne die Platzhalter der Go-Vorlage.
+// Alpine laeuft in den Tests nicht, darum prueft der Test die Bedingungen der x-if-Knoten.
+function mediaTemplate() {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const html = fs.readFileSync(path.join(here, '..', 'templates', 'screen-media.html'), 'utf8').replace(/\{\{[\s\S]*?\}\}/g, '');
+  return new JSDOM(`<!doctype html><body>${html}</body>`).window.document;
+}
+
+// templateNodes: alle template-Knoten, die aeusseren vor den inneren.
+function templateNodes(doc) {
+  const out = [];
+  const walk = (root) => {
+    root.querySelectorAll('template').forEach((node) => {
+      out.push(node);
+      walk(node.content);
+    });
+  };
+  walk(doc);
+  return out;
+}
+
+// guardOf: der innerste x-if-Knoten, der das Element enthaelt.
+function guardOf(doc, selector) {
+  return templateNodes(doc).filter((node) => node.content.querySelector(selector)).at(-1);
+}
+
+function debianSettings(device, responses = {}) {
+  const mounted = settings(Object.assign({ 'GET /api/media/catalog': DEBIAN_CATALOG }, responses));
+  mounted.shell.shared.media.device = device;
+  return mounted;
+}
+
+test('Debian: die Geraeteliste hat zwei Gruppen, i386 ist ausgegraut und nicht waehlbar', async () => {
+  const { screen } = device({ 'GET /api/media/catalog': DEBIAN_CATALOG });
+  await screen.init();
+  assert.deepEqual(plain(screen.groups.map((group) => group.id)), ['pi', 'debian']);
+
+  const i386 = screen.devices.find((item) => item.id === 'deb-i386');
+  assert.equal(screen.tagFor(i386), 'nicht unterstützt');
+  screen.pick('deb-i386');
+  assert.equal(screen.picked, '', 'ein Klick oder die Tastatur auf 32-bit wählt nichts');
+  screen.pick('deb-amd64');
+  screen.pick('deb-i386');
+  assert.equal(screen.picked, 'deb-amd64');
+
+  const html = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates', 'screen-media.html'), 'utf8');
+  assert.ok(html.includes("'media-opt--off': item.unsupported"), 'die Zeile ist ausgegraut');
+  assert.ok(html.includes(':tabindex="item.unsupported ? -1 : 0"'), 'ohne Tastaturfokus');
+});
+
+test('Debian: Zusatzzeilen der Geraete und das Etikett des Experiments', async () => {
+  const { screen } = device({ 'GET /api/media/catalog': DEBIAN_CATALOG });
+  await screen.init();
+  const byId = (id) => screen.devices.find((item) => item.id === id);
+  assert.equal(screen.hintFor(byId('deb-amd64')), 'z. B. AMD GX-424CC, Intel N100');
+  assert.equal(screen.hintFor(byId('deb-arm64')), 'mit UEFI');
+  assert.equal(screen.hintFor(byId('deb-i386')), '');
+  assert.equal(screen.hintFor(byId('pi3')), '');
+  assert.equal(screen.tagFor(byId('deb-arm64')), 'experimentell');
+});
+
+test('Debian: Weiter schickt die Gruppe in den Schreibauftrag', async () => {
+  const { screen, shell } = debianSettings('deb-amd64');
+  await screen.init();
+  screen.form.password = 'geheim-geheim';
+  screen.form.password2 = 'geheim-geheim';
+  screen.next();
+  assert.equal(shell.screen, 'media-drive');
+  assert.equal(shell.shared.media.group, 'debian');
+});
+
+test('Debian: Notfall-Zugang und Rueckfrage an, Sprache der Installation auf Deutsch', async () => {
+  const { screen } = debianSettings('deb-amd64');
+  await screen.init();
+  assert.equal(screen.isDebian, true);
+  assert.equal(screen.form.emergency, true);
+  assert.equal(screen.form.askBeforeErase, true);
+  assert.equal(screen.form.installLang, 'de');
+  assert.equal(screen.form.systemLang, 'de');
+  assert.equal(screen.canContinue, false, 'ohne Passwort kein Weiter');
+  screen.form.password = 'geheim-geheim';
+  screen.form.password2 = 'geheim-geheim';
+  assert.equal(screen.canContinue, true);
+});
+
+test('Debian: kein WLAN in der Oberflaeche und auch im Abschicken', async () => {
+  const { screen, window } = debianSettings('deb-amd64');
+  window.localStorage.setItem(KEY, JSON.stringify({ wifiOn: true, ssid: 'Haus' }));
+  await screen.init();
+  const doc = mediaTemplate();
+  const wifi = guardOf(doc, 'input[x-model="form.wifiOn"]');
+  assert.equal(wifi.getAttribute('x-if'), '!isDebian', 'der Schalter erscheint nur bei Pi');
+  const hint = templateNodes(doc).find((node) => node.getAttribute('x-if') === 'isDebian');
+  assert.ok(hint.content.querySelector('[x-text="t(\'media.settings.debian_network\')"]'), 'der Hinweis zur Netzwerkkarte');
+
+  assert.equal(window.MediaModel.toRequest(screen.form, screen.group).wifi, null);
+});
+
+test('Debian: die Warnung erscheint nur bei ausgeschalteter Rueckfrage', async () => {
+  const { screen, window } = debianSettings('deb-amd64');
+  await screen.init();
+  assert.equal(screen.showEraseWarning, false);
+  screen.form.askBeforeErase = false;
+  assert.equal(screen.showEraseWarning, true);
+
+  const doc = mediaTemplate();
+  const warning = guardOf(doc, '[x-text="t(\'media.settings.ask_erase_off\')"]');
+  assert.equal(warning.getAttribute('x-if'), 'showEraseWarning');
+  assert.ok(warning.content.querySelector('.media-res--warn'), 'in Warnfarbe');
+  assert.equal(window.I18n.t('media.settings.ask_erase_off'), 'Das Zielgerät löscht seine interne Platte ohne Rückfrage, sobald es vom Stick startet.');
+});
+
+test('Debian x86 64-bit: Sprachauswahl nur bei deutscher Oberflaeche', async () => {
+  const { screen } = debianSettings('deb-amd64');
+  await screen.init();
+  assert.equal(screen.showLangSelect, true);
+  assert.deepEqual(plain(screen.installChoices), ['de', 'en']);
+  assert.equal(screen.showArmHint, false);
+
+  const english = debianSettings('deb-amd64');
+  english.shell.lang = 'en';
+  await english.screen.init();
+  assert.equal(english.screen.showLangSelect, false);
+  assert.equal(english.screen.form.installLang, 'en');
+});
+
+test('Debian ARM64: fester Hinweis statt Sprachauswahl, Installation auf Englisch', async () => {
+  const { screen } = debianSettings('deb-arm64');
+  await screen.init();
+  assert.equal(screen.showArmHint, true);
+  assert.equal(screen.showLangSelect, false);
+  assert.deepEqual(plain(screen.installChoices), []);
+  assert.equal(screen.form.installLang, 'en');
+
+  const doc = mediaTemplate();
+  const hint = templateNodes(doc).find((node) => node.getAttribute('x-if') === 'showArmHint');
+  assert.ok(hint.content.querySelector('[x-text="t(\'media.settings.arm_serial\')"]'));
+  const select = guardOf(doc, 'select');
+  assert.equal(select.getAttribute('x-if'), 'showLangSelect');
+});
+
+test('Pi: keine Debian-Abschnitte, Weiter wie bisher', async () => {
+  const { screen, shell } = settings();
+  shell.shared.media.device = 'pi3';
+  await screen.init();
+  assert.equal(screen.isDebian, false);
+  assert.equal(screen.showEraseWarning, false);
+  assert.equal(screen.showLangSelect, false);
+  assert.equal(screen.showArmHint, false);
+  assert.equal(screen.form.askBeforeErase, undefined);
+  fill(screen);
+  assert.equal(screen.canContinue, true);
+});
+
+test('Debian schreibt Rueckfrage, Sprachen und kein WLAN in den Auftrag', async (t) => {
+  const { screen, calls, shell } = writer();
+  t.after(() => screen.destroy());
+  shell.shared.media.device = 'deb-amd64';
+  shell.shared.media.group = 'debian';
+  shell.shared.media.settings = Object.assign({}, SETTINGS, {
+    emergency: true, password: 'geheim-geheim', password2: 'geheim-geheim',
+    askBeforeErase: false, installLang: 'de', systemLang: 'de', wifiOn: true, ssid: 'Haus',
+  });
+  await screen.init();
+
+  const body = calls[0].body.settings;
+  assert.equal(body.wifi, null);
+  assert.equal(body.ask_before_erase, false);
+  assert.equal(body.install_lang, 'de');
+  assert.equal(body.system_lang, 'de');
 });
