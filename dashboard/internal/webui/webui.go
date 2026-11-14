@@ -872,6 +872,20 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 		for _, key := range auth.AllRoles() {
 			can[key] = !hasUser || auth.HasRole(user, key)
 		}
+		// Backup ist nur über HTTPS nutzbar. Ist es freigegeben, aber für diese
+		// Anfrage zurückgehalten, bleibt die Seite sichtbar, mit Hinweis und
+		// gesperrten Eingaben. backupSee gilt für Sichtbarkeit, can für Nutzung.
+		backupSee := map[string]bool{}
+		backupBlocked := false
+		for _, key := range []string{auth.RoleBackupExport, auth.RoleBackupImport} {
+			backupSee[key] = can[key]
+		}
+		for _, key := range auth.WithheldFromContext(r.Context()) {
+			if key == auth.RoleBackupExport || key == auth.RoleBackupImport {
+				backupSee[key] = true
+				backupBlocked = true
+			}
+		}
 		// Ein Konto ohne jede Ansehen-Berechtigung sieht nur den Hinweis
 		// und landet darauf, statt ohne Erklaerung auf den Einstellungen.
 		noViewAccess := hasUser && !auth.HasAnyView(user)
@@ -994,6 +1008,8 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 			"BasePath":           basepath.From(r),
 			"Manager":            manager,
 			"Can":                can,
+			"BackupSee":          backupSee,
+			"BackupBlocked":      backupBlocked,
 			"InitialPanel":       initial,
 			"NoViewAccess":       noViewAccess,
 			"CanEditLayout":      canEditLayout,

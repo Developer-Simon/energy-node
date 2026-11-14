@@ -1233,6 +1233,8 @@
   "backup.hero.none.title": "No backup yet",
   "backup.hero.skipped.error": "An automatic backup failed and was skipped.",
   "backup.hero.skipped.no_location": "The next automatic backup runs once a location for backups is available.",
+  "backup.https_only.note": "Backup is enabled for you, but it only works over an HTTPS connection. Open the dashboard or Home Assistant over https:// to view, create and restore archives.",
+  "backup.https_only.title": "Backup needs HTTPS",
   "backup.import.code.apply_failed": "Part of the archive could not be written. The previous state was restored.",
   "backup.import.code.interrupted": "The restore was interrupted. The previous state was restored.",
   "backup.import.corrupt.text": "The file is incomplete or changed. Nothing was changed.",

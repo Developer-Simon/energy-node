@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.11.12 (2026-11-14)
+
+### Fixes
+
+- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246)
+
+### Tests
+
+- **webui:** give the backup page tests an $el and cover the withheld page (7e6853f)
+
 ## v0.11.11 (2026-11-11)
 
 ### Features

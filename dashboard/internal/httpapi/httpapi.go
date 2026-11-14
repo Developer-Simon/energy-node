@@ -466,7 +466,9 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 		cookie, err := r.Cookie(sessionCookieName(secureRequest))
 		if err == nil {
 			if session, ok := manager.Session(cookie.Value); ok && companionSessionAllowed(session, r) {
-				next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), auth.EffectiveUser(session, secureRequest))))
+				ctx := auth.WithUser(r.Context(), auth.EffectiveUser(session, secureRequest))
+				ctx = auth.WithWithheld(ctx, auth.Withheld(session, secureRequest))
+				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
 		}
