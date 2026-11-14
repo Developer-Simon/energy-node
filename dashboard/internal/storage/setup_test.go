@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -235,6 +236,28 @@ func TestSetupAbortLeavesSystemDriveUntouched(t *testing.T) {
 			f.assertSystemUntouched()
 		})
 	}
+}
+
+func TestSetupFormatFailureKeepsHelperOutput(t *testing.T) {
+	f := newSetupFixture(t)
+	inner := f.svc.Deps.Storage
+	f.svc.Deps.Storage = func(ctx context.Context, verb, arg string) (string, error) {
+		if verb == "format" {
+			f.calls = append(f.calls, verb)
+			return "DEVICE_UNKNOWN", errors.New("exit status 65")
+		}
+		return inner(ctx, verb, arg)
+	}
+
+	err := f.svc.Setup(context.Background(), f.request())
+	if got := CodeOf(err); got != CodeFormatFailed {
+		t.Fatalf("Setup error code = %q (%v), want %q", got, err, CodeFormatFailed)
+	}
+	if !strings.Contains(err.Error(), "DEVICE_UNKNOWN") {
+		t.Fatalf("Setup error %q does not contain the helper output", err)
+	}
+	assertJob(t, f.svc, CodeFormatFailed)
+	f.assertSystemUntouched()
 }
 
 func TestSetupVerifiesBeforeSwitching(t *testing.T) {

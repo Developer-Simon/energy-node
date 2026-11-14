@@ -14,7 +14,7 @@ import (
 
 // lsblkColumns are the columns Parse expects. They are fixed, so the JSON
 // layout the tests use stays stable.
-const lsblkColumns = "NAME,KNAME,PATH,UUID,FSTYPE,SIZE,FSUSED,MODEL,TRAN,TYPE,MOUNTPOINT,PKNAME"
+const lsblkColumns = "NAME,KNAME,PATH,UUID,FSTYPE,SIZE,FSUSED,MODEL,TRAN,TYPE,MOUNTPOINT,PKNAME,LABEL"
 
 // Catalog keys for Drive.Contents when a drive needs formatting.
 const (
@@ -22,10 +22,15 @@ const (
 	ContentsNone = "storage.contents.none"
 	// ContentsForeign marks a drive with a filesystem other than ext4.
 	ContentsForeign = "storage.contents.foreign"
+	// ContentsWholeDisk marks the entry for a whole disk that has partitions.
+	ContentsWholeDisk = "storage.contents.disk"
 )
 
 // Drive is a candidate for the second drive. Ready drives can be used as they
 // are, NeedsFormat drives have to be formatted first, and Contents says why.
+// Disk is the top-level disk a device belongs to, DiskSize its size. Whole
+// marks the entry that stands for the entire disk, which is offered before
+// the partitions of a disk with at least two partitions.
 type Drive struct {
 	Kname       string `json:"kname"`
 	Name        string `json:"name"`
@@ -37,6 +42,10 @@ type Drive struct {
 	Ready       bool   `json:"ready"`
 	NeedsFormat bool   `json:"needs_format"`
 	Contents    string `json:"contents"`
+	Disk        string `json:"disk"`
+	DiskSize    int64  `json:"disk_size"`
+	Label       string `json:"label"`
+	Whole       bool   `json:"whole"`
 }
 
 // Lister lists the candidate drives.
@@ -97,6 +106,7 @@ type lsblkNode struct {
 	Type       string      `json:"type"`
 	Mountpoint string      `json:"mountpoint"`
 	PKName     string      `json:"pkname"`
+	Label      string      `json:"label"`
 	Children   []lsblkNode `json:"children"`
 }
 
@@ -126,10 +136,12 @@ func flatten(nodes []lsblkNode, parent string, out *[]device) {
 // output into the drives that can be offered. rootSource is the device that
 // holds "/" (for example /dev/mmcblk0p2), or empty when it is unknown.
 //
-// Hidden: the whole disk that holds "/", every disk with a mounted partition,
-// loop, ram and zram devices, and all MMC devices (eMMC and SD cards look the
-// same without the removable flag). Disks with partitions are not offered as
-// a whole, only their partitions are.
+// Hidden: the whole disk that holds "/", every disk with a mounted partition
+// (together with all its partitions), loop, ram and zram devices, and all MMC
+// devices (eMMC and SD cards look the same without the removable flag).
+// A disk with at least two partitions is offered as a whole (Whole, formatting
+// the entire disk) directly before its partitions. A disk with one partition is
+// offered only through that partition.
 func Parse(lsblkJSON []byte, rootSource string) ([]Drive, error) {
 	var doc struct {
 		BlockDevices []lsblkNode `json:"blockdevices"`
@@ -167,7 +179,14 @@ func Parse(lsblkJSON []byte, rootSource string) ([]Drive, error) {
 
 	drives := []Drive{}
 	for i, d := range devs {
-		if systemOrMounted[top[i]] || d.children > 0 || excluded(d) {
+		if systemOrMounted[top[i]] || excluded(d) {
+			continue
+		}
+		if top[i] == i && d.children >= 2 {
+			drives = append(drives, wholeDisk(devs, index, i))
+			continue
+		}
+		if d.children > 0 {
 			continue
 		}
 		drives = append(drives, toDrive(devs, index, i))
@@ -205,20 +224,20 @@ func excluded(d device) bool {
 // inherited from the parent chain, because lsblk only prints them on disks.
 func toDrive(devs []device, index map[string]int, i int) Drive {
 	d := devs[i]
-	name := inherited(devs, index, i, func(n lsblkNode) string { return strings.TrimSpace(n.Model) })
-	if name == "" {
-		name = d.KName
-	}
+	disk := devs[topOf(devs, index, i)]
 	transport := inherited(devs, index, i, func(n lsblkNode) string { return n.Tran })
 
 	drive := Drive{
 		Kname:     d.KName,
-		Name:      name,
+		Name:      displayName(devs, index, i),
 		UUID:      d.UUID,
 		FSType:    d.FSType,
 		Transport: transport,
 		Size:      int64(d.Size),
 		Used:      int64(d.FSUsed),
+		Disk:      disk.KName,
+		DiskSize:  int64(disk.Size),
+		Label:     d.Label,
 	}
 	switch {
 	case d.FSType == "ext4":
@@ -231,6 +250,32 @@ func toDrive(devs []device, index map[string]int, i int) Drive {
 		drive.Contents = ContentsForeign
 	}
 	return drive
+}
+
+// wholeDisk builds the entry that stands for the entire disk devs[i], which
+// has partitions. Formatting it replaces the whole partition table.
+func wholeDisk(devs []device, index map[string]int, i int) Drive {
+	d := devs[i]
+	return Drive{
+		Kname:       d.KName,
+		Name:        displayName(devs, index, i),
+		Transport:   inherited(devs, index, i, func(n lsblkNode) string { return n.Tran }),
+		Size:        int64(d.Size),
+		Disk:        d.KName,
+		DiskSize:    int64(d.Size),
+		NeedsFormat: true,
+		Contents:    ContentsWholeDisk,
+		Whole:       true,
+	}
+}
+
+// displayName is the model of devs[i] or its nearest parent, or the kname.
+func displayName(devs []device, index map[string]int, i int) string {
+	name := inherited(devs, index, i, func(n lsblkNode) string { return strings.TrimSpace(n.Model) })
+	if name == "" {
+		name = devs[i].KName
+	}
+	return name
 }
 
 // inherited returns the first non-empty value of get along devs[i] and its parents.

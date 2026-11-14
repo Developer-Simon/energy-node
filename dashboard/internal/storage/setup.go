@@ -3,9 +3,12 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 )
 
@@ -75,6 +78,16 @@ func (e *Error) Unwrap() error { return e.Err }
 
 func fail(code string, err error) error {
 	return &Error{Code: code, Err: err}
+}
+
+// withHelperOutput keeps the output the root helper printed before it failed,
+// such as DEVICE_MOUNTED, in front of the error. Without it the reason is lost.
+func withHelperOutput(out string, err error) error {
+	out = strings.TrimSpace(out)
+	if out == "" {
+		return err
+	}
+	return fmt.Errorf("%s: %w", out, err)
 }
 
 // CodeOf returns the code of err, or "" when err has none.
@@ -192,7 +205,11 @@ func (s *Service) StartSetup(req SetupRequest) error {
 	if err := s.claim(PhaseFormat); err != nil {
 		return err
 	}
-	go func() { _ = s.runSetup(context.Background(), plan) }()
+	go func() {
+		if err := s.runSetup(context.Background(), plan); err != nil {
+			log.Printf("storage setup failed: %v", err)
+		}
+	}()
 	return nil
 }
 
@@ -309,7 +326,7 @@ func (s *Service) runSetup(ctx context.Context, p setupPlan) (err error) {
 		}
 		out, ferr := s.Deps.Storage(ctx, "format", p.drive.Kname)
 		if ferr != nil {
-			return fail(CodeFormatFailed, ferr)
+			return fail(CodeFormatFailed, withHelperOutput(out, ferr))
 		}
 		if !uuidPattern.MatchString(out) {
 			return fail(CodeFormatFailed, errors.New("helper printed no uuid"))

@@ -138,6 +138,44 @@ grep -qx 'label: gpt' "$SFDISK_LOG" || fail "sfdisk ohne GPT-Layout" "$(cat "$SF
 [ "$(wc -l < "$MKFS_LOG")" -eq 1 ] || fail "mkfs nicht genau einmal aufgerufen" "$(cat "$MKFS_LOG" 2>/dev/null || true)"
 grep -qF -- '-L energy-node-data /dev/sda1' "$MKFS_LOG" || fail "mkfs ohne Label oder Partition" "$(cat "$MKFS_LOG")"
 
+# --- format formatiert eine Partition direkt, ohne Partitionstabelle -------
+reset
+cat >> "$FIXTURE" <<'TABLE'
+/dev/sda1 part - - sda
+/dev/sda2 part - - sda
+TABLE
+run_helper format sda2
+[ "$rc" -eq 0 ] || fail "format sda2 schlug fehl (rc=$rc)" "$out"
+[ "$out" = "$FORMAT_UUID" ] || fail "format sda2 gibt keine UUID aus" "$out"
+[ ! -s "$SFDISK_LOG" ] || fail "format sda2 hat sfdisk aufgerufen" "$(cat "$SFDISK_LOG")"
+[ "$(wc -l < "$MKFS_LOG")" -eq 1 ] || fail "format sda2: mkfs nicht genau einmal aufgerufen" "$(cat "$MKFS_LOG" 2>/dev/null || true)"
+grep -qxF -- '-L energy-node-data /dev/sda2' "$MKFS_LOG" || fail "format sda2: mkfs ohne Label oder Partition" "$(cat "$MKFS_LOG")"
+
+# --- format formatiert eine Partition trotz gemounteter Schwester ----------
+reset
+cat >> "$FIXTURE" <<'TABLE'
+/dev/sda1 part /media/usb - sda
+/dev/sda2 part - - sda
+TABLE
+run_helper format sda2
+[ "$rc" -eq 0 ] || fail "format sda2 mit gemounteter sda1 schlug fehl (rc=$rc)" "$out"
+grep -qxF -- '-L energy-node-data /dev/sda2' "$MKFS_LOG" || fail "format sda2 mit gemounteter sda1: mkfs auf falscher Partition" "$(cat "$MKFS_LOG" 2>/dev/null || true)"
+
+# --- format lehnt selbst eingehaengte Partition ab -------------------------
+reset
+cat >> "$FIXTURE" <<'TABLE'
+/dev/sda2 part /media/usb - sda
+TABLE
+expect_refused DEVICE_MOUNTED format sda2
+
+# --- format lehnt Partition auf der Systemplatte ab ------------------------
+reset
+expect_refused DEVICE_IS_SYSTEM_DISK format mmcblk0p2
+
+# --- format lehnt unbekanntes Geraet ab ------------------------------------
+reset
+expect_refused DEVICE_UNKNOWN format sdz1
+
 # --- mount lehnt unbekannte und ungueltige UUIDs ab -----------------------
 reset
 cat >> "$FIXTURE" <<TABLE

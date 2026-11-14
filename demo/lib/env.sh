@@ -130,6 +130,14 @@ env_prepare_storage() {
   cp "$FIXTURES/storage-drives.json" "$WORK/storage/drives.json" || return 1
   # Jeder Start beginnt mit dem Demo-Stick sdb am Helfer, ohne Fehler im Reiter Speicher.
   rm -rf "$WORK/storage/plugged.json" "$WORK/storage/disks" || return 1
+  # Die Einrichtung eines frueheren Laufs faellt mit weg. env_write_config schreibt die
+  # config.json bei jedem Start neu, ohne paths.runtime_dir, und der Fake-Stick ist
+  # zurueckgesetzt. Bliebe storage.json stehen, waehlt das Dashboard ein Laufwerk, das es
+  # nicht ueberwachen kann, und der Reiter zeigt dauerhaft "Wird geprueft".
+  rm -f "$WORK/data/storage.json" "$WORK/data/storage-pending.json" || return 1
+  if [[ -L "$WORK/data/runtime" && "$(readlink "$WORK/data/runtime")" == "$WORK/storage/mount/"* ]]; then
+    rm -f "$WORK/data/runtime" || return 1
+  fi
 }
 
 # Installer-Zustand aus der Fixture, wenn INSTALLED=1 und noch keiner da ist.

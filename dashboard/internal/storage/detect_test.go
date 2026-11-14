@@ -109,3 +109,83 @@ func TestParseHandlesMissingFields(t *testing.T) {
 		t.Fatalf("null fields = UUID %q, Used %d, want empty and zero", part.UUID, part.Used)
 	}
 }
+
+func parseInline(t *testing.T, doc, rootSource string) []Drive {
+	t.Helper()
+	drives, err := Parse([]byte(doc), rootSource)
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	return drives
+}
+
+func TestParseGroupsPartitionsUnderDisk(t *testing.T) {
+	doc := `{"blockdevices":[{"name":"sda","kname":"sda","path":"/dev/sda","size":32000000000,
+		"model":"SanDisk Ultra","tran":"usb","type":"disk","mountpoint":null,"children":[
+		{"name":"sda1","kname":"sda1","path":"/dev/sda1","size":1000000000,"fstype":"iso9660",
+			"label":"INSTALL","model":null,"tran":null,"type":"part","mountpoint":null,"pkname":"sda"},
+		{"name":"sda2","kname":"sda2","path":"/dev/sda2","size":500000000,"fstype":"vfat",
+			"label":"EFI","model":null,"tran":null,"type":"part","mountpoint":null,"pkname":"sda"}]}]}`
+	drives := parseInline(t, doc, "")
+	if got, want := knames(drives), []string{"sda", "sda1", "sda2"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("drives = %v, want %v", got, want)
+	}
+	whole := drives[0]
+	if !whole.Whole || !whole.NeedsFormat || whole.Contents != ContentsWholeDisk {
+		t.Fatalf("whole = %+v, want whole, needs format, contents %q", whole, ContentsWholeDisk)
+	}
+	if whole.Size != 32000000000 || whole.DiskSize != whole.Size {
+		t.Fatalf("whole size = %d, disk size = %d, want 32000000000 for both", whole.Size, whole.DiskSize)
+	}
+	if whole.Disk != "sda" || whole.UUID != "" || whole.FSType != "" || whole.Used != 0 {
+		t.Fatalf("whole = %+v, want disk sda and empty UUID, FSType and Used", whole)
+	}
+	for i, label := range []string{"INSTALL", "EFI"} {
+		part := drives[i+1]
+		if part.Disk != "sda" || part.DiskSize != 32000000000 || part.Label != label {
+			t.Fatalf("partition %s: Disk = %q, DiskSize = %d, Label = %q", part.Kname, part.Disk, part.DiskSize, part.Label)
+		}
+		if part.Name != "SanDisk Ultra" || part.Whole {
+			t.Fatalf("partition %s: Name = %q, Whole = %v, want SanDisk Ultra and not whole", part.Kname, part.Name, part.Whole)
+		}
+	}
+}
+
+func TestParseSinglePartitionHasNoWholeEntry(t *testing.T) {
+	doc := `{"blockdevices":[{"name":"sdb","kname":"sdb","path":"/dev/sdb","size":8000000000,
+		"model":"Stick","tran":"usb","type":"disk","mountpoint":null,"children":[
+		{"name":"sdb1","kname":"sdb1","path":"/dev/sdb1","size":7000000000,"fstype":"ext4",
+			"model":null,"tran":null,"type":"part","mountpoint":null,"pkname":"sdb"}]}]}`
+	drives := parseInline(t, doc, "")
+	if got, want := knames(drives), []string{"sdb1"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("drives = %v, want %v", got, want)
+	}
+	if drives[0].Whole || drives[0].Disk != "sdb" {
+		t.Fatalf("partition = %+v, want not whole, disk sdb", drives[0])
+	}
+}
+
+func TestParseBlankDiskKeepsOwnGroup(t *testing.T) {
+	doc := `{"blockdevices":[{"name":"sdc","kname":"sdc","path":"/dev/sdc","size":4000000000,
+		"model":"Blank","tran":"usb","type":"disk","mountpoint":null}]}`
+	drives := parseInline(t, doc, "")
+	if got, want := knames(drives), []string{"sdc"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("drives = %v, want %v", got, want)
+	}
+	if drives[0].Disk != "sdc" || drives[0].Whole {
+		t.Fatalf("blank disk = %+v, want disk sdc and not whole", drives[0])
+	}
+}
+
+func TestParseHidesWholeGroupWhenPartitionMounted(t *testing.T) {
+	doc := `{"blockdevices":[{"name":"sda","kname":"sda","path":"/dev/sda","size":32000000000,
+		"model":"SanDisk Ultra","tran":"usb","type":"disk","mountpoint":null,"children":[
+		{"name":"sda1","kname":"sda1","path":"/dev/sda1","size":1000000000,"fstype":"ext4",
+			"model":null,"tran":null,"type":"part","mountpoint":"/media/usb","pkname":"sda"},
+		{"name":"sda2","kname":"sda2","path":"/dev/sda2","size":500000000,"fstype":"vfat",
+			"model":null,"tran":null,"type":"part","mountpoint":null,"pkname":"sda"}]}]}`
+	drives := parseInline(t, doc, "")
+	if len(drives) != 0 {
+		t.Fatalf("drives = %v, want none (disk with a mounted partition hidden entirely)", knames(drives))
+	}
+}

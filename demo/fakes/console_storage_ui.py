@@ -111,6 +111,7 @@ def _stick_row(stick: dict) -> str:
 
 
 def storage_html(catalog: list) -> str:
-    """Fragment fuer den Reiter: je Stick aus dem Katalog eine Zeile mit Einstecken oder Ziehen."""
-    rows = "\n".join(_stick_row(stick) for stick in catalog)
+    """Fragment fuer den Reiter: je Stick aus dem Katalog eine Zeile mit Einstecken oder Ziehen.
+    Partitionen fehlen, sie stecken mit ihrer Platte."""
+    rows = "\n".join(_stick_row(stick) for stick in catalog if stick.get("disk", stick["kname"]) == stick["kname"])
     return STORAGE_HTML.replace("__STICK_ROWS__", rows)

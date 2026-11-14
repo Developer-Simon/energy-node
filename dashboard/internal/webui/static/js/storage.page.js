@@ -82,6 +82,8 @@
     step: '',
     drives: [],
     drive: null,
+    // Per disk (group key): 'whole' when the whole disk is the choice, absent means 'part'.
+    groupMode: {},
     eraseOk: false,
     use: { data: true, backups: true },
     flowError: '',
@@ -245,6 +247,7 @@
         return;
       }
       this.drive = null;
+      this.groupMode = {};
       this.flowError = '';
       this.open('remove', 'run');
       this.run(REMOVE_TASKS, 'remove');
@@ -288,7 +291,11 @@
     },
 
     driveView(item) {
-      const detail = [(item.transport || '').toUpperCase(), formatSize(item.size)].filter(Boolean).join(', ');
+      const transport = (item.transport || '').toUpperCase();
+      const label = item.whole ? '' : (item.label || '');
+      const detail = label
+        ? `${label}, ${formatSize(item.size)}`
+        : [transport, formatSize(item.size)].filter(Boolean).join(', ');
       return {
         kname: item.kname,
         uuid: item.uuid || '',
@@ -296,23 +303,83 @@
         detail,
         needsFormat: Boolean(item.needs_format),
         contents: item.contents ? t(item.contents) : '',
+        // The top-level disk this entry belongs to, and its title line.
+        disk: item.disk || item.kname,
+        diskDetail: [transport, formatSize(item.disk_size)].filter(Boolean).join(', '),
+        diskSize: Number(item.disk_size) || 0,
+        label,
+        whole: Boolean(item.whole),
+        lost: [],
       };
     },
     async loadDrives() {
       try {
         const list = await requestJSON('/api/v1/storage/drives');
-        this.drives = list.map((item) => this.driveView(item));
+        const views = list.map((item) => this.driveView(item));
+        // Formatting the whole disk wipes every partition of it, the set up
+        // one included, so the list is built before the filter below.
+        for (const view of views) {
+          if (view.whole) view.lost = views.filter((p) => !p.whole && p.disk === view.disk).map((p) => p.label || p.kname);
+        }
+        this.drives = views;
         // The set up drive is not a choice for switching or replacing it.
         if (this.config.uuid) this.drives = this.drives.filter((item) => item.uuid !== this.config.uuid);
         // A selected drive that was unplugged is no longer a choice.
         if (this.drive) this.drive = this.drives.find((item) => item.kname === this.drive.kname) || null;
+        if (!this.drive) this.groupMode = {};
       } catch (error) {
         this.flowError = error.message;
       }
     },
+    // The drives in list order, one group per disk. A group with one entry
+    // renders without a header.
+    get driveGroups() {
+      const groups = [];
+      for (const view of this.drives) {
+        let group = groups.find((g) => g.key === view.disk);
+        if (!group) {
+          group = { key: view.disk, title: view.name, detail: view.diskDetail, items: [] };
+          groups.push(group);
+        }
+        group.items.push(view);
+      }
+      for (const group of groups) {
+        group.whole = group.items.find((item) => item.whole) || null;
+        group.parts = group.items.filter((item) => !item.whole);
+        group.count = group.parts.length;
+        group.size = formatSize(group.items[0].diskSize);
+      }
+      return groups;
+    },
+    // The whole disk and its partitions switch with one choice per group.
+    isWhole(group) {
+      return this.groupMode[group.key] === 'whole';
+    },
+    // A choice in one group ends the whole-disk mode of every other group.
+    chooseDrive(item) {
+      this.drive = item;
+      this.groupMode = item.whole ? { [item.disk]: 'whole' } : {};
+    },
+    setGroupMode(group, mode) {
+      if (mode === 'whole') {
+        if (!group.whole) return;
+        this.groupMode = { [group.key]: 'whole' };
+        this.drive = group.whole;
+        return;
+      }
+      const modes = { ...this.groupMode };
+      delete modes[group.key];
+      this.groupMode = modes;
+      if (this.drive && group.whole && this.drive.kname === group.whole.kname) this.drive = null;
+    },
+    pickPart(group, item) {
+      if (this.isWhole(group)) return;
+      this.chooseDrive(item);
+    },
     async openSetup() {
       this.flowError = '';
       this.drive = null;
+      this.groupMode = {};
       this.eraseOk = false;
       this.use = { data: true, backups: true };
       this.open('setup', 'drives');
@@ -323,6 +390,7 @@
       if (!flow) return;
       this.flowError = '';
       this.drive = null;
+      this.groupMode = {};
       this.eraseOk = false;
       this.use = { data: true, backups: true };
       this.open(flow, 'drives');

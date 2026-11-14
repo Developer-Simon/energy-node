@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.12-pre.9 (2026-11-06)
+## v0.11.12-pre.10 (2026-11-06)
 
 ### Features
 
@@ -13,6 +13,11 @@
 - **network:** check LAN and connect the node to Wi-Fi in the settings (#238) (d6dc893)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **webui:** show tile skeletons while panels load (#242) (30e2fc3)
+- **storage:** group partitions under their disk and offer the whole disk (2b7a9ca)
+- **webui:** group the additional drive choice by disk (script) (1ef36d5)
+- **webui:** show sticks with several partitions as a group (a4f7286)
+- **webui:** switch between one partition and the whole stick (script) (a511305)
+- **webui:** switch between one partition and the whole stick (design) (3f42e1c)
 - **webui:** add skeleton building blocks to base.css (46aa464)
 - **webui:** add skeletons for the devices and efficiency panels (79708d0)
 - **network:** add the network watcher (09683dd)
@@ -27,12 +32,21 @@
 
 ### Fixes
 
+- **storage:** format a single partition without repartitioning the disk (6e35b8d)
+- **storage:** keep the helper output in the format failure (c30a7ea)
+- **webui:** reset the whole stick mode when a single stick is chosen (4154e72)
+- **webui:** keep the new partition row in bounds and unstruck in whole stick mode (692f72e)
+- **storage:** offer sticks with several partitions as a group and format single partitions (#243)
 - **updaterhost:** implement the hotspot lookup of the installer backend (ccfb570)
 - **netmgr:** read the hotspot secret without a trailing newline (74376f1)
 
 ### Refactors
 
 - **webui:** share the fragment loader between panels and subpages (4cf7f1a)
+
+### Documentation
+
+- **storage:** explain sticks with several partitions and extend the smoke check (7e75f7a)
 
 ### Tests
 

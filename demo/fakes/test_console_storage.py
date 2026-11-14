@@ -41,7 +41,8 @@ def test_state_lists_the_sticks_and_the_start_state(tab):
     state = tab.state()
 
     by_kname = {stick["kname"]: stick for stick in state["sticks"]}
-    assert set(by_kname) == {"sdb", "sdc", "sdd"}
+    assert set(by_kname) == {"sdb", "sdc", "sdd", "sde"}
+    assert by_kname["sde"]["plugged"] is False
     assert by_kname["sdb"]["plugged"] is True
     assert by_kname["sdc"]["plugged"] is False
     assert by_kname["sdd"]["foreign"] is True
@@ -55,6 +56,13 @@ def test_plugging_in_writes_the_drive_list_and_logs(tab, paths, log):
 
     assert drive_names(paths) == ["sdb", "sdc"]
     assert entries(log) == [("storage", "sdc eingesteckt", "info")]
+
+
+def test_plugging_the_multi_partition_stick_lists_the_disk_and_its_partitions(tab, paths):
+    tab.act("plug", {"kname": "sde", "plugged": True})
+
+    assert drive_names(paths) == ["sdb", "sde", "sde1", "sde2"]
+    assert tab.state()["plugged_text"] == "Eingesteckt: sdb, sde, sde1, sde2"
 
 
 def test_pulling_the_active_drive_empties_the_mount(tab, paths):
@@ -137,6 +145,12 @@ def test_reset_returns_to_the_start(tab, paths):
     assert drive_names(paths) == ["sdb"]
     assert load_state(paths.root)["format_fails"] is False
     assert tab.summary() == {"level": "ok", "text": "Speicher normal"}
+
+
+def test_plug_list_shows_only_top_level_sticks():
+    html = storage_html(load_catalog())
+    assert 'data-stick="sde"' in html
+    assert 'data-stick="sde1"' not in html and 'data-stick="sde2"' not in html
 
 
 def test_fragment_markers():

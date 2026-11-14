@@ -8,7 +8,10 @@ set -eu
 #
 #   format <kname>  GPT with one partition on a disk that is not the system
 #                   disk and has no mounted partition, mkfs.ext4 with the
-#                   label energy-node-data, prints the new UUID.
+#                   label energy-node-data, prints the new UUID. A partition
+#                   (for example sda2) is formatted as it is, without a new
+#                   partition table, if it is not mounted and not on the
+#                   system disk.
 #   mount <uuid>    own mount unit (its own unit, because the dashboard's
 #                   ProtectSystem=full namespace would hide a mount made
 #                   there), first use creates runtime/ and backups/ and the
@@ -46,18 +49,24 @@ root_disk() {
   printf '%s\n' "$disk"
 }
 
-# check_disk KNAME refuses anything but a known disk that is not the system
-# disk and has no mounted partition.
+# check_disk KNAME LISTING refuses a disk that is the system disk or has a
+# mounted partition. LISTING is the lsblk output for the disk.
 check_disk() {
-  case "$1" in
-    ''|*[!a-z0-9]*) fail INVALID_DEVICE ;;
-  esac
-  listing="$("$LSBLK" -lnpo NAME,TYPE,MOUNTPOINT "/dev/$1" 2>/dev/null)" || fail DEVICE_UNKNOWN
-  type="$(printf '%s\n' "$listing" | awk -v d="/dev/$1" '$1 == d { print $2; exit }')"
-  [ "$type" = disk ] || fail DEVICE_UNKNOWN
   root="$(root_disk)" || fail ROOT_UNKNOWN 1
   [ "$1" != "$root" ] || fail DEVICE_IS_SYSTEM_DISK
-  mounted="$(printf '%s\n' "$listing" | awk 'NF >= 3 { print $1; exit }')"
+  mounted="$(printf '%s\n' "$2" | awk 'NF >= 3 { print $1; exit }')"
+  [ -z "$mounted" ] || fail DEVICE_MOUNTED
+}
+
+# check_partition KNAME LISTING refuses a partition that is on the system disk
+# or is itself mounted. Mounted siblings do not matter. LISTING is the lsblk
+# output for the partition.
+check_partition() {
+  pkname="$("$LSBLK" -no PKNAME "/dev/$1")" || fail DEVICE_UNKNOWN
+  [ -n "$pkname" ] || fail DEVICE_UNKNOWN
+  root="$(root_disk)" || fail ROOT_UNKNOWN 1
+  [ "$pkname" != "$root" ] || fail DEVICE_IS_SYSTEM_DISK
+  mounted="$(printf '%s\n' "$2" | awk -v d="/dev/$1" '$1 == d && NF >= 3 { print $1; exit }')"
   [ -z "$mounted" ] || fail DEVICE_MOUNTED
 }
 
@@ -66,22 +75,43 @@ partition_of() {
   "$LSBLK" -lnpo NAME,TYPE,MOUNTPOINT "/dev/$1" | awk '$2 == "part" { print $1; exit }'
 }
 
-format_disk() {
-  kname="$1"
-  check_disk "$kname"
-  printf 'label: gpt\n,\n' | "$SFDISK" "/dev/$kname" >/dev/null || fail FORMAT_FAILED 1
-  # Let udev create the partition node before lsblk looks for it; a failing
-  # settle is not an error, the lookup below fails on its own if needed.
-  if [ -x "$UDEVADM" ]; then
-    "$UDEVADM" settle >/dev/null 2>&1 || true
-  fi
-  part="$(partition_of "$kname")" || fail FORMAT_FAILED 1
-  [ -n "$part" ] || fail FORMAT_FAILED 1
-  "$MKFS" -L energy-node-data "$part" >/dev/null || fail FORMAT_FAILED 1
-  uuid="$("$LSBLK" -no UUID "$part")" || fail FORMAT_FAILED 1
+# mkfs_and_uuid PART formats the partition and prints its UUID.
+mkfs_and_uuid() {
+  "$MKFS" -L energy-node-data "$1" >/dev/null || fail FORMAT_FAILED 1
+  uuid="$("$LSBLK" -no UUID "$1")" || fail FORMAT_FAILED 1
   printf '%s\n' "$uuid" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
     || fail FORMAT_FAILED 1
   printf '%s\n' "$uuid"
+}
+
+format_disk() {
+  kname="$1"
+  case "$kname" in
+    ''|*[!a-z0-9]*) fail INVALID_DEVICE ;;
+  esac
+  listing="$("$LSBLK" -lnpo NAME,TYPE,MOUNTPOINT "/dev/$kname" 2>/dev/null)" || fail DEVICE_UNKNOWN
+  type="$(printf '%s\n' "$listing" | awk -v d="/dev/$kname" '$1 == d { print $2; exit }')"
+  case "$type" in
+    disk)
+      check_disk "$kname" "$listing"
+      printf 'label: gpt\n,\n' | "$SFDISK" "/dev/$kname" >/dev/null || fail FORMAT_FAILED 1
+      # Let udev create the partition node before lsblk looks for it; a failing
+      # settle is not an error, the lookup below fails on its own if needed.
+      if [ -x "$UDEVADM" ]; then
+        "$UDEVADM" settle >/dev/null 2>&1 || true
+      fi
+      part="$(partition_of "$kname")" || fail FORMAT_FAILED 1
+      [ -n "$part" ] || fail FORMAT_FAILED 1
+      mkfs_and_uuid "$part"
+      ;;
+    part)
+      check_partition "$kname" "$listing"
+      mkfs_and_uuid "/dev/$kname"
+      ;;
+    *)
+      fail DEVICE_UNKNOWN
+      ;;
+  esac
 }
 
 mount_volume() {

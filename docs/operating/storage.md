@@ -31,6 +31,8 @@ You choose both parts in the setup. Each one can be left out.
    Running data stops for a short moment while the last changes are copied. The
    dashboard restarts at the end, and this page reconnects by itself.
 
+In step 2, a stick with several partitions appears as one group in the list, with its partitions listed below it. Choosing a partition formats and uses only that partition and leaves the others untouched. Choosing *Whole stick* deletes all partitions and replaces them with one, and the dialog lists the partitions that are lost.
+
 The setup does not start while another job runs.
 
 ## When the drive is missing

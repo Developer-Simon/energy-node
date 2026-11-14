@@ -28,7 +28,8 @@ RUNTIME_DIRS = ("runtime", "backups")
 DEFAULT_STATE = {"plugged": ["sdb"], "active": "", "mounted": False, "formatted": [],
                  "format_fails": False, "mount_fails": False}
 FAULTS = {"format": "format_fails", "mount": "mount_fails"}
-LIST_FIELDS = ("kname", "name", "uuid", "fstype", "transport", "size", "used", "ready", "needs_format", "contents")
+LIST_FIELDS = ("kname", "name", "uuid", "fstype", "transport", "size", "used", "ready", "needs_format", "contents",
+               "disk", "disk_size", "label", "whole")
 
 
 class StorageError(Exception):
@@ -76,20 +77,61 @@ def is_formatted(stick, state):
     return not stick["needs_format"] or stick["kname"] in state["formatted"]
 
 
+def _is_partition(stick):
+    return stick.get("disk", stick["kname"]) != stick["kname"]
+
+
+def _group(catalog, kname):
+    """Der Stick mit allen Partitionen. Eine Partition wird nie allein gesteckt oder gezogen."""
+    stick = find_stick(catalog, kname)
+    if stick is None:
+        raise StorageRefused(f"unbekannter Stick {kname}")
+    if _is_partition(stick):
+        raise StorageRefused(f"{kname} ist eine Partition von {stick['disk']}")
+    return [kname, *stick.get("members", [])]
+
+
+def _listed(stick, formatted):
+    """Ein Eintrag der Laufwerksliste. Felder, die der Katalog nicht kennt, bekommen ihren Standard."""
+    entry = {field: stick.get(field) for field in LIST_FIELDS}
+    entry["disk"] = stick.get("disk", stick["kname"])
+    entry["disk_size"] = stick.get("disk_size", stick["size"])
+    entry["label"] = stick.get("label", "")
+    entry["whole"] = stick.get("whole", False)
+    entry["uuid"] = stick["uuid"] if formatted else ""
+    entry["needs_format"] = not formatted
+    entry["ready"] = bool(stick["ready"] or formatted)
+    entry["fstype"] = "ext4" if (stick["needs_format"] and formatted) else stick["fstype"]
+    entry["contents"] = "" if formatted else stick["contents"]
+    return entry
+
+
 def drive_list(catalog, state):
-    """Laufwerke, die gerade eingesteckt sind, im Format der Laufwerksliste des Dashboards."""
+    """Laufwerke, die gerade eingesteckt sind, im Format der Laufwerksliste des Dashboards.
+
+    Eine Platte mit Partitionen erscheint als Gesamteintrag, gefolgt von ihren Partitionen.
+    Ist der Gesamteintrag formatiert, bleibt nur ein normaler ext4-Eintrag. Ist eine Partition
+    eingehaengt, verschwindet die ganze Gruppe.
+    """
     drives = []
     for stick in catalog:
-        if stick["kname"] not in state["plugged"]:
+        kname = stick["kname"]
+        if kname not in state["plugged"] or _is_partition(stick):
             continue
-        formatted = is_formatted(stick, state)
-        entry = {field: stick.get(field) for field in LIST_FIELDS}
-        entry["uuid"] = stick["uuid"] if formatted else ""
-        entry["needs_format"] = not formatted
-        entry["ready"] = bool(stick["ready"] or formatted)
-        entry["fstype"] = "ext4" if (stick["needs_format"] and formatted) else stick["fstype"]
-        entry["contents"] = "" if formatted else stick["contents"]
-        drives.append(entry)
+        members = [find_stick(catalog, member) for member in stick.get("members", [])]
+        if not members:
+            drives.append(_listed(stick, is_formatted(stick, state)))
+            continue
+        if kname in state["formatted"]:
+            single = _listed(stick, True)
+            single.update(whole=False, label="")
+            drives.append(single)
+            continue
+        group = [kname, *stick["members"]]
+        if state["mounted"] and state["active"] in group:
+            continue
+        drives.append(_listed(stick, False))
+        drives.extend(_listed(member, is_formatted(member, state)) for member in members)
     return drives
 
 
@@ -153,7 +195,11 @@ def _make_active(storage, mount, state, kname):
 
 
 def format_drive(storage, mount, catalog, kname):
-    """Loescht den Stick und gibt seine Uuid zurueck. Der Einhaengepunkt wird geleert, wenn der Stick dort liegt."""
+    """Loescht den Stick und gibt seine Uuid zurueck. Der Einhaengepunkt wird geleert, wenn der Stick dort liegt.
+
+    Formatiert wird der Gesamteintrag einer Platte mit Partitionen, dann gehen die Partitionen mit.
+    Eine Partition allein formatiert nur sich selbst.
+    """
     stick = find_stick(catalog, kname)
     if stick is None:
         raise StorageRefused(f"unbekannter Stick {kname}")
@@ -162,11 +208,13 @@ def format_drive(storage, mount, catalog, kname):
         raise StorageError(f"{kname} ist nicht eingesteckt")
     if state["format_fails"]:
         raise StorageError("Formatieren fehlgeschlagen")
-    if state["active"] == kname:
+    targets = [kname, *stick.get("members", [])]
+    if state["active"] in targets:
         _clear(mount)
         state["active"] = ""
         state["mounted"] = False
-    _clear(Path(storage) / "disks" / kname)
+    for target in targets:
+        _clear(Path(storage) / "disks" / target)
     if stick["needs_format"] and kname not in state["formatted"]:
         state["formatted"].append(kname)
     _commit(storage, catalog, state)
@@ -202,34 +250,36 @@ def unmount_drive(storage, mount):
 
 def plug(storage, mount, catalog, kname, machine_id):
     """Steckt einen Stick ein. Der Stick, der zuletzt eingehaengt war, bekommt seinen Inhalt zurueck.
-    Ein fremder Stick haengt sich selbst am Einhaengepunkt ein, mit seiner eigenen Kennung."""
+    Ein fremder Stick haengt sich selbst am Einhaengepunkt ein, mit seiner eigenen Kennung.
+    Eine Platte mit Partitionen steckt mit allen Partitionen zusammen."""
+    group = _group(catalog, kname)
     stick = find_stick(catalog, kname)
-    if stick is None:
-        raise StorageRefused(f"unbekannter Stick {kname}")
     state = load_state(storage)
     if kname in state["plugged"]:
         raise StorageError(f"{kname} ist schon eingesteckt")
-    state["plugged"].append(kname)
+    state["plugged"].extend(group)
     if "marker" in stick:
         _make_active(storage, mount, state, kname)
         _attach(storage, mount, kname, stick["marker"])
         state["active"] = kname
         state["mounted"] = True
-    elif state["active"] == kname:
-        _attach(storage, mount, kname, machine_id)
+    elif state["active"] in group:
+        _attach(storage, mount, state["active"], machine_id)
         state["mounted"] = True
     _commit(storage, catalog, state)
 
 
 def pull(storage, mount, catalog, kname):
-    """Zieht einen Stick ab. Liegt sein Inhalt im Einhaengepunkt, bleibt er auf dem Stick und der Punkt ist leer."""
+    """Zieht einen Stick ab. Liegt sein Inhalt im Einhaengepunkt, bleibt er auf dem Stick und der Punkt ist leer.
+    Eine Platte mit Partitionen zieht alle Partitionen mit."""
+    group = _group(catalog, kname)
     state = load_state(storage)
     if kname not in state["plugged"]:
         raise StorageError(f"{kname} ist nicht eingesteckt")
-    if state["active"] == kname:
-        _park(storage, mount, kname)
+    if state["active"] in group:
+        _park(storage, mount, state["active"])
         state["mounted"] = False
-    state["plugged"].remove(kname)
+    state["plugged"] = [plugged for plugged in state["plugged"] if plugged not in group]
     _commit(storage, catalog, state)
 
 
