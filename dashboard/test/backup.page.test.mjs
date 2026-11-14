@@ -80,7 +80,7 @@ function router(routes, calls = []) {
   return { fetchImpl, calls };
 }
 
-function createBackupPage({ fetchImpl, url } = {}) {
+function createBackupPage({ fetchImpl, url, blocked = false } = {}) {
   const dom = new JSDOM(
     '<!doctype html><html><body><div class="bs-flow-stage"></div><div class="bs-flow"></div></body></html>',
     { runScripts: 'outside-only', url: url || 'https://dashboard.local/' },
@@ -96,6 +96,8 @@ function createBackupPage({ fetchImpl, url } = {}) {
   const page = factories.backupPage();
   const stores = attachStores(page, { modal: fakeModalStore({ answer: true }) });
   page.$nextTick = (fn) => fn();
+  // Alpine's $el is the .bs-page root, the server marks a withheld page there.
+  page.$el = { dataset: blocked ? { blocked: '1' } : {} };
   return { page, stores, window: dom.window };
 }
 
@@ -616,4 +618,15 @@ test('the users area has no kept-passwords note when the archive carries passwor
   await page.readFile({ name: 'archiv.tar.gz' });
   const users = page.previewAreas.find((area) => area.key === 'users');
   assert.equal(users.note, '');
+});
+
+test('a withheld page (no HTTPS) loads nothing and opens no flow', async () => {
+  const { page } = createBackupPage({ blocked: true });
+  await page.init();
+
+  assert.equal(page.blocked, true);
+  assert.equal(page.archives.length, 0);
+  page.openExport();
+  await page.openImport();
+  assert.equal(page.flow, null, 'no flow may open while the page is blocked');
 });
