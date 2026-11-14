@@ -104,7 +104,7 @@ early() {
 	"${EN_DEBCONF:-debconf-set}" partman-auto/expert_recipe "energynode :: $boot_part $root_part"
 	"${EN_DEBCONF:-debconf-set}" grub-installer/bootdev "$disk"
 	if [ "$class" = small ]; then
-		"${EN_DEBCONF:-debconf-set}" pkgsel/include "openssh-server avahi-daemon libnss-mdns sudo python3 zram-tools"
+		"${EN_DEBCONF:-debconf-set}" pkgsel/include "openssh-server avahi-daemon libnss-mdns sudo python3 network-manager iw curl zram-tools"
 	fi
 	echo "$class" >"${EN_CLASS_FILE:-/tmp/energy-node.class}"
 }
@@ -153,6 +153,9 @@ late() {
 	if [ -n "${EN_TARGET_LOCALE:-}" ]; then
 		in-target update-locale "LANG=$EN_TARGET_LOCALE"
 	fi
+	# NetworkManager only manages interfaces that are not listed in
+	# /etc/network/interfaces, so leave the loopback entry only.
+	printf '# Interfaces are managed by NetworkManager.\nsource /etc/network/interfaces.d/*\n\nauto lo\niface lo inet loopback\n' >"$T/etc/network/interfaces"
 	sed -i '\#^/dev/sr0#d' "$T/etc/fstab"
 	cp "$LOG" "$T/var/log/energy-node-install.log" 2>/dev/null || true
 }
