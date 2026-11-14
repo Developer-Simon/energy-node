@@ -464,3 +464,44 @@ func TestRuntimeDataComesFromRuntimeDir(t *testing.T) {
 		t.Fatalf("liveDir(Einstellungen) = %q, erwartet %q", got, src.DataDir)
 	}
 }
+
+// With an additional drive, runtime_dir is a symlink to the drive. WalkDir does
+// not follow a symlink at its root, so the archive and the preview used to see
+// no runtime data at all.
+func TestRuntimeDirThatIsASymlinkIsRead(t *testing.T) {
+	src := testSources(t)
+	drive := filepath.Join(t.TempDir(), "drive-runtime")
+	if err := os.MkdirAll(filepath.Join(drive, "energystats"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(drive, "energystats", "2026-12.json"), []byte(`{"kwh":3}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(drive, "automation_history.json"), []byte(`[]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "runtime")
+	if err := os.Symlink(drive, link); err != nil {
+		t.Fatal(err)
+	}
+	src.RuntimeDir = link
+
+	m, err := Create(context.Background(), src, CreateOptions{Areas: map[Area]bool{AreaStats: true, AreaHistory: true}}, io.Discard)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	for _, name := range []string{"data/energystats/2026-12.json", "devices/automation_history.json"} {
+		if _, ok := m.Files[name]; !ok {
+			t.Errorf("%s fehlt im Archiv, Dateien: %v", name, m.Files)
+		}
+	}
+	live, err := liveFiles(src)
+	if err != nil {
+		t.Fatalf("liveFiles: %v", err)
+	}
+	for _, name := range []string{"data/energystats/2026-12.json", "devices/automation_history.json"} {
+		if _, ok := live[name]; !ok {
+			t.Errorf("%s fehlt in der Vorschau, Dateien: %v", name, live)
+		}
+	}
+}

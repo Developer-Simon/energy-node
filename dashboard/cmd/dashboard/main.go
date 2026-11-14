@@ -394,6 +394,18 @@ func main() {
 	storageWatcher := storageDriveWatcher(cfg, dataDir, energyStatsStore.Reload)
 	storageLister := storageDriveLister()
 	storageService := newStorageService(cfg, dataDir, *configPath, systemExecutor, storageLister)
+	if storageWatcher != nil {
+		// A drive that was unplugged and plugged back in is not mounted by
+		// anything else, the mount unit starts only at boot.
+		storageWatcher.Mount = func(ctx context.Context, uuid string) error {
+			out, err := systemExecutor.Storage(ctx, "mount", uuid)
+			if err != nil && out != "" {
+				return fmt.Errorf("%s: %w", strings.Join(strings.Fields(out), " "), err)
+			}
+			return err
+		}
+		storageWatcher.Busy = storageService.Busy
+	}
 	storageStatus := func() storage.Status {
 		if storageWatcher == nil {
 			return storage.Status{Mode: storage.ModeNone}

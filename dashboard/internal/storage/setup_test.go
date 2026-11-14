@@ -260,6 +260,27 @@ func TestSetupFormatFailureKeepsHelperOutput(t *testing.T) {
 	f.assertSystemUntouched()
 }
 
+func TestSetupMountFailureKeepsHelperOutput(t *testing.T) {
+	f := newSetupFixture(t)
+	inner := f.svc.Deps.Storage
+	f.svc.Deps.Storage = func(ctx context.Context, verb, arg string) (string, error) {
+		if verb == "mount" {
+			f.calls = append(f.calls, verb)
+			return "MOUNT_FAILED\nstart: Job failed\ndevice link: missing", errors.New("exit status 1")
+		}
+		return inner(ctx, verb, arg)
+	}
+
+	err := f.svc.Setup(context.Background(), f.request())
+	if got := CodeOf(err); got != CodeMountFailed {
+		t.Fatalf("Setup error code = %q (%v), want %q", got, err, CodeMountFailed)
+	}
+	if !strings.Contains(err.Error(), "device link: missing") || strings.Contains(err.Error(), "\n") {
+		t.Fatalf("Setup error %q lacks the helper output or spans lines", err)
+	}
+	f.assertSystemUntouched()
+}
+
 // The helper prints the code and the reason of a failed step on two lines. The
 // log entry stays on one line.
 func TestSetupFormatFailureKeepsReasonOnOneLine(t *testing.T) {

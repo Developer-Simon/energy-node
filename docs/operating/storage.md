@@ -46,6 +46,10 @@ between two places:
 - **Memory**: the SD card stays protected. A restart erases the running data
   that was written since the drive went missing.
 
+When you plug the drive back in, the node mounts it by itself within about
+half a minute, merges the data and the warning disappears. If mounting fails,
+the node tries again every two minutes.
+
 A change of this choice applies at the next start of the node.
 
 ## Remove the additional drive

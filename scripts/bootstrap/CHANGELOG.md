@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.3-pre.3 (2026-11-14)
+## v0.3.3-pre.4 (2026-11-14)
 
 ### Features
 
@@ -9,6 +9,11 @@
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
 - **network:** add the emergency hotspot bootstrap step (d30f816)
 - **bootstrap:** let step 67 take the hotspot password from a file (312cdbd)
+
+### Fixes
+
+- **storage:** render the storage helper for the node user (00faf59)
+- **storage:** set up, back up and replug the additional drive reliably (#247)
 
 ## v0.3.2 (2026-11-07)
 

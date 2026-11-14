@@ -82,9 +82,15 @@ func (s Sources) Trees() []Tree {
 		{RootDevices, s.DevicesDir, "devices/", false},
 	}
 	if s.RuntimeDir != "" {
+		// With an additional drive runtime_dir is a symlink to the drive.
+		// WalkDir does not follow a symlink at its root, so it is resolved here.
+		dir := s.RuntimeDir
+		if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+			dir = resolved
+		}
 		trees = append(trees,
-			Tree{RootData, s.RuntimeDir, "data/", true},
-			Tree{RootDevices, s.RuntimeDir, "devices/", true},
+			Tree{RootData, dir, "data/", true},
+			Tree{RootDevices, dir, "devices/", true},
 		)
 	}
 	return trees

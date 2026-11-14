@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"os"
+	osexec "os/exec"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
@@ -45,7 +48,14 @@ func newStorageService(cfg appconfig.Config, dataDir, configPath string, exec *s
 			StopServices:  exec.StopServices,
 			StartServices: exec.StartServices,
 			RestartDashboard: func(ctx context.Context) error {
-				return exec.Execute(ctx, systemactions.RestartDashboard)
+				err := exec.Execute(ctx, systemactions.RestartDashboard)
+				if killedByRestart(err) {
+					return nil
+				}
+				if err != nil {
+					log.Printf("energy-node-dashboard: storage: restart of the dashboard failed: %v", err)
+				}
+				return err
 			},
 			ReadRuntimeDir: func() string { return cfg.Paths.RuntimeDir },
 			ApplyRuntimeDir: func(ctx context.Context, dir string) error {
@@ -53,6 +63,20 @@ func newStorageService(cfg appconfig.Config, dataDir, configPath string, exec *s
 			},
 		},
 	}
+}
+
+// killedByRestart reports whether err is the sudo of a dashboard restart that
+// ended by a signal. Restarting the dashboard stops its cgroup, and that kills
+// the sudo that asked for it, so the signal means the restart is under way. The
+// caller must not treat it as a failure: the setup would roll back while the
+// process shuts down, and the follow-up after the restart would never run.
+func killedByRestart(err error) bool {
+	var exitErr *osexec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	status, ok := exitErr.Sys().(syscall.WaitStatus)
+	return ok && status.Signaled()
 }
 
 // applyRuntimeDir schreibt paths.runtime_dir in die Konfiguration. Es liest

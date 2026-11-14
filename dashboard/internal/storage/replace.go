@@ -247,8 +247,8 @@ func (s *Service) runReplace(ctx context.Context, p replacePlan) (err error) {
 	if err = s.step("mount"); err != nil {
 		return fail(CodeMountFailed, err)
 	}
-	if _, err = s.Deps.Storage(ctx, "mount", uuid); err != nil {
-		return fail(CodeMountFailed, err)
+	if out, merr := s.Deps.Storage(ctx, "mount", uuid); merr != nil {
+		return fail(CodeMountFailed, withHelperOutput(out, merr))
 	}
 	undo = append(undo, func() { _, _ = s.Deps.Storage(context.Background(), "unmount", "") })
 	if !VolumeOK(s.Paths.Mount, s.NodeID) {

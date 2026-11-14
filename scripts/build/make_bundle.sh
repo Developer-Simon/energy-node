@@ -174,17 +174,16 @@ else
       -o "${STAGE}/dashboard/${BINARY_NAME}" ./cmd/dashboard )
 fi
 for file in "${BINARY_NAME}.service" "${BINARY_NAME}-system-action" \
-            "${BINARY_NAME}-system-action.sudoers" \
+            "${BINARY_NAME}-system-action.sudoers" energy-node-storage-helper \
             energy-node-updater.service energy-node-updater.path; do
   stage_template "${REPO_ROOT}/dashboard/${file}" "${STAGE}/dashboard/${file}"
 done
 cp "${REPO_ROOT}/dashboard/Caddyfile" "${STAGE}/dashboard/Caddyfile"
 install -m 0755 "${REPO_ROOT}/dashboard/energy-node-updater.sh" \
   "${STAGE}/dashboard/energy-node-updater"
-install -m 0755 "${REPO_ROOT}/dashboard/energy-node-storage-helper" \
-  "${STAGE}/dashboard/energy-node-storage-helper"
+chmod 0755 "${STAGE}/dashboard/energy-node-storage-helper"
 # Notfall-Hotspot und WLAN-Waechter (Schritt 67): der Waechter und seine
-# Units liegen wie der Speicher-Helfer unveraendert im Bundle.
+# Units liegen unveraendert im Bundle.
 install -m 0755 "${REPO_ROOT}/dashboard/energy-node-network-watch" \
   "${STAGE}/dashboard/energy-node-network-watch"
 cp "${REPO_ROOT}/dashboard/energy-node-network-watch.service" \

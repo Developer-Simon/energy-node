@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -82,5 +84,25 @@ func TestApplyRuntimeDirChangesOnlyTheKey(t *testing.T) {
 	}
 	if exec.runs != 2 {
 		t.Fatalf("helper runs = %d, want 2", exec.runs)
+	}
+}
+
+// Restarting the dashboard stops the dashboard's cgroup, which kills the sudo
+// that asked for it. That signal is the restart working, not a failure.
+func TestRestartKilledBySignalIsNotAnError(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "kill -TERM $$")
+	killed := cmd.Run()
+	if killed == nil {
+		t.Fatal("test setup: command did not end by signal")
+	}
+	if !killedByRestart(killed) {
+		t.Fatalf("killedByRestart(%v) = false, want true", killed)
+	}
+	failed := exec.Command("sh", "-c", "exit 3").Run()
+	if killedByRestart(failed) {
+		t.Fatalf("killedByRestart(%v) = true for a normal exit code", failed)
+	}
+	if killedByRestart(errors.New("sudo: not found")) || killedByRestart(nil) {
+		t.Fatal("killedByRestart accepted a non-exit error")
 	}
 }

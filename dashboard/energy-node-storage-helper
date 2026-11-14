@@ -31,6 +31,8 @@ UDEVADM="${EN_STORAGE_UDEVADM:-/usr/bin/udevadm}"
 MKFS="${EN_STORAGE_MKFS:-/usr/sbin/mkfs.ext4}"
 WIPEFS="${EN_STORAGE_WIPEFS:-/usr/sbin/wipefs}"
 SYSTEMCTL="${EN_STORAGE_SYSTEMCTL:-/bin/systemctl}"
+JOURNALCTL="${EN_STORAGE_JOURNALCTL:-/bin/journalctl}"
+DEVICE_LINK_DIR="${EN_STORAGE_DEVICE_LINK_DIR:-/dev/disk/by-uuid}"
 
 UNIT_NAME='mnt-energy\x2dnode\x2ddata.mount'
 UNIT_FILE="$UNIT_DIR/$UNIT_NAME"
@@ -90,6 +92,24 @@ format_failed() {
 # system signatures go first: a new partition 1 starts where the old one did,
 # so a stick that held an installer image still carries its iso9660 signature
 # there. mkfs asks "Proceed anyway?" about it and, without a terminal, gives up.
+# mount_failed STEP UUID OUTPUT prints MOUNT_FAILED, the failed step with the
+# first line of its error output, whether the device link of the UUID exists
+# and the last journal lines of the mount unit on stdout and exits 1. The
+# dashboard reads only stdout, so without these lines its log holds nothing
+# but "exit status 1". Collecting them is best effort and never fails.
+mount_failed() {
+  printf 'MOUNT_FAILED\n'
+  detail="$(printf '%s\n' "$3" | head -n 1 | cut -c1-200)"
+  [ -z "$detail" ] || printf '%s: %s\n' "$1" "$detail"
+  if [ -e "$DEVICE_LINK_DIR/$2" ]; then
+    printf 'device link: present\n'
+  else
+    printf 'device link: missing\n'
+  fi
+  "$JOURNALCTL" -u "$UNIT_NAME" -n 3 -o cat --no-pager 2>/dev/null | cut -c1-200 || true
+  exit 1
+}
+
 mkfs_and_uuid() {
   err="$("$WIPEFS" -a "$1" 2>&1 >/dev/null)" || format_failed wipefs "$err"
   err="$("$MKFS" -L energy-node-data "$1" 2>&1 >/dev/null)" || format_failed mkfs "$err"
@@ -130,6 +150,18 @@ format_disk() {
   esac
 }
 
+# init_volume NODE_ID MARKER creates the directories of a new volume for OWNER
+# and writes the marker file last, so a half initialised volume has no marker.
+# The caller runs it on the left of an ||, where set -e is off, so every step
+# returns on its own failure.
+init_volume() {
+  for dir in runtime backups; do
+    mkdir -p "$MOUNT_POINT/$dir" || return 1
+    chown "$OWNER" "$MOUNT_POINT/$dir" || return 1
+  done
+  printf '%s\n' "$1" > "$2" || return 1
+}
+
 mount_volume() {
   uuid="$1"
   printf '%s\n' "$uuid" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
@@ -167,20 +199,16 @@ TimeoutSec=20s
 [Install]
 WantedBy=local-fs.target
 UNIT
-  "$SYSTEMCTL" daemon-reload || fail MOUNT_FAILED 1
-  if ! "$SYSTEMCTL" start "$UNIT_NAME"; then
+  err="$("$SYSTEMCTL" daemon-reload 2>&1)" || mount_failed daemon-reload "$uuid" "$err"
+  if ! err="$("$SYSTEMCTL" start "$UNIT_NAME" 2>&1)"; then
     rm -f "$UNIT_FILE"
     "$SYSTEMCTL" daemon-reload || true
-    fail MOUNT_FAILED 1
+    mount_failed start "$uuid" "$err"
   fi
 
   marker="$MOUNT_POINT/.energy-node-volume"
   if [ ! -e "$marker" ]; then
-    for dir in runtime backups; do
-      mkdir -p "$MOUNT_POINT/$dir"
-      chown "$OWNER" "$MOUNT_POINT/$dir"
-    done
-    printf '%s\n' "$node_id" > "$marker"
+    err="$(init_volume "$node_id" "$marker" 2>&1)" || mount_failed init "$uuid" "$err"
   fi
 }
 

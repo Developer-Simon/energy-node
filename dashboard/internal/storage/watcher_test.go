@@ -359,3 +359,88 @@ func newMonthForTest(t *testing.T, hour string, kwh float64) string {
 	}
 	return string(data)
 }
+
+// remountFixture wires the remount hooks: the drive counts as there once
+// plugged is true, mount makes it usable again like the helper does.
+type remountFixture struct {
+	w       *Watcher
+	plugged atomic.Bool
+	usable  atomic.Bool
+	mounts  []string
+	busy    atomic.Bool
+	mountFn func(uuid string) error
+	now     time.Time
+}
+
+func newRemountFixture(t *testing.T) *remountFixture {
+	t.Helper()
+	f := &remountFixture{now: watcherNow}
+	rec := &calls{}
+	f.w = newTestWatcher(t, testPaths(t), rec, &f.usable, FallbackSystem)
+	f.w.Now = func() time.Time { return f.now }
+	f.w.DevicePresent = func(string) bool { return f.plugged.Load() }
+	f.w.Busy = f.busy.Load
+	f.w.Mount = func(_ context.Context, uuid string) error {
+		f.mounts = append(f.mounts, uuid)
+		if f.mountFn != nil {
+			return f.mountFn(uuid)
+		}
+		f.usable.Store(true)
+		return nil
+	}
+	f.w.Tick(context.Background()) // starts on the fallback, drive missing
+	f.mounts = nil
+	return f
+}
+
+func TestReturnedDriveIsMountedAgain(t *testing.T) {
+	f := newRemountFixture(t)
+	f.plugged.Store(true)
+
+	st := f.w.Tick(context.Background())
+	if len(f.mounts) != 1 || f.mounts[0] != f.w.Config.UUID {
+		t.Fatalf("mount calls = %v, want one for %s", f.mounts, f.w.Config.UUID)
+	}
+	if st.Mode != ModeDrive {
+		t.Fatalf("Mode = %q, want %q after the remount", st.Mode, ModeDrive)
+	}
+}
+
+func TestNoRemountWhileTheDriveIsNotPlugged(t *testing.T) {
+	f := newRemountFixture(t)
+	f.w.Tick(context.Background())
+	if len(f.mounts) != 0 {
+		t.Fatalf("mount calls = %v, want none without a device", f.mounts)
+	}
+}
+
+func TestNoRemountWhileAJobRuns(t *testing.T) {
+	f := newRemountFixture(t)
+	f.plugged.Store(true)
+	f.busy.Store(true)
+	f.w.Tick(context.Background())
+	if len(f.mounts) != 0 {
+		t.Fatalf("mount calls = %v, want none while a storage job runs", f.mounts)
+	}
+}
+
+func TestFailedRemountIsRetriedLaterNotEveryTick(t *testing.T) {
+	f := newRemountFixture(t)
+	f.plugged.Store(true)
+	f.mountFn = func(string) error { return fmt.Errorf("exit status 1") }
+
+	f.w.Tick(context.Background())
+	f.now = f.now.Add(30 * time.Second)
+	f.w.Tick(context.Background())
+	if len(f.mounts) != 1 {
+		t.Fatalf("mount calls = %d after two ticks 30 s apart, want 1", len(f.mounts))
+	}
+	f.now = f.now.Add(3 * time.Minute)
+	st := f.w.Tick(context.Background())
+	if len(f.mounts) != 2 {
+		t.Fatalf("mount calls = %d after the retry delay, want 2", len(f.mounts))
+	}
+	if st.Mode != ModeFallbackSystem {
+		t.Fatalf("Mode = %q, want the fallback while the mount keeps failing", st.Mode)
+	}
+}
