@@ -30,6 +30,7 @@ printf '[Unit]\nUser=energynode\nExecStart=/home/energynode/dashboard/energy-nod
   > "$bundle/dashboard/energy-node-dashboard.service"
 printf '#!/bin/sh\nBRIDGE_OWNER="energynode"\nAPP_CONFIG_STAGED=/home/energynode/x\n' > "$bundle/dashboard/energy-node-dashboard-system-action"
 printf 'energynode ALL\n' > "$bundle/dashboard/energy-node-dashboard-system-action.sudoers"
+# shellcheck disable=SC2016 # the template line is literal, nothing should expand
 printf '#!/bin/sh\nOWNER="${EN_STORAGE_OWNER:-energynode}"\n' > "$bundle/dashboard/energy-node-storage-helper"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-updater"
 chmod +x "$bundle/dashboard/energy-node-updater"
@@ -86,6 +87,7 @@ helper="$tmp/root/usr/local/sbin/energy-node-dashboard-system-action"
 grep -qx 'BRIDGE_OWNER="pruef"' "$helper" \
   || fail "Helfer nicht fuer den Zielbenutzer gerendert" "$(cat "$helper")"
 storage_helper="$tmp/root/usr/local/sbin/energy-node-storage-helper"
+# shellcheck disable=SC2016 # the pattern is literal, nothing should expand
 grep -qxF 'OWNER="${EN_STORAGE_OWNER:-pruef}"' "$storage_helper" \
   || fail "Speicher-Helfer nicht fuer den Zielbenutzer gerendert" "$(cat "$storage_helper")"
 grep -qx 'APP_CONFIG_STAGED=/home/pruef/x' "$helper" \
