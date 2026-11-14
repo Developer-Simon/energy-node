@@ -1046,3 +1046,42 @@ test('Pi: Schritt 3 ohne Debian-Abschnitt, die Aufteilung bleibt', async (t) => 
   const doc = mediaTemplate();
   assert.equal(guardOf(doc, '.media-split').getAttribute('x-if'), 'isDebian');
 });
+
+test('Debian: Schreiben zeigt ohne Auftragsschritte die Ersatzschritte mit patch', async (t) => {
+  const { screen, shell } = writer({ 'GET /api/media/job': job({ steps: [] }) });
+  shell.shared.media.group = 'debian';
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.deepEqual(plain(screen.rows.map((row) => row.id)), ['download', 'checksum', 'patch', 'rights', 'write', 'verify', 'eject']);
+});
+
+test('Debian: die Karte kommt nach 30 Minuten, nicht nach 10', async (t) => {
+  const { screen, shell } = done();
+  shell.shared.media.device = 'deb-amd64';
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.equal(screen.isDebian, true);
+  screen.startedAt -= 10 * 60 * 1000;
+  screen.tick();
+  assert.equal(screen.slow, false, 'nach zehn Minuten noch keine Karte');
+  screen.startedAt -= 20 * 60 * 1000;
+  screen.tick();
+  assert.equal(screen.slow, true, 'nach dreissig Minuten die Karte');
+});
+
+test('Debian: Schritt 5 hat fuenf Punkte, die Warnung und beide Rueckfrage-Varianten', () => {
+  const doc = mediaTemplate();
+  const list = guardOf(doc, '[x-text="t(\'media.done.debian.5\')"]');
+  assert.equal(list.getAttribute('x-if'), 'isDebian');
+  assert.equal(list.content.querySelectorAll('ol > li').length, 5);
+  assert.ok(list.content.querySelector('.media-warn[role="note"]'), 'die Warnung ist hervorgehoben');
+  assert.ok(list.innerHTML.includes("t(eraseWithoutAsk ? 'media.done.debian.4.noask' : 'media.done.debian.4.ask')"));
+  assert.ok(list.innerHTML.includes("t(eraseWithoutAsk ? 'media.done.debian.5.warn_noask' : 'media.done.debian.5.warn')"));
+
+  assert.equal(guardOf(doc, '[x-text="t(\'media.done.pi.1\')"]').getAttribute('x-if'), '!isDebian', 'Pi behaelt seine drei Punkte');
+});
+
+test('Die Ursache ohne DHCP steht in der Fehlersuche nur bei Debian', () => {
+  const doc = mediaTemplate();
+  assert.equal(guardOf(doc, '[x-text="t(\'media.done.slow.dhcp\')"]').getAttribute('x-if'), 'isDebian');
+});

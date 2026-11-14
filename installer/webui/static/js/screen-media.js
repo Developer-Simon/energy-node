@@ -10,8 +10,6 @@
   var WRITE_POLL = 500;
   var DONE_CLOCK = 1000;
   var DONE_POLL = 5000;
-  var SLOW_AFTER = 10 * 60 * 1000;
-  var STEP_IDS = ['download', 'checksum', 'rights', 'write', 'verify', 'customize', 'eject'];
   // DEVICE_HINTS: die Zeile unter dem Namen einer Debian-Zeile.
   var DEVICE_HINTS = { 'deb-amd64': 'media.device.deb-amd64.hint', 'deb-arm64': 'media.device.deb-arm64.hint' };
 
@@ -761,6 +759,8 @@
       running: false,
       failed: false,
       timer: null,
+      // group: 'pi' oder 'debian', bestimmt die Ersatzschritte.
+      group: '',
 
       get shell() {
         return window.Installer.shell;
@@ -772,6 +772,7 @@
           this.shell.go('media-device');
           return;
         }
+        this.group = media.group || window.MediaModel.groupFor(media.device);
         return this.start();
       },
 
@@ -781,7 +782,7 @@
         if (rows.length) {
           return rows;
         }
-        return STEP_IDS.map(function (id) {
+        return window.MediaModel.fallbackSteps(this.group).map(function (id) {
           return { id: id, state: 'pending', labelKey: 'media.step.' + id };
         });
       },
@@ -900,8 +901,8 @@
   };
 
   // screenMediaDone: Schritt 5. Wartet, bis der fertige Rechner antwortet,
-  // zeigt nach zehn Minuten die Karte mit der Adresseingabe und uebergibt an
-  // die Einrichtung.
+  // zeigt nach der Wartezeit der Gruppe die Karte mit der Adresseingabe und
+  // uebergibt an die Einrichtung. Debian bekommt die Anleitung fuer den Stick.
   window.Screens.screenMediaDone = function screenMediaDone() {
     return {
       host: '',
@@ -913,6 +914,8 @@
       startedAt: 0,
       now: 0,
       slow: false,
+      // group: 'pi' oder 'debian', bestimmt Anleitung und Wartezeit.
+      group: '',
       clockTimer: null,
       pollTimer: null,
       seq: 0,
@@ -921,12 +924,24 @@
         return window.Installer.shell;
       },
 
+      get isDebian() {
+        return this.group === 'debian';
+      },
+
+      // eraseWithoutAsk: Debian ohne Rueckfrage am Zielgeraet, dann mit dem Zusatz zur Platte.
+      get eraseWithoutAsk() {
+        var settings = this.shell.shared.media.settings;
+        return this.isDebian && !!settings && settings.askBeforeErase === false;
+      },
+
       init() {
-        var target = this.shell.shared.media.target;
+        var media = this.shell.shared.media;
+        var target = media.target;
         if (!target) {
           this.shell.go('media-device');
           return;
         }
+        this.group = media.group || window.MediaModel.groupFor(media.device);
         this.host = target.host || '';
         this.user = target.user || '';
         this.keyPath = target.key_path || '';
@@ -960,7 +975,7 @@
 
       tick() {
         this.now = Date.now();
-        this.slow = this.now - this.startedAt >= SLOW_AFTER;
+        this.slow = this.now - this.startedAt >= window.MediaModel.waitLimit(this.group);
       },
 
       // check: fragt den Rechner ab. Eine Antwort zu einer alten Adresse zaehlt nicht.

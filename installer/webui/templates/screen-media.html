@@ -483,12 +483,31 @@
 
     <div class="media-cards">
       <section class="card">
-        <h2 class="card-h" x-text="t('media.done.title')"></h2>
-        <ol class="media-list">
-          <li x-text="t('media.done.pi.1')"></li>
-          <li x-text="t('media.done.pi.2')"></li>
-          <li x-text="t('media.done.pi.3', { host: address })"></li>
-        </ol>
+        <h2 class="card-h" x-text="t(isDebian ? 'media.done.debian.title' : 'media.done.title')"></h2>
+        <template x-if="!isDebian">
+          <ol class="media-list">
+            <li x-text="t('media.done.pi.1')"></li>
+            <li x-text="t('media.done.pi.2')"></li>
+            <li x-text="t('media.done.pi.3', { host: address })"></li>
+          </ol>
+        </template>
+        <template x-if="isDebian">
+          <ol class="media-list">
+            <li x-text="t('media.done.debian.1')"></li>
+            <li x-text="t('media.done.debian.2')"></li>
+            <li x-text="t('media.done.debian.3')"></li>
+            <li>
+              <span x-text="t('media.done.debian.4')"></span>
+              <span x-text="t(eraseWithoutAsk ? 'media.done.debian.4.noask' : 'media.done.debian.4.ask')"></span>
+            </li>
+            <li>
+              <span x-text="t('media.done.debian.5')"></span>
+              <div class="media-warn" role="note">
+                <span class="media-warn-t" x-text="t(eraseWithoutAsk ? 'media.done.debian.5.warn_noask' : 'media.done.debian.5.warn')"></span>
+              </div>
+            </li>
+          </ol>
+        </template>
 
         <template x-if="waiting">
           <div class="media-status" role="status">
@@ -511,6 +530,7 @@
             <div class="media-warn-t" x-text="t('media.done.slow.title')"></div>
             <ul class="media-parts">
               <li x-text="t('media.done.slow.network')"></li>
+              <template x-if="isDebian"><li x-text="t('media.done.slow.dhcp')"></li></template>
               <li x-text="t('media.done.slow.mdns')"></li>
               <li x-text="t('media.done.slow.boot')"></li>
             </ul>
