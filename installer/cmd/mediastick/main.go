@@ -29,15 +29,17 @@ func main() {
 	lang := flag.String("lang", "en", "installer language: de or en (amd64 only)")
 	pubkey := flag.String("pubkey", "", "installer public key file, one authorized_keys line (required)")
 	hostkey := flag.String("hostkey", "", "host key private file in OpenSSH format, public part read from <file>.pub (required)")
+	passhash := flag.String("passhash", "", "sha512-crypt hash of the emergency password (optional)")
+	sshpassword := flag.Bool("sshpassword", false, "also allow the emergency password for SSH (needs -passhash)")
 	flag.Parse()
 
-	if err := run(*in, *out, *arch, *ask, *lang, *pubkey, *hostkey); err != nil {
+	if err := run(*in, *out, *arch, *ask, *lang, *pubkey, *hostkey, *passhash, *sshpassword); err != nil {
 		fmt.Fprintln(os.Stderr, "mediastick:", err)
 		os.Exit(1)
 	}
 }
 
-func run(in, out, arch string, ask bool, lang, pubkey, hostkey string) error {
+func run(in, out, arch string, ask bool, lang, pubkey, hostkey, passhash string, sshpassword bool) error {
 	if in == "" || out == "" || pubkey == "" || hostkey == "" {
 		return fmt.Errorf("-in, -out, -pubkey and -hostkey are required")
 	}
@@ -60,6 +62,8 @@ func run(in, out, arch string, ask bool, lang, pubkey, hostkey string) error {
 			Hostname:      "energy-node",
 			User:          "node",
 			AuthorizedKey: authKey,
+			PasswordHash:  passhash,
+			SSHPassword:   sshpassword,
 			Timezone:      "Europe/Berlin",
 			Keyboard:      "de",
 		},
