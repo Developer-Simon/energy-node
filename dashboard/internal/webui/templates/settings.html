@@ -904,7 +904,7 @@
                 <template x-for="group in driveGroups" x-bind:key="group.key">
                   <li>
                     <template x-if="group.items.length === 1">
-                      <button type="button" class="bs-pick" role="radio" x-bind:aria-checked="drive && drive.kname === group.items[0].kname ? 'true' : 'false'" x-on:click="drive = group.items[0]">
+                      <button type="button" class="bs-pick" role="radio" x-bind:aria-checked="drive && drive.kname === group.items[0].kname ? 'true' : 'false'" x-on:click="chooseDrive(group.items[0])">
                         <span class="bs-pick-text"><strong x-text="group.items[0].name"></strong><small x-text="group.items[0].detail"></small></span>
                         <span class="bs-status" x-bind:class="group.items[0].needsFormat ? 'bs-status-warn' : 'bs-status-ok'" x-text="group.items[0].needsFormat ? $t('storage.status.format') : $t('storage.status.ready')"></span>
                       </button>
