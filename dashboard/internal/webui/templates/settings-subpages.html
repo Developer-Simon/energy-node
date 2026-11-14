@@ -386,16 +386,16 @@
       <section class="setting-card bs-drives" aria-labelledby="bs-drives-title">
         <h3 class="setting-card-title" id="bs-drives-title">{{t "storage.title"}}</h3>
 
-        <div class="bs-drive">
+        <div class="bs-drive" data-tour="storage-system">
           <div class="bs-drive-head"><strong>{{t "storage.system.title"}}</strong><span x-text="sizeText(system.size)"></span></div>
-          <div class="bs-meter" role="img" x-bind:aria-label="systemMeterLabel()">
+          <div class="bs-meter" data-tour="storage-system-meter" role="img" x-bind:aria-label="systemMeterLabel()">
             <template x-for="row in systemRows()" x-bind:key="row.key"><span class="bs-meter-part" x-bind:class="row.cls" x-bind:style="meterStyle(row.pct)"></span></template>
           </div>
           <div class="bs-legend">
             <template x-for="row in systemRows()" x-bind:key="row.key"><span x-show="!row.free"><i x-bind:class="row.cls"></i><span x-text="row.label"></span></span></template>
             <span class="bs-legend-free" x-text="$t('storage.legend.free', { free: systemFree() })"></span>
           </div>
-          <button type="button" class="bs-detail-toggle" id="bs-system-details-toggle" aria-controls="bs-system-details" x-bind:aria-expanded="systemOpen ? 'true' : 'false'" x-on:click="systemOpen = !systemOpen" x-show="systemHasParts()" x-cloak>
+          <button type="button" class="bs-detail-toggle" id="bs-system-details-toggle" data-tour="storage-details-toggle" aria-controls="bs-system-details" x-bind:aria-expanded="systemOpen ? 'true' : 'false'" x-on:click="systemOpen = !systemOpen" x-show="systemHasParts()" x-cloak>
             <span>{{t "storage.details.toggle"}}</span><svg class="automation-icon bs-detail-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
           </button>
           <div class="bs-reveal" id="bs-system-details" role="region" aria-labelledby="bs-system-details-toggle" x-bind:data-open="systemOpen ? 'true' : 'false'" x-show="systemHasParts()" x-cloak>
