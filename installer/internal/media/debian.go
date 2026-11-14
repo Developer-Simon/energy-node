@@ -29,8 +29,9 @@ var ErrSignature = errors.New("media: debian signature invalid")
 // architecture.
 var ErrNoRelease = errors.New("media: no debian netinst release for architecture")
 
-// debianKeyData is the Debian CD signing keyring, fetched from
-// https://ftp-master.debian.org/keys/ and checked against DebianKeyFingerprint.
+// debianKeyData is the Debian CD signing keyring. It was fetched from a public
+// keyserver and checked against DebianKeyFingerprint and
+// https://www.debian.org/CD/verify.
 //
 //go:embed debian_key.asc
 var debianKeyData []byte
