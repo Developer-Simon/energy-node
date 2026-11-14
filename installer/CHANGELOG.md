@@ -43,6 +43,7 @@
 
 - **installer:** ask for the pinned host key type when probing and signing in (#241) (a5e2b38)
 - **installer:** skip the Debian release lookup for unsupported devices (748c8fa)
+- **installer:** install python3 on the Debian stick target (68a35dd)
 - **installer:** read the JSON diagnose of a package without the stream (2d2fda2)
 - **installer:** keep the media cache check cheap (5553171)
 - **installer:** read the Wi-Fi name without a rescan and keep its band (092e503)
