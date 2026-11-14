@@ -56,6 +56,9 @@
   }
 
   var DiagnoseModel = {
+    // SECTIONS: die Abschnitte des Streams in der Reihenfolge von diagnose.sh --stream.
+    SECTIONS: ['bundle', 'units', 'ports', 'mqtt', 'webhook', 'config', 'info', 'tailscale', 'reboot', 'apt'],
+
     tally: function (view) {
       var out = { ok: 0, warn: 0, bad: 0 };
       ((view && view.checks) || []).forEach(function (check) {
@@ -94,8 +97,9 @@
       return typeof value === 'string' && value.length >= 8 && !/[\r\n]/.test(value);
     },
 
-    cards: function (view, manifest, shell, updatesState) {
+    cards: function (view, manifest, shell, updatesState, pending) {
       var t = shell.t.bind(shell);
+      var open = pending || [];
       var byGroup = { services: [], system: [], config: [] };
       ((view && view.checks) || []).forEach(function (check) {
         (byGroup[check.group] || byGroup.system).push(check);
@@ -114,6 +118,35 @@
 
       var versions = view.versions || {};
       var serviceVersions = versions.services || {};
+      var serviceUnits = ((manifest && manifest.steps) || []).filter(function (step) {
+        return step.service_id && step.unit;
+      }).length;
+
+      // skeleton: ein offener Abschnitt zeigt Platzhalter, damit die Karte schon
+      // die spaetere Form hat. Die Schluessel sind sk-<abschnitt>-<i>.
+      function skeleton(section, count) {
+        var parts = [];
+        if (open.indexOf(section) === -1) {
+          return parts;
+        }
+        for (var i = 0; i < count; i += 1) {
+          parts.push({ key: 'sk-' + section + '-' + i, type: 'sk', cls: 'r sk-row' });
+        }
+        return parts;
+      }
+
+      function skeletonOf(group) {
+        if (group === 'services') {
+          return skeleton('units', serviceUnits);
+        }
+        if (group === 'system') {
+          return skeleton('units', 4).concat(skeleton('ports', 1), skeleton('mqtt', 1), skeleton('tailscale', 1), skeleton('apt', 1));
+        }
+        if (group === 'config') {
+          return skeleton('config', 1);
+        }
+        return skeleton('info', 3);
+      }
 
       // serviceLabel: der Unit-Name ohne .service, dahinter die installierte
       // Version des Dienstes, sofern installed-manifest.json sie kennt.
@@ -253,7 +286,8 @@
       // sie nicht (aelteres Paket), null = nicht ermittelbar.
       function systemUpdateParts() {
         var updates = view.system_updates;
-        if (updates === undefined) {
+        // Solange apt offen ist, steht die Zeile als Skeleton da, nicht als "unbekannt".
+        if (updates === undefined || open.indexOf('apt') !== -1) {
           return [];
         }
         var state = updatesState || {};
@@ -305,10 +339,11 @@
           if (group === 'system') {
             parts = parts.concat(systemUpdateParts());
           }
+          parts = parts.concat(skeletonOf(group));
           return { key: group, heading: t('diagnose.group.' + group), side: group === 'services' ? 'left' : 'right', parts: parts };
         })
         .filter(function (card) { return card.parts.length; });
-      var installed = versionParts();
+      var installed = versionParts().concat(skeletonOf('versions'));
       if (installed.length) {
         cards.push({ key: 'versions', heading: t('diagnose.group.versions'), side: 'right', parts: installed });
       }
@@ -355,6 +390,11 @@
     return {
       view: null,
       manifest: null,
+      // pending: die Abschnitte, die der Stream noch nicht geliefert hat. Solange
+      // sie offen sind, sind die Karten Skeleton und busy bleibt true.
+      pending: DiagnoseModel.SECTIONS.slice(),
+      streaming: false,
+      stream: null,
       busy: false,
       updatesBusy: false,
       updatesError: '',
@@ -575,31 +615,91 @@
       },
 
       async load() {
+        this.stopStream();
+        this.view = {};
+        this.checkedAt = null;
+        this.updateBar();
+        this.pending = DiagnoseModel.SECTIONS.slice();
         this.busy = true;
         this.shell.error = null;
-        this.shell.progress = 'diagnose.progress.loading';
         var shared = this.shell.shared;
         try {
-          var results = await Promise.all([
-            window.Api.get('/api/diagnose'),
-            shared.manifest ? Promise.resolve(shared.manifest) : window.Api.get('/api/manifest'),
-          ]);
-          this.view = results[0];
-          this.manifest = shared.manifest = results[1];
-          this.checkedAt = Date.now();
+          if (!shared.manifest) {
+            shared.manifest = await window.Api.get('/api/manifest');
+          }
+          this.manifest = shared.manifest;
         } catch (err) {
           this.shell.fail(err);
-        } finally {
+          this.pending = [];
           this.busy = false;
           this.shell.progress = null;
           this.updateBar();
+          return;
+        }
+        this.openStream();
+      },
+
+      // openStream: der Stream liefert je Abschnitt ein Ereignis. Mit dem letzten
+      // (pending leer) ist die Diagnose fertig, der Stream schliesst sich selbst.
+      openStream() {
+        var self = this;
+        var handle = null;
+        var ended = false;
+        function finish() {
+          ended = true;
+          self.streaming = false;
+          if (self.stream === handle) {
+            self.stream = null;
+          }
+        }
+        this.streaming = true;
+        handle = window.DiagnoseStream.open({
+          onProgress: function (progress) {
+            if (ended) {
+              return;
+            }
+            self.view = progress.view || {};
+            self.pending = progress.pending || [];
+            if (self.settled) {
+              self.checkedAt = Date.now();
+              finish();
+              self.busy = false;
+              self.shell.progress = null;
+            }
+            self.updateBar();
+          },
+          onEnd: function (err) {
+            if (ended) {
+              return;
+            }
+            finish();
+            self.shell.fail(err);
+            self.pending = [];
+            self.busy = false;
+            self.shell.progress = null;
+            self.updateBar();
+          },
+        });
+        // Ein Stream kann schon vor der Rueckgabe fertig sein (Stub, Fehler beim Oeffnen).
+        if (!ended) {
+          this.stream = handle;
+        }
+      },
+
+      // stopStream schliesst einen laufenden Stream, damit er keine alten Ereignisse liefert.
+      stopStream() {
+        var stream = this.stream;
+        this.stream = null;
+        this.streaming = false;
+        if (stream) {
+          stream.close();
         }
       },
 
       updateBar() {
         var bar = this.shell.bar;
         var host = this.shell.shared.target.host || window.location.hostname;
-        bar.lead = this.view
+        bar.lead = this.view && this.view.bundle_version
           ? this.shell.t('diagnose.bar.lead', { host: host, version: window.Format.plainVersion(this.view.bundle_version) })
           : '';
         bar.status = this.checkedAt
@@ -612,6 +712,7 @@
           window.clearInterval(this.timer);
           this.timer = null;
         }
+        this.stopStream();
         if (this.liveStream) {
           this.liveStream.close();
           this.liveStream = null;
@@ -624,8 +725,12 @@
 
       get cards() {
         return this.view && this.manifest
-          ? DiagnoseModel.cards(this.view, this.manifest, this.shell, { busy: this.updatesBusy, error: this.updatesError })
+          ? DiagnoseModel.cards(this.view, this.manifest, this.shell, { busy: this.updatesBusy, error: this.updatesError }, this.pending)
           : [];
+      },
+
+      get settled() {
+        return this.pending.length === 0;
       },
 
       get leftCards() {
@@ -725,6 +830,10 @@
 
       // save: Bericht plus je Unit die gepufferten Zeilen, alles geschwaerzt.
       save() {
+        // Vor dem letzten Ereignis ist der Bericht unvollstaendig, also gibt es ihn nicht.
+        if (!this.settled || !this.view) {
+          return;
+        }
         var LiveLog = window.LiveLog;
         var self = this;
         var text = DiagnoseModel.reportText(this.view, new Date());

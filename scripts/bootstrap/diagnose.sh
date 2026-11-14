@@ -8,6 +8,13 @@
 #
 # Bash sammelt Zeilen der Form "art<TAB>schluessel<TAB>wert", Python baut
 # daraus das JSON. So steckt das Escaping an genau einer Stelle.
+#
+# Jeder Abschnitt endet mit der Zeile "section<TAB>name<TAB>done", in fester
+# Reihenfolge: bundle units ports mqtt webhook config info tailscale reboot
+# apt. Der Abschnitt apt laeuft im Hintergrund und kommt als letzter.
+#
+# --stream gibt die Rohzeilen aus, ohne JSON-Zusammenbau (fuer den
+# Live-Bericht im Installer). Ohne Schalter bleibt es ein JSON-Bericht.
 set -uo pipefail
 # Vor step.sh merken: step.sh setzt EN_TARGET_BASE ohne Vorgabe auf $HOME,
 # die Diagnose nimmt dann lieber target_base aus dem installierten Manifest.
@@ -25,8 +32,16 @@ FIXED_UNITS=(
   caddy.service
 )
 
+section() { printf 'section\t%s\tdone\n' "$1"; }
+
 collect() {
   local tab=$'\t'
+
+  # apt-Abfrage im Hintergrund: sie kann bis zu fuenf Minuten auf den
+  # Paketlisten-Lock warten, die anderen Abschnitte sollen nicht darauf warten.
+  EN_ROOT="${EN_ROOT}" python3 "$(dirname "${BASH_SOURCE[0]}")/lib/apt_pending.py" \
+    >"${apt_out}" 2>/dev/null &
+  local apt_pid=$!
 
   printf 'bundle%sversion%s%s\n' "$tab" "$tab" "${EN_BUNDLE_VERSION}"
 
@@ -38,6 +53,7 @@ collect() {
     printf 'step%s%s%s%s\n' "$tab" "${id}" "$tab" \
       "$(sed -n 's/^bundle=//p' "${stamp}" | head -n 1)"
   done
+  section bundle
 
   # Units: die festen plus jede unit aus der Schrittliste des Manifests.
   local units=("${FIXED_UNITS[@]}") unit state
@@ -67,6 +83,7 @@ for entry in data.get("steps", []):
     fi
     printf 'unit%s%s%s%s\n' "$tab" "${unit}" "$tab" "${state}"
   done
+  section units
 
   # Lauschende Ports. ss fehlt auf manchen Minimal-Images; dann gilt nichts
   # als offen, statt dass der Bericht ausfaellt.
@@ -81,6 +98,7 @@ for entry in data.get("steps", []):
       printf 'port%s%s%sfalse\n' "$tab" "${port}" "$tab"
     fi
   done
+  section ports
 
   # Anmeldebefund am MQTT-Broker mit den Zugangsdaten aus der config.json.
   # Das Passwort liest sudo aus der (root-eigenen) Datei und reicht es roh an
@@ -116,6 +134,7 @@ print("\t".join(fields))
       printf 'mqtt%slogin%s%s\n' "$tab" "$tab" "${result}"
     fi
   fi
+  section mqtt
 
   # Shelly-Wake-Webhook: nur, wenn der Betreiber die Freigabe gewaehlt hat
   # (Schritt 35) und der Shelly-Dienst installiert ist. Firewall-Regel und
@@ -132,6 +151,7 @@ print("\t".join(fields))
     printf 'webhook%sfirewall%s%s\n' "$tab" "$tab" "${allowed}"
     printf 'webhook%slistening%s%s\n' "$tab" "$tab" "${listens}"
   fi
+  section webhook
 
   if [[ -f "${etc}/config.json" ]]; then
     printf 'config%sconfig.json%strue\n' "$tab" "$tab"
@@ -143,6 +163,7 @@ print("\t".join(fields))
     [[ -f "${manifest}" ]] || continue
     printf 'manifest%s%s%s\n' "$tab" "$(basename "${manifest}" .json)" "$tab"
   done
+  section config
 
   # Installierte Versionen (aus installed-manifest.json, das der Installer
   # nach jedem vollstaendigen Lauf ablegt) und die konfigurierten Geraete je
@@ -194,6 +215,7 @@ for step in bundle.get("steps") or []:
     if found:
         print("devices\t%s\t%s" % (unit, json.dumps(items if readable else None, ensure_ascii=False)))
 PY
+  section info
 
   # tailscale liegt in /usr/sbin, das im PATH einer nicht-interaktiven
   # SSH-Sitzung fehlt (Debian: /usr/local/bin:/usr/bin:/bin:/usr/games). Ein
@@ -204,6 +226,7 @@ PY
   else
     printf 'tailscale%sangemeldet%sfalse\n' "$tab" "$tab"
   fi
+  section tailscale
 
   # Debians Markierung (Schritt 15 legt sie nach Kernel-Updates an). Sie
   # liegt in /run und verschwindet beim Neustart von selbst.
@@ -212,15 +235,21 @@ PY
   else
     printf 'reboot%srequired%sfalse\n' "$tab" "$tab"
   fi
+  section reboot
 
   # Ausstehende Systempakete, letzter Stand der Paketlisten (ohne apt-get
-  # update). Eine Zeile JSON oder null.
-  printf 'apt%spending%s%s\n' "$tab" "$tab" \
-    "$(EN_ROOT="${EN_ROOT}" python3 "$(dirname "${BASH_SOURCE[0]}")/lib/apt_pending.py")"
+  # update). Das Ergebnis der Hintergrundabfrage: eine Zeile JSON, oder null,
+  # wenn die Datei leer ist (apt fehlt oder scheitert).
+  wait "${apt_pid}" || true
+  local apt_json
+  apt_json="$(cat "${apt_out}")"
+  printf 'apt%spending%s%s\n' "$tab" "$tab" "${apt_json:-null}"
+  section apt
 }
 
 tmp_py="$(mktemp)"
-trap 'rm -f "$tmp_py"' EXIT
+apt_out="$(mktemp)"
+trap 'rm -f "$tmp_py" "$apt_out"' EXIT
 
 cat > "$tmp_py" <<'PY'
 import json, sys
@@ -280,5 +309,9 @@ report["config"]["manifests"].sort()
 print(json.dumps(report, indent=2, ensure_ascii=False))
 PY
 
-collect | python3 "$tmp_py"
+if [[ "${1:-}" == --stream ]]; then
+  collect
+else
+  collect | python3 "$tmp_py"
+fi
 exit 0

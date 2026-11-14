@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 )
 
 var _ hostapi.Backend = (*stagedBackend)(nil)
+var _ hostapi.DiagnoseStreamer = (*stagedBackend)(nil)
 
 type countingSink struct{ markers, logs, notes int }
 
@@ -297,5 +299,41 @@ func TestTheMqttDeniedScenarioFlipsOnlyOnARepairWithThePassword(t *testing.T) {
 	}
 	if got := mqttCheck(); !got.OK || got.Detail != "ok" || got.Needs != "" {
 		t.Fatalf("after the repair with the password: got %+v", got)
+	}
+}
+
+func TestTheDiagnoseStreamsSectionBySection(t *testing.T) {
+	backend := newScenario("vorlage", options{diagnoseDelay: time.Millisecond})
+	var events []hostapi.DiagnoseProgress
+	if err := backend.DiagnoseStream(context.Background(), func(p hostapi.DiagnoseProgress) { events = append(events, p) }); err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != len(hostapi.DiagnoseSections) {
+		t.Fatalf("got %d events, want one per section (%d)", len(events), len(hostapi.DiagnoseSections))
+	}
+	for i, event := range events {
+		want := hostapi.DiagnoseSections[i+1:]
+		if len(event.Pending) != len(want) || (len(want) > 0 && !reflect.DeepEqual(event.Pending, want)) {
+			t.Errorf("event %d pending = %v, want %v", i, event.Pending, want)
+		}
+	}
+	last := events[len(events)-1]
+	full, err := backend.Diagnose(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(last.Pending) != 0 || !reflect.DeepEqual(last.View, full) {
+		t.Errorf("the last event must be empty and equal Diagnose(), got pending %v", last.Pending)
+	}
+}
+
+func TestTheDiagnoseWithoutDelayIsOneEvent(t *testing.T) {
+	backend := newScenario("vorlage", options{})
+	var events []hostapi.DiagnoseProgress
+	if err := backend.DiagnoseStream(context.Background(), func(p hostapi.DiagnoseProgress) { events = append(events, p) }); err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Pending == nil || len(events[0].Pending) != 0 {
+		t.Fatalf("without a delay the diagnose is one event with nothing pending, got %+v", events)
 	}
 }

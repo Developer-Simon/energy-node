@@ -10,6 +10,8 @@
     <template x-if="part.type === 'warnbox'"><p x-text="part.text"></p></template>
     <template x-if="part.type === 'devs'"><span x-text="part.text"></span></template>
     <template x-if="part.type === 'act'"><button type="button" class="small" :disabled="part.busy || busy" @click="refreshUpdates()" x-text="part.label"></button></template>
+    <template x-if="part.type === 'sk'"><span class="sk sk-n" aria-hidden="true"></span></template>
+    <template x-if="part.type === 'sk'"><span class="sk sk-v" aria-hidden="true"></span></template>
   </div>
 </template>{{end}}
 
@@ -39,7 +41,7 @@
     </div>
   </template>
   <div class="body">
-    <div class="tally">
+    <div class="tally" :class="{ pending: !settled }">
       <span class="tl ok"><span class="tl-n" x-text="tally.ok"></span><span class="tl-l" x-text="t('diagnose.tally.ok')"></span></span>
       <span class="tl warn"><span class="tl-n" x-text="tally.warn"></span><span class="tl-l" x-text="tn('diagnose.tally.warn', tally.warn)"></span></span>
       <span class="tl bad"><span class="tl-n" x-text="tally.bad"></span><span class="tl-l" x-text="tn('diagnose.tally.bad', tally.bad)"></span></span>
@@ -47,12 +49,12 @@
 
     <div class="cols">
       <template x-for="card in leftCards" :key="card.key">
-        <section class="card">{{template "diagnose-card"}}</section>
+        <section class="card" :aria-busy="card.parts.some(p => p.type === 'sk')">{{template "diagnose-card"}}</section>
       </template>
 
       <div class="stack">
         <template x-for="card in rightCards" :key="card.key">
-          <section class="card">{{template "diagnose-card"}}</section>
+          <section class="card" :aria-busy="card.parts.some(p => p.type === 'sk')">{{template "diagnose-card"}}</section>
         </template>
       </div>
     </div>
@@ -100,7 +102,7 @@
     <button type="button" class="ghost" @click="close()" x-text="t('action.close')"></button>
     <span class="foot-spacer"></span>
     <span class="foot-hint" x-text="t('diagnose.hint')"></span>
-    <button type="button" :disabled="!view" @click="save()" x-text="t('action.save_report')"></button>
+    <button type="button" :disabled="!settled || !checkedAt" @click="save()" x-text="t('action.save_report')"></button>
   </footer>
 </div>
 </template>{{end}}

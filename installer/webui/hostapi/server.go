@@ -154,6 +154,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/cancel", s.handleCancel)
 	s.mux.HandleFunc("/api/events", s.handleEvents)
 	s.mux.HandleFunc("/api/diagnose", s.handleDiagnose)
+	s.mux.HandleFunc("/api/diagnose/stream", s.handleDiagnoseStream)
 	s.mux.HandleFunc("/api/hotspot", s.handleHotspot)
 	s.mux.HandleFunc("/api/changelog", s.handleChangelog)
 	s.mux.HandleFunc("/api/system-updates", s.handleSystemUpdates)

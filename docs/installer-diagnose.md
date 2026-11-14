@@ -14,7 +14,7 @@ responsible for it. Next to the checks the screen shows what is installed:
 each service with its version and its configured devices, services that were
 never chosen marked as not installed, and a card with the package, bootstrap
 and wheel versions. This part is for information and does not count as checks.
-**Save report** writes the result to a file. Attach that file to a bug report.
+**Save report** writes the result to a file. Attach that file to a bug report. The checks appear one section at a time while the diagnostics run, and the system updates come last because the package check takes longer on small devices.
 
 A repair always runs its step again, even if the step is already marked as done. The checklist also tries the MQTT login from the node's `config.json` against the broker. If the broker refuses the password or the password file is missing, the repair button asks for a new password, or generates a random one, and then runs the broker step and the dashboard step together so that both use it. The user name stays as it is in `config.json`.
 

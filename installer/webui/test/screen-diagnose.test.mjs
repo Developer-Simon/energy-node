@@ -15,9 +15,30 @@ function stubLive(window) {
   return live;
 }
 
+// stubDiagnoseStream ersetzt DiagnoseStream.open: ohne manual ruft der Stub synchron
+// das Ergebnis aus den Antworten (oder den Fehler) auf. Die Oeffnungen und Schliessungen zaehlt er.
+function stubDiagnoseStream(mounted, manual) {
+  const stream = { opens: [], closes: 0 };
+  mounted.window.DiagnoseStream = {
+    open: (options) => {
+      stream.opens.push(options);
+      if (!manual) {
+        const err = mounted.state.errors['GET /api/diagnose'];
+        if (err) {
+          options.onEnd({ code: err.code, detail: err.detail || '' });
+        } else {
+          options.onProgress({ view: mounted.state.responses['GET /api/diagnose'], pending: [] });
+        }
+      }
+      return { close: () => { stream.closes += 1; } };
+    },
+  };
+  return stream;
+}
+
 async function mount(options = {}) {
   const mounted = mountScreen('screen-diagnose.js', 'screenDiagnose', Object.assign({
-    scripts: ['services.js', 'download.js', 'live-log.js'],
+    scripts: ['services.js', 'download.js', 'live-log.js', 'diagnose-stream.js'],
     catalog: realCatalog('de'),
     responses: Object.assign({
       'GET /api/diagnose': DIAGNOSE,
@@ -33,6 +54,7 @@ async function mount(options = {}) {
   mounted.window.setInterval = () => 1;
   mounted.window.clearInterval = () => {};
   mounted.live = stubLive(mounted.window);
+  mounted.stream = stubDiagnoseStream(mounted, options.manualStream);
   await mounted.screen.init();
   return mounted;
 }
@@ -222,9 +244,9 @@ test('Zufaelliges Passwort fuellt das Feld mit einem gueltigen Wert', async () =
 });
 
 test('Erneut pruefen in der Kopfleiste laedt neu', async () => {
-  const { shell, calls } = await mount();
+  const { shell, stream } = await mount();
   await shell.bar.action.run();
-  assert.equal(calls.filter((call) => call.key === 'GET /api/diagnose').length, 2);
+  assert.equal(stream.opens.length, 2);
 });
 
 test('Bericht speichern schreibt jede Pruefung als Zeile', async () => {
@@ -617,4 +639,89 @@ test('destroy closes the stream', async () => {
   const mounted = await mountLive();
   mounted.screen.destroy();
   assert.equal(mounted.live.closes, 1);
+});
+
+// Stream: der Bildschirm baut die Diagnose aus den Teilstaenden auf.
+const unitsOnly = () => Object.assign({}, DIAGNOSE, {
+  checks: DIAGNOSE.checks.filter((check) => /\.service$/.test(check.subject)),
+});
+const LATER = ['ports', 'mqtt', 'webhook', 'config', 'info', 'tailscale', 'reboot', 'apt'];
+const skOf = (card) => card.parts.filter((part) => part.type === 'sk');
+
+test('vor dem ersten Ereignis stehen alle Karten als Skeleton da', async () => {
+  const { screen, shell } = await mount({ manualStream: true });
+  assert.ok(!shell.progress, 'kein Ladebanner neben den Skeletons');
+  const cards = screen.cards;
+  assert.deepEqual(plain(cards.map((card) => card.key)), ['services', 'system', 'config', 'versions']);
+  assert.ok(cards.every((card) => card.parts.every((part) => part.type === 'sk')));
+  assert.equal(skOf(cards[0]).length, 6, 'eine Zeile je Dienst-Unit im Manifest');
+  assert.equal(skOf(cards[1]).length, 8, 'vier Units, Ports, MQTT, tailscale, apt');
+  assert.equal(skOf(cards[2]).length, 1);
+  assert.equal(skOf(cards[3]).length, 3);
+  assert.deepEqual(plain(screen.tally), { ok: 0, warn: 0, bad: 0 });
+  assert.equal(screen.settled, false);
+});
+
+test('ein Teilstand ersetzt nur die fertigen Abschnitte', async () => {
+  const { screen, stream } = await mount({ manualStream: true });
+  stream.opens[0].onProgress({ view: unitsOnly(), pending: LATER });
+  const [services, system] = screen.cards;
+  assert.equal(skOf(services).length, 0);
+  assert.ok(rows(services).length > 0, 'Dienste-Karte hat echte Zeilen');
+  assert.deepEqual(plain(skOf(system).map((part) => part.key)), ['sk-ports-0', 'sk-mqtt-0', 'sk-tailscale-0', 'sk-apt-0']);
+  assert.equal(system.parts.some((part) => part.type === 'fail' && /tailscale/.test(part.key)), false);
+  assert.equal(screen.settled, false);
+});
+
+test('Bericht speichern und Reparatur sind erst nach dem letzten Ereignis frei', async () => {
+  const { screen, stream, window, calls } = await mount({ manualStream: true });
+  const saved = [];
+  window.Download.text = (name) => saved.push(name);
+  stream.opens[0].onProgress({ view: DIAGNOSE, pending: ['apt'] });
+  assert.equal(screen.busy, true);
+  screen.save();
+  assert.deepEqual(saved, []);
+  const fail = screen.cards[0].parts.find((part) => part.type === 'fail');
+  await screen.retry(fail);
+  assert.equal(calls.some((call) => call.key === 'POST /api/run'), false);
+  stream.opens[0].onProgress({ view: DIAGNOSE, pending: [] });
+  assert.equal(screen.busy, false);
+  screen.save();
+  assert.equal(saved.length, 1);
+});
+
+test('ein Abbruch behaelt die Werte und zeigt den Fehler', async () => {
+  const { screen, shell, stream } = await mount({ manualStream: true });
+  stream.opens[0].onProgress({ view: unitsOnly(), pending: LATER });
+  const before = plain(rows(screen.cards[0]));
+  assert.ok(before.length > 0);
+  stream.opens[0].onEnd({ code: 'DIAGNOSE_STREAM_LOST', detail: '' });
+  assert.equal(shell.error.code, 'DIAGNOSE_STREAM_LOST');
+  assert.deepEqual(plain(rows(screen.cards[0])), before);
+  assert.equal(screen.busy, false);
+  assert.deepEqual(plain(screen.pending), []);
+});
+
+test('ein Neuladen vergisst die letzte Pruefzeit bis zum letzten Ereignis', async () => {
+  const { screen, shell, stream, window } = await mount();
+  assert.equal(shell.bar.status, 'geprüft vor 0 s');
+  // Der naechste Stream liefert nichts von selbst, die Ereignisse loest der Test aus.
+  window.DiagnoseStream.open = (options) => {
+    stream.opens.push(options);
+    return { close: () => { stream.closes += 1; } };
+  };
+  await screen.load();
+  assert.equal(shell.bar.status, '');
+  stream.opens[1].onProgress({ view: DIAGNOSE, pending: ['apt'] });
+  assert.equal(shell.bar.status, '');
+  stream.opens[1].onProgress({ view: DIAGNOSE, pending: [] });
+  assert.equal(shell.bar.status, 'geprüft vor 0 s');
+});
+
+test('Erneut pruefen schliesst den laufenden Stream', async () => {
+  const { screen, stream } = await mount({ manualStream: true });
+  assert.equal(stream.opens.length, 1);
+  await screen.load();
+  assert.equal(stream.closes, 1);
+  assert.equal(stream.opens.length, 2);
 });
