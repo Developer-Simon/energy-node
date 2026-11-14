@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storageusage"
 )
 
 func TestStoragePathUsesDemoDirOnlyWhenSet(t *testing.T) {
@@ -39,5 +41,34 @@ func TestDemoDriveListerReadsTheFileEachTime(t *testing.T) {
 	want := storage.Drive{Kname: "sdb", Name: "SanDisk Ultra", FSType: "exfat", Size: 64424509440, NeedsFormat: true, Contents: "storage.contents.foreign"}
 	if len(drives) != 1 || drives[0] != want {
 		t.Fatalf("drives = %+v, want %+v", drives, want)
+	}
+}
+
+// Trägt das Laufwerk die Daten, liegen laufende Daten und Backups nicht mehr auf
+// der Systemplatte. Fällt es aus, kommen sie zurück.
+func TestDemoStorageUsageDropsDataMovedToTheDrive(t *testing.T) {
+	dir := t.TempDir()
+	if err := storage.SaveConfig(dir, storage.Config{UUID: "u", UseData: true, UseBackups: true}); err != nil {
+		t.Fatal(err)
+	}
+	mode := storage.ModeNone
+	meter := demoStorageUsage(func() storage.Status { return storage.Status{Mode: mode} }, dir)
+	wait := func(key string) storageusage.Parts {
+		t.Helper()
+		for i := 0; i < 200; i++ {
+			if p, ok := meter.Get(key); ok {
+				return p
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+		t.Fatal("no measurement")
+		return storageusage.Parts{}
+	}
+	if p := wait("none"); p.Runtime == 0 || p.Backups == 0 || p.Install == 0 {
+		t.Fatalf("without a drive all parts count, got %+v", p)
+	}
+	mode = storage.ModeDrive
+	if p := wait("drive"); p.Runtime != 0 || p.Backups != 0 || p.Install == 0 {
+		t.Fatalf("with the drive active only the installation stays, got %+v", p)
 	}
 }

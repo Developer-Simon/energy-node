@@ -13,7 +13,9 @@ shown when your account has the permission *Manage storage*
 The card for the system drive splits its usage into Operating system,
 energy-node installation, Running data, Backups and free. The node measures the
 parts in the background and refreshes them every 10 minutes. Right after the
-start the card may show only the total usage for a short time.
+start the card may show only the total usage for a short time. Parts that
+moved to the additional drive no longer count on the system drive. Open
+"Details" under a meter to see the size and share of every part.
 
 ## What moves to the drive
 

@@ -18,9 +18,31 @@
 .bs-part-install { background: var(--warn-line, var(--accent-soft)); }
 .bs-part-data { background: var(--accent-line); }
 .bs-part-backup { background: var(--info-line, var(--accent-soft)); }
+.bs-part-free { background: var(--track); }
 .bs-legend { display: flex; flex-wrap: wrap; gap: .1rem .8rem; color: var(--text-muted); font-size: .75rem; }
 .bs-legend i { display: inline-block; width: .55rem; height: .55rem; margin-right: .3rem; border-radius: 50%; }
 .bs-legend-free { margin-left: auto; }
+/* Details: Aufklappen ohne Hoehe in Pixeln, Raster von 0fr auf 1fr. Der
+   Abstand des Rasters wird im geschlossenen Zustand mit eingezogen. */
+.bs-detail-toggle { display: inline-flex; align-items: center; justify-self: start; gap: .25rem; margin: .1rem 0 0 -.3rem; padding: .25rem .3rem; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); font-size: .78rem; font-weight: 600; transition: color .14s ease, transform .1s ease; }
+.bs-detail-toggle:active { transform: scale(.97); }
+.bs-detail-chev { flex: none; width: .85rem; height: .85rem; transform: rotate(90deg); transition: transform .28s var(--layout-ease); }
+.bs-detail-toggle[aria-expanded="true"] .bs-detail-chev { transform: rotate(-90deg); }
+@media (hover: hover) and (pointer: fine) { .bs-detail-toggle:hover { color: var(--text-strong); } }
+.bs-reveal { display: grid; grid-template-rows: 0fr; margin-top: -.4rem; visibility: hidden; opacity: 0; transition: grid-template-rows .28s var(--layout-ease), margin-top .28s var(--layout-ease), opacity .18s ease, visibility 0s linear .28s; }
+.bs-reveal[data-open="true"] { grid-template-rows: 1fr; margin-top: 0; visibility: visible; opacity: 1; transition: grid-template-rows .28s var(--layout-ease), margin-top .28s var(--layout-ease), opacity .2s ease .05s, visibility 0s; }
+.bs-reveal-inner { min-height: 0; overflow: hidden; }
+.bs-detail-list { display: grid; gap: .1rem; margin: 0; padding: .35rem 0 0; list-style: none; border-top: 1px solid var(--border-soft); }
+.bs-detail-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto 3.2rem; align-items: baseline; gap: .6rem; padding: .35rem 0; font-size: .82rem; }
+.bs-detail-row i { width: .55rem; height: .55rem; border-radius: 50%; align-self: center; }
+.bs-detail-name { display: grid; gap: .05rem; min-width: 0; color: var(--text); }
+.bs-detail-name small { color: var(--text-muted); font-size: .74rem; }
+.bs-detail-size, .bs-detail-pct { color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.bs-detail-size { color: var(--text); }
+.bs-detail-note { margin: .2rem 0 0; color: var(--text-muted); font-size: .74rem; }
+@media (prefers-reduced-motion: reduce) {
+  .bs-reveal, .bs-reveal[data-open="true"], .bs-detail-chev { transition: opacity .15s ease, visibility 0s; }
+}
 .bs-drive-missing { padding: .7rem .8rem; border: 1px solid var(--warn-line); border-radius: 12px; background: color-mix(in srgb, var(--warn-bg) 55%, transparent); }
 .bs-drive-missing .icon-button { justify-self: start; }
 .bs-drive-missing .setting-note { margin: 0; }

@@ -424,7 +424,7 @@ func main() {
 	// im Hintergrund, die alle zehn Minuten erneuert wird.
 	var storageUsage *storageusage.Meter
 	if os.Getenv(storageDemoEnv) != "" {
-		storageUsage = demoStorageUsage()
+		storageUsage = demoStorageUsage(storageStatus, dataDir)
 	} else {
 		exe, _ := os.Executable()
 		storageUsage = storageusage.NewMeter(func() storageusage.Parts {

@@ -20,11 +20,27 @@ import (
 const storageDemoEnv = "ENERGY_NODE_STORAGE_DEMO"
 
 // demoStorageUsage liefert feste Werte für die Systemplatte, damit die Demo
-// dieselben Teile zeigt, ohne die echte Platte zu messen.
-func demoStorageUsage() *storageusage.Meter {
+// dieselben Teile zeigt, ohne die echte Platte zu messen. Wie auf einem Gerät
+// liegen laufende Daten und Backups nicht mehr auf der Systemplatte, sobald das
+// Laufwerk sie trägt.
+func demoStorageUsage(status func() storage.Status, dataDir string) *storageusage.Meter {
 	const mib = 1 << 20
 	return storageusage.NewMeter(func() storageusage.Parts {
-		return storageusage.Parts{Install: 412 * mib, Runtime: 96 * mib, Backups: 230 * mib}
+		parts := storageusage.Parts{Install: 412 * mib, Runtime: 96 * mib, Backups: 230 * mib}
+		if status == nil || status().Mode != storage.ModeDrive {
+			return parts
+		}
+		cfg, err := storage.LoadConfig(dataDir)
+		if err != nil {
+			return parts
+		}
+		if cfg.UseData {
+			parts.Runtime = 0
+		}
+		if cfg.UseBackups {
+			parts.Backups = 0
+		}
+		return parts
 	}, time.Hour)
 }
 
