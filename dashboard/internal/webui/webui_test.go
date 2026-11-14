@@ -4581,7 +4581,7 @@ func TestBackupAssetsAreRegisteredOnTheShell(t *testing.T) {
 	if !strings.Contains(page, `id="ico-drive"`) {
 		t.Fatal("das Sprite der Shell enthaelt ico-drive nicht")
 	}
-	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/storage.css?v=1"`) {
+	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/storage.css?v=2"`) {
 		t.Fatal("storage.css ist nicht als Stylesheet der Unterseite Speicher eingetragen")
 	}
 	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/backup.css?v=1"`) {

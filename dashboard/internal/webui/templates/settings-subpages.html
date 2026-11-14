@@ -386,21 +386,57 @@
       <section class="setting-card bs-drives" aria-labelledby="bs-drives-title">
         <h3 class="setting-card-title" id="bs-drives-title">{{t "storage.title"}}</h3>
 
-        <div class="bs-drive">
+        <div class="bs-drive" data-tour="storage-system">
           <div class="bs-drive-head"><strong>{{t "storage.system.title"}}</strong><span x-text="sizeText(system.size)"></span></div>
-          <div class="bs-meter" role="img" x-bind:aria-label="systemMeterLabel()" x-bind:title="systemMeterTip()">
-            <span class="bs-meter-part bs-part-system" x-bind:style="meterStyle(systemUsedPercent())"></span>
+          <div class="bs-meter" data-tour="storage-system-meter" role="img" x-bind:aria-label="systemMeterLabel()">
+            <template x-for="row in systemRows()" x-bind:key="row.key"><span class="bs-meter-part" x-bind:class="row.cls" x-bind:style="meterStyle(row.pct)"></span></template>
           </div>
-          <div class="bs-legend"><span><i class="bs-part-system"></i>{{t "storage.legend.system"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: systemFree() })"></span></div>
+          <div class="bs-legend">
+            <template x-for="row in systemRows()" x-bind:key="row.key"><span x-show="!row.free"><i x-bind:class="row.cls"></i><span x-text="row.label"></span></span></template>
+            <span class="bs-legend-free" x-text="$t('storage.legend.free', { free: systemFree() })"></span>
+          </div>
+          <button type="button" class="bs-detail-toggle" id="bs-system-details-toggle" data-tour="storage-details-toggle" aria-controls="bs-system-details" x-bind:aria-expanded="systemOpen ? 'true' : 'false'" x-on:click="systemOpen = !systemOpen" x-show="systemHasParts()" x-cloak>
+            <span>{{t "storage.details.toggle"}}</span><svg class="automation-icon bs-detail-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+          </button>
+          <div class="bs-reveal" id="bs-system-details" role="region" aria-labelledby="bs-system-details-toggle" x-bind:data-open="systemOpen ? 'true' : 'false'" x-show="systemHasParts()" x-cloak>
+            <div class="bs-reveal-inner">
+              <ul class="bs-detail-list">
+                <template x-for="row in systemRows(true)" x-bind:key="row.key"><li class="bs-detail-row">
+                  <i x-bind:class="row.cls"></i>
+                  <span class="bs-detail-name"><span x-text="row.label"></span><small x-show="row.hint" x-text="row.hint"></small></span>
+                  <span class="bs-detail-size" x-text="row.sizeText"></span>
+                  <span class="bs-detail-pct" x-text="row.pctText"></span>
+                </li></template>
+              </ul>
+              <p class="bs-detail-note">{{t "storage.details.measured"}}</p>
+            </div>
+          </div>
         </div>
 
         <div class="bs-drive" x-show="scenario() === 'active'" x-cloak>
           <div class="bs-drive-head"><strong x-text="driveName()"></strong><span x-text="sizeText(space.size)"></span><span class="bs-status bs-status-ok">{{t "storage.status.active"}}</span></div>
-          <div class="bs-meter" role="img" x-bind:aria-label="driveMeterLabel()" x-bind:title="driveMeterTip()">
-            <span class="bs-meter-part bs-part-data" x-bind:style="meterStyle(drivePart('runtime'))"></span>
-            <span class="bs-meter-part bs-part-backup" x-bind:style="meterStyle(drivePart('backups'))"></span>
+          <div class="bs-meter" role="img" x-bind:aria-label="driveMeterLabel()">
+            <template x-for="row in driveRows()" x-bind:key="row.key"><span class="bs-meter-part" x-bind:class="row.cls" x-bind:style="meterStyle(row.pct)"></span></template>
           </div>
-          <div class="bs-legend"><span><i class="bs-part-data"></i>{{t "storage.legend.data"}}</span><span><i class="bs-part-backup"></i>{{t "storage.legend.backups"}}</span><span class="bs-legend-free" x-text="$t('storage.legend.free', { free: driveFree() })"></span></div>
+          <div class="bs-legend">
+            <template x-for="row in driveRows()" x-bind:key="row.key"><span x-show="!row.free"><i x-bind:class="row.cls"></i><span x-text="row.label"></span></span></template>
+            <span class="bs-legend-free" x-text="$t('storage.legend.free', { free: driveFree() })"></span>
+          </div>
+          <button type="button" class="bs-detail-toggle" id="bs-drive-details-toggle" aria-controls="bs-drive-details" x-bind:aria-expanded="driveOpen ? 'true' : 'false'" x-on:click="driveOpen = !driveOpen">
+            <span>{{t "storage.details.toggle"}}</span><svg class="automation-icon bs-detail-chev" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+          </button>
+          <div class="bs-reveal" id="bs-drive-details" role="region" aria-labelledby="bs-drive-details-toggle" x-bind:data-open="driveOpen ? 'true' : 'false'">
+            <div class="bs-reveal-inner">
+              <ul class="bs-detail-list">
+                <template x-for="row in driveRows(true)" x-bind:key="row.key"><li class="bs-detail-row">
+                  <i x-bind:class="row.cls"></i>
+                  <span class="bs-detail-name"><span x-text="row.label"></span><small x-show="row.hint" x-text="row.hint"></small></span>
+                  <span class="bs-detail-size" x-text="row.sizeText"></span>
+                  <span class="bs-detail-pct" x-text="row.pctText"></span>
+                </li></template>
+              </ul>
+            </div>
+          </div>
         </div>
 
         <div class="bs-drive bs-drive-missing" x-show="scenario() === 'missing'" x-cloak role="status">

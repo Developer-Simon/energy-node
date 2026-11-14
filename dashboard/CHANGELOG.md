@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.14-pre.13 (2026-11-06)
+## v0.11.14-pre.14 (2026-11-06)
 
 ### Features
 
@@ -13,8 +13,16 @@
 - **network:** check LAN and connect the node to Wi-Fi in the settings (#238) (d6dc893)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **webui:** show tile skeletons while panels load (#242) (30e2fc3)
+- **settings:** load the settings subpages lazily (#250) (dc441a2)
+- **storage:** measure the system disk parts per folder group (33e03a7)
+- **storage:** cache the system disk measurement with ttl and key (c3720f6)
+- **storage:** report the system disk parts in the storage status (4d5dcc8)
+- **storage:** wire the system disk usage meter and the demo values (944a240)
+- **webui:** split the system disk meter into system, installation, data and backups (e5a0da8)
+- **webui:** show the storage breakdown in an expandable details list (30b82cc)
+- **webui:** mark the storage breakdown for the highlight tour (1bcff65)
+- **storage:** The system drive card now splits its usage into system, installation, data and backups (#252)
 - **settings:** load the settings subpages lazily as fragments (6d9a963)
-- **settings:** load the settings subpages lazily (#250)
 - **storage:** group partitions under their disk and offer the whole disk (2b7a9ca)
 - **webui:** group the additional drive choice by disk (script) (1ef36d5)
 - **webui:** show sticks with several partitions as a group (a4f7286)
@@ -58,6 +66,7 @@
 
 ### Documentation
 
+- **storage:** describe the system disk breakdown (b2222d8)
 - **storage:** explain sticks with several partitions and extend the smoke check (7e75f7a)
 
 ### Tests

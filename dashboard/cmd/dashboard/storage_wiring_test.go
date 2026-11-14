@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
@@ -105,4 +107,61 @@ func TestRestartKilledBySignalIsNotAnError(t *testing.T) {
 	if killedByRestart(errors.New("sudo: not found")) || killedByRestart(nil) {
 		t.Fatal("killedByRestart accepted a non-exit error")
 	}
+}
+
+// Die Quellen der Systemplatte: Installation mit Wurzel, Konfig- und Installer-
+// Ordner, Laufzeit und Backups, und die Ausschlüsse, die Install nicht sehen darf.
+func TestStorageUsageSourcesCoverInstallAndExcludeData(t *testing.T) {
+	svc := &storage.Service{
+		Paths: storage.Paths{
+			Runtime:        "/home/energynode/dashboard/data/runtime",
+			Mount:          "/mnt/energy-node",
+			SystemFallback: "/home/energynode/dashboard/data/runtime-fallback",
+		},
+		DataDir: "/home/energynode/dashboard/data",
+	}
+	src := storageUsageSources(svc, "/etc/energy-node/config.json", "/var/lib/energy-node-installer", "/home/energynode/dashboard/energy-node-dashboard")
+
+	if src.Ref != "/home/energynode/dashboard/data" {
+		t.Fatalf("Ref = %q", src.Ref)
+	}
+	wantInstall := []string{"/home/energynode", "/etc/energy-node", "/var/lib/energy-node-installer"}
+	if !reflect.DeepEqual(src.Install, wantInstall) {
+		t.Fatalf("Install = %v, want %v", src.Install, wantInstall)
+	}
+	wantRuntime := []string{svc.Paths.Runtime, svc.Paths.SystemFallback}
+	if !reflect.DeepEqual(src.Runtime, wantRuntime) {
+		t.Fatalf("Runtime = %v, want %v", src.Runtime, wantRuntime)
+	}
+	wantBackups := []string{"/home/energynode/dashboard/data/backups"}
+	if !reflect.DeepEqual(src.Backups, wantBackups) {
+		t.Fatalf("Backups = %v, want %v", src.Backups, wantBackups)
+	}
+	for _, want := range []string{svc.Paths.Runtime, svc.Paths.SystemFallback, wantBackups[0], svc.Paths.Mount} {
+		if !containsString(src.Exclude, want) {
+			t.Fatalf("Exclude = %v, misses %q", src.Exclude, want)
+		}
+	}
+}
+
+// Ohne Programmpfad fehlt die Installationswurzel, die anderen zwei bleiben.
+func TestStorageUsageSourcesWithoutExecutable(t *testing.T) {
+	svc := &storage.Service{
+		Paths:   storage.Paths{Runtime: "/home/energynode/dashboard/data/runtime"},
+		DataDir: "/home/energynode/dashboard/data",
+	}
+	src := storageUsageSources(svc, "/etc/energy-node/config.json", "/var/lib/energy-node-installer", "")
+	want := []string{"/etc/energy-node", "/var/lib/energy-node-installer"}
+	if !reflect.DeepEqual(src.Install, want) {
+		t.Fatalf("Install = %v, want %v", src.Install, want)
+	}
+}
+
+func containsString(list []string, want string) bool {
+	for _, item := range list {
+		if strings.TrimSpace(item) == want {
+			return true
+		}
+	}
+	return false
 }

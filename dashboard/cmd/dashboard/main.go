@@ -51,6 +51,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/shellypresets"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storagehealth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storageusage"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
@@ -419,6 +420,17 @@ func main() {
 		return storageWatcher.Tick(ctx)
 	}
 	go runStorageResume(ctx, storageService)
+	// Die Belegung der Systemplatte: in der Demo feste Werte, sonst eine Messung
+	// im Hintergrund, die alle zehn Minuten erneuert wird.
+	var storageUsage *storageusage.Meter
+	if os.Getenv(storageDemoEnv) != "" {
+		storageUsage = demoStorageUsage(storageStatus, dataDir)
+	} else {
+		exe, _ := os.Executable()
+		storageUsage = storageusage.NewMeter(func() storageusage.Parts {
+			return storageusage.Measure(storageUsageSources(storageService, *configPath, installerStateDir, exe))
+		}, 10*time.Minute)
+	}
 	storageFallback := func() string {
 		if storageWatcher == nil {
 			return ""
@@ -839,6 +851,7 @@ func main() {
 			Status:    storageStatus,
 			Recheck:   storageRecheck,
 			DemoSpace: os.Getenv(storageDemoEnv) != "",
+			Usage:     storageUsage,
 		},
 		InstallerStateDir: installerStateDir,
 		AppConfigPath:     *configPath,

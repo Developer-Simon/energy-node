@@ -1,0 +1,47 @@
+{
+  "de": {
+    "*": "Die Karte des Systemlaufwerks teilt die Belegung in System, Installation, Daten und Backups"
+  },
+  "en": {
+    "*": "The system drive card now splits its usage into system, installation, data and backups"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "storage_manage",
+          "page": "storage",
+          "panel": "settings-panel",
+          "target": "storage-system-meter",
+          "text": {
+            "de": "Die Leiste teilt den belegten Platz jetzt in Betriebssystem, energy-node Installation, Laufende Daten und Backups. Was das zusätzliche Laufwerk trägt, zählt hier nicht mehr mit.",
+            "en": "The bar now splits the used space into operating system, energy-node installation, running data and backups. What the additional drive carries no longer counts here."
+          },
+          "title": {
+            "de": "Belegung des Systemlaufwerks",
+            "en": "System drive usage"
+          }
+        },
+        {
+          "device": "any",
+          "need": "storage_manage",
+          "open": [
+            "storage-details-toggle"
+          ],
+          "page": "storage",
+          "panel": "settings-panel",
+          "target": "storage-system",
+          "text": {
+            "de": "Unter Details stehen Größe und Anteil jedes Teils, dazu eine kurze Erklärung, was zum Betriebssystem und was zur Installation gehört.",
+            "en": "Details lists the exact size and share of every part, with a short note for what belongs to the operating system and to the installation."
+          },
+          "title": {
+            "de": "Details",
+            "en": "Details"
+          }
+        }
+      ]
+    }
+  }
+}

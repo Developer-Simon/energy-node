@@ -7,8 +7,10 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storageusage"
 )
 
 // storageDemoEnv nennt ein Verzeichnis für Demo und Smoke-Test. Ist es gesetzt,
@@ -16,6 +18,31 @@ import (
 // liegt unter mount/ und der RAM-Ausweich unter ram/. Die Node sieht dann keine
 // echten Datenträger. Der Speicherhelfer ist in diesem Lauf der Fake der Demo.
 const storageDemoEnv = "ENERGY_NODE_STORAGE_DEMO"
+
+// demoStorageUsage liefert feste Werte für die Systemplatte, damit die Demo
+// dieselben Teile zeigt, ohne die echte Platte zu messen. Wie auf einem Gerät
+// liegen laufende Daten und Backups nicht mehr auf der Systemplatte, sobald das
+// Laufwerk sie trägt.
+func demoStorageUsage(status func() storage.Status, dataDir string) *storageusage.Meter {
+	const mib = 1 << 20
+	return storageusage.NewMeter(func() storageusage.Parts {
+		parts := storageusage.Parts{Install: 412 * mib, Runtime: 96 * mib, Backups: 230 * mib}
+		if status == nil || status().Mode != storage.ModeDrive {
+			return parts
+		}
+		cfg, err := storage.LoadConfig(dataDir)
+		if err != nil {
+			return parts
+		}
+		if cfg.UseData {
+			parts.Runtime = 0
+		}
+		if cfg.UseBackups {
+			parts.Backups = 0
+		}
+		return parts
+	}, time.Hour)
+}
 
 // storagePath wählt den Demo-Ort unter dem Demo-Verzeichnis, sonst den echten Pfad.
 func storagePath(demoDir, name, real string) string {

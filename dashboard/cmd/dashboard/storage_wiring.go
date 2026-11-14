@@ -13,6 +13,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storageusage"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 )
 
@@ -106,6 +107,25 @@ func applyRuntimeDir(ctx context.Context, exec systemactions.ActionExecutor, con
 		return err
 	}
 	return systemactions.StageAndApplyAppConfig(ctx, exec, dataDir, append(body, '\n'))
+}
+
+// storageUsageSources nennt die Ordner der Systemplatte je Teil. Die
+// Installation umfasst den Programmordner, den Konfigordner und den
+// Installerstand. Laufzeit, Ausweich, Backups und der Einhängepunkt bleiben
+// aus der Installation heraus.
+func storageUsageSources(svc *storage.Service, configPath, installerStateDir, exe string) storageusage.Sources {
+	backups := filepath.Join(svc.DataDir, "backups")
+	install := []string{filepath.Dir(configPath), installerStateDir}
+	if exe != "" {
+		install = append([]string{filepath.Dir(filepath.Dir(exe))}, install...)
+	}
+	return storageusage.Sources{
+		Ref:     svc.DataDir,
+		Install: install,
+		Runtime: []string{svc.Paths.Runtime, svc.Paths.SystemFallback},
+		Backups: []string{backups},
+		Exclude: []string{svc.Paths.Runtime, svc.Paths.SystemFallback, backups, svc.Paths.Mount},
+	}
 }
 
 // storageBackupDrive liefert den Backup-Ordner auf dem Laufwerk, solange das

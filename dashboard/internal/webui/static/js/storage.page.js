@@ -50,7 +50,7 @@
     return `${n(value, 0)} B`;
   };
 
-  // Exact amounts for the meter tooltips: two decimals, no rounding to a coarse unit.
+  // Exact amounts for the detail lists: two decimals, no rounding to a coarse unit.
   const formatExact = (bytes) => {
     const value = Number(bytes) || 0;
     const n = window.I18n.formatNumber;
@@ -60,6 +60,11 @@
     return `${n(value, 0)} B`;
   };
 
+  const pctText = (part, size) => {
+    if (!(size > 0) || !(part > 0)) return '0 %';
+    const value = (part / size) * 100;
+    return value < 1 ? '< 1 %' : `${window.I18n.formatNumber(Math.round(value))} %`;
+  };
   const percent = (part, size) => (size > 0 ? Math.min(100, (part / size) * 100) : 0);
   const ease = 'cubic-bezier(.32, .72, 0, 1)';
   const reduced = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
@@ -97,6 +102,11 @@
     drivesTimer: 0,
     drag: null,
     fitTimer: 0,
+    // The system disk parts arrive a little later than the rest, measured in the background.
+    systemOpen: false,
+    driveOpen: false,
+    partsRetries: 0,
+    partsTimer: 0,
 
     async init() {
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
@@ -135,6 +145,22 @@
       this.space = body.drive || { size: 0, used: 0, parts: [] };
       this.job = body.job || {};
       this.fallback = config.fallback === 'ram' ? 'ram' : 'system';
+      this.retryParts();
+    },
+
+    // The first answer after a start may lack the system disk parts. Asks again
+    // a few times, while the settings storage page is open.
+    retryParts() {
+      if (this.systemHasParts()) {
+        this.partsRetries = 0;
+        return;
+      }
+      if (!(this.system.size > 0) || this.partsRetries >= 10 || this.partsTimer) return;
+      this.partsRetries++;
+      this.partsTimer = setTimeout(() => {
+        this.partsTimer = 0;
+        if (this.activeSettingsPage === 'storage') this.load();
+      }, 3000);
     },
 
     // ---- Zustand ------------------------------------------------------
@@ -179,28 +205,52 @@
       return t('storage.meter.label', { used: formatSize(this.system.used), size: formatSize(this.system.size) });
     },
     systemFree() { return formatSize(Math.max(0, this.system.size - this.system.used)); },
-    drivePart(key) {
-      const part = (this.space.parts || []).find((item) => item.key === key);
-      return percent(part ? part.size : 0, this.space.size);
+    systemHasParts() { return Array.isArray(this.system.parts) && this.system.parts.length > 0; },
+    systemPartSize(key) {
+      const part = (this.system.parts || []).find((item) => item.key === key);
+      return part ? part.size : 0;
+    },
+    // Rows of a meter. The segments, the legend and the detail list all read
+    // from here, so each part exists exactly once. Without measured parts the
+    // system drive shows one segment for the whole usage.
+    systemRows(withFree) {
+      const { size, used } = this.system;
+      const rows = this.systemHasParts()
+        ? [
+          { key: 'os', cls: 'bs-part-system', label: t('storage.legend.os'), hint: t('storage.details.hint.os'), bytes: this.systemPartSize('os') },
+          { key: 'install', cls: 'bs-part-install', label: t('storage.legend.install'), hint: t('storage.details.hint.install'), bytes: this.systemPartSize('install') },
+          { key: 'runtime', cls: 'bs-part-data', label: t('storage.legend.data'), bytes: this.systemPartSize('runtime') },
+          { key: 'backups', cls: 'bs-part-backup', label: t('storage.legend.backups'), bytes: this.systemPartSize('backups') },
+        ].filter((row) => row.bytes > 0)
+        : [{ key: 'system', cls: 'bs-part-system', label: t('storage.legend.system'), bytes: used }];
+      return this.finishRows(rows, size, used, withFree);
+    },
+    driveRows(withFree) {
+      const { size, used } = this.space;
+      const part = (key) => ((this.space.parts || []).find((item) => item.key === key) || { size: 0 }).size;
+      const rows = [
+        { key: 'runtime', cls: 'bs-part-data', label: t('storage.legend.data'), bytes: part('runtime') },
+        { key: 'backups', cls: 'bs-part-backup', label: t('storage.legend.backups'), bytes: part('backups') },
+      ];
+      return this.finishRows(rows, size, used, withFree);
+    },
+    finishRows(rows, size, used, withFree) {
+      const out = rows.map((row) => ({
+        ...row,
+        pct: percent(row.bytes, size),
+        sizeText: formatExact(row.bytes),
+        pctText: pctText(row.bytes, size),
+      }));
+      if (withFree) {
+        const free = Math.max(0, size - used);
+        out.push({ key: 'free', cls: 'bs-part-free', free: true, label: t('storage.details.free'), bytes: free, pct: percent(free, size), sizeText: formatExact(free), pctText: pctText(free, size) });
+      }
+      return out;
     },
     driveMeterLabel() {
       return t('storage.meter.label', { used: formatSize(this.space.used), size: formatSize(this.space.size) });
     },
     driveFree() { return formatSize(Math.max(0, this.space.size - this.space.used)); },
-    systemMeterTip() {
-      const { size, used } = this.system;
-      return t('storage.meter.tip.system', { used: formatExact(used), free: formatExact(Math.max(0, size - used)), size: formatExact(size) });
-    },
-    driveMeterTip() {
-      const { size, used } = this.space;
-      const part = (key) => ((this.space.parts || []).find((item) => item.key === key) || { size: 0 }).size;
-      return t('storage.meter.tip.drive', {
-        data: formatExact(part('runtime')),
-        backups: formatExact(part('backups')),
-        free: formatExact(Math.max(0, size - used)),
-        size: formatExact(size),
-      });
-    },
     meterStyle(value) { return `flex-basis: ${value}%`; },
 
     // Laufwerk wechseln (aktiv) oder ersetzen (fehlend). Ohne Laufwerk leer.
