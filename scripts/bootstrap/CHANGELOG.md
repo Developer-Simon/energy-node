@@ -12,8 +12,8 @@
 
 ### Fixes
 
+- **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
 - **storage:** render the storage helper for the node user (00faf59)
-- **storage:** set up, back up and replug the additional drive reliably (#247)
 
 ## v0.3.2 (2026-11-07)
 

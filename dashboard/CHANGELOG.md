@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.13-pre.12 (2026-11-06)
+## v0.11.14-pre.12 (2026-11-06)
 
 ### Features
 
@@ -34,13 +34,14 @@
 
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
+- **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
+- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **storage:** report why the additional drive could not be mounted (5fc95e0)
 - **storage:** render the storage helper for the node user (00faf59)
 - **storage:** do not roll back when the dashboard restart kills its own sudo (581525d)
 - **backup:** read runtime data when runtime_dir is a symlink to the drive (cddc7cd)
 - **storage:** mount the drive again when it is plugged back in (d39d521)
-- **storage:** set up, back up and replug the additional drive reliably (#247)
-- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **storage:** wipe old file system signatures before formatting and report why it failed (0923fe1)
 - **storage:** format a single partition without repartitioning the disk (6e35b8d)
 - **storage:** keep the helper output in the format failure (c30a7ea)

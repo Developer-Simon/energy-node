@@ -3,6 +3,7 @@ package systemactions
 import (
 	"context"
 	"errors"
+	"os/exec"
 	"sync"
 	"testing"
 )
@@ -309,4 +310,45 @@ func TestStorageSharesTheBusyLockWithExecute(t *testing.T) {
 
 	close(runner.release)
 	wg.Wait()
+}
+
+// signalledRunner fails like sudo does when the shutdown it started stops the
+// dashboard service and systemd terminates the whole cgroup.
+type signalledRunner struct{ err error }
+
+func (r signalledRunner) Run(ctx context.Context, _ string, _ ...string) error { return r.err }
+
+func killedBySignalError(t *testing.T) error {
+	t.Helper()
+	err := exec.Command("sh", "-c", "kill -TERM $$").Run()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected an ExitError, got %v", err)
+	}
+	return err
+}
+
+func TestActionsThatStopTheDashboardIgnoreBeingSignalled(t *testing.T) {
+	killed := killedBySignalError(t)
+	for _, action := range []Action{Reboot, Poweroff, RestartDashboard} {
+		executor := NewExecutor(signalledRunner{err: killed}, "/helper")
+		if err := executor.Execute(context.Background(), action); err != nil {
+			t.Errorf("%s: signalled helper reported %v, want nil", action, err)
+		}
+	}
+}
+
+func TestOtherActionsStillReportBeingSignalled(t *testing.T) {
+	executor := NewExecutor(signalledRunner{err: killedBySignalError(t)}, "/helper")
+	if err := executor.Execute(context.Background(), RestartMosquitto); err == nil {
+		t.Fatal("restart-mosquitto swallowed a signalled helper")
+	}
+}
+
+func TestShutdownActionsStillReportARealFailure(t *testing.T) {
+	failed := exec.Command("sh", "-c", "exit 1").Run()
+	executor := NewExecutor(signalledRunner{err: failed}, "/helper")
+	if err := executor.Execute(context.Background(), Reboot); err == nil {
+		t.Fatal("exit status 1 was swallowed")
+	}
 }

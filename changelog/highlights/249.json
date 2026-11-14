@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Neustart über die Systemaktionen zeigt keinen falschen Fehler mehr"
+  },
+  "en": {
+    "*": "Do not report an error when a reboot stops the dashboard"
+  }
+}
