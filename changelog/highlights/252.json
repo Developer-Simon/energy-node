@@ -3,7 +3,7 @@
     "*": "Die Karte des Systemlaufwerks teilt die Belegung in System, Installation, Daten und Backups"
   },
   "en": {
-    "*": "The system drive card breaks its usage down into operating system, energy-node installation, running data and backups, with a details list for the exact sizes"
+    "*": "The system drive card now splits its usage into system, installation, data and backups"
   },
   "tour": {
     "*": {
