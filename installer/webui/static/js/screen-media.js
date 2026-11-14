@@ -12,6 +12,8 @@
   var DONE_POLL = 5000;
   var SLOW_AFTER = 10 * 60 * 1000;
   var STEP_IDS = ['download', 'checksum', 'rights', 'write', 'verify', 'customize', 'eject'];
+  // DEVICE_HINTS: die Zeile unter dem Namen einer Debian-Zeile.
+  var DEVICE_HINTS = { 'deb-amd64': 'media.device.deb-amd64.hint', 'deb-arm64': 'media.device.deb-arm64.hint' };
 
   window.Screens = window.Screens || {};
 
@@ -103,12 +105,29 @@
         };
       },
 
-      // tagFor: das Etikett einer Geraetezeile. Nur fehlende Tests tragen eins.
+      // tagFor: das Etikett einer Geraetezeile. Nur fehlende Tests tragen eins,
+      // nicht unterstuetzte Geraete ein eigenes.
       tagFor(device) {
+        if (device && device.unsupported) {
+          return this.shell.t('media.tag.unsupported');
+        }
         return device && device.experimental ? this.shell.t('media.tag.experimental') : '';
       },
 
+      // hintFor: die Zeile unter dem Namen, nur bei den Debian-Geraeten.
+      hintFor(device) {
+        var key = device && DEVICE_HINTS[device.id];
+        return key ? this.shell.t(key) : '';
+      },
+
+      // pick: ein nicht unterstuetztes Geraet laesst sich nicht waehlen.
       pick(id) {
+        var item = this.devices.find(function (device) {
+          return device.id === id;
+        });
+        if (!item || item.unsupported) {
+          return;
+        }
         this.picked = id;
       },
 
@@ -158,9 +177,40 @@
       manual: false,
       // scanning: der Suchlauf nach Netzen laeuft noch.
       scanning: false,
+      // group: die Gruppe des Geraets, 'pi', 'debian' oder '' ohne Katalog.
+      group: '',
 
       get shell() {
         return window.Installer.shell;
+      },
+
+      // deviceId: das gewaehlte Geraet aus Schritt 1.
+      get deviceId() {
+        return (this.shell.shared.media || {}).device || '';
+      },
+
+      // isDebian: Debian statt Pi. Dann gibt es kein WLAN, dafuer den Abschnitt Installation.
+      get isDebian() {
+        return this.group === 'debian';
+      },
+
+      // showEraseWarning: ohne Rueckfrage warnt der Bildschirm in Warnfarbe.
+      get showEraseWarning() {
+        return this.isDebian && !this.form.askBeforeErase;
+      },
+
+      // installChoices: die Sprachen der Installation, leer wenn es keine Wahl gibt.
+      get installChoices() {
+        return window.MediaModel.installLangChoice(this.deviceId, this.uiLang);
+      },
+
+      get showLangSelect() {
+        return this.isDebian && this.installChoices.length > 0;
+      },
+
+      // showArmHint: ARM-Geraete haben keine Sprachwahl, sie bekommen einen festen Hinweis.
+      get showArmHint() {
+        return this.isDebian && this.deviceId === 'deb-arm64';
       },
 
       async init() {
@@ -180,8 +230,9 @@
         } catch (err) {
           this.shell.fail(err);
         }
+        this.group = group;
 
-        var form = window.MediaModel.defaultSettings(defaults, group);
+        var form = window.MediaModel.defaultSettings(defaults, group, media.device || '', this.uiLang);
         var remembered = this.remembered();
         var self = this;
         Object.keys(window.MediaModel.remembered(form)).forEach(function (key) {
@@ -485,7 +536,7 @@
       },
 
       get canContinue() {
-        return window.MediaModel.settingsComplete(this.form);
+        return window.MediaModel.settingsComplete(this.form, this.group);
       },
 
       back() {
@@ -502,6 +553,8 @@
           // ohne Speicher bleibt es bei dieser Sitzung
         }
         this.shell.shared.media.settings = Object.assign({}, this.form);
+        // Die Gruppe reist mit, damit das Schreiben die Debian-Felder schickt.
+        this.shell.shared.media.group = this.group;
         this.shell.go('media-drive');
       },
     };
@@ -750,7 +803,7 @@
             device: media.device,
             drive: media.drive.path,
             confirm: window.MediaModel.confirmationFor(media.drive),
-            settings: window.MediaModel.toRequest(media.settings),
+            settings: window.MediaModel.toRequest(media.settings, media.group || ''),
           });
         } catch (err) {
           this.failed = true;

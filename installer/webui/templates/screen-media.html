@@ -50,11 +50,15 @@
             <div>
               <div class="media-group" x-text="t('media.group.' + group.id)"></div>
               <template x-for="item in group.devices" :key="item.id">
-                <div class="media-opt" :class="{ on: picked === item.id }" role="radio" tabindex="0" :aria-checked="picked === item.id"
+                <div class="media-opt" :class="{ on: picked === item.id, 'media-opt--off': item.unsupported }" role="radio" :tabindex="item.unsupported ? -1 : 0"
+                     :aria-checked="picked === item.id" :aria-disabled="item.unsupported ? 'true' : 'false'"
                      @click="pick(item.id)" @keydown.enter.prevent="pick(item.id)" @keydown.space.prevent="pick(item.id)">
                   <span class="media-radio" aria-hidden="true"></span>
-                  <span class="media-opt-t" x-text="t('media.device.' + item.id)"></span>
-                  <template x-if="item.experimental"><span class="media-tag" x-text="tagFor(item)"></span></template>
+                  <span class="media-opt-b">
+                    <span class="media-opt-t" x-text="t('media.device.' + item.id)"></span>
+                    <template x-if="hintFor(item)"><span class="media-opt-s" x-text="hintFor(item)"></span></template>
+                  </span>
+                  <template x-if="item.experimental || item.unsupported"><span class="media-tag" x-text="tagFor(item)"></span></template>
                 </div>
               </template>
             </div>
@@ -209,15 +213,18 @@
 
       <section class="card">
         <h2 class="card-h" x-text="t('media.settings.network')"></h2>
-        <label class="media-toggle">
-          <span class="settings-toggle">
-            <input type="checkbox" role="switch" x-model="form.wifiOn" :aria-label="t('media.settings.wifi')">
-            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
-          </span>
-          <span><span class="media-check-t" x-text="t('media.settings.wifi')"></span></span>
-        </label>
+        <template x-if="isDebian"><div class="media-hint" x-text="t('media.settings.debian_network')"></div></template>
+        <template x-if="!isDebian">
+          <label class="media-toggle">
+            <span class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="form.wifiOn" :aria-label="t('media.settings.wifi')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </span>
+            <span><span class="media-check-t" x-text="t('media.settings.wifi')"></span></span>
+          </label>
+        </template>
 
-        <template x-if="form.wifiOn">
+        <template x-if="!isDebian && form.wifiOn">
           <div>
             <div class="media-field">
               <div class="media-net-head">
@@ -272,6 +279,33 @@
           </div>
         </template>
       </section>
+
+      <template x-if="isDebian">
+        <section class="card">
+          <h2 class="card-h" x-text="t('media.settings.install')"></h2>
+          <label class="media-toggle">
+            <span class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="form.askBeforeErase" :aria-label="t('media.settings.ask_erase')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </span>
+            <span>
+              <span class="media-check-t" x-text="t('media.settings.ask_erase')"></span>
+              <span class="media-check-s" x-text="t('media.settings.ask_erase_hint')"></span>
+            </span>
+          </label>
+          <template x-if="showEraseWarning"><div class="media-res media-res--warn" role="status" x-text="t('media.settings.ask_erase_off')"></div></template>
+
+          <template x-if="showLangSelect">
+            <div class="media-field">
+              <span class="lbl" id="media-install-lang" x-text="t('media.settings.install_lang')"></span>
+              <select x-model="form.installLang" aria-labelledby="media-install-lang">
+                <template x-for="code in installChoices" :key="code"><option :value="code" :selected="form.installLang === code" x-text="t('language.' + code)"></option></template>
+              </select>
+            </div>
+          </template>
+          <template x-if="showArmHint"><div class="media-hint" x-text="t('media.settings.arm_serial')"></div></template>
+        </section>
+      </template>
     </div>
   </div>
 
