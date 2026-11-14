@@ -83,6 +83,13 @@
     validHostname: validHostname,
     validUser: validUser,
 
+    // groupFor: die Gruppe eines Geraets aus seiner ID. Debian-Geraete heissen
+    // deb-..., alles andere ist ein Pi. Der Katalog ergaenzt nur die Vorgaben,
+    // damit ein fehlgeschlagener Abruf keinen Debian-Lauf als Pi schickt.
+    groupFor: function (deviceId) {
+      return String(deviceId || '').indexOf('deb-') === 0 ? 'debian' : 'pi';
+    },
+
     // groups: die Geraete nach ihrer Gruppe, pi vor debian, unbekannte Gruppen
     // danach in der Reihenfolge des ersten Vorkommens. Innerhalb einer Gruppe
     // bleibt die Reihenfolge, die der Server schickt.

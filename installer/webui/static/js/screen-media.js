@@ -216,21 +216,19 @@
       async init() {
         var media = this.shell.shared.media || {};
         var defaults = {};
-        var group = '';
+        // Die Gruppe kommt aus der Geraete-ID, nicht aus dem Katalog: scheitert
+        // der Abruf, bleibt ein Debian-Lauf ein Debian-Lauf.
+        var group = window.MediaModel.groupFor(media.device);
+        this.group = group;
         try {
           var catalog = await window.Api.get('/api/media/catalog');
           defaults = catalog.defaults || {};
           this.defaults = defaults;
           this.timezones = defaults.timezones || [];
           this.keyboards = defaults.keyboards || [];
-          var device = (catalog.devices || []).find(function (item) {
-            return item.id === media.device;
-          });
-          group = device ? device.group : '';
         } catch (err) {
           this.shell.fail(err);
         }
-        this.group = group;
 
         var form = window.MediaModel.defaultSettings(defaults, group, media.device || '', this.uiLang);
         var remembered = this.remembered();
@@ -567,9 +565,9 @@
       drives: [],
       showInternal: false,
       // limit: die Groesse, die das Image beim Entpacken braucht; kleinere
-      // Laufwerke sind ausgegraut. isPi steuert den Kasten zur Aufteilung.
+      // Laufwerke sind ausgegraut. group steuert, welcher Abschnitt erscheint.
       limit: 0,
-      isPi: false,
+      group: '',
       selected: null,
       checked: false,
       typed: '',
@@ -583,6 +581,7 @@
       async init() {
         var media = this.shell.shared.media || {};
         this.selected = media.drive ? media.drive.path : null;
+        this.group = window.MediaModel.groupFor(media.device);
         var catalog;
         try {
           catalog = await window.Api.get('/api/media/catalog');
@@ -594,7 +593,6 @@
           return item.id === media.device;
         });
         this.limit = device && device.image ? device.image.extract_size : 0;
-        this.isPi = !!device && device.group === 'pi';
         this.timer = window.setInterval(() => this.load(), DRIVE_POLL);
         return this.load();
       },
@@ -653,8 +651,23 @@
         return !!drive && this.fits(drive) && window.MediaModel.confirmed(drive, this.checked, this.typed);
       },
 
+      get isDebian() {
+        return this.group === 'debian';
+      },
+
+      // eraseWithoutAsk: Debian ohne Rueckfrage am Zielgeraet, dann warnt die
+      // Karte mit dem Satz ohne Rueckfrage. Der Schalter kommt aus Schritt 2.
+      get eraseWithoutAsk() {
+        var settings = this.shell.shared.media.settings;
+        return this.isDebian && !!settings && settings.askBeforeErase === false;
+      },
+
+      get debianWarnKey() {
+        return this.eraseWithoutAsk ? 'media.warn.debian_noask' : 'media.warn.debian_ask';
+      },
+
       get showLayout() {
-        return this.isPi && !!this.selectedDrive;
+        return this.group === 'pi' && !!this.selectedDrive;
       },
 
       fits(drive) {

@@ -363,3 +363,11 @@ test('stepRows kennt den Schritt patch ohne Einstellungsschritt', () => {
     { id: 'write', state: 'pending', labelKey: 'media.step.write' },
   ]);
 });
+
+test('groupFor: deb-... ist Debian, alles andere ein Pi, ohne Katalog', () => {
+  assert.equal(M.groupFor('deb-arm64'), 'debian');
+  assert.equal(M.groupFor('deb-amd64'), 'debian');
+  assert.equal(M.groupFor('pi5'), 'pi');
+  assert.equal(M.groupFor(''), 'pi');
+  assert.equal(M.groupFor(undefined), 'pi');
+});

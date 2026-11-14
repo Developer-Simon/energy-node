@@ -323,7 +323,29 @@
 
     <div class="media-cards">
       <section class="card">
-        <h2 class="card-h" x-text="t('media.drive.title')"></h2>
+        <h2 class="card-h" x-text="isDebian ? t('media.debian.drive.title') : t('media.drive.title')"></h2>
+        <template x-if="isDebian">
+          <div>
+            <p class="media-hint" x-text="t('media.debian.drive.explain')"></p>
+            <div class="media-split">
+              <div class="media-split-box">
+                <div class="media-split-t" x-text="t('media.debian.split.stick')"></div>
+                <div class="media-split-s" x-text="t('media.debian.split.stick_text')"></div>
+              </div>
+              <div class="media-split-box">
+                <div class="media-split-t" x-text="t('media.debian.split.disk')"></div>
+                <ul class="media-classes">
+                  <li><span class="media-class-t" x-text="t('media.debian.class.abort')"></span></li>
+                  <li><span class="media-class-t" x-text="t('media.debian.class.small')"></span></li>
+                  <li><span class="media-class-t" x-text="t('media.debian.class.medium')"></span></li>
+                  <li><span class="media-class-t" x-text="t('media.debian.class.large')"></span></li>
+                </ul>
+                <div class="media-split-s" x-text="t('media.debian.split.multi')"></div>
+              </div>
+            </div>
+            <p class="media-hint" x-text="t('media.debian.drive.recommend')"></p>
+          </div>
+        </template>
         <template x-if="visible.length === 0">
           <div class="media-hint" role="status" x-text="t('media.drive.empty')"></div>
         </template>
@@ -370,6 +392,9 @@
 
           <div class="media-warn">
             <div class="media-warn-t" x-text="t('media.warn.erase', { drive: driveName(selectedDrive) })"></div>
+            <template x-if="isDebian">
+              <div class="media-warn-s" x-text="t(debianWarnKey)"></div>
+            </template>
             <template x-if="selectedDrive.partitions.length">
               <div>
                 <div class="media-warn-s" x-text="partitionsText(selectedDrive)"></div>
@@ -383,7 +408,7 @@
             <template x-if="selectedDrive.removable">
               <label class="media-toggle media-warn-check">
                 <input type="checkbox" x-model="checked">
-                <span class="media-check-t" x-text="t('media.warn.confirm_card')"></span>
+                <span class="media-check-t" x-text="t(isDebian ? 'media.warn.confirm_debian' : 'media.warn.confirm_card')"></span>
               </label>
             </template>
             <template x-if="!selectedDrive.removable">
