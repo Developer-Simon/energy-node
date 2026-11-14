@@ -57,6 +57,20 @@
     };
   }
 
+  // Die Gruppen in fester Reihenfolge. Unbekannte Gruppen kommen dahinter.
+  var GROUP_ORDER = ['pi', 'debian'];
+
+  // Ein Auftrag ist fuer Debian ohne Pi-Schritte, die Wartezeit ist dort laenger.
+  // Die Einheit ist Millisekunden wie SLOW_AFTER in screen-media.js.
+  var WAIT_PI = 10 * 60 * 1000;
+  var WAIT_DEBIAN = 30 * 60 * 1000;
+
+  // installLangFor: die Sprache der Installation. Nur x86 64-bit mit deutscher
+  // Oberflaeche bekommt Deutsch, ARM-Geraete zeigen immer Englisch.
+  function installLangFor(device, uiLang) {
+    return device === 'deb-amd64' && (uiLang || 'de') === 'de' ? 'de' : 'en';
+  }
+
   function validHostname(name) {
     return typeof name === 'string' && HOSTNAME.test(name);
   }
@@ -69,8 +83,9 @@
     validHostname: validHostname,
     validUser: validUser,
 
-    // groups: die Geraete nach ihrer Gruppe, in der Reihenfolge, in der die
-    // Gruppen zum ersten Mal vorkommen.
+    // groups: die Geraete nach ihrer Gruppe, pi vor debian, unbekannte Gruppen
+    // danach in der Reihenfolge des ersten Vorkommens. Innerhalb einer Gruppe
+    // bleibt die Reihenfolge, die der Server schickt.
     groups: function (devices) {
       var order = [];
       var byId = Object.create(null);
@@ -81,7 +96,33 @@
         }
         byId[device.group].devices.push(device);
       });
-      return order;
+      var known = GROUP_ORDER.filter(function (id) {
+        return byId[id];
+      }).map(function (id) {
+        return byId[id];
+      });
+      var rest = order.filter(function (group) {
+        return GROUP_ORDER.indexOf(group.id) < 0;
+      });
+      return known.concat(rest);
+    },
+
+    // installLangChoice: die Auswahl der Installationssprache. Nur x86 64-bit
+    // mit deutscher Oberflaeche hat eine Wahl, sonst gibt es keine Liste.
+    installLangChoice: function (device, uiLang) {
+      if (device !== 'deb-amd64' || uiLang === 'en') {
+        return [];
+      }
+      return [uiLang || 'de', 'en'];
+    },
+
+    // installLangFor: die Sprache, mit der die Installation laeuft.
+    installLangFor: installLangFor,
+
+    // waitLimit: wie lange der Rechner hoechstens auf sich warten lassen darf,
+    // in Millisekunden. Debian braucht laenger als ein Pi.
+    waitLimit: function (group) {
+      return group === 'debian' ? WAIT_DEBIAN : WAIT_PI;
     },
 
     // countryFor: das WLAN-Land zur Zeitzone, wie der Imager es aus der
@@ -212,11 +253,12 @@
 
     // defaultSettings: die Vorgaben des Rechners und des Installers. Die
     // Passwoerter beginnen leer, der Notfall-Zugang und das WLAN sind aus. Der
-    // erkannte WLAN-Name steht vor, das Passwort nie. group ist fuer
-    // gruppenspezifische Vorgaben reserviert und hat heute keine Wirkung.
-    defaultSettings: function (defaults, group) {
+    // erkannte WLAN-Name steht vor, das Passwort nie. Bei Debian sind Notfall-
+    // Zugang und Rueckfrage an, dazu kommen die Sprachen. device und uiLang
+    // gehoeren zur Debian-Vorgabe, Pi-Aufrufe mit group allein bleiben gleich.
+    defaultSettings: function (defaults, group, device, uiLang) {
       var d = defaults || {};
-      return {
+      var s = {
         hostname: d.hostname || '',
         user: d.user || '',
         emergency: false,
@@ -230,27 +272,37 @@
         wifiPassword: '',
         country: window.MediaModel.countryFor(d.timezone || '', d),
       };
+      if (group === 'debian') {
+        var lang = uiLang || 'de';
+        s.emergency = true;
+        s.askBeforeErase = true;
+        s.installLang = installLangFor(device, lang);
+        s.systemLang = lang;
+      }
+      return s;
     },
 
     // settingsComplete: ob das Formular abgeschickt werden kann. Das Passwort
-    // zaehlt nur, wenn der Notfall-Zugang an ist, das WLAN nur, wenn es an ist.
-    settingsComplete: function (s) {
+    // zaehlt nur, wenn der Notfall-Zugang an ist. Das WLAN zaehlt bei Pi nur,
+    // wenn es an ist, bei Debian nie.
+    settingsComplete: function (s, group) {
       if (!validHostname(s.hostname) || !validUser(s.user)) {
         return false;
       }
       if (s.emergency && !(s.password.length >= 8 && s.password === s.password2)) {
         return false;
       }
-      if (s.wifiOn && (!s.ssid || !COUNTRY.test(s.country))) {
+      if (group !== 'debian' && s.wifiOn && (!s.ssid || !COUNTRY.test(s.country))) {
         return false;
       }
       return true;
     },
 
     // toRequest: der Rumpf von POST /api/media/write. Ohne Schalter geht kein
-    // Passwort und kein WLAN mit.
-    toRequest: function (s) {
-      return {
+    // Passwort und kein WLAN mit. Debian schickt Rueckfrage und Sprachen mit
+    // und nie WLAN, Pi schickt sie nicht.
+    toRequest: function (s, group) {
+      var req = {
         hostname: s.hostname,
         user: s.user,
         password: s.emergency ? s.password : '',
@@ -259,6 +311,13 @@
         keyboard: s.keyboard,
         wifi: s.wifiOn ? { ssid: s.ssid, password: s.wifiPassword, country: s.country } : null,
       };
+      if (group === 'debian') {
+        req.wifi = null;
+        req.ask_before_erase = !!s.askBeforeErase;
+        req.install_lang = s.installLang;
+        req.system_lang = s.systemLang;
+      }
+      return req;
     },
 
     // confirmationFor: was POST /api/media/write als confirm schickt. Ein
