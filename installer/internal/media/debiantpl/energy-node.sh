@@ -2,15 +2,17 @@
 # Energy Node d-i helper (spike). Called as "early" from partman/early_command
 # and as "late" from preseed/late_command.
 set -u
-. /cdrom/energy-node.env
-LOG=/var/log/energy-node.log
+# shellcheck source=/dev/null
+. "${EN_CDROM:-/cdrom}/energy-node.env"
+LOG=${EN_LOG:-/var/log/energy-node.log}
 log() { echo "energy-node: $*" >>"$LOG"; echo "energy-node: $*" >&2; }
 
 abort() { # template, then name=value substitutions
 	tpl=$1
 	shift
-	. /usr/share/debconf/confmodule
-	db_x_loadtemplatefile /cdrom/energy-node.tpl energy-node
+	# shellcheck source=/dev/null
+	. "${EN_CONFMODULE:-/usr/share/debconf/confmodule}"
+	db_x_loadtemplatefile "${EN_CDROM:-/cdrom}/energy-node.tpl" energy-node
 	for kv in "$@"; do
 		db_subst "energy-node/$tpl" "${kv%%=*}" "${kv#*=}"
 	done
@@ -23,10 +25,10 @@ abort() { # template, then name=value substitutions
 }
 
 boot_disk() {
-	dev=$(awk '$2 == "/cdrom" { print $1; exit }' /proc/mounts)
+	dev=$(awk -v mp="${EN_CDROM:-/cdrom}" '$2 == mp { print $1; exit }' "${EN_PROC_MOUNTS:-/proc/mounts}")
 	n=${dev#/dev/}
-	if [ -e "/sys/class/block/$n/partition" ]; then
-		n=$(basename "$(readlink -f "/sys/class/block/$n/..")")
+	if [ -e "${EN_SYSFS:-/sys}/class/block/$n/partition" ]; then
+		n=$(basename "$(readlink -f "${EN_SYSFS:-/sys}/class/block/$n/..")")
 	fi
 	echo "$n"
 }
@@ -35,10 +37,10 @@ early() {
 	boot=$(boot_disk)
 	log "boot medium: ${boot:-unknown}"
 	cands=""
-	for dev in $(list-devices disk); do
+	for dev in $(${EN_LIST_DEVICES:-list-devices} disk); do
 		n=${dev#/dev/}
-		path=$(readlink -f "/sys/block/$n")
-		rm=$(cat "/sys/block/$n/removable" 2>/dev/null || echo 1)
+		path=$(readlink -f "${EN_SYSFS:-/sys}/block/$n")
+		rm=$(cat "${EN_SYSFS:-/sys}/block/$n/removable" 2>/dev/null || echo 1)
 		why=""
 		if [ "$n" = "$boot" ]; then
 			why="boot medium"
@@ -47,7 +49,7 @@ early() {
 		elif [ "$rm" != 0 ]; then
 			why="removable"
 		elif case "$n" in mmcblk*) true ;; *) false ;; esac &&
-			[ "$(cat "/sys/block/$n/device/type" 2>/dev/null)" != MMC ]; then
+			[ "$(cat "${EN_SYSFS:-/sys}/block/$n/device/type" 2>/dev/null)" != MMC ]; then
 			why="sd card"
 		fi
 		if [ -n "$why" ]; then
@@ -57,20 +59,24 @@ early() {
 		log "candidate $dev ($path)"
 		cands="$cands $dev"
 	done
+	# Device names contain no spaces: word splitting turns the list into arguments.
+	# shellcheck disable=SC2086
 	set -- $cands
 	[ $# -eq 0 ] && abort no-disk
+	# shellcheck disable=SC2086
 	[ $# -gt 1 ] && abort many-disks "DISKS=$(echo $cands | sed 's/ /, /g')"
 	disk=$1
 	n=${disk#/dev/}
-	gb=$(awk '{ printf "%.1f", $1 * 512 / 1000000000 }' "/sys/block/$n/size")
+	gb=$(awk '{ printf "%.1f", $1 * 512 / 1000000000 }' "${EN_SYSFS:-/sys}/block/$n/size")
 	class=$(echo "$gb" | awk '{ if ($1 < 3) print "none"; else if ($1 < 8) print "small"; else if ($1 <= 34) print "medium"; else print "large" }')
 	log "target $disk, $gb GB, class $class"
 	[ "$class" = none ] && abort too-small "DISK=$disk" "SIZE=$gb"
 
 	if [ "${EN_CONFIRM:-no}" = yes ]; then
-		model=$(cat "/sys/block/$n/device/model" 2>/dev/null | sed 's/ *$//')
-		. /usr/share/debconf/confmodule
-		db_x_loadtemplatefile /cdrom/energy-node.tpl energy-node
+		model=$(sed 's/ *$//' "${EN_SYSFS:-/sys}/block/$n/device/model" 2>/dev/null)
+		# shellcheck source=/dev/null
+		. "${EN_CONFMODULE:-/usr/share/debconf/confmodule}"
+		db_x_loadtemplatefile "${EN_CDROM:-/cdrom}/energy-node.tpl" energy-node
 		db_subst energy-node/confirm DISK "$disk"
 		db_subst energy-node/confirm MODEL "${model:-?}"
 		db_subst energy-node/confirm SIZE "$gb"
@@ -86,7 +92,7 @@ early() {
 		log "confirm: yes"
 	fi
 
-	if [ -d /sys/firmware/efi ]; then
+	if [ -d "${EN_SYSFS:-/sys}/firmware/efi" ]; then
 		esp=512
 		[ "$class" = small ] && esp=256
 		boot_part="$esp $esp $esp free \$iflabel{ gpt } \$reusemethod{ } method{ efi } format{ } ."
@@ -94,18 +100,18 @@ early() {
 		boot_part="1 1 1 free \$iflabel{ gpt } \$reusemethod{ } method{ biosgrub } ."
 	fi
 	root_part="1000 10000 -1 ext4 \$primary{ } \$bootable{ } method{ format } format{ } use_filesystem{ } filesystem{ ext4 } mountpoint{ / } ."
-	debconf-set partman-auto/disk "$disk"
-	debconf-set partman-auto/expert_recipe "energynode :: $boot_part $root_part"
-	debconf-set grub-installer/bootdev "$disk"
+	"${EN_DEBCONF:-debconf-set}" partman-auto/disk "$disk"
+	"${EN_DEBCONF:-debconf-set}" partman-auto/expert_recipe "energynode :: $boot_part $root_part"
+	"${EN_DEBCONF:-debconf-set}" grub-installer/bootdev "$disk"
 	if [ "$class" = small ]; then
-		debconf-set pkgsel/include "openssh-server avahi-daemon libnss-mdns sudo zram-tools"
+		"${EN_DEBCONF:-debconf-set}" pkgsel/include "openssh-server avahi-daemon libnss-mdns sudo zram-tools"
 	fi
-	echo "$class" >/tmp/energy-node.class
+	echo "$class" >"${EN_CLASS_FILE:-/tmp/energy-node.class}"
 }
 
 late() {
 	T=/target
-	class=$(cat /tmp/energy-node.class)
+	class=$(cat "${EN_CLASS_FILE:-/tmp/energy-node.class}")
 	log "late, class $class"
 
 	install -d -m 700 "$T/home/$EN_USER/.ssh"
