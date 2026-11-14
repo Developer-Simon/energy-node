@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Sticks mit altem Installations-Image lassen sich als zusätzliches Laufwerk formatieren"
+  },
+  "en": {
+    "*": "Wipe old file system signatures before formatting a stick"
+  }
+}

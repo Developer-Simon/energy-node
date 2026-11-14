@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.12-pre.10 (2026-11-06)
+## v0.11.12-pre.11 (2026-11-06)
 
 ### Features
 
@@ -32,11 +32,13 @@
 
 ### Fixes
 
+- **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
+- **storage:** wipe old file system signatures before formatting and report why it failed (0923fe1)
+- **storage:** wipe old file system signatures before formatting a stick (#245)
 - **storage:** format a single partition without repartitioning the disk (6e35b8d)
 - **storage:** keep the helper output in the format failure (c30a7ea)
 - **webui:** reset the whole stick mode when a single stick is chosen (4154e72)
 - **webui:** keep the new partition row in bounds and unstruck in whole stick mode (692f72e)
-- **storage:** offer sticks with several partitions as a group and format single partitions (#243)
 - **updaterhost:** implement the hotspot lookup of the installer backend (ccfb570)
 - **netmgr:** read the hotspot secret without a trailing newline (74376f1)
 
