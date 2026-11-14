@@ -1,5 +1,9 @@
 # QEMU-Matrix für den Debian-Stick
 
+Zum Ausprobieren mit Fenster und Installer-Verbindung gibt es `dev.sh`, siehe
+[docs/developing/installer-qemu.md](../../../docs/developing/installer-qemu.md).
+Dieses README beschreibt die Läufe der Matrix und ihre erwarteten Ergebnisse.
+
 Prüft den Debian-Medium-Stick (`installer/cmd/mediastick`) in virtuellen
 Maschinen: Stick bauen, von ihm booten, Installation laufen lassen und das
 installierte System per SSH prüfen. Die Skripte ersetzen die Spike-Skripte aus
@@ -19,8 +23,8 @@ installierte System per SSH prüfen. Die Skripte ersetzen die Spike-Skripte aus
 
 | Variable | Bedeutung |
 |---|---|
-| `EN_QEMU_ISO_DIR` | Verzeichnis mit den Netinst-ISOs (Pflicht) |
-| `EN_QEMU_KEY_DIR` | Verzeichnis mit den Testschlüsseln (Pflicht) |
+| `EN_QEMU_ISO_DIR` | Verzeichnis mit den Netinst-ISOs, ohne Angabe lädt `build.sh` das aktuelle signierte ISO nach `<work>/iso` |
+| `EN_QEMU_KEY_DIR` | Verzeichnis mit den Testschlüsseln (Standard `<work>/keys`, `dev.sh setup` erzeugt sie) |
 | `EN_QEMU_WORK_DIR` | Arbeitsverzeichnis für Sticks, Läufe und Logs (Standard `~/.cache/energy-node-qemu`) |
 | `QDISPLAY` | Anzeige für `run.sh`, Standard `-display none` |
 | `TMO` | Obergrenze pro Lauf, Standard `90m` |
@@ -61,7 +65,8 @@ Am 14.11.2026 mit Stick aus diesem Stand durchlaufen und gegen die Spalte
 „Erwartet“ geprüft: C, A, F und B, jeweils rund 4 Minuten Installation und ein
 grünes `verify.sh`. Nicht erneut gelaufen: D, E, H und I, weil sie am Zielgerät
 eine Taste brauchen (Enter bzw. Ja/Nein) und `run.sh` dafür noch kein
-`sendkey` über den QEMU-Monitor schickt, sowie der optionale Lauf G (arm64).
+`sendkey` über den QEMU-Monitor schickt. Ohne Taste bleibt die VM auf der
+Meldung stehen und `run.sh` läuft bis zum Timeout (90 Minuten), sowie der optionale Lauf G (arm64).
 Für sie gilt weiter der Spike-Bericht.
 
 ## Notfall-Passwort
