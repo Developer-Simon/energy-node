@@ -1,12 +1,21 @@
 # Changelog
 
-## v0.3.3-pre.4 (2026-11-14)
+## v0.3.3-pre.5 (2026-11-15)
 
 ### Features
 
 - **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236) (6d169d7)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
+- **installer:** add the Debian devices to the media device table (7fa1b05)
+- **installer:** verify the signed Debian SHA512SUMS and pick the netinst ISO (5ae1530)
+- **installer:** find the Debian netinst release and verify its signature (b665f59)
+- **installer:** cache Debian ISOs with the signed SHA-512 (1e41c84)
+- **installer:** patch a Debian netinst ISO in place without xorriso (1a3ce5f)
+- **installer:** generate the Debian stick files from embedded templates (17e060d)
+- **installer:** write the Debian install stick through the media job (100bb9e)
+- **installer:** pass the Debian write settings and errors through the host (bc13024)
+- **installer:** write a Debian install stick from the media mode (#255)
 - **installer:** show the emergency hotspot credentials after install (df40283)
 - **installer:** stage the hotspot password for step 67 (adca255)
 - **installer:** pass the hotspot password to the host only on install (c04ec74)
@@ -33,10 +42,25 @@
 ### Fixes
 
 - **installer:** ask for the pinned host key type when probing and signing in (#241) (a5e2b38)
+- **installer:** skip the Debian release lookup for unsupported devices (4b53c16)
+- **installer:** install python3 on the Debian stick target (b007104)
+- **installer:** manage the Debian node network with NetworkManager (8034938)
 - **installer:** read the JSON diagnose of a package without the stream (2d2fda2)
 - **installer:** keep the media cache check cheap (5553171)
 - **installer:** read the Wi-Fi name without a rescan and keep its band (092e503)
 - **installer:** unblock Wi-Fi on Raspberry Pi OS by setting its country (ffb360a)
+
+### Documentation
+
+- **installer:** record the QEMU matrix results and the emergency password run (ce5c7ab)
+
+### Tests
+
+- **installer:** cover the ISO layout failures of isopatch (f52f4cc)
+- **installer:** pin the disk selection of the Debian install script (3a98409)
+- **installer:** keep the Debian stick QEMU matrix in the repo (d0433a1)
+- **installer:** let mediastick set the emergency password (052a7b8)
+- **installer:** add dev.sh to try the Debian stick in QEMU (#257) (8bb3a60)
 
 ## v0.3.2 (2026-11-07)
 
