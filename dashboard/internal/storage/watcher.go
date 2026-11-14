@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -13,6 +16,16 @@ import (
 // defaultCheckTimeout bounds one marker read. A drive that hangs must not
 // hold up the tick.
 const defaultCheckTimeout = 2 * time.Second
+
+// remountRetry is the pause after a failed remount, so a drive that cannot be
+// mounted does not start the root helper every 30 seconds.
+const remountRetry = 2 * time.Minute
+
+// remountTimeout bounds one remount, the helper needs a few seconds on a Pi.
+const remountTimeout = 30 * time.Second
+
+// deviceByUUIDDir holds the udev links of the file systems by UUID.
+const deviceByUUIDDir = "/dev/disk/by-uuid"
 
 // reasonDriveMissing is the Status.Reason while the drive is not usable.
 const reasonDriveMissing = "Laufwerk nicht verfügbar, Ausweichspeicher aktiv"
@@ -41,9 +54,20 @@ type Watcher struct {
 	Merge func(fallbackDir, driveDir string) error
 	// Reload writes open changes and drops the cache of the energy store.
 	Reload func() error
+	// Mount mounts the drive with the given UUID again, through the root
+	// helper. Nil turns the remount off.
+	Mount func(ctx context.Context, uuid string) error
+	// DevicePresent reports whether a device with the UUID is attached. Nil
+	// looks for its link under /dev/disk/by-uuid.
+	DevicePresent func(uuid string) bool
+	// Busy reports a running setup, replace or remove job, which mounts and
+	// unmounts on its own. Nil means no job.
+	Busy func() bool
 
-	mu     sync.Mutex
-	status Status
+	mu           sync.Mutex
+	status       Status
+	lastRemount  time.Time
+	remountTried bool
 }
 
 // Status returns the current mode, when it was entered and why.
@@ -63,7 +87,11 @@ func (w *Watcher) Tick(ctx context.Context) Status {
 		return w.status
 	}
 	w.status.Reason = ""
-	if w.driveReady(ctx) {
+	ready := w.driveReady(ctx)
+	if !ready && w.remount(ctx) {
+		ready = w.driveReady(ctx)
+	}
+	if ready {
 		w.toDrive()
 	} else {
 		w.toFallback()
@@ -128,6 +156,43 @@ func (w *Watcher) toFallback() {
 			w.fail("Neu laden vom Ausweichspeicher", err)
 		}
 	}
+}
+
+// remount mounts the drive again when it is attached but not mounted, which is
+// what a stick that was unplugged and plugged back in looks like: nothing
+// mounts it by itself, the mount unit starts only at boot. It reports whether
+// the mount succeeded. A failed attempt waits remountRetry before the next.
+func (w *Watcher) remount(ctx context.Context) bool {
+	if w.Mount == nil || w.Config.UUID == "" {
+		return false
+	}
+	if w.Busy != nil && w.Busy() {
+		return false
+	}
+	if !w.devicePresent(w.Config.UUID) {
+		return false
+	}
+	if w.remountTried && w.now().Sub(w.lastRemount) < remountRetry {
+		return false
+	}
+	w.remountTried = true
+	w.lastRemount = w.now()
+	ctx, cancel := context.WithTimeout(ctx, remountTimeout)
+	defer cancel()
+	if err := w.Mount(ctx, w.Config.UUID); err != nil {
+		log.Printf("storage: mounting the returned drive failed: %v", err)
+		return false
+	}
+	w.remountTried = false
+	return true
+}
+
+func (w *Watcher) devicePresent(uuid string) bool {
+	if w.DevicePresent != nil {
+		return w.DevicePresent(uuid)
+	}
+	_, err := os.Stat(filepath.Join(deviceByUUIDDir, uuid))
+	return err == nil
 }
 
 // driveReady reads the marker with a time limit. A read that does not
