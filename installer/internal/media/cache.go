@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/ProtonMail/go-crypto/openpgp"
 )
 
 // ErrChecksum reports that a file does not match its SHA-256 checksum.
@@ -29,9 +31,11 @@ var datePrefix = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-`)
 
 // Cache keeps the OS list and the downloaded images below Dir.
 type Cache struct {
-	Dir       string       // z. B. <UserCacheDir>/energy-node-installer/media
-	Client    *http.Client // nil = http.DefaultClient
-	OSListURL string       // leer = OSListURL
+	Dir       string             // z. B. <UserCacheDir>/energy-node-installer/media
+	Client    *http.Client       // nil = http.DefaultClient
+	OSListURL string             // leer = OSListURL
+	DebianURL string             // leer = DebianCDURL
+	DebianKey openpgp.EntityList // nil = eingebauter Debian-Schlüssel
 }
 
 func (c *Cache) client() *http.Client {
@@ -330,4 +334,90 @@ func (c *Cache) getStream(ctx context.Context, rawURL string) (*http.Response, e
 		return nil, fmt.Errorf("GET %s: %s", rawURL, resp.Status)
 	}
 	return resp, nil
+}
+
+func (c *Cache) debianURL() string {
+	if c.DebianURL != "" {
+		return c.DebianURL
+	}
+	return DebianCDURL
+}
+
+// DebianRelease finds the netinst ISO for arch in the Debian CD directory. It
+// fetches SHA512SUMS and SHA512SUMS.sign, verifies the signature and stores both
+// files as Dir/debian-<arch>.SHA512SUMS(.sign). Nothing is stored before the
+// signature has passed. Without network it verifies the stored copies again and
+// reports offline=true. Size comes from a HEAD request on the ISO, or from the
+// cached ISO file offline, and is 0 when neither is available.
+func (c *Cache) DebianRelease(ctx context.Context, arch string) (DebianRelease, bool, error) {
+	keys := c.DebianKey
+	if keys == nil {
+		var err error
+		if keys, err = DebianKey(); err != nil {
+			return DebianRelease{}, false, err
+		}
+	}
+	dirURL := c.debianURL() + "/" + arch + "/iso-cd/"
+	signedFile := filepath.Join(c.Dir, "debian-"+arch+".SHA512SUMS")
+	sigFile := signedFile + ".sign"
+
+	signed, netErr := c.get(ctx, dirURL+"SHA512SUMS")
+	var sig []byte
+	if netErr == nil {
+		sig, netErr = c.get(ctx, dirURL+"SHA512SUMS.sign")
+	}
+	if netErr == nil {
+		release, err := ParseSHA512SUMS(signed, sig, keys, arch)
+		if err != nil {
+			return DebianRelease{}, false, err
+		}
+		if err := os.MkdirAll(c.Dir, 0o755); err != nil {
+			return DebianRelease{}, false, fmt.Errorf("create cache dir: %w", err)
+		}
+		if err := os.WriteFile(signedFile, signed, 0o644); err != nil {
+			return DebianRelease{}, false, fmt.Errorf("store SHA512SUMS: %w", err)
+		}
+		if err := os.WriteFile(sigFile, sig, 0o644); err != nil {
+			return DebianRelease{}, false, fmt.Errorf("store SHA512SUMS.sign: %w", err)
+		}
+		release.URL = dirURL + release.Name
+		release.Size = c.headSize(ctx, release.URL)
+		return release, false, nil
+	}
+
+	signed, err := os.ReadFile(signedFile)
+	if err != nil {
+		return DebianRelease{}, false, fmt.Errorf("debian release unavailable (%v) and no stored copy: %w", netErr, err)
+	}
+	sig, err = os.ReadFile(sigFile)
+	if err != nil {
+		return DebianRelease{}, false, fmt.Errorf("debian release unavailable (%v) and no stored signature: %w", netErr, err)
+	}
+	release, err := ParseSHA512SUMS(signed, sig, keys, arch)
+	if err != nil {
+		return DebianRelease{}, false, err
+	}
+	release.URL = dirURL + release.Name
+	if fi, err := os.Stat(filepath.Join(c.Dir, imagesDir, release.Name)); err == nil && fi.Mode().IsRegular() {
+		release.Size = fi.Size()
+	}
+	return release, true, nil
+}
+
+// headSize returns the Content-Length of rawURL from a HEAD request, or 0 when
+// it is unknown.
+func (c *Cache) headSize(ctx context.Context, rawURL string) int64 {
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
+	if err != nil {
+		return 0
+	}
+	resp, err := c.client().Do(req)
+	if err != nil {
+		return 0
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || resp.ContentLength < 0 {
+		return 0
+	}
+	return resp.ContentLength
 }
