@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -298,12 +299,142 @@ func TestMediaErrorsMapToCodes(t *testing.T) {
 		{media.ErrSettings, hostapi.MediaErrInvalidSettings, http.StatusBadRequest},
 		{media.ErrImagerMissing, hostapi.MediaErrImagerMissing, http.StatusConflict},
 		{media.ErrTooSmall, hostapi.MediaErrTooSmall, http.StatusBadRequest},
+		{media.ErrSignature, hostapi.MediaErrSignatureInvalid, http.StatusBadGateway},
+		{media.ErrDebianUnavailable, hostapi.MediaErrDebianUnavailable, http.StatusServiceUnavailable},
 	}
 	for _, c := range cases {
 		assertAPIError(t, mediaError(c.err), c.code, c.status)
 	}
 	if err := mediaError(nil); err != nil {
 		t.Errorf("mediaError(nil) = %v", err)
+	}
+}
+
+// debianWriteRequest ist ein gueltiger Schreibauftrag fuer den amd64-Stick.
+func debianWriteRequest() hostapi.MediaWriteRequest {
+	return hostapi.MediaWriteRequest{
+		Device:  "deb-amd64",
+		Drive:   "/dev/sdb",
+		Confirm: "yes",
+		Settings: hostapi.MediaSettings{
+			Hostname:    "energy-node",
+			User:        "node",
+			Timezone:    "Europe/Berlin",
+			Keyboard:    "de",
+			InstallLang: "de",
+			SystemLang:  "de",
+		},
+	}
+}
+
+// useFakeStick ersetzt die Laufwerkssuche des Schreibers durch einen USB-Stick.
+func useFakeStick(t *testing.T, h *Host) *media.Writer {
+	t.Helper()
+	w, err := h.writer()
+	if err != nil {
+		t.Fatalf("writer: %v", err)
+	}
+	w.Drives = func(context.Context) ([]media.Drive, error) {
+		return []media.Drive{{Path: "/dev/sdb", Model: "Stick", Size: 64 << 30, Transport: "usb", Removable: true}}, nil
+	}
+	return w
+}
+
+func TestDebianWriteWithBadSignatureStartsNoJob(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("media mode is Linux only")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/SHA512SUMS.sign"):
+			_, _ = w.Write([]byte("garbage, not a signature"))
+		case strings.HasSuffix(r.URL.Path, "/SHA512SUMS"):
+			_, _ = w.Write([]byte("0000  netinst.iso\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	h := newMediaHost(t, t.TempDir())
+	h.mediaCache = &media.Cache{
+		Dir:       t.TempDir(),
+		DebianURL: srv.URL,
+		OSListURL: "http://127.0.0.1:1/os_list.json",
+		DebianKey: hostTestKeys(t),
+	}
+	w := useFakeStick(t, h)
+	err := h.MediaWrite(context.Background(), debianWriteRequest())
+	assertAPIError(t, err, hostapi.MediaErrSignatureInvalid, http.StatusBadGateway)
+	if state := w.View().State; state != media.JobIdle {
+		t.Errorf("job state = %s after a bad signature, want idle", state)
+	}
+}
+
+func TestDebianWriteWithUnreachableReleaseStartsNoJob(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("media mode is Linux only")
+	}
+	h := newMediaHost(t, t.TempDir())
+	h.mediaCache = &media.Cache{
+		Dir:       t.TempDir(),
+		DebianURL: "http://127.0.0.1:1",
+		OSListURL: "http://127.0.0.1:1/os_list.json",
+		DebianKey: hostTestKeys(t),
+	}
+	w := useFakeStick(t, h)
+	err := h.MediaWrite(context.Background(), debianWriteRequest())
+	assertAPIError(t, err, hostapi.MediaErrDebianUnavailable, http.StatusServiceUnavailable)
+	if state := w.View().State; state != media.JobIdle {
+		t.Errorf("job state = %s with no release, want idle", state)
+	}
+}
+
+func TestMediaWriteAskBeforeEraseDecodesNilWhenMissing(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("media mode is Linux only")
+	}
+	cases := []struct {
+		name string
+		body string
+		want *bool
+	}{
+		{
+			name: "missing",
+			body: `{"device":"deb-amd64","drive":"/dev/sdb","confirm":"yes","settings":{"hostname":"energy-node","user":"node","install_lang":"de","system_lang":"en"}}`,
+			want: nil,
+		},
+		{
+			name: "explicit false",
+			body: `{"device":"deb-amd64","drive":"/dev/sdb","confirm":"yes","settings":{"hostname":"energy-node","user":"node","ask_before_erase":false,"install_lang":"de","system_lang":"en"}}`,
+			want: new(bool),
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var req hostapi.MediaWriteRequest
+			if err := json.Unmarshal([]byte(c.body), &req); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
+			}
+			h := newMediaHost(t, t.TempDir())
+			var got media.WriteRequest
+			h.mediaStart = func(_ context.Context, r media.WriteRequest) error {
+				got = r
+				return nil
+			}
+			if err := h.MediaWrite(context.Background(), req); err != nil {
+				t.Fatalf("MediaWrite: %v", err)
+			}
+			switch {
+			case c.want == nil && got.AskBeforeErase != nil:
+				t.Errorf("AskBeforeErase = %v, want nil", *got.AskBeforeErase)
+			case c.want != nil && (got.AskBeforeErase == nil || *got.AskBeforeErase):
+				t.Errorf("AskBeforeErase = %v, want false", got.AskBeforeErase)
+			}
+			if got.InstallLang != "de" || got.SystemLang != "en" {
+				t.Errorf("languages = %q/%q, want de/en", got.InstallLang, got.SystemLang)
+			}
+		})
 	}
 }
 

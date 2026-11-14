@@ -9,20 +9,23 @@ import (
 // Fehlercodes der Medienvorbereitung. Die Oberflaeche uebersetzt sie ueber
 // den Katalog (error.<CODE>).
 const (
-	MediaErrUnsupported      = "MEDIA_UNSUPPORTED"
-	MediaErrImagerMissing    = "MEDIA_IMAGER_MISSING"
-	MediaErrOSListUnavail    = "MEDIA_OSLIST_UNAVAILABLE"
-	MediaErrDownloadFailed   = "MEDIA_DOWNLOAD_FAILED"
-	MediaErrChecksumMismatch = "MEDIA_CHECKSUM_MISMATCH"
-	MediaErrRightsDenied     = "MEDIA_RIGHTS_DENIED"
-	MediaErrDriveGone        = "MEDIA_DRIVE_GONE"
-	MediaErrWriteFailed      = "MEDIA_WRITE_FAILED"
-	MediaErrVerifyFailed     = "MEDIA_VERIFY_FAILED"
-	MediaErrTooSmall         = "MEDIA_TOO_SMALL"
-	MediaErrBusy             = "MEDIA_BUSY"
-	MediaErrConfirmMismatch  = "MEDIA_CONFIRM_MISMATCH"
-	MediaErrInvalidSettings  = "MEDIA_INVALID_SETTINGS"
-	MediaErrCancelled        = "MEDIA_CANCELLED"
+	MediaErrUnsupported       = "MEDIA_UNSUPPORTED"
+	MediaErrImagerMissing     = "MEDIA_IMAGER_MISSING"
+	MediaErrOSListUnavail     = "MEDIA_OSLIST_UNAVAILABLE"
+	MediaErrDownloadFailed    = "MEDIA_DOWNLOAD_FAILED"
+	MediaErrChecksumMismatch  = "MEDIA_CHECKSUM_MISMATCH"
+	MediaErrRightsDenied      = "MEDIA_RIGHTS_DENIED"
+	MediaErrDriveGone         = "MEDIA_DRIVE_GONE"
+	MediaErrWriteFailed       = "MEDIA_WRITE_FAILED"
+	MediaErrVerifyFailed      = "MEDIA_VERIFY_FAILED"
+	MediaErrTooSmall          = "MEDIA_TOO_SMALL"
+	MediaErrBusy              = "MEDIA_BUSY"
+	MediaErrConfirmMismatch   = "MEDIA_CONFIRM_MISMATCH"
+	MediaErrInvalidSettings   = "MEDIA_INVALID_SETTINGS"
+	MediaErrCancelled         = "MEDIA_CANCELLED"
+	MediaErrSignatureInvalid  = "MEDIA_SIGNATURE_INVALID"
+	MediaErrPatchFailed       = "MEDIA_PATCH_FAILED"
+	MediaErrDebianUnavailable = "MEDIA_DEBIAN_UNAVAILABLE"
 )
 
 // maxMediaBody begrenzt den Rumpf von POST /api/media/write.
@@ -156,6 +159,11 @@ type MediaSettings struct {
 	Timezone    string     `json:"timezone"`
 	Keyboard    string     `json:"keyboard"`
 	Wifi        *MediaWifi `json:"wifi"`
+
+	// Debian only. AskBeforeErase nil heisst: nachfragen.
+	AskBeforeErase *bool  `json:"ask_before_erase"`
+	InstallLang    string `json:"install_lang"`
+	SystemLang     string `json:"system_lang"`
 }
 
 // MediaWriteRequest ist der Rumpf von POST /api/media/write.
