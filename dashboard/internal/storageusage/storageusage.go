@@ -8,7 +8,9 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
+	"time"
 )
 
 // Sources nennt die Ordner der Systemplatte je Teil.
@@ -113,4 +115,65 @@ func deviceOf(fi fs.FileInfo) (uint64, bool) {
 		return 0, false
 	}
 	return uint64(st.Dev), true
+}
+
+// Meter hält den letzten Messwert zwischen und startet Messungen im
+// Hintergrund. Der Wert gilt nur für den key, unter dem er gemessen wurde.
+type Meter struct {
+	measure func() Parts
+	ttl     time.Duration
+	now     func() time.Time
+	spawn   func(func())
+
+	mu         sync.Mutex
+	has        bool
+	key        string
+	parts      Parts
+	at         time.Time
+	running    bool
+	runningKey string
+}
+
+// NewMeter legt einen Meter an, der measure höchstens alle ttl neu aufruft.
+func NewMeter(measure func() Parts, ttl time.Duration) *Meter {
+	return &Meter{
+		measure: measure,
+		ttl:     ttl,
+		now:     time.Now,
+		spawn:   func(f func()) { go f() },
+	}
+}
+
+// Get liefert den Messwert für key und ob es einen gibt. Fehlt er oder ist er
+// älter als ttl, startet Get eine Messung im Hintergrund, höchstens eine zur
+// selben Zeit. Ein veralteter Wert desselben key wird bis dahin weiter
+// geliefert, ein Wert eines anderen key nie.
+func (m *Meter) Get(key string) (Parts, bool) {
+	m.mu.Lock()
+	served := m.has && m.key == key
+	fresh := served && m.now().Sub(m.at) <= m.ttl
+	var start bool
+	if !m.running && !fresh {
+		start = true
+		m.running = true
+		m.runningKey = key
+	}
+	p := m.parts
+	m.mu.Unlock()
+
+	// spawn läuft außerhalb der Sperre, damit eine synchrone Ausführung
+	// nicht blockiert.
+	if start {
+		m.spawn(func() {
+			result := m.measure()
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			m.running = false
+			m.has = true
+			m.key = key
+			m.parts = result
+			m.at = m.now()
+		})
+	}
+	return p, served
 }
