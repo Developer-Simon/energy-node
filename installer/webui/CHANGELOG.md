@@ -51,6 +51,7 @@
 
 ### Tests
 
+- **installer:** wait for the diagnose skeleton rows instead of the old banner (8ea5ba1)
 - **webui:** cover the media mode end to end (69364e7)
 - **webui:** pick the device list, not the language switch, in the media e2e (6087dff)
 
