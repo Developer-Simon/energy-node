@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.3-pre.4 (2026-11-06)
+## v0.3.3-pre.5 (2026-11-06)
 
 ### Features
 
@@ -8,6 +8,14 @@
 - **installer:** The installer prepares the SD card for a Raspberry Pi itself, with Wi-Fi and SSH access set up (#236) (6d169d7)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
+- **installer:** add the Debian devices to the media device table (b236b7b)
+- **installer:** pass the Debian write settings and errors through the host (31d3dec)
+- **installer:** expose the Debian media settings and steps in the host API (07d3158)
+- **installer:** add the Debian model rules to the media mode (56406e7)
+- **installer:** add the Debian choices to the media device and settings steps (d7acb88)
+- **installer:** add the Debian drive step to the media mode (86118a3)
+- **installer:** add the Debian write and done steps to the media mode (aa6d17a)
+- **installer:** write a Debian install stick from the media mode (#255)
 - **network:** add the emergency hotspot bootstrap step (d30f816)
 - **installer:** show the emergency hotspot credentials after install (df40283)
 - **installer:** carry the hotspot password through the run request (cca04e8)

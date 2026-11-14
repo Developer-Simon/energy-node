@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Der Installer schreibt einen Debian-Installationsstick"
+  },
+  "en": {
+    "*": "Write a Debian install stick from the media mode"
+  }
+}
