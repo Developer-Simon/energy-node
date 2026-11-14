@@ -104,7 +104,7 @@ early() {
 	"${EN_DEBCONF:-debconf-set}" partman-auto/expert_recipe "energynode :: $boot_part $root_part"
 	"${EN_DEBCONF:-debconf-set}" grub-installer/bootdev "$disk"
 	if [ "$class" = small ]; then
-		"${EN_DEBCONF:-debconf-set}" pkgsel/include "openssh-server avahi-daemon libnss-mdns sudo zram-tools"
+		"${EN_DEBCONF:-debconf-set}" pkgsel/include "openssh-server avahi-daemon libnss-mdns sudo python3 zram-tools"
 	fi
 	echo "$class" >"${EN_CLASS_FILE:-/tmp/energy-node.class}"
 }
