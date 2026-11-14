@@ -50,11 +50,15 @@
             <div>
               <div class="media-group" x-text="t('media.group.' + group.id)"></div>
               <template x-for="item in group.devices" :key="item.id">
-                <div class="media-opt" :class="{ on: picked === item.id }" role="radio" tabindex="0" :aria-checked="picked === item.id"
+                <div class="media-opt" :class="{ on: picked === item.id, 'media-opt--off': item.unsupported }" role="radio" :tabindex="item.unsupported ? -1 : 0"
+                     :aria-checked="picked === item.id" :aria-disabled="item.unsupported ? 'true' : 'false'"
                      @click="pick(item.id)" @keydown.enter.prevent="pick(item.id)" @keydown.space.prevent="pick(item.id)">
                   <span class="media-radio" aria-hidden="true"></span>
-                  <span class="media-opt-t" x-text="t('media.device.' + item.id)"></span>
-                  <template x-if="item.experimental"><span class="media-tag" x-text="tagFor(item)"></span></template>
+                  <span class="media-opt-b">
+                    <span class="media-opt-t" x-text="t('media.device.' + item.id)"></span>
+                    <template x-if="hintFor(item)"><span class="media-opt-s" x-text="hintFor(item)"></span></template>
+                  </span>
+                  <template x-if="item.experimental || item.unsupported"><span class="media-tag" x-text="tagFor(item)"></span></template>
                 </div>
               </template>
             </div>
@@ -209,15 +213,18 @@
 
       <section class="card">
         <h2 class="card-h" x-text="t('media.settings.network')"></h2>
-        <label class="media-toggle">
-          <span class="settings-toggle">
-            <input type="checkbox" role="switch" x-model="form.wifiOn" :aria-label="t('media.settings.wifi')">
-            <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
-          </span>
-          <span><span class="media-check-t" x-text="t('media.settings.wifi')"></span></span>
-        </label>
+        <template x-if="isDebian"><div class="media-hint" x-text="t('media.settings.debian_network')"></div></template>
+        <template x-if="!isDebian">
+          <label class="media-toggle">
+            <span class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="form.wifiOn" :aria-label="t('media.settings.wifi')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </span>
+            <span><span class="media-check-t" x-text="t('media.settings.wifi')"></span></span>
+          </label>
+        </template>
 
-        <template x-if="form.wifiOn">
+        <template x-if="!isDebian && form.wifiOn">
           <div>
             <div class="media-field">
               <div class="media-net-head">
@@ -272,6 +279,33 @@
           </div>
         </template>
       </section>
+
+      <template x-if="isDebian">
+        <section class="card">
+          <h2 class="card-h" x-text="t('media.settings.install')"></h2>
+          <label class="media-toggle">
+            <span class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="form.askBeforeErase" :aria-label="t('media.settings.ask_erase')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </span>
+            <span>
+              <span class="media-check-t" x-text="t('media.settings.ask_erase')"></span>
+              <span class="media-check-s" x-text="t('media.settings.ask_erase_hint')"></span>
+            </span>
+          </label>
+          <template x-if="showEraseWarning"><div class="media-res media-res--warn" role="status" x-text="t('media.settings.ask_erase_off')"></div></template>
+
+          <template x-if="showLangSelect">
+            <div class="media-field">
+              <span class="lbl" id="media-install-lang" x-text="t('media.settings.install_lang')"></span>
+              <select x-model="form.installLang" aria-labelledby="media-install-lang">
+                <template x-for="code in installChoices" :key="code"><option :value="code" :selected="form.installLang === code" x-text="t('language.' + code)"></option></template>
+              </select>
+            </div>
+          </template>
+          <template x-if="showArmHint"><div class="media-hint" x-text="t('media.settings.arm_serial')"></div></template>
+        </section>
+      </template>
     </div>
   </div>
 
@@ -289,7 +323,29 @@
 
     <div class="media-cards">
       <section class="card">
-        <h2 class="card-h" x-text="t('media.drive.title')"></h2>
+        <h2 class="card-h" x-text="isDebian ? t('media.debian.drive.title') : t('media.drive.title')"></h2>
+        <template x-if="isDebian">
+          <div>
+            <p class="media-hint" x-text="t('media.debian.drive.explain')"></p>
+            <div class="media-split">
+              <div class="media-split-box">
+                <div class="media-split-t" x-text="t('media.debian.split.stick')"></div>
+                <div class="media-split-s" x-text="t('media.debian.split.stick_text')"></div>
+              </div>
+              <div class="media-split-box">
+                <div class="media-split-t" x-text="t('media.debian.split.disk')"></div>
+                <ul class="media-classes">
+                  <li><span class="media-class-t" x-text="t('media.debian.class.abort')"></span></li>
+                  <li><span class="media-class-t" x-text="t('media.debian.class.small')"></span></li>
+                  <li><span class="media-class-t" x-text="t('media.debian.class.medium')"></span></li>
+                  <li><span class="media-class-t" x-text="t('media.debian.class.large')"></span></li>
+                </ul>
+                <div class="media-split-s" x-text="t('media.debian.split.multi')"></div>
+              </div>
+            </div>
+            <p class="media-hint" x-text="t('media.debian.drive.recommend')"></p>
+          </div>
+        </template>
         <template x-if="visible.length === 0">
           <div class="media-hint" role="status" x-text="t('media.drive.empty')"></div>
         </template>
@@ -336,6 +392,9 @@
 
           <div class="media-warn">
             <div class="media-warn-t" x-text="t('media.warn.erase', { drive: driveName(selectedDrive) })"></div>
+            <template x-if="isDebian">
+              <div class="media-warn-s" x-text="t(debianWarnKey)"></div>
+            </template>
             <template x-if="selectedDrive.partitions.length">
               <div>
                 <div class="media-warn-s" x-text="partitionsText(selectedDrive)"></div>
@@ -349,7 +408,7 @@
             <template x-if="selectedDrive.removable">
               <label class="media-toggle media-warn-check">
                 <input type="checkbox" x-model="checked">
-                <span class="media-check-t" x-text="t('media.warn.confirm_card')"></span>
+                <span class="media-check-t" x-text="t(isDebian ? 'media.warn.confirm_debian' : 'media.warn.confirm_card')"></span>
               </label>
             </template>
             <template x-if="!selectedDrive.removable">
@@ -424,12 +483,31 @@
 
     <div class="media-cards">
       <section class="card">
-        <h2 class="card-h" x-text="t('media.done.title')"></h2>
-        <ol class="media-list">
-          <li x-text="t('media.done.pi.1')"></li>
-          <li x-text="t('media.done.pi.2')"></li>
-          <li x-text="t('media.done.pi.3', { host: address })"></li>
-        </ol>
+        <h2 class="card-h" x-text="t(isDebian ? 'media.done.debian.title' : 'media.done.title')"></h2>
+        <template x-if="!isDebian">
+          <ol class="media-list">
+            <li x-text="t('media.done.pi.1')"></li>
+            <li x-text="t('media.done.pi.2')"></li>
+            <li x-text="t('media.done.pi.3', { host: address })"></li>
+          </ol>
+        </template>
+        <template x-if="isDebian">
+          <ol class="media-list">
+            <li x-text="t('media.done.debian.1')"></li>
+            <li x-text="t('media.done.debian.2')"></li>
+            <li x-text="t('media.done.debian.3')"></li>
+            <li>
+              <span x-text="t('media.done.debian.4')"></span>
+              <span x-text="t(eraseWithoutAsk ? 'media.done.debian.4.noask' : 'media.done.debian.4.ask')"></span>
+            </li>
+            <li>
+              <span x-text="t('media.done.debian.5')"></span>
+              <div class="media-warn" role="note">
+                <span class="media-warn-t" x-text="t(eraseWithoutAsk ? 'media.done.debian.5.warn_noask' : 'media.done.debian.5.warn')"></span>
+              </div>
+            </li>
+          </ol>
+        </template>
 
         <template x-if="waiting">
           <div class="media-status" role="status">
@@ -452,6 +530,7 @@
             <div class="media-warn-t" x-text="t('media.done.slow.title')"></div>
             <ul class="media-parts">
               <li x-text="t('media.done.slow.network')"></li>
+              <template x-if="isDebian"><li x-text="t('media.done.slow.dhcp')"></li></template>
               <li x-text="t('media.done.slow.mdns')"></li>
               <li x-text="t('media.done.slow.boot')"></li>
             </ul>

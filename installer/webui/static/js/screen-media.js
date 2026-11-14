@@ -10,8 +10,8 @@
   var WRITE_POLL = 500;
   var DONE_CLOCK = 1000;
   var DONE_POLL = 5000;
-  var SLOW_AFTER = 10 * 60 * 1000;
-  var STEP_IDS = ['download', 'checksum', 'rights', 'write', 'verify', 'customize', 'eject'];
+  // DEVICE_HINTS: die Zeile unter dem Namen einer Debian-Zeile.
+  var DEVICE_HINTS = { 'deb-amd64': 'media.device.deb-amd64.hint', 'deb-arm64': 'media.device.deb-arm64.hint' };
 
   window.Screens = window.Screens || {};
 
@@ -103,12 +103,29 @@
         };
       },
 
-      // tagFor: das Etikett einer Geraetezeile. Nur fehlende Tests tragen eins.
+      // tagFor: das Etikett einer Geraetezeile. Nur fehlende Tests tragen eins,
+      // nicht unterstuetzte Geraete ein eigenes.
       tagFor(device) {
+        if (device && device.unsupported) {
+          return this.shell.t('media.tag.unsupported');
+        }
         return device && device.experimental ? this.shell.t('media.tag.experimental') : '';
       },
 
+      // hintFor: die Zeile unter dem Namen, nur bei den Debian-Geraeten.
+      hintFor(device) {
+        var key = device && DEVICE_HINTS[device.id];
+        return key ? this.shell.t(key) : '';
+      },
+
+      // pick: ein nicht unterstuetztes Geraet laesst sich nicht waehlen.
       pick(id) {
+        var item = this.devices.find(function (device) {
+          return device.id === id;
+        });
+        if (!item || item.unsupported) {
+          return;
+        }
         this.picked = id;
       },
 
@@ -158,30 +175,60 @@
       manual: false,
       // scanning: der Suchlauf nach Netzen laeuft noch.
       scanning: false,
+      // group: die Gruppe des Geraets, 'pi', 'debian' oder '' ohne Katalog.
+      group: '',
 
       get shell() {
         return window.Installer.shell;
       },
 
+      // deviceId: das gewaehlte Geraet aus Schritt 1.
+      get deviceId() {
+        return (this.shell.shared.media || {}).device || '';
+      },
+
+      // isDebian: Debian statt Pi. Dann gibt es kein WLAN, dafuer den Abschnitt Installation.
+      get isDebian() {
+        return this.group === 'debian';
+      },
+
+      // showEraseWarning: ohne Rueckfrage warnt der Bildschirm in Warnfarbe.
+      get showEraseWarning() {
+        return this.isDebian && !this.form.askBeforeErase;
+      },
+
+      // installChoices: die Sprachen der Installation, leer wenn es keine Wahl gibt.
+      get installChoices() {
+        return window.MediaModel.installLangChoice(this.deviceId, this.uiLang);
+      },
+
+      get showLangSelect() {
+        return this.isDebian && this.installChoices.length > 0;
+      },
+
+      // showArmHint: ARM-Geraete haben keine Sprachwahl, sie bekommen einen festen Hinweis.
+      get showArmHint() {
+        return this.isDebian && this.deviceId === 'deb-arm64';
+      },
+
       async init() {
         var media = this.shell.shared.media || {};
         var defaults = {};
-        var group = '';
+        // Die Gruppe kommt aus der Geraete-ID, nicht aus dem Katalog: scheitert
+        // der Abruf, bleibt ein Debian-Lauf ein Debian-Lauf.
+        var group = window.MediaModel.groupFor(media.device);
+        this.group = group;
         try {
           var catalog = await window.Api.get('/api/media/catalog');
           defaults = catalog.defaults || {};
           this.defaults = defaults;
           this.timezones = defaults.timezones || [];
           this.keyboards = defaults.keyboards || [];
-          var device = (catalog.devices || []).find(function (item) {
-            return item.id === media.device;
-          });
-          group = device ? device.group : '';
         } catch (err) {
           this.shell.fail(err);
         }
 
-        var form = window.MediaModel.defaultSettings(defaults, group);
+        var form = window.MediaModel.defaultSettings(defaults, group, media.device || '', this.uiLang);
         var remembered = this.remembered();
         var self = this;
         Object.keys(window.MediaModel.remembered(form)).forEach(function (key) {
@@ -485,7 +532,7 @@
       },
 
       get canContinue() {
-        return window.MediaModel.settingsComplete(this.form);
+        return window.MediaModel.settingsComplete(this.form, this.group);
       },
 
       back() {
@@ -502,6 +549,8 @@
           // ohne Speicher bleibt es bei dieser Sitzung
         }
         this.shell.shared.media.settings = Object.assign({}, this.form);
+        // Die Gruppe reist mit, damit das Schreiben die Debian-Felder schickt.
+        this.shell.shared.media.group = this.group;
         this.shell.go('media-drive');
       },
     };
@@ -514,9 +563,9 @@
       drives: [],
       showInternal: false,
       // limit: die Groesse, die das Image beim Entpacken braucht; kleinere
-      // Laufwerke sind ausgegraut. isPi steuert den Kasten zur Aufteilung.
+      // Laufwerke sind ausgegraut. group steuert, welcher Abschnitt erscheint.
       limit: 0,
-      isPi: false,
+      group: '',
       selected: null,
       checked: false,
       typed: '',
@@ -530,6 +579,7 @@
       async init() {
         var media = this.shell.shared.media || {};
         this.selected = media.drive ? media.drive.path : null;
+        this.group = window.MediaModel.groupFor(media.device);
         var catalog;
         try {
           catalog = await window.Api.get('/api/media/catalog');
@@ -541,7 +591,6 @@
           return item.id === media.device;
         });
         this.limit = device && device.image ? device.image.extract_size : 0;
-        this.isPi = !!device && device.group === 'pi';
         this.timer = window.setInterval(() => this.load(), DRIVE_POLL);
         return this.load();
       },
@@ -600,8 +649,23 @@
         return !!drive && this.fits(drive) && window.MediaModel.confirmed(drive, this.checked, this.typed);
       },
 
+      get isDebian() {
+        return this.group === 'debian';
+      },
+
+      // eraseWithoutAsk: Debian ohne Rueckfrage am Zielgeraet, dann warnt die
+      // Karte mit dem Satz ohne Rueckfrage. Der Schalter kommt aus Schritt 2.
+      get eraseWithoutAsk() {
+        var settings = this.shell.shared.media.settings;
+        return this.isDebian && !!settings && settings.askBeforeErase === false;
+      },
+
+      get debianWarnKey() {
+        return this.eraseWithoutAsk ? 'media.warn.debian_noask' : 'media.warn.debian_ask';
+      },
+
       get showLayout() {
-        return this.isPi && !!this.selectedDrive;
+        return this.group === 'pi' && !!this.selectedDrive;
       },
 
       fits(drive) {
@@ -695,6 +759,8 @@
       running: false,
       failed: false,
       timer: null,
+      // group: 'pi' oder 'debian', bestimmt die Ersatzschritte.
+      group: '',
 
       get shell() {
         return window.Installer.shell;
@@ -706,6 +772,7 @@
           this.shell.go('media-device');
           return;
         }
+        this.group = media.group || window.MediaModel.groupFor(media.device);
         return this.start();
       },
 
@@ -715,7 +782,7 @@
         if (rows.length) {
           return rows;
         }
-        return STEP_IDS.map(function (id) {
+        return window.MediaModel.fallbackSteps(this.group).map(function (id) {
           return { id: id, state: 'pending', labelKey: 'media.step.' + id };
         });
       },
@@ -750,7 +817,7 @@
             device: media.device,
             drive: media.drive.path,
             confirm: window.MediaModel.confirmationFor(media.drive),
-            settings: window.MediaModel.toRequest(media.settings),
+            settings: window.MediaModel.toRequest(media.settings, media.group || ''),
           });
         } catch (err) {
           this.failed = true;
@@ -834,8 +901,8 @@
   };
 
   // screenMediaDone: Schritt 5. Wartet, bis der fertige Rechner antwortet,
-  // zeigt nach zehn Minuten die Karte mit der Adresseingabe und uebergibt an
-  // die Einrichtung.
+  // zeigt nach der Wartezeit der Gruppe die Karte mit der Adresseingabe und
+  // uebergibt an die Einrichtung. Debian bekommt die Anleitung fuer den Stick.
   window.Screens.screenMediaDone = function screenMediaDone() {
     return {
       host: '',
@@ -847,6 +914,8 @@
       startedAt: 0,
       now: 0,
       slow: false,
+      // group: 'pi' oder 'debian', bestimmt Anleitung und Wartezeit.
+      group: '',
       clockTimer: null,
       pollTimer: null,
       seq: 0,
@@ -855,12 +924,24 @@
         return window.Installer.shell;
       },
 
+      get isDebian() {
+        return this.group === 'debian';
+      },
+
+      // eraseWithoutAsk: Debian ohne Rueckfrage am Zielgeraet, dann mit dem Zusatz zur Platte.
+      get eraseWithoutAsk() {
+        var settings = this.shell.shared.media.settings;
+        return this.isDebian && !!settings && settings.askBeforeErase === false;
+      },
+
       init() {
-        var target = this.shell.shared.media.target;
+        var media = this.shell.shared.media;
+        var target = media.target;
         if (!target) {
           this.shell.go('media-device');
           return;
         }
+        this.group = media.group || window.MediaModel.groupFor(media.device);
         this.host = target.host || '';
         this.user = target.user || '';
         this.keyPath = target.key_path || '';
@@ -894,7 +975,7 @@
 
       tick() {
         this.now = Date.now();
-        this.slow = this.now - this.startedAt >= SLOW_AFTER;
+        this.slow = this.now - this.startedAt >= window.MediaModel.waitLimit(this.group);
       },
 
       // check: fragt den Rechner ab. Eine Antwort zu einer alten Adresse zaehlt nicht.

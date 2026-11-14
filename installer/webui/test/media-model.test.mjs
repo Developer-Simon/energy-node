@@ -251,3 +251,129 @@ test('zoneSummary und keyboardLabel lesen sich wie Namen', () => {
   assert.equal(M.keyboardLabel('de', 'de'), 'Deutschland (de)');
   assert.equal(M.keyboardLabel('ch', 'en'), 'Switzerland (ch)');
 });
+
+const DEB = { hostname: 'energy-node', user: 'node', timezone: 'Europe/Berlin', keyboard: 'de', wifi_country: 'DE', timezones: [], keyboards: [] };
+
+function debianValid(uiLang, device, overrides = {}) {
+  return Object.assign(M.defaultSettings(DEB, 'debian', device, uiLang), overrides);
+}
+
+test('groups liefert Pi vor Debian, auch wenn der Server Debian zuerst schickt', () => {
+  const devices = [
+    { id: 'deb-amd64', group: 'debian' },
+    { id: 'pi4', group: 'pi' },
+    { id: 'deb-arm64', group: 'debian' },
+  ];
+  assert.deepEqual(plain(M.groups(devices)), [
+    { id: 'pi', devices: [{ id: 'pi4', group: 'pi' }] },
+    { id: 'debian', devices: [{ id: 'deb-amd64', group: 'debian' }, { id: 'deb-arm64', group: 'debian' }] },
+  ]);
+});
+
+test('defaultSettings fuer deb-amd64 bei deutscher Oberflaeche: Notfall und Rueckfrage an, Installation auf Deutsch', () => {
+  assert.deepEqual(plain(M.defaultSettings(DEB, 'debian', 'deb-amd64', 'de')), {
+    hostname: 'energy-node', user: 'node', emergency: true, password: '', password2: '', sshPassword: false,
+    timezone: 'Europe/Berlin', keyboard: 'de', wifiOn: false, ssid: '', wifiPassword: '', country: 'DE',
+    askBeforeErase: true, installLang: 'de', systemLang: 'de',
+  });
+});
+
+test('defaultSettings fuer deb-amd64 bei englischer Oberflaeche: Installation auf Englisch', () => {
+  const s = plain(M.defaultSettings(DEB, 'debian', 'deb-amd64', 'en'));
+  assert.equal(s.installLang, 'en');
+  assert.equal(s.systemLang, 'en');
+  assert.equal(s.askBeforeErase, true);
+  assert.equal(s.emergency, true);
+});
+
+test('defaultSettings fuer deb-arm64 ist die Installation immer Englisch', () => {
+  const de = plain(M.defaultSettings(DEB, 'debian', 'deb-arm64', 'de'));
+  assert.equal(de.installLang, 'en');
+  assert.equal(de.systemLang, 'de');
+  assert.equal(M.defaultSettings(DEB, 'debian', 'deb-arm64', 'en').installLang, 'en');
+});
+
+test('defaultSettings fuer ein Pi-Geraet bleibt ohne Debian-Felder', () => {
+  const s = plain(M.defaultSettings(DEB, 'pi', 'pi4', 'de'));
+  assert.equal('askBeforeErase' in s, false);
+  assert.equal('installLang' in s, false);
+  assert.equal('systemLang' in s, false);
+  assert.equal(s.emergency, false);
+});
+
+test('installLangFor gibt bei arm64 immer Englisch, bei amd64 nur mit deutscher Oberflaeche Deutsch', () => {
+  assert.equal(M.installLangFor('deb-amd64', 'de'), 'de');
+  assert.equal(M.installLangFor('deb-amd64', 'en'), 'en');
+  assert.equal(M.installLangFor('deb-arm64', 'de'), 'en');
+  assert.equal(M.installLangFor('deb-arm64', 'en'), 'en');
+});
+
+test('toRequest schickt bei Debian Rueckfrage und Sprachen und nie WLAN', () => {
+  const s = debianValid('de', 'deb-amd64', {
+    password: 'langes-passwort', password2: 'langes-passwort', wifiOn: true, ssid: 'Haus', wifiPassword: 'wlan-geheim', country: 'DE',
+  });
+  assert.deepEqual(plain(M.toRequest(s, 'debian')), {
+    hostname: 'energy-node', user: 'node', password: 'langes-passwort', ssh_password: false,
+    timezone: 'Europe/Berlin', keyboard: 'de', wifi: null,
+    ask_before_erase: true, install_lang: 'de', system_lang: 'de',
+  });
+});
+
+test('toRequest ohne Gruppe oder fuer Pi schickt keine Debian-Felder', () => {
+  const pi = valid({ wifiOn: true, ssid: 'Haus', country: 'DE' });
+  assert.equal('ask_before_erase' in M.toRequest(pi), false);
+  assert.equal('ask_before_erase' in M.toRequest(pi, 'pi'), false);
+  assert.equal('install_lang' in M.toRequest(pi, 'pi'), false);
+  assert.equal('system_lang' in M.toRequest(pi, 'pi'), false);
+});
+
+test('settingsComplete verlangt bei Debian das Passwort, wenn der Notfall-Schalter an ist', () => {
+  assert.equal(M.settingsComplete(debianValid('de', 'deb-amd64'), 'debian'), false);
+  assert.equal(M.settingsComplete(debianValid('de', 'deb-amd64', { password: 'langes-passwort', password2: 'langes-passwort' }), 'debian'), true);
+  assert.equal(M.settingsComplete(debianValid('de', 'deb-amd64', { password: 'kurz', password2: 'kurz' }), 'debian'), false);
+  assert.equal(M.settingsComplete(debianValid('de', 'deb-amd64', { emergency: false }), 'debian'), true);
+});
+
+test('settingsComplete braucht bei Debian nie WLAN', () => {
+  const s = debianValid('de', 'deb-amd64', { emergency: false, wifiOn: true, ssid: '', country: 'x' });
+  assert.equal(M.settingsComplete(s, 'debian'), true);
+});
+
+test('installLangChoice bietet bei deb-amd64 mit deutscher Oberflaeche Deutsch und Englisch', () => {
+  assert.deepEqual(plain(M.installLangChoice('deb-amd64', 'de')), ['de', 'en']);
+});
+
+test('installLangChoice ist leer bei arm64, bei englischer Oberflaeche und bei Pi', () => {
+  assert.deepEqual(plain(M.installLangChoice('deb-arm64', 'de')), []);
+  assert.deepEqual(plain(M.installLangChoice('deb-amd64', 'en')), []);
+  assert.deepEqual(plain(M.installLangChoice('pi4', 'de')), []);
+});
+
+test('waitLimit: Debian 30 Minuten, sonst 10 Minuten, in Millisekunden wie SLOW_AFTER', () => {
+  assert.equal(M.waitLimit('debian'), 30 * 60 * 1000);
+  assert.equal(M.waitLimit('pi'), 10 * 60 * 1000);
+  assert.equal(M.waitLimit(''), 10 * 60 * 1000);
+});
+
+test('stepRows kennt den Schritt patch ohne Einstellungsschritt', () => {
+  const job = { steps: [{ id: 'download', state: 'done' }, { id: 'patch', state: 'running' }, { id: 'write', state: 'pending' }] };
+  assert.deepEqual(plain(M.stepRows(job)), [
+    { id: 'download', state: 'done', labelKey: 'media.step.download' },
+    { id: 'patch', state: 'running', labelKey: 'media.step.patch' },
+    { id: 'write', state: 'pending', labelKey: 'media.step.write' },
+  ]);
+});
+
+test('groupFor: deb-... ist Debian, alles andere ein Pi, ohne Katalog', () => {
+  assert.equal(M.groupFor('deb-arm64'), 'debian');
+  assert.equal(M.groupFor('deb-amd64'), 'debian');
+  assert.equal(M.groupFor('pi5'), 'pi');
+  assert.equal(M.groupFor(''), 'pi');
+  assert.equal(M.groupFor(undefined), 'pi');
+});
+
+test('fallbackSteps: Debian mit patch nach der Pruefsumme und ohne customize, Pi unveraendert', () => {
+  assert.deepEqual(plain(M.fallbackSteps('debian')), ['download', 'checksum', 'patch', 'rights', 'write', 'verify', 'eject']);
+  assert.deepEqual(plain(M.fallbackSteps('pi')), ['download', 'checksum', 'rights', 'write', 'verify', 'customize', 'eject']);
+  assert.deepEqual(plain(M.fallbackSteps('')), plain(M.fallbackSteps('pi')));
+});

@@ -62,7 +62,7 @@ func (h *Host) writer() (*media.Writer, error) {
 		return nil, err
 	}
 	h.mediaW = &media.Writer{
-		Cache: &media.Cache{Dir: h.cfg.MediaDir},
+		Cache: h.mediaCacheOrDefault(),
 		Imager: func(ctx context.Context) (media.Imager, bool) {
 			return media.FindImager(ctx, imagerEnv)
 		},
@@ -71,8 +71,21 @@ func (h *Host) writer() (*media.Writer, error) {
 		KnownHosts: h.cfg.KnownHostsPath,
 		KeyPath:    keyPath,
 		WorkDir:    filepath.Join(h.cfg.MediaDir, "jobs"),
+		Debian: func(ctx context.Context, arch string) (media.DebianRelease, error) {
+			rel, _, err := h.mediaCacheOrDefault().DebianRelease(ctx, arch)
+			return rel, err
+		},
 	}
 	return h.mediaW, nil
+}
+
+// mediaCacheOrDefault liefert den Zwischenspeicher des Katalogs; Tests setzen
+// h.mediaCache, sonst gilt das Medienverzeichnis.
+func (h *Host) mediaCacheOrDefault() *media.Cache {
+	if h.mediaCache != nil {
+		return h.mediaCache
+	}
+	return &media.Cache{Dir: h.cfg.MediaDir}
 }
 
 // execRunner startet name mit args. stdout und stderr laufen in eine Pipe;
@@ -131,7 +144,7 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 	if err := h.mediaSupported(); err != nil {
 		return hostapi.MediaCatalog{}, err
 	}
-	cache := &media.Cache{Dir: h.cfg.MediaDir}
+	cache := h.mediaCacheOrDefault()
 	list, offline, err := cache.OSList(ctx)
 	if err != nil {
 		// Ohne Liste und ohne gespeicherte Kopie bleibt nur die Geraeteliste ohne Images.
@@ -139,8 +152,10 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 	}
 	view := hostapi.MediaCatalog{Offline: offline, Defaults: mediaDefaults(media.HostDefaults())}
 	for _, d := range media.Devices() {
-		device := hostapi.MediaDevice{ID: d.ID, Group: d.Group, Experimental: d.Experimental}
-		if list != nil {
+		device := hostapi.MediaDevice{ID: d.ID, Group: d.Group, Experimental: d.Experimental, Unsupported: d.Unsupported}
+		if d.Kind == "debian" && !d.Unsupported {
+			device.Image = debianImage(ctx, cache, d)
+		} else if list != nil {
 			if img, ok := list.Find(d.ImageName, d.Tag); ok {
 				device.Image = &hostapi.MediaImage{
 					Name:         img.Name,
@@ -155,6 +170,22 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 		view.Devices = append(view.Devices, device)
 	}
 	return view, nil
+}
+
+// debianImage liefert das Netinst-ISO des Geraets aus dem signierten Debian-Release.
+// Ohne Release (offline und nichts gespeichert) ist das Image nil.
+func debianImage(ctx context.Context, cache *media.Cache, d media.Device) *hostapi.MediaImage {
+	rel, _, err := cache.DebianRelease(ctx, d.Arch)
+	if err != nil {
+		return nil
+	}
+	return &hostapi.MediaImage{
+		Name:         rel.Name,
+		Arch:         d.Arch,
+		DownloadSize: rel.Size,
+		ExtractSize:  rel.Size,
+		Cached:       cache.CachedISO(rel),
+	}
 }
 
 func mediaDefaults(d media.Defaults) hostapi.MediaDefaults {
@@ -256,7 +287,10 @@ func (h *Host) MediaWrite(ctx context.Context, req hostapi.MediaWriteRequest) er
 			Keyboard:      req.Settings.Keyboard,
 			SSHPassword:   req.Settings.SSHPassword,
 		},
-		Password: req.Settings.Password,
+		Password:       req.Settings.Password,
+		AskBeforeErase: req.Settings.AskBeforeErase,
+		InstallLang:    req.Settings.InstallLang,
+		SystemLang:     req.Settings.SystemLang,
 	}
 	if wifi := req.Settings.Wifi; wifi != nil {
 		mreq.Settings.Wifi = &media.Wifi{SSID: wifi.SSID, Password: wifi.Password, Country: wifi.Country}
@@ -369,6 +403,10 @@ func mediaError(err error) error {
 		return apiError(hostapi.MediaErrImagerMissing, http.StatusConflict, err.Error())
 	case errors.Is(err, media.ErrTooSmall):
 		return apiError(hostapi.MediaErrTooSmall, http.StatusBadRequest, err.Error())
+	case errors.Is(err, media.ErrSignature):
+		return apiError(hostapi.MediaErrSignatureInvalid, http.StatusBadGateway, err.Error())
+	case errors.Is(err, media.ErrDebianUnavailable):
+		return apiError(hostapi.MediaErrDebianUnavailable, http.StatusServiceUnavailable, err.Error())
 	}
 	return err
 }

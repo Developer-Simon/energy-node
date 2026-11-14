@@ -42,6 +42,11 @@ func TestFindNeedsTheDeviceTag(t *testing.T) {
 func TestEveryDeviceFindsItsImage(t *testing.T) {
 	list := loadTestList(t)
 	for _, d := range Devices() {
+		// Debian-Geraete stehen nicht in der OS-Liste. Ihr ISO kommt aus dem
+		// signierten Debian-Release (Cache.DebianRelease, siehe host/media_test.go).
+		if d.Kind != "pi" {
+			continue
+		}
 		if _, ok := list.Find(d.ImageName, d.Tag); !ok {
 			t.Errorf("device %s: no image for %q with tag %q", d.ID, d.ImageName, d.Tag)
 		}
