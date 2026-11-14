@@ -8,7 +8,7 @@
 - **httpapi:** let companion sessions over HTTP act when the opt-in is on (cfb7f9f)
 - **httpapi:** add the endpoint for the companion HTTP opt-in (027cbaa)
 - **webui:** add the companion HTTP opt-in switch to the users page (c1a874f)
-- **auth:** Home Assistant users can now use all their permissions in the panel even when Home Assistant runs on plain HTTP. An admin switches this on in the Home Assistant section of the users page. (#253)
+- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253)
 
 ### Fixes
 
