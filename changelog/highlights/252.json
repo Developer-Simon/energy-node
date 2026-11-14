@@ -1,6 +1,6 @@
 {
   "de": {
-    "*": "Die Karte des Systemlaufwerks zeigt die Belegung getrennt nach Betriebssystem, energy-node Installation, Laufenden Daten und Backups, mit einer Detailliste für die genauen Größen."
+    "*": "Die Karte des Systemlaufwerks teilt die Belegung in System, Installation, Daten und Backups"
   },
   "en": {
     "*": "The system drive card breaks its usage down into operating system, energy-node installation, running data and backups, with a details list for the exact sizes"
