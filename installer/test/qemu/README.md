@@ -55,9 +55,20 @@ startet die installierte Platte ohne Stick und prüft sie über SSH.
 | H | UEFI | SATA 16 GB, mit Nachfrage (`-ask`) | Nein: Frage nennt Platte, Modell und Größe, Fokus auf Nein, Enter schaltet aus, 0 Blöcke geschrieben |
 | I | BIOS | SATA 16 GB, mit Nachfrage (`-ask`) | Ja: Installation läuft normal durch, alle Prüfungen grün |
 
+## Stand der Läufe
+
+Am 14.11.2026 mit Stick aus diesem Stand durchlaufen und gegen die Spalte
+„Erwartet“ geprüft: C, A, F und B, jeweils rund 4 Minuten Installation und ein
+grünes `verify.sh`. Nicht erneut gelaufen: D, E, H und I, weil sie am Zielgerät
+eine Taste brauchen (Enter bzw. Ja/Nein) und `run.sh` dafür noch kein
+`sendkey` über den QEMU-Monitor schickt, sowie der optionale Lauf G (arm64).
+Für sie gilt weiter der Spike-Bericht.
+
 ## Notfall-Passwort
 
-Der Lauf mit gesetztem Notfall-Passwort (Hash in `passwd/user-password-crypted`)
-ist noch nicht gemacht. Der Spike hat nur das gesperrte Konto (`!`) geprüft.
-
-Ergebnis: offen
+Lauf P (UEFI, virtio 16 GB) mit `-passhash <sha512-crypt> -sshpassword`:
+Anmeldung per SSH-Schlüssel geht, `passwd -S node` zeigt `P`, `root` bleibt `L`,
+`sshd -T` meldet `passwordauthentication yes`, und der Server bietet
+`publickey,password` an. Eine echte Passwort-Anmeldung wurde nicht
+durchgespielt. Ohne `-sshpassword` bleibt die Passwort-Anmeldung aus (Läufe C,
+A, F, B: `passwordauthentication no`, `passwd -S` = `L`).
