@@ -83,7 +83,10 @@ func fail(code string, err error) error {
 // withHelperOutput keeps the output the root helper printed before it failed,
 // such as DEVICE_MOUNTED, in front of the error. Without it the reason is lost.
 func withHelperOutput(out string, err error) error {
-	out = strings.TrimSpace(out)
+	// The helper prints the code and the reason on separate lines, the log
+	// entry stays on one line.
+	out = strings.Join(strings.Fields(strings.ReplaceAll(out, "\n", " | ")), " ")
+	out = strings.Trim(out, " |")
 	if out == "" {
 		return err
 	}

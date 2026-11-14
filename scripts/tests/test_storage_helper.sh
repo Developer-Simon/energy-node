@@ -54,6 +54,11 @@ cat > "$tmp/bin/mkfs" <<'SH'
 dev=""
 for arg; do dev="$arg"; done
 printf '%s\n' "$*" >> "$MKFS_LOG"
+printf 'mkfs %s\n' "$*" >> "$ORDER_LOG"
+if [ -n "${MKFS_FAIL:-}" ]; then
+  echo "mke2fs: $dev contains a iso9660 file system" >&2
+  exit 1
+fi
 awk -v d="$dev" -v u="$FORMAT_UUID" 'BEGIN { OFS = " " } $1 == d { $4 = u } { print }' "$FIXTURE" > "$FIXTURE.new"
 mv "$FIXTURE.new" "$FIXTURE"
 SH
@@ -66,10 +71,15 @@ cat > "$tmp/bin/udevadm" <<'SH'
 printf '%s\n' "$*" >> "$UDEVADM_LOG"
 SH
 export UDEVADM_LOG="$tmp/udevadm.log"
+export ORDER_LOG="$tmp/order.log"
+cat > "$tmp/bin/wipefs" <<'SH'
+#!/bin/sh
+printf 'wipefs %s\n' "$*" >> "$ORDER_LOG"
+SH
 chmod +x "$tmp/bin/"*
 
 reset() {
-  rm -rf "${tmp:?}/units" "${tmp:?}/mnt" "$SFDISK_LOG" "$MKFS_LOG" "$SYSTEMCTL_LOG" "$UDEVADM_LOG"
+  rm -rf "${tmp:?}/units" "${tmp:?}/mnt" "$SFDISK_LOG" "$MKFS_LOG" "$SYSTEMCTL_LOG" "$UDEVADM_LOG" "$ORDER_LOG"
   mkdir -p "$tmp/units"
   printf '  node-test-1 \n' > "$tmp/machine-id"
   # Systemlaufwerk mmcblk0 mit Root-Partition, dazu eine fremde Platte sda
@@ -92,6 +102,7 @@ run_helper() {
     EN_STORAGE_FINDMNT="$tmp/bin/findmnt" \
     EN_STORAGE_SFDISK="$tmp/bin/sfdisk" \
     EN_STORAGE_MKFS="$tmp/bin/mkfs" \
+    EN_STORAGE_WIPEFS="$tmp/bin/wipefs" \
     EN_STORAGE_SYSTEMCTL="$tmp/bin/systemctl" \
     sh "$helper" "$@" 2>&1)"
   rc=$?
@@ -175,6 +186,43 @@ expect_refused DEVICE_IS_SYSTEM_DISK format mmcblk0p2
 # --- format lehnt unbekanntes Geraet ab ------------------------------------
 reset
 expect_refused DEVICE_UNKNOWN format sdz1
+
+# --- format raeumt alte Dateisystem-Kennungen weg (Installations-Stick) ------
+# Die neue Partition 1 beginnt an derselben Stelle wie die alte, deren iso9660-Kennung
+# darin stehen bleibt. mkfs fragt dann ohne Terminal nach und bricht mit Exit 1 ab.
+reset
+run_helper format sda
+[ "$rc" -eq 0 ] || fail "format sda schlug fehl (rc=$rc)" "$out"
+head -n 1 "$SFDISK_LOG" | grep -qF -- '--wipe always' || fail "sfdisk ohne --wipe always" "$(head -n 1 "$SFDISK_LOG")"
+head -n 1 "$SFDISK_LOG" | grep -qF -- '--wipe-partitions always' || fail "sfdisk ohne --wipe-partitions always" "$(head -n 1 "$SFDISK_LOG")"
+[ "$(sed -n 1p "$ORDER_LOG")" = "wipefs -a /dev/sda1" ] || fail "wipefs -a /dev/sda1 nicht vor mkfs" "$(cat "$ORDER_LOG")"
+[ "$(sed -n 2p "$ORDER_LOG")" = "mkfs -L energy-node-data /dev/sda1" ] || fail "mkfs nicht direkt nach wipefs" "$(cat "$ORDER_LOG")"
+
+reset
+cat >> "$FIXTURE" <<'TABLE'
+/dev/sda1 part - - sda
+/dev/sda2 part - - sda
+TABLE
+run_helper format sda2
+[ "$rc" -eq 0 ] || fail "format sda2 schlug fehl (rc=$rc)" "$out"
+[ "$(sed -n 1p "$ORDER_LOG")" = "wipefs -a /dev/sda2" ] || fail "wipefs -a /dev/sda2 nicht vor mkfs" "$(cat "$ORDER_LOG")"
+[ "$(sed -n 2p "$ORDER_LOG")" = "mkfs -L energy-node-data /dev/sda2" ] || fail "mkfs nicht direkt nach wipefs" "$(cat "$ORDER_LOG")"
+
+# --- format meldet den Grund des Scheiterns auf stdout ----------------------
+# Der Dienst liest nur stdout. Ohne den Grund steht im Log nur "exit status 1".
+reset
+set +e
+stdout_only="$(env EN_STORAGE_UNIT_DIR="$tmp/units" EN_STORAGE_MOUNT_POINT="$tmp/mnt" \
+  EN_STORAGE_MACHINE_ID_FILE="$tmp/machine-id" EN_STORAGE_UDEVADM="$tmp/bin/udevadm" \
+  EN_STORAGE_LSBLK="$tmp/bin/lsblk" EN_STORAGE_FINDMNT="$tmp/bin/findmnt" \
+  EN_STORAGE_SFDISK="$tmp/bin/sfdisk" EN_STORAGE_MKFS="$tmp/bin/mkfs" \
+  EN_STORAGE_WIPEFS="$tmp/bin/wipefs" MKFS_FAIL=1 sh "$helper" format sda 2>/dev/null)"
+fail_rc=$?
+set -e
+[ "$fail_rc" -eq 1 ] || fail "mkfs-Fehler nicht mit Exit 1 gemeldet (rc=$fail_rc)" "$stdout_only"
+[ "$(printf '%s\n' "$stdout_only" | sed -n 1p)" = "FORMAT_FAILED" ] || fail "erste Zeile ist nicht FORMAT_FAILED" "$stdout_only"
+printf '%s\n' "$stdout_only" | grep -qF 'mkfs: mke2fs: /dev/sda1 contains a iso9660 file system' \
+  || fail "Grund des mkfs-Fehlers fehlt auf stdout" "$stdout_only"
 
 # --- mount lehnt unbekannte und ungueltige UUIDs ab -----------------------
 reset
