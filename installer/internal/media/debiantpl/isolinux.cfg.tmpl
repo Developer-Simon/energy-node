@@ -1,0 +1,16 @@
+path 
+prompt 0
+timeout 100
+ui vesamenu.c32
+menu title Energy Node
+include stdmenu.cfg
+menu autoboot Automatische Installation in # Sekunden
+label energynode
+	menu label ^Energy Node: Debian installieren (loescht die interne Platte)
+	menu default
+	kernel /install.amd/vmlinuz
+	append vga=788 initrd=/install.amd/initrd.gz auto=true priority=critical locale={{.Locale}} keymap={{.Keyboard}} file=/cdrom/preseed.cfg --- quiet
+label install
+	menu label Debian-Installer ohne ^Automatik
+	kernel /install.amd/vmlinuz
+	append vga=788 initrd=/install.amd/initrd.gz --- quiet
