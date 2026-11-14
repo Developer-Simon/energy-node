@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Einstellungsseiten laden erst beim Öffnen"
+  },
+  "en": {
+    "*": "Load the settings subpages lazily"
+  }
+}

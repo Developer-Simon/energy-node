@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.14-pre.12 (2026-11-06)
+## v0.11.14-pre.13 (2026-11-06)
 
 ### Features
 
@@ -13,6 +13,8 @@
 - **network:** check LAN and connect the node to Wi-Fi in the settings (#238) (d6dc893)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **webui:** show tile skeletons while panels load (#242) (30e2fc3)
+- **settings:** load the settings subpages lazily as fragments (6d9a963)
+- **settings:** load the settings subpages lazily (#250)
 - **storage:** group partitions under their disk and offer the whole disk (2b7a9ca)
 - **webui:** group the additional drive choice by disk (script) (1ef36d5)
 - **webui:** show sticks with several partitions as a group (a4f7286)
