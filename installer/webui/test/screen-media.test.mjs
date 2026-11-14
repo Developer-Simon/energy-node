@@ -954,3 +954,95 @@ test('Debian schreibt Rueckfrage, Sprachen und kein WLAN in den Auftrag', async 
   assert.equal(body.install_lang, 'de');
   assert.equal(body.system_lang, 'de');
 });
+
+test('Debian: die Gruppe kommt aus der Geraete-ID, auch wenn der Katalog ausfaellt', async () => {
+  const { screen, shell, window } = settings({}, { errors: { 'GET /api/media/catalog': { status: 500, code: 'catalog_failed' } } });
+  shell.shared.media.device = 'deb-arm64';
+  await screen.init();
+  assert.notEqual(shell.error, null, 'der Fehler wird gemeldet');
+  assert.equal(screen.group, 'debian');
+  screen.form.password = 'geheim-geheim';
+  screen.form.password2 = 'geheim-geheim';
+  const body = window.MediaModel.toRequest(screen.form, screen.group);
+  assert.equal(body.wifi, null);
+  assert.equal(body.ask_before_erase, true);
+  assert.equal(body.install_lang, 'en');
+  assert.equal(body.system_lang, 'de');
+});
+
+test('Debian: auch die Laufwerksstufe kennt die Gruppe ohne Katalog', async (t) => {
+  const { screen, shell } = drive([SD], {}, { errors: { 'GET /api/media/catalog': { status: 500, code: 'catalog_failed' } } });
+  t.after(() => screen.destroy());
+  shell.shared.media.device = 'deb-arm64';
+  await screen.init();
+  assert.equal(screen.group, 'debian');
+  assert.equal(screen.isDebian, true);
+  assert.equal(screen.showLayout, false, 'kein Pi-Aufteilung');
+});
+
+test('Debian: Schritt 3 zeigt zwei Kaesten, die Groessen und den Hinweis zu den Platten', async (t) => {
+  const { screen, shell, window } = drive([SD, TINY], { 'GET /api/media/catalog': DEBIAN_CATALOG });
+  t.after(() => screen.destroy());
+  shell.shared.media.device = 'deb-amd64';
+  await screen.init();
+  assert.equal(screen.isDebian, true);
+  assert.equal(screen.limit, IMAGE.extract_size);
+  assert.equal(window.I18n.t('media.debian.split.stick'), 'Auf dem Stick');
+  assert.equal(window.I18n.t('media.debian.split.disk'), 'Auf der Platte des Zielgeräts');
+
+  const doc = mediaTemplate();
+  const block = guardOf(doc, '.media-split');
+  assert.equal(block.getAttribute('x-if'), 'isDebian', 'nur bei Debian');
+  assert.equal(block.content.querySelectorAll('.media-split-box').length, 2, 'zwei Kaesten nebeneinander');
+  assert.equal(block.content.querySelectorAll('.media-classes li').length, 4, 'die vier Groessenklassen');
+  assert.ok(block.content.querySelector('[x-text="t(\'media.debian.drive.recommend\')"]'), 'die Empfehlung');
+  assert.equal(window.I18n.t('media.debian.drive.recommend'), 'Vorsichtshalber am Zielgerät alle Laufwerke außer der internen Platte abziehen, zum Beispiel USB-Platten, Speicherkarten oder eine zweite Platte. Die Installation fasst nur die interne Platte an.');
+});
+
+test('Debian: ein zu kleiner Stick ist ausgegraut und laesst sich nicht waehlen', async (t) => {
+  const { screen, shell } = drive([SD, TINY], { 'GET /api/media/catalog': DEBIAN_CATALOG });
+  t.after(() => screen.destroy());
+  shell.shared.media.device = 'deb-amd64';
+  await screen.init();
+  assert.equal(screen.fits(TINY), false);
+  screen.pick(TINY.path);
+  assert.equal(screen.selected, null);
+  const doc = mediaTemplate();
+  assert.equal(guardOf(doc, '[x-text="t(\'media.drive.too_small\')"]').getAttribute('x-if'), '!fits(item)', 'der Grund steht an der Zeile');
+});
+
+test('Debian: die Warnkarte nennt die Rueckfrage aus Schritt 2, das Haekchen bestaetigt beides', async (t) => {
+  const { screen, shell, window } = drive([SD], { 'GET /api/media/catalog': DEBIAN_CATALOG });
+  t.after(() => screen.destroy());
+  shell.shared.media.device = 'deb-amd64';
+  shell.shared.media.settings = { askBeforeErase: true };
+  await screen.init();
+  screen.pick(SD.path);
+  assert.equal(screen.debianWarnKey, 'media.warn.debian_ask');
+  assert.equal(window.I18n.t(screen.debianWarnKey), 'Die Installation löscht später die interne Platte des Zielgeräts, nach einer Rückfrage am Gerät.');
+
+  shell.shared.media.settings = { askBeforeErase: false };
+  assert.equal(screen.debianWarnKey, 'media.warn.debian_noask');
+  assert.equal(window.I18n.t(screen.debianWarnKey), 'Die Installation löscht später die interne Platte des Zielgeräts, ohne Rückfrage.');
+
+  const doc = mediaTemplate();
+  const warn = guardOf(doc, '[x-text="t(debianWarnKey)"]');
+  assert.equal(warn.getAttribute('x-if'), 'isDebian');
+  assert.equal(window.I18n.t('media.warn.confirm_debian'), 'Ich habe verstanden, dass der Stick beschrieben und die interne Platte des Zielgeräts gelöscht wird.');
+
+  screen.checked = true;
+  assert.equal(screen.canErase, true, 'der Stick braucht nur das Haekchen');
+});
+
+test('Pi: Schritt 3 ohne Debian-Abschnitt, die Aufteilung bleibt', async (t) => {
+  const { screen } = drive([SD]);
+  t.after(() => screen.destroy());
+  await screen.init();
+  assert.equal(screen.group, 'pi');
+  assert.equal(screen.isDebian, false);
+  screen.pick(SD.path);
+  assert.equal(screen.showLayout, true);
+
+  const doc = mediaTemplate();
+  assert.equal(guardOf(doc, '.media-split').getAttribute('x-if'), 'isDebian');
+});
