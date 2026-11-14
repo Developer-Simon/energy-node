@@ -34,7 +34,9 @@ installer/test/qemu/verify.sh <lauf> 2222
 ```
 
 `build.sh` übergibt zusätzliche Argumente an `mediastick`, zum Beispiel
-`-ask` für den Lauf mit Nachfrage oder `-lang de`. Für arm64 wird
+`-ask` für den Lauf mit Nachfrage oder `-lang de`. Mit `-passhash <hash>`
+(sha512-crypt) und `-sshpassword` läuft der Notfall-Passwort-Lauf, siehe
+unten. Für arm64 wird
 `build.sh arm64 <out.iso>` verwendet und `run.sh <lauf> arm64 uefi ...`.
 `run.sh` startet die VM und wartet, bis sie sich ausschaltet. `verify.sh`
 startet die installierte Platte ohne Stick und prüft sie über SSH.
