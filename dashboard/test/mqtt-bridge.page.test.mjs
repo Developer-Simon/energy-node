@@ -49,7 +49,7 @@ const jsonResponse = (body, ok = true) => ({ ok, status: ok ? 200 : 400, json: a
 test('load() populates the form and never surfaces a password value', async () => {
   const { component } = createBridgePanel({
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true, system_actions: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: true, system_actions: true });
       if (url === '/api/v1/mqtt/bridge') return jsonResponse(bridgeConfigResponse);
       if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({ service_state: 'active', bridge: { configured: true, connected: true }, drift: { known: true, matches: true } });
       throw new Error(`unexpected fetch ${url}`);
@@ -69,7 +69,7 @@ test('load() populates the form and never surfaces a password value', async () =
 test('canConfigure/canApply are false without the required roles even over HTTPS', async () => {
   const { component } = createBridgePanel({
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: false, system_actions: false });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: false, system_actions: false });
       if (url === '/api/v1/mqtt/bridge') return jsonResponse(bridgeConfigResponse);
       if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({});
       throw new Error(`unexpected fetch ${url}`);
@@ -84,7 +84,7 @@ test('canConfigure/canApply are false without the required roles even over HTTPS
 test('canApply requires system_actions even when mqtt_config is present', async () => {
   const { component } = createBridgePanel({
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true, system_actions: false });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: true, system_actions: false });
       if (url === '/api/v1/mqtt/bridge') return jsonResponse(bridgeConfigResponse);
       if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({});
       throw new Error(`unexpected fetch ${url}`);
@@ -99,7 +99,7 @@ test('canConfigure is false over plain HTTP even with both roles', async () => {
   const { component } = createBridgePanel({
     url: 'http://dashboard.local/',
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true, system_actions: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: false, mqtt_config: true, system_actions: true });
       if (url === '/api/v1/mqtt/bridge') return jsonResponse(bridgeConfigResponse);
       if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({});
       throw new Error(`unexpected fetch ${url}`);
@@ -318,7 +318,7 @@ test('load() skips the bridge config request without the mqtt_config role (no 40
   const { component } = createBridgePanel({
     fetchImpl: async (url) => {
       requested.push(url);
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: false, system_actions: false });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: false, system_actions: false });
       if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({ service_state: 'active' });
       throw new Error(`unexpected fetch ${url}`);
     },
@@ -335,7 +335,7 @@ test('load() skips the bridge config request over plain HTTP', async () => {
     url: 'http://dashboard.local/',
     fetchImpl: async (url) => {
       requested.push(url);
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true, system_actions: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: false, mqtt_config: true, system_actions: true });
       if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({});
       throw new Error(`unexpected fetch ${url}`);
     },
