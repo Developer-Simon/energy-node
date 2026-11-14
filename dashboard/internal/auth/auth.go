@@ -109,6 +109,8 @@ type userFile struct {
 	GuestRolesReviewed bool     `json:"guest_roles_reviewed,omitempty"`
 	// GuestDisabled schaltet den Gastzugang ab. Absent heißt eingeschaltet.
 	GuestDisabled bool `json:"guest_disabled,omitempty"`
+	// CompanionHTTP erlaubt der Companion-Kopplung Aktionen über HTTP. Absent heißt aus.
+	CompanionHTTP bool `json:"companion_http,omitempty"`
 	// MinPasswordLength is the minimum for new passwords; absent or 0 means the default.
 	MinPasswordLength int            `json:"min_password_length,omitempty"`
 	Users             []User         `json:"users"`
@@ -161,6 +163,8 @@ type Manager struct {
 	guestRolesReviewed bool
 	// guestDisabled ist true, solange der Gastzugang abgeschaltet ist.
 	guestDisabled bool
+	// companionHTTP ist true, solange die Companion-Kopplung über HTTP handeln darf.
+	companionHTTP bool
 	// minPasswordLength is the minimum length for new passwords, from users.json.
 	minPasswordLength int
 	// sessions is keyed by tokenHash(token), the same key sessions.json
@@ -286,6 +290,7 @@ func (m *Manager) loadLocked() (bool, error) {
 	m.haRoles = file.HARoles
 	m.companion = file.Companion
 	m.guestDisabled = file.GuestDisabled
+	m.companionHTTP = file.CompanionHTTP
 	m.minPasswordLength = DefaultMinPasswordLength
 	if file.MinPasswordLength >= MinPasswordLengthLowest && file.MinPasswordLength <= MinPasswordLengthHighest {
 		m.minPasswordLength = file.MinPasswordLength
@@ -625,6 +630,7 @@ func (m *Manager) saveLocked() error {
 		GuestRoles:         append([]string{}, m.guestRoles...),
 		GuestRolesReviewed: m.guestRolesReviewed,
 		GuestDisabled:      m.guestDisabled,
+		CompanionHTTP:      m.companionHTTP,
 		MinPasswordLength:  m.minPasswordLength,
 		Users:              users,
 		Companion:          m.companion,
@@ -766,6 +772,20 @@ func WithWithheld(ctx context.Context, keys []string) context.Context {
 func WithheldFromContext(ctx context.Context) []string {
 	keys, _ := ctx.Value(withheldContextKey{}).([]string)
 	return keys
+}
+
+type trustedContextKey struct{}
+
+// WithTrusted legt fest, ob die Anfrage als vertrauenswürdig gilt (siehe Trusted).
+func WithTrusted(ctx context.Context, trusted bool) context.Context {
+	return context.WithValue(ctx, trustedContextKey{}, trusted)
+}
+
+// TrustedFromContext liefert das Vertrauens-Flag der Anfrage. ok ist false,
+// wenn der Context keinen Eintrag hat.
+func TrustedFromContext(ctx context.Context) (trusted bool, ok bool) {
+	trusted, ok = ctx.Value(trustedContextKey{}).(bool)
+	return trusted, ok
 }
 
 func HasRole(user User, role string) bool {
