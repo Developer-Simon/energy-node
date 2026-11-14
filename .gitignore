@@ -16,6 +16,8 @@ dashboard/dashboard
 /secrets/
 .worktrees/
 *.egg-info/
+# setuptools build output of the shared libraries (make_bundle.sh builds the wheels)
+libs/*/build/
 
 # Lokale Entwicklungs-/Planungsdokumente – nicht veroeffentlichen
 /.docs/

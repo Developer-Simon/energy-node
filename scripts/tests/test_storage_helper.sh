@@ -106,7 +106,7 @@ run_helper() {
     EN_STORAGE_MOUNT_POINT="$tmp/mnt" \
     EN_STORAGE_MACHINE_ID_FILE="$tmp/machine-id" \
     EN_STORAGE_UDEVADM="$tmp/bin/udevadm" \
-    EN_STORAGE_OWNER="$(id -un)" \
+    EN_STORAGE_OWNER="${EN_STORAGE_OWNER_OVERRIDE:-$(id -un)}" \
     EN_STORAGE_LSBLK="$tmp/bin/lsblk" \
     EN_STORAGE_FINDMNT="$tmp/bin/findmnt" \
     EN_STORAGE_SFDISK="$tmp/bin/sfdisk" \
@@ -288,5 +288,16 @@ grep -qF 'wrong fs type' <<<"$out" || fail "Journalzeile fehlt" "$out"
 touch "$tmp/by-uuid/$UUID"
 START_FAIL=1 run_helper mount "$UUID"
 grep -qx 'device link: present' <<<"$out" || fail "Geraetelink nicht als vorhanden gemeldet" "$out"
+
+# --- ein unbekannter Betreiber meldet den Grund und legt keine Kennung an ---
+reset
+cat >> "$FIXTURE" <<TABLE
+/dev/sda1 part - $UUID sda
+TABLE
+EN_STORAGE_OWNER_OVERRIDE=no-such-user-xyz run_helper mount "$UUID"
+[ "$rc" -eq 1 ] || fail "unbekannter Betreiber nicht mit Exit 1 abgewiesen (rc=$rc)" "$out"
+grep -qx 'MOUNT_FAILED' <<<"$out" || fail "MOUNT_FAILED fehlt bei unbekanntem Betreiber" "$out"
+grep -qF 'init: chown:' <<<"$out" || fail "Grund des chown fehlt" "$out"
+[ ! -e "$tmp/mnt/.energy-node-volume" ] || fail "Kennungsdatei trotz Fehler angelegt"
 
 echo "OK: $(basename "$0")"

@@ -64,7 +64,7 @@ shopt -u nullglob
 rendered="$(mktemp -d)"
 trap 'rm -rf "${rendered}"' EXIT
 for name in "${BINARY_NAME}.service" "${BINARY_NAME}-system-action" \
-            "${BINARY_NAME}-system-action.sudoers" \
+            "${BINARY_NAME}-system-action.sudoers" energy-node-storage-helper \
             energy-node-updater.service energy-node-updater.path; do
   [[ -f "${dash}/${name}" ]] || continue
   render_unit_as "${dash}/${name}" "${rendered}/${name}" "${EN_TARGET_USER}" "${EN_TARGET_BASE}" \
@@ -119,8 +119,9 @@ rm -f "${devices}/VERSION"
 "${SUDO[@]}" install -m 0755 "${rendered}/${BINARY_NAME}-system-action" \
   "${EN_ROOT}/usr/local/sbin/${BINARY_NAME}-system-action"
 # Root-Helper fuer die Laufwerke, wird ueber den System-Action-Verb "storage"
-# per systemd-run gestartet. Kein Template, daher direkt aus dem Bundle.
-"${SUDO[@]}" install -m 0755 "${dash}/energy-node-storage-helper" \
+# per systemd-run gestartet. Er traegt den Platzhalter fuer den Betreiber der
+# Laufwerksverzeichnisse und wird wie die anderen Vorlagen gerendert.
+"${SUDO[@]}" install -m 0755 "${rendered}/energy-node-storage-helper" \
   "${EN_ROOT}/usr/local/sbin/energy-node-storage-helper"
 if [[ -f "${sudoers_src}" ]]; then
   "${SUDO[@]}" install -m 0440 "${sudoers_src}" \

@@ -150,6 +150,18 @@ format_disk() {
   esac
 }
 
+# init_volume NODE_ID MARKER creates the directories of a new volume for OWNER
+# and writes the marker file last, so a half initialised volume has no marker.
+# The caller runs it on the left of an ||, where set -e is off, so every step
+# returns on its own failure.
+init_volume() {
+  for dir in runtime backups; do
+    mkdir -p "$MOUNT_POINT/$dir" || return 1
+    chown "$OWNER" "$MOUNT_POINT/$dir" || return 1
+  done
+  printf '%s\n' "$1" > "$2" || return 1
+}
+
 mount_volume() {
   uuid="$1"
   printf '%s\n' "$uuid" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' \
@@ -196,11 +208,7 @@ UNIT
 
   marker="$MOUNT_POINT/.energy-node-volume"
   if [ ! -e "$marker" ]; then
-    for dir in runtime backups; do
-      mkdir -p "$MOUNT_POINT/$dir"
-      chown "$OWNER" "$MOUNT_POINT/$dir"
-    done
-    printf '%s\n' "$node_id" > "$marker"
+    err="$(init_volume "$node_id" "$marker" 2>&1)" || mount_failed init "$uuid" "$err"
   fi
 }
 
