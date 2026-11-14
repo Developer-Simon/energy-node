@@ -35,6 +35,7 @@
 - **storage:** format a single partition without repartitioning the disk (6e35b8d)
 - **storage:** keep the helper output in the format failure (c30a7ea)
 - **webui:** reset the whole stick mode when a single stick is chosen (4154e72)
+- **webui:** keep the new partition row in bounds and unstruck in whole stick mode (692f72e)
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243)
 - **updaterhost:** implement the hotspot lookup of the installer backend (ccfb570)
 - **netmgr:** read the hotspot secret without a trailing newline (74376f1)
