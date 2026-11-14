@@ -20,6 +20,7 @@
 - **storage:** wire the system disk usage meter and the demo values (944a240)
 - **webui:** split the system disk meter into system, installation, data and backups (e5a0da8)
 - **webui:** show the storage breakdown in an expandable details list (30b82cc)
+- **webui:** mark the storage breakdown for the highlight tour (1bcff65)
 - **storage:** The system drive card breaks its usage down into operating system, energy-node installation, running data and backups, with a details list for the exact sizes. (#252)
 - **settings:** load the settings subpages lazily as fragments (6d9a963)
 - **storage:** group partitions under their disk and offer the whole disk (2b7a9ca)
