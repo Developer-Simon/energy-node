@@ -96,6 +96,10 @@ type Host struct {
 	mediaMu    sync.Mutex
 	mediaW     *media.Writer
 	mediaStart func(context.Context, media.WriteRequest) error
+
+	// mediaCache ersetzt den Zwischenspeicher des Katalogs. nil heisst der echte
+	// Zwischenspeicher in MediaDir; Tests setzen ihn auf einen lokalen Stand.
+	mediaCache *media.Cache
 }
 
 // onlineDepsNeeded: die Abhaengigkeiten muessen aus dem Netz kommen, weil die

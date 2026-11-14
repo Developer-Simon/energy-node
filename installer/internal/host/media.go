@@ -131,7 +131,10 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 	if err := h.mediaSupported(); err != nil {
 		return hostapi.MediaCatalog{}, err
 	}
-	cache := &media.Cache{Dir: h.cfg.MediaDir}
+	cache := h.mediaCache
+	if cache == nil {
+		cache = &media.Cache{Dir: h.cfg.MediaDir}
+	}
 	list, offline, err := cache.OSList(ctx)
 	if err != nil {
 		// Ohne Liste und ohne gespeicherte Kopie bleibt nur die Geraeteliste ohne Images.
@@ -140,7 +143,9 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 	view := hostapi.MediaCatalog{Offline: offline, Defaults: mediaDefaults(media.HostDefaults())}
 	for _, d := range media.Devices() {
 		device := hostapi.MediaDevice{ID: d.ID, Group: d.Group, Experimental: d.Experimental, Unsupported: d.Unsupported}
-		if list != nil {
+		if d.Kind == "debian" {
+			device.Image = debianImage(ctx, cache, d)
+		} else if list != nil {
 			if img, ok := list.Find(d.ImageName, d.Tag); ok {
 				device.Image = &hostapi.MediaImage{
 					Name:         img.Name,
@@ -155,6 +160,22 @@ func (h *Host) MediaCatalog(ctx context.Context) (hostapi.MediaCatalog, error) {
 		view.Devices = append(view.Devices, device)
 	}
 	return view, nil
+}
+
+// debianImage liefert das Netinst-ISO des Geraets aus dem signierten Debian-Release.
+// Ohne Release (offline und nichts gespeichert) ist das Image nil.
+func debianImage(ctx context.Context, cache *media.Cache, d media.Device) *hostapi.MediaImage {
+	rel, _, err := cache.DebianRelease(ctx, d.Arch)
+	if err != nil {
+		return nil
+	}
+	return &hostapi.MediaImage{
+		Name:         rel.Name,
+		Arch:         d.Arch,
+		DownloadSize: rel.Size,
+		ExtractSize:  rel.Size,
+		Cached:       cache.CachedISO(rel),
+	}
 }
 
 func mediaDefaults(d media.Defaults) hostapi.MediaDefaults {
