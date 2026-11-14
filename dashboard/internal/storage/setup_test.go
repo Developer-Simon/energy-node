@@ -260,6 +260,31 @@ func TestSetupFormatFailureKeepsHelperOutput(t *testing.T) {
 	f.assertSystemUntouched()
 }
 
+// The helper prints the code and the reason of a failed step on two lines. The
+// log entry stays on one line.
+func TestSetupFormatFailureKeepsReasonOnOneLine(t *testing.T) {
+	f := newSetupFixture(t)
+	inner := f.svc.Deps.Storage
+	f.svc.Deps.Storage = func(ctx context.Context, verb, arg string) (string, error) {
+		if verb == "format" {
+			f.calls = append(f.calls, verb)
+			return "FORMAT_FAILED\nmkfs: mke2fs: /dev/sda1 contains a iso9660 file system\n", errors.New("exit status 1")
+		}
+		return inner(ctx, verb, arg)
+	}
+
+	err := f.svc.Setup(context.Background(), f.request())
+	if got := CodeOf(err); got != CodeFormatFailed {
+		t.Fatalf("Setup error code = %q (%v), want %q", got, err, CodeFormatFailed)
+	}
+	if !strings.Contains(err.Error(), "mkfs: mke2fs: /dev/sda1 contains a iso9660 file system") {
+		t.Fatalf("Setup error %q does not contain the reason", err)
+	}
+	if strings.Contains(err.Error(), "\n") {
+		t.Fatalf("Setup error %q spans several lines", err)
+	}
+}
+
 func TestSetupVerifiesBeforeSwitching(t *testing.T) {
 	f := newSetupFixture(t)
 	f.hookFn = func(name string) error {
