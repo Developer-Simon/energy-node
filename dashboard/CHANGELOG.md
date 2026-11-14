@@ -1,14 +1,14 @@
 # Changelog
 
-## v0.11.14 (2026-11-14)
+## v0.11.15 (2026-11-14)
 
 ### Features
 
+- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **auth:** add the companion HTTP opt-in and the trusted check (c577483)
 - **httpapi:** let companion sessions over HTTP act when the opt-in is on (cfb7f9f)
 - **httpapi:** add the endpoint for the companion HTTP opt-in (027cbaa)
 - **webui:** add the companion HTTP opt-in switch to the users page (c1a874f)
-- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253)
 
 ### Fixes
 
