@@ -341,8 +341,8 @@ func (s *Service) runSetup(ctx context.Context, p setupPlan) (err error) {
 	if err = s.step("mount"); err != nil {
 		return fail(CodeMountFailed, err)
 	}
-	if _, merr := s.Deps.Storage(ctx, "mount", uuid); merr != nil {
-		return fail(CodeMountFailed, merr)
+	if out, merr := s.Deps.Storage(ctx, "mount", uuid); merr != nil {
+		return fail(CodeMountFailed, withHelperOutput(out, merr))
 	}
 	undo = append(undo, func() { _, _ = s.Deps.Storage(context.Background(), "unmount", "") })
 	if !VolumeOK(s.Paths.Mount, s.NodeID) {

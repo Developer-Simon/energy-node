@@ -65,7 +65,16 @@ SH
 cat > "$tmp/bin/systemctl" <<'SH'
 #!/bin/sh
 printf '%s\n' "$*" >> "$SYSTEMCTL_LOG"
+if [ -n "${START_FAIL:-}" ] && [ "${1:-}" = start ]; then
+  echo "Job for mnt-energy.mount failed. See journalctl -xe for details." >&2
+  exit 1
+fi
 SH
+cat > "$tmp/bin/journalctl" <<'SH'
+#!/bin/sh
+echo "mount: /mnt/x: wrong fs type, bad option, bad superblock"
+SH
+mkdir -p "$tmp/by-uuid"
 cat > "$tmp/bin/udevadm" <<'SH'
 #!/bin/sh
 printf '%s\n' "$*" >> "$UDEVADM_LOG"
@@ -104,6 +113,8 @@ run_helper() {
     EN_STORAGE_MKFS="$tmp/bin/mkfs" \
     EN_STORAGE_WIPEFS="$tmp/bin/wipefs" \
     EN_STORAGE_SYSTEMCTL="$tmp/bin/systemctl" \
+    EN_STORAGE_JOURNALCTL="$tmp/bin/journalctl" \
+    EN_STORAGE_DEVICE_LINK_DIR="$tmp/by-uuid" \
     sh "$helper" "$@" 2>&1)"
   rc=$?
   set -e
@@ -261,5 +272,21 @@ run_helper unmount
 [ "$rc" -eq 0 ] || fail "unmount schlug fehl (rc=$rc)" "$out"
 [ ! -e "$unit" ] || fail "Unit nach unmount noch vorhanden"
 grep -qF "stop $UNIT_NAME" "$SYSTEMCTL_LOG" || fail "Unit nicht gestoppt" "$(cat "$SYSTEMCTL_LOG")"
+
+# --- ein fehlgeschlagener Mount nennt Schritt, Geraetelink und Journal -------
+reset
+cat >> "$FIXTURE" <<TABLE
+/dev/sda1 part - $UUID sda
+TABLE
+START_FAIL=1 run_helper mount "$UUID"
+[ "$rc" -eq 1 ] || fail "fehlgeschlagener Mount nicht mit Exit 1 (rc=$rc)" "$out"
+grep -qx 'MOUNT_FAILED' <<<"$out" || fail "MOUNT_FAILED fehlt" "$out"
+grep -qF 'start: Job for mnt-energy.mount failed' <<<"$out" || fail "Fehlerzeile von systemctl fehlt" "$out"
+grep -qx 'device link: missing' <<<"$out" || fail "Geraetelink nicht als fehlend gemeldet" "$out"
+grep -qF 'wrong fs type' <<<"$out" || fail "Journalzeile fehlt" "$out"
+[ ! -e "$tmp/units/$UNIT_NAME" ] || fail "Unit nach fehlgeschlagenem Start noch vorhanden"
+touch "$tmp/by-uuid/$UUID"
+START_FAIL=1 run_helper mount "$UUID"
+grep -qx 'device link: present' <<<"$out" || fail "Geraetelink nicht als vorhanden gemeldet" "$out"
 
 echo "OK: $(basename "$0")"
