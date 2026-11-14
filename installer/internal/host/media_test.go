@@ -8,11 +8,13 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/media"
@@ -167,6 +169,48 @@ func TestMediaCatalogOffersTheCachedDebianISO(t *testing.T) {
 	}
 	if arm64 == nil || arm64.Image != nil {
 		t.Errorf("deb-arm64.image = %+v, want nil without a stored release", arm64)
+	}
+}
+
+func TestMediaCatalogSkipsTheDebianLookupForUnsupportedDevices(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("media mode is Linux only")
+	}
+	var i386Hits int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/i386/") {
+			atomic.AddInt32(&i386Hits, 1)
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	h := newMediaHost(t, t.TempDir())
+	h.mediaCache = &media.Cache{
+		Dir:       t.TempDir(),
+		DebianURL: srv.URL,
+		OSListURL: "http://127.0.0.1:1/os_list.json",
+		DebianKey: hostTestKeys(t),
+	}
+	catalog, err := h.MediaCatalog(context.Background())
+	if err != nil {
+		t.Fatalf("MediaCatalog: %v", err)
+	}
+	var found bool
+	for _, d := range catalog.Devices {
+		if d.ID != "deb-i386" {
+			continue
+		}
+		found = true
+		if d.Image != nil {
+			t.Errorf("deb-i386 has an image %+v, want nil (unsupported)", d.Image)
+		}
+	}
+	if !found {
+		t.Fatal("catalog has no deb-i386 device")
+	}
+	if n := atomic.LoadInt32(&i386Hits); n != 0 {
+		t.Errorf("requests for the i386 release = %d, want 0", n)
 	}
 }
 
