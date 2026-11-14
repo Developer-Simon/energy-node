@@ -7,8 +7,8 @@ import (
 	"testing"
 )
 
-func TestDevicesAreInDisplayOrder(t *testing.T) {
-	want := []string{"pi5", "pi4", "pi3", "pi2", "pi1"}
+func TestDevicesListThePiGroupBeforeTheDebianGroup(t *testing.T) {
+	want := []string{"pi5", "pi4", "pi3", "pi2", "pi1", "deb-amd64", "deb-arm64", "deb-i386"}
 	got := Devices()
 	if len(got) != len(want) {
 		t.Fatalf("got %d devices, want %d", len(got), len(want))
@@ -16,6 +16,44 @@ func TestDevicesAreInDisplayOrder(t *testing.T) {
 	for i, d := range got {
 		if d.ID != want[i] {
 			t.Errorf("position %d: got %q, want %q", i, d.ID, want[i])
+		}
+	}
+	for _, d := range got {
+		wantKind := "pi"
+		if d.Group == "debian" {
+			wantKind = "debian"
+		}
+		if d.Kind != wantKind {
+			t.Errorf("%s: Kind %q, want %q", d.ID, d.Kind, wantKind)
+		}
+	}
+}
+
+func TestOnlyTheDebianArm64IsExperimental(t *testing.T) {
+	for _, d := range Devices() {
+		if d.Group != "debian" {
+			continue
+		}
+		if want := d.ID == "deb-arm64"; d.Experimental != want {
+			t.Errorf("%s: Experimental %v, want %v", d.ID, d.Experimental, want)
+		}
+	}
+}
+
+func TestI386IsUnsupportedAndHasNoImage(t *testing.T) {
+	d, ok := DeviceByID("deb-i386")
+	if !ok {
+		t.Fatal("deb-i386 is missing")
+	}
+	if !d.Unsupported {
+		t.Error("deb-i386: Unsupported = false, want true")
+	}
+	if d.ImageName != "" || d.Tag != "" {
+		t.Errorf("deb-i386: ImageName %q, Tag %q, want no image", d.ImageName, d.Tag)
+	}
+	for _, other := range Devices() {
+		if other.ID != "deb-i386" && other.Unsupported {
+			t.Errorf("%s: Unsupported = true, only deb-i386 is", other.ID)
 		}
 	}
 }
