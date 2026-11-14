@@ -10,14 +10,26 @@ import (
 // mediaHostname ist die Form, die ein Rechnername haben muss.
 var mediaHostname = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
-// mediaStepIDs ist die Reihenfolge der Schritte eines Schreibauftrags.
-var mediaStepIDs = []string{"download", "checksum", "rights", "write", "verify", "customize", "eject"}
+// mediaPiStepIDs ist die Reihenfolge der Schritte eines Pi-Schreibauftrags.
+var mediaPiStepIDs = []string{"download", "checksum", "rights", "write", "verify", "customize", "eject"}
+
+// mediaDebianStepIDs ist die Reihenfolge eines Debian-Auftrags. Statt des
+// Anpassens wird das ISO gepatcht.
+var mediaDebianStepIDs = []string{"download", "checksum", "patch", "rights", "write", "verify", "eject"}
+
+// mediaStepIDsFor liefert die Schrittfolge fuer ein Debian- oder Pi-Geraet.
+func mediaStepIDsFor(debian bool) []string {
+	if debian {
+		return mediaDebianStepIDs
+	}
+	return mediaPiStepIDs
+}
 
 // mediaSteps markiert die Schritte vor active als erledigt. active gleich der
 // Anzahl der Schritte heisst: alle erledigt.
-func mediaSteps(active int) []hostapi.MediaStep {
-	steps := make([]hostapi.MediaStep, len(mediaStepIDs))
-	for i, id := range mediaStepIDs {
+func mediaSteps(ids []string, active int) []hostapi.MediaStep {
+	steps := make([]hostapi.MediaStep, len(ids))
+	for i, id := range ids {
 		state := "pending"
 		switch {
 		case i < active:
@@ -30,30 +42,55 @@ func mediaSteps(active int) []hostapi.MediaStep {
 	return steps
 }
 
+// mediaStepIndex ist die Position eines Schritts in ids.
+func mediaStepIndex(ids []string, id string) int {
+	for i, v := range ids {
+		if v == id {
+			return i
+		}
+	}
+	return -1
+}
+
 // mediaSequence ist der feste Verlauf nach MediaWrite: Download aktiv 40 %,
-// Schreiben aktiv 62 %, Pruefen 100 %, danach fertig.
-var mediaSequence = []hostapi.MediaJob{
-	{
-		State: "running", Steps: mediaSteps(0), Percent: 40,
-		BytesDone: 200_000_000, BytesTotal: 500_000_000, Rate: 12_000_000,
-		Log: []string{"Image wird geladen"},
-	},
-	{
-		State: "running", Steps: mediaSteps(3), Percent: 62,
-		BytesDone: 1_600_000_000, BytesTotal: 2_700_000_000, Rate: 18_000_000,
-		Log: []string{"Image wird geschrieben"},
-	},
-	{
-		State: "running", Steps: mediaSteps(4), Percent: 100,
-		Log: []string{"Geschriebene Daten werden geprueft"},
-	},
-	{
-		State: "done", Steps: mediaSteps(len(mediaStepIDs)), Percent: 100,
-		Log: []string{"Fertig"},
-		Target: &hostapi.MediaTarget{
-			Host: "energy-node.local", User: "node", KeyPath: "/home/dev/.energy-node/id_ed25519",
+// Schreiben aktiv 62 %, Pruefen 100 %, danach fertig. ids gibt die Schritte
+// vor; die Aktivstellen folgen ihren Namen.
+func mediaSequence(ids []string) []hostapi.MediaJob {
+	write, verify := mediaStepIndex(ids, "write"), mediaStepIndex(ids, "verify")
+	return []hostapi.MediaJob{
+		{
+			State: "running", Steps: mediaSteps(ids, 0), Percent: 40,
+			BytesDone: 200_000_000, BytesTotal: 500_000_000, Rate: 12_000_000,
+			Log: []string{"Image wird geladen"},
 		},
-	},
+		{
+			State: "running", Steps: mediaSteps(ids, write), Percent: 62,
+			BytesDone: 1_600_000_000, BytesTotal: 2_700_000_000, Rate: 18_000_000,
+			Log: []string{"Image wird geschrieben"},
+		},
+		{
+			State: "running", Steps: mediaSteps(ids, verify), Percent: 100,
+			Log: []string{"Geschriebene Daten werden geprueft"},
+		},
+		{
+			State: "done", Steps: mediaSteps(ids, len(ids)), Percent: 100,
+			Log: []string{"Fertig"},
+			Target: &hostapi.MediaTarget{
+				Host: "energy-node.local", User: "node", KeyPath: "/home/dev/.energy-node/id_ed25519",
+			},
+		},
+	}
+}
+
+// mediaStepIDs liefert die Schrittfolge des letzten Auftrags. Ein Geraet der
+// Gruppe debian bekommt den patch-Schritt und keinen customize-Schritt.
+func (f *FakeBackend) mediaStepIDs() []string {
+	for _, d := range f.MediaCatalogView.Devices {
+		if d.ID == f.LastMediaWrite.Device {
+			return mediaStepIDsFor(d.Group == "debian")
+		}
+	}
+	return mediaStepIDsFor(false)
 }
 
 func mediaStatusFixture() hostapi.MediaStatus {
@@ -68,8 +105,8 @@ func mediaStatusFixture() hostapi.MediaStatus {
 	}
 }
 
-// mediaCatalogFixture hat die sechs Pi-Geraete aus der Geraeteliste. Die
-// Images stammen aus testdata/os_list.json.
+// mediaCatalogFixture hat die fuenf Pi-Geraete und die drei Debian-Geraete aus
+// der Geraeteliste. Die Pi-Images stammen aus testdata/os_list.json.
 func mediaCatalogFixture() hostapi.MediaCatalog {
 	lite64 := func() *hostapi.MediaImage {
 		return &hostapi.MediaImage{
@@ -89,6 +126,18 @@ func mediaCatalogFixture() hostapi.MediaCatalog {
 			DownloadSize: 520503180, ExtractSize: 2524971008, ReleaseDate: "2026-10-06",
 		}
 	}
+	debianAmd64 := func() *hostapi.MediaImage {
+		return &hostapi.MediaImage{
+			Name: "debian-13.7.0-amd64-netinst.iso", Arch: "amd64",
+			DownloadSize: 750000000, ExtractSize: 750000000, ReleaseDate: "2026-11-01",
+		}
+	}
+	debianArm64 := func() *hostapi.MediaImage {
+		return &hostapi.MediaImage{
+			Name: "debian-13.7.0-arm64-netinst.iso", Arch: "arm64",
+			DownloadSize: 700000000, ExtractSize: 700000000, ReleaseDate: "2026-11-01",
+		}
+	}
 	return hostapi.MediaCatalog{
 		Devices: []hostapi.MediaDevice{
 			{ID: "pi5", Group: "pi", Experimental: true, Image: lite64()},
@@ -96,6 +145,9 @@ func mediaCatalogFixture() hostapi.MediaCatalog {
 			{ID: "pi3", Group: "pi", Experimental: false, Image: lite64()},
 			{ID: "pi2", Group: "pi", Experimental: true, Image: lite32()},
 			{ID: "pi1", Group: "pi", Experimental: false, Image: legacy()},
+			{ID: "deb-amd64", Group: "debian", Experimental: false, Image: debianAmd64()},
+			{ID: "deb-arm64", Group: "debian", Experimental: true, Image: debianArm64()},
+			{ID: "deb-i386", Group: "debian", Experimental: false, Unsupported: true},
 		},
 		Defaults: hostapi.MediaDefaults{
 			Hostname:    "energy-node",
@@ -229,16 +281,18 @@ func (f *FakeBackend) MediaJob(ctx context.Context) (hostapi.MediaJob, error) {
 	if !f.mediaWriting {
 		return hostapi.MediaJob{State: "idle", Steps: []hostapi.MediaStep{}, Log: []string{}}, nil
 	}
+	ids := f.mediaStepIDs()
 	if f.mediaCancelled {
 		return hostapi.MediaJob{
 			State: "cancelled",
-			Steps: mediaSteps(0),
+			Steps: mediaSteps(ids, 0),
 			Log:   []string{},
 			Error: &hostapi.ErrorView{Code: hostapi.MediaErrCancelled},
 		}, nil
 	}
-	job := mediaSequence[f.mediaPos]
-	if f.mediaPos < len(mediaSequence)-1 {
+	seq := mediaSequence(ids)
+	job := seq[f.mediaPos]
+	if f.mediaPos < len(seq)-1 {
 		f.mediaPos++
 	}
 	return job, nil
