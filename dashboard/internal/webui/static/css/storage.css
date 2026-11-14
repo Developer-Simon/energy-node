@@ -46,7 +46,7 @@
 .bs-mode-tab:active { transform: scale(.97); }
 .bs-mode-tab[aria-selected="true"] { color: var(--text-strong); font-weight: 600; }
 .bs-parts { display: grid; gap: .35rem; }
-.bs-part { display: flex; align-items: center; gap: .65rem; width: 100%; padding: .55rem .6rem; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease, opacity 200ms ease, transform 120ms cubic-bezier(0.23, 1, 0.32, 1); }
+.bs-part { display: flex; box-sizing: border-box; align-items: center; gap: .65rem; width: 100%; padding: .55rem .6rem; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); text-align: left; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease, opacity 200ms ease, transform 120ms cubic-bezier(0.23, 1, 0.32, 1); }
 .bs-part:active { transform: scale(.985); }
 .bs-part[aria-checked="true"] { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent-bg) 55%, transparent); }
 .bs-part .bs-pick-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -60,10 +60,10 @@
 .bs-part-new .bs-part { cursor: default; border-color: var(--accent-line); background: color-mix(in srgb, var(--accent-bg) 45%, transparent); }
 .bs-part-new .bs-part:active { transform: none; }
 .bs-stick[data-mode="whole"] .bs-part-new { grid-template-rows: 1fr; opacity: 1; }
-.bs-stick[data-mode="whole"] .bs-part { cursor: default; opacity: .5; }
-.bs-stick[data-mode="whole"] .bs-part:active { transform: none; }
-.bs-stick[data-mode="whole"] .bs-part .bs-pick-text strong { text-decoration: line-through; text-decoration-color: var(--bad-line); }
-.bs-stick[data-mode="whole"] .bs-radio { visibility: hidden; }
+.bs-stick[data-mode="whole"] .bs-parts .bs-part { cursor: default; opacity: .5; }
+.bs-stick[data-mode="whole"] .bs-parts .bs-part:active { transform: none; }
+.bs-stick[data-mode="whole"] .bs-parts .bs-part .bs-pick-text strong { text-decoration: line-through; text-decoration-color: var(--bad-line); }
+.bs-stick[data-mode="whole"] .bs-parts .bs-radio { visibility: hidden; }
 .bs-status-bad { background: var(--bad-bg); color: var(--bad); }
 @media (hover: hover) and (pointer: fine) {
   .bs-mode-tab:hover { color: var(--text-subtle); }
