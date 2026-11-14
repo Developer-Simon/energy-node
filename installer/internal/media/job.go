@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-installer/internal/media/isopatch"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
 
@@ -21,6 +22,7 @@ type StepID string
 const (
 	StepDownload  StepID = "download"
 	StepChecksum  StepID = "checksum"
+	StepPatch     StepID = "patch"
 	StepRights    StepID = "rights"
 	StepWrite     StepID = "write"
 	StepVerify    StepID = "verify"
@@ -88,6 +90,27 @@ type WriteRequest struct {
 	Confirm  string   // Wechselmedium: "yes"; intern: exakt Drive.Model
 	Settings Settings // PasswordHash leer; Klartext in Password
 	Password string   // Notfall-Passwort im Klartext, "" = keins
+
+	// Debian only.
+	AskBeforeErase *bool  // nil = true, "Vor dem Löschen nachfragen"
+	InstallLang    string // "de" | "en", nur amd64 wirksam
+	SystemLang     string // "de" | "en", Systemsprache des Zielsystems
+}
+
+// debianSettings turns the request into the settings of the Debian stick.
+// The password hash is not set here.
+func (r WriteRequest) debianSettings(arch string) DebianSettings {
+	ask := true
+	if r.AskBeforeErase != nil {
+		ask = *r.AskBeforeErase
+	}
+	return DebianSettings{
+		Settings:       r.Settings,
+		Arch:           arch,
+		AskBeforeErase: ask,
+		InstallLang:    r.InstallLang,
+		SystemLang:     r.SystemLang,
+	}
 }
 
 // Runner starts a command and returns its combined stdout and stderr.
@@ -96,12 +119,14 @@ type Runner func(ctx context.Context, name string, args ...string) (output io.Re
 // Writer runs at most one write job at a time.
 type Writer struct {
 	Cache      *Cache
-	Imager     func(ctx context.Context) (Imager, bool)   // FindImager mit echtem Env
-	Drives     func(ctx context.Context) ([]Drive, error) // ListDrives
-	Run        Runner                                     // exec, stdout+stderr zusammen
-	KnownHosts string                                     // ~/.energy-node/known_hosts
-	KeyPath    string                                     // privater Installer-Schluessel, landet in Target.KeyPath
-	WorkDir    string                                     // <Cache.Dir>/jobs
+	Imager     func(ctx context.Context) (Imager, bool)                      // FindImager mit echtem Env
+	Drives     func(ctx context.Context) ([]Drive, error)                    // ListDrives
+	Run        Runner                                                        // exec, stdout+stderr zusammen
+	KnownHosts string                                                        // ~/.energy-node/known_hosts
+	KeyPath    string                                                        // privater Installer-Schluessel, landet in Target.KeyPath
+	WorkDir    string                                                        // <Cache.Dir>/jobs
+	Debian     func(ctx context.Context, arch string) (DebianRelease, error) // signierte Debian-Release-Suche
+	PatchISO   func(in, out string, o isopatch.Options) error                // nil = isopatch.Patch
 
 	mu     sync.Mutex
 	busy   bool
@@ -116,6 +141,8 @@ var (
 	ErrSettings      = errors.New("media: settings are invalid")
 	ErrImagerMissing = errors.New("media: raspberry pi imager is missing or too old")
 	ErrTooSmall      = errors.New("media: drive is smaller than the image")
+	// ErrDebianUnavailable reports that the signed Debian release could not be looked up.
+	ErrDebianUnavailable = errors.New("media: debian release unavailable")
 
 	errNoImage = errors.New("media: no image for this device in the OS list")
 )
@@ -125,6 +152,10 @@ const (
 	codeVerifyFailed = "MEDIA_VERIFY_FAILED"
 	codeRightsDenied = "MEDIA_RIGHTS_DENIED"
 	codeCancelled    = "MEDIA_CANCELLED"
+	codePatchFailed  = "MEDIA_PATCH_FAILED"
+
+	debianLabel      = "ENERGY-NODE-LOESCHT"
+	debianJolietName = "LÖSCHT PLATTE"
 
 	logLimit   = 200
 	rateWindow = 3 * time.Second
@@ -134,11 +165,20 @@ var wifiCountryPattern = regexp.MustCompile(`^[A-Z]{2}$`)
 
 // plan is a validated write request with everything the job needs.
 type plan struct {
-	req    WriteRequest
-	device Device
-	drive  Drive
-	image  Image
-	imager Imager
+	req     WriteRequest
+	device  Device
+	drive   Drive
+	image   Image         // Pi
+	release DebianRelease // Debian
+	imager  Imager
+}
+
+// totalSize is the number of bytes the imager writes.
+func (p *plan) totalSize() int64 {
+	if p.device.Kind == "debian" {
+		return p.release.Size
+	}
+	return p.image.ExtractSize
 }
 
 // Start checks the request synchronously and then starts the job in the background.
@@ -165,7 +205,7 @@ func (w *Writer) Start(ctx context.Context, req WriteRequest) error {
 	jobCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 	w.mu.Lock()
 	w.cancel = cancel
-	w.view = JobView{State: JobRunning, Steps: newSteps()}
+	w.view = JobView{State: JobRunning, Steps: newSteps(p.device.Kind)}
 	w.mu.Unlock()
 
 	go func() {
@@ -177,12 +217,14 @@ func (w *Writer) Start(ctx context.Context, req WriteRequest) error {
 
 // check performs the synchronous validation of req and returns the resolved plan.
 func (w *Writer) check(ctx context.Context, req WriteRequest) (*plan, error) {
-	if !validSettings(req.Settings) || (req.Settings.SSHPassword && req.Password == "") {
+	dev, ok := DeviceByID(req.Device)
+	if !ok || dev.Unsupported || !validSettings(req.Settings, dev.Group) || (req.Settings.SSHPassword && req.Password == "") {
 		return nil, ErrSettings
 	}
-	dev, ok := DeviceByID(req.Device)
-	if !ok {
-		return nil, ErrSettings
+	if dev.Kind == "debian" {
+		if err := validateDebianSettings(req.debianSettings(dev.Arch)); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrSettings, err)
+		}
 	}
 	drives, err := w.Drives(ctx)
 	if err != nil {
@@ -206,39 +248,79 @@ func (w *Writer) check(ctx context.Context, req WriteRequest) (*plan, error) {
 	} else if req.Confirm != drive.Model {
 		return nil, ErrConfirm
 	}
-	list, _, err := w.Cache.OSList(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("media: OS list: %w", err)
-	}
-	image, ok := list.Find(dev.ImageName, dev.Tag)
-	if !ok {
-		return nil, errNoImage
+	p := &plan{req: req, device: dev, drive: drive}
+	if dev.Kind == "debian" {
+		rel, err := w.debianRelease(ctx, dev.Arch)
+		if err != nil {
+			return nil, err
+		}
+		p.release = rel
+	} else {
+		list, _, err := w.Cache.OSList(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("media: OS list: %w", err)
+		}
+		image, ok := list.Find(dev.ImageName, dev.Tag)
+		if !ok {
+			return nil, errNoImage
+		}
+		p.image = image
 	}
 	imager, ok := w.Imager(ctx)
 	if !ok || imager.TooOld() {
 		return nil, ErrImagerMissing
 	}
-	if drive.Size < image.ExtractSize {
+	p.imager = imager
+	if drive.Size < p.totalSize() {
 		return nil, ErrTooSmall
 	}
-	return &plan{req: req, device: dev, drive: drive, image: image, imager: imager}, nil
+	return p, nil
+}
+
+// debianRelease looks up the signed Debian release for arch. A bad signature is
+// returned as ErrSignature, every other failure as ErrDebianUnavailable.
+func (w *Writer) debianRelease(ctx context.Context, arch string) (DebianRelease, error) {
+	if w.Debian == nil {
+		return DebianRelease{}, fmt.Errorf("%w: no release lookup", ErrDebianUnavailable)
+	}
+	rel, err := w.Debian(ctx, arch)
+	if errors.Is(err, ErrSignature) {
+		return DebianRelease{}, err
+	}
+	if err != nil {
+		return DebianRelease{}, fmt.Errorf("%w: %w", ErrDebianUnavailable, err)
+	}
+	return rel, nil
+}
+
+// patch runs the ISO patch, with isopatch.Patch unless a test replaces it.
+func (w *Writer) patch(in, out string, o isopatch.Options) error {
+	if w.PatchISO != nil {
+		return w.PatchISO(in, out, o)
+	}
+	return isopatch.Patch(in, out, o)
 }
 
 // validSettings checks the user settings. The password hash must be empty,
-// because the browser sends the password in clear text.
-func validSettings(s Settings) bool {
+// because the browser sends the password in clear text. The debian group
+// takes no WLAN, because the Debian installer has no WLAN setup here.
+func validSettings(s Settings, group string) bool {
 	if s.PasswordHash != "" || !ValidHostname(s.Hostname) || !ValidUser(s.User) {
 		return false
 	}
-	if s.Wifi != nil && (s.Wifi.SSID == "" || !wifiCountryPattern.MatchString(s.Wifi.Country)) {
+	if s.Wifi != nil && (group == "debian" || s.Wifi.SSID == "" || !wifiCountryPattern.MatchString(s.Wifi.Country)) {
 		return false
 	}
 	return true
 }
 
-// newSteps returns the step list of a new job, all pending.
-func newSteps() []StepView {
+// newSteps returns the step list of a new job of the given device kind, all pending.
+// Debian jobs patch the ISO instead of customizing the image.
+func newSteps(kind string) []StepView {
 	ids := []StepID{StepDownload, StepChecksum, StepRights, StepWrite, StepVerify, StepCustomize, StepEject}
+	if kind == "debian" {
+		ids = []StepID{StepDownload, StepChecksum, StepPatch, StepRights, StepWrite, StepVerify, StepEject}
+	}
 	steps := make([]StepView, len(ids))
 	for i, id := range ids {
 		steps[i] = StepView{ID: id, State: StepPending}
@@ -271,15 +353,59 @@ func (w *Writer) execute(ctx context.Context, p *plan) (JobState, *JobError) {
 	}
 	defer os.RemoveAll(tmp)
 
+	if p.device.Kind == "debian" {
+		return r.runDebian(tmp, imgPath)
+	}
 	args, err := r.prepareFiles(tmp)
 	if err != nil {
 		return r.fail(codeWriteFailed, err.Error())
 	}
 	args.Image = imgPath
-	args.Drive = p.drive.Path
-	args.SystemDrive = !p.drive.Removable
-	args.ReadDirs = []string{tmp, filepath.Dir(imgPath)}
-	return r.runImager(args)
+	return r.runImager(r.withDrive(args, tmp, imgPath))
+}
+
+// withDrive adds the target drive and the read access of the imager to a.
+func (r *jobRun) withDrive(a WriteArgs, tmp, iso string) WriteArgs {
+	a.Drive = r.p.drive.Path
+	a.SystemDrive = !r.p.drive.Removable
+	a.ReadDirs = []string{tmp, filepath.Dir(iso)}
+	return a
+}
+
+// runDebian patches the signed netinst ISO into a stick image in tmp and writes
+// that image. The Debian installer needs no first boot settings from the imager.
+func (r *jobRun) runDebian(tmp, iso string) (JobState, *JobError) {
+	files, err := r.debianFiles()
+	if err != nil {
+		return r.fail(codeWriteFailed, err.Error())
+	}
+	stick := filepath.Join(tmp, "stick.iso")
+	r.move(StepPatch)
+	err = r.w.patch(iso, stick, isopatch.Options{
+		Label:       debianLabel,
+		JolietLabel: debianJolietName,
+		Add:         files.Add,
+		Replace:     files.Replace,
+	})
+	if err != nil {
+		return r.fail(codePatchFailed, err.Error())
+	}
+	r.done(StepPatch)
+	return r.runImager(r.withDrive(WriteArgs{Image: stick}, tmp, iso))
+}
+
+// debianFiles creates the host key and the Debian files of the stick.
+func (r *jobRun) debianFiles() (DebianFiles, error) {
+	if err := r.newHostKey(); err != nil {
+		return DebianFiles{}, err
+	}
+	s, err := r.settingsWithHash()
+	if err != nil {
+		return DebianFiles{}, err
+	}
+	ds := r.p.req.debianSettings(r.p.device.Arch)
+	ds.Settings = s
+	return BuildDebianFiles(ds, r.hk)
 }
 
 // jobRun holds the state of one job run. Only the run goroutine touches it.
@@ -366,14 +492,33 @@ func (r *jobRun) setPercent(done, total int64) {
 	r.w.update(func(v *JobView) { v.Percent = pct })
 }
 
-// ensureImage runs the download and checksum steps.
+// ensureImage runs the download and checksum steps and returns the local image.
 func (r *jobRun) ensureImage() (string, error) {
+	if r.p.device.Kind == "debian" {
+		return r.ensureISO()
+	}
 	img := r.p.image
 	if r.w.Cache.Cached(img) {
 		r.w.setStep(StepDownload, StepDone)
 		r.move(StepChecksum)
 	}
 	path, err := r.w.Cache.Ensure(r.ctx, img, r.onDownload, r.onVerify)
+	if err != nil {
+		return "", err
+	}
+	r.w.setStep(StepDownload, StepDone)
+	r.done(StepChecksum)
+	return path, nil
+}
+
+// ensureISO is ensureImage for the signed Debian netinst ISO.
+func (r *jobRun) ensureISO() (string, error) {
+	rel := r.p.release
+	if r.w.Cache.CachedISO(rel) {
+		r.w.setStep(StepDownload, StepDone)
+		r.move(StepChecksum)
+	}
+	path, err := r.w.Cache.EnsureISO(r.ctx, rel, r.onDownload, r.onVerify)
 	if err != nil {
 		return "", err
 	}
@@ -398,20 +543,14 @@ func (r *jobRun) onVerify(done, total int64) {
 
 // prepareFiles writes the first-boot files into tmp and returns the matching write arguments.
 func (r *jobRun) prepareFiles(tmp string) (WriteArgs, error) {
-	hk, err := NewHostKey()
+	if err := r.newHostKey(); err != nil {
+		return WriteArgs{}, err
+	}
+	s, err := r.settingsWithHash()
 	if err != nil {
-		return WriteArgs{}, fmt.Errorf("host key: %w", err)
+		return WriteArgs{}, err
 	}
-	r.hk = hk
-
-	s := r.p.req.Settings
-	if r.p.req.Password != "" {
-		hash, err := HashPassword(r.p.req.Password)
-		if err != nil {
-			return WriteArgs{}, fmt.Errorf("password hash: %w", err)
-		}
-		s.PasswordHash = hash
-	}
+	hk := r.hk
 
 	var a WriteArgs
 	switch format := r.p.image.InitFormat; format {
@@ -435,6 +574,29 @@ func (r *jobRun) prepareFiles(tmp string) (WriteArgs, error) {
 		return WriteArgs{}, fmt.Errorf("init_format %s", format)
 	}
 	return a, nil
+}
+
+// newHostKey creates the host key of the new device and keeps it for the pin.
+func (r *jobRun) newHostKey() error {
+	hk, err := NewHostKey()
+	if err != nil {
+		return fmt.Errorf("host key: %w", err)
+	}
+	r.hk = hk
+	return nil
+}
+
+// settingsWithHash returns the settings with the hash of the emergency password, if any.
+func (r *jobRun) settingsWithHash() (Settings, error) {
+	s := r.p.req.Settings
+	if r.p.req.Password != "" {
+		hash, err := HashPassword(r.p.req.Password)
+		if err != nil {
+			return Settings{}, fmt.Errorf("password hash: %w", err)
+		}
+		s.PasswordHash = hash
+	}
+	return s, nil
 }
 
 // runImager starts the imager, follows its output and decides the outcome.
@@ -510,7 +672,7 @@ func (r *jobRun) onProgress(p Progress) {
 			r.move(StepVerify)
 		}
 		r.progress(p.Percent)
-		if p.Percent >= 100 {
+		if p.Percent >= 100 && r.p.device.Kind != "debian" {
 			r.move(StepCustomize)
 		}
 	case PhaseDone:
@@ -530,7 +692,7 @@ func (r *jobRun) onProgress(p Progress) {
 
 // progress updates percent, bytes and the rate for write and verify.
 func (r *jobRun) progress(pct int) {
-	size := r.p.image.ExtractSize
+	size := r.p.totalSize()
 	done := int64(pct) * size / 100
 	now := time.Now()
 	r.samples = append(r.samples, rateSample{at: now, done: done})
