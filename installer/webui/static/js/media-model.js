@@ -61,9 +61,14 @@
   var GROUP_ORDER = ['pi', 'debian'];
 
   // Ein Auftrag ist fuer Debian ohne Pi-Schritte, die Wartezeit ist dort laenger.
-  // Die Einheit ist Millisekunden wie SLOW_AFTER in screen-media.js.
+  // Die Einheit sind Millisekunden, der Bildschirm vergleicht die verstrichene Zeit damit.
   var WAIT_PI = 10 * 60 * 1000;
   var WAIT_DEBIAN = 30 * 60 * 1000;
+
+  // Die Ersatzschritte, wenn der Server keine schickt. Pi richtet die Einstellungen
+  // mit dem Imager ein, Debian legt sie beim Umbau des Images ab (patch).
+  var STEPS_PI = ['download', 'checksum', 'rights', 'write', 'verify', 'customize', 'eject'];
+  var STEPS_DEBIAN = ['download', 'checksum', 'patch', 'rights', 'write', 'verify', 'eject'];
 
   // installLangFor: die Sprache der Installation. Nur x86 64-bit mit deutscher
   // Oberflaeche bekommt Deutsch, ARM-Geraete zeigen immer Englisch.
@@ -130,6 +135,12 @@
     // in Millisekunden. Debian braucht laenger als ein Pi.
     waitLimit: function (group) {
       return group === 'debian' ? WAIT_DEBIAN : WAIT_PI;
+    },
+
+    // fallbackSteps: die Schritte, die der Bildschirm zeigt, bevor der Auftrag
+    // antwortet. Ohne 'customize' bei Debian, mit 'patch' nach der Pruefsumme.
+    fallbackSteps: function (group) {
+      return (group === 'debian' ? STEPS_DEBIAN : STEPS_PI).slice();
     },
 
     // countryFor: das WLAN-Land zur Zeitzone, wie der Imager es aus der

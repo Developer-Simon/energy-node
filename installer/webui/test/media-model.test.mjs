@@ -371,3 +371,9 @@ test('groupFor: deb-... ist Debian, alles andere ein Pi, ohne Katalog', () => {
   assert.equal(M.groupFor(''), 'pi');
   assert.equal(M.groupFor(undefined), 'pi');
 });
+
+test('fallbackSteps: Debian mit patch nach der Pruefsumme und ohne customize, Pi unveraendert', () => {
+  assert.deepEqual(plain(M.fallbackSteps('debian')), ['download', 'checksum', 'patch', 'rights', 'write', 'verify', 'eject']);
+  assert.deepEqual(plain(M.fallbackSteps('pi')), ['download', 'checksum', 'rights', 'write', 'verify', 'customize', 'eject']);
+  assert.deepEqual(plain(M.fallbackSteps('')), plain(M.fallbackSteps('pi')));
+});
