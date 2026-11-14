@@ -3,8 +3,11 @@ package media
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,6 +15,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-installer/internal/media/isopatch"
 )
 
 // fakeRun replaces the imager process. With block set it produces no output and
@@ -338,5 +343,306 @@ func TestSSHPasswordWithoutAPasswordIsRefused(t *testing.T) {
 	req.Password = ""
 	if err := w.Start(context.Background(), req); err != ErrSettings {
 		t.Fatalf("Start error = %v, want ErrSettings", err)
+	}
+}
+
+// fakePatch replaces isopatch.Patch. It records the call, writes a stand-in
+// stick image to out and, when err is set, fails without writing anything.
+type fakePatch struct {
+	mu          sync.Mutex
+	calls       int
+	in, out     string
+	opts        isopatch.Options
+	err         error
+	view        func() JobView // snapshot taken during the call, nil = none
+	stepsAtCall []StepView
+}
+
+func (f *fakePatch) patch(in, out string, o isopatch.Options) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls++
+	f.in, f.out, f.opts = in, out, o
+	if f.view != nil {
+		f.stepsAtCall = f.view().Steps
+	}
+	if f.err != nil {
+		return f.err
+	}
+	return os.WriteFile(out, []byte("patched "+in), 0o644)
+}
+
+func (f *fakePatch) got() (int, string, string, isopatch.Options) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls, f.in, f.out, f.opts
+}
+
+// cacheDebianISO stores a stand-in netinst ISO that matches the release checksum,
+// so that Cache.EnsureISO runs offline.
+func cacheDebianISO(t *testing.T, cache *Cache, name string) DebianRelease {
+	t.Helper()
+	body := []byte("stand-in netinst " + name)
+	dir := filepath.Join(cache.Dir, imagesDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), body, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha512.Sum512(body)
+	return DebianRelease{
+		Arch:   "amd64",
+		Name:   name,
+		URL:    "http://127.0.0.1:1/" + name,
+		SHA512: hex.EncodeToString(sum[:]),
+		Size:   int64(len(body)),
+	}
+}
+
+// newDebianTestWriter returns a test writer whose Debian release is a cached
+// stand-in ISO and whose patch step is pt.
+func newDebianTestWriter(t *testing.T, drives []Drive, fr *fakeRun, pt *fakePatch) (*Writer, DebianRelease) {
+	t.Helper()
+	w := newTestWriter(t, drives, fr)
+	rel := cacheDebianISO(t, w.Cache, "debian-13.7.0-amd64-netinst.iso")
+	w.Debian = func(context.Context, string) (DebianRelease, error) { return rel, nil }
+	w.PatchISO = pt.patch
+	pt.view = w.View
+	return w, rel
+}
+
+func debianRequest() WriteRequest {
+	s := jobTestSettings()
+	s.Keyboard = "de"
+	s.Timezone = "Europe/Berlin"
+	return WriteRequest{Device: "deb-amd64", Drive: "/dev/sdb", Confirm: "yes", Settings: s, InstallLang: "de", SystemLang: "de"}
+}
+
+func stepIDs(steps []StepView) []StepID {
+	ids := make([]StepID, len(steps))
+	for i, s := range steps {
+		ids[i] = s.ID
+	}
+	return ids
+}
+
+func fileData(files []isopatch.File, name string) ([]byte, bool) {
+	for _, f := range files {
+		if f.Name == name {
+			return f.Data, true
+		}
+	}
+	return nil, false
+}
+
+func TestDebianJobRunsPatchBetweenChecksumAndRights(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	if err := w.Start(context.Background(), debianRequest()); err != nil {
+		t.Fatal(err)
+	}
+	v := waitJob(t, w)
+	if v.State != JobDone {
+		t.Fatalf("state = %s, error = %+v", v.State, v.Error)
+	}
+	want := []StepID{StepDownload, StepChecksum, StepPatch, StepRights, StepWrite, StepVerify, StepEject}
+	if got := stepIDs(v.Steps); fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("steps = %v, want %v", got, want)
+	}
+	requireAllStepsDone(t, v)
+
+	states := map[StepID]StepState{}
+	for _, s := range pt.stepsAtCall {
+		states[s.ID] = s.State
+	}
+	if states[StepChecksum] != StepDone || states[StepPatch] != StepActive || states[StepRights] != StepPending {
+		t.Fatalf("steps during patch = %v, want checksum done, patch active, rights pending", pt.stepsAtCall)
+	}
+}
+
+func TestDebianJobHasNoCustomizeStep(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	if err := w.Start(context.Background(), debianRequest()); err != nil {
+		t.Fatal(err)
+	}
+	v := waitJob(t, w)
+	if v.State != JobDone {
+		t.Fatalf("state = %s, error = %+v", v.State, v.Error)
+	}
+	for _, s := range v.Steps {
+		if s.ID == StepCustomize {
+			t.Fatal("debian job has a customize step")
+		}
+	}
+}
+
+func TestDebianJobPassesNoCloudInitFlags(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	if err := w.Start(context.Background(), debianRequest()); err != nil {
+		t.Fatal(err)
+	}
+	if v := waitJob(t, w); v.State != JobDone {
+		t.Fatalf("state = %s, error = %+v", v.State, v.Error)
+	}
+	_, args := fr.got()
+	for _, flag := range []string{"--cloudinit-userdata", "--cloudinit-networkconfig", "--first-run-script"} {
+		if hasArg(args, flag) {
+			t.Fatalf("args %v contain %s", args, flag)
+		}
+	}
+}
+
+func TestDebianJobWritesThePatchedISONotTheOriginal(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	pt := &fakePatch{}
+	w, rel := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	if err := w.Start(context.Background(), debianRequest()); err != nil {
+		t.Fatal(err)
+	}
+	if v := waitJob(t, w); v.State != JobDone {
+		t.Fatalf("state = %s, error = %+v", v.State, v.Error)
+	}
+	calls, in, out, opts := pt.got()
+	if calls != 1 {
+		t.Fatalf("patch calls = %d, want 1", calls)
+	}
+	if want := filepath.Join(w.Cache.Dir, imagesDir, rel.Name); in != want {
+		t.Fatalf("patch input = %q, want %q", in, want)
+	}
+	if !strings.HasPrefix(filepath.Dir(out), filepath.Join(w.WorkDir, "job-")) {
+		t.Fatalf("patch output %q is not in a job folder", out)
+	}
+	if opts.Label != "ENERGY-NODE-LOESCHT" {
+		t.Fatalf("label = %q", opts.Label)
+	}
+	_, args := fr.got()
+	if len(args) < 2 || args[len(args)-2] != out {
+		t.Fatalf("imager args %v do not write the patched ISO %q", args, out)
+	}
+}
+
+func TestDebianRequestDefaultsToAskingBeforeErasing(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	if err := w.Start(context.Background(), debianRequest()); err != nil {
+		t.Fatal(err)
+	}
+	if v := waitJob(t, w); v.State != JobDone {
+		t.Fatalf("state = %s, error = %+v", v.State, v.Error)
+	}
+	_, _, _, opts := pt.got()
+	env, ok := fileData(opts.Add, "energy-node.env")
+	if !ok {
+		t.Fatal("energy-node.env is not added to the ISO")
+	}
+	if !strings.Contains(string(env), "EN_CONFIRM=yes\n") {
+		t.Fatalf("env = %q, want EN_CONFIRM=yes", env)
+	}
+}
+
+func TestDebianRequestRefusesWifi(t *testing.T) {
+	fr := &fakeRun{}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	req := debianRequest()
+	req.Settings.Wifi = &Wifi{SSID: "Haus", Password: "geheim", Country: "DE"}
+	if err := w.Start(context.Background(), req); !errors.Is(err, ErrSettings) {
+		t.Fatalf("Start error = %v, want ErrSettings", err)
+	}
+	if name, _ := fr.got(); name != "" {
+		t.Fatalf("runner was called with %q", name)
+	}
+}
+
+func TestDebianRequestRefusesI386(t *testing.T) {
+	fr := &fakeRun{}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	req := debianRequest()
+	req.Device = "deb-i386"
+	if err := w.Start(context.Background(), req); !errors.Is(err, ErrSettings) {
+		t.Fatalf("Start error = %v, want ErrSettings", err)
+	}
+}
+
+func TestBadSignatureFailsWithSignatureInvalidAndWritesNothing(t *testing.T) {
+	fr := &fakeRun{}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	w.Debian = func(context.Context, string) (DebianRelease, error) {
+		return DebianRelease{}, fmt.Errorf("%w: bad signature", ErrSignature)
+	}
+	if err := w.Start(context.Background(), debianRequest()); !errors.Is(err, ErrSignature) {
+		t.Fatalf("Start error = %v, want ErrSignature", err)
+	}
+	if name, _ := fr.got(); name != "" {
+		t.Fatalf("runner was called with %q", name)
+	}
+	if calls, _, _, _ := pt.got(); calls != 0 {
+		t.Fatalf("patch was called %d times", calls)
+	}
+	requireEmptyDir(t, w.WorkDir)
+}
+
+func TestPatchFailureFailsWithPatchFailedAndNoImagerCall(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	pt := &fakePatch{err: fmt.Errorf("%w: unexpected directory record", isopatch.ErrLayout)}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	if err := w.Start(context.Background(), debianRequest()); err != nil {
+		t.Fatal(err)
+	}
+	v := waitJob(t, w)
+	if v.State != JobFailed || v.Error == nil || v.Error.Code != "MEDIA_PATCH_FAILED" {
+		t.Fatalf("state = %s, error = %+v, want MEDIA_PATCH_FAILED", v.State, v.Error)
+	}
+	if name, _ := fr.got(); name != "" {
+		t.Fatalf("runner was called with %q", name)
+	}
+	requireEmptyDir(t, w.WorkDir)
+}
+
+func TestADebianJobCleansUpTheStickISOAndPinsTheHostKey(t *testing.T) {
+	fr := &fakeRun{out: loadFixture(t, "imager-ok.txt")}
+	pt := &fakePatch{}
+	w, _ := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	if err := w.Start(context.Background(), debianRequest()); err != nil {
+		t.Fatal(err)
+	}
+	v := waitJob(t, w)
+	if v.State != JobDone {
+		t.Fatalf("state = %s, error = %+v", v.State, v.Error)
+	}
+	_, _, out, _ := pt.got()
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		t.Fatalf("stick ISO still exists: %v", err)
+	}
+	requireEmptyDir(t, w.WorkDir)
+	known, err := os.ReadFile(w.KnownHosts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(known), "energy-node.local") {
+		t.Fatalf("known_hosts lacks energy-node.local: %q", known)
+	}
+	if v.Target == nil || v.Target.Host != "energy-node.local" {
+		t.Fatalf("target = %+v", v.Target)
+	}
+}
+
+func TestDebianTooSmallDrive(t *testing.T) {
+	fr := &fakeRun{}
+	pt := &fakePatch{}
+	w, rel := newDebianTestWriter(t, []Drive{sdb}, fr, pt)
+	rel.Size = 64e9
+	w.Debian = func(context.Context, string) (DebianRelease, error) { return rel, nil }
+	if err := w.Start(context.Background(), debianRequest()); !errors.Is(err, ErrTooSmall) {
+		t.Fatalf("Start error = %v, want ErrTooSmall", err)
 	}
 }
