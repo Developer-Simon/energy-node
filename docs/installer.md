@@ -88,6 +88,11 @@ second tool for the image. It needs the Raspberry Pi Imager 2.0 or newer, as the
 Flatpak or as a package. If it is missing, the tab links to Discover and to the
 download page. For now the tab works on Linux only. Windows and macOS follow.
 
+The same tab also builds a USB stick that installs Debian on other hardware, see
+[Other hardware (Debian)](#other-hardware-debian).
+
+### Raspberry Pi
+
 1. **Device.** Pick the Pi model. The box below the list shows the image, the
    installation package and the download size. Models that have not been tested
    yet carry an experimental label.
@@ -121,6 +126,65 @@ download page. For now the tab works on Linux only. Windows and macOS follow.
 The installer creates the Pi's SSH host key itself and remembers it, so
 [Setting up a node](#setting-up-a-node) connects without the fingerprint
 question.
+
+### Other hardware (Debian)
+
+For x86 64-bit computers, such as the AMD GX-424CC or Intel N100 thin clients,
+and for 64-bit ARM computers with UEFI, the installer builds a USB stick that
+installs Debian 13 on the device by itself. Pick the **Generic** entries in the
+device list. The installer downloads the Debian 13 netinst image for the
+architecture, checks the signature of its checksum file and then builds the
+stick from the image on this computer. Like the Pi card, the stick needs Linux
+for now. 32-bit x86 (i386) is not supported.
+
+1. **Settings.** Choose a device name and a user, as for the Pi. The emergency
+   password for a screen and keyboard is on by default here, and you can
+   switch it off. Debian installs over the network cable, so the installer
+   does not offer Wi-Fi for it.
+2. **Drive.** Plug in the USB stick. Removable drives appear in the list as soon
+   as they are connected.
+3. **Write.** The installer builds the stick and writes it. The stick holds the
+   installer, and the rest of the stick stays unused.
+4. **Install on the device.** Before you start, unplug all drives on the target
+   device except its internal disk, for example USB disks, memory cards or a
+   second disk. The installation only touches the internal disk. Plug in the
+   stick and connect the network cable, then boot from the stick. The boot menu
+   usually opens with F12 or F11. After 10 seconds in the boot menu the
+   installation starts by itself and takes about 15 minutes.
+
+   By default the device asks once before it erases its internal disk. It shows
+   the disk with its model and size and asks whether it may be erased. You can
+   switch this question off in the installer. Without it, the installation runs
+   without any input and erases the internal disk as soon as the device starts
+   from the stick.
+
+   When the installation is done, the device switches itself off. Unplug the
+   stick before you switch it on again. If the stick stays plugged in, the
+   installation starts again, and without the question it erases the disk once
+   more.
+5. **Done.** The installer waits for the device at `<device name>.local` and
+   shows a clock while it waits. When the device answers over SSH with the host
+   key the installer created, **Continue to setup** becomes active. If the
+   device does not answer after 30 minutes, the page lists the usual causes:
+   no network connection, mDNS blocked on the network, the wrong boot drive, or
+   no DHCP on the cable. You can also enter the device's IP address there.
+
+The installer chooses the target disk by its size:
+
+| Internal disk | What the installation does |
+| --- | --- |
+| Under 3 GB | Too small, the installation stops. |
+| 3 to under 8 GB | EFI partition of 256 MB, or a BIOS boot partition, zram instead of a swap file, journal limited to 50 MB. |
+| 8 to 34 GB | EFI partition of 512 MB, or a BIOS boot partition, swap file of 1 GB, journal limited to 200 MB. |
+| Over 34 GB | EFI partition of 512 MB, or a BIOS boot partition, swap file as large as the RAM, at most 4 GB, no journal limit. |
+
+If the computer has several internal disks, the installation stops instead of
+guessing which one to use. USB disks, memory cards and the boot drive of the
+stick are never touched.
+
+The stick contains the device's SSH host key and a hash of the emergency
+password. Treat it as sensitive. Once the installation is done, erase the stick
+or write a new image to it before you use it for anything else.
 
 ## Setting up a node
 
