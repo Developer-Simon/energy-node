@@ -9,14 +9,17 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storageusage"
 )
 
 const storageTestPassword = "geheimes-passwort-2"
@@ -400,4 +403,110 @@ func TestStorageRecheckAsksTheWatcherAndAnswersLikeStatus(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || body.Status.Mode != string(storage.ModeDrive) {
 		t.Fatalf("recheck body: %v (%s)", err, response.Body.String())
 	}
+}
+
+func TestSystemPartsOSIsTheRest(t *testing.T) {
+	got := systemParts(1000, storageusage.Parts{Install: 100, Runtime: 50, Backups: 25})
+	want := []storagePart{{Key: "os", Size: 825}, {Key: "install", Size: 100}, {Key: "runtime", Size: 50}, {Key: "backups", Size: 25}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("systemParts() = %+v, want %+v", got, want)
+	}
+}
+
+func TestSystemPartsOSNeverNegative(t *testing.T) {
+	got := systemParts(100, storageusage.Parts{Install: 80, Runtime: 50})
+	if got[0].Key != "os" || got[0].Size != 0 {
+		t.Fatalf("os part = %+v, want size 0", got[0])
+	}
+}
+
+func TestStorageUsageKeyChangesWithDriveAndJob(t *testing.T) {
+	cfg := storage.Config{UUID: "uuid-a"}
+	job := storage.Job{Phase: "copy", Done: false}
+	keys := map[string]string{
+		"base":  storageUsageKey(cfg, storage.ModeDrive, job),
+		"uuid":  storageUsageKey(storage.Config{UUID: "uuid-b"}, storage.ModeDrive, job),
+		"mode":  storageUsageKey(cfg, storage.ModeFallbackSystem, job),
+		"phase": storageUsageKey(cfg, storage.ModeDrive, storage.Job{Phase: "finish", Done: false}),
+		"done":  storageUsageKey(cfg, storage.ModeDrive, storage.Job{Phase: "copy", Done: true}),
+	}
+	seen := map[string]string{}
+	for name, key := range keys {
+		if other, dup := seen[key]; dup {
+			t.Fatalf("keys for %s and %s are equal: %q", name, other, key)
+		}
+		seen[key] = name
+	}
+}
+
+func TestStorageStatusCarriesSystemPartsOnceMeasured(t *testing.T) {
+	f := newStorageFixture(t)
+	cookie, _ := f.login("keeper", auth.RoleStorageManage)
+	f.deps.Usage = storageusage.NewMeter(func() storageusage.Parts {
+		return storageusage.Parts{Install: 1, Runtime: 2, Backups: 3}
+	}, time.Hour)
+
+	first := f.call(http.MethodGet, "/api/v1/storage/status", "", cookie, "", true)
+	if first.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", first.Code, first.Body.String())
+	}
+	if hasSystemParts(t, first.Body.Bytes()) {
+		t.Fatalf("first status already has system.parts: %s", first.Body.String())
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		response := f.call(http.MethodGet, "/api/v1/storage/status", "", cookie, "", true)
+		var body struct {
+			System struct {
+				Parts []storagePart `json:"parts"`
+			} `json:"system"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if len(body.System.Parts) > 0 {
+			got := body.System.Parts
+			keys := []string{"os", "install", "runtime", "backups"}
+			if len(got) != len(keys) {
+				t.Fatalf("parts = %+v, want %d entries", got, len(keys))
+			}
+			for i, key := range keys {
+				if got[i].Key != key {
+					t.Fatalf("part %d key = %q, want %q", i, got[i].Key, key)
+				}
+			}
+			if got[1].Size != 1 || got[2].Size != 2 || got[3].Size != 3 {
+				t.Fatalf("parts = %+v, want install 1, runtime 2, backups 3", got)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("system.parts not reported within 2 s")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestStorageStatusWithoutUsageHasNoSystemParts(t *testing.T) {
+	f := newStorageFixture(t)
+	cookie, _ := f.login("keeper", auth.RoleStorageManage)
+	response := f.call(http.MethodGet, "/api/v1/storage/status", "", cookie, "", true)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", response.Code, response.Body.String())
+	}
+	if hasSystemParts(t, response.Body.Bytes()) {
+		t.Fatalf("status without Usage has system.parts: %s", response.Body.String())
+	}
+}
+
+// hasSystemParts prüft das rohe JSON, ob system ein Feld parts hat.
+func hasSystemParts(t *testing.T, raw []byte) bool {
+	t.Helper()
+	var body map[string]map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatalf("status body: %v", err)
+	}
+	_, ok := body["system"]["parts"]
+	return ok
 }

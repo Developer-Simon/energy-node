@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/storage"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/storageusage"
 )
 
 // StorageDeps bündelt die Speicher-Routen unter /api/v1/storage/. Nil in
@@ -30,6 +32,8 @@ type StorageDeps struct {
 	// Systemplatte. Größe und Belegung kommen dann vom gelisteten Stick mit
 	// der uuid aus der Konfiguration.
 	DemoSpace bool
+	// Usage misst die Teile der Systemplatte im Hintergrund. Nil heisst: keine Teile.
+	Usage *storageusage.Meter
 }
 
 // storageAccess prüft Anmeldung, storage_manage und HTTPS. Bei write kommt
@@ -73,8 +77,9 @@ type storageModeBody struct {
 }
 
 type storageSpace struct {
-	Size int64 `json:"size"`
-	Used int64 `json:"used"`
+	Size  int64         `json:"size"`
+	Used  int64         `json:"used"`
+	Parts []storagePart `json:"parts,omitempty"`
 }
 
 type storageDriveSpace struct {
@@ -157,8 +162,36 @@ func (d *StorageDeps) writeStatus(w http.ResponseWriter) {
 		}
 	}
 	body.System = d.spaceOf(d.DataDir)
+	if d.Usage != nil {
+		key := storageUsageKey(cfg, storage.Mode(body.Status.Mode), body.Job)
+		if parts, ok := d.Usage.Get(key); ok {
+			body.System.Parts = systemParts(body.System.Used, parts)
+		}
+	}
 	body.Drive = d.driveSpace(cfg)
 	writeJSON(w, body)
+}
+
+// storageUsageKey bildet den Schlüssel einer Messung der Systemplatte. Er ändert
+// sich mit dem Laufwerk, dem Modus und dem Stand des Auftrags, damit eine alte
+// Messung nie für einen neuen Zustand gilt.
+func storageUsageKey(cfg storage.Config, mode storage.Mode, job storage.Job) string {
+	return fmt.Sprintf("%s|%s|%s|%t", cfg.UUID, mode, job.Phase, job.Done)
+}
+
+// systemParts stellt den belegten Platz der Systemplatte je Teil zusammen. Das
+// Betriebssystem ist der Rest der Belegung, nie negativ.
+func systemParts(used int64, p storageusage.Parts) []storagePart {
+	osSize := used - p.Install - p.Runtime - p.Backups
+	if osSize < 0 {
+		osSize = 0
+	}
+	return []storagePart{
+		{Key: "os", Size: osSize},
+		{Key: "install", Size: p.Install},
+		{Key: "runtime", Size: p.Runtime},
+		{Key: "backups", Size: p.Backups},
+	}
 }
 
 // spaceOf liest Größe und Belegung des Dateisystems, in dem dir liegt. Ein
