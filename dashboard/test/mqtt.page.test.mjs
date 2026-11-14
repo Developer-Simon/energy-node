@@ -54,7 +54,7 @@ test('load() populates the form and never surfaces a password value', async () =
   const { component } = createMqttPanel({
     fetchImpl: async (url) => {
       if (url === '/api/v1/mqtt') return jsonResponse(configResponse);
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: true });
       if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: true });
       throw new Error(`unexpected fetch ${url}`);
     },
@@ -73,7 +73,7 @@ test('canConfigure is false without the mqtt_config role even over HTTPS', async
   const { component } = createMqttPanel({
     fetchImpl: async (url) => {
       if (url === '/api/v1/mqtt') return jsonResponse(configResponse);
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: false });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: false });
       if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: true });
       throw new Error(`unexpected fetch ${url}`);
     },
@@ -87,7 +87,7 @@ test('canConfigure is false over plain HTTP even with the mqtt_config role', asy
     url: 'http://dashboard.local/',
     fetchImpl: async (url) => {
       if (url === '/api/v1/mqtt') return jsonResponse(configResponse);
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: false, mqtt_config: true });
       if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: true });
       throw new Error(`unexpected fetch ${url}`);
     },
@@ -372,7 +372,7 @@ test('every request goes through the reverse-proxy base path when one is set', a
     fetchImpl: async (url) => {
       seen.push(url);
       if (url === '/node/api/v1/mqtt') return jsonResponse(configResponse);
-      if (url === '/node/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true });
+      if (url === '/node/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: true });
       if (url === '/node/api/v1/mqtt/status') return jsonResponse({ connected: true });
       throw new Error(`unexpected fetch ${url}`);
     },
@@ -626,7 +626,7 @@ test('a repeated load() with new energy sensor options destroys and rebuilds Cho
   const { component, window } = createMqttPanel({
     fetchImpl: async (url) => {
       if (url === '/api/v1/mqtt') return jsonResponse({ ...configResponse, energy_sensors: {}, energy_sensor_options: options });
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, mqtt_config: true });
       if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: true });
       throw new Error(`unexpected fetch ${url}`);
     },

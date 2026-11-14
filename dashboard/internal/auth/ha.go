@@ -460,10 +460,13 @@ func (m *Manager) Unpair(actor string) error {
 		return ErrNotPaired
 	}
 	oldCompanion, oldSessions, oldPairing := m.companion, m.sessions, m.pairing
+	oldCompanionHTTP := m.companionHTTP
 	m.companion, m.pairing = nil, nil
+	m.companionHTTP = false
 	m.sessions = withoutHASessions(m.sessions)
 	if err := m.saveLocked(); err != nil {
 		m.companion, m.sessions, m.pairing = oldCompanion, oldSessions, oldPairing
+		m.companionHTTP = oldCompanionHTTP
 		return err
 	}
 	if err := m.saveSessionsLocked(); err != nil {

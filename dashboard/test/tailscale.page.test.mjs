@@ -40,7 +40,7 @@ const jsonResponse = (body, ok = true) => ({ ok, status: ok ? 200 : 400, json: a
 test('init() loads prereqs, status and the session role/HTTPS gate', async () => {
   const { component } = createTailscalePanel({
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', tailscale: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, tailscale: true });
       if (url === '/api/v1/tailscale/prereqs') return jsonResponse({ installed: true, version: '1.62.0', service_active: 'active', service_enabled: 'enabled' });
       if (url === '/api/v1/tailscale/status') return jsonResponse({ status: { installed: true, backend_state: 'NeedsLogin' } });
       throw new Error(`unexpected fetch ${url}`);
@@ -57,7 +57,7 @@ test('init() loads prereqs, status and the session role/HTTPS gate', async () =>
 test('canTailscale is false with only system_actions, even over HTTPS', async () => {
   const { component } = createTailscalePanel({
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', system_actions: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: true, system_actions: true });
       if (url === '/api/v1/tailscale/prereqs') return jsonResponse({ installed: true });
       if (url === '/api/v1/tailscale/status') return jsonResponse({ status: {} });
       throw new Error(`unexpected fetch ${url}`);
@@ -71,7 +71,7 @@ test('canTailscale is false over plain HTTP even with the tailscale role', async
   const { component } = createTailscalePanel({
     url: 'http://dashboard.local/',
     fetchImpl: async (url) => {
-      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', tailscale: true });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', trusted: false, tailscale: true });
       if (url === '/api/v1/tailscale/prereqs') return jsonResponse({ installed: true });
       if (url === '/api/v1/tailscale/status') return jsonResponse({ status: {} });
       throw new Error(`unexpected fetch ${url}`);

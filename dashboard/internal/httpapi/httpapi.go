@@ -522,8 +522,10 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 		cookie, err := r.Cookie(sessionCookieName(secureRequest))
 		if err == nil {
 			if session, ok := manager.Session(cookie.Value); ok && companionSessionAllowed(session, r) {
-				ctx := auth.WithUser(r.Context(), auth.EffectiveUser(session, secureRequest))
-				ctx = auth.WithWithheld(ctx, auth.Withheld(session, secureRequest))
+				trusted := manager.Trusted(session, secureRequest)
+				ctx := auth.WithUser(r.Context(), auth.EffectiveUser(session, trusted))
+				ctx = auth.WithWithheld(ctx, auth.Withheld(session, trusted))
+				ctx = auth.WithTrusted(ctx, trusted)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -613,7 +615,7 @@ func handleAuthSession(manager *auth.Manager) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
 			return
 		}
-		writeAuthSession(w, session, isSecureRequest(r), manager.MinPasswordLength())
+		writeAuthSession(w, session, manager.Trusted(session, isSecureRequest(r)), manager.MinPasswordLength())
 	}
 }
 
@@ -828,20 +830,33 @@ func isSecureRequest(r *http.Request) bool {
 	return r.TLS != nil || strings.EqualFold(forwardedProto, "https")
 }
 
+// requestTrusted reports whether the request may use HTTPS-only actions. The
+// authMiddleware stores the answer of Manager.Trusted in the context. Without
+// that entry, the request counts as trusted only over HTTPS.
+func requestTrusted(r *http.Request) bool {
+	if trusted, ok := auth.TrustedFromContext(r.Context()); ok {
+		return trusted
+	}
+	return isSecureRequest(r)
+}
+
 // writeAuthSession answers with the permissions that apply to this request:
 // roles and flags come from auth.EffectiveUser, so a restricted session or a
-// request over HTTP never reports an HTTPS-only role as granted. minPasswordLength
-// is the current minimum for new passwords, so the forms can show it.
-func writeAuthSession(w http.ResponseWriter, session auth.Session, secure bool, minPasswordLength int) {
+// request that is not trusted never reports an HTTPS-only role as granted.
+// trusted is the answer of Manager.Trusted, which is HTTPS or a companion
+// session with the HTTP opt-in. minPasswordLength is the current minimum for
+// new passwords, so the forms can show it.
+func writeAuthSession(w http.ResponseWriter, session auth.Session, trusted bool, minPasswordLength int) {
 	w.Header().Set("Cache-Control", "no-store")
-	user := auth.EffectiveUser(session, secure)
-	withheld := auth.Withheld(session, secure)
+	user := auth.EffectiveUser(session, trusted)
+	withheld := auth.Withheld(session, trusted)
 	if withheld == nil {
 		withheld = []string{}
 	}
 	writeJSON(w, map[string]any{
 		"username":                user.Username,
 		"display_name":            user.DisplayName,
+		"trusted":                 trusted,
 		"source":                  user.Source,
 		"via":                     session.Via,
 		"guest":                   user.Guest,

@@ -63,7 +63,9 @@ the user name and password of your Home Assistant user there. Two rules apply:
   need HTTPS.
 
 Over HTTP the page works too, but the permissions that need HTTPS stay
-unavailable, as they do for any other session without HTTPS.
+unavailable, as they do for any other session without HTTPS. An administrator
+can lift this for the panel with the switch described in
+[HTTPS actions without HTTPS](../dashboard/settings-users.md#https-actions-without-https).
 
 The page renews its access on its own while it is open. After a Home
 Assistant restart it fetches new access the next time you open it.

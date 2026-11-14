@@ -11,6 +11,7 @@ anchor_moves:
   users-apiv1users: api-auth.html#users-apiv1users
   guest-roles: api-auth.html#guest-roles
   guest-access: api-auth.html#guest-access
+  companion-over-http: api-auth.html#companion-over-http
   csrf: api-auth.html#csrf
   three-stage-pattern: api-auth.html#three-stage-pattern
   auth: api-auth.html#auth

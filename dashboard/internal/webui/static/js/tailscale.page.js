@@ -46,6 +46,7 @@
     loginStarted: false,
     csrfToken: '',
     canTailscale: false,
+    trusted: false,
     loading: false,
     statusLoading: false,
     busy: false,
@@ -56,7 +57,8 @@
       try {
         const session = await requestJSON('/api/v1/auth/session').catch(() => null);
         this.csrfToken = (session && session.csrf_token) || '';
-        this.canTailscale = Boolean(session && session.tailscale) && window.location.protocol === 'https:';
+        this.trusted = Boolean(session && session.trusted);
+        this.canTailscale = Boolean(session && session.tailscale) && this.trusted;
         await Promise.all([this.checkPrereqs(), this.loadStatus()]);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
