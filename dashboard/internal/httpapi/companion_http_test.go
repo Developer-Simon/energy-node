@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
@@ -104,5 +105,95 @@ func TestRequestTrustedFallsBackWithoutContext(t *testing.T) {
 	trusted := insecure.WithContext(auth.WithTrusted(context.Background(), true))
 	if !requestTrusted(trusted) {
 		t.Fatal("context value true must win over an HTTP request")
+	}
+}
+
+// companionHTTPListing reads companion_http and companion_http_editable from
+// GET /api/v1/users.
+func companionHTTPListing(t *testing.T, recorder *httptest.ResponseRecorder) (bool, bool) {
+	t.Helper()
+	wantUsersStatus(t, recorder, http.StatusOK)
+	var listing struct {
+		CompanionHTTP         *bool `json:"companion_http"`
+		CompanionHTTPEditable *bool `json:"companion_http_editable"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &listing); err != nil {
+		t.Fatal(err)
+	}
+	if listing.CompanionHTTP == nil || listing.CompanionHTTPEditable == nil {
+		t.Fatalf("listing lacks the companion HTTP fields: %s", recorder.Body.String())
+	}
+	return *listing.CompanionHTTP, *listing.CompanionHTTPEditable
+}
+
+// TestCompanionHTTPEndpoint: the admin switches the companion HTTP opt-in over
+// HTTPS. A missing enabled field is rejected, and the listing reports the switch
+// and that it is editable over HTTPS.
+func TestCompanionHTTPEndpoint(t *testing.T) {
+	router, _ := newRestrictedTestRouter(t, nil)
+	adminCookie, adminCSRF := sessionFor(t, router, "admin", usersAdminPassword)
+
+	wantUsersError(t, usersCall(router, http.MethodPut, "/api/v1/users/companion-http", `{}`, adminCookie, adminCSRF, true), http.StatusBadRequest, "invalid_body")
+
+	recorder := usersCall(router, http.MethodPut, "/api/v1/users/companion-http", `{"enabled":true}`, adminCookie, adminCSRF, true)
+	wantUsersStatus(t, recorder, http.StatusOK)
+	var body struct {
+		CompanionHTTP *bool `json:"companion_http"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.CompanionHTTP == nil || !*body.CompanionHTTP {
+		t.Fatalf("PUT response companion_http = %v, want true: %s", body.CompanionHTTP, recorder.Body.String())
+	}
+
+	on, editable := companionHTTPListing(t, usersCall(router, http.MethodGet, "/api/v1/users", "", adminCookie, "", true))
+	if !on || !editable {
+		t.Fatalf("listing companion_http = %v, editable = %v, want true, true", on, editable)
+	}
+}
+
+// TestCompanionHTTPEndpointRefusesTrustedHTTP: a companion session with the
+// opt-in is trusted over HTTP, but it may not change the opt-in itself. The
+// PUT answers 403 and the switch stays on. The listing over HTTP reports it as
+// not editable.
+func TestCompanionHTTPEndpointRefusesTrustedHTTP(t *testing.T) {
+	router, manager, _ := newCompanionTestRouter(t)
+	gate, token, sessionToken := companionHTTPAdminSession(t, router, manager)
+	if err := manager.SetCompanionHTTP("admin", true); err != nil {
+		t.Fatal(err)
+	}
+
+	sessionRecorder := companionCall(gate, http.MethodPost, "/api/v1/companion/session", `{"ha_user_id":"ha-root","username":"root","name":"Root","is_admin":true}`, token)
+	if sessionRecorder.Code != http.StatusOK {
+		t.Fatalf("session status %d: %s", sessionRecorder.Code, sessionRecorder.Body.String())
+	}
+	var session struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.NewDecoder(sessionRecorder.Body).Decode(&session); err != nil {
+		t.Fatal(err)
+	}
+
+	gateCall := func(method, path, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(method, path, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Authorization", "Bearer "+token)
+		request.Header.Set("X-Forwarded-Proto", "http")
+		request.Header.Set("X-CSRF-Token", session.CSRFToken)
+		request.AddCookie(&http.Cookie{Name: sessionCookieName(false), Value: sessionToken})
+		recorder := httptest.NewRecorder()
+		gate.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	wantUsersError(t, gateCall(http.MethodPut, "/api/v1/users/companion-http", `{"enabled":false}`), http.StatusForbidden, "secure_connection_required")
+	if !manager.CompanionHTTPAllowed() {
+		t.Fatal("a trusted HTTP companion session switched its own opt-in off")
+	}
+
+	on, editable := companionHTTPListing(t, gateCall(http.MethodGet, "/api/v1/users", ""))
+	if !on || editable {
+		t.Fatalf("listing over HTTP: companion_http = %v, editable = %v, want true, false", on, editable)
 	}
 }
