@@ -1,8 +1,8 @@
 {
   "de": {
-    "*": "Home-Assistant-Benutzer können im Panel jetzt alle ihre Rechte nutzen, auch wenn Home Assistant nur über HTTP läuft. Ein Admin schaltet das im Bereich Home Assistant auf der Benutzerseite ein."
+    "*": "Home-Assistant-Benutzer behalten im Panel alle Rechte auch ohne HTTPS, wenn ein Admin es erlaubt"
   },
   "en": {
-    "*": "Home Assistant users can now use all their permissions in the panel even when Home Assistant runs on plain HTTP. An admin switches this on in the Home Assistant section of the users page"
+    "*": "Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it"
   }
 }
