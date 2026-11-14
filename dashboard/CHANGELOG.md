@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.11.12 (2026-11-14)
+## v0.11.13 (2026-11-14)
 
 ### Fixes
 
-- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246)
+- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
+- **system:** do not report an error when a reboot stops the dashboard (#249)
 
 ### Tests
 

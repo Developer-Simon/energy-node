@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os/exec"
 	"sync"
+	"syscall"
 )
 
 type Action string
@@ -82,7 +83,30 @@ func (e *Executor) Execute(ctx context.Context, action Action) error {
 		e.busy = false
 		e.mu.Unlock()
 	}()
-	return e.runner.Run(ctx, "sudo", "-n", e.helper, string(action))
+	err := e.runner.Run(ctx, "sudo", "-n", e.helper, string(action))
+	if err != nil && stopsTheDashboard(action) && killedBySignal(err) {
+		// The shutdown or restart worked: systemd stopped this very service
+		// and terminated sudo with it before it could report success.
+		return nil
+	}
+	return err
+}
+
+// stopsTheDashboard reports whether the action takes the dashboard service down
+// itself, so the helper may die from a signal while it did its job.
+func stopsTheDashboard(action Action) bool {
+	return action == Reboot || action == Poweroff || action == RestartDashboard
+}
+
+// killedBySignal reports whether a process ended by a signal, as opposed to
+// exiting with a status or failing to start.
+func killedBySignal(err error) bool {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return false
+	}
+	status, ok := exitErr.Sys().(syscall.WaitStatus)
+	return ok && status.Signaled()
 }
 
 // StopServices stops the enabled services that the backup restore touches,
