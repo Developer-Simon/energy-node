@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.12-pre.11 (2026-11-06)
+## v0.11.13-pre.11 (2026-11-06)
 
 ### Features
 
@@ -33,8 +33,9 @@
 ### Fixes
 
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
+- **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
+- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **storage:** wipe old file system signatures before formatting and report why it failed (0923fe1)
-- **storage:** wipe old file system signatures before formatting a stick (#245)
 - **storage:** format a single partition without repartitioning the disk (6e35b8d)
 - **storage:** keep the helper output in the format failure (c30a7ea)
 - **webui:** reset the whole stick mode when a single stick is chosen (4154e72)

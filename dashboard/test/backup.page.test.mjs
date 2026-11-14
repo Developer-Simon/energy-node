@@ -80,7 +80,7 @@ function router(routes, calls = []) {
   return { fetchImpl, calls };
 }
 
-function createBackupPage({ fetchImpl, url } = {}) {
+function createBackupPage({ fetchImpl, url, blocked = false } = {}) {
   const dom = new JSDOM(
     '<!doctype html><html><body><div class="bs-flow-stage"></div><div class="bs-flow"></div></body></html>',
     { runScripts: 'outside-only', url: url || 'https://dashboard.local/' },
@@ -98,6 +98,8 @@ function createBackupPage({ fetchImpl, url } = {}) {
   page.$nextTick = (fn) => fn();
   // The settings shell owns activeSettingsPage, the tests switch it by hand.
   page.$watch = (key, fn) => { page.watchers = { ...page.watchers, [key]: fn }; };
+  // Alpine's $el is the .bs-page root, the server marks a withheld page there.
+  page.$el = { dataset: blocked ? { blocked: '1' } : {} };
   return { page, stores, window: dom.window };
 }
 
@@ -640,4 +642,15 @@ test('opening the backup page reloads the status, unless a flow or unsaved edits
   page.watchers.activeSettingsPage('backup');
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(reads, base + 1, 'unsaved edits are kept');
+});
+
+test('a withheld page (no HTTPS) loads nothing and opens no flow', async () => {
+  const { page } = createBackupPage({ blocked: true });
+  await page.init();
+
+  assert.equal(page.blocked, true);
+  assert.equal(page.archives.length, 0);
+  page.openExport();
+  await page.openImport();
+  assert.equal(page.flow, null, 'no flow may open while the page is blocked');
 });

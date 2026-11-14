@@ -154,7 +154,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=5,/static/js/history-chart.js?v=5,/static/js/history.js?v=21",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=34,/static/js/onboarding-checklist.js?v=4,/static/js/mqtt.page.js?v=12,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=10,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4,/static/js/backup.page.js?v=2,/static/js/storage.page.js?v=1,/static/js/network.page.js?v=1",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings-masonry.js?v=2,/static/js/settings.page.js?v=34,/static/js/onboarding-checklist.js?v=4,/static/js/mqtt.page.js?v=12,/static/js/tailscale.page.js?v=5,/static/js/versions.page.js?v=10,/static/js/systemconfig.page.js?v=5,/static/js/users-model.js?v=2,/static/js/users.page.js?v=4,/static/js/backup.page.js?v=3,/static/js/storage.page.js?v=1,/static/js/network.page.js?v=1",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -4683,5 +4683,47 @@ func TestPanelPlaceholdersCarrySkeletons(t *testing.T) {
 		if sections == 0 {
 			t.Errorf("%s fehlt in der Startseite", panel.id)
 		}
+	}
+}
+
+func TestSettingsBackupPageIsShownWithHintWhenWithheld(t *testing.T) {
+	body := func(user auth.User, withheld []string) string {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil)
+		ctx := auth.WithUser(req.Context(), user)
+		if withheld != nil {
+			ctx = auth.WithWithheld(ctx, withheld)
+		}
+		Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, req.WithContext(ctx))
+		return rec.Body.String()
+	}
+
+	// Freigegeben, aber ohne HTTPS zurückgehalten: Seite, Hinweis, gesperrte Knöpfe.
+	blocked := body(auth.User{Username: "u", Roles: []string{auth.RoleViewOverview}}, []string{auth.RoleBackupExport, auth.RoleBackupImport})
+	for _, want := range []string{`id="settings-backup"`, `data-blocked="1"`, `data-testid="backup-https-hint"`, `x-on:click="openExport()" disabled`, `x-on:click="openImport()" disabled`} {
+		if !strings.Contains(blocked, want) {
+			t.Fatalf("zurückgehaltenes Backup: %s fehlt", want)
+		}
+	}
+	for _, unwanted := range []string{`data-tour="backup-archives"`, `data-tour="backup-auto"`} {
+		if strings.Contains(blocked, unwanted) {
+			t.Fatalf("zurückgehaltenes Backup darf %s nicht zeigen, es gibt keine Daten", unwanted)
+		}
+	}
+
+	// Mit Recht und HTTPS: wie bisher, ohne Hinweis und ohne Sperre.
+	open := body(auth.User{Username: "u", Roles: []string{auth.RoleBackupExport, auth.RoleBackupImport}}, nil)
+	if !strings.Contains(open, `id="settings-backup"`) || !strings.Contains(open, `data-tour="backup-archives"`) {
+		t.Fatal("Backup mit Recht: Seite fehlt")
+	}
+	if strings.Contains(open, `data-testid="backup-https-hint"`) || strings.Contains(open, `data-blocked="1"`) {
+		t.Fatal("Backup mit Recht darf keinen Hinweis und keine Sperre tragen")
+	}
+
+	// Ohne Recht: keine Seite, auch kein Hinweis.
+	none := body(auth.User{Username: "u", Roles: []string{auth.RoleViewOverview}}, nil)
+	if strings.Contains(none, `id="settings-backup"`) {
+		t.Fatal("Backup ohne Recht darf nicht erscheinen")
 	}
 }
