@@ -391,3 +391,110 @@ func checkRealISO(t *testing.T, src string) {
 		}
 	}
 }
+
+// layoutISO returns the amd64 netinst from EN_DEBIAN_ISO or skips the test.
+func layoutISO(t *testing.T) string {
+	t.Helper()
+	src := os.Getenv("EN_DEBIAN_ISO")
+	if src == "" {
+		t.Skip("set EN_DEBIAN_ISO to the Debian netinst image to run the layout failure tests")
+	}
+	return src
+}
+
+// expectLayoutFailure runs Patch and checks for an ErrLayout error that mentions want, and that out is removed.
+func expectLayoutFailure(t *testing.T, src string, o Options, want string) {
+	t.Helper()
+	out := filepath.Join(t.TempDir(), "failed.iso")
+	err := Patch(src, out, o)
+	if !errors.Is(err, ErrLayout) {
+		t.Fatalf("Patch = %v, want ErrLayout", err)
+	}
+	if !strings.Contains(err.Error(), want) {
+		t.Errorf("error %q does not mention %q", err, want)
+	}
+	if _, statErr := os.Stat(out); !errors.Is(statErr, fs.ErrNotExist) {
+		t.Errorf("output still exists after error: %v", statErr)
+	}
+}
+
+// openISOReader opens the image read-only and returns a reader for it.
+func openISOReader(t *testing.T, src string) isoReader {
+	t.Helper()
+	f, err := os.Open(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { f.Close() })
+	return isoReader{f}
+}
+
+func TestPatchRealISODonorTooSmall(t *testing.T) {
+	src := layoutISO(t)
+	r := openISOReader(t, src)
+	var donor entry
+	for _, c := range r.dir(t, r.root(t)) {
+		if c.dir || c.size == 0 {
+			continue
+		}
+		if donor.name == "" || c.size < donor.size {
+			donor = c
+		}
+	}
+	if donor.name == "" {
+		t.Fatal("no non-empty file in the root directory")
+	}
+	t.Logf("donor %s is %d bytes", donor.name, donor.size)
+	// one byte more than the donor's allocated sectors
+	big := make([]byte, alloc(donor.size)+1)
+	expectLayoutFailure(t, src, Options{Donor: donor.name, Add: []File{{Name: "preseed.cfg", Data: big}}}, "files need more than")
+}
+
+func TestPatchRealISODonorMissing(t *testing.T) {
+	src := layoutISO(t)
+	expectLayoutFailure(t, src, Options{Donor: "no-such-donor.txt", Add: []File{{Name: "preseed.cfg", Data: []byte("x")}}}, "not found")
+}
+
+func TestPatchRealISOReplaceTooLarge(t *testing.T) {
+	src := layoutISO(t)
+	r := openISOReader(t, src)
+	grub := r.lookup(t, "/boot/grub/grub.cfg")
+	big := make([]byte, alloc(grub.size)+1)
+	expectLayoutFailure(t, src, Options{Replace: map[string][]byte{"/boot/grub/grub.cfg": big}}, "do not fit")
+}
+
+func TestPatchRealISOReplaceMissingPath(t *testing.T) {
+	src := layoutISO(t)
+	expectLayoutFailure(t, src, Options{Replace: map[string][]byte{"/no/such/file.cfg": []byte("x")}}, "not found")
+}
+
+func TestPatchRealISOPrimaryLabel(t *testing.T) {
+	src := layoutISO(t)
+	cases := []struct {
+		label string
+		want  string // 32 bytes in the primary volume descriptor
+	}{
+		{"ENERGY-NODE", "ENERGY-NODE" + strings.Repeat(" ", 32-len("ENERGY-NODE"))},
+		{strings.Repeat("L", 32), strings.Repeat("L", 32)},
+	}
+	for _, c := range cases {
+		out := filepath.Join(t.TempDir(), "label.iso")
+		if err := Patch(src, out, Options{Label: c.label}); err != nil {
+			t.Fatalf("Patch(label %q): %v", c.label, err)
+		}
+		f, err := os.Open(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := make([]byte, 32)
+		_, err = f.ReadAt(got, 16*sec+40)
+		f.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != c.want {
+			t.Errorf("primary label = %q, want %q", got, c.want)
+		}
+	}
+	expectLayoutFailure(t, src, Options{Label: strings.Repeat("L", 33)}, "longer than 32")
+}
