@@ -105,6 +105,11 @@
     presets: [],
     // Whether guests may sign in, from guest_access in GET /api/v1/users.
     guestAccess: true,
+    // Whether Home Assistant users may use HTTPS actions over plain HTTP, from
+    // companion_http in GET /api/v1/users, and whether this session may change it
+    // (companion_http_editable, true only over HTTPS).
+    companionHTTP: false,
+    companionHTTPEditable: false,
     migrationNotice: false,
     // Unsaved state per card id: {roles, disabled}. Survives switching cards.
     drafts: {},
@@ -140,6 +145,8 @@
         if (!keepPolicyDraft) this.policyDraft = this.policy.min_length;
         this.presets = [{id: GUEST_PRESET_ID, roles: sortedRoles(body.guest_roles)}];
         this.guestAccess = body.guest_access !== false;
+        this.companionHTTP = body.companion_http === true;
+        this.companionHTTPEditable = body.companion_http_editable === true;
         this.haRoles = body.ha_roles || null;
         if (this.haRoles) {
           this.presets.push(
@@ -578,6 +585,30 @@
       }
       this.markSaved(GUEST_PRESET_ID);
       await this.loadSessions();
+      return true;
+    },
+
+    // Switches the companion HTTP opt-in on or off. The switch shows the new
+    // state at once and goes back to the old one when the request fails. The
+    // session list is not reloaded.
+    async saveCompanionHTTP(enabled) {
+      const previous = !enabled;
+      this.companionHTTP = enabled;
+      this.saving = 'companion-http';
+      let done = false;
+      try {
+        done = await this.action(
+          () => this.send('PUT', '/api/v1/users/companion-http', {enabled}),
+          t(enabled ? 'users.ha.http_actions.saved_on' : 'users.ha.http_actions.saved_off'),
+        );
+      } finally {
+        this.saving = '';
+      }
+      if (!done) {
+        this.companionHTTP = previous;
+        return false;
+      }
+      this.markSaved('companion-http');
       return true;
     },
 

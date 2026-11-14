@@ -56,6 +56,8 @@
     status: null,
     csrfToken: '',
     canConfigure: false,
+    // Whether the session may change the configuration, from trusted in GET /api/v1/auth/session.
+    trusted: false,
     loading: false,
     statusLoading: false,
     busy: false,
@@ -73,7 +75,8 @@
         ]);
         this.applyConfig(config);
         this.csrfToken = (session && session.csrf_token) || '';
-        this.canConfigure = Boolean(session && session.mqtt_config) && window.location.protocol === 'https:';
+        this.trusted = Boolean(session && session.trusted);
+        this.canConfigure = Boolean(session && session.mqtt_config) && this.trusted;
         await this.loadStatus();
         if (this.$nextTick) this.$nextTick(() => {
           this.initMetricsChoices();
@@ -465,6 +468,7 @@
     canConfigure: false,
     canApply: false,
     canRestart: false,
+    trusted: false,
     loading: false,
     statusLoading: false,
     busy: false,
@@ -474,10 +478,10 @@
       try {
         const session = await requestJSON('/api/v1/auth/session').catch(() => null);
         this.csrfToken = (session && session.csrf_token) || '';
-        const https = window.location.protocol === 'https:';
-        this.canConfigure = Boolean(session && session.mqtt_config) && https;
+        this.trusted = Boolean(session && session.trusted);
+        this.canConfigure = Boolean(session && session.mqtt_config) && this.trusted;
         this.canApply = this.canConfigure && Boolean(session && session.system_actions);
-        this.canRestart = Boolean(session && session.system_actions) && https;
+        this.canRestart = Boolean(session && session.system_actions) && this.trusted;
         // GET /api/v1/mqtt/bridge needs mqtt_config over HTTPS. Without it
         // the request would only produce a 403 in the browser console, so
         // guests get the status card and the help list, not the form.
