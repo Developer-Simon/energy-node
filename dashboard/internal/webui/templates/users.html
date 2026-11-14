@@ -118,6 +118,18 @@
       <template x-if="stage() === 'paired'" x-transition:enter="users-pair-enter" x-transition:enter-start="users-pair-enter-start" x-transition:enter-end="users-pair-enter-end" x-transition:leave="users-pair-enter" x-transition:leave-start="users-pair-enter-end" x-transition:leave-end="users-pair-enter-start">
         <div class="users-pair-st">
           <p class="setting-note" x-text="$t('users.ha.paired_info', {date: companion.paired_at ? new Date(companion.paired_at).toLocaleDateString() : '', seen: companion.last_seen_at ? new Date(companion.last_seen_at).toLocaleString() : $t('users.ha.never_seen')})"></p>
+          <div class="users-line">
+            <span class="users-line-text">
+              <span>{{t "users.ha.http_actions.label"}}</span>
+              <span class="users-line-note">{{t "users.ha.http_actions.note"}}</span>
+            </span>
+            <label class="settings-toggle">
+              <input type="checkbox" role="switch" aria-label="{{t "users.ha.http_actions.label"}}" x-bind:checked="companionHTTP" x-bind:disabled="saving !== '' || !companionHTTPEditable" x-on:change="saveCompanionHTTP($event.target.checked)">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="users-ha-note users-ha-note--warn" x-show="companionHTTP">{{t "users.ha.http_actions.warn"}}</p>
+          <p class="users-ha-note" x-show="!companionHTTPEditable">{{t "users.ha.http_actions.locked"}}</p>
           <div class="users-actions">
             <button type="button" class="users-btn" x-bind:disabled="saving !== ''" x-on:click="createPairingCode()">{{t "users.ha.repair"}}</button>
             <span class="users-grow"></span>

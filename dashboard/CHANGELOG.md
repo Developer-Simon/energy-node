@@ -1,14 +1,23 @@
 # Changelog
 
-## v0.11.13 (2026-11-14)
+## v0.11.14 (2026-11-14)
+
+### Features
+
+- **auth:** add the companion HTTP opt-in and the trusted check (c577483)
+- **httpapi:** let companion sessions over HTTP act when the opt-in is on (cfb7f9f)
+- **httpapi:** add the endpoint for the companion HTTP opt-in (027cbaa)
+- **webui:** add the companion HTTP opt-in switch to the users page (c1a874f)
+- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253)
 
 ### Fixes
 
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
-- **system:** do not report an error when a reboot stops the dashboard (#249)
+- **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 
 ### Tests
 
+- **webui:** model the session trusted flag in the MQTT and Tailscale page tests (3ac97a7)
 - **webui:** give the backup page tests an $el and cover the withheld page (7e6853f)
 
 ## v0.11.11 (2026-11-11)

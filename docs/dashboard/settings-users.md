@@ -137,6 +137,21 @@ signs in again, the account is created anew with the preset. Disable it to
 keep someone out. **Unpair** ends all sessions of Home Assistant accounts.
 Local accounts stay signed in, and pairing again needs a new code.
 
+### HTTPS actions without HTTPS
+
+Some permissions only work over HTTPS. When Home Assistant is reachable only
+over `http://`, the panel would hide them for every Home Assistant user. The
+switch **HTTPS actions through Home Assistant without HTTPS** in the Home
+Assistant section lifts this for the panel. Home Assistant users then get all
+their permissions there, even over plain HTTP. The switch is off by default.
+
+The switch only affects the panel in Home Assistant. Signing in with a
+password over plain HTTP stays restricted as described below. You can change
+the switch only over an HTTPS connection to the dashboard, and **Unpair**
+switches it off again. With the switch on, passwords and keys travel
+unencrypted from the browser to Home Assistant, so use it only in your own
+network.
+
 ## Sessions
 
 The tab **Sessions** lists every signed-in session with its account, whether

@@ -71,7 +71,7 @@ func requireRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager, 
 }
 
 func requireHTTPS(w http.ResponseWriter, r *http.Request) bool {
-	if !isSecureRequest(r) {
+	if !requestTrusted(r) {
 		writeError(w, http.StatusForbidden, "secure_connection_required", "Diese Aktion ist nur über HTTPS verfügbar")
 		return false
 	}

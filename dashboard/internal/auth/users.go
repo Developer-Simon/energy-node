@@ -696,3 +696,38 @@ func (m *Manager) SetGuestAccess(actor string, enabled bool) error {
 	log.Printf("auth: %s %s %s", actor, "guest_access", state)
 	return nil
 }
+
+// CompanionHTTPAllowed meldet, ob die Companion-Kopplung über HTTP handeln darf.
+func (m *Manager) CompanionHTTPAllowed() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.companionHTTP
+}
+
+// SetCompanionHTTP schaltet die HTTP-Aktionen der Companion-Kopplung ein oder ab.
+// Der Schalter steht in users.json; bei einem Fehler beim Speichern wird er zurückgesetzt.
+func (m *Manager) SetCompanionHTTP(actor string, enabled bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	old := m.companionHTTP
+	m.companionHTTP = enabled
+	if err := m.saveLocked(); err != nil {
+		m.companionHTTP = old
+		return err
+	}
+	state := "on"
+	if !enabled {
+		state = "off"
+	}
+	log.Printf("auth: %s %s %s", actor, "companion_http", state)
+	return nil
+}
+
+// Trusted meldet, ob eine Sitzung mit diesem Transportweg Aktionen ausführen darf,
+// die Vertrauen brauchen. Lokale Sitzungen über HTTPS sind immer vertrauenswürdig,
+// Companion-Sitzungen nur über HTTPS oder wenn der Schalter für HTTP an ist.
+func (m *Manager) Trusted(session Session, secure bool) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return secure || (session.Via == ViaCompanion && m.companionHTTP)
+}

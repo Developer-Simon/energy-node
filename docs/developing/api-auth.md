@@ -138,6 +138,7 @@ to be set at all.
 | PUT | `/api/v1/users/{name}/http-password` | `user_management`, HTTPS, CSRF | Set or, with an empty value, remove the HTTP password |
 | PUT | `/api/v1/users/guest-roles` | `user_management`, HTTPS, CSRF | Permissions every guest account gets |
 | PUT | `/api/v1/users/guest-access` | `user_management`, HTTPS, CSRF | Switch guest access on or off, body `{"enabled": bool}` |
+| PUT | `/api/v1/users/companion-http` | `user_management`, HTTPS, CSRF | Switch the HTTP actions of the companion on or off, body `{"enabled": bool}` |
 | PUT | `/api/v1/users/me/password` | HTTPS, CSRF | Change the own password, needs the old one |
 | PUT | `/api/v1/users/me/http-password` | HTTPS, CSRF | Set or remove the own HTTP password, needs `http_login` |
 | POST | `/api/v1/users/companion/pairing-code` | `user_management`, HTTPS, CSRF | Create the 12-character pairing code, valid for 10 minutes |
@@ -175,6 +176,20 @@ with `PUT /api/v1/users/guest-access`, body `{"enabled": false}`. While guest
 access is off, `POST /api/v1/auth/guest` responds with 403 and the error key
 `guest_access_disabled`. Switching it off ends all guest sessions and deletes
 the guest accounts.
+
+### Companion over HTTP
+
+A Home Assistant companion session counts as trusted only over HTTPS by
+default. An admin can allow it to act over plain HTTP with
+`PUT /api/v1/users/companion-http`, body `{"enabled": bool}`. The answer is
+`{"companion_http": bool}`. The switch is off by default and is stored in
+`users.json`. Unpairing the companion switches it off.
+
+The switch needs a real HTTPS connection, so a companion session that is
+trusted over HTTP cannot change it. Over HTTP the request fails with 403 and
+the error key `secure_connection_required`. `GET /api/v1/users` reports the
+state as `companion_http` and `companion_http_editable`, where the second
+field is true only over HTTPS.
 
 ### CSRF
 

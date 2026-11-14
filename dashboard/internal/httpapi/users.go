@@ -26,17 +26,19 @@ func handleUsers(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 			}
 			actor, _ := auth.UserFromContext(r.Context())
 			writeJSON(w, map[string]any{
-				"users":            manager.Users(),
-				"guests":           manager.Guests(),
-				"guest_roles":      manager.GuestRoles(),
-				"guest_access":     manager.GuestAccessEnabled(),
-				"ha_accounts":      manager.HAAccounts(),
-				"ha_roles":         haRolesListing(manager),
-				"companion":        companionListing(manager, hub),
-				"password_policy":  passwordPolicy(manager),
-				"catalog":          usersCatalog(),
-				"migration_notice": manager.MigrationNotice(),
-				"self":             actor.Username,
+				"users":                   manager.Users(),
+				"guests":                  manager.Guests(),
+				"guest_roles":             manager.GuestRoles(),
+				"guest_access":            manager.GuestAccessEnabled(),
+				"companion_http":          manager.CompanionHTTPAllowed(),
+				"companion_http_editable": isSecureRequest(r),
+				"ha_accounts":             manager.HAAccounts(),
+				"ha_roles":                haRolesListing(manager),
+				"companion":               companionListing(manager, hub),
+				"password_policy":         passwordPolicy(manager),
+				"catalog":                 usersCatalog(),
+				"migration_notice":        manager.MigrationNotice(),
+				"self":                    actor.Username,
 			})
 		case http.MethodPost:
 			if !requireUsersAccess(w, r, manager, true) {
@@ -65,10 +67,11 @@ func handleUsers(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 }
 
 // handleUserSub serves /api/v1/users/ and everything below it. The fixed
-// paths (me/password, me/http-password, guest-roles, companion, ha-roles) are
-// matched before the {name} segment, which the account names cannot collide
-// with: "me" is too short, "guest-" is reserved. "companion" and "ha-roles"
-// are valid local account names, so such an account cannot be reached by name.
+// paths (me/password, me/http-password, guest-roles, guest-access,
+// companion-http, companion, ha-roles) are matched before the {name} segment,
+// which the account names cannot collide with: "me" is too short, "guest-" is
+// reserved. "companion", "companion-http" and "ha-roles" are valid local account
+// names, so such an account cannot be reached by name.
 func handleUserSub(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rest := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, usersPathPrefix), "/")
@@ -79,6 +82,8 @@ func handleUserSub(manager *auth.Manager, hub *companion.Hub) http.HandlerFunc {
 			handleGuestRoles(manager).ServeHTTP(w, r)
 		case rest == "guest-access":
 			handleGuestAccess(manager).ServeHTTP(w, r)
+		case rest == "companion-http":
+			handleCompanionHTTP(manager).ServeHTTP(w, r)
 		case rest == "password-policy":
 			handlePasswordPolicy(manager).ServeHTTP(w, r)
 		case rest == "me/password":
@@ -276,6 +281,42 @@ func handleGuestRoles(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, map[string]any{"guest_roles": manager.GuestRoles()})
+	}
+}
+
+// handleCompanionHTTP switches the HTTP actions of the companion pairing on or
+// off. The check for a real HTTPS connection comes before the account check:
+// a companion session that is trusted over HTTP must not change its own opt-in.
+func handleCompanionHTTP(manager *auth.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			methodNotAllowed(w, http.MethodPut)
+			return
+		}
+		if !isSecureRequest(r) {
+			writeError(w, http.StatusForbidden, "secure_connection_required", "Diese Aktion ist nur über HTTPS verfügbar")
+			return
+		}
+		if !requireUsersAccess(w, r, manager, true) {
+			return
+		}
+		actor, _ := auth.UserFromContext(r.Context())
+		var request struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if err := decodeBody(r, &request); err != nil {
+			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+			return
+		}
+		if request.Enabled == nil {
+			writeError(w, http.StatusBadRequest, "invalid_body", "Das Feld enabled fehlt")
+			return
+		}
+		if err := manager.SetCompanionHTTP(actor.Username, *request.Enabled); err != nil {
+			writeUserError(w, err)
+			return
+		}
+		writeJSON(w, map[string]any{"companion_http": manager.CompanionHTTPAllowed()})
 	}
 }
 

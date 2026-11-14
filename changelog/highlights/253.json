@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Home-Assistant-Benutzer behalten im Panel alle Rechte auch ohne HTTPS, wenn ein Admin es erlaubt"
+  },
+  "en": {
+    "*": "Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it"
+  }
+}
