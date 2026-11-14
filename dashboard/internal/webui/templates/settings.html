@@ -62,7 +62,7 @@
         <span class="settings-nav-desc">{{t "users.nav_desc"}}</span>
       </button>
       {{end}}
-      {{if or (index .Can "backup_export") (index .Can "backup_import")}}
+      {{if or (index .BackupSee "backup_export") (index .BackupSee "backup_import")}}
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-backup" x-bind:class="{ active: activeSettingsPage === 'backup' }" x-bind:aria-selected="activeSettingsPage === 'backup'" x-on:click="activeSettingsPage = 'backup'">
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-backup"></use></svg>
         <span class="settings-nav-title">{{t "settings.nav.backup"}}</span>
@@ -489,13 +489,22 @@
   </section>
   {{end}}
   {{template "checklist" .}}
-  {{if or (index .Can "backup_export") (index .Can "backup_import")}}
-  <div class="bs-page" x-data="backupPage()" x-init="init()">
+  {{if or (index .BackupSee "backup_export") (index .BackupSee "backup_import")}}
+  <div class="bs-page" x-data="backupPage()" x-init="init()" data-blocked="{{if .BackupBlocked}}1{{end}}">
 
     <section id="settings-backup" role="tabpanel" class="settings-cards" data-tour="backup-overview" x-show="activeSettingsPage === 'backup'">
 
       <!-- Status zuerst: Was ist der letzte Stand, und die zwei Hauptwege. -->
       <section class="setting-card setting-card--wide bs-hero" aria-labelledby="bs-hero-title">
+        {{if .BackupBlocked}}
+        <div class="bs-hero-state" data-tone="warn" data-testid="backup-https-hint">
+          <span class="bs-hero-mark" aria-hidden="true"><svg class="automation-icon"><use href="#ico-warning"></use></svg></span>
+          <div>
+            <h3 class="bs-hero-title" id="bs-hero-title">{{t "backup.https_only.title"}}</h3>
+            <p class="setting-note">{{t "backup.https_only.note"}}</p>
+          </div>
+        </div>
+        {{else}}
         <div class="bs-hero-state" x-bind:data-tone="heroTone()">
           <span class="bs-hero-mark" aria-hidden="true"><svg class="automation-icon"><use x-bind:href="heroTone() === 'ok' ? '#ico-check' : '#ico-warning'"></use></svg></span>
           <div>
@@ -503,20 +512,22 @@
             <p class="setting-note" x-text="heroNote()"></p>
           </div>
         </div>
+        {{end}}
         <div class="bs-hero-actions">
-          {{if index .Can "backup_export"}}
-          <button type="button" class="icon-button labeled bs-primary" x-on:click="openExport()" data-tour="backup-create">
+          {{if index .BackupSee "backup_export"}}
+          <button type="button" class="icon-button labeled bs-primary" x-on:click="openExport()" {{if .BackupBlocked}}disabled{{end}} data-tour="backup-create">
             <svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg><span>{{t "backup.hero.create"}}</span>
           </button>
           {{end}}
-          {{if index .Can "backup_import"}}
-          <button type="button" class="icon-button labeled" x-on:click="openImport()" data-tour="backup-restore">
+          {{if index .BackupSee "backup_import"}}
+          <button type="button" class="icon-button labeled" x-on:click="openImport()" {{if .BackupBlocked}}disabled{{end}} data-tour="backup-restore">
             <svg class="automation-icon bs-flip" aria-hidden="true"><use href="#ico-download"></use></svg><span>{{t "backup.hero.import"}}</span>
           </button>
           {{end}}
         </div>
       </section>
 
+      {{if not .BackupBlocked}}
       <!-- Archive auf der Node -->
       <section data-tour="backup-archives" class="setting-card setting-card--wide" aria-labelledby="bs-archives-title">
         <div class="bs-card-head">
@@ -537,13 +548,13 @@
                 </span>
               </div>
               <div class="bs-archive-actions">
-                {{if index .Can "backup_export"}}
+                {{if index .BackupSee "backup_export"}}
                 <button type="button" class="icon-button" x-bind:title="downloadTitle(item)" aria-label="{{t "backup.archives.download"}}" x-bind:disabled="!canDownload(item)" x-on:click="downloadArchive(item)"><svg class="automation-icon"><use href="#ico-download"></use></svg></button>
                 {{end}}
-                {{if index .Can "backup_import"}}
+                {{if index .BackupSee "backup_import"}}
                 <button type="button" class="icon-button labeled" x-on:click="openImport(item)"><span>{{t "backup.archives.restore"}}</span></button>
                 {{end}}
-                {{if index .Can "backup_export"}}
+                {{if index .BackupSee "backup_export"}}
                 <button type="button" class="icon-button bs-danger-ghost" title="{{t "backup.archives.delete"}}" aria-label="{{t "backup.archives.delete"}}" x-on:click="removeArchive(item)"><svg class="automation-icon"><use href="#ico-trash"></use></svg></button>
                 {{end}}
               </div>
@@ -553,7 +564,7 @@
       </section>
 
       <!-- Automatik: gaengiger Weg zuerst, Details erst, wenn eingeschaltet -->
-      {{if index .Can "backup_export"}}
+      {{if index .BackupSee "backup_export"}}
       <section data-tour="backup-auto" class="setting-card setting-card--wide bs-auto" aria-labelledby="bs-auto-title">
         <h3 class="setting-card-title" id="bs-auto-title">{{t "backup.auto.title"}}</h3>
         <div class="bs-auto-grid">
@@ -607,6 +618,7 @@
         </div>
       </section>
       {{end}}
+      {{end}}
     </section>
 
     <!-- Ablauf: Mitte am Rechner, Blatt von unten am Handy -->
@@ -624,7 +636,7 @@
           </header>
           <div class="bs-flow-stage" x-ref="stage">
 
-            {{if index .Can "backup_export"}}
+            {{if index .BackupSee "backup_export"}}
             <!-- Backup erstellen -->
             <div class="bs-step" data-step="export" x-show="step === 'export'">
               <span class="bs-group-label">{{t "backup.content.label"}}</span>
@@ -668,7 +680,7 @@
             </div>
             {{end}}
 
-            {{if index .Can "backup_import"}}
+            {{if index .BackupSee "backup_import"}}
             <!-- Einspielen 1: Datei -->
             <div class="bs-step" data-step="pick" x-show="step === 'pick'">
               <label class="bs-drop" x-bind:class="{ 'bs-drop-over': dropOver }" x-on:dragover.prevent="dropOver = true" x-on:dragleave="dropOver = false" x-on:drop.prevent="dropOver = false; readFile($event.dataTransfer.files[0])">

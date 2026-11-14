@@ -752,6 +752,22 @@ func UserFromContext(ctx context.Context) (User, bool) {
 	return user, ok
 }
 
+type withheldContextKey struct{}
+
+// WithWithheld legt die Berechtigungen in den Context, die EffectiveUser für
+// diese Anfrage wegnimmt (siehe Withheld). Die Oberfläche zeigt damit eine
+// Seite samt Hinweis, statt sie ohne Erklärung auszublenden.
+func WithWithheld(ctx context.Context, keys []string) context.Context {
+	return context.WithValue(ctx, withheldContextKey{}, keys)
+}
+
+// WithheldFromContext liefert die zurückgehaltenen Berechtigungen der Anfrage.
+// Ohne Eintrag ist die Liste leer.
+func WithheldFromContext(ctx context.Context) []string {
+	keys, _ := ctx.Value(withheldContextKey{}).([]string)
+	return keys
+}
+
 func HasRole(user User, role string) bool {
 	if info, ok := RoleByKey(role); ok && info.Requires != "" && !containsRole(user.Roles, info.Requires) {
 		return false

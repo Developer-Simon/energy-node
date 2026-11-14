@@ -1233,6 +1233,8 @@
   "backup.hero.none.title": "Noch kein Backup",
   "backup.hero.skipped.error": "Ein automatisches Backup ist fehlgeschlagen und wurde übersprungen.",
   "backup.hero.skipped.no_location": "Das nächste automatische Backup läuft erst, wenn ein Ort für Backups verfügbar ist.",
+  "backup.https_only.note": "Das Backup ist für dich freigegeben, geht aber nur über eine HTTPS-Verbindung. Öffne das Dashboard oder Home Assistant über https://, dann kannst du Archive ansehen, erstellen und wiederherstellen.",
+  "backup.https_only.title": "Backup nur über HTTPS",
   "backup.import.code.apply_failed": "Ein Teil des Archivs konnte nicht geschrieben werden. Der vorherige Stand wurde zurückgeholt.",
   "backup.import.code.interrupted": "Die Wiederherstellung wurde unterbrochen. Der vorherige Stand wurde zurückgeholt.",
   "backup.import.corrupt.text": "Die Datei ist unvollständig oder verändert. Es wurde nichts verändert.",

@@ -89,6 +89,9 @@
     auto: { beforeUpdate: true, schedule: true, every: 'week', keep: 5, secrets: false, content: { stats: true, history: true, battery: false } },
     autoSaved: '',
     canSecrets: false,
+    // The permission is granted but withheld for this request (no HTTPS): the
+    // page shows a hint, loads nothing and opens no flow. The server marks it.
+    blocked: false,
     // Note under the Zugangsdaten switches when the node holds no credentials.
     secretsNote: '',
     csrfToken: '',
@@ -127,6 +130,8 @@
     awaiting: false,
 
     async init() {
+      this.blocked = this.$el.dataset.blocked === '1';
+      if (this.blocked) return;
       const session = await requestJSON('/api/v1/auth/session').catch(() => null);
       this.csrfToken = (session && session.csrf_token) || '';
       this.canSecrets = Boolean(session && Array.isArray(session.roles) && session.roles.includes('backup_secrets'));
@@ -314,6 +319,7 @@
       sheet.style.transform = '';
     },
     openExport() {
+      if (this.blocked) return;
       this.flowError = '';
       this.exp = { content: { ...this.auto.content }, secrets: false, protect: false, pw: '', pw2: '', target: 'download' };
       this.open('export', 'export');
@@ -321,6 +327,7 @@
     // Opens the import flow. Without an item the file step comes first, with a
     // stored archive the archive is checked right away.
     async openImport(item) {
+      if (this.blocked) return;
       this.resetImport();
       this.open('import', 'pick');
       if (!item) return;
