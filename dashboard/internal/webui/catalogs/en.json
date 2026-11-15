@@ -2873,6 +2873,7 @@
   "error.peer_gone": "The addressed peer is no longer connected",
   "error.peer_missing": "The message names no sender",
   "error.peer_unknown": "The sender is not connected",
+  "error.performance_unavailable": "Performance measurement is not available",
   "error.relation_cycle": "This relation would create a cycle",
   "error.relation_group_reverse": "A group feed cannot be reversed",
   "error.relation_id_failed": "The relation could not be created",

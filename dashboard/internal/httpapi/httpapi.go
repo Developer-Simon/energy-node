@@ -257,6 +257,11 @@ type RouterDependencies struct {
 	Backup *BackupDeps
 	// Storage liefert die Routen unter /api/v1/storage/. Nil heisst: die Routen fehlen.
 	Storage *StorageDeps
+	// Performance liefert GET /api/v1/performance. Nil heisst: 501, wie bei den Energie-Statistiken.
+	Performance *PerformanceDeps
+	// EventStreams nimmt den Hub des /api/v1/events-Stroms auf, damit die
+	// Leistungsmessung die Zahl der Verbindungen zaehlt. Nil heisst: keiner.
+	EventStreams *EventStreams
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -358,7 +363,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 			applyEnergyConfig(resolver, value)
 		}
 	}
-	g.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
+	g.HandleFunc("/api/v1/events", handleEventsWithStreams(reg, store, resolver, engine, dependencies.EnergyStats, dependencies.EventStreams))
+	g.HandleFunc("/api/v1/performance", handlePerformance(store, dependencies.Performance, now))
 	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	g.HandleFunc("/api/v1/energy/chains", handleEnergyChains(store, resolver, dependencies.Auth, reg, dependencies.ChainMonitor))

@@ -151,6 +151,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/diagnostics":            {group: groupPage, view: auth.RoleViewDiagnostics},
 	"/api/v1/diagnostics/rules":      {group: groupPage, view: auth.RoleViewDiagnostics},
 	"/api/v1/diagnostics/health":     {group: groupPage, view: auth.RoleViewDiagnostics},
+	"/api/v1/performance":            {group: groupPage, view: auth.RoleViewDiagnostics},
 	"/api/v1/topics":                 {group: groupPage, view: auth.RoleViewConfig},
 	"/api/v1/topics/samples":         {group: groupPage, view: auth.RoleViewConfig},
 	"/api/v1/shelly/presets":         {group: groupPage, view: auth.RoleViewConfig},
