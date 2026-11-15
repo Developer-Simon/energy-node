@@ -838,13 +838,14 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 var settingsSubpagePages = map[string]bool{
 	"mqtt": true, "tailscale": true, "tiny-tuya": true, "versions": true,
 	"users": true, "checklist": true, "backup": true, "system": true,
-	"storage": true, "network": true,
+	"storage": true, "network": true, "performance": true,
 }
 
 // settingsSubpageAllowed sagt, ob eine Unterseite der Einstellungen für diesen
 // Abruf existiert. Ein Dienst muss installiert sein, Benutzer braucht ein
 // Konto mit Benutzerverwaltung oder ein eigenes, Sicherung ein Export- oder
-// Importrecht. Alle übrigen Seiten sind immer erlaubt.
+// Importrecht, Leistung das Recht view_diagnostics. Alle übrigen Seiten sind
+// immer erlaubt.
 func settingsSubpageAllowed(page string, installed map[string]bool, can map[string]bool, backupSee map[string]bool, canManageUsers, hasUser, hasOwnAccount bool) bool {
 	switch page {
 	case "tailscale":
@@ -859,6 +860,8 @@ func settingsSubpageAllowed(page string, installed map[string]bool, can map[stri
 		return can[auth.RoleStorageManage]
 	case "network":
 		return can[auth.RoleNetwork]
+	case "performance":
+		return can[auth.RoleViewDiagnostics]
 	}
 	return true
 }

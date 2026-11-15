@@ -83,6 +83,13 @@
         <span class="settings-nav-desc">{{t "settings.nav.storage_desc"}}</span>
       </button>
       {{end}}
+      {{if index .Can "view_diagnostics"}}
+      <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-performance" x-bind:class="{ active: activeSettingsPage === 'performance' }" x-bind:aria-selected="activeSettingsPage === 'performance'" x-on:click="activeSettingsPage = 'performance'">
+        <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-gauge"></use></svg>
+        <span class="settings-nav-title">{{t "settings.nav.performance"}}</span>
+        <span class="settings-nav-desc">{{t "settings.nav.performance_desc"}}</span>
+      </button>
+      {{end}}
       <button type="button" role="tab" class="settings-nav-item" aria-controls="settings-versions" x-bind:class="{ active: activeSettingsPage === 'versions' }" x-bind:aria-selected="activeSettingsPage === 'versions'" x-on:click="activeSettingsPage = 'versions'">
         <svg class="settings-nav-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
         <span class="settings-nav-title">{{t "settings.nav.versions"}}</span>
@@ -538,6 +545,19 @@
     x-show="activeSettingsPage === 'storage'"
     data-subpage-src="{{.BasePath}}/?fragment=settings-page&page=storage"
     data-subpage-script="{{.BasePath}}/static/js/storage.page.js?v=2" data-subpage-css="{{.BasePath}}/static/css/storage.css?v=2">
+    <div class="settings-cards sk-layer" aria-hidden="true">
+      <div class="setting-card setting-card--wide"><div class="sk sk-form" style="--sk-rows:3"></div></div>
+      <div class="setting-card setting-card--wide"><div class="sk sk-form" style="--sk-rows:2"></div></div>
+    </div>
+    <p class="panel-loading visually-hidden" data-panel-loading>{{t "panel.settings_loading"}}</p>
+  </div>
+  {{end}}
+
+  {{if index .Can "view_diagnostics"}}
+  <div id="settings-sub-performance" class="settings-subpage" aria-busy="true"
+    x-show="activeSettingsPage === 'performance'"
+    data-subpage-src="{{.BasePath}}/?fragment=settings-page&page=performance"
+    data-subpage-script="{{.BasePath}}/static/js/performance.page.js?v=1" data-subpage-css="{{.BasePath}}/static/css/performance.css?v=1">
     <div class="settings-cards sk-layer" aria-hidden="true">
       <div class="setting-card setting-card--wide"><div class="sk sk-form" style="--sk-rows:3"></div></div>
       <div class="setting-card setting-card--wide"><div class="sk sk-form" style="--sk-rows:2"></div></div>

@@ -4597,8 +4597,47 @@ func TestSettingsPageListKnowsBackupAndStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "'checklist', 'backup', 'storage'];") {
-		t.Fatal("SETTINGS_PAGES enthaelt backup oder storage nicht")
+	if !strings.Contains(string(data), "'checklist', 'backup', 'storage', 'performance'];") {
+		t.Fatal("SETTINGS_PAGES enthaelt backup, storage oder performance nicht")
+	}
+}
+
+func TestSettingsSubpagePerformanceNeedsDiagnostics(t *testing.T) {
+	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=settings-page&page=performance", auth.RoleViewStats))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("settings-page performance ohne view_diagnostics muss 404 liefern, war %d", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=settings-page&page=performance", auth.RoleViewDiagnostics))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("settings-page performance mit view_diagnostics muss rendern, war %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{`id="settings-performance"`, `x-data="pfPage()"`, `data-tour="performance-budget"`, `data-tour="performance-measure"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("settings-page performance lacks %s", want)
+		}
+	}
+	if strings.Contains(body, "pf-draft") || strings.Contains(body, "pf-stepper") || strings.Contains(body, "pf-actions") {
+		t.Fatal("settings-page performance zeigt Entwurf oder Aktionen der spaeteren Teilauftraege")
+	}
+
+	for _, tc := range []struct {
+		role string
+		want bool
+	}{{auth.RoleViewStats, false}, {auth.RoleViewDiagnostics, true}} {
+		rec = httptest.NewRecorder()
+		handler.ServeHTTP(rec, viewPermissionRequest("/?fragment=panel&panel=settings", tc.role))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("settings panel mit %s got status %d", tc.role, rec.Code)
+		}
+		if got := strings.Contains(rec.Body.String(), `aria-controls="settings-performance"`); got != tc.want {
+			t.Fatalf("Reiter Leistung mit %s: sichtbar %v, want %v", tc.role, got, tc.want)
+		}
 	}
 }
 
@@ -4745,6 +4784,7 @@ func TestTemplateNameForSettingsSubpage(t *testing.T) {
 		{"/?fragment=settings-page&page=backup", "settings-sub-backup", true},
 		{"/?fragment=settings-page&page=storage", "settings-sub-storage", true},
 		{"/?fragment=settings-page&page=network", "settings-sub-network", true},
+		{"/?fragment=settings-page&page=performance", "settings-sub-performance", true},
 		{"/?fragment=settings-page&page=evil", "", false},
 		{"/?fragment=settings-page&page=", "", false},
 		{"/?fragment=settings-page", "", false},
@@ -4791,6 +4831,8 @@ func TestSettingsSubpageAllowed(t *testing.T) {
 		{"backup with export", "backup", none, roles("backup_export"), false, true, false, true},
 		{"backup with import", "backup", none, roles("backup_import"), false, true, false, true},
 		{"backup without right", "backup", none, roles("backup_secrets"), false, true, false, false},
+		{"performance with view_diagnostics", "performance", none, roles("view_diagnostics"), false, true, false, true},
+		{"performance without view_diagnostics", "performance", none, roles("view_stats"), false, true, false, false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -4809,7 +4851,7 @@ func settingsSubpageHTML(t *testing.T, user *auth.User) string {
 	t.Helper()
 	handler := Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
 	var out strings.Builder
-	for _, page := range []string{"mqtt", "tailscale", "tiny-tuya", "versions", "users", "checklist", "backup", "system", "storage", "network"} {
+	for _, page := range []string{"mqtt", "tailscale", "tiny-tuya", "versions", "users", "checklist", "backup", "system", "storage", "network", "performance"} {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/?fragment=settings-page&page="+page, nil)
 		if user != nil {
@@ -4851,7 +4893,7 @@ func TestSettingsPanelHasSubpagePlaceholders(t *testing.T) {
 	body := renderPanel(t, "settings")
 	// Ohne Konto sind users nicht erlaubt, alle anderen Seiten schon (Dienste
 	// sind standardmaessig installiert).
-	for _, page := range []string{"mqtt", "tailscale", "tiny-tuya", "versions", "checklist", "backup", "system", "storage", "network"} {
+	for _, page := range []string{"mqtt", "tailscale", "tiny-tuya", "versions", "checklist", "backup", "system", "storage", "network", "performance"} {
 		if !strings.Contains(body, `id="settings-sub-`+page+`"`) {
 			t.Fatalf("settings panel lacks the placeholder settings-sub-%s", page)
 		}
