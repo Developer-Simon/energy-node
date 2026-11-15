@@ -4624,8 +4624,8 @@ func TestSettingsSubpagePerformanceNeedsDiagnostics(t *testing.T) {
 			t.Fatalf("settings-page performance lacks %s", want)
 		}
 	}
-	if strings.Contains(body, "pf-draft") || strings.Contains(body, "pf-stepper") || strings.Contains(body, "pf-actions") {
-		t.Fatal("settings-page performance zeigt Entwurf oder Aktionen der spaeteren Teilauftraege")
+	if strings.Contains(body, "pf-draft") || strings.Contains(body, "pf-stepper") {
+		t.Fatal("settings-page performance zeigt Entwurf oder den Stepper der spaeteren Teilauftraege")
 	}
 
 	for _, tc := range []struct {

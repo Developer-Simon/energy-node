@@ -78,6 +78,24 @@
     return key ? t(key) : id;
   };
 
+  // Full keys per row and right, so the catalog scanner sees every key literally.
+  const ROW_LABEL_KEYS = {
+    live_update: 'performance.js.row.live_update',
+    tick: 'performance.js.row.tick',
+    regulator: 'performance.js.row.regulator',
+    node: 'performance.js.row.node',
+    shelly: 'performance.js.row.shelly',
+    trucki: 'performance.js.row.trucki',
+    battery_soc: 'performance.js.row.battery_soc',
+    apsystems: 'performance.js.row.apsystems',
+    tuya: 'performance.js.row.tuya',
+  };
+  const RIGHT_LABEL_KEYS = {
+    edit_setup: 'performance.js.right.edit_setup',
+    automations: 'performance.js.right.automations',
+    system_actions: 'performance.js.right.system_actions',
+  };
+
   // Numbers as typed, with a German comma allowed.
   const parseNumber = (raw) => Number(String(raw).replace(',', '.'));
 
@@ -374,14 +392,14 @@
     // ---- Row texts ------------------------------------------------------
 
     rowLabel(id) {
-      return t('performance.js.row.' + id);
+      return t(ROW_LABEL_KEYS[id] || id);
     },
     rowSub(id) {
       if (id === 'live_update') return t('performance.js.row_sub.live_update', { count: this.data.clients.max });
       return '';
     },
     lockText(row) {
-      return t('performance.js.lock', { right: t('performance.js.right.' + row.right) });
+      return t('performance.js.lock', { right: t(RIGHT_LABEL_KEYS[row.right] || row.right) });
     },
     // Budget and period notes of a row, as {tone, text}.
     notes(id) {
