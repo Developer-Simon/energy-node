@@ -10,6 +10,10 @@ import (
 // fremdem Geraet gebildet wird.
 const externalIntervals = 20
 
+// externalStale ist die Zeit ohne Nachricht, nach der ein fremdes Geraet als
+// verschwunden gilt und aus dem Zaehler fliegt.
+const externalStale = 10 * time.Minute
+
 // SourceRate beschreibt das schnellste fremde Geraet: Name aus der Registry
 // und der Median seines Nachrichtenabstands in Sekunden.
 type SourceRate struct {
@@ -82,6 +86,17 @@ func (c *Counter) Observe(topic string, now time.Time) {
 	}
 	dev.last = now
 	dev.seen = true
+	c.prune(now)
+}
+
+// prune entfernt fremde Geraete, deren letzte Nachricht laenger als
+// externalStale zurueckliegt. Der Aufrufer haelt c.mu.
+func (c *Counter) prune(now time.Time) {
+	for id, dev := range c.devices {
+		if now.Sub(dev.last) > externalStale {
+			delete(c.devices, id)
+		}
+	}
 }
 
 // Count liefert die Zahl der Nachrichten, die seit dem Anlegen des Zaehlers
@@ -94,11 +109,14 @@ func (c *Counter) Count(serviceID string) int64 {
 }
 
 // External liefert das schnellste fremde Geraet mit dem Median seiner
-// letzten Abstaende. nil heisst: noch kein fremdes Geraet mit einem Abstand.
-func (c *Counter) External() *SourceRate {
+// letzten Abstaende, gemessen zum Zeitpunkt now. Geraete ohne Nachricht seit
+// externalStale fallen weg. nil heisst: noch kein fremdes Geraet mit einem
+// Abstand.
+func (c *Counter) External(now time.Time) *SourceRate {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	c.prune(now)
 	var best *SourceRate
 	var bestID string
 	for id, dev := range c.devices {

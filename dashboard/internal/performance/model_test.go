@@ -30,6 +30,7 @@ func TestDeductionCapsAtForty(t *testing.T) {
 		Throttled:     true,
 		TempC:         &temp,
 		RAMFreePct:    5,
+		RAMFreeKnown:  true,
 		SwapPagesPerS: 40,
 	}
 	d := DeductionFor(s)
@@ -156,5 +157,21 @@ func TestBuildRowsFlagsMatchDraft(t *testing.T) {
 		if got != w {
 			t.Errorf("%s flags = %+v, want %+v", r.ID, got, w)
 		}
+	}
+}
+
+// Ohne RAM-Probe im Fenster (Anlauf) ist der freie Speicher unbekannt und
+// darf keinen Abschlag ausloesen.
+func TestDeductionSkipsRAMWhenUnknown(t *testing.T) {
+	d := DeductionFor(Snapshot{RAMFreePct: 0, RAMFreeKnown: false})
+	if d.Pct != 0 || len(d.Reasons) != 0 {
+		t.Fatalf("warmup DeductionFor = %+v, want no ram deduction", d)
+	}
+}
+
+func TestDeductionRAMWhenKnown(t *testing.T) {
+	d := DeductionFor(Snapshot{RAMFreePct: 10, RAMFreeKnown: true})
+	if d.Pct != 10 || len(d.Reasons) != 1 || d.Reasons[0] != "performance.deduction.ram" {
+		t.Fatalf("DeductionFor = %+v, want 10 with ram", d)
 	}
 }

@@ -99,7 +99,7 @@ func DeductionFor(s Snapshot) Deduction {
 			add(5, "performance.deduction.warm")
 		}
 	}
-	if s.RAMFreePct < 15 {
+	if s.RAMFreeKnown && s.RAMFreePct < 15 {
 		add(10, "performance.deduction.ram")
 	}
 	if s.SwapPagesPerS > 10 {

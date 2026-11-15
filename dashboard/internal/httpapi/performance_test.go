@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,12 +24,13 @@ func (s stubPerformance) Snapshot(time.Time) performance.Snapshot { return s.sna
 func performanceTestSnapshot() performance.Snapshot {
 	shellyRound := 0.4
 	return performance.Snapshot{
-		MeasuredFor: 2 * time.Hour,
-		CPUP95:      32.1,
-		Cores:       4,
-		ClientsMax:  2,
-		ClientsSeen: true,
-		RAMFreePct:  61,
+		MeasuredFor:  2 * time.Hour,
+		CPUP95:       32.1,
+		Cores:        4,
+		ClientsMax:   2,
+		ClientsSeen:  true,
+		RAMFreePct:   61,
+		RAMFreeKnown: true,
 		Units: []performance.UnitStats{
 			{ID: "shelly", CPUP95: 5, RAMBytes: 23068672, HasRAM: true, RoundS: &shellyRound, MsgPerMin: 126},
 			{ID: "automation.service", CPUP95: 1, Fixed: true},
@@ -40,6 +42,11 @@ func performanceTestSnapshot() performance.Snapshot {
 // to a stub window.
 func performanceRouter(t *testing.T) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return performanceRouterWith(t, performanceTestSnapshot())
+}
+
+func performanceRouterWith(t *testing.T, snap performance.Snapshot) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +54,7 @@ func performanceRouter(t *testing.T) (http.Handler, *auth.Manager) {
 	deps := RouterDependencies{
 		Auth: manager,
 		Performance: &PerformanceDeps{
-			Provider: stubPerformance{snap: performanceTestSnapshot()},
+			Provider: stubPerformance{snap: snap},
 			Rates: func() performance.RateConfig {
 				return performance.RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 15, Services: map[string]float64{"shelly": 20}}
 			},
@@ -144,5 +151,45 @@ func TestPerformanceWithoutProviderAnswers501(t *testing.T) {
 	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/performance", diagnostics, true))
 	if recorder.Code != http.StatusNotImplemented {
 		t.Fatalf("status %d, want 501: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+// Ohne RAM-Probe und ohne Temperatur liefert die Seite null statt 0, damit sie
+// nicht als "0 % frei" oder "0 Grad" erscheint.
+func TestPerformanceUnknownDeviceValuesAreNull(t *testing.T) {
+	snap := performanceTestSnapshot()
+	snap.RAMFreeKnown = false
+	snap.RAMFreePct = 0
+	snap.TempC = nil
+	router, manager := performanceRouterWith(t, snap)
+
+	diagnostics, _ := loginWithRoles(t, router, manager, "diagnose", []string{auth.RoleViewDiagnostics})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/performance", diagnostics, true))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		Device struct {
+			TempC      *float64 `json:"temp_c"`
+			RAMFreePct *float64 `json:"ram_free_pct"`
+		} `json:"device"`
+		Deduction struct {
+			Reasons []string `json:"reasons"`
+		} `json:"deduction"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Device.RAMFreePct != nil || body.Device.TempC != nil {
+		t.Fatalf("device = %+v, want null ram_free_pct and temp_c: %s", body.Device, recorder.Body.String())
+	}
+	for _, reason := range body.Deduction.Reasons {
+		if reason == "performance.deduction.ram" {
+			t.Fatalf("warmup must not deduct for RAM: %s", recorder.Body.String())
+		}
+	}
+	if strings.Contains(recorder.Body.String(), `"null"`) {
+		t.Fatalf("the string null leaked into the body: %s", recorder.Body.String())
 	}
 }

@@ -59,7 +59,7 @@ type performanceClients struct {
 type performanceDevice struct {
 	TempC      *float64 `json:"temp_c"`
 	Throttled  bool     `json:"throttled"`
-	RAMFreePct float64  `json:"ram_free_pct"`
+	RAMFreePct *float64 `json:"ram_free_pct"` // null while no RAM sample exists
 	SwapPagesS float64  `json:"swap_pages_s"`
 }
 
@@ -110,6 +110,11 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			return
 		}
 		snap := deps.Provider.Snapshot(now())
+		var ramFree *float64
+		if snap.RAMFreeKnown {
+			value := snap.RAMFreePct
+			ramFree = &value
+		}
 		defaultTarget := performance.DefaultTarget(snap.Cores)
 		target := defaultTarget
 		if store != nil {
@@ -134,7 +139,7 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			Device: performanceDevice{
 				TempC:      snap.TempC,
 				Throttled:  snap.Throttled,
-				RAMFreePct: snap.RAMFreePct,
+				RAMFreePct: ramFree,
 				SwapPagesS: snap.SwapPagesPerS,
 			},
 			Rows:  []performanceRow{},

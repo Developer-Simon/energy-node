@@ -67,7 +67,8 @@ type Snapshot struct {
 	Cores         int
 	TempC         *float64
 	Throttled     bool
-	RAMFreePct    float64
+	RAMFreePct    float64 // nur gueltig, wenn RAMFreeKnown
+	RAMFreeKnown  bool    // false, solange im Fenster keine RAM-Probe liegt
 	SwapPagesPerS float64
 	ClientsMax    int  // hoechster Wert im Fenster, mindestens 1
 	ClientsSeen   bool // false: nie ein Client ausser dem aktuellen
@@ -161,18 +162,21 @@ func (m *Monitor) Snapshot(now time.Time) Snapshot {
 		}
 	}
 
+	ramFree, ramKnown := lastSample(m.ramFree.Values())
+
 	return Snapshot{
 		MeasuredFor:   time.Duration(m.cpu.Len()) * m.opts.Interval,
 		CPUP95:        m.cpu.P95(),
 		Cores:         m.last.Cores,
 		TempC:         m.device.TempC,
 		Throttled:     m.device.Throttled,
-		RAMFreePct:    lastValue(m.ramFree.Values()),
+		RAMFreePct:    ramFree,
+		RAMFreeKnown:  ramKnown,
 		SwapPagesPerS: m.swap.P95(),
 		ClientsMax:    clientsMax,
 		ClientsSeen:   clientsMax > 1,
 		Units:         m.unitStats(),
-		External:      m.external(),
+		External:      m.external(now),
 	}
 }
 
@@ -297,16 +301,17 @@ func (m *Monitor) unitID(name string) (string, bool) {
 	return name, true
 }
 
-func (m *Monitor) external() *SourceRate {
+func (m *Monitor) external(now time.Time) *SourceRate {
 	if m.counter == nil {
 		return nil
 	}
-	return m.counter.External()
+	return m.counter.External(now)
 }
 
-func lastValue(values []float64) float64 {
+// lastSample liefert den juengsten Wert und ob es ueberhaupt einen gibt.
+func lastSample(values []float64) (float64, bool) {
 	if len(values) == 0 {
-		return 0
+		return 0, false
 	}
-	return values[len(values)-1]
+	return values[len(values)-1], true
 }

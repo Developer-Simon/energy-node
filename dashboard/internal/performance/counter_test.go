@@ -53,7 +53,7 @@ func TestCounterAttributesServiceAndExternal(t *testing.T) {
 		t.Fatalf("Count(tasmota) = %d, want 0 for a foreign topic", got)
 	}
 
-	ext := c.External()
+	ext := c.External(base)
 	if ext == nil {
 		t.Fatal("External() = nil, want the fastest foreign device")
 	}
@@ -68,7 +68,7 @@ func TestCounterAttributesServiceAndExternal(t *testing.T) {
 func TestCounterExternalNilWithoutIntervals(t *testing.T) {
 	c := NewCounter(testAttribute)
 	c.Observe("tasmota/zaehler/SENSOR", time.Unix(1000, 0))
-	if got := c.External(); got != nil {
+	if got := c.External(time.Unix(1000, 0)); got != nil {
 		t.Fatalf("External() = %+v, want nil with a single message", got)
 	}
 }
@@ -88,8 +88,47 @@ func TestCounterExternalUsesLastTwentyIntervals(t *testing.T) {
 		at = at.Add(2 * time.Second)
 		c.Observe("tasmota/zaehler/SENSOR", at)
 	}
-	ext := c.External()
+	ext := c.External(base)
 	if ext == nil || ext.EveryS != 2 {
 		t.Fatalf("External() = %+v, want EveryS 2 from the last 20 intervals", ext)
+	}
+}
+
+func TestCounterDropsDevicesSilentForTenMinutes(t *testing.T) {
+	c := NewCounter(testAttribute)
+	base := time.Unix(1000, 0)
+	// Das schnelle Geraet sendet nur kurz, das langsame bleibt aktiv.
+	c.Observe("tasmota/zaehler/SENSOR", base)
+	c.Observe("tasmota/zaehler/SENSOR", base.Add(2*time.Second))
+	c.Observe("tasmota/heizung/SENSOR", base)
+	c.Observe("tasmota/heizung/SENSOR", base.Add(10*time.Second))
+	c.Observe("tasmota/heizung/SENSOR", base.Add(20*time.Second))
+
+	if ext := c.External(base.Add(20 * time.Second)); ext == nil || ext.EveryS != 2 {
+		t.Fatalf("External() = %+v, want the fast device while it sends", ext)
+	}
+
+	// Elf Minuten nach der letzten Nachricht des schnellen Geraets: es ist weg,
+	// das heizung-Geraet mit 10 s Abstand bleibt.
+	later := base.Add(2*time.Second + 11*time.Minute)
+	c.Observe("tasmota/heizung/SENSOR", later.Add(-10*time.Second))
+	c.Observe("tasmota/heizung/SENSOR", later)
+	ext := c.External(later)
+	if ext == nil || ext.EveryS != 10 {
+		t.Fatalf("External() = %+v, want the still-active device after the fast one went silent", ext)
+	}
+	if _, ok := c.devices["zaehler"]; ok {
+		t.Fatal("silent device still in the counter map after Observe")
+	}
+
+	// Nur das stille Geraet: nach zehn Minuten meldet External nichts mehr.
+	quiet := NewCounter(testAttribute)
+	quiet.Observe("tasmota/zaehler/SENSOR", base)
+	quiet.Observe("tasmota/zaehler/SENSOR", base.Add(3*time.Second))
+	if got := quiet.External(base.Add(10*time.Minute + 3*time.Second)); got == nil {
+		t.Fatal("External() = nil at exactly 10 minutes, want the device still reported")
+	}
+	if got := quiet.External(base.Add(10*time.Minute + 4*time.Second)); got != nil {
+		t.Fatalf("External() = %+v, want nil once the only device has been silent for over 10 minutes", got)
 	}
 }
