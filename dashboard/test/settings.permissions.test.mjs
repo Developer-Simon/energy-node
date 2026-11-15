@@ -28,7 +28,7 @@ const isHelpTrigger = (tag) => tag.includes('field-help-trigger');
 test('every setup control on the general and history pages needs edit_setup', () => {
   const source = read('settings.html');
   const setupKeys = [
-    'healthScoreThreshold', 'sweepIntervalSeconds', 'liveUpdateIntervalSeconds',
+    'healthScoreThreshold', 'sweepIntervalSeconds',
     'historySampleIntervalSeconds', 'historyRetentionMode', 'historyRetentionHours',
     'historyBudgetMb', 'historyRawWindowHours', 'historyMinuteWindowDays',
     'historyExchangeDisabled', 'energyStatsRecording',

@@ -478,6 +478,12 @@
       if (this.exchangeListening) return;
       this.exchangeListening = true;
       window.addEventListener('dashboard-history-exchanged', () => this.refreshExchangeStatus());
+      // Die Leistungsseite setzt die Live-Aktualisierung. Ohne den Wert hier würde
+      // das nächste Speichern der allgemeinen Seite ihn zurücksetzen.
+      window.addEventListener('performance-live-update-changed', (event) => {
+        const value = Number(event.detail);
+        if (Number.isFinite(value) && value > 0) this.liveUpdateIntervalSeconds = value;
+      });
     },
 
     // Wirkt sofort und ohne "Speichern": der Modus gehoert diesem Geraet,

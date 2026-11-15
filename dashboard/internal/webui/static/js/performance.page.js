@@ -319,6 +319,12 @@
     customProblem(id) {
       const row = this.rowById(id);
       const raw = this.custom[id];
+      if (row && row.follows && (raw === undefined || raw === '')) {
+        // Auch ein schon eingestellter Wert unter der weichen Grenze bekommt den Hinweis.
+        const soft = PerformanceCore.floorOf(row, this.data.rows || [], this.sel, this.data.external);
+        if (this.selected(id) < soft) return { tone: 'info', text: t('performance.js.custom.below_source', { floor: seconds(soft) }) };
+        return null;
+      }
       if (!row || raw === undefined || raw === '') return null;
       const v = parseNumber(raw);
       if (!Number.isFinite(v) || v <= 0) return { tone: 'bad', text: t('performance.js.custom.invalid') };
@@ -381,6 +387,9 @@
         });
         this.$store.toasts.push(t('performance.js.applied'), 'info');
         this.confirming = false;
+        if (rates.live_update !== undefined) {
+          window.dispatchEvent(new CustomEvent('performance-live-update-changed', { detail: rates.live_update }));
+        }
         await this.load();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');

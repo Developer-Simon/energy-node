@@ -383,6 +383,19 @@ test('customProblem() marks a value under a follow row soft floor as info, not b
   assert.ok(problem.text.startsWith('performance.js.custom.below_source'), problem.text);
 });
 
+test('customProblem() also hints at a stored value under the soft floor without typed input', async () => {
+  const made = await loadedPage({ rows: [SHELLY_ROW, TICK_ROW] });
+  keyStub(made);
+  assert.equal(made.page.custom.tick, undefined);
+  // The tick row runs every 10 s in the fixture, the soft floor is 10 s, so lower the stored value.
+  made.page.sel.tick = 5;
+  const problem = made.page.customProblem('tick');
+  assert.ok(problem && problem.tone === 'info', JSON.stringify(problem));
+  assert.ok(problem.text.startsWith('performance.js.custom.below_source'), problem.text);
+  made.page.sel.tick = 30;
+  assert.equal(made.page.customProblem('tick'), null);
+});
+
 test('requestApply() while measuring asks first and only then sends the request', async () => {
   const calls = [];
   const { fetchImpl } = router({
