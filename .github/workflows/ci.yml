@@ -46,6 +46,10 @@ jobs:
       vendored: ${{ steps.filter.outputs.vendored }}
       ha: ${{ steps.filter.outputs.ha }}
       docs_scripts: ${{ steps.filter.outputs.docs_scripts }}
+      # Diff base for the cache-bust check in dashboard-js (empty = no check).
+      base_sha: ${{ steps.filter.outputs.base_sha }}
+      # prerelease PRs may raise ?v= by more than one step (--lenient).
+      lenient: ${{ steps.filter.outputs.lenient }}
     steps:
       # Runs from workflow_dispatch are not linked to the PR, so their checks
       # do not show there. The commit status "CI" is what the PR shows and what
@@ -66,22 +70,39 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ inputs.pr }}
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
+          base_sha=""
+          lenient=false
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             base_ref="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json baseRefName --jq .baseRefName || true)"
+            head_ref="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefName --jq .headRefName || true)"
             # Three-dot: only what this branch changed since it diverged from
             # the base, ignoring commits that landed on the base since then.
             files=""
             if [ -n "$base_ref" ] && git fetch origin "$base_ref" --quiet; then
               files="$(git diff --name-only "origin/$base_ref...$GITHUB_SHA" || true)"
+              # Same merge-base as the diff above, for the cache-bust check.
+              base_sha="$(git merge-base "origin/$base_ref" "$GITHUB_SHA" || true)"
+            fi
+            if [ "$head_ref" = "prerelease" ]; then
+              lenient=true
             fi
           else
             files=""
+            # Post-merge push: compare with the previous head. A new branch
+            # sends an all-zero "before", which leaves base_sha empty (no check).
+            case "$BEFORE_SHA" in
+              0000000*) ;;
+              *) base_sha="$BEFORE_SHA" ;;
+            esac
+            lenient=true
           fi
           echo "Changed files:"
           printf '%s\n' "$files"
 
           printf '%s\n' "$files" | python3 scripts/ci/detect_changes.py >> "$GITHUB_OUTPUT"
+          printf 'base_sha=%s\nlenient=%s\n' "$base_sha" "$lenient" >> "$GITHUB_OUTPUT"
 
   dashboard-go:
     name: Dashboard (Go)
@@ -136,11 +157,19 @@ jobs:
         working-directory: dashboard
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
+      - name: Cache-bust marks
+        if: needs.changes.outputs.base_sha != ''
+        working-directory: .
+        run: |
+          python3 scripts/dev/cache_bust.py check --base "${{ needs.changes.outputs.base_sha }}" \
+            ${{ needs.changes.outputs.lenient == 'true' && '--lenient' || '' }}
       - run: npm ci
       - run: npm test
 
