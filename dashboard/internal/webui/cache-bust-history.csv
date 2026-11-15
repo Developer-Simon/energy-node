@@ -1,4 +1,8 @@
 version,date,asset,v,note
+v0.11.17-pre.17,2026-11-15,css/performance.css,3,
+v0.11.17-pre.17,2026-11-15,js/dashboard.js,51,
+v0.11.17-pre.17,2026-11-15,js/device-modal.js,6,
+v0.11.17-pre.17,2026-11-15,js/performance.page.js,3,
 v0.11.17-pre.16,2026-11-15,css/automations.css,17,
 v0.11.17-pre.16,2026-11-15,css/components.css,1,"performance page and automations panel, shared stepper and input styles"
 v0.11.17-pre.16,2026-11-15,css/performance.css,2,
