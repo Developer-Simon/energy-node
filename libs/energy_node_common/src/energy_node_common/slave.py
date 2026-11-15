@@ -12,6 +12,7 @@ spaeterer reload gelingt.
 
 from __future__ import annotations
 
+import statistics
 import time
 from typing import Callable, Optional
 
@@ -43,6 +44,10 @@ def _error_code(exc: BaseException) -> str:
 def _text_attr(obj, name: str) -> str:
     value = getattr(obj, name, "")
     return value if isinstance(value, str) else ""
+
+
+# Anzahl der letzten Kernabfrage-Dauern, aus denen der Median gebildet wird.
+ROUND_WINDOW = 20
 
 
 class Slave:
@@ -81,6 +86,8 @@ class Slave:
         self._last_update_ts: Optional[int] = None
         self._async_loop = async_loop
         self._scheduler_started = False
+        self._round_durations: list[float] = []
+        self._poll_round_s: Optional[float] = None
 
         self._status_topic = settings_status_topic(service_id)
         self._config_reload_topic = config_reload_topic(service_id)
@@ -101,6 +108,7 @@ class Slave:
                 lambda: self.diagnostic_poll_multiplier,
                 poll_diagnostics,
                 on_error=on_poll_error,
+                on_round=self.record_round,
             )
         else:
             self._scheduler = Scheduler(
@@ -110,7 +118,16 @@ class Slave:
                 poll_diagnostics,
                 on_error=on_poll_error,
                 name=f"{service_id}-slave-scheduler",
+                on_round=self.record_round,
             )
+
+    def record_round(self, duration_s: float) -> None:
+        """Wird vom Scheduler nach jeder Kernabfrage aufgerufen. Gehalten
+        werden die letzten ROUND_WINDOW Dauern, veroeffentlicht wird der
+        Median auf 0,1 s gerundet."""
+        self._round_durations.append(duration_s)
+        del self._round_durations[:-ROUND_WINDOW]
+        self._poll_round_s = round(statistics.median(self._round_durations), 1)
 
     def register_devices(
         self, device_ids: list[str] | tuple[str, ...], client: Optional[mqtt.Client] = None
@@ -252,9 +269,7 @@ class Slave:
     def _publish_simulation_ack(self, client: mqtt.Client, device_id: str, active: bool) -> None:
         mqtt_helpers.publish(client, self._simulation_state_topic(device_id), int(active))
 
-    def _publish_status(
-        self, client: mqtt.Client, runtime_status: Optional[str] = None, error: str = ""
-    ) -> None:
+    def _status(self, runtime_status: Optional[str] = None, error: str = "") -> SlaveStatus:
         """Ohne runtime_status gilt das gemerkte Ergebnis des letzten
         Ladeversuchs. Ein ausdruecklicher Wert (abgelehnter Befehl) gilt nur
         fuer diese eine Meldung."""
@@ -262,7 +277,7 @@ class Slave:
             runtime_status, error, error_code = self._config_result
         else:
             error_code = ""
-        status = SlaveStatus(
+        return SlaveStatus(
             simulation_active=self.simulation_active,
             last_update=self._last_update_ts,
             runtime_status=runtime_status,
@@ -270,8 +285,13 @@ class Slave:
             error_code=error_code,
             config_revision=_text_attr(self._config_store, "attempted_revision"),
             applied_revision=_text_attr(self._config_store, "applied_revision"),
+            poll_round_s=self._poll_round_s,
         )
-        mqtt_helpers.publish_json(client, self._status_topic, status.to_dict())
+
+    def _publish_status(
+        self, client: mqtt.Client, runtime_status: Optional[str] = None, error: str = ""
+    ) -> None:
+        mqtt_helpers.publish_json(client, self._status_topic, self._status(runtime_status, error).to_dict())
 
     def note_update(self, client: mqtt.Client, ts: Optional[int] = None) -> None:
         """Nach jeder erfolgreichen Kernabfrage aufrufen: aktualisiert

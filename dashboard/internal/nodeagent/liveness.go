@@ -21,25 +21,27 @@ type serviceState struct {
 // statusPayload ist der Teil von settings/status, den die
 // Konfigurationsseite nach dem Speichern auswertet.
 type statusPayload struct {
-	LastUpdate      *int64 `json:"last_update"`
-	RuntimeStatus   string `json:"runtime_status"`
-	Error           string `json:"error"`
-	ErrorCode       string `json:"error_code"`
-	ConfigRevision  string `json:"config_revision"`
-	AppliedRevision string `json:"applied_revision"`
+	LastUpdate      *int64   `json:"last_update"`
+	RuntimeStatus   string   `json:"runtime_status"`
+	Error           string   `json:"error"`
+	ErrorCode       string   `json:"error_code"`
+	ConfigRevision  string   `json:"config_revision"`
+	AppliedRevision string   `json:"applied_revision"`
+	PollRoundS      *float64 `json:"poll_round_s"`
 }
 
 // ServiceRuntimeStatus ist das Ergebnis des letzten Ladeversuchs eines
 // Dienstes, wie er es retained auf settings/status meldet.
 type ServiceRuntimeStatus struct {
-	ServiceID       string `json:"service_id"`
-	Received        bool   `json:"received"`
-	Online          bool   `json:"online"`
-	RuntimeStatus   string `json:"runtime_status"`
-	Error           string `json:"error"`
-	ErrorCode       string `json:"error_code"`
-	ConfigRevision  string `json:"config_revision"`
-	AppliedRevision string `json:"applied_revision"`
+	ServiceID       string   `json:"service_id"`
+	Received        bool     `json:"received"`
+	Online          bool     `json:"online"`
+	RuntimeStatus   string   `json:"runtime_status"`
+	Error           string   `json:"error"`
+	ErrorCode       string   `json:"error_code"`
+	ConfigRevision  string   `json:"config_revision"`
+	AppliedRevision string   `json:"applied_revision"`
+	PollRoundS      *float64 `json:"poll_round_s,omitempty"`
 }
 
 type liveness struct {
@@ -155,5 +157,18 @@ func (a *Agent) ServiceStatus(id string) ServiceRuntimeStatus {
 	out.ErrorCode = st.status.ErrorCode
 	out.ConfigRevision = st.status.ConfigRevision
 	out.AppliedRevision = st.status.AppliedRevision
+	out.PollRoundS = st.status.PollRoundS
 	return out
+}
+
+// ServiceRoundS returns the median poll round duration a service reported
+// in seconds. The bool is false until the service sent poll_round_s.
+func (a *Agent) ServiceRoundS(id string) (float64, bool) {
+	a.live.mu.RLock()
+	defer a.live.mu.RUnlock()
+	st := a.live.state[id]
+	if st == nil || st.status.PollRoundS == nil {
+		return 0, false
+	}
+	return *st.status.PollRoundS, true
 }
