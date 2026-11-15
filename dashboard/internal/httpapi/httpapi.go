@@ -366,6 +366,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/events", handleEventsWithStreams(reg, store, resolver, engine, dependencies.EnergyStats, dependencies.EventStreams))
 	g.HandleFunc("/api/v1/performance", handlePerformance(store, dependencies.Performance, now))
 	g.HandleFunc("/api/v1/performance/apply", handlePerformanceApply(dependencies.Performance, now))
+	g.HandleFunc("/api/v1/performance/rollback", handlePerformanceRollback(dependencies.Performance, now))
 	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	g.HandleFunc("/api/v1/energy/chains", handleEnergyChains(store, resolver, dependencies.Auth, reg, dependencies.ChainMonitor))
