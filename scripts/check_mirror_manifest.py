@@ -21,7 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+# The prerelease line carries "-pre.N" manifests, check_no_prerelease.sh keeps them off main.
+SEMVER = re.compile(r"^\d+\.\d+\.\d+(-pre\.\d+)?$")
 PAGES_BASE = "https://developer-simon.github.io/energy-node/"
 PAGES_URL = re.compile(re.escape(PAGES_BASE) + r"([A-Za-z0-9_./-]+)")
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
@@ -72,7 +73,7 @@ def check(root: Path, component: str = "battery_soc") -> list[str]:
         )
     version = str(manifest.get("version", ""))
     if not SEMVER.match(version):
-        fails.append(f"manifest.json version must be a bare X.Y.Z, got {version!r}")
+        fails.append(f"manifest.json version must be X.Y.Z or X.Y.Z-pre.N, got {version!r}")
 
     # hassfest: keys must be domain, name, then the rest alphabetical.
     keys = list(manifest)
