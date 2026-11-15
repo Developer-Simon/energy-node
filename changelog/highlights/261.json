@@ -1,0 +1,29 @@
+{
+  "de": {
+    "*": "Auf der Leistungsseite wählst du Abfrageraten, siehst sofort die Wirkung auf das Budget und übernimmst sie mit einem Klick"
+  },
+  "en": {
+    "*": "On the Performance page you pick polling rates, see the effect on the budget right away and apply them with one click"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_diagnostics",
+          "page": "performance",
+          "panel": "settings-panel",
+          "target": "performance-rates",
+          "text": {
+            "de": "Pro Zeile wählst du, wie oft abgefragt wird. Die Stufen beginnen bei der Grenze des Geräts, der Balken oben zeigt sofort, was die Auswahl kostet. Mit Gleichmäßig verteilen füllst du die Reserve passend auf. Ohne dein Zutun ändert sich nichts.",
+            "en": "For each row you choose how often it polls. The steps start at the device limit and the bar above shows right away what your selection costs. Distribute evenly fills the spare capacity for you. Nothing changes unless you apply it."
+          },
+          "title": {
+            "de": "Abfrageraten wählen",
+            "en": "Choose polling rates"
+          }
+        }
+      ]
+    }
+  }
+}

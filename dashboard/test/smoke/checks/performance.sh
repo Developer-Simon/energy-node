@@ -20,4 +20,6 @@ checks_performance() {
     'data-tour="performance-budget"' "$BASE/?fragment=settings-page&page=performance"
   html_has "Leistungs-Unterseite traegt das Tour-Ziel Messwerte" \
     'data-tour="performance-measure"' "$BASE/?fragment=settings-page&page=performance"
+  html_has "Leistungs-Unterseite traegt das Tour-Ziel Abfrageraten" \
+    'data-tour="performance-rates"' "$BASE/?fragment=settings-page&page=performance"
 }
