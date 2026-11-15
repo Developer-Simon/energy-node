@@ -15,6 +15,15 @@ Unterbefehl:
       Meldet jede Abweichung mit einer Zeile pro Asset und endet mit 1, wenn
       es welche gibt. Warnungen (nicht referenzierte Assets) zaehlen nicht.
       Mit --lenient reicht jede Erhoehung von ?v= bei geaenderten Dateien.
+      Zusaetzlich wird die Verlaufs-CSV geprueft (fehlende Zeilen, und im
+      strikten Modus falsche Version oder Zeilen ohne Marke).
+
+  history [--base REF] [--root PATH]
+      Schreibt dashboard/internal/webui/cache-bust-history.csv neu. Jede Marke mit
+      Status ok, too-high oder too-low bekommt eine Zeile mit der erwarteten Version
+      und dem heutigen Datum. Branch-Zeilen, deren Marke sich erledigt hat, fliegen
+      raus und werden mit ihrer Notiz ausgegeben. Passt die Version auf den Branch
+      an, bleiben Datum und Notiz erhalten. Die Basis-Zeilen bleiben unberuehrt.
 
 Referenzen stehen in dashboard/internal/webui/templates/*.html und in
 webui.go. Marken, die keine ganze Zahl sind (etwa `{{.Foo}}`), zaehlen nicht.
@@ -34,6 +43,7 @@ WEBUI = "dashboard/internal/webui"
 ASSET_DIRS = ("js", "js-deps", "css")
 REF_RE = re.compile(r"/static/((?:js|js-deps|css)/[A-Za-z0-9._-]+)(?:\?v=([A-Za-z0-9{}._-]+))?")
 HISTORY = "dashboard/internal/webui/cache-bust-history.csv"
+VERSION_FILE = "dashboard/VERSION"
 HEADER = ["version", "date", "asset", "v", "note"]
 VERSION_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-pre\.(\d+))?$")
 
@@ -232,13 +242,62 @@ def check_code(rows: list[Row]) -> list[str]:
     return [_error_message(r) for r in rows if r.status in FAILING]
 
 
+def read_version(root: Path, rev: str | None) -> str:
+    text = read_text(root, rev, VERSION_FILE)
+    if text is None:
+        raise ValueError(f"{VERSION_FILE} is missing at {rev or 'the working tree'}")
+    return text.strip()
+
+
+def history_errors(root: Path, base: str, rows: list[Row], lenient: bool) -> list[str]:
+    try:
+        base_entries = parse_history(read_text(root, base, HISTORY))
+        head_entries = parse_history(read_text(root, None, HISTORY))
+        version = expected_version(read_version(root, base), read_version(root, None))
+    except ValueError as exc:
+        return [str(exc)]
+    return check_history(base_entries, head_entries, bumps(rows), version, lenient)
+
+
+def cmd_history(root: Path, base: str | None, today: date) -> int:
+    base = base or default_base(root)
+    try:
+        base_entries = parse_history(read_text(root, base, HISTORY))
+        head_entries = parse_history(read_text(root, None, HISTORY))
+        version = expected_version(read_version(root, base), read_version(root, None))
+    except ValueError as exc:
+        print(exc)
+        return 1
+    new_entries, removed = update_history(
+        base_entries, head_entries, bumps(compare(root, base)), version, today
+    )
+    head_set = set(head_entries)
+    head_versions: dict[tuple[str, int], str] = {}
+    for e in head_entries:
+        head_versions.setdefault((e.asset, e.v), e.version)
+    for e in new_entries:
+        if e in head_set:
+            continue
+        old = head_versions.get((e.asset, e.v))
+        if old is None:
+            print(f"added {e.version} {e.asset} ?v={e.v}")
+        else:
+            print(f"updated {e.asset} ?v={e.v}, {old} to {e.version}")
+    for e in removed:
+        print(f"removed {e.version} {e.asset} ?v={e.v}, note: {e.note or '(empty)'}")
+    target = root / HISTORY
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(format_history(new_entries), encoding="utf-8")
+    return 0
+
+
 def cmd_check(root: Path, base: str | None, lenient: bool) -> int:
     base = base or default_base(root)
     rows = compare(root, base, lenient)
     for r in rows:
         if r.status == "unreferenced":
             print(f"warning: {r.asset}: changed but not referenced by any template or webui.go")
-    errors = check_code(rows)
+    errors = check_code(rows) + history_errors(root, base, rows, lenient)
     for line in errors:
         print(line)
     if errors:
@@ -349,7 +408,7 @@ def bumps(rows: list[Row]) -> dict[str, int]:
 def update_history(
     base_entries: list[Entry],
     head_entries: list[Entry],
-    bumps: dict[str, int],
+    bump_map: dict[str, int],
     version: str,
     today: date,
 ) -> tuple[list[Entry], list[Entry]]:
@@ -359,12 +418,12 @@ def update_history(
     for e in head_entries:
         if e in base_set:
             continue
-        if bumps.get(e.asset) == e.v:
+        if bump_map.get(e.asset) == e.v:
             new_entries.append(replace(e, version=version))
         else:
             removed.append(e)
     present = {(e.asset, e.v) for e in head_entries}
-    for asset, v in sorted(bumps.items()):
+    for asset, v in sorted(bump_map.items()):
         if (asset, v) not in present:
             new_entries.append(Entry(version, today.isoformat(), asset, v, ""))
     return new_entries, removed
@@ -373,14 +432,14 @@ def update_history(
 def check_history(
     base_entries: list[Entry],
     head_entries: list[Entry],
-    bumps: dict[str, int],
+    bump_map: dict[str, int],
     version: str,
     lenient: bool,
 ) -> list[str]:
     name = Path(HISTORY).name
     present = {(e.asset, e.v) for e in head_entries}
     errors = []
-    for asset, v in sorted(bumps.items()):
+    for asset, v in sorted(bump_map.items()):
         if (asset, v) not in present:
             errors.append(f"{name} has no row for {asset} ?v={v}, run scripts/dev/cache_bust.py history")
     if lenient:
@@ -389,7 +448,7 @@ def check_history(
     for e in head_entries:
         if e in base_set:
             continue
-        if bumps.get(e.asset) != e.v:
+        if bump_map.get(e.asset) != e.v:
             errors.append(
                 f"{name} row {e.asset} ?v={e.v} has no matching bump, "
                 "run scripts/dev/cache_bust.py history"
@@ -413,6 +472,10 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Jede Erhoehung von ?v= bei geaenderten Dateien akzeptieren",
     )
+    history = sub.add_parser("history", help="Verlaufs-CSV mit den geaenderten ?v=-Marken fortschreiben")
+    history.add_argument("--base", default=None, help="Basis-Ref (Standard: merge-base mit origin/main)")
+    history.add_argument("--root", default=None, help="Repo-Wurzel (Standard: dieses Repo)")
+    history.add_argument("--today", type=date.fromisoformat, default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     root = Path(args.root) if args.root else Path(__file__).resolve().parents[2]
     root = root.resolve()
@@ -420,6 +483,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_report(root, args.base)
     if args.command == "check":
         return cmd_check(root, args.base, args.lenient)
+    if args.command == "history":
+        return cmd_history(root, args.base, args.today or date.today())
     return 0
 
 

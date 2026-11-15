@@ -14,6 +14,8 @@ cache_bust = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cache_bust)
 
 WEBUI = cache_bust.WEBUI
+HISTORY = cache_bust.HISTORY
+HEADER_LINE = "version,date,asset,v,note\n"
 scan_refs = cache_bust.scan_refs
 versions = cache_bust.versions
 compare = cache_bust.compare
@@ -55,6 +57,7 @@ def repo(tmp_path):
     write(root, f"{WEBUI}/static/js/card.js", "console.log(2);\n")
     write(root, f"{WEBUI}/static/js-deps/lib.min.js", "var lib;\n")
     write(root, f"{WEBUI}/static/css/manager.css", "body {}\n")
+    write(root, HISTORY, HEADER_LINE)
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "base")
     base = subprocess.run(
@@ -62,6 +65,18 @@ def repo(tmp_path):
         check=True, capture_output=True, text=True,
     ).stdout.strip()
     return root, base
+
+
+def read_history(root):
+    return (root / HISTORY).read_text(encoding="utf-8")
+
+
+def write_history(root, text):
+    write(root, HISTORY, text)
+
+
+def with_history(root, base, today="2026-11-09"):
+    assert main(["history", "--base", base, "--root", str(root), "--today", today]) == 0
 
 
 def row_for(rows, asset):
@@ -229,6 +244,7 @@ def test_check_passes_on_clean_bump(repo):
     root, base = repo
     edit(root, "static/js/app.js", "console.log(3);\n")
     write_marks(root, app=4)
+    with_history(root, base)
     assert run_check(root, base) == 0
 
 
@@ -271,6 +287,7 @@ def test_check_lenient_accepts_double_bump(repo):
     root, base = repo
     edit(root, "static/js/app.js", "console.log(3);\n")
     write_marks(root, app=5)
+    with_history(root, base)
     assert run_check(root, base, "--lenient") == 0
 
 
@@ -296,7 +313,6 @@ def test_check_warns_unreferenced(repo, capsys):
 
 
 Entry = cache_bust.Entry
-HEADER_LINE = "version,date,asset,v,note\n"
 parse_history = cache_bust.parse_history
 format_history = cache_bust.format_history
 expected_version = cache_bust.expected_version
@@ -442,3 +458,86 @@ def test_check_accepts_reversed_and_duplicated_rows():
     assert check_history(
         [BASE_ROW], head, {"js/app.js": 4, "css/manager.css": 6}, "v0.11.9", False
     ) == []
+
+
+def test_history_adds_rows_for_bumps(repo, capsys):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    assert main(["history", "--base", base, "--root", str(root), "--today", "2026-11-09"]) == 0
+    assert "v0.11.9,2026-11-09,js/app.js,4," in read_history(root)
+    assert "added v0.11.9 js/app.js ?v=4" in capsys.readouterr().out
+
+
+def test_history_rerun_after_version_move_keeps_note(repo):
+    root, _ = repo
+    write(root, "dashboard/VERSION", "v0.11.9\n")
+    write_history(root, HEADER_LINE + "v0.11.8,2026-10-30,css/manager.css,5,\n")
+    base = _commit(root, "base at v0.11.9")
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    write_history(
+        root,
+        HEADER_LINE
+        + "v0.11.8,2026-10-30,css/manager.css,5,\n"
+        + "v0.11.9,2026-11-09,js/app.js,4,my note\n",
+    )
+    write(root, "dashboard/VERSION", "v0.11.10\n")
+    assert main(["history", "--base", base, "--root", str(root), "--today", "2026-11-10"]) == 0
+    text = read_history(root)
+    assert "v0.11.10,2026-11-09,js/app.js,4,my note\n" in text
+    assert "v0.11.9" not in text
+    assert "v0.11.8,2026-10-30,css/manager.css,5,\n" in text
+
+
+def test_history_removes_stale_branch_row(repo, capsys):
+    root, base = repo
+    write_history(root, HEADER_LINE + "v0.11.9,2026-11-09,js/app.js,3,old note\n")
+    assert main(["history", "--base", base, "--root", str(root), "--today", "2026-11-09"]) == 0
+    assert "old note" not in read_history(root)
+    out = capsys.readouterr().out
+    assert "removed v0.11.9 js/app.js ?v=3" in out
+    assert "old note" in out
+
+
+def test_check_fails_without_history_row(repo, capsys):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    assert run_check(root, base) == 1
+    assert "has no row for js/app.js ?v=4" in capsys.readouterr().out
+
+
+def test_check_cli_accepts_empty_note(repo):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    with_history(root, base)
+    assert "v0.11.9,2026-11-09,js/app.js,4,\n" in read_history(root)
+    assert run_check(root, base) == 0
+
+
+def test_check_fails_wrong_version_strict_only(repo, capsys):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    write_history(root, HEADER_LINE + "v0.11.8,2026-11-09,js/app.js,4,\n")
+    assert run_check(root, base) == 1
+    assert "row js/app.js ?v=4 says v0.11.8, expected v0.11.9" in capsys.readouterr().out
+    assert run_check(root, base, "--lenient") == 0
+
+
+def test_check_accepts_union_merged_csv(repo):
+    root, base = repo
+    edit(root, "static/css/manager.css", "body { color: red; }\n")
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, css=(6, 6), app=4)
+    # reversed order (js before css) and one row duplicated, as a union merge can leave it
+    write_history(
+        root,
+        HEADER_LINE
+        + "v0.11.9,2026-11-09,js/app.js,4,\n"
+        + "v0.11.9,2026-11-09,css/manager.css,6,\n"
+        + "v0.11.9,2026-11-09,js/app.js,4,\n",
+    )
+    assert run_check(root, base) == 0

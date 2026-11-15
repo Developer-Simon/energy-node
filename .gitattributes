@@ -9,3 +9,7 @@ dashboard/go.sum linguist-generated
 # Repo tooling (release/CI/dev helper scripts) — not the shipped product;
 # keep it out of GitHub's language statistics.
 scripts/** linguist-vendored
+
+# Append-only history, one row per line: a rebase keeps both sides' rows,
+# scripts/dev/cache_bust.py sorts them again on its next run.
+dashboard/internal/webui/cache-bust-history.csv merge=union
