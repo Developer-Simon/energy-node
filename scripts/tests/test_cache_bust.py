@@ -153,3 +153,60 @@ def test_report_cli_prints_rows(repo, capsys):
     assert "js/app.js" in out
     assert "bump" in out
     assert "1 assets to bump" in out
+
+
+def _commit(root, message):
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", message)
+    return subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+
+
+def test_unchanged_asset_with_disagreeing_references_is_inconsistent(repo):
+    root, base = repo  # app.js is 3 everywhere at base
+    edit(root, "webui.go", '"/static/js/card.js?v=2"\n"/static/js/app.js?v=2"\n')
+    row = row_for(compare(root, base), "js/app.js")
+    assert row.status == "inconsistent"
+    assert row.expected == 3
+    assert row.base == 3
+    assert row.head == {2, 3}
+    assert row.changed is False
+
+
+def test_too_high_when_changed_and_jump_is_more_than_one(repo):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(9);\n")
+    edit(root, "templates/base.html",
+         '{{.BasePath}}/static/css/manager.css?v=5\n'
+         '{{.BasePath}}/static/css/manager.css?v=5\n'
+         '/static/js/app.js?v=5\n'
+         '/static/js-deps/lib.min.js\n')
+    row = row_for(compare(root, base), "js/app.js")
+    assert row.status == "too-high"
+    assert row.expected == 4
+
+
+def test_too_low_when_head_is_below_base(repo):
+    root, base = repo
+    edit(root, "templates/base.html",
+         '{{.BasePath}}/static/css/manager.css?v=5\n'
+         '{{.BasePath}}/static/css/manager.css?v=5\n'
+         '/static/js/app.js?v=2\n'
+         '/static/js-deps/lib.min.js\n')
+    row = row_for(compare(root, base), "js/app.js")
+    assert row.status == "too-low"
+    assert row.expected == 3
+
+
+def test_no_change_when_unchanged_asset_has_higher_mark(repo):
+    root, base = repo
+    edit(root, "templates/base.html",
+         '{{.BasePath}}/static/css/manager.css?v=5\n'
+         '{{.BasePath}}/static/css/manager.css?v=5\n'
+         '/static/js/app.js?v=4\n'
+         '/static/js-deps/lib.min.js\n')
+    row = row_for(compare(root, base), "js/app.js")
+    assert row.status == "no-change"
+    assert row.expected == 3

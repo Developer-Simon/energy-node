@@ -130,7 +130,7 @@ def _base_value(values: set) -> int | None:
 
 
 def _classify(base: int | None, head: set, changed: bool, lenient: bool) -> tuple[int | None, str]:
-    if not head:
+    if changed and not head:
         return None, "unreferenced"
     if len(head) > 1:
         b = base or 0
@@ -161,9 +161,9 @@ def compare(root: Path, base: str, lenient: bool = False) -> list[Row]:
         b_set = base_v.get(asset, set())
         h_set = head_v.get(asset, set())
         is_changed = asset in changed
-        if not is_changed and b_set == h_set:
-            continue
         base_int = _base_value(b_set)
+        if not is_changed and (not h_set or h_set == {base_int}):
+            continue
         expected, status = _classify(base_int, h_set, is_changed, lenient)
         rows.append(Row(
             asset=asset,
