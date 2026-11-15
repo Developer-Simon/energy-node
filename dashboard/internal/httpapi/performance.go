@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"math"
 	"net/http"
 	"time"
 
@@ -286,6 +287,9 @@ func handlePerformanceApply(deps *PerformanceDeps, now func() time.Time) http.Ha
 
 		selection := make(map[performance.RowID]float64, len(req.Rates))
 		for id, value := range req.Rates {
+			if id == performance.RowLiveUpdate {
+				value = math.Round(value)
+			}
 			selection[id] = value
 		}
 		resp.ExpectedPct = performance.Estimate(base, rows, selection)
