@@ -201,6 +201,12 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 	}
 }
 
+// PerformanceTarget is the saved budget in percent, or the default for the core
+// count of snap. The over-budget check uses the same value as the page.
+func PerformanceTarget(store *settings.Store, snap performance.Snapshot) int {
+	return performanceTarget(store, snap, nil)
+}
+
 // performanceTarget is the budget in percent the page works with: the request
 // target when given, else the saved target, else the default for the core count.
 func performanceTarget(store *settings.Store, snap performance.Snapshot, requested *int) int {

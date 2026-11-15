@@ -48,7 +48,7 @@ type Warning struct {
 // IsOperationalRule reports whether warnings of the given rule describe the
 // device's live operation (connectivity and freshness) instead of its setup.
 func IsOperationalRule(ruleID string) bool {
-	return ruleID == "Offline" || ruleID == "NoStateUpdate" || ruleID == "StorageDriveMissing"
+	return ruleID == "Offline" || ruleID == "NoStateUpdate" || ruleID == "StorageDriveMissing" || ruleID == "performance_over_budget"
 }
 
 type Context struct {
@@ -121,6 +121,8 @@ type Engine struct {
 	StartedAt     time.Time
 
 	storageFallback func() string
+	performance     PerformanceStatus
+	performanceNode string
 }
 
 func NewEngine(reg *registry.Registry, store *settings.Store) *Engine {
@@ -187,12 +189,12 @@ func (e *Engine) Evaluate(now time.Time) []Warning {
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	storage := e.storageWarnings(now)
+	engineLevel := append(e.storageWarnings(now), e.performanceWarnings(now)...)
 	if e.Registry == nil {
-		return storage
+		return engineLevel
 	}
 	snapshot := e.Registry.DiagnosticsSnapshot()
-	return append(e.evaluate(now, snapshot, e.settingsThreshold()), storage...)
+	return append(e.evaluate(now, snapshot, e.settingsThreshold()), engineLevel...)
 }
 
 // SetStorageFallback sets the source of the storage state. It returns the
@@ -215,6 +217,38 @@ func (e *Engine) storageWarnings(now time.Time) []Warning {
 	}
 	w := warning("StorageDriveMissing", "storage_drive_missing", SeverityWarning, "", registry.EntityView{}, now)
 	w.Details = map[string]any{"mode": mode}
+	return append(out, w)
+}
+
+// SetPerformance sets the source of the over-budget finding. The finding is
+// reported on nodeID, the node device. Without this call the engine has no
+// performance rule.
+func (e *Engine) SetPerformance(status PerformanceStatus, nodeID string) {
+	e.performance = status
+	e.performanceNode = nodeID
+}
+
+// performanceWarnings raises performance_over_budget while the status reports
+// a finding. The details tell the settings page what to show.
+func (e *Engine) performanceWarnings(now time.Time) []Warning {
+	out := []Warning{}
+	if e.performance == nil {
+		return out
+	}
+	budget, ok := e.performance.OverBudget(now)
+	if !ok {
+		return out
+	}
+	w := warning("performance_over_budget", "performance_over_budget", SeverityWarning, e.performanceNode, registry.EntityView{}, now)
+	w.Details = map[string]any{
+		"used_pct":      budget.UsedPct,
+		"available_pct": budget.AvailablePct,
+		"target_pct":    budget.TargetPct,
+		"deduction_pct": budget.DeductionPct,
+		"minutes":       budget.Minutes,
+		"reason":        budget.Reason,
+		"settings_page": "performance",
+	}
 	return append(out, w)
 }
 
@@ -409,6 +443,11 @@ func (e *Engine) Device(deviceID string, now time.Time) []Warning {
 		now = time.Now().UTC()
 	}
 	var warnings []Warning
+	for _, item := range e.performanceWarnings(now) {
+		if item.DeviceID == deviceID {
+			warnings = append(warnings, item)
+		}
+	}
 	var chainRules []ChainRule
 	for _, rule := range e.SnapshotRules {
 		if chain, ok := rule.(ChainRule); ok {

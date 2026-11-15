@@ -35,6 +35,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companiontls"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
@@ -585,6 +586,14 @@ func main() {
 		},
 		RoundS: nodeAgent.ServiceRoundS,
 	})
+	// Der Befund performance_over_budget vergleicht die Last mit dem Budget der
+	// Seite Leistung, Ziel minus Abzug.
+	perfMonitor.SetBudget(func(snap performance.Snapshot) performance.Budget {
+		return performance.Budget{
+			Target:    float64(httpapi.PerformanceTarget(settingsStore, snap)),
+			Deduction: performance.DeductionFor(snap),
+		}
+	})
 	go func() {
 		ticker := time.NewTicker(15 * time.Second)
 		defer ticker.Stop()
@@ -938,6 +947,18 @@ func main() {
 		cfg.TinyTuya.ProbeScript,
 		probeTimeout,
 	), credentialStore, client, storageProvider, runtimeStore, httpapi.RouterDependencies{
+		PerformanceStatus: diagnostics.PerformanceStatusFunc(func(now time.Time) (diagnostics.OverBudget, bool) {
+			info, ok := perfMonitor.OverBudget(now)
+			return diagnostics.OverBudget{
+				UsedPct:      info.UsedPct,
+				AvailablePct: info.AvailablePct,
+				TargetPct:    info.TargetPct,
+				DeductionPct: info.DeductionPct,
+				Minutes:      info.Minutes,
+				Reason:       info.Reason,
+			}, ok
+		}),
+		NodeDeviceID:         cfg.Dashboard.NodeDeviceID,
 		MQTT:                 client,
 		MQTTReconfigure:      client,
 		MQTTCredentials:      mqttCredentialStore,
