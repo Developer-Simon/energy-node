@@ -121,7 +121,11 @@ if [ "$fallback" = standby ]; then
     lost="$(since lan_lost_at)"
     if [ "$lost" -ge "$LAN_GRACE_S" ] && [ "$wlan_dev" = yes ]; then
       nmcli device set "$WLAN_DEV" autoconnect yes >/dev/null 2>&1 || true
-      nmcli device connect "$WLAN_DEV" >/dev/null 2>&1 || true
+      # Only when not yet connected: nmcli re-activates a connected device,
+      # which would drop the WLAN on every run.
+      if [ "$wlan_up" = no ]; then
+        nmcli device connect "$WLAN_DEV" >/dev/null 2>&1 || true
+      fi
     fi
   fi
 else

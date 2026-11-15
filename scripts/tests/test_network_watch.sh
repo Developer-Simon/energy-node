@@ -172,8 +172,12 @@ no_calls || fail "standby LAN gone 20 s: calls made" "$(cat "$CALL_LOG")"
 tick 1031
 has_call "device set wlan0 autoconnect yes" || fail "standby LAN gone 31 s: autoconnect yes missing" "$(cat "$CALL_LOG")"
 has_call "device connect wlan0" || fail "standby LAN gone 31 s: connect missing" "$(cat "$CALL_LOG")"
-lan_up
+# The stub left WLAN connected. The next tick must not connect again: nmcli
+# re-activates a connected device, which drops the link every 15 s.
 tick 1046
+has_call "device connect wlan0" && fail "standby WLAN connected: connect called again" "$(cat "$CALL_LOG")"
+lan_up
+tick 1061
 has_call "device set wlan0 autoconnect no" || fail "LAN back: autoconnect no missing" "$(cat "$CALL_LOG")"
 has_call "device disconnect wlan0" || fail "LAN back: disconnect missing" "$(cat "$CALL_LOG")"
 
