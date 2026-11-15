@@ -1,9 +1,9 @@
 {
   "de": {
-    "*": "Abfrageraten auf der Leistungsseite wählen und übernehmen"
+    "*": "Auf der Leistungsseite wählst du Abfrageraten und übernimmst sie mit einem Klick"
   },
   "en": {
-    "*": "On the Performance page you pick polling rates, see the effect on the budget right away and apply them with one click"
+    "*": "On the Performance page you pick polling rates and apply them with one click"
   },
   "tour": {
     "*": {
