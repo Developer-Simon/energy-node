@@ -139,15 +139,15 @@ type rowSpec struct {
 
 // rowSpecs lists the rows in page order.
 var rowSpecs = []rowSpec{
-	{id: RowLiveUpdate, steps: []float64{1, 2, 3, 5, 10, 15, 30}, right: "edit_setup"},
-	{id: RowTick, steps: []float64{5, 10, 15, 20, 30, 60}, fixedFloor: 5, right: "automations"},
-	{id: RowRegulator, steps: []float64{5, 10, 15, 20, 30, 60}, fixedFloor: 5, right: "automations"},
-	{id: RowNode, steps: []float64{5, 10, 15, 30, 60, 120}, fixedFloor: 5, right: "system_actions"},
-	{id: RowShelly, service: "shelly", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", source: true},
-	{id: RowTrucki, service: "trucki", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", follows: "balance", balance: true},
-	{id: RowBatterySoc, service: "battery_soc", steps: []float64{1, 2, 5, 10, 20, 30}, right: "automations", follows: "balance", balance: true},
-	{id: RowApsystems, service: "apsystems_ez1", steps: []float64{12, 15, 20, 30, 60, 120}, right: "system_actions", follows: "half"},
-	{id: RowTuya, service: "tuya_mqtt", steps: []float64{10, 15, 20, 30, 60}, right: "system_actions", follows: "half"},
+	{id: RowLiveUpdate, steps: []float64{1, 2, 3, 5, 10, 15, 30}, right: "edit_setup", follows: "half"},
+	{id: RowTick, steps: []float64{5, 10, 15, 20, 30, 60}, fixedFloor: 5, right: "automations", follows: "half"},
+	{id: RowRegulator, steps: []float64{5, 10, 15, 20, 30, 60}, fixedFloor: 5, right: "automations", follows: "balance"},
+	{id: RowNode, steps: []float64{5, 10, 15, 30, 60, 120}, fixedFloor: 5, right: "system_actions", source: true},
+	{id: RowShelly, service: "shelly", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", source: true, balance: true},
+	{id: RowTrucki, service: "trucki", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", source: true},
+	{id: RowBatterySoc, service: "battery_soc", steps: []float64{1, 2, 5, 10, 20, 30}, right: "system_actions", source: true},
+	{id: RowApsystems, service: "apsystems_ez1", steps: []float64{12, 15, 20, 30, 60, 120}, right: "system_actions", source: true},
+	{id: RowTuya, service: "tuya_mqtt", steps: []float64{10, 15, 20, 30, 60}, right: "system_actions", source: true},
 }
 
 // Units that carry the cost split.
@@ -217,6 +217,9 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 		switch spec.id {
 		case RowLiveUpdate:
 			r.Current = cur.LiveUpdateS
+			// The per-sample split of dashboard CPU without SSE clients is not
+			// available yet (the Snapshot has no client series), so the whole
+			// dashboard P95 is live_update.
 			r.CostPct = unitCPU(units, DashboardUnit)
 		case RowTick:
 			r.Current = cur.TickS

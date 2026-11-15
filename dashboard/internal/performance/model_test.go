@@ -125,3 +125,36 @@ func TestBuildRowsCostSplit(t *testing.T) {
 		t.Errorf("shelly Current = %v, want 5", got)
 	}
 }
+
+func TestBuildRowsFlagsMatchDraft(t *testing.T) {
+	rows := BuildRows(Snapshot{}, RateConfig{}, nil, map[RowID]bool{RowRegulator: true})
+	type flags struct {
+		right, follows  string
+		source, balance bool
+	}
+	want := map[RowID]flags{
+		RowLiveUpdate: {"edit_setup", "half", false, false},
+		RowTick:       {"automations", "half", false, false},
+		RowRegulator:  {"automations", "balance", false, false},
+		RowNode:       {"system_actions", "", true, false},
+		RowShelly:     {"system_actions", "", true, true},
+		RowTrucki:     {"system_actions", "", true, false},
+		RowBatterySoc: {"system_actions", "", true, false},
+		RowApsystems:  {"system_actions", "", true, false},
+		RowTuya:       {"system_actions", "", true, false},
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("len(rows) = %d, want %d", len(rows), len(want))
+	}
+	for _, r := range rows {
+		w, ok := want[r.ID]
+		if !ok {
+			t.Errorf("unexpected row %q", r.ID)
+			continue
+		}
+		got := flags{r.Right, r.Follows, r.Source, r.Balance}
+		if got != w {
+			t.Errorf("%s flags = %+v, want %+v", r.ID, got, w)
+		}
+	}
+}
