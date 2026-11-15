@@ -161,3 +161,7 @@ Home Assistant integration. Both projects talk to the same inverters through
 the same `apsystems-ez1` PyPI package. No code was copied, only the knowledge
 of how the endpoints behave and the flash protection strategy. See also
 [Third-party sources](../developing/dependencies.md#apsystems-ez1).
+
+## Polling limit on the Performance page
+
+The lowest polling interval the Performance page offers is 12 s (`poll_floor_s` in the manifest). Home Assistant polls every 12 s ([coordinator.py](https://github.com/home-assistant/core/blob/dev/homeassistant/components/apsystems/coordinator.py)). The community integration allows 12 to 60 s.

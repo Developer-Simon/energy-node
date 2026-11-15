@@ -42,6 +42,12 @@ entity or rule.
 The severity switch (All, Critical, Warning) works in both views and shows how
 many findings each choice leaves.
 
+The finding **Performance over budget** appears when the node has used more CPU
+than its budget allows for 30 minutes. It names the measured load, the
+available budget and the reason for any deduction. The button opens
+Settings, Performance, where you can pick slower polling rates. The finding
+clears after 10 minutes below the budget minus 5 points.
+
 ## Measurement chains
 
 Once a measurement chain has learned its normal losses, the findings of the

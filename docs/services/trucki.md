@@ -33,3 +33,7 @@ If the stick and a battery bank are physically the same box, set `via_device`
 to the `id` of the matching `battery_soc_devices.json` entry. Home Assistant
 then shows the stick as connected through the battery device instead of
 merging the two.
+
+## Polling limit on the Performance page
+
+The lowest polling interval the Performance page offers is 2 s (`poll_floor_s` in the manifest). The web interface of the stick polls `/jsonlive` once per second on its own, so room is left for it.
