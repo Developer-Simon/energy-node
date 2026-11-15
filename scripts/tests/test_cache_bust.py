@@ -210,3 +210,85 @@ def test_no_change_when_unchanged_asset_has_higher_mark(repo):
     row = row_for(compare(root, base), "js/app.js")
     assert row.status == "no-change"
     assert row.expected == 3
+
+
+def write_marks(root, css=(5, 5), app=3):
+    edit(root, "templates/base.html",
+         f'{{{{.BasePath}}}}/static/css/manager.css?v={css[0]}\n'
+         f'{{{{.BasePath}}}}/static/css/manager.css?v={css[1]}\n'
+         f'/static/js/app.js?v={app}\n'
+         '/static/js-deps/lib.min.js\n')
+
+
+def run_check(root, base, *extra):
+    return main(["check", "--base", base, "--root", str(root), *extra])
+
+
+def test_check_passes_on_clean_bump(repo):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    assert run_check(root, base) == 0
+
+
+def test_check_fails_missing_bump(repo, capsys):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    assert run_check(root, base) == 1
+    assert "expected 4" in capsys.readouterr().out
+
+
+def test_check_fails_partial_multi_reference_bump(repo, capsys):
+    root, base = repo
+    edit(root, "static/css/manager.css", "body { color: red; }\n")
+    write_marks(root, css=(6, 5))
+    assert run_check(root, base) == 1
+    assert "references disagree" in capsys.readouterr().out
+
+
+def test_check_fails_when_base_already_bumped(repo, capsys):
+    root, _ = repo
+    edit(root, "static/css/manager.css", "body { color: red; }\n")
+    write_marks(root, css=(6, 6))
+    base = _commit(root, "base already bumped")
+    edit(root, "static/css/manager.css", "body { color: blue; }\n")
+    assert run_check(root, base) == 1
+    assert "expected 7" in capsys.readouterr().out
+
+
+def test_check_fails_double_bump_strict(repo, capsys):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=5)
+    assert run_check(root, base) == 1
+    out = capsys.readouterr().out
+    assert "went from 3 to 5" in out
+    assert "(expected 4)" in out
+
+
+def test_check_lenient_accepts_double_bump(repo):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=5)
+    assert run_check(root, base, "--lenient") == 0
+
+
+def test_check_lenient_catches_unchanged_v(repo):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    assert run_check(root, base, "--lenient") == 1
+
+
+def test_check_fails_bump_without_change(repo, capsys):
+    root, base = repo
+    write_marks(root, app=4)
+    assert run_check(root, base) == 1
+    assert "but the file did not" in capsys.readouterr().out
+
+
+def test_check_warns_unreferenced(repo, capsys):
+    root, base = repo
+    write(root, f"{WEBUI}/static/js/orphan.js", "console.log(0);\n")
+    git(root, "add", f"{WEBUI}/static/js/orphan.js")
+    assert run_check(root, base) == 0
+    assert "warning:" in capsys.readouterr().out

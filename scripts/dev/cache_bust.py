@@ -11,6 +11,11 @@ Unterbefehl:
       Status) und am Ende die Anzahl der Assets mit Status `bump`. Beendet
       sich immer mit 0. Ohne --base gilt `git merge-base origin/main HEAD`.
 
+  check [--base REF] [--root PATH] [--lenient]
+      Meldet jede Abweichung mit einer Zeile pro Asset und endet mit 1, wenn
+      es welche gibt. Warnungen (nicht referenzierte Assets) zaehlen nicht.
+      Mit --lenient reicht jede Erhoehung von ?v= bei geaenderten Dateien.
+
 Referenzen stehen in dashboard/internal/webui/templates/*.html und in
 webui.go. Marken, die keine ganze Zahl sind (etwa `{{.Foo}}`), zaehlen nicht.
 """
@@ -190,6 +195,52 @@ def _fmt_head(head: set) -> str:
     return "{" + ",".join(sorted(_fmt(v) for v in head)) + "}"
 
 
+FAILING = {"bump", "inconsistent", "too-high", "no-change", "too-low"}
+
+
+def _sort_key(value):
+    return -1 if value is None else value
+
+
+def _error_message(r: Row) -> str:
+    single = next(iter(r.head)) if len(r.head) == 1 else None
+    if r.status == "bump":
+        return f"{r.asset}: content changed, ?v= is {_fmt(single)}, expected {_fmt(r.expected)}"
+    if r.status == "inconsistent":
+        values = ", ".join(_fmt(v) for v in sorted(r.head, key=_sort_key))
+        return f"{r.asset}: references disagree ({values}), expected {_fmt(r.expected)} everywhere"
+    if r.status == "too-high":
+        return (
+            f"{r.asset}: ?v= went from {_fmt(r.base)} to {_fmt(single)}, "
+            f"a branch raises it by exactly 1 (expected {_fmt(r.expected)})"
+        )
+    if r.status == "no-change":
+        return f"{r.asset}: ?v= changed from {_fmt(r.base)} to {_fmt(single)} but the file did not"
+    return (
+        f"{r.asset}: ?v= went down from {_fmt(r.base)} to {_fmt(single)}, "
+        f"expected {_fmt(r.expected)}"
+    )
+
+
+def check_code(rows: list[Row]) -> list[str]:
+    return [_error_message(r) for r in rows if r.status in FAILING]
+
+
+def cmd_check(root: Path, base: str | None, lenient: bool) -> int:
+    base = base or default_base(root)
+    rows = compare(root, base, lenient)
+    for r in rows:
+        if r.status == "unreferenced":
+            print(f"warning: {r.asset}: changed but not referenced by any template or webui.go")
+    errors = check_code(rows)
+    for line in errors:
+        print(line)
+    if errors:
+        print("Run scripts/dev/cache_bust.py report for the full list.")
+        return 1
+    return 0
+
+
 def cmd_report(root: Path, base: str | None) -> int:
     base = base or default_base(root)
     rows = compare(root, base)
@@ -210,11 +261,21 @@ def main(argv: list[str] | None = None) -> int:
     report = sub.add_parser("report", help="Abweichungen zwischen Basis und Arbeitsstand anzeigen")
     report.add_argument("--base", default=None, help="Basis-Ref (Standard: merge-base mit origin/main)")
     report.add_argument("--root", default=None, help="Repo-Wurzel (Standard: dieses Repo)")
+    check = sub.add_parser("check", help="Fehlende oder falsche ?v=-Marken melden (Exit 1)")
+    check.add_argument("--base", default=None, help="Basis-Ref (Standard: merge-base mit origin/main)")
+    check.add_argument("--root", default=None, help="Repo-Wurzel (Standard: dieses Repo)")
+    check.add_argument(
+        "--lenient",
+        action="store_true",
+        help="Jede Erhoehung von ?v= bei geaenderten Dateien akzeptieren",
+    )
     args = parser.parse_args(argv)
     root = Path(args.root) if args.root else Path(__file__).resolve().parents[2]
     root = root.resolve()
     if args.command == "report":
         return cmd_report(root, args.base)
+    if args.command == "check":
+        return cmd_check(root, args.base, args.lenient)
     return 0
 
 
