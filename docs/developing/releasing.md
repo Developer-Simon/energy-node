@@ -66,8 +66,11 @@ python3 scripts/version/sync_prerelease.py --keep
 ```
 
 The script settles versions and changelogs itself and prints the rest. Resolve
-every `CONFLICT` path. For every `ASSET` path, set its `?v=` one above the higher
-of the two lines and add a history row as described in
+every `CONFLICT` path. For every `ASSET` path, run
+`scripts/dev/cache_bust.py report --base origin/prerelease` and set the `?v=`
+marks to the expected values it prints. Then run
+`scripts/dev/cache_bust.py history --base origin/prerelease` to write the
+history rows. The details are in
 [lazy-assets-cache-busting.md](../_internal/lazy-assets-cache-busting.md). Stage
 the files with `git add`, then finish the merge:
 

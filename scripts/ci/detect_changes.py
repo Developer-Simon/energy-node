@@ -88,6 +88,11 @@ RULES: list[tuple[re.Pattern, frozenset[str]]] = [
     # 19
     (re.compile(r"^dashboard/energy-node-(updater\.sh|dashboard-system-action(\.sudoers)?)$"),
      DASH_ALL | frozenset({"shell", "bootstrap"})),
+    # Cache-bust: die ?v=-Marken prüft dashboard-js (scripts/dev/cache_bust.py check).
+    # webui.go trägt Marken und muss deshalb vor der Go-Regel 20 greifen.
+    (re.compile(r"^dashboard/internal/webui/cache-bust-history\.csv$"), frozenset({"dashboard_js"})),
+    (re.compile(r"^dashboard/internal/webui/webui\.go$"),
+     frozenset({"dashboard_go", "dashboard_js", "dashboard_smoke"})),
     # 20
     (re.compile(r"^dashboard/.*\.go$|^dashboard/go\.(mod|sum)$"),
      frozenset({"dashboard_go", "dashboard_smoke"})),
@@ -125,6 +130,8 @@ RULES: list[tuple[re.Pattern, frozenset[str]]] = [
     (re.compile(r"^installer/"), frozenset({"installer_go"})),
     # 34
     (re.compile(r"^scripts/bootstrap/"), frozenset({"installer_go", "shell", "bootstrap"})),
+    # Cache-bust: die Tests laufen mit python, das Skript prüft dashboard-js.
+    (re.compile(r"^scripts/tests/test_cache_bust\.py$"), frozenset({"python", "dashboard_js"})),
     # 35
     (re.compile(r"^scripts/tests/test_[^/]*\.py$"), frozenset({"python"})),
     # 36
@@ -140,6 +147,8 @@ RULES: list[tuple[re.Pattern, frozenset[str]]] = [
     # 40
     (re.compile(r"^scripts/(vendor_(core|card)|render_ha_descriptions)\.py$|^scripts/icons/"),
      frozenset({"vendored"})),
+    # Cache-bust: das Skript läuft in dashboard-js (check) und ist Python.
+    (re.compile(r"^scripts/dev/cache_bust\.py$"), frozenset({"python", "dashboard_js"})),
     # 41
     (re.compile(r"^scripts/"), frozenset({"shell"})),
 ]

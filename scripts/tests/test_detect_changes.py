@@ -81,6 +81,9 @@ CASES = [
     ("scripts/icons/flatten_icons.py", {"vendored"}),
     ("scripts/dev/create-pr.sh", {"shell"}),
     ("scripts/tests/test_updater.sh", {"shell"}),
+    ("dashboard/internal/webui/cache-bust-history.csv", {"dashboard_js"}),
+    ("scripts/dev/cache_bust.py", {"python", "dashboard_js"}),
+    ("scripts/tests/test_cache_bust.py", {"python", "dashboard_js"}),
     (".gitignore", set()),
 ]
 
@@ -88,6 +91,11 @@ CASES = [
 @pytest.mark.parametrize("path, expected", CASES)
 def test_rule_table(path, expected):
     assert areas_for(path) == frozenset(expected)
+
+
+def test_webui_go_runs_dashboard_js_for_cache_bust_marks():
+    # Die ?v=-Marken stehen in webui.go-Templates; der Rückfall ^dashboard/ deckt das ab.
+    assert "dashboard_js" in areas_for("dashboard/internal/webui/webui.go")
 
 
 def test_empty_input_means_all():
@@ -162,4 +170,5 @@ def test_workflow_wires_every_area():
     for a in AREAS:
         assert f"{a}: ${{{{ steps.filter.outputs.{a} }}}}" in text, a
         assert f"needs.changes.outputs.{a} == 'true'" in text, a
-    assert set(re.findall(r"needs\.changes\.outputs\.(\w+)", text)) == set(AREAS)
+    # base_sha und lenient sind keine Bereiche, sondern Eingaben der Cache-Bust-Prüfung.
+    assert set(re.findall(r"needs\.changes\.outputs\.(\w+)", text)) == set(AREAS) | {"base_sha", "lenient"}

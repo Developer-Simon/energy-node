@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.16-pre.14 (2026-11-06)
+## v0.11.17-pre.14 (2026-11-06)
 
 ### Features
 
@@ -74,6 +74,10 @@
 
 - **network:** smoke the fallback settings and the hotspot secret (e3c2f4b)
 - **webui:** know the storage page in the tour target test (8c10d07)
+
+### Chores
+
+- **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
 
 ## v0.11.11 (2026-11-11)
 
