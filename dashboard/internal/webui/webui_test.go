@@ -4581,8 +4581,10 @@ func TestBackupAssetsAreRegisteredOnTheShell(t *testing.T) {
 	if !strings.Contains(page, `id="ico-drive"`) {
 		t.Fatal("das Sprite der Shell enthaelt ico-drive nicht")
 	}
-	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/storage.css?v=2"`) {
-		t.Fatal("storage.css ist nicht als Stylesheet der Unterseite Speicher eingetragen")
+	// Speicher nutzt die Klassen bs-primary und bs-flow aus backup.css, also muss
+	// backup.css vor storage.css mitladen, auch wenn Backup nie geoeffnet wurde.
+	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/backup.css?v=1,/static/css/storage.css?v=2"`) {
+		t.Fatal("backup.css und storage.css sind nicht in dieser Reihenfolge Stylesheets der Unterseite Speicher")
 	}
 	if !strings.Contains(renderPanel(t, "settings"), `data-subpage-css="/static/css/backup.css?v=1"`) {
 		t.Fatal("backup.css ist nicht als Stylesheet der Unterseite Backup eingetragen")
