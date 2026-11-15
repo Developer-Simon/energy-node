@@ -30,6 +30,7 @@ var settingsFieldRoles = map[string]string{
 	"energy_stats_recording":          auth.RoleEditSetup,
 	"changelog_history":               auth.RoleEditSetup,
 	"update_check_disabled":           auth.RoleEditSetup,
+	"performance_target_pct":          auth.RoleEditSetup,
 	"history_views":                   auth.RoleViewHistory,
 }
 
