@@ -19,10 +19,15 @@ type Agent struct {
 	opts   Options
 	reader *reader
 
-	mu   sync.RWMutex
-	fast FastState
-	slow SlowDiagnostics
-	seen bool
+	mu         sync.RWMutex
+	pollS      float64
+	multiplier float64
+	fast       FastState
+	slow       SlowDiagnostics
+	seen       bool
+
+	// rates meldet SetRates an cmd/dashboard, damit die Ticker neu gesetzt werden.
+	rates chan struct{}
 
 	live liveness
 }
@@ -40,7 +45,13 @@ func New(opts Options) *Agent {
 	if opts.DiagnosticPollMultiplier <= 0 {
 		opts.DiagnosticPollMultiplier = 10
 	}
-	return &Agent{opts: opts, reader: newReader()}
+	return &Agent{
+		opts:       opts,
+		reader:     newReader(),
+		pollS:      opts.PollIntervalS,
+		multiplier: opts.DiagnosticPollMultiplier,
+		rates:      make(chan struct{}, 1),
+	}
 }
 
 func (a *Agent) baseTopic() string  { return "outstation/" + a.opts.NodeID }
@@ -53,10 +64,32 @@ func (a *Agent) availabilityTopic() string { return a.baseTopic() + "/status/onl
 
 // PollInterval / DiagnosticInterval steuern die Ticker in cmd/dashboard.
 func (a *Agent) PollInterval() time.Duration {
-	return time.Duration(a.opts.PollIntervalS * float64(time.Second))
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return time.Duration(a.pollS * float64(time.Second))
 }
 func (a *Agent) DiagnosticInterval() time.Duration {
-	return time.Duration(a.opts.PollIntervalS * a.opts.DiagnosticPollMultiplier * float64(time.Second))
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return time.Duration(a.pollS * a.multiplier * float64(time.Second))
+}
+
+// SetRates uebernimmt Poll-Intervall und Diagnose-Multiplikator live. Das
+// Signal auf RatesChanged ist gepuffert; ohne Leser bleibt es einfach liegen.
+func (a *Agent) SetRates(pollS, multiplier float64) {
+	a.mu.Lock()
+	a.pollS = pollS
+	a.multiplier = multiplier
+	a.mu.Unlock()
+	select {
+	case a.rates <- struct{}{}:
+	default:
+	}
+}
+
+// RatesChanged liefert ein Signal nach jedem SetRates.
+func (a *Agent) RatesChanged() <-chan struct{} {
+	return a.rates
 }
 
 // Refresh liest die Fast-Metriken neu ein und merkt sie. full == true liest

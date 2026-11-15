@@ -75,39 +75,25 @@ func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloade
 				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
-			if err := config.ValidateDocument(body, appconfig.Schema()); err != nil {
-				writeErrorDetail(w, http.StatusBadRequest, "schema_violation", err)
-				return
-			}
-			if err := appconfig.ValidateSecretPaths(body); err != nil {
-				writeErrorDetail(w, http.StatusBadRequest, "path_not_allowed", err)
-				return
-			}
-			previous, _ := os.ReadFile(path)
-			if err := writeSystemConfigRevision(dataDir, previous); err != nil {
-				writeErrorDetail(w, http.StatusInternalServerError, "revision_failed", err)
-				return
-			}
-			if err := writeSystemConfig(r.Context(), path, dataDir, body, executor); err != nil {
+			result, err := saveSystemConfig(r.Context(), systemConfigDeps{
+				Path:     path,
+				DataDir:  dataDir,
+				Reloader: reloader,
+				Executor: executor,
+			}, body)
+			if err != nil {
+				var saveErr *saveError
+				if errors.As(err, &saveErr) {
+					writeErrorDetail(w, saveErr.Status, saveErr.Code, saveErr.Err)
+					return
+				}
 				writeErrorDetail(w, http.StatusInternalServerError, "config_not_writable", err)
 				return
 			}
-			restart := changedRestartFields(previous, body)
-			reloaded := map[string]string{}
-			if reloader != nil && len(restart) == 0 {
-				for _, deviceID := range serviceDeviceIDs(body) {
-					if err := reloader.ReloadService(deviceID); err != nil {
-						reloaded[deviceID] = err.Error()
-					} else {
-						reloaded[deviceID] = "ok"
-					}
-				}
-			}
-			sort.Strings(restart)
 			writeJSONStatus(w, http.StatusOK, map[string]any{
 				"config":           json.RawMessage(body),
-				"restart_required": restart,
-				"reloaded":         reloaded,
+				"restart_required": result.Restart,
+				"reloaded":         result.Reloaded,
 			})
 		default:
 			w.Header().Set("Allow", "GET, PUT")

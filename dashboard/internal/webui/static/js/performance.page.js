@@ -34,6 +34,7 @@
     clients: { max: 0, seen: false },
     device: { temp_c: 0, throttled: false, ram_free_pct: 0, swap_pages_s: 0 },
     external: null,
+    rows: [],
     units: [],
     change: null,
   };
@@ -77,6 +78,27 @@
     return key ? t(key) : id;
   };
 
+  // Full keys per row and right, so the catalog scanner sees every key literally.
+  const ROW_LABEL_KEYS = {
+    live_update: 'performance.js.row.live_update',
+    tick: 'performance.js.row.tick',
+    regulator: 'performance.js.row.regulator',
+    node: 'performance.js.row.node',
+    shelly: 'performance.js.row.shelly',
+    trucki: 'performance.js.row.trucki',
+    battery_soc: 'performance.js.row.battery_soc',
+    apsystems: 'performance.js.row.apsystems',
+    tuya: 'performance.js.row.tuya',
+  };
+  const RIGHT_LABEL_KEYS = {
+    edit_setup: 'performance.js.right.edit_setup',
+    automations: 'performance.js.right.automations',
+    system_actions: 'performance.js.right.system_actions',
+  };
+
+  // Numbers as typed, with a German comma allowed.
+  const parseNumber = (raw) => Number(String(raw).replace(',', '.'));
+
   const pfPage = () => ({
     // The answer of GET /api/v1/performance, as the page last received it.
     data: { ...EMPTY },
@@ -84,6 +106,17 @@
     // True after a failed load until the next one succeeds, so a failing API
     // raises one toast per failure streak instead of one every 30 s.
     failing: false,
+
+    // Rate selection. cur holds the saved seconds per row id, sel the seconds
+    // the user has picked, custom the raw input of a row's own value.
+    // savedTarget is the saved limit in percent, targetDraft the edited one.
+    cur: {},
+    sel: {},
+    custom: {},
+    savedTarget: 0,
+    targetDraft: 0,
+    confirming: false,
+    applying: false,
 
     init() {
       const first = this.load();
@@ -104,9 +137,25 @@
       this.timer = 0;
     },
 
+    // A poll keeps what the user picked but has not applied yet. Rows the user
+    // has not touched follow the server, and so does the limit.
     async load() {
       try {
-        this.data = { ...EMPTY, ...(await requestJSON('/api/v1/performance')) };
+        const next = { ...EMPTY, ...(await requestJSON('/api/v1/performance')) };
+        const rows = next.rows || [];
+        const oldCur = this.cur;
+        const newCur = {};
+        const newSel = {};
+        rows.forEach((row) => {
+          newCur[row.id] = row.current;
+          const touched = row.id in oldCur && this.sel[row.id] !== undefined && this.sel[row.id] !== oldCur[row.id];
+          newSel[row.id] = touched ? this.sel[row.id] : row.current;
+        });
+        if (this.targetDraft === this.savedTarget) this.targetDraft = next.target_pct;
+        this.savedTarget = next.target_pct;
+        this.cur = newCur;
+        this.sel = newSel;
+        this.data = next;
         this.failing = false;
       } catch (error) {
         if (!this.failing) this.$store.toasts.push(error.message, 'critical');
@@ -120,20 +169,24 @@
       return this.data.measured_s < this.data.min_measure_s;
     },
     available() {
-      return this.data.target_pct - (this.data.deduction?.pct || 0);
+      return this.targetDraft - (this.data.deduction?.pct || 0);
+    },
+    // The model total of the current selection, base load included.
+    selectedPct() {
+      return PerformanceCore.total(this.data.base_pct, this.data.rows || [], this.sel);
     },
     free() {
-      return this.available() - this.data.today_pct;
+      return this.available() - this.selectedPct();
     },
 
     headTone() {
       if (this.measuring()) return 'info';
-      if (this.data.today_pct > this.available()) return 'bad';
+      if (this.selectedPct() > this.available()) return 'bad';
       if (this.free() < 3) return 'warn';
       return 'ok';
     },
     headTitle() {
-      const used = pct(this.data.today_pct);
+      const used = pct(this.selectedPct());
       const free = this.free();
       if (free < 0) return t('performance.js.head.used_over', { used, over: pct(-free) });
       return t('performance.js.head.used_free', { used, free: pct(free) });
@@ -158,7 +211,7 @@
       const fixed = this.data.base_pct;
       const parts = [
         { cls: 'pf-m-fixed', w: fixed },
-        { cls: 'pf-m-now', w: this.data.today_pct - fixed },
+        { cls: 'pf-m-now', w: this.selectedPct() - fixed },
       ];
       return parts.map((part) => ({ ...part, w: Math.max(0, Math.min(part.w, 100)) }));
     },
@@ -194,6 +247,192 @@
         group('polls', t('performance.js.group.polls'), 'pf-m-now', false),
         group('base', t('performance.js.group.base'), 'pf-m-fixed', true),
       ];
+    },
+
+    // ---- Rate selection -------------------------------------------------
+
+    rowById(id) {
+      return (this.data.rows || []).find((row) => row.id === id);
+    },
+    canEdit(row) {
+      return Boolean(row.editable);
+    },
+    // The seconds a row runs with: the pick, or the saved value before any pick.
+    selected(id) {
+      return this.sel[id] !== undefined ? this.sel[id] : this.cur[id];
+    },
+    isCurrent(row, s) {
+      return s === this.cur[row.id];
+    },
+    isSelected(row, s) {
+      return s === this.selected(row.id);
+    },
+    ratesChanged() {
+      return (this.data.rows || []).some((row) => this.selected(row.id) !== this.cur[row.id]);
+    },
+    changed() {
+      return this.ratesChanged() || this.targetDraft !== this.savedTarget;
+    },
+    ctx() {
+      return {
+        rows: this.data.rows || [],
+        sel: this.sel,
+        cur: this.cur,
+        base: this.data.base_pct,
+        available: this.available(),
+        external: this.data.external,
+        measuring: this.measuring(),
+      };
+    },
+
+    // ---- Limit ----------------------------------------------------------
+
+    setTarget(raw) {
+      const v = Math.round(parseNumber(raw));
+      if (Number.isFinite(v)) this.targetDraft = Math.min(95, Math.max(20, v));
+    },
+    stepTarget(dir) {
+      const current = this.targetDraft;
+      const next = dir > 0 ? Math.floor(current / 5) * 5 + 5 : Math.ceil(current / 5) * 5 - 5;
+      this.setTarget(next);
+    },
+
+    // ---- Picks ----------------------------------------------------------
+
+    pick(id, s) {
+      const row = this.rowById(id);
+      if (!row || !this.canEdit(row)) return;
+      if (PerformanceCore.stepState(row, s, this.ctx()) !== 'ok') return;
+      this.sel[id] = s;
+      delete this.custom[id];
+    },
+    customInput(id, raw) {
+      const row = this.rowById(id);
+      this.custom[id] = raw;
+      if (!row) return;
+      const v = parseNumber(raw);
+      if (!Number.isFinite(v) || v <= 0) return;
+      // Follow rows may go below their hard floor, the soft floor only warns.
+      const hard = row.follows ? 1 : row.floor;
+      if (v >= hard) this.sel[id] = v;
+    },
+    customProblem(id) {
+      const row = this.rowById(id);
+      const raw = this.custom[id];
+      if (row && row.follows && (raw === undefined || raw === '')) {
+        // Auch ein schon eingestellter Wert unter der weichen Grenze bekommt den Hinweis.
+        const soft = PerformanceCore.floorOf(row, this.data.rows || [], this.sel, this.data.external);
+        if (this.selected(id) < soft) return { tone: 'info', text: t('performance.js.custom.below_source', { floor: seconds(soft) }) };
+        return null;
+      }
+      if (!row || raw === undefined || raw === '') return null;
+      const v = parseNumber(raw);
+      if (!Number.isFinite(v) || v <= 0) return { tone: 'bad', text: t('performance.js.custom.invalid') };
+      if (!row.follows && v < row.floor) {
+        return { tone: 'bad', text: t('performance.js.custom.below_floor', { floor: seconds(row.floor) }) };
+      }
+      const over = this.selectedPct() - this.available();
+      if (!this.measuring() && over > 0.05) {
+        return { tone: 'warn', text: t('performance.js.custom.over_budget', { over: pct(over) }) };
+      }
+      if (row.follows) {
+        const soft = PerformanceCore.floorOf(row, this.data.rows || [], this.sel, this.data.external);
+        if (v < soft) return { tone: 'info', text: t('performance.js.custom.below_source', { floor: seconds(soft) }) };
+      }
+      return null;
+    },
+    even() {
+      if (this.measuring()) return;
+      const rows = this.data.rows || [];
+      const editable = rows.filter((row) => this.canEdit(row)).map((row) => row.id);
+      this.sel = PerformanceCore.distribute(rows, this.cur, this.available(), editable, this.ctx());
+      this.custom = {};
+    },
+    reset() {
+      this.sel = { ...this.cur };
+      this.custom = {};
+      this.targetDraft = this.savedTarget;
+      this.confirming = false;
+    },
+
+    // ---- Apply ----------------------------------------------------------
+
+    // While measuring, the first press only asks for confirmation.
+    requestApply() {
+      if (!this.changed()) return;
+      if (this.measuring() && !this.confirming) {
+        this.confirming = true;
+        return;
+      }
+      return this.apply();
+    },
+    async apply() {
+      if (this.applying || !this.changed()) return;
+      const rates = {};
+      (this.data.rows || []).forEach((row) => {
+        const v = this.selected(row.id);
+        if (v !== this.cur[row.id]) rates[row.id] = v;
+      });
+      const body = { rates };
+      if (this.targetDraft !== this.savedTarget) body.target_pct = this.targetDraft;
+
+      this.applying = true;
+      try {
+        const session = await requestJSON('/api/v1/auth/session').catch(() => null);
+        const csrfToken = (session && session.csrf_token) || '';
+        await requestJSON('/api/v1/performance/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
+          body: JSON.stringify(body),
+        });
+        this.$store.toasts.push(t('performance.js.applied'), 'info');
+        this.confirming = false;
+        if (rates.live_update !== undefined) {
+          window.dispatchEvent(new CustomEvent('performance-live-update-changed', { detail: rates.live_update }));
+        }
+        await this.load();
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.applying = false;
+      }
+    },
+
+    // ---- Row texts ------------------------------------------------------
+
+    rowLabel(id) {
+      return t(ROW_LABEL_KEYS[id] || id);
+    },
+    rowSub(id) {
+      if (id === 'live_update') return t('performance.js.row_sub.live_update', { count: this.data.clients.max });
+      return '';
+    },
+    lockText(row) {
+      return t('performance.js.lock', { right: t(RIGHT_LABEL_KEYS[row.right] || row.right) });
+    },
+    // Budget and period notes of a row, as {tone, text}.
+    notes(id) {
+      const row = this.rowById(id);
+      if (!row) return [];
+      const out = [];
+      if (row.round_s > 0) {
+        const every = PerformanceCore.period(row, this.selected(id));
+        out.push({ tone: '', text: t('performance.js.note.period', { every: seconds(every), round: seconds(row.round_s) }) });
+      }
+      if (this.measuring()) {
+        const remaining = duration(this.data.min_measure_s - this.data.measured_s);
+        out.push({ tone: '', text: t('performance.js.note.proposal_in', { duration: remaining }) });
+        return out;
+      }
+      const note = PerformanceCore.budgetNote(row, this.ctx());
+      if (note) out.push({ tone: note.tone || '', text: t(note.key, this.noteParams(note.params)) });
+      return out;
+    },
+    // Seconds in note parameters are shown with the unit, as the other texts do.
+    noteParams(params) {
+      const out = { ...params };
+      if (out.seconds !== undefined) out.seconds = seconds(out.seconds);
+      return out;
     },
   });
 

@@ -117,6 +117,7 @@ var routeTable = map[string]routeAccess{
 	"/api/v1/storage/fallback":         {group: groupOpen},
 	"/api/v1/storage/remove":           {group: groupOpen},
 	"/api/v1/storage/replace":          {group: groupOpen},
+	"/api/v1/performance/apply":        {group: groupOpen},
 
 	// anyView
 	"/api/v1/events":                           {group: groupAnyView},

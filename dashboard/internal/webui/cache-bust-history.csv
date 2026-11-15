@@ -1,4 +1,10 @@
 version,date,asset,v,note
+v0.11.17-pre.16,2026-11-15,css/automations.css,17,
+v0.11.17-pre.16,2026-11-15,css/components.css,1,"performance page and automations panel, shared stepper and input styles"
+v0.11.17-pre.16,2026-11-15,css/performance.css,2,
+v0.11.17-pre.16,2026-11-15,js/performance-core.js,1,"performance page, rate and budget core"
+v0.11.17-pre.16,2026-11-15,js/performance.page.js,2,
+v0.11.17-pre.16,2026-11-15,js/settings.page.js,37,
 v0.11.17-pre.15,2026-11-15,css/performance.css,1,
 v0.11.17-pre.15,2026-11-15,js/performance.page.js,1,
 v0.11.17-pre.15,2026-11-15,js/settings.page.js,36,

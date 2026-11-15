@@ -25,6 +25,7 @@ var (
 var dynamicErrorCodes = map[string][]string{
 	"code":                           nil,
 	"bridgeApplyErrorCode(applyErr)": {"bridge_restart_failed", "bridge_helper_failed"},
+	"saveErr.Code":                   {"schema_violation", "path_not_allowed", "revision_failed", "config_not_writable"},
 }
 
 func loadCatalog(t *testing.T, lang string) map[string]string {

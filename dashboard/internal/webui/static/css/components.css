@@ -1,0 +1,27 @@
+/* Gemeinsame Bausteine, die auf mehreren Seiten laufen (Automationen und
+   Leistung). Eingabefeld und Zahlenstepper. Laedt vor automations.css. */
+.auto-input { box-sizing: border-box; width: 100%; min-width: 0; height: 40px; padding: 0 .75rem; border: 1px solid transparent; border-radius: 10px; background: var(--panel-alt); color: var(--text-strong); font: inherit; font-size: .92rem; font-variant-numeric: tabular-nums; }
+.auto-input::placeholder { color: var(--text-faint); opacity: 1; }
+.auto-input:focus { outline: none; border-color: var(--accent-line); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+.auto-input::-webkit-outer-spin-button, .auto-input::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
+.auto-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+/* Wie der .stepper in settings-controls.css: Rahmen außen, Trennlinien um das Zahlenfeld, Tasten ohne Rahmen. */
+.auto-stepper { box-sizing: border-box; display: flex; align-items: stretch; height: 40px; min-width: 9.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--sunken); overflow: hidden; }
+/* Zahl und Einheit stehen auf einer Grundlinie, die kleinere Einheit beginnt
+   also an der Unterkante der Ziffern. Ziffern haben keine Unterlaenge, mit
+   der normalen Zeilenhoehe sitzen sie deshalb knapp 1 px zu hoch. Das
+   padding-top im Feld darunter gleicht das aus (gemessen im Dialog). */
+.auto-stepper-field { flex: 1; min-width: 4.5rem; display: flex; align-items: baseline; justify-content: center; gap: .25rem; padding: 0 .35rem; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+/* field-sizing macht das Eingabefeld so breit wie die Zahl. Zahl und Einheit
+   bleiben als Paar in der Mitte und wachsen nach beiden Seiten. Ohne
+   Unterstuetzung bleibt es bei 5ch und rechtsbuendig. */
+.auto-stepper-field .auto-input { flex: 0 1 auto; width: auto; field-sizing: content; min-width: 1ch; max-width: 100%; height: 100%; padding: .12em 0 0; border-radius: 0; background: transparent; text-align: center; }
+@supports not (field-sizing: content) { .auto-stepper-field .auto-input { width: 5ch; text-align: right; } }
+.auto-stepper-field .auto-input-unit { position: static; transform: none; flex: none; margin-left: 2px; }
+.auto-stepper-field:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.auto-stepper-field .auto-input:focus { box-shadow: none; border-color: transparent; }
+.auto-input-unit { position: absolute; top: 50%; right: .7rem; transform: translateY(-50%); font-size: .78rem; color: var(--text-muted); pointer-events: none; }
+.auto-stepper-btn { flex: none; width: 2.25rem; padding: 0; border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: 1.1rem; cursor: pointer; }
+.auto-stepper-btn:hover { color: var(--text-strong); }
+.auto-stepper-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

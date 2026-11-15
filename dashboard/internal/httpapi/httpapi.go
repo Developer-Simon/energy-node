@@ -365,6 +365,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	}
 	g.HandleFunc("/api/v1/events", handleEventsWithStreams(reg, store, resolver, engine, dependencies.EnergyStats, dependencies.EventStreams))
 	g.HandleFunc("/api/v1/performance", handlePerformance(store, dependencies.Performance, now))
+	g.HandleFunc("/api/v1/performance/apply", handlePerformanceApply(dependencies.Performance, now))
 	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	g.HandleFunc("/api/v1/energy/chains", handleEnergyChains(store, resolver, dependencies.Auth, reg, dependencies.ChainMonitor))
@@ -2500,7 +2501,7 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
-			document, err := manager.Save(name, data)
+			document, err := saveConfiguration(manager, name, data)
 			if err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "configuration_rejected", err)
 				return
@@ -2510,6 +2511,12 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 			methodNotAllowed(w)
 		}
 	}
+}
+
+// saveConfiguration prüft und schreibt ein Konfigurationsdokument über den
+// Manager. Der Aufrufer liest den Body und beantwortet einen Fehler.
+func saveConfiguration(configs *config.Manager, name string, data []byte) (config.Document, error) {
+	return configs.Save(name, data)
 }
 
 func handleLayout(store *settings.Store) http.HandlerFunc {

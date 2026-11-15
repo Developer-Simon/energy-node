@@ -17,7 +17,15 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'performance.page.js'),
   'utf8',
 );
+const coreSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'performance-core.js'),
+  'utf8',
+);
 const de = catalog('de');
+
+// The shelly row of the fixture. Its cost_pct makes base plus rows equal the
+// fixture's today_pct, so the selection total and the measured share agree.
+const SHELLY_ROW = { id: 'shelly', current: 20, steps: [2, 3, 5, 10, 15, 20, 30, 60], floor: 2, round_s: 0.4, cost_pct: 24.4, right: 'system_actions', editable: true, follows: '', source: true, balance: true };
 
 const reply = (status, body) => ({ status, body });
 
@@ -39,7 +47,7 @@ function performanceBody(overrides = {}) {
     device: { temp_c: 54, throttled: false, ram_free_pct: 61, swap_pages_s: 0 },
     external: { name: 'Wärmepumpe', every_s: 15 },
     rows: [
-      { id: 'shelly', current: 20, steps: [2, 3, 5, 10, 15, 20, 30, 60], floor: 2, round_s: 0.4, cost_pct: 5, right: 'system_actions', editable: true, follows: '', source: true, balance: true },
+      SHELLY_ROW,
     ],
     units: [
       { id: 'shelly', cpu_pct: 5, ram_bytes: 23068672, round_s: 0.4, msg_per_min: 126, fixed: false },
@@ -56,12 +64,19 @@ function performanceBody(overrides = {}) {
   };
 }
 
+// Overrides that set today_pct and move the shelly row so the selection total
+// equals it, for the tests that read the budget head.
+const today = (todayPct) => ({
+  today_pct: todayPct,
+  rows: [{ ...SHELLY_ROW, cost_pct: Math.round((todayPct - 7.7) * 10) / 10 }],
+});
+
 // routes: "METHOD /path" or "/path" -> reply, or a function returning one.
 // Every call is recorded in calls for the assertions.
 function router(routes, calls = []) {
   const fetchImpl = async (url, options = {}) => {
     const method = options.method || 'GET';
-    calls.push({ url, method });
+    calls.push({ url, method, body: options.body, headers: options.headers });
     const handler = routes[`${method} ${url}`] || routes[url];
     if (!handler) throw new Error(`unexpected fetch ${method} ${url}`);
     const result = typeof handler === 'function' ? handler() : handler;
@@ -98,6 +113,7 @@ function createPerformancePage({ fetchImpl, page: settingsPage = 'performance' }
   dom.window.clearInterval = (id) => { cleared.push(id); };
   Object.defineProperty(dom.window.document, 'visibilityState', { configurable: true, get: () => visibility.state });
   installI18n(dom.window);
+  vm.runInContext(coreSource, context);
   vm.runInContext(scriptSource, context);
   const page = factories.pfPage();
   const stores = attachStores(page);
@@ -201,17 +217,17 @@ test('headTone() is info while measuring, then bad, warn or ok by the free share
   const finished = await loadedPage({ measured_s: 21600 });
   assert.equal(finished.page.headTone(), 'ok', '37.9 % free');
 
-  const tight = await loadedPage({ measured_s: 21600, today_pct: 68 });
+  const tight = await loadedPage({ measured_s: 21600, ...today(68) });
   assert.equal(tight.page.headTone(), 'warn', '2 % free is under 3 %');
 
-  const over = await loadedPage({ measured_s: 21600, today_pct: 71 });
+  const over = await loadedPage({ measured_s: 21600, ...today(71) });
   assert.equal(over.page.headTone(), 'bad', 'above the target');
 });
 
 test('headTone() takes the deduction out of the available share', async () => {
   const deducted = await loadedPage({
     measured_s: 21600,
-    today_pct: 65,
+    ...today(65),
     deduction: { pct: 10, reasons: ['throttled'] },
   });
   assert.equal(deducted.page.available(), 60);
@@ -219,7 +235,7 @@ test('headTone() takes the deduction out of the available share', async () => {
 
   const close = await loadedPage({
     measured_s: 21600,
-    today_pct: 58,
+    ...today(58),
     deduction: { pct: 10, reasons: ['throttled'] },
   });
   assert.equal(close.page.headTone(), 'warn', '2 % free of 60');
@@ -229,7 +245,7 @@ test('headTitle() names the used and the free or over share', async () => {
   const { page } = await loadedPage({ measured_s: 21600 });
   assert.equal(page.headTitle(), '32,1 % genutzt, 37,9 % frei');
 
-  const over = await loadedPage({ measured_s: 21600, today_pct: 72 });
+  const over = await loadedPage({ measured_s: 21600, ...today(72) });
   assert.equal(over.page.headTitle(), '72,0 % genutzt, 2,0 % über dem Budget');
 });
 
@@ -325,6 +341,145 @@ test('meterParts() splits the bar into base load and polling, clamped to 0 to 10
   assert.equal(now.cls, 'pf-m-now');
   assert.ok(Math.abs(now.w - 24.4) < 1e-9, `polling part ${now.w}`);
 
-  const full = await loadedPage({ today_pct: 140 });
+  const full = await loadedPage({ ...today(140) });
   assert.equal(full.page.meterParts()[1].w, 100);
+});
+
+// Makes the page's texts show their key and parameters, so a test can read both.
+function keyStub(made) {
+  made.window.I18n.t = (key, params) => (params ? `${key} ${JSON.stringify(params)}` : key);
+}
+
+const TICK_ROW = { id: 'tick', current: 10, steps: [5, 10, 15, 20, 30, 60], floor: 5, round_s: 0.1, cost_pct: 0, right: 'automations', editable: true, follows: 'half', source: false, balance: false };
+
+test('customProblem() flags a value under the hard floor as bad and does not take it over', async () => {
+  const made = await loadedPage();
+  keyStub(made);
+  made.page.customInput('shelly', '1');
+  const problem = made.page.customProblem('shelly');
+  assert.equal(problem.tone, 'bad');
+  assert.ok(problem.text.startsWith('performance.js.custom.below_floor'), problem.text);
+  assert.equal(made.page.sel.shelly, 20, 'the pick stays');
+});
+
+test('customProblem() warns when the selection is over the budget, with the amount', async () => {
+  const made = await loadedPage({ measured_s: 21600 });
+  keyStub(made);
+  made.page.customInput('shelly', '2');
+  const problem = made.page.customProblem('shelly');
+  assert.equal(problem.tone, 'warn');
+  assert.ok(problem.text.startsWith('performance.js.custom.over_budget'), problem.text);
+  assert.ok(problem.text.includes('145,1 %'), problem.text);
+});
+
+test('customProblem() marks a value under a follow row soft floor as info, not bad', async () => {
+  const made = await loadedPage({ rows: [SHELLY_ROW, TICK_ROW] });
+  keyStub(made);
+  // The external meter every 15 s gives half 7.5 s, so the soft floor is 10 s.
+  made.page.customInput('tick', '3');
+  assert.equal(made.page.sel.tick, 3, 'a follow row takes any value from 1 s');
+  const problem = made.page.customProblem('tick');
+  assert.equal(problem.tone, 'info');
+  assert.ok(problem.text.startsWith('performance.js.custom.below_source'), problem.text);
+});
+
+test('customProblem() also hints at a stored value under the soft floor without typed input', async () => {
+  const made = await loadedPage({ rows: [SHELLY_ROW, TICK_ROW] });
+  keyStub(made);
+  assert.equal(made.page.custom.tick, undefined);
+  // The tick row runs every 10 s in the fixture, the soft floor is 10 s, so lower the stored value.
+  made.page.sel.tick = 5;
+  const problem = made.page.customProblem('tick');
+  assert.ok(problem && problem.tone === 'info', JSON.stringify(problem));
+  assert.ok(problem.text.startsWith('performance.js.custom.below_source'), problem.text);
+  made.page.sel.tick = 30;
+  assert.equal(made.page.customProblem('tick'), null);
+});
+
+test('requestApply() while measuring asks first and only then sends the request', async () => {
+  const calls = [];
+  const { fetchImpl } = router({
+    '/api/v1/performance': reply(200, performanceBody()),
+    'POST /api/v1/performance/apply': reply(200, {}),
+    '/api/v1/auth/session': reply(200, { csrf_token: 'tok' }),
+  }, calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  made.page.pick('shelly', 10);
+  calls.length = 0;
+
+  await made.page.requestApply();
+  assert.equal(made.page.confirming, true);
+  assert.equal(calls.filter((call) => call.method === 'POST').length, 0, 'no request before the confirmation');
+
+  await made.page.requestApply();
+  assert.equal(calls.filter((call) => call.method === 'POST').length, 1);
+  assert.equal(made.page.confirming, false);
+});
+
+test('apply() posts only the changed rows, and the target only when it changed', async () => {
+  const calls = [];
+  const { fetchImpl } = router({
+    '/api/v1/performance': reply(200, performanceBody({ measured_s: 21600, rows: [SHELLY_ROW, TICK_ROW] })),
+    'POST /api/v1/performance/apply': reply(200, {}),
+    '/api/v1/auth/session': reply(200, { csrf_token: 'tok' }),
+  }, calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+
+  made.page.pick('shelly', 10);
+  await made.page.apply();
+  const posts = calls.filter((call) => call.method === 'POST');
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].headers['X-CSRF-Token'], 'tok');
+  assert.equal(posts[0].headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(posts[0].body), { rates: { shelly: 10 } });
+
+  made.page.setTarget(75);
+  await made.page.apply();
+  const again = calls.filter((call) => call.method === 'POST');
+  assert.equal(again.length, 2);
+  assert.deepEqual(JSON.parse(again[1].body), { rates: { shelly: 10 }, target_pct: 75 });
+});
+
+test('a row without the right is locked: pick() changes nothing, lockText names the right', async () => {
+  const locked = { ...SHELLY_ROW, editable: false };
+  const made = await loadedPage({ measured_s: 21600, rows: [locked] });
+  keyStub(made);
+  made.page.pick('shelly', 10);
+  assert.equal(made.page.sel.shelly, 20);
+  assert.ok(made.page.lockText(locked).includes('performance.js.right.system_actions'), made.page.lockText(locked));
+});
+
+test('even() does nothing while measuring', async () => {
+  const made = await loadedPage({ rows: [SHELLY_ROW, TICK_ROW] });
+  made.page.pick('shelly', 10);
+  const before = { ...made.page.sel };
+  made.page.even();
+  assert.deepEqual({ ...made.page.sel }, before);
+});
+
+test('load() keeps an unsaved selection and an unsaved limit when a new poll arrives', async () => {
+  let body = performanceBody();
+  const { fetchImpl } = router({ '/api/v1/performance': () => reply(200, body) });
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+
+  made.page.pick('shelly', 10);
+  made.page.setTarget(75);
+  body = performanceBody({ measured_s: 8000 });
+  await made.page.load();
+
+  assert.equal(made.page.sel.shelly, 10, 'the unsaved pick stays');
+  assert.equal(made.page.targetDraft, 75, 'the unsaved limit stays');
+  assert.equal(made.page.cur.shelly, 20, 'the saved value follows the server');
+  assert.equal(made.page.savedTarget, 70);
+});
+
+test('notes() names the period and, while measuring, when the suggestions start', async () => {
+  const made = await loadedPage();
+  keyStub(made);
+  const texts = made.page.notes('shelly').map((note) => note.text.split(' ')[0]);
+  assert.ok(texts.includes('performance.js.note.period'), texts.join(' | '));
+  assert.ok(texts.includes('performance.js.note.proposal_in'), texts.join(' | '));
 });

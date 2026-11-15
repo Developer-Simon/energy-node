@@ -37,9 +37,9 @@
           </template>
           <i class="pf-m-cut" x-show="data.deduction.pct > 0" x-bind:style="`left: ${available()}%; width: ${data.deduction.pct}%`"></i>
         </div>
-        <span class="pf-limit" x-bind:style="`left: ${data.target_pct}%`"></span>
+        <span class="pf-limit" x-bind:style="`left: ${targetDraft}%`"></span>
         <span class="pf-limit pf-limit-avail" x-show="data.deduction.pct > 0" x-bind:style="`left: ${available()}%`"></span>
-        <span class="pf-limit-label" x-bind:style="`left: ${data.target_pct}%`" x-text="$t('performance.ui.limit', { target: data.target_pct })"></span>
+        <span class="pf-limit-label" x-bind:style="`left: ${targetDraft}%`" x-text="$t('performance.ui.limit', { target: targetDraft })"></span>
       </div>
       <div class="pf-legend">
         <span><b class="pf-m-fixed"></b>{{t "performance.ui.legend.base"}}</span>
@@ -48,15 +48,80 @@
       </div>
 
       <p class="pf-warning" x-show="data.deduction.pct > 0" x-cloak>
-        <strong x-text="$t('performance.ui.warning.lead', { pct: data.deduction.pct })"></strong> <span x-text="`${(data.deduction.reasons || []).map((reason) => $t(reason)).join(', ')}. ${$t('performance.ui.warning.available', { available: available(), target: data.target_pct })}`"></span>
+        <strong x-text="$t('performance.ui.warning.lead', { pct: data.deduction.pct })"></strong> <span x-text="`${(data.deduction.reasons || []).map((reason) => $t(reason)).join(', ')}. ${$t('performance.ui.warning.available', { available: available(), target: targetDraft })}`"></span>
       </p>
 
       <div class="pf-target">
         <div class="pf-target-row">
-          <span class="setting-row-label">{{t "performance.ui.target.label"}}<span class="setting-row-unit">{{t "performance.ui.target.unit"}}</span></span>
-          <strong x-text="`${data.target_pct} %`"></strong>
+          <span class="setting-row-label" id="pf-target-label">{{t "performance.ui.target.label"}}<span class="setting-row-unit">{{t "performance.ui.target.unit"}}</span></span>
+          <span class="auto-stepper" role="group" aria-labelledby="pf-target-label">
+            <button class="auto-stepper-btn" type="button" x-bind:aria-label="$t('performance.ui.target.decrease')" x-on:click="stepTarget(-1)" x-bind:disabled="targetDraft <= 20">&minus;</button>
+            <span class="auto-stepper-field">
+              <input class="auto-input" type="number" inputmode="numeric" min="20" max="95" step="5" aria-labelledby="pf-target-label" x-bind:value="targetDraft" x-on:change="setTarget($event.target.value); $event.target.value = targetDraft">
+              <span class="auto-input-unit" aria-hidden="true">%</span>
+            </span>
+            <button class="auto-stepper-btn" type="button" x-bind:aria-label="$t('performance.ui.target.increase')" x-on:click="stepTarget(1)" x-bind:disabled="targetDraft >= 95">+</button>
+          </span>
         </div>
       </div>
+
+      <div class="pf-actions" x-show="(data.rows || []).some((row) => canEdit(row))">
+        <button type="button" class="icon-button labeled" x-on:click="even()" x-bind:disabled="measuring()">{{t "performance.ui.actions.even"}}</button>
+        <button type="button" class="icon-button labeled" x-on:click="reset()" x-bind:disabled="!changed()">{{t "performance.ui.actions.reset"}}</button>
+        <button type="button" class="icon-button labeled pf-primary" x-on:click="requestApply()" x-bind:disabled="!changed() || applying">{{t "performance.ui.actions.apply"}}</button>
+      </div>
+
+      <!-- Messphase: Uebernehmen nur nach Bestaetigung -->
+      <div class="pf-confirm" role="alertdialog" aria-labelledby="pf-confirm-title" x-show="confirming" x-cloak>
+        <p><strong id="pf-confirm-title">{{t "performance.ui.confirm.lead"}}</strong> <span x-text="$t('performance.ui.confirm.body', { duration: $t('performance.js.duration', { hours: Math.floor(data.measured_s / 3600), minutes: Math.floor((data.measured_s % 3600) / 60) }) })"></span></p>
+        <div class="pf-confirm-actions">
+          <button type="button" class="icon-button labeled pf-primary" x-on:click="apply()">{{t "performance.ui.confirm.apply"}}</button>
+          <button type="button" class="icon-button labeled" x-on:click="confirming = false">{{t "performance.ui.confirm.cancel"}}</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Abfrageraten: je Dienst die Stufen ab der Geraetegrenze und ein Eigener Wert -->
+    <section class="setting-card setting-card--wide" aria-labelledby="pf-rows-title" data-tour="performance-rates">
+      <div class="pf-card-head">
+        <h3 class="setting-card-title" id="pf-rows-title">{{t "performance.ui.rows.title"}}</h3>
+        <span class="pf-card-meta">{{t "performance.ui.rows.meta"}}</span>
+      </div>
+      <div class="pf-rows">
+        <template x-for="row in data.rows" x-bind:key="row.id">
+          <div class="pf-row" x-bind:class="{ 'pf-row-locked': !canEdit(row) }">
+            <div class="pf-row-name">
+              <span class="pf-row-title" x-text="rowLabel(row.id)"></span>
+              <span class="pf-row-sub" x-show="rowSub(row.id)" x-text="rowSub(row.id)"></span>
+            </div>
+            <div class="pf-steps" role="group" x-bind:aria-label="$t('performance.ui.rows.group', { label: rowLabel(row.id) })">
+              <template x-for="s in PerformanceCore.stepsOf(row, data.rows, sel, data.external)" x-bind:key="s">
+                <button type="button" class="pf-step"
+                        x-bind:class="{ 'pf-step-cur': s === cur[row.id], 'pf-step-sel': s === selected(row.id), 'pf-step-budget': PerformanceCore.stepState(row, s, ctx()) === 'budget' }"
+                        x-bind:aria-pressed="s === selected(row.id) ? 'true' : 'false'"
+                        x-bind:aria-disabled="PerformanceCore.stepState(row, s, ctx()) !== 'ok' || !canEdit(row) ? 'true' : null"
+                        x-on:click="pick(row.id, s)" x-text="$t('performance.js.seconds', { value: window.I18n.formatNumber(s, 1) })"></button>
+              </template>
+              <label class="pf-custom" x-bind:class="{ 'pf-custom-sel': !PerformanceCore.stepsOf(row, data.rows, sel, data.external).includes(selected(row.id)) }">
+                <span class="visually-hidden" x-text="$t('performance.ui.custom.label', { label: rowLabel(row.id) })"></span>
+                <input type="text" inputmode="decimal" autocomplete="off" x-bind:placeholder="PerformanceCore.stepsOf(row, data.rows, sel, data.external).includes(selected(row.id)) ? $t('performance.ui.custom.placeholder') : String(selected(row.id)).replace('.', ',')"
+                       x-bind:value="custom[row.id] ?? ''"
+                       x-bind:disabled="!canEdit(row)"
+                       x-on:input="customInput(row.id, $event.target.value)">
+                <span aria-hidden="true">s</span>
+              </label>
+            </div>
+            <p class="pf-custom-msg" x-show="customProblem(row.id)" x-bind:data-tone="customProblem(row.id)?.tone" x-text="customProblem(row.id)?.text"></p>
+            <div class="pf-notes">
+              <template x-for="(note, i) in notes(row.id)" x-bind:key="i">
+                <span x-bind:data-tone="note.tone || null" x-text="note.text"></span>
+              </template>
+              <span class="pf-lock" x-show="!canEdit(row)"><svg class="automation-icon" aria-hidden="true"><use href="#ico-gate"></use></svg><span x-text="lockText(row)"></span></span>
+            </div>
+          </div>
+        </template>
+      </div>
+      <p class="pf-foot">{{t "performance.ui.rows.foot"}}</p>
     </section>
 
     <!-- Messwerte: Geraet, dann die Dienste nach CPU -->
