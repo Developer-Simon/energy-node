@@ -234,7 +234,10 @@ if command -v nmcli >/dev/null 2>&1 && has_wlan; then
     # Ohne Laendercode darf der Kanal nicht frei gewaehlt werden, sonst
     # scheitert der Hotspot auf manchen Geraeten.
     [[ -n "${country}" ]] || printf 'channel=1\n'
-    printf '\n[wifi-security]\nkey-mgmt=wpa-psk\npsk=%s\n\n' "${password}"
+    # pmf=1 schaltet PMF (802.11w) aus. Unter Trixie scheitert der Hotspot
+    # sonst auf Pi 3B, 3B+ und Zero W mit "key setting validation failed"
+    # (raspberrypi/linux#7247). Pi 4 und 5 sind ungeprueft, Ideenliste P2.31.
+    printf '\n[wifi-security]\nkey-mgmt=wpa-psk\npmf=1\npsk=%s\n\n' "${password}"
     printf '[ipv4]\nmethod=shared\n'
   } > "${profile_tmp}"
   "${SUDO[@]}" mkdir -p "$(dirname "${profile}")"
