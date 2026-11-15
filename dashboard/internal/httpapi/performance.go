@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/performance"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -20,11 +22,20 @@ type PerformanceProvider interface {
 
 // PerformanceDeps wires the performance page. Rates gives the current poll
 // periods, Floors the poll floor per service ID. Without it the route answers
-// 501.
+// 501. The fields after Floors are the write paths of the rate apply
+// (POST /api/v1/performance/apply); the apply answers 501 without them.
 type PerformanceDeps struct {
 	Provider PerformanceProvider
 	Rates    func() performance.RateConfig
 	Floors   map[string]float64
+
+	Auth       *auth.Manager
+	Settings   *settings.Store
+	Configs    *config.Manager
+	SystemPath string
+	DataDir    string
+	Executor   SystemActionExecutor
+	NodeRates  interface{ SetRates(float64, float64) }
 }
 
 // performanceBody is the answer of GET /api/v1/performance.
@@ -123,8 +134,7 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			}
 		}
 
-		present := map[performance.RowID]bool{performance.RowRegulator: true}
-		rows := performance.BuildRows(snap, deps.Rates(), deps.Floors, present)
+		rows, base := performanceRows(snap, deps)
 		user, hasUser := auth.UserFromContext(r.Context())
 
 		body := performanceBody{
@@ -142,16 +152,12 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 				RAMFreePct: ramFree,
 				SwapPagesS: snap.SwapPagesPerS,
 			},
-			Rows:  []performanceRow{},
-			Units: []performanceUnit{},
+			BasePct: base,
+			Rows:    []performanceRow{},
+			Units:   []performanceUnit{},
 		}
 
-		var costs float64
 		for _, row := range rows {
-			if !row.Present {
-				continue
-			}
-			costs += row.CostPct
 			editable := true
 			if hasUser {
 				editable = auth.HasRole(user, row.Right)
@@ -170,11 +176,6 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 				Balance:  row.Balance,
 			})
 		}
-		body.BasePct = snap.CPUP95 - costs
-		if body.BasePct < 0 {
-			body.BasePct = 0
-		}
-
 		if snap.External != nil {
 			body.External = &performanceExternal{Name: snap.External.Name, EveryS: snap.External.EveryS}
 		}
@@ -192,6 +193,103 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			body.Units = append(body.Units, unit)
 		}
 		writeJSON(w, body)
+	}
+}
+
+// performanceRows builds the rows the page shows and the base load they leave
+// over. GET and the apply share it, so both see the same rows. Only present
+// rows are returned.
+func performanceRows(snap performance.Snapshot, deps *PerformanceDeps) ([]performance.Row, float64) {
+	present := map[performance.RowID]bool{performance.RowRegulator: true}
+	all := performance.BuildRows(snap, deps.Rates(), deps.Floors, present)
+	rows := make([]performance.Row, 0, len(all))
+	var costs float64
+	for _, row := range all {
+		if !row.Present {
+			continue
+		}
+		costs += row.CostPct
+		rows = append(rows, row)
+	}
+	base := snap.CPUP95 - costs
+	if base < 0 {
+		base = 0
+	}
+	return rows, base
+}
+
+// performanceRightRole maps a row's write right to the role that grants it.
+func performanceRightRole(right string) string {
+	switch right {
+	case "edit_setup":
+		return auth.RoleEditSetup
+	case "automations":
+		return auth.RoleAutomations
+	case "system_actions":
+		return auth.RoleSystemActions
+	}
+	return right
+}
+
+// handlePerformanceApply serves POST /api/v1/performance/apply. Like the system
+// config PUT it needs HTTPS and the CSRF token, and a login. The rights of the
+// rows are checked per row inside the writer.
+func handlePerformanceApply(deps *PerformanceDeps, now func() time.Time) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			methodNotAllowed(w, http.MethodPost)
+			return
+		}
+		if deps == nil || deps.Provider == nil || deps.Rates == nil || deps.Settings == nil || deps.Configs == nil {
+			writeError(w, http.StatusNotImplemented, "performance_unavailable", "Die Leistungsmessung ist nicht verfügbar")
+			return
+		}
+		if deps.Auth == nil {
+			writeError(w, http.StatusNotImplemented, "authentication_unavailable", "Anmeldung ist nicht konfiguriert")
+			return
+		}
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+			return
+		}
+		if !requireHTTPS(w, r) || !requireCSRF(w, r, deps.Auth) {
+			return
+		}
+		var req ApplyRequest
+		if err := decodeBody(r, &req); err != nil {
+			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+			return
+		}
+
+		rows, base := performanceRows(deps.Provider.Snapshot(now()), deps)
+		writer := &rateWriter{
+			Settings:   deps.Settings,
+			Configs:    deps.Configs,
+			SystemPath: deps.SystemPath,
+			DataDir:    deps.DataDir,
+			Executor:   deps.Executor,
+			NodeRates:  deps.NodeRates,
+		}
+		resp, err := writer.Apply(r.Context(), req, rows, func(right string) bool {
+			return auth.HasRole(user, performanceRightRole(right))
+		})
+		if err != nil {
+			var saveErr *saveError
+			if errors.As(err, &saveErr) {
+				writeErrorDetail(w, saveErr.Status, saveErr.Code, saveErr.Err)
+				return
+			}
+			writeErrorDetail(w, http.StatusInternalServerError, "apply_failed", err)
+			return
+		}
+
+		selection := make(map[performance.RowID]float64, len(req.Rates))
+		for id, value := range req.Rates {
+			selection[id] = value
+		}
+		resp.ExpectedPct = performance.Estimate(base, rows, selection)
+		writeJSON(w, resp)
 	}
 }
 

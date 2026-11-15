@@ -607,15 +607,35 @@ func main() {
 		// Ohne lesbaren Wert gelten die Standardwerte: Live-Aktualisierung 3 s
 		// (Einstellungen), Automation tick_interval_s 10 (Schema), Regler 10,
 		// Dienste 10 s ohne eigenen poll_interval_s.
+		// NodeS folgt dem Agenten, damit eine Übernahme sofort sichtbar wird.
 		rates := performance.RateConfig{
 			LiveUpdateS: 3,
 			TickS:       10,
 			RegulatorS:  10,
-			NodeS:       cfg.Dashboard.NodePollIntervalS,
+			NodeS:       nodeAgent.PollInterval().Seconds(),
 			Services:    map[string]float64{},
 		}
 		if value, err := settingsStore.LoadSettings(); err == nil && value.LiveUpdateIntervalSeconds > 0 {
 			rates.LiveUpdateS = float64(value.LiveUpdateIntervalSeconds)
+		}
+		// Takt und Regler stehen in automation_rules.settings. Der Regler
+		// fällt auf den Takt zurück, wenn er fehlt.
+		if raw, err := configManager.Read("automation_rules"); err == nil {
+			var doc struct {
+				Settings struct {
+					Tick *float64 `json:"tick_interval_s"`
+					Reg  *float64 `json:"regulator_interval_s"`
+				} `json:"settings"`
+			}
+			if json.Unmarshal(raw, &doc) == nil {
+				if doc.Settings.Tick != nil && *doc.Settings.Tick > 0 {
+					rates.TickS = *doc.Settings.Tick
+				}
+				rates.RegulatorS = rates.TickS
+				if doc.Settings.Reg != nil && *doc.Settings.Reg > 0 {
+					rates.RegulatorS = *doc.Settings.Reg
+				}
+			}
 		}
 		for id := range perfUnits {
 			rates.Services[id] = 10
@@ -981,9 +1001,16 @@ func main() {
 		CompanionFingerprint: companionFingerprint,
 		EventStreams:         eventStreams,
 		Performance: &httpapi.PerformanceDeps{
-			Provider: perfProvider,
-			Rates:    performanceRates,
-			Floors:   perfFloors,
+			Provider:   perfProvider,
+			Rates:      performanceRates,
+			Floors:     perfFloors,
+			Auth:       authManager,
+			Settings:   settingsStore,
+			Configs:    configManager,
+			SystemPath: *configPath,
+			DataDir:    dataDir,
+			Executor:   systemExecutor,
+			NodeRates:  nodeAgent,
 		},
 	}))
 

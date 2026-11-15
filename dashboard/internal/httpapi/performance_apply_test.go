@@ -5,12 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/performance"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
@@ -299,4 +303,91 @@ func applyContains(values []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// applyEndpointRouter wires POST /api/v1/performance/apply to the fixture's
+// stores and files, behind the authenticated router.
+func applyEndpointRouter(t *testing.T) (http.Handler, *auth.Manager) {
+	t.Helper()
+	fixture := newApplyFixture(t)
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := RouterDependencies{
+		Auth: manager,
+		Performance: &PerformanceDeps{
+			Provider: stubPerformance{snap: performanceTestSnapshot()},
+			Rates: func() performance.RateConfig {
+				return performance.RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 15, Services: map[string]float64{"shelly": 20}}
+			},
+			Floors:     map[string]float64{"shelly": 2},
+			Auth:       manager,
+			Settings:   fixture.store,
+			Configs:    fixture.configs,
+			SystemPath: fixture.configPath,
+			DataDir:    fixture.writer.DataDir,
+			NodeRates:  fixture.rates,
+		},
+	}
+	router := NewAuthenticatedRouter(registry.New(), fixture.configs, fixture.store, nil, nil, nil, nil, nil, deps)
+	return router, manager
+}
+
+func postApply(router http.Handler, cookie *http.Cookie, csrfToken, body string) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/performance/apply", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("X-Forwarded-Proto", "https")
+	request.Header.Set("X-CSRF-Token", csrfToken)
+	if cookie != nil {
+		request.AddCookie(cookie)
+	}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func TestApplyEndpointRequiresCSRF(t *testing.T) {
+	router, _ := applyEndpointRouter(t)
+	cookie, _ := loginAsAdmin(t, router)
+
+	recorder := postApply(router, cookie, "", `{"rates":{"live_update":5}}`)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("POST ohne CSRF status %d, erwartet 403: %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestApplyEndpointReturnsExpected(t *testing.T) {
+	router, _ := applyEndpointRouter(t)
+	cookie, csrfToken := loginAsAdmin(t, router)
+
+	recorder := postApply(router, cookie, csrfToken, `{"rates":{"live_update":5}}`)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["expected_pct"].(float64); !ok {
+		t.Fatalf("expected_pct fehlt oder ist keine Zahl: %s", recorder.Body.String())
+	}
+	if change, ok := body["change"]; !ok || change != nil {
+		t.Fatalf("change = %v (vorhanden %v), erwartet null: %s", change, ok, recorder.Body.String())
+	}
+}
+
+func TestApplyEndpointChecksRowRights(t *testing.T) {
+	router, manager := applyEndpointRouter(t)
+	cookie, csrfToken := loginWithRoles(t, router, manager, "einrichter", []string{auth.RoleEditSetup})
+
+	// edit_setup darf die Live-Aktualisierung, aber nicht die Dienstperiode von shelly.
+	denied := postApply(router, cookie, csrfToken, `{"rates":{"shelly":30}}`)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("shelly mit edit_setup status %d, erwartet 403: %s", denied.Code, denied.Body.String())
+	}
+	allowed := postApply(router, cookie, csrfToken, `{"rates":{"live_update":5}}`)
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("live_update mit edit_setup status %d: %s", allowed.Code, allowed.Body.String())
+	}
 }
