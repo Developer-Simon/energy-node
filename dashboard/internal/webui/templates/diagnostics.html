@@ -121,6 +121,9 @@
             <svg class="automation-icon diag-group-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
           </summary>
           <div class="diag-group-body">
+            <p class="diag-group-action" x-show="group.settingsPage">
+              <a class="pill-button" x-bind:href="settingsHref(group)" >{{t "performance.ui.diag.open_page"}}</a>
+            </p>
             <p class="diag-group-hint" x-show="group.hint">
               <span class="diag-group-hint-label">{{t "diagnostics.table.header.action"}}</span>
               <span x-text="group.hint"></span>

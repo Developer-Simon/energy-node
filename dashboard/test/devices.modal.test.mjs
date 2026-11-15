@@ -701,6 +701,19 @@ test('groupedWarnings groups warnings with the same key and rule_id', () => {
   assert.equal(panel.warningText(grouped[0], 'message'), enCatalog['diagnostics.rule.offline.message']);
 });
 
+test('warningText fills the over-budget placeholders from details in the device modal', () => {
+  const panel = createDevicesPanel();
+  const item = {
+    rule_id: 'performance_over_budget',
+    key: 'performance_over_budget',
+    details: {used_pct: 92.5, available_pct: 70, target_pct: 70, deduction_pct: 0, minutes: 35, reason: '', settings_page: 'performance'},
+  };
+  assert.equal(
+    panel.warningText(item, 'message'),
+    'Die CPU-Last liegt seit 35 Minuten über dem verfügbaren Budget: 92,5 % genutzt, 70 % verfügbar.',
+  );
+});
+
 test('warningText shows raw message for warnings without key', () => {
   const panel = createDevicesPanel();
   const rawWarning = {rule_id: 'X', message: 'raw message', hint: 'raw hint'};

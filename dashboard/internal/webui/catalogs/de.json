@@ -3787,6 +3787,7 @@
   "performance.ui.confirm.lead": "Die Messung ist noch nicht fertig.",
   "performance.ui.custom.label": "Eigener Wert, {label}",
   "performance.ui.custom.placeholder": "Eigener",
+  "performance.ui.diag.open_page": "Zur Seite Leistung",
   "performance.ui.fact.browser": "Browser",
   "performance.ui.fact.browser_max": "bis zu {count} Browser",
   "performance.ui.fact.browser_only": "nur dieser Browser",

@@ -1389,6 +1389,7 @@
           title: this.ruleTitle(group.sample),
           message: this.warningText(group.sample, 'message'),
           hint: this.warningText(group.sample, 'hint'),
+          settingsPage: (group.sample.details && group.sample.details.settings_page) || '',
           devices: [...group.devices.entries()]
             .map(([deviceID, entities]) => ({deviceID, entities: [...new Set(entities)].sort(window.I18n.compare)}))
             .sort((left, right) => window.I18n.compare(left.deviceID, right.deviceID)),
@@ -1441,18 +1442,45 @@
     // Kurzer Name der Ursache fuer Gruppenkopf und Listenzeile. Ohne
     // Katalogtext bleibt die rohe rule_id stehen, damit neue Regeln aus dem
     // Backend sichtbar sind, bevor ihr Text nachgezogen ist.
-    // i18n-keys: diagnostics.rule.duplicate_unique_id.title, diagnostics.rule.discovery_invalid_json.title, diagnostics.rule.discovery_mismatch.title, diagnostics.rule.discovery_not_retained.title, diagnostics.rule.missing_topic.title, diagnostics.rule.missing_availability.title, diagnostics.rule.missing_unit.title, diagnostics.rule.unit_unclassified.title, diagnostics.rule.no_state_update.title, diagnostics.rule.offline.title, diagnostics.rule.empty_state_payload.title, diagnostics.rule.invalid_discovery_payload.title, diagnostics.rule.ignored_device_discovery_stale.title, diagnostics.rule.configured_device_missing.title, diagnostics.rule.chain_drift.title, diagnostics.rule.chain_frozen.title, diagnostics.rule.chain_contradiction.title, diagnostics.rule.chain_sign.title, diagnostics.rule.chain_unit.title, diagnostics.rule.storage_drive_missing.title
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.title, diagnostics.rule.discovery_invalid_json.title, diagnostics.rule.discovery_mismatch.title, diagnostics.rule.discovery_not_retained.title, diagnostics.rule.missing_topic.title, diagnostics.rule.missing_availability.title, diagnostics.rule.missing_unit.title, diagnostics.rule.unit_unclassified.title, diagnostics.rule.no_state_update.title, diagnostics.rule.offline.title, diagnostics.rule.empty_state_payload.title, diagnostics.rule.invalid_discovery_payload.title, diagnostics.rule.ignored_device_discovery_stale.title, diagnostics.rule.configured_device_missing.title, diagnostics.rule.chain_drift.title, diagnostics.rule.chain_frozen.title, diagnostics.rule.chain_contradiction.title, diagnostics.rule.chain_sign.title, diagnostics.rule.chain_unit.title, diagnostics.rule.storage_drive_missing.title, diagnostics.rule.performance_over_budget.title
     ruleTitle(item) {
       const key = item && item.key ? `diagnostics.rule.${item.key}.title` : '';
       if (key && window.I18n && window.I18n.has(key)) return t(key);
       return (item && item.rule_id) || '';
     },
 
-    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.unit_unclassified.message, diagnostics.rule.unit_unclassified.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint, diagnostics.rule.chain_drift.message, diagnostics.rule.chain_drift.hint, diagnostics.rule.chain_frozen.message, diagnostics.rule.chain_frozen.hint, diagnostics.rule.chain_contradiction.message, diagnostics.rule.chain_contradiction.hint, diagnostics.rule.chain_sign.message, diagnostics.rule.chain_sign.hint, diagnostics.rule.chain_unit.message, diagnostics.rule.chain_unit.hint
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.unit_unclassified.message, diagnostics.rule.unit_unclassified.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint, diagnostics.rule.chain_drift.message, diagnostics.rule.chain_drift.hint, diagnostics.rule.chain_frozen.message, diagnostics.rule.chain_frozen.hint, diagnostics.rule.chain_contradiction.message, diagnostics.rule.chain_contradiction.hint, diagnostics.rule.chain_sign.message, diagnostics.rule.chain_sign.hint, diagnostics.rule.chain_unit.message, diagnostics.rule.chain_unit.hint, diagnostics.rule.performance_over_budget.message, diagnostics.rule.performance_over_budget.hint
+    // Die Details kommen als Rohwerte vom Server. Zahlen bekommen das Format
+    // der Oberflaeche, reason ist ein Katalogschluessel und wird uebersetzt
+    // (ohne Text leer), damit kein Schluessel roh im Satz steht.
+    warningParams(item) {
+      const details = item && item.details;
+      if (!details) return undefined;
+      const params = {};
+      for (const [name, value] of Object.entries(details)) {
+        if (typeof value === 'number') {
+          params[name] = window.I18n.formatNumber(value, Number.isInteger(value) ? 0 : 1);
+        } else {
+          params[name] = value;
+        }
+      }
+      if (typeof details.reason === 'string') {
+        params.reason = details.reason && window.I18n && window.I18n.has(details.reason) ? t(details.reason) : '';
+      }
+      return params;
+    },
+
     warningText(item, part) {
       const key = item && item.key ? `diagnostics.rule.${item.key}.${part}` : '';
-      if (key && window.I18n && window.I18n.has(key)) return t(key);
+      if (key && window.I18n && window.I18n.has(key)) return t(key, this.warningParams(item));
       return (item && item[part]) || '';
+    },
+
+    // Der Knopf zur Unterseite steht nur, wenn der Befund eine nennt
+    // (details.settings_page). Sonst ist der Link leer.
+    settingsHref(group) {
+      if (!group || !group.settingsPage) return '';
+      return `${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=${encodeURIComponent(group.settingsPage)}`;
     },
   });
 
