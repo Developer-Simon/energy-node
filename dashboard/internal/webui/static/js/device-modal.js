@@ -382,11 +382,29 @@
       return String(value);
     },
 
-    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint, diagnostics.rule.chain_drift.message, diagnostics.rule.chain_drift.hint, diagnostics.rule.chain_frozen.message, diagnostics.rule.chain_frozen.hint, diagnostics.rule.chain_contradiction.message, diagnostics.rule.chain_contradiction.hint, diagnostics.rule.chain_sign.message, diagnostics.rule.chain_sign.hint, diagnostics.rule.chain_unit.message, diagnostics.rule.chain_unit.hint
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint, diagnostics.rule.chain_drift.message, diagnostics.rule.chain_drift.hint, diagnostics.rule.chain_frozen.message, diagnostics.rule.chain_frozen.hint, diagnostics.rule.chain_contradiction.message, diagnostics.rule.chain_contradiction.hint, diagnostics.rule.chain_sign.message, diagnostics.rule.chain_sign.hint, diagnostics.rule.chain_unit.message, diagnostics.rule.chain_unit.hint, diagnostics.rule.performance_over_budget.message, diagnostics.rule.performance_over_budget.hint
+    // Details des Befunds (Zahlen, Grund) fuellen die Platzhalter des Textes.
     warningText(item, part) {
       const key = item && item.key ? `diagnostics.rule.${item.key}.${part}` : '';
-      if (key && window.I18n && window.I18n.has(key)) return t(key);
+      if (key && window.I18n && window.I18n.has(key)) return t(key, this.warningParams(item));
       return (item && item[part]) || '';
+    },
+
+    warningParams(item) {
+      const details = item && item.details;
+      if (!details) return undefined;
+      const params = {};
+      for (const [name, value] of Object.entries(details)) {
+        if (typeof value === 'number') {
+          params[name] = window.I18n.formatNumber(value, Number.isInteger(value) ? 0 : 1);
+        } else {
+          params[name] = value;
+        }
+      }
+      if (typeof details.reason === 'string') {
+        params.reason = details.reason && window.I18n && window.I18n.has(details.reason) ? t(details.reason) : '';
+      }
+      return params;
     },
 
     // Die Aktivitaet kommt vom Server (GET /api/v1/devices/{id}/activity), der

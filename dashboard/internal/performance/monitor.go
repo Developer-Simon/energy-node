@@ -45,19 +45,23 @@ type Monitor struct {
 	counter *Counter
 	opts    Options
 
-	mu        sync.Mutex
-	started   bool
-	start     time.Time // first Tick, starts the warmup
-	last      Raw       // baseline of the previous Tick
-	lastAt    time.Time
-	device    DeviceSignals
-	cpu       *Ring
-	unitCPU   map[string]*Ring
-	clients   *Ring
-	swap      *Ring
-	ramFree   *Ring
-	prevCount map[string]int64
-	msgPerMin map[string]float64
+	mu         sync.Mutex
+	started    bool
+	start      time.Time // first Tick, starts the warmup
+	last       Raw       // baseline of the previous Tick
+	lastAt     time.Time
+	device     DeviceSignals
+	cpu        *Ring
+	unitCPU    map[string]*Ring
+	clients    *Ring
+	swap       *Ring
+	ramFree    *Ring
+	prevCount  map[string]int64
+	msgPerMin  map[string]float64
+	changeDir  string  // data dir of last-change.json, empty: memory only
+	change     *Change // applied change under evaluation, nil when none
+	budget     func(Snapshot) Budget
+	overBudget OverBudgetTracker
 }
 
 // Snapshot is the monitor's view at one point in time.
@@ -136,17 +140,160 @@ func (m *Monitor) Tick(now time.Time) {
 
 	dt := now.Sub(m.lastAt)
 	m.countMessages(now, dt)
+	sampled := false
 	if dt > 0 && now.Sub(m.start) >= m.opts.Warmup && !m.busy() {
 		m.sample(now, dt, raw)
+		sampled = true
 	}
 	m.last, m.lastAt = raw, now
+	if sampled {
+		m.evaluateOverBudget(now, dt)
+	}
+	m.evaluateChange(now)
+}
+
+// SetBudget sets the budget the over-budget check compares with. fn runs inside
+// Tick and receives the snapshot of that tick, so it must not call the Monitor.
+func (m *Monitor) SetBudget(fn func(Snapshot) Budget) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.budget = fn
+}
+
+// OverBudget returns the over-budget finding and whether it stands. The finding
+// follows the readings of Tick, now is not used for the decision.
+func (m *Monitor) OverBudget(now time.Time) (OverBudgetInfo, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.overBudget.Info()
+}
+
+// evaluateOverBudget feeds the tracker with the P95 of the last five minutes.
+// The caller holds m.mu and has just kept a sample. An empty window skips the
+// reading. A gap longer than two intervals (a stall) counts as one interval.
+func (m *Monitor) evaluateOverBudget(now time.Time, step time.Duration) {
+	if m.budget == nil {
+		return
+	}
+	values := m.cpu.Since(now.Add(-overBudgetWindow))
+	if len(values) == 0 {
+		return
+	}
+	if step > 2*m.opts.Interval {
+		step = m.opts.Interval
+	}
+	budget := m.budget(m.snapshotLocked(now))
+	m.overBudget.Feed(percentile(values, 0.95), budget, step)
+}
+
+// AttachChange sets the data dir of the change file and loads the change in it.
+// A change that was running when the dashboard stopped is checked again from now.
+func (m *Monitor) AttachChange(dir string, now time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.changeDir = dir
+	c, err := LoadChange(dir)
+	if err != nil {
+		return err
+	}
+	m.change = c
+	if c != nil && c.State == "running" {
+		c.Restarted = true
+		c.At = now
+		return m.saveChangeLocked()
+	}
+	return nil
+}
+
+// RecordChange holds c as the current change and saves it when a data dir is attached.
+func (m *Monitor) RecordChange(c Change) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	held := cloneChange(c)
+	m.change = &held
+	return m.saveChangeLocked()
+}
+
+// CurrentChange returns a copy of the held change, nil when none is held.
+func (m *Monitor) CurrentChange() *Change {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.change == nil {
+		return nil
+	}
+	c := cloneChange(*m.change)
+	return &c
+}
+
+// MarkUndone sets the held change to undone and saves it. Without a held change it does nothing.
+func (m *Monitor) MarkUndone() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.change == nil {
+		return nil
+	}
+	m.change.State = "undone"
+	return m.saveChangeLocked()
+}
+
+// evaluateChange judges a running change once its check window has passed.
+// The caller holds m.mu. The change file is written only when the state changes.
+func (m *Monitor) evaluateChange(now time.Time) {
+	if m.change == nil || m.change.State != "running" {
+		return
+	}
+	// m.cpu is read directly, SamplesSince would take m.mu again.
+	m.change.Evaluate(now, m.cpu.Since(m.change.At))
+	if m.change.State != "running" {
+		_ = m.saveChangeLocked()
+	}
+}
+
+// saveChangeLocked writes the held change when a data dir is attached.
+// The caller holds m.mu.
+func (m *Monitor) saveChangeLocked() error {
+	if m.changeDir == "" || m.change == nil {
+		return nil
+	}
+	return SaveChange(m.changeDir, *m.change)
+}
+
+// cloneChange copies c, including its maps and Measured.
+func cloneChange(c Change) Change {
+	out := c
+	out.Before = cloneRows(c.Before)
+	out.After = cloneRows(c.After)
+	if c.Measured != nil {
+		v := *c.Measured
+		out.Measured = &v
+	}
+	return out
+}
+
+func cloneRows(rows map[RowID]float64) map[RowID]float64 {
+	if rows == nil {
+		return nil
+	}
+	out := make(map[RowID]float64, len(rows))
+	for row, v := range rows {
+		out[row] = v
+	}
+	return out
 }
 
 // Snapshot returns the window ending at now.
 func (m *Monitor) Snapshot(now time.Time) Snapshot {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.snapshotLocked(now)
+}
 
+// snapshotLocked is Snapshot for a caller that holds m.mu.
+func (m *Monitor) snapshotLocked(now time.Time) Snapshot {
 	m.cpu.Prune(now)
 	m.clients.Prune(now)
 	m.swap.Prune(now)

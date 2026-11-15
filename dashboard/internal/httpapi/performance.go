@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
@@ -21,6 +22,14 @@ type PerformanceProvider interface {
 	Snapshot(now time.Time) performance.Snapshot
 }
 
+// ChangeStore holds the applied change of the performance page. The monitor
+// implements it. A nil store means no change tracking.
+type ChangeStore interface {
+	CurrentChange() *performance.Change
+	RecordChange(performance.Change) error
+	MarkUndone() error
+}
+
 // PerformanceDeps wires the performance page. Rates gives the current poll
 // periods, Floors the poll floor per service ID. Without it the route answers
 // 501. The fields after Floors are the write paths of the rate apply
@@ -29,6 +38,7 @@ type PerformanceDeps struct {
 	Provider PerformanceProvider
 	Rates    func() performance.RateConfig
 	Floors   map[string]float64
+	Changes  ChangeStore
 
 	Auth       *auth.Manager
 	Settings   *settings.Store
@@ -55,7 +65,7 @@ type performanceBody struct {
 	External         *performanceExternal `json:"external"`
 	Rows             []performanceRow     `json:"rows"`
 	Units            []performanceUnit    `json:"units"`
-	Change           *performanceChange   `json:"change"`
+	Change           *performance.Change  `json:"change"`
 }
 
 type performanceDeduction struct {
@@ -103,10 +113,6 @@ type performanceUnit struct {
 	Fixed     bool     `json:"fixed"`
 }
 
-// performanceChange is filled by the change proposal of the page; until then
-// the field is null.
-type performanceChange struct{}
-
 // handlePerformance serves GET /api/v1/performance. The budget comes from the
 // settings (0 is the default for the core count). A row is editable when the
 // session holds its right; without a session every row is editable, as the
@@ -128,12 +134,7 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			ramFree = &value
 		}
 		defaultTarget := performance.DefaultTarget(snap.Cores)
-		target := defaultTarget
-		if store != nil {
-			if value, err := store.LoadSettings(); err == nil && value.PerformanceTargetPct > 0 {
-				target = value.PerformanceTargetPct
-			}
-		}
+		target := performanceTarget(store, snap, nil)
 
 		rows, base := performanceRows(snap, deps)
 		user, hasUser := auth.UserFromContext(r.Context())
@@ -156,6 +157,9 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			BasePct: base,
 			Rows:    []performanceRow{},
 			Units:   []performanceUnit{},
+		}
+		if deps.Changes != nil {
+			body.Change = deps.Changes.CurrentChange()
 		}
 
 		for _, row := range rows {
@@ -195,6 +199,27 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 		}
 		writeJSON(w, body)
 	}
+}
+
+// PerformanceTarget is the saved budget in percent, or the default for the core
+// count of snap. The over-budget check uses the same value as the page.
+func PerformanceTarget(store *settings.Store, snap performance.Snapshot) int {
+	return performanceTarget(store, snap, nil)
+}
+
+// performanceTarget is the budget in percent the page works with: the request
+// target when given, else the saved target, else the default for the core count.
+func performanceTarget(store *settings.Store, snap performance.Snapshot, requested *int) int {
+	if requested != nil {
+		return *requested
+	}
+	target := performance.DefaultTarget(snap.Cores)
+	if store != nil {
+		if value, err := store.LoadSettings(); err == nil && value.PerformanceTargetPct > 0 {
+			target = value.PerformanceTargetPct
+		}
+	}
+	return target
 }
 
 // performanceRows builds the rows the page shows and the base load they leave
@@ -263,7 +288,8 @@ func handlePerformanceApply(deps *PerformanceDeps, now func() time.Time) http.Ha
 			return
 		}
 
-		rows, base := performanceRows(deps.Provider.Snapshot(now()), deps)
+		snap := deps.Provider.Snapshot(now())
+		rows, base := performanceRows(snap, deps)
 		writer := &rateWriter{
 			Settings:   deps.Settings,
 			Configs:    deps.Configs,
@@ -276,12 +302,7 @@ func handlePerformanceApply(deps *PerformanceDeps, now func() time.Time) http.Ha
 			return auth.HasRole(user, performanceRightRole(right))
 		})
 		if err != nil {
-			var saveErr *saveError
-			if errors.As(err, &saveErr) {
-				writeErrorDetail(w, saveErr.Status, saveErr.Code, saveErr.Err)
-				return
-			}
-			writeErrorDetail(w, http.StatusInternalServerError, "apply_failed", err)
+			writePerformanceWriteError(w, err)
 			return
 		}
 
@@ -293,8 +314,163 @@ func handlePerformanceApply(deps *PerformanceDeps, now func() time.Time) http.Ha
 			selection[id] = value
 		}
 		resp.ExpectedPct = performance.Estimate(base, rows, selection)
+		resp.Change = recordAppliedChange(deps, now(), snap, req.TargetPct, rows, selection, resp.ExpectedPct)
 		writeJSON(w, resp)
 	}
+}
+
+// writePerformanceWriteError answers a failed rate write with the status and code
+// the writer chose, or apply_failed for any other error.
+func writePerformanceWriteError(w http.ResponseWriter, err error) {
+	var saveErr *saveError
+	if errors.As(err, &saveErr) {
+		writeErrorDetail(w, saveErr.Status, saveErr.Code, saveErr.Err)
+		return
+	}
+	writeErrorDetail(w, http.StatusInternalServerError, "apply_failed", err)
+}
+
+// rollbackConflictBody is the 409 answer of a rollback that found rows changed
+// since the apply: the error body beside the current value of each such row.
+type rollbackConflictBody struct {
+	errorBody
+	Conflicts map[performance.RowID]float64 `json:"conflicts"`
+}
+
+// rollbackBody is the answer of POST /api/v1/performance/rollback.
+type rollbackBody struct {
+	Change        *performance.Change `json:"change"`
+	LeftUnchanged []string            `json:"left_unchanged"`
+}
+
+// handlePerformanceRollback serves POST /api/v1/performance/rollback. It puts the
+// rows of the held change back to their values before the apply. Rows that
+// moved since the apply are conflicts: without only_unchanged the rollback
+// refuses and writes nothing, with it those rows stay as they are. The rights
+// are checked per row inside the writer, as for the apply. A rollback creates
+// no change of its own.
+func handlePerformanceRollback(deps *PerformanceDeps, now func() time.Time) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			methodNotAllowed(w, http.MethodPost)
+			return
+		}
+		if deps == nil || deps.Provider == nil || deps.Rates == nil || deps.Settings == nil || deps.Configs == nil {
+			writeError(w, http.StatusNotImplemented, "performance_unavailable", "Die Leistungsmessung ist nicht verfügbar")
+			return
+		}
+		if deps.Auth == nil {
+			writeError(w, http.StatusNotImplemented, "authentication_unavailable", "Anmeldung ist nicht konfiguriert")
+			return
+		}
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+			return
+		}
+		if !requireHTTPS(w, r) || !requireCSRF(w, r, deps.Auth) {
+			return
+		}
+		var req performance.RollbackRequest
+		if err := decodeBody(r, &req); err != nil {
+			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
+			return
+		}
+
+		if deps.Changes == nil {
+			writeError(w, http.StatusConflict, "no_change_to_undo", "Es gibt keine Änderung zum Zurücknehmen")
+			return
+		}
+		change := deps.Changes.CurrentChange()
+		if change == nil || change.State == "undone" {
+			writeError(w, http.StatusConflict, "no_change_to_undo", "Es gibt keine Änderung zum Zurücknehmen")
+			return
+		}
+
+		snap := deps.Provider.Snapshot(now())
+		rows, _ := performanceRows(snap, deps)
+		current := make(map[performance.RowID]float64, len(rows))
+		for _, row := range rows {
+			current[row.ID] = row.Current
+		}
+		conflicts := performance.Conflicts(*change, current)
+		if len(conflicts) > 0 && !req.OnlyUnchanged {
+			writeJSONStatus(w, http.StatusConflict, rollbackConflictBody{
+				errorBody: errorBody{Code: "rollback_conflict", Message: "Einige Zeilen wurden seit der Übernahme geändert", MessageKey: "error.rollback_conflict"},
+				Conflicts: conflicts,
+			})
+			return
+		}
+
+		// Rows that are not present have no current value and are skipped. A
+		// conflicting row keeps its current value.
+		rates := make(map[performance.RowID]float64, len(change.After))
+		for id := range change.After {
+			if _, present := current[id]; !present {
+				continue
+			}
+			if _, conflict := conflicts[id]; conflict {
+				continue
+			}
+			rates[id] = change.Before[id]
+		}
+		if len(rates) > 0 {
+			writer := &rateWriter{
+				Settings:   deps.Settings,
+				Configs:    deps.Configs,
+				SystemPath: deps.SystemPath,
+				DataDir:    deps.DataDir,
+				Executor:   deps.Executor,
+				NodeRates:  deps.NodeRates,
+			}
+			_, err := writer.Apply(r.Context(), ApplyRequest{Rates: rates}, rows, func(right string) bool {
+				return auth.HasRole(user, performanceRightRole(right))
+			})
+			if err != nil {
+				writePerformanceWriteError(w, err)
+				return
+			}
+		}
+
+		// A failing save does not fail the rollback, the rates are already written.
+		_ = deps.Changes.MarkUndone()
+		left := make([]string, 0, len(conflicts))
+		for id := range conflicts {
+			left = append(left, string(id))
+		}
+		sort.Strings(left)
+		writeJSON(w, rollbackBody{Change: deps.Changes.CurrentChange(), LeftUnchanged: left})
+	}
+}
+
+// recordAppliedChange keeps the rows whose period the apply changed, with their
+// values before and after, and the budget the page checks against. It returns
+// nil and records nothing when no row changed. A failing save does not fail the
+// apply, the write has already happened.
+func recordAppliedChange(deps *PerformanceDeps, at time.Time, snap performance.Snapshot, requested *int, rows []performance.Row, selection map[performance.RowID]float64, expected float64) *performance.Change {
+	change := performance.Change{
+		At:       at,
+		Before:   map[performance.RowID]float64{},
+		After:    map[performance.RowID]float64{},
+		Expected: expected,
+		State:    "running",
+	}
+	for _, row := range rows {
+		value, ok := selection[row.ID]
+		if !ok || value == row.Current {
+			continue
+		}
+		change.Before[row.ID] = row.Current
+		change.After[row.ID] = value
+	}
+	if len(change.After) == 0 {
+		return nil
+	}
+	change.Available = float64(performanceTarget(deps.Settings, snap, requested)) - performance.DeductionFor(snap).Pct
+	if deps.Changes != nil {
+		_ = deps.Changes.RecordChange(change)
+	}
+	return &change
 }
 
 func deductionBody(d performance.Deduction) performanceDeduction {

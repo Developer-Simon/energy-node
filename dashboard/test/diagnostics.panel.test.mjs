@@ -63,6 +63,41 @@ test('warningGroups puts one group per cause, most urgent first', () => {
   ]);
 });
 
+test('warningText fills the over-budget placeholders from details', () => {
+  const panel = createDiagnosticsPanel();
+  const item = {
+    rule_id: 'performance_over_budget',
+    key: 'performance_over_budget',
+    details: {used_pct: 92.5, available_pct: 70, target_pct: 70, deduction_pct: 0, minutes: 35, reason: '', settings_page: 'performance'},
+  };
+  const message = panel.warningText(item, 'message');
+  assert.equal(message, 'CPU load has been over the available budget for 35 minutes: 92.5 % used, 70 % available.');
+});
+
+test('warningText translates the reason key before it fills a placeholder', () => {
+  const panel = createDiagnosticsPanel();
+  panel.testWindow.I18n.catalog['diagnostics.rule.performance_over_budget.hint'] = 'Reason: {reason}';
+  const item = {key: 'performance_over_budget', details: {reason: 'performance.deduction.throttled'}};
+  assert.equal(panel.warningText(item, 'hint'), 'Reason: The CPU is throttled');
+  const unknown = {key: 'performance_over_budget', details: {reason: ''}};
+  assert.equal(panel.warningText(unknown, 'hint'), 'Reason: ');
+});
+
+test('warningGroups exposes the settings page of a group from its details', () => {
+  const panel = createDiagnosticsPanel();
+  panel.warnings = [
+    {rule_id: 'performance_over_budget', key: 'performance_over_budget', severity: 'warning', device_id: 'node', details: {settings_page: 'performance', used_pct: 90, available_pct: 70, minutes: 30}},
+    ...sampleWarnings(),
+  ];
+  const groups = panel.warningGroups;
+  const budget = groups.find(group => group.id === 'performance_over_budget');
+  assert.equal(budget.settingsPage, 'performance');
+  assert.equal(panel.settingsHref(budget), '/?panel=settings&page=performance');
+  const stale = groups.find(group => group.id === 'no_state_update');
+  assert.equal(stale.settingsPage, '');
+  assert.equal(panel.settingsHref(stale), '');
+});
+
 test('ruleTitle falls back to the raw rule_id for rules without a catalog title', () => {
   const panel = createDiagnosticsPanel();
   assert.equal(panel.ruleTitle({rule_id: 'BrandNewRule', key: 'brand_new'}), 'BrandNewRule');

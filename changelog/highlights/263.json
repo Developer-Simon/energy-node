@@ -1,0 +1,29 @@
+{
+  "de": {
+    "*": "Die Leistungsseite prüft die Wirkung übernommener Raten und nimmt sie auf Wunsch zurück"
+  },
+  "en": {
+    "*": "The Performance page checks the effect of applied rates and rolls them back on request"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_diagnostics",
+          "page": "performance",
+          "panel": "settings-panel",
+          "target": "performance-rates",
+          "text": {
+            "de": "Nach dem Übernehmen prüft die Seite 15 Minuten lang, ob die Messung zur Erwartung passt. Liegt die Last über dem Budget, bietet sie die Rücknahme an. Ohne dein Zutun ändert sich nichts. Hält die Überlast länger an, meldet die Diagnose einen Befund mit Link hierher.",
+            "en": "After you apply, the page checks for 15 minutes whether the measurement matches the expectation. If the load is above the budget, it offers a rollback. Nothing changes unless you click. If the overload lasts, the diagnostics report a finding with a link back here."
+          },
+          "title": {
+            "de": "Wirkung prüfen und zurücknehmen",
+            "en": "Check the effect and roll back"
+          }
+        }
+      ]
+    }
+  }
+}

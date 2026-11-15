@@ -483,3 +483,146 @@ test('notes() names the period and, while measuring, when the suggestions start'
   assert.ok(texts.includes('performance.js.note.period'), texts.join(' | '));
   assert.ok(texts.includes('performance.js.note.proposal_in'), texts.join(' | '));
 });
+
+// The change of the API: shelly went from 20 s to 5 s, dash from 3 s to 2 s.
+// The check started five minutes ago, so 10 minutes are left.
+const CHANGE = {
+  at: new Date(Date.now() - 5 * 60000).toISOString(),
+  before: { shelly: 20, dash: 3 },
+  after: { shelly: 5, dash: 2 },
+  expected_pct: 24.4,
+  available_pct: 70,
+  state: 'running',
+  restarted: false,
+};
+
+// A page with the given change and a fake rollback endpoint.
+async function checkPage(change, rollback) {
+  const calls = [];
+  const routes = {
+    '/api/v1/performance': reply(200, performanceBody({ measured_s: 21600, change })),
+    'POST /api/v1/performance/rollback': rollback || reply(200, { change: null, left_unchanged: [] }),
+    '/api/v1/auth/session': reply(200, { csrf_token: 'tok' }),
+  };
+  const { fetchImpl } = router(routes, calls);
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  return { ...made, calls };
+}
+
+const rollbackCalls = (calls) => calls.filter((call) => call.url === '/api/v1/performance/rollback');
+
+test('checkState() follows the server state, a local conflict overrides it until undone', async () => {
+  for (const state of ['running', 'ok', 'bad', 'undone']) {
+    const { page } = await checkPage({ ...CHANGE, state });
+    assert.equal(page.checkState(), state);
+  }
+  const { page } = await checkPage({ ...CHANGE, state: 'bad' });
+  page.conflict = { shelly: 10 };
+  assert.equal(page.checkState(), 'conflict');
+
+  const undone = await checkPage({ ...CHANGE, state: 'undone' });
+  undone.page.conflict = { shelly: 10 };
+  assert.equal(undone.page.checkState(), 'undone', 'an undone change stays undone');
+});
+
+test('checkTone() and checkTitle() give the tone and title of each state', async () => {
+  const running = await checkPage(CHANGE);
+  assert.equal(running.page.checkTone(), 'info');
+  assert.equal(running.page.checkTitle(), 'Wirkung wird geprüft, noch 10 Minuten');
+
+  const ok = await checkPage({ ...CHANGE, state: 'ok', measured_pct: 24 });
+  assert.equal(ok.page.checkTone(), 'ok');
+  assert.equal(ok.page.checkTitle(), 'Wirkung wie erwartet');
+
+  const bad = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 });
+  assert.equal(bad.page.checkTone(), 'bad');
+  assert.equal(bad.page.checkTitle(), 'Grenze nach der Übernahme überschritten');
+
+  const undone = await checkPage({ ...CHANGE, state: 'undone' });
+  assert.equal(undone.page.checkTone(), 'ok');
+  assert.equal(undone.page.checkTitle(), 'Zurückgenommen');
+
+  const conflict = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 });
+  conflict.page.conflict = { shelly: 10 };
+  assert.equal(conflict.page.checkTone(), 'warn');
+  assert.equal(conflict.page.checkTitle(), 'Ein Wert wurde inzwischen anders gesetzt');
+});
+
+test('checkNote() adds the restart sentence while a restarted check runs', async () => {
+  const restarted = await checkPage({ ...CHANGE, restarted: true });
+  assert.ok(restarted.page.checkNote().endsWith(de['performance.js.check.note.restarted']), restarted.page.checkNote());
+
+  const plain = await checkPage(CHANGE);
+  assert.ok(!plain.page.checkNote().includes(de['performance.js.check.note.restarted']));
+});
+
+test('a bad check puts the measurement in the head instead of the estimate', async () => {
+  const { page } = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 });
+  assert.equal(page.headTone(), 'bad');
+  assert.ok(page.headTitle().startsWith('42,0 % gemessen'), page.headTitle());
+  assert.ok(page.headNote().includes('Geschätzt waren 24,4 %'), page.headNote());
+});
+
+test('tryUndo() on a 409 rollback_conflict switches to the conflict state and sends only_unchanged false', async () => {
+  const conflict = reply(409, {
+    code: 'rollback_conflict',
+    message: 'Einige Zeilen wurden seit der Übernahme geändert',
+    conflicts: { shelly: 10 },
+  });
+  const { page, calls } = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 }, conflict);
+  await page.tryUndo();
+
+  assert.equal(page.checkState(), 'conflict');
+  assert.deepEqual({ ...page.conflict }, { shelly: 10 }, 'the conflicts come from the 409 body');
+  const [call] = rollbackCalls(calls);
+  assert.equal(call.method, 'POST');
+  assert.deepEqual(JSON.parse(call.body), { only_unchanged: false });
+  assert.equal(call.headers['X-CSRF-Token'], 'tok');
+});
+
+test('tryUndo() on success raises a toast and reloads the page', async () => {
+  const { page, calls, stores } = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 });
+  await page.tryUndo();
+  assert.equal(stores.toasts.items.length, 1);
+  assert.equal(stores.toasts.items[0].severity, 'info');
+  assert.equal(calls.filter((call) => call.url === '/api/v1/performance').length, 2, 'load() runs again');
+});
+
+test('tryUndo() on another 409 shows its message and keeps the state', async () => {
+  const none = reply(409, { code: 'no_change_to_undo', message: 'Es gibt keine Änderung zum Zurücknehmen' });
+  const { page, stores } = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 }, none);
+  await page.tryUndo();
+  assert.deepEqual({ ...page.conflict }, {});
+  assert.equal(stores.toasts.items.length, 1);
+  assert.equal(stores.toasts.items[0].severity, 'critical');
+});
+
+test('undoRest() sends only_unchanged true, clears the conflict and reloads', async () => {
+  const { page, calls } = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 });
+  page.conflict = { shelly: 10 };
+  await page.undoRest();
+  const [call] = rollbackCalls(calls);
+  assert.deepEqual(JSON.parse(call.body), { only_unchanged: true });
+  assert.deepEqual({ ...page.conflict }, {});
+  assert.equal(calls.filter((c) => c.url === '/api/v1/performance').length, 2, 'load() runs again');
+});
+
+test('keepAll() clears the conflict display and leaves the change as the server has it', async () => {
+  const { page, calls } = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 });
+  page.conflict = { shelly: 10 };
+  page.keepAll();
+  assert.deepEqual({ ...page.conflict }, {});
+  assert.equal(page.checkState(), 'bad');
+  assert.equal(rollbackCalls(calls).length, 0, 'keeping sends nothing');
+});
+
+test('changeList() lists each changed row and marks the conflicting one with its current value', async () => {
+  const { page } = await checkPage({ ...CHANGE, state: 'bad', measured_pct: 42 });
+  page.conflict = { shelly: 10 };
+  const list = page.changeList();
+  assert.equal(list.map((row) => row.id).sort().join(","), "dash,shelly");
+  const shelly = list.find((row) => row.id === 'shelly');
+  assert.ok(shelly.now !== null && shelly.now.includes('10'), shelly.now);
+  assert.equal(list.find((row) => row.id === 'dash').now, null);
+});

@@ -178,3 +178,181 @@ func TestMonitorFillsRoundSFromCallback(t *testing.T) {
 		}
 	}
 }
+
+// busySteps returns a source with busyPerTick busy and 100 total jiffies per Read on four cores.
+// The CPU load in percent is therefore busyPerTick.
+func busySteps(busyPerTick uint64) *scriptedSource {
+	return &scriptedSource{step: func(i int) Raw {
+		return Raw{CPUBusy: busyPerTick * uint64(i), CPUTotal: 100 * uint64(i), Cores: 4, Units: map[string]UnitRaw{}}
+	}}
+}
+
+func TestTickEvaluatesRunningChange(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	const interval = 15 * time.Second
+	cases := []struct {
+		name     string
+		busy     uint64
+		want     string
+		measured float64
+	}{
+		{"ok", 50, "ok", 50},
+		{"bad", 80, "bad", 80},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			m := NewMonitor(busySteps(tc.busy), nil, Options{Interval: interval, Window: 6 * time.Hour})
+			if err := m.AttachChange(dir, t0); err != nil {
+				t.Fatalf("AttachChange: %v", err)
+			}
+			if err := m.RecordChange(Change{At: t0, Available: 70, State: "running"}); err != nil {
+				t.Fatalf("RecordChange: %v", err)
+			}
+
+			// Ticks 0..80 are 20 min. The change is 15 min old at tick 60.
+			for i := 0; i <= 80; i++ {
+				now := t0.Add(time.Duration(i) * interval)
+				m.Tick(now)
+				if i == 59 {
+					if c := m.CurrentChange(); c == nil || c.State != "running" {
+						t.Fatalf("before 15 min: change = %+v, want running", c)
+					}
+				}
+			}
+
+			c := m.CurrentChange()
+			if c == nil || c.State != tc.want {
+				t.Fatalf("change = %+v, want state %s", c, tc.want)
+			}
+			if c.Measured == nil || math.Abs(*c.Measured-tc.measured) > 1e-9 {
+				t.Fatalf("Measured = %v, want %v", c.Measured, tc.measured)
+			}
+			stored, err := LoadChange(dir)
+			if err != nil || stored == nil || stored.State != tc.want {
+				t.Fatalf("stored change = %+v, %v, want state %s", stored, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestAttachChangeMarksRestartedAndResetsAt(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	restart := t0.Add(time.Hour)
+
+	t.Run("running change restarts its check", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := SaveChange(dir, Change{At: t0, State: "running"}); err != nil {
+			t.Fatalf("SaveChange: %v", err)
+		}
+		m := NewMonitor(busySteps(50), nil, Options{})
+		if err := m.AttachChange(dir, restart); err != nil {
+			t.Fatalf("AttachChange: %v", err)
+		}
+		c := m.CurrentChange()
+		if c == nil || c.State != "running" || !c.Restarted || !c.At.Equal(restart) {
+			t.Fatalf("change = %+v, want running, Restarted, At %v", c, restart)
+		}
+		stored, err := LoadChange(dir)
+		if err != nil || stored == nil || !stored.Restarted || !stored.At.Equal(restart) {
+			t.Fatalf("stored change = %+v, %v, want Restarted and At %v", stored, err, restart)
+		}
+	})
+
+	t.Run("decided change is kept as loaded", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := SaveChange(dir, Change{At: t0, State: "ok"}); err != nil {
+			t.Fatalf("SaveChange: %v", err)
+		}
+		m := NewMonitor(busySteps(50), nil, Options{})
+		if err := m.AttachChange(dir, restart); err != nil {
+			t.Fatalf("AttachChange: %v", err)
+		}
+		c := m.CurrentChange()
+		if c == nil || c.State != "ok" || c.Restarted || !c.At.Equal(t0) {
+			t.Fatalf("change = %+v, want ok, not Restarted, At %v", c, t0)
+		}
+	})
+
+	t.Run("missing file holds no change", func(t *testing.T) {
+		m := NewMonitor(busySteps(50), nil, Options{})
+		if err := m.AttachChange(t.TempDir(), restart); err != nil {
+			t.Fatalf("AttachChange: %v", err)
+		}
+		if c := m.CurrentChange(); c != nil {
+			t.Fatalf("change = %+v, want nil", c)
+		}
+	})
+}
+
+func TestCurrentChangeIsACopy(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	m := NewMonitor(busySteps(50), nil, Options{})
+	if c := m.CurrentChange(); c != nil {
+		t.Fatalf("CurrentChange without a change = %+v, want nil", c)
+	}
+
+	measured := 42.0
+	if err := m.AttachChange(t.TempDir(), t0); err != nil {
+		t.Fatalf("AttachChange: %v", err)
+	}
+	if err := m.RecordChange(Change{
+		At:       t0,
+		Before:   map[RowID]float64{RowShelly: 10},
+		After:    map[RowID]float64{RowShelly: 5},
+		State:    "running",
+		Measured: &measured,
+	}); err != nil {
+		t.Fatalf("RecordChange: %v", err)
+	}
+
+	c := m.CurrentChange()
+	c.Before[RowShelly] = 99
+	c.After[RowTick] = 7
+	*c.Measured = 1
+	c.State = "undone"
+
+	again := m.CurrentChange()
+	if again.Before[RowShelly] != 10 {
+		t.Errorf("Before = %v, want shelly 10", again.Before)
+	}
+	if _, ok := again.After[RowTick]; ok {
+		t.Errorf("After = %v, want no tick row", again.After)
+	}
+	if again.Measured == nil || *again.Measured != 42 {
+		t.Errorf("Measured = %v, want 42", again.Measured)
+	}
+	if again.State != "running" {
+		t.Errorf("State = %q, want running", again.State)
+	}
+}
+
+func TestMarkUndoneSurvivesReload(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	dir := t.TempDir()
+
+	empty := NewMonitor(busySteps(50), nil, Options{})
+	if err := empty.MarkUndone(); err != nil {
+		t.Fatalf("MarkUndone without a change: %v", err)
+	}
+
+	first := NewMonitor(busySteps(50), nil, Options{})
+	if err := first.AttachChange(dir, t0); err != nil {
+		t.Fatalf("AttachChange: %v", err)
+	}
+	if err := first.RecordChange(Change{At: t0, State: "running"}); err != nil {
+		t.Fatalf("RecordChange: %v", err)
+	}
+	if err := first.MarkUndone(); err != nil {
+		t.Fatalf("MarkUndone: %v", err)
+	}
+
+	second := NewMonitor(busySteps(50), nil, Options{})
+	if err := second.AttachChange(dir, t0.Add(time.Hour)); err != nil {
+		t.Fatalf("AttachChange after reload: %v", err)
+	}
+	c := second.CurrentChange()
+	if c == nil || c.State != "undone" || c.Restarted {
+		t.Fatalf("change after reload = %+v, want undone and not Restarted", c)
+	}
+}

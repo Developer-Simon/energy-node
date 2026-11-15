@@ -138,3 +138,7 @@ payload, so no orphaned entities stay behind.
 
 The same engine is available as a native Home Assistant integration that you
 can install through HACS. See [`ha/battery-soc.md`](../ha/battery-soc.md).
+
+## Polling limit on the Performance page
+
+The lowest polling interval the Performance page offers is 1 s (`poll_floor_s` in the manifest). The service only calculates and asks no device, so the limit is the lowest step the page offers.

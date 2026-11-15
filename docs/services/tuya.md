@@ -20,3 +20,7 @@ fills in the number.
 Each device gets a `switch` entity with its state on `outstation/<id>/switch`
 and commands on `outstation/<id>/set/switch`. A device that cannot be reached
 publishes `UNKNOWN` instead of an outdated on or off.
+
+## Polling limit on the Performance page
+
+The lowest polling interval the Performance page offers is 10 s (`poll_floor_s` in the manifest). Most devices accept only one local connection. LocalTuya warns below 10 s ([localtuya](https://github.com/rospogrigio/localtuya)).

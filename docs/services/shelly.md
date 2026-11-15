@@ -82,3 +82,7 @@ parse the device's report payload, and the normal HTTP poll still reads
 temperature, humidity and battery. This avoids the device's own MQTT client,
 because the Shelly firmware disables cloud access when MQTT is on. See the
 module docstring in `shelly_rpc_mqtt.py`.
+
+## Polling limit on the Performance page
+
+The lowest polling interval the Performance page offers is 2 s (`poll_floor_s` in the manifest). Shelly publishes no vendor value. Gen2 devices allow at most 6 parallel RPC channels ([RPC channels](https://shelly-api-docs.shelly.cloud/gen2/General/RPCChannels/)), and node-red-contrib-shelly polls every 5 s by default. The node stays at 2 s as the lowest step.

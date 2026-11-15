@@ -9,6 +9,13 @@ redirect_from:
 This page records how much CPU and RAM each service on the node needs, how
 that was measured and which optimisations came out of it.
 
+> **The Performance page replaces the manual measurement.** Settings, Performance
+> measures the device and every service continuously, proposes polling rates
+> from a shared CPU budget, applies them on one click, checks the effect for 15
+> minutes and offers a rollback. The commands in §1 explain where the figures
+> come from. They are background, not the way to measure any more. See
+> [The Performance page](#the-performance-page) at the end of this page.
+
 The measurement was taken on 2026-08-29 on the live node, a Raspberry Pi 1
 Model B Rev 2 (ARMv6, single core, 512 MB of which 427 MB are usable and the
 rest is reserved for the GPU). The node had been up for 11 days. The raw logs
@@ -221,3 +228,35 @@ dashboard and not in the bridges. The next steps are raising
 `:8080` connections are.
 
 5.5 (merging the bridges) is about RAM and needs a separate decision.
+
+## 7. The Performance page
+
+Settings, Performance reads `/proc` and the cgroups of the node services every
+15 seconds and keeps six hours of samples in memory only. After a restart the
+measurement starts again. Proposals need six hours of measurement, until then
+the page asks for a confirmation before it applies anything.
+
+The budget is the share of the CPU the node may use. The default limit is 60 %
+on one core and 70 % from two cores. Warning signals such as throttling, high
+temperature, little free RAM or swapping reduce the available budget by up to
+40 points. You can change the limit in steps of 5 % between 20 and 95 %.
+
+Every row is one polling rate with the steps the device allows. The lowest step
+is the device limit of the service, for example 2 s for Shelly. The limit is stored as
+`poll_floor_s` in the manifest of each service. The page of each service
+states the source of its value.
+
+Nothing changes without a click. After you apply, the page records the change
+and checks it for 15 minutes. If the 95th percentile of the measured load then
+stays below the available budget, the check passes. If it does not, the page
+shows the measurement instead of the estimate and makes the rollback the main
+button. The rollback puts back the values from before the change. A row that
+someone changed in the meantime is a conflict. The page then offers to roll
+back only the other rows or to leave everything as it is. The last change is
+kept in `performance/last-change.json` in the data directory and survives a
+restart. A check that was running then measures again from the start.
+
+If the node stays over the available budget for 30 minutes, the diagnostics
+raise the finding **Performance over budget**. It clears after 10 minutes below
+the budget minus 5 points. The measurement itself costs less than 0.5 % of one
+core.

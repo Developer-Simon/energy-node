@@ -139,7 +139,11 @@ const (
 type RouterDependencies struct {
 	// StorageFallback liefert den Ausweichmodus der Laufzeitdaten, "" solange
 	// das Datenlaufwerk genutzt wird. Der Befund storage_drive_missing haengt daran.
-	StorageFallback    func() string
+	StorageFallback func() string
+	// PerformanceStatus liefert den Befund performance_over_budget. Er haengt am
+	// Knoten NodeDeviceID.
+	PerformanceStatus  diagnostics.PerformanceStatus
+	NodeDeviceID       string
 	MQTT               mqttclient.StatusProvider
 	MQTTReconfigure    MQTTReconfigurer
 	MQTTCredentials    *mqttclient.CredentialStore
@@ -307,6 +311,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.StorageFallback != nil {
 		engine.SetStorageFallback(dependencies.StorageFallback)
 	}
+	if dependencies.PerformanceStatus != nil {
+		engine.SetPerformance(dependencies.PerformanceStatus, dependencies.NodeDeviceID)
+	}
 	now := dependencies.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -366,6 +373,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	g.HandleFunc("/api/v1/events", handleEventsWithStreams(reg, store, resolver, engine, dependencies.EnergyStats, dependencies.EventStreams))
 	g.HandleFunc("/api/v1/performance", handlePerformance(store, dependencies.Performance, now))
 	g.HandleFunc("/api/v1/performance/apply", handlePerformanceApply(dependencies.Performance, now))
+	g.HandleFunc("/api/v1/performance/rollback", handlePerformanceRollback(dependencies.Performance, now))
 	g.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	g.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	g.HandleFunc("/api/v1/energy/chains", handleEnergyChains(store, resolver, dependencies.Auth, reg, dependencies.ChainMonitor))
