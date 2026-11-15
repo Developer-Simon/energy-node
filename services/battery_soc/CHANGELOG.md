@@ -5,8 +5,8 @@
 ### Features
 
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
+- **performance:** show how much load the node puts on the device (#260) (b93bc98)
 - **performance:** add the poll floor and the budget setting (7f324af)
-- **performance:** show how much load the node puts on the device (#260)
 
 ### Refactors
 

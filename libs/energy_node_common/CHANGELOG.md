@@ -6,9 +6,9 @@
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
+- **performance:** show how much load the node puts on the device (#260) (b93bc98)
 - **common:** report the poll round duration in the service status (5a94108)
 - **performance:** add the poll floor and the budget setting (7f324af)
-- **performance:** show how much load the node puts on the device (#260)
 
 ### Refactors
 

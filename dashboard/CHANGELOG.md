@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.17-pre.15 (2026-11-06)
+## v0.11.17-pre.16 (2026-11-06)
 
 ### Features
 
@@ -15,6 +15,17 @@
 - **webui:** show tile skeletons while panels load (#242) (30e2fc3)
 - **settings:** load the settings subpages lazily (#250) (dc441a2)
 - **storage:** The system drive card now splits its usage into system, installation, data and backups (#252) (a8e8832)
+- **performance:** show how much load the node puts on the device (#260) (b93bc98)
+- **performance:** apply selected rates through the existing write paths (f63c98e)
+- **performance:** add the apply endpoint for the rate selection (2879371)
+- **webui:** add the pure rate and budget core for the performance page (e34b998)
+- **webui:** add rate selection and apply logic to the performance page (60a7a76)
+- **webui:** show the rate rows, limit stepper and apply actions on the performance page (ba1e53e)
+- **webui:** add the rates tour and English texts for the performance page (211688a)
+- **performance:** refine the rate rows after the first review (7ff2113)
+- **performance:** hint at stored values below the source floor, move the live update interval (495c737)
+- **performance:** choose polling rates and apply them from the performance page (#262)
+- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **common:** report the poll round duration in the service status (5a94108)
 - **performance:** read device and unit counters from proc and cgroups (68d3395)
 - **performance:** count messages per service and keep a ring buffer (ca8a559)
@@ -27,8 +38,6 @@
 - **webui:** add the performance settings page (250332c)
 - **webui:** translate the performance page and bump the settings script (1a1490e)
 - **performance:** serve fake scenarios from a state file in the demo (5cd4d7f)
-- **performance:** show how much load the node puts on the device (#260)
-- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **storage:** measure the system disk parts per folder group (33e03a7)
 - **storage:** cache the system disk measurement with ttl and key (c3720f6)
 - **storage:** report the system disk parts in the storage status (4d5dcc8)
@@ -59,14 +68,17 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **nodeagent:** apply a new node poll interval without restart (050ba64)
+- **performance:** check the target right and reject non-positive rates (6850a20)
+- **performance:** estimate the rounded live update value (4582830)
+- **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
+- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **performance:** align row flags with the draft (7ada512)
 - **webui:** label the fixed performance units by unit name (491e795)
 - **performance:** treat missing RAM and stale devices as unknown (90457f8)
 - **webui:** show unknown values and translated reasons on the performance page (e05aa4e)
 - **performance:** use the real service ids for apsystems and tuya (9dc3ca6)
 - **settings:** load backup.css with the storage subpage (5362cb3)
-- **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
-- **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **storage:** report why the additional drive could not be mounted (5fc95e0)
 - **storage:** render the storage helper for the node user (00faf59)
 - **storage:** do not roll back when the dashboard restart kills its own sudo (581525d)
@@ -82,6 +94,7 @@
 
 ### Refactors
 
+- **httpapi:** extract the system config and configuration save paths (5254c6c)
 - **webui:** share the fragment loader between panels and subpages (4cf7f1a)
 
 ### Documentation
@@ -97,8 +110,8 @@
 
 ### Chores
 
-- **webui:** record the cache-bust marks of the performance page (5b896c1)
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
+- **webui:** record the cache-bust marks of the performance page (5b896c1)
 
 ## v0.11.11 (2026-11-11)
 
