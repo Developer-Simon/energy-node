@@ -168,6 +168,32 @@ test('load() keeps the last data and raises a critical toast on failure', async 
   assert.equal(made.stores.toasts.items[0].severity, 'critical');
 });
 
+test('load() raises one toast per failure streak, a successful load ends it', async () => {
+  let fail = true;
+  const { fetchImpl } = router({
+    '/api/v1/performance': () => (fail ? reply(500, { message: 'boom' }) : reply(200, performanceBody())),
+  });
+  const made = createPerformancePage({ fetchImpl });
+  await made.page.load();
+  await made.page.load();
+  await made.page.load();
+  assert.equal(made.stores.toasts.items.length, 1, 'the 30 s poll does not repeat the toast');
+
+  fail = false;
+  await made.page.load();
+  assert.equal(made.page.failing, false);
+
+  fail = true;
+  await made.page.load();
+  assert.equal(made.stores.toasts.items.length, 2, 'a new streak raises a new toast');
+});
+
+test('data starts with the device values as null, so the page shows dashes', () => {
+  const { page } = createPerformancePage();
+  assert.equal(page.data.device.temp_c, null);
+  assert.equal(page.data.device.ram_free_pct, null);
+});
+
 test('headTone() is info while measuring, then bad, warn or ok by the free share', async () => {
   const { page } = await loadedPage();
   assert.equal(page.headTone(), 'info', 'measured 7800 s of 21600 s');
@@ -257,7 +283,7 @@ test('measureGroups() formats RAM, round and message rate', async () => {
   assert.equal(shelly.cpu, '5,0 %');
 
   const tuya = polls.rows.find((row) => row.id === 'tuya_mqtt');
-  assert.equal(tuya.ram, de['performance.js.ram.in_dashboard'], 'no own RAM, the dashboard runs it');
+  assert.equal(tuya.ram, '', 'a unit without a RAM sample shows no RAM text');
   assert.equal(tuya.round, 'Runde 2,4 s');
 
   const mosquitto = base.rows.find((row) => row.id === 'mosquitto.service');
@@ -274,6 +300,8 @@ test('measureGroups() names the units by their unit name, dropping .service', as
     { id: 'tailscaled.service', cpu_pct: 1.4, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
     { id: 'caddy.service', cpu_pct: 1.3, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
     { id: 'other', cpu_pct: 1.2, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+    { id: 'shelly', cpu_pct: 2, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: false },
+    { id: 'trucki', cpu_pct: 1.5, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: false },
     { id: 'apsystems_ez1', cpu_pct: 1.1, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: false },
     { id: 'battery_soc', cpu_pct: 1, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: false },
     { id: 'mystery.service', cpu_pct: 0.5, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
@@ -285,7 +313,7 @@ test('measureGroups() names the units by their unit name, dropping .service', as
   assert.equal(names(base), [
     'Dashboard', 'Automation', 'Mosquitto', 'Tailscale', 'Caddy', 'Übriges', 'mystery.service',
   ].join('|'));
-  assert.equal(names(polls), 'APsystems EZ1|Battery SoC');
+  assert.equal(names(polls), 'Shelly|Trucki|APsystems EZ1|Battery SoC');
   assert.equal(de['performance.js.unit.tailscaled'], 'Tailscale');
 });
 

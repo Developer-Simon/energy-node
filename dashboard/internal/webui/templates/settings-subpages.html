@@ -48,7 +48,7 @@
       </div>
 
       <p class="pf-warning" x-show="data.deduction.pct > 0" x-cloak>
-        <strong x-text="$t('performance.ui.warning.lead', { pct: data.deduction.pct })"></strong> <span x-text="`${(data.deduction.reasons || []).join(', ')}. ${$t('performance.ui.warning.available', { available: available(), target: data.target_pct })}`"></span>
+        <strong x-text="$t('performance.ui.warning.lead', { pct: data.deduction.pct })"></strong> <span x-text="`${(data.deduction.reasons || []).map((reason) => $t(reason)).join(', ')}. ${$t('performance.ui.warning.available', { available: available(), target: data.target_pct })}`"></span>
       </p>
 
       <div class="pf-target">
@@ -70,13 +70,13 @@
           <dt>{{t "performance.ui.fact.cpu"}}</dt>
           <dd><span x-text="`${window.I18n.formatNumber(data.today_pct, 1)} %`"></span><small x-text="data.cores === 1 ? $t('performance.ui.fact.cores_one') : $t('performance.ui.fact.cores', { count: data.cores })"></small></dd>
         </div>
-        <div class="pf-fact" x-bind:data-tone="data.device.temp_c >= 75 ? 'warn' : null">
+        <div class="pf-fact" x-bind:data-tone="data.device.temp_c !== null && data.device.temp_c >= 75 ? 'warn' : null">
           <dt>{{t "performance.ui.fact.temp"}}</dt>
-          <dd><span x-text="`${data.device.temp_c} °C`"></span></dd>
+          <dd><span x-text="data.device.temp_c === null ? '–' : `${data.device.temp_c} °C`"></span></dd>
         </div>
-        <div class="pf-fact" x-bind:data-tone="data.device.ram_free_pct < 25 ? 'warn' : null">
+        <div class="pf-fact" x-bind:data-tone="data.device.ram_free_pct !== null && data.device.ram_free_pct < 25 ? 'warn' : null">
           <dt>{{t "performance.ui.fact.ram"}}</dt>
-          <dd><span x-text="`${data.device.ram_free_pct} %`"></span></dd>
+          <dd><span x-text="data.device.ram_free_pct === null ? '–' : `${data.device.ram_free_pct} %`"></span></dd>
         </div>
         <div class="pf-fact" x-bind:data-tone="data.device.swap_pages_s > 0 ? 'warn' : null">
           <dt>{{t "performance.ui.fact.swap"}}</dt>

@@ -37,6 +37,8 @@
     units: [],
     change: null,
   };
+  // Device values the page shows as "–" while the API has no reading.
+  EMPTY.device = { temp_c: null, throttled: false, ram_free_pct: null, swap_pages_s: 0 };
 
   // Names of the units. The API uses systemd unit names for the fixed units
   // (automation.service) and service ids for the device services (shelly,
@@ -50,6 +52,8 @@
     battery_soc: 'performance.js.unit.battery_soc',
     apsystems_ez1: 'performance.js.unit.apsystems',
     tuya_mqtt: 'performance.js.unit.tuya',
+    shelly: 'performance.js.unit.shelly',
+    trucki: 'performance.js.unit.trucki',
     other: 'performance.js.unit.rest',
   };
 
@@ -74,6 +78,9 @@
     // The answer of GET /api/v1/performance, as the page last received it.
     data: { ...EMPTY },
     timer: 0,
+    // True after a failed load until the next one succeeds, so a failing API
+    // raises one toast per failure streak instead of one every 30 s.
+    failing: false,
 
     init() {
       const first = this.load();
@@ -97,8 +104,10 @@
     async load() {
       try {
         this.data = { ...EMPTY, ...(await requestJSON('/api/v1/performance')) };
+        this.failing = false;
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        if (!this.failing) this.$store.toasts.push(error.message, 'critical');
+        this.failing = true;
       }
     },
 
@@ -160,9 +169,7 @@
         .filter((unit) => Boolean(unit.fixed) === fixed)
         .map((unit) => {
           const cpu = Number(unit.cpu_pct) || 0;
-          let ram = '';
-          if (Number(unit.ram_bytes) > 0) ram = t('performance.js.ram.mb', { mb: megabytes(unit.ram_bytes) });
-          else if (!fixed) ram = t('performance.js.ram.in_dashboard');
+          const ram = Number(unit.ram_bytes) > 0 ? t('performance.js.ram.mb', { mb: megabytes(unit.ram_bytes) }) : '';
           return {
             id: unit.id,
             name: unitName(unit.id),
