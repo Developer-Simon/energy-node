@@ -34,7 +34,8 @@ What always runs:
 
 The performance page (Einstellungen, Leistung) shows invented measurements in the
 demo, set by `ENERGY_NODE_PERFORMANCE_FAKE=1` in `demo/demo.sh`, so its budget
-and measurement cards have values to show.
+and measurement cards have values to show. The scenarios are switched in the
+console tab *Leistung*, without a restart.
 
 The first start prints the address, the login (user `admin`, the password is
 fixed in `demo/lib/env.sh`) and the console address. After a change to the
@@ -62,6 +63,7 @@ companion as they are.
 - *MQTT-Broker*: takes a device offline, lets a service refuse or stay silent, switches the simulation, requires a login (wrong MQTT password), publishes a message and disconnects clients.
 - *Updates*: answers the release check and the download, and sets the installer state to installed, none, previous or reset.
 - *System*: feeds the service logs with journal lines or injected errors, sets how the system helper answers, and sets which system actions succeed.
+- *Leistung*: switches the scenario of the performance page with one button per preset (measuring, good, tight, over budget, throttled and hot, memory short, alone without services, many browsers). The fields below set the single values (measured time, cores, CPU, temperature with an unknown switch, throttling, RAM, swap, browser clients, foreign device with its interval or none), the table sets each unit on or off with its load. Every change is written to `fake-performance.json` in the demo directory, which the dashboard reads on each snapshot. A change makes the scenario custom values. The button *Messdauer um 1 Stunde erhöhen* adds an hour to the measured time.
 - *Speicher*: plugs the demo sticks in and out and sets whether formatting or mounting fails. Pulling out the drive in use empties the mount point, and plugging it back in restores its content and volume marker. Plugging in the foreign stick mounts it with its own marker, so the storage page shows that it does not belong to this node. The status lines show what is plugged and what is mounted.
 
 A factor only affects periods the dashboard has not fetched yet. The automatic
@@ -109,6 +111,7 @@ Each file in `demo/fakes/` imitates one part of the system:
 - `console_mqtt.py` and `console_mqtt_ui.py`: the *MQTT-Broker* tab, server side and page fragment.
 - `console_updates.py` and `console_updates_ui.py`: the *Updates* tab, server side and page fragment.
 - `console_system.py` and `console_system_ui.py`: the *System* tab, server side and page fragment.
+- `console_performance.py` and `console_performance_ui.py`: the *Leistung* tab, which writes the scenario file the dashboard reads.
 - `fake_github_releases.py`: the GitHub releases API, so the update check finds a newer version.
 - `fake_journal_helper.py` and `fake_sudo.sh`: the system action helper and the sudo shim that feed the *Service logs* section.
 - `real_changelog.py`: copies the changelog of this repository into a simulated installer state.
