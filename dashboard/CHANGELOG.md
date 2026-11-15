@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.11.15 (2026-11-14)
+## v0.11.16 (2026-11-15)
 
 ### Features
 
 - **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
+- **dev:** keep the ?v= history as CSV and check it in cache_bust.py (6b09e20)
 - **auth:** add the companion HTTP opt-in and the trusted check (c577483)
 - **httpapi:** let companion sessions over HTTP act when the opt-in is on (cfb7f9f)
 - **httpapi:** add the endpoint for the companion HTTP opt-in (027cbaa)
@@ -19,6 +20,11 @@
 
 - **webui:** model the session trusted flag in the MQTT and Tailscale page tests (3ac97a7)
 - **webui:** give the backup page tests an $el and cover the withheld page (7e6853f)
+
+### Chores
+
+- **dashboard:** migrate the ?v= history to CSV and align two stale marks (c6861dc)
+- **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259)
 
 ## v0.11.11 (2026-11-11)
 
