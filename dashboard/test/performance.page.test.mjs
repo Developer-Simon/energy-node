@@ -42,15 +42,14 @@ function performanceBody(overrides = {}) {
       { id: 'shelly', current: 20, steps: [2, 3, 5, 10, 15, 20, 30, 60], floor: 2, round_s: 0.4, cost_pct: 5, right: 'system_actions', editable: true, follows: '', source: true, balance: true },
     ],
     units: [
-      { id: 'live_update', cpu_pct: 14, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: false },
-      { id: 'tick', cpu_pct: 0.9, ram_bytes: 14680064, round_s: 0.1, msg_per_min: 0, fixed: false },
       { id: 'shelly', cpu_pct: 5, ram_bytes: 23068672, round_s: 0.4, msg_per_min: 126, fixed: false },
       { id: 'trucki', cpu_pct: 2, ram_bytes: 15728640, round_s: 1.2, msg_per_min: 12, fixed: false },
-      { id: 'node', cpu_pct: 0.1, ram_bytes: 0, round_s: 0.1, msg_per_min: 6, fixed: false },
-      { id: 'mosquitto', cpu_pct: 3.1, ram_bytes: 5242880, round_s: 0, msg_per_min: 0, fixed: true },
-      { id: 'tailscaled', cpu_pct: 2.2, ram_bytes: 25165824, round_s: 0, msg_per_min: 0, fixed: true },
-      { id: 'other', cpu_pct: 1.8, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
-      { id: 'caddy', cpu_pct: 0.6, ram_bytes: 15728640, round_s: 0, msg_per_min: 0, fixed: true },
+      { id: 'tuya_mqtt', cpu_pct: 0.5, ram_bytes: 0, round_s: 2.4, msg_per_min: 16, fixed: false },
+      { id: 'energy-node-dashboard.service', cpu_pct: 14, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+      { id: 'mosquitto.service', cpu_pct: 3.1, ram_bytes: 5242880, round_s: 0, msg_per_min: 0, fixed: true },
+      { id: 'tailscaled.service', cpu_pct: 2.2, ram_bytes: 25165824, round_s: 0, msg_per_min: 0, fixed: true },
+      { id: 'automation.service', cpu_pct: 0.9, ram_bytes: 14680064, round_s: 0, msg_per_min: 0, fixed: true },
+      { id: 'caddy.service', cpu_pct: 0.6, ram_bytes: 15728640, round_s: 0, msg_per_min: 0, fixed: true },
     ],
     change: null,
     ...overrides,
@@ -230,22 +229,22 @@ test('measureGroups() returns polls and base, each sorted by CPU', async () => {
   assert.equal(groups[0].label, de['performance.js.group.polls']);
   assert.equal(groups[1].label, de['performance.js.group.base']);
 
-  assert.equal(groups[0].rows.map((row) => row.id).join(','), 'live_update,shelly,trucki,tick,node');
-  assert.equal(groups[1].rows.map((row) => row.id).join(','), 'mosquitto,tailscaled,other,caddy');
+  assert.equal(groups[0].rows.map((row) => row.id).join(','), 'shelly,trucki,tuya_mqtt');
+  assert.equal(groups[1].rows.map((row) => row.id).join(','), 'energy-node-dashboard.service,mosquitto.service,tailscaled.service,automation.service,caddy.service');
 });
 
 test('measureGroups() sums each group and shares the largest unit of the page', async () => {
   const { page } = await loadedPage();
   const [polls, base] = page.measureGroups();
 
-  assert.ok(Math.abs(polls.sum - 22) < 1e-9, `polls sum ${polls.sum}`);
-  assert.ok(Math.abs(base.sum - 7.7) < 1e-9, `base sum ${base.sum}`);
-  assert.equal(polls.sumText, '22,0 %');
+  assert.ok(Math.abs(polls.sum - 7.5) < 1e-9, `polls sum ${polls.sum}`);
+  assert.ok(Math.abs(base.sum - 20.8) < 1e-9, `base sum ${base.sum}`);
+  assert.equal(polls.sumText, '7,5 %');
 
   const byId = Object.fromEntries([...polls.rows, ...base.rows].map((row) => [row.id, row]));
-  assert.equal(byId.live_update.share, 1, 'the largest unit fills the bar');
+  assert.equal(byId['energy-node-dashboard.service'].share, 1, 'the largest unit fills the bar');
   assert.equal(byId.shelly.share, 0.3571, '5 of 14');
-  assert.equal(byId.mosquitto.share, 0.2214, '3.1 of 14');
+  assert.equal(byId['mosquitto.service'].share, 0.2214, '3.1 of 14');
 });
 
 test('measureGroups() formats RAM, round and message rate', async () => {
@@ -257,13 +256,37 @@ test('measureGroups() formats RAM, round and message rate', async () => {
   assert.equal(shelly.msg, '126 Nachrichten/min');
   assert.equal(shelly.cpu, '5,0 %');
 
-  const dashboard = polls.rows.find((row) => row.id === 'live_update');
-  assert.equal(dashboard.ram, de['performance.js.ram.in_dashboard'], 'no own RAM, the dashboard runs it');
-  assert.equal(dashboard.round, '');
+  const tuya = polls.rows.find((row) => row.id === 'tuya_mqtt');
+  assert.equal(tuya.ram, de['performance.js.ram.in_dashboard'], 'no own RAM, the dashboard runs it');
+  assert.equal(tuya.round, 'Runde 2,4 s');
 
-  const mosquitto = base.rows.find((row) => row.id === 'mosquitto');
+  const mosquitto = base.rows.find((row) => row.id === 'mosquitto.service');
   assert.equal(mosquitto.ram, '5 MB RAM');
   assert.equal(mosquitto.msg, '');
+  assert.equal(base.rows.find((row) => row.id === 'energy-node-dashboard.service').ram, '', 'fixed units without RAM show nothing');
+});
+
+test('measureGroups() names the units by their unit name, dropping .service', async () => {
+  const units = [
+    { id: 'energy-node-dashboard.service', cpu_pct: 3, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+    { id: 'automation.service', cpu_pct: 2, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+    { id: 'mosquitto.service', cpu_pct: 1.5, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+    { id: 'tailscaled.service', cpu_pct: 1.4, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+    { id: 'caddy.service', cpu_pct: 1.3, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+    { id: 'other', cpu_pct: 1.2, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+    { id: 'apsystems_ez1', cpu_pct: 1.1, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: false },
+    { id: 'battery_soc', cpu_pct: 1, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: false },
+    { id: 'mystery.service', cpu_pct: 0.5, ram_bytes: 0, round_s: 0, msg_per_min: 0, fixed: true },
+  ];
+  const { page } = await loadedPage({ units });
+  const [polls, base] = page.measureGroups();
+  const names = (group) => group.rows.map((row) => row.name).join('|');
+
+  assert.equal(names(base), [
+    'Dashboard', 'Automation', 'Mosquitto', 'Tailscale', 'Caddy', 'Übriges', 'mystery.service',
+  ].join('|'));
+  assert.equal(names(polls), 'APsystems EZ1|Battery SoC');
+  assert.equal(de['performance.js.unit.tailscaled'], 'Tailscale');
 });
 
 test('meterParts() splits the bar into base load and polling, clamped to 0 to 100', async () => {

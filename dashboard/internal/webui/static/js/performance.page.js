@@ -38,15 +38,18 @@
     change: null,
   };
 
-  // Names of the units as the API lists them. Unknown ids are shown as they are.
+  // Names of the units. The API uses systemd unit names for the fixed units
+  // (automation.service) and service ids for the device services (shelly,
+  // apsystems_ez1, tuya_mqtt). The ".service" suffix is dropped before the lookup.
   const UNIT_LABELS = {
-    live_update: 'performance.js.unit.live_update',
-    tick: 'performance.js.unit.tick',
-    regulator: 'performance.js.unit.regulator',
-    node: 'performance.js.unit.node',
+    'energy-node-dashboard': 'performance.js.unit.dashboard',
+    automation: 'performance.js.unit.automation',
+    mosquitto: 'performance.js.unit.mosquitto',
+    tailscaled: 'performance.js.unit.tailscaled',
+    caddy: 'performance.js.unit.caddy',
     battery_soc: 'performance.js.unit.battery_soc',
-    apsystems: 'performance.js.unit.apsystems',
-    tuya: 'performance.js.unit.tuya',
+    apsystems_ez1: 'performance.js.unit.apsystems',
+    tuya_mqtt: 'performance.js.unit.tuya',
     other: 'performance.js.unit.rest',
   };
 
@@ -61,7 +64,11 @@
     return t('performance.js.duration', { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
   };
 
-  const unitName = (id) => (UNIT_LABELS[id] ? t(UNIT_LABELS[id]) : id);
+  // Unknown units show the id as the API sent it.
+  const unitName = (id) => {
+    const key = UNIT_LABELS[String(id).replace(/\.service$/, '')];
+    return key ? t(key) : id;
+  };
 
   const pfPage = () => ({
     // The answer of GET /api/v1/performance, as the page last received it.
