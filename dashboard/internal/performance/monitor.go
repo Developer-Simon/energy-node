@@ -28,6 +28,7 @@ type Options struct {
 	Busy                     func() bool       // Update oder Installer laeuft
 	Clients                  func() int
 	Device                   func() DeviceSignals
+	RoundS                   func(serviceID string) (float64, bool) // Rundendauer je Dienst, false: unbekannt
 }
 
 // DeviceSignals are the device readings that come from outside the Source.
@@ -265,11 +266,24 @@ func (m *Monitor) unitStats() []UnitStats {
 		}
 		if !fixed {
 			st.MsgPerMin = m.msgPerMin[id]
+			st.RoundS = m.roundS(id)
 		}
 		out = append(out, st)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
+}
+
+// roundS returns the poll round duration of a service, nil when it is unknown.
+func (m *Monitor) roundS(serviceID string) *float64 {
+	if m.opts.RoundS == nil {
+		return nil
+	}
+	v, ok := m.opts.RoundS(serviceID)
+	if !ok {
+		return nil
+	}
+	return &v
 }
 
 // unitID maps a unit name to its service ID. A unit that is not in the

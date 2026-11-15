@@ -131,3 +131,50 @@ func TestMonitorWindowIsSixHours(t *testing.T) {
 		t.Errorf("MeasuredFor = %v, want %v", snap.MeasuredFor, wantSamples*interval)
 	}
 }
+
+func TestMonitorFillsRoundSFromCallback(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	const interval = 15 * time.Second
+	src := steadySteps(func(i int) map[string]UnitRaw {
+		return map[string]UnitRaw{
+			"shelly-rpc.service": {CPUUsec: uint64(i) * 1_000_000},
+			"trucki.service":     {CPUUsec: uint64(i) * 1_000_000},
+		}
+	})
+	m := NewMonitor(src, nil, Options{
+		Interval: interval,
+		Window:   6 * time.Hour,
+		Units:    map[string]string{"shelly": "shelly-rpc.service", "trucki": "trucki.service"},
+		RoundS: func(id string) (float64, bool) {
+			if id == "shelly" {
+				return 0.4, true
+			}
+			return 0, false
+		},
+	})
+	var now time.Time
+	for i := 0; i < 3; i++ {
+		now = t0.Add(time.Duration(i) * interval)
+		m.Tick(now)
+	}
+
+	byID := map[string]UnitStats{}
+	for _, u := range m.Snapshot(now).Units {
+		byID[u.ID] = u
+	}
+	if u := byID["shelly"]; u.RoundS == nil || *u.RoundS != 0.4 {
+		t.Errorf("shelly RoundS = %v, want 0.4", u.RoundS)
+	}
+	if u := byID["trucki"]; u.RoundS != nil {
+		t.Errorf("trucki RoundS = %v, want nil when the callback returns false", *u.RoundS)
+	}
+
+	none := NewMonitor(src, nil, Options{Interval: interval, Units: map[string]string{"shelly": "shelly-rpc.service"}})
+	none.Tick(t0)
+	none.Tick(t0.Add(interval))
+	for _, u := range none.Snapshot(t0.Add(interval)).Units {
+		if u.RoundS != nil {
+			t.Errorf("%s RoundS = %v, want nil without a callback", u.ID, *u.RoundS)
+		}
+	}
+}
