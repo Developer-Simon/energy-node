@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.17-pre.14 (2026-11-06)
+## v0.11.17-pre.15 (2026-11-06)
 
 ### Features
 
@@ -15,6 +15,19 @@
 - **webui:** show tile skeletons while panels load (#242) (30e2fc3)
 - **settings:** load the settings subpages lazily (#250) (dc441a2)
 - **storage:** The system drive card now splits its usage into system, installation, data and backups (#252) (a8e8832)
+- **common:** report the poll round duration in the service status (5a94108)
+- **performance:** read device and unit counters from proc and cgroups (68d3395)
+- **performance:** count messages per service and keep a ring buffer (ca8a559)
+- **performance:** sample load in memory (95f737e)
+- **performance:** model the cost of each polling row (c2ea3eb)
+- **performance:** add the poll floor and the budget setting (7f324af)
+- **performance:** serve measurements, rows and budget (048a519)
+- **webui:** add a gauge icon to the catalogue (f318ffb)
+- **webui:** add the performance page component (aea04bd)
+- **webui:** add the performance settings page (250332c)
+- **webui:** translate the performance page and bump the settings script (1a1490e)
+- **performance:** serve fake scenarios from a state file in the demo (5cd4d7f)
+- **performance:** show how much load the node puts on the device (#260)
 - **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **storage:** measure the system disk parts per folder group (33e03a7)
 - **storage:** cache the system disk measurement with ttl and key (c3720f6)
@@ -46,6 +59,12 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **performance:** align row flags with the draft (7ada512)
+- **webui:** label the fixed performance units by unit name (491e795)
+- **performance:** treat missing RAM and stale devices as unknown (90457f8)
+- **webui:** show unknown values and translated reasons on the performance page (e05aa4e)
+- **performance:** use the real service ids for apsystems and tuya (9dc3ca6)
+- **settings:** load backup.css with the storage subpage (5362cb3)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **storage:** report why the additional drive could not be mounted (5fc95e0)
@@ -72,11 +91,13 @@
 
 ### Tests
 
+- **performance:** cover the performance page in smoke and demo (05cbe1a)
 - **network:** smoke the fallback settings and the hotspot secret (e3c2f4b)
 - **webui:** know the storage page in the tour target test (8c10d07)
 
 ### Chores
 
+- **webui:** record the cache-bust marks of the performance page (5b896c1)
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
 
 ## v0.11.11 (2026-11-11)

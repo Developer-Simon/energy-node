@@ -1,11 +1,14 @@
 # Changelog
 
-## v0.5.2-pre.2 (2026-11-12)
+## v0.5.2-pre.3 (2026-11-15)
 
 ### Features
 
 - **automation:** react to measurement chains in automations (#226) (0066f15)
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
+- **common:** report the poll round duration in the service status (5a94108)
+- **performance:** add the poll floor and the budget setting (7f324af)
+- **performance:** show how much load the node puts on the device (#260)
 
 ### Refactors
 

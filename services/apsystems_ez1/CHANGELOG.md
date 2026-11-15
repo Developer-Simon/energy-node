@@ -1,6 +1,11 @@
 # Changelog
 
-## v0.4.5 (2026-11-07)
+## v0.4.5 (2026-11-15)
+
+### Features
+
+- **performance:** add the poll floor and the budget setting (7f324af)
+- **performance:** show how much load the node puts on the device (#260)
 
 ### Fixes
 
