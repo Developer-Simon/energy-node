@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "dev" / "cache_bust.py"
 spec = importlib.util.spec_from_file_location("cache_bust", SCRIPT)
 cache_bust = importlib.util.module_from_spec(spec)
+sys.modules["cache_bust"] = cache_bust
 spec.loader.exec_module(cache_bust)
 
 WEBUI = cache_bust.WEBUI

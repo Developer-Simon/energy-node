@@ -28,6 +28,8 @@ Unterbefehl:
 Referenzen stehen in dashboard/internal/webui/templates/*.html und in
 webui.go. Marken, die keine ganze Zahl sind (etwa `{{.Foo}}`), zaehlen nicht.
 """
+from __future__ import annotations
+
 import argparse
 import csv
 import glob
