@@ -45,6 +45,8 @@ source "$SMOKE_DIR/checks/backup.sh"
 source "$SMOKE_DIR/checks/storage.sh"
 # shellcheck source=dashboard/test/smoke/checks/network.sh
 source "$SMOKE_DIR/checks/network.sh"
+# shellcheck source=dashboard/test/smoke/checks/performance.sh
+source "$SMOKE_DIR/checks/performance.sh"
 
 # Smoke-Ports. Die Demo nutzt 182xx, der Smoke-Test 181xx.
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
@@ -82,6 +84,7 @@ setze_grundstand() {
   MQTT_USERNAME=""
   MQTT_PASSWORD=""
   MQTT_BROKER_PASSWORD=""
+  PERFORMANCE_FAKE=0
 }
 
 # Lauf seed: Vorgaben des Installers als onboarding-seed.json neben auth.pw.
@@ -119,6 +122,7 @@ konfiguriere_haupt() {
   PACKAGE=1
   UPDATES=1
   SERVICES_OFF=0
+  PERFORMANCE_FAKE=1
 }
 
 konfiguriere_ohne_dienste() {
@@ -158,6 +162,7 @@ gruppe() {
     storage) checks_storage ;;
     network) checks_network ;;
     settings_subpages) checks_settings_subpages ;;
+    performance) checks_performance ;;
     *)
       echo "FEHLER: unbekannte Gruppe $1" >&2
       return 1
@@ -280,7 +285,7 @@ for name in haupt ohne-dienste bilanz seed falsches-passwort; do
       konfiguriere_haupt
       fuehre_lauf haupt topics battery_config shelly seed dataflow live_push \
         update_offer package installed journal users onboarding update_install companion \
-        history_exchange backup storage network settings_subpages || RESULT=1
+        history_exchange backup storage network settings_subpages performance || RESULT=1
       ;;
     ohne-dienste)
       konfiguriere_ohne_dienste

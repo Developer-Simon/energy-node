@@ -32,6 +32,10 @@ What always runs:
 - the fake console
 - the fake GitHub releases API
 
+The performance page (Einstellungen, Leistung) shows invented measurements in the
+demo, set by `ENERGY_NODE_PERFORMANCE_FAKE=1` in `demo/demo.sh`, so its budget
+and measurement cards have values to show.
+
 The first start prints the address, the login (user `admin`, the password is
 fixed in `demo/lib/env.sh`) and the console address. After a change to the
 code, stop the demo and start it again.

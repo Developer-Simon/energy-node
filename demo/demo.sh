@@ -181,6 +181,8 @@ if [[ "$MODE" == demo ]]; then
   export ENERGY_NODE_CHAIN_HOLD_SECONDS=30
   # Messketten-Vorschlaege ohne Mindesttage und schon mit 3 aktiven Minuten, statt mit 720.
   export ENERGY_NODE_CHAIN_SUGGEST_FAST=1
+  # Seite Leistung mit erfundenen Messwerten, sonst liest sie den echten Prozessverbrauch des Rechners.
+  export ENERGY_NODE_PERFORMANCE_FAKE=1
 fi
 env_installed_state || exit 1
 env_make_package || exit 1

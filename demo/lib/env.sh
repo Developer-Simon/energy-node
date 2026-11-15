@@ -314,6 +314,10 @@ env_start_dashboard() {
     export FAKE_APP_CONFIG_TARGET="$WORK/config.json"
     # Der Helfer legt bei einem Neustart diese Datei ab, demo/demo.sh startet dann das Dashboard neu.
     export FAKE_RESTART_REQUEST="$WORK/restart-request"
+    # Leistung: erfundene Messwerte, wenn der Aufrufer PERFORMANCE_FAKE=1 setzt (Smoke-Lauf haupt).
+    if [[ "${PERFORMANCE_FAKE:-0}" == "1" ]]; then
+      export ENERGY_NODE_PERFORMANCE_FAKE=1
+    fi
     exec "$bin" --config "$WORK/config.json"
   ) > "$WORK/dashboard.log" 2>&1 &
   DASHBOARD_PID=$!
