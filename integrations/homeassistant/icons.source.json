@@ -250,6 +250,14 @@
       "label": "Automationen",
       "markup": "<circle cx=\"5.5\" cy=\"6\" r=\"2.5\"/><circle cx=\"5.5\" cy=\"18\" r=\"2.5\"/><circle cx=\"18.5\" cy=\"12\" r=\"2.5\"/><path d=\"M8 6h5a3 3 0 0 1 3 3v.8\"/><path d=\"M8 18h5a3 3 0 0 0 3-3v-.8\"/>",
       "sha256": "cc5d152442ac0b17662678fafdff703f1c14a9beb0c6b1069a811f2cb71a1fdf"
+    },
+    {
+      "name": "energy-node:gauge",
+      "ha_name": "gauge",
+      "mdi": "mdi:speedometer",
+      "label": "Tacho",
+      "markup": "<path d=\"M4.6 18A8.5 8.5 0 1 1 19.4 18\"/><path d=\"M12 6.3v1.4\"/><path d=\"m6.4 9.1 1 .9\"/><path d=\"m17.6 9.1-1 .9\"/><path d=\"M12 14.2 15.4 9.8\"/><circle cx=\"12\" cy=\"14.2\" r=\"1.3\"/>",
+      "sha256": "44f09875986f6377da144984e3842d7a327f64d5f972f83323f5d24c82bcb209"
     }
   ],
   "aliases": [

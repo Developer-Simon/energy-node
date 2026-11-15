@@ -1660,6 +1660,7 @@
   "device_icon.chip": "Standard",
   "device_icon.device_generic": "Gerät allgemein",
   "device_icon.fan": "Lüfter, Klimagerät",
+  "device_icon.gauge": "Tacho",
   "device_icon.grid": "Stromnetz",
   "device_icon.heat_pump": "Wärmepumpe",
   "device_icon.heater": "Heizung (Öl/Gas)",

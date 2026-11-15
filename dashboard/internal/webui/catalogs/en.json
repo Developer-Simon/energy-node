@@ -1660,6 +1660,7 @@
   "device_icon.chip": "Default",
   "device_icon.device_generic": "Generic device",
   "device_icon.fan": "Fan, air conditioner",
+  "device_icon.gauge": "Gauge",
   "device_icon.grid": "Grid",
   "device_icon.heat_pump": "Heat pump",
   "device_icon.heater": "Heating (oil/gas)",

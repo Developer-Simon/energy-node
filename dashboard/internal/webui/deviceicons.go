@@ -125,6 +125,8 @@ var deviceIconCatalogue = []DeviceIcon{
 		`<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M5 8.6h2.6M5 11.1h2.6M5 13.6h2.6"/><path d="M12.9 10.2C11.5 10 10.5 8.9 10.5 7.5c1.5-.1 2.5 1.1 2.5 2.7Z"/><path d="M13.1 10.2C14.5 10 15.5 8.9 15.5 7.5c-1.5-.1-2.5 1.1-2.5 2.7Z"/><circle cx="11.7" cy="12.2" r="1.15"/><circle cx="14.3" cy="12.2" r="1.15"/><circle cx="13" cy="14.4" r="1.15"/><rect x="18.2" y="8.6" width="2.8" height="2.2" rx="0.5"/><rect x="18.2" y="13.2" width="2.8" height="2.2" rx="0.5"/>`),
 	catalogueEntry("control", "automations", "sitemap", "Automationen",
 		`<circle cx="5.5" cy="6" r="2.5"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="12" r="2.5"/><path d="M8 6h5a3 3 0 0 1 3 3v.8"/><path d="M8 18h5a3 3 0 0 0 3-3v-.8"/>`),
+	catalogueEntry("control", "gauge", "speedometer", "Tacho",
+		`<path d="M4.6 18A8.5 8.5 0 1 1 19.4 18"/><path d="M12 6.3v1.4"/><path d="m6.4 9.1 1 .9"/><path d="m17.6 9.1-1 .9"/><path d="M12 14.2 15.4 9.8"/><circle cx="12" cy="14.2" r="1.3"/>`),
 }
 
 var deviceIconByName = func() map[string]DeviceIcon {
