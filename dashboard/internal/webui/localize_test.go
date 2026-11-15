@@ -123,7 +123,7 @@ func TestLoginOffersTheLanguageSwitcher(t *testing.T) {
 		`<div class="lang-pill" data-tour="language-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
 		`<input type="radio" name="lang" value="de" data-lang-select><span aria-hidden="true">DE</span><span class="visually-hidden">Deutsch</span>`,
 		`<input type="radio" name="lang" value="en" data-lang-select checked><span aria-hidden="true">EN</span>`,
-		`static/js/i18n.js?v=3`,
+		`static/js/i18n.js?v=4`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("login page lacks %q", want)

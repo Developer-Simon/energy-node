@@ -1,1 +1,445 @@
 version,date,asset,v,note
+v0.11.12,2026-11-14,js/backup.page.js,2,"settings panel, backup page shows a hint and blocked inputs when HTTPS is missing"
+v0.11.9,2026-11-09,css/backup.css,1,"new, settings panel, backup page styles"
+v0.11.9,2026-11-09,js/backup.page.js,1,"new, settings panel, backup page"
+v0.11.9,2026-11-09,js/settings.page.js,31,"settings panel, Backup page in the sidebar"
+v0.11.7,2026-11-07,css/base.css,48,"overview diagnostics card, info column removed"
+v0.11.7,2026-11-07,js/dashboard.js,45,"diagnostics panel, info filter, ""all"" and the headline leave infos out"
+v0.11.7,2026-11-07,js/overview-values.js,4,diagnostics card counts critical and warning only
+v0.11.5,2026-11-07,css/base.css,47,"statistics card, the chart area takes the free card height"
+v0.11.5,2026-11-07,js/energy-stats-card.js,5,"energy cards, chart follows the height of its area"
+v0.11.4,2026-11-06,css/diagnostics.css,4,"diagnostics panel, only the arrow of the refresh icon spins, the score ring and status colours glide"
+v0.11.4,2026-11-06,js/dashboard.js,44,"`x-roll` moved here, new `x-fade-text`, refresh spin finishes its turn, device cards glide when they change place"
+v0.11.4,2026-11-06,js/device-modal.js,4,`x-roll` moved out
+v0.11.3,2026-11-06,css/automations.css,15,"automations panel, rule history axis"
+v0.11.3,2026-11-06,js/automations-chart.js,4,"automations panel, history entries grouped by day"
+v0.11.3,2026-11-06,js/automations-view.js,9,"automations panel, history text split for the axis"
+v0.11.3,2026-11-06,js/automations.page.js,23,"automations panel, rule history opens from the strip as a vertical axis"
+v0.11.3,2026-11-06,js/onboarding-actions.js,3,tour action that opens a rule with history
+v0.11.1,2026-11-05,js/history-exchange.js,10,"history panel and history tile, the 1h resolution no longer requests 5m and 1m values from other devices"
+v0.10.37,2026-11-02,css/onboarding.css,4,"catch-up chip next to the release notes chip, own card for the version toggles"
+v0.10.37,2026-11-02,js/onboarding-checklist.js,3,"settings panel, archive toggle and catch-up chip"
+v0.10.37,2026-11-02,js/onboarding-model.js,4,catch-up runs every tour of a release
+v0.10.37,2026-11-02,js/onboarding.js,4,archived explore releases
+v0.10.37,2026-11-02,js/update-bar.js,7,"Install now asks first, the installer link reads Prepare installation"
+v0.10.35,2026-11-01,js/config.page.js,11,"config panel, tuning findings are rendered from the catalog by code and params, with the service text as fallback"
+v0.10.34,2026-11-01,js/mqtt.page.js,11,"settings panel, the connection test result is shown as a toast and a failed reconnect shows the broker error instead of a generic failure"
+v0.10.28,2026-10-31,js/dashboard.js,42,ignored devices: un-ignore needs the discovery permission
+v0.10.28,2026-10-31,js/device-modal.js,3,device dialog: ignore needs the discovery permission
+v0.10.28,2026-10-31,js/users.page.js,4,"settings panel, guest preset card with the guest access switch"
+v0.10.27,2026-10-30,css/stats.css,4,"stats panel, floating back/next bar, interval and grid table views"
+v0.10.27,2026-10-30,js/stats.page.js,6,"stats panel, narrow screens: interval selection, table view switch, chart band"
+v0.10.26,2026-10-30,js/dashboard.js,41,"main tab ""More"" list no longer refits itself in an endless loop on narrow screens"
+v0.10.25,2026-10-29,css/base.css,46,"device dialog: favourite stars, icon popover, more menu and analysis tab styles"
+v0.10.25,2026-10-29,js/automations.page.js,22,"automations panel, test result read from its own endpoint for every viewer"
+v0.10.25,2026-10-29,js/dashboard.js,40,device dialog rights for the analysis tab and the appearance
+v0.10.25,2026-10-29,js/device-modal.js,2,"device dialog: favourites, icon, more menu, analysis tab"
+v0.10.25,2026-10-29,js/notify.js,3,toast with an undo action
+v0.10.24,2026-10-29,css/base.css,45,"toast redesign: glass, timer line, enter, exit and swipe motion"
+v0.10.24,2026-10-29,js/notify.js,2,"toast store: expiry for every severity, hold and release, exit state"
+v0.10.24,2026-10-29,js/toast-gesture.js,1,"new, swipe away, rubber band, pause on hover and focus"
+v0.10.23,2026-10-29,js/history-exchange.js,9,"start failures shown in the console, opt-in diagnostics log"
+v0.10.23,2026-10-29,js/history-recorder.js,13,"errors of the leader start shown in the console, opt-in diagnostics log"
+v0.10.21,2026-10-27,css/automations.css,14,"automations panel, month day grid and advanced section"
+v0.10.21,2026-10-27,js/automation-templates.js,4,"automations panel, templates for the monthly full charge, a silent inverter and the low-tariff wallbox, restart option for the inverter warnings"
+v0.10.21,2026-10-27,js/automation-wizard.js,4,"automations panel, inverter measured filter ignores the actuator lock, own switch of the inverter"
+v0.10.21,2026-10-27,js/automations-view.js,8,"devicemap and automations panels, sentences for month days and no new values"
+v0.10.21,2026-10-27,js/automations.page.js,21,"automations panel, month day chips and the no new values comparison"
+v0.10.20,2026-10-27,css/settings-controls.css,20,"settings and diagnostics panels, Home Assistant pairing section and its styles"
+v0.10.20,2026-10-27,js/settings.page.js,29,"settings panel, no account card for sessions from the companion"
+v0.10.20,2026-10-27,js/users-model.js,2,"settings panel, Home Assistant accounts follow their preset"
+v0.10.20,2026-10-27,js/users.page.js,3,"settings panel, Home Assistant pairing code, countdown and unpair"
+v0.10.18,2026-10-26,css/automations.css,13,"automations panel, new assistant step styles"
+v0.10.18,2026-10-26,js/automation-band.js,2,"automations panel, threshold slider for every preset step"
+v0.10.18,2026-10-26,js/automation-templates.js,3,"automations panel, energy templates for heat pump, tariff, grid and warnings"
+v0.10.18,2026-10-26,js/automation-wizard.js,3,"automations panel, heat pump, battery and price context, numbers and devices steps"
+v0.10.18,2026-10-26,js/automations-scenario.js,4,"automations panel, minimum run time and pause fields"
+v0.10.18,2026-10-26,js/automations-view.js,7,"automations panel, help texts for the new scenario fields"
+v0.10.18,2026-10-26,js/automations.page.js,20,"automations panel, rendering of the new assistant steps"
+v0.10.17,2026-10-26,js/update-bar.js,5,install the offered update from the update bar
+v0.10.16,2026-10-25,css/automations.css,12,"automations panel, read-only hint"
+v0.10.16,2026-10-25,css/base.css,44,notice tab for accounts without view permissions
+v0.10.16,2026-10-25,css/settings-controls.css,19,"settings, diagnostics: own account card on the users page"
+v0.10.16,2026-10-25,js/automations.page.js,19,"automations panel, read-only and operate-only states"
+v0.10.16,2026-10-25,js/config.page.js,10,"config panel, read-only state"
+v0.10.16,2026-10-25,js/dashboard.js,39,"start on the first permitted tab, ignore hidden tabs"
+v0.10.16,2026-10-25,js/settings-masonry.js,2,"settings panel, cards inside a display contents group"
+v0.10.16,2026-10-25,js/settings.page.js,28,"settings panel, design and setup permissions, read-only state"
+v0.10.16,2026-10-25,js/users.page.js,2,"settings panel, keep saved permissions after saving"
+v0.10.16,2026-10-25,js/versions.page.js,9,"settings panel, setup permission for update check and changelog"
+v0.10.15,2026-10-25,css/automations.css,11,"automations panel, target band and preset cards"
+v0.10.15,2026-10-25,js/automation-band.js,1,"new, automations panel, target band math and drag component"
+v0.10.15,2026-10-25,js/automation-templates.js,2,"automations panel, tolerance answer of the zero feed template"
+v0.10.15,2026-10-25,js/automation-wizard.js,2,"automations panel, no preset text for the band step"
+v0.10.15,2026-10-25,js/automations.page.js,18,"automations panel, target band in the assistant"
+v0.10.14,2026-10-25,css/automations.css,10,"automations panel, rule card and editor from the draft, mobile rule list, assistant sheet"
+v0.10.14,2026-10-25,js/automation-sheet.js,1,"new, automations panel, bottom sheet drag"
+v0.10.14,2026-10-25,js/automations-chart.js,3,"automations panel, last four triggers strip"
+v0.10.14,2026-10-25,js/automations-devices.js,2,"automations panel, live value without prefix"
+v0.10.14,2026-10-25,js/automations-view.js,6,"devicemap and automations panels, short subtitles for the add tiles"
+v0.10.14,2026-10-25,js/automations.page.js,17,"automations panel, rule card, editor footer, mobile list with history sparklines, assistant sheet"
+v0.10.13,2026-10-25,css/settings-controls.css,18,"settings, diagnostics: users page and account card"
+v0.10.13,2026-10-25,js/servicelogs.panel.js,2,"diagnostics panel, permission flags split out of system_actions"
+v0.10.13,2026-10-25,js/settings.page.js,27,"settings panel, own password card and users deep link"
+v0.10.13,2026-10-25,js/tailscale.page.js,5,"settings panel, permission flags split out of system_actions"
+v0.10.13,2026-10-25,js/update-bar.js,4,permission flags split out of system_actions
+v0.10.13,2026-10-25,js/users-model.js,1,"new, settings panel, users model"
+v0.10.13,2026-10-25,js/users.page.js,1,"new, settings panel, users page"
+v0.10.13,2026-10-25,js/versions.page.js,8,"settings panel, permission flags split out of system_actions"
+v0.10.12,2026-10-24,css/automations.css,9,"automations panel, assistant dialog, role based buttons, stepper baseline"
+v0.10.12,2026-10-24,js/automation-templates.js,1,"new, automations panel, assistant templates"
+v0.10.12,2026-10-24,js/automation-wizard.js,1,"new, automations panel, assistant step blocks and answers"
+v0.10.12,2026-10-24,js/automations-scenario.js,3,"automations panel, maximum duration field"
+v0.10.12,2026-10-24,js/automations-view.js,5,"devicemap and automations panels, field help for maximum duration"
+v0.10.12,2026-10-24,js/automations.page.js,16,"automations panel, assistant dialog and creation"
+v0.10.11,2026-10-23,css/automations.css,8,"automations panel, chips, condition and action cards, steppers, sparklines"
+v0.10.11,2026-10-23,css/manager.css,48,"5 panels, picker role filters and tones"
+v0.10.11,2026-10-23,js/automations-chart.js,2,"automations panel, regulator band preview"
+v0.10.11,2026-10-23,js/automations-devices.js,1,"new, automations panel, device candidates for actuators, meters and actions"
+v0.10.11,2026-10-23,js/automations-scenario.js,2,"automations panel, new scenarios start enabled with history"
+v0.10.11,2026-10-23,js/automations.page.js,15,"automations panel, device chips and picker, fine tuning card, action cards, history switch"
+v0.10.11,2026-10-23,js/device-picker.js,2,"energy, device map and automations panels, single choice, role filters and tones"
+v0.10.10,2026-10-23,css/automations.css,7,"automations panel, scenario and rule editor layout"
+v0.10.10,2026-10-23,js/automations-chart.js,1,"new, automations panel, scenario chart with 30 min, 6 h and today ranges"
+v0.10.10,2026-10-23,js/automations-scenario.js,1,"new, automations panel, scenario card and editor"
+v0.10.10,2026-10-23,js/automations-view.js,4,"devicemap and automations panels, scenario helpers and status pills"
+v0.10.10,2026-10-23,js/automations.page.js,14,"automations panel, scenario and rule tabs, rule editor blocks, undo bar"
+v0.10.10,2026-10-23,js/history-recorder.js,12,scenario regulator outputs recorded without a settings entry
+v0.10.9,2026-10-23,js/automations-view.js,3,"devicemap and automations panels, field help for repeat and the two interval settings"
+v0.10.9,2026-10-23,js/automations.page.js,13,"automations panel, repeat field and configurable minimum interval in the rule editor"
+v0.10.8,2026-10-22,css/diagnostics.css,3,"diagnostics panel, service log section"
+v0.10.8,2026-10-22,js/servicelogs.panel.js,1,"new, diagnostics panel, service log view with polling"
+v0.10.7,2026-10-22,css/base.css,43,"masthead parts hideable, empty masthead collapses"
+v0.10.7,2026-10-22,css/manager.css,47,5 panels: settings save button shares the energy action bar
+v0.10.7,2026-10-22,css/settings-controls.css,17,"settings, diagnostics: masthead card rows, old save row removed"
+v0.10.7,2026-10-22,js/settings.page.js,26,"settings panel, masthead title and subtitle with live update"
+v0.10.6,2026-10-22,css/base.css,42,settings sub tab row rules removed
+v0.10.6,2026-10-22,css/settings-controls.css,16,"settings, diagnostics: masonry, sidebar, picker, sheet, wizard slide-in"
+v0.10.6,2026-10-22,js/settings-masonry.js,1,"new, settings panel, cards fill the shorter column"
+v0.10.6,2026-10-22,js/settings.page.js,25,"settings panel, masonry, sidebar page picker and sheet instead of the More list"
+v0.10.5,2026-10-21,css/manager.css,46,5 panels
+v0.10.5,2026-10-21,js/devicemap-graph.js,9,"energy, device map, wiring filter"
+v0.10.5,2026-10-21,js/devicemap-model.js,14,"energy, device map, edit rights and view defaults"
+v0.10.5,2026-10-21,js/devicemap-view-prefs.js,1,"new, device map, browser view settings"
+v0.10.5,2026-10-21,js/devicemap.page.js,29,"device map, filter button, view menu"
+v0.10.3,2026-10-21,js/layout-editor.js,19,"overview editor, unreachable Gridstack path removed, discarding changes also ends edit mode"
+v0.10.2,2026-10-21,js/config-status.js,4,"config and automations panels, unreachable `pending` runtime status removed"
+v0.10.1,2026-10-20,css/manager.css,45,"5 panels, update notice in settings as a row with one update button"
+v0.10.0,2026-10-19,css/base.css,41,"what's new rows expand with explanation, image and guide link"
+v0.10.0,2026-10-19,js/whatsnew.page.js,4,"detailText, imageFrame, onToggle"
+v0.9.28,2026-10-18,css/base.css,40,statistics card chart area
+v0.9.28,2026-10-18,js/energy-stats-card.js,4,"energy cards, fixed period, key figures, bar chart"
+v0.9.28,2026-10-18,js/energy-stats-model.js,4,"stats panel + energy cards, shared bar chart options"
+v0.9.28,2026-10-18,js/layout-editor.js,18,"editor, statistics card options, history card series as search field"
+v0.9.28,2026-10-18,js/stats.page.js,5,"stats panel, chart options from the model"
+v0.9.26,2026-10-18,css/base.css,39,"panel headings aligned on devices, diagnostics and settings, less space above the overview edit button"
+v0.9.26,2026-10-18,css/manager.css,44,"5 panels, system tab as setting cards, no Tailscale/TinyTuya title"
+v0.9.25,2026-10-18,css/manager.css,43,"5 panels, device map canvas border"
+v0.9.25,2026-10-18,js/dashboard.js,38,"device modal moved out, lazy loader"
+v0.9.25,2026-10-18,js/device-modal.js,1,"new, device modal, loaded on first open"
+v0.9.24,2026-10-18,css/base.css,38,
+v0.9.24,2026-10-18,css/manager.css,42,5 panels
+v0.9.24,2026-10-18,js/dashboard.js,37,
+v0.9.24,2026-10-18,js/devicemap-dataflow.js,5,"energy, device map"
+v0.9.24,2026-10-18,js/devicemap-graph.js,8,"energy, device map"
+v0.9.24,2026-10-18,js/devicemap-model.js,13,"energy, device map"
+v0.9.24,2026-10-18,js/devicemap-node-svg.js,7,"energy, device map"
+v0.9.24,2026-10-18,js/devicemap-subdevices.js,1,"new, energy, device map"
+v0.9.24,2026-10-18,js/devicemap-wiring.js,3,"energy, device map"
+v0.9.24,2026-10-18,js/devicemap.page.js,28,device map
+v0.9.24,2026-10-18,js/energy-plant.js,6,energy
+v0.9.24,2026-10-18,js/energy.page.js,13,energy
+v0.9.23,2026-10-17,js/devicemap-model.js,12,"energy, device map"
+v0.9.23,2026-10-17,js/devicemap.page.js,27,device map
+v0.9.23,2026-10-17,js/energy.page.js,12,energy
+v0.9.22,2026-10-17,css/manager.css,41,5 panels
+v0.9.22,2026-10-17,js/dashboard.js,36,
+v0.9.22,2026-10-17,js/devicemap-graph.js,7,"energy, device map"
+v0.9.22,2026-10-17,js/devicemap-model.js,11,"energy, device map"
+v0.9.22,2026-10-17,js/devicemap-node-svg.js,6,"energy, device map"
+v0.9.22,2026-10-17,js/devicemap-switch.js,2,"energy, device map"
+v0.9.22,2026-10-17,js/devicemap-wiring.js,2,"energy, device map"
+v0.9.22,2026-10-17,js/devicemap.page.js,26,device map
+v0.9.22,2026-10-17,js/energy.page.js,11,energy
+v0.9.21,2026-10-16,css/manager.css,39,5 panels
+v0.9.21,2026-10-16,js/dashboard.js,35,
+v0.9.21,2026-10-16,js/devicemap-graph.js,6,"energy, device map"
+v0.9.21,2026-10-16,js/devicemap-labels.js,4,"energy, device map"
+v0.9.21,2026-10-16,js/devicemap-node-svg.js,5,"energy, device map"
+v0.9.21,2026-10-16,js/devicemap.page.js,25,device map
+v0.9.20,2026-10-15,css/base.css,37,"closed help tooltips no longer widen pages, anchored under the trigger on narrow screens, settings sub tabs and, per browser setting, the main tabs overflow into a ""More"" list"
+v0.9.20,2026-10-15,css/manager.css,37,"5 panels: device map side panel clipped to the stage, energy role cards fit narrow screens"
+v0.9.20,2026-10-15,css/settings-controls.css,14,"settings, diagnostics: version help tooltip on narrow screens"
+v0.9.20,2026-10-15,css/stats.css,3,hatched swatch
+v0.9.20,2026-10-15,js/automations.page.js,12,state document from `/api/v1/automation/state`
+v0.9.20,2026-10-15,js/dashboard.js,34,"favourite chips keep pick order, narrow-screen tooltip offset, main tab ""More"" list"
+v0.9.20,2026-10-15,js/energy-stats-model.js,3,"stats panel + energy cards, `HATCHED_ROLES`"
+v0.9.20,2026-10-15,js/settings.page.js,23,"settings panel, ""More"" tab list, main menu mode switch"
+v0.9.20,2026-10-15,js/stats.page.js,4,"thinned axis labels, hatched export and battery charge"
+v0.9.18,2026-10-15,js/mqtt.page.js,9,"settings panel, additional Home Assistant sensors multiselect"
+v0.9.17,2026-10-15,css/history.css,7,"history panel, stats panel: status line controls"
+v0.9.17,2026-10-15,js/history-chart.js,5,"history panel, history tile"
+v0.9.17,2026-10-15,js/history-rollup.js,3,"history panel, history tile"
+v0.9.17,2026-10-15,js/history-store.js,5,"`extent`, history panel, history tile"
+v0.9.17,2026-10-15,js/history.js,21,"history panel: coverage percentages, explicit resolution, refresh pause, resolution pill and pause button in the status line"
+v0.9.16,2026-10-15,css/history.css,5,"history panel, stats panel"
+v0.9.16,2026-10-15,js/history-chart.js,3,"history panel, history tile"
+v0.9.16,2026-10-15,js/history-coverage.js,4,
+v0.9.16,2026-10-15,js/history-exchange.js,8,
+v0.9.16,2026-10-15,js/history-rollup.js,2,"history panel, history tile"
+v0.9.16,2026-10-15,js/history.js,17,history panel
+v0.9.16,2026-10-15,js/layout-editor.js,16,overview editor
+v0.9.14,2026-10-14,js/mqtt.page.js,8,"settings panel, metrics multiselect and bridge help list"
+v0.9.14,2026-10-14,js/settings.page.js,22,"settings panel, `changelog_history`"
+v0.9.14,2026-10-14,js/versions.page.js,7,"settings panel, changelog history"
+v0.9.13,2026-10-14,js/i18n.js,4,"all pages, `login.html` keeps `3`"
+v0.9.13,2026-10-14,js/versions.page.js,6,"settings panel, `entryText`"
+v0.9.13,2026-10-14,js/whatsnew.page.js,3,"`whatsNewPanel`, `entryText`"
+v0.9.12,2026-10-14,js/dashboard.js,33,
+v0.9.12,2026-10-14,js/device-structure.js,1,"new, device tiles"
+v0.9.11,2026-10-14,js/dashboard.js,32,
+v0.9.11,2026-10-14,js/energy-stats-card.js,3,energy cards
+v0.9.11,2026-10-14,js/stats.page.js,3,stats panel
+v0.9.9,2026-10-12,css/base.css,35,
+v0.9.9,2026-10-12,css/settings-controls.css,13,"settings, diagnostics"
+v0.9.9,2026-10-12,css/stats.css,1,"new, stats panel"
+v0.9.9,2026-10-12,js/dashboard.js,30,
+v0.9.9,2026-10-12,js/energy-stats-card.js,1,"new, energy cards"
+v0.9.9,2026-10-12,js/energy-stats-model.js,1,"new, stats panel + energy cards"
+v0.9.9,2026-10-12,js/layout-editor.js,15,overview editor
+v0.9.9,2026-10-12,js/settings.page.js,21,settings panel
+v0.9.9,2026-10-12,js/stats.page.js,1,"new, stats panel"
+v0.9.7,2026-10-12,css/manager.css,35,5 panels
+v0.9.7,2026-10-12,js/devicemap-dataflow.js,4,"energy, device map"
+v0.9.7,2026-10-12,js/devicemap-graph.js,4,"energy, device map"
+v0.9.7,2026-10-12,js/devicemap-model.js,9,"energy, device map"
+v0.9.7,2026-10-12,js/devicemap-wiring.js,1,"new, energy, device map"
+v0.9.7,2026-10-12,js/devicemap.page.js,24,device map
+v0.9.7,2026-10-12,js/energy-plant.js,5,energy
+v0.9.6,2026-10-12,js/devicemap-dataflow.js,3,"energy, device map"
+v0.9.6,2026-10-12,js/devicemap.page.js,20,device map
+v0.9.6,2026-10-12,js/energy-plant.js,4,energy
+v0.9.5,2026-10-12,js/devicemap-dataflow.js,2,"energy, device map"
+v0.9.5,2026-10-12,js/devicemap-model.js,8,"energy, device map"
+v0.9.5,2026-10-12,js/devicemap.page.js,19,device map
+v0.9.5,2026-10-12,js/energy-plant.js,3,energy
+v0.9.4,2026-10-11,css/history.css,4,history panel
+v0.9.4,2026-10-11,css/settings-controls.css,12,"settings, diagnostics"
+v0.9.4,2026-10-11,js/history.js,16,history panel
+v0.9.4,2026-10-11,js/settings.page.js,20,settings panel
+v0.9.3,2026-10-11,js/history-coverage.js,3,
+v0.9.3,2026-10-11,js/history-exchange.js,5,
+v0.9.3,2026-10-11,js/history-recorder.js,11,
+v0.9.3,2026-10-11,js/history-store.js,4,
+v0.9.3,2026-10-11,js/history-view-card.js,2,"history tile, `webui.go`"
+v0.9.3,2026-10-11,js/history.js,15,history panel
+v0.9.3,2026-10-11,js/settings.page.js,18,settings panel
+v0.9.2,2026-10-10,css/base.css,34,
+v0.9.2,2026-10-10,css/settings-controls.css,11,"settings, diagnostics"
+v0.9.2,2026-10-10,js/dashboard.js,29,
+v0.9.2,2026-10-10,js/settings.page.js,16,
+v0.9.2,2026-10-10,js/update-bar.js,3,new
+v0.9.2,2026-10-10,js/versions.page.js,5,
+v0.9.2,2026-10-10,js/whatsnew.page.js,2,new
+v0.9.1,2026-10-10,js/automations.page.js,11,
+v0.8.20,2026-10-10,css/base.css,29,
+v0.8.20,2026-10-10,js/dashboard.js,28,
+v0.8.20,2026-10-10,js/devicemap-model.js,7,"energy, device map"
+v0.8.20,2026-10-10,js/devicemap-node-svg.js,4,"energy, device map"
+v0.8.20,2026-10-10,js/devicemap.page.js,17,
+v0.8.19,2026-10-10,css/base.css,28,
+v0.8.19,2026-10-10,css/manager.css,32,5 panels
+v0.8.19,2026-10-10,css/settings-controls.css,9,"settings, diagnostics"
+v0.8.19,2026-10-10,js/settings.page.js,14,
+v0.8.19,2026-10-10,js/versions.page.js,3,
+v0.8.18,2026-10-10,css/base.css,27,
+v0.8.18,2026-10-10,css/manager.css,31,5 panels
+v0.8.18,2026-10-10,js/device-picker.js,1,"new, energy, device map"
+v0.8.18,2026-10-10,js/devicemap-graph.js,3,"energy, device map"
+v0.8.18,2026-10-10,js/devicemap-model.js,6,"energy, device map"
+v0.8.18,2026-10-10,js/devicemap.page.js,16,
+v0.8.18,2026-10-10,js/energy-plant.js,2,
+v0.8.18,2026-10-10,js/energy.page.js,8,
+v0.8.15,2026-10-08 – 2026-10-09,css/automations.css,5,
+v0.8.15,2026-10-08 – 2026-10-09,css/base.css,26,
+v0.8.15,2026-10-08 – 2026-10-09,css/manager.css,30,5 panels
+v0.8.15,2026-10-08 – 2026-10-09,js/automations-view.js,1,new
+v0.8.15,2026-10-08 – 2026-10-09,js/automations.page.js,8,
+v0.8.15,2026-10-08 – 2026-10-09,js/config.page.js,9,
+v0.8.15,2026-10-08 – 2026-10-09,js/dashboard.js,27,
+v0.8.15,2026-10-08 – 2026-10-09,js/devicemap-dataflow.js,1,new
+v0.8.15,2026-10-08 – 2026-10-09,js/devicemap-graph.js,2,new
+v0.8.15,2026-10-08 – 2026-10-09,js/devicemap-labels.js,2,
+v0.8.15,2026-10-08 – 2026-10-09,js/devicemap-model.js,5,
+v0.8.15,2026-10-08 – 2026-10-09,js/devicemap-node-svg.js,3,
+v0.8.15,2026-10-08 – 2026-10-09,js/devicemap.page.js,15,
+v0.8.15,2026-10-08 – 2026-10-09,js/energy-model.js,3,history panel + energy cards
+v0.8.15,2026-10-08 – 2026-10-09,js/energy-plant.js,1,new
+v0.8.15,2026-10-08 – 2026-10-09,js/energy.page.js,7,
+v0.8.15,2026-10-08 – 2026-10-09,js/history-recorder.js,10,
+v0.8.14,2026-10-08,css/manager.css,27,5 panels
+v0.8.14,2026-10-08,js/dashboard.js,26,
+v0.8.14,2026-10-08,js/devicemap-model.js,3,
+v0.8.14,2026-10-08,js/devicemap.page.js,12,
+v0.8.14,2026-10-08,js/energy.page.js,5,
+v0.8.14,2026-10-08,js/revisions.js,4,"config, energy, device map, settings panels + layout editor"
+v0.8.13,2026-10-08,css/manager.css,26,5 panels
+v0.8.13,2026-10-08,js/devicemap-model.js,2,
+v0.8.13,2026-10-08,js/devicemap.page.js,11,
+v0.8.12,2026-10-08,css/manager.css,25,5 panels
+v0.8.12,2026-10-08,js/devicemap-labels.js,1,new
+v0.8.12,2026-10-08,js/devicemap-model.js,1,new
+v0.8.12,2026-10-08,js/devicemap-node-svg.js,1,new
+v0.8.12,2026-10-08,js/devicemap.page.js,10,
+v0.8.11,2026-10-06,css/diagnostics.css,2,"diagnostics panel, now also loads `css/settings-controls.css` `8`"
+v0.8.11,2026-10-06,js/dashboard.js,25,
+v0.8.9,2026-10-06,css/manager.css,24,5 panels
+v0.8.9,2026-10-06,js/config.page.js,8,
+v0.8.9,2026-10-06,js/revisions.js,3,"config, energy, device map, settings panels + layout editor"
+v0.8.7,2026-10-05,js/systemconfig.page.js,5,
+v0.8.5,2026-10-04,js/history-exchange.js,3,
+v0.8.5,2026-10-04,js/settings.page.js,13,
+v0.8.4,2026-10-04,js/versions.page.js,2,
+v0.8.3,2026-10-01,js/dashboard.js,23,
+v0.8.2,2026-10-01,js/energy-flow.js,3,
+v0.8.0,2026-09-28,js/config.page.js,7,
+v0.8.0,2026-09-28,js/history.js,13,
+v0.7.23,2026-09-28,css/settings-controls.css,8,
+v0.7.23,2026-09-28,js/settings.page.js,12,
+v0.7.23,2026-09-28,js/versions.page.js,1,new
+v0.7.22,2026-09-28,js/dashboard.js,22,
+v0.7.22,2026-09-28,js/mqtt.page.js,7,
+v0.7.21,2026-09-28,js/automations.page.js,7,
+v0.7.21,2026-09-28,js/config.page.js,6,
+v0.7.21,2026-09-28,js/dashboard.js,21,
+v0.7.21,2026-09-28,js/device-tile.js,2,
+v0.7.21,2026-09-28,js/devicemap.page.js,9,
+v0.7.21,2026-09-28,js/energy.page.js,4,
+v0.7.21,2026-09-28,js/history.js,12,
+v0.7.21,2026-09-28,js/i18n.js,3,also `login.html`
+v0.7.21,2026-09-28,js/layout-editor.js,13,
+v0.7.21,2026-09-28,js/mqtt.page.js,6,
+v0.7.21,2026-09-28,js/revisions.js,2,"config, energy, device map, settings panels + layout editor"
+v0.7.21,2026-09-28,js/settings.page.js,11,
+v0.7.21,2026-09-28,js/systemconfig.page.js,4,
+v0.7.21,2026-09-28,js/tailscale.page.js,4,
+v0.7.20,2026-09-27,js/automations.page.js,6,
+v0.7.20,2026-09-27,js/dashboard.js,20,
+v0.7.20,2026-09-27,js/history-coverage.js,2,
+v0.7.20,2026-09-27,js/history-exchange.js,2,
+v0.7.20,2026-09-27,js/history-export.js,2,history panel
+v0.7.20,2026-09-27,js/history-recorder.js,9,
+v0.7.20,2026-09-27,js/history-store.js,3,
+v0.7.20,2026-09-27,js/history.js,11,
+v0.7.19,2026-09-27,js/config-status.js,3,config + automations panels
+v0.7.19,2026-09-27,js/config.page.js,5,
+v0.7.19,2026-09-27,js/dashboard.js,19,
+v0.7.19,2026-09-27,js/devicemap.page.js,8,
+v0.7.19,2026-09-27,js/layout-editor.js,12,
+v0.7.19,2026-09-27,js/revisions.js,1,"config, energy, device map, settings panels + layout editor"
+v0.7.19,2026-09-27,js/schema-form.js,2,config + settings panels
+v0.7.18,2026-09-27,js/battery-card-core.js,4,
+v0.7.18,2026-09-27,js/energy-band.js,1,
+v0.7.18,2026-09-27,js/energy-board.js,1,
+v0.7.18,2026-09-27,js/energy-day.js,2,
+v0.7.18,2026-09-27,js/energy-flow.js,1,
+v0.7.18,2026-09-27,js/energy-model.js,2,energy cards + history panel
+v0.7.18,2026-09-27,js/energy-presentation.js,1,
+v0.7.18,2026-09-27,js/energy-ring.js,1,
+v0.7.18,2026-09-27,js/energy-schema.js,1,
+v0.7.18,2026-09-27,js/energy-status.js,1,
+v0.7.18,2026-09-27,js/energy.page.js,3,
+v0.7.18,2026-09-27,js/mqtt.page.js,5,
+v0.7.18,2026-09-27,js/settings.page.js,10,
+v0.7.18,2026-09-27,js/systemconfig.page.js,3,
+v0.7.18,2026-09-27,js/tailscale.page.js,3,
+v0.7.17,2026-09-26,css/automations.css,4,
+v0.7.17,2026-09-26,js/automations.page.js,5,
+v0.7.16,2026-09-26,js/dashboard.js,18,
+v0.7.16,2026-09-26,js/device-tile.js,1,
+v0.7.16,2026-09-26,js/entity-values.js,1,
+v0.7.16,2026-09-26,js/notifications.js,2,
+v0.7.16,2026-09-26,js/notify.js,1,
+v0.7.16,2026-09-26,js/overview-values.js,3,
+v0.7.16,2026-09-26,js/overview.page.js,6,
+v0.7.15,2026-09-26,css/settings-controls.css,7,
+v0.7.15,2026-09-26,js/automations.page.js,4,
+v0.7.15,2026-09-26,js/battery-card-core.js,3,
+v0.7.15,2026-09-26,js/battery-status.js,2,
+v0.7.15,2026-09-26,js/compact-card-values.js,1,
+v0.7.15,2026-09-26,js/config.page.js,4,
+v0.7.15,2026-09-26,js/dashboard.js,17,
+v0.7.15,2026-09-26,js/device-tile-values.js,1,
+v0.7.15,2026-09-26,js/energy-day.js,1,
+v0.7.15,2026-09-26,js/energy-model.js,1,energy cards + history panel
+v0.7.15,2026-09-26,js/history.js,10,
+v0.7.15,2026-09-26,js/i18n.js,2,base + login
+v0.7.15,2026-09-26,js/mqtt.page.js,4,
+v0.7.15,2026-09-26,js/overview-values.js,2,
+v0.7.15,2026-09-26,js/settings.page.js,9,
+v0.7.15,2026-09-26,js/tailscale.page.js,2,
+v0.7.14,2026-09-25,css/base.css,23,
+v0.7.14,2026-09-25,js/dashboard.js,16,
+v0.7.14,2026-09-25,js/i18n.js,1,
+v0.7.14,2026-09-25,js/settings.page.js,8,
+v0.7.13,2026-09-25,css/manager.css,23,5 panels
+v0.7.13,2026-09-25,js/automations.page.js,3,
+v0.7.13,2026-09-25,js/config-status.js,2,config + automations panels
+v0.7.13,2026-09-25,js/config.page.js,3,
+v0.7.13,2026-09-25,js/schema-form.js,1,config + settings panels
+v0.7.0,2026-09-16 – 2026-09-22,css/base.css,22,
+v0.7.0,2026-09-16 – 2026-09-22,css/manager.css,22,5 panels
+v0.7.0,2026-09-16 – 2026-09-22,js/dashboard.js,15,
+v0.6.7,2026-09-16,css/base.css,20,
+v0.6.7,2026-09-16,js/dashboard.js,14,
+v0.6.7,2026-09-16,js/settings.page.js,7,
+v0.6.2,2026-09-11,css/choices.css,2,"settings-panel and overview editor assets, the overview editor reference was unversioned and got 1"
+v0.6.2,2026-09-11,css/settings-controls.css,3,
+v0.6.0,2026-09-10,css/manager.css,19,5 panels
+v0.6.0,2026-09-10,js/dashboard.js,13,
+v0.6.0,2026-09-10,js/energy.page.js,2,
+v0.6.0,2026-09-10,js/mqtt.page.js,2,
+v0.6.0,2026-09-10,js/settings.page.js,6,
+v0.5.25,2026-09-10,css/base.css,19,
+v0.5.25,2026-09-10,css/settings-controls.css,2,
+v0.5.25,2026-09-10,js/dashboard.js,12,
+v0.5.25,2026-09-10,js/settings.page.js,5,
+v0.5.20,2026-09-08,css/manager.css,18,5 panels
+v0.5.20,2026-09-08,js/systemconfig.page.js,2,
+v0.5.19,2026-09-08,js/notifications.js,1,
+v0.5.18,2026-09-07,css/base.css,18,
+v0.5.17,2026-09-07,js/dashboard.js,11,
+v0.5.17,2026-09-07,js/layout-editor.js,11,
+v0.5.15,2026-09-06,css/manager.css,17,5 panels
+v0.5.15,2026-09-06,js/config.page.js,2,
+v0.5.15,2026-09-06,js/history-recorder.js,8,
+v0.5.11,2026-09-05,js/battery-card-core.js,2,
+v0.5.11,2026-09-05,js/battery-status.js,1,
+v0.5.11,2026-09-05,js/layout-editor.js,10,
+v0.5.10,2026-09-05,css/manager.css,16,5 panels
+v0.5.9,2026-09-05,js/settings.page.js,2,
+v0.5.8,2026-09-05,js/battery-card-core.js,1,
+v0.5.8,2026-09-05,js/dashboard.js,10,
+v0.5.7,2026-09-05,css/base.css,17,
+v0.5.7,2026-09-05,css/layout-editor.css,9,
+v0.5.7,2026-09-05,js/dashboard.js,9,
+v0.5.7,2026-09-05,js/layout-editor.js,9,
+v0.5.6,2026-09-05,css/manager.css,15,5 panels
+v0.5.5,2026-09-05,css/manager.css,14,5 panels
+v0.5.5,2026-09-05,js/settings.page.js,1,
+v0.5.5,2026-09-05,js/tailscale.page.js,1,
+v0.5.4,2026-09-04,js/layout-editor.js,7,
+v0.5.0,2026-09-04,js/history-export.js,1,
+v0.5.0,2026-09-04,js/history-recorder.js,7,
+v0.5.0,2026-09-04,js/history-store.js,2,
+v0.5.0,2026-09-04,js/systemconfig.page.js,1,
+v0.3.19,2026-09-04,css/automations.css,3,
+v0.3.19,2026-09-04,css/base.css,16,
+v0.3.19,2026-09-04,css/history.css,3,
+v0.3.19,2026-09-04,css/layout-editor.css,6,
+v0.3.19,2026-09-04,css/manager.css,12,5 panels
+v0.3.19,2026-09-04,js/dashboard.js,8,
+v0.3.19,2026-09-04,js/layout-editor.js,6,
+v0.3.19,2026-09-04,js/overview.page.js,5,
+v0.3.15,2026-09-03,css/base.css,13,
+v0.3.15,2026-09-03,css/manager.css,10,5 panels
