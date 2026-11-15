@@ -78,6 +78,7 @@
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
 - **backup:** classify the performance change file as disposable (f4016b6)
+- **webui:** bump cache-bust marks for the performance check assets (e634f0d)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **nodeagent:** apply a new node poll interval without restart (050ba64)
