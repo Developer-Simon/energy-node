@@ -3706,7 +3706,7 @@
   "performance.deduction.warm": "The temperature is 75 °C or higher",
   "performance.js.applied": "Selection applied",
   "performance.js.custom.below_floor": "Below the device limit of {floor}, will not be applied.",
-  "performance.js.custom.below_source": "Below half of the fastest source ({floor}), the display then lags behind.",
+  "performance.js.custom.below_source": "Below half of the fastest source ({floor}). Faster shows or checks nothing new and only wastes resources.",
   "performance.js.custom.invalid": "Please enter a number in seconds.",
   "performance.js.custom.over_budget": "Over the budget. With this value the device would be {over} over the limit.",
   "performance.js.duration": "{hours} h {minutes} min",

@@ -102,10 +102,10 @@
                         x-bind:aria-disabled="PerformanceCore.stepState(row, s, ctx()) !== 'ok' || !canEdit(row) ? 'true' : null"
                         x-on:click="pick(row.id, s)" x-text="$t('performance.js.seconds', { value: window.I18n.formatNumber(s, 1) })"></button>
               </template>
-              <label class="pf-custom" x-bind:class="{ 'pf-custom-sel': !row.steps.includes(selected(row.id)) }">
+              <label class="pf-custom" x-bind:class="{ 'pf-custom-sel': !PerformanceCore.stepsOf(row, data.rows, sel, data.external).includes(selected(row.id)) }">
                 <span class="visually-hidden" x-text="$t('performance.ui.custom.label', { label: rowLabel(row.id) })"></span>
-                <input type="text" inputmode="decimal" autocomplete="off" x-bind:placeholder="$t('performance.ui.custom.placeholder')"
-                       x-bind:value="custom[row.id] ?? (row.steps.includes(selected(row.id)) ? '' : String(selected(row.id)).replace('.', ','))"
+                <input type="text" inputmode="decimal" autocomplete="off" x-bind:placeholder="PerformanceCore.stepsOf(row, data.rows, sel, data.external).includes(selected(row.id)) ? $t('performance.ui.custom.placeholder') : String(selected(row.id)).replace('.', ',')"
+                       x-bind:value="custom[row.id] ?? ''"
                        x-bind:disabled="!canEdit(row)"
                        x-on:input="customInput(row.id, $event.target.value)">
                 <span aria-hidden="true">s</span>

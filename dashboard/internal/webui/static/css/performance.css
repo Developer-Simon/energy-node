@@ -121,3 +121,4 @@
 @media (prefers-reduced-motion: reduce) {
   .pf-meter > i, .pf-limit, .pf-limit-label, .pf-step, .pf-mrow-bar i { transition: none; }
 }
+.pf-custom-sel input::placeholder { color: var(--text-strong); opacity: 1; }

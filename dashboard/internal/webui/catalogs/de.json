@@ -3706,7 +3706,7 @@
   "performance.deduction.warm": "Die Temperatur liegt bei 75 °C oder darüber",
   "performance.js.applied": "Auswahl übernommen",
   "performance.js.custom.below_floor": "Unter der Gerätegrenze von {floor}, wird nicht übernommen.",
-  "performance.js.custom.below_source": "Unter der Hälfte der schnellsten Quelle ({floor}), die Anzeige hinkt dann hinterher.",
+  "performance.js.custom.below_source": "Unter der Hälfte der schnellsten Quelle ({floor}). Schneller zeigt oder prüft nichts Neues und verbraucht nur unnötig Leistung.",
   "performance.js.custom.invalid": "Bitte eine Zahl in Sekunden eingeben.",
   "performance.js.custom.over_budget": "Liegt über dem Budget. Mit diesem Wert wäre das Gerät um {over} über der Grenze.",
   "performance.js.duration": "{hours} h {minutes} min",

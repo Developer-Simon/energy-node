@@ -163,9 +163,9 @@ type rowSpec struct {
 // rowSpecs lists the rows in page order.
 var rowSpecs = []rowSpec{
 	{id: RowLiveUpdate, steps: []float64{1, 2, 3, 5, 10, 15, 30}, right: "edit_setup", follows: "half"},
+	{id: RowNode, steps: []float64{5, 10, 15, 30, 60, 120}, fixedFloor: 5, right: "system_actions", source: true},
 	{id: RowTick, steps: []float64{5, 10, 15, 20, 30, 60}, fixedFloor: 5, right: "automations", follows: "half"},
 	{id: RowRegulator, steps: []float64{5, 10, 15, 20, 30, 60}, fixedFloor: 5, right: "automations", follows: "balance"},
-	{id: RowNode, steps: []float64{5, 10, 15, 30, 60, 120}, fixedFloor: 5, right: "system_actions", source: true},
 	{id: RowShelly, service: "shelly", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", source: true, balance: true},
 	{id: RowTrucki, service: "trucki", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", source: true},
 	{id: RowBatterySoc, service: "battery_soc", steps: []float64{1, 2, 5, 10, 20, 30}, right: "system_actions", source: true},

@@ -117,6 +117,9 @@
   // Auswahl nach "Gleichmäßig verteilen". editable ist die Liste der Zeilen-Ids,
   // die der Nutzer ändern darf. Nicht editierbare Zeilen bleiben auf cur.
   // ctx liefert base, external und measuring. available wird separat übergeben.
+  // Dienste, aus deren Werten Battery SoC rechnet.
+  const INPUT_ROWS = ['shelly', 'trucki', 'apsystems', 'tuya'];
+
   function distribute(rows, cur, available, editable, ctx) {
     const sel = { ...cur };
     const keys = rows.filter((row) => editable.includes(row.id));
@@ -128,6 +131,21 @@
       if (i < 0) return st.find((s) => (dir > 0 ? s > sel[row.id] : s < sel[row.id]));
       return st[i + dir];
     };
+
+    // Battery SoC rechnet nur aus den Werten der Gerätedienste. Schneller als
+    // der schnellste von ihnen bringt nichts, also gilt er beim Verteilen als
+    // Untergrenze und wird nie darunter vorgeschlagen.
+    const batteryFloor = () => {
+      const inputs = rows.filter((row) => INPUT_ROWS.includes(row.id)).map((row) => sel[row.id]);
+      return inputs.length ? Math.min(...inputs) : 0;
+    };
+    const battery = keys.find((row) => row.id === 'battery_soc');
+    if (battery) {
+      const st = stepsOf(battery, rows, sel, ctx.external);
+      const fit = st.find((s) => s >= batteryFloor());
+      if (fit !== undefined && sel.battery_soc < fit) sel.battery_soc = fit;
+    }
+    const canSpeedUp = (row, v) => row.id !== 'battery_soc' || v >= batteryFloor();
 
     let guard = 0;
     while (total(ctx.base, rows, sel) > available && guard++ < 80) {
@@ -143,7 +161,7 @@
         moved = false;
         keys.forEach((row) => {
           const v = [...stepsOf(row, rows, sel, ctx.external)].reverse().find((s) => s < sel[row.id]);
-          if (v !== undefined && stepState(row, v, state()) === 'ok') {
+          if (v !== undefined && stepState(row, v, state()) === 'ok' && canSpeedUp(row, v)) {
             sel[row.id] = v;
             moved = true;
           }

@@ -181,3 +181,15 @@ test('performance-core: distribute mit Reserve geht höchstens bis zur Untergren
     assert.ok(sel[row.id] >= floor, `${row.id}: ${sel[row.id]} unter Untergrenze ${floor}`);
   }
 });
+
+test('performance-core: distribute schlägt Battery SoC nie schneller vor als die schnellste Quelle', () => {
+  const cur = curOf(PI3.rows);
+  const editable = PI3.rows.map((r) => r.id);
+  const sel = C.distribute(PI3.rows, cur, available(PI3), editable, ctxOf(PI3, { cur }));
+  const inputs = ['shelly', 'trucki', 'apsystems', 'tuya'].map((id) => sel[id]);
+  const bound = Math.min(...inputs);
+  const steps = C.stepsOf(PI3.rows.find((r) => r.id === 'battery_soc'), PI3.rows, sel, PI3.external);
+  if (steps.some((s) => s >= bound)) {
+    assert.ok(sel.battery_soc >= bound, `battery_soc ${sel.battery_soc} schneller als ${bound}`);
+  }
+});
