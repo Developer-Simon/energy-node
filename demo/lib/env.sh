@@ -94,10 +94,14 @@ env_prepare_devices() {
   # Je Konfiguration ein Dienst-Manifest neben config.json, wie es der Installer
   # unter manifests/ ablegt. Nur fuer die dort genannten Dienste beobachtet das
   # Dashboard outstation/<id>/settings/status.
+  # Die Demo braucht fuer alle fuenf Messdienste eine Zeile auf der Leistungsseite,
+  # auch ohne Konfiguration. ENERGY_NODE_PERFORMANCE_FAKE=1 setzt nur demo/demo.sh.
   mkdir -p "$WORK/manifests" || return 1
-  python3 - "$WORK/devices" "$WORK/manifests" <<'PY' || return 1
+  python3 - "$WORK/devices" "$WORK/manifests" "$REPO_DIR" "${ENERGY_NODE_PERFORMANCE_FAKE:-0}" <<'PY' || return 1
 import json, pathlib, sys
-devices, manifests = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+devices, manifests, repo = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
+fake = sys.argv[4] == "1"
+ids = set()
 for path in devices.glob("*.json"):
     name = path.stem
     if name.endswith(".schema"):
@@ -105,7 +109,19 @@ for path in devices.glob("*.json"):
     # Spiegel von config.ServiceIDForConfig (internal/config/config.go).
     service_id = "automation" if name == "automation_rules" else (name[:-len("_devices")] if name.endswith("_devices") else "")
     if service_id:
-        (manifests / f"{service_id}.json").write_text(json.dumps({"service_id": service_id}) + "\n", encoding="utf-8")
+        ids.add(service_id)
+if fake:
+    ids.update(["trucki", "apsystems_ez1", "tuya_mqtt"])
+for service_id in sorted(ids):
+    entry = {"service_id": service_id}
+    # unit und poll_floor_s aus dem echten Dienst-Manifest, damit die Demo dieselben Zahlen zeigt.
+    real = repo / "services" / service_id / "manifest.json"
+    if real.is_file():
+        data = json.loads(real.read_text(encoding="utf-8"))
+        for key in ("unit", "poll_floor_s"):
+            if key in data:
+                entry[key] = data[key]
+    (manifests / f"{service_id}.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
 PY
   echo "Dienste: $(find "$WORK/manifests" -maxdepth 1 -type f -printf '%f\n' | sed 's/\.json$//' | sort | tr '\n' ' ')"
 }

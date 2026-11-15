@@ -597,6 +597,12 @@ func main() {
 			}
 		}
 	}()
+	// Mit ENERGY_NODE_PERFORMANCE_FAKE_FILE liest die Seite den Szenario-Stand
+	// der Demo-Konsole statt des Monitors; der Monitor laeuft unbenutzt weiter.
+	var perfProvider httpapi.PerformanceProvider = perfMonitor
+	if fakeFile := os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE_FILE"); fakeFile != "" && os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE") == "1" {
+		perfProvider = performance.NewFileProvider(fakeFile)
+	}
 	performanceRates := func() performance.RateConfig {
 		// Ohne lesbaren Wert gelten die Standardwerte: Live-Aktualisierung 3 s
 		// (Einstellungen), Automation tick_interval_s 10 (Schema), Regler 10,
@@ -975,7 +981,7 @@ func main() {
 		CompanionFingerprint: companionFingerprint,
 		EventStreams:         eventStreams,
 		Performance: &httpapi.PerformanceDeps{
-			Provider: perfMonitor,
+			Provider: perfProvider,
 			Rates:    performanceRates,
 			Floors:   perfFloors,
 		},
