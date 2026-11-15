@@ -43,6 +43,7 @@ type it stands for in the dashboard.
 | <img src="../images/device-icons/device-generic.svg" width="32" height="32" alt="device-generic"> | `energy-node:device-generic` | Generic device |
 | <img src="../images/device-icons/raspberry-pi.svg" width="32" height="32" alt="raspberry-pi"> | `energy-node:raspberry-pi` | Raspberry Pi |
 | <img src="../images/device-icons/automations.svg" width="32" height="32" alt="automations"> | `energy-node:automations` | Automations |
+| <img src="../images/device-icons/gauge.svg" width="32" height="32" alt="gauge"> | `energy-node:gauge` | Gauge, performance |
 
 <!-- icon-table:end -->
 
