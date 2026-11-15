@@ -391,3 +391,97 @@ func TestApplyEndpointChecksRowRights(t *testing.T) {
 		t.Fatalf("live_update mit edit_setup status %d: %s", allowed.Code, allowed.Body.String())
 	}
 }
+
+func TestApplyTargetNeedsEditSetup(t *testing.T) {
+	fx := newApplyFixture(t)
+	settingsBefore, err := fx.store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := 40
+	has := func(right string) bool { return right != "edit_setup" }
+
+	_, err = fx.writer.Apply(context.Background(), ApplyRequest{TargetPct: &target}, applyTestRows(), has)
+
+	assertSaveError(t, err, http.StatusForbidden, "forbidden")
+	settingsAfter, err := fx.store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settingsAfter.PerformanceTargetPct != settingsBefore.PerformanceTargetPct {
+		t.Fatalf("performance_target_pct %d geschrieben, obwohl edit_setup fehlt", settingsAfter.PerformanceTargetPct)
+	}
+}
+
+func TestApplyRejectsTargetOutOfRange(t *testing.T) {
+	for _, target := range []int{19, 96} {
+		fx := newApplyFixture(t)
+		settingsBefore, err := fx.store.LoadSettings()
+		if err != nil {
+			t.Fatal(err)
+		}
+		value := target
+
+		_, err = fx.writer.Apply(context.Background(), ApplyRequest{TargetPct: &value}, applyTestRows(), allRights)
+
+		assertSaveError(t, err, http.StatusBadRequest, "invalid_target")
+		settingsAfter, err := fx.store.LoadSettings()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if settingsAfter.PerformanceTargetPct != settingsBefore.PerformanceTargetPct {
+			t.Fatalf("Ziel %d: performance_target_pct geschrieben", target)
+		}
+	}
+}
+
+func TestApplyRejectsNonPositive(t *testing.T) {
+	fx := newApplyFixture(t)
+	configBefore, err := os.ReadFile(fx.configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	settingsBefore, err := fx.store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := ApplyRequest{Rates: map[performance.RowID]float64{
+		performance.RowLiveUpdate: -5,
+		performance.RowShelly:     -3,
+	}}
+
+	_, err = fx.writer.Apply(context.Background(), req, applyTestRows(), allRights)
+
+	assertSaveError(t, err, http.StatusBadRequest, "below_floor")
+	settingsAfter, err := fx.store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settingsAfter.LiveUpdateIntervalSeconds != settingsBefore.LiveUpdateIntervalSeconds {
+		t.Fatal("settings geschrieben trotz nicht positiver Periode")
+	}
+	configAfter, err := os.ReadFile(fx.configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(configAfter) != string(configBefore) {
+		t.Fatal("config.json geschrieben trotz nicht positiver Periode")
+	}
+}
+
+func TestApplyRoundsLiveUpdate(t *testing.T) {
+	fx := newApplyFixture(t)
+	req := ApplyRequest{Rates: map[performance.RowID]float64{performance.RowLiveUpdate: 4.6}}
+
+	if _, err := fx.writer.Apply(context.Background(), req, applyTestRows(), allRights); err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+
+	current, err := fx.store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.LiveUpdateIntervalSeconds != 5 {
+		t.Fatalf("live_update_interval_seconds %d, erwartet 5 (gerundet)", current.LiveUpdateIntervalSeconds)
+	}
+}

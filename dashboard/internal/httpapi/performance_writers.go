@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"sort"
@@ -76,6 +77,12 @@ func saveSystemConfig(ctx context.Context, deps systemConfigDeps, body []byte) (
 // applyMaxS ist die längste Abfrageperiode, die eine Übernahme annimmt.
 const applyMaxS = 3600
 
+// applyTargetMinPct und applyTargetMaxPct begrenzen das Ziel in Prozent.
+const (
+	applyTargetMinPct = 20
+	applyTargetMaxPct = 95
+)
+
 // applyServiceRows listet die Zeilen, deren Periode in
 // services.<id>.poll_interval_s steht.
 var applyServiceRows = []performance.RowID{
@@ -122,6 +129,16 @@ func (w *rateWriter) Apply(ctx context.Context, req ApplyRequest, rows []perform
 		byID[row.ID] = row
 	}
 
+	// Das Ziel braucht das Recht edit_setup und liegt zwischen 20 und 95.
+	if req.TargetPct != nil {
+		if !has("edit_setup") {
+			return ApplyResponse{}, &saveError{Status: http.StatusForbidden, Code: "forbidden", Err: fmt.Errorf("Ziel: Recht %q fehlt", "edit_setup")}
+		}
+		if *req.TargetPct < applyTargetMinPct || *req.TargetPct > applyTargetMaxPct {
+			return ApplyResponse{}, &saveError{Status: http.StatusBadRequest, Code: "invalid_target", Err: fmt.Errorf("Ziel %d liegt nicht zwischen %d und %d", *req.TargetPct, applyTargetMinPct, applyTargetMaxPct)}
+		}
+	}
+
 	changes := map[performance.RowID]float64{}
 	for id, value := range req.Rates {
 		row, ok := byID[id]
@@ -130,6 +147,17 @@ func (w *rateWriter) Apply(ctx context.Context, req ApplyRequest, rows []perform
 		}
 		if row.Right != "" && !has(row.Right) {
 			return ApplyResponse{}, &saveError{Status: http.StatusForbidden, Code: "forbidden", Err: fmt.Errorf("Zeile %q: Recht %q fehlt", id, row.Right)}
+		}
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return ApplyResponse{}, &saveError{Status: http.StatusBadRequest, Code: "below_floor", Err: fmt.Errorf("Zeile %q: Wert ist keine endliche Zahl", id)}
+		}
+		// live_update wird als ganze Zahl gespeichert, also vorab runden.
+		if id == performance.RowLiveUpdate {
+			value = math.Round(value)
+		}
+		// Jede Periode ist mindestens 1 Sekunde, unabhängig von den weichen Untergrenzen.
+		if value < 1 {
+			return ApplyResponse{}, &saveError{Status: http.StatusBadRequest, Code: "below_floor", Err: fmt.Errorf("Zeile %q: %v ist unter 1 Sekunde", id, value)}
 		}
 		// Die Untergrenzen der Quellen (half, balance) sind weich.
 		soft := row.Follows == "half" || row.Follows == "balance"
