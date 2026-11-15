@@ -249,10 +249,18 @@ def read_version(root: Path, rev: str | None) -> str:
     return text.strip()
 
 
+def base_history(root: Path, base: str, head_entries: list[Entry]) -> list[Entry]:
+    # A CSV that is new in the branch is bootstrap history: its rows count as base rows.
+    text = read_text(root, base, HISTORY)
+    if text is None:
+        return head_entries
+    return parse_history(text)
+
+
 def history_errors(root: Path, base: str, rows: list[Row], lenient: bool) -> list[str]:
     try:
-        base_entries = parse_history(read_text(root, base, HISTORY))
         head_entries = parse_history(read_text(root, None, HISTORY))
+        base_entries = base_history(root, base, head_entries)
         version = expected_version(read_version(root, base), read_version(root, None))
     except ValueError as exc:
         return [str(exc)]
@@ -262,8 +270,8 @@ def history_errors(root: Path, base: str, rows: list[Row], lenient: bool) -> lis
 def cmd_history(root: Path, base: str | None, today: date) -> int:
     base = base or default_base(root)
     try:
-        base_entries = parse_history(read_text(root, base, HISTORY))
         head_entries = parse_history(read_text(root, None, HISTORY))
+        base_entries = base_history(root, base, head_entries)
         version = expected_version(read_version(root, base), read_version(root, None))
     except ValueError as exc:
         print(exc)

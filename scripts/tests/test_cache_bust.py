@@ -541,3 +541,47 @@ def test_check_accepts_union_merged_csv(repo):
         + "v0.11.9,2026-11-09,js/app.js,4,\n",
     )
     assert run_check(root, base) == 0
+
+
+OLD_HISTORY_ROWS = (
+    "v0.3.19,2026-10-01,css/manager.css,5,\n"
+    'v0.11.7,2026-11-01,js/app.js,3,"fix, again"\n'
+)
+
+
+def base_without_history(root):
+    (root / HISTORY).unlink()
+    return _commit(root, "base without history")
+
+
+def test_bootstrap_csv_without_bumps_passes_check(repo):
+    root, _ = repo
+    base = base_without_history(root)
+    write_history(root, HEADER_LINE + OLD_HISTORY_ROWS)
+    assert run_check(root, base) == 0
+
+
+def test_bootstrap_bump_without_row_fails_check(repo, capsys):
+    root, _ = repo
+    base = base_without_history(root)
+    write_history(root, HEADER_LINE + OLD_HISTORY_ROWS)
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    assert run_check(root, base) == 1
+    assert "has no row for js/app.js ?v=4" in capsys.readouterr().out
+
+
+def test_bootstrap_history_keeps_old_rows(repo, capsys):
+    root, _ = repo
+    base = base_without_history(root)
+    write_history(root, HEADER_LINE + OLD_HISTORY_ROWS)
+    edit(root, "static/js/app.js", "console.log(3);\n")
+    write_marks(root, app=4)
+    assert main(["history", "--base", base, "--root", str(root), "--today", "2026-11-09"]) == 0
+    text = read_history(root)
+    assert "v0.3.19,2026-10-01,css/manager.css,5,\n" in text
+    assert "v0.11.7,2026-11-01,js/app.js,3,\"fix, again\"\n" in text
+    assert "v0.11.9,2026-11-09,js/app.js,4,\n" in text
+    out = capsys.readouterr().out
+    assert "removed" not in out
+    assert "added v0.11.9 js/app.js ?v=4" in out
