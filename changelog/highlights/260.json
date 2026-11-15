@@ -1,0 +1,44 @@
+{
+  "de": {
+    "*": "Die Einstellungen zeigen unter Leistung, wie stark die Node und ihre Dienste das Gerät auslasten"
+  },
+  "en": {
+    "*": "Settings now show under Performance how much load the node and its services put on the device"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_diagnostics",
+          "page": "performance",
+          "panel": "settings-panel",
+          "target": "performance-budget",
+          "text": {
+            "de": "Oben steht, wie viel von der Leistung des Geräts gerade genutzt wird. Der Balken zeigt die Grundlast und die Abfragen der Dienste, die Marke die Grenze. In den ersten Stunden läuft die Messung noch und die Werte sind geschätzt.",
+            "en": "The top shows how much of the device's capacity is in use. The bar splits the base load from the services' polling, the mark shows the limit. The first hours are still measuring, so the values are estimated."
+          },
+          "title": {
+            "de": "Auslastung und Budget",
+            "en": "Load and budget"
+          }
+        },
+        {
+          "device": "any",
+          "need": "view_diagnostics",
+          "page": "performance",
+          "panel": "settings-panel",
+          "target": "performance-measure",
+          "text": {
+            "de": "Hier siehst du, wie viel Rechenleistung und Arbeitsspeicher jeder Dienst braucht, wie lange eine Abfragerunde dauert und wie viele Nachrichten er auslöst. Die Werte stammen aus den letzten 6 Stunden und liegen nur im Speicher.",
+            "en": "This shows how much processing power and memory each service needs, how long a polling round takes and how many messages it causes. The values cover the last 6 hours and are kept in memory only."
+          },
+          "title": {
+            "de": "Messwerte",
+            "en": "Measurements"
+          }
+        }
+      ]
+    }
+  }
+}

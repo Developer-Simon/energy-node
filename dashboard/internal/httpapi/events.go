@@ -264,6 +264,42 @@ const registryStreamQueueSize = 4
 // teilen sich einen Poll-Loop im Hub. Er baut jedes abonnierte Thema einmal
 // je Aenderung und schickt jeder Verbindung nur ihre Themen (?topics=).
 func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine, stats *energystats.Service) http.HandlerFunc {
+	return handleEventsWithStreams(reg, store, resolver, engine, stats, nil)
+}
+
+// EventStreams zaehlt die offenen /api/v1/events-Stroeme. Den Hub baut der
+// Router; die Leistungsmessung liest die Zahl der Verbindungen ueber diesen
+// Halter. Ein nil-Halter zaehlt 0.
+type EventStreams struct {
+	mu  sync.Mutex
+	hub *registryevents.Hub
+}
+
+// Subscribers liefert die Zahl der offenen Ströme.
+func (e *EventStreams) Subscribers() int {
+	if e == nil {
+		return 0
+	}
+	e.mu.Lock()
+	hub := e.hub
+	e.mu.Unlock()
+	if hub == nil {
+		return 0
+	}
+	return hub.Subscribers()
+}
+
+func (e *EventStreams) attach(hub *registryevents.Hub) {
+	if e == nil {
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.hub = hub
+}
+
+// handleEventsWithStreams wie handleEvents; streams nimmt den Hub auf, nil heisst: keiner.
+func handleEventsWithStreams(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine, stats *energystats.Service, streams *EventStreams) http.HandlerFunc {
 	cache := newEventCache(reg, store, resolver, engine)
 	cache.stats = stats
 	hub := registryevents.NewHub(
@@ -273,6 +309,7 @@ func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energ
 		defaultEventTopics,
 		func() time.Duration { return liveUpdateInterval(store) },
 	)
+	streams.attach(hub)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w, http.MethodGet)

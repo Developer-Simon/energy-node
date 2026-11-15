@@ -10,5 +10,6 @@
     "diagnostic_poll_multiplier",
     "http_timeout_s"
   ],
-  "kind": "device"
+  "kind": "device",
+  "poll_floor_s": 2
 }

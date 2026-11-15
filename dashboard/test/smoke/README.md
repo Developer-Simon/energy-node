@@ -30,7 +30,7 @@ use makes the run fail, and the script leaves the process that holds it alone.
 
 | Run | Configuration | Check groups |
 |---|---|---|
-| `haupt` | Sources, fixture and seed data of the demo (`demo/demo.sh`), HTTPS, simulated power values, service logs, installed state, package and update fake | `topics`, `battery_config`, `shelly`, `seed`, `dataflow`, `live_push`, `update_offer`, `package`, `installed`, `journal`, `users`, `onboarding`, `update_install`, `companion`, `history_exchange`, `backup` |
+| `haupt` | Sources, fixture and seed data of the demo (`demo/demo.sh`), HTTPS, simulated power values, service logs, installed state, package and update fake | `topics`, `battery_config`, `shelly`, `seed`, `dataflow`, `live_push`, `update_offer`, `package`, `installed`, `journal`, `users`, `onboarding`, `update_install`, `companion`, `history_exchange`, `backup`, `storage`, `network`, `settings_subpages`, `performance` |
 | `ohne-dienste` | The demo sources, but all seven services switched off | `services_off` |
 | `bilanz` | `energie-ueberschuss.json` with the seed set `energie-alle-karten`, only the battery service, no simulation | `seed`, `energy_balance`, `companion` |
 | `seed` | The demo sources, plus an installer `onboarding-seed.json` next to `auth.pw` before the start | `onboarding_seed` |
@@ -96,6 +96,10 @@ truth for the details.
   preview (never applied), the password path answers `password_required`,
   `wrong_password` and a preview on the right password, an account without backup
   rights gets 403, no session 401, and deleted archives leave the status
+- the performance API under `/api/v1/performance` answers 200 with rows, units,
+  target and measured time, and the settings page Leistung carries both tour
+  targets (`performance-budget`, `performance-measure`); the run `haupt` sets
+  `ENERGY_NODE_PERFORMANCE_FAKE=1` so the values are the invented ones
 - with the simulation on, the PV power under `/api/v1/topics/samples` changes
   within ten seconds, proof that the simulated values arrive as MQTT `PUBLISH`
   on the open connection and not only that the broker process is alive

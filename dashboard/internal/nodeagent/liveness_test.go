@@ -111,3 +111,15 @@ func TestServiceStatusKeepsTheFullStatus(t *testing.T) {
 		t.Fatalf("liveness unchanged: %+v", states)
 	}
 }
+
+func TestObserveLivenessReadsPollRound(t *testing.T) {
+	a := livenessAgent(t, time.Unix(10_000, 0))
+	a.ObserveLiveness("outstation/trucki/settings/status", []byte(`{"runtime_status":"ok","poll_round_s":1.2}`))
+	if d, ok := a.ServiceRoundS("trucki"); d != 1.2 || !ok {
+		t.Fatalf("ServiceRoundS = %v, %v; want 1.2, true", d, ok)
+	}
+	a.ObserveLiveness("outstation/shelly/settings/status", []byte(`{"runtime_status":"ok"}`))
+	if d, ok := a.ServiceRoundS("shelly"); ok {
+		t.Fatalf("ServiceRoundS without field = %v, %v; want false", d, ok)
+	}
+}

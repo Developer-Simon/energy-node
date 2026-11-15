@@ -130,6 +130,11 @@ type Settings struct {
 	DashboardSubtitle       string `json:"dashboard_subtitle"`
 	DashboardTitleHidden    bool   `json:"dashboard_title_hidden"`
 	DashboardSubtitleHidden bool   `json:"dashboard_subtitle_hidden"`
+
+	// PerformanceTargetPct ist das Budget der Eigenmessung in Prozent der
+	// Gesamtlast (siehe internal/performance). 0 heisst Standard je
+	// Kernzahl, siehe performance.DefaultTarget.
+	PerformanceTargetPct int `json:"performance_target_pct"`
 }
 
 // DefaultDashboardTitle steht in der Kopfzeile, solange DashboardTitle leer

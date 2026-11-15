@@ -44,6 +44,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/netmgr"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/onboarding"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/performance"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/servicelogs"
@@ -56,6 +57,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updateprogress"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 	dashwebui "github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
@@ -536,6 +538,94 @@ func main() {
 	nodeAgent.SetServiceCatalog(serviceIDs, cfg.Services)
 	client.WatchTopics(nodeAgent.WatchTopicsFor(), nodeAgent.ObserveLiveness)
 
+	// Leistungsmessung: Messung alle 15 s, Fenster 6 h, Anlaufphase 5 min.
+	// ENERGY_NODE_PERFORMANCE_FAKE=1 liefert erfundene Werte (Demo, Smoke).
+	perfManifests, err := nodeagent.LoadServiceManifests(manifestsDir)
+	if err != nil {
+		log.Printf("energy-node-dashboard: performance manifests unreadable: %v", err)
+	}
+	perfUnits := map[string]string{}
+	perfFloors := map[string]float64{}
+	for _, m := range perfManifests {
+		if m.Unit != "" {
+			perfUnits[m.ServiceID] = m.Unit
+		}
+		perfFloors[m.ServiceID] = m.PollFloorS
+	}
+	var perfSource performance.Source
+	if os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE") == "1" {
+		perfSource = performance.NewFakeSource(time.Now().UnixNano())
+	} else {
+		perfSource = performance.NewProcSource("/proc", "/sys/fs/cgroup/system.slice")
+	}
+	perfCounter := performance.NewCounter(func(topic string) (string, string) {
+		return performanceOwner(topic, reg, perfUnits, cfg.Dashboard.NodeDeviceID)
+	})
+	perfCounter.SetDeviceName(func(deviceID string) string {
+		if dev, ok := reg.Get(deviceID); ok {
+			return dev.Name
+		}
+		return ""
+	})
+	client.SetMessageObserver(perfCounter.Observe)
+	eventStreams := &httpapi.EventStreams{}
+	perfMonitor := performance.NewMonitor(perfSource, perfCounter, performance.Options{
+		Interval: 15 * time.Second,
+		Window:   6 * time.Hour,
+		Warmup:   5 * time.Minute,
+		Units:    perfUnits,
+		Busy:     performanceBusy(jobDir),
+		Clients:  eventStreams.Subscribers,
+		Device: func() performance.DeviceSignals {
+			telemetry, ok := nodeAgent.Telemetry()
+			if !ok {
+				return performance.DeviceSignals{}
+			}
+			return performance.DeviceSignals{TempC: telemetry.CPUTempC, Throttled: telemetry.UndervoltageNow}
+		},
+		RoundS: nodeAgent.ServiceRoundS,
+	})
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case now := <-ticker.C:
+				perfMonitor.Tick(now)
+			}
+		}
+	}()
+	// Mit ENERGY_NODE_PERFORMANCE_FAKE_FILE liest die Seite den Szenario-Stand
+	// der Demo-Konsole statt des Monitors; der Monitor laeuft unbenutzt weiter.
+	var perfProvider httpapi.PerformanceProvider = perfMonitor
+	if fakeFile := os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE_FILE"); fakeFile != "" && os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE") == "1" {
+		perfProvider = performance.NewFileProvider(fakeFile)
+	}
+	performanceRates := func() performance.RateConfig {
+		// Ohne lesbaren Wert gelten die Standardwerte: Live-Aktualisierung 3 s
+		// (Einstellungen), Automation tick_interval_s 10 (Schema), Regler 10,
+		// Dienste 10 s ohne eigenen poll_interval_s.
+		rates := performance.RateConfig{
+			LiveUpdateS: 3,
+			TickS:       10,
+			RegulatorS:  10,
+			NodeS:       cfg.Dashboard.NodePollIntervalS,
+			Services:    map[string]float64{},
+		}
+		if value, err := settingsStore.LoadSettings(); err == nil && value.LiveUpdateIntervalSeconds > 0 {
+			rates.LiveUpdateS = float64(value.LiveUpdateIntervalSeconds)
+		}
+		for id := range perfUnits {
+			rates.Services[id] = 10
+			if svc, ok := cfg.Services[id]; ok && svc.PollIntervalS > 0 {
+				rates.Services[id] = svc.PollIntervalS
+			}
+		}
+		return rates
+	}
+
 	// metricEnabled liest bei jedem Aufruf den je-Metrik-Schalter aus
 	// mqtt.json frisch, damit ein "Speichern" im MQTT-Tab sofort greift; ein
 	// fehlender Schluessel (auch: unlesbare Datei) bedeutet "an".
@@ -889,6 +979,12 @@ func main() {
 		UpdateInstaller:      updateInstaller,
 		Companion:            companionHub,
 		CompanionFingerprint: companionFingerprint,
+		EventStreams:         eventStreams,
+		Performance: &httpapi.PerformanceDeps{
+			Provider: perfProvider,
+			Rates:    performanceRates,
+			Floors:   perfFloors,
+		},
 	}))
 
 	srv := &http.Server{
@@ -1212,4 +1308,40 @@ func holdsFromEnv(getenv func(string) string) chainwatch.Holds {
 	}
 	d := time.Duration(seconds) * time.Second
 	return chainwatch.Holds{Drift: d, Frozen: d, Contradiction: d, Unit: d, Clear: d}
+}
+
+// performanceOwner names the service or the foreign device behind an MQTT
+// topic for the message counter. Service topics are outstation/<service>/...;
+// a device whose via_device names a service counts for that service. Other
+// outstation devices, except the node itself, are foreign devices. Topics
+// outside outstation/ are not attributed.
+func performanceOwner(topic string, reg *registry.Registry, units map[string]string, nodeID string) (string, string) {
+	parts := strings.SplitN(topic, "/", 3)
+	if len(parts) < 2 || parts[0] != "outstation" {
+		return "", ""
+	}
+	id := parts[1]
+	if _, ok := units[id]; ok {
+		return id, ""
+	}
+	if id == nodeID || id == "" {
+		return "", ""
+	}
+	if dev, ok := reg.Get(id); ok {
+		if _, ok := units[dev.ViaDevice]; ok {
+			return dev.ViaDevice, ""
+		}
+	}
+	return "", id
+}
+
+// performanceBusy reports whether an update or install job is pending or running.
+func performanceBusy(jobDir string) func() bool {
+	return func() bool {
+		progress, err := updateprogress.Read(jobDir)
+		if err != nil || progress == nil {
+			return false
+		}
+		return progress.State == "pending" || progress.State == "running"
+	}
 }

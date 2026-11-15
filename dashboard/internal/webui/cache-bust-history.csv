@@ -1,4 +1,7 @@
 version,date,asset,v,note
+v0.11.17-pre.15,2026-11-15,css/performance.css,1,
+v0.11.17-pre.15,2026-11-15,js/performance.page.js,1,
+v0.11.17-pre.15,2026-11-15,js/settings.page.js,36,
 v0.11.16,2026-11-14,js/mqtt.page.js,13,
 v0.11.16,2026-11-14,js/tailscale.page.js,7,
 v0.11.16,2026-11-14,js/users.page.js,6,"merge of main into prerelease, changed on both lines, settings subpages"

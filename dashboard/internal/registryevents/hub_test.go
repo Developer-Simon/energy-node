@@ -337,3 +337,23 @@ func TestSelectBautTeilJeAuswahl(t *testing.T) {
 		t.Errorf("A im Leerlauf = %v, want a:2:2 (ModeIdle)", got)
 	}
 }
+
+func TestHubSubscribers(t *testing.T) {
+	f := newFixture(4)
+	if got := f.hub.Subscribers(); got != 0 {
+		t.Fatalf("Subscribers() ohne Abonnenten = %d, want 0", got)
+	}
+	_, _, cancel1 := f.hub.Subscribe(nil)
+	_, _, cancel2 := f.hub.Subscribe(nil)
+	if got := f.hub.Subscribers(); got != 2 {
+		t.Fatalf("Subscribers() mit zwei Abonnenten = %d, want 2", got)
+	}
+	cancel1()
+	if got := f.hub.Subscribers(); got != 1 {
+		t.Fatalf("Subscribers() nach einem cancel = %d, want 1", got)
+	}
+	cancel2()
+	if got := f.hub.Subscribers(); got != 0 {
+		t.Fatalf("Subscribers() nach beiden cancel = %d, want 0", got)
+	}
+}

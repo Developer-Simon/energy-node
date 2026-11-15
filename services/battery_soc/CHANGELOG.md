@@ -1,10 +1,12 @@
 # Changelog
 
-## v0.4.9-pre.1 (2026-11-12)
+## v0.4.9-pre.1 (2026-11-15)
 
 ### Features
 
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
+- **performance:** add the poll floor and the budget setting (7f324af)
+- **performance:** show how much load the node puts on the device (#260)
 
 ### Refactors
 

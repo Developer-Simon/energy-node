@@ -11,8 +11,8 @@ import (
 
 func TestDeviceIconCatalogueIsComplete(t *testing.T) {
 	catalogue := DeviceIconCatalogue()
-	if len(catalogue) != 31 {
-		t.Fatalf("catalogue has %d icons, want 31", len(catalogue))
+	if len(catalogue) != 32 {
+		t.Fatalf("catalogue has %d icons, want 32", len(catalogue))
 	}
 	seen := make(map[string]bool, len(catalogue))
 	for _, icon := range catalogue {
@@ -169,5 +169,18 @@ func TestDeviceIconPrefersSavedOverSuggestedOverFallback(t *testing.T) {
 	plug.IconName = "energy-node:chip"
 	if got := string(deviceIcon(plug)); got != string(deviceIcon(registry.DeviceView{})) {
 		t.Errorf("a saved chip icon rendered %q, want the saved choice to beat the suggestion", got)
+	}
+}
+
+func TestGaugeIconIsInTheCatalogue(t *testing.T) {
+	icon, ok := lookupDeviceIcon("energy-node:gauge")
+	if !ok {
+		t.Fatal("energy-node:gauge is not in the catalogue")
+	}
+	if icon.Category != "control" || icon.Label != "Tacho" {
+		t.Errorf("gauge = category %q label %q, want control and Tacho", icon.Category, icon.Label)
+	}
+	if icon.MDI != "mdi:speedometer" {
+		t.Errorf("gauge MDI = %q, want mdi:speedometer", icon.MDI)
 	}
 }

@@ -16,6 +16,104 @@
 {{define "settings-sub-backup"}}{{template "settings-backup" .}}{{end}}
 {{define "settings-sub-system"}}{{template "settings-system" .}}{{end}}
 {{define "settings-sub-storage"}}{{template "settings-storage" .}}{{end}}
+{{define "settings-sub-performance"}}
+<div class="pf-page" x-data="pfPage()" x-init="init()">
+  <section id="settings-performance" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'performance'">
+
+    <!-- Budget: Stand, Balken und Grenze -->
+    <section class="setting-card setting-card--wide pf-budget" aria-labelledby="pf-budget-title" data-tour="performance-budget">
+      <div class="pf-head" x-bind:data-tone="headTone()">
+        <span class="pf-head-mark" aria-hidden="true"><svg class="automation-icon"><use x-bind:href="headTone() === 'ok' ? '#ico-check' : (headTone() === 'info' ? '#ico-clock' : '#ico-warning')"></use></svg></span>
+        <div class="pf-head-text">
+          <h3 class="pf-head-title" id="pf-budget-title" x-text="headTitle()"></h3>
+          <p class="setting-note" x-text="headNote()"></p>
+        </div>
+      </div>
+
+      <div class="pf-meter-wrap">
+        <div class="pf-meter" role="img" x-bind:aria-label="headTitle()">
+          <template x-for="(part, i) in meterParts()" x-bind:key="part.cls">
+            <i x-bind:class="part.cls" x-bind:style="`transform: translateX(${i ? meterParts()[0].w : 0}%) scaleX(${part.w / 100})`"></i>
+          </template>
+          <i class="pf-m-cut" x-show="data.deduction.pct > 0" x-bind:style="`left: ${available()}%; width: ${data.deduction.pct}%`"></i>
+        </div>
+        <span class="pf-limit" x-bind:style="`left: ${data.target_pct}%`"></span>
+        <span class="pf-limit pf-limit-avail" x-show="data.deduction.pct > 0" x-bind:style="`left: ${available()}%`"></span>
+        <span class="pf-limit-label" x-bind:style="`left: ${data.target_pct}%`" x-text="$t('performance.ui.limit', { target: data.target_pct })"></span>
+      </div>
+      <div class="pf-legend">
+        <span><b class="pf-m-fixed"></b>{{t "performance.ui.legend.base"}}</span>
+        <span><b class="pf-m-now"></b>{{t "performance.ui.legend.now"}}</span>
+        <span x-show="data.deduction.pct > 0"><b class="pf-m-cut"></b>{{t "performance.ui.legend.cut"}}</span>
+      </div>
+
+      <p class="pf-warning" x-show="data.deduction.pct > 0" x-cloak>
+        <strong x-text="$t('performance.ui.warning.lead', { pct: data.deduction.pct })"></strong> <span x-text="`${(data.deduction.reasons || []).map((reason) => $t(reason)).join(', ')}. ${$t('performance.ui.warning.available', { available: available(), target: data.target_pct })}`"></span>
+      </p>
+
+      <div class="pf-target">
+        <div class="pf-target-row">
+          <span class="setting-row-label">{{t "performance.ui.target.label"}}<span class="setting-row-unit">{{t "performance.ui.target.unit"}}</span></span>
+          <strong x-text="`${data.target_pct} %`"></strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- Messwerte: Geraet, dann die Dienste nach CPU -->
+    <section class="setting-card setting-card--wide" aria-labelledby="pf-measure-title" data-tour="performance-measure">
+      <div class="pf-card-head">
+        <h3 class="setting-card-title" id="pf-measure-title">{{t "performance.ui.measure.title"}}</h3>
+        <span class="pf-card-meta" x-text="measuring() ? $t('performance.ui.measure.since', { duration: $t('performance.js.duration', { hours: Math.floor(data.measured_s / 3600), minutes: Math.floor((data.measured_s % 3600) / 60) }) }) : $t('performance.ui.measure.last6h')"></span>
+      </div>
+      <dl class="pf-facts">
+        <div class="pf-fact">
+          <dt>{{t "performance.ui.fact.cpu"}}</dt>
+          <dd><span x-text="`${window.I18n.formatNumber(data.today_pct, 1)} %`"></span><small x-text="data.cores === 1 ? $t('performance.ui.fact.cores_one') : $t('performance.ui.fact.cores', { count: data.cores })"></small></dd>
+        </div>
+        <div class="pf-fact" x-bind:data-tone="data.device.temp_c !== null && data.device.temp_c >= 75 ? 'warn' : null">
+          <dt>{{t "performance.ui.fact.temp"}}</dt>
+          <dd><span x-text="data.device.temp_c === null ? '–' : `${data.device.temp_c} °C`"></span></dd>
+        </div>
+        <div class="pf-fact" x-bind:data-tone="data.device.ram_free_pct !== null && data.device.ram_free_pct < 25 ? 'warn' : null">
+          <dt>{{t "performance.ui.fact.ram"}}</dt>
+          <dd><span x-text="data.device.ram_free_pct === null ? '–' : `${data.device.ram_free_pct} %`"></span></dd>
+        </div>
+        <div class="pf-fact" x-bind:data-tone="data.device.swap_pages_s > 0 ? 'warn' : null">
+          <dt>{{t "performance.ui.fact.swap"}}</dt>
+          <dd><span x-text="data.device.swap_pages_s > 0 ? $t('performance.ui.fact.swap_busy') : $t('performance.ui.fact.swap_quiet')"></span></dd>
+        </div>
+        <div class="pf-fact">
+          <dt>{{t "performance.ui.fact.browser"}}</dt>
+          <dd><span x-text="data.clients.max <= 1 ? $t('performance.ui.fact.browser_only') : $t('performance.ui.fact.browser_max', { count: data.clients.max })"></span></dd>
+        </div>
+      </dl>
+      <template x-for="g in measureGroups()" x-bind:key="g.id">
+        <section class="pf-mgroup" x-bind:aria-labelledby="`pf-mgroup-${g.id}`">
+          <header class="pf-mgroup-head">
+            <h4 x-bind:id="`pf-mgroup-${g.id}`"><b x-bind:class="g.swatch" aria-hidden="true"></b><span x-text="g.label"></span></h4>
+            <span class="pf-mgroup-sum" x-text="g.sumText"></span>
+          </header>
+          <ul class="pf-mlist">
+            <template x-for="r in g.rows" x-bind:key="r.name">
+              <li class="pf-mrow">
+                <span class="pf-mrow-name" x-text="r.name"></span>
+                <span class="pf-mrow-cpu" x-text="r.cpu"></span>
+                <span class="pf-mrow-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${r.share})`"></i></span>
+                <span class="pf-mrow-meta">
+                  <span x-show="r.ram" x-text="r.ram"></span>
+                  <span x-show="r.round" x-text="r.round"></span>
+                  <span x-show="r.msg" x-text="r.msg"></span>
+                </span>
+              </li>
+            </template>
+          </ul>
+        </section>
+      </template>
+      <p class="pf-foot">{{t "performance.ui.measure.foot"}}</p>
+    </section>
+  </section>
+</div>
+{{end}}
 {{define "settings-sub-network"}}{{template "network" .}}{{end}}
 {{define "settings-backup"}}
   <div class="bs-page" x-data="backupPage()" x-init="init()" data-blocked="{{if .BackupBlocked}}1{{end}}">

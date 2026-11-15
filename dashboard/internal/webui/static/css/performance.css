@@ -1,0 +1,73 @@
+/* Leistung. Klassen mit pf-Praefix, weil manager.css auch auf den
+   Einstellungen laedt. Kein globales box-sizing: Felder setzen es selbst. */
+.pf-page { display: grid; gap: 1rem; }
+.pf-page .settings-cards > .setting-card--wide { grid-column: 1 / -1; }
+
+.pf-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.pf-card-meta { color: var(--text-muted); font-size: .8rem; }
+.pf-foot { margin: .9rem 0 0; color: var(--text-faint); font-size: .78rem; line-height: 1.45; }
+
+/* Kopf mit Stand */
+.pf-head { display: flex; align-items: center; gap: .85rem; min-width: 0; }
+.pf-head-mark { display: grid; flex: none; place-items: center; width: 2.6rem; height: 2.6rem; border-radius: 50%; background: var(--ok-bg); color: var(--ok); transition: background-color .2s ease, color .2s ease; }
+.pf-head[data-tone="warn"] .pf-head-mark { background: var(--warn-bg); color: var(--warn); }
+.pf-head[data-tone="bad"] .pf-head-mark { background: var(--bad-bg); color: var(--bad); }
+.pf-head[data-tone="info"] .pf-head-mark { background: var(--info-bg); color: var(--info); }
+.pf-head-title { margin: 0; color: var(--text-strong); font-size: 1.12rem; font-weight: 600; line-height: 1.25; letter-spacing: -.012em; font-variant-numeric: tabular-nums; }
+.pf-head .setting-note { margin-top: .15rem; }
+
+/* Budgetbalken: die Anteile liegen absolut im Balken und wachsen per scaleX */
+.pf-meter-wrap { position: relative; margin: 1.1rem 0 0; padding-bottom: 1.3rem; }
+.pf-meter { position: relative; height: 1.4rem; overflow: hidden; border-radius: 6px; background: var(--track); }
+.pf-meter > i { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; transform-origin: left center; transition: transform 240ms var(--ease-out); }
+.pf-m-fixed { background: color-mix(in srgb, var(--text-muted) 55%, var(--track)); }
+.pf-m-now { background: color-mix(in srgb, var(--text-subtle) 70%, var(--track)); }
+.pf-m-plus { background: var(--accent); }
+.pf-m-minus { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--text-subtle) 70%, var(--track)) 0 4px, transparent 4px 8px); }
+.pf-meter > .pf-m-cut { position: absolute; top: 0; bottom: 0; }
+.pf-m-cut { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--warn) 45%, transparent) 0 4px, transparent 4px 8px); }
+.pf-limit { position: absolute; top: -.2rem; width: 2px; height: 1.8rem; margin-left: -1px; background: var(--warn); transition: left .2s ease; }
+.pf-limit-avail { background: var(--bad); }
+.pf-limit-label { position: absolute; top: 1.65rem; color: var(--warn); font-size: .72rem; white-space: nowrap; transform: translateX(-50%); transition: left .2s ease; }
+.pf-legend { display: flex; flex-wrap: wrap; gap: .3rem 1rem; color: var(--text-muted); font-size: .76rem; }
+.pf-legend b { display: inline-block; width: .65rem; height: .65rem; margin-right: .35rem; border-radius: 2px; vertical-align: -1px; }
+
+.pf-warning { margin: .8rem 0 0; padding: .6rem .75rem; border: 1px solid var(--warn-line); border-radius: 10px; background: color-mix(in srgb, var(--warn-bg) 65%, transparent); color: var(--text); font-size: .86rem; line-height: 1.45; }
+
+/* Grenze, nur anzeigen */
+.pf-target { margin-top: .9rem; padding-top: .8rem; border-top: 1px solid var(--border-soft); }
+.pf-target-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+.pf-target-row .setting-row-label { flex: 1 1 14rem; }
+.pf-target-row strong { color: var(--text-strong); font-variant-numeric: tabular-nums; }
+
+/* Messwerte */
+.pf-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: .5rem; margin: .6rem 0 0; }
+.pf-fact { padding: .5rem .65rem; border-radius: 10px; background: var(--panel-alt); }
+.pf-fact dt { color: var(--text-muted); font-size: .74rem; }
+.pf-fact dd { margin: .1rem 0 0; color: var(--text-strong); font-size: .92rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pf-fact dd small { display: block; color: var(--text-muted); font-size: .74rem; font-weight: 400; }
+.pf-fact[data-tone="warn"] { background: var(--warn-bg); }
+.pf-fact[data-tone="warn"] dd { color: var(--warn); }
+
+.pf-mgroup { margin-top: 1.1rem; }
+.pf-mgroup-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-bottom: .35rem; border-bottom: 1px solid var(--border-soft); }
+.pf-mgroup-head h4 { display: flex; align-items: center; gap: .45rem; margin: 0; color: var(--text-muted); font-size: .74rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.pf-mgroup-head h4 b { width: .6rem; height: .6rem; border-radius: 2px; }
+.pf-mgroup-sum { color: var(--text-subtle); font-size: .82rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pf-mlist { margin: 0; padding: 0; list-style: none; }
+.pf-mrow { display: grid; grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr) 4.2rem; grid-template-areas: "name bar cpu" "meta meta meta"; align-items: center; gap: .1rem .9rem; padding: .55rem 0; }
+.pf-mrow + .pf-mrow { border-top: 1px solid color-mix(in srgb, var(--border-soft) 60%, transparent); }
+.pf-mrow-name { grid-area: name; overflow: hidden; color: var(--text-strong); font-size: .9rem; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.pf-mrow-cpu { grid-area: cpu; color: var(--text-strong); font-size: .9rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.pf-mrow-bar { grid-area: bar; height: .45rem; overflow: hidden; border-radius: 999px; background: var(--track); }
+.pf-mrow-bar i { display: block; height: 100%; border-radius: inherit; transform-origin: left center; transition: transform 240ms var(--ease-out); }
+.pf-mrow-meta { grid-area: meta; display: flex; flex-wrap: wrap; gap: 0 .9rem; color: var(--text-muted); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.pf-mrow-meta:empty { display: none; }
+.pf-mgroup:last-of-type .pf-mrow-name, .pf-mgroup:last-of-type .pf-mrow-cpu { color: var(--text-subtle); font-weight: 500; }
+@container setting-card (max-width: 30rem) {
+  .pf-mrow { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name cpu" "bar bar" "meta meta"; gap: .3rem .75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-meter > i, .pf-limit, .pf-limit-label, .pf-mrow-bar i { transition: none; }
+}

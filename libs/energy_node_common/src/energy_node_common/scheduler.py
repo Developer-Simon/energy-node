@@ -15,6 +15,10 @@ import threading
 import time
 from typing import Callable, Optional
 
+# Misst die Dauer einer Kernabfrage. Ein eigenes Modul-Attribut, damit Tests
+# die Zeitbasis ersetzen koennen, ohne globales time.time zu patchen.
+_monotonic = time.monotonic
+
 
 class PollClock:
     """Bestimmt, wann die naechste Kern- bzw. Diagnoseabfrage faellig ist,
@@ -49,27 +53,36 @@ class Scheduler(threading.Thread):
         poll_diagnostics: Optional[Callable[[], None]] = None,
         on_error: Optional[Callable[[Exception], None]] = None,
         name: str = "energy-node-slave-scheduler",
+        on_round: Optional[Callable[[float], None]] = None,
     ):
         super().__init__(daemon=True, name=name)
         self._poll_core = poll_core
         self._poll_diagnostics = poll_diagnostics
         self._clock = PollClock(get_interval_s, get_diagnostic_multiplier)
         self._on_error = on_error
+        self._on_round = on_round
         self._stop_event = threading.Event()
 
     def stop(self) -> None:
         self._stop_event.set()
 
+    def _run_once(self) -> None:
+        now = time.time()
+        try:
+            started = _monotonic()
+            self._poll_core()
+            if self._on_round:
+                # Nur die Kernabfrage zaehlt, nicht die Diagnoseabfrage.
+                self._on_round(_monotonic() - started)
+            if self._poll_diagnostics and self._clock.diagnostic_due(now):
+                self._poll_diagnostics()
+        except Exception as exc:  # Poll-Fehler duerfen den Scheduler nicht beenden
+            if self._on_error:
+                self._on_error(exc)
+
     def run(self) -> None:
         while not self._stop_event.is_set():
-            now = time.time()
-            try:
-                self._poll_core()
-                if self._poll_diagnostics and self._clock.diagnostic_due(now):
-                    self._poll_diagnostics()
-            except Exception as exc:  # Poll-Fehler duerfen den Scheduler nicht beenden
-                if self._on_error:
-                    self._on_error(exc)
+            self._run_once()
             self._stop_event.wait(self._clock.core_sleep_s())
 
 
@@ -83,11 +96,13 @@ class AsyncScheduler:
         get_diagnostic_multiplier: Callable[[], float] = lambda: 1,
         poll_diagnostics: Optional[Callable] = None,
         on_error: Optional[Callable[[Exception], None]] = None,
+        on_round: Optional[Callable[[float], None]] = None,
     ):
         self._poll_core = poll_core
         self._poll_diagnostics = poll_diagnostics
         self._clock = PollClock(get_interval_s, get_diagnostic_multiplier)
         self._on_error = on_error
+        self._on_round = on_round
         self._task: Optional[asyncio.Task] = None
 
     def start(self, loop: Optional[asyncio.AbstractEventLoop] = None) -> asyncio.Task:
@@ -95,18 +110,25 @@ class AsyncScheduler:
         self._task = loop.create_task(self._run())
         return self._task
 
+    async def _run_once(self) -> None:
+        now = time.time()
+        try:
+            started = _monotonic()
+            await self._poll_core()
+            if self._on_round:
+                # Nur die Kernabfrage zaehlt, nicht die Diagnoseabfrage.
+                self._on_round(_monotonic() - started)
+            if self._poll_diagnostics and self._clock.diagnostic_due(now):
+                await self._poll_diagnostics()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if self._on_error:
+                self._on_error(exc)
+
     async def _run(self) -> None:
         while True:
-            now = time.time()
-            try:
-                await self._poll_core()
-                if self._poll_diagnostics and self._clock.diagnostic_due(now):
-                    await self._poll_diagnostics()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                if self._on_error:
-                    self._on_error(exc)
+            await self._run_once()
             await asyncio.sleep(self._clock.core_sleep_s())
 
     def stop(self) -> None:

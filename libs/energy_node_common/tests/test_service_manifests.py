@@ -52,9 +52,13 @@ def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
     manifest_path = service_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    assert set(manifest) == {
+    # poll_floor_s ist optional, fuer Geraete-Dienste aber Pflicht (siehe unten).
+    assert set(manifest) - {"poll_floor_s"} == {
         "service_id", "version", "unit", "schema", "bootstrap_step", "required", "kind",
     }
+    if manifest["kind"] == "device" or dir_name == "battery_soc":
+        assert isinstance(manifest.get("poll_floor_s"), (int, float))
+        assert manifest["poll_floor_s"] > 0
     # Jeder Dienst ist seit v0.4.0 eine eigene Versionskomponente; die Version
     # steht hier als nackte Semver (ohne "v"), genau wie in der manifest.json
     # der HA-Integration, und wird von scripts/version/bump-patch.sh gepflegt.
@@ -75,6 +79,25 @@ def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
     assert fragment["required"] == manifest["required"]
     assert set(fragment["properties"]) >= set(fragment["required"])
     assert fragment["properties"]["service_id"]["title"] == "Service ID"
+
+
+# Verzeichnisname -> kleinste Abfrageperiode in Sekunden (poll_floor_s). Die
+# Messung der Rate-Ueberschreitung nutzt sie als Untergrenze beim Herunterregeln.
+POLL_FLOORS = {
+    "shelly": 2,
+    "trucki": 2,
+    "apsystems_ez1": 12,
+    "tuya_mqtt": 10,
+    "battery_soc": 1,
+}
+
+
+def test_device_manifests_name_a_floor():
+    device_dirs = {name for name, kind in EXPECTED_KINDS.items() if kind == "device"}
+    assert device_dirs == set(POLL_FLOORS)
+    for dir_name, floor in POLL_FLOORS.items():
+        manifest = json.loads((SERVICES_DIR / dir_name / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["poll_floor_s"] == floor, dir_name
 
 
 def test_no_unexpected_service_dir_has_a_manifest():

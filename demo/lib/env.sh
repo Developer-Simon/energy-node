@@ -94,10 +94,14 @@ env_prepare_devices() {
   # Je Konfiguration ein Dienst-Manifest neben config.json, wie es der Installer
   # unter manifests/ ablegt. Nur fuer die dort genannten Dienste beobachtet das
   # Dashboard outstation/<id>/settings/status.
+  # Die Demo braucht fuer alle fuenf Messdienste eine Zeile auf der Leistungsseite,
+  # auch ohne Konfiguration. ENERGY_NODE_PERFORMANCE_FAKE=1 setzt nur demo/demo.sh.
   mkdir -p "$WORK/manifests" || return 1
-  python3 - "$WORK/devices" "$WORK/manifests" <<'PY' || return 1
+  python3 - "$WORK/devices" "$WORK/manifests" "$REPO_DIR" "${ENERGY_NODE_PERFORMANCE_FAKE:-0}" <<'PY' || return 1
 import json, pathlib, sys
-devices, manifests = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+devices, manifests, repo = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]), pathlib.Path(sys.argv[3])
+fake = sys.argv[4] == "1"
+ids = set()
 for path in devices.glob("*.json"):
     name = path.stem
     if name.endswith(".schema"):
@@ -105,7 +109,23 @@ for path in devices.glob("*.json"):
     # Spiegel von config.ServiceIDForConfig (internal/config/config.go).
     service_id = "automation" if name == "automation_rules" else (name[:-len("_devices")] if name.endswith("_devices") else "")
     if service_id:
-        (manifests / f"{service_id}.json").write_text(json.dumps({"service_id": service_id}) + "\n", encoding="utf-8")
+        ids.add(service_id)
+if fake:
+    ids.update(["trucki", "apsystems", "tuya"])
+# Verzeichnis unter services/, wo es nicht die Dienst-ID ist.
+SERVICE_DIRS = {"apsystems": "apsystems_ez1", "tuya": "tuya_mqtt"}
+for service_id in sorted(ids):
+    entry = {"service_id": service_id}
+    # unit und poll_floor_s aus dem echten Dienst-Manifest, damit die Demo dieselben Zahlen zeigt.
+    real = repo / "services" / SERVICE_DIRS.get(service_id, service_id) / "manifest.json"
+    if real.is_file():
+        data = json.loads(real.read_text(encoding="utf-8"))
+        # Die Datei heisst nach der service_id des Manifests selbst.
+        entry["service_id"] = data.get("service_id", service_id)
+        for key in ("unit", "poll_floor_s"):
+            if key in data:
+                entry[key] = data[key]
+    (manifests / f"{service_id}.json").write_text(json.dumps(entry) + "\n", encoding="utf-8")
 PY
   echo "Dienste: $(find "$WORK/manifests" -maxdepth 1 -type f -printf '%f\n' | sed 's/\.json$//' | sort | tr '\n' ' ')"
 }
@@ -314,6 +334,10 @@ env_start_dashboard() {
     export FAKE_APP_CONFIG_TARGET="$WORK/config.json"
     # Der Helfer legt bei einem Neustart diese Datei ab, demo/demo.sh startet dann das Dashboard neu.
     export FAKE_RESTART_REQUEST="$WORK/restart-request"
+    # Leistung: erfundene Messwerte, wenn der Aufrufer PERFORMANCE_FAKE=1 setzt (Smoke-Lauf haupt).
+    if [[ "${PERFORMANCE_FAKE:-0}" == "1" ]]; then
+      export ENERGY_NODE_PERFORMANCE_FAKE=1
+    fi
     exec "$bin" --config "$WORK/config.json"
   ) > "$WORK/dashboard.log" 2>&1 &
   DASHBOARD_PID=$!
@@ -370,7 +394,8 @@ env_start_console() {
     args+=(--system-state "$WORK/fake-system.json" --system-events "$WORK/fake-system-events.jsonl"
            --journal-epoch "$WORK/journal-epoch")
   fi
-  args+=(--storage-dir "$WORK/storage" --highlights-repo "$REPO_DIR")
+  args+=(--storage-dir "$WORK/storage" --performance-state "$WORK/fake-performance.json"
+         --highlights-repo "$REPO_DIR")
   python3 "$FAKES/fake_console.py" "${args[@]}" \
     > "$WORK/fake-console.log" 2>&1 &
   local pid=$!

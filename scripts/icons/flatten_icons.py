@@ -97,6 +97,7 @@ DESCRIPTIONS = {
     "solar-panel": "Solar panel",
     "sun": "Sun, brightness",
     "battery": "Battery",
+    "gauge": "Gauge, performance",
     "battery-level": "Battery level",
     "battery-bolt": "Battery with bolt",
     "charger": "Charger",

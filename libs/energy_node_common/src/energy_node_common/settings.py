@@ -73,9 +73,12 @@ class SlaveStatus:
     # Pruefsumme der Datei des letzten Ladeversuchs bzw. der aktiven Datei.
     config_revision: str = ""
     applied_revision: str = ""
+    # Median der letzten Kernabfrage-Dauern in Sekunden. Fehlt, solange
+    # noch keine Abfrage gemessen wurde.
+    poll_round_s: Optional[float] = None
 
     def to_dict(self) -> dict:
-        return {
+        data = {
             "simulation_active": int(self.simulation_active),
             "last_update": self.last_update,
             "runtime_status": self.runtime_status,
@@ -84,6 +87,9 @@ class SlaveStatus:
             "config_revision": self.config_revision,
             "applied_revision": self.applied_revision,
         }
+        if self.poll_round_s is not None:
+            data["poll_round_s"] = self.poll_round_s
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "SlaveStatus":
@@ -96,4 +102,5 @@ class SlaveStatus:
             error_code=data.get("error_code", ""),
             config_revision=data.get("config_revision", ""),
             applied_revision=data.get("applied_revision", ""),
+            poll_round_s=data.get("poll_round_s"),
         )
