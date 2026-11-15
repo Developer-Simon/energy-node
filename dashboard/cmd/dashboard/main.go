@@ -1121,6 +1121,10 @@ func main() {
 				publish(nodeAgent.StateMessage(ctx, metricEnabled))
 			case <-slow.C:
 				publish(nodeAgent.DiagnosticsMessage(ctx, metricEnabled))
+			case <-nodeAgent.RatesChanged():
+				// Neues Poll-Intervall aus den Einstellungen: beide Ticker neu takten.
+				fast.Reset(nodeAgent.PollInterval())
+				slow.Reset(nodeAgent.DiagnosticInterval())
 			}
 		}
 	}()
