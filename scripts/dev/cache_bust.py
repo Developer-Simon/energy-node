@@ -20,16 +20,22 @@ Referenzen stehen in dashboard/internal/webui/templates/*.html und in
 webui.go. Marken, die keine ganze Zahl sind (etwa `{{.Foo}}`), zaehlen nicht.
 """
 import argparse
+import csv
 import glob
+import io
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 
 WEBUI = "dashboard/internal/webui"
 ASSET_DIRS = ("js", "js-deps", "css")
 REF_RE = re.compile(r"/static/((?:js|js-deps|css)/[A-Za-z0-9._-]+)(?:\?v=([A-Za-z0-9{}._-]+))?")
+HISTORY = "dashboard/internal/webui/cache-bust-history.csv"
+HEADER = ["version", "date", "asset", "v", "note"]
+VERSION_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)(?:-pre\.(\d+))?$")
 
 
 @dataclass(frozen=True)
@@ -253,6 +259,144 @@ def cmd_report(root: Path, base: str | None) -> int:
     bumps = sum(1 for r in rows if r.status == "bump")
     print(f"{bumps} assets to bump" if bumps else "nothing to bump")
     return 0
+
+
+@dataclass(frozen=True)
+class Entry:
+    version: str
+    date: str
+    asset: str
+    v: int
+    note: str
+
+
+def version_key(version: str) -> tuple:
+    match = VERSION_RE.match(version)
+    if not match:
+        raise ValueError(f"not a version: {version!r}")
+    major, minor, patch, pre = match.groups()
+    if pre is None:
+        return (int(major), int(minor), int(patch), 1, 0)
+    return (int(major), int(minor), int(patch), 0, int(pre))
+
+
+def parse_history(text: str | None) -> list[Entry]:
+    if not text:
+        return []
+    reader = csv.reader(io.StringIO(text))
+    entries: list[Entry] = []
+    header_seen = False
+    for row in reader:
+        if not row:
+            continue
+        where = f"{HISTORY} line {reader.line_num}"
+        if not header_seen:
+            if row != HEADER:
+                raise ValueError(f"{where}: header must be {','.join(HEADER)}")
+            header_seen = True
+            continue
+        if len(row) != len(HEADER):
+            raise ValueError(f"{where}: expected {len(HEADER)} fields, got {len(row)}")
+        if any("\n" in field or "\r" in field for field in row):
+            raise ValueError(f"{where}: fields must not contain a newline")
+        version, day, asset, v, note = row
+        try:
+            version_key(version)
+        except ValueError:
+            raise ValueError(f"{where}: not a version: {version!r}") from None
+        try:
+            number = int(v)
+        except ValueError:
+            raise ValueError(f"{where}: v must be an integer, got {v!r}") from None
+        entries.append(Entry(version, day, asset, number, note))
+    return list(dict.fromkeys(entries))
+
+
+def format_history(entries: list[Entry]) -> str:
+    unique = sorted(set(entries), key=lambda e: (e.asset, e.v, e.date, e.note))
+    unique.sort(key=lambda e: version_key(e.version), reverse=True)
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n", quoting=csv.QUOTE_MINIMAL)
+    writer.writerow(HEADER)
+    for e in unique:
+        writer.writerow([e.version, e.date, e.asset, e.v, e.note])
+    return out.getvalue()
+
+
+def expected_version(base_version: str, head_version: str) -> str:
+    if head_version != base_version:
+        return head_version
+    match = VERSION_RE.match(head_version)
+    if not match:
+        raise ValueError(f"not a version: {head_version!r}")
+    major, minor, patch, pre = match.groups()
+    if pre is not None:
+        return f"v{major}.{minor}.{patch}-pre.{int(pre) + 1}"
+    return f"v{major}.{minor}.{int(patch) + 1}"
+
+
+def bumps(rows: list[Row]) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for row in rows:
+        if row.status not in ("ok", "too-high", "too-low") or len(row.head) != 1:
+            continue
+        (value,) = row.head
+        if isinstance(value, int) and value != row.base:
+            result[row.asset] = value
+    return result
+
+
+def update_history(
+    base_entries: list[Entry],
+    head_entries: list[Entry],
+    bumps: dict[str, int],
+    version: str,
+    today: date,
+) -> tuple[list[Entry], list[Entry]]:
+    base_set = set(base_entries)
+    new_entries = [e for e in head_entries if e in base_set]
+    removed: list[Entry] = []
+    for e in head_entries:
+        if e in base_set:
+            continue
+        if bumps.get(e.asset) == e.v:
+            new_entries.append(replace(e, version=version))
+        else:
+            removed.append(e)
+    present = {(e.asset, e.v) for e in head_entries}
+    for asset, v in sorted(bumps.items()):
+        if (asset, v) not in present:
+            new_entries.append(Entry(version, today.isoformat(), asset, v, ""))
+    return new_entries, removed
+
+
+def check_history(
+    base_entries: list[Entry],
+    head_entries: list[Entry],
+    bumps: dict[str, int],
+    version: str,
+    lenient: bool,
+) -> list[str]:
+    name = Path(HISTORY).name
+    present = {(e.asset, e.v) for e in head_entries}
+    errors = []
+    for asset, v in sorted(bumps.items()):
+        if (asset, v) not in present:
+            errors.append(f"{name} has no row for {asset} ?v={v}, run scripts/dev/cache_bust.py history")
+    if lenient:
+        return errors
+    base_set = set(base_entries)
+    for e in head_entries:
+        if e in base_set:
+            continue
+        if bumps.get(e.asset) != e.v:
+            errors.append(
+                f"{name} row {e.asset} ?v={e.v} has no matching bump, "
+                "run scripts/dev/cache_bust.py history"
+            )
+        elif e.version != version:
+            errors.append(f"{name} row {e.asset} ?v={e.v} says {e.version}, expected {version}")
+    return errors
 
 
 def main(argv: list[str] | None = None) -> int:

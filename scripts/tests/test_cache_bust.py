@@ -2,6 +2,7 @@
 import importlib.util
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -292,3 +293,152 @@ def test_check_warns_unreferenced(repo, capsys):
     git(root, "add", f"{WEBUI}/static/js/orphan.js")
     assert run_check(root, base) == 0
     assert "warning:" in capsys.readouterr().out
+
+
+Entry = cache_bust.Entry
+HEADER_LINE = "version,date,asset,v,note\n"
+parse_history = cache_bust.parse_history
+format_history = cache_bust.format_history
+expected_version = cache_bust.expected_version
+bumps = cache_bust.bumps
+update_history = cache_bust.update_history
+check_history = cache_bust.check_history
+Row = cache_bust.Row
+TODAY = date(2026, 11, 9)
+BASE_ROW = Entry("v0.11.8", "2026-10-30", "css/manager.css", 5, "")
+HISTORY_NAME = "cache-bust-history.csv"
+
+
+def test_parse_and_format_round_trip():
+    text = (
+        HEADER_LINE
+        + "v0.3.19,2026-10-01,css/manager.css,5,\n"
+        + 'v0.11.7,2026-11-01,js/app.js,3,"fix, again"\n'
+        + "v0.11.10,2026-11-08,js/app.js,4,\n"
+    )
+    entries = parse_history(text)
+    assert [e.version for e in entries] == ["v0.3.19", "v0.11.7", "v0.11.10"]
+    out = format_history(entries)
+    assert out == (
+        HEADER_LINE
+        + "v0.11.10,2026-11-08,js/app.js,4,\n"
+        + 'v0.11.7,2026-11-01,js/app.js,3,"fix, again"\n'
+        + "v0.3.19,2026-10-01,css/manager.css,5,\n"
+    )
+    assert format_history(parse_history(out)) == out
+
+
+def test_parse_empty_and_format_empty():
+    assert parse_history(None) == []
+    assert parse_history("") == []
+    assert format_history([]) == HEADER_LINE
+
+
+def test_parse_collapses_duplicate_rows():
+    text = HEADER_LINE + "v0.11.9,2026-11-09,js/app.js,4,\n" * 2
+    assert parse_history(text) == [Entry("v0.11.9", "2026-11-09", "js/app.js", 4, "")]
+
+
+def test_parse_rejects_bad_header():
+    with pytest.raises(ValueError):
+        parse_history("version,date,asset,v\n")
+
+
+def test_parse_rejects_non_int_v():
+    with pytest.raises(ValueError, match="line 2"):
+        parse_history(HEADER_LINE + "v0.11.9,2026-11-09,js/app.js,four,\n")
+
+
+@pytest.mark.parametrize(
+    "base, head, expected",
+    [
+        ("v0.11.8", "v0.11.8", "v0.11.9"),
+        ("v0.11.8", "v0.11.9", "v0.11.9"),
+        ("v0.4.6-pre.2", "v0.4.6-pre.2", "v0.4.6-pre.3"),
+        ("v0.11.8", "v0.12.0", "v0.12.0"),
+    ],
+)
+def test_expected_version(base, head, expected):
+    assert expected_version(base, head) == expected
+
+
+def test_bumps_maps_changed_int_values():
+    rows = [
+        Row("js/app.js", 3, {4}, True, 4, "ok"),
+        Row("js/a.js", 2, {1}, True, 3, "too-low"),
+        Row("js/b.js", 2, {5}, True, 3, "too-high"),
+        Row("css/x.css", 1, {1}, False, 1, "ok"),
+        Row("js-deps/lib.min.js", None, {None}, True, 1, "bump"),
+        Row("js/c.js", 2, {2, 3}, True, 3, "inconsistent"),
+    ]
+    assert bumps(rows) == {"js/app.js": 4, "js/a.js": 1, "js/b.js": 5}
+
+
+def test_update_adds_row_for_bump():
+    new, removed = update_history([BASE_ROW], [BASE_ROW], {"js/app.js": 4}, "v0.11.9", TODAY)
+    assert removed == []
+    assert len(new) == 2
+    assert BASE_ROW in new
+    assert Entry("v0.11.9", "2026-11-09", "js/app.js", 4, "") in new
+
+
+def test_update_rerun_after_version_move_keeps_note():
+    branch = Entry("v0.11.9", "2026-11-09", "js/app.js", 4, "my note")
+    new, removed = update_history(
+        [BASE_ROW], [BASE_ROW, branch], {"js/app.js": 4}, "v0.11.10", date(2026, 11, 10)
+    )
+    assert removed == []
+    assert len(new) == 2
+    assert BASE_ROW in new
+    assert Entry("v0.11.10", "2026-11-09", "js/app.js", 4, "my note") in new
+
+
+def test_update_removes_stale_branch_row():
+    stale = Entry("v0.11.9", "2026-11-09", "js/app.js", 3, "old")
+    new, removed = update_history([BASE_ROW], [BASE_ROW, stale], {}, "v0.11.9", TODAY)
+    assert removed == [stale]
+    assert new == [BASE_ROW]
+
+
+def test_check_names_missing_row():
+    expected = [
+        "cache-bust-history.csv has no row for js/app.js ?v=4, run scripts/dev/cache_bust.py history"
+    ]
+    assert check_history([BASE_ROW], [BASE_ROW], {"js/app.js": 4}, "v0.11.9", False) == expected
+    assert check_history([BASE_ROW], [BASE_ROW], {"js/app.js": 4}, "v0.11.9", True) == expected
+
+
+def test_check_accepts_empty_note():
+    head = [BASE_ROW, Entry("v0.11.9", "2026-11-09", "js/app.js", 4, "")]
+    assert check_history([BASE_ROW], head, {"js/app.js": 4}, "v0.11.9", False) == []
+
+
+def test_check_wrong_version_strict_only():
+    head = [BASE_ROW, Entry("v0.11.8", "2026-11-09", "js/app.js", 4, "")]
+    assert check_history([BASE_ROW], head, {"js/app.js": 4}, "v0.11.9", False) == [
+        "cache-bust-history.csv row js/app.js ?v=4 says v0.11.8, expected v0.11.9"
+    ]
+    assert check_history([BASE_ROW], head, {"js/app.js": 4}, "v0.11.9", True) == []
+
+
+def test_check_strict_flags_branch_row_without_bump():
+    head = [BASE_ROW, Entry("v0.11.9", "2026-11-09", "js/app.js", 3, "")]
+    assert check_history([BASE_ROW], head, {}, "v0.11.9", False) == [
+        "cache-bust-history.csv row js/app.js ?v=3 has no matching bump, "
+        "run scripts/dev/cache_bust.py history"
+    ]
+    assert check_history([BASE_ROW], head, {}, "v0.11.9", True) == []
+
+
+def test_check_accepts_reversed_and_duplicated_rows():
+    text = (
+        HEADER_LINE
+        + "v0.11.9,2026-11-09,js/app.js,4,\n"
+        + "v0.11.8,2026-10-30,css/manager.css,5,\n"
+        + "v0.11.9,2026-11-09,css/manager.css,6,\n"
+        + "v0.11.9,2026-11-09,js/app.js,4,\n"
+    )
+    head = parse_history(text)
+    assert check_history(
+        [BASE_ROW], head, {"js/app.js": 4, "css/manager.css": 6}, "v0.11.9", False
+    ) == []
