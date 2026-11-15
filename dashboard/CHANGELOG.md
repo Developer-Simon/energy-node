@@ -123,6 +123,7 @@
 
 ### Chores
 
+- **webui:** record the cache-bust history for the performance check assets (c01d9e9)
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
 - **webui:** record the cache-bust marks of the performance page (5b896c1)
 
