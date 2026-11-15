@@ -152,6 +152,7 @@ type Client struct {
 	subscribeQueue    chan subscriptionOp
 	stateObserver     func([]registry.StateChange)
 	discoveryObserver func(registry.Discovery)
+	messageObserver   func(topic string, at time.Time)
 	filter            DeviceFilter
 	status            Status
 	everConnected     bool
@@ -196,6 +197,15 @@ func (c *Client) SetStateObserver(observer func([]registry.StateChange)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.stateObserver = observer
+}
+
+// SetMessageObserver meldet jede eingehende Zustandsnachricht, auch wenn sie
+// keine Aenderung bringt. Die Leistungsmessung zaehlt damit die Last je
+// Dienst. Der Beobachter laeuft im MQTT-Callback und darf nicht blockieren.
+func (c *Client) SetMessageObserver(observer func(topic string, at time.Time)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.messageObserver = observer
 }
 
 func (c *Client) SetDiscoveryObserver(observer func(registry.Discovery)) {
@@ -1170,6 +1180,12 @@ func (c *Client) unsubscribeState(topic string) {
 // availability topic for another.
 func (c *Client) handleState(_ mqtt.Client, msg mqtt.Message) {
 	now := time.Now()
+	c.mu.Lock()
+	messageObserver := c.messageObserver
+	c.mu.Unlock()
+	if messageObserver != nil {
+		messageObserver(msg.Topic(), now)
+	}
 	changes := c.reg.UpdateTopicWithQoS(msg.Topic(), msg.Payload(), msg.Retained(), msg.Qos(), now)
 	if c.verboseLogging() {
 		c.logger.Printf("state message on %s (retained=%v, %d bytes, changed=%v, registry_version=%d)", msg.Topic(), msg.Retained(), len(msg.Payload()), len(changes) > 0, c.reg.Version())

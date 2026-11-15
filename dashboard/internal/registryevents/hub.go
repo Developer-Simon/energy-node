@@ -390,3 +390,10 @@ func (h *Hub) SubscriberCount() int {
 	defer h.mu.Unlock()
 	return len(h.subs)
 }
+
+// Subscribers ist die Zahl der aktuell verbundenen Abonnenten. Der Monitor
+// der Leistungsmessung fragt sie ab, um Dashboard-Last nur bei offenen Tabs
+// zu bewerten.
+func (h *Hub) Subscribers() int {
+	return h.SubscriberCount()
+}
