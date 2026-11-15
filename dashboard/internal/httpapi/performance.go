@@ -21,6 +21,14 @@ type PerformanceProvider interface {
 	Snapshot(now time.Time) performance.Snapshot
 }
 
+// ChangeStore holds the applied change of the performance page. The monitor
+// implements it. A nil store means no change tracking.
+type ChangeStore interface {
+	CurrentChange() *performance.Change
+	RecordChange(performance.Change) error
+	MarkUndone() error
+}
+
 // PerformanceDeps wires the performance page. Rates gives the current poll
 // periods, Floors the poll floor per service ID. Without it the route answers
 // 501. The fields after Floors are the write paths of the rate apply
@@ -29,6 +37,7 @@ type PerformanceDeps struct {
 	Provider PerformanceProvider
 	Rates    func() performance.RateConfig
 	Floors   map[string]float64
+	Changes  ChangeStore
 
 	Auth       *auth.Manager
 	Settings   *settings.Store
@@ -55,7 +64,7 @@ type performanceBody struct {
 	External         *performanceExternal `json:"external"`
 	Rows             []performanceRow     `json:"rows"`
 	Units            []performanceUnit    `json:"units"`
-	Change           *performanceChange   `json:"change"`
+	Change           *performance.Change  `json:"change"`
 }
 
 type performanceDeduction struct {
@@ -103,10 +112,6 @@ type performanceUnit struct {
 	Fixed     bool     `json:"fixed"`
 }
 
-// performanceChange is filled by the change proposal of the page; until then
-// the field is null.
-type performanceChange struct{}
-
 // handlePerformance serves GET /api/v1/performance. The budget comes from the
 // settings (0 is the default for the core count). A row is editable when the
 // session holds its right; without a session every row is editable, as the
@@ -128,12 +133,7 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			ramFree = &value
 		}
 		defaultTarget := performance.DefaultTarget(snap.Cores)
-		target := defaultTarget
-		if store != nil {
-			if value, err := store.LoadSettings(); err == nil && value.PerformanceTargetPct > 0 {
-				target = value.PerformanceTargetPct
-			}
-		}
+		target := performanceTarget(store, snap, nil)
 
 		rows, base := performanceRows(snap, deps)
 		user, hasUser := auth.UserFromContext(r.Context())
@@ -156,6 +156,9 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 			BasePct: base,
 			Rows:    []performanceRow{},
 			Units:   []performanceUnit{},
+		}
+		if deps.Changes != nil {
+			body.Change = deps.Changes.CurrentChange()
 		}
 
 		for _, row := range rows {
@@ -195,6 +198,21 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 		}
 		writeJSON(w, body)
 	}
+}
+
+// performanceTarget is the budget in percent the page works with: the request
+// target when given, else the saved target, else the default for the core count.
+func performanceTarget(store *settings.Store, snap performance.Snapshot, requested *int) int {
+	if requested != nil {
+		return *requested
+	}
+	target := performance.DefaultTarget(snap.Cores)
+	if store != nil {
+		if value, err := store.LoadSettings(); err == nil && value.PerformanceTargetPct > 0 {
+			target = value.PerformanceTargetPct
+		}
+	}
+	return target
 }
 
 // performanceRows builds the rows the page shows and the base load they leave
@@ -263,7 +281,8 @@ func handlePerformanceApply(deps *PerformanceDeps, now func() time.Time) http.Ha
 			return
 		}
 
-		rows, base := performanceRows(deps.Provider.Snapshot(now()), deps)
+		snap := deps.Provider.Snapshot(now())
+		rows, base := performanceRows(snap, deps)
 		writer := &rateWriter{
 			Settings:   deps.Settings,
 			Configs:    deps.Configs,
@@ -293,8 +312,39 @@ func handlePerformanceApply(deps *PerformanceDeps, now func() time.Time) http.Ha
 			selection[id] = value
 		}
 		resp.ExpectedPct = performance.Estimate(base, rows, selection)
+		resp.Change = recordAppliedChange(deps, now(), snap, req.TargetPct, rows, selection, resp.ExpectedPct)
 		writeJSON(w, resp)
 	}
+}
+
+// recordAppliedChange keeps the rows whose period the apply changed, with their
+// values before and after, and the budget the page checks against. It returns
+// nil and records nothing when no row changed. A failing save does not fail the
+// apply, the write has already happened.
+func recordAppliedChange(deps *PerformanceDeps, at time.Time, snap performance.Snapshot, requested *int, rows []performance.Row, selection map[performance.RowID]float64, expected float64) *performance.Change {
+	change := performance.Change{
+		At:       at,
+		Before:   map[performance.RowID]float64{},
+		After:    map[performance.RowID]float64{},
+		Expected: expected,
+		State:    "running",
+	}
+	for _, row := range rows {
+		value, ok := selection[row.ID]
+		if !ok || value == row.Current {
+			continue
+		}
+		change.Before[row.ID] = row.Current
+		change.After[row.ID] = value
+	}
+	if len(change.After) == 0 {
+		return nil
+	}
+	change.Available = float64(performanceTarget(deps.Settings, snap, requested)) - performance.DeductionFor(snap).Pct
+	if deps.Changes != nil {
+		_ = deps.Changes.RecordChange(change)
+	}
+	return &change
 }
 
 func deductionBody(d performance.Deduction) performanceDeduction {

@@ -100,11 +100,11 @@ type ApplyRequest struct {
 	Rates     map[performance.RowID]float64 `json:"rates"`
 }
 
-// ApplyResponse ist die Antwort der Übernahme. Change bleibt in dieser Stufe
-// null, der Änderungsvorschlag kommt mit der HTTP-Schicht.
+// ApplyResponse ist die Antwort der Übernahme. Change ist null, wenn keine
+// Zeile geändert wurde.
 type ApplyResponse struct {
-	ExpectedPct float64            `json:"expected_pct"`
-	Change      *performanceChange `json:"change"`
+	ExpectedPct float64             `json:"expected_pct"`
+	Change      *performance.Change `json:"change"`
 }
 
 // rateWriter schreibt eine Übernahme über die bestehenden Schreibpfade. Jede

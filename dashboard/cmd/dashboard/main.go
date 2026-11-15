@@ -599,6 +599,10 @@ func main() {
 	}()
 	// Mit ENERGY_NODE_PERFORMANCE_FAKE_FILE liest die Seite den Szenario-Stand
 	// der Demo-Konsole statt des Monitors; der Monitor laeuft unbenutzt weiter.
+	// Die letzte Übernahme liegt in performance/last-change.json und wird hier geladen.
+	if err := perfMonitor.AttachChange(dataDir, time.Now()); err != nil {
+		log.Printf("energy-node-dashboard: Leistungsänderung laden: %v", err)
+	}
 	var perfProvider httpapi.PerformanceProvider = perfMonitor
 	if fakeFile := os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE_FILE"); fakeFile != "" && os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE") == "1" {
 		perfProvider = performance.NewFileProvider(fakeFile)
@@ -1004,6 +1008,7 @@ func main() {
 			Provider:   perfProvider,
 			Rates:      performanceRates,
 			Floors:     perfFloors,
+			Changes:    perfMonitor,
 			Auth:       authManager,
 			Settings:   settingsStore,
 			Configs:    configManager,

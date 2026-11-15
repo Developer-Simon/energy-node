@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
@@ -372,8 +374,10 @@ func TestApplyEndpointReturnsExpected(t *testing.T) {
 	if _, ok := body["expected_pct"].(float64); !ok {
 		t.Fatalf("expected_pct fehlt oder ist keine Zahl: %s", recorder.Body.String())
 	}
-	if change, ok := body["change"]; !ok || change != nil {
-		t.Fatalf("change = %v (vorhanden %v), erwartet null: %s", change, ok, recorder.Body.String())
+	// live_update wechselt von 3 auf 5, die Änderung wird also festgehalten.
+	change, ok := body["change"].(map[string]any)
+	if !ok || change["state"] != "running" {
+		t.Fatalf("change = %v (vorhanden %v), erwartet laufende Änderung: %s", body["change"], ok, recorder.Body.String())
 	}
 }
 
@@ -483,5 +487,114 @@ func TestApplyRoundsLiveUpdate(t *testing.T) {
 	}
 	if current.LiveUpdateIntervalSeconds != 5 {
 		t.Fatalf("live_update_interval_seconds %d, erwartet 5 (gerundet)", current.LiveUpdateIntervalSeconds)
+	}
+}
+
+// applyEndpointRouterWith is applyEndpointRouter with a change store attached.
+func applyEndpointRouterWith(t *testing.T, changes ChangeStore) (http.Handler, *auth.Manager) {
+	t.Helper()
+	fixture := newApplyFixture(t)
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := RouterDependencies{
+		Auth: manager,
+		Performance: &PerformanceDeps{
+			Provider: stubPerformance{snap: performanceTestSnapshot()},
+			Rates: func() performance.RateConfig {
+				return performance.RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 15, Services: map[string]float64{"shelly": 20}}
+			},
+			Floors:     map[string]float64{"shelly": 2},
+			Auth:       manager,
+			Settings:   fixture.store,
+			Configs:    fixture.configs,
+			SystemPath: fixture.configPath,
+			DataDir:    fixture.writer.DataDir,
+			NodeRates:  fixture.rates,
+			Changes:    changes,
+		},
+	}
+	router := NewAuthenticatedRouter(registry.New(), fixture.configs, fixture.store, nil, nil, nil, nil, nil, deps)
+	return router, manager
+}
+
+func newChangeMonitor(t *testing.T) (*performance.Monitor, string) {
+	t.Helper()
+	dir := t.TempDir()
+	monitor := performance.NewMonitor(nil, nil, performance.Options{})
+	if err := monitor.AttachChange(dir, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	return monitor, dir
+}
+
+func TestApplyWritesChangeFile(t *testing.T) {
+	monitor, dir := newChangeMonitor(t)
+	router, _ := applyEndpointRouterWith(t, monitor)
+	cookie, csrfToken := loginAsAdmin(t, router)
+
+	recorder := postApply(router, cookie, csrfToken, `{"rates":{"live_update":5}}`)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		ExpectedPct float64             `json:"expected_pct"`
+		Change      *performance.Change `json:"change"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Change == nil || body.Change.State != "running" {
+		t.Fatalf("change = %+v, want running: %s", body.Change, recorder.Body.String())
+	}
+	if body.Change.Expected != body.ExpectedPct {
+		t.Fatalf("change.expected_pct %v, want %v", body.Change.Expected, body.ExpectedPct)
+	}
+	wantAvailable := float64(performance.DefaultTarget(4)) - performance.DeductionFor(performanceTestSnapshot()).Pct
+	if body.Change.Available != wantAvailable {
+		t.Fatalf("change.available_pct %v, want %v", body.Change.Available, wantAvailable)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(dir, "performance", "last-change.json"))
+	if err != nil {
+		t.Fatalf("change file: %v", err)
+	}
+	var stored performance.Change
+	if err := json.Unmarshal(raw, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.State != "running" {
+		t.Fatalf("stored state %q, want running", stored.State)
+	}
+	if len(stored.Before) != 1 || stored.Before[performance.RowLiveUpdate] != 3 {
+		t.Fatalf("stored before = %v, want only live_update 3", stored.Before)
+	}
+	if len(stored.After) != 1 || stored.After[performance.RowLiveUpdate] != 5 {
+		t.Fatalf("stored after = %v, want only live_update 5", stored.After)
+	}
+}
+
+func TestApplyUnchangedRecordsNothing(t *testing.T) {
+	monitor, dir := newChangeMonitor(t)
+	router, _ := applyEndpointRouterWith(t, monitor)
+	cookie, csrfToken := loginAsAdmin(t, router)
+
+	recorder := postApply(router, cookie, csrfToken, `{"rates":{"live_update":3}}`)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if change, ok := body["change"]; !ok || change != nil {
+		t.Fatalf("change = %v (vorhanden %v), erwartet null: %s", change, ok, recorder.Body.String())
+	}
+	if monitor.CurrentChange() != nil {
+		t.Fatal("unchanged apply recorded a change")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "performance", "last-change.json")); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("change file exists after unchanged apply: %v", err)
 	}
 }

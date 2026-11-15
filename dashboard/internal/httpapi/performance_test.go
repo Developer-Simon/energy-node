@@ -47,6 +47,12 @@ func performanceRouter(t *testing.T) (http.Handler, *auth.Manager) {
 
 func performanceRouterWith(t *testing.T, snap performance.Snapshot) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return performanceRouterWithChanges(t, snap, nil)
+}
+
+// performanceRouterWithChanges is performanceRouterWith with a change store attached.
+func performanceRouterWithChanges(t *testing.T, snap performance.Snapshot, changes ChangeStore) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +64,8 @@ func performanceRouterWith(t *testing.T, snap performance.Snapshot) (http.Handle
 			Rates: func() performance.RateConfig {
 				return performance.RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 15, Services: map[string]float64{"shelly": 20}}
 			},
-			Floors: map[string]float64{"shelly": 2},
+			Floors:  map[string]float64{"shelly": 2},
+			Changes: changes,
 		},
 	}
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, deps)
@@ -191,5 +198,42 @@ func TestPerformanceUnknownDeviceValuesAreNull(t *testing.T) {
 	}
 	if strings.Contains(recorder.Body.String(), `"null"`) {
 		t.Fatalf("the string null leaked into the body: %s", recorder.Body.String())
+	}
+}
+
+func TestPerformanceReturnsStoredChange(t *testing.T) {
+	monitor := performance.NewMonitor(nil, nil, performance.Options{})
+	if err := monitor.AttachChange(t.TempDir(), time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := monitor.RecordChange(performance.Change{
+		At:        time.Now(),
+		Before:    map[performance.RowID]float64{performance.RowShelly: 5},
+		After:     map[performance.RowID]float64{performance.RowShelly: 20},
+		Expected:  40,
+		Available: 70,
+		State:     "running",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	router, manager := performanceRouterWithChanges(t, performanceTestSnapshot(), monitor)
+
+	diagnostics, _ := loginWithRoles(t, router, manager, "diagnose", []string{auth.RoleViewDiagnostics})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/performance", diagnostics, true))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		Change *struct {
+			State string             `json:"state"`
+			After map[string]float64 `json:"after"`
+		} `json:"change"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Change == nil || body.Change.State != "running" || body.Change.After["shelly"] != 20 {
+		t.Fatalf("change = %+v, want running with shelly 20: %s", body.Change, recorder.Body.String())
 	}
 }
