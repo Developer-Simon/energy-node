@@ -92,6 +92,8 @@ var catalog = []Entry{
 
 	{RootData, "energydiscovery/*", ClassDisposable, ""},
 	{RootData, "runtime.json", ClassDisposable, ""},
+	// The applied rate change belongs to this node and its measurements.
+	{RootData, "performance/last-change.json", ClassDisposable, ""},
 	{RootData, "storage-health.json", ClassDisposable, ""},
 	// Die Laufwerkswahl gehoert zur Umgebung des Knotens und wird nie archiviert.
 	{RootData, "storage.json", ClassEnvironment, ""},
