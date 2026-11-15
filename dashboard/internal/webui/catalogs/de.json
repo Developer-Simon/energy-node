@@ -3776,6 +3776,8 @@
   "performance.ui.actions.apply": "Übernehmen",
   "performance.ui.actions.even": "Gleichmäßig verteilen",
   "performance.ui.actions.reset": "Auswahl zurücksetzen",
+  "performance.ui.check.now": "Jetzt {value}, bleibt",
+  "performance.ui.check.progress": "{elapsed} von {total} Minuten",
   "performance.ui.confirm.apply": "Trotzdem übernehmen",
   "performance.ui.confirm.body": "Sie läuft seit {duration}. Die Schätzung kann daneben liegen, besonders für Zeiten mit mehr Browsern.",
   "performance.ui.confirm.cancel": "Abbrechen",

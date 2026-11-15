@@ -79,6 +79,34 @@
           <button type="button" class="icon-button labeled" x-on:click="confirming = false">{{t "performance.ui.confirm.cancel"}}</button>
         </div>
       </div>
+
+      <!-- Pruefung nach der Uebernahme: Wirkung gegen Erwartung, Liste der Aenderungen, Ruecknahme -->
+      <div class="pf-reveal" x-bind:data-open="data.change ? 'true' : 'false'">
+        <div class="pf-reveal-inner">
+          <div class="pf-check" x-show="data.change" x-bind:data-tone="checkTone()" aria-live="polite">
+            <div class="pf-check-head">
+              <strong x-text="checkTitle()"></strong>
+              <span class="pf-check-time" x-show="checkState() === 'running'" x-text="$t('performance.ui.check.progress', { elapsed: Math.min(15, Math.floor(checkElapsed())), total: 15 })"></span>
+            </div>
+            <div class="pf-progress" x-show="checkState() === 'running'"><i x-bind:style="`width: ${checkProgress()}%`"></i></div>
+            <p class="pf-check-note" x-text="checkNote()"></p>
+            <ul class="pf-changes" x-show="data.change && checkState() !== 'undone'">
+              <template x-for="c in changeList()" x-bind:key="c.id">
+                <li x-bind:class="{ 'pf-change-conflict': c.now && checkState() === 'conflict' }">
+                  <span class="pf-change-name" x-text="c.label"></span>
+                  <span class="pf-change-values" x-text="`${c.before} → ${c.after}`"></span>
+                  <span class="pf-change-now" x-show="c.now && checkState() === 'conflict'" x-text="$t('performance.ui.check.now', { value: c.now })"></span>
+                </li>
+              </template>
+            </ul>
+            <div class="pf-check-actions" x-show="data.change && checkState() !== 'undone'">
+              <button type="button" class="icon-button labeled" x-bind:class="{ 'pf-primary': checkState() === 'bad' }" x-show="checkState() !== 'conflict'" x-bind:disabled="undoing" x-on:click="tryUndo()">{{t "performance.js.check.undo"}}</button>
+              <button type="button" class="icon-button labeled pf-primary" x-show="checkState() === 'conflict'" x-bind:disabled="undoing" x-on:click="undoRest()">{{t "performance.js.check.undo_rest"}}</button>
+              <button type="button" class="icon-button labeled" x-show="checkState() === 'conflict'" x-bind:disabled="undoing" x-on:click="keepAll()">{{t "performance.js.check.keep_all"}}</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Abfrageraten: je Dienst die Stufen ab der Geraetegrenze und ein Eigener Wert -->

@@ -3776,6 +3776,8 @@
   "performance.ui.actions.apply": "Apply",
   "performance.ui.actions.even": "Distribute evenly",
   "performance.ui.actions.reset": "Reset selection",
+  "performance.ui.check.now": "Now {value}, stays",
+  "performance.ui.check.progress": "{elapsed} of {total} minutes",
   "performance.ui.confirm.apply": "Apply anyway",
   "performance.ui.confirm.body": "It has been running for {duration}. The estimate may be off, especially for times with more browsers.",
   "performance.ui.confirm.cancel": "Cancel",
