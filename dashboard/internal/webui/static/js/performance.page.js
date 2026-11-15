@@ -12,6 +12,8 @@
     if (!response.ok) {
       const error = new Error(apiError(body));
       error.code = body.code || '';
+      // The whole answer, so a caller can read fields such as the 409 conflicts.
+      error.body = body;
       throw error;
     }
     return body;
@@ -96,6 +98,24 @@
     system_actions: 'performance.js.right.system_actions',
   };
 
+  // The effect check runs this long after an applied change.
+  const CHECK_MINUTES = 15;
+  // Full keys per state, so the catalog scanner sees every key literally.
+  const CHECK_TITLE_KEYS = {
+    running: 'performance.js.check.title.running',
+    ok: 'performance.js.check.title.ok',
+    bad: 'performance.js.check.title.bad',
+    conflict: 'performance.js.check.title.conflict',
+    undone: 'performance.js.check.title.undone',
+  };
+  const CHECK_NOTE_KEYS = {
+    ok: 'performance.js.check.note.ok',
+    bad: 'performance.js.check.note.bad',
+    conflict: 'performance.js.check.note.conflict',
+    undone: 'performance.js.check.note.undone',
+  };
+  const CHECK_TONES = { running: 'info', ok: 'ok', bad: 'bad', conflict: 'warn', undone: 'ok' };
+
   // Numbers as typed, with a German comma allowed.
   const parseNumber = (raw) => Number(String(raw).replace(',', '.'));
 
@@ -117,6 +137,10 @@
     targetDraft: 0,
     confirming: false,
     applying: false,
+    // Rows changed since the rollback was applied, as {row: current seconds}.
+    // Only set by a 409 rollback_conflict, cleared by a new change or a decision.
+    conflict: {},
+    undoing: false,
 
     init() {
       const first = this.load();
@@ -153,6 +177,9 @@
         });
         if (this.targetDraft === this.savedTarget) this.targetDraft = next.target_pct;
         this.savedTarget = next.target_pct;
+        // A conflict belongs to one change, a new or vanished change clears it.
+        const sameChange = Boolean(next.change) && Boolean(this.data.change) && next.change.at === this.data.change.at;
+        if (!sameChange) this.conflict = {};
         this.cur = newCur;
         this.sel = newSel;
         this.data = next;
@@ -179,19 +206,35 @@
       return this.available() - this.selectedPct();
     },
 
+    // After a bad check the measurement counts, not the estimate, unless the
+    // user has edited the rates since.
+    badCheck() {
+      return this.checkState() === 'bad' && !this.ratesChanged();
+    },
     headTone() {
       if (this.measuring()) return 'info';
+      if (this.badCheck()) return 'bad';
       if (this.selectedPct() > this.available()) return 'bad';
       if (this.free() < 3) return 'warn';
       return 'ok';
     },
     headTitle() {
+      if (this.badCheck()) {
+        const measured = this.data.change.measured_pct;
+        return t('performance.js.check.head_title', {
+          measured: pct(measured),
+          over: pct(measured - this.available()),
+        });
+      }
       const used = pct(this.selectedPct());
       const free = this.free();
       if (free < 0) return t('performance.js.head.used_over', { used, over: pct(-free) });
       return t('performance.js.head.used_free', { used, free: pct(free) });
     },
     headNote() {
+      if (this.badCheck()) {
+        return t('performance.js.check.head_note', { expected: pct(this.data.change.expected_pct) });
+      }
       if (this.measuring()) {
         const remaining = t('performance.js.remaining', { duration: duration(this.data.min_measure_s - this.data.measured_s) });
         return t('performance.js.head.note_measuring', {
@@ -396,6 +439,118 @@
       } finally {
         this.applying = false;
       }
+    },
+
+    // ---- Effect check and rollback --------------------------------------
+
+    // The state of the card: the server state, or conflict while a rollback
+    // found rows changed since the apply and the user has not decided yet.
+    checkState() {
+      const change = this.data.change;
+      if (!change) return null;
+      if (change.state !== 'undone' && Object.keys(this.conflict).length > 0) return 'conflict';
+      return change.state;
+    },
+    checkTone() {
+      return CHECK_TONES[this.checkState()] || 'info';
+    },
+    checkTitle() {
+      const state = this.checkState();
+      if (state === 'running') return t(CHECK_TITLE_KEYS.running, { minutes: this.checkRemaining() });
+      if (!state) return '';
+      return t(CHECK_TITLE_KEYS[state]);
+    },
+    checkNote() {
+      const change = this.data.change;
+      const state = this.checkState();
+      if (!change || !state) return '';
+      const expected = pct(change.expected_pct);
+      let note;
+      if (state === 'running') {
+        note = change.measured_pct === null || change.measured_pct === undefined
+          ? t('performance.js.check.note.running', { expected })
+          : t('performance.js.check.note.running_measured', { expected, measured: pct(change.measured_pct) });
+        if (change.restarted) note = `${note} ${t('performance.js.check.note.restarted')}`;
+        return note;
+      }
+      if (state === 'ok' || state === 'bad') {
+        const params = { expected, measured: pct(change.measured_pct) };
+        if (state === 'bad') params.available = pct(change.available_pct);
+        return t(CHECK_NOTE_KEYS[state], params);
+      }
+      return t(CHECK_NOTE_KEYS[state]);
+    },
+    // Minutes since the change was applied, from the browser clock.
+    checkElapsed() {
+      const at = Date.parse(this.data.change?.at);
+      if (!Number.isFinite(at)) return 0;
+      return Math.max(0, (Date.now() - at) / 60000);
+    },
+    checkRemaining() {
+      return Math.max(0, Math.ceil(CHECK_MINUTES - this.checkElapsed()));
+    },
+    checkProgress() {
+      return Math.min(100, Math.max(0, (this.checkElapsed() / CHECK_MINUTES) * 100));
+    },
+    // The rows of the change, with the current value of each row that conflicts.
+    changeList() {
+      const change = this.data.change;
+      if (!change) return [];
+      return Object.keys(change.after || {}).map((id) => ({
+        id,
+        label: this.rowLabel(id),
+        before: seconds(change.before[id]),
+        after: seconds(change.after[id]),
+        now: this.conflict[id] !== undefined ? seconds(this.conflict[id]) : null,
+      }));
+    },
+    async rollback(onlyUnchanged) {
+      const session = await requestJSON('/api/v1/auth/session').catch(() => null);
+      const csrfToken = (session && session.csrf_token) || '';
+      return requestJSON('/api/v1/performance/rollback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
+        body: JSON.stringify({ only_unchanged: onlyUnchanged }),
+      });
+    },
+    // Takes all changed rows back. A row changed since the apply stops the
+    // rollback with a 409 and the conflict is shown instead.
+    async tryUndo() {
+      if (this.undoing) return;
+      this.undoing = true;
+      try {
+        await this.rollback(false);
+        this.conflict = {};
+        this.$store.toasts.push(t('performance.js.check.undo_done'), 'info');
+        await this.load();
+      } catch (error) {
+        if (error.code === 'rollback_conflict') {
+          this.conflict = { ...(error.body.conflicts || {}) };
+        } else {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      } finally {
+        this.undoing = false;
+      }
+    },
+    // Takes back only the rows nobody has changed since the apply.
+    async undoRest() {
+      if (this.undoing) return;
+      this.undoing = true;
+      try {
+        await this.rollback(true);
+        this.conflict = {};
+        this.$store.toasts.push(t('performance.js.check.undo_done'), 'info');
+        await this.load();
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.undoing = false;
+      }
+    },
+    // Keeps the changed rows as they are. The change then shows its server state.
+    keepAll() {
+      this.conflict = {};
     },
 
     // ---- Row texts ------------------------------------------------------
