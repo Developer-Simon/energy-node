@@ -71,6 +71,7 @@
 - **nodeagent:** apply a new node poll interval without restart (050ba64)
 - **performance:** check the target right and reject non-positive rates (6850a20)
 - **performance:** estimate the rounded live update value (4582830)
+- **webui:** bump cache-bust marks and shorten the rates highlight (89a8271)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **performance:** align row flags with the draft (7ada512)
@@ -104,6 +105,7 @@
 
 ### Tests
 
+- **webui:** expect settings.page.js at v=37 (7ed6a60)
 - **performance:** cover the performance page in smoke and demo (05cbe1a)
 - **network:** smoke the fallback settings and the hotspot secret (e3c2f4b)
 - **webui:** know the storage page in the tour target test (8c10d07)
