@@ -42,7 +42,8 @@
 
   // Names of the units. The API uses systemd unit names for the fixed units
   // (automation.service) and service ids for the device services (shelly,
-  // apsystems_ez1, tuya_mqtt). The ".service" suffix is dropped before the lookup.
+  // apsystems, tuya). The ".service" suffix is dropped before the lookup. The
+  // directory names apsystems_ez1 and tuya_mqtt stay as aliases.
   const UNIT_LABELS = {
     'energy-node-dashboard': 'performance.js.unit.dashboard',
     automation: 'performance.js.unit.automation',
@@ -50,6 +51,8 @@
     tailscaled: 'performance.js.unit.tailscaled',
     caddy: 'performance.js.unit.caddy',
     battery_soc: 'performance.js.unit.battery_soc',
+    apsystems: 'performance.js.unit.apsystems',
+    tuya: 'performance.js.unit.tuya',
     apsystems_ez1: 'performance.js.unit.apsystems',
     tuya_mqtt: 'performance.js.unit.tuya',
     shelly: 'performance.js.unit.shelly',

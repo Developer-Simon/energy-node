@@ -111,13 +111,17 @@ for path in devices.glob("*.json"):
     if service_id:
         ids.add(service_id)
 if fake:
-    ids.update(["trucki", "apsystems_ez1", "tuya_mqtt"])
+    ids.update(["trucki", "apsystems", "tuya"])
+# Verzeichnis unter services/, wo es nicht die Dienst-ID ist.
+SERVICE_DIRS = {"apsystems": "apsystems_ez1", "tuya": "tuya_mqtt"}
 for service_id in sorted(ids):
     entry = {"service_id": service_id}
     # unit und poll_floor_s aus dem echten Dienst-Manifest, damit die Demo dieselben Zahlen zeigt.
-    real = repo / "services" / service_id / "manifest.json"
+    real = repo / "services" / SERVICE_DIRS.get(service_id, service_id) / "manifest.json"
     if real.is_file():
         data = json.loads(real.read_text(encoding="utf-8"))
+        # Die Datei heisst nach der service_id des Manifests selbst.
+        entry["service_id"] = data.get("service_id", service_id)
         for key in ("unit", "poll_floor_s"):
             if key in data:
                 entry[key] = data[key]

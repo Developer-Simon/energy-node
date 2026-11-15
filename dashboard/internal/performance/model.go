@@ -116,13 +116,36 @@ type RateConfig struct {
 	Services                              map[string]float64
 }
 
-// serviceRows maps the service IDs to their row IDs.
-var serviceRows = map[string]RowID{
-	"shelly":        RowShelly,
-	"trucki":        RowTrucki,
-	"battery_soc":   RowBatterySoc,
-	"apsystems_ez1": RowApsystems,
-	"tuya_mqtt":     RowTuya,
+// serviceAliases maps the directory names of two services to their service
+// IDs from manifest.json. Callers that still pass the directory name get the
+// same row.
+var serviceAliases = map[string]string{
+	"apsystems_ez1": "apsystems",
+	"tuya_mqtt":     "tuya",
+}
+
+// canonicalService returns the service ID for id, an alias maps to its ID.
+func canonicalService(id string) string {
+	if canon, ok := serviceAliases[id]; ok {
+		return canon
+	}
+	return id
+}
+
+// serviceValue reads the value of a service ID. An alias key is used when the
+// ID itself is not in the map.
+func serviceValue(m map[string]float64, id string) float64 {
+	if v, ok := m[id]; ok {
+		return v
+	}
+	for alias, canon := range serviceAliases {
+		if canon == id {
+			if v, ok := m[alias]; ok {
+				return v
+			}
+		}
+	}
+	return 0
 }
 
 // rowSpec is the static part of a row.
@@ -146,8 +169,8 @@ var rowSpecs = []rowSpec{
 	{id: RowShelly, service: "shelly", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", source: true, balance: true},
 	{id: RowTrucki, service: "trucki", steps: []float64{2, 3, 5, 10, 15, 20, 30, 60}, right: "system_actions", source: true},
 	{id: RowBatterySoc, service: "battery_soc", steps: []float64{1, 2, 5, 10, 20, 30}, right: "system_actions", source: true},
-	{id: RowApsystems, service: "apsystems_ez1", steps: []float64{12, 15, 20, 30, 60, 120}, right: "system_actions", source: true},
-	{id: RowTuya, service: "tuya_mqtt", steps: []float64{10, 15, 20, 30, 60}, right: "system_actions", source: true},
+	{id: RowApsystems, service: "apsystems", steps: []float64{12, 15, 20, 30, 60, 120}, right: "system_actions", source: true},
+	{id: RowTuya, service: "tuya", steps: []float64{10, 15, 20, 30, 60}, right: "system_actions", source: true},
 }
 
 // Units that carry the cost split.
@@ -171,7 +194,7 @@ const (
 func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present map[RowID]bool) []Row {
 	units := map[string]UnitStats{}
 	for _, u := range snap.Units {
-		units[u.ID] = u
+		units[canonicalService(u.ID)] = u
 	}
 
 	minutes := snap.MeasuredFor.Minutes()
@@ -181,8 +204,9 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 		if u.Fixed {
 			continue
 		}
-		msgs[u.ID] = u.MsgPerMin * minutes
-		totalMsgs += msgs[u.ID]
+		id := canonicalService(u.ID)
+		msgs[id] = u.MsgPerMin * minutes
+		totalMsgs += msgs[id]
 	}
 	perMsg := 0.0
 	if totalMsgs > 0 {
@@ -212,7 +236,7 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 		if floorKey == "" {
 			floorKey = string(spec.id)
 		}
-		r.Floor = math.Max(floors[floorKey], spec.fixedFloor)
+		r.Floor = math.Max(serviceValue(floors, floorKey), spec.fixedFloor)
 
 		switch spec.id {
 		case RowLiveUpdate:
@@ -231,7 +255,7 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 		case RowNode:
 			r.Current = cur.NodeS
 		default:
-			r.Current = cur.Services[spec.service]
+			r.Current = serviceValue(cur.Services, spec.service)
 			u := units[spec.service]
 			if u.RoundS != nil {
 				r.RoundS = *u.RoundS

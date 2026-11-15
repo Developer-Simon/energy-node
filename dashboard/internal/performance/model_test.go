@@ -175,3 +175,50 @@ func TestDeductionRAMWhenKnown(t *testing.T) {
 		t.Fatalf("DeductionFor = %+v, want 10 with ram", d)
 	}
 }
+
+func TestBuildRowsRealServiceIDsAndAliases(t *testing.T) {
+	// The manifests name the services apsystems and tuya. The directory names
+	// stay accepted as aliases and must give the same rows.
+	snapFor := func(apsID, tuyaID string) Snapshot {
+		return Snapshot{
+			MeasuredFor: 10 * time.Minute,
+			Units: []UnitStats{
+				{ID: apsID, CPUP95: 2},
+				{ID: tuyaID, CPUP95: 1.5},
+			},
+		}
+	}
+	cases := map[string]struct {
+		snap     Snapshot
+		services map[string]float64
+		floors   map[string]float64
+	}{
+		"real ids":   {snapFor("apsystems", "tuya"), map[string]float64{"apsystems": 20, "tuya": 30}, map[string]float64{"apsystems": 12, "tuya": 10}},
+		"alias keys": {snapFor("apsystems_ez1", "tuya_mqtt"), map[string]float64{"apsystems_ez1": 20, "tuya_mqtt": 30}, map[string]float64{"apsystems_ez1": 12, "tuya_mqtt": 10}},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			rows := BuildRows(c.snap, RateConfig{Services: c.services}, c.floors, nil)
+			byID := map[RowID]Row{}
+			for _, r := range rows {
+				byID[r.ID] = r
+			}
+			aps, tuya := byID[RowApsystems], byID[RowTuya]
+			if aps.Floor != 12 {
+				t.Errorf("apsystems Floor = %v, want 12", aps.Floor)
+			}
+			if tuya.Floor != 10 {
+				t.Errorf("tuya Floor = %v, want 10", tuya.Floor)
+			}
+			if aps.Current != 20 || tuya.Current != 30 {
+				t.Errorf("Current = %v / %v, want 20 / 30", aps.Current, tuya.Current)
+			}
+			if aps.CostPct != 2 {
+				t.Errorf("apsystems CostPct = %v, want its P95 2", aps.CostPct)
+			}
+			if tuya.CostPct != 1.5 {
+				t.Errorf("tuya CostPct = %v, want its P95 1.5", tuya.CostPct)
+			}
+		})
+	}
+}
