@@ -11,7 +11,8 @@
         {
           "need": "view_devices",
           "open": [
-            "@device-modal"
+            "@device-modal",
+            "@device-hint-demo"
           ],
           "panel": "devices-panel",
           "target": "device-hints-bell",
@@ -28,6 +29,7 @@
           "need": "view_devices",
           "open": [
             "@device-modal",
+            "@device-hint-demo",
             "device-hints-bell"
           ],
           "panel": "devices-panel",

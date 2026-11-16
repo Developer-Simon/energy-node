@@ -294,6 +294,28 @@
     },
   });
 
+  // Sorgt dafuer, dass die Hinweis-Glocke im offenen Geraetedialog zu sehen ist.
+  // Hat das Geraet keine Betriebshinweise, zeigt der Dialog einen Beispielhinweis.
+  // Zuruecknehmen entfernt ihn wieder. Erscheint die Glocke nicht, entfaellt
+  // der Beispielhinweis ebenfalls.
+  action('device-hint-demo', {
+    run: async ({ waitFor }) => {
+      const dialog = document.querySelector('#device-modal[open]');
+      const panel = dialog ? window.Alpine.$data(document.getElementById('devices-panel')) : null;
+      if (!panel) return null;
+      // Die Details kommen nach dem Oeffnen, erst dann steht fest, ob es echte Hinweise gibt.
+      if (!await waitFor(() => panel.deviceDetail, 3000)) return null;
+      const revert = () => { panel.tourDemoHint = ''; };
+      if (!panel.operationalWarnings.length) panel.tourDemoHint = window.I18n.t('onboarding.demo_hint');
+      const bell = await waitFor(() => find('device-hints-bell', dialog), 1500);
+      if (!bell) {
+        revert();
+        return null;
+      }
+      return { el: dialog, scope: dialog, revert };
+    },
+  });
+
   // Zeigt einen Demo-Toast, solange der Schritt laeuft. Zuruecknehmen blendet
   // ihn wieder aus. Erscheint das Element nicht, wird der Toast ebenfalls ausgeblendet.
   action('demo-toast', {

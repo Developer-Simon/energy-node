@@ -809,3 +809,46 @@ test('demo-toast dismisses the toast when its element never appears', async () =
   assert.equal(rec, null);
   assert.deepEqual(calls[calls.length - 1], ['dismiss', 7]);
 });
+
+// Das Hinweis-Beispiel: ohne echte Betriebshinweise zeigt der Dialog fuer die Tour einen
+// Beispielhinweis, damit die Glocke erscheint. Die Seite ist ein Stub mit den Feldern des Modals.
+function hintsPage(document, { warnings = [], bell = true } = {}) {
+  const panel = {
+    deviceDetail: {},
+    tourDemoHint: '',
+    get operationalWarnings() { return warnings; },
+  };
+  document.defaultView.Alpine = { $data: () => panel };
+  document.defaultView.I18n = { t: (key) => `t:${key}` };
+  document.body.innerHTML = `<dialog id="device-modal" open></dialog>${bell ? '<button data-tour="device-hints-bell"></button>' : ''}`;
+  return panel;
+}
+
+test('device-hint-demo sets the demo hint when the device has no notices and clears it on revert', async () => {
+  const { document, a } = load();
+  const panel = hintsPage(document);
+  const rec = await a.named['device-hint-demo'].run({ waitFor });
+  assert.equal(panel.tourDemoHint, 't:onboarding.demo_hint');
+  assert.equal(rec.el, document.getElementById('device-modal'));
+  assert.equal(rec.scope, rec.el);
+  rec.revert();
+  assert.equal(panel.tourDemoHint, '');
+});
+
+test('device-hint-demo keeps the real notices and sets nothing', async () => {
+  const { document, a } = load();
+  const panel = hintsPage(document, { warnings: [{ severity: 'warning' }] });
+  const rec = await a.named['device-hint-demo'].run({ waitFor });
+  assert.equal(panel.tourDemoHint, '');
+  assert.ok(rec);
+  rec.revert();
+  assert.equal(panel.tourDemoHint, '');
+});
+
+test('device-hint-demo returns null and takes the demo back when the bell does not appear', async () => {
+  const { document, a } = load();
+  const panel = hintsPage(document, { bell: false });
+  const rec = await a.named['device-hint-demo'].run({ waitFor });
+  assert.equal(rec, null);
+  assert.equal(panel.tourDemoHint, '');
+});

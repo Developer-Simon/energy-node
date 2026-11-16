@@ -21,8 +21,8 @@
             "de": "Bereich Home Assistant"
           },
           "text": {
-            "en": "Here you pair the companion with the dashboard. Once it is paired, a switch appears here for the permissions that need HTTPS.",
-            "de": "Hier koppelst du den Companion mit dem Dashboard. Sobald er gekoppelt ist, erscheint hier ein Schalter für die Rechte, die HTTPS brauchen."
+            "en": "With a paired Home Assistant, functions that need HTTPS can now also be switched on over HTTP.",
+            "de": "Mit einem gekoppelten Home Assistant lassen sich jetzt Funktionen, die HTTPS brauchen, auch über HTTP aktivieren."
           }
         },
         {
