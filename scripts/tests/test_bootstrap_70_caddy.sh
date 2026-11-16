@@ -42,6 +42,7 @@ esac
 exit 0
 SH
 chmod +x "$tmp/bin"/*
+orig_path="$PATH"
 export PATH="$tmp/bin:$PATH"
 export CADDY_LOG="$tmp/caddy.log" SYSTEMCTL_LOG="$tmp/systemctl.log" PKG_LOG="$tmp/pkg.log"
 
@@ -68,6 +69,8 @@ setup() {
   cp "$repo_keyrings/caddy.gpg" "$repo_keyrings/tailscale.gpg" "$bundle/bootstrap/keyrings/"
   printf 'PRETTY_NAME="Debian"\nVERSION_CODENAME=trixie\n' > "$tmp/root/etc/os-release"
   printf '%s\n' "$template_text" > "$bundle/dashboard/Caddyfile"
+  mkdir -p "$bundle/dashboard/hotspot"
+  printf '<!doctype html>\n' > "$bundle/dashboard/hotspot/index.html"
   printf 'fake deb\n' > "$tmp/packages/$DEB"
   sha="$(sha256sum "$tmp/packages/$DEB" | cut -d' ' -f1)"
   [ "$deb" = ja ] || rm -f "$tmp/packages/$DEB"
@@ -273,5 +276,27 @@ setup 2.11.9 apt nein
 rm -f "$bundle/dashboard/Caddyfile"
 run
 grep -q '^##STEP 70 fail CADDY_BINARY_MISSING$' <<<"$out" || fail "fehlende Vorlage nicht erkannt" "$out"
+
+# --- Hotspot-Startseite und Matcher im Caddyfile --------------------------
+# Mit der echten Caddyfile und Startseite aus dem Repo.
+repo_dash="$here/../../dashboard"
+setup 2.11.9 apt ja
+cp "$repo_dash/Caddyfile" "$bundle/dashboard/Caddyfile"
+cp "$repo_dash/hotspot/index.html" "$bundle/dashboard/hotspot/index.html"
+run
+[ "$code" -eq 0 ] || fail "Startseite: Code $code" "$out"
+page="$tmp/root/usr/share/energy-node/hotspot/index.html"
+[ -f "$page" ] || fail "Startseite nicht installiert" "$(find "$tmp/root" -type f)"
+[ "$(stat -c %a "$page")" = 644 ] || fail "Startseite nicht Mode 644: $(stat -c %a "$page")"
+block80="$(awk '/^:80 \{/{f=1} f{print} f && /^\}/{exit}' "$caddyfile")"
+block443="$(awk '/^:443 \{/{f=1} f{print} f && /^\}/{exit}' "$caddyfile")"
+grep -qF 'remote_ip 10.42.0.0/24' <<<"$block80" || fail "Matcher fehlt im :80-Block" "$block80"
+grep -qF 'remote_ip' <<<"$block443" && fail "Hotspot-Matcher im :443-Block" "$block443"
+if PATH="$orig_path" command -v caddy >/dev/null 2>&1; then
+  PATH="$orig_path" caddy validate --config "$caddyfile" --adapter caddyfile >/dev/null 2>&1 \
+    || fail "caddy validate lehnt die Caddyfile ab" "$(cat "$caddyfile")"
+else
+  echo "SKIP: caddy validate (caddy fehlt)"
+fi
 
 echo "OK: $(basename "$0")"

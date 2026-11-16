@@ -24,6 +24,15 @@
 }
 
 :80 {
+    # Notfall-Hotspot (Schritt 67): Clients aus dem Hotspot-Netz bekommen
+    # fuer jeden Pfad die Startseite, damit das Handy das Captive Portal erkennt.
+    @hotspot remote_ip 10.42.0.0/24
+    handle @hotspot {
+        header Cache-Control no-store
+        rewrite * /index.html
+        root * /usr/share/energy-node/hotspot
+        file_server
+    }
     import dashboard
 }
 

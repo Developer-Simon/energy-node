@@ -117,8 +117,9 @@ nothing to fall back to. A device without a Wi-Fi module shows the card as not a
 ## Emergency hotspot
 
 If the node has neither LAN nor Wi-Fi for 5 minutes, it opens a Wi-Fi network of
-its own. Connect a phone or laptop to it, open `https://10.42.0.1`
-and set up the Wi-Fi network of the building. The switch **Open a hotspot when
+its own. Connect a phone or laptop to it. A start page opens by itself and
+leads to the dashboard, or open `https://10.42.0.1` yourself. Then set up the
+Wi-Fi network of the building. The switch **Open a hotspot when
 no network is reachable** turns this on or off. It is on by default.
 
 - The network is called `EnergyNode-` followed by four characters, for example
@@ -129,6 +130,10 @@ no network is reachable** turns this on or off. It is on by default.
   Write them down. The page shows them in plain text to everyone who may use
   the network page, even while the hotspot switch is off. The node is asked when
   the page opens, and the password is not kept after you leave the page.
+- The start page appears on iPhone and Android like the login page of a hotel
+  Wi-Fi. The browser warns about the certificate on the first visit. That is
+  expected, because the node issues its own certificate. On an iPhone the page
+  opens best in Safari.
 - The hotspot closes as soon as the cable has a network again. While nobody is
   connected to it, the node checks every 5 minutes whether a known Wi-Fi network is
   back, and closes the hotspot if one is.

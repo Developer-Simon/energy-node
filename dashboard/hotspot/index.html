@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>Energy Node</title>
+<style>
+  /* Farben und Radien wie im Dashboard (Mint dunkel, Tageslicht hell). */
+  :root {
+    --bg: #111418;
+    --panel: #171a20;
+    --panel-alt: #1c2027;
+    --border-soft: #333333;
+    --text-strong: #f0f3f6;
+    --text: #e6e6e6;
+    --text-muted: #8b949e;
+    --accent: #99ffdd;
+    --accent-ink: #0f1216;
+    --accent-line: #4d9c87;
+    --accent-bg: #18321f;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f3f1ec;
+      --panel: #ffffff;
+      --panel-alt: #eceae4;
+      --border-soft: #e0e3e6;
+      --text-strong: #0d1116;
+      --text: #1b2027;
+      --text-muted: #5b6570;
+      --accent: #0f9e7a;
+      --accent-ink: #ffffff;
+      --accent-line: #0b7a5e;
+      --accent-bg: #e2f4ee;
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: var(--bg);
+    color: var(--text);
+    font: 100%/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    width: 100%;
+    max-width: 26rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius-lg);
+    background: var(--panel);
+  }
+  .brand { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+  .logo { width: 2.5rem; height: 2.5rem; flex: none; }
+  h1 {
+    margin: 0;
+    font-size: 1.375rem;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text-strong);
+  }
+  .badge {
+    display: inline-block;
+    margin-top: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid var(--accent-line);
+    border-radius: 999px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  p { margin: 0 0 0.75rem; }
+  .lead { color: var(--text-strong); }
+  .actions { display: grid; gap: 0.5rem; margin: 1.25rem 0 1rem; }
+  .button {
+    display: block;
+    padding: 0.8125rem 1rem;
+    border: 1px solid var(--accent-line);
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 120ms var(--ease-out), background-color 120ms ease;
+  }
+  .button.secondary {
+    border-color: var(--border-soft);
+    background: var(--panel-alt);
+    color: var(--text-strong);
+  }
+  .button:active { transform: scale(0.97); }
+  @media (hover: hover) and (pointer: fine) {
+    .button:hover { transform: translateY(-1px); }
+    .button:active { transform: scale(0.97); }
+  }
+  .button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hint { color: var(--text-muted); font-size: 0.875rem; }
+  .en { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--border-soft); }
+
+  /* Einmaliger Einzug beim Öffnen: Karte und Inhalt gestaffelt, nur
+     transform und opacity. */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  main { animation: rise 380ms var(--ease-out) both; }
+  .brand, .block { animation: rise 380ms var(--ease-out) both; }
+  .brand { animation-delay: 60ms; }
+  .block.de { animation-delay: 110ms; }
+  .block.en { animation-delay: 160ms; }
+  @media (prefers-reduced-motion: reduce) {
+    main, .brand, .block { animation: fade 200ms ease both; }
+    .button { transition: none; }
+    .button:active, .button:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+      <rect width="64" height="64" rx="14" fill="var(--accent)"/>
+      <path d="M36 6 L14 35 H28 L25 58 L50 27 H35 Z" fill="var(--accent-ink)"/>
+    </svg>
+    <div>
+      <h1>Energy Node</h1>
+      <span class="badge">Notfall-Hotspot · Emergency hotspot</span>
+    </div>
+  </div>
+
+  <div class="block de" lang="de">
+    <p class="lead">Du bist mit dem Notfall-Hotspot verbunden. Richte hier das WLAN des Gebäudes ein, damit der Node wieder ins Netz kommt.</p>
+    <div class="actions">
+      <a class="button" href="https://10.42.0.1/?panel=settings&amp;page=network">WLAN einrichten</a>
+      <a class="button secondary" href="https://10.42.0.1/">Dashboard öffnen</a>
+    </div>
+    <p class="hint">Der Browser warnt beim ersten Aufruf vor dem Zertifikat. Das ist hier erwartet, weil der Node sein Zertifikat selbst ausstellt. Am iPhone öffnet sich die Seite am besten in Safari.</p>
+  </div>
+
+  <div class="block en" lang="en">
+    <p class="lead">You are connected to the emergency hotspot. Set up the Wi-Fi network of the building here so the node gets back online.</p>
+    <div class="actions">
+      <a class="button" href="https://10.42.0.1/?panel=settings&amp;page=network">Set up Wi-Fi</a>
+      <a class="button secondary" href="https://10.42.0.1/">Open dashboard</a>
+    </div>
+    <p class="hint">The browser warns about the certificate on the first visit. That is expected here, the node issues its own certificate. On an iPhone the page opens best in Safari.</p>
+  </div>
+</main>
+</body>
+</html>

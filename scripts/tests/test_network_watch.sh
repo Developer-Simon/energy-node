@@ -65,8 +65,19 @@ case "$*" in
     ;;
   "device connect wlan0"|"--wait 60 device connect wlan0")
     echo "nmcli $*" >> "$CALL_LOG"
+    exit 4
+    ;;
+  "-t -f UUID,TYPE connection show") cat "$FX/profiles" ;;
+  "-g 802-11-wireless.mode connection show uuid u-home") echo infrastructure ;;
+  "-g 802-11-wireless.mode connection show uuid u-ap") echo ap ;;
+  "connection up uuid u-home"|"--wait 60 connection up uuid u-home")
+    echo "nmcli $*" >> "$CALL_LOG"
     if [ -e "$FX/wifi-fail" ]; then exit 4; fi
     echo "wlan0:connected" > "$FX/devices"
+    exit 0
+    ;;
+  "connection up uuid u-ap"|"--wait 60 connection up uuid u-ap")
+    echo "nmcli $*" >> "$CALL_LOG"
     exit 0
     ;;
   *) echo "unexpected nmcli call: $*" >&2; exit 2 ;;
@@ -110,6 +121,7 @@ reset() {
   echo "wlan0:disconnected" > "$FX/devices"
   : > "$FX/active"
   : > "$FX/clients"
+  printf 'u-home:802-11-wireless\nu-ap:802-11-wireless\nu-eth:802-3-ethernet\n' > "$FX/profiles"
   printf '{"fallback":"standby","hotspot":true}\n' > "$NETWORK_JSON"
 }
 
@@ -133,6 +145,14 @@ tick() {
   rc=0
   NOW="$1" "$watch_src" </dev/null >"$tmp/out" 2>"$tmp/err" || rc=$?
   [ "$rc" -eq 0 ] || fail "tick $1: exit $rc" "$(cat "$tmp/err")"
+  # Plain device connect is never used, and AP profiles are never brought up.
+  if grep -qxF "nmcli device connect wlan0" "$CALL_LOG" ||
+    grep -qxF "nmcli --wait 60 device connect wlan0" "$CALL_LOG"; then
+    fail "tick $1: device connect called" "$(cat "$CALL_LOG")"
+  fi
+  if grep -q "connection up uuid u-ap" "$CALL_LOG"; then
+    fail "tick $1: AP profile brought up" "$(cat "$CALL_LOG")"
+  fi
 }
 
 has_call() {
@@ -171,9 +191,13 @@ no_calls || fail "standby LAN gone 20 s: calls made" "$(cat "$CALL_LOG")"
 # Case 3: standby, LAN gone for 31 s -> WLAN on. LAN back -> WLAN off again.
 tick 1031
 has_call "device set wlan0 autoconnect yes" || fail "standby LAN gone 31 s: autoconnect yes missing" "$(cat "$CALL_LOG")"
-has_call "device connect wlan0" || fail "standby LAN gone 31 s: connect missing" "$(cat "$CALL_LOG")"
-lan_up
+has_call "connection up uuid u-home" || fail "standby LAN gone 31 s: connect missing" "$(cat "$CALL_LOG")"
+# The stub left WLAN connected. The next tick must not connect again: nmcli
+# re-activates a connected device, which drops the link every 15 s.
 tick 1046
+has_call "connection up uuid u-home" && fail "standby WLAN connected: connect called again" "$(cat "$CALL_LOG")"
+lan_up
+tick 1061
 has_call "device set wlan0 autoconnect no" || fail "LAN back: autoconnect no missing" "$(cat "$CALL_LOG")"
 has_call "device disconnect wlan0" || fail "LAN back: disconnect missing" "$(cat "$CALL_LOG")"
 
@@ -221,10 +245,10 @@ touch "$FX/wifi-fail"
 tick 1000
 has_call "connection down id energy-node-hotspot" && fail "open hotspot, 0 s: hotspot went down" "$(cat "$CALL_LOG")"
 tick 1299
-has_call "--wait 60 device connect wlan0" && fail "open hotspot, 299 s: WLAN tried too early" "$(cat "$CALL_LOG")"
+has_call "--wait 60 connection up uuid u-home" && fail "open hotspot, 299 s: WLAN tried too early" "$(cat "$CALL_LOG")"
 tick 1300
 d="$(line_of "connection down id energy-node-hotspot")"
-c="$(line_of "--wait 60 device connect wlan0")"
+c="$(line_of "--wait 60 connection up uuid u-home")"
 u="$(line_of "connection up id energy-node-hotspot")"
 if [ -z "$d" ] || [ -z "$c" ] || [ -z "$u" ]; then
   fail "open hotspot, 300 s: down, connect or up missing" "$(cat "$CALL_LOG")"
@@ -236,7 +260,7 @@ hotspot_active || fail "open hotspot, 300 s: hotspot not up again after failed c
 
 # Case 9: after the failed try the hotspot waits another 5 min before it tries again.
 tick 1400
-has_call "--wait 60 device connect wlan0" && fail "after failed try, 100 s: WLAN tried again too early" "$(cat "$CALL_LOG")"
+has_call "--wait 60 connection up uuid u-home" && fail "after failed try, 100 s: WLAN tried again too early" "$(cat "$CALL_LOG")"
 
 # Case 10: the hotspot is up, the WLAN try works -> the hotspot stays down.
 reset
@@ -258,7 +282,7 @@ echo 1000 > "$STATE_DIR/hotspot_since"
 echo "Station aa:bb:cc:dd:ee:ff (on wlan0)" > "$FX/clients"
 tick 1400
 has_call "connection down id energy-node-hotspot" && fail "client connected: hotspot went down" "$(cat "$CALL_LOG")"
-has_call "--wait 60 device connect wlan0" && fail "client connected: WLAN tried" "$(cat "$CALL_LOG")"
+has_call "--wait 60 connection up uuid u-home" && fail "client connected: WLAN tried" "$(cat "$CALL_LOG")"
 
 # Case 12: hotspot switched off in the settings -> an active hotspot goes down.
 reset
@@ -294,5 +318,14 @@ tick 1000
 tick 1400
 no_calls || fail "switch running: calls made" "$(cat "$CALL_LOG")"
 hotspot_active && fail "switch running: hotspot came up"
+
+# Case 16: standby, only the AP profile saved, LAN gone 31 s -> no connection
+# up at all, the AP is never started and the run does not fail.
+reset
+printf 'u-ap:802-11-wireless\n' > "$FX/profiles"
+lan_down
+tick 1000
+tick 1031
+grep -q "connection up" "$CALL_LOG" && fail "AP only: connection up called" "$(cat "$CALL_LOG")"
 
 echo "PASS: test_network_watch"

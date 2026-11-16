@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.17-pre.18 (2026-11-06)
+## v0.11.17-pre.19 (2026-11-06)
 
 ### Features
 
@@ -18,6 +18,11 @@
 - **performance:** show how much load the node puts on the device (#260) (b93bc98)
 - **performance:** choose polling rates and apply them from the performance page (#262) (4304074)
 - **performance:** check the effect of applied rates and offer a rollback (#263) (1b785fb)
+- **performance:** break down the dashboard and automation load (#265) (6bb19a8)
+- **network:** show a start page to emergency hotspot clients (c739a91)
+- **network:** match the hotspot start page to the dashboard theme and link the network page (2bba878)
+- **network:** open the dashboard when a phone joins the emergency hotspot (#264)
+- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **performance:** time the dashboard's work by part (92dd50d)
 - **performance:** measure push, HTTP, MQTT and background work in the dashboard (0f7fb8d)
 - **performance:** split the dashboard and automation load into parts (pure functions) (584b781)
@@ -26,8 +31,6 @@
 - **performance:** serve the dashboard and automation breakdown (51a2055)
 - **webui:** add the breakdown logic to the performance page (66be69f)
 - **webui:** add the breakdown toggle and panel to the performance page (7273569)
-- **performance:** break down the dashboard and automation load (#265)
-- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **performance:** add the change record model for the effect check (f619894)
 - **performance:** evaluate the running change in the monitor tick (be85526)
 - **performance:** record the applied change and return it from the API (a4aa403)
@@ -86,9 +89,11 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
-- **webui:** bump the cache-bust marks of the performance page (ed21c13)
+- **network:** stop the standby fallback from reconnecting a connected WLAN (2a71ea5)
+- **network:** let the watcher connect only saved client profiles (37c4c56)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
+- **webui:** bump the cache-bust marks of the performance page (ed21c13)
 - **backup:** classify the performance change file as disposable (f4016b6)
 - **webui:** bump cache-bust marks for the performance check assets (e634f0d)
 - **nodeagent:** apply a new node poll interval without restart (050ba64)

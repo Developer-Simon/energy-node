@@ -181,9 +181,10 @@ grep -q '^##STEP 67 ok$' "$tmp/lauf2.log" \
 grep -vE '^##STEP (65|67) ' "$tmp/lauf2.log" | grep -q '^##STEP .* ok$' \
   && fail "ein anderer Schritt als 65 und 67 lief im zweiten Lauf erneut" "$(cat "$tmp/lauf2.log")"
 if [ -s "$CMD_LOG" ]; then
-  # Schritt 67 ruft daemon-reload und den Timer-Start auf; alles andere darf
-  # nur den try-restart des Dashboards anstossen.
-  rest="$(grep -vE '^systemctl (daemon-reload|enable --now energy-node-network-watch.timer)$' "$CMD_LOG" || true)"
+  # Schritt 67 ruft daemon-reload und den Timer-Start auf und setzt seine
+  # ufw-Regeln fuer wlan0 erneut (oder raeumt sie ohne WLAN-Geraet ab). Alles
+  # andere darf nur den try-restart des Dashboards anstossen.
+  rest="$(grep -vE '^(systemctl (daemon-reload|enable --now energy-node-network-watch.timer)|ufw (allow|delete allow) in on wlan0 .*)$' "$CMD_LOG" || true)"
   [ "$rest" = "systemctl try-restart energy-node-dashboard.service" ] \
     || fail "zweiter Lauf hat unerwartete Systemkommandos aufgerufen" "$(cat "$CMD_LOG")"
 fi
