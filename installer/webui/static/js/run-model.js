@@ -13,6 +13,7 @@
     'nicht ausgewaehlt': 'deselected',
     'bereits erledigt': 'done',
     'login ausstehend': 'login_pending',
+    'Tailscale nicht installiert': 'tailscale_missing',
   };
 
   // Zusaetze an ok-Markern (scripts/bootstrap/lib/step.sh, step_ok):

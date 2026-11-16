@@ -680,6 +680,7 @@
   "run.skip.deselected": "not selected",
   "run.skip.done": "already done",
   "run.skip.login_pending": "waiting for the login",
+  "run.skip.tailscale_missing": "Tailscale not installed",
   "service.apsystems": "APsystems",
   "service.automation": "Automation",
   "service.battery_soc": "Battery SoC",
