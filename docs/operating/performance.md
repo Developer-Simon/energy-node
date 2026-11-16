@@ -260,3 +260,43 @@ If the node stays over the available budget for 30 minutes, the diagnostics
 raise the finding **Performance over budget**. It clears after 10 minutes below
 the budget minus 5 points. The measurement itself costs less than 0.5 % of one
 core.
+
+### 7.1 Breakdown of the dashboard and automation load
+
+In the card Measurements, the rows Dashboard and Automations open on a click.
+They show what the load of that row is made of. The label next to the values says
+how the shares were found.
+
+**Dashboard (measured).** The dashboard times its own work in five parts:
+
+| Part | What it covers |
+|---|---|
+| Push to browsers | building and sending the live update stream |
+| Other requests | all web requests except the live update stream itself |
+| MQTT input | processing each state message |
+| Node agent | the regular runs of the node agent |
+| Background | the other periodic jobs, such as storage checks, the sweep, the scheduler and the energy recorder |
+
+The sixth entry is the garbage collection, read from the Go runtime. The parts add up
+to the load of the dashboard, so each bar reads as a share of that row. Push also
+shows the highest number of open browsers in the window. The live update stream
+is left out of the request time because a connection stays open for hours and
+would otherwise count as work the whole time.
+
+**Automations (estimated).** The automation service does not time its rules
+one by one. The page spreads the cost of the row "Checking rules" evenly over
+all active rules and scenarios, and the cost of the row "Regulator" evenly over the
+active scenarios that have a regulator. A scenario with a regulator appears in
+both groups. Disabled entries do not count. Each group lists at most six entries,
+the rest is shown as "more". The regulator row only exists while at least one
+active scenario has a regulator.
+
+Right after a start nothing is measured yet, and the rows look as before
+without a button.
+
+The split also feeds the cost model of the other rows. Live update takes the
+push share of the dashboard, Node agent takes the node share, and the MQTT share
+goes into the cost of each message. Requests and background work stay in the
+base load. The garbage collection is spread over the parts in proportion, so
+the sum of the rows does not change. The split is kept in memory only, like the
+rest of the measurement.
