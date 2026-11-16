@@ -237,9 +237,10 @@ if command -v nmcli >/dev/null 2>&1 && has_wlan; then
     # pmf=1 schaltet PMF (802.11w) aus. Unter Trixie scheitert der Hotspot
     # sonst auf Pi 3B, 3B+ und Zero W mit "key setting validation failed"
     # (raspberrypi/linux#7247). Pi 4 und 5 sind ungeprueft, Ideenliste P2.31.
-    # Ohne proto, pairwise und group bietet der AP WPA mit TKIP an. iOS meldet
-    # dann "Schwache Sicherheit", also nur WPA2 mit CCMP.
-    printf '\n[wifi-security]\nkey-mgmt=wpa-psk\nproto=rsn\npairwise=ccmp\ngroup=ccmp\npmf=1\npsk=%s\n\n' "${password}"
+    # Kein proto, pairwise oder group: Auf dem Pi 3 (brcmfmac) bricht der
+    # Handshake ab, sobald nur WPA2 oder CCMP als Gruppenschluessel erlaubt
+    # ist. iOS meldet das Netz deshalb als "Schwache Sicherheit". Ideenliste P2.31.
+    printf '\n[wifi-security]\nkey-mgmt=wpa-psk\npmf=1\npsk=%s\n\n' "${password}"
     printf '[ipv4]\nmethod=shared\n'
   } > "${profile_tmp}"
   "${SUDO[@]}" mkdir -p "$(dirname "${profile}")"
