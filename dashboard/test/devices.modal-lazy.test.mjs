@@ -126,6 +126,37 @@ test('das Icon im Modal-Kopf oeffnet ein Popover mit dem Icon-Picker auf saveIco
   assert.match(template, /dict "Current" "draftIconName" "Default" "defaultIconName" "Pick" "saveIcon"/);
 });
 
+test('Betriebswarnungen stehen nicht mehr im Summary-Block', () => {
+  assert.doesNotMatch(template, /device-modal-hero-warnings/);
+  const summary = openTag(template, /<div class="device-modal-summary"[^>]*>/);
+  assert.doesNotMatch(summary, /operationalWarnings/);
+});
+
+test('die Glocke steht vor dem Mehr-Menue und nur bei Betriebshinweisen', () => {
+  const actions = template.slice(template.indexOf('device-modal-topbar-actions'), template.indexOf('device-modal-more-wrap'));
+  const wrap = openTag(actions, /<div class="device-modal-bell-wrap"[^>]*>/);
+  assert.match(wrap, /x-show="operationalWarnings\.length"/);
+  assert.match(wrap, /x-effect="if \(!operationalWarnings\.length\) hintsOpen = false"/);
+  const bell = openTag(actions, /<button[^>]*device-modal-bell"[^>]*>/);
+  assert.match(bell, /aria-expanded/);
+  assert.match(bell, /devices\.hints\.label/);
+  assert.match(actions, /href="#ico-bell"/);
+});
+
+test('das Hinweis-Popover zeigt den Analyse-Link nur mit Recht', () => {
+  const pop = openTag(template, /<div class="device-modal-hints"[^>]*>/);
+  assert.match(pop, /x-show="hintsOpen"/);
+  const link = openTag(template, /<button[^>]*openHintsInAnalysis\(\)[^>]*>/);
+  assert.match(link, /x-show="canViewAnalysis"/);
+});
+
+test('der Analyse-Tab trennt Betrieb und Konfiguration', () => {
+  assert.match(template, /x-ref="deviceModalHintsAnchor"/);
+  assert.match(template, /\{\{template "device-modal-warning-list" "operationalWarnings"\}\}/);
+  assert.match(template, /\{\{template "device-modal-warning-list" "configWarnings"\}\}/);
+  assert.match(template, /x-show="!operationalWarnings\.length && !configWarnings\.length"/);
+});
+
 // Analyse-Tab (Aufgabe 12): keine Tabellen mehr, je Entitaet ein Akkordeon.
 const managementPanel = () => {
   const start = template.indexOf('id="device-modal-panel-management"');
