@@ -129,8 +129,8 @@
     </div>
     <div class="device-modal-topbar-actions">
       <div class="device-modal-bell-wrap" x-cloak x-show="operationalWarnings.length" x-effect="if (!operationalWarnings.length) hintsOpen = false" x-on:click.outside="hintsOpen = false">
-        <button type="button" class="device-modal-bell" x-bind:class="'is-' + (operationalSeverities[0]?.severity || 'warning')" x-bind:aria-expanded="hintsOpen ? 'true' : 'false'" x-bind:aria-label="$tn('devices.hints.label', operationalWarnings.length)" x-on:click="hintsOpen = !hintsOpen"><svg aria-hidden="true"><use href="#ico-bell"></use></svg><span class="device-modal-bell-count" aria-hidden="true" x-text="operationalWarnings.length"></span></button>
-        <div class="device-modal-hints" role="dialog" x-bind:aria-label="$tn('devices.hints.label', operationalWarnings.length)" x-show="hintsOpen">
+        <button type="button" class="device-modal-bell" data-tour="device-hints-bell" x-bind:class="'is-' + (operationalSeverities[0]?.severity || 'warning')" x-bind:aria-expanded="hintsOpen ? 'true' : 'false'" x-bind:aria-label="$tn('devices.hints.label', operationalWarnings.length)" x-on:click="hintsOpen = !hintsOpen"><svg aria-hidden="true"><use href="#ico-bell"></use></svg><span class="device-modal-bell-count" aria-hidden="true" x-text="operationalWarnings.length"></span></button>
+        <div class="device-modal-hints" data-tour="device-hints-popover" role="dialog" x-bind:aria-label="$tn('devices.hints.label', operationalWarnings.length)" x-show="hintsOpen">
           <template x-for="warning in operationalWarnings" :key="`${warning.rule_id}-${warning.key || warning.message}`">
             <div class="device-modal-hints-row" x-bind:class="'is-' + warning.severity">
               <svg aria-hidden="true"><use x-bind:href="hintIcon(warning.severity)"></use></svg>
