@@ -83,6 +83,8 @@ def _good() -> dict:
         "swap_pages_s": 0.0,
         "clients_max": 3,
         "external": {"name": "Wärmepumpe", "every_s": 15},
+        "dashboard_parts": {"push": 0.45, "http": 0.15, "mqtt": 0.25, "node": 0.05, "background": 0.10},
+        "gc_share": 0.12,
         "units": {
             "shelly": _service(5.0, 22, 0.4, 126),
             "trucki": _service(3.0, 18, 1.2, 40),

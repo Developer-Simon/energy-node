@@ -21,6 +21,11 @@ type FileState struct {
 	ClientsMax int                 `json:"clients_max"`
 	External   *FileExternal       `json:"external"`
 	Units      map[string]FileUnit `json:"units"`
+	// DashboardParts are the shares of each timed part of the dashboard, and
+	// GCShare the share of the garbage collection in the Go CPU. Without
+	// DashboardParts the snapshot has no Dashboard split.
+	DashboardParts map[string]float64 `json:"dashboard_parts"`
+	GCShare        float64            `json:"gc_share"`
 }
 
 // FileExternal is the foreign device that the counter measures.
@@ -91,6 +96,13 @@ func (s FileState) snapshot() Snapshot {
 	if s.External != nil {
 		snap.External = &SourceRate{Name: s.External.Name, EveryS: s.External.EveryS}
 	}
+	if len(s.DashboardParts) > 0 {
+		shares := make(map[Part]float64, len(s.DashboardParts))
+		for id, share := range s.DashboardParts {
+			shares[Part(id)] = share
+		}
+		snap.Dashboard = &DashboardSplit{GCShare: s.GCShare, Shares: shares}
+	}
 	for id, u := range s.Units {
 		if !u.Present {
 			continue
@@ -140,6 +152,14 @@ func Presets() map[string]FileState {
 			SwapPagesS: 0.0,
 			ClientsMax: 3,
 			External:   &FileExternal{Name: "Wärmepumpe", EveryS: 15},
+			DashboardParts: map[string]float64{
+				"push":       0.45,
+				"http":       0.15,
+				"mqtt":       0.25,
+				"node":       0.05,
+				"background": 0.10,
+			},
+			GCShare: 0.12,
 			Units: map[string]FileUnit{
 				"shelly":                        serviceUnit(5.0, 22, 0.4, 126),
 				"trucki":                        serviceUnit(3.0, 18, 1.2, 40),
