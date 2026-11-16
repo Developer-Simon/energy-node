@@ -138,13 +138,14 @@
   </div>{{end}}
   {{if .ExampleNote}}<div class="beispiel-note" role="status" data-beispiel-note data-beispiel-kept="{{t "beispiel.note.kept"}}" data-beispiel-failed="{{t "beispiel.note.failed"}}">
     <svg class="beispiel-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
-    <div class="beispiel-note-body">
-      <p><strong>{{t "beispiel.note.title"}}</strong> {{t "beispiel.note.text"}}</p>
-      <div class="beispiel-note-actions">
-        <button type="button" class="beispiel-note-btn" data-beispiel-off>{{t "beispiel.note.off"}}</button>
-        <button type="button" class="beispiel-note-btn" data-beispiel-remove>{{t "beispiel.note.remove"}}</button>
-      </div>
+    <div class="beispiel-note-main">
+      <div class="beispiel-note-title">{{t "beispiel.note.title"}}</div>
+      <div class="beispiel-note-detail">{{t "beispiel.note.text"}}</div>
       <p class="beispiel-note-msg" data-beispiel-msg hidden></p>
+    </div>
+    <div class="beispiel-note-actions">
+      <button type="button" class="beispiel-note-btn is-primary" data-beispiel-off>{{t "beispiel.note.off"}}</button>
+      <button type="button" class="beispiel-note-btn" data-beispiel-remove>{{t "beispiel.note.remove"}}</button>
     </div>
   </div>
   <script src="{{.BasePath}}/static/js/beispiel-note.js?v=1" defer></script>{{end}}
