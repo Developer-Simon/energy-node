@@ -3471,6 +3471,7 @@
   "network.pw.show": "Show",
   "network.route": "Used primarily",
   "network.scan": "Scan again",
+  "network.scan.cached": "{count} networks, found just before the hotspot started, {minutes} minutes ago. The node cannot search again while the hotspot is open.",
   "network.scan.note": "{count} networks in range, searched {seconds} seconds ago.",
   "network.scan.running": "The node is searching for networks in range.",
   "network.scanning": "Scanning",

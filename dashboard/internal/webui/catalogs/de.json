@@ -3471,6 +3471,7 @@
   "network.pw.show": "Zeigen",
   "network.route": "Wird primär genutzt",
   "network.scan": "Neu suchen",
+  "network.scan.cached": "{count} Netzwerke, gefunden kurz vor dem Start des Hotspots, vor {minutes} Minuten. Im Hotspot kann nicht neu gesucht werden.",
   "network.scan.note": "{count} Netze in Reichweite, gesucht vor {seconds} Sekunden.",
   "network.scan.running": "Der Node sucht nach Netzen in Reichweite.",
   "network.scanning": "Suche läuft",

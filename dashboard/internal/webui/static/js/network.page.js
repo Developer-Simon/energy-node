@@ -148,7 +148,7 @@
     },
 
     async scan() {
-      if (this.scanning || this.locked()) return;
+      if (this.scanning || this.locked() || this.cachedScan()) return;
       this.scanning = true;
       this.actionError = '';
       try {
@@ -256,8 +256,17 @@
         (b.signal_dbm - a.signal_dbm));
     },
 
+    // The list is from before the hotspot opened, the node cannot search again.
+    cachedScan() {
+      return Boolean(this.status) && this.status.wifi_scanned_at > 0;
+    },
+
     scanNote() {
       if (this.scanning) return t('network.scan.running');
+      if (this.cachedScan()) {
+        const minutes = Math.max(1, Math.round((Date.now() / 1000 - this.status.wifi_scanned_at) / 60));
+        return t('network.scan.cached', {count: this.sortedNets().length, minutes});
+      }
       const seconds = Math.max(1, Math.round((Date.now() - (this.scannedAt || Date.now())) / 1000));
       return t('network.scan.note', {count: this.sortedNets().length, seconds});
     },

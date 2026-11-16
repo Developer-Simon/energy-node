@@ -139,5 +139,7 @@ no network is reachable** turns this on or off. It is on by default.
   back, and closes the hotspot if one is.
 - The hotspot uses the 2.4 GHz band. Without a country code for Wi-Fi it uses
   channel 1, and the page shows a note.
+- The list of Wi-Fi networks on the page comes from the moment just before the
+  hotspot started, because the node cannot search again while the hotspot is open.
 - The WLAN profiles and the hotspot password are not part of a
   [backup](settings-backup.md).
