@@ -108,6 +108,31 @@ wlan_connected() {
   nmcli -t -f DEVICE,STATE device 2>/dev/null | grep -qx "$WLAN_DEV:connected"
 }
 
+# connect_client [wait_seconds] brings up the first saved WLAN client profile
+# that works. The AP profile of the emergency hotspot is skipped, so a connect
+# never starts the hotspot early. Returns 1 when no client profile connects.
+connect_client() {
+  wait_s="${1:-}"
+  # A for loop, not a pipe into while: the loop must run in this shell.
+  for line in $(nmcli -t -f UUID,TYPE connection show 2>/dev/null); do
+    case "$line" in
+      *:802-11-wireless) ;;
+      *) continue ;;
+    esac
+    uuid="${line%%:*}"
+    mode="$(nmcli -g 802-11-wireless.mode connection show uuid "$uuid" 2>/dev/null)"
+    if [ "$mode" = ap ]; then
+      continue
+    fi
+    if [ -n "$wait_s" ]; then
+      nmcli --wait "$wait_s" connection up uuid "$uuid" >/dev/null 2>&1 && return 0
+    else
+      nmcli connection up uuid "$uuid" >/dev/null 2>&1 && return 0
+    fi
+  done
+  return 1
+}
+
 # WLAN as a replacement for a lost LAN, or always on in parallel mode.
 if [ "$fallback" = standby ]; then
   if [ "$lan_up" = yes ]; then
@@ -124,7 +149,7 @@ if [ "$fallback" = standby ]; then
       # Only when not yet connected: nmcli re-activates a connected device,
       # which would drop the WLAN on every run.
       if [ "$wlan_up" = no ]; then
-        nmcli device connect "$WLAN_DEV" >/dev/null 2>&1 || true
+        connect_client || true
       fi
     fi
   fi
@@ -155,7 +180,7 @@ if [ "$hotspot_active" = yes ]; then
       if [ "$clients" -eq 0 ] && [ "$opened" -ge "$HOTSPOT_AFTER_S" ]; then
         # Nobody is connected: try the saved WLAN networks once more.
         hotspot_down
-        nmcli --wait "$CONNECT_WAIT_S" device connect "$WLAN_DEV" >/dev/null 2>&1 || true
+        connect_client "$CONNECT_WAIT_S" || true
         if wlan_connected; then
           stamp_clear hotspot_since
         else
