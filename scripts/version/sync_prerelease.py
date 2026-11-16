@@ -4,12 +4,15 @@ Runs on the checked-out `prerelease` branch. Exit codes:
   0  already current, fast-forwarded, or merged and committed
   2  wrong branch, dirty tree, or an invalid version on one side
   3  the merge needs a hand: unresolved paths printed as `CONFLICT <path>`, web
-     assets changed on both lines (they need a new ?v=) as `ASSET <path>`.
-     The merge is aborted, or with --keep left in progress for --continue.
+     assets changed on both lines that cannot get a new ?v= by themselves as
+     `ASSET <path>`. The merge is aborted, or with --keep left in progress for --continue.
 
-By hand: `--keep` stops with the merge in progress. Resolve the paths, bump the
-?v= of every ASSET path, `git add` them, then `--continue` sets the versions,
-commits the merge and regenerates the changelogs the same way the automatic run does.
+Web assets changed on both lines get a fresh ?v= from `cache_bust.py apply`, and
+conflicts that differ only in ?v= marks keep the prerelease side before that.
+
+By hand: `--keep` stops with the merge in progress. Resolve the paths, `git add`
+them, then `--continue` sets the versions, sets the ?v= marks, commits the merge
+and regenerates the changelogs the same way the automatic run does.
 """
 import argparse
 import fnmatch
@@ -17,6 +20,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -30,6 +34,9 @@ VERSION_LINE = re.compile(r'^\s*"version"\s*:')
 MANIFEST_VERSION = re.compile(r'("version"\s*:\s*")[^"]*(")')
 # Lazy-loaded web assets carry a ?v= cache-bust. A file changed on both lines is new
 # on both after the merge, even when git merges it cleanly, so it needs a fresh ?v=.
+MARK = re.compile(r"\?v=\d+")
+# Files that carry ?v= marks. A conflict there that differs only in the numbers is settled by cache_bust.
+MARK_FILES = ("dashboard/internal/webui/templates/*.html", "dashboard/internal/webui/*.go")
 ASSET_PATTERNS = ("dashboard/internal/webui/static/js/*", "dashboard/internal/webui/static/css/*")
 
 
@@ -142,6 +149,16 @@ def parse_blocks(text):
     return lines, blocks
 
 
+def blocks_differ_only_in_marks(text):
+    _lines, blocks = parse_blocks(text)
+    if not blocks:
+        return False
+    return all(
+        MARK.sub("?v=", "".join(ours)) == MARK.sub("?v=", "".join(theirs))
+        for ours, theirs, _start, _end in blocks
+    )
+
+
 def manifest_is_version_only(text):
     _lines, blocks = parse_blocks(text)
     if not blocks:
@@ -167,9 +184,13 @@ def resolve_manifest(root, path):
     file.write_text("".join(out), encoding="utf-8")
 
 
-def resolve_policy(root, conflicts):
-    """Apply the conflict policy in place. Return the paths that need a merge abort."""
+def resolve_policy(root, conflicts, marks_resolved=None):
+    """Apply the conflict policy in place. Return the paths that need a merge abort.
+
+    Paths settled because only their ?v= marks differed are appended to marks_resolved."""
     unresolved = []
+    if marks_resolved is None:
+        marks_resolved = []
     for path in conflicts:
         if fnmatch.fnmatch(path, "*/CHANGELOG.md") or path == "CHANGELOG.md":
             resolve_ours(root, path, unresolved)
@@ -178,6 +199,11 @@ def resolve_policy(root, conflicts):
         elif is_manifest(path) and manifest_is_version_only((root / path).read_text(encoding="utf-8")):
             resolve_manifest(root, path)
             git(root, "add", "--", path)
+        elif any(fnmatch.fnmatch(path, pat) for pat in MARK_FILES) and blocks_differ_only_in_marks(
+                (root / path).read_text(encoding="utf-8")):
+            resolve_manifest(root, path)
+            git(root, "add", "--", path)
+            marks_resolved.append(path)
         else:
             unresolved.append(path)
     return unresolved
@@ -221,6 +247,40 @@ def write_version(root, version_file, version):
 def require_branch(root):
     if git(root, "branch", "--show-current").stdout.strip() != PRE_BRANCH:
         raise Refused(f"not on branch {PRE_BRANCH}")
+
+
+def load_cache_bust():
+    sys.path.insert(0, str(HERE.parent / "dev"))
+    import cache_bust  # noqa: E402
+    return cache_bust
+
+
+def bust_assets(root, assets):
+    """Set the ?v= marks and the history rows against the prerelease side (HEAD).
+
+    Return the shared assets that still need a hand, such as one no template references."""
+    cache_bust = load_cache_bust()
+    rows = {row.asset: row for row in cache_bust.compare(root, "HEAD")}
+    prefix = "dashboard/internal/webui/static/"
+    stuck = [
+        path for path in assets
+        if getattr(rows.get(path[len(prefix):]), "status", None) == "unreferenced"
+    ]
+    if stuck:
+        return stuck
+    cache_bust.apply_marks(root, "HEAD")
+    cache_bust.cmd_history(root, "HEAD", date.today())
+    git(root, "add", "--", cache_bust.HISTORY)
+    return []
+
+
+def settle_marks(root, targets, assets):
+    """Write the planned versions, then set the ?v= marks. Return the assets that need a hand.
+
+    The history rows carry the new dashboard version, so the versions come first."""
+    for version_file, version in targets.items():
+        write_version(root, version_file, version)
+    return bust_assets(root, assets)
 
 
 def commit_merge(root, targets, changelog_targets):
@@ -277,16 +337,20 @@ def sync(root, main_ref, push, keep=False):
 
     # From here on the merge is in progress. Any failure must leave HEAD and the worktree as they were.
     try:
-        unresolved = resolve_policy(root, conflicts) if conflicts else []
+        marks = []
+        unresolved = resolve_policy(root, conflicts, marks) if conflicts else []
         assets = [p for p in shared_assets(root, before, main_sha) if p not in unresolved]
-        if unresolved or assets:
+        stuck = []
+        if not unresolved and (assets or marks):
+            stuck = settle_marks(root, targets, assets)
+        if unresolved or stuck:
             if keep:
                 print("merge kept in progress, resolve and run again with --continue", file=sys.stderr)
             else:
                 abort_merge(root)
             for path in unresolved:
                 print(f"CONFLICT {path}")
-            for path in assets:
+            for path in stuck:
                 print(f"ASSET {path}")
             return 3
 
@@ -321,6 +385,11 @@ def continue_sync(root, main_ref, push):
     components, changelog_targets = read_arrays(root)
     # HEAD is still the prerelease side, MERGE_HEAD the main side, as in sync().
     targets = plan_targets(root, components, "MERGE_HEAD")
+    assets = shared_assets(root, "HEAD", "MERGE_HEAD")
+    if assets:
+        stuck = settle_marks(root, targets, assets)
+        if stuck:
+            raise Refused("assets without a ?v= reference: " + ", ".join(stuck))
     commit_merge(root, targets, changelog_targets)
     print(f"merged {main_ref} into {PRE_BRANCH}")
     return push_branch(root) if push else 0

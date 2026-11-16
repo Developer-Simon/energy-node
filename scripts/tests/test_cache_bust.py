@@ -586,3 +586,15 @@ def test_bootstrap_history_keeps_old_rows(repo, capsys):
     out = capsys.readouterr().out
     assert "removed" not in out
     assert "added v0.11.9 js/app.js ?v=4" in out
+
+
+def test_apply_sets_marks_in_templates_and_tests_and_writes_history(repo):
+    root, base = repo
+    edit(root, "static/js/app.js", "console.log(99);\n")
+    test_go = f"{WEBUI}/webui_test.go"
+    write(root, test_go, "want := `/static/js/app.js?v=3`\n")
+    assert main(["apply", "--root", str(root), "--base", base]) == 0
+    assert "/static/js/app.js?v=4" in (root / test_go).read_text()
+    assert "/static/js/app.js?v=4" in (root / WEBUI / "templates/base.html").read_text()
+    assert "js/app.js,4," in (root / HISTORY).read_text()
+    assert "manager.css" not in (root / HISTORY).read_text()

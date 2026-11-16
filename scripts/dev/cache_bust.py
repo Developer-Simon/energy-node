@@ -18,6 +18,12 @@ Unterbefehl:
       Zusaetzlich wird die Verlaufs-CSV geprueft (fehlende Zeilen, und im
       strikten Modus falsche Version oder Zeilen ohne Marke).
 
+  apply [--base REF] [--root PATH]
+      Setzt jede Marke mit Status bump, inconsistent, too-high oder too-low auf
+      den erwarteten Wert, in den Templates, in webui.go und in den Tests des
+      Pakets webui. Schreibt danach die Verlaufs-CSV wie `history`. Das macht
+      der Prerelease-Sync selbst, wenn beide Linien dasselbe Asset geaendert haben.
+
   history [--base REF] [--root PATH]
       Schreibt dashboard/internal/webui/cache-bust-history.csv neu. Jede Marke mit
       Status ok, too-high oder too-low bekommt eine Zeile mit der erwarteten Version
@@ -301,6 +307,42 @@ def cmd_history(root: Path, base: str | None, today: date) -> int:
     return 0
 
 
+FIXABLE = {"bump", "inconsistent", "too-high", "too-low"}
+
+
+def mark_files(root: Path) -> list[str]:
+    """Files that carry ?v= marks: the references plus the webui tests that pin them."""
+    files = set(ref_files(root, None))
+    files.update(p.relative_to(root).as_posix() for p in (root / WEBUI).glob("*_test.go"))
+    return sorted(files)
+
+
+def apply_marks(root: Path, base: str) -> list[str]:
+    """Set every fixable ?v= mark to its expected value. Return the assets that were set."""
+    targets = {
+        r.asset: r.expected
+        for r in compare(root, base)
+        if r.status in FIXABLE and r.expected is not None
+    }
+    for file in mark_files(root):
+        path = root / file
+        text = path.read_text(encoding="utf-8")
+        new = text
+        for asset, value in targets.items():
+            pattern = re.compile(r"(/static/" + re.escape(asset) + r"\?v=)\d+(?![\w.{-])")
+            new = pattern.sub(lambda m, v=value: f"{m.group(1)}{v}", new)
+        if new != text:
+            path.write_text(new, encoding="utf-8")
+    return sorted(targets)
+
+
+def cmd_apply(root: Path, base: str | None, today: date) -> int:
+    base = base or default_base(root)
+    for asset in apply_marks(root, base):
+        print(f"set {asset} ?v=")
+    return cmd_history(root, base, today)
+
+
 def cmd_check(root: Path, base: str | None, lenient: bool) -> int:
     base = base or default_base(root)
     rows = compare(root, base, lenient)
@@ -486,6 +528,10 @@ def main(argv: list[str] | None = None) -> int:
     history.add_argument("--base", default=None, help="Basis-Ref (Standard: merge-base mit origin/main)")
     history.add_argument("--root", default=None, help="Repo-Wurzel (Standard: dieses Repo)")
     history.add_argument("--today", type=date.fromisoformat, default=None, help=argparse.SUPPRESS)
+    apply = sub.add_parser("apply", help="Marken auf die erwarteten Werte setzen und die Verlaufs-CSV fortschreiben")
+    apply.add_argument("--base", default=None, help="Basis-Ref (Standard: merge-base mit origin/main)")
+    apply.add_argument("--root", default=None, help="Repo-Wurzel (Standard: dieses Repo)")
+    apply.add_argument("--today", type=date.fromisoformat, default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     root = Path(args.root) if args.root else Path(__file__).resolve().parents[2]
     root = root.resolve()
@@ -495,6 +541,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_check(root, args.base, args.lenient)
     if args.command == "history":
         return cmd_history(root, args.base, args.today or date.today())
+    if args.command == "apply":
+        return cmd_apply(root, args.base, args.today or date.today())
     return 0
 
 
