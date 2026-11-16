@@ -483,6 +483,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		g.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
+		g.HandleFunc("/api/v1/beispiel/stop", handleBeispielStop(dependencies.DataDir, configs, store, dependencies.Auth, dependencies.NodeSimulation))
 		g.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
 		g.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
 		g.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
