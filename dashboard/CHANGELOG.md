@@ -86,6 +86,7 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **webui:** bump the cache-bust marks of the performance page (ed21c13)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **backup:** classify the performance change file as disposable (f4016b6)
