@@ -307,7 +307,10 @@
       const panel = dialog ? window.Alpine.$data(document.getElementById('devices-panel')) : null;
       if (!panel) return null;
       // Die Details kommen nach dem Oeffnen, erst dann steht fest, ob es echte Hinweise gibt.
-      if (!await waitFor(() => panel.deviceDetail, 3000)) return null;
+      // waitFor sucht Elemente, deviceDetail ist ein Objekt: eigene Wartezeit.
+      const end = Date.now() + 3000;
+      while (!panel.deviceDetail && Date.now() < end) await new Promise((resolve) => setTimeout(resolve, 50));
+      if (!panel.deviceDetail) return null;
       const revert = () => { panel.tourDemoHint = ''; };
       if (!panel.operationalWarnings.length) panel.tourDemoHint = window.I18n.t('onboarding.demo_hint');
       const bell = await waitFor(() => find('device-hints-bell', dialog), 1500);

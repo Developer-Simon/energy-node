@@ -285,7 +285,7 @@ test('exploreVersions groups the server highlights in the model shape', async ()
   assert.equal(guest.tourLimited, false);
   assert.equal(guest.steps.length, 1);
   assert.deepEqual({ ...guest.steps[0], open: [...guest.steps[0].open] }, {
-    panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: '', need: 'user_management',
+    panel: 'settings-panel', page: 'users', target: '[data-tour="guest"]', device: '', need: 'user_management', when: undefined, unmet: false,
     title: 'Gast', text: 'Hier', open: [], literal: true,
   });
 
@@ -592,6 +592,21 @@ test('exploreVersions passes open through and defaults it to an empty list', asy
   const [first, second] = store.exploreVersions[0].items[0].steps;
   assert.deepEqual([...first.open], ['rule-1']);
   assert.deepEqual([...second.open], []);
+});
+
+test('exploreVersions passes when and unmet of a step through', async () => {
+  const explore = {
+    current_version: '0.12.0',
+    items: [{
+      id: 'a', version: '0.12.0', minor: '0.12', text: 'A', tour: { steps: [
+        { target: 'x', title: { en: 'X' }, text: { en: 'X' }, when: 'companion', unmet: true },
+      ] },
+    }],
+  };
+  const { store } = await load({ progress: { ...PROGRESS, explore } });
+  const [step] = store.exploreVersions[0].items[0].steps;
+  assert.equal(step.when, 'companion');
+  assert.equal(step.unmet, true);
 });
 
 test('exploreVersions makes one card per release, newest first, the first card is current', async () => {

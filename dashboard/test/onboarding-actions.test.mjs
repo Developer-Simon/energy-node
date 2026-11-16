@@ -852,3 +852,15 @@ test('device-hint-demo returns null and takes the demo back when the bell does n
   assert.equal(rec, null);
   assert.equal(panel.tourDemoHint, '');
 });
+
+test('device-hint-demo waits until the device details have loaded', async () => {
+  const { document, a } = load();
+  const panel = hintsPage(document);
+  panel.deviceDetail = null;
+  setTimeout(() => { panel.deviceDetail = {}; }, 80);
+  // Wie in der Seite: waitFor findet nur Elemente, kein Objekt.
+  const elementsOnly = async (find) => { const el = find(); return el instanceof document.defaultView.Element ? el : null; };
+  const rec = await a.named['device-hint-demo'].run({ waitFor: elementsOnly });
+  assert.ok(rec);
+  assert.equal(panel.tourDemoHint, 't:onboarding.demo_hint');
+});
