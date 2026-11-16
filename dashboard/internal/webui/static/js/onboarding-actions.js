@@ -271,13 +271,16 @@
     },
   });
 
-  // Oeffnet das erste sichtbare Geraet im Detaildialog. Der Dialog kommt aus
-  // einem nachgeladenen Skript, deshalb wartet der Lauf laenger. Zuruecknehmen
-  // schliesst den Dialog, wenn er noch offen ist.
+  // Oeffnet das erste sichtbare Geraet im Detaildialog. Nur die Detailansicht der
+  // Geraete hat den Ausloeser, die Tour schaltet sie vorher ueber
+  // device-density-toggle ein. Der Dialog kommt aus einem nachgeladenen Skript,
+  // deshalb wartet der Lauf laenger. Zuruecknehmen schliesst den Dialog, wenn er
+  // noch offen ist.
   action('device-modal', {
     run: async ({ waitFor, show }) => {
-      const trigger = [...document.querySelectorAll('.device-detail-trigger')]
-        .find((el) => window.obSpotlight.visibleRect(el)) || null;
+      // Nach dem Umschalten auf die Detailansicht kommt das Raster erst nach einem Moment.
+      const trigger = await waitFor(() => [...document.querySelectorAll('.device-detail-trigger')]
+        .find((el) => window.obSpotlight.visibleRect(el)) || null, 3000);
       if (!trigger) return null;
       const close = () => {
         if (!document.querySelector('#device-modal[open]')) return;

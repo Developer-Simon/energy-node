@@ -546,6 +546,10 @@ The rules:
 * `device` is `any`, `phone` or `desktop`. Without it the step counts as `any`.
 * `need` is the permission a user needs for the step. Users without it skip the
   step.
+* `when` is optional. It is a condition of the installation. The only value is
+  `companion`: the step runs only while a companion is paired. Without the
+  condition the server drops the step before the tour starts, so it never counts
+  in the dots and never waits for a missing target.
 * `open` is optional. It is a list of `data-tour` ids that the tour clicks in
   order, and `@name` for a named action from `onboarding-actions.js`. The
   tour takes the clicks back when it moves on, unless the user clicked or typed

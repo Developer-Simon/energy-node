@@ -128,7 +128,7 @@ type onboardingReplacement struct {
 // Highlights older than the window follow the window's items as archive, see
 // onboardingExploreArchiveMinors. If that wider read fails the archive stays empty.
 // Stale tours that name a replacement get it resolved, see resolveReplacements.
-func onboardingExplore(stateDir string, user auth.User, targets map[string]bool) (string, []onboardingExploreItem, bool) {
+func onboardingExplore(stateDir string, user auth.User, targets map[string]bool, conds tourConditions) (string, []onboardingExploreItem, bool) {
 	items := []onboardingExploreItem{}
 	sources := []*versions.HighlightTour{}
 	view, err := versions.Releases(stateDir, onboardingExploreMinors)
@@ -154,7 +154,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 				Text:             entry.Text,
 				I18n:             entry.I18n,
 				Details:          entry.Details,
-				Tour:             onboardingTourFor(user, entry.Tour, targets),
+				Tour:             onboardingTourFor(user, entry.Tour, targets, conds),
 				TourLimited:      tourLimitedFor(user, entry.Tour),
 			})
 		}
@@ -186,13 +186,13 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 					Text:             entry.Text,
 					I18n:             entry.I18n,
 					Details:          entry.Details,
-					Tour:             onboardingTourFor(user, entry.Tour, targets),
+					Tour:             onboardingTourFor(user, entry.Tour, targets, conds),
 					TourLimited:      tourLimitedFor(user, entry.Tour),
 				})
 			}
 		}
 	}
-	resolveReplacements(items, sources, user)
+	resolveReplacements(items, sources, user, conds)
 	return view.To, items, true
 }
 
@@ -201,7 +201,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool)
 // PR, it must not be stale itself, and the named step must exist and be
 // allowed for the user. Index counts the allowed steps before that step. The
 // sources hold the unfiltered tour of each item, index by index.
-func resolveReplacements(items []onboardingExploreItem, sources []*versions.HighlightTour, user auth.User) {
+func resolveReplacements(items []onboardingExploreItem, sources []*versions.HighlightTour, user auth.User, conds tourConditions) {
 	for i := range items {
 		if items[i].Tour == nil || !items[i].Tour.Stale || sources[i] == nil || sources[i].ReplacedBy == nil {
 			continue
@@ -215,12 +215,12 @@ func resolveReplacements(items []onboardingExploreItem, sources []*versions.High
 			if ref.Step < 1 || ref.Step > len(steps) {
 				continue
 			}
-			if need := steps[ref.Step-1].Need; need != "" && !auth.HasRole(user, need) {
+			if !tourStepAllowed(user, steps[ref.Step-1], conds) {
 				continue
 			}
 			index := 0
 			for _, before := range steps[:ref.Step-1] {
-				if before.Need == "" || auth.HasRole(user, before.Need) {
+				if tourStepAllowed(user, before, conds) {
 					index++
 				}
 			}
@@ -234,20 +234,39 @@ func resolveReplacements(items []onboardingExploreItem, sources []*versions.High
 // permissions allow none of them. An exempt tour has no steps and is not
 // limited, a missing tour is not either.
 func tourLimitedFor(user auth.User, tour *versions.HighlightTour) bool {
-	return tour != nil && len(tour.Steps) > 0 && onboardingTourFor(user, tour, nil) == nil
+	return tour != nil && len(tour.Steps) > 0 && onboardingTourFor(user, tour, nil, anyTourCondition) == nil
 }
 
-// onboardingTourFor keeps the steps whose permission the user holds. An
+// tourConditions are the facts of the installation a step can ask for with
+// its when key. Companion is true while a companion is paired.
+type tourConditions struct {
+	Companion bool
+}
+
+// anyTourCondition lets every when pass, for the question whether the
+// permissions alone hide a tour.
+var anyTourCondition = tourConditions{Companion: true}
+
+// tourStepAllowed reports whether the user holds the permission of the step
+// and its when condition holds.
+func tourStepAllowed(user auth.User, step versions.TourStep, conds tourConditions) bool {
+	if step.Need != "" && !auth.HasRole(user, step.Need) {
+		return false
+	}
+	return step.When != "companion" || conds.Companion
+}
+
+// onboardingTourFor keeps the steps whose permission the user holds and whose when holds. An
 // exemption or a tour without any allowed step gives nil. The tour is stale
 // when one of the kept steps or one of its open entries names a target
 // outside targets; without targets nothing is stale.
-func onboardingTourFor(user auth.User, tour *versions.HighlightTour, targets map[string]bool) *onboardingTour {
+func onboardingTourFor(user auth.User, tour *versions.HighlightTour, targets map[string]bool, conds tourConditions) *onboardingTour {
 	if tour == nil {
 		return nil
 	}
 	steps := []versions.TourStep{}
 	for _, step := range tour.Steps {
-		if step.Need == "" || auth.HasRole(user, step.Need) {
+		if tourStepAllowed(user, step, conds) {
 			steps = append(steps, step)
 		}
 	}
@@ -378,7 +397,7 @@ func requireOnboardingAdmin(w http.ResponseWriter, r *http.Request, manager *aut
 func handleOnboardingGet(manager *auth.Manager, store *onboarding.Store, settingsStore *settings.Store, installed map[string]bool, stateDir string, tourTargets map[string]bool, user auth.User) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := onboardingRoleOf(user)
-		currentVersion, exploreItems, readable := onboardingExplore(stateDir, user, tourTargets)
+		currentVersion, exploreItems, readable := onboardingExplore(stateDir, user, tourTargets, tourConditions{Companion: manager != nil && manager.CompanionStatus().Paired})
 		ids := make([]string, 0, len(exploreItems))
 		olderIDs := []string{}
 		for _, item := range exploreItems {

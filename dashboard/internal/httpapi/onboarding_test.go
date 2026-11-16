@@ -660,13 +660,13 @@ func TestTourIsStaleWhenAnOpenEntryIsUnknown(t *testing.T) {
 	user := auth.User{Roles: []string{auth.RoleViewOverview}}
 	stale := onboardingTourFor(user, &versions.HighlightTour{Steps: []versions.TourStep{
 		{Target: "known", Device: "any", Open: []string{"gone"}},
-	}}, targets)
+	}}, targets, anyTourCondition)
 	if stale == nil || !stale.Stale {
 		t.Fatalf("tour = %+v, want stale for an unknown open entry", stale)
 	}
 	fresh := onboardingTourFor(user, &versions.HighlightTour{Steps: []versions.TourStep{
 		{Target: "known", Device: "any", Open: []string{"known"}},
-	}}, targets)
+	}}, targets, anyTourCondition)
 	if fresh == nil || fresh.Stale {
 		t.Fatalf("tour = %+v, want not stale when every open entry is known", fresh)
 	}
@@ -678,7 +678,7 @@ func TestTourLimitedWhenPermissionsHideEveryStep(t *testing.T) {
 	}}
 	without := auth.User{Roles: []string{auth.RoleViewOverview}}
 	with := auth.User{Roles: []string{auth.RoleViewOverview, auth.RoleViewAutomations, auth.RoleAutomations}}
-	if item := (onboardingExploreItem{Tour: onboardingTourFor(without, needsAutomations, nil), TourLimited: tourLimitedFor(without, needsAutomations)}); item.Tour != nil || !item.TourLimited {
+	if item := (onboardingExploreItem{Tour: onboardingTourFor(without, needsAutomations, nil, anyTourCondition), TourLimited: tourLimitedFor(without, needsAutomations)}); item.Tour != nil || !item.TourLimited {
 		t.Fatalf("item = %+v, want no tour and limited for a user without the role", item)
 	}
 	if tourLimitedFor(with, needsAutomations) {
@@ -696,7 +696,7 @@ func TestTourLimitedWhenPermissionsHideEveryStep(t *testing.T) {
 // replacementEntry builds an explore item and its unfiltered source tour the
 // way onboardingExplore does.
 func replacementEntry(id string, pr int, user auth.User, tour *versions.HighlightTour, targets map[string]bool) (onboardingExploreItem, *versions.HighlightTour) {
-	return onboardingExploreItem{ID: id, PR: pr, Tour: onboardingTourFor(user, tour, targets)}, tour
+	return onboardingExploreItem{ID: id, PR: pr, Tour: onboardingTourFor(user, tour, targets, anyTourCondition)}, tour
 }
 
 func TestReplacementPointsAtTheAllowedStep(t *testing.T) {
@@ -711,7 +711,7 @@ func TestReplacementPointsAtTheAllowedStep(t *testing.T) {
 		{Target: "known", Device: "any"},
 	}}, targets)
 	items := []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
 	if items[0].Tour.Replacement == nil || *items[0].Tour.Replacement != (onboardingReplacement{ID: "h20", Index: 1}) {
 		t.Fatalf("replacement = %+v, want h20 at index 1", items[0].Tour.Replacement)
 	}
@@ -723,7 +723,7 @@ func TestReplacementPointsAtTheAllowedStep(t *testing.T) {
 	}}, targets)
 	staleItem, staleSource = replacementEntry("h10", 10, user, staleSource, targets)
 	items = []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
 	if items[0].Tour.Replacement == nil || *items[0].Tour.Replacement != (onboardingReplacement{ID: "h20", Index: 0}) {
 		t.Fatalf("replacement = %+v, want h20 at index 0", items[0].Tour.Replacement)
 	}
@@ -743,7 +743,7 @@ func TestReplacementNeedsAnAllowedStep(t *testing.T) {
 		{Target: "known", Device: "any", Need: auth.RoleUserManagement},
 	}}, targets)
 	items := []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
 	if items[0].Tour.Replacement != nil {
 		t.Fatalf("replacement = %+v, want none when the step is not allowed", items[0].Tour.Replacement)
 	}
@@ -754,7 +754,7 @@ func TestReplacementNeedsAnAllowedStep(t *testing.T) {
 	}}, targets)
 	staleItem, staleSource = replacementEntry("h10", 10, user, staleTour, targets)
 	items = []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
 	if items[0].Tour.Replacement != nil {
 		t.Fatalf("replacement = %+v, want none when the replacement is stale", items[0].Tour.Replacement)
 	}
@@ -762,8 +762,27 @@ func TestReplacementNeedsAnAllowedStep(t *testing.T) {
 	// No listed highlight has the PR.
 	staleItem, staleSource = replacementEntry("h10", 10, user, staleTour, targets)
 	items = []onboardingExploreItem{staleItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource}, user)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource}, user, anyTourCondition)
 	if items[0].Tour.Replacement != nil {
 		t.Fatalf("replacement = %+v, want none without a listed PR 20", items[0].Tour.Replacement)
+	}
+}
+
+func TestTourStepWithWhenCompanionNeedsAPairedCompanion(t *testing.T) {
+	user := auth.User{Roles: []string{auth.RoleViewOverview}}
+	tour := &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "companion", Device: "any"},
+		{Target: "companion-http", Device: "any", When: "companion"},
+	}}
+	unpaired := onboardingTourFor(user, tour, nil, tourConditions{})
+	if unpaired == nil || len(unpaired.Steps) != 1 || unpaired.Steps[0].Target != "companion" {
+		t.Fatalf("unpaired tour = %+v, want only the first step", unpaired)
+	}
+	paired := onboardingTourFor(user, tour, nil, tourConditions{Companion: true})
+	if paired == nil || len(paired.Steps) != 2 {
+		t.Fatalf("paired tour = %+v, want both steps", paired)
+	}
+	if tourLimitedFor(user, tour) {
+		t.Fatal("limited by a when condition, want only permissions to limit")
 	}
 }

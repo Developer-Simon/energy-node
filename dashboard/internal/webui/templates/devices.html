@@ -2,7 +2,7 @@
 <section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" data-device-view-mode="{{.DeviceViewMode}}" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" x-data="devicesPanel()" x-init="init()">
   <div class="devices-panel-header">
     <h2>{{t "devices.title"}}</h2>
-    <button type="button" class="device-density-toggle" x-bind:class="{ active: viewMode === 'control' }" x-bind:aria-pressed="viewMode === 'control'" x-bind:disabled="viewModeSaving" x-bind:aria-label="viewMode === 'control' ? $t('devices.toggle_compact') : $t('devices.toggle_detail')" x-on:click="setViewMode(viewMode === 'control' ? 'compact' : 'control')">
+    <button type="button" class="device-density-toggle" data-tour="device-density-toggle" x-bind:class="{ active: viewMode === 'control' }" x-bind:aria-pressed="viewMode === 'control'" x-bind:disabled="viewModeSaving" x-bind:aria-label="viewMode === 'control' ? $t('devices.toggle_compact') : $t('devices.toggle_detail')" x-on:click="setViewMode(viewMode === 'control' ? 'compact' : 'control')">
       <svg class="device-density-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.6"/></svg>
       <span class="device-density-toggle-label" x-text="viewMode === 'control' ? $t('devices.view_mode.details') : $t('devices.view_mode.compact')"></span>
     </button>

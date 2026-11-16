@@ -64,7 +64,9 @@ type TourReplacement struct {
 
 // TourStep points at one data-tour target. Panel and Page say where it
 // lives, Device is any, phone or desktop, Need the permission the step
-// requires. Open lists the entries (data-tour ids or @actions) that must
+// requires. When names a condition of the installation the step needs, such
+// as "companion" for a paired companion; the server drops the step when it does
+// not hold. Open lists the entries (data-tour ids or @actions) that must
 // exist before the step runs, otherwise the tour is stale.
 type TourStep struct {
 	Panel  string            `json:"panel,omitempty"`
@@ -72,6 +74,7 @@ type TourStep struct {
 	Target string            `json:"target"`
 	Device string            `json:"device"`
 	Need   string            `json:"need,omitempty"`
+	When   string            `json:"when,omitempty"`
 	Open   []string          `json:"open,omitempty"`
 	Title  map[string]string `json:"title"`
 	Text   map[string]string `json:"text"`

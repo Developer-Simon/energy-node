@@ -40,7 +40,8 @@
           "text": {
             "en": "If Home Assistant runs on plain HTTP, switch this on. Home Assistant users then keep all their permissions in the panel. Only do this in your own network, because passwords and keys travel unencrypted.",
             "de": "Läuft Home Assistant nur über HTTP, schaltest du das hier ein. Home-Assistant-Benutzer behalten dann alle ihre Rechte im Panel. Tu das nur im eigenen Netz, denn Passwörter und Schlüssel gehen dann unverschlüsselt über die Leitung."
-          }
+          },
+          "when": "companion"
         }
       ]
     }

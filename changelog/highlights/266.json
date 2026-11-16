@@ -11,6 +11,7 @@
         {
           "need": "view_devices",
           "open": [
+            "device-density-toggle",
             "@device-modal",
             "@device-hint-demo"
           ],
@@ -28,6 +29,7 @@
         {
           "need": "view_devices",
           "open": [
+            "device-density-toggle",
             "@device-modal",
             "@device-hint-demo",
             "device-hints-bell"
