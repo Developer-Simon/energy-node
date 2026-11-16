@@ -10,14 +10,17 @@
 # keeps the list in wifi-scan, its time in wifi-scan-at (epoch seconds).
 #
 # Test hooks: NOW (epoch seconds, default date +%s), NETWORK_JSON, STATE_DIR,
-# SYSFS (default /sys) and SCAN_WAIT_S (seconds to wait after the scan, default
-# 5). nmcli, ip, iw, systemctl and python3 are looked up on PATH, so a test can
-# stub them.
+# SYSFS (default /sys), NM_CONF_DIR (default /etc/NetworkManager/conf.d) and
+# SCAN_WAIT_S (seconds to wait after the scan, default 5). nmcli, ip, iw,
+# systemctl and python3 are looked up on PATH, so a test can stub them.
 set -u
 
 NETWORK_JSON="${NETWORK_JSON:-/etc/energy-node/network.json}"
 STATE_DIR="${STATE_DIR:-/run/energy-node/network-watch}"
 SYSFS="${SYSFS:-/sys}"
+NM_CONF_DIR="${NM_CONF_DIR:-/etc/NetworkManager/conf.d}"
+MAC_CONF="$NM_CONF_DIR/90-energy-node-wifi-mac.conf"
+MAC_MARKER='# von energy-node verwaltet - Aenderungen gehen verloren'
 WLAN_DEV=wlan0
 LAN_DEV=eth0
 HOTSPOT=energy-node-hotspot
@@ -156,6 +159,59 @@ connect_client() {
   return 1
 }
 
+# mac_conf_sync writes the NetworkManager drop-in that gives wlan0 the eth0 MAC
+# while the cable is unplugged in standby mode, and removes it again otherwise.
+# A file without the marker is never touched.
+mac_conf_sync() {
+  want=no
+  carrier="$(cat "$SYSFS/class/net/$LAN_DEV/carrier" 2>/dev/null)"
+  mac="$(tr 'A-F' 'a-f' 2>/dev/null < "$SYSFS/class/net/$LAN_DEV/address")"
+  if [ "$fallback" = standby ] && [ "$wlan_dev" = yes ] && [ "$carrier" != 1 ] &&
+    printf '%s\n' "$mac" | grep -Eq '^[0-9a-f]{2}(:[0-9a-f]{2}){5}$'; then
+    want=yes
+  fi
+  has_marker=no
+  if head -n 1 "$MAC_CONF" 2>/dev/null | grep -qxF "$MAC_MARKER"; then
+    has_marker=yes
+  fi
+  if [ "$want" = yes ]; then
+    if [ -e "$MAC_CONF" ] && [ "$has_marker" = no ]; then
+      return 0
+    fi
+    tmp="$(mktemp "$NM_CONF_DIR/.wifi-mac.XXXXXX" 2>/dev/null)" || return 0
+    printf '%s\n[connection-energy-node-wifi-mac]\nmatch-device=interface-name:wlan0\nwifi.cloned-mac-address=%s\n' \
+      "$MAC_MARKER" "$mac" > "$tmp"
+    if [ -f "$MAC_CONF" ] && cmp -s "$tmp" "$MAC_CONF"; then
+      rm -f "$tmp"
+      return 0
+    fi
+    chmod 0644 "$tmp"
+    if mv -f "$tmp" "$MAC_CONF"; then
+      nmcli general reload conf >/dev/null 2>&1 || true
+    fi
+    rm -f "$tmp"
+  elif [ "$has_marker" = yes ]; then
+    rm -f "$MAC_CONF"
+    nmcli general reload conf >/dev/null 2>&1 || true
+  fi
+  return 0
+}
+
+# clone_rebuild_check rebuilds the WLAN link once when wlan0 still carries the
+# eth0 MAC from the standby clone. Parallel mode only.
+clone_rebuild_check() {
+  [ "$wlan_up" = yes ] || return 0
+  mac_eth="$(tr 'A-F' 'a-f' 2>/dev/null < "$SYSFS/class/net/$LAN_DEV/address")"
+  mac_wlan="$(tr 'A-F' 'a-f' 2>/dev/null < "$SYSFS/class/net/$WLAN_DEV/address")"
+  if [ -n "$mac_eth" ] && [ "$mac_eth" = "$mac_wlan" ]; then
+    nmcli device disconnect "$WLAN_DEV" >/dev/null 2>&1 || true
+    connect_client || true
+  fi
+  return 0
+}
+
+mac_conf_sync
+
 # WLAN as a replacement for a lost LAN, or always on in parallel mode.
 if [ "$fallback" = standby ]; then
   if [ "$lan_up" = yes ]; then
@@ -181,6 +237,7 @@ else
   if [ "$wlan_dev" = yes ]; then
     nmcli device set "$WLAN_DEV" autoconnect yes >/dev/null 2>&1 || true
   fi
+  clone_rebuild_check
 fi
 
 # Emergency hotspot. offline_since counts the time without LAN and without WLAN.

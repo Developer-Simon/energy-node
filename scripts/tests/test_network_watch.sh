@@ -20,6 +20,7 @@ export SYSFS="$tmp/sys"
 export NETWORK_JSON="$tmp/network.json"
 export STATE_DIR="$tmp/state"
 export SCAN_WAIT_S=0
+export NM_CONF_DIR="$tmp/conf.d"
 mkdir -p "$tmp/bin"
 export PATH="$tmp/bin:$PATH"
 
@@ -89,6 +90,10 @@ case "$*" in
     echo "nmcli $*" >> "$CALL_LOG"
     exit 0
     ;;
+  "general reload conf")
+    echo "nmcli $*" >> "$CALL_LOG"
+    exit 0
+    ;;
   *) echo "unexpected nmcli call: $*" >&2; exit 2 ;;
 esac
 SH
@@ -122,10 +127,12 @@ chmod +x "$tmp/bin"/*
 
 # reset clears everything: LAN up, WLAN disconnected, no hotspot, standby.
 reset() {
-  rm -rf "$FX" "$STATE_DIR" "$SYSFS" "$SWITCH_ACTIVE" "$NETWORK_JSON"
-  mkdir -p "$FX" "$STATE_DIR" "$SYSFS/class/net/eth0" "$SYSFS/class/net/wlan0/wireless"
+  rm -rf "$FX" "$STATE_DIR" "$SYSFS" "$SWITCH_ACTIVE" "$NETWORK_JSON" "$NM_CONF_DIR"
+  mkdir -p "$FX" "$STATE_DIR" "$NM_CONF_DIR" "$SYSFS/class/net/eth0" "$SYSFS/class/net/wlan0/wireless"
   : > "$CALL_LOG"
   echo 1 > "$SYSFS/class/net/eth0/carrier"
+  echo b8:27:eb:00:00:01 > "$SYSFS/class/net/eth0/address"
+  echo b8:27:eb:00:00:02 > "$SYSFS/class/net/wlan0/address"
   touch "$FX/eth0-addr"
   echo "wlan0:disconnected" > "$FX/devices"
   : > "$FX/active"
@@ -147,6 +154,9 @@ lan_down() {
   echo 0 > "$SYSFS/class/net/eth0/carrier"
   rm -f "$FX/eth0-addr"
 }
+
+carrier_up_no_ip() { echo 1 > "$SYSFS/class/net/eth0/carrier"; rm -f "$FX/eth0-addr"; }
+mac_conf() { echo "$NM_CONF_DIR/90-energy-node-wifi-mac.conf"; }
 
 # tick NOW runs the watcher once at that time, its calls go to CALL_LOG.
 tick() {
@@ -400,5 +410,56 @@ echo 1000 > "$STATE_DIR/hotspot_since"
 tick 1100
 has_call "device wifi rescan" && fail "hotspot running: scan made" "$(cat "$CALL_LOG")"
 [ -e "$STATE_DIR/wifi-scan" ] && fail "hotspot running: wifi-scan written"
+
+# Case 1a: standby, cable unplugged -> drop-in with eth0 MAC, reload, before connect.
+reset; lan_down; tick 1000
+[ -f "$(mac_conf)" ] || fail "1a: drop-in missing"
+grep -qx 'wifi.cloned-mac-address=b8:27:eb:00:00:01' "$(mac_conf)" || fail "1a: wrong MAC" "$(cat "$(mac_conf)")"
+grep -qx 'match-device=interface-name:wlan0' "$(mac_conf)" || fail "1a: match missing"
+head -1 "$(mac_conf)" | grep -qxF '# von energy-node verwaltet - Aenderungen gehen verloren' || fail "1a: marker missing"
+has_call "general reload conf" || fail "1a: reload missing" "$(cat "$CALL_LOG")"
+tick 1031
+r="$(line_of "general reload conf" || true)"; c="$(line_of "connection up uuid u-home" || true)"
+[ -z "$r" ] || fail "1a: reload again at 1031" "$(cat "$CALL_LOG")"
+[ -n "$c" ] || fail "1a: connect missing at 1031" "$(cat "$CALL_LOG")"
+
+# Case 1b: unchanged situation -> no write, no reload.
+before="$(stat -c %Y.%i "$(mac_conf)")"; tick 1046
+has_call "general reload conf" && fail "1b: reload without change" "$(cat "$CALL_LOG")"
+[ "$(stat -c %Y.%i "$(mac_conf)")" = "$before" ] || fail "1b: drop-in rewritten"
+
+# Case 1c: cable back -> drop-in removed, reload.
+lan_up; tick 1061
+[ -e "$(mac_conf)" ] && fail "1c: drop-in still there"
+has_call "general reload conf" || fail "1c: reload missing" "$(cat "$CALL_LOG")"
+
+# Case 1d: parallel, cable unplugged -> no drop-in.
+reset; set_settings '{"fallback":"parallel","hotspot":true}'; lan_down; tick 1000
+[ -e "$(mac_conf)" ] && fail "1d: drop-in in parallel mode"
+
+# Case 1e: standby, carrier but no IPv4 -> no drop-in (eth0 still on the wire).
+reset; carrier_up_no_ip; tick 1000; tick 1031
+[ -e "$(mac_conf)" ] && fail "1e: drop-in with carrier"
+has_call "connection up uuid u-home" || fail "1e: fallback connect missing" "$(cat "$CALL_LOG")"
+
+# Case 1f: standby, cable unplugged, eth0 MAC unreadable -> no drop-in, own one removed.
+reset; lan_down; tick 1000
+: > "$SYSFS/class/net/eth0/address"; tick 1015
+[ -e "$(mac_conf)" ] && fail "1f: drop-in kept without eth0 MAC"
+
+# Case 1g: foreign file without marker is never touched.
+reset; lan_down; printf '[connection-x]\nfoo=bar\n' > "$(mac_conf)"; tick 1000
+[ "$(cat "$(mac_conf)")" = "$(printf '[connection-x]\nfoo=bar')" ] || fail "1g: foreign file changed"
+lan_up; tick 1015
+[ -f "$(mac_conf)" ] || fail "1g: foreign file removed"
+
+# Case 1h: parallel, WLAN up with the cloned MAC -> one rebuild, then quiet.
+reset; set_settings '{"fallback":"parallel","hotspot":true}'
+echo "wlan0:connected" > "$FX/devices"
+echo b8:27:eb:00:00:01 > "$SYSFS/class/net/wlan0/address"; tick 1000
+d="$(line_of "device disconnect wlan0" || true)"; c="$(line_of "connection up uuid u-home" || true)"
+if ! { [ -n "$d" ] && [ -n "$c" ] && [ "$d" -lt "$c" ]; }; then fail "1h: rebuild missing" "$(cat "$CALL_LOG")"; fi
+echo b8:27:eb:00:00:02 > "$SYSFS/class/net/wlan0/address"; echo "wlan0:connected" > "$FX/devices"; tick 1015
+has_call "device disconnect wlan0" && fail "1h: rebuilt twice" "$(cat "$CALL_LOG")"
 
 echo "PASS: test_network_watch"
