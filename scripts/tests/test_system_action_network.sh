@@ -60,10 +60,14 @@ esac
 SH
 chmod +x "$tmp/bin/iw"
 
-# Stub systemctl: every call is logged to SYSCTL_LOG and nothing runs.
+# Stub systemctl: every call is logged to SYSCTL_LOG and nothing runs. With
+# $FX/avahi-off present, is-active for avahi-daemon fails.
 cat > "$tmp/bin/systemctl" <<'SH'
 #!/bin/sh
 echo "$*" >> "$SYSCTL_LOG"
+if [ "$*" = "is-active --quiet avahi-daemon.service" ] && [ -e "$FX/avahi-off" ]; then
+  exit 3
+fi
 SH
 chmod +x "$tmp/bin/systemctl"
 
@@ -81,13 +85,17 @@ build_helper() {
     -e "s|^NETWORK_JSON=.*|NETWORK_JSON=\"$tmp/network.json\"|" \
     -e "s|^SWITCH_JSON=.*|SWITCH_JSON=\"$tmp/switch.json\"|" \
     -e "s|^HOTSPOT_JSON=.*|HOTSPOT_JSON=\"$tmp/hotspot.json\"|" \
+    -e "s|^WIFI_SCAN_CACHE=.*|WIFI_SCAN_CACHE=\"$tmp/scan/wifi-scan\"|" \
     -e "s|^SYSTEMCTL=.*|SYSTEMCTL=\"$tmp/bin/systemctl\"|" \
+    -e "s|^HOSTNAME_FILE=.*|HOSTNAME_FILE=\"$tmp/hostname\"|" \
     "$tmp/helper"
   grep -q "^NMCLI=\"$NMCLI_BIN\"" "$tmp/helper" || fail "test setup: NMCLI was not replaced"
   grep -q "^SYSFS=\"$SYSFS_DIR\"" "$tmp/helper" || fail "test setup: SYSFS was not replaced"
   grep -q "^SWITCH_JSON=\"$tmp/switch.json\"" "$tmp/helper" || fail "test setup: SWITCH_JSON was not replaced"
   grep -q "^HOTSPOT_JSON=\"$tmp/hotspot.json\"" "$tmp/helper" || fail "test setup: HOTSPOT_JSON was not replaced"
   grep -q "^SYSTEMCTL=\"$tmp/bin/systemctl\"" "$tmp/helper" || fail "test setup: SYSTEMCTL was not replaced"
+  grep -q "^WIFI_SCAN_CACHE=\"$tmp/scan/wifi-scan\"" "$tmp/helper" || fail "test setup: WIFI_SCAN_CACHE was not replaced"
+  grep -q "^HOSTNAME_FILE=\"$tmp/hostname\"" "$tmp/helper" || fail "test setup: HOSTNAME_FILE was not replaced"
 }
 
 # reset_fixtures writes the default managed node: LAN and WLAN up, two
@@ -108,8 +116,11 @@ reset_fixtures() {
   printf 'nameserver 192.168.1.1\nnameserver 1.1.1.1\n' > "$tmp/resolv.conf"
   printf '{"fallback":"parallel","hotspot":true}\n' > "$tmp/network.json"
   rm -f "$tmp/switch.json" "$tmp/hotspot.json"
+  rm -rf "$tmp/scan"
+  mkdir -p "$tmp/scan"
   export NM_RUNNING=running
   unset RESCAN_ERR || true
+  printf 'energy-node\n' > "$tmp/hostname"
   rm -f "$NET_LOG" "$SYSCTL_LOG"
 }
 
@@ -158,10 +169,12 @@ MARKERS='##managed
 ##dns
 ##speed
 ##wifi
+##scanned
 ##profiles
 ##hotspot
 ##settings
-##switch'
+##switch
+##host'
 
 # Case 1: managed node with LAN and WLAN, all sections in fixed order.
 reset_fixtures
@@ -257,6 +270,148 @@ run_helper network-status
 expect_section "hostile SSID" wifi "$(printf '*:Evil\n :Nachbar:45:5180:36:WPA2')"
 expect_section "hostile SSID" profiles "$(printf 'uuid-1\tyes\tHaus\\:Netz\nuuid-3\tno\tGast##settings{"hostile":true}')"
 expect_section "hostile SSID" settings '{"fallback":"parallel","hotspot":true}'
+
+# Case 3e: while the hotspot is active and the live list is empty, the last
+# scan from the watcher (wifi-scan, time in wifi-scan-at) is served.
+# hotspot_on marks the energy-node-hotspot profile as active in the fake nmcli.
+hotspot_on() { printf 'Haus\nenergy-node-hotspot\n' > "$fx/active"; }
+
+# Case 3e-1: hotspot active, live list empty, cache with two valid lines.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+hotspot_on
+: > "$fx/wifi"
+printf '*:Haus\\:Netz:82:2437:1:WPA2\n :Nachbar:45:5180:36:WPA2\n' > "$tmp/scan/wifi-scan"
+printf '1700000123\n' > "$tmp/scan/wifi-scan-at"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "cache served: exit $rc" "$(cat "$tmp/err")"
+expect_section "cache served" wifi "$(printf '*:Haus\\:Netz:82:2437:1:WPA2\n :Nachbar:45:5180:36:WPA2')"
+expect_section "cache served" scanned "1700000123"
+expect_section "cache served" hotspot "$(printf 'active yes\nclients 2')"
+
+# Case 3e-2: hotspot active, live list not empty: the live list wins, scanned stays empty.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+hotspot_on
+printf '*:Live:80:2437:1:WPA2\n' > "$fx/wifi"
+printf '*:Haus\\:Netz:82:2437:1:WPA2\n' > "$tmp/scan/wifi-scan"
+printf '1700000123\n' > "$tmp/scan/wifi-scan-at"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "live list wins: exit $rc" "$(cat "$tmp/err")"
+expect_section "live list wins" wifi "$(cat "$fx/wifi")"
+expect_section "live list wins" scanned ""
+
+# Case 3e-3: hotspot not active, live list empty, cache present: nothing is served.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+: > "$fx/wifi"
+printf '*:Haus\\:Netz:82:2437:1:WPA2\n' > "$tmp/scan/wifi-scan"
+printf '1700000123\n' > "$tmp/scan/wifi-scan-at"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "hotspot off: exit $rc" "$(cat "$tmp/err")"
+expect_section "hotspot off" wifi ""
+expect_section "hotspot off" scanned ""
+
+# Case 3e-4: hotspot active, cache with a control character and a line without
+# the nmcli form: only the valid line appears, the time is still served.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+hotspot_on
+: > "$fx/wifi"
+printf '*:Cache\001\\:Netz:70:2412:1:WPA2\nkaputt ohne Form\n :Nachbar:45:5180:36:WPA2\n' > "$tmp/scan/wifi-scan"
+printf '1700000456\n' > "$tmp/scan/wifi-scan-at"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "cache with control characters: exit $rc" "$(cat "$tmp/err")"
+expect_section "cache filtered" wifi "$(printf '*:Cache\\:Netz:70:2412:1:WPA2\n :Nachbar:45:5180:36:WPA2')"
+expect_section "cache filtered" scanned "1700000456"
+
+# Case 3e-5: hotspot active, cache without any valid line: wifi and scanned stay empty.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+hotspot_on
+: > "$fx/wifi"
+printf 'kaputt\n\001\n' > "$tmp/scan/wifi-scan"
+printf '1700000789\n' > "$tmp/scan/wifi-scan-at"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "cache without valid line: exit $rc" "$(cat "$tmp/err")"
+expect_section "cache without valid line" wifi ""
+expect_section "cache without valid line" scanned ""
+
+# Case 3e-6: hotspot active, cache valid but wifi-scan-at not digits: the list
+# is served, the time is left out.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+hotspot_on
+: > "$fx/wifi"
+printf '*:Haus\\:Netz:82:2437:1:WPA2\n' > "$tmp/scan/wifi-scan"
+printf 'gestern\n' > "$tmp/scan/wifi-scan-at"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "bad time: exit $rc" "$(cat "$tmp/err")"
+expect_section "bad time" wifi "$(printf '*:Haus\\:Netz:82:2437:1:WPA2')"
+expect_section "bad time" scanned ""
+
+# Case 3e-7: hotspot active, live list empty, no cache file: nothing is served.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+hotspot_on
+: > "$fx/wifi"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "no cache file: exit $rc" "$(cat "$tmp/err")"
+expect_section "no cache file" wifi ""
+expect_section "no cache file" scanned ""
+
+# Case 3f: ##host carries the host name and whether avahi (mDNS) is active.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "host managed: exit $rc" "$(cat "$tmp/err")"
+expect_section "managed" host "$(printf 'name energy-node\nmdns yes')"
+
+# Case 3f-1: avahi not active.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+touch "$fx/avahi-off"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "avahi off: exit $rc" "$(cat "$tmp/err")"
+expect_section "avahi off" host "$(printf 'name energy-node\nmdns no')"
+
+# Case 3f-2: hostile host name with a forged marker: only the first line counts, the marker is not a section.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+printf 'evil\n##settings\n' > "$tmp/hostname"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "hostile hostname: exit $rc" "$(cat "$tmp/err")"
+[ "$(grep -cx '##settings' "$tmp/out")" -eq 1 ] || fail "hostile hostname: extra marker" "$(cat "$tmp/out")"
+
+# Case 3f-3: host name with characters outside [A-Za-z0-9-] is left empty.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+printf 'bad name!\n' > "$tmp/hostname"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "bad hostname: exit $rc" "$(cat "$tmp/err")"
+expect_section "bad hostname" host "$(printf 'name \nmdns yes')"
 
 # Case 4: wifi-scan on a managed node, rescan ok and "Scanning not allowed" both exit 0.
 reset_fixtures

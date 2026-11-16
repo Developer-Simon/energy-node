@@ -68,6 +68,12 @@ type HotspotState struct {
 	Clients   int  `json:"clients"`
 }
 
+// Host is the host name of the node and whether mDNS (avahi) is active, from ##host.
+type Host struct {
+	Name string `json:"name"`
+	MDNS bool   `json:"mdns"`
+}
+
 type Status struct {
 	Managed  bool            `json:"managed"`
 	HasWifi  bool            `json:"has_wifi"`
@@ -77,6 +83,10 @@ type Status struct {
 	Settings Settings        `json:"settings"`
 	Hotspot  HotspotState    `json:"hotspot"`
 	Switch   *SwitchProgress `json:"switch,omitempty"` // aus ##switch, nil bei {}
+	// WifiScannedAt is the Unix time of the cached Wi-Fi scan shown while the
+	// hotspot is active, 0 when the list is live. Set from ##scanned.
+	WifiScannedAt int64 `json:"wifi_scanned_at,omitempty"`
+	Host          Host  `json:"host"` // aus ##host, Host{} wenn der Abschnitt fehlt
 }
 
 type SwitchStep struct {

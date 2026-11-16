@@ -139,6 +139,17 @@ func TestParseStatusHotspot(t *testing.T) {
 	}
 }
 
+func TestParseStatusDefaultSettings(t *testing.T) {
+	raw := strings.Replace(readFixture(t, "hotspot"), `{"fallback":"parallel","hotspot":true}`, "", 1)
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Settings != (Settings{Fallback: "standby", Hotspot: true}) {
+		t.Errorf("Settings = %+v, want standby and hotspot on", st.Settings)
+	}
+}
+
 func TestParseStatusUnmanaged(t *testing.T) {
 	st := parseFixture(t, "unmanaged")
 	if st.Hotspot.Available || len(st.Networks) != 0 {
@@ -281,5 +292,58 @@ func TestParseFreqWithUnit(t *testing.T) {
 	}
 	if n := st.Networks[0]; n.Band != "5" || n.Channel != 36 {
 		t.Errorf("network = %+v, want band 5 channel 36", n)
+	}
+}
+
+func TestParseStatusScannedSection(t *testing.T) {
+	raw := readFixture(t, "both") + "##scanned\n1794860000\n"
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.WifiScannedAt != 1794860000 {
+		t.Errorf("WifiScannedAt = %d, want 1794860000", st.WifiScannedAt)
+	}
+}
+
+func TestParseStatusScannedMissing(t *testing.T) {
+	st, err := ParseStatus(readFixture(t, "both"))
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.WifiScannedAt != 0 {
+		t.Errorf("WifiScannedAt = %d, want 0 without ##scanned", st.WifiScannedAt)
+	}
+}
+
+func TestParseStatusScannedGarbage(t *testing.T) {
+	raw := readFixture(t, "both") + "##scanned\nabc\n"
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.WifiScannedAt != 0 {
+		t.Errorf("WifiScannedAt = %d, want 0 for garbage", st.WifiScannedAt)
+	}
+}
+
+func TestParseStatusHost(t *testing.T) {
+	raw := readFixture(t, "both") + "##host\nname energy-node\nmdns yes\n"
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if want := (Host{Name: "energy-node", MDNS: true}); st.Host != want {
+		t.Errorf("Host = %+v, want %+v", st.Host, want)
+	}
+}
+
+func TestParseStatusWithoutHost(t *testing.T) {
+	st, err := ParseStatus(readFixture(t, "both"))
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.Host != (Host{}) {
+		t.Errorf("Host = %+v, want zero value without ##host", st.Host)
 	}
 }

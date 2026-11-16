@@ -40,7 +40,7 @@
     <section class="setting-card setting-card--wide" aria-labelledby="nw-nets-title">
       <div class="nw-card-head">
         <h3 class="setting-card-title" id="nw-nets-title">{{t "network.nets.title"}}</h3>
-        <button type="button" class="icon-button labeled nw-scan" x-show="hasWifi()" x-on:click="scan()" x-bind:disabled="scanning || locked()" x-bind:data-busy="scanning ? 'true' : 'false'">
+        <button type="button" class="icon-button labeled nw-scan" x-show="hasWifi()" x-on:click="scan()" x-bind:disabled="scanning || locked() || cachedScan()" x-bind:data-busy="scanning ? 'true' : 'false'">
           <svg class="automation-icon" aria-hidden="true"><use href="#ico-refresh"></use></svg><span x-show="!scanning">{{t "network.scan"}}</span><span x-show="scanning">{{t "network.scanning"}}</span>
         </button>
       </div>
@@ -157,6 +157,17 @@
         <p class="setting-note" x-show="fallbackMode() === 'parallel'">{{t "network.fallback.parallel_note"}}</p>
         <p class="setting-note" x-show="fallbackMode() === 'standby'">{{t "network.fallback.standby_note"}}</p>
         <p class="nw-hint" x-show="savedCount() === 0">{{t "network.fallback.none_saved"}}</p>
+        <div class="nw-bookmark" x-show="bookmarkURL()">
+          <p class="nw-bookmark-label" id="nw-bookmark-label">{{t "network.bookmark.label"}}</p>
+          <button type="button" class="nw-copy" x-on:click="copyBookmark()" x-bind:data-copied="bookmarkCopied ? 'true' : 'false'" aria-labelledby="nw-bookmark-label nw-bookmark-url">
+            <span class="nw-copy-url nw-mono" id="nw-bookmark-url" x-text="bookmarkURL()"></span>
+            <span class="nw-copy-state" role="status">
+              <span class="nw-copy-idle" x-bind:aria-hidden="bookmarkCopied ? 'true' : 'false'">{{t "users.ha.copy"}}</span>
+              <span class="nw-copy-done" x-bind:aria-hidden="bookmarkCopied ? 'false' : 'true'"><svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>{{t "users.ha.copied"}}</span>
+            </span>
+          </button>
+          <p class="setting-note">{{t "network.bookmark.note"}}</p>
+        </div>
       </div>
     </section>
 

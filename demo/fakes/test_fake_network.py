@@ -77,9 +77,27 @@ def werkstatt(paths):
     with_links(paths, "FritzBox Werkstatt", (WERKSTATT_UUID, "yes", "FritzBox Werkstatt"))
 
 
+def parallel(paths):
+    """Wi-Fi stays connected beside the cable. The default is standby, so these tests ask for it."""
+    assert run("network-settings", ["parallel", "on"], LAN, paths)[:2] == (0, "")
+
+
+def test_status_reports_the_demo_host_with_mdns():
+    # The demo node is called energy-node and answers on energy-node.local.
+    assert body_of(fake_network.status_text(LAN, None, NOW), "host") == "name energy-node\nmdns yes\n"
+    assert body_of(fake_network.status_text(WIFI, None, NOW), "host") == "name energy-node\nmdns yes\n"
+
+
 def test_every_combination_emits_all_sections_in_order():
     for env in (LAN, WIFI, NOWIFI, NOTHING):
         assert sections_of(fake_network.status_text(env, None, NOW)) == list(SECTIONS), env
+
+
+def test_status_has_an_empty_scanned_section_after_wifi():
+    text = fake_network.status_text(LAN, None, NOW)
+    names = sections_of(text)
+    assert names.index("scanned") == names.index("wifi") + 1
+    assert body_of(text, "scanned") == ""
 
 
 def test_env_of_falls_back_to_the_defaults_for_broken_values():
@@ -102,6 +120,7 @@ def test_cable_switch_drives_the_ethernet_device():
 
 def test_non_current_wifi_lines_start_with_space_and_current_with_star(paths):
     werkstatt(paths)
+    parallel(paths)
     text = status(LAN, paths)
     rows = [line for line in body_of(text, "wifi").splitlines() if line]
     assert rows[0].startswith("*:FritzBox Werkstatt:")
@@ -129,6 +148,21 @@ def test_hotspot_opens_without_cable_and_connection(paths):
     text = status(WIFI, paths)
     assert "wlan0:wifi:connected:energy-node-hotspot" in body_of(text, "devices")
     assert "10.42.0.1" in body_of(text, "addr")
+
+
+def test_open_hotspot_serves_the_cached_scan_with_its_age(paths):
+    text = status(dict(WIFI, werkstatt=False), paths)
+    assert body_of(text, "hotspot").splitlines()[0] == "active yes"
+    rows = wifi_rows(text)
+    assert rows and all(row.startswith(" ") for row in rows.values())
+    assert "FritzBox Werkstatt" not in rows
+    assert body_of(text, "scanned").strip() == str(int(NOW) - 180)
+
+
+def test_live_scan_has_no_age_without_the_hotspot(paths):
+    text = status(LAN, paths)
+    assert body_of(text, "scanned").strip() == ""
+    assert wifi_rows(text)
 
 
 def test_hotspot_stays_closed_with_cable_or_connection_or_switch_off(paths):
@@ -215,6 +249,7 @@ def test_without_wifi_module_scan_and_connect_exit_1(paths):
 # ---- success follows into the network state ----------------------------------
 
 def test_successful_connect_connects_and_saves_the_network(paths):
+    parallel(paths)
     stage(paths, ssid="Gäste", password=GOOD_PASSWORD)
     run("wifi-connect", [], LAN, paths, now=NOW)
 
@@ -274,6 +309,7 @@ def test_forget_checks_uuid_format_and_known_profile(paths):
 
 def test_forget_then_connect_again_saves_the_network_again(paths):
     werkstatt(paths)
+    parallel(paths)
     run("wifi-forget", [WERKSTATT_UUID], LAN, paths)
     stage(paths, ssid="FritzBox Werkstatt", password=GOOD_PASSWORD)
     run("wifi-connect", [], LAN, paths, now=NOW)
@@ -367,8 +403,8 @@ def settings_of(text):
     return json.loads(body_of(text, "settings"))
 
 
-def test_default_settings_are_parallel_and_hotspot_on(paths):
-    assert settings_of(status(LAN, paths)) == {"fallback": "parallel", "hotspot": True}
+def test_default_settings_are_standby_and_hotspot_on(paths):
+    assert settings_of(status(LAN, paths)) == {"fallback": "standby", "hotspot": True}
 
 
 def test_network_settings_standby_off_shows_in_status(paths):
@@ -454,6 +490,7 @@ def test_unreachable_werkstatt_leaves_the_scan_list(paths):
 
 def test_unreachable_werkstatt_drops_the_connection_but_keeps_the_profile(paths):
     werkstatt(paths)
+    parallel(paths)
     text = status(NO_WERKSTATT, paths)
     assert "wlan0:wifi:disconnected:--" in body_of(text, "devices")
     assert WERKSTATT_UUID in body_of(text, "profiles")
@@ -484,6 +521,7 @@ def test_console_stores_login_and_werkstatt_switches(tmp_path):
 
 def test_parallel_keeps_wifi_connected_beside_the_cable(paths):
     werkstatt(paths)
+    parallel(paths)
     text = status(LAN, paths)
     assert "wlan0:wifi:connected:FritzBox Werkstatt" in body_of(text, "devices")
     assert "192.168.178.52" in body_of(text, "addr")

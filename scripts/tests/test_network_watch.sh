@@ -19,6 +19,8 @@ export SWITCH_ACTIVE="$tmp/switch-active"
 export SYSFS="$tmp/sys"
 export NETWORK_JSON="$tmp/network.json"
 export STATE_DIR="$tmp/state"
+export SCAN_WAIT_S=0
+export NM_CONF_DIR="$tmp/conf.d"
 mkdir -p "$tmp/bin"
 export PATH="$tmp/bin:$PATH"
 
@@ -42,6 +44,14 @@ cat > "$tmp/bin/nmcli" <<'SH'
 case "$*" in
   "-t -f DEVICE,STATE device") cat "$FX/devices" ;;
   "-t -f NAME connection show --active") cat "$FX/active" ;;
+  "device wifi rescan")
+    echo "nmcli $*" >> "$CALL_LOG"
+    exit 0
+    ;;
+  "-t -f IN-USE,SSID,SIGNAL,FREQ,CHAN,SECURITY device wifi list --rescan no")
+    if [ -e "$FX/scan" ]; then cat "$FX/scan"; fi
+    exit 0
+    ;;
   "connection up id energy-node-hotspot")
     echo "nmcli $*" >> "$CALL_LOG"
     if [ -e "$FX/hotspot-fail" ]; then exit 4; fi
@@ -80,6 +90,10 @@ case "$*" in
     echo "nmcli $*" >> "$CALL_LOG"
     exit 0
     ;;
+  "general reload conf")
+    echo "nmcli $*" >> "$CALL_LOG"
+    exit 0
+    ;;
   *) echo "unexpected nmcli call: $*" >&2; exit 2 ;;
 esac
 SH
@@ -113,10 +127,12 @@ chmod +x "$tmp/bin"/*
 
 # reset clears everything: LAN up, WLAN disconnected, no hotspot, standby.
 reset() {
-  rm -rf "$FX" "$STATE_DIR" "$SYSFS" "$SWITCH_ACTIVE" "$NETWORK_JSON"
-  mkdir -p "$FX" "$STATE_DIR" "$SYSFS/class/net/eth0" "$SYSFS/class/net/wlan0/wireless"
+  rm -rf "$FX" "$STATE_DIR" "$SYSFS" "$SWITCH_ACTIVE" "$NETWORK_JSON" "$NM_CONF_DIR"
+  mkdir -p "$FX" "$STATE_DIR" "$NM_CONF_DIR" "$SYSFS/class/net/eth0" "$SYSFS/class/net/wlan0/wireless"
   : > "$CALL_LOG"
   echo 1 > "$SYSFS/class/net/eth0/carrier"
+  echo b8:27:eb:00:00:01 > "$SYSFS/class/net/eth0/address"
+  echo b8:27:eb:00:00:02 > "$SYSFS/class/net/wlan0/address"
   touch "$FX/eth0-addr"
   echo "wlan0:disconnected" > "$FX/devices"
   : > "$FX/active"
@@ -138,6 +154,9 @@ lan_down() {
   echo 0 > "$SYSFS/class/net/eth0/carrier"
   rm -f "$FX/eth0-addr"
 }
+
+carrier_up_no_ip() { echo 1 > "$SYSFS/class/net/eth0/carrier"; rm -f "$FX/eth0-addr"; }
+mac_conf() { echo "$NM_CONF_DIR/90-energy-node-wifi-mac.conf"; }
 
 # tick NOW runs the watcher once at that time, its calls go to CALL_LOG.
 tick() {
@@ -210,12 +229,23 @@ has_call "device set wlan0 autoconnect yes" || fail "parallel: autoconnect yes m
 has_call "device disconnect wlan0" && fail "parallel: disconnect called" "$(cat "$CALL_LOG")"
 has_call "device set wlan0 autoconnect no" && fail "parallel: autoconnect no called" "$(cat "$CALL_LOG")"
 
-# Case 5: no network.json -> parallel.
+# Case 5: no network.json -> standby: with the cable up WLAN goes off.
 reset
 rm -f "$NETWORK_JSON"
 lan_up
 tick 1000
-has_call "device set wlan0 autoconnect yes" || fail "missing settings: parallel default missing" "$(cat "$CALL_LOG")"
+has_call "device set wlan0 autoconnect no" || fail "missing settings: standby default missing" "$(cat "$CALL_LOG")"
+has_call "device disconnect wlan0" || fail "missing settings: standby default missing (disconnect)" "$(cat "$CALL_LOG")"
+has_call "device set wlan0 autoconnect yes" && fail "missing settings: parallel default used" "$(cat "$CALL_LOG")"
+
+# Case 5b: broken network.json -> standby as well.
+reset
+printf 'kaputt' > "$NETWORK_JSON"
+lan_up
+tick 1000
+has_call "device set wlan0 autoconnect no" || fail "broken settings: standby default missing" "$(cat "$CALL_LOG")"
+has_call "device disconnect wlan0" || fail "broken settings: standby default missing (disconnect)" "$(cat "$CALL_LOG")"
+has_call "device set wlan0 autoconnect yes" && fail "broken settings: parallel default used" "$(cat "$CALL_LOG")"
 
 # Case 6: 5 min without LAN and WLAN -> hotspot up. Before that, nothing.
 reset
@@ -327,5 +357,121 @@ lan_down
 tick 1000
 tick 1031
 grep -q "connection up" "$CALL_LOG" && fail "AP only: connection up called" "$(cat "$CALL_LOG")"
+
+# Case 17: the hotspot opens -> a Wi-Fi scan runs first and its list is saved.
+reset
+set_settings '{"fallback":"parallel","hotspot":true}'
+lan_down
+printf ':Haus:80:2412 MHz:1:WPA2\n:Nachbar:40:2437 MHz:6:WPA2\n' > "$FX/scan"
+tick 1000
+tick 1300
+has_call "device wifi rescan" || fail "hotspot start: rescan missing" "$(cat "$CALL_LOG")"
+r="$(line_of "device wifi rescan")"
+u="$(line_of "connection up id energy-node-hotspot")"
+if [ -z "$r" ] || [ -z "$u" ] || [ "$r" -ge "$u" ]; then
+  fail "hotspot start: rescan not before hotspot" "$(cat "$CALL_LOG")"
+fi
+expected=':Haus:80:2412 MHz:1:WPA2
+:Nachbar:40:2437 MHz:6:WPA2'
+[ "$(cat "$STATE_DIR/wifi-scan")" = "$expected" ] || fail "hotspot start: wifi-scan wrong" "$(cat "$STATE_DIR/wifi-scan" 2>&1)"
+[ "$(cat "$STATE_DIR/wifi-scan-at")" = 1300 ] || fail "hotspot start: wifi-scan-at wrong" "$(cat "$STATE_DIR/wifi-scan-at" 2>&1)"
+
+# Case 18: the hotspot opens again with the same list -> the file is not rewritten.
+inode="$(stat -c %i "$STATE_DIR/wifi-scan")"
+: > "$FX/active"
+tick 1700
+has_call "device wifi rescan" || fail "repeat: rescan missing" "$(cat "$CALL_LOG")"
+[ "$(stat -c %i "$STATE_DIR/wifi-scan")" = "$inode" ] || fail "repeat: same list rewritten"
+[ "$(cat "$STATE_DIR/wifi-scan-at")" = 1300 ] || fail "repeat: wifi-scan-at changed"
+
+# Case 19: empty scan, the good file stays and the hotspot still comes up.
+old="$(cat "$STATE_DIR/wifi-scan")"
+rm -f "$FX/scan"
+: > "$FX/active"
+tick 2100
+has_call "connection up id energy-node-hotspot" || fail "empty scan: hotspot not up" "$(cat "$CALL_LOG")"
+[ "$(cat "$STATE_DIR/wifi-scan")" = "$old" ] || fail "empty scan: wifi-scan changed"
+[ "$(cat "$STATE_DIR/wifi-scan-at")" = 1300 ] || fail "empty scan: wifi-scan-at changed"
+
+# Case 20: open hotspot, no client, WLAN connect fails -> the scan runs before
+# the hotspot comes up again.
+reset
+set_settings '{"fallback":"parallel","hotspot":true}'
+lan_down
+echo energy-node-hotspot > "$FX/active"
+touch "$FX/wifi-fail"
+printf ':Haus:80:2412 MHz:1:WPA2\n' > "$FX/scan"
+echo 1000 > "$STATE_DIR/hotspot_since"
+tick 1300
+has_call "device wifi rescan" || fail "retry branch: rescan missing" "$(cat "$CALL_LOG")"
+r="$(line_of "device wifi rescan")"
+u="$(line_of "connection up id energy-node-hotspot")"
+if [ -z "$r" ] || [ -z "$u" ] || [ "$r" -ge "$u" ]; then
+  fail "retry branch: rescan not before hotspot" "$(cat "$CALL_LOG")"
+fi
+[ -s "$STATE_DIR/wifi-scan" ] || fail "retry branch: wifi-scan missing"
+
+# Case 21: the hotspot is already up and nothing restarts it -> no scan.
+reset
+set_settings '{"fallback":"parallel","hotspot":true}'
+lan_down
+echo energy-node-hotspot > "$FX/active"
+printf ':Haus:80:2412 MHz:1:WPA2\n' > "$FX/scan"
+echo 1000 > "$STATE_DIR/hotspot_since"
+tick 1100
+has_call "device wifi rescan" && fail "hotspot running: scan made" "$(cat "$CALL_LOG")"
+[ -e "$STATE_DIR/wifi-scan" ] && fail "hotspot running: wifi-scan written"
+
+# Case 1a: standby, cable unplugged -> drop-in with eth0 MAC, reload, before connect.
+reset; lan_down; tick 1000
+[ -f "$(mac_conf)" ] || fail "1a: drop-in missing"
+grep -qx 'wifi.cloned-mac-address=b8:27:eb:00:00:01' "$(mac_conf)" || fail "1a: wrong MAC" "$(cat "$(mac_conf)")"
+grep -qx 'match-device=interface-name:wlan0' "$(mac_conf)" || fail "1a: match missing"
+head -1 "$(mac_conf)" | grep -qxF '# von energy-node verwaltet - Aenderungen gehen verloren' || fail "1a: marker missing"
+has_call "general reload conf" || fail "1a: reload missing" "$(cat "$CALL_LOG")"
+tick 1031
+r="$(line_of "general reload conf" || true)"; c="$(line_of "connection up uuid u-home" || true)"
+[ -z "$r" ] || fail "1a: reload again at 1031" "$(cat "$CALL_LOG")"
+[ -n "$c" ] || fail "1a: connect missing at 1031" "$(cat "$CALL_LOG")"
+
+# Case 1b: unchanged situation -> no write, no reload.
+before="$(stat -c %Y.%i "$(mac_conf)")"; tick 1046
+has_call "general reload conf" && fail "1b: reload without change" "$(cat "$CALL_LOG")"
+[ "$(stat -c %Y.%i "$(mac_conf)")" = "$before" ] || fail "1b: drop-in rewritten"
+if find "$NM_CONF_DIR" -name '.wifi-mac.*' | grep -q .; then fail "1b: temp file left" "$(ls -A "$NM_CONF_DIR")"; fi
+
+# Case 1c: cable back -> drop-in removed, reload.
+lan_up; tick 1061
+[ -e "$(mac_conf)" ] && fail "1c: drop-in still there"
+has_call "general reload conf" || fail "1c: reload missing" "$(cat "$CALL_LOG")"
+
+# Case 1d: parallel, cable unplugged -> no drop-in.
+reset; set_settings '{"fallback":"parallel","hotspot":true}'; lan_down; tick 1000
+[ -e "$(mac_conf)" ] && fail "1d: drop-in in parallel mode"
+
+# Case 1e: standby, carrier but no IPv4 -> no drop-in (eth0 still on the wire).
+reset; carrier_up_no_ip; tick 1000; tick 1031
+[ -e "$(mac_conf)" ] && fail "1e: drop-in with carrier"
+has_call "connection up uuid u-home" || fail "1e: fallback connect missing" "$(cat "$CALL_LOG")"
+
+# Case 1f: standby, cable unplugged, eth0 MAC unreadable -> no drop-in, own one removed.
+reset; lan_down; tick 1000
+: > "$SYSFS/class/net/eth0/address"; tick 1015
+[ -e "$(mac_conf)" ] && fail "1f: drop-in kept without eth0 MAC"
+
+# Case 1g: foreign file without marker is never touched.
+reset; lan_down; printf '[connection-x]\nfoo=bar\n' > "$(mac_conf)"; tick 1000
+[ "$(cat "$(mac_conf)")" = "$(printf '[connection-x]\nfoo=bar')" ] || fail "1g: foreign file changed"
+lan_up; tick 1015
+[ -f "$(mac_conf)" ] || fail "1g: foreign file removed"
+
+# Case 1h: parallel, WLAN up with the cloned MAC -> one rebuild, then quiet.
+reset; set_settings '{"fallback":"parallel","hotspot":true}'
+echo "wlan0:connected" > "$FX/devices"
+echo b8:27:eb:00:00:01 > "$SYSFS/class/net/wlan0/address"; tick 1000
+d="$(line_of "device disconnect wlan0" || true)"; c="$(line_of "connection up uuid u-home" || true)"
+if ! { [ -n "$d" ] && [ -n "$c" ] && [ "$d" -lt "$c" ]; }; then fail "1h: rebuild missing" "$(cat "$CALL_LOG")"; fi
+echo b8:27:eb:00:00:02 > "$SYSFS/class/net/wlan0/address"; echo "wlan0:connected" > "$FX/devices"; tick 1015
+has_call "device disconnect wlan0" && fail "1h: rebuilt twice" "$(cat "$CALL_LOG")"
 
 echo "PASS: test_network_watch"

@@ -104,8 +104,8 @@ network. The choice is saved as soon as you tap it, there is no save button.
 
 | Choice | Behavior |
 |---|---|
-| Always ready | Wi-Fi stays connected alongside the cable, and the cable has priority. If the cable fails, everything continues over Wi-Fi without a pause. This is the default. |
-| Only on failure | Wi-Fi stays off as long as the cable has an address. If the cable or its address is missing for 30 seconds, the node connects to a saved Wi-Fi network. It disconnects again as soon as the cable is back. |
+| Always ready | Wi-Fi stays connected alongside the cable, and the cable has priority. If the cable fails, everything continues over Wi-Fi without a pause. On Wi-Fi the node has a different address, so devices that reach the broker by a fixed IP lose the connection. For them *Only on failure* is the better choice. |
+| Only on failure | Wi-Fi stays off as long as the cable has an address. If the cable or its address is missing for 30 seconds, the node connects to a saved Wi-Fi network. With the cable unplugged it keeps its address. It disconnects again as soon as the cable is back. This is the default. |
 
 In *Only on failure* the node also disconnects a Wi-Fi network you connected
 by hand, within 15 seconds, as long as the cable has a network. To test a
@@ -113,6 +113,12 @@ Wi-Fi network, pull the cable first or choose *Always ready*.
 
 Without a saved Wi-Fi network the card says so, because the node then has
 nothing to fall back to. A device without a Wi-Fi module shows the card as not available.
+
+The connection card also shows **Address for bookmarks**, for example
+`https://energy-node.local/`. The address stays the same whether the node is on
+cable or Wi-Fi, so bookmark it instead of an IP address. The row only appears
+when the node announces its name on the network (mDNS), and the copy button
+copies the address.
 
 ## Emergency hotspot
 
@@ -139,5 +145,7 @@ no network is reachable** turns this on or off. It is on by default.
   back, and closes the hotspot if one is.
 - The hotspot uses the 2.4 GHz band. Without a country code for Wi-Fi it uses
   channel 1, and the page shows a note.
+- The list of Wi-Fi networks on the page comes from the moment just before the
+  hotspot started, because the node cannot search again while the hotspot is open.
 - The WLAN profiles and the hotspot password are not part of a
   [backup](settings-backup.md).

@@ -65,7 +65,7 @@ func ParseStatus(raw string) (Status, error) {
 		}
 	}
 
-	settings := Settings{Fallback: "parallel", Hotspot: true}
+	settings := Settings{Fallback: "standby", Hotspot: true}
 	if body := strings.TrimSpace(secs["settings"]); body != "" {
 		if err := json.Unmarshal([]byte(body), &settings); err != nil {
 			return Status{}, errors.New("network status: ##settings: " + err.Error())
@@ -129,6 +129,23 @@ func ParseStatus(raw string) (Status, error) {
 		}
 	}
 
+	// An empty or broken ##scanned section means the list is live.
+	scannedAt, _ := strconv.ParseInt(strings.TrimSpace(secs["scanned"]), 10, 64)
+
+	host := Host{}
+	for _, l := range lines(secs["host"]) {
+		f := strings.Fields(l)
+		if len(f) != 2 {
+			continue
+		}
+		switch f[0] {
+		case "name":
+			host.Name = f[1]
+		case "mdns":
+			host.MDNS = f[1] == "yes"
+		}
+	}
+
 	return Status{
 		Managed:  managed,
 		HasWifi:  hasWifi,
@@ -141,7 +158,9 @@ func ParseStatus(raw string) (Status, error) {
 			Active:    hotspotActive,
 			Clients:   clients,
 		},
-		Switch: sw,
+		Switch:        sw,
+		WifiScannedAt: scannedAt,
+		Host:          host,
 	}, nil
 }
 

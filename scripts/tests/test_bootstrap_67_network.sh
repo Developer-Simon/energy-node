@@ -102,6 +102,7 @@ PY
 pw1="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["password"])' "$hotspot")"
 
 grep -qx 'mode=ap' "$profile" || fail "Profil ohne mode=ap" "$(cat "$profile")"
+grep -qx 'cloned-mac-address=permanent' "$profile" || fail "Profil ohne cloned-mac-address=permanent" "$(cat "$profile")"
 grep -qx 'band=bg' "$profile" || fail "Profil ohne band=bg" "$(cat "$profile")"
 grep -qx 'channel=1' "$profile" || fail "ohne Laendercode fehlt channel=1" "$(cat "$profile")"
 grep -qx 'method=shared' "$profile" || fail "ipv4 nicht shared" "$(cat "$profile")"

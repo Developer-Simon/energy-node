@@ -4668,7 +4668,7 @@ func TestNetworkAssetsAreRegisteredAndLeaveOutTheDraft(t *testing.T) {
 		t.Fatal("die Shell enthaelt ico-wifi-off nicht")
 	}
 	settingsPanel := renderPanel(t, "settings")
-	for _, want := range []string{`data-subpage-css="/static/css/network.css?v=1"`, `data-subpage-script="/static/js/network.page.js?v=1"`} {
+	for _, want := range []string{`data-subpage-css="/static/css/network.css?v=2"`, `data-subpage-script="/static/js/network.page.js?v=2"`} {
 		if !strings.Contains(settingsPanel, want) {
 			t.Fatalf("die Einstellungen enthalten %q nicht", want)
 		}

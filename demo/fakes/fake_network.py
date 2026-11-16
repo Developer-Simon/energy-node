@@ -39,13 +39,15 @@ from pathlib import Path
 VERBS = ("network-status", "wifi-scan", "wifi-connect", "wifi-forget", "network-settings",
          "hotspot-secret")
 SECTIONS = ("managed", "country", "wifidev", "rfkill", "devices", "addr", "route", "dns",
-            "speed", "wifi", "profiles", "hotspot", "settings", "switch")
+            "speed", "wifi", "scanned", "profiles", "hotspot", "settings", "switch", "host")
 STAGED_NAME = "network-connect.staged.json"
 PROGRESS_NAME = "network-switch.json"
 LINKS_NAME = "network-links.json"
 SETTINGS_NAME = "network-settings.json"
 FALLBACK_MODES = ("parallel", "standby")
-DEFAULT_SETTINGS = {"fallback": "parallel", "hotspot": True}
+DEFAULT_SETTINGS = {"fallback": "standby", "hotspot": True}
+# Age of the scan the demo node serves while its hotspot is open.
+CACHED_SCAN_AGE_S = 180
 # The emergency hotspot of the demo node. The real helper reads hotspot.json,
 # which bootstrap 67 writes once. Without a state file there is no node, so 66.
 HOTSPOT_SSID = "EnergyNode-4F2A"
@@ -404,6 +406,9 @@ def status_text(env, progress, now, links=None, settings=None):
     if settings is None:
         settings = dict(DEFAULT_SETTINGS)
     profiles, connected = effective_links(spec, links, settings)
+    # Like a Pi 3 in AP mode: the live list is empty while the hotspot is open
+    # and the node serves the list it found shortly before the hotspot started.
+    hotspot_open = connected == HOTSPOT_NAME
     bodies = {
         "managed": "yes" if spec.managed else "no",
         "country": "DE",
@@ -414,11 +419,13 @@ def status_text(env, progress, now, links=None, settings=None):
         "route": _routes(spec, connected),
         "dns": GATEWAY if spec.lan_up or _wan(connected) else "",
         "speed": "eth0 1000" if spec.lan_up else "",
-        "wifi": _wifi_list(spec, connected),
+        "wifi": _wifi_list(spec, None) if hotspot_open else _wifi_list(spec, connected),
+        "scanned": str(int(now) - CACHED_SCAN_AGE_S) if hotspot_open else "",
         "profiles": _profile_text(profiles),
         "hotspot": _hotspot(connected),
         "settings": _settings_text(settings),
         "switch": _switch_text(progress, now),
+        "host": "name energy-node\nmdns yes",
     }
     out = []
     for name in SECTIONS:

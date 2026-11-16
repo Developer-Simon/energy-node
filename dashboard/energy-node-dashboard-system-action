@@ -49,6 +49,17 @@ RESOLV="/etc/resolv.conf"
 NETWORK_JSON="/etc/energy-node/network.json"
 SWITCH_JSON="$RUN_DIR/wifi-switch.json"
 
+# Last Wi-Fi scan of the watcher, served while the hotspot is active. Its time
+# is in wifi-scan-at next to it. The test
+# scripts/tests/test_system_action_network.sh replaces this line with a temp
+# file, so keep the assignment on one line.
+WIFI_SCAN_CACHE="/run/energy-node/network-watch/wifi-scan"
+
+# Host name of the node, first line, reported in ##host. The test
+# scripts/tests/test_system_action_network.sh replaces this line with a temp
+# file, so keep the assignment on one line.
+HOSTNAME_FILE="/proc/sys/kernel/hostname"
+
 # Paths for network-settings and hotspot-secret. HOTSPOT_JSON is written once
 # by the bootstrap step 67-network.sh. The test
 # scripts/tests/test_system_action_network.sh replaces these lines and SYSTEMCTL
@@ -383,11 +394,35 @@ hotspot_state() {
   printf 'active %s\nclients %s\n' "$active" "$clients"
 }
 
+# filter_wifi_lines reads nmcli device wifi lines on stdin and prints only the
+# lines that may stand in a ## section: control characters go, and only lines
+# that start like an nmcli record (IN-USE field, "*" or a space, then a colon)
+# pass. An SSID with an embedded newline leaves continuation lines behind,
+# which must not start a section.
+filter_wifi_lines() {
+  tr -d '\000-\010\013-\037' | awk '/^[* ]?:/'
+}
+
+# host_name prints the first line of HOSTNAME_FILE when it is made of letters,
+# digits and dashes only. Anything else prints nothing.
+host_name() {
+  name="$(head -n 1 "$HOSTNAME_FILE" 2>/dev/null || true)"
+  case "$name" in
+    ''|*[!A-Za-z0-9-]*) name="" ;;
+  esac
+  printf '%s' "$name"
+}
+
 # network_status prints the sections of the network state, one ## marker each,
 # in a fixed order. nmcli-based sections stay empty without NetworkManager.
 network_status() {
   managed="$(nmcli_managed)"
   dev="$(wifi_devices | head -n 1)"
+  hotspot="$(hotspot_state "$dev" "$managed")"
+  hotspot_active=no
+  case "$hotspot" in
+    "active yes"*) hotspot_active=yes ;;
+  esac
   printf '##managed\n%s\n' "$managed"
   printf '##country\n'
   country_code
@@ -407,23 +442,48 @@ network_status() {
   dns_servers
   printf '##speed\n'
   eth_speed
-  printf '##wifi\n'
+  wifi=""
   if [ "$managed" = yes ]; then
-    # Control characters go, and only lines that start like an nmcli record
-    # (IN-USE field, "*" or a space, then a colon) pass. An SSID with an embedded newline
-    # leaves continuation lines behind, which must not start a section.
-    "$NMCLI" -t -f IN-USE,SSID,SIGNAL,FREQ,CHAN,SECURITY device wifi list --rescan no 2>/dev/null | tr -d '\000-\010\013-\037' | awk '/^[* ]?:/' || true
+    wifi="$("$NMCLI" -t -f IN-USE,SSID,SIGNAL,FREQ,CHAN,SECURITY device wifi list --rescan no 2>/dev/null | filter_wifi_lines || true)"
+  fi
+  # With the hotspot up, the phone's WLAN scan is taken from the watcher's last
+  # scan when the live list is empty. Its time goes out only with a valid list.
+  scanned=""
+  if [ -z "$wifi" ] && [ "$hotspot_active" = yes ] && [ -f "$WIFI_SCAN_CACHE" ]; then
+    wifi="$(filter_wifi_lines < "$WIFI_SCAN_CACHE" || true)"
+    if [ -n "$wifi" ]; then
+      scanned_at="$(cat "${WIFI_SCAN_CACHE%/*}/wifi-scan-at" 2>/dev/null || true)"
+      case "$scanned_at" in
+        ''|*[!0-9]*) ;;
+        *) scanned="$scanned_at" ;;
+      esac
+    fi
+  fi
+  printf '##wifi\n'
+  if [ -n "$wifi" ]; then
+    printf '%s\n' "$wifi"
+  fi
+  printf '##scanned\n'
+  if [ -n "$scanned" ]; then
+    printf '%s\n' "$scanned"
   fi
   printf '##profiles\n'
   if [ "$managed" = yes ]; then
     wifi_profiles
   fi
   printf '##hotspot\n'
-  hotspot_state "$dev" "$managed"
+  printf '%s\n' "$hotspot"
   printf '##settings\n'
   cat "$NETWORK_JSON" 2>/dev/null || printf '{}\n'
   printf '##switch\n'
   cat "$SWITCH_JSON" 2>/dev/null || printf '{}\n'
+  printf '##host\n'
+  printf 'name %s\n' "$(host_name)"
+  if "$SYSTEMCTL" is-active --quiet avahi-daemon.service; then
+    printf 'mdns yes\n'
+  else
+    printf 'mdns no\n'
+  fi
 }
 
 # network_settings stores the WLAN fallback mode and the emergency hotspot

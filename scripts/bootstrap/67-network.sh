@@ -242,7 +242,7 @@ if command -v nmcli >/dev/null 2>&1 && has_wlan; then
   {
     printf '[connection]\nid=%s\nuuid=%s\ntype=wifi\nautoconnect=false\ninterface-name=%s\n\n' \
       "${PROFILE_ID}" "${PROFILE_UUID}" "${WLAN_DEV}"
-    printf '[wifi]\nmode=ap\nband=bg\nssid=%s\n' "${ssid}"
+    printf '[wifi]\nmode=ap\nband=bg\nssid=%s\ncloned-mac-address=permanent\n' "${ssid}"
     # Ohne Laendercode darf der Kanal nicht frei gewaehlt werden, sonst
     # scheitert der Hotspot auf manchen Geraeten.
     [[ -n "${country}" ]] || printf 'channel=1\n'
