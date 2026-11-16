@@ -25,7 +25,7 @@
     "client_id": "energy-node-dashboard",
     "device_identifier": "energy-node-dashboard",
     "log_level": "info",
-    "sweep_interval_seconds": 300,
+    "sweep_interval_seconds": 1800,
     "admin_username": "admin",
     "admin_password_file": "/etc/energy-node-dashboard/auth.pw",
     "tls": { "cert_file": "", "key_file": "" },

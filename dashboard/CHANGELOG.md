@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.18 (2026-11-16)
+## v0.11.19 (2026-11-16)
 
 ### Features
 
@@ -19,6 +19,9 @@
 
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
+- **dashboard:** write runtime.json compactly and once more on shutdown (8b4de92)
+- **dashboard:** save the last known values every 30 minutes by default (eae1fa6)
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271)
 - **onboarding:** show the hint bell in its tour and simplify the Home Assistant step (be8d4b3)
 - **onboarding:** drop the companion step up front and switch the hint bell tour to the detail view (00d1d5e)
 - **onboarding:** show a step with an unmet when condition with a note instead of dropping it (87313a3)
@@ -37,7 +40,7 @@
 ### Chores
 
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
-- **onboarding:** fix the tours of the companion HTTP switch and the hint bell (#269)
+- **onboarding:** fix the tours of the companion HTTP switch and the hint bell (#269) (048e5aa)
 - **dashboard:** bump asset cache-bust marks for the hint bell (1064d9f)
 - **dashboard:** migrate the ?v= history to CSV and align two stale marks (c6861dc)
 

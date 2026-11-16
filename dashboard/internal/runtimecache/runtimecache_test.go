@@ -1,7 +1,9 @@
 package runtimecache
 
 import (
+	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -163,5 +165,47 @@ func TestStoreKeepsTheStatePayloadAcrossAnAvailabilityHeartbeat(t *testing.T) {
 	}
 	if payload, ok := fresh.StatePayload("outstation/automation/state"); !ok || payload != document {
 		t.Fatalf("restored StatePayload = %q, %v", payload, ok)
+	}
+}
+
+func TestStoreWritesCompactJSON(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	now := time.Now().UTC().Truncate(time.Second)
+	devices := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{{UniqueID: "power", StateTopic: "state/power", Value: "21.5", HasValue: true, LastSeen: now}}}}
+	if err := store.Sweep(devices, now); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(dir + "/runtime.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(string(data), "\n") {
+		t.Fatalf("runtime.json does not end with a newline: %q", data)
+	}
+	if n := strings.Count(string(data), "\n"); n != 1 {
+		t.Fatalf("runtime.json has %d newlines, want 1: %q", n, data)
+	}
+	if strings.Contains(string(data), "  ") {
+		t.Fatalf("runtime.json is indented: %q", data)
+	}
+}
+
+func TestStoreLoadsIndentedRuntimeFile(t *testing.T) {
+	dir := t.TempDir()
+	data, err := json.MarshalIndent(file{Entries: []Entry{{DeviceID: "d", EntityID: "e", Value: "1", HasAvailability: false, LastSeen: time.Now().UTC()}}}, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir+"/runtime.json", data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(dir)
+	if err := store.Load(); err != nil {
+		t.Fatal(err)
+	}
+	entries := store.Entries()
+	if len(entries) != 1 || entries[0].Value != "1" {
+		t.Fatalf("entries = %#v", entries)
 	}
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.3 (2026-11-16)
+
+### Fixes
+
+- **installer:** offer the tailscaled log step after Tailscale (d0718ef)
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271)
+
 ## v0.3.2 (2026-11-07)
 
 ### Features

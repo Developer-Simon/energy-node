@@ -40,7 +40,7 @@ for step_id, want in expect_keyed.items():
     if got != want:
         sys.exit("step %s: dashboard_key = %r, erwartet %r" % (step_id, got, want))
 
-expect_none = ["10", "15", "17", "20", "30", "35", "50", "60", "70"]
+expect_none = ["10", "15", "17", "20", "30", "35", "41", "50", "60", "70"]
 for step_id in expect_none:
     got = by_id.get(step_id, {}).get("dashboard_key")
     if got:
@@ -54,8 +54,8 @@ if not step35 or step35.get("optional") is not True or step35.get("default") is 
 # Der Webhook-Port ergibt nur mit dem Shelly-Dienst Sinn.
 if step35.get("requires") != "83" or by_id.get("83", {}).get("service_id") != "shelly":
     sys.exit("step 35: erwartet requires 83 (shelly), gefunden %r" % step35.get("requires"))
-if [s["id"] for s in manifest["steps"] if s.get("requires")] != ["35"]:
-    sys.exit("requires steht an anderen Schritten als 35")
+if [s["id"] for s in manifest["steps"] if s.get("requires")] != ["35", "41"]:
+    sys.exit("requires steht an anderen Schritten als 35 und 41")
 # 17 legt das Journal in den Arbeitsspeicher: ebenfalls Opt-in, ohne Abhaengigkeit.
 step17 = by_id.get("17")
 if not step17 or step17.get("optional") is not True or step17.get("default") is not False or step17.get("requires"):
@@ -70,6 +70,13 @@ if not step15 or step15.get("optional") is not True or step15.get("default") is 
 ids = [s["id"] for s in manifest["steps"]]
 if ids.index("15") != ids.index("10") + 1:
     sys.exit("step 15 steht nicht direkt nach 10: %r" % ids)
+# 41 legt den Log-Puffer von tailscaled in den RAM: Vorgabe an, braucht 40,
+# und steht direkt nach 40 (die Schritte laufen in Manifest-Reihenfolge).
+step41 = by_id.get("41")
+if not step41 or step41.get("optional") is not True or step41.get("default") is not True or step41.get("requires") != "40":
+    sys.exit("step 41: erwartet optional, default true, requires 40, gefunden %r" % step41)
+if ids.index("41") != ids.index("40") + 1:
+    sys.exit("step 41 steht nicht direkt nach 40: %r" % ids)
 if by_id.get("30", {}).get("optional"):
     sys.exit("step 30 ist nicht mehr Kern")
 
