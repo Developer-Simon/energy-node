@@ -514,13 +514,16 @@ class SimulatedDeviceState:
 
     relays: aktueller Schaltzustand je Relaiskanal.
     energy_wh: aufsummierte Energie je Leistungskanal/-phase, wird bei
-        jedem simulierten Poll um power_w * vergangene Zeit erhöht.
+        jedem simulierten Poll um positive power_w * vergangene Zeit erhöht.
+    energy_returned_wh: aufsummierte eingespeiste Energie je Phase; negative
+        power_w zählt mit ihrem Betrag hier. Beide Zähler laufen nie rückwärts.
     last_update_ts: Zeitstempel des letzten simulierten Polls, um die
         vergangene Zeit für die Energie-Akkumulation zu bestimmen.
     """
 
     relays: list[bool] = field(default_factory=list)
     energy_wh: list[float] = field(default_factory=list)
+    energy_returned_wh: list[float] = field(default_factory=list)
     last_update_ts: Optional[float] = None
 
 
@@ -549,6 +552,7 @@ def new_simulated_state(cfg: ShellyDeviceConfig) -> SimulatedDeviceState:
     return SimulatedDeviceState(
         relays=[False] * cfg.switch_channels,
         energy_wh=[0.0] * _simulated_power_channel_count(cfg),
+        energy_returned_wh=[0.0] * _simulated_power_channel_count(cfg),
     )
 
 
@@ -559,9 +563,12 @@ def _simulated_channel_power_w(cfg: ShellyDeviceConfig, channel: int, now: float
     Plugs simulieren die Last eines angeschlossenen Verbrauchers.
     """
     if cfg.has_3phase:
-        base, amplitude, period = 300.0, 150.0, 240.0
-    else:
-        base, amplitude, period = 45.0, 25.0, 180.0
+        # Alle Phasen eines Zählers laufen im Gleichschritt: der Offset hängt
+        # nur von der Geräte-ID ab. Der Wert darf negativ werden (Einspeisung).
+        offset = (hash(cfg.id) % 1000) / 1000.0 * 2 * math.pi
+        value = 50.0 + 700.0 * math.sin(now / 600.0 + offset)
+        return round(value, 1)
+    base, amplitude, period = 45.0, 25.0, 180.0
     offset = (hash(f"{cfg.id}-{channel}") % 1000) / 1000.0 * 2 * math.pi
     value = base + amplitude * math.sin(now / period + offset)
     return round(max(0.0, value), 1)
@@ -600,10 +607,13 @@ def simulated_state(
             data["voltage_v"] = [230.0] * channels
         if cfg.has_3phase or cfg.has_energy:
             for ch, watt in enumerate(power):
-                state.energy_wh[ch] += watt * dt_hours
+                if watt >= 0:
+                    state.energy_wh[ch] += watt * dt_hours
+                else:
+                    state.energy_returned_wh[ch] += -watt * dt_hours
             data["energy_wh"] = list(state.energy_wh)
         if cfg.has_3phase:
-            data["energy_returned_wh"] = [0.0] * channels
+            data["energy_returned_wh"] = list(state.energy_returned_wh)
 
     if cfg.adc_channels:
         data["adc_v"] = [0.0] * cfg.adc_channels

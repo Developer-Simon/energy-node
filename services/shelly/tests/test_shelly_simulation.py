@@ -1,4 +1,5 @@
 import asyncio
+from types import SimpleNamespace
 import sys
 from pathlib import Path
 
@@ -78,7 +79,7 @@ def test_meter_power_is_always_present_without_relay():
     state = shelly.new_simulated_state(cfg)
     data = shelly.simulated_state(cfg, state)
     assert len(data["power_w"]) == 3
-    assert all(w > 0.0 for w in data["power_w"])
+    assert all(isinstance(w, float) for w in data["power_w"])
     assert "relays" not in data
 
 
@@ -88,7 +89,11 @@ def test_meter_energy_accumulates_over_time():
     shelly.simulated_state(cfg, state)
     state.last_update_ts -= 3600.0
     data = shelly.simulated_state(cfg, state)
-    assert all(e > 0.0 for e in data["energy_wh"])
+    # Je Phase wächst entweder der Bezugs- oder der Einspeisezähler, je nach Vorzeichen.
+    assert all(
+        bought + returned > 0.0
+        for bought, returned in zip(data["energy_wh"], data["energy_returned_wh"])
+    )
 
 
 def test_apply_relay_command_zeros_power_when_switched_off(monkeypatch):
@@ -110,3 +115,43 @@ def test_apply_relay_command_zeros_power_when_switched_off(monkeypatch):
 
     assert state.relays[0] is False
     assert published[f"{cfg.base_topic}/power/0"] == 0.0
+
+
+def test_meter_power_goes_negative_at_some_time():
+    cfg = meter_config()
+    totals = [
+        sum(shelly._simulated_channel_power_w(cfg, ch, float(t)) for ch in range(3))
+        for t in range(0, 3601, 60)
+    ]
+    assert min(totals) < -1500.0
+
+
+def test_meter_phases_run_in_step():
+    cfg = meter_config()
+    for t in range(0, 3601, 60):
+        values = [shelly._simulated_channel_power_w(cfg, ch, float(t)) for ch in range(3)]
+        assert values[0] == values[1] == values[2]
+
+
+def test_meter_counters_never_decrease(monkeypatch):
+    clock = {"now": 0.0}
+    monkeypatch.setattr(shelly, "time", SimpleNamespace(time=lambda: clock["now"]))
+    cfg = meter_config()
+    state = shelly.new_simulated_state(cfg)
+    previous = None
+    for t in range(0, 3601, 60):
+        clock["now"] = float(t)
+        data = shelly.simulated_state(cfg, state)
+        current = (list(data["energy_wh"]), list(data["energy_returned_wh"]))
+        if previous is not None:
+            for before, after in zip(previous[0] + previous[1], current[0] + current[1]):
+                assert after >= before
+        previous = current
+    assert all(e > 0.0 for e in data["energy_returned_wh"])
+
+
+def test_plug_simulation_unchanged():
+    cfg = plug_config()
+    for t in range(0, 3601, 60):
+        watt = shelly._simulated_channel_power_w(cfg, 0, float(t))
+        assert 20.0 <= watt <= 70.0
