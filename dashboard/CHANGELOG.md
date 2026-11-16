@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.17-pre.19 (2026-11-06)
+## v0.11.19-pre.19 (2026-11-06)
 
 ### Features
 
@@ -20,6 +20,7 @@
 - **performance:** check the effect of applied rates and offer a rollback (#263) (1b785fb)
 - **performance:** break down the dashboard and automation load (#265) (6bb19a8)
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
+- **devices:** Operational notices of a device sit behind a bell in the device modal header (#266) (f21a8c4)
 - **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **network:** show a start page to emergency hotspot clients (c739a91)
 - **network:** match the hotspot start page to the dashboard theme and link the network page (2bba878)
@@ -139,6 +140,7 @@
 
 ### Chores
 
+- **onboarding:** fix the tours of the companion HTTP switch and the hint bell (#269) (048e5aa)
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
 - **webui:** record the cache-bust history for the performance check assets (c01d9e9)
 - **webui:** record the cache-bust marks of the performance page (5b896c1)

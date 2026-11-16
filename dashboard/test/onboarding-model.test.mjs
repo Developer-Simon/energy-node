@@ -344,3 +344,17 @@ test('a normal explore run has no intro, from an item or without from', () => {
   assert.deepEqual([...m.buildSteps({ mode: 'explore', from: 'a', explore, seen: {}, ctx: ctx() }).map((s) => s.id)], ['a']);
   assert.equal(m.buildSteps({ mode: 'explore', explore, seen: {}, ctx: ctx() })[0].newsIntro, undefined);
 });
+
+test('an unmet step keeps its place and gets the hint behind its text', () => {
+  const m = load();
+  const explore = [{ version: '0.12.0', current: true, items: [{ id: 'h1', title: 'H', text: '', steps: [
+    { title: 'A', text: 'Erster Text.', target: 'a' },
+    { title: 'B', text: 'Zweiter Text.', target: 'b', when: 'companion', unmet: true },
+  ] }] }];
+  const steps = m.buildSteps({ mode: 'explore', from: null, explore, seen: {}, status: {}, ctx: ctx() });
+  assert.equal(steps.length, 2);
+  assert.equal(steps[0].text, 'Erster Text.');
+  assert.equal(steps[1].unmet, true);
+  assert.equal(steps[1].text, 'Zweiter Text. Noch nicht sichtbar, nur mit gekoppeltem Home Assistant.');
+  assert.equal(steps[1].eyebrow, 'Neu in 0.12 · 2 von 2');
+});

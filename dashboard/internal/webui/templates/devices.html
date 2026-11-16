@@ -2,7 +2,7 @@
 <section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" data-device-view-mode="{{.DeviceViewMode}}" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" x-data="devicesPanel()" x-init="init()">
   <div class="devices-panel-header">
     <h2>{{t "devices.title"}}</h2>
-    <button type="button" class="device-density-toggle" x-bind:class="{ active: viewMode === 'control' }" x-bind:aria-pressed="viewMode === 'control'" x-bind:disabled="viewModeSaving" x-bind:aria-label="viewMode === 'control' ? $t('devices.toggle_compact') : $t('devices.toggle_detail')" x-on:click="setViewMode(viewMode === 'control' ? 'compact' : 'control')">
+    <button type="button" class="device-density-toggle" data-tour="device-density-toggle" x-bind:class="{ active: viewMode === 'control' }" x-bind:aria-pressed="viewMode === 'control'" x-bind:disabled="viewModeSaving" x-bind:aria-label="viewMode === 'control' ? $t('devices.toggle_compact') : $t('devices.toggle_detail')" x-on:click="setViewMode(viewMode === 'control' ? 'compact' : 'control')">
       <svg class="device-density-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.6"/></svg>
       <span class="device-density-toggle-label" x-text="viewMode === 'control' ? $t('devices.view_mode.details') : $t('devices.view_mode.compact')"></span>
     </button>
@@ -106,7 +106,7 @@
 
 {{define "device-modal"}}
 {{/* Rendert erst, wenn devicesPanel device-modal.js geladen hat (ensureDeviceModal). */}}
-<template x-if="deviceModalReady" x-ref="deviceModalTemplate" data-script="{{.BasePath}}/static/js/device-modal.js?v=6">
+<template x-if="deviceModalReady" x-ref="deviceModalTemplate" data-script="{{.BasePath}}/static/js/device-modal.js?v=7">
 <div class="device-modal-host">
 <dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading" data-choices-script="{{.BasePath}}/static/js-deps/choices.min.js" data-choices-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2">
   <div class="device-modal-topbar">
@@ -128,6 +128,21 @@
       </div>
     </div>
     <div class="device-modal-topbar-actions">
+      <div class="device-modal-bell-wrap" x-cloak x-show="operationalWarnings.length" x-effect="if (!operationalWarnings.length) hintsOpen = false" x-on:click.outside="hintsOpen = false">
+        <button type="button" class="device-modal-bell" data-tour="device-hints-bell" x-bind:class="'is-' + (operationalSeverities[0]?.severity || 'warning')" x-bind:aria-expanded="hintsOpen ? 'true' : 'false'" x-bind:aria-label="$tn('devices.hints.label', operationalWarnings.length)" x-on:click="hintsOpen = !hintsOpen"><svg aria-hidden="true"><use href="#ico-bell"></use></svg><span class="device-modal-bell-count" aria-hidden="true" x-text="operationalWarnings.length"></span></button>
+        <div class="device-modal-hints" data-tour="device-hints-popover" role="dialog" x-bind:aria-label="$tn('devices.hints.label', operationalWarnings.length)" x-show="hintsOpen">
+          <template x-for="warning in operationalWarnings" :key="`${warning.rule_id}-${warning.key || warning.message}`">
+            <div class="device-modal-hints-row" x-bind:class="'is-' + warning.severity">
+              <svg aria-hidden="true"><use x-bind:href="hintIcon(warning.severity)"></use></svg>
+              <div>
+                <span x-text="warningText(warning, 'message')"></span>
+                <small x-show="warning.count > 1" x-text="$tn('devices.hints.entities', warning.count)"></small>
+              </div>
+            </div>
+          </template>
+          <button type="button" class="device-modal-hints-link" x-show="canViewAnalysis" x-on:click="openHintsInAnalysis()">{{t "devices.hints.details"}}</button>
+        </div>
+      </div>
       <div class="device-modal-more-wrap">
         <button type="button" class="device-modal-more" aria-label="{{t "devices.modal.more"}}" aria-haspopup="menu" x-bind:aria-expanded="moreMenuOpen ? 'true' : 'false'" x-on:click="moreMenuOpen = !moreMenuOpen">⋯</button>
         <div class="device-modal-menu" role="menu" x-cloak x-show="moreMenuOpen" x-on:click.outside="moreMenuOpen = false">
@@ -150,11 +165,11 @@
     <aside class="device-modal-sidebar">
       {{template "device-modal-info-body" .}}
     </aside>
-    {{/* Hauptspalte: Favoritenreihe, Betriebswarnungen und Tabs liegen in
-         einem gemeinsamen Block, damit das Zwei-Spalten-Raster nur zwei Kinder
-         hat und die Sidebar die volle Hoehe behaelt. */}}
+    {{/* Hauptspalte: Favoritenreihe und Tabs liegen in einem gemeinsamen Block,
+         damit das Zwei-Spalten-Raster nur zwei Kinder hat und die Sidebar die
+         volle Hoehe behaelt. */}}
     <div class="device-modal-main">
-    <div class="device-modal-summary" x-cloak x-show="heroEntities.length || operationalWarnings.length">
+    <div class="device-modal-summary" x-cloak x-show="heroEntities.length">
     <div class="device-modal-hero" x-cloak x-show="heroEntities.length" x-flip=".device-modal-hero-cell" x-effect="favoriteLimitHit > 0 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && $el.animate([{transform: 'translateX(0)'}, {transform: 'translateX(-4px)'}, {transform: 'translateX(4px)'}, {transform: 'translateX(0)'}], {duration: 240, easing: 'cubic-bezier(0.23, 1, 0.32, 1)'})">
       <template x-for="item in heroEntities" :key="item.entity.unique_id">
         <article class="device-modal-hero-cell" x-bind:class="{ 'is-warn': item.entity.stale || (item.entity.has_availability && !item.entity.available), 'is-auto': item.auto }">
@@ -166,9 +181,6 @@
           <div class="device-modal-hero-value"><span x-roll x-bind:data-roll-value="item.entity.value" x-bind:data-roll-unit="item.entity.unit_of_measurement || ''" x-text="item.entity.has_value ? I18n.formatValue(item.entity.value, item.entity.unit_of_measurement) : '-'"></span><small x-show="item.entity.has_value && item.entity.unit_of_measurement" x-text="item.entity.unit_of_measurement"></small></div>
         </article>
       </template>
-    </div>
-    <div class="device-modal-hero-warnings" x-show="operationalWarnings.length">
-      {{template "device-modal-warning-list" "operationalWarnings"}}
     </div>
     </div>
     <div class="device-modal-switcher" x-ref="deviceModalSwitcher">
@@ -255,8 +267,9 @@
         <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-management">
 
           <h4>{{t "devices.warnings.title"}}</h4>
-          <p x-show="!configWarnings.length">{{t "devices.warnings.empty"}}</p>
-          {{template "device-modal-warning-list" "configWarnings"}}
+          <div x-ref="deviceModalHintsAnchor" x-show="operationalWarnings.length"><h5>{{t "devices.warnings.operational"}}</h5>{{template "device-modal-warning-list" "operationalWarnings"}}</div>
+          <div x-show="configWarnings.length"><h5 x-show="operationalWarnings.length">{{t "devices.warnings.configuration"}}</h5>{{template "device-modal-warning-list" "configWarnings"}}</div>
+          <p x-show="!operationalWarnings.length && !configWarnings.length">{{t "devices.warnings.empty"}}</p>
 
           <h4>{{t "devices.analysis.entities"}}</h4>
           <template x-for="entity in (deviceDetail?.entities || [])" :key="entity.unique_id">

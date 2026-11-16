@@ -27,6 +27,8 @@
 
   window.deviceModalMixin = () => ({
     deviceDetail: null,
+    // Text des Beispielhinweises, den die Tour zeigt, wenn das Geraet keine Betriebshinweise hat.
+    tourDemoHint: '',
     // Aktivitaet seit dem Oeffnen des Modals (mergeActivity), neueste oben.
     activityLog: [],
     detailLoading: false,
@@ -68,6 +70,9 @@
     // Gerätewechsel und bei Escape (closeFloatingMenus).
     iconPickerOpen: false,
     moreMenuOpen: false,
+    // Hinweis-Popover der Glocke. Schliesst wie die beiden anderen beim
+    // Gerätewechsel und bei Escape.
+    hintsOpen: false,
     subDevices: [],
     subEdgeProps: [],
     // False until the map of the open device has loaded. The create action
@@ -238,6 +243,7 @@
     closeFloatingMenus() {
       this.iconPickerOpen = false;
       this.moreMenuOpen = false;
+      this.hintsOpen = false;
     },
 
     async ignoreDevice(deviceId) {
@@ -347,7 +353,36 @@
     // Betriebswarnungen (Gerät offline, Bridge) und Konfigurationswarnungen
     // teilen sich dieselben Gruppen; warning.operational trennt sie.
     get operationalWarnings() {
-      return this.groupedWarnings.filter(warning => warning.operational);
+      const real = this.groupedWarnings.filter(warning => warning.operational);
+      if (real.length || !this.tourDemoHint) return real;
+      return [{rule_id: 'tour-demo', message: this.tourDemoHint, severity: 'info', operational: true, demo: true, count: 1, affectedEntityIds: []}];
+    },
+
+    // Anzahl der Betriebsgruppen je Schwere, schwerste zuerst. Leere
+    // Schweren fehlen.
+    get operationalSeverities() {
+      const order = ['critical', 'warning', 'info'];
+      return order
+        .map(severity => ({
+          severity,
+          count: this.operationalWarnings.filter(warning => warning.severity === severity).length,
+        }))
+        .filter(item => item.count > 0);
+    },
+
+    hintIcon(severity) {
+      if (severity === 'critical') return '#ico-power-off';
+      if (severity === 'info') return '#ico-info';
+      return '#ico-warning';
+    },
+
+    // Oeffnet die Analyse und scrollt zu den Hinweisen. Ohne Recht passiert
+    // nichts, das Popover bleibt dann offen.
+    openHintsInAnalysis() {
+      if (!this.canViewAnalysis || this.operationalWarnings.some(warning => warning.demo)) return;
+      this.hintsOpen = false;
+      this.setDeviceTab('management');
+      this.$nextTick(() => this.$refs.deviceModalHintsAnchor?.scrollIntoView({block: 'start'}));
     },
 
     get configWarnings() {
@@ -539,9 +574,9 @@
       return (this.deviceDetail?.favorite_refs || []).includes(entity?.unique_id);
     },
 
-    // Nur die Konfigurationswarnungen: Betriebswarnungen stehen im Hero.
+    // Alle Warnungen, Betrieb und Konfiguration.
     managementTeaser() {
-      const warningCount = this.configWarnings.length;
+      const warningCount = this.groupedWarnings.length;
       return warningCount ? `⚠ ${warningCount}` : '';
     },
 
@@ -918,7 +953,7 @@
       // Esc schliesst erst ein offenes Icon-Feld oder Mehr-Menue, das Modal
       // bleibt dabei stehen.
       this.dialogKeydown = event => {
-        if (event.key !== 'Escape' || !(this.iconPickerOpen || this.moreMenuOpen)) return;
+        if (event.key !== 'Escape' || !(this.iconPickerOpen || this.moreMenuOpen || this.hintsOpen)) return;
         event.preventDefault();
         this.closeFloatingMenus();
       };

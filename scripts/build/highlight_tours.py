@@ -47,8 +47,9 @@ import highlight_i18n as hi
 TOUR_KEY = "tour"
 DEFAULT_KEY = "*"
 DEVICES = ("any", "phone", "desktop")
-STEP_KEYS = {"panel", "page", "target", "device", "need", "open", "title", "text"}
-OPTIONAL_KEYS = ("panel", "page", "need")
+WHENS = ("companion",)
+STEP_KEYS = {"panel", "page", "target", "device", "need", "when", "open", "title", "text"}
+OPTIONAL_KEYS = ("panel", "page", "need", "when")
 OPEN_ENTRY = re.compile(r"^@?[a-z0-9_-]+$")
 REPLACED_BY_PROBLEM = 'replaced_by must be {"pr": <number>, "step": <number from 1>}'
 # Erster PR des Onboardings (#186): aeltere PR-Dateien brauchen keine Tour.
@@ -126,6 +127,8 @@ def _step_problems(prefix, step):
             problems.append(prefix + f"{key} must be a non-empty string")
     if "device" in step and step["device"] not in DEVICES:
         problems.append(prefix + f"device must be one of {', '.join(DEVICES)}")
+    if "when" in step and step["when"] not in WHENS:
+        problems.append(prefix + f"when must be one of {', '.join(WHENS)}")
     if "open" in step and not _open_is_valid(step["open"]):
         problems.append(prefix + "open must be a non-empty list of data-tour ids or @actions")
     problems.extend(_texts_problems(prefix, "title", step.get("title")))

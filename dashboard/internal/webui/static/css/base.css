@@ -1779,7 +1779,7 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 /* Kopfzeile im Artefakt-Look: Icon-Quadrat + Name + Online-Pill + Untertitel
    statt Name + zwei Buttons. "Discovery neu laden" ist bewusst nicht mehr
    hier - der Button steht unveraendert in "Verwaltung & Analyse". */
-.device-modal-topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem 1rem; border-bottom: 1px solid var(--border-soft); background: var(--panel); }
+.device-modal-topbar { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem 1rem; border-bottom: 1px solid var(--border-soft); background: var(--panel); }
 .device-modal-topbar-id { display: flex; align-items: center; gap: .7rem; min-width: 0; }
 .device-modal-topbar-text { min-width: 0; }
 .device-modal-topbar h3 { margin: 0; color: var(--accent); font-size: 1rem; line-height: 1.25; letter-spacing: -.01em; display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
@@ -1812,6 +1812,30 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-menu [role="menuitem"].danger { color: var(--bad); }
 .device-modal-menu .device-action-tooltip { display: block; }
 .device-modal-menu-sep { height: 1px; margin: .3rem .2rem; background: var(--border-soft); }
+/* Glocke fuer Betriebshinweise im Modalkopf, Popover rechtsbuendig darunter */
+.device-modal-bell-wrap { position: relative; display: inline-flex; }
+.device-modal-bell { position: relative; display: grid; place-items: center; width: 2.1rem; height: 2.1rem; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+.device-modal-bell svg { width: 1.1rem; height: 1.1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.device-modal-bell.is-critical { --hint-c: var(--bad); --hint-bg: var(--bad-bg); }
+.device-modal-bell.is-warning { --hint-c: var(--warn); --hint-bg: var(--warn-bg); }
+.device-modal-bell.is-info { --hint-c: var(--info); --hint-bg: var(--info-bg); }
+.device-modal-bell { color: var(--hint-c, var(--text-muted)); }
+.device-modal-bell:focus-visible, .device-modal-bell[aria-expanded="true"] { border-color: var(--accent); }
+.device-modal-bell:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.device-modal-bell-count { position: absolute; top: -.35rem; right: -.35rem; min-width: 1.05rem; height: 1.05rem; padding: 0 .25rem; border-radius: 99px; background: var(--hint-c, var(--warn)); color: var(--panel); font-size: .66rem; font-weight: 700; line-height: 1.05rem; text-align: center; }
+.device-modal-hints { position: absolute; z-index: 30; top: calc(100% + .45rem); right: 0; min-width: 16rem; max-width: min(24rem, calc(100cqi - 2rem)); padding: .45rem; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: 0 12px 32px rgba(0, 0, 0, .28); transform-origin: top right; animation: device-modal-pop-in 160ms var(--ease-out); color: var(--text); font-size: .84rem; }
+.device-modal-hints-row { display: flex; align-items: flex-start; gap: .45rem; padding: .35rem .4rem; }
+.device-modal-hints-row svg { flex: none; width: 1rem; height: 1rem; margin-top: .1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--warn); }
+.device-modal-hints-row.is-critical svg { color: var(--bad); }
+.device-modal-hints-row.is-info svg { color: var(--info); }
+.device-modal-hints-row small { display: block; margin-top: .15rem; color: var(--text-subtle); }
+.device-modal-hints-link { display: block; width: 100%; margin-top: .2rem; padding: .4rem; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--accent); font: inherit; font-size: .82rem; text-align: left; cursor: pointer; }
+.device-modal-panel h5 { margin: .2rem 0 .4rem; font-size: .74rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-subtle); }
+/* Schmal: das Popover ueber die volle Breite direkt unter dem Modalkopf */
+@container device-modal (max-width: 559px) {
+  .device-modal-bell-wrap { position: static; }
+  .device-modal-hints { left: .75rem; right: .75rem; top: 100%; min-width: 0; max-width: none; }
+}
 /* Favoritenreihe als schmale Kennzahlenleiste: eine gemeinsame Kachel, die
    drei Werte durch Trennkanten geteilt. Sie sitzt in der Hauptspalte ueber
    den Tabs und nimmt nur eine Zeilenhoehe ein. */
@@ -1826,7 +1850,6 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-hero-value small { margin-left: .2rem; font-size: .7rem; color: var(--text-faint); letter-spacing: 0; }
 .device-modal-hero-cell.is-warn .device-modal-hero-value { color: var(--warn); }
 .device-modal-hero .device-modal-star { position: static; flex: none; width: 18px; height: 18px; margin-left: auto; font-size: .85rem; }
-.device-modal-hero-warnings .device-modal-warning { margin: 0; }
 /* Schmal reicht die Kopfzeile nicht fuer Name und "Auto": das Label wird
    kleiner und sitzt oben rechts in der Ecke. Gekuerzt wird hoechstens der
    Name, nie der Wert. */
@@ -1855,7 +1878,7 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
   .device-modal-menu [role="menuitem"]:hover:not(:disabled) { background: var(--panel-alt); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .device-modal-hero-cell, .device-modal-iconpop, .device-modal-menu { animation-name: device-modal-fade; }
+  .device-modal-hero-cell, .device-modal-iconpop, .device-modal-menu, .device-modal-hints { animation-name: device-modal-fade; }
   .device-modal-star { transition: opacity 150ms ease; }
   .device-modal-star:active { transform: none; }
 }

@@ -48,6 +48,17 @@ def test_unknown_device_is_reported():
         "#190 tour *: step 1: device must be one of any, phone, desktop"]
 
 
+def test_unknown_when_is_reported():
+    step = {**STEP, "when": "always"}
+    assert ht.validate(tours({"steps": [step]})) == [
+        "#190 tour *: step 1: when must be one of companion"]
+
+
+def test_when_companion_is_valid():
+    step = {**STEP, "when": "companion"}
+    assert ht.validate(tours({"steps": [step]})) == []
+
+
 def test_missing_target_is_reported():
     step = {k: v for k, v in STEP.items() if k != "target"}
     assert ht.validate(tours({"steps": [step]})) == ["#190 tour *: step 1: target must be a data-tour id"]
