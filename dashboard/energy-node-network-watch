@@ -6,9 +6,13 @@
 # default) or "standby", hotspot true (the default) or false. The state is kept
 # as epoch timestamps under /run/energy-node/network-watch/.
 #
-# Test hooks: NOW (epoch seconds, default date +%s), NETWORK_JSON, STATE_DIR and
-# SYSFS (default /sys). nmcli, ip, iw, systemctl and python3 are looked up on
-# PATH, so a test can stub them.
+# Before the emergency hotspot opens, the watcher scans for Wi-Fi networks and
+# keeps the list in wifi-scan, its time in wifi-scan-at (epoch seconds).
+#
+# Test hooks: NOW (epoch seconds, default date +%s), NETWORK_JSON, STATE_DIR,
+# SYSFS (default /sys) and SCAN_WAIT_S (seconds to wait after the scan, default
+# 5). nmcli, ip, iw, systemctl and python3 are looked up on PATH, so a test can
+# stub them.
 set -u
 
 NETWORK_JSON="${NETWORK_JSON:-/etc/energy-node/network.json}"
@@ -21,6 +25,7 @@ SWITCH_UNIT=energy-node-wifi-switch.service
 LAN_GRACE_S=30
 HOTSPOT_AFTER_S=300
 CONNECT_WAIT_S=60
+SCAN_WAIT_S="${SCAN_WAIT_S:-5}"
 
 # While the helper runs a WLAN switch, the watcher leaves the network alone.
 if systemctl is-active --quiet "$SWITCH_UNIT"; then
@@ -99,7 +104,25 @@ hotspot_down() {
   nmcli connection down id "$HOTSPOT" >/dev/null 2>&1 || true
 }
 
+# save_scan asks for a fresh Wi-Fi scan and keeps the list. An empty scan changes
+# nothing, and an unchanged list is not written again.
+save_scan() {
+  nmcli device wifi rescan >/dev/null 2>&1 || true
+  sleep "$SCAN_WAIT_S"
+  scan="$(nmcli -t -f IN-USE,SSID,SIGNAL,FREQ,CHAN,SECURITY device wifi list --rescan no 2>/dev/null || true)"
+  if [ -z "$scan" ]; then
+    return 0
+  fi
+  printf '%s\n' "$scan" > "$STATE_DIR/wifi-scan.new"
+  if ! cmp -s "$STATE_DIR/wifi-scan.new" "$STATE_DIR/wifi-scan"; then
+    mv "$STATE_DIR/wifi-scan.new" "$STATE_DIR/wifi-scan"
+    echo "$now" > "$STATE_DIR/wifi-scan-at"
+  fi
+  rm -f "$STATE_DIR/wifi-scan.new"
+}
+
 hotspot_up() {
+  save_scan
   nmcli connection up id "$HOTSPOT" >/dev/null 2>&1 || true
   echo "$now" > "$STATE_DIR/hotspot_since"
 }

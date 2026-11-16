@@ -19,6 +19,7 @@ export SWITCH_ACTIVE="$tmp/switch-active"
 export SYSFS="$tmp/sys"
 export NETWORK_JSON="$tmp/network.json"
 export STATE_DIR="$tmp/state"
+export SCAN_WAIT_S=0
 mkdir -p "$tmp/bin"
 export PATH="$tmp/bin:$PATH"
 
@@ -42,6 +43,14 @@ cat > "$tmp/bin/nmcli" <<'SH'
 case "$*" in
   "-t -f DEVICE,STATE device") cat "$FX/devices" ;;
   "-t -f NAME connection show --active") cat "$FX/active" ;;
+  "device wifi rescan")
+    echo "nmcli $*" >> "$CALL_LOG"
+    exit 0
+    ;;
+  "-t -f IN-USE,SSID,SIGNAL,FREQ,CHAN,SECURITY device wifi list --rescan no")
+    if [ -e "$FX/scan" ]; then cat "$FX/scan"; fi
+    exit 0
+    ;;
   "connection up id energy-node-hotspot")
     echo "nmcli $*" >> "$CALL_LOG"
     if [ -e "$FX/hotspot-fail" ]; then exit 4; fi
@@ -327,5 +336,69 @@ lan_down
 tick 1000
 tick 1031
 grep -q "connection up" "$CALL_LOG" && fail "AP only: connection up called" "$(cat "$CALL_LOG")"
+
+# Case 17: the hotspot opens -> a Wi-Fi scan runs first and its list is saved.
+reset
+set_settings '{"fallback":"parallel","hotspot":true}'
+lan_down
+printf ':Haus:80:2412 MHz:1:WPA2\n:Nachbar:40:2437 MHz:6:WPA2\n' > "$FX/scan"
+tick 1000
+tick 1300
+has_call "device wifi rescan" || fail "hotspot start: rescan missing" "$(cat "$CALL_LOG")"
+r="$(line_of "device wifi rescan")"
+u="$(line_of "connection up id energy-node-hotspot")"
+if [ -z "$r" ] || [ -z "$u" ] || [ "$r" -ge "$u" ]; then
+  fail "hotspot start: rescan not before hotspot" "$(cat "$CALL_LOG")"
+fi
+expected=':Haus:80:2412 MHz:1:WPA2
+:Nachbar:40:2437 MHz:6:WPA2'
+[ "$(cat "$STATE_DIR/wifi-scan")" = "$expected" ] || fail "hotspot start: wifi-scan wrong" "$(cat "$STATE_DIR/wifi-scan" 2>&1)"
+[ "$(cat "$STATE_DIR/wifi-scan-at")" = 1300 ] || fail "hotspot start: wifi-scan-at wrong" "$(cat "$STATE_DIR/wifi-scan-at" 2>&1)"
+
+# Case 18: the hotspot opens again with the same list -> the file is not rewritten.
+inode="$(stat -c %i "$STATE_DIR/wifi-scan")"
+: > "$FX/active"
+tick 1700
+has_call "device wifi rescan" || fail "repeat: rescan missing" "$(cat "$CALL_LOG")"
+[ "$(stat -c %i "$STATE_DIR/wifi-scan")" = "$inode" ] || fail "repeat: same list rewritten"
+[ "$(cat "$STATE_DIR/wifi-scan-at")" = 1300 ] || fail "repeat: wifi-scan-at changed"
+
+# Case 19: empty scan, the good file stays and the hotspot still comes up.
+old="$(cat "$STATE_DIR/wifi-scan")"
+rm -f "$FX/scan"
+: > "$FX/active"
+tick 2100
+has_call "connection up id energy-node-hotspot" || fail "empty scan: hotspot not up" "$(cat "$CALL_LOG")"
+[ "$(cat "$STATE_DIR/wifi-scan")" = "$old" ] || fail "empty scan: wifi-scan changed"
+[ "$(cat "$STATE_DIR/wifi-scan-at")" = 1300 ] || fail "empty scan: wifi-scan-at changed"
+
+# Case 20: open hotspot, no client, WLAN connect fails -> the scan runs before
+# the hotspot comes up again.
+reset
+set_settings '{"fallback":"parallel","hotspot":true}'
+lan_down
+echo energy-node-hotspot > "$FX/active"
+touch "$FX/wifi-fail"
+printf ':Haus:80:2412 MHz:1:WPA2\n' > "$FX/scan"
+echo 1000 > "$STATE_DIR/hotspot_since"
+tick 1300
+has_call "device wifi rescan" || fail "retry branch: rescan missing" "$(cat "$CALL_LOG")"
+r="$(line_of "device wifi rescan")"
+u="$(line_of "connection up id energy-node-hotspot")"
+if [ -z "$r" ] || [ -z "$u" ] || [ "$r" -ge "$u" ]; then
+  fail "retry branch: rescan not before hotspot" "$(cat "$CALL_LOG")"
+fi
+[ -s "$STATE_DIR/wifi-scan" ] || fail "retry branch: wifi-scan missing"
+
+# Case 21: the hotspot is already up and nothing restarts it -> no scan.
+reset
+set_settings '{"fallback":"parallel","hotspot":true}'
+lan_down
+echo energy-node-hotspot > "$FX/active"
+printf ':Haus:80:2412 MHz:1:WPA2\n' > "$FX/scan"
+echo 1000 > "$STATE_DIR/hotspot_since"
+tick 1100
+has_call "device wifi rescan" && fail "hotspot running: scan made" "$(cat "$CALL_LOG")"
+[ -e "$STATE_DIR/wifi-scan" ] && fail "hotspot running: wifi-scan written"
 
 echo "PASS: test_network_watch"
