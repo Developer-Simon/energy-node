@@ -38,6 +38,11 @@
           ]);
           shared.manifest = results[0];
           shared.selection = results[1];
+          // Erstinstallation: die allererste Auswahl stammt aus der Vorgabe des
+          // Manifests. Spaetere Ladevorgaenge aendern das nicht mehr.
+          if (shared.firstInstall === undefined) {
+            shared.firstInstall = results[1].source === 'manifest-default';
+          }
           this.manifest = results[0];
           this.steps = Object.assign({}, results[1].steps);
           window.Services.dropUnmet(this.manifest, this.steps);

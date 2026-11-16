@@ -22,6 +22,9 @@
   var Services = {
     CORE_STEP: CORE_STEP,
     DASHBOARD_UNIT: DASHBOARD_UNIT,
+    // Schritte, die nur bei der Erstinstallation angeboten werden (89: das
+    // Beispiel). Bei einem Update fehlen sie in der Konfiguration ganz.
+    FRESH_ONLY_STEPS: ['89'],
     // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels
     // baut (Vorschau und Diagnose). Ein Test haelt die Liste gegen das Skript.
     WHEEL_COMPONENTS: ['energy_node_common', 'battery_soc_core'],
@@ -120,9 +123,13 @@
           on: chips.some(function (chip) { return chip.on; }), known: true, chips: chips,
         });
       }
+      var hideFresh = !shell.shared || shell.shared.firstInstall !== true;
       parts.system.forEach(function (step) {
         // Erst sichtbar, wenn der benoetigte Schritt an ist (35 mit Shelly).
         if (!Services.requiresMet(manifest, step, selection)) {
+          return;
+        }
+        if (hideFresh && Services.FRESH_ONLY_STEPS.indexOf(step.id) !== -1) {
           return;
         }
         rows.push({

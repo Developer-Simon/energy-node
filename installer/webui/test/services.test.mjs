@@ -217,3 +217,33 @@ test('systemPackagesText listet Paket und Versionen', () => {
   assert.equal(S.systemPackagesText({ count: 0, packages: [] }), '');
   assert.equal(S.systemPackagesText(null), '');
 });
+
+test('toggles hides step 89 on an update', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: false };
+  const manifest = Object.assign({}, MANIFEST, {
+    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
+  });
+  assert.ok(!S.toggles(manifest, SELECTION, shell).some((row) => row.key === 'step-89'));
+});
+
+test('toggles shows step 89 on a first install', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  const manifest = Object.assign({}, MANIFEST, {
+    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
+  });
+  const row = S.toggles(manifest, SELECTION, shell).find((item) => item.key === 'step-89');
+  assert.ok(row, 'Zeile step-89 vorhanden');
+  assert.equal(row.on, false);
+});
+
+test('toggles hides step 89 when shelly is off', () => {
+  const { S, shell } = load();
+  shell.shared = { firstInstall: true };
+  const manifest = Object.assign({}, MANIFEST, {
+    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
+  });
+  const selection = Object.assign({}, SELECTION, { steps: Object.assign({}, SELECTION.steps, { 83: false }) });
+  assert.ok(!S.toggles(manifest, selection, shell).some((row) => row.key === 'step-89'));
+});
