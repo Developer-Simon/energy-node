@@ -427,6 +427,7 @@ r="$(line_of "general reload conf" || true)"; c="$(line_of "connection up uuid u
 before="$(stat -c %Y.%i "$(mac_conf)")"; tick 1046
 has_call "general reload conf" && fail "1b: reload without change" "$(cat "$CALL_LOG")"
 [ "$(stat -c %Y.%i "$(mac_conf)")" = "$before" ] || fail "1b: drop-in rewritten"
+if find "$NM_CONF_DIR" -name '.wifi-mac.*' | grep -q .; then fail "1b: temp file left" "$(ls -A "$NM_CONF_DIR")"; fi
 
 # Case 1c: cable back -> drop-in removed, reload.
 lan_up; tick 1061

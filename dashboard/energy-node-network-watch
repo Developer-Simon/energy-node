@@ -178,13 +178,16 @@ mac_conf_sync() {
     if [ -e "$MAC_CONF" ] && [ "$has_marker" = no ]; then
       return 0
     fi
-    tmp="$(mktemp "$NM_CONF_DIR/.wifi-mac.XXXXXX" 2>/dev/null)" || return 0
-    printf '%s\n[connection-energy-node-wifi-mac]\nmatch-device=interface-name:wlan0\nwifi.cloned-mac-address=%s\n' \
-      "$MAC_MARKER" "$mac" > "$tmp"
-    if [ -f "$MAC_CONF" ] && cmp -s "$tmp" "$MAC_CONF"; then
-      rm -f "$tmp"
+    # The trailing x keeps the final newline through command substitution.
+    content="$(printf '%s\n[connection-energy-node-wifi-mac]\nmatch-device=interface-name:wlan0\nwifi.cloned-mac-address=%s\n' \
+      "$MAC_MARKER" "$mac"; printf x)"
+    content="${content%x}"
+    # Nothing is written when the file already has the wanted content.
+    if [ -f "$MAC_CONF" ] && printf '%s' "$content" | cmp -s - "$MAC_CONF"; then
       return 0
     fi
+    tmp="$(mktemp "$NM_CONF_DIR/.wifi-mac.XXXXXX" 2>/dev/null)" || return 0
+    printf '%s' "$content" > "$tmp"
     chmod 0644 "$tmp"
     if mv -f "$tmp" "$MAC_CONF"; then
       nmcli general reload conf >/dev/null 2>&1 || true
