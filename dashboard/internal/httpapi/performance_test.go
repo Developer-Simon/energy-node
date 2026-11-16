@@ -53,21 +53,28 @@ func performanceRouterWith(t *testing.T, snap performance.Snapshot) (http.Handle
 // performanceRouterWithChanges is performanceRouterWith with a change store attached.
 func performanceRouterWithChanges(t *testing.T, snap performance.Snapshot, changes ChangeStore) (http.Handler, *auth.Manager) {
 	t.Helper()
+	return performanceRouterWithDeps(t, snap, func(deps *PerformanceDeps) { deps.Changes = changes })
+}
+
+// performanceRouterWithDeps is the performance router with mutate applied to
+// the performance deps before the router is built.
+func performanceRouterWithDeps(t *testing.T, snap performance.Snapshot, mutate func(*PerformanceDeps)) (http.Handler, *auth.Manager) {
+	t.Helper()
 	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
 	if err != nil {
 		t.Fatal(err)
 	}
-	deps := RouterDependencies{
-		Auth: manager,
-		Performance: &PerformanceDeps{
-			Provider: stubPerformance{snap: snap},
-			Rates: func() performance.RateConfig {
-				return performance.RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 15, Services: map[string]float64{"shelly": 20}}
-			},
-			Floors:  map[string]float64{"shelly": 2},
-			Changes: changes,
+	perf := &PerformanceDeps{
+		Provider: stubPerformance{snap: snap},
+		Rates: func() performance.RateConfig {
+			return performance.RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 15, Services: map[string]float64{"shelly": 20}}
 		},
+		Floors: map[string]float64{"shelly": 2},
 	}
+	if mutate != nil {
+		mutate(perf)
+	}
+	deps := RouterDependencies{Auth: manager, Performance: perf}
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, deps)
 	return router, manager
 }
@@ -235,5 +242,153 @@ func TestPerformanceReturnsStoredChange(t *testing.T) {
 	}
 	if body.Change == nil || body.Change.State != "running" || body.Change.After["shelly"] != 20 {
 		t.Fatalf("change = %+v, want running with shelly 20: %s", body.Change, recorder.Body.String())
+	}
+}
+
+// breakdownSnapshot is the test window with a dashboard split and the dashboard unit.
+func breakdownSnapshot() performance.Snapshot {
+	snap := performanceTestSnapshot()
+	snap.Units = append(snap.Units, performance.UnitStats{ID: performance.DashboardUnit, CPUP95: 10})
+	snap.ClientsMax = 3
+	snap.Dashboard = &performance.DashboardSplit{
+		GCShare: 0.1,
+		Shares: map[performance.Part]float64{
+			performance.PartPush:       0.4,
+			performance.PartHTTP:       0.3,
+			performance.PartMQTT:       0.1,
+			performance.PartNode:       0.1,
+			performance.PartBackground: 0.1,
+		},
+	}
+	return snap
+}
+
+// getPerformance reads GET /api/v1/performance as a diagnostics viewer.
+func getPerformance(t *testing.T, router http.Handler, manager *auth.Manager) []byte {
+	t.Helper()
+	diagnostics, _ := loginWithRoles(t, router, manager, "breakdown", []string{auth.RoleViewDiagnostics})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, sessionRequest(t, "/api/v1/performance", diagnostics, true))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	return recorder.Body.Bytes()
+}
+
+func TestPerformanceBreakdownFields(t *testing.T) {
+	router, manager := performanceRouterWithDeps(t, breakdownSnapshot(), func(deps *PerformanceDeps) {
+		deps.Automation = func() []performance.AutomationEntry {
+			return []performance.AutomationEntry{
+				{ID: "nacht", Name: "Nachtladen", Kind: "rule"},
+				{ID: "licht", Name: "Licht", Kind: "rule"},
+			}
+		}
+	})
+	var body struct {
+		Breakdown struct {
+			Dashboard *struct {
+				Parts []struct {
+					ID      string  `json:"id"`
+					Pct     float64 `json:"pct"`
+					Clients *int    `json:"clients"`
+				} `json:"parts"`
+			} `json:"dashboard"`
+			Automation *struct {
+				Groups []struct {
+					Row   string `json:"row"`
+					Items []struct {
+						ID   string `json:"id"`
+						Name string `json:"name"`
+						Kind string `json:"kind"`
+					} `json:"items"`
+				} `json:"groups"`
+			} `json:"automation"`
+		} `json:"breakdown"`
+	}
+	raw := getPerformance(t, router, manager)
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Breakdown.Dashboard == nil {
+		t.Fatalf("dashboard breakdown is null: %s", raw)
+	}
+	wantIDs := []string{"push", "http", "mqtt", "node", "background", "gc"}
+	parts := body.Breakdown.Dashboard.Parts
+	if len(parts) != len(wantIDs) {
+		t.Fatalf("parts = %+v, want ids %v: %s", parts, wantIDs, raw)
+	}
+	for i, id := range wantIDs {
+		if parts[i].ID != id {
+			t.Fatalf("part %d = %s, want %s: %s", i, parts[i].ID, id, raw)
+		}
+		if (parts[i].Clients != nil) != (id == "push") {
+			t.Fatalf("part %s clients = %v, only push carries clients: %s", id, parts[i].Clients, raw)
+		}
+	}
+	if parts[0].Clients == nil || *parts[0].Clients != 3 {
+		t.Fatalf("push clients = %v, want 3: %s", parts[0].Clients, raw)
+	}
+	if body.Breakdown.Automation == nil || len(body.Breakdown.Automation.Groups) == 0 {
+		t.Fatalf("automation breakdown missing: %s", raw)
+	}
+	group := body.Breakdown.Automation.Groups[0]
+	if group.Row != "tick" || len(group.Items) != 2 {
+		t.Fatalf("group = %+v, want tick with two items: %s", group, raw)
+	}
+	if group.Items[0].Name != "Licht" || group.Items[1].Name != "Nachtladen" || group.Items[0].Kind != "rule" {
+		t.Fatalf("items = %+v, want Licht then Nachtladen: %s", group.Items, raw)
+	}
+}
+
+func TestPerformanceBreakdownNullWithoutSplit(t *testing.T) {
+	router, manager := performanceRouterWith(t, performanceTestSnapshot())
+	var body struct {
+		Breakdown struct {
+			Dashboard  *json.RawMessage `json:"dashboard"`
+			Automation *json.RawMessage `json:"automation"`
+		} `json:"breakdown"`
+	}
+	raw := getPerformance(t, router, manager)
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Breakdown.Dashboard != nil || body.Breakdown.Automation != nil {
+		t.Fatalf("breakdown must be null without split and groups: %s", raw)
+	}
+}
+
+func TestPerformanceRegulatorRowFollowsScenarios(t *testing.T) {
+	cases := []struct {
+		name    string
+		entries []performance.AutomationEntry
+		want    bool
+	}{
+		{"rules only", []performance.AutomationEntry{{ID: "licht", Name: "Licht", Kind: "rule"}}, false},
+		{"scenario with regulator", []performance.AutomationEntry{{ID: "nacht", Name: "Nacht", Kind: "scenario", Regulator: true}}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			router, manager := performanceRouterWithDeps(t, breakdownSnapshot(), func(deps *PerformanceDeps) {
+				deps.Automation = func() []performance.AutomationEntry { return tc.entries }
+			})
+			var body struct {
+				Rows []struct {
+					ID string `json:"id"`
+				} `json:"rows"`
+			}
+			raw := getPerformance(t, router, manager)
+			if err := json.Unmarshal(raw, &body); err != nil {
+				t.Fatal(err)
+			}
+			found := false
+			for _, row := range body.Rows {
+				if row.ID == "regulator" {
+					found = true
+				}
+			}
+			if found != tc.want {
+				t.Fatalf("regulator row present = %v, want %v: %s", found, tc.want, raw)
+			}
+		})
 	}
 }

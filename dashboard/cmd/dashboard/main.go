@@ -589,7 +589,9 @@ func main() {
 			}
 			return performance.DeviceSignals{TempC: telemetry.CPUTempC, Throttled: telemetry.UndervoltageNow}
 		},
-		RoundS: nodeAgent.ServiceRoundS,
+		RoundS:     nodeAgent.ServiceRoundS,
+		Timing:     perfTiming,
+		RuntimeCPU: performance.ReadRuntimeCPU,
 	})
 	// Der Befund performance_over_budget vergleicht die Last mit dem Budget der
 	// Seite Leistung, Ziel minus Abzug.
@@ -620,6 +622,19 @@ func main() {
 	var perfProvider httpapi.PerformanceProvider = perfMonitor
 	if fakeFile := os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE_FILE"); fakeFile != "" && os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE") == "1" {
 		perfProvider = performance.NewFileProvider(fakeFile)
+	}
+	// Die Automationen für die Aufschlüsselung der Leistungsseite. Ohne lesbare
+	// Datei gibt es keine Einträge.
+	performanceAutomation := func() []performance.AutomationEntry {
+		raw, err := configManager.Read("automation_rules")
+		if err != nil {
+			return nil
+		}
+		entries, err := performance.ParseAutomation(raw)
+		if err != nil {
+			return nil
+		}
+		return entries
 	}
 	performanceRates := func() performance.RateConfig {
 		// Ohne lesbaren Wert gelten die Standardwerte: Live-Aktualisierung 3 s
@@ -1038,6 +1053,7 @@ func main() {
 		Performance: &httpapi.PerformanceDeps{
 			Provider:   perfProvider,
 			Rates:      performanceRates,
+			Automation: performanceAutomation,
 			Floors:     perfFloors,
 			Changes:    perfMonitor,
 			Auth:       authManager,
