@@ -8,7 +8,7 @@
 # Fassung festgehalten (hold).
 # Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
-# step-inputs: bootstrap/lib/step.sh bootstrap/lib/packages.sh bootstrap/keyrings/ dashboard/Caddyfile manifest:packages.caddy
+# step-inputs: bootstrap/lib/step.sh bootstrap/lib/packages.sh bootstrap/keyrings/ dashboard/Caddyfile dashboard/hotspot/index.html manifest:packages.caddy
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
@@ -136,6 +136,12 @@ else
     step_log "Die vorhandene ${caddyfile} weicht ab und bleibt unangetastet."
   fi
 fi
+
+# Startseite fuer Hotspot-Clients (Schritt 67). Sie gehoert zum Bundle und
+# wird bei jedem Lauf unveraendert nach /usr/share/energy-node/hotspot gelegt.
+hotspot_page="${EN_BUNDLE_DIR}/dashboard/hotspot/index.html"
+"${SUDO[@]}" install -D -m 0644 "${hotspot_page}" \
+  "${EN_ROOT}/usr/share/energy-node/hotspot/index.html"
 
 "${SUDO[@]}" caddy validate --config "${caddyfile}" >/dev/null 2>&1 \
   || step_fail CADDY_CONFIG_INVALID

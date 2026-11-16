@@ -179,6 +179,9 @@ for file in "${BINARY_NAME}.service" "${BINARY_NAME}-system-action" \
   stage_template "${REPO_ROOT}/dashboard/${file}" "${STAGE}/dashboard/${file}"
 done
 cp "${REPO_ROOT}/dashboard/Caddyfile" "${STAGE}/dashboard/Caddyfile"
+# Startseite fuer Notfall-Hotspot-Clients (Schritt 70).
+mkdir -p "${STAGE}/dashboard/hotspot"
+cp "${REPO_ROOT}/dashboard/hotspot/index.html" "${STAGE}/dashboard/hotspot/index.html"
 install -m 0755 "${REPO_ROOT}/dashboard/energy-node-updater.sh" \
   "${STAGE}/dashboard/energy-node-updater"
 chmod 0755 "${STAGE}/dashboard/energy-node-storage-helper"
