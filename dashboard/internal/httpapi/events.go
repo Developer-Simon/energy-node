@@ -273,6 +273,17 @@ func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energ
 type EventStreams struct {
 	mu  sync.Mutex
 	hub *registryevents.Hub
+	// Push bekommt die Dauer jedes Rumpf-Baus und jedes Schreibens eines
+	// Rumpfs an einen Strom. nil heisst: nicht messen.
+	Push func(time.Duration)
+}
+
+// report meldet d an Push. Ein nil-Halter oder fehlendes Push ist ohne Wirkung.
+func (e *EventStreams) report(d time.Duration) {
+	if e == nil || e.Push == nil {
+		return
+	}
+	e.Push(d)
 }
 
 // Subscribers liefert die Zahl der offenen Ströme.
@@ -296,6 +307,7 @@ func (e *EventStreams) attach(hub *registryevents.Hub) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.hub = hub
+	hub.SetRefreshObserver(e.Push)
 }
 
 // handleEventsWithStreams wie handleEvents; streams nimmt den Hub auf, nil heisst: keiner.
@@ -329,6 +341,8 @@ func handleEventsWithStreams(reg *registry.Registry, store *settings.Store, reso
 		defer cancel()
 
 		writeEvent := func(payload []byte) bool {
+			start := time.Now()
+			defer func() { streams.report(time.Since(start)) }()
 			if _, err := fmt.Fprintf(w, "event: registry\ndata: %s\n\n", payload); err != nil {
 				return false
 			}

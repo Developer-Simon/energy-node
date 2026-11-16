@@ -118,6 +118,9 @@ type Hub struct {
 	state    []topicState
 	lastHead uint64
 	headSeen bool
+	// refreshObserver bekommt die Dauer jedes refresh-Laufs. Gelesen und
+	// gesetzt wird er unter pollMu.
+	refreshObserver func(time.Duration)
 
 	mu          sync.Mutex
 	subs        map[int]*subscriber
@@ -234,6 +237,14 @@ func (h *Hub) deliverLocked(id int, ch chan []byte, payload []byte) {
 	}
 }
 
+// SetRefreshObserver meldet die Dauer jedes refresh-Laufs, auch der ohne
+// Aenderung. nil schaltet die Meldung ab.
+func (h *Hub) SetRefreshObserver(fn func(time.Duration)) {
+	h.pollMu.Lock()
+	defer h.pollMu.Unlock()
+	h.refreshObserver = fn
+}
+
 // poll fuehrt genau eine Iteration aus. Der Loop ruft das getaktet, Tests
 // rufen es direkt.
 func (h *Hub) poll() {
@@ -248,6 +259,10 @@ func (h *Hub) poll() {
 // derselben Maske teilen sich den Rumpf. Erwartet, dass der Aufrufer pollMu
 // haelt.
 func (h *Hub) refresh(extra uint64) {
+	if observer := h.refreshObserver; observer != nil {
+		start := time.Now()
+		defer func() { observer(time.Since(start)) }()
+	}
 	h.mu.Lock()
 	active := extra
 	for _, sub := range h.subs {

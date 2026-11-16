@@ -153,6 +153,7 @@ type Client struct {
 	stateObserver     func([]registry.StateChange)
 	discoveryObserver func(registry.Discovery)
 	messageObserver   func(topic string, at time.Time)
+	ingestObserver    func(time.Duration)
 	filter            DeviceFilter
 	status            Status
 	everConnected     bool
@@ -197,6 +198,14 @@ func (c *Client) SetStateObserver(observer func([]registry.StateChange)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.stateObserver = observer
+}
+
+// SetIngestObserver meldet die Dauer der Verarbeitung je Zustandsnachricht,
+// vom Eingang bis zum Ende von handleState. nil schaltet die Meldung ab.
+func (c *Client) SetIngestObserver(observer func(time.Duration)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.ingestObserver = observer
 }
 
 // SetMessageObserver meldet jede eingehende Zustandsnachricht, auch wenn sie
@@ -1182,7 +1191,11 @@ func (c *Client) handleState(_ mqtt.Client, msg mqtt.Message) {
 	now := time.Now()
 	c.mu.Lock()
 	messageObserver := c.messageObserver
+	ingestObserver := c.ingestObserver
 	c.mu.Unlock()
+	if ingestObserver != nil {
+		defer func() { ingestObserver(time.Since(now)) }()
+	}
 	if messageObserver != nil {
 		messageObserver(msg.Topic(), now)
 	}

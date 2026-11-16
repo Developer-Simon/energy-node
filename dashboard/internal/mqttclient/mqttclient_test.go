@@ -558,3 +558,21 @@ func TestDefaultRetryDelayDoublesAndCapsAtOneMinute(t *testing.T) {
 		}
 	}
 }
+
+func TestHandleStateReportsIngest(t *testing.T) {
+	client := NewWithContext(context.Background(), Config{}, registry.New(), nil)
+
+	calls := 0
+	client.SetIngestObserver(func(d time.Duration) {
+		calls++
+		if d < 0 {
+			t.Errorf("ingest duration = %v, want >= 0", d)
+		}
+	})
+
+	client.handleState(nil, fakeMessage{topic: "outstation/shelly/state", payload: []byte("1")})
+
+	if calls != 1 {
+		t.Fatalf("ingest observer calls = %d, want 1", calls)
+	}
+}
