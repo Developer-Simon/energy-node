@@ -132,6 +132,20 @@ func ParseStatus(raw string) (Status, error) {
 	// An empty or broken ##scanned section means the list is live.
 	scannedAt, _ := strconv.ParseInt(strings.TrimSpace(secs["scanned"]), 10, 64)
 
+	host := Host{}
+	for _, l := range lines(secs["host"]) {
+		f := strings.Fields(l)
+		if len(f) != 2 {
+			continue
+		}
+		switch f[0] {
+		case "name":
+			host.Name = f[1]
+		case "mdns":
+			host.MDNS = f[1] == "yes"
+		}
+	}
+
 	return Status{
 		Managed:  managed,
 		HasWifi:  hasWifi,
@@ -146,6 +160,7 @@ func ParseStatus(raw string) (Status, error) {
 		},
 		Switch:        sw,
 		WifiScannedAt: scannedAt,
+		Host:          host,
 	}, nil
 }
 

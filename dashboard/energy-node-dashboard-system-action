@@ -55,6 +55,11 @@ SWITCH_JSON="$RUN_DIR/wifi-switch.json"
 # file, so keep the assignment on one line.
 WIFI_SCAN_CACHE="/run/energy-node/network-watch/wifi-scan"
 
+# Host name of the node, first line, reported in ##host. The test
+# scripts/tests/test_system_action_network.sh replaces this line with a temp
+# file, so keep the assignment on one line.
+HOSTNAME_FILE="/proc/sys/kernel/hostname"
+
 # Paths for network-settings and hotspot-secret. HOTSPOT_JSON is written once
 # by the bootstrap step 67-network.sh. The test
 # scripts/tests/test_system_action_network.sh replaces these lines and SYSTEMCTL
@@ -398,6 +403,16 @@ filter_wifi_lines() {
   tr -d '\000-\010\013-\037' | awk '/^[* ]?:/'
 }
 
+# host_name prints the first line of HOSTNAME_FILE when it is made of letters,
+# digits and dashes only. Anything else prints nothing.
+host_name() {
+  name="$(head -n 1 "$HOSTNAME_FILE" 2>/dev/null || true)"
+  case "$name" in
+    ''|*[!A-Za-z0-9-]*) name="" ;;
+  esac
+  printf '%s' "$name"
+}
+
 # network_status prints the sections of the network state, one ## marker each,
 # in a fixed order. nmcli-based sections stay empty without NetworkManager.
 network_status() {
@@ -462,6 +477,13 @@ network_status() {
   cat "$NETWORK_JSON" 2>/dev/null || printf '{}\n'
   printf '##switch\n'
   cat "$SWITCH_JSON" 2>/dev/null || printf '{}\n'
+  printf '##host\n'
+  printf 'name %s\n' "$(host_name)"
+  if "$SYSTEMCTL" is-active --quiet avahi-daemon.service; then
+    printf 'mdns yes\n'
+  else
+    printf 'mdns no\n'
+  fi
 }
 
 # network_settings stores the WLAN fallback mode and the emergency hotspot

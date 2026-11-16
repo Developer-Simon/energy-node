@@ -60,10 +60,14 @@ esac
 SH
 chmod +x "$tmp/bin/iw"
 
-# Stub systemctl: every call is logged to SYSCTL_LOG and nothing runs.
+# Stub systemctl: every call is logged to SYSCTL_LOG and nothing runs. With
+# $FX/avahi-off present, is-active for avahi-daemon fails.
 cat > "$tmp/bin/systemctl" <<'SH'
 #!/bin/sh
 echo "$*" >> "$SYSCTL_LOG"
+if [ "$*" = "is-active --quiet avahi-daemon.service" ] && [ -e "$FX/avahi-off" ]; then
+  exit 3
+fi
 SH
 chmod +x "$tmp/bin/systemctl"
 
@@ -83,6 +87,7 @@ build_helper() {
     -e "s|^HOTSPOT_JSON=.*|HOTSPOT_JSON=\"$tmp/hotspot.json\"|" \
     -e "s|^WIFI_SCAN_CACHE=.*|WIFI_SCAN_CACHE=\"$tmp/scan/wifi-scan\"|" \
     -e "s|^SYSTEMCTL=.*|SYSTEMCTL=\"$tmp/bin/systemctl\"|" \
+    -e "s|^HOSTNAME_FILE=.*|HOSTNAME_FILE=\"$tmp/hostname\"|" \
     "$tmp/helper"
   grep -q "^NMCLI=\"$NMCLI_BIN\"" "$tmp/helper" || fail "test setup: NMCLI was not replaced"
   grep -q "^SYSFS=\"$SYSFS_DIR\"" "$tmp/helper" || fail "test setup: SYSFS was not replaced"
@@ -90,6 +95,7 @@ build_helper() {
   grep -q "^HOTSPOT_JSON=\"$tmp/hotspot.json\"" "$tmp/helper" || fail "test setup: HOTSPOT_JSON was not replaced"
   grep -q "^SYSTEMCTL=\"$tmp/bin/systemctl\"" "$tmp/helper" || fail "test setup: SYSTEMCTL was not replaced"
   grep -q "^WIFI_SCAN_CACHE=\"$tmp/scan/wifi-scan\"" "$tmp/helper" || fail "test setup: WIFI_SCAN_CACHE was not replaced"
+  grep -q "^HOSTNAME_FILE=\"$tmp/hostname\"" "$tmp/helper" || fail "test setup: HOSTNAME_FILE was not replaced"
 }
 
 # reset_fixtures writes the default managed node: LAN and WLAN up, two
@@ -114,6 +120,7 @@ reset_fixtures() {
   mkdir -p "$tmp/scan"
   export NM_RUNNING=running
   unset RESCAN_ERR || true
+  printf 'energy-node\n' > "$tmp/hostname"
   rm -f "$NET_LOG" "$SYSCTL_LOG"
 }
 
@@ -166,7 +173,8 @@ MARKERS='##managed
 ##profiles
 ##hotspot
 ##settings
-##switch'
+##switch
+##host'
 
 # Case 1: managed node with LAN and WLAN, all sections in fixed order.
 reset_fixtures
@@ -365,6 +373,45 @@ run_helper network-status
 [ "$rc" -eq 0 ] || fail "no cache file: exit $rc" "$(cat "$tmp/err")"
 expect_section "no cache file" wifi ""
 expect_section "no cache file" scanned ""
+
+# Case 3f: ##host carries the host name and whether avahi (mDNS) is active.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "host managed: exit $rc" "$(cat "$tmp/err")"
+expect_section "managed" host "$(printf 'name energy-node\nmdns yes')"
+
+# Case 3f-1: avahi not active.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+touch "$fx/avahi-off"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "avahi off: exit $rc" "$(cat "$tmp/err")"
+expect_section "avahi off" host "$(printf 'name energy-node\nmdns no')"
+
+# Case 3f-2: hostile host name with a forged marker: only the first line counts, the marker is not a section.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+printf 'evil\n##settings\n' > "$tmp/hostname"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "hostile hostname: exit $rc" "$(cat "$tmp/err")"
+[ "$(grep -cx '##settings' "$tmp/out")" -eq 1 ] || fail "hostile hostname: extra marker" "$(cat "$tmp/out")"
+
+# Case 3f-3: host name with characters outside [A-Za-z0-9-] is left empty.
+reset_fixtures
+make_sys 1000 yes
+NMCLI_BIN="$tmp/bin/nmcli"
+build_helper
+printf 'bad name!\n' > "$tmp/hostname"
+run_helper network-status
+[ "$rc" -eq 0 ] || fail "bad hostname: exit $rc" "$(cat "$tmp/err")"
+expect_section "bad hostname" host "$(printf 'name \nmdns yes')"
 
 # Case 4: wifi-scan on a managed node, rescan ok and "Scanning not allowed" both exit 0.
 reset_fixtures

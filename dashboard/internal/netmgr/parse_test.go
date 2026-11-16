@@ -326,3 +326,24 @@ func TestParseStatusScannedGarbage(t *testing.T) {
 		t.Errorf("WifiScannedAt = %d, want 0 for garbage", st.WifiScannedAt)
 	}
 }
+
+func TestParseStatusHost(t *testing.T) {
+	raw := readFixture(t, "both") + "##host\nname energy-node\nmdns yes\n"
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if want := (Host{Name: "energy-node", MDNS: true}); st.Host != want {
+		t.Errorf("Host = %+v, want %+v", st.Host, want)
+	}
+}
+
+func TestParseStatusWithoutHost(t *testing.T) {
+	st, err := ParseStatus(readFixture(t, "both"))
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.Host != (Host{}) {
+		t.Errorf("Host = %+v, want zero value without ##host", st.Host)
+	}
+}
