@@ -34,13 +34,6 @@
           </article>
         </template>
       </div>
-      <div class="nw-bookmark" x-show="bookmarkURL()">
-        <dl class="nw-facts nw-facts-tight">
-          <div class="nw-fact"><dt>{{t "network.bookmark.label"}}</dt><dd class="nw-mono" x-text="bookmarkURL()"></dd></div>
-        </dl>
-        <button type="button" class="icon-button labeled" x-on:click="copyBookmark()"><span x-show="!bookmarkCopied">{{t "users.ha.copy"}}</span><span x-show="bookmarkCopied">{{t "users.ha.copied"}}</span></button>
-        <p class="setting-note">{{t "network.bookmark.note"}}</p>
-      </div>
     </section>
 
     <!-- Netze: Liste mit Aufklappen, verbunden wird direkt in der Zeile -->
@@ -164,6 +157,17 @@
         <p class="setting-note" x-show="fallbackMode() === 'parallel'">{{t "network.fallback.parallel_note"}}</p>
         <p class="setting-note" x-show="fallbackMode() === 'standby'">{{t "network.fallback.standby_note"}}</p>
         <p class="nw-hint" x-show="savedCount() === 0">{{t "network.fallback.none_saved"}}</p>
+        <div class="nw-bookmark" x-show="bookmarkURL()">
+          <p class="nw-bookmark-label" id="nw-bookmark-label">{{t "network.bookmark.label"}}</p>
+          <button type="button" class="nw-copy" x-on:click="copyBookmark()" x-bind:data-copied="bookmarkCopied ? 'true' : 'false'" aria-labelledby="nw-bookmark-label nw-bookmark-url">
+            <span class="nw-copy-url nw-mono" id="nw-bookmark-url" x-text="bookmarkURL()"></span>
+            <span class="nw-copy-state" role="status">
+              <span class="nw-copy-idle" x-bind:aria-hidden="bookmarkCopied ? 'true' : 'false'">{{t "users.ha.copy"}}</span>
+              <span class="nw-copy-done" x-bind:aria-hidden="bookmarkCopied ? 'false' : 'true'"><svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>{{t "users.ha.copied"}}</span>
+            </span>
+          </button>
+          <p class="setting-note">{{t "network.bookmark.note"}}</p>
+        </div>
       </div>
     </section>
 

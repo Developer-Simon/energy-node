@@ -147,7 +147,30 @@
 .nw-hotspot-mark .automation-icon { width: 1.3rem; height: 1.3rem; }
 .nw-facts-tight { flex: 1; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); }
 
+/* --- Adresse fuer Lesezeichen: ein Feld, das zugleich die Kopier-Schaltflaeche ist ---
+   Antwort schon beim Druecken (Skalierung), der Wechsel Kopieren/Kopiert ist eine
+   Transition auf opacity und transform und bleibt damit unterbrechbar. Beide Texte
+   liegen in derselben Grid-Zelle, die Breite springt also nicht. */
+.nw-bookmark { margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--border-soft); }
+.nw-bookmark-label { margin: 0 0 .4rem; color: var(--text-subtle); font-size: .8rem; font-weight: 600; letter-spacing: .01em; }
+.nw-copy { display: flex; align-items: center; justify-content: space-between; gap: .75rem; width: 100%; padding: .6rem .75rem .6rem .85rem; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--track); color: var(--text-strong); font: inherit; text-align: left; cursor: pointer; transition: transform 120ms var(--ease-out), background-color .15s ease, border-color .15s ease; }
+.nw-copy:active { transform: scale(.985); }
+.nw-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.nw-copy-url { min-width: 0; overflow-wrap: anywhere; }
+.nw-copy-state { display: grid; flex: none; justify-items: end; align-items: center; color: var(--accent); font-size: .82rem; font-weight: 600; white-space: nowrap; }
+.nw-copy-idle, .nw-copy-done { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: .3rem; transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out); }
+.nw-copy-done { opacity: 0; transform: translateY(4px) scale(.94); }
+.nw-copy-done .automation-icon { width: 1rem; height: 1rem; }
+.nw-copy[data-copied="true"] .nw-copy-idle { opacity: 0; transform: translateY(-4px) scale(.94); }
+.nw-copy[data-copied="true"] .nw-copy-done { opacity: 1; transform: none; }
+.nw-copy[data-copied="true"] { border-color: var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .nw-copy:hover { border-color: var(--border); background: color-mix(in srgb, var(--text-strong) 6%, var(--track)); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nw-dot, .nw-scan[data-busy="true"] .automation-icon, .nw-step-mark, .nw-flow-result { animation: none !important; }
   .nw-reveal, .nw-reveal[data-open="true"], .nw-chev { transition: opacity .15s ease, visibility 0s; }
+  .nw-copy, .nw-copy:active { transform: none; transition: background-color .15s ease, border-color .15s ease; }
+  .nw-copy-idle, .nw-copy-done, .nw-copy[data-copied="true"] .nw-copy-idle, .nw-copy[data-copied="true"] .nw-copy-done { transform: none; transition: opacity .15s ease; }
 }
