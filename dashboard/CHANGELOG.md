@@ -7,6 +7,7 @@
 - **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **devices:** track the hint popover and count all warnings in the analysis teaser (3fdfc26)
 - **devices:** show operational hints behind a bell in the device modal header (e707e8e)
+- **devices:** add tour targets for the hint bell and its popover (ce6967f)
 - **devices:** Operational notices of a device sit behind a bell in the device modal header (#266)
 - **dev:** keep the ?v= history as CSV and check it in cache_bust.py (6b09e20)
 - **auth:** add the companion HTTP opt-in and the trusted check (c577483)
