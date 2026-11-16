@@ -139,6 +139,17 @@ func TestParseStatusHotspot(t *testing.T) {
 	}
 }
 
+func TestParseStatusDefaultSettings(t *testing.T) {
+	raw := strings.Replace(readFixture(t, "hotspot"), `{"fallback":"parallel","hotspot":true}`, "", 1)
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Settings != (Settings{Fallback: "standby", Hotspot: true}) {
+		t.Errorf("Settings = %+v, want standby and hotspot on", st.Settings)
+	}
+}
+
 func TestParseStatusUnmanaged(t *testing.T) {
 	st := parseFixture(t, "unmanaged")
 	if st.Hotspot.Available || len(st.Networks) != 0 {

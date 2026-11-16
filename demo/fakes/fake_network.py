@@ -45,7 +45,7 @@ PROGRESS_NAME = "network-switch.json"
 LINKS_NAME = "network-links.json"
 SETTINGS_NAME = "network-settings.json"
 FALLBACK_MODES = ("parallel", "standby")
-DEFAULT_SETTINGS = {"fallback": "parallel", "hotspot": True}
+DEFAULT_SETTINGS = {"fallback": "standby", "hotspot": True}
 # The emergency hotspot of the demo node. The real helper reads hotspot.json,
 # which bootstrap 67 writes once. Without a state file there is no node, so 66.
 HOTSPOT_SSID = "EnergyNode-4F2A"

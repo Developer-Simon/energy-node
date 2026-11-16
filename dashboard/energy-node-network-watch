@@ -2,8 +2,8 @@
 # energy-node-network-watch: keeps the WLAN fallback and the emergency hotspot
 # in line with the LAN. Runs every 15 s from energy-node-network-watch.timer.
 #
-# Settings come from /etc/energy-node/network.json: fallback "parallel" (the
-# default) or "standby", hotspot true (the default) or false. The state is kept
+# Settings come from /etc/energy-node/network.json: fallback "standby" (the
+# default) or "parallel", hotspot true (the default) or false. The state is kept
 # as epoch timestamps under /run/energy-node/network-watch/.
 #
 # Before the emergency hotspot opens, the watcher scans for Wi-Fi networks and
@@ -54,10 +54,10 @@ if not isinstance(doc, dict):
     doc = {}
 fallback = doc.get("fallback")
 if fallback not in ("parallel", "standby"):
-    fallback = "parallel"
+    fallback = "standby"
 hotspot = "false" if doc.get("hotspot") is False else "true"
 print(fallback, hotspot)
-' "$NETWORK_JSON" 2>/dev/null)" || settings="parallel true"
+' "$NETWORK_JSON" 2>/dev/null)" || settings="standby true"
 fallback="${settings% *}"
 hotspot="${settings#* }"
 

@@ -65,7 +65,7 @@ func ParseStatus(raw string) (Status, error) {
 		}
 	}
 
-	settings := Settings{Fallback: "parallel", Hotspot: true}
+	settings := Settings{Fallback: "standby", Hotspot: true}
 	if body := strings.TrimSpace(secs["settings"]); body != "" {
 		if err := json.Unmarshal([]byte(body), &settings); err != nil {
 			return Status{}, errors.New("network status: ##settings: " + err.Error())

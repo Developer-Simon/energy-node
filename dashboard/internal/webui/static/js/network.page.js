@@ -232,7 +232,7 @@
     countryMissing() { return Boolean(this.status) && Boolean(this.status.has_wifi) && !this.status.country; },
     links() { return (this.status && this.status.links) || []; },
     savedCount() { return ((this.status && this.status.networks) || []).filter((n) => n.saved).length; },
-    fallbackMode() { return (this.status && this.status.settings && this.status.settings.fallback) || 'parallel'; },
+    fallbackMode() { return (this.status && this.status.settings && this.status.settings.fallback) || 'standby'; },
     hotspotOn() { return Boolean(this.status && this.status.settings && this.status.settings.hotspot); },
     hotspotActive() { return Boolean(this.status && this.status.hotspot && this.status.hotspot.active); },
     // The address is fixed. Name and password come from the secret endpoint.

@@ -229,12 +229,23 @@ has_call "device set wlan0 autoconnect yes" || fail "parallel: autoconnect yes m
 has_call "device disconnect wlan0" && fail "parallel: disconnect called" "$(cat "$CALL_LOG")"
 has_call "device set wlan0 autoconnect no" && fail "parallel: autoconnect no called" "$(cat "$CALL_LOG")"
 
-# Case 5: no network.json -> parallel.
+# Case 5: no network.json -> standby: with the cable up WLAN goes off.
 reset
 rm -f "$NETWORK_JSON"
 lan_up
 tick 1000
-has_call "device set wlan0 autoconnect yes" || fail "missing settings: parallel default missing" "$(cat "$CALL_LOG")"
+has_call "device set wlan0 autoconnect no" || fail "missing settings: standby default missing" "$(cat "$CALL_LOG")"
+has_call "device disconnect wlan0" || fail "missing settings: standby default missing (disconnect)" "$(cat "$CALL_LOG")"
+has_call "device set wlan0 autoconnect yes" && fail "missing settings: parallel default used" "$(cat "$CALL_LOG")"
+
+# Case 5b: broken network.json -> standby as well.
+reset
+printf 'kaputt' > "$NETWORK_JSON"
+lan_up
+tick 1000
+has_call "device set wlan0 autoconnect no" || fail "broken settings: standby default missing" "$(cat "$CALL_LOG")"
+has_call "device disconnect wlan0" || fail "broken settings: standby default missing (disconnect)" "$(cat "$CALL_LOG")"
+has_call "device set wlan0 autoconnect yes" && fail "broken settings: parallel default used" "$(cat "$CALL_LOG")"
 
 # Case 6: 5 min without LAN and WLAN -> hotspot up. Before that, nothing.
 reset

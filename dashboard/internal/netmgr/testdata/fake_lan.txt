@@ -30,6 +30,6 @@ eth0 1000
 active no
 clients 0
 ##settings
-{"fallback":"parallel","hotspot":true}
+{"fallback":"standby","hotspot":true}
 ##switch
 {}
