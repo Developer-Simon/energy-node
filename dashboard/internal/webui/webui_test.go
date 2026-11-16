@@ -4465,7 +4465,7 @@ func renderExampleNote(t *testing.T, user auth.User, pending func() bool, simula
 func TestExampleNoteShownAfterSetup(t *testing.T) {
 	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
 	done := func() bool { return false }
-	if body := renderExampleNote(t, admin, done, true); !strings.Contains(body, "data-beispiel-note") {
+	if body := renderExampleNote(t, admin, done, true); !strings.Contains(body, "data-beispiel-note") || !strings.Contains(body, `class="beispiel-note-btn" data-beispiel-off`) {
 		t.Fatal("example note missing after setup while the simulation runs")
 	}
 	if body := renderExampleNote(t, admin, done, false); strings.Contains(body, "data-beispiel-note") {
