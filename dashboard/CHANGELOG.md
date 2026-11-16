@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.19 (2026-11-16)
+## v0.11.20 (2026-11-16)
 
 ### Features
 
@@ -19,14 +19,18 @@
 
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **dashboard:** write runtime.json compactly and once more on shutdown (8b4de92)
 - **dashboard:** save the last known values every 30 minutes by default (eae1fa6)
-- **system:** cut SD card writes from tailscaled logs and runtime.json (#271)
 - **onboarding:** show the hint bell in its tour and simplify the Home Assistant step (be8d4b3)
 - **onboarding:** drop the companion step up front and switch the hint bell tour to the detail view (00d1d5e)
 - **onboarding:** show a step with an unmet when condition with a note instead of dropping it (87313a3)
 - **onboarding:** keep a tour step on screen when its target is gone and pass when/unmet to the bar (44f6f58)
 - **devices:** color the hint rows by severity (28f79d3)
+
+### Documentation
+
+- **dashboard:** show the hint bell in the device dialog image and add the paired Home Assistant section (#272)
 
 ### Tests
 

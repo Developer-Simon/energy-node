@@ -92,6 +92,10 @@ each warning. Users with the [device analysis right](#rights) also get a
 **Details in Analysis** link there, which opens the Analysis tab at the
 **Operation** group. Escape closes the popover and nothing else.
 
+The screenshot at the top of this page shows the bell: one value of the device,
+the inverter temperature, has not been updated, so the device has one hint. The
+screenshot of the [Analysis tab](#analysis) shows the popover of that hint.
+
 ## Analysis
 
 The last tab is labelled **Analysis**. It is only shown to users with the

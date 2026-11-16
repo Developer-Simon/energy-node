@@ -125,6 +125,8 @@ dashboard:
    [Setup and options](../ha/companion-setup.md#pair-with-the-dashboard).
 3. The section shows *paired* with the date and the last connection.
 
+![The Home Assistant section of a paired companion with the switch for HTTPS actions](../images/dashboard-settings-users-home-assistant.png)
+
 Every Home Assistant user who signs in gets a card tagged *Home Assistant*.
 It follows the preset HA administrators or HA users. **Set permissions
 individually** gives the account its own list. Its password is changed in Home
