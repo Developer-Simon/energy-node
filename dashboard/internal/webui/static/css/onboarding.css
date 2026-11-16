@@ -397,6 +397,53 @@ button.ob-crosslink { font: inherit; cursor: pointer; }
   .ob-guest-note { animation: masthead-rise .42s var(--ease-out) both; }
 }
 
+/* --- Hinweis zum Beispiel (gleiche Optik wie der Gast-Hinweis) ----------- */
+.beispiel-note {
+  display: flex;
+  align-items: flex-start;
+  gap: .7rem;
+  margin-top: 1rem;
+  padding: .75rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--info-line) 70%, transparent);
+  border-radius: 12px;
+  background: var(--info-bg);
+  color: var(--text);
+  font-size: .92rem;
+  line-height: 1.45;
+}
+.beispiel-note-icon { flex: none; width: 1.15rem; height: 1.15rem; margin-top: .1rem; fill: none; stroke: var(--info); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.beispiel-note-body { flex: 1 1 auto; min-width: 0; }
+.beispiel-note p { margin: 0; text-wrap: pretty; }
+.beispiel-note strong { color: var(--text-strong); }
+.beispiel-note-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; margin-top: .6rem; }
+.beispiel-note-btn {
+  min-height: 2.25rem;
+  padding: 0 .9rem;
+  border: 1px solid var(--info-line);
+  border-radius: 11px;
+  background: var(--panel);
+  color: var(--text-strong);
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.beispiel-note-btn:disabled { opacity: .55; cursor: wait; }
+.beispiel-note-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) {
+  .beispiel-note-btn:hover:not(:disabled) { background: var(--panel-alt); }
+}
+.beispiel-note-msg { margin-top: .5rem !important; color: var(--text-subtle); }
+.beispiel-note-msg[hidden] { display: none; }
+@media (max-width: 520px) {
+  .beispiel-note-actions { justify-content: stretch; }
+  .beispiel-note-btn { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .beispiel-note { animation: masthead-rise .42s var(--ease-out) both; }
+}
+
 /* --- Marker fuer ungesehene Neuerungen ----------------------------------- */
 .ob-marker {
   display: inline-block;
