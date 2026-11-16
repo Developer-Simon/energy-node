@@ -1,14 +1,14 @@
 # Changelog
 
-## v0.11.17 (2026-11-16)
+## v0.11.18 (2026-11-16)
 
 ### Features
 
 - **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
+- **devices:** Operational notices of a device sit behind a bell in the device modal header (#266) (f21a8c4)
 - **devices:** track the hint popover and count all warnings in the analysis teaser (3fdfc26)
 - **devices:** show operational hints behind a bell in the device modal header (e707e8e)
 - **devices:** add tour targets for the hint bell and its popover (ce6967f)
-- **devices:** Operational notices of a device sit behind a bell in the device modal header (#266)
 - **dev:** keep the ?v= history as CSV and check it in cache_bust.py (6b09e20)
 - **auth:** add the companion HTTP opt-in and the trusted check (c577483)
 - **httpapi:** let companion sessions over HTTP act when the opt-in is on (cfb7f9f)
@@ -19,6 +19,10 @@
 
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
+- **onboarding:** show the hint bell in its tour and simplify the Home Assistant step (be8d4b3)
+- **onboarding:** drop the companion step up front and switch the hint bell tour to the detail view (00d1d5e)
+- **onboarding:** show a step with an unmet when condition with a note instead of dropping it (87313a3)
+- **onboarding:** keep a tour step on screen when its target is gone and pass when/unmet to the bar (44f6f58)
 - **devices:** color the hint rows by severity (28f79d3)
 
 ### Tests
@@ -33,6 +37,7 @@
 ### Chores
 
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
+- **onboarding:** fix the tours of the companion HTTP switch and the hint bell (#269)
 - **dashboard:** bump asset cache-bust marks for the hint bell (1064d9f)
 - **dashboard:** migrate the ?v= history to CSV and align two stale marks (c6861dc)
 
