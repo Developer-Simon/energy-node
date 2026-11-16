@@ -33,3 +33,6 @@ clients 0
 {"fallback":"standby","hotspot":true}
 ##switch
 {}
+##host
+name energy-node
+mdns yes

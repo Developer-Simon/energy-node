@@ -34,6 +34,13 @@
           </article>
         </template>
       </div>
+      <div class="nw-bookmark" x-show="bookmarkURL()">
+        <dl class="nw-facts nw-facts-tight">
+          <div class="nw-fact"><dt>{{t "network.bookmark.label"}}</dt><dd class="nw-mono" x-text="bookmarkURL()"></dd></div>
+        </dl>
+        <button type="button" class="icon-button labeled" x-on:click="copyBookmark()"><span x-show="!bookmarkCopied">{{t "users.ha.copy"}}</span><span x-show="bookmarkCopied">{{t "users.ha.copied"}}</span></button>
+        <p class="setting-note">{{t "network.bookmark.note"}}</p>
+      </div>
     </section>
 
     <!-- Netze: Liste mit Aufklappen, verbunden wird direkt in der Zeile -->

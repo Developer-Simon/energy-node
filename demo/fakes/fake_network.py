@@ -39,7 +39,7 @@ from pathlib import Path
 VERBS = ("network-status", "wifi-scan", "wifi-connect", "wifi-forget", "network-settings",
          "hotspot-secret")
 SECTIONS = ("managed", "country", "wifidev", "rfkill", "devices", "addr", "route", "dns",
-            "speed", "wifi", "scanned", "profiles", "hotspot", "settings", "switch")
+            "speed", "wifi", "scanned", "profiles", "hotspot", "settings", "switch", "host")
 STAGED_NAME = "network-connect.staged.json"
 PROGRESS_NAME = "network-switch.json"
 LINKS_NAME = "network-links.json"
@@ -420,6 +420,7 @@ def status_text(env, progress, now, links=None, settings=None):
         "hotspot": _hotspot(connected),
         "settings": _settings_text(settings),
         "switch": _switch_text(progress, now),
+        "host": "name energy-node\nmdns yes",
     }
     out = []
     for name in SECTIONS:

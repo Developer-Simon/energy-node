@@ -25,6 +25,8 @@
   const STATUS_POLL_MS = 10000;
   const TICK_MS = 1000;
   const SCAN_SETTLE_MS = 1800;
+  // How long the bookmark copy button shows "Copied".
+  const COPIED_MS = 1800;
   const EMPTY_FLOW = {ssid: null, steps: [], result: null, message: ''};
 
   const errorText = (code) => t(ERROR_KEYS[code] || ERROR_KEYS.failed);
@@ -54,6 +56,8 @@
     csrfToken: '',
     loadedAt: 0,
     dismissedSwitch: null,
+    bookmarkCopied: false,
+    bookmarkCopiedTimer: null,
     timer: null,
 
     async init() {
@@ -96,6 +100,7 @@
     destroy() {
       if (this.timer) window.clearInterval(this.timer);
       this.timer = null;
+      window.clearTimeout(this.bookmarkCopiedTimer);
       this.dropHotspotSecret();
     },
 
@@ -242,6 +247,33 @@
         password: this.hotspotSecret.password,
         address: '10.42.0.1',
       };
+    },
+
+    // The address for bookmarks, https://<host>.local under the dashboard base
+    // path. Empty without mDNS (avahi) or a host name, then the row stays hidden.
+    bookmarkURL() {
+      const host = this.status && this.status.host;
+      if (!host || !host.mdns || !host.name) return '';
+      return `https://${host.name}.local${window.__DASHBOARD_BASE_PATH__ || ''}/`;
+    },
+
+    // False when there is no address or the clipboard is not available (it needs
+    // HTTPS or localhost).
+    async copyBookmark() {
+      const url = this.bookmarkURL();
+      if (!url) return false;
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch (error) {
+        return false;
+      }
+      this.bookmarkCopied = true;
+      window.clearTimeout(this.bookmarkCopiedTimer);
+      this.bookmarkCopiedTimer = window.setTimeout(() => {
+        this.bookmarkCopied = false;
+        this.bookmarkCopiedTimer = null;
+      }, COPIED_MS);
+      return true;
     },
 
     wifiLink() { return this.links().find((l) => l.id === 'wifi') || null; },

@@ -82,6 +82,12 @@ def parallel(paths):
     assert run("network-settings", ["parallel", "on"], LAN, paths)[:2] == (0, "")
 
 
+def test_status_reports_the_demo_host_with_mdns():
+    # The demo node is called energy-node and answers on energy-node.local.
+    assert body_of(fake_network.status_text(LAN, None, NOW), "host") == "name energy-node\nmdns yes\n"
+    assert body_of(fake_network.status_text(WIFI, None, NOW), "host") == "name energy-node\nmdns yes\n"
+
+
 def test_every_combination_emits_all_sections_in_order():
     for env in (LAN, WIFI, NOWIFI, NOTHING):
         assert sections_of(fake_network.status_text(env, None, NOW)) == list(SECTIONS), env

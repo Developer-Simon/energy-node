@@ -29,6 +29,21 @@ sys.exit(0 if [link["id"] for link in s.get("links", [])] == ["lan", "wifi"] els
     return
   fi
 
+  # 1b. Host: der Demo-Node heisst energy-node und ist per mDNS erreichbar. Die
+  # Lesezeichen-Zeile baut daraus https://energy-node.local/ (im Browser, hier
+  # nur die Daten und der Text der Zeile im gerenderten Fragment).
+  if python3 -c '
+import json, sys
+host = json.load(open(sys.argv[1])).get("host") or {}
+sys.exit(0 if host.get("name") == "energy-node" and host.get("mdns") is True else 1)
+' "$status_file"; then
+    echo "  OK   Status meldet den Host energy-node mit mDNS"
+  else
+    echo "  FEHL Status meldet nicht den Host energy-node mit mDNS"; FAILED=1
+  fi
+  html_has "Netzwerk-Seite zeigt die Adresse für Lesezeichen" \
+    'Adresse für Lesezeichen' "$BASE/?fragment=settings-page&page=network"
+
   # 2. Ein Netz aus dem Scan waehlen, ohne Passwort im Status.
   ssid="$(python3 -c '
 import json, sys
