@@ -36,6 +36,9 @@ PROFILE_ID=energy-node-hotspot
 PROFILE_UUID=6f1d3c2e-8a4b-4e7d-9c52-3b8e1a0f47d6
 WATCH_NAME=energy-node-network-watch
 WATCH_TIMER="${WATCH_NAME}.timer"
+CAPTIVE_DIR="${EN_ROOT}/etc/NetworkManager/dnsmasq-shared.d"
+CAPTIVE_FILE="${CAPTIVE_DIR}/90-energy-node-captive.conf"
+CAPTIVE_MARKER="# von energy-node-installer verwaltet - Aenderungen gehen verloren"
 
 # 256 deutsche Alltagswoerter ohne Umlaute. Eine Ziffernfolge macht das
 # Passwort lang genug; die Woerter sind bewusst kurz und leicht abzutippen.
@@ -100,6 +103,15 @@ hotspot_password() {
 
 # Das WLAN-Geraet nach der Pruefung des Waechters: ein wireless-Eintrag.
 has_wlan() { [[ -d "${SYSFS}/class/net/${WLAN_DEV}/wireless" ]]; }
+
+# Erste Zeile der Captive-Datei, leer wenn sie fehlt. Die Datei kann root gehoeren.
+captive_first_line() { "${SUDO[@]}" head -n 1 "${CAPTIVE_FILE}" 2>/dev/null || true; }
+
+# Die Captive-Datei gehoert uns, wenn der Marker in der ersten Zeile steht.
+captive_is_ours() { [[ -e "${CAPTIVE_FILE}" && "$(captive_first_line)" == "${CAPTIVE_MARKER}" ]]; }
+
+# Eine Datei am Pfad ohne Marker ist fremd und wird nicht angefasst.
+captive_is_foreign() { [[ -e "${CAPTIVE_FILE}" && "$(captive_first_line)" != "${CAPTIVE_MARKER}" ]]; }
 
 # Die letzten vier Hex-Zeichen der MAC von wlan0, ohne WLAN-Geraet aus
 # /etc/machine-id. Das Ergebnis landet in SUFFIX (keine Unterschale, damit
@@ -255,13 +267,53 @@ if command -v nmcli >/dev/null 2>&1 && has_wlan; then
   if command -v ufw >/dev/null 2>&1; then
     "${SUDO[@]}" ufw allow in on "${WLAN_DEV}" to any port 67 proto udp \
       comment energy-node-hotspot >/dev/null 2>&1 || step_fail UFW_FAILED
+    # Captive-Portal: DNS und HTTP der Hotspot-Clients gehen an den Node.
+    "${SUDO[@]}" ufw allow in on "${WLAN_DEV}" from 10.42.0.0/24 to any port 53 proto udp \
+      comment energy-node-hotspot >/dev/null 2>&1 || step_fail UFW_FAILED
+    "${SUDO[@]}" ufw allow in on "${WLAN_DEV}" from 10.42.0.0/24 to any port 53 proto tcp \
+      comment energy-node-hotspot >/dev/null 2>&1 || step_fail UFW_FAILED
+    "${SUDO[@]}" ufw allow in on "${WLAN_DEV}" from 10.42.0.0/24 to any port 80 proto tcp \
+      comment energy-node-hotspot >/dev/null 2>&1 || step_fail UFW_FAILED
+  fi
+  # dnsmasq des Hotspots liest die Datei beim naechsten Start. Eine fremde
+  # Datei am Pfad bleibt unangetastet. Geschrieben wird nur bei Abweichung,
+  # damit ein zweiter Lauf den Inode nicht ersetzt.
+  captive_tmp="$(mktemp)"
+  printf '%s\n' "${CAPTIVE_MARKER}" 'address=/#/10.42.0.1' \
+    'dhcp-option=114,"http://10.42.0.1/"' > "${captive_tmp}"
+  captive_changed=0
+  if captive_is_foreign; then
+    step_log "Captive-Datei ${CAPTIVE_FILE} gehoert nicht zu energy-node, bleibt unveraendert."
+  elif ! "${SUDO[@]}" cmp -s "${captive_tmp}" "${CAPTIVE_FILE}"; then
+    "${SUDO[@]}" mkdir -p "${CAPTIVE_DIR}"
+    if ! "${SUDO[@]}" install -m 0644 "${captive_tmp}" "${CAPTIVE_FILE}"; then
+      rm -f "${captive_tmp}"
+      step_fail CAPTIVE_WRITE_FAILED
+    fi
+    captive_changed=1
+  fi
+  rm -f "${captive_tmp}"
+  if (( captive_changed )); then
+    "${SUDO[@]}" nmcli connection reload >/dev/null 2>&1 || true
   fi
   step_log "Hotspot-Profil ${PROFILE_ID} geschrieben."
 else
-  # Kein Hotspot, also auch keine DHCP-Freigabe mehr.
+  # Kein Hotspot, also auch keine DHCP-Freigabe und kein Captive-Portal mehr.
   if command -v ufw >/dev/null 2>&1; then
     "${SUDO[@]}" ufw delete allow in on "${WLAN_DEV}" to any port 67 proto udp \
       >/dev/null 2>&1 || true
+    "${SUDO[@]}" ufw delete allow in on "${WLAN_DEV}" from 10.42.0.0/24 to any port 53 proto udp \
+      >/dev/null 2>&1 || true
+    "${SUDO[@]}" ufw delete allow in on "${WLAN_DEV}" from 10.42.0.0/24 to any port 53 proto tcp \
+      >/dev/null 2>&1 || true
+    "${SUDO[@]}" ufw delete allow in on "${WLAN_DEV}" from 10.42.0.0/24 to any port 80 proto tcp \
+      >/dev/null 2>&1 || true
+  fi
+  if captive_is_ours; then
+    "${SUDO[@]}" rm -f "${CAPTIVE_FILE}"
+    if command -v nmcli >/dev/null 2>&1; then
+      "${SUDO[@]}" nmcli connection reload >/dev/null 2>&1 || true
+    fi
   fi
   step_log "kein NetworkManager oder kein WLAN-Geraet: kein Hotspot-Profil."
 fi

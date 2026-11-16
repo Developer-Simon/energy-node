@@ -121,13 +121,26 @@ grep -qx 'nmcli connection reload' "$CALL_LOG" || fail "kein nmcli connection re
 grep -qx 'systemctl enable --now energy-node-network-watch.timer' "$CALL_LOG" \
   || fail "Timer nicht aktiviert" "$(cat "$CALL_LOG")"
 
+# --- Captive-Portal: DNS-Umleitung, Option 114, ufw-Regeln -----------------
+captive="$root/etc/NetworkManager/dnsmasq-shared.d/90-energy-node-captive.conf"
+grep -qx 'address=/#/10.42.0.1' "$captive" || fail "captive: DNS-Umleitung fehlt"
+grep -qxF 'dhcp-option=114,"http://10.42.0.1/"' "$captive" || fail "captive: Option 114 fehlt"
+grep -q 'ufw allow in on wlan0 from 10.42.0.0/24 to any port 53 proto udp comment energy-node-hotspot' "$UFW_LOG" \
+  || fail "ufw 53/udp fehlt" "$(cat "$UFW_LOG")"
+grep -q 'ufw allow in on wlan0 from 10.42.0.0/24 to any port 53 proto tcp comment energy-node-hotspot' "$UFW_LOG" \
+  || fail "ufw 53/tcp fehlt" "$(cat "$UFW_LOG")"
+grep -q 'ufw allow in on wlan0 from 10.42.0.0/24 to any port 80 proto tcp comment energy-node-hotspot' "$UFW_LOG" \
+  || fail "ufw 80 fehlt" "$(cat "$UFW_LOG")"
+
 # --- zweiter Lauf: Zugangsdaten bleiben, Profil wird neu geschrieben --------
 # Der Laendercode ist jetzt gesetzt: das Profil darf keinen Kanal mehr fest
 # vorgeben, das Passwort bleibt dasselbe.
 echo "country DE: DFS-ETSI" > "$IW_OUT"
 : > "$CALL_LOG"
+captive_ino="$(stat -c %i "$captive")"
 out="$(run)" || fail "zweiter Lauf scheitert" "$out"
 grep -q '^##STEP 67 ok$' <<<"$out" || fail "zweiter Lauf: kein ok" "$out"
+[ "$(stat -c %i "$captive")" = "$captive_ino" ] || fail "captive: Datei bei gleichem Inhalt neu geschrieben"
 pw2="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["password"])' "$hotspot")"
 [ "$pw1" = "$pw2" ] || fail "hotspot.json wurde beim zweiten Lauf ueberschrieben"
 grep -q 'channel=' "$profile" && fail "mit Laendercode steht noch channel= im Profil" "$(cat "$profile")"
@@ -154,6 +167,11 @@ grep -qxF 'ufw delete allow in on wlan0 to any port 67 proto udp' "$UFW_LOG" \
 grep -q 'ufw allow' "$UFW_LOG" && fail "ohne WLAN-Geraet wurde ufw allow aufgerufen" "$(cat "$UFW_LOG")"
 grep -qx 'systemctl enable --now energy-node-network-watch.timer' "$CALL_LOG" \
   || fail "ohne WLAN-Geraet kein Timer-Start" "$(cat "$CALL_LOG")"
+[ ! -e "$captive" ] || fail "ohne WLAN-Geraet blieb die Captive-Datei"
+for rule in 'to any port 53 proto udp' 'to any port 53 proto tcp' 'to any port 80 proto tcp'; do
+  grep -qxF "ufw delete allow in on wlan0 from 10.42.0.0/24 $rule" "$UFW_LOG" \
+    || fail "ohne WLAN-Geraet keine Entfernung: $rule" "$(cat "$UFW_LOG")"
+done
 mv "$tmp/wireless-aside" "$sys/class/net/wlan0/wireless"
 
 # --- ohne WLAN-Adresse: Kennung aus der machine-id, neue Zugangsdaten ------
@@ -246,5 +264,14 @@ printf '%s\n' "$hex" > "$tmp/pw-hex"
 out="$(EN_ROOT="$r5" run_args --hotspot-password-file "$tmp/pw-hex")" || fail "64 Hex-Ziffern abgelehnt" "$out"
 grep -q '^##STEP 67 ok$' <<<"$out" || fail "64 Hex-Ziffern: kein ok-Marker" "$out"
 [ "$(hs_field "$hs5" password)" = "$hex" ] || fail "64 Hex-Ziffern nicht uebernommen"
+
+# --- Fremde Datei am Captive-Pfad bleibt unangetastet ----------------------
+r6="$tmp/root6"
+mkdir -p "$r6/etc/NetworkManager/dnsmasq-shared.d"
+cp "$root/etc/machine-id" "$r6/etc/machine-id"
+foreign="$r6/etc/NetworkManager/dnsmasq-shared.d/90-energy-node-captive.conf"
+printf '%s\n' 'fremde Konfiguration' > "$foreign"
+out="$(EN_ROOT="$r6" run)" || fail "Lauf mit fremder Captive-Datei scheitert" "$out"
+[ "$(cat "$foreign")" = 'fremde Konfiguration' ] || fail "fremde Captive-Datei veraendert"
 
 echo "PASS: 67-network.sh"
