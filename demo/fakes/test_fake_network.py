@@ -150,6 +150,21 @@ def test_hotspot_opens_without_cable_and_connection(paths):
     assert "10.42.0.1" in body_of(text, "addr")
 
 
+def test_open_hotspot_serves_the_cached_scan_with_its_age(paths):
+    text = status(dict(WIFI, werkstatt=False), paths)
+    assert body_of(text, "hotspot").splitlines()[0] == "active yes"
+    rows = wifi_rows(text)
+    assert rows and all(row.startswith(" ") for row in rows.values())
+    assert "FritzBox Werkstatt" not in rows
+    assert body_of(text, "scanned").strip() == str(int(NOW) - 180)
+
+
+def test_live_scan_has_no_age_without_the_hotspot(paths):
+    text = status(LAN, paths)
+    assert body_of(text, "scanned").strip() == ""
+    assert wifi_rows(text)
+
+
 def test_hotspot_stays_closed_with_cable_or_connection_or_switch_off(paths):
     assert not hotspot_active(LAN, paths)
     assert not hotspot_active(WIFI, paths, ["parallel", "off"])
