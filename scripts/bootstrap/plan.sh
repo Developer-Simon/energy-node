@@ -75,9 +75,12 @@ for entry in manifest.get("steps", []):
     optional = bool(entry.get("optional"))
     selected = chosen(entry)
     # requires: ohne den benoetigten Schritt laeuft dieser nicht (35 -> 83).
-    needed = entry.get("requires")
-    if selected and needed and not chosen(by_id.get(str(needed), {"optional": True, "default": False})):
-        selected = False
+    # Mehrere Schritte kommagetrennt ("81,83"): alle muessen gewaehlt sein.
+    needed = [part.strip() for part in str(entry.get("requires") or "").split(",") if part.strip()]
+    for required in needed:
+        # Ein Schritt, den das Manifest nicht kennt, gilt als nicht erfuellt.
+        if selected and (required not in by_id or not chosen(by_id[required])):
+            selected = False
     if not selected:
         state_name = "deselected"
     elif stamped(entry):

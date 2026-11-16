@@ -164,6 +164,29 @@ test('dropUnmet nimmt das Opt-in zurueck, sobald der benoetigte Schritt aus ist'
   assert.equal(kept['35'], true);
 });
 
+test('requiresMet with a list needs every step', () => {
+  const { S } = load();
+  const manifest = Object.assign({}, MANIFEST, {
+    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
+  });
+  const step = manifest.steps.find((s) => s.id === '89');
+  assert.equal(S.requiresMet(manifest, step, { steps: { 81: true, 83: true, 88: true } }), true);
+  assert.equal(S.requiresMet(manifest, step, { steps: { 81: true, 83: false, 88: true } }), false);
+  // Ein unbekannter Schritt in der Liste zaehlt als nicht erfuellt.
+  const unknown = { id: '90', optional: true, requires: '81,99' };
+  assert.equal(S.requiresMet(manifest, unknown, { steps: { 81: true } }), false);
+});
+
+test('dropUnmet switches 89 off when 88 is off', () => {
+  const { S } = load();
+  const manifest = Object.assign({}, MANIFEST, {
+    steps: MANIFEST.steps.concat([{ id: '89', optional: true, default: false, requires: '81,83,88' }]),
+  });
+  const steps = { 81: true, 83: true, 88: false, 89: true };
+  S.dropUnmet(manifest, steps);
+  assert.equal(steps['89'], false);
+});
+
 function loadWithFormat(lang = 'de') {
   const { window } = loadScripts(['i18n.js', 'format.js', 'services.js']);
   window.I18n.catalog = realCatalog(lang);

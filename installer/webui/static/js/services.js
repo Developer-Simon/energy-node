@@ -43,14 +43,19 @@
 
     // requiresMet: ein Schritt mit "requires" (manifest.json) zaehlt nur,
     // solange der benoetigte Schritt gewaehlt ist - 35 (Webhook-Port) nur
-    // mit dem Shelly-Dienst 83. Fehlt der benoetigte Schritt im Manifest,
-    // ist die Bedingung nicht erfuellt.
+    // mit dem Shelly-Dienst 83. "requires" darf eine kommagetrennte Liste
+    // sein ("81,83,88"): dann muessen alle gewaehlt sein. Fehlt ein
+    // benoetigter Schritt im Manifest, ist die Bedingung nicht erfuellt.
     requiresMet: function (manifest, step, selection) {
       if (!step.requires) {
         return true;
       }
-      var needed = ((manifest && manifest.steps) || []).filter(function (s) { return s.id === step.requires; })[0];
-      return !!needed && Services.isSelected(needed, selection);
+      var steps = (manifest && manifest.steps) || [];
+      return String(step.requires).split(',').every(function (part) {
+        var id = part.trim();
+        var needed = steps.filter(function (s) { return s.id === id; })[0];
+        return !!needed && Services.isSelected(needed, selection);
+      });
     },
 
     // dropUnmet schaltet in der Auswahl jeden Schritt ab, dessen benoetigter
