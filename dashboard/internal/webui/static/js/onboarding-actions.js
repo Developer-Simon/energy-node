@@ -271,13 +271,16 @@
     },
   });
 
-  // Oeffnet das erste sichtbare Geraet im Detaildialog. Der Dialog kommt aus
-  // einem nachgeladenen Skript, deshalb wartet der Lauf laenger. Zuruecknehmen
-  // schliesst den Dialog, wenn er noch offen ist.
+  // Oeffnet das erste sichtbare Geraet im Detaildialog. Nur die Detailansicht der
+  // Geraete hat den Ausloeser, die Tour schaltet sie vorher ueber
+  // device-density-toggle ein. Der Dialog kommt aus einem nachgeladenen Skript,
+  // deshalb wartet der Lauf laenger. Zuruecknehmen schliesst den Dialog, wenn er
+  // noch offen ist.
   action('device-modal', {
     run: async ({ waitFor, show }) => {
-      const trigger = [...document.querySelectorAll('.device-detail-trigger')]
-        .find((el) => window.obSpotlight.visibleRect(el)) || null;
+      // Nach dem Umschalten auf die Detailansicht kommt das Raster erst nach einem Moment.
+      const trigger = await waitFor(() => [...document.querySelectorAll('.device-detail-trigger')]
+        .find((el) => window.obSpotlight.visibleRect(el)) || null, 3000);
       if (!trigger) return null;
       const close = () => {
         if (!document.querySelector('#device-modal[open]')) return;
@@ -291,6 +294,31 @@
         return null;
       }
       return { el: dialog, scope: dialog, revert: close };
+    },
+  });
+
+  // Sorgt dafuer, dass die Hinweis-Glocke im offenen Geraetedialog zu sehen ist.
+  // Hat das Geraet keine Betriebshinweise, zeigt der Dialog einen Beispielhinweis.
+  // Zuruecknehmen entfernt ihn wieder. Erscheint die Glocke nicht, entfaellt
+  // der Beispielhinweis ebenfalls.
+  action('device-hint-demo', {
+    run: async ({ waitFor }) => {
+      const dialog = document.querySelector('#device-modal[open]');
+      const panel = dialog ? window.Alpine.$data(document.getElementById('devices-panel')) : null;
+      if (!panel) return null;
+      // Die Details kommen nach dem Oeffnen, erst dann steht fest, ob es echte Hinweise gibt.
+      // waitFor sucht Elemente, deviceDetail ist ein Objekt: eigene Wartezeit.
+      const end = Date.now() + 3000;
+      while (!panel.deviceDetail && Date.now() < end) await new Promise((resolve) => setTimeout(resolve, 50));
+      if (!panel.deviceDetail) return null;
+      const revert = () => { panel.tourDemoHint = ''; };
+      if (!panel.operationalWarnings.length) panel.tourDemoHint = window.I18n.t('onboarding.demo_hint');
+      const bell = await waitFor(() => find('device-hints-bell', dialog), 1500);
+      if (!bell) {
+        revert();
+        return null;
+      }
+      return { el: dialog, scope: dialog, revert };
     },
   });
 

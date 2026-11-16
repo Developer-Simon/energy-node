@@ -64,17 +64,23 @@ type TourReplacement struct {
 
 // TourStep points at one data-tour target. Panel and Page say where it
 // lives, Device is any, phone or desktop, Need the permission the step
-// requires. Open lists the entries (data-tour ids or @actions) that must
+// requires. When names a condition of the installation the step needs, such
+// as "companion" for a paired companion. The server keeps the step when it
+// does not hold and sets Unmet, so the tour shows the text with a note and no
+// spotlight instead of waiting for a missing target. Open lists the entries (data-tour ids or @actions) that must
 // exist before the step runs, otherwise the tour is stale.
 type TourStep struct {
-	Panel  string            `json:"panel,omitempty"`
-	Page   string            `json:"page,omitempty"`
-	Target string            `json:"target"`
-	Device string            `json:"device"`
-	Need   string            `json:"need,omitempty"`
-	Open   []string          `json:"open,omitempty"`
-	Title  map[string]string `json:"title"`
-	Text   map[string]string `json:"text"`
+	Panel  string `json:"panel,omitempty"`
+	Page   string `json:"page,omitempty"`
+	Target string `json:"target"`
+	Device string `json:"device"`
+	Need   string `json:"need,omitempty"`
+	When   string `json:"when,omitempty"`
+	// Unmet is set by the server per request, stored tours never carry it.
+	Unmet bool              `json:"unmet,omitempty"`
+	Open  []string          `json:"open,omitempty"`
+	Title map[string]string `json:"title"`
+	Text  map[string]string `json:"text"`
 }
 
 // HighlightsRelease is one release of a component inside the range.

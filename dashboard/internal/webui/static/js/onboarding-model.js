@@ -122,7 +122,9 @@
       const short = version.version.replace(/^v/, '').replace(/^(\d+\.\d+)\.0$/, '$1');
       const flat = items.flatMap((item) => tourSteps(item, ctx)
         // Der Schritt zeigt seinen eigenen Titel und Text, nur ohne eigenen faellt er auf das Highlight zurueck.
-        .map((s) => ({ ...s, id: item.id, title: s.title || item.title, text: s.text || item.text, check: 'leave' })));
+        .map((s) => ({ ...s, id: item.id, title: s.title || item.title, check: 'leave',
+          // Gilt die Bedingung des Schritts nicht, steht der Hinweis dahinter und es gibt kein Ziel.
+          text: (s.text || item.text) + (s.unmet ? ` ${text(ctx, `onboarding.unmet.${s.when}`, {})}` : '') })));
       const steps = flat.map((s, i) => ({
         ...s,
         eyebrow: text(ctx, 'onboarding.eyebrow.explore', { version: short, i: i + 1, total: flat.length }),

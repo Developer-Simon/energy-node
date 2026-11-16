@@ -27,6 +27,8 @@
 
   window.deviceModalMixin = () => ({
     deviceDetail: null,
+    // Text des Beispielhinweises, den die Tour zeigt, wenn das Geraet keine Betriebshinweise hat.
+    tourDemoHint: '',
     // Aktivitaet seit dem Oeffnen des Modals (mergeActivity), neueste oben.
     activityLog: [],
     detailLoading: false,
@@ -351,7 +353,9 @@
     // Betriebswarnungen (Gerät offline, Bridge) und Konfigurationswarnungen
     // teilen sich dieselben Gruppen; warning.operational trennt sie.
     get operationalWarnings() {
-      return this.groupedWarnings.filter(warning => warning.operational);
+      const real = this.groupedWarnings.filter(warning => warning.operational);
+      if (real.length || !this.tourDemoHint) return real;
+      return [{rule_id: 'tour-demo', message: this.tourDemoHint, severity: 'info', operational: true, demo: true, count: 1, affectedEntityIds: []}];
     },
 
     // Anzahl der Betriebsgruppen je Schwere, schwerste zuerst. Leere
@@ -375,7 +379,7 @@
     // Oeffnet die Analyse und scrollt zu den Hinweisen. Ohne Recht passiert
     // nichts, das Popover bleibt dann offen.
     openHintsInAnalysis() {
-      if (!this.canViewAnalysis) return;
+      if (!this.canViewAnalysis || this.operationalWarnings.some(warning => warning.demo)) return;
       this.hintsOpen = false;
       this.setDeviceTab('management');
       this.$nextTick(() => this.$refs.deviceModalHintsAnchor?.scrollIntoView({block: 'start'}));

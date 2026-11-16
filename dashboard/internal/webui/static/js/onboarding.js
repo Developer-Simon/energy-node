@@ -332,6 +332,9 @@
             target: `[data-tour="${s.target}"]`,
             device: s.device,
             need: s.need,
+            // Bedingung des Schritts und ob sie nicht gilt: der Schritt zeigt dann nur Text und Hinweis.
+            when: s.when,
+            unmet: Boolean(s.unmet),
             // Eintraege, die der Schritt oeffnet (Regeln, Zeitfenster), als Strings aus dem Server.
             open: Array.isArray(s.open) ? s.open : [],
             title: localized(s.title, s.title?.en),
@@ -697,7 +700,8 @@
       if (this.collapsed) this.setCollapsed(false);
       this.swapIn();
       this.detach();
-      if (step.intro) {
+      // Ein Schritt, dessen Bedingung nicht gilt (when), zeigt nur Text und Hinweis, ohne Ziel.
+      if (step.intro || step.unmet) {
         // Vorstellung ohne Ziel: das Blatt bleibt offen, kein Spotlight, kein Ort.
         // Die Klicks des vorigen Schritts werden trotzdem zurueckgenommen.
         this.actions = await window.obActions.next(this.actions, []);
@@ -725,10 +729,25 @@
       if (el && !el.isConnected) el = await waitFor(() => resolveTarget(step.target, this.actions?.scope), 1500);
       if (step !== this.step) return;
       if (!el) {
-        // Ziel fehlt (anderer Dienst, Recht, Layout): Schritt ueberspringen.
         this.spot.hide();
+        // Ein Schritt einer Neuerung bleibt stehen: Text und Hinweis, dass das Ziel gerade
+        // nicht zu sehen ist. So geht nichts verloren und die Tour springt nicht von selbst.
+        if (step.literal) {
+          this.target = null;
+          if (step.baseText === undefined) {
+            step.baseText = step.text;
+            this.s.steps[this.s.index].text = `${step.text} ${t('onboarding.hidden')}`;
+          }
+          return;
+        }
+        // Ziel fehlt (anderer Dienst, Recht, Layout): Schritt ueberspringen.
         if (!this.last) this.s.index += 1; else this.s.finish();
         return;
+      }
+      // Das Ziel ist wieder da: der Hinweis auf das fehlende Ziel entfaellt.
+      if (step.baseText !== undefined) {
+        this.s.steps[this.s.index].text = step.baseText;
+        delete step.baseText;
       }
       this.target = el;
       // Leerer Bereich: Leertext statt Erklärung, erst jetzt sind die Karten da.

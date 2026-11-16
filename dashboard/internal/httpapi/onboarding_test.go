@@ -660,13 +660,13 @@ func TestTourIsStaleWhenAnOpenEntryIsUnknown(t *testing.T) {
 	user := auth.User{Roles: []string{auth.RoleViewOverview}}
 	stale := onboardingTourFor(user, &versions.HighlightTour{Steps: []versions.TourStep{
 		{Target: "known", Device: "any", Open: []string{"gone"}},
-	}}, targets)
+	}}, targets, anyTourCondition)
 	if stale == nil || !stale.Stale {
 		t.Fatalf("tour = %+v, want stale for an unknown open entry", stale)
 	}
 	fresh := onboardingTourFor(user, &versions.HighlightTour{Steps: []versions.TourStep{
 		{Target: "known", Device: "any", Open: []string{"known"}},
-	}}, targets)
+	}}, targets, anyTourCondition)
 	if fresh == nil || fresh.Stale {
 		t.Fatalf("tour = %+v, want not stale when every open entry is known", fresh)
 	}
@@ -678,7 +678,7 @@ func TestTourLimitedWhenPermissionsHideEveryStep(t *testing.T) {
 	}}
 	without := auth.User{Roles: []string{auth.RoleViewOverview}}
 	with := auth.User{Roles: []string{auth.RoleViewOverview, auth.RoleViewAutomations, auth.RoleAutomations}}
-	if item := (onboardingExploreItem{Tour: onboardingTourFor(without, needsAutomations, nil), TourLimited: tourLimitedFor(without, needsAutomations)}); item.Tour != nil || !item.TourLimited {
+	if item := (onboardingExploreItem{Tour: onboardingTourFor(without, needsAutomations, nil, anyTourCondition), TourLimited: tourLimitedFor(without, needsAutomations)}); item.Tour != nil || !item.TourLimited {
 		t.Fatalf("item = %+v, want no tour and limited for a user without the role", item)
 	}
 	if tourLimitedFor(with, needsAutomations) {
@@ -696,7 +696,7 @@ func TestTourLimitedWhenPermissionsHideEveryStep(t *testing.T) {
 // replacementEntry builds an explore item and its unfiltered source tour the
 // way onboardingExplore does.
 func replacementEntry(id string, pr int, user auth.User, tour *versions.HighlightTour, targets map[string]bool) (onboardingExploreItem, *versions.HighlightTour) {
-	return onboardingExploreItem{ID: id, PR: pr, Tour: onboardingTourFor(user, tour, targets)}, tour
+	return onboardingExploreItem{ID: id, PR: pr, Tour: onboardingTourFor(user, tour, targets, anyTourCondition)}, tour
 }
 
 func TestReplacementPointsAtTheAllowedStep(t *testing.T) {
@@ -765,5 +765,24 @@ func TestReplacementNeedsAnAllowedStep(t *testing.T) {
 	resolveReplacements(items, []*versions.HighlightTour{staleSource}, user)
 	if items[0].Tour.Replacement != nil {
 		t.Fatalf("replacement = %+v, want none without a listed PR 20", items[0].Tour.Replacement)
+	}
+}
+
+func TestTourStepWithWhenCompanionIsMarkedUnmetWithoutAPairedCompanion(t *testing.T) {
+	user := auth.User{Roles: []string{auth.RoleViewOverview}}
+	tour := &versions.HighlightTour{Steps: []versions.TourStep{
+		{Target: "companion", Device: "any"},
+		{Target: "companion-http", Device: "any", When: "companion"},
+	}}
+	unpaired := onboardingTourFor(user, tour, nil, tourConditions{})
+	if unpaired == nil || len(unpaired.Steps) != 2 || unpaired.Steps[0].Unmet || !unpaired.Steps[1].Unmet {
+		t.Fatalf("unpaired tour = %+v, want both steps with only the second unmet", unpaired)
+	}
+	paired := onboardingTourFor(user, tour, nil, tourConditions{Companion: true})
+	if paired == nil || len(paired.Steps) != 2 || paired.Steps[1].Unmet {
+		t.Fatalf("paired tour = %+v, want both steps met", paired)
+	}
+	if tourLimitedFor(user, tour) {
+		t.Fatal("limited by a when condition, want only permissions to limit")
 	}
 }
