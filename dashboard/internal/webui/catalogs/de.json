@@ -3216,6 +3216,7 @@
   "onboarding.setup.users.title": "Weitere Benutzer anlegen",
   "onboarding.toast.setup_skipped": "Einrichtung übersprungen. Offene Punkte findest du in der Checkliste.",
   "onboarding.toast.tour_ended": "Tour beendet. Du findest sie in der Checkliste.",
+  "onboarding.unmet.companion": "Noch nicht sichtbar, nur mit gekoppeltem Home Assistant.",
   "onboarding.welcome.w-devices.text": "Alle Geräte mit ihren Werten. Ein Tipp auf ein Gerät öffnet Details und Verlauf.",
   "onboarding.welcome.w-devices.title": "Geräte",
   "onboarding.welcome.w-overview.text": "Hier siehst du auf einen Blick, was gerade erzeugt, gespeichert und verbraucht wird.",

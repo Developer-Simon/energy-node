@@ -711,7 +711,7 @@ func TestReplacementPointsAtTheAllowedStep(t *testing.T) {
 		{Target: "known", Device: "any"},
 	}}, targets)
 	items := []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
 	if items[0].Tour.Replacement == nil || *items[0].Tour.Replacement != (onboardingReplacement{ID: "h20", Index: 1}) {
 		t.Fatalf("replacement = %+v, want h20 at index 1", items[0].Tour.Replacement)
 	}
@@ -723,7 +723,7 @@ func TestReplacementPointsAtTheAllowedStep(t *testing.T) {
 	}}, targets)
 	staleItem, staleSource = replacementEntry("h10", 10, user, staleSource, targets)
 	items = []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
 	if items[0].Tour.Replacement == nil || *items[0].Tour.Replacement != (onboardingReplacement{ID: "h20", Index: 0}) {
 		t.Fatalf("replacement = %+v, want h20 at index 0", items[0].Tour.Replacement)
 	}
@@ -743,7 +743,7 @@ func TestReplacementNeedsAnAllowedStep(t *testing.T) {
 		{Target: "known", Device: "any", Need: auth.RoleUserManagement},
 	}}, targets)
 	items := []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
 	if items[0].Tour.Replacement != nil {
 		t.Fatalf("replacement = %+v, want none when the step is not allowed", items[0].Tour.Replacement)
 	}
@@ -754,7 +754,7 @@ func TestReplacementNeedsAnAllowedStep(t *testing.T) {
 	}}, targets)
 	staleItem, staleSource = replacementEntry("h10", 10, user, staleTour, targets)
 	items = []onboardingExploreItem{staleItem, newItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user, anyTourCondition)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource, newSource}, user)
 	if items[0].Tour.Replacement != nil {
 		t.Fatalf("replacement = %+v, want none when the replacement is stale", items[0].Tour.Replacement)
 	}
@@ -762,25 +762,25 @@ func TestReplacementNeedsAnAllowedStep(t *testing.T) {
 	// No listed highlight has the PR.
 	staleItem, staleSource = replacementEntry("h10", 10, user, staleTour, targets)
 	items = []onboardingExploreItem{staleItem}
-	resolveReplacements(items, []*versions.HighlightTour{staleSource}, user, anyTourCondition)
+	resolveReplacements(items, []*versions.HighlightTour{staleSource}, user)
 	if items[0].Tour.Replacement != nil {
 		t.Fatalf("replacement = %+v, want none without a listed PR 20", items[0].Tour.Replacement)
 	}
 }
 
-func TestTourStepWithWhenCompanionNeedsAPairedCompanion(t *testing.T) {
+func TestTourStepWithWhenCompanionIsMarkedUnmetWithoutAPairedCompanion(t *testing.T) {
 	user := auth.User{Roles: []string{auth.RoleViewOverview}}
 	tour := &versions.HighlightTour{Steps: []versions.TourStep{
 		{Target: "companion", Device: "any"},
 		{Target: "companion-http", Device: "any", When: "companion"},
 	}}
 	unpaired := onboardingTourFor(user, tour, nil, tourConditions{})
-	if unpaired == nil || len(unpaired.Steps) != 1 || unpaired.Steps[0].Target != "companion" {
-		t.Fatalf("unpaired tour = %+v, want only the first step", unpaired)
+	if unpaired == nil || len(unpaired.Steps) != 2 || unpaired.Steps[0].Unmet || !unpaired.Steps[1].Unmet {
+		t.Fatalf("unpaired tour = %+v, want both steps with only the second unmet", unpaired)
 	}
 	paired := onboardingTourFor(user, tour, nil, tourConditions{Companion: true})
-	if paired == nil || len(paired.Steps) != 2 {
-		t.Fatalf("paired tour = %+v, want both steps", paired)
+	if paired == nil || len(paired.Steps) != 2 || paired.Steps[1].Unmet {
+		t.Fatalf("paired tour = %+v, want both steps met", paired)
 	}
 	if tourLimitedFor(user, tour) {
 		t.Fatal("limited by a when condition, want only permissions to limit")

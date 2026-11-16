@@ -3216,6 +3216,7 @@
   "onboarding.setup.users.title": "Add more users",
   "onboarding.toast.setup_skipped": "Setup skipped. You find open items in the checklist.",
   "onboarding.toast.tour_ended": "Tour ended. You find it in the checklist.",
+  "onboarding.unmet.companion": "Not visible yet, only with a paired Home Assistant.",
   "onboarding.welcome.w-devices.text": "All devices with their values. A tap on a device opens details and history.",
   "onboarding.welcome.w-devices.title": "Devices",
   "onboarding.welcome.w-overview.text": "Here you see at a glance what is being generated, stored and used right now.",

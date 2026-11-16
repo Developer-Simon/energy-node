@@ -697,7 +697,8 @@
       if (this.collapsed) this.setCollapsed(false);
       this.swapIn();
       this.detach();
-      if (step.intro) {
+      // Ein Schritt, dessen Bedingung nicht gilt (when), zeigt nur Text und Hinweis, ohne Ziel.
+      if (step.intro || step.unmet) {
         // Vorstellung ohne Ziel: das Blatt bleibt offen, kein Spotlight, kein Ort.
         // Die Klicks des vorigen Schritts werden trotzdem zurueckgenommen.
         this.actions = await window.obActions.next(this.actions, []);

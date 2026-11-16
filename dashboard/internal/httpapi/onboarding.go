@@ -192,7 +192,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool,
 			}
 		}
 	}
-	resolveReplacements(items, sources, user, conds)
+	resolveReplacements(items, sources, user)
 	return view.To, items, true
 }
 
@@ -201,7 +201,7 @@ func onboardingExplore(stateDir string, user auth.User, targets map[string]bool,
 // PR, it must not be stale itself, and the named step must exist and be
 // allowed for the user. Index counts the allowed steps before that step. The
 // sources hold the unfiltered tour of each item, index by index.
-func resolveReplacements(items []onboardingExploreItem, sources []*versions.HighlightTour, user auth.User, conds tourConditions) {
+func resolveReplacements(items []onboardingExploreItem, sources []*versions.HighlightTour, user auth.User) {
 	for i := range items {
 		if items[i].Tour == nil || !items[i].Tour.Stale || sources[i] == nil || sources[i].ReplacedBy == nil {
 			continue
@@ -215,12 +215,12 @@ func resolveReplacements(items []onboardingExploreItem, sources []*versions.High
 			if ref.Step < 1 || ref.Step > len(steps) {
 				continue
 			}
-			if !tourStepAllowed(user, steps[ref.Step-1], conds) {
+			if !tourStepAllowed(user, steps[ref.Step-1]) {
 				continue
 			}
 			index := 0
 			for _, before := range steps[:ref.Step-1] {
-				if tourStepAllowed(user, before, conds) {
+				if tourStepAllowed(user, before) {
 					index++
 				}
 			}
@@ -247,16 +247,17 @@ type tourConditions struct {
 // permissions alone hide a tour.
 var anyTourCondition = tourConditions{Companion: true}
 
-// tourStepAllowed reports whether the user holds the permission of the step
-// and its when condition holds.
-func tourStepAllowed(user auth.User, step versions.TourStep, conds tourConditions) bool {
-	if step.Need != "" && !auth.HasRole(user, step.Need) {
-		return false
-	}
-	return step.When != "companion" || conds.Companion
+// tourStepAllowed reports whether the user holds the permission of the step.
+func tourStepAllowed(user auth.User, step versions.TourStep) bool {
+	return step.Need == "" || auth.HasRole(user, step.Need)
 }
 
-// onboardingTourFor keeps the steps whose permission the user holds and whose when holds. An
+// tourStepUnmet reports whether the when condition of the step does not hold.
+func tourStepUnmet(step versions.TourStep, conds tourConditions) bool {
+	return step.When == "companion" && !conds.Companion
+}
+
+// onboardingTourFor keeps the steps whose permission the user holds. A step whose when does not hold stays and is marked Unmet. An
 // exemption or a tour without any allowed step gives nil. The tour is stale
 // when one of the kept steps or one of its open entries names a target
 // outside targets; without targets nothing is stale.
@@ -266,7 +267,8 @@ func onboardingTourFor(user auth.User, tour *versions.HighlightTour, targets map
 	}
 	steps := []versions.TourStep{}
 	for _, step := range tour.Steps {
-		if tourStepAllowed(user, step, conds) {
+		if tourStepAllowed(user, step) {
+			step.Unmet = tourStepUnmet(step, conds)
 			steps = append(steps, step)
 		}
 	}
