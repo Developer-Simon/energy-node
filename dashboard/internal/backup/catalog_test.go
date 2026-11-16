@@ -38,10 +38,14 @@ var notNodeData = map[string]bool{
 	"previous-manifest.json":  true,
 	"selection.json":          true,
 	"onboarding-seed.json":    true,
-	"_devices.json":           true,
-	"changelog.json":          true,
-	"components.json":         true,
-	"job.json":                true,
+	// Seed des Beispiels (Schritt 89) und die Vorlage dazu im Repo. Der Seed wird
+	// beim Start einmal uebernommen und zur Notiz beispiel.json.
+	"beispiel-seed.json":                  true,
+	"scripts/bootstrap/lib/beispiel.json": true,
+	"_devices.json":                       true,
+	"changelog.json":                      true,
+	"components.json":                     true,
+	"job.json":                            true,
 	// Installer-Artefakt unter /etc/energy-node (Schritt 67), nicht in Data oder Devices.
 	// Das Backup nimmt es bewusst nicht auf (Idee P2.28).
 	"hotspot.json": true,
