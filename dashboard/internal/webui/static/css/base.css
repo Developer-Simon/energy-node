@@ -1821,6 +1821,8 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-hints { position: absolute; z-index: 30; top: calc(100% + .45rem); right: 0; min-width: 16rem; max-width: min(24rem, calc(100cqi - 2rem)); padding: .45rem; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: 0 12px 32px rgba(0, 0, 0, .28); transform-origin: top right; animation: device-modal-pop-in 160ms var(--ease-out); color: var(--text); font-size: .84rem; }
 .device-modal-hints-row { display: flex; align-items: flex-start; gap: .45rem; padding: .35rem .4rem; }
 .device-modal-hints-row svg { flex: none; width: 1rem; height: 1rem; margin-top: .1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; color: var(--warn); }
+.device-modal-hints-row.is-critical svg { color: var(--bad); }
+.device-modal-hints-row.is-info svg { color: var(--info); }
 .device-modal-hints-row small { display: block; margin-top: .15rem; color: var(--text-subtle); }
 .device-modal-hints-link { display: block; width: 100%; margin-top: .2rem; padding: .4rem; border: 0; border-top: 1px solid var(--border-soft); background: none; color: var(--accent); font: inherit; font-size: .82rem; text-align: left; cursor: pointer; }
 .device-modal-panel h5 { margin: .2rem 0 .4rem; font-size: .74rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-subtle); }
