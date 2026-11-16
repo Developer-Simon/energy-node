@@ -14,6 +14,8 @@
     'bereits erledigt': 'done',
     'login ausstehend': 'login_pending',
     'Tailscale nicht installiert': 'tailscale_missing',
+    'Beispiel wurde schon angelegt': 'example_exists',
+    'Node hat schon Geraete': 'has_devices',
   };
 
   // Zusaetze an ok-Markern (scripts/bootstrap/lib/step.sh, step_ok):

@@ -870,6 +870,8 @@
   "run.progress": "Schritt {current} von {total}: {name}",
   "run.skip.deselected": "nicht ausgewählt",
   "run.skip.done": "bereits erledigt",
+  "run.skip.example_exists": "Beispiel schon angelegt",
+  "run.skip.has_devices": "Node hat schon Geräte",
   "run.skip.login_pending": "wartet auf die Anmeldung",
   "run.skip.tailscale_missing": "Tailscale nicht installiert",
   "service.apsystems": "APsystems",
