@@ -578,7 +578,7 @@ const healthScoreThresholdMin = 10
 
 func Default() Settings {
 	return Settings{
-		HealthScoreThreshold: 180, SweepIntervalSeconds: 300, ShowRuntimeStatus: true,
+		HealthScoreThreshold: 180, SweepIntervalSeconds: 1800, ShowRuntimeStatus: true,
 		DeviceViewMode: DeviceViewModeCompact, Theme: ThemeMint,
 		NumberFormat: numfmt.FormatAuto, NumberGrouping: numfmt.GroupingMatch,
 		ShowConfigEntitiesOnTile: false, ShowDiagnosticEntitiesOnTile: false,
@@ -653,15 +653,26 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// legacySweepIntervalDefault ist der Wert, den die mitgelieferte
+// Konfigurationsvorlage bis 2026-11 vorgab. Bestehende Nodes tragen ihn in
+// ihrer config.json, ohne ihn je gewaehlt zu haben. Er zaehlt darum nicht als
+// Vorgabe, es gilt Default().
+const legacySweepIntervalDefault = 300
+
 // SetSweepIntervalDefault hinterlegt den Startwert, den config.json fuer
 // sweep_interval_seconds liefert. Ein in settings.json ausdruecklich
 // gesetzter Wert gewinnt - deshalb wird die Schluessel-Anwesenheit am
 // Rohdokument geprueft und nicht am entpackten Settings-Wert:
 // Settings.UnmarshalJSON startet von Default() und macht einen fehlenden
 // Schluessel sonst ununterscheidbar von einem gesetzten Standardwert.
+// Der Altwert legacySweepIntervalDefault zaehlt nicht als Vorgabe, es gilt
+// dann Default().
 func (s *Store) SetSweepIntervalDefault(seconds int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if seconds == legacySweepIntervalDefault {
+		seconds = 0
+	}
 	s.sweepDefault = seconds
 	s.settingsLoaded = false
 }

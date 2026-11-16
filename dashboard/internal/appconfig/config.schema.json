@@ -78,7 +78,7 @@
           "type": "integer"
         },
         "sweep_interval_seconds": {
-          "description": "Seconds between two saves of the last known device values to disk, so that they are shown again after a restart. A value set under Settings \u003e General takes precedence.",
+          "description": "Seconds between two saves of the last known device values to disk, so that they are shown again after a restart. The dashboard also saves them when it stops. A value set under Settings \u003e General takes precedence.",
           "minimum": 1,
           "title": "Sweep interval",
           "type": "integer"

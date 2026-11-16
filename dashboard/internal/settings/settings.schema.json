@@ -16,9 +16,9 @@
     "sweep_interval_seconds": {
       "type": "integer",
       "minimum": 1,
-      "default": 300,
+      "default": 1800,
       "title": "Sweep interval",
-      "description": "Interval in seconds between runtime-cache maintenance sweeps."
+      "description": "Seconds between two saves of the last known device values to disk. The dashboard also saves them when it stops."
     },
     "show_runtime_status": {
       "type": "boolean",
