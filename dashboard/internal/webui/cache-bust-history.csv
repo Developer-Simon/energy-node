@@ -1,4 +1,6 @@
 version,date,asset,v,note
+v0.11.17,2026-11-16,css/base.css,49,
+v0.11.17,2026-11-16,js/device-modal.js,5,
 v0.11.12,2026-11-14,js/backup.page.js,2,"settings panel, backup page shows a hint and blocked inputs when HTTPS is missing"
 v0.11.9,2026-11-09,css/backup.css,1,"new, settings panel, backup page styles"
 v0.11.9,2026-11-09,js/backup.page.js,1,"new, settings panel, backup page"

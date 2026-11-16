@@ -1,0 +1,47 @@
+{
+  "de": {
+    "*": "Betriebshinweise eines Geräts stehen im Geräte-Modal hinter einer Glocke im Kopf"
+  },
+  "en": {
+    "*": "Operational notices of a device sit behind a bell in the device modal header"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "need": "view_devices",
+          "open": [
+            "@device-modal"
+          ],
+          "panel": "devices-panel",
+          "target": "device-hints-bell",
+          "text": {
+            "de": "Betriebshinweise eines Geräts, etwa wenn es offline ist, stehen jetzt hinter einer Glocke im Kopf. Die Glocke erscheint nur, wenn das Gerät Hinweise hat.",
+            "en": "Operational notices of a device, such as being offline, now sit behind a bell in the header. The bell only appears when the device has notices."
+          },
+          "title": {
+            "de": "Hinweis-Glocke",
+            "en": "Hint bell"
+          }
+        },
+        {
+          "need": "view_devices",
+          "open": [
+            "@device-modal",
+            "device-hints-bell"
+          ],
+          "panel": "devices-panel",
+          "target": "device-hints-popover",
+          "text": {
+            "de": "Das Fenster nennt jeden Hinweis in wenigen Worten. Mit dem Analyse-Recht führt dich Details in Analyse zu den vollständigen Karten.",
+            "en": "The popover lists every notice in a few words. With the analysis right, Details in Analysis takes you to the full cards."
+          },
+          "title": {
+            "de": "Kurztexte",
+            "en": "Short texts"
+          }
+        }
+      ]
+    }
+  }
+}

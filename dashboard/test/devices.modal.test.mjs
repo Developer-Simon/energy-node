@@ -122,19 +122,53 @@ test('relativeTime formatiert Sekunden, Minuten und Stunden', () => {
   assert.equal(panel.relativeTime(new Date('2026-08-28T10:00:00Z'), now), 'vor 2 h');
 });
 
-test('managementTeaser zaehlt nur Konfigurationswarnungen', () => {
+test('managementTeaser zaehlt Betriebs- und Konfigurationswarnungen', () => {
   const panel = createDevicesPanel();
-  panel.deviceDetail = {
-    name: 'x', entities: [],
-    warnings: [
-      { rule_id: 'Offline', severity: 'critical', message: 'off', hint: '', operational: true },
-      { rule_id: 'Naming', severity: 'warning', message: 'naming', hint: '', operational: false },
-    ],
-    command_actions: [{ at: '2026-08-28T11:59:48Z', entity_id: 'e1', result: 'published' }],
-  };
-  assert.equal(panel.managementTeaser(), '⚠ 1');
+  panel.deviceDetail = { name: 'x', entities: [], warnings: [
+    { rule_id: 'Offline', severity: 'critical', message: 'off', hint: '', operational: true },
+    { rule_id: 'Naming', severity: 'warning', message: 'naming', hint: '', operational: false },
+  ] };
+  assert.equal(panel.managementTeaser(), '⚠ 2');
   panel.deviceDetail.warnings = [];
   assert.equal(panel.managementTeaser(), '');
+});
+
+test('operationalSeverities zaehlt Gruppen je Schwere, schwerste zuerst', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = { name: 'x', entities: [], warnings: [
+    { rule_id: 'NoStateUpdate', key: 'no_state_update', severity: 'warning', entity_id: 'a', message: 'm', hint: '', operational: true },
+    { rule_id: 'NoStateUpdate', key: 'no_state_update', severity: 'warning', entity_id: 'b', message: 'm', hint: '', operational: true },
+    { rule_id: 'Offline', key: 'offline', severity: 'critical', message: 'o', hint: '', operational: true },
+    { rule_id: 'Naming', severity: 'warning', message: 'n', hint: '', operational: false },
+  ] };
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.operationalSeverities)),
+    [{ severity: 'critical', count: 1 }, { severity: 'warning', count: 1 }]);
+  panel.deviceDetail.warnings = [{ rule_id: 'X', severity: 'info', message: 'i', hint: '', operational: true }];
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.operationalSeverities)), [{ severity: 'info', count: 1 }]);
+});
+
+test('hintIcon waehlt das Sprite-Icon nach Schwere', () => {
+  const panel = createDevicesPanel();
+  assert.equal(panel.hintIcon('critical'), '#ico-power-off');
+  assert.equal(panel.hintIcon('warning'), '#ico-warning');
+  assert.equal(panel.hintIcon('info'), '#ico-info');
+  assert.equal(panel.hintIcon('unbekannt'), '#ico-warning');
+});
+
+test('openHintsInAnalysis schliesst das Popover und wechselt in die Analyse, ohne Recht nichts', () => {
+  const panel = createDevicesPanel();
+  panel.$nextTick = fn => fn();
+  panel.$refs = {};
+  panel.deviceDetail = { name: 'x', entities: [] };
+  panel.canViewAnalysis = false;
+  panel.hintsOpen = true;
+  panel.openHintsInAnalysis();
+  assert.equal(panel.hintsOpen, true);
+  assert.notEqual(panel.activeDeviceTab, 'management');
+  panel.canViewAnalysis = true;
+  panel.openHintsInAnalysis();
+  assert.equal(panel.hintsOpen, false);
+  assert.equal(panel.activeDeviceTab, 'management');
 });
 
 function measureAndControl() {
@@ -310,6 +344,26 @@ test('Entitaeten bleiben offen, aber ein Geraetewechsel leert die Auswahl', asyn
   panel.toggleAnalysisEntity('e1');
   await panel.openDevice('other');
   assert.equal(panel.isAnalysisEntityOpen('e1'), false);
+});
+
+test('ein Geraetewechsel schliesst das Hinweis-Popover', async () => {
+  const panel = createDevicesPanel();
+  const details = {
+    dev: { id: 'dev', name: 'x', entities: [entity({ unique_id: 'e1' })] },
+    other: { id: 'other', name: 'y', entities: [entity({ unique_id: 'e1' })] },
+  };
+  const ok = body => ({ ok: true, status: 200, json: async () => body });
+  panel.testWindow.fetch = async url => {
+    if (url.endsWith('/activity')) return ok({ entries: [] });
+    if (url === '/api/v1/device/icons') return ok([]);
+    return ok(details[url.split('/').pop()]);
+  };
+  panel.$nextTick = callback => callback();
+  panel.$refs = {};
+  await panel.openDevice('dev');
+  panel.hintsOpen = true;
+  await panel.openDevice('other');
+  assert.equal(panel.hintsOpen, false);
 });
 
 test('Befehls-Chip zaehlt die Schreibaktionen der Entitaet', () => {
@@ -649,6 +703,11 @@ test('Esc schließt zuerst Icon-Auswahl oder Mehr-Menü über den Dialog-Handler
   panel.moreMenuOpen = true;
   pressEscape();
   assert.equal(panel.moreMenuOpen, false);
+
+  panel.hintsOpen = true;
+  const closedHints = pressEscape();
+  assert.equal(panel.hintsOpen, false);
+  assert.equal(closedHints.defaultPrevented, true);
 
   const idle = pressEscape();
   assert.equal(idle.defaultPrevented, false);
