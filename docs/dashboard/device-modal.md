@@ -83,15 +83,25 @@ read-only.
 
 Each tab carries a small counter with the number of entities inside.
 
+## Hint bell
+
+The bell in the header, next to the **⋯** button, only appears when the device
+has operational warnings, such as a device that is offline. A count dot shows
+how many there are. Click the bell to open a popover with the short text of
+each warning. Users with the [device analysis right](#rights) also get a
+**Details in Analysis** link there, which opens the Analysis tab at the
+**Operation** group. Escape closes the popover and nothing else.
+
 ## Analysis
 
 The last tab is labelled **Analysis**. It is only shown to users with the
 [device analysis right](#rights). It has two parts:
 
-- **Warnings** explain what is wrong with the configuration of the device, for
-  example an entity that stopped reporting, with the affected entities and a
-  hint. Operational warnings, such as a device that is offline, appear above
-  the tabs.
+- **Warnings** explain what is wrong with the device, in two groups. **Operation**
+  lists problems that need attention now, such as a device that is offline, no
+  state updates or a missing drive. **Configuration** lists problems in the
+  setup of the device, for example an entity that stopped reporting, with the
+  affected entities and a hint.
 - **Entities** lists every entity of the device. Each row shows its name, a
   warning chip for stale entities and the number of commands sent to it. Click
   a row to open it. It shows the state topic, the last message, the commands
