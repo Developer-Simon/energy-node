@@ -393,6 +393,8 @@ func main() {
 		},
 	}
 	energyRecorderDone := make(chan struct{})
+	// Laufzeit-Summen je Teil der Dashboard-Arbeit fuer die Leistungsmessung.
+	perfTiming := performance.NewTiming()
 	// Der Laufwerkswaechter laeuft vor den Recordern und vor dem Laden des
 	// Laufzeitcaches, damit beide den richtigen Ort sehen.
 	storageWatcher := storageDriveWatcher(cfg, dataDir, energyStatsStore.Reload)
@@ -464,7 +466,9 @@ func main() {
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
+					start := time.Now()
 					tickStorage()
+					perfTiming.Since(performance.PartBackground, start)
 				}
 			}
 		}()
@@ -569,7 +573,8 @@ func main() {
 		return ""
 	})
 	client.SetMessageObserver(perfCounter.Observe)
-	eventStreams := &httpapi.EventStreams{}
+	client.SetIngestObserver(func(d time.Duration) { perfTiming.Add(performance.PartMQTT, d) })
+	eventStreams := &httpapi.EventStreams{Push: func(d time.Duration) { perfTiming.Add(performance.PartPush, d) }}
 	perfMonitor := performance.NewMonitor(perfSource, perfCounter, performance.Options{
 		Interval: 15 * time.Second,
 		Window:   6 * time.Hour,
@@ -584,7 +589,9 @@ func main() {
 			}
 			return performance.DeviceSignals{TempC: telemetry.CPUTempC, Throttled: telemetry.UndervoltageNow}
 		},
-		RoundS: nodeAgent.ServiceRoundS,
+		RoundS:     nodeAgent.ServiceRoundS,
+		Timing:     perfTiming,
+		RuntimeCPU: performance.ReadRuntimeCPU,
 	})
 	// Der Befund performance_over_budget vergleicht die Last mit dem Budget der
 	// Seite Leistung, Ziel minus Abzug.
@@ -615,6 +622,19 @@ func main() {
 	var perfProvider httpapi.PerformanceProvider = perfMonitor
 	if fakeFile := os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE_FILE"); fakeFile != "" && os.Getenv("ENERGY_NODE_PERFORMANCE_FAKE") == "1" {
 		perfProvider = performance.NewFileProvider(fakeFile)
+	}
+	// Die Automationen für die Aufschlüsselung der Leistungsseite. Ohne lesbare
+	// Datei gibt es keine Einträge.
+	performanceAutomation := func() []performance.AutomationEntry {
+		raw, err := configManager.Read("automation_rules")
+		if err != nil {
+			return nil
+		}
+		entries, err := performance.ParseAutomation(raw)
+		if err != nil {
+			return nil
+		}
+		return entries
 	}
 	performanceRates := func() performance.RateConfig {
 		// Ohne lesbaren Wert gelten die Standardwerte: Live-Aktualisierung 3 s
@@ -814,8 +834,10 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				start := time.Now()
 				value, err := settingsStore.LoadSettings()
 				if err != nil {
+					perfTiming.Since(performance.PartBackground, start)
 					continue
 				}
 				if lastSweep.IsZero() || time.Since(lastSweep) >= time.Duration(value.SweepIntervalSeconds)*time.Second {
@@ -823,6 +845,7 @@ func main() {
 					}
 					lastSweep = time.Now()
 				}
+				perfTiming.Since(performance.PartBackground, start)
 			}
 		}
 	}()
@@ -865,7 +888,9 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				start := time.Now()
 				sched.Tick(ctx)
+				perfTiming.Since(performance.PartBackground, start)
 			}
 		}
 	}()
@@ -942,7 +967,7 @@ func main() {
 	// root-relative paths, even when a reverse proxy serves the dashboard
 	// under a subpath (see knowhow/dashboard/dashboard-reverse-proxy-unterpfad.md).
 	// Both listeners serve this same handler.
-	handler := basepath.Middleware(httpapi.NewAuthenticatedRouter(reg, configManager, settingsStore, tinytuya.NewClient(
+	handler := perfTiming.Middleware(basepath.Middleware(httpapi.NewAuthenticatedRouter(reg, configManager, settingsStore, tinytuya.NewClient(
 		cfg.TinyTuya.ProbePython,
 		cfg.TinyTuya.ProbeScript,
 		probeTimeout,
@@ -1028,6 +1053,7 @@ func main() {
 		Performance: &httpapi.PerformanceDeps{
 			Provider:   perfProvider,
 			Rates:      performanceRates,
+			Automation: performanceAutomation,
 			Floors:     perfFloors,
 			Changes:    perfMonitor,
 			Auth:       authManager,
@@ -1038,7 +1064,7 @@ func main() {
 			Executor:   systemExecutor,
 			NodeRates:  nodeAgent,
 		},
-	}))
+	})))
 
 	srv := &http.Server{
 		Addr:              net.JoinHostPort(bindAddress, port),
@@ -1063,6 +1089,7 @@ func main() {
 				chainSuggest.Close()
 				return
 			case <-ticker.C:
+				start := time.Now()
 				now := time.Now()
 				snapshot := energy.Aggregate(reg.Snapshot(), energyResolver, now.UTC()).WithInterpretation(energyResolver.Interpretation())
 				energyRecorder.Observe(now, time.Since(monoStart), snapshot)
@@ -1090,6 +1117,7 @@ func main() {
 				}
 				historySampler.Observe(now, httpapi.HistorySamplerValues(snapshot, reg, configManager))
 				energySync.Tick()
+				perfTiming.Since(performance.PartBackground, start)
 			}
 		}
 	}()
@@ -1103,9 +1131,11 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				start := time.Now()
 				payload, snapshot, err := buildBalancePayload(reg, energyResolver, time.Now())
 				if err != nil {
 					log.Printf("energy-node-dashboard: energy balance marshal failed: %v", err)
+					perfTiming.Since(performance.PartBackground, start)
 					continue
 				}
 				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
@@ -1146,6 +1176,7 @@ func main() {
 						commitOptional()
 					}
 				}
+				perfTiming.Since(performance.PartBackground, start)
 			}
 		}
 	}()
@@ -1165,15 +1196,21 @@ func main() {
 				}
 			}
 		}
+		start := time.Now()
 		publish(nodeAgent.StateMessages(ctx, metricEnabled)...) // beim Start einmal voll
+		perfTiming.Since(performance.PartNode, start)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-fast.C:
+				start := time.Now()
 				publish(nodeAgent.StateMessage(ctx, metricEnabled))
+				perfTiming.Since(performance.PartNode, start)
 			case <-slow.C:
+				start := time.Now()
 				publish(nodeAgent.DiagnosticsMessage(ctx, metricEnabled))
+				perfTiming.Since(performance.PartNode, start)
 			case <-nodeAgent.RatesChanged():
 				// Neues Poll-Intervall aus den Einstellungen: beide Ticker neu takten.
 				fast.Reset(nodeAgent.PollInterval())

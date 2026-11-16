@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.17-pre.17 (2026-11-06)
+## v0.11.17-pre.18 (2026-11-06)
 
 ### Features
 
@@ -17,6 +17,17 @@
 - **storage:** The system drive card now splits its usage into system, installation, data and backups (#252) (a8e8832)
 - **performance:** show how much load the node puts on the device (#260) (b93bc98)
 - **performance:** choose polling rates and apply them from the performance page (#262) (4304074)
+- **performance:** check the effect of applied rates and offer a rollback (#263) (1b785fb)
+- **performance:** time the dashboard's work by part (92dd50d)
+- **performance:** measure push, HTTP, MQTT and background work in the dashboard (0f7fb8d)
+- **performance:** split the dashboard and automation load into parts (pure functions) (584b781)
+- **performance:** feed the cost model from the measured dashboard parts (1b8251e)
+- **performance:** let the fake file carry dashboard parts (875aeb2)
+- **performance:** serve the dashboard and automation breakdown (51a2055)
+- **webui:** add the breakdown logic to the performance page (66be69f)
+- **webui:** add the breakdown toggle and panel to the performance page (7273569)
+- **performance:** break down the dashboard and automation load (#265)
+- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **performance:** add the change record model for the effect check (f619894)
 - **performance:** evaluate the running change in the monitor tick (be85526)
 - **performance:** record the applied change and return it from the API (a4aa403)
@@ -25,8 +36,6 @@
 - **webui:** show the effect check and rollback on the performance page (1c11536)
 - **diagnostics:** report a device over its performance budget (491dd30)
 - **webui:** show the performance finding with a link to the performance page (ca59e94)
-- **performance:** check the effect of applied rates and offer a rollback (#263)
-- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **performance:** apply selected rates through the existing write paths (f63c98e)
 - **performance:** add the apply endpoint for the rate selection (2879371)
 - **webui:** add the pure rate and budget core for the performance page (e34b998)
@@ -77,10 +86,11 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
-- **backup:** classify the performance change file as disposable (f4016b6)
-- **webui:** bump cache-bust marks for the performance check assets (e634f0d)
+- **webui:** bump the cache-bust marks of the performance page (ed21c13)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
+- **backup:** classify the performance change file as disposable (f4016b6)
+- **webui:** bump cache-bust marks for the performance check assets (e634f0d)
 - **nodeagent:** apply a new node poll interval without restart (050ba64)
 - **performance:** check the target right and reject non-positive rates (6850a20)
 - **performance:** estimate the rounded live update value (4582830)
@@ -116,6 +126,7 @@
 
 ### Tests
 
+- **performance:** cover discarded ticks and empty sums (6588f84)
 - **webui:** expect settings.page.js at v=37 (7ed6a60)
 - **performance:** cover the performance page in smoke and demo (05cbe1a)
 - **network:** smoke the fallback settings and the hotspot secret (e3c2f4b)
@@ -123,8 +134,8 @@
 
 ### Chores
 
-- **webui:** record the cache-bust history for the performance check assets (c01d9e9)
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
+- **webui:** record the cache-bust history for the performance check assets (c01d9e9)
 - **webui:** record the cache-bust marks of the performance page (5b896c1)
 
 ## v0.11.11 (2026-11-11)

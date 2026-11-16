@@ -356,3 +356,145 @@ func TestMarkUndoneSurvivesReload(t *testing.T) {
 		t.Fatalf("change after reload = %+v, want undone and not Restarted", c)
 	}
 }
+
+func TestMonitorWindowsDashboardShares(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	const interval = 15 * time.Second
+	timing := NewTiming()
+	var gc, user float64
+	m := NewMonitor(steadySteps(nil), nil, Options{
+		Interval:   interval,
+		Window:     6 * time.Hour,
+		Timing:     timing,
+		RuntimeCPU: func() (float64, float64) { return gc, user },
+	})
+
+	// Baseline tick, then two kept ticks with push 3 s and mqtt 1 s in total.
+	m.Tick(t0)
+	timing.Add(PartPush, 1500*time.Millisecond)
+	timing.Add(PartMQTT, 500*time.Millisecond)
+	gc, user = 0.25, 0.75
+	m.Tick(t0.Add(interval))
+	timing.Add(PartPush, 1500*time.Millisecond)
+	timing.Add(PartMQTT, 500*time.Millisecond)
+	gc, user = 0.5, 1.5
+	now := t0.Add(2 * interval)
+	m.Tick(now)
+
+	snap := m.Snapshot(now)
+	if snap.Dashboard == nil {
+		t.Fatal("Dashboard = nil, want a split")
+	}
+	if got := snap.Dashboard.Shares[PartPush]; math.Abs(got-0.75) > 1e-9 {
+		t.Errorf("push share = %v, want 0.75", got)
+	}
+	if got := snap.Dashboard.Shares[PartMQTT]; math.Abs(got-0.25) > 1e-9 {
+		t.Errorf("mqtt share = %v, want 0.25", got)
+	}
+	// gc 0.5 s against user 1.5 s in the window.
+	if got := snap.Dashboard.GCShare; math.Abs(got-0.25) > 1e-9 {
+		t.Errorf("GCShare = %v, want 0.25", got)
+	}
+}
+
+func TestMonitorWithoutTimingHasNoSplit(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	const interval = 15 * time.Second
+	var calls float64
+	m := NewMonitor(steadySteps(nil), nil, Options{
+		Interval:   interval,
+		Window:     6 * time.Hour,
+		RuntimeCPU: func() (float64, float64) { calls++; return calls, calls },
+	})
+
+	var now time.Time
+	for i := 0; i <= 10; i++ {
+		now = t0.Add(time.Duration(i) * interval)
+		m.Tick(now)
+	}
+	if snap := m.Snapshot(now); snap.Dashboard != nil {
+		t.Errorf("Dashboard = %+v, want nil without timing", snap.Dashboard)
+	}
+}
+
+func TestMonitorDiscardedTickAdvancesBaseline(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	const interval = 15 * time.Second
+	timing := NewTiming()
+	busy := false
+	m := NewMonitor(steadySteps(nil), nil, Options{
+		Interval: interval,
+		Window:   6 * time.Hour,
+		Timing:   timing,
+		Busy:     func() bool { return busy },
+	})
+
+	m.Tick(t0)
+	timing.Add(PartPush, time.Second)
+	m.Tick(t0.Add(interval)) // kept
+
+	// Busy tick: mqtt work happens here but the tick is discarded.
+	busy = true
+	timing.Add(PartMQTT, 3*time.Second)
+	m.Tick(t0.Add(2 * interval))
+	busy = false
+
+	timing.Add(PartPush, time.Second)
+	now := t0.Add(3 * interval)
+	m.Tick(now) // kept, its delta is push 1 s only
+
+	snap := m.Snapshot(now)
+	if snap.Dashboard == nil {
+		t.Fatal("Dashboard = nil, want a split")
+	}
+	if got := snap.Dashboard.Shares[PartPush]; math.Abs(got-1) > 1e-9 {
+		t.Errorf("push share = %v, want 1", got)
+	}
+	if got := snap.Dashboard.Shares[PartMQTT]; got != 0 {
+		t.Errorf("mqtt share = %v, want 0: the discarded tick must not count", got)
+	}
+}
+
+func TestMonitorEmptyTimingHasNoSplit(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	const interval = 15 * time.Second
+	m := NewMonitor(steadySteps(nil), nil, Options{
+		Interval: interval,
+		Window:   6 * time.Hour,
+		Timing:   NewTiming(),
+	})
+
+	var now time.Time
+	for i := 0; i <= 5; i++ {
+		now = t0.Add(time.Duration(i) * interval)
+		m.Tick(now)
+	}
+	if snap := m.Snapshot(now); snap.Dashboard != nil {
+		t.Errorf("Dashboard = %+v, want nil when every part is 0", snap.Dashboard)
+	}
+}
+
+func TestMonitorZeroRuntimeCPUGivesZeroGCShare(t *testing.T) {
+	t0 := time.Date(2026, 11, 15, 8, 0, 0, 0, time.UTC)
+	const interval = 15 * time.Second
+	timing := NewTiming()
+	m := NewMonitor(steadySteps(nil), nil, Options{
+		Interval:   interval,
+		Window:     6 * time.Hour,
+		Timing:     timing,
+		RuntimeCPU: func() (float64, float64) { return 0, 0 },
+	})
+
+	m.Tick(t0)
+	timing.Add(PartPush, time.Second)
+	now := t0.Add(interval)
+	m.Tick(now)
+
+	snap := m.Snapshot(now)
+	if snap.Dashboard == nil {
+		t.Fatal("Dashboard = nil, want a split")
+	}
+	if math.IsNaN(snap.Dashboard.GCShare) || snap.Dashboard.GCShare != 0 {
+		t.Errorf("GCShare = %v, want 0 without runtime CPU", snap.Dashboard.GCShare)
+	}
+}

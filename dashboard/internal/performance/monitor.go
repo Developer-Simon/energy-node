@@ -29,6 +29,8 @@ type Options struct {
 	Clients                  func() int
 	Device                   func() DeviceSignals
 	RoundS                   func(serviceID string) (float64, bool) // Rundendauer je Dienst, false: unbekannt
+	Timing                   *Timing                                // Laufzeit je Teil des Dashboards, nil: keine Aufteilung
+	RuntimeCPU               RuntimeCPU                             // GC- und Nutzer-CPU, nil: keine GC-Aufteilung
 }
 
 // DeviceSignals are the device readings that come from outside the Source.
@@ -58,6 +60,12 @@ type Monitor struct {
 	ramFree    *Ring
 	prevCount  map[string]int64
 	msgPerMin  map[string]float64
+	partRings  map[Part]*Ring // Laufzeit je Teil in Sekunden, nur bei Timing
+	partPrev   map[Part]time.Duration
+	gcRing     *Ring // GC-CPU in Sekunden, nur bei RuntimeCPU
+	userRing   *Ring // Nutzer-CPU in Sekunden, nur bei RuntimeCPU
+	gcPrev     float64
+	userPrev   float64
 	changeDir  string  // data dir of last-change.json, empty: memory only
 	change     *Change // applied change under evaluation, nil when none
 	budget     func(Snapshot) Budget
@@ -78,6 +86,7 @@ type Snapshot struct {
 	ClientsSeen   bool // false: nie ein Client ausser dem aktuellen
 	Units         []UnitStats
 	External      *SourceRate
+	Dashboard     *DashboardSplit // nil ohne gemessene Zeit im Fenster
 }
 
 // UnitStats is the load of one unit. ID is the service ID for service units and
@@ -100,7 +109,7 @@ func NewMonitor(src Source, counter *Counter, opts Options) *Monitor {
 	if opts.Window <= 0 {
 		opts.Window = defaultWindow
 	}
-	return &Monitor{
+	m := &Monitor{
 		src:       src,
 		counter:   counter,
 		opts:      opts,
@@ -111,7 +120,19 @@ func NewMonitor(src Source, counter *Counter, opts Options) *Monitor {
 		ramFree:   newSeriesRing(opts),
 		prevCount: map[string]int64{},
 		msgPerMin: map[string]float64{},
+		partPrev:  map[Part]time.Duration{},
 	}
+	if opts.Timing != nil {
+		m.partRings = make(map[Part]*Ring, len(TimedParts))
+		for _, p := range TimedParts {
+			m.partRings[p] = newSeriesRing(opts)
+		}
+	}
+	if opts.RuntimeCPU != nil {
+		m.gcRing = newSeriesRing(opts)
+		m.userRing = newSeriesRing(opts)
+	}
+	return m
 }
 
 func newSeriesRing(opts Options) *Ring {
@@ -135,6 +156,7 @@ func (m *Monitor) Tick(now time.Time) {
 		m.start = now
 		m.last, m.lastAt = raw, now
 		m.countMessages(now, 0)
+		m.samplePartsLocked(now, false)
 		return
 	}
 
@@ -145,6 +167,7 @@ func (m *Monitor) Tick(now time.Time) {
 		m.sample(now, dt, raw)
 		sampled = true
 	}
+	m.samplePartsLocked(now, sampled)
 	m.last, m.lastAt = raw, now
 	if sampled {
 		m.evaluateOverBudget(now, dt)
@@ -301,6 +324,13 @@ func (m *Monitor) snapshotLocked(now time.Time) Snapshot {
 	for _, r := range m.unitCPU {
 		r.Prune(now)
 	}
+	for _, r := range m.partRings {
+		r.Prune(now)
+	}
+	if m.gcRing != nil {
+		m.gcRing.Prune(now)
+		m.userRing.Prune(now)
+	}
 
 	clientsMax := 1
 	for _, v := range m.clients.Values() {
@@ -324,7 +354,69 @@ func (m *Monitor) snapshotLocked(now time.Time) Snapshot {
 		ClientsSeen:   clientsMax > 1,
 		Units:         m.unitStats(),
 		External:      m.external(now),
+		Dashboard:     m.dashboardSplit(),
 	}
+}
+
+// samplePartsLocked moves the baselines of the timing and the runtime CPU to
+// now. The deltas go into their rings only when keep is true, so dropped ticks
+// still advance the baselines. The caller holds m.mu.
+func (m *Monitor) samplePartsLocked(now time.Time, keep bool) {
+	if m.opts.Timing != nil {
+		totals := m.opts.Timing.Totals()
+		for _, p := range TimedParts {
+			d := totals[p] - m.partPrev[p]
+			m.partPrev[p] = totals[p]
+			if keep && d > 0 {
+				m.partRings[p].Add(now, d.Seconds())
+			}
+		}
+	}
+	if m.opts.RuntimeCPU != nil {
+		gc, user := m.opts.RuntimeCPU()
+		if keep && gc >= m.gcPrev && user >= m.userPrev {
+			m.gcRing.Add(now, gc-m.gcPrev)
+			m.userRing.Add(now, user-m.userPrev)
+		}
+		m.gcPrev, m.userPrev = gc, user
+	}
+}
+
+// dashboardSplit sums the part rings of the window. It returns nil when no
+// timed work is in the window.
+func (m *Monitor) dashboardSplit() *DashboardSplit {
+	var all float64
+	shares := make(map[Part]float64, len(TimedParts))
+	for _, p := range TimedParts {
+		v := sumRing(m.partRings[p])
+		shares[p] = v
+		all += v
+	}
+	if all <= 0 {
+		return nil
+	}
+	for p := range shares {
+		shares[p] /= all
+	}
+	gc := sumRing(m.gcRing)
+	user := sumRing(m.userRing)
+	split := &DashboardSplit{Shares: shares}
+	if gc+user > 0 {
+		split.GCShare = gc / (gc + user)
+	}
+	return split
+}
+
+// sumRing adds the values of a ring in the window, nil counts as 0.
+func sumRing(r *Ring) float64 {
+	if r == nil {
+		return 0
+	}
+	var sum float64
+	for _, v := range r.Values() {
+		sum += v
+	}
+	return sum
 }
 
 // SamplesSince returns the total CPU samples in percent since t, the oldest first.

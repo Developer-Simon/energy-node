@@ -144,3 +144,58 @@
   .pf-reveal, .pf-reveal[data-open="true"] { transition: opacity .12s ease, visibility 0s; }
 }
 .pf-custom-sel input::placeholder { color: var(--text-strong); opacity: 1; }
+
+/* Aufschluesselung der Messwerte (Task 15). Zieht in performance.css,
+   ohne den Block NUR ENTWURF am Ende. */
+
+/* Zeile mit Aufklapper: der Knopf liegt ueber der ganzen Kopfzeile, das
+   Panel darunter liegt eine Ebene hoeher und faengt seine Klicks selbst. */
+.pf-mrow:has(> .pb-toggle) { position: relative; grid-template-areas: "name bar cpu" "meta meta meta" "panel panel panel"; }
+.pf-mrow:has(> .pb-toggle) .pf-mrow-name,
+.pf-mrow:has(> .pb-toggle) .pf-mrow-meta { padding-left: 1.35rem; }
+.pb-toggle { position: absolute; inset: 0; z-index: 1; display: block; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pb-toggle svg { position: absolute; top: calc(.55rem + .17rem); left: 0; width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform 200ms var(--ease-out), color 120ms ease; }
+.pb-toggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+.pf-mrow > .pb-toggle:hover:not(:disabled), .pf-mrow > .pb-toggle:active { border: 0; background: transparent; color: var(--text-muted); }
+.pb-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pb-toggle:active svg { color: var(--text-strong); }
+@media (hover: hover) and (pointer: fine) {
+  .pb-toggle:hover svg { color: var(--text-strong); }
+  .pf-mrow:has(> .pb-toggle:hover) .pf-mrow-name { color: var(--accent); }
+}
+
+/* Marke in der Metazeile, nur offen. Der Satz steht im Tooltip. */
+.pb-tag { align-self: center; padding: 0 .45rem; border: 1px solid var(--border-soft); border-radius: 999px; color: var(--text-subtle); font-size: .7rem; line-height: 1.35; cursor: help; }
+
+/* Panel: Raster von 0fr auf 1fr statt Pixelhoehe. */
+.pb-panel { grid-area: panel; position: relative; z-index: 2; display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--ease-out); }
+.pb-panel[data-open] { grid-template-rows: 1fr; }
+.pb-clip { min-height: 0; overflow: hidden; }
+/* Die Teile stehen im Raster der Zeile, ihre Balken fluchten mit dem Balken des Eintrags. */
+.pb-body { padding: .35rem 0 .1rem; opacity: 0; transition: opacity 200ms var(--ease-out); }
+.pb-panel[data-open] .pb-body { opacity: 1; }
+
+.pb-list { margin: 0; padding: 0; list-style: none; }
+.pb-item { display: grid; grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr) 4.2rem; grid-template-areas: "name bar pct"; align-items: center; gap: .1rem .9rem; padding: .28rem 0; }
+.pb-item-name { grid-area: name; display: flex; padding-left: 1.35rem; min-width: 0; flex-direction: column; color: var(--text); font-size: .82rem; line-height: 1.25; }
+.pb-item-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-item-name small { color: var(--text-subtle); font-size: .72rem; }
+.pb-item-bar { grid-area: bar; height: .3rem; overflow: hidden; border-radius: 999px; background: var(--track); }
+.pb-item-bar i { display: block; height: 100%; border-radius: inherit; opacity: .75; transform-origin: left center; transition: transform 240ms var(--ease-out); }
+.pb-item-pct { grid-area: pct; color: var(--text-muted); font-size: .82rem; font-variant-numeric: tabular-nums; text-align: right; }
+.pb-item--more .pb-item-name { color: var(--text-subtle); font-style: italic; }
+.pb-item--more .pb-item-bar i { opacity: .4; }
+
+.pb-group + .pb-group { margin-top: .55rem; }
+.pb-group-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .15rem 0 .1rem 1.35rem; }
+.pb-group-head h5 { margin: 0; color: var(--text-muted); font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.pb-group-head span { color: var(--text-muted); font-size: .78rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+@container setting-card (max-width: 30rem) {
+  .pf-mrow:has(> .pb-toggle) { grid-template-areas: "name cpu" "bar bar" "meta meta" "panel panel"; }
+  .pb-item { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name pct" "bar bar"; gap: .2rem .75rem; padding: .35rem 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-panel, .pb-body, .pb-toggle svg, .pb-item-bar i { transition: none; }
+}

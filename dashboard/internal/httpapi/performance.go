@@ -47,7 +47,15 @@ type PerformanceDeps struct {
 	DataDir    string
 	Executor   SystemActionExecutor
 	NodeRates  interface{ SetRates(float64, float64) }
+
+	// Automation gives the active rules and scenarios for the breakdown and the
+	// regulator row. Nil means no entries, the regulator row stays as it was.
+	Automation func() []performance.AutomationEntry
 }
+
+// performanceBreakdownLimit is the number of items shown per automation group.
+// The rest is summed into more and more_pct.
+const performanceBreakdownLimit = 6
 
 // performanceBody is the answer of GET /api/v1/performance.
 type performanceBody struct {
@@ -66,6 +74,43 @@ type performanceBody struct {
 	Rows             []performanceRow     `json:"rows"`
 	Units            []performanceUnit    `json:"units"`
 	Change           *performance.Change  `json:"change"`
+	Breakdown        performanceBreakdown `json:"breakdown"`
+}
+
+// performanceBreakdown splits the load into the parts of the dashboard and the
+// automation entries. A part is null when it has nothing to show.
+type performanceBreakdown struct {
+	Dashboard  *performanceDashboardBreakdown  `json:"dashboard"`
+	Automation *performanceAutomationBreakdown `json:"automation"`
+}
+
+type performanceDashboardBreakdown struct {
+	Parts []performancePart `json:"parts"`
+}
+
+type performancePart struct {
+	ID      string  `json:"id"`
+	Pct     float64 `json:"pct"`
+	Clients *int    `json:"clients,omitempty"` // only the push part, the highest client count
+}
+
+type performanceAutomationBreakdown struct {
+	Groups []performanceGroup `json:"groups"`
+}
+
+type performanceGroup struct {
+	Row     string            `json:"row"`
+	Pct     float64           `json:"pct"`
+	More    int               `json:"more"`
+	MorePct float64           `json:"more_pct"`
+	Items   []performanceItem `json:"items"`
+}
+
+type performanceItem struct {
+	ID   string  `json:"id"`
+	Name string  `json:"name"`
+	Kind string  `json:"kind"`
+	Pct  float64 `json:"pct"`
 }
 
 type performanceDeduction struct {
@@ -138,6 +183,10 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 
 		rows, base := performanceRows(snap, deps)
 		user, hasUser := auth.UserFromContext(r.Context())
+		var entries []performance.AutomationEntry
+		if deps.Automation != nil {
+			entries = deps.Automation()
+		}
 
 		body := performanceBody{
 			MeasuredS:        int(snap.MeasuredFor.Seconds()),
@@ -154,9 +203,10 @@ func handlePerformance(store *settings.Store, deps *PerformanceDeps, now func() 
 				RAMFreePct: ramFree,
 				SwapPagesS: snap.SwapPagesPerS,
 			},
-			BasePct: base,
-			Rows:    []performanceRow{},
-			Units:   []performanceUnit{},
+			BasePct:   base,
+			Rows:      []performanceRow{},
+			Units:     []performanceUnit{},
+			Breakdown: performanceBreakdownBody(snap, rows, entries),
 		}
 		if deps.Changes != nil {
 			body.Change = deps.Changes.CurrentChange()
@@ -222,11 +272,52 @@ func performanceTarget(store *settings.Store, snap performance.Snapshot, request
 	return target
 }
 
+// performanceBreakdownBody builds the breakdown of GET. The dashboard parts
+// need a split in the window, the automation groups need entries for the rows.
+func performanceBreakdownBody(snap performance.Snapshot, rows []performance.Row, entries []performance.AutomationEntry) performanceBreakdown {
+	var out performanceBreakdown
+	if parts := performance.DashboardBreakdown(snap); parts != nil {
+		dashboard := &performanceDashboardBreakdown{Parts: make([]performancePart, 0, len(parts))}
+		for _, p := range parts {
+			part := performancePart{ID: p.ID, Pct: p.Pct}
+			if p.ID == string(performance.PartPush) {
+				clients := snap.ClientsMax
+				part.Clients = &clients
+			}
+			dashboard.Parts = append(dashboard.Parts, part)
+		}
+		out.Dashboard = dashboard
+	}
+	groups := performance.AutomationBreakdown(rows, entries, performanceBreakdownLimit)
+	if len(groups) > 0 {
+		automation := &performanceAutomationBreakdown{Groups: make([]performanceGroup, 0, len(groups))}
+		for _, g := range groups {
+			group := performanceGroup{
+				Row:     string(g.Row),
+				Pct:     g.Pct,
+				More:    g.More,
+				MorePct: g.MorePct,
+				Items:   make([]performanceItem, 0, len(g.Items)),
+			}
+			for _, it := range g.Items {
+				group.Items = append(group.Items, performanceItem{ID: it.ID, Name: it.Name, Kind: it.Kind, Pct: it.Pct})
+			}
+			automation.Groups = append(automation.Groups, group)
+		}
+		out.Automation = automation
+	}
+	return out
+}
+
 // performanceRows builds the rows the page shows and the base load they leave
 // over. GET and the apply share it, so both see the same rows. Only present
-// rows are returned.
+// rows are returned. The regulator row is present when an automation entry
+// has a regulator, or always when the deps give no automation entries.
 func performanceRows(snap performance.Snapshot, deps *PerformanceDeps) ([]performance.Row, float64) {
 	present := map[performance.RowID]bool{performance.RowRegulator: true}
+	if deps.Automation != nil {
+		present[performance.RowRegulator] = performance.HasRegulator(deps.Automation())
+	}
 	all := performance.BuildRows(snap, deps.Rates(), deps.Floors, present)
 	rows := make([]performance.Row, 0, len(all))
 	var costs float64

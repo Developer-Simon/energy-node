@@ -1,0 +1,29 @@
+{
+  "de": {
+    "*": "Die Leistungsseite zeigt, woraus die Last von Dashboard und Automationen besteht"
+  },
+  "en": {
+    "*": "The Performance page shows what the dashboard and automation load is made of"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "view_diagnostics",
+          "page": "performance",
+          "panel": "settings-panel",
+          "target": "performance-measure",
+          "text": {
+            "de": "Bei Dashboard und Automationen öffnet ein Klick auf die Zeile die Aufschlüsselung. Beim Dashboard sind die Anteile gemessen, etwa Push an Browser, MQTT-Eingang und Speicherbereinigung. Bei den Automationen sind sie geschätzt und verteilen die Last gleichmäßig auf die aktiven Regeln und Szenarien.",
+            "en": "Click the Dashboard or Automation row to open its breakdown. For the dashboard the shares are measured, such as push to browsers, MQTT input and garbage collection. For automations they are estimated and spread the load evenly over the active rules and scenarios."
+          },
+          "title": {
+            "de": "Last aufschlüsseln",
+            "en": "Break the load down"
+          }
+        }
+      ]
+    }
+  }
+}

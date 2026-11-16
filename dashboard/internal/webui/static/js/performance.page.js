@@ -119,6 +119,41 @@
   // Numbers as typed, with a German comma allowed.
   const parseNumber = (raw) => Number(String(raw).replace(',', '.'));
 
+  // Breakdown of the load. Only these two units have one, the others keep
+  // their row as it is.
+  const UNIT_KIND = { 'energy-node-dashboard': 'dashboard', automation: 'automation' };
+  // Full keys per entry, so the catalog scanner sees every key literally.
+  const PART_KEYS = {
+    push: 'performance.js.breakdown.part.push',
+    http: 'performance.js.breakdown.part.http',
+    mqtt: 'performance.js.breakdown.part.mqtt',
+    node: 'performance.js.breakdown.part.node',
+    background: 'performance.js.breakdown.part.background',
+    gc: 'performance.js.breakdown.part.gc',
+  };
+  const GROUP_KEYS = {
+    tick: 'performance.js.breakdown.group.tick',
+    regulator: 'performance.js.breakdown.group.regulator',
+  };
+  const KIND_KEYS = {
+    rule: 'performance.js.breakdown.kind.rule',
+    scenario: 'performance.js.breakdown.kind.scenario',
+  };
+  const TAG_KEYS = {
+    dashboard: 'performance.js.breakdown.tag.dashboard',
+    automation: 'performance.js.breakdown.tag.automation',
+  };
+  const NOTE_KEYS = {
+    dashboard: 'performance.js.breakdown.note.dashboard',
+    automation: 'performance.js.breakdown.note.automation',
+  };
+  // Shares under 0.05 % read "< 0,1 %" instead of "0,0 %".
+  const pctText = (value) => (value > 0 && value < 0.05
+    ? t('performance.js.breakdown.below', { value: window.I18n.formatNumber(0.1, 1) })
+    : pct(value));
+  // Bar width of a share, relative to the value of the entry.
+  const share = (value, of) => (of > 0 ? Math.min(1, Math.round((value / of) * 10000) / 10000) : 0);
+
   const pfPage = () => ({
     // The answer of GET /api/v1/performance, as the page last received it.
     data: { ...EMPTY },
@@ -141,6 +176,9 @@
     // Only set by a 409 rollback_conflict, cleared by a new change or a decision.
     conflict: {},
     undoing: false,
+    // Open breakdowns by unit id. Kept across load(), so the 30 s poll does
+    // not close them.
+    breakdownOpen: {},
 
     init() {
       const first = this.load();
@@ -551,6 +589,75 @@
     // Keeps the changed rows as they are. The change then shows its server state.
     keepAll() {
       this.conflict = {};
+    },
+
+    // ---- Breakdown ------------------------------------------------------
+
+    // The breakdown of a unit as {kind, parts} or {kind, groups}, or null
+    // when the unit has none or the API has no data for it. The shares are
+    // relative to the value of the unit, so a part reads as its share of it.
+    breakdownOf(unitId) {
+      const kind = UNIT_KIND[String(unitId).replace(/\.service$/, '')];
+      const bd = this.data.breakdown;
+      if (!kind || !bd || !bd[kind]) return null;
+      const unit = (this.data.units || []).find((u) => u.id === unitId);
+      const total = Number(unit?.cpu_pct) || 0;
+      if (kind === 'dashboard') {
+        const parts = (bd.dashboard.parts || []).map((part) => ({
+          ...part,
+          pctText: pctText(part.pct),
+          share: share(part.pct, total),
+        }));
+        return parts.length ? { kind, parts } : null;
+      }
+      const groups = (bd.automation.groups || []).map((group) => ({
+        ...group,
+        pctText: pctText(group.pct),
+        morePctText: pctText(group.more_pct),
+        moreShare: share(group.more_pct, total),
+        items: group.items.map((item) => ({
+          ...item,
+          pctText: pctText(item.pct),
+          share: share(item.pct, total),
+        })),
+      }));
+      return groups.length ? { kind, groups } : null;
+    },
+    isOpen(unitId) {
+      return Boolean(this.breakdownOpen[unitId]);
+    },
+    toggleBreakdown(unitId) {
+      this.breakdownOpen = { ...this.breakdownOpen, [unitId]: !this.breakdownOpen[unitId] };
+    },
+    // Id of the panel the toggle controls, safe as an HTML id.
+    panelId(unitId) {
+      return `pb-${String(unitId).replace(/[^\w-]/g, '-')}`;
+    },
+    toggleLabel(row) {
+      return t('performance.js.breakdown.toggle', { name: row.name });
+    },
+    partName(id) {
+      return PART_KEYS[id] ? t(PART_KEYS[id]) : id;
+    },
+    groupName(row) {
+      return GROUP_KEYS[row] ? t(GROUP_KEYS[row]) : row;
+    },
+    kindName(kind) {
+      return KIND_KEYS[kind] ? t(KIND_KEYS[kind]) : '';
+    },
+    clientsText(count) {
+      return count <= 1
+        ? t('performance.js.breakdown.clients_one')
+        : t('performance.js.breakdown.clients', { count });
+    },
+    moreText(count) {
+      return t('performance.js.breakdown.more', { count });
+    },
+    breakdownTag(kind) {
+      return TAG_KEYS[kind] ? t(TAG_KEYS[kind]) : '';
+    },
+    breakdownNote(kind) {
+      return NOTE_KEYS[kind] ? t(NOTE_KEYS[kind]) : '';
     },
 
     // ---- Row texts ------------------------------------------------------

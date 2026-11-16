@@ -357,3 +357,26 @@ func TestHubSubscribers(t *testing.T) {
 		t.Fatalf("Subscribers() nach beiden cancel = %d, want 0", got)
 	}
 }
+
+func TestHubReportsRefreshDuration(t *testing.T) {
+	a := &fakeTopic{name: "a"}
+	var head atomic.Uint64
+	hub := NewHub(1, head.Load, []Topic{a.topic()}, []string{"a"},
+		func() time.Duration { return time.Hour })
+
+	var calls []time.Duration
+	hub.SetRefreshObserver(func(d time.Duration) { calls = append(calls, d) })
+
+	_, _, cancel := hub.Subscribe(nil)
+	defer cancel()
+	calls = nil
+
+	hub.poll()
+
+	if len(calls) != 1 {
+		t.Fatalf("refresh observer calls = %d, want 1", len(calls))
+	}
+	if calls[0] < 0 {
+		t.Fatalf("refresh duration = %v, want >= 0", calls[0])
+	}
+}

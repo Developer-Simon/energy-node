@@ -225,3 +225,27 @@ func marshalState(t *testing.T, s FileState) string {
 	}
 	return string(data)
 }
+
+func TestFileStateCarriesDashboardParts(t *testing.T) {
+	content := `{"measured_s": 600, "cores": 4, "cpu_pct": 10, "clients_max": 1,
+		"dashboard_parts": {"push": 0.45, "http": 0.15, "mqtt": 0.25, "node": 0.05, "background": 0.10},
+		"gc_share": 0.12}`
+	snap := NewFileProvider(writeState(t, content)).Snapshot(time.Now())
+	if snap.Dashboard == nil {
+		t.Fatal("Dashboard = nil, want the parts of the state file")
+	}
+	if got := snap.Dashboard.Shares[PartPush]; math.Abs(got-0.45) > 1e-9 {
+		t.Errorf("Shares[push] = %v, want 0.45", got)
+	}
+	if got := snap.Dashboard.Shares[PartMQTT]; math.Abs(got-0.25) > 1e-9 {
+		t.Errorf("Shares[mqtt] = %v, want 0.25", got)
+	}
+	if got := snap.Dashboard.GCShare; math.Abs(got-0.12) > 1e-9 {
+		t.Errorf("GCShare = %v, want 0.12", got)
+	}
+
+	without := NewFileProvider(writeState(t, `{"measured_s": 600, "cores": 4, "cpu_pct": 10}`)).Snapshot(time.Now())
+	if without.Dashboard != nil {
+		t.Errorf("Dashboard = %+v without dashboard_parts, want nil", without.Dashboard)
+	}
+}
