@@ -20,8 +20,9 @@ cp "$dash/energy-node-network-watch" "$dash/energy-node-network-watch.service" \
 
 # --- Attrappen -------------------------------------------------------------
 mkdir -p "$tmp/bin"
-export CALL_LOG="$tmp/calls.log" IW_OUT="$tmp/iw.txt"
+export CALL_LOG="$tmp/calls.log" IW_OUT="$tmp/iw.txt" UFW_LOG="$tmp/ufw.log"
 : > "$IW_OUT"
+: > "$UFW_LOG"
 cat > "$tmp/bin/systemctl" <<'SH'
 #!/bin/sh
 printf 'systemctl %s\n' "$*" >> "$CALL_LOG"
@@ -36,7 +37,12 @@ cat > "$tmp/bin/iw" <<'SH'
 #!/bin/sh
 cat "$IW_OUT"
 SH
-chmod +x "$tmp/bin/systemctl" "$tmp/bin/nmcli" "$tmp/bin/iw"
+cat > "$tmp/bin/ufw" <<'SH'
+#!/bin/sh
+printf 'ufw %s\n' "$*" >> "$UFW_LOG"
+exit 0
+SH
+chmod +x "$tmp/bin/systemctl" "$tmp/bin/nmcli" "$tmp/bin/iw" "$tmp/bin/ufw"
 export PATH="$tmp/bin:$PATH"
 
 # --- Sysfs mit wlan0 (MAC endet auf 445a) ----------------------------------
@@ -100,6 +106,11 @@ grep -qx 'band=bg' "$profile" || fail "Profil ohne band=bg" "$(cat "$profile")"
 grep -qx 'channel=1' "$profile" || fail "ohne Laendercode fehlt channel=1" "$(cat "$profile")"
 grep -qx 'method=shared' "$profile" || fail "ipv4 nicht shared" "$(cat "$profile")"
 grep -qx 'pmf=1' "$profile" || fail "PMF nicht aus (pmf=1)" "$(cat "$profile")"
+grep -qx 'proto=rsn' "$profile" || fail "kein proto=rsn (nur WPA2)" "$(cat "$profile")"
+grep -qx 'pairwise=ccmp' "$profile" || fail "pairwise nicht ccmp" "$(cat "$profile")"
+grep -qx 'group=ccmp' "$profile" || fail "group nicht ccmp" "$(cat "$profile")"
+grep -qxF 'ufw allow in on wlan0 to any port 67 proto udp comment energy-node-hotspot' "$UFW_LOG" \
+  || fail "ufw-Regel fuer DHCP fehlt" "$(cat "$UFW_LOG")"
 grep -qx 'autoconnect=false' "$profile" || fail "autoconnect nicht false" "$(cat "$profile")"
 grep -qx 'ssid=EnergyNode-445A' "$profile" || fail "ssid im Profil falsch" "$(cat "$profile")"
 grep -qx "psk=$pw1" "$profile" || fail "psk stimmt nicht mit hotspot.json ueberein"
@@ -136,9 +147,13 @@ echo "country DE: DFS-ETSI" > "$IW_OUT"
 rm -f "$profile"
 mv "$sys/class/net/wlan0/wireless" "$tmp/wireless-aside"
 : > "$CALL_LOG"
+: > "$UFW_LOG"
 out="$(run)" || fail "Lauf ohne WLAN-Geraet scheitert" "$out"
 grep -q '^##STEP 67 ok$' <<<"$out" || fail "ohne WLAN-Geraet: kein ok" "$out"
 [ ! -e "$profile" ] || fail "ohne WLAN-Geraet entstand ein Profil"
+grep -qxF 'ufw delete allow in on wlan0 to any port 67 proto udp' "$UFW_LOG" \
+  || fail "ohne WLAN-Geraet keine ufw-Regel-Entfernung" "$(cat "$UFW_LOG")"
+grep -q 'ufw allow' "$UFW_LOG" && fail "ohne WLAN-Geraet wurde ufw allow aufgerufen" "$(cat "$UFW_LOG")"
 grep -qx 'systemctl enable --now energy-node-network-watch.timer' "$CALL_LOG" \
   || fail "ohne WLAN-Geraet kein Timer-Start" "$(cat "$CALL_LOG")"
 mv "$tmp/wireless-aside" "$sys/class/net/wlan0/wireless"

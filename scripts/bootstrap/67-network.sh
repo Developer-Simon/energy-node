@@ -237,7 +237,9 @@ if command -v nmcli >/dev/null 2>&1 && has_wlan; then
     # pmf=1 schaltet PMF (802.11w) aus. Unter Trixie scheitert der Hotspot
     # sonst auf Pi 3B, 3B+ und Zero W mit "key setting validation failed"
     # (raspberrypi/linux#7247). Pi 4 und 5 sind ungeprueft, Ideenliste P2.31.
-    printf '\n[wifi-security]\nkey-mgmt=wpa-psk\npmf=1\npsk=%s\n\n' "${password}"
+    # Ohne proto, pairwise und group bietet der AP WPA mit TKIP an. iOS meldet
+    # dann "Schwache Sicherheit", also nur WPA2 mit CCMP.
+    printf '\n[wifi-security]\nkey-mgmt=wpa-psk\nproto=rsn\npairwise=ccmp\ngroup=ccmp\npmf=1\npsk=%s\n\n' "${password}"
     printf '[ipv4]\nmethod=shared\n'
   } > "${profile_tmp}"
   "${SUDO[@]}" mkdir -p "$(dirname "${profile}")"
@@ -247,8 +249,19 @@ if command -v nmcli >/dev/null 2>&1 && has_wlan; then
   fi
   rm -f "${profile_tmp}"
   "${SUDO[@]}" nmcli connection reload >/dev/null 2>&1 || true
+  # DHCP-Anfragen kommen von 0.0.0.0, ein Absender-Filter ist nicht moeglich.
+  # Auf wlan0:67 lauscht nur das dnsmasq des Hotspots.
+  if command -v ufw >/dev/null 2>&1; then
+    "${SUDO[@]}" ufw allow in on "${WLAN_DEV}" to any port 67 proto udp \
+      comment energy-node-hotspot >/dev/null 2>&1 || step_fail UFW_FAILED
+  fi
   step_log "Hotspot-Profil ${PROFILE_ID} geschrieben."
 else
+  # Kein Hotspot, also auch keine DHCP-Freigabe mehr.
+  if command -v ufw >/dev/null 2>&1; then
+    "${SUDO[@]}" ufw delete allow in on "${WLAN_DEV}" to any port 67 proto udp \
+      >/dev/null 2>&1 || true
+  fi
   step_log "kein NetworkManager oder kein WLAN-Geraet: kein Hotspot-Profil."
 fi
 
