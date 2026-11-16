@@ -24,6 +24,7 @@ eth0 1000
  :Halle Süd:44:2462 MHz:11:WPA3
  :Nachbar_EG:28:2437 MHz:6:WPA2
  :Drucker-Setup:56:2412 MHz:1:--
+##scanned
 ##profiles
 ##hotspot
 active no

@@ -82,6 +82,13 @@ def test_every_combination_emits_all_sections_in_order():
         assert sections_of(fake_network.status_text(env, None, NOW)) == list(SECTIONS), env
 
 
+def test_status_has_an_empty_scanned_section_after_wifi():
+    text = fake_network.status_text(LAN, None, NOW)
+    names = sections_of(text)
+    assert names.index("scanned") == names.index("wifi") + 1
+    assert body_of(text, "scanned") == ""
+
+
 def test_env_of_falls_back_to_the_defaults_for_broken_values():
     assert fake_network.env_of({"lan": False, "wifi": True}) == WIFI  # older state files
     for broken in ("lan", None, {"lan": "yes", "wifi": True}, {"lan": True}):

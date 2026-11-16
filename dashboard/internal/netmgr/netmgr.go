@@ -77,6 +77,9 @@ type Status struct {
 	Settings Settings        `json:"settings"`
 	Hotspot  HotspotState    `json:"hotspot"`
 	Switch   *SwitchProgress `json:"switch,omitempty"` // aus ##switch, nil bei {}
+	// WifiScannedAt is the Unix time of the cached Wi-Fi scan shown while the
+	// hotspot is active, 0 when the list is live. Set from ##scanned.
+	WifiScannedAt int64 `json:"wifi_scanned_at,omitempty"`
 }
 
 type SwitchStep struct {

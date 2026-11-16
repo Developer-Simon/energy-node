@@ -129,6 +129,9 @@ func ParseStatus(raw string) (Status, error) {
 		}
 	}
 
+	// An empty or broken ##scanned section means the list is live.
+	scannedAt, _ := strconv.ParseInt(strings.TrimSpace(secs["scanned"]), 10, 64)
+
 	return Status{
 		Managed:  managed,
 		HasWifi:  hasWifi,
@@ -141,7 +144,8 @@ func ParseStatus(raw string) (Status, error) {
 			Active:    hotspotActive,
 			Clients:   clients,
 		},
-		Switch: sw,
+		Switch:        sw,
+		WifiScannedAt: scannedAt,
 	}, nil
 }
 

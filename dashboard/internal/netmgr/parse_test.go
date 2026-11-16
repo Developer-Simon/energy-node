@@ -283,3 +283,35 @@ func TestParseFreqWithUnit(t *testing.T) {
 		t.Errorf("network = %+v, want band 5 channel 36", n)
 	}
 }
+
+func TestParseStatusScannedSection(t *testing.T) {
+	raw := readFixture(t, "both") + "##scanned\n1794860000\n"
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.WifiScannedAt != 1794860000 {
+		t.Errorf("WifiScannedAt = %d, want 1794860000", st.WifiScannedAt)
+	}
+}
+
+func TestParseStatusScannedMissing(t *testing.T) {
+	st, err := ParseStatus(readFixture(t, "both"))
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.WifiScannedAt != 0 {
+		t.Errorf("WifiScannedAt = %d, want 0 without ##scanned", st.WifiScannedAt)
+	}
+}
+
+func TestParseStatusScannedGarbage(t *testing.T) {
+	raw := readFixture(t, "both") + "##scanned\nabc\n"
+	st, err := ParseStatus(raw)
+	if err != nil {
+		t.Fatalf("ParseStatus: %v", err)
+	}
+	if st.WifiScannedAt != 0 {
+		t.Errorf("WifiScannedAt = %d, want 0 for garbage", st.WifiScannedAt)
+	}
+}
