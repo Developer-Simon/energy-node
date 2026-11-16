@@ -78,6 +78,7 @@ type Snapshot struct {
 	ClientsSeen   bool // false: nie ein Client ausser dem aktuellen
 	Units         []UnitStats
 	External      *SourceRate
+	Dashboard     *DashboardSplit // nil ohne gemessene Zeit im Fenster
 }
 
 // UnitStats is the load of one unit. ID is the service ID for service units and
