@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.19-pre.19 (2026-11-06)
+## v0.11.19-pre.20 (2026-11-06)
 
 ### Features
 
@@ -20,6 +20,16 @@
 - **performance:** check the effect of applied rates and offer a rollback (#263) (1b785fb)
 - **performance:** break down the dashboard and automation load (#265) (6bb19a8)
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
+- **network:** scan for Wi-Fi networks right before the hotspot opens (112638a)
+- **network:** show the last scan while the hotspot is active (a013a20)
+- **network:** report the age of a cached Wi-Fi scan (8f01066)
+- **network:** show when the Wi-Fi list is from before the hotspot (47f39c3)
+- **network:** give the Wi-Fi the LAN address while the cable is unplugged (45e29d5)
+- **network:** make Only on failure the default Wi-Fi fallback (1b2a83e)
+- **network:** report the host name and mDNS in the network status (02176f8)
+- **network:** show a bookmark address and explain the address change (d92d5c8)
+- **network:** move the bookmark address into the Wi-Fi backup card as one copy field (ce6089d)
+- **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267)
 - **devices:** Operational notices of a device sit behind a bell in the device modal header (#266) (f21a8c4)
 - **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **network:** show a start page to emergency hotspot clients (c739a91)
@@ -90,6 +100,7 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **network:** do not touch the NetworkManager drop-in when nothing changed (b541188)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
 - **network:** stop the standby fallback from reconnecting a connected WLAN (2a71ea5)
@@ -140,6 +151,7 @@
 
 ### Chores
 
+- **dev:** update the cache-bust history rows after the rebase (a2c2157)
 - **onboarding:** fix the tours of the companion HTTP switch and the hint bell (#269) (048e5aa)
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
 - **webui:** record the cache-bust history for the performance check assets (c01d9e9)

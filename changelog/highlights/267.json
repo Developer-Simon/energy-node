@@ -1,0 +1,29 @@
+{
+  "de": {
+    "*": "Der Node behält beim Wechsel auf WLAN seine Adresse und zeigt eine Adresse für Lesezeichen"
+  },
+  "en": {
+    "*": "Keep one address when the node falls back to Wi-Fi and show an address for bookmarks"
+  },
+  "tour": {
+    "*": {
+      "steps": [
+        {
+          "device": "any",
+          "need": "network",
+          "page": "network",
+          "panel": "settings-panel",
+          "target": "network-fallback",
+          "text": {
+            "de": "Mit „Nur bei Ausfall“ behält der Node seine Adresse, auch wenn er vom Kabel auf WLAN wechselt. Darunter steht die Adresse für Lesezeichen. Ein Tipp kopiert sie.",
+            "en": "With “Only on failure” the node keeps its address when it switches from cable to Wi-Fi. Below it you find the address for bookmarks. One tap copies it."
+          },
+          "title": {
+            "de": "Eine Adresse für Kabel und WLAN",
+            "en": "One address for cable and Wi-Fi"
+          }
+        }
+      ]
+    }
+  }
+}
