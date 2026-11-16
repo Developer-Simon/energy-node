@@ -45,6 +45,26 @@
     }
   },
   {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/temperature/config",
+    "payload": {
+      "name": "Inverter temperature",
+      "unique_id": "apsystems_dach_temperature",
+      "state_topic": "outstation/apsystems_dach/temperature_c",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": {
+        "identifiers": [
+          "apsystems_dach"
+        ],
+        "name": "AP Systems EZ1 (Roof)"
+      }
+    }
+  },
+  {
     "topic": "homeassistant/sensor/pv_apsystems_dach/pv1_energy_today/config",
     "payload": {
       "name": "PV1 daily yield",
