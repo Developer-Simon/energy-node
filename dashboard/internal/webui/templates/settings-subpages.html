@@ -189,6 +189,11 @@
           <ul class="pf-mlist">
             <template x-for="r in g.rows" x-bind:key="r.name">
               <li class="pf-mrow">
+                <template x-if="breakdownOf(r.id)">
+                  <button type="button" class="pb-toggle" x-bind:aria-expanded="isOpen(r.id) ? 'true' : 'false'" x-bind:aria-controls="panelId(r.id)" x-bind:aria-label="toggleLabel(r)" x-on:click="toggleBreakdown(r.id)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                  </button>
+                </template>
                 <span class="pf-mrow-name" x-text="r.name"></span>
                 <span class="pf-mrow-cpu" x-text="r.cpu"></span>
                 <span class="pf-mrow-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${r.share})`"></i></span>
@@ -196,7 +201,56 @@
                   <span x-show="r.ram" x-text="r.ram"></span>
                   <span x-show="r.round" x-text="r.round"></span>
                   <span x-show="r.msg" x-text="r.msg"></span>
+                  <template x-if="breakdownOf(r.id) && isOpen(r.id)">
+                    <span class="pb-tag" x-bind:title="breakdownNote(breakdownOf(r.id).kind)" x-text="breakdownTag(breakdownOf(r.id).kind)"></span>
+                  </template>
                 </span>
+                <template x-if="breakdownOf(r.id)">
+                  <div class="pb-panel" x-bind:id="panelId(r.id)" x-bind:data-open="isOpen(r.id) ? 'true' : null" x-bind:inert="!isOpen(r.id)">
+                    <div class="pb-clip">
+                      <div class="pb-body">
+                        <template x-if="breakdownOf(r.id).kind === 'dashboard'">
+                          <div>
+                            <ul class="pb-list">
+                              <template x-for="p in breakdownOf(r.id).parts" x-bind:key="p.id">
+                                <li class="pb-item">
+                                  <span class="pb-item-name"><span x-text="partName(p.id)"></span><small x-show="p.clients" x-text="clientsText(p.clients)"></small></span>
+                                  <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${p.share})`"></i></span>
+                                  <span class="pb-item-pct" x-text="p.pctText"></span>
+                                </li>
+                              </template>
+                            </ul>
+                          </div>
+                        </template>
+                        <template x-if="breakdownOf(r.id).kind === 'automation'">
+                          <div>
+                            <template x-for="grp in breakdownOf(r.id).groups" x-bind:key="grp.row">
+                              <section class="pb-group">
+                                <header class="pb-group-head"><h5 x-text="groupName(grp.row)"></h5><span x-text="grp.pctText"></span></header>
+                                <ul class="pb-list">
+                                  <template x-for="it in grp.items" x-bind:key="it.id">
+                                    <li class="pb-item">
+                                      <span class="pb-item-name"><span x-text="it.name"></span><small x-text="kindName(it.kind)"></small></span>
+                                      <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${it.share})`"></i></span>
+                                      <span class="pb-item-pct" x-text="it.pctText"></span>
+                                    </li>
+                                  </template>
+                                  <template x-if="grp.more > 0">
+                                    <li class="pb-item pb-item--more">
+                                      <span class="pb-item-name"><span x-text="moreText(grp.more)"></span></span>
+                                      <span class="pb-item-bar" aria-hidden="true"><i x-bind:class="g.swatch" x-bind:style="`transform: scaleX(${grp.moreShare})`"></i></span>
+                                      <span class="pb-item-pct" x-text="grp.morePctText"></span>
+                                    </li>
+                                  </template>
+                                </ul>
+                              </section>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </template>
               </li>
             </template>
           </ul>
