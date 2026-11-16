@@ -472,12 +472,66 @@ def test_asset_changed_on_both_lines_stops_the_sync(tmp_path):
     _assert_untouched(repo, head_before)
 
 
-def test_asset_changed_on_both_lines_with_keep_then_continue(tmp_path):
+def test_asset_without_a_reference_is_refused_by_continue(tmp_path):
     repo = _asset_repo(tmp_path)
     assert _run(repo, "--keep").returncode == 3
     assert (repo / ".git" / "MERGE_HEAD").exists()
     proc = _run(repo, "--continue")
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "without a ?v= reference" in proc.stderr
+
+
+TEMPLATE = "dashboard/internal/webui/templates/base.html"
+HISTORY = "dashboard/internal/webui/cache-bust-history.csv"
+WEBUI_TEST = "dashboard/internal/webui/webui_test.go"
+
+
+def _marked_repo(tmp_path, pre_mark=50, main_mark=49, same_line=True):
+    """Both lines changed base.css and its ?v= (base 48), on the same template line."""
+    repo = _base_repo(tmp_path)
+    link = '<link href="/static/css/base.css?v=%d">\n'
+    test = 'want := `href="/node/static/css/base.css?v=%d"`\n'
+    _commit(repo, {ASSET: ASSET_BASE, TEMPLATE: link % 48, WEBUI_TEST: test % 48}, "chore: add the asset")
+    _git(repo, "checkout", "-q", "-b", "prerelease")
+    _commit(repo, {ASSET: ASSET_BASE.replace("a { color: red; }", "a { color: blue; }"),
+                   TEMPLATE: link % pre_mark, WEBUI_TEST: test % pre_mark}, "feat: pre")
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, {ASSET: ASSET_BASE.replace("b { color: red; }", "b { color: blue; }"),
+                   TEMPLATE: link % main_mark, WEBUI_TEST: test % main_mark}, "fix: main")
+    _git(repo, "checkout", "-q", "prerelease")
+    return repo
+
+
+def test_marks_conflict_is_settled_with_a_fresh_mark_above_both(tmp_path):
+    repo = _marked_repo(tmp_path)
+    proc = _run(repo)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "a { color: blue; }" in _read(repo, ASSET)
-    assert "b { color: blue; }" in _read(repo, ASSET)
+    assert "base.css?v=51" in _read(repo, TEMPLATE)
+    assert "base.css?v=51" in _read(repo, WEBUI_TEST)
+    assert "<<<<<<<" not in _read(repo, TEMPLATE)
+    assert "base.css,51," in _read(repo, HISTORY)
+    assert "base.css,49," not in _read(repo, HISTORY)
     assert _status(repo) == ""
+
+
+def test_marks_clean_merge_of_both_changed_asset_gets_a_fresh_mark(tmp_path):
+    # The mark was only changed on the prerelease line, the asset on both: git merges cleanly.
+    repo = _marked_repo(tmp_path, pre_mark=49, main_mark=48)
+    proc = _run(repo)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "base.css?v=50" in _read(repo, TEMPLATE)
+    assert _status(repo) == ""
+
+
+def test_real_conflict_next_to_marks_still_stops(tmp_path):
+    repo = _marked_repo(tmp_path)
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, {TEMPLATE: '<link href="/static/css/base.css?v=49">\n<p>main</p>\n'}, "fix: main text")
+    _git(repo, "checkout", "-q", "prerelease")
+    _commit(repo, {TEMPLATE: '<link href="/static/css/base.css?v=50">\n<p>pre</p>\n'}, "feat: pre text")
+    head_before = _git(repo, "rev-parse", "HEAD")
+    proc = _run(repo)
+    assert proc.returncode == 3, proc.stdout + proc.stderr
+    assert f"CONFLICT {TEMPLATE}" in proc.stdout.splitlines()
+    _assert_untouched(repo, head_before)
+

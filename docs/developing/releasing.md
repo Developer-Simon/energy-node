@@ -52,11 +52,16 @@ The sync also renumbers the pre versions. When `main` releases `v0.4.6`, a
 `v0.4.6-pre.2` on `prerelease` becomes `v0.4.7-pre.2`.
 
 If the merge conflicts in code, the run ends red. The workflow also opens or
-updates a GitHub issue with the label `prerelease-sync`. The same happens when
-both lines changed the same lazy loaded web asset under
-`dashboard/internal/webui/static/js/` or `static/css/`. Git merges such a file
-cleanly, but the merged file is new on both lines and needs a `?v=` above both
-of them. The issue lists these paths as assets.
+updates a GitHub issue with the label `prerelease-sync`.
+
+Lazy loaded web assets under `dashboard/internal/webui/static/js/` or
+`static/css/` that both lines changed need a fresh `?v=`. The merged file is new
+on both lines, even when git merges it cleanly. The sync sets the marks itself
+with `scripts/dev/cache_bust.py apply --base HEAD`: it puts every mark above
+both lines, writes the history rows and keeps the prerelease side where a
+conflict differs only in `?v=` numbers (templates, `webui.go`, webui tests). Only
+a real conflict stays open. So does a changed asset that no template references,
+which the issue lists as `ASSET`.
 
 To fix it, let the script stop with the merge in progress:
 
@@ -66,13 +71,11 @@ python3 scripts/version/sync_prerelease.py --keep
 ```
 
 The script settles versions and changelogs itself and prints the rest. Resolve
-every `CONFLICT` path. For every `ASSET` path, run
-`scripts/dev/cache_bust.py report --base origin/prerelease` and set the `?v=`
-marks to the expected values it prints. Then run
-`scripts/dev/cache_bust.py history --base origin/prerelease` to write the
-history rows. The details are in
-[lazy-assets-cache-busting.md](../_internal/lazy-assets-cache-busting.md). Stage
-the files with `git add`, then finish the merge:
+every `CONFLICT` path and `git add` it. `--continue` sets the `?v=` marks of the
+shared assets and the history rows again, so a hand-set mark is only needed
+for an `ASSET` path. The details are in
+[lazy-assets-cache-busting.md](../_internal/lazy-assets-cache-busting.md). Then
+finish the merge:
 
 ```sh
 python3 scripts/version/sync_prerelease.py --continue --push
