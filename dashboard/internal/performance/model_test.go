@@ -222,3 +222,64 @@ func TestBuildRowsRealServiceIDsAndAliases(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildRowsUsesPushForLiveUpdate(t *testing.T) {
+	// Dashboard P95 10 %, measured split: push 40 %, node 10 %, mqtt 30 %.
+	// Mosquitto's 2 % and the folded mqtt share 3 % spread over 60 messages.
+	shellyRound := 0.4
+	snap := Snapshot{
+		MeasuredFor: time.Minute,
+		Units: []UnitStats{
+			{ID: "shelly", CPUP95: 4, MsgPerMin: 60, RoundS: &shellyRound},
+			{ID: mosquittoUnit, CPUP95: 2, Fixed: true},
+			{ID: DashboardUnit, CPUP95: 10, Fixed: true},
+		},
+		Dashboard: &DashboardSplit{Shares: map[Part]float64{PartPush: 0.4, PartNode: 0.1, PartMQTT: 0.3}},
+	}
+	cur := RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 60, Services: map[string]float64{"shelly": 5}}
+	rows := BuildRows(snap, cur, nil, map[RowID]bool{RowRegulator: false})
+
+	byID := map[RowID]Row{}
+	for _, r := range rows {
+		byID[r.ID] = r
+	}
+	if got := byID[RowLiveUpdate].CostPct; math.Abs(got-4) > 1e-9 {
+		t.Errorf("live_update CostPct = %v, want fold(push) 4", got)
+	}
+	if got := byID[RowNode].CostPct; math.Abs(got-1) > 1e-9 {
+		t.Errorf("node CostPct = %v, want fold(node) 1", got)
+	}
+	// shelly: 4 own + (2 mosquitto + 3 folded mqtt) / 60 messages * 60 messages.
+	if got := byID[RowShelly].CostPct; math.Abs(got-9) > 1e-9 {
+		t.Errorf("shelly CostPct = %v, want 4 + (2 + 3) = 9", got)
+	}
+}
+
+func TestBuildRowsWithoutSplitKeepsOldModel(t *testing.T) {
+	shellyRound := 0.4
+	snap := Snapshot{
+		MeasuredFor: time.Minute,
+		Units: []UnitStats{
+			{ID: "shelly", CPUP95: 4, MsgPerMin: 60, RoundS: &shellyRound},
+			{ID: mosquittoUnit, CPUP95: 2, Fixed: true},
+			{ID: DashboardUnit, CPUP95: 10, Fixed: true},
+		},
+	}
+	cur := RateConfig{LiveUpdateS: 3, TickS: 10, RegulatorS: 10, NodeS: 60, Services: map[string]float64{"shelly": 5}}
+	rows := BuildRows(snap, cur, nil, map[RowID]bool{RowRegulator: false})
+
+	byID := map[RowID]Row{}
+	for _, r := range rows {
+		byID[r.ID] = r
+	}
+	if got := byID[RowLiveUpdate].CostPct; got != 10 {
+		t.Errorf("live_update CostPct = %v, want the dashboard P95 10", got)
+	}
+	if got := byID[RowNode].CostPct; got != 0 {
+		t.Errorf("node CostPct = %v, want 0 without split", got)
+	}
+	// shelly: 4 own + mosquitto 2 over 60 messages, all 60 on shelly.
+	if got := byID[RowShelly].CostPct; math.Abs(got-6) > 1e-9 {
+		t.Errorf("shelly CostPct = %v, want 4 + 2 = 6", got)
+	}
+}

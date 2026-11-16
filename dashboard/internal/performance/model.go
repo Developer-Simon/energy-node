@@ -187,10 +187,15 @@ const (
 // present reports whether the regulator row exists.
 //
 // Cost split: a service carries its own P95 plus the CPU per message of
-// mosquitto times its messages in the window. The dashboard's P95 is the
-// live_update row. The automation unit's P95 is split between tick and
-// regulator by their runs per second. Node has no unit of its own and costs 0.
-// Everything else stays in the base load.
+// mosquitto times its messages in the window. The automation unit's P95 is
+// split between tick and regulator by their runs per second. Everything else
+// stays in the base load.
+//
+// Dashboard: without a split, the dashboard's P95 is the live_update row and
+// node costs 0. With a split (snap.Dashboard), live_update takes the push part
+// and node the node part of the dashboard P95, and the mqtt part is added to
+// the CPU per message. The garbage collector is spread over the parts by their
+// shares. http and background stay in the base load.
 func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present map[RowID]bool) []Row {
 	units := map[string]UnitStats{}
 	for _, u := range snap.Units {
@@ -208,9 +213,14 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 		msgs[id] = u.MsgPerMin * minutes
 		totalMsgs += msgs[id]
 	}
+	dashboardP95 := unitCPU(units, DashboardUnit)
 	perMsg := 0.0
 	if totalMsgs > 0 {
-		perMsg = unitCPU(units, mosquittoUnit) / totalMsgs
+		mqtt := 0.0
+		if snap.Dashboard != nil {
+			mqtt = dashboardFold(dashboardP95, snap.Dashboard, PartMQTT)
+		}
+		perMsg = (unitCPU(units, mosquittoUnit) + mqtt) / totalMsgs
 	}
 
 	tickRuns := runsPerS(cur.TickS)
@@ -241,10 +251,10 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 		switch spec.id {
 		case RowLiveUpdate:
 			r.Current = cur.LiveUpdateS
-			// The per-sample split of dashboard CPU without SSE clients is not
-			// available yet (the Snapshot has no client series), so the whole
-			// dashboard P95 is live_update.
-			r.CostPct = unitCPU(units, DashboardUnit)
+			r.CostPct = dashboardP95
+			if snap.Dashboard != nil {
+				r.CostPct = dashboardFold(dashboardP95, snap.Dashboard, PartPush)
+			}
 		case RowTick:
 			r.Current = cur.TickS
 			r.CostPct = shareOf(automationCPU, tickRuns, tickRuns+regRuns)
@@ -254,6 +264,9 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 			r.CostPct = shareOf(automationCPU, regRuns, tickRuns+regRuns)
 		case RowNode:
 			r.Current = cur.NodeS
+			if snap.Dashboard != nil {
+				r.CostPct = dashboardFold(dashboardP95, snap.Dashboard, PartNode)
+			}
 		default:
 			r.Current = serviceValue(cur.Services, spec.service)
 			u := units[spec.service]
@@ -265,6 +278,13 @@ func BuildRows(snap Snapshot, cur RateConfig, floors map[string]float64, present
 		rows = append(rows, r)
 	}
 	return rows
+}
+
+// dashboardFold is the share of one part in the dashboard P95. The garbage
+// collector is spread over the parts by their shares, so the folded parts sum
+// to the P95.
+func dashboardFold(dashboardP95 float64, split *DashboardSplit, p Part) float64 {
+	return dashboardP95 * split.Shares[p]
 }
 
 // unitCPU returns the P95 of a unit, 0 when the unit is not in the snapshot.
