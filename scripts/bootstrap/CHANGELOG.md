@@ -1,18 +1,24 @@
 # Changelog
 
-## v0.3.3-pre.4 (2026-11-14)
+## v0.3.3-pre.5 (2026-11-16)
 
 ### Features
 
 - **storage:** Add an additional drive for running data and backups (#233) (015cc2c)
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
+- **network:** send hotspot clients to the node for the captive portal check (11d9c1e)
+- **network:** show a start page to emergency hotspot clients (c739a91)
+- **network:** open the dashboard when a phone joins the emergency hotspot (#264)
 - **network:** add the emergency hotspot bootstrap step (d30f816)
 - **bootstrap:** let step 67 take the hotspot password from a file (312cdbd)
 
 ### Fixes
 
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **network:** start the emergency hotspot with PMF off (93060d2)
+- **network:** offer only RSN with CCMP and allow DHCP in the hotspot (0953912)
+- **network:** leave the hotspot cipher suite at the defaults (53e5b88)
 - **storage:** render the storage helper for the node user (00faf59)
 
 ## v0.3.2 (2026-11-07)

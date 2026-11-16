@@ -1,0 +1,8 @@
+{
+  "de": {
+    "*": "Der Notfall-Hotspot öffnet auf dem Handy von selbst eine Seite zum Dashboard, und das WLAN bleibt bei „Nur bei Ausfall“ verbunden"
+  },
+  "en": {
+    "*": "Open the dashboard when a phone joins the emergency hotspot"
+  }
+}
