@@ -159,8 +159,16 @@ def test_series_entities_do_not_reference_missing_payload_keys():
 # ---------------------------------------------------------------------------
 # Konfiguration
 # ---------------------------------------------------------------------------
-def test_shipped_config_loads():
-    configs = battery_soc.load_configs(MODULE_DIR / "battery_soc_devices.json")
+def test_shipped_config_loads(tmp_path):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{
+        "id": "battery_soc",
+        "name": "Batterie-Ladezustand",
+        "charger_power_topic": "shelly/netz_meanwell/power",
+        "inverter_power_topic": "shelly/netz_lumentree/power",
+        "bank_a_voltage_topic": "bms/bank_a/voltage",
+    }]))
+    configs = battery_soc.load_configs(path)
     assert len(configs) == 1
     assert configs[0].id == "battery_soc"
 
