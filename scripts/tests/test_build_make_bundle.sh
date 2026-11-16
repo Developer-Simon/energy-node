@@ -55,6 +55,7 @@ for path in \
   bootstrap/10-apt.sh bootstrap/lib/step.sh bootstrap/verify_bundle.sh \
   dashboard/energy-node-dashboard dashboard/energy-node-dashboard.service \
   dashboard/Caddyfile \
+  dashboard/hotspot/index.html \
   services/shelly/shelly_rpc_mqtt.py services/shelly/shelly-rpc.service \
   services/shelly/devices/shelly_devices.json \
   services/shelly/devices/shelly_devices.schema.json \
