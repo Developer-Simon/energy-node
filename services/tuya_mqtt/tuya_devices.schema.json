@@ -4,7 +4,6 @@
   "title": "Tuya Devices Configuration",
   "description": "JSON configuration for devices handled by the Tuya MQTT bridge.",
   "type": "array",
-  "minItems": 1,
   "items": {
     "title": "Tuya Device",
     "description": "Configuration for one Tuya device handled by the MQTT bridge.",

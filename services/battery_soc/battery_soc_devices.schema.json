@@ -4,7 +4,6 @@
   "title": "Battery SoC Devices Configuration",
   "description": "JSON configuration for battery_soc_mqtt.py.",
   "type": "array",
-  "minItems": 1,
   "items": {
     "title": "Battery State-of-Charge Device",
     "description": "Configuration for one battery state-of-charge calculation.",

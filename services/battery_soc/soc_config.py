@@ -171,8 +171,8 @@ def load_configs(path, runtime_dir=None):
     Laufzeitverzeichnis, sofern state_file fehlt oder der alte Standard ist.
     Ein abweichender state_file bleibt unveraendert."""
     raw = common_config.load_json(path)
-    if not isinstance(raw, list) or not raw:
-        raise ValueError(f"Batterie-Konfiguration {path} muss eine nichtleere JSON-Liste sein")
+    if not isinstance(raw, list):
+        raise ValueError(f"Batterie-Konfiguration {path} muss eine JSON-Liste sein")
 
     configs = []
     for index, item in enumerate(raw):

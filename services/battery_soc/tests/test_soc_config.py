@@ -48,3 +48,9 @@ def test_custom_state_file_stays(tmp_path):
     path.write_text(json.dumps(entries))
     [config] = soc_config.load_configs(path, runtime_dir=str(tmp_path / "runtime"))
     assert config.state_file == Path("/var/lib/custom/b1.json")
+
+
+def test_empty_device_list_is_valid(tmp_path):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text("[]")
+    assert soc_config.load_configs(path) == []
