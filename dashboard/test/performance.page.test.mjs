@@ -626,3 +626,92 @@ test('changeList() lists each changed row and marks the conflicting one with its
   assert.ok(shelly.now !== null && shelly.now.includes('10'), shelly.now);
   assert.equal(list.find((row) => row.id === 'dash').now, null);
 });
+
+// ---- Aufschluesselung (Task 20) -------------------------------------------
+
+// The breakdown of GET /api/v1/performance: dashboard parts and automation
+// groups. The automation group "tick" has four entries beyond the six shown.
+const BREAKDOWN = {
+  dashboard: {
+    parts: [
+      { id: 'push', pct: 6.3, clients: 3 },
+      { id: 'http', pct: 1.7 },
+      { id: 'mqtt', pct: 2.8 },
+      { id: 'node', pct: 0.7 },
+      { id: 'background', pct: 0.8 },
+      { id: 'gc', pct: 1.7 },
+    ],
+  },
+  automation: {
+    groups: [
+      {
+        row: 'tick',
+        pct: 0.6,
+        items: [{ id: 'nacht', name: 'Nachtladen', kind: 'scenario', pct: 0.3 }],
+        more: 4,
+        more_pct: 0.2,
+      },
+      {
+        row: 'regulator',
+        pct: 0.3,
+        items: [{ id: 'boiler', name: 'Überschuss in den Boiler', kind: 'scenario', pct: 0.3 }],
+        more: 0,
+        more_pct: 0,
+      },
+    ],
+  },
+};
+
+test('breakdownOf() returns the parts for the dashboard, the groups for automation, null otherwise', async () => {
+  const { page } = await loadedPage({ breakdown: BREAKDOWN });
+  const dashboard = page.breakdownOf('energy-node-dashboard.service');
+  assert.equal(dashboard.kind, 'dashboard');
+  assert.deepEqual(dashboard.parts.map((part) => part.id), ['push', 'http', 'mqtt', 'node', 'background', 'gc']);
+  const automation = page.breakdownOf('automation.service');
+  assert.equal(automation.kind, 'automation');
+  assert.deepEqual(automation.groups.map((group) => group.row), ['tick', 'regulator']);
+  assert.equal(page.breakdownOf('mosquitto.service'), null);
+  assert.equal(page.breakdownOf('shelly'), null);
+});
+
+test('breakdownOf() is null for every unit without breakdown data', async () => {
+  const { page } = await loadedPage({ breakdown: { dashboard: null, automation: null } });
+  assert.equal(page.breakdownOf('energy-node-dashboard.service'), null);
+  assert.equal(page.breakdownOf('automation.service'), null);
+  const bare = await loadedPage();
+  assert.equal(bare.page.breakdownOf('energy-node-dashboard.service'), null);
+  assert.equal(bare.page.breakdownOf('automation.service'), null);
+});
+
+test('toggleBreakdown() opens and closes one unit and keeps the state across load()', async () => {
+  const calls = [];
+  const { fetchImpl } = router({ '/api/v1/performance': () => reply(200, performanceBody({ breakdown: BREAKDOWN })) }, calls);
+  const made = createPerformancePage({ fetchImpl });
+  const { page } = made;
+  await page.load();
+  assert.equal(page.isOpen('energy-node-dashboard.service'), false);
+  page.toggleBreakdown('energy-node-dashboard.service');
+  assert.equal(page.isOpen('energy-node-dashboard.service'), true);
+  assert.equal(page.isOpen('automation.service'), false, 'other units stay closed');
+  await page.load();
+  assert.equal(page.isOpen('energy-node-dashboard.service'), true, 'a new answer keeps it open');
+  page.toggleBreakdown('energy-node-dashboard.service');
+  assert.equal(page.isOpen('energy-node-dashboard.service'), false);
+});
+
+test('"weitere N" shows for a group with more than six entries, with its share', async () => {
+  const { page } = await loadedPage({ breakdown: BREAKDOWN });
+  const [tick, regulator] = page.breakdownOf('automation.service').groups;
+  assert.equal(tick.more, 4);
+  assert.equal(tick.morePctText, '0,2 %');
+  assert.equal(page.moreText(tick.more), de['performance.js.breakdown.more'].replace('{count}', '4'));
+  assert.equal(regulator.more, 0, 'no more line without entries beyond six');
+});
+
+test('the push part names the number of browsers', async () => {
+  const { page } = await loadedPage({ breakdown: BREAKDOWN });
+  const push = page.breakdownOf('energy-node-dashboard.service').parts[0];
+  assert.equal(push.clients, 3);
+  assert.equal(page.clientsText(push.clients), 'bei bis zu 3 Browsern');
+  assert.equal(page.clientsText(1), 'bei einem Browser');
+});
