@@ -219,7 +219,7 @@ func (s *Store) Restore(reg *registry.Registry, deviceID, entityID string) bool 
 }
 
 func (s *Store) writeLocked() error {
-	data, err := json.MarshalIndent(file{Entries: s.entriesAsSliceLocked()}, "", "  ")
+	data, err := json.Marshal(file{Entries: s.entriesAsSliceLocked()})
 	if err != nil {
 		s.writeErr = err
 		return err
