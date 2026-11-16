@@ -4,8 +4,8 @@
 
 ### Fixes
 
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **bootstrap:** keep the tailscaled log buffer in RAM (c9141bd)
-- **system:** cut SD card writes from tailscaled logs and runtime.json (#271)
 
 ## v0.3.2 (2026-11-07)
 

@@ -4,9 +4,9 @@
 
 ### Fixes
 
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **installer:** offer the tailscaled log step after Tailscale (d0718ef)
 - **installer:** name the skip reason of the tailscaled log step (4e9fcaa)
-- **system:** cut SD card writes from tailscaled logs and runtime.json (#271)
 
 ## v0.3.2 (2026-11-07)
 
