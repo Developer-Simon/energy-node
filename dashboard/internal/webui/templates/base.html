@@ -136,6 +136,18 @@
     <svg class="ob-guest-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
     <p><strong>{{t "onboarding.guest_note.title"}}</strong> {{t "onboarding.guest_note.text"}}</p>
   </div>{{end}}
+  {{if .ExampleNote}}<div class="beispiel-note" role="status" data-beispiel-note data-beispiel-kept="{{t "beispiel.note.kept"}}" data-beispiel-failed="{{t "beispiel.note.failed"}}">
+    <svg class="beispiel-note-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-info"></use></svg>
+    <div class="beispiel-note-body">
+      <p><strong>{{t "beispiel.note.title"}}</strong> {{t "beispiel.note.text"}}</p>
+      <div class="beispiel-note-actions">
+        <button type="button" data-beispiel-off>{{t "beispiel.note.off"}}</button>
+        <button type="button" data-beispiel-remove>{{t "beispiel.note.remove"}}</button>
+      </div>
+      <p class="beispiel-note-msg" data-beispiel-msg hidden></p>
+    </div>
+  </div>
+  <script src="{{.BasePath}}/static/js/beispiel-note.js?v=1" defer></script>{{end}}
   <div class="nav-shell" data-nav-mode="more" x-bind:data-nav-mode="navMode" x-on:click.outside="navOpen = false; navMoreOpen = false" x-on:keydown.escape="navOpen = false; navMoreOpen = false">
     <button class="nav-menu-toggle" type="button" aria-controls="dashboard-tabs"
             x-bind:aria-expanded="navOpen ? 'true' : 'false'"

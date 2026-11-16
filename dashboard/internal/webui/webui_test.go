@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/beispiel"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -4402,7 +4404,7 @@ func TestSettingsChecklistRendersForGuestAndAdmin(t *testing.T) {
 func TestGuestNoteVisibleUntilComplete(t *testing.T) {
 	reg := registry.New()
 	render := func(user auth.User, pending func() bool) string {
-		handler := OverviewWithOnboarding(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), nil, pending)
+		handler := OverviewWithOnboarding(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), nil, pending, nil)
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req = req.WithContext(auth.WithUser(req.Context(), user))
 		rec := httptest.NewRecorder()
@@ -4427,6 +4429,68 @@ func TestGuestNoteVisibleUntilComplete(t *testing.T) {
 	}
 	if body := render(guest, nil); strings.Contains(body, `class="ob-guest-note"`) {
 		t.Fatal("guest note shown without a setup source")
+	}
+}
+
+// renderExampleNote renders the overview for user with a beispiel.json note in
+// a temp data dir. simulated sets the global simulation switch, pending is the
+// setup source. It returns the page body.
+func renderExampleNote(t *testing.T, user auth.User, pending func() bool, simulated bool) string {
+	t.Helper()
+	reg := registry.New()
+	dataDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dataDir, beispiel.NoteFileName), []byte(`{"version":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := settings.NewStore(t.TempDir())
+	mqtt, err := store.LoadMQTT()
+	if err != nil {
+		t.Fatal(err)
+	}
+	mqtt.SimulationActive = simulated
+	if err := store.SaveMQTT(mqtt); err != nil {
+		t.Fatal(err)
+	}
+	exampleActive := func() bool { return beispiel.Active(dataDir, store) }
+	handler := OverviewWithOnboarding(reg, config.NewManager(t.TempDir()), store, nil, diagnostics.NewEngine(reg, nil), nil, pending, exampleActive)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(auth.WithUser(req.Context(), user))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	return rec.Body.String()
+}
+
+// TestExampleNoteShownAfterSetup checks the example note: it shows for an
+// account with mqtt_config while the example runs and the setup is complete.
+func TestExampleNoteShownAfterSetup(t *testing.T) {
+	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
+	done := func() bool { return false }
+	if body := renderExampleNote(t, admin, done, true); !strings.Contains(body, "data-beispiel-note") {
+		t.Fatal("example note missing after setup while the simulation runs")
+	}
+	if body := renderExampleNote(t, admin, done, false); strings.Contains(body, "data-beispiel-note") {
+		t.Fatal("example note shown while the simulation is off")
+	}
+}
+
+// TestExampleNoteHiddenDuringSetup checks that the example note waits for the
+// initial setup to finish.
+func TestExampleNoteHiddenDuringSetup(t *testing.T) {
+	admin := auth.User{Username: "admin", Roles: auth.AllRoles()}
+	open := func() bool { return true }
+	if body := renderExampleNote(t, admin, open, true); strings.Contains(body, "data-beispiel-note") {
+		t.Fatal("example note shown during the initial setup")
+	}
+}
+
+// TestExampleNoteHiddenWithoutPermission checks that an account without
+// mqtt_config does not get the example note, since it could not switch the
+// simulation off.
+func TestExampleNoteHiddenWithoutPermission(t *testing.T) {
+	viewer := auth.User{Username: "viewer", Roles: []string{auth.RoleViewOverview}}
+	done := func() bool { return false }
+	if body := renderExampleNote(t, viewer, done, true); strings.Contains(body, "data-beispiel-note") {
+		t.Fatal("example note shown without mqtt_config")
 	}
 }
 

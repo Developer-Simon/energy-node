@@ -877,13 +877,16 @@ func OverviewWithDeviceFilter(reg *registry.Registry, configs *config.Manager, s
 // callers that don't care (e.g. Overview/OverviewWithDeviceFilter above,
 // and every existing test) can keep passing nil.
 func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool) http.HandlerFunc {
-	return OverviewWithOnboarding(reg, configs, store, ignored, engine, installedServices, nil)
+	return OverviewWithOnboarding(reg, configs, store, ignored, engine, installedServices, nil, nil)
 }
 
 // OverviewWithOnboarding is OverviewWithDeviceFilterAndEngine plus setupPending,
 // which reports whether the installation's initial setup is still open. While
 // it is, a guest sees the guest note above the overview. nil means no note.
-func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool, setupPending func() bool) http.HandlerFunc {
+// exampleActive reports whether the example is running (beispiel.Active). It
+// shows the example note to accounts with mqtt_config once the setup is done.
+// nil means no example note.
+func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool, setupPending func() bool, exampleActive func() bool) http.HandlerFunc {
 	resolver := energy.NewResolver(nil)
 	var resolverMu sync.Mutex
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -1059,6 +1062,10 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 		// Der Gast-Hinweis steht serverseitig im Seitenkopf, solange die
 		// Ersteinrichtung offen ist. Gäste sehen die Anlage sonst leer.
 		onboardingGuestNote := hasUser && user.Guest && setupPending != nil && setupPending()
+		// Der Beispiel-Hinweis steht nach der Ersteinrichtung, solange die
+		// Simulation laeuft. Er braucht das Recht mqtt_config, weil er die
+		// Simulation abschaltet.
+		exampleNote := exampleActive != nil && (setupPending == nil || !setupPending()) && can[auth.RoleMQTTConfig] && exampleActive()
 		view := map[string]any{
 			"BasePath":           basepath.From(r),
 			"Manager":            manager,
@@ -1086,6 +1093,7 @@ func OverviewWithOnboarding(reg *registry.Registry, configs *config.Manager, sto
 			"Masthead":           masthead,
 
 			"OnboardingGuestNote":   onboardingGuestNote,
+			"ExampleNote":           exampleNote,
 			"NumberFormat":          numberFormat,
 			"NumberGrouping":        numberGrouping,
 			"FlatpickrLocaleScript": flatpickrLocaleScript(lang),

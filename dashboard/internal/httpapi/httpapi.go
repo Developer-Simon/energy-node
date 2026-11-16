@@ -27,6 +27,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/beispiel"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/companion"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/dataflow"
@@ -524,7 +525,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.Onboarding != nil {
 		setupPending = func() bool { return !dependencies.Onboarding.Load().SetupDone }
 	}
-	g.HandleFunc("/", webui.OverviewWithOnboarding(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices, setupPending))
+	exampleActive := func() bool { return beispiel.Active(dependencies.DataDir, store) }
+	g.HandleFunc("/", webui.OverviewWithOnboarding(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices, setupPending, exampleActive))
 	return g.ServeMux()
 }
 
