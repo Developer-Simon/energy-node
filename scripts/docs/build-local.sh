@@ -35,7 +35,14 @@ local_url="${DOCS_LOCAL_URL:-http://localhost:4000}"
 printf 'url: "%s"\n' "$local_url" > "$root/.cache/docs-local.yml"
 # The What's new data is derived from the changelogs, highlights and tags and
 # not tracked in git, the Pages workflow writes it the same way.
-python3 "$root/scripts/docs/whats-new.py" "$root" > "$root/docs/_data/whats_new.json"
+# The prerelease notes need a checkout of origin/prerelease, skipped without it.
+pre_dir=""
+if git -C "$root" rev-parse --verify -q origin/prerelease >/dev/null; then
+  pre_dir="$(mktemp -d)"
+  git -C "$root" worktree add --detach "$pre_dir" origin/prerelease >/dev/null
+  trap 'git -C "$root" worktree remove --force "$pre_dir"' EXIT
+fi
+python3 "$root/scripts/docs/whats-new.py" "$root" ${pre_dir:+"$pre_dir"} > "$root/docs/_data/whats_new.json"
 "$engine" run --rm \
   -v "$root:/repo:Z" \
   -v "$root/.cache/docs-gems:/usr/local/bundle:Z" \
