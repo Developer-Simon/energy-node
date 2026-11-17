@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.11.19-pre.20 (2026-11-06)
+## v0.11.21-pre.20 (2026-11-06)
 
 ### Features
 
@@ -20,6 +20,9 @@
 - **performance:** check the effect of applied rates and offer a rollback (#263) (1b785fb)
 - **performance:** break down the dashboard and automation load (#265) (6bb19a8)
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
+- **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267) (e1e256b)
+- **devices:** Operational notices of a device sit behind a bell in the device modal header (#266) (f21a8c4)
+- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **network:** scan for Wi-Fi networks right before the hotspot opens (112638a)
 - **network:** show the last scan while the hotspot is active (a013a20)
 - **network:** report the age of a cached Wi-Fi scan (8f01066)
@@ -29,9 +32,6 @@
 - **network:** report the host name and mDNS in the network status (02176f8)
 - **network:** show a bookmark address and explain the address change (d92d5c8)
 - **network:** move the bookmark address into the Wi-Fi backup card as one copy field (ce6089d)
-- **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267)
-- **devices:** Operational notices of a device sit behind a bell in the device modal header (#266) (f21a8c4)
-- **auth:** Home Assistant users keep all their permissions in the panel without HTTPS when an admin allows it (#253) (a683456)
 - **network:** show a start page to emergency hotspot clients (c739a91)
 - **network:** match the hotspot start page to the dashboard theme and link the network page (2bba878)
 - **performance:** time the dashboard's work by part (92dd50d)
@@ -100,9 +100,10 @@
 - **storage:** offer sticks with several partitions as a group and format single partitions (#243) (c4e6d33)
 - **storage:** wipe old file system signatures before formatting a stick (#245) (aeafa63)
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
-- **network:** do not touch the NetworkManager drop-in when nothing changed (b541188)
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **system:** do not report an error when a reboot stops the dashboard (#249) (85d32cf)
 - **webui:** keep the backup page visible with a hint when HTTPS is missing (#246) (ce09ea7)
+- **network:** do not touch the NetworkManager drop-in when nothing changed (b541188)
 - **network:** stop the standby fallback from reconnecting a connected WLAN (2a71ea5)
 - **network:** let the watcher connect only saved client profiles (37c4c56)
 - **webui:** bump the cache-bust marks of the performance page (ed21c13)
@@ -138,6 +139,7 @@
 
 ### Documentation
 
+- **dashboard:** show the hint bell in the device dialog image and add the paired Home Assistant section (#272) (39a90c8)
 - **storage:** describe the system disk breakdown (b2222d8)
 - **storage:** explain sticks with several partitions and extend the smoke check (7e75f7a)
 
@@ -151,9 +153,9 @@
 
 ### Chores
 
-- **dev:** update the cache-bust history rows after the rebase (a2c2157)
 - **onboarding:** fix the tours of the companion HTTP switch and the hint bell (#269) (048e5aa)
 - **dev:** check dashboard ?v= cache-bust marks with cache_bust.py (#259) (379c437)
+- **dev:** update the cache-bust history rows after the rebase (a2c2157)
 - **webui:** record the cache-bust history for the performance check assets (c01d9e9)
 - **webui:** record the cache-bust marks of the performance page (5b896c1)
 

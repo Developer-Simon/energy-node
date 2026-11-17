@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.3-pre.6 (2026-11-16)
+## v0.3.4-pre.6 (2026-11-16)
 
 ### Features
 
@@ -8,8 +8,8 @@
 - **network:** choose the Wi-Fi fallback and manage the emergency hotspot (#239) (83a275f)
 - **installer:** stream the diagnose and show skeleton rows while it loads (#244) (faa61a6)
 - **network:** open the dashboard when a phone joins the emergency hotspot (#264) (5620a3d)
+- **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267) (e1e256b)
 - **network:** keep the emergency hotspot on its own MAC (12960e9)
-- **network:** Keep one address when the node falls back to Wi-Fi and show an address for bookmarks (#267)
 - **network:** send hotspot clients to the node for the captive portal check (11d9c1e)
 - **network:** show a start page to emergency hotspot clients (c739a91)
 - **network:** add the emergency hotspot bootstrap step (d30f816)
@@ -18,6 +18,7 @@
 ### Fixes
 
 - **storage:** set up, back up and replug the additional drive reliably (#247) (b668394)
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **network:** start the emergency hotspot with PMF off (93060d2)
 - **network:** offer only RSN with CCMP and allow DHCP in the hotspot (0953912)
 - **network:** leave the hotspot cipher suite at the defaults (53e5b88)

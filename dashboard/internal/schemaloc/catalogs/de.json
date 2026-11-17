@@ -236,7 +236,7 @@
   "schema.system.dashboard.node_poll_interval_s.title": "Node-Abfrageintervall",
   "schema.system.dashboard.port.description": "Port, auf dem das Dashboard seine Webseiten ausliefert.",
   "schema.system.dashboard.port.title": "HTTP-Port",
-  "schema.system.dashboard.sweep_interval_seconds.description": "Sekunden zwischen zwei Sicherungen der letzten bekannten Gerätewerte auf den Datenträger, damit sie nach einem Neustart wieder angezeigt werden. Ein unter Einstellungen > Allgemein gesetzter Wert hat Vorrang.",
+  "schema.system.dashboard.sweep_interval_seconds.description": "Sekunden zwischen zwei Sicherungen der letzten bekannten Gerätewerte auf den Datenträger, damit sie nach einem Neustart wieder angezeigt werden. Beim Beenden sichert das Dashboard sie zusätzlich. Ein unter Einstellungen > Allgemein gesetzter Wert hat Vorrang.",
   "schema.system.dashboard.sweep_interval_seconds.title": "Sweep-Intervall",
   "schema.system.dashboard.system_action_helper.description": "Pfad zum Hilfsprogramm, das das Dashboard per sudo für Systemaktionen wie das Neustarten von Diensten ausführt.",
   "schema.system.dashboard.system_action_helper.title": "Systemaktions-Helfer",

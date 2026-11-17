@@ -1269,6 +1269,11 @@ func main() {
 			log.Printf("energy-node-dashboard: companion graceful shutdown failed: %v", err)
 		}
 	}
+	// Beim sauberen Beenden den aktuellen Stand sichern. Der periodische
+	// Sweep laeuft nur alle sweep_interval_seconds (Vorgabe 1800).
+	if err := runtimeStore.Sweep(reg.Snapshot(), time.Now().UTC()); err != nil {
+		log.Printf("energy-node-dashboard: runtime cache flush failed: %v", err)
+	}
 	if flusher, ok := storageProvider.(storagehealth.Flusher); ok {
 		if err := flusher.Flush(); err != nil {
 			log.Printf("energy-node-dashboard: storage health flush failed: %v", err)

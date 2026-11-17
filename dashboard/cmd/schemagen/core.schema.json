@@ -69,7 +69,7 @@
         "client_id": {"type": "string", "minLength": 1, "title": "MQTT client ID", "description": "Client ID of the dashboard at the broker, unique per broker. A connection saved on the MQTT settings page replaces it."},
         "device_identifier": {"type": "string", "minLength": 1, "title": "Own device identifier", "description": "Currently not read by any component. Kept so that existing files stay valid."},
         "log_level": {"type": "string", "minLength": 1, "title": "Log level", "description": "Log level of the dashboard: debug, info, warn or error."},
-        "sweep_interval_seconds": {"type": "integer", "minimum": 1, "title": "Sweep interval", "description": "Seconds between two saves of the last known device values to disk, so that they are shown again after a restart. A value set under Settings > General takes precedence."},
+        "sweep_interval_seconds": {"type": "integer", "minimum": 1, "title": "Sweep interval", "description": "Seconds between two saves of the last known device values to disk, so that they are shown again after a restart. The dashboard also saves them when it stops. A value set under Settings > General takes precedence."},
         "admin_username": {"type": "string", "minLength": 1, "title": "Admin username", "description": "Username of the dashboard administrator."},
         "admin_password_file": {"type": "string", "title": "Admin password file", "description": "Path to the file that holds the admin password. Allowed below /etc/energy-node/ and /etc/energy-node-dashboard/."},
         "tls": {

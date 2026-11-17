@@ -48,7 +48,7 @@ The file follows this JSON structure:
   "logging": { "level": "INFO" },
   "services": { "apsystems": {...}, "battery_soc": {...}, "shelly": {...}, "trucki": {...}, "tuya": {...}, "automation": {...} },
   "installed_services": { "apsystems": true, "automation": true, "battery_soc": true, "shelly": true, "tailscale": true, "trucki": true, "tuya": true },
-  "dashboard": { "bind_address": "...", "port": 8080, "client_id": "...", "device_identifier": "...", "log_level": "info", "sweep_interval_seconds": 300, "admin_username": "...", "admin_password_file": "...", "tls": {...}, "system_action_helper": "...", "mosquitto_bridge_target": "...", "node_device_id": "...", "node_device_name": "...", "node_poll_interval_s": 60, "node_diagnostic_poll_multiplier": 10 },
+  "dashboard": { "bind_address": "...", "port": 8080, "client_id": "...", "device_identifier": "...", "log_level": "info", "sweep_interval_seconds": 1800, "admin_username": "...", "admin_password_file": "...", "tls": {...}, "system_action_helper": "...", "mosquitto_bridge_target": "...", "node_device_id": "...", "node_device_name": "...", "node_poll_interval_s": 60, "node_diagnostic_poll_multiplier": 10 },
   "tailscale": { "bin": "...", "status_timeout_s": 10 },
   "tinytuya": { "probe_python": "...", "probe_script": "...", "probe_timeout_s": 30 }
 }
@@ -89,7 +89,7 @@ The file follows this JSON structure:
 | `dashboard.client_id` | String | Go | Unique MQTT client ID of the dashboard |
 | `dashboard.device_identifier` | String | Go | Device identifier for the dashboard's MQTT communication |
 | `dashboard.log_level` | String | Go | Log level: debug, info, warn, error |
-| `dashboard.sweep_interval_seconds` | Integer | Go | Interval for periodic UI refreshes (default: 300) |
+| `dashboard.sweep_interval_seconds` | Integer | Go | Seconds between two saves of the last known device values to disk, also saved on shutdown (default: 1800) |
 | `dashboard.admin_username` | String | Go | Admin username for dashboard access |
 | `dashboard.admin_password_file` | String | Go | Path to the file containing the admin password |
 | `dashboard.tls.cert_file` | String | Go | Path to the TLS certificate file (empty means no TLS) |

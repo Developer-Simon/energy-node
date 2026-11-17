@@ -491,8 +491,8 @@ func TestSchemaDeclaresDashboardDefaults(t *testing.T) {
 	if got := schema.Properties["health_score_threshold"].Default; got != float64(180) {
 		t.Fatalf("health score default = %#v, want 180", got)
 	}
-	if got := schema.Properties["sweep_interval_seconds"].Default; got != float64(300) {
-		t.Fatalf("sweep interval default = %#v, want 300", got)
+	if got := schema.Properties["sweep_interval_seconds"].Default; got != float64(1800) {
+		t.Fatalf("sweep interval default = %#v, want 1800", got)
 	}
 	if got := schema.Properties["show_runtime_status"].Default; got != true {
 		t.Fatalf("runtime status default = %#v, want true", got)
@@ -1402,6 +1402,40 @@ func TestSweepIntervalDefaultAppliesWhenKeyAbsentFromSettingsFile(t *testing.T) 
 	}
 	if value.SweepIntervalSeconds != 120 {
 		t.Fatalf("SweepIntervalSeconds = %d, erwartet 120", value.SweepIntervalSeconds)
+	}
+}
+
+func TestSweepIntervalDefaultIs1800(t *testing.T) {
+	if got := Default().SweepIntervalSeconds; got != 1800 {
+		t.Fatalf("Default().SweepIntervalSeconds = %d, want 1800", got)
+	}
+}
+
+func TestSweepIntervalLegacyConfigValueFallsBackToDefault(t *testing.T) {
+	store := NewStore(t.TempDir())
+	store.SetSweepIntervalDefault(300)
+	value, err := store.LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if value.SweepIntervalSeconds != 1800 {
+		t.Fatalf("SweepIntervalSeconds = %d, want 1800", value.SweepIntervalSeconds)
+	}
+}
+
+func TestSweepIntervalExplicit300InSettingsFileStays(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"sweep_interval_seconds": 300}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(dir)
+	store.SetSweepIntervalDefault(300)
+	value, err := store.LoadSettings()
+	if err != nil {
+		t.Fatalf("LoadSettings: %v", err)
+	}
+	if value.SweepIntervalSeconds != 300 {
+		t.Fatalf("SweepIntervalSeconds = %d, want 300", value.SweepIntervalSeconds)
 	}
 }
 

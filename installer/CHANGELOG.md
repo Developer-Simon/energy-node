@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.3-pre.5 (2026-11-15)
+## v0.3.4-pre.5 (2026-11-15)
 
 ### Features
 
@@ -42,6 +42,7 @@
 ### Fixes
 
 - **installer:** ask for the pinned host key type when probing and signing in (#241) (a5e2b38)
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **installer:** skip the Debian release lookup for unsupported devices (4b53c16)
 - **installer:** install python3 on the Debian stick target (b007104)
 - **installer:** manage the Debian node network with NetworkManager (8034938)

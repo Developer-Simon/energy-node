@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.3-pre.5 (2026-11-06)
+## v0.3.4-pre.5 (2026-11-06)
 
 ### Features
 
@@ -46,6 +46,7 @@
 
 ### Fixes
 
+- **system:** cut SD card writes from tailscaled logs and runtime.json (#271) (05dc304)
 - **installer:** show the hotspot credentials after every successful run (bbeac07)
 - **webui:** bust the asset cache on every asset change (90fcdf8)
 - **webui:** keep the language switch on the media screens (040d376)

@@ -77,6 +77,21 @@ async function closeOnboarding(ctx) {
   if (!me.ok()) throw new Error(`Onboarding schliessen (me): HTTP ${me.status()}`);
 }
 
+// Koppelt den Fake-Companion der Demo mit dem Dashboard, falls er noch nicht gekoppelt ist.
+async function pairCompanion(ctx) {
+  const users = await (await ctx.request.get(`${args.url}/api/v1/users`)).json();
+  if (users.companion?.paired) return;
+  const csrf = (await (await ctx.request.get(`${args.url}/api/v1/auth/session`)).json()).csrf_token;
+  const made = await ctx.request.post(`${args.url}/api/v1/users/companion/pairing-code`, { headers: { 'X-CSRF-Token': csrf } });
+  if (!made.ok()) throw new Error(`Koppelcode: HTTP ${made.status()}`);
+  const { code } = await made.json();
+  const paired = await fetch(`${args.consoleUrl}/api/companion/pair`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code }),
+  });
+  if (!paired.ok) throw new Error(`Koppeln: HTTP ${paired.status}`);
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+}
+
 async function session(width, height, { tour = false } = {}) {
   const ctx = await browser.newContext({ ignoreHTTPSErrors: true, extraHTTPHeaders: { 'X-Forwarded-Proto': 'https' }, viewport: { width, height } });
   await ctx.request.post(`${args.url}/api/v1/auth/login`, { data: { username: 'admin', password: args.password } });
@@ -422,6 +437,20 @@ async function all() {
     await s.ctx.close();
   }
 
+  // Home Assistant: der Fake-Companion wird gekoppelt, damit der Schalter fuer HTTP-Aktionen sichtbar ist.
+  if (want('dashboard-settings-users-home-assistant')) {
+    s = await session(1110, 1100);
+    await pairCompanion(s.ctx);
+    await tab(s.page, 'settings');
+    await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-users"]').click();
+    await s.page.waitForTimeout(2000);
+    await s.page.locator('button.users-tab[data-tab="accounts"]').click();
+    await s.page.waitForSelector('[data-tour="companion-http"]', { timeout: 10000 });
+    await s.page.mouse.move(1, 1);
+    await element(s.page.locator('[data-tour="companion"]'), 'dashboard-settings-users-home-assistant');
+    await s.ctx.close();
+  }
+
   if (want('dashboard-automation-assistant')) {
     s = await session(1110, 900);
     await tab(s.page, 'automations');
@@ -636,7 +665,8 @@ async function energyShowcase() {
 
 // Das Geraete-Modal: breit mit Seitenleiste und Tabs, schmal als Akkordeon.
 // Es zeigt das Geraet mit den meisten Entitaeten, damit Messwerte und
-// Steuerung beide gefuellt sind.
+// Steuerung beide gefuellt sind. Ein Wert des Geraets (Inverter temperature) sendet
+// nie, damit die Hinweisglocke im Kopf zu sehen ist.
 async function deviceModalShowcase() {
   const names = ['dashboard-device-modal', 'dashboard-device-modal-narrow', 'dashboard-device-modal-manage'];
   if (!names.some(want)) return;
@@ -651,6 +681,9 @@ async function deviceModalShowcase() {
     if (name === 'dashboard-device-modal' && want('dashboard-device-modal-manage')) {
       await s.page.locator('.device-modal-trigger').filter({ hasText: 'Analysis' }).first().click();
       await s.page.waitForTimeout(1200);
+      // Das Fenster der Hinweisglocke ist offen und nennt den Hinweis in Kurzform.
+      await s.page.locator('.device-modal-bell').click();
+      await s.page.waitForTimeout(800);
       await element(s.page.locator('dialog#device-modal'), 'dashboard-device-modal-manage');
     }
     await s.ctx.close();

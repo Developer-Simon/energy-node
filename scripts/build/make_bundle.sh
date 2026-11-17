@@ -38,7 +38,7 @@ BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
 CORE_STEPS=(10 20 30 50 60 65 67)
-OPTIONAL_STEPS=(15 17 35 40 70)
+OPTIONAL_STEPS=(15 17 35 40 41 70)
 # 15 (Systempakete aktualisieren) ist optional mit Vorgabe an: abwaehlen
 # laesst nur die Pruefung uebrig (scripts/bootstrap/15-system-upgrade.sh).
 # Opt-in: optionale Schritte mit Vorgabe aus. 35 gibt den Port des Shelly-
@@ -50,8 +50,9 @@ OPT_IN_STEPS=(17 35)
 # requires: ein optionaler Schritt, der nur zusammen mit einem anderen Sinn
 # ergibt. Ist der benoetigte Schritt abgewaehlt, gilt dieser als abgewaehlt
 # (plan.sh, Schritt-Skript, Oberflaeche). 35 oeffnet den Port eines
-# Listeners im Shelly-Dienst (83).
-declare -A STEP_REQUIRES=([35]="83")
+# Listeners im Shelly-Dienst (83). 41 legt den Log-Puffer von tailscaled in den
+# RAM und ergibt nur mit Tailscale (40) Sinn.
+declare -A STEP_REQUIRES=([35]="83" [41]="40")
 # dashboard_key je optionalem System-Schritt (nicht Dienst-Schritt), der
 # einen eigenen Dashboard-Tab hat. 70 (Caddy/HTTPS) bleibt bewusst aussen
 # vor - das Dashboard blendet dafuer nichts aus (E7).
