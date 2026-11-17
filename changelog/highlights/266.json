@@ -2,6 +2,15 @@
   "de": {
     "*": "Betriebshinweise eines Geräts stehen im Geräte-Modal hinter einer Glocke im Kopf"
   },
+  "details": {
+    "*": {
+      "crop": [0.45, 0.0, 0.55, 0.2],
+      "de": "Die Glocke erscheint nur, wenn das Gerät Hinweise hat, mit deren Anzahl. Ein Klick zeigt die Kurztexte. Mit dem Analyse-Recht öffnet Details in Analyse die vollständigen Karten.",
+      "doc": "dashboard/device-modal.html#hint-bell",
+      "en": "The bell only appears when the device has notices, with a count of them. Click it for the short texts. With the analysis right, Details in Analysis opens the full cards.",
+      "image": "dashboard-device-modal.png"
+    }
+  },
   "en": {
     "*": "Operational notices of a device sit behind a bell in the device modal header"
   },

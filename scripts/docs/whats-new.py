@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """Emits the data behind the "What's new" page of the documentation site.
 
-Usage: whats-new.py [repo-root] > docs/_data/whats_new.json
+Usage: whats-new.py [repo-root [prerelease-checkout]] > docs/_data/whats_new.json
 
 The page (docs/whats-new.md) reads it as site.data.whats_new. Every highlight
 of the bundle components since MIN_TAG (plus the installer components) is one
 entry. An entry belongs to the first release tag on which its component already
 had that version or a newer one. Highlights newer than the last tag form the
 release "next". Entries of the same PR in several components are one entry.
+
+With a checkout of the prerelease branch as second argument, the result also has
+the key "prerelease": the highlights of that checkout that are not on the
+release line yet (no PR of the release line), as the sub page "Prerelease
+notes". Without it the key is null.
 
 build() is pure and takes the data as arguments. main() reads git and the
 repository, and needs the full history and the tags.
@@ -377,9 +382,38 @@ def _image_names(document):
     return sorted(names)
 
 
-def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
-    repo = Path(argv[0] if argv else ".")
+def build_prerelease(main_result, pre_result):
+    """Highlights of the prerelease line that the release line does not have.
+
+    Both are build() results. The prerelease line contains the release line, so
+    its unreleased entries minus every PR of the release line are the new ones.
+    Returns None when pre_result is None.
+    """
+    if pre_result is None:
+        return None
+    known = {entry["pr"] for release in main_result["releases"]
+             for entry in release["cards"] + release["rest"]}
+    upcoming = next((r for r in pre_result["releases"] if r["tag"] == NEXT), None)
+    entries = [] if upcoming is None else upcoming["cards"] + upcoming["rest"]
+    fresh = [dict(e, since="prerelease") for e in entries if e["pr"] not in known]
+    release = _release("prerelease", "Prerelease", "not released yet", fresh)
+    return {"cards": release["cards"], "rest": release["rest"], "count": len(fresh)}
+
+
+def _drop_missing_images(notes, images_dir):
+    """The site is built from the release line, so an image that only the
+    prerelease line has would be broken: show such a card without it."""
+    for entry in notes["cards"]:
+        if entry["image"] and not (images_dir / entry["image"]["name"]).is_file():
+            entry["image"] = None
+            entry["kind"] = "text" if entry["text"] else "title"
+    notes["rest"].extend(e for e in notes["cards"] if e["kind"] == "title")
+    notes["cards"] = [e for e in notes["cards"] if e["kind"] != "title"]
+
+
+def _result_for(repo):
+    """build() over the repository at repo (git history and tags are shared)."""
+    repo = Path(repo)
     table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
     rows = [dict(row, bundle=True) for row in table["components"]
             if row.get("bundle") or row["id"] in EXTRA_COMPONENTS]
@@ -398,8 +432,18 @@ def main(argv=None):
     for name in _image_names(document):
         image_sizes[name] = highlight_details.png_size(repo / highlight_details.IMAGES_DIR / name)
     nav = parse_nav((repo / "docs/_data/nav.yml").read_text(encoding="utf-8"))
-    result = build(document, tags, tag_versions, tag_dates, translations, nav,
-                   repo / highlight_details.DOCS_DIR, image_sizes)
+    return build(document, tags, tag_versions, tag_dates, translations, nav,
+                 repo / highlight_details.DOCS_DIR, image_sizes)
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    repo = Path(argv[0] if argv else ".")
+    result = _result_for(repo)
+    result["prerelease"] = (build_prerelease(result, _result_for(argv[1]))
+                            if len(argv) > 1 else None)
+    if result["prerelease"]:
+        _drop_missing_images(result["prerelease"], repo / highlight_details.IMAGES_DIR)
     print(json.dumps(result, indent=1, ensure_ascii=False))
     return 0
 

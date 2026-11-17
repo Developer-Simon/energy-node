@@ -214,3 +214,16 @@ def test_kinds_and_tours(docs):
     assert find(result, 22)["tour"] == [{"title": "Step one", "text": "Tap it."}]
     assert find(result, 22)["kind"] == "tour"
     assert find(result, 23)["kind"] == "title"
+
+
+def test_prerelease_notes_are_the_unreleased_entries_the_release_line_lacks(docs):
+    main_result = run(docs)
+    pre_doc = sample_document()
+    pre_doc["components"][0]["releases"].insert(0, rel("v0.10.0", e(99, "Prerelease only")))
+    pre_result = run(docs, pre_doc)
+    notes = whats_new.build_prerelease(main_result, pre_result)
+    titles = [x["title"] for x in notes["cards"] + notes["rest"]]
+    assert titles == ["Prerelease only"]
+    assert notes["count"] == 1
+    assert whats_new.build_prerelease(main_result, None) is None
+    assert whats_new.build_prerelease(main_result, main_result)["count"] == 0

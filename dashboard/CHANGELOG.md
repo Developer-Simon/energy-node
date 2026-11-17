@@ -30,7 +30,7 @@
 
 ### Documentation
 
-- **dashboard:** show the hint bell in the device dialog image and add the paired Home Assistant section (#272)
+- **dashboard:** show the hint bell in the device dialog image and add the paired Home Assistant section (#272) (39a90c8)
 
 ### Tests
 
