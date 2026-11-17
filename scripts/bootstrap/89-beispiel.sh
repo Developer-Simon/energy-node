@@ -30,6 +30,12 @@ if ! step_opted_in 89 || ! step_selected 81 || ! step_selected 83 || ! step_sele
   step_skip "nicht ausgewaehlt"
   exit 0
 fi
+if step_done 89; then
+  step_skip "bereits erledigt"
+  exit 0
+fi
+# Auch nach einem Update, das den Schritt neu laufen laesst, kommt das
+# Beispiel nicht zurueck, wenn es schon einmal angelegt wurde.
 if [[ -f "${MARKER}" ]]; then
   step_skip "Beispiel wurde schon angelegt"
   exit 0
@@ -49,7 +55,7 @@ import json, sys
 config = json.load(open(sys.argv[1], encoding="utf-8"))
 mqtt = config["mqtt"]
 print("\n".join([
-    config["data_dir"],
+    config["paths"]["data_dir"],
     mqtt["host"],
     str(mqtt["port"]),
     mqtt["username"],
@@ -68,7 +74,7 @@ node_id="${cfg[5]}"
 
 python3 "${HELPER}" apply "${EXAMPLE}" "${DEVICES}" "${EN_ROOT}${data_dir}" || step_fail EXAMPLE_FAILED
 
-password="$("${SUDO[@]}" cat "${password_file}")" || step_fail EXAMPLE_FAILED
+password="$("${SUDO[@]}" cat "${EN_ROOT}${password_file}")" || step_fail EXAMPLE_FAILED
 publish=(python3 "${HELPER}" publish)
 if [[ -n "${EN_BEISPIEL_PUBLISH_CMD:-}" ]]; then
   publish=("${EN_BEISPIEL_PUBLISH_CMD}")

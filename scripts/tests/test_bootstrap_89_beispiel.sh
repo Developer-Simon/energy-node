@@ -41,9 +41,9 @@ ALL_SELECTED='{"steps":{"89":true,"81":true,"83":true,"88":true}}'
 setup_node() {
   rm -rf "$EN_STATE_DIR" "$EN_ROOT"
   mkdir -p "$devices" "$EN_ROOT/etc/energy-node"
-  printf 'geheim\n' > "$tmp/mqtt.pw"
-  printf '{"data_dir":"/data/energy","mqtt":{"host":"127.0.0.1","port":1883,"username":"energy","password_file":"%s"},"dashboard":{"node_device_id":"energy_node"}}\n' \
-    "$tmp/mqtt.pw" > "$EN_ROOT/etc/energy-node/config.json"
+  printf 'geheim\n' > "$EN_ROOT/etc/energy-node/mqtt.pw"
+  printf '{"paths":{"data_dir":"/data/energy"},"mqtt":{"host":"127.0.0.1","port":1883,"username":"energy","password_file":"/etc/energy-node/mqtt.pw"},"dashboard":{"node_device_id":"energy_node"}}\n' \
+    > "$EN_ROOT/etc/energy-node/config.json"
   printf '[]\n' > "$devices/apsystems_devices.json"
   printf '[]\n' > "$devices/shelly_devices.json"
   printf '{"version":1,"settings":{},"rules":[]}\n' > "$devices/automation_rules.json"
@@ -79,7 +79,13 @@ grep -qx 'systemctl restart apsystems-ez1.service shelly-rpc.service automation.
 [ -f "$marker" ] || fail "keine Marke"
 [ -f "$EN_STATE_DIR/steps/89" ] || fail "kein Stempel"
 
+# --- Gleiche Bundle-Version: der Stempel gilt --------------------------------
+out="$(bash "$script")"
+grep -qx '##STEP 89 skip bereits erledigt' <<<"$out" || fail "Stempel nicht beachtet" "$out"
+
 # --- Marke vorhanden: Beispiel kommt nicht zurueck --------------------------
+# Ein Update ohne Stempel (der Schritt laeuft neu) darf es nicht neu anlegen.
+rm -f "$EN_STATE_DIR/steps/89"
 printf '[]\n' > "$devices/shelly_devices.json"
 : > "$SYSTEMCTL_LOG"
 out="$(bash "$script")"

@@ -36,6 +36,16 @@ printf 'pip %s\n' "$*" >> "$CMD_LOG"
 exit 0
 SH
 chmod +x "$tmp/bin/fakepip"
+# Schritt 89 spricht den Broker an (beispiel_apply.py publish). In der Kette
+# laeuft kein Broker, also ersetzt diese Attrappe den Aufruf.
+cat > "$tmp/bin/fake-beispiel-publish" <<'SH'
+#!/usr/bin/env bash
+cat > /dev/null
+printf 'beispiel-publish %s\n' "$*" >> "$CMD_LOG"
+exit 0
+SH
+chmod +x "$tmp/bin/fake-beispiel-publish"
+export EN_BEISPIEL_PUBLISH_CMD="$tmp/bin/fake-beispiel-publish"
 # apt-mark gehoert zu den Schritten 40 und 70 (hold, unhold); ohne Attrappe
 # wuerde das echte Programm auf dem Testrechner laufen.
 cat > "$tmp/bin/apt-mark" <<'SH'
