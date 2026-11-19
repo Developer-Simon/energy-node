@@ -374,6 +374,14 @@ grep -q "^## v0.4.0 " "$scl" || fail "open section not headed by the manifest ve
 awk '/^## /{sec=$0} /talk to the RPC endpoint/{print sec}' "$scl" | grep -q "v0.3.0\|v0.4.0" \
   || fail "pre-split commit did not fall back to the umbrella version"
 
+# A device list (<name>_devices.json) is node data: a commit that only changes
+# it gets no entry in the service changelog.
+echo '{"devices": []}' > "$tmp/services/shelly/shelly_devices.json"
+commit "chore(onboarding): ship an empty device list"
+gen --rebuild service:shelly
+grep -q "ship an empty device list" "$scl" \
+  && fail "a device-list-only commit got a service changelog entry"
+
 # --- installer, installer-webui and bootstrap are separate components --------
 # installer/ contains installer/webui/, which has its own version and changelog;
 # the installer target must not list the web UI's commits, and neither may list

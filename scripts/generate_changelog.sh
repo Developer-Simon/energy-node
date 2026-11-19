@@ -714,7 +714,7 @@ generate_one() {
   # ha-integration unten: deren CHANGELOG.md enthielt vor der Umstellung auf
   # automatische Generierung mehrere von Hand geschriebene Abschnitte
   # innerhalb derselben Minor-Version (v0.1.0-v0.1.4).
-  local -a history_prefixes=() version_file_candidates=() exclude_prefixes=()
+  local -a history_prefixes=() version_file_candidates=() exclude_prefixes=() exclude_globs=()
   local min_freeze=""
   case "$comp" in
     dashboard)
@@ -744,6 +744,10 @@ generate_one() {
       local svc_dir="${comp#service:}"
       out_dir_prefix="services/${svc_dir}/"
       history_prefixes=("services/${svc_dir}/")
+      # Die Geraeteliste (<name>_devices.json) ist Nutzerdaten des Nodes, kein
+      # Code des Dienstes. Sie bekommt keinen Changelog-Eintrag (und bumpt die
+      # Version nicht, siehe component_touched in scripts/version/components.sh).
+      exclude_globs=("services/${svc_dir}/*_devices.json")
       version_file_candidates=(
         "services/${svc_dir}/manifest.json"
         "services/VERSION"
@@ -843,6 +847,9 @@ generate_one() {
   local ex
   for ex in "${exclude_prefixes[@]}"; do
     pathspec+=(":(exclude)${ex}")
+  done
+  for ex in "${exclude_globs[@]}"; do
+    pathspec+=(":(exclude,glob)${ex}")
   done
   # Die eigene CHANGELOG.md und die eigene Versionsdatei sind erzeugte bzw.
   # Buchhaltungs-Dateien, keine Arbeit an der Komponente. Sie muessen aus dem

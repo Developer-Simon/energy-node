@@ -72,6 +72,11 @@ component_touched() {
   # CHANGELOG.md is a generated artefact (scripts/generate_changelog.sh) - a
   # changelog-only change must not bump the component.
   filtered="$(printf '%s\n' "${filtered}" | grep -v "^${dir_prefix}CHANGELOG.md$" || true)"
+  # Die Geraeteliste eines Dienstes (services/<dienst>/<name>_devices.json) ist
+  # Nutzerdaten des Nodes, kein Code des Dienstes. Eine Aenderung daran (etwa
+  # eine leer ausgelieferte Liste) bumpt den Dienst nicht. Die zugehoerige
+  # *_devices.schema.json bleibt Code und zaehlt weiter.
+  filtered="$(printf '%s\n' "${filtered}" | grep -vE "^${dir_prefix}[^/]*_devices\.json$" || true)"
   for other in "${COMPONENTS[@]}"; do
     other_prefix="${other%%:*}"
     if [[ "${other_prefix}" != "${dir_prefix}" && "${other_prefix}" == "${dir_prefix}"* ]]; then
