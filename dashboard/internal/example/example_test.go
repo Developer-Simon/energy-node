@@ -462,3 +462,35 @@ func TestActive(t *testing.T) {
 		t.Fatal("Active ohne Notiz = true, want false")
 	}
 }
+
+// TestApplySeedReadsBootstrapSeed prüft den Seed-Vertrag mit dem Bootstrap:
+// die Datei, die example_apply.py schreibt, muss ApplySeed übernehmen. Der
+// Pfad kommt aus EXAMPLE_SEED_FILE, scripts/tests/test_example_seed_roundtrip.sh
+// setzt ihn. Ohne Umgebungsvariable wird der Test übersprungen.
+func TestApplySeedReadsBootstrapSeed(t *testing.T) {
+	src := os.Getenv("EXAMPLE_SEED_FILE")
+	if src == "" {
+		t.Skip("EXAMPLE_SEED_FILE nicht gesetzt")
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatalf("Seed lesen: %v", err)
+	}
+	dir, st := newFixture(t)
+	if err := os.WriteFile(filepath.Join(dir, SeedFileName), data, 0640); err != nil {
+		t.Fatal(err)
+	}
+	if err := ApplySeed(dir, st); err != nil {
+		t.Fatalf("ApplySeed: %v", err)
+	}
+	note, err := LoadNote(dir)
+	if err != nil {
+		t.Fatalf("LoadNote: %v", err)
+	}
+	if note == nil {
+		t.Fatal("LoadNote = nil, want Notiz aus dem Bootstrap-Seed")
+	}
+	if got := note.Assignments["example_pv_total_power"].Role; got != energy.RolePV {
+		t.Errorf("example_pv_total_power Rolle = %q, want %q", got, energy.RolePV)
+	}
+}
