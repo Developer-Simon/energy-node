@@ -152,3 +152,36 @@ test('unknown shape or missing evidence renders an empty string', () => {
   assert.equal(api.render(null, t), '');
   assert.equal(api.render(undefined, t), '');
 });
+
+test('prototype keys are not shapes', () => {
+  const { api } = load();
+  ['constructor', 'toString', 'hasOwnProperty', 'valueOf', '__proto__'].forEach((shape) => {
+    assert.equal(api.render({ shape }, t), '', shape);
+  });
+});
+
+test('events with from equal to do not produce NaN', () => {
+  const { api, document } = load();
+  const at = 1700000000;
+  const html = api.render({ shape: 'events', from: at, to: at, ist: [at], soll_spans: [[at, at]] }, t);
+  assert.ok(!html.includes('NaN'));
+  const host = mount(document, html);
+  assert.equal(host.querySelector('line.auto-learn-mark-event').getAttribute('x1'), '0');
+});
+
+test('event marks and soll spans are clamped to the lane', () => {
+  const { api, document } = load();
+  const html = api.render({
+    shape: 'events',
+    from: 1000,
+    to: 2000,
+    ist: [500, 1500, 2500],
+    soll_spans: [[500, 2500]],
+  }, t);
+  const host = mount(document, html);
+  const xs = Array.from(host.querySelectorAll('line.auto-learn-mark-event')).map((m) => Number(m.getAttribute('x1')));
+  assert.deepEqual(xs, [0, 50, 100]);
+  const rect = host.querySelector('rect.auto-learn-soll');
+  assert.equal(Number(rect.getAttribute('x')), 0);
+  assert.equal(Number(rect.getAttribute('width')), 100);
+});

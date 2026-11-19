@@ -10,7 +10,8 @@
     .replace(/'/g, '&#39;');
 
   const clamp = (v) => Math.max(0, Math.min(100, v));
-  const pos = (v, from, to) => ((v - from) / (to - from)) * 100;
+  // Zeitpunkt auf die Spur: ohne Zeitraum bei 0 %, sonst auf 0..100 begrenzt.
+  const pos = (v, from, to) => (to === from ? 0 : clamp(((v - from) / (to - from)) * 100));
   const pct = (v, max) => clamp((v / max) * 100);
 
   // Ohne Max (z. B. unerfuellbare Regel) ergibt sich ein Massstab aus den Werten.
@@ -56,7 +57,7 @@
     const to = ev.to;
     const toX = (v) => pos(v, from, to);
     const ticks = [from, Math.round((from + to) / 2), to].map(clock);
-    return lane(t('automations.learn.lane.ist'), laneSvg(marks(ev.ist, toX, 'auto-learn-mark-event')))
+    return lane(t('automations.learn.lane.ist'), laneSvg(marks(ev.ist, toX, 'auto-learn-mark-event'))) // i18n-ignore
       + lane(t('automations.learn.lane.soll'), laneSvg(spans(ev.soll_spans, from, to)), true)
       + axis(ticks);
   }
@@ -65,13 +66,13 @@
     const max = scaleMaxOf(ev);
     const seenWidth = ev.seen ? pct(ev.seen[1] || 0, max) : 0;
     const toX = (v) => pct(v, max);
-    const seen = '<rect class="auto-learn-ist" x="0" y="1.5" width="' + seenWidth + '" height="7" rx="0.8"/>';
+    const seen = '<rect class="auto-learn-ist" x="0" y="1.5" width="' + seenWidth + '" height="7" rx="0.8"/>'; // i18n-ignore
     const threshold = ev.ist_value != null ? marks([ev.ist_value], toX, 'auto-learn-mark-threshold') : '';
-    const soft = '<rect class="auto-learn-ist auto-learn-soft" x="0" y="1.5" width="' + seenWidth + '" height="7" rx="0.8"/>';
+    const soft = '<rect class="auto-learn-ist auto-learn-soft" x="0" y="1.5" width="' + seenWidth + '" height="7" rx="0.8"/>'; // i18n-ignore
     const soll = ev.soll_value != null ? marks([ev.soll_value], toX, 'auto-learn-mark-soll auto-learn-mark-wide') : '';
     const unit = ev.unit ? ' ' + ev.unit : '';
     const ticks = [0, max / 2, max].map((v, i) => (i === 2 ? Math.round(v) + unit : String(Math.round(v))));
-    return lane(t('automations.learn.lane.ist'), laneSvg(seen + threshold))
+    return lane(t('automations.learn.lane.ist'), laneSvg(seen + threshold)) // i18n-ignore
       + lane(t('automations.learn.lane.soll'), laneSvg(soft + soll), true)
       + axis(ticks);
   }
@@ -87,7 +88,7 @@
     const targetNode = '<div class="auto-learn-target' + (ev.missing ? ' is-missing' : '') + '">' + esc(ev.target) + '</div>';
     const middle = ev.target && hasSoll ? targetNode : '';
     const sollBody = hasSoll ? chips(ev.soll_names) : (ev.target ? targetNode : '');
-    return '<div class="auto-learn-lane"><span class="auto-learn-lane-label">' + esc(t('automations.learn.lane.ist')) + '</span><div class="auto-learn-chips">' + chips(ev.ist_names) + '</div></div>'
+    return '<div class="auto-learn-lane"><span class="auto-learn-lane-label">' + esc(t('automations.learn.lane.ist')) + '</span><div class="auto-learn-chips">' + chips(ev.ist_names) + '</div></div>' // i18n-ignore
       + middle
       + '<div class="auto-learn-lane is-soll"><span class="auto-learn-lane-label">' + esc(t('automations.learn.lane.soll')) + '</span><div class="auto-learn-chips">' + sollBody + '</div></div>';
   }
@@ -96,7 +97,7 @@
 
   // render(evidence, t) -> HTML. t(key, params) liefert die Spurmarken.
   function render(evidence, t) {
-    if (!evidence || !SHAPES[evidence.shape]) return '';
+    if (!evidence || !Object.prototype.hasOwnProperty.call(SHAPES, evidence.shape)) return '';
     const tr = typeof t === 'function' ? t : (key) => key;
     return '<div class="auto-learn-is auto-learn-shape-' + evidence.shape + '">' + SHAPES[evidence.shape](evidence, tr) + '</div>';
   }
