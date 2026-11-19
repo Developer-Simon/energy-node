@@ -3363,3 +3363,74 @@ test('placeFinding keeps the popover inside the viewport and below the mark', ()
   assert.match(component.findingStyle, /top:238px;/);
   assert.match(component.findingStyle, /width:360px;/);
 });
+
+test('applyFix writes nothing and still opens the rule when a path element is missing', () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ] };
+  const before = JSON.parse(JSON.stringify(component.document.rules));
+  component.findings = [sampleFinding];
+  component.findingOpen = 'f-hyst';
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  window.fetch = async () => ({ ok: true, json: async () => ({}) });
+  const missing = { rule_id: 'r1', ops: [{ path: ['conditions', 3, 'hysteresis'], value: 15 }] };
+  assert.doesNotThrow(() => component.applyFix(missing));
+  assert.deepEqual(component.document.rules, before);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.expanded.r1, true);
+  assert.equal(component.findingOpen, null);
+});
+
+test('applyFix does not half-apply when only one of two paths resolves', () => {
+  const { component } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+  ] };
+  component.startEditing = () => {};
+  component.applyFix({ rule_id: 'r1', ops: [
+    { path: ['conditions', 0, 'hysteresis'], value: 15 },
+    { path: ['conditions', 5, 'threshold'], value: 90 },
+  ] });
+  assert.equal(component.document.rules[0].conditions[0].hysteresis, 0);
+});
+
+test('toggleFinding opens the popover and a second toggle closes it', () => {
+  const { component } = createAutomationsPanel();
+  component.findings = [sampleFinding];
+  const mark = { getBoundingClientRect: () => ({ left: 100, right: 130, top: 200, bottom: 230, width: 30 }) };
+  component.toggleFinding('r1', mark);
+  assert.equal(component.findingOpen, 'f-hyst');
+  assert.match(component.findingStyle, /top:238px;/);
+  component.toggleFinding('r1', mark);
+  assert.equal(component.findingOpen, null);
+  assert.equal(component.findingStyle, '');
+});
+
+test('load() calls loadFindings', async () => {
+  const { component, window } = createAutomationsPanel();
+  let calls = 0;
+  component.loadFindings = async () => { calls += 1; };
+  component.loadDeviceCatalog = async () => {};
+  component.loadRuntimeState = () => {};
+  component.scenarioTick = () => {};
+  window.fetch = async () => ({ ok: true, json: async () => ({}) });
+  await component.load();
+  window.clearInterval(component._clockTimer);
+  assert.equal(calls, 1);
+});
+
+test('a successful save() calls loadFindings', async () => {
+  const { component, window } = createAutomationsPanel();
+  const sent = {};
+  savePanelWithFetch(component, window, sent);
+  component.document = { version: 1, settings: { tick_interval_s: 10, settling_seconds: 60, balance_max_age_s: 30,
+    publish_allowed_prefixes: [], publish_allowed_prefixes_auto: false }, rules: [] };
+  component.pollRuntimeStatus = async () => {};
+  let calls = 0;
+  component.loadFindings = async () => { calls += 1; };
+  await component.save();
+  assert.ok(sent.body, 'save must send the document');
+  assert.equal(calls, 1);
+});

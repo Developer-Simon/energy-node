@@ -1981,15 +1981,23 @@
       this.findingStyle = `left:${left}px;top:${top}px;width:${width}px;transform-origin:${originX}px ${up ? '100%' : '0'};`;
     },
     // Schreibt die Ops als Pfade in den Entwurf der Regel. Gespeichert wird nicht.
+    // Alle Ziele werden zuerst aufgeloest. Fehlt ein Pfadteil (die Regel hat sich
+    // seit dem Befund geaendert), wird nichts geschrieben, die Regel oeffnet sich trotzdem.
     applyFix(fix) {
       const rule = this.document.rules.find((entry) => entry.id === fix.rule_id);
       if (!rule) return;
-      (fix.ops || []).forEach((op) => {
-        const path = op.path || [];
-        if (path.length === 0) return;
-        const parent = path.slice(0, -1).reduce((node, key) => node[key], rule);
-        parent[path[path.length - 1]] = op.value;
-      });
+      const targetOf = (path) => {
+        let node = rule;
+        path.slice(0, -1).forEach((key) => {
+          node = node && typeof node === 'object' ? node[key] : undefined;
+        });
+        if (path.length === 0 || !node || typeof node !== 'object') return null;
+        return { parent: node, key: path[path.length - 1] };
+      };
+      const writes = (fix.ops || []).map((op) => ({ target: targetOf(op.path || []), value: op.value }));
+      if (writes.every((write) => write.target)) {
+        writes.forEach((write) => { write.target.parent[write.target.key] = write.value; });
+      }
       this.startEditing(rule);
       this.expanded[rule.id] = true;
       this.closeFinding();
