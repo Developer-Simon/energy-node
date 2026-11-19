@@ -42,6 +42,8 @@ type Checker struct {
 	errMsg string
 	// ignored is the set of ignored finding IDs, stored in ignoredPath.
 	ignored map[string]bool
+	// thresholds are the limits of the observed checks.
+	thresholds Thresholds
 }
 
 // NewChecker builds a checker. readDoc returns the rule document, entityExists
@@ -62,7 +64,15 @@ func NewChecker(obs *Observer, season SeasonalSource, readDoc func() ([]byte, er
 		ignoredPath:  ignoredPath,
 		logf:         logf,
 		ignored:      loadIgnored(ignoredPath, logf),
+		thresholds:   DefaultThresholds(),
 	}
+}
+
+// SetThresholds replaces the limits of the observed checks.
+func (c *Checker) SetThresholds(th Thresholds) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.thresholds = th
 }
 
 // Findings returns the static and observed findings without the ignored ones,
@@ -74,7 +84,7 @@ func (c *Checker) Findings(now time.Time) []Finding {
 
 	c.refreshLocked(now)
 	all := StaticFindings(c.doc, c.entityExists)
-	all = append(all, ObservedFindings(c.doc, c.obs.Snapshot(), c.season, now)...)
+	all = append(all, ObservedFindingsWith(c.doc, c.obs.Snapshot(), c.season, now, c.thresholds)...)
 	sort.SliceStable(all, func(i, j int) bool {
 		ri, rj := severityRank[all[i].Severity], severityRank[all[j].Severity]
 		if ri != rj {

@@ -2,32 +2,67 @@ package autolearn
 
 import (
 	"math"
+	"os"
 	"sort"
+	"strings"
 	"time"
 )
 
 const (
 	// frequentWindow is the period in which an hour is searched for frequent triggers.
 	frequentWindow = 24 * time.Hour
-	// frequentMinCount is the number of triggers in one hour that counts as frequent.
-	frequentMinCount = 12
-	// neverFiredWindow is the period without a trigger that makes a rule never fired.
-	neverFiredWindow = 14 * 24 * time.Hour
-	// neverFiredMinAge is how long a rule must be known before it can be never fired.
-	neverFiredMinAge = 14 * 24 * time.Hour
-	// valueRangeMinDays is how many days of values a key needs before its range is trusted.
-	valueRangeMinDays = 7
 	// seasonWindow is the period the seasonal maximum is taken from.
 	seasonWindow = 365 * 24 * time.Hour
 )
 
-// ObservedFindings checks the rules against what was observed. A rule that
-// fires at least 12 times in one hour of the last 24 h is frequent. An enabled
-// rule that did not fire for 14 days, although it is at least 14 days known and
-// its value has been seen for 7 days, is never fired. A threshold the value
-// never reached is reported as a seasonal rest when the season had a higher
-// maximum. season may be nil, which skips the seasonal check.
+// Thresholds are the limits of the observed checks.
+type Thresholds struct {
+	// FrequentMinCount is the number of triggers in one hour that counts as frequent.
+	FrequentMinCount int
+	// NeverFiredWindow is the period without a trigger that makes a rule never fired.
+	NeverFiredWindow time.Duration
+	// NeverFiredMinAge is how long a rule must be known before it can be never fired.
+	NeverFiredMinAge time.Duration
+	// MinRangeDays is how many days of values a key needs before its range is trusted.
+	MinRangeDays int
+}
+
+// DefaultThresholds are the limits for normal use.
+func DefaultThresholds() Thresholds {
+	return Thresholds{
+		FrequentMinCount: 12,
+		NeverFiredWindow: 14 * 24 * time.Hour,
+		NeverFiredMinAge: 14 * 24 * time.Hour,
+		MinRangeDays:     7,
+	}
+}
+
+// ThresholdsFromEnv chooses the limits. ENERGY_NODE_AUTOLEARN_FAST=1 gives the
+// demo limits, every other value the default limits.
+func ThresholdsFromEnv(getenv func(string) string) Thresholds {
+	if getenv == nil {
+		getenv = os.Getenv
+	}
+	if strings.TrimSpace(getenv("ENERGY_NODE_AUTOLEARN_FAST")) == "1" {
+		return Thresholds{FrequentMinCount: 3}
+	}
+	return DefaultThresholds()
+}
+
+// ObservedFindings checks the rules against what was observed with the default
+// thresholds. See ObservedFindingsWith.
 func ObservedFindings(doc Doc, st ObserverState, season SeasonalSource, now time.Time) []Finding {
+	return ObservedFindingsWith(doc, st, season, now, DefaultThresholds())
+}
+
+// ObservedFindingsWith checks the rules against what was observed. A rule that
+// fires at least th.FrequentMinCount times in one hour of the last 24 h is
+// frequent. An enabled rule that did not fire within th.NeverFiredWindow,
+// although it is at least th.NeverFiredMinAge known and its value has been seen
+// for th.MinRangeDays, is never fired. A threshold the value never reached is
+// reported as a seasonal rest when the season had a higher maximum. season may
+// be nil, which skips the seasonal check.
+func ObservedFindingsWith(doc Doc, st ObserverState, season SeasonalSource, now time.Time, th Thresholds) []Finding {
 	var findings []Finding
 	for _, rule := range doc.Rules {
 		if !rule.Enabled {
@@ -37,10 +72,10 @@ func ObservedFindings(doc Doc, st ObserverState, season SeasonalSource, now time
 		if !seen {
 			continue
 		}
-		if f, ok := frequentFinding(rule, stats, now); ok {
+		if f, ok := frequentFinding(rule, stats, now, th.FrequentMinCount); ok {
 			findings = append(findings, f)
 		}
-		if f, ok := neverFiredFinding(rule, stats, st, season, now); ok {
+		if f, ok := neverFiredFinding(rule, stats, st, season, now, th); ok {
 			findings = append(findings, f)
 		}
 	}
@@ -56,7 +91,7 @@ func ObservedFindings(doc Doc, st ObserverState, season SeasonalSource, now time
 
 // frequentFinding reports the busiest hour of the last 24 h if it reached the
 // frequent count. The evidence covers the 4 h around that hour.
-func frequentFinding(rule Rule, stats RuleStats, now time.Time) (Finding, bool) {
+func frequentFinding(rule Rule, stats RuleStats, now time.Time, minCount int) (Finding, bool) {
 	first := now.Add(-frequentWindow).Unix() / 3600
 	last := now.Unix() / 3600
 	var peak int64
@@ -66,7 +101,7 @@ func frequentFinding(rule Rule, stats RuleStats, now time.Time) (Finding, bool) 
 			peak, peakCount = h, n
 		}
 	}
-	if peakCount < frequentMinCount {
+	if peakCount < minCount {
 		return Finding{}, false
 	}
 
@@ -120,8 +155,8 @@ func hysteresisFor(threshold float64) int {
 
 // neverFiredFinding checks the first number condition of the rule whose value
 // never reached the threshold in the last 30 days.
-func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season SeasonalSource, now time.Time) (Finding, bool) {
-	if now.Sub(stats.FirstSeen) < neverFiredMinAge || firedSince(stats, now.Add(-neverFiredWindow)) {
+func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season SeasonalSource, now time.Time, th Thresholds) (Finding, bool) {
+	if now.Sub(stats.FirstSeen) < th.NeverFiredMinAge || firedSince(stats, now.Add(-th.NeverFiredWindow)) {
 		return Finding{}, false
 	}
 	for i, c := range rule.Conditions {
@@ -134,7 +169,7 @@ func neverFiredFinding(rule Rule, stats RuleStats, st ObserverState, season Seas
 			continue
 		}
 		ranges := st.Values[key]
-		if len(ranges) < valueRangeMinDays {
+		if len(ranges) == 0 || len(ranges) < th.MinRangeDays {
 			continue
 		}
 		lo, hi := ranges[0].Min, ranges[0].Max

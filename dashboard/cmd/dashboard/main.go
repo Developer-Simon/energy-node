@@ -390,6 +390,7 @@ func main() {
 		filepath.Join(autolearnDir, "ignored.json"),
 		log.Printf,
 	)
+	automationChecker.SetThresholds(autolearn.ThresholdsFromEnv(os.Getenv))
 	automationEntityValue := func(entityID string) (float64, bool) {
 		for _, value := range reg.Values([]string{entityID}) {
 			if !value.HasValue {

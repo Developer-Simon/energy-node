@@ -198,3 +198,39 @@ func neverFiredState(firstSeen time.Time, max float64) ObserverState {
 		Values: map[string][]DayRange{"balance:grid_export": ranges},
 	}
 }
+
+func TestThresholdsFromEnv(t *testing.T) {
+	none := func(string) string { return "" }
+	if got := ThresholdsFromEnv(none); got != DefaultThresholds() {
+		t.Errorf("default = %+v, want %+v", got, DefaultThresholds())
+	}
+	fast := func(key string) string {
+		if key == "ENERGY_NODE_AUTOLEARN_FAST" {
+			return "1"
+		}
+		return ""
+	}
+	want := Thresholds{FrequentMinCount: 3, NeverFiredWindow: 0, NeverFiredMinAge: 0, MinRangeDays: 0}
+	if got := ThresholdsFromEnv(fast); got != want {
+		t.Errorf("FAST=1 = %+v, want %+v", got, want)
+	}
+}
+
+func TestObservedFindingsWithFastThresholds(t *testing.T) {
+	doc := observedDoc(t, "3000", "0")
+	st := frequentState(3)
+
+	if findings := ObservedFindings(doc, st, nil, testNow); len(findKind(findings, "frequent")) != 0 {
+		t.Fatalf("defaults flagged 3 triggers: %+v", findings)
+	}
+	fast := ThresholdsFromEnv(func(key string) string {
+		if key == "ENERGY_NODE_AUTOLEARN_FAST" {
+			return "1"
+		}
+		return ""
+	})
+	findings := ObservedFindingsWith(doc, st, nil, testNow, fast)
+	if got := findKind(findings, "frequent"); len(got) != 1 {
+		t.Fatalf("fast frequent findings = %d, want 1: %+v", len(got), findings)
+	}
+}
