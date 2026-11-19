@@ -147,3 +147,15 @@ def test_texts_follow_the_style_rules():
         for text in (scenario["title"], scenario["expect"], scenario["note"]):
             assert ";" not in text
             assert "–" not in text and "—" not in text
+
+
+def test_every_example_rule_meets_the_minimum_publish_interval():
+    """Die Oberflaeche blockiert das Speichern unter 30 s Abkuehl- und Haltezeit."""
+    from console_rulecheck import SCENARIOS
+
+    for scenario in SCENARIOS:
+        for rule in scenario["rules"]:
+            assert rule["cooldown_seconds"] >= 30, rule["id"]
+            for condition in rule["conditions"]:
+                if "hold_seconds" in condition:
+                    assert condition["hold_seconds"] >= 30, rule["id"]

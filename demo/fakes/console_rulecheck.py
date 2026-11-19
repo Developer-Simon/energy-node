@@ -34,7 +34,8 @@ def _publish(topic: str, payload: str) -> dict:
 
 
 def _rule(rule_id: str, name: str, conditions: list, actions: list, **extra) -> dict:
-    rule = {"id": rule_id, "name": name, "history_enabled": True, "enabled": True}
+    # 60 s Abkuehlzeit, die Oberflaeche verlangt mindestens publish_min_interval_s (30 s).
+    rule = {"id": rule_id, "name": name, "history_enabled": True, "enabled": True, "cooldown_seconds": 60}
     rule.update(extra)
     rule["conditions"] = conditions
     rule["actions"] = actions
@@ -88,8 +89,8 @@ SCENARIOS = [
         "note": "Netzbezug muss über 900 und unter 100 liegen, das geht nie zugleich.",
         "rules": [
             _rule("chk_unmoeglich", "Prüfung Unmöglich",
-                  [_balance("grid_import", "above", 900, hysteresis=0, hold_seconds=0),
-                   _balance("grid_import", "below", 100, hysteresis=0, hold_seconds=0)],
+                  [_balance("grid_import", "above", 900, hysteresis=0, hold_seconds=30),
+                   _balance("grid_import", "below", 100, hysteresis=0, hold_seconds=30)],
                   [_publish("demo/check/unmoeglich", "1")]),
         ],
     },
@@ -113,7 +114,7 @@ SCENARIOS = [
         "note": "Die Schwelle liegt so hoch, dass sie nie erreicht wird. Der Hinweis erscheint nach dem ersten Takt der Demo.",
         "rules": [
             _rule("chk_nie", "Prüfung Nie",
-                  [_balance("grid_export", "above", 99999, hysteresis=0, hold_seconds=0)],
+                  [_balance("grid_export", "above", 99999, hysteresis=0, hold_seconds=30)],
                   [_publish("demo/check/nie", "1")]),
         ],
     },
@@ -125,9 +126,9 @@ SCENARIOS = [
         "rules": [
             _rule("chk_pendeln", "Prüfung Pendeln",
                   [{"type": "topic_value", "topic": "demo/check/pendeln", "comparison": "above",
-                    "value": 50, "hysteresis": 0, "hold_seconds": 0}],
+                    "value": 50, "hysteresis": 0, "hold_seconds": 30}],
                   [_publish("demo/check/pendeln_out", "1")],
-                  cooldown_seconds=0),
+                  cooldown_seconds=30),
         ],
     },
 ]
