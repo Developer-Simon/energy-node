@@ -3257,3 +3257,109 @@ test('typing a fraction of a minute keeps the minute unit it was entered in', ()
   assert.equal(component.maxDurationUnit(scenario), 'min');
   assert.equal(component.maxDurationValue(scenario), 1.5);
 });
+
+// Befunde der Regelpruefung: Marke, Popover, Loesungen, Ignorieren.
+const sampleFinding = {
+  id: 'f-hyst',
+  kind: 'duplicate',
+  group: 'r1',
+  rule_ids: ['r1', 'r2'],
+  severity: 'warn',
+  confidence: 'high',
+  summary: { code: 'check.duplicate', params: { other: 'Heizstab' } },
+  evidence: {},
+  facts: [],
+  apply: [{ code: 'fix.set_hysteresis', rule_id: 'r1', ops: [{ path: ['conditions', 0, 'hysteresis'], value: 15 }] }],
+};
+
+test('findingFor finds the finding that lists the rule id', () => {
+  const { component } = createAutomationsPanel();
+  component.findings = [sampleFinding];
+  assert.equal(component.findingFor('r2').id, 'f-hyst');
+  assert.equal(component.findingFor('r9'), null);
+});
+
+test('findingText builds the title and text keys from summary.code', () => {
+  const { component, window } = createAutomationsPanel();
+  window.I18n.t = (key, params) => `${key}|${params ? params.other : ''}`;
+  const finding = { ...sampleFinding, kind: 'never_fired',
+    summary: { code: 'check.seasonal_rest', params: { other: 'Heizstab' } } };
+  const text = component.findingText(finding);
+  assert.equal(text.title, 'automations.learn.check.seasonal_rest.title|Heizstab');
+  assert.equal(text.text, 'automations.learn.check.seasonal_rest.text|Heizstab');
+});
+
+test('applyFix writes only the draft, starts editing and never posts to the rules endpoint', () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'Pumpe', conditions: [{ type: 'balance_threshold', threshold: 100, hysteresis: 0 }], actions: [] },
+    { id: 'r2', name: 'Anderes', conditions: [], actions: [] },
+  ] };
+  component.findings = [sampleFinding];
+  component.findingOpen = 'f-hyst';
+  const started = [];
+  component.startEditing = (rule) => started.push(rule.id);
+  const posted = [];
+  window.fetch = async (url, options) => { if (options && options.method === 'POST') posted.push(url); return { ok: true, json: async () => ({}) }; };
+  component.applyFix(sampleFinding.apply[0]);
+  assert.equal(component.document.rules[0].conditions[0].hysteresis, 15);
+  assert.equal(component.document.rules[0].conditions[0].threshold, 100);
+  assert.equal(component.document.rules[1].conditions.length, 0);
+  assert.deepEqual(started, ['r1']);
+  assert.equal(component.findingOpen, null);
+  assert.equal(component.expanded.r1, true);
+  assert.deepEqual(posted, []);
+});
+
+test('ignoreFinding posts with the CSRF header, removes the finding and arms the undo', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.findings = [sampleFinding];
+  const sent = [];
+  window.fetch = async (url, options) => { sent.push({ url, options }); return { ok: true, json: async () => ({}) }; };
+  await component.ignoreFinding(sampleFinding);
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, '/api/v1/automations/findings/ignore');
+  assert.equal(sent[0].options.method, 'POST');
+  assert.equal(sent[0].options.headers['X-CSRF-Token'], 'tok');
+  assert.deepEqual(JSON.parse(sent[0].options.body), { id: 'f-hyst', undo: false });
+  assert.deepEqual(component.findings, []);
+  assert.equal(component.undo.findingId, 'f-hyst');
+});
+
+test('undo of an ignored finding posts undo true and reloads the findings', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.csrfToken = 'tok';
+  component.findings = [];
+  const sent = [];
+  window.fetch = async (url, options) => {
+    sent.push({ url, options });
+    if (url.endsWith('/api/v1/automations/findings')) return { ok: true, json: async () => ({ findings: [sampleFinding] }) };
+    return { ok: true, json: async () => ({}) };
+  };
+  component.undo = { label: 'x', findingId: 'f-hyst' };
+  await component.undoInsert();
+  assert.equal(component.undo, null);
+  assert.equal(sent[0].url, '/api/v1/automations/findings/ignore');
+  assert.deepEqual(JSON.parse(sent[0].options.body), { id: 'f-hyst', undo: true });
+  assert.equal(sent[1].url, '/api/v1/automations/findings');
+  assert.equal(component.findings.length, 1);
+});
+
+test('loadFindings keeps the old list when the fetch fails', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.findings = [sampleFinding];
+  window.fetch = async () => { throw new Error('offline'); };
+  await component.loadFindings();
+  assert.deepEqual(component.findings, [sampleFinding]);
+});
+
+test('placeFinding keeps the popover inside the viewport and below the mark', () => {
+  const { component, window } = createAutomationsPanel();
+  window.innerHeight = 800;
+  component.findingOpen = 'f-hyst';
+  component.placeFinding({ getBoundingClientRect: () => ({ left: 100, right: 130, top: 200, bottom: 230, width: 30 }) });
+  assert.match(component.findingStyle, /left:16px;/);
+  assert.match(component.findingStyle, /top:238px;/);
+  assert.match(component.findingStyle, /width:360px;/);
+});

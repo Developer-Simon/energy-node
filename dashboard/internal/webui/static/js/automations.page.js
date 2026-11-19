@@ -225,6 +225,10 @@
     newIds: {},
     // Rueckgaengig-Balken nach dem Anlegen, verschwindet nach 10 Sekunden.
     undo: null,
+    // Befunde der Regelpruefung, offener Befund mit Popover-Platzierung.
+    findings: [],
+    findingOpen: null,
+    findingStyle: '',
     scenarioExpanded: {},
     durationUnits: {},
     scenarioEditing: {},
@@ -325,6 +329,7 @@
         this.hasAutomationsRole = Boolean(session && session.automations);
         this.sessionRoles = session && 'roles' in session ? (Array.isArray(session.roles) ? session.roles : []) : null;
         this.loadRuntimeState();
+        this.loadFindings();
         // dashboard.js verteilt jedes Registry-Update (SSE, mit
         // 30-Sekunden-Fallback) als 'registry-updated' auf window.
         if (!this._registryListener) {
@@ -1901,6 +1906,7 @@
     undoInsert() {
       const undo = this.undo;
       if (!undo) return;
+      if (undo.findingId) return this.undoIgnoredFinding(undo);
       if (undo.kind === 'scenario') {
         this.document.scenarios = this.document.scenarios.filter((entry) => entry.id !== undo.id);
         delete this.scenarioExpanded[undo.id];
@@ -1913,6 +1919,110 @@
       delete this.newIds[undo.id];
       clearTimeout(this._undoTimer);
       this.undo = null;
+    },
+
+    // Befunde: die Liste kommt vom Dienst. Ein Fehler laesst die bisherige Liste stehen.
+    async loadFindings() {
+      try {
+        const doc = await requestJSON('/api/v1/automations/findings');
+        this.findings = (doc && doc.findings) || [];
+        window.dispatchEvent(new CustomEvent('automation-findings-changed'));
+      } catch {
+        // Die bisherige Liste bleibt sichtbar.
+      }
+    },
+    findingFor(ruleId) {
+      return this.findings.find((finding) => (finding.rule_ids || []).includes(ruleId)) || null;
+    },
+    findingText(finding) {
+      const code = (finding.summary && finding.summary.code) || '';
+      const params = (finding.summary && finding.summary.params) || {};
+      return {
+        title: t(`automations.learn.${code}.title`, params),
+        text: t(`automations.learn.${code}.text`, params),
+      };
+    },
+    fixLabel(fix) {
+      const first = (fix.ops || [])[0];
+      const params = {};
+      if (first && first.value !== undefined) {
+        params.value = typeof first.value === 'number' ? window.I18n.formatNumber(first.value) : first.value;
+      }
+      return t(`automations.learn.fix.${fix.code}`, params);
+    },
+    toggleFinding(ruleId, markEl) {
+      const finding = this.findingFor(ruleId);
+      if (!finding) return;
+      if (this.findingOpen === finding.id) {
+        this.closeFinding();
+        return;
+      }
+      this.findingOpen = finding.id;
+      this.$nextTick(() => this.placeFinding(markEl));
+    },
+    closeFinding() {
+      this.findingOpen = null;
+      this.findingStyle = '';
+    },
+    // Platzierung aus dem Entwurf (alMark.place): 360 px breit, 16 px Rand zum
+    // Viewport, nur nach oben, wenn unten kein Platz ist.
+    placeFinding(markEl) {
+      if (!this.findingOpen || !markEl) return;
+      const rect = markEl.getBoundingClientRect();
+      const viewWidth = document.documentElement.clientWidth || window.innerWidth;
+      const width = Math.min(360, viewWidth - 32);
+      const left = Math.max(16, Math.min(rect.right - width, viewWidth - width - 16));
+      const below = window.innerHeight - rect.bottom;
+      const pop = this.$refs && this.$refs.findingPop;
+      const height = pop ? pop.offsetHeight : 260;
+      const up = below < height + 24 && rect.top > height + 24;
+      const top = up ? rect.top - height - 8 : rect.bottom + 8;
+      const originX = rect.left + rect.width / 2 - left;
+      this.findingStyle = `left:${left}px;top:${top}px;width:${width}px;transform-origin:${originX}px ${up ? '100%' : '0'};`;
+    },
+    // Schreibt die Ops als Pfade in den Entwurf der Regel. Gespeichert wird nicht.
+    applyFix(fix) {
+      const rule = this.document.rules.find((entry) => entry.id === fix.rule_id);
+      if (!rule) return;
+      (fix.ops || []).forEach((op) => {
+        const path = op.path || [];
+        if (path.length === 0) return;
+        const parent = path.slice(0, -1).reduce((node, key) => node[key], rule);
+        parent[path[path.length - 1]] = op.value;
+      });
+      this.startEditing(rule);
+      this.expanded[rule.id] = true;
+      this.closeFinding();
+    },
+    postFindingIgnore(id, undo) {
+      return requestJSON('/api/v1/automations/findings/ignore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
+        body: JSON.stringify({ id, undo }),
+      });
+    },
+    async ignoreFinding(finding) {
+      try {
+        await this.postFindingIgnore(finding.id, false);
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return;
+      }
+      this.findings = this.findings.filter((entry) => entry.id !== finding.id);
+      this.closeFinding();
+      this.armUndo({ label: t('automations.learn.undo.ignored'), findingId: finding.id });
+      window.dispatchEvent(new CustomEvent('automation-findings-changed'));
+    },
+    async undoIgnoredFinding(undo) {
+      clearTimeout(this._undoTimer);
+      this.undo = null;
+      try {
+        await this.postFindingIgnore(undo.findingId, true);
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+        return;
+      }
+      await this.loadFindings();
     },
 
     async removeScenario(scenarioId) {
@@ -2898,6 +3008,7 @@
         this.newIds = {};
         clearTimeout(this._undoTimer);
         this.undo = null;
+        this.loadFindings();
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
