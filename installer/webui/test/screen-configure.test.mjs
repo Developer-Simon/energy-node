@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mountScreen, realCatalog } from './helpers/mount.mjs';
-import { MANIFEST, SELECTION } from './helpers/fixtures.mjs';
+import { MANIFEST, SELECTION, MODULE_MANIFEST, MODULE_SELECTION } from './helpers/fixtures.mjs';
 
 async function mount(options = {}) {
   const mounted = mountScreen('screen-configure.js', 'screenConfigure', Object.assign({
@@ -221,4 +221,60 @@ test('init records firstInstall from the first selection only', async () => {
   shell.shared.selection = { source: 'pending', steps: {} };
   await screen.init();
   assert.equal(shell.shared.firstInstall, true, 'ein spaeteres Laden aendert es nicht');
+});
+
+// Module-Ansicht: das Manifest mit den Systemschritten 15, 17, 35, 41 und 89.
+async function mountModules(options = {}) {
+  return mount(Object.assign({ responses: {
+    'GET /api/manifest': MODULE_MANIFEST,
+    'GET /api/selection': MODULE_SELECTION,
+    'PUT /api/selection': (body) => ({ source: 'node', steps: body.steps }),
+    'POST /api/run': { run_id: 'run-1', seq: 3 },
+  } }, options));
+}
+
+function moduleOf(screen, id) {
+  const all = screen.mods.services.concat(screen.mods.tuning);
+  return all.find((mod) => mod.id === id);
+}
+
+const DE = realCatalog('de');
+
+test('ein Tipp auf ein Modul schaltet den Schritt, Feinabstimmung ohne Voraussetzung faellt weg', async () => {
+  const { screen } = await mountModules();
+  screen.toggleModule(moduleOf(screen, '83'));
+  assert.equal(screen.steps['83'], false);
+  assert.equal(screen.steps['35'], false, 'Webhook braucht Shelly');
+  assert.equal(moduleOf(screen, '35').available, false);
+});
+
+test('der Hinweis beginnt bei Automation und Journal und folgt dem letzten Tipp', async () => {
+  const { screen } = await mountModules();
+  assert.equal(screen.hintText.services, DE['configure.hint.service.automation']);
+  assert.equal(screen.hintText.tuning, DE['configure.hint.step.17']);
+  screen.showHint(moduleOf(screen, '40'));
+  assert.equal(screen.hintText.services, DE['configure.hint.step.40']);
+  assert.equal(screen.hintText.tuning, DE['configure.hint.step.17'], 'Feinabstimmung unveraendert');
+});
+
+test('ohne Erstinstallation gibt es kein Beispiel, aber Feinabstimmung und Zaehler', async () => {
+  const { screen } = await mountModules({ shell: { shared: { servicesOnly: true, firstInstall: false } } });
+  assert.equal(screen.mods.example, null);
+  assert.ok(screen.mods.tuning.length > 0);
+  assert.equal(screen.mods.count.on, 7);
+  assert.equal(screen.mods.count.total, 8);
+});
+
+test('der Beispielschalter ist gesperrt, wenn ein Dienst fehlt, und bleibt danach aus', async () => {
+  const { screen, shell } = await mountModules();
+  assert.equal(screen.mods.example.available, true);
+  assert.equal(shell.t('configure.example.needs'), DE['configure.example.needs']);
+
+  screen.toggleModule(moduleOf(screen, '81'));
+  assert.equal(screen.steps['89'], false, 'APsystems aus nimmt das Beispiel weg');
+  assert.equal(screen.mods.example.available, false);
+
+  screen.toggleModule(moduleOf(screen, '81'));
+  assert.equal(screen.steps['89'], false, 'nach dem Wiedereinschalten bleibt es aus');
+  assert.equal(screen.mods.example.available, true);
 });
