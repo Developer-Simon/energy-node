@@ -197,3 +197,18 @@ func TestCheckerObserveTickCountsTriggersAndPrunesDeletedRules(t *testing.T) {
 		t.Fatal("observations of deleted rule r1 still kept")
 	}
 }
+
+func TestCheckerFindingsFollowASavedRuleAtOnce(t *testing.T) {
+	doc := unsatisfiableDoc
+	read := func() ([]byte, error) { return []byte(doc), nil }
+	c := NewChecker(NewObserver(time.UTC), nil, read, nil, "", t.Logf)
+
+	if got := c.Findings(testBase); len(got) != 1 {
+		t.Fatalf("findings = %d, want 1", len(got))
+	}
+	// The user turns the rule off and saves, the next request is a second later.
+	doc = strings.Replace(doc, `"enabled":true`, `"enabled":false`, 1)
+	if got := c.Findings(testBase.Add(time.Second)); len(got) != 0 {
+		t.Fatalf("finding of a disabled rule still listed: %+v", got)
+	}
+}

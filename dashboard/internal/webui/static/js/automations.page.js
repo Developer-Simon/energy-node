@@ -2958,6 +2958,7 @@
         this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(payload));
         this.storedDocument = JSON.parse(JSON.stringify(payload));
+        this.loadFindings();
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');

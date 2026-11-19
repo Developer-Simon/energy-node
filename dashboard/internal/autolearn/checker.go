@@ -82,7 +82,9 @@ func (c *Checker) Findings(now time.Time) []Finding {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.refreshLocked(now)
+	// A request wants the current document: after saving a rule the finding
+	// must follow at once, not up to checkerDocEvery later.
+	c.refreshLocked(now, true)
 	all := StaticFindings(c.doc, c.entityExists)
 	all = append(all, ObservedFindingsWith(c.doc, c.obs.Snapshot(), c.season, now, c.thresholds)...)
 	sort.SliceStable(all, func(i, j int) bool {
@@ -155,7 +157,7 @@ func (c *Checker) ObserveTick(now time.Time, statePayload string, balance map[st
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.refreshLocked(now)
+	c.refreshLocked(now, false)
 	c.obs.ObserveTriggers(now, triggerCounts(statePayload))
 	if !c.docOK {
 		// Without a document nothing is known about the rules, so nothing is pruned.
@@ -193,9 +195,9 @@ func (c *Checker) ObserveTick(now time.Time, statePayload string, balance map[st
 }
 
 // refreshLocked reads and parses the rule document if it is older than
-// checkerDocEvery. A failed read logs once per distinct error.
-func (c *Checker) refreshLocked(now time.Time) {
-	if c.read && !now.Before(c.docAt) && now.Sub(c.docAt) < checkerDocEvery {
+// checkerDocEvery, or always with force. A failed read logs once per distinct error.
+func (c *Checker) refreshLocked(now time.Time, force bool) {
+	if !force && c.read && !now.Before(c.docAt) && now.Sub(c.docAt) < checkerDocEvery {
 		return
 	}
 	c.read, c.docAt = true, now
