@@ -27,6 +27,8 @@
 - **dashboard:** add the example note to the page (016807a)
 - **dashboard:** add the example note actions (63c09c2)
 - **dashboard:** rebuild the example note like the update bar (e4c9c6c)
+- **onboarding:** add a setup step that points to ending the example (85f9e46)
+- **onboarding:** show the example step with its target and texts (5b1ca8c)
 - **onboarding:** start empty and offer an example to try out (#274)
 - **network:** scan for Wi-Fi networks right before the hotspot opens (112638a)
 - **network:** show the last scan while the hotspot is active (a013a20)
